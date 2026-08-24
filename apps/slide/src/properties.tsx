@@ -2150,9 +2150,9 @@ function BindGroup({
        */
       binds: varBindsOf(node as never) as VarBind[],
       stype: node?.stype as string | undefined,
-      declares: Object.keys(declared).filter(
-        (name) => !OFF_LIMITS.has(name) && !UNBINDABLE.has(name)
-      ),
+      declares: BINDABLE_ROWS.filter(
+        (name) => name in declared && !OFF_LIMITS.has(name) && !UNBINDABLE.has(name)
+      ) as string[],
       // Inside a definition the *card's* rows are the ones that make sense, and they are drawn by
       // `PartGroup` right above. Two groups offering two lists for one attribute is a panel asking
       // the reader to know which is which.
@@ -2264,9 +2264,9 @@ function PartGroup({
        * which is the whole point of the change: a card's corner radius, a frame's gap, a badge's
        * opacity.
        */
-      declares: Object.keys(declared).filter(
-        (name) => !OFF_LIMITS.has(name)
-      )
+      declares: BINDABLE_ROWS.filter(
+        (name) => name in declared && !OFF_LIMITS.has(name)
+      ) as string[]
     };
   }, [editor, sid, tick]);
 
@@ -2361,6 +2361,34 @@ function PartGroup({
     </PropertyGroup>
   );
 }
+
+/**
+ * The attributes a **binding row** may be about, in the order a reader thinks about a shape: its
+ * words, then how it looks, then how it is arranged.
+ *
+ * A list rather than "everything the shape declares", and the full browser suite is what asked for
+ * it: the wider rule put a row for `flipX` in the panel, labelled `flipX` because the product has no
+ * word for it — a panel of raw attribute names, which is the thing this repository would call wrong
+ * anywhere else. It also broke a test by accident, because `getByLabel('X')` matches
+ * "flipX 문서 변수".
+ *
+ * So the rule is: **a row exists where the product has a word for the attribute.** Anything a reader
+ * cannot be told the name of is not something to offer them, and adding one is adding it to `LABELS`
+ * — one place, and the panel and the tests agree by construction.
+ */
+const BINDABLE_ROWS = [
+  'text',
+  'fill',
+  'stroke',
+  'strokeWidth',
+  'cornerRadius',
+  'opacity',
+  'visible',
+  'gap',
+  'padding',
+  'layoutStretch',
+  'layoutGrow'
+] as const;
 
 /**
  * What a binding would be nonsense on.

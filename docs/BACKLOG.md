@@ -706,6 +706,15 @@ shipped features marked undone.
     parent handing back a child as it is drawn, with a node's own words resolved as its children
     because characters are content.
 
+  Found by the **full browser suite**, which is what a milestone run is for: the first rule for which
+  rows to draw was "every attribute the shape declares", and that put a `flipX` row in the panel
+  labelled `flipX`, because the product has no word for it — a panel of raw attribute names, and a
+  test broken by accident because `getByLabel('X')` matches "flipX 문서 변수". The rule is now *a row
+  exists where the product has a word for the attribute* (`BINDABLE_ROWS` against `LABELS`), which
+  bounds the list and puts adding one in a single place. Two specs also learned to ask for their
+  labels **exactly**: two controls about 간격 in one panel is ordinary, and a substring match is the
+  loose half.
+
   And one refusal, measured: geometry (`x`, `y`, `width`, `height`, `rotation`) cannot be bound,
   because a bound size would be drawn where the resolution says and answered where the document says
   — and the overlay, the guides, the snapping and every command read the answer. `UNBINDABLE` is in

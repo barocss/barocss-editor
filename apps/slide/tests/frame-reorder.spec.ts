@@ -163,8 +163,13 @@ test.describe('a drag inside a frame that arranges', () => {
     await page.evaluate((sid) => (window as any).editor.setNode({ nodeIds: [sid] }), children[0]);
     await page.waitForTimeout(400);
 
-    await expect(page.locator('.sl-properties').getByLabel('X')).toBeDisabled();
-    await expect(page.locator('.sl-properties').getByLabel('Y')).toBeDisabled();
+    /*
+     * Exactly named, because `getByLabel` matches by substring and the panel now has a second
+     * control per bindable attribute ("… 문서 변수", §10h-2). Two labels containing one word is
+     * ordinary in a panel; a test that asks for a substring is the loose half.
+     */
+    await expect(page.locator('.sl-properties').getByLabel('X', { exact: true })).toBeDisabled();
+    await expect(page.locator('.sl-properties').getByLabel('Y', { exact: true })).toBeDisabled();
     // The size is still the reader's: an arrangement places children and does not resize
     // them.
     await expect(page.locator('.sl-properties').getByLabel('너비')).toBeEnabled();

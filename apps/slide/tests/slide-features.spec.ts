@@ -270,8 +270,10 @@ test.describe('a frame that arranges what is in it', () => {
     await page.waitForTimeout(500);
 
     const tight = await positions(page, frame!.kids);
-    await panel.getByLabel('간격').fill('1');
-    await panel.getByLabel('간격').press('Enter');
+    // Exactly named: the panel also has a "간격 문서 변수" row now (§10h-2), and `getByLabel`
+    // matches by substring.
+    await panel.getByLabel('간격', { exact: true }).fill('1');
+    await panel.getByLabel('간격', { exact: true }).press('Enter');
     await page.waitForTimeout(600);
     const loose = await positions(page, frame!.kids);
 
