@@ -52,6 +52,7 @@ import {
   componentOf,
   componentStale,
   deckDesigns,
+  jumpOf,
   placementFills,
   definitionAt,
   deckComponents,
@@ -422,6 +423,27 @@ export function Properties({
 
   /** A switch, where absent means off — which is how the document writes "not set". */
   const plainBool = (key: string): boolean => shared(key) === true;
+
+  /**
+   * What this shape's press does, as the one string the control shows.
+   *
+   * `page:<sid>` and `kind:<kind>` rather than two controls: a press does *one* thing, and two
+   * controls that can disagree would be a shape that both goes to page four and goes back. The
+   * document's own shape is the same one decision — `goTo` **or** `goToKind` — which is why the
+   * command clears the other half whenever it writes one.
+   */
+  const jumpValue = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId || !box?.sid) return '';
+    const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+    const jump = jumpOf(doc as never, store.getNode(box.sid));
+    if (!jump) return '';
+    if (jump.kind !== 'page') return `kind:${jump.kind}`;
+    // The page as it is *now*: a button pointing at a page the deck no longer has shows as
+    // nothing chosen, and the deck's own check is what says so out loud.
+    return jump.toSid ? `page:${jump.toSid}` : '';
+  }, [editor, box, tick]);
 
   const setGeometry = (key: string, value: number) => {
     void (editor as any)?.executeCommand?.('setBoxGeometry', {
@@ -803,6 +825,52 @@ export function Properties({
                       grow: Math.max(0, value)
                     })
                   }
+                />
+              </PropertyRow>
+            )}
+            {/*
+              * A **button**: pressing this shows another page.
+              *
+              * One row, two controls, because a jump is two different kinds of answer: a page
+              * the reader picks by name, and the presses that have no page to name — 돌아가기 is
+              * the reader's own history, and 다음/이전/처음/끝 are the buttons every non-linear deck
+              * puts in a corner.
+              *
+              * The pages are offered *by name* because that is what a reader knows; what goes
+              * in the document is the page's durable id, minted by the command if the page has
+              * none. Two pages may be called the same thing, and a sid does not survive a save.
+              */}
+            {!many && (
+              <PropertyRow label="누르면">
+                <PropertyChoice
+                  ariaLabel="누르면 이동"
+                  value={jumpValue}
+                  options={[
+                    { id: '', label: '아무 일 없음' },
+                    { id: 'kind:next', label: '다음 장' },
+                    { id: 'kind:previous', label: '이전 장' },
+                    { id: 'kind:first', label: '처음 장' },
+                    { id: 'kind:last', label: '끝 장' },
+                    { id: 'kind:back', label: '돌아가기' },
+                    ...slides.map((slide) => ({
+                      id: `page:${slide.sid}`,
+                      label: `${slide.number}. ${slide.name || '제목 없음'}`
+                    }))
+                  ]}
+                  disabled={locked}
+                  onChange={(picked) => {
+                    if (!picked) return void (editor as any)?.executeCommand?.('setBoxJump', { nodeIds: targets, to: null });
+                    if (picked.startsWith('kind:')) {
+                      return void (editor as any)?.executeCommand?.('setBoxJump', {
+                        nodeIds: targets,
+                        kind: picked.slice(5)
+                      });
+                    }
+                    void (editor as any)?.executeCommand?.('setBoxJump', {
+                      nodeIds: targets,
+                      to: picked.slice(5)
+                    });
+                  }}
                 />
               </PropertyRow>
             )}

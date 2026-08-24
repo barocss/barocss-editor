@@ -220,6 +220,18 @@ const schema = createSchema('word', getWordSchemaDefinition());
          * box with no arranging frame around it draws the same either way, which is what this
          * check measures.
          */
+        /*
+         * ── A button, for the product that shows a deck ────────────────────
+         *
+         * A shape a reader *presses* to be shown another page. Read by Slides' `jump.ts` and by
+         * its show; a Word page is not presented, and a link in a document is the `link` mark on
+         * words rather than a box you press. Declared on the shared canvas attributes because
+         * the canvas is shared — the same reason the component bindings are here.
+         */
+        goTo: 'a deck’s button — the page it shows, read by Slides’ `jumpsOn`/`jumpTarget`; a Word page is not presented',
+        goToKind: 'the same, for the presses with no page to name (다음/이전/처음/끝/돌아가기)',
+        'surface.id':
+          'a page’s durable name, so a button can point at it across a save (`slideById`). Nothing in a Word document points at a page, and nothing in either product’s drawing reads it',
         layoutStretch: 'the arrangement — `layoutChildren` gives a stretched child the frame’s room across the axis',
         layoutGrow: 'the arrangement — the same, sharing what is left along the axis',
         bindFill: 'the same, for a colour used in more than one place',

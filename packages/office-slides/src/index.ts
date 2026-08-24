@@ -159,6 +159,23 @@ export {
   type PartState,
   type ApplyPlan
 } from './components';
+/**
+ * A deck that is **not a line**: a shape a reader presses, and the page it shows.
+ *
+ * The click was already there — `present.tsx` collects the shapes whose press runs something and
+ * already knows that such a press must not also advance the deck — so this is a new kind of
+ * thing to trigger rather than a new mechanism. See `canvas-model.md` §11.
+ */
+export {
+  slideById,
+  jumpOf,
+  jumpsOn,
+  deckJumps,
+  jumpTarget,
+  jumpFaults,
+  type Jump,
+  type JumpFault
+} from './jump';
 export { SLIDES_ENV_KEY, showsNotes, type SlidesEnv } from './render-context';
 /**
  * Where every connector goes, worked out once per render.

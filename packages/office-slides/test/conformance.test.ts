@@ -243,6 +243,9 @@ describe('Slides draws what its schema declares', () => {
         applyDesign:
           'the properties panel — 따르는 장에 적용 in that group. Offered rather than automatic, because a layout’s **graphics are copied, not transcluded** (a template cannot draw a foreign node, canvas-model §10b-2): a slide draws its layout’s formatting and background live and its boxes never, so moving them is a thing a reader asks for',
 
+        setBoxJump:
+          'the properties panel — the 누르면 row on a shape: a page picked by name, or 다음/이전/처음/끝/돌아가기. The pages are offered by name because that is what a reader knows; what the command writes is the page’s durable id, minting one if the page has none — the same thing motion does when a build first names a shape',
+
         setSlideGuides:
           'the rulers — a guide is pulled out of one, dragged along the slide, and thrown away by being dragged off it',
 
@@ -365,6 +368,18 @@ describe('Slides draws what its schema declares', () => {
         endT: 'the other end’s fraction — the same',
 
         // ── One node, not the attribute everywhere ─────────────────────────
+        /**
+         * A page's **durable name**, which is what a button points at.
+         *
+         * Read by `slideById` in `jump.ts` — and therefore by the show, the deck's own check and
+         * (next) the map — and by nothing in the drawing, which is right: a page a reader linked
+         * to does not look different from one nobody did. The sid is what everything on screen
+         * keys on; this is what survives being saved (`forFile` strips sids), which is the whole
+         * reason it exists.
+         */
+        'surface.id':
+          'a page’s durable name, resolved by `slideById` in `jump.ts` so a button can point at it across a save. Nothing in the drawing reads it, and a linked page looks like any other',
+
         'fieldDateTime.format':
           'the field needs a clock, and a clock arrives on the environment — with none the field draws nothing whatever the format says. Word tests the formats directly in `date-field.test.ts`',
         'paragraph.placeholder':

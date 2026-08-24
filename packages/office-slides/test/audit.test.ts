@@ -432,3 +432,52 @@ describe('text that is hard to read against what is behind it', () => {
     expect(kinds(auditDeck(gradient))).not.toContain('contrast');
   });
 });
+
+/**
+ * What is wrong with the deck's **links**.
+ *
+ * Two faults invisible while the deck is being made and certain to be found by an audience —
+ * which is the shape of thing this list exists for. The arithmetic is `jump.ts`, tested there;
+ * what is tested here is that the sweep says them, at the level that matches what they are.
+ */
+describe('a deck that is not a line', () => {
+  const menuDeck = (over: Record<string, unknown> = {}) =>
+    deck({
+      root: { sid: 'root', stype: 'document', attributes: {}, content: ['m', 'one', 'lost'] },
+      m: { sid: 'm', stype: 'surface', attributes: { kind: 'slide', id: 'm' }, content: ['b'] },
+      b: { sid: 'b', stype: 'rectangle', attributes: { ...at(), goTo: 'one', ...over } },
+      one: { sid: 'one', stype: 'surface', attributes: { kind: 'slide', id: 'one' }, content: ['r'] },
+      r: { sid: 'r', stype: 'rectangle', attributes: at() },
+      lost: { sid: 'lost', stype: 'surface', attributes: { kind: 'slide', id: 'lost' }, content: ['r2'] },
+      r2: { sid: 'r2', stype: 'rectangle', attributes: at() }
+    });
+
+  it('is certainly wrong when a button points at a page that is gone', () => {
+    const hits = auditDeck(menuDeck({ goTo: 'deleted' }));
+    const found = hits.find((hit) => hit.kind === 'dead-jump');
+    // A press that does nothing in front of a room is not a matter of taste.
+    expect(found?.level).toBe('must');
+    expect(found?.sid).toBe('b');
+  });
+
+  it('is a look when nothing in the deck leads to a page', () => {
+    const found = auditDeck(menuDeck()).find((hit) => hit.kind === 'unreachable');
+    // A page kept for the questions afterwards is a real thing to want, so this says what it
+    // sees — *nothing leads here* — rather than telling the reader off.
+    expect(found?.level).toBe('check');
+    expect(found?.slideSid).toBe('lost');
+  });
+
+  it('says neither about a deck with no buttons at all', () => {
+    const linear = deck({
+      root: { sid: 'root', stype: 'document', attributes: {}, content: ['a', 'b'] },
+      a: { sid: 'a', stype: 'surface', attributes: { kind: 'slide' }, content: ['r'] },
+      r: { sid: 'r', stype: 'rectangle', attributes: at() },
+      b: { sid: 'b', stype: 'surface', attributes: { kind: 'slide' }, content: ['r2'] },
+      r2: { sid: 'r2', stype: 'rectangle', attributes: at() }
+    });
+    // In a linear deck every page is reached by pressing on, and reporting all of them would be
+    // this check telling a reader off for making an ordinary deck.
+    expect(kinds(auditDeck(linear))).not.toContain('unreachable');
+  });
+});

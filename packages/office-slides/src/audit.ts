@@ -1,6 +1,7 @@
 import { childrenOf, deckSlides, spaceOriginOf, type DeckAccess, type DeckNode } from './deck';
 import { boxOf, slideSize, type Box } from './geometry';
 import { intersects } from './manipulate';
+import { jumpFaults } from './jump';
 import { isContainerType } from './selection';
 import { backgroundOf, resolveDeckFormat } from './layout-format';
 import { paintsOf } from './paints';
@@ -36,7 +37,17 @@ import { paintsOf } from './paints';
  * So `must` is reserved for what is knowable without judgement.
  */
 
-export type AuditKind = 'alt' | 'small' | 'outside' | 'empty-slide' | 'photo-text' | 'contrast';
+export type AuditKind =
+  | 'alt'
+  | 'small'
+  | 'outside'
+  | 'empty-slide'
+  | 'photo-text'
+  | 'contrast'
+  /** A button pointing at a page the deck no longer has. */
+  | 'dead-jump'
+  /** A page nothing can reach, in a deck that has buttons. */
+  | 'unreachable';
 
 export interface AuditHit {
   kind: AuditKind;
@@ -260,6 +271,43 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
         }
       }
     }
+  }
+
+  /**
+   * And what is wrong with the deck's **links**.
+   *
+   * Both faults are invisible while the deck is being made and certain to be found by an
+   * audience, which is the shape of thing this list is for: a button that does nothing when it is
+   * pressed on stage, and a section nobody can get to. The arithmetic is `jumpFaults`, because
+   * "which pages can be reached" is a question about the whole deck rather than about one page.
+   */
+  for (const fault of jumpFaults(doc)) {
+    if (fault.kind === 'dead-jump') {
+      hits.push({
+        kind: 'dead-jump',
+        // Certainly wrong: a press that does nothing in front of a room is not a matter of taste.
+        level: 'must',
+        slideSid: fault.slideSid,
+        sid: fault.sid,
+        what: '누르면 이동할 장이 없습니다.',
+        hint: '다른 장을 고르거나, 이 도형이 버튼이 아니게 하세요. 가리키던 장은 지워진 것 같습니다.'
+      });
+      continue;
+    }
+    hits.push({
+      kind: 'unreachable',
+      /**
+       * A look rather than a fix.
+       *
+       * A page reached only by a button somewhere else is ordinary in a deck built as a menu, and
+       * a page kept for the questions afterwards is a real thing to want. What this says is
+       * *nothing in the deck leads here* — which they may have meant.
+       */
+      level: 'check',
+      slideSid: fault.slideSid,
+      what: '이 장으로 오는 길이 없습니다.',
+      hint: '어딘가에 이 장으로 가는 버튼을 두거나, 일부러 남겨 둔 것이면 그대로 두세요.'
+    });
   }
 
   return hits;

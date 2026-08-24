@@ -1617,6 +1617,80 @@ Two guards the model needs, both of which a definition can otherwise walk into:
 - **A definition that is gone.** The placement draws what it holds and nothing else, which
   keeps the boxes a reader typed into rather than making them vanish with the definition.
 
+## 11. A deck that is not a line
+
+A shape a reader presses, and the page it shows. Keynote calls a deck built this way *links
+only*; PowerPoint spells it 하이퍼링크/동작 설정; Figma's prototyping is the same idea with the
+pages drawn as a graph.
+
+### 11a. Measured first: the click was already there
+
+`present.tsx` collects the shapes whose press **runs** something (`triggers`, by sid) and already
+had the rule a jump needs — *a press that fires one does not also advance the deck* — written when
+a build could be fired by a click, with the reason that a quiz answer must not advance past its
+own tick. And `advanceShow` already answers with a `slide` to show. So a jump is a new kind of
+thing to trigger, not a new mechanism, and that is why it is small.
+
+What was **not** there: a page had no durable name. `surface` declared `kind`, `name`, `width`,
+`height` (plus the deck's own `layoutId`, `hidden`, `noteId`, `trackId`, `guides`) and nothing a
+document could point at. `name` cannot do it — it is what the author calls the page, it is shown
+in the filmstrip, and two pages may be called the same thing — and a sid cannot, because `forFile`
+strips those. So `surface.id`, absent until something needs it, like every other durable id here.
+
+### 11b. The fact is on the shape; the connector is a **view** of it
+
+`goTo` (a page's durable id) and `goToKind` (`page | back | next | previous | first | last`) live
+on the shape. Not as a `connector` node, and the reason is the audience: a connector is a line
+**they can see**, and an arrow pointing off the edge of a slide means nothing to them.
+
+So the deck's **map** — pages as a graph, with the presses drawn as connectors between them — is
+a *view* derived from these attributes, using the graph layout the tidy feature already has. One
+fact, one place; the drawing is a view of it. Which is the same split the components model
+reached from the other side: two representations of one fact is how they come to disagree.
+
+`goToKind` is a closed set rather than reserved words in `goTo`, because a page whose id is
+literally `next` is a page that would have lied about.
+
+### 11c. Going back is not a link
+
+`back` is the reader's **own history** — which page they came from — so it is runtime state, held
+by whatever is running the show, and the model only says that a button asked for it. The
+distinction is the reason it exists at all: a reader who jumped from the menu to section four
+means *the menu* when they press 돌아가기, and the page before section four in the deck is section
+three.
+
+`next`/`previous`/`first`/`last` walk the pages a show moves through — the deck less what it skips
+— and **stop at the ends rather than wrapping**: a deck is not a carousel, and a button that
+quietly went back to the start would be a reader's talk starting again in front of an audience. A
+hidden page is still somewhere a *named* jump can go, because a reader who linked to it meant it.
+
+### 11d. What the reader picks and what the document holds
+
+The panel offers the pages **by name**, because that is what a reader knows. `setBoxJump` takes
+where they pointed and writes the page's durable `id` — **minting one if the page has none**, in
+the same transaction, so one press of undo takes back "I made a button". Exactly what motion does
+when a build first names a shape.
+
+### 11e. What the deck's own check says
+
+Two faults, both invisible while the deck is being made and certain to be found by an audience:
+
+- **A button pointing at a page that is gone** — 고칠 것, because a press that does nothing in
+  front of a room is not a matter of taste.
+- **A page nothing leads to** — 볼 것, and asked *only of a deck that has buttons at all*: in a
+  linear deck every page is reached by pressing on, and reporting all of them would be the check
+  telling a reader off for making an ordinary deck. A page carrying 다음 or 이전 keeps the linear
+  order alive, so its neighbours count as reached.
+
+### 11f. Still open
+
+**Between decks.** A button that opens another deck at a page needs a reference to a *document* —
+a file, an address — and that is a decision outside the model: there is no library of decks yet.
+The attribute is shaped so it can be added beside `goTo` rather than inside it.
+
+**The map view.** §11b's derived graph. The pieces are there — `layoutGraph`, `connectorRouteOf`,
+`deckJumps` — and it is the next item.
+
 ## What the first three have in common
 
 Each was a fact that the code already depended on and no single place stated:

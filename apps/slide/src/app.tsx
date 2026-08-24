@@ -20,7 +20,10 @@ import {
   advanceShow,
   deckComponents,
   deckDesigns,
+  jumpsOn,
+  jumpTarget,
   stageFit,
+  type Jump,
   scrollToStop,
   scrollStops,
   scrollTopOf,
@@ -1245,6 +1248,59 @@ export function App({
     return out;
   }, [editor, current, built, revision]);
 
+  /**
+   * The **buttons** on this page: press one and the show goes where it says.
+   *
+   * By sid, like the motion triggers beside it, because a click lands on a sid — and the answer
+   * is the model's (`jumpsOn`), so the show and the editor's panel cannot disagree about where a
+   * button goes.
+   */
+  const jumps = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId || !current) return {} as Record<string, Jump>;
+    const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+    const out: Record<string, Jump> = {};
+    for (const jump of jumpsOn(doc as never, current)) out[jump.sid] = jump;
+    return out;
+  }, [editor, current, revision]);
+
+  /**
+   * Where the reader has **been**, while the show is running.
+   *
+   * The only part of a jump that is not in the document, and the reason is the whole point of
+   * 돌아가기: a reader who jumped from the menu to section four means *the menu*, not section
+   * three. That is their own history, not a link — so it lives here, for as long as the show
+   * does, and is thrown away when it ends.
+   */
+  const [visited, setVisited] = useState<string[]>([]);
+  useEffect(() => {
+    if (!presenting) return setVisited([]);
+    // Only while presenting, and only the page that is showing: a click through the deck in the
+    // editor is not somewhere a reader "came from".
+    if (!current) return;
+    setVisited((was) => (was[was.length - 1] === current ? was : [...was, current]));
+  }, [presenting, current]);
+
+  /**
+   * A press on a button, answered by the model.
+   *
+   * `jumpTarget` is the one place that knows what 다음/처음/돌아가기 mean, so the show asks it
+   * rather than deciding — and a button pointing at a page the deck no longer has does nothing at
+   * all here, which is what the deck's own check exists to say out loud beforehand.
+   */
+  const takeJump = useCallback(
+    (sid: string) => {
+      const store = (editor as any)?.dataStore;
+      const rootId = (editor as any)?.getRootId?.();
+      if (!store || !rootId) return;
+      const doc = { rootId, getNode: (one: string) => store.getNode(one) };
+      const to = jumpTarget(doc as never, jumps[sid], { at: current, history: visited });
+      if (to) setCurrent(to);
+    },
+    [editor, jumps, current, visited]
+  );
+
   const arrival = useMemo(() => {
     const store = (editor as any)?.dataStore;
     const rootId = (editor as any)?.getRootId?.();
@@ -1815,6 +1871,13 @@ export function App({
           onTrigger={(name) =>
             setFired((was) => ({ ...was, [name]: (was[name] ?? 0) + 1 }))
           }
+          /*
+           * And the buttons. Passed beside the motion triggers because they are the same
+           * gesture with a different consequence, and the rule the show already had is the one
+           * they need: a press that fires one does not also advance the deck.
+           */
+          jumps={jumps}
+          onJump={takeJump}
         />
       )}
 

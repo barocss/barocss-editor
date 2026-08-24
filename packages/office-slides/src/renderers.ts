@@ -128,6 +128,31 @@ const childCount = (data: NodeData): number =>
  * with. Which also means a renderer may go on saying `display: flex` without
  * having to know that hiding exists — and none of the twelve had to change.
  */
+/**
+ * That this box is a **button**, in the drawing.
+ *
+ * Every placed shape carries it, because any of them can be one: a rectangle a reader labelled
+ * 목차, a picture of a section, a card. Two `data-` attributes rather than a class, because what
+ * a test and a stylesheet both want to know is *where it goes* — and the cursor comes from CSS
+ * (`[data-go-to]` while presenting), so the shape says it is pressable in the one place a
+ * pointer is about to be.
+ *
+ * The show does not need this: it finds buttons by sid, from the model (`jumpsOn`). What needs
+ * it is the reader — a shape that leads somewhere and looks exactly like one that does not is a
+ * deck nobody can proof-read — and the conformance check, which asks the *drawing* whether an
+ * attribute is read and is right to.
+ */
+const jumpData = {
+  'data-go-to': (d: NodeData) => {
+    const to = attrsOf(d).goTo;
+    return typeof to === 'string' && to.length > 0 ? to : undefined;
+  },
+  'data-go-to-kind': (d: NodeData) => {
+    const kind = attrsOf(d).goToKind;
+    return typeof kind === 'string' && kind.length > 0 ? kind : undefined;
+  }
+};
+
 const placed = (data: NodeData, extra: CssStyle = {}): CssStyle => {
   const placement = placementCss(attrsOf(data));
   const css = { ...placement, ...extra };
@@ -376,6 +401,7 @@ export function registerSlidesRenderers(): void {
       'div',
       {
         className: 'sl-text-frame',
+        ...jumpData,
         'data-role': (d: NodeData) =>
           typeof attrsOf(d).role === 'string' ? attrsOf(d).role : undefined,
         style: (d: NodeData): CssStyle =>
@@ -414,6 +440,7 @@ export function registerSlidesRenderers(): void {
       'div',
       {
         className: 'sl-note',
+        ...jumpData,
         // Drawn where notes are wanted and nowhere else. The stage renders the
         // whole document, `resources` included, so without this every slide's
         // note would appear under the slide.
@@ -471,6 +498,7 @@ export function registerSlidesRenderers(): void {
         'div',
         {
           className: 'sl-picture',
+          ...jumpData,
           style: placed(d, { ...paintCss(d, ctx), ...crop.outer })
         } as never,
         [
@@ -524,6 +552,7 @@ export function registerSlidesRenderers(): void {
     'mediaVideo',
     element('video', {
       className: 'sl-media sl-media-video',
+      ...jumpData,
       src: (d: NodeData) => (typeof attrsOf(d).src === 'string' ? attrsOf(d).src : ''),
       poster: (d: NodeData) =>
         typeof attrsOf(d).poster === 'string' ? attrsOf(d).poster : undefined,
@@ -565,6 +594,7 @@ export function registerSlidesRenderers(): void {
     'mediaAudio',
     element('audio', {
       className: 'sl-media sl-media-audio',
+      ...jumpData,
       src: (d: NodeData) => (typeof attrsOf(d).src === 'string' ? attrsOf(d).src : ''),
       controls: (d: NodeData) => (attrsOf(d).controls === false ? undefined : 'true'),
       // The same as the film: starting is the show's business, not the drawing's.
@@ -645,6 +675,7 @@ export function registerSlidesRenderers(): void {
       'div',
       {
         className: 'sl-frame',
+        ...jumpData,
         style: (d: NodeData): CssStyle =>
           placed(d, {
             ...paintCss(d, ctx),
@@ -668,7 +699,7 @@ export function registerSlidesRenderers(): void {
     'group',
     element(
       'div',
-      { className: 'sl-group', style: (d: NodeData): CssStyle => placed(d) } as never,
+      { className: 'sl-group', ...jumpData, style: (d: NodeData): CssStyle => placed(d) } as never,
       [slot('content')]
     )
   );
@@ -711,6 +742,7 @@ export function registerSlidesRenderers(): void {
           `sl-instance${childCount(d) === 0 ? ' sl-instance-empty' : ''}`,
         'data-component-id': (d: NodeData) =>
           typeof attrsOf(d).componentId === 'string' ? attrsOf(d).componentId : undefined,
+        ...jumpData,
         style: (d: NodeData): CssStyle => placed(d)
       } as never,
       [slot('content')]
@@ -738,6 +770,7 @@ export function registerSlidesRenderers(): void {
       'div',
       {
         className: 'sl-sticky',
+        ...jumpData,
         style: (d: NodeData): CssStyle =>
           placed(d, {
             background: '#fff9b1',
@@ -776,6 +809,7 @@ export function registerSlidesRenderers(): void {
       'div',
       {
         className: 'sl-shape sl-rectangle',
+        ...jumpData,
         // The corner radius is `paintCss`'s now, like the fill and the shadow —
         // and four corners rather than one. See `corners.ts`.
         style: (d: NodeData): CssStyle => placed(d, paintCss(d, ctx))
@@ -799,6 +833,7 @@ export function registerSlidesRenderers(): void {
       'div',
       {
         className: 'sl-shape sl-ellipse',
+        ...jumpData,
         style: (d: NodeData): CssStyle => placed(d, { ...paintCss(d, ctx), borderRadius: '50%' })
       } as never,
       // `borderRadius: inherit` on each layer is what keeps them inside the
@@ -834,6 +869,7 @@ export function registerSlidesRenderers(): void {
       'svg',
       {
         className: 'sl-shape sl-line',
+        ...jumpData,
         // Its own coordinate space, so the points below are the model's numbers.
         viewBox: (d: NodeData) => {
           const { width, height } = lineExtent(d);
@@ -1038,6 +1074,7 @@ export function registerSlidesRenderers(): void {
         'svg',
         {
           className: 'sl-shape sl-connector',
+          ...jumpData,
           style: (d: NodeData): CssStyle => ({
             position: 'absolute',
             left: `${twipToPx(bounds.x)}px`,
@@ -1180,6 +1217,7 @@ export function registerSlidesRenderers(): void {
         'svg',
         {
           className: 'sl-shape sl-path',
+          ...jumpData,
           viewBox: (d: NodeData) => {
             const attrs = attrsOf(d);
             const width = typeof attrs.width === 'number' ? Math.abs(attrs.width) : 0;

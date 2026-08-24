@@ -504,6 +504,22 @@ shipped features marked undone.
   written up in §10b-2: everything that walks the tree, including the save, would see children
   that are not in the document. PowerPoint draws master graphics live; this does not, and says so.
 
+- [x] **A deck that is not a line.** A shape a reader presses and the page it shows: `surface.id`
+  (a page had no durable name at all), `goTo`/`goToKind` on the shape, `setBoxJump` (which mints
+  the target page's id, like motion naming a shape), the show honouring a press, and two audit
+  faults — a button pointing nowhere, and a page nothing leads to. Measured first, and it is why
+  this was small: `present.tsx` already collected the shapes whose press runs something and
+  already had the rule *a press that fires one does not also advance the deck*.
+
+- [ ] **The deck's map.** Pages as a graph, with the presses drawn as connectors between them —
+  a *view* of the `goTo` attributes rather than a second representation of them (canvas-model
+  §11b), because an arrow pointing off the edge of a slide means nothing to an audience. The
+  pieces are all there: `layoutGraph` (tidy), `connectorRouteOf`, `deckJumps`.
+
+- [ ] **A button that opens another deck** at a page. Needs a reference to a *document* — a file,
+  an address — which is a decision outside the model: there is no library of decks yet. The
+  attribute is shaped so it can be added beside `goTo`.
+
 **Still open and not in a phase**
 
 - [ ] **Per-level formatting** for a body placeholder: PowerPoint formats by

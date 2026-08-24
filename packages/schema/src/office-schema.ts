@@ -85,6 +85,34 @@ export const CANVAS_PRESENCE_ATTRS = {
    */
   partId: { type: 'string' as const, required: false },
   /**
+   * That pressing this box **shows another page**, and which one.
+   *
+   * ## Why a box and not a link in the text
+   *
+   * There is a `link` mark for words. This is the other gesture, and it is what a deck that is
+   * not linear is made of: a card a reader presses, a menu of four sections, a quiz answer that
+   * goes to "not quite". Keynote calls a deck built this way *links only*; PowerPoint spells it
+   * 하이퍼링크/동작 설정; Figma's prototyping is the same idea with the frames drawn as a graph.
+   *
+   * ## Why it is written on the shape rather than drawn as a connector
+   *
+   * A connector is a line **an audience can see**, and an arrow pointing off the edge of a slide
+   * means nothing to them. So the fact — *pressing this shows that* — lives here, on the shape,
+   * and the **map** of a deck draws it as a connector between pages instead, derived from these
+   * (canvas-model §11). One fact, one place; the drawing is a view of it.
+   *
+   * `goTo` is a surface's durable `id`. `goToKind` is for the presses that have no page to name
+   * — going *back* is the reader's own history rather than a link, and 다음/이전/처음/끝 are the
+   * buttons every non-linear deck puts in a corner. A closed set rather than reserved words in
+   * `goTo`, because a page whose id is literally "next" is a page this would have lied about.
+   */
+  goTo: { type: 'string' as const, required: false },
+  goToKind: {
+    type: 'string' as const,
+    required: false,
+    options: ['page', 'back', 'next', 'previous', 'first', 'last']
+  },
+  /**
    * What this part takes from a **component variable**: its words, its colour, whether it is
    * there at all.
    *
@@ -944,6 +972,25 @@ export function getSurfaceNodeDefinitions(): Record<string, NodeTypeDefinition> 
       content: 'block+ | (scene | frame)*',
       attrs: {
         kind: { type: 'string', default: 'flow' },
+        /**
+         * A **durable** name for the page itself, so something else can point at it.
+         *
+         * A surface has had no identity but its sid, and a sid is `session:counter` handed out
+         * at load — so nothing in a document could refer to a page. That was fine while a deck
+         * was a strip a reader walked along, and it is the first thing in the way of a deck that
+         * is **not linear**: a shape that says "pressing me shows that page" has to name the
+         * page in a way that survives being saved and opened again (`forFile` strips sids —
+         * *they are the store's, not the document's*).
+         *
+         * The same rule a layout, a master, a theme, a note and a component's definition already
+         * follow, and the same rule motion follows for naming a shape. `name` cannot do this
+         * job: it is what the author calls the page, it is shown in the filmstrip, and two pages
+         * may be called the same thing.
+         *
+         * Absent until something needs it, like every other durable id here: a deck nobody has
+         * linked carries none of these.
+         */
+        id: { type: 'string', required: false },
         name: { type: 'string', required: false },
         width: { type: 'number', required: false },
         height: { type: 'number', required: false }

@@ -211,7 +211,12 @@ export function createSampleDeck(): INode {
        */
       {
         stype: 'surface',
-        attributes: { kind: 'slide', name: 'Title', layoutId: 'layout-title' },
+        /*
+         * A **durable id**, because something in the document now points at this page: the card
+         * slide's 표지로 button. A sid could not do it — `session:counter`, handed out at load —
+         * which is the same rule the layout, the note and a component's definition follow.
+         */
+        attributes: { kind: 'slide', id: 'title', name: 'Title', layoutId: 'layout-title' },
         content: [
           {
             stype: 'textFrame',
@@ -590,7 +595,7 @@ export function createSampleDeck(): INode {
        */
       {
         stype: 'surface',
-        attributes: { kind: 'slide', name: 'One card, three places' },
+        attributes: { kind: 'slide', id: 'cards', name: 'One card, three places' },
         content: [
           {
             stype: 'textFrame',
@@ -611,6 +616,30 @@ export function createSampleDeck(): INode {
             { title: '신규 고객', value: '312', showBadge: 'false' },
             { title: '신규 고객', value: '312', badgeOff: true }
           ),
+
+          /**
+           * And a **button**: pressing it shows the cover.
+           *
+           * Here because a deck that is not a line has to be a document the product really
+           * opens, not a fixture — every design in this repository that was decided against a
+           * fixture had to be decided twice. It names its page by the page's durable `id`, and
+           * while an audience is looking a press on it goes there instead of advancing: the rule
+           * `present.tsx` already had for a trigger, written when a build could be fired by a
+           * click — *a press that fires one does not also move the deck on.*
+           */
+          {
+            stype: 'rectangle',
+            attributes: {
+              x: 1440,
+              y: 8880,
+              width: 2400,
+              height: 720,
+              fill: 'theme:accent2',
+              cornerRadius: 120,
+              goTo: 'title',
+              name: 'to-cover'
+            }
+          },
 
           /*
            * 3. A colour of its own, a part the reader edited, and two rows they added in the

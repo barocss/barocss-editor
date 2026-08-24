@@ -58,7 +58,18 @@ export function Present({
    * is the click that must not also move the deck on.
    */
   triggers,
-  onTrigger
+  onTrigger,
+  /**
+   * The **buttons** on this page, by sid, and what to call when one is pressed.
+   *
+   * Beside the motion triggers because they are the same gesture with a different consequence —
+   * and they need the rule this file already had for a trigger: *a press that fires one does not
+   * also advance the deck*. Written when a build could be fired by a click, with the reason that
+   * a quiz answer must not advance past its own tick; a button that both jumped and advanced
+   * would land a reader one page past the section they chose.
+   */
+  jumps,
+  onJump
 }: {
   slides: Slide[];
   current?: string;
@@ -101,6 +112,8 @@ export function Present({
   onPresenterView?: (showing: boolean) => void;
   triggers?: Record<string, string>;
   onTrigger?: (name: string) => void;
+  jumps?: Record<string, unknown>;
+  onJump?: (sid: string) => void;
 }) {
   /** The order a presenter moves through: the deck, less what it skips. */
   const shown = slides.filter((slide) => !slide.hidden);
@@ -257,7 +270,20 @@ export function Present({
       // The innermost named shape a trigger watches: a click on a title inside a
       // group is a click on whichever of them is the button.
       for (let node = shape; node; node = node.parentElement?.closest('[data-bc-sid]') ?? null) {
-        const name = triggers?.[node.getAttribute('data-bc-sid') ?? ''];
+        const sid = node.getAttribute('data-bc-sid') ?? '';
+        /*
+         * A **jump** first, when the shape is both.
+         *
+         * A shape can carry a build trigger and a jump, and then the two answers are "play
+         * something here" and "show another page" — the second one wins, because after it there
+         * is no here to have played anything on. Said in the order rather than refused, since a
+         * card that flashes and then takes you somewhere is a real thing to want.
+         */
+        if (jumps?.[sid]) {
+          event.stopPropagation();
+          return onJump?.(sid);
+        }
+        const name = triggers?.[sid];
         if (name) {
           event.stopPropagation();
           return onTrigger?.(name);
@@ -268,7 +294,7 @@ export function Present({
 
     stage.addEventListener('click', onClick);
     return () => stage.removeEventListener('click', onClick);
-  }, [go, triggers, onTrigger]);
+  }, [go, triggers, onTrigger, jumps, onJump]);
 
   return (
     <div className="sl-present-hint" aria-live="polite">

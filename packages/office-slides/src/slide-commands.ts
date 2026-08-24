@@ -64,6 +64,9 @@ interface AttrShape {
  * reason: two steps that each undo cleanly still leave a reader pressing Ctrl+Z
  * twice for one action they took once.
  */
+/** The kinds a button may be, which is the schema's own set — see `goToKind`. */
+const JUMP_KINDS = ['page', 'back', 'next', 'previous', 'first', 'last'];
+
 export class SlidesExtension implements Extension {
   name = 'slides';
   priority = 45;
@@ -771,6 +774,40 @@ export class SlidesExtension implements Extension {
           if (!isSceneType(node?.stype)) return false;
           return (node!.attributes?.visible !== false) === !payload.visible;
         });
+      }
+    );
+
+    /**
+     * Make a shape a **button**: pressing it shows another page.
+     *
+     * ## The interesting half: the reader picks a *page*, the document holds an *id*
+     *
+     * A panel offers the pages by name, because that is what a reader knows. What goes in the
+     * document cannot be that — two pages may be called the same thing — and it cannot be the
+     * page's sid either, because `forFile` strips those (*they are the store's, not the
+     * document's*). So this takes where the reader pointed and writes the page's durable `id`,
+     * **minting one if the page has none**, in the same transaction.
+     *
+     * Which is exactly what motion does when a build first names a shape, and for the same
+     * reason: an id appears when something needs it, so a deck nobody has linked carries none.
+     *
+     * ## Clearing is the same command
+     *
+     * `to: null` takes the button off. A reader who wants a shape to stop being a button is not
+     * doing a different thing.
+     */
+    register(
+      'setBoxJump',
+      (payload) => this._setJump(editor, payload),
+      (payload) => {
+        const boxes = this._boxesNamed(payload);
+        if (boxes.length === 0) return false;
+        const doc = this._access(editor);
+        if (!doc) return false;
+        if (payload?.to === null || payload?.kind === null) return true;
+        if (typeof payload?.kind === 'string') return JUMP_KINDS.includes(payload.kind);
+        // A page, named by *where it is* — the panel knows sids, and this turns one into an id.
+        return typeof payload?.to === 'string' && !!doc.getNode(payload.to);
       }
     );
   }
@@ -2662,6 +2699,71 @@ export class SlidesExtension implements Extension {
    * and `fill: null` is how a design goes back to inheriting (the operation's own way of saying
    * "not set", which is the only one that works for every type).
    */
+  /**
+   * A page's durable id, minting one when it has none.
+   *
+   * Derived from the page's own name when it has one, because a person reading the file should be
+   * able to tell what a button points at — and made unique against the pages that already have
+   * one, since two pages may be called the same thing.
+   */
+  private _pageIdFor(doc: DeckAccess, sid: string): { id: string; mint?: Record<string, unknown> } {
+    const node = doc.getNode(sid) as any;
+    const existing = node?.attributes?.id;
+    if (typeof existing === 'string' && existing.length > 0) return { id: existing };
+
+    const taken = new Set(
+      deckSlides(doc)
+        .map((slide) => (doc.getNode(slide.sid) as any)?.attributes?.id)
+        .filter((one: unknown): one is string => typeof one === 'string')
+    );
+    const from = typeof node?.attributes?.name === 'string' ? node.attributes.name : '';
+    const base =
+      from
+        .toLowerCase()
+        .replace(/[^a-z0-9가-힣]+/g, '-')
+        .replace(/^-|-$/g, '') || 'page';
+    let id = base;
+    let next = 2;
+    while (taken.has(id)) id = `${base}-${next++}`;
+    return { id, mint: { id } };
+  }
+
+  /** Write the button, and the page's id if the page did not have one. */
+  private async _setJump(
+    editor: Editor,
+    payload?: { nodeIds?: string[]; nodeId?: string; to?: string | null; kind?: string | null }
+  ): Promise<boolean> {
+    const doc = this._access(editor);
+    const boxes = this._boxesNamed(payload as never);
+    if (!doc || boxes.length === 0) return false;
+
+    const steps: { type: string; payload: Record<string, unknown> }[] = [];
+    let attrs: Record<string, unknown> | undefined;
+
+    if (payload?.to === null || payload?.kind === null) {
+      // Off: both halves, so a shape that was a 다음 button and then a page button does not keep
+      // the other answer lying in the document.
+      attrs = { goTo: null, goToKind: null };
+    } else if (typeof payload?.kind === 'string' && payload.kind !== 'page') {
+      attrs = { goTo: null, goToKind: payload.kind };
+    } else if (typeof payload?.to === 'string') {
+      const target = this._pageIdFor(doc, payload.to);
+      if (target.mint) {
+        steps.push({ type: 'setAttrs', payload: { nodeId: payload.to, attrs: target.mint } });
+      }
+      /*
+       * `goToKind` is left off for a page rather than written as `'page'`: absent is the ordinary
+       * case, and an attribute saying so on every button is noise in the file — the same rule a
+       * child's `layoutStretch` and a placement's `visible` follow.
+       */
+      attrs = { goTo: target.id, goToKind: null };
+    }
+    if (!attrs) return false;
+
+    for (const sid of boxes) steps.push({ type: 'setAttrs', payload: { nodeId: sid, attrs } });
+    return (await transaction(editor, steps as never).commit()).success;
+  }
+
   private async _setDesign(
     editor: Editor,
     payload?: { nodeId?: string; name?: string; fill?: string | null; masterId?: string }
