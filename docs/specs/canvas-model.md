@@ -1682,7 +1682,41 @@ Two faults, both invisible while the deck is being made and certain to be found 
   telling a reader off for making an ordinary deck. A page carrying 다음 or 이전 keeps the linear
   order alive, so its neighbours count as reached.
 
-### 11f. Still open
+### 11f. The map: a view of the buttons, not a second place to keep them
+
+Pages as a graph, laid out by the tidy's own `layoutGraph`, with the presses drawn as connectors
+between them — routed by the deck's **own** `connectorPoints`/`connectorPath`, because a second
+answer to "how does a line get from this box to that one" is how a map and a slide come to
+disagree about the same picture.
+
+Nothing in it is written. There is no position on a page to keep, which is also what decides what
+a reader may do in it: **a page cannot be dragged**, because dragging would be asking the map to
+remember a place and it remembers nothing. What it is for is *seeing the shape of the deck* and
+going to a page — every page in it is somewhere to go, the rule the check's rows already follow.
+
+The deck's own order is drawn as well as its buttons. A map without the spine is a page of
+islands: a reader who has added two buttons to a twenty-page deck should see a deck with two
+buttons, not two pairs of pages. The spine is faint and dashed; a jump is in the accent, because
+it is the thing the reader added — the same distinction the timeline makes between a sequence and
+a trigger.
+
+A `back` button gets no arrow: where it goes depends on where the reader came from, which is not a
+fact about the deck (§11c).
+
+#### What the map found: the first reachability rule was wrong
+
+It said *once a deck has a button, every page must be named by something*, and a browser test on
+the real sample deck reported **five of its six pages** as unreachable the moment one button
+existed. Nonsense — pressing on still reaches them. A deck with buttons is not automatically a
+deck that is *only* buttons; Keynote has a mode for that and this product does not yet, so the
+order is alive whatever else is in the deck.
+
+So an island is a **hidden** page nothing links to: one the show skips by design, kept for the
+questions afterwards and never wired up. Which is a fault a filmstrip cannot show and an audience
+will find. (The sample deck's hidden page has a button now, and that is the pattern a hidden page
+is for.)
+
+### 11g. Still open
 
 **Between decks.** A button that opens another deck at a page needs a reference to a *document* —
 a file, an address — and that is a decision outside the model: there is no library of decks yet.

@@ -68,6 +68,7 @@ import { PresenterWindow } from './presenter-window';
 import { Properties } from './properties';
 import { Ribbon } from './ribbon';
 import { Stage } from './stage';
+import { DeckMapView } from './deck-map-view';
 import { useDeck, useRevision } from './deck-model';
 import { useEditorRevision } from './revision';
 
@@ -283,6 +284,15 @@ export function App({
    * would mean two drawings of one deck that could disagree.
    */
   const [presenting, setPresenting] = useState(false);
+
+  /**
+   * Whether the reader is looking at the deck's **map** instead of a page.
+   *
+   * Instead of, not beside: what a map is for is the shape of the whole deck, and a picture of
+   * twenty pages squeezed beside a slide is one nobody can read either way. The same decision
+   * 전체 보기 made — the strip replaces the one page — one step further.
+   */
+  const [mapping, setMapping] = useState(false);
 
   /**
    * The surface the stage draws **alone** — or nothing, when it draws the deck as a strip.
@@ -1459,6 +1469,20 @@ export function App({
           >
             검사
           </Button>
+          {/*
+            * The deck as a picture of where its presses go.
+            *
+            * Beside 검사 because it answers the same kind of question — *is this deck all right?*
+            * — about the one thing a list cannot show: a page nothing leads to, and a button that
+            * leads nowhere.
+            */}
+          <Button
+            title="덱 지도"
+            data={{ 'deck-map': '' }}
+            onClick={() => setMapping((was) => !was)}
+          >
+            지도
+          </Button>
           <Button title="처음부터 발표" onClick={() => setPresenting(true)} data={{ present: '' }}>
             발표
           </Button>
@@ -1621,6 +1645,28 @@ export function App({
            * Presenting always shows one slide and fills the window; editing
            * shows one or the strip and never grows past natural size.
            */}
+          {/*
+            * The deck's map, in the stage's place.
+            *
+            * Not while presenting: an audience is looking at a page, not at the deck's plumbing.
+            */}
+          {mapping && !presenting && (
+            <DeckMapView
+              editor={editor}
+              revision={revision}
+              current={current}
+              onGoTo={(sid) => {
+                setCurrent(sid);
+                /*
+                 * And it closes. A press in the map is "take me there", so staying would make the
+                 * reader press twice for one intention — the same rule the check's rows follow.
+                 */
+                setMapping(false);
+              }}
+              onClose={() => setMapping(false)}
+            />
+          )}
+
           <Stage
             host={host}
             /** One page, one definition, or the deck as a strip — see `stageFocus`. */

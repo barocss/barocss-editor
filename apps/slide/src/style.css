@@ -2323,6 +2323,142 @@ body {
 }
 
 /*
+ * The deck's **map**: a picture of where its presses go.
+ *
+ * In the stage's place, so it gets the stage's room — a picture of twenty pages squeezed beside a
+ * slide is one nobody can read. Everything in it is placed by the model in twips and scaled here,
+ * which is the same arrangement the stage has with a slide.
+ */
+.sl-map {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--sl-ground, #f5f5f5);
+}
+
+.sl-map-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  border-bottom: 1px solid var(--sl-line);
+  background: var(--sl-panel, #ffffff);
+}
+
+.sl-map-title {
+  font-weight: 600;
+}
+
+/* The one thing in the bar that is a fault rather than a control. */
+.sl-map-dead {
+  color: #b45309;
+}
+
+.sl-map-bar button {
+  margin-left: auto;
+}
+
+.sl-map-frame {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.sl-map-canvas {
+  position: relative;
+  margin: 0 auto;
+}
+
+/* Under the pages, so a line never crosses a picture it is joining. */
+.sl-map-lines {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/*
+ * The deck's own order, and a button.
+ *
+ * The spine is faint because it is what a deck does anyway; a jump is the thing a reader added,
+ * so it is the one drawn in the accent — the same distinction the timeline makes between a
+ * sequence and a trigger.
+ */
+.sl-map-flow {
+  fill: none;
+  stroke: var(--sl-faint, #a3a3a3);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  color: var(--sl-faint, #a3a3a3);
+}
+
+.sl-map-jump {
+  fill: none;
+  stroke: var(--sl-accent, #2563eb);
+  stroke-width: 1.5;
+  color: var(--sl-accent, #2563eb);
+}
+
+.sl-map-page {
+  position: absolute;
+  padding: 0;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid var(--sl-line);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+  cursor: pointer;
+}
+
+.sl-map-page[data-map-current='true'] {
+  outline: 2px solid var(--sl-accent, #2563eb);
+  outline-offset: 1px;
+}
+
+/* A page kept in the deck and skipped in the show, drawn as what it is. */
+.sl-map-page[data-map-hidden='true'] {
+  opacity: 0.55;
+}
+
+.sl-map-label,
+.sl-map-island,
+.sl-map-broken {
+  position: absolute;
+  left: 2px;
+  font-size: 9px;
+  line-height: 1.4;
+  padding: 0 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, #000000 55%, transparent);
+  color: #ffffff;
+}
+
+.sl-map-label {
+  top: 2px;
+}
+
+/* The two things a filmstrip cannot say. */
+.sl-map-island {
+  bottom: 2px;
+  background: #b45309;
+}
+
+.sl-map-broken {
+  bottom: 2px;
+  left: auto;
+  right: 2px;
+  background: #b91c1c;
+}
+
+.sl-map-empty {
+  margin: 0;
+  font-size: 11px;
+  color: var(--sl-faint, #a3a3a3);
+}
+
+/*
  * A **button**, while an audience is looking.
  *
  * The cursor is the whole of it: a shape that leads somewhere should say so under the pointer,

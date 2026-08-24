@@ -97,6 +97,10 @@ const REMAINING: Record<string, { count: number; why: string }> = {
     count: 1,
     why: 'a template tile: it draws the *shape* of a deck — its slides as small boxes, from the document itself — which is a gallery rather than a button, the same as `preset-gallery.tsx`'
   },
+  'deck-map-view.tsx': {
+    count: 1,
+    why: 'a page in the map — the slide *drawn*, with its number and two fault badges over it, which is a place to go rather than a control with a label. The same shape as the filmstrip’s row and the template tile (`deck-dialogs.tsx`), which draws a deck rather than naming one, and waiting on the same thing: `office-ui` has no primitive for a picture that is somewhere to go'
+  },
   'layer-panel.tsx': {
     count: 1,
     why: 'the row itself — a picture, a name and two badges that are a *place to go* rather than a control with a label. The same shape as the filmstrip’s row and the audit list’s, and waiting on the same thing: a list row `office-ui` has no primitive for. Its four icon buttons came off when `IconButton` was extracted'

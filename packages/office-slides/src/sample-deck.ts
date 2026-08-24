@@ -563,7 +563,12 @@ export function createSampleDeck(): INode {
        */
       {
         stype: 'surface',
-        attributes: { kind: 'slide', name: 'Cut for time', hidden: true },
+        /*
+         * Hidden, and **linked to** — which is the pattern a hidden page is for: something kept
+         * for the questions afterwards, reached by a button and skipped by the show. A hidden page
+         * nothing links to is the one real island in a deck, and the deck's own check says so.
+         */
+        attributes: { kind: 'slide', id: 'cut', name: 'Cut for time', hidden: true },
         content: [
           {
             stype: 'textFrame',
@@ -638,6 +643,21 @@ export function createSampleDeck(): INode {
               cornerRadius: 120,
               goTo: 'title',
               name: 'to-cover'
+            }
+          },
+
+          /** And the way to the page the show skips: a hidden page's only way in. */
+          {
+            stype: 'rectangle',
+            attributes: {
+              x: 4080,
+              y: 8880,
+              width: 2400,
+              height: 720,
+              fill: 'theme:accent3',
+              cornerRadius: 120,
+              goTo: 'cut',
+              name: 'to-appendix'
             }
           },
 

@@ -189,38 +189,41 @@ export function jumpFaults(doc: DeckAccess): JumpFault[] {
   }
 
   /**
-   * A page nothing reaches — asked **only of a deck that has links at all**.
+   * A page nothing can reach — which is **narrower** than it first looks, and a browser test is
+   * what found that out.
    *
-   * In a linear deck every page is reached by pressing on, and reporting all of them would be
-   * this check telling a reader off for making an ordinary deck. Once a deck has a button, the
-   * question becomes real: a section nobody can get to is a section that will not be shown.
+   * The first rule here was "once a deck has a button, every page has to be named by something",
+   * and it reported five of the sample deck's six pages the moment one button was added. Which is
+   * nonsense: **pressing on still reaches them.** A deck with buttons is not automatically a deck
+   * that is *only* buttons — Keynote has a mode for that and this product does not (yet), so the
+   * order is alive whatever else the deck has in it.
    *
-   * The first page is always reachable: that is where a show starts. And a page carrying 다음 or
-   * 이전 keeps the linear order alive, so anything after a page with one of those is reachable
-   * too — which is why this counts *pages a press can arrive at*, not just named targets.
+   * So the flow reaches every page a show moves through, and what is left is the real island: a
+   * **hidden** page — one the flow skips by design — that nothing links to. That is a page kept
+   * for the questions afterwards and never wired up, which is exactly the thing a reader cannot
+   * see in a filmstrip and will find out about in front of a room.
+   *
+   * When "links only" exists, the flow edges stop existing and this same function answers the
+   * larger question with no change.
    */
-  if (jumps.length === 0) return faults;
-
-  const slides = deckSlides(doc).filter((slide) => !slide.hidden);
-  const reached = new Set<string>();
-  if (slides[0]) reached.add(slides[0].sid);
-
+  const named = new Set<string>();
   for (const jump of jumps) {
-    if (jump.kind === 'page' && jump.toSid) reached.add(jump.toSid);
-    if (jump.kind === 'first' && slides[0]) reached.add(slides[0].sid);
-    if (jump.kind === 'last' && slides.length > 0) reached.add(slides[slides.length - 1].sid);
-    if (jump.kind === 'next' || jump.kind === 'previous' || jump.kind === 'back') {
-      // A page that keeps the linear order alive makes its neighbours reachable.
-      const at = slides.findIndex((slide) => slide.sid === jump.from);
-      if (at >= 0) {
-        if (slides[at + 1]) reached.add(slides[at + 1].sid);
-        if (slides[at - 1]) reached.add(slides[at - 1].sid);
-      }
+    if (jump.kind === 'page' && jump.toSid) named.add(jump.toSid);
+    if (jump.kind === 'first') {
+      const first = deckSlides(doc).filter((slide) => !slide.hidden)[0];
+      if (first) named.add(first.sid);
+    }
+    if (jump.kind === 'last') {
+      const shown = deckSlides(doc).filter((slide) => !slide.hidden);
+      const last = shown[shown.length - 1];
+      if (last) named.add(last.sid);
     }
   }
 
-  for (const slide of slides) {
-    if (reached.has(slide.sid)) continue;
+  for (const slide of deckSlides(doc)) {
+    // Only a hidden page can be an island: the show walks the rest.
+    if (!slide.hidden) continue;
+    if (named.has(slide.sid)) continue;
     faults.push({ kind: 'unreachable', slideSid: slide.sid });
   }
 

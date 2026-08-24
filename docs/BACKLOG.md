@@ -511,10 +511,18 @@ shipped features marked undone.
   this was small: `present.tsx` already collected the shapes whose press runs something and
   already had the rule *a press that fires one does not also advance the deck*.
 
-- [ ] **The deck's map.** Pages as a graph, with the presses drawn as connectors between them —
-  a *view* of the `goTo` attributes rather than a second representation of them (canvas-model
-  §11b), because an arrow pointing off the edge of a slide means nothing to an audience. The
-  pieces are all there: `layoutGraph` (tidy), `connectorRouteOf`, `deckJumps`.
+- [x] **The deck's map.** Pages as a graph — `layoutGraph` for the ranks, the deck's own
+  connector router for the arrows, the spine drawn faint beside the jumps, and the two things a
+  filmstrip cannot say (a page nothing leads to, a button that leads nowhere). A view: nothing is
+  written, so a page cannot be dragged. It found a real modelling error — the first reachability
+  rule reported five of the sample's six pages as unreachable the moment one button existed,
+  because *pressing on* still reaches them; an island is a **hidden** page nothing links to.
+
+- [ ] **Dragging a jump in the map.** Creating a button by dragging from a page to a page needs an
+  answer to "from which shape" — Figma drags from a layer, and the map's honest equivalent is a
+  dot per button on a page's edge, like a connector's magnets. Left out of the first version
+  rather than guessed at: the map's value is *seeing* the structure, and making one is already the
+  properties panel's 누르면 row.
 
 - [ ] **A button that opens another deck** at a page. Needs a reference to a *document* — a file,
   an address — which is a decision outside the model: there is no library of decks yet. The

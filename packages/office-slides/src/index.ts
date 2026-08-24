@@ -176,6 +176,12 @@ export {
   type Jump,
   type JumpFault
 } from './jump';
+/**
+ * The deck as a **graph**: which page leads where, laid out and routed.
+ *
+ * A view of the buttons rather than a second place to keep them — see `canvas-model.md` §11b.
+ */
+export { deckMap, type DeckMap, type MapPage, type MapLink } from './deck-map';
 export { SLIDES_ENV_KEY, showsNotes, type SlidesEnv } from './render-context';
 /**
  * Where every connector goes, worked out once per render.

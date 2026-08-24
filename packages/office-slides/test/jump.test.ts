@@ -173,31 +173,51 @@ describe('what is wrong with a deck’s links', () => {
     });
   });
 
-  it('finds a page nothing can reach, once the deck has links', () => {
-    const island = deck({
-      doc: { stype: 'document', content: ['menu', 'one', 'orphan'] },
+  /**
+   * The island is a **hidden** page nothing links to, and the first rule here was wrong.
+   *
+   * It said "once a deck has a button, every page must be named by something", and a browser test
+   * found what that means in a real deck: adding one button to the sample reported five of its six
+   * pages as unreachable. Nonsense — **pressing on still reaches them.** A deck with buttons is
+   * not automatically a deck that is only buttons; Keynote has a mode for that and this product
+   * does not yet, so the order is alive whatever else is in the deck.
+   *
+   * What is left is the real fault: a page the show *skips by design* that nothing links to — kept
+   * for the questions afterwards and never wired up.
+   */
+  it('does not call a page unreachable just because the deck has a button', () => {
+    const linearWithButton = deck({
+      doc: { stype: 'document', content: ['menu', 'one', 'plain'] },
       menu: { sid: 'menu', stype: 'surface', attributes: { kind: 'slide', id: 'menu' }, content: ['b'] },
       b: { sid: 'b', stype: 'rectangle', attributes: { goTo: 'one' } },
       one: { sid: 'one', stype: 'surface', attributes: { kind: 'slide', id: 'one' }, content: [] },
-      orphan: { sid: 'orphan', stype: 'surface', attributes: { kind: 'slide', id: 'orphan' }, content: [] }
+      plain: { sid: 'plain', stype: 'surface', attributes: { kind: 'slide', id: 'plain' }, content: [] }
     });
-    // A section nobody can get to is a section that will not be shown — invisible while the deck
-    // is being made, certain to be found by an audience.
-    expect(jumpFaults(island).filter((one) => one.kind === 'unreachable')).toEqual([
-      { kind: 'unreachable', slideSid: 'orphan' }
-    ]);
+    expect(jumpFaults(linearWithButton)).toEqual([]);
   });
 
-  it('counts a page kept in the linear order as reachable', () => {
-    const mixed = deck({
-      doc: { stype: 'document', content: ['menu', 'one', 'two'] },
-      menu: { sid: 'menu', stype: 'surface', attributes: { kind: 'slide', id: 'menu' }, content: ['n'] },
-      // A 다음 button keeps the order alive, so the page after it is reachable.
-      n: { sid: 'n', stype: 'rectangle', attributes: { goToKind: 'next' } },
-      one: { sid: 'one', stype: 'surface', attributes: { kind: 'slide', id: 'one' }, content: ['n2'] },
-      n2: { sid: 'n2', stype: 'rectangle', attributes: { goToKind: 'next' } },
-      two: { sid: 'two', stype: 'surface', attributes: { kind: 'slide', id: 'two' }, content: [] }
+  it('finds a hidden page nothing links to', () => {
+    const kept = deck({
+      doc: { stype: 'document', content: ['menu', 'extra', 'lost'] },
+      menu: { sid: 'menu', stype: 'surface', attributes: { kind: 'slide', id: 'menu' }, content: ['b'] },
+      b: { sid: 'b', stype: 'rectangle', attributes: { goTo: 'extra' } },
+      // Skipped by the show and linked to: a page for the questions afterwards, wired up.
+      extra: {
+        sid: 'extra',
+        stype: 'surface',
+        attributes: { kind: 'slide', id: 'extra', hidden: true },
+        content: []
+      },
+      // Skipped by the show and linked to by nothing: the real island.
+      lost: {
+        sid: 'lost',
+        stype: 'surface',
+        attributes: { kind: 'slide', id: 'lost', hidden: true },
+        content: []
+      }
     });
-    expect(jumpFaults(mixed)).toEqual([]);
+    expect(jumpFaults(kept).filter((one) => one.kind === 'unreachable')).toEqual([
+      { kind: 'unreachable', slideSid: 'lost' }
+    ]);
   });
 });

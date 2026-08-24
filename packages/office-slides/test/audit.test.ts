@@ -448,7 +448,15 @@ describe('a deck that is not a line', () => {
       b: { sid: 'b', stype: 'rectangle', attributes: { ...at(), goTo: 'one', ...over } },
       one: { sid: 'one', stype: 'surface', attributes: { kind: 'slide', id: 'one' }, content: ['r'] },
       r: { sid: 'r', stype: 'rectangle', attributes: at() },
-      lost: { sid: 'lost', stype: 'surface', attributes: { kind: 'slide', id: 'lost' }, content: ['r2'] },
+      // Hidden *and* linked to by nothing: the show skips it by design, so the only way in is a
+      // button, and there is none. A page the flow still walks is not an island — pressing on
+      // reaches it, which is what a browser test had to point out.
+      lost: {
+        sid: 'lost',
+        stype: 'surface',
+        attributes: { kind: 'slide', id: 'lost', hidden: true },
+        content: ['r2']
+      },
       r2: { sid: 'r2', stype: 'rectangle', attributes: at() }
     });
 

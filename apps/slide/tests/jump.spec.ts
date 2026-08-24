@@ -138,3 +138,124 @@ test.describe('a button on a slide', () => {
     await expect(page.locator('.sl-audit-list li[data-audit="dead-jump"]')).toHaveCount(1);
   });
 });
+
+/**
+ * The deck as a **picture of where its presses go**.
+ *
+ * A filmstrip says what order the pages are in, and once a deck has buttons that is no longer the
+ * whole truth. The two things a strip cannot show are exactly the two a reader most needs: a page
+ * nothing leads to, and a button that leads nowhere — an island is obvious in a picture and
+ * invisible in a list.
+ *
+ * It is a **view**: nothing in it is written, so there is nothing here about state — every test
+ * is "given these buttons, what does a reader see".
+ */
+test.describe('the deck’s map', () => {
+  const openMap = async (page: Page) => {
+    await page.locator('[data-deck-map]').click();
+    await expect(page.locator('.sl-map')).toHaveCount(1);
+    await page.waitForTimeout(500);
+  };
+
+  test('draws every page, the deck’s order and the buttons', async ({ page }) => {
+    await openDeck(page);
+    await openMap(page);
+
+    // Every page, including the hidden one: a page kept in the deck is in the picture, drawn as
+    // what it is.
+    const pages = page.locator('[data-map-page]');
+    expect(await pages.count()).toBe(6);
+    await expect(page.locator('[data-map-hidden="true"]')).toHaveCount(1);
+
+    /*
+     * The spine, and the sample's two buttons — 표지로 and the one that reaches the page the show
+     * skips. Drawn in the accent, because a jump is the thing a reader added; the spine is what a
+     * deck does anyway.
+     */
+    expect(await page.locator('[data-map-link="flow"]').count()).toBeGreaterThan(0);
+    expect(await page.locator('[data-map-link="jump"]').count()).toBe(2);
+  });
+
+  test('is somewhere to go, and closes when it takes you there', async ({ page }) => {
+    await openDeck(page);
+    await openMap(page);
+
+    const target = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      return ((root.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.attributes?.id === 'cards'
+      );
+    });
+    await page.locator(`[data-map-page="${target}"]`).click();
+    await page.waitForTimeout(500);
+
+    // A press in the map is "take me there": staying would make the reader press twice for one
+    // intention, which is the rule the check's rows already follow.
+    await expect(page.locator('.sl-map')).toHaveCount(0);
+    expect(await currentSlide(page)).toBe(target);
+  });
+
+  test('marks a page nothing leads to, and a button that leads nowhere', async ({ page }) => {
+    await openDeck(page);
+
+    // Break the sample's button, and add a page nothing can reach.
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const cards = ((root.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.attributes?.id === 'cards'
+      );
+      const button = ((store.getNode(cards)?.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.attributes?.goTo === 'title'
+      );
+      await editor
+        .transaction([{ type: 'setAttrs', payload: { nodeId: button, attrs: { goTo: 'deleted' } } }])
+        .commit();
+    });
+    await page.waitForTimeout(400);
+    await openMap(page);
+
+    /*
+     * The deck's own check says both of these as a list; the map is the same two answers laid out
+     * where a reader can see *why*.
+     */
+    await expect(page.locator('[data-map-dead]')).toHaveCount(1);
+    await expect(page.locator('.sl-map-broken')).toHaveCount(1);
+    /*
+     * And nothing is an island **here**, which is worth asserting rather than assuming: this test
+     * is what found the model's first rule wrong. It reported five of the sample's six pages as
+     * unreachable the moment a button existed — nonsense, because pressing on still reaches them.
+     * An island is a *hidden* page nothing links to, and the sample's hidden page has a button.
+     */
+    await expect(page.locator('[data-map-unreachable="true"]')).toHaveCount(0);
+  });
+
+  test('runs its ranks the other way when asked', async ({ page }) => {
+    await openDeck(page);
+    await openMap(page);
+
+    const shape = async () => {
+      const box = await page.locator('.sl-map-canvas').boundingBox();
+      return box ? Math.round((box.width / box.height) * 100) : 0;
+    };
+    const down = await shape();
+    await page.locator('.sl-map').getByLabel('지도 방향').selectOption('right');
+    await page.waitForTimeout(500);
+    // A deck of six pages reads down and a deck of twenty reads across — the same choice the
+    // diagram tidy offers, and the same words.
+    expect(await shape()).not.toBe(down);
+  });
+
+  test('is not drawn while presenting', async ({ page }) => {
+    await openDeck(page);
+    await openMap(page);
+    await page.locator('[data-present]').click();
+    await page.waitForTimeout(600);
+    // An audience is looking at a page, not at the deck's plumbing — the same rule the rulers,
+    // the guides, the layer list and the check follow.
+    await expect(page.locator('.sl-map')).toHaveCount(0);
+  });
+});
