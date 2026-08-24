@@ -100,10 +100,15 @@ function placementsOf(doc: DeckAccess, id: string): string[] {
   return found;
 }
 
+/** The card's own answers, for a placement that has not been asked anything yet. */
+function defaultsOf(definition: ComponentDef): Map<string, string> {
+  return new Map(definition.vars.map((one) => [one.name, one.value]));
+}
+
 /** What a placement of this definition holds: a copy of every part, values substituted. */
 function partsFor(doc: DeckAccess, definition: ComponentDef, values: Map<string, string>) {
   return definition.parts
-    .map((part) => partCopy(doc, part, values))
+    .map((part) => partCopy(doc, part, values, definition.binds))
     .filter((part): part is DeckNode => !!part);
 }
 
@@ -270,23 +275,48 @@ export class SlidesComponentExtension implements Extension {
     );
 
     /**
-     * What one **part** of a definition takes: its words, its colour, whether it is there — and
-     * whether it is the slot.
+     * What one **piece** of a definition takes, and in what.
      *
-     * One command for the four because they are one decision made in one panel row, and because
-     * clearing is the same gesture as setting: a payload naming `bindText: null` takes the
-     * binding off. A part is named by its sid because the reader has it selected; the definition
-     * it belongs to is worked out rather than asked for (`definitionAt`), since a caller that
-     * had to say would be a caller that can say the wrong thing.
+     * `setComponentBind({ componentId, part, attr, var })`, and `var: null` takes the binding off.
+     * A declaration on the definition rather than three attributes on the part (§10g-2): a variable
+     * can drive anything a part declares, a nested piece can be bound, and a placement's copies
+     * carry nothing.
+     *
+     * `attr` is checked against **what the part declares**, which is the check the schema could not
+     * make: a content model cannot see across to another node's attributes. So a binding cannot
+     * name something nothing would read — except `text`, which is the words and is not an attribute
+     * at all.
      */
     register(
-      'bindComponentPart',
-      async (payload) => await this._bind(editor, payload),
+      'setComponentBind',
+      async (payload) => await this._setBind(editor, payload),
+      (payload) => {
+        const doc = this._access(editor);
+        if (!doc || typeof payload?.part !== 'string' || typeof payload?.attr !== 'string') {
+          return false;
+        }
+        const definition = deckComponents(doc).find((one) => one.id === payload?.componentId);
+        if (!definition) return false;
+        if (payload?.var === null) return true;
+        if (typeof payload?.var !== 'string' || !definition.vars.some((one) => one.name === payload.var)) {
+          return false;
+        }
+        return bindable(editor, doc, definition, payload.part, payload.attr);
+      }
+    );
+
+    /**
+     * And whether a frame part is the **slot** — which is not a binding, and never was.
+     *
+     * It says where a reader's own things go, not what a part takes from a variable, and it was
+     * only ever in the same command because they were both attributes on a part.
+     */
+    register(
+      'setComponentSlot',
+      async (payload) => await this._setSlot(editor, payload),
       (payload) => {
         const doc = this._access(editor);
         if (!doc || typeof payload?.nodeId !== 'string') return false;
-        // Only inside a definition: a binding on a box that is on a slide is a claim about a
-        // card that does not exist, and nothing would ever read it.
         return !!definitionAt(doc, payload.nodeId);
       }
     );
@@ -475,7 +505,15 @@ export class SlidesComponentExtension implements Extension {
          */
         appliedFrom: componentSignature(doc, definition)
       },
-      content: partsFor(doc, definition, new Map()) as never
+      /**
+       * With the definition's **defaults** substituted, not with nothing.
+       *
+       * Measured: an empty map meant the bindings were skipped, so a fresh placement drew whatever
+       * the definition's parts happened to contain rather than what the card says it is — which
+       * only looked right while the bindings lived *on* the parts and the author had written the
+       * same words twice. A placement starts as the card describes itself.
+       */
+      content: partsFor(doc, definition, defaultsOf(definition)) as never
     };
 
     const result = await transaction(editor, [
@@ -515,7 +553,7 @@ export class SlidesComponentExtension implements Extension {
       }
 
       for (const part of plan.rewrite) {
-        const fresh = partCopy(doc, part.from, values);
+        const fresh = partCopy(doc, part.from, values, definition.binds);
         if (!fresh) continue;
         /*
          * The part's own attributes, and its children only when it is not a slot.
@@ -538,7 +576,7 @@ export class SlidesComponentExtension implements Extension {
       }
 
       for (const added of plan.add) {
-        const fresh = partCopy(doc, added, values);
+        const fresh = partCopy(doc, added, values, definition.binds);
         if (fresh) steps.push({ type: 'addChild', payload: { parentId: sid, child: fresh } });
       }
 
@@ -608,12 +646,23 @@ export class SlidesComponentExtension implements Extension {
      */
     const values = new Map(instanceValues(doc, instance, definition));
     values.set(payload.name, payload.value ?? '');
+    /**
+     * Which of the definition's pieces take this variable — asked of the **definition's** list.
+     *
+     * It used to ask the *part* (three attributes on the copy), which is what limited a variable to
+     * three things and what made a placement's file carry bindings it never read. A bind names a
+     * `partId` anywhere inside a part, so a top-level part is rewritten when it or anything under
+     * it takes the name.
+     */
+    const named = new Set(
+      definition.binds.filter((bind) => bind.var === payload.name).map((bind) => bind.part)
+    );
     for (const part of childrenOf(instance)) {
       const origin = doc.getNode(part)?.attributes?.partOf;
       if (typeof origin !== 'string') continue;
       const from = definition.parts.find((one) => partIdOf(doc, one) === origin);
-      if (!from || !bindsName(doc.getNode(from), payload.name)) continue;
-      const fresh = partCopy(doc, from, values);
+      if (!from || !takesName(doc, from, named)) continue;
+      const fresh = partCopy(doc, from, values, definition.binds);
       if (!fresh) continue;
       steps.push({ type: 'setAttrs', payload: { nodeId: part, attrs: fresh.attributes ?? {} } });
       for (const old of childrenOf(doc.getNode(part))) {
@@ -778,32 +827,79 @@ export class SlidesComponentExtension implements Extension {
     return (await transaction(editor, steps as never).commit()).success === true;
   }
 
-  private async _bind(
+  /**
+   * Declare — or take away — one binding on a definition.
+   *
+   * Replaced rather than added when the same piece and attribute are named again: a piece that took
+   * `accent` in its fill and now takes `warn` is one decision, and two declarations about one
+   * attribute would be a card whose colour depends on which one apply read last.
+   */
+  private async _setBind(
     editor: Editor,
-    payload: {
-      nodeId?: string;
-      bindText?: string | null;
-      bindFill?: string | null;
-      bindVisible?: string | null;
-      slot?: string | null;
+    payload: { componentId?: string; part?: string; attr?: string; var?: string | null }
+  ): Promise<boolean> {
+    const doc = this._access(editor);
+    const definition = doc && deckComponents(doc).find((one) => one.id === payload?.componentId);
+    if (!doc || !definition || typeof payload?.part !== 'string' || typeof payload?.attr !== 'string') {
+      return false;
     }
+
+    /** The declaration already there about this piece and this attribute, if any. */
+    const existing = childrenOf(doc.getNode(definition.sid)).find((sid) => {
+      const node = doc.getNode(sid);
+      return (
+        node?.stype === 'componentBind' &&
+        node.attributes?.part === payload.part &&
+        node.attributes?.attr === payload.attr
+      );
+    });
+
+    const steps: unknown[] = [];
+    if (payload.var === null || payload.var === '') {
+      if (!existing) return false;
+      steps.push({
+        type: 'removeChild',
+        payload: { parentId: definition.sid, childId: existing }
+      });
+    } else if (existing) {
+      steps.push({ type: 'setAttrs', payload: { nodeId: existing, attrs: { var: payload.var } } });
+    } else {
+      /*
+       * After the variables and before the parts, which is where the schema says a declaration goes
+       * — a definition reads as *what it can be asked for*, then *what takes it*, then *what it is
+       * made of*.
+       */
+      const declarations = childrenOf(doc.getNode(definition.sid)).filter((sid) => {
+        const stype = doc.getNode(sid)?.stype;
+        return stype === 'componentVar' || stype === 'componentBind';
+      }).length;
+      steps.push({
+        type: 'addChild',
+        payload: {
+          parentId: definition.sid,
+          child: {
+            stype: 'componentBind',
+            attributes: { part: payload.part, attr: payload.attr, var: payload.var }
+          },
+          position: declarations
+        }
+      });
+    }
+
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  /** Whether a frame part is the slot: where a placement's own things go. */
+  private async _setSlot(
+    editor: Editor,
+    payload: { nodeId?: string; slot?: string | null }
   ): Promise<boolean> {
     const doc = this._access(editor);
     if (!doc || typeof payload?.nodeId !== 'string') return false;
-
-    const attrs: Record<string, unknown> = {};
-    for (const key of ['bindText', 'bindFill', 'bindVisible', 'slot'] as const) {
-      // `null` is how an attribute is removed, and an empty string arrives from a cleared
-      // control meaning the same thing — so both become the removal rather than a binding to a
-      // variable called "".
-      if (payload[key] === undefined) continue;
-      attrs[key] = payload[key] === null || payload[key] === '' ? null : payload[key];
-    }
-    if (Object.keys(attrs).length === 0) return false;
-
+    const slot = payload.slot === null || payload.slot === '' ? null : payload.slot;
     return (
       (await transaction(editor, [
-        { type: 'setAttrs', payload: { nodeId: payload.nodeId, attrs } }
+        { type: 'setAttrs', payload: { nodeId: payload.nodeId, attrs: { slot } } }
       ] as never).commit()).success === true
     );
   }
@@ -858,10 +954,62 @@ export class SlidesComponentExtension implements Extension {
   }
 }
 
-/** Whether this part takes anything from the named variable. */
-function bindsName(part: DeckNode | undefined, name: string): boolean {
-  const attrs = part?.attributes ?? {};
-  return attrs.bindText === name || attrs.bindFill === name || attrs.bindVisible === name;
+/**
+ * Whether that piece of the definition can take that attribute at all.
+ *
+ * The check the schema could not make: a content model cannot see across to another node's declared
+ * attributes, so a binding naming `cornerRadius` on a line would be a value nothing reads — the
+ * exact fault the conformance harness exists to catch, arriving through a control instead.
+ *
+ * `text` is always allowed and is not an attribute: the words in a part are its content, and a
+ * `text` attribute on every shape would be a schema lying about what a text frame is.
+ */
+function bindable(
+  editor: Editor,
+  doc: DeckAccess,
+  definition: { sid: string },
+  part: string,
+  attr: string
+): boolean {
+  const found = pieceNamed(doc, definition.sid, part);
+  if (!found) return false;
+  if (attr === 'text') return true;
+  const schema = (editor as any)?.dataStore?.getActiveSchema?.();
+  const attrs = schema?.getNodeType?.(doc.getNode(found)?.stype ?? '')?.attrs;
+  return !!attrs && attr in attrs;
+}
+
+/** The piece of a definition with this durable name, however deep. */
+function pieceNamed(
+  doc: DeckAccess,
+  sid: string,
+  part: string,
+  depth = 0
+): string | undefined {
+  if (depth > 24) return undefined;
+  const node = doc.getNode(sid);
+  if (!node) return undefined;
+  if (node.attributes?.partId === part) return sid;
+  for (const child of childrenOf(node)) {
+    const found = pieceNamed(doc, child, part, depth + 1);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/**
+ * Whether this part — or anything inside it — is one of the pieces named.
+ *
+ * A binding names a durable `partId`, and a nested piece may have one, so the question is about the
+ * whole subtree: rewriting a part is how a value reaches the words three levels down in it.
+ */
+function takesName(doc: DeckAccess, sid: string, named: Set<string>, depth = 0): boolean {
+  if (depth > 24) return false;
+  const node = doc.getNode(sid);
+  if (!node) return false;
+  const id = node.attributes?.partId;
+  if (typeof id === 'string' && named.has(id)) return true;
+  return childrenOf(node).some((child) => takesName(doc, child, named, depth + 1));
 }
 
 /** A deep copy of a box, moved so that the group's corner is the origin. */

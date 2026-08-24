@@ -232,8 +232,10 @@ describe('Slides draws what its schema declares', () => {
           'the properties panel — a definition’s own 크기 row, drawn while the reader is standing in one. The only place a card’s size can be changed: a placement’s extent *is* the card’s, so its own fields are greyed and the overlay draws it no resize handles',
         setComponentVar:
           'the components panel — the 변수 list, drawn while a definition is open: a label, a kind, a default, and 추가 for a new one. Beside the definition rather than on a part, because a variable belongs to the card — an accent colour used by three parts is one decision, which is the whole reason a declaration exists',
-        bindComponentPart:
-          'the properties panel — a part’s 컴포넌트 부품 group, while the reader is inside a definition: which variable its words, its colour or its presence take, and whether a frame is the slot. Two panels because they are two questions, and the reader has selected a different thing in each',
+        setComponentBind:
+          'the properties panel — a part’s 컴포넌트 부품 group, while the reader is inside a definition: one row per attribute the part declares, each offering the variables of a kind that fits. A declaration on the definition rather than an attribute on the part, so a variable can drive anything the part has (canvas-model §10g-2)',
+        setComponentSlot:
+          'the properties panel — the 슬롯 switch on a frame part in the same group. Not a binding and never was: it says where a reader’s own things go, and it was only in the same command because both were attributes on a part',
 
         // ── The definitions a deck inherits from ───────────────────────────
         /**
@@ -336,12 +338,6 @@ describe('Slides draws what its schema declares', () => {
          * renderer resolving a binding would also mean a placement's text could not be
          * searched, spell-checked or measured without the definition in hand.
          */
-        bindText:
-          'components — `partCopy` writes the placement’s value into the part when the definition is applied, and the runs collapse to one so the value is *all* the part says. Read at apply rather than at draw: the drawing is plain nodes, which is what lets the text be found, checked and measured',
-        bindFill:
-          'components — the same substitution, for a colour used in more than one place. One decision instead of three copies of it, which is the thing free editing of a placement cannot do',
-        bindVisible:
-          'components — the same substitution, for a state. Only the falsy half is ever written (`visible: false`), because `visible: true` beside no `visible` at all is the same drawing — the asymmetry this very probe finds in every boolean',
         slot:
           'components — `componentApplyPlan` reads it twice: a slot part is compared with its origin *without its contents* (a slot is always different otherwise, so a definition’s change to the frame could never reach a placement anybody had used), and it is rewritten with `keepChildren`, which is what stops apply taking the reader’s own boxes out with it. The slot draws as the ordinary frame it is',
         noteId:

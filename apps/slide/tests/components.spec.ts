@@ -538,14 +538,22 @@ test.describe('declaring what a card takes', () => {
     }, made);
     await page.waitForTimeout(400);
 
-    await page.locator('.sl-properties').getByLabel('글자').selectOption('heading');
+    await page.locator('.sl-properties').getByLabel('글자 변수').selectOption('heading');
     await page.waitForTimeout(500);
-    expect(
-      await page.evaluate(
-        (sid) => (window as any).editor.dataStore.getNode(sid)?.attributes?.bindText,
-        part
-      )
-    ).toBe('heading');
+    /*
+     * The binding is the **definition's** declaration now, not an attribute on the part: three
+     * attributes on a part meant a variable could drive exactly three things, and a number could
+     * only ever be text (canvas-model §10g-2). So this asks the card what it binds.
+     */
+    const declared = await page.evaluate((sid) => {
+      const store = (window as any).editor.dataStore;
+      const definition = store.getNode(store.getNode(sid)?.parentId);
+      return ((definition?.content ?? []) as string[])
+        .map((one: string) => store.getNode(one))
+        .filter((one: any) => one?.stype === 'componentBind')
+        .map((one: any) => `${one.attributes.part}.${one.attributes.attr}=${one.attributes.var}`);
+    }, part);
+    expect(declared).toContain('title.text=heading');
 
     // Back to the deck, and ask the placement for its value.
     await page.locator('[data-editing-close]').click();
@@ -887,5 +895,95 @@ test.describe('a card built out of a frame', () => {
     expect(after.card).toBeGreaterThan(before.card);
     expect(after.body).toBe(after.card);
     expect(after.row).toBe(after.body - 400);
+  });
+});
+
+/**
+ * A variable that drives something other than the three things three attributes allowed.
+ *
+ * The measurement that made this item worth doing: a card's corner radius, a frame's gap and a
+ * badge's opacity were all unreachable, because a variable could only be bound through `bindText`,
+ * `bindFill` or `bindVisible` — so a `number` could only ever be *text*. The bindings are the
+ * definition's declarations now, and what a piece can take is what it **declares**.
+ */
+test.describe('a variable that drives an attribute', () => {
+  test('offers what the part declares, and writes a number as a number', async ({ page }) => {
+    await openDeck(page);
+    await openPanel(page);
+    await page.locator('.sl-components [data-component-id="metric-card"]').click();
+    await page.waitForTimeout(600);
+
+    // A number variable on the sample's card.
+    await page.locator('[data-var-new] input, input[data-var-new]').fill('round');
+    await page.locator('[data-var-add]').click();
+    await page.waitForTimeout(500);
+    await page.locator('[data-var-row="round"] select').first().selectOption('number');
+    await page.waitForTimeout(400);
+    const value = page.locator('[data-var-row="round"] input').nth(1);
+    await value.fill('400');
+    await value.press('Enter');
+    await page.waitForTimeout(500);
+
+    // The card's back, selected inside the definition.
+    const back = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const library = ((root.content ?? []) as string[])
+        .map((sid: string) => store.getNode(sid))
+        .find((one: any) => one?.stype === 'components');
+      const card = ((library?.content ?? []) as string[])[0];
+      const part = ((store.getNode(card)?.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.attributes?.partId === 'back'
+      );
+      void editor.executeCommand('setNode', { nodeIds: [part] });
+      return part;
+    });
+    await page.waitForTimeout(500);
+
+    const panel = page.locator('.sl-properties');
+    await expect(panel).toContainText('컴포넌트 부품 · back');
+    /*
+     * A row per attribute the part declares — 둥근 정도 among them, which no binding could reach
+     * before — and each row offers only the variables whose *kind* fits.
+     */
+    const radius = panel.getByLabel('둥근 정도 변수');
+    await expect(radius).toHaveCount(1);
+    await radius.selectOption('round');
+    await page.waitForTimeout(600);
+
+    // The declaration is the card's.
+    const binds = await page.evaluate(() => {
+      const store = (window as any).editor.dataStore;
+      const root = store.getNode((window as any).editor.getRootId());
+      const library = ((root.content ?? []) as string[])
+        .map((sid: string) => store.getNode(sid))
+        .find((one: any) => one?.stype === 'components');
+      const card = ((library?.content ?? []) as string[])[0];
+      return ((store.getNode(card)?.content ?? []) as string[])
+        .map((sid: string) => store.getNode(sid))
+        .filter((one: any) => one?.stype === 'componentBind')
+        .map((one: any) => `${one.attributes.part}.${one.attributes.attr}=${one.attributes.var}`);
+    });
+    expect(binds).toContain('back.cornerRadius=round');
+
+    // And a new placement takes it — as a **number**, because an attribute that means a length has
+    // to be one, while the document keeps a variable's value as a string.
+    await page.locator('[data-editing-close]').click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-component-place="metric-card"]').click();
+    await page.waitForTimeout(700);
+
+    const drawn = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const sid = editor.selection?.nodeIds?.[0];
+      const back = ((store.getNode(sid)?.content ?? []) as string[]).find(
+        (one: string) => store.getNode(one)?.attributes?.partOf === 'back'
+      );
+      return store.getNode(back)?.attributes?.cornerRadius;
+    });
+    expect(drawn).toBe(400);
+    void back;
   });
 });

@@ -161,6 +161,7 @@ export {
   partCopy,
   type ComponentDef,
   type ComponentVar,
+  type ComponentBind,
   type PartState,
   type ApplyPlan
 } from './components';

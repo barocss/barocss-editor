@@ -115,7 +115,6 @@ const card = (
       stype: 'rectangle',
       attributes: {
         partOf: 'back',
-        bindFill: 'accent',
         x: 0,
         y: 0,
         width: CARD_WIDTH,
@@ -130,7 +129,6 @@ const card = (
       stype: 'ellipse',
       attributes: {
         partOf: 'badge',
-        bindVisible: 'showBadge',
         x: 4320,
         y: 240,
         width: 480,
@@ -146,12 +144,12 @@ const card = (
     },
     {
       stype: 'textFrame',
-      attributes: { partOf: 'title', bindText: 'title', x: 360, y: 480, width: 3840, height: 600 },
+      attributes: { partOf: 'title', x: 360, y: 480, width: 3840, height: 600 },
       content: [line(drawn.title, { fontSize: 32, bold: true, color: '#ffffff' })]
     },
     {
       stype: 'textFrame',
-      attributes: { partOf: 'value', bindText: 'value', x: 360, y: 1080, width: 4320, height: 1200 },
+      attributes: { partOf: 'value', x: 360, y: 1080, width: 4320, height: 1200 },
       content: [line(drawn.value, { fontSize: 80, bold: true, color: '#ffffff' })]
     },
     {
@@ -871,9 +869,26 @@ export function createSampleDeck(): INode {
                 attributes: { name: 'showBadge', label: '배지', kind: 'boolean', value: 'true' }
               },
 
+              /**
+               * And what **takes** them: one declaration per piece and attribute.
+               *
+               * On the definition rather than on the parts, which is §10g-2's correction — three
+               * attributes on every canvas node meant a variable could drive exactly three things,
+               * and a `number` could only ever be text. A list costs nothing per attribute, so
+               * `accent` can drive a fill here and a corner radius tomorrow, and a placement's
+               * copies carry no bindings at all.
+               */
+              { stype: 'componentBind', attributes: { part: 'title', attr: 'text', var: 'title' } },
+              { stype: 'componentBind', attributes: { part: 'value', attr: 'text', var: 'value' } },
+              { stype: 'componentBind', attributes: { part: 'back', attr: 'fill', var: 'accent' } },
+              {
+                stype: 'componentBind',
+                attributes: { part: 'badge', attr: 'visible', var: 'showBadge' }
+              },
+
               /*
-               * The parts. Each carries `partId` — its own durable name, which a placement's
-               * copy points at — and the bindings that say which variable it takes.
+               * The parts. Each carries `partId` — its own durable name, which a placement's copy
+               * points at, and which a binding names.
                *
                * Placed against the card's own origin, exactly as a slide's boxes are placed
                * against the slide's: a definition is a canvas, which is what makes the whole
@@ -883,7 +898,6 @@ export function createSampleDeck(): INode {
                 stype: 'rectangle',
                 attributes: {
                   partId: 'back',
-                  bindFill: 'accent',
                   x: 0,
                   y: 0,
                   width: CARD_WIDTH,
@@ -898,7 +912,6 @@ export function createSampleDeck(): INode {
                 stype: 'ellipse',
                 attributes: {
                   partId: 'badge',
-                  bindVisible: 'showBadge',
                   x: 4320,
                   y: 240,
                   width: 480,
@@ -910,7 +923,6 @@ export function createSampleDeck(): INode {
                 stype: 'textFrame',
                 attributes: {
                   partId: 'title',
-                  bindText: 'title',
                   x: 360,
                   y: 480,
                   width: 3840,
@@ -922,7 +934,6 @@ export function createSampleDeck(): INode {
                 stype: 'textFrame',
                 attributes: {
                   partId: 'value',
-                  bindText: 'value',
                   x: 360,
                   y: 1080,
                   width: 4320,

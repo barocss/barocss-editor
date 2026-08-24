@@ -235,13 +235,14 @@ describe('the component commands', () => {
         stype: 'componentVar',
         attributes: { name: 'title', label: '이름', value: '지표' }
       } as never);
-      const bound = store.getNode(definition.parts[1]) as never as {
-        attributes: Record<string, unknown>;
-      };
-      store.setNode(
-        { ...bound, attributes: { ...bound.attributes, bindText: 'title' } } as never,
-        false
-      );
+      /*
+       * And the binding, which is the definition's own declaration now — one per piece and
+       * attribute, so a variable can drive anything a part declares (§10g-2).
+       */
+      store.addChild(definition.sid, {
+        stype: 'componentBind',
+        attributes: { part: 'title', attr: 'text', var: 'title' }
+      } as never);
     });
 
     it('refuses a name the definition does not declare', () => {
@@ -364,29 +365,72 @@ describe('the component commands', () => {
       ).toEqual([]);
     });
 
-    it('binds a part to a variable, and lets go of it again', async () => {
-      const part = deckComponents(doc)[0].parts[1];
-      expect(await run('bindComponentPart', { nodeId: part, bindText: 'title' })).toBe(true);
-      expect(doc.getNode(part)?.attributes?.bindText).toBe('title');
-
-      // Clearing is the same gesture: an empty answer from a control means "takes nothing".
-      await run('bindComponentPart', { nodeId: part, bindText: '' });
-      expect(doc.getNode(part)?.attributes?.bindText).toBeUndefined();
-    });
-
-    it('refuses to bind a box that is not in a definition', async () => {
-      await run('placeComponent', { componentId: 'card', slideId: slide, x: 9000, y: 3000 });
-      const onSlide = childrenOf(doc.getNode(boxes()[1]))[0];
-      // A binding on a box that is on a slide is a claim about a card that does not exist, and
-      // nothing would ever read it.
+    it('declares a binding, and takes it away again', async () => {
+      await run('setComponentVar', { componentId: 'card', name: 'title', value: '지표' });
       expect(
-        (editor as any).canExecuteCommand('bindComponentPart', { nodeId: onSlide, bindText: 'title' })
-      ).toBe(false);
+        await run('setComponentBind', { componentId: 'card', part: 'title', attr: 'text', var: 'title' })
+      ).toBe(true);
+      expect(deckComponents(doc)[0].binds).toEqual([
+        { part: 'title', attr: 'text', var: 'title' }
+      ]);
+
+      // Clearing is the same command: `null` takes it off, and there is nothing left saying the
+      // part takes anything.
+      await run('setComponentBind', { componentId: 'card', part: 'title', attr: 'text', var: null });
+      expect(deckComponents(doc)[0].binds).toEqual([]);
     });
 
-    it('marks a part as the slot, which is where a reader’s own things go', async () => {
+    it('replaces the declaration about one piece and one attribute', async () => {
+      await run('setComponentVar', { componentId: 'card', name: 'a', value: '#111' });
+      await run('setComponentVar', { componentId: 'card', name: 'b', value: '#222' });
+      await run('setComponentBind', { componentId: 'card', part: 'rectangle', attr: 'fill', var: 'a' });
+      await run('setComponentBind', { componentId: 'card', part: 'rectangle', attr: 'fill', var: 'b' });
+      /*
+       * One decision, not two: a card whose colour depends on which declaration apply read last is
+       * a card nobody can reason about.
+       */
+      expect(deckComponents(doc)[0].binds).toEqual([{ part: 'rectangle', attr: 'fill', var: 'b' }]);
+    });
+
+    it('refuses an attribute the part does not declare, and a variable that is not declared', async () => {
+      await run('setComponentVar', { componentId: 'card', name: 'round', kind: 'number', value: '120' });
+      const can = (payload: unknown) => (editor as any).canExecuteCommand('setComponentBind', payload);
+      // The check the schema could not make: a content model cannot see across to another node's
+      // attributes, so a binding naming something nothing reads is refused here instead.
+      expect(can({ componentId: 'card', part: 'rectangle', attr: 'cornerRadius', var: 'round' })).toBe(true);
+      expect(can({ componentId: 'card', part: 'rectangle', attr: 'notAThing', var: 'round' })).toBe(false);
+      expect(can({ componentId: 'card', part: 'rectangle', attr: 'fill', var: 'nope' })).toBe(false);
+      expect(can({ componentId: 'card', part: 'nowhere', attr: 'fill', var: 'round' })).toBe(false);
+      // `text` is always allowed and is not an attribute: the words are content.
+      expect(can({ componentId: 'card', part: 'rectangle', attr: 'text', var: 'round' })).toBe(true);
+    });
+
+    it('drives a number into an attribute, as a number', async () => {
+      await run('setComponentVar', { componentId: 'card', name: 'round', kind: 'number', value: '180' });
+      await run('setComponentBind', {
+        componentId: 'card',
+        part: 'rectangle',
+        attr: 'cornerRadius',
+        var: 'round'
+      });
+      await run('placeComponent', { componentId: 'card', slideId: slide, x: 9000, y: 3000 });
+
+      const placed = boxes().filter((sid) => doc.getNode(sid)?.stype === 'instance').pop() as string;
+      const back = childrenOf(doc.getNode(placed))[0];
+      /*
+       * The document keeps a variable's value as a string — one shape to write, diff and check —
+       * and an attribute that means a length has to be a number, so the conversion happens at the
+       * one place a value becomes an attribute. A card's corners were unreachable before this:
+       * `number` could only ever be text.
+       */
+      expect(doc.getNode(back)?.attributes?.cornerRadius).toBe(180);
+    });
+
+    it('marks a frame part as the slot, which is not a binding', async () => {
       const part = deckComponents(doc)[0].parts[0];
-      await run('bindComponentPart', { nodeId: part, slot: 'items' });
+      // It says where a reader's own things go, not what a part takes — and it was only in the same
+      // command as the bindings because both were attributes on a part.
+      await run('setComponentSlot', { nodeId: part, slot: 'items' });
       expect(doc.getNode(part)?.attributes?.slot).toBe('items');
     });
   });

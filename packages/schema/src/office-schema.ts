@@ -134,20 +134,6 @@ export const CANVAS_PRESENCE_ATTRS = {
     options: ['page', 'back', 'next', 'previous', 'first', 'last']
   },
   /**
-   * What this part takes from a **component variable**: its words, its colour, whether it is
-   * there at all.
-   *
-   * Three attributes rather than one map, and the three are what a component property is
-   * anywhere: text, a colour, and a state. (Figma's fourth — swapping one instance for another
-   * — is not needed here, because a placement may simply *hold* whatever a reader puts in it.)
-   *
-   * Named rather than positional, like everything else in this schema that refers to something:
-   * a part says `bindText: 'title'`, and renaming a part cannot break it.
-   */
-  bindText: { type: 'string' as const, required: false },
-  bindFill: { type: 'string' as const, required: false },
-  bindVisible: { type: 'string' as const, required: false },
-  /**
    * That this part is the **slot**: where a placement's own children go.
    *
    * Figma added slots because instance-swap could not say "put whatever you like here", and
@@ -664,7 +650,7 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
        * at the file sees what a placement of this can be asked for before seeing what it is
        * made of.
        */
-      content: 'componentVar* (scene | frame)*',
+      content: '(componentVar | componentBind)* (scene | frame)*',
       attrs: {
         id: { type: 'string' as const, required: true },
         /**
@@ -749,6 +735,47 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
         choices: { type: 'array' as const, required: false },
         /** What a placement gets when it says nothing. */
         value: { type: 'string' as const, required: false }
+      }
+    },
+
+    /**
+     * One **binding**: which piece of this definition takes which variable, and in what.
+     *
+     * ## Why a node rather than an attribute on the part
+     *
+     * It *was* three attributes on every canvas node — `bindText`, `bindFill`, `bindVisible` — and
+     * measured against what a variable is for, that is exactly three things a variable can drive.
+     * A `number` could only ever be text: a corner radius, a frame's gap, a badge's opacity were
+     * out of reach, and the way to reach them was to keep adding attributes to the *shared* canvas
+     * vocabulary, where each one costs an exemption in every product that does not read it.
+     *
+     * Figma's shape is a map on the node (`boundVariables`), and this schema has refused a map
+     * three times for one reason: a value nothing can check is the fault it keeps finding. A
+     * declaration made of nodes is checkable — the same argument that made `componentVar` and
+     * `componentValue` nodes — and it costs nothing per attribute, so a variable can drive
+     * anything a part declares.
+     *
+     * ## The three fields
+     *
+     * `part` is a durable `partId` **anywhere inside the definition**, so a nested piece can be
+     * bound and not only a top-level part. `var` is the variable's name. `attr` is the attribute
+     * to write — or the reserved word **`text`**, because the words in a part are its *content*
+     * rather than an attribute, and a `text` attribute on every shape would be a schema lying
+     * about what a text frame is.
+     *
+     * Nothing validates `attr` against the part here, and that is deliberate: a content model
+     * cannot see across to another node's declared attributes. The **panel** offers only what the
+     * part declares and the **command** refuses the rest, which is where that check can actually
+     * be made.
+     */
+    componentBind: {
+      name: 'componentBind',
+      group: 'componentBind',
+      atom: true,
+      attrs: {
+        part: { type: 'string' as const, required: true },
+        attr: { type: 'string' as const, required: true },
+        var: { type: 'string' as const, required: true }
       }
     },
 

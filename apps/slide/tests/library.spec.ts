@@ -208,8 +208,12 @@ test.describe('a component from another deck', () => {
       fromId: 'metric-card',
       recorded: true
     });
-    // Its variables and its parts came with it: four declarations and five parts.
-    expect(here.parts).toBe(9);
+    /*
+     * Everything the definition is came with it: four variables, four bindings and five parts. The
+     * bindings are the card's own declarations now (canvas-model §10g-2) — which is why this number
+     * grew by four the day a variable stopped being limited to three things.
+     */
+    expect(here.parts).toBe(13);
   });
 
   test('says when the deck it came from has moved on, and brings the newer copy', async ({
@@ -244,7 +248,15 @@ test.describe('a component from another deck', () => {
       const file = JSON.parse(kept.text);
       const library = file.document.content.find((one: any) => one.stype === 'components');
       // The card's back, a different colour there now.
-      library.content[0].content[4].attributes.fill = '#ff0000';
+      /*
+       * Found by what it *is* rather than by where it sits: the card's declarations grew when the
+       * bindings became the definition's own, and an index into its children is a test that quietly
+       * edits the wrong node the day that changes.
+       */
+      const back = library.content[0].content.find(
+        (one: any) => one.stype === 'rectangle' && one.attributes?.partId === 'back'
+      );
+      back.attributes.fill = '#ff0000';
       kept.text = JSON.stringify(file);
       db.transaction('decks', 'readwrite').objectStore('decks').put(kept);
       await new Promise((resolve) => setTimeout(resolve, 200));
@@ -330,7 +342,15 @@ test.describe('a library where the reader is looking', () => {
       });
       const file = JSON.parse(kept.text);
       const library = file.document.content.find((one: any) => one.stype === 'components');
-      library.content[0].content[4].attributes.fill = '#00aa00';
+      /*
+       * Found by what it *is* rather than by where it sits: the card's declarations grew when the
+       * bindings became the definition's own, and an index into its children is a test that quietly
+       * edits the wrong node the day that changes.
+       */
+      const back = library.content[0].content.find(
+        (one: any) => one.stype === 'rectangle' && one.attributes?.partId === 'back'
+      );
+      back.attributes.fill = '#00aa00';
       kept.text = JSON.stringify(file);
       db.transaction('decks', 'readwrite').objectStore('decks').put(kept);
       await new Promise((resolve) => setTimeout(resolve, 200));

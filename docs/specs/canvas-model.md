@@ -1549,6 +1549,118 @@ Two faults of the same shape, found by using it: the answer existed and was **on
   row offers the library's names, and keeps 직접 입력 for an address — because `goToDeck` is both, and
   which one it is depends on the machine (§11i).
 
+### 10g. How far this goes: what maps to Figma, what maps to PowerPoint, what we refuse
+
+Worth writing down before the next change, because the concepts this section has been adding —
+components, variables, a slot, jumps, a brand kit — are **not in a traditional presentation tool**,
+and half of them are in a design tool. So the question "how far do we go" has to be answered
+deliberately rather than by drifting toward whichever tool is being copied that week.
+
+#### What each of our ideas already is, in the other two tools
+
+| ours | PowerPoint / Keynote | Figma |
+| --- | --- | --- |
+| `role` + layout/master cascade (§3) | **the whole mechanism** — placeholders in a layout | nothing; Figma has no placeholder idea |
+| `theme` slots (`theme:accent1`) | theme colours — the same idea, same place | **variable modes**, at collection scope rather than document scope |
+| `component` / `instance` | nothing | components / instances |
+| `componentVar` (text, colour, number, boolean, choice) | nothing | **component properties** (text, boolean, instance-swap) *plus* **variables** (string, colour, number, boolean) |
+| `slot` (a frame part) | nothing | slots (added late, and to escape instance-swap) |
+| `goTo` / `goToKind` (§11) | **action settings / hyperlinks**, and "advance on click of object only" | prototyping flows |
+| `advance: links` (§11g) | kiosk browsing with click-advance off | prototype-only navigation |
+| deck library + brand kit (§10f, §11i) | nothing (a template file, at best) | team libraries |
+
+Two things fall out of that table and both are load-bearing.
+
+**We already have both worlds, and they must not collide.** A layout's placeholder and a card's
+variable are two answers to *"the text that varies"*, and they are for different questions: a
+placeholder is *this deck's* structure (every page has a title), a variable is *this component's*
+interface (every card has a number). The rule is the one this document already follows for
+formatting: a placeholder is matched by **role** and inherited by a page; a variable is **named**
+and answered by a placement. Nothing should ever resolve one through the other.
+
+**The theme is our mode system.** Figma's variable modes exist because a colour has to mean one
+thing in a light frame and another in a dark one. A deck already answers that at deck level, and a
+colour variable whose default is `theme:accent1` (§10b-10) composes the two: the card follows the
+deck, the deck follows the theme. So *modes* are not a thing to add — they are a thing we have,
+one level up.
+
+#### What we deliberately do not take from Figma
+
+- **Variants (component sets).** A matrix of definitions keyed by variant properties. Figma added
+  component *properties* precisely because variants were being used for what a boolean or a choice
+  should do, and the matrix is the part practitioners complain about. Our answer for a state is a
+  `choice` variable bound to what it changes; the one thing variants do that this cannot is a
+  **structurally different** card per state, and the honest version of that is two definitions.
+- **Instance swap.** A property whose value is *another component*. Our placement holds real nodes
+  and a reader may already put anything in a slot, which is most of what swap is used for. Noted as
+  possible later; not needed to make a card usable.
+- **Bound variables everywhere** (a variable on any property of any node, at document scope). That
+  is a whole second data model — collections, scoping, aliasing between variables — and this
+  schema's answer is smaller on purpose: a variable belongs to a **component**, because that is
+  where "asked for" has a meaning. Deck-wide values are the theme's.
+
+#### What interop costs, when it comes
+
+Written now because it decides nothing today and will decide the shape of an exporter:
+
+- A **placement** flattens to a group: PowerPoint has no instance, so a `.pptx` export writes the
+  parts and loses the link. Which is survivable precisely *because* placements are materialised
+  (§10b-2) — the drawing is already plain nodes, so flattening is deleting an attribute rather than
+  resolving anything.
+- A **jump** is a PowerPoint *action setting*, which is a real round trip: `goTo` ↔ "hyperlink to
+  slide". `back`/`next`/`first`/`last` map to its own "previous/next/first/last slide" actions.
+- **Links only** is PowerPoint's "advance slide on mouse click" switched off, deck-wide.
+- A **layout/master** is the same idea in both, and the closest thing to a lossless part of a round
+  trip.
+- **Variables and the brand kit** have nowhere to go. An export loses them; an import cannot invent
+  them. That is the honest cost of being more than a slide deck, and the reason the exporter should
+  say what it dropped rather than pretend.
+
+#### 10g-2. So what does "variables, properly" mean here? A binding is a **declaration**
+
+Measured before deciding: a variable can drive exactly **three** things — the words, the fill, and
+whether a part is there — because there are exactly three attributes (`bindText`, `bindFill`,
+`bindVisible`). Which means a `number` variable can only ever be *text*: a card's corner radius, a
+frame's gap, a badge's opacity are all out of reach, and the way to reach them is to keep adding
+attributes to every canvas node in the shared schema — where each one costs an exemption in every
+product that does not read it (Word has three today).
+
+The industry shape is a **map on the node** (Figma's `boundVariables`), and this repository has
+refused a map three times for one reason: a value nothing can check is the fault it keeps finding.
+The way out is the one it has already taken twice — for `componentVar` and `componentValue` — which
+is that **a declaration made of nodes is checkable**:
+
+```
+component
+  componentVar   name=accent kind=color
+  componentBind  part=back attr=fill  var=accent
+  componentBind  part=back attr=cornerRadius var=round
+  rectangle      partId=back …
+```
+
+What that buys, and each of these was a real limit five minutes ago:
+
+- **Any attribute a part declares**, with no schema growth: `cornerRadius`, `opacity`, `gap`,
+  `strokeWidth`, a size. The panel offers what the part *declares* (it already asks the schema) and
+  the command refuses what it does not, so a binding cannot name an attribute nothing would read.
+- **Any piece of a definition**, not only its top-level parts: a bind names a durable `partId`, and
+  a nested node may carry one. (Which the attribute form did allow, by accident, and nothing said
+  so.)
+- **One list per card.** "What does this card bind" is a question a panel can answer, and a reader
+  can see that `accent` drives three things — which is the whole reason a variable beats editing
+  three copies.
+- **A placement's parts carry nothing.** The bindings live with the definition, so a copy is a plain
+  box again: no `bind*` attributes in the file, and no exemptions in the products that do not have
+  components.
+
+`attr` is an attribute name, or the reserved word **`text`** — because the words in a part are its
+*content* rather than an attribute, and pretending otherwise (a `text` attribute on every shape)
+would be a schema lying about what a text frame is.
+
+The three attributes are **removed** rather than kept alongside. The schema is not frozen (nothing
+outside this repository reads it yet), two ways to say one thing is the duplication this repository
+keeps finding, and the migration is the sample deck plus the tests that were written against it.
+
 ### 10c. Editing one: a **definition the reader opens**, not a place on a canvas
 
 Figma keeps a main component on the canvas, and it is worth being clear that this is not a

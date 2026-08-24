@@ -139,7 +139,15 @@ describe('a definition from another deck', () => {
       content: Array<{ stype: string; content: any[] }>;
     };
     const library = changed.content.find((one) => one.stype === 'components');
-    library!.content[0].content[4].attributes.fill = '#ff0000';
+    /*
+     * By what it *is* rather than by where it sits: the card's declarations grew (the bindings are
+     * the definition's now, §10g-2) and an index into its children was a test that quietly edited
+     * the wrong node the day that changed.
+     */
+    const back = library!.content[0].content.find(
+      (one: any) => one.stype === 'rectangle' && one.attributes?.partId === 'back'
+    );
+    back.attributes.fill = '#ff0000';
     expect(componentBehindSource(doc, card, accessOfTree(changed as never))).toBe(true);
   });
 

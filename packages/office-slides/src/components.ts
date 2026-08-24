@@ -70,6 +70,24 @@ export interface ComponentDef {
   parts: string[];
   /** What a placement of it can be asked for, in the order it declares them. */
   vars: ComponentVar[];
+  /**
+   * Which piece of it takes which variable, and in what.
+   *
+   * On the definition rather than on the parts, which is the correction §10g-2 makes: three
+   * attributes on every canvas node meant a variable could drive exactly three things, and a
+   * `number` could only ever be text. A declaration made of nodes costs nothing per attribute, so
+   * a variable can drive anything a part declares — and a placement's copies carry nothing at all.
+   */
+  binds: ComponentBind[];
+}
+
+/** One binding: a piece of the definition, an attribute (or `text`), and the variable it takes. */
+export interface ComponentBind {
+  /** A durable `partId` anywhere inside the definition — a nested piece may be bound too. */
+  part: string;
+  /** The attribute to write, or `text` for the words, which are content rather than an attribute. */
+  attr: string;
+  var: string;
 }
 
 /**
@@ -113,6 +131,24 @@ function componentVarsOf(doc: DeckAccess, definition: DeckNode): ComponentVar[] 
         : [],
       value: typeof node.attributes?.value === 'string' ? node.attributes.value : ''
     });
+  }
+  return found;
+}
+
+/** The bindings one definition declares, in document order. */
+function componentBindsOf(doc: DeckAccess, definition: DeckNode): ComponentBind[] {
+  const found: ComponentBind[] = [];
+  for (const sid of childrenOf(definition)) {
+    const node = doc.getNode(sid);
+    if (node?.stype !== 'componentBind') continue;
+    const part = node.attributes?.part;
+    const attr = node.attributes?.attr;
+    const name = node.attributes?.var;
+    // A binding missing any of its three is a binding nothing could follow, which is not one.
+    if (typeof part !== 'string' || !part) continue;
+    if (typeof attr !== 'string' || !attr) continue;
+    if (typeof name !== 'string' || !name) continue;
+    found.push({ part, attr, var: name });
   }
   return found;
 }
@@ -174,10 +210,14 @@ export function deckComponents(doc: DeckAccess): ComponentDef[] {
          * A declaration is not a part: nothing copies it into a placement, nothing pairs it by
          * `partId`, and counting it as one would make every placement look one part behind.
          */
-        parts: childrenOf(definition).filter(
-          (child) => doc.getNode(child)?.stype !== 'componentVar'
-        ),
-        vars: componentVarsOf(doc, definition)
+        parts: childrenOf(definition).filter((child) => {
+          const stype = doc.getNode(child)?.stype;
+          // A declaration is not a part: nothing copies it into a placement, and counting one
+          // would make every placement look a part behind.
+          return stype !== 'componentVar' && stype !== 'componentBind';
+        }),
+        vars: componentVarsOf(doc, definition),
+        binds: componentBindsOf(doc, definition)
       });
     }
   }
@@ -849,43 +889,67 @@ export function instanceSlot(
 }
 
 /**
- * What a part **binds**, and what that turns into once a placement's values are known.
+ * What a part **takes**, once a placement's values are known.
  *
- * Substituted here, when the definition is applied, and *not* when the placement is drawn —
- * for exactly the reason the parts themselves are copied: a template cannot draw a foreign
- * node (§10b-2), so the drawing stays plain and every reader of the document sees the value
- * that is really there. A renderer resolving a binding would also mean a placement's text
- * could not be searched, spell-checked or measured without the definition in hand.
+ * Substituted here, when the definition is applied, and *not* when the placement is drawn — for
+ * exactly the reason the parts themselves are copied: a template cannot draw a foreign node
+ * (§10b-2), so the drawing stays plain and every reader of the document sees the value that is
+ * really there. A renderer resolving a binding would also mean a placement's text could not be
+ * searched, spell-checked or measured without the definition in hand.
+ *
+ * The bindings arrive from the **definition** and are matched to a node by its durable `partId`,
+ * which is why a nested piece can be bound: it only has to have a name.
  */
-function bindValues(node: DeckNode, values: Map<string, string>): DeckNode {
+function bindValues(
+  node: DeckNode,
+  values: Map<string, string>,
+  binds: ComponentBind[]
+): DeckNode {
   const attrs = { ...((node.attributes ?? {}) as Record<string, unknown>) };
   let next: DeckNode & { text?: string; content?: unknown } = { ...node };
 
-  const named = (key: string): string | undefined => {
-    const name = attrs[key];
-    if (typeof name !== 'string' || name.length === 0) return undefined;
-    return values.get(name);
-  };
+  const partId = typeof attrs.partId === 'string' ? attrs.partId : undefined;
+  const mine = partId ? binds.filter((bind) => bind.part === partId) : [];
 
-  const fill = named('bindFill');
-  if (fill !== undefined && fill.length > 0) attrs.fill = fill;
+  for (const bind of mine) {
+    const value = values.get(bind.var);
+    if (value === undefined) continue;
 
-  const visible = named('bindVisible');
-  if (visible !== undefined) {
+    if (bind.attr === 'text') {
+      next = { ...next, ...withText(next, value) };
+      continue;
+    }
+
     /**
-     * A state, written as the string the schema keeps every value in.
+     * A **boolean** written as the falsy half only.
      *
-     * `false`, empty and `0` are the same answer: the part is not there. Only `visible: false`
-     * is written when it is hidden — a `visible: true` beside no `visible` at all is the same
-     * drawing, which is the asymmetry the conformance probe found in every boolean.
+     * `visible: true` beside no `visible` at all is the same drawing — the asymmetry the
+     * conformance probe finds in every boolean — so an "off" writes `false` and an "on" removes the
+     * attribute rather than writing a value the renderer cannot tell from absent.
      */
-    const off = visible === 'false' || visible === '' || visible === '0';
-    if (off) attrs.visible = false;
-    else delete attrs.visible;
-  }
+    if (value === 'false' || value === 'true') {
+      const off = value === 'false';
+      /*
+       * Which half is "off" depends on the attribute: `visible: false` hides a part, and there is
+       * no attribute here for which `true` is the quiet answer — so the rule is stated as it is
+       * rather than guessed per name.
+       */
+      if (off) attrs[bind.attr] = false;
+      else delete attrs[bind.attr];
+      continue;
+    }
 
-  const text = named('bindText');
-  if (text !== undefined) next = { ...next, ...withText(next, text) };
+    /**
+     * A **number** kept as a number, when the attribute is one.
+     *
+     * The document keeps a variable's value as a string, on purpose — one shape to write, one to
+     * diff, one to check (`componentValue`) — and an attribute that means a length has to be a
+     * number or every reader of it would have to parse. So the conversion happens exactly here,
+     * at the one place a value becomes an attribute.
+     */
+    const asNumber = Number(value);
+    attrs[bind.attr] = value.trim() !== '' && Number.isFinite(asNumber) ? asNumber : value;
+  }
 
   const children = childrenOf(node);
   if (children.length > 0 && Array.isArray((node as { content?: unknown }).content)) {
@@ -894,7 +958,7 @@ function bindValues(node: DeckNode, values: Map<string, string>): DeckNode {
     if (content.length > 0 && typeof content[0] === 'object') {
       next = {
         ...next,
-        content: content.map((child) => bindValues(child as DeckNode, values))
+        content: content.map((child) => bindValues(child as DeckNode, values, binds))
       } as never;
     }
   }
@@ -922,6 +986,23 @@ function withText(node: DeckNode, text: string): Partial<DeckNode> & { text?: st
   return { content: [{ ...first, ...rest }] } as never;
 }
 
+/** A copy with the definition's own names for its inner pieces taken out. */
+function withoutNestedPartIds(node: DeckNode, depth = 0): DeckNode {
+  if (depth > 24) return node;
+  const content = (node as { content?: unknown }).content;
+  const kids = Array.isArray(content) && typeof content[0] === 'object' ? (content as DeckNode[]) : [];
+  if (kids.length === 0) return node;
+
+  return {
+    ...node,
+    content: kids.map((child) => {
+      const attrs = { ...((child.attributes ?? {}) as Record<string, unknown>) };
+      delete attrs.partId;
+      return withoutNestedPartIds({ ...child, attributes: attrs }, depth + 1);
+    })
+  } as never;
+}
+
 /**
  * A definition part, ready to be put in a placement.
  *
@@ -938,14 +1019,32 @@ export function partCopy(
    * Optional, because a definition that declares none needs none — and a copy made without
    * them is a copy that still draws the definition's own defaults rather than an empty box.
    */
-  values?: Map<string, string>
+  values?: Map<string, string>,
+  /**
+   * What the definition binds, so this copy can take it.
+   *
+   * Handed in rather than read from the part, which is §10g-2's correction: the bindings live with
+   * the **definition** now, so a copy carries none and a variable can drive anything a part
+   * declares rather than the three things three attributes allowed.
+   */
+  binds: ComponentBind[] = []
 ): DeckNode | undefined {
   const plain = copyOf(doc, origin);
-  const copy = plain && values && values.size > 0 ? bindValues(plain, values) : plain;
+  const copy =
+    plain && values && values.size > 0 && binds.length > 0
+      ? bindValues(plain, values, binds)
+      : plain;
   const id = partIdOf(doc, origin);
   if (!copy || !id) return undefined;
 
-  const attributes = { ...(copy.attributes ?? {}) };
+  /*
+   * The nested names go too. A `partId` inside a copy is the *definition's* name for that piece —
+   * it is what a binding matches on, and apply reads the binding from the definition — so leaving
+   * them in a placement would be two boxes claiming to be the same piece, which is the fault the
+   * top-level one was stripped for.
+   */
+  const cleaned = withoutNestedPartIds(copy);
+  const attributes = { ...(cleaned.attributes ?? {}) };
   // The copy points at the original's durable name and does not carry it: two boxes claiming
   // to *be* the same part is how a definition ends up pointing at a placement.
   delete attributes.partId;
@@ -962,7 +1061,7 @@ export function partCopy(
    * A slot records only itself (`'own'`), because what goes inside it is the reader's by
    * design — see `ApplyPlan.rewrite`.
    */
-  const written: DeckNode = { ...copy, attributes: { ...attributes, partOf: id } };
+  const written: DeckNode = { ...cleaned, attributes: { ...attributes, partOf: id } };
   const scope = slotNameOf(doc, origin) ? 'own' : 'all';
   return {
     ...written,

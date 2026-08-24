@@ -280,7 +280,17 @@ describe('a part bound to a variable', () => {
         sid: 'card',
         stype: 'component',
         attributes: { id: 'card', name: '카드' },
-        content: ['v-title', 'v-accent', 'v-badge', 'def-title', 'def-badge', 'def-items']
+        content: [
+          'v-title',
+          'v-accent',
+          'v-badge',
+          'b-title',
+          'b-accent',
+          'b-badge',
+          'def-title',
+          'def-badge',
+          'def-items'
+        ]
       },
       'v-title': { sid: 'v-title', stype: 'componentVar', attributes: { name: 'title', value: '제목' } },
       'v-accent': {
@@ -293,19 +303,34 @@ describe('a part bound to a variable', () => {
         stype: 'componentVar',
         attributes: { name: 'showBadge', kind: 'boolean', value: 'true' }
       },
+      /*
+       * The bindings are the **definition's**, not the part's: three attributes on a part meant a
+       * variable could drive exactly three things, and a `number` could only ever be text (§10g-2).
+       */
+      'b-title': {
+        sid: 'b-title',
+        stype: 'componentBind',
+        attributes: { part: 'title', attr: 'text', var: 'title' }
+      },
+      'b-accent': {
+        sid: 'b-accent',
+        stype: 'componentBind',
+        attributes: { part: 'title', attr: 'fill', var: 'accent' }
+      },
+      'b-badge': {
+        sid: 'b-badge',
+        stype: 'componentBind',
+        attributes: { part: 'badge', attr: 'visible', var: 'showBadge' }
+      },
       'def-title': {
         sid: 'def-title',
         stype: 'textFrame',
-        attributes: { partId: 'title', bindText: 'title', bindFill: 'accent' },
+        attributes: { partId: 'title' },
         content: ['def-line']
       },
       'def-line': { sid: 'def-line', stype: 'paragraph', attributes: { fontSize: 44 }, content: ['def-run'] },
       'def-run': { sid: 'def-run', stype: 'inline-text', attributes: {}, text: '제목' },
-      'def-badge': {
-        sid: 'def-badge',
-        stype: 'rectangle',
-        attributes: { partId: 'badge', bindVisible: 'showBadge' }
-      },
+      'def-badge': { sid: 'def-badge', stype: 'rectangle', attributes: { partId: 'badge' } },
       'def-items': {
         sid: 'def-items',
         stype: 'frame',
@@ -344,7 +369,7 @@ describe('a part bound to a variable', () => {
 
   it('draws the value and nothing else', () => {
     const access = bound();
-    const copy = partCopy(access, 'def-title', values(access)) as never as {
+    const copy = partCopy(access, 'def-title', values(access), deckComponents(access)[0].binds) as never as {
       content: [{ attributes: Record<string, unknown>; content: [{ text: string }] }];
     };
     // The first run's formatting is kept — the definition's font survives — and the rest go.
@@ -356,7 +381,7 @@ describe('a part bound to a variable', () => {
 
   it('takes a colour by name, so one decision is not three copies', () => {
     const access = bound();
-    const copy = partCopy(access, 'def-title', values(access)) as never as {
+    const copy = partCopy(access, 'def-title', values(access), deckComponents(access)[0].binds) as never as {
       attributes: Record<string, unknown>;
     };
     expect(copy.attributes.fill).toBe('#111111');
@@ -364,7 +389,7 @@ describe('a part bound to a variable', () => {
 
   it('is not there when its state says so, and writes only the falsy half', () => {
     const access = bound();
-    const off = partCopy(access, 'def-badge', values(access)) as never as {
+    const off = partCopy(access, 'def-badge', values(access), deckComponents(access)[0].binds) as never as {
       attributes: Record<string, unknown>;
     };
     // `visible: true` beside no `visible` at all is the same drawing — the asymmetry the
@@ -374,7 +399,7 @@ describe('a part bound to a variable', () => {
       name: 'showBadge',
       value: 'true'
     };
-    const on = partCopy(access, 'def-badge', values(access)) as never as {
+    const on = partCopy(access, 'def-badge', values(access), deckComponents(access)[0].binds) as never as {
       attributes: Record<string, unknown>;
     };
     expect('visible' in on.attributes).toBe(false);

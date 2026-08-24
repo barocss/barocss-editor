@@ -1451,6 +1451,27 @@ export function registerSlidesRenderers(): void {
     } as never)
   );
 
+  /**
+   * A **binding**, drawn as nothing — like the variable it names.
+   *
+   * A declaration is not something to look at on a canvas: what it says belongs in a panel, beside
+   * the part it is about. Drawn at all for the sid map, which is the reason every hidden thing here
+   * is drawn.
+   */
+  define(
+    'componentBind',
+    element('span', {
+      className: 'sl-bind',
+      style: { display: 'none' },
+      'data-bind-part': (d: NodeData) =>
+        typeof attrsOf(d).part === 'string' ? attrsOf(d).part : undefined,
+      'data-bind-attr': (d: NodeData) =>
+        typeof attrsOf(d).attr === 'string' ? attrsOf(d).attr : undefined,
+      'data-bind-var': (d: NodeData) =>
+        typeof attrsOf(d).var === 'string' ? attrsOf(d).var : undefined
+    } as never)
+  );
+
   /** What one placement answers. Hidden for the same reason, and read by the same panel. */
   define(
     'componentValue',

@@ -203,17 +203,6 @@ const schema = createSchema('word', getWordSchemaDefinition());
       ratchet: { 'every-attribute-is-read': 184 },
 
       exempt: {
-        /**
-         * ── A component's bindings, declared by the suite ──────────────────
-         *
-         * Read by Slides at **apply** — `partCopy` writes the placement's value into its copy
-         * of the part — and by nothing here, because Word has no library. Declared on the
-         * shared canvas attributes rather than in the slides schema because the component
-         * model is the suite's: `component` and `instance` are in the office schema that both
-         * products read, and splitting the bindings out would mean naming every canvas node
-         * type twice.
-         */
-        bindText: 'components — substituted at apply by Slides’ `partCopy`; Word has no library',
         /*
          * What a child asks of the frame that arranges it. Read by `layoutChildren` in this
          * package — the canvas is Word's, and a frame is reachable through `canvasBlock` — and a
@@ -242,8 +231,6 @@ const schema = createSchema('word', getWordSchemaDefinition());
           'a page’s durable name, so a button can point at it across a save (`slideById`). Nothing in a Word document points at a page, and nothing in either product’s drawing reads it',
         layoutStretch: 'the arrangement — `layoutChildren` gives a stretched child the frame’s room across the axis',
         layoutGrow: 'the arrangement — the same, sharing what is left along the axis',
-        bindFill: 'the same, for a colour used in more than one place',
-        bindVisible: 'the same, for a state — and only the falsy half is ever written',
         slot:
           'components — where a reader’s own boxes go inside a placement, read by `componentApplyPlan` so apply does not take them out. Word has no library',
 
@@ -452,6 +439,15 @@ const schema = createSchema('word', getWordSchemaDefinition());
         component: 'a definition; Word has no library',
         componentVar: 'what a placement of a definition can be asked for; Word has no definitions',
         componentValue: 'what one placement answers; the same',
+        /**
+         * Which piece of a definition takes which variable.
+         *
+         * A **declaration node** rather than attributes on the parts, which is what took three
+         * exemptions off this list: `bindText`, `bindFill` and `bindVisible` were on every canvas
+         * node in the shared vocabulary and read by nothing here. A variable can now drive anything
+         * a part declares, and Word exempts one node type instead of three attributes.
+         */
+        componentBind: 'which piece of a definition takes which variable; Word has no definitions',
 
         // ── Where the inherited write-offs went ────────────────────────────
         // Twenty-three lines used to sit here: thirteen marked `BUG:` — a

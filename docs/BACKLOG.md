@@ -557,6 +557,26 @@ shipped features marked undone.
 
 
 
+- [x] **A variable could drive exactly three things.** Measured: `bindText`/`bindFill`/`bindVisible`
+  were three attributes on every canvas node, so a `number` could only ever be text and a card's
+  corner radius, a frame's gap and a badge's opacity were unreachable — and the only way to reach
+  them was more attributes in the *shared* vocabulary, each costing an exemption in every product
+  that does not read it (Word had three). A binding is a **declaration node** on the definition
+  now (canvas-model §10g-2): any attribute a part declares, any named piece however deep, one list
+  per card, nothing on the placement's copies, and three exemptions off Word's list. The panel
+  offers what the part declares and the command refuses the rest, which is the check a content
+  model cannot make.
+
+  Two things fell out of it. A placement is now created with the card's **defaults** substituted —
+  an empty value map meant the bindings were skipped, which only looked right while they lived on
+  the parts and the author had written the same words twice. And a `number` variable becomes a
+  **number** where it lands, because the document keeps a variable's value as a string (one shape to
+  write, diff and check) and an attribute that means a length has to be one.
+
+- [ ] **Variants, instance swap and document-wide variables** are deliberately not taken from
+  Figma; the reasons are in canvas-model §10g. Worth revisiting only with a measurement: a card that
+  genuinely needs a *structurally* different shape per state is the case a `choice` cannot cover.
+
 **Still open and not in a phase**
 
 - [ ] **Per-level formatting** for a body placeholder: PowerPoint formats by

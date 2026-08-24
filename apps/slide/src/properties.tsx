@@ -1964,6 +1964,19 @@ function ComponentGroup({
               disabled={locked}
               onChange={(next) => set(one.name, next)}
             />
+          ) : one.kind === 'number' ? (
+            /*
+             * A number, in a field for numbers — with the arrows and the keyboard a reader expects.
+             * It was a text box, which is what the document keeps (one string shape to write, diff
+             * and check) and not what a reader should be typing into.
+             */
+            <PropertyNumber
+              ariaLabel={one.label}
+              value={Number(one.value) || 0}
+              step={1}
+              disabled={locked}
+              onCommit={(next) => set(one.name, String(next))}
+            />
           ) : one.kind === 'choice' ? (
             <PropertyChoice
               ariaLabel={one.label}
@@ -2020,21 +2033,24 @@ function ComponentGroup({
 }
 
 /**
- * What one part of a definition takes, and whether it is the slot.
+ * What one **piece** of a definition takes from the card's variables, and whether it is the slot.
  *
- * ## Why this is a different panel from the placement's
+ * ## Why the rows are the part's own attributes
  *
- * A placement's group answers "what is this card asked for **here**"; this one answers "which
- * of the card's variables does *this box* take". Two questions, and the reader has selected a
- * different thing in each case — a card, or a rectangle inside one.
+ * It was three rows — 글자, 색, 표시 — because there were three attributes on the part
+ * (`bindText`, `bindFill`, `bindVisible`), which is exactly three things a variable could drive: a
+ * `number` could only ever be text, and a card's corner radius was unreachable. The bindings are
+ * the **definition's** declarations now (canvas-model §10g-2), so what a piece can take is *what it
+ * declares* — and this panel already knows how to ask that.
  *
- * ## Why only some rows are offered
+ * Offered here, refused in the command: a content model cannot see across to another node's
+ * attributes, so "can this piece take that attribute" is checked where the schema is in hand.
  *
- * The same rule the rest of this panel follows: draw a control only for what the node actually
- * has. A rectangle bound to a **text** variable would take a value nothing could substitute
- * (`bindText` writes into the part's runs, and a rectangle has none), and a slot is an ordinary
- * `frame` because the arrangement inside it is the frame's — which is the whole reason the
- * marker buys one sentence rather than a second layout system (canvas-model §10b-8).
+ * ## Which variables each row offers
+ *
+ * The ones whose **kind fits**. A colour attribute offered a boolean would be a control that can
+ * only produce a value nothing draws — and the kinds are the schema's own, which is what makes this
+ * a filter rather than an opinion.
  */
 function PartGroup({
   editor,
@@ -2047,90 +2063,128 @@ function PartGroup({
   locked: boolean;
   tick: number;
 }) {
-  const { vars, stype, attrs, inside } = useMemo(() => {
+  const { vars, binds, part, stype, attrs, definition, declares } = useMemo(() => {
     const store = (editor as any)?.dataStore;
     const rootId = (editor as any)?.getRootId?.();
-    if (!store || !rootId) return { vars: [], stype: undefined, attrs: {}, inside: undefined };
+    const nothing = {
+      vars: [] as ReturnType<typeof deckComponents>[number]['vars'],
+      binds: [] as ReturnType<typeof deckComponents>[number]['binds'],
+      part: undefined as string | undefined,
+      stype: undefined as string | undefined,
+      attrs: {} as Record<string, unknown>,
+      definition: undefined as string | undefined,
+      declares: [] as string[]
+    };
+    if (!store || !rootId) return nothing;
+
     const doc = { rootId, getNode: (one: string) => store.getNode(one) };
     const owner = definitionAt(doc as never, sid);
-    const found = owner
-      ? deckComponents(doc as never).find((one) => one.sid === owner)
-      : undefined;
+    const found = owner ? deckComponents(doc as never).find((one) => one.sid === owner) : undefined;
+    if (!found) return nothing;
+
     const node = store.getNode(sid);
+    const schema = store.getActiveSchema?.();
+    const declared = schema?.getNodeType?.(node?.stype ?? '')?.attrs ?? {};
+
     return {
-      vars: found?.vars ?? [],
+      vars: found.vars,
+      binds: found.binds,
+      /*
+       * A piece is named by its own durable `partId`, which is what a binding matches — and which a
+       * nested piece may have too, so a row inside a card's frame is bindable like any other.
+       */
+      part: typeof node?.attributes?.partId === 'string' ? node.attributes.partId : undefined,
       stype: node?.stype as string | undefined,
       attrs: (node?.attributes ?? {}) as Record<string, unknown>,
-      inside: owner
+      definition: found.id,
+      /**
+       * The attributes worth offering: what the part declares, less the ones a binding would be
+       * nonsense on.
+       *
+       * Its **place** is the arrangement's or the reader's drag, its identity is not a value, and
+       * its bindings are these rows — so those are out. Everything else a part declares is fair,
+       * which is the whole point of the change: a card's corner radius, a frame's gap, a badge's
+       * opacity.
+       */
+      declares: Object.keys(declared).filter(
+        (name) => !OFF_LIMITS.has(name)
+      )
     };
   }, [editor, sid, tick]);
 
-  // Not inside a definition: nothing here means anything.
-  if (!inside) return null;
+  // Not inside a definition, or a piece with no durable name: nothing here can be said about it.
+  if (!definition) return null;
 
-  const bind = (payload: Record<string, unknown>) =>
-    void (editor as any)?.executeCommand?.('bindComponentPart', { nodeId: sid, ...payload });
+  const bind = (attr: string, name: string | null) =>
+    void (editor as any)?.executeCommand?.('setComponentBind', {
+      componentId: definition,
+      part,
+      attr,
+      var: name
+    });
 
-  /** The variables of a kind, plus "takes nothing" — which is how a binding is cleared. */
-  const options = (kinds: string[]) => [
-    { id: '', label: '없음' },
-    ...vars
-      .filter((one) => kinds.includes(one.kind))
-      .map((one) => ({ id: one.name, label: one.label || one.name }))
+  /** What a row shows now: the variable bound to that attribute, if any. */
+  const bound = (attr: string) =>
+    binds.find((one) => one.part === part && one.attr === attr)?.var ?? '';
+
+  /** The variables whose kind fits an attribute of this shape. */
+  const fitting = (attr: string) => {
+    const kinds =
+      attr === 'text'
+        ? ['text', 'number', 'choice']
+        : COLOUR_ATTRS.has(attr)
+          ? ['color', 'text']
+          : BOOLEAN_ATTRS.has(attr)
+            ? ['boolean']
+            : ['number', 'text'];
+    return [
+      { id: '', label: '없음' },
+      ...vars.filter((one) => kinds.includes(one.kind)).map((one) => ({ id: one.name, label: one.label || one.name }))
+    ];
+  };
+
+  /**
+   * The rows, in the order a reader thinks about a card: its words, then how it looks, then whether
+   * it is there. Only what this piece actually declares, plus `text` for the ones that hold words.
+   */
+  const rows = [
+    ...(stype === 'textFrame' || stype === 'sticky' ? ['text'] : []),
+    ...declares.filter((name) => name !== 'text')
   ];
 
-  const holdsText = stype === 'textFrame' || stype === 'sticky';
-  const holdsFill = 'fill' in attrs || stype !== 'line';
-
   return (
-    <PropertyGroup label="컴포넌트 부품">
-      {vars.length === 0 ? (
-        <PropertyRow label="변수">
-          {/* Said rather than left blank: an empty group looks like a broken one. */}
-          <span className="sl-part-none">이 컴포넌트에는 아직 변수가 없습니다</span>
-        </PropertyRow>
-      ) : (
-        <>
-          {holdsText && (
-            <PropertyRow label="글자">
-              <PropertyChoice
-                ariaLabel="글자"
-                value={typeof attrs.bindText === 'string' ? attrs.bindText : ''}
-                options={options(['text', 'number', 'choice'])}
-                disabled={locked}
-                onChange={(name) => bind({ bindText: name })}
-              />
-            </PropertyRow>
-          )}
-          {holdsFill && (
-            <PropertyRow label="색">
-              <PropertyChoice
-                ariaLabel="색"
-                value={typeof attrs.bindFill === 'string' ? attrs.bindFill : ''}
-                options={options(['color', 'text'])}
-                disabled={locked}
-                onChange={(name) => bind({ bindFill: name })}
-              />
-            </PropertyRow>
-          )}
-          <PropertyRow label="표시">
+    <PropertyGroup label={`컴포넌트 부품${part ? ` · ${part}` : ''}`}>
+      {!part && (
+        <PropertyEmpty>
+          이 조각에는 이름이 없습니다. 컴포넌트의 부품에만 변수를 연결할 수 있습니다.
+        </PropertyEmpty>
+      )}
+
+      {part && vars.length === 0 && (
+        <PropertyEmpty>
+          이 컴포넌트에는 아직 변수가 없습니다. 왼쪽 컴포넌트 목록에서 만들 수 있습니다.
+        </PropertyEmpty>
+      )}
+
+      {part &&
+        vars.length > 0 &&
+        rows.map((attr) => (
+          <PropertyRow key={attr} label={LABELS[attr] ?? attr}>
             <PropertyChoice
-              ariaLabel="표시"
-              value={typeof attrs.bindVisible === 'string' ? attrs.bindVisible : ''}
-              options={options(['boolean'])}
+              ariaLabel={`${LABELS[attr] ?? attr} 변수`}
+              value={bound(attr)}
+              options={fitting(attr)}
               disabled={locked}
-              onChange={(name) => bind({ bindVisible: name })}
+              onChange={(name) => bind(attr, name || null)}
             />
           </PropertyRow>
-        </>
-      )}
+        ))}
 
       {stype === 'frame' && (
         <PropertyRow label="슬롯">
           {/*
-            * Named after the part itself, so a definition may have two and neither has to be
-            * named by hand. What the marker says: a placement's own things go **in** this,
-            * and apply rewrites the frame while keeping what the reader put inside it.
+            * Not a binding, and never was: it says where a reader's own things go. It was in the
+            * same command as the bindings only because both were attributes on a part.
             */}
           <PropertyToggle
             ariaLabel="슬롯"
@@ -2138,7 +2192,10 @@ function PartGroup({
             value={typeof attrs.slot === 'string' && attrs.slot.length > 0}
             disabled={locked}
             onChange={(on) =>
-              bind({ slot: on ? (typeof attrs.partId === 'string' ? attrs.partId : 'slot') : null })
+              void (editor as any)?.executeCommand?.('setComponentSlot', {
+                nodeId: sid,
+                slot: on ? part ?? 'slot' : null
+              })
             }
           />
         </PropertyRow>
@@ -2146,6 +2203,51 @@ function PartGroup({
     </PropertyGroup>
   );
 }
+
+/**
+ * What a binding would be nonsense on.
+ *
+ * A piece's **place** is the arrangement's or the reader's drag (§5), its durable names are identity
+ * rather than values, and its own bindings are the rows above — so none of those is a thing a
+ * variable can drive.
+ */
+const OFF_LIMITS = new Set([
+  'x',
+  'y',
+  'partId',
+  'partOf',
+  'appliedFrom',
+  'slot',
+  'name',
+  'role',
+  'locked',
+  'componentId',
+  'goTo',
+  'goToKind',
+  'goToDeck'
+]);
+
+/** The attributes a colour variable belongs in, and the ones a boolean does. */
+const COLOUR_ATTRS = new Set(['fill', 'stroke', 'shadowColor']);
+const BOOLEAN_ATTRS = new Set(['visible', 'clipsContent', 'layoutStretch', 'flipH', 'flipV']);
+
+/** The reader's word for an attribute, where the schema's name is not one. */
+const LABELS: Record<string, string> = {
+  text: '글자',
+  fill: '색',
+  stroke: '선 색',
+  strokeWidth: '선 굵기',
+  visible: '표시',
+  opacity: '투명도',
+  cornerRadius: '둥근 정도',
+  rotation: '회전',
+  width: '너비',
+  height: '높이',
+  gap: '간격',
+  padding: '안쪽 여백',
+  layoutStretch: '가득',
+  layoutGrow: '늘리기'
+};
 
 function labelFor(stype: string, role?: string): string {
   if (role === 'title') return '제목 상자';
