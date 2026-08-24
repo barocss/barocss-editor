@@ -9,6 +9,7 @@ import {
 import { KNOWN_EFFECT_IDS, NOT_ADDITIVE, categoryOf, propertiesOf } from './motion-effects';
 /** Naming lives with the kinds table — see `layers.ts`. */
 import { labelOfBox } from './layers';
+import { isSceneType } from './selection';
 import { DEFAULT_STAGGER, TEXT_UNITS, unitCount, unitSpan, type TextUnit } from './text-units';
 import { FACINGS, pathPointsOf, type Facing, type PathPoint } from './motion-path';
 import { trimOf, trimmedLength, type MediaTrim } from './media-trim';
@@ -171,14 +172,47 @@ const attrNumber = (node: DeckNode | undefined, key: string, fallback: number): 
 };
 
 
-/** Every box on a slide, by the name it carries — the map a step is read through. */
+/**
+ * Every **box** on a slide, by the name it carries — the map a step is read through.
+ *
+ * ## Only a box, and that was measured
+ *
+ * It read `name` off every node it walked, and on the sample deck's cards slide that offered a
+ * reader four things to animate that are not boxes at all: `title`, `value`, `showBadge` and
+ * `accent` — a placement's **answers** (`componentValue` nodes, whose `name` says which variable
+ * they answer) — and the **slide itself**, because the walk starts at the surface and a slide has a
+ * name too.
+ *
+ * A step naming one of those animates nothing, silently. Which is the fault this repository keeps
+ * finding in one shape: a walk that reads an attribute off whatever it happens to be standing on.
+ * `isSceneType` is the one list of what a canvas places, and asking it is the fix.
+ *
+ * ## What a card's parts cannot do, and why the list stops there
+ *
+ * A placement is offered — it is a box, and animating a card as a whole is an ordinary thing to
+ * want. Its **parts** are not: they are the definition's and are resolved at draw time (§10b-2a), so
+ * naming one from a slide's track would name a thing the document does not have. Two placements of
+ * one card would draw two parts with the same name, and the ambiguity is systemic rather than
+ * accidental.
+ *
+ * What a card's own motion would be — a track on the definition, played inside every placement — is
+ * in `docs/BACKLOG.md` with the two questions it needs answered first. The reader's own things in a
+ * card's **slot** are offered, because those are their nodes with their own sids.
+ */
 export function namedBoxes(doc: DeckAccess, surfaceSid: string): Map<string, string> {
   const found = new Map<string, string>();
   const walk = (sid: string, depth: number): void => {
     if (depth > 32) return;
     const node = doc.getNode(sid);
+    if (!node) return;
+
     const name = attrString(node, 'name');
-    if (name && !found.has(name)) found.set(name, sid);
+    // The surface is where the walk starts, not something on it: a slide named "One card, three
+    // places" was being offered as a shape to animate.
+    if (name && sid !== surfaceSid && isSceneType(node.stype) && !found.has(name)) {
+      found.set(name, sid);
+    }
+
     for (const child of childrenOf(node)) walk(child, depth + 1);
   };
   walk(surfaceSid, 0);

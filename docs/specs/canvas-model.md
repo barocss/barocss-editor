@@ -1864,6 +1864,36 @@ before its first card could not then have a card at all, because the library was
 after `variables`. So `documentChildSpot` answers where a container goes, from the same list the
 content model is written in, and both commands ask it.
 
+### 10k. What motion may name, and what a card's parts cannot be
+
+A step names its target by the `name` the shape carries, and one map — `namedBoxes` — is what every
+step, trigger and "wait for a click on" is read through. So what is in that map is exactly what a
+reader is offered to animate, and it was read off **every node the walk touched**.
+
+Measured on the sample deck's cards slide, which offered five things that cannot be animated:
+
+| offered | what it actually is |
+| --- | --- |
+| `title`, `value`, `showBadge`, `accent` | a placement's **answers** — `componentValue` nodes, whose `name` says which variable they answer |
+| `One card, three places` | the **slide**, because the walk starts at the surface and a slide has a name |
+
+A step naming one of those animates nothing, and says nothing about it. `isSceneType` is this
+model's one list of what a canvas places (§5), and asking it is the whole fix — the same shape of
+fault as the audit filtering a slide's direct children, and the same shape of fix.
+
+**A card's parts are refused, deliberately.** They are the definition's and are resolved at draw time
+(§10b-2a), so naming one from a slide's track names something the document does not have; and two
+placements of one card draw two parts with the same name, so the ambiguity would be systemic rather
+than accidental — `namedBoxes` already keeps the *first* of a name, which is tolerable for a mistake
+and not for a rule.
+
+What **is** offered: the placement itself, because animating a card as a whole is an ordinary thing
+to want, and anything the reader put in its slot, because those are their nodes with their own sids.
+A card's *own* motion — a track on the definition, played inside every placement — is the feature
+this leaves open, and `docs/BACKLOG.md` holds the two questions it needs answered first (where the
+track hangs, since a `component` is not a surface; and what a placement's own step means when the
+card also animates).
+
 ### 10j. Carrying a card to another deck
 
 A copy of a placement is a copy of a **name** — that is what a reference means — so the clipboard has

@@ -17,6 +17,7 @@ import {
   withTiming,
   pressCount,
   reorderSteps,
+  namedBoxes,
   slideTimeline,
   snapPoints,
   snapTo,
@@ -85,6 +86,62 @@ describe('reordering a list of steps', () => {
     expect(reorderSteps(order, 'a', -1)).toBe(order);
     expect(reorderSteps(order, 'c', 1)).toBe(order);
     expect(reorderSteps(order, 'nothing', 1)).toBe(order);
+  });
+});
+
+/**
+ * What a step may **name**.
+ *
+ * A step names its target by the `name` the shape carries, and `namedBoxes` is the map it is read
+ * through — so what is in that map is what a reader is offered to animate, to wait for a click on,
+ * and to trigger from. Measured on the sample deck, it offered four things that are not boxes and
+ * one that is a page.
+ */
+describe('the shapes a step can name', () => {
+  const access = (nodes: Record<string, Record<string, unknown>>): DeckAccess =>
+    ({ rootId: 'root', getNode: (sid: string) => nodes[sid] as never }) as DeckAccess;
+
+  const carded = () =>
+    access({
+      root: { sid: 'root', stype: 'document', content: ['s'] },
+      // A slide has a name too, and the walk starts here.
+      s: {
+        sid: 's',
+        stype: 'surface',
+        attributes: { kind: 'slide', name: '카드 세 장' },
+        content: ['shape', 'card']
+      },
+      shape: { sid: 'shape', stype: 'rectangle', attributes: { name: 'shape-1' } },
+      card: {
+        sid: 'card',
+        stype: 'instance',
+        attributes: { componentId: 'metric', name: 'shape-2' },
+        content: ['said', 'own']
+      },
+      /*
+       * A placement's **answer**: its `name` says which variable it answers, and it draws nothing at
+       * all. Offered to a reader, a step naming it animates nothing, silently.
+       */
+      said: { sid: 'said', stype: 'componentValue', attributes: { name: 'title', value: '매출' } },
+      // The reader's own thing in the card's slot: a real box with a real sid, so it stays.
+      own: { sid: 'own', stype: 'textFrame', attributes: { name: 'shape-3' } }
+    });
+
+  it('offers boxes, and not a placement’s answers or the slide itself', () => {
+    /*
+     * Measured on the sample deck before this check existed: the cards slide offered `title`,
+     * `value`, `showBadge`, `accent` — four `componentValue` nodes — and `One card, three places`,
+     * which is the slide. `isSceneType` is the one list of what a canvas places, and asking it is
+     * the whole fix.
+     */
+    expect([...namedBoxes(carded(), 's').keys()]).toEqual(['shape-1', 'shape-2', 'shape-3']);
+  });
+
+  it('offers the placement itself, because a card animates as a whole', () => {
+    // Its parts are the definition's and are resolved at draw time, so naming one from a slide's
+    // track would name something the document does not have — and two placements of one card would
+    // draw two parts with the same name. What a card's *own* motion would be is in the backlog.
+    expect(namedBoxes(carded(), 's').get('shape-2')).toBe('card');
   });
 });
 

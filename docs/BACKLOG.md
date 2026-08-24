@@ -91,9 +91,27 @@ sees). Measured, one walk at a time:
      literal written over it would quietly stop that card following the document. `replacePlan` puts
      a slide's run rewrites and value rewrites in **one** transaction, so a slide's replacement is
      one press of undo.
-2. **Motion by name** (`namedBoxes`) reads the document. A step naming a shape inside a card would
-   not resolve, which means a card's badge cannot be animated per placement. Not urgent; the honest
-   answer may be "motion belongs to the card".
+2. - [x] **Motion by name reads the document, and that turned out to be the smaller half.** The
+     measurement found a fault nobody was looking for: `namedBoxes` read `name` off *every* node it
+     walked, so the sample deck's cards slide offered a reader five things to animate that cannot be
+     — `title`, `value`, `showBadge`, `accent` (a placement's `componentValue` answers, whose `name`
+     says which variable they answer) and `One card, three places`, which is the **slide**. A step
+     naming one of those animates nothing, silently. `isSceneType` is the one list of what a canvas
+     places; asking it is the fix, and it took one line.
+
+     The original question is answered by **refusing** it, with the reason written down (`timeline.ts`,
+     §10b-2a): a card's parts are the definition's and are resolved at draw time, so naming one from a
+     slide's track names something the document does not have — and two placements of one card draw
+     two parts with the same name, so the ambiguity is systemic rather than accidental. A placement
+     *is* offered, because animating a card as a whole is ordinary, and so is anything the reader put
+     in its slot.
+
+   - [ ] **A card's own motion** — a track on the definition, played inside every placement of it — is
+     the feature that would let a badge fade in. Two questions to measure first: where the track
+     hangs (a `component` is not a surface and has no `trackId`), and what a placement's *own* step
+     means when the card also animates (two clocks, or one nested inside the other). A definition
+     already has an editing surface, so the timeline panel would work there unchanged; what does not
+     exist is playing a nested track.
 3. - [x] **Copy of a placement carries the card now.** Measured first, and it was the worst shape a
      fault takes: pasting a placement into a deck without its definition **succeeded**, drew an
      invisible empty box, and no check anywhere mentioned it. The clipboard payload carries what the
