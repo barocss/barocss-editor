@@ -1794,7 +1794,47 @@ And nothing is confirmed on the way: a reader presenting has already chosen this
 button, and a dialog in the middle of a show is worse than any work it could save. The editor's own
 열기 still asks, because there it is the reader's own file being replaced.
 
-### 11i. Still open
+### 11i. A library of decks: the reader's own, by name
+
+Two features asked for the same thing. A button into another deck could only point at *a source the
+product can fetch* (§11h), so a reader's own deck had no name to be pointed at by — and a shared
+component library (§10) is the same want from the other side: definitions that live in a document
+other than this one. Neither is possible while *"the decks I have"* is not something this product
+can say.
+
+**The naming is a question about documents; the storage is not.** So `deck-library.ts` in
+`office-slides` answers what an entry *is* — a durable name, unique, derived from the deck's own
+title, plus the facts a list shows — and the app keeps the bytes. A different host would keep them
+in a directory or on a server; the naming rules would not change.
+
+**IndexedDB, and the choice was measured.** The sample deck is 42KB of JSON and the starter 8KB,
+both pictureless; one photograph is a base64 megabyte. `localStorage` has about five in total and
+fails by **throwing in the middle of a save** — a store whose predictable failure is "the reader
+loses the deck they were saving" is not one to build on. The cost is sixty lines of
+promise-wrapping.
+
+**One attribute, resolved by the host.** `goToDeck` holds a name *or* an address, and which it is
+is decided where it matters: the same deck is a name on the machine whose library has it and an
+address on one that has never seen it. `isLibraryName` decides by **what a name may be** — a
+library name cannot contain a slash, a dot, a colon or a space, because `libraryName` strips them —
+rather than by guessing whether a string looks like a URL, so the rule stays true when addresses
+change shape.
+
+Three smaller decisions, each a reference that would otherwise break:
+
+- Saving a deck the reader already has **keeps its name**. Minting a second would leave every
+  button pointing at the old copy, which is the one thing a durable reference must not do.
+- Opening a file from disk **clears** the remembered name: a file is not a library row, and the
+  next 라이브러리 저장 would otherwise overwrite a deck the reader never meant to touch.
+- Taking a deck out does not change the decks that point at it. Their buttons warn, which is what
+  the check already says about a link out of a deck (§11h) — and is honest, because the deck may
+  come back.
+
+A library row is not a replacement for a file. A file is the deck a reader can email and open on
+another machine; a row is the deck they can **point at from inside a document**. So the button sits
+beside 저장 rather than instead of it.
+
+### 11j. Still open
 
 **Between decks.** A button that opens another deck at a page needs a reference to a *document* —
 a file, an address — and that is a decision outside the model: there is no library of decks yet.

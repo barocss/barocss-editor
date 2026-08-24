@@ -534,9 +534,21 @@ shipped features marked undone.
   model resolves nothing, the check warns (볼 것) rather than telling, and a failure to open is
   said out loud instead of being a button that does nothing in front of a room.
 
-- [ ] **A library of decks**, which is what would turn `goToDeck` from an address into a name. Also
-  what a shared component library needs (§10) — the two wants are the same want, and it is a
-  product and storage decision rather than a model one.
+- [x] **A library of decks.** The reader's own, by name — the naming in the model
+  (`deck-library.ts`: durable, unique, derived from the deck's title) and the bytes in the app
+  (IndexedDB, chosen by measurement: a pictureless deck is 8–42KB and one photograph is a base64
+  megabyte, so `localStorage`'s five would fail by throwing in the middle of a save). `goToDeck`
+  now holds a name *or* an address, resolved by the host, because the same deck is a name here and
+  an address on a machine that has never seen this library.
+
+- [ ] **A shared component library** — definitions from a library deck used in this one. The other
+  half of what the library was for (§10): the pieces are there now (`deckComponents`, `partCopy`,
+  a library row is a whole document), and what is left to decide is what a placement records about
+  *which* deck its definition came from, since `componentId` is durable only within a document.
+
+- [ ] **Picking a library deck from a list** in the 누르면 → 다른 덱 field, which is a free-text box
+  today. It accepts a name or an address and a reader has to know which they want; the names are
+  one dialog away, which is one dialog too many.
 
 **Still open and not in a phase**
 

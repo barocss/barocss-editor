@@ -2508,6 +2508,56 @@ body {
 }
 
 /*
+ * The reader's own decks, by name.
+ *
+ * A dense list like every other list in this app — a name in code, what the deck is called, how
+ * many pages, and two things to do with it. The name is drawn as code because it is what a
+ * document is written in: a button's `goToDeck` holds exactly that string.
+ */
+.sl-library-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.sl-library-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--sl-line);
+  font-size: 11px;
+}
+
+.sl-library-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sl-library-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sl-library-pages {
+  color: var(--sl-faint, #a3a3a3);
+}
+
+.sl-library-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/*
  * A button out of the deck that could not be followed.
  *
  * Where the reader is looking, and drawn while presenting too: an audience being shown a broken

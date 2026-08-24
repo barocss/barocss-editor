@@ -115,11 +115,12 @@ export const CANVAS_PRESENCE_ATTRS = {
    * `goTo` names the page *inside* that document, so the pair reads as one sentence: this button
    * shows that page of that deck.
    *
-   * **A source the product can fetch**, and that is a deliberate limit rather than a shape to be
-   * generous about. This engine has no library of decks: there is no id space for "the deck about
-   * pricing", so anything but a name the runtime can resolve — a URL, a path — would be a
-   * reference nothing could follow. When a library exists, this becomes the place its id goes, and
-   * a fetchable source stays legal.
+   * **A source the product can resolve**: a **name** in the reader's own library, or an address it
+   * can fetch. One attribute holds both, and the difference is resolved by the *host* rather than
+   * by the document — because that is where it lives: the same deck is a name on the machine whose
+   * library has it and an address on one that has never seen it. A library name cannot contain a
+   * slash, a dot, a colon or a space (`libraryName` strips them), so telling the two apart is a
+   * rule about what a name may be rather than a guess about a string.
    *
    * What it costs, said out loud: the deck's own check **cannot** tell whether the page is there.
    * Another document is not in this one, so a dead link across decks is a thing a reader is warned

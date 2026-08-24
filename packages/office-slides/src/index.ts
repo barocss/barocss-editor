@@ -183,6 +183,17 @@ export {
  * A view of the buttons rather than a second place to keep them — see `canvas-model.md` §11b.
  */
 export { deckMap, type DeckMap, type MapPage, type MapLink } from './deck-map';
+/**
+ * A reader's own decks, **by name** — the naming half, which is the only half that is a question
+ * about documents. Where they are kept is the app's: a browser has IndexedDB, another host would
+ * have a directory. See `canvas-model.md` §11i.
+ */
+export {
+  libraryName,
+  libraryEntry,
+  isLibraryName,
+  type LibraryEntry
+} from './deck-library';
 export { SLIDES_ENV_KEY, showsNotes, type SlidesEnv } from './render-context';
 /**
  * Where every connector goes, worked out once per render.

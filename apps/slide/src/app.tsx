@@ -21,6 +21,7 @@ import {
   deckAdvance,
   deckComponents,
   deckSlides,
+  isLibraryName,
   readDeckFile,
   slideById,
   deckDesigns,
@@ -73,6 +74,8 @@ import { Properties } from './properties';
 import { Ribbon } from './ribbon';
 import { Stage } from './stage';
 import { DeckMapView } from './deck-map-view';
+import { LibraryDialog } from './library-dialog';
+import { libraryDeck } from './library';
 import { useDeck, useRevision } from './deck-model';
 import { useEditorRevision } from './revision';
 
@@ -299,6 +302,16 @@ export function App({
   const [mapping, setMapping] = useState(false);
 
   /**
+   * The name this deck is kept under in the library, when it came from there.
+   *
+   * The app's, because it is a fact about *this session* — which deck on screen is which row —
+   * and not about the document: a deck that is emailed and opened elsewhere is the same deck and
+   * is in nobody's library. Kept so that saving again overwrites the row rather than minting a
+   * second name, which would leave every button pointing at the old copy.
+   */
+  const [libraryName, setLibraryName] = useState<string | undefined>();
+
+  /**
    * How this deck is moved through: by pressing on, or by its **links only**.
    *
    * Read from the document, because it is the deck's own answer and has to survive being saved —
@@ -387,7 +400,9 @@ export function App({
    * The app's, like every other piece of chrome state: a dialog is a fact about
    * one reader's screen, and the editor has no idea one exists.
    */
-  const [dialog, setDialog] = useState<'size' | 'layout' | 'theme' | 'template' | null>(null);
+  const [dialog, setDialog] = useState<
+    'size' | 'layout' | 'theme' | 'template' | 'library' | null
+  >(null);
 
   /**
    * How large the slide is drawn.
@@ -1347,9 +1362,21 @@ export function App({
       if (jump?.deck) {
         void (async () => {
           try {
-            const response = await fetch(jump.deck as string);
-            const read = readDeckFile(await response.text());
+            /**
+             * A **name** in the reader's own library first, then an address.
+             *
+             * One attribute holds both (`goToDeck`), and this is where the difference is resolved
+             * — because it is a fact about the *host* rather than about the document: the same
+             * deck is a name here and an address on a machine that has never seen this library.
+             * `isLibraryName` decides by what a name is allowed to be rather than by guessing at
+             * a string, so the rule stays true when addresses change shape.
+             */
+            const source = jump.deck as string;
+            const kept = isLibraryName(source) ? await libraryDeck(source) : undefined;
+            const text = kept ?? (await (await fetch(source)).text());
+            const read = readDeckFile(text);
             if ('error' in read) return setAway(read.error);
+
             (editor as any)?.loadDocument?.(read.document, 'slides');
             /*
              * And the page *in that deck*, by its durable id — resolved after the load, because
@@ -1501,8 +1528,26 @@ export function App({
               setCurrent(undefined);
               setPlayed(0);
               setPlayhead(0);
+              /*
+               * And it is not the deck the library was keeping either. A file opened from disk is
+               * not a library row, so the name goes — otherwise the next 라이브러리 저장 would
+               * overwrite a deck the reader never meant to touch.
+               */
+              setLibraryName(undefined);
             }}
           />
+          {/*
+            * The library, beside the file buttons because it is the same kind of act with a
+            * different destination: a file is the deck a reader can email, and a library row is
+            * the deck they can **point at from inside a document**.
+            */}
+          <Button
+            title="덱 라이브러리"
+            data={{ 'deck-library': '' }}
+            onClick={() => setDialog(dialog === 'library' ? null : 'library')}
+          >
+            라이브러리
+          </Button>
 
           {/*
             * The suite's button, four times — and the stylesheet's
@@ -1963,6 +2008,21 @@ export function App({
         open={dialog === 'size'}
         onClose={() => setDialog(null)}
       />
+      {/* The reader's own decks, by name — what a `goToDeck` points at. */}
+      <LibraryDialog
+        editor={editor}
+        open={dialog === 'library'}
+        onClose={() => setDialog(null)}
+        name={libraryName}
+        onName={setLibraryName}
+        onOpened={() => {
+          setStepEdit([]);
+          setCurrent(undefined);
+          setPlayed(0);
+          setPlayhead(0);
+        }}
+      />
+
       <SlideLayoutDialog
         editor={editor}
         current={current}
