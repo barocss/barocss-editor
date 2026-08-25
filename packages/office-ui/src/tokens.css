@@ -57,8 +57,24 @@
    * one reached for Tailwind's `sky-100` / `sky-950` instead, which is a **second accent** nobody
    * declared: the token is `blue-600` and the wash was `sky`. Two blues in one toolbar, and the one
    * a product remapped was not the one it saw.
+   *
+   * **Mixed, not stated** — and that is the repair for the same fault one layer up. Written as a
+   * literal, this was a token a product had to remember to map: the deck maps seven of the twelve
+   * colours and this is not one of them, so the day it picks an accent that is not `blue-600` its
+   * pressed buttons keep a wash of somebody else's blue, in a product that had done everything the
+   * contract asked. A mix of two tokens that *are* mapped cannot be forgotten — it follows the
+   * accent, and it follows the theme through `--ou-panel` — **as long as it is declared wherever
+   * those are**, which is the part that had to be measured rather than assumed.
+   *
+   * Removing it from the dark blocks looked like the point of deriving it, and a pressed button in
+   * the dark then painted `color(srgb 0.86 0.90 0.99)` — the light wash — because substitution
+   * happens **where the property is declared**: on `:root`, against the root's accent and the root's
+   * panel, and every element below inherits that one computed colour. The same fact that makes an
+   * alias a snapshot makes a mix a snapshot. So a derived token is repeated in every block that
+   * redeclares what it derives from; what it buys is that the *recipe* is written once, and a
+   * product that remaps `--ou-accent` at the root gets the right wash without knowing this exists.
    */
-  --ou-accent-soft: #dbeafe;
+  --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 22%, var(--ou-panel));
   /**
    * What a shadow is made of.
    *
@@ -175,8 +191,11 @@
     --ou-muted: #a3a3a3;
     --ou-faint: #737373;
     --ou-accent: #3b82f6;
-    --ou-accent-soft: #1e3a8a;
+    --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 22%, var(--ou-panel));
     --ou-shadow: rgb(0 0 0 / 0.5);
+    --ou-lift-1: 0 1px 2px var(--ou-shadow);
+    --ou-lift-2: 0 4px 12px var(--ou-shadow);
+    --ou-lift-3: 0 12px 32px var(--ou-shadow);
     --ou-scrim: rgb(0 0 0 / 0.6);
   }
 }
@@ -197,7 +216,10 @@
   --ou-muted: #a3a3a3;
   --ou-faint: #737373;
   --ou-accent: #3b82f6;
-  --ou-accent-soft: #1e3a8a;
+  --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 22%, var(--ou-panel));
   --ou-shadow: rgb(0 0 0 / 0.5);
+  --ou-lift-1: 0 1px 2px var(--ou-shadow);
+  --ou-lift-2: 0 4px 12px var(--ou-shadow);
+  --ou-lift-3: 0 12px 32px var(--ou-shadow);
   --ou-scrim: rgb(0 0 0 / 0.6);
 }

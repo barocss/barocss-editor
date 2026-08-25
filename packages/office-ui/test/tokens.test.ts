@@ -36,6 +36,13 @@ function declared(block: string): string[] {
   return [...block.matchAll(/(--ou-[a-z0-9-]+)\s*:/g)].map((m) => m[1]);
 }
 
+/** What each property is written as, in one block. */
+function values(block: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [, name, value] of block.matchAll(/(--ou-[a-z0-9-]+)\s*:([^;]*);/g)) out.set(name, value);
+  return out;
+}
+
 /** One block by the selector that opens it, brace-counted so a nested block cannot cut it short. */
 function blockAfter(selector: string): string {
   const at = css.indexOf(selector);
@@ -83,6 +90,45 @@ describe('the token file', () => {
     const bySystem = declared(blockAfter("@media (prefers-color-scheme: dark)"));
     const byChoice = declared(blockAfter("\n[data-theme='dark'] {"));
     expect(byChoice).toEqual(bySystem);
+  });
+
+  it('repeats a derived token wherever what it derives from is redeclared', () => {
+    /*
+     * The fault this repository has now been bitten by three times, and the third was *introduced by
+     * the fix for the second*: **a `var()` is substituted where it is declared**, so a token written
+     * in terms of another is a snapshot of that other's value at the root, and every element below
+     * inherits the snapshot. Measured with `data-theme="dark"` on a shell:
+     *
+     * ```
+     *  --ou-shadow   rgb(0 0 0 / 0.5)              ← flipped
+     *  --ou-lift-2   0 4px 12px rgb(15 23 42/.12)  ← did not
+     * ```
+     *
+     * Every menu, select and dialog in that subtree drew a shadow tuned for a white page. The rule
+     * is mechanical enough to check: if a block redeclares X, it must also redeclare everything
+     * written in terms of X. What deriving buys is that the *recipe* stays in one place — the
+     * repetition is a line, not a colour somebody has to pick twice.
+     */
+    const base = values(blockAfter('\n:root {'));
+    const derived = new Map<string, string[]>();
+    for (const [name, value] of base) {
+      for (const [, from] of value.matchAll(/var\((--ou-[a-z0-9-]+)\)/g)) {
+        derived.set(from, [...(derived.get(from) ?? []), name]);
+      }
+    }
+    expect(derived.size, 'some token is written in terms of another').toBeGreaterThan(0);
+
+    const missing: string[] = [];
+    for (const selector of ["@media (prefers-color-scheme: dark)", "\n[data-theme='dark'] {", "[data-density='dense']"]) {
+      const here = new Set(declared(blockAfter(selector)));
+      for (const [from, dependents] of derived) {
+        if (!here.has(from)) continue;
+        for (const one of dependents) {
+          if (!here.has(one)) missing.push(`${selector.trim()} redeclares ${from} but not ${one}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
   });
 
   it('overrides nothing in the dark that it did not define in the light', () => {

@@ -2409,6 +2409,33 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **A `var()` is a snapshot, and the third time it bit was the fix for the second.**
+
+  Three instances in one afternoon, all the same fact: **a custom property is substituted where it
+  is declared**, so a token written in terms of another freezes that other's value at the element the
+  declaration is on, and everything below inherits the frozen copy.
+
+  1. The gallery aliased `--ga-ground: var(--ou-ground)` on `:root`. In a `[data-theme='dark']`
+     subtree the shell read `--ou-panel: #171717` and painted itself `#f5f5f5` in the same frame.
+  2. So `--ou-accent-soft` was derived instead of stated — a pressed toolbar button should be a wash
+     of *whatever accent a product mapped*, and the deck maps seven of the twelve colour tokens with
+     that not among them. Derived on `:root` only, it painted `color(srgb 0.86 0.90 0.99)` in the
+     dark and at a remapped accent alike: one wash, everywhere, forever.
+  3. And `--ou-lift-1/2/3`, added an hour earlier to stop shadows being Tailwind's black, had it
+     too — `--ou-shadow` flipped to `rgb(0 0 0 / 0.5)` in the dark and `--ou-lift-2` stayed
+     `0 4px 12px rgb(15 23 42 / 0.12)`. Every menu, select and dialog in a dark subtree drew a shadow
+     tuned for a white page.
+
+  The rule, and it is mechanical: **a derived token is repeated in every block that redeclares what
+  it derives from.** What deriving still buys is that the recipe lives in one place — the repetition
+  is a line, not a colour somebody has to pick twice and keep in step. `tokens.test.ts` reads the
+  dependency out of the `:root` block and checks each of the other blocks against it; removing one
+  `--ou-lift-2` line fails it by name.
+
+  Worth keeping for the next person: **the measurement was the only way to see any of this.** All
+  three looked right in the source, all three passed a typecheck, and two of them were written *by
+  the person who had just written down the rule they broke*.
+
 - **Two of the three products' browser suites could not be run.**
 
   `pnpm test:e2e:slide` has been in the root `package.json` for as long as the deck has existed. It

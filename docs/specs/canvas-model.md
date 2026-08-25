@@ -391,6 +391,14 @@ about any one control:
   including one inside `[data-theme='dark']` — inherits that frozen light colour.
   Written out, a page can read `--ou-panel: #171717` and paint itself `#f5f5f5` in
   the same frame. Name the token at the point of use.
+- **And a *derived* token is repeated in every block that redeclares what it
+  derives from.** The same fact, one step along, and it is worth deriving anyway:
+  `--ou-accent-soft` is a wash of `--ou-accent`, so a product that maps the accent
+  gets the wash without knowing the token exists — which is the whole difference
+  between a contract of twelve colours and one of seven that a product can half
+  satisfy. But `color-mix()` in a declaration on `:root` is evaluated on `:root`,
+  so the dark blocks state the recipe again. What deriving buys is that the recipe
+  is written once; the repetition is a line, not a colour picked twice.
 
 And the same fault one level up, which is the part worth remembering: the
 **instrument had a private palette too**. The gallery aliased three `--ga-*`
