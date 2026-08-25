@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+/*
+ * Where the suite's components live, so Tailwind generates their classes.
+ *
+ * The lesson the site builder learned twice: Tailwind only generates a class it finds written
+ * somewhere it scans, and every one of these controls writes its classes inside `office-ui`.
+ */
+@source "../../../packages/office-ui/src";
+
+/* And the tokens they are written against. A design system means taking its variables. */
+@import "@barocss/office-ui/tokens.css";
+
+/*
+ * The gallery's own furniture — deliberately quiet.
+ *
+ * Everything a *control* looks like has to come from `office-ui`, or this page would be judging the
+ * library against styles the library does not have. What is here is the room the controls stand in.
+ */
+/*
+ * The room, in the library's own colours.
+ *
+ * These were three `--ga-*` values with a dark set of their own — a **second palette**, which is the
+ * one thing `tokens.css` exists to stop, and it failed in the obvious way the moment anything looked
+ * at it: with `data-theme="dark"` on the document rather than on this element, the office-ui tokens
+ * flipped and these did not, so the page header kept its light background while `--ou-ink` went
+ * white and the title vanished off it.
+ *
+ * A gallery that judges a design system has no business having a design system of its own. The
+ * ground is one step off the panel colour, which is what `--ou-ground` already means.
+ *
+ * ## And **used** directly, not aliased
+ *
+ * The first repair was `--ga-ground: var(--ou-ground)` on `:root`, which changed nothing: a custom
+ * property is substituted **where it is declared**, so `--ga-ground` resolved against the light
+ * `--ou-ground` at the root and every element below inherited that one value. The shell read
+ * `--ou-panel: #171717` and painted itself `#f5f5f5` in the same frame.
+ *
+ * An alias to a themed token is a snapshot of it. So there is no alias — the rules below name the
+ * token at the point of use, where the theme is whatever the nearest `[data-theme]` says.
+ */
+
+body { margin: 0; }
+
+.ga-shell {
+  min-height: 100vh;
+  background: var(--ou-ground);
+  color: var(--ou-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.ga-top {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--ou-line);
+  background: var(--ou-panel);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.ga-top h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.ga-count { font-size: 12px; color: var(--ou-muted); font-variant-numeric: tabular-nums; }
+.ga-switches { margin-left: auto; display: flex; gap: 8px; }
+
+.ga-body { padding: 24px; display: flex; flex-direction: column; gap: 28px; max-width: 1200px; }
+
+.ga-section > header { margin-bottom: 8px; }
+.ga-section h2 { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ou-muted); }
+.ga-section header p { font-size: 12px; color: var(--ou-faint); margin-top: 2px; }
+
+/*
+ * The stage: the one place a control is drawn on the suite's own panel colour rather than on the
+ * gallery's ground, because that is where it will live.
+ */
+.ga-stage {
+  padding: 16px;
+  border: 1px solid var(--ou-line);
+  border-radius: 6px;
+  background: var(--ou-panel);
+  color: var(--ou-ink);
+}
+
+.ga-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.ga-row + .ga-row { margin-top: 12px; }
+
+.ga-panels { display: flex; gap: 16px; }
+.ga-stack { display: flex; gap: 24px; align-items: start; }
+.ga-stack > * { flex: 1; max-width: 320px; }
+.ga-picker { margin-top: 12px; }
+
+.ga-icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 12px; }
+.ga-icons figure { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0; }
+.ga-icons figcaption { font-size: 10px; color: var(--ou-faint); }
+
+/* The one plain element on the page — see the note beside it in `gallery.tsx`. */
+.ga-plain {
+  height: var(--ou-control-h);
+  padding: 0 10px;
+  border: 1px solid var(--ou-line);
+  border-radius: var(--ou-radius);
+  background: var(--ou-panel);
+  color: var(--ou-ink);
+  font-size: var(--ou-text);
+}
+
+/* The strip needs a width to be a strip; everything else about it is the component's. */
+.ga-wave { width: 320px; }

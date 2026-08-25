@@ -50,6 +50,63 @@
   /* The one colour that means "this one". */
   --ou-accent: #2563eb;
   --ou-accent-ink: #ffffff;
+  /**
+   * The accent at the weight a **background** wants.
+   *
+   * A pressed toolbar button is not the accent — it is a wash of it, and every component that needed
+   * one reached for Tailwind's `sky-100` / `sky-950` instead, which is a **second accent** nobody
+   * declared: the token is `blue-600` and the wash was `sky`. Two blues in one toolbar, and the one
+   * a product remapped was not the one it saw.
+   */
+  --ou-accent-soft: #dbeafe;
+  /**
+   * What a shadow is made of.
+   *
+   * Tinted rather than black: a neutral shadow on a panel that is not neutral reads as dirt. One
+   * value, so every raised thing in the suite is lit from the same place.
+   */
+  --ou-shadow: rgb(15 23 42 / 0.12);
+  /**
+   * The dim behind a dialog.
+   *
+   * Its own token rather than `bg-black/25`, because the right amount of dim is not the same in the
+   * two themes: a quarter-black over a white page separates the dialog from it, and the same quarter
+   * over `#0a0a0a` is very nearly nothing — the one place a modal most needs to be modal.
+   */
+  --ou-scrim: rgb(0 0 0 / 0.25);
+  /**
+   * How far off the surface a thing is, in three steps.
+   *
+   * `shadow-sm` / `shadow-lg` / `shadow-xl` were Tailwind's, which means a **black** shadow on a
+   * tinted panel and — worse — the same three values in the dark, where a black shadow on a black
+   * ground is nothing at all. These are built out of `--ou-shadow`, so they change with the theme
+   * and there is one place to argue about how high a menu floats.
+   */
+  --ou-lift-1: 0 1px 2px var(--ou-shadow);
+  --ou-lift-2: 0 4px 12px var(--ou-shadow);
+  --ou-lift-3: 0 12px 32px var(--ou-shadow);
+  /**
+   * How long a state takes to arrive.
+   *
+   * There was no answer to this: `transition` appeared **zero** times in the whole library, so every
+   * hover, press and disable was an instant jump. A tool wants this short — 120ms is felt and not
+   * waited for — and it wants it to be *one* number, or two controls beside each other move at
+   * different speeds.
+   */
+  --ou-quick: 120ms;
+
+  /**
+   * What sits above what.
+   *
+   * Written down because it was not: the values in the components ran 20, 30, 40, 50 and one
+   * `z-[60]` added when a select opened *underneath* a dialog's overlay. A scale a reader can look up
+   * is a scale nobody has to guess at from the next number.
+   */
+  --ou-z-toolbar: 20;
+  --ou-z-panel: 30;
+  --ou-z-overlay: 40;
+  --ou-z-dialog: 50;
+  --ou-z-popover: 60;
 
   /* Controls. A field, a button and a swatch are all one height. */
   --ou-control-h: 28px;
@@ -89,13 +146,58 @@
   --ou-label-w: 62px;
 }
 
+/**
+ * Dark, in the three states a viewer can actually be in.
+ *
+ * A theme has three, not two: an explicit choice stamps `data-theme` on the root, and the default —
+ * "follow the system" — stamps *nothing*, so only `prefers-color-scheme` separates light from dark
+ * there. Written as one set of tokens and three ways of reaching it:
+ *
+ * - the bare `:root` above is the whole light palette;
+ * - the media query redefines the tokens for a dark **system**, guarded so an explicit light choice
+ *   still wins;
+ * - `[data-theme='dark']` redefines them again, so a product's own switch wins in both directions.
+ *
+ * The third was missing, and nothing could see it: every product follows the system, so the tokens
+ * answered every question anybody asked. Measured the first time a page put a switch on them —
+ * `data-theme="dark"` on the shell, and `--ou-panel` still `#ffffff`. **No product could offer a
+ * theme switch**, and the library had no idea.
+ *
+ * The **accent** changes with them, which it did not before: `#2563eb` on `#0a0a0a` is the same blue
+ * a light panel uses, and it reads as a hole rather than as a highlight. One accent, two values.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --ou-panel: #171717;
     --ou-ground: #0a0a0a;
     --ou-line: #404040;
     --ou-ink: #fafafa;
     --ou-muted: #a3a3a3;
     --ou-faint: #737373;
+    --ou-accent: #3b82f6;
+    --ou-accent-soft: #1e3a8a;
+    --ou-shadow: rgb(0 0 0 / 0.5);
+    --ou-scrim: rgb(0 0 0 / 0.6);
   }
+}
+
+/*
+ * On **any** element, not only the root.
+ *
+ * Custom properties inherit, so a product can put `data-theme="dark"` on one panel and get a dark
+ * panel in a light window — a preview of the other theme, a presenter view, a gallery with a switch
+ * in its own header. Scoping it to `:root` would have made the theme a property of the *document*,
+ * which is a smaller claim than the tokens can actually support.
+ */
+[data-theme='dark'] {
+  --ou-panel: #171717;
+  --ou-ground: #0a0a0a;
+  --ou-line: #404040;
+  --ou-ink: #fafafa;
+  --ou-muted: #a3a3a3;
+  --ou-faint: #737373;
+  --ou-accent: #3b82f6;
+  --ou-accent-soft: #1e3a8a;
+  --ou-shadow: rgb(0 0 0 / 0.5);
+  --ou-scrim: rgb(0 0 0 / 0.6);
 }

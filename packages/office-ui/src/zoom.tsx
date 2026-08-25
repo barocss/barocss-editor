@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
+import { STATE } from './controls';
 
 /**
  * How large the document is drawn.
@@ -43,9 +44,11 @@ export function ZoomControl({
  if (Number.isFinite(parsed) && parsed > 0) onChange(parsed / 100);
   };
 
-  const button =
-    'inline-flex h-7 w-7 items-center justify-center rounded text-[color:var(--ou-ink)] ' +
- 'hover:bg-[color:var(--ou-ground)] dark:text-[color:var(--ou-muted)] dark:hover:bg-[color:var(--ou-ground)]';
+  const button = cn(
+    'inline-flex h-[var(--ou-control-h)] w-[var(--ou-control-h)] items-center justify-center',
+    'rounded-[var(--ou-radius)] text-[color:var(--ou-ink)] hover:bg-[color:var(--ou-ground)]',
+    STATE
+  );
 
  return (
     <div className={cn('office-zoom flex items-center gap-0.5', className)} data-zoom={zoom.toFixed(2)}>
@@ -74,9 +77,10 @@ export function ZoomControl({
           }
         }}
         className={cn(
-          'h-7 w-14 rounded border border-transparent bg-transparent text-center text-xs tabular-nums',
- 'hover:border-[color:var(--ou-line)] focus:border-[color:var(--ou-accent)] focus:outline-none',
- 'dark:hover:border-[color:var(--ou-line)]'
+          'h-[var(--ou-control-h)] w-14 rounded-[var(--ou-radius)] border border-transparent bg-transparent',
+          'text-center text-xs tabular-nums hover:border-[color:var(--ou-line)]',
+          'focus:border-[color:var(--ou-accent)] focus:outline-none',
+          'transition-colors duration-[var(--ou-quick)]'
         )}
       />
 

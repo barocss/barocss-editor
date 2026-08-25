@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from './cn';
+import { Icon } from '@barocss/office-icons';
 import { Button } from './controls';
 
 /**
@@ -230,13 +231,21 @@ export function StackRow({
             onClick={() => onVisible(visible === false)}
             data={{ 'stack-visible': visible === false ? 'false' : 'true' }}
  >
-            {visible === false ? '◌' : '●'}
+            {/*
+              The icon set's, not a character.
+              `●` / `◌` and `␡` were typed literals, and a literal is drawn by whatever font the
+              product happens to have: `␡` (U+2421) has no glyph in most of them and came out as a
+              box with `DL` in it — measured on a gallery page, where a row of layer controls read
+              `● ▯ / ◌ ▯`. `shown`, `hide` and `delete` are in `office-icons` and are one stroke
+              weight with everything else in the row.
+            */}
+            <Icon name={visible === false ? 'hide' : 'shown'} size={14} />
  </Button>
         )}
 
         {onRemove && (
           <Button square ariaLabel={`${index + 1}번 ${name} 삭제`} disabled={disabled} onClick={onRemove}>
-            ␡
+            <Icon name="delete" size={14} />
           </Button>
         )}
       </div>
@@ -245,7 +254,7 @@ export function StackRow({
         <div
           data-stack-editor={index}
           className={cn(
-            'rounded-lg border p-2 shadow-sm',
+            'rounded-lg border p-2 shadow-[var(--ou-lift-1)]',
  'border-[color:var(--ou-line)] bg-[color:var(--ou-panel)]'
  )}
         >

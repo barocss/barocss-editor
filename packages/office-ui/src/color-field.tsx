@@ -202,7 +202,7 @@ export function ColorField({
              measurable at all. */
           style={{ top: at?.top, left: at?.left, visibility: at ? undefined : 'hidden' }}
  className={cn(
-            'fixed z-50 w-max rounded-lg border p-2 shadow-xl',
+            'fixed z-[var(--ou-z-popover)] w-max rounded-lg border p-2 shadow-[var(--ou-lift-3)]',
  'border-[color:var(--ou-line)] bg-[color:var(--ou-panel)]'
  )}
         >

@@ -1,5 +1,5 @@
 {
-  "name": "@barocss/site-app",
+  "name": "@barocss/ui-gallery",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -7,20 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@barocss/datastore": "workspace:*",
-    "@barocss/dsl": "workspace:*",
-    "@barocss/editor-core": "workspace:*",
-    "@barocss/editor-view-dom": "workspace:*",
-    "@barocss/office-canvas": "workspace:*",
-    "@barocss/office-site": "workspace:*",
-    "@barocss/office-text": "workspace:*",
+    "@barocss/office-icons": "workspace:*",
     "@barocss/office-ui": "workspace:*",
-    "@barocss/renderer-dom": "workspace:*",
-    "@barocss/schema": "workspace:*",
-    "clsx": "^2.1.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
@@ -29,7 +20,6 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "vite": "^5.4.21"
   }

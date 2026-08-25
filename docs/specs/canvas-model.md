@@ -365,6 +365,47 @@ things that made hand-rolling the *cheaper* option:
   contenteditable — these are not fields and there should be no primitive for
   them. What is banned is a *second* button.
 
+### A library has no view of itself unless one is built
+
+The rule above says every control draws with `var(--ou-…)`. Nothing checked it, and
+nothing could: a component is looked at inside the product that happens to use it,
+and thirty-six of them across three products means thirty-six separate looks, each
+against a different page. Measured the first time all of them were drawn on one
+page — a gallery with a theme switch and a density switch on it — `transition`
+appeared **zero** times in the whole library, a focus ring in three of thirty-six,
+and every tooltip in the suite was white text on `--ou-panel`, which is `#ffffff`.
+
+So the contract needs two more clauses, and both are about the *theme* rather than
+about any one control:
+
+- **A `dark:` variant is a rule a product cannot reach.** Tailwind's `dark:`
+  answers `prefers-color-scheme` — the machine — and the tokens answer both that
+  and `data-theme`. A component that writes `dark:` has opted out of the switch a
+  product offers its reader, in exactly the case the switch exists for. All
+  fifteen in the library were either dead (`dark:border-[var(--ou-line)]` beside
+  the identical light rule) or wrong. The theme is the token file's job; a
+  component states one colour and takes whatever the nearest `[data-theme]` says.
+- **An alias to a themed token is a snapshot of it, not a reference.** A custom
+  property is substituted **where it is declared**. So `--x: var(--ou-ground)` on
+  `:root` resolves against the *root's* value once, and every element below —
+  including one inside `[data-theme='dark']` — inherits that frozen light colour.
+  Written out, a page can read `--ou-panel: #171717` and paint itself `#f5f5f5` in
+  the same frame. Name the token at the point of use.
+
+And the same fault one level up, which is the part worth remembering: the
+**instrument had a private palette too**. The gallery aliased three `--ga-*`
+values with a dark set of their own, and its density switch stamped
+`data-density="compact"` against a token file that defines `dense` — so half of
+what the page existed to measure was measuring nothing, on a page built to catch
+precisely that. A tool that judges a design system must have none of its own.
+
+What holds all of it is `packages/office-ui/test/tokens.test.ts`: every
+`var(--ou-*)` a component reads is declared; no component names a colour; no
+`dark:`; no hardcoded z-index; the dense block changes only sizes; and the two
+dark blocks — written twice because a media query cannot be combined into a
+selector list — declare the identical set. Nine assertions, five milliseconds. A
+gallery finds a thing once; the test is what keeps it found.
+
 ### And a selection is not one thing
 
 The same shape again, one layer along. A panel *about* a selection has to say what

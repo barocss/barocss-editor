@@ -251,6 +251,40 @@ importers:
         specifier: ^5.4.21
         version: 5.4.21(@types/node@20.19.30)
 
+  apps/gallery:
+    dependencies:
+      '@barocss/office-icons':
+        specifier: workspace:*
+        version: link:../../packages/office-icons
+      '@barocss/office-ui':
+        specifier: workspace:*
+        version: link:../../packages/office-ui
+      react:
+        specifier: ^19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.2.8
+        version: 19.2.8(react@19.2.8)
+    devDependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.3.3
+        version: 4.3.3(vite@5.4.21)
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.10
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.10)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@5.4.21)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+
   apps/site:
     dependencies:
       '@barocss/datastore':

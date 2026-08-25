@@ -1,6 +1,7 @@
 import * as Select from '@radix-ui/react-select';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
+import { STATE } from './controls';
 
 export interface ChoiceOption {
  id: string;
@@ -51,8 +52,9 @@ export function ChoiceSelect({
  <Select.Trigger
         className={cn(
           testClass,
-          'inline-flex h-7 items-center justify-between gap-2 rounded',
- 'border border-[color:var(--ou-line)] px-2 text-sm dark:border-[color:var(--ou-line)]',
+          'inline-flex h-[var(--ou-control-h)] items-center justify-between gap-2 rounded-[var(--ou-radius)]',
+          'border border-[color:var(--ou-line)] px-2 text-sm',
+        STATE,
  'disabled:pointer-events-none disabled:opacity-40',
  mixed && 'text-[color:var(--ou-muted)]',
  className ?? 'min-w-36'
@@ -78,8 +80,8 @@ export function ChoiceSelect({
            * dim layer and no option could be clicked. The dialog is 40/50, and
            * a menu belongs above whatever opened it whatever that was.
            */
-          className="z-[60] overflow-hidden rounded border border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] shadow-md "
- >
+          className="z-[var(--ou-z-popover)] overflow-hidden rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] shadow-[var(--ou-lift-2)]"
+        >
           <Select.Viewport className="p-1">
  {options.map((option) => (
               <Select.Item
@@ -88,7 +90,7 @@ export function ChoiceSelect({
                 data-style={option.id}
                 className={cn(
                   'flex cursor-default items-center gap-2 rounded px-2 py-1 text-sm outline-none',
- 'data-[highlighted]:bg-[color:var(--ou-ground)] dark:data-[highlighted]:bg-[color:var(--ou-ground)]'
+                  'data-[highlighted]:bg-[color:var(--ou-ground)]'
                 )}
               >
                 <Select.ItemIndicator>

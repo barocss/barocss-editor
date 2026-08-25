@@ -1,5 +1,9 @@
 import * as RadixToolbar from '@radix-ui/react-toolbar';
 import * as RadixTooltip from '@radix-ui/react-tooltip';
+import { createContext, useContext } from 'react';
+import { cn } from './cn';
+import { STATE } from './controls';
+
 /**
  * On, off, or partly.
  *
@@ -12,7 +16,26 @@ import * as RadixTooltip from '@radix-ui/react-tooltip';
  * with it gone, `office-ui` has no editor dependency at all.
  */
 export type ToggleState = 'on' | 'mixed' | 'off';
-import { cn } from './cn';
+
+/**
+ * Whether there is a toolbar above this.
+ *
+ * A Radix toolbar button is a roving-focus **item**, and an item outside its group throws:
+ * `RovingFocusGroupItem must be used within RovingFocusGroup`. `ColorPalette` draws one, so the
+ * library had a component that crashed the page unless it happened to be inside a `Toolbar` — found
+ * the first time a gallery drew every control on one page, and invisible until then because the
+ * three products only ever put a palette in a ribbon.
+ *
+ * A prop would have made this the caller's problem to remember. It is not: whether there is a
+ * toolbar around something is a fact the toolbar knows and nobody else does, so it says so, and a
+ * control that wants roving focus takes it when it is there and a plain button when it is not.
+ */
+const InToolbar = createContext(false);
+
+/** For a control that draws a roving-focus item — see `InToolbar`. */
+export function useInToolbar(): boolean {
+  return useContext(InToolbar);
+}
 
 /**
  * The toolbar shell, shared by every product in the suite.
@@ -50,13 +73,12 @@ export function Toolbar({
       <RadixToolbar.Root
         aria-label={label}
         className={cn(
-          'sticky top-0 z-20 flex flex-wrap items-center gap-x-1 gap-y-1',
- 'border-b border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] px-4 py-1.5',
- '',
- className
+          'sticky top-0 z-[var(--ou-z-toolbar)] flex flex-wrap items-center gap-x-1 gap-y-1',
+          'border-b border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] px-4 py-1.5',
+          className
         )}
       >
-        {children}
+        <InToolbar.Provider value={true}>{children}</InToolbar.Provider>
       </RadixToolbar.Root>
     </RadixTooltip.Provider>
   );
@@ -139,12 +161,23 @@ export function ToolbarToggle({
             onActivate();
           }}
           className={cn(
-            'inline-flex h-7 min-w-7 items-center justify-center rounded border border-transparent',
+            'inline-flex h-[var(--ou-control-h)] min-w-[var(--ou-control-h)] items-center justify-center rounded-[var(--ou-radius)] border border-transparent',
  'text-sm hover:bg-[color:var(--ou-ground)]',
+ STATE,
  'disabled:pointer-events-none disabled:opacity-40',
- 'data-[state=on]:border-sky-300 data-[state=on]:bg-sky-100',
- 'dark:data-[state=on]:border-sky-700 dark:data-[state=on]:bg-sky-950',
- 'data-[state=mixed]:border-sky-300 data-[state=mixed]:bg-[repeating-linear-gradient(135deg,theme(colors.sky.100),theme(colors.sky.100)_3px,transparent_3px,transparent_6px)]'
+            /*
+             * The **suite's** accent, not Tailwind's sky.
+             *
+             * These were `sky-100` / `sky-950` while `--ou-accent` is `blue-600`: two accents in one
+             * toolbar, and the one a product remapped was not the one it saw. Worse in the dark,
+             * where a `dark:` variant answers the *system* and a product's own theme switch cannot
+             * reach it — measured on a gallery page with a switch on it, where a pressed button kept
+             * its pale blue wash and the icon inside it disappeared.
+             *
+             * `--ou-accent-soft` is that wash, and it changes with the theme: one accent, two values.
+             */
+ 'data-[state=on]:border-[color:var(--ou-accent)] data-[state=on]:bg-[color:var(--ou-accent-soft)]',
+ 'data-[state=mixed]:border-[color:var(--ou-accent)] data-[state=mixed]:bg-[repeating-linear-gradient(135deg,var(--ou-accent-soft),var(--ou-accent-soft)_3px,transparent_3px,transparent_6px)]'
           )}
         >
           {children}
@@ -153,8 +186,19 @@ export function ToolbarToggle({
       <RadixTooltip.Portal>
         <RadixTooltip.Content
           sideOffset={6}
-          className="rounded bg-[color:var(--ou-panel)] px-2 py-1 text-xs text-white shadow dark:bg-[color:var(--ou-ground)] dark:text-[color:var(--ou-ink)]"
- >
+          /*
+           * **Inverted**, and it was white on white.
+           *
+           * This read `bg-[--ou-panel] text-white`, and `--ou-panel` is `#ffffff`: every tooltip in
+           * every product was invisible in the light theme — the one every product ships in — and
+           * legible only in the dark, where a `dark:` variant swapped the background out. Nobody saw
+           * it because a tooltip you cannot read looks like a tooltip that did not open.
+           *
+           * `--ou-ink` on `--ou-panel` is the inversion, and it needs no variant: both tokens flip
+           * with the theme, so the tooltip is dark-on-light in one and light-on-dark in the other.
+           */
+          className="rounded bg-[color:var(--ou-ink)] px-2 py-1 text-xs text-[color:var(--ou-panel)] shadow-[var(--ou-lift-2)]"
+        >
           {label}
           {shortcut && (
             // Quieter than the name, which is the order a reader reads them in.

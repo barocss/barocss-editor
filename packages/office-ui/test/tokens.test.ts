@@ -1,0 +1,180 @@
+import { describe, expect, it } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+/**
+ * The design system, checked the way every other invariant in this repository is checked: by
+ * measuring the source rather than by looking at it.
+ *
+ * ## Why a test and not a review
+ *
+ * Every fault this file guards against was found by *drawing every control on one page* — a gallery,
+ * built because nobody could see the library whole. What it found, in a library nobody thought was
+ * broken:
+ *
+ * | measured | before | after |
+ * |---|---|---|
+ * | `transition` | 0 | 7 |
+ * | `focus-visible` | 3 | 8 |
+ * | `dark:` variants a product's own theme switch could not reach | 15 | 0 |
+ * | components naming Tailwind's palette instead of a token | 4 | 0 |
+ * | hardcoded z-indexes | 6 | 0 |
+ * | tooltips legible in the light theme | 0 | all |
+ *
+ * A gallery finds those once. This keeps them found — and it runs in milliseconds, which is the
+ * whole reason it is here rather than in the browser suite.
+ */
+
+const SRC = join(__dirname, '..', 'src');
+const css = readFileSync(join(SRC, 'tokens.css'), 'utf8');
+const components = readdirSync(SRC)
+  .filter((name) => name.endsWith('.tsx'))
+  .map((name) => ({ name, text: readFileSync(join(SRC, name), 'utf8') }));
+
+/** The properties one `{ … }` block declares, in source order. */
+function declared(block: string): string[] {
+  return [...block.matchAll(/(--ou-[a-z0-9-]+)\s*:/g)].map((m) => m[1]);
+}
+
+/** One block by the selector that opens it, brace-counted so a nested block cannot cut it short. */
+function blockAfter(selector: string): string {
+  const at = css.indexOf(selector);
+  expect(at, `${selector} is in tokens.css`).toBeGreaterThan(-1);
+  let depth = 0;
+  for (let i = css.indexOf('{', at); i < css.length; i += 1) {
+    if (css[i] === '{') depth += 1;
+    else if (css[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return css.slice(at, i);
+    }
+  }
+  throw new Error(`${selector} is never closed`);
+}
+
+/**
+ * Source with its comments removed.
+ *
+ * Every rule below is about what the library *draws*, and the comments here explain at length what
+ * it used to draw — `bg-sky-600`, `text-white`, `dark:`. A check that read those would fail on its
+ * own documentation.
+ */
+function code(text: string): string {
+  return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+}
+
+describe('the token file', () => {
+  const light = declared(blockAfter('\n:root {'));
+
+  it('gives every token a light value', () => {
+    // The base block is the palette. A token defined only in the dark is a token that is missing
+    // in the theme every product ships in.
+    expect(light.length).toBeGreaterThan(20);
+    expect(new Set(light).size, 'no token is declared twice').toBe(light.length);
+  });
+
+  it('says the same thing in both of its dark blocks', () => {
+    /*
+     * There are two, and there has to be: a media query cannot be combined into a selector list, so
+     * "the system is dark" and "this subtree was told to be dark" are written twice. Which means the
+     * second is exactly one edit away from being wrong forever, and nothing would show it — a
+     * product following the system would keep working while a product with a switch quietly kept one
+     * light value. Both `--ou-accent-soft` and `--ou-shadow` were added to one block first.
+     */
+    const bySystem = declared(blockAfter("@media (prefers-color-scheme: dark)"));
+    const byChoice = declared(blockAfter("\n[data-theme='dark'] {"));
+    expect(byChoice).toEqual(bySystem);
+  });
+
+  it('overrides nothing in the dark that it did not define in the light', () => {
+    const dark = declared(blockAfter("\n[data-theme='dark'] {"));
+    expect(dark.filter((token) => !light.includes(token))).toEqual([]);
+  });
+
+  it('changes only sizes for a dense surface, never the palette', () => {
+    // A dense control that was also a different grey is the thing the token file exists to stop.
+    const dense = declared(blockAfter("[data-density='dense']"));
+    const colour = /panel|ground|line|ink|muted|faint|accent|shadow|scrim/;
+    expect(dense.filter((token) => colour.test(token))).toEqual([]);
+  });
+});
+
+describe('every component', () => {
+  const light = new Set(declared(blockAfter('\n:root {')));
+
+  it('only reads tokens that exist', () => {
+    // `var(--ou-lift-2)` with no `--ou-lift-2` behind it is not an error anywhere: the property
+    // resolves to nothing and the shadow silently does not draw.
+    const unknown: string[] = [];
+    for (const { name, text } of components) {
+      for (const [, token] of code(text).matchAll(/var\((--ou-[a-z0-9-]+)\)/g)) {
+        if (!light.has(token)) unknown.push(`${name}: ${token}`);
+      }
+    }
+    expect(unknown).toEqual([]);
+  });
+
+  it('names no colour of its own', () => {
+    /*
+     * The contract at the top of `tokens.css`: a product maps its palette onto the tokens once, and
+     * every shared control matches everything around it. A component that writes `sky-100` is
+     * outside that — measured, four components carried a **second** accent (`sky`) while the token
+     * was `blue-600`, so the blue a product remapped was not the blue it saw.
+     */
+    const palette =
+      /\b(?:bg|text|border|outline|fill|ring|from|via|to|shadow|decoration|accent)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|white|black)\b/g;
+    const named: string[] = [];
+    for (const { name, text } of components) {
+      for (const [hit] of code(text).matchAll(palette)) named.push(`${name}: ${hit}`);
+    }
+    expect(named).toEqual([]);
+  });
+
+  it('leaves the theme to the tokens', () => {
+    /*
+     * `dark:` answers `prefers-color-scheme` — the **system** — and the tokens answer both that and
+     * `data-theme`. So a `dark:` variant is a rule a product's own theme switch cannot reach, and
+     * every one of the fifteen this library had was either dead (`dark:border-[var(--ou-line)]`
+     * beside the identical light rule) or wrong in exactly the case a switch exists for.
+     */
+    const withVariants = components
+      .filter(({ text }) => /\bdark:/.test(code(text)))
+      .map(({ name }) => name);
+    expect(withVariants).toEqual([]);
+  });
+
+  it('takes its stacking order from the scale', () => {
+    // Six hardcoded values ran 20/30/40/50 and one `z-[60]`, added the day a select opened
+    // *underneath* a dialog's overlay and no option in it could be clicked.
+    const hardcoded: string[] = [];
+    for (const { name, text } of components) {
+      for (const [hit] of code(text).matchAll(/\bz-(?:\[)?\d+\]?/g)) hardcoded.push(`${name}: ${hit}`);
+    }
+    expect(hardcoded).toEqual([]);
+  });
+
+  it('answers a pointer and a keyboard', () => {
+    /*
+     * Measured on the gallery the first time every control was on one page: `transition` appeared
+     * **zero** times in the library and a focus ring in three of thirty-six components. Both are
+     * invisible one component at a time — a control with no pressed state looks fine until it is
+     * beside one that has it.
+     *
+     * Counted rather than located, because where the ring belongs is a judgement (a menu highlights
+     * a row without focusing it) and *whether the library has any* is not.
+     */
+    const state = components.find(({ name }) => name === 'controls.tsx')!.text;
+    const shared = /export const STATE = \[([\s\S]*?)\]\.join/.exec(state)?.[1] ?? '';
+    expect(shared, 'controls.tsx exports STATE').not.toBe('');
+    for (const rule of ['transition-colors', 'active:', 'focus-visible:ring']) {
+      expect(shared, `STATE carries ${rule}`).toContain(rule);
+    }
+
+    /*
+     * And enough of the library reaches for it. Counted as *components that reference it* rather
+     * than as occurrences of the words, because the whole point of a shared constant is that the
+     * words appear once — grepping for `active:` in a library that got this right returns 1.
+     */
+    const reaching = components.filter(({ text }) => /\b(STATE|CONTROL)\b/.test(code(text)));
+    expect(reaching.length).toBeGreaterThanOrEqual(8);
+  });
+});

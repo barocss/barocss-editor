@@ -2409,6 +2409,81 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **Two of the three products' browser suites could not be run.**
+
+  `pnpm test:e2e:slide` has been in the root `package.json` for as long as the deck has existed. It
+  prints `None of the selected packages has a "test:e2e" script` — and **exits 0** while doing it,
+  which is the part that made it survive: a command that fails loudly gets fixed, and one that
+  reports success for doing nothing is indistinguishable from a green suite in every log anybody
+  reads. Thirty-nine spec files and a `playwright.config.ts` sat behind it. The site app was the
+  same, minus even the root script.
+
+  Both are one line each (`"test:e2e": "playwright test"`), and `test:e2e:site` is now beside its
+  two siblings. Run after adding: **351 word, 389 slide**, green.
+
+- **A gallery is the only view a component library has of itself.**
+
+  `office-ui` is thirty-six components used across three products, and the only way to look at one
+  was to open the product that happened to draw it. So every fault below had been shipped for
+  months, in all three products, and none of them was visible one component at a time. One page that
+  draws all thirty-six, with a theme switch and a density switch on it, found them in an afternoon:
+
+  | measured | before | after |
+  |---|---|---|
+  | `transition` in the whole library | **0** | 7 |
+  | `focus-visible` | 3 of 36 | 8 |
+  | `dark:` variants a product's own theme switch cannot reach | 15 | 0 |
+  | components naming Tailwind's palette instead of the token | 4 | 0 |
+  | hardcoded z-indexes | 6 | 0 |
+  | tooltips legible in the light theme | **0** | all |
+
+  The three that were not merely untidy:
+
+  - **Every tooltip in the suite was white on white.** `bg-[color:var(--ou-panel)]` with
+    `text-white`, and `--ou-panel` is `#ffffff`. It read correctly only in the dark, where a `dark:`
+    variant swapped the background — so the theme nobody develops in was the only one it worked in.
+    Nobody reported it because a tooltip you cannot read looks exactly like a tooltip that did not
+    open. The repair is that a tooltip is an *inverted surface*: `--ou-ink` on `--ou-panel` needs no
+    variant, because both tokens flip together.
+  - **`ColorPalette` threw wherever it was not inside a `Toolbar`** —
+    `RovingFocusGroupItem must be used within RovingFocusGroup`, a crashed page, not a mis-drawn
+    control. The three products only ever put a palette in a ribbon, so the library had a component
+    that could not be used and no way to know. A prop would have made it the caller's job to
+    remember; instead `Toolbar` publishes the one fact only it has (`useInToolbar`), and the palette
+    takes roving focus where there is a group to rove in and is a plain button where there is not.
+  - **The second accent.** Four components painted their pressed state `sky-100` / `sky-950` while
+    `--ou-accent` is `blue-600` — so a product that remapped the accent got a toolbar in its colour
+    and a *pressed* toolbar in someone else's. The fourth was the best hidden: a checkbox's
+    `accent-blue-600`, which is the one CSS property a checkbox actually colours itself with.
+
+  **The surprise is what the instrument found about itself.** The gallery's own density switch was
+  dead — it stamped `data-density="compact"` and the token file defines `[data-density='dense']`, so
+  half of what the page existed to measure was measuring nothing. And its shell kept a private
+  palette (`--ga-ground`, `--ga-ink`, `--ga-line`) with a dark set of its own: with `data-theme` set
+  on the document rather than on the shell, the library's tokens flipped and those did not, and the
+  page title went white on a white header. The obvious repair — `--ga-ground: var(--ou-ground)` —
+  changed nothing, and that is the fact worth keeping: **a custom property is substituted where it
+  is declared**, so an alias on `:root` freezes the light value and every element below inherits the
+  snapshot. An alias to a themed token is not a reference to it. The rules name the token at the
+  point of use instead.
+
+  What keeps it found is `packages/office-ui/test/tokens.test.ts` — nine assertions, five
+  milliseconds, no browser: every `var(--ou-*)` a component reads exists; no component names a
+  colour of its own; no `dark:` variants; no hardcoded z; the two dark blocks in `tokens.css` declare
+  the identical set (they must be written twice — a media query cannot be combined into a selector
+  list — and `--ou-accent-soft` and `--ou-shadow` had already been added to one and not the other);
+  and the dense block changes only sizes, never the palette. A gallery finds a thing once; a test in
+  milliseconds keeps it found.
+
+  Also fixed on the way, all of them things the page made obvious by putting rows side by side: a
+  layer row drew `␡` (U+2421) as a literal, which has no glyph in most fonts and came out as a box
+  with `DL` in it, next to `●` / `◌` for visibility — all three are in `office-icons` at the right
+  stroke weight; a field row read `32 px px` because `Field`'s third column and `NumberField`'s
+  suffix are two different things and the page passed both; shadows were Tailwind's black on a
+  tinted panel and identically black in the dark, now `--ou-lift-1/2/3` built out of `--ou-shadow`;
+  and a dialog's scrim was `bg-black/25`, which separates a dialog from a white page and is very
+  nearly nothing over `#0a0a0a` — the one place a modal most needs to be modal.
+
 - **A route belongs to the render — and the reaction was the redraw all along.**
 
   The plan was to stop the reaction rewriting a line's ends on every edit and freeze them

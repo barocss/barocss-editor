@@ -48,6 +48,33 @@ export const CONTROL = [
  'disabled:pointer-events-none disabled:opacity-40'
 ].join(' ');
 
+/**
+ * How a control **answers** — the three things a reader does to it that are not a click.
+ *
+ * ## Why this is one string
+ *
+ * Measured across the whole library before it existed: 24 hover states, **one** `active:`, and a
+ * focus ring on three controls out of thirty-six. `transition` appeared **zero** times, so every one
+ * of those 24 hovers was an instant jump. None of that is visible one component at a time — it took
+ * a page with all of them on it.
+ *
+ * A shared string rather than a rule per component, because the failure was never that a control had
+ * the *wrong* answer: it was that each one answered a different subset, and two beside each other
+ * felt like two libraries.
+ *
+ * - **Colour only**, and 120ms of it. A tool's controls must not move: a toolbar that scales its
+ *   buttons on hover is a toolbar whose icons wander under the pointer. `transition-colors` also
+ *   keeps this off the compositor's critical path in a window that is already drawing a document.
+ * - **A press that is felt.** `active:` darkens rather than translates, for the same reason.
+ * - **A focus ring that only a keyboard sees.** `focus-visible` rather than `focus`, or every mouse
+ *   click leaves a ring behind — which is why the rings that did exist were being avoided.
+ */
+export const STATE = [
+ 'transition-colors duration-[var(--ou-quick)]',
+ 'active:bg-[color:var(--ou-ground)]',
+ 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ou-accent)] focus-visible:ring-offset-0'
+].join(' ');
+
 export type ButtonTone = 'plain' | 'accent';
 
 /**
@@ -189,6 +216,7 @@ export function Button({
       )}
       className={cn(
         CONTROL,
+        STATE,
         'inline-flex shrink-0 items-center justify-center gap-1 leading-none',
  square ? 'w-[var(--ou-control-h)] px-0' : 'px-2',
  tone === 'accent'
@@ -246,7 +274,7 @@ export function Choice({
       {...Object.fromEntries(
         Object.entries(data ?? {}).map(([key, value]) => [`data-${key}`, value])
       )}
-      className={cn(CONTROL, 'w-full min-w-0 bg-transparent px-1', testClass, className)}
+      className={cn(CONTROL, STATE, 'w-full min-w-0 bg-transparent px-1', testClass, className)}
  >
       {children}
     </select>
@@ -369,6 +397,8 @@ export function NumberField({
         }}
         className={cn(
           CONTROL,
+          STATE,
+        STATE,
           'w-full min-w-0 bg-transparent text-right tabular-nums',
           padding,
  testClass
@@ -500,7 +530,7 @@ export function TextField({
       {...Object.fromEntries(
         Object.entries(data ?? {}).map(([key, value_]) => [`data-${key}`, value_])
       )}
-      className={cn(CONTROL, 'w-full min-w-0 bg-transparent', padding, testClass, className)}
+      className={cn(CONTROL, STATE, 'w-full min-w-0 bg-transparent', padding, testClass, className)}
     />
   );
 }
@@ -526,6 +556,15 @@ export function Field({
   testClass
 }: {
   label: string;
+  /**
+   * The **third column**: a unit, or a computed note beside the value.
+   *
+   * Not the same thing as `NumberField`'s `suffix`, which sits inside the field box — pass both and
+   * a reader sees `32 px px`, which is what a gallery row did. The rule is which one *moves*: a
+   * suffix belongs to the number and scrolls with it; this column is the panel's, holds the same x
+   * down the whole panel, and is the only one of the two that can say `초 · 전체 3.2` or
+   * `ms · 12개` — a note the field has no room for. Fourteen callers, and every one is the note.
+   */
   unit?: string;
   children: React.ReactNode;
   className?: string;

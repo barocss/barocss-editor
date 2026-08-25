@@ -131,7 +131,7 @@ export function Menu({
       data-context-menu
       style={{ position: 'fixed', left: place.left, top: place.top }}
       className={cn(
-        'z-50 min-w-44 rounded-lg border py-1 shadow-lg',
+        'z-[var(--ou-z-popover)] min-w-44 rounded-lg border py-1 shadow-[var(--ou-lift-2)]',
         'border-[color:var(--ou-line)] bg-[color:var(--ou-panel)]',
         'text-[length:var(--ou-text)] text-[color:var(--ou-ink)]'
       )}
@@ -160,6 +160,7 @@ export function Menu({
                 onPointerEnter={() => setHot(flat.findIndex((one) => one.id === entry.id))}
                 className={cn(
                   'flex w-full items-center justify-between gap-6 px-3 py-1 text-left',
+                  'transition-colors duration-[var(--ou-quick)]',
                   'disabled:opacity-40',
                   hot && !entry.disabled && 'bg-[color:var(--ou-ground)]'
                 )}

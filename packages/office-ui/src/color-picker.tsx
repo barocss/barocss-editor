@@ -162,7 +162,7 @@ export function ColorPicker({
       <div className="flex items-center gap-1.5">
  <span
           aria-hidden
-          className="h-7 w-7 shrink-0 rounded border border-[color:var(--ou-line)]"
+          className="h-[var(--ou-control-h)] w-[var(--ou-control-h)] shrink-0 rounded-[var(--ou-radius)] border border-[color:var(--ou-line)]"
  style={{
             // The chequerboard behind it is what makes an alpha visible at all.
             backgroundImage:
@@ -172,7 +172,7 @@ export function ColorPicker({
  }}
         />
 
-        <label className="flex flex-1 items-center rounded border border-[color:var(--ou-line)] px-1 dark:border-[color:var(--ou-line)]">
+        <label className="flex flex-1 items-center rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] px-1">
  <span className="text-[11px] text-[color:var(--ou-faint)]">#</span>
  <input
             aria-label="색상 코드"
@@ -190,7 +190,7 @@ export function ColorPicker({
  />
         </label>
 
-        <label className="flex w-[62px] items-center rounded border border-[color:var(--ou-line)] px-1 dark:border-[color:var(--ou-line)]">
+        <label className="flex w-[62px] items-center rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] px-1">
  <input
             aria-label="불투명도"
  type="number"
@@ -209,7 +209,7 @@ export function ColorPicker({
  aria-label="화면에서 색 고르기"
  data-eyedropper
             onClick={pick}
-            className="h-7 w-7 shrink-0 rounded border border-[color:var(--ou-line)] text-[11px] dark:border-[color:var(--ou-line)]"
+            className="h-[var(--ou-control-h)] w-[var(--ou-control-h)] shrink-0 rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] text-[11px]"
  >
             ⌖
           </button>
@@ -232,8 +232,9 @@ export function ColorPicker({
                 onClick={() => emit(swatch.value)}
                 className={cn(
                   'h-5 w-5 rounded-sm border border-[color:var(--ou-line)]',
- 'hover:outline hover:outline-2 hover:outline-sky-400',
- value === swatch.value && 'outline outline-2 outline-sky-500'
+                  'transition-[outline-color] duration-[var(--ou-quick)]',
+                  'hover:outline hover:outline-2 hover:outline-[color:var(--ou-accent)]',
+                  value === swatch.value && 'outline outline-2 outline-[color:var(--ou-accent)]'
                 )}
                 style={{ background: swatch.colour }}
               />
@@ -266,8 +267,9 @@ export function ColorPicker({
                 onClick={() => emit(swatch.value)}
                 className={cn(
                   'h-5 w-5 rounded-sm border border-[color:var(--ou-line)]',
-                  'hover:outline hover:outline-2 hover:outline-sky-400',
-                  value === swatch.value && 'outline outline-2 outline-sky-500'
+                  'transition-[outline-color] duration-[var(--ou-quick)]',
+                  'hover:outline hover:outline-2 hover:outline-[color:var(--ou-accent)]',
+                  value === swatch.value && 'outline outline-2 outline-[color:var(--ou-accent)]'
                 )}
                 style={{ background: swatch.colour }}
               />

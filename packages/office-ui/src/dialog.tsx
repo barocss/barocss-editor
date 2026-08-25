@@ -1,7 +1,7 @@
 import * as RadixDialog from '@radix-ui/react-dialog';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
-import { Button } from './controls';
+import { Button, STATE } from './controls';
 
 /**
  * A dialog, as every product in the suite draws one.
@@ -47,17 +47,16 @@ export function Dialog({
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-black/25" />
+        <RadixDialog.Overlay className="fixed inset-0 z-[var(--ou-z-overlay)] bg-[color:var(--ou-scrim)]" />
  <RadixDialog.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 w-[min(30rem,calc(100vw-2rem))]',
- '-translate-x-1/2 -translate-y-1/2 rounded-lg border shadow-xl',
- 'border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] text-[color:var(--ou-ink)]',
- ' dark:text-[color:var(--ou-ink)]',
- className
+            'fixed left-1/2 top-1/2 z-[var(--ou-z-dialog)] w-[min(30rem,calc(100vw-2rem))]',
+            '-translate-x-1/2 -translate-y-1/2 rounded-lg border shadow-[var(--ou-lift-3)]',
+            'border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] text-[color:var(--ou-ink)]',
+            className
           )}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-[color:var(--ou-line)] px-4 py-3 dark:border-[color:var(--ou-line)]">
+          <div className="flex items-start justify-between gap-4 border-b border-[color:var(--ou-line)] px-4 py-3">
  <div>
               <RadixDialog.Title className="text-sm font-semibold">{title}</RadixDialog.Title>
  {description && (
@@ -68,7 +67,7 @@ export function Dialog({
             </div>
             <RadixDialog.Close
               aria-label="닫기"
- className="rounded p-1 text-[color:var(--ou-muted)] hover:bg-[color:var(--ou-ground)]"
+ className={cn('rounded-[var(--ou-radius)] p-1 text-[color:var(--ou-muted)] hover:bg-[color:var(--ou-ground)]', STATE)}
  >
               <Icon name="close" />
             </RadixDialog.Close>
@@ -77,7 +76,7 @@ export function Dialog({
           <div className="px-4 py-3">{children}</div>
 
  {footer && (
-            <div className="flex justify-end gap-2 border-t border-[color:var(--ou-line)] px-4 py-3 dark:border-[color:var(--ou-line)]">
+            <div className="flex justify-end gap-2 border-t border-[color:var(--ou-line)] px-4 py-3">
  {footer}
             </div>
           )}

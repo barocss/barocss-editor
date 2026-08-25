@@ -306,7 +306,7 @@ export function PropertyToggle({
         disabled={disabled}
         checked={value}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-3.5 w-3.5 shrink-0 accent-blue-600 disabled:opacity-40"
+        className="h-3.5 w-3.5 shrink-0 accent-[color:var(--ou-accent)] disabled:opacity-40"
  />
       {label}
     </label>

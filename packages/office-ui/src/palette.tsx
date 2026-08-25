@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import * as RadixToolbar from '@radix-ui/react-toolbar';
 import { cn } from './cn';
+import { STATE } from './controls';
+import { useInToolbar } from './toolbar';
 
 /**
  * A toolbar control that opens a set of colours.
@@ -62,6 +64,12 @@ export function ColorPalette({
 }) {
   const [open, setOpen] = useState(false);
   const host = useRef<HTMLSpanElement>(null);
+  /*
+   * A toolbar button in a toolbar, an ordinary button anywhere else — see `useInToolbar`. The two
+   * take the same props and draw the same element; the only difference is the arrow-key order this
+   * one joins, which is worth having where there is one and fatal to ask for where there is not.
+   */
+  const Trigger = useInToolbar() ? RadixToolbar.Button : 'button';
 
   /**
    * Close on a pointer outside, or on Escape.
@@ -95,7 +103,8 @@ export function ColorPalette({
 
   return (
     <span ref={host} className="relative inline-flex">
- <RadixToolbar.Button
+ <Trigger
+        type="button"
         data-control={id}
         data-open={open ? 'true' : 'false'}
  aria-label={label}
@@ -109,12 +118,14 @@ export function ColorPalette({
           setOpen((wasOpen) => !wasOpen);
         }}
         className={cn(
-          'inline-flex h-7 min-w-7 flex-col items-center justify-center rounded border border-transparent px-1',
- 'text-sm leading-none hover:bg-[color:var(--ou-ground)]',
- 'disabled:pointer-events-none disabled:opacity-40',
- 'data-[open=true]:border-sky-300 data-[open=true]:bg-sky-100',
- 'dark:data-[open=true]:border-sky-700 dark:data-[open=true]:bg-sky-950'
- )}
+          'inline-flex h-[var(--ou-control-h)] min-w-[var(--ou-control-h)] flex-col items-center justify-center',
+          'rounded-[var(--ou-radius)] border border-transparent px-1',
+          'text-sm leading-none hover:bg-[color:var(--ou-ground)]',
+          STATE,
+          'disabled:pointer-events-none disabled:opacity-40',
+          // The suite's accent, not Tailwind's sky — the same second accent the toolbar had.
+          'data-[open=true]:border-[color:var(--ou-accent)] data-[open=true]:bg-[color:var(--ou-accent-soft)]'
+        )}
       >
         <span>{icon}</span>
         {/* The bar under the letter, which is how every word processor shows
@@ -125,7 +136,7 @@ export function ColorPalette({
  className="mt-0.5 h-1 w-4 rounded-sm border border-[color:var(--ou-line)]"
  style={{ background: value ? withHash(value) : 'transparent' }}
  />
-      </RadixToolbar.Button>
+      </Trigger>
 
       {open && (
         <span
@@ -133,9 +144,10 @@ export function ColorPalette({
  aria-label={label}
           data-palette={id}
           className={cn(
-            'absolute left-0 top-full z-50 mt-1 w-max rounded border border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] p-2 shadow-lg',
- ''
- )}
+            'absolute left-0 top-full z-[var(--ou-z-popover)] mt-1 w-max p-2',
+            'rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] bg-[color:var(--ou-panel)]',
+            'shadow-[var(--ou-lift-2)]'
+          )}
         >
           <span className="grid grid-cols-5 gap-1">
  {swatches.map((swatch) => (
@@ -151,9 +163,10 @@ export function ColorPalette({
                 }}
                 className={cn(
                   'h-5 w-5 rounded-sm border border-[color:var(--ou-line)]',
- 'hover:outline hover:outline-2 hover:outline-sky-400',
- value === swatch.value && 'outline outline-2 outline-sky-500'
- )}
+                  'transition-[outline-color] duration-[var(--ou-quick)]',
+                  'hover:outline hover:outline-2 hover:outline-[color:var(--ou-accent)]',
+                  value === swatch.value && 'outline outline-2 outline-[color:var(--ou-accent)]'
+                )}
                 style={{ background: withHash(swatch.value) }}
               />
             ))}
@@ -173,7 +186,7 @@ export function ColorPalette({
  aria-label={`${label}: 다른 색`}
               value={value ? withHash(value) : '#000000'}
  onChange={(event) => choose(event.target.value)}
-              className="h-6 w-8 shrink-0 cursor-pointer rounded border border-[color:var(--ou-line)] bg-transparent p-0.5 dark:border-[color:var(--ou-line)]"
+              className="h-6 w-8 shrink-0 cursor-pointer rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] bg-transparent p-0.5"
  />
             {clearLabel && (
               <button
@@ -186,8 +199,9 @@ export function ColorPalette({
                   setOpen(false);
                 }}
                 className={cn(
-                  'rounded border border-[color:var(--ou-line)] px-2 py-0.5 text-[11px]',
- 'hover:bg-[color:var(--ou-ground)] dark:border-[color:var(--ou-line)] dark:hover:bg-[color:var(--ou-ground)]'
+                  'rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] px-2 py-0.5 text-[11px]',
+                  'hover:bg-[color:var(--ou-ground)]',
+                  STATE
                 )}
               >
                 {clearLabel}
