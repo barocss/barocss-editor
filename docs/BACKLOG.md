@@ -1063,6 +1063,22 @@ shipped features marked undone.
     A selection spanning **two** drawings acts on the first shape's canvas and leaves the rest
     alone: each drawing has its own origin, so a frame across two of them means nothing.
 
+  - [x] **Snapping, and the lines that say why.** A drag builds its guides once at the start — every
+    other shape's edges and middle, plus the drawing's own edges and centre, which is the position
+    an author aims at most and can never hit by eye — and the whole selection snaps as **one box**,
+    so a set lands together rather than each shape finding its own line. The threshold is eight
+    *screen* pixels turned into model units, the deck's number and its reason: a fixed model
+    threshold feels sticky on a page zoomed out and dead on one zoomed in. What is drawn is what is
+    written — the snapped delta goes to the command, not the pointer's own.
+
+    Two things it forced, both worth keeping. **Cmd/Ctrl is not a selection modifier** here: the
+    deck already spends it on *exactly here, no snapping*, and a modifier that also changed the set
+    would make that unreachable, because a press that changes the set never becomes a drag. Shift
+    adds to the set; Cmd/Ctrl turns snapping off. And a test that aimed "left edge against left
+    edge" with boxes of **different widths** was ambiguous by construction — the snap picks the
+    closest edge-to-guide pair per axis, and centre-to-centre was nearer — which is correct, so the
+    fixture uses two boxes of one size and the three pairings agree.
+
 - [ ] **Typing with one shape selected should write into it**, which is what PowerPoint and Keynote
   do, and what neither product does today. It needs a shape that can hold text: the deck has
   `textFrame` and reaches it by double-click, and a page has none until `<foreignObject>` is

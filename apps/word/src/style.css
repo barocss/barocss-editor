@@ -935,3 +935,14 @@ body {
 .w-drawing-handle-s { left: 50%; top: 100%; cursor: ns-resize; }
 .w-drawing-handle-sw { left: 0; top: 100%; cursor: nesw-resize; }
 .w-drawing-handle-w { left: 0; top: 50%; cursor: ew-resize; }
+
+/*
+ * A line a drag has landed on.
+ *
+ * The colour every drawing tool uses for this, and one screen pixel whatever the zoom: a guide is
+ * an alignment claim, and a claim two pixels thick is a claim about which pixel.
+ */
+.w-drawing-guide {
+  position: absolute;
+  background: #ec4899;
+}

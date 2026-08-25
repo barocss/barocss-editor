@@ -45,12 +45,18 @@ const drawTwo = async (page: Page) => {
     };
     const rect = walk(editor.getRootId())!;
     const canvas = store.getNode(rect).parentId;
+    /*
+     * The **same size** as the rectangle, on purpose: a snap picks the closest edge-to-guide pair
+     * per axis, so with two boxes of different widths a drag aimed at "left against left" can land
+     * on centre-against-centre instead — which is correct and makes a test about *which* line
+     * ambiguous. Same size, and the three pairings agree.
+     */
     return editor.executeCommand('insertEllipse', {
       canvasId: canvas,
       x: 300,
       y: 300,
-      width: 1200,
-      height: 800
+      width: 2340,
+      height: 1170
     });
   });
   await settled(page);
@@ -489,5 +495,98 @@ test.describe('arranging a set from the ribbon', () => {
 
     // The element itself moved in the SVG, because that *is* the paint order.
     expect(await order()).toEqual(['ellipse', 'rect']);
+  });
+});
+
+/**
+ * Snapping, and the lines that say why.
+ *
+ * The arithmetic is unit-tested in the canvas layer — which edge is nearest, how a set snaps as one
+ * box. What only a browser shows is that the shape **lands** on the line it drew: a preview that
+ * snapped and a write that did not would be the worst of both, and it is exactly the fault a drag
+ * that computes twice invites.
+ */
+test.describe('snapping while dragging', () => {
+  test('lands on a neighbour’s edge, and says so with a line', async ({ page }) => {
+    await drawTwo(page);
+
+    // The ellipse sits at x=300; the rectangle is dragged so its left edge arrives near it.
+    const rect = (await page.locator('.w-canvas rect').boundingBox())!;
+    const ellipse = (await page.locator('.w-canvas ellipse').boundingBox())!;
+
+    await page.locator('.w-canvas rect').click();
+    await settled(page);
+
+    /*
+     * The pointer is taken to where the rectangle's **left edge** would land four pixels short of
+     * the ellipse's — inside the eight-pixel reach, so what closes the gap is the snap. A drag that
+     * merely followed the pointer would leave those four pixels in the document.
+     */
+    const from = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    const shift = ellipse.x + 4 - rect.x;
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + shift / 2, from.y, { steps: 4 });
+    await page.mouse.move(from.x + shift, from.y, { steps: 4 });
+
+    // While it is held, the line it has landed on is drawn.
+    await expect(page.locator('[data-drawing-guide]')).not.toHaveCount(0);
+
+    await page.mouse.up();
+    await settled(page);
+
+    // And the write is what was drawn: the two left edges agree exactly.
+    const lefts = await page.evaluate(() => {
+      const store = (window as any).editor.dataStore;
+      const found: Record<string, number> = {};
+      const walk = (sid: string) => {
+        const node = store.getNode(sid);
+        if (node?.stype === 'rectangle' || node?.stype === 'ellipse') found[node.stype] = node.attributes.x;
+        for (const child of node?.content ?? []) if (typeof child === 'string') walk(child);
+      };
+      walk((window as any).editor.getRootId());
+      return found;
+    });
+    expect(lefts.rectangle).toBe(lefts.ellipse);
+    // The lines go when the pointer does.
+    await expect(page.locator('[data-drawing-guide]')).toHaveCount(0);
+  });
+
+  test('a modifier means exactly here', async ({ page }) => {
+    await drawTwo(page);
+    await page.locator('.w-canvas rect').click();
+    await settled(page);
+
+    const rect = (await page.locator('.w-canvas rect').boundingBox())!;
+    const ellipse = (await page.locator('.w-canvas ellipse').boundingBox())!;
+
+    const from = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    const shift = ellipse.x + 4 - rect.x;
+    // Ctrl held *during the drag*, which is what says "exactly here" — and why Ctrl is not the
+    // modifier that adds to the selection: a press that changed the set would never become a drag.
+    await page.keyboard.down('Control');
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + shift, from.y, { steps: 6 });
+    // Nothing to draw: the reader has asked for an exact position, so nothing is snapping.
+    await expect(page.locator('[data-drawing-guide]')).toHaveCount(0);
+    await page.mouse.up();
+    await page.keyboard.up('Control');
+    await settled(page);
+
+    const lefts = await page.evaluate(() => {
+      const store = (window as any).editor.dataStore;
+      const found: Record<string, number> = {};
+      const walk = (sid: string) => {
+        const node = store.getNode(sid);
+        if (node?.stype === 'rectangle' || node?.stype === 'ellipse') found[node.stype] = node.attributes.x;
+        for (const child of node?.content ?? []) if (typeof child === 'string') walk(child);
+      };
+      walk((window as any).editor.getRootId());
+      return found;
+    });
+    // Near it, and not on it.
+    expect(lefts.rectangle).not.toBe(lefts.ellipse);
+    expect(Math.abs(lefts.rectangle - lefts.ellipse)).toBeLessThan(400);
   });
 });

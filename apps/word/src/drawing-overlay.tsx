@@ -5,9 +5,13 @@ import {
   RESIZE_HANDLES,
   boxOf,
   canvasAt,
+  guidesFor,
   intersects,
+  moveBox,
+  snapBox,
   unionOf,
   type Box,
+  type Guide,
   type Handle
 } from '@barocss/office-word';
 import { useEditorRevision } from './revision';
@@ -49,6 +53,12 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
   const [dragged, setDragged] = useState<{ dx: number; dy: number } | null>(null);
   /** Which handle is being pulled, and how far — the frame follows it while the shape does not. */
   const [pulled, setPulled] = useState<{ handle: Handle; dx: number; dy: number } | null>(null);
+  /** The lines a drag has landed on, drawn while it holds them. */
+  const [guides, setGuides] = useState<{ axis: 'x' | 'y'; at: number }[]>([]);
+  /** Where the drawing is on screen, and how big it is in the model — a guide needs both. */
+  const [canvasRect, setCanvasRect] = useState<
+    { left: number; top: number; width: number; height: number; size: Box } | null
+  >(null);
 
   /** The document, as the canvas readers want it. */
   const access = useCallback(() => {
@@ -82,6 +92,27 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
       });
     }
     setOutlines(found);
+
+    /*
+     * And where the drawing itself is, which is what a guide line is measured against: a guide is
+     * a position in the model, and only the canvas's own rectangle turns that into a place on the
+     * screen.
+     */
+    const chosen = selectedNodeIds((editor as any).selection)[0];
+    const store = (editor as any).dataStore;
+    const canvasSid = chosen
+      ? canvasAt({ rootId: (editor as any).getRootId?.(), getNode: (sid: string) => store?.getNode(sid) } as never, chosen)
+      : undefined;
+    const canvasEl = canvasSid ? document.querySelector(`[data-bc-sid="${canvasSid}"]`) : null;
+    if (!canvasEl) return setCanvasRect(null);
+    const rect = canvasEl.getBoundingClientRect();
+    setCanvasRect({
+      left: rect.left - origin.left,
+      top: rect.top - origin.top,
+      width: rect.width,
+      height: rect.height,
+      size: boxOf(store?.getNode(canvasSid)?.attributes)
+    });
   }, [editor]);
 
   /**
@@ -158,7 +189,16 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
       }
 
       const current = selectedNodeIds((editor as any).selection);
-      const many = event.shiftKey || event.metaKey || event.ctrlKey;
+      /*
+       * **Shift** adds to the set, and Cmd/Ctrl does not.
+       *
+       * It did at first, because ctrl-click is "add to selection" in a file manager — and it took
+       * the modifier the deck already spends on something else: Cmd or Ctrl held during a drag means
+       * *exactly here*, with no snapping. A modifier that both changed the set and turned snapping
+       * off would make the second one unreachable, since a press that changes the set never becomes
+       * a drag.
+       */
+      const many = event.shiftKey;
       const next = many
         ? current.includes(sid)
           ? current.filter((one) => one !== sid)
@@ -203,8 +243,37 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
         .map((sid) => document.querySelector(`[data-bc-sid="${sid}"]`) as HTMLElement | null)
         .filter((one): one is HTMLElement => !!one);
 
+      /**
+       * What this drag may snap to, measured once at the start.
+       *
+       * Every *other* shape on the drawing — its edges and its middle — plus the drawing's own
+       * edges and centre. The centres matter as much as the edges: "centred on the page" is the
+       * thing an author is most often aiming at and the one position they cannot hit by eye.
+       *
+       * Once, and not per pointer event: what is on the canvas does not change while a drag is
+       * held, and re-deriving it thirty times a second would be thirty chances to disagree.
+       */
+      const held = new Set(moving);
+      const others = ((doc.getNode(canvasSid) as any)?.content ?? [])
+        .filter((sid: unknown): sid is string => typeof sid === 'string' && !held.has(sid))
+        .map((sid: string) => boxOf((doc.getNode(sid) as any)?.attributes));
+      const lines = guidesFor(others, { x: 0, y: 0, width: size.width, height: size.height });
+      const start = unionOf(moving.map((sid) => boxOf((doc.getNode(sid) as any)?.attributes)));
+
+      /*
+       * "Close enough" is a distance on the reader's **screen**, so the threshold is eight screen
+       * pixels converted into the model — the deck's number and the deck's reason: a fixed model
+       * threshold feels sticky on a page zoomed out and dead on one zoomed in.
+       */
+      const within = (8 / drawn.width) * size.width;
+      const toModel = (dx: number, dy: number) => ({
+        dx: (dx / drawn.width) * size.width,
+        dy: (dy / drawn.height) * size.height
+      });
+
       const from = { x: event.clientX, y: event.clientY };
       let moved = false;
+      let landed = { dx: 0, dy: 0 };
 
       const move = (at: PointerEvent) => {
         const dx = at.clientX - from.x;
@@ -213,23 +282,51 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
         // a little while a finger presses and a shape that jumped on every click would be unusable.
         if (!moved && Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
         moved = true;
-        for (const element of elements) element.style.transform = `translate(${dx}px, ${dy}px)`;
-        setDragged({ dx, dy });
+
+        const asked = toModel(dx, dy);
+        landed = asked;
+        let hit: Guide[] = [];
+
+        /*
+         * The whole selection snaps as **one box**, so a set lands together rather than each shape
+         * finding its own line — and Cmd or Ctrl turns it off, which is what a reader holds when
+         * they mean *exactly here*.
+         */
+        if (start && !at.metaKey && !at.ctrlKey) {
+          const frame = moveBox(start, asked);
+          const snapped = snapBox(frame, lines, within);
+          landed = {
+            dx: asked.dx + (snapped.box.x - frame.x),
+            dy: asked.dy + (snapped.box.y - frame.y)
+          };
+          hit = snapped.hit;
+        }
+
+        const screen = {
+          dx: (landed.dx / size.width) * drawn.width,
+          dy: (landed.dy / size.height) * drawn.height
+        };
+        for (const element of elements) {
+          element.style.transform = `translate(${screen.dx}px, ${screen.dy}px)`;
+        }
+        setDragged(screen);
+        setGuides(hit);
       };
 
-      const up = (at: PointerEvent) => {
+      const up = () => {
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
         for (const element of elements) element.style.transform = '';
         setDragged(null);
+        setGuides([]);
         if (!moved) return;
 
-        // Screen pixels to the model's own units, through the canvas's rectangle: the same one
-        // measurement the band uses, so a drag and a marquee cannot disagree about where the
-        // pointer is.
-        const dx = ((at.clientX - from.x) / drawn.width) * size.width;
-        const dy = ((at.clientY - from.y) / drawn.height) * size.height;
-        void (editor as any).executeCommand?.('moveShapes', { nodeIds: moving, dx, dy });
+        // What was drawn is what is written: the snapped delta, not the pointer's own.
+        void (editor as any).executeCommand?.('moveShapes', {
+          nodeIds: moving,
+          dx: landed.dx,
+          dy: landed.dy
+        });
       };
 
       window.addEventListener('pointermove', move);
@@ -402,6 +499,36 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
           ))}
         </div>
       )}
+      {/*
+        * The lines a drag has landed on.
+        *
+        * Drawn across the **drawing** rather than the page: a guide says "this edge is level with
+        * that one", and the two things it is about are both inside the canvas. In screen pixels
+        * like everything else in this layer, converted through the canvas's own rectangle.
+        */}
+      {canvasRect &&
+        guides.map((guide, at) => (
+          <div
+            key={`${guide.axis}-${guide.at}-${at}`}
+            className="w-drawing-guide"
+            data-drawing-guide={guide.axis}
+            style={
+              guide.axis === 'x'
+                ? {
+                    left: `${canvasRect.left + (guide.at / canvasRect.size.width) * canvasRect.width}px`,
+                    top: `${canvasRect.top}px`,
+                    width: '1px',
+                    height: `${canvasRect.height}px`
+                  }
+                : {
+                    left: `${canvasRect.left}px`,
+                    top: `${canvasRect.top + (guide.at / canvasRect.size.height) * canvasRect.height}px`,
+                    width: `${canvasRect.width}px`,
+                    height: '1px'
+                  }
+            }
+          />
+        ))}
       {band && (
         <div
           className="w-drawing-band"
