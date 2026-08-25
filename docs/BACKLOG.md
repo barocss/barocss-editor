@@ -1033,6 +1033,26 @@ shipped features marked undone.
     clicked a paragraph and typed was testing the sample's `fieldDateTime`, where typing is refused
     correctly, and calling it a fault in the drawing; the caret is set through the editor now.
 
+  - [x] **Getting back to writing**, from the question *"with shapes selected, can a reader type?"*.
+    Measured in the browser first, in **both** products: a letter goes nowhere and Enter does
+    nothing at all. Safe — the engine refuses a character that has no caret to go into, so nothing
+    is silently written somewhere odd — and dead, because Enter means *give me a line* everywhere
+    else in a document.
+
+    A page can answer that and a deck cannot: a document is a column of blocks with a line always
+    available after any of them, and a slide has nowhere for a caret to fall out to. So **Enter**
+    makes a paragraph right after the drawing and puts the caret in it, and **Escape** only moves
+    the caret — after the drawing, or before it when the drawing is last — because a reader who has
+    finished with a drawing does not want an empty paragraph to delete afterwards. Enter *always*
+    makes one rather than sometimes reusing what is below: one key that sometimes writes and
+    sometimes navigates is two gestures a reader cannot tell apart before pressing.
+
+- [ ] **Typing with one shape selected should write into it**, which is what PowerPoint and Keynote
+  do, and what neither product does today. It needs a shape that can hold text: the deck has
+  `textFrame` and reaches it by double-click, and a page has none until `<foreignObject>` is
+  answered. Then it is one rule for both — *one* selected shape takes the letters, several take
+  nothing, because nobody can say which of them was meant.
+
 - [ ] **A shape on a Word drawing cannot be rotated**, and nothing draws a rotate handle. The
   arithmetic is shared already (`angleOf`, `snapAngle`); what is missing is the gesture and a
   command.

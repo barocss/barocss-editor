@@ -359,3 +359,61 @@ test.describe('acting on what is selected', () => {
     await expect(page.locator('.w-canvas ellipse')).toHaveCount(1);
   });
 });
+
+/**
+ * Getting back to writing.
+ *
+ * The question this came from is worth writing down: *with shapes selected, can a reader type?* The
+ * measured answer was no — a letter went nowhere and Enter did nothing — which is safe and dead.
+ * A page has an answer a slide does not: there is always a line available after a block.
+ */
+test.describe('leaving a drawing with the keyboard', () => {
+  test('Enter gives a line under the drawing, and the next letter goes in it', async ({ page }) => {
+    await drawTwo(page);
+    await page.locator('.w-canvas rect').click();
+    await settled(page);
+
+    await page.keyboard.press('Enter');
+    await settled(page);
+    await page.keyboard.type('여기');
+    await settled(page);
+
+    // The letters went into a new line under the drawing — which is what pressing Enter means.
+    const wrote = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      // The drawing found by walking, not by index: a Word document starts with its `docMeta`, so
+      // the section is not the root's first child.
+      let canvas: string | undefined;
+      const walk = (sid: string) => {
+        const node = store.getNode(sid);
+        if (node?.stype === 'canvasBlock') canvas = sid;
+        for (const child of node?.content ?? []) if (typeof child === 'string') walk(child);
+      };
+      walk(editor.getRootId());
+      const parent = store.getNode(store.getNode(canvas!).parentId);
+      const kids = parent.content as string[];
+      const after = store.getNode(kids[kids.indexOf(canvas!) + 1]);
+      const run = store.getNode((after.content ?? [])[0]);
+      return { stype: after.stype, text: run?.text };
+    });
+    expect(wrote).toEqual({ stype: 'paragraph', text: '여기' });
+    // And nothing is selected on the drawing any more: the reader is writing.
+    expect(await selected(page)).toHaveLength(0);
+  });
+
+  test('Escape puts the caret back in the text without adding a line', async ({ page }) => {
+    await drawTwo(page);
+    const before = await page.locator('.barocss-editor-content p:not(.w-frame p)').count();
+
+    await page.locator('.w-canvas rect').click();
+    await settled(page);
+    await page.keyboard.press('Escape');
+    await settled(page);
+
+    // No new paragraph — a reader who has finished with a drawing does not want one to delete.
+    expect(await page.locator('.barocss-editor-content p:not(.w-frame p)').count()).toBe(before);
+    expect(await selected(page)).toHaveLength(0);
+    expect(await page.evaluate(() => (window as any).editor.selection?.type)).toBe('range');
+  });
+});

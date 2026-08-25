@@ -193,3 +193,96 @@ describe('moving what is on a drawing', () => {
     expect(editor.canExecuteCommand('moveShapes', { nodeIds: shapes(), dx: 0, dy: 0 })).toBe(false);
   });
 });
+
+/**
+ * Getting back to writing, from a shape.
+ *
+ * Measured before it was built, in the browser: with a shape selected a letter went nowhere and
+ * Enter did nothing at all. Safe — the engine refuses a character with no caret to put it in — and
+ * dead, because Enter means *give me a line* everywhere else in a document. A page can answer that
+ * and a slide cannot, which is why these are Word's.
+ */
+describe('leaving a drawing', () => {
+  let editor: any;
+
+  const stand = async () => {
+    editor = createWordEditor();
+    editor.loadDocument(
+      {
+        stype: 'document',
+        attributes: {},
+        content: [
+          {
+            stype: 'surface',
+            attributes: { kind: 'flow' },
+            content: [
+              { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '위' }] },
+              { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '아래' }] }
+            ]
+          }
+        ]
+      },
+      'word'
+    );
+    const section = editor.dataStore.getNode(editor.getRootId()).content[0];
+    const first = editor.dataStore.getNode(section).content[0];
+    const run = editor.dataStore.getNode(first).content[0];
+    await editor.executeCommand('insertRectangle', {
+      selection: { type: 'range', startNodeId: run, startOffset: 0, endNodeId: run, endOffset: 0 }
+    });
+    // The shape the reader is holding — which is what the overlay leaves selected after a press.
+    const canvas = editor.dataStore.getNode(section).content[1];
+    editor.setNode({ nodeIds: [editor.dataStore.getNode(canvas).content[0]] });
+    return { section, canvas };
+  };
+
+  const blocks = (section: string) =>
+    editor.dataStore.getNode(section).content.map((sid: string) => editor.dataStore.getNode(sid).stype);
+
+  const caretText = () => {
+    const selection = editor.selection;
+    return selection?.type === 'range' ? editor.dataStore.getNode(selection.startNodeId)?.text : null;
+  };
+
+  it('Enter makes a line under the drawing and puts the caret in it', async () => {
+    const { section } = await stand();
+    expect(await editor.executeCommand('insertParagraphAfterDrawing')).toBe(true);
+
+    // Straight after the drawing, not at the end of the section.
+    expect(blocks(section)).toEqual(['paragraph', 'canvasBlock', 'paragraph', 'paragraph']);
+    expect(editor.selection?.type).toBe('range');
+    expect(caretText()).toBe('');
+  });
+
+  it('Escape moves the caret and writes nothing', async () => {
+    const { section } = await stand();
+    const before = blocks(section);
+
+    expect(await editor.executeCommand('leaveDrawing')).toBe(true);
+    // A reader who has finished with a drawing does not want an empty paragraph to delete after it.
+    expect(blocks(section)).toEqual(before);
+    expect(caretText()).toBe('아래');
+  });
+
+  it('lands before the drawing when the drawing is the last thing there', async () => {
+    const { section } = await stand();
+    const canvas = editor.dataStore.getNode(section).content[1];
+    // Take the paragraph under it away, so there is nothing after the drawing at all.
+    await editor.transaction([
+      { type: 'removeChild', payload: { parentId: section, childId: editor.dataStore.getNode(section).content[2] } }
+    ]).commit();
+    editor.setNode({ nodeIds: [editor.dataStore.getNode(canvas).content[0]] });
+
+    expect(await editor.executeCommand('leaveDrawing')).toBe(true);
+    expect(caretText()).toBe('위');
+  });
+
+  it('refuses when nothing on a drawing is selected, so the key stays the reader’s', async () => {
+    await stand();
+    editor.setNode(null);
+    // Otherwise Enter would swallow the key with a caret in the text, which is the fault
+    // `shapesSelected` exists to prevent.
+    expect(editor.canExecuteCommand('insertParagraphAfterDrawing')).toBe(false);
+    expect(editor.canExecuteCommand('leaveDrawing')).toBe(false);
+  });
+});

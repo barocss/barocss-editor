@@ -131,6 +131,16 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   { key: 'Delete', command: 'deleteShapes', when: 'editorFocus && shapesSelected' },
   { key: 'Backspace', command: 'deleteShapes', when: 'editorFocus && shapesSelected' },
   /**
+   * Getting back to writing, which measured as **nothing at all**: with a shape selected, a letter
+   * went nowhere and Enter did nothing. Safe, because the engine refuses a character that has no
+   * caret to go to — and dead, because Enter means *give me a line* everywhere else in a document.
+   *
+   * Enter makes one after the drawing and puts the caret in it; Escape only moves the caret, because
+   * a reader who has finished with a drawing does not want an empty paragraph to delete afterwards.
+   */
+  { key: 'Enter', command: 'insertParagraphAfterDrawing', when: 'editorFocus && shapesSelected' },
+  { key: 'Escape', command: 'leaveDrawing', when: 'editorFocus && shapesSelected' },
+  /**
    * A nudge is one pixel, or a tenth of an inch with Shift held — the deck's own steps, because a
    * reader who has learned one has learned the other.
    *

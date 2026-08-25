@@ -70,6 +70,12 @@ const schema = createSchema('word', getWordSchemaDefinition());
     { command: 'insertRectangle', produces: 'rectangle' },
     { command: 'insertEllipse', produces: 'ellipse' },
     { command: 'insertLine', produces: 'line' },
+    /*
+     * Enter, with a shape selected: a line to keep writing on after the drawing. Named as an insert
+     * because that is what it does — always a new paragraph, never "the caret goes to whatever is
+     * already below", which would be two gestures wearing one key.
+     */
+    { command: 'insertParagraphAfterDrawing', produces: 'paragraph' },
     { command: 'insertRowAbove', produces: 'bTableRow' },
     { command: 'insertRowBelow', produces: 'bTableRow' },
     { command: 'insertColumnLeft', produces: 'bTableCell' },

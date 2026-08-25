@@ -103,6 +103,42 @@ export class WordCanvasShapeExtension implements Extension {
     );
 
     /**
+     * **Enter**: keep writing after the drawing.
+     *
+     * Measured first, and the answer was nothing: with a shape selected, a letter went nowhere and
+     * Enter did nothing at all. Safe — the engine refuses a character when the caret has nowhere to
+     * go — and dead, because a reader pressing Enter means *give me a line*, which is what it means
+     * everywhere else in a document.
+     *
+     * A page can answer that and a deck cannot, which is why this is Word's: a document is a column
+     * of blocks with a line always available after any of them, and a slide has nowhere for a caret
+     * to fall out to.
+     *
+     * Always a **new** paragraph, never "put the caret in whatever is already below". Enter that
+     * sometimes made a line and sometimes moved to an existing one would be two gestures wearing one
+     * key, and the reader cannot see which they are about to get.
+     */
+    register(
+      'insertParagraphAfterDrawing',
+      async () => await this._writeAfter(editor),
+      () => !!this._drawingOf(editor)
+    );
+
+    /**
+     * **Escape**: leave the drawing, without changing the document.
+     *
+     * The other half of the same need, and the half that must not write: a reader who has finished
+     * with a drawing wants the caret back in their text, not an empty paragraph they now have to
+     * delete. The caret lands after the drawing, or before it when the drawing is the last thing in
+     * the section.
+     */
+    register(
+      'leaveDrawing',
+      async () => await this._leave(editor),
+      () => !!this._drawingOf(editor)
+    );
+
+    /**
      * Whether anything on a drawing is selected, for the key map to ask.
      *
      * The same shape `tableSelected` has, and for the same reason it was needed: with a caret in a
@@ -123,6 +159,96 @@ export class WordCanvasShapeExtension implements Extension {
     editor.on('editor:selection.change', track);
     editor.on('editor:content.change', track);
     track();
+  }
+
+  /** The drawing the selection is on, which is what "after this" is measured from. */
+  private _drawingOf(editor: Editor): { canvas: string; parentId: string; at: number } | null {
+    const doc = this._access(editor);
+    const chosen = this._selected(editor)[0];
+    const canvas = doc && chosen ? canvasAt(doc, chosen) : undefined;
+    if (!doc || !canvas) return null;
+
+    const parentId = (doc.getNode(canvas) as { parentId?: string } | undefined)?.parentId;
+    const parent = parentId ? doc.getNode(parentId) : undefined;
+    const at = Array.isArray(parent?.content) ? (parent!.content as unknown[]).indexOf(canvas) : -1;
+    if (!parentId || at < 0) return null;
+    return { canvas, parentId, at };
+  }
+
+  /** The first run inside a block, which is where a caret goes when it lands on one. */
+  private _caretIn(doc: CanvasAccess, sid: string | undefined, depth = 0): string | undefined {
+    const node = sid ? doc.getNode(sid) : undefined;
+    if (!node || depth > 16) return undefined;
+    if (node.stype === 'inline-text') return sid;
+    for (const child of Array.isArray(node.content) ? (node.content as unknown[]) : []) {
+      if (typeof child !== 'string') continue;
+      const found = this._caretIn(doc, child, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+
+  /** Put the caret at the start of a run, and let go of the shapes. */
+  private _caretTo(editor: Editor, run: string): boolean {
+    (editor as never as { updateSelection: (selection: unknown) => void }).updateSelection({
+      type: 'range',
+      startNodeId: run,
+      startOffset: 0,
+      endNodeId: run,
+      endOffset: 0,
+      collapsed: true
+    });
+    return true;
+  }
+
+  private async _writeAfter(editor: Editor): Promise<boolean> {
+    const doc = this._access(editor);
+    const where = this._drawingOf(editor);
+    if (!doc || !where) return false;
+
+    const result = await transaction(editor, [
+      {
+        type: 'addChild',
+        payload: {
+          parentId: where.parentId,
+          /*
+           * An empty *run* inside it, not an empty paragraph.
+           *
+           * The caret filler is what gives an empty line its height and it is drawn for an empty
+           * `inline-text`; a paragraph with no run at all is zero pixels high, which is a line a
+           * reader has just asked for and cannot see or click into. The frame insert learned this
+           * the same way.
+           */
+          child: {
+            stype: 'paragraph',
+            attributes: {},
+            content: [{ stype: 'inline-text', text: '' }]
+          },
+          position: where.at + 1
+        }
+      }
+    ] as never).commit();
+    if (result.success !== true) return false;
+
+    const parent = doc.getNode(where.parentId);
+    const made = Array.isArray(parent?.content) ? (parent!.content as string[])[where.at + 1] : undefined;
+    const run = this._caretIn(doc, made);
+    return run ? this._caretTo(editor, run) : false;
+  }
+
+  private async _leave(editor: Editor): Promise<boolean> {
+    const doc = this._access(editor);
+    const where = this._drawingOf(editor);
+    if (!doc || !where) return false;
+
+    const siblings = Array.isArray(doc.getNode(where.parentId)?.content)
+      ? (doc.getNode(where.parentId)!.content as string[])
+      : [];
+    // After it, or before it when the drawing is the last thing in the section.
+    const run =
+      this._caretIn(doc, siblings[where.at + 1]) ?? this._caretIn(doc, siblings[where.at - 1]);
+    if (!run) return false;
+    return this._caretTo(editor, run);
   }
 
   /** The shapes the *selection* names, which is what a key binding acts on. */
