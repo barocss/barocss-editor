@@ -23,7 +23,8 @@
  */
 import { define, element, override, slot } from '@barocss/dsl';
 import type { RenderEnv } from '@barocss/dsl';
-import { registerTextRenderers } from '@barocss/office-text';
+import { getWordDocument, registerTextRenderers } from '@barocss/office-text';
+import { isVarRef, resolveVarValue } from '@barocss/office-canvas';
 import { frameCss } from '@barocss/office-word';
 import { sizingCss } from './sizing';
 import { breakpointOf } from './breakpoints';
@@ -44,8 +45,40 @@ const attrsOf = (data: NodeData): Record<string, any> => (data?.attributes ?? {}
  * A node with nothing to say at this width comes back unchanged, so the overwhelming majority of
  * blocks cost one map lookup and no copy.
  */
-const drawnAttrs = (node: NodeData, ctx: any): Record<string, any> =>
-  attrsAt(attrsOf(node), breakpointOf(ctx?.env as RenderEnv | undefined)) as never;
+const drawnAttrs = (node: NodeData, ctx: any): Record<string, any> => {
+  const at = attrsAt(attrsOf(node), breakpointOf(ctx?.env as RenderEnv | undefined));
+  return named(at, node, ctx) as never;
+};
+
+/**
+ * A **named value** where a value goes: `fill: 'var:강조'`.
+ *
+ * The one thing a site builder needs from the deck's variables that a document never did — a design
+ * token. A page's brand colour is written once and referred to everywhere, and changing it changes
+ * the page rather than forty nodes.
+ *
+ * Resolved **here**, at draw time, and never written into the document: taking the token off brings
+ * back whatever the node said before, and a file records the *reference* rather than what it happened
+ * to mean on the day it was saved. The scope is the deck's own — a page's declaration wins over the
+ * document's — which is why the node's sid is passed in rather than only the value.
+ *
+ * A reference nothing declares stays a reference, and draws as the literal it is. That is on purpose:
+ * a colour of `var:강조` in the DOM is a reader's misspelling made visible, where a silent fallback to
+ * black would be a page that quietly lost its brand.
+ */
+const named = (attrs: Record<string, any>, node: NodeData, ctx: any): Record<string, any> => {
+  let out: Record<string, any> | undefined;
+  for (const [key, value] of Object.entries(attrs)) {
+    if (!isVarRef(value)) continue;
+    const doc = getWordDocument(ctx?.env as RenderEnv | undefined);
+    if (!doc) break;
+    const resolved = resolveVarValue(doc as never, value, String(node?.sid ?? ''));
+    if (resolved === undefined) continue;
+    out = out ?? { ...attrs };
+    out[key] = resolved;
+  }
+  return out ?? attrs;
+};
 
 /**
  * A stack, as CSS — `frameCss`, plus the one default a **page** disagrees with a canvas about.

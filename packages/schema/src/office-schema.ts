@@ -412,6 +412,22 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
         /** How the picture fills a box that is not its own shape. */
         fit: { type: 'string', default: 'contain' },
         ...geometry,
+        /**
+         * A size, **when there is one to state** — the third node to learn this and the second to
+         * learn it from a site builder.
+         *
+         * `frame` learned it first and `instance` second, and the comment is the same one: a box on a
+         * canvas is given a size by the command that places it, and a box in the **flow** is as wide
+         * as the column it sits in, which is the page's to decide. An author who had to write that
+         * width in twips would be writing down a number that goes stale the moment a margin moves.
+         *
+         * Measured, again by a page: a sample with three photographs in a row was refused with
+         * *Required attribute 'width' is missing* — on pictures whose whole point is that the row
+         * decides how wide they are. A slide loses nothing: its own insert has always written a size,
+         * and a picture with none drew nothing before and draws nothing now.
+         */
+        width: { type: 'number' as const, required: false },
+        height: { type: 'number' as const, required: false },
         ...style
       }
     },

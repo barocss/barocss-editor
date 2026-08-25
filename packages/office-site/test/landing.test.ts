@@ -8,6 +8,17 @@ import { blocksIn, pagesOf } from '../src/selection';
 import { landingFor, type Box } from '../src/landing';
 
 /**
+ * A block, **by the name the sample gave it**.
+ *
+ * The fixtures used to hunt for "the stack with three children", which stopped meaning one thing the
+ * moment the sample grew a grid of six and a hero of two — and that is the same lesson the browser
+ * suite learned: a block is found by *what it is*, never by what it currently looks like.
+ */
+const named = (doc: any, page: string, name: string): string =>
+  blocksIn(doc, page).find((sid: string) => doc.getNode(sid)?.attributes?.name === name)!;
+
+
+/**
  * Where a carried block would land.
  *
  * Written after the browser said a card dragged along its own row came out as a child of the page,
@@ -35,9 +46,9 @@ describe('where a carried block would land', () => {
     doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
 
     page = pagesOf(doc)[0].sid;
-    cardRow = blocksIn(doc, page).find((sid: string) => blocksIn(doc, sid).length === 3)!;
+    cardRow = named(doc, page, '카드 줄');
     cards = blocksIn(doc, cardRow);
-    hero = blocksIn(doc, page)[1];
+    hero = named(doc, page, '히어로');
 
     boxes.clear();
     boxes.set(page, { left: 0, top: 0, width: 1280, height: 1400 });

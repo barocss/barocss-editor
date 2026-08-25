@@ -46,6 +46,44 @@ entries are that.
 
 ## Open
 
+### A panel can only be judged against a document that uses the properties
+
+- [x] The site's inspector had three groups and was written **from the schema**. It looked complete,
+  and the sample it was tested against used six attributes. So the sample was made dense — five
+  pages, a grid, a fixed sidebar, two data lists, design tokens, a bound button — and the panel was
+  written from *that*. What the exercise found, in order:
+
+  - **A list's whole question was invisible.** Which dataset, sorted by what, how many, filtered to
+    what: all of it in the document, none of it on screen. It is a tab now, and the columns come from
+    the dataset's declared `fields`, so a reader **picks** a column instead of typing one — which is
+    the reason `fields` is declared rather than inferred from the first row.
+  - **A placement's answers could not be answered.** A card asks questions and a placement answers
+    them; the only way to answer one was to write the document by hand.
+  - **A page could not be renamed or moved.** A page is the board rather than a block — `SELECTABLE`
+    leaves it out on purpose — so its name and address belong in the panel with *nothing* selected,
+    which is where every builder of this kind puts them.
+  - **Nine attributes a reader could see and not change**: what a stack is called, what a picture is
+    called and where it comes from, how a heading ranks, what a border is. The command did not need
+    splitting for them — they are all the same sentence, *this, about the blocks I have chosen, at
+    the width I am looking at* — so `setStackFormat` widened and was honestly renamed
+    `setBlockFormat`.
+
+- [x] **A design token is a colour that says what it follows.** A site's `fill` may hold `var:강조`,
+  and `ColorField` — the deck's control for `theme:accent1` — offers the site's own variables the
+  same way. Two blocks the same blue are a coincidence; two blocks on `var:강조` are a decision, and
+  the panel shows the second as **카드 바탕** rather than as a hex.
+
+- [x] **A picture in the flow has no width to have.** The third node to learn it and the second to
+  learn it from a page: `frame` first, then `instance`, now `picture`. A sample with three
+  photographs in a row was refused with *Required attribute 'width' is missing* — on pictures whose
+  whole point is that the row decides how wide they are.
+
+- [x] **A page's stack must hold a heading *and* a button.** The office model says
+  `(scene | frame)* | block+` — one branch or the other — because a canvas frame holds placed things
+  and a document frame holds prose. A landing page's most ordinary section is a heading, a paragraph
+  and a placement, which is two blocks and a scene node. The site widens both `frame` and `surface`
+  to one alternation: **on a page, everything in a stack is a block.**
+
 ### What the site builder owes, measured
 
 The third product's first run through the conformance harness (`packages/office-site/test/conformance.test.ts`).

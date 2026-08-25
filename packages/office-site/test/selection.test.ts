@@ -20,6 +20,16 @@ import {
 } from '../src/selection';
 
 /**
+ * A block, **by the name the sample gave it**.
+ *
+ * The fixtures used to hunt for "the stack with three children", which stopped meaning one thing the
+ * moment the sample grew a grid of six and a hero of two — the same lesson the browser suite learned:
+ * a block is found by *what it is*, never by what it currently looks like.
+ */
+const named = (doc: any, page: string, name: string): string =>
+  blocksIn(doc, page).find((sid: string) => doc.getNode(sid)?.attributes?.name === name)!;
+
+/**
  * What a click means.
  *
  * The one question a builder has and a document does not — a click in a document puts a caret and
@@ -43,7 +53,7 @@ describe('what a click means on a page', () => {
 
     page = pagesOf(doc)[0].sid;
     // The row of three cards: the one stack on the sample page holding three stacks.
-    cardRow = blocksIn(doc, page).find((sid) => blocksIn(doc, sid).length === 3)!;
+    cardRow = named(doc, page, '카드 줄');
     firstCard = blocksIn(doc, cardRow)[0];
     heading = blocksIn(doc, firstCard)[0];
   });
@@ -104,12 +114,24 @@ describe('what a click means on a page', () => {
   });
 
   it('names a block the way a reader would', () => {
-    expect(labelOfBlock(doc, cardRow)).toBe('가로 스택');
+    /*
+     * The name a reader gave it wins over the word the product has for its kind — which is what
+     * `name` is *for*, and why the sample names its sections. A stack with no name falls back to
+     * saying what it does, and the direction is the one fact that tells two otherwise identical rows
+     * apart in a list.
+     */
+    expect(labelOfBlock(doc, cardRow)).toBe('카드 줄');
+    expect(doc.getNode(cardRow).attributes.name).toBe('카드 줄');
     expect(labelOfBlock(doc, firstCard)).toBe('세로 스택');
     expect(labelOfBlock(doc, heading)).toBe('제목 3');
 
+    // The named list says its name; an unnamed one says which data it draws, which is the one fact
+    // that tells two lists apart.
     const list = blocksIn(doc, page).find((sid) => doc.getNode(sid).stype === 'collection')!;
-    expect(labelOfBlock(doc, list)).toBe('목록 · 상품');
+    expect(labelOfBlock(doc, list)).toBe('상품 목록');
+    expect(labelOfBlock({ getNode: () => ({ stype: 'collection', attributes: { source: '글' } }) } as never, 'x')).toBe(
+      '목록 · 글'
+    );
   });
 
   it('leaves out what a reader cannot point at', () => {
@@ -140,7 +162,7 @@ describe('where a drop means', () => {
     editor.loadDocument(createSampleSite(), 'site');
     doc = { rootId: editor.getRootId(), getNode: (sid: string) => dataStore.getNode(sid) };
     page = pagesOf(doc)[0].sid;
-    cardRow = blocksIn(doc, page).find((sid: string) => blocksIn(doc, sid).length === 3)!;
+    cardRow = named(doc, page, '카드 줄');
     firstCard = blocksIn(doc, cardRow)[0];
     heading = blocksIn(doc, firstCard)[0];
   });
@@ -155,7 +177,7 @@ describe('where a drop means', () => {
   it('moves a section among sections when the pointer is on the row itself', () => {
     // Its padding, its gap, the empty part of it — which is what a hit on a container *means*,
     // because `elementsFromPoint` gives the deepest element first.
-    expect(dropTarget(doc, cardRow, page, blocksIn(doc, page)[1])).toBe(page);
+    expect(dropTarget(doc, cardRow, page, named(doc, page, '히어로'))).toBe(page);
   });
 
   it('keeps the reader in the stack they are reordering inside', () => {

@@ -73,8 +73,8 @@ describe('a site draws', () => {
   });
 
   it('draws every page, with the address that makes it a page of a site', () => {
-    expect(pages()).toHaveLength(2);
-    expect(pages().map((page) => page.dataset.path)).toEqual(['/', '/about']);
+    expect(pages()).toHaveLength(5);
+    expect(pages().map((page) => page.dataset.path)).toEqual(['/', '/제품', '/가격', '/소개', '/블로그']);
     // The kind is the schema's record of which shape of surface this is, and a site's is a page's.
     expect(pages()[0].dataset.kind).toBe('flow');
   });
@@ -84,10 +84,20 @@ describe('a site draws', () => {
     expect(home.style.display).toBe('flex');
     expect(home.style.flexDirection).toBe('column');
 
+    /*
+     * The hero and the row of cards. The header, the footer and the button are **placements**, so
+     * they draw as `.st-placement` and their stacks are one level down — which is the thing to
+     * assert rather than a count of top-level stacks that changes with the sample.
+     */
     const stacks = [...home.querySelectorAll<HTMLElement>(':scope > .st-stack')];
-    // The hero, the row of cards, the footer — the placement of the header is drawn as its parts.
-    expect(stacks.length).toBeGreaterThanOrEqual(3);
+    expect(stacks.map((one) => one.dataset.name)).toEqual(['히어로', '카드 줄']);
     expect(stacks.map((one) => one.dataset.layout)).toContain('row');
+
+    // And the page holds all three kinds of child at once, which the office model's own frame
+    // content — one branch or the other — would not have allowed.
+    const kinds = [...home.children].map((one) => one.className);
+    expect(kinds.filter((one) => one.includes('st-placement')).length).toBe(2);
+    expect(kinds.filter((one) => one.includes('st-collection')).length).toBe(1);
   });
 
   it('draws a document’s headings and paragraphs inside them, unchanged', () => {

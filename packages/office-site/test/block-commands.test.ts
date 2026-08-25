@@ -7,6 +7,17 @@ import { createSampleSite } from '../src/sample-site';
 import { blocksIn, pagesOf } from '../src/selection';
 
 /**
+ * A block, **by the name the sample gave it**.
+ *
+ * The fixtures used to hunt for "the stack with three children", which stopped meaning one thing the
+ * moment the sample grew a grid of six and a hero of two — and that is the same lesson the browser
+ * suite learned: a block is found by *what it is*, never by what it currently looks like.
+ */
+const named = (doc: any, page: string, name: string): string =>
+  blocksIn(doc, page).find((sid: string) => doc.getNode(sid)?.attributes?.name === name)!;
+
+
+/**
  * Moving a block, copying it, taking it away.
  *
  * Held here rather than in a browser because an off-by-one in a reorder is a drag that goes
@@ -32,7 +43,7 @@ describe('what a reader can do to a block', () => {
     editor.loadDocument(createSampleSite(), 'site');
     doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
     page = pagesOf(doc)[0].sid;
-    cardRow = blocksIn(doc, page).find((sid: string) => blocksIn(doc, sid).length === 3)!;
+    cardRow = named(doc, page, '카드 줄');
   });
 
   it('takes a block away, and lets go of it', async () => {
@@ -91,7 +102,7 @@ describe('what a reader can do to a block', () => {
 
   it('moves a block into another stack entirely', async () => {
     const [first] = blocksIn(doc, cardRow);
-    const hero = blocksIn(doc, page)[1];
+    const hero = named(doc, page, '히어로');
     expect(await run('moveBlockInto', { nodeId: first, parentId: hero, index: 0 })).toBe(true);
 
     expect(blocksIn(doc, cardRow)).toHaveLength(2);
@@ -183,7 +194,7 @@ describe('reordering inside one stack', () => {
     editor.loadDocument(createSampleSite(), 'site');
     doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
     const page = pagesOf(doc)[0].sid;
-    cardRow = blocksIn(doc, page).find((sid: string) => blocksIn(doc, sid).length === 3)!;
+    cardRow = named(doc, page, '카드 줄');
   });
 
   const names = () =>
@@ -263,5 +274,75 @@ describe('one thing after another', () => {
     expect(blocksIn(doc, page)).toHaveLength(before.length);
     // And the one that was copied is still there: Delete took the copy, not the original.
     expect(blocksIn(doc, page)).toContain(section);
+  });
+});
+
+/**
+ * What a placement answers, and what a page is called.
+ *
+ * The two the panel needed that no command could say. Both are asked here rather than in a browser,
+ * because "does the second edit replace the first answer or add a second one" is arithmetic about a
+ * content model and a browser would only show it going wrong later.
+ */
+describe('a placement’s answers, and a page’s own settings', () => {
+  let editor: any;
+  let store: DataStore;
+  let doc: any;
+  let page: string;
+
+  beforeEach(() => {
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    store = new DataStore(undefined as never, schema as never);
+    editor = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+    doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+    page = pagesOf(doc)[0].sid;
+  });
+
+  const placement = (name: string) => {
+    const hero = blocksIn(doc, page).find((sid: string) => doc.getNode(sid)?.attributes?.name === name)!;
+    return blocksIn(doc, hero)
+      .flatMap((sid: string) => [sid, ...blocksIn(doc, sid)])
+      .find((sid: string) => doc.getNode(sid)?.stype === 'instance')!;
+  };
+
+  const valuesOf = (sid: string) =>
+    ((doc.getNode(sid)?.content ?? []) as string[])
+      .map((child) => doc.getNode(child))
+      .filter((child: any) => child?.stype === 'componentValue')
+      .map((child: any) => [child.attributes.name, child.attributes.value]);
+
+  it('replaces an answer the placement already gives', async () => {
+    const button = placement('히어로');
+    expect(valuesOf(button)).toEqual([['문구', '무료로 시작하기']]);
+
+    expect(await editor.executeCommand('setComponentValue', { nodeId: button, name: '문구', value: '지금 시작' })).toBe(true);
+    // One answer, edited — not two answers to one question, which is what an add would have made.
+    expect(valuesOf(button)).toEqual([['문구', '지금 시작']]);
+  });
+
+  it('adds one the placement has not answered', async () => {
+    const button = placement('히어로');
+    await editor.executeCommand('setComponentValue', { nodeId: button, name: '색', value: 'var:강조' });
+    expect(valuesOf(button)).toEqual([
+      ['색', 'var:강조'],
+      ['문구', '무료로 시작하기']
+    ]);
+  });
+
+  it('refuses a question with no name, and a node that is not a placement', () => {
+    const button = placement('히어로');
+    expect(editor.canExecuteCommand('setComponentValue', { nodeId: button, name: '' })).toBe(false);
+    expect(editor.canExecuteCommand('setComponentValue', { nodeId: page, name: '문구' })).toBe(false);
+  });
+
+  it('renames a page and moves its address', async () => {
+    expect(await editor.executeCommand('setPageInfo', { nodeId: page, name: '처음', path: '/처음' })).toBe(true);
+    expect(pagesOf(doc)[0]).toMatchObject({ name: '처음', path: '/처음' });
+  });
+
+  it('refuses to set a page’s address on something that is not a page', () => {
+    const block = blocksIn(doc, page)[0];
+    expect(editor.canExecuteCommand('setPageInfo', { nodeId: block, path: '/x' })).toBe(false);
   });
 });

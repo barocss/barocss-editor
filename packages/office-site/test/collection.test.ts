@@ -102,9 +102,16 @@ describe('a list, drawn', () => {
     draw(narrow, 'mobile');
   });
 
-  const list = () => container.querySelector<HTMLElement>('.st-collection')!;
+  /*
+   * Scoped to **the home page**, because the sample is a site now: five pages are drawn into this
+   * container and three of them hold a list. A selector that said "the collection" was reading the
+   * blog's as well as the shop's — the same lesson the browser suite learned about finding a block by
+   * what it is rather than by being the first one.
+   */
+  const home = (root: HTMLElement) => root.querySelector<HTMLElement>('.st-page[data-path="/"]')!;
+  const list = () => home(container).querySelector<HTMLElement>('.st-collection')!;
   const cards = (root: HTMLElement) =>
-    [...root.querySelectorAll<HTMLElement>('.st-collection > .st-placement')];
+    [...home(root).querySelectorAll<HTMLElement>('.st-collection > .st-placement')];
 
   it('is one node in the document and three cards on the screen', () => {
     const stored = dataStore.getNode(list().getAttribute('data-bc-sid') ?? '') as any;
@@ -149,7 +156,7 @@ describe('a list, drawn', () => {
 
   it('says what is wrong instead of drawing an empty list in silence', () => {
     const doc = { rootId: editor.getRootId(), getNode: (sid: string) => dataStore.getNode(sid) as never };
-    expect(datasetNamed(doc, '상품')?.records).toHaveLength(3);
+    expect(datasetNamed(doc, '상품')?.records).toHaveLength(4);
 
     // The failure mode a data-bound list has and a paragraph does not: nothing drawn looks the same
     // whether nothing matched or the name is misspelt.

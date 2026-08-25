@@ -60,6 +60,39 @@ export class SiteBlockExtension implements Extension {
     );
 
     /**
+     * What a **placement** answers.
+     *
+     * A card asks questions (`componentVar`) and a placement answers them (`componentValue`), and
+     * until now the only way to answer one was to write the document by hand. This is the panel's
+     * half of the deck's own mechanism: the header's wordmark, the button's label, the row's title.
+     *
+     * Add or replace, never both: a placement holds *its own* answers as children, so setting one
+     * that is already there is an edit to that node and setting a new one is a child. Two shapes for
+     * one gesture is how a panel comes to write two of the same answer.
+     */
+    register(
+      'setComponentValue',
+      async (payload) => await this._setValue(editor, payload),
+      (payload) => this._canSetValue(editor, payload)
+    );
+
+    /**
+     * What a **page** is called and where it answers.
+     *
+     * Its own command because a page is not a block: it is the board, `SELECTABLE` leaves it out on
+     * purpose, and every other command here acts on a selection. A reader edits a page's address
+     * from the panel with nothing selected, which is where every builder of this kind puts it.
+     */
+    register(
+      'setPageInfo',
+      async (payload) => await this._setPage(editor, payload),
+      (payload) => {
+        const node = this._store(editor)?.getNode(String(payload?.nodeId ?? ''));
+        return node?.stype === 'surface' && (typeof payload?.name === 'string' || typeof payload?.path === 'string');
+      }
+    );
+
+    /**
      * Put a block **into a stack, at a place** — the transaction half of a drag.
      *
      * Which place is `reorderIndexAt`'s answer, computed where the pointer is. This refuses only the
@@ -158,6 +191,58 @@ export class SiteBlockExtension implements Extension {
       nodeIds: copies
     });
     return true;
+  }
+
+  private _canSetValue(editor: Editor, payload?: Record<string, unknown>): boolean {
+    const node = this._store(editor)?.getNode(String(payload?.nodeId ?? ''));
+    return node?.stype === 'instance' && typeof payload?.name === 'string' && !!payload.name;
+  }
+
+  private async _setValue(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    if (!this._canSetValue(editor, payload)) return false;
+    const store = this._store(editor)!;
+    const placement = store.getNode(String(payload!.nodeId))!;
+    const name = String(payload!.name);
+    const value = payload!.value === undefined ? '' : String(payload!.value);
+
+    const already = ((placement.content ?? []) as unknown[])
+      .filter((sid): sid is string => typeof sid === 'string')
+      .map((sid) => store.getNode(sid))
+      .find((child) => child?.stype === 'componentValue' && child?.attributes?.name === name);
+
+    const step = already
+      ? { type: 'setAttrs', payload: { nodeId: already.sid, attrs: { value } } }
+      : {
+          type: 'addChild',
+          payload: {
+            parentId: placement.sid,
+            child: { stype: 'componentValue', attributes: { name, value }, content: [] },
+            /*
+             * At the front, because the content model is `componentValue* (scene | frame)*` — the
+             * answers come before the parts, which is also the order a reader wants to see them in a
+             * file.
+             */
+            position: 0
+          }
+        };
+
+    return (await transaction(editor, [step] as never).commit()).success === true;
+  }
+
+  private async _setPage(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const store = this._store(editor);
+    const node = store?.getNode(String(payload?.nodeId ?? ''));
+    if (node?.stype !== 'surface') return false;
+
+    const attrs: Record<string, unknown> = {};
+    if (typeof payload?.name === 'string') attrs.name = payload.name;
+    if (typeof payload?.path === 'string') attrs.path = payload.path;
+    if (Object.keys(attrs).length === 0) return false;
+
+    return (
+      (await transaction(editor, [{ type: 'setAttrs', payload: { nodeId: node.sid, attrs } }] as never).commit())
+        .success === true
+    );
   }
 
   private _indexOf(store: { getNode: (sid: string) => Node | undefined }, sid: string): number {

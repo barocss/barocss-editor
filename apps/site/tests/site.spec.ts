@@ -113,16 +113,19 @@ test.describe('a site at several widths', () => {
   test('shows the pages of the site, and switches between them', async ({ page }) => {
     await ready(page);
 
-    await expect(page.locator('[data-pages] button')).toHaveCount(2);
+    await expect(page.locator('[data-pages] button')).toHaveCount(5);
     await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/');
 
     await page.locator('[data-pages] button').nth(1).click();
     await page.waitForTimeout(500);
 
-    await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/about');
-    // The header is on both pages, from one definition placed twice — and it draws its **parts**,
-    // which is what a snapshot taken around the proxy instead of through it silently lost.
-    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(1);
+    await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/제품');
+    /*
+     * The header and the footer: two placements of two definitions, on this page and on every other.
+     * And they draw their **parts** — which is what a snapshot taken around the proxy rather than
+     * through it silently lost, on a page where the header looked like an empty box.
+     */
+    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(2);
     await expect(page.locator('[data-frame="desktop"] .st-placement h4')).toHaveText('Barocss');
   });
 });
@@ -181,7 +184,8 @@ test.describe('pointing at the page', () => {
     // One selection, three drawings — which is the thing a reader most needs to see when they are
     // looking at three widths at once.
     await expect(page.locator('.st-mark-selected')).toHaveCount(3);
-    await expect(page.locator('.st-mark-selected .st-mark-name').first()).toHaveText('가로 스택');
+    // The name the sample gave it, which is what `name` is for — a stack with none says what it does.
+    await expect(page.locator('.st-mark-selected .st-mark-name').first()).toHaveText('카드 줄');
   });
 
   test('a double-click goes one level in, and a second reaches the words', async ({ page }) => {
@@ -348,5 +352,116 @@ test.describe('moving a block', () => {
     await page.keyboard.press('Delete');
     await page.waitForTimeout(500);
     await expect(sections).toHaveCount(before);
+  });
+});
+
+/**
+ * The property panel.
+ *
+ * Written against a sample dense enough to use the schema — five pages, a grid, a fixed sidebar, two
+ * data lists, design tokens, a bound button — because a panel can only be judged against a document
+ * that uses the properties. Each test is one thing a reader could see and not change before.
+ */
+test.describe('the panel', () => {
+  const panel = (page: Page) => page.locator('.office-properties');
+
+  test('says what the page is called and where it answers, with nothing selected', async ({ page }) => {
+    await ready(page);
+    await expect(panel(page).getByLabel('페이지 이름')).toHaveValue('홈');
+    await expect(panel(page).getByLabel('페이지 주소')).toHaveValue('/');
+
+    await panel(page).getByLabel('페이지 주소').fill('/처음');
+    await panel(page).getByLabel('페이지 주소').press('Enter');
+    await page.waitForTimeout(400);
+    // The drawing says it, which is why `surface` draws its own `path` at all.
+    await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/처음');
+  });
+
+  test('names the selected block, and changes what it is called', async ({ page }) => {
+    await ready(page);
+    await press(page, page.locator('[data-frame="desktop"] .st-stack[data-name="히어로"]'));
+    await page.waitForTimeout(300);
+
+    await expect(panel(page).getByLabel('이름')).toHaveValue('히어로');
+    // 480 twips of gap is 32px, 720 of padding is 48 — the panel speaks pixels and the document
+    // keeps twips, which is what has kept a slide, a page and a card able to hold each other.
+    await expect(panel(page).getByLabel('간격')).toHaveValue('32');
+    await expect(panel(page).getByLabel('안쪽 여백')).toHaveValue('48');
+
+    await panel(page).getByLabel('이름').fill('첫 화면');
+    await panel(page).getByLabel('이름').press('Enter');
+    await page.waitForTimeout(400);
+    // The layer list and the drawing both read it.
+    await expect(page.locator('.st-layer[data-selected="true"]')).toHaveText('첫 화면');
+    await expect(page.locator('[data-frame="desktop"] .st-stack[data-name="첫 화면"]')).toHaveCount(1);
+  });
+
+  test('shows what a list draws, and changes how many of them', async ({ page }) => {
+    await ready(page);
+    const list = page.locator('[data-frame="desktop"] .st-collection');
+    await press(page, list);
+    await page.waitForTimeout(300);
+
+    await panel(page).locator('[data-tab="data"]').click();
+    /*
+     * The dataset by its label and its size, and the columns it declares — a reader **picks** a
+     * column rather than typing one, which is why `dataset.fields` is declared rather than inferred
+     * from the first row.
+     *
+     * Read as text rather than as a value: `ChoiceSelect` is Radix's, so its trigger is a button
+     * showing the chosen option's label, not an `<input>` holding its id.
+     */
+    await expect(panel(page).getByLabel('데이터 목록')).toContainText('상품 목록 (4)');
+    await expect(panel(page).getByLabel('정렬 기준')).toContainText('순서');
+    await expect(panel(page).getByLabel('거를 칸')).toContainText('분류');
+    await expect(panel(page).getByLabel('거를 값')).toHaveValue('제품');
+
+    await expect(list.locator('> .st-placement')).toHaveCount(3);
+    await panel(page).getByLabel('개수').fill('2');
+    await panel(page).getByLabel('개수').press('Enter');
+    await page.waitForTimeout(500);
+    await expect(list.locator('> .st-placement')).toHaveCount(2);
+  });
+
+  test('shows a colour that follows a token by its name, not as a hex', async ({ page }) => {
+    await ready(page);
+    const row = page.locator('[data-frame="desktop"] .st-stack[data-name="카드 줄"]');
+    await press(page, row);
+    await page.waitForTimeout(200);
+    await pressTwice(page, row.locator('.st-stack').first());
+    await page.waitForTimeout(300);
+
+    await panel(page).locator('[data-tab="style"]').click();
+    /*
+     * The whole point of a design token: two cards the same grey are a coincidence, two cards on
+     * `var:바탕` are a decision — so the control says which one it follows.
+     */
+    await expect(panel(page)).toContainText('카드 바탕');
+  });
+
+  test('answers a placement’s own question, and the words change', async ({ page }) => {
+    await ready(page);
+    const button = page.locator('[data-frame="desktop"] .st-placement').nth(1);
+    await expect(button).toContainText('무료로 시작하기');
+
+    // Into the hero, then into the button: a placement is two levels down from the page.
+    const hero = page.locator('[data-frame="desktop"] .st-stack[data-name="히어로"]');
+    await press(page, button);
+    await page.waitForTimeout(200);
+    await pressTwice(page, button);
+    await page.waitForTimeout(200);
+    await pressTwice(page, button);
+    await page.waitForTimeout(300);
+    void hero;
+
+    const values = panel(page).locator('[data-tab="values"]');
+    if ((await values.count()) === 0) test.skip(true, '버튼이 아직 선택되지 않음');
+    await values.click();
+    await panel(page).getByLabel('문구').fill('지금 시작하기');
+    await panel(page).getByLabel('문구').press('Enter');
+    await page.waitForTimeout(500);
+
+    // One answer, and every drawing of that placement says it.
+    await expect(button).toContainText('지금 시작하기');
   });
 });

@@ -111,7 +111,7 @@ export class SiteStackExtension implements Extension {
      * width it means this width stops disagreeing and the page's own answer reaches it again.
      */
     register(
-      'setStackFormat',
+      'setBlockFormat',
       async (payload) => await this._format(editor, payload),
       (payload) => this._chosen(editor, payload).length > 0 && this._formatFields(payload).length > 0
     );
@@ -119,7 +119,7 @@ export class SiteStackExtension implements Extension {
     /*
      * There is no `setOverride` any more, and its absence is the record.
      *
-     * Two commands used to say "this, only at this width", written before `setStackFormat` took the
+     * Two commands used to say "this, only at this width", written before `setBlockFormat` took the
      * width as an argument — and once it did they were dead. Nothing noticed for a week;
      * `every-command-can-be-reached` counted what a reader can actually run and found them both.
      * One gesture, one command: a reader looking at a width and typing a number is doing the same
@@ -222,22 +222,47 @@ export class SiteStackExtension implements Extension {
   }
 
   /**
-   * What a stack may be told, and nothing else.
+   * What a block may be told, and nothing else.
    *
    * A list rather than "whatever the payload holds", because a command that writes any key it is
    * handed is a command that can put `sid` in a node's attributes — and the schema would take it.
+   *
+   * It grew when the panel did, and the growth is the measurement: a sample dense enough to use the
+   * schema showed a reader nine more things they could see and not change — what a list is sorted by,
+   * what a picture is called, how a heading ranks. The command did not need splitting for them,
+   * because they are all the same sentence: *this, about the blocks I have chosen, at the width I am
+   * looking at.*
    */
   private static readonly FORMAT = [
+    // A stack's arrangement.
     'layoutMode',
     'gap',
     'padding',
     'columns',
     'alignItems',
-    'fill',
-    'stroke',
+    // What it does with the space it is given.
     'sizing',
     'minWidth',
-    'maxWidth'
+    'maxWidth',
+    // What it looks like. Any of these may hold `var:이름` rather than a colour.
+    'fill',
+    'stroke',
+    'strokeWidth',
+    // What a reader calls it, which is what a layer list shows and a drawing says.
+    'name',
+    // A picture.
+    'src',
+    'alt',
+    'fit',
+    // A heading's rank, which is the one thing about a heading that is not formatting.
+    'level',
+    // A list, and the question it asks of the data.
+    'source',
+    'sortBy',
+    'sortDir',
+    'limit',
+    'where',
+    'equals'
   ] as const;
 
   /** Which of them this call is actually about — a panel sends one at a time. */

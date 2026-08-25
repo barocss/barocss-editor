@@ -53,7 +53,7 @@ export function createSiteOwnExtensions(): Extension[] {
      * product's undrawn list — so the pass walks every frame on every content change and can never
      * have anything to do. And its two commands, `setFrameLayout` and `setBoxLayout`, came back from
      * `every-command-can-be-reached` as things a reader cannot run: a page says both with `sizing`
-     * and `setStackFormat`, which know about widths as well.
+     * and `setBlockFormat`, which know about widths as well.
      *
      * A cost with no benefit and two dead commands. It comes back the day a page can hold a canvas,
      * with a reason.

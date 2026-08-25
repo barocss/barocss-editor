@@ -21,7 +21,7 @@ import { iconNames } from '@barocss/office-icons';
  * - `sizing` was declared on `heading`, `paragraph` and `textFrame` and read by nothing, because the
  *   renderer that would read it is `office-text`'s. The schema was **narrowed**: a reader who wants a
  *   hugging heading puts it in a stack that hugs, which is how every auto-layout tool works.
- * - `setOverride` and `clearOverride` were dead the day `setStackFormat` took a width. Deleted.
+ * - `setOverride` and `clearOverride` were dead the day `setBlockFormat` took a width. Deleted.
  * - The canvas layout extension was installed for an arrangement pass a flow page can never use, and
  *   brought two more commands nobody could run. Removed.
  * - The key map lived in the app, where the check cannot look. It is data in the package now, which
@@ -58,7 +58,7 @@ describe('the site builder draws what it declares', () => {
   ];
 
   /** What a reader can reach: the toolbar, the keys, and the property panel. */
-  const reachable = [...siteToolbarCommands(), ...siteKeyCommands(), 'setSizing', 'setStackFormat'];
+  const reachable = [...siteToolbarCommands(), ...siteKeyCommands(), 'setSizing', 'setBlockFormat'];
 
   it('draws what it declares, expects only what it says it expects', () => {
     assertConforms({

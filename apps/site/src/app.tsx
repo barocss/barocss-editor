@@ -272,7 +272,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           <div ref={host} id="editor" hidden />
         </AppMain>
 
-        {editor ? <Inspector editor={editor} at={at} onAt={setAt} /> : null}
+        {editor ? <Inspector editor={editor} at={at} onAt={setAt} page={page} /> : null}
       </AppBody>
     </AppShell>
   );

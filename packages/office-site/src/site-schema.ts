@@ -107,8 +107,8 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
        */
       surface: {
         ...nodes.surface,
-        /** A page holds lists as well as stacks — see `frame` for why the name is written out. */
-        content: 'variable* (block+ | (scene | frame | collection)*)',
+        /** A page holds all of it too, and for the same reason — see `frame`. */
+        content: 'variable* (block | scene | frame | collection)*',
         attrs: {
           ...nodes.surface.attrs,
           /**
@@ -125,13 +125,19 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
       frame: {
         ...withSizing('frame'),
         /**
-         * And a **list that comes from data**, wherever a stack goes.
+         * On a page, **everything in a stack is a block**.
          *
-         * Named explicitly rather than given a group, which is the move `frame` itself documents a
-         * few hundred lines up in the office schema: a node carries one group, and naming it in the
-         * containers that accept it says the same thing without spending it.
+         * The office model separates two worlds and is right to: a canvas frame holds placed things,
+         * a document frame holds prose, and `(scene | frame)* | block+` says *one or the other*. A
+         * page is where that stops being true — the most ordinary section on a landing page is a
+         * heading, a paragraph and a button, which is two blocks and a placement.
+         *
+         * Measured, and it is the sample that found it: the hero was refused with *Node at index 2 of
+         * type `instance` is not allowed here*. So the branch becomes one alternation, which is the
+         * honest statement for this product: a page has one kind of child, and the group a node
+         * carries is about where else it can go.
          */
-        content: '(scene | frame | collection)* | block+'
+        content: '(block | scene | frame | collection)*'
       },
       picture: withSizing('picture'),
 
