@@ -55,7 +55,9 @@
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vite-plugin-dts": "^3.9.1",
-    "vitest": "^1.6.1"
+    "vitest": "^1.6.1",
+    "@barocss/conformance": "workspace:*",
+    "@barocss/office-icons": "workspace:*"
   },
   "author": "Barocss Team",
   "license": "MIT"

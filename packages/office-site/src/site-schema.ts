@@ -75,6 +75,19 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
     overrides: { type: 'object' as const, required: false }
   };
 
+  /**
+   * A node that may state its own width.
+   *
+   * **Containers only**, and that is a narrowing rather than an omission. It was on `heading`,
+   * `paragraph` and `textFrame` as well, and the conformance harness said what that cost: six
+   * attributes declared and never read, because the renderer that would have to read them is
+   * `office-text`'s and a site does not own it. A schema that offers a reader something nothing
+   * draws is worse than one that offers less.
+   *
+   * And nothing is lost. A reader who wants a heading to hug its words puts it in a stack that hugs,
+   * which is how every auto-layout tool works — text sizing is the *stack's* question, asked one
+   * level up.
+   */
   const withSizing = (name: string) => ({
     ...nodes[name],
     attrs: { ...nodes[name]?.attrs, ...sizingAttrs }
@@ -121,6 +134,9 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
         content: '(scene | frame | collection)* | block+'
       },
       picture: withSizing('picture'),
+
+      /** A placement in the flow says what it does with the width, like any other block. */
+      instance: withSizing('instance'),
 
       /**
        * A **dataset**: rows the page draws from, named so a list can point at it.
@@ -195,9 +211,6 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
           equals: { type: 'string' as const, required: false }
         }
       },
-      textFrame: withSizing('textFrame'),
-      paragraph: withSizing('paragraph'),
-      heading: withSizing('heading')
     }
   };
 }

@@ -22,6 +22,27 @@ export {
 export { createSiteEditor, createSiteExtensions, createSiteOwnExtensions, type SiteEditorOptions } from './site-kit';
 export { createStackCommands, SiteStackExtension, type InsertStackOptions } from './stack-commands';
 export { createBlockCommands, SiteBlockExtension } from './block-commands';
+/**
+ * What a reader can reach — the keys and the toolbar, as **data in the package**.
+ *
+ * Kept here rather than in the app because `every-command-can-be-reached` reads them: a binding the
+ * check cannot look at is a binding nothing holds to anything, which is how two commands came to be
+ * registered, working and unreachable.
+ */
+export {
+  SITE_KEYS,
+  matchesSiteKey,
+  siteKeyCommands,
+  siteKeyFor,
+  type SiteKey
+} from './keymap';
+export {
+  SITE_TOOLBAR,
+  siteControlsIn,
+  siteToolbarCommands,
+  siteToolbarIcons,
+  type SiteControl
+} from './toolbar-model';
 export { createSampleSite } from './sample-site';
 /**
  * A list that comes from data — the product grid, the blog index, the team page.
@@ -64,6 +85,7 @@ export {
   firstRunIn,
   innermostOf,
   isTextual,
+  kindOfBlock,
   labelOfBlock,
   outermostOf,
   pagesOf,

@@ -22,7 +22,7 @@ import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { SIZING, type Sizing } from './site-schema';
 import type { BreakpointId } from './breakpoints';
-import { BASE_BREAKPOINT, OVERRIDABLE, withOverride } from './responsive';
+import { BASE_BREAKPOINT, withOverride } from './responsive';
 
 /** What a caller may say about a new stack. */
 export interface InsertStackOptions {
@@ -116,26 +116,15 @@ export class SiteStackExtension implements Extension {
       (payload) => this._chosen(editor, payload).length > 0 && this._formatFields(payload).length > 0
     );
 
-    /**
-     * Say one thing **only at a narrower width** — a row that stacks on a phone.
+    /*
+     * There is no `setOverride` any more, and its absence is the record.
      *
-     * The base width has no command, and that is the design rather than an omission: a change at the
-     * widest width *is* a change to the node, which is `setSizing` and every other command this
-     * product has. An override is the second thing a reader can mean, and it is only ever meant
-     * downward — `scopesFor` is what says so.
+     * Two commands used to say "this, only at this width", written before `setStackFormat` took the
+     * width as an argument — and once it did they were dead. Nothing noticed for a week;
+     * `every-command-can-be-reached` counted what a reader can actually run and found them both.
+     * One gesture, one command: a reader looking at a width and typing a number is doing the same
+     * thing whichever width they are looking at.
      */
-    register(
-      'setOverride',
-      async (payload) => await this._override(editor, payload, true),
-      (payload) => this._canOverride(editor, payload)
-    );
-
-    /** Take one back, so the node's own answer reaches this width again. */
-    register(
-      'clearOverride',
-      async (payload) => await this._override(editor, payload, false),
-      (payload) => this._canOverride(editor, payload)
-    );
   }
 
   private _store(editor: Editor): { getNode: (sid: string) => any } | undefined {
@@ -285,49 +274,6 @@ export class SiteStackExtension implements Extension {
       return { type: 'setAttrs', payload: { nodeId: sid, attrs: { overrides: next } } };
     });
 
-    return (await transaction(editor, steps as never).commit()).success === true;
-  }
-
-  private _canOverride(editor: Editor, payload?: Record<string, unknown>): boolean {
-    const at = payload?.at as BreakpointId;
-    return (
-      OVERRIDABLE.includes(at) &&
-      typeof payload?.attr === 'string' &&
-      (payload.attr as string).length > 0 &&
-      this._chosen(editor, payload).length > 0
-    );
-  }
-
-  /**
-   * Write, or take back, one statement at one width, on every block chosen.
-   *
-   * Read-modify-write per node rather than one shared map: two selected stacks have different
-   * overrides, and a command that computed one map for both would give the second the first's.
-   */
-  private async _override(
-    editor: Editor,
-    payload: Record<string, unknown> | undefined,
-    setting: boolean
-  ): Promise<boolean> {
-    if (!this._canOverride(editor, payload)) return false;
-    const store = this._store(editor);
-    const at = payload!.at as BreakpointId;
-    const attr = payload!.attr as string;
-
-    const steps = this._chosen(editor, payload).map((sid) => ({
-      type: 'setAttrs',
-      payload: {
-        nodeId: sid,
-        attrs: {
-          overrides: withOverride(
-            store?.getNode(sid)?.attributes as Record<string, unknown>,
-            at,
-            attr,
-            setting ? payload!.value : undefined
-          )
-        }
-      }
-    }));
     return (await transaction(editor, steps as never).commit()).success === true;
   }
 

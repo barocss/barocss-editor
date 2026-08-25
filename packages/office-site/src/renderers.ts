@@ -101,6 +101,16 @@ export function registerSiteRenderers(): void {
           /** The address, so a link and a page list can both read it from the drawing. */
           'data-path': (d: NodeData) =>
             typeof attrsOf(d).path === 'string' ? attrsOf(d).path : undefined,
+          /**
+           * The page's durable id and the name a reader calls it.
+           *
+           * Drawn because they are *read* — a link names a page by `id`, and the page list shows the
+           * `name` — and `every-attribute-is-read` is right that a fact only the model knows is a
+           * fact the drawing cannot be checked against.
+           */
+          'data-id': (d: NodeData) => (typeof attrsOf(d).id === 'string' ? attrsOf(d).id : undefined),
+          'data-name': (d: NodeData) =>
+            typeof attrsOf(d).name === 'string' ? attrsOf(d).name : undefined,
           style: {
             display: 'flex',
             flexDirection: 'column',
@@ -134,6 +144,8 @@ export function registerSiteRenderers(): void {
       {
         className: 'st-stack',
         'data-layout': typeof attrs.layoutMode === 'string' ? attrs.layoutMode : 'none',
+        // What a reader called this stack, which the layer list shows and the drawing should say.
+        'data-name': typeof attrs.name === 'string' ? attrs.name : undefined,
         'data-sizing': typeof attrs.sizing === 'string' ? attrs.sizing : undefined,
         /*
          * Whether this stack is drawing something a narrower width said, so a reader — and a test —
@@ -196,6 +208,7 @@ export function registerSiteRenderers(): void {
       {
         className: 'st-collection',
         'data-source': typeof attrs.source === 'string' ? attrs.source : undefined,
+        'data-name': typeof attrs.name === 'string' ? attrs.name : undefined,
         'data-layout': typeof attrs.layoutMode === 'string' ? attrs.layoutMode : 'none',
         'data-at': ctx?.env ? breakpointOf(ctx.env as RenderEnv) : undefined,
         style: { ...stackCss(attrs), ...sizingCss(attrs) }
@@ -221,6 +234,20 @@ export function registerSiteRenderers(): void {
         display: 'block',
         maxWidth: '100%',
         objectFit: typeof attrs.fit === 'string' ? String(attrs.fit) : 'cover',
+        /*
+         * A ground behind it, and a line around it.
+         *
+         * Read rather than exempted, which the harness is what settled: a picture on a page is very
+         * often a transparent PNG on a colour, or a photograph with a hairline. A stack could do
+         * both by wrapping it, and making a reader wrap a picture to give it a border is the kind of
+         * thing a builder is supposed to save them from.
+         */
+        ...(typeof attrs.fill === 'string' && attrs.fill ? { background: attrs.fill } : {}),
+        ...(typeof attrs.stroke === 'string' && attrs.stroke
+          ? {
+              border: `${Math.round(((typeof attrs.strokeWidth === 'number' ? attrs.strokeWidth : 15) * 96) / 1440)}px solid ${attrs.stroke}`
+            }
+          : {}),
         ...sizingCss(attrs)
       }
     });

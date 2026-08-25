@@ -46,6 +46,71 @@ entries are that.
 
 ## Open
 
+### What the site builder owes, measured
+
+The third product's first run through the conformance harness (`packages/office-site/test/conformance.test.ts`).
+Deliberately a **report** before it is an assertion: the point of running it was to find out what the
+product owes. Word discovered these checks over months in a browser; the deck got them on its first
+day and its failures were a work list. This is that work list.
+
+| check | examined | owes |
+| --- | ---: | ---: |
+| every-node-is-drawn | 49 | **16** |
+| every-attribute-is-read | 128 | **80** |
+| every-insert-is-accounted-for | 7 | **4** |
+| every-command-can-be-reached | 12 | **7** |
+| the other five | 104 / 3 / 0 | 0 |
+
+**After the work: every check asserts, and nothing examines nothing.** Two more came off the floor on
+the way — the canvas layout extension was installed for an arrangement pass a flow page can never
+use (a walk of every frame on every content change, with nothing it could ever do), and the product
+had no *word* for its own node types, so `every-drawing-can-be-named` was passing by examining zero.
+`kindOfBlock` is that word, and it answers **nothing** for a type the product has no name for —
+which is the point, because `labelOfBlock` falls back to the stype and a fallback makes a missing
+name look like a name.
+
+**The first four were real work, and they are done.** What follows is what each cost and what it
+taught; the rest became exemptions with written reasons, and the harness now asserts.
+
+- [x] **16 node types the schema declares and the page cannot draw.** Almost all of them are the
+  canvas's — `rectangle`, `ellipse`, `line`, `connector`, `path`, `sticky`, `group`, `canvasBlock` —
+  and a page has no coordinates, so those are exemptions with a reason rather than work. The
+  interesting ones are the *resources*: `component`, `componentVar`, `componentBind`,
+  `componentValue`, `components`, `variable`, `variables`. A definition is never drawn — a
+  **placement** draws it — so those are exemptions too, and saying so is the point: the check will
+  fail the day one of them grows a renderer.
+
+- [x] **`sizing` on a heading and a paragraph was declared and never read.** The schema was
+  **narrowed** — containers only. A schema that offers a reader something nothing draws is worse than
+  one that offers less, and nothing is lost: a reader who wants a hugging heading puts it in a stack
+  that hugs, which is how every auto-layout tool works. *Was:* The site widened the
+  schema to say any block may state its width, and only the container renderers call `sizingCss` —
+  a text block's does not, because it is `office-text`'s and a site does not own it. Six findings,
+  and the honest fix is probably to **narrow the schema**: a reader who wants a hugging heading puts
+  it in a stack that hugs, which is how every auto-layout tool works. Decide, then either narrow it
+  or read it.
+
+- [x] **`setOverride` and `clearOverride` were unreachable — because `setStackFormat` replaced them.**
+  One command that says "this, at this width" made two older ones dead, and nothing noticed until the
+  check counted what a reader can run. Delete them.
+
+- [x] **The site's key map lived in the app, where the check cannot look.** It is `keymap.ts` in the
+  package now, with the matching in it too, so a chord written `Mod+d` and a handler that forgot the
+  modifier cannot be two statements about one binding. The toolbar is `toolbar-model.ts` for the same
+  reason. `every-command-can-be-reached` went from **7 findings to 1**, and the one left is
+  `moveBlockInto`, reached by a drag — a claim on the record rather than a gap. *Was:* `Delete` and `⌘D` reach
+  `removeBlocks` and `duplicateBlocks` — from a `keydown` handler in `apps/site`. The deck's key map
+  is *data in the package* precisely so this cannot drift, and the site owes the same. Same for its
+  toolbar: `slidesToolbarCommands()` is what feeds the deck's check, and the site's ribbon declares
+  its commands inline in JSX.
+
+- [x] **Four `insert…` commands from the shared kit were covered by no command check** —
+  `insertText`, `insertParagraph`, `insertHardBreak`, `insertImage`. The product has to say what each
+  produces, or say why it does not apply.
+
+- [x] **`moveBlockInto` is reached by a drag and by nothing else**, which is right and has to be
+  written down as a claim rather than left as a gap.
+
 ### The site builder, as it is built
 
 Kept the way Word's and the deck's entries are: what was measured, at the moment it was measured.

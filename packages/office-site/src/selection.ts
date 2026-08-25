@@ -226,6 +226,42 @@ export function isTextual(doc: Access, sid: string | undefined): boolean {
 }
 
 /**
+ * What a reader calls a **kind** of block — the word, not the thing.
+ *
+ * Nothing for a type this product has no word for, which is what lets a check see a missing name.
+ * `labelOfBlock` would answer for anything, because it falls back to the stype — and a fallback makes
+ * a missing name look like a name, which is the failure `every-drawing-can-be-named` is about.
+ */
+export function kindOfBlock(type: string): string | null {
+  switch (type) {
+    case 'surface':
+      return '페이지';
+    case 'frame':
+      return '스택';
+    case 'collection':
+      return '목록';
+    case 'instance':
+      return '블록';
+    case 'picture':
+      return '이미지';
+    case 'heading':
+      return '제목';
+    case 'paragraph':
+      return '본문';
+    case 'list':
+      return '목록';
+    case 'listItem':
+      return '항목';
+    case 'bTable':
+      return '표';
+    case 'inline-text':
+      return '텍스트';
+    default:
+      return null;
+  }
+}
+
+/**
  * What a reader calls this block.
  *
  * Named by what it *does* rather than by its stype, because `frame` is the engine's word and a

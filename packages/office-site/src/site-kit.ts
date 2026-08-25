@@ -37,7 +37,6 @@ import {
 } from '@barocss/extensions';
 import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
 import { createSchema } from '@barocss/schema';
-import { createLayoutCommands } from '@barocss/office-canvas';
 import { installSiteResolution } from './collection-resolution';
 import { getSiteSchemaDefinition } from './site-schema';
 import { createStackCommands } from './stack-commands';
@@ -47,15 +46,18 @@ import { createBlockCommands } from './block-commands';
 export function createSiteOwnExtensions(): Extension[] {
   return [
     /*
-     * A stack, and what a stack's child says about its own width.
+     * **Not** the canvas layer's layout extension, and the harness is what settled it.
      *
-     * The arrangement itself is the canvas layer's — the same pass that settles a frame's geometry
-     * on a slide — and on a page it computes nothing, because a page's children carry no
-     * coordinates and the browser lays them out. Installed all the same: a frame *inside* a placed
-     * box on a page would need it, and a product that installed the pass only when it turned out to
-     * matter would be a product that found out the hard way.
+     * It was installed on the argument that a frame *inside a placed box* on a page would need the
+     * arrangement pass. Measured: a page draws no placed boxes — every canvas node is in this
+     * product's undrawn list — so the pass walks every frame on every content change and can never
+     * have anything to do. And its two commands, `setFrameLayout` and `setBoxLayout`, came back from
+     * `every-command-can-be-reached` as things a reader cannot run: a page says both with `sizing`
+     * and `setStackFormat`, which know about widths as well.
+     *
+     * A cost with no benefit and two dead commands. It comes back the day a page can hold a canvas,
+     * with a reason.
      */
-    createLayoutCommands(),
     createStackCommands(),
     /*
      * Moving a block, copying it, taking it away — the three a builder cannot be without. A reader
