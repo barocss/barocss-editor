@@ -41,6 +41,12 @@ const AS_FORMAT: Record<string, (attrs: Attrs) => EffectiveFormat> = {
   fontSize: (attrs) => (num(attrs.size) !== undefined ? { fontSize: num(attrs.size) } : {}),
   fontFamily: (attrs) => ({ fontFamily: str(attrs.family) }),
   fontColor: (attrs) => ({ color: str(attrs.color) }),
+  /*
+   * Both of the schema's ways of painting behind text land on Word's one `highlight` format, and
+   * they are not the same idea: `bgColor` is a background of any colour (Word's 음영), `highlight`
+   * is the marker pen. `EffectiveFormat` has no shading yet, so a background is drawn as the
+   * nearest thing Word has and says so here rather than being dropped.
+   */
   bgColor: (attrs) => ({ highlight: str(attrs.bgColor) }),
   highlight: (attrs) => ({ highlight: str(attrs.color) }),
   letterSpacing: (attrs) => (num(attrs.spacing) !== undefined ? { spacing: num(attrs.spacing) } : {}),

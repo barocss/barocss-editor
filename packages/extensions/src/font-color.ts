@@ -49,13 +49,23 @@ export class FontColorExtension implements Extension {
         const selection = payload?.selection || (ed as any).selection;
         if (!selection || selection.type !== 'range' || !payload?.color) return false;
 
+        /*
+         * `bgColor`, which is what the **schema declares** — this wrote `color`.
+         *
+         * Measured: the command committed, reported success and painted nothing, because every
+         * reader of this mark asks for the attribute by name — `attributes.bgColor` in the two apps
+         * that draw it, `attrs.bgColor` in Word's format resolution. A mark whose attribute nobody
+         * can find is a mark that is not there, and the command said `true` the whole time.
+         *
+         * The test beside it asked only which *mark type* was written, which is how it survived.
+         */
         const op = applyMark(
           selection.startNodeId,
           selection.startOffset,
           selection.endNodeId,
           selection.endOffset,
           'bgColor',
-          { color: payload.color }
+          { bgColor: payload.color }
         );
         const result = await transaction(ed, [op]).commit();
         return result.success;

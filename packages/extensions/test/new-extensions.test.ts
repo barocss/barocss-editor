@@ -697,7 +697,7 @@ describe('FontColorExtension', () => {
     expect(recordedTransactions[0][0].payload.markType).toBe('fontColor');
   });
 
-  it('setBgColor applies bgColor mark', async () => {
+  it('setBgColor applies bgColor mark, in the attribute the schema declares', async () => {
     const { FontColorExtension } = await import('../src/font-color');
     const editor = createFakeEditor();
     const ext = new FontColorExtension();
@@ -706,6 +706,14 @@ describe('FontColorExtension', () => {
     await editor.__getCommand('setBgColor').execute(editor, { selection: defaultSelection, color: '#00ff00' });
     expect(commitMock).toHaveBeenCalledTimes(1);
     expect(recordedTransactions[0][0].payload.markType).toBe('bgColor');
+    /*
+     * The attribute as well as the type, which is what this test was missing: it wrote `color` for
+     * months, the schema declares `bgColor`, every reader asks for it by name — so the command
+     * reported success and painted nothing, and this assertion passed the whole time. The check
+     * that holds every mark command to its schema is in `office-word`, where a real editor can run
+     * them; this one keeps the fault from coming back where it lives.
+     */
+    expect(recordedTransactions[0][0].payload.attrs).toEqual({ bgColor: '#00ff00' });
   });
 });
 

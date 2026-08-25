@@ -151,10 +151,10 @@ All marks have **group**: `"text-style"` unless noted. Common attrs are omitted 
 | underline    | style?         | Underline. |
 | strikethrough| style?         | Strikethrough. |
 | fontColor    | color?         | Text color. |
-| bgColor      | bgColor?       | Highlight. |
+| bgColor      | bgColor?       | The colour **behind** the text — a `background-color` on a span, which is what an HTML paste brings in. Word's 음영. |
 | code         | language?      | Inline code. |
 | link         | href (required), title? | Link. |
-| highlight    | color?         | Highlight. |
+| highlight    | color?         | The **highlighter** — Word's 형광펜, whose colours are pen colours. Distinct from `bgColor`: a marker has a palette, a background takes any colour. |
 | fontSize     | size?          | Font size. |
 | fontFamily   | family?        | Font family. |
 | subscript    | position?      | Sub. |

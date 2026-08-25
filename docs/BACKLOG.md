@@ -405,6 +405,16 @@ Still open, each in a place that cannot go quietly out of date:
   all of them now, and two of the nine were wrong — `insertMention` applies a
   mark rather than making a node, and `insertBookmark` makes a
   `bookmarkAnchor`, not a `bookmark`.
+- [ ] **Word does not wire `every-command-can-be-reached`.** Slides passes `own` and `reachable` and
+  the check examines 96 commands; Word passes neither, so the check never runs for it and a Word
+  command nobody can press is invisible to the harness — which is the exact fault the check exists
+  for, in the product that has twice the commands. Measured while fixing `bgColor`: Word adds **131**
+  commands of its own, and a naive `reachable` built from the ribbon model and the keymap leaves 69
+  unaccounted for. Most of those 69 are reached some other way — the input handler owns the movement
+  and delete commands, the palettes own the colours, the choice controls own the font and the size —
+  which is precisely what an exemption is for. The work is building Word's `reachable` from its real
+  chrome and writing the exemptions, and the answer at the end is a number nobody can guess today.
+
 - [ ] **A command that makes a node and is not called `insert…` still slips
   through.** The honest limit of a convention check, written in the check
   itself.
@@ -1038,16 +1048,24 @@ shipped features marked undone.
   written down because a host that redraws on selection alone would be stale and
   would have no way to find out why.
 
-- [ ] **`bgColor` is a mark nothing can use.** The schema declares it with an
-  attribute called `bgColor`; `setBgColor` writes one called `color`; the only
-  reader (`office-word/src/mark-format.ts`) looks for `bgColor`. So the command
-  reports success and paints nothing — measured in the deck on 2026-08-19, where
-  it drew a `span.mark-bgColor` with no background at all. It also duplicates
-  `highlight`, which does the same job correctly and is what the highlighter's
-  palette now runs. Three ways to close it — fix the attribute, delete the mark,
-  or fold the two together — and the choice is a document-format decision, since
-  the attribute name is what a saved document carries. Deliberately not made
-  while adding a control, because a control is not the place to decide it.
+- [x] **`bgColor` painted nothing, and the test beside it passed the whole time.** The command wrote
+  its colour into an attribute called `color`; the schema declares `bgColor`; every reader asks for
+  it by name — the two apps that draw the mark (`attributes.bgColor`) and Word's format resolution
+  (`attrs.bgColor`). So it committed, reported `true`, and did nothing, which is the one failure a
+  reader cannot report.
+
+  Fixed at the command rather than by deleting the mark, and the measurement is why: `bgColor` looked
+  like a dead duplicate of `highlight` until the sweep showed it is drawn by two apps and used as
+  *the* example mark in eight renderer tests. The two are Word's own pair — 음영 against 형광펜, a
+  background of any colour against a pen with a palette — and the doc's two rows both saying
+  "Highlight." was the whole confusion. Word maps both onto its one highlight format because
+  `EffectiveFormat` has no shading, and says so where it does it.
+
+  The test asserted which **mark type** was written and never what it carried, which is how this
+  survived. `office-word/test/mark-commands-write-what-the-schema-declares.test.ts` is the guard now:
+  every mark command runs on a real editor, the mark is read back out of the store, and each
+  attribute is held to what the schema declares that mark has — in both directions, because an
+  attribute the schema does not declare is one nothing will ever read.
 
 ### Slides has an end-to-end suite now
 

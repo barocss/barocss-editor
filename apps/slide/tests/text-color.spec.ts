@@ -163,11 +163,10 @@ test.describe('the colour of the text on a slide', () => {
  * applies and `removeHighlight` clears, the same pair `setFontColor` has always
  * had.
  *
- * Not `setBgColor`, which is the schema's other mark for the same idea: it
- * writes its colour into an attribute called `color` while the schema declares
- * `bgColor` and the only reader looks for `bgColor`, so it reports success and
- * paints nothing. Measured, and written down in the backlog rather than given a
- * control.
+ * Not `setBgColor`, which is the schema's *other* way of painting behind text — and it wrote its
+ * colour into an attribute called `color` while the schema declares `bgColor`, so it reported
+ * success and painted nothing until that was fixed. The two are Word's own pair, 형광펜 against
+ * 음영: a highlighter has pen colours, a background takes any. This palette is the highlighter.
  */
 test.describe('the highlighter', () => {
   test('takes a colour from the palette, not just its yellow', async ({ page }) => {

@@ -49,13 +49,15 @@ export class HighlightExtension implements Extension {
      * command that applies — the same division `setFontColor` and its toggle
      * have had since the day the kit had marks.
      *
-     * The `highlight` mark rather than `bgColor`, which is the other mark in the
-     * schema that claims to paint behind text: `setBgColor` writes its colour
-     * into an attribute called `color` while the schema declares `bgColor` and
-     * the only reader looks for `bgColor` — so it reports success and paints
-     * nothing, measured in the deck on 2026-08-19. Two marks for one idea is the
-     * fault; this uses the one that works, and the dead pair is written down in
-     * the backlog rather than given a second control.
+     * The `highlight` mark rather than `bgColor`, and they are **not** the same idea — which took a
+     * measurement to establish, because for months `bgColor` looked like a dead duplicate: its
+     * command wrote the colour into an attribute called `color` while the schema declares `bgColor`
+     * and every reader asks for it by name, so it reported success and painted nothing.
+     *
+     * Fixed at the command, not by deleting the mark, because the mark is alive: two apps draw it
+     * (`background-color` on a span) and it is what an HTML paste's background arrives as. The
+     * difference is Word's own — 형광펜 against 음영: a highlighter has pen colours and a background
+     * takes any colour. This is the highlighter, so it is `highlight`.
      */
     (editor as any).registerCommand({
       name: 'setHighlight',
