@@ -381,6 +381,43 @@ test.describe('the panel', () => {
     await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/처음');
   });
 
+  test('rounds a box and decides whether it is a window', async ({ page }) => {
+    /*
+     * The two things a page's frame says that a canvas's frame does not, and both were found by the
+     * same sweep — for each node type, which of its declared attributes the panel offers.
+     *
+     * A **radius** because a card is a frame, and only `rectangle` had one: the shape that could be
+     * rounded arranges nothing, so the most ordinary box on a web page was undrawable except as a
+     * rectangle behind a frame, which is two nodes for one box and neither of them the one a reader
+     * would select.
+     *
+     * And **clipping**, which was worse for being invisible: `frameCss` writes `overflow: hidden`
+     * unless told otherwise — right on a canvas, where a frame is a stated size and a window onto
+     * what it holds — and a page's box has no stated size, so it showed up only when something
+     * deliberately left the box, by deleting it. Nine stacks on this very sample were clipping with
+     * no control anywhere to stop one, which is every overlapping design there could have been.
+     */
+    await ready(page);
+    const hero = page.locator('[data-frame="desktop"] .st-stack[data-name="히어로"]');
+    await press(page, hero);
+    await page.waitForTimeout(300);
+    await panel(page).getByRole('tab', { name: '모양' }).click();
+
+    // Silence means visible on a page, which is the default this product disagrees with a canvas about.
+    await expect(hero).toHaveCSS('overflow', 'visible');
+    await expect(hero).toHaveCSS('border-radius', '0px');
+
+    await panel(page).getByLabel('모서리 둥글기').fill('24');
+    await panel(page).getByLabel('모서리 둥글기').press('Enter');
+    await page.waitForTimeout(400);
+    // 360 twips is 24px; the panel speaks pixels and the document keeps twips, as everywhere else.
+    await expect(hero).toHaveCSS('border-radius', '24px');
+
+    await panel(page).getByLabel('넘치는 것 자르기').check({ force: true });
+    await page.waitForTimeout(400);
+    await expect(hero).toHaveCSS('overflow', 'hidden');
+  });
+
   test('names the selected block, and changes what it is called', async ({ page }) => {
     await ready(page);
     await press(page, page.locator('[data-frame="desktop"] .st-stack[data-name="히어로"]'));

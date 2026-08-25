@@ -182,6 +182,7 @@ export function frameCss(
         alignItems?: string;
         columns?: number;
         clipsContent?: boolean;
+        cornerRadius?: number;
       })
     | undefined
 ): CssStyle {
@@ -198,6 +199,10 @@ export function frameCss(
 
   if (attrs?.clipsContent === false) css.overflow = 'visible';
   else css.overflow = 'hidden';
+
+  // The same number a rectangle states as `rx`, as the CSS corner — see the schema.
+  const corner = number(attrs?.cornerRadius, 0);
+  if (corner > 0) css.borderRadius = `${twipToPx(corner)}px`;
 
   if (typeof attrs?.fill === 'string' && attrs.fill.length > 0) css.background = attrs.fill;
   if (typeof attrs?.stroke === 'string' && attrs.stroke.length > 0) {

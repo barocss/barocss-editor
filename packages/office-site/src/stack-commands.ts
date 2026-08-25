@@ -276,6 +276,15 @@ export class SiteStackExtension implements Extension {
     'fill',
     'stroke',
     'strokeWidth',
+    // A rounded card, which the schema had no word for until a page needed one.
+    'cornerRadius',
+    /*
+     * Whether it is a window.
+     *
+     * A page does not clip by silence — see `stackCss` — so this is a reader asking for something
+     * rather than a reader escaping a default, which is the only reason it is worth a control.
+     */
+    'clipsContent',
     // What a reader calls it, which is what a layer list shows and a drawing says.
     'name',
     // A picture.

@@ -47,7 +47,7 @@
 import { getGlobalRegistry } from '@barocss/dsl';
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
-import { frameCss } from '@barocss/office-word';
+import { stackCss } from './renderers';
 import { BREAKPOINTS, SITE_ENV_KEY, createSiteEnv, type BreakpointId } from './breakpoints';
 import { BASE_BREAKPOINT, attrsAt, overridesOf } from './responsive';
 import { sizingCss } from './sizing';
@@ -238,19 +238,25 @@ export function mediaRules(
   return chunks.join('\n\n');
 }
 
-/** What a node's own drawing amounts to, at one width. */
+/**
+ * What a node's own drawing amounts to, at one width.
+ *
+ * **`stackCss`, the renderer's own** — not `frameCss` plus this file's copy of the page's defaults,
+ * which is what it was. The copy had one of the two (`alignItems: stretch`) with a comment saying
+ * the export "has to carry it", and the day the renderer stopped clipping by default the export kept
+ * clipping: the editor drew `overflow: visible` and the published page said `hidden`, in the one
+ * check whose entire job is that those two agree.
+ *
+ * That is the argument for export-as-a-render stated exactly: a second path is not a second
+ * implementation of the same rule, it is a place for the rule to be *older*.
+ */
 export function cssFor(node: Node | undefined, at: BreakpointId): Record<string, string> {
   const attrs = attrsAt((node?.attributes ?? {}) as Record<string, unknown>, at);
   const stack = node?.stype === 'frame' || node?.stype === 'collection';
 
   return {
-    ...(stack ? (frameCss(attrs as never) as Record<string, string>) : {}),
-    ...(sizingCss(attrs as never) as Record<string, string>),
-    /*
-     * A page's stack stretches unless it says otherwise — the site's own default, and the export has
-     * to carry it or a published row would be a row of three different heights (`renderers.ts`).
-     */
-    ...(stack && attrs.alignItems === undefined ? { alignItems: 'stretch' } : {})
+    ...(stack ? (stackCss(attrs as never) as Record<string, string>) : {}),
+    ...(sizingCss(attrs as never) as Record<string, string>)
   };
 }
 

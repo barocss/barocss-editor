@@ -97,13 +97,33 @@ const named = (attrs: Record<string, any>, node: NodeData, ctx: any): Record<str
  * a row of cards of three different heights, and the equal-height row is what every landing page
  * means by putting them side by side.
  *
- * Only when the node says nothing. A stack that states `alignItems` gets what it states, at every
- * width, and this default never overrides a reader — the header's row still centres its wordmark
- * against its links.
+ * ## And it does not clip
+ *
+ * The second thing a page means the opposite of by silence, and the more expensive one.
+ * `frameCss` writes `overflow: hidden` unless a node says `clipsContent: false`, which on a canvas
+ * is what a frame *is*: a box of a stated size, and a window onto what it holds. Measured on the
+ * sample site: **nine** stacks on the desktop board clipping, and no control anywhere in the
+ * product to stop one.
+ *
+ * A page's box has no stated size — it is as tall as what is in it — so clipping never shows until
+ * something deliberately leaves the box, and then it shows by *deleting the design*: an image that
+ * bleeds past its section, a badge hanging off a card's corner, a portrait lifted into the band
+ * above it. Overlap is how a page stops looking like a stack of rectangles, and this made it
+ * unreachable — silently, because a clipped element looks exactly like an element that was never
+ * drawn.
+ *
+ * So silence means visible here, and `clipsContent: true` still means what it says. A reader who
+ * wants a window asks for one, which is also the only time a page has any use for it.
+ *
+ * ## Only when the node says nothing
+ *
+ * A stack that states `alignItems` gets what it states, at every width, and these defaults never
+ * override a reader — the header's row still centres its wordmark against its links.
  */
-const stackCss = (attrs: Record<string, any>): Record<string, any> => ({
+export const stackCss = (attrs: Record<string, any>): Record<string, any> => ({
   ...frameCss(attrs as never),
-  ...(attrs.alignItems === undefined ? { alignItems: 'stretch' } : {})
+  ...(attrs.alignItems === undefined ? { alignItems: 'stretch' } : {}),
+  ...(attrs.clipsContent === undefined ? { overflow: 'visible' } : {})
 });
 
 /**

@@ -10,6 +10,7 @@ import {
   PropertyPanel,
   PropertyRow,
   PropertyTabs,
+  PropertyToggle,
   TextField,
   useRevision,
   type ThemeSwatch
@@ -317,6 +318,42 @@ export function Inspector({
                   />
                 </PropertyRow>
               </PropertyGroup>
+
+              {/*
+                The box itself — the two things a page's frame says that a canvas's frame does not.
+
+                A **radius** because a card is a frame and only a `rectangle` could be rounded, so the
+                single most ordinary box on a web page was undrawable; and **clipping** because
+                `frameCss` writes `overflow: hidden` by default and the page silently unclips
+                (`renderers.ts`), which makes this a reader asking for a window rather than a reader
+                escaping a default. Measured before either existed: nine clipping stacks on the
+                sample's desktop board, and nothing anywhere that could turn one off.
+
+                Stacks only. A picture and a heading have no box of their own to round here — a
+                picture's corners are the frame's it sits in, which is how every layout tool
+                answers this.
+              */}
+              {isStack ? (
+                <PropertyGroup label="상자">
+                  <PropertyRow label={`둥글기${mark('cornerRadius')}`}>
+                    <NumberField
+                      value={twips('cornerRadius')}
+                      onCommit={(value) => set('cornerRadius', value > 0 ? value * PX : undefined)}
+                      ariaLabel="모서리 둥글기"
+                      suffix="px"
+                      min={0}
+                    />
+                  </PropertyRow>
+                  <PropertyRow label={`넘침${mark('clipsContent')}`}>
+                    <PropertyToggle
+                      value={shown.attrs.clipsContent === true}
+                      onChange={(value) => set('clipsContent', value ? true : undefined)}
+                      label="자르기"
+                      ariaLabel="넘치는 것 자르기"
+                    />
+                  </PropertyRow>
+                </PropertyGroup>
+              ) : null}
 
               <PropertyGroup label="테두리">
                 <PropertyRow label={`색${mark('stroke')}`}>

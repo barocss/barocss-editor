@@ -2409,6 +2409,38 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **A page's box: rounded, and not a window unless it is asked to be.**
+
+  The sweep, this time pointed at the panel rather than at the renderers: for each node type, which
+  of its declared attributes the property panel offers. Filtered to what this product actually
+  draws — the canvas vocabulary a page inherits and the harness already exempts is most of the
+  noise — **47 of 83**. Two of the gaps were the model's rather than the panel's, which is why they
+  are in `box.test.ts` and not only in a browser:
+
+  - **`frameCss` writes `overflow: hidden` unless told otherwise, and a page had no way to tell it.**
+    Right on a canvas, where a frame is a stated size and a window onto what it holds. A page's box
+    has no stated size, so clipping never shows until something deliberately leaves the box — and
+    then it shows by *deleting it*: an image bleeding past its section, a badge on a card's corner, a
+    portrait lifted into the band above. Measured on the sample: **nine** stacks clipping on the
+    desktop board and no control anywhere. So every overlapping design this builder could have made
+    was unreachable, silently, because a clipped element looks exactly like one that was never drawn.
+    A page now means *visible* by silence, and `clipsContent: true` still means what it says — which
+    makes the control a reader asking for a window rather than a reader escaping a default.
+  - **Only a `rectangle` could be rounded.** A card is a frame — it arranges what is in it — and the
+    shape that could have a corner radius arranges nothing, so the most ordinary box on a web page
+    was undrawable except as a rectangle behind a frame: two nodes for one box, and neither of them
+    the one a reader would select. `cornerRadius` is on `frame` in the office schema now and
+    `frameCss` reads it, so it is a rounded card in all three products rather than a site feature.
+
+  **The surprise was the third thing, and the export test found it before a human did.** Changing the
+  renderer's default broke `says at 390 exactly what the editor draws at 390`: the editor drew
+  `overflow: visible` and the published page said `hidden`. `cssFor` was calling `frameCss` and then
+  re-implementing the page's defaults itself — it had one of the two, with a comment saying the
+  export "has to carry it". So export-as-a-render had grown a second path after all, and the second
+  path is not a second implementation of a rule; it is a place for the rule to be *older*. `cssFor`
+  calls the renderer's own `stackCss` now, and the check that caught it is the one whose entire job
+  is that those two agree.
+
 - **A `var()` is a snapshot, and the third time it bit was the fix for the second.**
 
   Three instances in one afternoon, all the same fact: **a custom property is substituted where it

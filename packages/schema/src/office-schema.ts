@@ -308,6 +308,19 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
       attrs: {
         name: { type: 'string', required: false },
         clipsContent: { type: 'boolean', default: true },
+        /**
+         * How round its corners are, in twips.
+         *
+         * Only `rectangle` had one, which made a rounded **card** impossible: a card is a frame — it
+         * arranges what is in it — and the shape that could be rounded arranges nothing. So a site
+         * builder could not draw the most ordinary box on a web page, and the workaround would have
+         * been a rectangle behind a frame: two nodes for one box, and neither of them the one a
+         * reader selected.
+         *
+         * On a frame it is the CSS corner; on a rectangle it is the SVG `rx`. Both are twips,
+         * because the canvas's user units are the document's.
+         */
+        cornerRadius: { type: 'number', default: 0 },
         /** `row`, `column` or `grid`; `none` and anything absent leave the children where
          * they were put. Declared so `layoutModeOf`'s set is readable — see options. */
         layoutMode: {
