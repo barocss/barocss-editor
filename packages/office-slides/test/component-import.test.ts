@@ -13,7 +13,7 @@ import {
   componentsOf,
   importComponentPlan,
   instanceParts
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 
 /**
  * A **brand kit**: a definition brought in from another deck.

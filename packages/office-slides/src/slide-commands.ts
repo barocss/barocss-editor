@@ -1,7 +1,7 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { CANVAS_GEOMETRY_ATTRS, CANVAS_STYLE_ATTRS } from '@barocss/schema';
 import { transaction } from '@barocss/model';
-import { laysOut, placeIsBound, sizeIsBound, turnIsBound } from '@barocss/office-word';
+import { laysOut, placeIsBound, sizeIsBound, turnIsBound } from '@barocss/office-canvas';
 import {
   copyOf,
   deckSlides,

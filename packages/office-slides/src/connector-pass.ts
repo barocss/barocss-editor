@@ -1,4 +1,4 @@
-import { segmentCrossings, type ConnectorKind } from '@barocss/office-word';
+import { segmentCrossings, type ConnectorKind } from '@barocss/office-canvas';
 import type { DeckAccess } from './deck';
 import { childrenOf, connectorRouteOf } from './deck';
 import { SLIDES_ENV_KEY } from './render-context';

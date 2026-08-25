@@ -16,7 +16,7 @@ import {
   importComponentPlan,
   componentsOf,
   instanceParts
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 
 /**
  * Making a component, placing one, and telling a placement what it is.

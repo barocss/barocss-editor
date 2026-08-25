@@ -10,7 +10,7 @@ import {
   instanceParts,
   instanceResizable,
   instanceVars
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 
 /**
  * Making a component, placing one, and taking a definition's changes.

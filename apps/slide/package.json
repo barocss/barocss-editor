@@ -16,6 +16,7 @@
     "@barocss/office-controls": "workspace:*",
     "@barocss/office-slides": "workspace:*",
     "@barocss/office-ui": "workspace:*",
+    "@barocss/office-canvas": "workspace:*",
     "@barocss/office-word": "workspace:*",
     "@barocss/renderer-dom": "workspace:*",
     "@barocss/schema": "workspace:*",

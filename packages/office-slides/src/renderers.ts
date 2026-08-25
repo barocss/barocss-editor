@@ -62,7 +62,7 @@
  * deck puts on a slide.
  */
 import { define, element, slot } from '@barocss/dsl';
-import { getWordDocument, registerWordRenderers } from '@barocss/office-word';
+import { getWordDocument, registerTextRenderers } from '@barocss/office-word';
 import { placementCss, slideSize, twipToPx, type CssStyle, type Placement } from './geometry';
 import { deckFillLayers, deckPaintCss, svgDash, svgFlow } from './paint';
 import { svgPaintOf, type SvgNode } from './svg-paint';
@@ -86,7 +86,7 @@ import {
   connectorPoints,
   connectorSpecOf,
   pulledBack
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 import { textBoxCss } from './text-box';
 import { cornerCss } from './corners';
 import { cropCss } from './crop';
@@ -304,15 +304,20 @@ function lineEnds(data: NodeData): { x1: number; y1: number; x2: number; y2: num
 /**
  * Register every Slides renderer in the global DSL registry.
  *
- * Word's go in first and Slides' override the ones it draws differently —
- * `surface` above all, which in Word means a section drawn as the pages its
- * text reached, and here means one slide.
+ * The **text** half of Word's go in first and Slides' own go over the top of the ones it draws
+ * differently — `surface` above all, which in Word means a section drawn as the pages its text
+ * reached and here means one slide.
+ *
+ * `registerTextRenderers` and not `registerWordRenderers`: the second registers the page half too —
+ * the section as sheets, the header and footer being edited, the back matter, the contents page —
+ * and a deck overrode the first of those and had no use for the rest. Registering something in order
+ * to override it is how a product ends up depending on the shape of another product's file.
  *
  * Idempotent, like Word's.
  */
 export function registerSlidesRenderers(): void {
   // Everything a text frame holds. See the header: this is the product.
-  registerWordRenderers();
+  registerTextRenderers();
 
   // ── The slide ──────────────────────────────────────────────────────────────
   /**

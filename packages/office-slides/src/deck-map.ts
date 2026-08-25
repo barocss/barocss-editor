@@ -1,4 +1,4 @@
-import { connectorPath, connectorPoints, layoutGraph, type ConnectorBox } from '@barocss/office-word';
+import { connectorPath, connectorPoints, layoutGraph, type ConnectorBox } from '@barocss/office-canvas';
 import { deckSlides, type DeckAccess } from './deck';
 import { slideSize } from './geometry';
 import { deckAdvance, deckJumps, jumpFaults, jumpTarget } from './jump';

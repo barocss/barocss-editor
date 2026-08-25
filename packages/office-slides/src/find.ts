@@ -2,11 +2,13 @@ import { transaction } from '@barocss/model';
 import type { Editor } from '@barocss/editor-core';
 import {
   componentOf,
-  findMatches,
-  replaceOperations,
   instanceParts,
   instanceVars,
-  isVarRef,
+  isVarRef
+} from '@barocss/office-canvas';
+import {
+  findMatches,
+  replaceOperations,
   type FindOptions,
   type Match
 } from '@barocss/office-word';

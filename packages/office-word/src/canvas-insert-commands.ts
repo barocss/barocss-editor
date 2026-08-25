@@ -29,8 +29,15 @@
  */
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import { canvasAt, type CanvasAccess, type CanvasNode } from './canvas-access';
-import { canvasNode, defaultShapeBox, shapeNode, type PageWidth } from './canvas-insert';
+import {
+  canvasAt,
+  canvasNode,
+  defaultShapeBox,
+  shapeNode,
+  type CanvasAccess,
+  type CanvasNode,
+  type PageWidth
+} from '@barocss/office-canvas';
 
 /** What a caller may say about a new shape; everything else is computed. */
 export interface InsertShapeOptions {

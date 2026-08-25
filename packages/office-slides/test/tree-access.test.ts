@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { accessOfTree } from '../src/tree-access';
-import { componentsOf, componentSignature } from '@barocss/office-word';
+import { componentsOf, componentSignature } from '@barocss/office-canvas';
 import { deckSlides } from '../src/deck';
 import { createSampleDeck } from '../src/sample-deck';
 

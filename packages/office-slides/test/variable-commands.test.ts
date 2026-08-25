@@ -8,7 +8,7 @@ import {
   varInScope,
   variableSourceOf,
   varUses
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { childrenOf, type DeckAccess } from '../src/deck';

@@ -1,7 +1,9 @@
 {
+  "apps/slide": 0,
+  "apps/word": 0,
   "packages/collaboration": 0,
-  "packages/collaboration-yjs": 0,
   "packages/collaboration-liveblocks": 0,
+  "packages/collaboration-yjs": 0,
   "packages/conformance": 0,
   "packages/converter": 0,
   "packages/datastore": 341,
@@ -13,6 +15,7 @@
   "packages/editor-view-react": 0,
   "packages/extensions": 0,
   "packages/model": 512,
+  "packages/office-canvas": 0,
   "packages/office-controls": 0,
   "packages/office-slides": 0,
   "packages/office-ui": 0,
@@ -20,7 +23,5 @@
   "packages/renderer-dom": 123,
   "packages/renderer-react": 0,
   "packages/schema": 0,
-  "packages/text-analyzer": 0,
-  "apps/slide": 0,
-  "apps/word": 0
+  "packages/text-analyzer": 0
 }

@@ -19,7 +19,6 @@ import {
   reorderSteps,
   cardSteps,
   drawnNames,
-  hiddenUntilPlayed,
   namedBoxes,
   pressablesOn,
   slideTimeline,

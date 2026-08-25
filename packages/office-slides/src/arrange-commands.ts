@@ -15,7 +15,7 @@ import {
   type GraphDirection,
   type GraphEdge,
   type GraphNode
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 import { fitGroupToChildren } from './group-bounds';
 import { fromSurface, isSceneType, slideAt, toSurface } from './selection';
 import { deckSlides, type DeckAccess } from './deck';

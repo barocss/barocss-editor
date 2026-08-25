@@ -1812,16 +1812,48 @@ from `office-word`, the Word-only half is already 33 files that nothing shared
 touches, and the whole obstacle is one 1,077-line `renderers.ts` holding the text
 renderers and the page renderers together.
 
-- [ ] **Split `renderers.ts`** so `surface` and the page renderers are their own
-  file. Worth doing alone, and it turns the eventual extraction into moving files
-  rather than untangling one.
+- [x] **`renderers.ts` is split.** `surface`, the header and footer while they are being edited, the
+  back matter and the contents page are `renderers/page.ts` — the four things that read the layout —
+  and what is left draws text, tables, marks and shapes. `registerWordRenderers` is three lines in
+  `renderers/word.ts` calling both halves, so Word is unchanged and anything else can take one.
+
+  The deck took one straight away: it calls `registerTextRenderers` now, where it used to register
+  Word's page renderers in order to override `surface` and ignore the rest. Registering something to
+  override it is how a product comes to depend on the shape of another product's file.
+
+  And the split measured the **next** coupling rather than leaving it to be guessed: the text half
+  still reaches pagination, layout, page furniture and the contents page — all of it through
+  `render-context.ts`, whose `createWordEnv` computes page numbers. Nothing else in the text closure
+  knows a page exists, so that env channel is exactly what `office-text` has to answer.
+
 - [ ] **Make the registry seam explicit.** Slides overrides five node types by
   registering after Word and relying on last-write-wins. It works and is stated
   nowhere; a product should be able to say it is overriding, and be told when it
   overrides something nobody expected.
-- [ ] **`office-text`** — the extraction itself. Deliberately *after* a third
-  product: two products give one data point about where the line falls, and
-  Slides is the one that reused everything.
+- [x] **`office-canvas` — the extraction, and the coupling named with a number.** Thirteen files into
+  a package of their own, measured before anything moved: they import each other, `editor-core` and
+  `model`, and **nothing else in either product**, so it was moving files rather than untangling one.
+  The deck took **99** symbols from `@barocss/office-word` and **79 of them were the canvas's**; it
+  takes 20 now and none of them is. What is left is honestly the page's — fonts, the colour
+  palettes, the Word env, tables, cell selection, find, the renderers.
+
+  The argument for waiting had expired: it was about the *text* stack, where Slides reused Word's
+  answers, and the canvas had nothing on the other side of the line until Word grew a drawing. It has
+  now, and it reads every file in there.
+
+  The two shape *command* files stayed in `office-word`, and that is the seam: they call the shared
+  arithmetic but answer **where am I**, which is the one question a product must answer for itself —
+  a deck puts a shape on the surface the reader is looking at, a page walks the flow for the block
+  the caret is in. `shapes.ts` stayed for the same shape of reason: it draws, and the two products
+  draw a rectangle differently on purpose.
+
+  Found on the way and fixed rather than budgeted: `CanvasNode` never declared `parentId`, so every
+  walk that climbs reached for it through a cast — the type denying something the store writes on
+  every node.
+
+- [ ] **`office-text`** — the extraction itself. Now the one that is left, and the one the argument
+  above was actually about: it wants the `renderers.ts` split first, and the deck's remaining twenty
+  symbols are the measure of how much there is.
 
 ### What building the second product cost the first
 

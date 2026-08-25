@@ -8,7 +8,7 @@ import { getWordSchemaDefinition } from '../src/word-schema';
 import { createWordEditor } from '../src/word-kit';
 import { toolbarIcons } from '../src/toolbar-model';
 import { getGlobalRegistry } from '@barocss/dsl';
-import { registerWordRenderers } from '../src/renderers';
+import { registerWordRenderers } from '../src/renderers/word';
 
 /**
  * What Word promises, held to.

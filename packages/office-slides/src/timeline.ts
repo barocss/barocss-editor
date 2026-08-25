@@ -10,7 +10,7 @@ import { KNOWN_EFFECT_IDS, NOT_ADDITIVE, categoryOf, propertiesOf } from './moti
 /** Naming lives with the kinds table — see `layers.ts`. */
 import { labelOfBox } from './layers';
 import { isSceneType } from './selection';
-import { componentOf, instanceParts } from '@barocss/office-word';
+import { componentOf, instanceParts } from '@barocss/office-canvas';
 import { DEFAULT_STAGGER, TEXT_UNITS, unitCount, unitSpan, type TextUnit } from './text-units';
 import { FACINGS, pathPointsOf, type Facing, type PathPoint } from './motion-path';
 import { trimOf, trimmedLength, type MediaTrim } from './media-trim';

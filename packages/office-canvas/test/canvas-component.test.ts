@@ -3,7 +3,6 @@ import {
   componentOf,
   componentSignature,
   componentsOf,
-  instanceValues,
   instanceVars,
   partSignature
 } from '../src/canvas-component';

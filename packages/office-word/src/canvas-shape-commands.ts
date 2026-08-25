@@ -18,15 +18,17 @@
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import { boxOf } from './canvas-box';
 import {
   alignBoxes,
+  boxOf,
+  canvasAt,
   distributeBoxes,
   resizeBox,
   type Align,
+  type CanvasAccess,
+  type CanvasNode,
   type Handle
-} from './canvas-manipulate';
-import { canvasAt, type CanvasAccess, type CanvasNode } from './canvas-access';
+} from '@barocss/office-canvas';
 
 /** What a caller says: which shapes, and how far in the model's own units. */
 export interface MoveShapesOptions {

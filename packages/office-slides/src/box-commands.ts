@@ -13,7 +13,7 @@ import {
   defaultShapeBox,
   shapeNode,
   type CanvasBox
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 import { SLIDE_16_9, boxOf, slideSize } from './geometry';
 import { isSceneType, slideAt } from './selection';
 

@@ -154,7 +154,7 @@ export function surfaceOf(doc: CanvasAccess, sid: string | undefined): string | 
     const node = doc.getNode(at);
     if (!node) return undefined;
     if (node.stype === 'surface') return at;
-    at = (node as { parentId?: string }).parentId;
+    at = node.parentId;
   }
   return undefined;
 }

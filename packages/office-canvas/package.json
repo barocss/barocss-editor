@@ -1,7 +1,7 @@
 {
-  "name": "@barocss/office-word",
+  "name": "@barocss/office-canvas",
   "version": "0.1.0",
-  "description": "Word: the word-processor product layer over the Barocss editor engine",
+  "description": "What two products place things with: boxes, dragging, arranging, connectors, components and variables on a canvas",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -11,8 +11,7 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
-    },
-    "./text.css": "./src/text.css"
+    }
   },
   "publishConfig": {
     "main": "./dist/index.js",
@@ -23,8 +22,7 @@
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js",
         "default": "./dist/index.js"
-      },
-      "./text.css": "./dist/text.css"
+      }
     },
     "files": [
       "dist"
@@ -42,22 +40,14 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@barocss/dsl": "workspace:*",
     "@barocss/editor-core": "workspace:*",
-    "@barocss/extensions": "workspace:*",
-    "@barocss/model": "workspace:*",
-    "@barocss/office-canvas": "workspace:*",
-    "@barocss/office-controls": "workspace:*",
-    "@barocss/office-icons": "workspace:*",
-    "@barocss/schema": "workspace:*",
-    "@barocss/shared": "workspace:*"
+    "@barocss/model": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vite-plugin-dts": "^3.9.1",
-    "vitest": "^1.6.1",
-    "@barocss/conformance": "workspace:*"
+    "vitest": "^1.6.1"
   },
   "author": "Barocss Team",
   "license": "MIT"

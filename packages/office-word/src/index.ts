@@ -95,7 +95,17 @@ export {
   type DocumentNode
 } from './document-access';
 
-export { registerWordRenderers } from './renderers';
+/**
+ * The renderers, in two halves that a product may take one of.
+ *
+ * `registerWordRenderers` is both — text and pages — and is what Word installs. `registerTextRenderers`
+ * is the half that knows nothing about pages, which is what makes it shareable: `surface` reads the
+ * layout, and one file registering both meant importing text dragged in pagination, furniture, line
+ * numbers and the contents page.
+ */
+export { registerWordRenderers } from './renderers/word';
+export { registerTextRenderers } from './renderers';
+export { registerPageRenderers } from './renderers/page';
 export {
   createWordEnv,
   wordEnv,
@@ -330,8 +340,8 @@ export {
   type LaidOutChild,
   /** What an arrangement decided about one child — read by whoever applies it. */
   type LaidOutPlace
-} from './canvas-layout';
-export { createLayoutCommands, CanvasLayoutExtension } from './canvas-layout-commands';
+} from '@barocss/office-canvas';
+export { createLayoutCommands, CanvasLayoutExtension } from '@barocss/office-canvas';
 
 /**
  * A **component** and what a placement of one draws.
@@ -367,7 +377,7 @@ export {
   type ComponentBind,
   type ComponentSource,
   type ImportPlan
-} from './canvas-component';
+} from '@barocss/office-canvas';
 /**
  * What a placement **draws**, resolved where a node's children are read.
  *
@@ -392,7 +402,7 @@ export {
    * formatting, the variable's characters. The same rule a card's bound part follows.
    */
   contentWithWords
-} from './canvas-instance';
+} from '@barocss/office-canvas';
 /**
  * The document's own **named values** — one place says what a value is, everything else says its
  * name.
@@ -470,7 +480,7 @@ export {
   DRAWN_BY_WRITE,
   type VarBind,
   type DocumentVar
-} from './canvas-variable';
+} from '@barocss/office-canvas';
 /**
  * What a canvas reader needs of a document, and the two walks all of them do.
  *
@@ -492,7 +502,7 @@ export {
   canvasAt,
   type CanvasAccess,
   type CanvasNode
-} from './canvas-access';
+} from '@barocss/office-canvas';
 /**
  * A line that remembers **what it joins** — the canvas's, for the same reason the
  * arrangement is: a connector is a scene node, and two products with two answers for
@@ -563,7 +573,7 @@ export {
   type ConnectorSpec,
   type Point,
   type ResolvedEnds
-} from './canvas-connector';
+} from '@barocss/office-canvas';
 
 /**
  * Tidying a diagram: where the shapes go, given what joins them. The canvas's, like the
@@ -579,7 +589,7 @@ export {
   type GraphDirection,
   type GraphLayoutOptions,
   type GraphPlacement
-} from './canvas-graph-layout';
+} from '@barocss/office-canvas';
 /**
  * Word's table commands, which a deck needs for the same reason Word does: the
  * shared kit's were written for a schema without the header/body group between a
@@ -623,7 +633,7 @@ export {
  * all three as a parameter name: a resize handle, a marquee, a snap and a turned box's hit test are
  * the same problem on a page as on a slide, and this package is where the canvas lives.
  */
-export { boxOf, isVisible, type Box, type Placement } from './canvas-box';
+export { boxOf, isVisible, type Box, type Placement } from '@barocss/office-canvas';
 export {
   RESIZE_HANDLES,
   moveBox,
@@ -646,7 +656,7 @@ export {
   type Guide,
   type Handle,
   type ResizeOptions
-} from './canvas-manipulate';
+} from '@barocss/office-canvas';
 export {
   SHAPE_PAINT,
   canvasNode,
@@ -655,4 +665,4 @@ export {
   textWidthOf,
   type CanvasBox,
   type PageWidth
-} from './canvas-insert';
+} from '@barocss/office-canvas';

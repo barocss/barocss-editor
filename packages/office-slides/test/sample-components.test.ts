@@ -10,9 +10,8 @@ import {
   componentOf,
   componentsOf,
   instanceParts,
-  instanceResizable,
   instanceVars
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 import { resolveDeckValue } from '../src/named-values';
 
 /**
@@ -168,7 +167,9 @@ describe('the deck’s own components', () => {
      * The two rows this placement holds are drawn *inside* the definition's frame, so the
      * arrangement belongs to the card and the rows belong to the reader.
      */
-    expect((slot?.content ?? []).length).toBe(2);
+    // `content` on a resolved part is `unknown` — a loaded document holds sids and a fixture holds
+    // nodes — so the shape is stated here rather than assumed.
+    expect(((slot?.content ?? []) as unknown[]).length).toBe(2);
   });
 
   it('is never behind its definition, because it draws it', () => {

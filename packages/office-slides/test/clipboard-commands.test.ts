@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import { createSchema } from '@barocss/schema';
 import type { Editor } from '@barocss/editor-core';
-import { instanceParts } from '@barocss/office-word';
+import { instanceParts } from '@barocss/office-canvas';
 import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 

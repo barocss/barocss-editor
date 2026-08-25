@@ -23,11 +23,12 @@ import { createBoxCommands } from './box-commands';
 import { createArrangeCommands } from './arrange-commands';
 import { createComponentCommands } from './component-commands';
 import { createVariableCommands } from './variable-commands';
-import { boundAttrs, boundText, contentWithWords, instanceParts } from '@barocss/office-word';
+import { boundAttrs, boundText, contentWithWords, instanceParts } from '@barocss/office-canvas';
 import { resolveVarAttrs } from './named-values';
 import { createConnectorCommands } from './connector-commands';
 import { createClipboardCommands } from './clipboard-commands';
-import { createLayoutCommands, createWordTables } from '@barocss/office-word';
+import { createLayoutCommands } from '@barocss/office-canvas';
+import { createWordTables } from '@barocss/office-word';
 
 
 /**

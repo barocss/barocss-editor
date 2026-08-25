@@ -1,6 +1,6 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import { connectorBoxOf, connectorSpecOf, resolveEnds } from '@barocss/office-word';
+import { connectorBoxOf, connectorSpecOf, resolveEnds } from '@barocss/office-canvas';
 import { childrenOf, type DeckAccess, type DeckNode } from './deck';
 import { CANVAS_NAMES } from '@barocss/office-controls';
 

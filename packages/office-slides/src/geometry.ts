@@ -36,15 +36,15 @@ export const twipToPx = (twip: number): number => twip * PX_PER_TWIP;
 export const pxToTwip = (px: number): number => px / PX_PER_TWIP;
 
 /*
- * The box vocabulary is the **canvas layer's** (`office-word/canvas-box.ts`).
+ * The box vocabulary is the **canvas layer's** (`office-canvas/canvas-box.ts`).
  *
  * A rectangle in the model's units, a node's placement, and the normalisation a drag needs — a
  * negative extent is what dragging a handle past the opposite edge means — none of which names a
  * product, and Word's drawing needs every one of them. Re-exported from here so the deck's forty
  * callers go on saying `from './geometry'`, which is where a reader of this package looks.
  */
-export { boxOf, isVisible, type Box, type Placement } from '@barocss/office-word';
-import { boxOf, isVisible, type Placement } from '@barocss/office-word';
+export { boxOf, isVisible, type Box, type Placement } from '@barocss/office-canvas';
+import { boxOf, isVisible, type Placement } from '@barocss/office-canvas';
 
 const finite = (value: unknown, fallback: number): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;

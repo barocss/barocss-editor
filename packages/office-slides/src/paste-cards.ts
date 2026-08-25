@@ -6,7 +6,7 @@ import {
   isVarRef,
   varNameOf,
   type ComponentDef
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 import { documentChildSpot } from '@barocss/schema';
 import { accessOfTree } from './tree-access';
 import { childrenOf, type DeckAccess, type DeckNode } from './deck';

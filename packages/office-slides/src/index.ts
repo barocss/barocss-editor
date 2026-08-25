@@ -71,8 +71,11 @@ export { createClipboardCommands, SlidesClipboardExtension } from './clipboard-c
 export { cardsFor, pasteCardsPlan, type CardsCarried, type PastePlan } from './paste-cards';
 export { createConnectorCommands, SlidesConnectorExtension } from './connector-commands';
 /**
- * Arranging a frame is canvas behaviour and lives in `office-word`, which owns
- * the canvas. Re-exported so a deck's callers do not have to know that.
+ * Arranging a frame, a connector's geometry, a card and a variable are **canvas** behaviour, and
+ * they live in `@barocss/office-canvas` — a package of their own now, rather than inside the word
+ * processor, which is where they were and where none of them was ever about a word processor.
+ *
+ * Re-exported so a deck's callers do not have to know which package a shared answer lives in.
  */
 export {
   createLayoutCommands,
@@ -116,7 +119,7 @@ export {
   type ConnectorSpec,
   type LayoutMode,
   type LaidOutChild
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 /**
  * Tidying a diagram, which is the canvas's arithmetic and not the deck's — the same
  * reason the connector geometry lives there.
@@ -130,7 +133,7 @@ export {
   type GraphEdge,
   type GraphDirection,
   type GraphPlacement
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 /**
  * Applying a layout to a slide that already has something on it: Canva's *Layouts*, and
  * the rule it follows is the formatting cascade's — matched by role, never by position.
@@ -183,7 +186,7 @@ export {
   type ComponentDef,
   type ComponentVar,
   type ComponentBind
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 /**
  * A deck that is **not a line**: a shape a reader presses, and the page it shows.
  *
@@ -684,7 +687,7 @@ export {
   DRAWN_BY_WRITE,
   type VarBind,
   type DocumentVar
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 
 /**
  * What a shape is painted with, as a list — see `paints.ts` for why a stack

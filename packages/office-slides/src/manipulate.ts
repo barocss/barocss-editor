@@ -29,4 +29,4 @@ export {
   type Guide,
   type Handle,
   type ResizeOptions
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';

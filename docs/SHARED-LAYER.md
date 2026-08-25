@@ -145,7 +145,54 @@ Note what moves and what does not: `surface` is in **both** products and in
 neither shared package. It is the node where a page and a slide genuinely
 disagree, and that is the shape the whole boundary takes.
 
-### Do it before the third product, not now
+### `office-canvas` exists now, and the argument for waiting had expired
+
+Written 2026-08-25, replacing the plan below with what happened.
+
+The doc's own fourth point said `office-canvas` need not wait for a third product: those files were
+written for a deck, Word read none of them, and the line was already drawn by which package the code
+was written in. That was true and it has since become **more** than true — Word grew a drawing and
+now reads every one of them, so the boundary has something on both sides of it.
+
+Measured before moving anything: the thirteen `canvas-*` files import **each other, `editor-core` and
+`model`, and nothing else in either product.** A closed set, so the extraction was moving files
+rather than untangling one.
+
+| | before | after |
+| --- | ---: | ---: |
+| Symbols the deck takes from `@barocss/office-word` | 99 | 20 |
+| …of those, ones that are the **canvas's** | 79 | **0** |
+
+Four fifths of what a deck imported from the word processor was never about a word processor. What
+is left is the page and the text: the fonts and colour palettes, `WORD_ENV_KEY` and `createWordEnv`,
+the table commands, cell selection, find and replace, the renderers, `twipToPx`.
+
+**What stayed in `office-word`, and why.** The two shape *command* files. They call the shared
+arithmetic but they answer "where am I": a deck puts a shape on the surface the reader is looking at,
+a page puts a drawing after the block the caret is in and walks the flow to find it — and Enter is a
+line after a block, which a slide has nowhere to put. A command in the shared package would have had
+to ask which product it was serving, which is coupling in both directions wearing a shared name.
+`shapes.ts` stayed too: it is *drawing*, and the two products draw a rectangle differently on purpose.
+
+**The `renderers.ts` split is done too**, and it was the prerequisite the plan named. `surface`, the
+header and footer being edited, the back matter and the contents page are `renderers/page.ts`; what
+is left draws text, tables, marks and shapes. `registerWordRenderers` is three lines in
+`renderers/word.ts` that calls both halves, and **the deck now calls `registerTextRenderers`** — it
+used to register Word's page renderers in order to override one of them, which is how a product ends
+up depending on the shape of another product's file.
+
+| | files | lines |
+| --- | ---: | ---: |
+| The text half's closure | 29 | 7,220 |
+| The page half's own | 22 | 5,753 |
+
+**And the next coupling is measured, not guessed:** the text half *still* reaches pagination, layout,
+page furniture and the contents page — through **`render-context.ts`**, the env channel, whose
+`createWordEnv` computes page numbers. That is what `office-text` has to answer: either the env
+splits in two, or the page's half of it moves to the page's side. Nothing else in the text closure
+knows a page exists.
+
+### The plan as it stood before that — do it before the third product, not now
 
 Two products give one data point about where the line is; the numbers above are
 that data point and they are worth keeping. A third — a board, a page builder —

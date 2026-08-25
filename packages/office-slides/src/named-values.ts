@@ -1,4 +1,4 @@
-import { isVarRef, resolveVarValue, varInScope, varNameOf } from '@barocss/office-word';
+import { isVarRef, resolveVarValue, varInScope, varNameOf } from '@barocss/office-canvas';
 import { isThemeRef, resolveThemeValue, themeFor } from './theme';
 import type { DeckAccess, DeckNode } from './deck';
 

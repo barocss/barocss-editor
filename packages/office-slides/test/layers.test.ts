@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { kindOfBox, labelOfBox, layerRows, namedKinds, positionFromRow } from '../src/layers';
-import type { DeckAccess } from '../src/deck';
+import type { DeckAccess, DeckNode } from '../src/deck';
 
 /**
  * The slide's contents as a list.

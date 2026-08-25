@@ -11,7 +11,7 @@ import {
   renameVarPlan,
   UNBINDABLE,
   type VarBind
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 import { childrenOf, type DeckAccess } from './deck';
 import { accessOfTree } from './tree-access';
 

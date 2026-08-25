@@ -14,7 +14,7 @@ import {
   varBindsOf,
   varInScope,
   varNameOf
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 
 /**
  * A look over the deck before it is given to anybody.

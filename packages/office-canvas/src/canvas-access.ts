@@ -42,6 +42,14 @@ export interface CanvasNode {
   text?: string;
   /** Child sids, which is how a loaded document holds its children. */
   content?: unknown;
+  /**
+   * Where it hangs, which is how every walk here goes *up*.
+   *
+   * `canvasAt`, `surfaceOf` and the component walks all climb by this, and all of them were
+   * reaching for it through `(node as { parentId?: string }).parentId` — the type denying something
+   * the store writes on every node and every fixture copies. The same reason `text` is declared.
+   */
+  parentId?: string;
 }
 
 /**
@@ -116,7 +124,7 @@ export function canvasAt(doc: CanvasAccess, sid: string | undefined): string | u
     const node = doc.getNode(at);
     if (!node) return undefined;
     if (isCanvasContainer(node)) return at;
-    at = (node as { parentId?: string }).parentId;
+    at = node.parentId;
   }
   return undefined;
 }
