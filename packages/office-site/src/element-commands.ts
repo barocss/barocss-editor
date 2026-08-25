@@ -29,7 +29,8 @@
  * about what it makes is a control nobody can put on a toolbar or bind to a key.
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
-import { addChild, transaction } from '@barocss/model';
+import { addChild, node, textNode, transaction } from '@barocss/model';
+import type { INode } from '@barocss/datastore';
 import { CONTAINERS, SELECTABLE } from './selection';
 
 type Node = Record<string, any>;
@@ -56,7 +57,15 @@ const PLACEHOLDER =
       '</svg>'
   );
 
-const run = (text = ''): Node => ({ stype: 'inline-text', text });
+/**
+ * The words in a block.
+ *
+ * `textNode` rather than the object it becomes — the same reason the operations are builders now: a
+ * misspelt `stype` is a compile error rather than a node the schema refuses at runtime. `node` and
+ * `textNode` have been in `@barocss/model` since it was written, beside the operation builders that
+ * nobody could import.
+ */
+const run = (text = ''): INode => textNode('inline-text', text);
 
 export class SiteElementExtension implements Extension {
   name = 'siteElements';
@@ -77,11 +86,7 @@ export class SiteElementExtension implements Extension {
       });
 
     /** A heading. Level 2, because a page has one level 1 and it is the page's own title. */
-    register('insertHeading', () => ({
-      stype: 'heading',
-      attributes: { level: 2 },
-      content: [run('제목')]
-    }));
+    register('insertHeading', () => node('heading', { level: 2 }, [run('제목')]) as Node);
 
     /**
      * Words.
@@ -90,31 +95,22 @@ export class SiteElementExtension implements Extension {
      * commands with one name is one of them being unreachable, and the check that counts what a
      * reader can run would not have seen which.
      */
-    register('insertBodyText', () => ({
-      stype: 'paragraph',
-      attributes: {},
-      content: [run('본문을 입력하세요')]
-    }));
+    register('insertBodyText', () => node('paragraph', {}, [run('본문을 입력하세요')]) as Node);
 
     /** A picture, with a place for a picture in it. */
-    register('insertPicture', () => ({
-      stype: 'picture',
-      attributes: { src: PLACEHOLDER, alt: '', fit: 'cover', sizing: 'fill' },
-      content: []
-    }));
+    register(
+      'insertPicture',
+      () => node('picture', { src: PLACEHOLDER, alt: '', fit: 'cover', sizing: 'fill' }, []) as Node
+    );
 
     /** A list of things, with one thing in it a reader can type over. */
-    register('insertBulletList', () => ({
-      stype: 'list',
-      attributes: { kind: 'bullet' },
-      content: [
-        {
-          stype: 'listItem',
-          attributes: {},
-          content: [{ stype: 'paragraph', attributes: {}, content: [run('항목')] }]
-        }
-      ]
-    }));
+    register(
+      'insertBulletList',
+      () =>
+        node('list', { kind: 'bullet' }, [
+          node('listItem', {}, [node('paragraph', {}, [run('항목')])])
+        ]) as Node
+    );
 
     /**
      * A **placement** of a definition — the header, the button, the card.
@@ -128,11 +124,7 @@ export class SiteElementExtension implements Extension {
       execute: async (_ed: Editor, payload?: Record<string, unknown>) =>
         await this._put(
           editor,
-          {
-            stype: 'instance',
-            attributes: { componentId: String(payload?.componentId ?? ''), sizing: 'fill' },
-            content: []
-          },
+          node('instance', { componentId: String(payload?.componentId ?? ''), sizing: 'fill' }, []) as Node,
           payload
         ),
       canExecute: (_ed: Editor, payload?: Record<string, unknown>) =>
@@ -152,23 +144,17 @@ export class SiteElementExtension implements Extension {
       execute: async (_ed: Editor, payload?: Record<string, unknown>) =>
         await this._put(
           editor,
-          {
-            stype: 'collection',
-            attributes: {
+          node(
+            'collection',
+            {
               source: String(payload?.source ?? ''),
               layoutMode: 'row',
               gap: 240,
               padding: 0,
               sizing: 'fill'
             },
-            content: [
-              {
-                stype: 'instance',
-                attributes: { componentId: String(payload?.componentId ?? ''), sizing: 'fill' },
-                content: []
-              }
-            ]
-          },
+            [node('instance', { componentId: String(payload?.componentId ?? ''), sizing: 'fill' }, [])]
+          ) as Node,
           payload
         ),
       canExecute: (_ed: Editor, payload?: Record<string, unknown>) =>

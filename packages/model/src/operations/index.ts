@@ -1,5 +1,5 @@
 /**
- * The operations: **what a transaction can be told to do**.
+ * The operations: **what a transaction can be told to do**, and everything they offer.
  *
  * ## One operation, one file
  *
@@ -15,78 +15,83 @@
  * That is almost certainly where the habit came from — the first thing anyone reached for was not
  * there, so they wrote the object, and everything after it followed the local style.
  *
- * ## Why the exports are written out
+ * ## Why every file, and everything in it
  *
- * A star export cannot say what it exports, and `dsl-builders.test.ts` is what keeps this list
- * honest: it reads every file in this directory, finds every `defineOperationDSL`, and asks whether
- * that builder can be imported. A builder written and left out of this list fails there.
+ * The first version of this index exported only the *builders*, and broke the app: the old
+ * `operations-dsl/index.ts` had been reaching back across the fence with `export * from
+ * '../operations/tableStructure'` for a dozen files, so their **other** exports — `buildTableGrid`,
+ * the table helpers, the payload types — were part of the package's surface and nothing said so. A
+ * list of what one *kind* of export is called is a list that decides for callers what the rest of a
+ * file is for.
+ *
+ * So: every operation file, whole. `dsl-builders.test.ts` keeps the builders honest by reading the
+ * directory and asking whether each one can be imported.
  */
 import './register-operations';
 
-export type { SetSelectionOperation } from './setSelection';
-
-export { addChild } from './addChild';
-export { applyMark } from './applyMark';
-export { autoMergeTextNodes } from './autoMergeTextNodes';
-export { batch } from './batch';
-export { clearSelection } from './clearSelection';
-export { cloneNodeWithChildren } from './cloneNodeWithChildren';
-export { copy } from './copy';
-export { copyNode } from './copyNode';
-export { create } from './create';
-export { cut } from './cut';
-export { deleteOp } from './delete';
-export { deleteRange } from './deleteRange';
-export { deleteTextRange } from './deleteTextRange';
-export { indentNode } from './indentNode';
-export { indentText } from './indentText';
-export { insertCallout } from './insertCallout';
-export { insertChecklist } from './insertChecklist';
-export { insertCodeBlock } from './insertCodeBlock';
-export { insertHorizontalRule } from './insertHorizontalRule';
-export { insertImage } from './insertImage';
-export { insertMathBlock } from './insertMathBlock';
-export { insertParagraph } from './insertParagraph';
-export { insertTable } from './insertTable';
-export { insertText } from './insertText';
-export { mergeBlockNodes } from './mergeBlockNodes';
-export { mergeListItems } from './mergeListItems';
-export { mergeTextNodes } from './mergeTextNodes';
-export { moveBlockDown } from './moveBlockDown';
-export { moveBlockUp } from './moveBlockUp';
-export { moveChildren } from './moveChildren';
-export { moveNode } from './moveNode';
-export { outdentNode } from './outdentNode';
-export { outdentText } from './outdentText';
-export { paste } from './paste';
-export { removeChild } from './removeChild';
-export { removeChildren } from './removeChildren';
-export { removeMark } from './removeMark';
-export { reorderChildren } from './reorderChildren';
-export { replacePattern } from './replacePattern';
-export { replaceText } from './replaceText';
-export { restoreTextNodes } from './restoreTextNodes';
-export { selectNode } from './selectNode';
-export { selectRange } from './selectRange';
-export { setAttrs } from './setAttrs';
-export { setMarks } from './setMarks';
-export { setNode } from './setNode';
-export { setText } from './setText';
-export { splitBlockNode } from './splitBlockNode';
-export { splitListItem } from './splitListItem';
-export { splitTextNode } from './splitTextNode';
-export { insertTableRow } from './tableStructure';
-export { deleteTableRow } from './tableStructure';
-export { insertTableColumn } from './tableStructure';
-export { deleteTableColumn } from './tableStructure';
-export { mergeTableCells } from './tableStructure';
-export { splitTableCell } from './tableStructure';
-export { toggleLink } from './toggleLink';
-export { toggleMark } from './toggleMark';
-export { transformNode } from './transformNode';
-export { unwrap } from './unwrap';
-export { update } from './update';
-export { updateMark } from './updateMark';
-export { wrap } from './wrap';
-export { wrapInBlockquote } from './wrapInBlockquote';
-export { wrapInList } from './wrapInList';
+export * from './addChild';
+export * from './applyMark';
+export * from './autoMergeTextNodes';
+export * from './batch';
+export * from './clearSelection';
+export * from './cloneNodeWithChildren';
+export * from './copy';
+export * from './copyNode';
+export * from './create';
+export * from './cut';
+export * from './define-operation-dsl';
+export * from './define-operation';
+export * from './delete';
+export * from './deleteRange';
+export * from './deleteTextRange';
+export * from './indentNode';
+export * from './indentText';
+export * from './insertCallout';
+export * from './insertChecklist';
+export * from './insertCodeBlock';
+export * from './insertHorizontalRule';
+export * from './insertImage';
+export * from './insertMathBlock';
+export * from './insertPageBreakAtCaret';
+export * from './insertParagraph';
+export * from './insertTable';
+export * from './insertText';
+export * from './mergeBlockNodes';
+export * from './mergeListItems';
+export * from './mergeTextNodes';
+export * from './moveBlockDown';
+export * from './moveBlockUp';
+export * from './moveChildren';
+export * from './moveNode';
+export * from './outdentNode';
+export * from './outdentText';
+export * from './paste';
+export * from './removeChild';
+export * from './removeChildren';
+export * from './removeMark';
+export * from './reorderChildren';
+export * from './replacePattern';
+export * from './replaceText';
+export * from './restoreTextNodes';
+export * from './selectNode';
+export * from './selectRange';
+export * from './selection-mapping-utils';
+export * from './setAttrs';
+export * from './setMarks';
+export * from './setNode';
+export * from './setSelection';
+export * from './setText';
+export * from './split-at-caret';
+export * from './splitBlockNode';
+export * from './splitListItem';
+export * from './splitTextNode';
+export * from './tableStructure';
+export * from './toggleLink';
+export * from './toggleMark';
+export * from './transformNode';
+export * from './unwrap';
+export * from './update';
+export * from './updateMark';
+export * from './wrap';
+export * from './wrapInBlockquote';
+export * from './wrapInList';

@@ -19,7 +19,7 @@
  * reader can immediately type in.
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
-import { addChild, setAttrs, transaction } from '@barocss/model';
+import { addChild, node, textNode, setAttrs, transaction } from '@barocss/model';
 import { SIZING, type Sizing } from './site-schema';
 import type { BreakpointId } from './breakpoints';
 import { BASE_BREAKPOINT, withOverride } from './responsive';
@@ -226,18 +226,12 @@ export class SiteStackExtension implements Extension {
     const result = await transaction(editor, [
       addChild(
         here.parentId,
-        {
-          stype: 'frame',
-          attributes,
-          /*
-           * Something to type in. An empty stack is a box a reader cannot get a caret into, and a
-           * paragraph with no run draws no caret filler and is zero pixels high — both learned in
-           * the word processor, both written down there.
-           */
-          content: [
-            { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '' }] }
-          ]
-        } as never,
+        /*
+         * Something to type in. An empty stack is a box a reader cannot get a caret into, and a
+         * paragraph with no run draws no caret filler and is zero pixels high — both learned in the
+         * word processor, both written down there.
+         */
+        node('frame', attributes, [node('paragraph', {}, [textNode('inline-text', '')])]) as never,
         position
       )
     ] as never).commit();

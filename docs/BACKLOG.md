@@ -46,6 +46,35 @@ entries are that.
 
 ## Open
 
+### An index that exported only one kind of thing, and a name with two meanings
+
+- [x] Following the merge, `operations/index.ts` was written to export the **builders** — and the app
+  went white. `buildTableGrid` was gone: the old `operations-dsl/index.ts` had been reaching back
+  across the fence with `export * from '../operations/tableStructure'` for a dozen files, so those
+  files' *other* exports — the table helpers, the payload types — were part of the package's surface
+  and nothing said so.
+
+  **A list of what one kind of export is called decides for callers what the rest of a file is for.**
+  Every operation file is exported whole now.
+
+- [x] **Two `defineOperation`s, one package.** Exporting the operations made them collide, which is
+  the only reason anybody found out: `src/operation-dsl.ts` held
+  `defineOperation(type, { validate, translate })` with a registry of its own, beside the
+  `defineOperation(name, executor)` that all 63 operation files use. Measured before removing it —
+  `applyOperation`, `DSLLibraryEntry` and `ModelContext` had **no callers anywhere**, and neither did
+  `utils/dsl-context.ts`, the only file importing them. An empty registry whose name shadows the real
+  one is worse than nothing.
+
+- [x] **`node`, `textNode` and `mark` were sitting in the same place as the operation builders**, and
+  were used about as much. The site's inserts and its sample are written with them now — a fixture is
+  exactly where a raw object literal hides best, because a misspelt `stype` reads as a document
+  decision right up until the schema refuses it.
+
+  One thing that surfaced: `INode` and a fixture's loose node type do not overlap, because `INode` has
+  required fields a *tree being loaded* has not got yet — the store fills them in. That is the honest
+  relationship between a document on disk and a document in memory, and `loadDocument` is where it is
+  crossed.
+
 ### One operation, one file — and a builder nobody could import
 
 - [x] Asked while reading a site command: *why don't the extensions use the operation DSL — is it

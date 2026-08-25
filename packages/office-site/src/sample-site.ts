@@ -27,58 +27,61 @@
  * a size where it can be disbelieved.
  */
 import type { SchemaDefinition } from '@barocss/schema';
+import { mark, node, textNode } from '@barocss/model';
 
+/**
+ * A node as this fixture writes it.
+ *
+ * `Record<string, unknown>` rather than the store's `INode`, and the casts below hop through
+ * `unknown` because the two do not overlap: `INode` has required fields a *tree being loaded* has not
+ * got yet — the store fills them in. Which is the honest relationship between a document on disk and
+ * a document in memory, and `loadDocument` is where it is crossed.
+ */
 type Node = Record<string, unknown>;
 
-const text = (value: string, marks?: unknown[]): Node =>
-  marks ? { stype: 'inline-text', text: value, marks } : { stype: 'inline-text', text: value };
+/**
+ * The sample's own words for what a page is made of, built on the model's.
+ *
+ * `node`, `textNode` and `mark` have been in `@barocss/model` since it was written, beside the
+ * operation builders nobody could import — and a fixture is exactly where a raw object literal hides
+ * best, because a misspelt `stype` reads as a document decision until the schema refuses it. What is
+ * left here is the *product's* vocabulary: a page is stacks, cards, placements and pictures, and
+ * saying so is what makes the sample readable as an argument rather than as a tree.
+ */
+const text = (value: string, marks?: ReturnType<typeof mark>[]): Node =>
+  (marks ? textNode('inline-text', value, marks) : textNode('inline-text', value)) as unknown as Node;
 
 /** A run in a colour, which is how every product in this repository colours words. */
 const inColour = (value: string, colour: string): Node =>
-  text(value, [{ stype: 'fontColor', range: [0, value.length], attrs: { color: colour } }]);
+  text(value, [mark('fontColor', { color: colour, range: [0, value.length] })]);
 
-const heading = (level: number, value: string, extra: Record<string, unknown> = {}): Node => ({
-  stype: 'heading',
-  attributes: { level, ...extra },
-  content: [text(value)]
-});
+const heading = (level: number, value: string, extra: Record<string, unknown> = {}): Node =>
+  node('heading', { level, ...extra }, [text(value) as never]) as unknown as Node;
 
-const paragraph = (value: string | Node[], extra: Record<string, unknown> = {}): Node => ({
-  stype: 'paragraph',
-  attributes: extra,
-  content: typeof value === 'string' ? [text(value)] : value
-});
+const paragraph = (value: string | Node[], extra: Record<string, unknown> = {}): Node =>
+  node('paragraph', extra, (typeof value === 'string' ? [text(value)] : value) as never) as unknown as Node;
 
 /** A stack: the one container this product builds everything out of. */
 const stack = (
   layoutMode: 'row' | 'column' | 'grid',
   attributes: Record<string, unknown>,
   content: Node[]
-): Node => ({
-  stype: 'frame',
-  attributes: { layoutMode, sizing: 'fill', ...attributes },
-  content
-});
+): Node => node('frame', { layoutMode, sizing: 'fill', ...attributes }, content as never) as unknown as Node;
 
-const picture = (src: string, alt: string, extra: Record<string, unknown> = {}): Node => ({
-  stype: 'picture',
-  attributes: { src, alt, fit: 'cover', ...extra },
-  content: []
-});
+const picture = (src: string, alt: string, extra: Record<string, unknown> = {}): Node =>
+  node('picture', { src, alt, fit: 'cover', ...extra }, []) as unknown as Node;
 
 /** A placement of a definition, with the answers it is given. */
 const placed = (
   componentId: string,
   values: Record<string, string> = {},
   extra: Record<string, unknown> = {}
-): Node => ({
-  stype: 'instance',
-  attributes: { componentId, sizing: 'fill', ...extra },
-  content: Object.entries(values).map(([name, value]) => ({
-    stype: 'componentValue',
-    attributes: { name, value }
-  }))
-});
+): Node =>
+  node(
+    'instance',
+    { componentId, sizing: 'fill', ...extra },
+    Object.entries(values).map(([name, value]) => node('componentValue', { name, value })) as never
+  ) as unknown as Node;
 
 /** A card: a column that fills its share of a row. */
 const card = (title: string, body: string, extra: Record<string, unknown> = {}): Node =>

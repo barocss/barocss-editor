@@ -17,7 +17,7 @@
  * neither knew the other needed. The site adds only the transaction.
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
-import { addChild, moveNode, removeChild, setAttrs, transaction } from '@barocss/model';
+import { addChild, moveNode, node, removeChild, setAttrs, transaction } from '@barocss/model';
 import { SELECTABLE } from './selection';
 
 type Node = Record<string, any>;
@@ -213,11 +213,7 @@ export class SiteBlockExtension implements Extension {
          * At the front, because the content model is `componentValue* (scene | frame)*` — the answers
          * come before the parts, which is also the order a reader wants to see them in a file.
          */
-        addChild(
-          String(placement.sid),
-          { stype: 'componentValue', attributes: { name, value }, content: [] } as never,
-          0
-        );
+        addChild(String(placement.sid), node('componentValue', { name, value }, []) as never, 0);
 
     return (await transaction(editor, [step] as never).commit()).success === true;
   }
