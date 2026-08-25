@@ -417,3 +417,77 @@ test.describe('leaving a drawing with the keyboard', () => {
     expect(await page.evaluate(() => (window as any).editor.selection?.type)).toBe('range');
   });
 });
+
+/**
+ * The controls a **set** is for.
+ *
+ * Every one of these is dead until more than one shape is selected, which is the point: the ribbon
+ * has to grey them out on its own answer rather than offering a gesture that does nothing.
+ */
+test.describe('arranging a set from the ribbon', () => {
+  test('greys out until there is a set, then lines them up', async ({ page }) => {
+    await drawTwo(page);
+
+    const left = page.locator('[data-control="align-shapes-left"]');
+    // Nothing selected: nothing to line up.
+    await expect(left).toBeDisabled();
+
+    await page.locator('.w-canvas rect').click();
+    await settled(page);
+    // One shape: still nothing — aligning one thing against itself is a gesture with no meaning.
+    await expect(left).toBeDisabled();
+
+    await page.locator('.w-canvas ellipse').click({ modifiers: ['Shift'] });
+    await settled(page);
+    await expect(left).toBeEnabled();
+
+    const before = await page.evaluate(() => {
+      const store = (window as any).editor.dataStore;
+      const found: Record<string, number> = {};
+      const walk = (sid: string) => {
+        const node = store.getNode(sid);
+        if (node?.stype === 'rectangle' || node?.stype === 'ellipse') found[node.stype] = node.attributes.x;
+        for (const child of node?.content ?? []) if (typeof child === 'string') walk(child);
+      };
+      walk((window as any).editor.getRootId());
+      return found;
+    });
+    expect(before.rectangle).not.toBe(before.ellipse);
+
+    await left.click();
+    await settled(page);
+
+    const after = await page.evaluate(() => {
+      const store = (window as any).editor.dataStore;
+      const found: Record<string, number> = {};
+      const walk = (sid: string) => {
+        const node = store.getNode(sid);
+        if (node?.stype === 'rectangle' || node?.stype === 'ellipse') found[node.stype] = node.attributes.x;
+        for (const child of node?.content ?? []) if (typeof child === 'string') walk(child);
+      };
+      walk((window as any).editor.getRootId());
+      return found;
+    });
+    expect(after.rectangle).toBe(after.ellipse);
+    // And the frame is still around both: lining up does not let go of the set.
+    await expect(page.locator('[data-drawing-selected]')).toHaveCount(2);
+  });
+
+  test('sends a shape behind another, which is what document order draws', async ({ page }) => {
+    await drawTwo(page);
+
+    const order = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('.w-canvas > *')].map((node) => node.tagName.toLowerCase())
+      );
+    expect(await order()).toEqual(['rect', 'ellipse']);
+
+    await page.locator('.w-canvas ellipse').click();
+    await settled(page);
+    await page.locator('[data-control="send-shapes-back"]').click();
+    await settled(page);
+
+    // The element itself moved in the SVG, because that *is* the paint order.
+    expect(await order()).toEqual(['ellipse', 'rect']);
+  });
+});

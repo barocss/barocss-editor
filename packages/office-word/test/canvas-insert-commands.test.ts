@@ -286,3 +286,122 @@ describe('leaving a drawing', () => {
     expect(editor.canExecuteCommand('leaveDrawing')).toBe(false);
   });
 });
+
+/**
+ * Lining a set up, spreading it out, and saying what is in front.
+ *
+ * The arithmetic is the canvas layer's and tested there. What a command has to answer is which
+ * shapes it acts on, what it writes, and what it refuses — and the refusals are the interesting
+ * half: aligning one shape is a gesture with no meaning, and distributing two is a gesture whose
+ * answer is "they already are".
+ */
+describe('arranging a set of shapes', () => {
+  let editor: any;
+  let canvas: string;
+
+  const at = (sid: string) => {
+    const box = editor.dataStore.getNode(sid).attributes;
+    return { x: box.x, y: box.y, width: box.width, height: box.height };
+  };
+
+  const shapesOn = () => editor.dataStore.getNode(canvas).content as string[];
+
+  beforeEach(async () => {
+    editor = createWordEditor();
+    editor.loadDocument(
+      {
+        stype: 'document',
+        attributes: {},
+        content: [
+          {
+            stype: 'surface',
+            attributes: { kind: 'flow' },
+            content: [{ stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '문단' }] }]
+          }
+        ]
+      },
+      'word'
+    );
+    const section = editor.dataStore.getNode(editor.getRootId()).content[0];
+    const run = editor.dataStore.getNode(editor.dataStore.getNode(section).content[0]).content[0];
+    await editor.executeCommand('insertDrawing', {
+      selection: { type: 'range', startNodeId: run, startOffset: 0, endNodeId: run, endOffset: 0 }
+    });
+    canvas = editor.dataStore.getNode(section).content[1];
+
+    // Three shapes at three lefts and three widths — enough for every one of these to have work.
+    for (const [x, y, width] of [
+      [0, 0, 1000],
+      [500, 900, 600],
+      [2000, 1800, 400]
+    ]) {
+      await editor.executeCommand('insertRectangle', { canvasId: canvas, x, y, width, height: 400 });
+    }
+  });
+
+  it('puts every selected shape against the same edge', async () => {
+    const [first, second, third] = shapesOn();
+    editor.setNode({ nodeIds: [first, second, third] });
+
+    expect(await editor.executeCommand('alignShapesLeft')).toBe(true);
+    // The union's left, which is the leftmost of them — nothing moves out of the group's own frame.
+    expect([at(first).x, at(second).x, at(third).x]).toEqual([0, 0, 0]);
+
+    expect(await editor.executeCommand('alignShapesBottom')).toBe(true);
+    const bottoms = [first, second, third].map((sid) => at(sid).y + at(sid).height);
+    expect(new Set(bottoms).size).toBe(1);
+  });
+
+  it('spreads the gaps evenly, not the centres', async () => {
+    const [first, second, third] = shapesOn();
+    editor.setNode({ nodeIds: [first, second, third] });
+
+    expect(await editor.executeCommand('distributeShapesHorizontally')).toBe(true);
+
+    // Equal *white* between them: three shapes of different widths with evenly spaced centres look
+    // unevenly spaced, because what a reader sees is the gap.
+    const ordered = [first, second, third].map(at).sort((a, b) => a.x - b.x);
+    const gaps = [
+      ordered[1].x - (ordered[0].x + ordered[0].width),
+      ordered[2].x - (ordered[1].x + ordered[1].width)
+    ];
+    expect(Math.abs(gaps[0] - gaps[1])).toBeLessThanOrEqual(1);
+  });
+
+  it('refuses what has no meaning: one shape aligned, two distributed', async () => {
+    const [first, second] = shapesOn();
+
+    editor.setNode({ nodeIds: [first] });
+    expect(editor.canExecuteCommand('alignShapesLeft')).toBe(false);
+
+    editor.setNode({ nodeIds: [first, second] });
+    // With two, the gaps are equal by definition — there is nothing to spread.
+    expect(editor.canExecuteCommand('distributeShapesVertically')).toBe(false);
+    expect(editor.canExecuteCommand('alignShapesLeft')).toBe(true);
+  });
+
+  it('moves a shape through the paint order, which is document order', async () => {
+    const [first, , third] = shapesOn();
+
+    editor.setNode({ nodeIds: [first] });
+    expect(await editor.executeCommand('bringShapesToFront')).toBe(true);
+    // Last is in front: an SVG draws its children in the order they are listed.
+    expect(shapesOn()[2]).toBe(first);
+
+    editor.setNode({ nodeIds: [third] });
+    expect(await editor.executeCommand('sendShapesToBack')).toBe(true);
+    expect(shapesOn()[0]).toBe(third);
+
+    expect(await editor.executeCommand('bringShapesForward')).toBe(true);
+    expect(shapesOn()[1]).toBe(third);
+  });
+
+  it('keeps a set in its own order when it is sent to the front', async () => {
+    const [first, second, third] = shapesOn();
+    editor.setNode({ nodeIds: [first, second] });
+
+    await editor.executeCommand('bringShapesToFront');
+    // The two arrive in front in the order they already had, rather than reversed.
+    expect(shapesOn()).toEqual([third, first, second]);
+  });
+});

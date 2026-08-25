@@ -290,6 +290,44 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
       { id: 'insert-drawing', label: 'Drawing', icon: 'insert-frame', command: 'insertDrawing' }
     ]
   },
+  /**
+   * What a **set** of shapes is for: lining it up, spreading it out, and saying what is in front.
+   *
+   * Its own group beside the drawing's, because these are the controls that are dead until more
+   * than one thing is selected — and a reader who has selected two shapes should find them
+   * together rather than hunting along a row of insert buttons.
+   *
+   * Every one of them greys out on its own answer rather than on a rule written here: aligning
+   * wants two shapes, distributing wants three (with two the gaps are equal by definition), and
+   * ordering wants one.
+   */
+  {
+    id: 'arrange',
+    controls: [
+      { id: 'align-shapes-left', label: 'Align left', icon: 'align-boxes-left', command: 'alignShapesLeft' },
+      { id: 'align-shapes-centre', label: 'Align centre', icon: 'align-boxes-centre', command: 'alignShapesCentre' },
+      { id: 'align-shapes-right', label: 'Align right', icon: 'align-boxes-right', command: 'alignShapesRight' },
+      { id: 'align-shapes-top', label: 'Align top', icon: 'align-boxes-top', command: 'alignShapesTop' },
+      { id: 'align-shapes-middle', label: 'Align middle', icon: 'align-boxes-middle', command: 'alignShapesMiddle' },
+      { id: 'align-shapes-bottom', label: 'Align bottom', icon: 'align-boxes-bottom', command: 'alignShapesBottom' },
+      {
+        id: 'distribute-shapes-h',
+        label: 'Distribute horizontally',
+        icon: 'distribute-h',
+        command: 'distributeShapesHorizontally'
+      },
+      {
+        id: 'distribute-shapes-v',
+        label: 'Distribute vertically',
+        icon: 'distribute-v',
+        command: 'distributeShapesVertically'
+      },
+      { id: 'bring-shapes-front', label: 'Bring to front', icon: 'bring-front', command: 'bringShapesToFront' },
+      { id: 'bring-shapes-forward', label: 'Bring forward', icon: 'bring-forward', command: 'bringShapesForward' },
+      { id: 'send-shapes-backward', label: 'Send backward', icon: 'send-backward', command: 'sendShapesBackward' },
+      { id: 'send-shapes-back', label: 'Send to back', icon: 'send-back', command: 'sendShapesToBack' }
+    ]
+  },
   {
     id: 'layout',
     controls: [

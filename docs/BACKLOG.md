@@ -1047,6 +1047,22 @@ shipped features marked undone.
     makes one rather than sometimes reusing what is below: one key that sometimes writes and
     sometimes navigates is two gestures a reader cannot tell apart before pressing.
 
+  - [x] **What a set is for: lining it up, spreading it out, and what is in front.** Twelve commands
+    on a 그리기 ribbon group of their own — six edges, two axes, four depths — over arithmetic the
+    canvas layer already had and the deck has been calling for months. A page had none of it: a
+    drawing was three shapes a reader could only line up by eye.
+
+    Each greys out on its own answer rather than on a rule written in the app: aligning wants two
+    shapes, distributing wants three (with two the gaps are equal by definition), ordering wants
+    one. Equal **gaps** rather than equal centres, which is the reading that survives boxes of
+    different widths — what a reader sees is the white between them. Depth is a `moveNode` inside
+    the drawing, because document order *is* paint order in an SVG, and the deck's two orderings
+    come with it: to the front in the order they already had, and towards an edge the nearest one
+    first so two adjacent shapes do not swap through each other.
+
+    A selection spanning **two** drawings acts on the first shape's canvas and leaves the rest
+    alone: each drawing has its own origin, so a frame across two of them means nothing.
+
 - [ ] **Typing with one shape selected should write into it**, which is what PowerPoint and Keynote
   do, and what neither product does today. It needs a shape that can hold text: the deck has
   `textFrame` and reaches it by double-click, and a page has none until `<foreignObject>` is

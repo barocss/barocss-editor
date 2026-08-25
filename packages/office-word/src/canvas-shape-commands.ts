@@ -19,7 +19,13 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { boxOf } from './canvas-box';
-import { resizeBox, type Handle } from './canvas-manipulate';
+import {
+  alignBoxes,
+  distributeBoxes,
+  resizeBox,
+  type Align,
+  type Handle
+} from './canvas-manipulate';
 import { canvasAt, type CanvasAccess, type CanvasNode } from './canvas-access';
 
 /** What a caller says: which shapes, and how far in the model's own units. */
@@ -101,6 +107,66 @@ export class WordCanvasShapeExtension implements Extension {
       // `dx: 1` because the movable guard refuses a move of nothing, and a delete has no distance.
       (payload) => this._movable(editor, { nodeIds: payload?.nodeIds, dx: 1 }).length > 0
     );
+
+    /**
+     * Lining a **set** up, and spreading it out.
+     *
+     * The arithmetic is the canvas layer's and the deck has been calling it for months — a shape's
+     * edge against the union of what is selected, and equal *gaps* rather than equal centres, which
+     * is the reading that survives boxes of different widths. What a page had was none of it: a
+     * drawing was three shapes a reader could only line up by eye.
+     *
+     * One command per edge rather than `alignShapes({ edge })`, which is the rule this repository's
+     * harness enforces about inserts and is right here for the same reason: a toolbar draws one
+     * button per edge anyway, and a command that says what it does can be read in a key map.
+     *
+     * Two shapes are the fewest worth aligning; three the fewest worth distributing, since with two
+     * the gaps are equal by definition.
+     */
+    const align = (name: string, edge: Align) =>
+      register(
+        name,
+        async () => await this._align(editor, edge),
+        () => this._selected(editor).length > 1
+      );
+
+    align('alignShapesLeft', 'left');
+    align('alignShapesCentre', 'centre');
+    align('alignShapesRight', 'right');
+    align('alignShapesTop', 'top');
+    align('alignShapesMiddle', 'middle');
+    align('alignShapesBottom', 'bottom');
+
+    const spread = (name: string, axis: 'x' | 'y') =>
+      register(
+        name,
+        async () => await this._distribute(editor, axis),
+        () => this._selected(editor).length > 2
+      );
+
+    spread('distributeShapesHorizontally', 'x');
+    spread('distributeShapesVertically', 'y');
+
+    /**
+     * Which is in front, which is behind.
+     *
+     * Document order **is** paint order on a canvas — the SVG draws its children in the order they
+     * are listed — so this is a move within the drawing rather than an attribute. The deck says the
+     * same thing in the same words, and the two orders of operation are its findings: to the front
+     * in the order they were already in, and towards an edge the nearest one first, so two adjacent
+     * shapes do not swap through each other.
+     */
+    const order = (name: string, where: 'front' | 'back' | 'forward' | 'backward') =>
+      register(
+        name,
+        async () => await this._reorder(editor, where),
+        () => this._selected(editor).length > 0
+      );
+
+    order('bringShapesToFront', 'front');
+    order('bringShapesForward', 'forward');
+    order('sendShapesBackward', 'backward');
+    order('sendShapesToBack', 'back');
 
     /**
      * **Enter**: keep writing after the drawing.
@@ -199,6 +265,99 @@ export class WordCanvasShapeExtension implements Extension {
       collapsed: true
     });
     return true;
+  }
+
+  /** The selected shapes with their boxes, in the order the canvas draws them. */
+  private _chosen(editor: Editor): { doc: CanvasAccess; canvas: string; sids: string[] } | null {
+    const doc = this._access(editor);
+    const sids = this._selected(editor);
+    const canvas = doc && sids.length > 0 ? canvasAt(doc, sids[0]) : undefined;
+    if (!doc || !canvas) return null;
+
+    /*
+     * Everything on **one** canvas: the first shape's.
+     *
+     * A selection spanning two drawings is possible — a marquee cannot cross one, but a Shift-click
+     * can — and aligning across them would move shapes against a frame that means nothing, since
+     * each drawing has its own origin. The others are left alone rather than refused, so the
+     * gesture does what it looks like for the ones it can.
+     */
+    return { doc, canvas, sids: sids.filter((sid) => canvasAt(doc, sid) === canvas) };
+  }
+
+  private async _align(editor: Editor, edge: Align): Promise<boolean> {
+    const chosen = this._chosen(editor);
+    if (!chosen || chosen.sids.length < 2) return false;
+
+    const boxes = chosen.sids.map((sid) => boxOf(chosen.doc.getNode(sid)?.attributes as never));
+    const moved = alignBoxes(boxes, edge);
+    return await this._write(editor, chosen.sids, moved);
+  }
+
+  private async _distribute(editor: Editor, axis: 'x' | 'y'): Promise<boolean> {
+    const chosen = this._chosen(editor);
+    if (!chosen || chosen.sids.length < 3) return false;
+
+    const boxes = chosen.sids.map((sid) => boxOf(chosen.doc.getNode(sid)?.attributes as never));
+    const moved = distributeBoxes(boxes, axis);
+    return await this._write(editor, chosen.sids, moved);
+  }
+
+  /** What the arithmetic decided, written in one transaction — and nothing when it decided nothing. */
+  private async _write(
+    editor: Editor,
+    sids: string[],
+    moved: Map<number, { x: number; y: number }>
+  ): Promise<boolean> {
+    if (moved.size === 0) return false;
+    const steps = [...moved.entries()].map(([at, box]) => ({
+      type: 'setAttrs',
+      payload: { nodeId: sids[at], attrs: { x: Math.round(box.x), y: Math.round(box.y) } }
+    }));
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  private async _reorder(
+    editor: Editor,
+    where: 'front' | 'back' | 'forward' | 'backward'
+  ): Promise<boolean> {
+    const chosen = this._chosen(editor);
+    if (!chosen) return false;
+
+    const kids = Array.isArray(chosen.doc.getNode(chosen.canvas)?.content)
+      ? ([...(chosen.doc.getNode(chosen.canvas)!.content as string[])] as string[])
+      : [];
+    if (kids.length === 0) return false;
+
+    const steps: { type: string; payload: Record<string, unknown> }[] = [];
+    if (where === 'front' || where === 'back') {
+      // Backwards for `back`, so the first of them ends up first rather than last.
+      const order = where === 'front' ? chosen.sids : [...chosen.sids].reverse();
+      for (const sid of order) {
+        steps.push({
+          type: 'moveNode',
+          payload: {
+            nodeId: sid,
+            newParentId: chosen.canvas,
+            position: where === 'front' ? kids.length - 1 : 0
+          }
+        });
+      }
+    } else {
+      const step = where === 'forward' ? 1 : -1;
+      // The one nearest the edge it is moving towards goes first, so two adjacent shapes do not
+      // swap through each other.
+      const order = where === 'forward' ? [...chosen.sids].reverse() : chosen.sids;
+      for (const sid of order) {
+        const at = kids.indexOf(sid);
+        const to = at + step;
+        if (at < 0 || to < 0 || to >= kids.length) continue;
+        steps.push({ type: 'moveNode', payload: { nodeId: sid, newParentId: chosen.canvas, position: to } });
+      }
+    }
+
+    if (steps.length === 0) return false;
+    return (await transaction(editor, steps as never).commit()).success === true;
   }
 
   private async _writeAfter(editor: Editor): Promise<boolean> {
