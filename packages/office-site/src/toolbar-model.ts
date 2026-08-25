@@ -28,6 +28,14 @@ export interface SiteControl {
   /** Which group it sits in, so the ribbon draws separators rather than deciding them. */
   group: 'insert' | 'arrange';
   /**
+   * What it makes, when a reader is choosing from a list of things to add.
+   *
+   * The **insert rail** shows what a page is made of, so it needs the word for the thing rather than
+   * the word for the act — 제목, not 제목 넣기. Both are here because both are read: a toolbar button
+   * says what pressing it does, and a list of blocks says what each one is.
+   */
+  makes?: string;
+  /**
    * The picture beside the name, from the suite's own table.
    *
    * Declared here rather than chosen in the ribbon so that `every-icon-has-a-picture` can ask: a
@@ -44,9 +52,20 @@ export interface SiteControl {
  * shape, and `every-command-can-be-seen` refuses a command that could only answer "it depends".
  */
 export const SITE_TOOLBAR: SiteControl[] = [
-  { command: 'insertSection', label: '섹션', title: '세로로 쌓는 섹션', group: 'insert', icon: 'add' },
-  { command: 'insertRow', label: '가로', title: '가로로 늘어놓는 스택', group: 'insert', icon: 'add' },
-  { command: 'insertGrid', label: '그리드', title: '3열 그리드', group: 'insert', icon: 'add' },
+  { command: 'insertSection', label: '섹션', title: '세로로 쌓는 섹션', group: 'insert', icon: 'add', makes: '섹션' },
+  { command: 'insertRow', label: '가로', title: '가로로 늘어놓는 스택', group: 'insert', icon: 'add', makes: '가로 스택' },
+  { command: 'insertGrid', label: '그리드', title: '3열 그리드', group: 'insert', icon: 'add', makes: '그리드' },
+  /*
+   * And the things that go *in* a stack.
+   *
+   * They are on the rail rather than the toolbar — a list of what a page is made of, which is where
+   * every builder of this kind puts them, because there are more of them than a toolbar has room for
+   * and they are chosen by what they are rather than found by what they do.
+   */
+  { command: 'insertHeading', label: '제목', title: '제목을 넣습니다', group: 'insert', makes: '제목' },
+  { command: 'insertBodyText', label: '본문', title: '본문을 넣습니다', group: 'insert', makes: '본문' },
+  { command: 'insertPicture', label: '이미지', title: '이미지를 넣습니다', group: 'insert', makes: '이미지' },
+  { command: 'insertBulletList', label: '목록', title: '글머리 목록을 넣습니다', group: 'insert', makes: '목록' },
   {
     command: 'duplicateBlocks',
     label: '복제',

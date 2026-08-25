@@ -41,6 +41,7 @@ import { installSiteResolution } from './collection-resolution';
 import { getSiteSchemaDefinition } from './site-schema';
 import { createStackCommands } from './stack-commands';
 import { createBlockCommands } from './block-commands';
+import { createElementCommands } from './element-commands';
 
 /** What the site product itself adds, as one list. */
 export function createSiteOwnExtensions(): Extension[] {
@@ -63,7 +64,12 @@ export function createSiteOwnExtensions(): Extension[] {
      * Moving a block, copying it, taking it away — the three a builder cannot be without. A reader
      * who can change a section's padding but not move it has a panel rather than a tool.
      */
-    createBlockCommands()
+    createBlockCommands(),
+    /*
+     * And something to put in a stack. The product could make three kinds of container and nothing
+     * to put in them — a reader could arrange an empty page beautifully.
+     */
+    createElementCommands()
   ];
 }
 

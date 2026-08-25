@@ -257,37 +257,123 @@ body {
 
 .st-mark-name { background: #93c5fd; color: #0f172a; }
 
-/* ── The page, as a list of what it holds ─────────────────────────────────── */
+/* ── The rail: one column, several panels ─────────────────────────────────── */
 
-.st-layers {
+.st-rail {
   display: flex;
-  width: 224px;
+  width: 232px;
   flex-shrink: 0;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
   border-right: 1px solid var(--st-line);
   background: var(--st-panel);
 }
 
-.st-layers-title {
-  padding: 6px 12px;
+/*
+ * Which question the reader is asking. Five, which is what fits before the words start truncating —
+ * and the moment there is a sixth this becomes an icon rail, which is what every tool of this kind
+ * does at that point.
+ */
+.st-rail-tabs {
+  display: flex;
   border-bottom: 1px solid var(--st-line);
+}
+
+.st-rail-tabs button {
+  flex: 1;
+  padding: 6px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
   font-size: var(--ou-text-small);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--st-faint);
 }
 
+.st-rail-tabs button[data-current='true'] {
+  border-bottom-color: var(--st-accent);
+  color: var(--st-ink);
+  font-weight: 600;
+}
+
+.st-rail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.st-rail-group {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--st-line);
+}
+
+.st-rail-group h3 {
+  padding: 2px 12px 4px;
+  font-size: var(--ou-text-small);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--st-faint);
+}
+
+.st-rail-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* A row is a thing, so it reads as a thing: its name on the left, what a reader needs to know about
+   it on the right, and the whole row is the target. */
+.st-rail-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  text-align: left;
+  font-size: var(--ou-text);
+  color: var(--st-ink);
+}
+
+.st-rail-item:hover:not(:disabled) { background: var(--ou-ground); }
+.st-rail-item:disabled { opacity: 0.4; }
+.st-rail-item[data-current='true'],
+.st-rail-item[data-page-current='true'] {
+  background: var(--st-accent);
+  color: var(--ou-accent-ink);
+}
+
+.st-rail-hint,
+.st-where-path {
+  font-size: var(--ou-text-small);
+  color: var(--st-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.st-rail-item[data-current='true'] .st-rail-hint,
+.st-rail-item[data-page-current='true'] .st-rail-hint { color: var(--ou-accent-ink); opacity: 0.75; }
+
+.st-rail-note {
+  padding: 8px 12px;
+  font-size: var(--ou-text-small);
+  line-height: 1.5;
+  color: var(--st-faint);
+}
+
+/* Which page is being edited, read rather than pressed. */
+.st-where { display: flex; align-items: baseline; gap: 6px; font-size: var(--ou-text); }
+
+/* ── What this page holds ─────────────────────────────────────────────────── */
+
 .st-layers-list { padding: 4px 0; }
-.st-layers-empty { padding: 12px; font-size: 12px; color: var(--st-faint); }
 
 .st-layer {
   display: block;
   width: 100%;
   padding: 4px 8px;
   text-align: left;
-  font-size: 12px;
+  font-size: var(--ou-text-small);
   color: var(--st-ink);
   background: none;
   border: 0;

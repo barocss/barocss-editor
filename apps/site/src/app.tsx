@@ -2,19 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { watchContent } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
-import {
-  AppBody,
-  AppChrome,
-  AppMain,
-  AppShell,
-  Button,
-  ZoomControl,
-  useRevision
-} from '@barocss/office-ui';
+import { AppBody, AppChrome, AppMain, AppShell, ZoomControl, useRevision } from '@barocss/office-ui';
 import { BREAKPOINTS, enclosing, pagesOf, type BreakpointId } from '@barocss/office-site';
 import { Canvas } from './canvas';
 import { Inspector } from './inspector';
-import { Layers } from './layers';
+import { Rail } from './rail';
 import { PageFrame } from './page-frame';
 import { Ribbon } from './ribbon';
 import type { PointerMode } from './overlay';
@@ -201,23 +193,17 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         <div className="st-titlebar">
           <span className="st-brand">Barocss Site</span>
 
-          {/* The pages of the site. A site is more than one page, which is the first thing that
-              separates it from a document — and the address is what makes each one a page of it. */}
-          <nav className="st-pages" data-pages>
-            {pages.map((one) => (
-              <Button
-                key={one.sid}
-                data={{ page: one.sid, 'page-current': one.sid === page ? 'true' : undefined }}
-                title={one.path}
-                onClick={() => {
-                  setCurrent(one.sid);
-                  setScope(undefined);
-                }}
-              >
-                {one.name}
-              </Button>
-            ))}
-          </nav>
+          {/*
+            Which page is being edited, said rather than chosen.
+
+            The list of pages moved to the rail, where a site's other lists are — its components and
+            its data. What stays here is the one thing a reader needs to *read* rather than press:
+            which page they are on, and where it answers.
+          */}
+          <span className="st-where" data-where>
+            {pages.find((one) => one.sid === page)?.name ?? ''}
+            <span className="st-where-path">{pages.find((one) => one.sid === page)?.path ?? ''}</span>
+          </span>
 
           <div className="st-titlebar-end">
             <ZoomControl zoom={zoom} onChange={setZoom} onFit={onFit} fitLabel="맞춤" />
@@ -236,7 +222,23 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       </AppChrome>
 
       <AppBody className="st-body">
-        {editor ? <Layers editor={editor} page={page} /> : null}
+        {/*
+          One rail, several panels — 추가, 구성, 페이지, 컴포넌트, 데이터.
+
+          It was a layer list and nothing else, and the question that found the gap was the plainest
+          one a reader can ask: *where do I add a heading?* Nowhere.
+        */}
+        {editor ? (
+          <Rail
+            editor={editor}
+            page={page}
+            pages={pages}
+            onPage={(sid) => {
+              setCurrent(sid);
+              setScope(undefined);
+            }}
+          />
+        ) : null}
 
         <AppMain className="st-main">
           <Canvas zoom={zoom} onZoom={setZoom}>

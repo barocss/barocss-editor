@@ -52,9 +52,21 @@ describe('the site builder draws what it declares', () => {
    * be done here", and a page's answer is short because a page is stacks and text.
    */
   const produces = [
+    // The three kinds of stack. One command per shape rather than `insertStack({ layoutMode })`,
+    // because a toolbar draws one button per shape and a key map can be read.
     { command: 'insertSection', produces: 'frame' },
     { command: 'insertRow', produces: 'frame' },
-    { command: 'insertGrid', produces: 'frame' }
+    { command: 'insertGrid', produces: 'frame' },
+    // And the things that go in one. The product could make three kinds of container and nothing to
+    // put in them until these existed.
+    { command: 'insertHeading', produces: 'heading' },
+    // Not `insertText`, which is the shared kit's name for typing: two commands with one name is one
+    // of them unreachable, and this check could not have said which.
+    { command: 'insertBodyText', produces: 'paragraph' },
+    { command: 'insertPicture', produces: 'picture' },
+    { command: 'insertBulletList', produces: 'list' },
+    { command: 'insertPlacement', produces: 'instance' },
+    { command: 'insertDataList', produces: 'collection' }
   ];
 
   /**
@@ -169,6 +181,16 @@ describe('the site builder draws what it declares', () => {
         insertParagraph: 'the shared kit’s: Enter, which needs no button',
         insertHardBreak: 'the shared kit’s: Shift+Enter, which needs no button',
         insertImage: 'the shared kit’s inline image — a page’s own `picture` insert is still owed',
+
+        // ── The rail ───────────────────────────────────────────────────────
+        /*
+         * A placement and a data list are chosen from the **rail**, not from the toolbar, and they
+         * are the two inserts that take an argument: a placement of nothing is an empty box, and a
+         * list with no data draws nothing. So the rail offers the definitions and the datasets the
+         * document actually holds, and the command refuses anything else.
+         */
+        insertPlacement: 'the left rail — 컴포넌트, which offers the definitions this document holds',
+        insertDataList: 'the left rail — 데이터, which offers a dataset and a definition together',
 
         // ── The property panel ─────────────────────────────────────────────
         setBlockFormat:

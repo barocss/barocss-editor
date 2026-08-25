@@ -31,6 +31,8 @@ export interface InsertStackOptions {
   padding?: unknown;
   columns?: unknown;
   selection?: unknown;
+  /** The page on screen, which the app says because the model has no notion of one. */
+  pageId?: unknown;
 }
 
 /** The gap a stack starts with: 12pt, which is a section's breathing room. */
@@ -64,19 +66,19 @@ export class SiteStackExtension implements Extension {
     register(
       'insertSection',
       async (payload) => await this._insert(editor, { ...payload, layoutMode: 'column' }),
-      (payload) => !!this._blockAt(editor, payload?.selection)
+      (payload) => !!this._blockAt(editor, payload?.selection, payload?.pageId)
     );
 
     register(
       'insertRow',
       async (payload) => await this._insert(editor, { ...payload, layoutMode: 'row' }),
-      (payload) => !!this._blockAt(editor, payload?.selection)
+      (payload) => !!this._blockAt(editor, payload?.selection, payload?.pageId)
     );
 
     register(
       'insertGrid',
       async (payload) => await this._insert(editor, { ...payload, layoutMode: 'grid', columns: 3 }),
-      (payload) => !!this._blockAt(editor, payload?.selection)
+      (payload) => !!this._blockAt(editor, payload?.selection, payload?.pageId)
     );
 
     /**
@@ -139,13 +141,28 @@ export class SiteStackExtension implements Extension {
    */
   private _blockAt(
     editor: Editor,
-    given?: unknown
+    given?: unknown,
+    /**
+     * The page on screen, as the last resort.
+     *
+     * A reader who has just opened a site has no selection and no caret, and every insert was greyed
+     * out — a toolbar of things they may not have. The page is the app's to say, because the model
+     * has no notion of "on screen" and should not grow one.
+     */
+    page?: unknown
   ): { sid: string; parentId: string; at: number } | null {
     const store = this._store(editor);
-    const selection: any = given ?? (editor as never as { selection?: unknown }).selection;
-    if (!store || !selection?.startNodeId) return null;
+    if (!store) return null;
 
-    let node: any = store.getNode(selection.startNodeId);
+    const selection: any = given ?? (editor as never as { selection?: unknown }).selection;
+    /*
+     * No selection at all falls through to the page below, rather than returning here.
+     *
+     * It used to return, which put the fallback after a wall: every insert was greyed out on a
+     * freshly opened site and the code that would have fixed it could not be reached. A guard that
+     * returns early is a guard that decides more than it looks like it does.
+     */
+    let node: any = selection?.startNodeId ? store.getNode(selection.startNodeId) : undefined;
     let depth = 0;
     while (node && depth++ < 64) {
       const parent: any = node.parentId ? store.getNode(node.parentId) : undefined;
@@ -162,11 +179,18 @@ export class SiteStackExtension implements Extension {
       }
       node = parent;
     }
+
+    const pageId = typeof page === 'string' ? page : undefined;
+    const surface = pageId ? store.getNode(pageId) : undefined;
+    if (surface) {
+      const at = ((surface.content ?? []) as unknown[]).length;
+      return { sid: pageId!, parentId: pageId!, at };
+    }
     return null;
   }
 
   private async _insert(editor: Editor, payload: InsertStackOptions): Promise<boolean> {
-    const here = this._blockAt(editor, payload?.selection);
+    const here = this._blockAt(editor, payload?.selection, payload?.pageId);
     if (!here) return false;
 
     const mode = LAYOUTS.has(payload?.layoutMode as string) ? (payload!.layoutMode as string) : 'column';
@@ -186,6 +210,11 @@ export class SiteStackExtension implements Extension {
       attributes.columns = typeof payload?.columns === 'number' ? Math.max(1, Math.round(payload.columns)) : 3;
     }
 
+    /*
+     * At the end of the page when there was nothing to go next to, and after the block otherwise —
+     * which `_blockAt` says by returning the page as its own parent.
+     */
+    const position = here.parentId === here.sid ? here.at : here.at + 1;
     const result = await transaction(editor, [
       {
         type: 'addChild',
@@ -203,7 +232,7 @@ export class SiteStackExtension implements Extension {
               { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '' }] }
             ]
           },
-          position: here.at + 1
+          position
         }
       }
     ] as never).commit();

@@ -112,6 +112,8 @@ test.describe('a site at several widths', () => {
 
   test('shows the pages of the site, and switches between them', async ({ page }) => {
     await ready(page);
+    // The pages live on the rail now, beside the site's other lists — its components and its data.
+    await page.locator('[data-panel="pages"]').click();
 
     await expect(page.locator('[data-pages] button')).toHaveCount(5);
     await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/');
@@ -242,6 +244,8 @@ test.describe('pointing at the page', () => {
 
   test('the layer list reaches the same blocks, and shows the same selection', async ({ page }) => {
     await ready(page);
+    // 구성, which is one panel of the rail now rather than the whole left side.
+    await page.locator('[data-panel="layers"]').click();
 
     const rows = page.locator('.st-layer');
     await expect(rows.first()).toHaveText(/블록/);
@@ -391,9 +395,11 @@ test.describe('the panel', () => {
     await panel(page).getByLabel('이름').fill('첫 화면');
     await panel(page).getByLabel('이름').press('Enter');
     await page.waitForTimeout(400);
-    // The layer list and the drawing both read it.
-    await expect(page.locator('.st-layer[data-selected="true"]')).toHaveText('첫 화면');
+
+    // The drawing says it, and so does the layer list — which is a panel of the rail now.
     await expect(page.locator('[data-frame="desktop"] .st-stack[data-name="첫 화면"]')).toHaveCount(1);
+    await page.locator('[data-panel="layers"]').click();
+    await expect(page.locator('.st-layer[data-selected="true"]')).toHaveText('첫 화면');
   });
 
   test('shows what a list draws, and changes how many of them', async ({ page }) => {
@@ -559,5 +565,105 @@ test.describe('the exported page', () => {
       'rgb(248, 250, 252)'
     );
     await visitor.close();
+  });
+});
+
+/**
+ * The rail: one column, several panels.
+ *
+ * The question that found the gap was the plainest a reader can ask — *where do I add a heading?* —
+ * and the answer was nowhere. These are that answer, and each is one thing a reader could not do.
+ */
+test.describe('the rail', () => {
+  test('offers what a page is made of, and every one of them on a page nobody has touched', async ({ page }) => {
+    await ready(page);
+    await expect(page.locator('[data-rail] button')).toHaveText(['추가', '구성', '페이지', '컴포넌트', '데이터']);
+
+    /*
+     * With **nothing selected**, which is the state a reader opening a site is actually in. Every row
+     * was greyed out before a new block could land at the end of the page: a panel of things a reader
+     * may not have.
+     */
+    const rows = page.locator('[data-insert]');
+    await expect(rows).toHaveText(['섹션', '가로 스택', '그리드', '제목', '본문', '이미지', '목록']);
+    await expect(page.locator('[data-insert]:not([disabled])')).toHaveCount(7);
+  });
+
+  test('adds a block, puts it where a reader can predict, and selects it', async ({ page }) => {
+    await ready(page);
+    const board = page.locator('[data-frame="desktop"] .st-page');
+    const before = await board.locator('> *').count();
+
+    await page.locator('[data-insert="insertHeading"]').click();
+    await page.waitForTimeout(500);
+    await expect(board.locator('> *')).toHaveCount(before + 1);
+
+    // Selected, because a reader who has just added a block is about to say something about it.
+    await expect(page.locator('.office-properties')).toContainText('제목');
+    await expect(page.locator('.st-mark-selected')).toHaveCount(3);
+  });
+
+  test('puts it inside the stack that is selected', async ({ page }) => {
+    await ready(page);
+    const hero = page.locator('[data-frame="desktop"] .st-stack[data-name="히어로"]');
+    await press(page, hero);
+    await page.waitForTimeout(300);
+
+    const before = await hero.locator('> *').count();
+    await page.locator('[data-panel="add"]').click();
+    await page.locator('[data-insert="insertBodyText"]').click();
+    await page.waitForTimeout(500);
+
+    // In the section, not beside it — which is what a reader means and what a stack is for.
+    await expect(hero.locator('> *')).toHaveCount(before + 1);
+  });
+
+  test('lists the definitions and how many places use each, and places one', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="components"]').click();
+
+    // The count is what makes a component list worth having: a definition used in five places is a
+    // decision, and one used nowhere is a thing to delete.
+    await expect(page.locator('[data-component="site-header"]')).toContainText('5곳');
+    await expect(page.locator('[data-component="cta"]')).toContainText('2곳');
+
+    const placements = page.locator('[data-frame="desktop"] .st-placement');
+    const before = await placements.count();
+    await page.locator('[data-component="cta"]').click();
+    await page.waitForTimeout(600);
+    await expect(placements).toHaveCount(before + 1);
+    // And the count follows, because it is read from the document rather than remembered.
+    await expect(page.locator('[data-component="cta"]')).toContainText('3곳');
+  });
+
+  test('makes a data list from a dataset and a design, and refuses half of one', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="data"]').click();
+
+    await expect(page.locator('[data-dataset="상품"]')).toContainText('4행');
+    await expect(page.locator('[data-dataset="글"]')).toContainText('3행');
+
+    // A list needs both halves: a dataset *and* something to draw for each row.
+    await page.locator('[data-design="product-card"]').click();
+    const lists = page.locator('[data-frame="desktop"] .st-collection');
+    const before = await lists.count();
+    await page.locator('[data-dataset="상품"]').click();
+    await page.waitForTimeout(700);
+
+    await expect(lists).toHaveCount(before + 1);
+    // Four rows this time: the new list says nothing about filtering, so it draws all of them.
+    await expect(lists.last().locator('> .st-placement')).toHaveCount(4);
+  });
+
+  test('shows the pages, with the address that makes each one a page of a site', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+    await expect(page.locator('[data-pages] button')).toHaveCount(5);
+
+    await page.locator('[data-page][title="/블로그"]').click();
+    await page.waitForTimeout(500);
+    await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/블로그');
+    // And the title bar says where the reader is, which is what it kept when the list moved here.
+    await expect(page.locator('[data-where]')).toContainText('블로그');
   });
 });

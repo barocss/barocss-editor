@@ -22,6 +22,7 @@ export {
 export { createSiteEditor, createSiteExtensions, createSiteOwnExtensions, type SiteEditorOptions } from './site-kit';
 export { createStackCommands, SiteStackExtension, type InsertStackOptions } from './stack-commands';
 export { createBlockCommands, SiteBlockExtension } from './block-commands';
+export { createElementCommands, SiteElementExtension } from './element-commands';
 /**
  * What a reader can reach — the keys and the toolbar, as **data in the package**.
  *
