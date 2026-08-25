@@ -26,6 +26,7 @@ import { Editor, type EditorOptions, type Extension, type Keybinding } from '@ba
 import { createWordCommands } from './word-commands';
 import { createWordFrames } from './frame-commands';
 import { createWordCanvasInsert } from './canvas-insert-commands';
+import { createWordCanvasShapes } from './canvas-shape-commands';
 import { createWordListCommands } from './list-commands';
 import { createWordComments, type CommentAuthor } from './comment-commands';
 import { createWordRevisions } from './revision-commands';
@@ -119,6 +120,9 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
      * "insert a rectangle" is the gesture and the canvas is where it has to live.
      */
     createWordCanvasInsert(),
+    // And moving what is on one, which is the half that makes a drawing an editor rather than a
+    // picture. The deck's own is richer (locks, bound sizes) and a page has neither yet.
+    createWordCanvasShapes(),
     // Last, so it wraps the delete commands whichever extension registered them.
     // With tracking on, deleting stops deleting — which is a different operation
     // and has to be decided before the original one runs.

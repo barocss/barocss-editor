@@ -112,3 +112,84 @@ describe('inserting a drawing and the shapes on it', () => {
     expect(await editor.executeCommand('insertRectangle')).toBe(false);
   });
 });
+
+/**
+ * Moving what is on a drawing.
+ *
+ * A drag is thirty pointer events a second, so the app writes **once**, at the drop, through this.
+ * What a command has to answer is what the document holds afterwards, and the one guard that
+ * matters: a caller naming something that is not on a canvas is asking to give a paragraph an `x`,
+ * which the schema would take and nothing would draw.
+ */
+describe('moving what is on a drawing', () => {
+  let editor: any;
+
+  beforeEach(async () => {
+    editor = createWordEditor();
+    editor.loadDocument(
+      {
+        stype: 'document',
+        attributes: {},
+        content: [
+          {
+            stype: 'surface',
+            attributes: { kind: 'flow' },
+            content: [{ stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '문단' }] }]
+          }
+        ]
+      },
+      'word'
+    );
+    const section = editor.dataStore.getNode(editor.getRootId()).content[0];
+    const para = editor.dataStore.getNode(section).content[0];
+    const run = editor.dataStore.getNode(para).content[0];
+    await editor.executeCommand('insertRectangle', {
+      selection: { type: 'range', startNodeId: run, startOffset: 0, endNodeId: run, endOffset: 0 }
+    });
+  });
+
+  const shapes = () => {
+    const store = editor.dataStore;
+    const found: string[] = [];
+    const walk = (sid: string) => {
+      const node = store.getNode(sid);
+      if (node?.stype === 'rectangle' || node?.stype === 'ellipse') found.push(sid);
+      for (const child of node?.content ?? []) if (typeof child === 'string') walk(child);
+    };
+    walk(editor.getRootId());
+    return found;
+  };
+
+  it('moves every shape it is given, in one entry of the history', async () => {
+    const canvas = editor.dataStore.getNode(shapes()[0]).parentId;
+    await editor.executeCommand('insertEllipse', { canvasId: canvas, x: 100, y: 200 });
+
+    const moving = shapes();
+    const before = moving.map((sid) => ({ ...editor.dataStore.getNode(sid).attributes }));
+    expect(await editor.executeCommand('moveShapes', { nodeIds: moving, dx: 300, dy: -50 })).toBe(true);
+
+    for (const [at, sid] of moving.entries()) {
+      const after = editor.dataStore.getNode(sid).attributes;
+      expect(after.x).toBe(before[at].x + 300);
+      expect(after.y).toBe(before[at].y - 50);
+    }
+
+    // One drag is one gesture: three shapes moved together come back together.
+    await editor.undo();
+    for (const [at, sid] of moving.entries()) {
+      expect(editor.dataStore.getNode(sid).attributes.x).toBe(before[at].x);
+    }
+  });
+
+  it('refuses what is not on a canvas, and a move of nothing', async () => {
+    const section = editor.dataStore.getNode(editor.getRootId()).content[0];
+    const para = editor.dataStore.getNode(section).content[0];
+
+    // A paragraph has no coordinates; the schema would take an `x` and nothing would draw it.
+    expect(editor.canExecuteCommand('moveShapes', { nodeIds: [para], dx: 10, dy: 10 })).toBe(false);
+    expect(await editor.executeCommand('moveShapes', { nodeIds: [para], dx: 10, dy: 10 })).toBe(false);
+
+    // And a drag that went nowhere writes nothing rather than an entry that changes nothing.
+    expect(editor.canExecuteCommand('moveShapes', { nodeIds: shapes(), dx: 0, dy: 0 })).toBe(false);
+  });
+});

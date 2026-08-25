@@ -989,6 +989,35 @@ shipped features marked undone.
     carries is not a taste — a negative extent is what dragging a handle past the opposite edge
     means, and a reader that forgot it would draw nothing where a shape is.
 
+  - [x] **The pointer**, and it is *thin* on purpose. `apps/word/src/drawing-overlay.tsx` is a few
+    hundred lines against the deck's 3,754, because it does **not** swallow the pointer: it is
+    `pointer-events: none` and listens on the document, so the **browser** hit-tests the shapes —
+    including a rotated one, where an SVG transform is exactly the sum the deck's `unrotate` has to
+    compute. What that costs is that a drag has to start on the shape itself, which is what it does.
+
+    Multi-selection from the first line, because that was the ask: a press replaces the set, Shift
+    or Ctrl toggles one, a band takes everything it **touches** (intersects, not contains — a reader
+    dragging across three shapes means those three), and a press on something already selected keeps
+    the set so three shapes drag together. A press on the empty part of a drawing clears.
+
+    A drag does not touch the document until it is dropped — the drawn elements move with a CSS
+    transform and one `moveShapes` writes the finished move, so one gesture is one entry in the
+    history rather than thirty. Two pixels of slack before it counts as a drag, because a pointer
+    moves a little while a finger presses.
+
+    `moveShapes` is Word's own for now, with the reason written where it lives: the deck's
+    `setBoxGeometry` refuses a locked box and a size a **variable** owns, and a page has neither
+    yet, so this is the honest small version rather than a shared command with half its guards
+    switched off.
+
+- [ ] **Unify `moveShapes` and the deck's `setBoxGeometry`**, when a page grows the second half — a
+  lock, or a value something else decides. Two commands that move a shape is exactly the shape of
+  duplication this repository keeps finding, and it is deliberate today rather than accidental.
+
+- [ ] **A shape on a Word drawing cannot be resized, rotated or deleted yet.** The arithmetic is
+  already shared (`canvas-manipulate`: handles, aspect and centre modifiers, snapping); what is
+  missing is the handles on the overlay and the commands behind them.
+
 - [ ] **A text box on a Word drawing** needs `<foreignObject>`, which is a design question rather
   than a fifth line in the insert list: what a caret does inside one, how the paginator measures it,
   what print does with it. Refused for now by the harness rather than by a person, which is the

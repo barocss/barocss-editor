@@ -611,6 +611,11 @@ export {
   WordCanvasInsertExtension,
   type InsertShapeOptions
 } from './canvas-insert-commands';
+export {
+  createWordCanvasShapes,
+  WordCanvasShapeExtension,
+  type MoveShapesOptions
+} from './canvas-shape-commands';
 /**
  * The box vocabulary, and **dragging one** — the arithmetic a canvas editor is made of.
  *

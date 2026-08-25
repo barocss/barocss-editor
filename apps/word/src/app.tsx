@@ -11,6 +11,7 @@ import { DocumentTitle } from './document-title';
 import { Ruler } from './ruler';
 import { OutlinePane } from './outline-pane';
 import { ZoomFrame } from './zoom-frame';
+import { DrawingOverlay } from './drawing-overlay';
 
 /**
  * The app shell.
@@ -134,6 +135,14 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           <ZoomFrame zoom={zoom}>
             <div ref={host} id="editor" />
           </ZoomFrame>
+          {/*
+            Pointing at what is on a **drawing**, over the page rather than inside it.
+            
+            Outside the zoom frame on purpose: it draws in screen pixels, so an outline is a
+            hairline at every zoom and a handle will be the same size to grab. Inside the frame it
+            would be scaled with the page, which is right for the document and wrong for a control.
+          */}
+          {instance ? <DrawingOverlay editor={instance.editor} host={host.current} /> : null}
         </AppMain>
 
         {instance ? (

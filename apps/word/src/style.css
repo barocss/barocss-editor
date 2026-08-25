@@ -869,3 +869,34 @@ body {
 }
 .w-zoom-control input:hover,
 .w-zoom-control input:focus { border-color: #dee2e6; background: #fff; }
+
+/*
+ * What is selected **on a drawing**, and the band that catches several.
+ *
+ * Drawn over the page rather than in it: the overlay is outside the zoom frame, so these are screen
+ * pixels — an outline stays a hairline at 400% and at 25%, which is what a control has to do while
+ * the document scales.
+ *
+ * `pointer-events: none` is the whole design of this overlay. The shapes are real elements, so the
+ * browser hit-tests them — including a rotated one, where an SVG transform is exactly the sum an
+ * arithmetic hit test would have to do — and the layer only ever draws.
+ */
+.w-drawing-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.w-drawing-selected {
+  position: absolute;
+  outline: 1px solid #2563eb;
+  outline-offset: 1px;
+}
+
+/* A band a reader is dragging: the fill says what it has caught, the edge says where it is. */
+.w-drawing-band {
+  position: absolute;
+  border: 1px solid #2563eb;
+  background: rgb(37 99 235 / 0.08);
+}
