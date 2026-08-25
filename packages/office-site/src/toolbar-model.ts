@@ -81,6 +81,20 @@ export const SITE_TOOLBAR: SiteControl[] = [
     shortcut: 'Delete',
     group: 'arrange',
     icon: 'delete'
+  },
+  /**
+   * *Make this reusable* — the gesture that makes a component library ever get a second entry.
+   *
+   * On the toolbar rather than in the rail, because it is something a reader does **to what they
+   * have selected**, and that is what the arrange group is: the row of things that act on a
+   * selection. The rail's component list is where definitions are *used*.
+   */
+  {
+    command: 'createComponentFrom',
+    label: '컴포넌트로',
+    title: '선택한 블록을 컴포넌트로 만들고, 그 자리에 놓습니다',
+    group: 'arrange',
+    icon: 'group'
   }
 ];
 

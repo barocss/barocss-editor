@@ -54,6 +54,7 @@ export function Overlay({
   breakpoint,
   mode,
   onEnterText,
+  onEditComponent,
   scope,
   onScope
 }: {
@@ -65,6 +66,14 @@ export function Overlay({
   /** Which width this board is, so a drag reads the arrangement **this** board is drawing. */
   breakpoint: BreakpointId;
   mode: PointerMode;
+  /**
+   * The reader has opened what a placement draws.
+   *
+   * A placement has no children anybody can select — its parts are resolved at draw time — so the
+   * drill has nowhere else to go, and *into it* is the only thing a second double-click can honestly
+   * mean. Which is the gesture every tool of this kind uses for the same reason.
+   */
+  onEditComponent?: (componentId: string) => void;
   /**
    * The reader has entered this block's text.
    *
@@ -355,7 +364,16 @@ export function Overlay({
          * over a heading and the caret could not be reached at all.
          */
         const deepest = innermostOf(doc(), sid, page);
-        if (deeper === deepest && isTextual(doc(), deepest)) enterText(deepest);
+        if (deeper === deepest && isTextual(doc(), deepest)) {
+          enterText(deepest);
+          return;
+        }
+
+        // A placement: open what it draws, which is the only place left to go.
+        const node = doc().getNode(deeper);
+        if (node?.stype === 'instance' && typeof node.attributes?.componentId === 'string') {
+          onEditComponent?.(node.attributes.componentId);
+        }
       }}
     >
       {landing ? (

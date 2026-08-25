@@ -361,8 +361,63 @@ body {
   color: var(--st-faint);
 }
 
-/* Which page is being edited, read rather than pressed. */
+/* Where the reader is: a page and its address, or a definition and how many places use it. */
 .st-where { display: flex; align-items: baseline; gap: 6px; font-size: var(--ou-text); }
+.st-where-name { font-weight: 600; }
+
+/*
+ * Editing a definition, said in the chrome.
+ *
+ * A reader who does not know they are inside a definition is a reader about to change five pages by
+ * accident — so the way back is a control rather than a gesture, and the count is beside it.
+ */
+.st-where[data-editing-component] { color: var(--st-accent); }
+
+.st-back {
+  padding: 2px 8px;
+  border: 1px solid var(--st-accent);
+  border-radius: 3px;
+  background: none;
+  color: var(--st-accent);
+  font-size: var(--ou-text-small);
+}
+
+.st-back:hover { background: var(--st-accent); color: var(--ou-accent-ink); }
+
+/* A row that does two things: the common one is the row, the one with consequences is beside it. */
+.st-rail-pair { padding: 0; gap: 0; }
+.st-rail-pair[data-current='true'] { background: var(--st-accent); color: var(--ou-accent-ink); }
+
+.st-rail-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px 5px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  font-size: inherit;
+}
+
+.st-rail-main:hover:not(:disabled) { background: var(--ou-ground); }
+.st-rail-main:disabled { opacity: 0.4; }
+
+.st-rail-side {
+  flex: none;
+  padding: 5px 10px;
+  border: 0;
+  border-left: 1px solid var(--st-line);
+  background: none;
+  color: var(--st-faint);
+  font-size: var(--ou-text-small);
+}
+
+.st-rail-side:hover { background: var(--st-accent); color: var(--ou-accent-ink); }
+.st-rail-pair[data-current='true'] .st-rail-side { color: var(--ou-accent-ink); }
 
 /* ── What this page holds ─────────────────────────────────────────────────── */
 

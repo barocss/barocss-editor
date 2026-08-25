@@ -808,14 +808,32 @@ export function commitFiberNode(
     if (prevWithDecorator?.decoratorStype != null) {
       prevEffectiveAttrs[DOMAttribute.DECORATOR_STYPE] = String(prevWithDecorator.decoratorStype);
     }
-    if (Object.keys(effectiveAttrs).length > 0 || Object.keys(prevEffectiveAttrs).length > 0) {
-      if (!arePropsEqual(prevEffectiveAttrs, effectiveAttrs)) {
-        dom.updateAttributes(domElement, prevEffectiveAttrs, effectiveAttrs);
+    /**
+     * A **replaced** element is diffed against nothing.
+     *
+     * The comparison below asks what changed since the previous vnode and writes only that, which is
+     * right for an element being kept — a write that changes nothing still produces a mutation
+     * record, and the input path reads those to work out what a reader typed.
+     *
+     * It is wrong for an element that has just been *made*. When the type changed, the old DOM node
+     * was removed a few lines above and a new one created, so it has none of the old one's
+     * attributes — and every property the two templates declare **the same way** was skipped as
+     * unchanged. Measured in a site builder: one board drew a page and was then pointed at a
+     * component's definition; a `surface` declares `display: flex` and so does a `frame`, and the
+     * new element came out `display: block` with every *other* declaration in place.
+     */
+    const replaced = typeChanged;
+    const wasAttrs = replaced ? {} : prevEffectiveAttrs;
+    const wasStyle = replaced ? undefined : prevVNode?.style;
+
+    if (Object.keys(effectiveAttrs).length > 0 || Object.keys(wasAttrs).length > 0) {
+      if (replaced || !arePropsEqual(wasAttrs, effectiveAttrs)) {
+        dom.updateAttributes(domElement, wasAttrs, effectiveAttrs);
       }
     }
     if (vnode.style) {
-      const prevStyle = prevVNode?.style;
-      if (!arePropsEqual(prevStyle, vnode.style)) {
+      const prevStyle = wasStyle;
+      if (replaced || !arePropsEqual(prevStyle, vnode.style)) {
         dom.updateStyles(domElement, prevStyle, vnode.style as any);
       }
     }

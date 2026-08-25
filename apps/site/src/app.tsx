@@ -3,7 +3,7 @@ import type { Editor } from '@barocss/editor-core';
 import { watchContent } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { AppBody, AppChrome, AppMain, AppShell, ZoomControl, useRevision } from '@barocss/office-ui';
-import { BREAKPOINTS, enclosing, pagesOf, type BreakpointId } from '@barocss/office-site';
+import { BREAKPOINTS, definitionOf, enclosing, pagesOf, type BreakpointId } from '@barocss/office-site';
 import { Canvas } from './canvas';
 import { Inspector } from './inspector';
 import { Rail } from './rail';
@@ -76,9 +76,46 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   }, [editor, revision]);
 
   const [current, setCurrent] = useState<string | undefined>(undefined);
+
+  /**
+   * The definition being edited, when a reader has opened one.
+   *
+   * A board takes a `rootId` and draws whatever node it names — which is the same mechanism that
+   * draws one page at three widths — so **editing a definition is pointing the boards at its part
+   * instead of at a page**. Nothing else in the window changes: the same rail, the same panel, the
+   * same selection, because the thing being edited is a stack either way.
+   *
+   * Held as the durable id rather than as a sid: a definition's sid is this session's, and the id is
+   * what a placement names.
+   */
+  const [editing, setEditing] = useState<string | undefined>(undefined);
+
+  const definition = useMemo(() => {
+    const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } })?.dataStore;
+    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+    if (!store || !rootId || !editing) return undefined;
+    return definitionOf({ rootId, getNode: (sid: string) => store.getNode(sid) }, editing);
+  }, [editor, editing, revision]);
+
   const page = current ?? pages[0]?.sid;
+  /**
+   * What the boards draw: a page, or the definition's part.
+   *
+   * Everything downstream — the layer list, the panel, where a new block lands, what `Escape` steps
+   * out to — asks "what is the root here", and this is the one place that answers.
+   */
+  const root = definition?.part ?? page;
+  /**
+   * What the pointer treats as the outermost thing.
+   *
+   * The definition itself, so its **part** is an ordinary selectable child rather than the board's
+   * unselectable root. Measured: inside a definition the part's own padding, direction and colour
+   * could not be reached at all, because a board's root plays the page's role and a page is never
+   * selectable.
+   */
+  const scopeRoot = definition?.sid ?? page;
   // A new page is a new outermost container; nothing that was entered on the last one is on it.
-  const inside = scope && page ? scope : page;
+  const inside = scope && scopeRoot ? scope : scopeRoot;
 
   /**
    * `Escape`, which is the way **out** of wherever the reader is — and listened for exactly once.
@@ -115,7 +152,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     };
 
     const leave = (event: KeyboardEvent) => {
-      if (!page || elsewhere()) return;
+      if (!root || elsewhere()) return;
 
       /*
        * The two a builder cannot be without, on the keys every tool of this kind uses.
@@ -150,19 +187,19 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
       const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } }).dataStore;
       const doc = { getNode: (sid: string) => store?.getNode(sid) };
-      const here = scope ?? page;
-      if (here === page) {
+      const here = scope ?? scopeRoot;
+      if (here === scopeRoot) {
         select([]);
         return;
       }
-      const up = enclosing(doc, here, page) ?? page;
-      setScope(up === page ? undefined : up);
+      const up = enclosing(doc, here, scopeRoot) ?? scopeRoot;
+      setScope(up === scopeRoot ? undefined : up);
       select([here]);
     };
 
     document.addEventListener('keydown', leave);
     return () => document.removeEventListener('keydown', leave);
-  }, [editor, mode, entered, scope, page]);
+  }, [editor, mode, entered, scope, scopeRoot]);
 
   /**
    * Fit: as far back as the reader has to stand to see every board at once.
@@ -200,10 +237,26 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             its data. What stays here is the one thing a reader needs to *read* rather than press:
             which page they are on, and where it answers.
           */}
-          <span className="st-where" data-where>
-            {pages.find((one) => one.sid === page)?.name ?? ''}
-            <span className="st-where-path">{pages.find((one) => one.sid === page)?.path ?? ''}</span>
-          </span>
+          {/*
+            Where the reader is: a page and its address, or **a definition and how many places use
+            it**. The count is the sentence that has to be said before anybody edits one — *this
+            changes five pages* — and it is why the count is read from the document rather than
+            remembered.
+          */}
+          {definition ? (
+            <span className="st-where" data-where data-editing-component={definition.id}>
+              <button type="button" className="st-back" onClick={() => setEditing(undefined)}>
+                ← 페이지로
+              </button>
+              <span className="st-where-name">{definition.name}</span>
+              <span className="st-where-path">{definition.uses}곳에서 사용 중</span>
+            </span>
+          ) : (
+            <span className="st-where" data-where>
+              {pages.find((one) => one.sid === page)?.name ?? ''}
+              <span className="st-where-path">{pages.find((one) => one.sid === page)?.path ?? ''}</span>
+            </span>
+          )}
 
           <div className="st-titlebar-end">
             <ZoomControl zoom={zoom} onChange={setZoom} onFit={onFit} fitLabel="맞춤" />
@@ -231,11 +284,16 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         {editor ? (
           <Rail
             editor={editor}
-            page={page}
+            page={scopeRoot}
+            insertRoot={root}
             pages={pages}
+            editing={editing}
+            onEdit={setEditing}
             onPage={(sid) => {
               setCurrent(sid);
               setScope(undefined);
+              // Leaving the definition, because a page is what the reader asked for.
+              setEditing(undefined);
             }}
           />
         ) : null}
@@ -248,15 +306,24 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                     key={one.id}
                     editor={instance.editor}
                     breakpoint={one.id}
-                    label={one.label}
+                    label={definition ? `${definition.name} · ${one.label}` : one.label}
                     width={one.width}
-                    page={page}
+                    page={root}
+                    scopeRoot={scopeRoot}
                     zoom={zoom}
                     mode={mode}
                     onEnterText={(sid) => {
                       setEntered(sid);
                       setMode('text');
                     }}
+                    /*
+                     * Double-clicking a placement opens what it draws.
+                     *
+                     * Which is the gesture every tool of this kind uses, and it costs nothing here:
+                     * a placement has no children a reader can select — its parts are resolved — so
+                     * the drill has nowhere else to go.
+                     */
+                    onEditComponent={setEditing}
                     scope={inside ?? ''}
                     onScope={setScope}
                   />
@@ -274,7 +341,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           <div ref={host} id="editor" hidden />
         </AppMain>
 
-        {editor ? <Inspector editor={editor} at={at} onAt={setAt} page={page} /> : null}
+        {editor ? <Inspector editor={editor} at={at} onAt={setAt} page={definition ? undefined : page} /> : null}
       </AppBody>
     </AppShell>
   );

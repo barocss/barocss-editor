@@ -4,6 +4,7 @@ import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import { Button, useRevision } from '@barocss/office-ui';
 import {
   blocksIn,
+  definitionsOf,
   labelOfBlock,
   siteControlsIn,
   type SiteControl
@@ -52,13 +53,29 @@ const PANELS: { id: Panel; label: string }[] = [
 export function Rail({
   editor,
   page,
+  insertRoot,
   pages,
-  onPage
+  onPage,
+  editing,
+  onEdit
 }: {
   editor: Editor;
+  /** What the list walks from — the page, or the definition, so its own part is a row. */
   page?: string;
+  /**
+   * What a new block lands **in**, which is not always what the list walks from.
+   *
+   * On a page they are the same node. Inside a definition they are not: the list walks from the
+   * `component` so the part shows up as a row, and a block put *there* would be a paragraph among
+   * the definition's declarations — which the content model refuses, silently, as a transaction that
+   * does nothing.
+   */
+  insertRoot?: string;
   pages: { sid: string; name: string; path: string }[];
   onPage: (sid: string) => void;
+  /** The definition being edited, so its row can say so. */
+  editing?: string;
+  onEdit: (componentId: string | undefined) => void;
 }) {
   const [panel, setPanel] = useState<Panel>('add');
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
@@ -76,13 +93,13 @@ export function Rail({
    */
   const run = (name: string, payload?: Record<string, unknown>) =>
     (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(name, {
-      pageId: page,
+      pageId: insertRoot ?? page,
       ...payload
     });
   const can = (name: string, payload?: Record<string, unknown>) =>
     (editor as never as { canExecuteCommand?: (n: string, p?: unknown) => boolean }).canExecuteCommand?.(
       name,
-      { pageId: page, ...payload }
+      { pageId: insertRoot ?? page, ...payload }
     ) ?? false;
 
   return (
@@ -106,7 +123,15 @@ export function Rail({
         {panel === 'layers' ? <LayersPanel editor={editor} doc={doc} page={page} revision={revision} /> : null}
         {panel === 'pages' ? <PagesPanel pages={pages} page={page} onPage={onPage} /> : null}
         {panel === 'components' ? (
-          <ComponentsPanel editor={editor} doc={doc} run={run} can={can} revision={revision} />
+          <ComponentsPanel
+            editor={editor}
+            doc={doc}
+            run={run}
+            can={can}
+            revision={revision}
+            editing={editing}
+            onEdit={onEdit}
+          />
         ) : null}
         {panel === 'data' ? <DataPanel editor={editor} run={run} can={can} revision={revision} /> : null}
       </div>
@@ -267,42 +292,28 @@ function ComponentsPanel({
   doc,
   run,
   can,
-  revision
+  revision,
+  editing,
+  onEdit
 }: {
   editor: Editor;
   doc: { getNode: (sid: string) => any };
   run: (name: string, payload?: Record<string, unknown>) => void;
   can: (name: string, payload?: Record<string, unknown>) => boolean;
   revision: number;
+  editing?: string;
+  onEdit: (componentId: string | undefined) => void;
 }) {
+  /*
+   * Read from the model rather than walked here.
+   *
+   * It *was* walked here — the counting, the library lookup, all of it in a React component — which
+   * is exactly the code that cannot be tested without a browser. `definitionsOf` is the same answer
+   * in `office-site`, with `components.test.ts` holding it.
+   */
   const components = useMemo(() => {
     const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
-    const root = rootId ? doc.getNode(rootId) : undefined;
-    const box = ((root?.content ?? []) as string[])
-      .map((sid) => doc.getNode(sid))
-      .find((child: any) => child?.stype === 'components');
-
-    const used = new Map<string, number>();
-    const walk = (sid: string, depth = 0) => {
-      if (depth > 64) return;
-      const node = doc.getNode(sid);
-      if (!node) return;
-      if (node.stype === 'instance') {
-        const id = String(node.attributes?.componentId ?? '');
-        used.set(id, (used.get(id) ?? 0) + 1);
-      }
-      for (const child of (node.content ?? []) as unknown[]) if (typeof child === 'string') walk(child, depth + 1);
-    };
-    if (rootId) walk(rootId);
-
-    return ((box?.content ?? []) as string[])
-      .map((sid) => doc.getNode(sid))
-      .filter((one: any) => one?.stype === 'component')
-      .map((one: any) => ({
-        id: String(one.attributes.id),
-        name: String(one.attributes.name ?? one.attributes.id),
-        uses: used.get(String(one.attributes.id)) ?? 0
-      }));
+    return rootId ? definitionsOf({ rootId, getNode: doc.getNode }) : [];
   }, [doc, editor, revision]);
 
   if (components.length === 0) return <p className="st-rail-note">아직 정의가 없습니다.</p>;
@@ -310,18 +321,38 @@ function ComponentsPanel({
   return (
     <div className="st-rail-list" data-components>
       {components.map((one) => (
-        <button
+        <div
           key={one.id}
-          type="button"
-          className="st-rail-item"
-          data-component={one.id}
-          title={`${one.name}을(를) 이 페이지에 놓습니다`}
-          disabled={!can('insertPlacement', { componentId: one.id })}
-          onClick={() => run('insertPlacement', { componentId: one.id })}
+          className="st-rail-item st-rail-pair"
+          data-component-row={one.id}
+          data-current={one.id === editing ? 'true' : undefined}
         >
-          <span className="st-rail-name">{one.name}</span>
-          <span className="st-rail-hint">{one.uses}곳</span>
-        </button>
+          {/* Placing is the common act, so it is the row. */}
+          <button
+            type="button"
+            className="st-rail-main"
+            data-component={one.id}
+            title={`${one.name}을(를) 여기에 놓습니다`}
+            disabled={!can('insertPlacement', { componentId: one.id })}
+            onClick={() => run('insertPlacement', { componentId: one.id })}
+          >
+            <span className="st-rail-name">{one.name}</span>
+            <span className="st-rail-hint">{one.uses}곳</span>
+          </button>
+          {/*
+            And editing is its own control, because it is the act with consequences: opening this
+            changes every place that uses it, which is what the count beside it is for.
+          */}
+          <button
+            type="button"
+            className="st-rail-side"
+            data-edit-component={one.id}
+            title={`${one.name} 정의를 엽니다 — ${one.uses}곳이 함께 바뀝니다`}
+            onClick={() => onEdit(one.id === editing ? undefined : one.id)}
+          >
+            편집
+          </button>
+        </div>
       ))}
     </div>
   );

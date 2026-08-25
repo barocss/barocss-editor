@@ -7,7 +7,7 @@ import {
   ToolbarToggle,
   useRevision
 } from '@barocss/office-ui';
-import { BREAKPOINTS, type BreakpointId } from '@barocss/office-site';
+import { BREAKPOINTS, siteControlsIn, type BreakpointId } from '@barocss/office-site';
 import type { PointerMode } from './overlay';
 
 /**
@@ -84,34 +84,28 @@ export function Ribbon({
 
       <ToolbarSeparator />
 
-      <ToolbarGroup id="insert">
-        <ToolbarToggle
-          id="insert-section"
-          label="섹션 넣기"
-          state="off"
-          disabled={!can('insertSection')}
-          onActivate={() => run('insertSection')}
-        >
-          섹션
-        </ToolbarToggle>
-        <ToolbarToggle
-          id="insert-row"
-          label="가로 스택 넣기"
-          state="off"
-          disabled={!can('insertRow')}
-          onActivate={() => run('insertRow')}
-        >
-          가로
-        </ToolbarToggle>
-        <ToolbarToggle
-          id="insert-grid"
-          label="그리드 넣기"
-          state="off"
-          disabled={!can('insertGrid')}
-          onActivate={() => run('insertGrid')}
-        >
-          그리드
-        </ToolbarToggle>
+      {/*
+        What a reader does **to what they have selected**, read from the product's own declaration.
+        
+        It used to be written out here in JSX — which is a declaration nothing can read, and the
+        whole reason `toolbar-model.ts` exists: `every-command-can-be-reached` asks the product what
+        a reader can run, and a ribbon that answers only to itself is a ribbon that can drift from
+        the check that is supposed to hold it.
+      */}
+      <ToolbarGroup id="arrange">
+        {siteControlsIn('arrange').map((control) => (
+          <ToolbarToggle
+            key={control.command}
+            id={control.command}
+            label={control.title ?? control.label}
+            shortcut={control.shortcut}
+            state="off"
+            disabled={!can(control.command)}
+            onActivate={() => run(control.command)}
+          >
+            {control.label}
+          </ToolbarToggle>
+        ))}
       </ToolbarGroup>
 
       <ToolbarSeparator />

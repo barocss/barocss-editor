@@ -46,6 +46,38 @@ entries are that.
 
 ## Open
 
+### Editing a definition is pointing the boards at it
+
+- [x] A board takes a `rootId` and draws whatever node it names — the mechanism that draws one page
+  at three widths — so a component editor is that, aimed at the definition's **part**. A `component`
+  itself has no renderer (a definition is never drawn where it is kept), and its part is an ordinary
+  frame. Nothing else in the window changes: the same rail, the same panel, the same selection,
+  because the thing being edited is a stack either way.
+
+  Three faults on the way, each of which only a browser could have shown:
+
+- [x] **A destroyed view left its layers in the container.** `cleanupLayers` emptied and *cloned*
+  them, which removes their listeners and leaves five divs behind — so a second view appended five
+  more and the board held two content layers, one live and one an empty shell. Every query written
+  against that board had a one-in-two chance of reading the dead one. React's strict mode is what
+  surfaced it, by mounting and unmounting an effect. **A view that is destroyed and one that was
+  never created should be the same thing.**
+
+- [x] **A replaced element was diffed against the vnode it replaced.** One board drew a page and was
+  then pointed at a definition: a `surface` declares `display: flex` and so does a `frame`, the
+  element was replaced because the tag changed — and the new one came out `display: block` with every
+  *other* declaration in place. Skipping an unchanged property is right for an element being kept and
+  wrong for one that has just been made, because a new element has none of it. Three unit tests in
+  `renderer-dom`, for a root and for a child.
+
+- [x] **A board's root is never selectable, and inside a definition that is the one stack a reader
+  wants.** The root plays the page's role — a selection whose only meaning is "everything" is what
+  clicking nothing already means — so the definition's own padding, direction and colour could not be
+  reached at all. Fixed without a new flag: the pointer walks from the `component` one level above
+  the part, so the part is an ordinary child. The **drawing** root and the **walking** root are two
+  different questions, and the rail needed a third — where a new block *lands* — because a paragraph
+  put among a definition's declarations is a transaction that silently does nothing.
+
 ### An index that exported only one kind of thing, and a name with two meanings
 
 - [x] Following the merge, `operations/index.ts` was written to export the **builders** — and the app

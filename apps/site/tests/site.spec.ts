@@ -450,19 +450,18 @@ test.describe('the panel', () => {
     const button = page.locator('[data-frame="desktop"] .st-placement').nth(1);
     await expect(button).toContainText('무료로 시작하기');
 
-    // Into the hero, then into the button: a placement is two levels down from the page.
-    const hero = page.locator('[data-frame="desktop"] .st-stack[data-name="히어로"]');
-    await press(page, button);
-    await page.waitForTimeout(200);
-    await pressTwice(page, button);
-    await page.waitForTimeout(200);
-    await pressTwice(page, button);
+    /*
+     * Selected from the layer list rather than by drilling.
+     *
+     * Double-clicking a placement now **opens what it draws** — a placement has no children anybody
+     * can select, so that is the only thing the gesture can honestly mean — and the list is where a
+     * block nobody can point at is reached. Which is the reason the list exists.
+     */
+    await page.locator('[data-panel="layers"]').click();
+    await page.locator('.st-layer[data-stype="instance"]').nth(1).click();
     await page.waitForTimeout(300);
-    void hero;
 
-    const values = panel(page).locator('[data-tab="values"]');
-    if ((await values.count()) === 0) test.skip(true, '버튼이 아직 선택되지 않음');
-    await values.click();
+    await panel(page).locator('[data-tab="values"]').click();
     await panel(page).getByLabel('문구').fill('지금 시작하기');
     await panel(page).getByLabel('문구').press('Enter');
     await page.waitForTimeout(500);
@@ -665,5 +664,99 @@ test.describe('the rail', () => {
     await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/블로그');
     // And the title bar says where the reader is, which is what it kept when the list moved here.
     await expect(page.locator('[data-where]')).toContainText('블로그');
+  });
+});
+
+/**
+ * Editing a definition.
+ *
+ * A board takes a `rootId` and draws whatever node it names — the same mechanism that draws one page
+ * at three widths — so editing a definition is pointing the boards at its part instead of at a page.
+ * Nothing else in the window changes, which is the claim these hold.
+ */
+test.describe('a definition', () => {
+  test('opens from the rail, and says how many places it changes', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="components"]').click();
+    await page.locator('[data-edit-component="site-header"]').click();
+    await page.waitForTimeout(600);
+
+    // The sentence that has to be said before anybody edits one.
+    const where = page.locator('[data-where]');
+    await expect(where).toHaveAttribute('data-editing-component', 'site-header');
+    await expect(where).toContainText('머리말');
+    await expect(where).toContainText('5곳에서 사용 중');
+
+    // Every board draws the definition, at its own width, and says whose it is.
+    await expect(page.locator('.st-frame-label').first()).toContainText('머리말');
+    await expect(page.locator('[data-frame="desktop"] .st-stack')).toHaveCount(1);
+
+    // And the way back is a control rather than a gesture: a reader who does not know they are
+    // inside a definition is a reader about to change five pages by accident.
+    await page.locator('.st-back').click();
+    await page.waitForTimeout(500);
+    await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/');
+  });
+
+  test('is the same editor inside it: the rail, the panel and the selection all work', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="components"]').click();
+    await page.locator('[data-edit-component="cta"]').click();
+    await page.waitForTimeout(600);
+
+    /*
+     * The definition's parts rather than a page's blocks — and **the part itself is in the list**,
+     * which it was not until the pointer was told to walk from the `component` rather than from the
+     * part. A board's root is never selectable, so the definition's own padding, direction and
+     * colour were unreachable: the one stack a reader most wants to edit inside a definition.
+     */
+    await page.locator('[data-panel="layers"]').click();
+    await expect(page.locator('.st-layer')).toHaveText(['가로 스택', '본문']);
+
+    // And a new block lands inside the definition, because the boards' root is the definition.
+    await page.locator('[data-panel="add"]').click();
+    await page.locator('[data-insert="insertBodyText"]').click();
+    await page.waitForTimeout(500);
+    await page.locator('[data-panel="layers"]').click();
+    await expect(page.locator('.st-layer')).toHaveCount(3);
+  });
+
+  test('changes every place that uses it, at once', async ({ page }) => {
+    await ready(page);
+    const buttons = page.locator('[data-frame="desktop"] .st-placement');
+    const before = await buttons.count();
+
+    await page.locator('[data-panel="components"]').click();
+    await page.locator('[data-edit-component="cta"]').click();
+    await page.waitForTimeout(600);
+
+    // Selecting the definition's own stack, and reading its panel: the same panel, inside a
+    // definition, because the thing being edited is a stack either way.
+    await press(page, page.locator('[data-frame="desktop"] .st-stack').first());
+    await page.waitForTimeout(300);
+    await expect(page.locator('.office-properties')).toContainText('스택');
+
+    await page.locator('.st-back').click();
+    await page.waitForTimeout(600);
+    // The page is drawing again, and the placements are still there — a definition edited is a
+    // definition every placement follows, because a placement draws it rather than a copy of it.
+    await expect(buttons).toHaveCount(before);
+  });
+
+  test('is made out of what a reader has already built', async ({ page }) => {
+    await ready(page);
+    await press(page, page.locator('[data-frame="desktop"] .st-stack[data-name="카드 줄"]'));
+    await page.waitForTimeout(300);
+
+    await page.locator('[data-panel="components"]').click();
+    const before = await page.locator('[data-component-row]').count();
+
+    await page.locator('[data-control="createComponentFrom"]').click();
+    await page.waitForTimeout(700);
+
+    // One more definition, used in one place — and the page looks the same, because a placement of
+    // it took the block's seat.
+    await expect(page.locator('[data-component-row]')).toHaveCount(before + 1);
+    await expect(page.locator('[data-frame="desktop"] .st-page > .st-placement')).toHaveCount(3);
   });
 });

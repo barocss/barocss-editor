@@ -23,6 +23,8 @@ export { createSiteEditor, createSiteExtensions, createSiteOwnExtensions, type S
 export { createStackCommands, SiteStackExtension, type InsertStackOptions } from './stack-commands';
 export { createBlockCommands, SiteBlockExtension } from './block-commands';
 export { createElementCommands, SiteElementExtension } from './element-commands';
+/** The definitions a site holds, and what a builder needs to know about one. */
+export { definitionAt, definitionOf, definitionsOf, usesOf, type Definition } from './components';
 /**
  * What a reader can reach — the keys and the toolbar, as **data in the package**.
  *

@@ -1333,19 +1333,21 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
   
   /**
-   * Cleanup all layers
+   * Take the layers **out**, so a destroyed view leaves its container as it found it.
+   *
+   * They used to be emptied and cloned in place — which removes the listeners, and leaves five divs
+   * behind. A second view built on the same container then appended five more, and the container
+   * held two content layers: one live, one an empty shell above or below it.
+   *
+   * Measured in the site builder, where a board is destroyed and rebuilt whenever React's strict
+   * mode double-invokes an effect: `[data-frame="desktop"] .barocss-editor-content` matched **two**
+   * elements, and every query written against the board had a one-in-two chance of reading the dead
+   * one. A view that is destroyed and one that was never created should be the same thing.
    */
   private cleanupLayers(): void {
-    // Cleanup content of each layer
     Object.values(this.layers).forEach(layer => {
-      if (layer && layer.parentNode) {
-        // Cleanup inside layer
-        layer.innerHTML = '';
-        
-        // Remove event listeners (if any)
-        const clonedLayer = layer.cloneNode(false) as HTMLElement;
-        layer.parentNode.replaceChild(clonedLayer, layer);
-      }
+      // The listeners go with it: removing the node is what a clone was standing in for.
+      layer?.parentNode?.removeChild(layer);
     });
   }
 

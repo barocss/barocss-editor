@@ -58,9 +58,11 @@ export function PageFrame({
   label,
   width,
   page,
+  scopeRoot,
   zoom,
   mode,
   onEnterText,
+  onEditComponent,
   scope,
   onScope
 }: {
@@ -69,9 +71,20 @@ export function PageFrame({
   label: string;
   width: number;
   page?: string;
+  /**
+   * What the **pointer** treats as the outermost thing, when that is not what is drawn.
+   *
+   * They are the same on a page. Inside a definition they are not: the board draws the definition's
+   * *part*, and a board's root is never selectable — it plays the page's role — so the part's own
+   * padding, direction and colour were unreachable. Walking from the `component` one level above it
+   * makes the part an ordinary child, and costs nothing: this is only ever the walk's stopping
+   * point, never the thing rendered.
+   */
+  scopeRoot?: string;
   zoom: number;
   mode: PointerMode;
   onEnterText: (sid: string) => void;
+  onEditComponent?: (componentId: string) => void;
   scope: string;
   onScope: (scope: string) => void;
 }) {
@@ -146,11 +159,12 @@ export function PageFrame({
           <Overlay
             editor={editor}
             host={host}
-            page={page}
+            page={scopeRoot ?? page}
             zoom={zoom}
             breakpoint={breakpoint}
             mode={mode}
             onEnterText={onEnterText}
+            onEditComponent={onEditComponent}
             scope={scope}
             onScope={onScope}
           />

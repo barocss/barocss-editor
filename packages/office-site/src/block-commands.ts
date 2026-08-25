@@ -18,6 +18,7 @@
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { addChild, moveNode, node, removeChild, setAttrs, transaction } from '@barocss/model';
+import { definitionsOf } from './components';
 import { SELECTABLE } from './selection';
 
 type Node = Record<string, any>;
@@ -90,6 +91,33 @@ export class SiteBlockExtension implements Extension {
         const node = this._store(editor)?.getNode(String(payload?.nodeId ?? ''));
         return node?.stype === 'surface' && (typeof payload?.name === 'string' || typeof payload?.path === 'string');
       }
+    );
+
+    /**
+     * Turn what a reader has already built into a **definition**, and leave a placement in its place.
+     *
+     * ## Why this is the command that makes components usable
+     *
+     * A definition written by hand is a definition nobody makes. Every tool of this kind has this
+     * one gesture — *make this reusable* — and it is the only way a component library ever gets a
+     * second entry: a reader builds a card, likes it, and says so.
+     *
+     * ## What it does, and the one thing it refuses
+     *
+     * The block moves into the library and a placement of it takes its old place, so the page is
+     * unchanged at the instant it runs — which is the property that makes it safe to try. From then
+     * on the two are the same thing: editing the definition changes the page, because the placement
+     * draws the definition rather than a copy of it.
+     *
+     * It refuses a block that is **already inside a definition**. A definition that holds a
+     * placement of itself is an infinite descent, and `instanceParts` refuses to draw one — but by
+     * then a reader has a document that cannot be drawn. Refusing here is refusing while it is still
+     * a gesture.
+     */
+    register(
+      'createComponentFrom',
+      async (payload) => await this._makeComponent(editor, payload),
+      (payload) => this._canMakeComponent(editor, payload)
     );
 
     /**
@@ -187,6 +215,101 @@ export class SiteBlockExtension implements Extension {
     (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.('setNode', {
       nodeIds: copies
     });
+    return true;
+  }
+
+  /** The library, made if the document has not got one yet. */
+  private _library(editor: Editor): { sid?: string; rootId: string } | null {
+    const store = this._store(editor);
+    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+    if (!store || !rootId) return null;
+
+    const root = store.getNode(rootId);
+    const box = ((root?.content ?? []) as string[])
+      .map((sid) => store.getNode(sid))
+      .find((child) => child?.stype === 'components');
+    return { sid: box?.sid as string | undefined, rootId };
+  }
+
+  private _canMakeComponent(editor: Editor, payload?: Record<string, unknown>): boolean {
+    const store = this._store(editor);
+    const chosen = this._chosen(editor, payload);
+    if (!store || chosen.length !== 1 || !this._library(editor)) return false;
+
+    /*
+     * Not something already inside a definition. A definition that holds a placement of itself
+     * cannot be drawn, and refusing here is refusing while it is still a gesture.
+     */
+    let at: string | undefined = chosen[0];
+    let depth = 0;
+    while (at && depth++ < 64) {
+      if (store.getNode(at)?.stype === 'component') return false;
+      at = store.getNode(at)?.parentId as string | undefined;
+    }
+    // A frame or a collection: something with a shape worth reusing, rather than one paragraph.
+    return ['frame', 'collection'].includes(String(store.getNode(chosen[0])?.stype));
+  }
+
+  private async _makeComponent(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    if (!this._canMakeComponent(editor, payload)) return false;
+
+    const store = this._store(editor)!;
+    const sid = this._chosen(editor, payload)[0];
+    const block = store.getNode(sid)!;
+    const parentId = String(block.parentId);
+    const at = this._indexOf(store, sid);
+
+    const tree = (editor as never as { exportDocument?: (sid: string) => unknown }).exportDocument?.(sid);
+    if (!tree) return false;
+
+    const taken = new Set(definitionsOf({ rootId: (editor as never as { getRootId: () => string }).getRootId(), getNode: (one: string) => store.getNode(one) } as never).map((one) => one.id));
+    const name = typeof payload?.name === 'string' && payload.name ? payload.name : '새 블록';
+    const id = unique(name, taken);
+
+    const library = this._library(editor)!;
+    const steps: unknown[] = [];
+
+    /*
+     * The library, made if the document has not got one.
+     *
+     * A site that has never had a definition has no `components` container, and the document's
+     * content model says where one goes: `docMeta? surface+ resources? components? variables?`. So
+     * it lands **before the variables** if there are any, and at the end otherwise — appending
+     * blindly would put it after them and the document would stop matching its own schema.
+     *
+     * `$alias` is how one transaction names a node it is about to create: the store registers it
+     * while the overlay is open, so the step after this one can say where the definition goes
+     * without knowing an id that does not exist yet.
+     */
+    const into = library.sid ?? '$library';
+    if (!library.sid) {
+      const siblings = ((store.getNode(library.rootId)?.content ?? []) as string[]);
+      const variables = siblings.findIndex((one) => store.getNode(one)?.stype === 'variables');
+      steps.push(
+        addChild(
+          library.rootId,
+          node('components', { $alias: '$library' }, []) as never,
+          variables >= 0 ? variables : siblings.length
+        )
+      );
+    }
+
+    steps.push(
+      addChild(into, node('component', { id, name }, [freshCopy(tree) as never]) as never),
+      // The page is unchanged at the instant this runs, which is what makes it safe to try.
+      removeChild(parentId, sid),
+      addChild(parentId, node('instance', { componentId: id, sizing: block.attributes?.sizing ?? 'fill' }, []) as never, at)
+    );
+
+    const done = await transaction(editor, steps as never).commit();
+    if (done.success !== true) return false;
+
+    const placed = ((store.getNode(parentId)?.content ?? []) as string[])[at];
+    if (placed) {
+      (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.('setNode', {
+        nodeIds: [placed]
+      });
+    }
     return true;
   }
 
@@ -293,4 +416,21 @@ function freshCopy(node: unknown): unknown {
     out.content = ((node as { content: unknown[] }).content).map(freshCopy);
   }
   return out;
+}
+
+/**
+ * A durable id nothing else in this document is using.
+ *
+ * Durable because `forFile` strips sids: a placement that named one would name nothing the first
+ * time the site was reopened. Derived from what the reader called it, so a file is readable — and
+ * numbered when that name is taken, rather than refusing a second card called 카드.
+ */
+function unique(name: string, taken: Set<string>): string {
+  const base = name.trim().replace(/\s+/g, '-') || 'block';
+  if (!taken.has(base)) return base;
+  for (let n = 2; n < 1000; n++) {
+    const tried = `${base}-${n}`;
+    if (!taken.has(tried)) return tried;
+  }
+  return `${base}-${taken.size + 1}`;
 }
