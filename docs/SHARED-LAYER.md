@@ -186,11 +186,38 @@ up depending on the shape of another product's file.
 | The text half's closure | 29 | 7,220 |
 | The page half's own | 22 | 5,753 |
 
-**And the next coupling is measured, not guessed:** the text half *still* reaches pagination, layout,
-page furniture and the contents page — through **`render-context.ts`**, the env channel, whose
-`createWordEnv` computes page numbers. That is what `office-text` has to answer: either the env
-splits in two, or the page's half of it moves to the page's side. Nothing else in the text closure
-knows a page exists.
+**And then the env channel, which was the coupling the split exposed.** The text half still reached
+pagination, layout, page furniture and the contents page — all of it through `render-context.ts`,
+whose `createWordEnv` computes page numbers. So the environment is two things wearing one name:
+
+- **`TextEnv`** (`text-context.ts`) — the document, the style, numbering and field resolvers, the
+  tabs, the clock a date field reads.
+- **`WordEnv extends TextEnv`** — the layout, the pushes, the splits, the page numbers, the column
+  positions, and which header is being edited.
+
+One key, so every existing caller is unchanged; `createWordEnv` builds the text half and adds the
+page's answers on top.
+
+Measuring what the text renderers actually read corrected a claim on the way. They read `styles`,
+`numbering`, `fields`, `doc` and `getTab` — **and three page answers, in `blockStyle` and nowhere
+else**: a bound document's mirrored indents need to know which side of the paper a paragraph landed
+on, a section in columns positions every block absolutely, and the block that opens a page is pushed
+down to meet its sheet. Those three live on the text side because the *asking* is text behaviour: a
+product with no pages hands over an environment without them, gets `undefined`, and draws a
+paragraph that sits where it falls.
+
+| the text half's closure | files | lines |
+| --- | ---: | ---: |
+| before the renderers split | 29 | 7,220 |
+| after it | 22 | 5,599 |
+| after the env split, and one misfiled pair | **21** | **5,488** |
+
+The misfiled pair: `table-style.ts` imported `tableRowsOf` and `columnsOf` from
+**`table-pagination.ts`**, so anything that drew a table pulled in the paginator. Those two are not
+pagination — they are what a table *is* — and the only thing saying otherwise was the name of the
+file they were in. They are `table-format.ts` now.
+
+**Nothing about a page is left in the text closure.** `office-text` is a `git mv` away.
 
 ### The plan as it stood before that — do it before the third product, not now
 

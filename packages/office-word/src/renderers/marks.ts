@@ -7,7 +7,7 @@
  */
 import { data, define, element } from '@barocss/dsl';
 import type { RenderEnv } from '@barocss/dsl';
-import { getWordStyles } from '../render-context';
+import { getWordStyles } from '../text-context';
 import { authorColor, revisionTitle } from '../revisions';
 import { markAttributes, markCss, VALUED_MARKS } from '../mark-format';
 

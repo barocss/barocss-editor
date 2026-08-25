@@ -1821,10 +1821,22 @@ renderers and the page renderers together.
   Word's page renderers in order to override `surface` and ignore the rest. Registering something to
   override it is how a product comes to depend on the shape of another product's file.
 
-  And the split measured the **next** coupling rather than leaving it to be guessed: the text half
-  still reaches pagination, layout, page furniture and the contents page — all of it through
-  `render-context.ts`, whose `createWordEnv` computes page numbers. Nothing else in the text closure
-  knows a page exists, so that env channel is exactly what `office-text` has to answer.
+  And the split exposed the next coupling, which was answered the same day: the env channel.
+  `TextEnv` (`text-context.ts`) is the document and the resolvers; `WordEnv extends TextEnv` adds the
+  layout, the pushes, the splits, the page numbers and the columns. One key, so every caller is
+  unchanged, and `createWordEnv` builds the small one and puts the page's answers on top.
+
+  Measuring what the text renderers read corrected a claim on the way: they read `styles`,
+  `numbering`, `fields`, `doc`, `getTab` — **and three page answers, in `blockStyle` and nowhere
+  else**. Mirrored indents need the side of the paper, a section in columns positions every block,
+  and the block opening a page is pushed to its sheet. Those three read from the text side, because
+  the *asking* is text behaviour: a product with no pages answers `undefined` and the paragraph sits
+  where it falls.
+
+  The text half's closure went **29 files / 7,220 lines → 21 / 5,488**, and nothing about a page is
+  in it. The last thread was misfiled rather than coupled: `table-style` imported `tableRowsOf` and
+  `columnsOf` from `table-pagination`, so drawing a table pulled in the paginator — and those two are
+  what a table *is*, not how it breaks. They are `table-format` now.
 
 - [ ] **Make the registry seam explicit.** Slides overrides five node types by
   registering after Word and relying on last-write-wins. It works and is stated

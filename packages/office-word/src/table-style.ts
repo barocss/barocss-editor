@@ -42,7 +42,12 @@ import {
   type DocumentAccess,
   type DocumentNode
 } from './document-access';
-import { columnsOf, tableRowsOf } from './table-pagination';
+/*
+ * The table's *shape* comes from `table-format`, not from the paginator: those two questions — which
+ * rows, how many columns — are what a table is, and importing them from the pagination file pulled
+ * the whole paginator into anything that drew a table.
+ */
+import { columnsOf, tableRowsOf } from './table-format';
 import type { CellPosition } from './table-format';
 
 /** One region of a table, named as Word names it. */

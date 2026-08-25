@@ -22,7 +22,7 @@ import {
   getWordDocument,
   getWordNumbering,
   getWordStyles
-} from '../render-context';
+} from '../text-context';
 import { blockStyleLayers } from '../table-style';
 import { suppressedSpacing } from '../spacing';
 import { childrenOf, documentSettings, type DocumentNode } from '../document-access';

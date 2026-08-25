@@ -1,39 +1,54 @@
 /**
- * The document a Word renderer is currently drawing.
+ * The **page** half of the environment a Word renderer draws with.
  *
- * DSL templates receive the node being rendered, not the document around it —
- * but a paragraph's appearance depends on things that are not in the node: the
- * style it points at, the document defaults behind that style, the list counter
- * that precedes it, and the page its text reached. Resolving those needs the
- * whole document.
+ * The text half is `text-context.ts`, and the split is measured rather than aesthetic: when
+ * `renderers.ts` became a text half and a page half, the text half still reached pagination, layout,
+ * page furniture and the contents page — through this file, because `createWordEnv` computes page
+ * numbers. Counting what the text renderers actually read gave `styles`, `numbering`, `fields`, `doc`
+ * and `getTab`, and nothing else; `layouts`, `pushes`, `splits`, `pageNumbers` and `positions` are
+ * all a page's answers.
  *
- * That environment now travels with the render. It is put in when the view is
- * built and read back out of the context the renderer hands every template, so
- * its scope is the view — which is what it always should have been. It used to
- * be module state, which quietly meant one document per module instance: two
- * editors on a page read each other's styles.
- *
- * Resolvers are built once per document rather than per node: numbering in
- * particular is a single ordered walk, and doing it per paragraph would make
- * rendering quadratic.
+ * So `WordEnv` **extends** `TextEnv` and lives under the same key. Word builds one and hands it over
+ * as it always did; anything that only draws text can build the smaller one and never mention a page.
  */
 import type { RenderEnv } from '@barocss/dsl';
 import type { DocumentAccess } from './document-access';
 import type { TabLeader } from './tabs';
-import { createStyleResolver, type StyleResolver } from './style-resolver';
-import { createNumberingResolver, type NumberingResolver } from './numbering-resolver';
-import { createFieldResolver, type FieldResolver } from './field-resolver';
 import type { SurfaceLayout } from './layout';
 import { pageNumberFor } from './page-furniture';
+import { WORD_ENV_KEY, createTextEnv, type TextEnv } from './text-context';
 
-/** The key Word's environment lives under, so that products cannot collide. */
-export const WORD_ENV_KEY = 'word';
+/**
+ * The text half, re-exported.
+ *
+ * Everything that reads a style, a list number or a field goes on importing it from here, which is
+ * where it has always been — the split is about what a *package* may take, not about making forty
+ * call sites say a different file name.
+ */
+export {
+  WORD_ENV_KEY,
+  createTextEnv,
+  textEnv,
+  getWordStyles,
+  getWordNumbering,
+  getWordFields,
+  getWordDocument,
+  getWordNow,
+  getTab,
+  /**
+   * The three a block's style asks and only a page answers — a bound document's mirrored indents,
+   * a column's absolute position, and the push that takes the block opening a page down to its
+   * sheet. They are read from the text side because the *asking* is text behaviour; a product with
+   * no pages answers nothing, which is what a paragraph that sits where it falls looks like.
+   */
+  getBlockPush,
+  getBlockPosition,
+  getBlockPageNumber,
+  type TextEnv
+} from './text-context';
 
-export interface WordEnv {
-  doc: DocumentAccess;
-  styles: StyleResolver;
-  numbering: NumberingResolver;
-  fields: FieldResolver;
+/** What a **page** adds to the environment: everything the layout worked out. */
+export interface WordEnv extends TextEnv {
   /** Layout per surface id. Empty until the document has been measured. */
   layouts: Map<string, SurfaceLayout>;
   /** Extra top margin per block, flattened from every surface's layout. */
@@ -62,16 +77,6 @@ export interface WordEnv {
   /** Absolute position per block, for sections whose text runs in columns. */
   positions: Map<string, { top: number; left: number; width: number }>;
   /**
-   * How wide each tab has to be, and what fills it.
-   *
-   * A tab is an instruction to reach the next stop, so its width depends on
-   * where it sits — which is only known once the line has been measured. Empty
-   * until it has been, and a tab with no entry draws as nothing, which is what
-   * a tab looked like before any of this existed.
-   */
-  tabs: Map<string, { width: number; leader: TabLeader }>;
-
-  /**
    * The header or footer currently being edited, by its id.
    *
    * While one is being edited the copies drawn on the pages are suppressed and
@@ -79,14 +84,6 @@ export interface WordEnv {
    * node are the wrong thing to type into.
    */
   editing?: string;
-  /**
-   * The instant a date field shows.
-   *
-   * Supplied by the host rather than read from the clock: a renderer that reads
-   * the clock produces different output on two runs, which no test can pin down
-   * and which makes the layout look changed on every pass.
-   */
-  now?: Date;
 }
 
 /**
@@ -108,7 +105,12 @@ export function createWordEnv(
   const positions = new Map<string, { top: number; left: number; width: number }>();
   const splits = new Map<string, { line: number; height: number }[]>();
   const pageNumbers = new Map<string, number>();
-  const styles = createStyleResolver(doc);
+  /*
+   * The text half first, then what the pages worked out on top of it — which is the shape of the
+   * whole environment now: a `WordEnv` *is* a `TextEnv` with the layout's answers added.
+   */
+  const text = createTextEnv(doc, now, tabs);
+  const styles = text.styles;
 
   for (const [surfaceSid, layout] of layouts) {
     for (const [sid, push] of layout.pushBySid) pushes.set(sid, push);
@@ -124,41 +126,12 @@ export function createWordEnv(
     }
   }
 
-  return {
-    doc,
-    styles,
-    numbering: createNumberingResolver(doc),
-    fields: createFieldResolver(doc),
-    layouts,
-    pushes,
-    positions,
-    splits,
-    pageNumbers,
-    tabs,
-    editing,
-    now
-  };
+  return { ...text, layouts, pushes, positions, splits, pageNumbers, editing };
 }
 
 /** Word's environment, if this render has one. */
 export function wordEnv(env: RenderEnv | undefined): WordEnv | undefined {
   return env?.[WORD_ENV_KEY] as WordEnv | undefined;
-}
-
-export function getWordStyles(env: RenderEnv | undefined): StyleResolver | undefined {
-  return wordEnv(env)?.styles;
-}
-
-export function getWordNumbering(env: RenderEnv | undefined): NumberingResolver | undefined {
-  return wordEnv(env)?.numbering;
-}
-
-export function getWordFields(env: RenderEnv | undefined): FieldResolver | undefined {
-  return wordEnv(env)?.fields;
-}
-
-export function getWordDocument(env: RenderEnv | undefined): DocumentAccess | undefined {
-  return wordEnv(env)?.doc;
 }
 
 export function getWordLayout(
@@ -179,11 +152,6 @@ export function getWordSplits(
   sid: string
 ): { line: number; height: number }[] {
   return wordEnv(env)?.splits.get(sid) ?? [];
-}
-
-/** The instant a date field should show, if the host supplied one. */
-export function getWordNow(env: RenderEnv | undefined): Date | undefined {
-  return wordEnv(env)?.now;
 }
 
 /** The header or footer being edited, if any. */
@@ -220,33 +188,3 @@ export function getFurniturePlacement(
   };
 }
 
-/** Where a block sits when its section runs in columns. */
-export function getBlockPosition(
-  env: RenderEnv | undefined,
-  sid: string
-): { top: number; left: number; width: number } | undefined {
-  return wordEnv(env)?.positions.get(sid);
-}
-
-/**
- * The page number the block starts on, as the page shows it.
- *
- * Undefined before the first layout, which is when nothing has been placed yet
- * and every question about a page has no answer.
- */
-export function getBlockPageNumber(env: RenderEnv | undefined, sid: string): number | undefined {
-  return wordEnv(env)?.pageNumbers?.get(sid);
-}
-
-/** How wide a tab has to be, once the line it is on has been measured. */
-export function getTab(
-  env: RenderEnv | undefined,
-  sid: string
-): { width: number; leader: TabLeader } | undefined {
-  return wordEnv(env)?.tabs?.get(sid);
-}
-
-/** How far the block opening a page must be pushed to reach its sheet. */
-export function getBlockPush(env: RenderEnv | undefined, sid: string): number | undefined {
-  return wordEnv(env)?.pushes.get(sid);
-}

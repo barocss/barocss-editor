@@ -12,6 +12,17 @@
  * measured elsewhere and passed in.
  */
 import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+/*
+ * The three questions about a table's **shape** — which rows it has, which of them repeat, how many
+ * columns the widest one spans — are `table-format.ts` now.
+ *
+ * Measured while splitting the text renderers from the page ones: `table-style.ts` imported two of
+ * them, so a product that only draws tables pulled this file in, and with it the paginator. They
+ * were never pagination; they are what a table *is*, and the name of the file they were in was the
+ * only thing saying otherwise.
+ */
+import { columnsOf, headerRowsOf, tableRowsOf } from './table-format';
+export { columnsOf, headerRowsOf, tableRowsOf };
 
 /** A page break that falls inside a table, as something to draw. */
 export interface TableBreakWidget {
@@ -32,62 +43,8 @@ export interface TableBreakWidget {
   header: { text: string }[];
 }
 
-/**
- * The rows of a table, in the order a page meets them.
- *
- * A header holds its cells directly — the schema says `bTableHeaderCell+`, with
- * no row between — so the header group *is* a row. The same rule has to hold in
- * the measurement, or the indices the pagination answers with count something
- * different from what they are read against.
- */
-export function tableRowsOf(doc: DocumentAccess, table: DocumentNode): DocumentNode[] {
-  const rows: DocumentNode[] = [];
 
-  for (const group of childrenOf(doc, table)) {
-    const groupRows = childrenOf(doc, group).filter((row) => row.stype === 'bTableRow');
-    rows.push(...(groupRows.length > 0 ? groupRows : [group]));
-  }
 
-  return rows;
-}
-
-/**
- * The rows Word would repeat: the header group, and any row marked `isHeader`.
- *
- * Only the ones at the top. Word repeats a run of header rows from the start of
- * the table; a row marked `isHeader` in the middle is a document fault, and
- * repeating it would put a band of unrelated text under every break.
- */
-export function headerRowsOf(doc: DocumentAccess, rows: DocumentNode[]): DocumentNode[] {
-  const headers: DocumentNode[] = [];
-
-  for (const row of rows) {
-    const group = row.parentId ? doc.getNode(row.parentId) : undefined;
-    const isHeader =
-      row.stype === 'bTableHeader' ||
-      row.attributes?.isHeader === true ||
-      group?.stype === 'bTableHeader';
-    if (!isHeader) break;
-    headers.push(row);
-  }
-
-  return headers;
-}
-
-/** How many columns the widest row of a table has, which is what a gap spans. */
-export function columnsOf(doc: DocumentAccess, rows: DocumentNode[]): number {
-  let widest = 1;
-
-  for (const row of rows) {
-    const cells = childrenOf(doc, row).reduce(
-      (total, cell) => total + (Number(cell.attributes?.colspan) || 1),
-      0
-    );
-    widest = Math.max(widest, cells);
-  }
-
-  return widest;
-}
 
 /** The text of a node and everything under it. */
 export function textOf(doc: DocumentAccess, node: DocumentNode | undefined, depth = 0): string {

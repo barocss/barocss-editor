@@ -19,7 +19,7 @@ import {
   getWordNow,
   getWordStyles,
   getTab
-} from './render-context';
+} from './text-context';
 import { formatDateField } from './date-field';
 import { leaderStyle } from './tabs';
 import { imageCss } from './image-layout';
