@@ -873,7 +873,32 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
        * or a diff — wants to see before the parts.
        */
       content: 'componentValue* (scene | frame)*',
-      attrs: { componentId: { type: 'string', required: true }, ...geometry }
+      attrs: {
+        componentId: { type: 'string', required: true },
+        ...geometry,
+        /**
+         * A size, **when there is one to state** — which a placement on a canvas has and a
+         * placement in the flow does not.
+         *
+         * The frame learned this first and its comment is a few hundred lines above: a box on a
+         * canvas is given a size by the command that places it, and a box in the flow is as wide as
+         * the column it sits in, which is the page's to decide. An author who had to write that
+         * width in twips would be writing down a number that goes stale the moment a margin moves.
+         *
+         * A **site builder** is what made it true of `instance` as well. A reusable header is one
+         * definition placed on every page — the deck's own mechanism, doing the job it is most
+         * obviously for — and it is a block in a column, not a box at a coordinate. Measured the
+         * first time the third product's sample site was loaded: *Required attribute 'width' is
+         * missing*, on a header that has no width to have.
+         *
+         * What a slide loses by this: nothing that was being checked. A placement with no size on a
+         * canvas drew nothing before and draws nothing now; the deck's own insert has always
+         * written one, and `instanceResizable` is what actually decides whether a reader may change
+         * it.
+         */
+        width: { type: 'number' as const, required: false },
+        height: { type: 'number' as const, required: false }
+      }
     },
 
     /**

@@ -851,6 +851,52 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/office-site:
+    dependencies:
+      '@barocss/datastore':
+        specifier: workspace:*
+        version: link:../datastore
+      '@barocss/dsl':
+        specifier: workspace:*
+        version: link:../dsl
+      '@barocss/editor-core':
+        specifier: workspace:*
+        version: link:../editor-core
+      '@barocss/editor-view-dom':
+        specifier: workspace:*
+        version: link:../editor-view-dom
+      '@barocss/extensions':
+        specifier: workspace:*
+        version: link:../extensions
+      '@barocss/model':
+        specifier: workspace:*
+        version: link:../model
+      '@barocss/office-canvas':
+        specifier: workspace:*
+        version: link:../office-canvas
+      '@barocss/office-text':
+        specifier: workspace:*
+        version: link:../office-text
+      '@barocss/office-word':
+        specifier: workspace:*
+        version: link:../office-word
+      '@barocss/schema':
+        specifier: workspace:*
+        version: link:../schema
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^3.9.1
+        version: 3.9.1(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
+
   packages/office-slides:
     dependencies:
       '@barocss/datastore':

@@ -23,7 +23,12 @@ import { createBoxCommands } from './box-commands';
 import { createArrangeCommands } from './arrange-commands';
 import { createComponentCommands } from './component-commands';
 import { createVariableCommands } from './variable-commands';
-import { boundAttrs, boundText, contentWithWords, instanceParts } from '@barocss/office-canvas';
+import {
+  boundAttrs,
+  boundText,
+  contentWithWords,
+  installInstanceResolution
+} from '@barocss/office-canvas';
 import { resolveVarAttrs } from './named-values';
 import { createConnectorCommands } from './connector-commands';
 import { createClipboardCommands } from './clipboard-commands';
@@ -215,14 +220,13 @@ export function createSlidesEditor(options: SlidesEditorOptions = {}): Editor {
    * And the save is untouched — it walks the stored nodes — so a file says what a reader has: a
    * placement, and the values it was given.
    */
-  const store = (editor as any).dataStore;
-  store?.setContentResolver?.((node: any, getNode: (sid: string) => any) => {
-    const rootId = (editor as any).getRootId?.();
-    if (!rootId) return undefined;
-    const doc = { rootId, getNode } as never;
-
-    if (node?.stype === 'instance') return instanceParts(doc, node as never) as never;
-
+  /*
+   * The placement half is the canvas layer's now (`installInstanceResolution`), because the site
+   * builder needed the same three lines on its first day and two products answering "what does a
+   * placement draw" is one of them being wrong. What stays here is what only a *deck* resolves: a
+   * shape's variable bindings and what its references mean in scope.
+   */
+  installInstanceResolution(editor as never, (node: any, getNode: (sid: string) => any, doc: any) => {
     /**
      * And a shape that takes something from a **variable** (`varBinds`, §10h-2).
      *

@@ -17,6 +17,7 @@
   "packages/model": 512,
   "packages/office-canvas": 0,
   "packages/office-controls": 0,
+  "packages/office-site": 0,
   "packages/office-slides": 0,
   "packages/office-text": 0,
   "packages/office-ui": 0,

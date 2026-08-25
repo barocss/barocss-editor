@@ -115,7 +115,10 @@ export { createLayoutCommands, CanvasLayoutExtension } from './canvas-layout-com
 export * from './canvas-connector';
 export * from './canvas-graph-layout';
 
-/** One definition, many placements — and the values a placement answers. */
+/**
+ * One definition, many placements — the values a placement answers, and the one line that makes a
+ * placement draw its definition on whatever store a product hands over.
+ */
 export * from './canvas-component';
 export * from './canvas-instance';
 

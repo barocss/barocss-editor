@@ -346,3 +346,44 @@ export function nestingOf(
   walk(instance?.attributes?.componentId, []);
   return { depth: deepest, ...(cut ? { cut } : {}) };
 }
+
+/**
+ * Making a placement **draw its definition**, on whatever store a product hands over.
+ *
+ * ## Why this is here and not in a product
+ *
+ * The deck wrote it first, in its kit: a content resolver that answers `instanceParts` for an
+ * `instance` and the node's own children for everything else. The site builder then needed the same
+ * three lines on its first day — a reusable header is one definition placed on every page, which is
+ * the mechanism doing the job it is most obviously for — and two products writing one resolver is
+ * the test `docs/SHARED-LAYER.md` sets: *share what two implementations disagreeing about would be a
+ * bug.* Two answers to "what does a placement draw" is one of them being wrong.
+ *
+ * ## What stays the product's
+ *
+ * Everything else a resolver does. The deck's also resolves a shape's **variable bindings** and its
+ * theme references, which need the deck's own scope walk; a site has no theme slots yet. So this
+ * takes the product's own resolver as a fallback and asks it whatever it does not answer itself —
+ * which keeps the deck's behaviour exactly as it was while the site gets the half it needs.
+ *
+ * The **save is untouched**, and that is the whole design: `exportToTree` walks the stored nodes, so
+ * a file says what a reader has — a placement and the values it was given, never the parts it drew.
+ */
+export function installInstanceResolution(
+  editor: { dataStore?: unknown; getRootId?: () => string | undefined },
+  /** What the product resolves that the shared answer does not. Asked second. */
+  andThen?: (node: CanvasNode, getNode: (sid: string) => CanvasNode | undefined, doc: CanvasAccess) => unknown
+): void {
+  const store = editor.dataStore as
+    | { setContentResolver?: (resolve: (node: CanvasNode, getNode: (sid: string) => CanvasNode) => unknown) => void }
+    | undefined;
+
+  store?.setContentResolver?.((node, getNode) => {
+    const rootId = editor.getRootId?.();
+    if (!rootId) return undefined;
+    const doc = { rootId, getNode } as CanvasAccess;
+
+    if (node?.stype === 'instance') return instanceParts(doc, node) as never;
+    return andThen?.(node, getNode, doc);
+  });
+}
