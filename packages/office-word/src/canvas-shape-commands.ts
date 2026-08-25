@@ -16,9 +16,10 @@
  * version rather than a shared command with half its guards switched off. Unifying them is a real
  * question and it is in `docs/BACKLOG.md`, to be answered when Word has the second half.
  */
-import { Editor, Extension } from '@barocss/editor-core';
+import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { boxOf } from './canvas-box';
+import { resizeBox, type Handle } from './canvas-manipulate';
 import { canvasAt, type CanvasAccess, type CanvasNode } from './canvas-access';
 
 /** What a caller says: which shapes, and how far in the model's own units. */
@@ -28,6 +29,27 @@ export interface MoveShapesOptions {
   dy?: unknown;
 }
 
+/**
+ * A resize, said the way the reader did it: **which handle**, and how far it travelled.
+ *
+ * Not the finished box. The arithmetic — which edges a handle holds still, what the aspect lock
+ * pulls, what resizing from the centre means — is `resizeBox` in the canvas layer, tested in
+ * milliseconds, and a command that took the answer would put that arithmetic in whatever drew the
+ * handles. Every caller then gets the modifiers right or wrong on its own.
+ */
+export interface ResizeShapesOptions {
+  nodeIds?: unknown;
+  handle?: unknown;
+  dx?: unknown;
+  dy?: unknown;
+  /** Shift, in every drawing tool there is. */
+  keepAspect?: unknown;
+  /** Alt, in every drawing tool there is. */
+  fromCentre?: unknown;
+}
+
+const HANDLES = new Set<Handle>(['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']);
+
 const number = (value: unknown): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0;
 
@@ -36,11 +58,80 @@ export class WordCanvasShapeExtension implements Extension {
   priority = 46;
 
   onCreate(editor: Editor): void {
-    (editor as never as { registerCommand: (spec: unknown) => void }).registerCommand({
-      name: 'moveShapes',
-      execute: async (_ed: Editor, payload?: MoveShapesOptions) => await this._move(editor, payload),
-      canExecute: (_ed: Editor, payload?: MoveShapesOptions) => this._movable(editor, payload).length > 0
-    });
+    const register = (
+      name: string,
+      execute: (payload?: Record<string, unknown>) => Promise<boolean>,
+      can: (payload?: Record<string, unknown>) => boolean
+    ) =>
+      (editor as never as { registerCommand: (spec: unknown) => void }).registerCommand({
+        name,
+        execute: async (_ed: Editor, payload?: Record<string, unknown>) => await execute(payload),
+        canExecute: (_ed: Editor, payload?: Record<string, unknown>) => can(payload)
+      });
+
+    register(
+      'moveShapes',
+      async (payload) => await this._move(editor, payload as never),
+      (payload) => this._movable(editor, payload as never).length > 0
+    );
+
+    /**
+     * The same handle on **every** shape that is selected, by the same amount.
+     *
+     * Not a proportional scale of the set: that is a different gesture and this is the one the deck
+     * already has, so the two products answer a dragged handle the same way. What it looks like is
+     * that each shape's own corner follows the pointer, which is what the reader is pulling.
+     */
+    register(
+      'resizeShapes',
+      async (payload) => await this._resize(editor, payload as never),
+      (payload) => this._resizable(editor, payload as never).length > 0
+    );
+
+    /**
+     * Taking them away — every one that is selected, in one transaction.
+     *
+     * The canvas **stays**. A drawing a reader has put in their document is a thing they made, and
+     * clearing it because the last shape went would be the editor deciding they had changed their
+     * mind. Word's own drawing canvas behaves the same way.
+     */
+    register(
+      'deleteShapes',
+      async (payload) => await this._delete(editor, payload as never),
+      // `dx: 1` because the movable guard refuses a move of nothing, and a delete has no distance.
+      (payload) => this._movable(editor, { nodeIds: payload?.nodeIds, dx: 1 }).length > 0
+    );
+
+    /**
+     * Whether anything on a drawing is selected, for the key map to ask.
+     *
+     * The same shape `tableSelected` has, and for the same reason it was needed: with a caret in a
+     * paragraph, Delete is a character. Only when what is selected is *shapes* is Delete "take these
+     * away", and a binding on "there is a drawing in this document" would eat the reader's text.
+     */
+    const track = () =>
+      (editor as never as { setContext: (name: string, value: boolean) => void }).setContext(
+        'shapesSelected',
+        this._selected(editor).length > 0
+      );
+    /*
+     * `editor:selection.model` and a content change, which is the pair the table's contexts already
+     * use — and the immediate call, because a context nobody has set yet is `undefined` and a key
+     * map asking about it before the first selection would answer for the wrong state.
+     */
+    editor.on('editor:selection.model', track);
+    editor.on('editor:selection.change', track);
+    editor.on('editor:content.change', track);
+    track();
+  }
+
+  /** The shapes the *selection* names, which is what a key binding acts on. */
+  private _selected(editor: Editor): string[] {
+    const doc = this._access(editor);
+    if (!doc) return [];
+    return selectedNodeIds((editor as never as { selection?: never }).selection).filter(
+      (sid) => !!doc.getNode(sid) && !!canvasAt(doc, sid)
+    );
   }
 
   private _access(editor: Editor): CanvasAccess | null {
@@ -60,9 +151,16 @@ export class WordCanvasShapeExtension implements Extension {
   private _movable(editor: Editor, payload?: MoveShapesOptions): string[] {
     const doc = this._access(editor);
     if (!doc) return [];
+    /*
+     * What the caller named, or what is selected.
+     *
+     * A key binding says "nudge" and nothing else — the selection *is* the payload there — while a
+     * drag names exactly what it was holding. Both are the reader's answer to "which shapes", and
+     * making the command ask twice would be two lists to keep in step.
+     */
     const asked = Array.isArray(payload?.nodeIds)
       ? (payload!.nodeIds as unknown[]).filter((one): one is string => typeof one === 'string')
-      : [];
+      : this._selected(editor);
     if (asked.length === 0) return [];
     if (number(payload?.dx) === 0 && number(payload?.dy) === 0) return [];
     return asked.filter((sid) => !!doc.getNode(sid) && !!canvasAt(doc, sid));
@@ -87,6 +185,64 @@ export class WordCanvasShapeExtension implements Extension {
     });
 
     return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  /** The shapes a resize may touch: named or selected, on a canvas, and pulled by a real handle. */
+  private _resizable(editor: Editor, payload?: ResizeShapesOptions): string[] {
+    if (!HANDLES.has(payload?.handle as Handle)) return [];
+    return this._movable(editor, {
+      nodeIds: payload?.nodeIds,
+      // A resize that travelled nowhere is not one, the same as a move.
+      dx: number(payload?.dx),
+      dy: number(payload?.dy)
+    });
+  }
+
+  private async _resize(editor: Editor, payload?: ResizeShapesOptions): Promise<boolean> {
+    const doc = this._access(editor);
+    const resizing = this._resizable(editor, payload);
+    if (!doc || resizing.length === 0) return false;
+
+    const steps = resizing.map((sid) => {
+      const next = resizeBox(
+        doc.getNode(sid)?.attributes as never,
+        payload!.handle as Handle,
+        { dx: number(payload?.dx), dy: number(payload?.dy) },
+        { keepAspect: payload?.keepAspect === true, fromCentre: payload?.fromCentre === true }
+      );
+      return {
+        type: 'setAttrs',
+        payload: {
+          nodeId: sid,
+          attrs: {
+            x: Math.round(next.x),
+            y: Math.round(next.y),
+            width: Math.round(next.width),
+            height: Math.round(next.height)
+          }
+        }
+      };
+    });
+
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  private async _delete(editor: Editor, payload?: { nodeIds?: unknown }): Promise<boolean> {
+    const doc = this._access(editor);
+    const going = this._movable(editor, { nodeIds: payload?.nodeIds, dx: 1 });
+    if (!doc || going.length === 0) return false;
+
+    const steps = going.map((sid) => ({
+      type: 'removeChild',
+      payload: { parentId: canvasAt(doc, sid), childId: sid }
+    }));
+
+    if ((await transaction(editor, steps as never).commit()).success !== true) return false;
+
+    // Nothing is selected once it is gone: leaving the ids selected would leave the outline
+    // pointing at nodes the document no longer has.
+    (editor as never as { setNode?: (selection: unknown) => void }).setNode?.(null);
+    return true;
   }
 }
 

@@ -122,6 +122,36 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   { key: 'Delete', command: 'deleteTable', when: 'editorFocus && tableSelected' },
   { key: 'Backspace', command: 'deleteTable', when: 'editorFocus && tableSelected' },
 
+  // ── What is on a drawing ───────────────────────────────────────────────────
+  /**
+   * The same rule the table above follows, for the same reason: `shapesSelected`, not "there is a
+   * drawing in this document". With a caret in a paragraph, Delete is a character — and a binding
+   * that forgot the difference would be the most destructive key in the product.
+   */
+  { key: 'Delete', command: 'deleteShapes', when: 'editorFocus && shapesSelected' },
+  { key: 'Backspace', command: 'deleteShapes', when: 'editorFocus && shapesSelected' },
+  /**
+   * A nudge is one pixel, or a tenth of an inch with Shift held — the deck's own steps, because a
+   * reader who has learned one has learned the other.
+   *
+   * Written out rather than one binding that reads the Shift key, which is the lesson the deck's
+   * key map records: a chord that matched with or without a modifier made `Shift+ArrowRight` match
+   * *nothing*, and a coarse nudge silently did not happen.
+   *
+   * **`Up`, not `ArrowUp`.** The engine normalises an arrow's name before it looks a binding up
+   * (`getKeyString`), so a map written the way the browser spells it matches nothing at all — which
+   * is what the first version of these four did, silently, while the caret moved instead. The deck
+   * spells them `ArrowUp` because it matches its own chords rather than going through the registry.
+   */
+  { key: 'Left', command: 'moveShapes', args: { dx: -15, dy: 0 }, when: 'editorFocus && shapesSelected' },
+  { key: 'Right', command: 'moveShapes', args: { dx: 15, dy: 0 }, when: 'editorFocus && shapesSelected' },
+  { key: 'Up', command: 'moveShapes', args: { dx: 0, dy: -15 }, when: 'editorFocus && shapesSelected' },
+  { key: 'Down', command: 'moveShapes', args: { dx: 0, dy: 15 }, when: 'editorFocus && shapesSelected' },
+  { key: 'Shift+Left', command: 'moveShapes', args: { dx: -144, dy: 0 }, when: 'editorFocus && shapesSelected' },
+  { key: 'Shift+Right', command: 'moveShapes', args: { dx: 144, dy: 0 }, when: 'editorFocus && shapesSelected' },
+  { key: 'Shift+Up', command: 'moveShapes', args: { dx: 0, dy: -144 }, when: 'editorFocus && shapesSelected' },
+  { key: 'Shift+Down', command: 'moveShapes', args: { dx: 0, dy: 144 }, when: 'editorFocus && shapesSelected' },
+
   // ── Review ─────────────────────────────────────────────────────────────────
   { key: 'Mod+Shift+e', command: 'toggleTrackChanges', when: 'editorFocus' },
 

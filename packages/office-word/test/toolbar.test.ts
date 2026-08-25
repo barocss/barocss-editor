@@ -305,15 +305,30 @@ describe('what Delete is allowed to remove', () => {
   });
 
   /**
-   * And nothing else takes the plain Delete keys, which is what makes the guard
-   * load-bearing rather than decorative: a second binding on the same key with a
-   * looser guard would win somewhere.
+   * And **every** plain Delete binding is guarded by something being *selected*, which is what
+   * makes the guard load-bearing rather than decorative: one binding on the same key with a looser
+   * guard would win somewhere, and the key it would win on is the destructive one.
+   *
+   * It used to say "nothing else takes these keys at all", and a drawing's shapes are the second
+   * thing that can be selected in a page. The rule the first binding was written for is the one
+   * worth holding: *selected*, never "somewhere inside".
    */
-  it('is the only thing bound to a plain Delete or Backspace', () => {
+  it('lets nothing take a plain Delete without something being selected', () => {
     const plain = WORD_KEYBINDINGS.filter(
       (binding) => binding.key === 'Delete' || binding.key === 'Backspace'
     );
-    expect(plain.map((binding) => binding.command)).toEqual(['deleteTable', 'deleteTable']);
+    expect(plain.map((binding) => binding.command).sort()).toEqual([
+      'deleteShapes',
+      'deleteShapes',
+      'deleteTable',
+      'deleteTable'
+    ]);
+    for (const binding of plain) {
+      expect(binding.when, `${binding.key}(${binding.command})의 조건이 선택이 아닙니다`).toMatch(
+        /Selected/
+      );
+      expect(binding.when).not.toContain('inTable');
+    }
   });
 });
 

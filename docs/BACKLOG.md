@@ -1014,9 +1014,28 @@ shipped features marked undone.
   lock, or a value something else decides. Two commands that move a shape is exactly the shape of
   duplication this repository keeps finding, and it is deliberate today rather than accidental.
 
-- [ ] **A shape on a Word drawing cannot be resized, rotated or deleted yet.** The arithmetic is
-  already shared (`canvas-manipulate`: handles, aspect and centre modifiers, snapping); what is
-  missing is the handles on the overlay and the commands behind them.
+  - [x] **Handles, Delete and the arrow keys**, all of them written for a **set**. Eight handles
+    around the union of what is selected — one frame, upright, which is what every drawing tool does
+    with a multiple selection and what makes a set something a reader can act on. The same handle is
+    pulled on every selected shape by the same amount, which is the deck's own answer, so the two
+    products behave the same way. A resize is not previewed with a transform the way a move is:
+    `translate` cannot say *bigger*, and a shape that scaled its stroke while being dragged would be
+    showing something the model will never hold — the frame follows instead.
+
+    `Delete` and `Backspace` are guarded by **`shapesSelected`**, the same shape `tableSelected`
+    already had and for the same reason: with a caret in a paragraph, Delete is a character. The
+    canvas itself stays when its last shape goes — a reader put it there.
+
+    Two things measured on the way, both of them the harness of experience rather than a test:
+    `getKeyString` normalises an arrow before the registry looks it up, so a map written `ArrowUp`
+    matches **nothing** and the caret moves instead — the deck spells them the browser's way because
+    it matches its own chords rather than going through the registry. And a browser test that
+    clicked a paragraph and typed was testing the sample's `fieldDateTime`, where typing is refused
+    correctly, and calling it a fault in the drawing; the caret is set through the editor now.
+
+- [ ] **A shape on a Word drawing cannot be rotated**, and nothing draws a rotate handle. The
+  arithmetic is shared already (`angleOf`, `snapAngle`); what is missing is the gesture and a
+  command.
 
 - [ ] **A text box on a Word drawing** needs `<foreignObject>`, which is a design question rather
   than a fifth line in the insert list: what a caret does inside one, how the paginator measures it,

@@ -900,3 +900,38 @@ body {
   border: 1px solid #2563eb;
   background: rgb(37 99 235 / 0.08);
 }
+
+/*
+ * The frame around what is selected, and the eight handles on it.
+ *
+ * One frame for the whole set, upright: a set of shapes has no single angle to turn by, which is
+ * what every drawing tool does with a multiple selection.
+ *
+ * The handles carry `pointer-events: auto` against the layer's `none` — they are the one part of
+ * this overlay that takes the pointer, and everything else stays clickable underneath. Their size
+ * is in screen pixels and does not scale with the zoom: a handle that shrank with the page would be
+ * unusable at the sizes a document is read at.
+ */
+.w-drawing-frame {
+  position: absolute;
+  outline: 1px solid #2563eb;
+}
+
+.w-drawing-handle {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -5px 0 0 -5px;
+  background: #ffffff;
+  border: 1px solid #2563eb;
+  pointer-events: auto;
+}
+
+.w-drawing-handle-nw { left: 0; top: 0; cursor: nwse-resize; }
+.w-drawing-handle-n { left: 50%; top: 0; cursor: ns-resize; }
+.w-drawing-handle-ne { left: 100%; top: 0; cursor: nesw-resize; }
+.w-drawing-handle-e { left: 100%; top: 50%; cursor: ew-resize; }
+.w-drawing-handle-se { left: 100%; top: 100%; cursor: nwse-resize; }
+.w-drawing-handle-s { left: 50%; top: 100%; cursor: ns-resize; }
+.w-drawing-handle-sw { left: 0; top: 100%; cursor: nesw-resize; }
+.w-drawing-handle-w { left: 0; top: 50%; cursor: ew-resize; }

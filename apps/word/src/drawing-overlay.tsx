@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
-import { boxOf, canvasAt, intersects, type Box } from '@barocss/office-word';
+import {
+  RESIZE_HANDLES,
+  boxOf,
+  canvasAt,
+  intersects,
+  unionOf,
+  type Box,
+  type Handle
+} from '@barocss/office-word';
 import { useEditorRevision } from './revision';
 
 /**
@@ -39,6 +47,8 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
   const [tick, setTick] = useState(0);
   /** How far the pointer has taken what is selected, while it is still holding it. */
   const [dragged, setDragged] = useState<{ dx: number; dy: number } | null>(null);
+  /** Which handle is being pulled, and how far — the frame follows it while the shape does not. */
+  const [pulled, setPulled] = useState<{ handle: Handle; dx: number; dy: number } | null>(null);
 
   /** The document, as the canvas readers want it. */
   const access = useCallback(() => {
@@ -73,6 +83,25 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
     }
     setOutlines(found);
   }, [editor]);
+
+  /**
+   * Where the handles sit: around **everything** that is selected.
+   *
+   * One frame for the set rather than eight handles per shape, which is what every drawing tool
+   * does and what makes a multiple selection something a reader can act on rather than look at.
+   * Upright, always: a set has no single angle to turn by — and Word's shapes have no rotate
+   * gesture yet, so there is no second case to get wrong.
+   */
+  const frame = outlines.length > 0
+    ? unionOf(
+        outlines.map((one) => ({
+          x: one.rect.left + (dragged?.dx ?? 0),
+          y: one.rect.top + (dragged?.dy ?? 0),
+          width: one.rect.width,
+          height: one.rect.height
+        }))
+      )
+    : undefined;
 
   /*
    * Redrawn when an **answer could be different**, which is what `watchAnswers` names: a selection
@@ -276,6 +305,59 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
     return () => host.removeEventListener('pointerdown', onDown);
   }, [host, editor, access]);
 
+  /**
+   * Pulling a **handle**, which is the one thing this layer does take the pointer for.
+   *
+   * The handles are the overlay's own elements, so they carry `pointer-events: auto` against the
+   * layer's `none` — the shapes underneath stay clickable and the eight little squares do not.
+   *
+   * A resize is not previewed by transforming the element the way a move is: `translate` cannot say
+   * *bigger*, and a shape that scaled its stroke and its text while being dragged would be showing
+   * the reader something the model will never hold. The frame follows instead, which is what the
+   * deck settled on for the same reason.
+   */
+  const onHandle = (handle: Handle) => (event: React.PointerEvent) => {
+    const doc = access();
+    const moving = selectedNodeIds((editor as any)?.selection);
+    if (!doc || moving.length === 0) return;
+
+    const canvasSid = canvasAt(doc as never, moving[0]);
+    const canvasEl = canvasSid
+      ? (document.querySelector(`[data-bc-sid="${canvasSid}"]`) as HTMLElement | null)
+      : null;
+    if (!canvasSid || !canvasEl) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const drawn = canvasEl.getBoundingClientRect();
+    const size = boxOf((doc.getNode(canvasSid) as any)?.attributes);
+    const from = { x: event.clientX, y: event.clientY };
+
+    const move = (at: PointerEvent) => setPulled({ handle, dx: at.clientX - from.x, dy: at.clientY - from.y });
+    const up = (at: PointerEvent) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setPulled(null);
+
+      const dx = ((at.clientX - from.x) / drawn.width) * size.width;
+      const dy = ((at.clientY - from.y) / drawn.height) * size.height;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+
+      void (editor as any).executeCommand?.('resizeShapes', {
+        nodeIds: moving,
+        handle,
+        dx,
+        dy,
+        keepAspect: at.shiftKey,
+        fromCentre: at.altKey
+      });
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
   return (
     <div ref={layer} className="w-drawing-overlay" data-drawing-overlay>
       {outlines.map((one) => (
@@ -291,6 +373,35 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
           }}
         />
       ))}
+      {frame && (
+        <div
+          className="w-drawing-frame"
+          data-drawing-frame
+          style={{
+            left: `${frame.x + (pulled && pulled.handle.includes('w') ? pulled.dx : 0)}px`,
+            top: `${frame.y + (pulled && pulled.handle.includes('n') ? pulled.dy : 0)}px`,
+            width: `${Math.max(
+              1,
+              frame.width +
+                (pulled ? (pulled.handle.includes('e') ? pulled.dx : pulled.handle.includes('w') ? -pulled.dx : 0) : 0)
+            )}px`,
+            height: `${Math.max(
+              1,
+              frame.height +
+                (pulled ? (pulled.handle.includes('s') ? pulled.dy : pulled.handle.includes('n') ? -pulled.dy : 0) : 0)
+            )}px`
+          }}
+        >
+          {RESIZE_HANDLES.map((handle) => (
+            <span
+              key={handle}
+              className={`w-drawing-handle w-drawing-handle-${handle}`}
+              data-drawing-handle={handle}
+              onPointerDown={onHandle(handle)}
+            />
+          ))}
+        </div>
+      )}
       {band && (
         <div
           className="w-drawing-band"

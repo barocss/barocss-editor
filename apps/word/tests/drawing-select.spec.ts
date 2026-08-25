@@ -217,3 +217,145 @@ test.describe('dragging what is on a drawing', () => {
     expect(await selected(page)).toHaveLength(1);
   });
 });
+
+/**
+ * Resizing, deleting and nudging — the rest of what a selection is for.
+ *
+ * Each of these is the multiple-selection case as much as the single one, which is the point: a set
+ * that can only be looked at is not a selection.
+ */
+test.describe('acting on what is selected', () => {
+  const boxOf = (page: Page, stype: string) =>
+    page.evaluate((kind) => {
+      const store = (window as any).editor.dataStore;
+      let found: any = null;
+      const walk = (sid: string) => {
+        const node = store.getNode(sid);
+        if (node?.stype === kind) found = { ...node.attributes };
+        for (const child of node?.content ?? []) if (typeof child === 'string') walk(child);
+      };
+      walk((window as any).editor.getRootId());
+      return found;
+    }, stype);
+
+  test('a handle pulls the selected shape, and the frame follows the pointer', async ({ page }) => {
+    await drawTwo(page);
+    await page.locator('.w-canvas rect').click();
+    await settled(page);
+
+    const before = await boxOf(page, 'rectangle');
+    const handle = (await page.locator('[data-drawing-handle="se"]').boundingBox())!;
+
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + 40, handle.y + 24, { steps: 6 });
+    // Mid-pull the document still says the old size: a resize is written once, at the drop.
+    expect((await boxOf(page, 'rectangle')).width).toBe(before.width);
+    await page.mouse.up();
+    await settled(page);
+
+    const after = await boxOf(page, 'rectangle');
+    expect(after.width).toBeGreaterThan(before.width);
+    expect(after.height).toBeGreaterThan(before.height);
+    // The south-east handle holds the north-west corner still, which is what makes it that handle.
+    expect(after.x).toBe(before.x);
+    expect(after.y).toBe(before.y);
+  });
+
+  test('one frame for the whole set, and Delete takes them all', async ({ page }) => {
+    await drawTwo(page);
+
+    const canvas = (await page.locator('.w-canvas').boundingBox())!;
+    await page.mouse.move(canvas.x + 4, canvas.y + 4);
+    await page.mouse.down();
+    await page.mouse.move(canvas.x + canvas.width - 4, canvas.y + canvas.height - 4, { steps: 6 });
+    await page.mouse.up();
+    await settled(page);
+
+    // Two shapes, one frame: a set is one thing to act on.
+    await expect(page.locator('[data-drawing-selected]')).toHaveCount(2);
+    await expect(page.locator('[data-drawing-frame]')).toHaveCount(1);
+
+    await page.keyboard.press('Delete');
+    await settled(page);
+
+    await expect(page.locator('.w-canvas rect')).toHaveCount(0);
+    await expect(page.locator('.w-canvas ellipse')).toHaveCount(0);
+    // The drawing itself stays: a reader put it there, and clearing it because the last shape went
+    // would be the editor deciding they had changed their mind.
+    await expect(page.locator('.w-canvas')).toHaveCount(1);
+
+    // And one undo brings the set back, because one press was one transaction.
+    await page.keyboard.press('Control+z');
+    await settled(page);
+    await expect(page.locator('.w-canvas rect')).toHaveCount(1);
+    await expect(page.locator('.w-canvas ellipse')).toHaveCount(1);
+  });
+
+  test('an arrow key nudges what is selected, and Shift nudges further', async ({ page }) => {
+    await drawTwo(page);
+    await page.locator('.w-canvas rect').click();
+    await settled(page);
+
+    const before = await boxOf(page, 'rectangle');
+    await page.keyboard.press('ArrowRight');
+    await settled(page);
+    // One pixel, in the model's own units — the deck's own step, because a reader who has learned
+    // one has learned the other.
+    expect((await boxOf(page, 'rectangle')).x).toBe(before.x + 15);
+
+    await page.keyboard.press('Shift+ArrowDown');
+    await settled(page);
+    expect((await boxOf(page, 'rectangle')).y).toBe(before.y + 144);
+  });
+
+  test('Delete with a caret in the text is still a character', async ({ page }) => {
+    await drawTwo(page);
+
+    /*
+     * The caret put at the **start of a known run**, through the editor, rather than by clicking a
+     * paragraph.
+     *
+     * Measured while writing this: a click lands where the pointer is, and the tail of the sample's
+     * paragraphs is a `fieldDateTime` — where typing is refused, correctly, because a field's text
+     * is resolved rather than written. A test that clicked and typed was testing the field's
+     * refusal and calling it a bug in the drawing.
+     */
+    const run = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const runs: string[] = [];
+      const walk = (sid: string) => {
+        const node = store.getNode(sid);
+        if (node?.stype === 'inline-text' && store.getNode(node.parentId)?.stype === 'paragraph') {
+          runs.push(sid);
+        }
+        for (const child of node?.content ?? []) if (typeof child === 'string') walk(child);
+      };
+      walk(editor.getRootId());
+      editor.updateSelection({
+        type: 'range',
+        startNodeId: runs[0],
+        startOffset: 0,
+        endNodeId: runs[0],
+        endOffset: 0,
+        collapsed: true
+      });
+      return runs[0];
+    });
+    await settled(page);
+
+    const textOf = async () =>
+      await page.evaluate((sid) => (window as any).editor.dataStore.getNode(sid)?.text, run);
+    const before = await textOf();
+
+    // Nothing is selected on the drawing, so the destructive key has to be the ordinary one.
+    await page.keyboard.press('Delete');
+    await settled(page);
+
+    expect(await textOf()).toBe(before.slice(1));
+    // And the shapes are untouched, which is what `shapesSelected` exists for.
+    await expect(page.locator('.w-canvas rect')).toHaveCount(1);
+    await expect(page.locator('.w-canvas ellipse')).toHaveCount(1);
+  });
+});
