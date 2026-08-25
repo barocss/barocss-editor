@@ -57,8 +57,15 @@ describe('the site builder draws what it declares', () => {
     { command: 'insertGrid', produces: 'frame' }
   ];
 
-  /** What a reader can reach: the toolbar, the keys, and the property panel. */
-  const reachable = [...siteToolbarCommands(), ...siteKeyCommands(), 'setSizing', 'setBlockFormat'];
+  /**
+   * What a reader can reach, from the product's **own declarations**: the toolbar and the keys.
+   *
+   * The property panel is a third surface and the harness has no notion of one — it can read a
+   * toolbar model and a key map, and a panel is a React tree. So a panel-only command is an
+   * exemption that names the row it is on, which is the deck's own practice: an exemption is a claim,
+   * and "the properties panel — 배치 › 방향" is a claim a reader can check in ten seconds.
+   */
+  const reachable = [...siteToolbarCommands(), ...siteKeyCommands()];
 
   it('draws what it declares, expects only what it says it expects', () => {
     assertConforms({
@@ -162,6 +169,14 @@ describe('the site builder draws what it declares', () => {
         insertParagraph: 'the shared kit’s: Enter, which needs no button',
         insertHardBreak: 'the shared kit’s: Shift+Enter, which needs no button',
         insertImage: 'the shared kit’s inline image — a page’s own `picture` insert is still owed',
+
+        // ── The property panel ─────────────────────────────────────────────
+        setBlockFormat:
+          'the properties panel — 배치, 크기, 모양, and the data group, all of it at the width being edited',
+        setSizing: 'the properties panel — 크기 › 폭, which `setBlockFormat` also writes',
+        setComponentValue: 'the properties panel — 값, a placement’s answers to its definition’s questions',
+        setPageInfo:
+          'the properties panel — 페이지 › 이름 and 주소, shown when nothing is selected because a page is the board rather than a block',
 
         moveBlockInto:
           'reached by **dragging a block**, which is neither a button nor a key. The gesture is held ' +
