@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, visibleBoxes } from './helpers';
 
 /**
  * The presenter's screen.
@@ -102,6 +102,77 @@ test.describe('the presenter’s screen', () => {
 
     await expect(page.locator('[data-presenter-view]')).toHaveCount(0);
     await expect(page.locator('.sl-topbar')).toBeVisible();
+  });
+
+  /**
+   * The press that is **not** a press.
+   *
+   * 애니메이션 2 / 2 read as finished, so a presenter pressed forward and the reveal never
+   * happened: the next motion was waiting for a click on a *shape*. The count is about presses,
+   * and a trigger is the one thing in a slide's motion that the count cannot describe.
+   *
+   * `pressablesOn` is unit-tested in `office-slides` — which steps wait, and what each waited-for
+   * box is called. What only a browser shows is that the words on the presenter's screen are the
+   * words the layer list uses for that same shape, because those are the words the author knows
+   * it by.
+   */
+  test('names the shape a press is waiting for, in the layer list’s words', async ({ page }) => {
+    await openDeck(page);
+
+    /*
+     * The label this shape has everywhere else in the product, read from the list that owns it —
+     * `.sl-layer-name` and not the whole row, whose first line is the *kind* ("텍스트 상자").
+     */
+    await page.locator('.sl-layers-closed').click();
+    const boxes = await visibleBoxes(page, '.sl-text-frame');
+    const listed = (
+      await page.locator(`[data-layer="${boxes[0].sid}"] .sl-layer-name`).innerText()
+    ).trim();
+
+    // Two entrances, and the second waits for a click on the first shape instead of a press.
+    const build = async (nodeId: string) => {
+      await page.evaluate(
+        (sid) =>
+          (window as any).editor.executeCommand('addBoxBuild', { nodeId: sid, effect: 'fade', duration: 300 }),
+        nodeId
+      );
+      await page.waitForTimeout(400);
+    };
+    await build(boxes[0].sid);
+    await build(boxes[1].sid);
+    await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const resources = (root.content ?? [])
+        .map((sid: string) => store.getNode(sid))
+        .find((node: any) => node?.stype === 'resources');
+      const track = (resources?.content ?? [])
+        .map((sid: string) => store.getNode(sid))
+        .find((node: any) => node?.stype === 'motionTrack');
+      const [first, second] = (track?.content ?? []) as string[];
+      editor.executeCommand('setMotionStep', {
+        stepId: second,
+        on: store.getNode(first).attributes.target
+      });
+    });
+    await page.waitForTimeout(400);
+
+    await present(page);
+    await page.keyboard.press('s');
+
+    const press = page.locator('[data-presenter-view] [data-presenter-press]');
+    await expect(press).toHaveAttribute('data-presenter-press', '1');
+    await expect(press).toContainText(`누를 것: ${listed}`);
+
+    /*
+     * And it goes away with the wait — this is a fact about *this* slide, not about the show. A
+     * line that is always there is a line a presenter stops reading, which would cost the next
+     * slide's trigger its warning. The last slide is the one certain to hold no trigger.
+     */
+    await page.keyboard.press('End');
+    await page.waitForTimeout(500);
+    await expect(page.locator('[data-presenter-view] [data-presenter-press]')).toHaveCount(0);
   });
 
   /** The last slide has no next one, and says so rather than showing nothing. */

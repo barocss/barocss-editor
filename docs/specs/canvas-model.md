@@ -2100,6 +2100,23 @@ id — so three placements of one card each drew `metric-card~slides:138`. Three
 identity, `querySelector` answering the first for all three, and per-placement motion impossible. The
 prefix is the placement's own sid now (§10b-2a).
 
+#### What the presenter's screen must say about it
+
+The count is the wrong sentence for a trigger, and the presenter's screen was saying only the count:
+*애니메이션 2 / 2*, which reads as finished. Then the reveal that was waiting for a **click on a
+shape** never came, because the presenter pressed forward instead. `pressCount` is honest — a trigger
+costs no press — so the number cannot be fixed; what was missing is the other half of the sentence.
+
+`pressablesOn(doc, surfaceSid)` answers it, from the slide's own steps and its cards' steps together:
+every `on` some step waits for, named. Named and not counted, because with cards the button may be a
+badge inside one of three identical placements — *지표 카드 · 타원* is a thing on the screen where
+`card-badge` is a name in a file. A slide's own shape is a document node, so `labelOfBox` answers it
+in the layer list's own words (§10b-13); a card's part is a drawn sid, so the name splits at its last
+`~` and the card supplies the first half.
+
+Nothing to say is said with nothing: a line that is always there is a line a presenter stops reading,
+and that would cost the next slide's trigger its warning.
+
 ### 10k-2. One attribute, two things a `name` means
 
 Worth stating because the last three faults in this area were the same shape: a walk reading `name`

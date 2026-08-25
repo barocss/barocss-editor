@@ -165,6 +165,18 @@ sees). Measured, one walk at a time:
      before it had run — absent the moment the slide arrived, and absent for good in a scrolling show,
      where the arrival group is never run. The arrival group now never hides anything (§10l).
 
+   - [x] **The presenter's screen names what has to be pressed.** It said *애니메이션 2 / 2* and
+     nothing else, which reads as finished — so a presenter pressed forward and a reveal waiting for a
+     click on a *shape* never came. `pressCount` is honest (a trigger costs no press), so the number
+     could not be fixed; the missing thing was the other half of the sentence. `pressablesOn` reads
+     the slide's steps and its cards' steps together and **names** each waited-for box — words rather
+     than a count, because with cards the button may be a badge inside one of three identical
+     placements: *지표 카드 · 타원* is a thing on the screen where `card-badge` is a name in a file. A
+     slide's own shape is answered by `labelOfBox`, so the presenter reads the same words as the layer
+     list; a card's part splits its drawn sid at the last `~` and the card supplies the first half.
+     Nothing to say is said with nothing — a line that is always there is a line a presenter stops
+     reading (§10l).
+
    - [x] **A trigger inside a card** works, and the belief that stopped it was half wrong: the show's
      click walk asks the **innermost** `[data-bc-sid]` first, so the element a reader pressed *is* the
      drawn part — only a name for it was missing. A card's trigger carries the placement in its `on`,

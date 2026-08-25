@@ -21,6 +21,7 @@ import {
   drawnNames,
   hiddenUntilPlayed,
   namedBoxes,
+  pressablesOn,
   slideTimeline,
   snapPoints,
   snapTo,
@@ -2573,5 +2574,119 @@ describe('what a card animates, wherever it is placed', () => {
       id: 'card'
     };
     expect(cardSteps(plain, 'slide')).toEqual([]);
+  });
+});
+
+/**
+ * What a **presenter** has to be told to press.
+ *
+ * Measured by reading the presenter's screen: it said *애니메이션 2 / 3* and nothing else, so a slide
+ * whose next motion waits for a click on a shape looked finished — the presenter pressed forward and
+ * the reveal never happened. The count is about presses; a trigger is the press that is not one.
+ *
+ * Cards are why this is words rather than a number: the button may be a badge inside one of three
+ * identical placements, and `card-badge` is a name from a file.
+ */
+describe('what the audience has to press', () => {
+  const access = (nodes: Record<string, Record<string, unknown>>): DeckAccess =>
+    ({ rootId: 'root', getNode: (sid: string) => nodes[sid] as never }) as DeckAccess;
+
+  const deck = () =>
+    access({
+      root: { sid: 'root', stype: 'document', content: ['slide', 'lib', 'res'] },
+      slide: {
+        sid: 'slide',
+        stype: 'surface',
+        attributes: { kind: 'slide', trackId: 'slide-t' },
+        content: ['button', 'card']
+      },
+      // A shape of the slide's own that something waits for.
+      button: {
+        sid: 'button',
+        stype: 'textFrame',
+        attributes: { role: 'title', name: 'shape-1' },
+        parentId: 'slide'
+      },
+      card: {
+        sid: 'card',
+        stype: 'instance',
+        attributes: { componentId: 'metric' },
+        content: [],
+        parentId: 'slide'
+      },
+
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['metric'] },
+      metric: {
+        sid: 'metric',
+        stype: 'component',
+        attributes: { id: 'metric', name: '지표 카드', trackId: 'card-t' },
+        content: ['back', 'badge']
+      },
+      back: { sid: 'back', stype: 'rectangle', attributes: { partId: 'back', name: 'card-back' }, parentId: 'metric' },
+      badge: { sid: 'badge', stype: 'ellipse', attributes: { partId: 'badge', name: 'card-badge' }, parentId: 'metric' },
+
+      res: { sid: 'res', stype: 'resources', attributes: {}, content: ['slide-t', 'card-t'] },
+      'slide-t': {
+        sid: 'slide-t',
+        stype: 'motionTrack',
+        attributes: { id: 'slide-t' },
+        content: ['s1'],
+        parentId: 'res'
+      },
+      s1: {
+        sid: 's1',
+        stype: 'motionStep',
+        attributes: { kind: 'build', target: 'shape-1', effect: 'fadeIn', on: 'shape-1' },
+        parentId: 'slide-t'
+      },
+      'card-t': {
+        sid: 'card-t',
+        stype: 'motionTrack',
+        attributes: { id: 'card-t' },
+        content: ['s2'],
+        parentId: 'res'
+      },
+      s2: {
+        sid: 's2',
+        stype: 'motionStep',
+        attributes: { kind: 'build', target: 'card-badge', effect: 'fadeIn', on: 'card-back' },
+        parentId: 'card-t'
+      }
+    });
+
+  it('names a slide’s own shape the way the layer list would', () => {
+    const found = pressablesOn(deck(), 'slide');
+    const slideOwn = found.find((one) => one.name === 'shape-1');
+    // The words a reader already knows for that box — its role, not `shape-1`.
+    expect(slideOwn?.label).toBe('제목');
+    expect(slideOwn?.card).toBeUndefined();
+  });
+
+  it('names a card’s part by the card and the part, so a presenter can find it', () => {
+    const found = pressablesOn(deck(), 'slide');
+    const inCard = found.find((one) => one.name.endsWith('~card-back'));
+    /*
+     * The card gives the first half and the part's own node the second: "지표 카드 · 사각형" is a thing
+     * on the screen, where `card-back` is a name from a file — and with three placements of one card
+     * the card's name is what tells them apart.
+     */
+    expect(inCard?.label).toBe('지표 카드 · 사각형');
+    expect(inCard?.card).toBe('지표 카드');
+  });
+
+  it('says nothing for a slide where every press is a press', () => {
+    const plain = deck();
+    (plain.getNode('s1') as never as { attributes: Record<string, unknown> }).attributes = {
+      kind: 'build',
+      target: 'shape-1',
+      effect: 'fadeIn'
+    };
+    (plain.getNode('s2') as never as { attributes: Record<string, unknown> }).attributes = {
+      kind: 'build',
+      target: 'card-badge',
+      effect: 'fadeIn'
+    };
+    // Nothing to say is said with nothing: a line that always shows is a line nobody reads.
+    expect(pressablesOn(plain, 'slide')).toEqual([]);
   });
 });

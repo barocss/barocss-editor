@@ -759,6 +759,17 @@ body {
   color: #a3a3a3;
 }
 
+/*
+ * What has to be **pressed**, named rather than counted.
+ *
+ * Amber, like every other "you have to do something" word in this product, and allowed to wrap: with
+ * cards the label is "지표 카드 · 타원", which is longer than a number and worth the room.
+ */
+.sl-presenter-meta [data-presenter-press] {
+  color: #fbbf24;
+  white-space: normal;
+}
+
 .sl-presenter-meta [data-presenter-clock] {
   font-size: 24px;
   font-variant-numeric: tabular-nums;

@@ -411,6 +411,12 @@ export {
    * trigger, and deliberately not in `namedBoxes` (§10k).
    */
   drawnNames,
+  /**
+   * What the audience has to **press** on a slide, in words a presenter can use — including a button
+   * inside one of three identical cards, which a machine name could never tell apart.
+   */
+  pressablesOn,
+  type Pressable,
   shiftedDelays,
   snapPoints,
   snapTo,

@@ -1113,3 +1113,72 @@ function named(
     named(doc, child, placement, into, depth + 1);
   }
 }
+
+/**
+ * What the audience has to **press** on this slide, in words a presenter can use.
+ *
+ * ## The gap this closes
+ *
+ * The presenter's screen said *애니메이션 2 / 3* and nothing else, so a slide whose next motion waits
+ * for a click on a shape looked finished — the presenter pressed forward and the reveal never
+ * happened, or they pressed at the screen wondering why nothing moved. Measured by reading the
+ * presenter view: it knew the count of presses and nothing about the presses that are not presses.
+ *
+ * A card makes it worse, which is why this exists now rather than earlier: the button may be a badge
+ * **inside one of three identical cards** (§10l), and "card-badge" is a machine name the presenter has
+ * never seen.
+ *
+ * ## Where each label comes from
+ *
+ * A slide's own shape is a document node, so `labelOfBox` answers — the same words the layer list
+ * uses. A card's part is not: its name carries the placement (`<placement>~<name>`), so the card gives
+ * the first half of the label and the part's own node the second. Which means a presenter reads
+ * "지표 카드 · 타원" and knows which of the three to press, rather than a name from a file.
+ */
+export interface Pressable {
+  /** The name a step waits for, which is what a click resolves to. */
+  name: string;
+  /** What a presenter should read. */
+  label: string;
+  /** The card it is inside, when it is inside one. */
+  card?: string;
+}
+
+export function pressablesOn(doc: DeckAccess, surfaceSid: string): Pressable[] {
+  const steps = [...slideTimeline(doc, surfaceSid), ...cardSteps(doc, surfaceSid)];
+  const waited = triggersOn(steps);
+  if (waited.size === 0) return [];
+
+  const own = namedBoxes(doc, surfaceSid);
+  const drawn = drawnNames(doc, surfaceSid);
+  const found: Pressable[] = [];
+
+  for (const name of waited.keys()) {
+    const mine = own.get(name);
+    if (mine) {
+      found.push({ name, label: labelOfBox(doc, mine) });
+      continue;
+    }
+
+    const inCard = drawn.get(name);
+    if (!inCard) continue;
+
+    /*
+     * A drawn part's sid is `<placement>~<part>`, so the part it came from is a real node this can
+     * ask for words — and the placement says which card the presenter is looking at.
+     */
+    const cut = inCard.lastIndexOf('~');
+    const placement = inCard.slice(0, cut);
+    const part = inCard.slice(cut + 1);
+    const card = componentOf(doc as never, doc.getNode(placement) as never);
+    const cardName = card?.name || card?.id;
+
+    found.push({
+      name,
+      label: cardName ? `${cardName} · ${labelOfBox(doc, part)}` : labelOfBox(doc, part),
+      ...(cardName ? { card: cardName } : {})
+    });
+  }
+
+  return found;
+}

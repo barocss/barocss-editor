@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
-import { noteTextOf, type Slide } from '@barocss/office-slides';
+import { noteTextOf, pressablesOn, type Slide } from '@barocss/office-slides';
 import { Button } from '@barocss/office-ui';
 import { Thumbnail } from './thumbnail';
 
@@ -82,6 +82,20 @@ export function Presenter({
    */
   const next = links ? undefined : at >= 0 ? shown[at + 1] : undefined;
 
+  /**
+   * What the audience has to press on this slide, asked of the model.
+   *
+   * Recomputed with the document like the notes beside it: a deck edited mid-show — which happens,
+   * because a presenter fixes a typo between rehearsals — must not leave the presenter reading a
+   * button that is no longer there.
+   */
+  const pressables = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId || !current) return [];
+    return pressablesOn({ rootId, getNode: (sid: string) => store.getNode(sid) } as never, current);
+  }, [editor, current, revision]);
+
   const notes = (() => {
     const store = (editor as any)?.dataStore;
     const rootId = (editor as any)?.getRootId?.();
@@ -146,6 +160,22 @@ export function Presenter({
         {builds > 0 && (
           <span data-presenter-builds>
             애니메이션 {played} / {builds}
+          </span>
+        )}
+        {/*
+          * And what has to be **pressed**, which the count cannot say.
+          *
+          * A slide whose next motion waits for a click on a shape looked finished here — 애니메이션
+          * 2 / 2 — so a presenter pressed forward and the reveal never happened. The count is about
+          * presses; a trigger is the press that is not one.
+          *
+          * Named rather than counted, because with cards the button may be a badge inside one of
+          * three identical placements: "지표 카드 · 타원" is a thing a presenter can find on the
+          * screen, where `card-badge` is a name from a file.
+          */}
+        {pressables.length > 0 && (
+          <span data-presenter-press={pressables.length}>
+            누를 것: {pressables.map((one) => one.label).join(', ')}
           </span>
         )}
       </section>
