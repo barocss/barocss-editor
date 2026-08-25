@@ -1,33 +1,13 @@
-/** A box, as the arrangement needs it. The same shape `office-slides` uses. */
-export interface Box {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/**
- * A box with its negatives normalised.
+/*
+ * The box vocabulary is `canvas-box.ts` now.
  *
- * A width may be negative — that is how a line says it runs right to left — and
- * an arrangement wants the rectangle either way. Written here rather than
- * imported from Slides' geometry, which is the package that depends on this one
- * and not the other way round.
+ * This file had its **own** `boxOf`, with the same normalisation as the deck's and a comment saying
+ * it was written again rather than imported because the dependency runs the other way. That was
+ * true and it was still two copies of one rule — so the rule moved down to where both can reach it,
+ * which is what this package is for.
  */
-function boxOf(attributes: Record<string, unknown> | undefined): Box {
-  const number = (value: unknown) =>
-    typeof value === 'number' && Number.isFinite(value) ? value : 0;
-  const x = number(attributes?.x);
-  const y = number(attributes?.y);
-  const width = number(attributes?.width);
-  const height = number(attributes?.height);
-  return {
-    x: width < 0 ? x + width : x,
-    y: height < 0 ? y + height : y,
-    width: Math.abs(width),
-    height: Math.abs(height)
-  };
-}
+export type { Box } from './canvas-box';
+import { boxOf, type Box } from './canvas-box';
 
 /**
  * A frame that arranges what is in it.

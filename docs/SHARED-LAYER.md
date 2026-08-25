@@ -259,6 +259,16 @@ Beside it, in `canvas-access.ts`: **which container places what is in it** (`isC
 `canvasAt`). A page's canvas is a `canvasBlock` in the flow and a deck's is the `surface` itself, and
 the sentence that covers both names neither.
 
+Then the arithmetic the table above measured at 630 lines and three product words:
+`canvas-manipulate.ts` — move, resize with the aspect and centre modifiers, rotate, snap to a
+neighbour's edges, marquee, and hit-testing a **turned** box — with `canvas-box.ts` under it for the
+vocabulary they all speak. That second file closed a duplicate nobody had noticed: `boxOf` existed
+in the deck's geometry *and* in `canvas-layout.ts`, the second written again from scratch with a
+comment explaining that the dependency ran the other way. It does not any more.
+
+`office-slides/manipulate.ts` stays as a **name**, re-exporting, so a deck's forty callers go on
+saying `from './manipulate'` — the same thing the arrangement did when it moved.
+
 ### Where that leaves the boundary
 
 `office-canvas`, as proposed above, grows a second half: not only what places things

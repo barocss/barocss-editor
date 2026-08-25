@@ -611,6 +611,37 @@ export {
   WordCanvasInsertExtension,
   type InsertShapeOptions
 } from './canvas-insert-commands';
+/**
+ * The box vocabulary, and **dragging one** — the arithmetic a canvas editor is made of.
+ *
+ * Moved out of the deck, which is where it was written and where it named a product three times,
+ * all three as a parameter name: a resize handle, a marquee, a snap and a turned box's hit test are
+ * the same problem on a page as on a slide, and this package is where the canvas lives.
+ */
+export { boxOf, isVisible, type Box, type Placement } from './canvas-box';
+export {
+  RESIZE_HANDLES,
+  moveBox,
+  resizeBox,
+  angleOf,
+  snapAngle,
+  unionOf,
+  contains,
+  unrotate,
+  intersects,
+  alignBoxes,
+  distributeBoxes,
+  intoFrame,
+  outOfFrame,
+  guidesFor,
+  snapBox,
+  snapResize,
+  type Align,
+  type Delta,
+  type Guide,
+  type Handle,
+  type ResizeOptions
+} from './canvas-manipulate';
 export {
   SHAPE_PAINT,
   canvasNode,

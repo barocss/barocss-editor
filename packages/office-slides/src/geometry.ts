@@ -35,64 +35,19 @@ const PX_PER_TWIP = 96 / 1440;
 export const twipToPx = (twip: number): number => twip * PX_PER_TWIP;
 export const pxToTwip = (px: number): number => px / PX_PER_TWIP;
 
-/** A rectangle in twips, with the origin at the slide's top left. */
-export interface Box {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/** What a scene node carries about where it is and how it looks. */
-export interface Placement {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  rotation?: number;
-  opacity?: number;
-  visible?: boolean;
-  locked?: boolean;
-  /** Mirrored, which composes with the rotation — see `flip.ts`. */
-  flipX?: boolean;
-  flipY?: boolean;
-}
+/*
+ * The box vocabulary is the **canvas layer's** (`office-word/canvas-box.ts`).
+ *
+ * A rectangle in the model's units, a node's placement, and the normalisation a drag needs — a
+ * negative extent is what dragging a handle past the opposite edge means — none of which names a
+ * product, and Word's drawing needs every one of them. Re-exported from here so the deck's forty
+ * callers go on saying `from './geometry'`, which is where a reader of this package looks.
+ */
+export { boxOf, isVisible, type Box, type Placement } from '@barocss/office-word';
+import { boxOf, isVisible, type Placement } from '@barocss/office-word';
 
 const finite = (value: unknown, fallback: number): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-
-/**
- * A box from whatever the node actually carries.
- *
- * Two things are normalised because a drag produces both and neither is worth
- * pushing into every reader:
- *
- * - A **negative extent**, which is what dragging a resize handle past the
- *   opposite edge means. `x: 100, width: -40` is the box from 60 to 100, and
- *   saying so here means no renderer, hit test or alignment has to think about
- *   it. CSS would simply drop a negative width and draw nothing.
- * - A **missing extent**, which is a shape whose size nothing set. Zero, not a
- *   guess: an invisible box in the right place is debuggable and a 100x100
- *   default in the wrong place is a mystery.
- */
-export function boxOf(placement: Placement | undefined): Box {
-  const x = finite(placement?.x, 0);
-  const y = finite(placement?.y, 0);
-  const width = finite(placement?.width, 0);
-  const height = finite(placement?.height, 0);
-
-  return {
-    x: width < 0 ? x + width : x,
-    y: height < 0 ? y + height : y,
-    width: Math.abs(width),
-    height: Math.abs(height)
-  };
-}
-
-/** Whether anything should be drawn for this node at all. */
-export function isVisible(placement: Placement | undefined): boolean {
-  return placement?.visible !== false;
-}
 
 export type CssStyle = Record<string, string>;
 

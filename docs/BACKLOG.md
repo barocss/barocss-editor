@@ -976,6 +976,19 @@ shipped features marked undone.
     seeing nothing, and having changed their file (`every-command-can-be-seen`). Text inside an SVG
     canvas is `<foreignObject>` and is its own question, below.
 
+  - [x] **The arithmetic moved**, which is the half the pointer needs before it exists:
+    `canvas-manipulate.ts` (move, resize with the aspect and centre modifiers, rotate, snap,
+    marquee, hit-testing a turned box) and `canvas-box.ts` under it. Nothing changed but where it
+    lives and one parameter name — `guidesFor(others, slide)` is `canvas` now, which was one of the
+    three product words the measurement counted. The deck keeps `manipulate.ts` as a name that
+    re-exports, so its forty callers did not churn.
+
+    It closed a duplicate on the way: `boxOf` existed in the deck's `geometry.ts` **and** in
+    `canvas-layout.ts`, the second written from scratch with a comment saying it could not import
+    the first because the dependency runs this way. Both are one function now, and the rule it
+    carries is not a taste — a negative extent is what dragging a handle past the opposite edge
+    means, and a reader that forgot it would draw nothing where a shape is.
+
 - [ ] **A text box on a Word drawing** needs `<foreignObject>`, which is a design question rather
   than a fifth line in the insert list: what a caret does inside one, how the paginator measures it,
   what print does with it. Refused for now by the harness rather than by a person, which is the

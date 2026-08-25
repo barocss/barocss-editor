@@ -15,7 +15,7 @@ import {
   outOfFrame,
   guidesFor,
   snapBox
-} from '../src/manipulate';
+} from '../src/canvas-manipulate';
 
 /**
  * A resize handle is the kind of thing that is *almost* right in a hundred
