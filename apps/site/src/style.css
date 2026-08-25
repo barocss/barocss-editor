@@ -67,21 +67,43 @@ body {
 }
 
 .st-body {
-  overflow: auto;
+  display: flex;
+  min-height: 0;
+  flex: 1;
 }
 
+/* ── The studio ───────────────────────────────────────────────────────────── */
+
 /*
- * The canvas: the page at every width the reader asked for, side by side.
+ * The canvas: a plane the boards sit on, not a pane they stack in.
  *
- * `align-items: start` so a narrow frame is as tall as its own content rather than stretched to the
- * tallest — the whole point of looking at three widths at once is seeing that they differ.
+ * `overflow: auto` rather than a transform of its own, because the browser's scrolling is what the
+ * zoom gesture measures and corrects against (`useWheelZoom`) — a hand-rolled pan would have to be
+ * measured all over again.
  */
 .st-canvas {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 1px 1px, #d4d4d8 1px, transparent 0) 0 0 / 24px 24px,
+    var(--st-ground);
+  outline: none;
+}
+
+.st-canvas[data-space='true'] { cursor: grab; }
+.st-canvas[data-panning='true'] { cursor: grabbing; }
+
+.st-plane {
+  width: max-content;
+  padding: 48px;
+}
+
+.st-boards {
   display: flex;
   align-items: start;
-  gap: 32px;
-  padding: 32px;
-  min-height: 100%;
+  gap: 48px;
 }
 
 .st-frame {
@@ -89,7 +111,9 @@ body {
   background: #ffffff;
   border: 1px solid var(--st-line);
   border-radius: 6px;
-  overflow: hidden;
+  /* Not `hidden`: the selection outline is drawn inside the board and a selected block flush with
+     the edge would lose half its outline to the clip. */
+  overflow: visible;
 }
 
 .st-frame-label {
@@ -98,25 +122,141 @@ body {
   padding: 6px 10px;
   background: #fafafa;
   border-bottom: 1px solid var(--st-line);
+  border-radius: 6px 6px 0 0;
   font-size: 12px;
   color: var(--st-faint);
 }
 
-.st-frame-width {
-  font-variant-numeric: tabular-nums;
-}
+.st-frame-width { font-variant-numeric: tabular-nums; }
+
+/* The board and the layer over it share one box, so the overlay can be measured against it. */
+.st-frame-body { position: relative; }
 
 /* The page itself. No padding here: a page's own margins are the reader's, set on the stacks. */
-.st-frame-host {
-  min-height: 200px;
+.st-frame-host { min-height: 200px; }
+
+/* ── What the pointer is over, and what is selected ───────────────────────── */
+
+.st-overlay {
+  position: absolute;
+  inset: 0;
+  /* Above the page it describes, below the app's own chrome. */
+  z-index: 2;
 }
+
+/* In text mode the board is an ordinary editor again — the marks still draw, and take nothing. */
+.st-overlay[data-mode='text'] { cursor: text; }
+
+.st-mark {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+/*
+ * Outlines rather than borders, and drawn *outside* the box: a border would be inside the block's
+ * own rectangle and would look like a change to the design, which is the one thing a selection
+ * marker must never look like.
+ */
+.st-mark-hover { outline: 1px solid #93c5fd; outline-offset: 0; }
+.st-mark-selected { outline: 2px solid var(--st-accent); }
+.st-mark-selected[data-editing='true'] {
+  outline-style: dashed;
+}
+
+.st-mark-name {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  padding: 1px 6px;
+  background: var(--st-accent);
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+  border-radius: 3px 3px 0 0;
+}
+
+.st-mark-hover .st-mark-name { background: #93c5fd; color: #0f172a; }
+
+/* ── The page, as a list of what it holds ─────────────────────────────────── */
+
+.st-layers {
+  display: flex;
+  width: 224px;
+  flex-shrink: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  border-right: 1px solid var(--st-line);
+  background: #ffffff;
+}
+
+.st-layers-title {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--st-line);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--st-faint);
+}
+
+.st-layers-list { padding: 4px 0; }
+.st-layers-empty { padding: 12px; font-size: 12px; color: var(--st-faint); }
+
+.st-layer {
+  display: block;
+  width: 100%;
+  padding: 4px 8px;
+  text-align: left;
+  font-size: 12px;
+  color: var(--st-ink);
+  background: none;
+  border: 0;
+  cursor: default;
+}
+
+.st-layer:hover { background: #f4f4f5; }
+.st-layer[data-selected='true'] { background: var(--st-accent); color: #ffffff; }
+
+/* ── The panel ────────────────────────────────────────────────────────────── */
+
+.st-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+}
+
+.st-ribbon { flex: 1; }
+.st-ribbon-end { margin-left: auto; display: flex; align-items: center; }
+
+/* Which width the panel is writing to. Three letters, because the panel header has room for three. */
+.st-at { display: flex; gap: 2px; }
+.st-at button {
+  width: 22px;
+  padding: 2px 0;
+  font-size: 11px;
+  border: 1px solid var(--st-line);
+  border-radius: 3px;
+  background: #ffffff;
+  color: var(--st-faint);
+}
+.st-at button[data-current='true'] {
+  background: var(--st-accent);
+  border-color: var(--st-accent);
+  color: #ffffff;
+}
+
+.st-at-note { font-size: 11px; color: var(--st-accent); }
+.st-kind { font-size: 11px; color: var(--st-faint); font-family: ui-monospace, monospace; }
 
 /*
  * A stack, a page and a placement draw themselves from the document; these rules exist only so that
  * an empty one is visible to a reader who has just made it.
  */
 .st-stack:empty,
-.st-placement:empty {
+.st-placement:empty,
+.st-collection:empty {
   min-height: 24px;
   outline: 1px dashed var(--st-line);
 }

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import { SITE_ENV_KEY, createSiteEnv, type BreakpointId } from '@barocss/office-site';
+import { Overlay, type PointerMode } from './overlay';
 
 /**
  * One page, at one width, editable.
@@ -12,8 +13,7 @@ import { SITE_ENV_KEY, createSiteEnv, type BreakpointId } from '@barocss/office-
  *
  * The deck draws its filmstrip with a plain `DOMRenderer`, because a thumbnail is a picture: it
  * needs no caret, no observer, no input path. This is the opposite case and the deck has that one
- * too — the notes pane is a second `EditorViewDOM` over **the same editor and the same store**, and
- * everything that makes it work makes this work:
+ * too — the notes pane is a second `EditorViewDOM` over **the same editor and the same store**:
  *
  * - **One history.** Typing in the mobile frame and typing in the desktop frame are the same
  *   editor's transactions, so one undo walks back through both in the order they happened.
@@ -21,53 +21,62 @@ import { SITE_ENV_KEY, createSiteEnv, type BreakpointId } from '@barocss/office-
  * - **No second copy.** `render(tree)` takes any node with a sid, so each frame draws the page's
  *   own subtree rather than a copy of it.
  *
- * ## The snapshot, which is the trap
+ * ## A view redraws itself, and the host must not
  *
- * `getDocumentProxy` hands back a *live* view of the store. The reconciler compares the tree it was
- * given with the tree it drew last time, and when both are the same live object every comparison
- * says nothing changed — measured in the deck, with the model plainly holding one thing and the pane
- * still drawing another. So each render passes a snapshot.
+ * This was got wrong twice in a row, in opposite directions, and the reason both times is that the
+ * view's own contract was never read:
+ *
+ * - **Every `EditorViewDOM` already subscribes to `editor:content.change` and re-renders.** Not
+ *   only the editor's first view — every one of them. There was never a second view that "was not
+ *   listening"; there was a second view redrawing a tree that could not change.
+ * - **A bare `render()` reuses the tree it was last given.** So the shape of the fix is: give the
+ *   view a tree that is *live*, once, and it keeps itself right from then on.
+ *
+ * A deep copy is a dead tree. Handing one over pinned the frame to the document as it was at that
+ * instant, which is why the app grew a revision counter and re-rendered every frame on every
+ * change — and **that** is what lost the caret: a full out-of-band render replaces the DOM under a
+ * reader who is typing in it. The view being typed in had already drawn the change correctly by
+ * itself; the host then drew it again, worse.
+ *
+ * The obvious repair — hand it the *live* proxy instead — crashed the tab, and the reason is the
+ * fact none of this was written down: **`render(tree)` mutates the tree it is given.**
+ * `_sanitizeTreeContent` assigns to `content`, so a proxy over the store gets resolved nodes written
+ * back into the document, and the resolver goes round again on what it just wrote.
+ *
+ * So a view that draws part of a document says so, and asks for nothing: `rootId`. Then it takes the
+ * same path the main view takes — no caller tree, nothing sanitised, nothing written back — and it
+ * redraws itself on a content change with the caret where the reader left it.
+ *
+ * Asking the editor is also what reaches the resolvers, where a placement becomes its definition's
+ * parts and a list becomes its rows. A tree walked off the raw store skips all of that — a reusable
+ * header drew as an empty box, and a data list drew its `componentValue` declarations, which is a
+ * node no product has a renderer for.
  */
 export function PageFrame({
   editor,
   breakpoint,
   label,
   width,
-  page
+  page,
+  zoom,
+  mode,
+  onEnterText,
+  scope,
+  onScope
 }: {
   editor: Editor;
   breakpoint: BreakpointId;
   label: string;
   width: number;
   page?: string;
+  zoom: number;
+  mode: PointerMode;
+  onEnterText: (sid: string) => void;
+  scope: string;
+  onScope: (scope: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
-
-  /**
-   * Redrawn when the document changes, which is the half that makes this a *view* rather than a
-   * screenshot.
-   *
-   * Measured the first time three frames were on screen: typing in the mobile frame changed the
-   * document and the desktop frame went on showing what it had drawn — one editor, one store, three
-   * views, and only the one being typed in was listening. A view that renders once is a picture.
-   *
-   * The editor's own view redraws itself on a content change; a second one is the host's to keep up
-   * to date, which is what the deck's notes pane does with the same event.
-   */
-  const [revision, setRevision] = useState(0);
-  useEffect(() => {
-    const redraw = () => setRevision((count) => count + 1);
-    (editor as never as { on?: (event: string, run: () => void) => void }).on?.(
-      'editor:content.change',
-      redraw
-    );
-    return () =>
-      (editor as never as { off?: (event: string, run: () => void) => void }).off?.(
-        'editor:content.change',
-        redraw
-      );
-  }, [editor]);
 
   useEffect(() => {
     if (!host.current || !page) return;
@@ -82,6 +91,8 @@ export function PageFrame({
       view.current = new EditorViewDOM(editor, {
         container: host.current,
         registry: getGlobalRegistry(),
+        // This view draws one page, not the document — and keeps itself drawn.
+        rootId: page,
         env: {
           // The text environment, the same one every view of this document has: a page's paragraphs
           // are a document's paragraphs and resolve their formatting the same way.
@@ -99,13 +110,23 @@ export function PageFrame({
       } as never);
     }
 
-    const store = (editor as never as { dataStore?: { getNode: (sid: string) => unknown } }).dataStore;
-    const node = store?.getNode(page);
-    if (!node) return;
+    /*
+     * Which page, and then one render. Every later redraw is the view's own — see the header.
+     *
+     * Re-run only when the page or the width changes, which are the two things that make this a
+     * different drawing rather than a newer one.
+     */
+    view.current.setRootId(page);
+    view.current.render(undefined, { sync: true });
+  }, [editor, page, breakpoint]);
 
-    // A snapshot rather than the store's proxy — see the header.
-    view.current.render(JSON.parse(JSON.stringify(snapshot(store!, page))) as never, { sync: true });
-  }, [editor, page, breakpoint, revision]);
+  useEffect(
+    () => () => {
+      view.current?.destroy?.();
+      view.current = null;
+    },
+    []
+  );
 
   return (
     <section className="st-frame" data-frame={breakpoint} style={{ width: `${width}px` }}>
@@ -114,34 +135,26 @@ export function PageFrame({
         <span>{label}</span>
         <span className="st-frame-width">{width}px</span>
       </header>
-      <div ref={host} className="st-frame-host" data-frame-host={breakpoint} />
+      <div className="st-frame-body">
+        <div ref={host} className="st-frame-host" data-frame-host={breakpoint} />
+        {/*
+          The pointer's owner, drawn over the board rather than styled into it — see `overlay.tsx`.
+          One per board, because the outline has to be drawn where the node is drawn, and the same
+          node is drawn three times.
+        */}
+        {page ? (
+          <Overlay
+            editor={editor}
+            host={host}
+            page={page}
+            zoom={zoom}
+            mode={mode}
+            onEnterText={onEnterText}
+            scope={scope}
+            onScope={onScope}
+          />
+        ) : null}
+      </div>
     </section>
   );
-}
-
-/**
- * The page as a plain tree.
- *
- * Written here rather than taken from `getDocumentProxy` for the reason in the header: the proxy is
- * live, and a live tree compared with itself reports that nothing has changed. Sids are kept —
- * unlike a copy for the clipboard, this *is* the document, and every mapping from a drawn element
- * back to a node goes through them.
- */
-function snapshot(
-  store: { getNode: (sid: string) => unknown },
-  sid: string,
-  depth = 0
-): Record<string, unknown> | undefined {
-  if (depth > 64) return undefined;
-  const node = store.getNode(sid) as Record<string, unknown> | undefined;
-  if (!node) return undefined;
-
-  const copy: Record<string, unknown> = { ...node };
-  const content = node.content;
-  if (Array.isArray(content)) {
-    copy.content = content
-      .map((child) => (typeof child === 'string' ? snapshot(store, child, depth + 1) : child))
-      .filter((child) => child !== undefined);
-  }
-  return copy;
 }

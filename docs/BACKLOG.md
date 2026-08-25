@@ -46,6 +46,48 @@ entries are that.
 
 ## Open
 
+### A view of part of a document had no way to say so
+
+- [x] Three widths of one page are three `EditorViewDOM`s over one editor, and the only way to tell a
+  view what to draw was `render(tree)`. That has a consequence nothing had written down: **`render`
+  mutates the tree it is given** — `_sanitizeTreeContent` assigns to `content`. So passing the store's
+  proxy wrote resolved nodes back into the document and crashed the tab; passing a deep copy left the
+  view holding a tree that could never change, which is why the app re-rendered every board on every
+  keystroke — **and that is what lost the caret**, because a full out-of-band render replaces the DOM
+  under a reader who is typing in it.
+
+  Both answered by `EditorViewDOMOptions.rootId`: a view that draws part of a document says so, asks
+  the editor for that subtree, and takes the same path the main view takes. Every `EditorViewDOM`
+  already re-renders itself on `editor:content.change` — there was never a second view that "was not
+  listening", only a second view redrawing a tree that could not change.
+
+  The deck's notes pane still copies, with a comment naming the wrong reason (it supposes the
+  reconciler compares the model with itself; `Reconciler.reconcile` matches a fresh vnode tree to the
+  DOM). It works, so it is left alone — but it should move to `rootId` when it is next touched.
+
+### A screenshot found what the whole suite could not
+
+- [x] The site builder's cards drew as a staircase on a phone — three stacked cards, each as wide as
+  its own longest line — because `frameCss` aligns a stack's children to the start of the cross axis,
+  which is right on a canvas and wrong on a page. **Every browser assertion in the suite passed.**
+  They all asked about `flex-direction`; not one asked about width. One glance at the rendered page
+  found it in a second.
+
+  Kept as a rule rather than a fix: when a slice is about *layout*, look at it. A layout test asserts
+  the property it was told to assert, and a page has a hundred others.
+
+- [x] **A test that calls its own subject with `?.` cannot fail.** In the same slice:
+  `expect(editor.getDocumentFaults?.() ?? []).toEqual([])` had passed since the product existed. There
+  is no such method — the getter is `documentFaults` — so optional chaining turned *the API is not
+  there* into *there are no faults*, while the editor logged a schema complaint on every load. Two
+  invalid sample documents hid behind it. Never optional-chain the thing under test.
+
+- [x] **A snapshot taken around the proxy skips everything the proxy does.** The site's per-width
+  frames walked the store's raw nodes to get a tree the reconciler could compare — a real trap, and
+  the wrong way around it. The proxy is where a placement becomes its definition's parts; walking past
+  it drew every reusable header as an empty box, and a browser test asserting "the header is on both
+  pages" passed on a placement with nothing in it. Read *through* the proxy, then copy.
+
 ### Resolving a placement is not worth a cache, and the numbers say so
 
 - [x] Twenty placements of a ten-part card is two hundred resolutions per render, so a cache looked

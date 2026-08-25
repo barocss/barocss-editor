@@ -160,6 +160,8 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     // Only support container-based API
     this.container = options.container;
+    // What this view draws, when it is not the whole document. See `EditorViewDOMOptions.rootId`.
+    this._viewRootId = options.rootId;
     this.setupLayeredStructure(options.layers);
     
     // contentEditableElement always references layers.content
@@ -1614,6 +1616,27 @@ export class EditorViewDOM implements IEditorViewDOM {
     }
   }
 
+  /** What this view draws, when it is not the whole document. */
+  private _viewRootId?: string;
+
+  /**
+   * Point this view at another node — the site builder switching which page it shows.
+   *
+   * The tree it last drew is dropped, because it is the *other* node's; the next render asks the
+   * editor for the new one. Nothing else about the view changes: same editor, same store, same
+   * history.
+   */
+  setRootId(sid?: string): void {
+    if (this._viewRootId === sid) return;
+    this._viewRootId = sid;
+    this._lastRenderedModelData = null;
+  }
+
+  /** The node this view draws, or `undefined` when it draws the document. */
+  get viewRootId(): string | undefined {
+    return this._viewRootId;
+  }
+
   render(tree?: ModelData | any, options?: { sync?: boolean }): void {
     if (!this._domRenderer) {
       console.warn('[EditorViewDOM] No DOM renderer available');
@@ -1684,7 +1707,14 @@ export class EditorViewDOM implements IEditorViewDOM {
        * third thing to keep in step with them.
        */
       try {
-        const rootId = this.editor.getRootId?.();
+        /*
+         * The root **this view** draws, which is the document's unless it was given one of its own.
+         *
+         * A view of a subtree takes exactly this path — no caller tree, so nothing is sanitized and
+         * nothing is written back — and that is what lets it redraw itself on a content change with
+         * the caret intact, the same way the main view has always done.
+         */
+        const rootId = this._viewRootId ?? this.editor.getRootId?.();
         const drawnRoot = (this._lastRenderedModelData as { sid?: string } | null)?.sid;
         /**
          * Only a tree the **editor** gave can go stale this way, and only when the
@@ -1698,7 +1728,7 @@ export class EditorViewDOM implements IEditorViewDOM {
         if (this._lastRenderedModelData && !replaced) {
           modelData = this._lastRenderedModelData;
         } else {
-          const exported = this.editor.getDocumentProxy?.();
+          const exported = this.editor.getDocumentProxy?.(this._viewRootId);
           if (exported) {
             modelData = exported as ModelData;
             this._lastRenderedFromEditor = true;

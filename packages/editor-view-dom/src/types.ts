@@ -67,6 +67,23 @@ export interface EditorViewDOMOptions {
    * two editors on a page read each other's. This scopes it to the view instead.
    */
   env?: RenderEnv;
+  /**
+   * The node this view draws, when it is **not the whole document**.
+   *
+   * A second view of one editor is an ordinary thing — the deck's presenter notes, a site builder's
+   * three widths of one page — and until now the only way to say what it drew was to hand
+   * `render(tree)` a tree of one's own. That has a consequence nothing wrote down: **`render` mutates
+   * the tree it is given** (`_sanitizeTreeContent` assigns to `content`), so a caller tree must be
+   * the caller's own. Passing the store's proxy wrote resolved nodes back into the document and
+   * crashed the tab; passing a deep copy left the view holding a tree that could never change, so the
+   * host had to re-render it on every keystroke — which replaces the DOM under a reader who is typing
+   * in it, and loses the caret.
+   *
+   * Both are answered by saying it here instead. A view with a root asks the editor for *that*
+   * subtree, live, on exactly the same path the main view uses — so it redraws itself on a content
+   * change, keeps the caret, and the host does nothing.
+   */
+  rootId?: string;
 }
 
 export interface KeymapConfig {

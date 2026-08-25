@@ -179,6 +179,155 @@ Two things came with it, one design and one fault:
   drawn. The editor's own view redraws itself on a content change; every *other* view is the host's
   to keep up to date.
 
+**6. An override may be a map, because *this* map is checkable.**
+`componentBind` refused a map and wrote down why: a binding names an attribute of a part it is not
+on, and nothing over here can verify that part declares it — so a map there would be a value nothing
+could check, which is the fault this schema keeps finding. A breakpoint override is the other case,
+and the difference is the whole argument: it names attributes of **the node it is written on**, and
+the schema has that node's declarations right there. `overrideFaults` makes the check — a width
+nobody draws, an attribute this node does not have — and a test holds it. The alternative was a child
+node, refused for a reason worth keeping: a paragraph and a heading would then carry non-text
+children at the front of their content, and every offset in the text stack counts from there.
+
+The cascade is CSS's own `max-width` shape — page, then tablet, then mobile, last word wins — so one
+statement at the tablet covers both narrow widths, which is what a reader means by "on small
+screens".
+
+**7. A test that calls its own subject with `?.` cannot fail.**
+`expect(editor.getDocumentFaults?.() ?? []).toEqual([])` passed from the day the product existed.
+There is no `getDocumentFaults`; the getter is `documentFaults`. Optional chaining turned *the API is
+not there* into *there are no faults*, while the editor logged a schema complaint on every single
+load — the sample put its `components` and its `resources` before its pages, and the document's
+content model puts resources after them. Two invalid documents, one silent test, and the fix was to
+call the thing that exists.
+
+**8. A snapshot has to be taken *of* the proxy, not around it.**
+The per-width frames built their tree by walking the store's raw nodes, because the trap they were
+avoiding is real: the proxy is live, and a live tree compared with itself reports that nothing has
+changed. But the proxy is not only a lazy reader of children — it is **where a placement becomes its
+definition's parts and a list becomes its rows**. Walking around it meant the reusable header drew as
+an empty box on every frame for as long as the app had existed, and a browser test asserting "the
+header is on both pages" passed on a placement with nothing in it. The data list is what exposed it,
+by drawing its `componentValue` declarations and throwing: *Renderer for node type 'componentValue'
+not found*. Read through the proxy, copy what comes out.
+
+**9. A resolved node must not be resolved again.**
+The proxy asks *what are this node's children* for every node a reader reaches, including the ones a
+resolver has just returned. For a single placement that costs nothing — its parts are frames and
+headings, none of them a placement. A **repeated** placement is the case that measured it: a list
+draws one placement per row, so each row *is* an instance, and asking again threw the row away and
+drew the definition's defaults three times. The test is not a guess: a stored node's children are
+sids and only a resolved one's are nodes, so "did this come out of the document" is a question about
+its shape.
+
+**10. A dynamic attribute could be absent and a static one could not.**
+The DSL has always let an attribute's *function* form return `undefined`, and the renderer has always
+skipped an attribute that resolves to nothing. The direct form was typed without it. So a renderer
+that moved its answers out of the callbacks — which is exactly what reading the env requires — stopped
+type-checking on expressions that had not changed. Widened, with the reason. `override` had the same
+shape of gap: it took `RenderTemplate` where `define` takes a function of the render context, so a
+product that had to override a node *and* read the env could do neither without a cast.
+
+**11. A page's stack stretches; a canvas's does not.**
+`frameCss` aligns a stack's children to the start of the cross axis, which is right on a canvas — a
+box on a slide is as wide as what is in it. On a page it produced a staircase: three cards stacked on
+a phone, each as wide as its own longest line, so the card with the shortest sentence came out
+narrowest. **No assertion in the suite could see it.** Every test asked about `flex-direction`, and
+none about width. A screenshot found it in one glance. The site's renderer now supplies
+`align-items: stretch` when the node says nothing, which also gives a row the equal-height cards
+every landing page means by putting them side by side — and never overrides a stack that states its
+own alignment.
+
+**12. A data list needed no template language.**
+The binding already existed. `componentVar` is a question a card asks, `componentBind` says which
+part answers it and in what, `componentValue` is a placement's answer — written for a deck's cards,
+and exactly the shape a row of data needs. What a list added is one node for the data, one node for
+the repeat, and one prefix: `field:가격` where a value goes, which is the idiom `var:강조` has used
+since the deck's variables. No expressions, no parser, no second document model.
+
+Two things it decided, both against this schema's usual grain and both for measured reasons:
+
+- **The rows are an attribute, not nodes.** A 500-row catalogue would be 4,000 nodes that nothing
+  ever selects, edits or puts a caret in — carried by the store, walked by the validator and by every
+  save. The cost of the other choice is real and is written where it happens: editing one cell
+  rewrites the array, so an inline dataset is for the tens of rows a person curates and anything
+  larger is `kind: 'url'`.
+- **A list resolves in the store's content resolver, where a breakpoint may not.** They look like the
+  same question and are not: every view draws the same rows — a product list is the same forty
+  products on a phone — while three views want three different answers about a width at the same
+  instant. What changes at 390 is how the rows are arranged, which is the stack's own overrides doing
+  their job.
+
+## The product, not only the model
+
+Written after the first shell was built, because the order the work went in was wrong and saying so
+is the useful part: three slices in a row added *model* — breakpoints, then data — to a product a
+reader could not select anything in. The measurement that made it plain:
+
+| | office-ui used | app files | overlay / panel / toolbar / zoom |
+| --- | ---: | ---: | --- |
+| word | 17 | 17 | 1 / 1 / 1 / 2 |
+| slide | 53 | 27 | 2 / 5 / 1 / 0 |
+| **site** (before) | **5** | **4** | **0 / 0 / 0 / 0** |
+
+Five of the fifty-three shared controls, and none of the four things that make a builder. The engine
+half was measured at every step; the product half had never been asked about at all.
+
+### The shape
+
+Four regions, because a reader has four questions at once: **what can I do** (top), **what is this
+page made of** (left), **what does it look like** (middle), **what is this thing** (right). The
+middle is a **canvas** rather than a pane — a plane the boards sit on, panned with space and zoomed
+about the pointer — and the reason is the product's own claim: a reader is not looking at *a* page,
+they are looking at the same page at three widths and comparing them.
+
+The boards are *not* canvas objects. No coordinates, no dragging, no z-order: each is a page laid out
+by the browser exactly as it will be published. **The canvas is the studio; the board is the page.**
+
+### The interaction, which is the part that had to be decided
+
+A board is a real editor view — `contenteditable`, caret, input path, mutation observer. That is what
+makes the text editable and it is also what makes a builder impossible on its own: every click would
+put a caret and nothing would ever select a section. So the pointer has an owner, and it is stated:
+
+- **Select** (default) — a layer over the board takes every pointer event, so the board never sees
+  one. A click selects, a double-click goes in, and the caret is never disturbed because it is never
+  asked for.
+- **Text** — the layer stops taking events and the board is an ordinary editor again.
+
+One gesture each way: double-click in, `Escape` out. And what each gesture *means* lives in
+`office-site/selection.ts` with tests, because it is a fact about the product rather than about the
+DOM.
+
+**13. A drill cannot be written against the selection.** The obvious rule — a double-click selects one
+level deeper than what is selected — cannot work, and the reason is the event sequence rather than
+the idea: a double-click is `pointerdown, click, pointerdown, click, dblclick`, and its **first press
+is an ordinary click** that has already put the selection back to the outermost block. So every
+double-click drilled from the top and a heading three levels down could not be reached however many
+times it was tried. What has to be kept is not *what is selected* but **where the reader is** — the
+container they have entered. `childOfScope` is that, and it is also why clicking one card and then
+its neighbour keeps you inside the row instead of jumping back out to it.
+
+**14. Entering the text is a decision, so the caret has to be asked for.** The layer swallowed the
+double-click that would have placed it. Measured: the mode changed, the outline went dashed, and
+typing did nothing at all. `firstRunIn` + `updateSelection` + focusing the board is what a click
+would have done.
+
+**15. `Escape` belongs to the reader, not to a board.** Three overlays each listening on the document
+meant one press stepped out three levels — a bug only a second board could produce. One listener, in
+the app.
+
+**16. A test cannot click a canvas the ordinary way.** Playwright refuses a click when something
+covers the target, and something always covers it here **on purpose**. `force: true` dispatches at
+the same point and lets the layer that owns the pointer answer — which is exactly what a reader's
+click does. A suite that worked around it by clicking elsewhere would be testing a product nobody
+uses.
+
+**17. A selector that names a property the product changes is a selector that lies.** The card row was
+found with `[data-layout="row"]`, and at 390 it is a column — that is the whole point of it — so the
+mobile assertion failed as though the override had broken something. Blocks are found by **where they
+are**, never by what they currently look like.
+
 ## What the first slice cost
 
 | | lines |
@@ -191,3 +340,43 @@ Seven hundred lines, three renderers (`surface`, `frame`, `instance`, plus a pic
 (`path`), and three insert commands. Everything else — the text stack, the style cascade, the marks,
 the arrangement, components, the selection, the history, the commands — is what the first two
 products already had.
+
+## What the schema holds now
+
+Everything a site draws is the office schema's, plus this. It is the whole list:
+
+| what a site says | how it is written |
+| --- | --- |
+| a page's address | `surface.path` |
+| how wide a block means to be | `sizing` (`fill` / `hug` / `fixed`), `minWidth`, `maxWidth` |
+| what it says differently on a phone | `overrides: { tablet?, mobile? }` on the same nodes |
+| the rows a list draws from | `dataset` — a `resource`, with `fields` and either `records` or a `url` |
+| the list itself | `collection` — a stack holding exactly one `instance` |
+| a cell where a value goes | `field:이름`, beside the `var:강조` this schema already had |
+
+Two nodes, five attributes and a prefix. No new *shape* of document: a page is Word's surface, a
+section is a canvas frame, a card is a deck component, and a repeated card is that component asked
+one question forty times.
+
+## What a site builder still needs
+
+Measured against what the product can do today, in the order the next slices should take them:
+
+1. **A panel for the data, and a command that makes a list.** A dataset a reader cannot see is a
+   dataset only a developer has — the rows, the fields, and which of them each part of the card
+   takes. `collection` has no insert yet on purpose: making one means choosing a dataset and a
+   component, which is a panel's question, and a command nothing can call is the thing
+   `every-command-can-be-reached` exists to catch.
+2. **HTML export.** The product's actual output, and the thing that makes every layout decision above
+   testable against a real browser rather than this one.
+3. **Links between pages.** The `link` mark carries an `href`; a site's own pages are named by `path`,
+   and nothing yet turns one into the other. A deck's `goTo` is the same question answered for slides.
+4. **Fetching a `url` dataset.** Declared and not read: today only `records` draws. The design already
+   says the editor keeps a few rows to design against and the published page fetches.
+5. **Per-page metadata.** Title, description, social image — a page of a site has them and a page of a
+   document does not.
+6. **Filling in the override panel.** `overriddenAt` says which attributes a width changes, so a
+   reader can be shown that the value in front of them is this width's rather than the page's; the
+   commands exist, the marks are not on screen yet.
+7. **Forms.** The one common site block with no node behind it — and the first thing here that would
+   genuinely be new rather than reused.
