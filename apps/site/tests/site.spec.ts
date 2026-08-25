@@ -465,3 +465,99 @@ test.describe('the panel', () => {
     await expect(button).toContainText('지금 시작하기');
   });
 });
+
+/**
+ * The page a visitor gets, opened in a real browser.
+ *
+ * The unit suite compares the export's media queries with the editor's own drawing, property by
+ * property. This is the other half and the one only a browser can do: **put the exported page in a
+ * browser at 390 pixels and ask the layout engine what it did.** A media query that says the right
+ * thing and a browser that does something else is a difference nothing else here would see.
+ */
+test.describe('the exported page', () => {
+  const exported = async (page: Page, path: string) =>
+    await page.evaluate(
+      (want) => (window as any).exportSite().find((one: any) => one.path === want)?.html ?? '',
+      path
+    );
+
+  test('lays out the same way the editor drew it, at every width', async ({ page }) => {
+    await ready(page);
+    const html = await exported(page, '/');
+    expect(html).toContain('한 엔진, 여러 제품');
+
+    // What the editor's own boards decided, read off the screen.
+    const editorSays = async (frame: string) =>
+      await cardRow(page, frame).evaluate((node) => {
+        const style = getComputedStyle(node);
+        return { direction: style.flexDirection, padding: style.padding, gap: style.gap };
+      });
+    const wide = await editorSays('desktop');
+    const narrow = await editorSays('mobile');
+    expect(wide.direction).toBe('row');
+    expect(narrow.direction).toBe('column');
+
+    // And what the **published** page does, in the same browser, with nothing but the file.
+    const visitor = await page.context().newPage();
+    const asks = async (width: number) => {
+      await visitor.setViewportSize({ width, height: 900 });
+      await visitor.setContent(html);
+      await visitor.waitForTimeout(120);
+      return await visitor
+        .locator('.st-page > .st-stack')
+        .nth(1)
+        .evaluate((node) => {
+          const style = getComputedStyle(node);
+          return { direction: style.flexDirection, padding: style.padding, gap: style.gap };
+        });
+    };
+
+    expect(await asks(1280)).toEqual(wide);
+    expect(await asks(390)).toEqual(narrow);
+    await visitor.close();
+  });
+
+  test('draws the data, and the same rows in the same order', async ({ page }) => {
+    await ready(page);
+    const html = await exported(page, '/');
+
+    const visitor = await page.context().newPage();
+    await visitor.setContent(html);
+    await visitor.waitForTimeout(120);
+
+    // A list is resolved rather than stored, so an exporter that walked the document would publish
+    // one card. These are the three the editor shows, in the order the data was asked for.
+    const cards = visitor.locator('.st-collection > .st-placement');
+    await expect(cards).toHaveCount(3);
+    await expect(cards.locator('h3')).toHaveText(['사이트', '문서', '덱']);
+
+    // And they are the same three the editor is drawing at this moment.
+    await expect(page.locator('[data-frame="desktop"] .st-collection > .st-placement h3')).toHaveText([
+      '사이트',
+      '문서',
+      '덱'
+    ]);
+    await visitor.close();
+  });
+
+  test('publishes what a design token resolved to, not the reference', async ({ page }) => {
+    await ready(page);
+    const html = await exported(page, '/');
+
+    const visitor = await page.context().newPage();
+    await visitor.setContent(html);
+    await visitor.waitForTimeout(120);
+
+    /*
+     * `var:강조` is a fact about the *document*. A visitor's browser has never heard of it, so the
+     * export has to publish what it resolved to — and the editor has to keep the reference, so that
+     * changing the token still changes the site.
+     */
+    expect(html).not.toContain('var:강조');
+    await expect(visitor.locator('.st-collection > .st-placement .st-stack').first()).toHaveCSS(
+      'background-color',
+      'rgb(248, 250, 252)'
+    );
+    await visitor.close();
+  });
+});

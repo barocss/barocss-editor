@@ -49,7 +49,8 @@
     "@barocss/office-canvas": "workspace:*",
     "@barocss/office-text": "workspace:*",
     "@barocss/office-word": "workspace:*",
-    "@barocss/schema": "workspace:*"
+    "@barocss/schema": "workspace:*",
+    "@barocss/renderer-dom": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

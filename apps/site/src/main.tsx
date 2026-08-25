@@ -9,6 +9,7 @@ import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import {
   createSampleSite,
   createSiteEditor,
+  exportSite,
   getSiteSchemaDefinition,
   registerSiteRenderers
 } from '@barocss/office-site';
@@ -19,6 +20,8 @@ declare global {
   interface Window {
     editor?: Editor;
     editorView?: EditorViewDOM;
+    /** The pages a visitor would get — see `exportSite`. For the console, and for tests. */
+    exportSite?: () => { path: string; name: string; html: string }[];
   }
 }
 
@@ -69,6 +72,14 @@ export function mountSite(container: HTMLElement): { editor: Editor; view: Edito
   // For the console and for tests, the same two handles the other two apps expose.
   window.editor = editor;
   window.editorView = view;
+  /*
+   * And the third, which is this product's own: what a visitor would get.
+   *
+   * Exposed rather than only reachable from a button, because the check that matters is comparing
+   * the **published page** with the one on screen, and a test can only do that if it can ask for
+   * both. Export is a render of the same renderers, so a difference is a real finding.
+   */
+  window.exportSite = () => exportSite(editor as never);
 
   return { editor, view };
 }

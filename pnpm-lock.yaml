@@ -944,6 +944,9 @@ importers:
       '@barocss/office-word':
         specifier: workspace:*
         version: link:../office-word
+      '@barocss/renderer-dom':
+        specifier: workspace:*
+        version: link:../renderer-dom
       '@barocss/schema':
         specifier: workspace:*
         version: link:../schema

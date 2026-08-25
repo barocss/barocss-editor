@@ -63,6 +63,13 @@ export {
   type RowQuery
 } from './data';
 export { collectionRows, installSiteResolution, templateOf } from './collection-resolution';
+/**
+ * The page a visitor gets.
+ *
+ * A **render**, not a second implementation — the same renderers into a detached element — which is
+ * what makes comparing the export with the editor's drawing a real check rather than a tautology.
+ */
+export { cssFor, drawnHtml, exportPage, exportSite, mediaRules, type ExportedPage } from './export-html';
 /** Where a carried block would land — which stack, which place, and the line a reader steers by. */
 export { landingFor, type Box, type Landing } from './landing';
 /**

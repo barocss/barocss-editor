@@ -46,6 +46,37 @@ entries are that.
 
 ## Open
 
+### Export is a render, and that is what makes it an instrument
+
+- [x] The obvious exporter is a walk that builds HTML strings, and it is the wrong one for a reason
+  that has nothing to do with effort: a site builder's claim is that the thing on screen **is** the
+  page, and an exporter that computes its own `display: flex` is a second answer to "what does a
+  stack look like". Two answers drift, and the first divergence is a page that looked right in the
+  editor and wrong when published.
+
+  So export renders — the same `DOMRenderer`, registry, renderers and env, into a detached element.
+  Which is what makes comparing the two a real check rather than a tautology, and the check found a
+  real fault on its first run:
+
+- [x] **An inline style beats a stylesheet, so every media query was correct and did nothing.** The
+  renderers produce inline styles, which is right for an editor and fatal for a published page.
+  Measured in a real browser at 390 pixels, on a row that stayed a row. The export now lifts each
+  drawn element's style into a class of its own, so base and narrow have the same weight and the
+  order decides — and no `!important` anywhere, because a page a reader cannot override with their
+  own CSS is a page that is not really theirs.
+
+  A class **per element**, not per node: a node's id is stamped on every element of its template, so
+  a rule keyed by the id would reach inside a heading and restyle the span in it.
+
+- [x] **A list is resolved, not stored**, so an exporter that walked the document would publish a
+  page with one card on it. Rendering is what puts three there, sorted and filtered exactly as the
+  editor shows them — and the browser test asserts the published page and the editor agree on which
+  three and in what order.
+
+- [x] **A token publishes what it resolved to.** `var:강조` is a fact about the document; a visitor's
+  browser has never heard of it. The editor keeps the reference — so changing the token changes the
+  site — and the export writes the colour.
+
 ### A panel can only be judged against a document that uses the properties
 
 - [x] The site's inspector had three groups and was written **from the schema**. It looked complete,
