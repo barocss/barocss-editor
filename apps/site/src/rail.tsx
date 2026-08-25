@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
-import { Button, useRevision } from '@barocss/office-ui';
+import { Button, Icon, IconButton, useRevision } from '@barocss/office-ui';
+import { DataEditor } from './data-editor';
 import {
   blocksIn,
   definitionsOf,
@@ -377,6 +378,8 @@ function DataPanel({
 }) {
   const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } }).dataStore;
   const [design, setDesign] = useState<string>('');
+  /** Which dataset's grid is open, by **name** — a sid would be stale after any edit. */
+  const [editing, setEditing] = useState<string | null>(null);
 
   const { datasets, components } = useMemo(() => {
     const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
@@ -391,6 +394,7 @@ function DataPanel({
         .map((sid) => store?.getNode(sid))
         .filter((one: any) => one?.stype === 'dataset')
         .map((one: any) => ({
+          sid: String(one.sid),
           name: String(one.attributes.name),
           label: String(one.attributes.label ?? one.attributes.name),
           fields: (one.attributes.fields ?? []) as string[],
@@ -405,10 +409,37 @@ function DataPanel({
 
   const chosen = design || components[0]?.id || '';
 
-  if (datasets.length === 0) return <p className="st-rail-note">아직 데이터가 없습니다.</p>;
+  /*
+   * A dataset was something only TypeScript could write until now, so "아직 데이터가 없습니다" was
+   * the end of the road: a reader who opened an empty site could look at this panel and do nothing
+   * with it. The button is the way out of that, and it is the same button whether there are none or
+   * ten — which is why it is above the list rather than inside the empty case.
+   */
+  const make = () => {
+    const taken = new Set(datasets.map((one) => one.name));
+    let name = '새 데이터';
+    for (let n = 2; taken.has(name); n += 1) name = `새 데이터 ${n}`;
+    run('insertDataset', { name });
+    // Straight into the grid: making one and then having to find it is two gestures for one act.
+    // Held by name, so this works before the panel has redrawn and found the new node.
+    setEditing(name);
+  };
 
   return (
     <>
+      {/*
+        The grid opens over the page — see `data-editor.tsx`. Held by **name** rather than by sid so
+        it survives the redraw that follows every edit made inside it.
+      */}
+      <DataEditor
+        editor={editor}
+        run={run}
+        can={can}
+        revision={revision}
+        sid={datasets.find((one) => one.name === editing)?.sid ?? null}
+        onClose={() => setEditing(null)}
+      />
+
       <section className="st-rail-group">
         <h3>어떤 디자인으로</h3>
         <div className="st-rail-list">
@@ -430,19 +461,38 @@ function DataPanel({
       <section className="st-rail-group">
         <h3>어떤 데이터를</h3>
         {datasets.map((one) => (
-          <button
-            key={one.name}
-            type="button"
-            className="st-rail-item"
-            data-dataset={one.name}
-            title={one.fields.join(' · ')}
-            disabled={!can('insertDataList', { source: one.name, componentId: chosen })}
-            onClick={() => run('insertDataList', { source: one.name, componentId: chosen })}
-          >
-            <span className="st-rail-name">{one.label}</span>
-            <span className="st-rail-hint">{one.rows}행</span>
-          </button>
+          /*
+            One row, two acts on the same thing: the name makes a list from it, and the pencil opens
+            its rows. They were two lists of the same names for a moment, which reads as a bug —
+            and the two are not equally available, which is the other reason they cannot be one
+            button: making a list needs a design chosen first, and editing the data never does.
+          */
+          <div key={one.name} className="st-rail-row">
+            <button
+              type="button"
+              className="st-rail-item"
+              data-dataset={one.name}
+              title={one.fields.join(' · ')}
+              disabled={!can('insertDataList', { source: one.name, componentId: chosen })}
+              onClick={() => run('insertDataList', { source: one.name, componentId: chosen })}
+            >
+              <span className="st-rail-name">{one.label}</span>
+              <span className="st-rail-hint">
+                {one.fields.length}열 · {one.rows}행
+              </span>
+            </button>
+            <IconButton
+              label={`${one.label} 데이터 고치기`}
+              onClick={() => setEditing(one.name)}
+              data={{ 'dataset-edit': one.name }}
+            >
+              <Icon name="edit" size={13} />
+            </IconButton>
+          </div>
         ))}
+        <Button onClick={make} data={{ 'dataset-add': 'true' }}>
+          새 데이터
+        </Button>
       </section>
       <p className="st-rail-note">디자인 하나에 행 하나씩. 문서에는 배치 하나만 들어갑니다.</p>
     </>

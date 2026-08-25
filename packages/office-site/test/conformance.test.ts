@@ -66,7 +66,9 @@ describe('the site builder draws what it declares', () => {
     { command: 'insertPicture', produces: 'picture' },
     { command: 'insertBulletList', produces: 'list' },
     { command: 'insertPlacement', produces: 'instance' },
-    { command: 'insertDataList', produces: 'collection' }
+    { command: 'insertDataList', produces: 'collection' },
+    // And the data a list draws, which nothing but TypeScript could make until now.
+    { command: 'insertDataset', produces: 'dataset' }
   ];
 
   /**
@@ -191,6 +193,23 @@ describe('the site builder draws what it declares', () => {
          */
         insertPlacement: 'the left rail — 컴포넌트, which offers the definitions this document holds',
         insertDataList: 'the left rail — 데이터, which offers a dataset and a definition together',
+        insertDataset: 'the left rail — 데이터 › 새 데이터, which names it and opens its grid',
+
+        // ── The data grid ──────────────────────────────────────────────────
+        /*
+         * A dataset is not a block: no selection names it, nothing on the page is it, and what it
+         * needs to be edited in is width — five columns by twenty rows. So it opens over the page
+         * from the rail's 데이터 panel, and every one of these is a control in that grid.
+         *
+         * Named row by row rather than as one exemption, because an exemption is a claim a reader
+         * can check in ten seconds, and "somewhere in the data editor" is not one.
+         */
+        setDatasetInfo: 'the data grid — 이름, 출처, and 주소 when the source is an address',
+        setDatasetField: 'the data grid — a column heading is the control: typed to rename, ␡ to remove, ＋ to add',
+        setDatasetCell: 'the data grid — a cell',
+        addDatasetRow: 'the data grid — 행 추가',
+        removeDatasetRow: 'the data grid — the ␡ at the end of a row',
+        removeDataset: 'the data grid — 데이터 삭제, refused while a list draws it',
 
         // ── The property panel ─────────────────────────────────────────────
         setBlockFormat:

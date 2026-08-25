@@ -2409,6 +2409,45 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **The data feature was exactly half built, and the finished half was the one you can see.**
+
+  Same sweep, next row: `dataset` offered **one of its six** declared attributes in the panel.
+  Following that down found something worse than a panel gap — **no command anywhere in the product
+  made a dataset, renamed one, added a column, or wrote a cell.** Every dataset that existed had been
+  authored in `sample-site.ts`, in TypeScript.
+
+  So a reader could see the datasets, make a list from one, and filter, sort and limit that list —
+  the whole *view*, which is the part that demos — and could not change a price. The half that was
+  missing is the half somebody uses every day.
+
+  Six commands at the grain this package already had (`setComponentValue`: one command, one named
+  thing, one value), with one deliberate exception. `setDatasetField` does add, rename *and* remove,
+  because all three have to keep `records` in step with `fields` and that is **one invariant**: a
+  rename that changed the columns and left the rows keyed by the old name is a dataset that looks
+  correct in the panel and draws nothing on the page. Three commands would be three places for that
+  to go wrong. `removeDataset` refuses while a collection names it, the way `createComponentFrom`
+  refuses a block already inside a definition — refusing while it is still a gesture beats letting a
+  reader make a document that cannot be drawn.
+
+  **It is a dialog, and that is the interesting UI decision.** Everything else a reader edits here is
+  a block, and a block is edited beside the page it is on — rail, drawing, properties. A dataset is
+  not on the page: it is a resource the page names, and what it needs is the one thing neither side
+  of the shell can give, **width**. A catalogue is five columns by twenty rows and a 280px rail draws
+  that as slivers. It also matches what the act *is* — filling a table in is a stint, not an
+  adjustment.
+
+  Two smaller things the browser found rather than the tests: the rail listed every dataset **twice**
+  once the editor existed — once to edit and once to make a list from — which reads as a bug; one row
+  with two controls says it instead, and they are not equally available anyway (making a list needs a
+  design chosen first, editing the rows never does). And the dialog title was `${label} 데이터`, which
+  is right for `상품 목록` and comes out **새 데이터 데이터** for a dataset just made — and "새 데이터"
+  is the name this product gives one, so the doubling was the common case.
+
+  Still not fetched: `kind: 'url'` sets an address and nothing reads it. That is the design `data.ts`
+  already writes down — the document keeps the address and the handful of rows a reader designs
+  against, and who fetches is a question about the *published* page — and the grid now says so in
+  words rather than leaving a reader typing into a box that appears to do nothing.
+
 - **A page's box: rounded, and not a window unless it is asked to be.**
 
   The sweep, this time pointed at the panel rather than at the renderers: for each node type, which

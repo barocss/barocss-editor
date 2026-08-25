@@ -41,6 +41,7 @@ import { installSiteResolution } from './collection-resolution';
 import { getSiteSchemaDefinition } from './site-schema';
 import { createStackCommands } from './stack-commands';
 import { createBlockCommands } from './block-commands';
+import { createDataCommands } from './data-commands';
 import { createElementCommands } from './element-commands';
 
 /** What the site product itself adds, as one list. */
@@ -69,7 +70,15 @@ export function createSiteOwnExtensions(): Extension[] {
      * And something to put in a stack. The product could make three kinds of container and nothing
      * to put in them — a reader could arrange an empty page beautifully.
      */
-    createElementCommands()
+    createElementCommands(),
+    /*
+     * And the data itself.
+     *
+     * The view came first and was finished — a list, filtered, sorted, limited, drawn once per row —
+     * against datasets that only TypeScript could write. Half a feature, and the half a reader
+     * notices is the one where a price cannot be changed.
+     */
+    createDataCommands()
   ];
 }
 

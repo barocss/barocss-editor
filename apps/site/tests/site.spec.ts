@@ -711,6 +711,83 @@ test.describe('the rail', () => {
  * at three widths — so editing a definition is pointing the boards at its part instead of at a page.
  * Nothing else in the window changes, which is the claim these hold.
  */
+test.describe('the data', () => {
+  const rail = (page: Page) => page.locator('.st-rail');
+  const grid = (page: Page) => page.locator('[role="dialog"]');
+
+  const openData = async (page: Page) => {
+    await ready(page);
+    await rail(page).getByRole('button', { name: '데이터' }).first().click();
+  };
+
+  test('opens over the page, because a table needs width the rail has not got', async ({ page }) => {
+    await openData(page);
+    // One list, two acts: the name makes a list from the dataset, the pencil opens its rows.
+    await expect(page.locator('[data-dataset]')).toHaveCount(2);
+    await page.locator('[data-dataset-edit="상품"]').click();
+
+    await expect(grid(page)).toBeVisible();
+    await expect(grid(page).locator('[data-column]')).toHaveCount(5);
+    await expect(grid(page).locator('tbody tr')).toHaveCount(4);
+  });
+
+  test('writes a cell, and the list on the page says it', async ({ page }) => {
+    /*
+     * The whole point of the feature, in one assertion: the collection draws one placement per row
+     * and binds `field:이름` into it, so a cell typed here is a card redrawn out there. It went the
+     * other way round for months — the view was finished and the data was TypeScript.
+     */
+    await openData(page);
+    await page.locator('[data-dataset-edit="상품"]').click();
+    await grid(page).locator('[data-cell="0:가격"]').fill('월 1원');
+    await grid(page).locator('[data-cell="0:가격"]').press('Enter');
+
+    await expect(page.locator('[data-frame="desktop"] .st-collection')).toContainText('월 1원');
+  });
+
+  test('renames a column, and the rows come with it', async ({ page }) => {
+    /*
+     * The one gesture in this grid whose consequence is not visible where it is made: `fields` and
+     * every key in `records` have to move together, or the dataset looks right in the panel and
+     * draws nothing on the page. The model holds that (`data-commands.test.ts`); this holds that
+     * the column heading is wired to it.
+     */
+    await openData(page);
+    await page.locator('[data-dataset-edit="상품"]').click();
+    const cell = grid(page).locator('[data-cell="0:가격"]');
+    const was = await cell.inputValue();
+
+    await grid(page).locator('[data-column="가격"]').fill('값');
+    await grid(page).locator('[data-column="가격"]').press('Enter');
+
+    await expect(grid(page).locator('[data-column="값"]')).toHaveCount(1);
+    await expect(grid(page).locator('[data-cell="0:값"]')).toHaveValue(was);
+  });
+
+  test('makes a dataset and lands in its grid, with something to type into', async ({ page }) => {
+    await openData(page);
+    await page.locator('[data-dataset-add]').click();
+
+    // Straight into the grid: making one and then having to find it is two gestures for one act.
+    await expect(grid(page)).toBeVisible();
+    // One column and one row, not an empty pair — an empty dataset is a panel with nowhere to type.
+    await expect(grid(page).locator('[data-column]')).toHaveCount(1);
+    await expect(grid(page).locator('tbody tr')).toHaveCount(1);
+
+    await grid(page).getByRole('button', { name: '행 추가' }).click();
+    await expect(grid(page).locator('tbody tr')).toHaveCount(2);
+  });
+
+  test('refuses to delete a dataset a list is drawing, and says why', async ({ page }) => {
+    await openData(page);
+    await page.locator('[data-dataset-edit="상품"]').click();
+    const remove = grid(page).getByRole('button', { name: '데이터 삭제' });
+    await expect(remove).toBeDisabled();
+    // Disabled with a reason. A control that refuses and does not say why is a bug report.
+    await expect(remove).toHaveAttribute('title', '이 데이터를 쓰는 목록이 있습니다');
+  });
+});
+
 test.describe('a definition', () => {
   test('opens from the rail, and says how many places it changes', async ({ page }) => {
     await ready(page);

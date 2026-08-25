@@ -22,6 +22,7 @@ export {
 export { createSiteEditor, createSiteExtensions, createSiteOwnExtensions, type SiteEditorOptions } from './site-kit';
 export { createStackCommands, SiteStackExtension, type InsertStackOptions } from './stack-commands';
 export { createBlockCommands, SiteBlockExtension } from './block-commands';
+export { createDataCommands, SiteDataExtension } from './data-commands';
 export { createElementCommands, SiteElementExtension } from './element-commands';
 /** The definitions a site holds, and what a builder needs to know about one. */
 export { definitionAt, definitionOf, definitionsOf, usesOf, type Definition } from './components';

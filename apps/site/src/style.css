@@ -476,3 +476,102 @@ body {
   min-height: 24px;
   outline: 1px dashed var(--st-line);
 }
+
+/*
+ * The data grid, which opens over the page.
+ *
+ * A dialog rather than a rail panel because a catalogue is five columns wide and a 280px rail draws
+ * that as slivers — see `data-editor.tsx`. Everything here is the room; every control in it is
+ * `office-ui`'s, so a cell in this grid is the same field as a cell in the properties panel.
+ */
+.st-data-dialog {
+  width: min(56rem, calc(100vw - 3rem));
+}
+
+.st-data-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.st-data-about {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.st-data-note {
+  margin: 0;
+  font-size: var(--ou-text-small);
+  color: var(--ou-muted);
+}
+
+/* The one thing a table must never do to the page around it. */
+.st-data-scroll {
+  overflow-x: auto;
+  max-height: 22rem;
+  overflow-y: auto;
+  border: 1px solid var(--ou-line);
+  border-radius: var(--ou-radius);
+}
+
+.st-data-grid {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--ou-text);
+}
+
+.st-data-grid th,
+.st-data-grid td {
+  border-bottom: 1px solid var(--ou-line);
+  border-right: 1px solid var(--ou-line);
+  padding: 2px 4px;
+  text-align: left;
+  font-weight: 400;
+  vertical-align: middle;
+}
+
+/*
+ * The header stays while the rows scroll, which is what makes a twenty-row table readable at all —
+ * a cell whose column has scrolled away is a number with no name.
+ */
+.st-data-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--ou-panel);
+  border-bottom-width: 2px;
+}
+
+.st-data-col {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 8rem;
+}
+
+/* The row number is a label, not data: quiet, narrow, and never the thing a reader aims at. */
+.st-data-rownum {
+  width: 2rem;
+  text-align: right;
+  color: var(--ou-faint);
+  font-variant-numeric: tabular-nums;
+  background: var(--ou-ground);
+}
+
+.st-data-add,
+.st-data-rowend {
+  width: 2rem;
+  background: var(--ou-ground);
+}
+
+.st-rail-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.st-rail-row .st-rail-item {
+  flex: 1;
+  min-width: 0;
+}
