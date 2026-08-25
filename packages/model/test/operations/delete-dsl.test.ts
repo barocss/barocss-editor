@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import '../../src/operations/register-operations';
-import { deleteOp } from '../../src/operations-dsl/delete';
+import { deleteOp } from '../../src/operations/delete';
 
 describe('delete operation DSL (descriptor only)', () => {
   it('should build a delete descriptor from DSL', () => {

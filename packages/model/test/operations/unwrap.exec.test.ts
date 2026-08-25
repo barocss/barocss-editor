@@ -5,7 +5,7 @@ import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
 import { globalOperationRegistry } from '../../src/operations/define-operation';
-import { unwrap as unwrapDsl } from '../../src/operations-dsl/unwrap';
+import { unwrap as unwrapDsl } from '../../src/operations/unwrap';
 
 describe('unwrap operation (exec)', () => {
   let dataStore: DataStore;

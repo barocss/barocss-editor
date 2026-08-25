@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { transaction, control, node, textNode, mark } from '../../src/transaction-dsl';
-import { create } from '../../src/operations-dsl/create';
+import { create } from '../../src/operations/create';
 
 describe('DSL Smoke Test', () => {
   it('should create DSL functions without errors', () => {

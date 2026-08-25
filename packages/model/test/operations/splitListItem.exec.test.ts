@@ -5,7 +5,7 @@ import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
 import { globalOperationRegistry } from '../../src/operations/define-operation';
-import { splitListItem as splitListItemDsl } from '../../src/operations-dsl/splitListItem';
+import { splitListItem as splitListItemDsl } from '../../src/operations/splitListItem';
 import type { INode } from '@barocss/datastore';
 
 describe('splitListItem operation (exec, selection-based)', () => {

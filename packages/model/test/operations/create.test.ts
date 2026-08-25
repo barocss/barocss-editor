@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { create as createDSL } from '../../src/operations-dsl/create';
+import { create as createDSL } from '../../src/operations/create';
 import '../../src/operations/register-operations'; // Register operations
 import { DataStore, INode } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';

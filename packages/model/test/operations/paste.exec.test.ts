@@ -4,7 +4,7 @@ import type { INode } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { Schema } from '@barocss/schema';
 import { transaction } from '../../src';
-import { paste } from '../../src/operations-dsl';
+import { paste } from '../../src/operations';
 
 function createMockEditor(dataStore: DataStore, selectionManager: SelectionManager, schema: Schema) {
   return {

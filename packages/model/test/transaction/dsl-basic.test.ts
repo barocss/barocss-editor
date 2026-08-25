@@ -3,7 +3,7 @@ import { DataStore } from '@barocss/datastore';
 import { Schema } from '@barocss/schema';
 import { Editor, SelectionManager } from '@barocss/editor-core';
 import { transaction, control, node, textNode, mark, op } from '../../src/transaction-dsl';
-import { create } from '../../src/operations-dsl/create';
+import { create } from '../../src/operations/create';
 
 describe('DSL Basic Operations', () => {
   let dataStore: DataStore;

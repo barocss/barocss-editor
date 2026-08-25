@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import { Schema } from '@barocss/schema';
 import { transaction, node } from '../../src/transaction-dsl';
-import { create } from '../../src/operations-dsl/create';
+import { create } from '../../src/operations/create';
 import { SelectionManager } from '@barocss/editor-core';
 // Import operations to register them
 import '../../src/operations/register-operations';

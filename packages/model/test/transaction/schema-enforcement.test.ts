@@ -3,7 +3,7 @@ import { DataStore } from '@barocss/datastore';
 import { Schema } from '@barocss/schema';
 import { SelectionManager } from '@barocss/editor-core';
 import { transaction } from '../../src/transaction-dsl';
-import { addChild } from '../../src/operations-dsl/addChild';
+import { addChild } from '../../src/operations/addChild';
 import '../../src/operations/register-operations';
 
 /**

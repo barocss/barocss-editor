@@ -1,5 +1,33 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
+import { defineOperationDSL } from './define-operation-dsl';
+
+/**
+ * What the **builder** returns, which is not what the handler reads.
+ *
+ * Both files called their type `DeleteTextRangeOperation` and meant different things — the builder's
+ * was the whole operation (`{ type, nodeId?, start, end }`) and the handler's is the *payload*
+ * (`{ nodeId, start, end }`). Two meanings for one name is exactly the sort of thing a directory
+ * split hides, and bringing them into one file is what made it visible.
+ */
+type DeleteTextRangeDescriptor = {
+  type: 'deleteTextRange';
+  nodeId?: string;
+  start: number;
+  end: number;
+};
+
+export const deleteTextRange = defineOperationDSL(
+  (...args: [number, number] | [string, number, number]) => {
+    if (args.length === 2) {
+      const [start, end] = args as [number, number];
+      return { type: 'deleteTextRange', payload: { start, end } } as unknown as DeleteTextRangeDescriptor;
+    }
+    const [nodeId, start, end] = args as [string, number, number];
+    return { type: 'deleteTextRange', payload: { nodeId, start, end } } as unknown as DeleteTextRangeDescriptor;
+  },
+  { atom: true, category: 'text' }
+);
 
 /**
  * deleteTextRange operation (runtime)

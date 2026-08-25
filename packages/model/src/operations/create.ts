@@ -1,6 +1,7 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
 import type { INode } from '@barocss/datastore';
+import { defineOperationDSL } from './define-operation-dsl';
 
 // CreateOperation type definition (uses INode)
 // runtime only; DSL moved to operations-dsl/create.ts
@@ -15,6 +16,14 @@ import type { INode } from '@barocss/datastore';
  * 3. Perform schema validation
  * 4. Emit atomic Operation events
  */
+
+type CreateOperation = { type: 'create'; payload: { node: INode; options?: any } };
+
+export const create = defineOperationDSL(
+  (node: INode, options?: any) => ({ type: 'create', payload: { node, options } } as unknown as CreateOperation),
+  { atom: false, category: 'structure' }
+);
+
 /** Normalize payload node: id→sid, type→stype so DataStore and DSL callers can use either. */
 function normalizeNodeForStore(n: any): void {
   if (n == null || typeof n !== 'object') return;

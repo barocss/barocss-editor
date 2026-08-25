@@ -1,6 +1,26 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
 import { findBlockAncestor } from './split-at-caret';
+import { defineOperationDSL } from './define-operation-dsl';
+
+
+/**
+ * wrapInList operation (DSL) — selection-based.
+ * Wraps the current block in a list (bullet/ordered) or unwraps if already in a list.
+ */
+export interface WrapInListOperation {
+  type: 'wrapInList';
+  payload: WrapInListPayload;
+}
+
+export const wrapInList = defineOperationDSL(
+  (listType?: 'bullet' | 'ordered') =>
+    ({
+      type: 'wrapInList',
+      payload: { ...(listType != null && { listType }) }
+    }) as WrapInListOperation,
+  { atom: false, category: 'content' }
+);
 
 /**
  * wrapInList operation (selection-based)
@@ -10,7 +30,14 @@ import { findBlockAncestor } from './split-at-caret';
  * - selectionAfter: caret stays in the same text node (wrap/unwrap does not move caret).
  */
 
-export interface WrapInListPayload {
+/**
+ * What a `wrapInList` carries.
+ *
+ * `extends Record<string, unknown>` because a builder's payload has to satisfy `DSLOperationPayload`
+ * — and the two files declared this type twice, one with the constraint and one without. Bringing
+ * them together is what made it a single answer rather than whichever the importer happened to get.
+ */
+export interface WrapInListPayload extends Record<string, unknown> {
   listType?: 'bullet' | 'ordered';
 }
 

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import { Schema } from '@barocss/schema';
 import { transaction, node, textNode, control } from '../../src/transaction-dsl';
-import { create } from '../../src/operations-dsl/create';
+import { create } from '../../src/operations/create';
 import '../../src/operations/register-operations';
 
 describe('DSL Control Operations', () => {

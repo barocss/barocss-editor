@@ -1,6 +1,7 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
 import { findBlockAncestor } from './split-at-caret';
+import { defineOperationDSL } from './define-operation-dsl';
 
 function getCurrentBlockFromSelection(
   dataStore: any,
@@ -32,6 +33,12 @@ function getCurrentBlockFromSelection(
   if (blockIndex === -1) return null;
   return { blockId: parent.sid, block: parent, parentId: grandParent.sid, parent: grandParent, blockIndex };
 }
+
+
+export const wrapInBlockquote = defineOperationDSL(
+  () => ({ type: 'wrapInBlockquote', payload: {} }),
+  { atom: false, category: 'content' }
+);
 
 defineOperation('wrapInBlockquote', async (_operation: { type: string; payload: Record<string, unknown> }, context: TransactionContext) => {
   const dataStore = context.dataStore;

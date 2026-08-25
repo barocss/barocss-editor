@@ -5,7 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
-import { updateMark as updateMarkDsl } from '../../src/operations-dsl/updateMark';
+import { updateMark as updateMarkDsl } from '../../src/operations/updateMark';
 
 describe('updateMark operation (exec)', () => {
   let dataStore: DataStore;

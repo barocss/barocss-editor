@@ -4,7 +4,7 @@ import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
-import { addChild as addChildDsl } from '../../src/operations-dsl/addChild';
+import { addChild as addChildDsl } from '../../src/operations/addChild';
 import { globalOperationRegistry } from '../../src/operations/define-operation';
 
 describe('addChild operation (exec)', () => {

@@ -4,7 +4,7 @@ import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
-import { deleteTextRange } from '../../src/operations-dsl/deleteTextRange';
+import { deleteTextRange } from '../../src/operations/deleteTextRange';
 import { globalOperationRegistry } from '../../src/operations/define-operation';
 
 describe('deleteTextRange operation', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { node, textNode, mark, control } from '../../src/transaction-dsl';
-import { create } from '../../src/operations-dsl/create';
+import { create } from '../../src/operations/create';
 
 describe('DSL Basic Syntax', () => {
   describe('node() helper', () => {

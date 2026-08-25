@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import '../../src/operations/register-operations';
-import { toggleMark } from '../../src/operations-dsl/toggleMark';
+import { toggleMark } from '../../src/operations/toggleMark';
 
 describe('toggleMark operation DSL', () => {
   it('should build a toggleMark descriptor from DSL', () => {

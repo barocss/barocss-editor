@@ -5,7 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
-import { removeChildren as removeChildrenDsl } from '../../src/operations-dsl/removeChildren';
+import { removeChildren as removeChildrenDsl } from '../../src/operations/removeChildren';
 
 describe('removeChildren operation (exec)', () => {
   let dataStore: DataStore;

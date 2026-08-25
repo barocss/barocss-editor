@@ -6,4 +6,3 @@ export * from './operation-dsl';
 export * from './create-transaction-context';
 export * from './selection-context';
 export * from './operations';
-export * from './operations-dsl';

@@ -19,12 +19,12 @@ Ref: `docs/specs/editor.md` §3.4, `packages/model/SPEC.md` §3.3, `.cursor/skil
 
 - [ ] **toggleList** (or **wrapInList**):
   - Add `packages/model/src/operations/toggleList.ts` (or `wrapInList.ts`): `defineOperation('toggleList', ...)` with payload `{ listType: 'bullet' | 'ordered' }`. Behavior: wrap current block(s) in a `list` node containing `listItem`(s), or unwrap if already in a list. Set `context.lastCreatedBlock` so selectionAfter is caret in the focused list item’s first text node.
-  - Add `packages/model/src/operations-dsl/toggleList.ts`: `defineOperationDSL` building `{ type: 'toggleList', payload: { listType } }`.
-  - Register in `register-operations.ts` and export from `operations-dsl/index.ts`.
+  - In `packages/model/src/operations/toggleList.ts`, beside the handler: `defineOperationDSL` building `{ type: 'toggleList', payload: { listType } }`.
+  - Register in `register-operations.ts` and **export the builder from `operations/index.ts`** — a builder nobody can import is a builder that does not exist.
   - Add `packages/model/test/operations/toggleList.exec.test.ts`: assert document structure and selectionAfter in a text node.
 - [ ] **splitListItem**:
   - Add `packages/model/src/operations/splitListItem.ts`: `defineOperation('splitListItem', ...)`. Behavior: when selection is inside a list item (e.g. in a paragraph), insert a new list item after the current one (with one empty block, e.g. paragraph); set `lastCreatedBlock` so selectionAfter is caret in the new list item’s first text node. If not inside a list item, can no-op or delegate to insertParagraph.
-  - Add `packages/model/src/operations-dsl/splitListItem.ts` and register/export.
+  - Add the builder to `packages/model/src/operations/splitListItem.ts` and register/export it.
   - Add `packages/model/test/operations/splitListItem.exec.test.ts`: assert new list item created and selectionAfter.nodeId is a text node id.
 - [ ] Run: `pnpm --filter @barocss/model test -- test/operations/toggleList.exec.test.ts`, `pnpm --filter @barocss/model test -- test/operations/splitListItem.exec.test.ts`, then `pnpm --filter @barocss/model test:run`.
 

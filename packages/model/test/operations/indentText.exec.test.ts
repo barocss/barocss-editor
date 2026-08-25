@@ -5,7 +5,7 @@ import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
 import { globalOperationRegistry } from '../../src/operations/define-operation';
-import { indentText as indentTextDsl } from '../../src/operations-dsl/indentText';
+import { indentText as indentTextDsl } from '../../src/operations/indentText';
 
 describe('indentText operation (exec)', () => {
   let dataStore: DataStore;

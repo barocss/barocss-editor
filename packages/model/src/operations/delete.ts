@@ -1,5 +1,14 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
+import { defineOperationDSL } from './define-operation-dsl';
+
+
+type DeleteOperation = { type: 'delete'; nodeId: string };
+
+export const deleteOp = defineOperationDSL(
+  (nodeId: string) => ({ type: 'delete', payload: { nodeId } } as unknown as DeleteOperation),
+  { atom: true, category: 'structure' }
+);
 
 /**
  * Node deletion Operation

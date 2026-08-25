@@ -14,7 +14,7 @@ This doc states that perspective and outlines **what is needed so an AI Agent ca
 |-------|--------|--------|------|
 | 1 | **datastore** | @barocss/datastore | Node storage/read, content/marks API, lock, overlay, $alias |
 | 2 | **model** | @barocss/model | Operation definitions, DSL, transaction, selection resolution |
-| 3 | **operation** | model: operations + operations-dsl | defineOperation, defineOperationDSL, exec tests |
+| 3 | **operation** | model: `operations/` (one file: handler **and** builder) | defineOperation, defineOperationDSL, `operations/index.ts` export, exec tests |
 | 4 | **extension** | @barocss/extensions | Command registration, keybinding → command, run operation via transaction |
 | 5 | **editor-view** | editor-view-dom / editor-view-react | Input/key → command, selection conversion, DOM/React render |
 | 6 | **Documentation** | apps/docs-site | Published user/developer docs (concepts, architecture, API, guides, examples). Deploy to GitHub Pages. |
@@ -24,7 +24,7 @@ A single feature (e.g. insertParagraph) flows in that order: datastore → model
 
 ### 1.2 Patterns already in place
 
-- **Adding an operation**: implement operation → DSL → register-operations / operations-dsl index → exec test → (optional) E2E  
+- **Adding an operation**: implement the handler and the builder in one file → register it → **export the builder from `operations/index.ts`** → exec test → (optional) E2E  
   → Documented in `.cursor/skills/model-operation-creation/SKILL.md`.
 - **Full verification**: if you touch any of datastore/model/operation/extension/editor-view, confirm with **browser E2E**.  
   → `docs/testing-verification.md` §1.1, §2.4.
@@ -47,7 +47,7 @@ For an agent to **keep adding and changing features** on this platform, the foll
 
 ### 2.2 Consistent patterns and locations
 
-- **Operation**: defineOperation + defineOperationDSL + register-operations + operations-dsl index + exec test + (when possible) E2E.  
+- **Operation**: defineOperation + defineOperationDSL in one file + register-operations + `operations/index.ts` export + exec test + (when possible) E2E.  
   → Fixed patterns make it easier for the agent to predict the next step.
 - **Extension**: registerCommand + (optional) keybinding; command runs transaction(editor, ops).commit().  
   → Same location (e.g. extensions/src) and shape when “adding a new command”.
@@ -79,7 +79,7 @@ The agent can resolve “feature F” → “which package/flow” → “that s
 
 ### 2.5 Keep naming and directory conventions
 
-- **Operation**: `operations/<name>.ts`, `operations-dsl/<name>.ts`, `test/operations/<name>.exec.test.ts`.  
+- **Operation**: `operations/<name>.ts` (both halves), `operations/index.ts` (the export), `test/operations/<name>.exec.test.ts`.  
 - **E2E**: e.g. `apps/editor-react/tests/<feature>.spec.ts`.  
 - **Skills**: package-*, app-*, flow name (e.g. model-operation-creation).
 

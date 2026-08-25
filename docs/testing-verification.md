@@ -23,7 +23,7 @@ This document describes how and to what extent the editor can be tested, and how
 |------|--------|------|------|
 | 1 | **datastore** | `packages/datastore` | 노드 저장/조회, content API, lock, overlay, $alias 등. |
 | 2 | **model** | `packages/model` | operation 정의, DSL, transaction, selection 해석. |
-| 3 | **operation** | `packages/model/src/operations`, `operations-dsl` | `defineOperation` + `defineOperationDSL`, exec 테스트. |
+| 3 | **operation** | `packages/model/src/operations` (한 연산 한 파일) | `defineOperation` + `defineOperationDSL` + `operations/index.ts` export, exec 테스트. 빌더가 export 안 되면 `dsl-builders.test.ts`가 실패한다. |
 | 4 | **extension** | `packages/extensions` | command 등록, keybinding → command, transaction에 operation 넣어 실행. |
 | 5 | **editor-view** | `packages/editor-view-dom` 또는 `editor-view-react` | 입력/키 → command 호출, selection 변환, DOM/React 렌더. |
 

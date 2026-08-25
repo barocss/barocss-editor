@@ -46,6 +46,42 @@ entries are that.
 
 ## Open
 
+### One operation, one file — and a builder nobody could import
+
+- [x] Asked while reading a site command: *why don't the extensions use the operation DSL — is it
+  harder?* Measured, and the answer was neither taste nor difficulty:
+
+  - `packages/model/src/operations/` held **68 files**: every operation's runtime handler, and 24 of
+    them the DSL builder beside it — which is exactly the shape this package's own README shows.
+  - `packages/model/src/operations-dsl/` held **37 files**, every one of them a duplicate *name* of a
+    file in the first directory, holding that operation's builder. One operation, two files, with the
+    same doc comment copied into both.
+  - `operations/index.ts` was a single side-effecting `import './register-operations'`. So the
+    **documented** kind — builder beside handler — could not be imported at all.
+
+  Including `setAttrs`, the most used operation in the repository: **84 hand-written**
+  `{ type: 'setAttrs', payload: { … } }` across three products, against 0 uses of any builder. That
+  is almost certainly where the habit came from — the first thing anyone reached for was not there,
+  so they wrote the object, and everything after it followed the local style. `setMarks`, `setText`,
+  `setNode`, `selectNode`, `selectRange`, `clearSelection` and **`batch`** were behind the same wall.
+
+  Merged: one operation, one file, 65 builders exported. `test/dsl-builders.test.ts` is the
+  instrument — it reads the directory, finds every `defineOperationDSL`, and asks whether that
+  builder can be **imported**. Nothing else would have caught this: the types said yes, every test
+  passed, and the value was `undefined`.
+
+- [x] **Two files, one name, two meanings.** Bringing them together is what made it visible:
+  `DeleteTextRangeOperation` was the whole operation on one side and the *payload* on the other, and
+  `WrapInListPayload` carried `extends Record<string, unknown>` on one side and not the other — so
+  which one an importer got depended on which file they reached.
+
+- [x] **A slicing script cut a type in half.** Deduping the declarations the merge doubled, the first
+  attempt found the end of `type X = …;` by searching for the next `;` — which sits *inside* a union
+  of object literals. `applyMark.ts` came out unparseable. Reset, and done again brace-aware, with
+  the removal refusing anything that was not byte-identical. The lesson is the one already in this
+  file: **edit source with an editor, not with a slicer**, and when a script must do it, make it
+  assert what it is about to destroy.
+
 ### Export is a render, and that is what makes it an instrument
 
 - [x] The obvious exporter is a walk that builds HTML strings, and it is the wrong one for a reason

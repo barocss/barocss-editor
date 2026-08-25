@@ -5,7 +5,7 @@ import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
 import { globalOperationRegistry } from '../../src/operations/define-operation';
-import { applyMark as applyMarkDsl } from '../../src/operations-dsl/applyMark';
+import { applyMark as applyMarkDsl } from '../../src/operations/applyMark';
 
 describe('applyMark operation (exec)', () => {
   let dataStore: DataStore;

@@ -5,7 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
-import { copyNode as copyNodeDsl } from '../../src/operations-dsl/copyNode';
+import { copyNode as copyNodeDsl } from '../../src/operations/copyNode';
 
 describe('copyNode operation (exec)', () => {
   let dataStore: DataStore;

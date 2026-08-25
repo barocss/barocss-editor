@@ -5,7 +5,7 @@ import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
 import { globalOperationRegistry } from '../../src/operations/define-operation';
-import { replaceText as replaceTextDsl } from '../../src/operations-dsl/replaceText';
+import { replaceText as replaceTextDsl } from '../../src/operations/replaceText';
 
 describe('replaceText operation (exec)', () => {
   let dataStore: DataStore;

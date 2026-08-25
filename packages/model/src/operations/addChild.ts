@@ -1,5 +1,29 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
+import { defineOperationDSL } from './define-operation-dsl';
+import type { INode } from '@barocss/datastore';
+
+
+interface AddChildOperation {
+  type: 'addChild';
+  parentId: string;
+  child: INode | string;
+  position?: number;
+}
+
+export const addChild = defineOperationDSL(
+  (...args: [INode | string, (number)?] | [string, INode | string, (number)?]) => {
+    // control: (child, position?)
+    if (args.length >= 1 && (typeof args[0] === 'string' || typeof args[0] === 'object') && (args.length === 1 || typeof args[1] === 'number')) {
+      const [child, position] = args as [INode | string, (number)?];
+      return { type: 'addChild', payload: { child, position } } as unknown as AddChildOperation;
+    }
+    // direct: (parentId, child, position?)
+    const [parentId, child, position] = args as [string, INode | string, (number)?];
+    return { type: 'addChild', payload: { parentId, child, position } } as unknown as AddChildOperation;
+  },
+  { atom: false, category: 'content' }
+);
 
 /**
  * addChild operation (DSL + runtime)

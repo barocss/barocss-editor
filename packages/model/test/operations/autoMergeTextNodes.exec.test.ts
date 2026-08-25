@@ -5,7 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
-import { autoMergeTextNodes as autoMergeTextNodesDsl } from '../../src/operations-dsl/autoMergeTextNodes';
+import { autoMergeTextNodes as autoMergeTextNodesDsl } from '../../src/operations/autoMergeTextNodes';
 
 describe('autoMergeTextNodes operation (exec)', () => {
   let dataStore: DataStore;

@@ -5,7 +5,7 @@ import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
 import { globalOperationRegistry } from '../../src/operations/define-operation';
-import { outdentNode as outdentNodeDsl } from '../../src/operations-dsl/outdentNode';
+import { outdentNode as outdentNodeDsl } from '../../src/operations/outdentNode';
 
 describe('outdentNode operation (exec)', () => {
   let dataStore: DataStore;

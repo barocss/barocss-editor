@@ -72,6 +72,12 @@ if (!result.success) console.error(result.errors);
 ```
 
 ### 3) Define operation / register DSL
+
+Both halves live in **one file**, `src/operations/<name>.ts` — the runtime implementation and the
+builder a caller writes. Then export the builder from `src/operations/index.ts`, or nobody can use
+it: a builder that cannot be imported is a builder that does not exist, and
+`test/dsl-builders.test.ts` fails on one.
+
 ```ts
 import { defineOperation, defineOperationDSL } from '@barocss/model/operations';
 

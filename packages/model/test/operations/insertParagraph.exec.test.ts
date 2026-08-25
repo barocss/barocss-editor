@@ -5,7 +5,7 @@ import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
 import { globalOperationRegistry } from '../../src/operations/define-operation';
-import { insertParagraph as insertParagraphDsl } from '../../src/operations-dsl/insertParagraph';
+import { insertParagraph as insertParagraphDsl } from '../../src/operations/insertParagraph';
 import type { INode } from '@barocss/datastore';
 
 describe('insertParagraph operation (exec, selection-based)', () => {

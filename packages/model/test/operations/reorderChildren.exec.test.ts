@@ -5,7 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
-import { reorderChildren as reorderChildrenDsl } from '../../src/operations-dsl/reorderChildren';
+import { reorderChildren as reorderChildrenDsl } from '../../src/operations/reorderChildren';
 
 describe('reorderChildren operation (exec)', () => {
   let dataStore: DataStore;

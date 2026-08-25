@@ -5,7 +5,7 @@ import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
 import { globalOperationRegistry } from '../../src/operations/define-operation';
-import { wrapInList as wrapInListDsl } from '../../src/operations-dsl/wrapInList';
+import { wrapInList as wrapInListDsl } from '../../src/operations/wrapInList';
 import type { INode } from '@barocss/datastore';
 
 describe('wrapInList operation (exec, selection-based)', () => {

@@ -1,6 +1,7 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
 import { resolveCaret, splitBlockAtCaret } from './split-at-caret';
+import { defineOperationDSL } from './define-operation-dsl';
 
 /**
  * splitListItem operation (selection-based)
@@ -24,6 +25,25 @@ import { resolveCaret, splitBlockAtCaret } from './split-at-caret';
  *
  * The cut is shared with `insertParagraph` now. See `split-at-caret.ts`.
  */
+
+
+/**
+ * splitListItem operation (DSL) — selection-based.
+ * When inside a list item, creates a new list item after the current one and moves the caret there.
+ */
+export interface SplitListItemOperation {
+  type: 'splitListItem';
+  payload: Record<string, unknown>;
+}
+
+export const splitListItem = defineOperationDSL(
+  () =>
+    ({
+      type: 'splitListItem',
+      payload: {}
+    }) as SplitListItemOperation,
+  { atom: false, category: 'content' }
+);
 
 /** The list item a caret is in, and the list holding it. */
 function listContext(

@@ -38,7 +38,8 @@ This document states the **contract and behavior** of `@barocss/model`: transact
 
 ### 3.1 Contract
 
-- Each operation is registered with a type name and an execute function.
+- Each operation is registered with a type name and an execute function, **in one file with its DSL
+  builder** — see §5 for why that is worth stating.
 - **Input**: payload (from DSL or caller) and **TransactionContext** (dataStore, schema, selection, lastCreatedBlock, etc.).
 - **Output**: result with at least `ok: boolean`; optional `error`, `selectionAfter` (per-op hint), `inverse` (for undo).
 - Operations must use only datastore API and context; they must not call other operations directly. Content changes go through the overlay; selection updates go through context.selection.
@@ -74,4 +75,10 @@ See `docs/transaction-selection.md` and `docs/selection-application-flow.md` for
 - **Editor-wide semantics**: `docs/specs/editor.md`
 - **Transaction and selection flow**: `docs/transaction-selection.md`, `docs/selection-application-flow.md`
 - **Exec tests**: `packages/model/test/operations/*.exec.test.ts`
-- **Operation definitions**: `packages/model/src/operations/`, `packages/model/src/operations-dsl/`
+- **Operation definitions**: `packages/model/src/operations/` — **one operation, one file**, holding
+  both halves: `defineOperation('x', …)` for how it runs and `export const x = defineOperationDSL(…)`
+  for how a caller says it. There used to be a second directory, `operations-dsl/`, with a file per
+  operation on each side and the same doc comment copied into both; `operations/index.ts` exported
+  only the split kind, so the documented kind — the shape this package's own README shows — could not
+  be imported at all. `packages/model/test/dsl-builders.test.ts` is what keeps that from returning:
+  it reads the directory, finds every builder, and asks whether each one can be imported.

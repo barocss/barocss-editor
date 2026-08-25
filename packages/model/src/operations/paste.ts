@@ -1,6 +1,7 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
 import type { INode } from '@barocss/datastore';
+import { defineOperationDSL } from './define-operation-dsl';
 
 export interface PasteInput {
   nodes: INode[];
@@ -15,6 +16,18 @@ type PasteOperation = {
   range: any; // ModelSelection
   data: PasteInput;
 };
+
+
+export const paste = defineOperationDSL(
+  (nodes: INode[], range: any) => ({
+    type: 'paste',
+    payload: {
+      data: { nodes },
+      range
+    }
+  }),
+  { atom: true, category: 'clipboard' }
+);
 
 defineOperation(
   'paste',

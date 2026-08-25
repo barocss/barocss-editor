@@ -17,7 +17,7 @@
  * neither knew the other needed. The site adds only the transaction.
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
-import { transaction } from '@barocss/model';
+import { addChild, moveNode, removeChild, setAttrs, transaction } from '@barocss/model';
 import { SELECTABLE } from './selection';
 
 type Node = Record<string, any>;
@@ -129,10 +129,7 @@ export class SiteBlockExtension implements Extension {
     const chosen = this._chosen(editor, payload);
     if (chosen.length === 0) return false;
 
-    const steps = chosen.map((sid) => ({
-      type: 'removeChild',
-      payload: { parentId: store!.getNode(sid)!.parentId, childId: sid }
-    }));
+    const steps = chosen.map((sid) => removeChild(String(store!.getNode(sid)!.parentId), sid));
     // The selection goes with them: a selection naming nodes that are gone is a panel describing
     // something nobody can see. `withLiveNodes` prunes it, and this says so out loud anyway.
     const done = (await transaction(editor, steps as never).commit()).success === true;
@@ -167,7 +164,7 @@ export class SiteBlockExtension implements Extension {
       if (!tree) continue;
 
       const at = this._indexOf(store!, sid) + 1;
-      steps.push({ type: 'addChild', payload: { parentId, child: freshCopy(tree), position: at } });
+      steps.push(addChild(parentId, freshCopy(tree) as never, at));
       places.push({ parentId, at });
     }
     if (steps.length === 0) return false;
@@ -211,20 +208,16 @@ export class SiteBlockExtension implements Extension {
       .find((child) => child?.stype === 'componentValue' && child?.attributes?.name === name);
 
     const step = already
-      ? { type: 'setAttrs', payload: { nodeId: already.sid, attrs: { value } } }
-      : {
-          type: 'addChild',
-          payload: {
-            parentId: placement.sid,
-            child: { stype: 'componentValue', attributes: { name, value }, content: [] },
-            /*
-             * At the front, because the content model is `componentValue* (scene | frame)*` — the
-             * answers come before the parts, which is also the order a reader wants to see them in a
-             * file.
-             */
-            position: 0
-          }
-        };
+      ? setAttrs(String(already.sid), { value })
+      : /*
+         * At the front, because the content model is `componentValue* (scene | frame)*` — the answers
+         * come before the parts, which is also the order a reader wants to see them in a file.
+         */
+        addChild(
+          String(placement.sid),
+          { stype: 'componentValue', attributes: { name, value }, content: [] } as never,
+          0
+        );
 
     return (await transaction(editor, [step] as never).commit()).success === true;
   }
@@ -240,8 +233,7 @@ export class SiteBlockExtension implements Extension {
     if (Object.keys(attrs).length === 0) return false;
 
     return (
-      (await transaction(editor, [{ type: 'setAttrs', payload: { nodeId: node.sid, attrs } }] as never).commit())
-        .success === true
+      (await transaction(editor, [setAttrs(String(node.sid), attrs)] as never).commit()).success === true
     );
   }
 
@@ -272,10 +264,7 @@ export class SiteBlockExtension implements Extension {
     const position = typeof payload!.index === 'number' ? Math.max(0, Math.round(payload!.index as number)) : undefined;
 
     const done = await transaction(editor, [
-      {
-        type: 'moveNode',
-        payload: { nodeId: payload!.nodeId, newParentId: payload!.parentId, position }
-      }
+      moveNode(String(payload!.nodeId), String(payload!.parentId), position)
     ] as never).commit();
     return done.success === true;
   }

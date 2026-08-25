@@ -29,7 +29,7 @@
  * about what it makes is a control nobody can put on a toolbar or bind to a key.
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
-import { transaction } from '@barocss/model';
+import { addChild, transaction } from '@barocss/model';
 import { CONTAINERS, SELECTABLE } from './selection';
 
 type Node = Record<string, any>;
@@ -285,7 +285,7 @@ export class SiteElementExtension implements Extension {
 
     const store = this._store(editor)!;
     const done = await transaction(editor, [
-      { type: 'addChild', payload: { parentId: where.parentId, child, position: where.at } }
+      addChild(where.parentId, child as never, where.at)
     ] as never).commit();
     if (done.success !== true) return false;
 

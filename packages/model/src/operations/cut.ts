@@ -1,6 +1,7 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
 import type { INode } from '@barocss/datastore';
+import { defineOperationDSL } from './define-operation-dsl';
 
 export interface CutResult {
   json: INode[];
@@ -11,6 +12,15 @@ export interface CutResult {
 type CutOperation = {
   range: any; // ModelSelection
 };
+
+
+export const cut = defineOperationDSL(
+  (range: any) => ({
+    type: 'cut',
+    payload: { range }
+  }),
+  { atom: true, category: 'clipboard' }
+);
 
 defineOperation(
   'cut',

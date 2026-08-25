@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import '../../src/operations/register-operations';
-import { removeMark } from '../../src/operations-dsl/removeMark';
+import { removeMark } from '../../src/operations/removeMark';
 
 describe('removeMark operation DSL', () => {
   it('should build a removeMark descriptor from DSL', () => {

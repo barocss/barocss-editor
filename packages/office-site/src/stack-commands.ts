@@ -19,7 +19,7 @@
  * reader can immediately type in.
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
-import { transaction } from '@barocss/model';
+import { addChild, setAttrs, transaction } from '@barocss/model';
 import { SIZING, type Sizing } from './site-schema';
 import type { BreakpointId } from './breakpoints';
 import { BASE_BREAKPOINT, withOverride } from './responsive';
@@ -215,26 +215,31 @@ export class SiteStackExtension implements Extension {
      * which `_blockAt` says by returning the page as its own parent.
      */
     const position = here.parentId === here.sid ? here.at : here.at + 1;
+    /*
+     * `addChild(parent, child, position)` rather than the object it becomes.
+     *
+     * The builder has existed all along in `@barocss/model` and no product used one — because the
+     * *most* used operation, `setAttrs`, was defined beside it and never exported, so the first thing
+     * anyone reached for was not there and the raw object became the local style. Both are here now,
+     * and a misspelt `type` is a compile error rather than a transaction that fails at runtime.
+     */
     const result = await transaction(editor, [
-      {
-        type: 'addChild',
-        payload: {
-          parentId: here.parentId,
-          child: {
-            stype: 'frame',
-            attributes,
-            /*
-             * Something to type in. An empty stack is a box a reader cannot get a caret into, and a
-             * paragraph with no run draws no caret filler and is zero pixels high — both learned in
-             * the word processor, both written down there.
-             */
-            content: [
-              { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '' }] }
-            ]
-          },
-          position
-        }
-      }
+      addChild(
+        here.parentId,
+        {
+          stype: 'frame',
+          attributes,
+          /*
+           * Something to type in. An empty stack is a box a reader cannot get a caret into, and a
+           * paragraph with no run draws no caret filler and is zero pixels high — both learned in
+           * the word processor, both written down there.
+           */
+          content: [
+            { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '' }] }
+          ]
+        } as never,
+        position
+      )
     ] as never).commit();
 
     return result.success === true;
@@ -314,7 +319,7 @@ export class SiteStackExtension implements Extension {
         // The widest width *is* the node.
         const attrs: Record<string, unknown> = {};
         for (const name of fields) attrs[name] = payload![name];
-        return { type: 'setAttrs', payload: { nodeId: sid, attrs } };
+        return setAttrs(sid, attrs);
       }
 
       /*
@@ -325,7 +330,7 @@ export class SiteStackExtension implements Extension {
       let overrides = store?.getNode(sid)?.attributes as Record<string, unknown> | undefined;
       let next = withOverride(overrides, at!, fields[0], payload![fields[0]]);
       for (const name of fields.slice(1)) next = withOverride({ overrides: next }, at!, name, payload![name]);
-      return { type: 'setAttrs', payload: { nodeId: sid, attrs: { overrides: next } } };
+      return setAttrs(sid, { overrides: next });
     });
 
     return (await transaction(editor, steps as never).commit()).success === true;
@@ -336,10 +341,7 @@ export class SiteStackExtension implements Extension {
     const sizing = payload?.sizing as Sizing;
     if (chosen.length === 0 || !SIZING.includes(sizing)) return false;
 
-    const steps = chosen.map((sid) => ({
-      type: 'setAttrs',
-      payload: { nodeId: sid, attrs: { sizing } }
-    }));
+    const steps = chosen.map((sid) => setAttrs(sid, { sizing }));
     return (await transaction(editor, steps as never).commit()).success === true;
   }
 }

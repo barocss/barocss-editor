@@ -5,7 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
-import { splitBlockNode as splitBlockNodeDsl } from '../../src/operations-dsl/splitBlockNode';
+import { splitBlockNode as splitBlockNodeDsl } from '../../src/operations/splitBlockNode';
 
 describe('splitBlockNode operation (exec)', () => {
   let dataStore: DataStore;

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { insertText as insertTextDsl } from '../../src/operations-dsl/insertText';
+import { insertText as insertTextDsl } from '../../src/operations/insertText';
 import '../../src/operations/register-operations'; // Register operations
 import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
