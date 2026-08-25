@@ -251,6 +251,70 @@ importers:
         specifier: ^5.4.21
         version: 5.4.21(@types/node@20.19.30)
 
+  apps/site:
+    dependencies:
+      '@barocss/datastore':
+        specifier: workspace:*
+        version: link:../../packages/datastore
+      '@barocss/dsl':
+        specifier: workspace:*
+        version: link:../../packages/dsl
+      '@barocss/editor-core':
+        specifier: workspace:*
+        version: link:../../packages/editor-core
+      '@barocss/editor-view-dom':
+        specifier: workspace:*
+        version: link:../../packages/editor-view-dom
+      '@barocss/office-canvas':
+        specifier: workspace:*
+        version: link:../../packages/office-canvas
+      '@barocss/office-site':
+        specifier: workspace:*
+        version: link:../../packages/office-site
+      '@barocss/office-text':
+        specifier: workspace:*
+        version: link:../../packages/office-text
+      '@barocss/office-ui':
+        specifier: workspace:*
+        version: link:../../packages/office-ui
+      '@barocss/renderer-dom':
+        specifier: workspace:*
+        version: link:../../packages/renderer-dom
+      '@barocss/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      react:
+        specifier: ^19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.2.8
+        version: 19.2.8(react@19.2.8)
+    devDependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.3.3
+        version: 4.3.3(vite@5.4.21)
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.10
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.10)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@5.4.21)
+      tailwindcss:
+        specifier: ^4.3.3
+        version: 4.3.3
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+
   apps/slide:
     dependencies:
       '@barocss/datastore':
@@ -9890,6 +9954,7 @@ packages:
     dependencies:
       graceful-fs: 4.2.11
       tapable: 2.3.0
+    dev: true
 
   /enhanced-resolve@5.24.5:
     resolution: {integrity: sha512-L1l8TNvomm6UVW5B253AGxQagSQr+vGwhMlrrfRS2qmhx46AMpMVJKQYLvWYbysTMY8VoicOvzHzoHMbyzB+4A==}
@@ -9897,7 +9962,6 @@ packages:
     dependencies:
       graceful-fs: 4.2.11
       tapable: 2.3.3
-    dev: true
 
   /enquirer@2.4.1:
     resolution: {integrity: sha512-rRqJg/6gd538VHvR3PSrdRBb/1Vy2YfzHqzvbhGIQpDRKIa4FgV/54b5Q1xYSxOOwKvjXweS26E0Q+nAMwp2pQ==}
@@ -15541,7 +15605,6 @@ packages:
   /tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
-    dev: true
 
   /term-size@2.2.1:
     resolution: {integrity: sha512-wK0Ri4fOGjv/XPy8SBHZChl8CM7uMc5VML7SqiQ0zG7+J5Vr+RMQDoHa2CNT6KHUnTGIXH34UDMkPzAUyapBZg==}
@@ -16815,7 +16878,7 @@ packages:
       acorn-import-phases: 1.0.4(acorn@8.15.0)
       browserslist: 4.28.1
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.18.4
+      enhanced-resolve: 5.24.5
       es-module-lexer: 2.0.0
       eslint-scope: 5.1.1
       events: 3.3.0

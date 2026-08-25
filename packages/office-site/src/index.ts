@@ -12,3 +12,18 @@ export { sizingCss, type Sized } from './sizing';
 export { createSiteEditor, createSiteExtensions, createSiteOwnExtensions, type SiteEditorOptions } from './site-kit';
 export { createStackCommands, SiteStackExtension, type InsertStackOptions } from './stack-commands';
 export { createSampleSite } from './sample-site';
+/**
+ * Several widths at once, which is what a site builder is.
+ *
+ * One document, one editor, one history — and a view per width, each told through the env which one
+ * it is. The deck's notes pane is the same mechanism; this is that, three times.
+ */
+export {
+  BREAKPOINTS,
+  SITE_ENV_KEY,
+  breakpointOf,
+  createSiteEnv,
+  scopesFor,
+  type BreakpointId,
+  type SiteEnv
+} from './breakpoints';

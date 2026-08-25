@@ -160,6 +160,25 @@ into CSS.* It should move — to `office-canvas`, beside the arrangement it belo
 recorded rather than done in the same breath, because moving it is a change to two products and this
 slice is about whether the third one stands up at all.
 
+**5. Several widths at once is the notes pane, three times.**
+Asked while the app was being built: *can it edit more than one screen size at a time, like Figma
+Sites?* It can, and the mechanism was already here — the deck's notes pane is a second
+`EditorViewDOM` over **the same editor and the same store**, with an env of its own. Three frames
+side by side are that, three times: one history, one selection, no second copy of the text, and
+typing in the 390-pixel frame is typing in the page.
+
+Two things came with it, one design and one fault:
+
+- **A breakpoint's overrides cannot live in the content resolver.** That resolver belongs to the
+  *store*, and the store has one — every view would get the same answer to the one question whose
+  whole point is that the answers differ. The env is the only per-view channel there is, so a
+  breakpoint is resolved from there, which is the same seam Word uses to tell one view it is drawing
+  a header being edited.
+- **A view that renders once is a picture.** Measured the first time three frames were on screen:
+  typing in the mobile frame changed the document and the other two went on showing what they had
+  drawn. The editor's own view redraws itself on a content change; every *other* view is the host's
+  to keep up to date.
+
 ## What the first slice cost
 
 | | lines |

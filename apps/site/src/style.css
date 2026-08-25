@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+/*
+ * Where the suite's components live.
+ *
+ * Tailwind generates a class only if it finds it written somewhere it scans, and it scans the app.
+ * The toolbar's classes are in `@barocss/office-ui`, so without this every control renders with its
+ * class attributes intact and no rules behind any of them — which is what the deck's ribbon did the
+ * first time, and it is silent.
+ */
+@source "../../../packages/office-ui/src";
+
+/*
+ * The parts of rendering that CSS has to finish — the list marker and the caret filler. Shared
+ * rather than copied: a deck's bullets drew as four unmarked lines without them.
+ */
+@import "@barocss/office-text/text.css";
+
+/*
+ * The site builder's own surface.
+ *
+ * Deliberately quiet. Everything a *page* looks like comes from the document — a stack's background,
+ * a heading's size, a card's padding are all things the reader set — so what this file draws is the
+ * furniture around the page and nothing that could be mistaken for the page itself.
+ */
+:root {
+  --st-ground: #f1f5f9;
+  --st-line: #d4d4d8;
+  --st-ink: #18181b;
+  --st-faint: #71717a;
+  --st-accent: #2563eb;
+}
+
+body {
+  margin: 0;
+  background: var(--st-ground);
+  color: var(--st-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.st-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--st-line);
+}
+
+.st-brand {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.st-pages,
+.st-widths {
+  display: flex;
+  gap: 4px;
+}
+
+/* Which page is being edited, and which widths are on screen: the same mark for both, because both
+   are "this one is showing" and a reader should not have to learn two. */
+.st-pages [data-page-current='true'],
+.st-widths [data-width-shown='true'] {
+  background: var(--st-accent);
+  color: #ffffff;
+}
+
+.st-body {
+  overflow: auto;
+}
+
+/*
+ * The canvas: the page at every width the reader asked for, side by side.
+ *
+ * `align-items: start` so a narrow frame is as tall as its own content rather than stretched to the
+ * tallest — the whole point of looking at three widths at once is seeing that they differ.
+ */
+.st-canvas {
+  display: flex;
+  align-items: start;
+  gap: 32px;
+  padding: 32px;
+  min-height: 100%;
+}
+
+.st-frame {
+  flex: none;
+  background: #ffffff;
+  border: 1px solid var(--st-line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.st-frame-label {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: #fafafa;
+  border-bottom: 1px solid var(--st-line);
+  font-size: 12px;
+  color: var(--st-faint);
+}
+
+.st-frame-width {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The page itself. No padding here: a page's own margins are the reader's, set on the stacks. */
+.st-frame-host {
+  min-height: 200px;
+}
+
+/*
+ * A stack, a page and a placement draw themselves from the document; these rules exist only so that
+ * an empty one is visible to a reader who has just made it.
+ */
+.st-stack:empty,
+.st-placement:empty {
+  min-height: 24px;
+  outline: 1px dashed var(--st-line);
+}

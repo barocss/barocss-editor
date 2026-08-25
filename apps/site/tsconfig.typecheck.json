@@ -1,0 +1,26 @@
+{
+  /**
+   * Type-checking the app and its browser specs.
+   *
+   * An app had no `type-check` script at all, so neither its source nor its Playwright
+   * specs were ever compiled — and a spec is where the property that does not exist
+   * gets written: nineteen of Word's twenty-seven were in one spec file.
+   *
+   * An app imports its packages by `paths`, so it compiles their **source** as well —
+   * and ninety of an app's hundred-odd errors were other packages' unused locals,
+   * which is a guard reporting somebody else's decision. Those are filtered by
+   * `scripts/typecheck-tests.mjs`, which counts only this directory's own files, so
+   * nothing has to be switched off here.
+   *
+   * `rootDir` is the repository for the same reason as the packages': a sibling
+   * package's source is outside this directory.
+   */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    /** The runner's globals, for the specs that use them without importing. */
+    "types": ["vitest/globals", "node"]
+  },
+  "include": ["src/**/*", "tests/**/*"]
+}
