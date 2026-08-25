@@ -14,7 +14,8 @@ import {
   Command,
   EditorEventType,
   ModelSelection,
-  EditorSelectionModelPayload
+  EditorSelectionModelPayload,
+  withLiveNodes
 } from './types';
 import { DataStoreLoader, DataStoreExporter, DataStore, INode } from '@barocss/datastore';
 import { SelectionManager } from './selection-manager';
@@ -694,6 +695,24 @@ export class Editor implements ContextProvider {
       this._updateBuiltinContext();
       this.emit('editor:selection.change', { selection: finalSelection, oldSelection });
       return;
+    }
+
+    /*
+     * A **set** loses its dead members rather than the whole selection.
+     *
+     * The check below asks about the endpoints, which is the whole of a range and half a story for
+     * a set: the node that was deleted is usually neither end, so three selected shapes stayed
+     * three after one of them was gone. `withLiveNodes` takes the missing ones out and moves the
+     * endpoints onto the survivors; it answers `null` when nothing is left, and the clear below
+     * then does what it always did.
+     */
+    if (isModelSelection(finalSelection)) {
+      finalSelection = withLiveNodes((id: string) => this._dataStore.getNode(id), finalSelection);
+      if (!finalSelection) {
+        this._selectionManager.clearSelection();
+        this._updateBuiltinContext();
+        return;
+      }
     }
 
     if (isModelSelection(finalSelection) && !isSelectionTargetAlive(this._dataStore, finalSelection)) {

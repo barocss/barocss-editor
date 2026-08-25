@@ -1730,11 +1730,21 @@ answer stays true rather than being taken once and remembered wrong.
 operation that names its target, and undoes it. The document layer is not
 text-shaped.
 
-- [ ] **A selection cannot name more than one node.** `SelectionManager.setNode`
-  takes exactly one, and `ModelSelection` has no shape for a set — the type is
-  start/end and offsets. Marquee three boxes and align them is the first thing a
-  page builder does and the first thing this cannot express. **The first thing
-  phase 2 has to answer.**
+- [x] **A selection can name a set, and the last door that had not been told is open.** This entry
+  was **stale in the interesting direction**: `ModelSelection.nodeIds`, `createNodeSelection`,
+  `selectedNodeIds` and `Editor.setNode` had all answered it — but `SelectionManager.setNode`, the
+  way the spike itself reaches a selection, read `nodeId` and `startNodeId` and a set has neither, so
+  it answered **null**. Not "kept one of the three": no selection at all, from the method that shares
+  its name with the one that works. Two doors of one name with opposite outcomes is worse than a
+  missing feature — the caller cannot tell which they are holding.
+
+  And the fault underneath it, measured the same hour: **a deleted member stayed selected.** The
+  guard against a dead selection asks about `startNodeId` and `endNodeId` — the whole of a range, and
+  half a story for a set, where the deleted node is usually neither end. Select three shapes, delete
+  the middle one, and all three were still selected with one of them gone from the store; the next
+  command acted on a node that is not there. `withLiveNodes` prunes the set and moves the ends onto
+  the survivors, and clears only when nothing is left — because two of my three shapes are still here
+  is what a reader means, not "never mind then".
 - [ ] **`editor.selection` is read-only**, so every product goes through the
   caret-shaped manager to set one. Fine while there is one shape of selection.
 

@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SelectionManager } from '../src/selection-manager';
-import { createNodeSelection, selectedNodeIds, type ModelSelection } from '../src/types';
+import {
+  createNodeSelection,
+  selectedNodeIds,
+  withLiveNodes,
+  type ModelSelection
+} from '../src/types';
 
 /**
  * A range says "from here to there". That is the right shape for text and the
@@ -238,5 +243,84 @@ describe('setting a node selection through the editor', () => {
     const { editor, ids } = await standUp();
     editor.setNode({ nodeIds: [ids[0], undefined, '', 42, ids[1]] });
     expect(selectedNodeIds(editor.selection)).toEqual([ids[0], ids[1]]);
+  });
+
+  /**
+   * A node that is **deleted** leaves the selection; the rest of the set stays.
+   *
+   * Measured, and it was live: selecting three shapes and deleting the middle one left all three
+   * selected, because the guard against a dead selection asks about `startNodeId` and `endNodeId` —
+   * the whole of a range, and half a story for a set, where the deleted node is usually neither
+   * end. The next command then acted on a node the store no longer has.
+   */
+  it('loses a deleted member and keeps the others', async () => {
+    const { editor, ids } = await standUp();
+    const store: any = (editor as any).dataStore;
+
+    editor.setNode({ nodeIds: ids });
+    store.removeChild((editor as any).getRootId(), ids[1]);
+    store.deleteNode(ids[1]);
+
+    // Re-asked, as anything that touches the selection after an edit does.
+    (editor as any).updateSelection(editor.selection);
+
+    expect(selectedNodeIds(editor.selection)).toEqual([ids[0], ids[2]]);
+    // And the ends follow the survivors rather than naming what has gone.
+    expect(editor.selection?.startNodeId).toBe(ids[0]);
+    expect(editor.selection?.endNodeId).toBe(ids[2]);
+  });
+
+  it('clears when nothing in the set is left', async () => {
+    const { editor, ids } = await standUp();
+    const store: any = (editor as any).dataStore;
+
+    editor.setNode({ nodeIds: [ids[0], ids[1]] });
+    for (const id of [ids[0], ids[1]]) {
+      store.removeChild((editor as any).getRootId(), id);
+      store.deleteNode(id);
+    }
+    (editor as any).updateSelection(editor.selection);
+
+    // "No nodes selected" and "no selection" are one state, here as everywhere else.
+    expect(editor.selection).toBeNull();
+  });
+});
+
+/**
+ * The pruning on its own, where it is arithmetic rather than an editor.
+ */
+describe('a set with a node missing from it', () => {
+  const alive = (kept: string[]) => (id: string) => (kept.includes(id) ? { sid: id } : undefined);
+
+  it('keeps what is there and moves the ends onto it', () => {
+    const set = createNodeSelection(['a', 'b', 'c'])!;
+    expect(withLiveNodes(alive(['a', 'c']), set)).toMatchObject({
+      nodeIds: ['a', 'c'],
+      startNodeId: 'a',
+      endNodeId: 'c'
+    });
+  });
+
+  it('hands back the very same selection when nothing is missing', () => {
+    const set = createNodeSelection(['a', 'b'])!;
+    // Identity, not a copy: a selection rebuilt on every read is a selection that never compares
+    // equal, and the view redraws on that comparison.
+    expect(withLiveNodes(alive(['a', 'b']), set)).toBe(set);
+  });
+
+  it('answers nothing when the whole set has gone', () => {
+    expect(withLiveNodes(alive([]), createNodeSelection(['a', 'b'])!)).toBeNull();
+  });
+
+  it('leaves a text range alone, whatever it names', () => {
+    const range: ModelSelection = {
+      type: 'range',
+      startNodeId: 'gone',
+      startOffset: 0,
+      endNodeId: 'gone',
+      endOffset: 3
+    };
+    // A range covers *parts* of nodes; its endpoints are what the editor's own alive check is for.
+    expect(withLiveNodes(alive([]), range)).toBe(range);
   });
 });

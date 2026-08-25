@@ -116,6 +116,44 @@ export function createNodeSelection(
   };
 }
 
+/**
+ * The same selection with the nodes that are **gone** taken out of it.
+ *
+ * Measured: selecting three shapes and deleting the middle one left all three selected. The check
+ * that guards a selection against a deleted node asks only about `startNodeId` and `endNodeId` —
+ * right for a range, which is what it was written for, and blind to a set, where the deleted node
+ * is usually neither end. The next command then acted on a node the store no longer has.
+ *
+ * Pruned rather than cleared, because that is what a reader means: two of my three shapes are still
+ * here and still selected. Cleared only when *nothing* survives, which is the same "no nodes and no
+ * selection are one state" rule `createNodeSelection` follows.
+ *
+ * A **range** is handed back untouched: it covers parts of nodes rather than a set of them, and its
+ * endpoints are what the alive check is for.
+ */
+export function withLiveNodes(
+  getNode: (id: string) => unknown,
+  selection: ModelSelection | null | undefined
+): ModelSelection | null {
+  if (!selection) return null;
+  if (selection.type === 'range') return selection;
+
+  const nodes = selectedNodeIds(selection);
+  if (nodes.length === 0) return selection;
+
+  const alive = nodes.filter((id) => !!getNode(id));
+  if (alive.length === nodes.length) return selection;
+  if (alive.length === 0) return null;
+
+  // The endpoints follow the survivors, or they would keep naming what has gone.
+  return {
+    ...selection,
+    nodeIds: alive,
+    startNodeId: alive[0],
+    endNodeId: alive[alive.length - 1]
+  };
+}
+
 export interface EditorSelectionModelEventPayload {
   selection: ModelSelection | null;
   applySelectionToView?: boolean;

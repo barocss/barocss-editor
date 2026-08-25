@@ -665,25 +665,33 @@ export class SelectionManager {
   }
 
   /**
-   * Set node selection
+   * Select whole nodes — one, or a set.
+   *
+   * Measured: given `{ nodeIds: ['a','b','c'] }` this answered **null**. It read `nodeId` and
+   * `startNodeId`, neither of which a set has, so a caller asking for three shapes got no selection
+   * at all — while `Editor.setNode`, which took one or many, was quietly the only door that worked.
+   * Two methods of one name with opposite outcomes is worse than a missing feature: the caller has
+   * no way to tell which one they are holding.
+   *
+   * `setNodeSelection` is where a set is built (`createNodeSelection`), so this hands it there and
+   * the two agree by construction rather than by both being written correctly.
    */
-  setNode(nodeSelection: { type: 'node'; nodeId?: string; startNodeId?: string } | null): void {
+  setNode(
+    nodeSelection:
+      | { type?: SelectionType; nodeId?: string; startNodeId?: string; nodeIds?: string[] }
+      | null
+  ): void {
     if (!nodeSelection) {
       this.setSelection(null);
       return;
     }
-    const nodeId = nodeSelection.nodeId ?? nodeSelection.startNodeId;
-    if (!nodeId) {
-      this.setSelection(null);
-      return;
-    }
-    this.setSelection({
-      type: 'node',
-      startNodeId: nodeId,
-      startOffset: 0,
-      endNodeId: nodeId,
-      endOffset: 0
-    });
+
+    const many = Array.isArray(nodeSelection.nodeIds) ? nodeSelection.nodeIds : undefined;
+    const ids = (many ?? [nodeSelection.nodeId ?? nodeSelection.startNodeId]).filter(
+      (id): id is string => typeof id === 'string' && id.length > 0
+    );
+    // An empty set and no selection are the same state — see `setNodeSelection`.
+    this.setNodeSelection(ids, nodeSelection.type ?? 'node');
   }
 
   /**

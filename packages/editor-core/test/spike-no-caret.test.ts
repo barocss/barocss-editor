@@ -40,6 +40,12 @@ describe('an editor for a document with no text in it', () => {
                 stype: 'rectangle',
                 sid: 'rect-1',
                 attributes: { x: 16, y: 16, width: 288, height: 80, cornerRadius: 8 }
+              },
+              // A second box, because the finding this spike recorded was about selecting *two*.
+              {
+                stype: 'rectangle',
+                sid: 'rect-2',
+                attributes: { x: 16, y: 104, width: 288, height: 80, cornerRadius: 8 }
               }
             ]
           }
@@ -69,7 +75,7 @@ describe('an editor for a document with no text in it', () => {
       for (const child of ((node.content ?? []) as string[])) walk(child);
     };
     walk(store.getRootNodeId());
-    expect(found).toEqual(['document', 'page', 'frame', 'rectangle']);
+    expect(found).toEqual(['document', 'page', 'frame', 'rectangle', 'rectangle']);
   });
 
   /**
@@ -124,9 +130,8 @@ describe('an editor for a document with no text in it', () => {
     const editor = new Editor({ schema: schema() } as never);
     editor.loadDocument(page as never, 'spike');
 
-    // `editor.selection` is read-only, so it goes through the manager — which
-    // already has `setNode`, and takes exactly *one* node. A page builder wants
-    // several: marquee-select three boxes and align them.
+    // `editor.selection` is read-only, so it goes through the manager's `setNode` — which takes
+    // one node or a set of them; the test below is the set.
     editor.selectionManager.setNode({ type: 'node', nodeId: 'rect-1' });
     expect(editor.selection?.type).toBe('node');
     expect((editor.selection as any)?.startNodeId ?? (editor.selection as any)?.nodeId).toBe(
@@ -135,23 +140,30 @@ describe('an editor for a document with no text in it', () => {
   });
 
   /**
-   * The one thing a page builder needs that no text editor ever does.
+   * The one thing a page builder needs that no text editor ever does — **answered**.
    *
-   * Marquee three boxes and align them: the selection is a *set* of nodes.
-   * `SelectionManager.setNode` takes one, and `ModelSelection` has no shape for
-   * more — the whole type is start/end and offsets.
+   * This spike's finding was that the selection is a *set* for a page builder (marquee three boxes
+   * and align them) and the type had no shape for one. `ModelSelection.nodeIds`, `createNodeSelection`
+   * and `Editor.setNode` answered it; the manager's own `setNode` was the last door that had not
+   * been told, and it did not keep one of the three — given a set it answered **null**, because it
+   * read `nodeId` and `startNodeId` and a set has neither.
+   *
+   * Kept as a test rather than deleted with the entry: a recorded measurement is what tells the next
+   * person the answer arrived, and this file's whole purpose is to stay true rather than be
+   * remembered.
    */
-  it('cannot yet select more than one box', () => {
+  it('selects more than one box, which is what a page builder is for', () => {
     const editor = new Editor({ schema: schema() } as never);
     editor.loadDocument(page as never, 'spike');
 
-    editor.selectionManager.setNode({ type: 'node', nodeId: 'rect-1' });
+    editor.selectionManager.setNode({ type: 'node', nodeIds: ['rect-1', 'rect-2'] } as never);
     const selection = editor.selection as Record<string, unknown> | null;
 
-    // Recorded rather than asserted away: this is the finding, and it is the
-    // first thing phase 2 has to answer.
     expect(selection).not.toBeNull();
-    expect(Array.isArray((selection as any)?.nodeIds)).toBe(false);
+    expect(selection?.nodeIds).toEqual(['rect-1', 'rect-2']);
+    // The ends still name real nodes, for everything written before a set existed.
+    expect(selection?.startNodeId).toBe('rect-1');
+    expect(selection?.endNodeId).toBe('rect-2');
   });
 
   /**
