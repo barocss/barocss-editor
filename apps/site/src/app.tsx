@@ -2,7 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { watchContent } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
-import { AppBody, AppChrome, AppMain, AppShell, Button, useRevision } from '@barocss/office-ui';
+import {
+  AppBody,
+  AppChrome,
+  AppMain,
+  AppShell,
+  Button,
+  ZoomControl,
+  useRevision
+} from '@barocss/office-ui';
 import { BREAKPOINTS, enclosing, pagesOf, type BreakpointId } from '@barocss/office-site';
 import { Canvas } from './canvas';
 import { Inspector } from './inspector';
@@ -98,8 +106,47 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         { nodeIds: ids }
       );
 
+    /**
+     * Whether a key belongs to something else.
+     *
+     * A panel's own field always wins — `Delete` in a number box is a digit. The **board** is the
+     * subtle one: it is `contenteditable` and often holds the focus even in select mode, so asking
+     * `isContentEditable` refused every shortcut on the page. Measured exactly that way: nothing
+     * could be deleted or duplicated, and `Escape` did nothing either. In select mode the reader is
+     * not typing by definition — that is what the mode *is*.
+     */
+    const elsewhere = () => {
+      const at = document.activeElement as HTMLElement | null;
+      if (!at) return false;
+      if (at.tagName === 'INPUT' || at.tagName === 'TEXTAREA') return true;
+      return mode === 'text' && at.isContentEditable;
+    };
+
     const leave = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || !page) return;
+      if (!page || elsewhere()) return;
+
+      /*
+       * The two a builder cannot be without, on the keys every tool of this kind uses.
+       *
+       * Only in select mode and only when nothing is being typed into: `Delete` inside a paragraph is
+       * a letter, and a builder that took it would be a builder nobody could write a sentence in.
+       */
+      if (mode === 'select' && (event.key === 'Delete' || event.key === 'Backspace')) {
+        event.preventDefault();
+        (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(
+          'removeBlocks'
+        );
+        return;
+      }
+      if (mode === 'select' && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(
+          'duplicateBlocks'
+        );
+        return;
+      }
+
+      if (event.key !== 'Escape') return;
 
       if (mode === 'text') {
         setMode('select');
@@ -142,26 +189,40 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
   return (
     <AppShell className="st-shell">
-      <AppChrome className="st-topbar">
-        <span className="st-brand">Barocss Site</span>
+      {/*
+        Two rows, which is what both other products settled on and for the same reason: **what
+        document am I in** and **what can I do to it** are different questions, and a reader who has
+        to find the second among the first reads the whole bar every time.
 
-        {/* The pages of the site. A site is more than one page, which is the first thing that
-            separates it from a document — and the address is what makes each one a page of it. */}
-        <nav className="st-pages" data-pages>
-          {pages.map((one) => (
-            <Button
-              key={one.sid}
-              data={{ page: one.sid, 'page-current': one.sid === page ? 'true' : undefined }}
-              title={one.path}
-              onClick={() => {
-                setCurrent(one.sid);
-                setScope(undefined);
-              }}
-            >
-              {one.name}
-            </Button>
-          ))}
-        </nav>
+        Row one is the site — its name, its pages, and how far away the reader is standing. Row two
+        is the tools.
+      */}
+      <AppChrome className="st-chrome">
+        <div className="st-titlebar">
+          <span className="st-brand">Barocss Site</span>
+
+          {/* The pages of the site. A site is more than one page, which is the first thing that
+              separates it from a document — and the address is what makes each one a page of it. */}
+          <nav className="st-pages" data-pages>
+            {pages.map((one) => (
+              <Button
+                key={one.sid}
+                data={{ page: one.sid, 'page-current': one.sid === page ? 'true' : undefined }}
+                title={one.path}
+                onClick={() => {
+                  setCurrent(one.sid);
+                  setScope(undefined);
+                }}
+              >
+                {one.name}
+              </Button>
+            ))}
+          </nav>
+
+          <div className="st-titlebar-end">
+            <ZoomControl zoom={zoom} onChange={setZoom} onFit={onFit} fitLabel="맞춤" />
+          </div>
+        </div>
 
         {editor ? (
           <Ribbon
@@ -170,9 +231,6 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             onMode={setMode}
             shown={shown}
             onShown={setShown}
-            zoom={zoom}
-            onZoom={setZoom}
-            onFit={onFit}
           />
         ) : null}
       </AppChrome>

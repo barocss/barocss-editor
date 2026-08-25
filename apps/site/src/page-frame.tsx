@@ -148,6 +148,7 @@ export function PageFrame({
             host={host}
             page={page}
             zoom={zoom}
+            breakpoint={breakpoint}
             mode={mode}
             onEnterText={onEnterText}
             scope={scope}

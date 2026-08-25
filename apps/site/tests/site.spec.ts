@@ -288,3 +288,65 @@ test.describe('the panel', () => {
     await expect(page.locator('.office-properties')).toContainText('간격 ·');
   });
 });
+
+/**
+ * Moving, copying and removing — in a browser, because a pointer and a keyboard are what these are.
+ *
+ * The *arithmetic* of all three is settled in `packages/office-site` unit tests: which place a drop
+ * means, which index that is in the parent's content, what a copy contains, what a delete leaves.
+ * What only a browser can answer is whether the gesture reaches the command at all.
+ */
+test.describe('moving a block', () => {
+  const cards = (page: Page) => cardRow(page, 'desktop').locator('.st-stack');
+
+  test('carries a card past its neighbours and drops it there', async ({ page }) => {
+    // Room to see the whole row: a pointer past the edge of the board is a pointer over nothing, and
+    // a drag that finds nothing does nothing — which is right, and would make this test lie.
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await ready(page);
+    const titles = () => cardRow(page, 'desktop').locator('h3').allTextContents();
+    expect(await titles()).toEqual(['문서', '덱', '사이트']);
+
+    // Into the row first: a drag carries whatever a click would select, and at the top that is the
+    // row rather than a card in it.
+    await press(page, cards(page).nth(0).locator('h3'));
+    await pressTwice(page, cards(page).nth(0).locator('h3'));
+    await page.waitForTimeout(250);
+
+    const from = (await cards(page).nth(0).boundingBox())!;
+    const to = (await cards(page).nth(2).boundingBox())!;
+    await page.mouse.move(from.x + 8, from.y + 8);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 40, from.y + 12, { steps: 4 });
+    await page.mouse.move(to.x + to.width - 8, to.y + 12, { steps: 8 });
+    await page.waitForTimeout(200);
+
+    // The line a reader steers by: drawn where it would land, not guessed at — and it says which
+    // place, so a drop that goes somewhere else is a fault with a number attached rather than a
+    // rearranged page nobody can explain.
+    await expect(page.locator('[data-frame="desktop"] .st-mark-landing')).toHaveCount(1);
+    await expect(page.locator('[data-frame="desktop"] .st-overlay')).toHaveAttribute('data-landing', '2');
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    expect(await titles()).toEqual(['덱', '사이트', '문서']);
+  });
+
+  test('copies and removes what is selected, from the keyboard', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await ready(page);
+    const sections = page.locator('[data-frame="desktop"] .st-page > .st-stack');
+    const before = await sections.count();
+
+    await press(page, cardRow(page, 'desktop').locator('h3').first());
+    await page.waitForTimeout(300);
+
+    await page.keyboard.press('Control+d');
+    await page.waitForTimeout(500);
+    await expect(sections).toHaveCount(before + 1);
+
+    await page.keyboard.press('Delete');
+    await page.waitForTimeout(500);
+    await expect(sections).toHaveCount(before);
+  });
+});

@@ -46,6 +46,61 @@ entries are that.
 
 ## Open
 
+### The site builder, as it is built
+
+Kept the way Word's and the deck's entries are: what was measured, at the moment it was measured.
+The design and the reuse argument are in `docs/specs/site-builder.md`; this is the list of things
+that were **wrong**, and what each one taught.
+
+- [x] **The drawing did not follow a reorder.** Model `[b, c, a]`, page `[c, b, a]`. The commit places
+  each child *before the next one*, which is only correct if everything after it is already right —
+  and the walk goes left to right, so it never is. A reversal came out as a rotation. **Every product
+  had it**: a slide moved in the filmstrip, a block moved up in a document, a card dragged along a
+  row, and nothing in any suite looked at the drawn order. Fixed by placing each child *after the one
+  committed before it* — the one thing already known to be in the right place — and only when the two
+  are genuinely inverted, so the caret filler and a decorator's chrome are not dragged along.
+
+- [x] **A proxy over a node inside the document goes stale.** The document's root object lives as long
+  as the document; a node inside it does not — an operation that changes a parent's children may hand
+  the store a *new* object for that parent. A view drawing a subtree held a proxy over the old one and
+  redrew four sections after one had been deleted, for ever. A view with a `rootId` now asks the
+  editor again on every render; a proxy is lazy, so it costs one object.
+
+- [x] **A node selection does not survive an edit.** After a duplicate it came back as a `range` with
+  its ends rewritten into the new nodes, so `selectedNodeIds` answered nothing and the very next key a
+  reader pressed refused. A command that acted on a *set* has to say what the set is afterwards rather
+  than hope — and for a duplicate the answer a reader wants is the **copy**, which is what every tool
+  of this kind selects.
+
+- [x] **A design system whose tokens are optional is one every app forgets.** The site used
+  `office-ui`'s components and never imported `office-ui/tokens.css`, so every `var(--ou-…)` those
+  components ask for resolved to nothing: no borders, no panel ground, the wrong type scale. Word and
+  the deck have imported it since their first day, which is exactly why nobody noticed it was
+  possible not to. Using a design system means taking its **variables**, not only its components.
+
+- [x] **A control that needs the app to finish its layout gets finished differently by every app.**
+  `PropertyEmpty` carried `px-1` and nothing else, so the one thing a panel shows most often sat
+  against the edge. Fixed in `office-ui` rather than in the app.
+
+- [x] **A drill cannot be written against the selection.** A double-click is `pointerdown, click,
+  pointerdown, click, dblclick`, and its first press is an ordinary click that has already put the
+  selection back to the outermost block — so a heading three levels down could not be reached however
+  many times it was tried. What has to be kept is **where the reader is**, not what is selected.
+
+- [x] **Playwright cannot click a canvas the ordinary way**, and that is the product working: the
+  layer that owns the pointer covers the target on purpose. `force: true` dispatches at the same point
+  and lets that layer answer. A suite that worked around it by clicking elsewhere would be testing a
+  product nobody uses.
+
+- [x] **A selector that names a property the product changes is a selector that lies.** The card row
+  was found with `[data-layout="row"]`, and at 390 it is a column — the whole point of it — so the
+  mobile assertion failed as though the override had broken something.
+
+- [ ] **A stale dev server makes a suite lie for fifty minutes.** One run took 52 minutes and failed
+  five tests on `waitForSelector`: a `vite` from an earlier probe still held the port with an old
+  bundle, and killing it mid-run left the rest with no server at all. Kill the port before running a
+  suite; the clean run of the same suite was 24 seconds.
+
 ### A view of part of a document had no way to say so
 
 - [x] Three widths of one page are three `EditorViewDOM`s over one editor, and the only way to tell a

@@ -161,6 +161,65 @@ export function enclosing(doc: Access, sid: string | undefined, page: string): s
   return chain.length > 1 ? chain[chain.length - 2] : undefined;
 }
 
+/** The stypes that hold other blocks and arrange them — what a drag can be dropped into. */
+export const CONTAINERS = new Set(['frame', 'collection']);
+
+/**
+ * Which stack a drop at this point means, given what is being carried.
+ *
+ * ## One rule, and two things it has to survive
+ *
+ * **A drop lands among the siblings of the block under the pointer.** Dragging a card over another
+ * card puts it next to that card; dragging it over a heading inside a card puts it inside the card;
+ * dragging a section over another section moves it up or down the page. One sentence, and a reader
+ * can predict it from anywhere.
+ *
+ * Two cases the sentence alone gets wrong, and both were found by writing them down:
+ *
+ * - **The pointer is over what is being carried.** It always is — the block follows the pointer. The
+ *   deepest node *outside* the carried subtree is then the stack the block already lives in, and its
+ *   siblings are the wrong answer: the reader would be thrown out of the row they are reordering
+ *   inside. So an ancestor of the moving block means **that stack**, not its parent.
+ * - **An empty stack.** It has no children to be a sibling of, and it is the one thing on a page with
+ *   nothing to aim at, so pointing at it means going in.
+ *
+ * A pointer "over a block" rather than over its children is not a guess: `elementsFromPoint` returns
+ * the deepest element first, so the hit is a container only when nothing of its own is under the
+ * pointer — its padding, its gap, its empty part.
+ */
+export function dropTarget(
+  doc: Access,
+  hit: string | undefined,
+  page: string,
+  moving: string
+): string | undefined {
+  const chain = pathFromPage(doc, hit, page).filter((sid) => !isInside(doc, sid, moving));
+  const innermost = chain[chain.length - 1];
+  if (!innermost) return page;
+
+  const node = doc.getNode(innermost);
+  const container = CONTAINERS.has(String(node?.stype));
+
+  // Where the block already is: stay in it rather than being thrown out to its parent.
+  if (isInside(doc, moving, innermost)) return innermost;
+  // The one thing on a page with nothing to aim at.
+  if (container && blocksIn(doc, innermost).length === 0) return innermost;
+
+  const parent = node?.parentId as string | undefined;
+  return parent && !isInside(doc, parent, moving) ? parent : undefined;
+}
+
+/** Whether `sid` is `ancestor` or sits inside it. */
+export function isInside(doc: Access, sid: string | undefined, ancestor: string): boolean {
+  let at = sid;
+  let depth = 0;
+  while (at && depth++ < 64) {
+    if (at === ancestor) return true;
+    at = doc.getNode(at)?.parentId as string | undefined;
+  }
+  return false;
+}
+
 /** Whether a double-click here means a caret rather than another level down. */
 export function isTextual(doc: Access, sid: string | undefined): boolean {
   return TEXTUAL.has(String(doc.getNode(sid ?? '')?.stype));
@@ -228,6 +287,38 @@ export function blocksIn(doc: Access, sid: string): string[] {
   return ((node?.content ?? []) as unknown[])
     .filter((child): child is string => typeof child === 'string')
     .filter((child) => SELECTABLE.has(String(doc.getNode(child)?.stype)));
+}
+
+/**
+ * The place in a parent's **content** that "before the Nth block" means.
+ *
+ * ## Why these are two different numbers
+ *
+ * `reorderIndexAt` counts the siblings a reader can see, which is the blocks — and a parent may hold
+ * things that are not blocks: a page holds its variables, a card holds the values it was given. So
+ * "third block" and "third child" are the same number only by luck, and `moveNode` takes the second
+ * one. An off-by-one here is a drag that lands one place from where the line was drawn, which is the
+ * fault a reader reports as "it does not go where I put it".
+ *
+ * Counted **without the moving node**, because that is what `moveNode` does: it removes first and
+ * inserts into the shortened array.
+ */
+export function contentIndexFor(
+  doc: Access,
+  parentId: string,
+  moving: string,
+  /** The place among the blocks, as `reorderIndexAt` answers it. */
+  index: number
+): number {
+  const content = ((doc.getNode(parentId)?.content ?? []) as unknown[]).filter(
+    (sid): sid is string => typeof sid === 'string' && sid !== moving
+  );
+  const blocks = content.filter((sid) => SELECTABLE.has(String(doc.getNode(sid)?.stype)));
+
+  // Past the last block: the end of the content, so a block dropped at the bottom of a stack lands
+  // after everything rather than before whatever non-block happens to be last.
+  if (index >= blocks.length) return content.length;
+  return Math.max(0, content.indexOf(blocks[index]));
 }
 
 /** Every page of the site, in document order. */

@@ -21,6 +21,7 @@ export {
 } from './responsive';
 export { createSiteEditor, createSiteExtensions, createSiteOwnExtensions, type SiteEditorOptions } from './site-kit';
 export { createStackCommands, SiteStackExtension, type InsertStackOptions } from './stack-commands';
+export { createBlockCommands, SiteBlockExtension } from './block-commands';
 export { createSampleSite } from './sample-site';
 /**
  * A list that comes from data — the product grid, the blog index, the team page.
@@ -41,6 +42,8 @@ export {
   type RowQuery
 } from './data';
 export { collectionRows, installSiteResolution, templateOf } from './collection-resolution';
+/** Where a carried block would land — which stack, which place, and the line a reader steers by. */
+export { landingFor, type Box, type Landing } from './landing';
 /**
  * What a click means on a page: the outermost block, one level in, or the caret.
  *
@@ -52,7 +55,11 @@ export {
   TEXTUAL,
   blocksIn,
   documentSidOf,
+  CONTAINERS,
   childOfScope,
+  contentIndexFor,
+  dropTarget,
+  isInside,
   enclosing,
   firstRunIn,
   innermostOf,

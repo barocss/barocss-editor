@@ -1725,7 +1725,26 @@ export class EditorViewDOM implements IEditorViewDOM {
         const replaced =
           this._lastRenderedFromEditor && !!rootId && !!drawnRoot && rootId !== drawnRoot;
 
-        if (this._lastRenderedModelData && !replaced) {
+        /**
+         * A view of a **subtree** asks again, every time.
+         *
+         * The document's root node is one object for the life of a document, so a proxy over it stays
+         * true. A node inside it is not: an operation that changes a parent's children may hand the
+         * store a *new* object for that parent, and a proxy made over the old one keeps answering
+         * with the children it had. Measured: a section was deleted, the model held three, and the
+         * board drew four — for ever, because the proxy it was redrawing could not change.
+         *
+         * A proxy is lazy, so asking again costs one object.
+         */
+        if (this._viewRootId) {
+          const fresh = this.editor.getDocumentProxy?.(this._viewRootId);
+          if (fresh) {
+            modelData = fresh as ModelData;
+            this._lastRenderedFromEditor = true;
+          } else if (this._lastRenderedModelData) {
+            modelData = this._lastRenderedModelData;
+          }
+        } else if (this._lastRenderedModelData && !replaced) {
           modelData = this._lastRenderedModelData;
         } else {
           const exported = this.editor.getDocumentProxy?.(this._viewRootId);

@@ -5,11 +5,15 @@ import { useRevision } from '@barocss/office-ui';
 import {
   childOfScope,
   firstRunIn,
+  landingFor,
   innermostOf,
   isTextual,
   labelOfBlock,
-  sidAtElement
+  sidAtElement,
+  type BreakpointId,
+  type Landing
 } from '@barocss/office-site';
+
 
 /**
  * The layer between a reader's pointer and the page.
@@ -47,6 +51,7 @@ export function Overlay({
   host,
   page,
   zoom,
+  breakpoint,
   mode,
   onEnterText,
   scope,
@@ -57,6 +62,8 @@ export function Overlay({
   host: React.RefObject<HTMLDivElement | null>;
   page: string;
   zoom: number;
+  /** Which width this board is, so a drag reads the arrangement **this** board is drawing. */
+  breakpoint: BreakpointId;
   mode: PointerMode;
   /**
    * The reader has entered this block's text.
@@ -163,6 +170,59 @@ export function Overlay({
     return () => watch.disconnect();
   }, [host]);
 
+  /**
+   * Carrying a block.
+   *
+   * `held` is what the pointer went down on and how far it has moved; `landing` is where letting go
+   * would put it. A drag begins at four pixels rather than at the press, because a click is a press
+   * that did not move and a builder where clicking selects *and* nudges is a builder that moves
+   * things by accident.
+   */
+  const held = useRef<{ sid: string; x: number; y: number; carrying: boolean } | null>(null);
+  const [landing, setLanding] = useState<Landing | null>(null);
+
+  /** The pointer, in the board's own pixels — the space every box here is measured in. */
+  const pointIn = (event: { clientX: number; clientY: number }) => {
+    const frame = host.current?.getBoundingClientRect();
+    if (!frame) return undefined;
+    return { x: (event.clientX - frame.left) / zoom, y: (event.clientY - frame.top) / zoom };
+  };
+
+  /**
+   * Where letting go would put it.
+   *
+   * Every part of the decision is `landing.ts`'s — which stack, which place, which index that is in
+   * the parent's content, and where the line goes. What is left here is the only half that is
+   * genuinely the DOM's: where each block is drawn, and whether the pointer is over this board at
+   * all.
+   *
+   * **Outside the board is nothing**, not the page. A pointer past the edge of what a reader can see
+   * used to resolve to "no element, so the page" and quietly moved the block to the top of the page —
+   * a drag that goes somewhere the reader never pointed at is worse than a drag that does nothing.
+   */
+  const landingAt = (event: { clientX: number; clientY: number }, moving: string) => {
+    const board = host.current?.getBoundingClientRect();
+    const at = pointIn(event);
+    if (!board || !at) return null;
+    if (
+      event.clientX < board.left ||
+      event.clientX > board.right ||
+      event.clientY < board.top ||
+      event.clientY > board.bottom
+    ) {
+      return null;
+    }
+
+    return landingFor(doc(), {
+      hit: under(event),
+      at,
+      page,
+      moving,
+      breakpoint,
+      boxOf
+    });
+  };
+
   const hit = (event: React.PointerEvent | React.MouseEvent) =>
     under({ clientX: event.clientX, clientY: event.clientY });
 
@@ -205,6 +265,8 @@ export function Overlay({
       ref={layer}
       className="st-overlay"
       data-mode={mode}
+      // Where letting go would put it, on the drawing — so a test can ask what a reader can see.
+      data-landing={landing ? String(landing.index) : undefined}
       // In text mode the board is an ordinary editor again, and this draws without taking anything.
       style={{ pointerEvents: mode === 'select' ? 'auto' : 'none' }}
       /*
@@ -212,7 +274,33 @@ export function Overlay({
        * text the pointer happens to be over. A badge that named the run said `inline-text`, which is
        * the engine talking to a reader.
        */
-      onPointerMove={(event) => setHover(childOfScope(doc(), hit(event), page, scope))}
+      onPointerMove={(event) => {
+        const carry = held.current;
+        if (carry) {
+          const far = Math.abs(event.clientX - carry.x) + Math.abs(event.clientY - carry.y) > 4;
+          if (far) carry.carrying = true;
+          if (carry.carrying) {
+            setHover(undefined);
+            setLanding(landingAt(event, carry.sid));
+            return;
+          }
+        }
+        setHover(childOfScope(doc(), hit(event), page, scope));
+      }}
+      onPointerUp={(event) => {
+        const carry = held.current;
+        held.current = null;
+        (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
+        if (!carry?.carrying || !landing) {
+          setLanding(null);
+          return;
+        }
+        (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(
+          'moveBlockInto',
+          { nodeId: carry.sid, parentId: landing.parentId, index: landing.index }
+        );
+        setLanding(null);
+      }}
       onPointerLeave={() => setHover(undefined)}
       onPointerDown={(event) => {
         if (mode !== 'select') return;
@@ -227,6 +315,10 @@ export function Overlay({
         if (event.detail > 1) return;
         const sid = hit(event);
         const outer = childOfScope(doc(), sid, page, scope);
+        // What a drag would carry, remembered before anything is selected: a reader who presses on a
+        // block and moves is moving *that* block, whatever the press did to the selection.
+        held.current = outer ? { sid: outer, x: event.clientX, y: event.clientY, carrying: false } : null;
+        (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
 
         // Nothing under the pointer: the reader clicked the page's own margin, which means "none" —
         // and leaves whatever they had entered, because that is where they just clicked.
@@ -266,6 +358,15 @@ export function Overlay({
         if (deeper === deepest && isTextual(doc(), deepest)) enterText(deepest);
       }}
     >
+      {landing ? (
+        /*
+         * Where it would land, drawn rather than guessed at. Every tool of this kind draws this line
+         * and the reason is the same one that made `reorderIndexAt` a function in the model: an
+         * off-by-one is a drag that reorders backwards, and a reader can only see that it did.
+         */
+        <div className="st-mark st-mark-landing" style={boxStyle(landing.line)} aria-hidden />
+      ) : null}
+
       {hovered ? (
         <div className="st-mark st-mark-hover" style={boxStyle(hovered)} aria-hidden>
           <span className="st-mark-name">{labelOfBlock(doc(), hover!)}</span>

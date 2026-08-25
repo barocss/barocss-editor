@@ -354,10 +354,18 @@ export function PropertyChoice({
   );
 }
 
-/** What the panel says when nothing is selected — which is most of the time. */
+/**
+ * What the panel says when nothing is selected — which is most of the time.
+ *
+ * Padded like the panel's own header, because it is the only child that arrives without a group
+ * around it: a group brings its own padding, and this had `px-1`, so the one thing a reader sees
+ * most often was the one thing pressed against the edge. Found in a third product and fixed here
+ * rather than there — a control that needs the app to finish its layout is a control every app will
+ * finish differently.
+ */
 export function PropertyEmpty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-1 text-[length:var(--ou-text)] leading-relaxed text-[color:var(--ou-muted)]">
+    <p className="px-3 py-2 text-[length:var(--ou-text)] leading-relaxed text-[color:var(--ou-muted)]">
       {children}
     </p>
   );

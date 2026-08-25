@@ -17,18 +17,42 @@
 @import "@barocss/office-text/text.css";
 
 /*
+ * **The suite's tokens**, which every shared control is written against.
+ *
+ * `office-ui` styles itself entirely through `var(--ou-…)` — panel, line, ink, control height, text
+ * size — so an app that uses its components and not its tokens gets components with no borders, no
+ * panel ground and the wrong type scale. Which is exactly what happened here: the toolbar and the
+ * property panel were built from the shared controls and looked worse than the hand-written chrome
+ * they replaced, because every colour they asked for resolved to nothing.
+ *
+ * Word and the deck have imported this since their first day. The lesson is not "remember the
+ * import" — it is that **using a design system means taking its variables, not only its
+ * components**, and a component library whose tokens are optional is one every app will forget.
+ */
+@import "@barocss/office-ui/tokens.css";
+
+/*
  * The site builder's own surface.
  *
  * Deliberately quiet. Everything a *page* looks like comes from the document — a stack's background,
  * a heading's size, a card's padding are all things the reader set — so what this file draws is the
  * furniture around the page and nothing that could be mistaken for the page itself.
  */
+/*
+ * The app's own names, **taken from the suite's** rather than chosen beside them.
+ *
+ * Two palettes in one window is how a product ends up with a panel that is one grey and a canvas
+ * that is another, and nobody can say which is right. The only one this product decides for itself
+ * is the canvas ground, because a studio behind the page has to be darker than a page and the suite
+ * has no opinion about that.
+ */
 :root {
-  --st-ground: #f1f5f9;
-  --st-line: #d4d4d8;
-  --st-ink: #18181b;
-  --st-faint: #71717a;
-  --st-accent: #2563eb;
+  --st-ground: #eef1f5;
+  --st-line: var(--ou-line);
+  --st-ink: var(--ou-ink);
+  --st-faint: var(--ou-muted);
+  --st-accent: var(--ou-accent);
+  --st-panel: var(--ou-panel);
 }
 
 body {
@@ -36,34 +60,57 @@ body {
   background: var(--st-ground);
   color: var(--st-ink);
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: var(--ou-text);
 }
 
-.st-topbar {
+/*
+ * The chrome: two rows, the way both other products draw it.
+ *
+ * Everything here is the suite's palette. The one place this app decides for itself is the canvas
+ * ground below, because a studio behind a page has to be darker than the page and `office-ui` has no
+ * opinion about that.
+ */
+.st-chrome {
+  display: flex;
+  flex-direction: column;
+  background: var(--ou-ground);
+  border-bottom: 1px solid var(--st-line);
+}
+
+.st-titlebar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 8px 12px;
-  background: #ffffff;
+  gap: 12px;
+  padding: 4px 12px;
   border-bottom: 1px solid var(--st-line);
+}
+
+.st-titlebar-end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .st-brand {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--ou-text);
 }
 
-.st-pages,
-.st-widths {
+.st-pages {
   display: flex;
   gap: 4px;
 }
 
-/* Which page is being edited, and which widths are on screen: the same mark for both, because both
-   are "this one is showing" and a reader should not have to learn two. */
-.st-pages [data-page-current='true'],
-.st-widths [data-width-shown='true'] {
+/* Which page is being edited. The accent, and the suite's ink on it — a hand-picked white is a white
+   that stops being right the moment the accent changes. */
+.st-pages [data-page-current='true'] {
   background: var(--st-accent);
-  color: #ffffff;
+  color: var(--ou-accent-ink);
+}
+
+.st-ribbon {
+  padding: 2px 8px;
 }
 
 .st-body {
@@ -106,6 +153,13 @@ body {
   gap: 48px;
 }
 
+/*
+ * A board: the page as it will be published.
+ *
+ * White, and **not** a suite token — this is the page's own ground rather than the tool's, and a
+ * board that followed the editor's theme would be showing the reader a page that does not exist.
+ * Everything around it is the suite's; everything inside it is the document's.
+ */
 .st-frame {
   flex: none;
   background: #ffffff;
@@ -120,10 +174,10 @@ body {
   display: flex;
   justify-content: space-between;
   padding: 6px 10px;
-  background: #fafafa;
+  background: var(--ou-ground);
   border-bottom: 1px solid var(--st-line);
   border-radius: 6px 6px 0 0;
-  font-size: 12px;
+  font-size: var(--ou-text-small);
   color: var(--st-faint);
 }
 
@@ -164,20 +218,44 @@ body {
   outline-style: dashed;
 }
 
+/*
+ * Where a dragged block would land.
+ *
+ * Bright and thin: it has to be seen against a card, a photograph and a dark footer, and it must not
+ * be mistaken for something the page contains.
+ */
+.st-mark-landing {
+  background: var(--st-accent);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #ffffff;
+}
+
 .st-mark-name {
   position: absolute;
   bottom: 100%;
   left: 0;
   padding: 1px 6px;
   background: var(--st-accent);
-  color: #ffffff;
-  font-size: 11px;
+  color: var(--ou-accent-ink);
+  font-size: var(--ou-text-small);
   line-height: 1.6;
   white-space: nowrap;
   border-radius: 3px 3px 0 0;
 }
 
-.st-mark-hover .st-mark-name { background: #93c5fd; color: #0f172a; }
+.st-mark-hover /*
+ * Where a dragged block would land.
+ *
+ * Bright and thin: it has to be seen against a card, a photograph and a dark footer, and it must not
+ * be mistaken for something the page contains.
+ */
+.st-mark-landing {
+  background: var(--st-accent);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #ffffff;
+}
+
+.st-mark-name { background: #93c5fd; color: #0f172a; }
 
 /* ── The page, as a list of what it holds ─────────────────────────────────── */
 
@@ -188,13 +266,13 @@ body {
   flex-direction: column;
   overflow-y: auto;
   border-right: 1px solid var(--st-line);
-  background: #ffffff;
+  background: var(--st-panel);
 }
 
 .st-layers-title {
   padding: 6px 12px;
   border-bottom: 1px solid var(--st-line);
-  font-size: 11px;
+  font-size: var(--ou-text-small);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -216,8 +294,8 @@ body {
   cursor: default;
 }
 
-.st-layer:hover { background: #f4f4f5; }
-.st-layer[data-selected='true'] { background: var(--st-accent); color: #ffffff; }
+.st-layer:hover { background: var(--ou-ground); }
+.st-layer[data-selected='true'] { background: var(--st-accent); color: var(--ou-accent-ink); }
 
 /* ── The panel ────────────────────────────────────────────────────────────── */
 
@@ -227,9 +305,6 @@ body {
   flex: 1;
 }
 
-.st-ribbon { flex: 1; }
-.st-ribbon-end { margin-left: auto; display: flex; align-items: center; }
-
 /* Which width the panel is writing to. Three letters, because the panel header has room for three. */
 .st-at { display: flex; gap: 2px; }
 .st-at button {
@@ -238,13 +313,13 @@ body {
   font-size: 11px;
   border: 1px solid var(--st-line);
   border-radius: 3px;
-  background: #ffffff;
+  background: var(--st-panel);
   color: var(--st-faint);
 }
 .st-at button[data-current='true'] {
   background: var(--st-accent);
   border-color: var(--st-accent);
-  color: #ffffff;
+  color: var(--ou-accent-ink);
 }
 
 .st-at-note { font-size: 11px; color: var(--st-accent); }

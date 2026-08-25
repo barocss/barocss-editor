@@ -5,7 +5,6 @@ import {
   ToolbarGroup,
   ToolbarSeparator,
   ToolbarToggle,
-  ZoomControl,
   useRevision
 } from '@barocss/office-ui';
 import { BREAKPOINTS, type BreakpointId } from '@barocss/office-site';
@@ -32,19 +31,13 @@ export function Ribbon({
   mode,
   onMode,
   shown,
-  onShown,
-  zoom,
-  onZoom,
-  onFit
+  onShown
 }: {
   editor: Editor;
   mode: PointerMode;
   onMode: (mode: PointerMode) => void;
   shown: BreakpointId[];
   onShown: (shown: BreakpointId[]) => void;
-  zoom: number;
-  onZoom: (zoom: number) => void;
-  onFit: () => void;
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
   /*
@@ -140,10 +133,6 @@ export function Ribbon({
           </ToolbarToggle>
         ))}
       </ToolbarGroup>
-
-      <div className="st-ribbon-end">
-        <ZoomControl zoom={zoom} onChange={onZoom} onFit={onFit} fitLabel="맞춤" />
-      </div>
     </Toolbar>
   );
 }

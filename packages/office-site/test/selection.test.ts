@@ -8,6 +8,9 @@ import {
   blocksIn,
   documentSidOf,
   childOfScope,
+  contentIndexFor,
+  dropTarget,
+  isInside,
   enclosing,
   isTextual,
   labelOfBlock,
@@ -113,5 +116,92 @@ describe('what a click means on a page', () => {
     // A run of text and a `componentValue` are not things anybody aims at, and a selection that can
     // hold them is a panel that has to say what a run's padding is.
     expect(blocksIn(doc, heading)).toEqual([]);
+  });
+});
+
+/**
+ * Where a drop means.
+ *
+ * A page's stacks arrange their children, so a dragged block has no coordinate to land on and what a
+ * drag can mean is the **order** — `office-canvas` answers which place, and this answers which
+ * stack.
+ */
+describe('where a drop means', () => {
+  let doc: any;
+  let page: string;
+  let cardRow: string;
+  let firstCard: string;
+  let heading: string;
+
+  beforeAll(() => {
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    const dataStore = new DataStore(undefined as never, schema as never);
+    const editor: any = createSiteEditor({ editable: true, schema, dataStore } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+    doc = { rootId: editor.getRootId(), getNode: (sid: string) => dataStore.getNode(sid) };
+    page = pagesOf(doc)[0].sid;
+    cardRow = blocksIn(doc, page).find((sid: string) => blocksIn(doc, sid).length === 3)!;
+    firstCard = blocksIn(doc, cardRow)[0];
+    heading = blocksIn(doc, firstCard)[0];
+  });
+
+  it('lands among the siblings of the block under the pointer', () => {
+    // Over another card: next to that card. Over a heading inside a card: inside the card. One
+    // sentence, and a reader can predict it from anywhere.
+    expect(dropTarget(doc, firstCard, page, blocksIn(doc, cardRow)[2])).toBe(cardRow);
+    expect(dropTarget(doc, heading, page, blocksIn(doc, cardRow)[2])).toBe(firstCard);
+  });
+
+  it('moves a section among sections when the pointer is on the row itself', () => {
+    // Its padding, its gap, the empty part of it — which is what a hit on a container *means*,
+    // because `elementsFromPoint` gives the deepest element first.
+    expect(dropTarget(doc, cardRow, page, blocksIn(doc, page)[1])).toBe(page);
+  });
+
+  it('keeps the reader in the stack they are reordering inside', () => {
+    /*
+     * The pointer is always over what is being carried — the block follows it. The deepest node
+     * outside the carried subtree is the stack the block lives in, and *its* siblings are the wrong
+     * answer: the reader would be thrown out of the row they were reordering.
+     */
+    expect(dropTarget(doc, heading, page, firstCard)).toBe(cardRow);
+    expect(isInside(doc, heading, firstCard)).toBe(true);
+    expect(isInside(doc, cardRow, firstCard)).toBe(false);
+  });
+});
+
+/**
+ * "Before the third block" and "before the third child" are different numbers.
+ *
+ * A parent may hold things a reader never sees — a page's variables, a card's values — and `moveNode`
+ * counts all of them while `reorderIndexAt` counts only what is drawn. An off-by-one between them is
+ * a drop that lands one place from where the line was drawn.
+ */
+describe('the place a drop means, in the parent’s own content', () => {
+  const doc = {
+    getNode: (sid: string) =>
+      ({
+        row: { sid: 'row', stype: 'frame', content: ['value', 'a', 'b', 'c'] },
+        value: { sid: 'value', stype: 'componentValue' },
+        a: { sid: 'a', stype: 'frame' },
+        b: { sid: 'b', stype: 'frame' },
+        c: { sid: 'c', stype: 'frame' }
+      })[sid]
+  } as any;
+
+  it('skips what a reader cannot see', () => {
+    // Block 0 is `a`, which is child 1: the `componentValue` is in the array and on nobody's screen.
+    expect(contentIndexFor(doc, 'row', 'c', 0)).toBe(1);
+    expect(contentIndexFor(doc, 'row', 'c', 1)).toBe(2);
+  });
+
+  it('counts without the block being moved, because that is what the move does', () => {
+    // `moveNode` removes first and inserts into the shortened array.
+    expect(contentIndexFor(doc, 'row', 'a', 0)).toBe(1);
+  });
+
+  it('puts a drop past the last block at the end', () => {
+    expect(contentIndexFor(doc, 'row', 'a', 2)).toBe(3);
+    expect(contentIndexFor(doc, 'row', 'a', 9)).toBe(3);
   });
 });

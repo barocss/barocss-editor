@@ -616,6 +616,53 @@ export function commitFiberNode(
     }
   }
   
+  /**
+   * The **order** of siblings, once each of them is in the DOM.
+   *
+   * ## Why the two branches above are not enough
+   *
+   * Both place a node *before the next one* (`getHostSibling`), and that is only correct if
+   * everything after it is already where it belongs. The commit walks children left to right, so it
+   * never is. Measured, at four lines of test: `[a, b, c]` becoming `[b, c, a]` drew `[c, b, a]`, and
+   * a reversal came out as a rotation. Every product had it — a slide moved in the filmstrip, a block
+   * moved up in a document, a card dragged along a row — and nothing looked at the drawn order, so
+   * nothing caught it.
+   *
+   * ## What this does instead
+   *
+   * Each host child goes **after the one committed before it**, which is the one thing already known
+   * to be in the right place. Left to right, that is enough to sort any permutation, and the first
+   * child never has to move at all — everything else is arranged around it.
+   *
+   * Only when the two are genuinely **inverted**, never merely apart: a parent holds things no fiber
+   * owns — a caret filler, a decorator's chrome — and a rule that closed every gap would drag them
+   * along. So a node moves only when the sibling that should precede it is drawn after it.
+   */
+  if (domElement && domElement.parentNode) {
+    let orderedIn: Element | null = null;
+    let above = fiber.parentFiber;
+    while (above && !orderedIn) {
+      if (above.domElement instanceof Element) orderedIn = above.domElement;
+      above = above.parentFiber;
+    }
+    if (!orderedIn && parent instanceof Element) orderedIn = parent;
+
+    if (orderedIn && domElement.parentNode === orderedIn) {
+      const placed: Map<Element, Node> = context.__placedSiblings ?? (context.__placedSiblings = new Map());
+      const before = placed.get(orderedIn);
+      if (
+        before &&
+        before !== domElement &&
+        before.parentNode === orderedIn &&
+        // `before` is drawn *after* me, so the two are the wrong way round.
+        (domElement.compareDocumentPosition(before) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+      ) {
+        orderedIn.insertBefore(domElement, before.nextSibling);
+      }
+      placed.set(orderedIn, domElement);
+    }
+  }
+
   if (fiber.effectTag === EffectTag.PLACEMENT) {
     // Component lifecycle: mount when component VNode has stype
     // IMPORTANT: do not call mountComponent for already mounted components
