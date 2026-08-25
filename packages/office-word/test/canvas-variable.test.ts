@@ -19,6 +19,8 @@ import {
   varBindsOf,
   varRef,
   varUses,
+  varSites,
+  renameVarPlan,
   UNBINDABLE
 } from '../src/canvas-variable';
 import { componentsOf, instanceValues } from '../src/canvas-component';
@@ -115,9 +117,17 @@ describe('how many places use one', () => {
         { kind: 'gradient', stops: [{ color: 'var:강조' }, { color: '#fff' }] }
       ]
     };
-    // A reference inside a paint or a gradient stop is as much a reference as an attribute holding
-    // one — the same traversal the theme's resolution has to do, and the place it was missed first.
-    expect(varUses(access, '강조')).toBe(2);
+    /*
+     * A reference inside a paint or a gradient stop is as much a reference as an attribute holding
+     * one — the same traversal the theme's resolution has to do, and the place it was missed first.
+     *
+     * **One** place, not two, and the number changed when the count and the rename were made one
+     * walk: a place is a node's attribute, so a gradient naming it in two stops is one thing a
+     * reader can go and look at. It was two while the walk counted references, which told a reader
+     * their one fill was two places.
+     */
+    expect(varUses(access, '강조')).toBe(1);
+    expect(varSites(access, '강조')).toEqual([{ sid: 'box', how: 'attr', attr: 'fills' }]);
   });
 
   it('counts a card’s binding, unless that card declares the name itself', () => {
@@ -154,6 +164,118 @@ describe('how many places use one', () => {
       p2: { sid: 'p2', stype: 'rectangle', attributes: { partId: 'back' } }
     });
     expect(varUses(access, '강조')).toBe(1);
+  });
+});
+
+describe('what the count was missing, and renaming one', () => {
+  /**
+   * A deck where the same name means two different things, which is the case a rename must get
+   * right or it corrupts a slide: the document declares 강조, and one page declares its own.
+   */
+  const twoScopes = () =>
+    doc({
+      root: { sid: 'root', stype: 'document', content: ['vars', 'page', 'other'] },
+      vars: { sid: 'vars', stype: 'variables', attributes: {}, content: ['v'] },
+      v: { sid: 'v', stype: 'variable', attributes: { name: '강조', kind: 'color', value: '#0f766e' } },
+
+      page: {
+        sid: 'page',
+        stype: 'surface',
+        attributes: { kind: 'slide' },
+        content: ['ref', 'bound', 'deep']
+      },
+      ref: { sid: 'ref', stype: 'rectangle', attributes: { fill: 'var:강조' }, parentId: 'page' },
+      bound: {
+        sid: 'bound',
+        stype: 'rectangle',
+        attributes: { varBinds: [{ attr: 'width', var: '강조' }, { attr: 'text', var: '회사' }] },
+        parentId: 'page'
+      },
+      deep: {
+        sid: 'deep',
+        stype: 'rectangle',
+        attributes: { fills: [{ kind: 'gradient', stops: [{ color: 'var:강조' }, { color: '#fff' }] }] },
+        parentId: 'page'
+      },
+
+      other: { sid: 'other', stype: 'surface', attributes: { kind: 'slide' }, content: ['own', 'mine'] },
+      own: { sid: 'own', stype: 'variable', attributes: { name: '강조', value: '#ef4444' }, parentId: 'other' },
+      mine: { sid: 'mine', stype: 'rectangle', attributes: { fill: 'var:강조' }, parentId: 'other' }
+    });
+
+  /**
+   * Measured before it was fixed: a variable three shapes took their width from reported **zero**
+   * uses, because the walk looked for `var:` references and a `varBinds` entry holds a bare name.
+   * The panel offered to delete it with a shrug.
+   */
+  it('counts a shape’s own binding, which it did not', () => {
+    const access = twoScopes();
+    const bind = varSites(access, '강조').filter((site) => site.how === 'bind');
+    expect(bind).toEqual([{ sid: 'bound', how: 'bind', attr: 'width' }]);
+  });
+
+  /**
+   * And the other half: a page that declares the same name means *its* variable there. Counting
+   * those as the document's overstates the uses; rewriting them would change what a shape draws.
+   */
+  it('leaves alone the page that declares the same name', () => {
+    const access = twoScopes();
+    // The document's: the reference, the gradient stop, and the shape's binding — not `mine`.
+    expect(varUses(access, '강조')).toBe(3);
+    expect(varSites(access, '강조').map((site) => site.sid).sort()).toEqual(['bound', 'deep', 'ref']);
+
+    // The page's own, asked by its declaration: only the shape on that page.
+    expect(varUses(access, '강조', 'own')).toBe(1);
+    expect(varSites(access, '강조', 'own')).toEqual([{ sid: 'mine', how: 'attr', attr: 'fill' }]);
+  });
+
+  it('writes every place that names it, and nothing that does not', () => {
+    const access = twoScopes();
+    const plan = renameVarPlan(access, '강조', '포인트')!;
+
+    expect(plan.declaration).toBe('v');
+    const written = new Map(plan.writes.map((write) => [write.sid, write.attributes]));
+    expect([...written.keys()].sort()).toEqual(['bound', 'deep', 'ref']);
+
+    expect(written.get('ref')).toEqual({ fill: 'var:포인트' });
+    // A reference inside a paint is rewritten where it sits, and the value around it is copied
+    // rather than edited: the document is what the store holds, and a plan is a proposal.
+    expect(written.get('deep')).toEqual({
+      fills: [{ kind: 'gradient', stops: [{ color: 'var:포인트' }, { color: '#fff' }] }]
+    });
+    expect((access.getNode('deep') as never as { attributes: any }).attributes.fills[0].stops[0].color).toBe(
+      'var:강조'
+    );
+    // The whole list, because an attribute is written as a value — and the other binding is left
+    // exactly as it was.
+    expect(written.get('bound')).toEqual({
+      varBinds: [{ attr: 'width', var: '포인트' }, { attr: 'text', var: '회사' }]
+    });
+  });
+
+  it('renames a card’s binding, unless the card declares the name itself', () => {
+    const access = doc({
+      root: { sid: 'root', stype: 'document', content: ['vars', 'lib'] },
+      vars: { sid: 'vars', stype: 'variables', attributes: {}, content: ['v'] },
+      v: { sid: 'v', stype: 'variable', attributes: { name: '강조', value: '#0f766e' } },
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['open', 'closed'] },
+      open: { sid: 'open', stype: 'component', attributes: { id: 'open' }, content: ['b1'] },
+      b1: { sid: 'b1', stype: 'componentBind', attributes: { part: 'back', attr: 'fill', var: '강조' } },
+      closed: { sid: 'closed', stype: 'component', attributes: { id: 'closed' }, content: ['own', 'b2'] },
+      own: { sid: 'own', stype: 'componentVar', attributes: { name: '강조', value: '#ef4444' } },
+      b2: { sid: 'b2', stype: 'componentBind', attributes: { part: 'back', attr: 'fill', var: '강조' } }
+    });
+
+    const plan = renameVarPlan(access, '강조', '포인트')!;
+    expect(plan.writes).toEqual([{ sid: 'b1', attributes: { var: '포인트' } }]);
+  });
+
+  it('refuses the renames that would quietly merge or do nothing', () => {
+    const access = twoScopes();
+    // Onto itself, onto nothing, and from a name this scope does not declare.
+    expect(renameVarPlan(access, '강조', '강조')).toBeUndefined();
+    expect(renameVarPlan(access, '강조', '')).toBeUndefined();
+    expect(renameVarPlan(access, '없는이름', '포인트')).toBeUndefined();
   });
 });
 

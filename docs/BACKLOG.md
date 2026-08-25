@@ -896,9 +896,23 @@ shipped features marked undone.
   looking for it was tied to the kind it was not testing. The **row** carries the marker and the
   control carries its name, and that pair holds for every kind.
 
-- [ ] **A variable cannot be renamed**, like every other durable reference here. The label is what a
-  reader changes. If renaming is ever wanted it is a migration — every attribute in every slide and
-  every card that names it — and the honest version is a command that does exactly that walk.
+- [x] **A variable can be renamed now**, and it is the migration the entry said it would be: one walk
+  finds every attribute, every shape binding and every card binding that means *this* declaration,
+  one transaction writes them, and the name field on the row is the gesture. What the walk found on
+  its first day was two faults in the **count** the panel had been showing all along: a shape's own
+  binding was never counted (the walk looked for `var:` references and a `varBinds` entry holds a
+  bare name, so a variable three shapes took their width from said *0곳*), and a page declaring the
+  same name was counted as the document's — the small half being an overstated number and the large
+  half being that renaming one of those references would have changed what a shape draws. One walk
+  answers both questions now, so the number a reader is shown is exactly the set that gets rewritten,
+  and a *place* became a node's attribute rather than a reference: a gradient naming it in two stops
+  is one thing to go and look at (§10h-5).
+
+- [ ] **A card's own variable still cannot be renamed** (`componentVar`), and it is the same shape of
+  migration one scope down: every `componentBind` in the definition and every `componentValue` on
+  every placement — *in every deck that ever copied this card*, which is the half the document's
+  rename does not have. Left until the walk is asked for: the pieces exist (`componentsOf`,
+  `instanceValues`), and what is missing is the answer to what happens to a copy that is not here.
 
 **Still open and not in a phase**
 

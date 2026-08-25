@@ -2768,11 +2768,17 @@ body {
   gap: 4px;
 }
 
-/* The durable name, spanning the row above its own controls. */
+/*
+ * The durable name, spanning the row above its own controls — and a **field**, since it can be
+ * renamed (§10h-5).
+ *
+ * Drawn as an ordinary field rather than the faint 10px caption it was: it was the one thing in the
+ * row a reader could not change, and it looking like a caption was the honest drawing of that. It
+ * is not that any more.
+ */
 .sl-var-name {
   grid-column: 1 / -1;
-  font-size: 10px;
-  color: var(--sl-faint, #a3a3a3);
+  font-size: 11px;
 }
 
 /*
@@ -2786,6 +2792,19 @@ body {
   color: var(--sl-faint, #a3a3a3);
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Why a rename did not happen, said where it was attempted.
+ *
+ * Amber and one line, beside the field the name went back into: a refusal a reader cannot see is a
+ * product that ignored them, and this one has a real reason — two variables of one name would merge
+ * and half the deck would change colour with nobody asked.
+ */
+.sl-var-clash {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  color: #b45309;
 }
 
 .sl-var-add {

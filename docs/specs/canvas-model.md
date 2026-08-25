@@ -2015,6 +2015,65 @@ source. A **shape's** binding is left exactly where it is: that is the reader's 
 their own box, they may re-declare the name in a minute, and the shape goes on drawing what it holds.
 The check reports it as 볼 것 rather than the command editing their slide behind them.
 
+#### 10h-5. Renaming one, which is a migration
+
+Refused for as long as there was no walk that could find every place: a variable's `name` *is* the
+reference — `fill: 'var:강조'` — so renaming means rewriting every attribute, every shape binding and
+every card binding in the deck that names it. The panel said so, and the label was what a reader
+could change.
+
+Two faults were found the moment the walk was written, and both were in the **count** the panel had
+been showing all along:
+
+- **A shape's own binding was not counted.** The walk looked for `var:` references, and a `varBinds`
+  entry holds a bare name. A variable three shapes took their width from reported *zero* uses, so the
+  panel offered to delete it with a shrug.
+- **A page that declares the same name was counted as the document's.** Overstating a count is the
+  small half; rewriting one of those references would have *changed what a shape draws*, which is the
+  reason the scope question could not be left until later.
+
+So there is one walk, and both questions ask it: `varSites(doc, name, declaredAt?)` answers the
+places, `varUses` is its length, and `renameVarPlan` is its writes. The number a reader is shown
+before renaming is exactly the set that gets rewritten, which is the property two separate walks
+cannot have.
+
+##### What a place is
+
+A node's **attribute**, not a reference. A gradient naming a variable in two stops is one thing a
+reader can go and look at; counting it as two told them their one fill was two places. The count
+changed with this — it was references before — and the rename is why: an attribute is the unit of the
+write, so it had better be the unit of the count.
+
+##### Which declaration is meant
+
+`varInScope` decides, per site — the same rule the drawing uses. A reference on a page that declares
+the name means the page's; inside a card that declares it as a `componentVar`, a `componentBind` means
+the card's. A plain `var:` reference inside a card is *not* shadowed, because a card variable reaches
+a part through a binding and only through one.
+
+##### One transaction, and what it refuses
+
+Every write and the declaration go in one transaction, so one press of undo takes the rename back
+whole: a half-renamed deck is a deck where some shapes draw nothing, and undoing it one shape at a
+time is not a thing a reader can do.
+
+Refused: a name the same scope already declares. That would merge two variables into one and quietly
+change what half the deck draws, and unlike a clash on import (§10h-4) nobody asked for it — the
+reader is editing a name. A **page's** variable may take a name the *document* declares, because the
+page was already shadowing it.
+
+##### Where it is, and how a refusal is seen
+
+The name field on the row, in both lists. A reader who wants to change a name types where the name is
+written; a rename button beside a name that is drawn as text would be a second gesture for one idea.
+The name used to be drawn as a faint caption, which was the honest drawing of a thing that could not
+be changed — it is a field now, because it can.
+
+A refusal has to be visible, and this one was not: a committed field keeps what was typed until the
+*document* changes it back, and a refused rename changes nothing, so the field sat there showing a
+name the deck does not have. The panel asks `canExecute` first, puts the document's name back, and
+says 이미 있는 이름 in the row.
+
 #### 10h-4. A value from **another** document
 
 The third scope, and the one no resolver can reach: a brand's colours used by twenty decks. Another

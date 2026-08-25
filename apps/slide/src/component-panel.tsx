@@ -54,8 +54,14 @@ function DocumentVarList({
 }: {
   editor: Editor | null;
   vars: DocumentVar[];
-  /** How many places name each one, counted from the document by the model. */
-  uses: (name: string) => number;
+  /**
+   * How many places name each one, counted from the document by the model.
+   *
+   * With the declaration's sid, because a page may declare a name the document also declares: by
+   * name alone the count is both scopes added together, and it would tell a reader that deleting
+   * their page's 강조 breaks four shapes on a slide they have never opened.
+   */
+  uses: (name: string, declaredAt: string) => number;
   /**
    * Which scope this list is about.
    *
@@ -76,6 +82,38 @@ function DocumentVarList({
       onPage ? 'setSlideVar' : 'setDocumentVar',
       onPage ? { slideId, ...payload } : payload
     );
+
+  /**
+   * Renaming, which is a different command from setting — because it is a different thing.
+   *
+   * `setDocumentVar` writes one node; a rename writes every node in the deck that names it. A field
+   * that called `set({ name })` would have declared a *second* variable and left the first one and
+   * every reference to it exactly where they were.
+   *
+   * ## A refusal has to be visible, and this one was not
+   *
+   * The command refuses a name the same scope already declares — it would merge two variables and
+   * quietly change what half the deck draws. But a committed field keeps what was typed until the
+   * *document* changes it back (`TextField` is keyed by the model's value), and a refused rename
+   * changes nothing: the field sat there showing a name the deck does not have. So the refusal is
+   * asked **before** the command runs, the name is put back by remounting the field, and the row
+   * says why.
+   */
+  const [refused, setRefused] = useState<{ name: string; at: number } | null>(null);
+
+  const rename = (name: string, to: string) => {
+    const next = to.trim();
+    if (!next || next === name) return;
+
+    const command = onPage ? 'renameSlideVar' : 'renameDocumentVar';
+    const payload = onPage ? { slideId, name, to: next } : { name, to: next };
+    if (!(editor as any)?.canExecuteCommand?.(command, payload)) {
+      setRefused({ name, at: (refused?.at ?? 0) + 1 });
+      return;
+    }
+    setRefused(null);
+    void (editor as any)?.executeCommand?.(command, payload);
+  };
 
   const add = () => {
     const name = adding.trim();
@@ -101,8 +139,37 @@ function DocumentVarList({
         <ol className="sl-var-rows">
           {vars.map((one) => (
             <li key={one.name} {...(onPage ? { 'data-slide-var-row': one.name } : { 'data-doc-var-row': one.name })}>
-              {/* The name, shown and not editable: every reference in the deck is written in it. */}
-              <code className="sl-var-name">{one.name}</code>
+              {/*
+                * The name, and it **is** editable now.
+                *
+                * It was shown as text with the reason beside it — every reference in the deck is
+                * written in this name, so changing it is a migration rather than an edit. The
+                * migration exists (`renameVarPlan`, §10h-5): one walk finds every attribute, every
+                * shape binding and every card binding that means *this* declaration, and one
+                * transaction writes them, so one press of undo takes the rename back whole.
+                *
+                * A name the same scope already declares is refused by the command, and the field
+                * simply shows the document's name again on the next render — the two variables
+                * would have merged, and half the deck would have changed colour with nobody asked.
+                */}
+              <TextField
+                /*
+                 * Keyed by the refusal as well as the name: `TextField` keeps what was typed until
+                 * the model's value changes, and a refused rename changes nothing — remounting is
+                 * what puts the document's own name back in front of the reader.
+                 */
+                key={`${one.name}-${refused?.name === one.name ? refused.at : 0}`}
+                ariaLabel={`${one.name} 이름`}
+                testClass="sl-var-name"
+                data={onPage ? { 'slide-var-name': one.name } : { 'doc-var-name': one.name }}
+                value={one.name}
+                onCommit={(next) => rename(one.name, next)}
+              />
+              {refused?.name === one.name && (
+                <span className="sl-var-clash" data-var-clash={one.name}>
+                  이미 있는 이름
+                </span>
+              )}
               <TextField
                 ariaLabel={`${one.name} 이름표`}
                 value={one.label}
@@ -200,14 +267,19 @@ function DocumentVarList({
                   }}
                 />
               )}
-              {/* What a change reaches, and what a delete would lose. */}
-              {/* A page's own value reaches only this page, so the count is the document's business
-                  and this list says nothing about it. */}
-              {!onPage && (
-                <span className="sl-var-uses" data-doc-var-uses={one.name}>
-                  {uses(one.name)}곳
-                </span>
-              )}
+              {/*
+                * What a change reaches, and what a delete would lose — for a page's own as well.
+                *
+                * This list said nothing about a page's, because the count was by name and a page's
+                * name may be the document's: the number would have been both scopes added
+                * together. Asked with the declaration, it is the honest one for either list.
+                */}
+              <span
+                className="sl-var-uses"
+                {...(onPage ? { 'data-slide-var-uses': one.name } : { 'data-doc-var-uses': one.name })}
+              >
+                {uses(one.name, one.sid)}곳
+              </span>
               <IconButton
                 label={`${one.name} 지우기`}
                 data={onPage ? { 'slide-var-remove': one.name } : { 'doc-var-remove': one.name }}
@@ -542,7 +614,7 @@ export function ComponentPanel({
         <DocumentVarList
           editor={editor}
           vars={documentVars(doc as never)}
-          uses={(name) => documentVarUses(doc as never, name)}
+          uses={(name, declaredAt) => documentVarUses(doc as never, name, declaredAt)}
         />
       )}
 
@@ -558,7 +630,7 @@ export function ComponentPanel({
           scope="slide"
           slideId={slideId}
           vars={surfaceVars(doc as never, slideId)}
-          uses={() => 0}
+          uses={(name, declaredAt) => documentVarUses(doc as never, name, declaredAt)}
         />
       )}
 

@@ -566,4 +566,89 @@ describe('the document variable commands', () => {
       expect(cardsIn()[0]).toEqual(['componentBind', 'rectangle']);
     });
   });
+
+  /**
+   * Renaming one, which is a **migration** and not an edit.
+   *
+   * The name is the reference, so the declaration is the last thing a rename changes and the least
+   * of it. The walk is tested in `office-word`; what a command has to answer is what the document
+   * looks like afterwards and whether one undo takes the whole thing back — because a half-renamed
+   * deck is a deck where some shapes draw nothing, and undoing it one shape at a time is not a
+   * thing a reader can do.
+   */
+  describe('renaming one', () => {
+    const canRename = (command: string, payload?: unknown) =>
+      (editor as never as { canExecuteCommand: (name: string, payload?: unknown) => boolean })
+        .canExecuteCommand(command, payload);
+
+    it('rewrites the reference, the binding and the declaration, and undoes as one', async () => {
+      await run('setDocumentVar', { name: '강조', kind: 'color', value: '#0f766e' });
+      await run('setBoxStyle', { nodeIds: [box()], fill: 'var:강조' });
+      await run('setDocumentVar', { name: '폭', kind: 'number', value: '2400' });
+      await run('setVarBind', { nodeId: box(), attr: 'width', var: '폭' });
+
+      expect(await run('renameDocumentVar', { name: '강조', to: '포인트' })).toBe(true);
+      expect(documentVars(doc as never).map((one) => one.name)).toEqual(['강조', '폭'].map(
+        (one) => (one === '강조' ? '포인트' : one)
+      ));
+      expect(doc.getNode(box())?.attributes?.fill).toBe('var:포인트');
+      // The value did not move, which is the whole point: only the name it is known by changed.
+      expect(varInScope(doc as never, box(), '포인트')?.value).toBe('#0f766e');
+      // And the other variable's binding on the same shape is untouched.
+      expect(doc.getNode(box())?.attributes?.varBinds).toEqual([{ attr: 'width', var: '폭' }]);
+
+      expect(await run('renameDocumentVar', { name: '폭', to: '카드폭' })).toBe(true);
+      expect(doc.getNode(box())?.attributes?.varBinds).toEqual([{ attr: 'width', var: '카드폭' }]);
+
+      /*
+       * One transaction, so one undo. The shape's binding and the declaration go back together —
+       * either of them alone is a deck that draws the wrong thing.
+       */
+      await (editor as never as { undo: () => Promise<unknown> }).undo();
+      expect(doc.getNode(box())?.attributes?.varBinds).toEqual([{ attr: 'width', var: '폭' }]);
+      expect(documentVars(doc as never).map((one) => one.name)).toEqual(['포인트', '폭']);
+    });
+
+    it('leaves a page that declares the same name alone', async () => {
+      const slide = childrenOf(doc.getNode(doc.rootId))[0];
+      // Held before the page declares anything: a page's variable is written **first** among its
+      // children, so `box()` would answer the declaration from here on.
+      const shape = box();
+      await run('setDocumentVar', { name: '강조', kind: 'color', value: '#0f766e' });
+      await run('setSlideVar', { slideId: slide, name: '강조', kind: 'color', value: '#ef4444' });
+      await run('setBoxStyle', { nodeIds: [shape], fill: 'var:강조' });
+
+      // The shape is on the page that declares its own, so its reference means the page's.
+      expect(await run('renameDocumentVar', { name: '강조', to: '포인트' })).toBe(true);
+      expect(doc.getNode(shape)?.attributes?.fill).toBe('var:강조');
+      expect(surfaceVars(doc as never, slide).map((one) => one.name)).toEqual(['강조']);
+      expect(documentVars(doc as never).map((one) => one.name)).toEqual(['포인트']);
+
+      // Renaming the page's own is what reaches it.
+      expect(await run('renameSlideVar', { slideId: slide, name: '강조', to: '이 장의 강조' })).toBe(true);
+      expect(doc.getNode(shape)?.attributes?.fill).toBe('var:이 장의 강조');
+    });
+
+    it('refuses a rename that would merge two variables, and one that says nothing', async () => {
+      const slide = childrenOf(doc.getNode(doc.rootId))[0];
+      await run('setDocumentVar', { name: '강조', kind: 'color', value: '#0f766e' });
+      await run('setDocumentVar', { name: '바탕', kind: 'color', value: '#ffffff' });
+
+      // Onto a name this scope already declares: two variables become one and half the deck
+      // quietly changes colour. Nobody asked for that — the reader is editing a name.
+      expect(canRename('renameDocumentVar', { name: '강조', to: '바탕' })).toBe(false);
+      expect(canRename('renameDocumentVar', { name: '강조', to: '강조' })).toBe(false);
+      expect(canRename('renameDocumentVar', { name: '강조', to: '' })).toBe(false);
+      expect(canRename('renameDocumentVar', { name: '없는이름', to: '포인트' })).toBe(false);
+      expect(await run('renameDocumentVar', { name: '강조', to: '바탕' })).toBe(false);
+
+      /*
+       * A **page's** may take a name the document declares, because a page's declaration was
+       * already shadowing whatever the document said — refusing it would refuse a legitimate edit
+       * for a clash that does not exist.
+       */
+      await run('setSlideVar', { slideId: slide, name: '이 장', kind: 'color', value: '#ef4444' });
+      expect(canRename('renameSlideVar', { slideId: slide, name: '이 장', to: '바탕' })).toBe(true);
+    });
+  });
 });

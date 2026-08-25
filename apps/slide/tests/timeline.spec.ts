@@ -285,10 +285,15 @@ test.describe('the timeline', () => {
     await selectBox(page, 0);
     await giveBuild(page, 'fade');
 
-    // A preset first, which is the answer nine times out of ten.
+    /*
+     * A preset first, which is the answer nine times out of ten.
+     *
+     * Polled rather than slept at: this reads a write on its way to the document, and a fixed wait
+     * before an assertion about something still in flight is a race with whatever else the machine
+     * is running — the sentence five flaky tests in this suite already taught us (BACKLOG).
+     */
     await pane(page).getByLabel('가속', { exact: true }).selectOption('backOut');
-    await page.waitForTimeout(400);
-    expect((await stepAttrs(page))?.easing).toBe('backOut');
+    await expect.poll(async () => (await stepAttrs(page))?.easing).toBe('backOut');
 
     // And the tenth: the curve, dragged by its handle.
     await pane(page).locator('[data-curve-open]').click();
@@ -297,9 +302,9 @@ test.describe('the timeline', () => {
     await page.mouse.down();
     await page.mouse.move(handle!.x + 30, handle!.y - 20, { steps: 8 });
     await page.mouse.up();
-    await page.waitForTimeout(400);
 
-    expect(String((await stepAttrs(page))?.easing)).toContain('cubic-bezier(');
+    // Failed once in a full parallel run and passed alone every time — the same race, one line down.
+    await expect.poll(async () => String((await stepAttrs(page))?.easing)).toContain('cubic-bezier(');
   });
 
   /**

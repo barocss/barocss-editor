@@ -421,6 +421,17 @@ export {
   varRef,
   varUses,
   /**
+   * Every place that names one — the walk the count and the **rename** both ask.
+   *
+   * A variable's name *is* the reference, so renaming is a migration: `renameVarPlan` answers the
+   * writes and the command puts them in one transaction, or a half-renamed deck draws nothing in
+   * the places it missed.
+   */
+  varSites,
+  renameVarPlan,
+  type VarSite,
+  type VarRename,
+  /**
    * Where an imported value came from, whether the source has moved on, and what bringing one in
    * would write.
    *

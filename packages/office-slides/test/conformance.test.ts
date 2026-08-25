@@ -238,6 +238,15 @@ describe('Slides draws what its schema declares', () => {
           'the components panel — the 이 장 변수 list, under the document’s and drawn while a slide is showing. The same control at a narrower scope, because setting a value should feel the same wherever the value lives; what the list says instead of a use count is that this page’s answer comes first inside it',
         setDocumentVar:
           'the components panel — the 문서 변수 list, above the card’s and drawn always, because a document variable is a fact about the document and there is nothing to be standing in. Each row says how many places name it (`varUses`), which is what a reader needs before changing one everywhere or deleting one: a reference to a name that is gone draws nothing',
+        /**
+         * The rename is the **name field** in those two lists, which is why it needs no control of
+         * its own: it is the row's first field, and a reader who wants to change a name types in
+         * the place the name is written.
+         */
+        renameDocumentVar:
+          'the components panel — the name field on a 문서 변수 row. A separate command from setting one because it is a separate thing: setting writes one node, renaming rewrites every attribute, every shape binding and every card binding in the deck that means this declaration (`renameVarPlan`), in one transaction so one undo takes it back whole. A name the scope already declares is refused rather than merged',
+        renameSlideVar:
+          'the components panel — the name field on an 이 장 변수 row, the same gesture at the narrower scope. A page’s may take a name the document declares: the page was already shadowing it, so refusing that would refuse an edit for a clash that does not exist',
         setComponentBind:
           'the properties panel — a part’s 컴포넌트 부품 group, while the reader is inside a definition: one row per attribute the part declares, each offering the variables of a kind that fits. A declaration on the definition rather than an attribute on the part, so a variable can drive anything the part has (canvas-model §10g-2)',
         setComponentSlot:

@@ -8,6 +8,7 @@ import {
   varInScope,
   varBindsOf,
   varUses,
+  renameVarPlan,
   UNBINDABLE,
   type VarBind
 } from '@barocss/office-word';
@@ -74,13 +75,13 @@ export class SlidesVariableExtension implements Extension {
     /**
      * Declare one, change it, or take it away (`remove: true`).
      *
-     * ## Why a name cannot be changed
+     * ## The name is not one of the things this changes
      *
      * A variable's `name` is what every reference in the deck is written in, and `forFile` strips
-     * sids so it has to be. Renaming would mean rewriting every attribute, in every slide and every
-     * card, that names it — a migration rather than an edit — so the name is fixed when it is
-     * declared and the **label** is what a reader changes. The rule a definition's `id`, a part's
-     * `partId` and a shape's motion name already follow.
+     * sids so it has to be. So renaming is not an edit to the declaration — it is a **migration**
+     * over the whole deck, and it is `renameDocumentVar` below rather than a field here: this
+     * command writes one node, and a rename that wrote one node would leave every reference to the
+     * old name resolving to nothing.
      */
     register(
       'setDocumentVar',
@@ -124,6 +125,38 @@ export class SlidesVariableExtension implements Extension {
         );
         return said.remove === true ? declared : true;
       }
+    );
+
+    /**
+     * Rename one: `renameDocumentVar({ name, to })`, and the page's own beside it.
+     *
+     * ## Why this is a command and not a field on the one above
+     *
+     * A variable's name *is* the reference — `fill: 'var:강조'` — so changing it means rewriting
+     * every attribute, every shape binding and every card binding in the deck that names it. That
+     * was refused for as long as there was no walk that could find them all; `varSites` is that
+     * walk, and it is the same one the panel's "3곳에서 씁니다" counts with, so the number a reader
+     * is shown before renaming is exactly the set that gets rewritten.
+     *
+     * **One transaction**, so one press of undo takes the rename back whole. A half-renamed deck is
+     * a deck where some shapes draw nothing, and it would be undone one shape at a time.
+     *
+     * ## What it refuses
+     *
+     * A name the same scope already declares. That would merge two variables into one and quietly
+     * change what half the deck draws — and unlike a clash on import (§10f), nobody asked for it:
+     * the reader is editing a name, not choosing between two values.
+     */
+    register(
+      'renameDocumentVar',
+      async (payload) => await this._rename(editor, payload as never),
+      (payload) => this._canRename(editor, payload as never)
+    );
+
+    register(
+      'renameSlideVar',
+      async (payload) => await this._rename(editor, payload as never),
+      (payload) => this._canRename(editor, payload as never)
     );
 
     /**
@@ -416,6 +449,68 @@ export class SlidesVariableExtension implements Extension {
   }
 
   /**
+   * Whether this rename can happen: the name is declared here, the new one is free here.
+   *
+   * "Here" is the scope, and it is the whole of the difference between the two commands: a page's
+   * 강조 may be renamed to a name the *document* also declares, because a page's declaration was
+   * already shadowing whatever the document said. Refusing that would refuse a legitimate edit for
+   * the sake of a clash that does not exist.
+   */
+  private _canRename(
+    editor: Editor,
+    payload: { slideId?: unknown; name?: unknown; to?: unknown } | undefined
+  ): boolean {
+    const doc = this._access(editor);
+    if (!doc) return false;
+    if (typeof payload?.name !== 'string' || payload.name.length === 0) return false;
+    if (typeof payload.to !== 'string' || payload.to.length === 0) return false;
+    if (payload.to === payload.name) return false;
+
+    const onPage = typeof payload.slideId === 'string' && payload.slideId.length > 0;
+    if (onPage && doc.getNode(payload.slideId as string)?.stype !== 'surface') return false;
+
+    const scope = onPage
+      ? surfaceVars(doc as never, payload.slideId as string)
+      : documentVars(doc as never);
+    return (
+      scope.some((one) => one.name === payload.name) && !scope.some((one) => one.name === payload.to)
+    );
+  }
+
+  private async _rename(
+    editor: Editor,
+    payload: { slideId?: string; name?: string; to?: string }
+  ): Promise<boolean> {
+    if (!this._canRename(editor, payload as never)) return false;
+    const doc = this._access(editor)!;
+
+    const onPage = typeof payload.slideId === 'string' && payload.slideId.length > 0;
+    const declared = onPage
+      ? surfaceVars(doc as never, payload.slideId).find((one) => one.name === payload.name)
+      : documentVars(doc as never).find((one) => one.name === payload.name);
+    if (!declared) return false;
+
+    const plan = renameVarPlan(doc as never, payload.name!, payload.to!, declared.sid);
+    if (!plan) return false;
+
+    /*
+     * The declaration last is not a taste: `varSites` asks `varInScope` what each reference means,
+     * and it is read against the document as it is now. A plan built first and written in one
+     * transaction is one answer about one document — which is also why this is a plan rather than a
+     * walk that writes as it goes.
+     */
+    const steps = [
+      ...plan.writes.map((write) => ({
+        type: 'setAttrs',
+        payload: { nodeId: write.sid, attrs: write.attributes }
+      })),
+      { type: 'setAttrs', payload: { nodeId: plan.declaration, attrs: { name: payload.to } } }
+    ];
+
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  /**
    * Every `componentBind` in the document that names this variable, with the card it is in.
    *
    * A card that declares the same name is skipped: its bindings point at its own declaration, so
@@ -455,9 +550,16 @@ export class SlidesVariableExtension implements Extension {
   }
 }
 
-/** How many places name it — the number a panel says before it offers to delete one. */
-export function documentVarUses(doc: DeckAccess, name: string): number {
-  return varUses(doc as never, name);
+/**
+ * How many places name it — the number a panel says before it offers to delete one.
+ *
+ * `declaredAt` is which declaration is meant, and it matters the moment a page declares a name the
+ * document also declares: without it the count is the document's *and* the page's added together,
+ * and the panel tells a reader that deleting their page's 강조 would break four shapes on a slide
+ * they have never opened.
+ */
+export function documentVarUses(doc: DeckAccess, name: string, declaredAt?: string): number {
+  return varUses(doc as never, name, declaredAt);
 }
 
 export function createVariableCommands(): Extension {

@@ -196,41 +196,72 @@ export function resolveVarValue(
   return varInScope(doc, at, varNameOf(value))?.value || undefined;
 }
 
-/**
- * How many places in the document name this variable.
- *
- * What a panel says before a reader deletes one — "3곳에서 씁니다" — and what makes the refusal
- * honest rather than a shrug. Counted rather than remembered: a number kept on the declaration
- * would have to be maintained by a write on every shape that took the colour, which is derived
- * state in the document and the fault this repository keeps finding.
- *
- * Both ways a name is used are counted, because both break when it goes: a **reference** in an
- * attribute (`fill: 'var:강조'`, including inside a paint or a gradient stop) and a card's
- * **binding** that names it.
- *
- * A binding inside a card that declares the same name is **not** a use of this variable — the card
- * is looked in first, so that binding was never pointing here. Answered from the walk rather than
- * by asking `canvas-component.ts`, which would make the two files import each other for one
- * question either of them can answer alone.
- */
-export function varUses(doc: CanvasAccess, name: string): number {
-  let count = 0;
+/** One place that names a variable, as the count and the rename both need it. */
+export interface VarSite {
+  /** The node that names it. */
+  sid: string;
+  /** How it names it. */
+  how: 'attr' | 'bind' | 'cardBind';
+  /**
+   * Which attribute: the one holding the reference, the attribute a binding writes, or `var` for a
+   * card's binding — which is what a rename needs to know to write it back.
+   */
+  attr: string;
+}
 
-  const inValue = (value: unknown, depth = 0): number => {
-    if (isVarRef(value)) return varNameOf(value) === name ? 1 : 0;
-    if (depth > 3) return 0;
+/**
+ * Every place in the document that names this variable — the one walk two questions ask.
+ *
+ * "How many places use it" (before a reader deletes one) and "what has to change" (when a reader
+ * renames one) are the same question asked twice, and answering them separately is how two walks
+ * disagree about what a name means.
+ *
+ * Three ways a document names a variable, and all three break when it goes:
+ *
+ * - a **reference** in an attribute — `fill: 'var:강조'`, including inside a paint or a gradient
+ *   stop, which is why the value walk goes three deep;
+ * - a **shape's own binding** (`varBinds`), which was missing from the count until it was measured:
+ *   a variable three shapes took their width from reported *zero* uses, so the panel offered to
+ *   delete it with a shrug;
+ * - a **card's binding** (`componentBind`).
+ *
+ * ## Which 강조 — the scope question, asked once per site
+ *
+ * A page may declare a name the document also declares, and then a reference on that page means the
+ * page's. Counting it as the document's overstates the uses; **renaming** it would silently change
+ * what a shape draws, which is the worse half. So every candidate is put back through `varInScope`
+ * — the same rule the drawing uses — and kept only when it lands on this declaration.
+ *
+ * A name **nothing** declares is its own answer: `varInScope` says nothing, `declaredAt` is nothing,
+ * and the references match each other. That is what lets the audit count a dead name's uses.
+ *
+ * A card's binding is the one exception, and it is the card-first rule (§10h): inside a `component`
+ * that declares this name as a `componentVar`, a `componentBind` was never pointing here. A plain
+ * `var:` reference inside a card is **not** shadowed, because a card variable reaches a part through
+ * a binding and only through one — a reference in a part's attribute is resolved against the
+ * document like any other.
+ */
+export function varSites(
+  doc: CanvasAccess,
+  name: string,
+  /** The declaration meant, when it is not the document's — a page's own. */
+  declaredAt?: string
+): VarSite[] {
+  const target = declaredAt ?? documentVar(doc, name)?.sid;
+  const meansThis = (sid: string | undefined) => varInScope(doc, sid, name)?.sid === target;
+
+  const found: VarSite[] = [];
+
+  const inValue = (value: unknown, depth = 0): boolean => {
+    if (isVarRef(value)) return varNameOf(value) === name;
+    if (depth > 3) return false;
     // A paint, an effect, a gradient's stops: a reference inside one is as much a reference as an
     // attribute holding one, which is the same traversal the theme's resolution has to do.
-    if (Array.isArray(value)) {
-      return (value as unknown[]).reduce<number>((sum, one) => sum + inValue(one, depth + 1), 0);
-    }
+    if (Array.isArray(value)) return value.some((one) => inValue(one, depth + 1));
     if (value && typeof value === 'object') {
-      return Object.values(value as Record<string, unknown>).reduce<number>(
-        (sum, one) => sum + inValue(one, depth + 1),
-        0
-      );
+      return Object.values(value as Record<string, unknown>).some((one) => inValue(one, depth + 1));
     }
-    return 0;
+    return false;
   };
 
   const walk = (sid: string, depth: number, shadowed: boolean) => {
@@ -239,9 +270,16 @@ export function varUses(doc: CanvasAccess, name: string): number {
     if (!node) return;
 
     if (node.stype === 'componentBind') {
-      if (!shadowed && node.attributes?.var === name) count += 1;
+      if (!shadowed && node.attributes?.var === name) found.push({ sid, how: 'cardBind', attr: 'var' });
     } else {
-      for (const value of Object.values(node.attributes ?? {})) count += inValue(value);
+      for (const [attr, value] of Object.entries(node.attributes ?? {})) {
+        // `varBinds` holds bare names rather than references, so the value walk never sees it and
+        // the two halves cannot count the same thing twice.
+        if (inValue(value) && meansThis(sid)) found.push({ sid, how: 'attr', attr });
+      }
+      for (const bind of varBindsOf(node)) {
+        if (bind.var === name && meansThis(sid)) found.push({ sid, how: 'bind', attr: bind.attr });
+      }
     }
 
     /** Inside a card that declares this name, a binding of it means the card's, not the document's. */
@@ -257,7 +295,103 @@ export function varUses(doc: CanvasAccess, name: string): number {
   };
 
   walk(doc.rootId, 0, false);
-  return count;
+  return found;
+}
+
+/**
+ * How many places in the document name this variable.
+ *
+ * What a panel says before a reader deletes one — "3곳에서 씁니다" — and what makes the refusal
+ * honest rather than a shrug. Counted rather than remembered: a number kept on the declaration
+ * would have to be maintained by a write on every shape that took the colour, which is derived
+ * state in the document and the fault this repository keeps finding.
+ */
+export function varUses(doc: CanvasAccess, name: string, declaredAt?: string): number {
+  return varSites(doc, name, declaredAt).length;
+}
+
+/** What a rename writes: the declaration, and every node that names it. */
+export interface VarRename {
+  /** The declaration node, whose `name` is the reference every other write follows. */
+  declaration: string;
+  /** A node and the attributes to write on it — only the ones that change. */
+  writes: { sid: string; attributes: Record<string, unknown> }[];
+}
+
+/**
+ * Renaming one: the walk, written down.
+ *
+ * A variable's name **is** the reference — `fill: 'var:강조'` — so renaming is a migration rather
+ * than an edit, which is why it was refused for as long as there was no walk that could find every
+ * place. There is one now (`varSites`), and it is the same one the count uses, so the two cannot
+ * disagree about which places belong to this declaration.
+ *
+ * Answers the writes rather than performing them: a plan is testable in milliseconds, and the
+ * command puts every write in **one transaction** so one undo takes the rename back whole — a
+ * half-renamed document is a document where some shapes draw nothing.
+ *
+ * Nothing is written for a name that is not there, and nothing for a rename onto a name the same
+ * scope already declares: that would merge two variables into one and quietly change what half the
+ * deck draws. The command refuses it; this returns no writes so a caller that forgets cannot do it.
+ */
+export function renameVarPlan(
+  doc: CanvasAccess,
+  from: string,
+  to: string,
+  /** The declaration meant, when it is not the document's. */
+  declaredAt?: string
+): VarRename | undefined {
+  if (!from || !to || from === to) return undefined;
+
+  const declaration = declaredAt ?? documentVar(doc, from)?.sid;
+  if (!declaration || doc.getNode(declaration)?.stype !== 'variable') return undefined;
+
+  const writes = new Map<string, Record<string, unknown>>();
+  const attrsOf = (sid: string) => {
+    const held = writes.get(sid);
+    if (held) return held;
+    const fresh: Record<string, unknown> = {};
+    writes.set(sid, fresh);
+    return fresh;
+  };
+
+  for (const site of varSites(doc, from, declaredAt)) {
+    const node = doc.getNode(site.sid);
+    if (!node) continue;
+
+    if (site.how === 'cardBind') {
+      attrsOf(site.sid).var = to;
+      continue;
+    }
+    if (site.how === 'bind') {
+      // The whole list, rewritten: an attribute is written as a value and `varBinds` is one.
+      attrsOf(site.sid).varBinds = varBindsOf(node).map((bind) =>
+        bind.var === from ? { ...bind, var: to } : bind
+      );
+      continue;
+    }
+    attrsOf(site.sid)[site.attr] = renamedValue(node.attributes?.[site.attr], from, to);
+  }
+
+  return {
+    declaration,
+    writes: [...writes.entries()].map(([sid, attributes]) => ({ sid, attributes }))
+  };
+}
+
+/** A value with every reference to `from` rewritten, copied rather than edited in place. */
+function renamedValue(value: unknown, from: string, to: string, depth = 0): unknown {
+  if (isVarRef(value) && varNameOf(value) === from) return varRef(to);
+  if (depth > 3) return value;
+  if (Array.isArray(value)) return value.map((one) => renamedValue(one, from, to, depth + 1));
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, held] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = renamedValue(held, from, to, depth + 1);
+    }
+    return out;
+  }
+  return value;
 }
 
 /**

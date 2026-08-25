@@ -151,6 +151,87 @@ test.describe('the deck’s own variables', () => {
   });
 
   /**
+   * Renaming one, which is the migration the product refused to do for as long as it had no walk.
+   *
+   * A variable's name **is** the reference — `fill: 'var:주의'` — so renaming means rewriting every
+   * attribute, every shape binding and every card binding in the deck that means this declaration.
+   * The walk is unit-tested (`varSites`, `renameVarPlan`) and so is the transaction. What only a
+   * browser shows is the thing a reader would check: the slide looks **exactly the same** after the
+   * rename, and the new name still drives it.
+   */
+  test('are renamed everywhere at once, and one undo takes it back', async ({ page }) => {
+    await openDeck(page);
+    await cardsSlide(page);
+    await panel(page);
+
+    const drawn = (colours: string[]) => colours.filter((colour) => colour === 'rgb(239, 68, 68)').length;
+    const before = drawn(await painted(page));
+    expect(before).toBeGreaterThanOrEqual(2);
+
+    // The name is the row's first field now. It was text with "you cannot change this" beside it.
+    const name = page.locator('.sl-components').getByLabel('주의 이름', { exact: true });
+    await name.fill('경고');
+    await name.press('Enter');
+    await page.waitForTimeout(700);
+
+    // The declaration is under the new name, and it still says how many places name it.
+    await expect(page.locator('[data-doc-var-row="경고"]')).toHaveCount(1);
+    await expect(page.locator('[data-doc-var-row="주의"]')).toHaveCount(0);
+    // The same two places the first test in this file counts, under the new name.
+    await expect(page.locator('[data-doc-var-uses="경고"]')).toHaveText('2곳');
+
+    // And nothing on the slide moved or changed colour: a reference the rename had missed would be
+    // drawing nothing at all, which is what makes this the test worth having.
+    expect(drawn(await painted(page))).toBe(before);
+
+    /*
+     * The proof that the references really point at the renamed declaration rather than at a
+     * string that happens to look right: change what the **new** name is worth, and the same shapes
+     * follow.
+     */
+    const value = page.locator('.sl-components').getByLabel('경고 값');
+    await value.fill('#15803d');
+    await value.press('Enter');
+    await page.waitForTimeout(700);
+    expect((await painted(page)).filter((colour) => colour === 'rgb(21, 128, 61)').length).toBe(before);
+
+    // Two writes, two undos: the value, then the rename — whole, because it was one transaction.
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(400);
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(700);
+    await expect(page.locator('[data-doc-var-row="주의"]')).toHaveCount(1);
+    expect(drawn(await painted(page))).toBe(before);
+  });
+
+  /**
+   * And a rename that would **merge** two variables is refused where it was attempted.
+   *
+   * Two names becoming one is not a rename: half the deck would take the other one's value, and
+   * nobody asked for that — the reader was editing a name. Refusing it is the model's decision, and
+   * what only the browser shows is that the reader can *see* the refusal: a committed field keeps
+   * what was typed until the document changes it back, and a refused rename changes nothing.
+   */
+  test('refuse a name the deck already has, and say so in the row', async ({ page }) => {
+    await openDeck(page);
+    await panel(page);
+
+    const name = page.locator('.sl-components').getByLabel('주의 이름', { exact: true });
+    await name.fill('분기');
+    await name.press('Enter');
+    await page.waitForTimeout(500);
+
+    // Both declarations are still there, under their own names.
+    await expect(page.locator('[data-doc-var-row="주의"]')).toHaveCount(1);
+    await expect(page.locator('[data-doc-var-row="분기"]')).toHaveCount(1);
+    // The reason, beside the field — and the field is showing the document's name again.
+    await expect(page.locator('[data-var-clash="주의"]')).toHaveText('이미 있는 이름');
+    await expect(page.locator('.sl-components').getByLabel('주의 이름', { exact: true })).toHaveValue(
+      '주의'
+    );
+  });
+
+  /**
    * A **number** from a variable, which a reference could not do.
    *
    * Measured with a transaction: a reference commits into a string attribute and is refused in a
