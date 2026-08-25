@@ -923,12 +923,11 @@ shipped features marked undone.
   the only thing the product does.
 - [ ] **Cell selection inside a slide's table needs the overlay's cooperation** —
   it works today only because the overlay goes inert while a box is being edited.
-- [ ] **The presenter's screen is one window.** A real presenter view is a
-  second window on a second display, which is `window.open` plus the editor's
-  document proxied into it — a piece of work about *a document in two windows*
-  rather than about presenting, and the same machinery a second reader needs. The
-  one-window version ships the information; a presenter with two screens drags
-  the window across.
+- [x] **The presenter's screen is a window of its own**, and this entry was **stale** — the second
+  window shipped (`presenter-window.tsx`, `window.open` plus the deck drawn into it) and the item
+  sat here open. Found by sweeping the open list rather than by anyone meeting it, which is the same
+  fault the stale exemptions were: a list that says a shipped thing is missing costs the next person
+  the time to find out.
 
 - [ ] **A film's out-point is enforced to about a quarter of a second.**
   `timeupdate` fires roughly four times a second, so a trimmed clip overshoots its
