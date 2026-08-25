@@ -924,6 +924,37 @@ shipped features marked undone.
   rename does not have. Left until the walk is asked for: the pieces exist (`componentsOf`,
   `instanceValues`), and what is missing is the answer to what happens to a copy that is not here.
 
+- [ ] **Word's canvas half: measured, and what is missing is a producer and a pointer.** Asked
+  because inline atoms and block objects are not one question. An inline image, an inline formula and
+  an emoji are *in the flow*, so a **range** selects them and that is right — every word processor
+  agrees, and "two non-adjacent inline images at once" is a gesture none of them has. The block
+  objects are the other half, and there the earlier answer was wrong: "Word never makes a node
+  selection because a page flows" is true of the flow and hides that **Word's canvas is declared,
+  drawn, arranged and paginated — and has no command that makes one and nothing that can select
+  one.**
+
+  Measured 2026-08-25 (`docs/SHARED-LAYER.md`, "What a canvas *editor* would share"):
+
+  - the deck's overlay imports **75** symbols and **24 already live in `office-word`**;
+  - of the other 51, **2,387 lines name no product at all** (crop, paints, gradients, corners, flip,
+    group bounds, layout-arrange, text-box) and **1,078 more name one only as a parameter** —
+    `manipulate.ts` is 630 lines of move, resize, rotate, snap, marquee and hit-testing a turned box,
+    and the word "slide" appears in its code three times;
+  - the commands need **one seam**: `slideAt` walks to the nearest `surface`, and a canvas node's
+    container is a `canvasBlock` in a page. "Which canvas is this on" has one answer per product,
+    the same shape `surfaceOf` and `trackHostAt` already have;
+  - the overlay itself is **3,754 lines** of React whose features are *interleaved* — crop, gradient,
+    path, connector, guides, marquee and handles appear across the whole file — so it cannot be
+    extracted by copying;
+  - and the question nobody has answered: a deck has one stage holding one surface, a page has
+    **many** canvas blocks at their own rectangles inside a scrolling, paginated, zoomed document, so
+    the overlay's founding rule — one measurement, then arithmetic — has to be re-answered per canvas
+    block.
+
+  The first slice, if this is taken: `insertDrawing` plus the shapes, and a **thin** overlay over one
+  canvas block — select, move, resize, marquee. Crop, gradients, paths and connector bending are
+  already-shared arithmetic and can be turned on after.
+
 **Still open and not in a phase**
 
 - [ ] **Per-level formatting** for a body placeholder: PowerPoint formats by

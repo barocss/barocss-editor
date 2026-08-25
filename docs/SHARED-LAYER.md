@@ -181,6 +181,78 @@ What should happen first is smaller and unblocks it:
 filename today, which is exactly why it is on the list above rather than
 considered finished.
 
+## What a canvas *editor* would share — measured for Word's canvas half
+
+The sections above are about **drawing**. This one is about **editing what is drawn**, and it was
+measured on 2026-08-25 to answer one question: Word's schema declares a canvas (`canvasBlock` holds
+`scene*`), the renderers draw it, `canvas-layout` arranges it, and the paginator measures it like any
+other block — so what would it cost for a Word document to hold a drawing a reader can actually make
+and point at?
+
+### What Word has, and what it is missing
+
+| | state |
+| --- | --- |
+| Schema (`canvasBlock`, `frame`, `group`, `textBox`, `picture`, shapes) | declared |
+| Renderers | drawn (`w-canvas`, an SVG whose size is declared so pagination can measure it) |
+| Arrangement (`canvas-layout`, `canvas-layout-commands`) | already Word's, shared with Slides |
+| Connectors, components, variables | already Word's (`canvas-*`) |
+| Selection type for a set (`nodeIds`) | in the engine, shared |
+| **A command that makes one** | **none** — Word's only block-object producer is `insertFrame` |
+| **Anything that selects one** | **none** — `apps/word` has no overlay, no handles, no marquee |
+
+So the canvas half is not missing a *concept*. It is missing a **producer** and a **pointer**.
+
+### How much of the deck's editing is already product-neutral
+
+The overlay imports **75 symbols** from `office-slides` and **0** from `office-word` — every
+calculation is already a pure function outside the component. Of those 75, **24 are defined in
+`office-word` already** (connectors, magnets, the layout questions, `twipToPx`, the variable
+bindings) and re-exported.
+
+The other 51 live in Slides. Applying this document's own test mechanically — strip the comments and
+count the words that name a product — gives three piles:
+
+| pile | files | lines | product words in code |
+| --- | --- | ---: | ---: |
+| Names no product at all | `group-bounds` `crop` `paints` `svg-paint` `fill-layers` `gradient-axis` `corners` `flip` `layout-arrange` `text-box` | 2,387 | 0 |
+| Names one as a parameter | `manipulate` (630) `geometry` (275) `guides` (173) | 1,078 | 3, 4, 6 |
+| Product-shaped | `selection` (300) `layers` (262) `box-commands` (479) `arrange-commands` (944) | 1,985 | 14, 7, 46, 40 |
+
+`manipulate.ts` is the interesting one: the whole of move, resize, rotate, snap, marquee and
+hit-testing a turned box — 630 lines, tested in milliseconds — and the word "slide" appears in its
+code **three times**, as a parameter name.
+
+### The one seam the commands need
+
+`slideAt(doc, sid)` walks up to the nearest `surface`. That is the only thing standing between the
+box commands and a Word document: a canvas node's container is a `surface` in a deck and a
+`canvasBlock` in a page. The shared question is **"which canvas is this on"**, and it has one answer
+per product — the same shape `surfaceOf` and `trackHostAt` already have.
+
+### What Word would have to write, and what nobody has answered
+
+- **Producers**: `insertDrawing` (a `canvasBlock` where the caret is) and the shapes inside it. The
+  deck's versions are 479 lines with 46 slide-words — the same commands against a different
+  container.
+- **A pointer**: `apps/slide/src/overlay.tsx` is **3,754 lines** of React, and its features are
+  *interleaved* rather than stacked — crop, gradient, path, connector, guides, marquee and handles
+  appear across the whole file. It cannot be extracted by copying; a shared overlay would have to be
+  designed, and a first Word overlay is better written thin (select, move, resize, marquee) than
+  ported whole.
+- **The genuinely new question**: a deck has one stage holding one surface; a page has **many**
+  canvas blocks, at their own rectangles, inside a scrolling paginated document under a zoom
+  transform. "One measurement, then arithmetic" — the overlay's founding rule — has to be re-answered
+  per canvas block rather than once per stage.
+
+### Where that leaves the boundary
+
+`office-canvas`, as proposed above, grows a second half: not only what places things
+(`canvas-layout`, `canvas-connector`, `canvas-component`) but what **edits** them — `manipulate`,
+`geometry`, `guides`, `group-bounds`, `crop`, the paint files and `gradient-axis`. That is
+~3,465 lines that already read as though Word had never existed, and this measurement is the
+argument for moving them: the first product to need them again is Word.
+
 ## Re-running the measurement
 
 ```sh
@@ -198,6 +270,24 @@ for f in glob.glob('packages/office-slides/src/*.ts') + glob.glob('packages/offi
                 syms.add(name)
 print(f"{sites} import sites, {len(syms)} symbols")
 PY
+```
+
+```sh
+# What the deck's editing names, and what it does not — the canvas-editor measurement.
+# (Run it as a file rather than a heredoc: it contains one of its own.)
+#   python3 scripts/canvas-words.py
+#
+#   import re
+#   from collections import Counter
+#   files = ['manipulate','geometry','selection','guides','group-bounds','crop','paints',
+#            'svg-paint','fill-layers','gradient-axis','corners','flip','layout-arrange',
+#            'text-box','layers','box-commands','arrange-commands']
+#   for f in files:
+#       s = open(f'packages/office-slides/src/{f}.ts').read()
+#       code = re.sub(r'//.*', '', re.sub(r'/\*.*?\*/', '', s, flags=re.S))
+#       hits = re.findall(r'\b\w*[Ss]lide\w*|\b\w*[Dd]eck\w*', code)
+#       print(f'{f:18s} {len(s.splitlines()):6d} lines {len(hits):4d} product words',
+#             Counter(hits).most_common(3))
 ```
 
 ```sh
