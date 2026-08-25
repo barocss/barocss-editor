@@ -60,11 +60,37 @@ import {
  * reaction had caught up.
  */
 
+/**
+ * What a caller may say about a placement it is drawing **more than once**.
+ *
+ * Both fields exist for one case, and it is worth naming: a **repeated** placement — a card drawn
+ * once per row of data. Everything else about that card is the definition's, which is why the hook
+ * is this small: the values it is given, and what the parts it draws are named after.
+ */
+export interface PlacementOptions {
+  /**
+   * The values this drawing uses, given the ones the placement resolved.
+   *
+   * Where a repeater puts a row in. The document still holds one placement saying `field:제목`; what
+   * the *drawing* gets is that row's title, and nothing was written to say so.
+   */
+  rewrite?: (values: Map<string, string>) => Map<string, string>;
+  /**
+   * What the drawn parts are named after, instead of the placement's own sid.
+   *
+   * One placement drawn twenty times would otherwise draw twenty elements claiming one sid, and
+   * `querySelector` would answer the first for all of them — measured once already, on three
+   * placements of one card, and written up below.
+   */
+  owner?: string;
+}
+
 export function instanceParts(
   doc: CanvasAccess,
   instance: CanvasNode | undefined,
   /** The definitions this resolution is already inside, which is how a cycle is refused. */
-  inside: readonly string[] = []
+  inside: readonly string[] = [],
+  options?: PlacementOptions
 ): CanvasNode[] {
   const id = instance?.attributes?.componentId;
   if (typeof id !== 'string' || !id) return childrenOf(instance).map((sid) => doc.getNode(sid) as CanvasNode).filter(Boolean);
@@ -78,7 +104,8 @@ export function instanceParts(
   // so the deck's own check can say so rather than the tail going missing in silence.
   if (inside.includes(definition.id) || inside.length > NEST_LIMIT) return [];
 
-  const values = instanceValues(doc, instance, definition);
+  const resolved = instanceValues(doc, instance, definition);
+  const values = options?.rewrite ? options.rewrite(resolved) : resolved;
   const binds = definition.binds;
   const own = childrenOf(instance)
     .map((sid) => doc.getNode(sid) as CanvasNode)
@@ -116,7 +143,12 @@ export function instanceParts(
          * `metric-card~slides:138` three times, so `querySelector` found the first one and any motion,
          * hit test or lookup aimed at the third reached the first.
          */
-        owner: instance?.sid ?? definition.id
+        owner: options?.owner ?? instance?.sid ?? definition.id,
+        /*
+         * Carried down, so a placement *inside* a repeated one gets the same row: a card that holds
+         * a badge is one card, and the badge is that row's badge.
+         */
+        rewrite: options?.rewrite
       },
       fills.get(part)
     )
@@ -129,7 +161,13 @@ function resolvePart(
   sid: string,
   values: Map<string, string>,
   binds: ComponentBind[],
-  where: { slotOf?: string; own: CanvasNode[]; inside: readonly string[]; owner: string },
+  where: {
+    slotOf?: string;
+    own: CanvasNode[];
+    inside: readonly string[];
+    owner: string;
+    rewrite?: PlacementOptions['rewrite'];
+  },
   /** What the container above decided about this part, when it decided anything. */
   at?: LaidOutPlace,
   depth = 0
@@ -193,7 +231,9 @@ function resolvePart(
     node?.stype === 'instance'
       ? // With the **drawn** sid as the placement, so a badge inside a card inside a card is still one
         // thing per outermost placement rather than one per definition.
-        instanceParts(doc, { ...node, sid: `${where.owner}~${sid}` } as CanvasNode, where.inside)
+        instanceParts(doc, { ...node, sid: `${where.owner}~${sid}` } as CanvasNode, where.inside, {
+          rewrite: where.rewrite
+        })
       : [];
 
   const resolved: CanvasNode & { text?: string; content?: unknown } = {
@@ -383,7 +423,30 @@ export function installInstanceResolution(
     if (!rootId) return undefined;
     const doc = { rootId, getNode } as CanvasAccess;
 
-    if (node?.stype === 'instance') return instanceParts(doc, node) as never;
+    /*
+     * A placement draws its definition — **unless it has already been drawn**.
+     *
+     * The proxy asks this for every node a reader reaches, including the ones a resolver just
+     * returned. For a single placement that costs nothing: its parts are frames and headings, and
+     * none of them is a placement. A **repeated** one is the case that measured it — a list draws one
+     * placement per row, so each row *is* an instance, and asking again threw the row away and drew
+     * the definition's defaults three times.
+     *
+     * `alreadyDrawn` is not a guess: a stored node's children are sids, and only a resolved one's are
+     * nodes. So the question is "did this come out of the document", and the answer is in its shape.
+     */
+    if (node?.stype === 'instance') {
+      return alreadyDrawn(node) ? undefined : (instanceParts(doc, node) as never);
+    }
     return andThen?.(node, getNode, doc);
   });
+}
+
+/**
+ * Whether this node's children are already nodes rather than the document's sids — which is what a
+ * resolver's own output looks like, and what nothing stored ever looks like.
+ */
+function alreadyDrawn(node: CanvasNode | undefined): boolean {
+  const content = (node as { content?: unknown })?.content;
+  return Array.isArray(content) && content.length > 0 && typeof content[0] === 'object';
 }

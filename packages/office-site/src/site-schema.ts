@@ -55,7 +55,24 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
     sizing: { type: 'string' as const, required: false, options: [...SIZING] },
     /** The smallest and largest it may be drawn, in twips, for a `fill` that must not collapse. */
     minWidth: { type: 'number' as const, required: false },
-    maxWidth: { type: 'number' as const, required: false }
+    maxWidth: { type: 'number' as const, required: false },
+    /**
+     * What this node says **differently at a narrower width** — and only what differs.
+     *
+     * `{ mobile: { layoutMode: 'column' } }`: at 390 the row stacks, and every other thing about it
+     * is still the page's own answer. Not a second document per width, which is the difference
+     * between a site builder and three copies of a page that drift apart (`responsive.ts`).
+     *
+     * A map, where `componentBind` refused one — because the difference is checkable. A binding
+     * names an attribute of a part it is *not on* and nothing can verify that part declares it; an
+     * override names attributes of **this** node, which the schema has right here. `overrideFaults`
+     * makes that check and a test holds it.
+     *
+     * A child node instead would put non-text children at the front of a paragraph's content, and
+     * every offset in the text stack counts from there. A responsive layout is not worth changing
+     * what a paragraph contains.
+     */
+    overrides: { type: 'object' as const, required: false }
   };
 
   const withSizing = (name: string) => ({
@@ -77,6 +94,8 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
        */
       surface: {
         ...nodes.surface,
+        /** A page holds lists as well as stacks — see `frame` for why the name is written out. */
+        content: 'variable* (block+ | (scene | frame | collection)*)',
         attrs: {
           ...nodes.surface.attrs,
           /**
@@ -90,8 +109,92 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
       },
 
       /** A stack, and everything it may say about the space it takes. */
-      frame: withSizing('frame'),
+      frame: {
+        ...withSizing('frame'),
+        /**
+         * And a **list that comes from data**, wherever a stack goes.
+         *
+         * Named explicitly rather than given a group, which is the move `frame` itself documents a
+         * few hundred lines up in the office schema: a node carries one group, and naming it in the
+         * containers that accept it says the same thing without spending it.
+         */
+        content: '(scene | frame | collection)* | block+'
+      },
       picture: withSizing('picture'),
+
+      /**
+       * A **dataset**: rows the page draws from, named so a list can point at it.
+       *
+       * A resource, which is where this schema puts "a definition referenced by id from the flow" —
+       * beside the footnote bodies and the header definitions, and for the same reason: what a
+       * product does with it is a layout decision, and that it is saved, undone and addressable is
+       * not.
+       *
+       * Why the rows are an attribute rather than nodes is measured and written down in `data.ts`:
+       * 500 rows would be 4,000 nodes that nothing ever selects or puts a caret in. The cost of
+       * this choice is written there too — editing one cell rewrites the array — which is what
+       * `kind: 'url'` is for.
+       */
+      dataset: {
+        name: 'dataset',
+        group: 'resource',
+        atom: true,
+        attrs: {
+          /** What a list names. Durable: `forFile` strips sids, so a reference cannot be one. */
+          name: { type: 'string' as const, required: true },
+          /** What a reader calls it, when the name is not what they would say out loud. */
+          label: { type: 'string' as const, required: false },
+          kind: { type: 'string' as const, default: 'inline', options: ['inline', 'url'] },
+          /** Where the rows come from when they are not in the document. */
+          url: { type: 'string' as const, required: false },
+          /**
+           * The columns. Declared, not inferred from the first row — a panel has to offer the
+           * fields before there is a row on screen, and a misspelt `field:` is then a fault a
+           * reader can be told about rather than a card that silently draws nothing.
+           */
+          fields: { type: 'array' as const, required: false },
+          /** The rows themselves, for a dataset a person curates. */
+          records: { type: 'array' as const, required: false }
+        }
+      },
+
+      /**
+       * A **collection**: one design, drawn once per row.
+       *
+       * A stack that holds exactly one placement. Everything about how the rows are arranged is a
+       * stack's — `layoutMode`, `gap`, `padding`, `columns` — because a product grid *is* a grid of
+       * cards and inventing a second arrangement vocabulary for it would be two ways to say one
+       * thing.
+       *
+       * `content: 'instance'` and not `block`, and that is the design rather than a restriction:
+       * a thing drawn forty times has to be **one definition**, or forty copies drift. It is the
+       * same answer the deck gives for a card and Word gives for a style.
+       */
+      collection: {
+        name: 'collection',
+        group: 'block',
+        content: 'instance',
+        attrs: {
+          ...(nodes.frame?.attrs ?? {}),
+          ...sizingAttrs,
+          /** The dataset this draws. */
+          source: { type: 'string' as const, required: true },
+          /** At most this many rows — "the three featured products". */
+          limit: { type: 'number' as const, required: false },
+          /** Which column orders them, and which way. */
+          sortBy: { type: 'string' as const, required: false },
+          sortDir: { type: 'string' as const, default: 'asc', options: ['asc', 'desc'] },
+          /**
+           * The one filter a landing page actually asks for: this column equals this value.
+           *
+           * Two attributes rather than an expression, because an expression is a language — with a
+           * parser, an error message and a syntax a reader has to learn — and every site builder
+           * that started with one arrived at a row of pickers anyway.
+           */
+          where: { type: 'string' as const, required: false },
+          equals: { type: 'string' as const, required: false }
+        }
+      },
       textFrame: withSizing('textFrame'),
       paragraph: withSizing('paragraph'),
       heading: withSizing('heading')

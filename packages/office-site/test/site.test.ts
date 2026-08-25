@@ -59,9 +59,17 @@ describe('a site draws', () => {
   const pages = () => [...container.querySelectorAll<HTMLElement>('.st-page')];
 
   it('loads the sample without the schema complaining', () => {
-    // A document handed to `loadDocument` went in exactly as written until this check existed; a
-    // product's own sample is the one document that arrives that way.
-    expect(editor.getDocumentFaults?.() ?? []).toEqual([]);
+    /*
+     * `documentFaults`, which is a **getter** — this asked for `getDocumentFaults?.()`, a method no
+     * editor has ever had, and optional chaining turned "the API is not there" into "there are no
+     * faults". It passed for as long as the product has existed while the editor logged a schema
+     * complaint on every load: the sample put its `components` before its pages, and the document's
+     * content model says resources come after them.
+     *
+     * The lesson is the optional call, not the ordering: `?.` on an assertion's own subject means
+     * the test cannot fail.
+     */
+    expect(editor.documentFaults).toEqual([]);
   });
 
   it('draws every page, with the address that makes it a page of a site', () => {

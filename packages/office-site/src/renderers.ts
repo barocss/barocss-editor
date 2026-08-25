@@ -22,13 +22,56 @@
  * written down and turned into the one CSS property that says it.
  */
 import { define, element, override, slot } from '@barocss/dsl';
+import type { RenderEnv } from '@barocss/dsl';
 import { registerTextRenderers } from '@barocss/office-text';
 import { frameCss } from '@barocss/office-word';
 import { sizingCss } from './sizing';
+import { breakpointOf } from './breakpoints';
+import { attrsAt } from './responsive';
 
 type NodeData = Record<string, any>;
 
 const attrsOf = (data: NodeData): Record<string, any> => (data?.attributes ?? {}) as never;
+
+/**
+ * The attributes a node is drawn with **in this view**.
+ *
+ * The one line that makes three frames of one page differ. A template that takes a function gets the
+ * render context, and the context carries the env — which is the only per-view channel there is, and
+ * therefore the only place a question with three simultaneous answers can be asked
+ * (`breakpoints.ts`).
+ *
+ * A node with nothing to say at this width comes back unchanged, so the overwhelming majority of
+ * blocks cost one map lookup and no copy.
+ */
+const drawnAttrs = (node: NodeData, ctx: any): Record<string, any> =>
+  attrsAt(attrsOf(node), breakpointOf(ctx?.env as RenderEnv | undefined)) as never;
+
+/**
+ * A stack, as CSS — `frameCss`, plus the one default a **page** disagrees with a canvas about.
+ *
+ * `frameCss` aligns a stack's children to the start of the cross axis, and on a canvas that is
+ * right: a box on a slide is as wide as what is in it, and a frame that stretched its children
+ * would be deciding something the reader placed by hand.
+ *
+ * A page means the opposite by silence. A section in a column is **the width of the page** — that is
+ * what a section *is* — and shrink-to-fit gives the staircase this was measured as: three cards
+ * stacked on a phone, each as wide as its own longest line, so the one with the shortest sentence
+ * came out narrowest. Found by looking at the drawing; no assertion in the suite could see it,
+ * because every test so far asked about `flex-direction` and none about width.
+ *
+ * A row gets it too, and for the matching reason: a row of cards whose children start at the top is
+ * a row of cards of three different heights, and the equal-height row is what every landing page
+ * means by putting them side by side.
+ *
+ * Only when the node says nothing. A stack that states `alignItems` gets what it states, at every
+ * width, and this default never overrides a reader — the header's row still centres its wordmark
+ * against its links.
+ */
+const stackCss = (attrs: Record<string, any>): Record<string, any> => ({
+  ...frameCss(attrs as never),
+  ...(attrs.alignItems === undefined ? { alignItems: 'stretch' } : {})
+});
 
 /**
  * Register every renderer a site draws with.
@@ -84,21 +127,24 @@ export function registerSiteRenderers(): void {
    *
    * What is added is the child's own intent (`sizing`), which no other product has had to say.
    */
-  override(
-    'frame',
-    element(
+  override('frame', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = drawnAttrs(node, ctx);
+    return element(
       'div',
       {
         className: 'st-stack',
-        'data-layout': (d: NodeData) =>
-          typeof attrsOf(d).layoutMode === 'string' ? attrsOf(d).layoutMode : 'none',
-        'data-sizing': (d: NodeData) =>
-          typeof attrsOf(d).sizing === 'string' ? attrsOf(d).sizing : undefined,
-        style: (d: NodeData) => ({ ...frameCss(attrsOf(d) as never), ...sizingCss(attrsOf(d)) })
+        'data-layout': typeof attrs.layoutMode === 'string' ? attrs.layoutMode : 'none',
+        'data-sizing': typeof attrs.sizing === 'string' ? attrs.sizing : undefined,
+        /*
+         * Whether this stack is drawing something a narrower width said, so a reader — and a test —
+         * can tell an override from the page's own answer by looking at the drawing.
+         */
+        'data-at': ctx?.env ? breakpointOf(ctx.env as RenderEnv) : undefined,
+        style: { ...stackCss(attrs), ...sizingCss(attrs) }
       },
       [slot('content')]
-    )
-  );
+    );
+  });
 
   /**
    * A **placement**: the header that is the same header on every page.
@@ -113,19 +159,50 @@ export function registerSiteRenderers(): void {
    * say which definition it is, or a panel has to ask the model what the reader is already looking
    * at.
    */
-  define(
-    'instance',
-    element(
+  define('instance', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = drawnAttrs(node, ctx);
+    return element(
       'div',
       {
         className: 'st-placement',
-        'data-component-id': (d: NodeData) =>
-          typeof attrsOf(d).componentId === 'string' ? attrsOf(d).componentId : undefined,
-        style: (d: NodeData) => ({ display: 'flex', flexDirection: 'column', ...sizingCss(attrsOf(d)) })
+        'data-component-id': typeof attrs.componentId === 'string' ? attrs.componentId : undefined,
+        /*
+         * Which row this drawing is, when it is one of a list's. Written on the drawing so a click,
+         * a panel or a test can ask without counting siblings — the same reason every other product
+         * writes what a drawn element *is* rather than making a reader infer it.
+         */
+        'data-row': typeof attrs.rowIndex === 'number' ? String(attrs.rowIndex) : undefined,
+        style: { display: 'flex', flexDirection: 'column', ...sizingCss(attrs) }
       },
       [slot('content')]
-    )
-  );
+    );
+  });
+
+  /**
+   * A **collection**: the rows, arranged the way a stack arranges anything.
+   *
+   * A stack with two extra things it can say — which data, and which row each drawn child is. Its
+   * children are not in the document: they are resolved, one placement per row, by the store's
+   * content resolver (`collection-resolution.ts`), and `slot('content')` draws whatever that
+   * returned exactly as it draws a stack's own children.
+   *
+   * `frameCss` again, and `drawnAttrs` again, so a product grid is three across on a desktop and one
+   * on a phone by saying so in the same attribute every other stack uses.
+   */
+  define('collection', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = drawnAttrs(node, ctx);
+    return element(
+      'div',
+      {
+        className: 'st-collection',
+        'data-source': typeof attrs.source === 'string' ? attrs.source : undefined,
+        'data-layout': typeof attrs.layoutMode === 'string' ? attrs.layoutMode : 'none',
+        'data-at': ctx?.env ? breakpointOf(ctx.env as RenderEnv) : undefined,
+        style: { ...stackCss(attrs), ...sizingCss(attrs) }
+      },
+      [slot('content')]
+    );
+  });
 
   /**
    * A picture on a page.
@@ -134,18 +211,18 @@ export function registerSiteRenderers(): void {
    * `picture` inside an `<svg>` canvas at a coordinate, and a page has no canvas and no
    * coordinates. Here it is an `<img>` in the flow that fills the width it is given.
    */
-  define(
-    'picture',
-    element('img', {
+  define('picture', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = drawnAttrs(node, ctx);
+    return element('img', {
       className: 'st-picture',
-      src: (d: NodeData) => String(attrsOf(d).src ?? ''),
-      alt: (d: NodeData) => String(attrsOf(d).alt ?? ''),
-      style: (d: NodeData) => ({
+      src: String(attrs.src ?? ''),
+      alt: String(attrs.alt ?? ''),
+      style: {
         display: 'block',
         maxWidth: '100%',
-        objectFit: typeof attrsOf(d).fit === 'string' ? String(attrsOf(d).fit) : 'cover',
-        ...sizingCss(attrsOf(d))
-      })
-    })
-  );
+        objectFit: typeof attrs.fit === 'string' ? String(attrs.fit) : 'cover',
+        ...sizingCss(attrs)
+      }
+    });
+  });
 }

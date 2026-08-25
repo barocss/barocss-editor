@@ -37,7 +37,8 @@ import {
 } from '@barocss/extensions';
 import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
 import { createSchema } from '@barocss/schema';
-import { createLayoutCommands, installInstanceResolution } from '@barocss/office-canvas';
+import { createLayoutCommands } from '@barocss/office-canvas';
+import { installSiteResolution } from './collection-resolution';
 import { getSiteSchemaDefinition } from './site-schema';
 import { createStackCommands } from './stack-commands';
 
@@ -109,13 +110,15 @@ export function createSiteEditor(options: SiteEditorOptions = {}): Editor {
   for (const binding of keybindings ?? []) registry?.register?.(binding);
 
   /**
-   * A **placement draws its definition**, live — which on a site is what a reusable header is.
+   * A **placement draws its definition**, live — which on a site is a reusable header; and a
+   * **collection draws its rows**, which is a product list.
    *
-   * One line, because the deck wrote this first and the second product needing the same three lines
-   * is what moved it into the canvas layer. The site adds nothing to it yet: a page has no theme
-   * slots and no variable bindings, so there is no second half to ask for.
+   * The first line is the deck's, unchanged. The second is the product's own half, asked through
+   * the hook the shared resolution already had: a list is one placement drawn once per row, so
+   * everything about *how* it draws is the canvas layer's and all the site adds is which values
+   * each drawing gets.
    */
-  installInstanceResolution(editor as never);
+  installSiteResolution(editor as never);
 
   return editor;
 }

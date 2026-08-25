@@ -9,9 +9,60 @@
 export { getSiteSchemaDefinition, SIZING, SITE_SURFACE_KIND, type Sizing } from './site-schema';
 export { registerSiteRenderers } from './renderers';
 export { sizingCss, type Sized } from './sizing';
+export {
+  BASE_BREAKPOINT,
+  OVERRIDABLE,
+  attrsAt,
+  overriddenAt,
+  overrideFaults,
+  overridesOf,
+  withOverride,
+  type OverrideMap
+} from './responsive';
 export { createSiteEditor, createSiteExtensions, createSiteOwnExtensions, type SiteEditorOptions } from './site-kit';
 export { createStackCommands, SiteStackExtension, type InsertStackOptions } from './stack-commands';
 export { createSampleSite } from './sample-site';
+/**
+ * A list that comes from data — the product grid, the blog index, the team page.
+ *
+ * One dataset, one placement, and `field:` where a value goes. The binding is the deck's, unchanged.
+ */
+export {
+  FIELD_PREFIX,
+  cellValue,
+  collectionFaults,
+  datasetNamed,
+  datasetsOf,
+  fieldNameOf,
+  isFieldRef,
+  rowsOf,
+  valuesForRow,
+  type Dataset,
+  type RowQuery
+} from './data';
+export { collectionRows, installSiteResolution, templateOf } from './collection-resolution';
+/**
+ * What a click means on a page: the outermost block, one level in, or the caret.
+ *
+ * The product's own answer to the one question a builder has and a document does not — and kept out
+ * of the app, where it could not be tested without a browser.
+ */
+export {
+  SELECTABLE,
+  TEXTUAL,
+  blocksIn,
+  documentSidOf,
+  childOfScope,
+  enclosing,
+  firstRunIn,
+  innermostOf,
+  isTextual,
+  labelOfBlock,
+  outermostOf,
+  pagesOf,
+  pathFromPage,
+  sidAtElement
+} from './selection';
 /**
  * Several widths at once, which is what a site builder is.
  *

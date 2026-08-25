@@ -423,6 +423,17 @@ export type AttributesForTag<T extends AllTagNames> =
  */
 export type DynamicAttribute<T> =
   | T
+  /**
+   * **Absent**, which is a value an attribute is allowed to have.
+   *
+   * The function form has always been allowed to return it, and the renderer has always skipped an
+   * attribute that resolves to nothing — so a template that computes the answer could say "no
+   * attribute here" and one that already knows could not. Measured when a renderer that reads the
+   * env moved its answers out of the callbacks: the same expression, written directly, stopped
+   * type-checking.
+   */
+  | undefined
+  | null
   | DataTemplate
   | ((data: Record<string, any>, env?: RenderEnv) => T | undefined | null);
 

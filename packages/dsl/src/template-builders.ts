@@ -470,7 +470,15 @@ export function forgetOverrides(): void {
  * matters as much: overriding a name that nobody has defined means the thing being replaced has
  * moved or been renamed, and the product is about to draw its own answer to a question nobody asked.
  */
-export function override(nodeType: string, template: RenderTemplate | ExternalDescriptor): RendererDefinition {
+export function override(
+  nodeType: string,
+  /**
+   * Whatever `define` accepts — including a **function of the render context**, which is how a
+   * template reaches the env. It was the narrower type, and a product that had to override a node
+   * *and* read the env could do neither thing without a cast.
+   */
+  template: ContextualComponent | RenderTemplate | ExternalComponent | ExternalDescriptor
+): RendererDefinition {
   if (!globalRegistry.has(nodeType)) missingOverrides.add(nodeType);
   inOverride = true;
   try {

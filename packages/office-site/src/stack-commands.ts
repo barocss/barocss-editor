@@ -21,6 +21,8 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { SIZING, type Sizing } from './site-schema';
+import type { BreakpointId } from './breakpoints';
+import { BASE_BREAKPOINT, OVERRIDABLE, withOverride } from './responsive';
 
 /** What a caller may say about a new stack. */
 export interface InsertStackOptions {
@@ -88,6 +90,51 @@ export class SiteStackExtension implements Extension {
       'setSizing',
       async (payload) => await this._setSizing(editor, payload),
       (payload) => SIZING.includes(payload?.sizing as Sizing) && this._chosen(editor, payload).length > 0
+    );
+
+    /**
+     * What the selected blocks look like — **at the width the reader is editing**.
+     *
+     * ## One command, because there is one gesture
+     *
+     * A panel changing a gap and a panel changing a gap *on mobile* are the same act to a reader:
+     * they are looking at a width and they type a number. Two commands would make the product ask
+     * them which kind of change they meant, and a reader who has to answer that has been handed the
+     * editor's bookkeeping.
+     *
+     * So `at` says which width, and the command knows the rest: the widest width **is** the node, so
+     * it writes attributes; a narrower one writes only the difference (`responsive.ts`). Which is
+     * also the sentence a reader would say — *on mobile, this row stacks* — rather than a mechanism
+     * they have to learn.
+     *
+     * `undefined` for a value takes it back: at the base that means the attribute goes, at a narrower
+     * width it means this width stops disagreeing and the page's own answer reaches it again.
+     */
+    register(
+      'setStackFormat',
+      async (payload) => await this._format(editor, payload),
+      (payload) => this._chosen(editor, payload).length > 0 && this._formatFields(payload).length > 0
+    );
+
+    /**
+     * Say one thing **only at a narrower width** — a row that stacks on a phone.
+     *
+     * The base width has no command, and that is the design rather than an omission: a change at the
+     * widest width *is* a change to the node, which is `setSizing` and every other command this
+     * product has. An override is the second thing a reader can mean, and it is only ever meant
+     * downward — `scopesFor` is what says so.
+     */
+    register(
+      'setOverride',
+      async (payload) => await this._override(editor, payload, true),
+      (payload) => this._canOverride(editor, payload)
+    );
+
+    /** Take one back, so the node's own answer reaches this width again. */
+    register(
+      'clearOverride',
+      async (payload) => await this._override(editor, payload, false),
+      (payload) => this._canOverride(editor, payload)
     );
   }
 
@@ -183,6 +230,105 @@ export class SiteStackExtension implements Extension {
       ? (payload!.nodeIds as unknown[]).filter((one): one is string => typeof one === 'string')
       : selectedNodeIds((editor as never as { selection?: never }).selection);
     return named.filter((sid) => !!store.getNode(sid));
+  }
+
+  /**
+   * What a stack may be told, and nothing else.
+   *
+   * A list rather than "whatever the payload holds", because a command that writes any key it is
+   * handed is a command that can put `sid` in a node's attributes — and the schema would take it.
+   */
+  private static readonly FORMAT = [
+    'layoutMode',
+    'gap',
+    'padding',
+    'columns',
+    'alignItems',
+    'fill',
+    'stroke',
+    'sizing',
+    'minWidth',
+    'maxWidth'
+  ] as const;
+
+  /** Which of them this call is actually about — a panel sends one at a time. */
+  private _formatFields(payload?: Record<string, unknown>): string[] {
+    return SiteStackExtension.FORMAT.filter((name) => name in (payload ?? {}));
+  }
+
+  private async _format(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const chosen = this._chosen(editor, payload);
+    const fields = this._formatFields(payload);
+    if (chosen.length === 0 || fields.length === 0) return false;
+
+    const at = payload?.at as BreakpointId | undefined;
+    const narrower = !!at && at !== BASE_BREAKPOINT;
+    if (at && !narrower && at !== BASE_BREAKPOINT) return false;
+
+    const store = this._store(editor);
+    const steps = chosen.map((sid) => {
+      if (!narrower) {
+        // The widest width *is* the node.
+        const attrs: Record<string, unknown> = {};
+        for (const name of fields) attrs[name] = payload![name];
+        return { type: 'setAttrs', payload: { nodeId: sid, attrs } };
+      }
+
+      /*
+       * A narrower width says only the difference. Folded one field at a time over this node's own
+       * overrides, so two selected stacks keep their own — a command that computed one map for both
+       * would give the second the first's.
+       */
+      let overrides = store?.getNode(sid)?.attributes as Record<string, unknown> | undefined;
+      let next = withOverride(overrides, at!, fields[0], payload![fields[0]]);
+      for (const name of fields.slice(1)) next = withOverride({ overrides: next }, at!, name, payload![name]);
+      return { type: 'setAttrs', payload: { nodeId: sid, attrs: { overrides: next } } };
+    });
+
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  private _canOverride(editor: Editor, payload?: Record<string, unknown>): boolean {
+    const at = payload?.at as BreakpointId;
+    return (
+      OVERRIDABLE.includes(at) &&
+      typeof payload?.attr === 'string' &&
+      (payload.attr as string).length > 0 &&
+      this._chosen(editor, payload).length > 0
+    );
+  }
+
+  /**
+   * Write, or take back, one statement at one width, on every block chosen.
+   *
+   * Read-modify-write per node rather than one shared map: two selected stacks have different
+   * overrides, and a command that computed one map for both would give the second the first's.
+   */
+  private async _override(
+    editor: Editor,
+    payload: Record<string, unknown> | undefined,
+    setting: boolean
+  ): Promise<boolean> {
+    if (!this._canOverride(editor, payload)) return false;
+    const store = this._store(editor);
+    const at = payload!.at as BreakpointId;
+    const attr = payload!.attr as string;
+
+    const steps = this._chosen(editor, payload).map((sid) => ({
+      type: 'setAttrs',
+      payload: {
+        nodeId: sid,
+        attrs: {
+          overrides: withOverride(
+            store?.getNode(sid)?.attributes as Record<string, unknown>,
+            at,
+            attr,
+            setting ? payload!.value : undefined
+          )
+        }
+      }
+    }));
+    return (await transaction(editor, steps as never).commit()).success === true;
   }
 
   private async _setSizing(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
