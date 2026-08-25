@@ -8,6 +8,12 @@ import {
   type DeckAccess,
   type DeckNode
 } from './deck';
+import {
+  SHAPE_PAINT,
+  defaultShapeBox,
+  shapeNode,
+  type CanvasBox
+} from '@barocss/office-word';
 import { SLIDE_16_9, boxOf, slideSize } from './geometry';
 import { isSceneType, slideAt } from './selection';
 
@@ -35,53 +41,27 @@ import { isSceneType, slideAt } from './selection';
  * wants, and these compute nothing.
  */
 
-/** A quarter of the slide, in the middle of it: what a new shape starts as. */
-function defaultBox(slide: DeckNode | undefined): {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-} {
-  const size = slideSize(slide?.attributes as never);
-  const width = Math.round(size.width / 4);
-  const height = Math.round(size.height / 4);
-  return {
-    x: Math.round((size.width - width) / 2),
-    y: Math.round((size.height - height) / 2),
-    width,
-    height
-  };
+/**
+ * A quarter of the slide, in the middle of it: what a new shape starts as.
+ *
+ * The arithmetic is `defaultShapeBox` in the canvas layer, because "a quarter of what holds it, in
+ * the middle" is as true of a page's drawing as of a slide and the same renderer draws both — two
+ * answers would be one of them being wrong the first time a shape was copied between them. What
+ * stays here is the deck's own half: **what holds it** is the slide, and a slide's size has a
+ * default that a canvas block does not.
+ */
+function defaultBox(slide: DeckNode | undefined): CanvasBox {
+  return defaultShapeBox(slideSize(slide?.attributes as never));
 }
 
-/** What each shape needs beyond a box, so nothing is drawn invisible. */
-const DEFAULTS: Record<string, Record<string, unknown>> = {
-  // A shape with no fill is a shape nobody can see or click. Word's renderers
-  // are right to treat silence as none; a *new* shape is a different question,
-  // and the answer a reader expects is "there it is".
-  rectangle: { fill: '#2563eb' },
-  ellipse: { fill: '#2563eb' },
-  // A line has no area, so it needs a stroke instead — and a width, because a
-  // hairline at a fraction of a twip is a line nobody can grab.
-  line: { stroke: '#1f2937', strokeWidth: 30 },
-  // A text box is transparent on purpose: it is put over something most of the
-  // time, and a white rectangle behind the words would hide it.
-  textFrame: { verticalAlign: 'top' },
-  /**
-   * A frame arrives empty, so it has to be visible as itself.
-   *
-   * Every other shape here is something you can see the moment it appears — a
-   * blue rectangle, a dark line. A frame is a *container*: what a reader does
-   * with it is drag things into it, so it starts with nothing in it, and a
-   * container with no fill and no outline is a box nobody can find, select or
-   * drop anything onto.
-   *
-   * A pale fill and a grey outline rather than a strong colour, because it is
-   * meant to sit behind its contents and not compete with them. It is still a
-   * real fill: a frame that only showed an outline would let a click pass
-   * straight through the middle of it to the slide behind.
-   */
-  frame: { fill: '#f1f5f9', stroke: '#94a3b8', strokeWidth: 15 }
-};
+/**
+ * What each shape needs beyond a box, so nothing is drawn invisible — the canvas layer's table.
+ *
+ * It was written out here and it names no product: a new rectangle is blue, a new line is dark grey
+ * and thick enough to grab, a frame is a pale box you can see the edge of. Word's drawing needs the
+ * same answers, and a shape that changed colour on its way from a deck into a document would be the
+ * two products disagreeing about one thing (`docs/SHARED-LAYER.md`).
+ */
 
 export class SlidesBoxExtension implements Extension {
   name = 'slides-boxes';
@@ -405,45 +385,23 @@ export class SlidesBoxExtension implements Extension {
       height: typeof payload?.height === 'number' ? payload.height : box.height
     };
 
-    /**
-     * A line is the one shape whose box is two points rather than an area.
+    /*
+     * The node itself is the canvas layer's (`shapeNode`): the paint that makes it visible, the
+     * line's flattening across the middle of its box, and the paragraph *and run* a text box needs
+     * — that last one having been the fault twice, because a paragraph with no run draws no caret
+     * filler and a new text box was 0 pixels high.
      *
-     * Left to right across the middle of the default box, because a line drawn
-     * corner to corner of a quarter-slide square reads as a diagonal the reader
-     * did not ask for.
+     * A caller that passed its own height means it, so the line keeps that rather than being
+     * flattened: a paste and a drag-to-draw have both already decided.
      */
-    const shaped =
-      stype === 'line' && payload?.height === undefined
-        ? { ...geometry, y: geometry.y + Math.round(geometry.height / 2), height: 0 }
-        : geometry;
-
-    const child: DeckNode = {
-      stype,
-      attributes: { ...shaped, ...DEFAULTS[stype], ...(payload?.attributes ?? {}) },
-      /**
-       * A text box needs a paragraph in it, and the paragraph needs a run.
-       *
-       * `textFrame` is `block+`, so an empty one is not even legal — and a legal
-       * one with no paragraph would still be a box with nowhere to put a caret.
-       *
-       * The empty *run* is the second half and was missing. The caret filler is
-       * what gives an empty line its height, and it is drawn for an empty
-       * `inline-text`; a paragraph with no run at all gets none, so a new text
-       * box was 0 pixels high — a box a reader had just asked for, could not
-       * see, and could not click into.
-       */
-      ...(stype === 'textFrame'
+    const child = (
+      stype === 'line' && payload?.height !== undefined
         ? {
-            content: [
-              {
-                stype: 'paragraph',
-                attributes: {},
-                content: [{ stype: 'inline-text', text: '' }]
-              }
-            ]
+            stype,
+            attributes: { ...geometry, ...SHAPE_PAINT[stype], ...(payload?.attributes ?? {}) }
           }
-        : {})
-    };
+        : shapeNode(stype, geometry, payload?.attributes ?? {})
+    ) as DeckNode;
 
     const result = await transaction(editor, [
       { type: 'addChild', payload: { parentId: slideId, child } }

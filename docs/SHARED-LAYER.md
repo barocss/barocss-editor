@@ -245,6 +245,20 @@ per product — the same shape `surfaceOf` and `trackHostAt` already have.
   transform. "One measurement, then arithmetic" — the overlay's founding rule — has to be re-answered
   per canvas block rather than once per stage.
 
+### What has moved, so far
+
+`canvas-insert.ts` — the first piece the measurement above argued for, moved because Word's drawing
+needed it the same week: what a new shape starts as (a quarter of what holds it, in the middle), the
+paint that makes each kind visible, the line's flattening, the paragraph *and run* a text box needs,
+and how wide a drawing starts. The deck's `box-commands` calls it now instead of holding its own
+copy, so "a new rectangle is blue" has one answer for both products — which is the rule, not a
+tidy-up: the same renderer draws both, and a shape that changed colour on its way from a deck into a
+document is two answers to one question.
+
+Beside it, in `canvas-access.ts`: **which container places what is in it** (`isCanvasContainer`,
+`canvasAt`). A page's canvas is a `canvasBlock` in the flow and a deck's is the `surface` itself, and
+the sentence that covers both names neither.
+
 ### Where that leaves the boundary
 
 `office-canvas`, as proposed above, grows a second half: not only what places things

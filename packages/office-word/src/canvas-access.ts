@@ -87,3 +87,36 @@ export function copyOf(doc: CanvasAccess, sid: string, depth = 0): CanvasNode | 
 
   return copy;
 }
+
+/**
+ * Whether this node's children carry **coordinates** — whether it is a canvas.
+ *
+ * The one question the insert and the selection both have to ask, and the one place the two
+ * products differ in their answer: a page's canvas is a `canvasBlock` in the flow, a deck's is the
+ * `surface` itself. Said without naming either — *a container whose children are placed rather than
+ * flowed* — and a `surface` qualifies only when it is not a **flow**, which is what a section is.
+ *
+ * `slideAt` in `office-slides` is the deck's own walk and stays there: it means "the page this is
+ * on", which is a different sentence that happens to have the same answer on a slide.
+ */
+export function isCanvasContainer(node: CanvasNode | undefined): boolean {
+  if (node?.stype === 'canvasBlock') return true;
+  return node?.stype === 'surface' && node.attributes?.kind !== 'flow';
+}
+
+/**
+ * The canvas a node is on, or nothing when it is not on one.
+ *
+ * Walks by `parentId`, depth-limited like every other walk that reads an author's document. A
+ * canvas *inside* a canvas answers with the nearest one, which is what a reader means by "here".
+ */
+export function canvasAt(doc: CanvasAccess, sid: string | undefined): string | undefined {
+  let at = sid;
+  for (let depth = 0; at && depth < 32; depth += 1) {
+    const node = doc.getNode(at);
+    if (!node) return undefined;
+    if (isCanvasContainer(node)) return at;
+    at = (node as { parentId?: string }).parentId;
+  }
+  return undefined;
+}

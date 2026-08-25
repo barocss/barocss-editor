@@ -261,6 +261,35 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
    *
    * No `state`, and for the table group's reason — inserting is never "on".
    */
+  /**
+   * A **drawing**: a canvas in the page, with shapes on it.
+   *
+   * Beside the layout group because both are about *placing* rather than typing, and apart from it
+   * because a frame arranges blocks in the flow while these are shapes at coordinates — two ideas a
+   * reader would otherwise have to tell apart by pressing them.
+   *
+   * One control per shape rather than one 도형 button with a menu, for the reason the deck's insert
+   * group gives and the conformance check enforces: a command named as though it puts a node in the
+   * document has to say *which* node, and "it depends" is the answer that check exists to refuse.
+   *
+   * There is no separate "insert a canvas" button here. A reader who presses 사각형 means a
+   * rectangle in their document; the canvas is where it has to live, and the command makes one when
+   * there is none. `insertDrawing` is a command all the same — a reader who wants the surface first
+   * has one, and the check that asks what each insert produces needs it.
+   *
+   * No text box: Word draws its canvas as an `<svg>` and has no `textFrame` renderer, so the
+   * command would put a node in the document that nothing draws. The harness said so before it
+   * could ship; see `canvas-insert-commands.ts`.
+   */
+  {
+    id: 'drawing',
+    controls: [
+      { id: 'insert-rectangle', label: 'Rectangle', icon: 'insert-rectangle', command: 'insertRectangle' },
+      { id: 'insert-ellipse', label: 'Ellipse', icon: 'insert-ellipse', command: 'insertEllipse' },
+      { id: 'insert-line', label: 'Line', icon: 'insert-line', command: 'insertLine' },
+      { id: 'insert-drawing', label: 'Drawing', icon: 'insert-frame', command: 'insertDrawing' }
+    ]
+  },
   {
     id: 'layout',
     controls: [

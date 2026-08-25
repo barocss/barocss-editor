@@ -60,6 +60,16 @@ const schema = createSchema('word', getWordSchemaDefinition());
     { command: 'insertTab', produces: 'tab' },
     { command: 'insertTable', produces: 'bTable' },
     { command: 'insertFrame', produces: 'frame' },
+    /*
+     * The drawing, and what goes on it. Each shape says which node it makes, which is the whole
+     * reason they are five commands rather than one `insertShape` with a kind — and each of them
+     * also makes the `canvasBlock` when the reader is not already on one, which is a fact about
+     * *where* rather than about what, and is the insert's own comment.
+     */
+    { command: 'insertDrawing', produces: 'canvasBlock' },
+    { command: 'insertRectangle', produces: 'rectangle' },
+    { command: 'insertEllipse', produces: 'ellipse' },
+    { command: 'insertLine', produces: 'line' },
     { command: 'insertRowAbove', produces: 'bTableRow' },
     { command: 'insertRowBelow', produces: 'bTableRow' },
     { command: 'insertColumnLeft', produces: 'bTableCell' },

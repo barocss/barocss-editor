@@ -478,7 +478,21 @@ export {
  * by id (a placement names a definition, a connector remembers an end), and a fixture tree holds
  * objects where a loaded document holds sids.
  */
-export { childrenOf as canvasChildrenOf, copyOf, type CanvasAccess, type CanvasNode } from './canvas-access';
+export {
+  childrenOf as canvasChildrenOf,
+  copyOf,
+  /**
+   * Which container **places** what is in it, and the walk to the nearest one.
+   *
+   * The one question the insert and the pointer both ask, and the one place two products differ: a
+   * page's canvas is a `canvasBlock` in the flow, a deck's is the `surface` itself. Said without
+   * naming either — a container whose children carry coordinates rather than flowing.
+   */
+  isCanvasContainer,
+  canvasAt,
+  type CanvasAccess,
+  type CanvasNode
+} from './canvas-access';
 /**
  * A line that remembers **what it joins** — the canvas's, for the same reason the
  * arrangement is: a connector is a scene node, and two products with two answers for
@@ -585,3 +599,24 @@ export {
   type FrameLayout,
   type InsertFrameOptions
 } from './frame-commands';
+/**
+ * A **drawing** in a page, and the shapes on it.
+ *
+ * The commands are Word's — where a new thing goes is the one question a product answers for
+ * itself — and everything they compute is in `canvas-insert`, which names no product: a new shape
+ * is a quarter of what holds it, in the middle, painted so it can be seen.
+ */
+export {
+  createWordCanvasInsert,
+  WordCanvasInsertExtension,
+  type InsertShapeOptions
+} from './canvas-insert-commands';
+export {
+  SHAPE_PAINT,
+  canvasNode,
+  defaultShapeBox,
+  shapeNode,
+  textWidthOf,
+  type CanvasBox,
+  type PageWidth
+} from './canvas-insert';

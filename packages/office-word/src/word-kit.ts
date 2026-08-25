@@ -25,6 +25,7 @@ import {
 import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
 import { createWordCommands } from './word-commands';
 import { createWordFrames } from './frame-commands';
+import { createWordCanvasInsert } from './canvas-insert-commands';
 import { createWordListCommands } from './list-commands';
 import { createWordComments, type CommentAuthor } from './comment-commands';
 import { createWordRevisions } from './revision-commands';
@@ -110,6 +111,14 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
     // The other way to put two things side by side, and the one that is not a
     // table with its borders turned off.
     createWordFrames(),
+    /*
+     * A drawing, and the shapes on it.
+     *
+     * The canvas was declared, drawn, arranged and paginated with nothing to make one — half a
+     * schema a reader could not reach. A shape command makes the canvas if there is none, because
+     * "insert a rectangle" is the gesture and the canvas is where it has to live.
+     */
+    createWordCanvasInsert(),
     // Last, so it wraps the delete commands whichever extension registered them.
     // With tracking on, deleting stops deleting — which is a different operation
     // and has to be decided before the original one runs.

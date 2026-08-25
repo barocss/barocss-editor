@@ -955,6 +955,33 @@ shipped features marked undone.
   canvas block — select, move, resize, marquee. Crop, gradients, paths and connector bending are
   already-shared arithmetic and can be turned on after.
 
+  - [x] **The producer.** `insertRectangle`, `insertEllipse`, `insertLine` and `insertDrawing` in
+    Word, on a 그리기 group of the ribbon. The gesture is "insert a shape" and not "insert a canvas":
+    a reader who presses 사각형 means a rectangle in their document, so the command makes the
+    `canvasBlock` when there is none — **in the same transaction**, because one press has to be one
+    undo and an empty canvas left behind is the editor keeping half a gesture nobody made. Where the
+    shape goes is the canvas the selection is on (`canvasAt`, the shared "which container places
+    what is in it") and otherwise a new drawing after the block the caret is in, which is what
+    "insert" means everywhere else in a document. A drawing starts as wide as the *text* is —
+    computed from the section's page setup, not a constant — and half as tall, which is Word's own
+    drawing canvas at default margins.
+
+    The arithmetic went to the canvas layer (`office-word/canvas-insert.ts`) and the deck now
+    **calls it**: "a new rectangle is blue, a quarter of what holds it, in the middle" names no
+    product, the same renderer draws both, and a shape that changed colour on its way from a deck
+    into a document would be two answers to one question.
+
+    And the harness caught the fifth command before it shipped: `insertTextBox` would have put a
+    `textFrame` in the document and **Word has no renderer for one** — a reader pressing a button,
+    seeing nothing, and having changed their file (`every-command-can-be-seen`). Text inside an SVG
+    canvas is `<foreignObject>` and is its own question, below.
+
+- [ ] **A text box on a Word drawing** needs `<foreignObject>`, which is a design question rather
+  than a fifth line in the insert list: what a caret does inside one, how the paginator measures it,
+  what print does with it. Refused for now by the harness rather than by a person, which is the
+  harness working.
+
+
 **Still open and not in a phase**
 
 - [ ] **Per-level formatting** for a body placeholder: PowerPoint formats by
