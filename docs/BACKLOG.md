@@ -67,6 +67,18 @@ entries are that.
   // counter, render twice with EditorViewDOM({ sync: true }), and print calls / ms / parts.
   ```
 
+- [x] **Why five, answered — and three of the five were nobody's.** The stack behind every
+  resolution, counted over a render of the sample deck: 520 resolutions, 3.19 per node, and the
+  biggest caller was `separatePropsAndModel` building `{ ...data }` — a full copy of the node, which
+  on a document whose children are *resolved* means resolving them again — for a half its only caller
+  threw away. 162 of 520, 31%, for an object with no reader. Two more were the same mistake in our
+  own code: `childrenOf` and `childCount` each testing `content` and then reading it, which is two
+  questions where there is one answer. Read once into a name, all three: **520 → 324** resolutions on
+  the sample deck, **742 → 488** on the 20×10 deck, and a placement's five reads are three (props,
+  children, and the one question its renderer asks). About a millisecond, which is why the cache
+  refusal above stands unchanged — the finding is that a third of the work had no reader, not that
+  the reads were expensive (§10b-15).
+
 - [x] **A chain of cards is drawn nine deep and then stops** (`NEST_LIMIT`), which is the cycle guard
   rather than a taste: a card holding a badge is ordinary, a card holding itself is an infinite
   descent, and a depth catches the mutual case a visited set alone does not. Measured: a chain twelve

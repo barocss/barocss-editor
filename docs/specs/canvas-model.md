@@ -1615,6 +1615,42 @@ So: **no cache**, recorded with the numbers so the next person does not have to 
 measurement is a probe rather than a test, because a timing assertion in CI is a flake with a
 schedule; the script is in `docs/BACKLOG.md`.
 
+#### Who the five readers were, and what three of them were for
+
+The number was left as a curiosity, so it was measured next: the resolver wrapped in a counter that
+records a stack, over a render of the sample deck (163 nodes with children, 3 placements). Five reads
+of a placement's `content`, and **520 resolutions across the deck** — 3.19 per node. Named:
+
+| reads | who asks | what for |
+| ---: | --- | --- |
+| 163 | `sanitizeProps` ← `separatePropsAndModel` ← `attachComponentInfo` | props for the vnode |
+| 162 | `separatePropsAndModel` — `{ ...data }` | **a copy nobody read** |
+| 97 | `_renderSlotGetChildren` | drawing the children — the real one |
+| 60 | `childrenOf` (`document-access.ts`) | Word's per-paragraph language lookup, asking twice |
+| 28 | `_finalizeElementVNode` | the element's own children |
+| 6 | `childCount` (`renderers.ts`) | "is this placement empty", asking twice |
+
+Three of the six are the same mistake in three places: **asking twice for one answer.** On a document
+whose children are *resolved* rather than stored, `if (node.content)` followed by `for (node.content)`
+is two questions, and a property that can answer differently each time is a property to read once into
+a name. `separatePropsAndModel` was the largest: it built `{ ...data }` — a whole copy of the node,
+which on a proxy means resolving its children again — and its only caller used the other half.
+
+Measured again with the three read once (same machine, same probe):
+
+| deck | resolver calls | parts handed back | re-render |
+| --- | ---: | ---: | ---: |
+| sample deck, before | 520 | — | 8.0ms |
+| sample deck, after | 324 | — | 7.1ms |
+| 20 × 10, before | 742 | 1,000 | 9ms |
+| 20 × 10, after | 488 | 600 | 8ms |
+
+A third of every content resolution in a render existed for an object with no reader, and a
+placement's five reads are **three**: its props, its children, and the one question its renderer asks.
+The time saved is about a millisecond, which is the point: this is not a performance fix, and the
+previous section's refusal of a cache stands. It is the same finding as the cache — the reads are
+cheap, and there were more of them than anyone had said out loud.
+
 ### 10b-14. Where this lives: the canvas layer, not the deck
 
 The model and the resolution are in `office-word` (`canvas-component.ts`, `canvas-instance.ts`),

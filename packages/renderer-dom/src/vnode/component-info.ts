@@ -6,7 +6,7 @@
 
 import { VNode } from './types';
 import { ModelData } from '@barocss/dsl';
-import { separatePropsAndModel, sanitizeProps } from './props-resolution';
+import { sanitizeProps } from './props-resolution';
 
 /**
  * VNode에 component 정보 추가
@@ -25,7 +25,18 @@ export function attachComponentInfo(
   decorators: any[] = [],
   options: { isExternal?: boolean } = {}
 ): VNode {
-  const { props } = separatePropsAndModel(data, decorators);
+  /*
+   * `sanitizeProps` directly, and not `separatePropsAndModel`, whose other half was thrown away.
+   *
+   * Measured (barocss-editor, a slide deck of 163 nodes): that call built `{ ...data }` — a full copy
+   * of the node — and this function used only `props`. On a document whose children are **resolved**
+   * rather than stored, spreading a node is not free: every spread asks the store's content resolver
+   * for that node's children again. It was 162 of the 520 resolutions in a render, 31% of them, for
+   * an object with no reader.
+   *
+   * `props` here is `data` minus stype/sid/type, which is exactly what the discarded call returned.
+   */
+  const props = sanitizeProps(data || {});
   
   // Set directly on top-level fields
   vnode.stype = componentName;

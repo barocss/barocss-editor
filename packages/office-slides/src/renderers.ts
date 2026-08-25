@@ -108,10 +108,12 @@ const attrsOf = (data: NodeData): Placement & NodeData => (data?.attributes ?? {
  * that node, and a count taken from anywhere else would be a second opinion about the same
  * thing.
  */
-const childCount = (data: NodeData): number =>
-  Array.isArray((data as { content?: unknown[] })?.content)
-    ? ((data as { content?: unknown[] }).content as unknown[]).length
-    : 0;
+const childCount = (data: NodeData): number => {
+  // Read once: `content` is resolved live (a placement answers with its definition's parts), so
+  // testing it and then measuring it asks the store the same question twice.
+  const kids = (data as { content?: unknown[] })?.content;
+  return Array.isArray(kids) ? kids.length : 0;
+};
 
 /**
  * A box where the model says it is, plus whatever this drawing adds.
