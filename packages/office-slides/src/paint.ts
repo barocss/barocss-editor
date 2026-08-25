@@ -1,4 +1,4 @@
-import { twipToPx } from '@barocss/office-word';
+import { twipToPx } from '@barocss/office-text';
 import { cornerCss } from './corners';
 import { effectsCss, effectsOf, paintsOf } from './paints';
 import { fillBoxCss, fillLayers, layered, type FillLayer } from './fill-layers';

@@ -18,7 +18,7 @@
  */
 import type { MeasuredBlock, Page } from './pagination';
 import type { SheetMetrics } from './layout';
-import type { EffectiveFormat } from './style-resolver';
+import type { EffectiveFormat } from '@barocss/office-text';
 
 /** How a section numbers its lines — Word's `lnNumType`. */
 export interface LineNumbering {

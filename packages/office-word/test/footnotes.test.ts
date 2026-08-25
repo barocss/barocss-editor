@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { assignFootnotes, footnoteRefsIn, reserveFor } from '../src/footnotes';
-import type { DocumentAccess, DocumentNode } from '../src/document-access';
+import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 
 /**
  * A footnote is referenced from the flow by a mark and its body lives in

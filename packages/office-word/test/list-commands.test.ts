@@ -8,8 +8,8 @@ import {
   INDENT_STEP,
   MAX_LIST_LEVEL
 } from '../src/list-commands';
-import { createNumberingResolver } from '../src/numbering-resolver';
-import type { DocumentAccess, DocumentNode } from '../src/document-access';
+import { createNumberingResolver } from '@barocss/office-text';
+import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 
 /**
  * Turning a paragraph into a list item.

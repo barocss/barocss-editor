@@ -11,7 +11,7 @@
  * The one part that does need a browser — how tall each row came out — is
  * measured elsewhere and passed in.
  */
-import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import { childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 /*
  * The three questions about a table's **shape** — which rows it has, which of them repeat, how many
  * columns the widest one spans — are `table-format.ts` now.
@@ -21,7 +21,7 @@ import { childrenOf, type DocumentAccess, type DocumentNode } from './document-a
  * were never pagination; they are what a table *is*, and the name of the file they were in was the
  * only thing saying otherwise.
  */
-import { columnsOf, headerRowsOf, tableRowsOf } from './table-format';
+import { columnsOf, headerRowsOf, tableRowsOf } from '@barocss/office-text';
 export { columnsOf, headerRowsOf, tableRowsOf };
 
 /** A page break that falls inside a table, as something to draw. */

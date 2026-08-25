@@ -1,4 +1,4 @@
-import { twipToPx } from '@barocss/office-word';
+import { twipToPx } from '@barocss/office-text';
 import type { Box, CssStyle } from './geometry';
 import { TRACK_SLOTS, trackVar } from './motion-tracks';
 import { angleBetween, axisRange, gradientPoints, radialCss, remapStops } from './gradient-axis';

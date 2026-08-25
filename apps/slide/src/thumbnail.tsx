@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { getGlobalRegistry } from '@barocss/dsl';
-import { WORD_ENV_KEY } from '@barocss/office-word';
+import { WORD_ENV_KEY } from '@barocss/office-text';
 import { slideSize, twipToPx,
   createDeckEnv
 } from '@barocss/office-slides';

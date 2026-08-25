@@ -13,7 +13,7 @@
  */
 import type { Revision, RevisionKind } from './revision-index';
 import { moveCounterpart } from './revision-index';
-import type { DocumentAccess } from './document-access';
+import type { DocumentAccess } from '@barocss/office-text';
 
 /** A transaction operation, as the model's builder takes them. */
 export interface RevisionOp {

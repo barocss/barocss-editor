@@ -12,7 +12,7 @@
  */
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import type { DocumentAccess, DocumentNode } from './document-access';
+import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 import { caretRunOf, enclosingMath, nextSlot } from './math-navigation';
 import { buildUp, linearOf, type MathNode } from './math-buildup';
 

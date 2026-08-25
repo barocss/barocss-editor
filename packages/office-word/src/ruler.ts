@@ -12,7 +12,7 @@
  * Everything here can be checked in milliseconds against numbers, which is where
  * every rule about a document belongs.
  */
-import { DEFAULT_TAB_INTERVAL, type TabAlign, type TabLeader, type TabStop } from './tabs';
+import { DEFAULT_TAB_INTERVAL, type TabAlign, type TabLeader, type TabStop } from '@barocss/office-text';
 
 /** A twip is a twentieth of a point, so an inch is 1440 of them. */
 export const TWIPS_PER_INCH = 1440;

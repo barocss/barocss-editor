@@ -1,6 +1,12 @@
 import { useMemo } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
+  cellOf,
+  tableOf,
+  tableStylesOf,
+  getWordStyles
+} from '@barocss/office-text';
+import {
   choiceOptions,
   currentChoice,
   inheritedChoice,
@@ -8,10 +14,7 @@ import {
   listState,
   currentStyle,
   cellAttributeState,
-  cellOf,
   tableLookState,
-  tableOf,
-  tableStylesOf,
   WORD_FONTS,
   WORD_FONT_SIZES,
   WORD_STYLES,
@@ -19,8 +22,7 @@ import {
   WORD_TEXT_COLOR,
   WORD_TEXT_HIGHLIGHT,
   WORD_CELL_SHADING,
-  currentPaletteColor,
-  getWordStyles
+  currentPaletteColor
 } from '@barocss/office-word';
 /**
  * The control shapes come from the shared layer, not from this product.

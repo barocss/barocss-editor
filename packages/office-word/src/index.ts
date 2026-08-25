@@ -22,19 +22,19 @@ export {
   boxBorderAttrs,
   insideBorderAttrs,
   shadingAttrs
-} from './formatting';
+} from '@barocss/office-text';
 
 export {
   createStyleResolver,
   type StyleResolver,
   type EffectiveFormat,
   type FormatScope
-} from './style-resolver';
+} from '@barocss/office-text';
 export {
   createNumberingResolver,
   type NumberingResolver,
   type NumberedItem
-} from './numbering-resolver';
+} from '@barocss/office-text';
 export {
   parseTableLook,
   formatTableLook,
@@ -58,7 +58,7 @@ export {
   type CellPlacement,
   type CellStyleLayers,
   type RowPlacement
-} from './table-style';
+} from '@barocss/office-text';
 export {
   cellRectangle,
   cellsInRectangle,
@@ -81,7 +81,7 @@ export {
   cellMargins,
   gridOf,
   type CellPosition
-} from './table-format';
+} from '@barocss/office-text';
 // Re-exported for convenience; the implementation is shared because list
 // levels, page numbers, notes and captions all reference the same format names.
 export { formatCounter, NumberFormat, type NumberFormatValue } from '@barocss/shared';
@@ -93,7 +93,7 @@ export {
   walkBlocks,
   type DocumentAccess,
   type DocumentNode
-} from './document-access';
+} from '@barocss/office-text';
 
 /**
  * The renderers, in two halves that a product may take one of.
@@ -104,8 +104,9 @@ export {
  * numbers and the contents page.
  */
 export { registerWordRenderers } from './renderers/word';
-export { registerTextRenderers } from './renderers';
+export { registerTextRenderers } from '@barocss/office-text';
 export { registerPageRenderers } from './renderers/page';
+export { registerShapeRenderers } from './renderers/shapes';
 export {
   createWordEnv,
   wordEnv,
@@ -123,7 +124,7 @@ export {
   paragraphCss, characterCss, pageCss, tableCss, tableRowCss, tableCellCss, shadingCss,
   rowClipHeight, verticalTextCss,
   twipToCss, halfPointToCss, normalizeColor, type CssStyle
-} from './css';
+} from '@barocss/office-text';
 
 export {
   paginate,
@@ -134,7 +135,7 @@ export {
 } from './pagination';
 
 export { measureBlocks, type MeasureOptions } from './measurement';
-export { suppressedSpacing, type SuppressedSpacing } from './spacing';
+export { suppressedSpacing, type SuppressedSpacing } from '@barocss/office-text';
 export {
   lineNumberingOf,
   lineNumbersOf,
@@ -148,7 +149,7 @@ export {
   type SheetMetrics,
   type SurfaceLayout
 } from './layout';
-export { flowCss, twipToPx } from './css';
+export { flowCss, twipToPx } from '@barocss/office-text';
 
 export {
   createWordLayoutPass,
@@ -184,7 +185,7 @@ export {
   pageNumberWithChapter
 } from './chapter-numbering';
 
-export { createFieldResolver, type FieldResolver } from './field-resolver';
+export { createFieldResolver, type FieldResolver } from '@barocss/office-text';
 
 export { lineStartOffsets, type LineAnchor } from './line-offsets';
 export { registerPageBreakWidget, PAGE_BREAK_STYPE } from './page-break-widget';
@@ -194,9 +195,9 @@ export {
   TABLE_BREAK_STYPE,
   TABLE_HEADER_REPEAT_STYPE
 } from './table-break-widget';
-export { formatDateField } from './date-field';
+export { formatDateField } from '@barocss/office-text';
 export { printCss } from './print';
-export { imageCss, isInFlow, polygonCss, type ImageAttributes, type WrapMode, type WrapSide } from './image-layout';
+export { imageCss, isInFlow, polygonCss, type ImageAttributes, type WrapMode, type WrapSide } from '@barocss/office-text';
 export {
   findMatches,
   replaceMatches,
@@ -215,7 +216,7 @@ export {
   type TabAlign,
   type TabLeader,
   type TabStop
-} from './tabs';
+} from '@barocss/office-text';
 export {
   TWIPS_PER_INCH,
   TAB_ALIGN_CYCLE,

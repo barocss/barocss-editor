@@ -18,6 +18,7 @@
   "packages/office-canvas": 0,
   "packages/office-controls": 0,
   "packages/office-slides": 0,
+  "packages/office-text": 0,
   "packages/office-ui": 0,
   "packages/office-word": 0,
   "packages/renderer-dom": 123,

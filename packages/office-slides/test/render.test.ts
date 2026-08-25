@@ -8,7 +8,7 @@ import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { registerSlidesRenderers } from '../src/renderers';
 import { createSampleDeck } from '../src/sample-deck';
 import { createDeckEnv } from '../src/layout-format';
-import { WORD_ENV_KEY } from '@barocss/office-word';
+import { WORD_ENV_KEY } from '@barocss/office-text';
 
 /**
  * A deck, drawn.

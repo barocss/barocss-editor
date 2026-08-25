@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { borderCss, borderOf, cellBorders, cellMargins, gridOf, tableCss } from '../src/table-format';
+import { borderCss, borderOf, cellBorders, cellMargins, gridOf, tableElementCss } from '../src/table-format';
 
 /**
  * A table's own formatting.
@@ -39,24 +39,24 @@ describe('the column grid', () => {
   it('makes the layout fixed, or the declared widths mean nothing', () => {
     // Left to itself a browser sizes columns from their text, and a document
     // saying its first column is two inches wide silently gets something else.
-    expect(tableCss({ grid: '2880,1440' }).tableLayout).toBe('fixed');
-    expect(tableCss({ layout: 'fixed' }).tableLayout).toBe('fixed');
-    expect(tableCss({}).tableLayout).toBeUndefined();
+    expect(tableElementCss({ grid: '2880,1440' }).tableLayout).toBe('fixed');
+    expect(tableElementCss({ layout: 'fixed' }).tableLayout).toBe('fixed');
+    expect(tableElementCss({}).tableLayout).toBeUndefined();
   });
 });
 
 describe('the table box', () => {
   it('centres and indents the way Word does', () => {
-    expect(tableCss({ alignment: 'center' }).margin).toBe('0 auto');
-    expect(tableCss({ alignment: 'right' }).marginLeft).toBe('auto');
-    expect(tableCss({ indent: 720 }).marginLeft).toBe('36pt');
+    expect(tableElementCss({ alignment: 'center' }).margin).toBe('0 auto');
+    expect(tableElementCss({ alignment: 'right' }).marginLeft).toBe('auto');
+    expect(tableElementCss({ indent: 720 }).marginLeft).toBe('36pt');
   });
 
   it('separates the borders only when the cells are spaced apart', () => {
     // Cells cannot be spaced while their borders are collapsed together.
-    expect(tableCss({ cellSpacing: 40 }).borderCollapse).toBe('separate');
-    expect(tableCss({ cellSpacing: 40 }).borderSpacing).toBe('2pt');
-    expect(tableCss({}).borderCollapse).toBe('collapse');
+    expect(tableElementCss({ cellSpacing: 40 }).borderCollapse).toBe('separate');
+    expect(tableElementCss({ cellSpacing: 40 }).borderSpacing).toBe('2pt');
+    expect(tableElementCss({}).borderCollapse).toBe('collapse');
   });
 });
 

@@ -17,7 +17,7 @@
  * font the next reader has no way to get is a document that looks different to
  * each of them.
  */
-import type { DocumentAccess, DocumentNode } from './document-access';
+import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 
 export interface FontFamily {
   /** The name stored in the document, and shown in the control. */

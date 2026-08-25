@@ -6,7 +6,7 @@ import {
   pageNumberWithChapter
 } from '../src/chapter-numbering';
 import type { TocEntry } from '../src/toc';
-import type { NumberingResolver } from '../src/numbering-resolver';
+import type { NumberingResolver } from '@barocss/office-text';
 
 /**
  * Word's `1-1`: the page number with its chapter's number in front.

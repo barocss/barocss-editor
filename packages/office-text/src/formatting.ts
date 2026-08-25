@@ -314,3 +314,12 @@ export const revisionAttrs = (): Attrs => ({
   revisionAuthor: str(),
   revisionDate: str()
 });
+
+/**
+ * Half an inch, in twips: Word's default tab, and how far one level of a list sits in.
+ *
+ * Here rather than in `list-commands.ts`, where it was. A **command** file is the editing layer and
+ * this is a measurement of the format — and that one import was enough to drag 563 lines of commands
+ * into the closure of every renderer, which is how a drawing comes to depend on an editor.
+ */
+export const INDENT_STEP = 720;

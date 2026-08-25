@@ -13,16 +13,16 @@
  * line breaks. Only the width can, and pagination never touches it.
  */
 import type { RenderEnv } from '@barocss/dsl';
-import type { DocumentAccess } from './document-access';
+import type { DocumentAccess } from '@barocss/office-text';
 import { footnoteRefsIn } from './footnotes';
 import { layoutSurface, sheetMetrics, type SurfaceLayout } from './layout';
 import { lineNumberingOf } from './line-numbers';
 import { measureBlocks, type MeasureOptions } from './measurement';
 import { FOOTNOTE_SEPARATOR } from './page-furniture';
-import { childrenOf } from './document-access';
+import { childrenOf } from '@barocss/office-text';
 import { tableBreaksOf, type TableBreakWidget } from './table-pagination';
 import type { LineAnchor } from './line-offsets';
-import { createStyleResolver } from './style-resolver';
+import { createStyleResolver } from '@barocss/office-text';
 import { createWordEnv, WORD_ENV_KEY } from './render-context';
 import { measureTabs, tabSignature } from './tab-layout';
 export type { TableBreakWidget } from './table-pagination';

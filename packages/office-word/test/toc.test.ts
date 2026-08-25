@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseLevels, tocEntries } from '../src/toc';
-import type { DocumentAccess, DocumentNode } from '../src/document-access';
+import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 
 /**
  * A table of contents is generated, never stored. A heading's page number is a

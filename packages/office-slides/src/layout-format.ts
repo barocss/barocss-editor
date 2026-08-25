@@ -1,4 +1,5 @@
-import { characterFormatAttrs, createWordEnv, paragraphFormatAttrs } from '@barocss/office-word';
+import { characterFormatAttrs, paragraphFormatAttrs } from '@barocss/office-text';
+import { createTextEnv } from '@barocss/office-text';
 import { childrenOf, deckSlides, layoutPlaceholderSids, type DeckAccess, type DeckNode } from './deck';
 import { boxAt, isSceneType, slideAt } from './selection';
 import { resolveDeckAttrs, resolveDeckValue } from './named-values';
@@ -504,12 +505,15 @@ export function withLayouts<T extends {
 /**
  * The environment a deck's views render with.
  *
- * Word's, with the layout layered into its style resolver. Three places need
- * one — the stage, the notes pane and every thumbnail — and three copies of the
- * same two lines is how one of them ends up without the layer, drawing a deck
- * that disagrees with the other two.
+ * The **text** environment, with the layout layered into its style resolver. Three places need one
+ * — the stage, the notes pane and every thumbnail — and three copies of the same two lines is how
+ * one of them ends up without the layer, drawing a deck that disagrees with the other two.
+ *
+ * `createTextEnv` and not `createWordEnv`: the second builds the page's half too — the layouts, the
+ * pushes, the splits, the page numbers — and a deck handed it an empty layout map and got empty
+ * maps back. Asking for what a slide actually has is the same answer with none of the page in it.
  */
 export function createDeckEnv(doc: DeckAccess): Record<string, unknown> {
-  const env = createWordEnv(doc as never) as { styles: unknown };
+  const env = createTextEnv(doc as never) as { styles: unknown };
   return { ...env, styles: withLayouts(env.styles as never, doc) };
 }

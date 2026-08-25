@@ -11,10 +11,10 @@
  * measured directly. Measure the segments once, then walk them, and the whole
  * line comes out in a single pass.
  */
-import { twipToPx } from './css';
-import { DEFAULT_TAB_INTERVAL, resolveTab, tabStopsOf, type TabLeader } from './tabs';
-import type { StyleResolver } from './style-resolver';
-import type { DocumentAccess } from './document-access';
+import { twipToPx } from '@barocss/office-text';
+import { DEFAULT_TAB_INTERVAL, resolveTab, tabStopsOf, type TabLeader } from '@barocss/office-text';
+import type { StyleResolver } from '@barocss/office-text';
+import type { DocumentAccess } from '@barocss/office-text';
 
 const SID_ATTR = 'data-bc-sid';
 

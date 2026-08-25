@@ -217,7 +217,37 @@ The misfiled pair: `table-style.ts` imported `tableRowsOf` and `columnsOf` from
 pagination — they are what a table *is* — and the only thing saying otherwise was the name of the
 file they were in. They are `table-format.ts` now.
 
-**Nothing about a page is left in the text closure.** `office-text` is a `git mv` away.
+**Nothing about a page is left in the text closure**, and two more threads came out before the move:
+
+- `block-style` imported one constant — half an inch, in twips — from **`list-commands.ts`**, and
+  that single import dragged 563 lines of *commands* into every renderer's closure. It is a fact
+  about the format, not about the command; it is `formatting.ts` now.
+- Word's **drawing** left too (`renderers/shapes.ts`): the canvas as an `<svg>`, its shapes as SVG
+  elements. A deck overrides every one of them with placed HTML boxes, which is not one of the two
+  being wrong — so a product asks for Word's drawing by name rather than getting it with the text.
+
+## `office-text` — what two products draw text with
+
+Nineteen files, 4,452 lines: `document-access`, the style, numbering and field resolvers,
+`formatting`, `spacing`, `css`, `tabs`, `image-layout`, `mark-format`, `revisions`, `table-format`,
+`table-style`, `math-renderers`, `text-context`, the text renderers with `block-style` and `marks` —
+and `text.css`, which was the very first thing this document said should be shared.
+
+| the deck's imports | before the split | now |
+| --- | ---: | ---: |
+| `@barocss/office-word` | 99 | **14** |
+| `@barocss/office-canvas` | — | 139 |
+| `@barocss/office-text` | — | 6 |
+
+What is still Word's, honestly: find and replace (`findMatches`, `replaceOperations`, `step`), the
+ribbon's font and colour control models, the table commands and cell selection, and one test that
+deliberately compares Word's canvas CSS with the deck's. The first of those is text behaviour and
+will move when someone needs it to; the rest are a page's, a ribbon's and a table's.
+
+The move surfaced a defect that only a package index could show: **two `tableCss` functions**, one
+in `css.ts` (the format-to-CSS translation a row and a cell also have) and one in `table-format.ts`
+(the table element's own). Two functions of one name in one package is a caller's coin toss; the
+second is `tableElementCss` now.
 
 ### The plan as it stood before that — do it before the third product, not now
 
@@ -232,10 +262,15 @@ What should happen first is smaller and unblocks it:
 1. **Split `renderers.ts`** so `surface` and the page renderers are in their own
    file. This is worth doing on its own merits, costs nothing, and turns the
    extraction into moving files rather than untangling one.
-2. **Make the registry seam explicit.** Slides overrides five node types by
-   registering after Word and relying on last-write-wins. It works and it is
-   nowhere stated. A product should be able to say it is overriding, and be told
-   when it overrides something nobody expected.
+2. ~~**Make the registry seam explicit.**~~ **Done.** `override()` is how a product says it is
+   drawing something instead of whatever is drawing it now, and `define` on a name already
+   registered is recorded as a finding rather than refused — this runs while a product is being
+   built, and a registry that threw would take an app down for what a test should report. Both
+   directions are checked: taking a name over in silence, and overriding a name nothing defines.
+
+   The number in this plan was stale twice over. It was nine node types, not five; and it is **one**
+   now, because the day the deck asked for the text renderers alone, eight of them stopped being
+   overrides at all — nobody else defines a `rectangle` for a slide.
 3. **Name the coupling.** `@barocss/office-slides` depending on
    `@barocss/office-word` means "Word" is load-bearing in a product that is not
    Word. `office-slides/slides.css` importing `office-word/text.css` is not

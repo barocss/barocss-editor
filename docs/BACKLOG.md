@@ -1838,10 +1838,21 @@ renderers and the page renderers together.
   `columnsOf` from `table-pagination`, so drawing a table pulled in the paginator — and those two are
   what a table *is*, not how it breaks. They are `table-format` now.
 
-- [ ] **Make the registry seam explicit.** Slides overrides five node types by
-  registering after Word and relying on last-write-wins. It works and is stated
-  nowhere; a product should be able to say it is overriding, and be told when it
-  overrides something nobody expected.
+- [x] **The registry seam says what it is doing.** `override(nodeType, template)` in the DSL is how a
+  product says it means to draw something instead of whatever is drawing it now; `define` on a name
+  that is already registered is **recorded** rather than refused, because this runs while a product
+  is being built and a registry that threw would take an app down for something a test should report.
+  Two findings, opposite failures: `silentlyOverridden()` — a definition that landed on top of
+  another without saying so — and `overrodeNothing()` — an override of a name nothing has defined,
+  which means the thing being replaced moved or was renamed and the product is answering a question
+  nobody asks.
+
+  The count in this entry was **stale in both directions**. It was nine, not five — `canvasBlock`,
+  `ellipse`, `frame`, `line`, `list`, `path`, `picture`, `rectangle`, `surface` — and it is **one**
+  now: the day the deck started asking for the text renderers alone, eight of those stopped being
+  overrides at all, because nobody else defines a `rectangle` for a slide. `list` is the one that is
+  genuinely shared and genuinely different, and it says `override` now. `office-slides/test/overrides.test.ts`
+  holds both findings at empty.
 - [x] **`office-canvas` — the extraction, and the coupling named with a number.** Thirteen files into
   a package of their own, measured before anything moved: they import each other, `editor-core` and
   `model`, and **nothing else in either product**, so it was moving files rather than untangling one.
@@ -1863,9 +1874,41 @@ renderers and the page renderers together.
   walk that climbs reached for it through a cast — the type denying something the store writes on
   every node.
 
-- [ ] **`office-text`** — the extraction itself. Now the one that is left, and the one the argument
-  above was actually about: it wants the `renderers.ts` split first, and the deck's remaining twenty
-  symbols are the measure of how much there is.
+- [x] **`office-text` — the extraction, once the closure was honest.** Nineteen files, 4,452 lines:
+  the document access, the style, numbering and field resolvers, formatting, spacing, css, tabs,
+  image layout, marks, revisions, the table format and style, the equations, the text environment,
+  the text renderers — and `text.css`, which is the thing this whole document started from.
+
+  It took three cuts to get there, each measured rather than argued. The page renderers out of
+  `renderers.ts`; the environment into a text half and a page half; and then two threads that were
+  only visible once the closure was small: `block-style` imported **one constant** — half an inch in
+  twips — from a *command* file, dragging 563 lines of editing into every renderer, and Word's own
+  SVG drawing was still in the text file that a deck overrides entirely.
+
+  The deck's imports from `@barocss/office-word`: **99 → 14**. What is left is find and replace, the
+  ribbon's font and colour models, the table commands and cell selection, and one test that
+  deliberately compares Word's canvas CSS with the deck's. Find is text behaviour and will move when
+  something needs it to; the rest are a page's, a ribbon's, a table's.
+
+  The move surfaced one defect a package index is uniquely able to see: **two `tableCss`** functions,
+  one in `css.ts` and one in `table-format.ts`. Two of one name in one package is a coin toss for the
+  caller; the second is `tableElementCss`.
+
+- [x] **A package's `exports` map is part of moving a file, and two thousand unit tests cannot see
+  it.** `office-word/package.json` carried `"./text.css": "./src/text.css"`; the new package did not,
+  so both apps' stylesheets asked for `@barocss/office-text/text.css`, vite answered *Missing
+  "./text.css" specifier*, and every browser test waited thirty seconds for an editor that had no
+  styles. Measured as it happened: the deck's suite reached 179 of 389 tests in **31 minutes**
+  instead of 389 in five and a half.
+
+  Nothing below the browser could have caught it. A unit test imports the source directly; the
+  `exports` map is what a *bundler* reads, and only an app going through vite ever asks. The lesson
+  for the next extraction is one line long: **move the exports map with the files.**
+
+- [ ] **Find and replace could be `office-text`'s.** `findMatches`, `replaceOperations` and `step`
+  are about text in a document, and the deck imports all three from the word processor. Left where
+  they are because nothing yet needs them elsewhere — and moving code because it *could* move is how
+  a shared layer fills up with things one product uses.
 
 ### What building the second product cost the first
 

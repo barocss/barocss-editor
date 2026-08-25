@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { findMatches, replaceOperations, shiftAfter, step } from '../src/find';
-import type { DocumentAccess, DocumentNode } from '../src/document-access';
+import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 
 /**
  * Finding text.

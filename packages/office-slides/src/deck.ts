@@ -12,12 +12,10 @@ import {
   type ConnectorBox,
   type ConnectorSpec,
   copyOf,
+  childrenOf as canvasChildrenOf,
   type CanvasAccess,
   type CanvasNode
 } from '@barocss/office-canvas';
-import {
-  canvasChildrenOf
-} from '@barocss/office-word';
 import { SLIDE_16_9, slideSize } from './geometry';
 import { isContainerType } from './selection';
 /**

@@ -6,7 +6,7 @@ import {
   googleFontUrl,
   isWebFont
 } from '../src/fonts';
-import type { DocumentAccess } from '../src/document-access';
+import type { DocumentAccess } from '@barocss/office-text';
 
 /**
  * Which fonts a document names, and which of those a host has to fetch.

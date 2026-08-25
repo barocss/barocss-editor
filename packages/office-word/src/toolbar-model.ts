@@ -33,11 +33,11 @@ import {
   type ControlGroup,
   type PaletteControl
 } from '@barocss/office-controls';
-import type { StyleResolver } from './style-resolver';
-import type { DocumentNode } from './document-access';
+import type { StyleResolver } from '@barocss/office-text';
+import type { DocumentNode } from '@barocss/office-text';
 import { WORD_FONT_CATALOGUE } from './fonts';
 import type { ListKind } from './list-commands';
-import { parseTableLook, type TableLook } from './table-style';
+import { parseTableLook, type TableLook } from '@barocss/office-text';
 
 /**
  * A control in Word's toolbar: the suite's `Control` plus what only a word

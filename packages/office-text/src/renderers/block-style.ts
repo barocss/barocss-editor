@@ -26,7 +26,7 @@ import {
 import { blockStyleLayers } from '../table-style';
 import { suppressedSpacing } from '../spacing';
 import { childrenOf, documentSettings, type DocumentNode } from '../document-access';
-import { INDENT_STEP as LIST_INDENT_STEP } from '../list-commands';
+import { INDENT_STEP as LIST_INDENT_STEP } from '../formatting';
 
 
 /**

@@ -18,7 +18,7 @@
  */
 import { define, element, slot } from '@barocss/dsl';
 import type { RenderEnv } from '@barocss/dsl';
-import { flowCss } from '../css';
+import { flowCss } from '@barocss/office-text';
 import {
   getEditingFurniture,
   getFurniturePlacement,
@@ -32,7 +32,7 @@ import {
   indexResources,
   type DocumentAccess,
   type DocumentNode
-} from '../document-access';
+} from '@barocss/office-text';
 import { tocEntries, tocPageNumber } from '../toc';
 import {
   footnoteAreaTemplate,
@@ -42,9 +42,9 @@ import {
   pageNumberFor
 } from '../page-furniture';
 import { lineNumberingOf } from '../line-numbers';
-import { blockStyle } from './block-style';
+import { blockStyle } from '@barocss/office-text';
 
-import { childrenOf } from '../document-access';
+import { childrenOf } from '@barocss/office-text';
 
 /**
  * The section a block belongs to.

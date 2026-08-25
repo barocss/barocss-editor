@@ -12,11 +12,11 @@
  * as it always did; anything that only draws text can build the smaller one and never mention a page.
  */
 import type { RenderEnv } from '@barocss/dsl';
-import type { DocumentAccess } from './document-access';
-import type { TabLeader } from './tabs';
+import type { DocumentAccess } from '@barocss/office-text';
+import type { TabLeader } from '@barocss/office-text';
 import type { SurfaceLayout } from './layout';
 import { pageNumberFor } from './page-furniture';
-import { WORD_ENV_KEY, createTextEnv, type TextEnv } from './text-context';
+import { WORD_ENV_KEY, createTextEnv, type TextEnv } from '@barocss/office-text';
 
 /**
  * The text half, re-exported.
@@ -45,7 +45,7 @@ export {
   getBlockPosition,
   getBlockPageNumber,
   type TextEnv
-} from './text-context';
+} from '@barocss/office-text';
 
 /** What a **page** adds to the environment: everything the layout worked out. */
 export interface WordEnv extends TextEnv {

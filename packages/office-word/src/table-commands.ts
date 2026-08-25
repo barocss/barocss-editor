@@ -12,14 +12,14 @@
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import type { DocumentAccess, DocumentNode } from './document-access';
+import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 import {
   cellPlacementOf,
   formatTableLook,
   parseTableLook,
   tableOf,
   type TableLook
-} from './table-style';
+} from '@barocss/office-text';
 import { cellContaining, columnsCovered, rowsCovered } from './table-selection';
 
 /** The operations, and the names a caller reaches them by. */

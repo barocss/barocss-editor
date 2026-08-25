@@ -24,7 +24,7 @@
  */
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import type { DocumentNode } from './document-access';
+import type { DocumentNode } from '@barocss/office-text';
 
 /** The layouts a frame offers, and what a caller may ask for by name. */
 export const FRAME_LAYOUTS = ['row', 'column', 'grid'] as const;

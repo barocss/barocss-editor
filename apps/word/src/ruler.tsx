@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
+  tabStopsOf,
+  type TabAlign,
+  type TabLeader,
+  type TabStop
+} from '@barocss/office-text';
+import {
   TWIPS_PER_INCH,
   draggedTo,
   markersOf,
@@ -11,12 +17,8 @@ import {
   ticksFor,
   toPixels,
   toTwips,
-  tabStopsOf,
   withStop,
-  type IndentMarkers,
-  type TabAlign,
-  type TabLeader,
-  type TabStop
+  type IndentMarkers
 } from '@barocss/office-word';
 
 /**

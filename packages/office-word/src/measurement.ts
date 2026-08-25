@@ -17,14 +17,14 @@
  * converge instead of oscillate.
  */
 import { CHROME_ATTR } from '@barocss/shared';
-import { twipToPx } from './css';
+import { twipToPx } from '@barocss/office-text';
 import type { MeasuredBlock } from './pagination';
-import type { StyleResolver } from './style-resolver';
-import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import type { StyleResolver } from '@barocss/office-text';
+import { childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 import { footnoteRefsIn, reserveFor } from './footnotes';
 import { lineStartOffsets, type LineAnchor } from './line-offsets';
 import { scaledTo } from './table-pagination';
-import { suppressedSpacing } from './spacing';
+import { suppressedSpacing } from '@barocss/office-text';
 
 /** The DOM attribute the renderer stamps each node's id onto. */
 const SID_ATTR = 'data-bc-sid';

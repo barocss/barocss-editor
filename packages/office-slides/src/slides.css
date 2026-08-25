@@ -1,7 +1,7 @@
 /*
  * The parts of drawing a deck that CSS has to finish.
  *
- * Same kind of file as `office-word/text.css` and imported beside it, but this
+ * Same kind of file as `office-text/text.css` and imported beside it, but this
  * one is Slides' own — the two products draw the same document and are allowed
  * to draw it differently, and this is where that difference lives rather than
  * being negotiated inside a shared renderer.

@@ -10,7 +10,7 @@
  * a document opened without a layout, printed on a server, or read by something
  * that cannot paginate should still show a table of contents rather than a gap.
  */
-import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import { childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 
 export interface TocEntry {
   sid: string;

@@ -15,7 +15,7 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import { childOfType, childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import { childOfType, childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 import { commentThreads, freeThreadId } from './comments';
 
 export interface CommentAuthor {

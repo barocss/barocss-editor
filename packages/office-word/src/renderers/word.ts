@@ -11,10 +11,17 @@
  * pulls in pagination, page furniture, line numbers and the contents page, about 1,400 lines that
  * cannot be tree-shaken out of a renderer registration (`docs/SHARED-LAYER.md`).
  */
-import { registerTextRenderers } from '../renderers';
+import { registerTextRenderers } from '@barocss/office-text';
+import { registerShapeRenderers } from './shapes';
 import { registerPageRenderers } from './page';
 
 export function registerWordRenderers(): void {
   registerTextRenderers();
+  /*
+   * Word's **drawing**: the canvas as an `<svg>`, its shapes as SVG elements. A deck overrides every
+   * one of them with placed HTML boxes, which is not one of the two being wrong — so a product asks
+   * for this by name rather than getting it with the text.
+   */
+  registerShapeRenderers();
   registerPageRenderers();
 }

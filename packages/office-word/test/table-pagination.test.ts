@@ -6,7 +6,7 @@ import {
   tableBreaksOf,
   tableRowsOf
 } from '../src/table-pagination';
-import type { DocumentAccess, DocumentNode } from '../src/document-access';
+import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 
 /**
  * Where a table breaks.

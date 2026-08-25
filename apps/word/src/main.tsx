@@ -9,6 +9,9 @@ import { MATCH_STYPE } from './find-panel';
 import { ANCHOR_STYPE } from './comments-pane';
 import { createSchema } from '@barocss/schema';
 import {
+  WORD_ENV_KEY
+} from '@barocss/office-text';
+import {
   createWordEditor,
   createWordEnv,
   documentFontFamilies,
@@ -25,7 +28,6 @@ import {
   getWordSchemaDefinition,
   registerWordRenderers,
   installCellSelection,
-  WORD_ENV_KEY,
   type SurfaceLayout
 } from '@barocss/office-word';
 import type { Editor } from '@barocss/editor-core';

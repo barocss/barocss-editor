@@ -11,7 +11,7 @@
  * Keeping them apart is what lets a pane list the revisions without the risk of
  * changing any.
  */
-import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import { childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 
 /** The revision mark types, in the order a reviewer meets them. */
 export const REVISION_KINDS = ['insertion', 'deletion', 'formatChange', 'moveFrom', 'moveTo'] as const;

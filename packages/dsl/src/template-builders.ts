@@ -418,11 +418,73 @@ export function renderer(nodeType: TNodeType, template: RenderTemplate | Context
     nodeType,
     template: processedTemplate
   };
-  
+
+  /*
+   * A definition that lands on top of another one is **recorded**.
+   *
+   * Two products share a renderer set here: a deck registers the text renderers and then draws
+   * `list` its own way, which is right and is the whole reason the registry is last-write-wins. What
+   * was wrong is that it was *silent* — nothing said which types a product had taken over, so a
+   * renderer that moved to another file, or a name that changed, would quietly stop being overridden
+   * and the product would draw the other one's answer.
+   *
+   * So `define` on a name that is already there is a finding a check can read, and `override` is how
+   * a product says it means it. Recording rather than refusing: this runs while a product is being
+   * built, and a registry that threw would take the app down for something a test should report.
+   */
+  if (!inOverride && globalRegistry.has(nodeType)) silentOverrides.add(nodeType);
+
   // Auto-register so element('name') can resolve to a registered renderer
   globalRegistry.register(definition);
-  
+
   return definition;
+}
+
+/**
+ * Whether a definition is being made *deliberately* over another.
+ *
+ * A flag rather than an argument to `renderer`, because `define` is called through half a dozen
+ * helpers here and threading a boolean through all of them would put the word "override" in the
+ * signature of things that never do.
+ */
+let inOverride = false;
+
+/** The names a product defined on top of something already registered, without saying so. */
+const silentOverrides = new Set<string>();
+
+/** Which names were taken over silently — empty is what a product is aiming for. */
+export function silentlyOverridden(): string[] {
+  return [...silentOverrides];
+}
+
+/** Forget what has been recorded, for a test that registers more than one product. */
+export function forgetOverrides(): void {
+  silentOverrides.clear();
+}
+
+/**
+ * Draw this node **instead of** whatever is drawing it now.
+ *
+ * The deck's own sentence: a slide's `list` is not a page's, and the last registration wins. Said
+ * out loud, it is a claim the product makes and a check can hold it to — and the other direction
+ * matters as much: overriding a name that nobody has defined means the thing being replaced has
+ * moved or been renamed, and the product is about to draw its own answer to a question nobody asked.
+ */
+export function override(nodeType: string, template: RenderTemplate | ExternalDescriptor): RendererDefinition {
+  if (!globalRegistry.has(nodeType)) missingOverrides.add(nodeType);
+  inOverride = true;
+  try {
+    return renderer(nodeType, template as never);
+  } finally {
+    inOverride = false;
+  }
+}
+
+const missingOverrides = new Set<string>();
+
+/** The names a product said it was overriding when nothing was there to override. */
+export function overrodeNothing(): string[] {
+  return [...missingOverrides];
 }
 
 /**

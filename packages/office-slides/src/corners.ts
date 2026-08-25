@@ -1,4 +1,4 @@
-import { twipToPx } from '@barocss/office-word';
+import { twipToPx } from '@barocss/office-text';
 import type { CssStyle } from './geometry';
 
 /**

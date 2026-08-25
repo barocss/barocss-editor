@@ -12,7 +12,7 @@
  */
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import type { DocumentAccess } from './document-access';
+import type { DocumentAccess } from '@barocss/office-text';
 import {
   revisionAfter,
   revisionAt,

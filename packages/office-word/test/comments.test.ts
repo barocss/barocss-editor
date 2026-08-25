@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { commentThreads, freeThreadId } from '../src/comments';
-import type { DocumentAccess, DocumentNode } from '../src/document-access';
+import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 
 /**
  * Reading the comments on a document.

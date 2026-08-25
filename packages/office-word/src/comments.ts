@@ -15,7 +15,7 @@
  * wrote it. Same story as the lists: the shared command was written against a
  * different model.
  */
-import { childOfType, childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import { childOfType, childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 
 export interface CommentAnchor {
   sid: string;

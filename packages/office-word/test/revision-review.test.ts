@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { moveCounterpart, revisionAfter, revisionAt, revisions } from '../src/revision-index';
 import { dispositionOf, resolveAllOps, resolveRevisionOps } from '../src/revision-resolve';
-import type { DocumentAccess, DocumentNode } from '../src/document-access';
+import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 
 /**
  * Reviewing tracked changes.

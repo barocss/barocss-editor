@@ -24,7 +24,7 @@
  * Word stores these in EMU and an importer converts, the same way it converts
  * everything else.
  */
-import { twipToPx, type CssStyle } from './css';
+import { twipToPx, type CssStyle } from '@barocss/office-text';
 
 export interface ShapeGeometry {
   x?: number;

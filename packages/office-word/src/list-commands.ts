@@ -14,15 +14,18 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import { childOfType, childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import { childOfType, childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 
 export type ListKind = 'bullet' | 'ordered';
 
-/**
- * Half an inch, in twips: Word's default tab, and what one press of the indent
- * button moves a paragraph that is not in a list.
+/*
+ * Half an inch — Word's default tab, and one press of the indent button — is `formatting.ts` now,
+ * re-exported here because this is where every caller looks for it. It is a fact about the format
+ * rather than about the command, and while it lived here the renderers imported a command file to
+ * get at it.
  */
-export const INDENT_STEP = 720;
+export { INDENT_STEP } from '@barocss/office-text';
+import { INDENT_STEP } from '@barocss/office-text';
 
 /** Word offers nine levels, numbered from zero. */
 export const MAX_LIST_LEVEL = 8;

@@ -88,8 +88,14 @@ export function gridOf(format: EffectiveFormat): number[] {
     .filter((width) => Number.isFinite(width) && width > 0);
 }
 
-/** The table element's own CSS. */
-export function tableCss(format: EffectiveFormat): CssStyle {
+/**
+ * The table element's own CSS.
+ *
+ * `tableElementCss`, not `tableCss`: `css.ts` has a `tableCss` too — the format-to-CSS translation
+ * that a row and a cell also have — and the collision only became visible when both files landed in
+ * one package's index. Two functions of one name in one package is a caller's coin toss.
+ */
+export function tableElementCss(format: EffectiveFormat): CssStyle {
   const out: CssStyle = {};
 
   const width = asNumber(format.width);

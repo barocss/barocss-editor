@@ -38,7 +38,7 @@ import {
   tableCellFormatAttrs,
   tableFormatAttrs,
   tableRowFormatAttrs
-} from './formatting';
+} from '@barocss/office-text';
 
 const RESOURCE = 'resource';
 

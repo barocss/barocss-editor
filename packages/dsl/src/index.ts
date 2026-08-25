@@ -24,7 +24,18 @@ export {
   portal,
   defineMark,
   addDecoratorAttribute,
-  addMarkClassAttribute
+  addMarkClassAttribute,
+  /**
+   * Saying a renderer is being replaced, and finding out when one is replaced without saying.
+   *
+   * The registry is last-write-wins on purpose — two products share a renderer set and each draws
+   * some of it its own way — and until now that was silent, so a renderer that moved to another file
+   * would quietly stop being overridden and the product would draw the other one's answer.
+   */
+  override,
+  silentlyOverridden,
+  overrodeNothing,
+  forgetOverrides
 } from './template-builders';
 
 // Pattern decorators are now managed as data in EditorViewDOM.

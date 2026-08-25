@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { getGlobalRegistry } from '@barocss/dsl';
-import { WORD_ENV_KEY } from '@barocss/office-word';
+import { WORD_ENV_KEY } from '@barocss/office-text';
 import { SLIDES_ENV_KEY, noteFor,
   createDeckEnv
 } from '@barocss/office-slides';

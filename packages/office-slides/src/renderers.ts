@@ -61,8 +61,10 @@
  * `canvasBlock` is now drawn below as a placed HTML box like everything else a
  * deck puts on a slide.
  */
-import { define, element, slot } from '@barocss/dsl';
-import { getWordDocument, registerTextRenderers } from '@barocss/office-word';
+import { define, element, slot,
+  override
+} from '@barocss/dsl';
+import { getWordDocument, registerTextRenderers } from '@barocss/office-text';
 import { placementCss, slideSize, twipToPx, type CssStyle, type Placement } from './geometry';
 import { deckFillLayers, deckPaintCss, svgDash, svgFlow } from './paint';
 import { svgPaintOf, type SvgNode } from './svg-paint';
@@ -1296,7 +1298,13 @@ export function registerSlidesRenderers(): void {
    * Word's numbering is still there for a deck that wants outline numbering:
    * this is the simple case drawn simply, not a replacement for it.
    */
-  define(
+  /*
+   * `override`, not `define`: this lands on top of the text renderers' own `list`, deliberately, and
+   * saying so is what lets a check tell a decision from an accident — if the shared one moved or was
+   * renamed, a deck that had gone on silently defining would draw its answer to a question nobody
+   * asks any more.
+   */
+  override(
     'list',
     element(
       'div',

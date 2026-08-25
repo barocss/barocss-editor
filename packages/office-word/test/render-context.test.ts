@@ -10,7 +10,7 @@ import {
   getBlockPosition,
   getBlockPush
 } from '../src/render-context';
-import type { DocumentAccess } from '../src/document-access';
+import type { DocumentAccess } from '@barocss/office-text';
 import type { SurfaceLayout } from '../src/layout';
 
 /**

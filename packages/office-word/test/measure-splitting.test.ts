@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { wrapsText } from '../src/image-layout';
+import { wrapsText } from '@barocss/office-text';
 
 /**
  * Which blocks may be split across a page boundary.

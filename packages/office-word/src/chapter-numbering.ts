@@ -29,8 +29,8 @@
  * anything is done to it.
  */
 import { formatCounter, type NumberFormatValue } from '@barocss/shared';
-import type { NumberingResolver } from './numbering-resolver';
-import type { EffectiveFormat } from './style-resolver';
+import type { NumberingResolver } from '@barocss/office-text';
+import type { EffectiveFormat } from '@barocss/office-text';
 import type { TocEntry } from './toc';
 
 /** The separators Word offers, by the name it stores. */

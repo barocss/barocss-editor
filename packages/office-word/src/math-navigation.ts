@@ -14,7 +14,7 @@
  * Pure. What it needs from the document is the tree; where the caret then goes
  * is the caller's business.
  */
-import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import { childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 
 /** The node types that are slots — the holes a construct offers. */
 export const MATH_SLOTS = new Set([

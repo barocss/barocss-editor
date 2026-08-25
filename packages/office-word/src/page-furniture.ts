@@ -17,13 +17,13 @@
 import { element, type ElementTemplate } from '@barocss/dsl';
 import { formatCounter, type NumberFormatValue } from '@barocss/shared';
 import { pageNumberWithChapter } from './chapter-numbering';
-import type { NumberingResolver } from './numbering-resolver';
+import type { NumberingResolver } from '@barocss/office-text';
 import type { TocEntry } from './toc';
-import { twipToPx } from './css';
-import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import { twipToPx } from '@barocss/office-text';
+import { childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 import type { SheetMetrics } from './layout';
 import type { LineNumberMark } from './line-numbers';
-import type { EffectiveFormat } from './style-resolver';
+import type { EffectiveFormat } from '@barocss/office-text';
 
 /** Which header or footer a page gets, in Word's order of preference. */
 export interface FurnitureBinding {

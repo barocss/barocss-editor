@@ -17,7 +17,7 @@
  * lines without them, because the marker was in the model and this file was not
  * drawing it.
  */
-@import "@barocss/office-word/text.css";
+@import "@barocss/office-text/text.css";
 @import "@barocss/office-slides/slides.css";
 
 /*

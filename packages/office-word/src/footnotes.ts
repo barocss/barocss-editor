@@ -12,7 +12,7 @@
  * this from being circular: heights are measured once, the reservation follows
  * from them, and the breaks follow from the reservation.
  */
-import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import { childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 
 /** Footnote ids referenced from a block, in the order they appear in it. */
 export function footnoteRefsIn(doc: DocumentAccess, block: DocumentNode): string[] {

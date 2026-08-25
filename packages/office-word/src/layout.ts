@@ -13,11 +13,11 @@
  * vertically without changing the width, so nothing re-breaks and the next
  * measurement returns the same lines.
  */
-import { twipToPx } from './css';
+import { twipToPx } from '@barocss/office-text';
 import { assignFootnotes } from './footnotes';
 import { paginate, type MeasuredBlock, type Page, type PaginationOptions } from './pagination';
 import { lineNumbersOf, type LineNumbering, type LineNumberMark } from './line-numbers';
-import type { EffectiveFormat } from './style-resolver';
+import type { EffectiveFormat } from '@barocss/office-text';
 
 export interface SheetMetrics {
   width: number;

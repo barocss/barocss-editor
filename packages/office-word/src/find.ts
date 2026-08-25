@@ -14,7 +14,7 @@
  */
 import { transaction } from '@barocss/model';
 import type { Editor } from '@barocss/editor-core';
-import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import { childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 
 export interface Match {
   sid: string;

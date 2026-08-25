@@ -13,7 +13,7 @@ import {
   type Box,
   type Guide,
   type Handle
-} from '@barocss/office-word';
+} from '@barocss/office-canvas';
 import { useEditorRevision } from './revision';
 
 /**

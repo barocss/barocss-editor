@@ -5,7 +5,8 @@ import { getGlobalRegistry } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { createSchema } from '@barocss/schema';
 import type { Editor } from '@barocss/editor-core';
-import { WORD_ENV_KEY, installCellSelection } from '@barocss/office-word';
+import { WORD_ENV_KEY } from '@barocss/office-text';
+import { installCellSelection } from '@barocss/office-word';
 import {
   createSampleDeck,
   createSlidesEditor,

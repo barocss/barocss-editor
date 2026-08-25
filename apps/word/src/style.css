@@ -15,7 +15,7 @@
  * The parts of rendering that CSS has to finish, shared with every product that
  * draws this text. See the file for why they are not in here.
  */
-@import "@barocss/office-word/text.css";
+@import "@barocss/office-text/text.css";
 
 /*
  * The suite's control tokens.
@@ -206,7 +206,7 @@ body {
 }
 
 
-/* The list marker and the caret filler come from `office-word/text.css`. */
+/* The list marker and the caret filler come from `office-text/text.css`. */
 
 /* A frame: the layout box. `frameCss` writes what the frame itself does —
    display, gap, padding — and these three rules say what its *children* do,
@@ -228,7 +228,7 @@ body {
 .w-frame { min-height: 1.2em; }
 
 /* The cell and table selection rules — the wash, the outline and the corner
-   handle — come from `office-word/text.css`, beside the list marker and the
+   handle — come from `office-text/text.css`, beside the list marker and the
    caret filler. They were written here, and the deck draws its tables with the
    same renderers and got none of them: dragging across cells on a slide set the
    attribute on two of them, reported both as selected, and painted nothing. */

@@ -6,7 +6,7 @@ import {
   slotOf,
   slotsOf
 } from '../src/math-navigation';
-import type { DocumentAccess, DocumentNode } from '../src/document-access';
+import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 
 /**
  * Tab through an equation.
