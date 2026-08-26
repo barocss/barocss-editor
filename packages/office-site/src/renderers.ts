@@ -27,6 +27,7 @@ import { getWordDocument, registerTextRenderers } from '@barocss/office-text';
 import { isVarRef, resolveVarValue } from '@barocss/office-canvas';
 import { frameCss } from '@barocss/office-word';
 import { hrefFor } from './page-link';
+import { paintCss } from './paint';
 import { sizingCss } from './sizing';
 import { breakpointOf } from './breakpoints';
 import { attrsAt } from './responsive';
@@ -123,9 +124,26 @@ const named = (attrs: Record<string, any>, node: NodeData, ctx: any): Record<str
  */
 export const stackCss = (attrs: Record<string, any>): Record<string, any> => ({
   ...frameCss(attrs as never),
+  /*
+   * And what it is **painted** with — a gradient, a picture behind, a shadow, corners that differ.
+   * After `frameCss`, which writes the flat `background` and the single radius: everything here is
+   * the longer answer to a question that one already gave a short answer to, and the longer answer
+   * has to win. `paint.ts` says why the vocabulary is the deck's and the arithmetic is not.
+   */
+  ...paintCss(attrs, asColour),
   ...(attrs.alignItems === undefined ? { alignItems: 'stretch' } : {}),
   ...(attrs.clipsContent === undefined ? { overflow: 'visible' } : {})
 });
+
+/**
+ * A colour, if there is one.
+ *
+ * `named` has already resolved every `var:이름` on the node by the time this is called, so this is
+ * the last narrowing rather than the resolution: a value that is not a non-empty string is not a
+ * colour, and writing it into CSS would be writing `undefined` into a stylesheet.
+ */
+const asColour = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 
 /**
  * Register every renderer a site draws with.
@@ -204,7 +222,7 @@ export function registerSiteRenderers(): void {
           'data-id': (d: NodeData) => (typeof attrsOf(d).id === 'string' ? attrsOf(d).id : undefined),
           'data-name': (d: NodeData) =>
             typeof attrsOf(d).name === 'string' ? attrsOf(d).name : undefined,
-          style: {
+          style: (d: NodeData) => ({
             display: 'flex',
             flexDirection: 'column',
             /*
@@ -213,8 +231,13 @@ export function registerSiteRenderers(): void {
              * consequence.
              */
             width: '100%',
-            minHeight: '100%'
-          }
+            minHeight: '100%',
+            /*
+             * And the page's own paint. A site whose sections can hold a gradient and whose *page*
+             * cannot is a site with a white band under every page shorter than the window.
+             */
+            ...paintCss(attrsOf(d), asColour)
+          }),
         },
         [slot('content')]
       )

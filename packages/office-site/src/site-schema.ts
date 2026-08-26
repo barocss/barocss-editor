@@ -76,6 +76,93 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
   };
 
   /**
+   * What a box on a page is **painted** with, beyond a flat colour.
+   *
+   * ## Why these names and not new ones
+   *
+   * They are the deck's, exactly: `gradientFrom`, `gradientTo`, `gradientAngle`, `gradientKind`,
+   * `shadowColor`, `shadowBlur`, `shadowDistance`, `shadowAngle`, and the four corners. The deck
+   * arrived at them first and wrote down why they are flat attributes rather than one string — *a
+   * mini-language is a parser, and every parser is a place to disagree about a document* — and a
+   * second product spelling the same idea differently is the fault this repository keeps finding in
+   * itself, one word later.
+   *
+   * ## Why they are declared here rather than shared
+   *
+   * Because they are **read** here. The deck's `paints.ts` turns these into CSS for an absolutely
+   * placed box, with a gradient axis computed against a known width and height; a page's box has
+   * neither until the browser has laid it out, so it hands the browser a CSS gradient and lets it
+   * do the geometry. Same vocabulary, different arithmetic — and `office-site` must not import
+   * `office-slides`, because two products depending on each other is how a shared layer stops
+   * being one.
+   *
+   * That makes this the **second** declaration of these names. Two is a coincidence, three is a
+   * component nobody wrote — so the day Word wants a gradient on a canvas frame, this moves to the
+   * canvas layer and both products read it from there. That is on the record in `BACKLOG.md`.
+   *
+   * ## What is deliberately absent
+   *
+   * The **stack**: the deck's `fills` and `effects`, where a photograph tinted by a translucent
+   * colour is two fills and a card with a soft shadow and a hard key line is two effects. One of
+   * each here, because one of each is what a section, a card and a button want, and the flat
+   * attributes were the deck's answer for exactly that long. A page that needs two takes `fills`
+   * rather than growing a `gradientFrom2`.
+   */
+  const paintAttrs = {
+    /**
+     * The flat colour under everything else.
+     *
+     * A `frame` has had one since the canvas did; a **page** had not, and a page whose sections can
+     * hold a colour while the page behind them cannot is a page with a white band under everything
+     * shorter than the window. It is the same attribute, declared where it was missing.
+     */
+    fill: { type: 'string' as const, required: false },
+    /**
+     * A gradient, as its two ends and an angle.
+     *
+     * The angle is CSS's: 0 points up, 90 to the right. Stated because the deck's is measured the
+     * same way and a reader moving between them must not have to find out.
+     */
+    gradientFrom: { type: 'string' as const, required: false },
+    gradientTo: { type: 'string' as const, required: false },
+    gradientAngle: { type: 'number' as const, required: false },
+    gradientKind: { type: 'string' as const, default: 'linear', options: ['linear', 'radial'] },
+
+    /**
+     * A picture **behind** what is in the box.
+     *
+     * The flat form of the deck's image paint, and the one thing a landing page cannot be built
+     * without: a hero is words over a photograph, and until now the only picture a page could draw
+     * was a `picture` node in the flow, which pushes the words off it.
+     *
+     * `tile` is here because a texture is the other half of what a background image is for, and it
+     * is one CSS word away.
+     */
+    backgroundImage: { type: 'string' as const, required: false },
+    backgroundFit: { type: 'string' as const, default: 'cover', options: ['cover', 'contain', 'tile'] },
+    /**
+     * And how much of it comes through, so words can be read over it.
+     *
+     * A separate value from the node's `opacity`, which fades *everything* — the picture and the
+     * words on it. A hero with a photograph at 40% and white text at 100% is the ordinary case and
+     * one number cannot say it.
+     */
+    backgroundOpacity: { type: 'number' as const, required: false, min: 0, max: 1 },
+
+    /** A shadow, as a colour, a softness and where the light is. */
+    shadowColor: { type: 'string' as const, required: false },
+    shadowBlur: { type: 'number' as const, required: false },
+    shadowDistance: { type: 'number' as const, required: false },
+    shadowAngle: { type: 'number' as const, required: false },
+
+    /** And the four corners, for the boxes that round only two of them. */
+    cornerTopLeft: { type: 'number' as const, required: false },
+    cornerTopRight: { type: 'number' as const, required: false },
+    cornerBottomRight: { type: 'number' as const, required: false },
+    cornerBottomLeft: { type: 'number' as const, required: false }
+  };
+
+  /**
    * A node that may state its own width.
    *
    * **Containers only**, and that is a narrowing rather than an omission. It was on `heading`,
@@ -91,6 +178,12 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
   const withSizing = (name: string) => ({
     ...nodes[name],
     attrs: { ...nodes[name]?.attrs, ...sizingAttrs }
+  });
+
+  /** A container, which on a page is also a surface somebody paints. */
+  const withPaint = (name: string) => ({
+    ...withSizing(name),
+    attrs: { ...withSizing(name).attrs, ...paintAttrs }
   });
 
   return {
@@ -111,6 +204,11 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
         content: 'variable* (block | scene | frame | collection)*',
         attrs: {
           ...nodes.surface.attrs,
+          /*
+           * A page is painted like any other box on it. A site whose sections can hold a gradient
+           * and whose *page* cannot is a site with a white band under every short page.
+           */
+          ...paintAttrs,
           /**
            * Where the page answers: `/`, `/about`, `/blog/first-post`.
            *
@@ -123,7 +221,7 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
 
       /** A stack, and everything it may say about the space it takes. */
       frame: {
-        ...withSizing('frame'),
+        ...withPaint('frame'),
         /**
          * On a page, **everything in a stack is a block**.
          *
@@ -199,6 +297,7 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
         attrs: {
           ...(nodes.frame?.attrs ?? {}),
           ...sizingAttrs,
+          ...paintAttrs,
           /** The dataset this draws. */
           source: { type: 'string' as const, required: true },
           /** At most this many rows — "the three featured products". */

@@ -46,6 +46,33 @@ entries are that.
 
 ## Open
 
+### A page can be painted, and two limits that turned up with it
+
+- [x] A box on a page had a flat colour, a line and one radius — a diagram's vocabulary, which is
+  the same gap the deck found in `fill` and answered with a paint stack. A page now takes a
+  **gradient**, a **picture behind** with its own opacity, a **shadow** and **four corners**, and the
+  attribute names are the deck's *exactly*: two products spelling one idea differently is the fault
+  this repository keeps finding in itself, one word later.
+
+  The arithmetic is not shared and cannot be as it stands: the deck computes a gradient's axis
+  against a box whose size the document states, and a page's box has neither until the browser has
+  laid it out. `office-site` must not import `office-slides` either — two products depending on each
+  other is how a shared layer stops being one.
+
+- [ ] **These names are now declared twice.** Two is a coincidence, three is a component nobody
+  wrote: the day Word wants a gradient on a canvas frame, `gradientFrom`…`cornerBottomLeft` move to
+  `office-canvas` beside `isVarRef`, and each product keeps its own CSS.
+
+- [ ] **`every-property-can-be-edited` counts rows, not panes.** A row declared under 모양 for a
+  `surface` was in a pane a reader can never open — a page is never in a selection — and the check
+  called it settable. The product's answer is that 페이지 holds everything a page can say; the
+  check's is still owed, and `paint.test.ts` asks the question the way a reader meets it.
+
+- [ ] **An override carrying `var:이름` leaks into the exported CSS.** `mediaRules` writes the
+  narrower widths' declarations without resolving a token, because resolution happens in the
+  renderer and a media rule is not rendered. Nothing in the sample does it yet, which is why it is
+  a note rather than a bug report.
+
 ### A page is a thing a reader can make now
 
 - [x] `insertPage`, `duplicatePage`, `movePage`, `removePage` — the four a page had none of. The

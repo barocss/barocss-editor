@@ -249,11 +249,150 @@ export const SITE_PANEL: SitePanelRow[] = [
 
   // ── 바탕 and 테두리 — any of these may hold `var:이름` rather than a colour ─
   { attr: 'fill', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '배경', ariaLabel: '배경', control: 'colour' },
+  /**
+   * A gradient, as its two ends — the row that turns a flat band into a designed one.
+   *
+   * Under 배경 rather than in a group of its own, because it *is* the background: a reader who has
+   * set a colour and wants it to fade is looking at the row they set the colour on. The angle and
+   * the kind ride with it for the same reason the four paddings ride with the one — four labelled
+   * rows about one idea is a panel nobody reads.
+   */
+  {
+    attr: 'gradientFrom',
+    command: 'setBlockFormat',
+    group: '바탕',
+    tab: 'style',
+    label: '그라디언트',
+    ariaLabel: '그라디언트 시작 색',
+    control: 'colour',
+    with: [
+      { attr: 'gradientTo', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '끝', ariaLabel: '그라디언트 끝 색', control: 'colour' },
+      {
+        attr: 'gradientAngle',
+        command: 'setBlockFormat',
+        group: '바탕',
+        tab: 'style',
+        label: '각도',
+        ariaLabel: '그라디언트 각도',
+        control: 'number',
+        unit: '°',
+        fallback: 180,
+        min: 0,
+        max: 360,
+        needs: 'gradientFrom'
+      },
+      {
+        attr: 'gradientKind',
+        command: 'setBlockFormat',
+        group: '바탕',
+        tab: 'style',
+        label: '모양',
+        ariaLabel: '그라디언트 모양',
+        control: 'choice',
+        fallback: 'linear',
+        needs: 'gradientFrom',
+        options: [
+          { id: 'linear', label: '직선' },
+          { id: 'radial', label: '원형' }
+        ]
+      }
+    ]
+  },
+  /**
+   * A picture **behind** what is in the box, and how much of it comes through.
+   *
+   * The one thing a landing page cannot be built without: a hero is words over a photograph, and
+   * the only picture a page could draw before this was a `picture` node in the flow, which pushes
+   * the words off it.
+   */
+  {
+    attr: 'backgroundImage',
+    command: 'setBlockFormat',
+    group: '바탕',
+    tab: 'style',
+    label: '배경 그림',
+    ariaLabel: '배경 그림 주소',
+    control: 'text',
+    with: [
+      {
+        attr: 'backgroundFit',
+        command: 'setBlockFormat',
+        group: '바탕',
+        tab: 'style',
+        label: '맞춤',
+        ariaLabel: '배경 그림 맞춤',
+        control: 'choice',
+        fallback: 'cover',
+        needs: 'backgroundImage',
+        options: [
+          { id: 'cover', label: '꽉 채움' },
+          { id: 'contain', label: '전체 보임' },
+          { id: 'tile', label: '바둑판' }
+        ]
+      },
+      {
+        // Only the picture fades, never the words on it — see `paint.ts`.
+        attr: 'backgroundOpacity',
+        command: 'setBlockFormat',
+        group: '바탕',
+        tab: 'style',
+        label: '진하기',
+        ariaLabel: '배경 그림 진하기',
+        control: 'number',
+        fallback: 1,
+        min: 0,
+        max: 1,
+        needs: 'backgroundImage'
+      }
+    ]
+  },
+  /**
+   * A shadow, which is how a card stops being a rectangle with a line round it.
+   *
+   * The colour is the row, because a shadow with no colour is not a shadow — the other three are
+   * only meaningful once there is one, and say so with `needs`.
+   */
+  {
+    attr: 'shadowColor',
+    command: 'setBlockFormat',
+    group: '그림자',
+    tab: 'style',
+    label: '색',
+    ariaLabel: '그림자 색',
+    control: 'colour',
+    with: [
+      { attr: 'shadowBlur', command: 'setBlockFormat', group: '그림자', tab: 'style', label: '번짐', ariaLabel: '그림자 번짐', control: 'number', unit: 'px', min: 0, needs: 'shadowColor' },
+      { attr: 'shadowDistance', command: 'setBlockFormat', group: '그림자', tab: 'style', label: '거리', ariaLabel: '그림자 거리', control: 'number', unit: 'px', min: 0, needs: 'shadowColor' },
+      { attr: 'shadowAngle', command: 'setBlockFormat', group: '그림자', tab: 'style', label: '방향', ariaLabel: '그림자 방향', control: 'number', unit: '°', fallback: 180, min: 0, max: 360, needs: 'shadowColor' }
+    ]
+  },
   { attr: 'stroke', command: 'setBlockFormat', group: '테두리', tab: 'style', label: '색', ariaLabel: '테두리 색', control: 'colour' },
   { attr: 'strokeWidth', command: 'setBlockFormat', group: '테두리', tab: 'style', label: '두께', ariaLabel: '테두리 두께', control: 'number', unit: 'px', min: 0 },
 
   // ── 상자 — the two things a page's frame says that a canvas's does not ─────
-  { attr: 'cornerRadius', command: 'setBlockFormat', group: '상자', tab: 'style', label: '둥글기', ariaLabel: '모서리 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
+  {
+    attr: 'cornerRadius',
+    command: 'setBlockFormat',
+    group: '상자',
+    tab: 'style',
+    label: '둥글기',
+    ariaLabel: '모서리 둥글기',
+    control: 'number',
+    unit: 'px',
+    min: 0,
+    on: STACKS,
+    /*
+     * And the four corners, each falling back to the one number — the same shape as the padding's
+     * four sides, and for the same reason: one number is the common case, and four is what makes a
+     * tab, a speech bubble, or a card whose top is flush with the picture above it.
+     */
+    with: [
+      { attr: 'cornerTopLeft', command: 'setBlockFormat', group: '상자', tab: 'style', label: '↖', ariaLabel: '왼쪽 위 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'cornerTopRight', command: 'setBlockFormat', group: '상자', tab: 'style', label: '↗', ariaLabel: '오른쪽 위 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'cornerBottomRight', command: 'setBlockFormat', group: '상자', tab: 'style', label: '↘', ariaLabel: '오른쪽 아래 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'cornerBottomLeft', command: 'setBlockFormat', group: '상자', tab: 'style', label: '↙', ariaLabel: '왼쪽 아래 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS }
+    ]
+  },
   { attr: 'clipsContent', command: 'setBlockFormat', group: '상자', tab: 'style', label: '넘침', ariaLabel: '넘치는 것 자르기', control: 'toggle', on: STACKS },
 
   // ── 이미지 ─────────────────────────────────────────────────────────────────
@@ -350,7 +489,28 @@ export function sitePanelRows(
   /** Whether a node type declares an attribute — the schema, which only the app has. */
   declares?: (stype: string, attr: string) => boolean
 ): SitePanelRow[] {
-  return panelRowsFor(SITE_PANEL, stype, tab, { declares, anything: (one) => SELECTABLE.has(one) });
+  const rows = panelRowsFor(SITE_PANEL, stype, tab, { declares, anything: (one) => SELECTABLE.has(one) });
+
+  /**
+   * A page's **paint**, which would otherwise be in a pane a reader cannot open.
+   *
+   * The panes are for a *selection*, and a page is never in one — it is the board. So a row about
+   * a page's background, declared under 모양 like every other background, was reachable by nothing
+   * at all: the harness said it was settable because `panelAttrs` counts rows and not panes, and
+   * the page pane showed two text fields.
+   *
+   * Found by drawing it. It is also the honest reading of what a pane *is* here: 페이지 is not a
+   * third category of property, it is the only pane a page has — so it holds everything a page can
+   * say. Noted in `BACKLOG.md` as a limit of the check rather than of the product.
+   */
+  if (tab === 'page' && stype === 'surface') {
+    return [
+      ...rows,
+      ...panelRowsFor(SITE_PANEL, stype, 'style', { declares, anything: () => false })
+    ];
+  }
+
+  return rows;
 }
 
 /** The groups a pane has, in order, with their rows — which is how the panel is drawn. */
