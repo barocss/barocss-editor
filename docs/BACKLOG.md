@@ -2417,6 +2417,34 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **A panel is one thing now, not three — and the third product was the reason to build it.**
+
+  Asked, while converting the deck's panel, to keep the UI a shared system rather than a per-product
+  one. The measurement said the same: the two panel declarations written a week apart shared **eight
+  of their fields and five of their control kinds**, and Word's ruler is a fourth surface of the same
+  shape. Two copies is a coincidence; this was the third.
+
+  Split three ways — the declaration is the product's (`office-controls`' `PanelRow`), the drawing is
+  the suite's (`office-ui`'s `PropertySheet`), and the **kinds stay open at the edges** so a page can
+  have a dataset picker and a deck a paint stack without either knowing about the other. The site
+  builder's inspector now draws through it; the deck's is next and has a browser check to convert
+  against.
+
+  Three things fell out that were not planned:
+
+  - **The shared type wanted a field the deck's declaration did not have.** `PanelRow` requires both
+    `label` and `ariaLabel`, and the deck had only the second — so 23 rows gained the short name a
+    reader actually reads, and the ones where they differ (`맞춤` / `교차 축 맞춤`, `열` / `열 수`,
+    `가득` / `프레임 가득 채우기`) stopped being invisible.
+  - **The sheet must convert nothing.** The first version left the unit conversion out and a gap read
+    `480` where a reader expects `32`. Twips to pixels is a fact about a document model, so it
+    belongs in the product's `value` callback — a sheet that converted would be a second place that
+    knows what a length means.
+  - **`render` needs three answers, not two.** A node, `undefined` (the sheet draws it) — and `null`,
+    *hide the row*. Without the third the panel drew a labelled row with an empty right-hand side for
+    the note that only means something at a narrow width, which reads as a control that failed to
+    load.
+
 - **Word can answer the check now, and its answer is a list of four dialogs it has never had.**
 
   The last `notYet`. Word has **no property panel** — its chrome is a ribbon, a ruler, an overlay for

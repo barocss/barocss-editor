@@ -47,10 +47,11 @@
     "@barocss/extensions": "workspace:*",
     "@barocss/model": "workspace:*",
     "@barocss/office-canvas": "workspace:*",
+    "@barocss/office-controls": "workspace:*",
     "@barocss/office-text": "workspace:*",
     "@barocss/office-word": "workspace:*",
-    "@barocss/schema": "workspace:*",
-    "@barocss/renderer-dom": "workspace:*"
+    "@barocss/renderer-dom": "workspace:*",
+    "@barocss/schema": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

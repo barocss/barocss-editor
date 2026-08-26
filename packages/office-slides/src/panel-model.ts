@@ -31,10 +31,24 @@
  * this file exists to stop.
  */
 
-/** The kinds of control the deck's panel draws. Closed, so a reader of this file has seen them all. */
+import {
+  panelAttrs,
+  panelCommands,
+  panelGroupsFor,
+  panelRowsFor,
+  type PanelRow
+} from '@barocss/office-controls';
+
+/**
+ * The kinds of control the deck's panel draws.
+ *
+ * The first five are `office-controls`' `CommonPanelControl`, which `office-ui`'s `PropertySheet`
+ * draws unaided; the last three are a **canvas's** own. Closed, so a reader of this file has seen
+ * them all and the panel's switch stays total.
+ */
 export type SlidesPanelControl =
-  | 'number'
   | 'text'
+  | 'number'
   | 'colour'
   | 'choice'
   | 'toggle'
@@ -48,58 +62,8 @@ export type SlidesPanelControl =
 /** Which pane the row sits in. The deck has two: what a shape *is*, and what it *does*. */
 export type SlidesPanelTab = 'style' | 'motion';
 
-export interface SlidesPanelRow {
-  /** The attribute the row writes. */
-  attr: string;
-  /**
-   * Whether the row writes an attribute **of the selected node**, or of a node that node owns.
-   *
-   * The site's model needed the same distinction and for the same reason — the schema prefers
-   * declarations made of nodes — but a deck has four of them rather than one, because a deck's panel
-   * is partly about *time*: a slide's transition and a film's start are attributes of a `motion`
-   * node the slide or the box owns, not of the slide or the box. A single field meaning both would
-   * be the declaration lying about what it does, and the test that reads this file said so.
-   */
-  writes?: 'attr' | 'child';
-  /** The command that writes it. */
-  command: string;
-  /** The heading it sits under. */
-  group: string;
-  tab: SlidesPanelTab;
-  /** What a screen reader and a test read. Unique within the panel — see the site's model. */
-  ariaLabel: string;
-  control: SlidesPanelControl;
-  /**
-   * Which node types the row appears for. Absent means every box a reader can select.
-   *
-   * A list rather than a predicate, so "which rows can ever set `bend`" is a question about this
-   * array and not about running the panel.
-   */
-  on?: string[];
-  /**
-   * Shown only when the selection is **inside** something.
-   *
-   * `on` says which node type a row is about and cannot say where that node is, and one group needs
-   * the second question: a part's variable binding is a fact about the *definition* it belongs to,
-   * so the row appears for a shape inside a `component` and for the identical shape on a slide it
-   * does not. The other value is the same shape of question about a frame: what a box asks of
-   * the arrangement around it means nothing where there is no arrangement. Declared rather than left to the panel because a check reading this file would
-   * otherwise expect the row on every shape and be right to.
-   */
-  inside?: 'component' | 'arrangedFrame';
-  /**
-   * Shown only when another attribute has this value.
-   *
-   * A grid has columns and nothing else does, so the row belongs to one arrangement rather than to
-   * the group. The site's model has the identical field for the identical row, which is the second
-   * time these two have wanted the same thing — the third makes them one type.
-   *
-   * A **list** of values rather than one, because a frame that arranges nothing has no gap, no
-   * padding and no cross axis either: those three belong to `row`, `column` and `grid` alike, and
-   * only the column count belongs to a grid alone.
-   */
-  when?: { attr: string; is: unknown[] };
-}
+/** A row of the deck's panel — `office-controls`' shape, with this product's kinds. */
+export type SlidesPanelRow = PanelRow<SlidesPanelControl> & { tab: SlidesPanelTab };
 
 /** Every box a reader selects on a slide, which is what a row with no `on` applies to. */
 const BOXES = [
@@ -124,34 +88,40 @@ const PAINTED = ['frame', 'rectangle', 'ellipse', 'path', 'textFrame', 'picture'
 /** The ones a corner radius means anything on. */
 const CORNERED = ['frame', 'rectangle', 'textFrame', 'picture', 'sticky'];
 
-const geometry = (attr: string, ariaLabel: string, control: SlidesPanelControl = 'length'): SlidesPanelRow => ({
-  attr,
-  command: 'setBoxGeometry',
-  group: '배치',
+/**
+ * A row, with the short name a reader reads and the long one a screen reader does.
+ *
+ * They differ more often than they look like they should — 맞춤 against 교차 축 맞춤, 열 against 열
+ * 수 — because a label sits beside fifteen others in a narrow column and an accessible name has to
+ * be unique in the whole panel. `label` defaults to the accessible name, which is right for most
+ * rows and wrong loudly rather than quietly for the rest.
+ */
+const row = (
+  attr: string,
+  ariaLabel: string,
+  control: SlidesPanelControl,
+  rest: Partial<SlidesPanelRow> & { command: string; group: string }
+): SlidesPanelRow => ({
   tab: 'style',
+  label: ariaLabel,
+  ...rest,
+  attr,
   ariaLabel,
   control
 });
 
-const paint = (attr: string, ariaLabel: string, control: SlidesPanelControl): SlidesPanelRow => ({
-  attr,
-  command: 'setBoxStyle',
-  group: '채우기와 선',
-  tab: 'style',
-  ariaLabel,
-  control,
-  on: PAINTED
-});
+const geometry = (attr: string, ariaLabel: string, control: SlidesPanelControl = 'length'): SlidesPanelRow =>
+  row(attr, ariaLabel, control, { command: 'setBoxGeometry', group: '배치' });
 
-const line = (attr: string, ariaLabel: string, control: SlidesPanelControl): SlidesPanelRow => ({
-  attr,
-  command: 'setConnector',
-  group: '연결선',
-  tab: 'style',
-  ariaLabel,
-  control,
-  on: ['connector']
-});
+const paint = (attr: string, ariaLabel: string, control: SlidesPanelControl): SlidesPanelRow =>
+  row(attr, ariaLabel, control, { command: 'setBoxStyle', group: '채우기와 선', on: PAINTED });
+
+const line = (attr: string, ariaLabel: string, control: SlidesPanelControl): SlidesPanelRow =>
+  row(attr, ariaLabel, control, {
+    command: 'setConnector',
+    group: '연결선',
+    on: ['connector']
+  });
 
 export const SLIDES_PANEL: SlidesPanelRow[] = [
   // ── 배치 — where a box is and how big ──────────────────────────────────────
@@ -167,21 +137,21 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
    * run while the box is locked, so a lock written by the same command would be a control that can
    * turn itself off and never on again.
    */
-  { attr: 'locked', command: 'setBoxLocked', group: '배치', tab: 'style', ariaLabel: '잠금', control: 'toggle' },
+  { attr: 'locked', command: 'setBoxLocked', group: '배치', tab: 'style', label: '잠금', ariaLabel: '잠금', control: 'toggle' },
   /*
    * Where pressing it goes, in a deck being presented. Three attributes and one control: a reader
    * picks a destination and the command works out whether that is a slide, a named place or another
    * deck — which is why `goToKind` and `goToDeck` have no row of their own.
    */
-  { attr: 'goTo', command: 'setBoxJump', group: '배치', tab: 'style', ariaLabel: '누르면 이동', control: 'choice' },
+  { attr: 'goTo', command: 'setBoxJump', group: '배치', tab: 'style', label: '누르면 이동', ariaLabel: '누르면 이동', control: 'choice' },
 
   // ── The arrangement a frame imposes on what is in it ───────────────────────
-  { attr: 'layoutMode', command: 'setFrameLayout', group: '배치', tab: 'style', ariaLabel: '배치 방향', control: 'choice', on: ['frame'] },
-  { attr: 'gap', command: 'setFrameLayout', group: '배치', tab: 'style', ariaLabel: '간격', control: 'length', on: ['frame'], when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
-  { attr: 'padding', command: 'setFrameLayout', group: '배치', tab: 'style', ariaLabel: '안쪽 여백', control: 'length', on: ['frame'], when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
+  { attr: 'layoutMode', command: 'setFrameLayout', group: '배치', tab: 'style', label: '배치 방향', ariaLabel: '배치 방향', control: 'choice', on: ['frame'] },
+  { attr: 'gap', command: 'setFrameLayout', group: '배치', tab: 'style', label: '간격', ariaLabel: '간격', control: 'length', on: ['frame'], when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
+  { attr: 'padding', command: 'setFrameLayout', group: '배치', tab: 'style', label: '안쪽 여백', ariaLabel: '안쪽 여백', control: 'length', on: ['frame'], when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
   // `교차 축 맞춤`, not `맞춤` — the browser check is what caught the difference, which is the whole
   // reason a declaration read out of JSX needs one.
-  { attr: 'alignItems', command: 'setFrameLayout', group: '배치', tab: 'style', ariaLabel: '교차 축 맞춤', control: 'choice', on: ['frame'], when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
+  { attr: 'alignItems', command: 'setFrameLayout', group: '배치', tab: 'style', label: '맞춤', ariaLabel: '교차 축 맞춤', control: 'choice', on: ['frame'], when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
   {
     attr: 'columns',
     command: 'setFrameLayout',
@@ -189,7 +159,7 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
     tab: 'style',
     // `열 수`, not `열` — the row's *label* is 열 and its accessible name is not, which is exactly
     // the kind of difference a declaration read out of JSX gets wrong and a browser check catches.
-    ariaLabel: '열 수',
+    label: '열', ariaLabel: '열 수',
     control: 'number',
     on: ['frame'],
     when: { attr: 'layoutMode', is: ['grid'] }
@@ -200,8 +170,8 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
    * one: 채우기 already means paint in this panel, so the accessible name has to be the sentence.
    * Shown only inside a frame that arranges, which is the only place the question means anything.
    */
-  { attr: 'layoutStretch', command: 'setBoxLayout', group: '배치', tab: 'style', ariaLabel: '프레임 가득 채우기', control: 'toggle', inside: 'arrangedFrame' },
-  { attr: 'layoutGrow', command: 'setBoxLayout', group: '배치', tab: 'style', ariaLabel: '남은 공간 늘리기', control: 'toggle', inside: 'arrangedFrame' },
+  { attr: 'layoutStretch', command: 'setBoxLayout', group: '배치', tab: 'style', label: '가득', ariaLabel: '프레임 가득 채우기', control: 'toggle', inside: 'arrangedFrame' },
+  { attr: 'layoutGrow', command: 'setBoxLayout', group: '배치', tab: 'style', label: '늘리기', ariaLabel: '남은 공간 늘리기', control: 'toggle', inside: 'arrangedFrame' },
 
   // ── 채우기와 선 ────────────────────────────────────────────────────────────
   /*
@@ -221,24 +191,24 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
   paint('stroke', '선 색', 'colour'),
   paint('strokeWidth', '선 두께', 'length'),
   paint('strokeDash', '선 모양', 'choice'),
-  { attr: 'cornerRadius', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', ariaLabel: '모서리 둥글기', control: 'length', on: CORNERED },
-  { attr: 'cornerTopLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', ariaLabel: '왼쪽 위 모서리', control: 'length', on: CORNERED },
-  { attr: 'cornerTopRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', ariaLabel: '오른쪽 위 모서리', control: 'length', on: CORNERED },
-  { attr: 'cornerBottomRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', ariaLabel: '오른쪽 아래 모서리', control: 'length', on: CORNERED },
-  { attr: 'cornerBottomLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', ariaLabel: '왼쪽 아래 모서리', control: 'length', on: CORNERED },
+  { attr: 'cornerRadius', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '둥글기', ariaLabel: '모서리 둥글기', control: 'length', on: CORNERED },
+  { attr: 'cornerTopLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 위', ariaLabel: '왼쪽 위 모서리', control: 'length', on: CORNERED },
+  { attr: 'cornerTopRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 위', ariaLabel: '오른쪽 위 모서리', control: 'length', on: CORNERED },
+  { attr: 'cornerBottomRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 아래', ariaLabel: '오른쪽 아래 모서리', control: 'length', on: CORNERED },
+  { attr: 'cornerBottomLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 아래', ariaLabel: '왼쪽 아래 모서리', control: 'length', on: CORNERED },
 
   // ── 텍스트 — a box that holds words ────────────────────────────────────────
-  { attr: 'verticalAlign', command: 'setBoxStyle', group: '텍스트', tab: 'style', ariaLabel: '세로 맞춤', control: 'choice', on: ['textFrame', 'sticky'] },
-  { attr: 'textInset', command: 'setBoxStyle', group: '텍스트', tab: 'style', ariaLabel: '텍스트 안쪽 여백', control: 'length', on: ['textFrame', 'sticky'] },
+  { attr: 'verticalAlign', command: 'setBoxStyle', group: '텍스트', tab: 'style', label: '세로 맞춤', ariaLabel: '세로 맞춤', control: 'choice', on: ['textFrame', 'sticky'] },
+  { attr: 'textInset', command: 'setBoxStyle', group: '텍스트', tab: 'style', label: '안쪽 여백', ariaLabel: '텍스트 안쪽 여백', control: 'length', on: ['textFrame', 'sticky'] },
 
   // ── 그림 ───────────────────────────────────────────────────────────────────
-  { attr: 'fit', command: 'setBoxStyle', group: '그림', tab: 'style', ariaLabel: '그림 맞춤', control: 'choice', on: ['picture'] },
+  { attr: 'fit', command: 'setBoxStyle', group: '그림', tab: 'style', label: '맞춤', ariaLabel: '그림 맞춤', control: 'choice', on: ['picture'] },
   /*
    * One control for four attributes, and it is a *gesture* rather than a form: the crop is dragged
    * on the picture and the panel offers the way back out of it. Four number rows would be four ways
    * to make a picture disappear.
    */
-  { attr: 'cropTop', command: 'cropPicture', group: '그림', tab: 'style', ariaLabel: '자르기 원래대로', control: 'toggle', on: ['picture'] },
+  { attr: 'cropTop', command: 'cropPicture', group: '그림', tab: 'style', label: '자르기', ariaLabel: '자르기 원래대로', control: 'toggle', on: ['picture'] },
 
   // ── 연결선 ─────────────────────────────────────────────────────────────────
   line('kind', '연결선 모양', 'choice'),
@@ -258,13 +228,13 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
    * The declaration says the shape — this attribute, this command, this kind — the way the site's 값
    * row does.
    */
-  { attr: 'varBinds', command: 'setVarBind', group: '문서 변수 연결', tab: 'style', ariaLabel: '문서 변수', control: 'binds' },
+  { attr: 'varBinds', command: 'setVarBind', group: '문서 변수 연결', tab: 'style', label: '변수', ariaLabel: '문서 변수', control: 'binds' },
   /*
    * And the same question asked of a **definition's part**, which is a different command because the
    * answer is kept in a different place: a shape's binding is the shape's, and a part's binding is a
    * `componentBind` node inside the definition, so that every placement of it is bound too.
    */
-  { attr: 'componentBind', writes: 'child', command: 'setComponentBind', group: '컴포넌트 부품', tab: 'style', ariaLabel: '부품 문서 변수', control: 'binds', inside: 'component' },
+  { attr: 'componentBind', writes: 'child', command: 'setComponentBind', group: '컴포넌트 부품', tab: 'style', label: '부품 변수', ariaLabel: '부품 문서 변수', control: 'binds', inside: 'component' },
 
   // ── 모션 — what a box does, as opposed to what it is ───────────────────────
   /*
@@ -272,60 +242,60 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
    * row adds a step to it. `motion` was the word in my head and not the word in the schema, and the
    * test that reads this file is what said so.
    */
-  { attr: 'motionTrack', writes: 'child', command: 'addBoxesMotion', group: '모션', tab: 'motion', ariaLabel: '모션 추가', control: 'list' },
+  { attr: 'motionTrack', writes: 'child', command: 'addBoxesMotion', group: '모션', tab: 'motion', label: '모션 추가', ariaLabel: '모션 추가', control: 'list' },
   /*
    * `startsWith`, not `playback` — and the correction is worth keeping, because it is what a
    * declaration written from memory looks like when something checks it. The row asks *when a film
    * starts relative to the step before it*, which is a motion-track attribute; `autoplay`,
    * `controls`, `loop` and `muted` are the media's own and this panel offers none of them.
    */
-  { attr: 'startsWith', writes: 'child', command: 'setBoxPlayback', group: '재생', tab: 'motion', ariaLabel: '재생 시작', control: 'choice', on: ['mediaVideo', 'mediaAudio'] },
+  { attr: 'startsWith', writes: 'child', command: 'setBoxPlayback', group: '재생', tab: 'motion', label: '시작', ariaLabel: '재생 시작', control: 'choice', on: ['mediaVideo', 'mediaAudio'] },
   /*
    * A slide's transition is not on a box at all — it is a `motion` node on the slide, which is why
    * the row's `on` names the surface and its command takes a `slideId`. `effect` and `duration` are
    * the two things it writes.
    */
-  { attr: 'effect', writes: 'child', command: 'setSlideTransition', group: '화면 전환', tab: 'motion', ariaLabel: '화면 전환', control: 'choice', on: ['surface'] }
+  { attr: 'effect', writes: 'child', command: 'setSlideTransition', group: '화면 전환', tab: 'motion', label: '화면 전환', ariaLabel: '화면 전환', control: 'choice', on: ['surface'] }
 ];
 
-/** The rows for one node type, in one pane, in the order the panel draws them. */
+/**
+ * The rows for one node type, in one pane, in the order the panel draws them.
+ *
+ * A row with no `on` applies to every **box on a slide**, which is what this product means by
+ * "anything" — the site builder means every block, and the shared helper takes the question rather
+ * than guessing so that the two cannot answer each other's.
+ */
 export function slidesPanelRows(stype: string | undefined, tab?: SlidesPanelTab): SlidesPanelRow[] {
-  return SLIDES_PANEL.filter(
-    (row) =>
-      (tab === undefined || row.tab === tab) &&
-      (row.on === undefined ? stype !== undefined && BOXES.includes(stype) : stype !== undefined && row.on.includes(stype))
-  );
+  return panelRowsFor(SLIDES_PANEL, stype, tab, (one) => BOXES.includes(one));
+}
+
+/** The groups a pane has, in order, with their rows. */
+export function slidesPanelGroups(stype: string | undefined, tab: SlidesPanelTab) {
+  return panelGroupsFor(slidesPanelRows(stype, tab));
 }
 
 /** Every command the panel can run — the deck's third answer to "what can a reader reach". */
 export function slidesPanelCommands(): string[] {
-  return [...new Set(SLIDES_PANEL.map((row) => row.command))];
+  return panelCommands(SLIDES_PANEL);
 }
 
 /**
- * Every attribute the panel can set.
+ * Every attribute the panel can set, including the ones a row writes without naming.
  *
- * Some rows write **more than one**, and saying so is the point of this function rather than of the
- * rows: a destination picker writes `goTo`, `goToKind` and `goToDeck` together because a reader
- * chooses one thing and the command works out which of the three it was, and a crop reset writes all
- * four crops. A row per hidden attribute would be four controls a reader never wants.
+ * A destination picker writes `goTo`, `goToKind` and `goToDeck` together because a reader chooses
+ * one thing and the command works out which of the three it was; a crop reset writes all four crops.
+ * A row per hidden attribute would be controls nobody wants.
  */
 export function slidesPanelAttrs(): string[] {
-  const also: Record<string, string[]> = {
+  return panelAttrs(SLIDES_PANEL, {
     goTo: ['goToKind', 'goToDeck'],
     cropTop: ['cropRight', 'cropBottom', 'cropLeft'],
-    // A gradient and a flat shadow are what `fills` and `effects` fall back to, and the panel's
-    // stack writes whichever the shape is using.
-    /*
-     * And the flat pair the stack writes when a shape has no list — plus `fill` itself, which has no
-     * row: a shape's one colour *is* the first entry of the paint stack, so the swatch a reader
-     * presses is `1번 채우기` rather than a separate 색 row. Declaring one was declaring a control
-     * that is not there.
-     */
+    // The flat pair and the flat shadow are what `fills` and `effects` fall back to, and the panel's
+    // stack writes whichever the shape is using. `fill` has no row: a shape's one colour *is* the
+    // stack's first entry.
     fills: ['fill', 'gradientFrom', 'gradientTo', 'gradientAngle', 'gradientKind'],
     effects: ['shadowColor', 'shadowBlur', 'shadowAngle', 'shadowDistance'],
     // The transition row sets how long it takes as well as what it is.
     effect: ['duration']
-  };
-  return [...new Set(SLIDES_PANEL.flatMap((row) => [row.attr, ...(also[row.attr] ?? [])]))];
+  });
 }

@@ -60,6 +60,7 @@ export { ColorField, type ThemeSwatch } from './color-field';
 export { ColorPicker, type ColorPickerProps } from './color-picker';
 
 export { Dialog, DialogButton } from './dialog';
+export { PropertySheet, type SheetGroup, type SheetRow } from './property-sheet';
 
 export {
   PropertyPanel,

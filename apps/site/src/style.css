@@ -575,3 +575,12 @@ body {
   flex: 1;
   min-width: 0;
 }
+
+/* A placement's answers, one field per question its definition asks. */
+.st-values {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}

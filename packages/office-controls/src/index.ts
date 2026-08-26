@@ -1,3 +1,4 @@
+export * from './panel';
 import {
   markAttribute,
   markState,

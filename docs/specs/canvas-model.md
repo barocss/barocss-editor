@@ -414,6 +414,39 @@ silently, and a deferral that stops being true is reported like a stale
 exemption. Word and the deck are there for this one, and the reason is the same
 sentence one paragraph up.
 
+### A panel is the same thing in every editor, so it is one thing
+
+The rule above says one control per idea. A **panel** is the level up from a control, and the same
+argument applies to it with better numbers: the deck's panel is 2,863 lines of JSX and the site
+builder's was 615, and they drew the *same five controls* over and over — a name, a number with a
+unit, a colour, a list of values, a switch. Measured when the second one was written down as data,
+the two declarations shared **eight of their fields and five of their control kinds**, and Word's
+ruler is a third surface of the same shape.
+
+So the panel is split three ways, and the split is the whole design:
+
+- **The declaration is the product's** — `office-controls`' `PanelRow`. Which attribute a row writes,
+  which command writes it, which node types it appears for. Those are facts about a document model.
+- **The drawing is the suite's** — `office-ui`'s `PropertySheet`. The grid, the label column, the
+  override mark, and the five kinds every panel has wanted.
+- **The kinds are open at the edges.** `PanelRow<Kind>` takes the product's own union, and the sheet
+  hands back anything it does not know: a page's dataset picker, a deck's paint stack, a placement's
+  answers. Three answers from that hook — a node (draw it as a row), `null` (hide the row), or
+  `undefined` (the sheet draws it) — and the middle one exists because a labelled row with an empty
+  right-hand side reads as a control that failed to load.
+
+Two boundaries are worth stating because they were nearly crossed:
+
+- **`office-ui` has no editor dependency**, which was won rather than inherited — a three-state
+  toggle used to import `MarkState`. Importing `office-controls` would put it back, because a
+  `Control` reads a selection. So the sheet declares the minimum row shape it needs, `PanelRow`
+  satisfies it structurally, and the two meet at the app that depends on both: a divergence stops
+  the app compiling, which is the cheapest check there is.
+- **The sheet converts nothing.** Twips to pixels is a fact about a document model, so the product's
+  `value` callback does it. A sheet that converted would be a second place that knows what a
+  document means by a length — and the version that did was caught by a browser test showing `480`
+  where a reader expects `32`.
+
 ### A library has no view of itself unless one is built
 
 The rule above says every control draws with `var(--ou-…)`. Nothing checked it, and

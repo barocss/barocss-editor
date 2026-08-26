@@ -3,14 +3,10 @@ import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import {
   ChoiceSelect,
-  ColorField,
-  NumberField,
   PropertyEmpty,
-  PropertyGroup,
   PropertyPanel,
-  PropertyRow,
+  PropertySheet,
   PropertyTabs,
-  PropertyToggle,
   TextField,
   useRevision,
   type ThemeSwatch
@@ -265,10 +261,15 @@ type Shown = {
 };
 
 /**
- * The declaration, drawn.
+ * The declaration, drawn — by the **suite's** panel, not this app's.
  *
- * Groups in the order `panel-model.ts` lists them, rows in the order inside each — so moving a row
- * in that file moves it on screen, and there is no second place that decides what the panel has.
+ * `PropertySheet` draws the five kinds every editor's panel has (a name, a number with a unit, a
+ * colour, a list of values, a switch) and hands back anything it does not know. What is left here is
+ * the four kinds that are a *page's*: which dataset, which column, a placement's answers, and the
+ * sentence that says which width is being edited.
+ *
+ * That split is the point of the shared sheet. The deck's panel and this one drew the same five
+ * controls twice over, and every editor after them would have drawn them a third time.
  */
 function Groups({
   stype,
@@ -300,222 +301,143 @@ function Groups({
   if (empty && !page) return <PropertyEmpty>{empty}</PropertyEmpty>;
 
   const attrs = shown?.attrs ?? (page?.attributes as Record<string, any>) ?? {};
-  const groups = sitePanelGroups(stype, tab).filter((group) =>
-    group.rows.some((row) => visible(row, attrs, shown?.count ?? 1))
-  );
+  const count = shown?.count ?? 1;
+  const groups = sitePanelGroups(stype, tab)
+    .map((group) => ({ ...group, rows: group.rows.filter((row) => visible(row, attrs, count)) }))
+    .filter((group) => group.rows.length > 0);
 
   return (
     <>
-      {groups.map((group) => (
-        <PropertyGroup
-          key={group.label}
-          // The selection's group is named after what is selected, which is the one label the
-          // declaration cannot hold: it is a fact about the document, not about the panel.
-          label={
-            group.label === '선택'
-              ? shown && shown.count > 1
-                ? `${shown.count}개 선택됨`
-                : (shown?.label ?? group.label)
-              : group.label
-          }
-        >
-          {group.rows
-            .filter((row) => visible(row, attrs, shown?.count ?? 1))
-            .map((row) => (
-              <Row
-                key={`${row.group}.${row.attr}`}
-                row={row}
-                attrs={attrs}
-                raw={shown?.raw ?? attrs}
-                shown={shown}
-                at={at}
-                tokens={tokens}
-                data={data}
-                write={write}
-                run={run}
-              />
-            ))}
-        </PropertyGroup>
-      ))}
+      <PropertySheet
+        groups={groups}
+        /*
+         * Pixels out, twips in — and it is **here** rather than in the sheet because 15 twips to the
+         * pixel is a fact about this document model, not about how a number field behaves. The sheet
+         * asks the product what the value is; a sheet that converted would be a second place that
+         * knows what a document means by a length.
+         */
+        value={(row) => {
+          const held = attrs[row.attr];
+          if (row.unit !== 'px' || held === undefined) return held;
+          return Math.round(Number(held) / PX);
+        }}
+        /* A colour that follows a token must not be shown as the hex it resolves to. */
+        raw={(row) => (shown?.raw ?? attrs)[row.attr]}
+        marked={(row) => shown?.overridden.has(row.attr) === true}
+        swatches={tokens}
+        heading={(group) =>
+          /*
+           * The selection's group is named after what is selected, which is the one heading a
+           * declaration cannot hold: it is a fact about the document rather than about the panel.
+           */
+          group.label === '선택'
+            ? shown && shown.count > 1
+              ? `${shown.count}개 선택됨`
+              : (shown?.label ?? group.label)
+            : group.label
+        }
+        onWrite={(row, next) => write(row, commit(row, next))}
+        render={(row) => own(row, { attrs, shown, at, data, run })}
+      />
       {after ? <PropertyEmpty>{after}</PropertyEmpty> : null}
     </>
   );
 }
 
-/** Whether a row applies to what is selected, from what the row itself declares. */
-function visible(row: SitePanelRow, attrs: Record<string, any>, count: number): boolean {
-  if (row.single && count > 1) return false;
-  if (row.when && attrs[row.when.attr] !== row.when.is) return false;
-  return true;
+/**
+ * What a row's value becomes on the way into the document.
+ *
+ * Pixels to twips, and "nothing" for a length that has no natural zero: a `minWidth` of 0 and no
+ * `minWidth` draw the same and mean different things — one is a decision — and `undefined` is how a
+ * reader takes a value back at this width.
+ */
+function commit(row: SitePanelRow, next: unknown): unknown {
+  if (row.control !== 'number') return row.control === 'toggle' && next !== true ? undefined : next;
+  const floor = row.min ?? 0;
+  const kept = Math.max(floor, row.unit === 'px' ? Number(next) : Math.round(Number(next)));
+  if (row.fallback === undefined && kept <= 0) return undefined;
+  return kept * (row.unit === 'px' ? PX : 1);
 }
 
 /**
- * One row: a label, and the control its kind says it is.
+ * The kinds that are a **page's** rather than the suite's.
  *
- * The `switch` is total over `SitePanelControl` on purpose — a kind is a small closed set precisely
- * so that adding a row cannot quietly invent a control the product has never drawn before.
+ * `undefined` means "the sheet draws this one", which is how the shared five stay shared. A kind
+ * this does not answer and the sheet does not know draws nothing — visible and askable, rather than
+ * a guessed control that writes the wrong thing.
  */
-function Row({
-  row,
-  attrs,
-  raw,
-  shown,
-  at,
-  tokens,
-  data,
-  write,
-  run
-}: {
-  row: SitePanelRow;
-  attrs: Record<string, any>;
-  raw: Record<string, any>;
-  shown: Shown | null;
-  at: BreakpointId;
-  tokens: ThemeSwatch[];
-  data: { datasets: { id: string; label: string }[]; columns: { id: string; label: string }[] };
-  write: (row: SitePanelRow, value: unknown) => void;
-  run: (name: string, payload: Record<string, unknown>) => void;
-}) {
-  /** A property whose value at this width is this width's own rather than the page's. */
-  const mark = shown?.overridden.has(row.attr) ? ' ·' : '';
-  const label = `${row.label}${mark}`;
-  const value = attrs[row.attr];
-  const disabled = row.needs !== undefined && !attrs[row.needs];
-
-  /** Pixels in the panel, twips in the document — for the rows that say they are lengths. */
-  const shownNumber =
-    value === undefined
-      ? row.fallback === undefined
-        ? null
-        : Number(row.fallback)
-      : row.unit === 'px'
-        ? Math.round(Number(value) / PX)
-        : Number(value);
+function own(
+  row: SitePanelRow,
+  ctx: {
+    attrs: Record<string, any>;
+    shown: Shown | null;
+    at: BreakpointId;
+    data: { datasets: { id: string; label: string }[]; columns: { id: string; label: string }[] };
+    run: (name: string, payload: Record<string, unknown>) => void;
+  }
+): React.ReactNode | undefined {
+  const { attrs, shown, at, data, run } = ctx;
 
   switch (row.control) {
     case 'static':
-      return (
-        <PropertyRow label={label}>
-          <span className="st-kind">{kindOfBlock(shown?.stype ?? '') ?? shown?.stype}</span>
-        </PropertyRow>
-      );
+      return <span className="st-kind">{kindOfBlock(shown?.stype ?? '') ?? shown?.stype}</span>;
 
     case 'note':
       // Only worth saying when it is true: at the widest width every value is the page's own.
       if (at === 'desktop') return null;
       return (
-        <PropertyRow label={label}>
-          <span className="st-at-note">
-            {BREAKPOINTS.find((one) => one.id === at)?.label}에서 바꾼 값만 이 폭에 적용됩니다.
-          </span>
-        </PropertyRow>
+        <span className="st-at-note">
+          {BREAKPOINTS.find((one) => one.id === at)?.label}에서 바꾼 값만 이 폭에 적용됩니다.
+        </span>
       );
 
-    case 'text':
-      return (
-        <PropertyRow label={label}>
-          <TextField
-            value={String(value ?? '')}
-            onCommit={(next) => write(row, next || undefined)}
-            ariaLabel={row.ariaLabel}
-            disabled={disabled}
-            placeholder={row.attr === 'name' ? (kindOfBlock(shown?.stype ?? '') ?? '') : undefined}
-          />
-        </PropertyRow>
-      );
-
-    case 'number':
-      return (
-        <PropertyRow label={label}>
-          <NumberField
-            value={shownNumber}
-            onCommit={(next) => {
-              const floor = row.min ?? 0;
-              const kept = Math.max(floor, row.unit === 'px' ? next : Math.round(next));
-              /*
-               * Nothing rather than zero, for a length that has no natural zero. A `minWidth` of 0
-               * and no `minWidth` draw the same and mean different things — one is a decision — and
-               * `undefined` is how a reader takes a value back at this width.
-               */
-              write(row, row.fallback === undefined && kept <= 0 ? undefined : kept * (row.unit === 'px' ? PX : 1));
-            }}
-            ariaLabel={row.ariaLabel}
-            suffix={row.unit}
-            min={row.min}
-            disabled={disabled}
-          />
-        </PropertyRow>
-      );
-
-    case 'colour':
-      return (
-        <PropertyRow label={label}>
-          {/*
-            The site's own colours beside any colour at all. Choosing one writes `var:강조` — a
-            reference rather than a hex — so changing the token later changes every block that
-            follows it. Read from `raw`, because a colour that follows a token must not be shown as
-            the hex it currently resolves to.
-          */}
-          <ColorField
-            value={typeof raw[row.attr] === 'string' ? raw[row.attr] : null}
-            varSwatches={tokens}
-            onChange={(next) => write(row, next)}
-            onClear={() => write(row, undefined)}
-            ariaLabel={row.ariaLabel}
-          />
-        </PropertyRow>
-      );
-
-    case 'toggle':
-      return (
-        <PropertyRow label={label}>
-          <PropertyToggle
-            value={value === true}
-            onChange={(next) => write(row, next ? true : undefined)}
-            label={row.label === '넘침' ? '자르기' : row.label}
-            ariaLabel={row.ariaLabel}
-          />
-        </PropertyRow>
-      );
-
-    case 'choice':
     case 'dataset':
     case 'column':
+      /*
+       * Two lists only the **document** can supply, which is why they are kinds and not `options`.
+       * A reader picks a column rather than typing one, and that is the reason `dataset.fields` is
+       * declared rather than inferred from the first row: a panel has to offer the fields before
+       * there is a row on screen.
+       */
       return (
-        <PropertyRow label={label}>
-          <ChoiceSelect
-            value={String(value ?? row.fallback ?? '')}
-            options={
-              row.control === 'dataset' ? data.datasets : row.control === 'column' ? data.columns : (row.options ?? [])
-            }
-            onChange={(next) => write(row, row.attr === 'level' ? Number(next) : next || undefined)}
-            ariaLabel={row.ariaLabel}
-            disabled={disabled}
-          />
-        </PropertyRow>
+        <ChoiceSelect
+          value={String(attrs[row.attr] ?? '')}
+          options={row.control === 'dataset' ? data.datasets : data.columns}
+          onChange={(next) => run('setBlockFormat', { nodeIds: shown?.ids, at, [row.attr]: next || undefined })}
+          ariaLabel={row.ariaLabel}
+          disabled={row.needs !== undefined && !attrs[row.needs]}
+        />
       );
 
     case 'values':
       /*
        * One declared row, many on screen: how many there are is a fact about the *definition*, which
-       * only the document knows. So the declaration says the shape — this command, this kind — and
-       * this draws one row per question.
+       * only the document knows. So the declaration says the shape and this draws one per question.
        */
       if (!shown) return null;
       if (shown.count > 1) return <PropertyEmpty>한 블록만 선택했을 때 값을 바꿀 수 있습니다.</PropertyEmpty>;
       if (shown.values.length === 0) return <PropertyEmpty>이 정의는 묻는 것이 없습니다.</PropertyEmpty>;
       return (
-        <>
+        <span className="st-values">
           {shown.values.map((one) => (
-            <PropertyRow key={one.sid} label={one.name}>
-              <TextField
-                value={one.value}
-                onCommit={(next) => run('setComponentValue', { nodeId: shown.ids[0], name: one.name, value: next })}
-                ariaLabel={one.name}
-              />
-            </PropertyRow>
+            <TextField
+              key={one.sid}
+              value={one.value}
+              onCommit={(next) => run('setComponentValue', { nodeId: shown.ids[0], name: one.name, value: next })}
+              ariaLabel={one.name}
+            />
           ))}
-        </>
+        </span>
       );
+
+    default:
+      return undefined;
   }
+}
+
+/** Whether a row applies to what is selected, from what the row itself declares. */
+function visible(row: SitePanelRow, attrs: Record<string, any>, count: number): boolean {
+  if (row.single && count > 1) return false;
+  if (row.when && !row.when.is.includes(attrs[row.when.attr])) return false;
+  return true;
 }

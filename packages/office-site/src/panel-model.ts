@@ -1,5 +1,5 @@
 /**
- * What the property panel offers, as data.
+ * What the site builder's property panel offers, as data.
  *
  * ## The third surface, which was the last one still hiding
  *
@@ -39,7 +39,23 @@
  * accident in the app.
  */
 
-/** The kinds of control the panel can draw. Closed, so the panel's `switch` is total. */
+import {
+  panelAttrs,
+  panelCommands,
+  panelGroupsFor,
+  panelRowsFor,
+  type PanelRow
+} from '@barocss/office-controls';
+import { SELECTABLE } from './selection';
+
+/**
+ * The kinds of control this panel draws.
+ *
+ * The first five are `office-controls`' `CommonPanelControl` and `office-ui`'s `PropertySheet`
+ * draws them without being told anything; the rest are a **page's** own and are drawn by the
+ * inspector's `render`. Closed, so the inspector's switch stays total and a new kind cannot be
+ * invented in the app.
+ */
 export type SitePanelControl =
   | 'text'
   | 'number'
@@ -60,78 +76,8 @@ export type SitePanelControl =
 /** Which pane of the panel a row sits in. */
 export type SitePanelTab = 'block' | 'style' | 'data' | 'values' | 'page';
 
-export interface SitePanelRow {
-  /**
-   * The attribute this row writes.
-   *
-   * The key the new check asks about, so it is the document's word and not the panel's: `sizing`,
-   * not `폭`. Rows that write nothing (`static`, `note`) still name what they are *about*, because a
-   * reader looking for where `stype` is shown should find this row.
-   */
-  attr: string;
-  /**
-   * Whether the row writes an **attribute** of the selected node, or a **child node** of it.
-   *
-   * The distinction is the schema's own — `site-schema.ts` says it prefers declarations made of
-   * nodes, and a placement's answers are `componentValue` children rather than a map on the
-   * placement. So the 값 row's `attr` names a node type, not an attribute, and the test that reads
-   * this file reported it as writing something `instance` does not declare. Which it was right to:
-   * one field meaning both would have been the declaration lying about what it does.
-   *
-   * `sitePanelAttrs()` counts only `attr` rows, which is the honest answer to "which attributes can
-   * a reader change".
-   */
-  writes?: 'attr' | 'child';
-  /** The command that writes it. `undefined` for a row that only reads. */
-  command?: string;
-  /** The heading the row sits under, which is what a reader navigates by. */
-  group: string;
-  tab: SitePanelTab;
-  /** What a reader reads at the start of the row. */
-  label: string;
-  /**
-   * What a screen reader and a test read.
-   *
-   * Separate from `label` because two rows in different groups can both be called 이름, and an
-   * accessible name has to be unique in the panel — measured on the deck, where three rows called
-   * 크기 made every one of them ambiguous to a test and to a reader.
-   */
-  ariaLabel: string;
-  control: SitePanelControl;
-  /** The fixed set, for a `choice`. */
-  options?: { id: string; label: string }[];
-  /**
-   * What the control shows when the node says nothing.
-   *
-   * Declared rather than left to the panel because it is a **product** decision — `sizing` shows
-   * 채우기 with nothing stated, and that is a claim about what a page means by silence
-   * (`renderers.ts`), not about how a select behaves.
-   */
-  fallback?: unknown;
-  /** Twips in the document, pixels in the panel — the suite's one unit rule, said per row. */
-  unit?: 'px';
-  min?: number;
-  /**
-   * Which node types the row appears for. Absent means every selectable block.
-   *
-   * A list rather than a predicate so the check can read it: "which rows can ever set `fit`" is a
-   * question about this array, and a function would make it a question about running the panel.
-   */
-  on?: string[];
-  /** Shown only when another attribute has this value — 열 belongs to a grid and nothing else. */
-  when?: { attr: string; is: unknown };
-  /** Drawn but not editable until another attribute has a value. */
-  needs?: string;
-  /**
-   * Only when **one** block is selected.
-   *
-   * A product rule and not a panel one, which is why it is declared: two blocks cannot share a name,
-   * so a name typed into a selection of three is a question with no good answer. Everything else in
-   * the panel applies to all of them — selecting three cards and typing one number changes three
-   * cards, which is the whole reason a selection can hold more than one.
-   */
-  single?: boolean;
-}
+/** A row of the site's panel — `office-controls`' shape, with this product's kinds. */
+export type SitePanelRow = PanelRow<SitePanelControl> & { tab: SitePanelTab };
 
 /** Every stack: the two node types that arrange what is in them. */
 const STACKS = ['frame', 'collection'];
@@ -193,7 +139,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     on: STACKS,
     // A grid has columns and nothing else does. A row that is always there and does nothing for two
     // of the three arrangements is a row a reader learns to ignore.
-    when: { attr: 'layoutMode', is: 'grid' }
+    when: { attr: 'layoutMode', is: ['grid'] }
   },
   { attr: 'gap', command: 'setBlockFormat', group: '배치', tab: 'block', label: '간격', ariaLabel: '간격', control: 'number', unit: 'px', min: 0, fallback: 0, on: STACKS },
   { attr: 'padding', command: 'setBlockFormat', group: '배치', tab: 'block', label: '안쪽 여백', ariaLabel: '안쪽 여백', control: 'number', unit: 'px', min: 0, fallback: 0, on: STACKS },
@@ -329,44 +275,28 @@ export const SITE_PANEL: SitePanelRow[] = [
   { attr: 'path', command: 'setPageInfo', group: '페이지', tab: 'page', label: '주소', ariaLabel: '페이지 주소', control: 'text', on: ['surface'] }
 ];
 
-/** The rows for one node type, in one pane, in the order the panel draws them. */
+/**
+ * The rows for one node type, in one pane, in the order the panel draws them.
+ *
+ * A row with no `on` applies to every **block** — which is what `SELECTABLE` means here, and why the
+ * shared helper takes the question rather than guessing it: a deck means every box on a slide by
+ * "anything", and the two would quietly answer each other's question.
+ */
 export function sitePanelRows(stype: string | undefined, tab?: SitePanelTab): SitePanelRow[] {
-  return SITE_PANEL.filter(
-    (row) =>
-      (tab === undefined || row.tab === tab) &&
-      (row.on === undefined ? stype !== 'surface' : stype !== undefined && row.on.includes(stype))
-  );
+  return panelRowsFor(SITE_PANEL, stype, tab, (one) => SELECTABLE.has(one));
 }
 
 /** The groups a pane has, in order, with their rows — which is how the panel is drawn. */
-export function sitePanelGroups(stype: string | undefined, tab: SitePanelTab): { label: string; rows: SitePanelRow[] }[] {
-  const groups: { label: string; rows: SitePanelRow[] }[] = [];
-  for (const row of sitePanelRows(stype, tab)) {
-    const last = groups[groups.length - 1];
-    if (last && last.label === row.group) last.rows.push(row);
-    else groups.push({ label: row.group, rows: [row] });
-  }
-  return groups;
+export function sitePanelGroups(stype: string | undefined, tab: SitePanelTab) {
+  return panelGroupsFor(sitePanelRows(stype, tab));
 }
 
-/**
- * Every command the panel can run — the third answer to "what can a reader reach".
- *
- * Measured rather than listed, like `siteToolbarCommands()`: a row that names a command the product
- * does not register is a row that does nothing, and the harness says so.
- */
+/** Every command the panel can run — the third answer to "what can a reader reach". */
 export function sitePanelCommands(): string[] {
-  return [...new Set(SITE_PANEL.map((row) => row.command).filter((one): one is string => !!one))];
+  return panelCommands(SITE_PANEL);
 }
 
-/**
- * Every attribute the panel can set, which is the other half of the new question.
- *
- * `stype` is not one of them — a reader is *told* what they selected — so a row with no command
- * contributes nothing here. That is the honest reading: this answers "what can a reader change".
- */
+/** Every attribute the panel can set — see `panelAttrs`. */
 export function sitePanelAttrs(): string[] {
-  return [
-    ...new Set(SITE_PANEL.filter((row) => row.command && row.writes !== 'child').map((row) => row.attr))
-  ];
+  return panelAttrs(SITE_PANEL);
 }

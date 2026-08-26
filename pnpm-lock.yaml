@@ -972,6 +972,9 @@ importers:
       '@barocss/office-canvas':
         specifier: workspace:*
         version: link:../office-canvas
+      '@barocss/office-controls':
+        specifier: workspace:*
+        version: link:../office-controls
       '@barocss/office-text':
         specifier: workspace:*
         version: link:../office-text
