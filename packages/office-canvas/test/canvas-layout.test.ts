@@ -36,6 +36,68 @@ describe('arranging what is in a frame', () => {
     expect(moved.size).toBe(0);
   });
 
+  describe('along the axis, and the four sides', () => {
+    /**
+     * Where the leftover goes.
+     *
+     * A frame bigger than what it holds put every spare twip at the end, always — so the row every
+     * navigation bar on the web is could not be said: *the mark at one end, the links at the
+     * other*. `alignItems` was the cross axis and there was no word for this one.
+     */
+    it('puts what is left where the frame says, along the axis', () => {
+      /*
+       * Started somewhere nothing arranges them to. `layoutChildren` answers with what *moves*, so
+       * a child that happens to already be where the arrangement wants it is absent — and a test
+       * that started them all at 0 read `start` as two children instead of three.
+       */
+      const three = () => [child('a', 5, 7, 1000, 500), child('b', 5, 7, 1000, 500), child('c', 5, 7, 1000, 500)];
+      const row = (justifyContent: string) =>
+        layoutChildren(frame({ layoutMode: 'row', justifyContent, width: 10000 }), three());
+
+      // 10000 wide, 3000 taken: 7000 spare.
+      expect([...row('start').values()].map((at) => at.x)).toEqual([0, 1000, 2000]);
+      expect([...row('center').values()].map((at) => at.x)).toEqual([3500, 4500, 5500]);
+      expect([...row('end').values()].map((at) => at.x)).toEqual([7000, 8000, 9000]);
+      // The one a nav bar is: the ends touch the ends.
+      expect([...row('between').values()].map((at) => at.x)).toEqual([0, 4500, 9000]);
+      expect([...row('evenly').values()].map((at) => at.x)).toEqual([1750, 4500, 7250]);
+    });
+
+    it('has nothing to distribute once a child has taken the room', () => {
+      /*
+       * `layoutGrow` and `justifyContent` are the same leftover, asked for twice. A child that
+       * asked for a share has already been given it, so there is nothing left to spread — which is
+       * the interaction CSS makes too, and the one that keeps a filling child from being pushed
+       * off the end by a distribution that thought the room was still free.
+       */
+      const moved = layoutChildren(frame({ layoutMode: 'row', justifyContent: 'between', width: 10000 }), [
+        { ...child('a', 5, 7, 1000, 500), grow: 1 },
+        child('b', 5, 7, 1000, 500)
+      ]);
+      expect(moved.get('a')).toEqual({ x: 0, y: 0, width: 9000 });
+      expect(moved.get('b')).toEqual({ x: 9000, y: 0 });
+    });
+
+    it('reads a side of its own where it has one, and the shorthand where it does not', () => {
+      const moved = layoutChildren(
+        frame({ layoutMode: 'column', padding: 100, paddingTop: 600, paddingLeft: 300 }),
+        [child('a', 5, 7, 1000, 500), child('b', 5, 7, 1000, 500)]
+      );
+      // Top and left are their own; the gap between the two children is untouched by either.
+      expect(moved.get('a')).toEqual({ x: 300, y: 600 });
+      expect(moved.get('b')).toEqual({ x: 300, y: 1100 });
+    });
+
+    it('measures the room across the axis between the two sides that bound it', () => {
+      // A row 6000 tall with 600 above and 1400 below centres against the 4000 between them.
+      const moved = layoutChildren(
+        frame({ layoutMode: 'row', alignItems: 'center', paddingTop: 600, paddingBottom: 1400, height: 6000 }),
+        [child('a', 5, 7, 1000, 1000)]
+      );
+      expect(moved.get('a')).toEqual({ x: 0, y: 2100 });
+    });
+  });
+
   it('lays a row out left to right, with the gap between', () => {
     const moved = layoutChildren(
       frame({ layoutMode: 'row', gap: 200, padding: 100 }),

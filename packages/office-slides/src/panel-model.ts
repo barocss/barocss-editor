@@ -210,7 +210,49 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
     ]
   },
   { attr: 'gap', command: 'setFrameLayout', group: '배치', tab: 'style', label: '간격', ariaLabel: '간격', control: 'number', fallback: 0, min: 0, when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
-  { attr: 'padding', command: 'setFrameLayout', group: '배치', tab: 'style', label: '여백', ariaLabel: '안쪽 여백', control: 'number', fallback: 0, min: 0, when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
+  {
+    attr: 'padding',
+    command: 'setFrameLayout',
+    group: '배치',
+    tab: 'style',
+    label: '여백',
+    ariaLabel: '안쪽 여백',
+    control: 'number',
+    fallback: 0,
+    min: 0,
+    when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] },
+    /*
+     * And the four sides beside it, each falling back to this one — the same row the page's panel
+     * draws, because it is the same frame. A box whose title needs air above it and none below is
+     * as ordinary on a slide as it is on a page.
+     */
+    with: [
+      { attr: 'paddingTop', command: 'setFrameLayout', group: '배치', tab: 'style', label: '위', ariaLabel: '위쪽 여백', control: 'number', min: 0 },
+      { attr: 'paddingRight', command: 'setFrameLayout', group: '배치', tab: 'style', label: '오른쪽', ariaLabel: '오른쪽 여백', control: 'number', min: 0 },
+      { attr: 'paddingBottom', command: 'setFrameLayout', group: '배치', tab: 'style', label: '아래', ariaLabel: '아래쪽 여백', control: 'number', min: 0 },
+      { attr: 'paddingLeft', command: 'setFrameLayout', group: '배치', tab: 'style', label: '왼쪽', ariaLabel: '왼쪽 여백', control: 'number', min: 0 }
+    ]
+  },
+  /** And where they sit **along** the axis — `교차 축 맞춤`'s other half. */
+  {
+    attr: 'justifyContent',
+    command: 'setFrameLayout',
+    group: '배치',
+    tab: 'style',
+    label: '분배',
+    ariaLabel: '주 축 분배',
+    control: 'choice',
+    fallback: 'start',
+    when: { attr: 'layoutMode', is: ['row', 'column'] },
+    options: [
+      { id: 'start', label: '시작' },
+      { id: 'center', label: '가운데' },
+      { id: 'end', label: '끝' },
+      { id: 'between', label: '양끝' },
+      { id: 'around', label: '둘레' },
+      { id: 'evenly', label: '고르게' }
+    ]
+  },
   // `교차 축 맞춤`, not `맞춤` — the browser check is what caught the difference, which is the whole
   // reason a declaration read out of JSX needs one.
   {

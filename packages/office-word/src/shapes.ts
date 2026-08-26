@@ -160,6 +160,22 @@ export function canvasViewBox(attrs: { width?: number; height?: number } | undef
 }
 
 /**
+ * The schema's word for where the children sit along the axis, in CSS's.
+ *
+ * A table rather than a chain of ternaries because there are six of them now, and because the two
+ * vocabularies genuinely differ: `between` is CSS's `space-between`, and a reader of the schema
+ * should not have to know that.
+ */
+const JUSTIFY: Record<string, string> = {
+  start: 'flex-start',
+  center: 'center',
+  end: 'flex-end',
+  between: 'space-between',
+  around: 'space-around',
+  evenly: 'space-evenly'
+};
+
+/**
  * How a frame draws itself, and how it arranges blocks.
  *
  * A frame is a layout box rather than a drawing, so this is CSS: `flex` for a
@@ -179,7 +195,12 @@ export function frameCss(
         layoutMode?: string;
         gap?: number;
         padding?: number;
+        paddingTop?: number;
+        paddingRight?: number;
+        paddingBottom?: number;
+        paddingLeft?: number;
         alignItems?: string;
+        justifyContent?: string;
         columns?: number;
         clipsContent?: boolean;
         cornerRadius?: number;
@@ -210,15 +231,28 @@ export function frameCss(
   }
 
   const gap = `${twipToPx(number(attrs?.gap, 0))}px`;
-  const padding = `${twipToPx(number(attrs?.padding, 0))}px`;
+
+  /**
+   * The four sides, each falling back to the one number.
+   *
+   * Written out rather than as the CSS shorthand with `undefined` holes in it: a frame that states
+   * only `paddingTop` means "that at the top, and `padding` everywhere else", and a shorthand built
+   * from a missing value is `0` — which reads as a deliberate zero and is not one.
+   */
+  const side = (own: number | undefined) => twipToPx(number(own ?? attrs?.padding, 0));
+  const padding =
+    `${side(attrs?.paddingTop)}px ${side(attrs?.paddingRight)}px ` +
+    `${side(attrs?.paddingBottom)}px ${side(attrs?.paddingLeft)}px`;
+
   const align =
     attrs?.alignItems === 'center' ? 'center' : attrs?.alignItems === 'end' ? 'flex-end' : 'flex-start';
+  const justify = JUSTIFY[String(attrs?.justifyContent)] ?? 'flex-start';
 
   switch (attrs?.layoutMode) {
     case 'row':
-      return { ...css, display: 'flex', flexDirection: 'row', gap, padding, alignItems: align };
+      return { ...css, display: 'flex', flexDirection: 'row', gap, padding, alignItems: align, justifyContent: justify };
     case 'column':
-      return { ...css, display: 'flex', flexDirection: 'column', gap, padding, alignItems: align };
+      return { ...css, display: 'flex', flexDirection: 'column', gap, padding, alignItems: align, justifyContent: justify };
     case 'grid':
       return {
         ...css,
@@ -226,7 +260,9 @@ export function frameCss(
         gridTemplateColumns: `repeat(${Math.max(1, Math.round(number(attrs?.columns, 2)))}, minmax(0, 1fr))`,
         gap,
         padding,
-        alignItems: attrs?.alignItems === 'center' ? 'center' : attrs?.alignItems === 'end' ? 'end' : 'start'
+        alignItems: attrs?.alignItems === 'center' ? 'center' : attrs?.alignItems === 'end' ? 'end' : 'start',
+        // A grid distributes its **tracks**, which is what `justify-content` means on one.
+        justifyContent: justify
       };
     default:
       return { ...css, padding };

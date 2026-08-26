@@ -150,7 +150,61 @@ export const SITE_PANEL: SitePanelRow[] = [
     when: { attr: 'layoutMode', is: ['grid'] }
   },
   { attr: 'gap', command: 'setBlockFormat', group: '배치', tab: 'block', label: '간격', ariaLabel: '간격', control: 'number', unit: 'px', min: 0, fallback: 0, on: STACKS },
-  { attr: 'padding', command: 'setBlockFormat', group: '배치', tab: 'block', label: '안쪽 여백', ariaLabel: '안쪽 여백', control: 'number', unit: 'px', min: 0, fallback: 0, on: STACKS },
+  {
+    attr: 'padding',
+    command: 'setBlockFormat',
+    group: '배치',
+    tab: 'block',
+    label: '안쪽 여백',
+    ariaLabel: '안쪽 여백',
+    control: 'number',
+    unit: 'px',
+    min: 0,
+    fallback: 0,
+    on: STACKS,
+    /*
+     * One number, and the four sides beside it — each falling back to this one.
+     *
+     * The shorthand stays the row a reader reads first because the common case really is one
+     * number; the four are companions rather than rows of their own for the reason `with` exists at
+     * all: five labelled rows saying almost the same word down a 280px column is a panel nobody
+     * reads. What forced the four is that a hero is 96 above and 64 below, and until now the answer
+     * to that was a second stack.
+     */
+    with: [
+      { attr: 'paddingTop', command: 'setBlockFormat', group: '배치', tab: 'block', label: '위', ariaLabel: '위쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'paddingRight', command: 'setBlockFormat', group: '배치', tab: 'block', label: '오른쪽', ariaLabel: '오른쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'paddingBottom', command: 'setBlockFormat', group: '배치', tab: 'block', label: '아래', ariaLabel: '아래쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'paddingLeft', command: 'setBlockFormat', group: '배치', tab: 'block', label: '왼쪽', ariaLabel: '왼쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS }
+    ]
+  },
+  /**
+   * Where the children sit **along** the stack — the half `맞춤` never asked about.
+   *
+   * A navigation bar is the case: the mark at one end, the links at the other, which is
+   * `space-between` and was unsayable. Only for a row or a column, because a grid distributes
+   * tracks rather than children and a page's grid is already `1fr` per column.
+   */
+  {
+    attr: 'justifyContent',
+    command: 'setBlockFormat',
+    group: '배치',
+    tab: 'block',
+    label: '분배',
+    ariaLabel: '주 축 분배',
+    control: 'choice',
+    fallback: 'start',
+    on: STACKS,
+    when: { attr: 'layoutMode', is: ['row', 'column'] },
+    options: [
+      { id: 'start', label: '앞으로' },
+      { id: 'center', label: '가운데' },
+      { id: 'end', label: '뒤로' },
+      { id: 'between', label: '양끝' },
+      { id: 'around', label: '둘레' },
+      { id: 'evenly', label: '고르게' }
+    ]
+  },
   {
     attr: 'alignItems',
     command: 'setBlockFormat',

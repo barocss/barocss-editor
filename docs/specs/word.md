@@ -23,7 +23,7 @@ So Word and the site builder take the *same* document shape and disagree about
 one thing: Word cuts it into pages of a fixed size, and a site builder reflows it
 to the width of a window. Neither is a new document.
 
-What it holds, measured: **107 node types, 1,053 attribute slots** — which is
+What it holds, measured: **107 node types, 1,058 attribute slots** — which is
 three times the deck's and eight times the site builder's, and is the whole
 reason Word is where the shared vocabulary came from.
 
@@ -81,8 +81,8 @@ Four numbers, all produced by `packages/office-word/test/conformance.test.ts`:
 | --- | ---: |
 | commands registered | 166 (152 Word's own) |
 | attributes the product **draws** | 611 |
-| of those, **unread** — declared and reaching nothing | 184 *(ratchet)* |
-| of those, **unsettable** — drawn and reachable by nothing | 178 *(ratchet)* |
+| of those, **unread** — declared and reaching nothing | 185 *(ratchet)* |
+| of those, **unsettable** — drawn and reachable by nothing | 182 *(ratchet)* |
 | attributes a reader can set, from the two declared surfaces | 21 |
 
 Both counts are ratchets rather than exemption lists, and for the same reason:
@@ -111,6 +111,13 @@ The 60 names left group themselves, and the grouping *is* the work list:
 
 plus a handful a **drag** writes on a drawing, which are exemptions rather than
 work.
+
+Both ratchets went **up by four and one** when the shared frame learned where its
+children sit along the axis and what its four sides are worth: `justifyContent`
+and `paddingTop`…`paddingLeft` are drawn by `frameCss`, which is Word's own file,
+and Word has nowhere to set them because Word has no panel. A number going up is
+the harness working — the attributes are real, the drawing is real, and the gap
+is the sixth dialog rather than a regression.
 
 Read the other way, that table says: *Word can draw a bordered, multi-column,
 precisely-spaced document and can only make one by opening a file that already

@@ -330,8 +330,42 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
         },
         gap: { type: 'number', default: 0 },
         padding: { type: 'number', default: 0 },
+        /**
+         * And the four sides, when they differ — each falling back to `padding`.
+         *
+         * A shorthand and four overrides rather than four required numbers, because the common case
+         * really is one number and a schema that made every frame say it four times would be four
+         * places for a card's inset to drift. What forced the four is that the common case is *not*
+         * the only one: a page's hero is 96 above and 64 below, a nav bar is tight vertically and
+         * generous horizontally, and a section that touches the one over it needs its top back.
+         * Every layout tool has these, and until they existed the answer here was one number for
+         * all four sides — which is a diagram's vocabulary, the same shape of gap the deck's paint
+         * stack found in `fill`.
+         */
+        paddingTop: { type: 'number', required: false },
+        paddingRight: { type: 'number', required: false },
+        paddingBottom: { type: 'number', required: false },
+        paddingLeft: { type: 'number', required: false },
         /** Where a child sits across the arrangement's axis — see `layoutChildren`. */
         alignItems: { type: 'string', default: 'start', options: ['start', 'center', 'end'] },
+        /**
+         * And where the children sit **along** it, when they do not fill it.
+         *
+         * The other half of an arrangement, and the half that was missing: `alignItems` is the cross
+         * axis, so a row could say "these sit in the middle vertically" and could not say the thing
+         * every navigation bar on the web says — *the mark on the left, the links on the right*.
+         * The workaround is a spacer that fills, which is a node a reader has to know to make and
+         * has to keep the right way round.
+         *
+         * `between` is the one that makes a nav bar; `around` and `evenly` come with it because
+         * they are the same measurement divided differently, and refusing them would be a menu with
+         * an obvious hole in it.
+         */
+        justifyContent: {
+          type: 'string',
+          default: 'start',
+          options: ['start', 'center', 'end', 'between', 'around', 'evenly']
+        },
         columns: { type: 'number', default: 2 },
         ...geometry,
         /**

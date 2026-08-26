@@ -259,7 +259,14 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * will build, and an exemption saying "owed" sixty times is a hand-kept list wearing a
        * harness's clothes.
        */
-      ratchet: { 'every-attribute-is-read': 184, 'every-property-can-be-edited': 178 },
+      /*
+       * **Up by one and by four**, which a ratchet is supposed to make expensive and which is
+       * correct here: the shared frame learned `justifyContent` and its four sides, `frameCss`
+       * draws them — a navigation bar's `space-between` is Word's frame too — and Word has nowhere
+       * to set them, because Word has no panel and no dialogs. Real attributes, really drawn,
+       * owed to the sixth dialog rather than regressed.
+       */
+      ratchet: { 'every-attribute-is-read': 185, 'every-property-can-be-edited': 182 },
 
       /**
        * Every attribute a reader can **set**, out of Word's two writing surfaces.

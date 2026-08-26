@@ -267,6 +267,8 @@ describe('the site builder draws what it declares', () => {
          * instrument rather than a gap in the product — and each says where the reading is held.
          */
         gap: 'read by `frameCss`, but only with an arrangement: a gap without one is not a length',
+        justifyContent:
+          'read by `frameCss` for a row or a column; on a bare node there is no axis to distribute along',
         columns: 'read by `frameCss` for a grid; on a bare node there is no grid to have columns',
         limit: 'read by `rowsOf` when the list has data — held in `collection.test.ts`',
         sortBy: 'read by `rowsOf` when the list has data — held in `collection.test.ts`',

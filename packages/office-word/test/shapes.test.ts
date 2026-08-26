@@ -3,6 +3,7 @@ import {
   canvasCss,
   canvasViewBox,
   ellipseAttrs,
+  frameCss,
   isVisible,
   lineAttrs,
   rectangleAttrs,
@@ -17,6 +18,34 @@ import {
  * so is SVG. The parts worth pinning are the ones where the two disagree: where
  * a rotation turns about, and what a shape with no fill is.
  */
+describe('a frame, as CSS', () => {
+  /**
+   * The two things a stack could not say, and one of them is on every web page ever made.
+   *
+   * `alignItems` is the cross axis, so a row could centre its children vertically and had no word
+   * for *the mark at one end and the links at the other*. And a padding was one number, so a hero
+   * with 96 above and 64 below needed a second stack to hold the difference.
+   */
+  it('distributes what is left along the axis', () => {
+    expect(frameCss({ layoutMode: 'row', justifyContent: 'between' } as never).justifyContent).toBe('space-between');
+    expect(frameCss({ layoutMode: 'column', justifyContent: 'center' } as never).justifyContent).toBe('center');
+    expect(frameCss({ layoutMode: 'grid', justifyContent: 'evenly' } as never).justifyContent).toBe('space-evenly');
+    // The schema's word and CSS's differ, which is why there is a table rather than a pass-through.
+    expect(frameCss({ layoutMode: 'row', justifyContent: 'end' } as never).justifyContent).toBe('flex-end');
+    expect(frameCss({ layoutMode: 'row' } as never).justifyContent).toBe('flex-start');
+  });
+
+  it('writes four sides, each falling back to the one number', () => {
+    // 300 twips is 20px; a side that says nothing takes the shorthand rather than zero, which is
+    // the whole difference between "no padding here" and "nothing said about here".
+    expect(frameCss({ layoutMode: 'column', padding: 300, paddingTop: 1440 } as never).padding).toBe(
+      '96px 20px 20px 20px'
+    );
+    expect(frameCss({ layoutMode: 'row', padding: 300 } as never).padding).toBe('20px 20px 20px 20px');
+    expect(frameCss({ paddingLeft: 1440 } as never).padding).toBe('0px 0px 0px 96px');
+  });
+});
+
 describe('turning a shape', () => {
   it('turns it about its own middle', () => {
     // Every drawing tool rotates a shape about its centre. SVG rotates about

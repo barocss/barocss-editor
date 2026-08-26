@@ -104,11 +104,21 @@ export class CanvasLayoutExtension implements Extension {
   private _settingsOf(payload: any): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     if (typeof payload?.layoutMode === 'string') out.layoutMode = payload.layoutMode;
-    for (const key of ['gap', 'padding', 'columns'] as const) {
+    for (const key of [
+      'gap',
+      'padding',
+      // The four sides, each meaning "this one, rather than the shorthand" — see the schema.
+      'paddingTop',
+      'paddingRight',
+      'paddingBottom',
+      'paddingLeft',
+      'columns'
+    ] as const) {
       const value = payload?.[key];
       if (typeof value === 'number' && Number.isFinite(value)) out[key] = Math.max(0, value);
     }
     if (typeof payload?.alignItems === 'string') out.alignItems = payload.alignItems;
+    if (typeof payload?.justifyContent === 'string') out.justifyContent = payload.justifyContent;
     return out;
   }
 

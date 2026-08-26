@@ -565,6 +565,16 @@ describe('Slides draws what its schema declares', () => {
         layoutGrow: 'the arrangement — the same, sharing what is left along the axis',
         gap: 'the arrangement — `layoutChildren`',
         padding: 'the arrangement — `layoutChildren`',
+        /*
+         * The four sides, for the same reason and by the same reader. They arrived with the page
+         * builder's hero — 96 above and 64 below — and a slide's boxes want them just as much;
+         * what a renderer sees is where the arrangement already put the children.
+         */
+        paddingTop: 'the arrangement — `layoutChildren`',
+        paddingRight: 'the arrangement — `layoutChildren`',
+        paddingBottom: 'the arrangement — `layoutChildren`',
+        paddingLeft: 'the arrangement — `layoutChildren`',
+        justifyContent: 'the arrangement — `layoutChildren`, which distributes what is left along the axis',
         alignItems: 'the arrangement — `layoutChildren`, across the axis',
         columns: 'the arrangement — `layoutChildren`, in grid mode',
 

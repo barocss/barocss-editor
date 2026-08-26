@@ -192,16 +192,63 @@ export function layoutChildren(
   if (mode === 'none' || children.length === 0) return moved;
 
   const gap = Math.max(0, number(attributes.gap, 0));
-  const padding = Math.max(0, number(attributes.padding, 0));
+  /**
+   * The four sides, each falling back to the one number — the same reading `frameCss` makes.
+   *
+   * Two places read a frame's padding: this, which places absolute children, and `frameCss`, which
+   * hands the browser a flow box. They have to agree, and the way they agree is by both taking a
+   * side's own value when it is stated and `padding` when it is not.
+   */
+  const pad = (own: unknown) => Math.max(0, number(own ?? attributes.padding, 0));
+  const padTop = pad(attributes.paddingTop);
+  const padRight = pad(attributes.paddingRight);
+  const padBottom = pad(attributes.paddingBottom);
+  const padLeft = pad(attributes.paddingLeft);
+
   const align = attributes.alignItems === 'center' || attributes.alignItems === 'end'
     ? (attributes.alignItems as 'center' | 'end')
     : 'start';
+  const justify = String(attributes.justifyContent ?? 'start');
+
+  /** Where the run starts and ends across the axis being arranged. */
+  const crossStart = (mode: 'row' | 'column' | 'grid') => (mode === 'row' ? padTop : padLeft);
+  const alongStart = (mode: 'row' | 'column' | 'grid') => (mode === 'row' ? padLeft : padTop);
 
   /** Where the run sits across its axis, given how much room it is offered. */
-  const across = (size: number, room: number): number => {
-    if (align === 'center') return padding + Math.max(0, (room - size) / 2);
-    if (align === 'end') return padding + Math.max(0, room - size);
-    return padding;
+  const across = (size: number, room: number, from: number): number => {
+    if (align === 'center') return from + Math.max(0, (room - size) / 2);
+    if (align === 'end') return from + Math.max(0, room - size);
+    return from;
+  };
+
+  /**
+   * Where the run **starts** along its axis, and how much extra sits between each pair.
+   *
+   * The other half of an arrangement: `alignItems` answers the cross axis and this answers the
+   * main one. A frame that is bigger than what it holds had that leftover at the end, always, so a
+   * navigation bar could not put its links at the right-hand end without a spacer node.
+   *
+   * The leftover is what `layoutGrow` did not take: a child that asked for a share of the room has
+   * already been given it, and nothing is left to distribute — which is the correct interaction and
+   * the one CSS makes too.
+   */
+  const distribute = (spare: number, count: number): { from: number; between: number } => {
+    const left = Math.max(0, spare);
+    if (left === 0 || count === 0) return { from: 0, between: 0 };
+    switch (justify) {
+      case 'center':
+        return { from: left / 2, between: 0 };
+      case 'end':
+        return { from: left, between: 0 };
+      case 'between':
+        return count > 1 ? { from: 0, between: left / (count - 1) } : { from: 0, between: 0 };
+      case 'around':
+        return { from: left / count / 2, between: left / count };
+      case 'evenly':
+        return { from: left / (count + 1), between: left / (count + 1) };
+      default:
+        return { from: 0, between: 0 };
+    }
   };
 
   /**
@@ -228,9 +275,8 @@ export function layoutChildren(
     const room = Math.max(
       0,
       (mode === 'row'
-        ? number(frame?.attributes?.height, 0)
-        : number(frame?.attributes?.width, 0)) -
-        padding * 2
+        ? number(frame?.attributes?.height, 0) - padTop - padBottom
+        : number(frame?.attributes?.width, 0) - padLeft - padRight)
     );
 
     /**
@@ -241,8 +287,9 @@ export function layoutChildren(
      * than squeezing them, which is what a canvas does everywhere else here, and shrinking
      * would need a minimum size per shape to be anything but a guess.
      */
-    const along = Math.max(0, number(mode === 'row' ? attributes.width : attributes.height, 0)) -
-      padding * 2;
+    const along =
+      Math.max(0, number(mode === 'row' ? attributes.width : attributes.height, 0)) -
+      (mode === 'row' ? padLeft + padRight : padTop + padBottom);
     const used =
       children.reduce(
         (total, child) => total + (mode === 'row' ? child.box.width : child.box.height),
@@ -267,18 +314,30 @@ export function layoutChildren(
       };
     };
 
-    let at = padding;
+    /*
+     * What the children take up once their shares are handed out — which is what is left for
+     * `justifyContent` to place. Measured after `sizeOf` rather than from the boxes, because a
+     * child that grew has already eaten some of the leftover.
+     */
+    const taken =
+      children.reduce((total, child) => {
+        const size = sizeOf(child);
+        return total + (mode === 'row' ? size.width : size.height);
+      }, 0) + gap * Math.max(0, children.length - 1);
+    const spread = distribute(along - taken, children.length);
+
+    let at = alongStart(mode) + spread.from;
     for (const child of children) {
       const size = sizeOf(child);
       if (mode === 'row') {
         // A stretched child starts at the padding: there is no room left to align it in.
-        const y = child.stretch ? padding : across(size.height, room);
+        const y = child.stretch ? padTop : across(size.height, room, crossStart(mode));
         place(child.sid, at, y, child.box, size);
-        at += size.width + gap;
+        at += size.width + gap + spread.between;
       } else {
-        const x = child.stretch ? padding : across(size.width, room);
+        const x = child.stretch ? padLeft : across(size.width, room, crossStart(mode));
         place(child.sid, x, at, child.box, size);
-        at += size.height + gap;
+        at += size.height + gap + spread.between;
       }
     }
     return moved;
@@ -301,12 +360,12 @@ export function layoutChildren(
     widths.push(widest);
   }
 
-  let top = padding;
+  let top = padTop;
   for (let start = 0; start < children.length; start += columns) {
     const row = children.slice(start, start + columns);
     const tallest = row.reduce((most, child) => Math.max(most, child.box.height), 0);
 
-    let left = padding;
+    let left = padLeft;
     row.forEach((child, column) => {
       /**
        * A stretch in a grid fills its **cell**, which is the column's width.
