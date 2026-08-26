@@ -43,6 +43,46 @@ const schema = createSchema('slides', getSlidesSchemaDefinition() as never) as n
 const declares = (stype: string, attr: string) => schema.nodes.get(stype)?.attrs?.[attr] !== undefined;
 
 /**
+ * Which group heading a drawn control sits under.
+ *
+ * The question nothing was asking, and a real mistake went through the gap: the declaration had the
+ * geometry rows and the frame's arrangement under **one** name, and the panel has drawn them as two
+ * since it was written. The unit test reads the rows and this file asked whether a control is drawn —
+ * *where* it is drawn was nobody's question, so a heading nobody checks is a heading that can be
+ * wrong.
+ *
+ * What is compared is **not** the heading's text. A panel's first group is headed by what is
+ * selected — 제목 상자, 프레임, 연결선 — so the declaration cannot name it and does not try. What it
+ * can promise is that a declared group is *one* group on screen: every row of it under the same
+ * heading, whatever that heading says. That is exactly the promise 배치 broke.
+ *
+ * Read off the DOM rather than from a class: a group is a heading followed by its rows, so the
+ * nearest preceding heading above a control is the group it is in.
+ */
+async function groupOf(page: Page, ariaLabel: string): Promise<string | null> {
+  return page.evaluate((name) => {
+    const root = document.querySelector('.sl-properties');
+    const control = root?.querySelector(`[aria-label="${CSS.escape(name).replace(/\\/g, '')}"]`);
+    if (!control) return null;
+    const headings = [...root!.querySelectorAll('section h3')];
+    let found: string | null = null;
+    for (const heading of headings) {
+      if (heading.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING) {
+        found = heading.textContent?.trim() ?? found;
+      }
+    }
+    return found;
+  }, ariaLabel);
+}
+
+/** The declared groups whose rows landed under more than one heading — see `groupOf`. */
+function split(headings: Record<string, string[]>): string[] {
+  return Object.entries(headings)
+    .filter(([, seen]) => new Set(seen.map((one) => one.split(' → ')[1])).size > 1)
+    .map(([group, seen]) => `${group}: ${seen.join(', ')}`);
+}
+
+/**
  * How many controls the panel draws for a row.
  *
  * Three ways of asking, because a row is not always a labelled field:
@@ -137,13 +177,19 @@ test('every row the model declares for a connector is a control the panel draws'
   await page.waitForTimeout(400);
 
   const missing: string[] = [];
+  const headings: Record<string, string[]> = {};
   for (const row of slidesPanelRows('connector', 'style', declares)) {
     // A waypoint is placed by dragging the line, which is a gesture `connector.spec.ts` holds.
     if (row.inside || row.attr === 'waypoints') continue;
-    const found = await drawn(page, row);
-    if (found === 0) missing.push(`${row.group} › ${row.ariaLabel}`);
+    if ((await drawn(page, row)) === 0) {
+      missing.push(`${row.group} › ${row.ariaLabel}`);
+      continue;
+    }
+    const under = await groupOf(page, row.ariaLabel);
+    if (under !== null) (headings[row.group] ??= []).push(`${row.ariaLabel} → ${under}`);
   }
   expect(missing, 'declared in panel-model.ts and not drawn for a connector').toEqual([]);
+  expect(split(headings), 'one declared group drawn as two, for a connector').toEqual([]);
 });
 
 for (const kind of ['textFrame', 'frame']) {
@@ -155,6 +201,7 @@ for (const kind of ['textFrame', 'frame']) {
     expect(found, `the sample deck has no ${kind} to select`).toBe(kind);
 
     const missing: string[] = [];
+    const headings: Record<string, string[]> = {};
     for (const row of slidesPanelRows(kind, 'style', declares)) {
       /*
        * A row that only appears inside a definition is not expected on a shape sitting on a slide —
@@ -179,9 +226,20 @@ for (const kind of ['textFrame', 'frame']) {
        * over a control that was not drawn at all. A check that can pass by finding the wrong thing is
        * worse than no check, because it is believed.
        */
-      if ((await drawn(page, row)) === 0) missing.push(`${row.group} › ${row.ariaLabel}`);
+        if ((await drawn(page, row)) === 0) {
+        missing.push(`${row.group} › ${row.ariaLabel}`);
+        continue;
+      }
+      /*
+       * And **under the declared heading**. A row in the wrong group is drawn, reachable and wrong
+       * about where a reader will look for it — which is how the geometry rows came to be declared as
+       * 배치 for a week.
+       */
+      const under = await groupOf(page, row.ariaLabel);
+      if (under !== null) (headings[row.group] ??= []).push(`${row.ariaLabel} → ${under}`);
     }
 
     expect(missing, `declared in panel-model.ts and not drawn for a ${kind}`).toEqual([]);
+    expect(split(headings), `one declared group drawn as two, for a ${kind}`).toEqual([]);
   });
 }

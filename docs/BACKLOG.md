@@ -2417,6 +2417,33 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **Where the shared sheet stops paying, measured — and the hole it left, closed.**
+
+  Five of the deck's twelve groups moved and then the arithmetic turned. Each of the remaining seven
+  wants a **new concept in the shared model** to save fifteen to thirty-five lines: 재생 needs a
+  group-level note, 화면 전환 needs a slide-level command target rather than a box's, 문서 변수 연결
+  *is* its sub-component (the row list comes from `BINDABLE_ROWS` filtered by the schema and the
+  options from the document's variables), and the geometry group's 다른 덱 row carries a library
+  list, a cross-field payload (`deck` and `to` together) and local state.
+
+  That is the shared model absorbing product specifics one at a time, which is the opposite of what a
+  shared system is for. Written down as a **boundary** rather than a to-do: the sheet pays for rows
+  that are *a value with a label*, and that is five groups of twelve. The other seven are not panels
+  of fields; they are small applications.
+
+  **So the remaining value was in the guard, not the conversion.** The 배치 mistake — geometry rows
+  and a frame's arrangement declared under one heading, drawn as two for as long as the panel has
+  existed — went through a real gap: the unit test reads the rows, the browser check asked whether a
+  control is *drawn*, and **where** it is drawn was nobody's question. That gap covered all twelve
+  groups, converted or not.
+
+  The check asks it now, and not by comparing text: a panel's first group is headed by what is
+  selected — 제목 상자, 프레임, 연결선 — so the declaration cannot name it and does not try. What it
+  can promise is that a declared group is **one** group on screen, every row of it under the same
+  heading whatever that heading says. Re-introducing the bug fails it by name; that is the promise
+  배치 broke, and it now holds for the seven groups that will never be converted as well as the five
+  that were.
+
 - **The deck's groups are moving to the shared sheet, one at a time: 328 lines gone so far.**
   Five groups now: 연결선 (214 lines), 채우기와 선 (103), 배치 (77), 텍스트 (35), 그림 (31) — each
   replaced by `{sheet('...')}` against a declaration. `properties.tsx` is 2,863 → 2,535, and the

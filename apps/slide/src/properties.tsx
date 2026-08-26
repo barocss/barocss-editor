@@ -433,160 +433,21 @@ export function Properties({
 
   const locked = shared('locked') === true;
 
-  /**
-   * One declared group, drawn by the **suite's** panel.
-   *
-   * `PropertySheet` draws the five kinds every editor's panel has and hands back the three that are
-   * a canvas's — a paint stack, a variable binding, a button that runs a command. What a group *is*
-   * lives in `panel-model.ts`, which is also what the conformance harness reads, so a row nobody can
-   * reach and a row nobody declared are now the same fact rather than two.
-   *
-   * Converted a group at a time rather than all at once: this file is 2,863 lines and its browser
-   * suite is 391 tests, and `tests/panel-model.spec.ts` checks each group against what the panel
-   * actually draws as it moves.
-   */
-  const sheet = (group: string) => {
-    const rows = slidesPanelGroups(box?.stype, 'style', (_stype: string, attr: string) =>
-      declares(attr)
-    ).filter((one) => one.label === group);
-    if (rows.length === 0) return null;
+  /** One declared group, drawn by the suite's panel — see `DeckSheet`. */
+  const sheet = (group: string) => (
+    <DeckSheet
+      group={group}
+      box={box}
+      targets={targets}
+      editor={editor}
+      unit={unit}
+      locked={locked}
+      declares={declares}
+      varSwatches={varSwatches}
+      uncrop={uncrop}
+    />
+  );
 
-    /** Which command a row runs, and with what — the panel's own writers, by name. */
-    const write = (row: SlidesPanelRow, next: unknown) => {
-      if (row.command === 'setConnector') setConnector({ [row.attr]: next });
-      else if (row.command === 'setBoxStyle') setStyle({ [row.attr]: next });
-      else if (row.command === 'setBoxGeometry') setGeometryRaw({ [row.attr]: next });
-      else if (row.command === 'setFrameLayout') setLayout({ [row.attr]: next });
-    };
-
-    return (
-      <PropertySheet
-        groups={rows
-          .map((one) => ({ ...one, rows: one.rows.filter((row) => shown(row)) }))
-          .filter((one) => one.rows.length > 0)}
-        value={(row) => read(row)}
-        raw={(row) => box?.attributes?.[row.attr]}
-        /* The reader's chosen unit, which is a fact about the session rather than about the row. */
-        suffix={(row) => (row.unit ? row.unit : row.control === 'number' && LENGTHS.has(row.attr) ? unit : undefined)}
-        onWrite={(row, next) => write(row, commit(row, next))}
-        swatches={varSwatches}
-        render={(row) => own(row)}
-      />
-    );
-  };
-
-  /** Whether a conditional row's condition holds — see `PanelRow.when`. */
-  const shown = (row: SlidesPanelRow): boolean => {
-    if (!row.when) return true;
-    const held = box?.attributes?.[row.when.attr];
-    if (row.when.is) return row.when.is.includes(held);
-    return Array.isArray(held) ? held.length > 0 : held !== undefined && held !== null && held !== '';
-  };
-
-  /** What a row shows: the reader's unit for a length, points for a label, the value otherwise. */
-  const read = (row: SlidesPanelRow): unknown => {
-    let held = box?.attributes?.[row.attr];
-    /*
-     * A corner with no number of its own **follows the radius**, so each field shows what the box is
-     * actually drawing rather than a zero — which is why the four are declared without a default
-     * (`corners.ts`). Product knowledge, kept here: if a second panel ever wants "this value follows
-     * that one", it becomes a field on the shared row rather than a second copy of this line.
-     */
-    if (held === undefined && row.attr.startsWith('corner') && row.attr !== 'cornerRadius') {
-      held = box?.attributes?.cornerRadius;
-    }
-    if (row.unit === 'pt') return typeof held === 'number' ? held / 20 : null;
-    if (row.control === 'number' && LENGTHS.has(row.attr)) {
-      return typeof held === 'number' ? toDisplay(held, unit) : null;
-    }
-    return held;
-  };
-
-  /** And what it writes back: the same conversions, the other way. */
-  const commit = (row: SlidesPanelRow, next: unknown): unknown => {
-    if (row.unit === 'pt') return Math.round(Number(next) * 20);
-    if (row.control === 'number' && LENGTHS.has(row.attr)) return fromDisplay(Number(next), unit);
-    if (row.control === 'colour') return next ?? null;
-    /*
-     * An emptied field is **an empty string**, not nothing.
-     *
-     * The sheet reads a cleared text field as `undefined` — right for a page, where taking a value
-     * back at a narrow width is how a reader says "the page's answer again". A connector's label is
-     * the other case: emptied means *no label*, and `undefined` reaches the command as "you did not
-     * mention this" and leaves the old word on the line. The test that asks for the label back after
-     * clearing it is what said so.
-     */
-    if (row.control === 'text' && next === undefined) return '';
-    return next;
-  };
-
-  /** The three kinds that are a canvas's rather than the suite's. */
-  const own = (row: SlidesPanelRow): React.ReactNode | null | undefined => {
-    if (row.control !== 'action') return undefined;
-    if (row.attr === 'startNodeId') {
-      return (
-        <Button
-          /*
-           * Named, because a `title` wins the accessible-name computation over the button's own
-           * words: without this it announced *"시작과 끝을 바꿉니다"* — the tooltip — and a check
-           * asking for the button by what it says found nothing.
-           */
-          ariaLabel={row.ariaLabel}
-          title="시작과 끝을 바꿉니다"
-          data={{ 'conn-reverse': '' }}
-          disabled={locked}
-          onClick={() => void editor?.executeCommand('reverseConnector', { nodeIds: targets })}
-        >
-          뒤집기
-        </Button>
-      );
-    }
-    if (row.attr === 'cropTop') {
-      /*
-       * The way **back**, and only that. A crop is dragged — double-click a picture and the handles
-       * take source away instead of resizing it — so what belongs in a panel is the gesture a reader
-       * has none for: all of it again. Four number rows would be four ways to make a picture vanish.
-       */
-      return (
-        <Button
-          className="w-full"
-          ariaLabel={row.ariaLabel}
-          disabled={locked || !isCropped(box?.attributes as never)}
-          onClick={() => uncrop()}
-        >
-          원래대로
-        </Button>
-      );
-    }
-    if (row.attr === 'waypoints') {
-      /*
-       * A count and a way back, not a control: bends are placed on the line itself, so what a panel
-       * is for is saying how many there are — a bend hidden behind a shape looks like none — and
-       * undoing them all at once, which is otherwise several double-clicks.
-       */
-      const bends = (box?.attributes?.waypoints as unknown[] | undefined)?.length ?? 0;
-      return (
-        <>
-          <span className="sl-wp-count">{bends}개</span>
-          <Button
-            ariaLabel={row.ariaLabel}
-            title="경유점 지우기"
-            data={{ 'wp-clear': '' }}
-            /*
-             * An **empty list**, not nothing. `[]` says "a reader took the bends out" and `null`
-             * says "this line never had any" — the route reads them differently, and the test that
-             * asks for the bends back got `undefined` where it expects `[]`.
-             */
-            disabled={locked}
-            onClick={() => setConnector({ waypoints: [] })}
-          >
-            지우기
-          </Button>
-        </>
-      );
-    }
-    return undefined;
-  };
   /**
    * Inside a frame that arranges, where a position is not the reader's to type.
    *
@@ -664,14 +525,8 @@ export function Properties({
    * the shapes at each end — and `setBoxStyle` would be writing attributes it has no
    * rules for.
    */
-  const setConnector = (patch: Record<string, unknown>) => {
-    void (editor as any)?.executeCommand?.('setConnector', { nodeIds: targets, ...patch });
-  };
 
   /** Arranging what is in a frame, which is its own command. */
-  const setLayout = (patch: Record<string, unknown>) => {
-    void (editor as any)?.executeCommand?.('setFrameLayout', { nodeId: box?.sid, ...patch });
-  };
 
   /**
    * Take the crop off, and give the box back the size it was cropped from.
@@ -2531,5 +2386,187 @@ function SlideMotionTab({
         </PropertyRow>
       )}
     </PropertyGroup>
+  );
+}
+
+/**
+ * One declared group of a deck's panel, drawn by the **suite's** sheet.
+ *
+ * ## Why this is a component and not a closure
+ *
+ * It began as a function inside `Properties`, closing over a dozen locals — which was fine while the
+ * only caller was `Properties`. Every group still to move lives in a *sub*-panel: the slide's
+ * transition in `SlideMotionTab`, a shape's bindings in `BindGroup`, a definition's questions in
+ * `ComponentGroup` and `PartGroup`. A closure cannot be handed to any of them, and passing thirteen
+ * arguments down to each is the shape of code that stops being moved.
+ *
+ * ## What it knows that `PropertySheet` does not
+ *
+ * Everything a *document* decides. `PropertySheet` draws the five controls every editor's panel has;
+ * this says which command a row runs, what a length means in the reader's chosen unit, when a
+ * conditional row applies, and how to draw the three kinds that are a canvas's — a paint stack, a
+ * variable binding, and a button that runs a command.
+ */
+function DeckSheet({
+  group,
+  box,
+  targets,
+  editor,
+  unit,
+  locked,
+  declares,
+  varSwatches,
+  uncrop
+}: {
+  group: string;
+  box: { sid?: string; stype?: string; attributes?: Record<string, unknown> } | null | undefined;
+  targets: string[];
+  editor: Editor | null;
+  unit: LengthUnit;
+  locked: boolean;
+  /** Whether the selected node type declares an attribute — which is what decides where a row goes. */
+  declares: (attr: string) => boolean;
+  varSwatches: Parameters<typeof ColorField>[0]['varSwatches'];
+  uncrop: () => void;
+}) {
+  const attrs = (box?.attributes ?? {}) as Record<string, unknown>;
+
+  /** Whether a conditional row's condition holds — see `PanelRow.when`. */
+  const shown = (row: SlidesPanelRow): boolean => {
+    if (!row.when) return true;
+    const held = attrs[row.when.attr];
+    if (row.when.is) return row.when.is.includes(held);
+    return Array.isArray(held) ? held.length > 0 : held !== undefined && held !== null && held !== '';
+  };
+
+  /** What a row shows: the reader's unit for a length, points for a label, the value otherwise. */
+  const read = (row: SlidesPanelRow): unknown => {
+    let held = attrs[row.attr];
+    /*
+     * A corner with no number of its own **follows the radius**, so each field shows what the box is
+     * actually drawing rather than a zero — which is why the four are declared without a default
+     * (`corners.ts`). Product knowledge, kept here: if a second panel ever wants "this value follows
+     * that one", it becomes a field on the shared row rather than a second copy of this line.
+     */
+    if (held === undefined && row.attr.startsWith('corner') && row.attr !== 'cornerRadius') {
+      held = attrs.cornerRadius;
+    }
+    if (row.unit === 'pt') return typeof held === 'number' ? held / 20 : null;
+    if (row.control === 'number' && LENGTHS.has(row.attr)) {
+      return typeof held === 'number' ? toDisplay(held, unit) : null;
+    }
+    return held;
+  };
+
+  /** And what it writes back: the same conversions, the other way. */
+  const commit = (row: SlidesPanelRow, next: unknown): unknown => {
+    if (row.unit === 'pt') return Math.round(Number(next) * 20);
+    if (row.control === 'number' && LENGTHS.has(row.attr)) return fromDisplay(Number(next), unit);
+    if (row.control === 'colour') return next ?? null;
+    /*
+     * An emptied field is **an empty string**, not nothing.
+     *
+     * The sheet reads a cleared text field as `undefined` — right for a page, where taking a value
+     * back at a narrow width is how a reader says "the page's answer again". A connector's label is
+     * the other case: emptied means *no label*, and `undefined` reaches the command as "you did not
+     * mention this" and leaves the old word on the line.
+     */
+    if (row.control === 'text' && next === undefined) return '';
+    return next;
+  };
+
+  /** Which command a row runs, and with what — the panel's own writers, by name. */
+  const write = (row: SlidesPanelRow, next: unknown) => {
+    const value = commit(row, next);
+    const run = (name: string, payload: Record<string, unknown>) =>
+      void editor?.executeCommand(name, payload);
+    if (row.command === 'setFrameLayout') run('setFrameLayout', { nodeId: box?.sid, [row.attr]: value });
+    else if (row.command) run(row.command, { nodeIds: targets, [row.attr]: value });
+  };
+
+  /** The three kinds that are a canvas's rather than the suite's. */
+  const own = (row: SlidesPanelRow): React.ReactNode | null | undefined => {
+    if (row.control !== 'action') return undefined;
+    if (row.attr === 'startNodeId') {
+      return (
+        <Button
+          /*
+           * Named, because a `title` wins the accessible-name computation over the button's own
+           * words: without this it announced *"시작과 끝을 바꿉니다"* — the tooltip — and a check
+           * asking for the button by what it says found nothing.
+           */
+          ariaLabel={row.ariaLabel}
+          title="시작과 끝을 바꿉니다"
+          data={{ 'conn-reverse': '' }}
+          disabled={locked}
+          onClick={() => void editor?.executeCommand('reverseConnector', { nodeIds: targets })}
+        >
+          뒤집기
+        </Button>
+      );
+    }
+    if (row.attr === 'cropTop') {
+      /*
+       * The way **back**, and only that. A crop is dragged — double-click a picture and the handles
+       * take source away instead of resizing it — so what belongs in a panel is the gesture a reader
+       * has none for: all of it again. Four number rows would be four ways to make a picture vanish.
+       */
+      return (
+        <Button
+          className="w-full"
+          ariaLabel={row.ariaLabel}
+          disabled={locked || !isCropped(attrs as never)}
+          onClick={() => uncrop()}
+        >
+          원래대로
+        </Button>
+      );
+    }
+    if (row.attr === 'waypoints') {
+      /*
+       * A count and a way back, not a control: bends are placed on the line itself, so what a panel
+       * is for is saying how many there are — a bend hidden behind a shape looks like none — and
+       * undoing them all at once, which is otherwise several double-clicks.
+       */
+      const bends = (attrs.waypoints as unknown[] | undefined)?.length ?? 0;
+      return (
+        <>
+          <span className="sl-wp-count">{bends}개</span>
+          <Button
+            ariaLabel={row.ariaLabel}
+            title="경유점 지우기"
+            data={{ 'wp-clear': '' }}
+            /*
+             * An **empty list**, not nothing. `[]` says "a reader took the bends out" and `null` says
+             * "this line never had any" — the route reads them differently.
+             */
+            disabled={locked}
+            onClick={() => void editor?.executeCommand('setConnector', { nodeIds: targets, waypoints: [] })}
+          >
+            지우기
+          </Button>
+        </>
+      );
+    }
+    return undefined;
+  };
+
+  const groups = slidesPanelGroups(box?.stype, 'style', (_stype: string, attr: string) => declares(attr))
+    .filter((one) => one.label === group)
+    .map((one) => ({ ...one, rows: one.rows.filter((row) => shown(row)) }))
+    .filter((one) => one.rows.length > 0);
+  if (groups.length === 0) return null;
+
+  return (
+    <PropertySheet
+      groups={groups}
+      value={(row) => read(row)}
+      raw={(row) => attrs[row.attr]}
+      /* The reader's chosen unit, which is a fact about the session rather than about the row. */
+      suffix={(row) => (row.unit ? row.unit : row.control === 'number' && LENGTHS.has(row.attr) ? unit : undefined)}
+      onWrite={(row, next) => write(row, next)}
+      swatches={varSwatches}
+      render={(row) => own(row)}
+    />
   );
 }
