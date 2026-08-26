@@ -23,6 +23,23 @@ This directory and the linked package specs define **what the editor and each pa
 - **`docs/specs/editor.md`** — Document model (tree, block, text, marks), selection (resolution, `selectionAfter`), operation semantics (e.g. insertParagraph, insertText guarantees), and references to architecture/flow docs.
 - **`docs/specs/standard-schema.md`** — Barocss standard schema: canonical node types, marks, content rules; minimal vs full tier; presets `getMinimalSchemaDefinition()` and `getStandardSchemaDefinition()` from `@barocss/schema`.
 
+### The products
+
+One each, and they are a different kind of document from the two above: they say what a **product**
+is in this model, what it reuses, what is genuinely its own, and what it deliberately does not do.
+
+- **`docs/specs/word.md`** — Word. Written *after* it was built, so every number in it is produced by
+  a test (`office-word/test/spec-numbers.test.ts`) and its work list is a conformance ratchet rather
+  than a wish.
+- **`docs/specs/site-builder.md`** — the site builder. Written *before* it was built, because a
+  boundary recorded after the fact is a rationalisation.
+- **`docs/specs/canvas-model.md`** — the canvas the deck and Word share, and the rules the suite's
+  chrome follows.
+- **`docs/specs/motion-model.md`** — what a deck means by time.
+
+The deck's own is still inside `docs/ROADMAP.md` — *"Slides, to the level of PowerPoint, Keynote,
+Canva and CapCut"* — and is owed as a file of its own.
+
 ### Package specs
 
 - **`packages/model/SPEC.md`** — Model: transaction, operations (inputs/outputs, invariants), selection resolution. Exec tests in `packages/model/test/operations/*.exec.test.ts` are the concrete spec for each operation.

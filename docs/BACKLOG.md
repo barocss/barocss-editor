@@ -2614,6 +2614,31 @@ Newest first. The surprise each one produced is the part worth keeping.
   All three products answer every check now, and `notYet` has no callers — which is exactly what a
   deferral should end up as.
 
+- **Word has a spec now, and its numbers are held by a test.**
+
+  Asked whether the products need a written definition. The answer that came out of measuring: a
+  whitepaper is the wrong shape — `list-feature-checklist.md` is what one becomes, 62 lines of
+  unchecked boxes pointing at a `.cursor/skills` path that no longer exists. The split that works is
+  **intent in prose, state in the harness**: intent does not rot (a word processor still needs page
+  setup next year) and state rots the moment it is written down.
+
+  `site-builder.md` was already the right shape, and Word had nothing at all. `docs/specs/word.md`
+  is that, with one difference worth naming: the site builder's was written *before* the product
+  existed, because a boundary recorded after the fact is a rationalisation. Word's is the other case
+  and says so — everything in it is measured out of what exists.
+
+  **And a spec full of numbers is a hand-kept list.** *"Re-measured 2026-08-18, and five came off"*
+  is what a document does when nothing checks it, and this one states 107 node types, 1,053 attribute
+  slots, 166 commands, 60 toolbar controls, 21 settable attributes and two ratchets.
+  `spec-numbers.test.ts` reads them out of the product and fails by name when one drifts — verified
+  by drifting one on purpose.
+
+  What the document turned out to be *for*, which was not obvious before writing it: the harness
+  produced the work list (four dialogs Word has never had, 60 attribute names) but cannot say **what
+  is missing from the vocabulary** — `cornerRadius` did not exist on a frame, so nothing was absent,
+  and a schema that declares less passes more easily. That gap is the one part a person has to keep
+  honest, and now there is somewhere to keep it.
+
 - **`(editor as any)` appeared 942 times, the type was already right, and switching the compiler back on found four real faults.**
 
   Asked why it is written everywhere. Measured: **942 casts across 152 files**, reaching for
