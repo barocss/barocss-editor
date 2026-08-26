@@ -346,8 +346,20 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
         paddingRight: { type: 'number', required: false },
         paddingBottom: { type: 'number', required: false },
         paddingLeft: { type: 'number', required: false },
-        /** Where a child sits across the arrangement's axis — see `layoutChildren`. */
-        alignItems: { type: 'string', default: 'start', options: ['start', 'center', 'end'] },
+        /**
+         * Where a child sits across the arrangement's axis — see `layoutChildren`.
+         *
+         * **`stretch` is one of them**, and it was missing. A page means it by silence — a section
+         * is as wide as the page, which is what a section *is* — so the site's renderer supplies it
+         * where a node says nothing, and its panel offers 채움 as a value a reader can go back to.
+         * The schema refused that value: choosing 채움 threw *"must be one of start, center, end"*
+         * out of the validator, and the sample found it by being written.
+         *
+         * A canvas has no use for it — a box there is the size it was placed at, and `layoutStretch`
+         * is how a child asks to fill — so its arrangement reads `stretch` as `start`, which is what
+         * it already did with every word it did not recognise.
+         */
+        alignItems: { type: 'string', default: 'start', options: ['start', 'center', 'end', 'stretch'] },
         /**
          * And where the children sit **along** it, when they do not fill it.
          *

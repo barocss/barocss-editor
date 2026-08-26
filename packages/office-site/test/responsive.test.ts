@@ -135,22 +135,27 @@ describe('two widths of one document', () => {
     draw(narrow, 'mobile');
   });
 
-  /** The row of cards, which is the one block on the sample page that cannot stay as it is. */
+  /**
+   * The row of cards, **by name**.
+   *
+   * It was "the stack with three stacks in it", which is a description the sample outgrew twice: a
+   * grid of six and a row of three numbers both match it, and the first one to be drawn wins. A
+   * name is what the document actually says, and it is what the browser suite already looks for.
+   */
   const cardRow = (root: HTMLElement) =>
-    [...root.querySelectorAll<HTMLElement>('.st-stack')].find(
-      (stack) => stack.querySelectorAll(':scope > .st-stack').length === 3
-    )!;
+    root.querySelector<HTMLElement>('.st-stack[data-name="제품 셋"]')!;
 
   it('draws the same row as a row and as a column', () => {
     expect(cardRow(wide).style.flexDirection).toBe('row');
     expect(cardRow(narrow).style.flexDirection).toBe('column');
   });
 
-  it('takes the narrower padding with it and leaves the rest alone', () => {
-    // 720 twips = 48px, 360 = 24px. The gap was never mentioned at 390, so both draw 16px.
-    expect(cardRow(wide).style.padding).toBe('48px');
-    expect(cardRow(narrow).style.padding).toBe('24px');
-    expect(cardRow(wide).style.gap).toBe(cardRow(narrow).style.gap);
+  it('takes the narrower gap with it and leaves the rest alone', () => {
+    // 360 twips is 24px and 240 is 16px. The row's padding is the section's, and is never mentioned
+    // at either width — so the two agree about it, which is the other half of the same claim.
+    expect(cardRow(wide).style.gap).toBe('24px');
+    expect(cardRow(narrow).style.gap).toBe('16px');
+    expect(cardRow(wide).style.padding).toBe(cardRow(narrow).style.padding);
   });
 
   it('says in the drawing which width each view is', () => {
@@ -168,9 +173,11 @@ describe('two widths of one document', () => {
     expect(cardRow(narrow).style.alignItems).toBe('stretch');
     expect(cardRow(wide).style.alignItems).toBe('stretch');
 
-    // And never over a reader: the header's row says `center`, and still says it.
+    // And never over a reader: the header's bar says `center`, and still says it.
     const bar = narrow.querySelector<HTMLElement>('.st-placement .st-stack')!;
     expect(bar.style.alignItems).toBe('center');
+    // The same bar is the one row on the site that pushes its ends apart, which silence cannot say.
+    expect(bar.style.justifyContent).toBe('space-between');
   });
 
   it('is one document: the words are the same in both', () => {
@@ -179,6 +186,6 @@ describe('two widths of one document', () => {
     const words = (root: HTMLElement) =>
       [...cardRow(root).querySelectorAll('h3')].map((one) => one.textContent);
     expect(words(narrow)).toEqual(words(wide));
-    expect(words(wide)).toEqual(['문서', '덱', '사이트']);
+    expect(words(wide)).toEqual(['사이트', '문서', '덱']);
   });
 });

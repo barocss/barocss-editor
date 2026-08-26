@@ -27,7 +27,7 @@ const ready = async (page: Page) => {
  * board and the test reads as though the override had broken something.
  */
 const cardRow = (page: Page, frame: string) =>
-  page.locator(`[data-frame="${frame}"] .st-page > .st-stack`).nth(1);
+  page.locator(`[data-frame="${frame}"] .st-stack[data-name="제품 셋"]`);
 
 /**
  * A click **through the overlay**, which is what a click on this product is.
@@ -39,6 +39,28 @@ const cardRow = (page: Page, frame: string) =>
  */
 const press = (page: Page, at: ReturnType<Page['locator']>, options?: { modifiers?: ['Shift'] }) =>
   at.click({ force: true, ...options });
+
+/**
+ * A press that reaches **all the way in**, which is what ⌘ means on a canvas.
+ *
+ * A click selects the outermost block and a double-click goes one level further — right, and the
+ * reason a reader dragging a section does not get a word inside it. A real section is a band with a
+ * column inside it, so the thing a test wants to hold is three or four gestures down; this is the
+ * one gesture every design tool offers instead, and it is what these use.
+ */
+const pressDeep = (page: Page, at: ReturnType<Page['locator']>) =>
+  at.click({ force: true, modifiers: ['Meta'] });
+
+/**
+ * The same gesture, **at a corner** rather than at the middle.
+ *
+ * "Innermost" is measured under the pointer, and the middle of a card is its heading — so a ⌘-click
+ * aimed at a card selects the words in it. Eight pixels in from the corner is the card's own padding,
+ * which is the card and nothing else. A reader does this without thinking about it; a test has to
+ * say where it pressed.
+ */
+const pressDeepAt = (page: Page, at: ReturnType<Page['locator']>, x = 8, y = 8) =>
+  at.click({ force: true, modifiers: ['Meta'], position: { x, y } });
 const pressTwice = (page: Page, at: ReturnType<Page['locator']>) => at.dblclick({ force: true });
 
 const selection = (page: Page) =>
@@ -65,7 +87,7 @@ test.describe('a site at several widths', () => {
     expect(widths).toEqual([1280, 834, 390]);
 
     for (const id of ['desktop', 'tablet', 'mobile']) {
-      await expect(page.locator(`[data-frame="${id}"] h1`)).toHaveText(/한 엔진/);
+      await expect(page.locator(`[data-frame="${id}"] h1`)).toHaveText(/세 가지/);
     }
   });
 
@@ -74,14 +96,15 @@ test.describe('a site at several widths', () => {
     const before = await page.locator('[data-frame="desktop"] h1').textContent();
 
     /*
-     * Two double-clicks, because this is a builder: the first goes into the block, the second into
-     * its words. A single click selects, which is the whole difference from a word processor and the
-     * reason this test reads the way it does.
+     * ⌘ to reach the heading, then one double-click for the caret.
+     *
+     * It was a click and two double-clicks, which was the whole depth of the sample at the time. A
+     * page laid out the way a page actually is — a band, a column, a row, the words — is four levels,
+     * and walking it a gesture at a time is what ⌘ exists to skip. The rule underneath is unchanged
+     * and is what the next test still holds: a click selects, a double-click goes one further.
      */
     const hero = page.locator('[data-frame="mobile"] h1');
-    await press(page, hero);
-    await page.waitForTimeout(200);
-    await pressTwice(page, hero);
+    await pressDeep(page, hero);
     await page.waitForTimeout(200);
     await pressTwice(page, hero);
     await page.waitForTimeout(300);
@@ -129,7 +152,12 @@ test.describe('a site at several widths', () => {
      * And they draw their **parts** — which is what a snapshot taken around the proxy rather than
      * through it silently lost, on a page where the header looked like an empty box.
      */
-    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(2);
+    /*
+      Three: the header, the footer, and the button **inside the header's own definition** — a
+      placement of a definition that itself places one, which is what makes the bar's call to action
+      the same button as the hero's.
+    */
+    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(3);
     await expect(page.locator('[data-frame="desktop"] .st-placement h4')).toHaveText('Barocss');
   });
 });
@@ -140,17 +168,17 @@ test.describe('a narrower width', () => {
 
     await expect(cardRow(page, 'desktop')).toHaveCSS('flex-direction', 'row');
     await expect(cardRow(page, 'mobile')).toHaveCSS('flex-direction', 'column');
-    // 720 twips = 48px; the override says 360, which is 24.
-    await expect(cardRow(page, 'desktop')).toHaveCSS('padding', '48px');
-    await expect(cardRow(page, 'mobile')).toHaveCSS('padding', '24px');
-    // The gap was never mentioned at 390, so the page's own answer reaches it.
+    // 360 twips = 24px; the override says 240, which is 16.
+    await expect(cardRow(page, 'desktop')).toHaveCSS('gap', '24px');
     await expect(cardRow(page, 'mobile')).toHaveCSS('gap', '16px');
+    // The padding is the section's and is never mentioned at either width, so the two agree.
+    await expect(cardRow(page, 'mobile')).toHaveCSS('padding', '0px');
   });
 
   test('is still the same words, because there is no second copy', async ({ page }) => {
     await ready(page);
     const titles = async (frame: string) =>
-      await page.locator(`[data-frame="${frame}"] .st-page > .st-stack h3`).allTextContents();
+      await page.locator(`[data-frame="${frame}"] .st-page h3`).allTextContents();
     expect(await titles('mobile')).toEqual(await titles('desktop'));
   });
 });
@@ -189,6 +217,7 @@ test.describe('pointing at the page', () => {
     // looking at three widths at once.
     await expect(page.locator('.st-mark-selected')).toHaveCount(3);
     // The name the sample gave it, which is what `name` is for — a stack with none says what it does.
+    // The band, because a plain click selects the outermost block — the row is inside it.
     await expect(page.locator('.st-mark-selected .st-mark-name').first()).toHaveText('카드 줄');
   });
 
@@ -196,11 +225,15 @@ test.describe('pointing at the page', () => {
     await ready(page);
     const heading = cardRow(page, 'desktop').locator('h3').first();
 
+    // Into the band, then into the column inside it, then the row, then the card: one level per
+    // gesture, which is the rule. ⌘ is the shortcut past it and the next test uses that.
     await press(page, heading);
     await page.waitForTimeout(200);
-    await pressTwice(page, heading);
-    await page.waitForTimeout(250);
-    // Into the card.
+    for (let step = 0; step < 3; step += 1) {
+      await pressTwice(page, heading);
+      await page.waitForTimeout(200);
+    }
+    // In the card.
     expect(await selection(page)).toEqual(['frame']);
 
     await pressTwice(page, heading);
@@ -233,9 +266,12 @@ test.describe('pointing at the page', () => {
     await ready(page);
     const cards = cardRow(page, 'desktop').locator('.st-stack');
 
-    await press(page, cards.nth(0).locator('h3'));
-    await page.waitForTimeout(200);
-    await pressTwice(page, cards.nth(0).locator('h3'));
+    /*
+      ⌘ into the first card, then shift for the second.
+      Shift adds *at the scope the reader is in*, and ⌘ moved that scope to the row — so the second
+      press adds the card beside it rather than the band both of them are in.
+     */
+    await pressDeepAt(page, cards.nth(0));
     await page.waitForTimeout(250);
     await press(page, cards.nth(1).locator('h3'), { modifiers: ['Shift'] });
     await page.waitForTimeout(300);
@@ -262,7 +298,9 @@ test.describe('pointing at the page', () => {
 test.describe('the panel', () => {
   test('changes the selected block, at the width being edited', async ({ page }) => {
     await ready(page);
-    await press(page, cardRow(page, 'desktop').locator('h3').first());
+    // A card, reached at its corner so the press is the card rather than the words in it.
+    const card = (frame: string) => cardRow(page, frame).locator('.st-stack').first();
+    await pressDeepAt(page, card('desktop'));
     await page.waitForTimeout(300);
 
     const gap = page.locator('.office-properties').getByLabel('간격');
@@ -271,13 +309,14 @@ test.describe('the panel', () => {
     await page.waitForTimeout(400);
 
     // Every width, because the widest width *is* the node.
-    await expect(cardRow(page, 'desktop')).toHaveCSS('gap', '40px');
-    await expect(cardRow(page, 'mobile')).toHaveCSS('gap', '40px');
+    await expect(card('desktop')).toHaveCSS('gap', '40px');
+    await expect(card('mobile')).toHaveCSS('gap', '40px');
   });
 
   test('writes only a difference when a narrower width is being edited', async ({ page }) => {
     await ready(page);
-    await press(page, cardRow(page, 'desktop').locator('h3').first());
+    const card = (frame: string) => cardRow(page, frame).locator('.st-stack').first();
+    await pressDeepAt(page, card('desktop'));
     await page.waitForTimeout(300);
 
     await page.locator('.st-at button[data-at="mobile"]').click();
@@ -291,9 +330,9 @@ test.describe('the panel', () => {
     await gap.press('Enter');
     await page.waitForTimeout(400);
 
-    await expect(cardRow(page, 'mobile')).toHaveCSS('gap', '4px');
-    // The page is untouched: 240 twips of gap is 16px, and that is still what the desktop draws.
-    await expect(cardRow(page, 'desktop')).toHaveCSS('gap', '16px');
+    await expect(card('mobile')).toHaveCSS('gap', '4px');
+    // The page is untouched: 180 twips of gap is 12px, and that is still what the desktop draws.
+    await expect(card('desktop')).toHaveCSS('gap', '12px');
     // And the panel marks the property, so the reader can tell this value from the page's own.
     await expect(page.locator('.office-properties')).toContainText('간격 ·');
   });
@@ -315,12 +354,15 @@ test.describe('moving a block', () => {
     await page.setViewportSize({ width: 1600, height: 1000 });
     await ready(page);
     const titles = () => cardRow(page, 'desktop').locator('h3').allTextContents();
-    expect(await titles()).toEqual(['문서', '덱', '사이트']);
+    // The widest card first, because it is the product the page is about — see `sample-site.ts`.
+    expect(await titles()).toEqual(['사이트', '문서', '덱']);
 
-    // Into the row first: a drag carries whatever a click would select, and at the top that is the
-    // row rather than a card in it.
-    await press(page, cards(page).nth(0).locator('h3'));
-    await pressTwice(page, cards(page).nth(0).locator('h3'));
+    /*
+     * Into a card first: a drag carries whatever a click would select, and at the top of the page
+     * that is the band the section paints rather than a card in it. ⌘ at a corner is the one gesture
+     * that reaches the card, and a reader dragging one has already done it.
+     */
+    await pressDeepAt(page, cards(page).nth(0));
     await page.waitForTimeout(250);
 
     const from = (await cards(page).nth(0).boundingBox())!;
@@ -339,7 +381,7 @@ test.describe('moving a block', () => {
     await page.mouse.up();
     await page.waitForTimeout(500);
 
-    expect(await titles()).toEqual(['덱', '사이트', '문서']);
+    expect(await titles()).toEqual(['문서', '덱', '사이트']);
   });
 
   test('copies and removes what is selected, from the keyboard', async ({ page }) => {
@@ -426,10 +468,20 @@ test.describe('the panel', () => {
     await page.waitForTimeout(300);
 
     await expect(panel(page).getByLabel('이름')).toHaveValue('히어로');
-    // 480 twips of gap is 32px, 720 of padding is 48 — the panel speaks pixels and the document
-    // keeps twips, which is what has kept a slide, a page and a card able to hold each other.
-    await expect(panel(page).getByLabel('간격')).toHaveValue('32');
-    await expect(panel(page).getByLabel('안쪽 여백')).toHaveValue('48');
+
+    /*
+     * The padding shows **nothing**, and that is the answer rather than a gap in it: the hero states
+     * 96 above and 104 below, so there is no single padding to show. A field that printed the
+     * shorthand's own value would be telling a reader their section has none while they are looking
+     * at the air over the heading — which is what it did until the panel learned to say "mixed".
+     */
+    await expect(panel(page).getByLabel('안쪽 여백')).toHaveValue('');
+
+    // And typing one answers for all four sides, which is what typing into a shorthand means.
+    await panel(page).getByLabel('안쪽 여백').fill('24');
+    await panel(page).getByLabel('안쪽 여백').press('Enter');
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-frame="desktop"] .st-stack[data-name="히어로"]')).toHaveCSS('padding', '24px');
 
     await panel(page).getByLabel('이름').fill('첫 화면');
     await panel(page).getByLabel('이름').press('Enter');
@@ -444,7 +496,8 @@ test.describe('the panel', () => {
   test('shows what a list draws, and changes how many of them', async ({ page }) => {
     await ready(page);
     const list = page.locator('[data-frame="desktop"] .st-collection');
-    await press(page, list);
+    // The list itself: a plain click would select the band the section paints.
+    await pressDeep(page, list);
     await page.waitForTimeout(300);
 
     await panel(page).locator('[data-tab="data"]').click();
@@ -470,10 +523,8 @@ test.describe('the panel', () => {
 
   test('shows a colour that follows a token by its name, not as a hex', async ({ page }) => {
     await ready(page);
-    const row = page.locator('[data-frame="desktop"] .st-stack[data-name="카드 줄"]');
-    await press(page, row);
-    await page.waitForTimeout(200);
-    await pressTwice(page, row.locator('.st-stack').first());
+    // A card, reached in one gesture — it is four levels under the page.
+    await pressDeepAt(page, cardRow(page, 'desktop').locator('.st-stack').first());
     await page.waitForTimeout(300);
 
     await panel(page).locator('[data-tab="style"]').click();
@@ -481,23 +532,27 @@ test.describe('the panel', () => {
      * The whole point of a design token: two cards the same grey are a coincidence, two cards on
      * `var:바탕` are a decision — so the control says which one it follows.
      */
-    await expect(panel(page)).toContainText('카드 바탕');
+    await expect(panel(page)).toContainText('카드 면');
   });
 
   test('answers a placement’s own question, and the words change', async ({ page }) => {
     await ready(page);
-    const button = page.locator('[data-frame="desktop"] .st-placement').nth(1);
+    /*
+     * The hero's button. The header places one too — the bar's call to action is the same
+     * definition — so this is the *third* placement drawn on the page rather than the second.
+     */
+    const button = page.locator('[data-frame="desktop"] .st-placement').nth(2);
     await expect(button).toContainText('무료로 시작하기');
 
     /*
-     * Selected from the layer list rather than by drilling.
+     * ⌘ selects it where it is drawn.
      *
-     * Double-clicking a placement now **opens what it draws** — a placement has no children anybody
-     * can select, so that is the only thing the gesture can honestly mean — and the list is where a
-     * block nobody can point at is reached. Which is the reason the list exists.
+     * It was reached from the layer list, because a double-click on a placement **opens what it
+     * draws** — a placement has no children anybody can select, so that is the only thing the
+     * gesture can honestly mean — and the list was the only other way in. ⌘ is the other way now,
+     * and the list is still there for a block nobody can point at.
      */
-    await page.locator('[data-panel="layers"]').click();
-    await page.locator('.st-layer[data-stype="instance"]').nth(1).click();
+    await pressDeep(page, button);
     await page.waitForTimeout(300);
 
     await panel(page).locator('[data-tab="values"]').click();
@@ -528,7 +583,7 @@ test.describe('the exported page', () => {
   test('lays out the same way the editor drew it, at every width', async ({ page }) => {
     await ready(page);
     const html = await exported(page, '/');
-    expect(html).toContain('한 엔진, 여러 제품');
+    expect(html).toContain('문서 한 벌로 세 가지를 만듭니다');
 
     // What the editor's own boards decided, read off the screen.
     const editorSays = async (frame: string) =>
@@ -548,8 +603,7 @@ test.describe('the exported page', () => {
       await visitor.setContent(html);
       await visitor.waitForTimeout(120);
       return await visitor
-        .locator('.st-page > .st-stack')
-        .nth(1)
+        .locator('.st-stack[data-name="제품 셋"]')
         .evaluate((node) => {
           const style = getComputedStyle(node);
           return { direction: style.flexDirection, padding: style.padding, gap: style.gap };
@@ -600,7 +654,7 @@ test.describe('the exported page', () => {
     expect(html).not.toContain('var:강조');
     await expect(visitor.locator('.st-collection > .st-placement .st-stack').first()).toHaveCSS(
       'background-color',
-      'rgb(248, 250, 252)'
+      'rgb(255, 255, 255)'
     );
     await visitor.close();
   });
@@ -663,7 +717,8 @@ test.describe('the rail', () => {
     // The count is what makes a component list worth having: a definition used in five places is a
     // decision, and one used nowhere is a thing to delete.
     await expect(page.locator('[data-component="site-header"]')).toContainText('5곳');
-    await expect(page.locator('[data-component="cta"]')).toContainText('2곳');
+    // Five: twice on this page, once inside the header's own definition, once on each of two others.
+    await expect(page.locator('[data-component="cta"]')).toContainText('5곳');
 
     const placements = page.locator('[data-frame="desktop"] .st-placement');
     const before = await placements.count();
@@ -671,7 +726,7 @@ test.describe('the rail', () => {
     await page.waitForTimeout(600);
     await expect(placements).toHaveCount(before + 1);
     // And the count follows, because it is read from the document rather than remembered.
-    await expect(page.locator('[data-component="cta"]')).toContainText('3곳');
+    await expect(page.locator('[data-component="cta"]')).toContainText('6곳');
   });
 
   test('makes a data list from a dataset and a design, and refuses half of one', async ({ page }) => {
@@ -803,9 +858,15 @@ test.describe('a definition', () => {
     await expect(where).toContainText('머리말');
     await expect(where).toContainText('5곳에서 사용 중');
 
-    // Every board draws the definition, at its own width, and says whose it is.
+    /*
+     * Every board draws the definition, at its own width, and says whose it is.
+     *
+     * Four stacks, not one: the bar, the mark beside the wordmark, the row of links, and the button
+     * the row ends with — a navigation bar once its ends are pushed apart rather than left to a
+     * spacer, with the same call to action the hero has.
+     */
     await expect(page.locator('.st-frame-label').first()).toContainText('머리말');
-    await expect(page.locator('[data-frame="desktop"] .st-stack')).toHaveCount(1);
+    await expect(page.locator('[data-frame="desktop"] .st-stack')).toHaveCount(4);
 
     // And the way back is a control rather than a gesture: a reader who does not know they are
     // inside a definition is a reader about to change five pages by accident.
@@ -914,9 +975,11 @@ test.describe('the pages of a site', () => {
     await rows(page).nth(2).click();
     await page.waitForTimeout(600);
     await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/page-6');
-    // The header and footer of the page it followed, as placements — so editing the header still
-    // changes this one too.
-    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(2);
+    /*
+      The header and footer of the page it followed, as placements — so editing the header still
+      changes this one too. Three drawn, because the header places the button.
+     */
+    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(3);
     await expect(page.locator('[data-frame="desktop"] .st-page h1')).toHaveText('페이지 6');
   });
 
@@ -947,18 +1010,19 @@ test.describe('the pages of a site', () => {
     await page.locator('[data-page-remove]').nth(1).click();
 
     /*
-     * The number is the whole reason this asks, and it is **one** — which is worth pausing on,
-     * because five pages draw that link. The navigation lives in the `site-header` *definition*, so
-     * there is one link in the document and it is placed everywhere. Counting marks is the number
-     * that can be checked; counting the places it is drawn would be counting placements, and this
-     * dialog would then disagree with `linkFaults`, which reports the marks.
+     * The number is the whole reason this asks, and it is **two** — which is worth pausing on,
+     * because five pages draw those links. The bar and the footer both name 제품, and both live in a
+     * definition every page places: two links in the document, drawn ten times. Counting marks is
+     * the number that can be checked; counting the places they are drawn would be counting
+     * placements, and this dialog would then disagree with `linkFaults`, which reports the marks.
      *
      * That a single link can be the whole site's navigation is a fact worth telling a reader too —
      * see `BACKLOG.md`.
      */
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('제품 삭제');
-    await expect(dialog).toContainText('링크 1개가 끊어집니다');
+    // Two: the bar and the footer both name it, and both live in a definition every page places.
+    await expect(dialog).toContainText('링크 2개가 끊어집니다');
 
     await dialog.getByRole('button', { name: '취소' }).click();
     await page.waitForTimeout(300);
@@ -978,9 +1042,11 @@ test.describe('the pages of a site', () => {
      * afterwards it looks like ordinary words, which is exactly what it now is.
      */
     const links = page.locator('[data-frame="desktop"] .st-page a.mark-link');
-    await expect(links).toHaveCount(4);
+    await expect(links).toHaveCount(7);
     await expect(links.first()).not.toHaveAttribute('href', /./);
     await expect(links.nth(1)).toHaveAttribute('href', '/가격');
+    // And the footer's link to the same page is gone too, because it named the same page.
+    await expect(links.nth(4)).not.toHaveAttribute('href', /./);
   });
 });
 
@@ -996,8 +1062,9 @@ test.describe('a link to another page', () => {
      * than about the mark: an `<a>` is what a link *is* to a reader and to a browser.
      */
     const links = page.locator('[data-frame="desktop"] .st-page a.mark-link');
-    await expect(links).toHaveCount(4);
-    await expect(links).toHaveText(['제품', '가격', '소개', '블로그']);
+    // Four in the bar and three in the footer, which are the two places a site puts them.
+    await expect(links).toHaveCount(7);
+    await expect(links).toHaveText(['제품', '가격', '소개', '블로그', '제품', '가격', '소개']);
 
     // The document stores `page:products`; what reaches the browser is the address it resolves to.
     await expect(links.first()).toHaveAttribute('href', '/제품');
@@ -1042,12 +1109,9 @@ test.describe('a link to another page', () => {
     // shape of failure that draws nothing and reports success.
     await expect(picker).toBeDisabled();
 
-    // Into the words. Three gestures, because each one goes a level deeper — a builder selects the
-    // block a click is *inside* before it selects the words.
+    // Into the words: ⌘ reaches the heading, and one double-click asks for the caret.
     const hero = page.locator('[data-frame="mobile"] h1');
-    await press(page, hero);
-    await page.waitForTimeout(200);
-    await pressTwice(page, hero);
+    await pressDeep(page, hero);
     await page.waitForTimeout(200);
     await pressTwice(page, hero);
     await page.waitForTimeout(300);

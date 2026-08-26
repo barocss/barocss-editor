@@ -4,6 +4,7 @@ import { createSchema } from '@barocss/schema';
 import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
+import { namedBlock } from './helpers';
 import { blocksIn, pagesOf } from '../src/selection';
 import { definitionAt, definitionOf, definitionsOf, usesOf } from '../src/components';
 
@@ -20,8 +21,7 @@ describe('the definitions a site holds', () => {
   let doc: any;
   let page: string;
 
-  const named = (name: string) =>
-    blocksIn(doc, page).find((sid: string) => doc.getNode(sid)?.attributes?.name === name)!;
+  const named = (name: string) => namedBlock(doc, page, name);
 
   beforeEach(() => {
     const schema = createSchema('site', getSiteSchemaDefinition());
@@ -34,10 +34,14 @@ describe('the definitions a site holds', () => {
 
   it('counts how many places use each, by walking rather than remembering', () => {
     const uses = usesOf(doc);
-    // The header and the footer are on all five pages; the button is on two.
+    /*
+     * The header and the footer are on all five pages; the button is placed five times — twice on
+     * the home page, once in the header's own definition, and once on each of two other pages.
+     * The count is a *walk*, so a placement inside a definition counts once wherever it is drawn.
+     */
     expect(uses.get('site-header')).toBe(5);
     expect(uses.get('site-footer')).toBe(5);
-    expect(uses.get('cta')).toBe(2);
+    expect(uses.get('cta')).toBe(5);
     // A number that is *stored* is a number that goes stale, and "5곳" is a question about the
     // document as it is now.
     expect(usesOf(doc)).toEqual(uses);
@@ -67,8 +71,7 @@ describe('making a definition out of what is already built', () => {
   let doc: any;
   let page: string;
 
-  const named = (name: string) =>
-    blocksIn(doc, page).find((sid: string) => doc.getNode(sid)?.attributes?.name === name)!;
+  const named = (name: string) => namedBlock(doc, page, name);
 
   beforeEach(() => {
     const schema = createSchema('site', getSiteSchemaDefinition());
@@ -80,16 +83,21 @@ describe('making a definition out of what is already built', () => {
   });
 
   it('leaves the page unchanged at the instant it runs', async () => {
-    const row = named('카드 줄');
-    const before = blocksIn(doc, page).length;
+    // The row of cards itself, not the band around it — which is the block a reader would select.
+    const row = named('제품 셋');
+    const parent = doc.getNode(row).parentId;
+    const before = blocksIn(doc, parent).length;
 
     editor.executeCommand('setNode', { nodeIds: [row] });
     expect(await editor.executeCommand('createComponentFrom', { name: '카드 줄' })).toBe(true);
 
-    // Same number of blocks on the page, in the same place — a placement took the block's seat.
-    const after = blocksIn(doc, page);
+    // Same number of blocks where it was, in the same place — a placement took the block's seat.
+    const after = blocksIn(doc, parent);
     expect(after).toHaveLength(before);
-    const placed = after[blocksIn(doc, page).findIndex((sid: string) => doc.getNode(sid).stype === 'instance' && doc.getNode(sid).attributes.componentId === '카드-줄')];
+    const placed = after.find(
+      (sid: string) =>
+        doc.getNode(sid).stype === 'instance' && doc.getNode(sid).attributes.componentId === '카드-줄'
+    );
     expect(placed).toBeTruthy();
 
     // And from now on the two are the same thing: the definition holds what the block held.
@@ -132,11 +140,11 @@ describe('making a definition out of what is already built', () => {
   });
 
   it('refuses one paragraph, and refuses two blocks at once', () => {
-    const hero = named('히어로');
-    const heading = blocksIn(doc, blocksIn(doc, hero)[0])[0];
+    const words = named('히어로 글');
+    const heading = blocksIn(doc, words)[0];
     // Something with a shape worth reusing, rather than a single run of words.
     expect(editor.canExecuteCommand('createComponentFrom', { nodeIds: [heading] })).toBe(false);
-    expect(editor.canExecuteCommand('createComponentFrom', { nodeIds: [hero, named('카드 줄')] })).toBe(false);
+    expect(editor.canExecuteCommand('createComponentFrom', { nodeIds: [words, named('제품 셋')] })).toBe(false);
   });
 
   it('is one entry in the history', async () => {

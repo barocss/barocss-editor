@@ -179,7 +179,17 @@ export function Inspector({
   const write = (row: SitePanelRow, value: unknown) => {
     if (!row.command) return;
     if (row.command === 'setPageInfo') run('setPageInfo', { nodeId: page, [row.attr]: value });
-    else run(row.command, { nodeIds: shown?.ids, at, [row.attr]: value });
+    else {
+      /*
+       * A shorthand answers for its four sides as well as for itself.
+       *
+       * Otherwise typing 24 into 안쪽 여백 on a box whose top says 96 writes a shorthand that four
+       * stated sides go on overriding, and the reader watches a number they typed do nothing.
+       * Clearing the sides is the honest reading of "make it this all the way round".
+       */
+      const sides = Object.fromEntries((SHORTHAND[row.attr] ?? []).map((side) => [side, undefined]));
+      run(row.command, { nodeIds: shown?.ids, at, ...sides, [row.attr]: value });
+    }
   };
 
   const tabs: { id: SitePanelTab; label: string }[] = [
@@ -333,8 +343,8 @@ function Groups({
          * knows what a document means by a length.
          */
         value={(row) => {
-          const held = attrs[row.attr];
-          if (row.unit !== 'px' || held === undefined) return held;
+          const held = shorthandOf(row, attrs);
+          if (row.unit !== 'px' || held === undefined || held === null) return held;
           return Math.round(Number(held) / PX);
         }}
         /* A colour that follows a token must not be shown as the hex it resolves to. */
@@ -361,6 +371,34 @@ function Groups({
 }
 
 /**
+ * What a shorthand row shows when the sides disagree with it.
+ *
+ * `padding` is one number for four sides and each side may say its own. A box with 96 above and 64
+ * below has no single padding, and showing the shorthand's own value — usually nothing, so **0** —
+ * is the panel telling a reader their section has no padding while they are looking at the air above
+ * the heading.
+ *
+ * `null` is what every control in this suite already means by *mixed*: a number field draws it as an
+ * empty box with a placeholder rather than as a value, so a reader can see there is no one answer
+ * and can still type one, which then applies to all four.
+ */
+function shorthandOf(row: SitePanelRow, attrs: Record<string, any>): unknown {
+  const held = attrs[row.attr];
+  const sides = SHORTHAND[row.attr];
+  if (!sides) return held;
+
+  const stated = sides.map((side) => attrs[side]).filter((one) => one !== undefined);
+  if (stated.length === 0) return held;
+  // Every side stated the same thing is one answer, whatever the shorthand says.
+  return stated.length === sides.length && stated.every((one) => one === stated[0]) ? stated[0] : null;
+}
+
+/** The rows that are a shorthand for four others — see `office-schema`'s frame attributes. */
+const SHORTHAND: Record<string, string[]> = {
+  padding: ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']
+};
+
+/**
  * What a row's value becomes on the way into the document.
  *
  * Pixels to twips, and "nothing" for a length that has no natural zero: a `minWidth` of 0 and no
@@ -369,6 +407,9 @@ function Groups({
  */
 function commit(row: SitePanelRow, next: unknown): unknown {
   if (row.control !== 'number') return row.control === 'toggle' && next !== true ? undefined : next;
+  // Typing into a shorthand answers for all four sides, which is what a reader means by typing into
+  // it — see `shorthandOf` for why it can be showing nothing at the time.
+
   const floor = row.min ?? 0;
   const kept = Math.max(floor, row.unit === 'px' ? Number(next) : Math.round(Number(next)));
   if (row.fallback === undefined && kept <= 0) return undefined;

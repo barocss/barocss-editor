@@ -358,6 +358,68 @@ Two nodes, five attributes and a prefix. No new *shape* of document: a page is W
 section is a canvas frame, a card is a deck component, and a repeated card is that component asked
 one question forty times.
 
+## What the sample found when it was asked to look good
+
+The second sample was built to exercise every attribute the schema adds. It did, and it was ugly,
+which turned out to be a measurement rather than a matter of taste. Asked to make it look like
+something a person would ship, the vocabulary ran out in four places, all on the first screen:
+
+| what a designer reached for | what the model could say | what it needed |
+| --- | --- | --- |
+| the mark at one end of the bar, the links at the other | `alignItems`, which is the *cross* axis | `justifyContent` |
+| 96 above a heading, 64 below it | one `padding` for four sides | `paddingTop` … `paddingLeft` |
+| words over a photograph | a `picture` node, which pushes the words off it | `backgroundImage`, `backgroundOpacity` |
+| a card that is not a rectangle with a line round it | `fill`, `stroke`, one `cornerRadius` | `shadowColor`, four corners |
+
+Two of the four are the **shared** frame — a navigation bar is a frame arranging what is in it, and
+Word's frames and a deck's boxes want the same two words — so they are in the office schema and
+`frameCss` draws them. The other two are paint, and paint is where the products differ: the deck
+computes a gradient's axis against a box whose size the document states, and a page's box has no size
+until the browser has laid it out. So the page builder borrows the deck's **names** exactly and
+writes its own CSS, and the day a third product wants them the names move to `office-canvas`.
+
+Three more things fell out of building it, and each is the kind of fault that reads as working:
+
+- **A bound value lost its formatting past the second character.** A card's price said `0원` with the
+  accent colour over `[0, 2]`; every row drew `월 9,900원` and coloured `월 ` and nothing else. A mark
+  covers a *range of characters* and the characters had been replaced. `withText` now moves a mark
+  that covered the whole run onto the whole new run, and drops one that covered part of it.
+- **The panel offered a value the schema refused.** 맞춤 › 채움 writes `alignItems: 'stretch'`, which
+  a page means by silence and the office schema did not list.
+- **A media rule published `var:이름`.** Resolution happens in the renderer and a media rule is not
+  rendered, so a narrower width whose card names a token shipped the literal token to a visitor.
+
+## What a page can say now, and what it cannot
+
+Measured against the vocabulary rather than against an opinion — every row on the left is something a
+designer reached for while the sample was being built.
+
+| | |
+| --- | --- |
+| **arrangement** | row, column, grid; gap; padding as one number or four sides; align across the axis and distribute along it |
+| **size** | `fill` / `hug` / `fixed`, with a minimum and a maximum |
+| **paint** | a colour, a gradient, a picture behind the words with its own opacity, a shadow, one radius or four |
+| **responsive** | three widths, each saying only what differs |
+| **tokens** | a colour or a word written once and referred to as `var:이름` |
+| **reuse** | a definition with variables, placed anywhere, edited in one place |
+| **data** | a dataset, filtered, sorted, limited, drawn once per row |
+| **text** | the document model's — headings, lists, tables, footnotes, and 24 marks |
+| **links** | to a page of this site, by durable id, resolved where they are drawn |
+| **publishing** | one HTML file per page, with the media queries the editor drew from |
+
+And what it cannot, which is the more useful list:
+
+| | |
+| --- | --- |
+| **motion** | nothing. No scroll reveal, no transition, no hover. The single largest difference between a page built here and one built anywhere else |
+| **interaction states** | a link cannot be styled on hover; a button has one appearance |
+| **position** | no sticky header, no overlap, no negative offset — a page is a column of boxes |
+| **forms** | no node for one |
+| **typography as a system** | a size or a face is a mark on a run, not a style a heading follows |
+| **per-page metadata** | no title, description or social image, so a published page has none |
+| **more than one fill** | the deck's paint *stack*; a page takes one of each |
+| **a dataset from a URL** | declared, not fetched — deferred by design |
+
 ## What a site builder still needs
 
 Measured against what the product can do today, in the order the next slices should take them:

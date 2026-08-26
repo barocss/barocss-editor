@@ -45,6 +45,7 @@
  * override with their own CSS is a page that is not really theirs.
  */
 import { getGlobalRegistry } from '@barocss/dsl';
+import { isVarRef, resolveVarValue } from '@barocss/office-canvas';
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import { stackCss } from './renderers';
@@ -213,6 +214,8 @@ export function mediaRules(
   const blocks: string[] = [];
   walk(store, pageSid, (sid) => blocks.push(sid));
 
+  const resolve = resolverFor(store, pageSid);
+
   const widths = BREAKPOINTS.filter((one) => one.id !== BASE_BREAKPOINT)
     // Widest first, so a narrower rule wins by coming later — the same cascade `attrsAt` runs.
     .sort((a, b) => b.width - a.width);
@@ -225,7 +228,10 @@ export function mediaRules(
       const attrs = (node?.attributes ?? {}) as Record<string, unknown>;
       if (Object.keys(overridesOf(attrs)).length === 0) continue;
 
-      const differs = changed(cssFor(node, BASE_BREAKPOINT), cssFor(node, width.id));
+      const differs = changed(
+        cssFor(node, BASE_BREAKPOINT, resolve),
+        cssFor(node, width.id, resolve)
+      );
       if (Object.keys(differs).length === 0) continue;
 
       const where = classOf(sid);
@@ -250,14 +256,78 @@ export function mediaRules(
  * That is the argument for export-as-a-render stated exactly: a second path is not a second
  * implementation of the same rule, it is a place for the rule to be *older*.
  */
-export function cssFor(node: Node | undefined, at: BreakpointId): Record<string, string> {
+export function cssFor(
+  node: Node | undefined,
+  at: BreakpointId,
+  /**
+   * How a `var:이름` becomes a colour — the document, which only a caller has.
+   *
+   * **Optional, and the day it was not passed cost something.** A media rule is not rendered, so the
+   * resolution the renderer does on every node never happens here, and a narrower width whose card
+   * says `fill: 'var:면'` published a stylesheet containing the literal `var:면`. A visitor's
+   * browser has never heard of it: the rule is dropped and the card is transparent at that width
+   * only. Found by the sample the day its cards started naming a token.
+   */
+  resolve?: (value: string, sid: string) => string | undefined
+): Record<string, string> {
   const attrs = attrsAt((node?.attributes ?? {}) as Record<string, unknown>, at);
   const stack = node?.stype === 'frame' || node?.stype === 'collection';
+  const named = resolve ? resolved(attrs, String(node?.sid ?? ''), resolve) : attrs;
 
   return {
-    ...(stack ? (stackCss(attrs as never) as Record<string, string>) : {}),
-    ...(sizingCss(attrs as never) as Record<string, string>)
+    ...(stack ? (stackCss(named as never) as Record<string, string>) : {}),
+    ...(sizingCss(named as never) as Record<string, string>)
   };
+}
+
+/**
+ * The same resolution the renderer makes, as a function a caller can hand to `cssFor`.
+ *
+ * Exported because **two** things have to make it and get the same answer: the media rules the
+ * export writes, and the test that compares those rules against what the editor drew. A test that
+ * resolved differently from the export would be checking one of them against itself.
+ */
+export function resolverFor(
+  store: { getNode: (sid: string) => Node | undefined },
+  pageSid: string
+): (value: string, sid: string) => string | undefined {
+  /*
+   * From the **document's** root rather than the page's, and the difference is the whole answer.
+   *
+   * `resolveVarValue` walks up from the node to the root it is given, and a site's tokens live in a
+   * `variables` node beside the pages rather than inside one — a page may declare its own, and
+   * those win, which is exactly why the walk goes up. Given the page as the root it stopped one
+   * level short of the document's, found nothing, and every token on the site resolved to nothing.
+   */
+  const rootId = (() => {
+    let at = pageSid;
+    for (let hop = 0; hop < 8; hop += 1) {
+      const parent = store.getNode(at)?.parentId;
+      if (typeof parent !== 'string' || !parent) return at;
+      at = parent;
+    }
+    return at;
+  })();
+
+  return (value, sid) =>
+    resolveVarValue({ rootId, getNode: (one: string) => store.getNode(one) } as never, value, sid);
+}
+
+/** Every `var:이름` in a node's attributes, as what it means — the renderer's `named`, here. */
+function resolved(
+  attrs: Record<string, unknown>,
+  sid: string,
+  resolve: (value: string, sid: string) => string | undefined
+): Record<string, unknown> {
+  let out: Record<string, unknown> | undefined;
+  for (const [key, value] of Object.entries(attrs)) {
+    if (!isVarRef(value)) continue;
+    const answer = resolve(value, sid);
+    if (answer === undefined) continue;
+    out = out ?? { ...attrs };
+    out[key] = answer;
+  }
+  return out ?? attrs;
 }
 
 /** Every block on the page, in document order, including the ones inside placements' own children. */

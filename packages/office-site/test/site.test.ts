@@ -90,21 +90,32 @@ describe('a site draws', () => {
      * assert rather than a count of top-level stacks that changes with the sample.
      */
     const stacks = [...home.querySelectorAll<HTMLElement>(':scope > .st-stack')];
-    expect(stacks.map((one) => one.dataset.name)).toEqual(['히어로', '카드 줄']);
-    expect(stacks.map((one) => one.dataset.layout)).toContain('row');
+    expect(stacks.map((one) => one.dataset.name)).toEqual([
+      '히어로',
+      '쓰는 곳',
+      '카드 줄',
+      '요금 미리보기',
+      '한 엔진',
+      '한마디',
+      '마무리'
+    ]);
+    // Each is a band as wide as the window; the arrangement is one level in, where the words are.
+    expect(stacks.every((one) => one.dataset.layout === 'column')).toBe(true);
+    expect([...home.querySelectorAll<HTMLElement>('.st-stack')].map((one) => one.dataset.layout)).toContain('row');
 
-    // And the page holds all three kinds of child at once, which the office model's own frame
-    // content — one branch or the other — would not have allowed.
+    // And the page holds both kinds of child at once, which the office model's own frame content —
+    // one branch or the other — would not have allowed. The list is inside a band now, like the
+    // words are: a section is what carries the colour.
     const kinds = [...home.children].map((one) => one.className);
     expect(kinds.filter((one) => one.includes('st-placement')).length).toBe(2);
-    expect(kinds.filter((one) => one.includes('st-collection')).length).toBe(1);
+    expect(home.querySelectorAll('.st-collection').length).toBe(1);
   });
 
   it('draws a document’s headings and paragraphs inside them, unchanged', () => {
     const home = pages()[0];
     // Not a site renderer anywhere in this: `h1` and `p` are the text stack's, drawn from the same
     // renderers a word processor uses, inside a page that has never heard of them.
-    expect(home.querySelector('h1')?.textContent).toContain('한 엔진');
+    expect(home.querySelector('h1')?.textContent).toContain('세 가지');
     expect(home.querySelectorAll('p').length).toBeGreaterThan(3);
   });
 

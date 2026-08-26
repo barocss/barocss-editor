@@ -4,6 +4,7 @@ import { createSchema } from '@barocss/schema';
 import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
+import { namedBlock } from './helpers';
 import { blocksIn, pagesOf } from '../src/selection';
 import { landingFor, type Box } from '../src/landing';
 
@@ -14,8 +15,7 @@ import { landingFor, type Box } from '../src/landing';
  * moment the sample grew a grid of six and a hero of two — and that is the same lesson the browser
  * suite learned: a block is found by *what it is*, never by what it currently looks like.
  */
-const named = (doc: any, page: string, name: string): string =>
-  blocksIn(doc, page).find((sid: string) => doc.getNode(sid)?.attributes?.name === name)!;
+const named = (doc: any, page: string, name: string): string => namedBlock(doc, page, name);
 
 
 /**
@@ -30,6 +30,8 @@ const named = (doc: any, page: string, name: string): string =>
 describe('where a carried block would land', () => {
   let doc: any;
   let page: string;
+  /** The band a section paints, which is what a page's own column holds. */
+  let band: string;
   let cardRow: string;
   let cards: string[];
   let hero: string;
@@ -46,16 +48,29 @@ describe('where a carried block would land', () => {
     doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
 
     page = pagesOf(doc)[0].sid;
-    cardRow = named(doc, page, '카드 줄');
+    band = named(doc, page, '카드 줄');
+    cardRow = named(doc, page, '제품 셋');
     cards = blocksIn(doc, cardRow);
     hero = named(doc, page, '히어로');
 
     boxes.clear();
     boxes.set(page, { left: 0, top: 0, width: 1280, height: 1400 });
+    boxes.set(band, { left: 0, top: 100, width: 1280, height: 300 });
     boxes.set(cardRow, { left: 0, top: 100, width: 1280, height: 300 });
     cards.forEach((sid, at) => boxes.set(sid, { left: at * 400, top: 120, width: 300, height: 260 }));
     boxes.set(hero, { left: 0, top: 0, width: 1280, height: 100 });
-    for (const sid of blocksIn(doc, page)) if (!boxes.has(sid)) boxes.set(sid, { left: 0, top: 400, width: 1280, height: 200 });
+    /*
+     * Every other block gets a box out of the way. Deep rather than the page's own children: the
+     * sample's sections are bands with columns inside them, and a block with no box is a block the
+     * hit test cannot rule out.
+     */
+    const fill = (sid: string) => {
+      for (const child of blocksIn(doc, sid)) {
+        if (!boxes.has(child)) boxes.set(child, { left: 0, top: 400, width: 1280, height: 200 });
+        fill(child);
+      }
+    };
+    fill(page);
   });
 
   const at = (x: number, y: number, hit: string, moving: string) =>
@@ -83,7 +98,8 @@ describe('where a carried block would land', () => {
   });
 
   it('draws the line across the page when a section is carried', () => {
-    const land = at(600, 90, cardRow, hero);
+    // A **band**, which is what a page's own column holds — the row of cards is two levels in.
+    const land = at(600, 90, band, hero);
     expect(land?.parentId).toBe(page);
     // A column: a horizontal line, as wide as the page.
     expect(land?.line.height).toBe(2);

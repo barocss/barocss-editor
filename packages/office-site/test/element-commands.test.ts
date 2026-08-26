@@ -4,6 +4,7 @@ import { createSchema } from '@barocss/schema';
 import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
+import { namedBlock } from './helpers';
 import { blocksIn, pagesOf } from '../src/selection';
 
 /**
@@ -19,8 +20,7 @@ describe('putting something on a page', () => {
   let doc: any;
   let page: string;
 
-  const named = (name: string) =>
-    blocksIn(doc, page).find((sid: string) => doc.getNode(sid)?.attributes?.name === name)!;
+  const named = (name: string) => namedBlock(doc, page, name);
 
   beforeEach(() => {
     const schema = createSchema('site', getSiteSchemaDefinition());
@@ -35,22 +35,23 @@ describe('putting something on a page', () => {
   const kinds = (sid: string) => blocksIn(doc, sid).map((one: string) => doc.getNode(one).stype);
 
   it('puts it inside the container that is selected, at the end', async () => {
-    const hero = named('히어로');
-    select(hero);
+    // The row inside the hero band: the stack that actually holds the words and the picture.
+    const row = named('히어로 줄');
+    select(row);
     expect(await editor.executeCommand('insertHeading')).toBe(true);
 
     // Which is what a reader means by selecting a section and adding a heading, and what a stack is
     // for. Not beside it, which is what "after the selected block" would have done.
-    expect(kinds(hero)).toEqual(['frame', 'picture', 'heading']);
+    expect(kinds(row)).toEqual(['frame', 'picture', 'heading']);
   });
 
   it('puts it after the block that is selected, when that block holds nothing', async () => {
-    const hero = named('히어로');
-    const picture = blocksIn(doc, hero)[1];
+    const row = named('히어로 줄');
+    const picture = blocksIn(doc, row)[1];
     select(picture);
     await editor.executeCommand('insertBodyText');
 
-    expect(kinds(hero)).toEqual(['frame', 'picture', 'paragraph']);
+    expect(kinds(row)).toEqual(['frame', 'picture', 'paragraph']);
   });
 
   it('selects what it made, because a reader is about to say something about it', async () => {

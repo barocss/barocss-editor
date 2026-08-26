@@ -83,17 +83,21 @@ describe('a link to a page of this site', () => {
     expect(pages.map((page) => page.path)).toEqual(['/', '/제품', '/가격', '/소개', '/블로그']);
   });
 
-  it('draws the sample’s navigation as four links, resolved to addresses', () => {
+  it('draws the sample’s navigation and footer as links, resolved to addresses', () => {
     const runs = navRuns();
-    expect(runs.map((one) => one.text)).toEqual(['제품', '가격', '소개', '블로그']);
+    // Four in the bar and three in the footer, which are the two places a site puts them.
+    expect(runs.map((one) => one.text)).toEqual(['제품', '가격', '소개', '블로그', '제품', '가격', '소개']);
 
     // The document stores ids; what a link *is* on the page is the address they resolve to.
-    expect(runs.map((one) => pageLinkOf(one))).toEqual(['products', 'pricing', 'about', 'blog']);
+    expect(runs.slice(0, 4).map((one) => pageLinkOf(one))).toEqual(['products', 'pricing', 'about', 'blog']);
     expect(runs.map((one) => hrefFor(doc, `page:${pageLinkOf(one)}`))).toEqual([
       '/제품',
       '/가격',
       '/소개',
-      '/블로그'
+      '/블로그',
+      '/제품',
+      '/가격',
+      '/소개'
     ]);
   });
 

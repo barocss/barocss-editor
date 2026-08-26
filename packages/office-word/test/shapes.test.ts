@@ -41,8 +41,17 @@ describe('a frame, as CSS', () => {
     expect(frameCss({ layoutMode: 'column', padding: 300, paddingTop: 1440 } as never).padding).toBe(
       '96px 20px 20px 20px'
     );
-    expect(frameCss({ layoutMode: 'row', padding: 300 } as never).padding).toBe('20px 20px 20px 20px');
     expect(frameCss({ paddingLeft: 1440 } as never).padding).toBe('0px 0px 0px 96px');
+
+    /*
+     * And written short when the sides agree, because the browser writes it short: a computed style
+     * says `20px`, and a test comparing what the export wrote against what the editor drew was
+     * comparing a string the browser had already shortened against one this had not.
+     */
+    expect(frameCss({ layoutMode: 'row', padding: 300 } as never).padding).toBe('20px');
+    expect(
+      frameCss({ layoutMode: 'row', paddingTop: 600, paddingBottom: 600, padding: 300 } as never).padding
+    ).toBe('40px 20px');
   });
 });
 

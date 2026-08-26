@@ -37,6 +37,27 @@
  * Deliberately quiet. Everything a *page* looks like comes from the document — a stack's background,
  * a heading's size, a card's padding are all things the reader set — so what this file draws is the
  * furniture around the page and nothing that could be mistaken for the page itself.
+ *
+ * ## What was wrong with it, measured against the tools it is competing with
+ *
+ * Opened beside Figma, four things read as unfinished, and none of them was a matter of taste:
+ *
+ * - **The board wore a bar.** Its name sat in a grey strip *inside* the white, so every page was
+ *   drawn with a piece of chrome across the top of it. Every design tool puts the name **above** the
+ *   board, in small muted type, outside the artwork. A reader judging a page cannot unsee a strip
+ *   that is not part of it.
+ * - **The ground was blue.** `#eef1f5` is a blue grey, and it was the surface a designer's own blues
+ *   were being judged against. The studio is neutral now, and it is a shared token, because a deck
+ *   and a page builder are looking at the same kind of room.
+ * - **Every surface had a border.** Chrome, rail, panel, tabs, groups and boards were each fenced,
+ *   which makes a window read as six windows. Hairlines survive only where two scrolling regions
+ *   meet; everything else is separated by ground and space.
+ * - **Selection shouted.** A 2px outline and a solid-accent row for anything current. Both are 1px
+ *   and a wash now, which is what a tool that expects to be looked at all day does.
+ *
+ * And one that was a defect rather than a decision: a comment had been pasted **into the middle of a
+ * selector**, so `.st-mark-hover` merged with the rule after it and the name chip was painted the
+ * hover blue unconditionally — the selected block's name never used the accent at all.
  */
 /*
  * The app's own names, **taken from the suite's** rather than chosen beside them.
@@ -47,7 +68,11 @@
  * has no opinion about that.
  */
 :root {
-  --st-ground: #eef1f5;
+  /*
+   * The studio is the suite's now. It used to be `#eef1f5` — a *blue* grey, which is the surface a
+   * designer's own blues were being judged against, and a colour no other product could reuse.
+   */
+  --st-ground: var(--ou-studio);
   --st-line: var(--ou-line);
   --st-ink: var(--ou-ink);
   --st-faint: var(--ou-muted);
@@ -73,16 +98,24 @@ body {
 .st-chrome {
   display: flex;
   flex-direction: column;
-  background: var(--ou-ground);
+  background: var(--st-panel);
   border-bottom: 1px solid var(--st-line);
 }
 
+/*
+ * One hairline for the whole chrome, at the bottom.
+ *
+ * It was three — under the title row, under the ribbon, and around everything else — and a window
+ * with a rule under every band reads as a stack of separate windows. A tool of this kind separates
+ * regions by *ground*: the chrome and the panels are paper, the studio is not, and the only lines
+ * left are where two scrolling areas meet.
+ */
 .st-titlebar {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 4px 12px;
-  border-bottom: 1px solid var(--st-line);
+  height: 36px;
+  padding: 0 12px;
 }
 
 .st-titlebar-end {
@@ -102,15 +135,14 @@ body {
   gap: 4px;
 }
 
-/* Which page is being edited. The accent, and the suite's ink on it — a hand-picked white is a white
-   that stops being right the moment the accent changes. */
+/* Which page is being edited — the same wash every current row in this window uses. */
 .st-pages [data-page-current='true'] {
-  background: var(--st-accent);
-  color: var(--ou-accent-ink);
+  background: var(--ou-accent-soft);
+  color: var(--st-ink);
 }
 
 .st-ribbon {
-  padding: 2px 8px;
+  padding: 0 8px 6px;
 }
 
 .st-body {
@@ -133,9 +165,12 @@ body {
   flex: 1;
   min-width: 0;
   overflow: auto;
-  background:
-    radial-gradient(circle at 1px 1px, #d4d4d8 1px, transparent 0) 0 0 / 24px 24px,
-    var(--st-ground);
+  /*
+   * Flat, and that is a decision rather than a simplification. The dot grid it had is what a
+   * *whiteboard* looks like, and it draws a texture behind a design whose own background the reader
+   * is trying to judge — a page with a faint tile of its own could not be told from the studio's.
+   */
+  background: var(--st-ground);
   outline: none;
 }
 
@@ -144,13 +179,13 @@ body {
 
 .st-plane {
   width: max-content;
-  padding: 48px;
+  padding: 56px 64px 80px;
 }
 
 .st-boards {
   display: flex;
   align-items: start;
-  gap: 48px;
+  gap: 64px;
 }
 
 /*
@@ -162,29 +197,41 @@ body {
  */
 .st-frame {
   flex: none;
-  background: #ffffff;
-  border: 1px solid var(--st-line);
-  border-radius: 6px;
+  /* Transparent: the board's white is on the body below, so the name can sit outside the artwork. */
+  background: none;
   /* Not `hidden`: the selection outline is drawn inside the board and a selected block flush with
      the edge would lose half its outline to the clip. */
   overflow: visible;
 }
 
+/*
+ * The board's **name, above the board** — where every tool of this kind puts it.
+ *
+ * It was a grey bar inside the white, so each page was drawn with a strip of chrome across the top
+ * of it, and a reader judging a design cannot unsee a strip that is not part of it. Outside, small
+ * and muted, it is a label on the board rather than a part of the page.
+ */
 .st-frame-label {
   display: flex;
   justify-content: space-between;
-  padding: 6px 10px;
-  background: var(--ou-ground);
-  border-bottom: 1px solid var(--st-line);
-  border-radius: 6px 6px 0 0;
+  align-items: baseline;
+  gap: 12px;
+  padding: 0 2px 6px;
   font-size: var(--ou-text-small);
-  color: var(--st-faint);
+  color: var(--ou-board-ink);
 }
 
-.st-frame-width { font-variant-numeric: tabular-nums; }
+.st-frame-width { font-variant-numeric: tabular-nums; opacity: 0.75; }
 
 /* The board and the layer over it share one box, so the overlay can be measured against it. */
-.st-frame-body { position: relative; }
+.st-frame-body {
+  position: relative;
+  background: var(--ou-board);
+  border-radius: 4px;
+  /* A hairline and a soft shadow rather than a border: the board is lifted off the studio, which is
+     what makes a page read as a sheet rather than as a pane in the window. */
+  box-shadow: var(--ou-board-lift);
+}
 
 /* The page itself. No padding here: a page's own margins are the reader's, set on the stacks. */
 .st-frame-host { min-height: 200px; }
@@ -212,8 +259,18 @@ body {
  * own rectangle and would look like a change to the design, which is the one thing a selection
  * marker must never look like.
  */
-.st-mark-hover { outline: 1px solid #93c5fd; outline-offset: 0; }
-.st-mark-selected { outline: 2px solid var(--st-accent); }
+/*
+ * One pixel, in the accent, for both — hover at half strength.
+ *
+ * It was two pixels of solid accent for a selection, which is a marker that competes with the design
+ * it is marking, and a hand-picked `#93c5fd` for hover, which is a second blue nobody declared. A
+ * tool that expects to be looked at all day draws the thinnest line that can be seen.
+ */
+.st-mark-hover {
+  outline: 1px solid color-mix(in srgb, var(--st-accent) 45%, transparent);
+  outline-offset: 0;
+}
+.st-mark-selected { outline: 1px solid var(--st-accent); }
 .st-mark-selected[data-editing='true'] {
   outline-style: dashed;
 }
@@ -230,38 +287,37 @@ body {
   box-shadow: 0 0 0 1px #ffffff;
 }
 
+/*
+ * The name of the thing that is marked, above its top-left corner.
+ *
+ * **This is where a comment had been pasted into the middle of a selector.** `.st-mark-hover` ran
+ * straight into the rule after it, so the two became one descendant selector that matches nothing,
+ * and a second `.st-mark-name` below it painted every chip the hover blue — the selected block's
+ * name never used the accent at all, in either product that copied this file.
+ */
 .st-mark-name {
   position: absolute;
   bottom: 100%;
-  left: 0;
-  padding: 1px 6px;
+  left: -1px;
+  padding: 0 5px;
   background: var(--st-accent);
   color: var(--ou-accent-ink);
-  font-size: var(--ou-text-small);
-  line-height: 1.6;
+  font-size: 10px;
+  line-height: 15px;
   white-space: nowrap;
   border-radius: 3px 3px 0 0;
 }
 
-.st-mark-hover /*
- * Where a dragged block would land.
- *
- * Bright and thin: it has to be seen against a card, a photograph and a dark footer, and it must not
- * be mistaken for something the page contains.
- */
-.st-mark-landing {
-  background: var(--st-accent);
-  border-radius: 2px;
-  box-shadow: 0 0 0 1px #ffffff;
+/* Hovering is not selecting, and the chip says so by being the same colour as its outline. */
+.st-mark-hover .st-mark-name {
+  background: color-mix(in srgb, var(--st-accent) 45%, transparent);
 }
-
-.st-mark-name { background: #93c5fd; color: #0f172a; }
 
 /* ── The rail: one column, several panels ─────────────────────────────────── */
 
 .st-rail {
   display: flex;
-  width: 232px;
+  width: 240px;
   flex-shrink: 0;
   flex-direction: column;
   overflow: hidden;
@@ -281,13 +337,16 @@ body {
 
 .st-rail-tabs button {
   flex: 1;
-  padding: 6px 2px;
+  padding: 7px 2px;
   border: 0;
   border-bottom: 2px solid transparent;
   background: none;
   font-size: var(--ou-text-small);
   color: var(--st-faint);
+  transition: color var(--ou-quick);
 }
+
+.st-rail-tabs button:hover { color: var(--st-ink); }
 
 .st-rail-tabs button[data-current='true'] {
   border-bottom-color: var(--st-accent);
@@ -306,12 +365,16 @@ body {
   border-bottom: 1px solid var(--st-line);
 }
 
+/*
+ * A group's name is a label, not a heading: 10px, tracked, and the quietest ink on the panel. It is
+ * there to be found when a reader is looking for it and to disappear when they are not.
+ */
 .st-rail-group h3 {
-  padding: 2px 12px 4px;
-  font-size: var(--ou-text-small);
+  padding: 4px 12px 4px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--st-faint);
+  letter-spacing: 0.08em;
+  color: var(--ou-faint);
 }
 
 .st-rail-list {
@@ -338,10 +401,18 @@ body {
 
 .st-rail-item:hover:not(:disabled) { background: var(--ou-ground); }
 .st-rail-item:disabled { opacity: 0.4; }
+/*
+ * A **wash** of the accent for the current row, not the accent itself.
+ *
+ * Solid accent with white on it is what a button looks like, and a list where the current row is a
+ * button is a list a reader keeps trying to press. The wash says "this one" and leaves the row's own
+ * words in the panel's ink, where they stay readable.
+ */
 .st-rail-item[data-current='true'],
 .st-rail-item[data-page-current='true'] {
-  background: var(--st-accent);
-  color: var(--ou-accent-ink);
+  background: var(--ou-accent-soft);
+  color: var(--st-ink);
+  box-shadow: inset 2px 0 0 var(--st-accent);
 }
 
 .st-rail-hint,
@@ -352,7 +423,7 @@ body {
 }
 
 .st-rail-item[data-current='true'] .st-rail-hint,
-.st-rail-item[data-page-current='true'] .st-rail-hint { color: var(--ou-accent-ink); opacity: 0.75; }
+.st-rail-item[data-page-current='true'] .st-rail-hint { color: var(--st-faint); }
 
 .st-rail-note {
   padding: 8px 12px;
@@ -386,7 +457,11 @@ body {
 
 /* A row that does two things: the common one is the row, the one with consequences is beside it. */
 .st-rail-pair { padding: 0; gap: 0; }
-.st-rail-pair[data-current='true'] { background: var(--st-accent); color: var(--ou-accent-ink); }
+.st-rail-pair[data-current='true'] {
+  background: var(--ou-accent-soft);
+  color: var(--st-ink);
+  box-shadow: inset 2px 0 0 var(--st-accent);
+}
 
 .st-rail-main {
   display: flex;
@@ -416,8 +491,8 @@ body {
   font-size: var(--ou-text-small);
 }
 
-.st-rail-side:hover { background: var(--st-accent); color: var(--ou-accent-ink); }
-.st-rail-pair[data-current='true'] .st-rail-side { color: var(--ou-accent-ink); }
+.st-rail-side:hover { background: var(--ou-accent-soft); color: var(--st-accent); }
+.st-rail-pair[data-current='true'] .st-rail-side { color: var(--st-accent); }
 
 /* ── What this page holds ─────────────────────────────────────────────────── */
 
@@ -436,7 +511,12 @@ body {
 }
 
 .st-layer:hover { background: var(--ou-ground); }
-.st-layer[data-selected='true'] { background: var(--st-accent); color: var(--ou-accent-ink); }
+/* The same wash the rail's rows use: one way of saying "this one" in the whole window. */
+.st-layer[data-selected='true'] {
+  background: var(--ou-accent-soft);
+  color: var(--st-ink);
+  box-shadow: inset 2px 0 0 var(--st-accent);
+}
 
 /* ── The panel ────────────────────────────────────────────────────────────── */
 

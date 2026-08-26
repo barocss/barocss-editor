@@ -4,6 +4,7 @@ import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import { useRevision } from '@barocss/office-ui';
 import {
   childOfScope,
+  enclosing,
   firstRunIn,
   landingFor,
   innermostOf,
@@ -336,6 +337,27 @@ export function Overlay({
           select([]);
           return;
         }
+        /**
+         * **⌘ (or Ctrl) reaches all the way in**, in one press.
+         *
+         * A click selects the outermost block and a double-click goes one level further, which is
+         * the rule every tool of this kind follows and is right — a reader dragging a section must
+         * not get a word inside it. The cost is depth: a real section is a band that carries the
+         * colour with a column inside it that carries the words, so a card is four levels down and
+         * reaching it is four gestures.
+         *
+         * Every design tool answers this the same way and this is that answer. The scope moves to
+         * the block's parent as well, so the next double-click on words is the caret rather than
+         * another step down — a reader who asked for the deepest thing has said where they are.
+         */
+        if ((event.metaKey || event.ctrlKey) && !event.shiftKey) {
+          const deepest = innermostOf(doc(), sid, page) ?? outer;
+          onScope(enclosing(doc(), deepest, page) ?? page);
+          select([deepest]);
+          held.current = { sid: deepest, x: event.clientX, y: event.clientY, carrying: false };
+          return;
+        }
+
         // Shift adds and removes, because a selection is a set — three cards told to fill is one
         // gesture, and doing it a card at a time is the reader keeping the editor's books.
         if (event.shiftKey) {

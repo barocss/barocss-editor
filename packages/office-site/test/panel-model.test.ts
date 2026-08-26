@@ -113,3 +113,81 @@ describe('what the panel declares', () => {
     expect(settable).not.toContain('stype');
   });
 });
+
+/**
+ * What the panel does when a reader **empties** a field.
+ *
+ * Held here rather than in a browser because it is arithmetic — which payload the row sends — and
+ * because the fault it holds was invisible in a browser too: the field went blank, the command
+ * reported success, and the attribute kept its old value. `undefined` was being dropped by the
+ * transaction's own copy of the operation (`JSON.parse(JSON.stringify(...))` has no word for it),
+ * so the removal branch `setAttrs` documents could not be reached from a command at all.
+ */
+describe('taking a value back', () => {
+  it('removes the attribute rather than leaving what was there', async () => {
+    const { DataStore } = await import('@barocss/datastore');
+    const { createSchema } = await import('@barocss/schema');
+    const { createSiteEditor } = await import('../src/site-kit');
+    const { getSiteSchemaDefinition } = await import('../src/site-schema');
+    const { createSampleSite } = await import('../src/sample-site');
+    const { pagesOf } = await import('../src/selection');
+    const { namedBlock } = await import('./helpers');
+
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    const store = new DataStore(undefined as never, schema as never);
+    const editor: any = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+
+    const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+    const hero = namedBlock(doc, pagesOf(doc as never)[0].sid, '히어로');
+    const attrs = () => (store.getNode(hero) as any).attributes;
+
+    await editor.executeCommand('setBlockFormat', { nodeIds: [hero], at: 'desktop', minWidth: 3000 });
+    expect(attrs().minWidth).toBe(3000);
+
+    await editor.executeCommand('setBlockFormat', { nodeIds: [hero], at: 'desktop', minWidth: undefined });
+    expect('minWidth' in attrs()).toBe(false);
+  });
+
+  it('answers for all four sides when the shorthand is written', async () => {
+    const { DataStore } = await import('@barocss/datastore');
+    const { createSchema } = await import('@barocss/schema');
+    const { createSiteEditor } = await import('../src/site-kit');
+    const { getSiteSchemaDefinition } = await import('../src/site-schema');
+    const { createSampleSite } = await import('../src/sample-site');
+    const { pagesOf } = await import('../src/selection');
+    const { namedBlock } = await import('./helpers');
+
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    const store = new DataStore(undefined as never, schema as never);
+    const editor: any = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+
+    const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+    const hero = namedBlock(doc, pagesOf(doc as never)[0].sid, '히어로');
+    const attrs = () => (store.getNode(hero) as any).attributes;
+
+    // The hero states four different sides, which is why its shorthand shows nothing.
+    expect(attrs().paddingTop).not.toBe(attrs().paddingBottom);
+
+    /*
+     * What the panel sends when a reader types into 안쪽 여백: the shorthand, and the four sides
+     * taken back. Without the second half the number does nothing at all — four stated sides go on
+     * overriding the shorthand, and the reader watches a value they typed have no effect.
+     */
+    await editor.executeCommand('setBlockFormat', {
+      nodeIds: [hero],
+      at: 'desktop',
+      paddingTop: undefined,
+      paddingRight: undefined,
+      paddingBottom: undefined,
+      paddingLeft: undefined,
+      padding: 360
+    });
+
+    expect(attrs().padding).toBe(360);
+    for (const side of ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']) {
+      expect(side in attrs()).toBe(false);
+    }
+  });
+});

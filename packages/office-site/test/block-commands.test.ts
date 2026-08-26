@@ -7,14 +7,28 @@ import { createSampleSite } from '../src/sample-site';
 import { blocksIn, pagesOf } from '../src/selection';
 
 /**
- * A block, **by the name the sample gave it**.
+ * A block, **by the name the sample gave it** — at any depth under the page.
  *
  * The fixtures used to hunt for "the stack with three children", which stopped meaning one thing the
  * moment the sample grew a grid of six and a hero of two — and that is the same lesson the browser
  * suite learned: a block is found by *what it is*, never by what it currently looks like.
+ *
+ * Deep rather than among the page's own children, which is the second half of the same lesson. A
+ * section on a real page is a band that carries the colour with a column inside it that carries the
+ * words, so everything a test wants to hold is one or two levels down — and a helper that looked
+ * only at the top found the band and reported it as empty.
  */
-const named = (doc: any, page: string, name: string): string =>
-  blocksIn(doc, page).find((sid: string) => doc.getNode(sid)?.attributes?.name === name)!;
+const named = (doc: any, page: string, name: string): string => {
+  const walk = (sid: string): string | undefined => {
+    for (const child of blocksIn(doc, sid)) {
+      if (doc.getNode(child)?.attributes?.name === name) return child;
+      const found = walk(child);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  return walk(page)!;
+};
 
 
 /**
@@ -43,7 +57,7 @@ describe('what a reader can do to a block', () => {
     editor.loadDocument(createSampleSite(), 'site');
     doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
     page = pagesOf(doc)[0].sid;
-    cardRow = named(doc, page, '카드 줄');
+    cardRow = named(doc, page, '제품 셋');
   });
 
   it('takes a block away, and lets go of it', async () => {
@@ -194,7 +208,7 @@ describe('reordering inside one stack', () => {
     editor.loadDocument(createSampleSite(), 'site');
     doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
     const page = pagesOf(doc)[0].sid;
-    cardRow = named(doc, page, '카드 줄');
+    cardRow = named(doc, page, '제품 셋');
   });
 
   const names = () =>
@@ -205,31 +219,32 @@ describe('reordering inside one stack', () => {
     });
 
   it('starts as the sample wrote it', () => {
-    expect(names()).toEqual(['문서', '덱', '사이트']);
+    // The widest card first, because it is the product the page is about — see `sample-site.ts`.
+    expect(names()).toEqual(['사이트', '문서', '덱']);
   });
 
   it('moves the first to the end', async () => {
     const [first] = blocksIn(doc, cardRow);
     expect(await editor.executeCommand('moveBlockInto', { nodeId: first, parentId: cardRow, index: 2 })).toBe(true);
-    expect(names()).toEqual(['덱', '사이트', '문서']);
+    expect(names()).toEqual(['문서', '덱', '사이트']);
   });
 
   it('moves the first to the middle', async () => {
     const [first] = blocksIn(doc, cardRow);
     await editor.executeCommand('moveBlockInto', { nodeId: first, parentId: cardRow, index: 1 });
-    expect(names()).toEqual(['덱', '문서', '사이트']);
+    expect(names()).toEqual(['문서', '사이트', '덱']);
   });
 
   it('moves the last to the front', async () => {
     const last = blocksIn(doc, cardRow)[2];
     await editor.executeCommand('moveBlockInto', { nodeId: last, parentId: cardRow, index: 0 });
-    expect(names()).toEqual(['사이트', '문서', '덱']);
+    expect(names()).toEqual(['덱', '사이트', '문서']);
   });
 
   it('leaves the order alone when a block is put back where it was', async () => {
     const [, second] = blocksIn(doc, cardRow);
     await editor.executeCommand('moveBlockInto', { nodeId: second, parentId: cardRow, index: 1 });
-    expect(names()).toEqual(['문서', '덱', '사이트']);
+    expect(names()).toEqual(['사이트', '문서', '덱']);
   });
 });
 
@@ -299,11 +314,17 @@ describe('a placement’s answers, and a page’s own settings', () => {
     page = pagesOf(doc)[0].sid;
   });
 
+  /** The first placement under a named block, however deep the section that holds it is. */
   const placement = (name: string) => {
-    const hero = blocksIn(doc, page).find((sid: string) => doc.getNode(sid)?.attributes?.name === name)!;
-    return blocksIn(doc, hero)
-      .flatMap((sid: string) => [sid, ...blocksIn(doc, sid)])
-      .find((sid: string) => doc.getNode(sid)?.stype === 'instance')!;
+    const walk = (sid: string): string | undefined => {
+      for (const child of blocksIn(doc, sid)) {
+        if (doc.getNode(child)?.stype === 'instance') return child;
+        const found = walk(child);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    return walk(named(doc, page, name))!;
   };
 
   const valuesOf = (sid: string) =>

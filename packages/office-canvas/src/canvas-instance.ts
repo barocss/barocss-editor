@@ -266,10 +266,59 @@ function resolvePart(
  */
 function withText(node: CanvasNode, text: string): Partial<CanvasNode> & { text?: string } {
   const content = (node as { content?: unknown }).content;
-  if (typeof (node as { text?: unknown }).text === 'string') return { text };
+  if (typeof (node as { text?: unknown }).text === 'string') {
+    return { text, marks: retargeted(node, text) as never };
+  }
   if (!Array.isArray(content) || content.length === 0 || typeof content[0] !== 'object') return {};
   const first = content[0] as CanvasNode;
   return { content: [{ ...first, ...withText(first, text) }] } as never;
+}
+
+/**
+ * The marks on a run whose words have just been replaced.
+ *
+ * A mark covers a **range of characters**, and the characters are gone. Measured on the site
+ * builder's sample the day its price became green: the definition's run said `0원` with a colour
+ * over `[0, 2]`, every card drew `월 9,900원`, and the colour stopped after `월` — the value came out
+ * in two pieces, the first two characters green and the rest not, on forty cards.
+ *
+ * Two answers, and the difference is whether the mark was about *the words* or about *some of them*:
+ *
+ * - a mark that covered the whole run was a statement about the run — this price is green — and it
+ *   is stretched to the new words;
+ * - a mark that covered part of it described characters that no longer exist, and there is no honest
+ *   place to put it. It is dropped rather than clamped, because clamping invents a decision the
+ *   author never made.
+ *
+ * A mark with no range at all is untouched: it already means "all of this".
+ */
+function retargeted(node: CanvasNode, text: string): unknown[] | undefined {
+  const marks = (node as { marks?: unknown }).marks;
+  if (!Array.isArray(marks) || marks.length === 0) return marks as never;
+
+  const was = String((node as { text?: unknown }).text ?? '').length;
+
+  /*
+   * A mark writes its range in one of two places and this has to read both: the model's `mark()`
+   * builds `{ type, attrs, range }` with the range beside the attributes, and a document loaded
+   * from a file carries `attributes.range`. Reading only one of them is why the first version of
+   * this changed nothing at all — every mark looked rangeless, so every mark was kept as it was.
+   */
+  const kept = marks
+    .map((one) => {
+      const mark = one as { range?: unknown; attrs?: Record<string, unknown>; attributes?: Record<string, unknown> };
+      const range = mark?.range ?? mark?.attrs?.range ?? mark?.attributes?.range;
+      if (!Array.isArray(range) || range.length < 2) return one;
+      if (Number(range[0]) !== 0 || Number(range[1]) !== was) return undefined;
+
+      const next = [0, text.length];
+      if (Array.isArray(mark.range)) return { ...mark, range: next };
+      if (mark.attrs && Array.isArray(mark.attrs.range)) return { ...mark, attrs: { ...mark.attrs, range: next } };
+      return { ...mark, attributes: { ...mark.attributes, range: next } };
+    })
+    .filter((one) => one !== undefined);
+
+  return kept.length > 0 ? kept : undefined;
 }
 
 /**

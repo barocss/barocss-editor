@@ -381,8 +381,26 @@ export class TransactionManager {
     if (!def) {
       throw new Error(`Unknown operation type: ${operation.type}`);
     }
-    // Copy operation object to use (prevent reference issues)
-    const operationCopy = JSON.parse(JSON.stringify(operation));
+    /**
+     * Copy the operation, **keeping the keys whose value is `undefined`**.
+     *
+     * It was `JSON.parse(JSON.stringify(operation))`, and JSON has no word for `undefined`: a key
+     * holding one is not written, so it is not read back. That matters here because `setAttrs` reads
+     * exactly those keys — *"`null` removes the attribute … so 'not set' is expressible for every
+     * type, once, here"* — and `undefined` is the other half of the same sentence.
+     *
+     * What it cost, measured on the site builder's panel: **emptying a number field did nothing.**
+     * A reader clears 최소 폭, the field goes blank, the command reports success, and the attribute
+     * still holds 3000 — because `{ minWidth: undefined }` arrived at the operation as `{}`. Silent
+     * in every product, for as long as the copy has been here.
+     *
+     * `structuredClone` keeps them. The fallback is the old behaviour rather than nothing, because a
+     * runtime without it is a runtime this has always worked on.
+     */
+    const operationCopy =
+      typeof structuredClone === 'function'
+        ? structuredClone(operation)
+        : JSON.parse(JSON.stringify(operation));
     const result = await def.execute(operationCopy as any, context);
     return {
       ...operationCopy,

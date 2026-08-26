@@ -46,6 +46,56 @@ entries are that.
 
 ## Open
 
+### `undefined` never reached an operation, so nothing could be taken back
+
+- [x] `transaction` copied every operation with `JSON.parse(JSON.stringify(...))`, and JSON has no
+  word for `undefined`: a key holding one is not written, so it is not read back. `setAttrs` reads
+  exactly those keys — its own comment says *"'not set' is expressible for every type, once, here"* —
+  so the removal branch **could not be reached from a command at all**.
+
+  What it cost, measured in the site builder's panel: emptying a number field did nothing. The field
+  goes blank, the command reports success, and the attribute still holds its old value. Every
+  product had it, for as long as the copy has been there, and no test could see it because every
+  test that removes an attribute calls the operation directly.
+
+  `structuredClone` keeps the keys. The lesson is the one worth keeping: **a test that skips the
+  layer that transports the work cannot see the transport lose it.**
+
+- [ ] **The other products' panels have not been checked against this.** The deck writes through
+  `setFrameLayout` and `setBoxFormat`, and each filters its payload with `typeof x === 'number'`
+  before it ever reaches an operation — so a cleared field there may still be dropped one layer
+  earlier, for a different reason. Worth the same probe.
+
+### The sample was rebuilt to be looked at, and the tool around it with it
+
+- [x] The sample is a **designed site** now rather than a fixture that happened to render: ink and
+  paper with one accent (a deep green, because the blue it was is the colour every developer tool
+  reaches for), one radius scale, a rhythm of 96/64 rather than one padding everywhere, a navigation
+  bar whose ends are pushed apart, cards with a shadow, a hero with a texture behind it, and a single
+  dark band at the foot of each page instead of stripes down it.
+
+  It is also where the four schema gaps came from: none of them was found by reading the schema.
+
+- [x] The **chrome** was measured against the tools it competes with and four things read as
+  unfinished. A board wore its name in a grey bar *inside* the white; the studio was a blue grey,
+  which is the surface a designer's blues were being judged against; every region was fenced with a
+  border, so one window read as six; and selection was two pixels of solid accent with a
+  hand-picked second blue for hover. The studio, the board and its shadow are **suite tokens** now,
+  because a deck and a page builder are looking at the same kind of room.
+
+- [x] And a defect the rewrite found: a comment had been pasted **into the middle of a selector**, so
+  `.st-mark-hover` merged with the rule after it and every name chip was painted the hover blue. The
+  selected block's name had never used the accent.
+
+- [ ] **The deck's chrome has not been through this.** It maps its own `--sl-*` palette and draws its
+  own studio at `#1f2126`; the tokens it would now take are `--ou-studio`, `--ou-board` and
+  `--ou-board-lift`. Word has no studio at all and will want one the day a drawing is edited on a
+  canvas rather than in the flow.
+
+- [ ] **A site has no motion, and a landing page is mostly motion.** Nothing in the model says a
+  section fades in on scroll, and the deck's `motion` node is a *slide's* answer. This is the largest
+  single thing a visitor would notice between a page built here and one built anywhere else.
+
 ### A page can be painted, and two limits that turned up with it
 
 - [x] A box on a page had a flat colour, a line and one radius — a diagram's vocabulary, which is

@@ -9,7 +9,7 @@ import { getSiteSchemaDefinition } from '../src/site-schema';
 import { registerSiteRenderers } from '../src/renderers';
 import { createSampleSite } from '../src/sample-site';
 import { SITE_ENV_KEY, createSiteEnv } from '../src/breakpoints';
-import { cssFor, exportPage, exportSite, mediaRules } from '../src/export-html';
+import { cssFor, exportPage, exportSite, mediaRules, resolverFor } from '../src/export-html';
 import { pagesOf } from '../src/selection';
 
 /**
@@ -72,7 +72,7 @@ describe('the page a visitor gets', () => {
 
   it('carries the words and the pictures, and none of the editing', () => {
     const page = exportPage(editor, home);
-    expect(page.html).toContain('한 엔진, 여러 제품');
+    expect(page.html).toContain('문서 한 벌로 세 가지를 만듭니다');
     expect(page.html).toContain('<img');
 
     // The caret filler is renderer bookkeeping and must never look like content.
@@ -90,7 +90,15 @@ describe('the page a visitor gets', () => {
     const page = exportPage(editor, home);
     const cards = page.html.split('월 ').length - 1;
     expect(cards).toBe(3);
-    expect(page.html.indexOf('사이트')).toBeLessThan(page.html.indexOf('월 9,900원'));
+    /*
+     * And each price arrives **whole**. The definition's run says `0원` with the accent over all of
+     * it, and a bound value that kept the old range coloured the first two characters of `월 9,900원`
+     * and left the rest — on every card, in both products, until `withText` learned to move a mark
+     * with the words it covers.
+     */
+    expect(page.html).toContain('<span>월 7,900원</span>');
+    // Sorted by `순서`, so the cheapest-numbered row is drawn before the document's price.
+    expect(page.html.indexOf('월 7,900원')).toBeLessThan(page.html.indexOf('월 9,900원'));
   });
 
   it('writes a media query for every width that says something different', () => {
@@ -99,6 +107,13 @@ describe('the page a visitor gets', () => {
     expect(css.indexOf('max-width: 834px')).toBeLessThan(css.indexOf('max-width: 390px'));
     expect(css).toContain('flex-direction: column');
   });
+
+  /** A CSS value as the browser will write it back, so a comparison is not about spelling. */
+  const asBrowser = (property: string, value: string): string => {
+    const scratch = document.createElement('div');
+    (scratch.style as any)[property] = value;
+    return (scratch.style as any)[property] || value;
+  };
 
   it('says at 390 exactly what the editor draws at 390', () => {
     /*
@@ -124,15 +139,29 @@ describe('the page a visitor gets', () => {
 
       // The last rule for this node is the narrowest one, which is what 390 gets.
       const declared = rule![rule!.length - 1];
-      for (const [property, value] of Object.entries(cssFor(store.getNode(sid) as never, 'mobile'))) {
+      /*
+       * With the export's own resolver, because a `var:이름` is not a colour: the editor's drawing
+       * has already resolved it and a comparison that had not would be comparing a token's name
+       * against what it means. It is also the check that would have caught the media rules
+       * publishing `var:면` to a visitor, which is what they did until this was passed.
+       */
+      const resolve = resolverFor(store as never, home);
+      for (const [property, value] of Object.entries(cssFor(store.getNode(sid) as never, 'mobile', resolve))) {
         if (value === 'initial') continue;
         const kebab = property.replace(/[A-Z]/g, (one) => `-${one.toLowerCase()}`);
         // Everything the editor draws at this width, the export says at this width.
         if (declared.includes(`${kebab}:`)) {
           expect(declared, `${sid} ${kebab}`).toContain(`${kebab}: ${value}`);
         } else {
-          // Or it is the same as the base, in which case the media query is right to be silent.
-          expect((el.style as any)[property], `${sid} ${kebab}`).toBe(value);
+          /*
+           * Or it is the same as the base, in which case the media query is right to be silent.
+           *
+           * Compared **through the browser**, because a browser rewrites what it is given: `#FFFFFF`
+           * comes back as `rgb(255, 255, 255)` and `0px 0px 0px 0px` comes back as `0px`. Putting
+           * both sides through the same element is the only comparison that is about the value
+           * rather than about the spelling.
+           */
+          expect((el.style as any)[property], `${sid} ${kebab}`).toBe(asBrowser(property, value));
         }
       }
     }
@@ -159,9 +188,26 @@ describe('the page a visitor gets', () => {
     }
   });
 
-  it('leaves a page alone when nothing on it says anything narrower', () => {
-    // `/블로그` states no overrides: no rules, rather than empty ones a reader would wonder about.
+  it('writes nothing for a width a page says nothing different at', () => {
+    /*
+     * Every page of the sample now states a narrower padding, so there is no page with no rules at
+     * all to point at — which is itself the honest reading of a site that is responsive everywhere.
+     * The claim underneath is unchanged and is what this asks: a rule is written **only** for the
+     * nodes that override something, not for every node on the page.
+     */
     const blog = pagesOf(doc).find((one: any) => one.path === '/블로그')!.sid;
-    expect(mediaRules(store as never, blog)).toBe('');
+    const css = mediaRules(store as never, blog);
+
+    const overriding = [] as string[];
+    const walk = (sid: string) => {
+      const node = store.getNode(sid) as any;
+      if (node?.attributes?.overrides) overriding.push(sid);
+      for (const child of node?.content ?? []) if (typeof child === 'string') walk(child);
+    };
+    walk(blog);
+
+    const ruled = [...css.matchAll(/\[data-b="([^"]+)"\]/g)].map((one) => one[1]);
+    expect(ruled.length).toBeGreaterThan(0);
+    for (const sid of new Set(ruled)) expect(overriding).toContain(sid);
   });
 });

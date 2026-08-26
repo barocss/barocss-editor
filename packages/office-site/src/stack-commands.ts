@@ -266,8 +266,18 @@ export class SiteStackExtension implements Extension {
     'layoutMode',
     'gap',
     'padding',
+    /*
+     * And the four sides, which a hero needs and a shorthand cannot say: 96 above a heading and 64
+     * below it. Each falls back to `padding`, so a box that states none of them is unchanged.
+     */
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
     'columns',
     'alignItems',
+    // Where the children sit **along** the axis, which is what a navigation bar is made of.
+    'justifyContent',
     // What it does with the space it is given.
     'sizing',
     'minWidth',
@@ -278,6 +288,27 @@ export class SiteStackExtension implements Extension {
     'strokeWidth',
     // A rounded card, which the schema had no word for until a page needed one.
     'cornerRadius',
+    // And the four corners, for a box that is square where it meets the one under it.
+    'cornerTopLeft',
+    'cornerTopRight',
+    'cornerBottomRight',
+    'cornerBottomLeft',
+    /*
+     * What it is **painted** with, beyond a flat colour: a gradient, a picture behind the words, a
+     * shadow. The names are the deck's exactly — see `paint.ts` for why the names are shared and the
+     * arithmetic is not.
+     */
+    'gradientFrom',
+    'gradientTo',
+    'gradientAngle',
+    'gradientKind',
+    'backgroundImage',
+    'backgroundFit',
+    'backgroundOpacity',
+    'shadowColor',
+    'shadowBlur',
+    'shadowDistance',
+    'shadowAngle',
     /*
      * Whether it is a window.
      *

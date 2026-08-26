@@ -154,7 +154,24 @@ export function PropertySheet<Row extends SheetRow>({
         return (
           <NumberField
             key={key(one)}
-            value={current === undefined ? (one.fallback === undefined ? null : Number(one.fallback)) : Number(current)}
+            /*
+             * `null` is **mixed**, and it has to survive the fallback.
+             *
+             * A product answers `null` when there is no one value to show — several things selected
+             * that disagree, or a shorthand whose four sides do. This read `current === undefined`
+             * for "say nothing", so a deliberate `null` fell through to `Number(null)`, which is
+             * **0**: a panel telling a reader their section has no padding while they are looking at
+             * the air above its heading.
+             */
+            value={
+              current === null
+                ? null
+                : current === undefined
+                  ? one.fallback === undefined
+                    ? null
+                    : Number(one.fallback)
+                  : Number(current)
+            }
             onCommit={(next) => onWrite(one, next)}
             ariaLabel={one.ariaLabel}
             suffix={suffix ? suffix(one) : one.unit}

@@ -20,14 +20,27 @@ import {
 } from '../src/selection';
 
 /**
- * A block, **by the name the sample gave it**.
+ * A block, **by the name the sample gave it** — at any depth under the page.
  *
  * The fixtures used to hunt for "the stack with three children", which stopped meaning one thing the
  * moment the sample grew a grid of six and a hero of two — the same lesson the browser suite learned:
  * a block is found by *what it is*, never by what it currently looks like.
+ *
+ * Deep rather than among the page's own children, which is the second half of that lesson: a section
+ * on a real page is a band carrying the colour with a column inside it carrying the words, so
+ * everything worth holding is one or two levels down.
  */
-const named = (doc: any, page: string, name: string): string =>
-  blocksIn(doc, page).find((sid: string) => doc.getNode(sid)?.attributes?.name === name)!;
+const named = (doc: any, page: string, name: string): string => {
+  const walk = (sid: string): string | undefined => {
+    for (const child of blocksIn(doc, sid)) {
+      if (doc.getNode(child)?.attributes?.name === name) return child;
+      const found = walk(child);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  return walk(page)!;
+};
 
 /**
  * What a click means.
@@ -40,6 +53,8 @@ const named = (doc: any, page: string, name: string): string =>
 describe('what a click means on a page', () => {
   let doc: any;
   let page: string;
+  /** The band a section paints, which is the outermost thing a click on the page reaches. */
+  let band: string;
   let cardRow: string;
   let firstCard: string;
   let heading: string;
@@ -52,8 +67,9 @@ describe('what a click means on a page', () => {
     doc = { rootId: editor.getRootId(), getNode: (sid: string) => dataStore.getNode(sid) };
 
     page = pagesOf(doc)[0].sid;
-    // The row of three cards: the one stack on the sample page holding three stacks.
-    cardRow = named(doc, page, '카드 줄');
+    // The row of three cards, by name rather than by shape — see `named`.
+    band = named(doc, page, '카드 줄');
+    cardRow = named(doc, page, '제품 셋');
     firstCard = blocksIn(doc, cardRow)[0];
     heading = blocksIn(doc, firstCard)[0];
   });
@@ -69,8 +85,8 @@ describe('what a click means on a page', () => {
   it('selects the outermost block, whatever was under the pointer', () => {
     // Aiming at a heading three levels down still selects the section — "the thing I see the edge
     // of" is the only rule that makes a click predictable.
-    expect(outermostOf(doc, heading, page)).toBe(cardRow);
-    expect(outermostOf(doc, cardRow, page)).toBe(cardRow);
+    expect(outermostOf(doc, heading, page)).toBe(band);
+    expect(outermostOf(doc, cardRow, page)).toBe(band);
   });
 
   it('selects inside whatever container the reader has entered', () => {
@@ -80,7 +96,7 @@ describe('what a click means on a page', () => {
      * already reset it — measured as a heading that could never be reached however many times it was
      * double-clicked.
      */
-    expect(childOfScope(doc, heading, page, page)).toBe(cardRow);
+    expect(childOfScope(doc, heading, page, page)).toBe(band);
     expect(childOfScope(doc, heading, page, cardRow)).toBe(firstCard);
     expect(childOfScope(doc, heading, page, firstCard)).toBe(heading);
     // And no further: a click cannot reach past the thing the reader is pointing at.
@@ -91,15 +107,17 @@ describe('what a click means on a page', () => {
     // Which is what it is: the reader left. Stepping back out beats selecting nothing, because
     // "nothing happened" is the one response a pointer must never give.
     const otherCard = blocksIn(doc, cardRow)[1];
-    expect(childOfScope(doc, heading, page, otherCard)).toBe(cardRow);
+    expect(childOfScope(doc, heading, page, otherCard)).toBe(band);
   });
 
   it('comes back out one level, and never past the page', () => {
     expect(enclosing(doc, heading, page)).toBe(firstCard);
     expect(enclosing(doc, firstCard, page)).toBe(cardRow);
+    // And up through the section's own column, which is what a band is made of.
+    expect(enclosing(doc, cardRow, page)).toBe(named(doc, page, '카드 줄 안'));
     // The page is the board. Selecting it would be a selection whose only meaning is "everything",
     // which is what clicking nothing already means.
-    expect(enclosing(doc, cardRow, page)).toBeUndefined();
+    expect(enclosing(doc, band, page)).toBeUndefined();
   });
 
   it('knows which double-click means a caret', () => {
@@ -120,14 +138,14 @@ describe('what a click means on a page', () => {
      * saying what it does, and the direction is the one fact that tells two otherwise identical rows
      * apart in a list.
      */
-    expect(labelOfBlock(doc, cardRow)).toBe('카드 줄');
-    expect(doc.getNode(cardRow).attributes.name).toBe('카드 줄');
+    expect(labelOfBlock(doc, cardRow)).toBe('제품 셋');
+    expect(doc.getNode(cardRow).attributes.name).toBe('제품 셋');
     expect(labelOfBlock(doc, firstCard)).toBe('세로 스택');
     expect(labelOfBlock(doc, heading)).toBe('제목 3');
 
     // The named list says its name; an unnamed one says which data it draws, which is the one fact
     // that tells two lists apart.
-    const list = blocksIn(doc, page).find((sid) => doc.getNode(sid).stype === 'collection')!;
+    const list = named(doc, page, '상품 목록');
     expect(labelOfBlock(doc, list)).toBe('상품 목록');
     expect(labelOfBlock({ getNode: () => ({ stype: 'collection', attributes: { source: '글' } }) } as never, 'x')).toBe(
       '목록 · 글'
@@ -138,6 +156,8 @@ describe('what a click means on a page', () => {
     // A run of text and a `componentValue` are not things anybody aims at, and a selection that can
     // hold them is a panel that has to say what a run's padding is.
     expect(blocksIn(doc, heading)).toEqual([]);
+    // A card's own heading holds one run and nothing a reader aims at.
+    expect(blocksIn(doc, blocksIn(doc, firstCard)[1] ?? heading)).toEqual([]);
   });
 });
 

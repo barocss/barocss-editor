@@ -321,6 +321,31 @@ one at a time gives `[c, a, d, b]` — the second move's index was computed agai
 the first had already changed. The command builds the whole final order and realises it
 left to right, which also costs nothing for a child that is already in place.
 
+### 5b. And the arrangement has **two** axes, and four sides
+
+`alignItems` was the whole of it for a year, and it is the *cross* axis: where a child
+sits across the arrangement. Nothing in the model could say the other one — where the
+children sit **along** it — so the row every navigation bar on the web is, *the mark at
+one end and the links at the other*, could only be built with a spacer child that fills.
+A spacer is a node a reader has to know to make, keep the right way round, and not delete.
+
+`justifyContent` is that word, with the same six values CSS has and the schema's own
+spelling for two of them (`between`, not `space-between`). Both readers of an arrangement
+take it: `frameCss`, which hands a flow box to the browser, and `layoutChildren`, which
+places absolute children itself — and the second one is where the interaction with
+`layoutGrow` lives. **A child that asked for a share of the room has already been given
+it, so there is nothing left to distribute**, which is the answer CSS makes too.
+
+The four sides are the same story one attribute along. `padding` was one number, so a
+section with 96 above its heading and 64 below it needed a second stack to hold the
+difference. `paddingTop`…`paddingLeft` each fall back to the shorthand, which keeps the
+common case one number and makes the uncommon one sayable.
+
+Both were found by **building something**, not by reading the schema: the page builder's
+sample was rebuilt to look like a site somebody would ship, and the vocabulary ran out on
+the first screen. That is worth stating as a method — a schema is measured against a
+document that uses it, and the only honest test document is one made to be looked at.
+
 ---
 
 ## 6. One control per idea, and the palette is the product's

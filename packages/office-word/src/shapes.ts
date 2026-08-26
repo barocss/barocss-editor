@@ -160,6 +160,20 @@ export function canvasViewBox(attrs: { width?: number; height?: number } | undef
 }
 
 /**
+ * Four sides, written the way a person writes them.
+ *
+ * `0px 0px 0px 0px` and `0px` are the same padding, and the browser says so: it normalises the long
+ * form back to the short one in a computed style. Two places compare this — the export writes a
+ * media rule and a test asks whether the rule says what the editor drew — and they were comparing a
+ * string the browser had already shortened against one this had not.
+ */
+function shorthand(top: number, right: number, bottom: number, left: number): string {
+  if (top === right && right === bottom && bottom === left) return `${top}px`;
+  if (top === bottom && right === left) return `${top}px ${right}px`;
+  return `${top}px ${right}px ${bottom}px ${left}px`;
+}
+
+/**
  * The schema's word for where the children sit along the axis, in CSS's.
  *
  * A table rather than a chain of ternaries because there are six of them now, and because the two
@@ -225,7 +239,13 @@ export function frameCss(
   const corner = number(attrs?.cornerRadius, 0);
   if (corner > 0) css.borderRadius = `${twipToPx(corner)}px`;
 
-  if (typeof attrs?.fill === 'string' && attrs.fill.length > 0) css.background = attrs.fill;
+  /*
+   * `backgroundColor`, not the `background` shorthand. A shorthand **resets the image**, and a page
+   * paints a gradient and a picture into the same box with longhands (`office-site`'s `paint.ts`) —
+   * so whichever of the two was written second silently deleted the other, and which one that was
+   * depended on the order of a spread.
+   */
+  if (typeof attrs?.fill === 'string' && attrs.fill.length > 0) css.backgroundColor = attrs.fill;
   if (typeof attrs?.stroke === 'string' && attrs.stroke.length > 0) {
     css.border = `${twipToPx(number(attrs.strokeWidth, 15))}px solid ${attrs.stroke}`;
   }
@@ -240,12 +260,23 @@ export function frameCss(
    * from a missing value is `0` — which reads as a deliberate zero and is not one.
    */
   const side = (own: number | undefined) => twipToPx(number(own ?? attrs?.padding, 0));
-  const padding =
-    `${side(attrs?.paddingTop)}px ${side(attrs?.paddingRight)}px ` +
-    `${side(attrs?.paddingBottom)}px ${side(attrs?.paddingLeft)}px`;
+  const padding = shorthand(
+    side(attrs?.paddingTop),
+    side(attrs?.paddingRight),
+    side(attrs?.paddingBottom),
+    side(attrs?.paddingLeft)
+  );
 
   const align =
-    attrs?.alignItems === 'center' ? 'center' : attrs?.alignItems === 'end' ? 'flex-end' : 'flex-start';
+    attrs?.alignItems === 'center'
+      ? 'center'
+      : attrs?.alignItems === 'end'
+        ? 'flex-end'
+        : // Said out loud, because a page's sections mean it and mapping it to `flex-start` would
+          // quietly turn a full-width band into a band as wide as its longest line.
+          attrs?.alignItems === 'stretch'
+          ? 'stretch'
+          : 'flex-start';
   const justify = JUSTIFY[String(attrs?.justifyContent)] ?? 'flex-start';
 
   switch (attrs?.layoutMode) {
@@ -260,7 +291,14 @@ export function frameCss(
         gridTemplateColumns: `repeat(${Math.max(1, Math.round(number(attrs?.columns, 2)))}, minmax(0, 1fr))`,
         gap,
         padding,
-        alignItems: attrs?.alignItems === 'center' ? 'center' : attrs?.alignItems === 'end' ? 'end' : 'start',
+        alignItems:
+          attrs?.alignItems === 'center'
+            ? 'center'
+            : attrs?.alignItems === 'end'
+              ? 'end'
+              : attrs?.alignItems === 'stretch'
+                ? 'stretch'
+                : 'start',
         // A grid distributes its **tracks**, which is what `justify-content` means on one.
         justifyContent: justify
       };

@@ -125,6 +125,27 @@
   --ou-z-popover: 60;
 
   /* Controls. A field, a button and a swatch are all one height. */
+  /**
+   * **The studio**: the room a document is looked at in, rather than the document.
+   *
+   * The third surface, and until now every product invented it. A deck's canvas is `#1f2126`, a
+   * page builder's was `#eef1f5`, and Word has none at all — three answers to one question, none of
+   * which any other product could reuse, and the page builder's was a *blue* grey, which is a colour
+   * to judge a designer's own blues against.
+   *
+   * Figma, Keynote, Illustrator and every tool of this kind agree about this surface and it is worth
+   * copying rather than deciding again: a neutral ground several steps darker than the paper, a
+   * board that carries its own colour, a soft shadow to lift it, and the board's **name above it**
+   * rather than in a bar attached to it. The name outside the board is the part that matters — a
+   * label inside is a strip of chrome inside the design, and a reader judging a page cannot unsee
+   * it.
+   */
+  --ou-studio: #e8e9ea;
+  --ou-board: #ffffff;
+  --ou-board-lift: 0 0 0 1px rgb(15 23 42 / 0.06), 0 6px 20px rgb(15 23 42 / 0.08);
+  /** What a board's name is drawn in, above the board. */
+  --ou-board-ink: #6b7280;
+
   --ou-control-h: 28px;
   /**
    * An icon button inside a **list row**.
@@ -197,6 +218,10 @@
     --ou-lift-2: 0 4px 12px var(--ou-shadow);
     --ou-lift-3: 0 12px 32px var(--ou-shadow);
     --ou-scrim: rgb(0 0 0 / 0.6);
+    /* A studio in the dark is darker than the board, which is still the page's own white. */
+    --ou-studio: #1c1c1e;
+    --ou-board-lift: 0 0 0 1px rgb(0 0 0 / 0.6), 0 8px 24px rgb(0 0 0 / 0.45);
+    --ou-board-ink: #8b9096;
   }
 }
 
@@ -222,4 +247,7 @@
   --ou-lift-2: 0 4px 12px var(--ou-shadow);
   --ou-lift-3: 0 12px 32px var(--ou-shadow);
   --ou-scrim: rgb(0 0 0 / 0.6);
+  --ou-studio: #1c1c1e;
+  --ou-board-lift: 0 0 0 1px rgb(0 0 0 / 0.6), 0 8px 24px rgb(0 0 0 / 0.45);
+  --ou-board-ink: #8b9096;
 }
