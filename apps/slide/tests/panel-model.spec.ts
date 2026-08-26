@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
-import { slidesPanelRows } from '@barocss/office-slides';
+import { getSlidesSchemaDefinition, slidesPanelRows } from '@barocss/office-slides';
+import { createSchema } from '@barocss/schema';
 import { visibleBoxes } from './helpers';
 
 /**
@@ -28,6 +29,18 @@ import { visibleBoxes } from './helpers';
  */
 
 const panel = (page: Page) => page.locator('.sl-properties');
+
+/**
+ * Where a row belongs is the **schema's** answer, so this asks it the same way the panel does.
+ *
+ * Asking without it returns every row for every box, and the check then demands a `휘어짐` on a text
+ * frame — a control it would be wrong to draw. The lists this replaced got 27 such entries wrong,
+ * which is why the question moved to the schema in the first place.
+ */
+const schema = createSchema('slides', getSlidesSchemaDefinition() as never) as never as {
+  nodes: Map<string, { attrs?: Record<string, unknown> }>;
+};
+const declares = (stype: string, attr: string) => schema.nodes.get(stype)?.attrs?.[attr] !== undefined;
 
 const ready = async (page: Page) => {
   await page.goto('/');
@@ -70,7 +83,7 @@ for (const kind of ['textFrame', 'frame']) {
     expect(found, `the sample deck has no ${kind} to select`).toBe(kind);
 
     const missing: string[] = [];
-    for (const row of slidesPanelRows(kind, 'style')) {
+    for (const row of slidesPanelRows(kind, 'style', declares)) {
       /*
        * A row that only appears inside a definition is not expected on a shape sitting on a slide —
        * and the model says which those are, so this is reading a declaration rather than knowing

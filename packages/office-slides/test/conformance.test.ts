@@ -258,11 +258,11 @@ describe('Slides draws what its schema declares', () => {
         flipX: 'the arrange toolbar’s 좌우 뒤집기, which writes it without naming it',
         flipY: 'the arrange toolbar’s 상하 뒤집기, which writes it without naming it',
         /*
-         * A cap is a real gap rather than a gesture: the panel offers 화살표 (`flow`), which says
-         * *which ends have one*, and the shape of each end is not offered at all. Owed; BACKLOG.md.
+         * `startCap` and `endCap` were exempt here as **owed**, and the panel has offered them all
+         * along — 시작 모양 and 끝 모양. A prose claim about a React tree, wrong in the direction
+         * that costs most: somebody would have built a control that already existed. Declared in
+         * `panel-model.ts` now, which is what makes the claim checkable instead of believable.
          */
-        startCap: 'not offered: 화살표 says which ends have one, and the shape of each is owed — BACKLOG.md',
-        endCap: 'not offered: 화살표 says which ends have one, and the shape of each is owed — BACKLOG.md',
 
         // ── A durable name, which a reader must not type ───────────────────
         /*

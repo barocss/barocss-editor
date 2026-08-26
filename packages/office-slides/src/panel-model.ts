@@ -65,7 +65,12 @@ export type SlidesPanelTab = 'style' | 'motion';
 /** A row of the deck's panel — `office-controls`' shape, with this product's kinds. */
 export type SlidesPanelRow = PanelRow<SlidesPanelControl> & { tab: SlidesPanelTab };
 
-/** Every box a reader selects on a slide, which is what a row with no `on` applies to. */
+/**
+ * Every box a reader selects on a slide.
+ *
+ * Only for the rows that write a **node** rather than an attribute — a motion track, a part's
+ * binding — where there is nothing for the schema to be asked about. Everything else asks it.
+ */
 const BOXES = [
   'frame',
   'rectangle',
@@ -81,12 +86,6 @@ const BOXES = [
   'mediaVideo',
   'mediaAudio'
 ];
-
-/** The ones with a fill and a line — a connector has a stroke and no fill, and a group has neither. */
-const PAINTED = ['frame', 'rectangle', 'ellipse', 'path', 'textFrame', 'picture', 'sticky', 'instance'];
-
-/** The ones a corner radius means anything on. */
-const CORNERED = ['frame', 'rectangle', 'textFrame', 'picture', 'sticky'];
 
 /**
  * A row, with the short name a reader reads and the long one a screen reader does.
@@ -114,13 +113,12 @@ const geometry = (attr: string, ariaLabel: string, control: SlidesPanelControl =
   row(attr, ariaLabel, control, { command: 'setBoxGeometry', group: '배치' });
 
 const paint = (attr: string, ariaLabel: string, control: SlidesPanelControl): SlidesPanelRow =>
-  row(attr, ariaLabel, control, { command: 'setBoxStyle', group: '채우기와 선', on: PAINTED });
+  row(attr, ariaLabel, control, { command: 'setBoxStyle', group: '채우기와 선' });
 
 const line = (attr: string, ariaLabel: string, control: SlidesPanelControl): SlidesPanelRow =>
   row(attr, ariaLabel, control, {
     command: 'setConnector',
-    group: '연결선',
-    on: ['connector']
+    group: '연결선'
   });
 
 export const SLIDES_PANEL: SlidesPanelRow[] = [
@@ -146,12 +144,12 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
   { attr: 'goTo', command: 'setBoxJump', group: '배치', tab: 'style', label: '누르면 이동', ariaLabel: '누르면 이동', control: 'choice' },
 
   // ── The arrangement a frame imposes on what is in it ───────────────────────
-  { attr: 'layoutMode', command: 'setFrameLayout', group: '배치', tab: 'style', label: '배치 방향', ariaLabel: '배치 방향', control: 'choice', on: ['frame'] },
-  { attr: 'gap', command: 'setFrameLayout', group: '배치', tab: 'style', label: '간격', ariaLabel: '간격', control: 'length', on: ['frame'], when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
-  { attr: 'padding', command: 'setFrameLayout', group: '배치', tab: 'style', label: '안쪽 여백', ariaLabel: '안쪽 여백', control: 'length', on: ['frame'], when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
+  { attr: 'layoutMode', command: 'setFrameLayout', group: '배치', tab: 'style', label: '배치 방향', ariaLabel: '배치 방향', control: 'choice' },
+  { attr: 'gap', command: 'setFrameLayout', group: '배치', tab: 'style', label: '간격', ariaLabel: '간격', control: 'length', when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
+  { attr: 'padding', command: 'setFrameLayout', group: '배치', tab: 'style', label: '안쪽 여백', ariaLabel: '안쪽 여백', control: 'length', when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
   // `교차 축 맞춤`, not `맞춤` — the browser check is what caught the difference, which is the whole
   // reason a declaration read out of JSX needs one.
-  { attr: 'alignItems', command: 'setFrameLayout', group: '배치', tab: 'style', label: '맞춤', ariaLabel: '교차 축 맞춤', control: 'choice', on: ['frame'], when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
+  { attr: 'alignItems', command: 'setFrameLayout', group: '배치', tab: 'style', label: '맞춤', ariaLabel: '교차 축 맞춤', control: 'choice', when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
   {
     attr: 'columns',
     command: 'setFrameLayout',
@@ -191,24 +189,24 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
   paint('stroke', '선 색', 'colour'),
   paint('strokeWidth', '선 두께', 'length'),
   paint('strokeDash', '선 모양', 'choice'),
-  { attr: 'cornerRadius', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '둥글기', ariaLabel: '모서리 둥글기', control: 'length', on: CORNERED },
-  { attr: 'cornerTopLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 위', ariaLabel: '왼쪽 위 모서리', control: 'length', on: CORNERED },
-  { attr: 'cornerTopRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 위', ariaLabel: '오른쪽 위 모서리', control: 'length', on: CORNERED },
-  { attr: 'cornerBottomRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 아래', ariaLabel: '오른쪽 아래 모서리', control: 'length', on: CORNERED },
-  { attr: 'cornerBottomLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 아래', ariaLabel: '왼쪽 아래 모서리', control: 'length', on: CORNERED },
+  { attr: 'cornerRadius', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '둥글기', ariaLabel: '모서리 둥글기', control: 'length' },
+  { attr: 'cornerTopLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 위', ariaLabel: '왼쪽 위 모서리', control: 'length' },
+  { attr: 'cornerTopRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 위', ariaLabel: '오른쪽 위 모서리', control: 'length' },
+  { attr: 'cornerBottomRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 아래', ariaLabel: '오른쪽 아래 모서리', control: 'length' },
+  { attr: 'cornerBottomLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 아래', ariaLabel: '왼쪽 아래 모서리', control: 'length' },
 
   // ── 텍스트 — a box that holds words ────────────────────────────────────────
-  { attr: 'verticalAlign', command: 'setBoxStyle', group: '텍스트', tab: 'style', label: '세로 맞춤', ariaLabel: '세로 맞춤', control: 'choice', on: ['textFrame', 'sticky'] },
-  { attr: 'textInset', command: 'setBoxStyle', group: '텍스트', tab: 'style', label: '안쪽 여백', ariaLabel: '텍스트 안쪽 여백', control: 'length', on: ['textFrame', 'sticky'] },
+  { attr: 'verticalAlign', command: 'setBoxStyle', group: '텍스트', tab: 'style', label: '세로 맞춤', ariaLabel: '세로 맞춤', control: 'choice' },
+  { attr: 'textInset', command: 'setBoxStyle', group: '텍스트', tab: 'style', label: '안쪽 여백', ariaLabel: '텍스트 안쪽 여백', control: 'length' },
 
   // ── 그림 ───────────────────────────────────────────────────────────────────
-  { attr: 'fit', command: 'setBoxStyle', group: '그림', tab: 'style', label: '맞춤', ariaLabel: '그림 맞춤', control: 'choice', on: ['picture'] },
+  { attr: 'fit', command: 'setBoxStyle', group: '그림', tab: 'style', label: '맞춤', ariaLabel: '그림 맞춤', control: 'choice' },
   /*
    * One control for four attributes, and it is a *gesture* rather than a form: the crop is dragged
    * on the picture and the panel offers the way back out of it. Four number rows would be four ways
    * to make a picture disappear.
    */
-  { attr: 'cropTop', command: 'cropPicture', group: '그림', tab: 'style', label: '자르기', ariaLabel: '자르기 원래대로', control: 'toggle', on: ['picture'] },
+  { attr: 'cropTop', command: 'cropPicture', group: '그림', tab: 'style', label: '자르기', ariaLabel: '자르기 원래대로', control: 'toggle' },
 
   // ── 연결선 ─────────────────────────────────────────────────────────────────
   line('kind', '연결선 모양', 'choice'),
@@ -220,6 +218,14 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
   line('labelBold', '이름표 굵게', 'toggle'),
   line('labelColor', '이름표 색', 'colour'),
   line('labelSize', '이름표 크기', 'length'),
+  /*
+   * The shape of each end, which the conformance exemption said was **owed** — and it has been on
+   * the panel all along, as 시작 모양 and 끝 모양. A prose claim about a React tree, wrong in the
+   * direction that costs most: somebody would have built a control that already existed. It is the
+   * exact fault this whole file exists to stop, committed in the file that stops it.
+   */
+  line('startCap', '시작 모양', 'choice'),
+  line('endCap', '끝 모양', 'choice'),
 
   // ── 문서 변수 연결 ─────────────────────────────────────────────────────────
   /*
@@ -265,13 +271,28 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
  * "anything" — the site builder means every block, and the shared helper takes the question rather
  * than guessing so that the two cannot answer each other's.
  */
-export function slidesPanelRows(stype: string | undefined, tab?: SlidesPanelTab): SlidesPanelRow[] {
-  return panelRowsFor(SLIDES_PANEL, stype, tab, (one) => BOXES.includes(one));
+export function slidesPanelRows(
+  stype: string | undefined,
+  tab?: SlidesPanelTab,
+  /**
+   * Whether a node type declares an attribute.
+   *
+   * The panel has always asked this — `declares('layoutMode')` is what gates the 배치 group — and a
+   * declaration that replaced it with hand-written lists got 27 entries wrong. Optional so that a
+   * *test* can read the rows without a schema; the app always passes one.
+   */
+  declares?: (stype: string, attr: string) => boolean
+): SlidesPanelRow[] {
+  return panelRowsFor(SLIDES_PANEL, stype, tab, { declares, anything: (one) => BOXES.includes(one) });
 }
 
 /** The groups a pane has, in order, with their rows. */
-export function slidesPanelGroups(stype: string | undefined, tab: SlidesPanelTab) {
-  return panelGroupsFor(slidesPanelRows(stype, tab));
+export function slidesPanelGroups(
+  stype: string | undefined,
+  tab: SlidesPanelTab,
+  declares?: (stype: string, attr: string) => boolean
+) {
+  return panelGroupsFor(slidesPanelRows(stype, tab, declares));
 }
 
 /** Every command the panel can run — the deck's third answer to "what can a reader reach". */

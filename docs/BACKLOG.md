@@ -2417,6 +2417,38 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **Where a row belongs is the schema's answer, and a hand-written list got 27 entries wrong.**
+
+  Found on the way into converting the deck's panel: `properties.tsx` gates each group with
+  `declares('layoutMode')` — it asks the **schema** whether the selected node type has the attribute
+  — and the declaration written to replace it carried five hand-written lists of node types instead.
+  Measured against the schema, **27 of their entries were wrong**, and every one was a fault in one
+  of two directions:
+
+  - a control that writes nothing: `너비` on a connector, which has no width; `채우기 추가` on a
+    picture and on a placement, which have no `fills`; `세로 맞춤` on a sticky note.
+  - a control a reader cannot reach: `선 색` and `선 두께` hidden from a line and from a connector,
+    both of which have a stroke; every corner row hidden from a video.
+
+  The site builder had the same class of fault and a worse instance of it: **a heading and a
+  paragraph were each offered 폭, 최소, 최대, 배경, 테두리 색 and 테두리 두께** — seven controls,
+  on every text block on every page, none of which those types declare. The schema was narrowed for
+  exactly this reason months ago (*"a reader who wants a hugging heading puts it in a stack that
+  hugs"*) and the panel had not been told.
+
+  So `on` is a **narrowing** now, not the answer. A row with no list appears wherever the schema
+  declares its attribute, and both products are at zero divergence. Three kinds of row still cannot
+  be asked about and fall back: one that writes a node, one that writes nothing, and any row at all
+  where a product has no schema to hand. The first version missed the middle one and the 종류 row
+  vanished from every panel in the site builder — caught by a browser test, not by the unit test,
+  which is the argument for having both.
+
+  **And one of my own exemptions was wrong in the expensive direction.** `startCap` and `endCap`
+  were exempt from `every-property-can-be-edited` as *"not offered — owed"*, and the panel has drawn
+  them all along as 시작 모양 and 끝 모양. A prose claim about a React tree, in the file whose whole
+  purpose is to stop prose claims about React trees. Somebody would have built a control that already
+  existed.
+
 - **A panel is one thing now, not three — and the third product was the reason to build it.**
 
   Asked, while converting the deck's panel, to keep the UI a shared system rather than a per-product

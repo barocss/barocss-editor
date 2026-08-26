@@ -70,12 +70,38 @@ describe('what the deck’s panel declares', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it('shows a connector’s rows only on a connector', () => {
-    expect(slidesPanelRows('connector').map((row) => row.attr)).toContain('bend');
-    expect(slidesPanelRows('rectangle').map((row) => row.attr)).not.toContain('bend');
-    // And a rectangle has no fill list to arrange, but it does have a fill.
-    expect(slidesPanelRows('rectangle').map((row) => row.attr)).toContain('fills');
-    expect(slidesPanelRows('group').map((row) => row.attr)).not.toContain('fills');
+  it('asks the schema where a row belongs, rather than a list', () => {
+    /*
+     * The lists this replaced were wrong in **27 places** — a `너비` offered on a connector, which
+     * has none; a `선 색` hidden from a line, which has one. Every entry was either a control that
+     * writes nothing or a control a reader cannot reach, and the deck's own panel had been asking
+     * the schema all along (`declares('layoutMode')`). The declaration that replaced it regressed,
+     * and this is the check that says so.
+     */
+    const declares = (stype: string, attr: string) => !!(schema.nodes.get(stype) as any)?.attrs?.[attr];
+    const on = (stype: string) => slidesPanelRows(stype, undefined, declares).map((row) => row.attr);
+
+    expect(on('connector')).toContain('bend');
+    expect(on('rectangle')).not.toContain('bend');
+    // A connector has no box: no x, no width — and it does have a stroke, which the list denied it.
+    expect(on('connector')).not.toContain('width');
+    expect(on('connector')).toContain('stroke');
+    expect(on('line')).toContain('strokeWidth');
+    // A group is a z-order over other shapes and paints nothing itself.
+    expect(on('group')).not.toContain('fills');
+    expect(on('rectangle')).toContain('fills');
+  });
+
+  it('keeps a row the schema cannot answer for', () => {
+    /*
+     * Three kinds of row have no attribute to ask about: one that writes a node, one that writes
+     * nothing, and any row at all when a product has no schema to hand. The first version asked
+     * anyway and `stype` is not an attribute of anything, so the 종류 row vanished from every
+     * panel in the site builder — caught by a browser test rather than by this file, which is the
+     * argument for having both.
+     */
+    const declares = () => false;
+    expect(slidesPanelRows('rectangle', undefined, declares).map((row) => row.attr)).toContain('motionTrack');
   });
 
   it('counts the attributes a row writes without naming, as well as the ones it does', () => {

@@ -75,6 +75,8 @@ export function Inspector({
 
   const store = editor.dataStore;
   const node = (sid: string | undefined) => (sid ? store?.getNode(sid) : undefined);
+  /** What the document's schema says a node type has — see `Groups`. */
+  const schema = (store as never as { getActiveSchema?: () => any })?.getActiveSchema?.();
 
   const shown = useMemo(() => {
     const ids = selectedNodeIds(editor.selection) ?? [];
@@ -221,6 +223,7 @@ export function Inspector({
           page={node(page)}
           tokens={tokens}
           data={data}
+          schema={schema}
           write={write}
           run={run}
           empty="페이지에서 블록을 선택하세요. 한 번 누르면 바깥쪽 블록, 두 번 누르면 그 안쪽입니다."
@@ -240,6 +243,7 @@ export function Inspector({
             at={at}
             tokens={tokens}
             data={data}
+            schema={schema}
             write={write}
             run={run}
           />
@@ -279,6 +283,7 @@ function Groups({
   page,
   tokens,
   data,
+  schema,
   write,
   run,
   empty,
@@ -291,6 +296,8 @@ function Groups({
   page?: any;
   tokens: ThemeSwatch[];
   data: { datasets: { id: string; label: string }[]; columns: { id: string; label: string }[] };
+  /** The document's schema, which is what decides where a row appears. */
+  schema?: { getNodeType?: (stype: string) => { attrs?: Record<string, unknown> } | undefined };
   write: (row: SitePanelRow, value: unknown) => void;
   run: (name: string, payload: Record<string, unknown>) => void;
   /** Shown instead of the groups when there is nothing to draw them about. */
@@ -300,9 +307,18 @@ function Groups({
 }) {
   if (empty && !page) return <PropertyEmpty>{empty}</PropertyEmpty>;
 
+  /*
+   * Whether the selected node type declares an attribute — which is what decides where a row appears.
+   *
+   * Asked of the schema rather than of a list in the declaration, because a list drifts: this panel
+   * was offering a 폭, a 배경 and two 테두리 rows on a heading and a paragraph, and none of those
+   * types declares any of them. Seven controls that wrote nothing, on every text block on the page.
+   */
+  const declares = (one: string, attr: string) => schema?.getNodeType?.(one)?.attrs?.[attr] !== undefined;
+
   const attrs = shown?.attrs ?? (page?.attributes as Record<string, any>) ?? {};
   const count = shown?.count ?? 1;
-  const groups = sitePanelGroups(stype, tab)
+  const groups = sitePanelGroups(stype, tab, declares)
     .map((group) => ({ ...group, rows: group.rows.filter((row) => visible(row, attrs, count)) }))
     .filter((group) => group.rows.length > 0);
 

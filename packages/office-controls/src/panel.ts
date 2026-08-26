@@ -93,10 +93,18 @@ export interface PanelRow<Kind extends string = string> {
   min?: number;
   max?: number;
   /**
-   * Which node types the row appears for. Absent means every selectable thing.
+   * Which node types the row appears for — a **narrowing**, and usually unnecessary.
    *
-   * A list rather than a predicate so a check can read it: *which rows can ever set `fit`* is then a
-   * question about an array and not about running the panel.
+   * Absent means *"wherever the schema declares this attribute"*, which is nearly always the right
+   * answer and is the one that cannot drift. A hand-written list can, and did: the deck's first
+   * declaration carried five of them and **27 of their entries were wrong** when measured against
+   * the schema — offering a `너비` on a connector, which has none, and hiding a `선 색` from a line,
+   * which has one. Every entry was either a control that writes nothing or a control a reader cannot
+   * reach.
+   *
+   * So a list is for the rows that are genuinely narrower than the schema: one that writes a node
+   * rather than an attribute (`attr` names a node type, so there is nothing to ask about), or one a
+   * product offers in fewer places than it could.
    */
   on?: string[];
   /** Shown only when another attribute holds one of these values. */
@@ -115,27 +123,52 @@ export interface PanelRow<Kind extends string = string> {
   inside?: string;
 }
 
-/** Where a row applies, asked of one node type — everything a row itself can decide. */
+/**
+ * Where a row applies, asked of one node type.
+ *
+ * **The schema decides by default.** A row appears wherever its attribute is declared, which is the
+ * answer a hand-written list is trying to approximate and keeps getting wrong — measured on the
+ * deck's first declaration, five lists and 27 wrong entries, each one a control that writes nothing
+ * or a control a reader cannot reach. The deck's own panel had been asking the schema all along
+ * (`declares('layoutMode')`); the declaration that replaced it was the thing that regressed.
+ */
 export function panelRowsFor<Row extends PanelRow>(
   rows: Row[],
   stype: string | undefined,
   tab?: string,
-  /**
-   * What a row with no `on` applies to.
-   *
-   * The two products mean different things by "anything": a page's panel means every block, and a
-   * deck's means every box on a slide. Passed in rather than guessed, because guessing here is how
-   * a page's panel would start offering a connector's rows.
-   */
-  anything?: (stype: string) => boolean
+  asks: {
+    /**
+     * Whether a node type declares an attribute — the schema, which only the product has.
+     *
+     * Without it a row with no `on` falls back to `anything`, which is how a product adopts this
+     * before it has a schema to hand.
+     */
+    declares?: (stype: string, attr: string) => boolean;
+    /**
+     * What a row with no `on` applies to when its attribute is not an attribute at all.
+     *
+     * Three kinds of row are in that position, and asking the schema about any of them gets the
+     * wrong answer:
+     *
+     * - one that writes a **node** (`writes: 'child'`) names a node type in `attr`;
+     * - one that writes **nothing** — the kind of block a reader is told, the sentence that says
+     *   which width is being edited. `stype` is not an attribute of anything, so the first version
+     *   of this made the 종류 row vanish from every panel;
+     * - a product that has no schema to hand, which is how one adopts this before it does.
+     *
+     * The two products mean different things by "anything" besides: a page's panel means every
+     * block and a deck's means every box on a slide.
+     */
+    anything?: (stype: string) => boolean;
+  } = {}
 ): Row[] {
-  return rows.filter(
-    (row) =>
-      (tab === undefined || row.tab === undefined || row.tab === tab) &&
-      (row.on === undefined
-        ? stype !== undefined && (anything?.(stype) ?? true)
-        : stype !== undefined && row.on.includes(stype))
-  );
+  return rows.filter((row) => {
+    if (tab !== undefined && row.tab !== undefined && row.tab !== tab) return false;
+    if (stype === undefined) return false;
+    if (row.on !== undefined) return row.on.includes(stype);
+    if (row.writes === 'child' || !row.command || !asks.declares) return asks.anything?.(stype) ?? true;
+    return asks.declares(stype, row.attr);
+  });
 }
 
 /**

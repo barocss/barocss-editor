@@ -79,7 +79,15 @@ export type SitePanelTab = 'block' | 'style' | 'data' | 'values' | 'page';
 /** A row of the site's panel — `office-controls`' shape, with this product's kinds. */
 export type SitePanelRow = PanelRow<SitePanelControl> & { tab: SitePanelTab };
 
-/** Every stack: the two node types that arrange what is in them. */
+/**
+ * Every stack: the two node types that arrange what is in them.
+ *
+ * Kept for the rows that are narrower than the schema — `clipsContent` and `cornerRadius` are on
+ * every frame the office schema has, and a *page's* panel offers them only where a page can hold
+ * one. Everything else asks the schema, because a hand-written list drifts and a schema cannot:
+ * measured, this panel was offering a 폭, a 배경 and two 테두리 rows on a heading and a paragraph,
+ * none of which declares any of them. Seven controls that wrote nothing.
+ */
 const STACKS = ['frame', 'collection'];
 
 /**
@@ -282,13 +290,22 @@ export const SITE_PANEL: SitePanelRow[] = [
  * shared helper takes the question rather than guessing it: a deck means every box on a slide by
  * "anything", and the two would quietly answer each other's question.
  */
-export function sitePanelRows(stype: string | undefined, tab?: SitePanelTab): SitePanelRow[] {
-  return panelRowsFor(SITE_PANEL, stype, tab, (one) => SELECTABLE.has(one));
+export function sitePanelRows(
+  stype: string | undefined,
+  tab?: SitePanelTab,
+  /** Whether a node type declares an attribute — the schema, which only the app has. */
+  declares?: (stype: string, attr: string) => boolean
+): SitePanelRow[] {
+  return panelRowsFor(SITE_PANEL, stype, tab, { declares, anything: (one) => SELECTABLE.has(one) });
 }
 
 /** The groups a pane has, in order, with their rows — which is how the panel is drawn. */
-export function sitePanelGroups(stype: string | undefined, tab: SitePanelTab) {
-  return panelGroupsFor(sitePanelRows(stype, tab));
+export function sitePanelGroups(
+  stype: string | undefined,
+  tab: SitePanelTab,
+  declares?: (stype: string, attr: string) => boolean
+) {
+  return panelGroupsFor(sitePanelRows(stype, tab, declares));
 }
 
 /** Every command the panel can run — the third answer to "what can a reader reach". */
