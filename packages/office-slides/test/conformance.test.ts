@@ -370,8 +370,12 @@ describe('Slides draws what its schema declares', () => {
         addSlideNote: 'the button in the notes pane, shown when a slide has no note',
         insertConnectedShape:
           'the canvas — a line pulled out of a shape’s magnet and let go in empty space, which makes the next shape and joins it. The gesture a flow chart is made of, and it has no button because a button could not say *where*',
-        reverseConnector:
-          'the properties panel — 연결선 › 방향 › 뒤집기. A relationship drawn the wrong way round had two ways back before this: delete the line and draw it again, or drag both ends past each other',
+        /*
+         * `reverseConnector` was exempt here as *"the properties panel — 연결선 › 방향 › 뒤집기"*,
+         * which was true and is now **declared** (`panel-model.ts`): a 방향 row whose control is an
+         * `action`. The harness reported the exemption stale the moment it was, which is the whole
+         * shape of moving a surface out of JSX — one sentence at a time stops being a claim.
+         */
         spliceIntoConnector:
           'the canvas — a shape dragged onto a line, which highlights while it is held and splits into two lines on release. Like `insertConnectedShape` it has no button, because a button could not say *which line*',
         applySlideLayout:

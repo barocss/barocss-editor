@@ -798,6 +798,7 @@ export {
   SLIDES_PANEL,
   slidesPanelAttrs,
   slidesPanelCommands,
+  slidesPanelGroups,
   slidesPanelRows,
   type SlidesPanelControl,
   type SlidesPanelRow,

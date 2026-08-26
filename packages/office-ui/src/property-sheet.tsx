@@ -1,7 +1,6 @@
-import { ChoiceSelect } from './select';
 import { ColorField, type ThemeSwatch } from './color-field';
 import { NumberField, TextField } from './controls';
-import { PropertyGroup, PropertyRow, PropertyToggle } from './properties';
+import { PropertyChoice, PropertyGroup, PropertyRow, PropertyToggle } from './properties';
 
 /**
  * A property panel, drawn from a declaration.
@@ -48,6 +47,8 @@ export interface SheetRow {
   min?: number;
   max?: number;
   needs?: string;
+  /** More controls in this row, drawn after it under its one label — see `PanelRow.with`. */
+  with?: SheetRow[];
 }
 
 export interface SheetGroup<Row extends SheetRow> {
@@ -63,6 +64,7 @@ export function PropertySheet<Row extends SheetRow>({
   marked,
   swatches,
   heading,
+  suffix,
   render
 }: {
   /** The groups to draw, in order — the product's declaration, already filtered. */
@@ -92,6 +94,18 @@ export function PropertySheet<Row extends SheetRow>({
   /** The heading to draw for a group, when it is not the declared one. */
   heading?: (group: SheetGroup<Row>) => string;
   /**
+   * What to write after a number, when the row cannot say.
+   *
+   * `row.unit` is a **declaration** and is right where a product has one unit: a page is drawn in
+   * pixels and stores twips, and that never changes. A deck lets the reader choose — px, cm, inches —
+   * so its suffix is a fact about the *session* rather than about the row, and a deck that declared
+   * `unit: 'px'` would print the wrong word beside every length in the panel.
+   *
+   * Collapsing a whole control kind into the shared five: without this the deck needed its own
+   * `length`, which is a `number` with a different label on it.
+   */
+  suffix?: (row: Row) => string | undefined;
+  /**
    * Anything this does not know how to draw.
    *
    * The extension point, and the reason a product can keep its own kinds without this package
@@ -108,93 +122,125 @@ export function PropertySheet<Row extends SheetRow>({
    */
   render?: (row: Row) => React.ReactNode;
 }) {
+  /**
+   * One control, or nothing.
+   *
+   * `null` means the product asked for this row to be hidden; `undefined` means it drew nothing and
+   * this sheet has no kind for it either, which is visible as an empty row rather than guessed at.
+   */
+  const control = (row: Row | SheetRow): React.ReactNode | null | undefined => {
+    const one = row as Row;
+    const own = render?.(one);
+    if (own === null) return null;
+    if (own !== undefined) return own;
+
+    const group = groups.find((maybe) => maybe.rows.some((other) => other === one || (other.with ?? []).includes(one)));
+    const disabled = one.needs !== undefined && group !== undefined && !groupValue(group, one.needs, value);
+    const current = value(one);
+
+    switch (one.control) {
+      case 'text':
+        return (
+          <TextField
+            key={key(one)}
+            value={String(current ?? '')}
+            onCommit={(next) => onWrite(one, next || undefined)}
+            ariaLabel={one.ariaLabel}
+            disabled={disabled}
+          />
+        );
+
+      case 'number':
+        return (
+          <NumberField
+            key={key(one)}
+            value={current === undefined ? (one.fallback === undefined ? null : Number(one.fallback)) : Number(current)}
+            onCommit={(next) => onWrite(one, next)}
+            ariaLabel={one.ariaLabel}
+            suffix={suffix ? suffix(one) : one.unit}
+            min={one.min}
+            max={one.max}
+            disabled={disabled}
+          />
+        );
+
+      case 'colour':
+        return (
+          <ColorField
+            key={key(one)}
+            value={typeof (raw ?? value)(one) === 'string' ? String((raw ?? value)(one)) : null}
+            varSwatches={swatches}
+            onChange={(next) => onWrite(one, next)}
+            onClear={() => onWrite(one, undefined)}
+            ariaLabel={one.ariaLabel}
+          />
+        );
+
+      case 'toggle':
+        return (
+          <PropertyToggle
+            key={key(one)}
+            value={current === true}
+            onChange={(next) => onWrite(one, next)}
+            label={one.label}
+            ariaLabel={one.ariaLabel}
+            disabled={disabled}
+          />
+        );
+
+      case 'choice':
+        /*
+         * The **platform's** dropdown, not Radix's — `canvas-model.md` §6 has said so since before
+         * this file existed: *"Native dropdown in a panel, Radix in a ribbon … a panel's dropdown is
+         * a list of words, where the platform's control is smaller, faster and already knows how to
+         * be typed into."*
+         *
+         * The first version of this sheet used `ChoiceSelect`, which is the ribbon's, and the deck's
+         * browser suite said so immediately: `selectOption` on a Radix trigger is *"Element is not a
+         * <select> element"*. The site builder's panel had been using the ribbon's control all along
+         * and nothing had noticed, because nothing had a reason to open it.
+         */
+        return (
+          <PropertyChoice
+            key={key(one)}
+            value={String(current ?? one.fallback ?? '')}
+            options={one.options ?? []}
+            onChange={(next) => onWrite(one, next || undefined)}
+            ariaLabel={one.ariaLabel}
+            disabled={disabled}
+          />
+        );
+
+      default:
+        /*
+         * A kind this does not know and the product did not draw. Nothing, rather than a guess: an
+         * empty row is visible and askable, and a guessed control is one that writes the wrong thing.
+         */
+        return undefined;
+    }
+  };
+
   return (
     <>
       {groups.map((group) => (
         <PropertyGroup key={group.label} label={heading?.(group) ?? group.label}>
           {group.rows.map((row) => {
-            const own = render?.(row);
-            if (own === null) return null;
-            if (own !== undefined) return <Cell key={key(row)} row={row} marked={marked}>{own}</Cell>;
+            const drawn = control(row);
+            if (drawn === null) return null;
+            /*
+             * A row and its companions under one label — 이름표 꾸미기 is a size, a colour and a
+             * weight, and three rows of it would be three labels saying almost the same word down a
+             * 280px column. A companion that draws nothing is left out rather than left blank.
+             */
+            const beside = (row.with ?? []).map(control).filter((one) => one !== null && one !== undefined);
+            if (drawn === undefined && beside.length === 0) return null;
 
-            const disabled = row.needs !== undefined && !groupValue(group, row.needs, value);
-            const current = value(row);
-
-            switch (row.control) {
-              case 'text':
-                return (
-                  <Cell key={key(row)} row={row} marked={marked}>
-                    <TextField
-                      value={String(current ?? '')}
-                      onCommit={(next) => onWrite(row, next || undefined)}
-                      ariaLabel={row.ariaLabel}
-                      disabled={disabled}
-                    />
-                  </Cell>
-                );
-
-              case 'number':
-                return (
-                  <Cell key={key(row)} row={row} marked={marked}>
-                    <NumberField
-                      value={current === undefined ? (row.fallback === undefined ? null : Number(row.fallback)) : Number(current)}
-                      onCommit={(next) => onWrite(row, next)}
-                      ariaLabel={row.ariaLabel}
-                      suffix={row.unit}
-                      min={row.min}
-                      max={row.max}
-                      disabled={disabled}
-                    />
-                  </Cell>
-                );
-
-              case 'colour':
-                return (
-                  <Cell key={key(row)} row={row} marked={marked}>
-                    <ColorField
-                      value={typeof (raw ?? value)(row) === 'string' ? String((raw ?? value)(row)) : null}
-                      varSwatches={swatches}
-                      onChange={(next) => onWrite(row, next)}
-                      onClear={() => onWrite(row, undefined)}
-                      ariaLabel={row.ariaLabel}
-                    />
-                  </Cell>
-                );
-
-              case 'toggle':
-                return (
-                  <Cell key={key(row)} row={row} marked={marked}>
-                    <PropertyToggle
-                      value={current === true}
-                      onChange={(next) => onWrite(row, next)}
-                      label={row.label}
-                      ariaLabel={row.ariaLabel}
-                      disabled={disabled}
-                    />
-                  </Cell>
-                );
-
-              case 'choice':
-                return (
-                  <Cell key={key(row)} row={row} marked={marked}>
-                    <ChoiceSelect
-                      value={String(current ?? row.fallback ?? '')}
-                      options={row.options ?? []}
-                      onChange={(next) => onWrite(row, next || undefined)}
-                      ariaLabel={row.ariaLabel}
-                      disabled={disabled}
-                    />
-                  </Cell>
-                );
-
-              default:
-                /*
-                 * A kind this does not know and the product did not draw. Nothing, rather than a
-                 * guess: an empty row is visible and askable, and a guessed control is a control
-                 * that writes the wrong thing.
-                 */
-                return null;
-            }
+            return (
+              <Cell key={key(row)} row={row} marked={marked}>
+                {drawn}
+                {beside}
+              </Cell>
+            );
           })}
         </PropertyGroup>
       ))}

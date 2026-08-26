@@ -42,6 +42,25 @@ const schema = createSchema('slides', getSlidesSchemaDefinition() as never) as n
 };
 const declares = (stype: string, attr: string) => schema.nodes.get(stype)?.attrs?.[attr] !== undefined;
 
+/**
+ * How many controls the panel draws for a row.
+ *
+ * Three ways of asking, because a row is not always a labelled field:
+ *
+ * - a **binds** row draws one control per bindable attribute, named after the attribute — `X 문서
+ *   변수` — so the declared name is a suffix;
+ * - an **action** row is a button whose accessible name is its own words (지우기, 뒤집기), which is
+ *   a *role* question rather than a label one;
+ * - everything else is a field with an accessible name, asked **exactly** — Playwright's
+ *   `getByLabel(string)` matches a substring, and asking for `간격` once found `간격 문서 변수` and
+ *   passed over a control that was not drawn at all.
+ */
+async function drawn(page: Page, row: { control: string; ariaLabel: string }): Promise<number> {
+  if (row.control === 'binds') return panel(page).getByLabel(new RegExp(`${row.ariaLabel}$`)).count();
+  if (row.control === 'action') return panel(page).getByRole('button', { name: row.ariaLabel }).count();
+  return panel(page).getByLabel(row.ariaLabel, { exact: true }).count();
+}
+
 const ready = async (page: Page) => {
   await page.goto('/');
   await page.waitForSelector('.sl-stage');
@@ -121,10 +140,7 @@ test('every row the model declares for a connector is a control the panel draws'
   for (const row of slidesPanelRows('connector', 'style', declares)) {
     // A waypoint is placed by dragging the line, which is a gesture `connector.spec.ts` holds.
     if (row.inside || row.attr === 'waypoints') continue;
-    const found =
-      row.control === 'binds'
-        ? await panel(page).getByLabel(new RegExp(`${row.ariaLabel}$`)).count()
-        : await panel(page).getByLabel(row.ariaLabel, { exact: true }).count();
+    const found = await drawn(page, row);
     if (found === 0) missing.push(`${row.group} › ${row.ariaLabel}`);
   }
   expect(missing, 'declared in panel-model.ts and not drawn for a connector').toEqual([]);
@@ -163,11 +179,7 @@ for (const kind of ['textFrame', 'frame']) {
        * over a control that was not drawn at all. A check that can pass by finding the wrong thing is
        * worse than no check, because it is believed.
        */
-      const found =
-        row.control === 'binds'
-          ? await panel(page).getByLabel(new RegExp(`${row.ariaLabel}$`)).count()
-          : await panel(page).getByLabel(row.ariaLabel, { exact: true }).count();
-      if (found === 0) missing.push(`${row.group} › ${row.ariaLabel}`);
+      if ((await drawn(page, row)) === 0) missing.push(`${row.group} › ${row.ariaLabel}`);
     }
 
     expect(missing, `declared in panel-model.ts and not drawn for a ${kind}`).toEqual([]);

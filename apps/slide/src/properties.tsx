@@ -12,6 +12,7 @@ import {
   PropertyNumber,
   PropertyPanel,
   PropertyRow,
+  PropertySheet,
   PropertyToggle,
   ColorField,
   PropertyChoice,
@@ -22,7 +23,16 @@ import {
   unitSuffix,
   type LengthUnit
 } from '@barocss/office-ui';
+import { slidesPanelGroups, type SlidesPanelRow } from '@barocss/office-slides';
 import { useEditorRevision } from './revision';
+
+/**
+ * The attributes a **length** — a number in the reader's chosen unit, rather than a bare count.
+ *
+ * A `rotation` is degrees whatever the ruler says and a `labelSize` is points; everything else that
+ * is a number here is a distance on the slide, and the panel shows it in px, cm or inches.
+ */
+const LENGTHS = new Set(['x', 'y', 'width', 'height', 'gap', 'padding', 'strokeWidth', 'bend', 'textInset', 'cornerRadius', 'cornerTopLeft', 'cornerTopRight', 'cornerBottomRight', 'cornerBottomLeft']);
 import { EffectList, PaintList } from './paint-panel';
 import { ComboGallery, PathGallery, PresetGallery } from './preset-gallery';
 import {
@@ -136,26 +146,6 @@ import {
  * product's to invent — a flow is an arrow, an association a dot, and UML's inheritance
  * and composition a hollow triangle and a diamond. See `canvas-connector.ts`.
  */
-const CAP_OPTIONS = [
-  { id: 'none', label: '없음' },
-  { id: 'arrow', label: '화살표' },
-  { id: 'open', label: '열린 화살' },
-  { id: 'triangle', label: '삼각형' },
-  { id: 'hollow', label: '빈 삼각형' },
-  { id: 'circle', label: '점' },
-  { id: 'diamond', label: '마름모' },
-  { id: 'bar', label: '막대' },
-  // "Blocked", "not this way" — the one people otherwise draw by deleting the arrow,
-  // which loses the fact that the relationship exists *and* is refused.
-  { id: 'cross', label: '가위표' }
-];
-
-/** The two ends, and what each starts as: a line points *at* something. */
-const CAP_ENDS = [
-  { key: 'startCap', label: '시작 모양', fallback: 'none' },
-  { key: 'endCap', label: '끝 모양', fallback: 'arrow' }
-] as const;
-
 const CORNERS = [
   { key: 'cornerTopLeft', label: '왼쪽 위', aria: '왼쪽 위 모서리' },
   { key: 'cornerTopRight', label: '오른쪽 위', aria: '오른쪽 위 모서리' },
@@ -455,6 +445,135 @@ export function Properties({
   };
 
   const locked = shared('locked') === true;
+
+  /**
+   * One declared group, drawn by the **suite's** panel.
+   *
+   * `PropertySheet` draws the five kinds every editor's panel has and hands back the three that are
+   * a canvas's — a paint stack, a variable binding, a button that runs a command. What a group *is*
+   * lives in `panel-model.ts`, which is also what the conformance harness reads, so a row nobody can
+   * reach and a row nobody declared are now the same fact rather than two.
+   *
+   * Converted a group at a time rather than all at once: this file is 2,863 lines and its browser
+   * suite is 391 tests, and `tests/panel-model.spec.ts` checks each group against what the panel
+   * actually draws as it moves.
+   */
+  const sheet = (group: string) => {
+    const rows = slidesPanelGroups(box?.stype, 'style', (_stype: string, attr: string) =>
+      declares(attr)
+    ).filter((one) => one.label === group);
+    if (rows.length === 0) return null;
+
+    /** Which command a row runs, and with what — the panel's own writers, by name. */
+    const write = (row: SlidesPanelRow, next: unknown) => {
+      if (row.command === 'setConnector') setConnector({ [row.attr]: next });
+      else if (row.command === 'setBoxStyle') setStyle({ [row.attr]: next });
+      else if (row.command === 'setBoxGeometry') setGeometryRaw({ [row.attr]: next });
+      else if (row.command === 'setFrameLayout') setLayout({ [row.attr]: next });
+    };
+
+    return (
+      <PropertySheet
+        groups={rows
+          .map((one) => ({ ...one, rows: one.rows.filter((row) => shown(row)) }))
+          .filter((one) => one.rows.length > 0)}
+        value={(row) => read(row)}
+        raw={(row) => box?.attributes?.[row.attr]}
+        /* The reader's chosen unit, which is a fact about the session rather than about the row. */
+        suffix={(row) => (row.unit ? row.unit : row.control === 'number' && LENGTHS.has(row.attr) ? unit : undefined)}
+        onWrite={(row, next) => write(row, commit(row, next))}
+        swatches={varSwatches}
+        render={(row) => own(row)}
+      />
+    );
+  };
+
+  /** Whether a conditional row's condition holds — see `PanelRow.when`. */
+  const shown = (row: SlidesPanelRow): boolean => {
+    if (!row.when) return true;
+    const held = box?.attributes?.[row.when.attr];
+    if (row.when.is) return row.when.is.includes(held);
+    return Array.isArray(held) ? held.length > 0 : held !== undefined && held !== null && held !== '';
+  };
+
+  /** What a row shows: the reader's unit for a length, points for a label, the value otherwise. */
+  const read = (row: SlidesPanelRow): unknown => {
+    const held = box?.attributes?.[row.attr];
+    if (row.unit === 'pt') return typeof held === 'number' ? held / 20 : null;
+    if (row.control === 'number' && LENGTHS.has(row.attr)) {
+      return typeof held === 'number' ? toDisplay(held, unit) : null;
+    }
+    return held;
+  };
+
+  /** And what it writes back: the same conversions, the other way. */
+  const commit = (row: SlidesPanelRow, next: unknown): unknown => {
+    if (row.unit === 'pt') return Math.round(Number(next) * 20);
+    if (row.control === 'number' && LENGTHS.has(row.attr)) return fromDisplay(Number(next), unit);
+    if (row.control === 'colour') return next ?? null;
+    /*
+     * An emptied field is **an empty string**, not nothing.
+     *
+     * The sheet reads a cleared text field as `undefined` — right for a page, where taking a value
+     * back at a narrow width is how a reader says "the page's answer again". A connector's label is
+     * the other case: emptied means *no label*, and `undefined` reaches the command as "you did not
+     * mention this" and leaves the old word on the line. The test that asks for the label back after
+     * clearing it is what said so.
+     */
+    if (row.control === 'text' && next === undefined) return '';
+    return next;
+  };
+
+  /** The three kinds that are a canvas's rather than the suite's. */
+  const own = (row: SlidesPanelRow): React.ReactNode | null | undefined => {
+    if (row.control !== 'action') return undefined;
+    if (row.attr === 'startNodeId') {
+      return (
+        <Button
+          /*
+           * Named, because a `title` wins the accessible-name computation over the button's own
+           * words: without this it announced *"시작과 끝을 바꿉니다"* — the tooltip — and a check
+           * asking for the button by what it says found nothing.
+           */
+          ariaLabel={row.ariaLabel}
+          title="시작과 끝을 바꿉니다"
+          data={{ 'conn-reverse': '' }}
+          disabled={locked}
+          onClick={() => void editor?.executeCommand('reverseConnector', { nodeIds: targets })}
+        >
+          뒤집기
+        </Button>
+      );
+    }
+    if (row.attr === 'waypoints') {
+      /*
+       * A count and a way back, not a control: bends are placed on the line itself, so what a panel
+       * is for is saying how many there are — a bend hidden behind a shape looks like none — and
+       * undoing them all at once, which is otherwise several double-clicks.
+       */
+      const bends = (box?.attributes?.waypoints as unknown[] | undefined)?.length ?? 0;
+      return (
+        <>
+          <span className="sl-wp-count">{bends}개</span>
+          <Button
+            ariaLabel={row.ariaLabel}
+            title="경유점 지우기"
+            data={{ 'wp-clear': '' }}
+            /*
+             * An **empty list**, not nothing. `[]` says "a reader took the bends out" and `null`
+             * says "this line never had any" — the route reads them differently, and the test that
+             * asks for the bends back got `undefined` where it expects `[]`.
+             */
+            disabled={locked}
+            onClick={() => setConnector({ waypoints: [] })}
+          >
+            지우기
+          </Button>
+        </>
+      );
+    }
+    return undefined;
+  };
   /**
    * Inside a frame that arranges, where a position is not the reader's to type.
    *
@@ -1242,220 +1361,7 @@ export function Properties({
             <BindGroup editor={editor} sids={targets} locked={locked} tick={tick} />
           )}
 
-          {declares('startNodeId') && (
-            <PropertyGroup label="연결선">
-              <PropertyRow label="경로">
-                <PropertyChoice
-                  ariaLabel="경로"
-                  value={String(box?.attributes?.kind ?? 'elbow')}
-                  options={[
-                    { id: 'elbow', label: '직각' },
-                    { id: 'straight', label: '직선' },
-                    { id: 'curve', label: '곡선' },
-                    /**
-                     * 활 — the arc, and the one route with no magnets: it leaves each
-                     * shape *towards* the control point, so it points at the shape
-                     * however the shape is turned. See `arcPoints`.
-                     */
-                    { id: 'arc', label: '활' }
-                  ]}
-                  disabled={locked}
-                  onChange={(value) => setConnector({ kind: value })}
-                />
-              </PropertyRow>
-              {Array.isArray(box?.attributes?.waypoints) &&
-                (box.attributes.waypoints as unknown[]).length > 0 && (
-                  <PropertyRow label="경유점">
-                    {/*
-                      * The count, and a way back.
-                      *
-                      * Bends are placed on the line itself — a grip in the middle of each
-                      * run — so there is nothing to *set* here. What a panel is for is
-                      * saying how many there are (a line with one bend hidden behind a
-                      * shape looks like a line with none) and undoing all of them at once,
-                      * which is otherwise several double-clicks.
-                      */}
-                    <span className="sl-wp-count">
-                      {(box.attributes.waypoints as unknown[]).length}개
-                    </span>
-                    <Button
-                      title="경유점 지우기"
-                      data={{ 'wp-clear': '' }}
-                      disabled={locked}
-                      onClick={() => setConnector({ waypoints: [] })}
-                    >
-                      지우기
-                    </Button>
-                  </PropertyRow>
-                )}
-              <PropertyRow label="방향">
-                {/*
-                  * Turn the line round.
-                  *
-                  * A connector is a relationship and a relationship has a direction — the
-                  * arrowhead is on the end — and drawing it the wrong way round happens
-                  * whenever a reader picks the two shapes in the order they were thinking
-                  * of them. The ways back were deleting the line or dragging both ends
-                  * past each other.
-                  */}
-                <Button
-                  title="시작과 끝을 바꿉니다"
-                  data={{ 'conn-reverse': '' }}
-                  disabled={locked}
-                  onClick={() =>
-                    void (editor as any)?.executeCommand?.('reverseConnector', {
-                      nodeIds: targets
-                    })
-                  }
-                >
-                  뒤집기
-                </Button>
-              </PropertyRow>
-              <PropertyRow label="흐름">
-                <PropertyToggle
-                  ariaLabel="흐름"
-                  label="흐르게"
-                  /**
-                   * Dashes travelling along the line. An arrowhead says where it points
-                   * standing still; a flow says it moving, and with six lines on a slide
-                   * the one that flows is the one the eye follows.
-                   */
-                  value={box?.attributes?.flow === true}
-                  disabled={locked}
-                  onChange={(next) => setConnector({ flow: next })}
-                />
-              </PropertyRow>
-              <PropertyRow label="이름표">
-                <TextField
-                  ariaLabel="이름표"
-                  /**
-                   * The word the line carries — "yes", "no", "1..n", "on failure".
-                   * Short by construction (`LABEL_MAX`): a line carries a word, and a
-                   * paragraph on one is a text box that should have been placed as one.
-                   */
-                  value={
-                    typeof box?.attributes?.label === 'string'
-                      ? (box.attributes.label as string)
-                      : ''
-                  }
-                  maxLength={24}
-                  placeholder="선 위에 쓸 말"
-                  disabled={locked}
-                  onCommit={(value) => setConnector({ label: value })}
-                />
-              </PropertyRow>
-              {/*
-                * A word for each end, beside the one in the middle.
-                *
-                * UML's multiplicity — `1` here, `0..*` there — which is the difference
-                * between "an order has items" and "an order has many items". In the panel
-                * rather than on the canvas: the double-click gesture already means the
-                * *middle* label, and a second gesture that depended on how near an end the
-                * pointer was would be a control a reader could not aim.
-                */}
-              <PropertyRow label="양끝 이름표">
-                <TextField
-                  ariaLabel="시작 이름표"
-                  value={
-                    typeof box?.attributes?.startLabel === 'string'
-                      ? (box.attributes.startLabel as string)
-                      : ''
-                  }
-                  maxLength={24}
-                  placeholder="시작 쪽"
-                  disabled={locked}
-                  onCommit={(value) => setConnector({ startLabel: value })}
-                />
-                <TextField
-                  ariaLabel="끝 이름표"
-                  value={
-                    typeof box?.attributes?.endLabel === 'string'
-                      ? (box.attributes.endLabel as string)
-                      : ''
-                  }
-                  maxLength={24}
-                  placeholder="끝 쪽"
-                  disabled={locked}
-                  onCommit={(value) => setConnector({ endLabel: value })}
-                />
-              </PropertyRow>
-              {/*
-                * How the label is set, and only when there *is* one.
-                *
-                * A size field on a line with no label is a control for nothing — the same
-                * rule the 경유점 row follows. A diagram's words carry weight the line
-                * cannot: a red 실패 on the path nobody wants, a bold 필수 on the one they
-                * must take.
-                */}
-              {(['label', 'startLabel', 'endLabel'] as const).some(
-                (key) =>
-                  typeof box?.attributes?.[key] === 'string' &&
-                  (box.attributes[key] as string).length > 0
-              ) && (
-                  <PropertyRow label="이름표 꾸미기">
-                    {/*
-                      * Points, because that is what a reader means by "열 포인트" — the
-                      * model keeps twips like every other length here, and twenty of them
-                      * are a point. The conversion is in this one place rather than in the
-                      * command, so the document never holds a unit an app invented.
-                      */}
-                    <PropertyNumber
-                      ariaLabel="이름표 크기"
-                      value={
-                        typeof box?.attributes?.labelSize === 'number'
-                          ? (box.attributes.labelSize as number) / 20
-                          : null
-                      }
-                      suffix="pt"
-                      step={1}
-                      disabled={locked}
-                      onCommit={(value) => setConnector({ labelSize: Math.round(value * 20) })}
-                    />
-                    <ColorField
-                      ariaLabel="이름표 색"
-                      themeSwatches={themeSwatches}
-                      varSwatches={varSwatches}
-                      value={colour('labelColor')}
-                      disabled={locked}
-                      onChange={(value) => setConnector({ labelColor: value })}
-                      onClear={() => setConnector({ labelColor: null })}
-                    />
-                    <PropertyToggle
-                      ariaLabel="이름표 굵게"
-                      label="굵게"
-                      value={box?.attributes?.labelBold === true}
-                      disabled={locked}
-                      onChange={(next) => setConnector({ labelBold: next })}
-                    />
-                  </PropertyRow>
-                )}
-              <PropertyRow label="구부리기">
-                <PropertyNumber
-                  ariaLabel="구부리기"
-                  /**
-                   * Signed, and that is the whole use of it: two connectors between the
-                   * same pair of shapes sit on top of each other until one is bowed the
-                   * other way.
-                   */
-                  value={toDisplay((box?.attributes?.bend as number) ?? 0, unit)}
-                  suffix={unit}
-                  disabled={locked}
-                  onCommit={(value) => setConnector({ bend: fromDisplay(value, unit) })}
-                />
-              </PropertyRow>
-              {CAP_ENDS.map((end) => (
-                <PropertyRow key={end.key} label={end.label}>
-                  <PropertyChoice
-                    ariaLabel={end.label}
-                    value={String(box?.attributes?.[end.key] ?? end.fallback)}
-                    options={CAP_OPTIONS}
-                    disabled={locked}
-                    onChange={(value) => setConnector({ [end.key]: value })}
-                  />
-                </PropertyRow>
-              ))}
-            </PropertyGroup>
-          )}
+          {sheet('연결선')}
 
           {(declares('fill') || declares('stroke') || declares('cornerRadius')) && (
           <PropertyGroup label="채우기와 선">

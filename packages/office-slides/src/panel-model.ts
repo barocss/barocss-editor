@@ -56,8 +56,22 @@ export type SlidesPanelControl =
   | 'list'
   /** One row per bindable attribute, offering the variables whose kind fits. */
   | 'binds'
-  /** A length in the reader's chosen unit, which a deck has and a page does not. */
-  | 'length';
+  /**
+   * A button that runs a command and sets no value.
+   *
+   * A panel is not only fields: 뒤집기 swaps which end of a line is which, and 지우기 takes every
+   * bend out of it. Both write attributes — which is why they are rows with an `attr` rather than
+   * something outside the declaration — and neither is a value a reader types.
+   */
+  | 'action';
+
+/*
+ * There was a `length` here — a number in the reader's chosen unit — and it is gone, absorbed into
+ * the shared `number` the day `PropertySheet` learned to **ask** for a suffix. A length's unit is a
+ * fact about the session rather than about the row, so a deck that declared `unit: 'px'` would print
+ * the wrong word beside every one of them; asking is what makes it shareable. Eleven rows, one kind
+ * fewer, and the five common kinds now cover all but two of this panel's controls.
+ */
 
 /** Which pane the row sits in. The deck has two: what a shape *is*, and what it *does*. */
 export type SlidesPanelTab = 'style' | 'motion';
@@ -109,11 +123,34 @@ const row = (
   control
 });
 
-const geometry = (attr: string, ariaLabel: string, control: SlidesPanelControl = 'length'): SlidesPanelRow =>
+const geometry = (attr: string, ariaLabel: string, control: SlidesPanelControl = 'number'): SlidesPanelRow =>
   row(attr, ariaLabel, control, { command: 'setBoxGeometry', group: '배치' });
 
 const paint = (attr: string, ariaLabel: string, control: SlidesPanelControl): SlidesPanelRow =>
   row(attr, ariaLabel, control, { command: 'setBoxStyle', group: '채우기와 선' });
+
+/**
+ * What an end of a line can be. The same set at both ends, which is why it is written once.
+ *
+ * Copied from the panel rather than recalled, after a first attempt that produced five plausible
+ * options and left out four real ones. A declaration written from memory is the failure this file
+ * exists to stop, and it is a remarkably easy one to commit while writing the file.
+ */
+const CAPS = [
+  { id: 'none', label: '없음' },
+  { id: 'arrow', label: '화살표' },
+  { id: 'open', label: '열린 화살' },
+  { id: 'triangle', label: '삼각형' },
+  { id: 'hollow', label: '빈 삼각형' },
+  { id: 'circle', label: '점' },
+  { id: 'diamond', label: '마름모' },
+  { id: 'bar', label: '막대' },
+  /*
+   * "Blocked", "not this way" — the one people otherwise draw by deleting the arrow, which loses the
+   * fact that the relationship exists *and* is refused.
+   */
+  { id: 'cross', label: '가위표' }
+];
 
 const line = (attr: string, ariaLabel: string, control: SlidesPanelControl): SlidesPanelRow =>
   row(attr, ariaLabel, control, {
@@ -145,8 +182,8 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
 
   // ── The arrangement a frame imposes on what is in it ───────────────────────
   { attr: 'layoutMode', command: 'setFrameLayout', group: '배치', tab: 'style', label: '배치 방향', ariaLabel: '배치 방향', control: 'choice' },
-  { attr: 'gap', command: 'setFrameLayout', group: '배치', tab: 'style', label: '간격', ariaLabel: '간격', control: 'length', when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
-  { attr: 'padding', command: 'setFrameLayout', group: '배치', tab: 'style', label: '안쪽 여백', ariaLabel: '안쪽 여백', control: 'length', when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
+  { attr: 'gap', command: 'setFrameLayout', group: '배치', tab: 'style', label: '간격', ariaLabel: '간격', control: 'number', when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
+  { attr: 'padding', command: 'setFrameLayout', group: '배치', tab: 'style', label: '안쪽 여백', ariaLabel: '안쪽 여백', control: 'number', when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
   // `교차 축 맞춤`, not `맞춤` — the browser check is what caught the difference, which is the whole
   // reason a declaration read out of JSX needs one.
   { attr: 'alignItems', command: 'setFrameLayout', group: '배치', tab: 'style', label: '맞춤', ariaLabel: '교차 축 맞춤', control: 'choice', when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
@@ -187,17 +224,17 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
   paint('fills', '채우기 추가', 'list'),
   paint('effects', '효과 추가', 'list'),
   paint('stroke', '선 색', 'colour'),
-  paint('strokeWidth', '선 두께', 'length'),
+  paint('strokeWidth', '선 두께', 'number'),
   paint('strokeDash', '선 모양', 'choice'),
-  { attr: 'cornerRadius', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '둥글기', ariaLabel: '모서리 둥글기', control: 'length' },
-  { attr: 'cornerTopLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 위', ariaLabel: '왼쪽 위 모서리', control: 'length' },
-  { attr: 'cornerTopRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 위', ariaLabel: '오른쪽 위 모서리', control: 'length' },
-  { attr: 'cornerBottomRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 아래', ariaLabel: '오른쪽 아래 모서리', control: 'length' },
-  { attr: 'cornerBottomLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 아래', ariaLabel: '왼쪽 아래 모서리', control: 'length' },
+  { attr: 'cornerRadius', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '둥글기', ariaLabel: '모서리 둥글기', control: 'number' },
+  { attr: 'cornerTopLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 위', ariaLabel: '왼쪽 위 모서리', control: 'number' },
+  { attr: 'cornerTopRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 위', ariaLabel: '오른쪽 위 모서리', control: 'number' },
+  { attr: 'cornerBottomRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 아래', ariaLabel: '오른쪽 아래 모서리', control: 'number' },
+  { attr: 'cornerBottomLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 아래', ariaLabel: '왼쪽 아래 모서리', control: 'number' },
 
   // ── 텍스트 — a box that holds words ────────────────────────────────────────
   { attr: 'verticalAlign', command: 'setBoxStyle', group: '텍스트', tab: 'style', label: '세로 맞춤', ariaLabel: '세로 맞춤', control: 'choice' },
-  { attr: 'textInset', command: 'setBoxStyle', group: '텍스트', tab: 'style', label: '안쪽 여백', ariaLabel: '텍스트 안쪽 여백', control: 'length' },
+  { attr: 'textInset', command: 'setBoxStyle', group: '텍스트', tab: 'style', label: '안쪽 여백', ariaLabel: '텍스트 안쪽 여백', control: 'number' },
 
   // ── 그림 ───────────────────────────────────────────────────────────────────
   { attr: 'fit', command: 'setBoxStyle', group: '그림', tab: 'style', label: '맞춤', ariaLabel: '그림 맞춤', control: 'choice' },
@@ -215,33 +252,73 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
    * connector, so the check had been passing by having nothing to look at — the failure this whole
    * harness is named after, in the file written to stop it.
    */
-  line('kind', '경로', 'choice'),
-  line('flow', '흐름', 'choice'),
-  line('bend', '구부리기', 'length'),
+  {
+    ...line('kind', '경로', 'choice'),
+    fallback: 'elbow',
+    options: [
+      { id: 'elbow', label: '직각' },
+      { id: 'straight', label: '직선' },
+      { id: 'curve', label: '곡선' },
+      /*
+       * 활 — the arc, and the one route with no magnets: it leaves each shape *towards* the control
+       * point, so it points at the shape however the shape is turned. See `arcPoints`.
+       */
+      { id: 'arc', label: '활' }
+    ]
+  },
+  /*
+   * Dashes travelling along the line. An arrowhead says where it points standing still; a flow says
+   * it moving, and with six lines on a slide the one that flows is the one the eye follows.
+   *
+   * A **toggle**, not a choice — declared as a choice at first, which would have drawn a dropdown of
+   * nothing where a switch belongs.
+   */
+  { ...line('flow', '흐름', 'toggle'), label: '흐름' },
+  line('bend', '구부리기', 'number'),
   /*
    * A count and a way back, not a control: bends are placed on the line itself, so the panel's job
    * is to say how many there are (a bend hidden behind a shape looks like no bend) and to undo them
    * all at once. Shown once there is one — see `when`.
    */
-  { ...line('waypoints', '경유점', 'list'), when: { attr: 'waypoints' } },
+  /*
+   * An `action` row is named after the **button**, not the row: a reader hears 지우기 and 뒤집기,
+   * and the row's label (경유점, 방향) is the group's word for what the button is about. The two are
+   * different for every other kind too — that is what `label` and `ariaLabel` are — and here the
+   * difference is the whole point.
+   */
+  { ...line('waypoints', '경유점', 'action'), ariaLabel: '지우기', when: { attr: 'waypoints' } },
+  /*
+   * Which end is which. A line has a direction — the arrowhead is on the end — and the ways back
+   * from getting it wrong were deleting the line or dragging both ends past each other.
+   */
+  { ...line('startNodeId', '방향', 'action'), ariaLabel: '뒤집기', command: 'reverseConnector' },
   line('label', '이름표', 'text'),
   line('startLabel', '시작 이름표', 'text'),
   line('endLabel', '끝 이름표', 'text'),
   /*
-   * How a label is drawn, shown once there **is** one: three controls about the styling of text that
-   * does not exist yet is three controls a reader has to work out are inert.
+   * How a label is drawn — **one row**, shown once there is a label to draw. Three rows of it would
+   * be three labels saying almost the same word down a 280px column, and three controls about the
+   * styling of text that does not exist yet is three controls a reader has to work out are inert.
+   *
+   * The size is in **points**, because that is what a reader means by "열 포인트": the model keeps
+   * twips like every other length and twenty of them are a point, converted in the panel so the
+   * document never holds a unit an app invented.
    */
-  { ...line('labelBold', '이름표 굵게', 'toggle'), when: { attr: 'label' } },
-  { ...line('labelColor', '이름표 색', 'colour'), when: { attr: 'label' } },
-  { ...line('labelSize', '이름표 크기', 'length'), when: { attr: 'label' } },
+  {
+    ...line('labelSize', '이름표 크기', 'number'),
+    label: '이름표 꾸미기',
+    unit: 'pt',
+    when: { attr: 'label' },
+    with: [line('labelColor', '이름표 색', 'colour'), line('labelBold', '이름표 굵게', 'toggle')]
+  },
   /*
    * The shape of each end, which the conformance exemption said was **owed** — and it has been on
    * the panel all along, as 시작 모양 and 끝 모양. A prose claim about a React tree, wrong in the
    * direction that costs most: somebody would have built a control that already existed. It is the
    * exact fault this whole file exists to stop, committed in the file that stops it.
    */
-  line('startCap', '시작 모양', 'choice'),
-  line('endCap', '끝 모양', 'choice'),
+  { ...line('startCap', '시작 모양', 'choice'), fallback: 'none', options: CAPS },
+  { ...line('endCap', '끝 모양', 'choice'), fallback: 'arrow', options: CAPS },
 
   // ── 문서 변수 연결 ─────────────────────────────────────────────────────────
   /*

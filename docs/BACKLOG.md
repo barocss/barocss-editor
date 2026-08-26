@@ -2417,6 +2417,39 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **The deck's first group is through the shared sheet: 214 lines became one call.**
+
+  `연결선` — nine rows, two buttons and a count — is now `{sheet('연결선')}` against a declaration in
+  `panel-model.ts`. `properties.tsx` went 2,863 → 2,747, and eleven more groups are the same shape.
+  Converted one group at a time on purpose: the file has a 392-test browser suite and
+  `panel-model.spec.ts` checks each group against what the panel actually draws as it moves.
+
+  Four things the conversion found, and the first is the one worth keeping:
+
+  - **The shared sheet was using the ribbon's dropdown in a panel.** `canvas-model.md` §6 has said
+    since before the sheet existed: *"Native dropdown in a panel, Radix in a ribbon … a panel's
+    dropdown is a list of words, where the platform's control is smaller, faster and already knows
+    how to be typed into."* The sheet used `ChoiceSelect`, and the deck's suite said so in one line —
+    `selectOption` on a Radix trigger is *"Element is not a `<select>` element"*. **The site
+    builder's panel had been using the ribbon's control all along** and nothing had noticed, because
+    nothing had a reason to open it.
+  - **A `title` wins the accessible name over a button's own words.** 뒤집기 announced as
+    *"시작과 끝을 바꿉니다"* — its tooltip — so a reader hears a sentence where a word belongs, and a
+    check asking for the button by what it says found nothing.
+  - **An emptied text field means two different things.** A page reads it as `undefined` — taking a
+    value back at a narrow width is how a reader says "the page's answer again" — and a connector's
+    label reads it as `''`, because emptied means *no label* and `undefined` reaches the command as
+    "you did not mention this".
+  - **`[]` is not `null`.** Clearing a line's bends says a reader took them out; `null` says the line
+    never had any, and the route reads them differently.
+
+  One control kind disappeared on the way: `length` — a number in the reader's chosen unit — became
+  the shared `number` once `PropertySheet` learned to **ask** for a suffix. A length's unit is a fact
+  about the session rather than about the row, so a deck that declared `unit: 'px'` would print the
+  wrong word beside all eleven of them. Two of the deck's own kinds are left (`list`, `binds`) plus
+  `action`, a button that runs a command — which took `reverseConnector`'s exemption off the books
+  the moment it was declared.
+
 - **A check that has nothing to look at is a check that passes.**
 
   The deck's panel declaration had eleven connector rows and **four of them were wrong** — `경로`

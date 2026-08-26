@@ -129,6 +129,24 @@ export interface PanelRow<Kind extends string = string> {
    * frame, and a part's variable binding is a fact about the definition it belongs to.
    */
   inside?: string;
+  /**
+   * More controls in **this** row, drawn after it under its one label.
+   *
+   * A property panel is full of these and every one of them is a reader-facing decision rather than
+   * a layout convenience: 이름표 꾸미기 is a size, a colour and a weight, and three rows of it would
+   * be three labels saying almost the same word down a 280px column. Measured on the deck's panel:
+   * 42 rows hold one control and **10 hold two to five**.
+   *
+   * The companions are rows in their own right — they write their own attribute with their own
+   * command, and `panelAttrs` and `panelCommands` walk them — so nothing about the harness's
+   * questions changes. What changes is only where they are drawn.
+   */
+  with?: PanelRow<Kind>[];
+}
+
+/** A row and everything drawn beside it, which is what the harness's questions are asked of. */
+function flatten<Row extends PanelRow>(rows: Row[]): PanelRow[] {
+  return rows.flatMap((row) => [row, ...flatten((row.with ?? []) as Row[])]);
 }
 
 /**
@@ -200,7 +218,7 @@ export function panelGroupsFor<Row extends PanelRow>(
 
 /** Every command the panel can run — a product's third answer to "what can a reader reach". */
 export function panelCommands(rows: PanelRow[]): string[] {
-  return [...new Set(rows.map((row) => row.command).filter((one): one is string => !!one))];
+  return [...new Set(flatten(rows).map((row) => row.command).filter((one): one is string => !!one))];
 }
 
 /**
@@ -221,7 +239,7 @@ export function panelAttrs(
 ): string[] {
   return [
     ...new Set(
-      rows
+      flatten(rows)
         .filter((row) => row.command && row.writes !== 'child')
         .flatMap((row) => [row.attr, ...(also[row.attr] ?? [])])
     )
