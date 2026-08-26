@@ -2417,7 +2417,23 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
-- **The deck's first group is through the shared sheet: 214 lines became one call.**
+- **The deck's groups are moving to the shared sheet, one at a time: 246 lines gone so far.**
+  Four groups now: 연결선 (214 lines), 채우기와 선 (103), 텍스트 (35), 그림 (31) — each replaced by
+  `{sheet('...')}` against a declaration. `properties.tsx` is 2,863 → 2,617, and the browser suite is
+  392/392 at every step.
+
+  What each group taught, beyond the four findings below:
+
+  - **A stack is a section, not a row.** `PaintList` and `EffectList` draw their own `PropertyGroup`
+    because a paint stack adds, reorders, switches off and deletes — so `fills` and `effects` are
+    declared in groups of their own rather than as rows of 채우기와 선, and the sheet does not try to
+    draw them. The declaration still carries them, which is how the harness sees them at all.
+  - **A corner with no number of its own follows the radius**, so each field shows what the box is
+    actually drawing rather than a zero. That is a *dynamic* fallback — another attribute's value —
+    and it lives in the deck's `read()` rather than in the shared row: if a second panel ever wants
+    "this value follows that one", it becomes a field on `PanelRow` instead of a second copy of the
+    line.
+
 
   `연결선` — nine rows, two buttons and a count — is now `{sheet('연결선')}` against a declaration in
   `panel-model.ts`. `properties.tsx` went 2,863 → 2,747, and eleven more groups are the same shape.

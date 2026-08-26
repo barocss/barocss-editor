@@ -146,13 +146,6 @@ import {
  * product's to invent — a flow is an arrow, an association a dot, and UML's inheritance
  * and composition a hollow triangle and a diamond. See `canvas-connector.ts`.
  */
-const CORNERS = [
-  { key: 'cornerTopLeft', label: '왼쪽 위', aria: '왼쪽 위 모서리' },
-  { key: 'cornerTopRight', label: '오른쪽 위', aria: '오른쪽 위 모서리' },
-  { key: 'cornerBottomRight', label: '오른쪽 아래', aria: '오른쪽 아래 모서리' },
-  { key: 'cornerBottomLeft', label: '왼쪽 아래', aria: '왼쪽 아래 모서리' }
-] as const;
-
 /** What each slot is called in the panel, which is not what the file calls it. */
 const SLOT_NAMES: Record<string, string> = {
   dark1: '어두운 색 1',
@@ -439,11 +432,6 @@ export function Properties({
     return typeof value === 'number' ? toDisplay(value, unit) : null;
   };
 
-  const colour = (key: string): string | null => {
-    const value = shared(key);
-    return typeof value === 'string' && value.length > 0 ? value : null;
-  };
-
   const locked = shared('locked') === true;
 
   /**
@@ -498,7 +486,16 @@ export function Properties({
 
   /** What a row shows: the reader's unit for a length, points for a label, the value otherwise. */
   const read = (row: SlidesPanelRow): unknown => {
-    const held = box?.attributes?.[row.attr];
+    let held = box?.attributes?.[row.attr];
+    /*
+     * A corner with no number of its own **follows the radius**, so each field shows what the box is
+     * actually drawing rather than a zero — which is why the four are declared without a default
+     * (`corners.ts`). Product knowledge, kept here: if a second panel ever wants "this value follows
+     * that one", it becomes a field on the shared row rather than a second copy of this line.
+     */
+    if (held === undefined && row.attr.startsWith('corner') && row.attr !== 'cornerRadius') {
+      held = box?.attributes?.cornerRadius;
+    }
     if (row.unit === 'pt') return typeof held === 'number' ? held / 20 : null;
     if (row.control === 'number' && LENGTHS.has(row.attr)) {
       return typeof held === 'number' ? toDisplay(held, unit) : null;
@@ -542,6 +539,23 @@ export function Properties({
           onClick={() => void editor?.executeCommand('reverseConnector', { nodeIds: targets })}
         >
           뒤집기
+        </Button>
+      );
+    }
+    if (row.attr === 'cropTop') {
+      /*
+       * The way **back**, and only that. A crop is dragged — double-click a picture and the handles
+       * take source away instead of resizing it — so what belongs in a panel is the gesture a reader
+       * has none for: all of it again. Four number rows would be four ways to make a picture vanish.
+       */
+      return (
+        <Button
+          className="w-full"
+          ariaLabel={row.ariaLabel}
+          disabled={locked || !isCropped(box?.attributes as never)}
+          onClick={() => uncrop()}
+        >
+          원래대로
         </Button>
       );
     }
@@ -1363,109 +1377,7 @@ export function Properties({
 
           {sheet('연결선')}
 
-          {(declares('fill') || declares('stroke') || declares('cornerRadius')) && (
-          <PropertyGroup label="채우기와 선">
-            {declares('stroke') && (
-            <PropertyRow label="선">
-              <ColorField
-                ariaLabel="선 색"
-                themeSwatches={themeSwatches}
-                      varSwatches={varSwatches}
-                value={colour('stroke')}
-                disabled={locked}
-                onChange={(value) => setStyle({ stroke: value })}
-                onClear={() => setStyle({ stroke: null })}
-              />
-            </PropertyRow>
-            )}
-            {declares('strokeWidth') && (
-              <PropertyRow label="선 두께">
-                <PropertyNumber
-                  ariaLabel="선 두께"
-                  /**
-                   * Points, whatever the reader picked for everything else.
-                   *
-                   * A stroke is a line *weight*, not a distance across the
-                   * slide, and every tool that draws one measures it in points —
-                   * a one-point rule is a one-point rule on paper and on a
-                   * projector. In centimetres the same rule reads 0.07, which
-                   * is a number nobody can type or check.
-                   */
-                  value={toDisplay(box?.attributes?.strokeWidth as number ?? 0, 'pt')}
-                  suffix="pt"
-                  step={0.5}
-                  disabled={locked}
-                  onCommit={(value) =>
-                    setStyle({ strokeWidth: fromDisplay(Math.max(0, value), 'pt') })
-                  }
-                />
-              </PropertyRow>
-            )}
-            {declares('strokeDash') && (
-              <PropertyRow label="선 모양">
-                <PropertyChoice
-                  ariaLabel="선 모양"
-                  value={
-                    typeof box?.attributes?.strokeDash === 'string'
-                      ? (box.attributes.strokeDash as string)
-                      : 'solid'
-                  }
-                  options={[
-                    { id: 'solid', label: '실선' },
-                    { id: 'dash', label: '파선' },
-                    { id: 'dot', label: '점선' },
-                    { id: 'dashDot', label: '일점쇄선' }
-                  ]}
-                  disabled={locked}
-                  onChange={(value) => setStyle({ strokeDash: value })}
-                />
-              </PropertyRow>
-            )}
-            {/*
-              * A rectangle declares this and nothing else does, which is the
-              * whole reason the rows come from the schema rather than a list.
-              */}
-            {declares('cornerRadius') && (
-              <>
-                <PropertyRow label="모서리">
-                  <PropertyNumber
-                    ariaLabel="모서리 둥글기"
-                    value={lengthOf('cornerRadius') ?? 0}
-                    suffix={unitSuffix(unit)}
-                    step={stepFor(unit)}
-                    disabled={locked}
-                    onCommit={(value) =>
-                      setStyle({ cornerRadius: fromDisplay(Math.max(0, value), unit) })
-                    }
-                  />
-                </PropertyRow>
-                {/*
-                  * And each corner on its own, which is what a card with two
-                  * rounded corners at the top needs.
-                  *
-                  * A corner with no number of its own follows the radius above,
-                  * so each field shows what the box is actually drawing rather
-                  * than a zero. That is why the four are declared without a
-                  * default — see `corners.ts`.
-                  */}
-                {CORNERS.map((corner) => (
-                  <PropertyRow key={corner.key} label={corner.label}>
-                    <PropertyNumber
-                      ariaLabel={corner.aria}
-                      value={lengthOf(corner.key) ?? lengthOf('cornerRadius') ?? 0}
-                      suffix={unitSuffix(unit)}
-                      step={stepFor(unit)}
-                      disabled={locked}
-                      onCommit={(value) =>
-                        setStyle({ [corner.key]: fromDisplay(Math.max(0, value), unit) })
-                      }
-                    />
-                  </PropertyRow>
-                ))}
-              </>
-            )}
-          </PropertyGroup>
-          )}
+          {sheet('채우기와 선')}
 
           {/*
             * The text inside the box, which is not the same question as the box.
@@ -1480,41 +1392,7 @@ export function Properties({
             * that is the text frame, and a cell on a slide the day one declares
             * the same attribute.
             */}
-          {declares('verticalAlign') && (
-            <PropertyGroup label="텍스트">
-              <PropertyRow label="세로 맞춤">
-                <PropertyChoice
-                  ariaLabel="세로 맞춤"
-                  value={
-                    typeof box?.attributes?.verticalAlign === 'string'
-                      ? (box.attributes.verticalAlign as string)
-                      : 'top'
-                  }
-                  options={[
-                    { id: 'top', label: '위' },
-                    { id: 'middle', label: '가운데' },
-                    { id: 'bottom', label: '아래' }
-                  ]}
-                  disabled={locked}
-                  onChange={(value) => setStyle({ verticalAlign: value })}
-                />
-              </PropertyRow>
-              {declares('textInset') && (
-                <PropertyRow label="안쪽 여백">
-                  <PropertyNumber
-                    ariaLabel="텍스트 안쪽 여백"
-                    value={lengthOf('textInset') ?? 0}
-                    suffix={unitSuffix(unit)}
-                    step={stepFor(unit)}
-                    disabled={locked}
-                    onCommit={(value) =>
-                      setStyle({ textInset: fromDisplay(Math.max(0, value), unit) })
-                    }
-                  />
-                </PropertyRow>
-              )}
-            </PropertyGroup>
-          )}
+          {sheet('텍스트')}
 
           {/*
             * A picture: how it sits in its box, and what has been cropped away.
@@ -1529,37 +1407,7 @@ export function Properties({
             * What belongs here is the way *back*, because a reader who has
             * cropped too far has no gesture that means "all of it again".
             */}
-          {declares('fit') && (
-            <PropertyGroup label="그림">
-              <PropertyRow label="맞춤">
-                <PropertyChoice
-                  ariaLabel="그림 맞춤"
-                  value={
-                    typeof box?.attributes?.fit === 'string'
-                      ? (box.attributes.fit as string)
-                      : 'contain'
-                  }
-                  options={[
-                    { id: 'contain', label: '전체 보기' },
-                    { id: 'cover', label: '가득 채우기' },
-                    { id: 'fill', label: '늘이기' }
-                  ]}
-                  disabled={locked}
-                  onChange={(value) => setStyle({ fit: value })}
-                />
-              </PropertyRow>
-              <PropertyRow label="자르기">
-                <Button
-                  className="w-full"
-                  ariaLabel="자르기 원래대로"
-                  disabled={locked || !isCropped(box?.attributes as never)}
-                  onClick={() => uncrop()}
-                >
-                  원래대로
-                </Button>
-              </PropertyRow>
-            </PropertyGroup>
-          )}
+          {sheet('그림')}
 
 
           {/*

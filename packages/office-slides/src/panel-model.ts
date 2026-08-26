@@ -221,29 +221,72 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
    * about this file. Declaring `채우기` and `효과` was declaring a row that does not exist; the
    * browser check said so.
    */
-  paint('fills', '채우기 추가', 'list'),
-  paint('effects', '효과 추가', 'list'),
-  paint('stroke', '선 색', 'colour'),
-  paint('strokeWidth', '선 두께', 'number'),
-  paint('strokeDash', '선 모양', 'choice'),
-  { attr: 'cornerRadius', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '둥글기', ariaLabel: '모서리 둥글기', control: 'number' },
-  { attr: 'cornerTopLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 위', ariaLabel: '왼쪽 위 모서리', control: 'number' },
-  { attr: 'cornerTopRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 위', ariaLabel: '오른쪽 위 모서리', control: 'number' },
-  { attr: 'cornerBottomRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 아래', ariaLabel: '오른쪽 아래 모서리', control: 'number' },
-  { attr: 'cornerBottomLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 아래', ariaLabel: '왼쪽 아래 모서리', control: 'number' },
+  /*
+   * Each its **own group**, not rows in 채우기와 선 — `PaintList` and `EffectList` draw their own
+   * `PropertyGroup` because a stack is a section rather than a row: it adds, reorders, switches off
+   * and deletes. Declared here so the harness can see them and so the browser check knows to look;
+   * the sheet does not draw them, and `sheet('채우기와 선')` will not try.
+   */
+  { ...paint('fills', '채우기 추가', 'list'), group: '채우기' },
+  { ...paint('effects', '효과 추가', 'list'), group: '효과' },
+  { ...paint('stroke', '선 색', 'colour'), label: '선' },
+  { ...paint('strokeWidth', '선 두께', 'number'), fallback: 0, min: 0 },
+  {
+    ...paint('strokeDash', '선 모양', 'choice'),
+    fallback: 'solid',
+    options: [
+      { id: 'solid', label: '실선' },
+      { id: 'dash', label: '파선' },
+      { id: 'dot', label: '점선' },
+      { id: 'dashDot', label: '일점쇄선' }
+    ]
+  },
+  { attr: 'cornerRadius', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '둥글기', ariaLabel: '모서리 둥글기', control: 'number', fallback: 0, min: 0 },
+  { attr: 'cornerTopLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 위', ariaLabel: '왼쪽 위 모서리', control: 'number', min: 0 },
+  { attr: 'cornerTopRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 위', ariaLabel: '오른쪽 위 모서리', control: 'number', min: 0 },
+  { attr: 'cornerBottomRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 아래', ariaLabel: '오른쪽 아래 모서리', control: 'number', min: 0 },
+  { attr: 'cornerBottomLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 아래', ariaLabel: '왼쪽 아래 모서리', control: 'number', min: 0 },
 
   // ── 텍스트 — a box that holds words ────────────────────────────────────────
-  { attr: 'verticalAlign', command: 'setBoxStyle', group: '텍스트', tab: 'style', label: '세로 맞춤', ariaLabel: '세로 맞춤', control: 'choice' },
-  { attr: 'textInset', command: 'setBoxStyle', group: '텍스트', tab: 'style', label: '안쪽 여백', ariaLabel: '텍스트 안쪽 여백', control: 'number' },
+  {
+    attr: 'verticalAlign',
+    command: 'setBoxStyle',
+    group: '텍스트',
+    tab: 'style',
+    label: '세로 맞춤',
+    ariaLabel: '세로 맞춤',
+    control: 'choice',
+    fallback: 'top',
+    options: [
+      { id: 'top', label: '위' },
+      { id: 'middle', label: '가운데' },
+      { id: 'bottom', label: '아래' }
+    ]
+  },
+  { attr: 'textInset', command: 'setBoxStyle', group: '텍스트', tab: 'style', label: '안쪽 여백', ariaLabel: '텍스트 안쪽 여백', control: 'number', fallback: 0, min: 0 },
 
   // ── 그림 ───────────────────────────────────────────────────────────────────
-  { attr: 'fit', command: 'setBoxStyle', group: '그림', tab: 'style', label: '맞춤', ariaLabel: '그림 맞춤', control: 'choice' },
+  {
+    attr: 'fit',
+    command: 'setBoxStyle',
+    group: '그림',
+    tab: 'style',
+    label: '맞춤',
+    ariaLabel: '그림 맞춤',
+    control: 'choice',
+    fallback: 'contain',
+    options: [
+      { id: 'contain', label: '전체 보기' },
+      { id: 'cover', label: '가득 채우기' },
+      { id: 'fill', label: '늘이기' }
+    ]
+  },
   /*
    * One control for four attributes, and it is a *gesture* rather than a form: the crop is dragged
    * on the picture and the panel offers the way back out of it. Four number rows would be four ways
    * to make a picture disappear.
    */
-  { attr: 'cropTop', command: 'cropPicture', group: '그림', tab: 'style', label: '자르기', ariaLabel: '자르기 원래대로', control: 'toggle' },
+  { attr: 'cropTop', command: 'cropPicture', group: '그림', tab: 'style', label: '자르기', ariaLabel: '자르기 원래대로', control: 'action' },
 
   // ── 연결선 ─────────────────────────────────────────────────────────────────
   /*
