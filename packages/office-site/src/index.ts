@@ -24,11 +24,13 @@ export { createStackCommands, SiteStackExtension, type InsertStackOptions } from
 export { createBlockCommands, SiteBlockExtension } from './block-commands';
 export { createDataCommands, SiteDataExtension } from './data-commands';
 export { createLinkCommands, SiteLinkExtension } from './link-commands';
+export { createPageCommands, SitePageExtension } from './page-commands';
 export {
   PAGE_PREFIX,
   hrefFor,
   isPageRef,
   linkFaults,
+  linksTo,
   pageIdOf,
   pageLinkOf,
   pageRef,

@@ -97,6 +97,34 @@ export function pagesIn(doc: Access): { sid: string; id: string; name: string; p
 }
 
 /**
+ * How many links point at a page — the number a reader needs *before* they delete it.
+ *
+ * `linkFaults` is the report afterwards, and afterwards is too late to be a decision: a link into a
+ * page that is gone draws as ordinary words, so the cost of removing a page is the one thing about
+ * it that is not on screen.
+ */
+export function linksTo(doc: Access, id: string): number {
+  let count = 0;
+
+  const walk = (sid: string, depth = 0) => {
+    if (depth > 64) return;
+    const node = doc.getNode(sid);
+    if (!node) return;
+
+    for (const mark of (node.marks ?? []) as Node[]) {
+      const href = mark?.attributes?.href ?? mark?.attrs?.href;
+      if (isPageRef(href) && pageIdOf(href) === id) count += 1;
+    }
+    for (const child of (node.content ?? []) as unknown[]) {
+      if (typeof child === 'string') walk(child, depth + 1);
+    }
+  };
+  walk(doc.rootId);
+
+  return count;
+}
+
+/**
  * The links in this document that name a page which is not there.
  *
  * The sibling of `collectionFaults` and `overrideFaults`, and worth having for the same reason: a

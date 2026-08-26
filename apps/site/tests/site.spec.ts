@@ -115,10 +115,12 @@ test.describe('a site at several widths', () => {
     // The pages live on the rail now, beside the site's other lists — its components and its data.
     await page.locator('[data-panel="pages"]').click();
 
-    await expect(page.locator('[data-pages] button')).toHaveCount(5);
+    // `[data-page]` rather than any button in the list: a row is a page **and** what can be done to
+    // it — copy it, move it, take it away — so counting buttons counts the acts as well.
+    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(5);
     await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/');
 
-    await page.locator('[data-pages] button').nth(1).click();
+    await page.locator('[data-pages] [data-page]').nth(1).click();
     await page.waitForTimeout(500);
 
     await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/제품');
@@ -694,7 +696,7 @@ test.describe('the rail', () => {
   test('shows the pages, with the address that makes each one a page of a site', async ({ page }) => {
     await ready(page);
     await page.locator('[data-panel="pages"]').click();
-    await expect(page.locator('[data-pages] button')).toHaveCount(5);
+    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(5);
 
     await page.locator('[data-page][title="/블로그"]').click();
     await page.waitForTimeout(500);
@@ -882,6 +884,106 @@ test.describe('a definition', () => {
  * browser will follow, a link follows its page when the address changes underneath it, and a reader
  * can make one out of words they have chosen.
  */
+/**
+ * The four things a reader can do to a page.
+ *
+ * They live in the rail's list because a page is **not a selection** — nothing on the canvas is one
+ * — and the browser is where that claim can be checked at all: the list, the acts on a row, and the
+ * one dialog in this product that asks before it happens.
+ */
+test.describe('the pages of a site', () => {
+  const rows = (page: Page) => page.locator('[data-pages] [data-page]');
+
+  const pages = async (page: Page) => {
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+  };
+
+  test('makes a page that arrives wearing the site’s navigation', async ({ page }) => {
+    await pages(page);
+    await rows(page).nth(1).click();
+    await page.waitForTimeout(400);
+
+    await page.locator('[data-page-add]').click();
+    await page.waitForTimeout(700);
+
+    // After the page it follows, not at the end — a reader adding a page is adding it *here*.
+    await expect(rows(page)).toHaveCount(6);
+    await expect(rows(page).nth(2)).toContainText('페이지 6');
+
+    await rows(page).nth(2).click();
+    await page.waitForTimeout(600);
+    await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/page-6');
+    // The header and footer of the page it followed, as placements — so editing the header still
+    // changes this one too.
+    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(2);
+    await expect(page.locator('[data-frame="desktop"] .st-page h1')).toHaveText('페이지 6');
+  });
+
+  test('copies a page, with an address of its own', async ({ page }) => {
+    await pages(page);
+    await page.locator('[data-page-duplicate]').nth(1).click();
+    await page.waitForTimeout(700);
+
+    await expect(rows(page)).toHaveCount(6);
+    await expect(rows(page).nth(2)).toContainText('제품 사본');
+    await expect(rows(page).nth(2)).toContainText('/제품-2');
+  });
+
+  test('moves a page up the list', async ({ page }) => {
+    await pages(page);
+    await expect(rows(page).nth(0)).toContainText('홈');
+
+    await page.locator('[data-page-up]').nth(1).click();
+    await page.waitForTimeout(700);
+    await expect(rows(page).nth(0)).toContainText('제품');
+
+    // The first page has nowhere to go, and the button says so rather than failing when pressed.
+    await expect(page.locator('[data-page-up]').nth(0)).toBeDisabled();
+  });
+
+  test('asks before removing one, and says how many links it breaks', async ({ page }) => {
+    await pages(page);
+    await page.locator('[data-page-remove]').nth(1).click();
+
+    /*
+     * The number is the whole reason this asks, and it is **one** — which is worth pausing on,
+     * because five pages draw that link. The navigation lives in the `site-header` *definition*, so
+     * there is one link in the document and it is placed everywhere. Counting marks is the number
+     * that can be checked; counting the places it is drawn would be counting placements, and this
+     * dialog would then disagree with `linkFaults`, which reports the marks.
+     *
+     * That a single link can be the whole site's navigation is a fact worth telling a reader too —
+     * see `BACKLOG.md`.
+     */
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('제품 삭제');
+    await expect(dialog).toContainText('링크 1개가 끊어집니다');
+
+    await dialog.getByRole('button', { name: '취소' }).click();
+    await page.waitForTimeout(300);
+    await expect(rows(page)).toHaveCount(5);
+
+    await page.locator('[data-page-remove]').nth(1).click();
+    await page.locator('[data-page-remove-confirm]').click();
+    await page.waitForTimeout(700);
+
+    await expect(rows(page)).toHaveCount(4);
+    await expect(page.locator('[data-pages]')).not.toContainText('/제품');
+
+    /*
+     * And the link that pointed at it goes nowhere now — an `<a>` with **no href**, which is the one
+     * shape a browser draws as *not a link*: no underline, no pointer, no announcement. That is the
+     * honest drawing of a link with nowhere to go, and the reason the dialog counted it beforehand:
+     * afterwards it looks like ordinary words, which is exactly what it now is.
+     */
+    const links = page.locator('[data-frame="desktop"] .st-page a.mark-link');
+    await expect(links).toHaveCount(4);
+    await expect(links.first()).not.toHaveAttribute('href', /./);
+    await expect(links.nth(1)).toHaveAttribute('href', '/가격');
+  });
+});
+
 test.describe('a link to another page', () => {
   test('draws the navigation as real links, at the page’s address', async ({ page }) => {
     await ready(page);

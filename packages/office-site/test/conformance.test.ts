@@ -75,7 +75,13 @@ describe('the site builder draws what it declares', () => {
     { command: 'insertPlacement', produces: 'instance' },
     { command: 'insertDataList', produces: 'collection' },
     // And the data a list draws, which nothing but TypeScript could make until now.
-    { command: 'insertDataset', produces: 'dataset' }
+    { command: 'insertDataset', produces: 'dataset' },
+    /*
+     * And a **page**, which was in the same position for longer and was less visible for being more
+     * obvious: the sample's five pages are five pages because `sample-site.ts` says so. A page is a
+     * `surface`, the same node a document's page is — the product decides what it means.
+     */
+    { command: 'insertPage', produces: 'surface' }
   ];
 
   /**
@@ -295,6 +301,20 @@ describe('the site builder draws what it declares', () => {
         insertPlacement: 'the left rail — 컴포넌트, which offers the definitions this document holds',
         insertDataList: 'the left rail — 데이터, which offers a dataset and a definition together',
         insertDataset: 'the left rail — 데이터 › 새 데이터, which names it and opens its grid',
+
+        // ── The rail's list of pages ──────────────────────────────────────────────────────
+        /*
+         * A page is **not a selection**. Nothing on the canvas is one — the boards draw a page, and
+         * the panel describes the page being drawn when nothing is selected — so a toolbar button
+         * acting on "the page" would act on something a reader cannot point at. The rail's list is
+         * where a page is a thing with a row, which makes it the only honest home for these four.
+         *
+         * The same argument the data grid makes about a dataset and the deck's strip about a slide.
+         */
+        insertPage: 'the left rail — 페이지 › 새 페이지, after the page being drawn',
+        duplicatePage: 'the left rail — the ⧉ on a page’s row',
+        movePage: 'the left rail — the ↑ on a page’s row; the order of five pages changes twice in a site’s life, so it is a button rather than a drag',
+        removePage: 'the left rail — the ␡ on a page’s row, which asks first and says how many links it breaks',
 
         // ── The data grid ──────────────────────────────────────────────────
         /*

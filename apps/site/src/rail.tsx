@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
-import { Button, Icon, IconButton, useRevision } from '@barocss/office-ui';
+import { Button, Dialog, DialogButton, Icon, IconButton, useRevision } from '@barocss/office-ui';
 import { DataEditor } from './data-editor';
 import {
   blocksIn,
   definitionsOf,
   labelOfBlock,
+  linksTo,
   siteControlsIn,
   type SiteControl
 } from '@barocss/office-site';
@@ -72,7 +73,7 @@ export function Rail({
    * does nothing.
    */
   insertRoot?: string;
-  pages: { sid: string; name: string; path: string }[];
+  pages: { sid: string; id: string; name: string; path: string }[];
   onPage: (sid: string) => void;
   /** The definition being edited, so its row can say so. */
   editing?: string;
@@ -122,7 +123,19 @@ export function Rail({
       <div className="st-rail-body">
         {panel === 'add' ? <AddPanel run={run} can={can} revision={revision} /> : null}
         {panel === 'layers' ? <LayersPanel editor={editor} doc={doc} page={page} revision={revision} /> : null}
-        {panel === 'pages' ? <PagesPanel pages={pages} page={page} onPage={onPage} /> : null}
+        {panel === 'pages' ? (
+          <PagesPanel
+            pages={pages}
+            page={page}
+            onPage={onPage}
+            run={run}
+            can={can}
+            linksInto={(id) => {
+              const rootId = editor.getRootId();
+              return rootId ? linksTo({ rootId, getNode: doc.getNode } as never, id) : 0;
+            }}
+          />
+        ) : null}
         {panel === 'components' ? (
           <ComponentsPanel
             editor={editor}
@@ -253,31 +266,144 @@ function LayersPanel({
   );
 }
 
-/** The pages of the site, and the address that makes each one a page of it. */
+/**
+ * The pages of the site, the address that makes each one a page of it, and the four acts.
+ *
+ * ## Why the acts are here rather than on the toolbar
+ *
+ * A page is not a selection. Nothing on the canvas *is* a page — the boards draw one, the panel
+ * describes the one being drawn when nothing is selected — so a toolbar button acting on "the page"
+ * would be acting on something a reader cannot point at. This list is where a page is a thing with a
+ * row, which is why it is also where a page can be copied, moved and taken away.
+ *
+ * The same argument the data grid makes about a dataset, and the deck's slide strip about a slide.
+ *
+ * ## And why removing one asks first
+ *
+ * Because it breaks links, and silently: a link into a page that is gone draws as ordinary words.
+ * `linkFaults` is the report; this is the moment before, where the number is still preventable.
+ */
 function PagesPanel({
   pages,
   page,
-  onPage
+  onPage,
+  run,
+  can,
+  linksInto
 }: {
-  pages: { sid: string; name: string; path: string }[];
+  pages: { sid: string; id: string; name: string; path: string }[];
   page?: string;
   onPage: (sid: string) => void;
+  run: (name: string, payload?: Record<string, unknown>) => void;
+  can: (name: string, payload?: Record<string, unknown>) => boolean;
+  /** How many links point at a page — asked of the document, because only it knows. */
+  linksInto: (id: string) => number;
 }) {
+  const [removing, setRemoving] = useState<string | undefined>(undefined);
+  const doomed = pages.find((one) => one.sid === removing);
+  const breaks = doomed ? linksInto(doomed.id) : 0;
+
   return (
-    <div className="st-rail-list" data-pages>
-      {pages.map((one) => (
-        <Button
-          key={one.sid}
-          className="st-rail-item"
-          data={{ page: one.sid, 'page-current': one.sid === page ? 'true' : undefined }}
-          title={one.path}
-          onClick={() => onPage(one.sid)}
+    <>
+      {doomed ? (
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setRemoving(undefined);
+          }}
+          title={`${doomed.name} 삭제`}
+          /*
+            The number is the whole point of asking. "링크가 끊어집니다" is a warning a reader learns
+            to click through; "링크 4개가 끊어집니다" is a fact they can weigh, and when it is zero
+            the dialog says so and the decision is easy.
+          */
+          description={
+            breaks > 0
+              ? `이 페이지를 가리키는 링크 ${breaks}개가 끊어집니다. 끊어진 링크는 그냥 글자로 보입니다.`
+              : '이 페이지를 가리키는 링크는 없습니다.'
+          }
+          footer={
+            <>
+              <DialogButton variant="secondary" onClick={() => setRemoving(undefined)}>
+                취소
+              </DialogButton>
+              <DialogButton
+                variant="primary"
+                data-page-remove-confirm={doomed.sid}
+                onClick={() => {
+                  run('removePage', { nodeId: doomed.sid });
+                  setRemoving(undefined);
+                }}
+              >
+                삭제
+              </DialogButton>
+            </>
+          }
         >
-          <span className="st-rail-name">{one.name}</span>
-          <span className="st-rail-hint">{one.path}</span>
-        </Button>
-      ))}
-    </div>
+          <p className="st-rail-note">{doomed.path}</p>
+        </Dialog>
+      ) : null}
+
+      <div className="st-rail-list" data-pages>
+        {pages.map((one, at) => (
+          <div key={one.sid} className="st-rail-row" data-page-row={one.sid}>
+            <button
+              type="button"
+              className="st-rail-item"
+              data-page={one.sid}
+              data-page-current={one.sid === page ? 'true' : undefined}
+              title={one.path}
+              onClick={() => onPage(one.sid)}
+            >
+              <span className="st-rail-name">{one.name}</span>
+              <span className="st-rail-hint">{one.path}</span>
+            </button>
+            {/*
+              Up, rather than a drag: a rail row is 28px tall and a drag between two of them is a
+              gesture that needs a drop indicator, an autoscroll and a test that can hold a pointer
+              down. The order of five pages is a thing a reader changes twice in a site's life.
+            */}
+            <IconButton
+              label={`${one.name} 위로`}
+              disabled={!can('movePage', { nodeId: one.sid, to: at - 1 })}
+              onClick={() => run('movePage', { nodeId: one.sid, to: at - 1 })}
+              data={{ 'page-up': one.sid }}
+            >
+              <Icon name="previous" size={13} />
+            </IconButton>
+            <IconButton
+              label={`${one.name} 복제`}
+              disabled={!can('duplicatePage', { nodeId: one.sid })}
+              onClick={() => run('duplicatePage', { nodeId: one.sid })}
+              data={{ 'page-duplicate': one.sid }}
+            >
+              <Icon name="duplicate" size={13} />
+            </IconButton>
+            <IconButton
+              label={`${one.name} 삭제`}
+              disabled={!can('removePage', { nodeId: one.sid })}
+              /*
+               * The one act in this product that asks before it happens, and the reason is that what
+               * it costs is **not on screen**: the page is, and the links into it from every other
+               * page are not. A reader who deletes 제품 has unlinked the navigation of five pages,
+               * and nothing about the drawing would have told them.
+               */
+              onClick={() => setRemoving(one.sid)}
+              data={{ 'page-remove': one.sid }}
+            >
+              <Icon name="delete" size={13} />
+            </IconButton>
+          </div>
+        ))}
+      </div>
+      {/*
+        Above nothing and below everything: a site always has at least one page, so this list is
+        never empty and the button never has to double as the empty case — unlike the datasets'.
+      */}
+      <Button onClick={() => run('insertPage', { nodeId: page })} data={{ 'page-add': 'true' }}>
+        새 페이지
+      </Button>
+    </>
   );
 }
 

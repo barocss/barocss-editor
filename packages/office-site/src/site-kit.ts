@@ -44,6 +44,7 @@ import { createBlockCommands } from './block-commands';
 import { createDataCommands } from './data-commands';
 import { createElementCommands } from './element-commands';
 import { createLinkCommands } from './link-commands';
+import { createPageCommands } from './page-commands';
 
 /** What the site product itself adds, as one list. */
 export function createSiteOwnExtensions(): Extension[] {
@@ -80,6 +81,12 @@ export function createSiteOwnExtensions(): Extension[] {
      * notices is the one where a price cannot be changed.
      */
     createDataCommands(),
+    /*
+     * And the pages themselves. The same finding as the data, one layer up: five pages drawn at
+     * three widths, a rail listing them, a panel that renames one — and nothing anywhere in the
+     * product that made one. They exist because `sample-site.ts` wrote them in TypeScript.
+     */
+    createPageCommands(),
     /*
      * And the one thing five pages with addresses could not do to each other: link. The shared
      * `toggleLink` takes an address, which is the one thing a page must not store — see

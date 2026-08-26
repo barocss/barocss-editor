@@ -46,6 +46,30 @@ entries are that.
 
 ## Open
 
+### A page is a thing a reader can make now
+
+- [x] `insertPage`, `duplicatePage`, `movePage`, `removePage` — the four a page had none of. The
+  sample's five pages were five pages because `sample-site.ts` wrote them in TypeScript, which is the
+  same finding the datasets produced and the same shape: the *view* was finished — five pages drawn
+  at three widths, a rail listing them, a panel that renames one and changes its address — against a
+  document only a developer could change.
+
+  They live in the **rail's list**, and that is the decision worth keeping: a page is not a
+  selection, so a toolbar button acting on "the page" would act on something a reader cannot point
+  at. The list is where a page is a thing with a row.
+
+  A new page arrives wearing the header and footer of the page it follows — as *placements*, so
+  editing the header still changes it — and one heading to type into. `insertSlide` settled the same
+  question for a deck, and a site is more so: every page carries the same navigation.
+
+  Removing one is the only act in this product that asks first, because what it costs is not on
+  screen: `linksTo` counts the links into that page and the dialog says the number.
+
+- [ ] **The link count does not say that one link can be a whole navigation.** Deleting 제품 breaks
+  one link — and that link is in the `site-header` *definition*, so it is drawn on all five pages.
+  Counting marks is the number that can be checked and the one `linkFaults` reports; what is missing
+  is telling the reader *where* the link lives, which for a definition is "everywhere".
+
 ### A copy kept the words and dropped what covered them
 
 - [x] `copyOf` reproduced `stype`, `attributes`, `text` and children — and **not `marks`**. Five
