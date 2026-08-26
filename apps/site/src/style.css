@@ -640,6 +640,55 @@ body {
 }
 
 .st-at-note { font-size: 11px; color: var(--st-accent); }
+
+/*
+ * The state switch, at the head of 모양.
+ *
+ * Full width and segmented rather than the width switch's three initials, because these are words
+ * rather than letters and because it changes what every row under it *means* — a switch that small
+ * would be a reader editing a hover without noticing they had.
+ */
+.st-state {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--st-line);
+}
+.st-state-row {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 5px;
+  background: var(--st-ground);
+}
+.st-state-row button {
+  flex: 1;
+  padding: 3px 0;
+  font-size: 11px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--st-faint);
+  transition: color 120ms ease, background-color 120ms ease;
+}
+.st-state-row button:hover { color: var(--st-ink); }
+.st-state-row button[data-current='true'] {
+  background: var(--st-panel);
+  color: var(--st-ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+/* The one that is not the resting state reads as the tool speaking, so it takes the accent. */
+.st-state-row button[data-state][data-current='true'] {
+  background: var(--st-accent);
+  color: var(--ou-accent-ink);
+}
+.st-state-said {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--st-faint);
+}
 .st-kind { font-size: 11px; color: var(--st-faint); font-family: ui-monospace, monospace; }
 
 /*

@@ -13,14 +13,19 @@ import {
 } from '@barocss/office-ui';
 import {
   BREAKPOINTS,
-  attrsAt,
+  STATEABLE,
+  STATES,
+  attrsInState,
   kindOfBlock,
   labelOfBlock,
   overriddenAt,
   sitePanelGroups,
+  statedIn,
+  statesOf,
   type BreakpointId,
   type SitePanelRow,
-  type SitePanelTab
+  type SitePanelTab,
+  type StateId
 } from '@barocss/office-site';
 
 /** 15 twips to the CSS pixel: the document keeps twips and a reader is shown pixels. */
@@ -61,17 +66,30 @@ export function Inspector({
   editor,
   at,
   onAt,
+  state,
+  onState,
   page
 }: {
   editor: Editor;
   /** The width being edited. The widest is the page itself; the others say only what differs. */
   at: BreakpointId;
   onAt: (at: BreakpointId) => void;
+  /**
+   * The state being edited, held by the **app** rather than here.
+   *
+   * Because opening one changes what the *boards* draw, not only what this panel shows: the tool's
+   * own layer covers the page, so a page's `:hover` never fires under a reader's pointer and a
+   * designer editing a hover would be editing something they cannot see. The app draws the selected
+   * blocks in the state the panel has opened, which is what every tool of this kind does.
+   */
+  state?: StateId;
+  onState: (state: StateId | undefined) => void;
   /** The page on screen, so the panel has something to say when nothing is selected. */
   page?: string;
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
   const [tab, setTab] = useState<SitePanelTab>('block');
+
 
   const store = editor.dataStore;
   const node = (sid: string | undefined) => (sid ? store?.getNode(sid) : undefined);
@@ -95,11 +113,26 @@ export function Inspector({
       count: nodes.length,
       stype: String(first.stype),
       label: labelOfBlock(doc, ids[0]),
-      /** Resolved for the width being edited — what the reader is looking at. */
-      attrs: attrsAt(first.attributes ?? {}, at),
-      /** And unresolved, because a colour that *follows a token* must not be shown as a hex. */
-      raw: (first.attributes ?? {}) as Record<string, any>,
-      overridden: new Set(overriddenAt(first.attributes ?? {}, at)),
+      /** Resolved for the width **and the state** being edited — what the reader is looking at. */
+      attrs: attrsInState(first.attributes ?? {}, at, state),
+      /**
+       * And unresolved, because a colour that *follows a token* must not be shown as a hex.
+       *
+       * The state's own statements over the node's, for the same reason: a hover that follows
+       * `var:강조진함` has to show the token, not the green it currently resolves to.
+       */
+      raw: {
+        ...((first.attributes ?? {}) as Record<string, any>),
+        ...(state ? (statesOf(first.attributes ?? {})[state] ?? {}) : {})
+      },
+      /*
+       * What is marked. In a state that is what the state changes; at rest it is what this width
+       * changes. One mark, two questions, and in both of them it means *the value in front of you is
+       * not the page's own*.
+       */
+      overridden: new Set(
+        state ? statedIn(first.attributes ?? {}, state) : overriddenAt(first.attributes ?? {}, at)
+      ),
       values: ((first.content ?? []) as unknown[])
         .filter((sid): sid is string => typeof sid === 'string')
         .map((sid) => store?.getNode(sid))
@@ -110,7 +143,7 @@ export function Inspector({
           value: String(child.attributes?.value ?? '')
         }))
     };
-  }, [editor, at, revision, store]);
+  }, [editor, at, state, revision, store]);
 
   /**
    * The site's own colours, offered as swatches.
@@ -188,7 +221,7 @@ export function Inspector({
        * Clearing the sides is the honest reading of "make it this all the way round".
        */
       const sides = Object.fromEntries((SHORTHAND[row.attr] ?? []).map((side) => [side, undefined]));
-      run(row.command, { nodeIds: shown?.ids, at, ...sides, [row.attr]: value });
+      run(row.command, { nodeIds: shown?.ids, at, state, ...sides, [row.attr]: value });
     }
   };
 
@@ -244,13 +277,21 @@ export function Inspector({
           <PropertyTabs
             tabs={tabs}
             active={tab}
-            onChange={(id) => setTab(id as SitePanelTab)}
+            onChange={(id) => {
+              setTab(id as SitePanelTab);
+              // Only 모양 can hold a state, so leaving it puts the panel back on the resting page.
+              if (id !== 'style') onState(undefined);
+            }}
           />
+          {tab === 'style' ? (
+            <StateSwitch state={state} onState={onState} />
+          ) : null}
           <Groups
             stype={shown.stype}
             tab={tab}
             shown={shown}
             at={at}
+            state={state}
             tokens={tokens}
             data={data}
             schema={schema}
@@ -290,6 +331,7 @@ function Groups({
   tab,
   shown,
   at,
+  state,
   page,
   tokens,
   data,
@@ -303,6 +345,8 @@ function Groups({
   tab: SitePanelTab;
   shown: Shown | null;
   at: BreakpointId;
+  /** The state being edited, when the reader has opened one. */
+  state?: StateId;
   page?: any;
   tokens: ThemeSwatch[];
   data: { datasets: { id: string; label: string }[]; columns: { id: string; label: string }[] };
@@ -329,7 +373,19 @@ function Groups({
   const attrs = shown?.attrs ?? (page?.attributes as Record<string, any>) ?? {};
   const count = shown?.count ?? 1;
   const groups = sitePanelGroups(stype, tab, declares)
-    .map((group) => ({ ...group, rows: group.rows.filter((row) => visible(row, attrs, count)) }))
+    .map((group) => ({
+      ...group,
+      rows: group.rows.filter(
+        (row) =>
+          visible(row, attrs, count) &&
+          /*
+           * And in a state, only what a state may hold. Paint, never an arrangement — a block that
+           * resized under the pointer would move out from under it and flicker, so the panel does not
+           * offer the gesture rather than accepting it and having the command refuse.
+           */
+          (!state || STATEABLE.includes(row.attr))
+      )
+    }))
     .filter((group) => group.rows.length > 0);
 
   return (
@@ -367,6 +423,63 @@ function Groups({
       />
       {after ? <PropertyEmpty>{after}</PropertyEmpty> : null}
     </>
+  );
+}
+
+/**
+ * The switch between what a block looks like **at rest** and what it promises under a pointer.
+ *
+ * ## Why it is a switch and not a second panel
+ *
+ * Because it is the same block and the same rows. Every tool that gave states their own panel made a
+ * reader hold two pictures of one card in their head; a switch says *now you are editing the hover*,
+ * and the rows underneath answer for the hover. The marks on the rows do the rest: a marked row is
+ * one this state changes, which is the same mark a width uses and means the same thing.
+ *
+ * ## Why it says the width does not apply
+ *
+ * Because a reader looking at the mobile board while setting a hover colour has, correctly, set the
+ * site's hover colour — a state is not a width (`states.ts`), and the one thing a panel must never
+ * do is let a reader believe a change was narrower than it was. So the sentence is under the switch
+ * rather than in a document nobody opens.
+ */
+function StateSwitch({
+  state,
+  onState
+}: {
+  state?: StateId;
+  onState: (state: StateId | undefined) => void;
+}) {
+  return (
+    <div className="st-state">
+      <div className="st-state-row" role="group" aria-label="상태">
+        <button
+          type="button"
+          data-current={state === undefined ? 'true' : undefined}
+          title="평소 모습"
+          onClick={() => onState(undefined)}
+        >
+          기본
+        </button>
+        {STATES.map((one) => (
+          <button
+            key={one.id}
+            type="button"
+            data-state={one.id}
+            data-current={state === one.id ? 'true' : undefined}
+            title={one.title}
+            onClick={() => onState(one.id)}
+          >
+            {one.label}
+          </button>
+        ))}
+      </div>
+      {state ? (
+        <p className="st-state-said">
+          모든 너비에 함께 적용됩니다. 색과 그림자만 바꿀 수 있습니다.
+        </p>
+      ) : null}
+    </div>
   );
 }
 

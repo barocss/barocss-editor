@@ -50,7 +50,8 @@ import { DOMRenderer } from '@barocss/renderer-dom';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import { stackCss } from './renderers';
 import { BREAKPOINTS, SITE_ENV_KEY, createSiteEnv, type BreakpointId } from './breakpoints';
-import { BASE_BREAKPOINT, attrsAt, overridesOf } from './responsive';
+import { BASE_BREAKPOINT, overridesOf } from './responsive';
+import { STATES, attrsInState, hasStates, statesOf, type StateId } from './states';
 import { PAGE_CSS } from './page-css';
 import { sizingCss } from './sizing';
 import { pagesOf } from './selection';
@@ -95,6 +96,11 @@ export function exportPage(editor: Editor, pageSid: string): ExportedPage {
   const host = drawn(editor, pageSid);
   const lifted = lift(host);
   const responsive = mediaRules(store, pageSid, lifted.classOf);
+  /*
+   * After the media queries, deliberately: a state written for one width is written inside that
+   * width's query, and it has to arrive after the rule it is about. See `stateRules`.
+   */
+  const states = stateRules(store, pageSid, lifted.classOf);
 
   const name = String(page?.attributes?.name ?? '');
   const path = String(page?.attributes?.path ?? '/');
@@ -102,7 +108,11 @@ export function exportPage(editor: Editor, pageSid: string): ExportedPage {
   return {
     path,
     name,
-    html: document_(name, host.innerHTML, [lifted.css, responsive].filter(Boolean).join('\n\n'))
+    html: document_(
+      name,
+      host.innerHTML,
+      [lifted.css, responsive, states].filter(Boolean).join('\n\n')
+    )
   };
 }
 
@@ -212,9 +222,7 @@ export function mediaRules(
   /** The class the export gave each node's own element. Without one, the node's id is used. */
   classOf: (sid: string) => string | undefined = () => undefined
 ): string {
-  const blocks: string[] = [];
-  walk(store, pageSid, (sid) => blocks.push(sid));
-
+  const blocks = styledNodes(store, pageSid);
   const resolve = resolverFor(store, pageSid);
 
   const widths = BREAKPOINTS.filter((one) => one.id !== BASE_BREAKPOINT)
@@ -224,8 +232,8 @@ export function mediaRules(
   const chunks: string[] = [];
   for (const width of widths) {
     const rules: string[] = [];
-    for (const sid of blocks) {
-      const node = store.getNode(sid);
+    for (const one of blocks) {
+      const node = store.getNode(one.sid);
       const attrs = (node?.attributes ?? {}) as Record<string, unknown>;
       if (Object.keys(overridesOf(attrs)).length === 0) continue;
 
@@ -235,14 +243,200 @@ export function mediaRules(
       );
       if (Object.keys(differs).length === 0) continue;
 
-      const where = classOf(sid);
-      rules.push(`  ${where ? `.${where}` : `[data-b="${sid}"]`} { ${declarations(differs)} }`);
+      rules.push(`  ${whereFor(one, classOf)} { ${declarations(differs)} }`);
     }
     if (rules.length > 0) {
       chunks.push(`@media (max-width: ${width.width}px) {\n${rules.join('\n')}\n}`);
     }
   }
   return chunks.join('\n\n');
+}
+
+/**
+ * What each **state** says, as CSS.
+ *
+ * ## Why this is a rule where an override is a drawing
+ *
+ * A width is known before a page is drawn — three boards, three breakpoints, each view resolving its
+ * own — so an override never needs a stylesheet in the editor and only becomes a media query on the
+ * way out. A pointer is known to nobody at render time. There is no moment at which a document can
+ * be resolved *as hovered*, because the hovering is the visitor's and happens after the drawing has
+ * finished. So a state is the first thing on a page that has to be published as a **promise about a
+ * value** rather than as a value.
+ *
+ * ## One calculation, two notations
+ *
+ * The published page has no inline styles left — `lift` moved them into classes — so a rule of equal
+ * weight and later position wins, and `:hover` carries a pseudo-class's specificity on top of that.
+ * The **editor** is the opposite case: its drawing is inline by design, and an inline style beats
+ * every selector there is. The only thing that beats an inline style is `!important`, which is
+ * precisely what it is for.
+ *
+ * That is a genuine asymmetry and it is confined to exactly one place: `stateChanges` below computes
+ * the declarations once, and the two functions after it write the same declarations down twice, in
+ * the notation each ground needs. The published page keeps this file's promise that it contains no
+ * `!important` — a page a reader cannot override with their own CSS is a page that is not theirs.
+ */
+export interface StateChange {
+  /** The node the promise is about. */
+  sid: string;
+  /** Whether it belongs to a definition, and so is drawn once per placement — see `styledNodes`. */
+  part: boolean;
+  state: StateId;
+  /**
+   * The width it applies at, or `undefined` when it applies at every width.
+   *
+   * Almost always `undefined`: a card that lifts under the pointer lifts at every width, because the
+   * gesture is the same gesture. A width appears here only when the state's *result* differs there —
+   * a hover fill stated over a base fill that the width already changed — and then it is written
+   * inside that width's media query, after the base rule, so the later one wins.
+   */
+  width?: BreakpointId;
+  css: Record<string, string>;
+}
+
+export function stateChanges(
+  store: { getNode: (sid: string) => Node | undefined },
+  pageSid: string
+): StateChange[] {
+  const blocks = styledNodes(store, pageSid);
+  const resolve = resolverFor(store, pageSid);
+  const narrower = BREAKPOINTS.filter((one) => one.id !== BASE_BREAKPOINT).sort(
+    (a, b) => b.width - a.width
+  );
+
+  const changes: StateChange[] = [];
+  for (const one of blocks) {
+    const node = store.getNode(one.sid);
+    const attrs = (node?.attributes ?? {}) as Record<string, unknown>;
+    if (!hasStates(attrs)) continue;
+
+    for (const state of STATES) {
+      const id = state.id;
+      if (!statesOf(attrs)[id]) continue;
+
+      const base = changed(
+        cssFor(node, BASE_BREAKPOINT, resolve),
+        cssFor(node, BASE_BREAKPOINT, resolve, id)
+      );
+      if (Object.keys(base).length > 0) {
+        changes.push({ sid: one.sid, part: one.part, state: id, css: base });
+      }
+
+      for (const width of narrower) {
+        const here = changed(
+          cssFor(node, width.id, resolve),
+          cssFor(node, width.id, resolve, id)
+        );
+        if (declarations(here) === declarations(base)) continue;
+        if (Object.keys(here).length === 0) continue;
+        changes.push({ sid: one.sid, part: one.part, state: id, width: width.id, css: here });
+      }
+    }
+  }
+  return changes;
+}
+
+/**
+ * The states as a published stylesheet — written after the media queries, so a width-specific state
+ * lands after the width it is about.
+ */
+export function stateRules(
+  store: { getNode: (sid: string) => Node | undefined },
+  pageSid: string,
+  /** The class the export gave each node's own element. Without one, the node's id is used. */
+  classOf: (sid: string) => string | undefined = () => undefined
+): string {
+  const changes = stateChanges(store, pageSid);
+  if (changes.length === 0) return '';
+
+  const flat: string[] = [];
+  const byWidth = new Map<BreakpointId, string[]>();
+
+  for (const change of changes) {
+    const selector = whereFor(change, classOf)
+      .split(', ')
+      .map((one) => `${one}${selectorOf(change.state)}`)
+      .join(', ');
+    const rule = `${selector} { ${declarations(change.css)} }`;
+    if (!change.width) {
+      flat.push(rule);
+      continue;
+    }
+    byWidth.set(change.width, [...(byWidth.get(change.width) ?? []), `  ${rule}`]);
+  }
+
+  const chunks = [flat.join('\n')];
+  for (const width of BREAKPOINTS.filter((one) => byWidth.has(one.id)).sort(
+    (a, b) => b.width - a.width
+  )) {
+    chunks.push(`@media (max-width: ${width.width}px) {\n${byWidth.get(width.id)!.join('\n')}\n}`);
+  }
+  return chunks.filter(Boolean).join('\n\n');
+}
+
+/**
+ * The same states, for the **boards** — where the drawing is inline and a rule has to say so.
+ *
+ * Scoped by the board rather than diffed against it: the three boards are three subtrees of one
+ * window drawing one document, so a node's id matches in all of them at once and a width-specific
+ * state written without a scope would apply at every width. `data-frame` is what a board is called
+ * on screen, and it is the only per-view name there is in the DOM.
+ */
+export function editorStateCss(
+  store: { getNode: (sid: string) => Node | undefined },
+  pageSid: string,
+  /**
+   * And what to draw **as if** it were in a state, because the pointer never gets there.
+   *
+   * A board is covered by the tool's own layer — that layer is what decides what a click means, and
+   * it is why a click on this product works at all. It also means the page underneath is never the
+   * topmost thing under the pointer, so its `:hover` does not fire and a designer editing a hover
+   * would be editing something they cannot see.
+   *
+   * So the panel says which state it has opened and on which blocks, and those blocks are drawn in
+   * it. Which is what every tool of this kind does, and is better than a live hover would be anyway:
+   * a designer needs to *look* at the hover state, and a hover state that goes away when you move
+   * the mouse to the colour field cannot be looked at.
+   */
+  preview?: { state: StateId; sids: string[] }
+): string {
+  const rules: string[] = [];
+  for (const change of stateChanges(store, pageSid)) {
+    const at = change.width ? `[data-frame="${change.width}"] ` : '';
+    const said = Object.entries(change.css)
+      .map(([key, value]) => `${dashed(key)}: ${value} !important;`)
+      .join(' ');
+    const where = whereFor(change, () => undefined, 'data-bc-sid').split(', ');
+    rules.push(`${where.map((one) => `${at}${one}${selectorOf(change.state)}`).join(', ')} { ${said} }`);
+
+    /*
+     * And the same declarations again with no pseudo-class, on the blocks the panel has opened.
+     *
+     * Scoped to those blocks rather than to the board: drawing *every* hover on the page at once
+     * would be a page nobody has ever seen, and a designer comparing a card to the one beside it
+     * would be comparing two hovers.
+     */
+    if (preview?.state !== change.state) continue;
+    /*
+     * A drawn part carries `placement~part`, and what the reader selected is whichever of those the
+     * board handed them — so the match is *the node itself, or a placement of it*, which is the same
+     * sentence `whereFor` writes as a selector.
+     */
+    const chosen = preview.sids.filter(
+      (sid) => sid === change.sid || sid.endsWith(`~${change.sid}`)
+    );
+    if (chosen.length === 0) continue;
+    rules.push(
+      `${chosen.map((sid) => `${at}[data-bc-sid="${sid}"]`).join(', ')} { ${said} }`
+    );
+  }
+  return rules.join('\n');
+}
+
+/** The CSS a state is, by its id — one lookup, so neither notation can invent its own. */
+function selectorOf(state: StateId): string {
+  return STATES.find((one) => one.id === state)?.selector ?? '';
 }
 
 /**
@@ -269,9 +463,17 @@ export function cssFor(
    * browser has never heard of it: the rule is dropped and the card is transparent at that width
    * only. Found by the sample the day its cards started naming a token.
    */
-  resolve?: (value: string, sid: string) => string | undefined
+  resolve?: (value: string, sid: string) => string | undefined,
+  /**
+   * And in which state, if not the resting one.
+   *
+   * A parameter rather than a second function, so that the before-and-after a state's rule is built
+   * from is one function compared against itself. The alternative — a `cssForState` beside this —
+   * is the second path this file's own header calls "a place for the rule to be older".
+   */
+  state?: StateId
 ): Record<string, string> {
-  const attrs = attrsAt((node?.attributes ?? {}) as Record<string, unknown>, at);
+  const attrs = attrsInState((node?.attributes ?? {}) as Record<string, unknown>, at, state);
   const stack = node?.stype === 'frame' || node?.stype === 'collection';
   const named = resolve ? resolved(attrs, String(node?.sid ?? ''), resolve) : attrs;
 
@@ -300,15 +502,7 @@ export function resolverFor(
    * those win, which is exactly why the walk goes up. Given the page as the root it stopped one
    * level short of the document's, found nothing, and every token on the site resolved to nothing.
    */
-  const rootId = (() => {
-    let at = pageSid;
-    for (let hop = 0; hop < 8; hop += 1) {
-      const parent = store.getNode(at)?.parentId;
-      if (typeof parent !== 'string' || !parent) return at;
-      at = parent;
-    }
-    return at;
-  })();
+  const rootId = rootOf(store, pageSid);
 
   return (value, sid) =>
     resolveVarValue({ rootId, getNode: (one: string) => store.getNode(one) } as never, value, sid);
@@ -347,6 +541,109 @@ function walk(
   }
 }
 
+/**
+ * Every node a rule can be **about**, and how a rule has to name it.
+ *
+ * ## The hole this closed
+ *
+ * A rule was keyed by the node's own id and the nodes were found by walking the page. Which quietly
+ * excluded everything inside a **component definition** — a definition lives beside the pages, not
+ * in one, and what a page holds is a placement of it. So the header, the footer and both buttons —
+ * the four things on this sample that appear on every page — could say `overrides: { mobile: … }`
+ * and the published page would carry no media query for them at all.
+ *
+ * Found by a state rather than by a width, and only because a hover on the sample's button did not
+ * reach the exported page. The width version of it had been there since media queries were written.
+ *
+ * ## Why a part is named by its ending
+ *
+ * A drawn part carries `placement~part` as its id, so one definition placed on five pages is five
+ * different ids for one node — and the thing a reader edited was the **part**. `[data-b$="~part"]`
+ * is the one selector that says that: every placement of this part, which is exactly what placing a
+ * component means. The part's own id matches too, for the boards, where a definition being edited is
+ * drawn on its own.
+ */
+interface Styled {
+  sid: string;
+  /** Whether it belongs to a definition, and so is drawn once per placement. */
+  part: boolean;
+}
+
+function styledNodes(
+  store: { getNode: (sid: string) => Node | undefined },
+  pageSid: string
+): Styled[] {
+  const found: Styled[] = [];
+  const seen = new Set<string>();
+
+  const add = (sid: string, part: boolean) => {
+    if (seen.has(sid)) return;
+    seen.add(sid);
+    found.push({ sid, part });
+  };
+
+  walk(store, pageSid, (sid) => add(sid, false));
+
+  /*
+   * And every definition in the document, because a placement of one may be on this page — asked of
+   * the document root rather than of the page, which is the same walk `resolverFor` makes for a
+   * token and for the same reason: what a page refers to lives one level above it.
+   */
+  const root = rootOf(store, pageSid);
+  for (const definition of definitionsIn(store, root)) {
+    walk(store, definition, (sid) => add(sid, true));
+  }
+
+  return found;
+}
+
+/**
+ * Every definition in the document.
+ *
+ * Two levels, because that is where they are: a document holds a `components` container and the
+ * definitions are in it, beside `resources` and `variables`. Pages are stepped over rather than
+ * descended into — their nodes have already been walked, and a definition is never inside one.
+ */
+function definitionsIn(
+  store: { getNode: (sid: string) => Node | undefined },
+  root: string
+): string[] {
+  const found: string[] = [];
+  for (const child of (store.getNode(root)?.content ?? []) as unknown[]) {
+    if (typeof child !== 'string') continue;
+    const node = store.getNode(child);
+    if (node?.stype === 'component') found.push(child);
+    else if (node?.stype === 'components') {
+      for (const one of (node.content ?? []) as unknown[]) {
+        if (typeof one === 'string' && store.getNode(one)?.stype === 'component') found.push(one);
+      }
+    }
+  }
+  return found;
+}
+
+/** How a rule names one of them, given what the export called its element. */
+function whereFor(
+  one: Styled,
+  classOf: (sid: string) => string | undefined,
+  attribute = 'data-b'
+): string {
+  if (one.part) return `[${attribute}$="~${one.sid}"], [${attribute}="${one.sid}"]`;
+  const named = classOf(one.sid);
+  return named ? `.${named}` : `[${attribute}="${one.sid}"]`;
+}
+
+/** The document a page belongs to, walked up from it — `resolverFor`'s own climb, named. */
+function rootOf(store: { getNode: (sid: string) => Node | undefined }, pageSid: string): string {
+  let at = pageSid;
+  for (let hop = 0; hop < 8; hop += 1) {
+    const parent = store.getNode(at)?.parentId;
+    if (typeof parent !== 'string' || !parent) return at;
+    at = parent;
+  }
+  return at;
+}
+
 /** The entries of `after` that `before` does not already have. */
 function changed(before: Record<string, string>, after: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
@@ -363,8 +660,13 @@ function changed(before: Record<string, string>, after: Record<string, string>):
 /** A style map as CSS text, in the notation a stylesheet uses. */
 function declarations(css: Record<string, string>): string {
   return Object.entries(css)
-    .map(([key, value]) => `${key.replace(/[A-Z]/g, (one) => `-${one.toLowerCase()}`)}: ${value};`)
+    .map(([key, value]) => `${dashed(key)}: ${value};`)
     .join(' ');
+}
+
+/** A property as CSS spells it — the one place the two notations meet. */
+function dashed(key: string): string {
+  return key.replace(/[A-Z]/g, (one) => `-${one.toLowerCase()}`);
 }
 
 /**

@@ -887,12 +887,15 @@ test.describe('a definition', () => {
     /*
      * Every board draws the definition, at its own width, and says whose it is.
      *
-     * Four stacks, not one: the bar, the mark beside the wordmark, the row of links, and the button
-     * the row ends with — a navigation bar once its ends are pushed apart rather than left to a
-     * spacer, with the same call to action the hero has.
+     * Eight stacks, not one: the bar, the mark beside the wordmark, the row of links, the button the
+     * row ends with — a navigation bar once its ends are pushed apart rather than left to a spacer —
+     * and **each of the four links**, which became boxes rather than words when they were given a
+     * hover to hold. That turned out to be the same fix as giving a thumb something to hit: a
+     * 14-pixel-tall target where a guideline asks for 44, and nowhere for paint to live, were one
+     * fault about structure rather than two about styling.
      */
     await expect(page.locator('.st-frame-label').first()).toContainText('머리말');
-    await expect(page.locator('[data-frame="desktop"] .st-stack')).toHaveCount(4);
+    await expect(page.locator('[data-frame="desktop"] .st-stack')).toHaveCount(8);
 
     // And the way back is a control rather than a gesture: a reader who does not know they are
     // inside a definition is a reader about to change five pages by accident.
@@ -1379,5 +1382,125 @@ test.describe('a link to another page', () => {
     await remove.click();
     await page.waitForTimeout(500);
     await expect(made).toHaveCount(0);
+  });
+});
+
+/**
+ * What the page promises a visitor, which is the first value on it that is not a value.
+ *
+ * Everything else a block says is resolved before it is drawn — a width is known, a token is known,
+ * a dataset is known. A pointer is known to nobody at render time, because the hovering happens
+ * after the drawing has finished. So a state leaves the model as a **rule**, and the two things
+ * worth holding are that the boards obey the rule (a designer who has to publish to see a hover is a
+ * designer guessing) and that the published page carries the same one.
+ */
+test.describe('what a block promises under the pointer', () => {
+  test('shows the state the panel has opened, because the pointer cannot get there', async ({ page }) => {
+    await ready(page);
+
+    const item = page
+      .locator('[data-frame="desktop"] [data-name="내비게이션"] .st-stack[data-name="제품"]')
+      .first();
+    const fill = async () =>
+      await item.evaluate((el) => getComputedStyle(el as HTMLElement).backgroundColor);
+
+    // At rest a navigation item is a box with nothing in it — the page's own ground shows through.
+    expect(await fill()).toBe('rgba(0, 0, 0, 0)');
+
+    /*
+     * And hovering it changes nothing, which is not a bug and is the reason this feature is drawn
+     * rather than hovered: the tool's own layer covers the board — that layer is what decides what a
+     * click means here — so the page underneath is never the topmost thing under the pointer.
+     */
+    await item.hover({ force: true });
+    await page.waitForTimeout(150);
+    expect(await fill()).toBe('rgba(0, 0, 0, 0)');
+
+    /*
+     * So the panel opens the state and the block is drawn in it — shown here on a **card**, because
+     * a navigation item is a part of a placed component and a click on one selects the placement.
+     * That is the component model working: a reader edits a part by opening its definition, and the
+     * boards then draw the definition, where the part is an ordinary selectable block.
+     */
+    const card = cardRow(page, 'desktop').locator('.st-stack').first();
+    const border = async () =>
+      await card.evaluate((el) => getComputedStyle(el as HTMLElement).borderColor);
+
+    await bring(page, cardRow(page, 'desktop'));
+    const resting = await border();
+    await pressDeepAt(page, card);
+    await page.waitForTimeout(300);
+    await page.locator('.office-properties').getByRole('tab', { name: '모양' }).click();
+    await page.locator('.st-state-row button[data-state="hover"]').click();
+    await page.waitForTimeout(400);
+
+    /*
+     * `var:강조`, resolved — and it beats the inline style, which is why the board's copy of the rule
+     * carries `!important` where the published page's does not. Without that every rule would be
+     * written correctly and do nothing, which looks exactly like not having the feature.
+     */
+    expect(await border()).toBe('rgb(15, 122, 90)');
+    expect(await border()).not.toBe(resting);
+
+    // Closing it puts the page back, so a reader is never left looking at a state nobody is in.
+    await page.locator('.st-state-row button', { hasText: '기본' }).click();
+    await page.waitForTimeout(300);
+    expect(await border()).toBe(resting);
+  });
+
+  test('gives the navigation a target a thumb can hit', async ({ page }) => {
+    await ready(page);
+
+    const item = page
+      .locator('[data-frame="mobile"] [data-name="내비게이션"] .st-stack[data-name="제품"]')
+      .first();
+    const box = await item.boundingBox();
+    const zoom = await page.evaluate(
+      () => Number((document.querySelector('.st-canvas') as HTMLElement).dataset.zoom) || 1
+    );
+    // Measured back through the zoom: the plane is drawn at whatever the reader is standing at.
+    expect((box?.height ?? 0) / zoom).toBeGreaterThan(28);
+  });
+
+  test('publishes the promise as a rule the browser already knows', async ({ page }) => {
+    await ready(page);
+
+    const html = await page.evaluate(
+      () => (window as never as { exportSite: () => { path: string; html: string }[] }).exportSite()[0].html
+    );
+
+    expect(html).toContain(':hover');
+    // The pressed-in green, through the token — a hover colour written three times is three colours.
+    expect(html).toContain('#0B5C44');
+    /*
+     * And no `!important` in the page a visitor gets. Its styles were lifted into classes, so a
+     * selector wins on its own; a page a reader cannot restyle with their own CSS is not theirs.
+     */
+    expect(html).not.toContain('!important');
+  });
+
+  test('offers the state in the panel, and only what a state may hold', async ({ page }) => {
+    await ready(page);
+
+    await pressDeepAt(page, cardRow(page, 'desktop').locator('.st-stack').first());
+    await page.waitForTimeout(300);
+    await page.locator('.office-properties').getByRole('tab', { name: '모양' }).click();
+    await page.waitForTimeout(200);
+
+    // At rest the panel offers the arrangement as well as the paint.
+    await expect(page.locator('.st-state')).toBeVisible();
+    const rows = () => page.locator('.office-properties label');
+    const before = await rows().count();
+
+    await page.locator('.st-state-row button[data-state="hover"]').click();
+    await page.waitForTimeout(250);
+
+    /*
+     * In a state the arrangement rows are gone rather than disabled. A block that resized under the
+     * pointer would move out from under it and flicker for as long as a visitor held still, so the
+     * gesture is not offered rather than offered and refused.
+     */
+    expect(await rows().count()).toBeLessThan(before);
+    await expect(page.locator('.st-state-said')).toContainText('모든 너비');
   });
 });

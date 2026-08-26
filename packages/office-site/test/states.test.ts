@@ -1,0 +1,278 @@
+import { describe, it, expect, beforeAll } from 'vitest';
+import { DataStore } from '@barocss/datastore';
+import { createSchema } from '@barocss/schema';
+import { createSiteEditor } from '../src/site-kit';
+import { getSiteSchemaDefinition } from '../src/site-schema';
+import { registerSiteRenderers } from '../src/renderers';
+import { createSampleSite } from '../src/sample-site';
+import {
+  STATEABLE,
+  STATES,
+  attrsInState,
+  hasStates,
+  stateFaults,
+  statedIn,
+  statesOf,
+  withState
+} from '../src/states';
+import { editorStateCss, exportPage, mediaRules, stateChanges, stateRules } from '../src/export-html';
+import { documentFaults } from '../src/faults';
+import { pagesOf } from '../src/selection';
+
+/**
+ * What a block says while a pointer is on it.
+ *
+ * The arithmetic first — it is the same shape as an override and can be held in a millisecond — and
+ * then the thing that makes a state *not* an override: it leaves the drawing as a **rule** rather
+ * than being folded into it, because no renderer can be told that a visitor is hovering.
+ */
+describe('what a block says under the pointer', () => {
+  const card = {
+    fill: '#FFFFFF',
+    cornerRadius: 180,
+    gap: 240,
+    overrides: { mobile: { gap: 120 } },
+    states: { hover: { fill: '#0F7A5A' } }
+  };
+
+  it('is the block itself when no state is asked for', () => {
+    // The same object identity `attrsAt` promises: silence costs nothing, and a state is silence
+    // until a visitor does something.
+    expect(attrsInState(card, 'desktop')).toBe(attrsInState(card, 'desktop'));
+    expect(attrsInState(card, 'desktop').fill).toBe('#FFFFFF');
+  });
+
+  it('replaces only what it names, over the width that is already applied', () => {
+    const at = attrsInState(card, 'mobile', 'hover');
+    // The state's own.
+    expect(at.fill).toBe('#0F7A5A');
+    // The width's, still underneath it — a hover does not undo a mobile layout.
+    expect(at.gap).toBe(120);
+    expect(at.cornerRadius).toBe(180);
+  });
+
+  it('hands the renderer neither map', () => {
+    const at = attrsInState(card, 'mobile', 'hover');
+    expect(at.states).toBeUndefined();
+    expect(at.overrides).toBeUndefined();
+  });
+
+  it('says which attributes a state changed', () => {
+    expect(statedIn(card, 'hover')).toEqual(['fill']);
+    expect(statedIn(card, 'focus')).toEqual([]);
+    expect(statedIn(card, undefined)).toEqual([]);
+  });
+
+  it('adds, replaces and takes back one statement, pruning what is left empty', () => {
+    expect(withState(card, 'hover', 'cornerRadius', 360).hover).toEqual({
+      fill: '#0F7A5A',
+      cornerRadius: 360
+    });
+    // Not `{ hover: {} }`, which is a line in a saved file a reader would have to wonder about.
+    expect(withState(card, 'hover', 'fill', undefined).hover).toBeUndefined();
+  });
+
+  it('is checkable, which is why it is allowed to be a map', () => {
+    const declared = ['fill', 'cornerRadius', 'gap'];
+    expect(stateFaults(card, declared)).toEqual([]);
+
+    // A state no browser has.
+    expect(stateFaults({ states: { pressed: { fill: '#000' } } }, declared)).toEqual([
+      "no state is drawn for 'pressed'"
+    ]);
+
+    /*
+     * And the one that is arithmetic rather than taste: a gap on hover resizes the block, the block
+     * moves out from under the pointer, the pointer is then not on it, and the browser draws the two
+     * states alternately for as long as the visitor holds still.
+     */
+    expect(stateFaults({ states: { hover: { gap: 1 } } }, declared)).toEqual([
+      "'hover' sets 'gap', which moves the thing out from under the pointer"
+    ]);
+
+    // An attribute this node does not have — `overrideFaults`' check, for the same reason.
+    expect(stateFaults({ states: { hover: { fill: '#000' } } }, ['level'])).toEqual([
+      "'hover' sets 'fill', which this node does not have"
+    ]);
+  });
+
+  it('offers paint and not the border’s width', () => {
+    /*
+     * A border is drawn inside the box, so on a block whose height is its content's a wider border
+     * on hover reflows the text in it. The colour is the half that is safe, and it is the half every
+     * design system actually uses — a transparent border of the final width in the base.
+     */
+    expect(STATEABLE).toContain('stroke');
+    expect(STATEABLE).not.toContain('strokeWidth');
+    expect(STATEABLE).not.toContain('padding');
+  });
+
+  it('asks the browser its own question about the keyboard', () => {
+    // `:focus`, not `:focus-visible`, would flash a keyboard ring at every visitor who clicks.
+    expect(STATES.find((one) => one.id === 'focus')?.selector).toBe(':focus-visible');
+  });
+
+  it('is nothing at all when a block says nothing', () => {
+    expect(hasStates({ fill: '#fff' })).toBe(false);
+    expect(statesOf({ states: { hover: {} } })).toEqual({});
+  });
+});
+
+/**
+ * And the same thing as a **rule**, in both grounds it has to hold in.
+ *
+ * A published page has no inline styles left, so a selector wins on its own; a board is drawn inline
+ * by design, and nothing beats an inline style but `!important`. One calculation, two notations —
+ * and a test that they carry the same declarations, because the day they do not is the day the
+ * editor and the visitor disagree about a colour.
+ */
+describe('a state, published and drawn', () => {
+  let editor: any;
+  let store: DataStore;
+  let home: string;
+  let card: string;
+
+  beforeAll(async () => {
+    registerSiteRenderers();
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    store = new DataStore(undefined as never, schema as never);
+    editor = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+    const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+    home = pagesOf(doc as never)[0].sid;
+
+    // A block of the real page, told to answer differently under the pointer.
+    const found: string[] = [];
+    const walk = (sid: string, depth = 0) => {
+      if (depth > 40) return;
+      const node = store.getNode(sid) as any;
+      if (!node) return;
+      if (node.stype === 'frame' && depth > 1) found.push(sid);
+      for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
+    };
+    walk(home);
+    card = found[0];
+    editor.executeCommand('setNode', { nodeIds: [card] });
+    await editor.executeCommand('setBlockFormat', { state: 'hover', fill: '#0F7A5A' });
+  });
+
+  it('writes the state through the command a panel runs', () => {
+    expect(statesOf((store.getNode(card) as any).attributes).hover).toEqual({ fill: '#0F7A5A' });
+  });
+
+  it('refuses an arrangement in a state rather than writing one', async () => {
+    editor.executeCommand('setNode', { nodeIds: [card] });
+    await editor.executeCommand('setBlockFormat', { state: 'hover', gap: 999 });
+    expect(statesOf((store.getNode(card) as any).attributes).hover).toEqual({ fill: '#0F7A5A' });
+  });
+
+  it('ignores the width it was set at, because a state is not a width', async () => {
+    editor.executeCommand('setNode', { nodeIds: [card] });
+    await editor.executeCommand('setBlockFormat', { at: 'mobile', state: 'hover', cornerRadius: 360 });
+    const attrs = (store.getNode(card) as any).attributes;
+    // In the states, not in the mobile overrides: the gesture is the same gesture at every width.
+    expect(statesOf(attrs).hover?.cornerRadius).toBe(360);
+    expect((attrs.overrides?.mobile ?? {}).cornerRadius).toBeUndefined();
+  });
+
+  it('leaves the page as a promise about a colour, not as the colour', () => {
+    const changes = stateChanges(store as never, home);
+    const mine = changes.filter((one) => one.sid === card);
+    expect(mine.length).toBeGreaterThan(0);
+    expect(mine[0].state).toBe('hover');
+    expect(mine[0].css.backgroundColor).toBe('#0F7A5A');
+  });
+
+  it('publishes it as a selector the browser already knows', () => {
+    const css = stateRules(store as never, home);
+    expect(css).toContain(':hover');
+    expect(css).toContain('#0F7A5A');
+    /*
+     * And with no `!important` in it. A published page a reader cannot restyle with their own CSS is
+     * a page that is not really theirs, and this file has promised that since it was written.
+     */
+    expect(css).not.toContain('!important');
+  });
+
+  it('draws it on the boards, where nothing else beats an inline style', () => {
+    const css = editorStateCss(store as never, home);
+    expect(css).toContain(`[data-bc-sid="${card}"]:hover`);
+    expect(css).toContain('!important');
+    // The same declaration, in the other notation — one calculation, two ways of writing it down.
+    expect(css).toContain('background-color: #0F7A5A');
+  });
+
+  it('reaches a placement of a definition, on every page it is placed on', () => {
+    /*
+     * The sample's button is a **component**, and a component lives beside the pages rather than in
+     * one. Keyed by the node's own id and found by walking the page, its hover reached nothing — and
+     * neither had its width overrides, since media queries were written. The rule names the part by
+     * its ending, because a drawn part is `placement~part` and one definition placed five times is
+     * five ids for the thing a reader edited once.
+     */
+    const css = stateRules(store as never, home);
+    expect(css).toContain('~');
+    expect(css).toContain('#0B5C44');
+  });
+
+  it('gives a definition’s width overrides the media query they never got', () => {
+    // The same hole, found by a state and older than states: the footer says it stacks at 390.
+    const rules = mediaRules(store as never, home);
+    expect(rules).toContain('~');
+  });
+
+  it('reaches the visitor, inside the document the export writes', () => {
+    const page = exportPage(editor, home);
+    expect(page.html).toContain(':hover');
+    expect(page.html).toContain('#0F7A5A');
+    // After the media queries: a state written for one width has to arrive after the width it is
+    // about, or the width would have the last word over the pointer.
+    expect(page.html.indexOf(':hover')).toBeGreaterThan(page.html.indexOf('@media'));
+  });
+});
+
+/**
+ * And the checks, run over a real document — which none of them were.
+ *
+ * Three functions in this package answer "what is wrong with this", each with a unit test beside it,
+ * and until `faults.ts` nothing asked any of them about the sample. A check nobody runs reads to the
+ * next person exactly like a check that passes.
+ */
+describe('what is wrong with the document', () => {
+  let doc: any;
+  let declares: (node: { stype?: unknown }) => string[];
+
+  beforeAll(() => {
+    registerSiteRenderers();
+    const definition = getSiteSchemaDefinition();
+    const schema = createSchema('site', definition);
+    const store = new DataStore(undefined as never, schema as never);
+    const editor: any = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+    doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+
+    const nodes = (definition as any).nodes as Record<string, any>;
+    declares = (node) => Object.keys(nodes[String(node?.stype ?? '')]?.attrs ?? {});
+  });
+
+  it('finds nothing wrong with the sample', () => {
+    expect(documentFaults(doc, { declares })).toEqual([]);
+  });
+
+  it('finds a fault through the walk rather than being handed one', () => {
+    const one = {
+      rootId: 'r',
+      getNode: (sid: string) =>
+        sid === 'r'
+          ? { sid: 'r', stype: 'frame', attributes: { states: { hover: { padding: 10 } } }, content: [] }
+          : undefined
+    };
+    expect(documentFaults(one as never, { declares: () => ['padding'] })).toEqual([
+      {
+        sid: 'r',
+        kind: 'state',
+        said: "'hover' sets 'padding', which moves the thing out from under the pointer"
+      }
+    ]);
+  });
+});

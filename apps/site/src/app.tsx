@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
-import { watchContent } from '@barocss/editor-core';
+import { selectedNodeIds, watchAnswers, watchContent } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import {
   AppBody,
@@ -12,7 +12,15 @@ import {
   useViewport,
   type Viewport
 } from '@barocss/office-ui';
-import { BREAKPOINTS, definitionOf, enclosing, pagesOf, type BreakpointId } from '@barocss/office-site';
+import {
+  BREAKPOINTS,
+  definitionOf,
+  editorStateCss,
+  enclosing,
+  pagesOf,
+  type BreakpointId,
+  type StateId
+} from '@barocss/office-site';
 import { Canvas } from './canvas';
 import { Inspector } from './inspector';
 import { Rail } from './rail';
@@ -89,9 +97,27 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   /** Whose text the reader is in, so that leaving it selects the block again rather than nothing. */
   const [entered, setEntered] = useState<string | undefined>(undefined);
   const [at, setAt] = useState<BreakpointId>('desktop');
+  /**
+   * The state the panel has opened, held here because it changes what the **boards** draw.
+   *
+   * The tool's own layer covers the page — that layer is what makes a click mean something on this
+   * product — so the page underneath is never the topmost thing under the pointer and its `:hover`
+   * never fires. A designer editing a hover would be editing something they cannot see, so the
+   * selected blocks are drawn in the state the panel is on.
+   */
+  const [state, setState] = useState<StateId | undefined>(undefined);
 
   const editor = instance?.editor ?? null;
   const revision = useRevision((reread) => watchContent(editor, reread), [editor]);
+  /*
+   * The selection, as a value an effect can depend on. `watchContent` does not fire when only the
+   * selection moves, and what the boards preview is *what is selected*.
+   */
+  const answers = useRevision((reread) => watchAnswers(editor, reread), [editor]);
+  const chosen = useMemo(
+    () => (selectedNodeIds(editor?.selection) ?? []).join(','),
+    [editor, answers]
+  );
   const pages = useMemo(() => {
     const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } })?.dataStore;
     const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
@@ -140,6 +166,33 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   const scopeRoot = definition?.sid ?? page;
   // A new page is a new outermost container; nothing that was entered on the last one is on it.
   const inside = scope && scopeRoot ? scope : scopeRoot;
+
+  /**
+   * What the boards promise a visitor, as a stylesheet the boards themselves obey.
+   *
+   * A state is the one value on a page that cannot be folded into a drawing: there is no moment at
+   * which a document is *hovered*, because the hovering happens after everything has been drawn. So
+   * it leaves the model as a rule — and a designer who cannot see the rule until they publish is a
+   * designer guessing, which is what a builder exists to stop.
+   *
+   * `!important` in it, and only here. The boards are drawn with inline styles by design, and
+   * nothing else beats an inline style; the published page has no inline styles left, so its copy of
+   * these very declarations needs none (`export-html.ts`). One calculation, two notations.
+   */
+  useEffect(() => {
+    const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } })?.dataStore;
+    if (!store || !root) return;
+
+    const sheet = document.createElement('style');
+    sheet.dataset.siteStates = 'true';
+    sheet.textContent = editorStateCss(
+      store as never,
+      root,
+      state ? { state, sids: chosen.split(',').filter(Boolean) } : undefined
+    );
+    document.head.append(sheet);
+    return () => sheet.remove();
+  }, [editor, root, revision, state, chosen]);
 
   /**
    * `Escape`, which is the way **out** of wherever the reader is — and listened for exactly once.
@@ -385,7 +438,16 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           <div ref={host} id="editor" hidden />
         </AppMain>
 
-        {editor ? <Inspector editor={editor} at={at} onAt={setAt} page={definition ? undefined : page} /> : null}
+        {editor ? (
+          <Inspector
+            editor={editor}
+            at={at}
+            onAt={setAt}
+            state={state}
+            onState={setState}
+            page={definition ? undefined : page}
+          />
+        ) : null}
       </AppBody>
     </AppShell>
   );

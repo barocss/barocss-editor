@@ -46,6 +46,36 @@ entries are that.
 
 ## Open
 
+### A state can be promised, but nothing gets between one and the next
+
+- [ ] `states` gives a block a hover and a keyboard focus, published as real CSS. A hover that
+  arrives **instantly** looks like a bug on anything larger than a link — every design system pairs
+  the two, and this one has no word for the pairing. One attribute and one CSS property, and it is
+  the doorway to the thing this product still has none of: motion. A page built here has no scroll
+  reveal, no transition and no hover fade, and that is the single largest difference between it and a
+  page built anywhere else.
+
+- [ ] **No `pressed`.** `:active` is the third state every button has and it was left out on purpose
+  for now: it is the one a designer reaches for last and the one a test cannot easily hold. The
+  vocabulary has room — `STATES` is a list — and `stateFaults` will name it the day it is added.
+
+- [ ] **A state cannot differ per width, and one day one will.** Deliberate: a card that lifts under
+  the pointer lifts at every width, and a two-level map would have bought the case nobody has asked
+  for at the price of every reader wondering which of two places to set. The escape is written down —
+  an `overrides` *inside* the state, the same map one level down — and nothing implements it.
+
+### The tool's own layer stands between the page and the pointer
+
+- [ ] The boards are covered by `.st-overlay`, which is what makes a click mean something on this
+  product — and it means a page's own `:hover` never fires, because the page underneath is never the
+  topmost thing under the pointer. The panel draws the selected blocks in the state instead, which is
+  what every tool of this kind does and is the better answer for *editing*.
+
+  It is still not the answer for **looking**. A reader who wants to see the page behave like a page
+  has no way to ask, and the product has no preview mode at all. That is one mode and one
+  `pointer-events: none`, and it is also where a sticky header, a scroll reveal and a form would
+  first become visible — so it is probably the next thing rather than a nicety.
+
 ### `undefined` never reached an operation, so nothing could be taken back
 
 - [x] `transaction` copied every operation with `JSON.parse(JSON.stringify(...))`, and JSON has no
@@ -2664,6 +2694,30 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A component's nodes were in no stylesheet at all.** The export keyed a rule by a node's id and
+  found the nodes by walking the page — and a component definition lives *beside* the pages rather
+  than in one. So the header, the footer and both buttons, the four things on the sample that appear
+  on every page, could say `overrides: { mobile: … }` and the published page carried no media query
+  for any of them. Since media queries were written; found a month later, and only because a hover
+  set on the button did not reach the export either.
+
+  A drawn part carries `placement~part`, so one definition placed five times is five ids for the
+  thing a reader edited once. `[data-b$="~part"]` is the one selector that says *every placement of
+  this*, which is exactly what placing a component means. `styledNodes` is the walk that includes
+  them, and the export test that caught the change now walks the definitions too.
+
+- **Three checks nobody ran.** `overrideFaults`, `linkFaults` and `stateFaults` each had a unit test
+  beside it and nothing had ever asked any of them about a real document. That is worse than not
+  having them: a check nobody runs reads, to the next person, exactly like a check that passes — the
+  same failure this repository has now written down three times about itself. `documentFaults` is the
+  one walk that asks all three, it reports rather than validates, and the sample answers clean.
+
+- **Four words that looked like navigation.** Each item was a bare paragraph: a 14-pixel-tall target
+  on a phone where every guideline asks for something near 44, and nowhere for a hover to live, since
+  a state is paint and a paragraph is not painted in this schema. One fix for both — each item is a
+  box with the word in it. When the hit area and the hover turn out to be the same fix, the structure
+  rather than the styling was what was wrong.
 
 Newest first. The surprise each one produced is the part worth keeping.
 

@@ -423,6 +423,7 @@ designer reached for while the sample was being built.
 | **data** | a dataset, filtered, sorted, limited, drawn once per row |
 | **text** | the document model's — headings, lists, tables, footnotes, and 24 marks |
 | **links** | to a page of this site, by durable id, resolved where they are drawn |
+| **states** | what a block is painted with under a pointer, or under the keyboard's focus |
 | **publishing** | one HTML file per page, with the media queries the editor drew from |
 
 And what it cannot, which is the more useful list:
@@ -430,13 +431,66 @@ And what it cannot, which is the more useful list:
 | | |
 | --- | --- |
 | **motion** | nothing. No scroll reveal, no transition, no hover. The single largest difference between a page built here and one built anywhere else |
-| **interaction states** | a link cannot be styled on hover; a button has one appearance |
+| **interaction states** | ~~a link cannot be styled on hover~~ — **built**; a *pressed* state is not there, and neither is a transition between them |
 | **position** | no sticky header, no overlap, no negative offset — a page is a column of boxes |
 | **forms** | no node for one |
 | **typography as a system** | a size or a face is a mark on a run, not a style a heading follows |
 | **per-page metadata** | no title, description or social image, so a published page has none |
 | **more than one fill** | the deck's paint *stack*; a page takes one of each |
 | **a dataset from a URL** | declared, not fetched — deferred by design |
+
+## A state is the first value on a page that is not a value
+
+Everything else a block says is resolved before the page is drawn. A width is known — three boards,
+three breakpoints, each view resolving its own. A token is known, a dataset is known, a link's page
+is known. **A pointer is known to nobody at render time**, because the hovering is the visitor's and
+happens after the drawing has finished.
+
+So `states` is the first thing here that leaves the model as a *rule* rather than as a drawing, and
+three things follow from that sentence rather than from taste:
+
+- **It is published as CSS.** `stateRules` writes `.b12:hover { … }` beside the media queries, from
+  the same `cssFor` the editor draws with — one calculation, compared against itself, which is what
+  makes an exported hover impossible to disagree with the editor about.
+- **The editor cannot show it by hovering.** The tool's own layer covers the board, and that layer is
+  what makes a click mean something on this product; the page underneath is never the topmost thing
+  under the pointer, so its `:hover` never fires. The panel opens a state and the selected blocks are
+  **drawn** in it — which is what every tool of this kind does, and is better anyway: a hover that
+  goes away when you move the mouse to the colour field cannot be looked at.
+- **Only paint may change.** Not a rule anybody chose: a state that changed the arrangement would
+  resize the block, the block would move out from under the pointer, the pointer would then not be on
+  it, and the browser would draw the two states alternately for as long as a visitor held still.
+  `STATEABLE` is the list, `stateFaults` is the check, and the panel does not offer the rows rather
+  than offering them and refusing.
+
+A state is deliberately **not per-width**: a card that lifts under the pointer lifts at 390 as well
+as at 1280, because the gesture is the same gesture. The cascade is base → this width → this state,
+so a width still applies underneath one. The day a hover genuinely has to differ at one width it
+takes an `overrides` inside the state, which is the same map one level down rather than a new
+mechanism.
+
+### Two things it found on the way
+
+**A definition's nodes were in no stylesheet at all.** Rules were keyed by a node's id and the nodes
+were found by walking the page — and a component lives *beside* the pages, not in one. So the header,
+the footer and both buttons, the four things on this sample that are on every page, could say
+`overrides: { mobile: … }` and the published page carried no media query for any of them. Older than
+states by a month, and found only because a hover on the button did not reach the export. A drawn
+part carries `placement~part`, so one definition placed five times is five ids for the thing a reader
+edited once; `[data-b$="~part"]` is the one selector that says *every placement of this*, which is
+exactly what placing a component means.
+
+**The navigation was four words, not four targets.** A state is paint and a paragraph is not painted
+— text sizing and text paint are the *stack's* question in this schema, asked one level up — so there
+was nowhere for a hover to live. There was also a 14-pixel-tall thing to hit on a phone where every
+guideline asks for something near 44. One fix: each item is a box with the word in it. When the hit
+area and the hover turn out to be the same fix, the structure rather than the styling was what was
+wrong.
+
+**And three checks nobody ran.** `overrideFaults`, `linkFaults` and now `stateFaults` each had a unit
+test beside it and nothing asked any of them about a real document. A check nobody runs reads, to the
+next person, exactly like a check that passes. `documentFaults` is the walk that asks all three, and
+the sample answers clean.
 
 ## What a site builder still needs
 
@@ -469,3 +523,11 @@ Measured against what the product can do today, in the order the next slices sho
    commands exist, the marks are not on screen yet.
 7. **Forms.** The one common site block with no node behind it — and the first thing here that would
    genuinely be new rather than reused.
+8. **A transition between the states.** A hover that arrives instantly is a hover that looks like a
+   bug on a large card. It is one attribute and one CSS property, and it is the doorway to motion —
+   which is still the single largest difference between a page built here and one built anywhere
+   else.
+9. **Position.** No sticky header, no overlap, no negative offset: a page is a column of boxes. The
+   editor cannot show a sticky header at all — a board is drawn at its full height on a plane and
+   never scrolls — so this is the first thing the product would have to *communicate* rather than
+   draw, which is a decision worth taking deliberately.

@@ -205,9 +205,52 @@ const card = (title: string, body: string, extra: Record<string, unknown> = {}):
       shadowDistance: px(6),
       stroke: 'var:선',
       strokeWidth: px(1),
+      /*
+       * And what it says under the pointer. The **colour** of the border and the softness of the
+       * shadow, never the border's width or the padding: those would resize the card, the card would
+       * move out from under the pointer, and a visitor holding still would watch it flicker.
+       */
+      states: {
+        hover: {
+          stroke: 'var:강조',
+          shadowColor: 'rgba(15, 122, 90, 0.18)',
+          shadowBlur: px(32),
+          shadowDistance: px(10)
+        }
+      },
       ...extra
     },
     [heading(3, title), quiet(body)]
+  );
+
+/**
+ * One item of the navigation — a **box** with a word in it, rather than a word.
+ *
+ * It was a bare paragraph, and two things were wrong with that at once. A visitor on a phone had a
+ * 14-pixel-tall target to hit, where every guideline asks for something near 44; and there was
+ * nowhere for a hover to live, because a state is paint and a paragraph is not painted — text sizing
+ * and text paint are the *stack's* question in this schema, asked one level up.
+ *
+ * So the hit area and the hover turn out to be the same fix, which is usually the sign that the
+ * structure rather than the styling was the thing that was wrong.
+ */
+const navItem = (label: string, page: string): Node =>
+  stack(
+    'row',
+    {
+      partId: `nav-${page}`,
+      // Named, so the layer list says 제품 rather than 가로 스택 four times in a row.
+      name: label,
+      alignItems: 'center',
+      sizing: 'hug',
+      paddingTop: px(8),
+      paddingBottom: px(8),
+      paddingLeft: px(12),
+      paddingRight: px(12),
+      cornerRadius: px(8),
+      states: { hover: { fill: 'var:바탕' } }
+    },
+    [paragraph([toPage(label, page, '3A443E')], { partId: `nav-${page}-label` })]
   );
 
 /** One person: a portrait with a name under it, which is a card without being one. */
@@ -292,6 +335,12 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
         content: [
           { stype: 'variable', attributes: { name: '강조', label: '브랜드 색', kind: 'color', value: '#0F7A5A' } },
           { stype: 'variable', attributes: { name: '강조밝음', label: '브랜드 밝은 쪽', kind: 'color', value: '#34C08A' } },
+          /*
+           * The pressed-in green, which exists because **three** things wanted the same darker
+           * brand colour under a pointer — the button, the ghost button and the navigation. A hover
+           * colour written three times is three colours that drift, which is what a token is for.
+           */
+          { stype: 'variable', attributes: { name: '강조진함', label: '브랜드 눌린 쪽', kind: 'color', value: '#0B5C44' } },
           { stype: 'variable', attributes: { name: '바탕', label: '카드 바탕', kind: 'color', value: '#EEF1EE' } },
           { stype: 'variable', attributes: { name: '면', label: '카드 면', kind: 'color', value: '#FFFFFF' } },
           { stype: 'variable', attributes: { name: '종이', label: '페이지 바탕', kind: 'color', value: '#F6F7F5' } },
@@ -1097,11 +1146,11 @@ function components(): Node {
                * it. Each run names a page rather than an address, so `/제품` becoming `/products`
                * moves all four.
                */
-              stack('row', { partId: 'nav', gap: GAP.mid, alignItems: 'center', sizing: 'hug' }, [
-                paragraph([toPage('제품', 'products', '3A443E')], { partId: 'nav-products' }),
-                paragraph([toPage('가격', 'pricing', '3A443E')], { partId: 'nav-pricing' }),
-                paragraph([toPage('소개', 'about', '3A443E')], { partId: 'nav-about' }),
-                paragraph([toPage('블로그', 'blog', '3A443E')], { partId: 'nav-blog' }),
+              stack('row', { partId: 'nav', name: '내비게이션', gap: GAP.hair, alignItems: 'center', sizing: 'hug' }, [
+                navItem('제품', 'products'),
+                navItem('가격', 'pricing'),
+                navItem('소개', 'about'),
+                navItem('블로그', 'blog'),
                 placed('cta', { 문구: '무료로 시작하기' }, { sizing: 'hug' })
               ])
             ]
@@ -1182,7 +1231,16 @@ function components(): Node {
               paddingRight: px(18),
               fill: 'var:강조',
               cornerRadius: ROUND.pill,
-              sizing: 'hug'
+              sizing: 'hug',
+              /*
+               * A button that does not answer the pointer is a picture of a button. And a keyboard
+               * ring beside it, because the visitor who most needs to know what is focused is the one
+               * who cannot see where their mouse is — `:focus-visible`, so a click never flashes it.
+               */
+              states: {
+                hover: { fill: 'var:강조진함' },
+                focus: { stroke: 'var:강조진함', shadowColor: 'rgba(15, 122, 90, 0.35)', shadowBlur: px(8) }
+              }
             },
             [
               {
@@ -1215,7 +1273,9 @@ function components(): Node {
               stroke: 'var:선',
               strokeWidth: px(1),
               cornerRadius: ROUND.pill,
-              sizing: 'hug'
+              sizing: 'hug',
+              // The border is already the width it will be; only its colour changes, so nothing moves.
+              states: { hover: { stroke: 'var:먹', fill: 'var:바탕' } }
             },
             [
               {

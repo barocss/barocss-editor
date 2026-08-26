@@ -23,6 +23,7 @@ import { addChild, node, textNode, setAttrs, transaction } from '@barocss/model'
 import { SIZING, type Sizing } from './site-schema';
 import type { BreakpointId } from './breakpoints';
 import { BASE_BREAKPOINT, withOverride } from './responsive';
+import { STATEABLE, STATE_IDS, withState, type StateId } from './states';
 
 /** What a caller may say about a new stack. */
 export interface InsertStackOptions {
@@ -111,11 +112,24 @@ export class SiteStackExtension implements Extension {
      *
      * `undefined` for a value takes it back: at the base that means the attribute goes, at a narrower
      * width it means this width stops disagreeing and the page's own answer reaches it again.
+     *
+     * ## And `state`, for the same reason
+     *
+     * *Under the pointer, this card is green* is the same gesture again — a reader is looking at a
+     * state and typing a colour — so it is the same command with one more word in the payload. When
+     * a state is named the width is **ignored**: a state is not a width (`states.ts`), and the paint
+     * a reader sets on hover is the site's hover paint whichever board they happened to be looking
+     * at. Only paint may be named in a state; a `gap` sent with one is refused rather than written,
+     * because a block that resizes under the pointer leaves the pointer and flickers.
      */
     register(
       'setBlockFormat',
       async (payload) => await this._format(editor, payload),
-      (payload) => this._chosen(editor, payload).length > 0 && this._formatFields(payload).length > 0
+      (payload) =>
+        this._chosen(editor, payload).length > 0 &&
+        (STATE_IDS.includes(payload?.state as StateId)
+          ? this._stateFields(payload).length > 0
+          : this._formatFields(payload).length > 0)
     );
 
     /*
@@ -338,17 +352,52 @@ export class SiteStackExtension implements Extension {
     return SiteStackExtension.FORMAT.filter((name) => name in (payload ?? {}));
   }
 
+  /**
+   * Which of them a **state** may hold — paint, and nothing that moves the block.
+   *
+   * The same list `states.ts` keeps, asked here rather than copied: a command that accepted a `gap`
+   * on hover would write a document the schema's own check calls faulty, and a reader would find out
+   * from a published page that flickers under their pointer.
+   */
+  private _stateFields(payload?: Record<string, unknown>): string[] {
+    return this._formatFields(payload).filter((name) => STATEABLE.includes(name));
+  }
+
   private async _format(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
     const chosen = this._chosen(editor, payload);
-    const fields = this._formatFields(payload);
+    const state = STATE_IDS.includes(payload?.state as StateId)
+      ? (payload?.state as StateId)
+      : undefined;
+    const fields = state ? this._stateFields(payload) : this._formatFields(payload);
     if (chosen.length === 0 || fields.length === 0) return false;
 
     const at = payload?.at as BreakpointId | undefined;
-    const narrower = !!at && at !== BASE_BREAKPOINT;
-    if (at && !narrower && at !== BASE_BREAKPOINT) return false;
+    const narrower = !state && !!at && at !== BASE_BREAKPOINT;
 
     const store = this._store(editor);
     const steps = chosen.map((sid) => {
+      /*
+       * A state is not a width, and the command says so by ignoring `at` when one is given.
+       *
+       * A card that lifts under the pointer lifts at 390 as well as at 1280 — the gesture is the
+       * same gesture — so a reader who sets a hover colour while looking at the mobile board has set
+       * the site's hover colour, and the panel says as much beside the switch. The day one genuinely
+       * has to differ per width it takes an `overrides` inside the state; there is no second map
+       * here for it.
+       */
+      if (state) {
+        let states = withState(
+          store?.getNode(sid)?.attributes as Record<string, unknown> | undefined,
+          state,
+          fields[0],
+          payload![fields[0]]
+        );
+        for (const name of fields.slice(1)) {
+          states = withState({ states }, state, name, payload![name]);
+        }
+        return setAttrs(sid, { states });
+      }
+
       if (!narrower) {
         // The widest width *is* the node.
         const attrs: Record<string, unknown> = {};

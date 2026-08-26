@@ -72,7 +72,26 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
      * every offset in the text stack counts from there. A responsive layout is not worth changing
      * what a paragraph contains.
      */
-    overrides: { type: 'object' as const, required: false }
+    overrides: { type: 'object' as const, required: false },
+    /**
+     * What this node says **while a pointer is on it**, or while the keyboard is in it.
+     *
+     * `{ hover: { fill: 'var:강조' } }`, and the same rule as `overrides`: only what differs, checked
+     * against the attributes this node declares, one level deep.
+     *
+     * It sits beside `overrides` because it is the same shape, and it is a **different kind of
+     * value** for a reason worth knowing here rather than only in `states.ts`: a width is resolved
+     * before the page is drawn, and a pointer never is. There is no moment at which a document can
+     * be resolved "as hovered" — the hovering is the visitor's, and it happens after the drawing is
+     * finished. So this is the first thing on a page that is published as a **rule** rather than
+     * folded into the drawing, and the export grows a `:hover` selector for it.
+     *
+     * Paint only, and that is arithmetic rather than taste: a state that changed the arrangement
+     * would move the block out from under the pointer, at which point the pointer is no longer on
+     * it, and the browser draws the two states alternately for as long as the visitor holds still.
+     * `STATEABLE` is the list and `stateFaults` is the check.
+     */
+    states: { type: 'object' as const, required: false }
   };
 
   /**

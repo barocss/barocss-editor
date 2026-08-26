@@ -205,6 +205,15 @@ describe('the page a visitor gets', () => {
       for (const child of node?.content ?? []) if (typeof child === 'string') walk(child);
     };
     walk(blog);
+    /*
+     * And the **definitions**, which this walk did not reach and neither did the export's.
+     *
+     * A component lives beside the pages rather than in one, so a header that stacks at 390 got no
+     * media query at all — on any page, since every page places it. Found while a state was being
+     * added and older than states by a month; `styledNodes` is where it is fixed, and a definition's
+     * part is named by its ending because one definition placed five times is five drawn ids.
+     */
+    walk((doc.getNode(editor.getRootId()) as any).content.find((sid: string) => (doc.getNode(sid) as any)?.stype === 'components'));
 
     const ruled = [...css.matchAll(/\[data-b="([^"]+)"\]/g)].map((one) => one[1]);
     expect(ruled.length).toBeGreaterThan(0);

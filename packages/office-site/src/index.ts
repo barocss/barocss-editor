@@ -98,7 +98,34 @@ export { collectionRows, installSiteResolution, templateOf } from './collection-
  * A **render**, not a second implementation — the same renderers into a detached element — which is
  * what makes comparing the export with the editor's drawing a real check rather than a tautology.
  */
-export { cssFor, drawnHtml, exportPage, exportSite, mediaRules, type ExportedPage } from './export-html';
+export {
+  cssFor,
+  drawnHtml,
+  editorStateCss,
+  exportPage,
+  exportSite,
+  mediaRules,
+  stateChanges,
+  stateRules,
+  type ExportedPage,
+  type StateChange
+} from './export-html';
+export { documentFaults, type Declares, type Fault } from './faults';
+export {
+  STATEABLE,
+  STATES,
+  STATE_IDS,
+  attrsInState,
+  hasStates,
+  selectorFor,
+  stateFaults,
+  statedIn,
+  statesOf,
+  withState,
+  type StateId,
+  type StateKind,
+  type StateMap
+} from './states';
 /** Where a carried block would land — which stack, which place, and the line a reader steers by. */
 export { landingFor, type Box, type Landing } from './landing';
 /**
