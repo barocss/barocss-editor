@@ -123,7 +123,7 @@ export class SlidesComponentExtension implements Extension {
       execute: (payload: any) => Promise<boolean>,
       canExecute: (payload: any) => boolean
     ) => {
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name,
         execute: async (_ed: Editor, payload?: any) => await execute(payload ?? {}),
         canExecute: (_ed: Editor, payload?: any) => canExecute(payload ?? {})
@@ -322,8 +322,8 @@ export class SlidesComponentExtension implements Extension {
   }
 
   private _access(editor: Editor): DeckAccess | undefined {
-    const store = (editor as any).dataStore;
-    const rootId = (editor as any).getRootId?.();
+    const store = editor.dataStore;
+    const rootId = editor?.getRootId();
     if (!store || !rootId) return undefined;
     return { rootId, getNode: (sid: string) => store.getNode(sid) };
   }
@@ -333,7 +333,7 @@ export class SlidesComponentExtension implements Extension {
     const doc = this._access(editor);
     // The **selection**, not the editor: `selectedNodeIds` takes a selection, and handing it an
     // editor returns nothing at all — so every command here refused, on a real selection.
-    const chosen = new Set(selectedNodeIds((editor as any).selection) ?? []);
+    const chosen = new Set(selectedNodeIds(editor.selection) ?? []);
     if (!doc || chosen.size === 0) return [];
 
     // `parentId` is the store's own bookkeeping rather than part of a document — read the way
@@ -432,7 +432,7 @@ export class SlidesComponentExtension implements Extension {
       (sid) => doc.getNode(sid)?.stype === 'instance'
     );
     const made = after[after.length - 1];
-    if (made) (editor as any).setNode?.({ nodeIds: [made] });
+    if (made) editor?.setNode({ nodeIds: [made] });
     return true;
   }
 
@@ -480,7 +480,7 @@ export class SlidesComponentExtension implements Extension {
 
     const made = childrenOf(doc.getNode(where));
     const last = made[made.length - 1];
-    if (last) (editor as any).setNode?.({ nodeIds: [last] });
+    if (last) editor?.setNode({ nodeIds: [last] });
     return true;
   }
 
@@ -838,7 +838,7 @@ function bindable(
   const found = pieceNamed(doc, definition.sid, part);
   if (!found) return false;
   if (attr === 'text') return true;
-  const schema = (editor as any)?.dataStore?.getActiveSchema?.();
+  const schema = editor?.dataStore?.getActiveSchema?.();
   const attrs = schema?.getNodeType?.(doc.getNode(found)?.stype ?? '')?.attrs;
   return !!attrs && attr in attrs;
 }

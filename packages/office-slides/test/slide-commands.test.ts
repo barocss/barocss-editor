@@ -20,7 +20,7 @@ describe('the commands a deck has', () => {
   let store: DataStore;
 
   const doc = (): DeckAccess => ({
-    rootId: (editor as any).getRootId(),
+    rootId: editor.getRootId(),
     getNode: (sid: string) => store.getNode(sid) as never
   });
 
@@ -32,7 +32,7 @@ describe('the commands a deck has', () => {
    * undone nothing at all.
    */
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
 
   beforeEach(() => {
     const schema = createSchema('slides', getSlidesSchemaDefinition());
@@ -152,7 +152,7 @@ describe('the commands a deck has', () => {
 
     it('undoes to the deck that was there', async () => {
       await run('insertSlide');
-      await (editor as any).undo();
+      await editor.undo();
       expect(names()).toEqual(['One', 'Two']);
     });
   });
@@ -171,7 +171,7 @@ describe('the commands a deck has', () => {
       await run('deleteSlide', { slideId: one.sid });
 
       const [last] = deckSlides(doc());
-      expect((editor as any).canExecuteCommand?.('deleteSlide', { slideId: last.sid })).toBe(false);
+      expect(editor?.canExecuteCommand('deleteSlide', { slideId: last.sid })).toBe(false);
       await run('deleteSlide', { slideId: last.sid });
       expect(names()).toEqual(['Two']);
     });
@@ -179,7 +179,7 @@ describe('the commands a deck has', () => {
     it('undoes with its contents intact', async () => {
       const [one] = deckSlides(doc());
       await run('deleteSlide', { slideId: one.sid });
-      await (editor as any).undo();
+      await editor.undo();
 
       expect(names()).toEqual(['One', 'Two']);
       // The whole subtree, not an empty slide with the right name.
@@ -213,7 +213,7 @@ describe('the commands a deck has', () => {
     it('is one thing to undo, not two', async () => {
       const [one] = deckSlides(doc());
       await run('duplicateSlide', { slideId: one.sid });
-      await (editor as any).undo();
+      await editor.undo();
       expect(names()).toEqual(['One', 'Two']);
     });
   });
@@ -236,7 +236,7 @@ describe('the commands a deck has', () => {
       expect(names()).toEqual(['Two', 'One']);
 
       // And `resources` is still last, rather than having a slide moved past it.
-      const root = store.getNode((editor as any).getRootId()) as any;
+      const root = store.getNode(editor.getRootId()) as any;
       const last = store.getNode(root.content[root.content.length - 1]) as any;
       expect(last.stype).toBe('resources');
     });
@@ -244,7 +244,7 @@ describe('the commands a deck has', () => {
     it('refuses a position that is not one, and a move to where it already is', async () => {
       const [one] = deckSlides(doc());
       const can = (to: unknown) =>
-        (editor as any).canExecuteCommand?.('moveSlide', { slideId: one.sid, to });
+        editor?.canExecuteCommand('moveSlide', { slideId: one.sid, to });
 
       expect(can(0)).toBe(false); // already there: an edit that undoes to itself
       expect(can(-1)).toBe(false);
@@ -256,7 +256,7 @@ describe('the commands a deck has', () => {
     it('undoes back to the order that was there', async () => {
       const [, two] = deckSlides(doc());
       await run('moveSlide', { slideId: two.sid, to: 0 });
-      await (editor as any).undo();
+      await editor.undo();
       expect(names()).toEqual(['One', 'Two']);
     });
   });
@@ -281,7 +281,7 @@ describe('the commands a deck has', () => {
     it('undoes', async () => {
       const [one] = deckSlides(doc());
       await run('toggleSlideHidden', { slideId: one.sid });
-      await (editor as any).undo();
+      await editor.undo();
       expect(deckSlides(doc())[0].hidden).toBe(false);
     });
   });
@@ -299,9 +299,9 @@ describe('the commands a box has', () => {
   let store: DataStore;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const can = (command: string, payload?: unknown) =>
-    (editor as any).canExecuteCommand?.(command, payload);
+    editor?.canExecuteCommand(command, payload);
   const attrs = (sid: string) => (store.getNode(sid) as any).attributes;
 
   let box: string;
@@ -341,7 +341,7 @@ describe('the commands a box has', () => {
       'slides'
     );
 
-    const surface = (store.getNode((editor as any).getRootId()) as any).content[0];
+    const surface = (store.getNode(editor.getRootId()) as any).content[0];
     [box, locked, rectangle] = (store.getNode(surface) as any).content;
   });
 
@@ -358,7 +358,7 @@ describe('the commands a box has', () => {
 
   it('undoes a move', async () => {
     await run('setBoxGeometry', { nodeId: box, x: 999 });
-    await (editor as any).undo();
+    await editor.undo();
     expect(attrs(box).x).toBe(100);
   });
 
@@ -398,7 +398,7 @@ describe('the commands a box has', () => {
   it('undoes a cleared fill back to the colour', async () => {
     await run('setBoxStyle', { nodeId: box, fill: '#ff0000' });
     await run('setBoxStyle', { nodeId: box, fill: null });
-    await (editor as any).undo();
+    await editor.undo();
     expect(attrs(box).fill).toBe('#ff0000');
   });
 
@@ -490,7 +490,7 @@ describe('the commands a box has', () => {
 
     it('undoes a lock', async () => {
       await run('setBoxLocked', { nodeId: box, locked: true });
-      await (editor as any).undo();
+      await editor.undo();
       expect(attrs(box).locked).not.toBe(true);
     });
 
@@ -514,11 +514,11 @@ describe('giving a slide a note', () => {
   let slide: string;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const can = (command: string, payload?: unknown) =>
-    (editor as any).canExecuteCommand?.(command, payload);
+    editor?.canExecuteCommand(command, payload);
   const doc = (): DeckAccess => ({
-    rootId: (editor as any).getRootId(),
+    rootId: editor.getRootId(),
     getNode: (sid: string) => store.getNode(sid) as never
   });
 
@@ -537,7 +537,7 @@ describe('giving a slide a note', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
   });
 
   it('has none to begin with', () => {
@@ -573,7 +573,7 @@ describe('giving a slide a note', () => {
     // resource nobody names is unreachable, and a name pointing at nothing
     // resolves to nothing.
     await run('addSlideNote', { slideId: slide });
-    await (editor as any).undo();
+    await editor.undo();
     expect(noteFor(doc(), slide)).toBeUndefined();
     expect((store.getNode(slide) as any).attributes.noteId).toBeUndefined();
   });

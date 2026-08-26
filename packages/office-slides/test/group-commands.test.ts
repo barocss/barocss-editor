@@ -16,8 +16,8 @@ describe('grouping', () => {
   let store: DataStore;
   let slide: string;
 
-  const run = async (command: string) => await (editor as any).executeCommand(command);
-  const can = (command: string) => (editor as any).canExecuteCommand?.(command);
+  const run = async (command: string) => await editor.executeCommand(command);
+  const can = (command: string) => editor?.canExecuteCommand(command);
   const node = (sid: string) => store.getNode(sid) as any;
   const children = (sid: string) => (node(sid).content ?? []) as string[];
   const named = (name: string): string => {
@@ -58,11 +58,11 @@ describe('grouping', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
   });
 
   const select = (names: string[]) =>
-    (editor as any).setNode({ nodeIds: names.map((name) => named(name)) });
+    editor.setNode({ nodeIds: names.map((name) => named(name)) });
 
   it('takes two', () => {
     select(['a']);
@@ -115,7 +115,7 @@ describe('grouping', () => {
   it('is one thing to undo', async () => {
     select(['a', 'b']);
     await run('groupBoxes');
-    await (editor as any).undo();
+    await editor.undo();
 
     expect(children(slide).map((sid) => node(sid).stype)).toEqual([
       'rectangle',
@@ -154,7 +154,7 @@ describe('grouping', () => {
 
     it('undoes back into the group', async () => {
       await run('ungroupBoxes');
-      await (editor as any).undo();
+      await editor.undo();
       const group = children(slide).map(node).find((n) => n.stype === 'group');
       expect(group?.content).toHaveLength(2);
       expect(at('a')).toEqual({ x: 0, y: 0 });
@@ -186,7 +186,7 @@ describe('a move inside a group, and the undo of it', () => {
       }
       return undefined;
     };
-    return find((editor as any).getRootId())!;
+    return find(editor.getRootId())!;
   };
   const boxOf = (name: string) => {
     const { x, y, width, height } = node(named(name)).attributes;
@@ -222,7 +222,7 @@ describe('a move inside a group, and the undo of it', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
     void slide;
     await settle();
   });
@@ -230,14 +230,14 @@ describe('a move inside a group, and the undo of it', () => {
   it('is taken back by one press, exactly', async () => {
     const before = { a: boxOf('a'), b: boxOf('b'), g: boxOf('g') };
 
-    await (editor as any).executeCommand('setBoxGeometry', { nodeId: named('a'), x: 6000 });
+    await editor.executeCommand('setBoxGeometry', { nodeId: named('a'), x: 6000 });
     await settle();
     expect(boxOf('a')).not.toEqual(before.a);
     // The fit re-origined: the group moved right and both children moved left by the
     // same amount, so nothing moved on screen.
     expect(boxOf('g').x).toBeGreaterThan(before.g.x);
 
-    await (editor as any).executeCommand('historyUndo');
+    await editor.executeCommand('historyUndo');
     await settle();
 
     /*
@@ -254,13 +254,13 @@ describe('a move inside a group, and the undo of it', () => {
   });
 
   it('is put back by a redo, both halves of it', async () => {
-    await (editor as any).executeCommand('setBoxGeometry', { nodeId: named('a'), x: 6000 });
+    await editor.executeCommand('setBoxGeometry', { nodeId: named('a'), x: 6000 });
     await settle();
     const after = { a: boxOf('a'), b: boxOf('b'), g: boxOf('g') };
 
-    await (editor as any).executeCommand('historyUndo');
+    await editor.executeCommand('historyUndo');
     await settle();
-    await (editor as any).executeCommand('historyRedo');
+    await editor.executeCommand('historyRedo');
     await settle();
 
     // A redo replays the edit and its consequence together, because they are one entry.
@@ -271,7 +271,7 @@ describe('a move inside a group, and the undo of it', () => {
     // The reason the reaction exists at all: a child moved out left a group describing an
     // area its contents had left, and the handles, the marquee, the hit test and aligning
     // were all reading a rectangle that had stopped meaning anything.
-    await (editor as any).executeCommand('setBoxGeometry', { nodeId: named('b'), x: 9000 });
+    await editor.executeCommand('setBoxGeometry', { nodeId: named('b'), x: 9000 });
     await settle();
 
     const group = boxOf('g');

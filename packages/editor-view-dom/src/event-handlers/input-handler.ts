@@ -88,7 +88,7 @@ export class InputHandlerImpl implements InputHandler {
     this.editor = editor;
     this.editorViewDOM = editorViewDOM;
     // Track active node after DOM selection is applied
-    (this.editor as any).on('editor:selection.dom.applied', (e: any) => {
+    this.editor.on('editor:selection.dom.applied', (e: any) => {
       this.activeTextNodeId = e?.activeNodeId || null;
     });
   }
@@ -421,7 +421,7 @@ export class InputHandlerImpl implements InputHandler {
     if (classified.case !== 'text-in-one-run' && classified.case !== 'text-across-runs') return false;
     if (!classified.nodeId || classified.newText == null) return false;
 
-    const modelNode = (this.editor as any).dataStore?.getNode(classified.nodeId);
+    const modelNode = this.editor.dataStore?.getNode(classified.nodeId);
     if (!modelNode || modelNode.stype !== 'inline-text') return false;
 
     return (modelNode.text ?? '') === classified.newText;
@@ -489,7 +489,7 @@ export class InputHandlerImpl implements InputHandler {
     });
 
     // DataStore operation
-    const dataStore = (this.editor as any).dataStore;
+    const dataStore = this.editor.dataStore;
     if (!dataStore) {
       console.error('[InputHandler] handleTextInOneRun: dataStore not found');
       return;
@@ -569,7 +569,7 @@ export class InputHandlerImpl implements InputHandler {
           (this.editorViewDOM as any).convertModelSelectionToDOM?.(modelSelection);
           this.editor.emit('editor:selection.change', {
             selection: modelSelection,
-            oldSelection: (this.editor as any).selection || null
+            oldSelection: this.editor.selection || null
           });
           logger.debug(LogCategory.TEXT_INPUT, 'handleTextInOneRun: fallback delete completed', modelSelection);
         } catch (error) {
@@ -615,7 +615,7 @@ export class InputHandlerImpl implements InputHandler {
           // Also update model selection
           this.editor.emit('editor:selection.change', {
             selection: modelSelection,
-            oldSelection: (this.editor as any).selection || null
+            oldSelection: this.editor.selection || null
           });
           logger.debug(LogCategory.TEXT_INPUT, 'handleTextInOneRun: updated selection after replace (model-based)', modelSelection);
         } catch (error) {
@@ -700,7 +700,7 @@ export class InputHandlerImpl implements InputHandler {
     });
 
     // DataStore operation
-    const dataStore = (this.editor as any).dataStore;
+    const dataStore = this.editor.dataStore;
     if (!dataStore) {
       console.error('[InputHandler] handleTextAcrossRuns: dataStore not found');
       return;
@@ -865,7 +865,7 @@ export class InputHandlerImpl implements InputHandler {
     // 2. Extract only text and insert at current selection position
     // 3. Maintain block structure according to model rules (do not change)
     
-    const dataStore = (this.editor as any).dataStore;
+    const dataStore = this.editor.dataStore;
     if (!dataStore) {
       console.error('[InputHandler] handleBlockStructure: dataStore not found');
       return;
@@ -988,7 +988,7 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    const dataStore = (this.editor as any).dataStore;
+    const dataStore = this.editor.dataStore;
     if (!dataStore) {
       console.error('[InputHandler] handleInlineMarkup: dataStore not found');
       return;
@@ -1019,7 +1019,14 @@ export class InputHandlerImpl implements InputHandler {
           [startOffset, endOffset] = change.range;
         }
 
-        const contentRange = {
+        /*
+         * A **range**, said out loud. `toggleMark` takes a `ModelSelection` and this literal had no
+         * `type` — which compiled only because `dataStore` was reached through a cast and came back
+         * as `any`. It is a range in every other sense; the type was the one part nobody had to
+         * write down, and so nobody did.
+         */
+        const contentRange: ModelSelection = {
+          type: 'range',
           startNodeId: nodeId,
           startOffset,
           endNodeId: nodeId,
@@ -1188,7 +1195,7 @@ export class InputHandlerImpl implements InputHandler {
     }
 
     // Update dataStore directly (not using transaction)
-    const dataStore = (this.editor as any).dataStore;
+    const dataStore = this.editor.dataStore;
     if (!dataStore) {
       console.error('[Input] dataStore not found');
       return;
@@ -1555,7 +1562,7 @@ export class InputHandlerImpl implements InputHandler {
      * is the model catching up, and writing the selection back to the browser
      * mid-keystroke is how carets end up fighting each other.
      */
-    const known: any = (this.editor as any).selection;
+    const known: any = this.editor.selection;
     const modelAgrees =
       known?.type === 'range' &&
       known.startNodeId === range.startNodeId &&
@@ -1584,7 +1591,7 @@ export class InputHandlerImpl implements InputHandler {
       // and it lands *after* the correct one and wins. Every character then goes
       // to the same offset and a word arrives backwards.
       const newCaret =
-        (this.editor as any).selection ??
+        this.editor.selection ??
         ({
           type: 'range',
           startNodeId: range.startNodeId,
@@ -1626,7 +1633,7 @@ export class InputHandlerImpl implements InputHandler {
             if (movedOn) return;
 
             const view = this.editorViewDOM as any;
-            const wanted = ((this.editor as any).selection ?? newCaret) as ModelSelection;
+            const wanted = (this.editor.selection ?? newCaret) as ModelSelection;
             const domSelection = window.getSelection();
             const current = domSelection ? view.convertDOMSelectionToModel?.(domSelection) : null;
             if (

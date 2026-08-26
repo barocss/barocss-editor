@@ -81,7 +81,7 @@ export class WordTableExtension implements Extension {
     const formatting = this._options.formatting !== false;
 
     for (const { name, op, payload } of COMMANDS) {
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name,
         execute: async (ed: Editor) => await this._run(ed, op, payload),
         canExecute: (ed: Editor) => !!this._cell(ed)
@@ -101,7 +101,7 @@ export class WordTableExtension implements Extension {
      * selection naming a node the document no longer has is one every reader of
      * it has to guard against, and the guard is easy to forget.
      */
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'deleteTable',
       execute: async (ed: Editor) => {
         const table = this._selectedTable(ed);
@@ -130,7 +130,7 @@ export class WordTableExtension implements Extension {
        * can see, which is Word's behaviour and the reason "clear formatting"
        * exists as a separate command.
        */
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name: 'setTableStyle',
         /**
          * No style is written as an empty id rather than as a missing attribute:
@@ -144,7 +144,7 @@ export class WordTableExtension implements Extension {
         canExecute: (ed: Editor) => !!this._cell(ed)
       });
 
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name: 'toggleTableLook',
         execute: async (ed: Editor, payload: { flag?: keyof TableLook } = {}) => {
           const table = this._table(ed);
@@ -164,7 +164,7 @@ export class WordTableExtension implements Extension {
        * structure commands act on. They set attributes and nothing else: what any
        * of them looks like is the renderer's answer, and it already knows.
        */
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name: 'setRowHeight',
         execute: async (ed: Editor, payload: { height?: number; rule?: string } = {}) => {
           const rule = payload.rule ?? (payload.height ? 'atLeast' : 'auto');
@@ -175,7 +175,7 @@ export class WordTableExtension implements Extension {
         canExecute: (ed: Editor) => !!this._row(ed)
       });
 
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name: 'setCellVerticalAlign',
         execute: async (ed: Editor, payload: { align?: string } = {}) =>
           await this._formatCell(ed, { verticalAlign: payload.align ?? 'top' }),
@@ -195,7 +195,7 @@ export class WordTableExtension implements Extension {
        * wait for a cell selection to exist. Shading one cell at a time is not what
        * anybody means by shading a table's header.
        */
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name: 'setCellShading',
         execute: async (
           ed: Editor,
@@ -218,7 +218,7 @@ export class WordTableExtension implements Extension {
         canExecute: (ed: Editor) => !!this._cell(ed)
       });
 
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name: 'setCellTextDirection',
         /**
          * With no direction named it moves to the next one, which is what Word's
@@ -248,8 +248,8 @@ export class WordTableExtension implements Extension {
      * two contexts are what lets it.
      */
     const track = () => {
-      (editor as any).setContext('inTable', !!this._cell(editor));
-      (editor as any).setContext('tableSelected', !!this._selectedTable(editor));
+      editor.setContext('inTable', !!this._cell(editor));
+      editor.setContext('tableSelected', !!this._selectedTable(editor));
     };
     editor.on('editor:selection.model', track);
     editor.on('editor:content.change', track);
@@ -264,7 +264,7 @@ export class WordTableExtension implements Extension {
    * removes one must not be reachable that way.
    */
   private _selectedTable(editor: Editor): DocumentNode | undefined {
-    const selection: any = (editor as any).selection;
+    const selection: any = editor.selection;
     if (selection?.type !== 'table') return undefined;
 
     const node = this._doc(editor).getNode(selectedNodeIds(selection)[0]);
@@ -360,8 +360,8 @@ export class WordTableExtension implements Extension {
   }
 
   private _doc(editor: Editor): DocumentAccess {
-    const store: any = (editor as any).dataStore;
-    return { getNode: (id: string) => store?.getNode?.(id), rootId: (editor as any).getRootId?.() };
+    const store: any = editor.dataStore;
+    return { getNode: (id: string) => store?.getNode?.(id), rootId: editor?.getRootId() ?? '' };
   }
 
   /**
@@ -375,7 +375,7 @@ export class WordTableExtension implements Extension {
    * does.
    */
   private _cells(editor: Editor): DocumentNode[] {
-    const selection: any = (editor as any).selection;
+    const selection: any = editor.selection;
     if (!selection) return [];
 
     const doc = this._doc(editor);

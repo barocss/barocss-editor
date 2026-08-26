@@ -65,7 +65,7 @@ export function SlideSizeDialog({
    * "the deck's size" means when every slide carries its own.
    */
   const current = useMemo(() => {
-    const store = (editor as any)?.dataStore;
+    const store = editor?.dataStore;
     const first = slides[0] ? store?.getNode(slides[0].sid) : undefined;
     return slideSize(first?.attributes);
   }, [editor, slides, open]);
@@ -83,7 +83,7 @@ export function SlideSizeDialog({
     null;
 
   const apply = () => {
-    void (editor as any)?.executeCommand?.('setDeckSize', size);
+    void editor?.executeCommand?.('setDeckSize', size);
     onClose();
   };
 
@@ -176,8 +176,8 @@ export function SlideLayoutDialog({
    * so it can be opened, and how many slides a change to it would reach.
    */
   const designs = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return [] as DeckDesign[];
     return deckDesigns({ rootId, getNode: (sid: string) => store.getNode(sid) } as never);
     // `open` is in here because a dialog that is closed is not re-rendered for a document
@@ -190,7 +190,7 @@ export function SlideLayoutDialog({
   );
 
   const following = useMemo(() => {
-    const store = (editor as any)?.dataStore;
+    const store = editor?.dataStore;
     const slide = current ? store?.getNode(current) : undefined;
     const id = slide?.attributes?.layoutId;
     return typeof id === 'string' ? id : 'none';
@@ -204,7 +204,7 @@ export function SlideLayoutDialog({
   }
 
   const apply = () => {
-    void (editor as any)?.executeCommand?.('setSlideLayout', {
+    void editor?.executeCommand?.('setSlideLayout', {
       slideId: current,
       layoutId: chosen === 'none' ? undefined : chosen
     });
@@ -224,7 +224,7 @@ export function SlideLayoutDialog({
    * promises: one changes what a slide *is like*, the other moves the reader's boxes.
    */
   const arrange = () => {
-    void (editor as any)?.executeCommand?.('applySlideLayout', {
+    void editor?.executeCommand?.('applySlideLayout', {
       slideId: current,
       layoutId: chosen
     });
@@ -356,8 +356,8 @@ export function ThemeDialog({
 }) {
   /** The deck's theme now, with the gaps filled — see `themeNow`. */
   const current = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return themeNow(undefined);
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) } as never;
     return themeNow(themeFor(doc, undefined));
@@ -388,7 +388,7 @@ export function ThemeDialog({
   );
 
   const apply = () => {
-    void (editor as any)?.executeCommand?.('setDeckTheme', {
+    void editor?.executeCommand?.('setDeckTheme', {
       // The name is the preset's when the draft *is* one, and this product's word
       // for "not a preset any more" when it is not. A theme called Office with a
       // red accent is a name that outlived the thing it named.
@@ -519,7 +519,7 @@ export function TemplateDialog({
   const start = () => {
     const template = DECK_TEMPLATES.find((one) => one.id === chosen);
     if (!template) return;
-    (editor as any)?.loadDocument?.(template.make(), 'slides');
+    editor?.loadDocument?.(template.make(), 'slides');
     onOpened?.();
     onClose();
   };

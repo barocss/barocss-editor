@@ -107,9 +107,9 @@ describe('how many pieces a box has', () => {
   let body: string;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const doc = (): DeckAccess => ({
-    rootId: (editor as any).getRootId(),
+    rootId: editor.getRootId(),
     getNode: (sid: string) => store.getNode(sid) as never
   });
 
@@ -160,7 +160,7 @@ describe('how many pieces a box has', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
     const boxes = (store.getNode(slide) as any).content as string[];
     title = boxes[0];
     body = boxes[1];
@@ -225,11 +225,11 @@ describe('how many pieces a box has', () => {
     expect(step.unit).toBe('letter');
 
     expect(
-      (editor as any).canExecuteCommand?.('setMotionStep', { stepId: step.sid, unit: 'line' })
+      editor?.canExecuteCommand('setMotionStep', { stepId: step.sid, unit: 'line' })
     ).toBe(false);
     // And a stagger outside the range a reader could mean.
     expect(
-      (editor as any).canExecuteCommand?.('setMotionStep', { stepId: step.sid, stagger: -5 })
+      editor?.canExecuteCommand('setMotionStep', { stepId: step.sid, stagger: -5 })
     ).toBe(false);
   });
 });

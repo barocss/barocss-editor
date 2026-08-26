@@ -28,10 +28,10 @@ describe('the component commands', () => {
   let doc: DeckAccess;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
 
   const boxes = () => childrenOf(doc.getNode(slide));
-  const select = (...sids: string[]) => (editor as any).setNode?.({ nodeIds: sids });
+  const select = (...sids: string[]) => editor?.setNode({ nodeIds: sids });
 
   beforeEach(async () => {
     const schema = createSchema('slides', getSlidesSchemaDefinition());
@@ -72,7 +72,7 @@ describe('the component commands', () => {
 
   describe('making one out of a selection', () => {
     it('refuses when nothing is selected, because there is nothing to make it of', () => {
-      expect((editor as any).canExecuteCommand('createComponent', {})).toBe(false);
+      expect(editor.canExecuteCommand('createComponent', {})).toBe(false);
     });
 
     it('puts the definition in the library and a placement on the slide', async () => {
@@ -114,7 +114,7 @@ describe('the component commands', () => {
     it('takes it all back in one press of undo', async () => {
       select(...boxes());
       await run('createComponent', { name: '카드', id: 'card' });
-      await (editor as any).undo();
+      await editor.undo();
 
       // The library, the definition and the placement all go; the reader's two boxes come back.
       expect(componentsOf(doc)).toEqual([]);
@@ -138,7 +138,7 @@ describe('the component commands', () => {
     });
 
     it('refuses a definition the deck does not have', () => {
-      expect((editor as any).canExecuteCommand('placeComponent', { componentId: 'nope' })).toBe(false);
+      expect(editor.canExecuteCommand('placeComponent', { componentId: 'nope' })).toBe(false);
     });
 
     it('holds nothing, and draws the definition', async () => {
@@ -175,7 +175,7 @@ describe('the component commands', () => {
       const drawn = instanceParts(doc, doc.getNode(placement));
       expect(drawn[0].attributes?.fill).toBe('#ef4444');
       // And no command for it: `applyComponent` is gone, because there is nothing for it to do.
-      expect((editor as any).commandNames().includes('applyComponent')).toBe(false);
+      expect(editor.commandNames().includes('applyComponent')).toBe(false);
     });
 
     it('reaches every placement at once, because they all draw it', async () => {
@@ -220,7 +220,7 @@ describe('the component commands', () => {
 
     it('refuses a name the definition does not declare', () => {
       expect(
-        (editor as any).canExecuteCommand('setComponentValue', { nodeId: placement, name: 'nope' })
+        editor.canExecuteCommand('setComponentValue', { nodeId: placement, name: 'nope' })
       ).toBe(false);
     });
 
@@ -272,9 +272,9 @@ describe('the component commands', () => {
     });
 
     it('refuses a nameless variable and a definition that is not there', () => {
-      expect((editor as any).canExecuteCommand('setComponentVar', { componentId: 'card' })).toBe(false);
+      expect(editor.canExecuteCommand('setComponentVar', { componentId: 'card' })).toBe(false);
       expect(
-        (editor as any).canExecuteCommand('setComponentVar', { componentId: 'nope', name: 'title' })
+        editor.canExecuteCommand('setComponentVar', { componentId: 'nope', name: 'title' })
       ).toBe(false);
     });
 
@@ -366,7 +366,7 @@ describe('the component commands', () => {
 
     it('refuses an attribute the part does not declare, and a variable that is not declared', async () => {
       await run('setComponentVar', { componentId: 'card', name: 'round', kind: 'number', value: '120' });
-      const can = (payload: unknown) => (editor as any).canExecuteCommand('setComponentBind', payload);
+      const can = (payload: unknown) => editor.canExecuteCommand('setComponentBind', payload);
       // The check the schema could not make: a content model cannot see across to another node's
       // attributes, so a binding naming something nothing reads is refused here instead.
       expect(can({ componentId: 'card', part: 'rectangle', attr: 'cornerRadius', var: 'round' })).toBe(true);
@@ -423,9 +423,9 @@ describe('the component commands', () => {
     });
 
     it('refuses a size that is not one', () => {
-      expect((editor as any).canExecuteCommand('setComponentSize', { componentId: 'card' })).toBe(false);
+      expect(editor.canExecuteCommand('setComponentSize', { componentId: 'card' })).toBe(false);
       expect(
-        (editor as any).canExecuteCommand('setComponentSize', { componentId: 'card', width: 0 })
+        editor.canExecuteCommand('setComponentSize', { componentId: 'card', width: 0 })
       ).toBe(false);
     });
 
@@ -441,7 +441,7 @@ describe('the component commands', () => {
 
       // One press of undo, because leaving twenty placements at the new size and the card at
       // the old one is the split-undo fault that made apply a command in the first place.
-      await (editor as any).undo();
+      await editor.undo();
       expect(doc.getNode(definition.sid)?.attributes?.width).toBe(3000);
       expect(doc.getNode(boxes()[0])?.attributes?.width).toBe(3000);
     });

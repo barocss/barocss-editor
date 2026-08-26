@@ -30,7 +30,7 @@ describe('Word kit', () => {
 
   it('uses the Word schema', () => {
     const editor = createWordEditor();
-    const schema = (editor as any).dataStore.getActiveSchema();
+    const schema = editor.dataStore.getActiveSchema();
 
     expect(schema.getNodeType('contentControl')).toBeDefined();
     expect(schema.getNodeType('styleDef')).toBeDefined();
@@ -40,7 +40,7 @@ describe('Word kit', () => {
   it('replaces the engine key map rather than layering on it', () => {
     const editor = createWordEditor();
     editor.emit('editor:selection.focus');
-    (editor as any).setContext('inTable', true);
+    editor.setContext('inTable', true);
 
     // Tab is Word's cell navigation here, not the engine's indent binding
     const resolved = (editor as any).keybindings.resolve('Tab');
@@ -50,7 +50,7 @@ describe('Word kit', () => {
   it('scopes table keys to tables', () => {
     const editor = createWordEditor();
     editor.emit('editor:selection.focus');
-    (editor as any).setContext('inTable', false);
+    editor.setContext('inTable', false);
 
     // Outside a table Tab is what it means in text — a tab character here,
     // since the caret is neither in a list nor at the start of a block. It used

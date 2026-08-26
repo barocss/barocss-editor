@@ -67,8 +67,8 @@ export function DeckMapView({
   const [dragging, setDragging] = useState<{ sid: string; over?: string } | null>(null);
 
   const map = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return null;
     return deckMap({ rootId, getNode: (sid: string) => store.getNode(sid) } as never, {
       direction

@@ -26,12 +26,12 @@ describe('the clipboard', () => {
   let onSlide: string;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const can = (command: string, payload?: unknown) =>
-    (editor as any).canExecuteCommand?.(command, payload);
+    editor?.canExecuteCommand(command, payload);
   const attrs = (sid: string) => (store.getNode(sid) as any).attributes;
   const childrenOf = (sid: string) => ((store.getNode(sid) as any).content ?? []) as string[];
-  const select = (ids: string[]) => (editor as any).setNode?.({ nodeIds: ids });
+  const select = (ids: string[]) => editor?.setNode({ nodeIds: ids });
 
   beforeEach(() => {
     const schema = createSchema('slides', getSlidesSchemaDefinition());
@@ -66,7 +66,7 @@ describe('the clipboard', () => {
       'slides'
     );
 
-    const root = store.getNode((editor as any).getRootId()) as any;
+    const root = store.getNode(editor.getRootId()) as any;
     [slide, otherSlide] = root.content;
     [frame, onSlide] = childrenOf(slide);
     [inFrame] = childrenOf(frame);
@@ -100,7 +100,7 @@ describe('the clipboard', () => {
     await run('pasteBoxes');
 
     const made = childrenOf(slide).at(-1)!;
-    expect((editor as any).selection?.nodeIds).toEqual([made]);
+    expect(editor.selection?.nodeIds).toEqual([made]);
   });
 
   /**
@@ -179,7 +179,7 @@ describe('the clipboard', () => {
     it('is one entry in the history, not two', async () => {
       select([onSlide]);
       await run('cutBoxes');
-      await (editor as any).undo();
+      await editor.undo();
       // One press brings it back. Copy writes nothing to the document, so the
       // only thing to undo is the delete.
       expect(childrenOf(slide)).toHaveLength(2);
@@ -197,7 +197,7 @@ describe('the clipboard', () => {
     select([onSlide]);
     await run('copyBoxes');
     await run('pasteBoxes');
-    await (editor as any).undo();
+    await editor.undo();
     expect(childrenOf(slide)).toHaveLength(2);
   });
 
@@ -255,7 +255,7 @@ describe('the clipboard', () => {
         } as never,
         'slides'
       );
-      const root = store.getNode((editor as any).getRootId()) as any;
+      const root = store.getNode(editor.getRootId()) as any;
       return { slide: root.content[0], other: root.content[1] };
     };
 
@@ -274,7 +274,7 @@ describe('the clipboard', () => {
         } as never,
         'slides'
       );
-      const root = () => store.getNode((editor as any).getRootId()) as any;
+      const root = () => store.getNode(editor.getRootId()) as any;
       const into = root().content[0];
 
       expect(await run('pasteBoxes', { parentId: into })).toBe(true);
@@ -288,11 +288,11 @@ describe('the clipboard', () => {
       expect(kinds()).toEqual(['surface', 'components']);
       const placement = childrenOf(into)[0];
       expect(instanceParts(
-        { rootId: (editor as any).getRootId(), getNode: (sid: string) => store.getNode(sid) } as never,
+        { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) } as never,
         store.getNode(placement) as never
       )).toHaveLength(1);
 
-      await (editor as any).undo();
+      await editor.undo();
       expect(kinds()).toEqual(['surface']);
       expect(childrenOf(into)).toEqual([]);
     });
@@ -305,7 +305,7 @@ describe('the clipboard', () => {
 
       // One library, one card: the common case has to cost nothing, or every paste inside one deck
       // would make a second copy of everything it touched.
-      const root = store.getNode((editor as any).getRootId()) as any;
+      const root = store.getNode(editor.getRootId()) as any;
       const libraries = (root.content as string[]).filter(
         (sid: string) => (store.getNode(sid) as any)?.stype === 'components'
       );
@@ -342,7 +342,7 @@ describe('the clipboard', () => {
         } as never,
         'slides'
       );
-      const root = () => store.getNode((editor as any).getRootId()) as any;
+      const root = () => store.getNode(editor.getRootId()) as any;
       const into = root().content[0];
       expect(await run('pasteBoxes', { parentId: into })).toBe(true);
 

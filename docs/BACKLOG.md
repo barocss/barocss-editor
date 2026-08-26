@@ -2614,7 +2614,7 @@ Newest first. The surprise each one produced is the part worth keeping.
   All three products answer every check now, and `notYet` has no callers — which is exactly what a
   deferral should end up as.
 
-- **`(editor as any)` appears 942 times, and the type was already right.**
+- **`(editor as any)` appeared 942 times, the type was already right, and switching the compiler back on found four real faults.**
 
   Asked why it is written everywhere. Measured: **942 casts across 152 files**, reaching for
   `dataStore` (147), `executeCommand` (140), `registerCommand` (124), `getRootId` (119) and
@@ -2628,10 +2628,36 @@ Newest first. The surprise each one produced is the part worth keeping.
   That is this repository's own signature failure, one layer down: a thing that looks done, breaks
   nothing, and does nothing.
 
+  **599 of the 942 are gone** — `apps/slide` from 226 to zero, `packages/extensions`,
+  `editor-view-dom`, `office-word`, `office-slides`, `office-site`, `office-canvas` and `office-text`
+  all cleared of the mechanical ones — and the compiler reported four latent faults the moment it
+  could see again:
+
+  - **`currentNode.text.length` on a node with no text** (`move-selection.ts`), guarded by a boolean
+    TypeScript cannot narrow through. The guard was the only thing between this and a crash, and
+    nothing said so.
+  - **`?.` on the wrong thing, nineteen times** (`apps/slide`). `editor.executeCommand?.()` guards a
+    method that always exists; `editor` is the part that can be null, and it was bare.
+  - **A `ModelSelection` with no `type`** handed to `toggleMark` (`input-handler.ts`) — a range in
+    every sense except the one nobody had to write down.
+  - **A command returning a string** (`revision-commands.ts`). `_move` answers *which* revision it
+    landed on and a command answers *whether it ran*; a string is truthy, so it worked and told every
+    caller checking `=== true` that it had not.
+
+  plus `getRootId()` being `string | undefined` — a document that is not loaded has no root — at six
+  sites that assumed one.
+
+  **And one lesson about running the suite, not about the code.** Two runs mid-way came back with
+  four and five failures against a set that varies run to run, and the cause was mine: the package
+  edits were happening **while the browser suite ran**, so Vite rebuilt underneath it. Re-run with no
+  concurrent edits: 392/392. A green suite is only evidence if nothing was writing to the tree while
+  it ran.
+
   `packages/editor-core/test/editor-is-typed.test.ts` holds it: it asserts the seven are public, and
   ratchets the count in **both** directions — up means a new cast was written, down means the number
-  has become a lie about how much is left. The files written this week are clean; the concentrations
-  are `apps/slide/properties.tsx` (73), `apps/slide/overlay.tsx` (39) and `apps/slide/app.tsx` (36).
+  has become a lie about how much is left. Lowered once, 942 → 343, which is the only way a ratchet
+  is supposed to move. What is left is mostly tests and `packages/model`, where the cast is often on
+  a *fixture* rather than on an editor.
 
 - **The deck's panel is a declaration too, and it was wrong in six places.**
 

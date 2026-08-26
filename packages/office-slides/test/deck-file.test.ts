@@ -116,7 +116,7 @@ describe('what the file is called', () => {
     editor.loadDocument(createSampleDeck() as never, 'slides');
 
     const doc: DeckAccess = {
-      rootId: (editor as any).getRootId(),
+      rootId: editor.getRootId(),
       getNode: (sid: string) => store.getNode(sid) as never
     };
     expect(deckSlides(doc)[0].name).toBe('Title');
@@ -163,7 +163,7 @@ describe('a deck that has been edited, saved and opened', () => {
     const box = ((store.getNode(slide) as any).content as string[])[0];
 
     // A motion with everything a step can hold, including the two newest.
-    await (editor as any).executeCommand('addBoxBuild', {
+    await editor.executeCommand('addBoxBuild', {
       nodeId: box,
       effect: 'fly',
       direction: 'down',
@@ -177,7 +177,7 @@ describe('a deck that has been edited, saved and opened', () => {
     const before = slideTimeline(docOf(editor, store), slide);
     expect(before).toHaveLength(1);
 
-    const text = deckFileText((editor as any).exportDocument());
+    const text = deckFileText(editor.exportDocument());
     const read = readDeckFile(text) as { document: unknown };
 
     // A *fresh* session: every sid is handed out again, and the file has none.

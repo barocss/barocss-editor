@@ -69,8 +69,8 @@ export function NotesPane({
 
   /** Which note this slide has, if it has one. */
   const noteSid = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !slideSid) return undefined;
     return noteFor({ rootId, getNode: (sid: string) => store.getNode(sid) }, slideSid);
   }, [editor, slideSid, tick, revision]);
@@ -85,7 +85,7 @@ export function NotesPane({
   useEffect(() => {
     if (!editor || !host.current) return;
 
-    const store0 = (editor as any).dataStore;
+    const store0 = editor.dataStore;
     const node0 = noteSid ? store0?.getNode(noteSid) : undefined;
     // Nothing to draw yet. The view is made when there is, and not before: one
     // created against an empty region drew nothing when a note arrived later,
@@ -93,10 +93,10 @@ export function NotesPane({
     if (!node0) return;
 
     if (!view.current) {
-      const store = (editor as any).dataStore;
+      const store = editor.dataStore;
       const doc = {
         getNode: (id: string) => store.getNode(id) as never,
-        rootId: (editor as any).getRootId()
+        rootId: editor.getRootId()
       };
       view.current = new EditorViewDOM(editor, {
         container: host.current,
@@ -114,7 +114,7 @@ export function NotesPane({
       });
     }
 
-    const store = (editor as any).dataStore;
+    const store = editor.dataStore;
     const node = noteSid ? store?.getNode(noteSid) : undefined;
     if (!node) return;
 
@@ -128,7 +128,7 @@ export function NotesPane({
      * comparison says nothing changed — measured, with the model plainly holding
      * "The ABpoint" and the pane still drawing "The point".
      */
-    const proxy = (editor as any).getDocumentProxy?.(noteSid) ?? node;
+    const proxy = editor?.getDocumentProxy(noteSid) ?? node;
     const tree = JSON.parse(JSON.stringify(proxy));
     view.current.render(tree, { sync: true });
   }, [editor, noteSid, tick, revision]);
@@ -150,7 +150,7 @@ export function NotesPane({
         <p className="sl-notes-empty">
           이 슬라이드에는 노트가 없습니다. 아래를 눌러 추가하세요.
           <Button
-            onClick={() => void (editor as any)?.executeCommand?.('addSlideNote', { slideId: slideSid })}
+            onClick={() => void editor?.executeCommand?.('addSlideNote', { slideId: slideSid })}
           >
             노트 추가
           </Button>

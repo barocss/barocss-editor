@@ -74,7 +74,7 @@ export class SlidesExtension implements Extension {
 
   onCreate(editor: Editor): void {
     const register = (name: string, execute: (payload?: any) => Promise<boolean> | boolean, canExecute: (payload?: any) => boolean) => {
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name,
         execute: async (_ed: Editor, payload?: any) => await execute(payload),
         canExecute: (_ed: Editor, payload?: any) => canExecute(payload)
@@ -839,8 +839,8 @@ export class SlidesExtension implements Extension {
   // ── Reading ────────────────────────────────────────────────────────────────
 
   private _access(editor: Editor): DeckAccess | null {
-    const store = (editor as any).dataStore;
-    const rootId = (editor as any).getRootId?.();
+    const store = editor.dataStore;
+    const rootId = editor?.getRootId();
     if (!store || !rootId) return null;
     return { rootId, getNode: (sid: string) => store.getNode(sid) };
   }
@@ -1076,7 +1076,7 @@ export class SlidesExtension implements Extension {
   private _declaredAttrs(editor: Editor, nodeId?: string): Record<string, AttrShape> {
     const stype = nodeId ? this._access(editor)?.getNode(nodeId)?.stype : undefined;
     if (!stype) return {};
-    const schema = (editor as any).dataStore?.getActiveSchema?.();
+    const schema = editor.dataStore?.getActiveSchema?.();
     return (schema?.getNodeType?.(stype)?.attrs ?? {}) as Record<string, AttrShape>;
   }
 
@@ -2468,9 +2468,9 @@ export class SlidesExtension implements Extension {
     editor: Editor,
     operations: unknown[]
   ): Promise<boolean> {
-    const held = (editor as any).selection ? { ...(editor as any).selection } : undefined;
+    const held = editor.selection ? { ...editor.selection } : undefined;
     const result = await transaction(editor, operations as never).commit();
-    if (result.success && held) (editor as any).updateSelection?.(held);
+    if (result.success && held) editor?.updateSelection(held);
     return result.success;
   }
 
@@ -2552,7 +2552,7 @@ export class SlidesExtension implements Extension {
      * box still gets one box.
      */
     if (!editor) return [];
-    return (selectedNodeIds((editor as any).selection) ?? []).filter(
+    return (selectedNodeIds(editor.selection) ?? []).filter(
       (sid: unknown): sid is string => typeof sid === 'string'
     );
   }
@@ -2971,7 +2971,7 @@ export class SlidesExtension implements Extension {
      * *slide's* — so the same translation the arrange commands do (`toSurface`) is what
      * keeps a guide placed on a grouped shape from landing on the other side of the slide.
      */
-    const chosen = selectedNodeIds((editor as any).selection)
+    const chosen = selectedNodeIds(editor.selection)
       .map((one) => ({ sid: one, node: doc.getNode(one) as any }))
       .filter((entry) => entry.node && isSceneType(entry.node.stype))
       .map((entry) => toSurface(doc, entry.sid, boxOf(entry.node.attributes)));

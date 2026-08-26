@@ -42,7 +42,7 @@ export class WordCommentExtension implements Extension {
   constructor(private readonly _author: CommentAuthor) {}
 
   onCreate(editor: Editor): void {
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'insertComment',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection; text?: string }) =>
         await this._insert(ed, payload?.selection ?? ed.selection, payload?.text ?? ''),
@@ -53,7 +53,7 @@ export class WordCommentExtension implements Extension {
       }
     });
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'replyToComment',
       execute: async (ed: Editor, payload?: { id?: string; text?: string }) =>
         await this._reply(ed, payload?.id, payload?.text ?? ''),
@@ -67,7 +67,7 @@ export class WordCommentExtension implements Extension {
      * and a comment that quietly changes attribution is worse than one that
      * cannot be corrected at all.
      */
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'editComment',
       execute: async (ed: Editor, payload?: { entrySid?: string; text?: string }) =>
         await this._edit(ed, payload?.entrySid, payload?.text ?? ''),
@@ -75,14 +75,14 @@ export class WordCommentExtension implements Extension {
         !!this._entryText(ed, payload?.entrySid)
     });
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'resolveComment',
       execute: async (ed: Editor, payload?: { id?: string; resolved?: boolean }) =>
         await this._resolve(ed, payload?.id, payload?.resolved !== false),
       canExecute: (ed: Editor, payload?: { id?: string }) => !!this._thread(ed, payload?.id)
     });
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'deleteComment',
       execute: async (ed: Editor, payload?: { id?: string }) => await this._delete(ed, payload?.id),
       canExecute: (ed: Editor, payload?: { id?: string }) => !!this._thread(ed, payload?.id)
@@ -90,8 +90,8 @@ export class WordCommentExtension implements Extension {
   }
 
   private _doc(editor: Editor): DocumentAccess {
-    const store: any = (editor as any).dataStore;
-    return { getNode: (id: string) => store?.getNode?.(id), rootId: (editor as any).getRootId?.() };
+    const store: any = editor.dataStore;
+    return { getNode: (id: string) => store?.getNode?.(id), rootId: editor?.getRootId() ?? '' };
   }
 
   private _thread(editor: Editor, id: string | undefined) {
@@ -194,7 +194,7 @@ export class WordCommentExtension implements Extension {
      * The range is still valid: applying a mark does not split the run, it
      * records a range on it.
      */
-    if (result.success) editor.updateSelection?.({ ...selection });
+    if (result.success) editor?.updateSelection({ ...selection });
 
     return result.success;
   }

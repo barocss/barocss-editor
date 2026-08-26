@@ -71,7 +71,7 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
     editor.loadDocument(initialTree, 'decorator-test');
 
     // Verify _rootId is set
-    const rootId = (editor as any).getRootId();
+    const rootId = editor.getRootId();
     expect(rootId).toBe('doc-1');
   });
 
@@ -122,7 +122,7 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
     editor.loadDocument(initialTree, 'decorator-test');
 
     // Verify getDocumentProxy() is not null
-    const proxy = editor.getDocumentProxy?.();
+    const proxy = editor?.getDocumentProxy();
     expect(proxy).not.toBeNull();
     expect(proxy?.sid).toBe('doc-1');
   });
@@ -201,7 +201,7 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
     editor.loadDocument(initialTree, 'decorator-test');
 
     // getDocumentProxy() may return null
-    const proxy = editor.getDocumentProxy?.();
+    const proxy = editor?.getDocumentProxy();
     // Nodes may be loaded even without schema, so may not be null
     // But need to verify actual behavior
     console.log('Proxy without schema:', proxy);
@@ -236,9 +236,9 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
     view.render();
 
     // Output debugging info
-    const rootId = (editor as any).getRootId();
+    const rootId = editor.getRootId();
     const rootNode = dataStore.getRootNode();
-    const proxy = editor.getDocumentProxy?.();
+    const proxy = editor?.getDocumentProxy();
 
     console.log('Debug info:', {
       rootId,

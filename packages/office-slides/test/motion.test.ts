@@ -28,11 +28,11 @@ describe('what a slide arrives with', () => {
   let slide: string;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const can = (command: string, payload?: unknown) =>
-    (editor as any).canExecuteCommand?.(command, payload);
+    editor?.canExecuteCommand(command, payload);
   const doc = (): DeckAccess => ({
-    rootId: (editor as any).getRootId(),
+    rootId: editor.getRootId(),
     getNode: (sid: string) => store.getNode(sid) as never
   });
   /**
@@ -42,7 +42,7 @@ describe('what a slide arrives with', () => {
    * like the walk being wrong.
    */
   const resources = (): string[] => {
-    const root = store.getNode((editor as any).getRootId()) as any;
+    const root = store.getNode(editor.getRootId()) as any;
     const node = (root.content as string[])
       .map((sid) => store.getNode(sid) as any)
       .find((child) => child?.stype === 'resources');
@@ -64,7 +64,7 @@ describe('what a slide arrives with', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
   });
 
   it('is nothing, in a deck nobody has animated', () => {
@@ -113,7 +113,7 @@ describe('what a slide arrives with', () => {
 
   it('undoes the track it had to make, and not half of it', async () => {
     await run('setSlideTransition', { slideId: slide, effect: 'wipe' });
-    await (editor as any).undo();
+    await editor.undo();
 
     expect(trackFor(doc(), slide)).toBeUndefined();
     expect((store.getNode(slide) as any).attributes.trackId).toBeUndefined();
@@ -198,7 +198,7 @@ describe('a note, read for the presenter', () => {
   let slide: string;
 
   const doc = (): DeckAccess => ({
-    rootId: (editor as any).getRootId(),
+    rootId: editor.getRootId(),
     getNode: (sid: string) => store.getNode(sid) as never
   });
 
@@ -223,7 +223,7 @@ describe('a note, read for the presenter', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
   };
 
   const paragraph = (text: string) => ({

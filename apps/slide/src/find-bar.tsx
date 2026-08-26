@@ -88,8 +88,8 @@ export function FindBar({
    * the query was typed.
    */
   const matches = useMemo<DeckMatch[]>(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !query) return [];
     return deckMatches({ rootId, getNode: (sid: string) => store.getNode(sid) } as never, query);
   }, [editor, query, revision]);
@@ -119,8 +119,8 @@ export function FindBar({
   };
 
   const doc = () => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     return store && rootId ? { rootId, getNode: (sid: string) => store.getNode(sid) } : null;
   };
 

@@ -26,10 +26,10 @@ export class WordMathExtension implements Extension {
     // resolves to whatever else claims it — cell navigation in a table, and
     // nothing at all in ordinary text, which is what Word's keymap says.
     const track = () => {
-      const selection: any = (editor as any).selection;
+      const selection: any = editor.selection;
       const inside =
         selection?.type === 'range' && !!enclosingMath(this._doc(editor), selection.startNodeId);
-      (editor as any).setContext('inEquation', inside);
+      editor.setContext('inEquation', inside);
     };
     /**
      * Whether the text just before the caret is an equation waiting to be built.
@@ -40,13 +40,13 @@ export class WordMathExtension implements Extension {
      * Space that never reaches the document.
      */
     const trackBuildUp = () => {
-      (editor as any).setContext('canBuildUpMath', !!this._pending(editor));
+      editor.setContext('canBuildUpMath', !!this._pending(editor));
     };
     editor.on('editor:selection.model', trackBuildUp);
     editor.on('editor:content.change', trackBuildUp);
     trackBuildUp();
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'buildUpMath',
       execute: async (ed: Editor) => await this._buildUp(ed),
       canExecute: (ed: Editor) => !!this._pending(ed)
@@ -65,7 +65,7 @@ export class WordMathExtension implements Extension {
      * through the slots. Going the other way is build-up, which is already a
      * command — so this is one button with two directions and no third state.
      */
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'toggleMathLinear',
       execute: async (ed: Editor) =>
         enclosingMath(this._doc(ed), (ed as any).selection?.startNodeId)
@@ -75,13 +75,13 @@ export class WordMathExtension implements Extension {
         !!enclosingMath(this._doc(ed), (ed as any).selection?.startNodeId) || !!this._pending(ed)
     });
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'nextMathSlot',
       execute: async (ed: Editor) => await this._move(ed, 1),
       canExecute: () => true
     });
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'previousMathSlot',
       execute: async (ed: Editor) => await this._move(ed, -1),
       canExecute: () => true
@@ -98,10 +98,10 @@ export class WordMathExtension implements Extension {
   private _pending(
     editor: Editor
   ): { sid: string; start: number; end: number; nodes: MathNode[] } | null {
-    const selection: any = (editor as any).selection;
+    const selection: any = editor.selection;
     if (!selection || selection.type !== 'range' || !selection.collapsed) return null;
 
-    const store: any = (editor as any).dataStore;
+    const store: any = editor.dataStore;
     const node = store?.getNode?.(selection.startNodeId);
     if (!node || node.stype !== 'inline-text' || typeof node.text !== 'string') return null;
 
@@ -129,7 +129,7 @@ export class WordMathExtension implements Extension {
     const pending = this._pending(editor);
     if (!pending) return false;
 
-    const store: any = (editor as any).dataStore;
+    const store: any = editor.dataStore;
     const math = store?.createNodeWithChildren?.({ stype: 'oMath', content: pending.nodes });
     if (!math) return false;
 
@@ -159,10 +159,10 @@ export class WordMathExtension implements Extension {
    */
   private async _flatten(editor: Editor): Promise<boolean> {
     const doc = this._doc(editor);
-    const math = enclosingMath(doc, (editor as any).selection?.startNodeId);
+    const math = enclosingMath(doc, editor.selection?.startNodeId);
     if (!math?.sid || !math.parentId) return false;
 
-    const store: any = (editor as any).dataStore;
+    const store: any = editor.dataStore;
     const line = linearOf((math.content ?? []).map((child: any) =>
       typeof child === 'string' ? store.getNode(child) : child
     ) as MathNode[]);
@@ -181,8 +181,8 @@ export class WordMathExtension implements Extension {
   }
 
   private _doc(editor: Editor): DocumentAccess {
-    const store: any = (editor as any).dataStore;
-    return { getNode: (id: string) => store?.getNode?.(id), rootId: (editor as any).getRootId?.() };
+    const store: any = editor.dataStore;
+    return { getNode: (id: string) => store?.getNode?.(id), rootId: editor?.getRootId() ?? '' };
   }
 
   /**
@@ -193,7 +193,7 @@ export class WordMathExtension implements Extension {
    */
   private async _move(editor: Editor, step: 1 | -1): Promise<boolean> {
     const doc = this._doc(editor);
-    const selection: any = (editor as any).selection;
+    const selection: any = editor.selection;
     if (!selection || selection.type !== 'range') return false;
 
     const math = enclosingMath(doc, selection.startNodeId);
@@ -210,7 +210,7 @@ export class WordMathExtension implements Extension {
     if (!sid) return false;
 
     const text = String(this._doc(editor).getNode(sid)?.text ?? '');
-    (editor as any).updateSelection({
+    editor.updateSelection({
       type: 'range',
       startNodeId: sid,
       startOffset: 0,
@@ -232,7 +232,7 @@ export class WordMathExtension implements Extension {
    * empty slots are real places for the same reason.
    */
   private async _fillEmptySlot(editor: Editor, slot: DocumentNode): Promise<string | null> {
-    const store: any = (editor as any).dataStore;
+    const store: any = editor.dataStore;
     if (!store?.createNodeWithChildren || !slot.sid) return null;
 
     const created = store.createNodeWithChildren({
@@ -270,7 +270,7 @@ export class WordMathExtension implements Extension {
     if (!target?.sid || typeof target.text !== 'string') return false;
 
     const offset = step === 1 ? 0 : target.text.length;
-    (editor as any).updateSelection({
+    editor.updateSelection({
       type: 'range',
       startNodeId: target.sid,
       startOffset: offset,

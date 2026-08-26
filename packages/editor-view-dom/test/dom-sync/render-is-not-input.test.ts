@@ -64,7 +64,7 @@ describe('a render is not input', () => {
       'standard'
     );
 
-    const root: any = store.getNode((editor as any).getRootId());
+    const root: any = store.getNode(editor.getRootId());
     const paragraph: any = store.getNode(root.content[0]);
     textId = paragraph.content[0];
 
@@ -82,7 +82,7 @@ describe('a render is not input', () => {
      * the guard missed this. The first version of this test had no selection
      * and passed while the browser was corrupting text.
      */
-    (editor as any).updateSelection({
+    editor.updateSelection({
       type: 'range',
       startNodeId: textId,
       startOffset: 0,
@@ -128,7 +128,7 @@ describe('a render is not input', () => {
      * bug: the loop needs the render the editor schedules for itself, because
      * that is the one whose mutations arrive while another can still start.
      */
-    (editor as any).emit?.('editor:content.change', {});
+    editor?.emit('editor:content.change', {});
     await settle();
   };
 

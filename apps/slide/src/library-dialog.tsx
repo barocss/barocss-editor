@@ -94,9 +94,9 @@ export function LibraryDialog({
   }, [open]);
 
   const keep = async () => {
-    const tree = (editor as any)?.exportDocument?.();
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const tree = editor?.exportDocument();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!tree || !store || !rootId) return;
     try {
       /*
@@ -127,10 +127,10 @@ export function LibraryDialog({
      * it, so it is the one thing here a reader can lose work to — and it is asked only when there
      * *is* work to lose.
      */
-    if ((editor as any)?.canUndo?.() && !window.confirm('저장하지 않은 변경이 사라집니다. 계속할까요?')) {
+    if (editor?.canUndo() && !window.confirm('저장하지 않은 변경이 사라집니다. 계속할까요?')) {
       return;
     }
-    (editor as any)?.loadDocument?.(read.document, 'slides');
+    editor?.loadDocument?.(read.document, 'slides');
     onName?.(row.name);
     onClose();
     onOpened?.();
@@ -150,8 +150,8 @@ export function LibraryDialog({
     if ('error' in read) return setProblem(read.error);
 
     const source = accessOfTree(read.document as never);
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     const host =
       store && rootId ? { rootId, getNode: (sid: string) => store.getNode(sid) } : undefined;
     const mine = host ? componentsOf(host as never) : [];
@@ -207,7 +207,7 @@ export function LibraryDialog({
      * is a name in a library or an address to fetch is the host's question (§11i) and a model that
      * reached for storage would be a model nobody could test in milliseconds.
      */
-    await (editor as any)?.executeCommand?.('importComponent', { deck, componentId, source });
+    await editor?.executeCommand?.('importComponent', { deck, componentId, source });
     const row = rows.find((one) => one.name === deck);
     if (row) await look(row);
   };
@@ -222,7 +222,7 @@ export function LibraryDialog({
     })());
     if (!source) return setProblem('그 덱을 읽을 수 없습니다.');
 
-    await (editor as any)?.executeCommand?.('importVariable', { deck, name, source });
+    await editor?.executeCommand?.('importVariable', { deck, name, source });
     const row = rows.find((one) => one.name === deck);
     if (row) await look(row);
   };

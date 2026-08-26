@@ -29,7 +29,7 @@ describe('a frame that keeps its arrangement', () => {
   let children: string[];
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const at = (sid: string) => {
     const a = (store.getNode(sid) as any).attributes;
     return `${a.x},${a.y}`;
@@ -63,13 +63,13 @@ describe('a frame that keeps its arrangement', () => {
       'slides'
     );
 
-    const slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    const slide = (store.getNode(editor.getRootId()) as any).content[0];
     [frame] = (store.getNode(slide) as any).content;
     children = (store.getNode(frame) as any).content;
   });
 
   it('refuses a frame that is not one, and a change that says nothing', () => {
-    const can = (payload: unknown) => (editor as any).canExecuteCommand?.('setFrameLayout', payload);
+    const can = (payload: unknown) => editor?.canExecuteCommand('setFrameLayout', payload);
     expect(can({ nodeId: children[0], layoutMode: 'row' })).toBe(false);
     expect(can({ nodeId: frame })).toBe(false);
     expect(can({ nodeId: frame, layoutMode: 'row' })).toBe(true);
@@ -87,7 +87,7 @@ describe('a frame that keeps its arrangement', () => {
 
   it('undoes the setting and the arrangement together', async () => {
     await run('setFrameLayout', { nodeId: frame, layoutMode: 'row', gap: 200 });
-    await (editor as any).undo();
+    await editor.undo();
 
     expect(at(children[0])).toBe('800,900');
     expect((store.getNode(frame) as any).attributes.layoutMode).toBeUndefined();
@@ -161,7 +161,7 @@ describe('a frame that is resized', () => {
   let store: DataStore;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const box = (sid: string) => {
     const a = (store.getNode(sid) as any).attributes;
     return { x: a.x, y: a.y, width: a.width, height: a.height };
@@ -211,7 +211,7 @@ describe('a frame that is resized', () => {
   });
 
   const parts = () => {
-    const slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    const slide = (store.getNode(editor.getRootId()) as any).content[0];
     const [frame] = (store.getNode(slide) as any).content as string[];
     return { frame, children: (store.getNode(frame) as any).content as string[] };
   };

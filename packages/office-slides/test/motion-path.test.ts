@@ -170,11 +170,11 @@ describe('a path step in a slide’s timeline', () => {
   let title: string;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const can = (command: string, payload?: unknown) =>
-    (editor as any).canExecuteCommand?.(command, payload);
+    editor?.canExecuteCommand(command, payload);
   const doc = (): DeckAccess => ({
-    rootId: (editor as any).getRootId(),
+    rootId: editor.getRootId(),
     getNode: (sid: string) => store.getNode(sid) as never
   });
 
@@ -210,7 +210,7 @@ describe('a path step in a slide’s timeline', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
     title = ((store.getNode(slide) as any).content as string[])[0];
   });
 
@@ -351,11 +351,11 @@ describe('a motion given to several shapes at once', () => {
   let boxes: string[];
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const can = (command: string, payload?: unknown) =>
-    (editor as any).canExecuteCommand?.(command, payload);
+    editor?.canExecuteCommand(command, payload);
   const doc = (): DeckAccess => ({
-    rootId: (editor as any).getRootId(),
+    rootId: editor.getRootId(),
     getNode: (sid: string) => store.getNode(sid) as never
   });
 
@@ -382,7 +382,7 @@ describe('a motion given to several shapes at once', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
     boxes = (store.getNode(slide) as any).content as string[];
   });
 
@@ -428,7 +428,7 @@ describe('a motion given to several shapes at once', () => {
     await run('addBoxesMotion', { nodeIds: boxes, effect: 'fade' });
     expect(slideTimeline(doc(), slide)).toHaveLength(3);
 
-    await (editor as any).undo();
+    await editor.undo();
     expect(slideTimeline(doc(), slide)).toEqual([]);
   });
 

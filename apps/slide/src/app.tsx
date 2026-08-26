@@ -147,8 +147,8 @@ export function App({
    */
   const [wasOn, setWasOn] = useState<string | undefined>();
   const components = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return [];
     return componentsOf({ rootId, getNode: (sid: string) => store.getNode(sid) } as never);
   }, [editor, revision]);
@@ -162,8 +162,8 @@ export function App({
    * could say which layout a slide *follows* and nothing could change what the layout was.
    */
   const designs = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return [];
     return deckDesigns({ rootId, getNode: (sid: string) => store.getNode(sid) } as never);
   }, [editor, revision]);
@@ -215,7 +215,7 @@ export function App({
    * leaves it.
    */
   const leaveSelection = useCallback(() => {
-    void (editor as any)?.executeCommand?.('setNode', { nodeIds: [] });
+    void editor?.executeCommand?.('setNode', { nodeIds: [] });
   }, [editor]);
 
   /**
@@ -258,17 +258,17 @@ export function App({
    * selection like the ribbon and the properties panel.
    */
   const canMakeComponent = useMemo(() => {
-    const chosen = selectedNodeIds((editor as any)?.selection);
+    const chosen = selectedNodeIds(editor?.selection);
     return chosen.length > 0;
   }, [editor, answers]);
 
   const makeComponent = useCallback(() => {
-    void (editor as any)?.executeCommand?.('createComponent', {});
+    void editor?.executeCommand?.('createComponent', {});
   }, [editor]);
 
   const placeComponent = useCallback(
     (componentId: string) => {
-      void (editor as any)?.executeCommand?.('placeComponent', { componentId, slideId: current });
+      void editor?.executeCommand?.('placeComponent', { componentId, slideId: current });
     },
     [editor, current]
   );
@@ -318,8 +318,8 @@ export function App({
    * (there is no next) and the map (no spine to draw).
    */
   const moveBy = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return 'press' as const;
     return deckAdvance({ rootId, getNode: (sid: string) => store.getNode(sid) } as never);
   }, [editor, revision]);
@@ -346,8 +346,8 @@ export function App({
    * in a 486px pane.
    */
   const fit = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return undefined;
     return stageFit({ rootId, getNode: (sid: string) => store.getNode(sid) } as never, stageFocus);
   }, [editor, stageFocus, revision]);
@@ -484,8 +484,8 @@ export function App({
    * has to know both.
    */
   const built = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !current) return { steps: [] as TimelineStep[], presses: 0 };
 
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
@@ -516,8 +516,8 @@ export function App({
    */
   const pressesOf = useCallback(
     (sid: string) => {
-      const store = (editor as any)?.dataStore;
-      const rootId = (editor as any)?.getRootId?.();
+      const store = editor?.dataStore;
+      const rootId = editor?.getRootId?.();
       if (!store || !rootId) return 0;
       const doc = { rootId, getNode: (id: string) => store.getNode(id) };
       return pressCount(slideTimeline(doc as never, sid));
@@ -635,8 +635,8 @@ export function App({
     const at = scrollAt(scrolled, stretches, scrollView);
     if (!at) return undefined;
 
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || at.press <= 0) return { ...at, moment: 0 };
 
     const doc = { rootId, getNode: (id: string) => store.getNode(id) };
@@ -734,7 +734,7 @@ export function App({
   const placeGuide = useCallback(
     (guide: { axis: 'x' | 'y'; at: number }) => {
       if (!editor || !current) return;
-      const doc = (editor as any).dataStore;
+      const doc = editor.dataStore;
       const placed = readGuides(doc?.getNode(current)?.attributes);
       // Dropped outside the slide is a guide the reader pulled out and changed
       // their mind about — the same gesture that deletes one already on it.
@@ -742,7 +742,7 @@ export function App({
         ? placed
         : withGuide(placed, guide);
       if (next === placed) return;
-      void (editor as any).executeCommand?.('setSlideGuides', { guides: next, slideId: current });
+      void editor?.executeCommand('setSlideGuides', { guides: next, slideId: current });
     },
     [editor, current]
   );
@@ -794,8 +794,8 @@ export function App({
     let dropped = false;
 
     void (async () => {
-      const store = (editor as any)?.dataStore;
-      const rootId = (editor as any)?.getRootId?.();
+      const store = editor?.dataStore;
+      const rootId = editor?.getRootId?.();
       if (!store || !rootId) return;
       const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
 
@@ -1351,8 +1351,8 @@ export function App({
    * direction, and the reason a trigger survives a deck being saved and reopened.
    */
   const triggers = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !current) return {};
 
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
@@ -1382,8 +1382,8 @@ export function App({
    * button goes.
    */
   const jumps = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !current) return {} as Record<string, Jump>;
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
     const out: Record<string, Jump> = {};
@@ -1417,8 +1417,8 @@ export function App({
    */
   const takeJump = useCallback(
     (sid: string) => {
-      const store = (editor as any)?.dataStore;
-      const rootId = (editor as any)?.getRootId?.();
+      const store = editor?.dataStore;
+      const rootId = editor?.getRootId?.();
       if (!store || !rootId) return;
       const jump = jumps[sid];
 
@@ -1453,14 +1453,14 @@ export function App({
             const read = readDeckFile(text);
             if ('error' in read) return setAway(read.error);
 
-            (editor as any)?.loadDocument?.(read.document, 'slides');
+            editor?.loadDocument?.(read.document, 'slides');
             /*
              * And the page *in that deck*, by its durable id — resolved after the load, because
              * until then the page does not exist in this session.
              */
             const opened = {
-              rootId: (editor as any)?.getRootId?.(),
-              getNode: (one: string) => (editor as any)?.dataStore?.getNode(one)
+              rootId: editor?.getRootId?.(),
+              getNode: (one: string) => editor?.dataStore?.getNode(one)
             };
             const page = jump.to ? slideById(opened as never, jump.to) : undefined;
             setCurrent(page ?? deckSlides(opened as never)[0]?.sid);
@@ -1485,8 +1485,8 @@ export function App({
   const [away, setAway] = useState<string | undefined>();
 
   const arrival = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !current) return undefined;
     return transitionFrom(
       transitionOf({ rootId, getNode: (sid: string) => store.getNode(sid) }, current)
@@ -1536,7 +1536,7 @@ export function App({
       if (target?.closest?.('[contenteditable="true"]')) return;
 
       event.preventDefault();
-      void (event.shiftKey ? (editor as any)?.redo?.() : (editor as any)?.undo?.());
+      void (event.shiftKey ? editor?.redo?.() : editor?.undo?.());
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1890,10 +1890,10 @@ export function App({
                */
               advance={moveBy}
               onAdvance={(next) =>
-                void (editor as any)?.executeCommand?.('setDeckShow', { advance: next })
+                void editor?.executeCommand?.('setDeckShow', { advance: next })
               }
               onRetarget={(sid, pageSid) =>
-                void (editor as any)?.executeCommand?.('setBoxJump', {
+                void editor?.executeCommand?.('setBoxJump', {
                   nodeIds: [sid],
                   to: pageSid
                 })

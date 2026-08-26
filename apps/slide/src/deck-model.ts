@@ -12,7 +12,7 @@ import { deckSlides, noteFor, type DeckAccess, type Slide } from '@barocss/offic
  * the document changes.
  */
 function accessOf(editor: Editor): DeckAccess | null {
-  const store = (editor as any).dataStore;
+  const store = editor.dataStore;
   const rootId = store?.getRootNodeId?.();
   if (!store || !rootId) return null;
   return { rootId, getNode: (sid: string) => store.getNode(sid) };
@@ -32,7 +32,7 @@ export function useDeck(editor: Editor | null): Slide[] {
 
     editor.on('editor:content.change', read);
     return () => {
-      (editor as any).off?.('editor:content.change', read);
+      editor?.off('editor:content.change', read);
     };
   }, [editor]);
 
@@ -56,7 +56,7 @@ export function useRevision(editor: Editor | null): number {
     const bump = () => setRevision((n) => n + 1);
     editor.on('editor:content.change', bump);
     return () => {
-      (editor as any).off?.('editor:content.change', bump);
+      editor?.off('editor:content.change', bump);
     };
   }, [editor]);
 
@@ -107,7 +107,7 @@ export function useNote(editor: Editor | null, surfaceSid: string | undefined): 
 
     editor.on('editor:content.change', read);
     return () => {
-      (editor as any).off?.('editor:content.change', read);
+      editor?.off('editor:content.change', read);
     };
   }, [editor, surfaceSid]);
 

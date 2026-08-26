@@ -36,7 +36,7 @@ export class SlidesConnectorExtension implements Extension {
   private _applying = false;
 
   onCreate(editor: Editor): void {
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'insertConnector',
       execute: async (_ed: Editor, payload?: any) => await this._insert(editor, payload),
       canExecute: (_ed: Editor, payload?: any) => !!this._ends(editor, payload)
@@ -55,7 +55,7 @@ export class SlidesConnectorExtension implements Extension {
      * moment where the shape exists and the line does not, which a reader watching the
      * canvas would see.
      */
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'insertConnectedShape',
       execute: async (_ed: Editor, payload?: any) => await this._grow(editor, payload),
       canExecute: (_ed: Editor, payload?: any) => !!this._growFrom(editor, payload)
@@ -75,7 +75,7 @@ export class SlidesConnectorExtension implements Extension {
      * entries would mean a reader undoing a drop three times and watching a diagram
      * rebuild itself in stages.
      */
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'spliceIntoConnector',
       execute: async (_ed: Editor, payload?: any) => await this._splice(editor, payload),
       canExecute: (_ed: Editor, payload?: any) => !!this._spliceable(editor, payload)
@@ -95,13 +95,13 @@ export class SlidesConnectorExtension implements Extension {
      * along another line, the frozen place, and the two caps — because a half-swapped line
      * is a line pointing at one shape and clipped to another.
      */
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'reverseConnector',
       execute: async (_ed: Editor, payload?: any) => await this._reverse(editor, payload),
       canExecute: (_ed: Editor, payload?: any) => this._connectors(editor, payload).length > 0
     });
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'setConnector',
       execute: async (_ed: Editor, payload?: any) => await this._set(editor, payload),
       canExecute: (_ed: Editor, payload?: any) =>
@@ -111,14 +111,14 @@ export class SlidesConnectorExtension implements Extension {
 
     // Every change, because the event says the document changed and not what in it —
     // and a shape moved, resized, rotated or deleted all reach a connector.
-    (editor as any).on?.('editor:content.change', () => {
+    editor?.on('editor:content.change', () => {
       void this._repair(editor);
     });
   }
 
   private _access(editor: Editor): DeckAccess | null {
-    const store = (editor as any).dataStore;
-    const rootId = (editor as any).getRootId?.();
+    const store = editor.dataStore;
+    const rootId = editor?.getRootId();
     if (!store || !rootId) return null;
     return { rootId, getNode: (sid: string) => store.getNode(sid) } as DeckAccess;
   }
@@ -172,7 +172,7 @@ export class SlidesConnectorExtension implements Extension {
 
     // Nothing named: the two shapes that are selected, which is the other gesture
     // every diagram tool offers.
-    const selected: string[] = (editor as any).selection?.nodeIds ?? [];
+    const selected: string[] = editor.selection?.nodeIds ?? [];
     if (selected.length !== 2) return null;
     if (!this._joinable(doc, selected[0]) || !this._joinable(doc, selected[1])) return null;
     return { start: selected[0], end: selected[1] };
@@ -256,7 +256,7 @@ export class SlidesConnectorExtension implements Extension {
     // rule every insert here follows.
     const children = childrenOf(doc.getNode(parent));
     const made = children[children.length - 1];
-    if (made) (editor as any).setNode?.({ nodeIds: [made] });
+    if (made) editor?.setNode({ nodeIds: [made] });
     return true;
   }
 
@@ -412,7 +412,7 @@ export class SlidesConnectorExtension implements Extension {
 
     // The shape stays selected: it is the thing the reader dropped, and the two lines are
     // the consequence.
-    (editor as any).setNode?.({ nodeIds: [asked.shape] });
+    editor?.setNode({ nodeIds: [asked.shape] });
     return true;
   }
 
@@ -484,7 +484,7 @@ export class SlidesConnectorExtension implements Extension {
      * added — so either this is two transactions (and two undos for one drag) or it
      * names the shape itself. `addChild` honours a `sid` a caller provides.
      */
-    const store = (editor as any).dataStore;
+    const store = editor.dataStore;
     const madeSid: string = store.generateId();
 
     const shape: DeckNode = {
@@ -528,7 +528,7 @@ export class SlidesConnectorExtension implements Extension {
      * type. Selecting the line would put the caret nowhere and make them click the thing
      * they just made.
      */
-    (editor as any).setNode?.({ nodeIds: [madeSid] });
+    editor?.setNode({ nodeIds: [madeSid] });
     return true;
   }
 
@@ -707,7 +707,7 @@ export class SlidesConnectorExtension implements Extension {
     const doc = this._access(editor);
     if (!doc) return [];
     const asked: string[] = payload?.nodeIds ?? (payload?.nodeId ? [payload.nodeId] : null) ??
-      ((editor as any).selection?.nodeIds ?? []);
+      (editor.selection?.nodeIds ?? []);
     return asked.filter((sid) => doc.getNode(sid)?.stype === 'connector');
   }
 

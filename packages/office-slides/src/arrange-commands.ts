@@ -51,7 +51,7 @@ export class SlidesArrangeExtension implements Extension {
       execute: (payload?: any) => Promise<boolean>,
       canExecute: (payload?: any) => boolean
     ) => {
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name,
         execute: async (_ed: Editor, payload?: any) => await execute(payload),
         canExecute: (_ed: Editor, payload?: any) => canExecute(payload)
@@ -200,8 +200,8 @@ export class SlidesArrangeExtension implements Extension {
   // ── Reading ────────────────────────────────────────────────────────────────
 
   private _access(editor: Editor): DeckAccess | null {
-    const store = (editor as any).dataStore;
-    const rootId = (editor as any).getRootId?.();
+    const store = editor.dataStore;
+    const rootId = editor?.getRootId();
     if (!store || !rootId) return null;
     return { rootId, getNode: (sid: string) => store.getNode(sid) };
   }
@@ -258,7 +258,7 @@ export class SlidesArrangeExtension implements Extension {
     const doc = this._access(editor);
     if (!doc) return [];
 
-    const ids = selectedNodeIds((editor as any).selection);
+    const ids = selectedNodeIds(editor.selection);
     if (ids.length === 0) return [];
 
     const container = this._containerOf(doc, ids[0]);
@@ -564,7 +564,7 @@ export class SlidesArrangeExtension implements Extension {
     const made = ((doc.getNode(slide) as any)?.content ?? []).find(
       (sid: string) => (doc.getNode(sid) as any)?.stype === 'group'
     );
-    if (made) (editor as any).setNode?.({ nodeIds: [made] });
+    if (made) editor?.setNode({ nodeIds: [made] });
 
     return true;
   }
@@ -624,7 +624,7 @@ export class SlidesArrangeExtension implements Extension {
 
     // What comes out is what is selected, which is what a reader has in mind
     // when they take a group apart.
-    if (freed.length > 0) (editor as any).setNode?.({ nodeIds: freed });
+    if (freed.length > 0) editor?.setNode({ nodeIds: freed });
     return true;
   }
 
@@ -765,7 +765,7 @@ export class SlidesArrangeExtension implements Extension {
     };
     if (!doc) return empty;
 
-    const selected = selectedNodeIds((editor as any).selection);
+    const selected = selectedNodeIds(editor.selection);
     const container =
       selected.length > 0
         ? this._containerOf(doc, selected[0])

@@ -74,25 +74,25 @@ export function Thumbnail({
    */
   const drawn = useRef<string | null>(null);
 
-  const store = (editor as any)?.dataStore;
+  const store = editor?.dataStore;
   const size = slideSize(store?.getNode(slideSid)?.attributes);
   const natural = { width: twipToPx(size.width), height: twipToPx(size.height) };
   const scale = width / Math.max(1, natural.width);
 
   useEffect(() => {
-    if (!editor || !host.current) return;
+    if (!editor || !store || !host.current) return;
 
     if (!renderer.current) {
       const doc = {
         getNode: (id: string) => store.getNode(id) as never,
-        rootId: (editor as any).getRootId()
+        rootId: editor.getRootId()
       };
       renderer.current = new DOMRenderer(getGlobalRegistry(), {
         env: { [WORD_ENV_KEY]: createDeckEnv(doc as never) }
       } as never);
     }
 
-    const proxy = (editor as any).getDocumentProxy?.(slideSid);
+    const proxy = editor?.getDocumentProxy(slideSid);
     if (!proxy) return;
 
     const snapshot = JSON.stringify(proxy);

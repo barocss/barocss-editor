@@ -79,7 +79,7 @@ export class SlidesClipboardExtension implements Extension {
       execute: (payload?: any) => Promise<boolean>,
       canExecute: () => boolean
     ) => {
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name,
         execute: async (_ed: Editor, payload?: any) => await execute(payload),
         canExecute
@@ -125,8 +125,8 @@ export class SlidesClipboardExtension implements Extension {
   // ── Reading ────────────────────────────────────────────────────────────────
 
   private _access(editor: Editor): DeckAccess | null {
-    const store = (editor as any).dataStore;
-    const rootId = (editor as any).getRootId?.();
+    const store = editor.dataStore;
+    const rootId = editor?.getRootId();
     if (!store || !rootId) return null;
     return { rootId, getNode: (sid: string) => store.getNode(sid) };
   }
@@ -136,7 +136,7 @@ export class SlidesClipboardExtension implements Extension {
     const doc = this._access(editor);
     if (!doc) return [];
 
-    const ids = new Set(selectedNodeIds((editor as any).selection));
+    const ids = new Set(selectedNodeIds(editor.selection));
     if (ids.size === 0) return [];
 
     return [...ids].filter((sid) => isSceneType((doc.getNode(sid) as any)?.stype));
@@ -181,7 +181,7 @@ export class SlidesClipboardExtension implements Extension {
     if (!(await this._copy(editor))) return false;
     // Through the command rather than by hand, so cutting refuses exactly what
     // deleting refuses — a locked box among them, above all.
-    return (await (editor as any).executeCommand?.('deleteBoxes')) === true;
+    return (await editor?.executeCommand('deleteBoxes')) === true;
   }
 
   // ── Pasting ────────────────────────────────────────────────────────────────
@@ -229,7 +229,7 @@ export class SlidesClipboardExtension implements Extension {
      */
     const plan = pasteCardsPlan(doc, payload.needs);
 
-    const store = (editor as any).dataStore;
+    const store = editor.dataStore;
     const repoint = (node: DeckNode, depth = 0): void => {
       if (depth > 32) return;
       const id = node.attributes?.componentId;
@@ -264,7 +264,7 @@ export class SlidesClipboardExtension implements Extension {
     // what they pasted, and it is the last N children because that is where
     // `addChild` put them.
     const made = this._childrenOf(doc, into).slice(before);
-    if (made.length > 0) (editor as any).setNode?.({ nodeIds: made });
+    if (made.length > 0) editor?.setNode({ nodeIds: made });
 
     return true;
   }
@@ -284,11 +284,11 @@ export class SlidesClipboardExtension implements Extension {
   private _destination(editor: Editor, doc: DeckAccess, parentId?: string): string | undefined {
     if (parentId && doc.getNode(parentId)) return parentId;
 
-    const selected = selectedNodeIds((editor as any).selection)[0];
+    const selected = selectedNodeIds(editor.selection)[0];
     const fromSelection = selected ? slideAt(doc, selected) : undefined;
     if (fromSelection) return fromSelection;
 
-    const caret = (editor as any).selection?.startNodeId as string | undefined;
+    const caret = editor.selection?.startNodeId as string | undefined;
     return caret ? slideAt(doc, caret) : undefined;
   }
 

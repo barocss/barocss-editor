@@ -78,7 +78,7 @@ function DocumentVarList({
   const onPage = scope === 'slide';
 
   const set = (payload: Record<string, unknown>) =>
-    void (editor as any)?.executeCommand?.(
+    void editor?.executeCommand?.(
       onPage ? 'setSlideVar' : 'setDocumentVar',
       onPage ? { slideId, ...payload } : payload
     );
@@ -107,12 +107,12 @@ function DocumentVarList({
 
     const command = onPage ? 'renameSlideVar' : 'renameDocumentVar';
     const payload = onPage ? { slideId, name, to: next } : { name, to: next };
-    if (!(editor as any)?.canExecuteCommand?.(command, payload)) {
+    if (!editor?.canExecuteCommand?.(command, payload)) {
       setRefused({ name, at: (refused?.at ?? 0) + 1 });
       return;
     }
     setRefused(null);
-    void (editor as any)?.executeCommand?.(command, payload);
+    void editor?.executeCommand?.(command, payload);
   };
 
   const add = () => {
@@ -339,7 +339,7 @@ function VarList({ editor, definition }: { editor: Editor | null; definition: Co
   const [adding, setAdding] = useState('');
 
   const set = (payload: Record<string, unknown>) =>
-    void (editor as any)?.executeCommand?.('setComponentVar', {
+    void editor?.executeCommand?.('setComponentVar', {
       componentId: definition.id,
       ...payload
     });
@@ -510,8 +510,8 @@ export function ComponentPanel({
   const revision = useEditorRevision(editor);
 
   const doc = (() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return null;
     return { rootId, getNode: (sid: string) => store.getNode(sid) };
   })();

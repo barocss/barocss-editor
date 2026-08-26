@@ -29,9 +29,9 @@ export class WordRevisionExtension implements Extension {
   onCreate(editor: Editor): void {
     const register = (
       name: string,
-      execute: (ed: Editor, payload?: any) => unknown,
+      execute: (ed: Editor, payload?: any) => Promise<boolean> | boolean,
       canExecute: (ed: Editor, payload?: any) => boolean
-    ) => (editor as any).registerCommand({ name, execute, canExecute });
+    ) => editor.registerCommand({ name, execute, canExecute });
 
     register(
       'acceptRevision',
@@ -59,22 +59,27 @@ export class WordRevisionExtension implements Extension {
 
     // Navigation is a command rather than a pane's private business so that a
     // keyboard shortcut and a button both reach the same place.
+    /*
+     * `_move` answers **which** revision it landed on, or `null` — and a command answers *whether it
+     * ran*. The two were the same thing while the editor was reached through a cast: a string is
+     * truthy, so the command "worked" and told every caller checking `=== true` that it had not.
+     */
     register(
       'nextRevision',
-      (ed, payload) => this._move(ed, payload?.from, 1),
+      (ed, payload) => this._move(ed, payload?.from, 1) !== null,
       (ed) => revisions(this._doc(ed)).length > 0
     );
 
     register(
       'previousRevision',
-      (ed, payload) => this._move(ed, payload?.from, -1),
+      (ed, payload) => this._move(ed, payload?.from, -1) !== null,
       (ed) => revisions(this._doc(ed)).length > 0
     );
   }
 
   private _doc(editor: Editor): DocumentAccess {
-    const store: any = (editor as any).dataStore;
-    return { getNode: (id: string) => store?.getNode?.(id), rootId: (editor as any).getRootId?.() };
+    const store: any = editor.dataStore;
+    return { getNode: (id: string) => store?.getNode?.(id), rootId: editor?.getRootId() ?? '' };
   }
 
   /**
@@ -87,7 +92,7 @@ export class WordRevisionExtension implements Extension {
     const doc = this._doc(editor);
     if (id) return revisionById(doc, id);
 
-    const selection: any = (editor as any).selection;
+    const selection: any = editor.selection;
     const position =
       selection?.type === 'range'
         ? { sid: selection.startNodeId, offset: selection.startOffset }
@@ -133,7 +138,7 @@ export class WordRevisionExtension implements Extension {
     const span = next?.spans[0];
     if (!next || !span) return null;
 
-    (editor as any).updateSelection({
+    editor.updateSelection({
       type: 'range',
       startNodeId: span.sid,
       startOffset: span.start,

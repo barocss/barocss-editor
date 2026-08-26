@@ -36,7 +36,7 @@ export class WordExtension implements Extension {
      * keystroke to go. What a reader means is what Enter means plus a page:
      * split here, and carry on at the top of the next one.
      */
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'insertPageBreak',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
         const selection = payload?.selection ?? (ed as any).selection;
@@ -67,7 +67,7 @@ export class WordExtension implements Extension {
      * means whatever is being broken, and having the two commands disagree about
      * it would be the sort of difference a reader has to learn rather than guess.
      */
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'insertColumnBreak',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
         const selection = payload?.selection ?? (ed as any).selection;
@@ -90,13 +90,13 @@ export class WordExtension implements Extension {
      * A document setting, not a view one: two people editing the same document
      * are not each deciding whether the other's edits are tracked.
      */
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'toggleTrackChanges',
       execute: async (ed: Editor) => await this._toggleTracking(ed),
       canExecute: (ed: Editor) => !!this._settingsNode(ed)
     });
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'isTrackingChanges',
       execute: (ed: Editor) => this._settingsNode(ed)?.attributes?.trackRevisions === true,
       canExecute: () => true
@@ -105,8 +105,8 @@ export class WordExtension implements Extension {
 
   /** The document's settings node, which is where a document-wide switch lives. */
   private _settingsNode(editor: Editor): any {
-    const dataStore = (editor as any).dataStore;
-    const root = dataStore?.getNode?.((editor as any).getRootId?.());
+    const dataStore = editor.dataStore;
+    const root = dataStore?.getNode?.(editor?.getRootId() ?? '');
     if (!root) return null;
 
     for (const childId of root.content ?? []) {

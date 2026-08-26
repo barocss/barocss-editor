@@ -177,11 +177,11 @@ describe('a slide’s timeline', () => {
   let film: string;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const can = (command: string, payload?: unknown) =>
-    (editor as any).canExecuteCommand?.(command, payload);
+    editor?.canExecuteCommand(command, payload);
   const doc = (): DeckAccess => ({
-    rootId: (editor as any).getRootId(),
+    rootId: editor.getRootId(),
     getNode: (sid: string) => store.getNode(sid) as never
   });
   const timeline = () => slideTimeline(doc(), slide);
@@ -221,7 +221,7 @@ describe('a slide’s timeline', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
     const boxes = (store.getNode(slide) as any).content as string[];
     title = boxes[0];
     film = boxes[2];
@@ -388,7 +388,7 @@ describe('a slide’s timeline', () => {
     const before = timeline().map((step) => step.sid);
 
     await run('moveMotionStep', { stepId: before[1], by: -1 });
-    await (editor as any).undo();
+    await editor.undo();
 
     expect(timeline().map((step) => step.sid)).toEqual(before);
   });
@@ -456,7 +456,7 @@ describe('a slide’s timeline', () => {
 
   it('undoes a preset as one thing', async () => {
     await run('addBoxBuild', { nodeId: title, ...presetAttrs(presetById('pop')!) });
-    await (editor as any).undo();
+    await editor.undo();
 
     expect(timeline()).toEqual([]);
   });
@@ -1328,9 +1328,9 @@ describe('an effect that takes a colour', () => {
   let box: string;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const doc = (): DeckAccess => ({
-    rootId: (editor as any).getRootId(),
+    rootId: editor.getRootId(),
     getNode: (sid: string) => store.getNode(sid) as never
   });
 
@@ -1353,7 +1353,7 @@ describe('an effect that takes a colour', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
     box = ((store.getNode(slide) as any).content as string[])[0];
   });
 

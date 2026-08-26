@@ -55,7 +55,7 @@ describe('a deck draws', () => {
       registry: getGlobalRegistry(),
       env: {
         [WORD_ENV_KEY]: createDeckEnv({
-          rootId: (editor as any).getRootId(),
+          rootId: editor.getRootId(),
           getNode: (sid: string) => dataStore.getNode(sid) as never
         })
       }

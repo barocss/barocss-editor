@@ -222,11 +222,11 @@ export function Properties({
 
   const box = useMemo(() => {
     if (!editor) return undefined;
-    const store = (editor as any).dataStore;
-    const rootId = (editor as any).getRootId?.();
+    const store = editor.dataStore;
+    const rootId = editor?.getRootId();
     if (!store || !rootId) return undefined;
 
-    const at = (editor as any).selection?.startNodeId as string | undefined;
+    const at = editor.selection?.startNodeId as string | undefined;
     return boxAt({ rootId, getNode: (sid: string) => store.getNode(sid) }, at);
   }, [editor, tick]);
 
@@ -240,20 +240,20 @@ export function Properties({
    * that needs to know there are three.
    */
   const chosen = useMemo(() => {
-    const ids = selectedNodeIds((editor as any)?.selection) ?? [];
+    const ids = selectedNodeIds(editor?.selection) ?? [];
     return ids.filter((sid): sid is string => typeof sid === 'string');
   }, [editor, tick]);
 
   /** The other deck this button names, and the page in it — read from the document. */
   const jumpDeck = useMemo(() => {
-    const store = (editor as any)?.dataStore;
+    const store = editor?.dataStore;
     const node = box?.sid ? store?.getNode(box.sid) : undefined;
     const deck = node?.attributes?.goToDeck;
     return typeof deck === 'string' && deck.length > 0 ? deck : undefined;
   }, [editor, box, tick]);
 
   const jumpDeckPage = useMemo(() => {
-    const store = (editor as any)?.dataStore;
+    const store = editor?.dataStore;
     const node = box?.sid ? store?.getNode(box.sid) : undefined;
     const page = node?.attributes?.goTo;
     return jumpDeck && typeof page === 'string' && page.length > 0 ? page : undefined;
@@ -269,8 +269,8 @@ export function Properties({
    * the background and how many slides a change reaches from the one place that derives them.
    */
   const design = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !current) return undefined;
     const node = store.getNode(current);
     if (node?.stype !== 'slideLayout' && node?.stype !== 'slideMaster') return undefined;
@@ -288,8 +288,8 @@ export function Properties({
    * changed here there is nowhere at all.
    */
   const definition = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !current) return undefined;
     const node = store.getNode(current);
     if (node?.stype !== 'component') return undefined;
@@ -352,7 +352,7 @@ export function Properties({
    * The way to change it is the variable, which is one field for every shape bound to it.
    */
   const sizedByVar = useMemo(() => {
-    const store = (editor as any)?.dataStore;
+    const store = editor?.dataStore;
     if (!store) return false;
     return targets.some((sid) => sizeIsBound(store.getNode(sid)));
   }, [editor, targets, tick]);
@@ -365,14 +365,14 @@ export function Properties({
    * drag the shape.
    */
   const placedByVar = useMemo(() => {
-    const store = (editor as any)?.dataStore;
+    const store = editor?.dataStore;
     if (!store) return false;
     return targets.some((sid) => placeIsBound(store.getNode(sid)));
   }, [editor, targets, tick]);
 
   const placed = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return false;
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
     // A card with a part that **fills** it is one a reader may resize: the drag reaches the card
@@ -386,8 +386,8 @@ export function Properties({
   }, [editor, targets, tick]);
 
   const doc = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     return store && rootId ? { rootId, getNode: (sid: string) => store.getNode(sid) } : undefined;
   }, [editor, tick]);
 
@@ -415,8 +415,8 @@ export function Properties({
    * that do not. Greying it out would be answering a question nobody asked.
    */
   const declares = useMemo(() => {
-    const schema = (editor as any)?.dataStore?.getActiveSchema?.();
-    const store = (editor as any)?.dataStore;
+    const schema = editor?.dataStore?.getActiveSchema?.();
+    const store = editor?.dataStore;
     const types = targets
       .map((sid) => store?.getNode(sid)?.stype)
       .filter((stype: unknown): stype is string => typeof stype === 'string');
@@ -456,8 +456,8 @@ export function Properties({
    * offer a field that does nothing.
    */
   const arranged = targets.some((sid) => {
-    const parent = (editor as any)?.dataStore?.getNode(sid)?.parentId as string | undefined;
-    return !!parent && laysOut((editor as any)?.dataStore?.getNode(parent)?.attributes);
+    const parent = editor?.dataStore?.getNode(sid)?.parentId as string | undefined;
+    return !!parent && laysOut(editor?.dataStore?.getNode(parent)?.attributes);
   });
   const visible = shared('visible') !== false;
 
@@ -483,8 +483,8 @@ export function Properties({
   const [naming, setNaming] = useState(false);
 
   const jumpValue = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !box?.sid) return '';
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
     const jump = jumpOf(doc as never, store.getNode(box.sid));
@@ -499,18 +499,18 @@ export function Properties({
   }, [editor, box, tick]);
 
   const setGeometry = (key: string, value: number) => {
-    void (editor as any)?.executeCommand?.('setBoxGeometry', {
+    void editor?.executeCommand?.('setBoxGeometry', {
       nodeIds: targets,
       [key]: fromDisplay(value, unit)
     });
   };
 
   const setStyle = (patch: Record<string, unknown>) => {
-    void (editor as any)?.executeCommand?.('setBoxStyle', { nodeIds: targets, ...patch });
+    void editor?.executeCommand?.('setBoxStyle', { nodeIds: targets, ...patch });
   };
 
   const setGeometryRaw = (patch: Record<string, unknown>) => {
-    void (editor as any)?.executeCommand?.('setBoxGeometry', { nodeIds: targets, ...patch });
+    void editor?.executeCommand?.('setBoxGeometry', { nodeIds: targets, ...patch });
   };
 
   /**
@@ -552,7 +552,7 @@ export function Properties({
           }
         : {};
 
-    void (editor as any)?.executeCommand?.('cropPicture', {
+    void editor?.executeCommand?.('cropPicture', {
       nodeId: box?.sid,
       ...whole,
       ...NO_CROP
@@ -567,8 +567,8 @@ export function Properties({
    * thing to disagree with it after an undo.
    */
   const transition = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !current) return { effect: 'none' as const, duration: 400 };
     return transitionOf({ rootId, getNode: (sid: string) => store.getNode(sid) }, current);
   }, [editor, current, tick]);
@@ -583,8 +583,8 @@ export function Properties({
    * decision, and this is the control that lets a reader make the second one.
    */
   const themeSwatches = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return [];
 
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
@@ -612,8 +612,8 @@ export function Properties({
    * measurement is in `canvas-variable.ts`.
    */
   const varSwatches = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return [];
 
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
@@ -650,7 +650,7 @@ export function Properties({
    */
   const stacksAgree = (read: (attrs: unknown) => unknown): boolean => {
     if (targets.length < 2) return true;
-    const store = (editor as any)?.dataStore;
+    const store = editor?.dataStore;
     const seen = targets.map((sid) => JSON.stringify(read(store?.getNode(sid)?.attributes)));
     return seen.every((entry) => entry === seen[0]);
   };
@@ -672,8 +672,8 @@ export function Properties({
    * the reader's own now. See `themeMatching`.
    */
   const themeName = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return '';
     const theme = themeFor({ rootId, getNode: (sid: string) => store.getNode(sid) } as never, undefined);
     // Named rather than blank when it matches nothing. A select whose value is
@@ -686,8 +686,8 @@ export function Properties({
 
   /** What the current slide's layout follows, if it follows anything. */
   const masterName = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !here?.layoutId) return undefined;
     const master = masterOf({ rootId, getNode: (sid: string) => store.getNode(sid) }, here.layoutId);
     const name = master?.attributes?.name;
@@ -695,7 +695,7 @@ export function Properties({
   }, [editor, here, tick]);
 
   const setTransition = (patch: { effect: string; duration?: number }) => {
-    void (editor as any)?.executeCommand?.('setSlideTransition', {
+    void editor?.executeCommand?.('setSlideTransition', {
       slideId: current,
       duration: transition.duration,
       ...patch
@@ -703,7 +703,7 @@ export function Properties({
   };
 
   const setLocked = (value: boolean) => {
-    void (editor as any)?.executeCommand?.('setBoxLocked', { nodeIds: targets, locked: value });
+    void editor?.executeCommand?.('setBoxLocked', { nodeIds: targets, locked: value });
   };
 
   /**
@@ -888,7 +888,7 @@ export function Properties({
                   value={plainBool('layoutStretch')}
                   disabled={locked}
                   onChange={(on) =>
-                    void (editor as any)?.executeCommand?.('setBoxLayout', {
+                    void editor?.executeCommand?.('setBoxLayout', {
                       nodeIds: targets,
                       stretch: on
                     })
@@ -904,7 +904,7 @@ export function Properties({
                   step={1}
                   disabled={locked}
                   onCommit={(value) =>
-                    void (editor as any)?.executeCommand?.('setBoxLayout', {
+                    void editor?.executeCommand?.('setBoxLayout', {
                       nodeIds: targets,
                       grow: Math.max(0, value)
                     })
@@ -946,7 +946,7 @@ export function Properties({
                   ]}
                   disabled={locked}
                   onChange={(picked) => {
-                    if (!picked) return void (editor as any)?.executeCommand?.('setBoxJump', { nodeIds: targets, to: null });
+                    if (!picked) return void editor?.executeCommand?.('setBoxJump', { nodeIds: targets, to: null });
                     if (picked === 'deck') {
                       /*
                        * Another document: the two fields below are what it needs, and the command
@@ -956,12 +956,12 @@ export function Properties({
                       return setNaming(true);
                     }
                     if (picked.startsWith('kind:')) {
-                      return void (editor as any)?.executeCommand?.('setBoxJump', {
+                      return void editor?.executeCommand?.('setBoxJump', {
                         nodeIds: targets,
                         kind: picked.slice(5)
                       });
                     }
-                    void (editor as any)?.executeCommand?.('setBoxJump', {
+                    void editor?.executeCommand?.('setBoxJump', {
                       nodeIds: targets,
                       to: picked.slice(5)
                     });
@@ -1000,7 +1000,7 @@ export function Properties({
                     disabled={locked}
                     onChange={(picked) => {
                       if (picked === 'typed') return setNaming(true);
-                      void (editor as any)?.executeCommand?.('setBoxJump', {
+                      void editor?.executeCommand?.('setBoxJump', {
                         nodeIds: targets,
                         deck: picked,
                         to: jumpDeckPage ?? undefined
@@ -1014,7 +1014,7 @@ export function Properties({
                   value={jumpDeck ?? ''}
                   disabled={locked}
                   onCommit={(source) =>
-                    void (editor as any)?.executeCommand?.('setBoxJump', {
+                    void editor?.executeCommand?.('setBoxJump', {
                       nodeIds: targets,
                       deck: source,
                       to: jumpDeckPage ?? undefined
@@ -1027,7 +1027,7 @@ export function Properties({
                   value={jumpDeckPage ?? ''}
                   disabled={locked || !jumpDeck}
                   onCommit={(pageId) =>
-                    void (editor as any)?.executeCommand?.('setBoxJump', {
+                    void editor?.executeCommand?.('setBoxJump', {
                       nodeIds: targets,
                       deck: jumpDeck as string,
                       to: pageId
@@ -1265,7 +1265,7 @@ export function Properties({
               ariaLabel="정의 이름"
               value={design.name}
               onCommit={(name) =>
-                void (editor as any)?.executeCommand?.('setDesign', { nodeId: design.sid, name })
+                void editor?.executeCommand?.('setDesign', { nodeId: design.sid, name })
               }
             />
           </PropertyRow>
@@ -1281,10 +1281,10 @@ export function Properties({
               themeSwatches={themeSwatches}
                       varSwatches={varSwatches}
               onChange={(fill) =>
-                void (editor as any)?.executeCommand?.('setDesign', { nodeId: design.sid, fill })
+                void editor?.executeCommand?.('setDesign', { nodeId: design.sid, fill })
               }
               onClear={() =>
-                void (editor as any)?.executeCommand?.('setDesign', { nodeId: design.sid, fill: null })
+                void editor?.executeCommand?.('setDesign', { nodeId: design.sid, fill: null })
               }
             />
           </PropertyRow>
@@ -1307,7 +1307,7 @@ export function Properties({
                 title="이 레이아웃을 따르는 장들의 상자를 각자의 자리로 옮깁니다"
                 data={{ 'design-apply': design.id }}
                 onClick={() =>
-                  void (editor as any)?.executeCommand?.('applyDesign', { layoutId: design.id })
+                  void editor?.executeCommand?.('applyDesign', { layoutId: design.id })
                 }
               >
                 따르는 장에 적용
@@ -1335,7 +1335,7 @@ export function Properties({
               suffix="W"
               step={stepFor(unit)}
               onCommit={(value) =>
-                void (editor as any)?.executeCommand?.('setComponentSize', {
+                void editor?.executeCommand?.('setComponentSize', {
                   componentId: definition.id,
                   width: Math.round(fromDisplay(value, unit))
                 })
@@ -1347,7 +1347,7 @@ export function Properties({
               suffix="H"
               step={stepFor(unit)}
               onCommit={(value) =>
-                void (editor as any)?.executeCommand?.('setComponentSize', {
+                void editor?.executeCommand?.('setComponentSize', {
                   componentId: definition.id,
                   height: Math.round(fromDisplay(value, unit))
                 })
@@ -1421,7 +1421,7 @@ export function Properties({
                     onChange={(name) => {
                       const chosen = DECK_THEMES.find((entry) => entry.name === name);
                       if (!chosen) return;
-                      void (editor as any)?.executeCommand?.(
+                      void editor?.executeCommand?.(
                         'setDeckTheme',
                         themePayload(chosen)
                       );
@@ -1548,8 +1548,8 @@ function ComponentGroup({
   tick: number;
 }) {
   const { vars, definition } = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return { vars: [], definition: undefined };
     const doc = { rootId, getNode: (one: string) => store.getNode(one) };
     const node = store.getNode(sid);
@@ -1558,7 +1558,7 @@ function ComponentGroup({
   }, [editor, sid, tick]);
 
   const set = (name: string, value: string) =>
-    void (editor as any)?.executeCommand?.('setComponentValue', { nodeId: sid, name, value });
+    void editor?.executeCommand?.('setComponentValue', { nodeId: sid, name, value });
 
   return (
     <PropertyGroup label={definition ? `컴포넌트 · ${definition.name || '이름 없음'}` : '컴포넌트'}>
@@ -1631,7 +1631,7 @@ function ComponentGroup({
           title="이 자리의 상자로 만듭니다 — 더 이상 정의를 따르지 않습니다"
           data={{ 'component-detach': '' }}
           disabled={locked}
-          onClick={() => void (editor as any)?.executeCommand?.('detachComponent', { nodeId: sid })}
+          onClick={() => void editor?.executeCommand?.('detachComponent', { nodeId: sid })}
         >
           분리
         </Button>
@@ -1695,8 +1695,8 @@ function BindGroup({
   tick: number;
 }) {
   const { vars, binds, stype, declares, inCard } = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     const nothing = {
       vars: [] as DocumentVar[],
       binds: [] as VarBind[],
@@ -1735,7 +1735,7 @@ function BindGroup({
   if (vars.length === 0 || inCard) return null;
 
   const bind = (attr: string, name: string | null) =>
-    void (editor as any)?.executeCommand?.('setVarBind', { nodeIds: sids, attr, var: name });
+    void editor?.executeCommand?.('setVarBind', { nodeIds: sids, attr, var: name });
 
   const bound = (attr: string) => binds.find((one) => one.attr === attr)?.var ?? '';
 
@@ -1793,8 +1793,8 @@ function PartGroup({
   tick: number;
 }) {
   const { vars, binds, part, stype, attrs, definition, declares } = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     const nothing = {
       vars: [] as ReturnType<typeof componentsOf>[number]['vars'],
       binds: [] as ReturnType<typeof componentsOf>[number]['binds'],
@@ -1845,7 +1845,7 @@ function PartGroup({
   if (!definition) return null;
 
   const bind = (attr: string, name: string | null) =>
-    void (editor as any)?.executeCommand?.('setComponentBind', {
+    void editor?.executeCommand?.('setComponentBind', {
       componentId: definition,
       part,
       attr,
@@ -1921,7 +1921,7 @@ function PartGroup({
             value={typeof attrs.slot === 'string' && attrs.slot.length > 0}
             disabled={locked}
             onChange={(on) =>
-              void (editor as any)?.executeCommand?.('setComponentSlot', {
+              void editor?.executeCommand?.('setComponentSlot', {
                 nodeId: sid,
                 slot: on ? part ?? 'slot' : null
               })
@@ -2081,8 +2081,8 @@ function MotionTab({
   tick: number;
 }) {
   const steps = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     const name = box.attributes?.name;
     if (!store || !rootId || !current || typeof name !== 'string' || !name) return [];
     return slideTimeline(
@@ -2092,7 +2092,7 @@ function MotionTab({
   }, [editor, current, box, tick]);
 
   const run = (command: string, payload: Record<string, unknown>) =>
-    void (editor as any)?.executeCommand?.(command, payload);
+    void editor?.executeCommand?.(command, payload);
 
   const [gallery, setGallery] = useState(false);
   /** How far apart the shapes of a group start — see `addBoxesMotion`. */
@@ -2106,8 +2106,8 @@ function MotionTab({
    * or eight moving a beat apart. So both are offered, and the reader says which.
    */
   const inside = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return [];
     return boxesInside({ rootId, getNode: (sid: string) => store.getNode(sid) }, box.sid);
   }, [editor, box.sid, tick]);

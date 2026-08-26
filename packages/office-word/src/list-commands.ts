@@ -158,7 +158,7 @@ export class WordListExtension implements Extension {
 
   onCreate(editor: Editor): void {
     const register = (name: string, run: (ed: Editor, selection: ModelSelection) => Promise<boolean>) =>
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name,
         execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
           const selection = payload?.selection ?? ed.selection;
@@ -184,7 +184,7 @@ export class WordListExtension implements Extension {
      * half inch, they are saying where it goes. The commands the buttons and
      * keys run are the ones above.
      */
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'setTabStops',
       execute: async (ed: Editor, payload?: { tabs?: unknown[]; selection?: ModelSelection }) => {
         const selection = payload?.selection ?? ed.selection;
@@ -195,7 +195,7 @@ export class WordListExtension implements Extension {
         this._blocks(ed, payload?.selection ?? ed.selection).length > 0
     });
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'setParagraphIndents',
       execute: async (
         ed: Editor,
@@ -220,8 +220,8 @@ export class WordListExtension implements Extension {
      */
     const track = () => {
       const selection = editor.selection;
-      (editor as any).setContext('inList', this._numbered(editor, selection));
-      (editor as any).setContext('atBlockStart', this._atBlockStart(editor, selection));
+      editor.setContext('inList', this._numbered(editor, selection));
+      editor.setContext('atBlockStart', this._atBlockStart(editor, selection));
     };
     editor.on('editor:selection.model', track);
     editor.on('editor:content.change', track);
@@ -263,8 +263,8 @@ export class WordListExtension implements Extension {
 
   /** The document as the resolvers read it. */
   private _doc(editor: Editor): DocumentAccess {
-    const store: any = (editor as any).dataStore;
-    return { getNode: (id: string) => store?.getNode?.(id), rootId: (editor as any).getRootId?.() };
+    const store: any = editor.dataStore;
+    return { getNode: (id: string) => store?.getNode?.(id), rootId: editor?.getRootId() ?? '' };
   }
 
   /**
@@ -276,7 +276,7 @@ export class WordListExtension implements Extension {
    */
   private _blocks(editor: Editor, selection: ModelSelection | null | undefined): DocumentNode[] {
     const doc = this._doc(editor);
-    const store: any = (editor as any).dataStore;
+    const store: any = editor.dataStore;
     if (!store || !selection || !doc.rootId) return [];
 
     const blockOf = (sid: string): DocumentNode | null => {
@@ -504,7 +504,7 @@ export class WordListExtension implements Extension {
    */
   private async _insertTab(editor: Editor, selection: ModelSelection): Promise<boolean> {
     if (selection.type !== 'range' || selection.collapsed !== true) return false;
-    const store: any = (editor as any).dataStore;
+    const store: any = editor.dataStore;
     const run = store?.getNode?.(selection.startNodeId);
     if (!run || typeof run.text !== 'string' || !run.parentId) return false;
 
@@ -551,10 +551,10 @@ export class WordListExtension implements Extension {
     if (!result.success) return false;
 
     if (before) {
-      const store: any = (editor as any).dataStore;
+      const store: any = editor.dataStore;
       const live = (sid: string | undefined) => !sid || !!store?.getNode?.(sid);
       if (live(before.startNodeId) && live(before.endNodeId)) {
-        (editor as any).updateSelection(before);
+        editor.updateSelection(before);
       }
     }
     return true;

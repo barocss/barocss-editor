@@ -104,7 +104,7 @@ export class WordFrameExtension implements Extension {
   priority = 46;
 
   onCreate(editor: Editor): void {
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'insertFrame',
       execute: async (ed: Editor, payload: InsertFrameOptions & { selection?: unknown } = {}) =>
         await this._insert(ed, payload, (payload as any).selection),
@@ -124,8 +124,8 @@ export class WordFrameExtension implements Extension {
     editor: Editor,
     given?: unknown
   ): { sid: string; parentId: string; at: number } | null {
-    const store = (editor as any).dataStore;
-    const selection: any = given ?? (editor as any).selection;
+    const store = editor.dataStore;
+    const selection: any = given ?? editor.selection;
     if (!store || !selection?.startNodeId) return null;
 
     let node: any = store.getNode(selection.startNodeId);
@@ -144,7 +144,7 @@ export class WordFrameExtension implements Extension {
         parent.stype !== 'paragraph' &&
         parent.stype !== 'heading'
       ) {
-        return { sid: node.sid, parentId: parent.sid, at };
+        return { sid: String(node.sid), parentId: String(parent.sid), at };
       }
       node = parent;
     }

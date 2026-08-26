@@ -41,7 +41,7 @@ export function FileActions({
   const [problem, setProblem] = useState<string>();
 
   const save = () => {
-    const tree = (editor as any)?.exportDocument?.();
+    const tree = editor?.exportDocument();
     if (!tree) return;
 
     /**
@@ -51,8 +51,8 @@ export function FileActions({
      * filename nobody chose. Read here rather than passed in because it is a fact
      * about the document, and the document is what this is writing.
      */
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     const title =
       store && rootId
         ? deckTitle({ rootId, getNode: (sid: string) => store.getNode(sid) })
@@ -78,7 +78,7 @@ export function FileActions({
    * anything.
    */
   const mayReplace = () =>
-    !(editor as any)?.canUndo?.() ||
+    !editor?.canUndo() ||
     window.confirm('저장하지 않은 변경이 사라집니다. 계속할까요?');
 
   const open = async (file: File) => {
@@ -90,7 +90,7 @@ export function FileActions({
     }
     if (!mayReplace()) return;
 
-    (editor as any)?.loadDocument?.(read.document, 'slides');
+    editor?.loadDocument?.(read.document, 'slides');
     onOpened?.();
   };
 
@@ -106,7 +106,7 @@ export function FileActions({
   const create = () => {
     setProblem(undefined);
     if (!mayReplace()) return;
-    (editor as any)?.loadDocument?.(createStarterDeck(), 'slides');
+    editor?.loadDocument?.(createStarterDeck(), 'slides');
     onOpened?.();
   };
 

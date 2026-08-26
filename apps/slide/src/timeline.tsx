@@ -193,8 +193,8 @@ export function TimelinePane({
   const tick = useEditorRevision(editor);
 
   const steps = useMemo<TimedStep[]>(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !slideSid) return [];
     return withTiming(
       slideTimeline({ rootId, getNode: (sid: string) => store.getNode(sid) }, slideSid)
@@ -214,8 +214,8 @@ export function TimelinePane({
    * courtesy the layer list gives, which is a way in rather than a badge.
    */
   const animatingCards = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !slideSid) return [];
 
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
@@ -329,7 +329,7 @@ export function TimelinePane({
   }, [shown]);
 
   const run = (command: string, payload: Record<string, unknown>) =>
-    void (editor as any)?.executeCommand?.(command, payload);
+    void editor?.executeCommand?.(command, payload);
 
   /**
    * The bars a reader has selected, and the one the editor row is about.
@@ -379,8 +379,8 @@ export function TimelinePane({
    * offered because there is nothing to write.
    */
   const watchable = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !slideSid) return [];
 
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
@@ -403,7 +403,7 @@ export function TimelinePane({
    * animate and offering the row would be offering a motion that does nothing.
    */
   const parts = useMemo(() => {
-    const store = (editor as any)?.dataStore;
+    const store = editor?.dataStore;
     const step = shown.find((entry) => entry.sid === (selectedFromApp ?? [])[0]);
     const part = effectDefinition(step?.effect)?.part;
     if (!store || !step?.targetSid || !part) return [];
@@ -422,8 +422,8 @@ export function TimelinePane({
   }, [editor, shown, selectedFromApp, revision, tick]);
 
   const themeSwatches = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return [];
 
     const theme = themeFor({ rootId, getNode: (sid: string) => store.getNode(sid) } as never, undefined);

@@ -18,7 +18,7 @@ describe('putting a box on a slide', () => {
   let slide: string;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
 
   const boxes = () => {
     const surface = store.getNode(slide) as any;
@@ -37,7 +37,7 @@ describe('putting a box on a slide', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
   });
 
   it('starts with nothing on it, so a failure below is the command', () => {
@@ -55,8 +55,8 @@ describe('putting a box on a slide', () => {
    */
   describe('a picture', () => {
     it('refuses to make one with no file', () => {
-      expect((editor as any).canExecuteCommand('insertPicture', { slideId: slide })).toBe(false);
-      expect((editor as any).canExecuteCommand('insertPicture', { slideId: slide, src: '' })).toBe(false);
+      expect(editor.canExecuteCommand('insertPicture', { slideId: slide })).toBe(false);
+      expect(editor.canExecuteCommand('insertPicture', { slideId: slide, src: '' })).toBe(false);
     });
 
     it('places one at the size it is given', async () => {
@@ -91,7 +91,7 @@ describe('putting a box on a slide', () => {
 
     it('undoes', async () => {
       await run('insertPicture', { slideId: slide, src: 'x', width: 100, height: 100 });
-      await (editor as any).undo();
+      await editor.undo();
       expect(boxes()).toHaveLength(0);
     });
   });
@@ -166,7 +166,7 @@ describe('putting a box on a slide', () => {
 
   it('undoes', async () => {
     await run('insertRectangle', { slideId: slide });
-    await (editor as any).undo();
+    await editor.undo();
     expect(boxes()).toHaveLength(0);
   });
 

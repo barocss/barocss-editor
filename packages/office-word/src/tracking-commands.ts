@@ -95,8 +95,8 @@ export class WordTrackingExtension implements Extension {
 
   /** True when this document is collecting changes rather than making them. */
   private _tracking(editor: Editor): boolean {
-    const store: any = (editor as any).dataStore;
-    const root = store?.getNode?.((editor as any).getRootId?.());
+    const store: any = editor.dataStore;
+    const root = store?.getNode?.(editor?.getRootId());
     if (!root) return false;
 
     for (const childId of root.content ?? []) {
@@ -132,7 +132,7 @@ export class WordTrackingExtension implements Extension {
    * describe. Those fall through to the ordinary delete.
    */
   private _runsOf(editor: Editor, selection: ModelSelection): CoveredRun[] | null {
-    const store: any = (editor as any).dataStore;
+    const store: any = editor.dataStore;
     if (!store || selection.type !== 'range') return null;
 
     const ids: string[] =
@@ -168,7 +168,7 @@ export class WordTrackingExtension implements Extension {
    * key looks broken.
    */
   private _backspaceRange(editor: Editor, selection: ModelSelection): ModelSelection | null {
-    const store: any = (editor as any).dataStore;
+    const store: any = editor.dataStore;
     const node = store?.getNode?.(selection.startNodeId);
     if (!node || node.stype !== 'inline-text') return null;
 
@@ -188,7 +188,7 @@ export class WordTrackingExtension implements Extension {
     const original = this._command(editor, name);
     if (!original) return;
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       ...original,
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
         const selection: ModelSelection | undefined = payload?.selection ?? (ed as any).selection;
@@ -248,7 +248,7 @@ export class WordTrackingExtension implements Extension {
     const original = this._command(editor, 'replaceText');
     if (!original) return;
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       ...original,
       execute: async (ed: Editor, payload?: { range?: ModelSelection; text?: string }) => {
         const done = await original.execute(ed, payload);
@@ -293,7 +293,7 @@ export class WordTrackingExtension implements Extension {
   private _recordMerge(editor: Editor, selection: ModelSelection): boolean | null {
     if (selection.startOffset !== 0) return null;
 
-    const store: any = (editor as any).dataStore;
+    const store: any = editor.dataStore;
     const run = store?.getNode?.(selection.startNodeId);
     const block = run?.parentId ? store.getNode(run.parentId) : undefined;
     if (!block?.sid) return null;
@@ -326,7 +326,7 @@ export class WordTrackingExtension implements Extension {
     const original = this._command(editor, name);
     if (!original) return;
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       ...original,
       execute: async (ed: Editor, payload?: any) => {
         if (!this._tracking(ed)) return await original.execute(ed, payload);
@@ -370,7 +370,7 @@ export class WordTrackingExtension implements Extension {
     const paste = this._command(editor, 'paste');
     if (!cut || !paste) return;
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       ...cut,
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
         const selection: ModelSelection | undefined = payload?.selection ?? (ed as any).selection;
@@ -404,7 +404,7 @@ export class WordTrackingExtension implements Extension {
       }
     });
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       ...paste,
       execute: async (ed: Editor, payload?: any) => {
         const pending = this._pendingMove;
@@ -441,13 +441,13 @@ export class WordTrackingExtension implements Extension {
   }
 
   private _textOf(editor: Editor, run: CoveredRun): string {
-    const node = (editor as any).dataStore?.getNode?.(run.sid);
+    const node = editor.dataStore?.getNode?.(run.sid);
     return String(node?.text ?? '').slice(run.start, run.end);
   }
 
   /** Put the caret where the deleted text would have left it. */
   private _moveCaret(editor: Editor, sid: string, offset: number): void {
-    (editor as any).updateSelection({
+    editor.updateSelection({
       type: 'range',
       startNodeId: sid,
       startOffset: offset,

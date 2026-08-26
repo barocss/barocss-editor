@@ -120,9 +120,9 @@ export function Ribbon({
    * most of the time nothing is asking, and this walks the deck's resources.
    */
   const inherited = (model: { markType: string }): string | number | undefined => {
-    const store = (editor as any).dataStore;
-    const rootId = (editor as any).getRootId?.();
-    const at = (editor as any).selection?.startNodeId as string | undefined;
+    const store = editor.dataStore;
+    const rootId = editor?.getRootId();
+    const at = editor?.selection?.startNodeId as string | undefined;
     if (!store || !rootId || !at) return undefined;
 
     const format = resolveDeckFormat(
@@ -276,7 +276,7 @@ export function Ribbon({
     // the command cannot answer that without a file. Whether there is a slide is
     // the whole of what it can be asked before one is chosen.
     if (control.needsFile) return !!current;
-    const can = (editor as any).canExecuteCommand?.(control.command, payloadFor(control));
+    const can = editor?.canExecuteCommand(control.command, payloadFor(control));
     return can !== false;
   };
 
@@ -324,7 +324,7 @@ export function Ribbon({
       onChange={(id) => {
         const chosen = model.options.find((option) => String(option.value) === id);
         if (!chosen) return;
-        void (editor as any).executeCommand?.(model.command, { [model.key]: chosen.value });
+        void editor?.executeCommand(model.command, { [model.key]: chosen.value });
       }}
     />
     );
@@ -348,15 +348,15 @@ export function Ribbon({
       swatches={model.swatches}
       disabled={
         !summary ||
-        (editor as any).canExecuteCommand?.(model.command, {
+        editor?.canExecuteCommand(model.command, {
           [model.key]: model.swatches[0].value
         }) === false
       }
       clearLabel={model.clearCommand ? '없음' : undefined}
       onPick={(value) =>
-        void (editor as any).executeCommand?.(model.command, { [model.key]: value })
+        void editor?.executeCommand(model.command, { [model.key]: value })
       }
-      onClear={() => void (editor as any).executeCommand?.(model.clearCommand!)}
+      onClear={() => void editor?.executeCommand(model.clearCommand!)}
     />
   );
 
@@ -416,7 +416,7 @@ export function Ribbon({
                           : 'image/*';
                     pickPicture(
                       (payload) =>
-                        void (editor as any).executeCommand?.(control.command, {
+                        void editor?.executeCommand(control.command, {
                           ...payloadFor(control),
                           ...payload
                         }),
@@ -424,7 +424,7 @@ export function Ribbon({
                     );
                     return;
                   }
-                  void (editor as any).executeCommand?.(control.command, payloadFor(control));
+                  void editor?.executeCommand(control.command, payloadFor(control));
                 }}
               >
                 <Icon name={control.icon} />

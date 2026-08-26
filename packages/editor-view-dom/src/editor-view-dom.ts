@@ -593,7 +593,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     if (!sel.anchorNode || !this.contentEditableElement.contains(sel.anchorNode)) return false;
     if (sel.focusNode && !this.contentEditableElement.contains(sel.focusNode)) return false;
 
-    const dataStore = (this.editor as any).dataStore;
+    const dataStore = this.editor.dataStore;
     if (!dataStore?.getNode) return false;
 
     const checkNode = (node: Node | null): boolean => {
@@ -657,8 +657,8 @@ export class EditorViewDOM implements IEditorViewDOM {
     const host = anchor?.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element | null);
     if (host?.closest('[contenteditable="false"]')) return false;
 
-    const selection = (this.editor as any).selection;
-    const dataStore = (this.editor as any).dataStore;
+    const selection = this.editor.selection;
+    const dataStore = this.editor.dataStore;
     if (!selection?.startNodeId || !dataStore?.getNode) return false;
 
     const isText = (sid: string | undefined): boolean => {
@@ -954,7 +954,7 @@ export class EditorViewDOM implements IEditorViewDOM {
        * the whole time a shape is selected, because the shape is selected
        * through an overlay drawn on top of the editor.
        */
-      const model = (this.editor as any).selection;
+      const model = this.editor.selection;
       if (holdsAgainstTheCaret(model?.type) && this._nodeSelectionHoldsUntilGesture) {
         return;
       }
@@ -1716,7 +1716,7 @@ export class EditorViewDOM implements IEditorViewDOM {
          * nothing is written back — and that is what lets it redraw itself on a content change with
          * the caret intact, the same way the main view has always done.
          */
-        const rootId = this._viewRootId ?? this.editor.getRootId?.();
+        const rootId = this._viewRootId ?? this.editor?.getRootId();
         const drawnRoot = (this._lastRenderedModelData as { sid?: string } | null)?.sid;
         /**
          * Only a tree the **editor** gave can go stale this way, and only when the
@@ -1739,7 +1739,7 @@ export class EditorViewDOM implements IEditorViewDOM {
          * A proxy is lazy, so asking again costs one object.
          */
         if (this._viewRootId) {
-          const fresh = this.editor.getDocumentProxy?.(this._viewRootId);
+          const fresh = this.editor?.getDocumentProxy(this._viewRootId);
           if (fresh) {
             modelData = fresh as ModelData;
             this._lastRenderedFromEditor = true;
@@ -1749,7 +1749,7 @@ export class EditorViewDOM implements IEditorViewDOM {
         } else if (this._lastRenderedModelData && !replaced) {
           modelData = this._lastRenderedModelData;
         } else {
-          const exported = this.editor.getDocumentProxy?.(this._viewRootId);
+          const exported = this.editor?.getDocumentProxy(this._viewRootId);
           if (exported) {
             modelData = exported as ModelData;
             this._lastRenderedFromEditor = true;
@@ -2063,7 +2063,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       const sel = window.getSelection();
       const hasSelection = !!sel && sel.rangeCount > 0;
       if (!hasSelection) {
-        const current = (this.editor as any).selection;
+        const current = this.editor.selection;
         if (current) {
           this._pendingModelSelection = current;
           this.applyModelSelectionWithRetry();

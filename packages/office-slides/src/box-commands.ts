@@ -69,7 +69,7 @@ export class SlidesBoxExtension implements Extension {
 
   onCreate(editor: Editor): void {
     const shape = (command: string, stype: string) => {
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name: command,
         execute: async (_ed: Editor, payload?: any) => await this._insert(editor, stype, payload),
         canExecute: () => !!this._slideFor(editor, undefined)
@@ -111,7 +111,7 @@ export class SlidesBoxExtension implements Extension {
      * photograph expects. The app measures the image and passes its proportions;
      * without them the picture takes the default box like any other shape.
      */
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'insertPicture',
       execute: async (_ed: Editor, payload?: any) =>
         await this._insert(editor, 'picture', {
@@ -139,7 +139,7 @@ export class SlidesBoxExtension implements Extension {
      * letterboxed on a projector in front of an audience.
      */
     const media = (name: string, stype: string, extra: (payload: any) => Record<string, unknown>) => {
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name,
         execute: async (_ed: Editor, payload?: any) =>
           await this._insert(editor, stype, {
@@ -161,7 +161,7 @@ export class SlidesBoxExtension implements Extension {
       execute: (payload?: any) => Promise<boolean>,
       atLeast = 1
     ) => {
-      (editor as any).registerCommand({
+      editor.registerCommand({
         name,
         execute: async (_ed: Editor, payload?: any) => await execute(payload),
         canExecute: () => this._selected(editor).length >= atLeast
@@ -220,7 +220,7 @@ export class SlidesBoxExtension implements Extension {
     const doc = this._access(editor);
     if (!doc) return [];
 
-    const ids = new Set(selectedNodeIds((editor as any).selection));
+    const ids = new Set(selectedNodeIds(editor.selection));
     if (ids.size === 0) return [];
 
     const slide = this._containerOf(doc, [...ids][0]);
@@ -267,7 +267,7 @@ export class SlidesBoxExtension implements Extension {
 
     // Nothing is selected once it is gone. Leaving the ids selected would leave
     // the panel and the handles pointing at nodes the document no longer has.
-    (editor as any).setNode?.(null);
+    editor?.setNode(null);
     return true;
   }
 
@@ -289,7 +289,7 @@ export class SlidesBoxExtension implements Extension {
      * first. `copyForPaste` makes the references inside the copy local to it and
      * `pastable` resolves them to sids this names itself — one transaction, one undo.
      */
-    const store = (editor as any).dataStore;
+    const store = editor.dataStore;
     const copies = pastable(
       copyForPaste(doc, chosen.map((entry) => entry.sid)),
       () => store.generateId()
@@ -312,7 +312,7 @@ export class SlidesBoxExtension implements Extension {
     const surface: any = doc.getNode(slide);
     const children: string[] = Array.isArray(surface?.content) ? surface.content : [];
     const made = children.slice(-steps.length);
-    if (made.length > 0) (editor as any).setNode?.({ nodeIds: made });
+    if (made.length > 0) editor?.setNode({ nodeIds: made });
 
     return true;
   }
@@ -333,8 +333,8 @@ export class SlidesBoxExtension implements Extension {
   }
 
   private _access(editor: Editor): DeckAccess | null {
-    const store = (editor as any).dataStore;
-    const rootId = (editor as any).getRootId?.();
+    const store = editor.dataStore;
+    const rootId = editor?.getRootId();
     if (!store || !rootId) return null;
     return { rootId, getNode: (sid: string) => store.getNode(sid) };
   }
@@ -421,7 +421,7 @@ export class SlidesBoxExtension implements Extension {
     const children = Array.isArray(slide?.content) ? (slide!.content as string[]) : [];
     const made = children[children.length - 1];
     if (made && isSceneType(doc.getNode(made)?.stype)) {
-      (editor as any).setNode?.({ nodeIds: [made] });
+      editor?.setNode({ nodeIds: [made] });
     }
 
     return true;

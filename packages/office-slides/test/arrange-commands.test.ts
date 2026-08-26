@@ -19,9 +19,9 @@ describe('arranging what is on a slide', () => {
   let slide: string;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const can = (command: string, payload?: unknown) =>
-    (editor as any).canExecuteCommand?.(command, payload);
+    editor?.canExecuteCommand(command, payload);
 
   /** The slide's children, by the name each box was given. */
   const order = () =>
@@ -36,7 +36,7 @@ describe('arranging what is on a slide', () => {
     return { sid, x, y, width, height };
   };
   const select = (names: string[]) =>
-    (editor as any).setNode({ nodeIds: names.map((name) => boxOf(name).sid) });
+    editor.setNode({ nodeIds: names.map((name) => boxOf(name).sid) });
 
   beforeEach(() => {
     const schema = createSchema('slides', getSlidesSchemaDefinition());
@@ -60,7 +60,7 @@ describe('arranging what is on a slide', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
   });
 
   it('starts in the order the document holds', () => {
@@ -104,7 +104,7 @@ describe('arranging what is on a slide', () => {
     it('undoes as one thing', async () => {
       select(['a', 'b']);
       await run('bringToFront');
-      await (editor as any).undo();
+      await editor.undo();
       expect(order()).toEqual(['a', 'b', 'c']);
     });
   });
@@ -137,7 +137,7 @@ describe('arranging what is on a slide', () => {
       await run('alignBoxesTop');
       expect([boxOf('a').y, boxOf('b').y, boxOf('c').y]).toEqual([50, 50, 50]);
 
-      await (editor as any).undo();
+      await editor.undo();
       expect([boxOf('a').y, boxOf('b').y, boxOf('c').y]).toEqual([100, 300, 50]);
     });
 
@@ -167,7 +167,7 @@ describe('arranging what is on a slide', () => {
   });
 
   it('leaves a locked box out of all of it', async () => {
-    await (editor as any).executeCommand('setBoxGeometry', {
+    await editor.executeCommand('setBoxGeometry', {
       nodeId: boxOf('a').sid,
       x: 100
     });
@@ -221,11 +221,11 @@ describe('moving boxes to a place in the order', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
   });
 
   it('puts one shape where it was dropped', async () => {
-    expect(await (editor as any).executeCommand('moveBoxTo', { nodeId: sidOf('d'), position: 1 })).toBe(true);
+    expect(await editor.executeCommand('moveBoxTo', { nodeId: sidOf('d'), position: 1 })).toBe(true);
     expect(order()).toEqual(['a', 'd', 'b', 'c']);
   });
 
@@ -239,7 +239,7 @@ describe('moving boxes to a place in the order', () => {
    */
   it('moves several together, keeping the order they had between them', async () => {
     expect(
-      await (editor as any).executeCommand('moveBoxTo', {
+      await editor.executeCommand('moveBoxTo', {
         nodeIds: [sidOf('a'), sidOf('b')],
         position: 2
       })
@@ -249,7 +249,7 @@ describe('moving boxes to a place in the order', () => {
 
   it('does not reverse them when they are named backwards', async () => {
     // Their order between them is the document's, not the order a reader shift-clicked in.
-    await (editor as any).executeCommand('moveBoxTo', {
+    await editor.executeCommand('moveBoxTo', {
       nodeIds: [sidOf('c'), sidOf('a')],
       position: 0
     });
@@ -259,9 +259,9 @@ describe('moving boxes to a place in the order', () => {
   it('refuses a drop that changes nothing', async () => {
     // A drag that lands where it started should leave no entry for a reader to undo into
     // nothing.
-    expect(await (editor as any).executeCommand('moveBoxTo', { nodeId: sidOf('b'), position: 1 })).toBe(false);
+    expect(await editor.executeCommand('moveBoxTo', { nodeId: sidOf('b'), position: 1 })).toBe(false);
     expect(
-      await (editor as any).executeCommand('moveBoxTo', {
+      await editor.executeCommand('moveBoxTo', {
         nodeIds: [sidOf('a'), sidOf('b')],
         position: 0
       })
@@ -269,10 +269,10 @@ describe('moving boxes to a place in the order', () => {
   });
 
   it('refuses shapes that are not siblings, because a place in an order is among siblings', async () => {
-    const other = ((store.getNode((editor as any).getRootId()) as any).content as string[])[0];
+    const other = ((store.getNode(editor.getRootId()) as any).content as string[])[0];
     void other;
     expect(
-      await (editor as any).executeCommand('moveBoxTo', {
+      await editor.executeCommand('moveBoxTo', {
         nodeIds: [sidOf('a'), slide],
         position: 1
       })
@@ -280,11 +280,11 @@ describe('moving boxes to a place in the order', () => {
   });
 
   it('is one entry in the history, however many moved', async () => {
-    await (editor as any).executeCommand('moveBoxTo', {
+    await editor.executeCommand('moveBoxTo', {
       nodeIds: [sidOf('a'), sidOf('b')],
       position: 2
     });
-    await (editor as any).executeCommand('historyUndo');
+    await editor.executeCommand('historyUndo');
     expect(order()).toEqual(['a', 'b', 'c', 'd']);
   });
 });
@@ -304,7 +304,7 @@ describe('tidying a diagram', () => {
   let slide: string;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const sidOf = (name: string) =>
     ((store.getNode(slide) as any).content as string[]).find(
       (id) => (store.getNode(id) as any).attributes.name === name
@@ -327,7 +327,7 @@ describe('tidying a diagram', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
   };
 
   const shape = (name: string, x: number, y: number) => ({
@@ -344,7 +344,7 @@ describe('tidying a diagram', () => {
    * edges. Which is exactly what it did.
    */
   const join = async (from: string, to: string) => {
-    await (editor as any).executeCommand('insertConnector', {
+    await editor.executeCommand('insertConnector', {
       startNodeId: sidOf(from),
       endNodeId: sidOf(to)
     });
@@ -406,7 +406,7 @@ describe('tidying a diagram', () => {
       const node = store.getNode(sid) as any;
       return node?.stype === 'connector' && node.attributes?.endNodeId === sidOf('b');
     })!;
-    await (editor as any).executeCommand('setConnector', {
+    await editor.executeCommand('setConnector', {
       nodeIds: [bent],
       waypoints: [{ x: 5000, y: 3000 }],
       bend: 600
@@ -437,7 +437,7 @@ describe('tidying a diagram', () => {
 
   it('cannot be run when there is nothing joined', async () => {
     load([shape('a', 1000, 1000), shape('b', 5000, 5000)]);
-    expect((editor as any).canExecuteCommand?.('arrangeGraph')).toBe(false);
+    expect(editor?.canExecuteCommand('arrangeGraph')).toBe(false);
     expect(await run('arrangeGraph')).toBe(false);
   });
 
@@ -495,7 +495,7 @@ describe('tidying a diagram', () => {
     await join('a', 'b');
     await join('x', 'y');
 
-    (editor as any).setNode({ nodeIds: [sidOf('a'), sidOf('b')] });
+    editor.setNode({ nodeIds: [sidOf('a'), sidOf('b')] });
     await run('arrangeGraph');
 
     expect(at('a').x).toBe(at('b').x);
@@ -516,7 +516,7 @@ describe('tidying a diagram', () => {
     const line = ((store.getNode(slide) as any).content as string[]).find(
       (sid) => (store.getNode(sid) as any)?.stype === 'connector'
     )!;
-    await (editor as any).executeCommand('setConnector', {
+    await editor.executeCommand('setConnector', {
       nodeIds: [line],
       label: '검토가 필요한 경우'
     });

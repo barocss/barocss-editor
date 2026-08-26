@@ -90,15 +90,15 @@ export function Presenter({
    * button that is no longer there.
    */
   const pressables = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !current) return [];
     return pressablesOn({ rootId, getNode: (sid: string) => store.getNode(sid) } as never, current);
   }, [editor, current, revision]);
 
   const notes = (() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !current) return [];
     return noteTextOf({ rootId, getNode: (sid: string) => store.getNode(sid) }, current);
   })();

@@ -7,8 +7,8 @@ import { join } from 'node:path';
  *
  * ## What was measured
  *
- * `(editor as any).executeCommand?.(…)` and its cousins appear **942 times across the repository**,
- * in 152 files, and every one of them casts away a type that is already correct. `Editor` declares
+ * `(editor as any).executeCommand?.(…)` and its cousins appeared **942 times across the repository**,
+ * in 152 files, and every one of them cast away a type that is already correct. `Editor` declares
  * `executeCommand`, `canExecuteCommand`, `commandNames`, `dataStore`, `getRootId`, `selection` and
  * `registerCommand` as public members, and a file that calls all seven **without** a cast typechecks
  * unchanged — measured, not assumed. There was never a reason; the idiom copied itself.
@@ -25,10 +25,28 @@ import { join } from 'node:path';
  *
  * ## The ratchet
  *
- * 942 is not a sitting's work and does not have to be. A ratchet is what this repository uses for a
- * count being worked off, and it fails in **both** directions: up means a new cast was written, and
- * down means the number here has become a lie about how much is left, and should be lowered in the
- * same commit that earned it.
+ * 942 was not a sitting's work; 599 of them turned out to be. A ratchet is what this repository uses
+ * for a count being worked off, and it fails in **both** directions: up means a new cast was
+ * written, and down means the number here has become a lie about how much is left and should be
+ * lowered in the same commit that earned it. It has now been lowered once, which is the only way a
+ * ratchet is supposed to move.
+ *
+ * ## What the compiler found the moment it was switched back on
+ *
+ * Not style. Four latent faults, in code that has shipped:
+ *
+ * - **`currentNode.text.length` on a node with no text** (`move-selection.ts`). Guarded by a boolean
+ *   that TypeScript cannot narrow through, so the guard was the only thing between this and a crash
+ *   and nothing said so.
+ * - **`?.` on the wrong thing, nineteen times** (`apps/slide`). `editor.executeCommand?.()` guards a
+ *   method that always exists; `editor` is the part that can be null, and it was bare.
+ * - **A `ModelSelection` with no `type`** handed to `toggleMark` (`input-handler.ts`) — a range in
+ *   every sense except the one nobody had to write down.
+ * - **A command returning a string** (`revision-commands.ts`). `_move` answers *which* revision it
+ *   landed on and a command answers *whether it ran*; a string is truthy, so it worked and told
+ *   every caller checking `=== true` that it had not.
+ * - and **`getRootId()` is `string | undefined`** — a document that is not loaded has no root, at
+ *   six sites that assumed one.
  */
 describe('the editor is a type, not an escape hatch', () => {
   /** What the casts reach for. Beside the count, so the claim can be re-checked rather than believed. */
@@ -46,7 +64,7 @@ describe('the editor is a type, not an escape hatch', () => {
    * Occurrences, not lines — `grep -c` says 940 because some lines carry two, and the honest unit
    * for "how many places is the compiler switched off" is the cast.
    */
-  const ALLOWED = 942;
+  const ALLOWED = 343;
 
   it('declares everything the casts are casting away', () => {
     const source = readFileSync(join(__dirname, '..', 'src', 'editor.ts'), 'utf8');

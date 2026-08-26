@@ -36,7 +36,7 @@ describe('a definition from another deck', () => {
   const kit = () => accessOfTree(createSampleDeck() as never);
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
 
   beforeEach(() => {
     const schema = createSchema('slides', getSlidesSchemaDefinition());
@@ -77,7 +77,7 @@ describe('a definition from another deck', () => {
     expect(card.parts).toHaveLength(5);
     expect(componentSourceOf(doc, card)).toMatchObject({ deck: 'brand-kit', id: 'metric-card' });
 
-    await (editor as any).undo();
+    await editor.undo();
     // The library was made by the import, so one press takes back "I brought a card in" rather
     // than leaving an empty container behind.
     expect(componentsOf(doc)).toEqual([]);
@@ -165,7 +165,7 @@ describe('a definition from another deck', () => {
 
   it('refuses a definition the other deck does not have', () => {
     expect(
-      (editor as any).canExecuteCommand('importComponent', {
+      editor.canExecuteCommand('importComponent', {
         deck: 'brand-kit',
         componentId: 'nope',
         source: createSampleDeck()

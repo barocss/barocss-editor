@@ -91,7 +91,7 @@ export function installCellSelection(
 
   /** Paint what the model says is selected, and unpaint the rest. */
   const paint = (): void => {
-    const selection: any = (editor as any).selection;
+    const selection: any = editor.selection;
     const cells = new Set(selection?.type === 'cell' ? selectedNodeIds(selection) : []);
     const tables = new Set(selection?.type === 'table' ? selectedNodeIds(selection) : []);
 
@@ -273,7 +273,7 @@ export function installCellSelection(
      * the one a previous drag started in.
      */
     if (event.shiftKey && here) {
-      const caret: any = (editor as any).selection;
+      const caret: any = editor.selection;
       const from =
         caret?.type === 'cell'
           ? cellOf(selectedNodeIds(caret)[0])
@@ -292,7 +292,7 @@ export function installCellSelection(
     // A press anywhere ends the previous selection of cells or of a table: the
     // reader is putting the caret somewhere, and a highlight left behind would be
     // a selection the commands still act on while the caret is elsewhere.
-    const kind = (editor as any).selection?.type;
+    const kind = editor.selection?.type;
     if (kind === 'cell' || kind === 'table') {
       editor.updateSelection(null as never);
       paint();
@@ -354,8 +354,8 @@ export function installCellSelection(
    * — so this is only the drawing catching up.
    */
   const onChange = () => paint();
-  (editor as any).on?.('editor:content.change', onChange);
-  (editor as any).on?.('editor:selection.model', onChange);
+  editor?.on('editor:content.change', onChange);
+  editor?.on('editor:selection.model', onChange);
 
   return {
     destroy() {
@@ -363,8 +363,8 @@ export function installCellSelection(
       container.removeEventListener('pointermove', onPointerMove, true);
       container.removeEventListener('pointerleave', hideHandle);
       window.removeEventListener('pointerup', onPointerUp, true);
-      (editor as any).off?.('editor:content.change', onChange);
-      (editor as any).off?.('editor:selection.model', onChange);
+      editor?.off('editor:content.change', onChange);
+      editor?.off('editor:selection.model', onChange);
       handle.remove();
     }
   };

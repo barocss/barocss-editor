@@ -41,7 +41,7 @@ export class CanvasLayoutExtension implements Extension {
   private _applying = false;
 
   onCreate(editor: Editor): void {
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'setFrameLayout',
       execute: async (_ed: Editor, payload?: any) => await this._set(editor, payload),
       canExecute: (_ed: Editor, payload?: any) => {
@@ -51,7 +51,7 @@ export class CanvasLayoutExtension implements Extension {
       }
     });
 
-    (editor as any).registerCommand({
+    editor.registerCommand({
       name: 'setBoxLayout',
       execute: async (_ed: Editor, payload?: any) => await this._setBox(editor, payload),
       canExecute: (_ed: Editor, payload?: any) => {
@@ -88,14 +88,14 @@ export class CanvasLayoutExtension implements Extension {
      * changed and not what in it, and asking every frame costs one comparison
      * each against sizes already in memory.
      */
-    (editor as any).on?.('editor:content.change', () => {
+    editor?.on('editor:content.change', () => {
       void this._applyAll(editor);
     });
   }
 
   private _access(editor: Editor): CanvasAccess | null {
-    const store = (editor as any).dataStore;
-    const rootId = (editor as any).getRootId?.();
+    const store = editor.dataStore;
+    const rootId = editor?.getRootId();
     if (!store || !rootId) return null;
     return { rootId, getNode: (sid: string) => store.getNode(sid) };
   }

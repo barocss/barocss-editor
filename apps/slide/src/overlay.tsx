@@ -440,11 +440,11 @@ export function SelectionOverlay({
     settleRef.current();
   }, [slideSid]);
 
-  const store = (editor as any)?.dataStore;
+  const store = editor?.dataStore;
   const doc = useMemo(
     () =>
-      store && (editor as any)?.getRootId?.()
-        ? { rootId: (editor as any).getRootId(), getNode: (sid: string) => store.getNode(sid) }
+      store && editor?.getRootId?.()
+        ? { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) }
         : null,
     [store, editor, tick, revision]
   );
@@ -575,7 +575,7 @@ export function SelectionOverlay({
   );
 
   const selected = useMemo(() => {
-    const ids = new Set(selectedNodeIds((editor as any)?.selection));
+    const ids = new Set(selectedNodeIds(editor?.selection));
     return boxes.filter((entry) => ids.has(entry.sid));
   }, [editor, boxes, tick]);
 
@@ -589,7 +589,7 @@ export function SelectionOverlay({
    * every press aimed at an end, which is how this was found.
    */
   const onlyConnector = useMemo(() => {
-    const ids = selectedNodeIds((editor as any)?.selection);
+    const ids = selectedNodeIds(editor?.selection);
     return ids.length === 1 && doc?.getNode(ids[0])?.stype === 'connector';
   }, [editor, doc, tick]);
 
@@ -611,7 +611,7 @@ export function SelectionOverlay({
    * what is inside it.
    */
   const onlyPlacement = useMemo(() => {
-    const ids = selectedNodeIds((editor as any)?.selection);
+    const ids = selectedNodeIds(editor?.selection);
     if (ids.length !== 1 || !doc) return false;
     const node = doc.getNode(ids[0]);
     if (node?.stype !== 'instance') return false;
@@ -635,14 +635,14 @@ export function SelectionOverlay({
    * Every selected box, because a drag resizes all of them: one that cannot is enough to refuse.
    */
   const sizedByVar = useMemo(() => {
-    const ids = selectedNodeIds((editor as any)?.selection);
+    const ids = selectedNodeIds(editor?.selection);
     if (ids.length === 0 || !doc) return false;
     return ids.some((sid) => sizeIsBound(doc.getNode(sid) as never));
   }, [editor, doc, tick]);
 
   /** And the turn, which takes the rotate grip away for the same reason. */
   const turnedByVar = useMemo(() => {
-    const ids = selectedNodeIds((editor as any)?.selection);
+    const ids = selectedNodeIds(editor?.selection);
     if (ids.length === 0 || !doc) return false;
     return ids.some((sid) => turnIsBound(doc.getNode(sid) as never));
   }, [editor, doc, tick]);
@@ -692,7 +692,7 @@ export function SelectionOverlay({
 
   const writeGuides = useCallback(
     (next: Guide[]) => {
-      void (editor as any)?.executeCommand?.('setSlideGuides', { guides: next, slideId: slideSid });
+      void editor?.executeCommand?.('setSlideGuides', { guides: next, slideId: slideSid });
     },
     [editor, slideSid]
   );
@@ -794,7 +794,7 @@ export function SelectionOverlay({
 
   const select = useCallback(
     (ids: string[]) => {
-      (editor as any)?.executeCommand?.('setNode', { nodeIds: ids });
+      editor?.executeCommand?.('setNode', { nodeIds: ids });
     },
     [editor]
   );
@@ -955,7 +955,7 @@ export function SelectionOverlay({
     const move = (pointer: PointerEvent) => {
       const at = toModel(pointer);
       const next = movePoint(points, index, { x: at.x - origin.x, y: at.y - origin.y });
-      void (editor as any).executeCommand?.('setMotionStep', { stepId: stepSid, path: next });
+      void editor?.executeCommand('setMotionStep', { stepId: stepSid, path: next });
     };
 
     const up = () => {
@@ -978,7 +978,7 @@ export function SelectionOverlay({
     const { stepSid, points, origin } = pathEdit;
     if (points.length >= 64) return false;
 
-    void (editor as any).executeCommand?.('setMotionStep', {
+    void editor?.executeCommand('setMotionStep', {
       stepId: stepSid,
       path: [...points, { x: Math.round(at.x - origin.x), y: Math.round(at.y - origin.y) }]
     });
@@ -987,7 +987,7 @@ export function SelectionOverlay({
 
   const editPath = (next: PathPoint[]) => {
     if (!pathEdit) return;
-    void (editor as any).executeCommand?.('setMotionStep', {
+    void editor?.executeCommand('setMotionStep', {
       stepId: pathEdit.stepSid,
       path: next
     });
@@ -1007,7 +1007,7 @@ export function SelectionOverlay({
     const paints = paintsOf(doc?.getNode(entry.sid)?.attributes as never);
     const paint = paints[paintEdit];
     if (!paint) return;
-    void (editor as any).executeCommand?.('setBoxStyle', {
+    void editor?.executeCommand('setBoxStyle', {
       nodeId: entry.sid,
       fills: paints.map((one, index) => (index === paintEdit ? { ...paint, stops: next } : one)),
       // The flat attributes this list supersedes, cleared with it.
@@ -1065,7 +1065,7 @@ export function SelectionOverlay({
 
     const write = (next: typeof paint) => {
       const list = paints.map((one, index) => (index === paintEdit ? next : one));
-      void (editor as any).executeCommand?.('setBoxStyle', {
+      void editor?.executeCommand('setBoxStyle', {
         nodeId: entry.sid,
         fills: list,
         // The flat attributes this list supersedes, cleared with it — the same
@@ -1261,7 +1261,7 @@ export function SelectionOverlay({
         event.preventDefault();
         (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
       }
-      const selection = selectedNodeIds((editor as any).selection);
+      const selection = selectedNodeIds(editor.selection);
       setRouting({
         connector: selection[0],
         index: Number(grabbed.connWp ?? -1),
@@ -1280,14 +1280,14 @@ export function SelectionOverlay({
        */
       event.preventDefault();
       (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
-      const selection = selectedNodeIds((editor as any).selection);
+      const selection = selectedNodeIds(editor.selection);
       setConnecting({ from: '', side: 'auto', at: point, connector: selection[0] });
       return;
     }
     if (grabbed.magnet || grabbed.connEnd) {
       event.preventDefault();
       (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
-      const selection = selectedNodeIds((editor as any).selection);
+      const selection = selectedNodeIds(editor.selection);
       if (grabbed.magnet) {
         setConnecting({
           from: selection[0],
@@ -1375,7 +1375,7 @@ export function SelectionOverlay({
     event.preventDefault();
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
 
-    const current = selectedNodeIds((editor as any).selection);
+    const current = selectedNodeIds(editor.selection);
     const next = event.shiftKey
       ? current.includes(hit.sid)
         ? current.filter((sid) => sid !== hit.sid)
@@ -1644,7 +1644,7 @@ export function SelectionOverlay({
       if (was && Math.hypot(local.x - was.x, local.y - was.y) < 30) return;
 
       const moved = placed.map((point, index) => (index === held.index ? local : point));
-      void (editor as any).executeCommand?.('setConnector', {
+      void editor?.executeCommand('setConnector', {
         nodeIds: [held.connector],
         waypoints: moved
       });
@@ -1657,7 +1657,7 @@ export function SelectionOverlay({
     const before = placed.filter((point) => along(point) <= dropped).length;
     const next = [...placed.slice(0, before), local, ...placed.slice(before)];
 
-    void (editor as any).executeCommand?.('setConnector', {
+    void editor?.executeCommand('setConnector', {
       nodeIds: [held.connector],
       waypoints: next
     });
@@ -1729,7 +1729,7 @@ export function SelectionOverlay({
     if (held.connector && !held.end) {
       const spec = connectorSpecOf(doc?.getNode(held.connector) as never);
       const route = connectorRouteOf(doc as never, held.connector);
-      void (editor as any).executeCommand?.('setConnector', {
+      void editor?.executeCommand('setConnector', {
         nodeIds: [held.connector],
         bend: bendFromDrag(
           route,
@@ -1749,7 +1749,7 @@ export function SelectionOverlay({
       // Moving an end of a line that already exists. `null` releases the hold, which
       // has to be possible or a line is stuck to a shape until it is deleted — and
       // `null` for the fraction is what takes an end *off* another line.
-      void (editor as any).executeCommand?.('setConnector', {
+      void editor?.executeCommand('setConnector', {
         nodeIds: [held.connector],
         [`${held.end}NodeId`]: ontoLine ? ontoLine.sid : onto ? onto.sid : null,
         [`${held.end}Side`]: magnet ?? 'auto',
@@ -1774,7 +1774,7 @@ export function SelectionOverlay({
      * dragging an existing end **off** the shape it holds.
      */
     if (!onto && !ontoLine) {
-      void (editor as any).executeCommand?.('insertConnectedShape', {
+      void editor?.executeCommand('insertConnectedShape', {
         fromNodeId: held.from,
         fromSide: held.side,
         x: at.x - origin.x,
@@ -1783,7 +1783,7 @@ export function SelectionOverlay({
       return;
     }
 
-    void (editor as any).executeCommand?.('insertConnector', {
+    void editor?.executeCommand('insertConnector', {
       startNodeId: held.from,
       startSide: held.side,
       ...(ontoLine
@@ -1898,7 +1898,7 @@ export function SelectionOverlay({
       const box = marqueeBox(marquee);
       const caught = boxes.filter((entry) => intersects(box, entry.box)).map((entry) => entry.sid);
       if (caught.length > 0) {
-        const current = event.shiftKey ? selectedNodeIds((editor as any).selection) : [];
+        const current = event.shiftKey ? selectedNodeIds(editor?.selection) : [];
         select([...new Set([...current, ...caught])]);
       }
       setMarquee(null);
@@ -1918,7 +1918,7 @@ export function SelectionOverlay({
       if (drag.handle === 'rotate') {
         const [sid] = [...drag.original.keys()];
         if (sid) {
-          void (editor as any).executeCommand?.('setBoxGeometry', {
+          void editor?.executeCommand('setBoxGeometry', {
             nodeId: sid,
             rotation: drag.rotation ?? 0
           });
@@ -1932,7 +1932,7 @@ export function SelectionOverlay({
          */
         const box = drag.preview.get(cropping);
         if (box) {
-          void (editor as any).executeCommand?.('cropPicture', {
+          void editor?.executeCommand('cropPicture', {
             nodeId: cropping,
             ...box,
             x: box.x - origin.x,
@@ -1949,7 +1949,7 @@ export function SelectionOverlay({
          * drop twice and watching the diagram rebuild itself in stages.
          */
         const box = drag.preview.get(spliceTo.shape)!;
-        void (editor as any).executeCommand?.('spliceIntoConnector', {
+        void editor?.executeCommand('spliceIntoConnector', {
           nodeId: spliceTo.shape,
           connectorId: spliceTo.line,
           x: box.x - origin.x,
@@ -1964,7 +1964,7 @@ export function SelectionOverlay({
          * was drawn at, keeping the order they already had between them, and one entry
          * covers all of them.
          */
-        void (editor as any).executeCommand?.('moveBoxTo', {
+        void editor?.executeCommand('moveBoxTo', {
           nodeIds: reorderTo.held,
           position: reorderTo.index
         });
@@ -1973,7 +1973,7 @@ export function SelectionOverlay({
           // Back into the container's coordinates. `boxes` added the origin so
           // the drag could work in the slide's; this is the one place that takes
           // it off again.
-          void (editor as any).executeCommand?.('setBoxGeometry', {
+          void editor?.executeCommand('setBoxGeometry', {
             nodeId: sid,
             ...box,
             x: box.x - origin.x,
@@ -2147,7 +2147,7 @@ export function SelectionOverlay({
 
   useEffect(() => {
     if (!cropping) return;
-    const chosen = selectedNodeIds((editor as any)?.selection);
+    const chosen = selectedNodeIds(editor?.selection);
     /**
      * Another box, not *no* box.
      *
@@ -2220,7 +2220,7 @@ export function SelectionOverlay({
         return;
       }
 
-      const chosen = selectedNodeIds((editor as any).selection);
+      const chosen = selectedNodeIds(editor.selection);
 
       /**
        * The chrome owns its keys exactly where it *has* keys.
@@ -2276,7 +2276,7 @@ export function SelectionOverlay({
         // Capture phase, so this stops before the editor's own key map — which
         // binds Delete on the contenteditable and would delete a character.
         event.stopPropagation();
-        void (editor as any).executeCommand?.(command, payload);
+        void editor?.executeCommand(command, payload);
       };
 
       /**
@@ -2370,7 +2370,7 @@ export function SelectionOverlay({
    */
   useEffect(() => {
     if (!editing || !doc || !editor) return;
-    const at = (editor as any).selection?.startNodeId as string | undefined;
+    const at = editor.selection?.startNodeId as string | undefined;
     const box = boxAt(doc as never, at);
     if (box && box.sid !== editing) setEditing(undefined);
   }, [editing, doc, editor, tick]);
@@ -2993,7 +2993,7 @@ export function SelectionOverlay({
                       event.preventDefault();
                       event.stopPropagation();
                       const index = Number(data['conn-wp']);
-                      void (editor as any)?.executeCommand?.('setConnector', {
+                      void editor?.executeCommand?.('setConnector', {
                         nodeIds: [selected[0].sid],
                         waypoints: placed.filter((_point, at) => at !== index)
                       });
@@ -3162,7 +3162,7 @@ export function SelectionOverlay({
                 value={typeof current === 'string' ? current : ''}
                 maxLength={24}
                 onCommit={(value) => {
-                  void (editor as any)?.executeCommand?.('setConnector', {
+                  void editor?.executeCommand?.('setConnector', {
                     nodeIds: [labelling],
                     label: value
                   });
@@ -3727,13 +3727,13 @@ export function SelectionOverlay({
               id: entry.id,
               label: entry.label,
               hint: keyLabel(entry.key, apple),
-              disabled: !(editor as any)?.canExecuteCommand?.(entry.command, entry.payload)
+              disabled: !editor?.canExecuteCommand?.(entry.command, entry.payload)
             }))
           }))}
           onPick={(id) => {
             const entry = menu.flatMap((section) => section.items).find((one) => one.id === id);
             setMenuAt(null);
-            if (entry) void (editor as any)?.executeCommand?.(entry.command, entry.payload);
+            if (entry) void editor?.executeCommand?.(entry.command, entry.payload);
           }}
           onClose={() => setMenuAt(null)}
         />

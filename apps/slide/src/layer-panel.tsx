@@ -59,8 +59,8 @@ export function LayerPanel({
   const revision = useEditorRevision(editor);
 
   const rows = useMemo<LayerRow[]>(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !slideSid) return [];
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) } as never;
 
@@ -77,7 +77,7 @@ export function LayerPanel({
         .filter((sid): sid is string => !!sid)
     );
 
-    const selected: string[] = (editor as any)?.selection?.nodeIds ?? [];
+    const selected: string[] = editor?.selection?.nodeIds ?? [];
     return layerRows(doc, slideSid, { selected, animated });
   }, [editor, slideSid, revision]);
 
@@ -85,7 +85,7 @@ export function LayerPanel({
   const [drag, setDrag] = useState<{ from: number; over: number } | null>(null);
 
   const run = (command: string, payload: Record<string, unknown>) =>
-    void (editor as any)?.executeCommand?.(command, payload);
+    void editor?.executeCommand?.(command, payload);
 
   if (!open) {
     return (

@@ -36,12 +36,12 @@ export class MoveSelectionExtension implements Extension {
       name: 'moveCursorLeft',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
         const selection =
-          (payload?.selection as ModelSelection | undefined) || ((editor as any).selection as ModelSelection | null);
+          (payload?.selection as ModelSelection | undefined) || (editor.selection as ModelSelection | null);
         if (!selection) return false;
         return await this._moveCaretHorizontal(editor, selection, 'left');
       },
       canExecute: (_editor: Editor, payload?: any) => {
-        return !!(payload?.selection ?? (editor as any).selection);
+        return !!(payload?.selection ?? editor.selection);
       }
     });
 
@@ -50,12 +50,12 @@ export class MoveSelectionExtension implements Extension {
       name: 'moveCursorRight',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
         const selection =
-          (payload?.selection as ModelSelection | undefined) || ((editor as any).selection as ModelSelection | null);
+          (payload?.selection as ModelSelection | undefined) || (editor.selection as ModelSelection | null);
         if (!selection) return false;
         return await this._moveCaretHorizontal(editor, selection, 'right');
       },
       canExecute: (_editor: Editor, payload?: any) => {
-        return !!(payload?.selection ?? (editor as any).selection);
+        return !!(payload?.selection ?? editor.selection);
       }
     });
 
@@ -64,12 +64,12 @@ export class MoveSelectionExtension implements Extension {
       name: 'extendSelectionLeft',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
         const selection =
-          (payload?.selection as ModelSelection | undefined) || ((editor as any).selection as ModelSelection | null);
+          (payload?.selection as ModelSelection | undefined) || (editor.selection as ModelSelection | null);
         if (!selection) return false;
         return await this._extendSelectionHorizontal(editor, selection, 'left');
       },
       canExecute: (_editor: Editor, payload?: any) => {
-        return !!(payload?.selection ?? (editor as any).selection);
+        return !!(payload?.selection ?? editor.selection);
       }
     });
 
@@ -78,12 +78,12 @@ export class MoveSelectionExtension implements Extension {
       name: 'extendSelectionRight',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
         const selection =
-          (payload?.selection as ModelSelection | undefined) || ((editor as any).selection as ModelSelection | null);
+          (payload?.selection as ModelSelection | undefined) || (editor.selection as ModelSelection | null);
         if (!selection) return false;
         return await this._extendSelectionHorizontal(editor, selection, 'right');
       },
       canExecute: (_editor: Editor, payload?: any) => {
-        return !!(payload?.selection ?? (editor as any).selection);
+        return !!(payload?.selection ?? editor.selection);
       }
     });
 
@@ -92,12 +92,12 @@ export class MoveSelectionExtension implements Extension {
       name: 'moveCursorWordLeft',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
         const selection =
-          (payload?.selection as ModelSelection | undefined) || ((editor as any).selection as ModelSelection | null);
+          (payload?.selection as ModelSelection | undefined) || (editor.selection as ModelSelection | null);
         if (!selection) return false;
         return await this._moveWordHorizontal(editor, selection, 'left');
       },
       canExecute: (_editor: Editor, payload?: any) => {
-        return !!(payload?.selection ?? (editor as any).selection);
+        return !!(payload?.selection ?? editor.selection);
       }
     });
 
@@ -106,12 +106,12 @@ export class MoveSelectionExtension implements Extension {
       name: 'moveCursorWordRight',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
         const selection =
-          (payload?.selection as ModelSelection | undefined) || ((editor as any).selection as ModelSelection | null);
+          (payload?.selection as ModelSelection | undefined) || (editor.selection as ModelSelection | null);
         if (!selection) return false;
         return await this._moveWordHorizontal(editor, selection, 'right');
       },
       canExecute: (_editor: Editor, payload?: any) => {
-        return !!(payload?.selection ?? (editor as any).selection);
+        return !!(payload?.selection ?? editor.selection);
       }
     });
 
@@ -120,12 +120,12 @@ export class MoveSelectionExtension implements Extension {
       name: 'extendSelectionWordLeft',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
         const selection =
-          (payload?.selection as ModelSelection | undefined) || ((editor as any).selection as ModelSelection | null);
+          (payload?.selection as ModelSelection | undefined) || (editor.selection as ModelSelection | null);
         if (!selection) return false;
         return await this._extendSelectionWordHorizontal(editor, selection, 'left');
       },
       canExecute: (_editor: Editor, payload?: any) => {
-        return !!(payload?.selection ?? (editor as any).selection);
+        return !!(payload?.selection ?? editor.selection);
       }
     });
 
@@ -134,12 +134,12 @@ export class MoveSelectionExtension implements Extension {
       name: 'extendSelectionWordRight',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
         const selection =
-          (payload?.selection as ModelSelection | undefined) || ((editor as any).selection as ModelSelection | null);
+          (payload?.selection as ModelSelection | undefined) || (editor.selection as ModelSelection | null);
         if (!selection) return false;
         return await this._extendSelectionWordHorizontal(editor, selection, 'right');
       },
       canExecute: (_editor: Editor, payload?: any) => {
-        return !!(payload?.selection ?? (editor as any).selection);
+        return !!(payload?.selection ?? editor.selection);
       }
     });
   }
@@ -162,7 +162,7 @@ export class MoveSelectionExtension implements Extension {
     selection: ModelSelection,
     direction: 'left' | 'right'
   ): Promise<boolean> {
-    const dataStore = (editor as any).dataStore;
+    const dataStore = editor.dataStore;
     if (!dataStore) {
       console.error('[MoveSelectionExtension] dataStore not found');
       return false;
@@ -174,7 +174,15 @@ export class MoveSelectionExtension implements Extension {
 
     const currentNode = dataStore.getNode(selection.startNodeId);
     const isTextNode = typeof currentNode?.text === 'string';
-    const textLength = isTextNode ? currentNode.text.length : 0;
+    /*
+     * Read through the optional rather than through `isTextNode`.
+     *
+     * A boolean does not narrow the thing it was computed from, and the cast that used to be on the
+     * editor was hiding that: `dataStore` came back as `any`, so `currentNode.text.length` compiled
+     * on a node with no text. It never threw because the branch is guarded — but the guard was the
+     * only thing standing between this and a crash, and nothing said so.
+     */
+    const textLength = currentNode?.text?.length ?? 0;
 
     // 1-1. Simple movement within text node
     if (isTextNode) {
@@ -189,7 +197,7 @@ export class MoveSelectionExtension implements Extension {
           collapsed: true,
           direction: 'backward'
         };
-        (editor as any).updateSelection(newSelection);
+        editor.updateSelection(newSelection);
         return true;
       }
 
@@ -204,7 +212,7 @@ export class MoveSelectionExtension implements Extension {
           collapsed: true,
           direction: 'forward'
         };
-        (editor as any).updateSelection(newSelection);
+        editor.updateSelection(newSelection);
         return true;
       }
     }
@@ -238,7 +246,7 @@ export class MoveSelectionExtension implements Extension {
         collapsed: true,
         direction: direction === 'left' ? 'backward' : 'forward'
       };
-      (editor as any).updateSelection(newSelection);
+      editor.updateSelection(newSelection);
       return true;
     }
 
@@ -258,7 +266,7 @@ export class MoveSelectionExtension implements Extension {
         collapsed: true,
         direction: direction === 'left' ? 'backward' : 'forward'
       };
-      (editor as any).updateSelection(newSelection);
+      editor.updateSelection(newSelection);
       return true;
     }
 
@@ -278,7 +286,7 @@ export class MoveSelectionExtension implements Extension {
     selection: ModelSelection,
     direction: 'left' | 'right'
   ): Promise<boolean> {
-    const dataStore = (editor as any).dataStore;
+    const dataStore = editor.dataStore;
     if (!dataStore) {
       console.error('[MoveSelectionExtension] dataStore not found');
       return false;
@@ -291,7 +299,15 @@ export class MoveSelectionExtension implements Extension {
 
     const currentNode = dataStore.getNode(selection.startNodeId);
     const isTextNode = typeof currentNode?.text === 'string';
-    const textLength = isTextNode ? currentNode.text.length : 0;
+    /*
+     * Read through the optional rather than through `isTextNode`.
+     *
+     * A boolean does not narrow the thing it was computed from, and the cast that used to be on the
+     * editor was hiding that: `dataStore` came back as `any`, so `currentNode.text.length` compiled
+     * on a node with no text. It never threw because the branch is guarded — but the guard was the
+     * only thing standing between this and a crash, and nothing said so.
+     */
+    const textLength = currentNode?.text?.length ?? 0;
 
     // 2-1. Extension within the same text node
     if (isTextNode) {
@@ -306,7 +322,7 @@ export class MoveSelectionExtension implements Extension {
           collapsed: false,
           direction: 'forward'
         };
-        (editor as any).updateSelection(newSelection);
+        editor.updateSelection(newSelection);
         return true;
       }
 
@@ -321,7 +337,7 @@ export class MoveSelectionExtension implements Extension {
           collapsed: false,
           direction: 'backward'
         };
-        (editor as any).updateSelection(newSelection);
+        editor.updateSelection(newSelection);
         return true;
       }
     }
@@ -355,7 +371,7 @@ export class MoveSelectionExtension implements Extension {
           collapsed: false,
           direction: 'forward'
         };
-        (editor as any).updateSelection(newSelection);
+        editor.updateSelection(newSelection);
         return true;
       }
 
@@ -372,7 +388,7 @@ export class MoveSelectionExtension implements Extension {
             collapsed: false,
             direction: 'backward'
           };
-          (editor as any).updateSelection(newSelection);
+          editor.updateSelection(newSelection);
           return true;
         }
       }
@@ -395,7 +411,7 @@ export class MoveSelectionExtension implements Extension {
     selection: ModelSelection,
     direction: 'left' | 'right'
   ): Promise<boolean> {
-    const dataStore = (editor as any).dataStore;
+    const dataStore = editor.dataStore;
     if (!dataStore) {
       console.error('[MoveSelectionExtension] dataStore not found');
       return false;
@@ -450,7 +466,7 @@ export class MoveSelectionExtension implements Extension {
         collapsed: true,
         direction: 'backward'
       };
-      (editor as any).updateSelection(newSelection);
+      editor.updateSelection(newSelection);
       return true;
     } else {
       // direction === 'right'
@@ -488,7 +504,7 @@ export class MoveSelectionExtension implements Extension {
         collapsed: true,
         direction: 'forward'
       };
-      (editor as any).updateSelection(newSelection);
+      editor.updateSelection(newSelection);
       return true;
     }
   }
@@ -506,7 +522,7 @@ export class MoveSelectionExtension implements Extension {
     selection: ModelSelection,
     direction: 'left' | 'right'
   ): Promise<boolean> {
-    const dataStore = (editor as any).dataStore;
+    const dataStore = editor.dataStore;
     if (!dataStore) {
       console.error('[MoveSelectionExtension] dataStore not found');
       return false;
@@ -560,7 +576,7 @@ export class MoveSelectionExtension implements Extension {
         collapsed: false,
         direction: 'backward'
       };
-      (editor as any).updateSelection(newSelection);
+      editor.updateSelection(newSelection);
       return true;
     } else {
       // direction === 'right'
@@ -598,7 +614,7 @@ export class MoveSelectionExtension implements Extension {
         collapsed: false,
         direction: 'forward'
       };
-      (editor as any).updateSelection(newSelection);
+      editor.updateSelection(newSelection);
       return true;
     }
   }

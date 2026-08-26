@@ -22,9 +22,9 @@ describe('the definitions a deck inherits from', () => {
   let doc: DeckAccess;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const can = (command: string, payload?: unknown) =>
-    (editor as any).canExecuteCommand(command, payload);
+    editor.canExecuteCommand(command, payload);
 
   beforeEach(() => {
     const schema = createSchema('slides', getSlidesSchemaDefinition());
@@ -140,7 +140,7 @@ describe('the definitions a deck inherits from', () => {
      * paying for the product's convenience — the same reason a component's apply does every
      * placement together.
      */
-    await (editor as any).undo();
+    await editor.undo();
     expect(doc.getNode(title)?.attributes?.x).toBe(9000);
   });
 

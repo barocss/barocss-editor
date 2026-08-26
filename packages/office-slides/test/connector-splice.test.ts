@@ -30,7 +30,7 @@ describe('splicing a shape into a line', () => {
         attrs: node(sid).attributes
       }));
   const run = async (payload: unknown) =>
-    await (editor as any).executeCommand('spliceIntoConnector', payload);
+    await editor.executeCommand('spliceIntoConnector', payload);
 
   beforeEach(async () => {
     const schema = createSchema('slides', getSlidesSchemaDefinition());
@@ -54,9 +54,9 @@ describe('splicing a shape into a line', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
 
-    await (editor as any).executeCommand('insertConnector', {
+    await editor.executeCommand('insertConnector', {
       startNodeId: named('a'),
       endNodeId: named('b'),
       kind: 'elbow'
@@ -82,7 +82,7 @@ describe('splicing a shape into a line', () => {
 
   it('carries the look onto both halves and leaves the route behind', async () => {
     const line = lines()[0].sid;
-    await (editor as any).executeCommand('setConnector', {
+    await editor.executeCommand('setConnector', {
       nodeIds: [line],
       kind: 'curve',
       strokeDash: 'dash',
@@ -110,7 +110,7 @@ describe('splicing a shape into a line', () => {
 
   it('keeps the outer magnets and leaves the new inner ends to be worked out', async () => {
     const line = lines()[0].sid;
-    await (editor as any).executeCommand('setConnector', {
+    await editor.executeCommand('setConnector', {
       nodeIds: [line],
       startSide: 'e',
       endSide: 'w'
@@ -126,7 +126,7 @@ describe('splicing a shape into a line', () => {
 
   it('puts the label on the first half only', async () => {
     const line = lines()[0].sid;
-    await (editor as any).executeCommand('setConnector', { nodeIds: [line], label: '검토' });
+    await editor.executeCommand('setConnector', { nodeIds: [line], label: '검토' });
 
     await run({ nodeId: named('c'), connectorId: line });
     const [first, second] = lines();
@@ -148,7 +148,7 @@ describe('splicing a shape into a line', () => {
      * One press. The gesture put the shape there and split the line; undoing it three
      * times would have a reader watching their diagram rebuild itself in stages.
      */
-    await (editor as any).executeCommand('historyUndo');
+    await editor.executeCommand('historyUndo');
     expect(node(named('c')).attributes.x).toBe(was.x);
     expect(lines()).toHaveLength(1);
     expect(lines()[0].sid).toBe(line);
@@ -174,7 +174,7 @@ describe('splicing a shape into a line', () => {
     });
 
     it('a line with a free end', async () => {
-      await (editor as any).executeCommand('setConnector', {
+      await editor.executeCommand('setConnector', {
         nodeIds: [lines()[0].sid],
         endNodeId: null
       });
@@ -185,7 +185,7 @@ describe('splicing a shape into a line', () => {
 
     it('another line, because that is a branch and not a splice', async () => {
       const line = lines()[0].sid;
-      await (editor as any).executeCommand('insertConnector', {
+      await editor.executeCommand('insertConnector', {
         startNodeId: named('c'),
         endNodeId: named('a')
       });
@@ -196,12 +196,12 @@ describe('splicing a shape into a line', () => {
     });
 
     it('a shape on another slide', async () => {
-      const away = await (editor as any).executeCommand('insertSlide', {});
+      const away = await editor.executeCommand('insertSlide', {});
       void away;
-      const other = ((store.getNode((editor as any).getRootId()) as any).content as string[]).find(
+      const other = ((store.getNode(editor.getRootId()) as any).content as string[]).find(
         (sid) => sid !== slide && (store.getNode(sid) as any)?.stype === 'surface'
       )!;
-      await (editor as any).executeCommand('insertRectangle', {
+      await editor.executeCommand('insertRectangle', {
         slideId: other,
         width: 1000,
         height: 1000
@@ -254,15 +254,15 @@ describe('reversing a line', () => {
       } as never,
       'slides'
     );
-    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
-    await (editor as any).executeCommand('insertConnector', {
+    slide = (store.getNode(editor.getRootId()) as any).content[0];
+    await editor.executeCommand('insertConnector', {
       startNodeId: named('a'),
       endNodeId: named('b')
     });
   });
 
   const reverse = async () =>
-    await (editor as any).executeCommand('reverseConnector', { nodeIds: [line()] });
+    await editor.executeCommand('reverseConnector', { nodeIds: [line()] });
 
   it('swaps which shape is which end', async () => {
     const a = named('a');
@@ -273,7 +273,7 @@ describe('reversing a line', () => {
   });
 
   it('takes the magnets and the frozen places with it', async () => {
-    await (editor as any).executeCommand('setConnector', {
+    await editor.executeCommand('setConnector', {
       nodeIds: [line()],
       startSide: 'e',
       endSide: 'w'
@@ -290,7 +290,7 @@ describe('reversing a line', () => {
   });
 
   it('leaves the caps alone, which is what moves them to the other shapes', async () => {
-    await (editor as any).executeCommand('setConnector', {
+    await editor.executeCommand('setConnector', {
       nodeIds: [line()],
       startCap: 'diamond',
       endCap: 'arrow'
@@ -310,7 +310,7 @@ describe('reversing a line', () => {
   });
 
   it('reads the reader’s bends backwards, and mirrors the bow', async () => {
-    await (editor as any).executeCommand('setConnector', {
+    await editor.executeCommand('setConnector', {
       nodeIds: [line()],
       bend: 600,
       waypoints: [
@@ -346,24 +346,24 @@ describe('reversing a line', () => {
   it('takes an end off nothing rather than leaving a stale number', async () => {
     // A free end: `endNodeId` is absent, so after the swap `startNodeId` must be *absent*
     // too rather than holding the shape that used to be at the other end.
-    await (editor as any).executeCommand('setConnector', { nodeIds: [line()], endNodeId: null });
+    await editor.executeCommand('setConnector', { nodeIds: [line()], endNodeId: null });
     await reverse();
     expect(attrs().startNodeId).toBeUndefined();
     expect(attrs().endNodeId).toBe(named('a'));
   });
 
   it('reverses every line the payload names, in one entry', async () => {
-    await (editor as any).executeCommand('insertConnector', {
+    await editor.executeCommand('insertConnector', {
       startNodeId: named('b'),
       endNodeId: named('a')
     });
     const both = children().filter((sid) => node(sid).stype === 'connector');
     const was = both.map((sid) => node(sid).attributes.startNodeId);
 
-    await (editor as any).executeCommand('reverseConnector', { nodeIds: both });
+    await editor.executeCommand('reverseConnector', { nodeIds: both });
     expect(both.map((sid) => node(sid).attributes.startNodeId)).not.toEqual(was);
 
-    await (editor as any).executeCommand('historyUndo');
+    await editor.executeCommand('historyUndo');
     expect(both.map((sid) => node(sid).attributes.startNodeId)).toEqual(was);
   });
 });

@@ -22,9 +22,9 @@ describe('making a shape a button', () => {
   let doc: DeckAccess;
 
   const run = async (command: string, payload?: unknown) =>
-    await (editor as any).executeCommand(command, payload);
+    await editor.executeCommand(command, payload);
   const can = (command: string, payload?: unknown) =>
-    (editor as any).canExecuteCommand(command, payload);
+    editor.canExecuteCommand(command, payload);
 
   beforeEach(() => {
     const schema = createSchema('slides', getSlidesSchemaDefinition());
@@ -98,7 +98,7 @@ describe('making a shape a button', () => {
 
   it('takes it all back in one press of undo', async () => {
     await run('setBoxJump', { nodeIds: [buttons()[0]], to: pages()[1] });
-    await (editor as any).undo();
+    await editor.undo();
     // The button *and* the page's new id: one press of undo takes back "I made a button",
     // which is one thing the reader did.
     expect(jumpOf(doc, doc.getNode(buttons()[0]))).toBeUndefined();

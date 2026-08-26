@@ -49,8 +49,8 @@ export function AuditPanel({
   const revision = useEditorRevision(editor);
 
   const { hits, doc } = useMemo(() => {
-    const store = (editor as any)?.dataStore;
-    const rootId = (editor as any)?.getRootId?.();
+    const store = editor?.dataStore;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return { hits: [] as AuditHit[], doc: null };
     const access = { rootId, getNode: (sid: string) => store.getNode(sid) };
     return { hits: auditDeck(access as never), doc: access };
@@ -78,7 +78,7 @@ export function AuditPanel({
     onGoTo(hit.slideSid);
     // And the shape, so the reader is standing in front of the thing to fix rather
     // than looking for it.
-    if (hit.sid) void (editor as any)?.executeCommand?.('setNode', { nodeIds: [hit.sid] });
+    if (hit.sid) void editor?.executeCommand?.('setNode', { nodeIds: [hit.sid] });
   };
 
   return (
