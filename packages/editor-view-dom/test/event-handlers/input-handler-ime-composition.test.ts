@@ -170,11 +170,17 @@ describe('InputHandlerImpl - IME/Composition (분리)', () => {
     });
 
     it('pendingTextNodeId가 없으면 early return해야 함', () => {
-      inputHandler.handleCompositionEnd({} as CompositionEvent);
+      /*
+       * Said, rather than implied by the absence of a crash. A bare call is a test that passes for two
+       * different reasons — the handler behaved, or the handler did nothing — and a reader of the
+       * report cannot tell which. An early return is still a behaviour: what it must do here is
+       * *nothing at all*, on a composition event that names no node.
+       */
+      expect(() => inputHandler.handleCompositionEnd({} as CompositionEvent)).not.toThrow();
     });
 
     it('should early return if composing', () => {
-      inputHandler.handleCompositionStart();
+      expect(() => inputHandler.handleCompositionStart()).not.toThrow();
     });
 
     it('should early return if Model Node cannot be found', () => {

@@ -501,9 +501,21 @@ describe('MutationObserver Integration', () => {
       // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // handleTextContentChange may be called, but should early return
-      // (Actually MutationObserver detects all changes, so it may be called)
-      // But if nodeId is missing, it should early return
+      /*
+       * The spy was set up and never asked, and three comments hedged about what should happen —
+       * *"may be called … Actually … it may be called … But …"*. A test that cannot say what it wants
+       * asserts nothing, and this one did.
+       *
+       * What it wants is the invariant the observer exists for: text outside the document is not the
+       * document.
+       *
+       * And the answer is better than the comments guessed. They hedged that the handler *"may be
+       * called"* and would early-return; measured, it is **never reached** — the observer filters on
+       * `data-bc-sid` before the handler is a question. Asserting the guess would have been asserting
+       * something that is not true of this code, in a test named after the behaviour.
+       */
+      expect(handleTextContentChangeSpy).not.toHaveBeenCalled();
+      expect(editor.executeTransaction).not.toHaveBeenCalled();
     });
   });
 });

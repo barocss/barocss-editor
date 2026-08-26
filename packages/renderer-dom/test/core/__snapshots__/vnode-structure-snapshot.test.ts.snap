@@ -1,0 +1,554 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`VNode Structure Snapshots > should document VNode with block decorators > Paragraph with Block Decorator VNode 1`] = `
+{
+  "attrs": {},
+  "children": [
+    {
+      "attrs": {},
+      "children": [
+        {
+          "attrs": {},
+          "children": [],
+          "style": {},
+          "tag": "#text",
+          "text": "Some text",
+        },
+      ],
+      "style": {},
+      "tag": "span",
+    },
+  ],
+  "key": undefined,
+  "props": {
+    "text": "Some text",
+  },
+  "sid": "p5",
+  "style": {},
+  "stype": "paragraph",
+  "tag": "p",
+}
+`;
+
+exports[`VNode Structure Snapshots > should document VNode with inline decorators > Paragraph with Inline Decorator VNode 1`] = `
+{
+  "attrs": {},
+  "children": [
+    {
+      "attrs": {
+        "className": "highlight",
+        "data-decorator": "true",
+        "data-decorator-category": "inline",
+        "data-decorator-sid": "d1",
+        "data-decorator-stype": "highlight",
+        "data-skip-reconcile": "true",
+      },
+      "children": [
+        {
+          "attrs": {},
+          "children": [
+            {
+              "attrs": {},
+              "children": [],
+              "style": {},
+              "tag": "#text",
+              "text": "Important",
+            },
+          ],
+          "key": "r:0",
+          "style": {},
+          "tag": "span",
+        },
+      ],
+      "decoratorCategory": "inline",
+      "decoratorSid": "d1",
+      "decoratorStype": "highlight",
+      "key": undefined,
+      "style": {},
+      "tag": "span",
+    },
+    {
+      "attrs": {},
+      "children": [
+        {
+          "attrs": {},
+          "children": [],
+          "style": {},
+          "tag": "#text",
+          "text": " text",
+        },
+      ],
+      "key": "r:9",
+      "style": {},
+      "tag": "span",
+    },
+  ],
+  "key": undefined,
+  "props": {
+    "text": "Important text",
+  },
+  "sid": "p3",
+  "style": {},
+  "stype": "paragraph",
+  "tag": "p",
+}
+`;
+
+exports[`VNode Structure Snapshots > should document VNode with marks and decorators integrated > Paragraph with Marks and Decorators VNode 1`] = `
+{
+  "attrs": {},
+  "children": [
+    {
+      "attrs": {},
+      "children": [
+        {
+          "attrs": {},
+          "children": [],
+          "style": {},
+          "tag": "#text",
+          "text": "Bold",
+        },
+      ],
+      "key": "r:0",
+      "style": {},
+      "tag": "span",
+    },
+    {
+      "attrs": {},
+      "children": [
+        {
+          "attrs": {},
+          "children": [],
+          "style": {},
+          "tag": "#text",
+          "text": " ",
+        },
+      ],
+      "key": "r:4",
+      "style": {},
+      "tag": "span",
+    },
+    {
+      "attrs": {
+        "className": "highlight",
+        "data-decorator": "true",
+        "data-decorator-category": "inline",
+        "data-decorator-sid": "d2",
+        "data-decorator-stype": "highlight",
+        "data-skip-reconcile": "true",
+      },
+      "children": [
+        {
+          "attrs": {},
+          "children": [
+            {
+              "attrs": {},
+              "children": [],
+              "style": {},
+              "tag": "#text",
+              "text": "and highlighte",
+            },
+          ],
+          "key": "r:5",
+          "style": {},
+          "tag": "span",
+        },
+      ],
+      "decoratorCategory": "inline",
+      "decoratorSid": "d2",
+      "decoratorStype": "highlight",
+      "key": undefined,
+      "style": {},
+      "tag": "span",
+    },
+    {
+      "attrs": {},
+      "children": [
+        {
+          "attrs": {},
+          "children": [],
+          "style": {},
+          "tag": "#text",
+          "text": "d",
+        },
+      ],
+      "key": "r:19",
+      "style": {},
+      "tag": "span",
+    },
+  ],
+  "key": undefined,
+  "props": {
+    "marks": [
+      {
+        "range": [
+          0,
+          4,
+        ],
+        "type": "bold",
+      },
+    ],
+    "text": "Bold and highlighted",
+  },
+  "sid": "p4",
+  "style": {},
+  "stype": "paragraph",
+  "tag": "p",
+}
+`;
+
+exports[`VNode Structure Snapshots > should document VNode with text marks > Paragraph with Marks VNode 1`] = `
+{
+  "attrs": {},
+  "children": [
+    {
+      "attrs": {},
+      "children": [
+        {
+          "attrs": {},
+          "children": [],
+          "style": {},
+          "tag": "#text",
+          "text": "Hello",
+        },
+      ],
+      "key": "r:0",
+      "style": {},
+      "tag": "span",
+    },
+    {
+      "attrs": {},
+      "children": [
+        {
+          "attrs": {},
+          "children": [],
+          "style": {},
+          "tag": "#text",
+          "text": " ",
+        },
+      ],
+      "key": "r:5",
+      "style": {},
+      "tag": "span",
+    },
+    {
+      "attrs": {},
+      "children": [
+        {
+          "attrs": {},
+          "children": [],
+          "style": {},
+          "tag": "#text",
+          "text": "world",
+        },
+      ],
+      "key": "r:6",
+      "style": {},
+      "tag": "span",
+    },
+  ],
+  "key": undefined,
+  "props": {
+    "marks": [
+      {
+        "range": [
+          0,
+          5,
+        ],
+        "type": "bold",
+      },
+      {
+        "range": [
+          6,
+          11,
+        ],
+        "type": "italic",
+      },
+    ],
+    "text": "Hello world",
+  },
+  "sid": "p2",
+  "style": {},
+  "stype": "paragraph",
+  "tag": "p",
+}
+`;
+
+exports[`VNode Structure Snapshots > should document complex document VNode > Complex Document VNode 1`] = `
+{
+  "attrs": {
+    "className": "document",
+  },
+  "children": [
+    {
+      "attrs": {},
+      "children": [
+        {
+          "attrs": {},
+          "children": [
+            {
+              "attrs": {},
+              "children": [],
+              "style": {},
+              "tag": "#text",
+              "text": "This is ",
+            },
+          ],
+          "key": "r:0",
+          "style": {},
+          "tag": "span",
+        },
+        {
+          "attrs": {},
+          "children": [
+            {
+              "attrs": {},
+              "children": [],
+              "style": {},
+              "tag": "#text",
+              "text": "bold",
+            },
+          ],
+          "key": "r:8",
+          "style": {},
+          "tag": "span",
+        },
+        {
+          "attrs": {},
+          "children": [
+            {
+              "attrs": {},
+              "children": [],
+              "style": {},
+              "tag": "#text",
+              "text": " and italic text",
+            },
+          ],
+          "key": "r:12",
+          "style": {},
+          "tag": "span",
+        },
+      ],
+      "key": undefined,
+      "props": {
+        "marks": [
+          {
+            "range": [
+              8,
+              12,
+            ],
+            "type": "bold",
+          },
+        ],
+        "text": "This is bold and italic text",
+      },
+      "sid": "p1",
+      "style": {},
+      "stype": "paragraph",
+      "tag": "p",
+    },
+    {
+      "attrs": {},
+      "children": [
+        {
+          "attrs": {},
+          "children": [
+            {
+              "attrs": {},
+              "children": [],
+              "style": {},
+              "tag": "#text",
+              "text": "This paragraph has a high",
+            },
+          ],
+          "key": "r:0",
+          "style": {},
+          "tag": "span",
+        },
+        {
+          "attrs": {
+            "className": "highlight",
+            "data-decorator": "true",
+            "data-decorator-category": "inline",
+            "data-decorator-sid": "d1",
+            "data-decorator-stype": "highlight",
+            "data-skip-reconcile": "true",
+          },
+          "children": [
+            {
+              "attrs": {},
+              "children": [
+                {
+                  "attrs": {},
+                  "children": [],
+                  "style": {},
+                  "tag": "#text",
+                  "text": "light",
+                },
+              ],
+              "key": "r:25",
+              "style": {},
+              "tag": "span",
+            },
+          ],
+          "decoratorCategory": "inline",
+          "decoratorSid": "d1",
+          "decoratorStype": "highlight",
+          "key": undefined,
+          "style": {},
+          "tag": "span",
+        },
+      ],
+      "key": undefined,
+      "props": {
+        "text": "This paragraph has a highlight",
+      },
+      "sid": "p2",
+      "style": {},
+      "stype": "paragraph",
+      "tag": "p",
+    },
+    {
+      "attrs": {
+        "className": "comment-block",
+        "data-decorator": "true",
+        "data-decorator-category": "block",
+        "data-decorator-position": "after",
+        "data-decorator-sid": "d2",
+        "data-decorator-stype": "comment",
+        "data-skip-reconcile": "true",
+      },
+      "children": [],
+      "decoratorCategory": "block",
+      "decoratorPosition": "after",
+      "decoratorSid": "d2",
+      "decoratorStype": "comment",
+      "key": undefined,
+      "style": {},
+      "tag": "div",
+    },
+  ],
+  "key": undefined,
+  "props": {
+    "content": [
+      {
+        "marks": [
+          {
+            "range": [
+              8,
+              12,
+            ],
+            "type": "bold",
+          },
+        ],
+        "sid": "p1",
+        "stype": "paragraph",
+        "text": "This is bold and italic text",
+      },
+      {
+        "sid": "p2",
+        "stype": "paragraph",
+        "text": "This paragraph has a highlight",
+      },
+    ],
+  },
+  "sid": "doc1",
+  "style": {},
+  "stype": "document",
+  "tag": "article",
+}
+`;
+
+exports[`VNode Structure Snapshots > should document nested structure VNode > Nested Container VNode 1`] = `
+{
+  "attrs": {
+    "className": "container",
+  },
+  "children": [
+    {
+      "attrs": {
+        "className": "header",
+      },
+      "children": [],
+      "key": undefined,
+      "meta": {
+        "sidInherited": true,
+      },
+      "sid": "c1",
+      "style": {},
+      "tag": "header",
+    },
+    {
+      "attrs": {
+        "data-bc-component": "content",
+        "data-bc-sid": "c1",
+      },
+      "children": [
+        {
+          "attrs": {},
+          "children": [
+            {
+              "attrs": {},
+              "children": [],
+              "style": {},
+              "tag": "#text",
+              "text": "Content here",
+            },
+          ],
+          "style": {},
+          "tag": "span",
+        },
+      ],
+      "key": undefined,
+      "props": {
+        "className": "content",
+      },
+      "sid": "c1",
+      "style": {},
+      "stype": "content",
+      "tag": "div",
+    },
+  ],
+  "key": undefined,
+  "props": {
+    "text": "Content here",
+    "title": "My Title",
+  },
+  "sid": "c1",
+  "style": {},
+  "stype": "container",
+  "tag": "div",
+}
+`;
+
+exports[`VNode Structure Snapshots > should document simple paragraph VNode structure > Simple Paragraph VNode 1`] = `
+{
+  "attrs": {
+    "className": "para",
+  },
+  "children": [
+    {
+      "attrs": {},
+      "children": [
+        {
+          "attrs": {},
+          "children": [],
+          "style": {},
+          "tag": "#text",
+          "text": "Hello world",
+        },
+      ],
+      "style": {},
+      "tag": "span",
+    },
+  ],
+  "key": undefined,
+  "props": {
+    "text": "Hello world",
+  },
+  "sid": "p1",
+  "style": {},
+  "stype": "paragraph",
+  "tag": "p",
+}
+`;

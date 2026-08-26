@@ -2614,6 +2614,43 @@ Newest first. The surprise each one produced is the part worth keeping.
   All three products answer every check now, and `notYet` has no callers — which is exactly what a
   deferral should end up as.
 
+- **19 of 6,851 tests asserted nothing, and three of them were wrong about the code they described.**
+
+  Asked to watch the tests, on the grounds that there may be odd ones. There were — and the bold
+  finding had already shown how: a unit test asserting *"bold and italic mean one thing; there is
+  nothing to read off them"*, which was a belief rather than a behaviour.
+
+  Swept for tests that assert **nothing at all**: 19 of 6,851 blocks. What they were:
+
+  - **A documentation script.** `vnode-structure-snapshot.test.ts` — seven tests, fourteen
+    `console.log`s, feeding `docs/vnode-structure-examples.md`, which does not exist. It ran on every
+    CI run, printed JSON nobody read, and could not fail. Now seven real snapshots, which guard a
+    VNode shape every other test here is blind to: they all assert on the DOM, and two different
+    trees produce the same DOM until the day they do not.
+  - **"Should not throw", said by not throwing.** A bare call passes both when the function behaved
+    and when it did nothing, and a reader of the report cannot tell which.
+  - **Three tests that argued themselves out of their own names** in comments — *"may be called …
+    it's normal if it is not"*, *"may not occur in practice … may differ from actual usage"*,
+    *"need to verify actual behavior"* — and printed instead of asking.
+  - **Two `describe.skip`s holding one empty `it`**, kept as notes about where the real tests live. A
+    note that runs, costing a line in every report.
+
+  **Three of the four hedged comments were wrong about the code.** `updateComponent` *is* called;
+  the mutation observer *never reaches* its handler for a node with no sid; a store with no schema
+  *does* hand back a proxy. A printed number nobody reads cannot correct a belief — only an
+  assertion has to, which is the whole argument for asking rather than logging.
+
+  **And the sweep itself was wrong three times before it was right**, which is the reusable part.
+  850 → 69 → 39 → 25 → 19, and every wrong answer was the tool: the body taken as `{ page }` (a
+  Playwright test's destructured argument), `expect.poll` missed for having a dot in it, brace
+  counting running through a `${…}` inside a string, and a body that is one call to a local helper
+  that asserts. A check that reports falsely is worse than one that misses, because the false one is
+  believed — and this repository has now produced that finding about a probe, an exemption, a browser
+  check and a sweep.
+
+  `packages/conformance/test/every-test-asserts.test.ts` keeps it at zero, and fails by name — checked
+  by adding a silent test on purpose.
+
 - **Bold was not bold. Eleven marks drew nothing, in all three products, and no check could see a mark.**
 
   Asked whether the site builder is finished. Measuring it found something much larger than the

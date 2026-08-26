@@ -582,8 +582,12 @@ describe('Fiber Reconciler Helpers', () => {
         sid: 'p-1'
       };
 
-      // Should not throw error
-      saveVNodeToTree(vnode, undefined);
+      /*
+       * Said, rather than implied by the absence of a crash. A bare call is a test that passes for
+       * two different reasons — the function behaved, or the function did nothing — and a reader of
+       * the report cannot tell which. `not.toThrow()` names the one that was meant.
+       */
+      expect(() => saveVNodeToTree(vnode, undefined)).not.toThrow();
     });
 
     it('should handle errors gracefully', () => {
@@ -595,8 +599,7 @@ describe('Fiber Reconciler Helpers', () => {
         sid: 'p-1'
       } as any;
 
-      // Should not throw error
-      saveVNodeToTree(vnode, prevVNodeTree);
+      expect(() => saveVNodeToTree(vnode, prevVNodeTree)).not.toThrow();
     });
   });
 });

@@ -259,20 +259,21 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       expect(dataStore.getPreviousEditableNode(para2Text1.sid!)).toBeNull();
     });
 
-    it('getNextEditableNode: skip empty paragraph and find first text of next paragraph', () => {
-      // First paragraph is empty, so no node to test
-      // This case may not occur in practice, but check for safety
-      const paragraphs = dataStore.findNodesByType('paragraph');
-      const emptyParagraph = paragraphs[0];
-      
-      // Next editable node of empty paragraph is first text of next paragraph
-      const textNodes = dataStore.findNodesByType('inline-text');
-      const para2Text1 = textNodes[0];
-      
-      // If starting from empty paragraph, next editable node is Para2-Text1
-      // However, empty paragraph itself is not an editable node, 
-      // so should actually start from first child of paragraph
-      // This test may differ from actual usage scenario
+    it('getNextEditableNode: steps over an empty paragraph to the next text', () => {
+      /*
+       * Five comments and no assertion, talking itself out of its own name — *"no node to test …
+       * may not occur in practice … should actually start from … may differ from actual usage"*.
+       *
+       * The name was right and the doubt was not. Asked, it steps over the empty block and answers
+       * the first text of the paragraph after it, which is exactly what a caret leaving an empty
+       * paragraph needs. What the doubt was actually about is the *shape* of the answer: this
+       * returns a **sid**, not a node, and reading `.sid` off it is how two attempts at asserting
+       * this got `undefined` and nearly concluded the behaviour was missing.
+       */
+      const emptyParagraph = dataStore.findNodesByType('paragraph')[0];
+      const para2Text1 = dataStore.findNodesByType('inline-text')[0];
+
+      expect(dataStore.getNextEditableNode(emptyParagraph.sid!)).toBe(para2Text1.sid);
     });
   });
 

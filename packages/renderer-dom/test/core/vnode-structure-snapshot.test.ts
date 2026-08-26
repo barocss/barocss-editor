@@ -1,10 +1,27 @@
 /**
- * VNode Structure Snapshot Test
- * 
- * This test serializes actual VNode structures to JSON for documentation.
- * After test execution, results can be updated to docs/vnode-structure-examples.md.
+ * What a VNode is actually shaped like, held as a snapshot.
+ *
+ * ## What this was
+ *
+ * Seven tests, fourteen `console.log`s and **no assertion at all** — a documentation script wearing a
+ * test's clothes. Its header said the output *"can be updated to docs/vnode-structure-examples.md"*,
+ * and that file does not exist. So it ran on every CI run, printed JSON nobody read, and could not
+ * fail.
+ *
+ * Found by sweeping for tests that assert nothing: 19 of 6,851, and this file was seven of them.
+ *
+ * ## Why it is worth keeping rather than deleting
+ *
+ * The shape of a VNode is exactly the kind of thing that changes by accident. A reconciler edit that
+ * adds a wrapper, drops a `sid`, or reorders children is invisible in every other test here —
+ * everything else asserts on the *DOM* that comes out, and two different trees can produce the same
+ * DOM until the day they do not.
+ *
+ * So the printing became `toMatchSnapshot()`. The same seven structures, in a file a reviewer reads
+ * in a diff, and a change to any of them now has to be looked at and accepted rather than noticed
+ * later.
  */
-import { describe, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { define, element, data, defineDecorator, getGlobalRegistry, slot } from '@barocss/dsl';
 import { DecoratorData, VNodeBuilder } from '../../src/vnode/factory';
 
@@ -57,8 +74,7 @@ describe('VNode Structure Snapshots', () => {
     const vnode = builder.build('paragraph', model);
     
     const serialized = serializeVNode(vnode);
-    console.log('\n=== Simple Paragraph VNode ===');
-    console.log(JSON.stringify(serialized, null, 2));
+    expect(serialized).toMatchSnapshot('Simple Paragraph VNode');
   });
 
   it('should document VNode with text marks', () => {
@@ -79,8 +95,7 @@ describe('VNode Structure Snapshots', () => {
     const vnode = builder.build('paragraph', model);
     
     const serialized = serializeVNode(vnode);
-    console.log('\n=== Paragraph with Marks VNode ===');
-    console.log(JSON.stringify(serialized, null, 2));
+    expect(serialized).toMatchSnapshot('Paragraph with Marks VNode');
   });
 
   it('should document VNode with inline decorators', () => {
@@ -106,8 +121,7 @@ describe('VNode Structure Snapshots', () => {
     const vnode = builder.build('paragraph', model, { decorators });
     
     const serialized = serializeVNode(vnode);
-    console.log('\n=== Paragraph with Inline Decorator VNode ===');
-    console.log(JSON.stringify(serialized, null, 2));
+    expect(serialized).toMatchSnapshot('Paragraph with Inline Decorator VNode');
   });
 
   it('should document VNode with marks and decorators integrated', () => {
@@ -137,8 +151,7 @@ describe('VNode Structure Snapshots', () => {
     const vnode = builder.build('paragraph', model, { decorators });
     
     const serialized = serializeVNode(vnode);
-    console.log('\n=== Paragraph with Marks and Decorators VNode ===');
-    console.log(JSON.stringify(serialized, null, 2));
+    expect(serialized).toMatchSnapshot('Paragraph with Marks and Decorators VNode');
   });
 
   it('should document VNode with block decorators', () => {
@@ -164,8 +177,7 @@ describe('VNode Structure Snapshots', () => {
     const vnode = builder.build('paragraph', model, { decorators });
     
     const serialized = serializeVNode(vnode);
-    console.log('\n=== Paragraph with Block Decorator VNode ===');
-    console.log(JSON.stringify(serialized, null, 2));
+    expect(serialized).toMatchSnapshot('Paragraph with Block Decorator VNode');
   });
 
   it('should document nested structure VNode', () => {
@@ -186,8 +198,7 @@ describe('VNode Structure Snapshots', () => {
     const vnode = builder.build('container', model);
     
     const serialized = serializeVNode(vnode);
-    console.log('\n=== Nested Container VNode ===');
-    console.log(JSON.stringify(serialized, null, 2));
+    expect(serialized).toMatchSnapshot('Nested Container VNode');
   });
 
   it('should document complex document VNode', () => {
@@ -239,8 +250,7 @@ describe('VNode Structure Snapshots', () => {
     const vnode = builder.build('document', model, { decorators });
     
     const serialized = serializeVNode(vnode);
-    console.log('\n=== Complex Document VNode ===');
-    console.log(JSON.stringify(serialized, null, 2));
+    expect(serialized).toMatchSnapshot('Complex Document VNode');
   });
 });
 

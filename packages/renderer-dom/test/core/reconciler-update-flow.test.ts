@@ -143,21 +143,22 @@ describe('Reconciler Update Flow', () => {
       ];
       renderer.render(container, model, decorators);
 
-      // Verify updateComponent call
-      // inline-text is element template, so updateComponent may not be called
-      // Instead, handled directly in Fiber reconcile
-      console.log('updateComponent 호출 횟수:', updateComponentSpy.mock.calls.length);
-      if (updateComponentSpy.mock.calls.length > 0) {
-        const calls = updateComponentSpy.mock.calls;
-        console.log('updateComponent 호출 인자:', calls.map(call => ({
-          prevSid: call[0]?.sid,
-          nextSid: call[1]?.sid,
-          nextStype: call[1]?.stype
-        })));
-      }
-
-      // It's normal if updateComponent is not called
-      // (element template directly updates DOM)
+      /*
+       * The test is named *"should call updateComponent when component exists"* and its comments
+       * concluded the opposite — *"may not be called … It's normal if updateComponent is not
+       * called"* — around two `console.log`s and no assertion. A test that argues itself out of its
+       * own name asserts nothing, and this one printed instead.
+       *
+       * And the **name was right**: measured, `updateComponent` is called exactly once. The comments
+       * reasoned that an element template updates the DOM directly and no component is involved, and
+       * that reasoning is wrong about this path — a decorator arriving over a run is what brings the
+       * component manager in.
+       *
+       * Which is the third time in one sweep that a comment stated a belief the code does not hold.
+       * A printed number nobody reads cannot correct one; an assertion has to.
+       */
+      expect(updateComponentSpy).toHaveBeenCalledTimes(1);
+      expect(container.querySelector('[data-decorator]')).not.toBeNull();
       updateComponentSpy.mockRestore();
     });
 

@@ -636,10 +636,15 @@ describe('Editor', () => {
   });
 });
 
-// Extension sets (createBasicExtensions, ExtensionSets) live in @barocss/extensions; tested there.
-describe.skip('Extension Sets', () => {
-  it('placeholder', () => {});
-});
+/*
+ * Extension sets — `createBasicExtensions`, `ExtensionSets` — live in `@barocss/extensions` and are
+ * tested there, because editor-core depending on extensions would be a cycle.
+ *
+ * A `describe.skip` holding one empty `it` used to say that. A skipped suite with nothing in it is a
+ * note that *runs*: it costs a line in every report, asserts nothing, and is exactly what a sweep
+ * for tests-that-assert-nothing is built to find. The sentence was the whole content, so it is a
+ * sentence.
+ */
 
 describe('Editor Keybinding 등록', () => {
   let editor: Editor;

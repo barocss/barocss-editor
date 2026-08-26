@@ -283,17 +283,11 @@ describe('findOrCreateHost and updateExistingHost', () => {
         context: {}
       };
 
-      // Should not throw error
-      updateExistingHost(
-        host,
-        container,
-        vnode,
-        prevVNode,
-        0,
-        prevChildVNodes,
-        deps,
-        {}
-      );
+      // Said, rather than implied by the absence of a crash: a bare call passes both when the
+      // function behaved and when it did nothing, and a reader of the report cannot tell which.
+      expect(() =>
+        updateExistingHost(host, container, vnode, prevVNode, 0, prevChildVNodes, deps, {})
+      ).not.toThrow();
     });
   });
 });

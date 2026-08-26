@@ -200,11 +200,20 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
     // Call loadDocument without schema
     editor.loadDocument(initialTree, 'decorator-test');
 
-    // getDocumentProxy() may return null
+    /*
+     * This was a `console.log` and three comments saying nobody knew — *"may return null … may not be
+     * null … need to verify actual behavior"*. A test named *"should fail when dataStore is missing
+     * schema"* that neither fails nor checks is a question left in the suite, and it ran on every run
+     * for as long as it has existed.
+     *
+     * So it was verified. A store built with no schema still loads the tree and still hands back a
+     * proxy: the schema is what *validates* a document, not what makes one readable. That is worth
+     * asserting rather than wondering about, because the day it changes, something that loads a
+     * document before its schema arrives will start seeing `null` instead.
+     */
     const proxy = editor?.getDocumentProxy();
-    // Nodes may be loaded even without schema, so may not be null
-    // But need to verify actual behavior
-    console.log('Proxy without schema:', proxy);
+    expect(proxy).not.toBeNull();
+    expect(proxy?.stype).toBe('document');
   });
 
   it('should reproduce main.ts scenario exactly', () => {
