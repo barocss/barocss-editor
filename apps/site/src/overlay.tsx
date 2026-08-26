@@ -245,6 +245,7 @@ export function Overlay({
    * outline went dashed, and typing did nothing at all.
    */
   const enterText = (sid: string) => {
+    setEditing(sid);
     onEnterText(sid);
     const board = host.current;
     const run = firstRunIn(doc(), sid);
@@ -264,6 +265,23 @@ export function Overlay({
       collapsed: true
     });
   };
+
+  /**
+   * Which block's words are being typed in — the one thing the overlay had no way to show.
+   *
+   * Entering the text **clears the node selection**, and rightly: the reader is in the words now,
+   * and a builder that kept the block selected as well is one where Delete means two things at once.
+   * The consequence was that the marks had nothing to draw, so a reader in text mode saw *nothing at
+   * all* on the board — no outline, no name, no way to tell an editable page from a preview.
+   *
+   * So the block is remembered here rather than read from the selection, and let go the moment the
+   * mode does.
+   */
+  const [editing, setEditing] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (mode !== 'text') setEditing(undefined);
+  }, [mode]);
+  const editingBox = mode === 'text' && editing ? boxOf(editing) : undefined;
 
   const boxes = selected
     .map((sid) => ({ sid, box: boxOf(sid) }))
@@ -410,6 +428,19 @@ export function Overlay({
       {hovered ? (
         <div className="st-mark st-mark-hover" style={boxStyle(hovered)} aria-hidden>
           <span className="st-mark-name">{labelOfBlock(doc(), hover!)}</span>
+        </div>
+      ) : null}
+
+      {editingBox ? (
+        /*
+         * The words being typed in, and the way out.
+         *
+         * A dashed edge rather than a solid one, because it is not a selection — nothing is
+         * selected — and the chip says the gesture rather than the name: a reader who got in here by
+         * double-clicking twice needs to be told there is one key that leaves.
+         */
+        <div className="st-mark st-mark-editing" style={boxStyle(editingBox)} aria-hidden>
+          <span className="st-mark-name">텍스트 편집 · Esc</span>
         </div>
       ) : null}
 

@@ -142,18 +142,45 @@ export function useWheelZoom({ pane, content, zoom, onZoom, min, max, step = 1.1
     // not resubscribe; the zoom is here because the factor is applied to it.
   }, [pane, zoom, min, max, step]);
 
-  useLayoutEffect(() => {
-    const held = pending.current;
-    const host = pane.current;
-    if (!held || !host) return;
+  /**
+   * The content's rectangle as it was **before** this zoom, kept for the changes that did not come
+   * from the wheel.
+   *
+   * A reader pressing `+`, typing `200%` or choosing 맞춤 is asking for the same thing a wheel asks
+   * for and there is no pointer to anchor on — so the middle of what they are looking at is the
+   * point that must not move. Computing that needs the rectangle from before the commit, which is
+   * exactly what this holds and what nothing else can recover afterwards.
+   */
+  const previous = useRef<DOMRect | undefined>(undefined);
 
+  useLayoutEffect(() => {
+    const host = pane.current;
+    if (!host) return;
+
+    const held = pending.current;
     pending.current = null;
     const drawn = latest.current.content();
     if (!drawn) return;
 
-    const shift = anchorShift(held.pointer, drawn, held.anchor);
-    host.scrollLeft += shift.dx;
-    host.scrollTop += shift.dy;
+    if (held) {
+      const shift = anchorShift(held.pointer, drawn, held.anchor);
+      host.scrollLeft += shift.dx;
+      host.scrollTop += shift.dy;
+    } else if (previous.current) {
+      /*
+       * No pointer, so the middle of the pane is what is held still. Without this a button press
+       * anchored the **top-left corner** of the plane — the reader pressed `+` and the page they
+       * were reading left the window downward, which reads as the zoom being broken rather than as
+       * an anchor being wrong.
+       */
+      const view = host.getBoundingClientRect();
+      const middle = { x: view.left + view.width / 2, y: view.top + view.height / 2 };
+      const shift = anchorShift(middle, drawn, anchorOf(middle, previous.current));
+      host.scrollLeft += shift.dx;
+      host.scrollTop += shift.dy;
+    }
+
+    previous.current = latest.current.content();
     // Keyed on the zoom and nothing else: this is the commit that changed the
     // size, and the rectangle is only true here. See the note on `latest`.
   }, [zoom, pane]);

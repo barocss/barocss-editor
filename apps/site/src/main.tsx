@@ -7,6 +7,7 @@ import { createSchema } from '@barocss/schema';
 import type { Editor } from '@barocss/editor-core';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import {
+  PAGE_CSS,
   createSampleSite,
   createSiteEditor,
   exportSite,
@@ -83,6 +84,19 @@ export function mountSite(container: HTMLElement): { editor: Editor; view: Edito
 
   return { editor, view };
 }
+
+/**
+ * The **page's** own stylesheet, put into the window the boards are drawn in.
+ *
+ * The same bytes the export inlines, from the same constant — because a board and a published page
+ * that disagree about what a heading is are two documents. Injected rather than imported into
+ * `style.css` so that there is one source and no copy to drift: see `page-css.ts` for what the
+ * disagreement cost when there was no source at all.
+ */
+const pageStyles = document.createElement('style');
+pageStyles.dataset.sitePage = 'true';
+pageStyles.textContent = PAGE_CSS;
+document.head.append(pageStyles);
 
 const root = document.getElementById('root');
 if (root) {

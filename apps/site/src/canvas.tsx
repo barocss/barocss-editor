@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useWheelZoom } from '@barocss/office-ui';
 
 /**
@@ -38,6 +38,23 @@ export function Canvas({
   const pane = useRef<HTMLDivElement>(null);
   const plane = useRef<HTMLDivElement>(null);
   const [panning, setPanning] = useState(false);
+
+  /**
+   * The plane's **own** size, before the zoom — which is what the room outside it is computed from.
+   *
+   * Watched rather than measured once: a board grows when a reader adds a section, and a room that
+   * did not follow would be a page whose foot cannot be scrolled to.
+   */
+  const [room, setRoom] = useState({ width: 0, height: 0 });
+  useLayoutEffect(() => {
+    const el = plane.current;
+    if (!el) return;
+    const measure = () => setRoom({ width: el.offsetWidth, height: el.offsetHeight });
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
   const grab = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
 
   /* The rectangle of what the reader is actually looking at — the boards, not the plane they sit on. */
@@ -104,11 +121,25 @@ export function Canvas({
       }}
     >
       {/*
-        Scaled at the plane rather than per board, so the gaps between boards scale too — a reader
-        zooming out is standing back from the whole studio, not shrinking three pictures on a wall.
+        **The room the scaled plane takes up.**
+
+        A `transform` does not change layout: the plane's own box stays the size it was, so the pane
+        had the same `scrollWidth` at every zoom. Measured at 0.9: the boards drew 2389px wide inside
+        a scroll area of 2760 that never moved — zoom in and the right-hand board is unreachable,
+        zoom out and there is a field of empty scroll beside it. Every infinite canvas answers this
+        the same way, with a box the size the drawing *ends up*, and the transform inside it.
       */}
-      <div ref={plane} className="st-plane" style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
-        <div className="st-boards">{children}</div>
+      <div
+        className="st-plane-room"
+        style={{ width: `${Math.round(room.width * zoom)}px`, height: `${Math.round(room.height * zoom)}px` }}
+      >
+        {/*
+          Scaled at the plane rather than per board, so the gaps between boards scale too — a reader
+          zooming out is standing back from the whole studio, not shrinking three pictures on a wall.
+        */}
+        <div ref={plane} className="st-plane" style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
+          <div className="st-boards">{children}</div>
+        </div>
       </div>
     </div>
   );

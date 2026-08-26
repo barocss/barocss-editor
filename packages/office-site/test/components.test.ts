@@ -41,7 +41,7 @@ describe('the definitions a site holds', () => {
      */
     expect(uses.get('site-header')).toBe(5);
     expect(uses.get('site-footer')).toBe(5);
-    expect(uses.get('cta')).toBe(5);
+    expect(uses.get('cta')).toBe(6);
     // A number that is *stored* is a number that goes stale, and "5곳" is a question about the
     // document as it is now.
     expect(usesOf(doc)).toEqual(uses);

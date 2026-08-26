@@ -80,8 +80,25 @@
   --st-panel: var(--ou-panel);
 }
 
+/*
+ * **The window is the frame.**
+ *
+ * The other two products have said this since their first day and this one never did: without a
+ * height on the three elements above the shell, `AppShell`'s `h-full` resolves to `auto`, the canvas
+ * pane is as tall as everything in it, and *the window* scrolls instead of the pane. Measured: a
+ * 1000px viewport with a pane **3280px** tall, so nothing could be scrolled inside the studio, the
+ * zoom's anchor had no scroll to correct with, and the rail and the panel scrolled away with the
+ * page. Every symptom of "the zoom does not work" started here.
+ */
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
+  overflow: hidden;
   background: var(--st-ground);
   color: var(--st-ink);
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -177,6 +194,11 @@ body {
 .st-canvas[data-space='true'] { cursor: grab; }
 .st-canvas[data-panning='true'] { cursor: grabbing; }
 
+/* The box the scaled plane occupies — see `canvas.tsx` for why a transform needs one. */
+.st-plane-room {
+  position: relative;
+}
+
 .st-plane {
   width: max-content;
   padding: 56px 64px 80px;
@@ -271,6 +293,23 @@ body {
   outline-offset: 0;
 }
 .st-mark-selected { outline: 1px solid var(--st-accent); }
+
+/*
+ * The block whose words are being typed in.
+ *
+ * Dashed, because nothing is *selected* — the caret is the selection now — and a solid edge would be
+ * the reader's one signal for two different states. Before this the board showed **nothing** in text
+ * mode: the marks draw from the node selection, and entering the words empties it.
+ */
+.st-mark-editing {
+  outline: 1px dashed var(--st-accent);
+  background: color-mix(in srgb, var(--st-accent) 6%, transparent);
+}
+
+.st-mark-editing .st-mark-name {
+  background: var(--st-accent);
+  letter-spacing: 0.01em;
+}
 .st-mark-selected[data-editing='true'] {
   outline-style: dashed;
 }
@@ -318,6 +357,8 @@ body {
 .st-rail {
   display: flex;
   width: 240px;
+  /* Fields inside the rail are the panel's kind, not a toolbar's — see `--ou-field-line`. */
+  --ou-field-line: transparent;
   flex-shrink: 0;
   flex-direction: column;
   overflow: hidden;
@@ -330,28 +371,42 @@ body {
  * and the moment there is a sixth this becomes an icon rail, which is what every tool of this kind
  * does at that point.
  */
+/*
+ * A **segmented strip**, not a row of underlines.
+ *
+ * Five words across 240px cannot each carry an underline and stay legible, and the underline was
+ * doing two jobs at once — saying which panel is open, and drawing the rule under the strip. The
+ * current one is a raised chip on the panel's ground, which is what every tool of this kind uses for
+ * a switch between *views of the same thing*.
+ */
 .st-rail-tabs {
   display: flex;
-  border-bottom: 1px solid var(--st-line);
+  gap: 2px;
+  margin: 8px 8px 6px;
+  padding: 2px;
+  border-radius: 6px;
+  background: var(--ou-ground);
 }
 
 .st-rail-tabs button {
   flex: 1;
-  padding: 7px 2px;
+  min-width: 0;
+  padding: 4px 2px;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 4px;
   background: none;
   font-size: var(--ou-text-small);
   color: var(--st-faint);
-  transition: color var(--ou-quick);
+  transition: background var(--ou-quick), color var(--ou-quick);
 }
 
 .st-rail-tabs button:hover { color: var(--st-ink); }
 
 .st-rail-tabs button[data-current='true'] {
-  border-bottom-color: var(--st-accent);
+  background: var(--st-panel);
   color: var(--st-ink);
   font-weight: 600;
+  box-shadow: var(--ou-lift-1);
 }
 
 .st-rail-body {
@@ -361,9 +416,11 @@ body {
 }
 
 .st-rail-group {
-  padding: 6px 0;
+  padding: 4px 0 8px;
   border-bottom: 1px solid var(--st-line);
 }
+
+.st-rail-group:last-child { border-bottom: 0; }
 
 /*
  * A group's name is a label, not a heading: 10px, tracked, and the quietest ink on the panel. It is
@@ -384,19 +441,25 @@ body {
 
 /* A row is a thing, so it reads as a thing: its name on the left, what a reader needs to know about
    it on the right, and the whole row is the target. */
+/*
+ * A row is 28px and the whole of it is the target — the height every tool of this kind uses for a
+ * list a reader runs their eye down, and the one thing that stops a column of mixed rows rippling.
+ */
 .st-rail-item {
   display: flex;
   width: 100%;
+  min-height: 28px;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 5px 12px;
+  padding: 4px 12px;
   border: 0;
   border-radius: 0;
   background: none;
   text-align: left;
   font-size: var(--ou-text);
   color: var(--st-ink);
+  transition: background var(--ou-quick);
 }
 
 .st-rail-item:hover:not(:disabled) { background: var(--ou-ground); }
@@ -426,10 +489,11 @@ body {
 .st-rail-item[data-page-current='true'] .st-rail-hint { color: var(--st-faint); }
 
 .st-rail-note {
-  padding: 8px 12px;
+  padding: 8px 12px 10px;
   font-size: var(--ou-text-small);
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--st-faint);
+  text-wrap: pretty;
 }
 
 /* Where the reader is: a page and its address, or a definition and how many places use it. */
@@ -501,13 +565,15 @@ body {
 .st-layer {
   display: block;
   width: 100%;
-  padding: 4px 8px;
+  min-height: 26px;
+  padding: 5px 8px;
   text-align: left;
   font-size: var(--ou-text-small);
   color: var(--st-ink);
   background: none;
   border: 0;
   cursor: default;
+  transition: background var(--ou-quick);
 }
 
 .st-layer:hover { background: var(--ou-ground); }

@@ -157,7 +157,7 @@ test.describe('a site at several widths', () => {
       placement of a definition that itself places one, which is what makes the bar's call to action
       the same button as the hero's.
     */
-    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(3);
+    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(4);
     await expect(page.locator('[data-frame="desktop"] .st-placement h4')).toHaveText('Barocss');
   });
 });
@@ -717,8 +717,8 @@ test.describe('the rail', () => {
     // The count is what makes a component list worth having: a definition used in five places is a
     // decision, and one used nowhere is a thing to delete.
     await expect(page.locator('[data-component="site-header"]')).toContainText('5곳');
-    // Five: twice on this page, once inside the header's own definition, once on each of two others.
-    await expect(page.locator('[data-component="cta"]')).toContainText('5곳');
+    // Six: twice on the home page, once in the header's own definition, and once on each of three others.
+    await expect(page.locator('[data-component="cta"]')).toContainText('6곳');
 
     const placements = page.locator('[data-frame="desktop"] .st-placement');
     const before = await placements.count();
@@ -726,7 +726,7 @@ test.describe('the rail', () => {
     await page.waitForTimeout(600);
     await expect(placements).toHaveCount(before + 1);
     // And the count follows, because it is read from the document rather than remembered.
-    await expect(page.locator('[data-component="cta"]')).toContainText('6곳');
+    await expect(page.locator('[data-component="cta"]')).toContainText('7곳');
   });
 
   test('makes a data list from a dataset and a design, and refuses half of one', async ({ page }) => {
@@ -879,7 +879,7 @@ test.describe('a definition', () => {
     await ready(page);
     await page.locator('[data-panel="components"]').click();
     await page.locator('[data-edit-component="cta"]').click();
-    await page.waitForTimeout(600);
+    await expect(page.locator('.st-frame-label').first()).toContainText('버튼');
 
     /*
      * The definition's parts rather than a page's blocks — and **the part itself is in the list**,
@@ -905,7 +905,13 @@ test.describe('a definition', () => {
 
     await page.locator('[data-panel="components"]').click();
     await page.locator('[data-edit-component="cta"]').click();
-    await page.waitForTimeout(600);
+    /*
+     * Waited for **the board to say whose it is**, rather than for a number of milliseconds. The
+     * definition opens by pointing three boards at another node and redrawing them, and a sample
+     * with ten sections on a page takes longer to redraw than one with three — so a fixed 600ms
+     * passed while the boards still held the page, and the click below landed on the header.
+     */
+    await expect(page.locator('.st-frame-label').first()).toContainText('버튼');
 
     // Selecting the definition's own stack, and reading its panel: the same panel, inside a
     // definition, because the thing being edited is a stack either way.
@@ -1047,6 +1053,169 @@ test.describe('the pages of a site', () => {
     await expect(links.nth(1)).toHaveAttribute('href', '/가격');
     // And the footer's link to the same page is gone too, because it named the same page.
     await expect(links.nth(4)).not.toHaveAttribute('href', /./);
+  });
+});
+
+/**
+ * The studio: how far away the reader is standing, and what stays still while that changes.
+ *
+ * Every claim here was a **report** first — *the zoom does not work, the selection is in the wrong
+ * place, the text is too small to read* — and every one of them turned out to be measurable in a
+ * line or two. They are kept because the causes were nowhere near the symptoms:
+ *
+ * - the pane was **3280px tall inside a 1000px window**, because the three elements above the shell
+ *   had no height, so the *window* scrolled and the pane never did;
+ * - a `transform` does not change layout, so the scroll area stayed the size the plane was at 100%
+ *   however far in a reader zoomed;
+ * - and a heading on the page was **12px**, because Tailwind's preflight resets headings to
+ *   `inherit` and the app's body is the chrome's 12px — so the page wore the tool's type.
+ */
+test.describe('the studio', () => {
+  test('scrolls the pane rather than the window', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await ready(page);
+
+    const fits = await page.evaluate(() => {
+      const pane = document.querySelector('.st-canvas') as HTMLElement;
+      return { pane: pane.clientHeight, window: window.innerHeight, body: document.body.scrollHeight };
+    });
+    // The pane is a window onto the plane, not a column the page grows.
+    expect(fits.pane).toBeLessThanOrEqual(fits.window);
+    expect(fits.body).toBeLessThanOrEqual(fits.window);
+  });
+
+  test('keeps the point under the pointer while zooming, and can reach what it draws', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await ready(page);
+
+    const at = { x: 700, y: 500 };
+    /** Which node is under the pointer, and where in it — the fraction is what a zoom must preserve. */
+    const anchor = () =>
+      page.evaluate((q) => {
+        const deep = (document.elementsFromPoint(q.x, q.y) as HTMLElement[]).find((el) =>
+          el.hasAttribute('data-bc-sid')
+        );
+        if (!deep) return null;
+        const box = deep.getBoundingClientRect();
+        return {
+          sid: deep.getAttribute('data-bc-sid'),
+          fx: Math.round(((q.x - box.left) / box.width) * 100) / 100,
+          fy: Math.round(((q.y - box.top) / box.height) * 100) / 100
+        };
+      }, at);
+
+    const room = () =>
+      page.evaluate(() => {
+        const pane = document.querySelector('.st-canvas') as HTMLElement;
+        const boards = document.querySelector('.st-boards') as HTMLElement;
+        return { scroll: pane.scrollWidth, drawn: Math.round(boards.getBoundingClientRect().width) };
+      });
+
+    const before = await anchor();
+    const roomBefore = await room();
+    expect(before).not.toBeNull();
+
+    await page.mouse.move(at.x, at.y);
+    await page.keyboard.down('Meta');
+    for (let notch = 0; notch < 6; notch += 1) {
+      await page.mouse.wheel(0, -120);
+      await page.waitForTimeout(70);
+    }
+    await page.keyboard.up('Meta');
+    await page.waitForTimeout(300);
+
+    // The same node, at the same point in it: an infinite canvas holds the pointer still.
+    const after = await anchor();
+    expect(after?.sid).toBe(before?.sid);
+    expect(Math.abs((after?.fx ?? 0) - (before?.fx ?? 0))).toBeLessThan(0.03);
+    expect(Math.abs((after?.fy ?? 0) - (before?.fy ?? 0))).toBeLessThan(0.03);
+
+    /*
+     * And the scroll area grew with the drawing. A transform does not change layout, so this was the
+     * same number at every zoom: the boards drew wider than anything a reader could scroll to.
+     */
+    const roomAfter = await room();
+    expect(roomAfter.drawn).toBeGreaterThan(roomBefore.drawn * 1.4);
+    expect(roomAfter.scroll).toBeGreaterThan(roomBefore.scroll * 1.4);
+  });
+
+  test('draws the selection exactly on the block, however far in the reader is', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await ready(page);
+
+    await page.mouse.move(700, 500);
+    await page.keyboard.down('Meta');
+    for (let notch = 0; notch < 6; notch += 1) {
+      await page.mouse.wheel(0, -120);
+      await page.waitForTimeout(70);
+    }
+    await page.keyboard.up('Meta');
+    await page.waitForTimeout(300);
+
+    await pressDeepAt(page, cardRow(page, 'desktop').locator('.st-stack').first());
+    await page.waitForTimeout(400);
+
+    const gap = await page.evaluate(() => {
+      const mark = document.querySelector('[data-frame="desktop"] .st-mark-selected') as HTMLElement;
+      const sid = (window as never as { editor: { selection: { nodeIds: string[] } } }).editor.selection.nodeIds[0];
+      const el = document.querySelector(
+        `[data-frame="desktop"] [data-bc-sid="${CSS.escape(sid)}"]`
+      ) as HTMLElement;
+      const m = mark.getBoundingClientRect();
+      const e = el.getBoundingClientRect();
+      return Math.max(Math.abs(m.left - e.left), Math.abs(m.top - e.top), Math.abs(m.width - e.width));
+    });
+    // One pixel of rounding, and no more: the overlay lives inside the scaled plane and has to
+    // divide what the screen tells it by the zoom.
+    expect(gap).toBeLessThanOrEqual(1);
+  });
+
+  test('gives the page its own type, not the tool’s', async ({ page }) => {
+    await ready(page);
+
+    const type = await page.evaluate(() => {
+      const h1 = document.querySelector('[data-frame="desktop"] h1') as HTMLElement;
+      const p = document.querySelector('[data-frame="desktop"] p') as HTMLElement;
+      const narrow = document.querySelector('[data-frame="mobile"] h1') as HTMLElement;
+      return {
+        h1: parseFloat(getComputedStyle(h1).fontSize),
+        p: parseFloat(getComputedStyle(p).fontSize),
+        narrow: parseFloat(getComputedStyle(narrow).fontSize)
+      };
+    });
+
+    /*
+     * A heading is a heading. It was 12px — the chrome's size, inherited through a preflight that
+     * resets `h1` to `inherit` — so every board was a page set in panel-label type.
+     */
+    expect(type.h1).toBeGreaterThanOrEqual(40);
+    expect(type.p).toBeGreaterThanOrEqual(15);
+
+    /*
+     * And the 390 board gets the *narrow* size, which only a container query can do: a media query
+     * asks the window, and the window is 1600 wide while that board is 390.
+     */
+    expect(type.narrow).toBeLessThan(type.h1);
+  });
+
+  test('says which block is being typed in', async ({ page }) => {
+    await ready(page);
+
+    const hero = page.locator('[data-frame="mobile"] h1');
+    await pressDeep(page, hero);
+    await page.waitForTimeout(200);
+    await pressTwice(page, hero);
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('[data-frame="mobile"] .st-overlay')).toHaveAttribute('data-mode', 'text');
+    /*
+     * And the board says so. Entering the words clears the node selection — rightly — and the marks
+     * draw from that selection, so a reader in text mode was shown **nothing at all**: no outline,
+     * no name, no way to tell an editable page from a preview.
+     */
+    const editing = page.locator('[data-frame="mobile"] .st-mark-editing');
+    await expect(editing).toHaveCount(1);
+    await expect(editing).toContainText('텍스트 편집');
   });
 });
 

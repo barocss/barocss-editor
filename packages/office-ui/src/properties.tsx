@@ -52,6 +52,11 @@ export function PropertyPanel({
  * is not a taste: it is whatever the widest row honestly needs.
  */
         'office-properties flex w-72 shrink-0 flex-col overflow-y-auto',
+        /*
+         * Inside a panel a field has no resting edge — see `--ou-field-line`. Set here rather than in
+         * every control, because it is a fact about *this surface* and not about any one row.
+         */
+        '[--ou-field-line:transparent]',
  'border-l border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] text-[color:var(--ou-ink)]',
  className
       )}
@@ -103,8 +108,13 @@ export function PropertyGroup({
  )}
     >
       <div className="flex h-5 items-center justify-between">
- <h3 className="text-[length:var(--ou-text-small)] font-semibold uppercase tracking-wide text-[color:var(--ou-muted)]">
- {label}
+        {/*
+          10px and tracked, which is the size a *label* is rather than a heading: a section's name is
+          there to be found when a reader looks for it and to disappear when they do not. At the
+          panel's own text size it competed with the rows under it.
+        */}
+        <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ou-faint)]">
+          {label}
         </h3>
         {action}
       </div>
@@ -159,13 +169,25 @@ export function PropertyTabs({
   );
 }
 
-/** A row: a label on the left, the controls on the right. */
+/**
+ * A row: a label on the left, the controls on the right.
+ *
+ * A stated height, because a row whose height comes from whatever is in it makes a column of twenty
+ * of them ripple — a toggle is 20px, a field is 28, a swatch is 24, and the eye reads the ripple as
+ * misalignment rather than as variety. The label is the panel's quiet ink and truncates rather than
+ * wrapping: a two-line label pushes its own control out of the rhythm it is supposed to keep.
+ */
 export function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex items-center gap-2 text-xs">
- <span className="w-[var(--ou-label-w)] shrink-0 truncate text-[color:var(--ou-muted)]">{label}</span>
- <span className="flex flex-1 items-center gap-1.5">{children}</span>
- </label>
+    <label className="flex min-h-[var(--ou-control-h)] items-center gap-2 text-[length:var(--ou-text)]">
+      <span
+        className="w-[var(--ou-label-w)] shrink-0 truncate text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)]"
+        title={label}
+      >
+        {label}
+      </span>
+      <span className="flex min-w-0 flex-1 items-center gap-1.5">{children}</span>
+    </label>
   );
 }
 

@@ -66,6 +66,36 @@ entries are that.
   before it ever reaches an operation — so a cleared field there may still be dropped one layer
   earlier, for a different reason. Worth the same probe.
 
+### The studio was measured after a reader said it did not work
+
+Five reports, each of which turned out to be measurable in a line or two, and none of whose causes
+were where the symptom was:
+
+- [x] **"확대 축소가 제대로 되지 않는다."** Two faults at once. The three elements above the shell had
+  no height, so `AppShell`'s `h-full` resolved to `auto` and the **window** scrolled while the pane
+  never did — measured, a pane 3280px tall inside a 1000px viewport. And a `transform` does not
+  change layout, so the pane's `scrollWidth` was the same number at every zoom: the boards drew wider
+  than anything a reader could scroll to. A room sized `natural × zoom` around the scaled plane is
+  what every infinite canvas does and what this needed.
+
+- [x] **"확대할 때 selection 위치가 맞지 않는다."** It was the same fault: the marks were right and the
+  thing under them could not be scrolled to. Held now by a test that presses ⌘ six notches in and
+  asks for the distance between the outline and the block — one pixel of rounding, no more.
+
+- [x] **"캔버스의 글자가 너무 작다."** A heading on the page was **12px**. Tailwind's preflight resets
+  `h1…h6` to `font-size: inherit` and the app's body is the chrome's 12px, so every board drew a page
+  in panel-label type. The published page had the opposite fault from the same cause — no scale at
+  all, so a browser applied its own. `PAGE_CSS` is one string used by both, with **container**
+  queries rather than media queries: a 390 board inside a 1600 window has to get the phone's type.
+
+- [x] **"텍스트 편집 상태가 아무것도 표시되지 않는다."** Entering the words clears the node selection —
+  rightly — and the marks draw from that selection, so a reader in text mode saw nothing at all. The
+  overlay remembers the block it entered and draws a dashed edge with the way out on it.
+
+- [x] **A zoom with no pointer** — a button, a typed percentage, 맞춤 — anchored the plane's top-left
+  corner, so the page a reader was reading left the window. `useWheelZoom` holds the previous
+  rectangle and anchors the middle of the view when there is no pointer to hold.
+
 ### The sample was rebuilt to be looked at, and the tool around it with it
 
 - [x] The sample is a **designed site** now rather than a fixture that happened to render: ink and

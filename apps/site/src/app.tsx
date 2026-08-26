@@ -53,7 +53,15 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * and how big, is not a fact about their site.
    */
   const [shown, setShown] = useState<BreakpointId[]>(['desktop', 'tablet', 'mobile']);
-  const [zoom, setZoom] = useState(0.75);
+  /**
+   * How far back the reader is standing, and **the first board is the one that has to be readable**.
+   *
+   * It was 0.75, a constant, and at 0.75 a 16px paragraph is 12px on screen — which is a panel label
+   * rather than a page. The opening view now fits the *widest board* into the pane rather than all
+   * three, so a reader lands on a page they can read and presses 맞춤 when they want to compare.
+   * Corrected once, after the first layout, because the pane's width is not known before it.
+   */
+  const [zoom, setZoom] = useState(1);
   const [mode, setMode] = useState<PointerMode>('select');
   /**
    * The container the reader has entered — the page until they double-click into something.
@@ -215,6 +223,25 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     const wide = boards.getBoundingClientRect().width / zoom;
     if (wide > 0) setZoom(Math.max(0.1, Math.min(1, room / wide)));
   }, [zoom]);
+
+  /**
+   * The opening view: the **first** board, as large as it will go and no larger.
+   *
+   * Once, on the first layout that has a pane to measure — a reader who has zoomed is not asking to
+   * be moved. Never above 1: a page drawn larger than it will be published at is a page whose type
+   * a reader cannot judge, which is the one thing these boards are for.
+   */
+  const settled = useRef(false);
+  useEffect(() => {
+    if (settled.current) return;
+    const board = document.querySelector('.st-frame');
+    const pane = document.querySelector('.st-canvas');
+    if (!board || !pane) return;
+    const wide = board.getBoundingClientRect().width / zoom;
+    if (wide <= 0) return;
+    settled.current = true;
+    setZoom(Math.max(0.25, Math.min(1, (pane.clientWidth - 96) / wide)));
+  }, [zoom, editor]);
 
   return (
     <AppShell className="st-shell">

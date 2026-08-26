@@ -146,6 +146,18 @@
   /** What a board's name is drawn in, above the board. */
   --ou-board-ink: #6b7280;
 
+  /**
+   * The line a **field** rests behind, which is not always the line everything else uses.
+   *
+   * A toolbar's control is a thing to press and wears an edge; a panel's twenty rows are a form, and
+   * twenty edges is a fence. Every tool of this kind draws a panel field with no border until the
+   * pointer or the keyboard reaches it — which is the single change that makes a dense panel calm.
+   *
+   * A token rather than a variant so that a *surface* decides: `PropertyPanel` sets it to
+   * `transparent` for everything inside it, and a control in a ribbon is untouched.
+   */
+  --ou-field-line: var(--ou-line);
+
   --ou-control-h: 28px;
   /**
    * An icon button inside a **list row**.
@@ -208,6 +220,7 @@
     --ou-panel: #171717;
     --ou-ground: #0a0a0a;
     --ou-line: #404040;
+    --ou-field-line: var(--ou-line);
     --ou-ink: #fafafa;
     --ou-muted: #a3a3a3;
     --ou-faint: #737373;
@@ -237,6 +250,7 @@
   --ou-panel: #171717;
   --ou-ground: #0a0a0a;
   --ou-line: #404040;
+  --ou-field-line: var(--ou-line);
   --ou-ink: #fafafa;
   --ou-muted: #a3a3a3;
   --ou-faint: #737373;

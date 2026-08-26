@@ -43,9 +43,16 @@ import { cn } from './cn';
  * which is what made a shared control look foreign in a product's own panel.
  */
 export const CONTROL = [
- 'h-[var(--ou-control-h)] rounded-[var(--ou-radius)] text-[length:var(--ou-text)]',
- 'border border-[color:var(--ou-line)] text-[color:var(--ou-ink)]',
- 'disabled:pointer-events-none disabled:opacity-40'
+  'h-[var(--ou-control-h)] rounded-[var(--ou-radius)] text-[length:var(--ou-text)]',
+  /*
+   * The border comes from `--ou-field-line` rather than from `--ou-line`, and a surface decides what
+   * that is: a ribbon's control keeps its edge, and a panel's twenty rows lose theirs until the
+   * pointer arrives. Twenty edges down a 288px column is a fence, and every tool of this kind
+   * stopped drawing it years ago.
+   */
+  'border border-[color:var(--ou-field-line)] text-[color:var(--ou-ink)]',
+  'hover:border-[color:var(--ou-line)]',
+  'disabled:pointer-events-none disabled:opacity-40'
 ].join(' ');
 
 /**

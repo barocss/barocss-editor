@@ -51,6 +51,7 @@ import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import { stackCss } from './renderers';
 import { BREAKPOINTS, SITE_ENV_KEY, createSiteEnv, type BreakpointId } from './breakpoints';
 import { BASE_BREAKPOINT, attrsAt, overridesOf } from './responsive';
+import { PAGE_CSS } from './page-css';
 import { sizingCss } from './sizing';
 import { pagesOf } from './selection';
 
@@ -373,6 +374,11 @@ function declarations(css: Record<string, string>): string {
  * *document* has — a character set, a viewport, a title — plus the media queries. No framework, no
  * reset beyond the two rules a page cannot do without, and nothing that would make the published
  * page depend on this repository being installed.
+ *
+ * And `PAGE_CSS`, which is the page's own **type scale** — the same bytes the editor's boards draw
+ * with. Without it a browser applied its own: `h1` at 2em with a margin the model never asked for,
+ * while the editor drew the same heading at the app's 12px chrome size. Two grounds, one document,
+ * and export-as-a-render cannot mean anything while they differ.
  */
 function document_(name: string, body: string, responsive: string): string {
   return `<!doctype html>
@@ -383,7 +389,8 @@ function document_(name: string, body: string, responsive: string): string {
 <title>${escape(name)}</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; }
-body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+body { margin: 0; }
+${PAGE_CSS}
 ${responsive}
 </style>
 </head>

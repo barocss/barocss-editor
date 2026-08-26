@@ -93,10 +93,13 @@ describe('a site draws', () => {
     expect(stacks.map((one) => one.dataset.name)).toEqual([
       '히어로',
       '쓰는 곳',
+      '문제',
       '카드 줄',
       '요금 미리보기',
       '한 엔진',
+      '시작하는 법',
       '한마디',
+      '묻는 것들',
       '마무리'
     ]);
     // Each is a band as wide as the window; the arrangement is one level in, where the words are.

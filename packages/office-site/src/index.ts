@@ -23,6 +23,7 @@ export { createSiteEditor, createSiteExtensions, createSiteOwnExtensions, type S
 export { createStackCommands, SiteStackExtension, type InsertStackOptions } from './stack-commands';
 export { createBlockCommands, SiteBlockExtension } from './block-commands';
 export { createDataCommands, SiteDataExtension } from './data-commands';
+export { PAGE_CSS } from './page-css';
 export { createLinkCommands, SiteLinkExtension } from './link-commands';
 export { createPageCommands, SitePageExtension } from './page-commands';
 export {

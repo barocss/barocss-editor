@@ -328,20 +328,20 @@ function home(): Node {
        * Asymmetric rather than centred, and 7 to 5 rather than half and half, because a centred hero
        * is what a page looks like when nobody decided. The picture holds a width of its own until
        * there is no room for it beside the words, and then the whole thing becomes a column.
+       *
+       * Two sentences under the claim rather than one — see `docs/specs/site-content.md`: the first
+       * says what this is and the second says what it replaces, and a hero with only the first is
+       * the shape a reader called thin.
        */
       stack(
         'column',
         {
           name: '히어로',
           alignItems: 'center',
-          paddingTop: px(96),
-          paddingBottom: px(104),
+          paddingTop: px(104),
+          paddingBottom: px(112),
           paddingLeft: AIR.side,
           paddingRight: AIR.side,
-          /*
-           * The grid, tiled and barely there: the one background on the site that is a texture
-           * rather than a picture, and the reason `tile` is one of the three fits.
-           */
           backgroundImage: gridTexture('#0E1512', 0.05),
           backgroundFit: 'tile',
           overrides: {
@@ -363,8 +363,14 @@ function home(): Node {
               stack('column', { name: '히어로 글', gap: GAP.mid, sizing: 'fill', minWidth: px(360) }, [
                 heading(1, '문서 한 벌로 세 가지를 만듭니다'),
                 paragraph([
-                  inColour('워드프로세서와 프레젠테이션과 웹사이트가 같은 스키마, 같은 렌더러 위에서 움직입니다. ', '3A443E'),
-                  inColour('이 페이지도 그중 하나입니다.', '0F7A5A')
+                  inColour(
+                    '워드프로세서와 프레젠테이션과 웹사이트가 같은 스키마, 같은 렌더러 위에서 움직입니다. 표를 슬라이드에서 문서로 옮겨도 표인 채로 남고, 편집기에서 본 화면이 그대로 내보내집니다.',
+                    '3A443E'
+                  )
+                ]),
+                paragraph([
+                  inColour('세 제품을 따로 사서 붙이던 자리를 대신합니다. ', '3A443E'),
+                  inColour('이 페이지도 그중 하나로 만들었습니다.', '0F7A5A')
                 ]),
                 stack('row', { name: '히어로 버튼', gap: GAP.tight, sizing: 'hug', alignItems: 'center' }, [
                   placed('cta', { 문구: '무료로 시작하기' }, { sizing: 'hug' }),
@@ -398,7 +404,7 @@ function home(): Node {
         '쓰는 곳',
         {
           paddingTop: 0,
-          paddingBottom: px(24),
+          paddingBottom: px(28),
           overrides: {
             tablet: { paddingTop: 0, paddingBottom: px(20), paddingLeft: px(40), paddingRight: px(40) },
             mobile: { paddingTop: 0, paddingBottom: px(16), paddingLeft: px(20), paddingRight: px(20) }
@@ -426,13 +432,36 @@ function home(): Node {
       ),
 
       /**
+       * The turn: the sentence that makes the rest worth reading.
+       *
+       * One paragraph on its own measure, before any feature is named. A page that goes from the
+       * claim straight to a row of cards is a page that never said why the cards matter.
+       */
+      section('문제', { paddingBottom: px(48) }, [
+        stack('column', { name: '문제 글', gap: GAP.mid, maxWidth: WIDTH.text }, [
+          heading(2, '같은 표를 세 번 만들고 계신가요'),
+          quiet(
+            '문서에서 만든 표를 슬라이드에 붙이면 그림이 되고, 그 슬라이드를 웹에 올리면 다시 이미지가 됩니다. 도구가 셋이면 서식도 셋이고, 고칠 곳도 셋입니다.'
+          ),
+          quiet(
+            '한 모델 위에 올리면 그 셋이 한 번이 됩니다. 표는 어디로 가도 표이고, 브랜드 색을 바꾸면 세 제품이 함께 바뀝니다.'
+          )
+        ])
+      ]),
+
+      /**
        * The trio, and it is deliberately **not** three of the same width.
        *
        * Three identical cards side by side is the layout a page falls into when the content was not
        * ranked. The first one is the product this page is about and is wider; the other two are the
-       * pair it is usually bought with.
+       * pair it is usually bought with. Each card is a noun and two sentences — the length the
+       * content model says a capability takes.
        */
       section('카드 줄', {}, [
+        stack('column', { name: '카드 머리', gap: GAP.hair, maxWidth: WIDTH.text }, [
+          heading(2, '세 제품, 한 문서'),
+          quiet('무엇을 만들든 문단은 문단이고 표는 표입니다. 제품이 다른 것은 그것을 어떻게 배치하느냐뿐입니다.')
+        ]),
         stack(
           'row',
           {
@@ -445,12 +474,13 @@ function home(): Node {
             }
           },
           [
-            card('사이트', '쌓이는 섹션. 배치는 브라우저가 합니다. 이 페이지가 그 결과입니다.', {
-              minWidth: px(380),
-              overrides: { mobile: { minWidth: 0 } }
-            }),
-            card('문서', '문단, 표, 각주. 페이지로 나뉘는 것은 워드의 몫입니다.'),
-            card('덱', '슬라이드, 도형, 모션. 좌표 위에 놓는 것은 덱의 몫입니다.')
+            card(
+              '사이트',
+              '섹션을 쌓으면 브라우저가 배치합니다. 폭마다 다른 것만 적어두면 한 문서가 세 화면이 됩니다. 이 페이지가 그 결과입니다.',
+              { minWidth: px(380), overrides: { mobile: { minWidth: 0 } } }
+            ),
+            card('문서', '문단, 표, 각주, 목차. 페이지로 나누고 머리말을 반복하는 일은 워드가 맡습니다.'),
+            card('덱', '슬라이드 위 좌표에 도형을 놓고, 순서대로 등장시킵니다. 발표자 화면과 노트가 함께 옵니다.')
           ]
         )
       ]),
@@ -464,7 +494,7 @@ function home(): Node {
       section('요금 미리보기', {}, [
         stack('column', { name: '요금 머리', gap: GAP.hair, maxWidth: WIDTH.text }, [
           heading(2, '값은 쓰는 만큼'),
-          quiet('제품 하나만 쓰거나, 셋을 한 계정으로 씁니다.')
+          quiet('제품 하나만 쓰거나, 셋을 한 계정으로 씁니다. 사람 수가 아니라 계정 수로 셉니다.')
         ]),
         {
           stype: 'collection',
@@ -485,17 +515,18 @@ function home(): Node {
       ]),
 
       /**
-       * One engine, said as a sentence rather than as three more cards.
+       * One engine, said as a sentence and then as three numbers.
        *
-       * The layout family here is used once on the site: a wide statement with three short numbers
-       * spread under it. Repeating a family is what makes a page read as a template.
+       * The layout family here is used once on the site: a wide statement with the numbers spread
+       * under it by `justifyContent`. Repeating a family is what makes a page read as a template.
        */
       section('한 엔진', { fill: 'var:바탕' }, [
         stack('column', { name: '한 엔진 글', gap: GAP.mid, maxWidth: WIDTH.text }, [
           heading(2, '엔진이 하나라서 생기는 일'),
           quiet(
             '스키마가 한 벌이면 덱에서 붙여 넣은 표가 문서에서도 표입니다. 렌더러가 한 벌이면 편집기가 그린 것과 내보낸 파일이 같습니다.'
-          )
+          ),
+          quiet('그래서 새 제품이 하나 늘어도 배워야 할 문서 모델은 그대로입니다.')
         ]),
         stack(
           'row',
@@ -503,28 +534,67 @@ function home(): Node {
             name: '숫자',
             justifyContent: 'between',
             gap: GAP.wide,
-            paddingTop: px(8),
+            paddingTop: px(12),
             overrides: { mobile: { layoutMode: 'column', gap: px(20) } }
           },
           [
             stack('column', { name: '숫자 하나', gap: GAP.hair, sizing: 'fill' }, [
-              paragraph([atSize('107', '40px', '0F7A5A')]),
-              quiet('문서 모델이 아는 노드 종류')
+              paragraph([atSize('107', '44px', '0F7A5A')]),
+              paragraph('문서 모델이 아는 노드 종류'),
+              quiet('문단부터 각주, 도형, 표까지 한 스키마 안에 있습니다.')
             ]),
             stack('column', { name: '숫자 둘', gap: GAP.hair, sizing: 'fill' }, [
-              paragraph([atSize('3', '40px', '0F7A5A')]),
-              quiet('같은 모델을 쓰는 제품')
+              paragraph([atSize('24', '44px', '0F7A5A')]),
+              paragraph('글자에 붙는 서식'),
+              quiet('굵기와 색부터 각주 표시, 언어 표시까지 같은 방식으로 붙습니다.')
             ]),
             stack('column', { name: '숫자 셋', gap: GAP.hair, sizing: 'fill' }, [
-              paragraph([atSize('1', '40px', '0F7A5A')]),
-              quiet('편집기와 내보내기가 함께 쓰는 렌더러')
+              paragraph([atSize('1', '44px', '0F7A5A')]),
+              paragraph('편집기와 내보내기가 함께 쓰는 렌더러'),
+              quiet('화면과 파일이 다를 수 있는 자리가 아예 없습니다.')
+            ])
+          ]
+        )
+      ]),
+
+      /**
+       * How it works: three verbs.
+       *
+       * Not `1단계 / 2단계 / 3단계` — the step's own word is the label, and a number in front of it
+       * is a number a reader has to read before the word.
+       */
+      section('시작하는 법', {}, [
+        stack('column', { name: '순서 머리', gap: GAP.hair, maxWidth: WIDTH.text }, [
+          heading(2, '오늘 안에 첫 페이지'),
+          quiet('설치할 것도, 옮겨올 것도 없습니다. 계정을 만들면 빈 문서 하나가 열립니다.')
+        ]),
+        stack(
+          'grid',
+          {
+            name: '순서 셋',
+            columns: 3,
+            gap: GAP.wide,
+            overrides: { tablet: { columns: 3, gap: px(24) }, mobile: { columns: 1, gap: px(20) } }
+          },
+          [
+            stack('column', { name: '쌓기', gap: GAP.hair, sizing: 'fill' }, [
+              heading(3, '쌓기'),
+              quiet('섹션을 세로로 쌓고 그 안에 글과 그림을 넣습니다. 폭은 브라우저가 정합니다.')
+            ]),
+            stack('column', { name: '묶기', gap: GAP.hair, sizing: 'fill' }, [
+              heading(3, '묶기'),
+              quiet('반복되는 카드는 컴포넌트로 묶습니다. 한 곳을 고치면 놓인 자리가 모두 바뀝니다.')
+            ]),
+            stack('column', { name: '내보내기', gap: GAP.hair, sizing: 'fill' }, [
+              heading(3, '내보내기'),
+              quiet('페이지마다 HTML 한 벌. 좁은 폭 규칙까지 함께 나옵니다.')
             ])
           ]
         )
       ]),
 
       /* One quote, two lines, with a name and a role under it. */
-      section('한마디', {}, [
+      section('한마디', { paddingTop: px(64) }, [
         stack(
           'column',
           {
@@ -538,8 +608,36 @@ function home(): Node {
             strokeWidth: px(1)
           },
           [
-            paragraph([atSize('“편집기에서 본 것과 내보낸 파일이 같습니다. 검수에 쓰던 시간이 절반으로 줄었어요.”', '20px')]),
+            paragraph([
+              atSize('“편집기에서 본 것과 내보낸 파일이 같습니다. 검수에 쓰던 시간이 절반으로 줄었어요.”', '20px')
+            ]),
             quiet('임세라 · 한결제작소 편집팀')
+          ]
+        )
+      ]),
+
+      /**
+       * The questions a reader leaves over, answered where they would leave.
+       *
+       * Two levels of stack rather than a list: a question and its answer are a tight pair, and the
+       * pairs are far apart. One list with one gap cannot say that, which is what the content model
+       * means by "a column with a small gap inside a larger one".
+       */
+      section('묻는 것들', { paddingTop: px(64) }, [
+        stack('column', { name: '질문 머리', gap: GAP.hair, maxWidth: WIDTH.text }, [heading(2, '자주 묻는 것')]),
+        stack(
+          'grid',
+          {
+            name: '질문 넷',
+            columns: 2,
+            gap: px(32),
+            overrides: { mobile: { columns: 1, gap: px(24) } }
+          },
+          [
+            ask('쓰던 문서를 가져올 수 있나요', '워드 파일을 열면 문단과 표와 각주가 그대로 들어옵니다. 그림은 도형으로 들어와서 계속 편집할 수 있습니다.'),
+            ask('내보낸 페이지는 어디에 올리나요', '정적 파일이라 아무 데나 올라갑니다. 서버도, 이 회사의 계정도 필요 없습니다.'),
+            ask('팀으로 쓰면 어떻게 되나요', '계정을 나눠 쓰고 문서는 링크로 공유합니다. 동시에 편집하는 기능은 아직 없습니다.'),
+            ask('그만두면 문서는요', '전부 내려받을 수 있습니다. 문서 형식이 공개되어 있어 다른 도구에서도 읽힙니다.')
           ]
         )
       ]),
@@ -563,7 +661,9 @@ function home(): Node {
         [
           stack('column', { name: '마무리 글', gap: GAP.mid, alignItems: 'center', maxWidth: WIDTH.text }, [
             heading(2, '문서 하나로 시작해 보세요'),
-            paragraph([inColour('계정을 만들면 세 제품이 함께 열립니다. 카드 정보는 나중에 물어봅니다.', 'C8D3CD')]),
+            paragraph([
+              inColour('계정을 만들면 세 제품이 함께 열립니다. 카드 정보는 나중에 물어봅니다.', 'C8D3CD')
+            ]),
             placed('cta', { 문구: '무료로 시작하기' }, { sizing: 'hug' })
           ])
         ],
@@ -575,6 +675,10 @@ function home(): Node {
   };
 }
 
+/** A question and its answer: a tight pair, drawn as one block. */
+const ask = (question: string, answer: string): Node =>
+  stack('column', { name: question, gap: GAP.hair, sizing: 'fill' }, [heading(3, question), quiet(answer)]);
+
 /** `/제품` — a **grid**, the third arrangement and the one nothing else on the site uses. */
 function products(): Node {
   return {
@@ -582,10 +686,12 @@ function products(): Node {
     attributes: pageAttrs('products', '제품', '/제품'),
     content: [
       placed('site-header'),
-      section('제품 머리', { paddingBottom: px(24) }, [
+      section('제품 머리', { paddingBottom: px(28) }, [
         stack('column', { name: '제품 머리 글', gap: GAP.tight, maxWidth: WIDTH.text }, [
           heading(1, '세 제품, 한 스키마'),
-          quiet('무엇을 만들든 문서는 같은 규칙을 따릅니다. 아래는 그 규칙이 실제로 무엇인지입니다.')
+          quiet(
+            '무엇을 만들든 문서는 같은 규칙을 따릅니다. 아래는 그 규칙이 실제로 무엇이고, 그것이 만드는 사람에게 무엇을 덜어주는지입니다.'
+          )
         ])
       ]),
       section('기능 그리드', { paddingTop: 0 }, [
@@ -599,42 +705,69 @@ function products(): Node {
             overrides: { tablet: { columns: 2 }, mobile: { columns: 1 } }
           },
           [
-            card('스키마', '문서가 무엇으로 이루어지는지 한 곳에서 말합니다.'),
-            card('명령', '읽을 수 있는 하나의 이름, 하나의 되돌리기.'),
-            card('렌더러', '노드 하나가 그림 하나가 됩니다.'),
-            card('선택', '집합입니다. 카드 셋을 한 번에 옮깁니다.'),
-            card('반응형', '좁은 폭은 다른 것만 말합니다.'),
-            card('데이터', '디자인 하나, 행 마흔 개.')
+            card('스키마', '문서가 무엇으로 이루어지는지 한 곳에서 말합니다. 노드 하나를 더하면 세 제품이 함께 알게 됩니다.'),
+            card('명령', '읽을 수 있는 하나의 이름, 하나의 되돌리기. 마흔 칸을 한 번에 바꿔도 Ctrl+Z 한 번입니다.'),
+            card('렌더러', '노드 하나가 그림 하나가 됩니다. 편집기와 내보내기가 같은 함수를 씁니다.'),
+            card('선택', '선택은 집합입니다. 카드 셋을 함께 옮기고, 함께 채우고, 함께 지웁니다.'),
+            card('반응형', '좁은 폭은 다른 것만 적습니다. 넓은 폭을 고치면 좁은 폭도 따라옵니다.'),
+            card('데이터', '디자인 하나에 행 마흔 개. 표를 고치면 카드 마흔 장이 함께 바뀝니다.')
           ]
         )
       ]),
       /*
-       * How it works, as three verbs. Not `1단계 / 2단계 / 3단계`: the step's own word is the label,
-       * and a number in front of it is a number a reader has to read before the word.
+       * A comparison that is not a table with a hairline under every row: three columns of two
+       * sentences each, which is the same information a reader can actually read.
        */
-      section('만드는 순서', { fill: 'var:바탕' }, [
-        stack('column', { name: '순서 머리', gap: GAP.hair, maxWidth: WIDTH.text }, [heading(2, '만드는 순서')]),
+      section('무엇이 다른가', { fill: 'var:바탕' }, [
+        stack('column', { name: '비교 머리', gap: GAP.hair, maxWidth: WIDTH.text }, [
+          heading(2, '무엇이 다르고, 무엇이 같은가'),
+          quiet('셋은 배치만 다릅니다. 문단과 표와 도형은 세 곳에서 같은 것을 뜻합니다.')
+        ]),
         stack(
           'row',
           {
-            name: '순서 셋',
+            name: '비교 셋',
             gap: GAP.wide,
             alignItems: 'start',
             overrides: { mobile: { layoutMode: 'column', gap: px(20) } }
           },
           [
-            stack('column', { name: '쌓기', gap: GAP.hair, sizing: 'fill' }, [
-              heading(3, '쌓기'),
-              quiet('섹션을 세로로 쌓습니다. 폭은 브라우저가 정합니다.')
+            stack('column', { name: '비교 문서', gap: GAP.hair, sizing: 'fill' }, [
+              heading(3, '문서는 페이지로 나뉩니다'),
+              quiet('A4 위에서 줄이 넘치면 다음 장으로 갑니다. 머리말과 쪽 번호가 따라 붙습니다.')
             ]),
-            stack('column', { name: '묶기', gap: GAP.hair, sizing: 'fill' }, [
-              heading(3, '묶기'),
-              quiet('반복되는 것은 컴포넌트로 만들어 한 곳에서 고칩니다.')
+            stack('column', { name: '비교 덱', gap: GAP.hair, sizing: 'fill' }, [
+              heading(3, '덱은 좌표에 놓습니다'),
+              quiet('슬라이드 위 정해진 자리에 도형이 놓이고, 등장 순서가 시간 위에 그려집니다.')
             ]),
-            stack('column', { name: '내보내기', gap: GAP.hair, sizing: 'fill' }, [
-              heading(3, '내보내기'),
-              quiet('페이지마다 HTML 한 벌. 편집기가 그린 것과 같습니다.')
+            stack('column', { name: '비교 사이트', gap: GAP.hair, sizing: 'fill' }, [
+              heading(3, '사이트는 폭이 정합니다'),
+              quiet('섹션이 세로로 쌓이고, 남은 배치는 브라우저가 합니다. 좁아지면 규칙만 바뀝니다.')
             ])
+          ]
+        )
+      ]),
+      section('제품 마무리', { paddingTop: px(64) }, [
+        stack(
+          'row',
+          {
+            name: '제품 마무리 줄',
+            justifyContent: 'between',
+            alignItems: 'center',
+            gap: GAP.wide,
+            padding: px(28),
+            fill: 'var:면',
+            cornerRadius: ROUND.box,
+            stroke: 'var:선',
+            strokeWidth: px(1),
+            overrides: { mobile: { layoutMode: 'column', alignItems: 'start', gap: px(16) } }
+          },
+          [
+            stack('column', { name: '제품 마무리 글', gap: GAP.hair, sizing: 'fill' }, [
+              heading(3, '어느 것부터 열어도 됩니다'),
+              quiet('한 계정으로 셋이 함께 열립니다. 쓰지 않는 제품은 값을 내지 않습니다.')
+            ]),
+            placed('cta', { 문구: '무료로 시작하기' }, { sizing: 'hug' })
           ]
         )
       ]),
@@ -650,10 +783,10 @@ function pricing(): Node {
     attributes: pageAttrs('pricing', '가격', '/가격'),
     content: [
       placed('site-header'),
-      section('가격 머리', { paddingBottom: px(24) }, [
+      section('가격 머리', { paddingBottom: px(28) }, [
         stack('column', { name: '가격 머리 글', gap: GAP.tight, maxWidth: WIDTH.text }, [
           heading(1, '가격'),
-          quiet('쓰는 만큼 냅니다. 언제든 그만둘 수 있고, 남은 기간은 돌려드립니다.')
+          quiet('쓰는 만큼 냅니다. 언제든 그만둘 수 있고, 남은 기간은 돌려드립니다. 카드 정보는 무료로 쓰는 동안 묻지 않습니다.')
         ])
       ]),
 
@@ -665,7 +798,7 @@ function pricing(): Node {
        * *out of the row*, above it, and it is the only place on the site that uses the second
        * accent — which is what "one accent" means in practice.
        */
-      section('추천 요금제', { paddingTop: 0, paddingBottom: px(24) }, [
+      section('추천 요금제', { paddingTop: 0, paddingBottom: px(28) }, [
         stack(
           'row',
           {
@@ -713,6 +846,29 @@ function pricing(): Node {
         }
       ]),
 
+      /* What every plan has, so a reader is not comparing absences. */
+      section('모두 포함', { paddingTop: px(56) }, [
+        stack('column', { name: '포함 머리', gap: GAP.hair, maxWidth: WIDTH.text }, [
+          heading(2, '어느 요금제든 이건 됩니다'),
+          quiet('가격에 따라 달라지는 것은 쓸 수 있는 제품 수뿐입니다.')
+        ]),
+        stack(
+          'grid',
+          {
+            name: '포함 넷',
+            columns: 4,
+            gap: GAP.mid,
+            overrides: { tablet: { columns: 2 }, mobile: { columns: 1, gap: px(16) } }
+          },
+          [
+            ask('파일 내보내기', '문서, 슬라이드, HTML을 언제든 내려받습니다.'),
+            ask('버전 기록', '되돌리기는 문서를 닫아도 남습니다.'),
+            ask('글꼴과 색', '브랜드 값을 한 번 적으면 세 제품이 씁니다.'),
+            ask('지원', '평일에 묻고 하루 안에 답을 받습니다.')
+          ]
+        )
+      ]),
+
       section('문의', { fill: 'var:바탕' }, [
         stack(
           'row',
@@ -748,23 +904,43 @@ function about(): Node {
     attributes: pageAttrs('about', '소개', '/소개'),
     content: [
       placed('site-header'),
-      section('소개 머리', {}, [
+      section('소개 머리', { paddingBottom: px(40) }, [
         stack('column', { name: '소개 머리 글', gap: GAP.mid, maxWidth: WIDTH.text }, [
           heading(1, '문서 모델을 만듭니다'),
-          quiet('제품 세 개를 만들면서 같은 것을 세 번 만들지 않으려고 했습니다. 그래서 스키마가 먼저입니다.'),
+          quiet(
+            '제품 세 개를 만들면서 같은 것을 세 번 만들지 않으려고 했습니다. 그래서 화면보다 스키마가 먼저였고, 기능보다 측정이 먼저였습니다.'
+          ),
+          quiet(
+            '지금은 워드프로세서와 프레젠테이션과 사이트 빌더가 한 저장소 안에서 같은 노드를 씁니다. 새 제품을 만들 때 다시 만드는 것은 배치뿐입니다.'
+          ),
           {
             stype: 'list',
             attributes: { kind: 'bullet' },
             content: [
-              { stype: 'listItem', attributes: {}, content: [paragraph('스키마가 먼저입니다.')] },
-              { stype: 'listItem', attributes: {}, content: [paragraph('측정하고 나서 만듭니다.')] },
-              { stype: 'listItem', attributes: {}, content: [paragraph('놀란 것은 적어둡니다.')] }
+              {
+                stype: 'listItem',
+                attributes: {},
+                content: [paragraph('스키마가 먼저입니다. 문서가 무엇인지 정하지 않고 화면부터 그리면 세 번 만들게 됩니다.')]
+              },
+              {
+                stype: 'listItem',
+                attributes: {},
+                content: [paragraph('측정하고 나서 만듭니다. 없는 기능보다 있는데 아무도 못 쓰는 기능이 더 많았습니다.')]
+              },
+              {
+                stype: 'listItem',
+                attributes: {},
+                content: [paragraph('놀란 것은 적어둡니다. 다음 사람이 같은 자리에서 다시 놀라지 않도록.')]
+              }
             ]
           }
         ])
       ]),
       section('사람들', { paddingTop: 0 }, [
-        stack('column', { name: '사람들 머리', gap: GAP.hair, maxWidth: WIDTH.text }, [heading(2, '만드는 사람들')]),
+        stack('column', { name: '사람들 머리', gap: GAP.hair, maxWidth: WIDTH.text }, [
+          heading(2, '만드는 사람들'),
+          quiet('셋이서 만들고 있습니다. 각자 맡은 곳이 있지만 문서 모델은 함께 정합니다.')
+        ]),
         stack(
           'row',
           {
@@ -774,9 +950,28 @@ function about(): Node {
             overrides: { mobile: { layoutMode: 'column', gap: px(20) } }
           },
           [
-            person('박진호', '문서 모델', portrait('#0E1512', '#0F7A5A')),
-            person('임세라', '렌더러', portrait('#12201B', '#34C08A')),
-            person('구현우', '편집 경험', portrait('#1A2C25', '#0F7A5A'))
+            person('박진호', '문서 모델과 스키마', portrait('#0E1512', '#0F7A5A')),
+            person('임세라', '렌더러와 내보내기', portrait('#12201B', '#34C08A')),
+            person('구현우', '편집 경험과 입력', portrait('#1A2C25', '#0F7A5A'))
+          ]
+        )
+      ]),
+      section('연락', { fill: 'var:바탕', paddingTop: px(64) }, [
+        stack(
+          'row',
+          {
+            name: '연락 줄',
+            justifyContent: 'between',
+            alignItems: 'center',
+            gap: GAP.wide,
+            overrides: { mobile: { layoutMode: 'column', alignItems: 'start', gap: px(16) } }
+          },
+          [
+            stack('column', { name: '연락 글', gap: GAP.hair, sizing: 'fill' }, [
+              heading(3, '무엇이든 물어보세요'),
+              quiet('문서 모델에 대한 질문이든, 안 되는 것에 대한 제보든 같은 곳으로 옵니다.')
+            ]),
+            placed('ghost', { 문구: 'hello@barocss.com' }, { sizing: 'hug' })
           ]
         )
       ]),
@@ -792,13 +987,13 @@ function blog(): Node {
     attributes: pageAttrs('blog', '블로그', '/블로그'),
     content: [
       placed('site-header'),
-      section('블로그 머리', { paddingBottom: px(24) }, [
+      section('블로그 머리', { paddingBottom: px(28) }, [
         stack('column', { name: '블로그 머리 글', gap: GAP.tight, maxWidth: WIDTH.text }, [
           heading(1, '무엇을 고쳤는지'),
-          quiet('측정한 것과, 측정하고 나서 놀란 것을 적습니다.')
+          quiet('측정한 것과, 측정하고 나서 놀란 것을 적습니다. 대부분은 기능을 더한 이야기가 아니라 이미 있던 것을 읽은 이야기입니다.')
         ])
       ]),
-      section('머리글', { paddingTop: 0, paddingBottom: px(24) }, [
+      section('머리글', { paddingTop: 0, paddingBottom: px(28) }, [
         stack(
           'row',
           {
@@ -826,7 +1021,9 @@ function blog(): Node {
             stack('column', { name: '머리글 글', gap: GAP.tight, sizing: 'fill' }, [
               quiet('2026-08-02'),
               heading(2, '한 문서 모델로 세 제품'),
-              quiet('스키마가 먼저 있었다는 이야기. 워드에서 시작한 노드가 덱과 사이트로 흘러간 경로를 따라갑니다.')
+              quiet(
+                '스키마가 먼저 있었다는 이야기. 워드에서 시작한 노드가 덱과 사이트로 흘러간 경로를 따라가고, 그 과정에서 무엇을 세 번 만들지 않아도 되었는지 셉니다.'
+              )
             ])
           ]
         )
