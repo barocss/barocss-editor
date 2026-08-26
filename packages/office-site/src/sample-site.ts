@@ -28,6 +28,7 @@
  */
 import type { SchemaDefinition } from '@barocss/schema';
 import { mark, node, textNode } from '@barocss/model';
+import { pageRef } from './page-link';
 
 /**
  * A node as this fixture writes it.
@@ -54,6 +55,16 @@ const text = (value: string, marks?: ReturnType<typeof mark>[]): Node =>
 /** A run in a colour, which is how every product in this repository colours words. */
 const inColour = (value: string, colour: string): Node =>
   text(value, [mark('fontColor', { color: colour, range: [0, value.length] })]);
+
+/**
+ * A run that goes to **a page of this site**, named by its durable id rather than its address.
+ *
+ * `page:제품`, not `/제품`, so that renaming the address moves the link with it — the same shape as
+ * `var:강조` for a colour and `field:이름` for a value from a row, resolved where it is drawn
+ * (`page-link.ts`).
+ */
+const toPage = (value: string, id: string): Node =>
+  text(value, [mark('link', { href: pageRef(id), range: [0, value.length] })]);
 
 const heading = (level: number, value: string, extra: Record<string, unknown> = {}): Node =>
   node('heading', { level, ...extra }, [text(value) as never]) as unknown as Node;
@@ -442,7 +453,23 @@ function components(): Node {
         content: [
           stack('row', { gap: 240, padding: 240, alignItems: 'center', partId: 'bar', fill: 'var:바탕' }, [
             heading(4, 'Barocss', { partId: 'wordmark' }),
-            paragraph('제품  ·  가격  ·  소개  ·  블로그', { partId: 'links' })
+            /*
+             * The navigation, and until this was written it was **four words that looked like
+             * links** — the sample drew five pages with addresses and not one `<a>` in it. Each run
+             * names a page rather than an address, so `/제품` becoming `/products` moves all five.
+             */
+            paragraph(
+              [
+                toPage('제품', 'products'),
+                text('  ·  '),
+                toPage('가격', 'pricing'),
+                text('  ·  '),
+                toPage('소개', 'about'),
+                text('  ·  '),
+                toPage('블로그', 'blog')
+              ],
+              { partId: 'links' }
+            )
           ])
         ]
       },

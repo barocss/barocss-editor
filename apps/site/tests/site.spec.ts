@@ -874,3 +874,106 @@ test.describe('a definition', () => {
     await expect(page.locator('[data-frame="desktop"] .st-page > .st-placement')).toHaveCount(3);
   });
 });
+
+/**
+ * Links between the pages of one site.
+ *
+ * The three claims a unit test cannot make on its own: the sample's navigation is **elements** a
+ * browser will follow, a link follows its page when the address changes underneath it, and a reader
+ * can make one out of words they have chosen.
+ */
+test.describe('a link to another page', () => {
+  test('draws the navigation as real links, at the page’s address', async ({ page }) => {
+    await ready(page);
+
+    /*
+     * Measured before this existed and worth keeping as the shape of the test: the sample drew five
+     * pages with addresses, a row reading 제품 · 가격 · 소개 · 블로그, and **not one `<a>`**. Two
+     * separate faults produced that — a `link` mark that drew nothing anywhere in the suite, and
+     * nothing that could point at a page — so the assertion is deliberately about the element rather
+     * than about the mark: an `<a>` is what a link *is* to a reader and to a browser.
+     */
+    const links = page.locator('[data-frame="desktop"] .st-page a.mark-link');
+    await expect(links).toHaveCount(4);
+    await expect(links).toHaveText(['제품', '가격', '소개', '블로그']);
+
+    // The document stores `page:products`; what reaches the browser is the address it resolves to.
+    await expect(links.first()).toHaveAttribute('href', '/제품');
+    await expect(links.nth(3)).toHaveAttribute('href', '/블로그');
+  });
+
+  test('follows a page whose address a reader changes', async ({ page }) => {
+    await ready(page);
+
+    // Onto 제품, whose address the header on every page — including its own — points at.
+    await page.locator('[data-panel="pages"]').click();
+    await page.locator('[data-page]').nth(1).click();
+    await page.waitForTimeout(600);
+
+    /*
+     * Nothing is selected, which is when the panel describes **the page** — the only place an
+     * address can be edited at all, because a page is the board rather than a block and is never in
+     * a selection.
+     */
+    const address = page.getByLabel('페이지 주소', { exact: true });
+    await expect(address).toHaveValue('/제품');
+    await address.fill('/products');
+    await address.press('Enter');
+    await page.waitForTimeout(600);
+
+    /*
+     * Nothing rewrote a link, and every link into that page now goes somewhere else. This is the
+     * claim the whole reference pattern exists for, and it is the one a unit test cannot make on its
+     * own: the panel writes, the store notifies, and the mark is resolved again where it is drawn.
+     */
+    await expect(page.locator('[data-frame="desktop"] .st-page a.mark-link').first()).toHaveAttribute(
+      'href',
+      '/products'
+    );
+  });
+
+  test('links the words a reader has chosen to a page they pick', async ({ page }) => {
+    await ready(page);
+
+    const picker = page.locator('.st-link-page');
+    // Nothing selected: a mark covers a range, and linking a caret writes a zero-length link — the
+    // shape of failure that draws nothing and reports success.
+    await expect(picker).toBeDisabled();
+
+    // Into the words. Three gestures, because each one goes a level deeper — a builder selects the
+    // block a click is *inside* before it selects the words.
+    const hero = page.locator('[data-frame="mobile"] h1');
+    await press(page, hero);
+    await page.waitForTimeout(200);
+    await pressTwice(page, hero);
+    await page.waitForTimeout(200);
+    await pressTwice(page, hero);
+    await page.waitForTimeout(300);
+    await expect(page.locator('[data-frame="mobile"] .st-overlay')).toHaveAttribute('data-mode', 'text');
+
+    /*
+     * `Shift+ArrowRight` rather than `Home` then `Shift+End`: on macOS those two do not move a caret
+     * in text at all, so the first version of this test selected nothing and read as though the
+     * picker were broken.
+     */
+    for (let i = 0; i < 3; i += 1) await page.keyboard.press('Shift+ArrowRight');
+    await page.waitForTimeout(300);
+    await expect(picker).toBeEnabled();
+
+    await picker.click();
+    await page.locator('[data-style="pricing"]').click();
+    await page.waitForTimeout(600);
+
+    // A real `<a>`, at the page's address, in **every** board — one document, drawn three times.
+    const made = page.locator('[data-frame="desktop"] .st-page h1 a.mark-link');
+    await expect(made).toHaveAttribute('href', '/가격');
+    await expect(page.locator('[data-frame="tablet"] .st-page h1 a.mark-link')).toHaveAttribute('href', '/가격');
+
+    // And taking it away is its own gesture, offered only when there is one to take.
+    const remove = page.getByRole('button', { name: '선택한 글자의 링크를 없앱니다' });
+    await expect(remove).toBeEnabled();
+    await remove.click();
+    await page.waitForTimeout(500);
+    await expect(made).toHaveCount(0);
+  });
+});

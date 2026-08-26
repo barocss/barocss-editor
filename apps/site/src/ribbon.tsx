@@ -1,13 +1,20 @@
 import type { Editor } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import {
+  ChoiceSelect,
   Toolbar,
   ToolbarGroup,
   ToolbarSeparator,
   ToolbarToggle,
   useRevision
 } from '@barocss/office-ui';
-import { BREAKPOINTS, siteControlsIn, type BreakpointId } from '@barocss/office-site';
+import {
+  BREAKPOINTS,
+  pageLinkOf,
+  pagesIn,
+  siteControlsIn,
+  type BreakpointId
+} from '@barocss/office-site';
 import type { PointerMode } from './overlay';
 
 /**
@@ -52,6 +59,25 @@ export function Ribbon({
 
   // Read so the enabled state is recomputed when the selection or the document moves.
   void revision;
+
+  /**
+   * The pages a link can go to — **this document's**, read on every render.
+   *
+   * Not declared in `toolbar-model.ts` with the control, because a list of pages written anywhere
+   * but the document is a list that is wrong as soon as a reader adds one. The control is declared
+   * there; its choices are asked here.
+   */
+  const store = editor.dataStore;
+  const rootId = editor.getRootId();
+  const pages =
+    store && rootId ? pagesIn({ rootId, getNode: (sid: string) => store.getNode(sid) as never }) : [];
+
+  /** Where the selected words already go, so the picker shows the answer rather than a blank. */
+  const linked = (() => {
+    const selection = editor.selection as { startNodeId?: string } | undefined;
+    const at = selection?.startNodeId ? store?.getNode(selection.startNodeId) : undefined;
+    return pageLinkOf(at as never);
+  })();
 
   return (
     <Toolbar className="st-ribbon" label="사이트 도구">
@@ -106,6 +132,45 @@ export function Ribbon({
             {control.label}
           </ToolbarToggle>
         ))}
+      </ToolbarGroup>
+
+      <ToolbarSeparator />
+
+      {/*
+        Where the selected words go.
+
+        A picker rather than a button, and one that offers **pages** rather than an address box: a
+        page's address is a value a reader edits in the panel, so a link that spelled it would go
+        nowhere the first time they did. The link stores the page's id and the address is worked out
+        where it is drawn — see `page-link.ts`.
+      */}
+      <ToolbarGroup id="link">
+        {siteControlsIn('link').map((control) =>
+          control.command === 'linkToPage' ? (
+            <ChoiceSelect
+              key={control.command}
+              options={pages.map((one) => ({ id: one.id, label: one.name }))}
+              value={linked ?? null}
+              ariaLabel={control.title ?? control.label}
+              disabled={!can(control.command)}
+              onChange={(id) => run(control.command, { id })}
+              testClass="st-link-page"
+            />
+          ) : (
+            <ToolbarToggle
+              key={control.command}
+              id={control.command}
+              label={control.title ?? control.label}
+              state="off"
+              // Only when there is a link to take away — and `removeLink` cannot say so itself,
+              // because it is the shared kit's and a page's link is this product's reading of it.
+              disabled={!linked}
+              onActivate={() => run(control.command)}
+            >
+              {control.label}
+            </ToolbarToggle>
+          )
+        )}
       </ToolbarGroup>
 
       <ToolbarSeparator />

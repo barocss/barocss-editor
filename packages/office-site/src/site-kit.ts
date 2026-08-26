@@ -43,6 +43,7 @@ import { createStackCommands } from './stack-commands';
 import { createBlockCommands } from './block-commands';
 import { createDataCommands } from './data-commands';
 import { createElementCommands } from './element-commands';
+import { createLinkCommands } from './link-commands';
 
 /** What the site product itself adds, as one list. */
 export function createSiteOwnExtensions(): Extension[] {
@@ -78,7 +79,13 @@ export function createSiteOwnExtensions(): Extension[] {
      * against datasets that only TypeScript could write. Half a feature, and the half a reader
      * notices is the one where a price cannot be changed.
      */
-    createDataCommands()
+    createDataCommands(),
+    /*
+     * And the one thing five pages with addresses could not do to each other: link. The shared
+     * `toggleLink` takes an address, which is the one thing a page must not store — see
+     * `link-commands.ts`.
+     */
+    createLinkCommands()
   ];
 }
 

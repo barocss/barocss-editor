@@ -369,8 +369,17 @@ Measured against what the product can do today, in the order the next slices sho
    `every-command-can-be-reached` exists to catch.
 2. **HTML export.** The product's actual output, and the thing that makes every layout decision above
    testable against a real browser rather than this one.
-3. **Links between pages.** The `link` mark carries an `href`; a site's own pages are named by `path`,
-   and nothing yet turns one into the other. A deck's `goTo` is the same question answered for slides.
+3. ~~**Links between pages.**~~ **Built**, and the shape is the one this schema uses everywhere else:
+   a link stores `page:<id>` — the page's durable id, never its address — and the address is resolved
+   where the mark is drawn (`page-link.ts`). So renaming `/제품` to `/products` moves every link into
+   it, and the published page carries a real `href` because `exportSite` draws through the same
+   renderers the editor does. The fourth reference of this shape after `var:이름`, `componentId` and a
+   dataset's `name`; a deck's `goTo` is the same question answered for slides.
+
+   Two things fell out of it that are not links. Nothing in this product **removes a page** or
+   changes a page's **id**, so a link that names a page which is not there cannot be made through the
+   product at all today — and `linkFaults` reports them, with nothing yet drawing that report. Both
+   are in `BACKLOG.md`.
 4. **Fetching a `url` dataset.** Declared and not read: today only `records` draws. The design already
    says the editor keeps a few rows to design against and the published page fetches.
 5. **Per-page metadata.** Title, description, social image — a page of a site has them and a page of a

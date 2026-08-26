@@ -23,6 +23,17 @@ export { createSiteEditor, createSiteExtensions, createSiteOwnExtensions, type S
 export { createStackCommands, SiteStackExtension, type InsertStackOptions } from './stack-commands';
 export { createBlockCommands, SiteBlockExtension } from './block-commands';
 export { createDataCommands, SiteDataExtension } from './data-commands';
+export { createLinkCommands, SiteLinkExtension } from './link-commands';
+export {
+  PAGE_PREFIX,
+  hrefFor,
+  isPageRef,
+  linkFaults,
+  pageIdOf,
+  pageLinkOf,
+  pageRef,
+  pagesIn
+} from './page-link';
 export {
   SITE_PANEL,
   sitePanelAttrs,

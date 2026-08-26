@@ -46,6 +46,31 @@ entries are that.
 
 ## Open
 
+### A page links to a page — and two things it turned up
+
+- [x] A link stores `page:<id>` and the address is resolved where the mark is drawn, so renaming
+  `/제품` to `/products` moves every link into it rather than breaking them silently. The fourth
+  reference of this shape in the schema, after `var:이름` for a colour, `componentId` for a
+  placement and a dataset's `name` — and the reason the export publishes a real `href` without a
+  second resolver: `exportSite` draws through the same renderers the editor does.
+
+  The sample now navigates: four `<a>` elements where there were four words that looked like links.
+
+- [ ] **No command removes a page, and none changes a page's id.** Found writing the test for
+  `linkFaults`, which reports links naming a page that is not there — and the fault could not be
+  *made* through the product, because `_chosen` refuses a surface by name ("the page itself is not a
+  thing a reader can remove") and `id` is exempt from the panel on purpose. A site builder that
+  cannot delete a page is a gap on its own; what the link work adds is that deleting one has to say
+  what it breaks, which is what `linkFaults` is for. The test uses a fixture until then, and says so.
+
+- [ ] **`linkFaults` has no reader-facing surface.** It is the sibling of `collectionFaults` and
+  `overrideFaults` and, unlike those, nothing draws it yet. A link with nowhere to go draws as
+  ordinary words — that is the honest drawing — so the *only* way a reader can find one is a list.
+
+- [ ] **A link out of the site still has no control.** `toggleLink` is registered and reachable by
+  nothing here: the picker offers pages, which is the half that needed a model. An address box is the
+  other half, and it belongs with whatever answers the same question in Word.
+
 ### Editing a definition is pointing the boards at it
 
 - [x] A board takes a `rootId` and draws whatever node it names — the mechanism that draws one page

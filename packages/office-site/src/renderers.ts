@@ -21,11 +21,12 @@
  * Silence already means two different things — a `div` hugs, a flex child fills — so the intent is
  * written down and turned into the one CSS property that says it.
  */
-import { define, element, override, slot } from '@barocss/dsl';
+import { data, define, element, override, slot } from '@barocss/dsl';
 import type { RenderEnv } from '@barocss/dsl';
 import { getWordDocument, registerTextRenderers } from '@barocss/office-text';
 import { isVarRef, resolveVarValue } from '@barocss/office-canvas';
 import { frameCss } from '@barocss/office-word';
+import { hrefFor } from './page-link';
 import { sizingCss } from './sizing';
 import { breakpointOf } from './breakpoints';
 import { attrsAt } from './responsive';
@@ -134,6 +135,45 @@ export const stackCss = (attrs: Record<string, any>): Record<string, any> => ({
 export function registerSiteRenderers(): void {
   // Everything a page is made of that is not the page. See the header: this is the product.
   registerTextRenderers();
+
+  /**
+   * A link, with a **page of this site** as a legitimate destination.
+   *
+   * `office-text` draws a link as a real `<a>` — half of what a link *is* lives in the element — and
+   * this overrides it for one reason: a page's address is not what a link stores. It stores the
+   * page's durable id as `page:<id>` and the address is resolved here, at the moment of drawing, so
+   * that renaming `/제품` to `/products` moves every link into it rather than breaking them silently
+   * (`page-link.ts`).
+   *
+   * `override` rather than `define`, and said out loud so a check can tell a decision from an
+   * accident: if the shared answer ever grows page references of its own, this stops being an
+   * override and the product finds out.
+   *
+   * The export draws through these same renderers, so a published page carries the resolved address
+   * and the editor and the visitor cannot disagree.
+   */
+  override('mark:link', (props: NodeData, _model: NodeData, ctx: any) => {
+    const attrs = (props?.attributes ?? {}) as Record<string, unknown>;
+    const href = hrefFor(getWordDocument(ctx?.env as RenderEnv | undefined) as never, attrs.href);
+
+    return element(
+      'a',
+      {
+        className: 'mark-link',
+        /*
+         * **Absent**, not empty, for a page that is gone. An `<a>` with no `href` is the one shape a
+         * browser draws as *not a link* — no underline, no pointer, no announcement — which is the
+         * honest drawing of a link with nowhere to go, and one a reader sees rather than discovers
+         * by clicking. `linkFaults` is how the product can name them.
+         */
+        href,
+        title: typeof attrs.title === 'string' && attrs.title ? attrs.title : undefined,
+        // A text drag inside a link is a selection, not a drag of the link — see `office-text`.
+        draggable: 'false'
+      },
+      [data('text')]
+    );
+  });
 
   /**
    * A page: one column, as wide as the window it is drawn in.

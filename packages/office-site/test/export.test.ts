@@ -145,6 +145,20 @@ describe('the page a visitor gets', () => {
     for (const page of pages) expect(page.html).toContain('Barocss');
   });
 
+  it('publishes a page link as the page’s address, on every page', () => {
+    /*
+     * The one assertion that says the reference pattern actually pays off. A visitor's browser has
+     * never heard of `page:products`; what has to arrive is `/제품`, and it has to arrive because
+     * the export draws through the same renderers the editor does rather than because two places
+     * remembered to resolve the same thing.
+     */
+    for (const page of exportSite(editor)) {
+      expect(page.html).toContain('href="/제품"');
+      expect(page.html).toContain('href="/블로그"');
+      expect(page.html).not.toContain('page:');
+    }
+  });
+
   it('leaves a page alone when nothing on it says anything narrower', () => {
     // `/블로그` states no overrides: no rules, rather than empty ones a reader would wonder about.
     const blog = pagesOf(doc).find((one: any) => one.path === '/블로그')!.sid;

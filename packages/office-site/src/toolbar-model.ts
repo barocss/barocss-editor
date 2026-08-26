@@ -26,7 +26,7 @@ export interface SiteControl {
   /** The chord it is bound to, drawn beside the name — a toolbar is how a reader finds a key. */
   shortcut?: string;
   /** Which group it sits in, so the ribbon draws separators rather than deciding them. */
-  group: 'insert' | 'arrange';
+  group: 'insert' | 'arrange' | 'link';
   /**
    * What it makes, when a reader is choosing from a list of things to add.
    *
@@ -95,6 +95,44 @@ export const SITE_TOOLBAR: SiteControl[] = [
     title: '선택한 블록을 컴포넌트로 만들고, 그 자리에 놓습니다',
     group: 'arrange',
     icon: 'group'
+  },
+
+  /**
+   * Linking the selected words to **a page of this site**, and unlinking them.
+   *
+   * Two controls rather than a picker with a *링크 없음* row in it, and the reason is worth writing
+   * down because the first version had the row: removing a link is a different gesture from choosing
+   * where one goes, and folding it in needs a sentinel value that is not a page id — which is a
+   * value that collides the day somebody names a page it. Radix refuses an empty string for exactly
+   * this reason, and it was right to.
+   *
+   * A group of its own, and one control in it, because it is neither of the other two: it makes
+   * nothing (insert) and it moves nothing (arrange) — it says where words go. The ribbon draws it as
+   * a picker rather than a button, which is why the group is drawn by hand there: the choices are
+   * *this document's pages*, so they cannot be declared here without going stale the first time a
+   * reader adds one.
+   *
+   * Declared anyway, because a control the ribbon writes and this file does not know about is a
+   * command `every-command-can-be-reached` counts as unreachable — which is exactly the drift this
+   * file exists to prevent.
+   */
+  {
+    command: 'removeLink',
+    label: '링크 없음',
+    title: '선택한 글자의 링크를 없앱니다',
+    group: 'link',
+    icon: 'delete'
+  },
+  {
+    command: 'linkToPage',
+    label: '페이지 링크',
+    title: '선택한 글자를 이 사이트의 페이지로 연결합니다',
+    group: 'link'
+    /*
+     * **No icon**, deliberately: a picker's face is the page it is showing, and there is nowhere on
+     * one for a picture. `every-icon-has-a-picture` asks about the icons a product *asks for*, so
+     * asking for a `link` the suite does not draw would have been a control labelled `link`.
+     */
   }
 ];
 
