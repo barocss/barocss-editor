@@ -47,6 +47,23 @@ export const PAGE_CSS = `
   -webkit-font-smoothing: antialiased;
   /* So the sizes below can ask how wide the page is rather than how wide the window is. */
   container-type: inline-size;
+  /**
+   * The caret, in the tool's accent rather than the text's colour.
+   *
+   * A browser draws a caret one CSS pixel wide in the colour of the text, and a page on a canvas is
+   * drawn at whatever zoom the reader is standing at — so at 70% it is a two-thirds-of-a-pixel grey
+   * line in a paragraph of grey lines, which is what "I cannot see the cursor" means. The accent is
+   * the one colour on the page that is never the text's, and a caret is the tool speaking rather
+   * than the document.
+   *
+   * The text's own colour would lose it again; a published page has no caret to draw, so this costs
+   * a visitor nothing.
+   *
+   * (Written without back-ticks: this whole stylesheet is a template literal, and one of those in a
+   * comment ends it. The build stopped and the suite spent four minutes testing a page that was not
+   * there.)
+   */
+  caret-color: #0F7A5A;
 }
 
 .st-page h1,

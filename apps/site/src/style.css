@@ -181,7 +181,12 @@ body {
   position: relative;
   flex: 1;
   min-width: 0;
-  overflow: auto;
+  /*
+   * **No scrollbars.** The plane carries its own offset now, because a scrolling pane can only hold
+   * a point still while it has scroll left to give — and a builder opens fitted, with the scroll at
+   * zero. See `viewport.ts`.
+   */
+  overflow: hidden;
   /*
    * Flat, and that is a decision rather than a simplification. The dot grid it had is what a
    * *whiteboard* looks like, and it draws a texture behind a design whose own background the reader
@@ -194,14 +199,17 @@ body {
 .st-canvas[data-space='true'] { cursor: grab; }
 .st-canvas[data-panning='true'] { cursor: grabbing; }
 
-/* The box the scaled plane occupies — see `canvas.tsx` for why a transform needs one. */
-.st-plane-room {
-  position: relative;
-}
-
+/*
+ * The plane is placed by its own transform, so it is taken out of the flow: a pane that does not
+ * scroll has no layout for it to take part in, and leaving it in one would make the pane's own size
+ * depend on how far the reader had panned.
+ */
 .st-plane {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: max-content;
-  padding: 56px 64px 80px;
+  will-change: transform;
 }
 
 .st-boards {
@@ -288,11 +296,18 @@ body {
  * it is marking, and a hand-picked `#93c5fd` for hover, which is a second blue nobody declared. A
  * tool that expects to be looked at all day draws the thinnest line that can be seen.
  */
+/*
+ * **Divided by the zoom, all of it.**
+ *
+ * The overlay is inside the scaled plane, so a 1px outline is 0.4px at 40% and 2px at 200% — the
+ * marker gets harder to see exactly when a reader has stood back to see more. Every rule below
+ * measures in *screen* pixels by dividing by `--st-zoom`, which the overlay puts on itself.
+ */
 .st-mark-hover {
-  outline: 1px solid color-mix(in srgb, var(--st-accent) 45%, transparent);
+  outline: calc(1px / var(--st-zoom, 1)) solid color-mix(in srgb, var(--st-accent) 45%, transparent);
   outline-offset: 0;
 }
-.st-mark-selected { outline: 1px solid var(--st-accent); }
+.st-mark-selected { outline: calc(1px / var(--st-zoom, 1)) solid var(--st-accent); }
 
 /*
  * The block whose words are being typed in.
@@ -302,7 +317,7 @@ body {
  * mode: the marks draw from the node selection, and entering the words empties it.
  */
 .st-mark-editing {
-  outline: 1px dashed var(--st-accent);
+  outline: calc(1.5px / var(--st-zoom, 1)) dashed var(--st-accent);
   background: color-mix(in srgb, var(--st-accent) 6%, transparent);
 }
 
@@ -323,7 +338,8 @@ body {
 .st-mark-landing {
   background: var(--st-accent);
   border-radius: 2px;
-  box-shadow: 0 0 0 1px #ffffff;
+  /* The keyline that keeps it visible on a photograph, at one screen pixel however far out. */
+  box-shadow: 0 0 0 calc(1px / var(--st-zoom, 1)) #ffffff;
 }
 
 /*
@@ -334,10 +350,15 @@ body {
  * and a second `.st-mark-name` below it painted every chip the hover blue — the selected block's
  * name never used the accent at all, in either product that copied this file.
  */
+/*
+ * The chip is drawn at its own size and **counter-scaled**: a label that shrinks with the page is a
+ * label nobody can read at the zoom where they most need it. The origin is the corner it hangs from,
+ * so it stays pinned to the block's top-left however far out the reader is standing.
+ */
 .st-mark-name {
   position: absolute;
   bottom: 100%;
-  left: -1px;
+  left: 0;
   padding: 0 5px;
   background: var(--st-accent);
   color: var(--ou-accent-ink);
@@ -345,6 +366,8 @@ body {
   line-height: 15px;
   white-space: nowrap;
   border-radius: 3px 3px 0 0;
+  transform: scale(calc(1 / var(--st-zoom, 1)));
+  transform-origin: 0 100%;
 }
 
 /* Hovering is not selecting, and the chip says so by being the same colour as its outline. */

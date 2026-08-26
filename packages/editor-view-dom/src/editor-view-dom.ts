@@ -181,7 +181,12 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     // Initialize handlers
     this.inputHandler = new InputHandlerImpl(editor, this);
-    this.selectionHandler = new DOMSelectionHandlerImpl(editor);
+    /*
+     * Given **this** view, because a document can be drawn by more than one — see the note on
+     * `DOMSelectionHandlerImpl.view`. Without it every view's handler scoped its queries to
+     * `editor._viewDOM`, which is whichever view was constructed last.
+     */
+    this.selectionHandler = new DOMSelectionHandlerImpl(editor, this);
     this.mutationObserverManager = new MutationObserverManagerImpl(editor, this.inputHandler);
     
     // Setup event listeners
@@ -1039,6 +1044,31 @@ export class EditorViewDOM implements IEditorViewDOM {
       // Convert ModelSelection to format understood by SelectionHandler
       // sel is already in unified ModelSelection format (startNodeId/endNodeId)
       if (!sel || sel.type === 'none') {
+        return;
+      }
+
+      /**
+       * **Only the view the reader is in writes the browser's one selection.**
+       *
+       * A document can be drawn by more than one view — the site builder draws one page at three
+       * widths — and every one of them hears `editor:selection.model`. There is a single
+       * `document.getSelection()`, so all three wrote it in turn and the **last** one won, which is
+       * whichever view was mounted last.
+       *
+       * Reported in one sentence by a reader: *"entering text on the desktop board puts the caret on
+       * the mobile one."* Everything after that followed from it — the board the reader was typing
+       * in had no caret, its renders re-anchored a selection that was not in it, and an IME commit
+       * came back having replaced the rest of the paragraph.
+       *
+       * Focus is the arbiter, because focus is what a caret follows: a view whose content layer is
+       * not the focused element is not where the reader is. When nothing is focused nobody claims
+       * it, which is the state between a click and the focus that follows it, and the selection is
+       * applied then by whichever view is focused a moment later.
+       */
+      const focused = document.activeElement;
+      const someoneIsFocused =
+        focused instanceof Element && focused.getAttribute('data-bc-layer') === 'content';
+      if (someoneIsFocused && focused !== this.contentEditableElement) {
         return;
       }
 

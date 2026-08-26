@@ -609,14 +609,22 @@ export class InputHandlerImpl implements InputHandler {
           collapsed: true
         };
 
-        // Convert model selection to DOM selection and apply
+        /**
+         * **Set** the selection, rather than announce one.
+         *
+         * This emitted `editor:selection.change` and left `editor.selection` alone — so the model
+         * kept whatever the replace transaction had put there, which is *the range it replaced*,
+         * while the DOM was moved to the caret. Two answers to where the caret is, and whatever
+         * asked the model next got the older one.
+         *
+         * `handleDelete` a few hundred lines below already does it this way, and for the same
+         * stated reason: a command reads the selection from its payload, and the *transaction*
+         * reads it from the editor.
+         */
         try {
+          this.editor.updateSelection(modelSelection);
           (this.editorViewDOM as any).convertModelSelectionToDOM?.(modelSelection);
-          // Also update model selection
-          this.editor.emit('editor:selection.change', {
-            selection: modelSelection,
-            oldSelection: this.editor.selection || null
-          });
+
           logger.debug(LogCategory.TEXT_INPUT, 'handleTextInOneRun: updated selection after replace (model-based)', modelSelection);
         } catch (error) {
           console.warn('[InputHandler] handleTextInOneRun: failed to update selection after replace', { error });

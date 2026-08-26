@@ -98,6 +98,12 @@ export { AppShell, AppChrome, AppBody, AppMain } from './shell';
  * and for what each one cost when it was missing.
  */
 export { useWheelZoom, anchorOf, anchorShift, type WheelZoom } from './wheel-zoom';
+/*
+ * The other answer to the same gesture, for a pane that has no scrollbars — see `viewport.ts` for
+ * which one a product wants and why the scrolling one cannot anchor a zoom outward from a fitted
+ * view.
+ */
+export { useViewport, type Viewport, type ViewportControls } from './viewport';
 
 export {
   LENGTH_UNITS,

@@ -7,13 +7,36 @@ import {
 
 export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   private editor: Editor;
+  /**
+   * The view this handler belongs to.
+   *
+   * **Not `editor._viewDOM`**, which is one slot on the editor and therefore whichever view was
+   * created last. That was the scope every selection query used, and a document can be drawn by more
+   * than one view: the site builder draws one page at three widths, so three views share one editor
+   * and one `document.getSelection()`.
+   *
+   * What it cost, reported by a reader in one sentence: *"entering text on the desktop board puts
+   * the caret on the mobile one."* Every caret this handler drew was looked up inside the **last**
+   * view's content, so `[data-bc-sid="site:49"]` found the mobile board's copy of the node and the
+   * selection was set there. Everything downstream then disagreed — the desktop board re-anchored a
+   * selection that was not in it, its renders repaired against it, and an IME commit came back
+   * having replaced 68 characters.
+   *
+   * A handler belongs to a view. It is passed one now, and falls back to the old lookup only for a
+   * caller that constructs it without one.
+   */
+  private view?: { contentEditableElement?: Element };
   private _isProgrammaticChange: boolean = false; // Flag for programmatic Selection change
 
-  constructor(editor: Editor) {
+  constructor(editor: Editor, view?: { contentEditableElement?: Element }) {
     this.editor = editor;
+    this.view = view;
   }
 
   private _getScopeRoot(): ParentNode {
+    const own = this.view?.contentEditableElement;
+    if (own && (own as Element).querySelector) return own as ParentNode;
+
     const editorViewDOM = (this.editor as any)._viewDOM;
     const contentEditable = editorViewDOM?.contentEditableElement;
     if (contentEditable && contentEditable.querySelector) {

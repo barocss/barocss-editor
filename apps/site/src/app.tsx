@@ -2,7 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { watchContent } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
-import { AppBody, AppChrome, AppMain, AppShell, ZoomControl, useRevision } from '@barocss/office-ui';
+import {
+  AppBody,
+  AppChrome,
+  AppMain,
+  AppShell,
+  ZoomControl,
+  useRevision,
+  useViewport,
+  type Viewport
+} from '@barocss/office-ui';
 import { BREAKPOINTS, definitionOf, enclosing, pagesOf, type BreakpointId } from '@barocss/office-site';
 import { Canvas } from './canvas';
 import { Inspector } from './inspector';
@@ -54,14 +63,21 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   const [shown, setShown] = useState<BreakpointId[]>(['desktop', 'tablet', 'mobile']);
   /**
-   * How far back the reader is standing, and **the first board is the one that has to be readable**.
+   * Where the plane is and how large it is drawn — an **offset and a scale**, not a scroll.
    *
-   * It was 0.75, a constant, and at 0.75 a 16px paragraph is 12px on screen — which is a panel label
-   * rather than a page. The opening view now fits the *widest board* into the pane rather than all
-   * three, so a reader lands on a page they can read and presses 맞춤 when they want to compare.
-   * Corrected once, after the first layout, because the pane's width is not known before it.
+   * It was a scroll position and a zoom, and a reader reported the consequence: the top-left corner
+   * stayed put and the pointer did not. A scrolling pane can only hold a point still while it has
+   * scroll left to give, and a builder opens *fitted*, with the scroll at zero in both axes. See
+   * `office-ui`'s `viewport.ts`.
    */
-  const [zoom, setZoom] = useState(1);
+  const [view, setView] = useState<Viewport>({ x: 48, y: 48, zoom: 1 });
+  const zoom = view.zoom;
+  const pane = useRef<HTMLDivElement>(null);
+  const controls = useViewport({ pane, view, onView: setView, min: 0.1, max: 4 });
+
+  /** The plane's unscaled size, reported by the canvas — what 맞춤 and the opening view are computed from. */
+  const [plane, setPlane] = useState({ width: 0, height: 0 });
+  const measure = useCallback((size: { width: number; height: number }) => setPlane(size), []);
   const [mode, setMode] = useState<PointerMode>('select');
   /**
    * The container the reader has entered — the page until they double-click into something.
@@ -215,33 +231,33 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * Measured from what is drawn rather than computed from the widths, because the gaps, the frame
    * borders and the labels are part of what has to fit and none of them is in the numbers.
    */
+  /** Fit: as far back as the reader has to stand to see every board at once. */
   const onFit = useCallback(() => {
-    const boards = document.querySelector('.st-boards');
-    const pane = document.querySelector('.st-canvas');
-    if (!boards || !pane) return;
-    const room = pane.clientWidth - 64;
-    const wide = boards.getBoundingClientRect().width / zoom;
-    if (wide > 0) setZoom(Math.max(0.1, Math.min(1, room / wide)));
-  }, [zoom]);
+    if (plane.width > 0) controls.fitTo(plane, { padding: 40 });
+  }, [controls, plane]);
 
   /**
    * The opening view: the **first** board, as large as it will go and no larger.
    *
-   * Once, on the first layout that has a pane to measure — a reader who has zoomed is not asking to
-   * be moved. Never above 1: a page drawn larger than it will be published at is a page whose type
-   * a reader cannot judge, which is the one thing these boards are for.
+   * Once, on the first layout that has a plane to measure — a reader who has moved the view is not
+   * asking to be moved back. Never above 1: a page drawn larger than it will be published at is a
+   * page whose type a reader cannot judge, which is the one thing these boards are for.
    */
   const settled = useRef(false);
   useEffect(() => {
-    if (settled.current) return;
-    const board = document.querySelector('.st-frame');
-    const pane = document.querySelector('.st-canvas');
-    if (!board || !pane) return;
-    const wide = board.getBoundingClientRect().width / zoom;
-    if (wide <= 0) return;
+    if (settled.current || plane.width <= 0) return;
+    const board = pane.current?.querySelector('.st-frame') as HTMLElement | null;
+    if (!board) return;
     settled.current = true;
-    setZoom(Math.max(0.25, Math.min(1, (pane.clientWidth - 96) / wide)));
-  }, [zoom, editor]);
+    controls.fitTo(
+      // The first board and the air around it, rather than all three: a reader lands on a page they
+      // can read, and presses 맞춤 when they want to compare.
+      { width: board.offsetWidth + 128, height: plane.height },
+      // Width only. A page is as tall as it turns out, and fitting that height put the boards at
+      // **0.19** — a page drawn at a fifth of its size, which is not a page anybody can read.
+      { padding: 40, only: 'width' }
+    );
+  }, [controls, plane]);
 
   return (
     <AppShell className="st-shell">
@@ -286,7 +302,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           )}
 
           <div className="st-titlebar-end">
-            <ZoomControl zoom={zoom} onChange={setZoom} onFit={onFit} fitLabel="맞춤" />
+            {/* Typed or pressed, the middle of the view is what stays still — see `viewport.ts`. */}
+            <ZoomControl zoom={zoom} onChange={(next) => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" />
           </div>
         </div>
 
@@ -326,7 +343,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         ) : null}
 
         <AppMain className="st-main">
-          <Canvas zoom={zoom} onZoom={setZoom}>
+          <Canvas paneRef={pane} view={view} onView={setView} controls={controls} onMeasure={measure}>
             {instance
               ? BREAKPOINTS.filter((one) => shown.includes(one.id)).map((one) => (
                   <PageFrame

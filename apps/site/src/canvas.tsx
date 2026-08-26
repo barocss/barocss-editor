@@ -1,5 +1,5 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { useWheelZoom } from '@barocss/office-ui';
+import { useLayoutEffect, useRef, useState } from 'react';
+import type { Viewport, ViewportControls } from '@barocss/office-ui';
 
 /**
  * The plane the boards sit on.
@@ -16,54 +16,58 @@ import { useWheelZoom } from '@barocss/office-ui';
  * decides where the boards are put and how far away the reader is standing. That distinction is the
  * product: *the canvas is the studio, the board is the page.*
  *
- * ## Zoom and pan
+ * ## Why this scrolls nothing
  *
- * `useWheelZoom` is the deck's gesture, shared — ⌘/Ctrl with the wheel, anchored on the point under
- * the pointer, corrected in a layout effect because rAF races React's commit. Three measured
- * corrections went into it and none of them are re-derived here.
+ * It did, and that is what a reader reported as "the zoom does not work". A scrolling pane can only
+ * hold a point still while there is scroll left to give, and a builder **opens fitted** — the scroll
+ * is zero in both axes, so every zoom pinned the top-left corner and zooming out could never be
+ * anchored at all. The correction it needs there is negative and no pane has one.
  *
- * Panning is the space bar, which is the one binding every tool of this kind agrees on, plus the
- * middle button for a reader who has one. Not a plain drag: a plain drag on this plane will be a
+ * So the plane carries its own offset and scale (`useViewport`), and the arithmetic is exact:
+ * `x' = px - (px - x)·(z'/z)`. There is nothing to correct afterwards and no edge to give way at.
+ *
+ * ## The gestures
+ *
+ * ⌘ or Ctrl with the wheel zooms about the pointer; a plain wheel pans and shift swaps the axis;
+ * space or the middle button drags the plane. Not a plain drag: a plain drag on this plane will be a
  * marquee, and giving one gesture away early is how a tool ends up with modifiers for everything.
  */
 export function Canvas({
-  zoom,
-  onZoom,
+  paneRef,
+  view,
+  onView,
+  controls,
+  onMeasure,
   children
 }: {
-  zoom: number;
-  onZoom: (zoom: number) => void;
+  /** Held by the app, because the zoom control and 맞춤 live in the chrome and act on this pane. */
+  paneRef: React.RefObject<HTMLDivElement | null>;
+  view: Viewport;
+  onView: (next: Viewport) => void;
+  controls: ViewportControls;
+  /** The plane's unscaled size, so the app can fit the boards without measuring the DOM itself. */
+  onMeasure: (size: { width: number; height: number }) => void;
   children: React.ReactNode;
 }) {
-  const pane = useRef<HTMLDivElement>(null);
   const plane = useRef<HTMLDivElement>(null);
   const [panning, setPanning] = useState(false);
+  const grab = useRef<{ x: number; y: number; from: Viewport } | null>(null);
 
   /**
-   * The plane's **own** size, before the zoom — which is what the room outside it is computed from.
+   * The plane's own size, before the zoom — watched rather than measured once.
    *
-   * Watched rather than measured once: a board grows when a reader adds a section, and a room that
-   * did not follow would be a page whose foot cannot be scrolled to.
+   * A board grows when a reader adds a section, and 맞춤 computed from a stale size is a fit that
+   * cuts the page off. Reported upward rather than kept here: the thing that needs it is the chrome.
    */
-  const [room, setRoom] = useState({ width: 0, height: 0 });
   useLayoutEffect(() => {
     const el = plane.current;
     if (!el) return;
-    const measure = () => setRoom({ width: el.offsetWidth, height: el.offsetHeight });
+    const measure = () => onMeasure({ width: el.offsetWidth, height: el.offsetHeight });
     measure();
     const watch = new ResizeObserver(measure);
     watch.observe(el);
     return () => watch.disconnect();
-  }, []);
-  const grab = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
-
-  /* The rectangle of what the reader is actually looking at — the boards, not the plane they sit on. */
-  const content = useCallback(() => {
-    const boards = plane.current?.querySelector('.st-boards');
-    return (boards ?? plane.current)?.getBoundingClientRect();
-  }, []);
-
-  useWheelZoom({ pane, content, zoom, onZoom, min: 0.1, max: 4 });
+  }, [onMeasure]);
 
   /**
    * Space to pan, held rather than toggled.
@@ -80,10 +84,11 @@ export function Canvas({
 
   return (
     <div
-      ref={pane}
+      ref={paneRef}
       className="st-canvas"
       data-panning={panning ? 'true' : undefined}
       data-space={spaceHeld ? 'true' : undefined}
+      data-zoom={view.zoom.toFixed(3)}
       tabIndex={-1}
       onKeyDown={(event) => {
         if (event.key === ' ' && !typing()) {
@@ -96,23 +101,21 @@ export function Canvas({
       }}
       onPointerDown={(event) => {
         const wanted = event.button === 1 || (spaceHeld && event.button === 0);
-        if (!wanted || !pane.current) return;
+        if (!wanted) return;
         event.preventDefault();
-        grab.current = {
-          x: event.clientX,
-          y: event.clientY,
-          left: pane.current.scrollLeft,
-          top: pane.current.scrollTop
-        };
+        grab.current = { x: event.clientX, y: event.clientY, from: view };
         setPanning(true);
         (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
       }}
       onPointerMove={(event) => {
-        const from = grab.current;
-        if (!from || !pane.current) return;
-        // The plane moves with the pointer, so the scroll goes the other way.
-        pane.current.scrollLeft = from.left - (event.clientX - from.x);
-        pane.current.scrollTop = from.top - (event.clientY - from.y);
+        const held = grab.current;
+        if (!held) return;
+        // The plane moves **with** the pointer: it is the thing being dragged.
+        onView({
+          ...held.from,
+          x: held.from.x + (event.clientX - held.x),
+          y: held.from.y + (event.clientY - held.y)
+        });
       }}
       onPointerUp={(event) => {
         grab.current = null;
@@ -121,26 +124,22 @@ export function Canvas({
       }}
     >
       {/*
-        **The room the scaled plane takes up.**
+        Scaled at the plane rather than per board, so the gaps between boards scale too — a reader
+        zooming out is standing back from the whole studio, not shrinking three pictures on a wall.
 
-        A `transform` does not change layout: the plane's own box stays the size it was, so the pane
-        had the same `scrollWidth` at every zoom. Measured at 0.9: the boards drew 2389px wide inside
-        a scroll area of 2760 that never moved — zoom in and the right-hand board is unreachable,
-        zoom out and there is a field of empty scroll beside it. Every infinite canvas answers this
-        the same way, with a box the size the drawing *ends up*, and the transform inside it.
+        `translate` before `scale`, and the origin at the corner: the offset is in the **pane's**
+        pixels, which is what makes the zoom arithmetic in `useViewport` exact.
       */}
       <div
-        className="st-plane-room"
-        style={{ width: `${Math.round(room.width * zoom)}px`, height: `${Math.round(room.height * zoom)}px` }}
+        ref={plane}
+        className="st-plane"
+        style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, transformOrigin: '0 0' }}
       >
-        {/*
-          Scaled at the plane rather than per board, so the gaps between boards scale too — a reader
-          zooming out is standing back from the whole studio, not shrinking three pictures on a wall.
-        */}
-        <div ref={plane} className="st-plane" style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
-          <div className="st-boards">{children}</div>
-        </div>
+        <div className="st-boards">{children}</div>
       </div>
+
+      {/* Held so the controls the app wires up are the ones this pane answers to. */}
+      <span hidden data-controls={controls ? 'true' : undefined} />
     </div>
   );
 }

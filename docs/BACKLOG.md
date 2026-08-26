@@ -73,6 +73,81 @@ entries are that.
   `borderLeft` and a frame has one `stroke`, which is the canvas's word for an outline. A page needs
   the block's reading, and the sample says so by using no rule at all for now.
 
+### The viewport is a plane now, not a scrolling pane
+
+- [x] A reader said the zoom still pinned the top-left corner, and they were right: a scrolling pane
+  can only hold a point still while it has scroll to give, and a builder **opens fitted** — scroll
+  zero in both axes. `useWheelZoom`'s own comment says it gives way at the edges; that edge is the
+  opening view. Zooming *out* from a fit can never be anchored at all, because the correction it
+  needs is negative.
+
+  `useViewport` holds the plane's own offset and scale and draws `translate(x, y) scale(z)`. The
+  arithmetic is exact — `x' = px - (px - x)·(z'/z)` — with nothing to measure afterwards. A plain
+  wheel pans, shift swaps the axis, ⌘ zooms about the pointer, space or the middle button drags.
+
+- [x] **Selection chrome no longer shrinks with the page.** The overlay lives inside the scaled
+  plane, so at 40% a one-pixel outline was 0.4 of a pixel and the name chip was unreadable — worst
+  exactly when a reader has stood back to see more. Every measurement is now divided by `--st-zoom`
+  and the chip is counter-scaled.
+
+- [x] And a fit that fitted the wrong thing: the opening view took the plane's **height** into
+  account, and a page is as tall as it turns out — measured, a 5,000px plane in a 928px pane put the
+  boards at **0.19**, a fifth of their size, with every click landing 8px from a corner on whatever
+  happened to be there.
+
+- [x] The caret is drawn in the brand colour. A browser draws it one CSS pixel wide in the text's own
+  colour, and on a canvas at 70% that is two-thirds of a grey pixel among grey lines.
+
+### The engine has a selection layer and the site draws its own
+
+- [ ] `EditorViewDOM` builds five layers in every view — content, decorator, **selection**, context,
+  custom — and the site builder uses none of them: it draws `.st-overlay` beside the board and puts
+  its outlines, name chips and drop line there. Two systems both claiming "the layer over the
+  document", and only one of them is the engine's.
+
+  It is not a straight swap. What the site draws is a *builder's* chrome — what a click would select,
+  what a drag would do, which block a name belongs to — and it needs the product's hit-testing, which
+  the engine's layer knows nothing about. But the split should be decided rather than inherited: a
+  text selection and a caret are the engine's, and a block outline is the product's.
+
+  Either way the layer sits **inside the scaled plane**, so both scale with the zoom. That is fixed
+  for the site by dividing every measurement by `--st-zoom`; a layer outside the plane, in the pane's
+  own coordinates, is the other answer and the one Figma takes.
+
+### One document, three views, and one browser selection
+
+- [x] **The caret went to a board the reader was not in.** Reported in one sentence — *"entering text
+  on the desktop board puts the caret on the mobile one"* — and it is the fault every other input
+  oddity in the site builder turned out to hang from.
+
+  There is one `document.getSelection()`. Every view hears `editor:selection.model` and wrote it in
+  turn, so the **last view mounted** won; and `DOMSelectionHandlerImpl` scoped its element lookups to
+  `editor._viewDOM`, which is one slot on the editor holding — again — the last view made. So a
+  caret meant for the desktop board was looked up inside the mobile board's copy of the same node and
+  set there.
+
+  Two fixes, both narrow: a selection handler belongs to **its** view, and only the **focused** view
+  writes the browser's one selection.
+
+- [x] What it was causing downstream, measured with a real composition through CDP: typing Korean
+  into an existing sentence destroyed it from the second syllable, because the caret was in another
+  view, the render re-anchored what it found, and the next commit replaced 68 characters. With the
+  two fixes the sentence survives.
+
+- [ ] **A residue, and it is not clean yet.** Under the same synthetic composition the second
+  syllable lands *before* the first (`나가` rather than `가나`). It may be the simulation rather than
+  the product — CDP's `imeSetComposition` is not an IME, and the same sequence leaves a jamo behind
+  that a real IME would replace — so it needs checking by hand with a Korean keyboard before anything
+  is changed for it.
+
+- [x] And a smaller one on the way past: the IME path **announced** a selection change without
+  setting it (`emit` where every other path calls `updateSelection`), so the model kept the range the
+  replace transaction had left while the DOM held the caret.
+
+- [ ] **`editor._viewDOM` is one slot.** The scope fix works around it; the model is that an editor
+  has *a* view. Three products draw one document once each, and the site builder draws it three
+  times — the slot should be a set, and anything reading it should say which view it means.
+
 ### The studio was measured after a reader said it did not work
 
 Five reports, each of which turned out to be measurable in a line or two, and none of whose causes

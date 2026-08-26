@@ -61,6 +61,27 @@ const pressDeep = (page: Page, at: ReturnType<Page['locator']>) =>
  */
 const pressDeepAt = (page: Page, at: ReturnType<Page['locator']>, x = 8, y = 8) =>
   at.click({ force: true, modifiers: ['Meta'], position: { x, y } });
+
+/**
+ * Pan the plane until something is in the middle of the studio.
+ *
+ * The canvas has no scrollbars — it is an infinite plane the reader moves under a window — so a
+ * block below the fold has to be **brought to the reader**, and a click computed from a bounding box
+ * that is off-screen lands wherever that point happens to be on the window. Which is what a reader
+ * does too: wheel until you can see it, then press.
+ *
+ * A plain wheel pans, and the hook moves the plane by the negated delta, so the delta to send is the
+ * distance from the middle of the pane to the thing.
+ */
+const bring = async (page: Page, at: ReturnType<Page['locator']>) => {
+  const box = await at.boundingBox();
+  const pane = await page.locator('.st-canvas').boundingBox();
+  if (!box || !pane) return;
+  const middle = { x: pane.x + pane.width / 2, y: pane.y + pane.height / 2 };
+  await page.mouse.move(middle.x, middle.y);
+  await page.mouse.wheel(box.x + box.width / 2 - middle.x, box.y + box.height / 2 - middle.y);
+  await page.waitForTimeout(250);
+};
 const pressTwice = (page: Page, at: ReturnType<Page['locator']>) => at.dblclick({ force: true });
 
 const selection = (page: Page) =>
@@ -265,6 +286,7 @@ test.describe('pointing at the page', () => {
   test('shift adds to the selection, because a selection is a set', async ({ page }) => {
     await ready(page);
     const cards = cardRow(page, 'desktop').locator('.st-stack');
+    await bring(page, cardRow(page, 'desktop'));
 
     /*
       ⌘ into the first card, then shift for the second.
@@ -300,6 +322,7 @@ test.describe('the panel', () => {
     await ready(page);
     // A card, reached at its corner so the press is the card rather than the words in it.
     const card = (frame: string) => cardRow(page, frame).locator('.st-stack').first();
+    await bring(page, cardRow(page, 'desktop'));
     await pressDeepAt(page, card('desktop'));
     await page.waitForTimeout(300);
 
@@ -316,6 +339,7 @@ test.describe('the panel', () => {
   test('writes only a difference when a narrower width is being edited', async ({ page }) => {
     await ready(page);
     const card = (frame: string) => cardRow(page, frame).locator('.st-stack').first();
+    await bring(page, cardRow(page, 'desktop'));
     await pressDeepAt(page, card('desktop'));
     await page.waitForTimeout(300);
 
@@ -362,6 +386,7 @@ test.describe('moving a block', () => {
      * that is the band the section paints rather than a card in it. ⌘ at a corner is the one gesture
      * that reaches the card, and a reader dragging one has already done it.
      */
+    await bring(page, cardRow(page, 'desktop'));
     await pressDeepAt(page, cards(page).nth(0));
     await page.waitForTimeout(250);
 
@@ -524,6 +549,7 @@ test.describe('the panel', () => {
   test('shows a colour that follows a token by its name, not as a hex', async ({ page }) => {
     await ready(page);
     // A card, reached in one gesture — it is four levels under the page.
+    await bring(page, cardRow(page, 'desktop'));
     await pressDeepAt(page, cardRow(page, 'desktop').locator('.st-stack').first());
     await page.waitForTimeout(300);
 
@@ -1152,7 +1178,13 @@ test.describe('the studio', () => {
     await page.keyboard.up('Meta');
     await page.waitForTimeout(300);
 
-    await pressDeepAt(page, cardRow(page, 'desktop').locator('.st-stack').first());
+    /*
+     * Zoomed in, the row is wider than the window: a canvas is panned to what you want to press, and
+     * what this wants is the card rather than the row it is in.
+     */
+    const card = cardRow(page, 'desktop').locator('.st-stack').first();
+    await bring(page, card);
+    await pressDeepAt(page, card);
     await page.waitForTimeout(400);
 
     const gap = await page.evaluate(() => {
@@ -1196,6 +1228,43 @@ test.describe('the studio', () => {
      * asks the window, and the window is 1600 wide while that board is 390.
      */
     expect(type.narrow).toBeLessThan(type.h1);
+  });
+
+  test('puts the caret in the board the reader clicked', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await ready(page);
+
+    const title = cardRow(page, 'desktop').locator('h3').first();
+    await bring(page, cardRow(page, 'desktop'));
+    await pressDeepAt(page, cardRow(page, 'desktop').locator('.st-stack').first());
+    await page.waitForTimeout(250);
+    await pressTwice(page, title);
+    await page.waitForTimeout(400);
+
+    /*
+     * **One document, three views, and one `document.getSelection()`.**
+     *
+     * Every view heard `editor:selection.model` and wrote the browser's single selection in turn, so
+     * the **last one mounted** won it: a reader who double-clicked the desktop board got a caret on
+     * the mobile one, and typed into a board they were not looking at. Everything downstream
+     * followed — the board they were in had no caret, its renders re-anchored a selection that was
+     * not in it, and an IME commit came back having replaced the rest of the paragraph.
+     *
+     * Focus is the arbiter now, because focus is what a caret follows.
+     */
+    const board = await page.evaluate(() => {
+      const node = document.getSelection()?.anchorNode;
+      const el = (node?.nodeType === 3 ? node.parentElement : (node as HTMLElement)) ?? null;
+      return el?.closest('[data-frame]')?.getAttribute('data-frame') ?? 'none';
+    });
+    expect(board).toBe('desktop');
+
+    // And what is typed still reaches all three, because there is still only one document.
+    await page.keyboard.type('가나');
+    await page.waitForTimeout(400);
+    for (const frame of ['desktop', 'tablet', 'mobile']) {
+      await expect(cardRow(page, frame).locator('h3').first()).toContainText('가나');
+    }
   });
 
   test('says which block is being typed in', async ({ page }) => {

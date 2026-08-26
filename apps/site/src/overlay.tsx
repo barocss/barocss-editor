@@ -295,8 +295,22 @@ export function Overlay({
       data-mode={mode}
       // Where letting go would put it, on the drawing — so a test can ask what a reader can see.
       data-landing={landing ? String(landing.index) : undefined}
-      // In text mode the board is an ordinary editor again, and this draws without taking anything.
-      style={{ pointerEvents: mode === 'select' ? 'auto' : 'none' }}
+      /*
+       * The zoom, as a number the **stylesheet** can divide by, and nothing else.
+       *
+       * This layer lives inside the scaled plane, so everything drawn here is scaled with the page:
+       * at 40% a selection outline is 0.4 of a pixel and the name chip is unreadable, which is the
+       * opposite of what a marker is for. Every tool of this kind draws its chrome at a constant
+       * size on screen whatever the zoom, and `calc(1px / var(--st-zoom))` is how that is said in
+       * CSS — one number down, and every rule in `style.css` divides by it.
+       */
+      style={
+        {
+          // In text mode the board is an ordinary editor again, and this draws without taking anything.
+          pointerEvents: mode === 'select' ? 'auto' : 'none',
+          '--st-zoom': zoom
+        } as React.CSSProperties
+      }
       /*
        * The hover shows **what a click would select**, which is the outermost block — not the run of
        * text the pointer happens to be over. A badge that named the run said `inline-text`, which is
