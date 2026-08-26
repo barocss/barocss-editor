@@ -454,6 +454,13 @@ function own(
 /** Whether a row applies to what is selected, from what the row itself declares. */
 function visible(row: SitePanelRow, attrs: Record<string, any>, count: number): boolean {
   if (row.single && count > 1) return false;
-  if (row.when && !row.when.is.includes(attrs[row.when.attr])) return false;
+  /*
+   * With `is`, the value has to be one of them; without it, there just has to be one — see `when`.
+   * A page has only the first kind today; the deck needed both within a day of each other.
+   */
+  if (row.when) {
+    const held = attrs[row.when.attr];
+    if (row.when.is ? !row.when.is.includes(held) : held === undefined || held === null) return false;
+  }
   return true;
 }

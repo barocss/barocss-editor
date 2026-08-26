@@ -107,8 +107,16 @@ export interface PanelRow<Kind extends string = string> {
    * product offers in fewer places than it could.
    */
   on?: string[];
-  /** Shown only when another attribute holds one of these values. */
-  when?: { attr: string; is: unknown[] };
+  /**
+   * Shown only when another attribute says so.
+   *
+   * With `is`, when it holds one of those values — a grid has columns and nothing else does. Without
+   * it, **when it has any value at all**: a connector's label decorations appear once there is a
+   * label to decorate, and its waypoint count once there is a waypoint. Both readings were needed
+   * within a day of each other, and a row that is always drawn and means nothing half the time is a
+   * row a reader learns to ignore.
+   */
+  when?: { attr: string; is?: unknown[] };
   /** Drawn, but not editable until another attribute has a value. */
   needs?: string;
   /** Only when exactly one thing is selected — a name is one block's. */

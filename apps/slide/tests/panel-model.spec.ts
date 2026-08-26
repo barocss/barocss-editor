@@ -74,6 +74,62 @@ async function selectKind(page: Page, kind: string): Promise<string | null> {
  * which is the failure this whole harness is named after: the connector rows are held by
  * `connector.spec.ts`, which *makes* one.
  */
+/**
+ * A connector, made rather than looked for.
+ *
+ * The sample deck holds none, so a check that only selects what is already there had **nothing to
+ * look at** for eleven declared rows — and four of them were wrong: `경로` declared as
+ * `연결선 모양`, `흐름` as `화살표`, `구부리기` as `휘어짐`. A check that passes by finding nothing
+ * is the failure this harness is named after.
+ */
+async function joinTwoShapes(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const editor = (window as any).editor;
+    await editor.executeCommand('insertRectangle', { x: 1200, y: 1200, width: 3000, height: 1500 });
+    const a = editor.selection?.nodeIds?.[0];
+    await editor.executeCommand('insertEllipse', { x: 9000, y: 6000, width: 3000, height: 1500 });
+    const b = editor.selection?.nodeIds?.[0];
+    // In order, because a connector has a direction: the arrowhead is on the end.
+    editor.setNode({ nodeIds: [a, b] });
+    await editor.executeCommand('insertConnector', {});
+  });
+  await page.waitForTimeout(500);
+}
+
+test('every row the model declares for a connector is a control the panel draws', async ({ page }) => {
+  await ready(page);
+  await joinTwoShapes(page);
+
+  const stype = await page.evaluate(() => {
+    const editor = (window as any).editor;
+    const sid = editor?.selection?.nodeIds?.[0];
+    return sid ? (editor.dataStore.getNode(sid)?.stype as string) : null;
+  });
+  expect(stype, 'the connector is what is selected after it is made').toBe('connector');
+
+  /*
+   * And a **label**, so the three rows that only appear once there is one are checked rather than
+   * skipped. A conditional row skipped by every check is a row nobody has ever looked at — which is
+   * how `이름표 크기`, `이름표 색` and `이름표 굵게` came to be declared without anyone knowing
+   * whether the panel drew them.
+   */
+  await panel(page).getByLabel('이름표', { exact: true }).fill('가는 길');
+  await panel(page).getByLabel('이름표', { exact: true }).press('Enter');
+  await page.waitForTimeout(400);
+
+  const missing: string[] = [];
+  for (const row of slidesPanelRows('connector', 'style', declares)) {
+    // A waypoint is placed by dragging the line, which is a gesture `connector.spec.ts` holds.
+    if (row.inside || row.attr === 'waypoints') continue;
+    const found =
+      row.control === 'binds'
+        ? await panel(page).getByLabel(new RegExp(`${row.ariaLabel}$`)).count()
+        : await panel(page).getByLabel(row.ariaLabel, { exact: true }).count();
+    if (found === 0) missing.push(`${row.group} › ${row.ariaLabel}`);
+  }
+  expect(missing, 'declared in panel-model.ts and not drawn for a connector').toEqual([]);
+});
+
 for (const kind of ['textFrame', 'frame']) {
   test(`every row the model declares for a ${kind} is a control the panel draws`, async ({ page }) => {
     await ready(page);

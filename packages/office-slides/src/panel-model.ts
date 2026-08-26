@@ -209,15 +209,31 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
   { attr: 'cropTop', command: 'cropPicture', group: '그림', tab: 'style', label: '자르기', ariaLabel: '자르기 원래대로', control: 'toggle' },
 
   // ── 연결선 ─────────────────────────────────────────────────────────────────
-  line('kind', '연결선 모양', 'choice'),
-  line('flow', '화살표', 'choice'),
-  line('bend', '휘어짐', 'number'),
+  /*
+   * Four of these were wrong until a connector was put in front of the browser check: `경로`, not
+   * `연결선 모양`; `흐름`, not `화살표`; `구부리기`, not `휘어짐`. The sample deck holds no
+   * connector, so the check had been passing by having nothing to look at — the failure this whole
+   * harness is named after, in the file written to stop it.
+   */
+  line('kind', '경로', 'choice'),
+  line('flow', '흐름', 'choice'),
+  line('bend', '구부리기', 'length'),
+  /*
+   * A count and a way back, not a control: bends are placed on the line itself, so the panel's job
+   * is to say how many there are (a bend hidden behind a shape looks like no bend) and to undo them
+   * all at once. Shown once there is one — see `when`.
+   */
+  { ...line('waypoints', '경유점', 'list'), when: { attr: 'waypoints' } },
   line('label', '이름표', 'text'),
   line('startLabel', '시작 이름표', 'text'),
   line('endLabel', '끝 이름표', 'text'),
-  line('labelBold', '이름표 굵게', 'toggle'),
-  line('labelColor', '이름표 색', 'colour'),
-  line('labelSize', '이름표 크기', 'length'),
+  /*
+   * How a label is drawn, shown once there **is** one: three controls about the styling of text that
+   * does not exist yet is three controls a reader has to work out are inert.
+   */
+  { ...line('labelBold', '이름표 굵게', 'toggle'), when: { attr: 'label' } },
+  { ...line('labelColor', '이름표 색', 'colour'), when: { attr: 'label' } },
+  { ...line('labelSize', '이름표 크기', 'length'), when: { attr: 'label' } },
   /*
    * The shape of each end, which the conformance exemption said was **owed** — and it has been on
    * the panel all along, as 시작 모양 and 끝 모양. A prose claim about a React tree, wrong in the

@@ -2417,6 +2417,27 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **A check that has nothing to look at is a check that passes.**
+
+  The deck's panel declaration had eleven connector rows and **four of them were wrong** — `경로`
+  declared as `연결선 모양`, `흐름` as `화살표`, `구부리기` as `휘어짐` — and the browser check that
+  exists to catch exactly that had been green the whole time. The sample deck holds no connector, so
+  the check selected what was there, found no connector, and asserted nothing about eleven rows.
+
+  That is the failure this harness is named after, committed by the harness. The repair is the one
+  `connector.spec.ts` already uses: **make** the thing rather than look for it — two shapes, a join,
+  and the panel has a connector in it.
+
+  Two smaller things fell out of putting a connector in front of it:
+
+  - **`when` needed a second reading.** A grid has columns *when `layoutMode` is grid*; a label's
+    size, colour and weight appear *when there is a label at all*. Both were needed within a day of
+    each other, so `is` is optional now and its absence means "has any value" — and a row that is
+    always drawn and inert half the time is a row a reader learns to ignore.
+  - **A conditional row skipped by every check is a row nobody has ever looked at.** The three label
+    decorations were declared without anyone knowing whether the panel drew them. The check now
+    *types a label* and then asks, which is the difference between skipped and checked.
+
 - **Where a row belongs is the schema's answer, and a hand-written list got 27 entries wrong.**
 
   Found on the way into converting the deck's panel: `properties.tsx` gates each group with
