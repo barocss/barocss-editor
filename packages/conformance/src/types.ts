@@ -97,6 +97,14 @@ export interface Report {
   /** How many subjects each check looked at, so a silent check is visible. */
   examined: Record<string, number>;
   /**
+   * What each check could not ask about — see `Check.run`.
+   *
+   * Beside `examined` rather than inside it, because they are different facts: one is
+   * how much was checked and the other is how much is invisible to the check. A
+   * product shrinks this by telling the probe what its values look like.
+   */
+  unanswered: Record<string, number>;
+  /**
    * Checks whose findings are being worked off against a count, and how it stands.
    *
    * `allowed` is what the product declared; `found` is what the run measured. Equal is
@@ -192,5 +200,17 @@ export interface Check {
   name: string;
   /** One sentence on what holding means, shown when the check fails. */
   describe: string;
-  run: (subject: Subject) => { findings: Finding[]; examined: number };
+  /**
+   * `unanswered` is what the check **could not ask about** — not a failure and not a
+   * pass, and reported for the reason this harness exists at all: a question that is
+   * quietly skipped looks exactly like a question that was answered.
+   *
+   * `every-attribute-is-read` was the case that made it necessary. Its probe has no
+   * value to invent for an `array` or an `object`, so those come back "cannot be
+   * asked" and are skipped — correctly, since guessing would produce wrong findings —
+   * but the count was nowhere, and `examined: 128` read as full coverage over a
+   * product with 21 unasked slots in it. One of them was `overrides`, the site
+   * builder's whole responsive mechanism.
+   */
+  run: (subject: Subject) => { findings: Finding[]; examined: number; unanswered?: number };
 }

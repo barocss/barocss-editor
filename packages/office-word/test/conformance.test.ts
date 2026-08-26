@@ -141,6 +141,27 @@ const schema = createSchema('word', getWordSchemaDefinition());
             rootId: 'conformance',
             getNode: () => undefined
           } as never)
+        },
+        /**
+         * And what Word's `array` values look like.
+         *
+         * The probe has nothing to invent for an array, so it answers "cannot be asked" and the
+         * check skips it — and until the skips were counted, `examined: 600` read as coverage over a
+         * product with **11 questions it never asked**. Three attributes, and all three turn out to
+         * be read somewhere a bare render cannot reach, which is what the exemptions below say.
+         */
+        (_type: string, attr: string) => {
+          switch (attr) {
+            case 'tabs':
+              // `[{ pos, align, leader }]` — `tabStopsOf`'s shape.
+              return [[{ pos: 2880, align: 'right', leader: 'dot' }]];
+            case 'wrapPolygon':
+              return [[{ x: 0, y: 0 }, { x: 1440, y: 0 }, { x: 720, y: 1440 }]];
+            case 'varBinds':
+              return [[{ attr: 'fill', var: '강조' }]];
+            default:
+              return undefined;
+          }
         }
       ),
       // Where a node's *children* land, which is not always the element the node
@@ -219,6 +240,38 @@ const schema = createSchema('word', getWordSchemaDefinition());
       ratchet: { 'every-attribute-is-read': 184 },
 
       exempt: {
+        /*
+         * ── The three the probe could not ask about until it was taught their shape ──
+         *
+         * `array` attributes, all three, and all three read somewhere a bare render cannot reach.
+         * Before the probe was taught what one looks like the check answered "cannot be asked" and
+         * skipped them **without counting**, so `examined: 600` read as coverage over eleven
+         * questions nobody had asked.
+         */
+        /**
+         * Read by the **tab layout pass** (`tab-layout.ts`), which measures where each tab lands in
+         * a laid-out line and puts the widths into the environment the renderer draws from — so the
+         * renderer reads a `Map` on the env rather than the attribute. A bare paragraph has no line
+         * to measure. The ruler reads the stops too, which is where a reader drags them.
+         */
+        tabs:
+          'read by the tab layout pass, which measures a laid-out line and puts the widths on the env — and by the ruler, which draws the stops',
+        /**
+         * Read by `imageLayoutCss`, but **only when `wrap` is `tight`** — it becomes `shape-outside`,
+         * and that is the whole difference between tight and square. The probe sets every other
+         * attribute to one value each, so it cannot make the one combination in which this means
+         * anything. Held in `office-text`'s `image-layout.test.ts`.
+         */
+        wrapPolygon:
+          'read by `imageLayoutCss` as `shape-outside`, but only when `wrap` is `tight` — a combination the probe cannot make',
+        /**
+         * A **deck's** mechanism, declared in the canvas vocabulary Word inherits. Word installs no
+         * variable resolution at all: a shape on a Word drawing takes its colours directly, and
+         * there is nothing in a Word document for a binding to point at.
+         */
+        varBinds:
+          'the deck’s: a shape binding an attribute to a document variable. Word has no document variables and installs no resolution for them',
+
         /*
          * What a child asks of the frame that arranges it. Read by `layoutChildren` in this
          * package — the canvas is Word's, and a frame is reachable through `canvasBlock` — and a

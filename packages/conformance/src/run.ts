@@ -158,6 +158,7 @@ export function conformance(input: ConformanceInput): Report {
 
   const findings = [];
   const examined: Record<string, number> = {};
+  const unanswered: Record<string, number> = {};
   const matched = new Set<string>();
   const ratchet: Ratchets = input.ratchet ?? {};
   const ratcheted: Report['ratcheted'] = [];
@@ -165,6 +166,7 @@ export function conformance(input: ConformanceInput): Report {
   for (const check of checks) {
     const result = check.run(subject);
     examined[check.name] = result.examined;
+    if (result.unanswered) unanswered[check.name] = result.unanswered;
 
     /**
      * A check the product is still working off: counted, not reported.
@@ -218,7 +220,7 @@ export function conformance(input: ConformanceInput): Report {
     .filter(([subjectName]) => !matched.has(subjectName))
     .map(([subjectName, reason]) => ({ subject: subjectName, reason }));
 
-  return { findings, staleExemptions, examined, ratcheted };
+  return { findings, staleExemptions, examined, unanswered, ratcheted };
 }
 
 /**
@@ -260,8 +262,15 @@ export function describeReport(report: Report): string {
     );
   }
 
+  /*
+   * And what could not be asked, beside what was — because a skipped question reads as
+   * an answered one, which is the failure this whole harness is named after.
+   */
   const counted = Object.entries(report.examined)
-    .map(([name, count]) => `${name}: ${count}`)
+    .map(([name, count]) => {
+      const blind = report.unanswered?.[name] ?? 0;
+      return blind > 0 ? `${name}: ${count} (${blind} unanswered)` : `${name}: ${count}`;
+    })
     .join(', ');
   lines.push('', `examined — ${counted}`);
 

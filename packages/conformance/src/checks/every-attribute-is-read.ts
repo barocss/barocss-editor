@@ -47,9 +47,10 @@ export const everyAttributeIsRead: Check = {
   describe:
     'an attribute the schema declares changes what the product draws, or is exempt with what reads it instead',
 
-  run: ({ schema, attributeRead }) => {
+  run: ({ schema, attributeRead, hasRenderer }) => {
     const findings: Finding[] = [];
     let examined = 0;
+    let unanswered = 0;
 
     // A product that has not adopted this yet: `examined: 0` is how a check doing
     // nothing stays visible rather than passing.
@@ -59,15 +60,39 @@ export const everyAttributeIsRead: Check = {
 
     for (const [name, shape] of schema.nodes) {
       if (!placeable.has(name)) continue;
+      /*
+       * A node type this product does not draw is **not** a blind spot, and counting
+       * one as such buries the real ones. `every-node-is-drawn` owns that question and
+       * the product has already answered it there, with a reason — a page has no
+       * coordinates, so it draws no `rectangle`, and asking whether its `cornerRadius`
+       * is read is asking about a drawing that does not exist.
+       *
+       * Measured on the site builder, which inherits a canvas vocabulary it draws none
+       * of: **201 unanswered before this line, 8 after** — and the 8 are the ones
+       * worth looking at.
+       */
+      if (hasRenderer && !hasRenderer(name)) continue;
       const attrs = shape.attrs;
       if (!attrs) continue;
 
       for (const attr of Object.keys(attrs)) {
         const read = attributeRead(name, attr);
-        // `null` is "the product cannot be asked" — a renderer that will not run on
-        // a bare node. Skipped rather than guessed at, and not counted, so the
-        // examined number is the number of real answers.
-        if (read === null) continue;
+        /*
+         * `null` is "the product cannot be asked" — a renderer that will not run on a
+         * bare node, or a value the probe has no way to invent (every `array` and
+         * `object` attribute is one). Skipped rather than guessed at, because a wrong
+         * finding costs a person an afternoon proving the tool wrong.
+         *
+         * **Counted, though.** It was not, and that was the same fault this file's
+         * header describes: `examined: 128` over a product with 21 unaskable slots in
+         * it reads as coverage, and one of those slots was the site builder's whole
+         * responsive mechanism. A product shrinks this number by telling the probe
+         * what its values look like — see `attributeReadFrom`'s `probes`.
+         */
+        if (read === null) {
+          unanswered += 1;
+          continue;
+        }
 
         examined += 1;
         if (read) continue;
@@ -94,6 +119,6 @@ export const everyAttributeIsRead: Check = {
       }
     }
 
-    return { findings, examined };
+    return { findings, examined, unanswered };
   }
 };

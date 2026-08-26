@@ -161,8 +161,43 @@ describe('Slides draws what its schema declares', () => {
        * come from the same schema the check walks, so the probe value matches the
        * type the attribute declares.
        */
-      attributeRead: attributeReadFrom(registry as never, (type: string) =>
-        (schema.nodes.get(type) as { attrs?: Record<string, never> } | undefined)?.attrs
+      attributeRead: attributeReadFrom(
+        registry as never,
+        (type: string) => (schema.nodes.get(type) as { attrs?: Record<string, never> } | undefined)?.attrs,
+        {},
+        /**
+         * What this product's `array` values look like.
+         *
+         * The probe has nothing to invent for an array, so it answers "cannot be asked" and the
+         * check skips it — and the count of skips was nowhere, so a deck reporting `examined: 422`
+         * had **29** questions it never asked. Among them `fills` and `effects` on six shape types
+         * each: the whole paint system, unchecked, in the product that has the most of it.
+         *
+         * Each value below is the shape the reader expects — `readPaint`, `readEffect` and
+         * `varBindsOf` all refuse anything else, and a refused value draws the same as an absent one
+         * and would report a working mechanism as unread.
+         */
+        (_type: string, attr: string) => {
+          switch (attr) {
+            case 'fills':
+              // A gradient rather than a solid: `paintsOf` falls back to the flat `gradientFrom` /
+              // `gradientTo` pair when there is no list, and the probe sets those too — so a solid
+              // could draw identically to the fallback and look unread.
+              return [[{ kind: 'linear', angle: 45, opacity: 1, visible: true, stops: [{ offset: 0, color: '#ff0000' }, { offset: 1, color: '#0000ff' }] }]];
+            case 'effects':
+              return [[{ kind: 'drop', x: 30, y: 90, blur: 240, spread: 15, color: 'rgba(0,0,0,0.4)', visible: true }]];
+            case 'varBinds':
+              return [[{ attr: 'fill', var: '강조' }]];
+            case 'waypoints':
+              return [[{ x: 1200, y: 900 }]];
+            case 'guides':
+              return [[{ axis: 'x', at: 1200 }]];
+            case 'choices':
+              return [['하나', '둘']];
+            default:
+              return undefined;
+          }
+        }
       ),
       /**
        * Every icon the deck's controls ask for, and whether the suite draws it.
@@ -181,6 +216,39 @@ describe('Slides draws what its schema declares', () => {
       own,
       reachable,
       exempt: {
+        /*
+         * ── The three the attribute probe cannot see, and each says where it *is* read ──
+         *
+         * All three arrived at once, the day the probe was taught what an `array` looks like. Before
+         * that the check answered "cannot be asked" and skipped them without counting, so a deck
+         * reporting `examined: 422` had **29 questions it never asked** — and an unasked question
+         * reads exactly like an answered one, which is the failure this whole harness is named after.
+         */
+        /**
+         * Read by the deck's **instance resolver** (`boundAttrs` / `boundText`), not by a renderer,
+         * and `slides-kit.ts` says why in the place it is installed: `attrsOf` is read in 62 places
+         * inside the renderers and none of them has a document to look a variable up in, so a bound
+         * corner radius would have reached the paint and not the border radius. A parent's
+         * resolution is the one place that can hand a child back *as it is drawn* — and the probe
+         * renders one bare node with no parent and no store, so it can never see this happen.
+         */
+        varBinds:
+          'read by the instance resolver (`boundAttrs` / `boundText`), which hands a child back as it is drawn — a renderer has no document to look a variable up in',
+        /**
+         * Read by the **connector pass**, which computes every route once per render from the boxes
+         * the line joins (`connector-pass.ts`). A bare connector joins nothing, so there is no route
+         * for a waypoint to bend.
+         */
+        waypoints:
+          'read by the connector pass, which routes every line once per render; a bare connector joins no boxes and has no route to bend',
+        /**
+         * Read by the **overlay**, which is the app's, and by `snapBox` during a drag. A guide is a
+         * line a reader places to line things up against — it is not part of the slide's drawing and
+         * must not be, or it would be in the exported picture.
+         */
+        guides:
+          'read by the overlay and by `snapBox` during a drag — a guide is not part of the slide, which is the point of one',
+
         // ── Reached somewhere other than the toolbar or a key ──────────────
         // Each of these is run from a control a reader can point at; the check
         // can see the toolbar and the key map and nothing else, so where it is

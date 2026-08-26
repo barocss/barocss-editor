@@ -8,6 +8,8 @@ import { createSiteEditor, createSiteOwnExtensions } from '../src/site-kit';
 import { siteKeyCommands } from '../src/keymap';
 import { siteToolbarCommands, siteToolbarIcons } from '../src/toolbar-model';
 import { kindOfBlock } from '../src/selection';
+import { SITE_ENV_KEY, createSiteEnv } from '../src/breakpoints';
+import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import { iconNames } from '@barocss/office-icons';
 
 /**
@@ -97,8 +99,47 @@ describe('the site builder draws what it declares', () => {
       nameOf: (type: string) => kindOfBlock(type),
       iconsAsked: siteToolbarIcons(),
       iconDrawn: (name: string) => iconNames().includes(name),
-      attributeRead: attributeReadFrom(registry as never, (type: string) =>
-        (schema.nodes.get(type) as { attrs?: Record<string, never> } | undefined)?.attrs
+      attributeRead: attributeReadFrom(
+        registry as never,
+        (type: string) => (schema.nodes.get(type) as { attrs?: Record<string, never> } | undefined)?.attrs,
+        /**
+         * **At a narrow width**, which is the only environment in which half of this product exists.
+         *
+         * The probe was handed no environment at all, so every renderer resolved at the base and
+         * `overrides` — the whole responsive mechanism — could not change a drawing however it was
+         * set. Word learned this first and its comment in `attributeReadFrom` says it: a product
+         * hands over what it renders with. The site's is a breakpoint.
+         */
+        { [SITE_ENV_KEY]: createSiteEnv('mobile'), [WORD_ENV_KEY]: createTextEnv({ rootId: '', getNode: () => undefined } as never) },
+        /**
+         * And what its `array` values look like.
+         *
+         * The probe has nothing to invent for an `array`, so it answers "cannot be asked" and the
+         * check skips it — right, because a wrong finding costs an afternoon. But the count was
+         * nowhere, and `examined: 127` read as coverage over a product with **8** unaskable slots in
+         * it, four of them `overrides`.
+         */
+        (_type: string, attr: string) =>
+          attr === 'overrides'
+            ? /*
+               * `sizing`, and it had to be **something the node type actually draws**.
+               *
+               * The first probe overrode a `gap`, which is a stack's word: a picture and a placement
+               * draw no gap, so the override changed nothing and the check reported two findings
+               * about a mechanism that works. A probe value that the node cannot express is a
+               * question about the value rather than about the attribute — the same trap the number
+               * probe already documents, where four crops near the top of the range crop the picture
+               * out of existence and all four look unread.
+               *
+               * `sizing` is the one thing all four of these draw (`sizingCss`), and `hug` is not the
+               * default, so a narrow width saying it is a drawing that differs.
+               */
+              [{ mobile: { sizing: 'hug' } }]
+            : attr === 'varBinds'
+              ? // `office-canvas`'s shape — `{ attr, var }`. Given so this becomes an **answer**
+                // rather than a skip; the answer is no, and the exemption below says why.
+                [[{ attr: 'fill', var: '강조' }]]
+              : undefined
       ),
       produces,
       commands,
@@ -145,6 +186,27 @@ describe('the site builder draws what it declares', () => {
         opacity: 'a canvas idea; a page has no z-order to see through',
         locked: 'a canvas idea: a placed shape a reader cannot grab. A page has no grabbing',
         visible: 'a canvas idea; a page shows what it holds',
+        /*
+         * A page already has **two** ways to say "this value comes from somewhere else", and this is
+         * a canvas's third.
+         *
+         * - `var:이름` in the attribute itself, resolved at draw time by `office-canvas`'s
+         *   `isVarRef` / `resolveVarValue`. That is how every colour on a page follows a token.
+         * - `componentBind`, a node inside a definition saying which part takes which of the
+         *   definition's answers. That is how a card's title comes from its placement.
+         *
+         * `varBinds` is the shape's own list, and it exists because a *canvas* has shapes a reader
+         * places by hand and binds one at a time — a deck's shape can take its `width` or even its
+         * `text` from a variable, which a page never needs: a page's text is text in the flow and a
+         * page's width is the column's.
+         *
+         * So a third mechanism would be a third thing to learn and a third place a value can come
+         * from, for nothing a reader could not already say. Written down here rather than left
+         * unasked: the check could not ask at all until the probe was handed the shape of a
+         * `varBinds`, and an unasked question reads exactly like an answered one.
+         */
+        varBinds:
+          'a page says it with `var:이름` in the attribute, or with `componentBind`; the shape’s own list is the canvas’s third way',
         partId: 'a durable name for a piece of a component definition, read by the binding',
         slot: 'where a placement’s own children go, read by the resolver',
         layoutStretch: 'the canvas’s way of saying `fill`; a page says `sizing`',

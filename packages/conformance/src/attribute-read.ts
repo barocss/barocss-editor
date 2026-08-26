@@ -169,7 +169,26 @@ export function attributeReadFrom(
    * A product hands over what it renders with, and the answer comes from the product
    * — which is the same rule as everywhere else here.
    */
-  env: unknown = {}
+  env: unknown = {},
+  /**
+   * What a value of this attribute looks like, when the shape alone cannot say.
+   *
+   * `array`, `object` and `custom` are `UNPROBEABLE`: there is no useful value to
+   * invent for them, so the probe has no candidate to draw with, and the answer comes
+   * back **null** — "cannot be asked" — and the check skips it. Measured on the site
+   * builder: 21 of 344 attribute slots, six distinct names, and one of them is
+   * `overrides`, which is that product's entire responsive mechanism. The check would
+   * have said nothing at all if a renderer stopped reading it.
+   *
+   * A shape cannot be guessed but a **product** knows it: a `varBinds` is
+   * `[{ attr, var }]`, an `overrides` is `{ mobile: { … } }`. So the product hands one
+   * over, which is the same rule as `env` above and as everything else here — the
+   * answer comes from the product.
+   *
+   * Return `undefined` to leave an attribute where it was: unanswerable, and counted
+   * as such rather than guessed at.
+   */
+  probes?: (nodeType: string, attr: string) => unknown[] | undefined
 ): (nodeType: string, attr: string) => boolean | null {
   return (nodeType: string, attr: string): boolean | null => {
     let template: TemplateLike | undefined;
@@ -218,7 +237,10 @@ export function attributeReadFrom(
     };
 
     const shapes = attrs(nodeType) ?? {};
-    const candidates = probeValues(shapes[attr], attr);
+
+    /** What to ask about **this** attribute: the product's value if it taught one, the schema's otherwise. */
+    const told = probes?.(nodeType, attr);
+    const candidates = told && told.length > 0 ? told : probeValues(shapes[attr], attr);
     if (candidates === UNPROBEABLE) return null;
 
     /**
@@ -227,6 +249,22 @@ export function attributeReadFrom(
      * silence means no stroke; a `shadowBlur` is not a shadow without a
      * `shadowColor`; a gradient's angle needs its two ends. Asking each attribute
      * alone on a bare node reported a third of a product's attributes as unread.
+     */
+    /*
+     * Built from what the **schema** can derive, and deliberately not from what a product taught.
+     *
+     * A taught value is taught because the schema cannot describe it — an `array` or an `object` —
+     * and a value of that shape is usually a whole sub-system in one attribute, which *supersedes*
+     * the flat attributes it replaces. Measured the first time a deck was taught what a `fills` is:
+     * `paintsOf` takes the list branch whenever there is a list, so every render in this combination
+     * carried a gradient, and `gradientFrom`, `gradientTo`, `gradientAngle`, `gradientKind` and the
+     * three `shadow*` attributes on six shape types each — **fourteen attributes the product plainly
+     * reads** — came back unread. Teaching the harness one thing had made it wrong about seven
+     * others.
+     *
+     * So a taught value answers its own question and stays out of everybody else's. The `alone`
+     * question below is the one that sees a superseded attribute, and it only works when the
+     * superseding one is absent.
      */
     const all: Record<string, unknown> = {};
     for (const [name, shape] of Object.entries(shapes)) {

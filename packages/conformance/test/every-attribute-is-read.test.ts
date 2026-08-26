@@ -37,6 +37,47 @@ describe('every attribute is read', () => {
       only: ['every-attribute-is-read']
     });
 
+  it('counts what it could not ask about, instead of skipping it in silence', () => {
+    /*
+     * The failure this file's subject is named after, committed by the check itself.
+     *
+     * `null` means "the product cannot be asked" — a renderer that will not run on a bare node, or
+     * a value the probe has no way to invent. Skipping it is right: guessing produces wrong
+     * findings, and a wrong finding costs a person an afternoon proving the tool wrong. Not
+     * *counting* it was not right, and nothing anywhere said how many had been skipped.
+     *
+     * Measured when the number was first printed: the site builder answered 127 questions and
+     * skipped 201 — and four of the skipped ones were `overrides`, that product's entire responsive
+     * mechanism. The check would have said nothing at all if a renderer stopped reading it.
+     */
+    const report = run(
+      { seen: { type: 'string' }, unknowable: { type: 'array' }, alsoUnknowable: { type: 'object' } },
+      (_type, attr) => (attr === 'seen' ? true : null)
+    );
+
+    expect(report.findings).toEqual([]);
+    expect(report.examined['every-attribute-is-read']).toBe(1);
+    expect(report.unanswered['every-attribute-is-read']).toBe(2);
+  });
+
+  it('does not count an attribute of a node type the product does not draw', () => {
+    /*
+     * A node nothing draws is not a blind spot — `every-node-is-drawn` owns that question and the
+     * product has already answered it there, with a reason. Counting its attributes here buries the
+     * real ones: the site builder inherits a whole canvas vocabulary it draws none of, and that was
+     * 201 unanswered where the honest number is 8.
+     */
+    const report = conformance({
+      schema: schemaOf({ a: { type: 'array' } }) as never,
+      hasRenderer: () => false,
+      attributeRead: () => null,
+      only: ['every-attribute-is-read']
+    });
+
+    expect(report.examined['every-attribute-is-read']).toBe(0);
+    expect(report.unanswered['every-attribute-is-read']).toBeUndefined();
+  });
+
   it('abstains, visibly, when the product has not adopted it', () => {
     const report = conformance({
       schema: schemaOf({ fill: { type: 'string' } }) as never,

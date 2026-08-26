@@ -783,13 +783,21 @@ Still open, each in a place that cannot go quietly out of date:
 - [x] **The tests are type-checked**, held to a per-package number by
   `pnpm type-check:tests` — the same ratchet idea in another medium, and the entry
   above for what 1,359 unchecked errors were hiding.
-- [ ] **What a product renders *with* is part of the answer.** The attribute probe
-  reported 483 of Word's 597 attributes as unread until it was handed Word's own
-  environment: every piece of block formatting resolves through a style resolver that
-  arrives on it, and `formatFor` opens with `if (!styles) return {}`. Nothing threw
-  and nothing looked wrong. Any future check that renders has the same trap, and the
-  general form of it is unsolved: a check cannot tell "drew nothing" from "was never
-  properly asked" unless the product's own scaffolding is passed in.
+- [x] **What a product renders *with* is part of the answer**, and now so is what its
+  values *look like*. The probe reported 483 of Word's 597 attributes as unread until
+  it was handed Word's own environment; the second half of the same trap was that it
+  had no value to invent for an `array` or an `object`, so it answered "cannot be
+  asked" — correctly — and skipped without counting. **A product now teaches it the
+  shape** (`attributeReadFrom`'s `probes`), and the skips are counted and reported
+  beside `examined`. All three products are at zero unanswered; see Done for what the
+  count turned out to be hiding.
+
+  What is still unsolved is the *combination* half. The probe asks about one attribute
+  against one value of every other, so an attribute that only means something in a
+  particular combination is invisible to it — `wrapPolygon` is read as `shape-outside`
+  and only when `wrap` is `tight`, which the probe cannot arrange. That one is an
+  exemption with the reason written; the general form would need the schema to say
+  which attributes govern which.
 - [x] **A document that is loaded is checked against the schema**, and it found a
   fault in Word's own fixture on its first run — see Done.
 - [x] **The office schema declares what it offers** rather than inheriting the
@@ -2408,6 +2416,61 @@ text-shaped.
 ## Done
 
 Newest first. The surprise each one produced is the part worth keeping.
+
+- **The harness was not answering a third of its own questions, and said so nowhere.**
+
+  `every-attribute-is-read` renders a node with an attribute absent and again with it set, and calls
+  it read if the drawing changed. For an `array` or an `object` there is no value to invent, so it
+  answers `null` — "cannot be asked" — and skips. That part is right: guessing produces false
+  findings, and a false finding costs a person an afternoon proving the tool wrong.
+
+  The skips were **not counted**. So the number every product reported was the number of questions it
+  had answered, printed as though it were the number asked:
+
+  | | examined | unanswered, before | after |
+  |---|---:|---:|---:|
+  | word | 600 | **125** | 0 |
+  | slides | 422 | **29** | 0 |
+  | site | 127 | **201** | 0 |
+
+  That is this file's own doctrine failing against itself. The check's header describes the operation
+  roster's fourteen stale notes — *"the checks they silenced stayed off for months looking exactly
+  like coverage"* — and then does the same thing quietly.
+
+  Two fixes, and the first one shrank the problem more than the second:
+
+  1. **An attribute of a node type the product does not draw is not a blind spot.** `every-node-is-drawn`
+     owns that question and the product has already answered it there with a reason — a page has no
+     coordinates, so it draws no `rectangle`, and asking whether its `cornerRadius` is read is asking
+     about a drawing that does not exist. The site inherits a whole canvas vocabulary it draws none
+     of: **201 became 8.**
+  2. **A product teaches the probe what its values look like.** The same rule as `env` and as
+     everything else here — a `varBinds` is `[{ attr, var }]`, an `overrides` is `{ mobile: { … } }`,
+     and only the product knows.
+
+  **What the count was hiding, once it could be asked:**
+
+  - **The site's `overrides` — its entire responsive mechanism — had never been checked**, on any of
+    the four node types that carry it. Two things had to be handed over before it could be: the
+    breakpoint env (a product hands over what it renders with) *and* an override worth making. The
+    first probe overrode a `gap`, which is a stack's word, and reported two findings about a picture
+    and a placement that draw no gap — a question about the value rather than about the attribute,
+    which is the trap the number probe already documents. `sizing` is the one thing all four draw.
+  - **Slides' `fills` and `effects` — the whole paint system — on six shape types each.**
+  - Word's `tabs`, read by the tab layout pass into the environment rather than by any renderer.
+
+  **And teaching the harness one thing made it wrong about seven others.** With `fills` in the
+  everything-set, `paintsOf` takes the list branch every time and never reaches its flat fallback, so
+  `gradientFrom`, `gradientTo`, `gradientAngle`, `gradientKind` and three `shadow*` attributes came
+  back unread on six types each — **57 findings, 42 of them false**, about a mechanism that works.
+  The rule that fell out: **a taught value answers its own question and stays out of everybody
+  else's.** A value the schema could not describe is a whole sub-system in one attribute, and a
+  sub-system supersedes the flat attributes it replaces; the `alone` question is what sees a
+  superseded attribute, and it only works when the superseding one is absent.
+
+  Everything left is an exemption with a written reason rather than a silence: `varBinds` is read by
+  the deck's instance resolver and by nothing in Word or the site; `waypoints` by the connector pass;
+  `guides` by the overlay, which is the point of a guide.
 
 - **The data feature was exactly half built, and the finished half was the one you can see.**
 
