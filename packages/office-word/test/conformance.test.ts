@@ -6,7 +6,8 @@ import { nameOfNode } from '@barocss/office-controls';
 import { WORD_ENV_KEY, createWordEnv } from '../src/render-context';
 import { getWordSchemaDefinition } from '../src/word-schema';
 import { createWordEditor } from '../src/word-kit';
-import { toolbarIcons } from '../src/toolbar-model';
+import { toolbarAttrs, toolbarIcons } from '../src/toolbar-model';
+import { wordRulerAttrs } from '../src/ruler-model';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { registerWordRenderers } from '../src/renderers/word';
 
@@ -237,20 +238,37 @@ const schema = createSchema('word', getWordSchemaDefinition());
        *     up; `columnsEqualWidth`, `fitText` and `overlap`, which are in the backlog
        *     with what each is waiting for.
        */
-      ratchet: { 'every-attribute-is-read': 184 },
+      /**
+       * Two counts being worked off, and the second one arrived with its own work list.
+       *
+       * `every-property-can-be-edited` asks which attributes a reader can **set**. Word answered
+       * nothing at all until `Control.writes` and `ruler-model.ts` existed; with both, its two
+       * writing surfaces cover 17 of the 77 attribute names it draws, and the 60 left are not
+       * scattered — they are **four dialogs Word has never had**:
+       *
+       * | owed | names |
+       * |---|---:|
+       * | borders (`borderTop*` … `borderLeft*`) | 16 |
+       * | page setup (page size, margins, columns) | 8 |
+       * | a field's own settings (`tag`, `literal`, `sequence`, …) | 12 |
+       * | table properties (`cellSpacing`, `hide*`, `noWrap`, `heightRule`) | 7 |
+       *
+       * plus paragraph spacing (5), and a handful a *drag* writes on a drawing. A ratchet rather
+       * than sixty exemptions because none of these is a decision: every one is a control somebody
+       * will build, and an exemption saying "owed" sixty times is a hand-kept list wearing a
+       * harness's clothes.
+       */
+      ratchet: { 'every-attribute-is-read': 184, 'every-property-can-be-edited': 178 },
 
       /**
-       * Not adopted, and named rather than left silent.
+       * Every attribute a reader can **set**, out of Word's two writing surfaces.
        *
-       * `every-property-can-be-edited` asks which attributes a reader can **set**, and the answer
-       * has to come from a declaration — a product's panel as data, the way its toolbar and its key
-       * map already are. This product's is still a React tree, so it cannot answer, and a check with
-       * no subjects passes without checking anything.
-       *
-       * The site builder answers it (`panel-model.ts`), which is what makes this a difference
-       * between the three products rather than a limit of the harness. Owed here; in BACKLOG.md.
+       * Word has no property panel — its chrome is a ribbon, a ruler, an overlay for shapes and
+       * three read-only panes — so the answer comes from `Control.writes` on the ribbon and from
+       * `ruler-model.ts`, which is the only place a paragraph's indents and its tab stops can be
+       * changed at all. `notYet: ['every-property-can-be-edited']` was here until both existed.
        */
-      notYet: ['every-property-can-be-edited'],
+      editable: [...toolbarAttrs(), ...wordRulerAttrs()],
       exempt: {
         /*
          * ── The three the probe could not ask about until it was taught their shape ──

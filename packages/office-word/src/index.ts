@@ -266,6 +266,12 @@ export {
   type ToolbarControl,
   type ToolbarGroup
 } from './toolbar-model';
+export {
+  WORD_RULER,
+  wordRulerAttrs,
+  wordRulerCommands,
+  type RulerControl
+} from './ruler-model';
 export { createWordToolbar, type WordToolbar } from './toolbar-dom';
 export { createWordCommands, WordExtension } from './word-commands';
 export {

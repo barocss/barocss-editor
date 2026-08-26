@@ -101,6 +101,24 @@ export function toolbarIcons(groups: ToolbarGroup[] = WORD_TOOLBAR): string[] {
   return iconsIn(groups, [WORD_TEXT_COLOR, WORD_TEXT_HIGHLIGHT, WORD_CELL_SHADING]);
 }
 
+/**
+ * Every attribute the toolbar can **write**, which is a different question from which commands it
+ * runs — see `Control.writes`.
+ *
+ * `setAlignment` being on the ribbon says nothing about `alignment`, and a product whose only other
+ * writing surface is a ruler has no third place for the answer to come from. Read by
+ * `every-property-can-be-edited`.
+ */
+export function toolbarAttrs(groups: ToolbarGroup[] = WORD_TOOLBAR): string[] {
+  const found = new Set<string>();
+  for (const group of groups) {
+    for (const control of group.controls) {
+      for (const attr of (control as { writes?: string[] }).writes ?? []) found.add(attr);
+    }
+  }
+  return [...found];
+}
+
 export function toolbarCommands(groups: ToolbarGroup[] = WORD_TOOLBAR): string[] {
   return commandsIn(groups, [WORD_TEXT_COLOR, WORD_TEXT_HIGHLIGHT, WORD_CELL_SHADING]);
 }
@@ -199,8 +217,8 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
     controls: [
       { id: 'bullet-list', label: 'Bulleted list', icon: 'bullet-list', command: 'toggleBulletList', listKind: 'bullet' },
       { id: 'ordered-list', label: 'Numbered list', icon: 'ordered-list', command: 'toggleOrderedList', listKind: 'ordered' },
-      { id: 'outdent', label: 'Decrease indent', icon: 'outdent', command: 'outdentText' },
-      { id: 'indent', label: 'Increase indent', icon: 'indent', command: 'indentText' }
+      { id: 'outdent', label: 'Decrease indent', icon: 'outdent', command: 'outdentText', writes: ['indentLeft', 'level'] },
+      { id: 'indent', label: 'Increase indent', icon: 'indent', command: 'indentText', writes: ['indentLeft', 'level'] }
     ]
   },
   {
@@ -211,6 +229,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         label: 'Align left',
         icon: 'align-left',
         command: 'alignLeft',
+        writes: ['alignment'],
         state: attribute('alignment', 'left')
       },
       {
@@ -218,6 +237,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         label: 'Centre',
         icon: 'align-center',
         command: 'alignCenter',
+        writes: ['alignment'],
         state: attribute('alignment', 'center')
       },
       {
@@ -225,6 +245,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         label: 'Align right',
         icon: 'align-right',
         command: 'alignRight',
+        writes: ['alignment'],
         state: attribute('alignment', 'right')
       },
       {
@@ -232,6 +253,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         label: 'Justify',
         icon: 'align-justify',
         command: 'alignJustify',
+        writes: ['alignment'],
         state: attribute('alignment', 'justify')
       }
     ]
@@ -284,9 +306,9 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
   {
     id: 'drawing',
     controls: [
-      { id: 'insert-rectangle', label: 'Rectangle', icon: 'insert-rectangle', command: 'insertRectangle' },
-      { id: 'insert-ellipse', label: 'Ellipse', icon: 'insert-ellipse', command: 'insertEllipse' },
-      { id: 'insert-line', label: 'Line', icon: 'insert-line', command: 'insertLine' },
+      { id: 'insert-rectangle', label: 'Rectangle', icon: 'insert-rectangle', command: 'insertRectangle', writes: ['x', 'y', 'width', 'height', 'fill', 'stroke', 'strokeWidth', 'cornerRadius'] },
+      { id: 'insert-ellipse', label: 'Ellipse', icon: 'insert-ellipse', command: 'insertEllipse', writes: ['x', 'y', 'width', 'height', 'fill', 'stroke', 'strokeWidth'] },
+      { id: 'insert-line', label: 'Line', icon: 'insert-line', command: 'insertLine', writes: ['x', 'y', 'width', 'height', 'stroke', 'strokeWidth'] },
       { id: 'insert-drawing', label: 'Drawing', icon: 'insert-frame', command: 'insertDrawing' }
     ]
   },
@@ -304,12 +326,12 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
   {
     id: 'arrange',
     controls: [
-      { id: 'align-shapes-left', label: 'Align left', icon: 'align-boxes-left', command: 'alignShapesLeft' },
-      { id: 'align-shapes-centre', label: 'Align centre', icon: 'align-boxes-centre', command: 'alignShapesCentre' },
-      { id: 'align-shapes-right', label: 'Align right', icon: 'align-boxes-right', command: 'alignShapesRight' },
-      { id: 'align-shapes-top', label: 'Align top', icon: 'align-boxes-top', command: 'alignShapesTop' },
-      { id: 'align-shapes-middle', label: 'Align middle', icon: 'align-boxes-middle', command: 'alignShapesMiddle' },
-      { id: 'align-shapes-bottom', label: 'Align bottom', icon: 'align-boxes-bottom', command: 'alignShapesBottom' },
+      { id: 'align-shapes-left', label: 'Align left', icon: 'align-boxes-left', command: 'alignShapesLeft', writes: ['x'] },
+      { id: 'align-shapes-centre', label: 'Align centre', icon: 'align-boxes-centre', command: 'alignShapesCentre', writes: ['x'] },
+      { id: 'align-shapes-right', label: 'Align right', icon: 'align-boxes-right', command: 'alignShapesRight', writes: ['x'] },
+      { id: 'align-shapes-top', label: 'Align top', icon: 'align-boxes-top', command: 'alignShapesTop', writes: ['y'] },
+      { id: 'align-shapes-middle', label: 'Align middle', icon: 'align-boxes-middle', command: 'alignShapesMiddle', writes: ['y'] },
+      { id: 'align-shapes-bottom', label: 'Align bottom', icon: 'align-boxes-bottom', command: 'alignShapesBottom', writes: ['y'] },
       {
         id: 'distribute-shapes-h',
         label: 'Distribute horizontally',
@@ -335,21 +357,21 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         id: 'frame-row',
         label: 'Side by side',
         icon: 'frame-row',
-        command: 'insertFrame',
+        command: 'insertFrame', writes: ['x', 'y', 'width', 'height', 'layoutMode', 'padding', 'clipsContent'],
         payload: { layoutMode: 'row', columns: 2 }
       },
       {
         id: 'frame-column',
         label: 'Stacked',
         icon: 'frame-column',
-        command: 'insertFrame',
+        command: 'insertFrame', writes: ['x', 'y', 'width', 'height', 'layoutMode', 'padding', 'clipsContent'],
         payload: { layoutMode: 'column', columns: 2 }
       },
       {
         id: 'frame-grid',
         label: 'Grid',
         icon: 'frame-grid',
-        command: 'insertFrame',
+        command: 'insertFrame', writes: ['x', 'y', 'width', 'height', 'layoutMode', 'padding', 'clipsContent'],
         payload: { layoutMode: 'grid', columns: 4 }
       }
     ]
@@ -372,8 +394,8 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
       { id: 'column-left', label: 'Insert column left', icon: 'column-left', command: 'insertColumnLeft' },
       { id: 'column-right', label: 'Insert column right', icon: 'column-right', command: 'insertColumnRight' },
       { id: 'column-delete', label: 'Delete column', icon: 'column-delete', command: 'deleteColumn' },
-      { id: 'cells-merge', label: 'Merge cells', icon: 'merge-cells', command: 'mergeCells' },
-      { id: 'cell-split', label: 'Split cell', icon: 'split-cell', command: 'splitCell' },
+      { id: 'cells-merge', label: 'Merge cells', icon: 'merge-cells', command: 'mergeCells', writes: ['colspan', 'rowspan'] },
+      { id: 'cell-split', label: 'Split cell', icon: 'split-cell', command: 'splitCell', writes: ['colspan', 'rowspan'] },
       // Which regions of its style the table wants. They are switches on the
       // table and not formatting of their own: with no table style applied they
       // are still meaningful, and become visible the moment one is.
@@ -408,6 +430,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         label: 'Align top',
         icon: 'align-cell-top',
         command: 'setCellVerticalAlign',
+        writes: ['verticalAlign'],
         payload: { align: 'top' },
         cellAttribute: { key: 'verticalAlign', value: 'top', whenUnset: true }
       },
@@ -416,6 +439,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         label: 'Align middle',
         icon: 'align-cell-middle',
         command: 'setCellVerticalAlign',
+        writes: ['verticalAlign'],
         payload: { align: 'center' },
         cellAttribute: { key: 'verticalAlign', value: 'center' }
       },
@@ -424,6 +448,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         label: 'Align bottom',
         icon: 'align-cell-bottom',
         command: 'setCellVerticalAlign',
+        writes: ['verticalAlign'],
         payload: { align: 'bottom' },
         cellAttribute: { key: 'verticalAlign', value: 'bottom' }
       },
@@ -603,6 +628,7 @@ export const WORD_CELL_SHADING: PaletteControl = {
   label: 'Cell shading',
   icon: 'shading',
   command: 'setCellShading',
+  writes: ['shadingFill', 'shadingColor', 'shadingPattern'],
   key: 'fill',
   // No separate clear command: `setCellShading` with no fill writes an empty
   // one, which is how this schema says "none" — see the command.

@@ -2417,6 +2417,40 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **Word can answer the check now, and its answer is a list of four dialogs it has never had.**
+
+  The last `notYet`. Word has **no property panel** — its chrome is a ribbon, a ruler, an overlay for
+  shapes and three read-only panes — so the site's and the deck's answer (a panel as data) does not
+  apply, and the missing declaration turned out to be one level up: `office-controls`' `Control`
+  declares `command` and `payload` and never **which attribute pressing it writes**. Those are
+  different questions with different answers — `setBlockFormat` is one command and twenty-four fields
+  in the site builder — and until `writes` existed the only surface that could answer "can a reader
+  set this value" was a panel.
+
+  `Control.writes` plus `ruler-model.ts` — the ruler being the only place in Word a paragraph's
+  indents or its tab stops can be changed at all — cover **17 of the 77 attribute names Word draws**.
+  Findings went 252 → 178, and the 60 names left are not scattered:
+
+  | owed | names |
+  |---|---:|
+  | a borders dialog (`borderTop*` … `borderLeft*`) | 16 |
+  | a field's own settings (`tag`, `literal`, `sequence`, `limitLocation`, …) | 12 |
+  | page setup (page size, margins, columns) | 8 |
+  | table properties (`cellSpacing`, `hide*`, `noWrap`, `heightRule`) | 7 |
+  | paragraph spacing (`spacingBefore`, `spacingLine`, `spacingLineRule`, …) | 5 |
+
+  plus a handful a **drag** writes on a drawing. That is a ratchet rather than sixty exemptions,
+  because none of them is a decision: every one is a control somebody will build, and writing "owed"
+  sixty times is a hand-kept list wearing a harness's clothes.
+
+  **The measurement that mattered was reading the right number.** 252 findings looked like a
+  migration and 77 *names* is a session — an exemption is keyed by the attribute, not by the node
+  type, so `x` on twelve node types is one decision. The same correction applied to the deck: 334
+  findings, 80 names.
+
+  All three products answer every check now, and `notYet` has no callers — which is exactly what a
+  deferral should end up as.
+
 - **`(editor as any)` appears 942 times, and the type was already right.**
 
   Asked why it is written everywhere. Measured: **942 casts across 152 files**, reaching for

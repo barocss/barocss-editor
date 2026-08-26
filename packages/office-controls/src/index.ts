@@ -86,6 +86,21 @@ export interface Control {
   /** Fixed arguments, because the control's own label says which case it is. */
   payload?: Record<string, unknown>;
   /**
+   * Which **attributes** pressing this writes.
+   *
+   * `command` and `payload` say what runs; they do not say what changes. A toolbar that declares
+   * `setAlignment` has said nothing about `alignment`, and the two are different questions with
+   * different answers — one command writes twenty-four fields in the site builder and one attribute
+   * here. Until this existed, the only surface that could answer *"can a reader set this value"* was
+   * a product's property panel, and Word has none: its chrome is a ribbon and a ruler.
+   *
+   * Read by `every-property-can-be-edited`, which asks exactly that. Empty or absent means the
+   * control writes nothing a schema declares — a zoom, a find, a view switch — which is a real
+   * answer and not a gap.
+   */
+  writes?: string[];
+
+  /**
    * How to read this control's state out of the selection.
    *
    * A function rather than a mark name, because not every control's state is a
@@ -122,6 +137,8 @@ export interface ChoiceControl {
    * itself. A font size is stored in half-points and read in points.
    */
   labelOf?: (value: string) => string;
+  /** Which attributes choosing a value writes — see `Control.writes`. */
+  writes?: string[];
 }
 
 /**
@@ -149,6 +166,8 @@ export interface PaletteControl {
   /** Or the attribute it is read from, for a colour that is a container's. */
   cellAttribute?: string;
   swatches: { value: string; label: string }[];
+  /** Which attributes choosing a value writes — see `Control.writes`. */
+  writes?: string[];
 }
 
 /**
