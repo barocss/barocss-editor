@@ -36,8 +36,23 @@ export function assertConforms(input: ConformanceInput): void {
     );
   }
 
+  /*
+   * A check the product named as not adopted is expected to be silent — and one that turns out not
+   * to be is a deferral that has outlived its reason, which is the same failure as a stale
+   * exemption and is reported the same way.
+   */
+  const notYet = new Set((report.deferred ?? []).map((one) => one.check));
+  for (const one of report.deferred ?? []) {
+    if (one.examined > 0) {
+      problems.push(
+        `${one.check} is named as not adopted and examined ${one.examined} subject(s). ` +
+          `Remove it from \`notYet\` — the product can answer this now.`
+      );
+    }
+  }
+
   const silent = Object.entries(report.examined)
-    .filter(([, count]) => count === 0)
+    .filter(([name, count]) => count === 0 && !notYet.has(name))
     .map(([name]) => name);
   if (silent.length > 0) {
     problems.push(

@@ -6,7 +6,11 @@ import { getSiteSchemaDefinition } from '../src/site-schema';
 import { registerSiteRenderers } from '../src/renderers';
 import { createSiteEditor, createSiteOwnExtensions } from '../src/site-kit';
 import { siteKeyCommands } from '../src/keymap';
-import { siteToolbarCommands, siteToolbarIcons } from '../src/toolbar-model';
+import { SITE_TOOLBAR, siteToolbarCommands, siteToolbarIcons } from '../src/toolbar-model';
+import { sitePanelAttrs, sitePanelCommands } from '../src/panel-model';
+
+/** Every declared toolbar control, whichever group it is in. */
+const siteToolbarControls = () => SITE_TOOLBAR;
 import { kindOfBlock } from '../src/selection';
 import { SITE_ENV_KEY, createSiteEnv } from '../src/breakpoints';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
@@ -81,7 +85,20 @@ describe('the site builder draws what it declares', () => {
    * exemption that names the row it is on, which is the deck's own practice: an exemption is a claim,
    * and "the properties panel — 배치 › 방향" is a claim a reader can check in ten seconds.
    */
-  const reachable = [...siteToolbarCommands(), ...siteKeyCommands()];
+  const reachable = [...siteToolbarCommands(), ...siteKeyCommands(), ...sitePanelCommands()];
+
+  /**
+   * And every attribute those surfaces can **write**.
+   *
+   * The other half of the same question, and the one nothing could ask before the panel was a
+   * declaration: `setBlockFormat` is reachable and writes 24 fields, so "the command has a control"
+   * says nothing about whether all 24 have a row.
+   */
+  const editable = [
+    ...sitePanelAttrs(),
+    // What a toolbar control writes directly, rather than through a panel row.
+    ...siteToolbarControls().flatMap((control) => Object.keys(control.payload ?? {}))
+  ];
 
   it('draws what it declares, expects only what it says it expects', () => {
     assertConforms({
@@ -145,6 +162,7 @@ describe('the site builder draws what it declares', () => {
       commands,
       own,
       reachable,
+      editable,
       exempt: {
         // ── A page has no canvas ───────────────────────────────────────────
         /*
@@ -273,13 +291,69 @@ describe('the site builder draws what it declares', () => {
         removeDatasetRow: 'the data grid — the ␡ at the end of a row',
         removeDataset: 'the data grid — 데이터 삭제, refused while a list draws it',
 
+        // ── Set by every row rather than by one ────────────────────────────
+        /**
+         * **Every** panel row writes this, which is why no row is named after it.
+         *
+         * A row hands `setBlockFormat` the width being edited, and the command decides where the
+         * value lands: the widest width *is* the node, so it writes attributes; a narrower one
+         * writes only the difference into `overrides` (`responsive.ts`). So a reader sets it
+         * constantly and never chooses it — the panel says so in a sentence at the top instead,
+         * which is the `note` row.
+         *
+         * The check is right to ask. A mechanism nothing names is a mechanism nobody can find, and
+         * the answer being "all of them" is worth writing down once.
+         */
+        overrides:
+          'written by every row: `setBlockFormat` takes the width being edited and puts the difference here when it is not the widest',
+
+        // ── A durable name, which a reader must not type ───────────────────
+        /*
+         * `id` is how one node refers to another — a link names a page, a placement names a
+         * definition — and `forFile` strips sids precisely so that a reference is never one. A
+         * reader renaming an id by hand breaks every reference to it silently, which is why the
+         * panel offers a **label** and keeps the name.
+         */
+        id: 'a durable reference target: a link names a page by it. The panel offers 이름 instead, and the id is never typed',
+        kind: 'what shape of surface a page is — set when it is made, and a page that changed kind would be a different page',
+
+        // ── Word's vocabulary, drawn on a page and not yet editable here ───
+        /**
+         * The shared text kit draws these, so a page that *holds* one draws it correctly — a
+         * document opened here, or a table pasted in. This product has no table or code UI yet, and
+         * that is a gap on the record rather than a decision: see `docs/BACKLOG.md`.
+         *
+         * Worth the distinction: these are not exempt because nothing should set them. They are
+         * exempt because **nothing does yet**, and the day a site grows a table panel the claim goes
+         * stale and this fails on it.
+         */
+        caption: 'the shared text kit draws it; a site has no table panel yet — owed, in BACKLOG.md',
+        colspan: 'the shared text kit draws it; a site has no table panel yet — owed, in BACKLOG.md',
+        rowspan: 'the shared text kit draws it; a site has no table panel yet — owed, in BACKLOG.md',
+        language: 'the shared text kit draws it; a site has no code panel yet — owed, in BACKLOG.md',
+
+        // ── Deliberately not offered ───────────────────────────────────────
+        /**
+         * Swapping which definition a placement draws.
+         *
+         * Deferred with variants and document-wide variables rather than forgotten — the three are
+         * one feature in every tool that has them, and taking one without the others gives a reader
+         * a swap that cannot be undone into anything meaningful. Written in `docs/BACKLOG.md`.
+         */
+        componentId: 'instance swap, deferred with variants — a placement is made from a definition and points at it for life, for now',
+
         // ── The property panel ─────────────────────────────────────────────
-        setBlockFormat:
-          'the properties panel — 배치, 크기, 모양, and the data group, all of it at the width being edited',
-        setSizing: 'the properties panel — 크기 › 폭, which `setBlockFormat` also writes',
-        setComponentValue: 'the properties panel — 값, a placement’s answers to its definition’s questions',
-        setPageInfo:
-          'the properties panel — 페이지 › 이름 and 주소, shown when nothing is selected because a page is the board rather than a block',
+        /*
+         * Three exemptions used to be here, and the harness deleted them: `setBlockFormat`,
+         * `setComponentValue` and `setPageInfo` were prose claims about rows in a React tree, and the
+         * day the panel became a declaration (`panel-model.ts`) they stopped exempting anything and
+         * were reported as **stale** — which is the shape of every good thing this harness does.
+         *
+         * `setSizing` stays, and the difference is the point: no row runs it. The 폭 row writes
+         * `sizing` through `setBlockFormat`, which knows about widths as well, so this command is
+         * reachable only as the older way of saying the same thing.
+         */
+        setSizing: 'nothing runs it: the panel’s 크기 › 폭 writes `sizing` through `setBlockFormat`, which also knows the width being edited',
 
         moveBlockInto:
           'reached by **dragging a block**, which is neither a button nor a key. The gesture is held ' +

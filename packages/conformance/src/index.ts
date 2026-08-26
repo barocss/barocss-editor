@@ -18,6 +18,7 @@ export { everyInsertIsAccountedFor } from './checks/every-insert-is-accounted-fo
 export { everyCommandCanBeReached } from './checks/every-command-can-be-reached';
 export { everyDrawingCanBeNamed } from './checks/every-drawing-can-be-named';
 export { everyAttributeIsRead } from './checks/every-attribute-is-read';
+export { everyPropertyCanBeEdited } from './checks/every-property-can-be-edited';
 export { everyIconHasAPicture } from './checks/every-icon-has-a-picture';
 export { placeableTypes, childTypes, namesIn, type NodeShape } from './placeable';
 export { drawnTagFrom, contentTagFrom } from './drawn-as';

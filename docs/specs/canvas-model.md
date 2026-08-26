@@ -365,6 +365,55 @@ things that made hand-rolling the *cheaper* option:
   contenteditable — these are not fields and there should be no primitive for
   them. What is banned is a *second* button.
 
+### What the harness can see, and the three ways out of it
+
+The conformance harness holds one relationship: **schema ↔ product**. Every check
+is a form of *everything the schema declares is drawn, read, reachable, nameable*.
+That is a completeness check over a declared vocabulary, and three things are
+outside it by construction:
+
+1. **Whether what is read is read *correctly*.** `clipsContent` is read — the
+   check passes — and a page clipping by default was still wrong, because a page's
+   box has no stated size and clipping deletes the design instead of framing it.
+   No check will find that; a person looking at a drawing did.
+2. **A vocabulary that is *missing*.** Only `rectangle` had a `cornerRadius`, so a
+   card could not be rounded — and nothing was missing from the harness's point of
+   view, because a schema that offers less passes more easily. This is the one
+   perverse incentive in the design and it is worth naming: **the harness rewards
+   declaring less.** The counterweight is that three products share one schema, so
+   an asymmetry between them is measurable even when an absence is not.
+3. **Anything with no schema at all** — `office-ui`, the app shells, the
+   stylesheets. Those needed an instrument of their own (a gallery) and a guard of
+   their own (`tokens.test.ts`).
+
+**And there is a fourth, which is not the harness's fault: a surface the product
+keeps in JSX.** A check reads declarations. `toolbar-model.ts` and `keymap.ts`
+exist because a ribbon and a key handler written in an app are *"a declaration
+nothing can read"* — both were moved into their package after the harness asked a
+question the app could not answer. The property panel was not, and it became the
+escape route: measured across the three products, **44 exemptions that are prose
+claims about a panel**, eight of them added in a single week.
+
+So the rule is one rule, applied a third time:
+
+> **A surface a reader reaches a command through is data in the package, and the
+> app draws it.** Not a model the app agrees with — a model the app *maps over*,
+> so there is nothing to drift from.
+
+The site's panel is `panel-model.ts` now and `inspector.tsx` maps over it. Three
+exemptions went stale the moment it did, which is the harness reporting its own
+escape hatch closing. And it made a question askable that could not be asked
+before: `every-attribute-is-read` asks whether an attribute reaches the drawing,
+`every-command-can-be-reached` asks whether a command has a control, and **an
+attribute nobody can change passes both** — it is read, and `setBlockFormat`,
+which writes 24 fields, is reachable. `every-property-can-be-edited` is that
+question. On its first run: 64 attributes drawn, 41 offered.
+
+A product that cannot answer a check names it in `notYet` rather than failing
+silently, and a deferral that stops being true is reported like a stale
+exemption. Word and the deck are there for this one, and the reason is the same
+sentence one paragraph up.
+
 ### A library has no view of itself unless one is built
 
 The rule above says every control draws with `var(--ou-…)`. Nothing checked it, and

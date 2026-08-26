@@ -215,6 +215,18 @@ describe('Slides draws what its schema declares', () => {
       commands,
       own,
       reachable,
+      /**
+       * Not adopted, and named rather than left silent.
+       *
+       * `every-property-can-be-edited` asks which attributes a reader can **set**, and the answer
+       * has to come from a declaration — a product's panel as data, the way its toolbar and its key
+       * map already are. This product's is still a React tree, so it cannot answer, and a check with
+       * no subjects passes without checking anything.
+       *
+       * The site builder answers it (`panel-model.ts`), which is what makes this a difference
+       * between the three products rather than a limit of the harness. Owed here; in BACKLOG.md.
+       */
+      notYet: ['every-property-can-be-edited'],
       exempt: {
         /*
          * ── The three the attribute probe cannot see, and each says where it *is* read ──

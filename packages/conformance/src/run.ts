@@ -3,6 +3,7 @@ import { everyDrawingCanHoldWhatItContains } from './checks/every-drawing-can-ho
 import { everyDrawingKeepsItsChildren } from './checks/every-drawing-keeps-its-children';
 import { everyDrawingCanBeNamed } from './checks/every-drawing-can-be-named';
 import { everyAttributeIsRead } from './checks/every-attribute-is-read';
+import { everyPropertyCanBeEdited } from './checks/every-property-can-be-edited';
 import { everyIconHasAPicture } from './checks/every-icon-has-a-picture';
 import { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
 import { everyCommandMakesSomethingReal } from './checks/every-command-makes-something-real';
@@ -17,6 +18,7 @@ export const CHECKS: Check[] = [
   everyDrawingKeepsItsChildren,
   everyDrawingCanBeNamed,
   everyAttributeIsRead,
+  everyPropertyCanBeEdited,
   everyIconHasAPicture
 ];
 
@@ -96,6 +98,14 @@ export interface ConformanceInput {
    */
   own?: string[];
   /**
+   * Every attribute a reader can **set**, from the product's own declarations — see .
+   *
+   * Here as well as on the subject because the two command lists are here too: what a reader can
+   * reach and what a reader can change are the same kind of fact about a product, and both come out
+   * of the same declarations.
+   */
+  editable?: string[];
+  /**
    * The commands a reader can actually run: toolbar controls and key bindings.
    *
    * Both come from the product's own declarations, so this cannot drift from
@@ -113,6 +123,27 @@ export interface ConformanceInput {
   ratchet?: Ratchets;
   /** Run a subset, for a product adopting the harness one check at a time. */
   only?: string[];
+  /**
+   * Checks this product has **not adopted**, named.
+   *
+   * A check with no subjects fails, on purpose: *"a check that is quietly doing nothing stays
+   * visible"*. That rule is right and it makes adding a check to the harness break every product
+   * that cannot answer it yet — which is the correct pressure, but it needs somewhere to land other
+   * than a broken build.
+   *
+   * `only` is the wrong shape for it: a product listing every check it *does* run would silently
+   * skip the next one added, forever. Naming what is deferred is the other way round — a new check
+   * arrives, and every product either answers it or says out loud that it does not.
+   *
+   * Measured the day `every-property-can-be-edited` was added: the site could answer it because its
+   * panel had just become a declaration, and Word and the deck could not because theirs are still
+   * React trees. That is a real difference between the three products and it belongs on the record,
+   * not in a silence.
+   *
+   * A deferral that turns out to be unnecessary — the check examined something after all — is
+   * reported like a stale exemption, so it cannot outlive the reason for it.
+   */
+  notYet?: string[];
 }
 
 /**
@@ -152,6 +183,7 @@ export function conformance(input: ConformanceInput): Report {
     holdsIn: input.holdsIn,
     nameOf: input.nameOf,
     attributeRead: input.attributeRead,
+    editable: input.editable,
     iconsAsked: input.iconsAsked,
     iconDrawn: input.iconDrawn
   };
@@ -220,7 +252,13 @@ export function conformance(input: ConformanceInput): Report {
     .filter(([subjectName]) => !matched.has(subjectName))
     .map(([subjectName, reason]) => ({ subject: subjectName, reason }));
 
-  return { findings, staleExemptions, examined, unanswered, ratcheted };
+  /*
+   * What the product said it has not adopted, and whether that is still true. A check named here
+   * that examined something after all is a deferral outliving its reason — reported, not swept up.
+   */
+  const deferred = (input.notYet ?? []).map((check) => ({ check, examined: examined[check] ?? 0 }));
+
+  return { findings, staleExemptions, examined, unanswered, ratcheted, deferred };
 }
 
 /**
@@ -273,6 +311,11 @@ export function describeReport(report: Report): string {
     })
     .join(', ');
   lines.push('', `examined — ${counted}`);
+
+  // And what the product said it cannot answer yet, so a deferral is read beside the coverage rather
+  // than found by noticing a check missing from the line above.
+  const deferred = (report.deferred ?? []).map((one) => one.check);
+  if (deferred.length > 0) lines.push(`not adopted — ${deferred.join(', ')}`);
 
   return lines.join('\n');
 }

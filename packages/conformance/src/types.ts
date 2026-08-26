@@ -105,6 +105,13 @@ export interface Report {
    */
   unanswered: Record<string, number>;
   /**
+   * Checks the product named as not adopted, and whether the deferral is still true.
+   *
+   * `examined > 0` means it answered after all, and the deferral is stale — reported the way a stale
+   * exemption is, because a claim nobody has to revisit is the hand-kept list this harness replaced.
+   */
+  deferred: { check: string; examined: number }[];
+  /**
    * Checks whose findings are being worked off against a count, and how it stands.
    *
    * `allowed` is what the product declared; `found` is what the run measured. Equal is
@@ -193,6 +200,22 @@ export interface Subject {
    * Optional, so a product can adopt the checks one at a time.
    */
   attributeRead?: (nodeType: string, attr: string) => boolean | null;
+  /**
+   * Every attribute a reader can **set**, from the product's own declarations.
+   *
+   * The other half of `attributeRead`, and the pair is what `every-property-can-be-edited` compares:
+   * an attribute the product draws and nothing can set is a value a reader can see and cannot
+   * change. Neither existing check sees it — the attribute is read, and the command that writes it
+   * is reachable, and `setBlockFormat` writes 24 fields.
+   *
+   * Read out of the same data the panel is **drawn from**, never listed by hand: a list is the
+   * hand-kept backlog this harness replaced, and a panel that merely agreed with a list would be one
+   * more claim to go and check.
+   *
+   * Optional, so a product can adopt the checks one at a time — and until a product's panel is a
+   * declaration rather than a React tree, it cannot answer this at all.
+   */
+  editable?: string[];
 }
 
 export interface Check {

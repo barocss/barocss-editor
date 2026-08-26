@@ -21,22 +21,35 @@ import {
   kindOfBlock,
   labelOfBlock,
   overriddenAt,
-  type BreakpointId
+  sitePanelGroups,
+  type BreakpointId,
+  type SitePanelRow,
+  type SitePanelTab
 } from '@barocss/office-site';
 
-/** 15 twips to the CSS pixel, exactly — the conversion every length in this app makes. */
+/** 15 twips to the CSS pixel: the document keeps twips and a reader is shown pixels. */
 const PX = 15;
 
 /**
  * What the selected blocks are, and everything a reader can change about them.
  *
- * ## Built by looking at a document that uses the schema
+ * ## It is drawn from a declaration, and that is the whole design
  *
- * The first version had three groups and was written from the schema. It looked complete and was
- * not: the sample it was tested against used six attributes. So the sample was made **dense** —
- * five pages, a grid, a fixed sidebar, two data lists, design tokens, a bound button — and the panel
- * was written from *that*. Every group below exists because something on the site needed it, and the
- * ones a reader could see and not change are what the exercise found.
+ * This file used to *be* the panel: thirty-one rows written out in JSX, each one a control and a
+ * label and a command. It looked fine and it was the last place in the product the conformance
+ * harness could not see. `toolbar-model.ts` says why a ribbon cannot declare its own commands in
+ * JSX — *"a declaration nothing can read"* — and the site's own conformance test admitted the same
+ * about this file in as many words, then exempted eleven commands with sentences describing rows.
+ *
+ * So the rows moved to `panel-model.ts` and this maps over them, the way `ribbon.tsx` maps over
+ * `siteControlsIn()`. Two things fall out, and the second is the one worth the rewrite:
+ *
+ * - the harness can ask what the panel offers instead of being told;
+ * - **the declaration cannot drift**, because there is nothing to drift *from*. A model this file
+ *   merely agreed with would have been one more claim to go and check.
+ *
+ * What stays here is everything that needs React or the document: which control draws which kind,
+ * what the site's colours are, which datasets exist, and what a placement's definition asks.
  *
  * ## Two things it says that a document's panel does not
  *
@@ -62,7 +75,7 @@ export function Inspector({
   page?: string;
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
-  const [tab, setTab] = useState('block');
+  const [tab, setTab] = useState<SitePanelTab>('block');
 
   const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } }).dataStore;
   const node = (sid: string | undefined) => (sid ? store?.getNode(sid) : undefined);
@@ -125,21 +138,59 @@ export function Inspector({
       }));
   }, [editor, revision, store]);
 
+  /**
+   * The datasets this document holds, and the columns of the one a list is drawing.
+   *
+   * Two of the panel's control kinds are lists only the document can supply — which is why they are
+   * kinds rather than `options` in the declaration. A reader **picks** a column rather than typing
+   * one, and that is the reason `dataset.fields` is declared rather than inferred from the first
+   * row: a panel has to offer the fields before there is a row on screen.
+   */
+  const data = useMemo(() => {
+    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+    const root = rootId ? store?.getNode(rootId) : undefined;
+    const resources = ((root?.content ?? []) as string[])
+      .map((sid) => store?.getNode(sid))
+      .find((child: any) => child?.stype === 'resources');
+
+    const datasets = ((resources?.content ?? []) as string[])
+      .map((sid) => store?.getNode(sid))
+      .filter((one: any) => one?.stype === 'dataset')
+      .map((one: any) => ({
+        name: String(one.attributes.name),
+        label: String(one.attributes.label ?? one.attributes.name),
+        fields: (one.attributes.fields ?? []) as string[],
+        rows: ((one.attributes.records ?? []) as unknown[]).length
+      }));
+
+    const chosen = datasets.find((one) => one.name === shown?.attrs.source);
+    return {
+      datasets: datasets.map((one) => ({ id: one.name, label: `${one.label} (${one.rows})` })),
+      columns: [{ id: '', label: '없음' }, ...(chosen?.fields ?? []).map((f) => ({ id: f, label: f }))]
+    };
+  }, [editor, revision, store, shown?.attrs.source]);
+
   const run = (name: string, payload: Record<string, unknown>) =>
     (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(name, payload);
 
-  const set = (field: string, value: unknown) =>
-    run('setBlockFormat', { nodeIds: shown?.ids, at, [field]: value });
-
-  /** A property whose value at this width is this width's own rather than the page's. */
-  const mark = (field: string) => (shown?.overridden.has(field) ? ' ·' : '');
-
-  const twips = (field: string) => {
-    const value = shown?.attrs[field];
-    return value === undefined ? null : Math.round(Number(value) / PX);
+  /**
+   * What a row does when it is changed.
+   *
+   * One place, and it reads the row's own `command` rather than assuming `setBlockFormat` — which is
+   * what lets 페이지 › 주소 and 값 be ordinary rows instead of two hand-written groups.
+   */
+  const write = (row: SitePanelRow, value: unknown) => {
+    if (!row.command) return;
+    if (row.command === 'setPageInfo') run('setPageInfo', { nodeId: page, [row.attr]: value });
+    else run(row.command, { nodeIds: shown?.ids, at, [row.attr]: value });
   };
 
-  const isStack = shown?.stype === 'frame' || shown?.stype === 'collection';
+  const tabs: { id: SitePanelTab; label: string }[] = [
+    { id: 'block', label: '블록' },
+    { id: 'style', label: '모양' },
+    ...(shown?.stype === 'collection' ? ([{ id: 'data', label: '데이터' }] as const) : []),
+    ...(shown?.stype === 'instance' ? ([{ id: 'values', label: '값' }] as const) : [])
+  ];
 
   return (
     <PropertyPanel
@@ -162,454 +213,310 @@ export function Inspector({
       }
     >
       {!shown ? (
-        <PageSettings page={page} node={node} run={run} />
+        /*
+         * The page, when nothing is selected — where every builder of this kind puts it, and the
+         * only place a page's **address** can be edited at all: a page is the board rather than a
+         * block, so it is never in a selection (`SELECTABLE` leaves it out on purpose).
+         */
+        <Groups
+          stype={node(page) ? 'surface' : undefined}
+          tab="page"
+          shown={null}
+          at={at}
+          page={node(page)}
+          tokens={tokens}
+          data={data}
+          write={write}
+          run={run}
+          empty="페이지에서 블록을 선택하세요. 한 번 누르면 바깥쪽 블록, 두 번 누르면 그 안쪽입니다."
+          after="블록을 선택하면 그 블록의 속성이 여기에 나옵니다."
+        />
       ) : (
         <>
           <PropertyTabs
-            tabs={[
-              { id: 'block', label: '블록' },
-              { id: 'style', label: '모양' },
-              ...(shown.stype === 'collection' ? [{ id: 'data', label: '데이터' }] : []),
-              ...(shown.stype === 'instance' ? [{ id: 'values', label: '값' }] : [])
-            ]}
+            tabs={tabs}
             active={tab}
-            onChange={setTab}
+            onChange={(id) => setTab(id as SitePanelTab)}
           />
-
-          {tab === 'block' ? (
-            <>
-              <PropertyGroup label={shown.count > 1 ? `${shown.count}개 선택됨` : shown.label}>
-                <PropertyRow label="종류">
-                  <span className="st-kind">{kindOfBlock(shown.stype) ?? shown.stype}</span>
-                </PropertyRow>
-                {shown.count === 1 ? (
-                  <PropertyRow label={`이름${mark('name')}`}>
-                    {/* What a reader calls it: the layer list shows it and the drawing says it. */}
-                    <TextField
-                      value={typeof shown.attrs.name === 'string' ? shown.attrs.name : ''}
-                      onCommit={(value) => set('name', value || undefined)}
-                      ariaLabel="이름"
-                      placeholder={kindOfBlock(shown.stype) ?? ''}
-                    />
-                  </PropertyRow>
-                ) : null}
-                {at !== 'desktop' ? (
-                  <PropertyRow label="편집 중인 폭">
-                    <span className="st-at-note">
-                      {BREAKPOINTS.find((one) => one.id === at)?.label}에서 바꾼 값만 이 폭에 적용됩니다
-                    </span>
-                  </PropertyRow>
-                ) : null}
-              </PropertyGroup>
-
-              {isStack ? (
-                <PropertyGroup label="배치">
-                  <PropertyRow label={`방향${mark('layoutMode')}`}>
-                    <ChoiceSelect
-                      value={String(shown.attrs.layoutMode ?? 'column')}
-                      options={[
-                        { id: 'column', label: '세로' },
-                        { id: 'row', label: '가로' },
-                        { id: 'grid', label: '그리드' }
-                      ]}
-                      onChange={(value) => set('layoutMode', value)}
-                      ariaLabel="방향"
-                    />
-                  </PropertyRow>
-                  {shown.attrs.layoutMode === 'grid' ? (
-                    <PropertyRow label={`열${mark('columns')}`}>
-                      <NumberField
-                        value={Number(shown.attrs.columns ?? 3)}
-                        onCommit={(value) => set('columns', Math.max(1, Math.round(value)))}
-                        ariaLabel="열"
-                        min={1}
-                      />
-                    </PropertyRow>
-                  ) : null}
-                  <PropertyRow label={`간격${mark('gap')}`}>
-                    <NumberField
-                      value={twips('gap') ?? 0}
-                      onCommit={(value) => set('gap', Math.max(0, value) * PX)}
-                      ariaLabel="간격"
-                      suffix="px"
-                      min={0}
-                    />
-                  </PropertyRow>
-                  <PropertyRow label={`안쪽 여백${mark('padding')}`}>
-                    <NumberField
-                      value={twips('padding') ?? 0}
-                      onCommit={(value) => set('padding', Math.max(0, value) * PX)}
-                      ariaLabel="안쪽 여백"
-                      suffix="px"
-                      min={0}
-                    />
-                  </PropertyRow>
-                  <PropertyRow label={`맞춤${mark('alignItems')}`}>
-                    <ChoiceSelect
-                      value={String(shown.attrs.alignItems ?? 'stretch')}
-                      options={[
-                        { id: 'stretch', label: '채움' },
-                        { id: 'start', label: '앞' },
-                        { id: 'center', label: '가운데' },
-                        { id: 'end', label: '뒤' }
-                      ]}
-                      onChange={(value) => set('alignItems', value)}
-                      ariaLabel="맞춤"
-                    />
-                  </PropertyRow>
-                </PropertyGroup>
-              ) : null}
-
-              <PropertyGroup label="크기">
-                <PropertyRow label={`폭${mark('sizing')}`}>
-                  {/*
-                    Three answers, because there are three — and silence is not one of them: a `div`
-                    hugs, a flex child fills, so "nothing stated" is the absence of an intent rather
-                    than an intent (`sizing.ts`).
-                  */}
-                  <ChoiceSelect
-                    value={String(shown.attrs.sizing ?? 'fill')}
-                    options={[
-                      { id: 'fill', label: '채우기' },
-                      { id: 'hug', label: '내용만큼' },
-                      { id: 'fixed', label: '고정' }
-                    ]}
-                    onChange={(value) => set('sizing', value)}
-                    ariaLabel="폭"
-                  />
-                </PropertyRow>
-                <PropertyRow label={`최소${mark('minWidth')}`}>
-                  <NumberField
-                    value={twips('minWidth')}
-                    onCommit={(value) => set('minWidth', value > 0 ? value * PX : undefined)}
-                    ariaLabel="최소 폭"
-                    suffix="px"
-                    min={0}
-                  />
-                </PropertyRow>
-                <PropertyRow label={`최대${mark('maxWidth')}`}>
-                  <NumberField
-                    value={twips('maxWidth')}
-                    onCommit={(value) => set('maxWidth', value > 0 ? value * PX : undefined)}
-                    ariaLabel="최대 폭"
-                    suffix="px"
-                    min={0}
-                  />
-                </PropertyRow>
-              </PropertyGroup>
-            </>
-          ) : null}
-
-          {tab === 'style' ? (
-            <>
-              <PropertyGroup label="바탕">
-                <PropertyRow label={`배경${mark('fill')}`}>
-                  {/*
-                    The site's own colours beside any colour at all. Choosing one writes `var:강조` —
-                    a reference rather than a hex — so changing the token later changes every block
-                    that follows it. `varSwatches` is the deck's control doing a site's job.
-                  */}
-                  <ColorField
-                    value={typeof shown.raw.fill === 'string' ? shown.raw.fill : null}
-                    varSwatches={tokens}
-                    onChange={(value) => set('fill', value)}
-                    onClear={() => set('fill', undefined)}
-                    ariaLabel="배경"
-                  />
-                </PropertyRow>
-              </PropertyGroup>
-
-              {/*
-                The box itself — the two things a page's frame says that a canvas's frame does not.
-
-                A **radius** because a card is a frame and only a `rectangle` could be rounded, so the
-                single most ordinary box on a web page was undrawable; and **clipping** because
-                `frameCss` writes `overflow: hidden` by default and the page silently unclips
-                (`renderers.ts`), which makes this a reader asking for a window rather than a reader
-                escaping a default. Measured before either existed: nine clipping stacks on the
-                sample's desktop board, and nothing anywhere that could turn one off.
-
-                Stacks only. A picture and a heading have no box of their own to round here — a
-                picture's corners are the frame's it sits in, which is how every layout tool
-                answers this.
-              */}
-              {isStack ? (
-                <PropertyGroup label="상자">
-                  <PropertyRow label={`둥글기${mark('cornerRadius')}`}>
-                    <NumberField
-                      value={twips('cornerRadius')}
-                      onCommit={(value) => set('cornerRadius', value > 0 ? value * PX : undefined)}
-                      ariaLabel="모서리 둥글기"
-                      suffix="px"
-                      min={0}
-                    />
-                  </PropertyRow>
-                  <PropertyRow label={`넘침${mark('clipsContent')}`}>
-                    <PropertyToggle
-                      value={shown.attrs.clipsContent === true}
-                      onChange={(value) => set('clipsContent', value ? true : undefined)}
-                      label="자르기"
-                      ariaLabel="넘치는 것 자르기"
-                    />
-                  </PropertyRow>
-                </PropertyGroup>
-              ) : null}
-
-              <PropertyGroup label="테두리">
-                <PropertyRow label={`색${mark('stroke')}`}>
-                  <ColorField
-                    value={typeof shown.raw.stroke === 'string' ? shown.raw.stroke : null}
-                    varSwatches={tokens}
-                    onChange={(value) => set('stroke', value)}
-                    onClear={() => set('stroke', undefined)}
-                    ariaLabel="테두리 색"
-                  />
-                </PropertyRow>
-                <PropertyRow label={`두께${mark('strokeWidth')}`}>
-                  <NumberField
-                    value={twips('strokeWidth')}
-                    onCommit={(value) => set('strokeWidth', value > 0 ? value * PX : undefined)}
-                    ariaLabel="테두리 두께"
-                    suffix="px"
-                    min={0}
-                  />
-                </PropertyRow>
-              </PropertyGroup>
-
-              {shown.stype === 'picture' ? (
-                <PropertyGroup label="이미지">
-                  <PropertyRow label="주소">
-                    <TextField
-                      value={String(shown.attrs.src ?? '')}
-                      onCommit={(value) => set('src', value)}
-                      ariaLabel="이미지 주소"
-                    />
-                  </PropertyRow>
-                  <PropertyRow label="설명">
-                    {/* Not decoration: it is what a reader of the published page hears. */}
-                    <TextField
-                      value={String(shown.attrs.alt ?? '')}
-                      onCommit={(value) => set('alt', value)}
-                      ariaLabel="대체 텍스트"
-                    />
-                  </PropertyRow>
-                  <PropertyRow label={`채우기${mark('fit')}`}>
-                    <ChoiceSelect
-                      value={String(shown.attrs.fit ?? 'cover')}
-                      options={[
-                        { id: 'cover', label: '꽉 채움' },
-                        { id: 'contain', label: '전체 보임' },
-                        { id: 'fill', label: '늘림' }
-                      ]}
-                      onChange={(value) => set('fit', value)}
-                      ariaLabel="채우기"
-                    />
-                  </PropertyRow>
-                </PropertyGroup>
-              ) : null}
-
-              {shown.stype === 'heading' ? (
-                <PropertyGroup label="제목">
-                  <PropertyRow label="단계">
-                    <ChoiceSelect
-                      value={String(shown.attrs.level ?? 2)}
-                      options={[1, 2, 3, 4, 5, 6].map((level) => ({
-                        id: String(level),
-                        label: `제목 ${level}`
-                      }))}
-                      onChange={(value) => set('level', Number(value))}
-                      ariaLabel="제목 단계"
-                    />
-                  </PropertyRow>
-                </PropertyGroup>
-              ) : null}
-            </>
-          ) : null}
-
-          {tab === 'data' ? <DataGroup shown={shown} set={set} mark={mark} editor={editor} /> : null}
-
-          {tab === 'values' ? (
-            <PropertyGroup label="이 블록의 값">
-              {shown.count > 1 ? (
-                <PropertyEmpty>한 블록만 선택했을 때 값을 바꿀 수 있습니다.</PropertyEmpty>
-              ) : shown.values.length === 0 ? (
-                <PropertyEmpty>이 정의는 묻는 것이 없습니다.</PropertyEmpty>
-              ) : (
-                shown.values.map((one) => (
-                  <PropertyRow key={one.sid} label={one.name}>
-                    <TextField
-                      value={one.value}
-                      onCommit={(value) =>
-                        run('setComponentValue', { nodeId: shown.ids[0], name: one.name, value })
-                      }
-                      ariaLabel={one.name}
-                    />
-                  </PropertyRow>
-                ))
-              )}
-            </PropertyGroup>
-          ) : null}
+          <Groups
+            stype={shown.stype}
+            tab={tab}
+            shown={shown}
+            at={at}
+            tokens={tokens}
+            data={data}
+            write={write}
+            run={run}
+          />
         </>
       )}
     </PropertyPanel>
   );
 }
 
+type Shown = {
+  ids: string[];
+  count: number;
+  stype: string;
+  label: string;
+  attrs: Record<string, any>;
+  raw: Record<string, any>;
+  overridden: Set<string>;
+  values: { sid: string; name: string; value: string }[];
+};
+
 /**
- * What a list draws.
+ * The declaration, drawn.
  *
- * The half of the data feature a reader could not see: which dataset, in what order, how many of
- * them, and filtered to what. The columns come from the dataset's own declaration, so a reader
- * **picks** one rather than typing it — which is why `dataset.fields` is declared rather than
- * inferred from the first row.
+ * Groups in the order `panel-model.ts` lists them, rows in the order inside each — so moving a row
+ * in that file moves it on screen, and there is no second place that decides what the panel has.
  */
-function DataGroup({
+function Groups({
+  stype,
+  tab,
   shown,
-  set,
-  mark,
-  editor
+  at,
+  page,
+  tokens,
+  data,
+  write,
+  run,
+  empty,
+  after
 }: {
-  shown: { attrs: Record<string, any> };
-  set: (field: string, value: unknown) => void;
-  mark: (field: string) => string;
-  editor: Editor;
+  stype: string | undefined;
+  tab: SitePanelTab;
+  shown: Shown | null;
+  at: BreakpointId;
+  page?: any;
+  tokens: ThemeSwatch[];
+  data: { datasets: { id: string; label: string }[]; columns: { id: string; label: string }[] };
+  write: (row: SitePanelRow, value: unknown) => void;
+  run: (name: string, payload: Record<string, unknown>) => void;
+  /** Shown instead of the groups when there is nothing to draw them about. */
+  empty?: string;
+  /** Shown under them, when a reader could be told what to do next. */
+  after?: string;
 }) {
-  const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } }).dataStore;
-  const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+  if (empty && !page) return <PropertyEmpty>{empty}</PropertyEmpty>;
 
-  const datasets = useMemo(() => {
-    const root = rootId ? store?.getNode(rootId) : undefined;
-    const resources = ((root?.content ?? []) as string[])
-      .map((sid) => store?.getNode(sid))
-      .find((child: any) => child?.stype === 'resources');
-    return ((resources?.content ?? []) as string[])
-      .map((sid) => store?.getNode(sid))
-      .filter((one: any) => one?.stype === 'dataset')
-      .map((one: any) => ({
-        name: String(one.attributes.name),
-        label: String(one.attributes.label ?? one.attributes.name),
-        fields: (one.attributes.fields ?? []) as string[],
-        rows: ((one.attributes.records ?? []) as unknown[]).length
-      }));
-  }, [store, rootId]);
-
-  const chosen = datasets.find((one) => one.name === shown.attrs.source);
-  const columns = [
-    { id: '', label: '없음' },
-    ...(chosen?.fields ?? []).map((field) => ({ id: field, label: field }))
-  ];
+  const attrs = shown?.attrs ?? (page?.attributes as Record<string, any>) ?? {};
+  const groups = sitePanelGroups(stype, tab).filter((group) =>
+    group.rows.some((row) => visible(row, attrs, shown?.count ?? 1))
+  );
 
   return (
     <>
-      <PropertyGroup label="데이터">
-        <PropertyRow label="목록">
-          <ChoiceSelect
-            value={String(shown.attrs.source ?? '')}
-            options={datasets.map((one) => ({ id: one.name, label: `${one.label} (${one.rows})` }))}
-            onChange={(value) => set('source', value)}
-            ariaLabel="데이터 목록"
-          />
-        </PropertyRow>
-        <PropertyRow label={`정렬${mark('sortBy')}`}>
-          <ChoiceSelect
-            value={String(shown.attrs.sortBy ?? '')}
-            options={columns}
-            onChange={(value) => set('sortBy', value || undefined)}
-            ariaLabel="정렬 기준"
-          />
-        </PropertyRow>
-        <PropertyRow label="순서">
-          <ChoiceSelect
-            value={String(shown.attrs.sortDir ?? 'asc')}
-            options={[
-              { id: 'asc', label: '오름차순' },
-              { id: 'desc', label: '내림차순' }
-            ]}
-            onChange={(value) => set('sortDir', value)}
-            ariaLabel="정렬 순서"
-          />
-        </PropertyRow>
-        <PropertyRow label={`개수${mark('limit')}`}>
-          {/* Empty means all of them, which is what a list with nothing said has always drawn. */}
-          <NumberField
-            value={shown.attrs.limit === undefined ? null : Number(shown.attrs.limit)}
-            onCommit={(value) => set('limit', value > 0 ? Math.round(value) : undefined)}
-            ariaLabel="개수"
-            min={0}
-          />
-        </PropertyRow>
-      </PropertyGroup>
-
-      <PropertyGroup label="거르기">
-        <PropertyRow label="칸">
-          <ChoiceSelect
-            value={String(shown.attrs.where ?? '')}
-            options={columns}
-            onChange={(value) => set('where', value || undefined)}
-            ariaLabel="거를 칸"
-          />
-        </PropertyRow>
-        <PropertyRow label="값">
-          <TextField
-            value={String(shown.attrs.equals ?? '')}
-            onCommit={(value) => set('equals', value || undefined)}
-            ariaLabel="거를 값"
-            disabled={!shown.attrs.where}
-          />
-        </PropertyRow>
-      </PropertyGroup>
+      {groups.map((group) => (
+        <PropertyGroup
+          key={group.label}
+          // The selection's group is named after what is selected, which is the one label the
+          // declaration cannot hold: it is a fact about the document, not about the panel.
+          label={
+            group.label === '선택'
+              ? shown && shown.count > 1
+                ? `${shown.count}개 선택됨`
+                : (shown?.label ?? group.label)
+              : group.label
+          }
+        >
+          {group.rows
+            .filter((row) => visible(row, attrs, shown?.count ?? 1))
+            .map((row) => (
+              <Row
+                key={`${row.group}.${row.attr}`}
+                row={row}
+                attrs={attrs}
+                raw={shown?.raw ?? attrs}
+                shown={shown}
+                at={at}
+                tokens={tokens}
+                data={data}
+                write={write}
+                run={run}
+              />
+            ))}
+        </PropertyGroup>
+      ))}
+      {after ? <PropertyEmpty>{after}</PropertyEmpty> : null}
     </>
   );
 }
 
+/** Whether a row applies to what is selected, from what the row itself declares. */
+function visible(row: SitePanelRow, attrs: Record<string, any>, count: number): boolean {
+  if (row.single && count > 1) return false;
+  if (row.when && attrs[row.when.attr] !== row.when.is) return false;
+  return true;
+}
+
 /**
- * The page, when nothing is selected.
+ * One row: a label, and the control its kind says it is.
  *
- * Where every builder of this kind puts it, and the only place a page's **address** can be edited at
- * all: a page is the board rather than a block, so it is never in a selection — `SELECTABLE` leaves
- * it out on purpose, because a selection whose only meaning is "everything" is what clicking nothing
- * already means.
+ * The `switch` is total over `SitePanelControl` on purpose — a kind is a small closed set precisely
+ * so that adding a row cannot quietly invent a control the product has never drawn before.
  */
-function PageSettings({
-  page,
-  node,
+function Row({
+  row,
+  attrs,
+  raw,
+  shown,
+  at,
+  tokens,
+  data,
+  write,
   run
 }: {
-  page?: string;
-  node: (sid: string | undefined) => any;
+  row: SitePanelRow;
+  attrs: Record<string, any>;
+  raw: Record<string, any>;
+  shown: Shown | null;
+  at: BreakpointId;
+  tokens: ThemeSwatch[];
+  data: { datasets: { id: string; label: string }[]; columns: { id: string; label: string }[] };
+  write: (row: SitePanelRow, value: unknown) => void;
   run: (name: string, payload: Record<string, unknown>) => void;
 }) {
-  const current = node(page);
-  if (!current) {
-    return (
-      <PropertyEmpty>
-        페이지에서 블록을 선택하세요. 한 번 누르면 바깥쪽 블록, 두 번 누르면 그 안쪽입니다.
-      </PropertyEmpty>
-    );
-  }
+  /** A property whose value at this width is this width's own rather than the page's. */
+  const mark = shown?.overridden.has(row.attr) ? ' ·' : '';
+  const label = `${row.label}${mark}`;
+  const value = attrs[row.attr];
+  const disabled = row.needs !== undefined && !attrs[row.needs];
 
-  return (
-    <>
-      <PropertyGroup label="페이지">
-        <PropertyRow label="이름">
+  /** Pixels in the panel, twips in the document — for the rows that say they are lengths. */
+  const shownNumber =
+    value === undefined
+      ? row.fallback === undefined
+        ? null
+        : Number(row.fallback)
+      : row.unit === 'px'
+        ? Math.round(Number(value) / PX)
+        : Number(value);
+
+  switch (row.control) {
+    case 'static':
+      return (
+        <PropertyRow label={label}>
+          <span className="st-kind">{kindOfBlock(shown?.stype ?? '') ?? shown?.stype}</span>
+        </PropertyRow>
+      );
+
+    case 'note':
+      // Only worth saying when it is true: at the widest width every value is the page's own.
+      if (at === 'desktop') return null;
+      return (
+        <PropertyRow label={label}>
+          <span className="st-at-note">
+            {BREAKPOINTS.find((one) => one.id === at)?.label}에서 바꾼 값만 이 폭에 적용됩니다.
+          </span>
+        </PropertyRow>
+      );
+
+    case 'text':
+      return (
+        <PropertyRow label={label}>
           <TextField
-            value={String(current.attributes?.name ?? '')}
-            onCommit={(value) => run('setPageInfo', { nodeId: page, name: value })}
-            ariaLabel="페이지 이름"
+            value={String(value ?? '')}
+            onCommit={(next) => write(row, next || undefined)}
+            ariaLabel={row.ariaLabel}
+            disabled={disabled}
+            placeholder={row.attr === 'name' ? (kindOfBlock(shown?.stype ?? '') ?? '') : undefined}
           />
         </PropertyRow>
-        <PropertyRow label="주소">
-          {/* What a site *is*: two pages may be called the same thing and only one answers on `/`. */}
-          <TextField
-            value={String(current.attributes?.path ?? '')}
-            onCommit={(value) => run('setPageInfo', { nodeId: page, path: value })}
-            ariaLabel="페이지 주소"
+      );
+
+    case 'number':
+      return (
+        <PropertyRow label={label}>
+          <NumberField
+            value={shownNumber}
+            onCommit={(next) => {
+              const floor = row.min ?? 0;
+              const kept = Math.max(floor, row.unit === 'px' ? next : Math.round(next));
+              /*
+               * Nothing rather than zero, for a length that has no natural zero. A `minWidth` of 0
+               * and no `minWidth` draw the same and mean different things — one is a decision — and
+               * `undefined` is how a reader takes a value back at this width.
+               */
+              write(row, row.fallback === undefined && kept <= 0 ? undefined : kept * (row.unit === 'px' ? PX : 1));
+            }}
+            ariaLabel={row.ariaLabel}
+            suffix={row.unit}
+            min={row.min}
+            disabled={disabled}
           />
         </PropertyRow>
-      </PropertyGroup>
-      <PropertyEmpty>
-        블록을 선택하면 그 블록의 속성이 여기에 나옵니다. 한 번 누르면 바깥쪽, 두 번 누르면 그 안쪽입니다.
-      </PropertyEmpty>
-    </>
-  );
+      );
+
+    case 'colour':
+      return (
+        <PropertyRow label={label}>
+          {/*
+            The site's own colours beside any colour at all. Choosing one writes `var:강조` — a
+            reference rather than a hex — so changing the token later changes every block that
+            follows it. Read from `raw`, because a colour that follows a token must not be shown as
+            the hex it currently resolves to.
+          */}
+          <ColorField
+            value={typeof raw[row.attr] === 'string' ? raw[row.attr] : null}
+            varSwatches={tokens}
+            onChange={(next) => write(row, next)}
+            onClear={() => write(row, undefined)}
+            ariaLabel={row.ariaLabel}
+          />
+        </PropertyRow>
+      );
+
+    case 'toggle':
+      return (
+        <PropertyRow label={label}>
+          <PropertyToggle
+            value={value === true}
+            onChange={(next) => write(row, next ? true : undefined)}
+            label={row.label === '넘침' ? '자르기' : row.label}
+            ariaLabel={row.ariaLabel}
+          />
+        </PropertyRow>
+      );
+
+    case 'choice':
+    case 'dataset':
+    case 'column':
+      return (
+        <PropertyRow label={label}>
+          <ChoiceSelect
+            value={String(value ?? row.fallback ?? '')}
+            options={
+              row.control === 'dataset' ? data.datasets : row.control === 'column' ? data.columns : (row.options ?? [])
+            }
+            onChange={(next) => write(row, row.attr === 'level' ? Number(next) : next || undefined)}
+            ariaLabel={row.ariaLabel}
+            disabled={disabled}
+          />
+        </PropertyRow>
+      );
+
+    case 'values':
+      /*
+       * One declared row, many on screen: how many there are is a fact about the *definition*, which
+       * only the document knows. So the declaration says the shape — this command, this kind — and
+       * this draws one row per question.
+       */
+      if (!shown) return null;
+      if (shown.count > 1) return <PropertyEmpty>한 블록만 선택했을 때 값을 바꿀 수 있습니다.</PropertyEmpty>;
+      if (shown.values.length === 0) return <PropertyEmpty>이 정의는 묻는 것이 없습니다.</PropertyEmpty>;
+      return (
+        <>
+          {shown.values.map((one) => (
+            <PropertyRow key={one.sid} label={one.name}>
+              <TextField
+                value={one.value}
+                onCommit={(next) => run('setComponentValue', { nodeId: shown.ids[0], name: one.name, value: next })}
+                ariaLabel={one.name}
+              />
+            </PropertyRow>
+          ))}
+        </>
+      );
+  }
 }

@@ -2417,6 +2417,54 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **The panel was the escape route, and it was the same rule this repo had already applied twice.**
+
+  Asked directly why the harness kept missing things and why the code kept ending up outside it. The
+  measurement is unambiguous: **44 exemptions across the three products are prose claims about a
+  property panel**, eight of them added in one week. The site's own conformance test says why in as
+  many words — *"The property panel is a third surface and the harness has no notion of one — it can
+  read a toolbar model and a key map, and a panel is a React tree."*
+
+  Which is not a limit of the harness. It is the rule that produced `toolbar-model.ts` and
+  `keymap.ts` — *"a ribbon that declares its own commands in JSX is a declaration nothing can read"* —
+  not applied a third time. Both of those moved into the package after the harness asked a question
+  the app could not answer; the panel never did, so it became the place a claim could go to stop
+  being checked.
+
+  `panel-model.ts` is the third application, and `inspector.tsx` maps over it the way `ribbon.tsx`
+  maps over `siteControlsIn()`. **Mapped, not agreed with** — a model the panel merely matched would
+  have been the forty-fifth prose claim. Three exemptions went stale the moment it landed, which is
+  the harness reporting its own escape hatch closing.
+
+  **And it made a question askable.** `every-attribute-is-read` asks whether an attribute reaches the
+  drawing; `every-command-can-be-reached` asks whether a command has a control. An attribute nobody
+  can change passes **both**: it is read, and `setBlockFormat` — which writes 24 fields — is
+  reachable. `every-property-can-be-edited` is the missing question, and its first run said: **64
+  attributes drawn, 41 offered.** The 14 it named sorted into three honest kinds — written by every
+  row (`overrides`), a durable reference a reader must never type (`id`, `kind`), and Word's
+  vocabulary the shared text kit draws on a page with no UI here yet (`caption`, `colspan`,
+  `rowspan`, `language`) — plus `componentId`, which is instance-swap, deferred with variants.
+
+  Two things fell out that were not planned:
+
+  - **A declaration is only worth what is checked about it.** `panel-model.test.ts` immediately found
+    that one field meant two things: the 값 row's `attr` was `componentValue`, which is a *node type*
+    and not an attribute of `instance`. The model now says `writes: 'attr' | 'child'`, which is a
+    distinction the schema already makes and the panel was blurring.
+  - **Adding a check breaks every product that cannot answer it**, because a check with no subjects
+    is a failure here on purpose. `only` is the wrong shape for that — a product listing what it
+    *does* run would silently skip the next check added, forever. `notYet` names what is deferred, so
+    a new check makes every product either answer it or say out loud that it does not, and a
+    deferral that stops being true is reported like a stale exemption.
+
+  **Still open, and named because it is the harness's own shape:** it holds one relationship, schema
+  ↔ product, so it cannot see whether what is read is read *correctly* (`clipsContent` was read and
+  wrong), nor a vocabulary that is *missing* (`cornerRadius` did not exist, so nothing was absent) —
+  and that second one is a perverse incentive worth saying out loud: **a schema that declares less
+  passes more easily.** The only counterweight available is that three products share one schema, so
+  an asymmetry between them is measurable even when an absence is not. Word's and the deck's panels
+  are the next two to become declarations.
+
 - **The harness was not answering a third of its own questions, and said so nowhere.**
 
   `every-attribute-is-read` renders a node with an attribute absent and again with it set, and calls
