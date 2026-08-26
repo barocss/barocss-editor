@@ -50,6 +50,15 @@ export interface CanvasNode {
    * the store writes on every node and every fixture copies. The same reason `text` is declared.
    */
   parentId?: string;
+  /**
+   * What covers a range of the characters — bold, a colour, a link.
+   *
+   * Declared for the same reason `text` is: it is *copied*, and until it was declared it was not.
+   * `copyOf` reproduced `stype`, `attributes`, `text` and children, and a duplicated slide came back
+   * with every word of its text and none of its formatting — which reads as working, because the
+   * words are the part a reader looks for.
+   */
+  marks?: unknown[];
 }
 
 /**
@@ -80,13 +89,28 @@ export function copyOf(doc: CanvasAccess, sid: string, depth = 0): CanvasNode | 
   const node = doc.getNode(sid);
   if (!node) return undefined;
 
-  const copy: CanvasNode & { text?: string } = {
+  const copy: CanvasNode & { text?: string; marks?: unknown[] } = {
     stype: node.stype,
     attributes: { ...(node.attributes ?? {}) }
   };
 
   const text = (node as { text?: unknown }).text;
   if (typeof text === 'string') copy.text = text;
+
+  /*
+   * And what covers those characters.
+   *
+   * Measured before it was fixed: duplicating a slide whose title was bold produced a slide whose
+   * title was not, and every check passed — the text is identical and a mark is not a node, so
+   * nothing that counts nodes or compares words could have seen it. Five call sites shared the
+   * fault, including *making a component out of a block*, which is the one gesture whose whole
+   * promise is that the copy is the same thing.
+   *
+   * Deep, not by reference: a mark holds a `range`, and two nodes sharing one array is one of them
+   * changing when the other is edited.
+   */
+  const marks = (node as { marks?: unknown }).marks;
+  if (Array.isArray(marks) && marks.length > 0) copy.marks = JSON.parse(JSON.stringify(marks));
 
   const children = childrenOf(node)
     .map((child) => copyOf(doc, child, depth + 1))

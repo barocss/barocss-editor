@@ -142,7 +142,7 @@ describe('a link to a page of this site', () => {
      */
     const nodes: Record<string, any> = {
       root: { sid: 'root', stype: 'site', content: ['home', 'body'] },
-      home: { sid: 'home', stype: 'surface', attributes: { id: 'home', name: '홈', path: '/' } },
+      home: { sid: 'home', stype: 'surface', attributes: { kind: 'flow', id: 'home', name: '홈', path: '/' } },
       body: { sid: 'body', stype: 'paragraph', content: ['one', 'two'] },
       one: { sid: 'one', text: '홈', marks: [{ stype: 'link', attributes: { href: 'page:home' } }] },
       two: { sid: 'two', text: '가격', marks: [{ stype: 'link', attributes: { href: 'page:pricing' } }] }

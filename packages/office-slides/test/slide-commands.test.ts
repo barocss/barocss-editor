@@ -53,7 +53,7 @@ describe('the commands a deck has', () => {
                 stype: 'textFrame',
                 attributes: { role: 'title', x: 0, y: 0, width: 100, height: 100 },
                 content: [
-                  { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: 'One' }] }
+                  { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: 'One', marks: [{ stype: 'bold', attributes: {} }] }] }
                 ]
               }
             ]
@@ -208,6 +208,32 @@ describe('the commands a deck has', () => {
       // mapping from a DOM position back to the model resolves through.
       expect(copiedFrame).not.toBe(originalFrame);
       expect((store.getNode(copiedFrame) as any).attributes.role).toBe('title');
+    });
+
+    it('keeps the formatting of the words, not only the words', async () => {
+      /*
+       * The copy dropped every mark, and this suite could not have seen it: the text is identical
+       * and a mark is not a node, so a check that compares nodes or words passes either way. A
+       * reader duplicating a slide got their title back in the wrong weight, with no colour and no
+       * link. Fixed in `copyOf`, which four other gestures share — including making a component out
+       * of a block, whose whole promise is that the copy is the same thing.
+       */
+      const [one] = deckSlides(doc());
+      const run0 = (store.getNode(
+        (store.getNode((store.getNode((store.getNode(one.sid) as any).content[0]) as any).content[0]) as any)
+          .content[0]
+      ) as any);
+      expect(run0.marks).toEqual([{ stype: 'bold', attributes: {} }]);
+
+      await run('duplicateSlide', { slideId: one.sid });
+
+      const copy = deckSlides(doc())[1];
+      const copied = store.getNode(
+        (store.getNode((store.getNode((store.getNode(copy.sid) as any).content[0]) as any).content[0]) as any)
+          .content[0]
+      ) as any;
+      expect(copied.text).toBe('One');
+      expect(copied.marks).toEqual([{ stype: 'bold', attributes: {} }]);
     });
 
     it('is one thing to undo, not two', async () => {

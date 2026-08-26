@@ -46,6 +46,18 @@ entries are that.
 
 ## Open
 
+### A copy kept the words and dropped what covered them
+
+- [x] `copyOf` reproduced `stype`, `attributes`, `text` and children — and **not `marks`**. Five
+  gestures share it: duplicating a slide, pasting cards, taking the placeholders out of a layout,
+  and making a component out of a block a reader has already built. Every one of them promised "the
+  same thing, somewhere else" and returned the text in the wrong weight, with no colour and no link.
+
+  Found while reading it for something else, and it is worth being specific about *why nothing
+  caught it*: the words are identical, and a mark is not a node — so every check in the suite,
+  which compares nodes or compares text, passes either way. `every-mark-is-drawn` was written a day
+  earlier for the same blind spot one layer up.
+
 ### A page links to a page — and two things it turned up
 
 - [x] A link stores `page:<id>` and the address is resolved where the mark is drawn, so renaming

@@ -32,6 +32,8 @@
  * that happens to be a page's id would otherwise get a link somewhere they did not mean.
  */
 
+import { pagesOf } from './selection';
+
 /** How a link says "a page of this site", as opposed to an address. */
 export const PAGE_PREFIX = 'page:';
 
@@ -85,35 +87,13 @@ export function pageLinkOf(node: Node | undefined): string | undefined {
 /**
  * Every page of this document, as a link could name one.
  *
- * Walked rather than kept, like every other list in this package: a stored list of pages is a list
- * that goes stale the first time somebody adds one.
+ * `pagesOf` is the walk — pages are the root's own children, which is a fact about this schema
+ * rather than about links — and this is that list narrowed to the pages a reference can *reach*: a
+ * page with no id is a page no link can name, and offering one in the picker would write a
+ * reference to `page:` and nothing.
  */
 export function pagesIn(doc: Access): { sid: string; id: string; name: string; path: string }[] {
-  const found: { sid: string; id: string; name: string; path: string }[] = [];
-
-  const walk = (sid: string, depth = 0) => {
-    if (depth > 8) return;
-    const node = doc.getNode(sid);
-    if (!node) return;
-    if (node.stype === 'surface') {
-      const id = String(node.attributes?.id ?? '');
-      if (id) {
-        found.push({
-          sid,
-          id,
-          name: String(node.attributes?.name ?? id),
-          path: String(node.attributes?.path ?? '')
-        });
-      }
-      return;
-    }
-    for (const child of (node.content ?? []) as unknown[]) {
-      if (typeof child === 'string') walk(child, depth + 1);
-    }
-  };
-  walk(doc.rootId);
-
-  return found;
+  return pagesOf(doc as never).filter((page) => page.id !== '');
 }
 
 /**

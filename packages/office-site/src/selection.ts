@@ -357,8 +357,16 @@ export function contentIndexFor(
   return Math.max(0, content.indexOf(blocks[index]));
 }
 
-/** Every page of the site, in document order. */
-export function pagesOf(doc: Access & { rootId: string }): { sid: string; name: string; path: string }[] {
+/**
+ * Every page of the site, in document order — with the **id** a link names it by.
+ *
+ * The id was added here rather than in a second walk beside it: `page-link.ts` wanted the same list
+ * with one more field on it, and two functions that both mean "the pages" is one of them going stale
+ * the day a page stops being a direct child of the root.
+ */
+export function pagesOf(
+  doc: Access & { rootId: string }
+): { sid: string; id: string; name: string; path: string }[] {
   const root = doc.getNode(doc.rootId);
   return ((root?.content ?? []) as unknown[])
     .filter((sid): sid is string => typeof sid === 'string')
@@ -366,6 +374,7 @@ export function pagesOf(doc: Access & { rootId: string }): { sid: string; name: 
     .filter((node): node is Node => node?.stype === 'surface' && node?.attributes?.kind === SITE_SURFACE_KIND)
     .map((node) => ({
       sid: String(node.sid),
+      id: typeof node.attributes?.id === 'string' ? node.attributes.id : '',
       name: typeof node.attributes?.name === 'string' ? node.attributes.name : '이름 없는 페이지',
       path: typeof node.attributes?.path === 'string' ? node.attributes.path : ''
     }));
