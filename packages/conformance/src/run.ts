@@ -3,6 +3,7 @@ import { everyDrawingCanHoldWhatItContains } from './checks/every-drawing-can-ho
 import { everyDrawingKeepsItsChildren } from './checks/every-drawing-keeps-its-children';
 import { everyDrawingCanBeNamed } from './checks/every-drawing-can-be-named';
 import { everyAttributeIsRead } from './checks/every-attribute-is-read';
+import { everyMarkIsDrawn } from './checks/every-mark-is-drawn';
 import { everyPropertyCanBeEdited } from './checks/every-property-can-be-edited';
 import { everyIconHasAPicture } from './checks/every-icon-has-a-picture';
 import { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
@@ -18,6 +19,7 @@ export const CHECKS: Check[] = [
   everyDrawingKeepsItsChildren,
   everyDrawingCanBeNamed,
   everyAttributeIsRead,
+  everyMarkIsDrawn,
   everyPropertyCanBeEdited,
   everyIconHasAPicture
 ];
@@ -105,6 +107,8 @@ export interface ConformanceInput {
    * of the same declarations.
    */
   editable?: string[];
+  /** Whether the product draws anything for a mark — see `Subject`. */
+  markDrawn?: (mark: string) => boolean;
   /**
    * The commands a reader can actually run: toolbar controls and key bindings.
    *
@@ -184,6 +188,7 @@ export function conformance(input: ConformanceInput): Report {
     nameOf: input.nameOf,
     attributeRead: input.attributeRead,
     editable: input.editable,
+    markDrawn: input.markDrawn,
     iconsAsked: input.iconsAsked,
     iconDrawn: input.iconDrawn
   };

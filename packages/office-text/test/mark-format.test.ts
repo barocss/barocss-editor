@@ -86,9 +86,33 @@ describe('the set that needs a renderer at all', () => {
     }
   });
 
-  it('leaves out the ones a class already says', () => {
-    // bold and italic mean one thing; there is nothing to read off them
-    expect(VALUED_MARKS).not.toContain('bold');
-    expect(VALUED_MARKS).not.toContain('italic');
+  it('includes the plain ones, because a class said nothing', () => {
+    /*
+     * This test used to assert the opposite — *"bold and italic mean one thing; there is nothing to
+     * read off them"* — on the assumption that the `mark-bold` class a mark gets by default was
+     * styled somewhere. It was not, in any of the three products.
+     *
+     * Measured in Word: press 굵게, and `.mark-bold` exists as a `<span>` with computed
+     * `font-weight: 400`. Eleven marks were in that state. The two weight assertions the browser
+     * suite has are about a **style's** formatting, which resolves through a different road, so
+     * nothing had ever asked this one.
+     *
+     * A mark that means one thing still has to say the one thing.
+     */
+    for (const type of ['bold', 'italic', 'underline', 'strikethrough', 'code']) {
+      expect(VALUED_MARKS, type).toContain(type);
+    }
+    expect(markCss('bold', {}, undefined)).toEqual({ fontWeight: 'bold' });
+  });
+
+  it('lets an underline and a strike-through share one run', () => {
+    /*
+     * `text-decoration` is a shorthand: two marks each writing it would leave whichever was applied
+     * second, and the bug would read as "underline stopped working" rather than as a cascade. The
+     * long-hand merges, which is what a tracked-changes document needs — a deletion inside a link is
+     * both.
+     */
+    expect(markCss('underline', {}, undefined)).toEqual({ textDecorationLine: 'underline' });
+    expect(markCss('strikethrough', {}, undefined)).toEqual({ textDecorationLine: 'line-through' });
   });
 });

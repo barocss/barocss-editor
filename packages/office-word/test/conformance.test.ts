@@ -1,6 +1,7 @@
 import { describe, it } from 'vitest';
 import { assertConforms, attributeReadFrom, contentTagFrom, drawnTagFrom } from '@barocss/conformance';
 import { createSchema } from '@barocss/schema';
+import { markAttributes, markCss } from '@barocss/office-text';
 import { iconNames } from '@barocss/office-icons';
 import { nameOfNode } from '@barocss/office-controls';
 import { WORD_ENV_KEY, createWordEnv } from '../src/render-context';
@@ -269,7 +270,39 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * changed at all. `notYet: ['every-property-can-be-edited']` was here until both existed.
        */
       editable: [...toolbarAttrs(), ...wordRulerAttrs()],
+      /**
+       * Whether the product draws anything for a mark — a vocabulary no check could see.
+       *
+       * Two ways a mark can draw, and both count: a **template** registered as `mark:<type>` (a link
+       * is an `<a>`, and only an element can be one), or an entry in `office-text`'s format tables,
+       * which is what turns a `<span class="mark-bold">` into something bold. A mark in neither is a
+       * mark a reader applies to no effect — eleven were, until this asked.
+       */
+      markDrawn: (mark: string) =>
+        registry.has(`mark:${mark}`) ||
+        Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
+        Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
       exempt: {
+        // ── Marks read by something that is not a renderer ─────────────────
+        /**
+         * A comment's range, drawn by the **overlay** rather than by the text: the highlight follows
+         * the pane's selection and has to sit above the page, not inside the run. `comments.ts`
+         * collects them and `comment-commands.ts` resolves them; the mark is where they are.
+         */
+        commentRef: 'read by `comments.ts` and drawn by the overlay, which highlights a thread’s range above the page',
+        /**
+         * A place a cross-reference points at. The **anchor node** (`bookmarkAnchor`) is what is
+         * drawn — an empty inert span the caret cannot sit in — and the mark is the range it names.
+         * A bookmark that drew something would be a bookmark a reader could see, which is the one
+         * thing a bookmark must not be.
+         */
+        bookmark: 'a range a cross-reference names; `bookmarkAnchor` is the thing that is drawn, deliberately invisibly',
+        /**
+         * "Do not spell-check this." There is nothing to draw and there must not be: the whole point
+         * is that the words look exactly like the words around them.
+         */
+        noProof: 'tells a spell-checker to leave the run alone — a drawing would defeat it',
+
         /*
          * ── The three the probe could not ask about until it was taught their shape ──
          *

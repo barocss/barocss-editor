@@ -1,6 +1,7 @@
 import { describe, it } from 'vitest';
 import { assertConforms, attributeReadFrom, contentTagFrom, drawnTagFrom } from '@barocss/conformance';
 import { createSchema } from '@barocss/schema';
+import { markAttributes, markCss } from '@barocss/office-text';
 import { iconNames } from '@barocss/office-icons';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
@@ -236,6 +237,18 @@ describe('Slides draws what its schema declares', () => {
        * go the moment this one arrived.
        */
       editable: slidesPanelAttrs(),
+      /**
+       * Whether the product draws anything for a mark — a vocabulary no check could see.
+       *
+       * Two ways a mark can draw, and both count: a **template** registered as `mark:<type>` (a link
+       * is an `<a>`, and only an element can be one), or an entry in `office-text`'s format tables,
+       * which is what turns a `<span class="mark-bold">` into something bold. A mark in neither is a
+       * mark a reader applies to no effect — eleven were, until this asked.
+       */
+      markDrawn: (mark: string) =>
+        registry.has(`mark:${mark}`) ||
+        Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
+        Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
       exempt: {
         // ── Set by a gesture, never typed ──────────────────────────────────
         /**

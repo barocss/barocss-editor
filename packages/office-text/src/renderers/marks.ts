@@ -75,7 +75,65 @@ export function registerRevisionMarks(): void {
  * character-formatting mapping the style cascade uses so that a mark and a style
  * cannot disagree about what eleven points means.
  */
+/**
+ * A link, as a link.
+ *
+ * ## What was there instead
+ *
+ * The `link` mark has been in the standard schema since it was written — `href` required, `title`
+ * optional — and `toggleLink` has been a registered command for as long. It drew **nothing**: marks
+ * become `<span class="mark-…">` with whatever `mark-format.ts` maps, and `link` is in none of its
+ * three tables. So a reader could select text, run the command, and get a span.
+ *
+ * Measured on the site builder's own sample, which is where it showed: five pages with addresses, a
+ * navigation row reading 제품 · 가격 · 소개 · 블로그, and **zero `<a>` elements on the page**. The
+ * blue words in the hero are a `fontColor` mark — they look like a link and are not one.
+ *
+ * ## Why the harness did not catch it
+ *
+ * Every check it has asks about **node** types and their attributes. A mark is neither, so a mark
+ * that draws nothing is invisible to all eight — the same shape of blind spot as an attribute the
+ * probe could not invent a value for, one vocabulary along. `every-mark-is-drawn` is the sibling
+ * check, and this is what it found first.
+ *
+ * ## An `<a>`, and what it must not do
+ *
+ * A real anchor, because half of what a link *is* lives in the element: a keyboard reaches it, a
+ * screen reader announces it, a middle click opens it elsewhere, and the status bar says where it
+ * goes. A styled span has none of that and cannot be given it.
+ *
+ * But this is an **editor**: the anchor must not navigate while a reader is editing the words inside
+ * it. `draggable="false"` stops the browser turning a text drag into a link drag, and the app's own
+ * handler decides what a click means — which is why the href is on the element (a published page is
+ * the same drawing) and the behaviour is not.
+ */
+function registerLinkMark(): void {
+  define('mark:link', (props: Record<string, any>) => {
+    const attrs = (props?.attributes ?? {}) as Record<string, unknown>;
+    const href = typeof attrs.href === 'string' ? attrs.href : '';
+    const title = typeof attrs.title === 'string' && attrs.title ? attrs.title : undefined;
+
+    return element(
+      'a',
+      {
+        className: 'mark-link',
+        href,
+        title,
+        /*
+         * A text drag inside a link is a *selection*, not a drag of the link. The browser's default
+         * is the other one, and it makes a paragraph with a link in it the one paragraph a reader
+         * cannot select across.
+         */
+        draggable: 'false'
+      },
+      [data('text')]
+    );
+  });
+}
+
 export function registerValuedMarks(): void {
+  registerLinkMark();
+
   for (const type of VALUED_MARKS) {
     define(`mark:${type}`, (props: Record<string, any>, _model: any, ctx: any) => {
       const attrs = (props?.attributes ?? {}) as Record<string, unknown>;

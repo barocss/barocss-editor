@@ -128,6 +128,14 @@ export interface Subject {
       string,
       { name: string; group?: string; content?: string; attrs?: Record<string, unknown> }
     >;
+    /**
+     * The marks it declares — a vocabulary this harness could not see at all until
+     * `every-mark-is-drawn`.
+     *
+     * Optional because the shape a schema keeps them in is the schema's, and because a product
+     * adopting one check at a time may not pass them yet.
+     */
+    marks?: Map<string, unknown>;
     /** Where a document starts, which is where reachability is walked from. */
     topNode?: string;
   };
@@ -216,6 +224,18 @@ export interface Subject {
    * declaration rather than a React tree, it cannot answer this at all.
    */
   editable?: string[];
+  /**
+   * Whether the product draws anything for a mark.
+   *
+   * The one vocabulary this harness could not see. A mark is neither a node nor an attribute of one,
+   * so `every-node-is-drawn`, `every-attribute-is-read` and `every-property-can-be-edited` all step
+   * over it — and `link` sat in the standard schema with a required `href`, a registered command,
+   * and no drawing, in three products, for as long as there have been three.
+   *
+   * The product answers because only the product knows how it draws one: a CSS map, an element, an
+   * attribute on a span. Optional, so a product can adopt the checks one at a time.
+   */
+  markDrawn?: (mark: string) => boolean;
 }
 
 export interface Check {

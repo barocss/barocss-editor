@@ -64,6 +64,77 @@ const AS_FORMAT: Record<string, (attrs: Attrs) => EffectiveFormat> = {
  * word processor does and is closer than ignoring them.
  */
 const AS_CSS: Record<string, (attrs: Attrs) => CssStyle> = {
+  /*
+   * ── The plain ones, which drew nothing at all ────────────────────────────
+   *
+   * `bold`, `italic`, `underline`, `strikethrough`, `code`, `subscript`, `superscript`, `kbd`,
+   * `mention`, `spoiler` and `footnoteRef` have been in the standard schema since it was written,
+   * settable by a registered command each, and in **none** of these three tables. A mark with no
+   * entry becomes `<span class="mark-bold">` and nothing styles that class in any of the three
+   * products, so pressing 굵게 made a span and left the text at weight 400.
+   *
+   * Measured rather than reasoned: `.mark-bold` in Word, computed `font-weight: 400`. No test in
+   * the suite had ever asked — the two weight assertions it has are about a *style's* formatting,
+   * which resolves through a different road entirely. `every-mark-is-drawn` is the check that asks
+   * now, and this is what it found.
+   */
+  bold: () => ({ fontWeight: 'bold' }),
+  italic: () => ({ fontStyle: 'italic' }),
+  /*
+   * One declaration, not two. `text-decoration` is a shorthand, so a run that is both underlined and
+   * struck through would keep whichever mark was applied second if each wrote its own — the value
+   * has to name both at once, which is what `decorationFor` does below.
+   */
+  underline: (attrs) => decorationFor('underline', attrs),
+  strikethrough: (attrs) => decorationFor('line-through', attrs),
+  /*
+   * Monospace and a quiet ground — the shape every editor draws inline code as, and the reason it is
+   * legible in a proportional paragraph at all.
+   */
+  code: () => ({
+    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+    fontSize: '0.92em',
+    background: 'rgb(0 0 0 / 0.06)',
+    borderRadius: '3px',
+    padding: '0.1em 0.3em'
+  }),
+  /*
+   * `vertical-align` and a smaller face, rather than `<sub>` / `<sup>`.
+   *
+   * The elements would be more semantic and are not available here: a mark wraps a run of text that
+   * may already be inside anything, and the two elements carry a line-height of their own that
+   * shifts the line they are on. Word's own subscript is a font size and a raise, which is what this
+   * is.
+   */
+  subscript: () => ({ verticalAlign: 'sub', fontSize: '0.75em' }),
+  superscript: () => ({ verticalAlign: 'super', fontSize: '0.75em' }),
+  footnoteRef: () => ({ verticalAlign: 'super', fontSize: '0.75em' }),
+  // The same shape as a footnote's, because a reader reads them the same way — the difference is
+  // where the note sits, not how the number is drawn.
+  endnoteRef: () => ({ verticalAlign: 'super', fontSize: '0.75em' }),
+  /** A key on a keyboard, which is what the mark is named after. */
+  kbd: () => ({
+    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+    fontSize: '0.85em',
+    border: '1px solid rgb(0 0 0 / 0.2)',
+    borderBottomWidth: '2px',
+    borderRadius: '4px',
+    padding: '0.05em 0.35em',
+    background: 'rgb(0 0 0 / 0.03)'
+  }),
+  /** A name that refers to somebody, drawn as the chip every product draws one as. */
+  mention: () => ({
+    background: 'rgb(37 99 235 / 0.12)',
+    color: 'rgb(37 99 235)',
+    borderRadius: '4px',
+    padding: '0.05em 0.25em'
+  }),
+  /*
+   * Hidden until a reader asks. Drawn as a block of colour rather than as blurred text, because
+   * blurred text is still readable at a large size and a spoiler that can be read is not one.
+   */
+  spoiler: () => ({ background: 'currentColor', color: 'transparent', borderRadius: '3px' }),
+
   fontSize: (attrs) => {
     const asCss = num(attrs.size) === undefined ? str(attrs.size) : undefined;
     return asCss ? { fontSize: asCss } : ({} as CssStyle);
@@ -113,6 +184,22 @@ const AS_ATTRIBUTES: Record<string, (attrs: Attrs) => Record<string, string>> = 
     return out;
   }
 };
+
+/**
+ * A text decoration that can be **combined**.
+ *
+ * `text-decoration-line` takes more than one value, and a run that is underlined *and* struck
+ * through is an ordinary thing in a tracked-changes document. Written as the long-hand property so
+ * two marks over one run merge instead of the second silently replacing the first — the shorthand
+ * would, and the bug would look like "underline stopped working" rather than like a cascade.
+ */
+function decorationFor(line: string, attrs: Attrs): CssStyle {
+  const colour = str(attrs.color);
+  return {
+    textDecorationLine: line,
+    ...(colour ? { textDecorationColor: colour } : {})
+  } as CssStyle;
+}
 
 /** Every mark type that carries a value worth rendering. */
 export const VALUED_MARKS = [

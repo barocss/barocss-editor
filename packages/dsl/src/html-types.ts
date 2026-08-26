@@ -34,6 +34,15 @@ export interface BaseHTMLAttributes {
    */
   key?: string | number | ((data: any) => string | number);
   contenteditable?: boolean | 'true' | 'false' | DataTemplate | ((data: any) => boolean | 'true' | 'false');
+  /**
+   * Whether the browser may drag this element as a thing.
+   *
+   * A global HTML attribute that was missing here, and it matters most in an **editor**: the
+   * default for an `<a>` is that dragging it drags the link, so a paragraph with a link in it is
+   * the one paragraph a reader cannot select across. Saying `draggable="false"` gives the drag
+   * back to the selection, which is what a reader means by dragging over words.
+   */
+  draggable?: boolean | 'true' | 'false' | DataTemplate | ((data: any) => boolean | 'true' | 'false');
   
   // Event handlers
   onClick?: (event: MouseEvent) => void;

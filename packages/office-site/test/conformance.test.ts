@@ -15,6 +15,7 @@ import { kindOfBlock } from '../src/selection';
 import { SITE_ENV_KEY, createSiteEnv } from '../src/breakpoints';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import { iconNames } from '@barocss/office-icons';
+import { markAttributes, markCss } from '@barocss/office-text';
 
 /**
  * The site builder, held to what it declares.
@@ -163,6 +164,26 @@ describe('the site builder draws what it declares', () => {
       own,
       reachable,
       editable,
+      /**
+       * Whether the product draws anything for a mark — the vocabulary no check could see.
+       *
+       * Asked the same way `every-attribute-is-read` asks about a node: render text under the mark
+       * and again without it, and compare. A mark that contributes nothing to either is one a reader
+       * can apply to no effect.
+       */
+      /**
+       * Whether the product draws anything for a mark.
+       *
+       * Two ways a mark can draw, and the check has to know both: a **template** registered as
+       * `mark:<type>` (a link is an `<a>`, and only an element can be one), or an entry in
+       * `office-text`'s format tables, which is what turns a `<span class="mark-bold">` into
+       * something bold. A mark in neither is a mark a reader applies to no effect — eleven of them
+       * were, until this asked.
+       */
+      markDrawn: (mark: string) =>
+        registry.has(`mark:${mark}`) ||
+        Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
+        Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
       exempt: {
         // ── A page has no canvas ───────────────────────────────────────────
         /*

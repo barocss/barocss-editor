@@ -2614,6 +2614,52 @@ Newest first. The surprise each one produced is the part worth keeping.
   All three products answer every check now, and `notYet` has no callers — which is exactly what a
   deferral should end up as.
 
+- **Bold was not bold. Eleven marks drew nothing, in all three products, and no check could see a mark.**
+
+  Asked whether the site builder is finished. Measuring it found something much larger than the
+  answer: **the sample site has five pages with addresses, a navigation row reading 제품 · 가격 ·
+  소개 · 블로그, and zero `<a>` elements.** The blue words in its hero are a `fontColor` mark that
+  looks like a link and is not one.
+
+  Following that down: the `link` mark has been in the standard schema since it was written — `href`
+  required — and `toggleLink` has been a registered command for as long. It drew nothing. And it was
+  not alone: `bold`, `italic`, `underline`, `strikethrough`, `code`, `subscript`, `superscript`,
+  `kbd`, `mention`, `spoiler` and `footnoteRef` appear in **none** of `office-text`'s three format
+  tables. A mark with no entry becomes `<span class="mark-bold">`, and nothing styles that class in
+  any of the three products.
+
+  Measured in Word rather than reasoned: press 굵게, and `.mark-bold` exists as a `<span>` with
+  computed **`font-weight: 400`**.
+
+  **Why 351 browser tests and 470 unit tests passed over it.** Three reasons, and each is a lesson:
+
+  - **A mark is neither a node nor an attribute**, so all eight conformance checks step over it.
+    `every-node-is-drawn` walks node types, `every-attribute-is-read` probes a node's attributes, and
+    a mark falls between them — the same shape of blind spot as an attribute the probe could not
+    invent a value for, one vocabulary along.
+  - **The two weight assertions the suite has are about a *style's* formatting**, which resolves
+    through the cascade rather than through a mark. Nothing had ever asked whether the bold *button*
+    does anything.
+  - **A unit test asserted the false belief out loud.** `mark-format.test.ts` said *"bold and italic
+    mean one thing; there is nothing to read off them"* and checked they were absent from
+    `VALUED_MARKS`. The assumption was that the default `mark-bold` class was styled somewhere. It
+    was not, anywhere.
+
+  Fixed in the shared layer, so all three get it: the plain marks are CSS entries now and `link` is a
+  real `<a>` — because half of what a link *is* lives in the element (a keyboard reaches it, a
+  screen reader announces it, a middle click opens it elsewhere) and a styled span can never be given
+  that. `every-mark-is-drawn` is the ninth check; it examines 24 marks in the site builder and found
+  four more in Word, three of which are honest exemptions (`commentRef` drawn by the overlay,
+  `bookmark` deliberately invisible, `noProof` which must not draw) and one — `endnoteRef` — a real
+  gap now drawn like a footnote's.
+
+  Two smaller things worth keeping: `text-decoration` is a **shorthand**, so two marks each writing
+  it would leave whichever was applied second — a struck-through underline silently losing its
+  underline, which reads as "underline stopped working" rather than as a cascade. And `draggable`
+  was missing from the DSL's global attributes, which matters most in an editor: the default for an
+  `<a>` is that dragging it drags the link, making a paragraph with a link in it the one paragraph a
+  reader cannot select across.
+
 - **Word has a spec now, and its numbers are held by a test.**
 
   Asked whether the products need a written definition. The answer that came out of measuring: a
