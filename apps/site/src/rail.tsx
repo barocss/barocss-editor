@@ -81,7 +81,7 @@ export function Rail({
   const [panel, setPanel] = useState<Panel>('add');
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
 
-  const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } }).dataStore;
+  const store = editor.dataStore;
   const doc = useMemo(() => ({ getNode: (sid: string) => store?.getNode(sid) }), [store]);
 
   /*
@@ -93,12 +93,12 @@ export function Rail({
    * have.
    */
   const run = (name: string, payload?: Record<string, unknown>) =>
-    (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(name, {
+    void editor.executeCommand(name, {
       pageId: insertRoot ?? page,
       ...payload
     });
   const can = (name: string, payload?: Record<string, unknown>) =>
-    (editor as never as { canExecuteCommand?: (n: string, p?: unknown) => boolean }).canExecuteCommand?.(
+    editor.canExecuteCommand(
       name,
       { pageId: insertRoot ?? page, ...payload }
     ) ?? false;
@@ -221,11 +221,11 @@ function LayersPanel({
     return found;
   }, [doc, page, revision]);
 
-  const selected = new Set(selectedNodeIds((editor as never as { selection?: never }).selection) ?? []);
+  const selected = new Set(selectedNodeIds(editor.selection) ?? []);
   const select = (sid: string, add: boolean) => {
     const now = [...selected];
     const next = add ? (now.includes(sid) ? now.filter((one) => one !== sid) : [...now, sid]) : [sid];
-    (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.('setNode', {
+    void editor.executeCommand('setNode', {
       nodeIds: next
     });
   };
@@ -313,7 +313,7 @@ function ComponentsPanel({
    * in `office-site`, with `components.test.ts` holding it.
    */
   const components = useMemo(() => {
-    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+    const rootId = editor.getRootId();
     return rootId ? definitionsOf({ rootId, getNode: doc.getNode }) : [];
   }, [doc, editor, revision]);
 
@@ -376,13 +376,13 @@ function DataPanel({
   can: (name: string, payload?: Record<string, unknown>) => boolean;
   revision: number;
 }) {
-  const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } }).dataStore;
+  const store = editor.dataStore;
   const [design, setDesign] = useState<string>('');
   /** Which dataset's grid is open, by **name** — a sid would be stale after any edit. */
   const [editing, setEditing] = useState<string | null>(null);
 
   const { datasets, components } = useMemo(() => {
-    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+    const rootId = editor.getRootId();
     const root = rootId ? store?.getNode(rootId) : undefined;
     const under = (holder: string) =>
       (((root?.content ?? []) as string[])

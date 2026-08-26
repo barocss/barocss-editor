@@ -77,11 +77,11 @@ export function Inspector({
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
   const [tab, setTab] = useState<SitePanelTab>('block');
 
-  const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } }).dataStore;
+  const store = editor.dataStore;
   const node = (sid: string | undefined) => (sid ? store?.getNode(sid) : undefined);
 
   const shown = useMemo(() => {
-    const ids = selectedNodeIds((editor as never as { selection?: never }).selection) ?? [];
+    const ids = selectedNodeIds(editor.selection) ?? [];
     const nodes = ids.map((sid) => store?.getNode(sid)).filter(Boolean);
     if (nodes.length === 0) return null;
 
@@ -122,7 +122,7 @@ export function Inspector({
    * changing the token later changes every block that follows it.
    */
   const tokens = useMemo((): ThemeSwatch[] => {
-    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+    const rootId = editor.getRootId();
     const root = rootId ? store?.getNode(rootId) : undefined;
     const holder = ((root?.content ?? []) as string[])
       .map((sid) => store?.getNode(sid))
@@ -147,7 +147,7 @@ export function Inspector({
    * row: a panel has to offer the fields before there is a row on screen.
    */
   const data = useMemo(() => {
-    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+    const rootId = editor.getRootId();
     const root = rootId ? store?.getNode(rootId) : undefined;
     const resources = ((root?.content ?? []) as string[])
       .map((sid) => store?.getNode(sid))
@@ -170,8 +170,7 @@ export function Inspector({
     };
   }, [editor, revision, store, shown?.attrs.source]);
 
-  const run = (name: string, payload: Record<string, unknown>) =>
-    (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(name, payload);
+  const run = (name: string, payload: Record<string, unknown>) => void editor.executeCommand(name, payload);
 
   /**
    * What a row does when it is changed.

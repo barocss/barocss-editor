@@ -9,6 +9,7 @@ import { createSlidesEditor, createSlidesOwnExtensions } from '../src/slides-kit
 import { kindOfBox } from '../src/layers';
 import { slidesToolbarCommands, slidesToolbarIcons } from '../src/toolbar-model';
 import { slidesKeyCommands } from '../src/keymap';
+import { slidesPanelAttrs, slidesPanelCommands } from '../src/panel-model';
 
 /**
  * What Slides promises, held to.
@@ -133,7 +134,7 @@ describe('Slides draws what its schema declares', () => {
    * this cannot drift from what is installed — which is why a deck's key map is
    * data in the package and not a handler in the host.
    */
-  const reachable = [...slidesToolbarCommands(), ...slidesKeyCommands()];
+  const reachable = [...slidesToolbarCommands(), ...slidesKeyCommands(), ...slidesPanelCommands()];
 
   it('draws what it declares, expects only what it says it expects', () => {
     assertConforms({
@@ -226,8 +227,107 @@ describe('Slides draws what its schema declares', () => {
        * The site builder answers it (`panel-model.ts`), which is what makes this a difference
        * between the three products rather than a limit of the harness. Owed here; in BACKLOG.md.
        */
-      notYet: ['every-property-can-be-edited'],
+      /**
+       * Every attribute a reader can **set**, from the deck's own declarations.
+       *
+       * `notYet: ['every-property-can-be-edited']` was here until the panel became data
+       * (`panel-model.ts`), which is the same move `toolbar-model.ts` and `keymap.ts` made before
+       * it. A deferral that stops being true is reported like a stale exemption, so the line had to
+       * go the moment this one arrived.
+       */
+      editable: slidesPanelAttrs(),
       exempt: {
+        // ── Set by a gesture, never typed ──────────────────────────────────
+        /**
+         * A connector's ends and a path's outline.
+         *
+         * These are what a reader **drags**: an end is attached by pulling it onto a shape, and the
+         * side it leaves from is chosen by where it lands. Numbers for them would be four fields
+         * that describe a line nobody can see while typing into them — and the deck already refuses
+         * to draw a rotate grip on a box whose rotation a variable decides, for the same reason.
+         *
+         * Held in the browser suite, where a gesture is the only way to ask about a gesture.
+         */
+        startX: 'dragged: an end is attached by pulling it onto a shape',
+        startY: 'dragged: an end is attached by pulling it onto a shape',
+        endX: 'dragged: an end is attached by pulling it onto a shape',
+        endY: 'dragged: an end is attached by pulling it onto a shape',
+        startSide: 'chosen by where the dragged end lands — a magnet, not a field',
+        endSide: 'chosen by where the dragged end lands — a magnet, not a field',
+        d: 'a path’s outline, drawn with the pen and edited by its points',
+        flipX: 'the arrange toolbar’s 좌우 뒤집기, which writes it without naming it',
+        flipY: 'the arrange toolbar’s 상하 뒤집기, which writes it without naming it',
+        /*
+         * A cap is a real gap rather than a gesture: the panel offers 화살표 (`flow`), which says
+         * *which ends have one*, and the shape of each end is not offered at all. Owed; BACKLOG.md.
+         */
+        startCap: 'not offered: 화살표 says which ends have one, and the shape of each is owed — BACKLOG.md',
+        endCap: 'not offered: 화살표 says which ends have one, and the shape of each is owed — BACKLOG.md',
+
+        // ── A durable name, which a reader must not type ───────────────────
+        /*
+         * The same reason the site's exemption gives: these are how one node refers to another, and
+         * `forFile` strips sids precisely so a reference is never one. A reader retyping a `partId`
+         * silently unbinds every placement of the definition it belongs to.
+         */
+        id: 'a durable reference target — renaming one by hand breaks every reference to it',
+        part: 'which piece of a definition this is; a binding names it',
+        layoutId: 'which layout a slide follows — chosen from the layout list, never typed',
+        role: 'what a placeholder is for; a layout decides it and a slide inherits it',
+        componentId: 'which definition a placement draws — instance swap, deferred with variants',
+        hidden: 'a layout’s placeholder a slide has turned off — the layer list’s eye, not a field',
+
+        // ── A resource's own fields, edited where the resource is ──────────
+        /**
+         * A variable and a binding are **resources**, not boxes: they are edited in the variables
+         * dialog and in the component library, which are surfaces this panel model does not cover
+         * because they are not the panel. Named individually so that the day one of them grows a row
+         * here, the claim is stale.
+         */
+        value: 'a variable’s value — the 문서 변수 dialog',
+        var: 'which variable a binding names — the 문서 변수 연결 row picks it, the attribute is the row’s key',
+        attr: 'which attribute a binding writes — the row it is on says so',
+        type: 'what kind of value a variable holds — the 문서 변수 dialog',
+        choices: 'the values a variable may take — the 문서 변수 dialog',
+
+        // ── A film, and a picture's source ─────────────────────────────────
+        /*
+         * `src`, `poster` and `alt` arrive with the insert — a reader chooses a file — and the four
+         * playback flags are genuinely not offered: the 재생 row says *when* a film starts relative
+         * to the step before it, which is a different question from whether it loops. Owed.
+         */
+        src: 'chosen when the picture or film is inserted',
+        poster: 'chosen when the film is inserted',
+        alt: 'the ribbon’s 대체 텍스트',
+        autoplay: 'not offered: 재생 says when a film starts in the sequence, not how it plays — owed, BACKLOG.md',
+        controls: 'not offered: 재생 says when a film starts in the sequence, not how it plays — owed, BACKLOG.md',
+        loop: 'not offered: 재생 says when a film starts in the sequence, not how it plays — owed, BACKLOG.md',
+        muted: 'not offered: 재생 says when a film starts in the sequence, not how it plays — owed, BACKLOG.md',
+
+        // ── Word's vocabulary, drawn on a slide and not editable here ──────
+        /**
+         * A slide can hold a table and a code block because the shared text kit draws them, and this
+         * product has no panel for either. Not a decision — a gap, and it fails on the claim the day
+         * one is built. The site builder has the identical four.
+         */
+        caption: 'the shared text kit draws it; a deck has no table panel — owed, BACKLOG.md',
+        colspan: 'the shared text kit draws it; a deck has no table panel — owed, BACKLOG.md',
+        rowspan: 'the shared text kit draws it; a deck has no table panel — owed, BACKLOG.md',
+        language: 'the shared text kit draws it; a deck has no code panel — owed, BACKLOG.md',
+        level: 'a list’s depth, which Tab and Shift+Tab set — the deck offers no numbering panel',
+        clipsContent: 'not offered: a frame on a slide always clips, which is what a frame is there — owed, BACKLOG.md',
+
+        /*
+         * ── Thirteen exemptions were here, and the harness deleted them ────
+         *
+         * `setBoxGeometry`, `setBoxStyle`, `setBoxLocked`, `setFrameLayout`, `setBoxLayout`,
+         * `setConnector`, `cropPicture`, `setSlideTransition`, `setVarBind`, `setComponentBind`,
+         * `setBoxJump`, `addBoxesMotion` and `setBoxPlayback` were sentences describing rows in a
+         * React tree — *"the properties panel — fill, stroke, corner radius"*. The day the panel
+         * became a declaration (`panel-model.ts`) they stopped exempting anything and came back as
+         * **stale**, which is the shape of every good thing this harness does.
+         */
+
         /*
          * ── The three the attribute probe cannot see, and each says where it *is* read ──
          *
@@ -265,28 +365,17 @@ describe('Slides draws what its schema declares', () => {
         // Each of these is run from a control a reader can point at; the check
         // can see the toolbar and the key map and nothing else, so where it is
         // reached is written down here and fails if it stops being true.
-        setBoxGeometry: 'the properties panel — position, size and rotation',
-        setBoxStyle: 'the properties panel — fill, stroke, corner radius',
-        setBoxLocked: 'the properties panel — the lock, which needs its own command',
         setDeckSize: 'the slide-size dialog',
         setSlideLayout: 'the layout dialog',
         addSlideNote: 'the button in the notes pane, shown when a slide has no note',
-        setFrameLayout: 'the properties panel — a frame’s direction, gap, padding and columns',
-        setBoxLayout:
-          'the properties panel — a child’s 프레임 안에서 row (채우기 and 늘리기), drawn only inside a frame that arranges. The other half of the greyed position fields: the frame owns where a child goes, and this is what the child says about how it is treated',
-        setConnector:
-          'the properties panel — a connector’s 연결선 group: its route, its bow and the shape at each end. Dragging an end onto another shape runs the same command',
         insertConnectedShape:
           'the canvas — a line pulled out of a shape’s magnet and let go in empty space, which makes the next shape and joins it. The gesture a flow chart is made of, and it has no button because a button could not say *where*',
         reverseConnector:
           'the properties panel — 연결선 › 방향 › 뒤집기. A relationship drawn the wrong way round had two ways back before this: delete the line and draw it again, or drag both ends past each other',
         spliceIntoConnector:
           'the canvas — a shape dragged onto a line, which highlights while it is held and splits into two lines on release. Like `insertConnectedShape` it has no button, because a button could not say *which line*',
-        cropPicture:
-          'the crop handles on the stage — double-click a picture — and the panel’s way back',
         applySlideLayout:
           'the 레이아웃 dialog — “이 장을 이 배치로”, beside the button that only makes the slide *follow* the layout. Two buttons because they are two promises: one changes what a slide is like, the other moves the reader’s boxes',
-        setSlideTransition: 'the properties panel — the slide’s 전환 row and its length',
         setBoxBuild: 'the properties panel — the box’s 애니메이션 row',
         setDeckTheme: 'the properties panel — the slide’s 테마 row, which re-colours the deck',
         // ── The components panel and a placement's own rows ────────────────
@@ -310,8 +399,6 @@ describe('Slides draws what its schema declares', () => {
           'the properties panel — a definition’s own 크기 row, drawn while the reader is standing in one. The only place a card’s size can be changed: a placement’s extent *is* the card’s, so its own fields are greyed and the overlay draws it no resize handles',
         setComponentVar:
           'the components panel — the 변수 list, drawn while a definition is open: a label, a kind, a default, and 추가 for a new one. Beside the definition rather than on a part, because a variable belongs to the card — an accent colour used by three parts is one decision, which is the whole reason a declaration exists',
-        setVarBind:
-          'the properties panel — the 문서 변수 연결 group on an ordinary shape: one row per attribute the shape declares, each offering the document variables whose kind fits. Beside the card’s own rows rather than mixed into them, because they are two scopes and a reader has to see which they are choosing. Geometry is not offered at all (`UNBINDABLE`), which is measured rather than chosen: a bound size would be drawn where the resolution says and answered where the document says, and the overlay reads the answer',
         importVariable:
           'the library dialog — 안에 있는 것 on a deck’s row lists the values it declares beside the cards, and 가져오기 / 다시 가져오기 brings one in. There because the *storage* is there: whether a deck is a name in the library or an address to fetch is the host’s question, and the command takes the parsed deck rather than reaching for it',
         setSlideVar:
@@ -327,8 +414,6 @@ describe('Slides draws what its schema declares', () => {
           'the components panel — the name field on a 문서 변수 row. A separate command from setting one because it is a separate thing: setting writes one node, renaming rewrites every attribute, every shape binding and every card binding in the deck that means this declaration (`renameVarPlan`), in one transaction so one undo takes it back whole. A name the scope already declares is refused rather than merged',
         renameSlideVar:
           'the components panel — the name field on an 이 장 변수 row, the same gesture at the narrower scope. A page’s may take a name the document declares: the page was already shadowing it, so refusing that would refuse an edit for a clash that does not exist',
-        setComponentBind:
-          'the properties panel — a part’s 컴포넌트 부품 group, while the reader is inside a definition: one row per attribute the part declares, each offering the variables of a kind that fits. A declaration on the definition rather than an attribute on the part, so a variable can drive anything the part has (canvas-model §10g-2)',
         setComponentSlot:
           'the properties panel — the 슬롯 switch on a frame part in the same group. Not a binding and never was: it says where a reader’s own things go, and it was only in the same command because both were attributes on a part',
 
@@ -346,8 +431,6 @@ describe('Slides draws what its schema declares', () => {
         setDeckShow:
           'the map’s bar — 눌러서 다음 장 / 버튼으로만 이동. There because that is where a reader thinks about a deck that is not a line, and because the picture beside it is what the setting is *about*: turn it on and the spine disappears, which is an honest preview of what a press will no longer do',
 
-        setBoxJump:
-          'the properties panel — the 누르면 row on a shape: a page picked by name, or 다음/이전/처음/끝/돌아가기. The pages are offered by name because that is what a reader knows; what the command writes is the page’s durable id, minting one if the page has none — the same thing motion does when a build first names a shape',
 
         setSlideGuides:
           'the rulers — a guide is pulled out of one, dragged along the slide, and thrown away by being dragged off it',
@@ -372,13 +455,10 @@ describe('Slides draws what its schema declares', () => {
           'the properties panel — the 경로 gallery in the 모션 tab, beside the motion presets',
         addBoxCombo:
           'the properties panel — the 함께 gallery in the 모션 tab: one tile, two motions at once',
-        addBoxesMotion:
-          'the properties panel — the same galleries, with more than one box selected: a tile then animates all of them a beat apart',
         moveMotionStep: 'the timeline pane — the arrows on a step',
         shiftMotionSteps:
           'the timeline pane — dragging bars, and the arrow keys on a selected bar',
         removeMotionStep: 'the timeline pane — the delete button on a step',
-        setBoxPlayback: 'the properties panel — a film’s 재생 row',
         setMediaTrim: 'the timeline pane — a play step’s 필름 group, 시작점 and 끝점',
 
         // ── Attributes read by something that is not a renderer ────────────

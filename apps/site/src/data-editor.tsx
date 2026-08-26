@@ -49,7 +49,7 @@ export function DataEditor({
   sid: string | null;
   onClose: () => void;
 }) {
-  const store = (editor as never as { dataStore?: { getNode: (id: string) => any } }).dataStore;
+  const store = editor.dataStore;
   const [adding, setAdding] = useState(false);
 
   const data = useMemo(() => {

@@ -2417,6 +2417,66 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **`(editor as any)` appears 942 times, and the type was already right.**
+
+  Asked why it is written everywhere. Measured: **942 casts across 152 files**, reaching for
+  `dataStore` (147), `executeCommand` (140), `registerCommand` (124), `getRootId` (119) and
+  `selection` (94) — and `Editor` declares every one of them as a public member. A file that calls
+  all seven **without** a cast typechecks unchanged; so does one that walks a document through
+  `dataStore.getNode`. There was never a reason. The idiom copied itself.
+
+  It is not a style problem. `(editor as any).exectueCommand?.()` is valid TypeScript, evaluates to
+  `undefined` and does nothing at run time — and the `?.` makes it worse, because a call on a method
+  that always exists cannot be absent, so the optional chain only hides the day it becomes absent.
+  That is this repository's own signature failure, one layer down: a thing that looks done, breaks
+  nothing, and does nothing.
+
+  `packages/editor-core/test/editor-is-typed.test.ts` holds it: it asserts the seven are public, and
+  ratchets the count in **both** directions — up means a new cast was written, down means the number
+  has become a lie about how much is left. The files written this week are clean; the concentrations
+  are `apps/slide/properties.tsx` (73), `apps/slide/overlay.tsx` (39) and `apps/slide/app.tsx` (36).
+
+- **The deck's panel is a declaration too, and it was wrong in six places.**
+
+  The second product through the same door. Its panel is 2,863 lines against the site's 615, so the
+  measurement came first: the check would examine **337** attributes, and with nothing declared, 334
+  had no surface — but only **80 distinct names**, because an exemption is keyed by the attribute and
+  not by the node type. Eighty is a session; 334 is not.
+
+  `panel-model.ts` declares its 44 rows, `slidesPanelCommands()` and `slidesPanelAttrs()` answer the
+  harness, and **13 exemptions went stale** — every one a sentence describing a row. Findings went
+  334 → 60 → 0, the last step being exemptions with reasons in four kinds: dragged rather than typed
+  (a connector's ends, a path's outline), a durable reference a reader must never retype, a
+  resource's own fields edited where the resource is, and four that are simply **owed** — a
+  connector's cap shapes, a film's `autoplay`/`controls`/`loop`/`muted`, a frame's `clipsContent`,
+  and the table and code panels neither product has.
+
+  **The declaration was wrong six times, and every one was caught rather than shipped.** `playback`
+  is not an attribute of anything (the row writes `startsWith`); `motion` is not a node type
+  (`motionTrack` is); `맞춤` is `교차 축 맞춤` and `열` is `열 수`; `가득` is `프레임 가득 채우기`;
+  and `채우기`/`색`/`효과` are not rows at all — a paint stack's control is its **add** button and a
+  shape's one colour is the stack's first entry, so three declared rows described controls that do
+  not exist. A declaration read out of JSX is a hand-kept list until something checks it.
+
+  **And the check that caught them was itself wrong first.** Playwright's `getByLabel(string)`
+  matches a *substring*, so asking for `간격` found `간격 문서 변수` — a different row — and two
+  assertions passed over controls that were not drawn. `{ exact: true }` is the fix and the lesson is
+  the sharper one: a check that can pass by finding the wrong thing is worse than no check, because
+  it is believed.
+
+  **What is honestly weaker here than in the site**, and written down rather than glossed: the site's
+  panel is *drawn from* its model — `inspector.tsx` maps over it, so there is nothing to drift from —
+  and the deck's still draws its own rows. So the guard is `apps/slide/tests/panel-model.spec.ts`,
+  which opens the deck and asserts every declared row is a control the panel draws. A check catches
+  drift; only mapping over the model makes drift impossible. Converting `properties.tsx` is the next
+  step, and it now has a test to convert against.
+
+  **Word is a different job and was measured, not started.** It has no property panel at all — its
+  chrome is a ribbon and dialogs — and its ribbon's `Control` declares `command` and `payload` but
+  never *which attribute it writes*. With nothing declared the check finds **252**, so word needs
+  `writes` on `office-controls`' control types and then a ratchet, which is a haul rather than a
+  sitting. `notYet` still names it, which is the point of `notYet`.
+
 - **The panel was the escape route, and it was the same rule this repo had already applied twice.**
 
   Asked directly why the harness kept missing things and why the code kept ending up outside it. The

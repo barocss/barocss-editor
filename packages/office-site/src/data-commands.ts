@@ -45,7 +45,7 @@ export class SiteDataExtension implements Extension {
       execute: (payload?: Record<string, unknown>) => Promise<boolean>,
       can: (payload?: Record<string, unknown>) => boolean
     ) =>
-      (editor as never as { registerCommand: (spec: unknown) => void }).registerCommand({
+      editor.registerCommand({
         name,
         execute: async (_ed: Editor, payload?: Record<string, unknown>) => await execute(payload),
         canExecute: (_ed: Editor, payload?: Record<string, unknown>) => can(payload)
@@ -137,11 +137,11 @@ export class SiteDataExtension implements Extension {
   // ── Reading ────────────────────────────────────────────────────────────────
 
   private _store(editor: Editor): { getNode: (sid: string) => Node | undefined } | undefined {
-    return (editor as never as { dataStore?: { getNode: (sid: string) => Node | undefined } }).dataStore;
+    return editor.dataStore;
   }
 
   private _rootId(editor: Editor): string {
-    return (editor as never as { getRootId: () => string }).getRootId();
+    return editor.getRootId() ?? '';
   }
 
   /** The dataset a payload names, if it is one. */

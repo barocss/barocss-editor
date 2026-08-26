@@ -794,6 +794,15 @@ export {
   type SlidesToolbarControl,
   type SlidesToolbarGroup
 } from './toolbar-model';
+export {
+  SLIDES_PANEL,
+  slidesPanelAttrs,
+  slidesPanelCommands,
+  slidesPanelRows,
+  type SlidesPanelControl,
+  type SlidesPanelRow,
+  type SlidesPanelTab
+} from './panel-model';
 
 export {
   copyOf,
