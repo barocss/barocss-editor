@@ -1271,9 +1271,13 @@ function components(): Node {
           { stype: 'componentBind', attributes: { part: 'b-body', attr: 'text', var: '요약' } },
           { stype: 'componentBind', attributes: { part: 'b-date', attr: 'text', var: '날짜' } },
           /*
-           * A row with a rule around it rather than a box: ten cards down a page is ten boxes, and
-           * ten rules is a list a reader can scan. The date holds a fixed column so the titles line
-           * up, which is the whole reason a list of posts is not a stack of cards.
+           * A row of a list rather than a card: the date holds a fixed column so the titles line up,
+           * which is the whole reason a list of posts is not a stack of cards.
+           *
+           * **No rule between the rows**, and that is a gap rather than a decision: a page's frame
+           * has one `stroke` for all four sides, so a hairline between rows would be ten boxes down
+           * the page. Word's blocks have `borderTop`…`borderLeft`; a page has not, and it is on the
+           * record in `BACKLOG.md`.
            */
           stack(
             'row',
@@ -1284,8 +1288,6 @@ function components(): Node {
               alignItems: 'start',
               partId: 'b-row',
               sizing: 'fill',
-              stroke: 'var:선',
-              strokeWidth: px(1),
               overrides: { mobile: { layoutMode: 'column', gap: px(6) } }
             },
             [

@@ -563,7 +563,9 @@ body {
 .st-layers-list { padding: 4px 0; }
 
 .st-layer {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
   min-height: 26px;
   padding: 5px 8px;
@@ -575,6 +577,11 @@ body {
   cursor: default;
   transition: background var(--ou-quick);
 }
+
+/* The picture is quieter than the name: it is there to be recognised, not read. */
+.st-layer svg { flex: none; color: var(--ou-faint); }
+.st-layer[data-selected='true'] svg { color: var(--st-accent); }
+.st-layer-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .st-layer:hover { background: var(--ou-ground); }
 /* The same wash the rail's rows use: one way of saying "this one" in the whole window. */

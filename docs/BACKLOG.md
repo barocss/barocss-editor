@@ -66,6 +66,13 @@ entries are that.
   before it ever reaches an operation — so a cleared field there may still be dropped one layer
   earlier, for a different reason. Worth the same probe.
 
+### A frame has one border, not four sides
+
+- [ ] Found writing the blog page's list of posts: a row of posts wants a **hairline between rows**,
+  and `stroke` draws all four sides — so ten posts is ten boxes. Word's blocks have `borderTop`…
+  `borderLeft` and a frame has one `stroke`, which is the canvas's word for an outline. A page needs
+  the block's reading, and the sample says so by using no rule at all for now.
+
 ### The studio was measured after a reader said it did not work
 
 Five reports, each of which turned out to be measurable in a line or two, and none of whose causes

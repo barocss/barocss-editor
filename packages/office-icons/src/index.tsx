@@ -96,6 +96,9 @@ import {
   Rows2,
   LayoutGrid,
   Frame,
+  Heading,
+  Pilcrow,
+  Component,
   PaintBucket,
   Table2,
   Rows4,
@@ -269,6 +272,18 @@ const ICONS: Record<string, LucideIcon> = {
   // The one that is a container rather than a shape, which is why it is the
   // outline of a box and not a filled one.
   'insert-frame': Frame,
+
+  /*
+   * A **layer's** kind, for the list a reader scans rather than reads.
+   *
+   * The site builder's layer list said 세로 스택 · 제목 3 · 가로 스택 · 세로 스택 down a 240px column,
+   * and finding the picture you just placed meant reading every line. Every tool of this kind puts
+   * the shape at the head of the row, because a shape is recognised before a word is read.
+   */
+  heading: Heading,
+  paragraph: Pilcrow,
+  component: Component,
+  'data-list': Rows3,
 
   // Arranging what is on a slide. The align icons are named for the axis the
   // *line-up* runs along, which is the opposite of the axis the boxes move on —

@@ -6,6 +6,7 @@ import { DataEditor } from './data-editor';
 import {
   blocksIn,
   definitionsOf,
+  iconForBlock,
   labelOfBlock,
   linksTo,
   siteControlsIn,
@@ -259,6 +260,12 @@ function LayersPanel({
           style={{ paddingLeft: `${8 + row.depth * 12}px` }}
           onClick={(event) => select(row.sid, event.shiftKey)}
         >
+          {/*
+            The shape before the word. A list of forty rows is scanned rather than read, and every
+            tool of this kind heads the row with what the thing *is* — `iconForBlock` is the
+            document's answer to that, so the rail is not deciding it.
+          */}
+          <Icon name={iconForBlock(doc.getNode(row.sid))} size={13} />
           <span className="st-layer-name">{row.label}</span>
         </button>
       ))}

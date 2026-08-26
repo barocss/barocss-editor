@@ -6,6 +6,7 @@ import { getSiteSchemaDefinition } from '../src/site-schema';
 import { registerSiteRenderers } from '../src/renderers';
 import { createSiteEditor, createSiteOwnExtensions } from '../src/site-kit';
 import { siteKeyCommands } from '../src/keymap';
+import { siteLayerIcons } from '../src/layer-icons';
 import { SITE_TOOLBAR, siteToolbarCommands, siteToolbarIcons } from '../src/toolbar-model';
 import { sitePanelAttrs, sitePanelCommands } from '../src/panel-model';
 
@@ -121,7 +122,12 @@ describe('the site builder draws what it declares', () => {
        * fallback makes a missing name look like a name.
        */
       nameOf: (type: string) => kindOfBlock(type),
-      iconsAsked: siteToolbarIcons(),
+      /*
+       * The toolbar's **and the layer list's** — a row in that list asks for a picture the same way
+       * a button does, and an icon the suite does not draw comes out as its own name in a 240px
+       * column. A product can only be checked on what it writes down.
+       */
+      iconsAsked: [...siteToolbarIcons(), ...siteLayerIcons()],
       iconDrawn: (name: string) => iconNames().includes(name),
       attributeRead: attributeReadFrom(
         registry as never,
