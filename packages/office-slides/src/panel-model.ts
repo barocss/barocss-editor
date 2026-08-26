@@ -123,8 +123,15 @@ const row = (
   control
 });
 
+/**
+ * Where a box is and how big — the panel's **first** group, headed by what is selected.
+ *
+ * Not 배치, which is the arrangement a *frame* imposes on what is in it. The two were one group in
+ * this declaration until the panel was read properly: a heading nobody checks is a heading that can
+ * be wrong, because the browser check asks whether a control is drawn and not where.
+ */
 const geometry = (attr: string, ariaLabel: string, control: SlidesPanelControl = 'number'): SlidesPanelRow =>
-  row(attr, ariaLabel, control, { command: 'setBoxGeometry', group: '배치' });
+  row(attr, ariaLabel, control, { command: 'setBoxGeometry', group: '선택' });
 
 const paint = (attr: string, ariaLabel: string, control: SlidesPanelControl): SlidesPanelRow =>
   row(attr, ariaLabel, control, { command: 'setBoxStyle', group: '채우기와 선' });
@@ -172,21 +179,56 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
    * run while the box is locked, so a lock written by the same command would be a control that can
    * turn itself off and never on again.
    */
-  { attr: 'locked', command: 'setBoxLocked', group: '배치', tab: 'style', label: '잠금', ariaLabel: '잠금', control: 'toggle' },
+  { attr: 'locked', command: 'setBoxLocked', group: '선택', tab: 'style', label: '잠금', ariaLabel: '잠금', control: 'toggle' },
   /*
    * Where pressing it goes, in a deck being presented. Three attributes and one control: a reader
    * picks a destination and the command works out whether that is a slide, a named place or another
    * deck — which is why `goToKind` and `goToDeck` have no row of their own.
    */
-  { attr: 'goTo', command: 'setBoxJump', group: '배치', tab: 'style', label: '누르면 이동', ariaLabel: '누르면 이동', control: 'choice' },
+  { attr: 'goTo', command: 'setBoxJump', group: '선택', tab: 'style', label: '누르면', ariaLabel: '누르면 이동', control: 'choice' },
 
   // ── The arrangement a frame imposes on what is in it ───────────────────────
-  { attr: 'layoutMode', command: 'setFrameLayout', group: '배치', tab: 'style', label: '배치 방향', ariaLabel: '배치 방향', control: 'choice' },
-  { attr: 'gap', command: 'setFrameLayout', group: '배치', tab: 'style', label: '간격', ariaLabel: '간격', control: 'number', when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
-  { attr: 'padding', command: 'setFrameLayout', group: '배치', tab: 'style', label: '안쪽 여백', ariaLabel: '안쪽 여백', control: 'number', when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
+  {
+    attr: 'layoutMode',
+    command: 'setFrameLayout',
+    group: '배치',
+    tab: 'style',
+    label: '방향',
+    ariaLabel: '배치 방향',
+    control: 'choice',
+    fallback: 'none',
+    /*
+     * Turning it on *is* the arrangement: the command sets the mode and places the children in one
+     * transaction, so a reader who picks 가로 sees the boxes move rather than a setting that promises
+     * to matter later. `없음` is a real option and not an absence — it leaves them where they were put.
+     */
+    options: [
+      { id: 'none', label: '없음' },
+      { id: 'row', label: '가로' },
+      { id: 'column', label: '세로' },
+      { id: 'grid', label: '그리드' }
+    ]
+  },
+  { attr: 'gap', command: 'setFrameLayout', group: '배치', tab: 'style', label: '간격', ariaLabel: '간격', control: 'number', fallback: 0, min: 0, when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
+  { attr: 'padding', command: 'setFrameLayout', group: '배치', tab: 'style', label: '여백', ariaLabel: '안쪽 여백', control: 'number', fallback: 0, min: 0, when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
   // `교차 축 맞춤`, not `맞춤` — the browser check is what caught the difference, which is the whole
   // reason a declaration read out of JSX needs one.
-  { attr: 'alignItems', command: 'setFrameLayout', group: '배치', tab: 'style', label: '맞춤', ariaLabel: '교차 축 맞춤', control: 'choice', when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] } },
+  {
+    attr: 'alignItems',
+    command: 'setFrameLayout',
+    group: '배치',
+    tab: 'style',
+    label: '맞춤',
+    ariaLabel: '교차 축 맞춤',
+    control: 'choice',
+    fallback: 'start',
+    when: { attr: 'layoutMode', is: ['row', 'column', 'grid'] },
+    options: [
+      { id: 'start', label: '시작' },
+      { id: 'center', label: '가운데' },
+      { id: 'end', label: '끝' }
+    ]
+  },
   {
     attr: 'columns',
     command: 'setFrameLayout',
@@ -205,8 +247,8 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
    * one: 채우기 already means paint in this panel, so the accessible name has to be the sentence.
    * Shown only inside a frame that arranges, which is the only place the question means anything.
    */
-  { attr: 'layoutStretch', command: 'setBoxLayout', group: '배치', tab: 'style', label: '가득', ariaLabel: '프레임 가득 채우기', control: 'toggle', inside: 'arrangedFrame' },
-  { attr: 'layoutGrow', command: 'setBoxLayout', group: '배치', tab: 'style', label: '늘리기', ariaLabel: '남은 공간 늘리기', control: 'toggle', inside: 'arrangedFrame' },
+  { attr: 'layoutStretch', command: 'setBoxLayout', group: '선택', tab: 'style', label: '가득', ariaLabel: '프레임 가득 채우기', control: 'toggle', inside: 'arrangedFrame' },
+  { attr: 'layoutGrow', command: 'setBoxLayout', group: '선택', tab: 'style', label: '늘리기', ariaLabel: '남은 공간 늘리기', control: 'toggle', inside: 'arrangedFrame' },
 
   // ── 채우기와 선 ────────────────────────────────────────────────────────────
   /*

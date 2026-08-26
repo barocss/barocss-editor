@@ -2417,10 +2417,16 @@ text-shaped.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
-- **The deck's groups are moving to the shared sheet, one at a time: 246 lines gone so far.**
-  Four groups now: 연결선 (214 lines), 채우기와 선 (103), 텍스트 (35), 그림 (31) — each replaced by
-  `{sheet('...')}` against a declaration. `properties.tsx` is 2,863 → 2,617, and the browser suite is
-  392/392 at every step.
+- **The deck's groups are moving to the shared sheet, one at a time: 328 lines gone so far.**
+  Five groups now: 연결선 (214 lines), 채우기와 선 (103), 배치 (77), 텍스트 (35), 그림 (31) — each
+  replaced by `{sheet('...')}` against a declaration. `properties.tsx` is 2,863 → 2,535, and the
+  browser suite is 392/392 at every step.
+
+  **And 배치 was in the wrong group in the declaration.** The panel's *first* group is headed by what
+  is selected — 위치, 크기, 회전, 상태 — and 배치 is the arrangement a **frame** imposes on what is in
+  it. The declaration had both under one heading, and neither the unit test nor the browser check
+  could see it: one reads the rows and the other asks whether a control is drawn, and *where* it is
+  drawn is a question nothing asked. A heading nobody checks is a heading that can be wrong.
 
   What each group taught, beyond the four findings below:
 

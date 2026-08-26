@@ -20,7 +20,6 @@ import {
   fromDisplay,
   stepFor,
   toDisplay,
-  unitSuffix,
   type LengthUnit
 } from '@barocss/office-ui';
 import { slidesPanelGroups, type SlidesPanelRow } from '@barocss/office-slides';
@@ -602,11 +601,6 @@ export function Properties({
   const visible = shared('visible') !== false;
 
   /** A number the model keeps in twips, shown in whatever the reader chose. */
-  const lengthOf = (key: string): number | null => {
-    const value = shared(key);
-    return typeof value === 'number' ? toDisplay(value, unit) : null;
-  };
-
   /** A number the model keeps as itself — degrees, a ratio. */
   const plain = (key: string, fallback: number | null = null): number | null => {
     const value = shared(key);
@@ -1252,83 +1246,7 @@ export function Properties({
             * "가로" sees the boxes move rather than a setting that promises to
             * matter later.
             */}
-          {declares('layoutMode') && (
-            <PropertyGroup label="배치">
-              <PropertyRow label="방향">
-                <PropertyChoice
-                  ariaLabel="배치 방향"
-                  value={
-                    typeof box?.attributes?.layoutMode === 'string'
-                      ? (box.attributes.layoutMode as string)
-                      : 'none'
-                  }
-                  options={[
-                    { id: 'none', label: '없음' },
-                    { id: 'row', label: '가로' },
-                    { id: 'column', label: '세로' },
-                    { id: 'grid', label: '그리드' }
-                  ]}
-                  disabled={locked}
-                  onChange={(value) => setLayout({ layoutMode: value })}
-                />
-              </PropertyRow>
-              {laysOut(box?.attributes) && (
-                <>
-                  <PropertyRow label="간격">
-                    <PropertyNumber
-                      ariaLabel="간격"
-                      value={lengthOf('gap') ?? 0}
-                      suffix={unitSuffix(unit)}
-                      step={stepFor(unit)}
-                      disabled={locked}
-                      onCommit={(value) => setLayout({ gap: fromDisplay(Math.max(0, value), unit) })}
-                    />
-                  </PropertyRow>
-                  <PropertyRow label="여백">
-                    <PropertyNumber
-                      ariaLabel="안쪽 여백"
-                      value={lengthOf('padding') ?? 0}
-                      suffix={unitSuffix(unit)}
-                      step={stepFor(unit)}
-                      disabled={locked}
-                      onCommit={(value) =>
-                        setLayout({ padding: fromDisplay(Math.max(0, value), unit) })
-                      }
-                    />
-                  </PropertyRow>
-                  <PropertyRow label="맞춤">
-                    <PropertyChoice
-                      ariaLabel="교차 축 맞춤"
-                      value={
-                        typeof box?.attributes?.alignItems === 'string'
-                          ? (box.attributes.alignItems as string)
-                          : 'start'
-                      }
-                      options={[
-                        { id: 'start', label: '시작' },
-                        { id: 'center', label: '가운데' },
-                        { id: 'end', label: '끝' }
-                      ]}
-                      disabled={locked}
-                      onChange={(value) => setLayout({ alignItems: value })}
-                    />
-                  </PropertyRow>
-                  {box?.attributes?.layoutMode === 'grid' && (
-                    <PropertyRow label="열">
-                      <PropertyNumber
-                        ariaLabel="열 수"
-                        value={plain('columns', 2)}
-                        disabled={locked}
-                        onCommit={(value) =>
-                          setLayout({ columns: Math.max(1, Math.round(value)) })
-                        }
-                      />
-                    </PropertyRow>
-                  )}
-                </>
-              )}
-            </PropertyGroup>
-          )}
+          {sheet('배치')}
 
           {/*
             * A line that remembers what it joins.
