@@ -389,6 +389,24 @@ Three more things fell out of building it, and each is the kind of fault that re
 - **A media rule published `var:이름`.** Resolution happens in the renderer and a media rule is not
   rendered, so a narrower width whose card names a token shipped the literal token to a visitor.
 
+## The page's ground is the page's, not the tool's
+
+A board draws the document inside the editor's own window, and for as long as that has been true the
+page inherited the *chrome's* typography: Tailwind's preflight resets `h1…h6` to `font-size: inherit`
+and the app's body is 12px, so every heading on every board was drawn at the size of a panel label.
+The published page had the opposite fault from the same cause — no scale at all, so a browser applied
+its own `2em` and a margin the model never asked for.
+
+So `PAGE_CSS` is **one string used by both**: the editor injects it into the window the boards are
+drawn in, and the export inlines it into the file. The scale itself is small — six headings, a
+paragraph measure, a list, an anchor — and it sets **no margins**, because spacing between blocks is
+the stack's `gap` and a page with two answers for one distance has one of them invisible in the
+panel.
+
+The sizes shrink with a **container query**, not a media query. A 390px board sits inside a 1600px
+window, so a media query is false there and true on a phone: the editor would show a phone board with
+a desktop headline, which is exactly the lie the three boards exist to prevent.
+
 ## What a page can say now, and what it cannot
 
 Measured against the vocabulary rather than against an opinion — every row on the left is something a
