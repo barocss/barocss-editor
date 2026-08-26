@@ -2614,6 +2614,41 @@ Newest first. The surprise each one produced is the part worth keeping.
   All three products answer every check now, and `notYet` has no callers — which is exactly what a
   deferral should end up as.
 
+- **Three mocks found dead the same way, and 20 switched-off checks came back.**
+
+  The other half of watching the tests: a skipped test is a check somebody turned off, and nobody had
+  asked why. 18 skipped blocks, and enabling each one to find out gave the same answer three times —
+  **not the reason written beside it**.
+
+  | switched off | the note said | the measurement said |
+  | --- | --- | --- |
+  | 15 IME/composition tests | *(nothing)* | `handleCompositionStart is not a function` — the behaviour moved to `EditorViewDOM._isComposing` |
+  | 5 MutationObserver tests | *(nothing)* | `editor.executeCommand is not a function` — a hand-rolled mock with eight methods |
+  | 16 selection tests | *"requires full DOM/selection sync"* | `dataStore.setActiveSchema is not a function` — a hand-rolled store with nine |
+
+  **A fake that has to keep up with a real type drifts, and the drift shows up as a skipped test
+  rather than as a failure anybody sees.** That is the same fault as `(editor as any)` — a shape
+  asserted rather than checked — and it hides better, because a skip is quiet where a cast at least
+  compiles against something.
+
+  What each turned into:
+
+  - **The IME file was deleted.** Rewriting it would have been the mistake twice: a synthetic
+    `compositionstart` in jsdom is a string with a name on it, and every composition fault this
+    product has had is about *interleaving* with `beforeinput` — a jongseong committed twice, a space
+    after a composition eaten, a syllable boundary split. Held by **47 browser tests**, and
+    `input-hangul-jongseong.spec.ts` now says so at the top so the next person finds a decision.
+  - **The MutationObserver file lost five tests and kept three.** The five asserted on
+    `handleTextContentChange`, and `mutation-observer-manager.ts` says in its own comment that the
+    route is retired — *"onTextChange is disabled … handleDomMutations path is authoritative"*. The
+    mock is gone; the file builds a real editor over a real store.
+  - **The selection suite went from 16 off to 4 running and 12 named.** The note was *half* right:
+    twelve of them end at `window.getSelection()` and belong in a browser, and four were never
+    waiting for anything. Twelve named skips beat one blanket skip — each says what it is waiting for.
+
+  Skipped blocks: **18 → 8**, and of the 8 left, 4 carry a written "current implementation limitation"
+  that is its own work list.
+
 - **19 of 6,851 tests asserted nothing, and three of them were wrong about the code they described.**
 
   Asked to watch the tests, on the grounds that there may be odd ones. There were — and the bold

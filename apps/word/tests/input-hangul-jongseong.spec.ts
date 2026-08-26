@@ -4,6 +4,20 @@ import { settled } from './helpers';
 /**
  * The one thing Korean does that no other composition does.
  *
+ * ## Where IME is tested, and why it is only here
+ *
+ * `editor-view-dom` used to carry fifteen unit tests of composition — `handleCompositionStart`,
+ * `commitPendingImmediate`, a timer — inside four `describe.skip`s. Enabled to find out why they
+ * were off, every one failed: the behaviour had moved to `EditorViewDOM._isComposing` and the tests
+ * were pointed at the old home. They were deleted rather than rewritten, because rewriting them
+ * would have been the mistake twice.
+ *
+ * **IME is not testable in jsdom.** A synthetic `compositionstart` is a string with a name on it —
+ * no input method, no candidate window, and above all no interleaving with `beforeinput` and
+ * `input`. Every composition fault this product has actually had is about that interleaving: a
+ * jongseong committed twice, a space after a composition eaten, a syllable boundary split. So it is
+ * held in a real browser, across 47 tests in this directory, of which this file is three.
+ *
  * Every composition measured here so far grew: jamo were added, a syllable was
  * assembled, it was committed, and the next one started from nothing. Korean
  * does not only do that. A final consonant belongs to the syllable it was typed

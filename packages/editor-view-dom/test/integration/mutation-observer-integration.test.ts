@@ -9,6 +9,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Editor } from '@barocss/editor-core';
+import { DataStore } from '@barocss/datastore';
 import { define, element, data, slot, getGlobalRegistry } from '@barocss/dsl';
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { EditorViewDOM } from '../../src/editor-view-dom';
@@ -45,25 +46,22 @@ describe('MutationObserver Integration', () => {
       'data-bc-stype': (data: any) => data.stype || ''
     }, [data('text')]));
 
-    // Create Mock Editor
-    editor = {
-      emit: vi.fn(),
-      executeTransaction: vi.fn(),
-      on: vi.fn(),
-      off: vi.fn(),
-      destroy: vi.fn(),
-      dataStore: {
-        getNode: vi.fn(),
-        setNode: vi.fn()
-      },
-      getDecorators: vi.fn(() => []),
-      updateDecorators: vi.fn(),
-      document: {
-        stype: 'document',
-        sid: 'doc1',
-        content: []
-      }
-    } as any;
+    /*
+   * A **real** editor with a real store, not a hand-rolled one.
+     *
+   * There was a mock here with eight methods on it, and five of this file's tests were
+   * `it.skip`ped. Enabled to find out why, every one failed with `this.editor.executeCommand is not
+   * a function` — the mock had eight methods and the editor has grown more. A fake that has to keep
+   * up with a real type is the same fault as a cast that hides one: it drifts, and the drift shows
+   * up as a skipped test rather than as a failure.
+     *
+   * `executeTransaction` is still spied on, because what these tests ask is *whether a DOM change
+   * reaches the model* — and a spy on the real method answers that without replacing the editor.
+   */
+    const dataStore = new DataStore(undefined as never, undefined as never);
+    editor = new Editor({ editable: true, dataStore } as never);
+    editor.loadDocument({ sid: 'doc1', stype: 'document', content: [] } as never, 'mutation-test');
+    vi.spyOn(editor, 'executeTransaction');
 
     // Create DOM container
     container = document.createElement('div');
@@ -87,180 +85,27 @@ describe('MutationObserver Integration', () => {
     vi.clearAllMocks();
   });
 
-  describe('MutationObserver → InputHandler 통합', () => {
-    it.skip('텍스트 노드 변경 시 InputHandler.handleTextContentChange가 호출되어야 함', async () => {
-      // Set initial model
-      const model = {
-        stype: 'document',
-        sid: 'doc1',
-        content: [
-          {
-            stype: 'paragraph',
-            sid: 'p1',
-            content: [
-              {
-                stype: 'inline-text',
-                sid: 't1',
-                text: 'Hello'
-              }
-            ]
-          }
-        ]
-      };
-
-      // Set model node
-      (editor.dataStore.getNode as any).mockReturnValue({
-        text: 'Hello',
-        marks: [],
-        sid: 't1',
-        stype: 'inline-text'
-      });
-
-      // Render EditorViewDOM
-      await editorView.render(model as any);
-
-      // Find text node in DOM (content may be wrapped in inner span)
-      const textElement = container.querySelector('[data-bc-sid="t1"]');
-      expect(textElement).toBeTruthy();
-      const textNode = findFirstTextNode(textElement!);
-      expect(textNode).toBeTruthy();
-
-      // Spy on InputHandler.handleTextContentChange
-      const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
-      const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
-
-      // Simulate text change
-      textNode!.textContent = 'Hello World';
-
-      // Wait until MutationObserver detects change
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Verify handleTextContentChange was called
-      expect(handleTextContentChangeSpy).toHaveBeenCalled();
-    });
-
-    it.skip('텍스트 변경 시 모델 트랜잭션이 실행되어야 함', async () => {
-      // Set initial model
-      const model = {
-        stype: 'document',
-        sid: 'doc1',
-        content: [
-          {
-            stype: 'paragraph',
-            sid: 'p1',
-            content: [
-              {
-                stype: 'inline-text',
-                sid: 't1',
-                text: 'Hello'
-              }
-            ]
-          }
-        ]
-      };
-
-      // Set model node
-      (editor.dataStore.getNode as any).mockReturnValue({
-        text: 'Hello',
-        marks: [],
-        sid: 't1',
-        stype: 'inline-text'
-      });
-
-      // Mock handleEfficientEdit
-      const { handleEfficientEdit } = await import('../../src/utils/efficient-edit-handler');
-      vi.spyOn(await import('../../src/utils/efficient-edit-handler'), 'handleEfficientEdit').mockReturnValue({
-        newText: 'Hello World',
-        adjustedMarks: [],
-        adjustedDecorators: [],
-        editInfo: {
-          nodeId: 't1',
-          oldText: 'Hello',
-          newText: 'Hello World',
-          editPosition: 5,
-          editType: 'insert',
-          insertedLength: 6,
-          deletedLength: 0
-        }
-      });
-
-      // Render EditorViewDOM
-      await editorView.render(model as any);
-
-      // Find text node in DOM (content may be wrapped in inner span)
-      const textElement = container.querySelector('[data-bc-sid="t1"]');
-      const textNode = findFirstTextNode(textElement!);
-      expect(textNode).toBeTruthy();
-
-      // Change text
-      textNode!.textContent = 'Hello World';
-
-      // Wait until MutationObserver detects change
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Verify executeTransaction was called
-      expect(editor.executeTransaction).toHaveBeenCalled();
-    });
-
-    it.skip('IME 조합 중 텍스트 변경은 보류되어야 함', async () => {
-      // Set initial model
-      const model = {
-        stype: 'document',
-        sid: 'doc1',
-        content: [
-          {
-            stype: 'paragraph',
-            sid: 'p1',
-            content: [
-              {
-                stype: 'inline-text',
-                sid: 't1',
-                text: 'Hello'
-              }
-            ]
-          }
-        ]
-      };
-
-      // Set model node
-      (editor.dataStore.getNode as any).mockReturnValue({
-        text: 'Hello',
-        marks: [],
-        sid: 't1',
-        stype: 'inline-text'
-      });
-
-      // Render EditorViewDOM
-      await editorView.render(model as any);
-
-      // InputHandler does not expose composition API; skip until implemented
-      const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
-      if (typeof (inputHandler as any).handleCompositionStart !== 'function') {
-        return;
-      }
-      (inputHandler as any).handleCompositionStart();
-
-      // Find text node in DOM (content may be wrapped in inner span)
-      const textElement = container.querySelector('[data-bc-sid="t1"]');
-      const textNode = findFirstTextNode(textElement!);
-      expect(textNode).toBeTruthy();
-
-      // Change text during composition
-      textNode!.textContent = 'Hello World';
-
-      // Wait until MutationObserver detects change
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Transaction should not execute during composition
-      expect(editor.executeTransaction).not.toHaveBeenCalled();
-
-      // Complete composition
-      inputHandler.handleCompositionEnd({} as CompositionEvent);
-
-      // Transaction should execute after composition completes
-      expect(editor.executeTransaction).toHaveBeenCalled();
-    });
-  });
+  /*
+   * ── Five tests were here, on a route that was retired ──────────────────
+     *
+   * They asserted that a DOM text change reaches `InputHandler.handleTextContentChange`, and it
+   * does not: `mutation-observer-manager.ts` says so in its own comment — *"onTextChange is
+   * disabled … handleDomMutations path is authoritative for text content changes."* The route was
+   * replaced and the tests were `it.skip`ped rather than moved, so five checks sat switched off
+   * describing a path the product had left.
+     *
+   * That was not why they were skipped, though, and the difference is worth keeping. Enabled, they
+   * failed first on `this.editor.executeCommand is not a function` — a **hand-rolled mock editor**
+   * with eight methods on it, which the real `Editor` had outgrown. A fake that has to keep up with
+   * a real type is the same fault as a cast that hides one: it drifts, and here the drift showed up
+   * as tests being switched off rather than as a failure anybody saw.
+     *
+   * The mock is gone (this file builds a real editor over a real store now) and the live route is
+   * held in `editor-view-react/test/input-handler-ims.test.ts`, which asks `handleDomMutations`
+   * directly. What is left below is what this file can honestly hold: that the observer is set up,
+   * that a node the store has never seen writes nothing, and that a node with no sid is never even
+   * reached.
+   */
 
   describe('MutationObserverManager 직접 테스트', () => {
     it('MutationObserverManager가 설정되어야 함', () => {
@@ -268,179 +113,6 @@ describe('MutationObserver Integration', () => {
       expect(mutationObserverManager).toBeTruthy();
     });
 
-    it.skip('onTextChange 이벤트가 InputHandler로 전달되어야 함', async () => {
-      // Set initial model
-      const model = {
-        stype: 'document',
-        sid: 'doc1',
-        content: [
-          {
-            stype: 'paragraph',
-            sid: 'p1',
-            content: [
-              {
-                stype: 'inline-text',
-                sid: 't1',
-                text: 'Hello'
-              }
-            ]
-          }
-        ]
-      };
-
-      // Set model node
-      (editor.dataStore.getNode as any).mockReturnValue({
-        text: 'Hello',
-        marks: [],
-        sid: 't1',
-        stype: 'inline-text'
-      });
-
-      // Render EditorViewDOM
-      await editorView.render(model as any);
-
-      // Spy on InputHandler
-      const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
-      const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
-
-      // Find text node in DOM (content may be wrapped in inner span)
-      const textElement = container.querySelector('[data-bc-sid="t1"]') as HTMLElement;
-      const textNode = findFirstTextNode(textElement);
-      expect(textNode).toBeTruthy();
-
-      // Change text (MutationObserver will detect)
-      textNode!.textContent = 'Hello World';
-
-      // Wait until MutationObserver detects change
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      // Verify handleTextContentChange was called
-      expect(handleTextContentChangeSpy).toHaveBeenCalled();
-      // Verify arguments of first call
-      const firstCall = handleTextContentChangeSpy.mock.calls[0];
-      expect(firstCall[0]).toBe('Hello'); // oldText
-      expect(firstCall[1]).toBe('Hello World'); // newText
-      expect(firstCall[2]).toBe(textNode); // target
-    });
-  });
-
-  describe('실제 DOM 변경 감지', () => {
-    it.skip('DOM 텍스트 노드 변경이 감지되어야 함', async () => {
-      // Set initial model
-      const model = {
-        stype: 'document',
-        sid: 'doc1',
-        content: [
-          {
-            stype: 'paragraph',
-            sid: 'p1',
-            content: [
-              {
-                stype: 'inline-text',
-                sid: 't1',
-                text: 'Hello'
-              }
-            ]
-          }
-        ]
-      };
-
-      // Set model node
-      (editor.dataStore.getNode as any).mockReturnValue({
-        text: 'Hello',
-        marks: [],
-        sid: 't1',
-        stype: 'inline-text'
-      });
-
-      // Render EditorViewDOM
-      await editorView.render(model as any);
-
-      // Find text node in DOM (content may be wrapped in inner span)
-      const textElement = container.querySelector('[data-bc-sid="t1"]') as HTMLElement;
-      expect(textElement).toBeTruthy();
-      const textNode = findFirstTextNode(textElement);
-      expect(textNode).toBeTruthy();
-      expect(textNode!.textContent).toBe('Hello');
-
-      // Spy on InputHandler
-      const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
-      const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
-
-      // Actual DOM change
-      textNode!.textContent = 'Hello World';
-
-      // Wait until MutationObserver detects change
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      // Verify handleTextContentChange was called
-      expect(handleTextContentChangeSpy).toHaveBeenCalled();
-    });
-
-    it.skip('여러 텍스트 노드 변경이 순차적으로 처리되어야 함', async () => {
-      // Set initial model (multiple text nodes)
-      const model = {
-        stype: 'document',
-        sid: 'doc1',
-        content: [
-          {
-            stype: 'paragraph',
-            sid: 'p1',
-            content: [
-              {
-                stype: 'inline-text',
-                sid: 't1',
-                text: 'Hello'
-              },
-              {
-                stype: 'inline-text',
-                sid: 't2',
-                text: 'World'
-              }
-            ]
-          }
-        ]
-      };
-
-      // Set model node
-      (editor.dataStore.getNode as any).mockImplementation((nodeId: string) => {
-        if (nodeId === 't1') {
-          return { text: 'Hello', marks: [], sid: 't1', stype: 'inline-text' };
-        }
-        if (nodeId === 't2') {
-          return { text: 'World', marks: [], sid: 't2', stype: 'inline-text' };
-        }
-        return null;
-      });
-
-      // Render EditorViewDOM
-      await editorView.render(model as any);
-
-      // Spy on InputHandler
-      const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
-      const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
-
-      // Change first text node (content may be wrapped in inner span)
-      const textElement1 = container.querySelector('[data-bc-sid="t1"]') as HTMLElement;
-      const textNode1 = findFirstTextNode(textElement1);
-      expect(textNode1).toBeTruthy();
-      textNode1!.textContent = 'Hello!';
-
-      // Wait until MutationObserver detects change
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Change second text node
-      const textElement2 = container.querySelector('[data-bc-sid="t2"]') as HTMLElement;
-      const textNode2 = findFirstTextNode(textElement2);
-      expect(textNode2).toBeTruthy();
-      textNode2!.textContent = 'World!';
-
-      // Wait until MutationObserver detects change
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Verify handleTextContentChange was called multiple times
-      expect(handleTextContentChangeSpy).toHaveBeenCalledTimes(2);
-    });
   });
 
   describe('에러 처리', () => {
@@ -464,8 +136,14 @@ describe('MutationObserver Integration', () => {
         ]
       };
 
-      // Set up so model node cannot be found
-      (editor.dataStore.getNode as any).mockReturnValue(null);
+      /*
+     * A node the **store really does not have**, rather than a `getNode` stubbed to lie.
+       *
+     * The document is rendered from `model` and never loaded, so the DOM carries sids the store has
+     * never seen — which is the situation being described, arrived at instead of faked. A stub
+     * would also have made every *other* lookup in this render return null, which is a different
+     * and much stranger document than the one the test is named after.
+     */
 
       // Render EditorViewDOM
       await editorView.render(model as any);
@@ -502,18 +180,18 @@ describe('MutationObserver Integration', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       /*
-       * The spy was set up and never asked, and three comments hedged about what should happen —
-       * *"may be called … Actually … it may be called … But …"*. A test that cannot say what it wants
-       * asserts nothing, and this one did.
+     * The spy was set up and never asked, and three comments hedged about what should happen —
+     * *"may be called … Actually … it may be called … But …"*. A test that cannot say what it wants
+     * asserts nothing, and this one did.
        *
-       * What it wants is the invariant the observer exists for: text outside the document is not the
-       * document.
+     * What it wants is the invariant the observer exists for: text outside the document is not the
+     * document.
        *
-       * And the answer is better than the comments guessed. They hedged that the handler *"may be
-       * called"* and would early-return; measured, it is **never reached** — the observer filters on
-       * `data-bc-sid` before the handler is a question. Asserting the guess would have been asserting
-       * something that is not true of this code, in a test named after the behaviour.
-       */
+     * And the answer is better than the comments guessed. They hedged that the handler *"may be
+     * called"* and would early-return; measured, it is **never reached** — the observer filters on
+     * `data-bc-sid` before the handler is a question. Asserting the guess would have been asserting
+     * something that is not true of this code, in a test named after the behaviour.
+     */
       expect(handleTextContentChangeSpy).not.toHaveBeenCalled();
       expect(editor.executeTransaction).not.toHaveBeenCalled();
     });
