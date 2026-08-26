@@ -85,6 +85,27 @@ export function sidAtElement(target: Element | null, board: Element): string | u
 }
 
 /**
+ * The same walk, keeping the sid **as it was drawn**.
+ *
+ * `sidAtElement` collapses `${owner}~${part}` to the owner, which is right for every question about
+ * *what a reader can change*: a part of a placement is not a thing anybody edits, and the placement
+ * is. It is wrong for the one question that is about the drawing itself — **which row of a list is
+ * this** — because the row is the part of the sid that gets collapsed away.
+ *
+ * Measured: a double-click on the second product opened the card showing the first, because the row
+ * number had been thrown away two functions earlier and the fallback was zero.
+ */
+export function drawnSidAtElement(target: Element | null, board: Element): string | undefined {
+  let el: Element | null = target;
+  while (el && el !== board) {
+    const sid = (el as HTMLElement).dataset?.bcSid ?? el.getAttribute?.('data-bc-sid');
+    if (sid) return sid;
+    el = el.parentElement;
+  }
+  return undefined;
+}
+
+/**
  * The chain from the page down to this node, the page **excluded**.
  *
  * The page itself is never selectable: it is the board, and a builder that let a reader select it

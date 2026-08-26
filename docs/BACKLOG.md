@@ -64,6 +64,22 @@ entries are that.
   for at the price of every reader wondering which of two places to set. The escape is written down —
   an `overrides` *inside* the state, the same map one level down — and nothing implements it.
 
+### A list's card can be edited, and three things around it cannot yet
+
+- [ ] **The preview does not follow the data.** A reader who opens the product card against row 3 and
+  then edits row 3 in the data panel goes on looking at the words it had when they opened it: the
+  preview is computed when the definition is opened and the *document's* revision is deliberately
+  not one of its dependencies, because recomputing it on every keystroke forces a full redraw of
+  three boards. Cheap to fix once there is a reason to; noted so the staleness is a decision.
+
+- [ ] **A bound part refuses the caret and offers nothing instead.** It says where the words come
+  from — `데이터에서 옴 · 이름` — which is the honest answer and half an answer: the reader's next
+  move is to open the data panel and find that row themselves. The chip should be the way there.
+
+- [ ] **Only `text` binds are previewed.** A bind may name any attribute; the preview substitutes
+  words and nothing else, so a card whose *colour* comes from a row draws the definition's colour
+  while showing the row's words. Nothing in the sample does this yet, which is why it was left.
+
 ### The tool's own layer stands between the page and the pointer
 
 - [ ] The boards are covered by `.st-overlay`, which is what makes a click mean something on this

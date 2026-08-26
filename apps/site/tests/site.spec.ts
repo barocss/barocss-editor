@@ -1504,3 +1504,115 @@ test.describe('what a block promises under the pointer', () => {
     await expect(page.locator('.st-state-said')).toContainText('모든 너비');
   });
 });
+
+/**
+ * The card of a list, edited against the data it draws.
+ *
+ * A list draws one card per row and the rows are resolved at draw time, so the chain of document
+ * nodes stops at the list itself — which meant a double-click on a product had nowhere further to go
+ * and **did nothing at all**. That is the whole of the report: *더블클릭 해도 편집모드가 되지 않아.*
+ *
+ * The other half is why the card is opened against a row rather than on its own. A card designed
+ * against `상품`, `설명` and `0원` is a card designed against nothing: every real title is longer,
+ * every real price has a comma in it, and the two-line description that breaks the layout is in the
+ * data rather than in the placeholder.
+ */
+test.describe('the card a list draws', () => {
+  /** The product list on the home page, brought under the reader. */
+  const productList = (page: Page) =>
+    page.locator('[data-frame="desktop"] .st-collection').first();
+
+  const open = async (page: Page, which: number) => {
+    await bring(page, productList(page));
+    const row = productList(page).locator('> *').nth(which);
+    // ⌘ selects the innermost thing, which inside a list is the list — a row is not a document node.
+    await row.click({ force: true, modifiers: ['Meta'], position: { x: 6, y: 6 } });
+    await page.waitForTimeout(250);
+    await row.dblclick({ force: true, position: { x: 6, y: 6 } });
+    await page.waitForTimeout(600);
+    /*
+     * And bring the card under the reader. The boards keep their place on the plane when what they
+     * draw changes — which is right, a definition opens where the page was — but a card is one small
+     * box where a page was five screens, so it can be left off the edge of the window.
+     */
+    await bring(page, page.locator('[data-frame="desktop"] .st-frame-host'));
+  };
+
+  test('opens from a row, and draws the card with that row in it', async ({ page }) => {
+    await ready(page);
+    await open(page, 1);
+
+    // The definition, not the page.
+    await expect(page.locator('[data-editing-component]')).toHaveAttribute(
+      'data-editing-component',
+      'product-card'
+    );
+
+    /*
+     * And the **second** product, because that is the one that was pointed at. The row number lives
+     * in the drawn sid and `sidAtElement` collapses it away on purpose — a part of a placement is
+     * not a thing a reader edits — so asking the drawing rather than the document is what keeps it.
+     */
+    // The board draws the **definition's part**, which is an ordinary frame — there is no page here.
+    const board = page.locator('[data-frame="desktop"] .st-frame-host');
+    await expect(board).toContainText('문서');
+    await expect(board).toContainText('월 9,900원');
+    // Never the placeholder the definition holds, which is what a card designed against nothing
+    // looks like: `상품`, `설명`, `0원`.
+    await expect(board).not.toContainText('상품');
+  });
+
+  test('steps through the rows without going back to the page', async ({ page }) => {
+    await ready(page);
+    await open(page, 0);
+
+    const picker = page.locator('.st-where-row select');
+    await expect(picker).toBeVisible();
+    await expect(page.locator('[data-frame="desktop"] .st-frame-host')).toContainText('사이트');
+
+    /*
+     * The row that breaks a card is rarely the first one, so a designer has to be able to flip to it
+     * — going back to the page and double-clicking a different product to see a long title is the
+     * editor's bookkeeping handed to the reader.
+     */
+    await picker.selectOption({ index: 2 });
+    await page.waitForTimeout(500);
+    await expect(page.locator('[data-frame="desktop"] .st-frame-host')).not.toContainText('사이트');
+  });
+
+  test('says where a bound part’s words come from instead of taking the caret', async ({ page }) => {
+    await ready(page);
+    await open(page, 0);
+
+    // The card's title draws the row's name. Asking for the caret there asks for something the data
+    // would overwrite a frame later, so the tool answers rather than accepting.
+    const title = page.locator('[data-frame="desktop"] .st-frame-host h3').first();
+    await pressDeep(page, title);
+    await page.waitForTimeout(200);
+    await title.dblclick({ force: true });
+    await page.waitForTimeout(400);
+
+    const said = page.locator('[data-frame="desktop"] .st-mark-bound');
+    await expect(said).toHaveCount(1);
+    await expect(said).toContainText('데이터에서 옴');
+    await expect(said).toContainText('이름');
+    // And the board was not put into text mode, which is the change that would have been discarded.
+    await expect(page.locator('[data-frame="desktop"] .st-overlay')).not.toHaveAttribute(
+      'data-mode',
+      'text'
+    );
+  });
+
+  test('goes back to the page, and the list draws its own rows again', async ({ page }) => {
+    await ready(page);
+    await open(page, 1);
+    await page.locator('.st-back').click();
+    await page.waitForTimeout(600);
+
+    // Every row again, each with its own words — the preview was never in the document.
+    const list = productList(page);
+    await expect(list).toContainText('사이트');
+    await expect(list).toContainText('문서');
+    await expect(page.locator('.st-where-row')).toHaveCount(0);
+  });
+});

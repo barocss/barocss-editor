@@ -63,6 +63,65 @@ export function definitionOf(doc: Access, id: unknown): Definition | undefined {
 }
 
 /**
+ * Which of a definition's variables a part's **words** come from, if they come from one.
+ *
+ * ## The trap this exists to close
+ *
+ * A card of a product list holds a heading whose text is bound to `이름`. Typing in that heading
+ * changes the definition's own words — the fallback nobody sees — and every placement goes on
+ * drawing its row's value over the top. So a reader double-clicks the title of the product they are
+ * looking at, types, and **nothing happens**: not an error, not a refusal, just a change that is
+ * immediately overwritten by the data.
+ *
+ * Every tool that binds text has this and every one of them answers it the same way: the words are
+ * not editable there, and the product says where they come from. The alternative — letting the caret
+ * in — is a builder that quietly discards what a reader typed.
+ *
+ * Answered against the definition the node is **inside**, so a heading on a page is untouched by
+ * this: it is nobody's part, and its words are its own.
+ */
+export function boundVarOf(
+  /** Only `getNode` is needed — see below, and it is the reason this walks rather than asks. */
+  doc: { getNode: (sid: string) => Node | undefined },
+  sid: string | undefined
+): string | undefined {
+  const node = sid ? doc.getNode(sid) : undefined;
+  const partId = node?.attributes?.partId;
+  if (typeof partId !== 'string' || !partId) return undefined;
+
+  /*
+   * Walked here rather than through `definitionAt`, which answers with the definition **record** and
+   * therefore needs the document's root to find it. This question needs no root: it is answered
+   * entirely by the node's own ancestors, and asking for a root the caller may not have is how a
+   * check comes back "no" for the wrong reason. Measured — the overlay holds `getNode` and nothing
+   * else, so every bound part looked unbound and the caret went in.
+   */
+  let definition: Node | undefined;
+  let at: string | undefined = sid;
+  for (let hop = 0; at && hop < 64; hop += 1) {
+    const one = doc.getNode(at);
+    if (!one) break;
+    if (one.stype === 'component') {
+      definition = one;
+      break;
+    }
+    at = one.parentId as string | undefined;
+  }
+  if (!definition) return undefined;
+
+  for (const child of (definition.content ?? []) as unknown[]) {
+    if (typeof child !== 'string') continue;
+    const bind = doc.getNode(child);
+    if (bind?.stype !== 'componentBind') continue;
+    if (bind.attributes?.part === partId && bind.attributes?.attr === 'text') {
+      const name = bind.attributes?.var;
+      return typeof name === 'string' ? name : undefined;
+    }
+  }
+  return undefined;
+}
+
+/**
  * How many placements name each definition, anywhere in the document.
  *
  * Counted by walking rather than kept as a number on the definition, for the reason every count in

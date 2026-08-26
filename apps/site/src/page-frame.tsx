@@ -63,6 +63,7 @@ export function PageFrame({
   mode,
   onEnterText,
   onEditComponent,
+  redraw,
   scope,
   onScope
 }: {
@@ -84,7 +85,16 @@ export function PageFrame({
   zoom: number;
   mode: PointerMode;
   onEnterText: (sid: string) => void;
-  onEditComponent?: (componentId: string) => void;
+  onEditComponent?: (componentId: string, from?: { collection: string; index: number }) => void;
+  /**
+   * A number that changes when the drawing must be rebuilt although the **document** did not.
+   *
+   * There is exactly one such thing so far and it is worth naming rather than hiding in a key: a
+   * definition drawn against a row of data resolves what its bound parts *say*, and resolution is
+   * not storage — so nothing in the store moves and the view, which keeps itself drawn from the
+   * store, hears nothing.
+   */
+  redraw?: number;
   scope: string;
   onScope: (scope: string) => void;
 }) {
@@ -131,7 +141,7 @@ export function PageFrame({
      */
     view.current.setRootId(page);
     view.current.render(undefined, { sync: true });
-  }, [editor, page, breakpoint]);
+  }, [editor, page, breakpoint, redraw]);
 
   useEffect(
     () => () => {

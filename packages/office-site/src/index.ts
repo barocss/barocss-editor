@@ -50,7 +50,7 @@ export {
 } from './panel-model';
 export { createElementCommands, SiteElementExtension } from './element-commands';
 /** The definitions a site holds, and what a builder needs to know about one. */
-export { definitionAt, definitionOf, definitionsOf, usesOf, type Definition } from './components';
+export { boundVarOf, definitionAt, definitionOf, definitionsOf, usesOf, type Definition } from './components';
 /**
  * What a reader can reach — the keys and the toolbar, as **data in the package**.
  *
@@ -91,7 +91,17 @@ export {
   type Dataset,
   type RowQuery
 } from './data';
-export { collectionRows, installSiteResolution, templateOf } from './collection-resolution';
+export {
+  collectionRows,
+  installSiteResolution,
+  previewForRow,
+  rowCountOf,
+  rowLabelsOf,
+  rowPreviewOf,
+  setRowPreview,
+  templateOf,
+  type RowPreview
+} from './collection-resolution';
 /**
  * The page a visitor gets.
  *
@@ -153,6 +163,7 @@ export {
   outermostOf,
   pagesOf,
   pathFromPage,
+  drawnSidAtElement,
   sidAtElement
 } from './selection';
 /**

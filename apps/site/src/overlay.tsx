@@ -9,8 +9,11 @@ import {
   landingFor,
   innermostOf,
   isTextual,
+  boundVarOf,
+  drawnSidAtElement,
   labelOfBlock,
   sidAtElement,
+  templateOf,
   type BreakpointId,
   type Landing
 } from '@barocss/office-site';
@@ -74,7 +77,8 @@ export function Overlay({
    * drill has nowhere else to go, and *into it* is the only thing a second double-click can honestly
    * mean. Which is the gesture every tool of this kind uses for the same reason.
    */
-  onEditComponent?: (componentId: string) => void;
+  /** Open a definition — and, when the reader came in through a list, against which of its rows. */
+  onEditComponent?: (componentId: string, from?: { collection: string; index: number }) => void;
   /**
    * The reader has entered this block's text.
    *
@@ -95,6 +99,13 @@ export function Overlay({
 }) {
   const layer = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<string | undefined>(undefined);
+  /**
+   * A part whose words came from somewhere else, and which variable that is.
+   *
+   * Held until the next click, because it is an **answer to a gesture** rather than a state a reader
+   * is in: they asked for the caret and are being told why they cannot have it there.
+   */
+  const [bound, setBound] = useState<{ sid: string; said: string } | undefined>(undefined);
 
   /*
    * The document's own answers, re-read rather than held: a panel that keeps a copy of the
@@ -237,6 +248,25 @@ export function Overlay({
     under({ clientX: event.clientX, clientY: event.clientY });
 
   /**
+   * The same point, answered with the sid **as it was drawn**.
+   *
+   * Everything else here wants the document node — that is what a reader can change — and exactly
+   * one question wants the drawing: which row of a list the pointer is on. The row number is the
+   * part of a drawn sid that `sidAtElement` collapses away.
+   */
+  const drawnHit = (event: React.MouseEvent): string | undefined => {
+    const board = host.current;
+    const skin = layer.current;
+    if (!board || !skin) return undefined;
+    for (const el of document.elementsFromPoint(event.clientX, event.clientY)) {
+      if (el === skin || skin.contains(el)) continue;
+      if (!board.contains(el)) continue;
+      return drawnSidAtElement(el, board);
+    }
+    return undefined;
+  };
+
+  /**
    * Hand the board back to the reader, with a caret in it.
    *
    * Entering the text is a **decision** rather than a click — this layer swallowed the double-click
@@ -282,6 +312,7 @@ export function Overlay({
     if (mode !== 'text') setEditing(undefined);
   }, [mode]);
   const editingBox = mode === 'text' && editing ? boxOf(editing) : undefined;
+  const boundBox = bound ? boxOf(bound.sid) : undefined;
 
   const boxes = selected
     .map((sid) => ({ sid, box: boxOf(sid) }))
@@ -346,6 +377,8 @@ export function Overlay({
       onPointerLeave={() => setHover(undefined)}
       onPointerDown={(event) => {
         if (mode !== 'select') return;
+        // Any new press answers the last one, so the note about bound words goes with it.
+        setBound(undefined);
         /*
          * The second press of a double-click is not a click.
          *
@@ -419,6 +452,20 @@ export function Overlay({
          */
         const deepest = innermostOf(doc(), sid, page);
         if (deeper === deepest && isTextual(doc(), deepest)) {
+          /*
+           * Unless the words are not the block's to give.
+           *
+           * A part of a card whose text is bound draws what its placement says — the row's title, the
+           * row's price — and the definition's own words are the fallback nobody sees. So a reader
+           * who typed here would watch the data overwrite them a frame later: not an error, not a
+           * refusal, just a change that does not survive. Every tool that binds text refuses the
+           * caret and says where the words come from, and this is that.
+           */
+          const bound = boundVarOf(doc() as never, deepest);
+          if (bound) {
+            setBound({ sid: deepest, said: bound });
+            return;
+          }
           enterText(deepest);
           return;
         }
@@ -427,6 +474,36 @@ export function Overlay({
         const node = doc().getNode(deeper);
         if (node?.stype === 'instance' && typeof node.attributes?.componentId === 'string') {
           onEditComponent?.(node.attributes.componentId);
+          return;
+        }
+
+        /*
+         * And a **list**: open the card it draws, against the row that was pointed at.
+         *
+         * A list's rows are resolved at draw time, so the chain of document nodes stops at the list
+         * itself — `documentSidOf` collapses everything after the first `~` — and a double-click on
+         * a product had nowhere further to go and did nothing at all. Which is exactly what it looked
+         * like from outside: *더블클릭 해도 편집모드가 되지 않아*.
+         *
+         * The row is in the sid the pointer landed on. It is carried because a card designed against
+         * `상품` and `0원` is a card designed against nothing: every real title is longer and the
+         * description that breaks the layout is in the data.
+         */
+        if (node?.stype === 'collection') {
+          const template = templateOf(doc() as never, node as never);
+          const componentId = (template?.attributes as Record<string, unknown> | undefined)?.componentId;
+          if (typeof componentId === 'string' && componentId) {
+            /*
+             * The row, asked of the **drawing** rather than of the document.
+             *
+             * `sidAtElement` collapses `${owner}~${part}` to the owner, which is right for every
+             * other question here — a part of a placement is not something anybody edits — and it is
+             * exactly what throws the row number away. Measured: a double-click on the second
+             * product opened the card showing the first.
+             */
+            const index = rowIndexOf(drawnHit(event)) ?? 0;
+            onEditComponent?.(componentId, { collection: deeper, index });
+          }
         }
       }}
     >
@@ -442,6 +519,19 @@ export function Overlay({
       {hovered ? (
         <div className="st-mark st-mark-hover" style={boxStyle(hovered)} aria-hidden>
           <span className="st-mark-name">{labelOfBlock(doc(), hover!)}</span>
+        </div>
+      ) : null}
+
+      {boundBox ? (
+        /*
+         * Words that came from the data, said where the reader asked for a caret.
+         *
+         * The variable's name rather than a refusal, because the reader's next question is *then
+         * where do I change it* — and the answer is the data panel, which is the one place those
+         * words exist.
+         */
+        <div className="st-mark st-mark-bound" style={boxStyle(boundBox)} aria-hidden>
+          <span className="st-mark-name">데이터에서 옴 · {bound!.said} · 데이터에서 고치세요</span>
         </div>
       ) : null}
 
@@ -477,6 +567,19 @@ export function Overlay({
       <span hidden data-revision={revision} />
     </div>
   );
+}
+
+/**
+ * Which row of a list a drawn sid names.
+ *
+ * A row is `${collection}~${index}` and its parts are `${collection}~${index}~${part}`, so the index
+ * is the second segment — written down rather than counted in the DOM, because a reader pointing at
+ * the third product means the third *product*, and counting siblings gives the same answer only
+ * until a list is sorted or filtered, which is most of them.
+ */
+function rowIndexOf(sid: string | undefined): number | undefined {
+  const index = Number(String(sid ?? '').split('~')[1]);
+  return Number.isInteger(index) && index >= 0 ? index : undefined;
 }
 
 const boxStyle = (box: { left: number; top: number; width: number; height: number }) => ({

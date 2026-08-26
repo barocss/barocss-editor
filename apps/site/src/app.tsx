@@ -18,6 +18,9 @@ import {
   editorStateCss,
   enclosing,
   pagesOf,
+  previewForRow,
+  rowLabelsOf,
+  setRowPreview,
   type BreakpointId,
   type StateId
 } from '@barocss/office-site';
@@ -140,6 +143,34 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   const [editing, setEditing] = useState<string | undefined>(undefined);
 
+  /**
+   * Which row of which list the definition is being **designed against**.
+   *
+   * A card opened on its own draws its declared defaults — `상품`, `설명`, `0원` — and a card
+   * designed against those is a card designed against nothing: every real title is longer, every
+   * real price has a comma in it, and the two-line description that breaks the layout is in the data
+   * rather than in the placeholder.
+   *
+   * Held here and written nowhere, because it is a fact about *this reader, this minute* — the same
+   * kind of fact as which width they are editing. A document that carried it would hand the next
+   * person a card mysteriously showing the eleventh product.
+   */
+  const [row, setRow] = useState<{ collection: string; index: number } | undefined>(undefined);
+
+  /**
+   * Open a definition, and say what a reader came in through.
+   *
+   * One door: the rail's list and a double-click on a placement both arrive here with no row, and a
+   * double-click on a **list's** row arrives with one.
+   */
+  const openDefinition = useCallback(
+    (componentId: string, from?: { collection: string; index: number }) => {
+      setEditing(componentId);
+      setRow(from);
+    },
+    []
+  );
+
   const definition = useMemo(() => {
     const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } })?.dataStore;
     const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
@@ -166,6 +197,37 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   const scopeRoot = definition?.sid ?? page;
   // A new page is a new outermost container; nothing that was entered on the last one is on it.
   const inside = scope && scopeRoot ? scope : scopeRoot;
+
+  /**
+   * The preview, handed to the drawing — and one redraw, because nothing in the document moved.
+   *
+   * The boards keep themselves drawn from the store's changes, and this changes no store: what a
+   * bound part *says* is resolved rather than stored, so the only way the drawing hears about a new
+   * row is being asked to draw again.
+   */
+  const [redraw, setRedraw] = useState(0);
+
+  /** What the list's rows are called, for the picker — the dataset's first text field. */
+  const rows = useMemo(() => {
+    const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } })?.dataStore;
+    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+    if (!store || !rootId || !row) return [];
+    return rowLabelsOf({ rootId, getNode: (sid: string) => store.getNode(sid) } as never, row.collection);
+  }, [editor, row, revision]);
+  useEffect(() => {
+    if (!editor) return;
+    const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } })?.dataStore;
+    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+
+    const preview =
+      store && rootId && editing && row
+        ? previewForRow({ rootId, getNode: (sid: string) => store.getNode(sid) } as never, row.collection, row.index)
+        : undefined;
+
+    setRowPreview(editor, preview);
+    setRedraw((one) => one + 1);
+    return () => setRowPreview(editor, undefined);
+  }, [editor, editing, row]);
 
   /**
    * What the boards promise a visitor, as a stylesheet the boards themselves obey.
@@ -346,6 +408,30 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               </button>
               <span className="st-where-name">{definition.name}</span>
               <span className="st-where-path">{definition.uses}곳에서 사용 중</span>
+              {/*
+                And which row it is being designed against, when the reader came in through a list.
+
+                A picker rather than a label: the row that breaks a card is rarely the first one, and
+                a designer who has to go back to the page and double-click a different product to see
+                the long title has been handed the editor's bookkeeping.
+              */}
+              {row && rows.length > 0 ? (
+                <label className="st-where-row">
+                  <span>데이터</span>
+                  <select
+                    value={String(row.index)}
+                    onChange={(event) =>
+                      setRow({ collection: row.collection, index: Number(event.target.value) })
+                    }
+                  >
+                    {rows.map((label, index) => (
+                      <option key={index} value={index}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
             </span>
           ) : (
             <span className="st-where" data-where>
@@ -407,6 +493,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                     width={one.width}
                     page={root}
                     scopeRoot={scopeRoot}
+                    redraw={redraw}
                     zoom={zoom}
                     mode={mode}
                     onEnterText={(sid) => {
@@ -414,13 +501,15 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                       setMode('text');
                     }}
                     /*
-                     * Double-clicking a placement opens what it draws.
+                     * Double-clicking a placement opens what it draws — and a **list's row** opens
+                     * the card the list draws, against that row.
                      *
                      * Which is the gesture every tool of this kind uses, and it costs nothing here:
                      * a placement has no children a reader can select — its parts are resolved — so
-                     * the drill has nowhere else to go.
+                     * the drill has nowhere else to go. A list had the same nowhere and did nothing
+                     * at all, which is what *더블클릭 해도 편집모드가 되지 않아* was.
                      */
-                    onEditComponent={setEditing}
+                    onEditComponent={openDefinition}
                     scope={inside ?? ''}
                     onScope={setScope}
                   />

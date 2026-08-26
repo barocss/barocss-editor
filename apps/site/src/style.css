@@ -77,6 +77,11 @@
   --st-ink: var(--ou-ink);
   --st-faint: var(--ou-muted);
   --st-accent: var(--ou-accent);
+  /*
+   * The one colour on this chrome that is neither the accent nor the ink — for the tool *answering*
+   * rather than marking: words that came from the data, where a reader asked to type them.
+   */
+  --st-second: #C9762A;
   --st-panel: var(--ou-panel);
 }
 
@@ -640,6 +645,47 @@ body {
 }
 
 .st-at-note { font-size: 11px; color: var(--st-accent); }
+
+/*
+ * Words that came from the data, marked where a reader asked to type them.
+ *
+ * The one colour on this chrome that is neither the accent nor the ink: this is not a selection and
+ * not an error, it is the tool answering a question, and it disappears at the next press.
+ */
+.st-mark-bound {
+  outline: calc(1px / var(--st-zoom, 1)) dashed var(--st-second);
+  outline-offset: calc(1px / var(--st-zoom, 1));
+}
+.st-mark-bound .st-mark-name {
+  background: var(--st-second);
+  color: #fff;
+}
+
+/*
+ * Which row a card is being designed against, in the bar that already says what is being edited.
+ *
+ * Beside the "5곳에서 사용 중" count on purpose: those are the two sentences a reader needs before
+ * they change a card — *this changes five pages*, and *this is the product you are looking at*.
+ */
+.st-where-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--st-line);
+  font-size: 11px;
+  color: var(--st-faint);
+}
+.st-where-row select {
+  max-width: 12rem;
+  padding: 1px 4px;
+  font-size: 11px;
+  border: 1px solid var(--st-line);
+  border-radius: 3px;
+  background: var(--st-panel);
+  color: var(--st-ink);
+}
 
 /*
  * The state switch, at the head of 모양.

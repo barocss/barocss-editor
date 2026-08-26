@@ -420,7 +420,7 @@ designer reached for while the sample was being built.
 | **responsive** | three widths, each saying only what differs |
 | **tokens** | a colour or a word written once and referred to as `var:이름` |
 | **reuse** | a definition with variables, placed anywhere, edited in one place |
-| **data** | a dataset, filtered, sorted, limited, drawn once per row |
+| **data** | a dataset, filtered, sorted, limited, drawn once per row — and its card edited against a row of it |
 | **text** | the document model's — headings, lists, tables, footnotes, and 24 marks |
 | **links** | to a page of this site, by durable id, resolved where they are drawn |
 | **states** | what a block is painted with under a pointer, or under the keyboard's focus |
@@ -491,6 +491,44 @@ wrong.
 test beside it and nothing asked any of them about a real document. A check nobody runs reads, to the
 next person, exactly like a check that passes. `documentFaults` is the walk that asks all three, and
 the sample answers clean.
+
+## A list's card is edited against the list's data
+
+A `collection` draws one card per row and the rows are **resolved at draw time** — forty products
+cost zero nodes. Which means the chain of document nodes stops at the list itself: everything below
+it carries a synthetic `${collection}~${index}` id, and `documentSidOf` collapses that back to the
+list. So a double-click on a product had nowhere further to go and did nothing at all.
+
+The card is a `component`, so the door already existed — a double-click on a *placement* opens what
+it draws. A list now uses the same door, opening the definition its template places.
+
+**And it opens against the row that was pointed at.** A card designed against `상품`, `설명` and
+`0원` is a card designed against nothing: every real title is longer, every real price has a comma in
+it, and the two-line description that breaks the layout is in the data rather than in the
+placeholder. The bar gains a row picker, because the row that breaks a card is rarely the first one
+and going back to the page to double-click a different product is the editor's bookkeeping handed to
+the reader.
+
+Three decisions in that, each of which could have gone the other way:
+
+- **The preview is not written to the document.** Which row a designer is looking at is a fact about
+  *this reader, this minute* — the same kind of fact as which width they are editing — and a document
+  that carried it would hand the next person a card mysteriously showing the eleventh product. It
+  lives beside the editor and the drawing asks for it.
+- **Only the words are substituted, and each node keeps its own id.** Resolving the definition through
+  `instanceParts` would have been shorter and would have given every part a synthetic `owner~part`
+  id — so a reader looking at a real product could not have selected the heading showing it. A
+  preview you cannot edit in is a screenshot.
+- **A bound part refuses the caret.** The card's title draws the row's name, so typing there changes
+  the definition's fallback and the data overwrites it a frame later: not an error, not a refusal,
+  just a change that does not survive. The part says where its words come from instead — the
+  variable's name, and that the data is where to change them.
+
+One thing fell out of it that was not about lists. `sidAtElement` collapses a drawn `${owner}~${part}`
+to the owner, which is right for every question about *what a reader can change* — a part of a
+placement is not something anybody edits — and it is exactly what throws the row number away. There
+is now a `drawnSidAtElement` beside it for the one question that is about the drawing rather than the
+document, and a double-click on the second product opens the second product.
 
 ## What a site builder still needs
 
