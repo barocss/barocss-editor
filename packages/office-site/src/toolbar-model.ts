@@ -64,30 +64,36 @@ export interface SiteControl {
  * shape, and `every-command-can-be-seen` refuses a command that could only answer "it depends".
  */
 export const SITE_TOOLBAR: SiteControl[] = [
-  { command: 'insertSection', puts: 'container', label: '섹션', title: '세로로 쌓는 섹션', group: 'insert', icon: 'add', makes: '섹션' },
-  { command: 'insertRow', puts: 'container', label: '가로', title: '가로로 늘어놓는 스택', group: 'insert', icon: 'add', makes: '가로 스택' },
-  { command: 'insertGrid', puts: 'container', label: '그리드', title: '3열 그리드', group: 'insert', icon: 'add', makes: '그리드' },
+  { command: 'insertSection', puts: 'container', label: '섹션', title: '세로로 쌓는 섹션', group: 'insert', icon: 'frame-column', makes: '섹션' },
+  { command: 'insertRow', puts: 'container', label: '가로', title: '가로로 늘어놓는 스택', group: 'insert', icon: 'frame-row', makes: '가로 스택' },
+  { command: 'insertGrid', puts: 'container', label: '그리드', title: '3열 그리드', group: 'insert', icon: 'frame-grid', makes: '그리드' },
   /*
    * And the things that go *in* a stack.
    *
    * They are on the rail rather than the toolbar — a list of what a page is made of, which is where
    * every builder of this kind puts them, because there are more of them than a toolbar has room for
    * and they are chosen by what they are rather than found by what they do.
+   *
+   * **Each with a picture.** They were a column of unadorned words, which is a menu rather than a
+   * palette: a reader picking a *shape* scans for the shape, and 제목 · 본문 · 이미지 · 목록 read as
+   * a list of options rather than as things. The three containers each had `add`, which is the same
+   * drawing three times for three different arrangements — a stack, a row and a grid are exactly
+   * what a picture can tell apart and a word cannot at a glance.
    */
-  { command: 'insertHeading', puts: 'block', label: '제목', title: '제목을 넣습니다', group: 'insert', makes: '제목' },
-  { command: 'insertBodyText', puts: 'block', label: '본문', title: '본문을 넣습니다', group: 'insert', makes: '본문' },
-  { command: 'insertPicture', puts: 'block', label: '이미지', title: '이미지를 넣습니다', group: 'insert', makes: '이미지' },
-  { command: 'insertBulletList', puts: 'block', label: '글머리 목록', title: '글머리 목록을 넣습니다', group: 'insert', makes: '목록' },
-  { command: 'insertNumberList', puts: 'block', label: '번호 목록', title: '번호 목록을 넣습니다', group: 'insert', makes: '번호 목록' },
-  { command: 'insertQuote', puts: 'block', label: '인용', title: '인용문을 넣습니다', group: 'insert', makes: '인용' },
-  { command: 'insertCode', puts: 'block', label: '코드', title: '코드 블록을 넣습니다 — 안에서 Enter는 줄바꿈입니다', group: 'insert', makes: '코드' },
-  { command: 'insertRule', puts: 'block', label: '구분선', title: '가로 구분선을 넣습니다', group: 'insert', makes: '구분선' },
+  { command: 'insertHeading', puts: 'block', label: '제목', title: '제목을 넣습니다', group: 'insert', icon: 'heading', makes: '제목' },
+  { command: 'insertBodyText', puts: 'block', label: '본문', title: '본문을 넣습니다', group: 'insert', icon: 'paragraph', makes: '본문' },
+  { command: 'insertPicture', puts: 'block', label: '이미지', title: '이미지를 넣습니다', group: 'insert', icon: 'insert-image', makes: '이미지' },
+  { command: 'insertBulletList', puts: 'block', label: '글머리 목록', title: '글머리 목록을 넣습니다', group: 'insert', icon: 'bullet-list', makes: '목록' },
+  { command: 'insertNumberList', puts: 'block', label: '번호 목록', title: '번호 목록을 넣습니다', group: 'insert', icon: 'ordered-list', makes: '번호 목록' },
+  { command: 'insertQuote', puts: 'block', label: '인용', title: '인용문을 넣습니다', group: 'insert', icon: 'quote', makes: '인용' },
+  { command: 'insertCode', puts: 'block', label: '코드', title: '코드 블록을 넣습니다 — 안에서 Enter는 줄바꿈입니다', group: 'insert', icon: 'code', makes: '코드' },
+  { command: 'insertRule', puts: 'block', label: '구분선', title: '가로 구분선을 넣습니다', group: 'insert', icon: 'divider', makes: '구분선' },
   /*
    * And the one that is a **composition** rather than a node: a box, a word, a hit area, a radius
    * and an answer to the pointer. The knowledge is the arrangement, which is why it is a command
    * rather than four rows of a panel a reader would have to know to fill in.
    */
-  { command: 'insertButton', puts: 'block', label: '버튼', title: '버튼을 넣습니다', group: 'insert', makes: '버튼' },
+  { command: 'insertButton', puts: 'block', label: '버튼', title: '버튼을 넣습니다', group: 'insert', icon: 'component', makes: '버튼' },
   {
     command: 'duplicateBlocks',
     label: '복제',

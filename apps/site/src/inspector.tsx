@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import {
+  Icon,
   Button,
   ChoiceSelect,
   PropertyEmpty,
@@ -305,9 +306,17 @@ export function Inspector({
               data-at={one.id}
               data-current={one.id === at ? 'true' : undefined}
               title={`${one.label}에서 편집`}
+              aria-label={`${one.label}에서 편집`}
               onClick={() => onAt(one.id)}
             >
-              {one.label[0]}
+              {/*
+                The picture, because the word did not fit and the truncation was 데 / 태 / 모.
+
+                A one-syllable Korean truncation is not an abbreviation — it carries no meaning at
+                all — and these three are exactly what a glyph says instantly. Which glyph means
+                *tablet* is declared with the breakpoint (`breakpoints.ts`), not here.
+              */}
+              <Icon name={one.icon} size={14} />
             </button>
           ))}
         </div>

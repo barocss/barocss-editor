@@ -1,6 +1,7 @@
 import type { Editor } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import {
+  Icon,
   ChoiceSelect,
   SegmentedControl,
   Toolbar,
@@ -122,7 +123,15 @@ export function Ribbon({
             disabled={!can(control.command)}
             onActivate={() => run(control.command)}
           >
-            {control.label}
+            {/*
+              The picture, not the word — and all four already declared one that nothing drew.
+
+              복제 · 삭제 · 컴포넌트로 · 컴포넌트 해제 were plain text on a strip where everything
+              else in this suite is an icon with a tooltip, so they read as links rather than as
+              buttons and nothing among them was primary. The label is still the accessible name and
+              still the tooltip; what changed is what a reader's eye lands on.
+            */}
+            <Icon name={control.icon ?? 'add'} />
           </ToolbarToggle>
         ))}
       </ToolbarGroup>

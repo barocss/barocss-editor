@@ -35,11 +35,16 @@ export const SITE_ENV_KEY = 'site';
  * a detail that a product may want to change without changing what anybody means. The widths are the
  * common ones and are **CSS pixels**, which is the unit a breakpoint is written in everywhere on the
  * web; the document is still in twips, and the conversion happens where a length is drawn.
+ *
+ * Each carries the **picture** it is drawn with as well, declared here because which glyph means
+ * *tablet* is a fact about the breakpoint rather than about any one control. The panel used to say
+ * which width it was writing to with the first syllable of the name — 데 / 태 / 모 — which is not an
+ * abbreviation but an unreadable label.
  */
 export const BREAKPOINTS = [
-  { id: 'desktop', label: '데스크톱', width: 1280, viewport: 800 },
-  { id: 'tablet', label: '태블릿', width: 834, viewport: 1112 },
-  { id: 'mobile', label: '모바일', width: 390, viewport: 844 }
+  { id: 'desktop', label: '데스크톱', width: 1280, viewport: 800, icon: 'screen-desktop' },
+  { id: 'tablet', label: '태블릿', width: 834, viewport: 1112, icon: 'screen-tablet' },
+  { id: 'mobile', label: '모바일', width: 390, viewport: 844, icon: 'screen-mobile' }
 ] as const;
 
 export type BreakpointId = (typeof BREAKPOINTS)[number]['id'];

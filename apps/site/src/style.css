@@ -957,3 +957,26 @@ body {
  * in — the brand needs air after it, or 파일 reads as part of the product's name.
  */
 .st-menubar { margin-left: 12px; }
+
+/*
+ * ── The insert palette's pictures ──────────────────────────────────────────
+ *
+ * A fixed column for the icon so the words line up whether or not an entry has one — a palette
+ * whose labels shift left and right by an icon's width reads as two lists.
+ */
+/*
+ * An **insert** row is icon-then-word, where every other rail row is name-then-hint.
+ *
+ * `.st-rail-item` is `space-between` because a page's row puts its address on the right and a
+ * component's puts its use count there. An insert row has no right-hand fact, so the same rule threw
+ * the label to the far edge with the icon alone on the left — two columns of unrelated things.
+ */
+.st-rail-item[data-insert] { justify-content: flex-start; }
+.st-rail-icon {
+  display: inline-flex;
+  width: 16px;
+  flex: 0 0 16px;
+  justify-content: center;
+  color: var(--st-muted);
+}
+.st-rail-item[data-current='true'] .st-rail-icon { color: var(--st-accent); }

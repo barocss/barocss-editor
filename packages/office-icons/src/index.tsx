@@ -74,6 +74,9 @@ import {
   Type,
   Square,
   Circle,
+  Monitor,
+  Smartphone,
+  Tablet,
   Minus,
   Workflow,
   BringToFront,
@@ -105,6 +108,7 @@ import {
   Columns3 as ColumnsBanded,
   MoveUp,
   MoveDown,
+  ArrowLeft,
   ArrowUp,
   ArrowDown,
   Maximize2,
@@ -259,6 +263,25 @@ const ICONS: Record<string, LucideIcon> = {
    */
   'move-up': ArrowUp,
   'move-down': ArrowDown,
+  /**
+   * **Out of here, back to where I came from** — a site's ← 페이지로, a deck's way out of a layout.
+   *
+   * A full arrow rather than `previous`' chevron, and the distinction is the one three lines up:
+   * a chevron moves the *view* one step along a list, and this leaves a place. It was a typed `←`
+   * in the site builder, which is a character drawn by whatever font resolves it — the same fault
+   * `stack.tsx` records about `␡`, in the same chrome, a year apart.
+   */
+  back: ArrowLeft,
+  /**
+   * The three widths a site builder draws at once.
+   *
+   * The panel said which one it was writing to with **the first syllable of its name** — 데 / 태 / 모
+   * — which is not an abbreviation, it is an unreadable label. A one-syllable Korean truncation
+   * carries no meaning at all, and the three are exactly what a picture says instantly.
+   */
+  'screen-desktop': Monitor,
+  'screen-tablet': Tablet,
+  'screen-mobile': Smartphone,
   // Not an eye: the button *hides*, and an open eye on a visible slide reads as
   // "this is visible" rather than as what pressing it will do.
   hide: EyeOff,

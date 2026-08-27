@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
 import { useDismiss } from './stack';
 
@@ -190,9 +191,17 @@ export function Menu({
                     The mark keeps its room whether or not it is drawn, so a menu of toggles does not
                     shift its labels sideways as a reader turns them on and off.
                   */}
+                  {/*
+                    The icon set's tick, not a `✓`.
+                    A typed character is drawn by whatever font resolves it, at that font's weight
+                    and baseline, so it never matches the 16px lucide set beside it — the same
+                    lesson `stack.tsx` already carries about `␡`, and one this file had to learn
+                    again. The room is kept whether or not the mark is drawn, so a menu of toggles
+                    does not shift its labels sideways as a reader turns them on and off.
+                  */}
                   {entry.checked !== undefined && (
-                    <span aria-hidden className="w-3 shrink-0 text-[color:var(--ou-accent)]">
-                      {entry.checked ? '✓' : ''}
+                    <span className="flex w-3.5 shrink-0 items-center text-[color:var(--ou-accent)]">
+                      {entry.checked && <Icon name="chosen" size={14} />}
                     </span>
                   )}
                   {entry.label}

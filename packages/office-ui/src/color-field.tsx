@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
 import { CONTROL } from './controls';
 import { useDismiss } from './stack';
@@ -179,15 +180,26 @@ export function ColorField({
       {onClear && (
         <button
           type="button"
- aria-label={`${ariaLabel} 지우기`}
+          aria-label={`${ariaLabel} 지우기`}
+          title={`${ariaLabel} 지우기`}
           disabled={disabled || value === null}
           onClick={onClear}
           className={cn(
             CONTROL,
-            'px-1.5 hover:bg-[color:var(--ou-ground)]'
- )}
+            /*
+             * A picture, because the word did not fit.
+             *
+             * Measured in the site builder's 모양 pane: 지우기 wrapped to two lines inside the
+             * 그라디언트 and 그림자 rows, where two colour fields share one row's control column.
+             * Three characters and their padding is 46px in a column that had 40 to give — and every
+             * other *clear* in this suite is already a glyph. `shrink-0` as well, because the fault
+             * underneath was a button that agreed to be squeezed.
+             */
+            'shrink-0 px-1.5 hover:bg-[color:var(--ou-ground)]',
+            'inline-flex items-center text-[color:var(--ou-faint)] hover:text-[color:var(--ou-ink)]'
+          )}
         >
-          지우기
+          <Icon name="close" size={13} />
         </button>
       )}
 

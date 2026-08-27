@@ -3,6 +3,7 @@ import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds, watchAnswers, watchContent } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import {
+  Icon,
   AppBody,
   AppChrome,
   AppMain,
@@ -668,7 +669,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           {definition ? (
             <span className="st-where" data-where data-editing-component={definition.id}>
               <button type="button" className="st-back" onClick={() => setEditing(undefined)}>
-                ← 페이지로
+                <Icon name="back" size={13} />
+                페이지로
               </button>
               <span className="st-where-name">{definition.name}</span>
               <span className="st-where-path">{definition.uses}곳에서 사용 중</span>

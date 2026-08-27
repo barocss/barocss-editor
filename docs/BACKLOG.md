@@ -85,9 +85,9 @@ evidence rather than opinion: the same twelve are *missing entirely* from the ot
 - [x] **1b. The site's toolbar stopped carrying what is not a tool**, and its menubar grew from 11
   entries to 33. See Done. Word's and the deck's toolbars are still what they were.
 
-- [ ] **1b-ii. The site toolbar's object actions are still plain text.** 복제 · 삭제 ·
-  컴포넌트로 · 컴포넌트 해제 read as links rather than as buttons, and two of the four already
-  declare an icon nothing draws. Everything else in the suite's toolbars is an icon with a tooltip.
+
+- [x] ~~**1b-ii · 4 · 6**~~ — the toolbar's object actions, the panel's truncated widths and wrapping
+  clear buttons, and the insert palette. All pictures now. See Done.
 
 - [ ] **1b-iii. The 링크 row is a property on a toolbar.** A page picker 130px wide sits in the strip
   showing 링크 없음 with nothing selected. What a block links to is a *property*, and every other
@@ -115,18 +115,11 @@ evidence rather than opinion: the same twelve are *missing entirely* from the ot
   segmented control for the first is the convention, and the difference is not decoration — a reader
   cannot currently tell that turning off 태블릿 is allowed and turning off 선택 is not.
 
-- [ ] **4. Panel rows whose control column is too narrow.** Measured in the site's 모양 pane: 지우기
-  wraps to two lines inside the 그라디언트 and 그림자 rows, and the 데스크톱/태블릿/모바일 buttons in
-  the panel header are truncated to 데 / 태 / 모. A one-syllable truncation is not an abbreviation,
-  it is an unreadable label.
 
 - [ ] **5. Word's font and size pickers show `—` when nothing is selected.** A font picker showing an
   em-dash reads as broken rather than as *no selection*. The document's own default is the honest
   thing to show, which is what every word processor does.
 
-- [ ] **6. An insert palette of plain text.** The site's 추가 rail lists 섹션 · 가로 스택 · 그리드 ·
-  제목 · 본문 · 이미지 … as unadorned text. `office-icons` exists and the toolbar uses it; a palette
-  a reader picks shapes from is the one place an icon earns its keep.
 
 ### The whole suite speaks one language, and a browser test is what noticed
 
@@ -3107,6 +3100,37 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **Seven places drew a unicode character where an icon belonged.** A typed glyph is drawn by
+  whatever font resolves it, at that font's weight and baseline, so it never matches the 16px
+  lucide set beside it. `office-icons`' own header records this being learned once — the alignment
+  controls were `⟸ ⟺ ⟹` and the character controls were the letters B, I, U, S — and `stack.tsx`
+  records it a second time about `␡`, *which had no glyph in most fonts and came out as a box with
+  DL in it*. Four `␡` were still in the deck, and I had just added a `✓` to the menubar.
+
+  All seven are `office-icons` now, and the set grew four names — `back` (a full arrow, where
+  `previous` is a chevron: one leaves a place and the other moves the view one step) and
+  `screen-desktop` / `screen-tablet` / `screen-mobile`.
+
+- **The site's chrome stopped saying things in words that pictures say better.**
+
+  - **The toolbar's four object actions** — 복제 · 삭제 · 컴포넌트로 · 컴포넌트 해제 — were plain
+    text on a strip where everything else in the suite is an icon with a tooltip, so they read as
+    links and nothing among them was primary. All four already declared an icon that nothing drew.
+  - **The panel said which width it writes to with the first syllable of the name** — 데 / 태 / 모.
+    A one-syllable Korean truncation is not an abbreviation; it carries no meaning at all. Which
+    glyph means *tablet* is declared with the breakpoint, since it is a fact about the breakpoint.
+  - **지우기 wrapped to two lines** inside the 그라디언트 and 그림자 rows, where two colour fields
+    share one row's control column: three characters and their padding is 46px in a column with 40
+    to give. It is the `close` glyph now, and `shrink-0` — the fault underneath was a button that
+    agreed to be squeezed.
+  - **The insert palette was a column of unadorned words**, which is a menu rather than a palette:
+    a reader picking a shape scans for the shape. The three containers each carried `add`, which is
+    one drawing for three arrangements a picture can tell apart at a glance and a word cannot.
+
+  One thing the icons found: `.st-rail-item` is `space-between` because a page's row puts its
+  address on the right and a component's puts its use count there. An insert row has no right-hand
+  fact, so the same rule threw the label to the far edge with the icon alone on the left.
 
 - **Word's toolbar shows what the selection can be asked.** Measured with a caret in an ordinary
   paragraph: of 69 controls, **arrange was 12 of 12 disabled and table 15 of 15**, and everything

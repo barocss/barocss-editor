@@ -10,6 +10,7 @@ import type { Editor } from '@barocss/editor-core';
 import {
   Button,
   Choice,
+  Icon,
   ColorField,
   Field,
   FieldGroup,
@@ -2032,7 +2033,7 @@ function StepEditor({
           * that the copy took.
           */}
         <Button square ariaLabel="모션 복사" data={{ 'motion-copy': '' }} onClick={onCopy}>
-          ⧉
+          <Icon name="duplicate" size={13} />
         </Button>
         <Button
           square
@@ -2050,7 +2051,7 @@ function StepEditor({
           ↓
         </Button>
         <Button square ariaLabel="삭제" onClick={onRemove}>
-          ␡
+          <Icon name="delete" size={13} />
         </Button>
       </footer>
     </aside>

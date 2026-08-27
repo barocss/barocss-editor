@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import {
+  Icon,
   Button,
   Choice,
   ColorPicker,
@@ -606,7 +607,7 @@ function GradientBar({
               onClick={() => setStops(removeStop(stops, chosen))}
               className="ml-auto"
             >
-              ␡
+              <Icon name="delete" size={13} />
             </Button>
           </>
         )}

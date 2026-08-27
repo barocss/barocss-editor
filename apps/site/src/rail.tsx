@@ -194,6 +194,19 @@ function AddPanel({
               disabled={!can(one.command)}
               onClick={() => run(one.command)}
             >
+              {/*
+                A picture **and** the word.
+
+                Icon-only is unreadable at twelve entries — a reader would be guessing at four of
+                them — and word-only is what this was: a column of unadorned text, which reads as a
+                menu of options rather than as a palette of things. Every builder of this kind draws
+                both, for the reason a palette exists: a reader picking a shape scans for the shape.
+              */}
+              {one.icon && (
+                <span className="st-rail-icon">
+                  <Icon name={one.icon} size={14} />
+                </span>
+              )}
               {one.makes ?? one.label}
             </button>
           ))}

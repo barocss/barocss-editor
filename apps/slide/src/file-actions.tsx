@@ -1,6 +1,6 @@
 import { useImperativeHandle, useState, type Ref } from 'react';
 import type { Editor } from '@barocss/editor-core';
-import { Button, FilePick } from '@barocss/office-ui';
+import { Icon, Button, FilePick } from '@barocss/office-ui';
 import {
   createStarterDeck,
   deckFileName,
@@ -179,7 +179,7 @@ export function FileActions({
             onClick={() => setProblem(undefined)}
             className="h-4 w-4 border-0 text-[10px] hover:bg-transparent"
           >
-            ✕
+            <Icon name="close" size={10} />
           </Button>
         </span>
       )}

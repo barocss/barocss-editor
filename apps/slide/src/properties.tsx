@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import {
+  Icon,
   Button,
   Choice,
   NumberField,
@@ -2214,7 +2215,7 @@ function MotionTab({
                 disabled={locked}
                 onClick={() => run('removeMotionStep', { stepId: step.sid })}
               >
-                ␡
+                <Icon name="delete" size={13} />
               </Button>
             </PropertyRow>
           ))
