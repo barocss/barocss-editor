@@ -232,6 +232,59 @@ And the reasons to be careful, which are the real content of the question:
   answer probably depends on whether the first user of it is the person who wrote the page or the
   person translating it.
 
+#### The compounding argument, and what it actually costs — measured 2026-08-27
+
+The argument for the variable framing that the dataset framing does not have, and it is the strong
+one: *a component whose text is a multilingual variable, placed anywhere, is translated everywhere by
+having been placed.* Translate the card once; every instance on every page speaks the visitor's
+language, and a page nobody has thought about since is correct because of a decision made elsewhere.
+That is what a variable **is** — the reason to have one rather than a value — and it is why the
+spreadsheet objection ("this is a spreadsheet used from a design tool, which is hard") does not
+settle the question. Figma's variables panel *is* a spreadsheet with a designer's chrome on it; the
+storage being a table and the surface being a panel of named values are not in conflict.
+
+**Measured, because the cost estimate turns on one number: how many places resolve a reference.**
+
+| | |
+| --- | --- |
+| reference prefixes that exist | **3** — `var:`, `field:`, `page:`, each one constant in one file |
+| places a component's value becomes what a part draws | **1** — `canvas-instance.ts:108`, `options.rewrite(resolved)` |
+| the substitution that already does this for data | **13 lines** — `valuesForRow` in `data.ts` |
+
+So for **anything that is a component**, translation is nearly free and needs no new resolution path:
+a `componentValue` holding `text:키` and a `rewrite` that swaps it for the current language's column,
+which is `valuesForRow` with `textKeyOf` in place of `fieldNameOf`. The hook is already there, it is
+already used by the collection resolver for exactly this shape of substitution, and the compounding
+property above falls out of it rather than being built.
+
+**And it does not cover ordinary page text at all.** A heading typed onto a page is nobody's part and
+has no variable — its words are its own. Which splits the feature honestly in two:
+
+- **The component half is cheap and delivers the whole compounding argument.** One 13-line function,
+  one existing hook, no new resolution path, no caret question — a bound part already refuses the
+  caret for reasons that have nothing to do with language.
+- **The run half is where every difficulty lives.** A run naming a key is a fourth reference and a
+  new path through the *text stack*: the caret question, the marks question, the offsets question.
+  All three are the ones the section above already lists as costs.
+
+That suggests the staging, and it is a better one than "design the whole variable system first":
+
+- [ ] **1. A component's value can name a translation key.** Prove the compounding claim on the
+  sample's card: one table, one `rewrite`, one language in the env, three boards showing ko / en / ja
+  side by side. This is the spike, and it is small enough to throw away.
+- [ ] **2. Then judge the panel.** With something real to look at, the question *is this a variables
+  panel with modes or a translator's table* stops being abstract — a reader can be shown both.
+- [ ] **3. Only then, runs.** And the answer to the caret question may well be that a translated run
+  is edited **in the table** rather than on the page, the way a code block is edited in a layer:
+  the surface for translating is not the surface for designing, and pretending otherwise is what
+  makes every other tool's translation mode confusing.
+
+One thing to hold on to while doing any of it: **a variable framing must not become a map on the
+node.** Figma's `boundVariables` is one, and this schema has refused a map three times — a value
+nothing can check is the fault this backlog keeps finding, and `componentBind` is a node for exactly
+that reason. A translation reference belongs in the value a `componentValue` already holds, which is
+a string this product already resolves three kinds of reference out of.
+
 ### A state can be promised, but nothing gets between one and the next
 
 - [x] ~~A hover that arrives **instantly** looks like a bug.~~ Built: `transitionMs`, one number on
