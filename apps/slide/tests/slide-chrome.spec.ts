@@ -294,6 +294,24 @@ test.describe('zooming with the wheel', () => {
       return { x: Math.round(box.left + box.width * 0.72), y: Math.round(box.top + box.height * 0.3) };
     });
 
+    /*
+     * **Zoomed in once first**, so the correction has scroll to give.
+     *
+     * The anchoring gives way at the edges by design — a point cannot be held while the pane is
+     * already at `scrollTop: 0` — and a fitted deck has no scroll at all. Which stayed invisible
+     * until the toolbar became contextual and the pane grew 32 pixels: the same four notches then
+     * left the point 1.8% out, and the correction had done nothing wrong. A test aimed where the
+     * clamp is doing the work measures the clamp.
+     */
+    await page.keyboard.down('Control');
+    for (let notch = 0; notch < 3; notch += 1) {
+      await page.mouse.move(aim.x, aim.y);
+      await page.mouse.wheel(0, -120);
+      await page.waitForTimeout(120);
+    }
+    await page.keyboard.up('Control');
+    await page.waitForTimeout(200);
+
     await page.mouse.move(aim.x, aim.y);
     const before = (await fractionAt(page, aim))!;
 

@@ -382,7 +382,23 @@ export function Ribbon({
       {palette(WORD_TEXT_COLOR)}
       {palette(WORD_TEXT_HIGHLIGHT)}
       <ToolbarSeparator />
-      {SLIDES_TOOLBAR.map((group, index) => (
+      {/*
+        A **contextual** group is drawn only when there is something for it to act on.
+
+        Measured with one box selected: of 60 controls, `align` was 10 of 12 disabled, `table` 9 of 9,
+        `character` 5 of 5 and `group` 2 of 4 — twenty-six glyphs that could do nothing, and with
+        nothing selected it was forty-four. Word's ribbon reached the same place and the boundary is
+        the same: `character` is dead for want of a **selection** and these four for want of a *kind*
+        of one, which is a fact about the product and so the product says it (`ControlGroup.when`).
+
+        Both kinds are answered here by asking the group's own controls, where Word answers `table`
+        from the caret's own table because it already computes one for the look flags. Same rule, one
+        product with a shortcut — and `when`'s value is what says which context a group is about.
+      */}
+      {SLIDES_TOOLBAR.filter(
+        (group) =>
+          !group.when || group.controls.some((control) => editor.canRun(control.command, control.payload))
+      ).map((group, index) => (
         <span key={group.id} className="contents">
           {index > 0 && <ToolbarSeparator />}
           <ToolbarGroup id={group.id}>

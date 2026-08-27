@@ -39,14 +39,18 @@ const placeOf = (page: Page, sid: string) =>
   }, sid);
 
 test.describe('tidying a diagram', () => {
-  test('is on the toolbar, and unavailable until something is joined', async ({ page }) => {
+  test('is on the toolbar, and not offered until something is joined', async ({ page }) => {
     await openDeck(page);
 
-    // The sample deck's first slide has shapes and no lines: nothing to rank, so the
-    // button says so rather than doing something arbitrary.
+    /*
+     * **Not offered**, where it used to be offered and greyed.
+     *
+     * It lives in the arranging group, and that group is contextual now: measured with nothing
+     * selected, of the deck's 60 controls forty-four could do nothing, in two rows. A button that
+     * says so by being absent is the same sentence as a greyed one and costs no room.
+     */
     const button = page.locator('[data-control="tidy-graph-down"]');
-    await expect(button).toHaveCount(1);
-    await expect(button).toBeDisabled();
+    await expect(button).toHaveCount(0);
 
     await scatter(page);
     await page.waitForTimeout(400);

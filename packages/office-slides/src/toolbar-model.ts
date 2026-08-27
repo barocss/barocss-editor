@@ -270,6 +270,10 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
    */
   {
     id: 'order',
+    /*
+     * Four z-order controls, and a deck with nothing selected has no z to order. Measured with one box chosen: 0 of 4 disabled; with nothing: 4 of 4.
+     */
+    when: 'shape',
     controls: [
       { id: 'bring-front', label: '맨 앞으로', icon: 'bring-front', command: 'bringToFront' },
       // One step, which is the one a reader reaches for when two shapes overlap
@@ -283,6 +287,10 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
 
   {
     id: 'align',
+    /*
+     * Twelve, and ten of them want a **set** — aligning one thing against itself has no meaning. Measured with one box: 10 of 12 disabled; with nothing: 12 of 12.
+     */
+    when: 'shape',
     controls: [
       { id: 'align-boxes-left', label: '왼쪽 정렬', icon: 'align-boxes-left', command: 'alignBoxesLeft' },
       { id: 'align-boxes-centre', label: '가운데 정렬', icon: 'align-boxes-centre', command: 'alignBoxesCentre' },
@@ -359,6 +367,10 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
    */
   {
     id: 'table',
+    /*
+     * Nine that ask the table around the caret, and a deck is mostly not about tables. Measured in every state but one: 9 of 9 disabled.
+     */
+    when: 'table',
     controls: [
       { id: 'row-above', label: '위에 행 삽입', icon: 'row-above', command: 'insertRowAbove' },
       { id: 'row-below', label: '아래에 행 삽입', icon: 'row-below', command: 'insertRowBelow' },
@@ -374,6 +386,10 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
 
   {
     id: 'group',
+    /*
+     * Grouping needs things to group. Measured with one box: 2 of 4; with nothing: 4 of 4.
+     */
+    when: 'shape',
     controls: [
       { id: 'group-boxes', label: '그룹', icon: 'group', command: 'groupBoxes' },
       { id: 'ungroup-boxes', label: '그룹 해제', icon: 'ungroup', command: 'ungroupBoxes' },
