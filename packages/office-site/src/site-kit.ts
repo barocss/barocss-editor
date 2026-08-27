@@ -44,6 +44,7 @@ import { createBlockCommands } from './block-commands';
 import { createDataCommands } from './data-commands';
 import { createElementCommands } from './element-commands';
 import { createLinkCommands } from './link-commands';
+import { createPublishCommands } from './publish-commands';
 import { createPageCommands } from './page-commands';
 
 /** What the site product itself adds, as one list. */
@@ -92,7 +93,13 @@ export function createSiteOwnExtensions(): Extension[] {
      * `toggleLink` takes an address, which is the one thing a page must not store — see
      * `link-commands.ts`.
      */
-    createLinkCommands()
+    createLinkCommands(),
+    /*
+     * And **publishing**, which is the gesture the whole product is for and which had no command at
+     * all — `exportSite` was a function on `window`, put there for the console and for tests. A
+     * capability that is not a command is invisible to every check this repository has.
+     */
+    createPublishCommands()
   ];
 }
 

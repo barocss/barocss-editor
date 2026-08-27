@@ -151,6 +151,7 @@ export {
  * canvas: the target is hit-tested against the model, not read off an element.
  */
 export { Menu, type MenuBlock, type MenuEntry } from './menu';
+export { MenuBar, type MenuBarMenu } from './menubar';
 
 /**
  * Choosing a file: the one form control a product cannot style, and the one

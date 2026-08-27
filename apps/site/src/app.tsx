@@ -7,6 +7,7 @@ import {
   AppChrome,
   AppMain,
   AppShell,
+  MenuBar,
   ZoomControl,
   useRevision,
   useViewport,
@@ -14,6 +15,9 @@ import {
 } from '@barocss/office-ui';
 import {
   BREAKPOINTS,
+  SITE_MENUS,
+  siteMenuEntry,
+  siteMenuId,
   definitionOf,
   editorStateCss,
   revealRules,
@@ -32,6 +36,32 @@ import { CodeEditor, type CodeEdit } from './code-editor';
 import { PageFrame } from './page-frame';
 import { Ribbon } from './ribbon';
 import type { PointerMode } from './overlay';
+
+/**
+ * One exported page, handed to the browser as a file.
+ *
+ * **Here rather than in the package**, and that is the boundary being kept: `office-site` decides
+ * what a site *is* — five documents with addresses — and an app decides what a file is. A package
+ * that reached for `document.createElement` to start a download would be a model package that only
+ * runs in a browser, and the export is already used by tests with no download in them. The day this
+ * product grows a deploy target it is a different function behind the same command.
+ *
+ * The address becomes the filename the way a host would serve it: `/` is `index.html`, `/제품` is
+ * `제품.html`. Not a folder tree, because a browser download cannot make one — and a reader who
+ * wanted a tree wanted a deploy rather than a download.
+ */
+function download(page: { path: string; name: string; html: string }): void {
+  const file = page.path === '/' ? 'index' : page.path.replace(/^\//, '').replace(/\//g, '-');
+  const url = URL.createObjectURL(new Blob([page.html], { type: 'text/html;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${file || 'index'}.html`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // Released on the next turn of the loop: revoking it synchronously races the download in Safari.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 
 /**
  * The site builder's window.
@@ -56,6 +86,23 @@ import type { PointerMode } from './overlay';
  * 834 and 390 at once, typing in one of them types in all of them, and one undo walks back through
  * whichever of them the reader happened to be in.
  */
+/**
+ * What a menu entry is given — its own payload, plus the page a reader is on when it asks for one.
+ *
+ * The `needs: 'page'` half is the app filling a hole the *model* declares rather than the app
+ * knowing something the model does not. Which page is open is genuinely the app's: the document has
+ * no notion of one being on screen, and every command here that acts on a page names it by sid.
+ */
+function payloadFor(
+  entry: { command?: string; payload?: Record<string, unknown>; needs?: 'page' },
+  page: string | undefined
+): Record<string, unknown> | undefined {
+  if (entry.needs !== 'page') return entry.payload;
+  // `nodeId` is what the page commands read and `pageId` is what publishing reads: two names for one
+  // idea, and the day they are one name this line is where it is fixed.
+  return { ...entry.payload, nodeId: page, pageId: page };
+}
+
 export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor; view: EditorViewDOM } }) {
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
@@ -231,6 +278,72 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * out to — asks "what is the root here", and this is the one place that answers.
    */
   const root = definition?.part ?? page;
+
+  /**
+   * The menubar, drawn from `SITE_MENUS` — and **greyed against the document**.
+   *
+   * An entry a reader can press and that then does nothing is worse than one that is not there, and
+   * every command in the model already answers `canExecute`. So the model says what exists and the
+   * document says what is possible, which is the same split the toolbar has.
+   *
+   * A `view` entry has no command to ask, so it is never disabled: how many boards are open is
+   * always a question a reader may answer.
+   */
+  const menus = useMemo(
+    () =>
+      SITE_MENUS.map((menu) => ({
+        id: menu.id,
+        label: menu.label,
+        blocks: menu.blocks.map((block) => ({
+          id: block.id,
+          items: block.items.map((item, index) => ({
+            id: siteMenuId(menu, block, index),
+            label: item.label,
+            hint: item.hint,
+            disabled: item.command
+              ? !editor?.canExecuteCommand?.(item.command, payloadFor(item, page) as never)
+              : false
+          }))
+        }))
+      })),
+    // The selection as well as the content: 복제 is possible or not depending on what is chosen, and
+    // `watchContent` does not fire when only the selection moves.
+    [editor, revision, answers]
+  );
+
+  /**
+   * What a pick does — a command, or a change to how the reader is looking.
+   *
+   * The `view` branch is the one `switch` the model's header promises: a menu entry that is not a
+   * command has to mean something to *somebody*, and the app is the only layer that knows how many
+   * boards are on screen.
+   */
+  const onMenu = useCallback(
+    (id: string) => {
+      const entry = siteMenuEntry(id);
+      if (!entry) return;
+
+      if (entry.view === 'frames.desktop') return setShown(['desktop']);
+      if (entry.view === 'frames.all') return setShown(['desktop', 'tablet', 'mobile']);
+      if (entry.view === 'preview') return setPreview((was) => !was);
+
+      if (!entry.command) return;
+      const payload = payloadFor(entry, page);
+
+      // Publishing hands back what to write; what a *file* is, is the app's question. See `download`.
+      if (entry.command === 'exportPage' || entry.command === 'exportSite') {
+        void editor?.executeCommand(entry.command, {
+          ...payload,
+          write: ({ pages }: { pages: { path: string; name: string; html: string }[] }) =>
+            pages.forEach(download)
+        } as never);
+        return;
+      }
+
+      void editor?.executeCommand(entry.command, payload as never);
+    },
+    [editor, page]
+  );
   /**
    * What the pointer treats as the outermost thing.
    *
@@ -474,6 +587,25 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       <AppChrome className="st-chrome">
         <div className="st-titlebar">
           <span className="st-brand">Barocss Site</span>
+
+          {/*
+            The **menubar** — what acts on the document and the application.
+
+            The division is the whole point and it is not a convention being followed: a menubar
+            holds what a reader does *occasionally* and needs to **find**, and a toolbar holds what
+            they do constantly and need to **reach**. One strip cannot be both without becoming the
+            wall of glyphs Word's second row is.
+
+            It arrived carrying the gesture this product is for: `exportSite` rendered every page of
+            a site for weeks and was reachable from `window.exportSite` — put there for the console
+            and for tests — and from nothing a reader could press.
+          */}
+          <MenuBar
+            className="st-menubar"
+            label="사이트 메뉴"
+            menus={menus}
+            onPick={onMenu}
+          />
 
           {/*
             Which page is being edited, said rather than chosen.

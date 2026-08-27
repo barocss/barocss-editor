@@ -2258,6 +2258,121 @@ void panelOf;
 
 
 /**
+ * The **menubar** — what acts on the document and the application.
+ *
+ * Counted across the three products before this existed: Word carried 71 toolbar controls in one
+ * flat strip and 72 keyboard shortcuts with nowhere to read them, the deck had grown twelve
+ * application-level commands as title-bar buttons because there was nowhere else for them, and this
+ * product **could not export**. `exportSite` rendered every page of a site and was reachable from
+ * `window.exportSite` and from tests and from nothing a reader could press.
+ *
+ * `menu-model.test.ts` holds what the model claims — that every command it names is registered, that
+ * a view entry is not a command, that publishing comes first. What only a browser shows is the
+ * chain: a reader opens 파일, presses 내보내기, and a file arrives.
+ */
+test.describe('the menubar', () => {
+  const bar = (page: Page) => page.locator('.st-menubar');
+
+  test('opens a menu, and the next one by pointing at it', async ({ page }) => {
+    await ready(page);
+
+    await expect(bar(page).getByRole('menuitem', { name: '파일' })).toBeVisible();
+    await bar(page).locator('[data-menu="file"]').click();
+    await expect(page.locator('[role="menu"]')).toBeVisible();
+    await expect(page.locator('[data-menu-item="file.publish.0"]')).toHaveText(/내보내기/);
+
+    /*
+     * Pointing at the next trigger opens it without a click — a menubar behaviour a reader notices
+     * only by its absence, when they have to click twice to look in the next menu.
+     */
+    await bar(page).locator('[data-menu="edit"]').hover();
+    await page.waitForTimeout(200);
+    await expect(page.locator('[data-menu-item="edit.history.0"]')).toBeVisible();
+  });
+
+  test('teaches the shortcuts, which had nowhere to be read', async ({ page }) => {
+    await ready(page);
+    await bar(page).locator('[data-menu="edit"]').click();
+
+    // A tooltip teaches a shortcut to a reader who has already found the button, which is the reader
+    // who needs it least. 99 bindings across three products had only that.
+    await expect(page.locator('[data-menu-item="edit.history.0"]')).toContainText('⌘Z');
+    await expect(page.locator('[data-menu-item="edit.blocks.0"]')).toContainText('⌘D');
+  });
+
+  test('greys what the document cannot do right now', async ({ page }) => {
+    await ready(page);
+    await bar(page).locator('[data-menu="edit"]').click();
+
+    // Nothing is selected, so there is nothing to duplicate. An entry a reader can press that then
+    // does nothing is worse than one that is greyed.
+    await expect(page.locator('[data-menu-item="edit.blocks.0"]')).toBeDisabled();
+
+    await page.keyboard.press('Escape');
+    await pressDeep(page, page.locator('[data-frame="desktop"] .st-page h1').first());
+    await page.waitForTimeout(300);
+    await bar(page).locator('[data-menu="edit"]').click();
+    await expect(page.locator('[data-menu-item="edit.blocks.0"]')).toBeEnabled();
+  });
+
+  test('offers the page commands as things a reader can actually press', async ({ page }) => {
+    await ready(page);
+    await bar(page).locator('[data-menu="file"]').click();
+
+    /*
+     * The first shape of this was a dead menu: `duplicatePage` and `removePage` answer `canExecute`
+     * against a `nodeId` and return false without one, so from a menubar with no payload they were
+     * greyed forever. The model says `needs: 'page'` now and the app fills in the page a reader is
+     * on — which is genuinely the app's to know, since the document has no notion of one being open.
+     */
+    await expect(page.locator('[data-menu-item="file.pages.1"]')).toBeEnabled();
+    await expect(page.locator('[data-menu-item="file.pages.2"]')).toBeEnabled();
+  });
+
+  test('publishes the page, which is the gesture this product is for', async ({ page }) => {
+    await ready(page);
+
+    const wait = page.waitForEvent('download');
+    await bar(page).locator('[data-menu="file"]').click();
+    await page.locator('[data-menu-item="file.publish.0"]').click();
+    const file = await wait;
+
+    // The address becomes the filename the way a host would serve it.
+    expect(file.suggestedFilename()).toBe('index.html');
+  });
+
+  test('publishes every page of the site, one file each', async ({ page }) => {
+    await ready(page);
+
+    const files: string[] = [];
+    page.on('download', (one) => files.push(one.suggestedFilename()));
+
+    await bar(page).locator('[data-menu="file"]').click();
+    await page.locator('[data-menu-item="file.publish.1"]').click();
+    await expect.poll(() => files.length, { timeout: 15000 }).toBeGreaterThan(1);
+
+    expect(files).toContain('index.html');
+  });
+
+  test('changes how the reader is looking, which is not a command', async ({ page }) => {
+    await ready(page);
+    await expect(page.locator('[data-frame="tablet"]')).toHaveCount(1);
+
+    /*
+     * How many boards are open is not a fact about the reader's site, so it is not a command and the
+     * model declares it as a `view`. The app answers those in one `switch`, which is the same
+     * contract `PropertySheet` has with a product's own control kinds.
+     */
+    await bar(page).locator('[data-menu="view"]').click();
+    await page.locator('[data-menu-item="view.frames.0"]').click();
+    await page.waitForTimeout(400);
+
+    await expect(page.locator('[data-frame="tablet"]')).toHaveCount(0);
+    await expect(page.locator('[data-frame="desktop"]')).toHaveCount(1);
+  });
+});
+
+/**
  * Looking at the site instead of building it.
  *
  * A page has **no height of its own** — it is as tall as its content — so what a visitor sees is

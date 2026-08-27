@@ -9,6 +9,7 @@ import { siteKeyCommands } from '../src/keymap';
 import { siteLayerIcons } from '../src/layer-icons';
 import { SITE_TOOLBAR, siteToolbarCommands, siteToolbarIcons } from '../src/toolbar-model';
 import { sitePanelAttrs, sitePanelCommands } from '../src/panel-model';
+import { siteMenuCommands } from '../src/menu-model';
 
 /** Every declared toolbar control, whichever group it is in. */
 const siteToolbarControls = () => SITE_TOOLBAR;
@@ -98,14 +99,26 @@ describe('the site builder draws what it declares', () => {
   ];
 
   /**
-   * What a reader can reach, from the product's **own declarations**: the toolbar and the keys.
+   * What a reader can reach, from the product's **own declarations**.
    *
-   * The property panel is a third surface and the harness has no notion of one — it can read a
-   * toolbar model and a key map, and a panel is a React tree. So a panel-only command is an
-   * exemption that names the row it is on, which is the deck's own practice: an exemption is a claim,
-   * and "the properties panel — 배치 › 방향" is a claim a reader can check in ten seconds.
    */
-  const reachable = [...siteToolbarCommands(), ...siteKeyCommands(), ...sitePanelCommands()];
+  /*
+   * Four surfaces now, and the fourth is why this line is worth reading.
+   *
+   * `every-command-can-be-reached` reported `exportSite` and `exportPage` the minute they became
+   * commands — correctly, because a menubar the harness has not been told about is a menubar that
+   * does not exist as far as it is concerned. That is the same finding this file has now had four
+   * times: a surface that declares nothing cannot be asked.
+   *
+   * Which is also what made publishing reachable-by-nothing for weeks and invisible: it was a
+   * *function*, and this check counts commands.
+   */
+  const reachable = [
+    ...siteToolbarCommands(),
+    ...siteKeyCommands(),
+    ...sitePanelCommands(),
+    ...siteMenuCommands()
+  ];
 
   /**
    * And every attribute those surfaces can **write**.
@@ -371,10 +384,16 @@ describe('the site builder draws what it declares', () => {
          *
          * The same argument the data grid makes about a dataset and the deck's strip about a slide.
          */
-        insertPage: 'the left rail — 페이지 › 새 페이지, after the page being drawn',
-        duplicatePage: 'the left rail — the ⧉ on a page’s row',
+        /*
+         * Three of these four stopped needing an exemption the minute 파일 existed, and the harness
+         * said so the same minute — *stale*, which is what an exemption is for. They are still on the
+         * rail as well; what changed is that a *declaration* now says they are reachable, so the
+         * prose claim is one more thing that could quietly stop being true.
+         *
+         * `movePage` is still the rail's alone, and honestly so: it acts on a page's **position in a
+         * list**, which is a thing only a list has.
+         */
         movePage: 'the left rail — the ↑ on a page’s row; the order of five pages changes twice in a site’s life, so it is a button rather than a drag',
-        removePage: 'the left rail — the ␡ on a page’s row, which asks first and says how many links it breaks',
 
         // ── The data grid ──────────────────────────────────────────────────
         /*

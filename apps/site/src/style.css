@@ -948,3 +948,12 @@ body {
   min-width: 0;
   flex: 1;
 }
+
+/*
+ * ── The menubar ────────────────────────────────────────────────────────────
+ *
+ * Beside the brand and before everything else, which is where every application on either desktop
+ * platform puts it. Its own controls come from `office-ui`; what is here is only the space it sits
+ * in — the brand needs air after it, or 파일 reads as part of the product's name.
+ */
+.st-menubar { margin-left: 12px; }

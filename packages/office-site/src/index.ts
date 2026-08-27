@@ -127,6 +127,16 @@ export {
   type ExportedPage,
   type StateChange
 } from './export-html';
+export {
+  SITE_MENUS,
+  siteMenuCommands,
+  siteMenuEntry,
+  siteMenuId,
+  type SiteMenu,
+  type SiteMenuBlock,
+  type SiteMenuEntry
+} from './menu-model';
+export { createPublishCommands, type Published } from './publish-commands';
 export { documentFaults, type Declares, type Fault } from './faults';
 export {
   STATEABLE,
