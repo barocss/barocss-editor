@@ -305,6 +305,22 @@ describe('the site builder draws what it declares', () => {
         sortDir: 'read by `rowsOf` when the list has data — held in `collection.test.ts`',
         where: 'read by `rowsOf` when the list has data — held in `collection.test.ts`',
         equals: 'read by `rowsOf` when the list has data — held in `collection.test.ts`',
+        /*
+         * And one that is not a limit of the instrument at all: it is the second thing on a page
+         * that is **published as a rule** rather than folded into a drawing, and it is right that a
+         * renderer does not read it.
+         *
+         * A width is resolved before a page is drawn; a pointer never is (`states.ts`). So neither a
+         * state nor the time it takes can be part of an element's own style, and asking the probe
+         * "did the drawing change" is asking the wrong element. `states` itself never appeared here
+         * only because an `object` attribute is unaskable — this one is a number, so the check could
+         * ask, and got the honest answer.
+         *
+         * Where the reading is held is named, and that is what makes this fail the day it stops
+         * being true.
+         */
+        transitionMs:
+          'published as a rule, not folded into a drawing: read by `stateRules` and `editorStateCss` — held in `states.test.ts`',
 
         // ── The office schema’s, for products that are not this one ────────
         placeholder: 'Word draws a prompt in an empty paragraph; a page has no forms yet',

@@ -324,6 +324,15 @@ export class SiteStackExtension implements Extension {
     'shadowDistance',
     'shadowAngle',
     /*
+     * **How long** it takes to get from what it says to what a state says.
+     *
+     * Here rather than in `_stateFields`, and the placement is the decision: this is not something a
+     * state changes, it is a fact about the block that the state rules are written against. A reader
+     * setting it while a state is open would otherwise write it *into* the state, where it would be
+     * checked against `STATEABLE`, refused, and vanish without a word.
+     */
+    'transitionMs',
+    /*
      * Whether it is a window.
      *
      * A page does not clip by silence — see `stackCss` — so this is a reader asking for something

@@ -46,14 +46,77 @@ entries are that.
 
 ## Open
 
+### The whole suite speaks one language, and a browser test is what noticed
+
+Raised on 2026-08-27, reading `slide-features.spec.ts`: every check asks for a control **by its
+Korean words** — `getByLabel('모서리 둥글기')`, `getByRole('button', { name: '사각형' })`. Which is
+fine until the day the product speaks anything else, and then 294 checks fail at once and none of
+them is about what it was written to test.
+
+**Measured before deciding.** 554 label declarations carry Korean, and the shape of that number is
+the whole plan:
+
+| where | count | what it is |
+| --- | --- | --- |
+| `packages/*/src` models | 433 | `panel-model`, `toolbar-model`, `motion-presets` — **data**, in one place per product |
+| `apps/*/src` | 121 | dialogs, rails, panels — written into JSX |
+| JSX text nodes | 90 | words with no `label:` key at all |
+| specs asking by words | 294 | against **1,323** that already ask by `data-*` |
+
+Two things that number says. The chrome is **already declarative** — 78% of the words are rows in a
+model file, so there is one seam rather than a sweep through every component. And the specs have
+already chosen: they ask by `data-*` four times out of five, and the Korean queries are what is left
+over rather than the house style.
+
+**And there is already an i18n runtime, unread.** `editor-core/src/i18n` has
+`registerLocaleMessages`, `getLocalizedMessage`, `setDefaultLocale`, `detectBrowserLocale` and
+`loadLocaleMessages`, with `messages.ko.ts` and `messages.en.ts` beside them — holding **seven keys,
+all of them descriptions of debug contexts**. No product calls any of it. The same fault this backlog
+keeps finding, at the largest scale it has yet appeared: a whole subsystem declared and read by
+nothing but its own test.
+
+- [ ] **1. A row declares a key, not a word.** `label: '모서리 둥글기'` becomes `label: 'corner.radius'`
+  and a catalogue turns it into words. Start with **one** model — `office-slides/panel-model.ts`, 75
+  labels — because it is the one with a browser suite dense enough to prove the swap changed nothing.
+  The catalogue is the existing `registerLocaleMessages`, which is what makes this a first caller
+  rather than a second mechanism.
+
+- [ ] **2. A spec asks the catalogue, not the language.** `getByLabel(t('corner.radius'))` reads the
+  same key the panel drew, so a check follows the product into any language and still tests the
+  accessible name rather than a `data-` attribute nobody sees. The 1,323 `data-*` queries stay as
+  they are: they are asking *which control*, and that was never a language question.
+
+- [ ] **3. A harness check: every key a model declares has words in every catalogue.** This is what
+  makes the swap safe to do a model at a time — a row that names a key nobody wrote words for is a
+  blank label in the product, and `conformance` is where that gets caught rather than in a
+  screenshot. It is also the check that keeps a second language honest once one exists.
+
+- [ ] **4. The apps' 211 loose strings, after the models.** Deliberately last: they are one-offs in
+  JSX with no key to hang on, so each needs a key invented for it — which is worth doing once the
+  catalogue is a thing that exists rather than a thing being designed.
+
+- [ ] **5. What is *not* chrome, said out loud.** `sample-site.ts` and `sample-deck.ts` are Korean and
+  should stay Korean: a sample document is a document, written in a language the way any document is,
+  and a reader who switches the product to English does not want their sample deck rewritten. Same
+  for `<html lang="ko">` on an **exported page** — that is the visitor's document saying what language
+  it is in, which is a fact about the content and not a setting of the tool.
+
 ### A state can be promised, but nothing gets between one and the next
 
-- [ ] `states` gives a block a hover and a keyboard focus, published as real CSS. A hover that
-  arrives **instantly** looks like a bug on anything larger than a link — every design system pairs
-  the two, and this one has no word for the pairing. One attribute and one CSS property, and it is
-  the doorway to the thing this product still has none of: motion. A page built here has no scroll
-  reveal, no transition and no hover fade, and that is the single largest difference between it and a
-  page built anywhere else.
+- [x] ~~A hover that arrives **instantly** looks like a bug.~~ Built: `transitionMs`, one number on
+  the block, published as a `transition` on the block's own rule. See Done.
+
+- [ ] **A page still has no scroll reveal and no motion of its own.** The transition was the doorway
+  and only the doorway: it answers *the pointer arrived*, and the thing a page built anywhere else
+  has that one built here does not is content that arrives **as a visitor scrolls to it**. That is a
+  different mechanism — it needs the page to observe, not merely to declare — and the deck's timeline
+  is the vocabulary to read before choosing one.
+
+- [ ] **The enter and the leave share a curve.** `cubic-bezier(0.2, 0, 0, 1)` in both directions.
+  Every considered system uses ease-out on the way in and ease-in on the way out, which needs the base
+  rule and the state rule to carry one curve each — one line's difference, and worth doing the day a
+  reader can choose a curve at all. Today they cannot, and one curve in one place is the honest shape
+  of that.
 
 - [ ] **No `pressed`.** `:active` is the third state every button has and it was left out on purpose
   for now: it is the one a designer reaches for last and the one a test cannot easily hold. The
@@ -2768,6 +2831,32 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A block can say how long it takes to answer the pointer.** `transitionMs` — one number, on the
+  block, `0`–`2000`. The pairing every design system has and this one had no word for: a hover that
+  arrives instantly reads as a *replacement* rather than a change, and the eye cannot tell what
+  caused it.
+
+  Three decisions worth keeping, each of which had an easier wrong answer:
+
+  - **The properties are named, not `all`.** A hand-written page says `all` because it does not know
+    what will change; this one does — `stateChanges` has already computed the exact declarations
+    every state alters, so the rule names those and nothing else. Which is not tidiness: `all`
+    transitions whatever the browser considers animatable, and it is why a hover on a hand-written
+    page so often drags something unrelated with it. It also means the list can never fall behind
+    `STATEABLE`, because it is not a list — it is what the block actually promised.
+  - **It is on the block, not in the `:hover`.** Declared inside the state it would animate the
+    arrival and not the leaving: eased in over 160ms and snapped back the instant the pointer goes.
+    One line's difference, and it is the classic half-built hover.
+  - **Unset is not zero.** A block nobody has told answers the way it always did and carries no rule;
+    `0` is a reader saying *instantly*, on purpose. Same drawing, different documents — and both are
+    reachable only because the number field learned what an emptied field means, one commit earlier.
+
+  The harness found the one thing that was not obvious: `every-attribute-is-read` reported it on four
+  node types, correctly, because a renderer does *not* read it. It is the second thing on a page
+  published as a **rule** rather than folded into a drawing, after `states` itself — which never
+  appeared there only because an `object` attribute is unaskable. The exemption names where the
+  reading is held, so it fails the day that stops being true.
 
 - **A component that says it owns its DOM is now left to.** `external({ managesDOM: true, mount,
   update, unmount })` is how a node type says *I will draw myself* — the equivalent of a ProseMirror

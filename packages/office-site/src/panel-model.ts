@@ -385,6 +385,37 @@ export const SITE_PANEL: SitePanelRow[] = [
   { attr: 'stroke', command: 'setBlockFormat', group: '테두리', tab: 'style', label: '색', ariaLabel: '테두리 색', control: 'colour' },
   { attr: 'strokeWidth', command: 'setBlockFormat', group: '테두리', tab: 'style', label: '두께', ariaLabel: '테두리 두께', control: 'number', unit: 'px', min: 0 },
 
+  // ── 전환 — how long this block takes to answer the pointer ────────────────
+  /**
+   * The pairing every design system has, and the first thing on a page that is about **time**.
+   *
+   * Milliseconds and not the reader's length unit: this is the one number on a page that is not a
+   * distance, and `unit: 'ms'` after the field is what stops it being read as one.
+   *
+   * No `needs: 'states'` on it, though it is only ever *visible* in a state's rule. Two reasons, and
+   * the second is the real one: `needs` names an attribute, and `states` is a map rather than a
+   * value, so the check would be asking a question it cannot ask — and a reader sets the fade before
+   * the hover as often as after it. A row that appears only once the colour is chosen is a row
+   * nobody finds.
+   *
+   * Emptying it takes it back, which is a different document from `0` and the same drawing: a block
+   * nobody has told about time, and a block told to answer instantly. Both are now reachable, which
+   * they were not before the number field learned what an emptied field means.
+   */
+  {
+    attr: 'transitionMs',
+    command: 'setBlockFormat',
+    group: '전환',
+    tab: 'style',
+    label: '시간',
+    ariaLabel: '전환 시간',
+    control: 'number',
+    unit: 'ms',
+    min: 0,
+    max: 2000,
+    on: STACKS
+  },
+
   // ── 상자 — the two things a page's frame says that a canvas's does not ─────
   {
     attr: 'cornerRadius',

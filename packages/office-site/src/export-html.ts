@@ -353,6 +353,13 @@ export function stateRules(
   const flat: string[] = [];
   const byWidth = new Map<BreakpointId, string[]>();
 
+  // Before the state rules, so a reader opening the stylesheet meets the block and then what it
+  // becomes. It is a different selector either way, so the order is for the reader and not the
+  // cascade.
+  for (const [selector, said] of transitionsFor(store, changes, classOf)) {
+    flat.push(`${selector} { ${said} }`);
+  }
+
   for (const change of changes) {
     const selector = whereFor(change, classOf)
       .split(', ')
@@ -401,8 +408,20 @@ export function editorStateCss(
    */
   preview?: { state: StateId; sids: string[] }
 ): string {
+  const changes = stateChanges(store, pageSid);
   const rules: string[] = [];
-  for (const change of stateChanges(store, pageSid)) {
+
+  /*
+   * The same declaration, in the board's notation — and `!important` for the same reason every
+   * other rule here carries it: a board is drawn with inline styles by design, and nothing beats an
+   * inline style. A designer who sets a fade and watches the board snap has been shown a preview of
+   * something else.
+   */
+  for (const [selector, said] of transitionsFor(store, changes, () => undefined, 'data-bc-sid')) {
+    rules.push(`${selector} { ${said.replace(';', ' !important;')} }`);
+  }
+
+  for (const change of changes) {
     const at = change.width ? `[data-frame="${change.width}"] ` : '';
     const said = Object.entries(change.css)
       .map(([key, value]) => `${dashed(key)}: ${value} !important;`)
@@ -433,6 +452,78 @@ export function editorStateCss(
   }
   return rules.join('\n');
 }
+
+/**
+ * **How long** each block takes to answer, as one declaration per block.
+ *
+ * ## Why the properties are named rather than `all`
+ *
+ * A hand-written page says `transition: all`, because a hand-written page does not know what is
+ * going to change. This one does: a state has already been computed down to the exact declarations
+ * it changes (`stateChanges`), so the rule can name those and nothing else.
+ *
+ * Which is not only tidier. `all` transitions whatever the browser considers animatable, including
+ * things nobody meant — a `width` that a media query changes underneath, a `transform` a script
+ * sets — and it is the reason a hover on a hand-written page so often drags something unrelated
+ * along with it. Naming the properties also means the list can never fall behind `STATEABLE`,
+ * because it is not a list: it is what this block actually promised.
+ *
+ * ## Why it is on the block and not in the `:hover`
+ *
+ * A `transition` declared inside `:hover` animates the arrival and not the leaving — the colour
+ * eases in over 160ms and snaps back the instant the pointer goes. It is the classic half-built
+ * hover, and it is one line's difference. Declared on the block, both directions are the same
+ * gesture, which is what a reader means by *this card fades*.
+ *
+ * A property here can be a **shorthand** — a state that changes a stroke's colour changes the whole
+ * `border` declaration, so the rule names `border` — and that is safe rather than lucky. A shorthand
+ * transitions its parts, and the part that would reflow is `border-width`, which a state cannot
+ * change: `STATEABLE` leaves `strokeWidth` out for exactly that reason, so the width is identical in
+ * both rules and there is nothing there to animate.
+ *
+ * ## One curve, and why it is that one
+ *
+ * `cubic-bezier(0.2, 0, 0, 1)` — fast to leave, slow to settle. It is the curve every system with a
+ * considered one has converged on, for a reason that is about eyes rather than taste: a change that
+ * starts fast is *noticed*, and a change that ends slowly can be *followed*. `linear` reads as
+ * mechanical and `ease-in` reads as laggy, because the first thing it does is nothing.
+ *
+ * The refinement this leaves on the table, so it is a decision and not an omission: enter and leave
+ * ideally use different curves (out on the way in, in on the way out), which needs the base rule and
+ * the state rule to carry one each. Worth doing the day a reader can choose a curve at all; today
+ * they cannot, and one curve in one place is the honest shape of that.
+ */
+function transitionsFor(
+  store: { getNode: (sid: string) => Node | undefined },
+  changes: StateChange[],
+  classOf: (sid: string) => string | undefined,
+  /** The attribute the selector matches on — `data-b` on a published page, the sid on a board. */
+  attribute?: string
+): [string, string][] {
+  /** Every property any of this block's states changes, in the order they were first seen. */
+  const properties = new Map<string, { one: StateChange; keys: Set<string> }>();
+  for (const change of changes) {
+    const held = properties.get(change.sid) ?? { one: change, keys: new Set<string>() };
+    for (const key of Object.keys(change.css)) held.keys.add(dashed(key));
+    properties.set(change.sid, held);
+  }
+
+  const out: [string, string][] = [];
+  for (const [sid, { one, keys }] of properties) {
+    const ms = (store.getNode(sid) as { attributes?: Record<string, unknown> } | undefined)
+      ?.attributes?.transitionMs;
+    // Unset is not zero: a block nobody has told about time answers the way it always did, and a
+    // page that says nothing about time carries no rule about time.
+    if (typeof ms !== 'number' || !Number.isFinite(ms)) continue;
+
+    const said = [...keys].map((key) => `${key} ${Math.max(0, Math.round(ms))}ms ${EASE}`).join(', ');
+    out.push([whereFor(one, classOf, attribute), `transition: ${said};`]);
+  }
+  return out;
+}
+
+/** See `transitionsFor` for why this curve and not another. */
+const EASE = 'cubic-bezier(0.2, 0, 0, 1)';
 
 /** The CSS a state is, by its id — one lookup, so neither notation can invent its own. */
 function selectorOf(state: StateId): string {

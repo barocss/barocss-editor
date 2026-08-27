@@ -1518,6 +1518,67 @@ test.describe('what a block promises under the pointer', () => {
     expect(await rows().count()).toBeLessThan(before);
     await expect(page.locator('.st-state-said')).toContainText('모든 너비');
   });
+
+  /**
+   * And **how long it takes to get there**, which is the first thing on a page that is about time.
+   *
+   * A hover that arrives instantly reads as a bug on anything larger than a link: the eye sees a
+   * replacement rather than a change, and cannot tell what caused it. What only a browser can show
+   * is that the rule the export writes is one the browser accepts and computes — a `transition`
+   * naming a property nothing changes, or a curve with a typo in it, is dropped in silence and looks
+   * exactly like the declaration working.
+   */
+  test('fades between the two, for as long as the reader says', async ({ page }) => {
+    await ready(page);
+
+    const card = cardRow(page, 'desktop').locator('.st-stack').first();
+    await bring(page, cardRow(page, 'desktop'));
+    await pressDeepAt(page, card);
+    await page.waitForTimeout(300);
+    await page.locator('.office-properties').getByRole('tab', { name: '모양' }).click();
+    await page.waitForTimeout(200);
+
+    // A block nobody has told about time carries no rule about it.
+    const transition = async () =>
+      await card.evaluate((el) => getComputedStyle(el as HTMLElement).transitionDuration);
+    expect(await transition()).toBe('0s');
+
+    const field = page.locator('.office-properties').getByLabel('전환 시간');
+    await field.fill('160');
+    await field.press('Enter');
+    await page.waitForTimeout(400);
+
+    /*
+     * Computed, not merely written: a property the browser refused would read `0s` here. One
+     * duration per property named, which is what a browser answers with — this card's hover changes
+     * more than one thing, and each of them is told the same time.
+     */
+    const each = (await transition()).split(', ');
+    expect(each.length).toBeGreaterThan(0);
+    expect(each.every((one) => one === '0.16s')).toBe(true);
+    const named = await card.evaluate(
+      (el) => getComputedStyle(el as HTMLElement).transitionProperty
+    );
+    /*
+     * Exactly what its states change — this card's hover names its border and its shadow — and
+     * nothing that would move it. `all` is what a hand-written page says, and it is what drags
+     * something unrelated along with the hover.
+     */
+    expect(named).toContain('border');
+    expect(named).toContain('box-shadow');
+    expect(named).not.toContain('all');
+    expect(named).not.toMatch(/\b(width|height|padding|gap|margin)\b/);
+
+    // And the visitor gets the same one.
+    const html = await page.evaluate(() => (window as any).exportSite?.()?.[0]?.html ?? '');
+    expect(html).toMatch(/transition: border 160ms/);
+
+    // Emptied takes it back, which is a different document from 0 and the same drawing.
+    await field.fill('');
+    await field.press('Enter');
+    await page.waitForTimeout(400);
+    expect(await transition()).toBe('0s');
+  });
 });
 
 /**

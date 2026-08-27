@@ -91,7 +91,29 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
      * it, and the browser draws the two states alternately for as long as the visitor holds still.
      * `STATEABLE` is the list and `stateFaults` is the check.
      */
-    states: { type: 'object' as const, required: false }
+    states: { type: 'object' as const, required: false },
+    /**
+     * **How long** this block takes to get from what it says to what a state says, in milliseconds.
+     *
+     * The pairing every design system has and this one had no word for. A hover that arrives
+     * instantly reads as a bug on anything larger than a link: the eye sees a *replacement* rather
+     * than a change, and cannot tell what caused it.
+     *
+     * One number and not a per-state one. A block has one way of answering the pointer — the enter
+     * and the leave are the same gesture read in two directions, and a block that faded in over
+     * 200ms and out over 40 would be a block that behaved differently depending on where the pointer
+     * had come from. Every system that offers two ends up with one of them wrong somewhere.
+     *
+     * Unset is **not zero**: unset means this block was never told, and a block nobody told answers
+     * instantly, which is what it did before this existed. Zero is a reader saying *instantly*, on
+     * purpose, and the two are the same drawing and different documents (`setBlockFormat` can reach
+     * both, because a number field can be emptied).
+     *
+     * It is on the node rather than inside `states` because it is not a value a state *changes* —
+     * it is a fact about the block that the state rules are written against. `STATEABLE` says what
+     * a state may say, and this is not one of them.
+     */
+    transitionMs: { type: 'number' as const, required: false }
   };
 
   /**

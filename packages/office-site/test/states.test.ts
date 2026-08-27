@@ -232,6 +232,116 @@ describe('a state, published and drawn', () => {
 });
 
 /**
+ * And **how long it takes to get there**.
+ *
+ * The pairing every design system has and this one had no word for: a hover that arrives instantly
+ * reads as a bug on anything larger than a link, because the eye sees a replacement rather than a
+ * change and cannot tell what caused it.
+ *
+ * The interesting decision is not the number, it is **which properties are named**. `transition: all`
+ * is what a hand-written page says and it is wrong here for a reason this product can be precise
+ * about: a state has already been computed down to the exact declarations it changes, so the rule
+ * can name those and nothing else. No guessed list to fall behind `STATEABLE`, and no chance of
+ * animating something a state cannot even set.
+ */
+describe('how long a block takes to answer the pointer', () => {
+  let editor: any;
+  let store: DataStore;
+  let home: string;
+  let card: string;
+
+  const rulesNow = () => stateRules(store as never, home);
+  const attrs = () => (store.getNode(card) as any).attributes as Record<string, unknown>;
+
+  beforeAll(async () => {
+    registerSiteRenderers();
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    store = new DataStore(undefined as never, schema as never);
+    editor = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+    const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+    home = pagesOf(doc as never)[0].sid;
+
+    const found: string[] = [];
+    const walk = (sid: string, depth = 0) => {
+      if (depth > 40) return;
+      const node = store.getNode(sid) as any;
+      if (!node) return;
+      if (node.stype === 'frame' && depth > 1) found.push(sid);
+      for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
+    };
+    walk(home);
+    card = found[0];
+    editor.executeCommand('setNode', { nodeIds: [card] });
+    await editor.executeCommand('setBlockFormat', { state: 'hover', fill: '#0F7A5A' });
+  });
+
+  it('says nothing at all until a reader asks for it', () => {
+    expect(attrs().transitionMs).toBeUndefined();
+    // Not `transition: 0ms` on every block that has a hover. A block nobody has told answers the way
+    // it always did, and a page that says nothing about time carries no rule about time.
+    expect(rulesNow()).not.toContain('transition');
+  });
+
+  it('is written on the block, not inside the state', async () => {
+    editor.executeCommand('setNode', { nodeIds: [card] });
+    await editor.executeCommand('setBlockFormat', { transitionMs: 160 });
+
+    expect(attrs().transitionMs).toBe(160);
+    // A state says what a block *becomes*; this says how it gets there, so it is not one of the
+    // things `STATEABLE` allows a state to name.
+    expect(statesOf(attrs()).hover).toEqual({ fill: '#0F7A5A' });
+    expect(STATEABLE).not.toContain('transitionMs');
+  });
+
+  it('names exactly the properties its states change, and no others', () => {
+    const css = rulesNow();
+    // The card's hover changes its fill and nothing else, so that is the whole rule.
+    expect(css).toContain('transition: background-color 160ms');
+    expect(css).not.toContain('transition: all');
+    // Nothing that would move the block: a state cannot set one, so the rule cannot name one.
+    expect(css).not.toMatch(/transition:[^;]*\b(width|height|padding|gap|margin)\b/);
+  });
+
+  it('is on the block itself, without the pseudo-class', () => {
+    const css = rulesNow();
+    const line = css.split('\n').find((one) => one.includes('transition:'))!;
+    /*
+     * A `transition` inside `:hover` animates the arrival and not the leaving, which is the classic
+     * half-built hover: the colour eases in over 160ms and snaps back the instant the pointer
+     * leaves. Declared on the block, both directions are the same gesture.
+     */
+    expect(line).not.toContain(':hover');
+  });
+
+  it('is drawn on the boards too, so a designer sees what a visitor will', () => {
+    const css = editorStateCss(store as never, home);
+    expect(css).toContain('transition: background-color 160ms');
+  });
+
+  it('reaches the visitor, before the rule it is about', () => {
+    const page = exportPage(editor, home);
+    expect(page.html).toContain('transition: background-color 160ms');
+    // A `transition` declared after the `:hover` it belongs to still works — it is on a different
+    // selector — but a reader opening the stylesheet should meet the block before its states.
+    expect(page.html.indexOf('transition:')).toBeLessThan(page.html.lastIndexOf(':hover'));
+  });
+
+  it('can be taken back, and instantly is a thing a reader can ask for', async () => {
+    editor.executeCommand('setNode', { nodeIds: [card] });
+    await editor.executeCommand('setBlockFormat', { transitionMs: 0 });
+    // Zero is a decision and it is drawn as one: a block that says it answers instantly and a block
+    // nobody has told are the same drawing and different documents.
+    expect(attrs().transitionMs).toBe(0);
+    expect(rulesNow()).toContain('transition: background-color 0ms');
+
+    await editor.executeCommand('setBlockFormat', { transitionMs: undefined });
+    expect(attrs().transitionMs).toBeUndefined();
+    expect(rulesNow()).not.toContain('transition');
+  });
+});
+
+/**
  * And the checks, run over a real document — which none of them were.
  *
  * Three functions in this package answer "what is wrong with this", each with a unit test beside it,
