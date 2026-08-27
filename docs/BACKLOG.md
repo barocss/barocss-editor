@@ -46,17 +46,17 @@ entries are that.
 
 ## Open
 
-### The sidebar, measured — 2026-08-28
+### The sidebar, measured — 2026-08-28 *(worked through)*
 
 Five tabs, and what each can do:
 
 | tab | what it offers | what it does not |
 | --- | --- | --- |
 | **추가** | 15 inserts, each with a picture | — |
-| **구성** | a tree that opens and closes, click to select, shift to add, hide, lock, **drag to reorder or reparent** | **rename** |
+| **구성** | a tree: open/close, select, hide, lock, drag to reorder or reparent, **rename in place** | — |
 | **페이지** | list · 위로 · 복제 · 삭제(asks first) | 아래로; reorder by drag |
 | **컴포넌트** | list · 놓기 · 편집 · **이름** · **삭제**(refused while placed, and says why) | where-used |
-| **데이터** | list · 만들기; rename and delete **in the data editor** | duplicate |
+| **데이터** | list · 만들기 · **복제**; rename and delete in the data editor | — |
 
 The **구성** list is the one that was a selector where every other builder's is a manipulator, and
 the first half of that is fixed (see Done). What is left, in the order a reader would miss it:
@@ -67,16 +67,11 @@ the first half of that is fixed (see Done). What is left, in the order a reader 
 
 
 
-- [ ] **4. Rename on the row.** The name is in the panel, and a layer list is where a reader is
-  thinking about names. Double-click is the convention.
 
 - [x] ~~**5. The three lists that only add.**~~ The component library can be renamed and cleaned out
   now — see Done. 데이터's rename and delete were already there, **inside the data editor** rather
   than on the rail row, which is where a dataset is edited and is defensible.
 
-- [ ] **5b. A dataset cannot be duplicated.** The one act of the four that no list offers for a
-  dataset, where a page has it. Small, and worth doing when somebody wants a second dataset shaped
-  like the first.
 
 ### The chrome, looked at as a professional tool would be — measured 2026-08-27
 
@@ -3132,6 +3127,21 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The last two the sidebar owed: a layer row renames in place, and a dataset can be copied.**
+
+  Every other list in the rail renamed in place and the **layer list sent a reader to the panel** for
+  it — a different pane, a different tab and a scroll, for the one edit somebody is most likely to be
+  making *while looking at a list of names*. Double-click, which is what a list of names has meant
+  since before any of this existed.
+
+  And the fourth act a dataset could not do. The second one is nearly the first — a reader with a
+  상품 dataset who wants 지난-상품 wants those columns and those rows and then a few edits — and the
+  alternative is typing the columns again and getting one slightly wrong, which is the fault that
+  makes a `field:` reference draw nothing. Two things it has to get right: a **name nothing else
+  has**, because a name is what a collection points at and two datasets called 상품 is a list drawing
+  one of them with nobody able to say which; and **rows of its own**, because two datasets sharing
+  one records array is one document with two names for the same rows, which the next edit proves.
 
 - **The component library can be renamed and cleaned out.** `createComponentFrom` has existed since
   components did and **nothing has ever renamed one or removed one** — a reader who made a card,
