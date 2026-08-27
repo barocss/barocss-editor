@@ -46,6 +46,24 @@ entries are that.
 
 ## Open
 
+### The same eye on the deck's and Word's lists — 2026-08-28
+
+The site's sidebar work found three of its four gaps by **putting the lists side by side** rather
+than by anything reporting them, so the three products' own lists got the same comparison.
+
+The deck came out **better than the site did**, which is what a product two rounds older should look
+like: a slide can be made, duplicated, deleted and moved; a document variable can be made, renamed
+and removed; a layout has a name and a background a reader can set. One gap, and it is now closed
+(see Done). Word has no resource lists at all — its panes are an outline and comments, both of which
+are views of the document rather than lists of things a reader makes.
+
+- [ ] **A check that asks it.** Three of the four gaps this whole sweep found were *"lists of the
+  same shape with different answers"*, and the harness cannot see that: it asks whether a command is
+  reachable, never whether a list offering three of four acts has a reason for the fourth. It would
+  need what the toolbar, the panel, the menubar and the key map all needed — a declaration of what
+  each list offers — which is a fifth surface model. Worth it the day a fourth list appears;
+  recorded now so the shape of the question is not lost.
+
 ### The sidebar, measured — 2026-08-28 *(worked through)*
 
 Five tabs, and what each can do:
@@ -3127,6 +3145,25 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A slide can be named** — the one thing the deck's sample writes and the product could not.
+
+  `sample-deck.ts` gives every slide a `name` in TypeScript (*Title*, *Shapes*, *Table*) and `nameOf`
+  falls back to the title placeholder for a slide with none. Between them the filmstrip always said
+  *something*, which is exactly why nobody noticed that **a reader could not write one**. The same
+  finding this backlog has had about a site's pages and a component's name: the thing exists because
+  a sample file said so.
+
+  It matters because four surfaces list slides *by name* — the filmstrip, the map, the audit and the
+  누르면 → 이 슬라이드로 picker — so a slide whose only content is a picture is **nameless in all
+  four**, and a reader looking at the map to find where a button goes is shown a blank. `nameOf`'s
+  own comment already had the half that decides it: *"a name invented here would be indistinguishable
+  from one the author chose"*. So the author chooses.
+
+  Renamed **in the filmstrip**, for the reason the site's layer list gave: that is where a reader is
+  looking at a list of names. And emptying it is *removal* rather than an empty name — a slide called
+  `""` would sit there as a blank row the title fallback can no longer fill, which is worse than the
+  fallback.
 
 - **The last two the sidebar owed: a layer row renames in place, and a dataset can be copied.**
 
