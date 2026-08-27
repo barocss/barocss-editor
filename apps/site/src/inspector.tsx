@@ -452,7 +452,7 @@ function Groups({
            * offering to bind it would write a `componentBind` into a document with nothing to
            * resolve it.
            */
-          (row.group !== '카드' || !!shown?.part) &&
+          (row.group !== '컴포넌트 변수' || !!shown?.part) &&
           /*
            * And in a state, only what a state may hold. Paint, never an arrangement — a block that
            * resized under the pointer would move out from under it and flicker, so the panel does not
@@ -661,7 +661,7 @@ function own(
        */
       if (!shown) return null;
       if (shown.count > 1) return <PropertyEmpty>한 블록만 선택했을 때 값을 바꿀 수 있습니다.</PropertyEmpty>;
-      if (shown.values.length === 0) return <PropertyEmpty>이 정의는 묻는 것이 없습니다.</PropertyEmpty>;
+      if (shown.values.length === 0) return <PropertyEmpty>이 컴포넌트에는 변수가 없습니다.</PropertyEmpty>;
       return (
         <span className="st-values">
           {shown.values.map((one) => (
@@ -688,7 +688,7 @@ function own(
         <ChoiceSelect
           value={shown.part.bound ?? ''}
           options={[
-            { id: '', label: '이 카드의 글' },
+            { id: '', label: '연결 안 함' },
             ...shown.part.asks.map((one) => ({ id: one, label: one }))
           ]}
           onChange={(next) => run('bindPartText', { nodeId: shown.ids[0], var: next || undefined })}
@@ -708,9 +708,9 @@ function own(
        * uses everywhere: `var:` for a colour, `page:` for a link, `field:` for a value from a row.
        * A picker of the dataset's columns, because the answer is a column and typing one is a typo.
        */
-      if (!shown?.card) return <PropertyEmpty>이 목록은 카드를 그리지 않습니다.</PropertyEmpty>;
+      if (!shown?.card) return <PropertyEmpty>이 목록에는 반복해서 그릴 카드가 없습니다.</PropertyEmpty>;
       if (shown.card.asks.length === 0) {
-        return <PropertyEmpty>{shown.card.name}은 묻는 것이 없습니다.</PropertyEmpty>;
+        return <PropertyEmpty>{shown.card.name}에는 변수가 없습니다.</PropertyEmpty>;
       }
       return (
         <span className="st-values">
@@ -727,7 +727,7 @@ function own(
                     value: next ? `${FIELD_PREFIX}${next}` : ''
                   })
                 }
-                ariaLabel={`${ask.name}에 넣을 칸`}
+                ariaLabel={`${ask.name} 변수에 넣을 컬럼`}
               />
             </label>
           ))}

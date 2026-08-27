@@ -451,7 +451,7 @@ function ComponentsPanel({
     return rootId ? definitionsOf({ rootId, getNode: doc.getNode }) : [];
   }, [doc, editor, revision]);
 
-  if (components.length === 0) return <p className="st-rail-note">아직 정의가 없습니다.</p>;
+  if (components.length === 0) return <p className="st-rail-note">아직 컴포넌트가 없습니다.</p>;
 
   return (
     <div className="st-rail-list" data-components>
@@ -482,7 +482,7 @@ function ComponentsPanel({
             type="button"
             className="st-rail-side"
             data-edit-component={one.id}
-            title={`${one.name} 정의를 엽니다 — ${one.uses}곳이 함께 바뀝니다`}
+            title={`${one.name} 컴포넌트를 엽니다 — ${one.uses}곳이 함께 바뀝니다`}
             onClick={() => onEdit(one.id === editing ? undefined : one.id)}
           >
             편집
@@ -628,7 +628,7 @@ function DataPanel({
           새 데이터
         </Button>
       </section>
-      <p className="st-rail-note">디자인 하나에 행 하나씩. 문서에는 배치 하나만 들어갑니다.</p>
+      <p className="st-rail-note">카드 하나로 행 전체를 그립니다. 문서에는 카드 하나만 저장됩니다.</p>
     </>
   );
 }

@@ -505,17 +505,21 @@ export const SITE_PANEL: SitePanelRow[] = [
     on: ['codeBlock']
   },
 
-  // ── 카드 — where a part's words come from, while a definition is open ──────
+  // ── 컴포넌트 변수 — what this element's text is wired to, inside a component ─
   /*
-   * The wall a template hit, as two rows.
+   * A component's variables, as two rows.
    *
-   * A card asks questions and a list answers them with columns; both halves were reachable and a
-   * reader still could not make a **new** question, because `componentVar` and `componentBind` could
-   * be written by hand and by nothing else. So a card was stuck with whatever its author had thought
-   * of, and a template that cannot grow is a drawing somebody made once.
+   * A component declares variables and an instance supplies their values; a data list supplies them
+   * from a column. Both of those were reachable and a reader still could not declare a **new**
+   * variable, because `componentVar` and `componentBind` could be written by hand and by nothing
+   * else — so a card was stuck with whatever its author had thought of.
    *
-   * Two rows rather than one control with a hidden second state: pick an existing question, or type
-   * a new one. Each is a row the harness can read, and neither hides a mode.
+   * Two rows rather than one control with a hidden second state: wire this element to a variable
+   * that exists, or type the name of a new one. Each is a row the harness can read.
+   *
+   * The words are the ordinary ones on purpose. This file's comments may talk about a component
+   * *asking* and an instance *answering*; a **label a reader sees** may not, because in a panel the
+   * metaphor strips out the noun they know and puts back a word that could mean anything.
    */
   {
     /*
@@ -527,10 +531,10 @@ export const SITE_PANEL: SitePanelRow[] = [
     attr: 'componentBind',
     writes: 'child',
     command: 'bindPartText',
-    group: '카드',
+    group: '컴포넌트 변수',
     tab: 'block',
-    label: '내용',
-    ariaLabel: '이 글이 오는 곳',
+    label: '연결',
+    ariaLabel: '연결된 변수',
     control: 'question',
     single: true,
     on: ['heading', 'paragraph', 'listItem']
@@ -540,10 +544,10 @@ export const SITE_PANEL: SitePanelRow[] = [
     attr: 'componentVar',
     writes: 'child',
     command: 'bindPartText',
-    group: '카드',
+    group: '컴포넌트 변수',
     tab: 'block',
-    label: '새 질문',
-    ariaLabel: '새 질문 이름',
+    label: '새 변수',
+    ariaLabel: '새 변수 이름',
     control: 'text',
     single: true,
     on: ['heading', 'paragraph', 'listItem']
@@ -559,7 +563,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     attr: 'componentValue',
     writes: 'child',
     command: 'setComponentValue',
-    group: '이 블록의 값',
+    group: '이 인스턴스의 값',
     tab: 'values',
     label: '값',
     ariaLabel: '값',
@@ -587,10 +591,10 @@ export const SITE_PANEL: SitePanelRow[] = [
     attr: 'componentValue',
     writes: 'child',
     command: 'setComponentValue',
-    group: '카드에 넣을 값',
+    group: '카드 변수에 넣을 컬럼',
     tab: 'data',
-    label: '값',
-    ariaLabel: '카드에 넣을 값',
+    label: '변수',
+    ariaLabel: '카드 변수에 넣을 컬럼',
     control: 'cardValues',
     on: ['collection']
   },

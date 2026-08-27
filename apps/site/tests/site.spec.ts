@@ -1655,8 +1655,8 @@ test.describe('what the card is given', () => {
     // One row per question the card asks — a fact about the definition, so it is read and not declared.
     const asks = panel(page).locator('.st-card-value');
     await expect(asks).toHaveCount(3);
-    await expect(panel(page).getByLabel('이름에 넣을 칸')).toContainText('이름');
-    await expect(panel(page).getByLabel('가격에 넣을 칸')).toContainText('가격');
+    await expect(panel(page).getByLabel('이름 변수에 넣을 컬럼')).toContainText('이름');
+    await expect(panel(page).getByLabel('가격 변수에 넣을 컬럼')).toContainText('가격');
   });
 
   test('changes which column a slot draws, on every row at once', async ({ page }) => {
@@ -1674,7 +1674,7 @@ test.describe('what the card is given', () => {
      * The card's 설명 slot, told to take a different column. One gesture, forty cards — which is the
      * whole reason a list draws a component rather than forty copies of one.
      */
-    await panel(page).getByLabel('설명에 넣을 칸').click();
+    await panel(page).getByLabel('설명 변수에 넣을 컬럼').click();
     await page.locator('[role="option"]', { hasText: '분류' }).first().click();
     await page.waitForTimeout(600);
 
@@ -1822,8 +1822,8 @@ test.describe('a card can be asked something new', () => {
     await page.waitForTimeout(500);
 
     await panel(page).locator('[data-tab="block"]').click();
-    await panel(page).getByLabel('새 질문 이름').fill('할인');
-    await panel(page).getByLabel('새 질문 이름').press('Enter');
+    await panel(page).getByLabel('새 변수 이름').fill('할인');
+    await panel(page).getByLabel('새 변수 이름').press('Enter');
     await page.waitForTimeout(600);
 
     const said = await wiring(page, 'product-card');
@@ -1844,8 +1844,8 @@ test.describe('a card can be asked something new', () => {
     await page.locator('[data-insert="insertBodyText"]').click();
     await page.waitForTimeout(500);
     await panel(page).locator('[data-tab="block"]').click();
-    await panel(page).getByLabel('새 질문 이름').fill('할인');
-    await panel(page).getByLabel('새 질문 이름').press('Enter');
+    await panel(page).getByLabel('새 변수 이름').fill('할인');
+    await panel(page).getByLabel('새 변수 이름').press('Enter');
     await page.waitForTimeout(600);
 
     // Back to the page, where the loop closes: a new question is a new row in 카드에 넣을 값.
@@ -1859,7 +1859,7 @@ test.describe('a card can be asked something new', () => {
     await page.waitForTimeout(300);
 
     await expect(panel(page).locator('.st-card-value')).toHaveCount(4);
-    await expect(panel(page).getByLabel('할인에 넣을 칸')).toBeVisible();
+    await expect(panel(page).getByLabel('할인 변수에 넣을 컬럼')).toBeVisible();
   });
 
   test('unbinds without taking the question away', async ({ page }) => {
@@ -1873,9 +1873,9 @@ test.describe('a card can be asked something new', () => {
     await panel(page).locator('[data-tab="block"]').click();
     await page.waitForTimeout(200);
 
-    await expect(panel(page).getByLabel('이 글이 오는 곳')).toContainText('이름');
-    await panel(page).getByLabel('이 글이 오는 곳').click();
-    await page.locator('[role="option"]', { hasText: '이 카드의 글' }).first().click();
+    await expect(panel(page).getByLabel('연결된 변수')).toContainText('이름');
+    await panel(page).getByLabel('연결된 변수').click();
+    await page.locator('[role="option"]', { hasText: '연결 안 함' }).first().click();
     await page.waitForTimeout(600);
 
     const said = await wiring(page, 'product-card');
@@ -1898,7 +1898,7 @@ test.describe('a card can be asked something new', () => {
 
     // A heading on a page is nobody's part: a row offering to bind it would write a binding into a
     // document with nothing to resolve it.
-    await expect(panel(page)).not.toContainText('새 질문');
-    await expect(panel(page).getByLabel('이 글이 오는 곳')).toHaveCount(0);
+    await expect(panel(page)).not.toContainText('새 변수');
+    await expect(panel(page).getByLabel('연결된 변수')).toHaveCount(0);
   });
 });
