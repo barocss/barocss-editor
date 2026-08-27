@@ -595,6 +595,13 @@ const SHORTHAND: Record<string, string[]> = {
  */
 function commit(row: SitePanelRow, next: unknown): unknown {
   if (row.control !== 'number') return row.control === 'toggle' && next !== true ? undefined : next;
+  /*
+   * A reader who **emptied** the field said nothing, and nothing is a value here: at the base width
+   * the attribute goes, at a narrower one this width stops disagreeing and the page's own answer
+   * reaches it again (`setBlockFormat`). Before the arithmetic, because `Number(undefined)` is `NaN`
+   * and `Math.max(0, NaN)` is `NaN` — which passes the `<= 0` test below and would be written.
+   */
+  if (next === undefined) return undefined;
   // Typing into a shorthand answers for all four sides, which is what a reader means by typing into
   // it — see `shorthandOf` for why it can be showing nothing at the time.
 

@@ -1099,7 +1099,24 @@ export class SlidesExtension implements Extension {
       if (!(key in (payload ?? {}))) continue;
 
       const value = payload[key];
-      if (shape.type === 'number' && typeof value === 'number' && Number.isFinite(value)) {
+      /**
+       * A key **mentioned as nothing** is the reader taking a value back.
+       *
+       * The check above is what tells "not mentioned" from "mentioned as nothing", and this is what
+       * makes the second reachable. Without it `undefined` matched no branch below and was dropped
+       * in silence — so a corner stated as 0, or a side of a padding, was permanent once typed: the
+       * panel could only ever write another number, and 0 is not the same as *not stated* for either
+       * of them.
+       *
+       * `undefined` and not `null` because `setAttrs` is what stores this and `undefined` is its
+       * word for removal. `null` already means something else here and keeps meaning it: a colour of
+       * none, a list of none — values, not silences.
+       *
+       * Before the type branches, because `typeof undefined` matches none of them.
+       */
+      if (value === undefined) {
+        out[key] = undefined;
+      } else if (shape.type === 'number' && typeof value === 'number' && Number.isFinite(value)) {
         out[key] = value;
       } else if (shape.type === 'boolean' && typeof value === 'boolean') {
         out[key] = value;

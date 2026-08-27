@@ -282,6 +282,46 @@ test.describe('a frame that arranges what is in it', () => {
     expect(second(loose) - second(tight)).toBe(567);
   });
 
+  /**
+   * A side of the padding, **stated and then taken back**.
+   *
+   * `setFrameLayout` had its own copy of the filter that dropped a removal — the one in
+   * `slide-commands.ts` was the other — so this is the second command the gesture had to reach.
+   * A stated side and an unstated side are different things: the first overrides the shorthand and
+   * the second follows it, and the panel could only ever reach the first.
+   */
+  test('gives back a side of the padding when the field is emptied', async ({ page }) => {
+    const frame = await openFrame(page);
+    test.skip(!frame, 'this slide has no frame');
+
+    await page.evaluate((sid) => (window as any).editor.executeCommand('setNode', { nodeIds: [sid] }), frame!.sid);
+    await page.waitForTimeout(300);
+    const panel = page.locator('.sl-properties');
+    await panel.getByLabel('배치 방향').selectOption('row');
+    await page.waitForTimeout(500);
+
+    const held = (attr: string) =>
+      page.evaluate(
+        ([sid, key]) => (window as any).editor.dataStore.getNode(sid)?.attributes?.[key],
+        [frame!.sid, attr] as const
+      );
+
+    await panel.getByLabel('안쪽 여백', { exact: true }).fill('1');
+    await panel.getByLabel('안쪽 여백', { exact: true }).press('Enter');
+    await panel.getByLabel('위쪽 여백').fill('0');
+    await panel.getByLabel('위쪽 여백').press('Enter');
+    await page.waitForTimeout(400);
+    expect(await held('paddingTop')).toBe(0);
+
+    await panel.getByLabel('위쪽 여백').fill('');
+    await panel.getByLabel('위쪽 여백').press('Enter');
+    await page.waitForTimeout(400);
+
+    // Gone, not zero: the side follows the shorthand again, and the shorthand is untouched.
+    expect(await held('paddingTop')).toBeUndefined();
+    expect(await held('padding')).toBe(567);
+  });
+
   /** The difference between a layout and a one-off tidy-up: it holds. */
   test('arranges a shape that arrives afterwards', async ({ page }) => {
     const frame = await openFrame(page);

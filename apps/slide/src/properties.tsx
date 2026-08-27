@@ -2460,6 +2460,17 @@ function DeckSheet({
 
   /** And what it writes back: the same conversions, the other way. */
   const commit = (row: SlidesPanelRow, next: unknown): unknown => {
+    /*
+     * A reader who emptied a **number** field said nothing, and it has to stay nothing all the way
+     * down: every conversion below turns `undefined` into `NaN`, and the command would then drop it
+     * silently — exactly as it used to drop the removal itself.
+     *
+     * A number and not every control, because the other two already have their own readings of an
+     * emptied field and they are not this one: a colour becomes `null`, which is *no fill*, and a
+     * connector's label becomes `''`, which is *no label*. Both are values. Only a number has a
+     * "not stated" that a reader can ask for and a document can hold.
+     */
+    if (row.control === 'number' && next === undefined) return undefined;
     if (row.unit === 'pt') return Math.round(Number(next) * 20);
     if (row.control === 'number' && LENGTHS.has(row.attr)) return fromDisplay(Number(next), unit);
     if (row.control === 'colour') return next ?? null;

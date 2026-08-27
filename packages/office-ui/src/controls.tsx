@@ -310,9 +310,38 @@ export function Choice({
  * was editable next. It does not reproduce from a deck's timeline (nothing is
  * being edited there), and it is the same field.
  */
+/**
+ * What a number field's contents **say**, given what it was showing.
+ *
+ * Emptying a field is two completely different sentences, and the text alone cannot tell them apart:
+ * a field that was already showing nothing has had nothing taken back, and a field that was showing
+ * a number has. Until this existed both read as *leave it alone* — so no reader of any product in
+ * this suite could remove a number, and a stated corner or a stated side of a padding was permanent
+ * once typed.
+ *
+ * A rule rather than a blur handler, because a decision inside an event handler can only be checked
+ * by driving a browser. `test/number-field.test.ts` states it.
+ */
+export type NumberFieldSaid =
+  | { kind: 'value'; value: number }
+  | { kind: 'clear' }
+  | { kind: 'nothing' };
+
+export function readNumberField(text: string, value: number | null): NumberFieldSaid {
+  const parsed = Number.parseFloat(text);
+  if (Number.isFinite(parsed)) {
+    // The commit runs on every blur, including the blur of a field nobody touched.
+    return parsed === value ? { kind: 'nothing' } : { kind: 'value', value: parsed };
+  }
+  // Not a number and not empty is a reader mid-word, which is not an instruction either way.
+  if (text.trim() !== '') return { kind: 'nothing' };
+  return value === null ? { kind: 'nothing' } : { kind: 'clear' };
+}
+
 export function NumberField({
  value,
   onCommit,
+  onClear,
   suffix,
   min,
   max,
@@ -327,6 +356,14 @@ export function NumberField({
   /** `null` when the selection does not agree, drawn as empty. */
   value: number | null;
   onCommit: (value: number) => void;
+  /**
+   * The reader emptied a field that was showing a number — *take this value back*.
+   *
+   * Optional, and its absence is a sentence too: a field whose attribute has no "not stated" reading
+   * (a keyframe's time, a gradient stop's position) leaves it off, and an emptied field there goes
+   * on meaning nothing at all.
+   */
+  onClear?: () => void;
   /** The unit, after the number it belongs to. */
   suffix?: string;
   min?: number;
@@ -352,13 +389,12 @@ export function NumberField({
   const scale = 10 ** decimals;
   const shown = value === null ? '' : String(Math.round(value * scale) / scale);
 
- const commit = (text: string) => {
-    const parsed = Number.parseFloat(text);
-    // An emptied field is "leave it alone", not "set it to zero" — the only
- // reading that lets a reader clear a mixed value and change their mind.
-    if (!Number.isFinite(parsed)) return;
-    if (parsed === value) return;
-    onCommit(parsed);
+  const commit = (text: string) => {
+    const said = readNumberField(text, value);
+    if (said.kind === 'value') onCommit(said.value);
+    // A caller with no meaning for "take it back" says nothing by leaving `onClear` off, and an
+    // emptied field there stays what it always was: leave it alone.
+    else if (said.kind === 'clear') onClear?.();
   };
 
   return (

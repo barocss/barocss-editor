@@ -223,8 +223,8 @@ export function PropertyNumber({
    * `NumberField` in a row's shape — and it used to be a **second copy** of it.
    *
    * The two were the same control written twice: the same `key`/`defaultValue`
-   * trick, the same "an emptied field means leave it alone", the same Enter that
-   * has to be prevented rather than merely stopped. `controls.tsx` even said it
+   * trick, the same reading of an emptied field, the same Enter that has to be
+   * prevented rather than merely stopped. `controls.tsx` even said it
    * was "the same code rather than a second copy of it", which was true of the
    * rule and not of the code. One of them is enough, and the lesson that took a
    * browser to find — Enter's pending `beforeinput` splitting the paragraph inside

@@ -139,10 +139,36 @@ entries are that.
   `structuredClone` keeps the keys. The lesson is the one worth keeping: **a test that skips the
   layer that transports the work cannot see the transport lose it.**
 
-- [ ] **The other products' panels have not been checked against this.** The deck writes through
-  `setFrameLayout` and `setBoxFormat`, and each filters its payload with `typeof x === 'number'`
-  before it ever reaches an operation — so a cleared field there may still be dropped one layer
-  earlier, for a different reason. Worth the same probe.
+- [x] **The other products' panels were checked, and the deck had it three times over.** The probe
+  found the same removal dropped at three separate layers, each of which alone was enough:
+
+  - **`NumberField` never reported an emptied field at all.** Its rule was *an emptied field means
+    leave it alone*, which is right for the case it was written for — a field showing nothing
+    because a selection disagrees — and wrong for the other one. So **no reader of any product in
+    this suite could clear a number**, and the site's fix above was only reachable by typing 0.
+    `readNumberField(text, value)` tells the two apart by what the field was showing, and `onClear`
+    is what a caller passes when its attribute has a "not stated" reading. Stated in
+    `office-ui/test/number-field.test.ts`.
+  - **The deck panel's unit conversion turned it into `NaN`** — every branch of `commit` is a
+    conversion and `Number(undefined)` is `NaN`. Scoped to number rows, because the other controls
+    already have their own readings of an emptied field and they are *values*: a colour becomes
+    `null`, which is no fill, and a connector's label becomes `''`, which is no label. Only a number
+    has a "not stated" a document can hold. (Caught by the connector's own test, after a first fix
+    that was one line too broad.)
+  - **Both commands filtered it out.** `_valuesFor` walks the declared attributes, takes the ones the
+    payload *mentions*, and then required `typeof value === 'number'`; `_settingsOf` in
+    `office-canvas` has its own copy of the same filter. `undefined` matched no branch in either and
+    was dropped in silence.
+
+  What it cost: a corner **stated as 0** draws square and overrides the radius, a corner **not
+  stated** follows it — and the panel could reach the first and never get back to the second. A side
+  of a padding is the same shape one attribute up. Held by
+  `office-slides/test/clearing-a-value.test.ts`, and by two browser tests: the corner given back, and
+  a side of a padding given back through the other command.
+
+  The lesson the site's version left behind held again, one layer up: **a test that skips the layer
+  that transports the work cannot see the transport lose it** — and there turned out to be three such
+  layers under one panel row.
 
 ### A frame has one border, not four sides
 

@@ -102,6 +102,67 @@ test.describe('the corners of a box', () => {
     await expect.poll(() => radiusOf(page, frame.sid)).toBe('18.87px');
   });
 
+  /**
+   * And **back**, which is the half that did not exist.
+   *
+   * A corner set to 0 and a corner not set draw differently — 0 is square, unset follows the radius
+   * — and the panel could reach the first and never the second again. Three separate layers dropped
+   * it: the field read an emptied box as *leave it alone*, the panel's unit conversion turned it
+   * into `NaN`, and the command's own filter required a number. Each on its own was enough.
+   *
+   * `office-ui/test/number-field.test.ts` states the rule and
+   * `office-slides/test/clearing-a-value.test.ts` states what the commands do with it. This is the
+   * chain: a reader deletes what is in a field, and the box goes back to being round there.
+   */
+  test('are given back by emptying the field, which is not the same as typing 0', async ({ page }) => {
+    await openDeck(page);
+    const sid = await newRectangle(page);
+
+    await panel(page).getByLabel('모서리 둥글기').fill('0.5');
+    await panel(page).getByLabel('모서리 둥글기').press('Enter');
+    await panel(page).getByLabel('왼쪽 아래 모서리').fill('0');
+    await panel(page).getByLabel('왼쪽 아래 모서리').press('Enter');
+    await expect.poll(() => radiusOf(page, sid)).toBe('18.87px 18.87px 18.87px 0px');
+    expect(await attr(page, sid, 'cornerBottomLeft')).toBe(0);
+
+    await panel(page).getByLabel('왼쪽 아래 모서리').fill('');
+    await panel(page).getByLabel('왼쪽 아래 모서리').press('Enter');
+
+    await expect.poll(() => radiusOf(page, sid)).toBe('18.87px');
+    expect(await attr(page, sid, 'cornerBottomLeft')).toBeUndefined();
+  });
+
+  /**
+   * And a field a reader merely passes through says nothing at all.
+   *
+   * The four corner fields show the radius they follow rather than a zero, which is what makes the
+   * panel honest about what the box is drawing — and it means every one of them is sitting there
+   * holding a number that is **not theirs**. A commit on blur that wrote what it was showing would
+   * freeze all four the first time a reader tabbed past them, and the follow would be gone with no
+   * gesture having been made.
+   */
+  test('are not stated by tabbing past a field that only shows what it follows', async ({ page }) => {
+    await openDeck(page);
+    const sid = await newRectangle(page);
+
+    await panel(page).getByLabel('모서리 둥글기').fill('0.5');
+    await panel(page).getByLabel('모서리 둥글기').press('Enter');
+    await expect.poll(() => radiusOf(page, sid)).toBe('18.87px');
+
+    await panel(page).getByLabel('왼쪽 위 모서리').click();
+    await panel(page).getByLabel('오른쪽 위 모서리').click();
+    await panel(page).getByLabel('모서리 둥글기').click();
+    await page.waitForTimeout(300);
+
+    expect(await attr(page, sid, 'cornerTopLeft')).toBeUndefined();
+    expect(await attr(page, sid, 'cornerTopRight')).toBeUndefined();
+
+    // Still following: change the radius and all four move with it.
+    await panel(page).getByLabel('모서리 둥글기').fill('1');
+    await panel(page).getByLabel('모서리 둥글기').press('Enter');
+    await expect.poll(() => radiusOf(page, sid)).toBe('37.8px');
+  });
+
   /** An ellipse is round by construction; four fields there would change nothing. */
   test('are not offered on an ellipse', async ({ page }) => {
     await openDeck(page);

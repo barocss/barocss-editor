@@ -115,7 +115,15 @@ export class CanvasLayoutExtension implements Extension {
       'columns'
     ] as const) {
       const value = payload?.[key];
-      if (typeof value === 'number' && Number.isFinite(value)) out[key] = Math.max(0, value);
+      /*
+       * A key **mentioned as nothing** takes the value back, and a key not mentioned is left alone.
+       * `in` is what separates the two, and without it there was no way to remove one of the four
+       * sides — so a side stated once went on overriding the shorthand forever, and 0 was the only
+       * thing a panel could write instead. `setAttrs` reads `undefined` as removal; this only has to
+       * carry it that far.
+       */
+      if (key in (payload ?? {}) && value === undefined) out[key] = undefined;
+      else if (typeof value === 'number' && Number.isFinite(value)) out[key] = Math.max(0, value);
     }
     if (typeof payload?.alignItems === 'string') out.alignItems = payload.alignItems;
     if (typeof payload?.justifyContent === 'string') out.justifyContent = payload.justifyContent;

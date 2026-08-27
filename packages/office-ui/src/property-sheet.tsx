@@ -173,6 +173,17 @@ export function PropertySheet<Row extends SheetRow>({
                   : Number(current)
             }
             onCommit={(next) => onWrite(one, next)}
+            /*
+             * Emptying a panel row means **the attribute is not stated**, which is a value a panel
+             * row can hold and had no gesture for. It is the difference between a corner that is 0
+             * and a corner that follows the radius, and between a side that overrides the padding
+             * and one that does not — and until this line the second of each pair could be typed
+             * into and never typed back out of.
+             *
+             * A row already showing nothing clears nothing: `readNumberField` will not call this
+             * when the field's value is `null`, which is what a disagreeing selection draws as.
+             */
+            onClear={() => onWrite(one, undefined)}
             ariaLabel={one.ariaLabel}
             suffix={suffix ? suffix(one) : one.unit}
             min={one.min}
