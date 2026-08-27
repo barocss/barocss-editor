@@ -151,8 +151,9 @@ evidence rather than opinion: the same twelve are *missing entirely* from the ot
   across three products get somewhere to be read**. A tooltip teaches a shortcut to someone who has
   already found the button.
 
-- [x] **2. A toolbar that is contextual**, in Word. See Done. The deck's 60 controls have not been
-  measured the same way yet.
+- [x] **2. A toolbar that is contextual**, in Word **and the deck**. See Done. The site's one row
+  carries a tool mode, four object actions and a link picker — small enough that nothing there is
+  dead weight, and the link picker is item 1b-iii rather than this.
 
 
 - [ ] **3. Two kinds of toggle drawn identically.** 선택/텍스트 is *one of these* and
@@ -3145,6 +3146,28 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The deck's toolbar answers to the selection too.** Measured the way Word's was, with one box
+  selected: of **60 controls**, `align` was 10 of 12 disabled, `table` 9 of 9, `character` 5 of 5 and
+  `group` 2 of 4 — twenty-six that could do nothing. With **nothing** selected it was forty-four, in
+  two rows. It is 31 controls and one row now, and 51 once a box is chosen.
+
+  The boundary Word's version settled held here without re-deciding: `character` is dead for want of
+  a **selection** and these four for want of a *kind* of one. Both are answered by asking the group's
+  own controls, where Word answers `table` from the caret's own table because it already computes one
+  for the look flags — same rule, one product with a shortcut, and `when`'s value says which context
+  a group is about.
+
+  Two things the browser said that a probe got wrong first:
+
+  - **A cell selected is not a caret in a table.** A probe that selected a `bTableCell` node found
+    every table command refused and looked like a dead group of nine; `findAncestorCell` walks up
+    from a **range**, so it takes two double-clicks — into the box, then into the words. The product
+    was right and the measurement was not.
+  - **A pane that grows has less scroll to give**, and the wheel-zoom's anchoring gives way at the
+    edges by design. Losing a toolbar row made the pane 32 pixels taller, and a test that aimed near
+    the top of a *fitted* deck then measured the clamp rather than the correction — 1.8% out, with
+    nothing wrong. It zooms in once first now, so the correction has room to act.
 
 - **A slide can be named** — the one thing the deck's sample writes and the product could not.
 
