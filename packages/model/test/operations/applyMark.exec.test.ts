@@ -68,3 +68,95 @@ describe('applyMark operation (exec)', () => {
 });
 
 
+
+/**
+ * A node that says which marks a run inside it may take.
+ *
+ * `marks: string[]` has been on a node definition since the schema was written and **nothing read
+ * it** — the third field of that family, after `code` and `whitespace`. Absent means anything, which
+ * is what every node in the office schema but one says and is why it went unnoticed; `[]` means none.
+ *
+ * The operation is where it is read rather than a toolbar, because a mark reaches a run through a
+ * paste, a command, a loaded document and a test, and only one of those goes past a button. What it
+ * cost while unread: bold inside a code block, which publishes a `<strong>` into a `<pre>` — nothing
+ * a highlighter expects, and lost the moment the code is copied out as text, which is what a code
+ * block is for.
+ */
+describe('applyMark, against what the node allows', () => {
+  let dataStore: DataStore;
+  let context: any;
+
+  beforeEach(() => {
+    const schema = new Schema('marks-schema', {
+      nodes: {
+        'inline-text': { name: 'inline-text', content: 'text*' },
+        paragraph: { name: 'paragraph', content: 'inline*' },
+        // None at all: the code block's rule.
+        codeBlock: { name: 'codeBlock', content: 'inline*', marks: [] },
+        // And one that allows some, to show the list is a list rather than a switch.
+        callout: { name: 'callout', content: 'inline*', marks: ['bold'] }
+      },
+      marks: { bold: { name: 'bold' }, italic: { name: 'italic' } }
+    });
+    dataStore = new DataStore(undefined, schema);
+    context = createTransactionContext(dataStore, new SelectionManager({ dataStore }), schema);
+  });
+
+  const run = (parentStype: string) => {
+    dataStore.setNode({ sid: 'block', stype: parentStype, content: ['run'] } as never);
+    dataStore.setNode({ sid: 'run', stype: 'inline-text', text: 'const x = 1;', parentId: 'block' } as never);
+    return globalOperationRegistry.get('applyMark')!;
+  };
+
+  it('allows anything where the node says nothing', async () => {
+    const op = run('paragraph');
+    await op.execute({ type: 'applyMark', payload: { nodeId: 'run', start: 0, end: 5, markType: 'bold' } } as any, context);
+    expect(dataStore.getNode('run')?.marks).toEqual([{ stype: 'bold', range: [0, 5] }]);
+  });
+
+  it('refuses every mark where the node allows none', async () => {
+    const op = run('codeBlock');
+    await expect(
+      op.execute({ type: 'applyMark', payload: { nodeId: 'run', start: 0, end: 5, markType: 'bold' } } as any, context)
+    ).rejects.toThrow("Mark 'bold' is not allowed here");
+    // And nothing was written: a refusal that half-applied would be worse than none.
+    expect(dataStore.getNode('run')?.marks ?? []).toEqual([]);
+  });
+
+  it('refuses only what is not on the list', async () => {
+    const op = run('callout');
+    await op.execute({ type: 'applyMark', payload: { nodeId: 'run', start: 0, end: 5, markType: 'bold' } } as any, context);
+    await expect(
+      op.execute({ type: 'applyMark', payload: { nodeId: 'run', start: 0, end: 5, markType: 'italic' } } as any, context)
+    ).rejects.toThrow("Mark 'italic' is not allowed here");
+  });
+
+  it('refuses a range whose far end is inside code, not only its start', async () => {
+    dataStore.setNode({ sid: 'p', stype: 'paragraph', content: ['a'] } as never);
+    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: 'plain ', parentId: 'p' } as never);
+    dataStore.setNode({ sid: 'c', stype: 'codeBlock', content: ['b'] } as never);
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'code', parentId: 'c' } as never);
+
+    const op = globalOperationRegistry.get('applyMark')!;
+    await expect(
+      op.execute(
+        {
+          type: 'applyMark',
+          payload: { range: { startNodeId: 'a', startOffset: 0, endNodeId: 'b', endOffset: 2 }, markType: 'bold' }
+        } as any,
+        context
+      )
+    ).rejects.toThrow("Mark 'bold' is not allowed here");
+  });
+
+  it('lets the nearest ancestor decide, so a quotation cannot overrule the code in it', async () => {
+    dataStore.setNode({ sid: 'quote', stype: 'paragraph', content: ['code'] } as never);
+    dataStore.setNode({ sid: 'code', stype: 'codeBlock', content: ['run'], parentId: 'quote' } as never);
+    dataStore.setNode({ sid: 'run', stype: 'inline-text', text: 'x', parentId: 'code' } as never);
+
+    const op = globalOperationRegistry.get('applyMark')!;
+    await expect(
+      op.execute({ type: 'applyMark', payload: { nodeId: 'run', start: 0, end: 1, markType: 'bold' } } as any, context)
+    ).rejects.toThrow("Mark 'bold' is not allowed here");
+  });
+});

@@ -1,6 +1,7 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
 import { defineOperationDSL } from './define-operation-dsl';
+import { marksAllowed } from './marks-allowed';
 
 /**
  * applyMark operation (DSL + runtime)
@@ -113,6 +114,9 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
         throw new Error('Range endpoints must be text nodes');
       }
       if (typeof startOffset !== 'number' || typeof endOffset !== 'number') throw new Error('Invalid range');
+      if (!marksAllowed(context, startNodeId, markType) || !marksAllowed(context, endNodeId, markType)) {
+        throw new Error(`Mark '${markType}' is not allowed here`);
+      }
       if (!context.dataStore.range || typeof context.dataStore.range.applyMark !== 'function') {
         throw new Error('DataStore.range.applyMark is not available');
       }
@@ -165,6 +169,9 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
     if (typeof node.text !== 'string') throw new Error(`Node ${nodeId} is not a text node`);
     if (typeof start !== 'number' || typeof end !== 'number' || start >= end || start < 0 || end > (node.text as string).length) {
       throw new Error('Invalid range');
+    }
+    if (!marksAllowed(context, nodeId, markType)) {
+      throw new Error(`Mark '${markType}' is not allowed here`);
     }
     // Read before the write, since the write is what it is the inverse of.
     const had = marksBefore(context.dataStore, nodeId);

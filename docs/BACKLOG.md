@@ -89,12 +89,6 @@ entries are that.
 
 ### A code block can be written in, and cannot be coloured or kept plain
 
-- [ ] **`marks` is declared on a node definition and nothing reads it.** `SchemaNodeDefinition.marks`
-  is a `string[]` and no validator, operation or command consults it — so "no formatting inside a
-  code block" cannot be stated, only hoped for. Bold inside code publishes a `<strong>` into a
-  `<pre>`, which no highlighter expects and no round-trip survives. The third member of this family;
-  `code` and `whitespace` were the other two and `code` is read now.
-
 - [ ] **No syntax highlighting.** It is a drawing and never a value — the colours come from the text
   and the language, so storing them stores something that goes stale. Two shapes, neither a widget:
   the **CSS Custom Highlight API** in the editor, which paints ranges without wrapping anything and
@@ -2750,6 +2744,21 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **`marks` is read, and it was the last of the family.** A node definition may say which marks a run
+  inside it takes — absent is anything, `[]` is none — and nothing had ever consulted it. `applyMark`
+  and `toggleMark` do now, which is why bold inside a code block is refused rather than published as
+  a `<strong>` inside a `<pre>`: nothing a highlighter expects, and lost the moment the code is
+  copied out as text.
+
+  Two lines drawn while doing it. The **operation** reads it rather than the toolbar, because a mark
+  arrives through a paste, a command, a loaded document and a test and only one of those passes a
+  button. And **`setMarks` is not guarded**: it writes a list wholesale and is how an inverse
+  restores what an operation took, so a guard there would make undo refuse to put a document back
+  into a state it was actually in. A mark already on a run is still removable.
+
+  `code` was read the round before, and `whitespace` is deliberately never declared — the whitespace
+  is literal because the element is a `pre`, and a second answer nothing consults is the fault itself.
 
 - **`insertText` had never worked, so Shift+Enter has never inserted a line break.** The command
   guards itself by asking whether `replaceText` can run — and asked it with **no payload**, while

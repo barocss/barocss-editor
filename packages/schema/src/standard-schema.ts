@@ -68,6 +68,18 @@ export function getStandardSchemaDefinition(): SchemaDefinition {
         group: 'block',
         content: 'inline*',
         code: true,
+        /*
+         * **None**, and this is now read.
+         *
+         * `marks` is the third field of this family — `code` and `whitespace` were the other two —
+         * and it was the last one nothing consulted. `applyMark` reads it: the marks a run inside
+         * this node may take, where absent means anything and `[]` means none.
+         *
+         * Bold inside code is not a matter of taste. A `<strong>` inside a `<pre>` is something no
+         * syntax highlighter expects, and it is lost the moment the code is copied out as text —
+         * which is what a code block is for.
+         */
+        marks: [],
         attrs: { language: { type: 'string', required: false } }
       },
       horizontalRule: { name: 'horizontalRule', group: 'block', atom: true },

@@ -707,10 +707,17 @@ Tab is an indent, and there is no formatting. That is not a renderer's problem o
 an input mode, and the text stack is shared by three products, so growing one is a change Word and
 the deck feel too.
 
-**Marks are still not refused.** Bold inside code is meaningless and a `<strong>` inside a `<pre>` is
-something no highlighter expects and no round-trip survives. The schema has a place to say it — a
-node definition may carry `marks: string[]` — and nothing reads it. That is the one part of the mode
-that is not built.
+**And marks are refused.** `marks: string[]` was the last field of that family nothing consulted:
+absent means anything, `[]` means none, and `applyMark` and `toggleMark` read it. Bold inside code is
+not a matter of taste — a `<strong>` inside a `<pre>` is something no highlighter expects, and it is
+lost the moment the code is copied out as text, which is what a code block is for.
+
+Read in the **operation** rather than in the toolbar, because a mark reaches a run through a paste, a
+command, a document loaded from elsewhere and a test, and only one of those goes past a button. Not
+in `setMarks`, which writes a list wholesale and is how an inverse restores what an operation took —
+a guard there would make undo refuse to put a document back into a state it was actually in. And a
+mark that is already on a run can still be **removed**, which is how a document that arrives holding
+one is cleaned up.
 
 ## What a site builder still needs
 

@@ -1,6 +1,7 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
 import { defineOperationDSL, type DSLOperationDescriptor } from './define-operation-dsl';
+import { marksAllowed } from './marks-allowed';
 
 /**
  * toggleMark operation (runtime)
@@ -107,6 +108,14 @@ defineOperation('toggleMark', async (operation: any, context: TransactionContext
     if (!context.dataStore.range || typeof context.dataStore.range.toggleMark !== 'function') {
       throw new Error('DataStore.range.toggleMark is not available');
     }
+    /*
+     * And whether this node takes this mark at all — `marks-allowed.ts` for what the field means and
+     * why the operation is where it is read. Refused rather than toggled *off*: a mark that cannot
+     * be put on cannot be turned on, and one that is already there is taken off by `removeMark`.
+     */
+    if (!marksAllowed(context, startNodeId, markType) || !marksAllowed(context, endNodeId, markType)) {
+      throw new Error(`Mark '${markType}' is not allowed here`);
+    }
 
     const contentRange = { type: 'range' as const, startNodeId, startOffset, endNodeId, endOffset };
     const before = startNodeId === endNodeId ? marksBefore(context.dataStore, startNodeId) : null;
@@ -125,6 +134,9 @@ defineOperation('toggleMark', async (operation: any, context: TransactionContext
   const { nodeId, range } = payload;
   const node = context.dataStore.getNode(nodeId);
   if (!node) throw new Error(`Node ${nodeId} not found`);
+  if (!marksAllowed(context, nodeId, markType)) {
+    throw new Error(`Mark '${markType}' is not allowed here`);
+  }
   const beforeSingle = marksBefore(context.dataStore, nodeId);
 
   if (!context.dataStore.marks || typeof context.dataStore.marks.toggleMark !== 'function') {

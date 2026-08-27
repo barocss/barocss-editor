@@ -2065,6 +2065,59 @@ test.describe('a code block', () => {
     await expect(pre).toContainText('function');
   });
 
+  test('refuses formatting, and lets a paragraph keep it', async ({ page }) => {
+    await ready(page);
+    await enter(page);
+
+    const marksOn = () =>
+      page.evaluate(() => {
+        const editor = (window as never as { editor: any }).editor;
+        const store = editor.dataStore;
+        let found: any;
+        const walk = (sid: string) => {
+          const node = store.getNode(sid);
+          if (!node) return;
+          if (node.stype === 'codeBlock') found = node;
+          for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
+        };
+        walk(editor.getRootId());
+        return store.getNode((found?.content ?? [])[0])?.marks ?? [];
+      });
+
+    await page.keyboard.press('Home');
+    await page.keyboard.down('Shift');
+    for (let step = 0; step < 8; step += 1) await page.keyboard.press('ArrowRight');
+    await page.keyboard.up('Shift');
+    await page.keyboard.press('Meta+b');
+    await page.waitForTimeout(600);
+
+    /*
+     * Nothing. A `<strong>` inside a `<pre>` is something no syntax highlighter expects and it is
+     * lost the moment the code is copied out as text, which is what a code block is for. The schema
+     * says `marks: []` and the **operation** reads it — a greyed-out button is a courtesy, and a
+     * mark also arrives through a paste, a loaded document and a test.
+     */
+    expect(await marksOn()).toEqual([]);
+    await expect(page.locator('[data-frame="desktop"] pre .mark-bold')).toHaveCount(0);
+
+    // And prose is untouched: the rule is the node's, not the editor's.
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+    const hero = page.locator('[data-frame="desktop"] .st-page h1').first();
+    await bring(page, hero);
+    await pressDeep(page, hero);
+    await page.waitForTimeout(200);
+    await hero.dblclick({ force: true });
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Home');
+    await page.keyboard.down('Shift');
+    for (let step = 0; step < 3; step += 1) await page.keyboard.press('ArrowRight');
+    await page.keyboard.up('Shift');
+    await page.keyboard.press('Meta+b');
+    await page.waitForTimeout(600);
+    await expect(page.locator('[data-frame="desktop"] .st-page h1 .mark-bold')).toHaveCount(1);
+  });
+
   test('makes Tab an indent rather than a way out of the board', async ({ page }) => {
     await ready(page);
     await enter(page);
