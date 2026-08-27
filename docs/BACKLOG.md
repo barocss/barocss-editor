@@ -61,19 +61,13 @@ Five tabs, and what each can do:
 The **구성** list is the one that was a selector where every other builder's is a manipulator, and
 the first half of that is fixed (see Done). What is left, in the order a reader would miss it:
 
+- [x] ~~**2 · 3. Hide and lock a block.**~~ Built — see Done.
+
 - [ ] **1. Reorder by dragging a row.** The canvas can drag a block and the list cannot, and the list
   is the only place an empty stack or a block behind another block can be *reached* at all. The deck's
   layer panel already drags (`useStackOrder` in `office-ui`), so the shape exists.
 
-- [ ] **2. Hide a block.** Drafting a section and wanting it off the page is the commonest reason to
-  open a layer list. The site schema has no `visible` — the office schema's `CANVAS_PRESENCE_ATTRS`
-  does, for placed things — so this is a schema widening, a renderer reading it, and the export
-  agreeing. Which is the whole flow, and worth it: the alternative a reader has today is to delete
-  the section and undo later.
 
-- [ ] **3. Lock a block.** The other half of the same pair. Cheaper than hiding — nothing about the
-  drawing changes, only what the overlay will select — and it is what makes a background picture
-  editable at all.
 
 - [ ] **4. Rename on the row.** The name is in the panel, and a layer list is where a reader is
   thinking about names. Double-click is the convention.
@@ -3135,6 +3129,45 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A block can be hidden and locked.** The two words the office schema already had — for things
+  placed on a canvas — and a page needed both anyway, which is the third time these two worlds have
+  turned out to share more than the shape of a coordinate.
+
+  **Hiding** is the commonest reason anybody opens a layer list: a reader drafting a section wants it
+  off the page for a week, and the only move available before this was *delete it and undo later* —
+  which is not a move, it is a thing they get wrong once and never try again.
+
+  The editor and the visitor are told **different things**, on purpose:
+
+  - the editor draws it `display: none` and goes on listing it in 구성 with the properties panel
+    still working, because a block a reader cannot get back to is a block they have lost. Gone from
+    the canvas, present in the list, is what Figma, Sketch and Photoshop all do.
+  - the export **removes** it. `display: none` still ships the words — to a crawler, to a reader with
+    styles off, to anybody who opens the source — and a section somebody hid is a section they did
+    not mean to publish.
+
+  And measured after that landed: the element was gone and **its media query, its `:hover` and its
+  arrival were all still in the stylesheet naming it**. Harmless to a browser and not to a reader —
+  those rules were the one remaining trace that the section exists. `styledNodes` skips a hidden
+  block now, which is the single place all three rule-writers walk.
+
+  **Locking** is the cheaper half: nothing about the drawing changes, only what the overlay hands
+  back. Left out of the selection chain entirely rather than *selectable but refused*, so a press on
+  a locked background picture finds what is behind it — which is the point of locking one, since the
+  only way past a full-width picture today is to find something on top of it and walk up. Its
+  children stay selectable: locking a section to stop nudging it is not a statement about the words
+  in it.
+
+  The rows show the eye and the padlock **only when they say something**, or under the pointer.
+  Twelve rows each carrying two grey glyphs is a column of noise a reader reads past, and the deck's
+  layer panel already records the reason: *"drawing the act would put a crossed-out eye on all
+  twelve, which reads as twelve hidden layers"*.
+
+  The harness did its half twice: it reported `visible` was **read now** the moment the exemption
+  saying otherwise came off, and then reported that nothing could **set** it until the panel rows and
+  `setBlockFormat` existed. `locked` keeps an exemption with a truer sentence than it had — it is
+  read by the overlay, which is a place a probe that compares drawings cannot reach.
 
 - **The layer list is a tree rather than a wall.** Measured on the sample's home page: **110 rows,
   2,923 pixels of them, in a 928-pixel pane** — three screens of list, every row expanded because

@@ -833,6 +833,95 @@ test.describe('the layer list', () => {
     await expect(page.locator('[data-twist="open"]')).toHaveCount(1);
   });
 
+  /**
+   * **Hiding a block**, which is the commonest reason anybody opens a layer list.
+   *
+   * A reader drafting a section wants it off the page for a week, and without this the only move
+   * available is *delete it and undo later* — which is not a move, it is a thing they will get wrong
+   * once and never try again.
+   */
+  test('takes a block off the page and keeps it in the list', async ({ page }) => {
+    await ready(page);
+    await layers(page);
+
+    const row = page.locator('[data-layer]').nth(1);
+    const sid = await row.getAttribute('data-layer');
+    const drawn = page.locator(`[data-frame="desktop"] [data-bc-sid="${sid}"]`).first();
+    expect(await drawn.evaluate((one) => getComputedStyle(one as HTMLElement).display)).not.toBe('none');
+
+    await row.hover();
+    await row.locator('button').first().click();
+    await page.waitForTimeout(500);
+
+    expect(await drawn.evaluate((one) => getComputedStyle(one as HTMLElement).display)).toBe('none');
+    /*
+     * And still listed. Gone from the canvas and present in the list is what Figma, Sketch and
+     * Photoshop all do, for the reason that decides it: a block a reader cannot get back to is a
+     * block they have lost.
+     */
+    await expect(page.locator(`[data-layer="${sid}"]`)).toHaveCount(1);
+    await expect(page.locator(`[data-layer="${sid}"]`)).toHaveAttribute('data-hidden', 'true');
+  });
+
+  test('does not publish what a reader hid — not the words, not a rule naming it', async ({ page }) => {
+    await ready(page);
+    await layers(page);
+
+    const row = page.locator('[data-layer]').nth(1);
+    const sid = await row.getAttribute('data-layer');
+    await row.hover();
+    await row.locator('button').first().click();
+    await page.waitForTimeout(500);
+
+    const html = await page.evaluate(() => (window as any).exportSite()[0].html);
+    const body = html.slice(html.indexOf('<body'));
+    const head = html.slice(0, html.indexOf('<body'));
+
+    /*
+     * The editor draws it `display: none` and the export **removes** it, which is the one place a
+     * visitor is told less than the reader and is told it on purpose: `display: none` still ships
+     * the words — to a crawler, to a reader with styles off, to anybody who opens the source.
+     */
+    expect(body).not.toContain(`data-b="${sid}"`);
+    // And no orphan rule naming it, which is the one remaining trace that the section exists.
+    expect(head).not.toContain(`data-b="${sid}"`);
+  });
+
+  /**
+   * **Locking**, which is the cheaper half of the same pair.
+   *
+   * Nothing about the drawing changes — only what the overlay hands back when a reader presses. It
+   * is what makes a full-width background picture editable at all, because the only way past one
+   * today is to find something on top of it and walk up.
+   */
+  test('a locked block is not what a press finds', async ({ page }) => {
+    await ready(page);
+    await layers(page);
+
+    const row = page.locator('[data-layer]').first();
+    const sid = await row.getAttribute('data-layer');
+    await row.click();
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as any).editor.selection?.nodeIds?.[0])).toBe(sid);
+
+    await row.hover();
+    await row.locator('button').nth(1).click();
+    await page.waitForTimeout(400);
+    await expect(page.locator(`[data-layer="${sid}"]`)).toHaveAttribute('data-locked', 'true');
+
+    /*
+     * Left out of the chain entirely rather than "selectable but refused": a press on a locked band
+     * finds what is behind it rather than stopping there, which is the point of locking one.
+     */
+    await page.evaluate(() => (window as any).editor.executeCommand('clearSelection'));
+    await page.waitForTimeout(200);
+    const band = page.locator(`[data-frame="desktop"] [data-bc-sid="${sid}"]`).first();
+    await band.click({ force: true, modifiers: ['Meta'], position: { x: 8, y: 8 } });
+    await page.waitForTimeout(400);
+
+    expect(await page.evaluate(() => (window as any).editor.selection?.nodeIds?.[0] ?? null)).not.toBe(sid);
+  });
+
   test('reveals where a block lives when it is selected on the canvas', async ({ page }) => {
     await ready(page);
     await layers(page);

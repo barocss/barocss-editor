@@ -28,6 +28,7 @@ import { isVarRef, resolveVarValue } from '@barocss/office-canvas';
 import { frameCss } from '@barocss/office-word';
 import { hrefFor } from './page-link';
 import { paintCss } from './paint';
+import { presenceCss } from './presence';
 import { sizingCss } from './sizing';
 import { breakpointOf } from './breakpoints';
 import { codeComponent } from './code-render';
@@ -224,7 +225,7 @@ export function registerSiteRenderers(): void {
       {
         className: 'st-list',
         'data-type': ordered ? 'ordered' : 'bullet',
-        style: { ...sizingCss(attrs as never) }
+        style: { ...sizingCss(attrs as never), ...presenceCss(attrs) }
       },
       [slot('content')]
     );
@@ -324,7 +325,7 @@ export function registerSiteRenderers(): void {
          * can tell an override from the page's own answer by looking at the drawing.
          */
         'data-at': ctx?.env ? breakpointOf(ctx.env as RenderEnv) : undefined,
-        style: { ...stackCss(attrs), ...sizingCss(attrs) }
+        style: { ...stackCss(attrs), ...sizingCss(attrs), ...presenceCss(attrs) }
       },
       [slot('content')]
     );
@@ -356,7 +357,7 @@ export function registerSiteRenderers(): void {
          * writes what a drawn element *is* rather than making a reader infer it.
          */
         'data-row': typeof attrs.rowIndex === 'number' ? String(attrs.rowIndex) : undefined,
-        style: { display: 'flex', flexDirection: 'column', ...sizingCss(attrs) }
+        style: { display: 'flex', flexDirection: 'column', ...sizingCss(attrs), ...presenceCss(attrs) }
       },
       [slot('content')]
     );
@@ -383,7 +384,7 @@ export function registerSiteRenderers(): void {
         'data-name': typeof attrs.name === 'string' ? attrs.name : undefined,
         'data-layout': typeof attrs.layoutMode === 'string' ? attrs.layoutMode : 'none',
         'data-at': ctx?.env ? breakpointOf(ctx.env as RenderEnv) : undefined,
-        style: { ...stackCss(attrs), ...sizingCss(attrs) }
+        style: { ...stackCss(attrs), ...sizingCss(attrs), ...presenceCss(attrs) }
       },
       [slot('content')]
     );
@@ -420,7 +421,8 @@ export function registerSiteRenderers(): void {
               border: `${Math.round(((typeof attrs.strokeWidth === 'number' ? attrs.strokeWidth : 15) * 96) / 1440)}px solid ${attrs.stroke}`
             }
           : {}),
-        ...sizingCss(attrs)
+        ...sizingCss(attrs),
+        ...presenceCss(attrs)
       }
     });
   });

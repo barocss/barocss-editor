@@ -142,7 +142,18 @@ export function pathFromPage(doc: Access, sid: string | undefined, page: string)
   while (at && at !== page && depth++ < 64) {
     const node = doc.getNode(at);
     if (!node) return [];
-    if (SELECTABLE.has(String(node.stype))) chain.unshift(at);
+    /*
+     * A **locked** block is not in the chain, which is the whole of what a lock does.
+     *
+     * Not "selectable but refused": left out entirely, so a press on a locked background picture
+     * finds whatever is behind it rather than stopping there. That is the point of locking one — the
+     * only way past a full-width picture today is to find something on top of it and walk up.
+     *
+     * Its children are still in the chain if they are not locked themselves, because locking a
+     * container is a statement about the container: a reader who locks a section to stop nudging it
+     * still edits the words in it.
+     */
+    if (SELECTABLE.has(String(node.stype)) && node.attributes?.locked !== true) chain.unshift(at);
     at = node.parentId as string | undefined;
   }
   // Only a chain that actually reached the page belongs to it; anything else is on another page.

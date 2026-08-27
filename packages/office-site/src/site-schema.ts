@@ -51,7 +51,7 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
    * where one fills and two hug is an ordinary layout, and a container that decided for all of them
    * could not express it.
    */
-  const sizingAttrs = {
+  const everyBlockAttrs = {
     sizing: { type: 'string' as const, required: false, options: [...SIZING] },
     /** The smallest and largest it may be drawn, in twips, for a `fill` that must not collapse. */
     minWidth: { type: 'number' as const, required: false },
@@ -144,7 +144,33 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
       type: 'string' as const,
       required: false,
       options: ['rise', 'slideIn', 'pop', 'focusIn', 'appearSlowly']
-    }
+    },
+    /**
+     * Whether this block is **on the page** — and whether a reader can pick it up.
+     *
+     * The office schema has both, on `CANVAS_PRESENCE_ATTRS`, for things placed on a canvas. A page
+     * places nothing and needed them anyway, which is the same finding `sizing` produced from the
+     * other side: the two worlds share more than the shape of a coordinate.
+     *
+     * ## Why hiding is worth a schema field
+     *
+     * It is the commonest reason anybody opens a layer list. A reader drafting a section wants it off
+     * the page for a week, and without this the only move available is **delete it and undo later** —
+     * which is not a move, it is a thing they will get wrong once and never try again.
+     *
+     * A hidden block is drawn `display: none` in the editor and is **removed** from the exported
+     * page. Those differ on purpose: the editor still lists it in 구성 and still shows its properties,
+     * because a block a reader cannot get back to is a block they have lost; a visitor should not
+     * receive the words of a draft at all, which `display: none` would still ship.
+     *
+     * ## Why locking is the cheaper half
+     *
+     * Nothing about the drawing changes — only what the overlay will hand back when a reader presses.
+     * Which is what makes a full-width background picture editable: today the only way past one is to
+     * find something on top of it and walk up.
+     */
+    visible: { type: 'boolean' as const, required: false, default: true },
+    locked: { type: 'boolean' as const, required: false, default: false }
   };
 
   /**
@@ -247,15 +273,15 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
    * which is how every auto-layout tool works — text sizing is the *stack's* question, asked one
    * level up.
    */
-  const withSizing = (name: string) => ({
+  const withBlockAttrs = (name: string) => ({
     ...nodes[name],
-    attrs: { ...nodes[name]?.attrs, ...sizingAttrs }
+    attrs: { ...nodes[name]?.attrs, ...everyBlockAttrs }
   });
 
   /** A container, which on a page is also a surface somebody paints. */
   const withPaint = (name: string) => ({
-    ...withSizing(name),
-    attrs: { ...withSizing(name).attrs, ...paintAttrs }
+    ...withBlockAttrs(name),
+    attrs: { ...withBlockAttrs(name).attrs, ...paintAttrs }
   });
 
   return {
@@ -309,10 +335,10 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
          */
         content: '(block | scene | frame | collection)*'
       },
-      picture: withSizing('picture'),
+      picture: withBlockAttrs('picture'),
 
       /** A placement in the flow says what it does with the width, like any other block. */
-      instance: withSizing('instance'),
+      instance: withBlockAttrs('instance'),
 
       /**
        * A **dataset**: rows the page draws from, named so a list can point at it.
@@ -368,7 +394,7 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
         content: 'instance',
         attrs: {
           ...(nodes.frame?.attrs ?? {}),
-          ...sizingAttrs,
+          ...everyBlockAttrs,
           ...paintAttrs,
           /** The dataset this draws. */
           source: { type: 'string' as const, required: true },

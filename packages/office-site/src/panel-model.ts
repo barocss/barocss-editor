@@ -145,6 +145,38 @@ export const SITE_PANEL: SitePanelRow[] = [
    * Declared rather than drawn ad hoc so that it has a place in the order and cannot be lost in a
    * rewrite.
    */
+  /**
+   * Whether the block is **on the page**, and whether a reader can pick it up.
+   *
+   * Rows as well as the eye and the padlock on a layer row, because they are two different readers'
+   * moments. A reader working through a list hides five things in a row and wants a column of eyes;
+   * a reader standing on one block wants to know what is true of it without going to look somewhere
+   * else. Every tool of this kind offers both for that reason.
+   *
+   * `toggle` and not a pair of buttons: they are facts about the block with two values, which is
+   * what a switch is. The labels say the **true** state rather than the act — 보임 and 잠금 — because
+   * a switch's label names what it controls and its position says which way.
+   */
+  {
+    attr: 'visible',
+    command: 'setBlockFormat',
+    group: '선택',
+    tab: 'block',
+    label: '보임',
+    ariaLabel: '페이지에 보임',
+    control: 'toggle',
+    fallback: true
+  },
+  {
+    attr: 'locked',
+    command: 'setBlockFormat',
+    group: '선택',
+    tab: 'block',
+    label: '잠금',
+    ariaLabel: '잠금',
+    control: 'toggle',
+    fallback: false
+  },
   { attr: 'overrides', group: '선택', tab: 'block', label: '편집 중인 폭', ariaLabel: '편집 중인 폭', control: 'note' },
 
   // ── 배치 — a stack, and how it arranges what is in it ──────────────────────

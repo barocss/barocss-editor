@@ -338,6 +338,16 @@ export class SiteStackExtension implements Extension {
      */
     'reveal',
     /*
+     * Whether it is **on the page**, and whether a reader may pick it up.
+     *
+     * Through `setBlockFormat` like every other fact about a block, rather than commands of their
+     * own: a reader hiding a section is doing what they do when they change its padding — looking at
+     * a block and saying something about it. Two more commands would be two more things for the
+     * keyboard, the menu and the harness to know about, for a gesture that is already spelled.
+     */
+    'visible',
+    'locked',
+    /*
      * Whether it is a window.
      *
      * A page does not clip by silence — see `stackCss` — so this is a reader asking for something

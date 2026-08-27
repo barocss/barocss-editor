@@ -1002,3 +1002,26 @@ body {
   background: var(--st-line);
   color: var(--st-ink);
 }
+
+/*
+ * ── A layer row's eye and padlock ──────────────────────────────────────────
+ *
+ * Shown when they **say something** — this row is hidden, this one is locked — and under the pointer
+ * otherwise. Twelve rows each carrying two grey glyphs is a column of noise a reader reads past, and
+ * the state worth seeing at a glance is the unusual one.
+ */
+.st-layer-acts {
+  display: inline-flex;
+  margin-left: auto;
+  flex: 0 0 auto;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity var(--ou-quick);
+}
+.st-layer:hover .st-layer-acts,
+.st-layer:focus-within .st-layer-acts,
+.st-layer-acts[data-state='said'] { opacity: 1; }
+
+/* A hidden row says so in the name as well: the glyph is at the far end and the name is what is read. */
+.st-layer[data-hidden='true'] .st-layer-name { opacity: 0.45; }
+.st-layer[data-locked='true'] .st-layer-name { font-style: italic; }

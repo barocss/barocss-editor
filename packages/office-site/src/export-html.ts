@@ -52,6 +52,7 @@ import { stackCss } from './renderers';
 import { BREAKPOINTS, SITE_ENV_KEY, createSiteEnv, type BreakpointId } from './breakpoints';
 import { BASE_BREAKPOINT, overridesOf } from './responsive';
 import { STATES, attrsInState, hasStates, statesOf, type StateId } from './states';
+import { isHidden } from './presence';
 import { revealOf, revealRule } from './reveal';
 import { PAGE_CSS } from './page-css';
 import { sizingCss } from './sizing';
@@ -194,6 +195,24 @@ function drawn(editor: Editor, pageSid: string): HTMLElement {
 /** Everything an editor puts in a drawing that a reader has no use for. */
 function clean(host: HTMLElement): HTMLElement {
   for (const filler of [...host.querySelectorAll('[data-bc-filler]')]) filler.remove();
+
+  /**
+   * And every block a reader **hid**, which is the one place the visitor is told less than the
+   * editor and is told it on purpose.
+   *
+   * The editor draws a hidden block `display: none` and goes on listing it in 구성, because a block
+   * a reader cannot get back to is a block they have lost. A published page has no such need and one
+   * strong reason against: `display: none` still *ships the words* — to a crawler, to a reader with
+   * styles off, to anybody who opens the source — and a section somebody hid is a section they did
+   * not mean to publish.
+   *
+   * Read from the drawing rather than from the document, because the drawing is what the export is
+   * about: a hidden block inside a component's definition is hidden in every placement of it, and
+   * walking the document would have to work that out again.
+   */
+  for (const hidden of [...host.querySelectorAll<HTMLElement>('[style*="display: none"]')]) {
+    hidden.remove();
+  }
 
   for (const el of [host, ...host.querySelectorAll('*')] as HTMLElement[]) {
     el.removeAttribute('contenteditable');
@@ -706,6 +725,17 @@ function styledNodes(
   const add = (sid: string, part: boolean) => {
     if (seen.has(sid)) return;
     seen.add(sid);
+    /*
+     * Not a block a reader **hid**. `clean` takes the element out of the exported page, and a rule
+     * naming a node that is not there is an orphan — measured after the removal landed: the element
+     * was gone and its media query, its `:hover` and its arrival were all still in the stylesheet,
+     * naming it.
+     *
+     * Harmless to a browser and not harmless to a reader: those rules are the one remaining trace
+     * that a section exists at all, and hiding a draft is the gesture that says it should not be
+     * published.
+     */
+    if (isHidden((store.getNode(sid) as Node | undefined)?.attributes)) return;
     found.push({ sid, part });
   };
 

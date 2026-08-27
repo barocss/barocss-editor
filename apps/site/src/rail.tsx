@@ -133,7 +133,7 @@ export function Rail({
 
       <div className="st-rail-body">
         {panel === 'add' ? <AddPanel run={run} can={can} revision={revision} /> : null}
-        {panel === 'layers' ? <LayersPanel editor={editor} doc={doc} page={page} revision={revision} /> : null}
+        {panel === 'layers' ? <LayersPanel editor={editor} doc={doc} page={page} revision={revision} run={run} /> : null}
         {panel === 'pages' ? (
           <PagesPanel
             pages={pages}
@@ -234,12 +234,15 @@ function LayersPanel({
   editor,
   doc,
   page,
-  revision
+  revision,
+  run
 }: {
   editor: Editor;
   doc: { getNode: (sid: string) => any };
   page?: string;
   revision: number;
+  /** The rail's own writer, which already tells every command which page is on screen. */
+  run: (name: string, payload?: Record<string, unknown>) => void;
 }) {
   const selected = new Set(selectedNodeIds(editor.selection) ?? []);
 
@@ -310,19 +313,24 @@ function LayersPanel({
       stype: string;
       holds: boolean;
       shown: boolean;
+      hidden: boolean;
+      locked: boolean;
     }[] = [];
     const walk = (sid: string, depth: number) => {
       if (depth > 12) return;
       for (const child of blocksIn(doc, sid)) {
         const holds = blocksIn(doc, child).length > 0;
         const shown = holds && (all || open.has(child) || revealed.has(child));
+        const attrs = (doc.getNode(child)?.attributes ?? {}) as Record<string, unknown>;
         found.push({
           sid: child,
           depth,
           label: labelOfBlock(doc, child),
           stype: String(doc.getNode(child)?.stype),
           holds,
-          shown
+          shown,
+          hidden: attrs.visible === false,
+          locked: attrs.locked === true
         });
         if (shown) walk(child, depth + 1);
       }
@@ -350,6 +358,8 @@ function LayersPanel({
           data-layer={row.sid}
           data-stype={row.stype}
           data-selected={selected.has(row.sid) ? 'true' : undefined}
+          data-hidden={row.hidden ? 'true' : undefined}
+          data-locked={row.locked ? 'true' : undefined}
           // The indent is the structure, so it is what the row is measured by rather than decoration.
           style={{ paddingLeft: `${8 + row.depth * 12}px` }}
           onClick={(event) => select(row.sid, event.shiftKey)}
@@ -393,6 +403,38 @@ function LayersPanel({
           */}
           <Icon name={iconForBlock(doc.getNode(row.sid))} size={13} />
           <span className="st-layer-name">{row.label}</span>
+          {/*
+            The eye and the padlock — **drawn only when they say something**, or on hover.
+
+            Twelve rows each carrying two grey glyphs is a column of noise a reader reads past, and
+            the state a reader needs to see at a glance is the *unusual* one: this block is hidden,
+            this one is locked. So a row that is neither shows them under the pointer and a row that
+            is either shows them always. Which is what the deck's layer panel already does, and it
+            records the same reason: *"drawing the act would put a crossed-out eye on all twelve,
+            which reads as twelve hidden layers"*.
+          */}
+          <span
+            className="st-layer-acts"
+            data-state={row.hidden || row.locked ? 'said' : undefined}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <IconButton
+              size="sm"
+              label={`${row.label} ${row.hidden ? '보이기' : '숨기기'}`}
+              pressed={row.hidden}
+              onClick={() => run('setBlockFormat', { nodeIds: [row.sid], visible: row.hidden })}
+            >
+              <Icon name={row.hidden ? 'hide' : 'shown'} size={13} />
+            </IconButton>
+            <IconButton
+              size="sm"
+              label={`${row.label} ${row.locked ? '잠금 풀기' : '잠그기'}`}
+              pressed={row.locked}
+              onClick={() => run('setBlockFormat', { nodeIds: [row.sid], locked: !row.locked })}
+            >
+              <Icon name={row.locked ? 'locked' : 'unlocked'} size={13} />
+            </IconButton>
+          </span>
         </button>
       ))}
     </div>

@@ -272,8 +272,17 @@ describe('the site builder draws what it declares', () => {
         height: 'a page is as tall as it turns out, which is the whole difference from a sheet',
         rotation: 'nothing on a page is at an angle',
         opacity: 'a canvas idea; a page has no z-order to see through',
-        locked: 'a canvas idea: a placed shape a reader cannot grab. A page has no grabbing',
-        visible: 'a canvas idea; a page shows what it holds',
+        /*
+         * `visible` was *"a canvas idea; a page shows what it holds"* and it is not any more — a page
+         * hides a block a reader is drafting, which is the commonest reason anybody opens a layer
+         * list. It is read by `presenceCss`, so the exemption is gone and the probe answers.
+         *
+         * `locked` stays, with a truer sentence than it had: a page has no grabbing, but it does have
+         * *selecting*, and that is what a lock refuses. Read by the overlay rather than by a renderer,
+         * which is a place this probe cannot reach — it renders a node and compares drawings.
+         */
+        locked:
+          'read by the overlay, which refuses to hand back a locked block — a fact about selection, not about the drawing this probe compares',
         /*
          * A page already has **two** ways to say "this value comes from somewhere else", and this is
          * a canvas's third.
