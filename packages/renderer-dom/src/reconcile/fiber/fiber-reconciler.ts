@@ -280,7 +280,22 @@ export function renderFiberNode(
   // rendered nothing at all because <br> is void and cannot take children.
   const tagChanged =
     prevType === 'host' && nextType === 'host' && prevVNode!.tag !== vnode.tag;
-  const typeChanged = (prevType !== null && prevType !== nextType) || tagChanged;
+  /**
+   * And for a **component**, the type is its `stype` rather than the tag it happens to draw.
+   *
+   * Two different node types can draw the same element — a placement and a frame are both a `div`
+   * here — so the tag said "the same thing" and this took the UPDATE path, keeping the DOM element.
+   * `ComponentManager.updateComponent` then saw the `stype` change, and *it* is right that a
+   * different component is a different thing: it unmounted the old one, which **took that very
+   * element out of the document**, and mounted the new one with nothing left to attach to.
+   *
+   * The result was a node that changed type disappearing off the page while the document held it
+   * perfectly — found in a site builder, detaching a component. Two answers to "is this the same
+   * thing", one of them made after the other had already reused the DOM.
+   */
+  const componentChanged =
+    !!prevVNode?.stype && !!vnode.stype && prevVNode.stype !== vnode.stype;
+  const typeChanged = (prevType !== null && prevType !== nextType) || tagChanged || componentChanged;
 
   // Host nodes with different decorator identity must not reuse DOM (create new element)
   const prevDecoratorSid = getDecoratorSid(prevVNode);
@@ -509,7 +524,10 @@ export function commitFiberNode(
   // rendered nothing at all because <br> is void and cannot take children.
   const tagChanged =
     prevType === 'host' && nextType === 'host' && prevVNode!.tag !== vnode.tag;
-  const typeChanged = (prevType !== null && prevType !== nextType) || tagChanged;
+  // A different `stype` is a different component, whatever element it draws — see the render phase.
+  const componentChanged =
+    !!prevVNode?.stype && !!vnode.stype && prevVNode.stype !== vnode.stype;
+  const typeChanged = (prevType !== null && prevType !== nextType) || tagChanged || componentChanged;
   
   // If type changed: remove existing DOM
   if (typeChanged && prevVNode?.meta?.domElement) {

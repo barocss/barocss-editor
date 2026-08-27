@@ -64,20 +64,6 @@ entries are that.
   for at the price of every reader wondering which of two places to set. The escape is written down —
   an `overrides` *inside* the state, the same map one level down — and nothing implements it.
 
-### A node whose **type** changes disappears from the drawing
-
-- [ ] `transformNode` changes a node's type where it stands, which is the obviously right shape for
-  a detach: the block keeps its sid, its place and everything written on it. Measured in the browser:
-  it also vanishes. The view removes the element it drew for the old type and draws nothing for the
-  new one, so a detached header disappeared off the page while the document held it perfectly — a
-  reload brought it straight back.
-
-  The site's detach works around it by removing the node and putting a frame in its place, carrying
-  the attributes across; the cost is a new sid, which nothing in a site document refers to. **The
-  deck almost certainly shares the bug**, since its own detach is the line this one was copied from
-  and its browser suite does not cover the drawing afterwards. Worth checking before fixing, because
-  the fix is in `renderer-dom` and every product feels it.
-
 ### A template can be rewired, and cannot be given a new wire
 
 - [ ] **A question cannot be renamed or removed.** `bindPartText` declares one and binds it, which is
@@ -2764,6 +2750,31 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A node that changed type disappeared off the page.** `transformNode` changes a node's type where
+  it stands, which is the right shape for a detach — the block keeps its sid, its place and
+  everything written on it. Measured in the browser it also vanished: the document held the result
+  perfectly and there was nothing on screen until a reload.
+
+  Two faults, one behind the other, and the first one hid the second.
+
+  The reconciler asked whether the DOM could be reused by comparing **tags**, and two different node
+  types can draw the same element — a placement and a frame are both a `div`. So it took the update
+  path and kept the element; then `ComponentManager.updateComponent`, which compares `stype` and is
+  right to, unmounted the old component and **took that very element out of the document**, leaving
+  the new one nothing to attach to. Two answers to *is this the same thing*, one of them made after
+  the other had already acted on its answer.
+
+  With the element back, everything **inside** it was gone. A replaced node was handing its history
+  down: its children found alternates in the old subtree, called themselves updates, and reused DOM
+  elements that had just been removed with their old parent. React deletes the old fiber and mounts
+  a fresh subtree; this kept it — in two places, and clearing the first alone left the second, which
+  finds a previous child by sid straight out of the old vnode.
+
+  The fix is three lines in `renderer-dom` and it is held by `test/replaced-root.test.ts`, which now
+  covers a node changing type *while keeping its sid* — the shape a detach has, and the one no test
+  had. The site's detach uses `transformNode` again; the deck's, which shares the line, is covered
+  by the same fix.
 
 - **A list was not a list.** It drew `<div class="w-list">` holding `<div class="w-list-item"
   data-marker="">`: no bullet, no number, no `<ul>`. The marker is Word's — it comes from a

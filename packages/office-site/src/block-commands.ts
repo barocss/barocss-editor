@@ -17,7 +17,7 @@
  * neither knew the other needed. The site adds only the transaction.
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
-import { addChild, moveNode, node, removeChild, setAttrs, transaction } from '@barocss/model';
+import { addChild, moveNode, node, removeChild, setAttrs, transaction, transformNode } from '@barocss/model';
 import { detachedCopyOf, instanceParts } from '@barocss/office-canvas';
 import { definitionsOf } from './components';
 import { SELECTABLE, TEXTUAL } from './selection';
@@ -576,54 +576,38 @@ export class SiteBlockExtension implements Extension {
     if (drawn.length === 0) return false;
 
     const sid = String(instance.sid);
-    const parentId = String(instance.parentId ?? '');
-    const parent = store.getNode(parentId);
-    const at = ((parent?.content ?? []) as unknown[]).indexOf(sid);
-    if (at < 0) return false;
+    const steps: unknown[] = [];
 
-    /*
-     * **Replaced**, not transformed in place — and that is a workaround rather than a design.
-     *
-     * `transformNode` changes a node's type where it stands, which is what the deck's detach does
-     * and is the obviously right shape: the block keeps its sid, its place and everything written on
-     * it. Measured in the browser, it also **disappears**: the view removes the element it drew for
-     * the old type and draws nothing for the new one, so a detached header vanished off the page
-     * while the document held it perfectly. Written down in `BACKLOG.md`; the deck almost certainly
-     * shares it, since it shares the line.
-     *
-     * So the block is removed and a frame put back in its place, carrying its attributes across. A
-     * new sid is the cost, and nothing in this document refers to a block by sid — a link names a
-     * page, a binding names a part, a value names a variable.
-     */
-    const kept: Record<string, unknown> = { ...(instance.attributes ?? {}) };
-    delete kept.componentId;
-    // A stack of blocks, which is what it has just become — its own arrangement if it had one.
-    if (typeof kept.layoutMode !== 'string') kept.layoutMode = 'column';
-
-    const steps: unknown[] = [
-      removeChild(parentId, sid),
-      addChild(
-        parentId,
-        node('frame', kept, drawn.map((part) => detachedCopyOf(part as never, doc as never)) as never) as never,
-        at
-      )
-    ];
-
-    const done = (await transaction(editor, steps as never).commit()).success === true;
-    if (!done) return false;
-
-    /*
-     * And the new block is selected, because a reader who has just detached one is about to say
-     * something about it — and because the sid they had selected is not there any more, so leaving
-     * the selection alone would leave the panel describing a node that is gone.
-     */
-    const made = ((store.getNode(parentId)?.content ?? []) as string[])[at];
-    if (made) {
-      (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.('setNode', {
-        nodeIds: [made]
-      });
+    // Its own children are the values it was answering with, and they mean nothing now.
+    for (const child of (instance.content ?? []) as unknown[]) {
+      if (typeof child === 'string') steps.push(removeChild(sid, child));
     }
-    return true;
+    for (const part of drawn) {
+      steps.push(addChild(sid, detachedCopyOf(part as never, doc as never) as never));
+    }
+
+    /*
+     * Then the claim comes off, **where it stands**: the block keeps its sid, its place, its width
+     * and every override written on it. A detach that moved the thing would be a detach nobody
+     * trusts, and a reader's selection would be pointing at a node that is gone.
+     *
+     * This was a replace-and-reinsert for one round, because a node that changed type disappeared
+     * off the page while the document held it perfectly. That was two faults in the reconciler and
+     * they are fixed (`renderer-dom/test/replaced-root.test.ts`): the reuse decision compared tags
+     * where a placement and a frame both draw a `div`, and a replaced node handed its history down
+     * to its children, who then reused elements that had just been removed.
+     */
+    steps.push(
+      setAttrs(sid, {
+        componentId: undefined,
+        // A stack of blocks, which is what it has just become — its own arrangement if it had one.
+        layoutMode:
+          typeof instance.attributes?.layoutMode === 'string' ? instance.attributes.layoutMode : 'column'
+      })
+    );
+    steps.push(transformNode(sid, 'frame'));
+
+    return (await transaction(editor, steps as never).commit()).success === true;
   }
 
   private async _setPage(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {

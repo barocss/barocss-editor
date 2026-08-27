@@ -156,6 +156,17 @@ function deepCopyVNode(vnode: VNode): VNode {
  * @param alternateFiber - React-style: previous Fiber (set as alternate)
  * @returns Created Fiber Node
  */
+/**
+ * Whether two VNodes are different **types**, in the sense that decides whether a DOM element may be
+ * reused: the tag, and — for a node drawn from a template — the `stype` it was drawn from.
+ */
+function isDifferentType(prev: VNode, next: VNode): boolean {
+  const isText = (one: VNode) => one.tag === VNodeTag.TEXT || (!one.tag && one.text !== undefined);
+  if (isText(prev) !== isText(next)) return true;
+  if (!!prev.stype && !!next.stype && prev.stype !== next.stype) return true;
+  return !isText(prev) && !!prev.tag && !!next.tag && prev.tag !== next.tag;
+}
+
 export function createFiberTree(
   parent: HTMLElement,
   vnode: VNode,
@@ -167,7 +178,16 @@ export function createFiberTree(
 ): FiberNode {
   // React-style: get prevVNode from alternate
   const actualPrevVNode = alternateFiber?.vnode || prevVNode;
-  
+
+  /**
+   * Whether this node is **replacing** the one it was matched with rather than updating it.
+   *
+   * Kept as a fact rather than acted on here: this fiber still needs its alternate, because that is
+   * what the commit phase takes the old element out of the document by. What must not survive is the
+   * **children's** history — see where `previous` is built.
+   */
+  const replacing = !!actualPrevVNode && isDifferentType(actualPrevVNode, vnode);
+
   const fiber: FiberNode = {
     vnode,
     prevVNode: actualPrevVNode,
@@ -200,7 +220,16 @@ export function createFiberTree(
     const matchedPrevChildVNodes = new Set<VNode>();
       // The previous children, indexed once rather than searched three times per
       // child. It also owns which of them have been claimed.
-      const previous = new PreviousChildren(fiber.alternate?.child);
+      /**
+       * And **nothing** when this node is replacing the one it was matched with.
+       *
+       * React deletes the old fiber and mounts a fresh subtree when a type changes. Here the
+       * alternate was handed down, so the children of a replaced node found alternates in the *old*
+       * subtree, called themselves updates, and reused DOM elements that had just been taken out of
+       * the document along with their old parent. The element came back and everything inside it was
+       * missing — measured on a node that changed type while keeping its sid.
+       */
+      const previous = new PreviousChildren(replacing ? null : fiber.alternate?.child);
     
     for (let i = 0; i < vnode.children.length; i++) {
       const child = vnode.children[i];
@@ -262,7 +291,10 @@ export function createFiberTree(
         
         // Get prevChildVNode from alternate, or from prevVNode.children (by sid then by index) when no alternate
         let prevChildVNode: VNode | undefined = prevChildAlternate?.vnode;
-        if (!prevChildVNode && actualPrevVNode?.children) {
+        // `replacing` again: this second path finds a previous child **by sid, in the old vnode**,
+        // which is exactly the history a replaced node must not have. Clearing `previous` alone left
+        // it, and the children went on calling themselves updates.
+        if (!replacing && !prevChildVNode && actualPrevVNode?.children) {
           if (effectiveChildId) {
             for (const prevChild of actualPrevVNode.children) {
               if (typeof prevChild !== 'object' || prevChild === null || !('tag' in prevChild)) continue;

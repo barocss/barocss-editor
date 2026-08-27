@@ -599,6 +599,11 @@ What is still missing, in the order it will be wanted:
    is a z-order over placed shapes and a page places nothing — so a frame is the shape a stack of
    blocks already has here.
 
+   It is `transformNode` — the node changes type **where it stands**, keeping its sid, its place and
+   every override on it. That was a replace-and-reinsert for one round: a node that changed type
+   disappeared off the page while the document held it perfectly, which turned out to be two faults
+   in the reconciler and is fixed there.
+
    A **data list's card** is refused. That instance is not on the page; it is the thing the list
    draws once per row, and detaching it would leave a list with nothing to draw and a stray card
    beside it — which is a reader asking for something else, to stop the list being a list.

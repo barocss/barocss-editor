@@ -1934,10 +1934,19 @@ test.describe('a component can be let go', () => {
     await detach(page).click();
     await page.waitForTimeout(700);
 
+    /*
+     * The **same node**, changed where it stands: same sid, same place, same width, every override
+     * still on it. It was a replace-and-reinsert for one round, because a node that changed type
+     * disappeared off the page — two faults in the reconciler, now fixed and held by
+     * `renderer-dom/test/replaced-root.test.ts`.
+     */
     const now = await page.evaluate(() => (window as never as { editor: any }).editor.selection.nodeIds[0]);
+    expect(now).toBe(was);
     const made = await nodeAt(page, now);
     expect(made?.stype).toBe('frame');
     expect(made?.componentId).toBeNull();
+    // And it is drawn, which is the half the document could not tell us about.
+    await expect(page.locator(`[data-frame="desktop"] [data-bc-sid="${now}"]`)).toHaveCount(1);
 
     /*
      * And it still draws what it drew one press ago, values and all — including the button's
