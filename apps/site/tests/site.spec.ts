@@ -2395,6 +2395,110 @@ test.describe('the menubar', () => {
     expect(files).toContain('index.html');
   });
 
+  /**
+   * The entries that could **never** have been enabled — found by pressing all 33 of them.
+   *
+   * Three faults, all the same shape and all invisible until something ran the whole bar:
+   *
+   * - `moveBlockUp` and `moveBlockDown` answer `canExecute` against a **ModelSelection** in the
+   *   payload, not a node id, so from a menubar sending a `nodeId` they were greyed forever.
+   * - `insertPlacement` needs a `componentId` and `insertDataList` needs a dataset *and* a
+   *   definition — a menu has none of those to give, so those two point at the rail instead, which
+   *   is where the choice can be made.
+   *
+   * A sweep like this is worth more than any one of the tests it produced: an entry that can never
+   * be enabled looks exactly like an entry that is merely unavailable right now.
+   */
+  test('offers every entry that acts on what is selected, once something is', async ({ page }) => {
+    await ready(page);
+    await pressDeepAt(page, cardRow(page, 'desktop'));
+    await page.waitForTimeout(400);
+
+    /*
+     * The **last** band: up is possible and down is not, which is the pair being honest rather than
+     * the feature being half-built. A command that reports success and changes nothing is the fault
+     * these two were built out of.
+     */
+    await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const home = (root.content ?? [])
+        .map((one: string) => store.getNode(one))
+        .find((one: any) => one?.stype === 'surface');
+      const kids = (home.content ?? []) as string[];
+      editor.executeCommand('setNode', { nodeIds: [kids[kids.length - 1]] });
+    });
+    await page.waitForTimeout(400);
+
+    await bar(page).locator('[data-menu="edit"]').click();
+    await expect(page.locator('[data-menu-item="edit.blocks.2"]')).toBeEnabled();
+    await expect(page.locator('[data-menu-item="edit.blocks.3"]')).toBeDisabled();
+    await page.keyboard.press('Escape');
+
+    await bar(page).locator('[data-menu="insert"]').click();
+    await expect(page.locator('[data-menu-item="insert.data.0"]')).toBeEnabled();
+    await expect(page.locator('[data-menu-item="insert.data.1"]')).toBeEnabled();
+  });
+
+  test('moves a block up the page, which was registered and on nothing', async ({ page }) => {
+    await ready(page);
+
+    /*
+     * The order **inside whatever holds the selected block**, not the page's — a block moves within
+     * its own parent, and reading the page's top-level list would report no change for a card that
+     * moved perfectly well inside its row.
+     */
+    const order = async () =>
+      await page.evaluate(() => {
+        const editor = (window as any).editor;
+        const store = editor.dataStore;
+        const chosen = editor.selection?.nodeIds?.[0];
+        const parent = chosen ? store.getNode(chosen)?.parentId : undefined;
+        return ((parent ? store.getNode(parent)?.content : []) ?? []).join(',');
+      });
+
+    /*
+     * The **last** band of the page, because moving the first one up is correctly a no-op and a test
+     * that selected it would be asserting the feature is broken.
+     */
+    await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const home = (root.content ?? [])
+        .map((one: string) => store.getNode(one))
+        .find((one: any) => one?.stype === 'surface');
+      const kids = (home.content ?? []) as string[];
+      editor.executeCommand('setNode', { nodeIds: [kids[kids.length - 1]] });
+    });
+    await page.waitForTimeout(400);
+    const before = (await order()).split(',');
+
+    await bar(page).locator('[data-menu="edit"]').click();
+    await page.locator('[data-menu-item="edit.blocks.2"]').click();
+    await page.waitForTimeout(600);
+
+    const after = (await order()).split(',');
+    expect(after).not.toEqual(before);
+    expect([...after].sort()).toEqual([...before].sort());
+  });
+
+  test('points at the rail for the two inserts a menu cannot make', async ({ page }) => {
+    await ready(page);
+
+    /*
+     * A placement needs a definition and a data list needs a dataset, and a menu has neither to
+     * name — so the entry opens the list that can offer one, which is what 삽입 › 표 does in every
+     * word processor. The ellipsis is the convention that says so.
+     */
+    await bar(page).locator('[data-menu="insert"]').click();
+    await page.locator('[data-menu-item="insert.data.0"]').click();
+    await page.waitForTimeout(400);
+
+    await expect(page.locator('[data-panel="components"][data-current="true"]')).toHaveCount(1);
+  });
+
   test('changes how the reader is looking, which is not a command', async ({ page }) => {
     await ready(page);
     await expect(page.locator('[data-frame="tablet"]')).toHaveCount(1);

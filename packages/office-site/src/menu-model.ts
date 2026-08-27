@@ -114,6 +114,12 @@ export const SITE_MENUS: SiteMenu[] = [
           /*
            * Ordering, which a page has instead of a z-order: a page stacks, so *forward* and *back*
            * mean **up** and **down**. Registered, bound to nothing, and on no control until now.
+           *
+           * They read the selection themselves, because they are **this product's** — the shared
+           * kit's commands of the same name take a caret's range and move the block it is in, which
+           * is the wrong sentence for a builder: clicking a card is how a reader *stops* being in
+           * its text. Measured by pressing every entry with a card selected, where the shared pair
+           * lit up, ran, and did nothing.
            */
           { command: 'moveBlockUp', label: '위로 옮기기' },
           { command: 'moveBlockDown', label: '아래로 옮기기' }
@@ -168,9 +174,21 @@ export const SITE_MENUS: SiteMenu[] = [
          */
         id: 'data',
         items: [
-          { command: 'insertPlacement', label: '컴포넌트 놓기' },
-          { command: 'insertDataList', label: '데이터 목록' },
-          { command: 'insertDataset', label: '데이터셋 만들기' }
+          /*
+           * **Views, because the choice is somewhere else.**
+           *
+           * These three were commands here and every one of them was greyed forever: `insertPlacement`
+           * answers `canExecute` against a `componentId`, `insertDataList` against a dataset *and* a
+           * definition, and `insertDataset` against neither — a menu has none of those to give, and
+           * an entry that can never be enabled is worse than one that is not there. Measured by
+           * pressing all 33 entries with a block selected, which is how they were found.
+           *
+           * So they point at the surface that can answer, which is what a menu does when the choice
+           * lives elsewhere — 삽입 › 표 opens a grid picker in every word processor for the same
+           * reason. The ellipsis is the convention that says so.
+           */
+          { view: 'rail.components', label: '컴포넌트 놓기…' },
+          { view: 'rail.data', label: '데이터 목록 만들기…' }
         ]
       }
     ]

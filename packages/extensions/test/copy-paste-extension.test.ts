@@ -206,5 +206,38 @@ describe('CopyPasteExtension', () => {
     });
   });
 
-});
 
+  /**
+   * **복사 with nothing selected** — measured in the site builder, pressing every menu entry.
+   *
+   * With a caret sitting in a paragraph and nothing selected, 복사 was offered. Copying nothing is
+   * not a no-op: it reports success and leaves the clipboard holding an empty string, so the
+   * reader's *previous* copy is gone — a gesture that quietly destroys something is worse than one
+   * that is greyed.
+   *
+   * `cut` already asked for a range with something in it. The two are the same question about the
+   * same selection and they disagreed about it.
+   */
+  it('copy: a collapsed caret has nothing to copy, and says so', () => {
+    const editor = new FakeEditor() as any;
+    const ext = new CopyPasteExtension();
+    ext.onCreate(editor);
+
+    const cmd = editor.__getCommand('copy');
+    const at = (collapsed: boolean, endOffset: number): ModelSelection => ({
+      type: 'range',
+      startNodeId: 'p1',
+      startOffset: 0,
+      endNodeId: 'p1',
+      endOffset,
+      collapsed,
+      direction: 'forward'
+    });
+
+    expect(cmd!.canExecute(editor, { selection: at(true, 0) })).toBe(false);
+    expect(cmd!.canExecute(editor, { selection: at(false, 5) })).toBe(true);
+
+    // And `paste` still takes a collapsed one, because pasting *into* a caret is the ordinary case.
+    expect(editor.__getCommand('paste')!.canExecute(editor, { selection: at(true, 0) })).toBe(true);
+  });
+});

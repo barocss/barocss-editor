@@ -27,7 +27,6 @@ import {
   FontSizeExtension,
   ImageExtension,
   LinkExtension,
-  MoveBlockExtension,
   StrikeThroughExtension,
   SubSuperExtension,
   TextFormattingExtension,
@@ -119,7 +118,6 @@ export function createSiteExtensions(): Extension[] {
     new FontFamilyExtension(),
     new SubSuperExtension(),
     new TextFormattingExtension(),
-    new MoveBlockExtension(),
     new DragDropExtension(),
 
     ...createSiteOwnExtensions()

@@ -43,7 +43,7 @@ import {
  * row is greyed because the model said no — the same contract the ribbon has, for the same reason: a
  * rule kept in a panel is a rule the keyboard does not follow.
  */
-type Panel = 'add' | 'layers' | 'pages' | 'components' | 'data';
+export type Panel = 'add' | 'layers' | 'pages' | 'components' | 'data';
 
 const PANELS: { id: Panel; label: string }[] = [
   { id: 'add', label: '추가' },
@@ -60,7 +60,9 @@ export function Rail({
   pages,
   onPage,
   editing,
-  onEdit
+  onEdit,
+  panel,
+  onPanel
 }: {
   editor: Editor;
   /** What the list walks from — the page, or the definition, so its own part is a row. */
@@ -79,8 +81,16 @@ export function Rail({
   /** The definition being edited, so its row can say so. */
   editing?: string;
   onEdit: (componentId: string | undefined) => void;
+  /**
+   * Which list is open — the **app's**, because something outside this component points at one.
+   *
+   * 삽입 › 컴포넌트 놓기… opens the 컴포넌트 tab rather than running a command, because the choice
+   * a placement needs (which definition) is a fact only this rail can offer. A menu that points at
+   * the surface which can answer is what every 삽입 › 표 in every word processor does.
+   */
+  panel: Panel;
+  onPanel: (panel: Panel) => void;
 }) {
-  const [panel, setPanel] = useState<Panel>('add');
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
 
   const store = editor.dataStore;
@@ -114,7 +124,7 @@ export function Rail({
             type="button"
             data-panel={one.id}
             data-current={panel === one.id ? 'true' : undefined}
-            onClick={() => setPanel(one.id)}
+            onClick={() => onPanel(one.id)}
           >
             {one.label}
           </button>

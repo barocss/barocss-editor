@@ -536,6 +536,19 @@ export function TextField({
   return (
     <input
       type="text"
+      /*
+       * The key is **here**, not in the spread below.
+       *
+       * It was `{...(live ? … : { key: shown, … })}`, and React 19 says out loud that a key in a
+       * spread is not a key: *"React keys must be passed directly to JSX without using spread"*. It
+       * still honoured it, so nothing was visibly wrong — the field did redraw after an undo — and
+       * a warning that is right about the code and wrong about today's behaviour is exactly the
+       * kind that gets ignored until the day it stops being wrong.
+       *
+       * `undefined` while live, because a live field is drawn from the value it is given and has
+       * nothing to remount for.
+       */
+      key={live ? undefined : shown}
       ref={inputRef}
       aria-label={ariaLabel}
       disabled={disabled}
@@ -546,7 +559,7 @@ export function TextField({
        * elsewhere — an undo, a drag, another reader — is drawn rather than quietly
        * disagreed with.
        */
-      {...(live ? { value: shown } : { key: shown, defaultValue: shown })}
+      {...(live ? { value: shown } : { defaultValue: shown })}
       placeholder={placeholder ?? (value === null ? '—' : undefined)}
       onChange={live ? (event) => onChange!(event.target.value) : undefined}
       onBlur={live ? undefined : (event) => commit(event.target.value)}

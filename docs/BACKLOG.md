@@ -3101,6 +3101,34 @@ text-shaped.
 
 ## Done
 
+- **A sweep that pressed all 33 menu entries, and the four faults it found.** Worth more than any of
+  the fixes: an entry that can *never* be enabled looks exactly like one that is merely unavailable
+  right now, and nothing short of running the whole bar tells them apart.
+
+  - **`moveBlockUp` / `moveBlockDown` lit up, ran, and did nothing.** Their `canExecute` asked only
+    *is there a selection*, while `execute` required a **range** — a caret in text — and returned
+    false to a console nobody is watching. A `canExecute` looser than its `execute` is worse than one
+    that is wrong, because the product looks like it works, and it is a class of fault the harness
+    cannot see: it asks whether a command is *reachable*, never whether it is telling the truth.
+
+    Fixed in the shared extension. And the site got **its own pair**, because the shared ones mean
+    the other thing: they move the block the *caret* is in, and a page builder's reader selects a
+    card and wants it one place up — clicking a card is how you stop being in its text.
+  - **Three entries could never be enabled.** `insertPlacement` answers against a `componentId`,
+    `insertDataList` against a dataset *and* a definition, `insertDataset` against neither. A menu
+    has none of those to give, so 삽입 points at the **rail** instead, which is where the choice can
+    be made — what 삽입 › 표 does in every word processor. Two exemptions came back to the
+    conformance test saying something sharper than before: not merely where these are reached, but
+    *why they cannot be reached anywhere else*.
+  - **복사 was offered with nothing selected.** Copying nothing is not a no-op — it reports success
+    and leaves the clipboard holding an empty string, so the reader's *previous* copy is gone. `cut`
+    already asked for a range with something in it; the two are the same question about the same
+    selection and disagreed about it.
+  - **A React warning that was right about the code and wrong about today.** `TextField` passed its
+    `key` inside a spread, which React 19 warns about — *keys must be passed directly* — and still
+    honoured, so nothing was visibly broken. A warning in that state is exactly the kind that gets
+    ignored until the day it stops being wrong.
+
 - **Seven places drew a unicode character where an icon belonged.** A typed glyph is drawn by
   whatever font resolves it, at that font's weight and baseline, so it never matches the 16px
   lucide set beside it. `office-icons`' own header records this being learned once — the alignment

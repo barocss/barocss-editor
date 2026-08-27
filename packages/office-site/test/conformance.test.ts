@@ -372,11 +372,20 @@ describe('the site builder draws what it declares', () => {
          * document actually holds, and the command refuses anything else.
          */
         /*
-         * These two were exemptions describing rail buttons, and 삽입 made them stale the same
-         * minute — the third and fourth to go that way since the menubar existed. They are still on
-         * the rail, where the things they need (a definition, a dataset) are listed; what changed is
-         * that a declaration says they are reachable rather than a sentence a person has to check.
+         * These two went to 삽입 as commands and came **back** here, which is the record worth
+         * keeping: a menu entry cannot run either of them. `insertPlacement` answers `canExecute`
+         * against a `componentId` and `insertDataList` against a dataset *and* a definition, and a
+         * menubar has neither to give — measured by pressing all 33 entries, where both were greyed
+         * and always would be.
+         *
+         * 삽입 points at the rail instead, which is where the choice can be made. So the exemption
+         * is true again and says something sharper than it did: not merely *where* they are reached
+         * but *why they cannot be reached anywhere else*.
          */
+        insertPlacement:
+          'the left rail — 컴포넌트, which offers the definitions this document holds; a menu has no definition to name',
+        insertDataList:
+          'the left rail — 데이터, which offers a dataset and a definition together; a menu has neither to name',
         insertDataset: 'the left rail — 데이터 › 새 데이터, which names it and opens its grid',
 
         // ── The rail's list of pages ──────────────────────────────────────────────────────

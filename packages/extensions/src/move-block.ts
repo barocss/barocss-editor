@@ -34,8 +34,19 @@ export class MoveBlockExtension implements Extension {
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
         return await this._executeMoveBlockUp(ed, payload?.selection);
       },
+      /**
+       * A **range**, which is what `execute` has always required and this did not say.
+       *
+       * Measured in the site builder by pressing every menu entry: with a block selected the entry
+       * lit up, ran, and did nothing — `_executeMoveBlockUp` returns false for anything that is not
+       * a range and says so only to a console nobody is watching. A `canExecute` looser than its
+       * `execute` is worse than one that is wrong, because the product looks like it works.
+       *
+       * The harness cannot see this class of fault: it asks whether a command is *reachable*, never
+       * whether it is telling the truth about when it can run.
+       */
       canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
-        return !!payload?.selection;
+        return payload?.selection?.type === 'range';
       }
     });
 
@@ -45,8 +56,19 @@ export class MoveBlockExtension implements Extension {
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
         return await this._executeMoveBlockDown(ed, payload?.selection);
       },
+      /**
+       * A **range**, which is what `execute` has always required and this did not say.
+       *
+       * Measured in the site builder by pressing every menu entry: with a block selected the entry
+       * lit up, ran, and did nothing — `_executeMoveBlockUp` returns false for anything that is not
+       * a range and says so only to a console nobody is watching. A `canExecute` looser than its
+       * `execute` is worse than one that is wrong, because the product looks like it works.
+       *
+       * The harness cannot see this class of fault: it asks whether a command is *reachable*, never
+       * whether it is telling the truth about when it can run.
+       */
       canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
-        return !!payload?.selection;
+        return payload?.selection?.type === 'range';
       }
     });
   }

@@ -256,6 +256,66 @@ export class SiteBlockExtension implements Extension {
       async (payload) => await this._move(editor, payload),
       (payload) => this._canMove(editor, payload)
     );
+
+    /**
+     * **One place up, one place down** — the keyboard's half of the same gesture.
+     *
+     * ## Why these are the site's rather than the shared kit's
+     *
+     * `MoveBlockExtension` registers commands with these names and they mean something else: they
+     * take a **ModelSelection of type `range`** and move the block the *caret* is in. Measured by
+     * pressing every menu entry with a card selected — the entry lit up, ran, and did nothing, and
+     * the reason went to a console nobody is watching.
+     *
+     * A page builder means the other thing. A reader selects a card and wants it one place up, and
+     * they are not in its text — clicking a card is how you *stop* being in its text. So the shared
+     * extension is out of this product's kit and these are here, where `_chosen` already means
+     * *the blocks a command is about*.
+     *
+     * ## Why not `moveBlockInto` with an index
+     *
+     * Because that is a drag's transaction: it takes a parent and a place, computed under a pointer.
+     * *Up one* has no pointer and no parent to name — it is a fact about where the block already is,
+     * which is exactly what a keyboard gesture is for.
+     */
+    register('moveBlockUp', async () => await this._nudge(editor, -1), () => !!this._nudgeable(editor, -1));
+    register('moveBlockDown', async () => await this._nudge(editor, 1), () => !!this._nudgeable(editor, 1));
+  }
+
+  /**
+   * The one block a nudge is about, and where it would land — or nothing when it would not move.
+   *
+   * Exactly one, because *up* has no meaning for a set whose members are in different stacks, and a
+   * reader who selected three cards and pressed it would be shown one of three possible answers.
+   * And not the first when going up, nor the last going down: a command that reports success and
+   * changes nothing is the fault this pair was built out of.
+   */
+  private _nudgeable(
+    editor: Editor,
+    by: -1 | 1
+  ): { sid: string; parentId: string; to: number } | undefined {
+    const store = this._store(editor);
+    const chosen = this._chosen(editor);
+    if (!store || chosen.length !== 1) return undefined;
+
+    const sid = chosen[0];
+    const parentId = String(store.getNode(sid)?.parentId ?? '');
+    const kids = ((store.getNode(parentId)?.content ?? []) as unknown[]).filter(
+      (one): one is string => typeof one === 'string'
+    );
+    const at = kids.indexOf(sid);
+    const to = at + by;
+    if (at < 0 || to < 0 || to >= kids.length) return undefined;
+    return { sid, parentId, to };
+  }
+
+  private async _nudge(editor: Editor, by: -1 | 1): Promise<boolean> {
+    const found = this._nudgeable(editor, by);
+    if (!found) return false;
+    return (
+      (await transaction(editor, [moveNode(found.sid, found.parentId, found.to)] as never).commit())
+        .success === true
+    );
   }
 
   private _store(editor: Editor): { getNode: (sid: string) => Node | undefined } | undefined {

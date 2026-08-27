@@ -32,7 +32,7 @@ import {
 } from '@barocss/office-site';
 import { Canvas } from './canvas';
 import { Inspector } from './inspector';
-import { Rail } from './rail';
+import { Rail, type Panel as RailPanel } from './rail';
 import { CodeEditor, type CodeEdit } from './code-editor';
 import { PageFrame } from './page-frame';
 import { Ribbon } from './ribbon';
@@ -98,10 +98,12 @@ function payloadFor(
   entry: { command?: string; payload?: Record<string, unknown>; needs?: string },
   page: string | undefined
 ): Record<string, unknown> | undefined {
-  if (entry.needs !== 'page') return entry.payload;
-  // `nodeId` is what the page commands read and `pageId` is what publishing reads: two names for one
-  // idea, and the day they are one name this line is where it is fixed.
-  return { ...entry.payload, nodeId: page, pageId: page };
+  if (entry.needs === 'page') {
+    // `nodeId` is what the page commands read and `pageId` is what publishing reads: two names for
+    // one idea, and the day they are one name this line is where it is fixed.
+    return { ...entry.payload, nodeId: page, pageId: page };
+  }
+  return entry.payload;
 }
 
 export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor; view: EditorViewDOM } }) {
@@ -170,6 +172,11 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * selected blocks are drawn in the state the panel is on.
    */
   const [state, setState] = useState<StateId | undefined>(undefined);
+  /**
+   * Which of the rail's lists is open — here rather than in the rail, because the **menubar** points
+   * at one: the choice a placement needs is a definition, and only that list can offer one.
+   */
+  const [panel, setPanel] = useState<RailPanel>('add');
 
   const editor = instance?.editor ?? null;
 
@@ -354,6 +361,10 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           return setShown(['desktop', 'tablet', 'mobile']);
         case 'preview':
           return setPreview((was) => !was);
+        case 'rail.components':
+          return setPanel('components');
+        case 'rail.data':
+          return setPanel('data');
         /*
          * The zoom is a **scale on the plane**, not a scroll — see `viewport.ts` for why that
          * distinction cost a reader their top-left corner once already. So these go through the same
@@ -745,6 +756,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         {editor ? (
           <Rail
             editor={editor}
+            panel={panel}
+            onPanel={setPanel}
             page={scopeRoot}
             insertRoot={root}
             pages={pages}

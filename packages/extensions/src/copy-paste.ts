@@ -64,9 +64,18 @@ export class CopyPasteExtension implements Extension {
 
         return true;
       },
+      /**
+       * A **range with something in it**, which is what `cut` already asked and this did not.
+       *
+       * Measured in the site builder while pressing every menu entry: with a caret sitting in a
+       * paragraph and nothing selected, 복사 was offered — and copying nothing is a gesture that
+       * reports success and leaves the clipboard holding an empty string, so the reader's *previous*
+       * copy is gone. The two commands are the same question about the same selection and disagreed
+       * about it.
+       */
       canExecute: (ed: any, payload?: any) => {
         const selection: ModelSelection | undefined = payload?.selection || ed.selection;
-        return !!selection && selection.type === 'range';
+        return !!selection && selection.type === 'range' && !selection.collapsed;
       }
     });
 
