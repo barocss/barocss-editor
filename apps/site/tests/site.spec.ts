@@ -2136,3 +2136,125 @@ test.describe('a code block', () => {
     expect(after.text.length).toBe(before.text.length + 2);
   });
 });
+
+/**
+ * Colour in a code block — and the same colour on the page a visitor gets.
+ *
+ * Painted as **ranges** (`CSS.highlights`), which changes no element and no text node: the run under
+ * the caret is the same flat piece of text it was. That is the only reason a block being *typed in*
+ * can be coloured at all — wrapping tokens in spans would turn one text node into forty, and every
+ * offset in the text stack is a walk over those.
+ *
+ * The published page runs the **same function** from a copy of its own source inlined by the export.
+ * A tokenizer written a second time in a template literal would be the editor and the visitor
+ * disagreeing about how something looks, which is what export-as-a-render exists to prevent.
+ */
+test.describe('code, coloured', () => {
+  const highlights = (page: Page) =>
+    page.evaluate(() => {
+      const registry = (window as never as { CSS?: { highlights?: any } }).CSS?.highlights;
+      if (!registry) return {};
+      const out: Record<string, number> = {};
+      registry.forEach((held: any, name: string) => {
+        out[name] = held.size ?? [...held].length;
+      });
+      return out;
+    });
+
+  test('paints what it can see, and more once it is told the language', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-insert="insertCode"]').click();
+    await page.waitForTimeout(700);
+
+    // Three boards draw the one document, so every count is per board.
+    expect((await highlights(page))['code-number']).toBe(3);
+
+    const pre = page.locator('[data-frame="desktop"] pre').first();
+    await bring(page, pre);
+    await pressDeep(page, pre);
+    await page.waitForTimeout(300);
+    await panelOf(page).locator('[data-tab="block"]').click();
+    await panelOf(page).getByLabel('코드 언어').fill('js');
+    await panelOf(page).getByLabel('코드 언어').press('Enter');
+    await page.waitForTimeout(700);
+
+    /*
+     * `function` and `return`, three times over. A block with no language is a block nobody has told
+     * yet rather than one in the wrong language, so its words were left the text's colour.
+     */
+    expect((await highlights(page))['code-keyword']).toBe(6);
+  });
+
+  test('leaves the text a single run, which is what lets it be typed in', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-insert="insertCode"]').click();
+    await page.waitForTimeout(700);
+
+    const shape = await page.evaluate(() => {
+      const pre = document.querySelector('[data-frame="desktop"] pre.w-code') as HTMLElement;
+      const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
+      let count = 0;
+      while (walker.nextNode()) count += 1;
+      return { texts: count, elements: pre.querySelectorAll('*').length };
+    });
+    // One text node, two spans — exactly what the renderer drew. Nothing was wrapped.
+    expect(shape.texts).toBe(1);
+    expect(shape.elements).toBe(2);
+  });
+
+  test('follows the words as they are typed', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-insert="insertCode"]').click();
+    await page.waitForTimeout(700);
+
+    const pre = page.locator('[data-frame="desktop"] pre').first();
+    await bring(page, pre);
+    await pressDeep(page, pre);
+    await page.waitForTimeout(250);
+    await pre.dblclick({ force: true });
+    await page.waitForTimeout(400);
+    await page.keyboard.press('End');
+    await page.keyboard.type(' 99');
+    await page.waitForTimeout(800);
+
+    /*
+     * A range is a pair of offsets into a string, so a keystroke moves every token after it. Painted
+     * again on the revision rather than left where it was, which is the difference between colour
+     * and colour in the wrong place.
+     */
+    expect((await highlights(page))['code-number']).toBe(6);
+  });
+
+  test('the published page paints itself, from the editor’s own function', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-insert="insertCode"]').click();
+    await page.waitForTimeout(700);
+    const pre = page.locator('[data-frame="desktop"] pre').first();
+    await bring(page, pre);
+    await pressDeep(page, pre);
+    await page.waitForTimeout(300);
+    await panelOf(page).locator('[data-tab="block"]').click();
+    await panelOf(page).getByLabel('코드 언어').fill('js');
+    await panelOf(page).getByLabel('코드 언어').press('Enter');
+    await page.waitForTimeout(700);
+
+    const html = await page.evaluate(
+      () => (window as never as { exportSite: () => { html: string }[] }).exportSite()[0].html
+    );
+    expect(html).toContain('::highlight(code-keyword)');
+
+    // Opened as a visitor would open it — one page, no editor, no bundle.
+    await page.setContent(html);
+    await page.waitForTimeout(500);
+
+    const said = await highlights(page);
+    expect(said['code-keyword']).toBe(2);
+    expect(said['code-number']).toBe(1);
+    // And the markup a visitor gets is still a plain `pre` with one run in it.
+    await expect(page.locator('pre.w-code')).toHaveCount(1);
+    expect(await page.locator('pre.w-code *').count()).toBe(2);
+  });
+});
+
+/** The properties panel, for the describes that reach it. */
+const panelOf = (page: Page) => page.locator('.office-properties');

@@ -668,34 +668,59 @@ Two things it found on the way out:
   deleted, coloured or typed into. The round that added them checked that each *appears* and never
   checked that a reader can get hold of one.
 
-### And the highlighting, which is a different question
+### And the highlighting, which is built — as ranges
+
+It is a **drawing**, never a value: the colours come from the text and the language, so storing them
+means storing something that goes stale the moment either changes.
+
+`paintCode` colours **ranges** through the CSS Custom Highlight API. Nothing in the DOM changes —
+same elements, same single text node, same offsets — which is the only reason a block *being typed
+in* can be coloured at all. Wrapping tokens in spans would turn one text node into forty, and every
+offset in the text stack is a walk over those; that arithmetic is where this repository's caret bugs
+have all lived.
+
+**The published page runs the same function.** The export inlines `paintCode.toString()` — one
+self-contained function, written with no imports and no reference to anything outside its body
+precisely so it can be handed over. That is why `code-highlight.ts` reads as an oddly closed piece of
+code. The alternative is a tokenizer written a second time in a template literal, which is the editor
+and the visitor disagreeing about how something looks, in the one place nobody would think to check.
+A browser without the API paints nothing and shows the code, in both grounds.
+
+The tokenizer is a **scanner, not a parser**: comments, strings, numbers, and whether a word is a
+keyword in the language it was told. That is enough to make a code *sample* readable and it will be
+wrong about a regular expression containing a quote — a trade a marketing page can make and a
+compiler cannot. The alternative is a grammar per language, which is the point at which a site
+builder has quietly become an IDE.
+
+Two things it was careful about. Offsets are counted **across runs**, because `content: 'inline*'`
+lets a paste make a second one even though a code block holds one today. And the editor paints the
+**boards** rather than the document: the first view is kept in the tree and hidden — it is what holds
+the document open — so painting everything coloured a fourth block nobody can see.
+
+### Why not an editor library, measured against what we have
 
 It is a **drawing**, never a value: the colours are derived from the text and the language, so
 storing them means storing something that goes stale the moment either changes. The published page
 carries `<pre spellcheck="false" data-language="…">` and the text, which is everything a highlighter
 needs and nothing it would have to undo.
 
-**No CodeMirror, and no Monaco.** Not because they are bad — because of what embedding one costs
-here. Each brings its own DOM, its own selection model and its own undo stack, and this editor has
+**No CodeMirror, and no Monaco** — as an *always-embedded* widget. Not because they are bad, but
+because of what embedding one costs here. Each brings its own DOM, its own selection model and its own undo stack, and this editor has
 exactly one of each: `Ctrl+Z` would undo inside the widget rather than in the document, the site's
 three boards already fought over `document.getSelection()` once, and the published page must be a
 plain `pre` rather than a library's markup. Monaco is also megabytes for one block type out of
 fifteen. What a code block on a page actually needs — type, newline, indent, and see it coloured — is
 *less* than a paragraph, not more.
 
-So highlighting, when it comes, is one of two shapes and neither is a widget:
+**A third shape is open and is not the same proposition.** *Reading* state and *edit* state are
+different: while nobody is typing in a block, its DOM is nobody's arithmetic, so it could be drawn
+richly — token spans, line numbers, folding — and a real editor could be **attached on entry** and
+taken away on exit. Almost none of the costs above apply to that: nothing is nested while reading,
+the export never sees it, and the swap point is one gesture. It is the shape to evaluate the day a
+code block needs completion or diagnostics, and it is not what "embed CodeMirror" usually means.
 
-1. **The CSS Custom Highlight API** in the editor. Ranges are painted without wrapping anything in
-   elements, so the run stays one flat piece of text and the caret, the selection and the model are
-   untouched. It is the only approach that adds colour without adding DOM for the text stack to trip
-   over.
-2. **Token spans at export**, so a visitor's page is coloured without shipping a script. That does
-   make the editor's markup and the export's differ, which is the one thing export-as-a-render exists
-   to prevent — so it needs the same declarations to come out of the same tokenizer, and a test that
-   says so.
-
-Deferred rather than half-done: a code block that can be typed into is useful today, and a colour
-scheme that only one of the two grounds has is worse than none.
+What is genuinely missing today, with no library: **auto-indent** — Enter inserts a newline and does
+not carry the previous line's indentation — line numbers, and bracket matching. Each is a slice.
 
 ### The mode that is not built
 

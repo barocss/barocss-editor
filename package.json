@@ -29,7 +29,8 @@
     "test:e2e:word": "pnpm --filter @barocss/word-app test:e2e",
     "test:e2e:slide": "pnpm --filter @barocss/slide-app test:e2e",
     "test:e2e:site": "pnpm --filter @barocss/site-app test:e2e",
-    "type-check:tests": "node scripts/typecheck-tests.mjs"
+    "type-check:tests": "node scripts/typecheck-tests.mjs",
+    "type-check": "node scripts/typecheck-all.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",

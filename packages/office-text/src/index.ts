@@ -65,6 +65,12 @@ export * from './table-format';
 export * from './table-style';
 
 /** The renderers themselves: text, tables, marks, equations. */
+/**
+ * Colour in a code block, painted as **ranges** rather than as elements — so the text under the
+ * caret is the same flat run it was, and a block being read and a block being typed in are coloured
+ * by the same code. Self-contained so the export can inline its own source.
+ */
+export { CODE_HIGHLIGHT_CSS, CODE_TOKENS, paintCode } from './code-highlight';
 export { registerTextRenderers } from './renderers';
 export { blockLanguage, blockStyle, formatFor, listMarker } from './renderers/block-style';
 export { registerRevisionMarks, registerValuedMarks } from './renderers/marks';

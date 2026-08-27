@@ -47,7 +47,7 @@
 import { getGlobalRegistry } from '@barocss/dsl';
 import { isVarRef, resolveVarValue } from '@barocss/office-canvas';
 import { DOMRenderer } from '@barocss/renderer-dom';
-import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
+import { WORD_ENV_KEY, createTextEnv, paintCode } from '@barocss/office-text';
 import { stackCss } from './renderers';
 import { BREAKPOINTS, SITE_ENV_KEY, createSiteEnv, type BreakpointId } from './breakpoints';
 import { BASE_BREAKPOINT, overridesOf } from './responsive';
@@ -698,9 +698,32 @@ ${responsive}
 </head>
 <body>
 ${body}
+${codeScript()}
 </body>
 </html>
 `;
+}
+
+/**
+ * The one script a published page carries, and why it is allowed to.
+ *
+ * This file's own header promises a page with no framework and nothing that would make it depend on
+ * this repository being installed. That promise is kept: what goes in is **`paintCode`'s own
+ * source** — a single self-contained function, written with no imports and no reference to anything
+ * outside its body precisely so that it can be handed over like this.
+ *
+ * It is there because the alternative is worse. The editor paints a code block with the CSS Custom
+ * Highlight API, which colours **ranges** and leaves the text alone; a published page that did not
+ * would be a page whose code is grey where the editor's is not — and *the editor and the visitor
+ * disagreeing about how something looks* is the one failure export-as-a-render exists to prevent.
+ * The other way to get colour into the export is a tokenizer written a second time in a template
+ * literal, which is that same failure with a longer fuse.
+ *
+ * A browser without the API paints nothing and shows the code, which is what `paintCode` does in the
+ * editor too.
+ */
+function codeScript(): string {
+  return `<script>(${paintCode.toString()})(document)</script>`;
 }
 
 const escape = (value: string): string =>

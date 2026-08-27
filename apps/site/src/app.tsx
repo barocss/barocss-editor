@@ -27,6 +27,7 @@ import {
 import { Canvas } from './canvas';
 import { Inspector } from './inspector';
 import { Rail } from './rail';
+import { paintCode } from '@barocss/office-text';
 import { PageFrame } from './page-frame';
 import { Ribbon } from './ribbon';
 import type { PointerMode } from './overlay';
@@ -228,6 +229,28 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     setRedraw((one) => one + 1);
     return () => setRowPreview(editor, undefined);
   }, [editor, editing, row]);
+
+  /**
+   * Colour in the code blocks, painted after every drawing.
+   *
+   * `paintCode` colours **ranges** — `CSS.highlights` — so it changes no element and no text node:
+   * the run under the caret is the same flat piece of text it was, which is the only reason a block
+   * being *typed in* can be coloured at all. Wrapping tokens in spans would turn one text node into
+   * forty, and every offset in the text stack is a walk over those.
+   *
+   * On the revision because the ranges are positions in a string: a keystroke moves every token
+   * after it, and a range that was right a moment ago is a colour in the wrong place. The published
+   * page runs the same function from its own inlined copy (`export-html.ts`), which is what keeps
+   * the two grounds agreeing about a colour.
+   */
+  useEffect(() => {
+    /*
+     * The **boards**, not the document. The first view is kept in the tree and hidden — it is what
+     * holds the document open — so painting the whole page coloured a fourth code block nobody can
+     * see and put a quarter of every highlight where it does nothing.
+     */
+    paintCode(document.querySelector('.st-boards') ?? document);
+  }, [revision, root, redraw]);
 
   /**
    * What the boards promise a visitor, as a stylesheet the boards themselves obey.

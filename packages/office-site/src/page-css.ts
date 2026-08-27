@@ -1,3 +1,5 @@
+import { CODE_HIGHLIGHT_CSS } from '@barocss/office-text';
+
 /**
  * What a **page** looks like before anybody styles it — the type scale, and nothing else.
  *
@@ -34,7 +36,9 @@
  * paragraphs also carried a browser margin would have two answers for one distance, one of them
  * invisible in the panel. That is the same rule the deck follows for a text box.
  */
-export const PAGE_CSS = `
+export const PAGE_CSS =
+  CODE_HIGHLIGHT_CSS +
+  `
 .st-page {
   /*
    * The page's own ground: 16px, which is what a browser means by "text", and a line height a

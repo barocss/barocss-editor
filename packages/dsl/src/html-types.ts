@@ -35,6 +35,14 @@ export interface BaseHTMLAttributes {
   key?: string | number | ((data: any) => string | number);
   contenteditable?: boolean | 'true' | 'false' | DataTemplate | ((data: any) => boolean | 'true' | 'false');
   /**
+   * Whether the browser may spell-check what is in this element.
+   *
+   * A global HTML attribute that was missing here, and it matters in an editor for exactly one
+   * reason: a spell checker underlines **every identifier in a program**. A code block turns it off,
+   * and could not say so until this existed.
+   */
+  spellcheck?: boolean | 'true' | 'false' | DataTemplate | ((data: any) => boolean | 'true' | 'false');
+  /**
    * Whether the browser may drag this element as a thing.
    *
    * A global HTML attribute that was missing here, and it matters most in an **editor**: the

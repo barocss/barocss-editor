@@ -89,14 +89,18 @@ entries are that.
 
 ### A code block can be written in, and cannot be coloured or kept plain
 
-- [ ] **No syntax highlighting.** It is a drawing and never a value — the colours come from the text
-  and the language, so storing them stores something that goes stale. Two shapes, neither a widget:
-  the **CSS Custom Highlight API** in the editor, which paints ranges without wrapping anything and
-  so leaves the run, the caret and the model untouched; and **token spans at export**, so a visitor
-  gets colour without a script. The second makes the editor's markup and the export's differ, which
-  is the one thing export-as-a-render exists to prevent, so it needs one tokenizer feeding both and a
-  test that says so. `docs/specs/site-builder.md` carries the argument against embedding CodeMirror
-  or Monaco.
+- [ ] **No auto-indent.** Enter inserts a newline and does not carry the previous line's
+  indentation, so every line of a nested block is typed from column zero. The cheapest real
+  improvement left in a code block, and it needs no library.
+
+- [ ] **No line numbers, no bracket matching.** Each a slice, each without a library.
+
+- [ ] **Reading state and edit state could be drawn differently, and are not.** While nobody is
+  typing in a block its DOM is nobody's arithmetic — token spans, folding, line numbers are all free
+  there — and a real editor could be *attached on entry* rather than embedded always. Almost none of
+  the objections to embedding CodeMirror apply to that shape: nothing is nested while reading, the
+  export never sees it, the swap point is one gesture. Worth evaluating the day a code block needs
+  completion or diagnostics; not before.
 
 ### A list's card can be edited, and three things around it cannot yet
 
@@ -2744,6 +2748,22 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **Code is coloured, in both grounds, by one function.** `paintCode` paints **ranges** through the
+  CSS Custom Highlight API: no element is added and no text node is split, so the run under the caret
+  is the same flat piece of text it was — which is the only reason a block *being typed in* can be
+  coloured. The published page runs the same function from a copy of its own source inlined by the
+  export, so the editor and the visitor cannot disagree about a colour; that is why the module has no
+  imports and references nothing outside its body.
+
+  The tokenizer is a scanner rather than a parser and will be wrong about a regular expression
+  containing a quote. That is the trade a code *sample* can make.
+
+- **`tsc` was not run anywhere across the repository.** `pnpm test` runs vitest, and vitest does not
+  type-check — so a renderer given a `spellcheck` attribute the DSL's element types did not declare
+  shipped with 4,700 tests green, and sat there for a commit. `scripts/typecheck-all.mjs` checks all
+  35 projects, as a ratchet: three demo apps that predate the products are listed as known-broken
+  with the reason, and an entry that starts passing is reported as stale.
 
 - **`marks` is read, and it was the last of the family.** A node definition may say which marks a run
   inside it takes — absent is anything, `[]` is none — and nothing had ever consulted it. `applyMark`
