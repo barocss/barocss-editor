@@ -46,15 +46,16 @@ entries are that.
 
 ## Open
 
-### `editor._viewDOM` is one slot — and the last place that read it
+### `editor._viewDOM` is one slot — swept, and the engine is clean
 
-Recorded before as a limitation; it turned out to be the cause of a large fault (see Done), and the
-handler had **already been given the view it belongs to** with a comment about this exact hazard.
-One call site had not been changed to use it.
+Recorded as a limitation, then found to be the cause of a large fault (see Done). Swept afterwards
+rather than waiting for the next symptom, since anything on the editor that a *view* should own is
+wrong the moment a document is drawn twice — and the site builder draws every page four times.
 
-- [ ] **Look for the others.** The grep is `_viewDOM` and it is worth doing once rather than waiting
-  for the next symptom: anything on the editor that a *view* should own is wrong the moment a
-  document is drawn twice, and the site builder draws every page four times.
+**Nothing else.** Two live readers in the engine, both in `selection-handler.ts` and both already
+preferring `this.view`; the slot's own assignment; and `__lastInputDebug`, which is a debug field.
+`devtool` and `auto-tracer` read it and are not the product. Recorded as a *result* rather than left
+as an open worry.
 
 ### The same eye on the deck's and Word's lists — 2026-08-28
 
@@ -3156,6 +3157,22 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A page builder had no way to make a word bold.** The site registers `toggleBold`,
+  `toggleItalic`, `toggleUnderline` and `toggleStrikeThrough` and offered **not one of them** — not
+  on the toolbar, not in the panel.
+
+  Two things kept it invisible, and both are worth knowing. Text **could not be selected** at all
+  (above), so every one of those commands was correctly refusing a collapsed caret and looked like a
+  control that was merely unavailable. And `every-command-can-be-reached` counts the commands a
+  product *adds*: these come from the shared kit, so the harness never asked this product for a
+  control. A gap that two separate mechanisms were each explaining away.
+
+  Four and no more. A colour, a size and a font are the panel's the day a page needs them; these are
+  the ones a reader reaches for mid-sentence, which is what a toolbar is for. Contextual, for the
+  reason Word's and the deck's groups are — they mean nothing to a reader holding a block, and a page
+  builder's reader is holding a block most of the time. And `state` rather than a plain toggle,
+  because bold on a partly-bold selection is neither on nor off.
 
 - **Text could not be selected on a page.** `editor.selection` **never moved**: wherever a reader
   clicked or dragged, the model held the collapsed caret that entering text had put there.

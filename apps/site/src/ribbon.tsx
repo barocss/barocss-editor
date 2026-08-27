@@ -1,5 +1,6 @@
+import { useMemo } from 'react';
 import type { Editor } from '@barocss/editor-core';
-import { watchAnswers } from '@barocss/editor-core';
+import { markState, watchAnswers } from '@barocss/editor-core';
 import {
   Icon,
   ChoiceSelect,
@@ -43,6 +44,15 @@ export function Ribbon({
   onMode: (mode: PointerMode) => void;
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
+
+  /**
+   * What the selection has to say about itself, re-read whenever it moves.
+   *
+   * A pressed button that remembers being pressed lies after an undo, which is the reason both other
+   * products re-read this rather than holding it in state — and the reason it is read here at all is
+   * that a formatting toggle has three states, not two.
+   */
+  const summary = useMemo(() => editor.getSelectionSummary(), [editor, revision]);
   /*
    * `canExecuteCommand`, which is the editor's own name for it — asked on every render rather than
    * cached, because a control that remembers being available is wrong the moment something is
@@ -137,6 +147,39 @@ export function Ribbon({
       </ToolbarGroup>
 
       <ToolbarSeparator />
+
+      {/*
+        **What a word looks like** — drawn only when there are words selected.
+
+        Measured after the selection sync was fixed: this product registered four formatting commands
+        and offered none of them anywhere. The gap was invisible for as long as text could not be
+        selected, because every one of them was correctly refusing a collapsed caret.
+
+        Contextual for the reason Word's and the deck's groups are: these mean nothing to a reader who
+        has a *block* selected, and a page builder's reader has a block selected most of the time.
+        `state` rather than a plain toggle because bold on a partly-bold selection is neither on nor
+        off — `mixed` is the third state this control has for exactly that.
+      */}
+      {siteControlsIn('text').some((control) => can(control.command)) && (
+        <>
+          <ToolbarGroup id="text">
+            {siteControlsIn('text').map((control) => (
+              <ToolbarToggle
+                key={control.command}
+                id={control.command}
+                label={control.title ?? control.label}
+                shortcut={control.shortcut}
+                state={control.mark ? markState(summary, control.mark) : 'off'}
+                disabled={!can(control.command)}
+                onActivate={() => run(control.command)}
+              >
+                <Icon name={control.icon ?? 'bold'} />
+              </ToolbarToggle>
+            ))}
+          </ToolbarGroup>
+          <ToolbarSeparator />
+        </>
+      )}
 
       {/*
         Where the selected words go.

@@ -26,7 +26,16 @@ export interface SiteControl {
   /** The chord it is bound to, drawn beside the name — a toolbar is how a reader finds a key. */
   shortcut?: string;
   /** Which group it sits in, so the ribbon draws separators rather than deciding them. */
-  group: 'insert' | 'arrange' | 'link';
+  group: 'insert' | 'arrange' | 'text' | 'link';
+  /**
+   * The **mark** this control turns on and off, when it is a formatting one.
+   *
+   * `stateOfMark` is `office-controls`', and it is what makes a pressed button honest: bold on a
+   * partly-bold selection is neither on nor off, and `mixed` is the third state a toolbar toggle has
+   * for exactly that. Written as the mark's name rather than a reader function so the harness can
+   * ask which marks this toolbar names.
+   */
+  mark?: string;
   /**
    * What it makes, when a reader is choosing from a list of things to add.
    *
@@ -94,6 +103,55 @@ export const SITE_TOOLBAR: SiteControl[] = [
    * rather than four rows of a panel a reader would have to know to fill in.
    */
   { command: 'insertButton', puts: 'block', label: '버튼', title: '버튼을 넣습니다', group: 'insert', icon: 'component', makes: '버튼' },
+  /**
+   * **What a word looks like** — the group a page builder had none of.
+   *
+   * Measured after the selection sync was fixed: the site registers `toggleBold`, `toggleItalic`,
+   * `toggleUnderline` and `toggleStrikeThrough` and offered **not one of them**, on the toolbar or in
+   * the panel. A page builder where a word cannot be made bold is not one, and the gap was invisible
+   * for as long as text could not be selected at all — every one of these was correctly refusing a
+   * collapsed caret, and nothing counts a *shared kit's* command as something this product owes a
+   * control.
+   *
+   * The four every editor has and no more. A colour, a size and a font are the panel's the day a page
+   * needs them; these four are the ones a reader reaches for mid-sentence, which is what a toolbar is
+   * for.
+   */
+  {
+    command: 'toggleBold',
+    label: '굵게',
+    title: '굵게',
+    shortcut: 'Mod+B',
+    group: 'text',
+    icon: 'bold',
+    mark: 'bold'
+  },
+  {
+    command: 'toggleItalic',
+    label: '기울임',
+    title: '기울임',
+    shortcut: 'Mod+I',
+    group: 'text',
+    icon: 'italic',
+    mark: 'italic'
+  },
+  {
+    command: 'toggleUnderline',
+    label: '밑줄',
+    title: '밑줄',
+    shortcut: 'Mod+U',
+    group: 'text',
+    icon: 'underline',
+    mark: 'underline'
+  },
+  {
+    command: 'toggleStrikeThrough',
+    label: '취소선',
+    title: '취소선',
+    group: 'text',
+    icon: 'strike',
+    mark: 'strikethrough'
+  },
   {
     command: 'duplicateBlocks',
     label: '복제',

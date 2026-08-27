@@ -1258,6 +1258,57 @@ test.describe('selecting text on a page', () => {
     expect(after.end - after.start).toBeGreaterThan(3);
   });
 
+  /**
+   * **What a word looks like** — the group a page builder had none of.
+   *
+   * The site registers `toggleBold`, `toggleItalic`, `toggleUnderline` and `toggleStrikeThrough` and
+   * offered **not one of them**, on the toolbar or in the panel. A page builder where a word cannot
+   * be made bold is not one, and the gap was invisible for as long as text could not be selected at
+   * all: every one of them was correctly refusing a collapsed caret, and nothing counts a *shared
+   * kit's* command as something this product owes a control.
+   */
+  test('offers the four a reader reaches for mid-sentence, once there are words', async ({ page }) => {
+    await ready(page);
+    // Nothing selected: these mean nothing to a reader holding a block, which is most of the time.
+    await expect(page.locator('[data-group="text"]')).toHaveCount(0);
+
+    const heading = await intoText(page);
+    const box = (await heading.boundingBox())!;
+    await page.mouse.move(box.x + 20, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 200, box.y + box.height / 2, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    await expect(page.locator('[data-group="text"]')).toHaveCount(1);
+    await expect(page.locator('[data-control="toggleBold"]')).toBeEnabled();
+  });
+
+  test('makes a word bold, and says so on the button afterwards', async ({ page }) => {
+    await ready(page);
+    const heading = await intoText(page);
+    const box = (await heading.boundingBox())!;
+    await page.mouse.move(box.x + 20, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 200, box.y + box.height / 2, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    const bold = page.locator('[data-control="toggleBold"]');
+    await expect(bold).toHaveAttribute('data-state', 'off');
+    await bold.click();
+    await page.waitForTimeout(600);
+
+    /*
+     * On the page and on the button. A pressed toggle that does not follow the document is a button
+     * that lies after an undo, which is why the state is re-read from the selection rather than
+     * remembered.
+     */
+    // `mark-bold`, which is what `office-text` draws a mark as — the same span in all three products.
+    await expect(page.locator('[data-frame="desktop"] .st-page .mark-bold')).not.toHaveCount(0);
+    await expect(bold).toHaveAttribute('data-state', 'on');
+  });
+
   test('makes the commands that need a range available at last', async ({ page }) => {
     await ready(page);
     const heading = await intoText(page);
