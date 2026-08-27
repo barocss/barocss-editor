@@ -673,3 +673,12 @@ export {
   type CanvasBox,
   type PageWidth
 } from '@barocss/office-canvas';
+export {
+  WORD_MENUS,
+  wordMenuCommands,
+  wordMenuEntry,
+  wordMenuId,
+  type WordMenu,
+  type WordMenuBlock,
+  type WordMenuEntry
+} from './menu-model';

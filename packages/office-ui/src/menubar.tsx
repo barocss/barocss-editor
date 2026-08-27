@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from './cn';
 import { Menu, type MenuBlock } from './menu';
 
@@ -71,13 +71,32 @@ export function MenuBar({
     return box ? { x: box.left, y: box.bottom + 2 } : { x: 0, y: 0 };
   };
 
-  const step = (by: number) => {
-    const index = menus.findIndex((one) => one.id === open);
-    if (index < 0) return;
-    setOpen(menus[(index + by + menus.length) % menus.length].id);
-  };
-
   const shown = menus.find((one) => one.id === open);
+
+  /**
+   * Left and right walk between menus — on the **document**, while one is open.
+   *
+   * Not on this element, which was the first shape and did not work: the open menu is portalled to
+   * the body and the trigger's `pointerdown` is prevented, so by the time a reader presses an arrow
+   * the focus is nowhere near this `div` and a handler here never fires. `Menu` already takes its
+   * own up/down the same way and for the same reason.
+   *
+   * Only while one is open. With everything closed the arrows belong to whatever the reader is
+   * actually in — a menubar that took them would move the caret's keys to the chrome.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+      event.preventDefault();
+      event.stopPropagation();
+      const index = menus.findIndex((one) => one.id === open);
+      if (index < 0) return;
+      setOpen(menus[(index + (event.key === 'ArrowRight' ? 1 : -1) + menus.length) % menus.length].id);
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [open, menus]);
 
   return (
     <div
@@ -85,16 +104,6 @@ export function MenuBar({
       role="menubar"
       aria-label={label}
       className={cn('flex items-center gap-0.5', className)}
-      onKeyDown={(event) => {
-        if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
-        /*
-         * Only while one is open. With everything closed the arrows belong to whatever the reader is
-         * actually in — a menubar that ate them would move the caret's keys to the chrome.
-         */
-        if (!open) return;
-        event.preventDefault();
-        step(event.key === 'ArrowRight' ? 1 : -1);
-      }}
     >
       {menus.map((one) => (
         <button

@@ -11,6 +11,7 @@ import { kindOfBox } from '../src/layers';
 import { slidesToolbarCommands, slidesToolbarIcons } from '../src/toolbar-model';
 import { slidesKeyCommands } from '../src/keymap';
 import { slidesPanelAttrs, slidesPanelCommands } from '../src/panel-model';
+import { slidesMenuCommands } from '../src/menu-model';
 
 /**
  * What Slides promises, held to.
@@ -135,7 +136,17 @@ describe('Slides draws what its schema declares', () => {
    * this cannot drift from what is installed — which is why a deck's key map is
    * data in the package and not a handler in the host.
    */
-  const reachable = [...slidesToolbarCommands(), ...slidesKeyCommands(), ...slidesPanelCommands()];
+  /*
+   * Four surfaces now. The menubar is the fourth, and the reason it counts is the reason the other
+   * three are declarations rather than JSX: a surface the harness has not been told about is a
+   * surface that does not exist as far as it is concerned.
+   */
+  const reachable = [
+    ...slidesToolbarCommands(),
+    ...slidesKeyCommands(),
+    ...slidesPanelCommands(),
+    ...slidesMenuCommands()
+  ];
 
   it('draws what it declares, expects only what it says it expects', () => {
     assertConforms({

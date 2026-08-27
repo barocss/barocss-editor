@@ -71,9 +71,20 @@ application-level commands as equal-weight text buttons in the title bar, becaus
 else for them to go. That is the shape a menubar takes when a product does not have one, and it is
 evidence rather than opinion: the same twelve are *missing entirely* from the other two products.
 
-- [x] **1. A menubar, in the site builder.** Built — `office-ui`'s `MenuBar` and `office-site`'s
-  `menu-model.ts`, with 파일 · 편집 · 보기. See Done. The other two products still need it, and the
-  deck's twelve title-bar buttons are what it is for.
+- [x] **1. A menubar, in all three products, beside the toolbar rather than instead of it.** Built.
+  See Done.
+
+- [ ] **1a. The deck's twelve title-bar buttons retire into it.** They are still there and the
+  menubar duplicates them, which is untidy rather than wrong — every application has a command in
+  two places. What makes it worth doing is that a row of twelve equal-weight buttons prioritises
+  nothing: 발표 is a primary action a presenter hits constantly and 크기 is a dialog opened twice in
+  a deck's life, and they are the same button. The end state is 발표 and 전체 보기 staying as
+  buttons and the other ten living only in the menus. **Costed: 78 checks name them by `data-*`.**
+
+- [ ] **1c. 새로 만들기 · 저장 · 열기 are not in the deck's 파일 menu.** `FileActions` holds those
+  three inside itself along with the file picker's hidden input, so a menu entry cannot call them
+  without that component publishing them upward. A half-built refactor of a file picker was not
+  worth doing on the way past.
 
 - [ ] **1b. The toolbar stops carrying what is not a tool.** The split is the standard
   one and it is standard because it is true: a **menubar** holds what acts on the *document and the
@@ -3093,6 +3104,38 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A menubar in all three products, beside the toolbar rather than instead of it.** Both surfaces,
+  because they answer different questions: a **menubar** holds what acts on the *document and the
+  application* — things done occasionally, which need to be **found** — and a **toolbar** holds what
+  acts on the *selection*, done constantly, which needs to be **reached**. One strip cannot be both,
+  and Word's 71 controls in one flat wall is what happens when it tries.
+
+  The shape is shared (`office-controls`' `MenuModel`) and the content is not, which is the split
+  `PanelRow` already makes: *which* commands a product puts in 파일 is a fact about that product, and
+  *what a menu entry is* is the same everywhere. `office-ui`'s `MenuBar` is built on the context menu
+  rather than beside it — `Menu` already draws a keyboard-walkable list at a point, portalled, with
+  shortcut hints and disabled entries.
+
+  What it made reachable, and the pattern that connects them: **`window.exportSite`** in the site
+  builder and **`window.wordPrintPages`** in Word were both capabilities parked on `window` for want
+  of anywhere to put them, and Word's 찾기 was bound to a chord and on no control at all — so a
+  reader who did not already know ⌘F could not find it. A shortcut is a *second* way to reach
+  something, never the only one. The **99 bindings** across three products now have somewhere to be
+  read.
+
+  Three things measured rather than assumed:
+
+  - **An entry that could never be enabled.** A command whose `canExecute` needs a `nodeId` is greyed
+    *forever* from a menubar that sends none — the site's page commands first, then the deck's slide
+    commands. `needs` is the model asking the app for something only the app knows, rather than the
+    app guessing.
+  - **The arrows did not work.** Left/right were handled on the menubar element, and the open menu is
+    portalled to the body with the trigger's `pointerdown` prevented — so by the time a reader
+    presses an arrow the focus is nowhere near that element. On the document while one is open, which
+    is how `Menu` already takes its own up/down.
+  - **A default is only safe where being wrong is cheap.** Publishing falls back to the home page;
+    deleting does not.
 
 - **The site builder can publish.** `exportSite` rendered every page of a site for weeks, was held by
   a test that compares it property by property against what the editor draws, and was reachable from

@@ -872,3 +872,12 @@ export {
  * negative width, and why the gesture is a toggle.
  */
 export { FLIP_ATTRS, flipCss, flipChange, flipped, type FlipAxis } from './flip';
+export {
+  SLIDES_MENUS,
+  slidesMenuCommands,
+  slidesMenuEntry,
+  slidesMenuId,
+  type SlidesMenu,
+  type SlidesMenuBlock,
+  type SlidesMenuEntry
+} from './menu-model';

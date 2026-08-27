@@ -419,3 +419,12 @@ export function nameOfNode(
   if (!stype) return undefined;
   return own[stype] ?? CANVAS_NAMES[stype];
 }
+export {
+  menuCommands,
+  menuEntry,
+  menuFaults,
+  menuId,
+  type MenuBlockModel,
+  type MenuEntryModel,
+  type MenuModel
+} from './menu';

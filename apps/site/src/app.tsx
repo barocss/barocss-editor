@@ -94,7 +94,7 @@ function download(page: { path: string; name: string; html: string }): void {
  * no notion of one being on screen, and every command here that acts on a page names it by sid.
  */
 function payloadFor(
-  entry: { command?: string; payload?: Record<string, unknown>; needs?: 'page' },
+  entry: { command?: string; payload?: Record<string, unknown>; needs?: string },
   page: string | undefined
 ): Record<string, unknown> | undefined {
   if (entry.needs !== 'page') return entry.payload;

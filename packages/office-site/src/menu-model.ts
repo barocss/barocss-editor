@@ -25,47 +25,25 @@
  * *is* — that is the panel's, and the toolbar's.
  */
 
-export interface SiteMenuEntry {
-  /**
-   * The command a pick runs — for everything that changes the **document**.
-   *
-   * Absent for the handful of entries that change how a reader is *looking*, which carry `view`
-   * instead. That distinction is load-bearing rather than tidy: how many boards a reader has open is
-   * not a fact about their site, so it is not a command, and declaring one would tell the harness
-   * that a command exists which does not.
-   */
-  command?: string;
-  /** What a **view** entry means, answered by the app in one `switch`. */
-  view?: string;
-  /** What it is given, when the entry is one case of a command. */
-  payload?: Record<string, unknown>;
-  /**
-   * That this entry acts on **the page the reader is on**, which only the app knows.
-   *
-   * Declared rather than left to the app to guess, because the alternative was measured and it is a
-   * dead menu entry: `duplicatePage` and `removePage` answer `canExecute` against a `nodeId` and
-   * return false without one, so from a menubar with no payload they were greyed **forever**. An
-   * entry that can never be enabled is worse than an entry that is not there.
-   *
-   * Not solved by making the command default to the first page: 파일 › 페이지 삭제 that quietly
-   * deleted the home page is the kind of default nobody survives twice.
-   */
-  needs?: 'page';
-  label: string;
-  /** The chord, drawn beside the name — this is where a reader learns one. */
-  hint?: string;
-}
+import {
+  menuCommands,
+  menuEntry,
+  menuId,
+  type MenuBlockModel,
+  type MenuEntryModel,
+  type MenuModel
+} from '@barocss/office-controls';
 
-export interface SiteMenuBlock {
-  id: string;
-  items: SiteMenuEntry[];
-}
-
-export interface SiteMenu {
-  id: string;
-  label: string;
-  blocks: SiteMenuBlock[];
-}
+/**
+ * A site's menus are `office-controls`' shape exactly.
+ *
+ * Three products each declaring their own `MenuEntry` interface is the fault this repository keeps
+ * finding — *which* commands a product puts in 파일 is a fact about that product, and what a menu
+ * entry **is** is the same everywhere.
+ */
+export type SiteMenuEntry = MenuEntryModel;
+export type SiteMenuBlock = MenuBlockModel;
+export type SiteMenu = MenuModel;
 
 /**
  * The menus, in the order a reader meets them.
@@ -161,30 +139,15 @@ export const SITE_MENUS: SiteMenu[] = [
 
 /** Every command the menubar can run — the harness's question, answered by the model. */
 export function siteMenuCommands(menus: SiteMenu[] = SITE_MENUS): string[] {
-  return [
-    ...new Set(
-      menus.flatMap((menu) =>
-        menu.blocks.flatMap((block) =>
-          block.items.map((one) => one.command).filter((one): one is string => !!one)
-        )
-      )
-    )
-  ];
+  return menuCommands(menus);
 }
 
-/** One entry, by the id the menubar hands back — `menu.block.command`. */
+/** One entry, by the id the menubar hands back. */
 export function siteMenuEntry(id: string, menus: SiteMenu[] = SITE_MENUS): SiteMenuEntry | undefined {
-  for (const menu of menus) {
-    for (const block of menu.blocks) {
-      for (const [index, item] of block.items.entries()) {
-        if (`${menu.id}.${block.id}.${index}` === id) return item;
-      }
-    }
-  }
-  return undefined;
+  return menuEntry(menus, id);
 }
 
 /** And the id an entry is drawn with, so the app and the model agree on one name. */
 export function siteMenuId(menu: SiteMenu, block: SiteMenuBlock, index: number): string {
-  return `${menu.id}.${block.id}.${index}`;
+  return menuId(menu, block, index);
 }

@@ -946,3 +946,13 @@ body {
   position: absolute;
   background: #ec4899;
 }
+
+/*
+ * ── The title row: a name, and the menus ───────────────────────────────────
+ *
+ * The menubar sits beside the document's name and above the ribbon, which is where both desktop
+ * platforms put it — and the two are different surfaces on purpose: a menubar holds what acts on the
+ * document and the application, a ribbon holds what acts on the selection.
+ */
+.w-titlebar { display: flex; align-items: center; gap: 12px; }
+.w-menubar { margin-left: 4px; }

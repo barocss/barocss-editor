@@ -10,6 +10,7 @@ import { TimelinePane } from './timeline';
 import {
   AppBody,
   AppChrome,
+  MenuBar,
   AppMain,
   AppShell,
   Button,
@@ -77,6 +78,7 @@ import { Presenter } from './presenter';
 import { PresenterWindow } from './presenter-window';
 import { Properties } from './properties';
 import { Ribbon } from './ribbon';
+import { SLIDES_MENUS, slidesMenuEntry, slidesMenuId } from '@barocss/office-slides';
 import { Stage } from './stage';
 import { DeckMapView } from './deck-map-view';
 import { LibraryDialog } from './library-dialog';
@@ -401,6 +403,86 @@ export function App({
   const [dialog, setDialog] = useState<
     'size' | 'layout' | 'theme' | 'template' | 'library' | null
   >(null);
+
+  /**
+   * The menubar, drawn from `SLIDES_MENUS` and greyed against the deck.
+   *
+   * An entry a reader can press that then does nothing is worse than one that is not there, and
+   * every command in the model already answers `canExecute`. A `view` entry has no command to ask,
+   * so it is never disabled: whether the audit pane is up is always a question a reader may answer.
+   */
+  const menus = useMemo(
+    () =>
+      SLIDES_MENUS.map((menu) => ({
+        id: menu.id,
+        label: menu.label,
+        blocks: menu.blocks.map((block) => ({
+          id: block.id,
+          items: block.items.map((item, index) => ({
+            id: slidesMenuId(menu, block, index),
+            label: item.label,
+            hint: item.hint,
+            disabled: item.command
+              ? !editor?.canExecuteCommand?.(
+                  item.command,
+                  // `needs: 'slide'` is the model asking for the slide on screen, which only the app
+                  // knows — the document has no notion of one being current. Without it
+                  // 슬라이드 복제 answers `canExecute` against nothing and is greyed forever.
+                  (item.needs === 'slide' ? { ...item.payload, slideId: current } : item.payload) as never
+                )
+              : false
+          }))
+        }))
+      })),
+    [editor, answers, current]
+  );
+
+  /**
+   * What a pick does — a command, or a change to how the reader is looking.
+   *
+   * The `view` branch is the one `switch` the model promises, and it is most of this menubar: opening
+   * a dialog, showing a pane, starting a presentation. None of those is a fact about the deck, which
+   * is why none of them is a command.
+   */
+  const onMenu = useCallback(
+    (id: string) => {
+      const entry = slidesMenuEntry(id);
+      if (!entry) return;
+
+      switch (entry.view) {
+        case 'library':
+          return setDialog((was) => (was === 'library' ? null : 'library'));
+        case 'template':
+          return setDialog('template');
+        case 'dialog.size':
+          return setDialog('size');
+        case 'dialog.layout':
+          return setDialog('layout');
+        case 'dialog.theme':
+          return setDialog('theme');
+        case 'audit':
+          return setAuditing((was) => !was);
+        case 'map':
+          return setMapping((was) => !was);
+        case 'focus':
+          return setFocused((on) => !on);
+        case 'present':
+          return setPresenting(true);
+        case 'scroll':
+          return setScrolling((was) => !was);
+        default:
+          break;
+      }
+
+      if (entry.command) {
+        void editor?.executeCommand(
+          entry.command,
+          (entry.needs === 'slide' ? { ...entry.payload, slideId: current } : entry.payload) as never
+        );
+      }
+    },
+    [editor, current]
+  );
 
   /**
    * How large the slide is drawn.
@@ -1583,6 +1665,20 @@ export function App({
     >
       <AppChrome as="header" className="sl-topbar">
         <h1>Barocss Slides</h1>
+        {/*
+          The **menubar**, beside the deck's name.
+
+          This product had already grown one without having one: twelve application-level commands as
+          equal-weight text buttons along this bar, because there was nowhere else for them. A row of
+          twelve buttons groups nothing (저장 sits beside 지도 with no sign one is a file operation
+          and the other a way of looking), prioritises nothing, and does not scale — the thirteenth
+          has to displace something, which is how a title bar becomes a toolbar.
+
+          The buttons are still here and the retirement is its own move: 78 checks name them by
+          `data-*`. What the menubar changes today is that there is somewhere for the thirteenth to
+          go, and somewhere the 21 shortcuts can be read.
+        */}
+        <MenuBar className="sl-menubar" label="덱 메뉴" menus={menus} onPick={onMenu} />
         <span className="sl-count">
           {slides.length > 0 && here ? `${here.number} / ${slides.length}` : '—'}
         </span>

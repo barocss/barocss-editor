@@ -2824,3 +2824,12 @@ body {
 .sl-shell[data-presenting='true'] .sl-components-closed {
   display: none;
 }
+
+/*
+ * ── The menubar ────────────────────────────────────────────────────────────
+ *
+ * Beside the deck's name and before the count. The twelve buttons along the right are still there
+ * and their retirement into this is its own move — what changes today is that there is somewhere for
+ * the thirteenth to go, and somewhere the deck's 21 shortcuts can be read.
+ */
+.sl-menubar { margin-left: 12px; }
