@@ -53,7 +53,7 @@ Five tabs, and what each can do:
 | tab | what it offers | what it does not |
 | --- | --- | --- |
 | **추가** | 15 inserts, each with a picture | — |
-| **구성** | a tree that opens and closes, click to select, shift to add | **hide, lock, reorder, rename** |
+| **구성** | a tree that opens and closes, click to select, shift to add, hide, lock, **drag to reorder or reparent** | **rename** |
 | **페이지** | list · 위로 · 복제 · 삭제(asks first) | 아래로; reorder by drag |
 | **컴포넌트** | list · 놓기 · 편집 | rename, delete, where-used |
 | **데이터** | list · 데이터셋 만들기 | rename, delete, duplicate |
@@ -63,9 +63,7 @@ the first half of that is fixed (see Done). What is left, in the order a reader 
 
 - [x] ~~**2 · 3. Hide and lock a block.**~~ Built — see Done.
 
-- [ ] **1. Reorder by dragging a row.** The canvas can drag a block and the list cannot, and the list
-  is the only place an empty stack or a block behind another block can be *reached* at all. The deck's
-  layer panel already drags (`useStackOrder` in `office-ui`), so the shape exists.
+- [x] ~~**1. Reorder by dragging a row.**~~ Built — see Done.
 
 
 
@@ -3129,6 +3127,37 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A layer row can be dragged — to a place, or into a container.** Which is the only way to reach
+  some blocks at all: an empty stack and a block behind another block cannot be grabbed on the
+  canvas, because there is nothing to aim at, and the list is where they have a row.
+
+  `office-ui`'s `useStackOrder` is **not** the tool, and saying why is the useful part. It assumes
+  what the deck's list is — a flat row of shapes in one container, all the same height — so a drop is
+  `(pointerY - top) / rowHeight`. A page's list is a **tree**: rows at four depths with different
+  parents, and index arithmetic cannot say *which parent*, which is the whole question.
+
+  The **thirds** are what it uses instead: top is *before this*, bottom is *after this*, middle is
+  *inside this* — offered only by a row that can hold something, because a drop into a paragraph has
+  no meaning and a target that sometimes lies is worse than one that is smaller. Reparenting by
+  indent is the other convention and it is the one that needs a tutorial; a line between two rows is
+  a place and a filled row is a container, which a reader can see. Two marks, because one highlight
+  for both would make *after the card row* and *into the card row* the same picture.
+
+  Three things measured rather than assumed, each of which stopped the drag dead:
+
+  - **`setPointerCapture` sends every later `pointermove` to the row that was grabbed**, so no other
+    row's handler fires and the drop marker never appears. A window listener ends the drag instead,
+    which also survives a pointer released outside the list.
+  - **The row *is* a `<button>`**, so a guard written as `closest('button')` to let the eye and the
+    padlock through found the row itself and refused every drag. What has to be excluded is only what
+    is inside it.
+  - **Moving down inside one parent loses a place as the row leaves it**, so the index a reader
+    pointed at is one too many. The off-by-one everywhere this has ever been written, said out loud
+    rather than left to a `+1` nobody can explain a year later.
+
+  The model half was already there: `moveBlockInto` is the drag's transaction and it already refuses
+  a move into itself or into something it holds.
 
 - **A block can be hidden and locked.** The two words the office schema already had — for things
   placed on a canvas — and a page needed both anyway, which is the third time these two worlds have
