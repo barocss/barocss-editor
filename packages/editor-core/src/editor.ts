@@ -168,7 +168,20 @@ export class Editor implements ContextProvider {
           return false;
         }
 
-        if (!editor.canExecuteCommand('replaceText')) {
+        /**
+         * Asked **with the payload it is about to send**, which it was not.
+         *
+         * `replaceText` declares `canExecute: payload => payload?.range != null && payload?.text !=
+         * null`, so asking it with nothing was asking whether it could run on no range and no text —
+         * and the answer is correctly no. `insertText` therefore returned `false` every time it was
+         * called, for as long as it has existed.
+         *
+         * What that cost: `EditorViewDOM.insertLineBreak` **is** `insertText('\n')`, so **Shift+Enter
+         * has never inserted a line break** in any of the three products. Nothing caught it because
+         * a command that declines is indistinguishable from a key nobody pressed — found while giving
+         * a code block its own Enter, which goes through the same door.
+         */
+        if (!editor.canExecuteCommand('replaceText', { range: selection, text: payload.text })) {
           return false;
         }
 
@@ -192,7 +205,9 @@ export class Editor implements ContextProvider {
           return false;
         }
 
-        if (!editor.canExecuteCommand('backspace')) {
+        // With the payload, for the reason `insertText` above spells out: a predicate asked about
+        // nothing answers about nothing.
+        if (!editor.canExecuteCommand('backspace', { selection })) {
           return false;
         }
 

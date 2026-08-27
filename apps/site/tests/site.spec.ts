@@ -714,10 +714,12 @@ test.describe('the rail', () => {
       '목록',
       '번호 목록',
       '인용',
+      // Back on the rail: a code block can be typed into now that Enter inside one is a newline.
+      '코드',
       '구분선',
       '버튼'
     ]);
-    await expect(page.locator('[data-insert]:not([disabled])')).toHaveCount(11);
+    await expect(page.locator('[data-insert]:not([disabled])')).toHaveCount(12);
   });
 
   test('adds a block, puts it where a reader can predict, and selects it', async ({ page }) => {
@@ -1991,5 +1993,93 @@ test.describe('a component can be let go', () => {
      * card beside it. Which is a reader asking for something else: to stop the list being a list.
      */
     await expect(detach(page)).toBeDisabled();
+  });
+});
+
+/**
+ * Code, and the one key that decides whether a code block is usable.
+ *
+ * The node was held back for a round because it could be placed and then not typed into: inside code
+ * Enter must be a **newline** and the text stack answered the prose question, splitting the block in
+ * two. A code block is one run of characters — split it and a reader has a page of code blocks, none
+ * of which is the program, and nothing that can be copied back out as text.
+ *
+ * What made it possible was reading a field the schema has always had: `code: true` on the node
+ * definition, which nothing had ever asked for.
+ */
+test.describe('a code block', () => {
+  const codeText = (page: Page) =>
+    page.evaluate(() => {
+      const editor = (window as never as { editor: any }).editor;
+      const store = editor.dataStore;
+      let found: any;
+      const walk = (sid: string) => {
+        const node = store.getNode(sid);
+        if (!node) return;
+        if (node.stype === 'codeBlock') found = node;
+        for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
+      };
+      walk(editor.getRootId());
+      const runs = (found?.content ?? []).filter((one: unknown) => typeof one === 'string');
+      return { blocks: runs.length, text: runs.map((one: string) => store.getNode(one)?.text).join('') };
+    });
+
+  const enter = async (page: Page) => {
+    await page.locator('[data-insert="insertCode"]').click();
+    await page.waitForTimeout(500);
+    const pre = page.locator('[data-frame="desktop"] pre').first();
+    await bring(page, pre);
+    await pressDeep(page, pre);
+    await page.waitForTimeout(250);
+    await pre.dblclick({ force: true });
+    await page.waitForTimeout(400);
+    return pre;
+  };
+
+  test('is drawn as code: literal whitespace, and no spell checker', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-insert="insertCode"]').click();
+    await page.waitForTimeout(500);
+
+    const pre = page.locator('[data-frame="desktop"] pre').first();
+    await expect(pre).toHaveAttribute('spellcheck', 'false');
+    await expect(pre).toHaveCSS('white-space', 'pre');
+    // The newlines it arrived with are characters in the run, not blocks.
+    expect((await codeText(page)).text).toContain('\n');
+  });
+
+  test('makes Enter a newline rather than a second block', async ({ page }) => {
+    await ready(page);
+    const pre = await enter(page);
+    await expect(page.locator('[data-frame="desktop"] .st-overlay')).toHaveAttribute('data-mode', 'text');
+
+    const before = await codeText(page);
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(600);
+
+    const after = await codeText(page);
+    // One run, one character longer. Not two blocks, and not nothing.
+    expect(after.blocks).toBe(before.blocks);
+    expect(after.text.length).toBe(before.text.length + 1);
+    await expect(pre).toContainText('function');
+  });
+
+  test('makes Tab an indent rather than a way out of the board', async ({ page }) => {
+    await ready(page);
+    await enter(page);
+
+    const before = await codeText(page);
+    await page.keyboard.press('End');
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(600);
+
+    /*
+     * Two spaces, not a tab character: a real tab is eight columns wide in a `pre` unless something
+     * says otherwise, and nothing here does. And only inside code — taking Tab from a document at
+     * large would take away the one key that moves between the things on a page.
+     */
+    const after = await codeText(page);
+    expect(after.text.length).toBe(before.text.length + 2);
   });
 });

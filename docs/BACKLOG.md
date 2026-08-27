@@ -87,22 +87,22 @@ entries are that.
   component — detaching a header must not detach the button in it. The deck's detach had the same
   fault and now takes the same argument.
 
-### A code block has no mode, and the schema cannot say what it refuses
+### A code block can be written in, and cannot be coloured or kept plain
 
 - [ ] **`marks` is declared on a node definition and nothing reads it.** `SchemaNodeDefinition.marks`
   is a `string[]` and no validator, operation or command consults it — so "no formatting inside a
-  code block" cannot be stated, only hoped for. It is the same shape of fault as the two this month
-  already found: a field the model carries and nothing asks about.
+  code block" cannot be stated, only hoped for. Bold inside code publishes a `<strong>` into a
+  `<pre>`, which no highlighter expects and no round-trip survives. The third member of this family;
+  `code` and `whitespace` were the other two and `code` is read now.
 
-- [ ] **Enter, Tab and the mark commands all answer the prose question inside code.** Enter makes a
-  new block where it should make a newline, Tab moves focus where it should indent, and bold applies.
-  The text stack is shared by three products, so this is a change Word and the deck feel — which is
-  why it is a slice rather than a fix.
-
-- [ ] **And then, maybe, an editor of its own.** The data grid already opens over the page here,
-  because five columns in a 280px rail is slivers. A long code block has the same shape of problem.
-  Reasonable as an escape hatch; wrong as the only way in, because a modal editor is the one thing
-  that makes the page on screen stop being the page.
+- [ ] **No syntax highlighting.** It is a drawing and never a value — the colours come from the text
+  and the language, so storing them stores something that goes stale. Two shapes, neither a widget:
+  the **CSS Custom Highlight API** in the editor, which paints ranges without wrapping anything and
+  so leaves the run, the caret and the model untouched; and **token spans at export**, so a visitor
+  gets colour without a script. The second makes the editor's markup and the export's differ, which
+  is the one thing export-as-a-render exists to prevent, so it needs one tokenizer feeding both and a
+  test that says so. `docs/specs/site-builder.md` carries the argument against embedding CodeMirror
+  or Monaco.
 
 ### A list's card can be edited, and three things around it cannot yet
 
@@ -2750,6 +2750,28 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **`insertText` had never worked, so Shift+Enter has never inserted a line break.** The command
+  guards itself by asking whether `replaceText` can run — and asked it with **no payload**, while
+  `replaceText` declares `canExecute: payload => payload?.range != null && payload?.text != null`. So
+  the guard asked *can you replace no text in no range*, the answer was correctly no, and `insertText`
+  returned `false` every time it was called, in all three products, for as long as it has existed.
+  `EditorViewDOM.insertLineBreak` **is** `insertText('\n')`.
+
+  Nothing caught it because a command that declines is indistinguishable from a key nobody pressed.
+  Found while giving a code block its own Enter, which goes through the same door. `backspace` was
+  guarded the same way and is fixed with it; `editor-can-run.test.ts` holds both.
+
+- **Three blocks could be placed and not selected.** `blockQuote`, `horizontalRule` and `codeBlock`
+  went onto the rail and not into `SELECTABLE`, so they drew perfectly and could not be moved,
+  deleted, given a colour or typed into. The round that added them checked that each *appears* and
+  never checked that a reader can get hold of one — which is the same shape as the check that a
+  command exists without asking whether anything can reach it.
+
+- **`editor as any` came down four, from 343 to 339.** Every one of them was over a door that is
+  already open: `getRootId()` and `dataStore` are public members, cast away by a `never` in code
+  written this month. The ratchet in `editor-is-typed.test.ts` is what said so — and it says so about
+  the whole repository, which is why running only the packages a change touches is not enough.
 
 - **A node that changed type disappeared off the page.** `transformNode` changes a node's type where
   it stands, which is the right shape for a detach — the block keeps its sid, its place and

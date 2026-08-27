@@ -76,6 +76,7 @@ describe('the site builder draws what it declares', () => {
     { command: 'insertNumberList', produces: 'list' },
     { command: 'insertQuote', produces: 'blockQuote' },
     { command: 'insertRule', produces: 'horizontalRule' },
+    { command: 'insertCode', produces: 'codeBlock' },
     /*
      * A **composition**, and it produces a `frame` — which is the honest answer rather than a
      * shrug. There is no `button` node in this schema and there should not be: a button is a box

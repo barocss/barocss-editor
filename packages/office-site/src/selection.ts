@@ -49,11 +49,29 @@ export const SELECTABLE = new Set([
   'listItem',
   'textFrame',
   'bTable',
-  'canvasBlock'
+  'canvasBlock',
+  /*
+   * The three the rail grew and this list did not.
+   *
+   * A quotation, a rule and a code block could be put on a page and then **not selected** — so not
+   * moved, not deleted, not given a colour and not typed into. They drew perfectly, which is what
+   * made it invisible: the round that added them checked that each appears and never checked that a
+   * reader can get hold of one.
+   */
+  'blockQuote',
+  'codeBlock',
+  'horizontalRule'
 ]);
 
-/** The stypes whose double-click means *the caret*, because they hold words. */
-export const TEXTUAL = new Set(['heading', 'paragraph', 'listItem', 'textFrame']);
+/**
+ * The stypes whose double-click means *the caret*, because they hold words.
+ *
+ * `codeBlock` is one of them, and it was the block a reader could place and then not type into: the
+ * gesture that gets a caret into a heading is the gesture that gets one into a program. What made it
+ * safe to offer is that Enter inside code is now a newline rather than a new block — the schema says
+ * `code: true` and the view reads it.
+ */
+export const TEXTUAL = new Set(['heading', 'paragraph', 'listItem', 'textFrame', 'codeBlock']);
 
 /**
  * The document node a drawn sid belongs to.

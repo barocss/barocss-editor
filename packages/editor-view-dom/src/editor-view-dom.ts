@@ -684,6 +684,39 @@ export class EditorViewDOM implements IEditorViewDOM {
     }
 
     /**
+     * Tab **inside code** is an indent; everywhere else it stays the browser's.
+     *
+     * Taking Tab away from a document at large would be taking away the one key that moves between
+     * the things on a page — a reader tabbing out of a paragraph into the toolbar is doing what they
+     * meant, and a rich text editor that swallows it has broken keyboard navigation for everybody
+     * who does not use a mouse. Inside code it is the opposite: nobody tabs *out* of a program, and
+     * a language that cares about indentation cannot be written without it.
+     *
+     * Two spaces rather than a tab character, which is what a page of code wants: a real tab is
+     * eight columns wide in a `pre` unless something says otherwise, and nothing here does.
+     */
+    if ((event.key === 'Tab' || event.key === 'Enter') && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      const selection = window.getSelection();
+      const inCode =
+        selection && selection.rangeCount > 0
+          ? this._codeBlockAt(
+              this.selectionHandler.convertDOMSelectionToModel(selection)?.startNodeId
+            )
+          : undefined;
+      if (inCode) {
+        event.preventDefault();
+        /*
+         * **Here** rather than in `insertParagraph`, because Enter never reaches it: a key binding
+         * resolves first, prevents the default and dispatches the command itself, so `beforeinput`
+         * never fires and the method the browser would have driven is never called. Measured by
+         * listening for both — a keydown with no `beforeinput` behind it.
+         */
+        this.insertText(event.key === 'Tab' ? '  ' : '\n');
+        return;
+      }
+    }
+
+    /**
      * A key the IME has taken for itself. Refusing to act on it is the whole
      * job here, and that much is unconditional.
      *
@@ -1191,6 +1224,34 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.editor.emit('editor:selection.blur');
   }
 
+  /**
+   * The block the caret is in, if the schema says it is **code**.
+   *
+   * `code` has been a field on a node definition since the schema was written and nothing has ever
+   * read it — the same family of fault as `marks`, which is still unread. It is read here, which is
+   * the only place that can act on it: what Enter *means* is a question about the caret, and the
+   * caret is the view's.
+   *
+   * Walked up from the run rather than asked of the selection, because a selection names a text node
+   * and `code` is a property of the block that holds it.
+   */
+  private _codeBlockAt(nodeId: string | undefined): string | undefined {
+    // No cast: `dataStore` is a public getter on the editor, and a cast over a door that is already
+    // open is the fault `editor-is-typed.test.ts` counts.
+    const store = this.editor.dataStore as any;
+    const schema = store?.getActiveSchema?.();
+    if (!store || !schema || !nodeId) return undefined;
+
+    let at: string | undefined = nodeId;
+    for (let hop = 0; at && hop < 32; hop += 1) {
+      const node = store.getNode(at);
+      if (!node) return undefined;
+      if (schema.getNodeType?.(String(node.stype))?.code === true) return at;
+      at = node.parentId as string | undefined;
+    }
+    return undefined;
+  }
+
   // Browser native commands → delegate to Model-first Commands
   insertParagraph(): void {
     const domSelection = window.getSelection();
@@ -1206,6 +1267,20 @@ export class EditorViewDOM implements IEditorViewDOM {
         modelSelection
       });
       this.editor.executeCommand('insertParagraph', {});
+      return;
+    }
+
+    /**
+     * Inside **code**, Enter is a newline and not a new block.
+     *
+     * Not a preference: a code block is one run of characters, and splitting it in two would make
+     * every line its own block — so a reader would have a page of code blocks, none of which is the
+     * program, and nothing that could be copied back out as text. `insertLineBreak` already inserts
+     * a literal newline into the run, which is exactly what is wanted, and the block draws it
+     * because the renderer draws a `pre`.
+     */
+    if (this._codeBlockAt(modelSelection.startNodeId)) {
+      this.insertLineBreak();
       return;
     }
 

@@ -80,22 +80,7 @@ export const SITE_TOOLBAR: SiteControl[] = [
   { command: 'insertBulletList', puts: 'block', label: '글머리 목록', title: '글머리 목록을 넣습니다', group: 'insert', makes: '목록' },
   { command: 'insertNumberList', puts: 'block', label: '번호 목록', title: '번호 목록을 넣습니다', group: 'insert', makes: '번호 목록' },
   { command: 'insertQuote', puts: 'block', label: '인용', title: '인용문을 넣습니다', group: 'insert', makes: '인용' },
-  /*
-   * 코드 is **not here**, and the empty space is the decision.
-   *
-   * The node was fixed on the way — `codeBlock` declared `content: 'text*'`, a group no node in this
-   * schema is in, so it could hold nothing at all and every insert made an empty block. It draws now
-   * and a document that arrives holding one is drawn correctly.
-   *
-   * What is missing is not the node. It is a **mode**: inside code, Enter is a newline rather than a
-   * new block, Tab is an indent rather than the next control, and every formatting command is
-   * meaningless — bold inside code publishes a `<strong>` into a `<pre>`, which no highlighter
-   * expects and no round-trip survives. The text stack answers all three the other way, correctly,
-   * for prose.
-   *
-   * So offering the insert would give a reader a block they can put on a page and then cannot type
-   * into — which is worse than not offering it. `docs/specs/site-builder.md` carries the design.
-   */
+  { command: 'insertCode', puts: 'block', label: '코드', title: '코드 블록을 넣습니다 — 안에서 Enter는 줄바꿈입니다', group: 'insert', makes: '코드' },
   { command: 'insertRule', puts: 'block', label: '구분선', title: '가로 구분선을 넣습니다', group: 'insert', makes: '구분선' },
   /*
    * And the one that is a **composition** rather than a node: a box, a word, a hit area, a radius

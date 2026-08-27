@@ -64,7 +64,13 @@ describe('the editor is a type, not an escape hatch', () => {
    * Occurrences, not lines — `grep -c` says 940 because some lines carry two, and the honest unit
    * for "how many places is the compiler switched off" is the cast.
    */
-  const ALLOWED = 343;
+  /*
+   * 343 → 339. Four came off in the round that gave a code block its own Enter, and they were all
+   * the same shape: `(editor as never as { getRootId?: () => string }).getRootId?.()` and
+   * `(editor as never as { dataStore?: … }).dataStore` — over two members the class declares
+   * publicly. Which is the finding this file was written about, arriving again.
+   */
+  const ALLOWED = 339;
 
   it('declares everything the casts are casting away', () => {
     const source = readFileSync(join(__dirname, '..', 'src', 'editor.ts'), 'utf8');

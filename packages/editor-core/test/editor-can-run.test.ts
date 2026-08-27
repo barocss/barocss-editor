@@ -110,3 +110,50 @@ describe('canRun', () => {
     expect(seen.at(-1)?.selection?.startNodeId).toBe('explicit');
   });
 });
+
+/**
+ * A predicate asked about **nothing** answers about nothing.
+ *
+ * `insertText` guards itself by asking whether `replaceText` can run — and asked it with no payload
+ * at all, while `replaceText` declares `canExecute: payload => payload?.range != null &&
+ * payload?.text != null`. So the guard was asking *can you replace no text in no range*, the answer
+ * was correctly no, and `insertText` returned `false` every single time it was called.
+ *
+ * What that cost is the reason this is a test rather than a note: `EditorViewDOM.insertLineBreak`
+ * **is** `insertText('\n')`, so **Shift+Enter has never inserted a line break** in any of the three
+ * products. Nothing caught it because a command that declines looks exactly like a key nobody
+ * pressed — found while giving a code block its own Enter, which goes through the same door.
+ */
+describe('a command that guards itself with another', () => {
+  const withReplaceText = () => {
+    const editor = new Editor({ editable: true } as never);
+    const seen: { range?: unknown; text?: string }[] = [];
+    editor.registerCommand({
+      name: 'replaceText',
+      execute: async (_e: Editor, payload?: { range?: unknown; text?: string }) => {
+        seen.push(payload ?? {});
+        return true;
+      },
+      // The real one's predicate, which is the whole point: it is about the payload.
+      canExecute: (_e: Editor, payload?: { range?: unknown; text?: string }) =>
+        payload?.range != null && payload?.text != null
+    } as never);
+    return { editor, seen };
+  };
+
+  it('passes on the payload it is about to send, so the guard can answer', async () => {
+    const { editor, seen } = withReplaceText();
+    const ran = await editor.executeCommand('insertText', { text: '\n', selection: caret('n1') });
+
+    expect(ran).toBe(true);
+    expect(seen).toHaveLength(1);
+    expect(seen[0].text).toBe('\n');
+  });
+
+  it('still declines when there is genuinely nothing to insert', async () => {
+    const { editor, seen } = withReplaceText();
+    // No text: the guard says no about the real payload rather than about an empty one.
+    expect(await editor.executeCommand('insertText', { text: '', selection: caret('n1') })).toBe(false);
+    expect(seen).toHaveLength(0);
+  });
+});

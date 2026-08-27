@@ -167,14 +167,21 @@ export class SiteElementExtension implements Extension {
      */
     register('insertRule', () => node('horizontalRule', {}, []) as Node);
 
-    /*
-     * There is no `insertCode`, and its absence is on the record — see `toolbar-model.ts`.
+    /**
+     * Code, kept as it was typed.
      *
-     * The node is fixed and draws; what it needs is a mode, because inside code Enter is a newline
-     * and every formatting command is meaningless. A command nothing can reach would fail
-     * `every-command-can-be-seen`, and a button that makes a block a reader cannot type into is
-     * worse than no button.
+     * Held back for a round because the node could be placed and not typed into: inside code Enter
+     * must be a newline and not a new block, and the text stack answered the prose question. It does
+     * not any more — the schema says `code: true` and the view reads it — so the block is offered.
+     *
+     * The language is the panel's to say and the default is none: a page that highlights does so
+     * from `data-language`, and a block that has not said which language it is in is a block nobody
+     * has told yet rather than one in the wrong one.
      */
+    register(
+      'insertCode',
+      () => node('codeBlock', { language: '' }, [run('function 안녕() {\n  return 1;\n}')]) as Node
+    );
 
     /**
      * A **button**: the one thing on a page that is a composition rather than a node.

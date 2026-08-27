@@ -49,7 +49,27 @@ export function getStandardSchemaDefinition(): SchemaDefinition {
        * one are the caller's business, and a code block that carries none is a code block nobody has
        * formatted rather than one that refuses to be.
        */
-      codeBlock: { name: 'codeBlock', group: 'block', content: 'inline*', attrs: { language: { type: 'string', required: false } } },
+      /*
+       * `code: true`, and it is **read**.
+       *
+       * The field has been on a node definition since the schema was written and nothing had ever
+       * asked for it — the same family of fault as `marks`, which is still unread. The view asks it
+       * before deciding what Enter means: inside code a newline is a character and not a new block,
+       * because a code block is one run and splitting it in two would give a reader a page of code
+       * blocks, none of which is the program.
+       *
+       * `whitespace: 'pre'` is deliberately **not** written here. Nothing would read it: the
+       * whitespace is literal because the renderer draws a `pre`, which is the browser's own answer
+       * to the same question — and declaring a second one that nothing consults is the fault this
+       * comment is about.
+       */
+      codeBlock: {
+        name: 'codeBlock',
+        group: 'block',
+        content: 'inline*',
+        code: true,
+        attrs: { language: { type: 'string', required: false } }
+      },
       horizontalRule: { name: 'horizontalRule', group: 'block', atom: true },
       pageBreak: { name: 'pageBreak', group: 'block', atom: true },
       docSection: { name: 'docSection', group: 'block', content: 'block+' },

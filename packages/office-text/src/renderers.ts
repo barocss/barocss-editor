@@ -269,11 +269,27 @@ export function registerTextRenderers(): void {
   );
 
   define('blockQuote', element('blockquote', { className: 'w-quote', style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env) }, [slot('content')]));
+  /**
+   * Code, kept as it was typed.
+   *
+   * `pre` is doing the work: the whitespace is literal because that is what the element means, which
+   * is also why the schema does not declare a second answer to the same question. `spellcheck` is
+   * off because a spell checker underlines every identifier in a program, and `data-language` is
+   * written so that whatever highlights a published page can read it — the colours are derived from
+   * the text and the language, so storing them would be storing a value that goes stale the moment
+   * either changes.
+   */
   define(
     'codeBlock',
-    element('pre', { className: 'w-code', 'data-language': (d: Record<string, any>) => String(d.attributes?.language ?? '') }, [
-      slot('content')
-    ])
+    element(
+      'pre',
+      {
+        className: 'w-code',
+        spellcheck: 'false',
+        'data-language': (d: Record<string, any>) => String(d.attributes?.language ?? '')
+      },
+      [slot('content')]
+    )
   );
 
 

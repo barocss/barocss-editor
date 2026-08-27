@@ -568,7 +568,7 @@ export class SiteBlockExtension implements Extension {
     if (!instance) return false;
 
     const store = this._store(editor)!;
-    const rootId = (editor as never as { getRootId?: () => string }).getRootId?.() ?? '';
+    const rootId = editor.getRootId?.() ?? '';
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
 
     /** What it was drawing one press ago — this instance's values already in it. */

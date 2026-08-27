@@ -122,8 +122,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     [editor, answers]
   );
   const pages = useMemo(() => {
-    const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } })?.dataStore;
-    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+    const store = editor?.dataStore as { getNode: (sid: string) => any } | undefined;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId) return [];
     return pagesOf({ rootId, getNode: (sid: string) => store.getNode(sid) });
   }, [editor, revision]);
@@ -172,8 +172,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   );
 
   const definition = useMemo(() => {
-    const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } })?.dataStore;
-    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+    const store = editor?.dataStore as { getNode: (sid: string) => any } | undefined;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !editing) return undefined;
     return definitionOf({ rootId, getNode: (sid: string) => store.getNode(sid) }, editing);
   }, [editor, editing, revision]);
@@ -209,15 +209,15 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
   /** What the list's rows are called, for the picker — the dataset's first text field. */
   const rows = useMemo(() => {
-    const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } })?.dataStore;
-    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+    const store = editor?.dataStore as { getNode: (sid: string) => any } | undefined;
+    const rootId = editor?.getRootId?.();
     if (!store || !rootId || !row) return [];
     return rowLabelsOf({ rootId, getNode: (sid: string) => store.getNode(sid) } as never, row.collection);
   }, [editor, row, revision]);
   useEffect(() => {
     if (!editor) return;
-    const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } })?.dataStore;
-    const rootId = (editor as never as { getRootId?: () => string })?.getRootId?.();
+    const store = editor?.dataStore as { getNode: (sid: string) => any } | undefined;
+    const rootId = editor?.getRootId?.();
 
     const preview =
       store && rootId && editing && row
@@ -242,7 +242,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * these very declarations needs none (`export-html.ts`). One calculation, two notations.
    */
   useEffect(() => {
-    const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } })?.dataStore;
+    const store = editor?.dataStore as { getNode: (sid: string) => any } | undefined;
     if (!store || !root) return;
 
     const sheet = document.createElement('style');

@@ -636,7 +636,70 @@ plus a `language`. Two things it must **not** store, and both are worth saying o
   definition may carry `marks: string[]` — and **nothing reads it**. So the constraint cannot be
   enforced today, which is the second half of why the insert is not offered.
 
-### Where it is edited is a **mode**, and this product has none
+### Where it is edited is a **mode**, and it is built now
+
+Inside prose, Enter makes a new block, Tab moves to the next control, and the formatting commands
+apply marks. All three are correct for prose and all three are wrong inside code. Two of them are
+answered:
+
+- **Enter is a newline.** Not a preference: a code block is one run of characters, and splitting it
+  would give a reader a page of code blocks, none of which is the program and none of which can be
+  copied back out as text.
+- **Tab is two spaces.** Only inside code — taking Tab from a document at large would take away the
+  one key that moves between the things on a page, and a rich text editor that swallows it has
+  broken keyboard navigation for everyone who does not use a mouse. Two spaces rather than a tab
+  character, because a real tab is eight columns wide in a `pre` unless something says otherwise.
+
+Both are decided by a field the schema has always had and **nothing had ever read**: `code: true` on
+the node definition. That is the third member of this family — `marks` and `whitespace` are the other
+two, and `whitespace` is deliberately still not written on `codeBlock`, because the whitespace is
+literal by virtue of the element being a `pre` and a second answer nothing consults is the fault
+itself.
+
+Two things it found on the way out:
+
+- **`insertText` had never worked.** It guards itself by asking whether `replaceText` can run and
+  asked with **no payload**, while `replaceText`'s predicate is entirely about the payload. So the
+  answer was correctly no, every time. `EditorViewDOM.insertLineBreak` *is* `insertText('\n')` —
+  which means **Shift+Enter has never inserted a line break in any of the three products**. A command
+  that declines looks exactly like a key nobody pressed.
+- **Three blocks could be placed and not selected.** `blockQuote`, `horizontalRule` and `codeBlock`
+  were added to the rail and not to `SELECTABLE`, so they drew perfectly and could not be moved,
+  deleted, coloured or typed into. The round that added them checked that each *appears* and never
+  checked that a reader can get hold of one.
+
+### And the highlighting, which is a different question
+
+It is a **drawing**, never a value: the colours are derived from the text and the language, so
+storing them means storing something that goes stale the moment either changes. The published page
+carries `<pre spellcheck="false" data-language="…">` and the text, which is everything a highlighter
+needs and nothing it would have to undo.
+
+**No CodeMirror, and no Monaco.** Not because they are bad — because of what embedding one costs
+here. Each brings its own DOM, its own selection model and its own undo stack, and this editor has
+exactly one of each: `Ctrl+Z` would undo inside the widget rather than in the document, the site's
+three boards already fought over `document.getSelection()` once, and the published page must be a
+plain `pre` rather than a library's markup. Monaco is also megabytes for one block type out of
+fifteen. What a code block on a page actually needs — type, newline, indent, and see it coloured — is
+*less* than a paragraph, not more.
+
+So highlighting, when it comes, is one of two shapes and neither is a widget:
+
+1. **The CSS Custom Highlight API** in the editor. Ranges are painted without wrapping anything in
+   elements, so the run stays one flat piece of text and the caret, the selection and the model are
+   untouched. It is the only approach that adds colour without adding DOM for the text stack to trip
+   over.
+2. **Token spans at export**, so a visitor's page is coloured without shipping a script. That does
+   make the editor's markup and the export's differ, which is the one thing export-as-a-render exists
+   to prevent — so it needs the same declarations to come out of the same tokenizer, and a test that
+   says so.
+
+Deferred rather than half-done: a code block that can be typed into is useful today, and a colour
+scheme that only one of the two grounds has is worse than none.
+
+### The mode that is not built
+
+
 
 Inside prose, Enter makes a new block, Tab moves to the next control, and the formatting commands
 apply marks. All three are correct for prose and all three are wrong inside code: Enter is a newline,
@@ -644,21 +707,10 @@ Tab is an indent, and there is no formatting. That is not a renderer's problem o
 an input mode, and the text stack is shared by three products, so growing one is a change Word and
 the deck feel too.
 
-So the node is fixed and draws, and **the insert is not offered**. A block a reader can put on a page
-and then cannot type into is worse than a block that is not there, and a command nothing can reach
-fails `every-command-can-be-seen` — which is the harness agreeing.
-
-Two ways out, and the choice is not obvious:
-
-1. **A mode in the text stack.** Enter → newline, Tab → indent, marks refused, spellcheck off. The
-   honest answer, and the one that keeps the product's promise that the thing on screen is the page.
-2. **An editor of its own**, opened over the page — the shape the data grid already uses here,
-   because a five-column table drawn in a 280px rail is slivers. Reasonable as an *escape hatch* for
-   a long block; wrong as the only way in, because a modal editor is the one thing that makes the
-   page on screen stop being the page.
-
-They are not exclusive and the first is the prerequisite: an external editor still has to write the
-node back, and a node nothing can type into is a node nothing can write back either.
+**Marks are still not refused.** Bold inside code is meaningless and a `<strong>` inside a `<pre>` is
+something no highlighter expects and no round-trip survives. The schema has a place to say it — a
+node definition may carry `marks: string[]` — and nothing reads it. That is the one part of the mode
+that is not built.
 
 ## What a site builder still needs
 
