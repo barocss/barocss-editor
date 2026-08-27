@@ -592,8 +592,21 @@ What is still missing, in the order it will be wanted:
    other two halves of managing one are still hand work.
 2. **A placement cannot override anything the definition did not ask about.** A card whose padding
    should differ on one page has to become a second definition.
-3. **Nothing detaches.** A placement is a placement for life; there is no *make this ordinary again*,
-   which is the escape hatch every component system needs for the case the abstraction was wrong.
+3. ~~**Nothing detaches.**~~ **Built** — 컴포넌트 해제. An instance becomes a **frame** holding what
+   it drew, values and all; the component and the other pages using it are untouched. Not loose
+   blocks: the reader arranged those pieces against each other, and a detach that scattered them
+   across the page would have destroyed the thing they were detaching. A page has no `group` — that
+   is a z-order over placed shapes and a page places nothing — so a frame is the shape a stack of
+   blocks already has here.
+
+   A **data list's card** is refused. That instance is not on the page; it is the thing the list
+   draws once per row, and detaching it would leave a list with nothing to draw and a stray card
+   beside it — which is a reader asking for something else, to stop the list being a list.
+
+   And a **placement inside** the thing being detached is copied as it is *written* rather than as it
+   is drawn, because it goes on following its own component: detaching a header must not detach the
+   button in it. Copying the drawn form stored a placement with no values in it and the resolver
+   redrew the component's defaults — measured as the header's 무료로 시작하기 becoming 시작하기.
 
 ## A code block: what it stores, and where it is edited
 

@@ -64,6 +64,20 @@ entries are that.
   for at the price of every reader wondering which of two places to set. The escape is written down —
   an `overrides` *inside* the state, the same map one level down — and nothing implements it.
 
+### A node whose **type** changes disappears from the drawing
+
+- [ ] `transformNode` changes a node's type where it stands, which is the obviously right shape for
+  a detach: the block keeps its sid, its place and everything written on it. Measured in the browser:
+  it also vanishes. The view removes the element it drew for the old type and draws nothing for the
+  new one, so a detached header disappeared off the page while the document held it perfectly — a
+  reload brought it straight back.
+
+  The site's detach works around it by removing the node and putting a frame in its place, carrying
+  the attributes across; the cost is a new sid, which nothing in a site document refers to. **The
+  deck almost certainly shares the bug**, since its own detach is the line this one was copied from
+  and its browser suite does not cover the drawing afterwards. Worth checking before fixing, because
+  the fix is in `renderer-dom` and every product feels it.
+
 ### A template can be rewired, and cannot be given a new wire
 
 - [ ] **A question cannot be renamed or removed.** `bindPartText` declares one and binds it, which is
@@ -76,9 +90,16 @@ entries are that.
   every one of them regrets the shape it chose first; worth reading the deck's variants note before
   picking one.
 
-- [ ] **Nothing detaches.** A placement is a placement for life. There is no *make this ordinary
-  again*, which is the escape hatch a component system needs for the case where the abstraction was
-  the wrong call — and the absence of it is why readers avoid making components at all.
+- [x] ~~**Nothing detaches.**~~ Built. 컴포넌트 해제 turns an instance into a frame holding what it
+  drew, values and all; the component and every other page using it are untouched. A data list's
+  card is refused — that instance is the thing the list draws once per row, and detaching it would
+  leave a list with nothing to draw.
+
+  One thing it found: a nested placement was being copied **as it was drawn**, so the header's
+  button lost the header's own 무료로 시작하기 and drew the component's 시작하기. A placement inside
+  the thing being detached has to be copied *as it is written*, because it goes on following its own
+  component — detaching a header must not detach the button in it. The deck's detach had the same
+  fault and now takes the same argument.
 
 ### A code block has no mode, and the schema cannot say what it refuses
 

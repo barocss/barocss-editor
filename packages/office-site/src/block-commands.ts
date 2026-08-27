@@ -18,6 +18,7 @@
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { addChild, moveNode, node, removeChild, setAttrs, transaction } from '@barocss/model';
+import { detachedCopyOf, instanceParts } from '@barocss/office-canvas';
 import { definitionsOf } from './components';
 import { SELECTABLE, TEXTUAL } from './selection';
 
@@ -75,6 +76,39 @@ export class SiteBlockExtension implements Extension {
       'setComponentValue',
       async (payload) => await this._setValue(editor, payload),
       (payload) => this._canSetValue(editor, payload)
+    );
+
+    /**
+     * Stop following the component: an instance becomes ordinary blocks.
+     *
+     * ## Why a product needs the way back
+     *
+     * `createComponentFrom` is a one-way door without this. A reader who makes a component out of a
+     * card and then finds one page wants it different has no move left — and readers who cannot get
+     * back out stop going in, which is how a component library ends up with two entries and a
+     * repository full of copied cards.
+     *
+     * ## What it becomes, and what it keeps
+     *
+     * A **frame**, not loose blocks: the reader arranged those pieces against each other, and a
+     * detach that scattered them across the page would have destroyed the thing they were detaching.
+     * A page has no `group` — that is a z-order over placed shapes and a page places nothing — so
+     * the frame is the shape a stack of blocks already has here.
+     *
+     * It keeps what it was **drawing one press ago**, values and all: the resolved parts, not the
+     * component's own placeholder text. Detaching the third product card leaves the third product
+     * on the page.
+     *
+     * ## The one it refuses
+     *
+     * A data list's card. That instance is not on the page — it is the thing the list draws once per
+     * row — and detaching it would leave a list with nothing to draw and a stray card beside it.
+     * Which is a reader asking for something else: to stop the list being a list.
+     */
+    register(
+      'detachComponent',
+      async (payload) => await this._detach(editor, payload),
+      (payload) => !!this._detachable(editor, payload)
     );
 
     /**
@@ -508,6 +542,88 @@ export class SiteBlockExtension implements Extension {
     );
 
     return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  /** The instance a detach would be about, or nothing when there is not exactly one that may be. */
+  private _detachable(editor: Editor, payload?: Record<string, unknown>): Record<string, any> | undefined {
+    const store = this._store(editor);
+    const chosen = this._chosen(editor, payload);
+    if (!store || chosen.length !== 1) return undefined;
+
+    const instance = store.getNode(chosen[0]);
+    if (instance?.stype !== 'instance') return undefined;
+
+    /*
+     * Not a list's card. That instance is the thing the list draws once per row rather than
+     * something on the page, and detaching it would leave the list with nothing to draw.
+     */
+    const parent = typeof instance.parentId === 'string' ? store.getNode(instance.parentId) : undefined;
+    if (parent?.stype === 'collection') return undefined;
+
+    return instance;
+  }
+
+  private async _detach(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const instance = this._detachable(editor, payload);
+    if (!instance) return false;
+
+    const store = this._store(editor)!;
+    const rootId = (editor as never as { getRootId?: () => string }).getRootId?.() ?? '';
+    const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+
+    /** What it was drawing one press ago — this instance's values already in it. */
+    const drawn = instanceParts(doc as never, instance as never);
+    if (drawn.length === 0) return false;
+
+    const sid = String(instance.sid);
+    const parentId = String(instance.parentId ?? '');
+    const parent = store.getNode(parentId);
+    const at = ((parent?.content ?? []) as unknown[]).indexOf(sid);
+    if (at < 0) return false;
+
+    /*
+     * **Replaced**, not transformed in place — and that is a workaround rather than a design.
+     *
+     * `transformNode` changes a node's type where it stands, which is what the deck's detach does
+     * and is the obviously right shape: the block keeps its sid, its place and everything written on
+     * it. Measured in the browser, it also **disappears**: the view removes the element it drew for
+     * the old type and draws nothing for the new one, so a detached header vanished off the page
+     * while the document held it perfectly. Written down in `BACKLOG.md`; the deck almost certainly
+     * shares it, since it shares the line.
+     *
+     * So the block is removed and a frame put back in its place, carrying its attributes across. A
+     * new sid is the cost, and nothing in this document refers to a block by sid — a link names a
+     * page, a binding names a part, a value names a variable.
+     */
+    const kept: Record<string, unknown> = { ...(instance.attributes ?? {}) };
+    delete kept.componentId;
+    // A stack of blocks, which is what it has just become — its own arrangement if it had one.
+    if (typeof kept.layoutMode !== 'string') kept.layoutMode = 'column';
+
+    const steps: unknown[] = [
+      removeChild(parentId, sid),
+      addChild(
+        parentId,
+        node('frame', kept, drawn.map((part) => detachedCopyOf(part as never, doc as never)) as never) as never,
+        at
+      )
+    ];
+
+    const done = (await transaction(editor, steps as never).commit()).success === true;
+    if (!done) return false;
+
+    /*
+     * And the new block is selected, because a reader who has just detached one is about to say
+     * something about it — and because the sid they had selected is not there any more, so leaving
+     * the selection alone would leave the panel describing a node that is gone.
+     */
+    const made = ((store.getNode(parentId)?.content ?? []) as string[])[at];
+    if (made) {
+      (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.('setNode', {
+        nodeIds: [made]
+      });
+    }
+    return true;
   }
 
   private async _setPage(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {

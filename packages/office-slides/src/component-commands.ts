@@ -15,7 +15,8 @@ import {
   definitionAt,
   importComponentPlan,
   componentsOf,
-  instanceParts
+  instanceParts,
+  detachedCopyOf
 } from '@barocss/office-canvas';
 
 /**
@@ -796,7 +797,7 @@ export class SlidesComponentExtension implements Extension {
     for (const part of drawn) {
       steps.push({
         type: 'addChild',
-        payload: { parentId: payload!.nodeId, child: ownCopyOf(part) }
+        payload: { parentId: payload!.nodeId, child: detachedCopyOf(part as never, doc as never) as never }
       });
     }
 
@@ -861,29 +862,12 @@ function pieceNamed(
   return undefined;
 }
 
-/**
- * A resolved part, turned into a node the document can hold.
- *
- * Two things come off. The **synthetic id**, because it says "a piece of a placement" and this is
- * about to be a box a reader owns. And the definition's own names (`partId`, `slot`), because a
- * detached box that still carried them would be claiming to be a piece of a card it no longer
- * follows.
+/*
+ * `ownCopyOf` moved to `@barocss/office-canvas` as `detachedCopyOf` when the site builder grew a
+ * detach of its own. It reads as twelve lines of copying and it is not: every line is about what
+ * `instanceParts` puts on a resolved node and what has to come off for it to stop being one, which
+ * is that file's vocabulary rather than this product's.
  */
-function ownCopyOf(part: DeckNode, depth = 0): DeckNode {
-  const attrs = { ...((part.attributes ?? {}) as Record<string, unknown>) };
-  delete attrs.partId;
-  delete attrs.slot;
-  const kids = Array.isArray((part as { content?: unknown }).content)
-    ? ((part as { content: DeckNode[] }).content as DeckNode[])
-    : [];
-  const copy: DeckNode & { content?: unknown; sid?: string } = {
-    ...part,
-    attributes: attrs,
-    ...(depth > 24 || kids.length === 0 ? {} : { content: kids.map((one) => ownCopyOf(one, depth + 1)) })
-  } as never;
-  delete copy.sid;
-  return copy as DeckNode;
-}
 
 /** A deep copy of a box, moved so that the group's corner is the origin. */
 function copyRebased(doc: DeckAccess, sid: string, left: number, top: number): DeckNode {

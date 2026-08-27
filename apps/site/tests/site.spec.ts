@@ -1902,3 +1902,85 @@ test.describe('a card can be asked something new', () => {
     await expect(panel(page).getByLabel('연결된 변수')).toHaveCount(0);
   });
 });
+
+/**
+ * The way back out of a component, without which making one is a decision rather than a door.
+ *
+ * `createComponentFrom` was one-way: a reader who turned a card into a component and then found one
+ * page wanted it different had no move left. Readers who cannot get back out stop going in, which is
+ * how a component library ends up with two entries and a repository full of copied cards.
+ */
+test.describe('a component can be let go', () => {
+  const detach = (page: Page) =>
+    page.getByRole('button', { name: /일반 블록으로 되돌립니다/ });
+
+  const nodeAt = (page: Page, sid: string) =>
+    page.evaluate((one) => {
+      const store = (window as never as { editor: any }).editor.dataStore;
+      const node = store.getNode(one);
+      return node ? { stype: node.stype, componentId: node.attributes?.componentId ?? null } : null;
+    }, sid);
+
+  test('turns an instance into ordinary blocks, keeping what it drew', async ({ page }) => {
+    await ready(page);
+
+    const header = page.locator('[data-frame="desktop"] .st-placement').first();
+    await press(page, header);
+    await page.waitForTimeout(400);
+    const was = await page.evaluate(() => (window as never as { editor: any }).editor.selection.nodeIds[0]);
+    expect((await nodeAt(page, was))?.stype).toBe('instance');
+
+    await expect(detach(page)).toBeEnabled();
+    await detach(page).click();
+    await page.waitForTimeout(700);
+
+    const now = await page.evaluate(() => (window as never as { editor: any }).editor.selection.nodeIds[0]);
+    const made = await nodeAt(page, now);
+    expect(made?.stype).toBe('frame');
+    expect(made?.componentId).toBeNull();
+
+    /*
+     * And it still draws what it drew one press ago, values and all — including the button's
+     * 무료로 시작하기, which is a value the *header* supplies to a component nested inside it. A
+     * detached tree that copied the nested placement as it was **drawn** would have stored a
+     * placement with no values in it, and the resolver would have drawn 시작하기 instead.
+     */
+    const board = page.locator('[data-frame="desktop"] .st-page');
+    await expect(board).toContainText('무료로 시작하기');
+    await expect(board.locator('[data-name="내비게이션"]')).toHaveCount(1);
+  });
+
+  test('leaves the component alone, and every other page with it', async ({ page }) => {
+    await ready(page);
+    const uses = async () => {
+      await page.locator('[data-panel="components"]').click();
+      await page.waitForTimeout(300);
+      return await page.locator('[data-component="site-header"]').innerText();
+    };
+    expect(await uses()).toContain('5곳');
+
+    await page.locator('[data-panel="add"]').click();
+    await press(page, page.locator('[data-frame="desktop"] .st-placement').first());
+    await page.waitForTimeout(300);
+    await detach(page).click();
+    await page.waitForTimeout(700);
+
+    // One fewer place uses it, and the component is still there for the four that do.
+    expect(await uses()).toContain('4곳');
+  });
+
+  test('refuses a data list’s card, which is not a block on the page', async ({ page }) => {
+    await ready(page);
+    const list = page.locator('[data-frame="desktop"] .st-collection').first();
+    await bring(page, list);
+    await pressDeepAt(page, list.locator('> *').first());
+    await page.waitForTimeout(400);
+
+    /*
+     * The selection here is the **list**, because a drawn row is not a document node — and even
+     * reaching the card underneath, detaching it would leave a list with nothing to draw and a stray
+     * card beside it. Which is a reader asking for something else: to stop the list being a list.
+     */
+    await expect(detach(page)).toBeDisabled();
+  });
+});

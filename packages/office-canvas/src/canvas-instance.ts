@@ -5,7 +5,7 @@ import {
   layoutChildren,
   type LaidOutPlace
 } from './canvas-layout';
-import { childrenOf, type CanvasAccess, type CanvasNode } from './canvas-access';
+import { childrenOf, copyOf, type CanvasAccess, type CanvasNode } from './canvas-access';
 import {
   componentsOf,
   instanceValues,
@@ -347,6 +347,75 @@ export function contentWithWords(
   const [first] = kids;
   const rewritten = { ...first, ...withText(deepen(doc, first), words) };
   return [rewritten as CanvasNode];
+}
+
+/**
+ * A resolved part, turned into a node the document can hold — the **inverse** of `instanceParts`.
+ *
+ * Two things come off. The **synthetic id**, because it says "a piece of a placement" and this is
+ * about to be a box a reader owns. And the names the definition used to refer to it (`partId`,
+ * `slot`), because a detached box that still carried them would be claiming to be a piece of a card
+ * it no longer follows.
+ *
+ * ## Why it is here rather than in a product
+ *
+ * It was the deck's, beside its `detachComponent`, and it reads as twelve lines of copying. It is
+ * not: every line of it is about *this file's* vocabulary — what `instanceParts` puts on a resolved
+ * node, and what has to come off for the node to stop being one. A second product writing its own
+ * would be a second answer to "what does a resolved part carry", and the day this file adds a third
+ * such name the two would drift on the same afternoon.
+ */
+export function detachedCopyOf(
+  part: CanvasNode,
+  /**
+   * The document, so that a **placement inside the thing being detached** can be copied as it is
+   * *written* rather than as it is drawn.
+   *
+   * A card that holds a button is resolved with the button's parts already in it — that is what
+   * `resolvePart` puts in a nested placement's `content`. Copying that verbatim stores a placement
+   * whose children are frames and paragraphs instead of the values it was answering with, and the
+   * resolver, seeing an `instance`, resolves it from its component again and draws the component's
+   * defaults. Measured: detaching the sample's header turned 무료로 시작하기 into 시작하기.
+   *
+   * The stored node is at the tail of the synthetic sid (`placement~part`), and copying *that* keeps
+   * the nested placement a placement: detaching a header must not detach the button in it.
+   *
+   * Optional because the deck's own detach predates this and passes nothing; without it the old
+   * behaviour is unchanged, which is a bug rather than a contract — see `BACKLOG.md`.
+   */
+  doc?: CanvasAccess,
+  depth = 0
+): CanvasNode {
+  const sid = String((part as { sid?: unknown }).sid ?? '');
+
+  if (doc && part.stype === 'instance' && sid) {
+    const stored = sid.slice(sid.lastIndexOf('~') + 1);
+    const written = copyOf(doc, stored);
+    if (written) {
+      const attrs = { ...((written.attributes ?? {}) as Record<string, unknown>) };
+      delete attrs.partId;
+      delete attrs.slot;
+      return { ...written, attributes: attrs } as CanvasNode;
+    }
+  }
+
+  const attrs = { ...((part.attributes ?? {}) as Record<string, unknown>) };
+  delete attrs.partId;
+  delete attrs.slot;
+
+  const kids = Array.isArray((part as { content?: unknown }).content)
+    ? ((part as { content: CanvasNode[] }).content as CanvasNode[])
+    : [];
+
+  const copy: CanvasNode & { content?: unknown; sid?: string } = {
+    ...part,
+    attributes: attrs,
+    ...(depth > 24 || kids.length === 0
+      ? {}
+      : { content: kids.map((one) => detachedCopyOf(one, doc, depth + 1)) })
+  } as never;
+  delete copy.sid;
+  return copy as CanvasNode;
 }
 
 /**

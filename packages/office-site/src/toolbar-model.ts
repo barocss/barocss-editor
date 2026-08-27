@@ -133,6 +133,17 @@ export const SITE_TOOLBAR: SiteControl[] = [
     group: 'arrange',
     icon: 'group'
   },
+  /**
+   * And the way back out, which `createComponentFrom` needs in order to be a door rather than a
+   * decision. A reader who cannot undo a component is a reader who stops making them.
+   */
+  {
+    command: 'detachComponent',
+    label: '컴포넌트 해제',
+    title: '이 인스턴스를 일반 블록으로 되돌립니다 — 다른 곳은 그대로입니다',
+    group: 'arrange',
+    icon: 'ungroup'
+  },
 
   /**
    * Linking the selected words to **a page of this site**, and unlinking them.
