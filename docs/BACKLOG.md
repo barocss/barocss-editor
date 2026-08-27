@@ -101,6 +101,91 @@ nothing but its own test.
   for `<html lang="ko">` on an **exported page** — that is the visitor's document saying what language
   it is in, which is a fact about the content and not a setting of the tool.
 
+### The other 다국어: a document that is published in several languages
+
+Raised 2026-08-27, and it is worth separating hard from the section above, because one word covers
+**three** things and only one of them is a document problem:
+
+| | what it is | where it is decided |
+| --- | --- | --- |
+| **the tool speaks a language** | toolbar, panel, menus | a message catalogue, above |
+| **the page is published in several** | the visitor's own words | the document — this section |
+| **a document has a field in it** | 이름, 날짜, 금액 filled from data | already built: `field:칸` |
+
+#### Is a language a width?
+
+That is the intuition — three boards for mobile/tablet/desktop, so why not three for ko/en/ja — and
+it is close enough to be worth saying exactly where it stops.
+
+It holds in the two places that matter for the editor. Both are **resolved before the drawing**,
+unlike a pointer; both want a board per value so a reader can see them side by side; and env is
+already the only per-view channel there is, so the language would ride in exactly where the
+breakpoint does. That half is nearly free.
+
+It breaks on what gets stored, and on three counts:
+
+- **`overrides` is a sparse diff and a translation is not.** A width says *only what differs*, which
+  is two or three attributes on a handful of blocks. A language differs in **every string on the
+  page**. Three languages on a page with 200 runs is 400 override entries scattered through the tree,
+  and there is no longer a place to look at "the Japanese" as a thing.
+- **Text is not an attribute.** A width overrides `gap` and `fill`, which live in `attributes`. Words
+  live in `text`, which is content. The schema already refuses to put a responsive answer in the
+  content for the same reason in reverse — *"every offset in the text stack counts from there"* — and
+  putting words in `attributes` would mean a run's words are in two places depending on which language
+  is asked for, with every offset calculation having to know which.
+- **A width has three values this product defines; a language is open-ended,** and its fallback is a
+  *policy* (to the source language? to English? show nothing?) rather than the obvious "the widest".
+
+#### What it is instead: a table, which this product already has
+
+A translation is a **table** — keys down the side, languages across the top — and this builder
+already draws tables: a `collection` repeats a card per row, `field:칸` names a column, and both are
+resolved at draw time by the same resolver that turns `var:이름` into a colour.
+
+So the shape to try is: a run either holds its own words or **names a key** in a translation dataset,
+the way a colour names a token. The language is one more value in the env, and the resolver picks a
+column. What that buys, stated so it can be argued with:
+
+- storage is one table, not a diff per node — and a translator's job becomes *fill the empty cells*,
+  which is a job that can be handed to someone or exported as a spreadsheet;
+- the tree is **identical in every language** — one set of sids, one set of offsets, one selection
+  model — so editing structure in Korean edits it in every language, which is what a reader means;
+- an empty cell falls back to the source column, and `documentFaults` can report *3 strings have no
+  Japanese* — which is the check that makes a second language survivable at all;
+- the boards can show ko and en side by side, because env is per-view.
+
+And the two costs, up front:
+
+- **a bound run refuses the caret**, which is the rule the collection's bound parts already have —
+  and there is already an open item above saying that rule currently offers nothing in its place.
+  Translating would make that gap the most-hit thing in the product rather than an edge case;
+- **rich text inside a translated string** is the hard part everywhere. A cell is a string; a run
+  with a bold word in the middle of it is not. Every system that has solved this has done it with
+  message syntax (ICU tags) or per-run keys, and both are ugly. Worth choosing deliberately, and the
+  cheap first version is: only *whole runs* are translatable, and a sentence with a bold word in it
+  is two runs.
+
+#### Word and the deck: the answer is no, and it is worth writing down why
+
+*"보통 word/slide 에 있는 content 를 다국어로 관리를 하나? 한번도 본적이 없음"* — right, and the
+reason is not that nobody got round to it. A Word document **is** a document in a language: two
+languages means two documents, or a bilingual document where both languages are visible on purpose
+(a contract, a menu). A deck for another audience is a deck per audience, because the speaker is
+different too — there is no *render this deck in Japanese* gesture, because nobody presents a deck
+they cannot read.
+
+What those two genuinely need is the thing that *looks* like this and is not: a template with fields
+— a contract with 이름/날짜/금액 filled from data. That is `field:칸` again, and it is a different
+feature wearing a similar mechanism.
+
+The site is the one where the deployment target is real: a page is published to an address, a visitor
+arrives with a language, and the same page has to answer. That is why this is a site-first feature
+and should stay one.
+
+- [ ] Prototype the translation dataset + language env against **one page** of the sample, in a
+  spike, before anything is designed. The question the spike has to answer is the caret one: what a
+  reader does when they click a translated run and want to fix the Korean.
+
 ### A state can be promised, but nothing gets between one and the next
 
 - [x] ~~A hover that arrives **instantly** looks like a bug.~~ Built: `transitionMs`, one number on
@@ -129,10 +214,8 @@ nothing but its own test.
 
 ### A template can be rewired, and cannot be given a new wire
 
-- [ ] **A question cannot be renamed or removed.** `bindPartText` declares one and binds it, which is
-  the half a reader needs to grow a card. The other half — rename, retype (`text` → `color`), remove
-  — is still hand work, and removing is the one that needs a sentence before it: it changes every
-  placement of the card at once.
+- [x] ~~**A question cannot be renamed or removed.**~~ Built: `setComponentVar` and
+  `removeComponentVar`. See Done.
 
 - [ ] **A placement cannot override what the definition did not ask about.** A card whose padding
   should differ on one page has to become a second definition. Every component system grows this and
@@ -2831,6 +2914,41 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A component's variable can be renamed and taken away.** `bindPartText` gave a template the half a
+  reader needs to grow a card — name a variable that does not exist and it is declared. The other
+  half was hand work, so a typo in a variable's name was permanent and a variable added by mistake
+  could only be *unbound*: the card kept accumulating questions nobody answers, and every placement
+  grew a field with nothing behind it.
+
+  The reason it is a command and not four panel writes is that a variable's name is written down in
+  **three** places and only one of them is the declaration — the `componentVar`, every
+  `componentBind` that says which part takes it, and a `componentValue` in every placement, on every
+  page, **including the template instance a data list draws and nothing can select**. Move any two
+  and the third names something that no longer exists: the parts fall back to the definition's own
+  words and every placement silently loses its answer. One transaction, one undo.
+
+  Three decisions written into the commands:
+
+  - **A rename onto a name that exists is refused, in `canExecute`.** Two variables with one name is
+    a card where the second silently answers the first, and every placement then has two answers to
+    one question with no rule about which wins. A reader who means to merge two is doing something
+    else. Checked in `canExecute` and not only in the command, so the panel greys it out rather than
+    letting a reader press Enter on a name that does nothing.
+  - **The answers are not converted when the kind changes.** A `componentValue` is a string whatever
+    the kind, and the schema says why. Converting would be the command deciding what `0원` is as a
+    number, in every placement, silently.
+  - **Removing a variable is not removing the part.** The block goes back to drawing its own words —
+    the fallback the definition already held. A card that lost its price row every time somebody
+    regretted a variable is a card a reader has to rebuild to undo a decision.
+
+  The harness found the thing that was wrong about the first attempt: the removal was a button this
+  app rendered and no model mentioned, so `every-command-can-be-reached` reported a command a reader
+  could run that nothing declared. It is the row's `with` now, which is what `with` is for. That also
+  turned up a real limit one level down — `PropertySheet` keyed rows by `group.attr`, and two rows in
+  one group may legitimately both name `componentVar`, because a row that writes a **child node**
+  names a node type rather than an attribute. Keyed by the accessible name as well, which a panel
+  already guarantees is unique.
 
 - **A block can say how long it takes to answer the pointer.** `transitionMs` — one number, on the
   block, `0`–`2000`. The pairing every design system has and this one had no word for: a hover that

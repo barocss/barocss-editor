@@ -277,7 +277,18 @@ export function PropertySheet<Row extends SheetRow>({
 }
 
 /** A row is identified by where it is and what it writes — two groups may both set `name`. */
-const key = (row: SheetRow) => `${row.group}.${row.attr}`;
+/**
+ * What identifies a row, for React and for nothing else.
+ *
+ * The accessible name is in it because `attr` is not unique: a row that writes a **child node**
+ * names a node type rather than an attribute, so two rows in one group can legitimately both say
+ * `componentVar` — one declaring a variable, one renaming the one a part is bound to. Keyed by
+ * `group.attr` alone those two are the same row, and React draws one of them.
+ *
+ * A panel already guarantees the accessible name is unique — a screen reader has the same problem
+ * with two rows called the same thing — so this borrows the guarantee rather than inventing one.
+ */
+const key = (row: SheetRow) => `${row.group}.${row.attr}.${row.ariaLabel}`;
 
 /** The value of another row's attribute, for a row that is only editable once that one is set. */
 function groupValue<Row extends SheetRow>(

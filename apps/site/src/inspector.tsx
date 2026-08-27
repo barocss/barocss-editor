@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import {
+  Button,
   ChoiceSelect,
   PropertyEmpty,
   PropertyPanel,
@@ -181,6 +182,7 @@ export function Inspector({
         if (!inside) return undefined;
         return {
           asks: inside.asks,
+          uses: inside.uses,
           bound: boundVarOf({ getNode: (sid: string) => store?.getNode(sid) } as never, String(first.sid))
         };
       })(),
@@ -381,7 +383,17 @@ type Shown = {
    * row is not drawn for it. That is a fact about where the node *is*, which no declaration can
    * carry and only the document can answer.
    */
-  part?: { asks: string[]; bound?: string };
+  part?: {
+    asks: string[];
+    bound?: string;
+    /**
+     * How many placements of this definition there are, which is what makes a removal sayable.
+     *
+     * A reader about to take a variable away is about to change every one of them at once, and the
+     * only honest way to tell them so is the number. The panel has no other use for it.
+     */
+    uses: number;
+  };
 };
 
 /**
@@ -702,6 +714,57 @@ function own(
           ariaLabel={row.ariaLabel}
         />
       );
+
+    case 'variable': {
+      /*
+       * The variable itself — renamed here, or taken away.
+       *
+       * The name, committed on Enter. Drawn only when this part is bound to something, because
+       * there is no variable to rename otherwise — a heading on a page is nobody's part, and a part
+       * that draws its own words has no variable behind it yet.
+       *
+       * The removal is the row's `with`, so it is declared as its own command rather than being a
+       * button this file renders and nothing knows about.
+       */
+      if (!shown?.part?.bound) return null;
+      const name = shown.part.bound;
+      return (
+        <span className="st-variable">
+          <TextField
+            value={name}
+            onCommit={(next) =>
+              next.trim() && next.trim() !== name
+                ? run('setComponentVar', { nodeId: shown.ids[0], name, rename: next.trim() })
+                : undefined
+            }
+            ariaLabel={row.ariaLabel}
+          />
+        </span>
+      );
+    }
+
+    case 'variableRemove': {
+      /*
+       * And the **sentence before the removal**, which is why this is a button with words rather
+       * than an icon: unbinding a part is local and undoing it is looking at it, and removing a
+       * variable reaches every placement of this card on every page at once.
+       *
+       * The count is the honest way to say that. *3곳* is a fact; "this cannot be undone" would be a
+       * lie — it is one entry in the history, deliberately.
+       */
+      if (!shown?.part?.bound) return null;
+      const held = shown.part.bound;
+      return (
+        <Button
+          tone="plain"
+          ariaLabel={row.ariaLabel}
+          title={`${held}을(를) 이 컴포넌트에서 없앱니다. 이 컴포넌트를 놓은 ${shown.part.uses}곳의 값도 함께 사라집니다.`}
+          onClick={() => run('removeComponentVar', { nodeId: shown.ids[0], name: held })}
+        >
+          삭제
+        </Button>
+      );
+    }
 
     case 'cardValues':
       /*

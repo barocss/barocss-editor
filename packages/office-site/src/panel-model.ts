@@ -87,7 +87,20 @@ export type SitePanelControl =
    * document knows whether the part is inside one at all. A heading on a page is nobody's part and
    * the row is not drawn for it.
    */
-  | 'question';
+  | 'question'
+  /**
+   * The variable this part is bound to, as a thing that can be **renamed and taken away**.
+   *
+   * A separate kind from `question` because it is about a different noun. `question` asks *which of
+   * the card's variables does this part take*, and the answer is one of a list; this one is about
+   * the variable itself, which lives on the definition and is named in every placement of it.
+   *
+   * That difference is why removing needs a sentence in front of it and rewiring does not: unbinding
+   * a part changes this part, and removing a variable changes every placement of the card at once.
+   */
+  | 'variable'
+  /** And taking it away — its own command, so its own row beside the name. */
+  | 'variableRemove';
 
 /** Which pane of the panel a row sits in. */
 export type SitePanelTab = 'block' | 'style' | 'data' | 'values' | 'page';
@@ -582,6 +595,50 @@ export const SITE_PANEL: SitePanelRow[] = [
     control: 'text',
     single: true,
     on: ['heading', 'paragraph', 'listItem']
+  },
+  {
+    /**
+     * And **editing the variable this part is bound to** — its name, and taking it away.
+     *
+     * The half that made the two rows above a one-way door. A reader could declare a variable and
+     * bind to it, and then live with the name forever: a typo in a card's variable was permanent,
+     * and a variable added by mistake could only be *unbound*, never removed — so a card
+     * accumulated questions nobody answers and every placement grew a field with nothing behind it.
+     *
+     * Drawn only when this part is bound to something, because there is no variable to rename
+     * otherwise. Which makes the group read as a sentence top to bottom: what this part is wired
+     * to, how to wire it to something new, and what to do about the thing it is wired to.
+     */
+    attr: 'componentVar',
+    writes: 'child',
+    command: 'setComponentVar',
+    group: '컴포넌트 변수',
+    tab: 'block',
+    label: '변수 관리',
+    ariaLabel: '변수 이름 바꾸기',
+    control: 'variable',
+    single: true,
+    on: ['heading', 'paragraph', 'listItem'],
+    /*
+     * The removal is its own **command** and so it is its own declaration, drawn beside the name
+     * under the one label. Not a button this app renders and nothing declares: a command a reader
+     * can run and no model mentions is exactly what `every-command-can-be-reached` exists to catch,
+     * and it caught this one the first time it was written that way.
+     */
+    with: [
+      {
+        attr: 'componentVar',
+        writes: 'child',
+        command: 'removeComponentVar',
+        group: '컴포넌트 변수',
+        tab: 'block',
+        label: '삭제',
+        ariaLabel: '변수 삭제',
+        control: 'variableRemove',
+        single: true,
+        on: ['heading', 'paragraph', 'listItem']
+      }
+    ]
   },
 
   // ── 값 — a placement's answers to its definition's questions ───────────────

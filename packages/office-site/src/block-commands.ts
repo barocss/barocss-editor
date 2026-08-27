@@ -150,6 +150,59 @@ export class SiteBlockExtension implements Extension {
     );
 
     /**
+     * **Editing a variable itself** — its name, its kind, its label, what a placement gets for free.
+     *
+     * ## Why this is not four panel writes
+     *
+     * A variable's name is written down in **three** places and only one of them is the declaration:
+     * the `componentVar`, every `componentBind` that says which part takes it, and a `componentValue`
+     * in every placement — on every page, including the template instance a data list draws once per
+     * row and nothing can select.
+     *
+     * Move any two and the third names something that no longer exists. The parts fall back to the
+     * definition's own words, every placement loses its answer, and the reader sees a card that has
+     * gone blank in five places for having fixed a typo. So the three move in one transaction, and
+     * one undo puts them all back.
+     *
+     * ## Why a rename onto a name that exists is refused
+     *
+     * Two variables with one name is a card where the second silently answers the first, and every
+     * placement in the document then has two answers to one question with no rule about which wins.
+     * A reader who means to *merge* two variables is doing something else — they would have to say
+     * which answers survive — and a command that guessed would be making that choice for them in
+     * every placement at once.
+     *
+     * ## Why the answers are not converted when the kind changes
+     *
+     * Because a `componentValue` is a **string** whatever the kind, and the schema says why: the kind
+     * is the contract for how to read it, so one shape means one thing to write and one thing to diff
+     * in a file. Converting here would be this command deciding what `0원` is as a number, which is a
+     * question only the reader can answer — and getting it wrong in every placement silently.
+     */
+    register(
+      'setComponentVar',
+      async (payload) => await this._setVar(editor, payload),
+      (payload) => !!this._varPlan(editor, payload)
+    );
+
+    /**
+     * And **taking one away**, which is the one that needed a sentence before it was built.
+     *
+     * It changes every placement of this card at once — that is not a caveat, it is what the gesture
+     * means — so the panel says so before it runs, and this is one entry in the history.
+     *
+     * The part stays. A variable being removed is not the part being removed: the block goes back to
+     * drawing its own words, which are the ones the definition already held as the fallback nobody
+     * saw. A card that lost its price row every time somebody regretted a variable would be a card a
+     * reader has to rebuild to undo a decision.
+     */
+    register(
+      'removeComponentVar',
+      async (payload) => await this._removeVar(editor, payload),
+      (payload) => !!this._varAt(editor, payload)
+    );
+
+    /**
      * What a **page** is called and where it answers.
      *
      * Its own command because a page is not a block: it is the board, `SELECTABLE` leaves it out on
@@ -540,6 +593,166 @@ export class SiteBlockExtension implements Extension {
             0
           )
     );
+
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  /**
+   * The variable a call is about, with everything that names it — or nothing when the call is not
+   * about one.
+   *
+   * One walk for both commands and for both `canExecute`s, because "which nodes carry this name" is
+   * the same question whichever of the two is being asked. A rename that could be refused for a
+   * reason the removal does not share is checked by the caller, not here.
+   */
+  private _varAt(
+    editor: Editor,
+    payload?: Record<string, unknown>
+  ):
+    | {
+        definition: Record<string, any>;
+        declared: Record<string, any>;
+        binds: Record<string, any>[];
+        answers: Record<string, any>[];
+      }
+    | undefined {
+    const found = this._partAt(editor, payload?.nodeId);
+    if (!found) return undefined;
+
+    const name = String(payload?.name ?? '').trim();
+    if (!name) return undefined;
+
+    const store = this._store(editor)!;
+    const { definition } = found;
+    const children = ((definition.content ?? []) as unknown[])
+      .filter((sid): sid is string => typeof sid === 'string')
+      .map((sid) => store.getNode(sid))
+      .filter(Boolean) as Record<string, any>[];
+
+    const declared = children.find(
+      (one) => one.stype === 'componentVar' && one.attributes?.name === name
+    );
+    if (!declared) return undefined;
+
+    /*
+     * A rename onto a name a *rename* has to check against, gathered here so both commands see the
+     * same list — and the check itself is the caller's, because a removal has nothing to clash with.
+     */
+    const binds = children.filter(
+      (one) => one.stype === 'componentBind' && one.attributes?.var === name
+    );
+
+    return { definition, declared, binds, answers: this._answersTo(editor, definition, name) };
+  }
+
+  /**
+   * Every answer any placement of this definition gives to one variable, anywhere in the document.
+   *
+   * A **walk**, not a list kept somewhere: a placement is a node with a `componentId`, and the ones
+   * that matter are on five pages plus inside other definitions plus the template a data list draws.
+   * The same argument `usesOf` makes about counting — a remembered list is a second thing to keep
+   * right, and this runs once per gesture rather than per draw.
+   */
+  private _answersTo(
+    editor: Editor,
+    definition: Record<string, any>,
+    name: string
+  ): Record<string, any>[] {
+    const store = this._store(editor);
+    const id = String(definition.attributes?.componentId ?? definition.attributes?.id ?? '');
+    if (!store || !id) return [];
+
+    const out: Record<string, any>[] = [];
+    const walk = (sid: string, depth = 0) => {
+      if (depth > 64) return;
+      const one = store.getNode(sid);
+      if (!one) return;
+
+      if (one.stype === 'instance' && String(one.attributes?.componentId ?? '') === id) {
+        for (const child of (one.content ?? []) as unknown[]) {
+          if (typeof child !== 'string') continue;
+          const answer = store.getNode(child);
+          if (answer?.stype === 'componentValue' && answer.attributes?.name === name) out.push(answer);
+        }
+      }
+      for (const child of (one.content ?? []) as unknown[]) {
+        if (typeof child === 'string') walk(child, depth + 1);
+      }
+    };
+    walk(String(editor.getRootId?.() ?? ''));
+    return out;
+  }
+
+  /**
+   * What a `setComponentVar` would do, or nothing when it would do something wrong.
+   *
+   * Both `canExecute` and the command itself ask this, so a rename the panel greys out and a rename
+   * the command refuses are refused for the same reasons. The alternative — a `canExecute` that only
+   * checks the variable exists — is a field a reader can type a clashing name into, press Enter on,
+   * and watch do nothing.
+   */
+  private _varPlan(editor: Editor, payload?: Record<string, unknown>): unknown[] | undefined {
+    const found = this._varAt(editor, payload);
+    if (!found) return undefined;
+    const { definition, declared, binds, answers } = found;
+
+    const was = String(declared.attributes?.name ?? '');
+    // A rename was asked for and came to nothing: a name is what every binding and every answer
+    // points at, so an empty one is not a variable a reader can find again.
+    const rename = payload?.rename === undefined ? undefined : String(payload.rename).trim();
+    if (payload?.rename !== undefined && !rename) return undefined;
+
+    if (rename && rename !== was) {
+      const taken = ((definition.content ?? []) as unknown[])
+        .filter((sid): sid is string => typeof sid === 'string')
+        .map((sid) => this._store(editor)!.getNode(sid))
+        .some((one) => one?.stype === 'componentVar' && one.attributes?.name === rename);
+      if (taken) return undefined;
+    }
+
+    /** Only what the caller actually said, so nothing else on the declaration is overwritten. */
+    const said: Record<string, unknown> = {};
+    if (rename) said.name = rename;
+    if (payload?.kind !== undefined) said.kind = payload.kind;
+    if (payload?.label !== undefined) said.label = payload.label;
+    if (payload?.value !== undefined) said.value = payload.value;
+    if (Object.keys(said).length === 0) return undefined;
+
+    const steps: unknown[] = [setAttrs(String(declared.sid), said)];
+    if (rename && rename !== was) {
+      for (const bind of binds) steps.push(setAttrs(String(bind.sid), { var: rename }));
+      // The answers keep their values and change only which question they answer — including a
+      // `field:칸`, which goes on naming the same column.
+      for (const answer of answers) steps.push(setAttrs(String(answer.sid), { name: rename }));
+    }
+
+    return steps;
+  }
+
+  private async _setVar(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const steps = this._varPlan(editor, payload);
+    if (!steps) return false;
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  private async _removeVar(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const found = this._varAt(editor, payload);
+    if (!found) return false;
+    const { definition, declared, binds, answers } = found;
+
+    const store = this._store(editor)!;
+    const steps: unknown[] = [
+      removeChild(String(definition.sid), String(declared.sid)),
+      ...binds.map((one) => removeChild(String(definition.sid), String(one.sid))),
+      /*
+       * And each answer, taken off the placement that holds it — which is a different parent per
+       * answer, so the parent is read from the node rather than assumed.
+       */
+      ...answers.map((one) => removeChild(String(one.parentId ?? ''), String(one.sid)))
+    ];
+
+    // A placement whose parent could not be read is a document in a shape this cannot fix safely.
+    if (answers.some((one) => !store.getNode(String(one.parentId ?? '')))) return false;
 
     return (await transaction(editor, steps as never).commit()).success === true;
   }

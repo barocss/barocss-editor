@@ -1951,6 +1951,81 @@ test.describe('a card can be asked something new', () => {
     expect(said.asks).toContain('이름');
   });
 
+  /**
+   * And the other half: a variable can be **renamed and taken away**.
+   *
+   * Without these the two above are a one-way door. A typo in a variable's name was permanent, and a
+   * variable added by mistake could only be *unbound* — so a card accumulated questions nobody
+   * answers and every placement grew a field with nothing behind it.
+   *
+   * `component-vars.test.ts` holds the arithmetic — that the declaration, every binding and every
+   * answer move together, that a clash is refused, that one undo puts it all back. What only a
+   * browser shows is the chain: a reader standing on a part of a card, typing in the panel, and the
+   * page they go back to still drawing its products.
+   */
+  test('renames the variable a part is bound to, and the page still draws', async ({ page }) => {
+    await ready(page);
+    await openCard(page);
+
+    const title = page.locator('[data-frame="desktop"] .st-frame-host h3').first();
+    await bring(page, page.locator('[data-frame="desktop"] .st-frame-host'));
+    await pressDeep(page, title);
+    await page.waitForTimeout(400);
+    await panel(page).locator('[data-tab="block"]').click();
+    await page.waitForTimeout(200);
+
+    const field = panel(page).getByLabel('변수 이름 바꾸기');
+    await expect(field).toHaveValue('이름');
+    await field.fill('상품명');
+    await field.press('Enter');
+    await page.waitForTimeout(600);
+
+    const said = await wiring(page, 'product-card');
+    expect(said.asks).toContain('상품명');
+    expect(said.asks).not.toContain('이름');
+    expect(said.binds).toContain('p-name->상품명');
+
+    /*
+     * And back on the page, the list still draws its products — which is the whole point of moving
+     * the answers with the declaration. A rename that touched only the definition would leave every
+     * card drawing the fallback word 상품 in place of what its row says.
+     */
+    await page.locator('.st-back').click();
+    await page.waitForTimeout(700);
+    const cards = page.locator('[data-frame="desktop"] .st-collection').first();
+    // The 이름 column's own words, still on the cards under a variable that is now called 상품명.
+    await expect(cards).toContainText('사이트');
+    await expect(cards).toContainText('덱');
+  });
+
+  test('takes a variable away, from the card and from every placement of it', async ({ page }) => {
+    await ready(page);
+    await openCard(page);
+
+    const price = page.locator('[data-frame="desktop"] .st-frame-host p').last();
+    await bring(page, page.locator('[data-frame="desktop"] .st-frame-host'));
+    await pressDeep(page, price);
+    await page.waitForTimeout(400);
+    await panel(page).locator('[data-tab="block"]').click();
+    await page.waitForTimeout(200);
+
+    const bound = await panel(page).getByLabel('변수 이름 바꾸기').inputValue();
+    expect(bound).toBeTruthy();
+
+    // The button says what it is about to do, because it reaches every placement at once.
+    const remove = panel(page).getByLabel('변수 삭제');
+    await expect(remove).toHaveAttribute('title', new RegExp(`${bound}.*곳`));
+    await remove.click();
+    await page.waitForTimeout(700);
+
+    const said = await wiring(page, 'product-card');
+    expect(said.asks).not.toContain(bound);
+    expect(said.binds.join(' ')).not.toContain(`->${bound}`);
+
+    // The part is still there, drawing its own words: removing a variable is not removing a block.
+    await expect(page.locator('[data-frame="desktop"] .st-frame-host p')).not.toHaveCount(0);
+  });
+
   test('is not offered for a block that is nobody’s part', async ({ page }) => {
     await ready(page);
     const hero = page.locator('[data-frame="desktop"] .st-page h1').first();
