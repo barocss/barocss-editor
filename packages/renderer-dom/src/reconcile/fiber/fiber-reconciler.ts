@@ -914,6 +914,30 @@ export function commitFiberNode(
  * 
  * IMPORTANT: VNode만 순수하게 처리 (decorator 구분 없음)
  */
+/**
+ * Whether this fiber's node draws itself — `external({ managesDOM: true })`.
+ *
+ * Asked of the registry rather than remembered on the vnode, because the vnode is rebuilt on every
+ * render and the registration is not: one is a fact about the drawing and the other about the node
+ * type, and the second is the one that decides who owns the element.
+ */
+function ownsItsDom(fiber: FiberNode, deps: FiberReconcileDependencies): boolean {
+  const stype = fiber.vnode?.stype;
+  if (!stype) return false;
+
+  // The same two places `mountComponent` looks, in the same order.
+  const context = deps.context as
+    | {
+        getComponent?: (one: string) => unknown;
+        registry?: { getComponent?: (one: string) => unknown };
+      }
+    | undefined;
+  const component = (context?.getComponent?.(stype) ??
+    context?.registry?.getComponent?.(stype)) as { managesDOM?: boolean } | undefined;
+
+  return component?.managesDOM === true;
+}
+
 export function removeStaleChildren(
   fiber: FiberNode,
   deps: FiberReconcileDependencies
@@ -922,6 +946,19 @@ export function removeStaleChildren(
   if (!host || !(host instanceof Element)) {
     return;
   }
+
+  /**
+   * Unless the node **owns its own DOM**, in which case none of it is this function's to judge.
+   *
+   * A component registered with `external({ managesDOM: true })` draws itself — a code editor, a
+   * chart, an embed, anything the renderer cannot express as elements. What it puts inside its
+   * element has no fiber, because no fiber built it, so every sweep here found the whole of it
+   * unaccounted for and removed it. Measured: `mount` ran, appended, and the element was empty by
+   * the time anyone looked.
+   *
+   * The claim is the component's and the renderer's job is to keep out of it.
+   */
+  if (ownsItsDom(fiber, deps)) return;
   
   // IMPORTANT: prevVNode matching already completed in createFiberTree based on sid/key/index/tag
   // domElement of each Fiber child is set in renderFiberNode

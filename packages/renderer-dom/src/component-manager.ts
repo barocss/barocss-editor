@@ -168,9 +168,31 @@ export class ComponentManager implements ComponentStateProvider {
       return null;
     }
 
-    // Separate props (get from top-level fields)
+    /**
+     * Separate props — **and what the node says**, for a component that draws itself.
+     *
+     * A `managesDOM` component was handed `{ id }` and nothing else: the address of a node and not
+     * one fact about it. So every one of them would have had to reach around the renderer for the
+     * model it had just been called about, which is the renderer failing to keep the contract its
+     * own types describe.
+     *
+     * The model's own fields, flattened: `attributes`, `text`, `content`, `stype`. Not the whole
+     * node object under one key, because these are *props* — a component reads `props.text` the way
+     * a template reads `data('text')`, and the two should say the same thing.
+     */
     const rawProps = vnode.props || {};
-    const sanitizedProps = this.sanitizeProps(rawProps);
+    const model = (vnode as { model?: Record<string, unknown> }).model;
+    const sanitizedProps = {
+      ...this.sanitizeProps(rawProps),
+      ...(model && typeof model === 'object'
+        ? {
+            attributes: (model as any).attributes ?? {},
+            text: (model as any).text,
+            content: (model as any).content,
+            nodeType: (model as any).stype
+          }
+        : {})
+    };
 
     // Reuse existing instance or create new one
     // IMPORTANT: BaseComponentState is managed by sid, and preserved when reusing existing instance
@@ -608,29 +630,55 @@ export class ComponentManager implements ComponentStateProvider {
             hasElement: !!instance.element
           });
           try {
-            // Extract props (from top-level fields)
-            const nextRawProps = nextVNode.props || {};
-            const nextSanitizedProps = this.sanitizeProps(nextRawProps);
-            
-            // Update component instance
-            instance.props = nextSanitizedProps;
+            /**
+             * The props the component is **actually given**, before and after.
+             *
+             * Three things were wrong here and each on its own was enough to make `update` never
+             * happen for a component that draws itself:
+             *
+             * - the component was looked up through `context.getComponent` alone, where `mount`
+             *   looks in the registry too — so with a registry-based setup it was always
+             *   `undefined` and the `if` never ran;
+             * - the comparison was between `prevVNode.props` and `nextVNode.props`, and an external
+             *   component's vnode props are **always `{}`** — two empty objects never differ;
+             * - and it passed `instance.element` where the type says `instance`, so a component that
+             *   read `instance.element` in its own `update` got an element instead of an instance.
+             *
+             * What changed is `instance.props`, which is where the model's own fields are put — so
+             * that is what is compared and what is handed over.
+             */
+            const before = instance.props || {};
+            const after = this.sanitizeProps({
+              ...(nextVNode.props || {}),
+              ...(() => {
+                const model = (nextVNode as { model?: Record<string, unknown> }).model;
+                return model && typeof model === 'object'
+                  ? {
+                      attributes: (model as any).attributes ?? {},
+                      text: (model as any).text,
+                      content: (model as any).content,
+                      nodeType: (model as any).stype
+                    }
+                  : {};
+              })()
+            });
+
+            instance.props = after;
             // Update getModel to use current context
             instance.getModel = () => this.getModelFromDataStore(nextVNode.sid, context);
             instance.vnode = nextVNode;
-              
-            // Get component for external component update check
-            const component = context.getComponent?.(nextVNode.stype!);
-            
-              // External component: call component.update if it exists
+
+            // The same two places `mountComponent` looks, in the same order.
+            const component =
+              context.getComponent?.(nextVNode.stype!) ??
+              (context.registry?.getComponent?.(nextVNode.stype!) as any);
+
+            // External component: call component.update if it exists
             if (component && typeof component.update === 'function') {
-              if (this.hasPropsChanged(prevVNode.props || {}, nextVNode.props || {})) {
-                component.update(
-                  instance.element,
-                  prevVNode.props || {},
-                  nextVNode.props || {}
-                );
+              if (this.hasPropsChanged(before, after)) {
+                component.update(instance, before, after);
               }
-              }
+            }
             
             (instance as any).lastRenderedState = { ...(instance.state || {}) };
           } catch (error) {

@@ -1997,267 +1997,129 @@ test.describe('a component can be let go', () => {
 });
 
 /**
- * Code, and the one key that decides whether a code block is usable.
+ * A code block: **drawn** by Prism, **edited** in a layer of its own.
  *
- * The node was held back for a round because it could be placed and then not typed into: inside code
- * Enter must be a **newline** and the text stack answered the prose question, splitting the block in
- * two. A code block is one run of characters — split it and a reader has a page of code blocks, none
- * of which is the program, and nothing that can be copied back out as text.
+ * Two decisions behind everything below, and each removes a whole class of question:
  *
- * What made it possible was reading a field the schema has always had: `code: true` on the node
- * definition, which nothing had ever asked for.
+ * - **Prism tokenizes in the renderer.** The spans are in the markup the editor draws and the export
+ *   writes — the same bytes in both, with no script for a visitor to run. It replaced painting
+ *   ranges at runtime, which coloured things and could not say what a code block *is*, and which
+ *   left a published page depending on our function.
+ * - **The caret never enters one.** `contenteditable="false"`, so the token spans are the renderer's
+ *   and nothing maps a caret through them. Every question the text stack would have had to answer —
+ *   offsets through spans nothing owns, IME, marks, what Enter and Tab mean — stops being asked.
+ *
+ * Which is also what makes a real code editor safe here: the objection to embedding one was about
+ * the *always-embedded* shape, and a layer that opens on a gesture is a different proposition.
  */
 test.describe('a code block', () => {
-  const codeText = (page: Page) =>
-    page.evaluate(() => {
-      const editor = (window as never as { editor: any }).editor;
-      const store = editor.dataStore;
-      let found: any;
-      const walk = (sid: string) => {
-        const node = store.getNode(sid);
-        if (!node) return;
-        if (node.stype === 'codeBlock') found = node;
-        for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
-      };
-      walk(editor.getRootId());
-      const runs = (found?.content ?? []).filter((one: unknown) => typeof one === 'string');
-      return { blocks: runs.length, text: runs.map((one: string) => store.getNode(one)?.text).join('') };
-    });
+  const panel = (page: Page) => page.locator('.office-properties');
+  const block = (page: Page) => page.locator('[data-frame="desktop"] pre.st-code').first();
 
-  const enter = async (page: Page) => {
+  const add = async (page: Page) => {
     await page.locator('[data-insert="insertCode"]').click();
-    await page.waitForTimeout(500);
-    const pre = page.locator('[data-frame="desktop"] pre').first();
-    await bring(page, pre);
-    await pressDeep(page, pre);
-    await page.waitForTimeout(250);
-    await pre.dblclick({ force: true });
-    await page.waitForTimeout(400);
-    return pre;
+    await page.waitForTimeout(600);
+    return block(page);
   };
 
-  test('is drawn as code: literal whitespace, and no spell checker', async ({ page }) => {
-    await ready(page);
-    await page.locator('[data-insert="insertCode"]').click();
-    await page.waitForTimeout(500);
+  const setLanguage = async (page: Page, language: string) => {
+    await bring(page, block(page));
+    await pressDeep(page, block(page));
+    await page.waitForTimeout(300);
+    await panel(page).locator('[data-tab="block"]').click();
+    await panel(page).getByLabel('코드 언어').fill(language);
+    await panel(page).getByLabel('코드 언어').press('Enter');
+    await page.waitForTimeout(600);
+  };
 
-    const pre = page.locator('[data-frame="desktop"] pre').first();
+  test('is drawn as code, and the caret cannot get into it', async ({ page }) => {
+    await ready(page);
+    const pre = await add(page);
+
+    await expect(pre).toHaveAttribute('contenteditable', 'false');
     await expect(pre).toHaveAttribute('spellcheck', 'false');
     await expect(pre).toHaveCSS('white-space', 'pre');
-    // The newlines it arrived with are characters in the run, not blocks.
-    expect((await codeText(page)).text).toContain('\n');
+    // The newlines it arrived with are characters, drawn literally by the element.
+    await expect(pre).toContainText('return 1;');
   });
 
-  test('makes Enter a newline rather than a second block', async ({ page }) => {
+  test('says nothing about a language it has not been told', async ({ page }) => {
     await ready(page);
-    const pre = await enter(page);
-    await expect(page.locator('[data-frame="desktop"] .st-overlay')).toHaveAttribute('data-mode', 'text');
-
-    const before = await codeText(page);
-    await page.keyboard.press('End');
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(600);
-
-    const after = await codeText(page);
-    // One run, one character longer. Not two blocks, and not nothing.
-    expect(after.blocks).toBe(before.blocks);
-    expect(after.text.length).toBe(before.text.length + 1);
-    await expect(pre).toContainText('function');
-  });
-
-  test('refuses formatting, and lets a paragraph keep it', async ({ page }) => {
-    await ready(page);
-    await enter(page);
-
-    const marksOn = () =>
-      page.evaluate(() => {
-        const editor = (window as never as { editor: any }).editor;
-        const store = editor.dataStore;
-        let found: any;
-        const walk = (sid: string) => {
-          const node = store.getNode(sid);
-          if (!node) return;
-          if (node.stype === 'codeBlock') found = node;
-          for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
-        };
-        walk(editor.getRootId());
-        return store.getNode((found?.content ?? [])[0])?.marks ?? [];
-      });
-
-    await page.keyboard.press('Home');
-    await page.keyboard.down('Shift');
-    for (let step = 0; step < 8; step += 1) await page.keyboard.press('ArrowRight');
-    await page.keyboard.up('Shift');
-    await page.keyboard.press('Meta+b');
-    await page.waitForTimeout(600);
-
+    const pre = await add(page);
     /*
-     * Nothing. A `<strong>` inside a `<pre>` is something no syntax highlighter expects and it is
-     * lost the moment the code is copied out as text, which is what a code block is for. The schema
-     * says `marks: []` and the **operation** reads it — a greyed-out button is a courtesy, and a
-     * mark also arrives through a paste, a loaded document and a test.
+     * One span and no tokens. A block that has not been told its language is a block nobody has told
+     * yet rather than one in the wrong language, so the characters are left the text's colour.
      */
-    expect(await marksOn()).toEqual([]);
-    await expect(page.locator('[data-frame="desktop"] pre .mark-bold')).toHaveCount(0);
-
-    // And prose is untouched: the rule is the node's, not the editor's.
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(200);
-    const hero = page.locator('[data-frame="desktop"] .st-page h1').first();
-    await bring(page, hero);
-    await pressDeep(page, hero);
-    await page.waitForTimeout(200);
-    await hero.dblclick({ force: true });
-    await page.waitForTimeout(300);
-    await page.keyboard.press('Home');
-    await page.keyboard.down('Shift');
-    for (let step = 0; step < 3; step += 1) await page.keyboard.press('ArrowRight');
-    await page.keyboard.up('Shift');
-    await page.keyboard.press('Meta+b');
-    await page.waitForTimeout(600);
-    await expect(page.locator('[data-frame="desktop"] .st-page h1 .mark-bold')).toHaveCount(1);
+    await expect(pre.locator('.token')).toHaveCount(0);
   });
 
-  test('makes Tab an indent rather than a way out of the board', async ({ page }) => {
+  test('tokenizes with a grammar once it is told, not with a word list', async ({ page }) => {
     await ready(page);
-    await enter(page);
+    await add(page);
+    await setLanguage(page, 'js');
 
-    const before = await codeText(page);
-    await page.keyboard.press('End');
-    await page.keyboard.press('Tab');
-    await page.waitForTimeout(600);
-
+    const pre = block(page);
+    await expect(pre.locator('.token.keyword')).toHaveCount(2);
     /*
-     * Two spaces, not a tab character: a real tab is eight columns wide in a `pre` unless something
-     * says otherwise, and nothing here does. And only inside code — taking Tab from a document at
-     * large would take away the one key that moves between the things on a page.
+     * `안녕` as a **function**, which is the difference a grammar makes: it is not in any word list,
+     * and it is a call because of the parenthesis after it. A scanner cannot know that.
      */
-    const after = await codeText(page);
-    expect(after.text.length).toBe(before.text.length + 2);
-  });
-});
-
-/**
- * Colour in a code block — and the same colour on the page a visitor gets.
- *
- * Painted as **ranges** (`CSS.highlights`), which changes no element and no text node: the run under
- * the caret is the same flat piece of text it was. That is the only reason a block being *typed in*
- * can be coloured at all — wrapping tokens in spans would turn one text node into forty, and every
- * offset in the text stack is a walk over those.
- *
- * The published page runs the **same function** from a copy of its own source inlined by the export.
- * A tokenizer written a second time in a template literal would be the editor and the visitor
- * disagreeing about how something looks, which is what export-as-a-render exists to prevent.
- */
-test.describe('code, coloured', () => {
-  const highlights = (page: Page) =>
-    page.evaluate(() => {
-      const registry = (window as never as { CSS?: { highlights?: any } }).CSS?.highlights;
-      if (!registry) return {};
-      const out: Record<string, number> = {};
-      registry.forEach((held: any, name: string) => {
-        out[name] = held.size ?? [...held].length;
-      });
-      return out;
-    });
-
-  test('paints what it can see, and more once it is told the language', async ({ page }) => {
-    await ready(page);
-    await page.locator('[data-insert="insertCode"]').click();
-    await page.waitForTimeout(700);
-
-    // Three boards draw the one document, so every count is per board.
-    expect((await highlights(page))['code-number']).toBe(3);
-
-    const pre = page.locator('[data-frame="desktop"] pre').first();
-    await bring(page, pre);
-    await pressDeep(page, pre);
-    await page.waitForTimeout(300);
-    await panelOf(page).locator('[data-tab="block"]').click();
-    await panelOf(page).getByLabel('코드 언어').fill('js');
-    await panelOf(page).getByLabel('코드 언어').press('Enter');
-    await page.waitForTimeout(700);
-
-    /*
-     * `function` and `return`, three times over. A block with no language is a block nobody has told
-     * yet rather than one in the wrong language, so its words were left the text's colour.
-     */
-    expect((await highlights(page))['code-keyword']).toBe(6);
+    await expect(pre.locator('.token.function')).toHaveCount(1);
+    await expect(pre.locator('.token.punctuation').first()).toBeVisible();
   });
 
-  test('leaves the text a single run, which is what lets it be typed in', async ({ page }) => {
+  test('publishes the same spans, and no script at all', async ({ page }) => {
     await ready(page);
-    await page.locator('[data-insert="insertCode"]').click();
-    await page.waitForTimeout(700);
-
-    const shape = await page.evaluate(() => {
-      const pre = document.querySelector('[data-frame="desktop"] pre.w-code') as HTMLElement;
-      const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
-      let count = 0;
-      while (walker.nextNode()) count += 1;
-      return { texts: count, elements: pre.querySelectorAll('*').length };
-    });
-    // One text node, two spans — exactly what the renderer drew. Nothing was wrapped.
-    expect(shape.texts).toBe(1);
-    expect(shape.elements).toBe(2);
-  });
-
-  test('follows the words as they are typed', async ({ page }) => {
-    await ready(page);
-    await page.locator('[data-insert="insertCode"]').click();
-    await page.waitForTimeout(700);
-
-    const pre = page.locator('[data-frame="desktop"] pre').first();
-    await bring(page, pre);
-    await pressDeep(page, pre);
-    await page.waitForTimeout(250);
-    await pre.dblclick({ force: true });
-    await page.waitForTimeout(400);
-    await page.keyboard.press('End');
-    await page.keyboard.type(' 99');
-    await page.waitForTimeout(800);
-
-    /*
-     * A range is a pair of offsets into a string, so a keystroke moves every token after it. Painted
-     * again on the revision rather than left where it was, which is the difference between colour
-     * and colour in the wrong place.
-     */
-    expect((await highlights(page))['code-number']).toBe(6);
-  });
-
-  test('the published page paints itself, from the editor’s own function', async ({ page }) => {
-    await ready(page);
-    await page.locator('[data-insert="insertCode"]').click();
-    await page.waitForTimeout(700);
-    const pre = page.locator('[data-frame="desktop"] pre').first();
-    await bring(page, pre);
-    await pressDeep(page, pre);
-    await page.waitForTimeout(300);
-    await panelOf(page).locator('[data-tab="block"]').click();
-    await panelOf(page).getByLabel('코드 언어').fill('js');
-    await panelOf(page).getByLabel('코드 언어').press('Enter');
-    await page.waitForTimeout(700);
+    await add(page);
+    await setLanguage(page, 'js');
 
     const html = await page.evaluate(
       () => (window as never as { exportSite: () => { html: string }[] }).exportSite()[0].html
     );
-    expect(html).toContain('::highlight(code-keyword)');
+    expect(html).toContain('class="token keyword"');
+    expect(html).toContain('.token.keyword');
+    /*
+     * Nothing to run. The colour arrives with the drawing, which is what a page rendered by the same
+     * renderers as the editor means — the version before this had to execute our tokenizer in the
+     * visitor's browser to be coloured at all.
+     */
+    expect(html).not.toContain('<script');
+  });
 
-    // Opened as a visitor would open it — one page, no editor, no bundle.
-    await page.setContent(html);
-    await page.waitForTimeout(500);
+  test('opens an editor of its own, and takes one change when it closes', async ({ page }) => {
+    await ready(page);
+    await add(page);
+    await bring(page, block(page));
+    await block(page).dblclick({ force: true });
+    await page.waitForTimeout(600);
 
-    const said = await highlights(page);
-    expect(said['code-keyword']).toBe(2);
-    expect(said['code-number']).toBe(1);
-    // And the markup a visitor gets is still a plain `pre` with one run in it.
-    await expect(page.locator('pre.w-code')).toHaveCount(1);
-    expect(await page.locator('pre.w-code *').count()).toBe(2);
+    // A real editor, mounted over the block rather than inside the board's editable region.
+    await expect(page.locator('.st-code-layer .cm-editor')).toHaveCount(1);
+
+    await page.keyboard.type('// 안녕\n');
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(800);
+
+    await expect(page.locator('.st-code-layer')).toHaveCount(0);
+    await expect(block(page)).toContainText('// 안녕');
+
+    /*
+     * **One** undo for the whole session. CodeMirror keeps its own history while it is open and the
+     * document never hears about it, so a reader who typed forty characters and pressed Escape has
+     * made one change — not forty.
+     */
+    await page.keyboard.press('Meta+z');
+    await page.waitForTimeout(600);
+    await expect(block(page)).not.toContainText('// 안녕');
+    await expect(block(page)).toContainText('return 1;');
   });
 });
 
 /** The properties panel, for the describes that reach it. */
 const panelOf = (page: Page) => page.locator('.office-properties');
+void panelOf;
+
 
 /**
  * Looking at the site instead of building it.

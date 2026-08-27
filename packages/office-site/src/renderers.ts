@@ -30,11 +30,42 @@ import { hrefFor } from './page-link';
 import { paintCss } from './paint';
 import { sizingCss } from './sizing';
 import { breakpointOf } from './breakpoints';
+import { codeElements } from './code-render';
 import { attrsAt } from './responsive';
 
 type NodeData = Record<string, any>;
 
 const attrsOf = (data: NodeData): Record<string, any> => (data?.attributes ?? {}) as never;
+
+/**
+ * The characters a code block holds, however the tree it is drawn from is shaped.
+ *
+ * A node reaches a renderer two ways here: through the document proxy, where its children are
+ * already objects, and from the store, where they are ids. Both happen — the boards draw through the
+ * proxy and the export renders a detached tree — so this asks the shape rather than assuming one,
+ * and falls back to the document access the env carries.
+ */
+function codeIn(node: NodeData, ctx: any, depth = 0): string {
+  if (!node || depth > 8) return '';
+
+  const own = (node as { text?: unknown }).text;
+  if (typeof own === 'string') return own;
+
+  const doc = getWordDocument(ctx?.env as RenderEnv | undefined) as
+    | { getNode?: (sid: string) => NodeData | undefined }
+    | undefined;
+
+  let said = '';
+  for (const child of ((node as { content?: unknown[] }).content ?? []) as unknown[]) {
+    if (typeof child === 'string') {
+      const found = doc?.getNode?.(child);
+      if (found) said += codeIn(found, ctx, depth + 1);
+    } else if (child && typeof child === 'object') {
+      said += codeIn(child as NodeData, ctx, depth + 1);
+    }
+  }
+  return said;
+}
 
 /**
  * The attributes a node is drawn with **in this view**.
@@ -230,6 +261,44 @@ export function registerSiteRenderers(): void {
   });
 
   override('listItem', element('li', { className: 'st-list-item' }, [slot('content')]));
+
+  /**
+   * A **code block**, tokenized by Prism and drawn as elements.
+   *
+   * `override`, and said out loud so a check can tell a decision from an accident: `office-text`
+   * draws a plain `pre` around the run, which is right for a document — Word has no code panel and
+   * no language to tokenize by. A *page* publishes code for people to read, so it is worth the
+   * grammar; the dependency stays here rather than in the shared kit, where two products would carry
+   * it for nothing.
+   *
+   * Two things it does that the shared one does not, and both are the same decision:
+   *
+   * - **`contenteditable="false"`.** The caret never enters a code block. That is what makes the
+   *   token spans safe — they are the renderer's, derived from the text, and nothing maps a caret
+   *   through them. Editing happens in a layer of its own, so the text stack never meets a code
+   *   block and every question about offsets, IME, marks, Enter and Tab stops being asked.
+   * - **It draws the text itself** rather than `slot('content')`, because the tokens are a shape the
+   *   run does not have: one run becomes a tree of spans, and a slot can only pass children through.
+   */
+  override('codeBlock', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = attrsOf(node);
+    const language = typeof attrs.language === 'string' ? attrs.language : '';
+    return element(
+      'pre',
+      {
+        className: 'st-code',
+        contenteditable: 'false',
+        spellcheck: 'false',
+        /*
+         * Written even though the drawing is already coloured: it is what a reader of the published
+         * HTML uses to say *which* language, and what a panel reads back. The colour is derived from
+         * it and the text, so it is the one of the three worth storing.
+         */
+        'data-language': language || undefined
+      } as never,
+      codeElements(codeIn(node, ctx), language)
+    );
+  });
 
   /**
    * A page: one column, as wide as the window it is drawn in.

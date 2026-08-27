@@ -87,13 +87,15 @@ entries are that.
   component — detaching a header must not detach the button in it. The deck's detach had the same
   fault and now takes the same argument.
 
-### A code block can be written in, and cannot be coloured or kept plain
+### `managesDOM` works; nothing is on it yet
 
-- [ ] **No auto-indent.** Enter inserts a newline and does not carry the previous line's
-  indentation, so every line of a nested block is typed from column zero. The cheapest real
-  improvement left in a code block, and it needs no library.
+- [ ] The path is honoured now (see Done). **Nothing uses it**, which is its own risk: a capability
+  with no caller is a capability nobody notices breaking. The code block is the intended first — it
+  would fill its element with Prism directly instead of being mapped through vnodes and keys, and
+  CodeMirror would mount **in the block's own place** rather than as an overlay tracking a screen
+  rectangle.
 
-- [ ] **No line numbers, no bracket matching.** Each a slice, each without a library.
+### A code block, still missing
 
 - [ ] **Reading state and edit state could be drawn differently, and are not.** While nobody is
   typing in a block its DOM is nobody's arithmetic — token spans, folding, line numbers are all free
@@ -2736,6 +2738,58 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A component that says it owns its DOM is now left to.** `external({ managesDOM: true, mount,
+  update, unmount })` is how a node type says *I will draw myself* — the equivalent of a ProseMirror
+  NodeView, and the right home for anything the renderer cannot express as elements. It was declared
+  and not honoured, in **four** separate places:
+
+  - `mount` was handed `{ id }` and nothing else, so a component could not draw what the node says.
+    It gets the model's own fields now — `attributes`, `text`, `content` — flattened as props, which
+    is what a template already reads through `data('text')`.
+  - The element it returned was **wiped**: `removeStaleChildren` removes every child of a host that
+    no fiber accounts for, and a component's own DOM has no fibers. It now keeps out of a node that
+    owns its element.
+  - `update` looked the component up through `context.getComponent` alone where `mount` also looks
+    in the registry — so with a registry it was always undefined and the branch never ran.
+  - …and even when it ran it compared `prevVNode.props` with `nextVNode.props`, which for an external
+    component are **always both `{}`**, and then called `update(instance.element, …)` where the type
+    says `update(instance, …)`.
+
+  Four faults stacked, each of which alone was enough to make the feature do nothing. Held by
+  `test/external-owns-its-dom.test.ts`, which states the contract rather than the current behaviour.
+
+- **A flaky deck test made honest.** `filters as motion` waited a flat 1800ms for a filter to clean
+  itself up and then asserted it had. It lost the day three browser suites ran at once and reported
+  a leak that was not there. It polls now. A check that fails when the machine is busy is a check
+  nobody trusts the next time it fails.
+
+- **A code block is drawn by Prism and edited in a layer of its own.** Two decisions, and each
+  removes a class of question rather than answering it. Prism tokenizes **in the renderer**, so the
+  spans are in the markup the editor draws and the export writes — the same bytes in both, with no
+  script for a visitor to run. And the caret **never enters** one: `contenteditable="false"`, so
+  offsets through spans nothing owns, IME, marks, Enter and Tab all stop being asked about.
+
+  Editing opens a real code editor (CodeMirror 6) in a layer over the block, on the same double-click
+  that means *the caret* everywhere else, and the document takes **one transaction** when it closes.
+  Which is safe for a reason worth stating: the objection to embedding an editor was about the
+  *always-embedded* shape, and a layer that opens on a gesture is a different proposition — nothing
+  nested, nothing for the export to see, one undo.
+
+  It replaced painting ranges through the CSS Custom Highlight API. That worked and was the wrong
+  idea twice over: a way to *colour* something rather than a way to say what a code block is, and a
+  published page that had to run our function to be coloured.
+
+- **`key` was reaching the DOM as an attribute.** `initializeElementVNode` takes it off a **copy** of
+  the template's attributes, and `_setAttributes` re-applies the original — so it went straight back,
+  and nothing later cleared it because the next vnode had no `key` to diff against. Invisible until
+  a template in this repository actually used one, which the code block's token spans are the first
+  to do.
+
+  Under it, a second: every child of the block is an element with a key **including the untokenized
+  one**, because with no grammar it drew a bare text child and with one a list of spans — the child
+  list changed *shape*, the reconciler had nothing to pair the text with, and a block given a
+  language showed its program twice.
 
 - **A reader can look at the site instead of building it.** A page has no height of its own, so what
   a visitor sees is decided by the window they open it in — and a board drawing the whole page at

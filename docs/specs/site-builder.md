@@ -636,113 +636,65 @@ plus a `language`. Two things it must **not** store, and both are worth saying o
   definition may carry `marks: string[]` — and **nothing reads it**. So the constraint cannot be
   enforced today, which is the second half of why the insert is not offered.
 
-### Where it is edited is a **mode**, and it is built now
+### Where it is edited: **not in the page**
 
-Inside prose, Enter makes a new block, Tab moves to the next control, and the formatting commands
-apply marks. All three are correct for prose and all three are wrong inside code. Two of them are
-answered:
+A code block is drawn `contenteditable="false"` and the caret never enters one. Everything follows
+from that: the text stack never meets a code block, so every question it would have had to answer —
+offsets through spans nothing in the document owns, IME, marks, what Enter and Tab mean — stops being
+asked rather than being answered carefully.
 
-- **Enter is a newline.** Not a preference: a code block is one run of characters, and splitting it
-  would give a reader a page of code blocks, none of which is the program and none of which can be
-  copied back out as text.
-- **Tab is two spaces.** Only inside code — taking Tab from a document at large would take away the
-  one key that moves between the things on a page, and a rich text editor that swallows it has
-  broken keyboard navigation for everyone who does not use a mouse. Two spaces rather than a tab
-  character, because a real tab is eight columns wide in a `pre` unless something says otherwise.
+Editing happens in a **layer of its own**, opened by the same double-click that means *the caret*
+everywhere else, carrying a real code editor (CodeMirror 6). Which is safe here for a reason worth
+being precise about: the objection to embedding one was always about the *always-embedded* shape — a
+nested `contenteditable` inside the board's editable region, a second undo stack fighting the
+document's, a second render path for the export. **None of those apply to a layer that opens on a
+gesture.** It is a sibling of the boards rather than inside one, it is gone when the reader is done,
+the export never sees it, and the document takes **one transaction** when it closes: one undo,
+whatever happened inside.
 
-Both are decided by a field the schema has always had and **nothing had ever read**: `code: true` on
-the node definition. That is the third member of this family — `marks` and `whitespace` are the other
-two, and `whitespace` is deliberately still not written on `codeBlock`, because the whitespace is
-literal by virtue of the element being a `pre` and a second answer nothing consults is the fault
-itself.
+It opens in **screen coordinates**, at the rectangle the block has on screen. The boards live on a
+plane that zooms and pans, and a layer inside the plane would line up exactly and be drawn at the
+reader's zoom — code at 70% is code nobody can read. The same call the selection chrome made: the
+tool is drawn at the reader's size, not at the page's.
 
-Two things it found on the way out:
+### And the highlighting: Prism, in the renderer
 
-- **`insertText` had never worked.** It guards itself by asking whether `replaceText` can run and
-  asked with **no payload**, while `replaceText`'s predicate is entirely about the payload. So the
-  answer was correctly no, every time. `EditorViewDOM.insertLineBreak` *is* `insertText('\n')` —
-  which means **Shift+Enter has never inserted a line break in any of the three products**. A command
-  that declines looks exactly like a key nobody pressed.
-- **Three blocks could be placed and not selected.** `blockQuote`, `horizontalRule` and `codeBlock`
-  were added to the rail and not to `SELECTABLE`, so they drew perfectly and could not be moved,
-  deleted, coloured or typed into. The round that added them checked that each *appears* and never
-  checked that a reader can get hold of one.
+Syntax highlighting is two things — deciding what each character *is*, and drawing that. A scanner
+written by hand can do the first badly for a handful of C-family languages and cannot do HTML or CSS
+at all, because those need a grammar rather than a word list. Prism has the grammars, and its
+`tokenize` returns a **tree** rather than a string, so the drawing stays this repository's: the same
+`element()` calls as every other renderer.
 
-### And the highlighting, which is built — as ranges
+The site **overrides** `codeBlock` to do it. `office-text` keeps drawing a plain `pre` for a
+document, which has no language to tokenize by and no panel to say one in — so the dependency stays
+with the product that publishes code rather than in a kit two products would carry it for nothing.
 
-It is a **drawing**, never a value: the colours come from the text and the language, so storing them
-means storing something that goes stale the moment either changes.
+**The export writes the same spans, and carries no script.** That is the property the previous
+attempt could not have: it painted ranges through the CSS Custom Highlight API at runtime, so a
+published page had to run our function to be coloured at all. Painting ranges is a way to *colour*
+something; it is not a way to say what a code block is.
 
-`paintCode` colours **ranges** through the CSS Custom Highlight API. Nothing in the DOM changes —
-same elements, same single text node, same offsets — which is the only reason a block *being typed
-in* can be coloured at all. Wrapping tokens in spans would turn one text node into forty, and every
-offset in the text stack is a walk over those; that arithmetic is where this repository's caret bugs
-have all lived.
+Two things measured on the way. Every child of the block is an **element with a key**, including the
+untokenized one — with no grammar it drew a bare text child and with one a list of spans, so the
+child list changed *shape*, the reconciler had nothing to pair the text with, and a block given a
+language showed its program twice. And `key` was reaching the DOM as an attribute: `initializeElement
+VNode` takes it off a *copy* of the template's attributes and `_setAttributes` re-applied the
+original, so a span carried `key="code"` from the render before. Fixed in `renderer-dom`, held by a
+test.
 
-**The published page runs the same function.** The export inlines `paintCode.toString()` — one
-self-contained function, written with no imports and no reference to anything outside its body
-precisely so it can be handed over. That is why `code-highlight.ts` reads as an oddly closed piece of
-code. The alternative is a tokenizer written a second time in a template literal, which is the editor
-and the visitor disagreeing about how something looks, in the one place nobody would think to check.
-A browser without the API paints nothing and shows the code, in both grounds.
+### What is next: the code block should own its own DOM
 
-The tokenizer is a **scanner, not a parser**: comments, strings, numbers, and whether a word is a
-keyword in the language it was told. That is enough to make a code *sample* readable and it will be
-wrong about a regular expression containing a quote — a trade a marketing page can make and a
-compiler cannot. The alternative is a grammar per language, which is the point at which a site
-builder has quietly become an IDE.
+`managesDOM` is the right home for all of this and it is **declared and not honoured**. A component
+registered with `external({ managesDOM: true, mount, update, unmount })` is meant to own its element
+— the equivalent of a ProseMirror NodeView. Measured: `mount` receives `{ id }` and nothing else, no
+model and no text; the element it returns is **wiped by the reconciler**; and `update` and `unmount`
+are never called at all.
 
-Two things it was careful about. Offsets are counted **across runs**, because `content: 'inline*'`
-lets a paste make a second one even though a code block holds one today. And the editor paints the
-**boards** rather than the document: the first view is kept in the tree and hidden — it is what holds
-the document open — so painting everything coloured a fourth block nobody can see.
+When that path works, the code block moves onto it and two things get better: Prism fills the element
+directly instead of being mapped through vnodes and keys, and CodeMirror mounts **in the block's own
+place** rather than as an overlay in screen coordinates — which removes the one awkward part of the
+design above.
 
-### Why not an editor library, measured against what we have
-
-It is a **drawing**, never a value: the colours are derived from the text and the language, so
-storing them means storing something that goes stale the moment either changes. The published page
-carries `<pre spellcheck="false" data-language="…">` and the text, which is everything a highlighter
-needs and nothing it would have to undo.
-
-**No CodeMirror, and no Monaco** — as an *always-embedded* widget. Not because they are bad, but
-because of what embedding one costs here. Each brings its own DOM, its own selection model and its own undo stack, and this editor has
-exactly one of each: `Ctrl+Z` would undo inside the widget rather than in the document, the site's
-three boards already fought over `document.getSelection()` once, and the published page must be a
-plain `pre` rather than a library's markup. Monaco is also megabytes for one block type out of
-fifteen. What a code block on a page actually needs — type, newline, indent, and see it coloured — is
-*less* than a paragraph, not more.
-
-**A third shape is open and is not the same proposition.** *Reading* state and *edit* state are
-different: while nobody is typing in a block, its DOM is nobody's arithmetic, so it could be drawn
-richly — token spans, line numbers, folding — and a real editor could be **attached on entry** and
-taken away on exit. Almost none of the costs above apply to that: nothing is nested while reading,
-the export never sees it, and the swap point is one gesture. It is the shape to evaluate the day a
-code block needs completion or diagnostics, and it is not what "embed CodeMirror" usually means.
-
-What is genuinely missing today, with no library: **auto-indent** — Enter inserts a newline and does
-not carry the previous line's indentation — line numbers, and bracket matching. Each is a slice.
-
-### The mode that is not built
-
-
-
-Inside prose, Enter makes a new block, Tab moves to the next control, and the formatting commands
-apply marks. All three are correct for prose and all three are wrong inside code: Enter is a newline,
-Tab is an indent, and there is no formatting. That is not a renderer's problem or a schema's — it is
-an input mode, and the text stack is shared by three products, so growing one is a change Word and
-the deck feel too.
-
-**And marks are refused.** `marks: string[]` was the last field of that family nothing consulted:
-absent means anything, `[]` means none, and `applyMark` and `toggleMark` read it. Bold inside code is
-not a matter of taste — a `<strong>` inside a `<pre>` is something no highlighter expects, and it is
-lost the moment the code is copied out as text, which is what a code block is for.
-
-Read in the **operation** rather than in the toolbar, because a mark reaches a run through a paste, a
-command, a document loaded from elsewhere and a test, and only one of those goes past a button. Not
-in `setMarks`, which writes a list wholesale and is how an inverse restores what an operation took —
-a guard there would make undo refuse to put a document back into a state it was actually in. And a
-mark that is already on a run can still be **removed**, which is how a document that arrives holding
-one is cleaned up.
 
 ## What a site builder still needs
 
@@ -775,8 +727,8 @@ Measured against what the product can do today, in the order the next slices sho
    commands exist, the marks are not on screen yet.
 7. **Forms.** The one common site block with no node behind it — and the first thing here that would
    genuinely be new rather than reused.
-8. **A code mode.** The node is fixed and draws; Enter, Tab and the mark commands all answer the
-   prose question inside it. See above — it is the one insert this round deliberately did not ship.
+8. **The external-component path.** `managesDOM` is declared and not honoured — see above. Until it
+   is, a code block is drawn through vnodes and edited in an overlay rather than owning its element.
 9. **A transition between the states.** A hover that arrives instantly is a hover that looks like a
    bug on a large card. It is one attribute and one CSS property, and it is the doorway to motion —
    which is still the single largest difference between a page built here and one built anywhere

@@ -156,3 +156,51 @@ describe('a node that changes type and keeps its sid', () => {
     expect(block.querySelector('[data-bc-sid="w"]')?.textContent).toBe('안녕');
   });
 });
+
+/**
+ * A **key** says which sibling this is. It is not an attribute.
+ *
+ * `initializeElementVNode` takes `key` off before the element is built — and off a *copy* of the
+ * template's attributes, so the template still carries it and `_setAttributes`, which re-applies the
+ * template, put it straight back. Nothing had noticed because nothing in this repository had ever
+ * written a key into an `element()` until a code block's token spans needed one: they came out
+ * carrying `key="code"` from the render before, an attribute no browser has heard of and nothing
+ * later cleared, because the next vnode did not have it to diff against.
+ */
+describe('a key on an element', () => {
+  let host: HTMLElement;
+  let renderer: DOMRenderer;
+
+  beforeEach(() => {
+    define('keyedK', (_props: any, node: any) =>
+      element(
+        'div',
+        { className: 'keyed' },
+        (node.attributes?.parts ?? []).map((part: string) =>
+          element('span', { key: part, className: `p-${part}` }, [part])
+        )
+      )
+    );
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    renderer = new DOMRenderer(getGlobalRegistry());
+  });
+
+  const draw = (parts: string[]) =>
+    renderer.render(host, { sid: 'k1', stype: 'keyedK', attributes: { parts } } as never, [], undefined);
+
+  it('reaches the DOM as data-key and never as key', () => {
+    draw(['a', 'b']);
+    const spans = [...host.querySelectorAll('span')];
+    expect(spans.map((one) => one.getAttribute('data-key'))).toEqual(['a', 'b']);
+    for (const one of spans) expect(one.hasAttribute('key')).toBe(false);
+  });
+
+  it('does not leave the last render’s key behind', () => {
+    draw(['a']);
+    draw(['x']);
+    const span = host.querySelector('span')!;
+    expect(span.getAttribute('data-key')).toBe('x');
+    expect(span.hasAttribute('key')).toBe(false);
+  });
+});

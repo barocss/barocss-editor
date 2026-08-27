@@ -65,12 +65,13 @@ export * from './table-format';
 export * from './table-style';
 
 /** The renderers themselves: text, tables, marks, equations. */
-/**
- * Colour in a code block, painted as **ranges** rather than as elements — so the text under the
- * caret is the same flat run it was, and a block being read and a block being typed in are coloured
- * by the same code. Self-contained so the export can inline its own source.
+/*
+ * `paintCode` was here for a round: a code block coloured by painting **ranges** over an untouched
+ * flat run. It worked, and it was the wrong idea — a way to colour something rather than a way to
+ * say what a code block *is*, and it made a published page depend on running a script. A site
+ * tokenizes with Prism in its own renderer now (`office-site/src/code-render.ts`), which is a
+ * grammar rather than a word list and puts the spans in the markup the export writes.
  */
-export { CODE_HIGHLIGHT_CSS, CODE_TOKENS, paintCode } from './code-highlight';
 export { registerTextRenderers } from './renderers';
 export { blockLanguage, blockStyle, formatFor, listMarker } from './renderers/block-style';
 export { registerRevisionMarks, registerValuedMarks } from './renderers/marks';

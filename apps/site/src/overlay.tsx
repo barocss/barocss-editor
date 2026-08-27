@@ -11,6 +11,7 @@ import {
   isTextual,
   boundVarOf,
   drawnSidAtElement,
+  isCode,
   labelOfBlock,
   sidAtElement,
   templateOf,
@@ -59,6 +60,7 @@ export function Overlay({
   mode,
   onEnterText,
   onEditComponent,
+  onEditCode,
   scope,
   onScope
 }: {
@@ -79,6 +81,13 @@ export function Overlay({
    */
   /** Open a definition — and, when the reader came in through a list, against which of its rows. */
   onEditComponent?: (componentId: string, from?: { collection: string; index: number }) => void;
+  /**
+   * Open the code editor over this block, at the rectangle it has **on screen**.
+   *
+   * On screen rather than on the plane: the boards zoom and pan, and a layer drawn inside the plane
+   * would be drawn at the reader's zoom — code at 70% is code nobody can read.
+   */
+  onEditCode?: (sid: string, box: { left: number; top: number; width: number; height: number }) => void;
   /**
    * The reader has entered this block's text.
    *
@@ -467,6 +476,27 @@ export function Overlay({
             return;
           }
           enterText(deepest);
+          return;
+        }
+
+        /*
+         * A **code block** answers the same gesture with an editor of its own.
+         *
+         * The caret never enters one — it is drawn `contenteditable="false"` with Prism's token
+         * spans in it — so the double-click that means *the caret* everywhere else has to mean
+         * something here, and the honest something is: open the thing that can edit code.
+         */
+        if (isCode(doc() as never, deeper)) {
+          const drawn = host.current?.querySelector<HTMLElement>(`[data-bc-sid="${CSS.escape(deeper)}"]`);
+          const box = drawn?.getBoundingClientRect();
+          if (box) {
+            onEditCode?.(deeper, {
+              left: box.left,
+              top: box.top,
+              width: box.width,
+              height: box.height
+            });
+          }
           return;
         }
 

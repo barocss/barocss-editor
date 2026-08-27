@@ -66,12 +66,18 @@ export const SELECTABLE = new Set([
 /**
  * The stypes whose double-click means *the caret*, because they hold words.
  *
- * `codeBlock` is one of them, and it was the block a reader could place and then not type into: the
- * gesture that gets a caret into a heading is the gesture that gets one into a program. What made it
- * safe to offer is that Enter inside code is now a newline rather than a new block — the schema says
- * `code: true` and the view reads it.
+ * `codeBlock` is **not** one of them, and that is the decision rather than an omission. The caret
+ * never enters a code block: it is drawn `contenteditable="false"` with Prism's token spans in it,
+ * and a caret mapped through spans nothing in the document owns is the arithmetic this product does
+ * not need to do. A double-click on one opens an editor of its own instead — `isCode` below is what
+ * the overlay asks.
  */
-export const TEXTUAL = new Set(['heading', 'paragraph', 'listItem', 'textFrame', 'codeBlock']);
+export const TEXTUAL = new Set(['heading', 'paragraph', 'listItem', 'textFrame']);
+
+/** Whether a double-click on this block means *open the code editor* rather than *put a caret in*. */
+export function isCode(doc: Access, sid: string | undefined): boolean {
+  return doc.getNode(sid ?? '')?.stype === 'codeBlock';
+}
 
 /**
  * The document node a drawn sid belongs to.

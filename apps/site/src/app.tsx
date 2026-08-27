@@ -27,7 +27,7 @@ import {
 import { Canvas } from './canvas';
 import { Inspector } from './inspector';
 import { Rail } from './rail';
-import { paintCode } from '@barocss/office-text';
+import { CodeEditor, type CodeEdit } from './code-editor';
 import { PageFrame } from './page-frame';
 import { Ribbon } from './ribbon';
 import type { PointerMode } from './overlay';
@@ -101,6 +101,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * to *what the page does*, and until this there was nowhere for the page to do anything.
    */
   const [preview, setPreview] = useState(false);
+
   /**
    * The container the reader has entered — the page until they double-click into something.
    *
@@ -122,6 +123,38 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   const [state, setState] = useState<StateId | undefined>(undefined);
 
   const editor = instance?.editor ?? null;
+
+  /**
+   * The code block a reader has opened, if any.
+   *
+   * A code block is drawn `contenteditable="false"` — the caret never enters one — so the gesture
+   * that means *the caret* everywhere else opens this instead. It is a layer over the board rather
+   * than a widget inside it, which is what makes a real code editor safe here: nothing is nested in
+   * the board's editable region, it is gone when the reader is done, the export never sees it, and
+   * the document takes **one transaction** when it closes.
+   */
+  const [codeEdit, setCodeEdit] = useState<CodeEdit | undefined>(undefined);
+
+  const openCode = useCallback(
+    (sid: string, box: { left: number; top: number; width: number; height: number }) => {
+      const store = editor?.dataStore as { getNode: (one: string) => any } | undefined;
+      const block = store?.getNode(sid);
+      if (!block) return;
+
+      const runSid = ((block.content ?? []) as unknown[]).find(
+        (one): one is string => typeof one === 'string'
+      );
+      const run = runSid ? store!.getNode(runSid) : undefined;
+      setCodeEdit({
+        sid,
+        runSid,
+        code: typeof run?.text === 'string' ? run.text : '',
+        language: typeof block.attributes?.language === 'string' ? block.attributes.language : '',
+        box
+      });
+    },
+    [editor]
+  );
   const revision = useRevision((reread) => watchContent(editor, reread), [editor]);
   /*
    * The selection, as a value an effect can depend on. `watchContent` does not fire when only the
@@ -240,27 +273,11 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     return () => setRowPreview(editor, undefined);
   }, [editor, editing, row]);
 
-  /**
-   * Colour in the code blocks, painted after every drawing.
-   *
-   * `paintCode` colours **ranges** — `CSS.highlights` — so it changes no element and no text node:
-   * the run under the caret is the same flat piece of text it was, which is the only reason a block
-   * being *typed in* can be coloured at all. Wrapping tokens in spans would turn one text node into
-   * forty, and every offset in the text stack is a walk over those.
-   *
-   * On the revision because the ranges are positions in a string: a keystroke moves every token
-   * after it, and a range that was right a moment ago is a colour in the wrong place. The published
-   * page runs the same function from its own inlined copy (`export-html.ts`), which is what keeps
-   * the two grounds agreeing about a colour.
+  /*
+   * The code blocks used to be painted here after every drawing — ranges over an untouched run,
+   * repainted on the revision because a keystroke moved every token after it. Prism tokenizes in the
+   * **renderer** now, so the colour arrives with the drawing and there is nothing to do afterwards.
    */
-  useEffect(() => {
-    /*
-     * The **boards**, not the document. The first view is kept in the tree and hidden — it is what
-     * holds the document open — so painting the whole page coloured a fourth code block nobody can
-     * see and put a quarter of every highlight where it does nothing.
-     */
-    paintCode(document.querySelector('.st-boards') ?? document);
-  }, [revision, root, redraw]);
 
   /**
    * What the boards promise a visitor, as a stylesheet the boards themselves obey.
@@ -569,6 +586,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                      * at all, which is what *더블클릭 해도 편집모드가 되지 않아* was.
                      */
                     onEditComponent={openDefinition}
+                    onEditCode={openCode}
                     preview={preview}
                     onFollow={(path) => {
                       const found = pages.find((one) => one.path === path);
@@ -590,6 +608,51 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           */}
           <div ref={host} id="editor" hidden />
         </AppMain>
+
+        {/*
+          The code editor, over the board and outside it.
+
+          A sibling of the studio rather than a child of a board: it is drawn in screen coordinates
+          because the plane zooms, and a code editor drawn at 70% is a code editor nobody can read.
+        */}
+        {codeEdit && editor ? (
+          <CodeEditor
+            edit={codeEdit}
+            onCommit={(code) => {
+              /*
+               * One transaction for the whole session, whatever happened inside. CodeMirror keeps
+               * its own history while it is open and the document never hears about it — so a reader
+               * who typed forty characters and pressed Escape has made **one** change to undo.
+               */
+              const store = editor.dataStore as { getNode: (one: string) => any };
+              const run = codeEdit.runSid ? store.getNode(codeEdit.runSid) : undefined;
+              if (!run) return;
+              void editor.executeCommand('replaceText', {
+                range: {
+                  type: 'range',
+                  startNodeId: codeEdit.runSid,
+                  startOffset: 0,
+                  endNodeId: codeEdit.runSid,
+                  endOffset: String(run.text ?? '').length
+                },
+                text: code
+              });
+            }}
+            onClose={() => {
+              setCodeEdit(undefined);
+              /*
+               * And the focus goes back to the board. The keys this app answers — undo, delete,
+               * duplicate — are listened for on the board's own editable element, so a reader who
+               * closed the code editor and pressed Ctrl+Z would have pressed it at nothing.
+               */
+              requestAnimationFrame(() => {
+                document
+                  .querySelector<HTMLElement>('[data-frame="desktop"] [data-bc-layer="content"]')
+                  ?.focus();
+              });
+            }}
+          />
+        ) : null}
 
         {editor ? (
           <Inspector

@@ -1357,6 +1357,20 @@ export class VNodeBuilder {
     Object.entries(attributes).forEach(([key, value]) => {
       if (isNullOrUndefined(value)) return;
 
+      /**
+       * `key` is the VNode's, never the element's.
+       *
+       * `initializeElementVNode` already takes it off — and off a **copy** of the template's
+       * attributes, so the template still carries it and this, which re-applies the template, put it
+       * straight back. Measured on the first template in this repository that actually uses a key: a
+       * code block's token spans came out carrying `key="code"` from the render before, an attribute
+       * no browser has heard of and nothing later cleared, because the next vnode did not have it to
+       * diff against.
+       *
+       * `data-key` is the reflected form and is written deliberately, next door.
+       */
+      if (key === 'key') return;
+
       // Preserve event handlers as-is
       if (isEventHandler(key, value)) {
         vnode.attrs![key] = value;

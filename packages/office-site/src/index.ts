@@ -25,6 +25,11 @@ export { createBlockCommands, SiteBlockExtension } from './block-commands';
 export { createDataCommands, SiteDataExtension } from './data-commands';
 export { iconForBlock, siteLayerIcons } from './layer-icons';
 export { PAGE_CSS } from './page-css';
+/**
+ * A code block, tokenized by Prism and drawn as elements — the same markup in the editor and on the
+ * published page, with no script to run.
+ */
+export { CODE_CSS, codeElements, grammarFor } from './code-render';
 export { createLinkCommands, SiteLinkExtension } from './link-commands';
 export { createPageCommands, SitePageExtension } from './page-commands';
 export {
@@ -157,6 +162,7 @@ export {
   enclosing,
   firstRunIn,
   innermostOf,
+  isCode,
   isTextual,
   kindOfBlock,
   labelOfBlock,

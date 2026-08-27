@@ -1,4 +1,4 @@
-import { CODE_HIGHLIGHT_CSS } from '@barocss/office-text';
+import { CODE_CSS } from './code-render';
 
 /**
  * What a **page** looks like before anybody styles it — the type scale, and nothing else.
@@ -37,7 +37,7 @@ import { CODE_HIGHLIGHT_CSS } from '@barocss/office-text';
  * invisible in the panel. That is the same rule the deck follows for a text box.
  */
 export const PAGE_CSS =
-  CODE_HIGHLIGHT_CSS +
+  CODE_CSS +
   `
 .st-page {
   /*

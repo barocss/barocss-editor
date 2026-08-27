@@ -683,38 +683,14 @@ export class EditorViewDOM implements IEditorViewDOM {
       (this.inputHandler as any).handleKeyDown(event);
     }
 
-    /**
-     * Tab **inside code** is an indent; everywhere else it stays the browser's.
-     *
-     * Taking Tab away from a document at large would be taking away the one key that moves between
-     * the things on a page — a reader tabbing out of a paragraph into the toolbar is doing what they
-     * meant, and a rich text editor that swallows it has broken keyboard navigation for everybody
-     * who does not use a mouse. Inside code it is the opposite: nobody tabs *out* of a program, and
-     * a language that cares about indentation cannot be written without it.
-     *
-     * Two spaces rather than a tab character, which is what a page of code wants: a real tab is
-     * eight columns wide in a `pre` unless something says otherwise, and nothing here does.
+    /*
+     * Tab and Enter had a branch here for a round: inside a code block, Enter inserted a newline and
+     * Tab two spaces. Both are gone because the caret no longer enters a code block at all — a site
+     * draws one `contenteditable="false"` and edits it in a layer of its own, so the text stack never
+     * meets one. `_codeBlockAt` stays: it is what `insertParagraph` asks before splitting, and a
+     * document that arrives holding a code block a product *does* let the caret into still needs the
+     * right answer.
      */
-    if ((event.key === 'Tab' || event.key === 'Enter') && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      const selection = window.getSelection();
-      const inCode =
-        selection && selection.rangeCount > 0
-          ? this._codeBlockAt(
-              this.selectionHandler.convertDOMSelectionToModel(selection)?.startNodeId
-            )
-          : undefined;
-      if (inCode) {
-        event.preventDefault();
-        /*
-         * **Here** rather than in `insertParagraph`, because Enter never reaches it: a key binding
-         * resolves first, prevents the default and dispatches the command itself, so `beforeinput`
-         * never fires and the method the browser would have driven is never called. Measured by
-         * listening for both — a keydown with no `beforeinput` behind it.
-         */
-        this.insertText(event.key === 'Tab' ? '  ' : '\n');
-        return;
-      }
-    }
 
     /**
      * A key the IME has taken for itself. Refusing to act on it is the whole

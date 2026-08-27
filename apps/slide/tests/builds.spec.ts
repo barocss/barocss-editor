@@ -1069,17 +1069,28 @@ test.describe('filters as motion', () => {
       )
       .toBeGreaterThan(0.05);
 
-    // And nothing is left behind: no filter on the shape, no definition in the
-    // document.
-    await page.waitForTimeout(1800);
-    expect(
-      await page.evaluate((sid) => {
-        const el = document.querySelector(
-          `.sl-stage [data-bc-sid="${CSS.escape(sid)}"]`
-        ) as HTMLElement;
-        return { filter: el.style.filter, defs: document.querySelectorAll('[data-motion-filter]').length };
-      }, box.sid)
-    ).toEqual({ filter: '', defs: 0 });
+    /*
+     * And nothing is left behind: no filter on the shape, no definition in the
+     * document.
+     *
+     * **Polled**, not waited for. This was a flat `waitForTimeout(1800)` chosen
+     * to be a little longer than the animation, and it lost the day three
+     * browser suites ran at once — the clean-up had not happened yet and the
+     * test reported a leak that was not there. A check that fails when the
+     * machine is busy is a check nobody trusts the next time it fails.
+     */
+    await expect
+      .poll(
+        () =>
+          page.evaluate((sid) => {
+            const el = document.querySelector(
+              `.sl-stage [data-bc-sid="${CSS.escape(sid)}"]`
+            ) as HTMLElement;
+            return { filter: el.style.filter, defs: document.querySelectorAll('[data-motion-filter]').length };
+          }, box.sid),
+        { timeout: 8000 }
+      )
+      .toEqual({ filter: '', defs: 0 });
   });
 });
 

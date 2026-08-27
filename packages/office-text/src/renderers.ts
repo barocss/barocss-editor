@@ -274,10 +274,12 @@ export function registerTextRenderers(): void {
    *
    * `pre` is doing the work: the whitespace is literal because that is what the element means, which
    * is also why the schema does not declare a second answer to the same question. `spellcheck` is
-   * off because a spell checker underlines every identifier in a program, and `data-language` is
-   * written so that whatever highlights a published page can read it — the colours are derived from
-   * the text and the language, so storing them would be storing a value that goes stale the moment
-   * either changes.
+   * off because a spell checker underlines every identifier in a program.
+   *
+   * **Not tokenized.** A document has no language to tokenize by and no panel to say one in, so this
+   * draws the characters and nothing else. A *page* publishes code for people to read and overrides
+   * this with a Prism-drawn one — which is where the dependency stays, rather than in a kit two
+   * products would carry it for nothing.
    */
   define(
     'codeBlock',

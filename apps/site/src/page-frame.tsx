@@ -65,6 +65,7 @@ export function PageFrame({
   preview,
   onEnterText,
   onEditComponent,
+  onEditCode,
   onFollow,
   redraw,
   scope,
@@ -99,6 +100,8 @@ export function PageFrame({
   preview?: boolean;
   onEnterText: (sid: string) => void;
   onEditComponent?: (componentId: string, from?: { collection: string; index: number }) => void;
+  /** A code block a reader asked to edit, and where it is on screen. */
+  onEditCode?: (sid: string, box: { left: number; top: number; width: number; height: number }) => void;
   /** A link followed in preview: the page it names, by address, rather than the browser's own. */
   onFollow?: (path: string) => void;
   /**
@@ -233,6 +236,7 @@ export function PageFrame({
             mode={mode}
             onEnterText={onEnterText}
             onEditComponent={onEditComponent}
+            onEditCode={onEditCode}
             scope={scope}
             onScope={onScope}
           />
