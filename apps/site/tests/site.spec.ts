@@ -1191,6 +1191,100 @@ test.describe('the component library', () => {
   });
 });
 
+/**
+ * **Selecting text on a page**, which the model never knew about.
+ *
+ * `editor._viewDOM` is one slot and holds whichever view was created last. A page is drawn at three
+ * widths and the app mounts a fourth view of the whole document, so the selection handler compared
+ * the reader's caret against a content layer it was never in, decided the selection was *outside the
+ * editor*, and returned.
+ *
+ * What that cost: **`editor.selection` never moved.** Wherever a reader clicked or dragged, the model
+ * held the collapsed caret that entering text had put there — so every command needing a range was
+ * unavailable. 굵게, 기울임, 복사, 잘라내기 and the link picker were all permanently grey, each of
+ * them correct at its own end, and nothing reported it because every `canExecute` was answering
+ * honestly about a selection that was genuinely collapsed.
+ *
+ * The handler already carried the view it belongs to, with a comment about this exact hazard. One
+ * place had not been changed to use it.
+ */
+test.describe('selecting text on a page', () => {
+  const model = (page: Page) =>
+    page.evaluate(() => {
+      const one = (window as any).editor.selection;
+      return one ? { start: one.startOffset, end: one.endOffset, collapsed: one.collapsed } : null;
+    });
+
+  const intoText = async (page: Page) => {
+    const heading = page.locator('[data-frame="desktop"] .st-page h1').first();
+    await heading.click({ force: true, modifiers: ['Meta'] });
+    await page.waitForTimeout(300);
+    await heading.dblclick({ force: true });
+    await page.waitForTimeout(400);
+    return heading;
+  };
+
+  test('puts the caret where the reader pressed, not at the start', async ({ page }) => {
+    await ready(page);
+    const heading = await intoText(page);
+
+    const box = (await heading.boundingBox())!;
+    await page.mouse.click(box.x + 180, box.y + box.height / 2);
+    await page.waitForTimeout(400);
+
+    // Well into the words. It was 0 wherever a reader pressed, which is a caret the model invented.
+    expect((await model(page))!.start).toBeGreaterThan(2);
+  });
+
+  test('extends with the keyboard and with a drag', async ({ page }) => {
+    await ready(page);
+    const heading = await intoText(page);
+    const box = (await heading.boundingBox())!;
+
+    await page.mouse.click(box.x + 60, box.y + box.height / 2);
+    await page.keyboard.press('Shift+ArrowRight');
+    await page.keyboard.press('Shift+ArrowRight');
+    await page.waitForTimeout(300);
+    expect((await model(page))!.collapsed).toBe(false);
+
+    await page.mouse.move(box.x + 20, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 200, box.y + box.height / 2, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    const after = (await model(page))!;
+    expect(after.collapsed).toBe(false);
+    expect(after.end - after.start).toBeGreaterThan(3);
+  });
+
+  test('makes the commands that need a range available at last', async ({ page }) => {
+    await ready(page);
+    const heading = await intoText(page);
+    const box = (await heading.boundingBox())!;
+
+    await page.mouse.move(box.x + 20, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 200, box.y + box.height / 2, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    /*
+     * The whole point of the fix, and the shape of the fault: three unrelated features were each
+     * refusing correctly, and the thing they had in common was a selection nobody was updating.
+     */
+    for (const command of ['toggleBold', 'copy', 'cut']) {
+      expect(
+        await page.evaluate((one) => (window as any).editor.canExecuteCommand(one), command),
+        command
+      ).toBe(true);
+    }
+    expect(
+      await page.evaluate(() => (window as any).editor.canExecuteCommand('linkToPage'))
+    ).toBe(true);
+  });
+});
+
 test.describe('the rail', () => {
   test('offers what a page is made of, and every one of them on a page nobody has touched', async ({ page }) => {
     await ready(page);

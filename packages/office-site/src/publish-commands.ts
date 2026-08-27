@@ -42,11 +42,16 @@ export class SitePublishExtension implements Extension {
       execute: (payload?: Record<string, unknown>) => Promise<boolean>,
       can: (payload?: Record<string, unknown>) => boolean
     ) =>
-      (editor as never as { registerCommand: (spec: unknown) => void }).registerCommand({
+      /*
+       * No cast: `registerCommand` is public on `Editor`. Every other extension in this package
+       * casts here, and every one of them is a copy of a line that was true before the type was —
+       * the ratchet in `editor-is-typed.test.ts` counts them, and a new file should not add one more.
+       */
+      editor.registerCommand({
         name,
         execute: async (_ed: Editor, payload?: Record<string, unknown>) => await execute(payload),
         canExecute: (_ed: Editor, payload?: Record<string, unknown>) => can(payload)
-      });
+      } as never);
 
     /**
      * Every page of the site, as complete documents.
@@ -58,7 +63,7 @@ export class SitePublishExtension implements Extension {
      */
     register(
       'exportSite',
-      async (payload) => this._hand(payload, exportSite(editor as never)),
+      async (payload) => this._hand(payload, exportSite(editor)),
       () => this._pages(editor).length > 0
     );
 
@@ -75,7 +80,7 @@ export class SitePublishExtension implements Extension {
       async (payload) => {
         const sid = this._pageAt(editor, payload?.pageId);
         if (!sid) return false;
-        return this._hand(payload, [exportPage(editor as never, sid)]);
+        return this._hand(payload, [exportPage(editor, sid)]);
       },
       (payload) => !!this._pageAt(editor, payload?.pageId)
     );
@@ -87,8 +92,8 @@ export class SitePublishExtension implements Extension {
 
   /** The pages this document has, or none when it is not a site. */
   private _pages(editor: Editor): { sid: string }[] {
-    const store = (editor as never as { dataStore?: { getNode: (sid: string) => unknown } }).dataStore;
-    const rootId = editor.getRootId?.();
+    const store = editor.dataStore as { getNode: (sid: string) => unknown } | undefined;
+    const rootId = editor.getRootId();
     if (!store || !rootId) return [];
     return pagesOf({ rootId, getNode: (sid: string) => store.getNode(sid) } as never as Access as never);
   }

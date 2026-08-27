@@ -85,8 +85,23 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       return;
     }
 
-    // Ignore Selection changes outside Editor
-    const editorViewDOM = (this.editor as any)._viewDOM;
+    /**
+     * The **view this handler belongs to** — see the field, which was given one for this reason and
+     * then not used here.
+     *
+     * `editor._viewDOM` is one slot and holds whichever view was created last. The site builder
+     * draws one page at three widths and mounts a fourth view of the whole document, so this
+     * compared the reader's caret against a content layer it was never in, decided the selection was
+     * *outside the editor*, and returned.
+     *
+     * What that cost, measured: **`editor.selection` never moved.** Wherever a reader clicked or
+     * dragged on a page, the model held the collapsed caret that entering text had put there — so
+     * every command that needs a range could not run. 굵게, 기울임, 복사, 잘라내기 and the link
+     * picker were all permanently unavailable, each of them correct at its own end. A page builder
+     * where text cannot be selected is not a text editor, and nothing reported it because every
+     * `canExecute` was answering honestly about a selection that was genuinely collapsed.
+     */
+    const editorViewDOM = this.view ?? (this.editor as any)._viewDOM;
     if (!editorViewDOM || !editorViewDOM.contentEditableElement) {
       logger.debug(LogCategory.SELECTION, 'Skipped: no editorViewDOM');
       return;

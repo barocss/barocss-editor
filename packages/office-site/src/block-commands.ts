@@ -328,7 +328,7 @@ export class SiteBlockExtension implements Extension {
   /** The definition a call is about, with how many places use it — or nothing when there is none. */
   private _definitionAt(editor: Editor, componentId: unknown): { sid: string; uses: number } | undefined {
     const store = this._store(editor);
-    const rootId = (editor as never as { getRootId?: () => string }).getRootId?.();
+    const rootId = editor.getRootId();
     if (!store || !rootId || typeof componentId !== 'string') return undefined;
 
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
@@ -955,7 +955,24 @@ export class SiteBlockExtension implements Extension {
     );
     steps.push(transformNode(sid, 'frame'));
 
-    return (await transaction(editor, steps as never).commit()).success === true;
+    const done = await transaction(editor, steps as never).commit();
+    if (done.success !== true) return false;
+
+    /**
+     * And the frame **stays selected**, which it did not.
+     *
+     * A detach redraws the block, and the redraw ends with a caret somewhere inside the new frame —
+     * so the reader who pressed 컴포넌트 해제 was left with a text cursor in the first paragraph of
+     * the thing they had just been holding. Every tool of this kind leaves the result of an ungroup
+     * selected, for the obvious reason: the next thing a reader does is to that object.
+     *
+     * It looked like it worked for as long as the selection sync was broken: a range selection was
+     * carrying a stale `nodeIds` from the node selection before it, so the document *said* the frame
+     * was selected while the model's own type said otherwise. Fixing the sync took the leftover away
+     * and showed what had always been happening.
+     */
+    void editor.executeCommand('setNode', { nodeIds: [sid] });
+    return true;
   }
 
   private async _setPage(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {

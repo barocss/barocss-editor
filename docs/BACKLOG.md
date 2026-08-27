@@ -46,6 +46,16 @@ entries are that.
 
 ## Open
 
+### `editor._viewDOM` is one slot — and the last place that read it
+
+Recorded before as a limitation; it turned out to be the cause of a large fault (see Done), and the
+handler had **already been given the view it belongs to** with a comment about this exact hazard.
+One call site had not been changed to use it.
+
+- [ ] **Look for the others.** The grep is `_viewDOM` and it is worth doing once rather than waiting
+  for the next symptom: anything on the editor that a *view* should own is wrong the moment a
+  document is drawn twice, and the site builder draws every page four times.
+
 ### The same eye on the deck's and Word's lists — 2026-08-28
 
 The site's sidebar work found three of its four gaps by **putting the lists side by side** rather
@@ -3146,6 +3156,38 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **Text could not be selected on a page.** `editor.selection` **never moved**: wherever a reader
+  clicked or dragged, the model held the collapsed caret that entering text had put there.
+
+  So every command that needs a range was unavailable — **굵게, 기울임, 복사, 잘라내기 and the link
+  picker**, all permanently grey, each of them correct at its own end. Nothing reported it because
+  every `canExecute` was answering *honestly* about a selection that was genuinely collapsed. A page
+  builder where text cannot be selected is not a text editor, and the product had been in that state
+  for as long as it has had three boards.
+
+  The cause is one line. `DOMSelectionHandlerImpl` compared the reader's caret against
+  `editor._viewDOM.contentEditableElement` — **one slot on the editor**, holding whichever view was
+  created last — decided the selection was *outside the editor*, and returned. A page is drawn at
+  three widths and the app mounts a fourth view of the whole document. The handler already carried
+  `this.view` for exactly this reason, with a comment recording what it cost the last time
+  (*"entering text on the desktop board puts the caret on the mobile one"*); this call site had not
+  been changed to use it.
+
+  Found by chasing the last chrome-audit item — *the link picker is a property on a toolbar* — and
+  measuring whether the picker could ever be enabled. It could not, in any state. Which is the third
+  time this sweep that "a control that can never be enabled" turned out to be the visible end of
+  something else.
+
+  Two things it uncovered on the way:
+
+  - **A range selection was carrying `nodeIds` from the node selection before it.** A selection
+    object that lies about itself, and a browser test was reading that leftover. Fixing the sync took
+    it away.
+  - **Detaching a component left a caret inside the frame rather than the frame selected.** Every
+    tool leaves the result of an ungroup selected, because the next thing a reader does is to that
+    object. It had always been happening; the stale `nodeIds` made the document *say* the frame was
+    selected while the model's own type said otherwise.
 
 - **The deck's toolbar answers to the selection too.** Measured the way Word's was, with one box
   selected: of **60 controls**, `align` was 10 of 12 disabled, `table` 9 of 9, `character` 5 of 5 and
