@@ -325,6 +325,11 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
    */
   {
     id: 'arrange',
+    /*
+     * Twelve controls that align, distribute and re-order **shapes**, and a document is mostly not
+     * about shapes. Measured with a caret in a paragraph: 12 of 12 disabled.
+     */
+    when: 'shape',
     controls: [
       { id: 'align-shapes-left', label: 'Align left', icon: 'align-boxes-left', command: 'alignShapesLeft', writes: ['x'] },
       { id: 'align-shapes-centre', label: 'Align centre', icon: 'align-boxes-centre', command: 'alignShapesCentre', writes: ['x'] },
@@ -387,6 +392,11 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
    */
   {
     id: 'table',
+    /*
+     * Fifteen: rows, columns, merges, the look flags. All of them ask the table around the caret,
+     * and a caret that is not in one has no table to ask. Measured: 15 of 15 disabled.
+     */
+    when: 'table',
     controls: [
       { id: 'row-above', label: 'Insert row above', icon: 'row-above', command: 'insertRowAbove' },
       { id: 'row-below', label: 'Insert row below', icon: 'row-below', command: 'insertRowBelow' },

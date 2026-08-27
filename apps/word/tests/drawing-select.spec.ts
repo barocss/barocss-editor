@@ -427,20 +427,23 @@ test.describe('leaving a drawing with the keyboard', () => {
 /**
  * The controls a **set** is for.
  *
- * Every one of these is dead until more than one shape is selected, which is the point: the ribbon
- * has to grey them out on its own answer rather than offering a gesture that does nothing.
+ * Every one of these is dead until more than one shape is selected, and the strip says so at **two
+ * levels** — which is the shape of the answer rather than a detail. The group is not offered at all
+ * while there is no shape to arrange, because a document is mostly not about shapes; and inside it,
+ * a control that needs a *set* greys while there is only one, because aligning one thing against
+ * itself is a gesture with no meaning.
  */
 test.describe('arranging a set from the ribbon', () => {
-  test('greys out until there is a set, then lines them up', async ({ page }) => {
+  test('is not offered without a shape, greys without a set, then lines them up', async ({ page }) => {
     await drawTwo(page);
 
     const left = page.locator('[data-control="align-shapes-left"]');
-    // Nothing selected: nothing to line up.
-    await expect(left).toBeDisabled();
+    // Nothing selected: the whole group is absent, not greyed. Twelve dead glyphs is a row.
+    await expect(left).toHaveCount(0);
 
     await page.locator('.w-canvas rect').click();
     await settled(page);
-    // One shape: still nothing — aligning one thing against itself is a gesture with no meaning.
+    // One shape: the group is here — z-order applies to one — and aligning does not.
     await expect(left).toBeDisabled();
 
     await page.locator('.w-canvas ellipse').click({ modifiers: ['Shift'] });

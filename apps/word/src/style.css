@@ -954,5 +954,4 @@ body {
  * platforms put it — and the two are different surfaces on purpose: a menubar holds what acts on the
  * document and the application, a ribbon holds what acts on the selection.
  */
-.w-titlebar { display: flex; align-items: center; gap: 12px; }
-.w-menubar { margin-left: 4px; }
+.w-menubar { padding: 6px 16px 0; }

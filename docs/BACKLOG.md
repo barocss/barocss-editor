@@ -106,11 +106,9 @@ evidence rather than opinion: the same twelve are *missing entirely* from the ot
   across three products get somewhere to be read**. A tooltip teaches a shortcut to someone who has
   already found the button.
 
-- [ ] **2. A toolbar that is contextual.** Word's second row is table operations, list operations and
-  arrange — 40+ icons that are meaningless unless a table or a drawing is selected, and they are on
-  screen always. Every serious editor answers this the same way (Word's own *Table Tools*, Figma's
-  contextual bar): the strip shows what the selection can be asked. The declaration already has `on`
-  for panel rows; a toolbar control needs the same field.
+- [x] **2. A toolbar that is contextual**, in Word. See Done. The deck's 60 controls have not been
+  measured the same way yet.
+
 
 - [ ] **3. Two kinds of toggle drawn identically.** 선택/텍스트 is *one of these* and
   데스크톱/태블릿/모바일 is *any of these*, and both are `ToolbarToggle` with an accent border. A
@@ -3109,6 +3107,33 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **Word's toolbar shows what the selection can be asked.** Measured with a caret in an ordinary
+  paragraph: of 69 controls, **arrange was 12 of 12 disabled and table 15 of 15**, and everything
+  else was live. Twenty-seven glyphs that could do nothing, on screen always — and the second row of
+  the strip existed because of them. It is eight controls long now.
+
+  The interesting part is the boundary. *"Hide a group where nothing can run"* is nearly the right
+  rule and needs no declaration at all — and it would have hidden almost the whole toolbar, because
+  measured with **nothing** selected, `character`, `list`, `paragraph`, `drawing` and `layout` are
+  all wholly disabled too. A reader who has just opened a document would meet an empty bar that
+  fills in when they click, which is worse than the problem. Those are disabled for want of a
+  *selection*; these are disabled for want of a *kind* of one, and that is a fact about the product,
+  so the product says it: `ControlGroup.when`.
+
+  Two contexts, answered differently, and both readings are real rather than one guessing at the
+  other's question. A **table** is the one around the caret, which the ribbon already computes for
+  the look flags. A **shape** has no such anchor — what "a shape is selected" means is exactly what
+  the arrange commands answer, so the group asks its own controls.
+
+  Which also produced a two-level answer worth keeping: the arrange group is absent while there is
+  no shape, and *inside* it a control that needs a **set** greys while there is only one, because
+  aligning one thing against itself is a gesture with no meaning.
+
+  And the menubar moved while doing this. It was beside the document title, which was wrong for a
+  reason only the screenshot showed: `doc-title-bar` is not an app brand, it is the *document's*
+  title, subtitle and author as editable fields, and a menubar dropped among them reads as one more
+  field.
 
 - **The deck's title bar went from twelve buttons to four things.** 파일 · 편집 · 슬라이드 · 보기,
   the slide count, the zoom, and two buttons: **발표** and **전체 보기**. Ten retired into the menus.

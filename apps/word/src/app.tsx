@@ -168,23 +168,27 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   return (
     <AppShell className="w-shell">
       <AppChrome className="w-chrome">
-        <div className="w-titlebar">
-          {instance ? <DocumentTitle editor={instance.editor} /> : null}
-          {/*
-            The **menubar**, beside the title and above the ribbon — both, because they answer
-            different questions. A menubar holds what acts on the *document and the application*
-            (print, find, which panes are open) and a toolbar holds what acts on the *selection*.
-            Word's toolbar carries 71 controls in one flat strip, which is what happens when one
-            strip is asked to be both.
+        {/*
+          The **menubar**, first — above the document's own title and above the ribbon.
 
-            It also gave two capabilities somewhere to be: printing was a `beforeprint` hook and an
-            object on `window`, and 찾기 was bound to a chord and on no control at all — so a reader
-            who did not already know ⌘F could not find it.
-          */}
-          {instance ? (
-            <MenuBar className="w-menubar" label="문서 메뉴" menus={menus} onPick={onMenu} />
-          ) : null}
-        </div>
+          Beside the title was the first shape and it was wrong: `doc-title-bar` is not an app
+          brand, it is the *document's* title, subtitle and author as editable fields, and a menubar
+          dropped among them reads as one more field. The menus belong to the application, so they go
+          where an application's menus go.
+
+          Both a menubar and a toolbar, because they answer different questions: a menubar holds what
+          acts on the *document and the application* (print, find, which panes are open) and a
+          toolbar holds what acts on the *selection*. Word's toolbar carried 71 controls in one flat
+          strip, which is what happens when one strip is asked to be both.
+
+          It also gave two capabilities somewhere to be: printing was a `beforeprint` hook and an
+          object on `window`, and 찾기 was bound to a chord and on no control at all — so a reader
+          who did not already know ⌘F could not find it.
+        */}
+        {instance ? (
+          <MenuBar className="w-menubar" label="문서 메뉴" menus={menus} onPick={onMenu} />
+        ) : null}
+        {instance ? <DocumentTitle editor={instance.editor} /> : null}
         {instance ? (
           <Ribbon
             editor={instance.editor}

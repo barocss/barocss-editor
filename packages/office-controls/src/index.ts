@@ -116,6 +116,32 @@ export interface Control {
 export interface ControlGroup<C extends Control = Control> {
   id: string;
   controls: C[];
+  /**
+   * That this group is **contextual** — drawn only when there is something for it to act on — and
+   * what that context is.
+   *
+   * ## Why a toolbar needs this at all
+   *
+   * Measured in Word on 2026-08-27, with a caret in an ordinary paragraph: of 69 toolbar controls,
+   * **arrange was 12 of 12 disabled and table was 15 of 15**. Everything else was live. So 39% of
+   * the strip was two rows of glyphs that could do nothing, on screen always, and the second row
+   * exists because of them.
+   *
+   * Every serious editor answers this the same way and has for twenty years — Word's own *Table
+   * Tools* appear when the caret is in a table and go when it leaves. The strip shows what the
+   * selection can be asked.
+   *
+   * ## Why it is declared and not inferred
+   *
+   * "Hide a group where nothing can run" is nearly the right rule and would have hidden almost the
+   * whole toolbar: measured with **nothing** selected, `character`, `list`, `paragraph`, `drawing`
+   * and `layout` are all wholly disabled too. A reader who has just opened a document would meet an
+   * empty bar that fills in when they click, which is worse than the problem.
+   *
+   * The difference is that those are disabled for want of a *selection* and these are disabled for
+   * want of a *kind* of one. That is a fact about the product, so the product says it.
+   */
+  when?: 'shape' | 'table';
 }
 
 /**

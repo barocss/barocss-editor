@@ -312,7 +312,25 @@ export function Ribbon({
         </ToolbarGroup>
       </span>
 
-      {WORD_TOOLBAR.map((group) => (
+      {/*
+        A **contextual** group is drawn only when there is something for it to act on.
+
+        Measured with a caret in an ordinary paragraph: of 69 controls, arrange was 12 of 12 disabled
+        and table 15 of 15, and everything else was live — two rows of glyphs that could do nothing,
+        on screen always, and the second row exists because of them.
+
+        The two are answered differently and both readings are real. A table is the one **around the
+        caret**, which this component already computes for the look flags. A shape has no such
+        anchor: what "a shape is selected" means is exactly what the arrange commands answer, so the
+        group asks its own controls. Neither is a guess at the other's question.
+      */}
+      {WORD_TOOLBAR.filter((group) =>
+        group.when === 'table'
+          ? !!table
+          : group.when === 'shape'
+            ? group.controls.some((control) => editor.canRun(control.command, control.payload))
+            : true
+      ).map((group) => (
         // `contents` so the separator and the group are laid out by the ribbon
         // itself: wrapped inside a span of their own they could only move as a
         // pair, and a row would break in the middle of a group instead of
