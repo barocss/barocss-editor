@@ -132,6 +132,75 @@ export class SiteDataExtension implements Extension {
       async (payload) => await this._remove(editor, payload),
       (payload) => this._dataset(editor, payload) !== undefined && this._usesOf(editor, payload) === 0
     );
+
+    /**
+     * **A copy of one**, which is the fourth act and the one no list offered for a dataset.
+     *
+     * A page can be made, renamed, duplicated and removed; a dataset could do three of those.
+     * Measured by putting the rail's three lists beside each other, which is how the component
+     * library's missing two were found as well.
+     *
+     * Worth having for the reason a page's duplicate is: the second one is nearly the first. A reader
+     * with a 상품 dataset who wants 지난-상품 wants those columns and those rows, then a few edits —
+     * and the alternative is typing the columns again and getting one of them slightly wrong, which
+     * is the fault that makes a `field:` reference draw nothing.
+     *
+     * The **name** is what has to change, because a name is what a collection points at: two
+     * datasets called 상품 is a list drawing one of them and nobody able to say which.
+     */
+    register(
+      'duplicateDataset',
+      async (payload) => await this._duplicate(editor, payload),
+      (payload) => this._dataset(editor, payload) !== undefined
+    );
+  }
+
+  /** A name nothing else has, made from the one being copied — 상품, 상품 2, 상품 3. */
+  private _freeName(editor: Editor, base: string): string {
+    const taken = new Set(
+      this._resources(editor).datasets.map((one) => String(one.attributes?.name ?? ''))
+    );
+    if (!taken.has(base)) return base;
+    for (let n = 2; n < 500; n += 1) {
+      const tried = `${base} ${n}`;
+      if (!taken.has(tried)) return tried;
+    }
+    return `${base} ${Date.now()}`;
+  }
+
+  private async _duplicate(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const dataset = this._dataset(editor, payload);
+    const store = this._store(editor);
+    if (!dataset || !store) return false;
+
+    const parentId = String(dataset.parentId ?? '');
+    if (!parentId) return false;
+
+    const attrs = (dataset.attributes ?? {}) as Record<string, unknown>;
+    const name = this._freeName(editor, String(attrs.name ?? '데이터'));
+    const step = addChild(
+      parentId,
+      node(
+        'dataset',
+        {
+          ...attrs,
+          name,
+          /*
+           * The label follows the name rather than being copied, because a reader looking at two
+           * rows both called 상품 in the rail cannot tell them apart — and the label is what the rail
+           * draws.
+           */
+          label: `${String(attrs.label ?? attrs.name ?? '데이터')} 사본`,
+          // A fresh array either way: two datasets sharing one records array is one document with
+          // two names for the same rows, which the next edit would prove.
+          fields: [...this._fields(dataset)],
+          records: this._records(dataset).map((row) => ({ ...row }))
+        },
+        []
+      ) as never,
+      ((store.getNode(parentId)?.content ?? []) as unknown[]).length
+    );
+    return (await transaction(editor, [step] as never).commit()).success === true;
   }
 
   // ── Reading ────────────────────────────────────────────────────────────────

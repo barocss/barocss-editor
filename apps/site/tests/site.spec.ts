@@ -1032,6 +1032,33 @@ test.describe('the layer list', () => {
     expect(await page.evaluate(() => (window as any).editor.selection?.nodeIds?.[0])).toBe(sid);
   });
 
+  test('renames a row where the name is read', async ({ page }) => {
+    await ready(page);
+    await layers(page);
+
+    /*
+     * Every other list in this rail renames in place, and this one sent a reader to the panel for it
+     * — a different pane, a different tab and a scroll, for the one edit they are most likely to be
+     * making *while looking at a list of names*. Double-click, because that is what a list of names
+     * has meant since before any of this existed.
+     */
+    const row = page.locator('[data-layer]').nth(1);
+    const sid = await row.getAttribute('data-layer');
+    await row.dblclick();
+    await page.waitForTimeout(300);
+
+    const field = page.locator('.st-layers-list input').first();
+    await expect(field).toHaveCount(1);
+    await field.fill('새 이름');
+    await field.press('Enter');
+    await page.waitForTimeout(500);
+
+    await expect(page.locator(`[data-layer="${sid}"] .st-layer-name`)).toHaveText('새 이름');
+    expect(
+      await page.evaluate((one) => (window as any).editor.dataStore.getNode(one)?.attributes?.name, sid)
+    ).toBe('새 이름');
+  });
+
   test('reveals where a block lives when it is selected on the canvas', async ({ page }) => {
     await ready(page);
     await layers(page);
@@ -1118,6 +1145,19 @@ test.describe('the component library', () => {
      * disabled control that says nothing is the commonest small cruelty in a tool.
      */
     await expect(remove).toHaveAttribute('title', /곳에서 쓰는 중/);
+  });
+
+  test('copies a dataset, columns rows and all', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="data"]').click();
+    await page.waitForTimeout(300);
+
+    const before = await page.locator('[data-dataset]').count();
+    await page.locator('[data-dataset-duplicate]').first().click();
+    await page.waitForTimeout(600);
+
+    // The fourth act, and the one no list offered for a dataset.
+    expect(await page.locator('[data-dataset]').count()).toBe(before + 1);
   });
 
   test('removes one nothing places any more', async ({ page }) => {

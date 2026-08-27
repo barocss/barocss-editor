@@ -426,6 +426,7 @@ describe('the site builder draws what it declares', () => {
          * and removed, while a component could **only be made**. One shape, three answers, and the
          * library was the list that only grew.
          */
+        duplicateDataset: 'the left rail — 데이터, the ⧉ on a dataset’s row',
         setComponentInfo: 'the left rail — 컴포넌트, the ✎ on a definition’s row, which becomes a field in place',
         removeComponent:
           'the left rail — 컴포넌트, the ␡ on a definition’s row, refused while anything places it and saying how many',

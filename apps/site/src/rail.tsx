@@ -367,6 +367,9 @@ function LayersPanel({
     where?: 'before' | 'after' | 'into';
   }>();
 
+  /** The row whose name a reader is typing, if any — see the field below for why it is in place. */
+  const [renaming, setRenaming] = useState<string | undefined>();
+
   const dropAt = (holds: boolean, y: number, box: DOMRect): 'before' | 'after' | 'into' => {
     const third = box.height / 3;
     if (holds && y > box.top + third && y < box.bottom - third) return 'into';
@@ -432,7 +435,31 @@ function LayersPanel({
 
   return (
     <div className="st-layers-list" data-layers>
-      {rows.map((row) => (
+      {rows.map((row) =>
+        renaming === row.sid ? (
+          /*
+             The **name**, typed where the name is read.
+
+             Every other list in this rail renames in place and this one sent a reader to the panel
+             for it — which is a different pane, a different tab and a scroll, for the one edit a
+             reader is most likely to be making *while looking at a list of names*. Double-click,
+             because that is what a list of names has meant since before any of this existed.
+          */
+          <span key={row.sid} className="st-layer" style={{ paddingLeft: `${8 + row.depth * 12}px` }}>
+            <span className="st-layer-twist" />
+            <Icon name={iconForBlock(doc.getNode(row.sid))} size={13} />
+            <TextField
+              value={row.label}
+              ariaLabel={`${row.label} 새 이름`}
+              onCommit={(next: string) => {
+                setRenaming(undefined);
+                if (next.trim() && next.trim() !== row.label) {
+                  run('setBlockFormat', { nodeIds: [row.sid], name: next.trim() });
+                }
+              }}
+            />
+          </span>
+        ) : (
         <button
           key={row.sid}
           type="button"
@@ -478,6 +505,7 @@ function LayersPanel({
           // The indent is the structure, so it is what the row is measured by rather than decoration.
           style={{ paddingLeft: `${8 + row.depth * 12}px` }}
           onClick={(event) => select(row.sid, event.shiftKey)}
+          onDoubleClick={() => setRenaming(row.sid)}
         >
           {/*
             The disclosure, and a **space where one would be** on a row that holds nothing.
@@ -551,7 +579,8 @@ function LayersPanel({
             </IconButton>
           </span>
         </button>
-      ))}
+        )
+      )}
     </div>
   );
 }
@@ -962,6 +991,20 @@ function DataPanel({
               data={{ 'dataset-edit': one.name }}
             >
               <Icon name="edit" size={13} />
+            </IconButton>
+            {/*
+              The fourth act, which no list offered for a dataset: a page can be made, renamed,
+              duplicated and removed and a dataset could do three. The second one is nearly the
+              first — a reader with 상품 who wants 지난-상품 wants those columns and those rows, and
+              the alternative is typing the columns again and getting one slightly wrong, which is
+              the fault that makes a `field:` reference draw nothing.
+            */}
+            <IconButton
+              label={`${one.label} 복제`}
+              onClick={() => run('duplicateDataset', { nodeId: one.sid })}
+              data={{ 'dataset-duplicate': one.name }}
+            >
+              <Icon name="duplicate" size={13} />
             </IconButton>
           </div>
         ))}

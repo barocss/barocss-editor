@@ -114,3 +114,75 @@ describe('the component library', () => {
     expect(named('cta')!.name).not.toBe('주 버튼');
   });
 });
+
+/**
+ * And the fourth act a **dataset** could not do.
+ *
+ * The same comparison that found the component library's missing two: a page can be made, renamed,
+ * duplicated and removed, and a dataset could do three of those. Worth having for the reason a
+ * page's duplicate is — the second one is nearly the first, and the alternative is typing the
+ * columns again and getting one slightly wrong, which is the fault that makes a `field:` reference
+ * draw nothing.
+ */
+describe('copying a dataset', () => {
+  let editor: Editor;
+  let store: DataStore;
+
+  const run = async (command: string, payload?: unknown) => await editor.executeCommand(command, payload);
+  const datasets = () => {
+    const found: any[] = [];
+    const walk = (sid: string) => {
+      const node = store.getNode(sid) as any;
+      if (!node) return;
+      if (node.stype === 'dataset') found.push({ sid, ...node.attributes });
+      for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
+    };
+    walk(editor.getRootId() as string);
+    return found;
+  };
+
+  beforeEach(() => {
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    store = new DataStore(undefined as never, schema as never);
+    editor = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite() as never, 'site');
+  });
+
+  it('copies the columns and the rows, and takes a name of its own', async () => {
+    const first = datasets()[0];
+    expect(await run('duplicateDataset', { nodeId: first.sid })).toBe(true);
+
+    const copy = datasets().find((one) => one.sid !== first.sid && one.name.startsWith(first.name))!;
+    expect(copy).toBeTruthy();
+    expect(copy.fields).toEqual(first.fields);
+    expect(copy.records).toEqual(first.records);
+
+    /*
+     * A name nothing else has, because a **name is what a collection points at**: two datasets
+     * called 상품 is a list drawing one of them and nobody able to say which.
+     */
+    expect(copy.name).not.toBe(first.name);
+    expect(datasets().map((one) => one.name)).toHaveLength(new Set(datasets().map((one) => one.name)).size);
+  });
+
+  it('does not share its rows with the one it came from', async () => {
+    const first = datasets()[0];
+    await run('duplicateDataset', { nodeId: first.sid });
+    const copy = datasets().find((one) => one.sid !== first.sid && one.name.startsWith(first.name))!;
+
+    await run('setDatasetCell', { nodeId: copy.sid, row: 0, field: first.fields[0], value: '바뀐 값' });
+
+    // Two datasets sharing one records array is one document with two names for the same rows, which
+    // the next edit proves — so the copy is a copy all the way down.
+    const now = datasets();
+    expect(now.find((one) => one.sid === copy.sid)!.records[0][first.fields[0]]).toBe('바뀐 값');
+    expect(now.find((one) => one.sid === first.sid)!.records[0][first.fields[0]]).toBe(
+      first.records[0][first.fields[0]]
+    );
+  });
+
+  it('refuses anything that is not a dataset', () => {
+    expect(editor.canExecuteCommand('duplicateDataset', { nodeId: editor.getRootId() })).toBe(false);
+    expect(editor.canExecuteCommand('duplicateDataset')).toBe(false);
+  });
+});
