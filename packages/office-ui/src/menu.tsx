@@ -46,6 +46,15 @@ export interface MenuEntry {
   /** The chord, already formatted for the reader's platform. Drawn, not bound. */
   hint?: string;
   disabled?: boolean;
+  /**
+   * That this entry is a **setting that is currently on** — 미리보기, 개요, a board that is shown.
+   *
+   * `undefined` for an entry that *does* something, which is most of them, and that difference is
+   * what the mark says: a reader scanning 보기 needs to know which of these are states they are in
+   * and which are actions they can take. Without it a menu of toggles reads as a menu of buttons and
+   * a reader has to press one to find out what it was.
+   */
+  checked?: boolean;
 }
 
 export interface MenuBlock {
@@ -145,8 +154,10 @@ export function Menu({
               <button
                 key={entry.id}
                 type="button"
-                role="menuitem"
+                role={entry.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+                aria-checked={entry.checked}
                 data-menu-item={entry.id}
+                data-checked={entry.checked ? 'true' : undefined}
                 disabled={entry.disabled}
                 /**
                  * `pointerdown` rather than click, like the toolbar's buttons: the
@@ -165,7 +176,18 @@ export function Menu({
                   hot && !entry.disabled && 'bg-[color:var(--ou-ground)]'
                 )}
               >
-                <span>{entry.label}</span>
+                <span className="flex items-center gap-1.5">
+                  {/*
+                    The mark keeps its room whether or not it is drawn, so a menu of toggles does not
+                    shift its labels sideways as a reader turns them on and off.
+                  */}
+                  {entry.checked !== undefined && (
+                    <span aria-hidden className="w-3 shrink-0 text-[color:var(--ou-accent)]">
+                      {entry.checked ? '✓' : ''}
+                    </span>
+                  )}
+                  {entry.label}
+                </span>
                 {entry.hint && (
                   <span className="text-[length:var(--ou-text-small)] text-[color:var(--ou-faint)]">
                     {entry.hint}

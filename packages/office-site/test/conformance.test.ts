@@ -371,8 +371,12 @@ describe('the site builder draws what it declares', () => {
          * list with no data draws nothing. So the rail offers the definitions and the datasets the
          * document actually holds, and the command refuses anything else.
          */
-        insertPlacement: 'the left rail — 컴포넌트, which offers the definitions this document holds',
-        insertDataList: 'the left rail — 데이터, which offers a dataset and a definition together',
+        /*
+         * These two were exemptions describing rail buttons, and 삽입 made them stale the same
+         * minute — the third and fourth to go that way since the menubar existed. They are still on
+         * the rail, where the things they need (a definition, a dataset) are listed; what changed is
+         * that a declaration says they are reachable rather than a sentence a person has to check.
+         */
         insertDataset: 'the left rail — 데이터 › 새 데이터, which names it and opens its grid',
 
         // ── The rail's list of pages ──────────────────────────────────────────────────────

@@ -147,12 +147,53 @@ test.describe('a site at several widths', () => {
 
   test('a width can be turned off to make room, and comes back', async ({ page }) => {
     await ready(page);
-    await page.locator('[data-control="width-tablet"]').click();
+
+    /*
+     * In **보기**, not on the toolbar, and the move is the point: which boards are on screen is a
+     * view setting a reader changes rarely, and a toolbar holds what acts on the selection. It was
+     * three accent-bordered toggles beside 선택/텍스트 — *one of these* drawn identically to *any of
+     * these*, so nothing said that turning all three boards off is allowed and turning both modes
+     * off is not.
+     */
+    const width = async (nth: number) => {
+      await page.locator('.st-menubar [data-menu="view"]').click();
+      await page.locator(`[data-menu-item="view.frames.${nth}"]`).click();
+      await page.waitForTimeout(300);
+    };
+
+    await width(1);
     await expect(page.locator('.st-frame')).toHaveCount(2);
     await expect(page.locator('[data-frame="tablet"]')).toHaveCount(0);
 
-    await page.locator('[data-control="width-tablet"]').click();
+    await width(1);
     await expect(page.locator('.st-frame')).toHaveCount(3);
+  });
+
+  test('says which boards are on, because a toggle a reader cannot read is a button', async ({ page }) => {
+    await ready(page);
+    await page.locator('.st-menubar [data-menu="view"]').click();
+
+    // A menu of settings drawn as a menu of actions makes a reader press one to find out what it
+    // was. All three are on when a site opens.
+    await expect(page.locator('[data-menu-item="view.frames.0"]')).toHaveAttribute('data-checked', 'true');
+    await expect(page.locator('[data-menu-item="view.preview.0"]')).not.toHaveAttribute('data-checked', 'true');
+  });
+
+  test('refuses to turn off the last board, which would show nothing', async ({ page }) => {
+    await ready(page);
+    const off = async (nth: number) => {
+      await page.locator('.st-menubar [data-menu="view"]').click();
+      await page.locator(`[data-menu-item="view.frames.${nth}"]`).click();
+      await page.waitForTimeout(250);
+    };
+
+    await off(1);
+    await off(2);
+    await expect(page.locator('.st-frame')).toHaveCount(1);
+
+    // And the last one stays: a reader with no boards has no board left to press.
+    await off(0);
+    await expect(page.locator('.st-frame')).toHaveCount(1);
   });
 
   test('shows the pages of the site, and switches between them', async ({ page }) => {
@@ -2364,11 +2405,18 @@ test.describe('the menubar', () => {
      * contract `PropertySheet` has with a product's own control kinds.
      */
     await bar(page).locator('[data-menu="view"]').click();
-    await page.locator('[data-menu-item="view.frames.0"]').click();
+    await page.locator('[data-menu-item="view.frames.1"]').click();
     await page.waitForTimeout(400);
 
     await expect(page.locator('[data-frame="tablet"]')).toHaveCount(0);
     await expect(page.locator('[data-frame="desktop"]')).toHaveCount(1);
+
+    // And back, from the entry that says "all three" — a set rather than a toggle, which is why it
+    // is its own block and carries no check mark.
+    await bar(page).locator('[data-menu="view"]').click();
+    await page.locator('[data-menu-item="view.frameSets.0"]').click();
+    await page.waitForTimeout(400);
+    await expect(page.locator('.st-frame')).toHaveCount(3);
   });
 });
 

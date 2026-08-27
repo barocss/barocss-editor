@@ -302,13 +302,24 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             hint: item.hint,
             disabled: item.command
               ? !editor?.canExecuteCommand?.(item.command, payloadFor(item, page) as never)
-              : false
+              : false,
+            /*
+             * The settings a reader is **in**, marked. `undefined` for everything that *does*
+             * something, which is what makes the mark mean something — a reader scanning 보기 needs
+             * to know which of these are states and which are actions.
+             */
+            checked:
+              item.view === 'preview'
+                ? preview
+                : item.view?.startsWith('frames.') && item.view !== 'frames.all'
+                  ? shown.includes(item.view.slice('frames.'.length) as BreakpointId)
+                  : undefined
           }))
         }))
       })),
     // The selection as well as the content: 복제 is possible or not depending on what is chosen, and
     // `watchContent` does not fire when only the selection moves.
-    [editor, revision, answers]
+    [editor, revision, answers, page, preview, shown]
   );
 
   /**
@@ -323,9 +334,43 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       const entry = siteMenuEntry(id);
       if (!entry) return;
 
-      if (entry.view === 'frames.desktop') return setShown(['desktop']);
-      if (entry.view === 'frames.all') return setShown(['desktop', 'tablet', 'mobile']);
-      if (entry.view === 'preview') return setPreview((was) => !was);
+      switch (entry.view) {
+        case 'frames.desktop':
+        case 'frames.tablet':
+        case 'frames.mobile': {
+          /*
+           * A board a reader turns off, and **not the last one**: a builder showing no boards is a
+           * builder showing nothing, and the reader who got there has no board left to press.
+           */
+          const which = entry.view.slice('frames.'.length) as BreakpointId;
+          if (!shown.includes(which)) return setShown([...shown, which].sort(
+            (a, b) => BREAKPOINTS.findIndex((one) => one.id === a) - BREAKPOINTS.findIndex((one) => one.id === b)
+          ));
+          if (shown.length === 1) return;
+          return setShown(shown.filter((one) => one !== which));
+        }
+        case 'frames.all':
+          return setShown(['desktop', 'tablet', 'mobile']);
+        case 'preview':
+          return setPreview((was) => !was);
+        /*
+         * The zoom is a **scale on the plane**, not a scroll — see `viewport.ts` for why that
+         * distinction cost a reader their top-left corner once already. So these go through the same
+         * `setView` every other zoom gesture does, rather than being a second idea of what zoom is.
+         */
+        case 'zoom.in':
+          return controls.zoomAt(Math.min(4, Math.round(view.zoom * 110) / 100));
+        case 'zoom.out':
+          return controls.zoomAt(Math.max(0.1, Math.round(view.zoom * 90) / 100));
+        case 'zoom.reset':
+          return controls.zoomAt(1);
+        case 'zoom.fit':
+          // The plane's own size, not a captured `onFit`: this callback outlives a resize, and a
+          // fit computed against a stale plane fits to a board that is no longer that size.
+          return void (plane.width > 0 && controls.fitTo(plane, { padding: 40 }));
+        default:
+          break;
+      }
 
       if (!entry.command) return;
       const payload = payloadFor(entry, page);
@@ -342,7 +387,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
       void editor?.executeCommand(entry.command, payload as never);
     },
-    [editor, page]
+    [editor, page, controls, view.zoom, plane, shown]
   );
   /**
    * What the pointer treats as the outermost thing.
@@ -684,8 +729,6 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             editor={editor}
             mode={mode}
             onMode={setMode}
-            shown={shown}
-            onShown={setShown}
           />
         ) : null}
       </AppChrome>

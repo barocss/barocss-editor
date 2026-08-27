@@ -108,6 +108,85 @@ export function ToolbarSeparator() {
 }
 
 /**
+ * **One of these**, drawn as one control rather than as several toggles.
+ *
+ * ## Why this is not `ToolbarToggle` used twice
+ *
+ * Because they are different questions and a reader has to be able to tell which they are being
+ * asked. Measured in the site builder before this existed: 선택/텍스트 (a tool mode — *one* of them
+ * is on, always) and 데스크톱/태블릿/모바일 (which boards are shown — *any* of them, none of them)
+ * were both a row of `ToolbarToggle`s with an accent border, side by side on one strip. Nothing said
+ * that turning off 태블릿 is allowed and turning off 선택 is not, and a reader who tried the second
+ * found out by nothing happening.
+ *
+ * A segmented control is what every platform draws for the first question, and it says it with
+ * **shape**: one enclosure, the choices inside it, the current one lifted. There is visibly one
+ * thing here with several settings, rather than several things that happen to be adjacent.
+ *
+ * `radiogroup` rather than a row of buttons, because that is the same sentence for a screen reader:
+ * a reader hearing "선택, 선택됨, 1 / 2" knows there is a second answer and that they have the first.
+ */
+export function SegmentedControl<Id extends string>({
+  id,
+  label,
+  value,
+  options,
+  onChange
+}: {
+  id: string;
+  /** What the *choice* is, not what the options are — "포인터 모드". */
+  label: string;
+  value: Id;
+  options: { id: Id; label: string; shortcut?: string }[];
+  onChange: (id: Id) => void;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      data-segmented={id}
+      className={cn(
+        'inline-flex shrink-0 items-center gap-0.5 rounded-[var(--ou-radius)] p-0.5',
+        // The enclosure is the whole point: it is what makes these one control and not three.
+        'bg-[color:var(--ou-ground)]'
+      )}
+    >
+      {options.map((one) => (
+        <button
+          key={one.id}
+          type="button"
+          role="radio"
+          aria-checked={value === one.id}
+          aria-keyshortcuts={one.shortcut}
+          data-segment={one.id}
+          data-state={value === one.id ? 'on' : 'off'}
+          // Pointer down, like every other control on this bar: a click moves focus out of the
+          // editor first, and the selection a command needs goes with it.
+          onPointerDown={(event) => {
+            event.preventDefault();
+            onChange(one.id);
+          }}
+          className={cn(
+            'h-[calc(var(--ou-control-h)-4px)] rounded-[calc(var(--ou-radius)-1px)] px-2',
+            'text-[length:var(--ou-text)] text-[color:var(--ou-muted)]',
+            STATE,
+            /*
+             * The chosen one is **lifted**, not outlined. An outline is what a toggle uses for *on*,
+             * and reusing it here would put the two questions back into one vocabulary — which is
+             * the thing this control exists to separate.
+             */
+            value === one.id &&
+              'bg-[color:var(--ou-panel)] text-[color:var(--ou-ink)] shadow-[var(--ou-lift-1)]'
+          )}
+        >
+          {one.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
  * A control with three states.
  *
  * `mixed` is a real value here, not a missing one: a selection across text that

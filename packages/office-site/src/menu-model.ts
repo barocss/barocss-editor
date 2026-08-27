@@ -25,6 +25,7 @@
  * *is* — that is the panel's, and the toolbar's.
  */
 
+import { SITE_TOOLBAR } from './toolbar-model';
 import {
   menuCommands,
   menuEntry,
@@ -91,17 +92,85 @@ export const SITE_MENUS: SiteMenu[] = [
         ]
       },
       {
+        /*
+         * The four every application has had since before menus were called menus, and this product
+         * had **none of them anywhere a reader could see**: `cut`, `copy`, `paste` and `selectAll`
+         * are all registered and all keyboard-only. A shortcut is a second way to reach something,
+         * and a reader on a laptop they borrowed has no first way.
+         */
+        id: 'clipboard',
+        items: [
+          { command: 'cut', label: '잘라내기', hint: '⌘X' },
+          { command: 'copy', label: '복사', hint: '⌘C' },
+          { command: 'paste', label: '붙여넣기', hint: '⌘V' },
+          { command: 'selectAll', label: '모두 선택', hint: '⌘A' }
+        ]
+      },
+      {
         id: 'blocks',
         items: [
           { command: 'duplicateBlocks', label: '복제', hint: '⌘D' },
-          { command: 'removeBlocks', label: '삭제', hint: 'Delete' }
+          { command: 'removeBlocks', label: '삭제', hint: 'Delete' },
+          /*
+           * Ordering, which a page has instead of a z-order: a page stacks, so *forward* and *back*
+           * mean **up** and **down**. Registered, bound to nothing, and on no control until now.
+           */
+          { command: 'moveBlockUp', label: '위로 옮기기' },
+          { command: 'moveBlockDown', label: '아래로 옮기기' }
         ]
+      },
+      {
+        id: 'find',
+        items: [{ command: 'find', label: '찾기', hint: '⌘F' }]
       },
       {
         id: 'components',
         items: [
           { command: 'createComponentFrom', label: '컴포넌트로 만들기' },
           { command: 'detachComponent', label: '컴포넌트 해제' }
+        ]
+      }
+    ]
+  },
+
+  /**
+   * **삽입**, derived from the toolbar's own declaration rather than written again.
+   *
+   * The fifteen inserts are already declared once, in `SITE_TOOLBAR`, with their labels and the words
+   * that say what each makes. A menu that listed them a second time would be the fifteenth and
+   * sixteenth places this repository has found one declaration copied — and the copy is always the
+   * one that stops being true.
+   *
+   * Two blocks, because a page is made of two kinds of thing: containers that hold, and blocks that
+   * go in one. That distinction is `puts`, which the model already carries.
+   */
+  {
+    id: 'insert',
+    label: '삽입',
+    blocks: [
+      {
+        id: 'containers',
+        items: SITE_TOOLBAR.filter((one) => one.group === 'insert' && one.puts === 'container').map(
+          (one) => ({ command: one.command, label: one.makes ?? one.label })
+        )
+      },
+      {
+        id: 'blocks',
+        items: SITE_TOOLBAR.filter((one) => one.group === 'insert' && one.puts === 'block').map(
+          (one) => ({ command: one.command, label: one.makes ?? one.label })
+        )
+      },
+      {
+        /*
+         * And the two a *page* has that a document does not: a placement of a component, and a list
+         * drawn once per row of a dataset. Both are on the rail, where the things they need — a
+         * definition, a dataset — are listed; here they are findable by name.
+         */
+        id: 'data',
+        items: [
+          { command: 'insertPlacement', label: '컴포넌트 놓기' },
+          { command: 'insertDataList', label: '데이터 목록' },
+          { command: 'insertDataset', label: '데이터셋 만들기' }
         ]
       }
     ]
@@ -125,8 +194,33 @@ export const SITE_MENUS: SiteMenu[] = [
          */
         id: 'frames',
         items: [
-          { view: 'frames.desktop', label: '데스크톱만' },
-          { view: 'frames.all', label: '세 폭 모두' }
+          /*
+           * One entry per board, each a **setting a reader is in** rather than an action — which is
+           * what the check mark says, and why they moved here off the toolbar. They were three
+           * accent-bordered toggles beside 선택/텍스트, which is *one of these*, and nothing said
+           * that turning all three off is allowed while turning both modes off is not.
+           */
+          { view: 'frames.desktop', label: '데스크톱' },
+          { view: 'frames.tablet', label: '태블릿' },
+          { view: 'frames.mobile', label: '모바일' }
+        ]
+      },
+      {
+        id: 'frameSets',
+        items: [{ view: 'frames.all', label: '세 폭 모두 보기' }]
+      },
+      {
+        /*
+         * How far away the reader is standing. On the toolbar's right today as a `ZoomControl`, which
+         * is right for a *pointer* — a reader who wants 120% drags — and useless for a reader who
+         * wants 100% exactly, or who is on a keyboard. Both, the way every tool of this kind does.
+         */
+        id: 'zoom',
+        items: [
+          { view: 'zoom.in', label: '확대', hint: '⌘+' },
+          { view: 'zoom.out', label: '축소', hint: '⌘-' },
+          { view: 'zoom.reset', label: '실제 크기', hint: '⌘0' },
+          { view: 'zoom.fit', label: '화면에 맞춤', hint: '⇧1' }
         ]
       },
       {

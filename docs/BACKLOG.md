@@ -86,7 +86,16 @@ evidence rather than opinion: the same twelve are *missing entirely* from the ot
   without that component publishing them upward. A half-built refactor of a file picker was not
   worth doing on the way past.
 
-- [ ] **1b. The toolbar stops carrying what is not a tool.** The split is the standard
+- [x] **1b. The site's toolbar stopped carrying what is not a tool**, and its menubar grew from 11
+  entries to 33. See Done. Word's and the deck's toolbars are still what they were.
+
+- [ ] **1b-ii. The site toolbar's object actions are still plain text.** 복제 · 삭제 ·
+  컴포넌트로 · 컴포넌트 해제 read as links rather than as buttons, and two of the four already
+  declare an icon nothing draws. Everything else in the suite's toolbars is an icon with a tooltip.
+
+- [ ] **1b-iii. The 링크 row is a property on a toolbar.** A page picker 130px wide sits in the strip
+  showing 링크 없음 with nothing selected. What a block links to is a *property*, and every other
+  property in this product is a panel row. The split is the standard
   one and it is standard because it is true: a **menubar** holds what acts on the *document and the
   application* — open, save, export, undo, find, zoom, which panels are shown — and a **toolbar**
   holds what acts on the *selection*. Today the deck's title bar mixes both, the site's one toolbar
@@ -3104,6 +3113,42 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The site's menubar grew from 11 entries to 33, and its toolbar gave up what was not a tool.**
+  Measured first: the product registers **128 commands** and the menubar reached eleven of them.
+
+  What was missing and is not any more:
+
+  - **잘라내기 · 복사 · 붙여넣기 · 모두 선택.** All four registered, all four keyboard-only, in no
+    menu and on no control. The four oldest items in the oldest menu there is, and a reader on a
+    borrowed laptop had no first way to any of them.
+  - **찾기**, same shape. And **위로/아래로 옮기기** — ordering, which is what a page has instead of
+    a z-order — registered, bound to nothing, on nothing.
+  - **삽입**, fifteen entries, **derived from `SITE_TOOLBAR` rather than written again**. The inserts
+    are already declared once with their labels and the words that say what each makes; a menu that
+    listed them a second time would be one more copy to go out of date. Two blocks, because `puts`
+    already distinguishes a container from a block that goes in one.
+  - **확대 · 축소 · 실제 크기 · 화면에 맞춤.** Zoom was a `ZoomControl` in the corner, which is right
+    for a reader who drags and useless for one who wants 100% exactly or is on a keyboard.
+
+  And the toolbar lost the board toggles, which is the division working: which boards are on screen
+  is a *view* setting changed rarely, and a toolbar holds what acts on the selection.
+
+  Two things that came out of drawing it, both shared:
+
+  - **`SegmentedControl`**, because *one of these* and *any of these* were the same control. 선택/텍스트
+    and 데스크톱/태블릿/모바일 were both accent-bordered toggles side by side, so nothing said that
+    turning all three boards off is allowed and turning both modes off is not. A segmented control
+    says it with **shape**: one enclosure, the current choice lifted rather than outlined.
+  - **A check mark on a menu entry.** A menu of settings drawn as a menu of actions makes a reader
+    press one to find out what it was. `checked` is `undefined` for everything that *does* something,
+    which is what makes the mark mean something.
+
+  Two more prose exemptions went **stale** the minute 삽입 existed — `insertPlacement` and
+  `insertDataList` had claims describing rail buttons. That is four so far.
+
+  And one thing the menu had to learn: **the last board cannot be turned off.** A builder showing no
+  boards is a builder showing nothing, and the reader who got there has no board left to press.
 
 - **A menubar in all three products, beside the toolbar rather than instead of it.** Both surfaces,
   because they answer different questions: a **menubar** holds what acts on the *document and the

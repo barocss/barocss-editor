@@ -34,6 +34,7 @@
 export { cn } from './cn';
 
 export {
+  SegmentedControl,
   Toolbar,
   ToolbarGroup,
   ToolbarSeparator,

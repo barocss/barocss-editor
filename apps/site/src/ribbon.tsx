@@ -2,6 +2,7 @@ import type { Editor } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import {
   ChoiceSelect,
+  SegmentedControl,
   Toolbar,
   ToolbarGroup,
   ToolbarSeparator,
@@ -9,11 +10,9 @@ import {
   useRevision
 } from '@barocss/office-ui';
 import {
-  BREAKPOINTS,
   pageLinkOf,
   pagesIn,
-  siteControlsIn,
-  type BreakpointId
+  siteControlsIn
 } from '@barocss/office-site';
 import type { PointerMode } from './overlay';
 
@@ -37,14 +36,10 @@ export function Ribbon({
   editor,
   mode,
   onMode,
-  shown,
-  onShown
 }: {
   editor: Editor;
   mode: PointerMode;
   onMode: (mode: PointerMode) => void;
-  shown: BreakpointId[];
-  onShown: (shown: BreakpointId[]) => void;
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
   /*
@@ -83,29 +78,27 @@ export function Ribbon({
     <Toolbar className="st-ribbon" label="사이트 도구">
       <ToolbarGroup id="mode">
         {/*
-          The pointer's owner, said out loud.
+          The pointer's owner, said out loud — and said as **one of these**.
 
           A reader gets here by double-clicking into text and leaves by pressing Escape, so the
-          toggle is rarely the way it changes — but a mode nothing on screen names is a mode a reader
-          cannot get out of when a gesture goes wrong.
+          control is rarely the way it changes; what it is for is naming the mode, so that a reader
+          whose gesture went wrong can see why.
+
+          A segmented control and not two toggles, which is what it was. 선택/텍스트 is *one* of them
+          and the board toggles beside it are *any* of them, and both were an accent-bordered
+          `ToolbarToggle` — so nothing on screen said that turning off 태블릿 is allowed and turning
+          off 선택 is not. `SegmentedControl` says it with shape.
         */}
-        <ToolbarToggle
-          id="mode-select"
-          label="선택"
-          state={mode === 'select' ? 'on' : 'off'}
-          onActivate={() => onMode('select')}
-        >
-          선택
-        </ToolbarToggle>
-        <ToolbarToggle
-          id="mode-text"
-          label="텍스트"
-          shortcut="Esc"
-          state={mode === 'text' ? 'on' : 'off'}
-          onActivate={() => onMode('text')}
-        >
-          텍스트
-        </ToolbarToggle>
+        <SegmentedControl
+          id="mode"
+          label="포인터 모드"
+          value={mode}
+          options={[
+            { id: 'select' as PointerMode, label: '선택' },
+            { id: 'text' as PointerMode, label: '텍스트', shortcut: 'Escape' }
+          ]}
+          onChange={onMode}
+        />
       </ToolbarGroup>
 
       <ToolbarSeparator />
@@ -173,25 +166,15 @@ export function Ribbon({
         )}
       </ToolbarGroup>
 
-      <ToolbarSeparator />
+      {/*
+        The board toggles used to be here, and they are in **보기** now.
 
-      <ToolbarGroup id="widths">
-        {BREAKPOINTS.map((one) => (
-          <ToolbarToggle
-            key={one.id}
-            id={`width-${one.id}`}
-            label={`${one.label} · ${one.width}px`}
-            state={shown.includes(one.id) ? 'on' : 'off'}
-            onActivate={() =>
-              onShown(
-                shown.includes(one.id) ? shown.filter((id) => id !== one.id) : [...shown, one.id]
-              )
-            }
-          >
-            {one.label}
-          </ToolbarToggle>
-        ))}
-      </ToolbarGroup>
+        Which boards are on screen is a *view* setting — something a reader changes rarely and needs
+        to be able to find — and a toolbar holds what acts on the selection. Three accent-bordered
+        toggles beside 선택/텍스트 also put two different questions into one vocabulary: one of these
+        against any of these, drawn identically, so nothing said that turning all three boards off is
+        allowed while turning both modes off is not.
+      */}
     </Toolbar>
   );
 }
