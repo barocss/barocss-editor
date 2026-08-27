@@ -71,7 +71,11 @@ application-level commands as equal-weight text buttons in the title bar, becaus
 else for them to go. That is the shape a menubar takes when a product does not have one, and it is
 evidence rather than opinion: the same twelve are *missing entirely* from the other two products.
 
-- [ ] **1. A menubar, and the toolbar stops carrying what is not a tool.** The split is the standard
+- [x] **1. A menubar, in the site builder.** Built — `office-ui`'s `MenuBar` and `office-site`'s
+  `menu-model.ts`, with 파일 · 편집 · 보기. See Done. The other two products still need it, and the
+  deck's twelve title-bar buttons are what it is for.
+
+- [ ] **1b. The toolbar stops carrying what is not a tool.** The split is the standard
   one and it is standard because it is true: a **menubar** holds what acts on the *document and the
   application* — open, save, export, undo, find, zoom, which panels are shown — and a **toolbar**
   holds what acts on the *selection*. Today the deck's title bar mixes both, the site's one toolbar
@@ -3089,6 +3093,49 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The site builder can publish.** `exportSite` rendered every page of a site for weeks, was held by
+  a test that compares it property by property against what the editor draws, and was reachable from
+  `window.exportSite` — put there for the console — and from **nothing a reader could press**.
+
+  The fix that matters is not the button. It is that publishing became a **command**: the harness
+  counts commands, and a capability that is not one is invisible to every check here. It reported
+  both new commands as unreachable within a minute of their existing, which is the check working.
+
+  `exportSite` and `exportPage` are two commands rather than one with a flag — a keyboard can bind to
+  one of them, and a reader publishing the page they are looking at is doing a different thing from a
+  reader publishing the site. They hand back what to write and write nothing: what a *file* is (a
+  download, a zip, a POST to a host) is the app's question, which is also what keeps the export
+  usable from a test with no download in it.
+
+- **A menubar, and the division it exists for.** `office-ui`'s `MenuBar`, built on the context menu
+  rather than beside it — `Menu` already draws a keyboard-walkable list at a point, portalled out of
+  whatever clips it, with shortcut hints and disabled entries. What a menubar adds is two behaviours:
+  left and right walk between menus, and once one is open, pointing at another opens it.
+
+  The division is the point and it is not a convention being followed: a **menubar** holds what acts
+  on the *document and the application* — things a reader does occasionally and needs to **find** —
+  and a **toolbar** holds what acts on the *selection*, which they do constantly and need to
+  **reach**. One strip cannot be both without becoming the wall of glyphs Word's second row is.
+
+  Declared in `menu-model.ts`, for the reason this backlog has now paid for four times: a surface that
+  declares nothing cannot be asked. Adding it made three prose exemptions **stale** the same minute —
+  `insertPage`, `duplicatePage` and `removePage` had claims describing rail buttons, and a declaration
+  says it now.
+
+  Two things measured rather than assumed:
+
+  - **An entry that could never be enabled.** `duplicatePage` and `removePage` answer `canExecute`
+    against a `nodeId` and return false without one, so from a menubar with no payload they were
+    greyed *forever*. The model declares `needs: 'page'` and the app fills in the page a reader is on
+    — which is genuinely the app's to know, since the document has no notion of one being open.
+  - **A default is only safe where being wrong is cheap.** Publishing falls back to the home page;
+    deleting does not. One costs a reader a file in their downloads folder and the other costs them
+    the page, and the two sit next to each other in the same menu.
+
+  It also gives the **99 keyboard shortcuts** across three products their first home: a tooltip
+  teaches a shortcut to a reader who has already found the button, which is the reader who needs it
+  least.
 
 - **A block can say how it arrives as a visitor scrolls to it.** `reveal` — five of the deck's own
   names (`rise`, `slideIn`, `pop`, `focusIn`, `appearSlowly`), because the deck arrived at that
