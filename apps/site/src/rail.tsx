@@ -241,25 +241,95 @@ function LayersPanel({
   page?: string;
   revision: number;
 }) {
-  const rows = useMemo(() => {
-    const found: { sid: string; depth: number; label: string; stype: string }[] = [];
+  const selected = new Set(selectedNodeIds(editor.selection) ?? []);
+
+  /**
+   * Which containers are **open**, and why the list starts closed.
+   *
+   * Measured on the sample's home page: **110 rows, 2,923 pixels of them, in a 928-pixel pane** —
+   * three screens of list, every one of them expanded because there was nothing to close. A reader
+   * looking for the footer scrolled past a hundred rows of things they were not looking for.
+   *
+   * Closed by default is what every tool of this kind does — Figma's frames, Sketch's groups,
+   * Photoshop's layer sets — and the reason is this number rather than convention: a page is a tree
+   * four deep, and the top of it is the only part a reader can hold in their head.
+   */
+  const [open, setOpen] = useState<Set<string>>(new Set());
+
+  /**
+   * And the ancestors of what is **selected**, always open.
+   *
+   * Which is what makes a closed list still useful: a reader clicks a card on the canvas and the
+   * list reveals where it lives, rather than showing a closed band and leaving them to guess which
+   * one to open. Every tool does this and it is the half that is easy to leave out.
+   */
+  const revealed = useMemo(() => {
+    const found = new Set<string>();
+    for (const sid of selected) {
+      let at = doc.getNode(sid)?.parentId;
+      for (let hop = 0; typeof at === 'string' && hop < 16; hop += 1) {
+        found.add(at);
+        at = doc.getNode(at)?.parentId;
+      }
+    }
+    return found;
+    // The selection is the input; `revision` is what says the document moved under it.
+  }, [doc, editor.selection, revision]);
+
+  /**
+   * Whether the whole tree **fits on a screen**, in which case none of this applies.
+   *
+   * Closed-by-default is an answer to 110 rows; it is not an answer to two. A reader who opens the
+   * button definition — a stack with a word in it — and is shown one closed row has been made to
+   * press a triangle to see a thing they could have been shown. The board's root changes when a
+   * definition is being edited, so this is the ordinary case rather than an edge one.
+   *
+   * `SMALL` is the pane, measured: 928 pixels tall and a row is 27, so a little over thirty fit.
+   * Twenty-four is comfortably inside that with room for the list to grow as a reader works.
+   */
+  const SMALL = 24;
+  const whole = useMemo(() => {
+    let n = 0;
     const walk = (sid: string, depth: number) => {
-      if (depth > 12) return;
+      if (depth > 12 || n > SMALL) return;
       for (const child of blocksIn(doc, sid)) {
-        found.push({
-          sid: child,
-          depth,
-          label: labelOfBlock(doc, child),
-          stype: String(doc.getNode(child)?.stype)
-        });
+        n += 1;
         walk(child, depth + 1);
       }
     };
     if (page) walk(page, 0);
-    return found;
+    return n;
   }, [doc, page, revision]);
+  const all = whole <= SMALL;
 
-  const selected = new Set(selectedNodeIds(editor.selection) ?? []);
+  const rows = useMemo(() => {
+    const found: {
+      sid: string;
+      depth: number;
+      label: string;
+      stype: string;
+      holds: boolean;
+      shown: boolean;
+    }[] = [];
+    const walk = (sid: string, depth: number) => {
+      if (depth > 12) return;
+      for (const child of blocksIn(doc, sid)) {
+        const holds = blocksIn(doc, child).length > 0;
+        const shown = holds && (all || open.has(child) || revealed.has(child));
+        found.push({
+          sid: child,
+          depth,
+          label: labelOfBlock(doc, child),
+          stype: String(doc.getNode(child)?.stype),
+          holds,
+          shown
+        });
+        if (shown) walk(child, depth + 1);
+      }
+    };
+    if (page) walk(page, 0);
+    return found;
+  }, [doc, page, revision, open, revealed, all]);
   const select = (sid: string, add: boolean) => {
     const now = [...selected];
     const next = add ? (now.includes(sid) ? now.filter((one) => one !== sid) : [...now, sid]) : [sid];
@@ -284,6 +354,38 @@ function LayersPanel({
           style={{ paddingLeft: `${8 + row.depth * 12}px` }}
           onClick={(event) => select(row.sid, event.shiftKey)}
         >
+          {/*
+            The disclosure, and a **space where one would be** on a row that holds nothing.
+
+            Without the space the icons of a container and of a block sit at different distances from
+            the indent, and a list four deep reads as two lists interleaved. It is a `span` rather
+            than a nested `<button>` because a button inside a button is not valid HTML and the
+            browser's own recovery from it is to close the outer one early — the whole row after it
+            would stop being clickable.
+          */}
+          <span
+            className="st-layer-twist"
+            data-twist={row.holds ? (row.shown ? 'open' : 'closed') : undefined}
+            role={row.holds ? 'button' : undefined}
+            aria-label={row.holds ? `${row.label} ${row.shown ? '접기' : '펼치기'}` : undefined}
+            aria-expanded={row.holds ? row.shown : undefined}
+            onClick={
+              row.holds
+                ? (event) => {
+                    // The row underneath means *select me*, and this means *show what is in me*.
+                    event.stopPropagation();
+                    setOpen((was) => {
+                      const next = new Set(was);
+                      if (row.shown) next.delete(row.sid);
+                      else next.add(row.sid);
+                      return next;
+                    });
+                  }
+                : undefined
+            }
+          >
+            {row.holds && <Icon name={row.shown ? 'disclosed' : 'collapsed'} size={12} />}
+          </span>
           {/*
             The shape before the word. A list of forty rows is scanned rather than read, and every
             tool of this kind heads the row with what the thing *is* — `iconForBlock` is the

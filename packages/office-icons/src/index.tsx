@@ -65,6 +65,7 @@ import {
   RotateCw,
   Plus,
   Copy,
+  ChevronRight,
   ChevronUp,
   ChevronDown,
   EyeOff,
@@ -210,6 +211,16 @@ const ICONS: Record<string, LucideIcon> = {
    */
   previous: ChevronUp,
   next: ChevronDown,
+  /**
+   * A **disclosure** — a container in a layer list that can be opened or closed.
+   *
+   * Sideways and downward rather than `next`/`previous`' up and down pair, and the distinction is
+   * the same one `move-up` makes against them: those two walk a list, and these two say whether what
+   * is *inside* something is showing. A reader who saw the same chevron for both would be shown one
+   * picture for two ideas.
+   */
+  collapsed: ChevronRight,
+  disclosed: ChevronDown,
   accept: Check,
   reject: X,
   // Accept-all and reject-all are the same acts at a different scale, so they

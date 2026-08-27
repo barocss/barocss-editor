@@ -980,3 +980,25 @@ body {
   color: var(--st-muted);
 }
 .st-rail-item[data-current='true'] .st-rail-icon { color: var(--st-accent); }
+
+/*
+ * ── The layer list's disclosures ───────────────────────────────────────────
+ *
+ * A fixed column whether or not there is a triangle in it, so a container's icon and a block's icon
+ * sit at the same distance from the indent — without it a list four deep reads as two lists
+ * interleaved.
+ */
+.st-layer-twist {
+  display: inline-flex;
+  width: 14px;
+  flex: 0 0 14px;
+  align-items: center;
+  justify-content: center;
+  color: var(--st-faint);
+  border-radius: 3px;
+}
+.st-layer-twist[data-twist] { cursor: pointer; }
+.st-layer-twist[data-twist]:hover {
+  background: var(--st-line);
+  color: var(--st-ink);
+}

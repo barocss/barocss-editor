@@ -734,6 +734,141 @@ test.describe('the exported page', () => {
  * The question that found the gap was the plainest a reader can ask — *where do I add a heading?* —
  * and the answer was nowhere. These are that answer, and each is one thing a reader could not do.
  */
+/**
+ * The **구성** list, which is a tree rather than a wall.
+ *
+ * Measured on the sample's home page before it was one: **110 rows, 2,923 pixels of them, in a
+ * 928-pixel pane** — three screens of list, every row expanded because there was nothing to close.
+ * A reader looking for the footer scrolled past a hundred rows of things they were not looking for.
+ *
+ * Closed by default is what every tool of this kind does — Figma's frames, Sketch's groups,
+ * Photoshop's layer sets — and here the reason is that number rather than the convention: a page is
+ * a tree four deep and the top of it is the only part a reader can hold in their head.
+ */
+test.describe('the layer list', () => {
+  const layers = async (page: Page) => {
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+  };
+
+  test('opens closed, so the page is its bands rather than everything it holds', async ({ page }) => {
+    await ready(page);
+    await layers(page);
+
+    const rows = await page.locator('[data-layer]').count();
+    const blocks = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const home = (root.content ?? [])
+        .map((one: string) => store.getNode(one))
+        .find((one: any) => one?.stype === 'surface');
+      let n = 0;
+      const walk = (sid: string) => {
+        const node = store.getNode(sid);
+        if (!node) return;
+        n += 1;
+        for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
+      };
+      for (const child of home.content ?? []) walk(child);
+      return n;
+    });
+
+    // A number rather than a shrug: the page holds around a hundred blocks and the list shows a dozen.
+    expect(blocks).toBeGreaterThan(60);
+    expect(rows).toBeLessThan(20);
+  });
+
+  test('opens and closes what a triangle is on, and nothing else', async ({ page }) => {
+    await ready(page);
+    await layers(page);
+
+    const before = await page.locator('[data-layer]').count();
+    const twist = page.locator('[data-twist]').first();
+    await expect(twist).toHaveAttribute('data-twist', 'closed');
+
+    await twist.click();
+    await page.waitForTimeout(300);
+    expect(await page.locator('[data-layer]').count()).toBeGreaterThan(before);
+    await expect(page.locator('[data-twist]').first()).toHaveAttribute('data-twist', 'open');
+
+    await page.locator('[data-twist]').first().click();
+    await page.waitForTimeout(300);
+    expect(await page.locator('[data-layer]').count()).toBe(before);
+  });
+
+  test('a triangle shows what is inside; the row beside it selects', async ({ page }) => {
+    await ready(page);
+    await layers(page);
+
+    /*
+     * Two gestures on one row, and they must not be the same one. Opening a band to look for
+     * something inside it is not choosing the band — a reader who had their selection replaced every
+     * time they went looking would lose it constantly.
+     */
+    await page.locator('[data-twist]').first().click();
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as any).editor.selection?.nodeIds?.length ?? 0)).toBe(0);
+
+    await page.locator('[data-layer]').first().click();
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as any).editor.selection?.nodeIds?.length ?? 0)).toBe(1);
+  });
+
+  test('is simply open when the whole tree fits on a screen', async ({ page }) => {
+    await ready(page);
+
+    /*
+     * Closed-by-default is an answer to 110 rows; it is not an answer to two. A reader who opens the
+     * button definition — a stack with a word in it — and is shown one closed row has been made to
+     * press a triangle to see something they could have been shown. The board's root changes when a
+     * definition is being edited, so this is the ordinary case rather than an edge one.
+     */
+    await page.locator('[data-panel="components"]').click();
+    await page.locator('[data-edit-component="cta"]').click();
+    await page.waitForTimeout(500);
+    await layers(page);
+
+    await expect(page.locator('.st-layer')).toHaveText(['가로 스택', '본문']);
+    await expect(page.locator('[data-twist="open"]')).toHaveCount(1);
+  });
+
+  test('reveals where a block lives when it is selected on the canvas', async ({ page }) => {
+    await ready(page);
+    await layers(page);
+
+    /*
+     * The half that is easy to leave out, and the one that makes a closed list still usable: a reader
+     * clicks a card and the list opens the path to it, rather than showing a closed band and leaving
+     * them to guess which one.
+     */
+    const deep = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      let found = '';
+      let best = -1;
+      const walk = (sid: string, depth: number) => {
+        const node = store.getNode(sid);
+        if (!node) return;
+        if (node.stype === 'heading' && depth > best) {
+          best = depth;
+          found = sid;
+        }
+        for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
+      };
+      walk(editor.getRootId(), 0);
+      return found;
+    });
+    expect(await page.locator(`[data-layer="${deep}"]`).count()).toBe(0);
+
+    await page.evaluate((one) => (window as any).editor.executeCommand('setNode', { nodeIds: [one] }), deep);
+    await page.waitForTimeout(500);
+
+    await expect(page.locator(`[data-layer="${deep}"]`)).toHaveCount(1);
+    await expect(page.locator(`[data-layer="${deep}"]`)).toHaveAttribute('data-selected', 'true');
+  });
+});
+
 test.describe('the rail', () => {
   test('offers what a page is made of, and every one of them on a page nobody has touched', async ({ page }) => {
     await ready(page);
