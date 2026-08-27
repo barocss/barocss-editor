@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, currentSlide } from './helpers';
+import { openDeck, currentSlide, pickMenu } from './helpers';
 
 /**
  * The definitions a deck **inherits from**, opened and changed.
@@ -17,7 +17,7 @@ import { openDeck, currentSlide } from './helpers';
  * and a layout has **no size of its own** — it is the shape of the slides that follow it.
  */
 const openLayoutDialog = async (page: Page) => {
-  await page.locator('[data-slide-layout]').click();
+  await pickMenu(page, 'slide.setup.1');
   await expect(page.locator('[data-design-edit]').first()).toBeVisible();
 };
 
@@ -151,7 +151,7 @@ test.describe('a layout’s own answers', () => {
     page
   }) => {
     await openDeck(page);
-    await page.locator('[data-slide-layout]').click();
+    await pickMenu(page, 'slide.setup.1');
     await page.locator('[data-design-edit="layout-body"]').click();
     await page.waitForTimeout(600);
 

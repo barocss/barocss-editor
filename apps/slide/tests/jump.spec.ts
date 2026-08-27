@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, currentSlide } from './helpers';
+import { openDeck, currentSlide, pickMenu } from './helpers';
 
 /**
  * A deck that is **not a line**: a shape a reader presses, and the page it shows.
@@ -149,7 +149,7 @@ test.describe('a button on a slide', () => {
     });
     await page.waitForTimeout(500);
 
-    await page.locator('[data-audit]').first().click();
+    await pickMenu(page, 'view.panes.0');
     await page.waitForTimeout(500);
     // Certainly wrong: a press that does nothing in front of a room is not a matter of taste.
     await expect(page.locator('.sl-audit-list li[data-audit="dead-jump"]')).toHaveCount(1);
@@ -169,7 +169,7 @@ test.describe('a button on a slide', () => {
  */
 test.describe('the deck’s map', () => {
   const openMap = async (page: Page) => {
-    await page.locator('[data-deck-map]').click();
+    await pickMenu(page, 'view.panes.1');
     await expect(page.locator('.sl-map')).toHaveCount(1);
     await page.waitForTimeout(500);
   };
@@ -289,7 +289,7 @@ test.describe('the deck’s map', () => {
 test.describe('moving a jump in the map', () => {
   test('drops an arrow’s end on another page, and the button follows', async ({ page }) => {
     await openDeck(page);
-    await page.locator('[data-deck-map]').click();
+    await pickMenu(page, 'view.panes.1');
     await expect(page.locator('.sl-map')).toHaveCount(1);
     await page.waitForTimeout(500);
 
@@ -347,7 +347,7 @@ test.describe('moving a jump in the map', () => {
 
   test('changes nothing when the end is dropped on no page', async ({ page }) => {
     await openDeck(page);
-    await page.locator('[data-deck-map]').click();
+    await pickMenu(page, 'view.panes.1');
     await page.waitForTimeout(500);
 
     const before = await page.evaluate(() => {
@@ -390,7 +390,7 @@ test.describe('moving a jump in the map', () => {
  */
 test.describe('a deck that moves by its links', () => {
   const setLinksOnly = async (page: Page) => {
-    await page.locator('[data-deck-map]').click();
+    await pickMenu(page, 'view.panes.1');
     await page.waitForTimeout(400);
     await page.locator('.sl-map').getByLabel('덱 이동 방식').selectOption('links');
     await page.waitForTimeout(500);
@@ -439,8 +439,14 @@ test.describe('a deck that moves by its links', () => {
 
     // A scroll is a line, and a deck that is not one has nothing for it to run along. Greyed
     // rather than left to fail, which is the rule wherever the model has no answer.
-    const scroll = page.locator('[data-scroll-present]');
+    await page.locator('.sl-menubar [data-menu="view"]').click();
+    const scroll = page.locator('[data-menu-item="view.present.1"]');
     await expect(scroll).toBeDisabled();
+    /*
+     * And it **says why**. A disabled control that says nothing is the commonest small cruelty in a
+     * tool: the reader can see the thing they want and has no way to learn what would make it
+     * available. The button carried this sentence; the menu entry carries it now.
+     */
     await expect(scroll).toHaveAttribute('title', /스크롤은 한 줄/);
   });
 
@@ -547,7 +553,7 @@ test.describe('a button into another deck', () => {
 
     // 볼 것: whether that page is there is not a question this document can answer, and a reader
     // who deleted the button on a 고칠 것 would have lost a working link.
-    await page.locator('[data-audit]').first().click();
+    await pickMenu(page, 'view.panes.0');
     await page.waitForTimeout(500);
     const row = page.locator('.sl-audit-list li[data-audit="away"]');
     await expect(row).toHaveCount(1);

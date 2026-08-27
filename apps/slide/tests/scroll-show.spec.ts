@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, currentSlide, visibleBoxes } from './helpers';
+import { openDeck, currentSlide, visibleBoxes, pickMenu } from './helpers';
 
 /**
  * Showing a deck by scrolling it.
@@ -67,7 +67,7 @@ const scrollBy = async (page: Page, delta: number, times = 1) => {
 test.describe('scrolling through a deck', () => {
   test('walks the deck with the wheel, and comes back the same way', async ({ page }) => {
     await openDeck(page);
-    await page.locator('[data-scroll-present]').click();
+    await pickMenu(page, 'view.present.1');
     await page.waitForTimeout(400);
 
     const start = await currentSlide(page);
@@ -89,7 +89,7 @@ test.describe('scrolling through a deck', () => {
 
   test('a key press changes the picture, every time', async ({ page }) => {
     await openDeck(page);
-    await page.locator('[data-scroll-present]').click();
+    await pickMenu(page, 'view.present.1');
     await page.waitForTimeout(400);
 
     /*
@@ -110,7 +110,7 @@ test.describe('scrolling through a deck', () => {
   test('holds a build **part way** where the scroll stopped', async ({ page }) => {
     await openDeck(page);
     const sid = await withBuild(page);
-    await page.locator('[data-scroll-present]').click();
+    await pickMenu(page, 'view.present.1');
     await page.waitForTimeout(500);
 
     // Into the build, but not through it: one wheel notch of its share.
@@ -137,7 +137,7 @@ test.describe('scrolling through a deck', () => {
 
   test('says where the reader is, in the show’s own numbers', async ({ page }) => {
     await openDeck(page);
-    await page.locator('[data-scroll-present]').click();
+    await pickMenu(page, 'view.present.1');
     await page.waitForTimeout(400);
 
     /*
@@ -265,7 +265,7 @@ test.describe('scrolling through a deck', () => {
     });
     await page.waitForTimeout(700);
 
-    await page.locator('[data-scroll-present]').click();
+    await pickMenu(page, 'view.present.1');
     await page.waitForTimeout(600);
 
     /** Every badge a placement draws, as the reader sees it. */
@@ -307,14 +307,14 @@ test.describe('scrolling through a deck', () => {
         return Number(shell.dataset.scrollSpan);
       });
 
-    await page.locator('[data-scroll-present]').click();
+    await pickMenu(page, 'view.present.1');
     await page.waitForTimeout(400);
     const plain = await span();
 
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
     await withBuild(page);
-    await page.locator('[data-scroll-present]').click();
+    await pickMenu(page, 'view.present.1');
     await page.waitForTimeout(400);
 
     /*
@@ -344,7 +344,7 @@ test.describe('scrolling through a deck', () => {
     });
     await page.waitForTimeout(300);
 
-    await page.locator('[data-scroll-present]').click();
+    await pickMenu(page, 'view.present.1');
     await page.waitForTimeout(400);
     await scrollBy(page, 300, 4);
 
@@ -364,7 +364,7 @@ test.describe('scrolling through a deck', () => {
 
   test('leaves the wheel to the editor when the show ends', async ({ page }) => {
     await openDeck(page);
-    await page.locator('[data-scroll-present]').click();
+    await pickMenu(page, 'view.present.1');
     await page.waitForTimeout(400);
     await scrollBy(page, 300, 4);
     const moved = await currentSlide(page);

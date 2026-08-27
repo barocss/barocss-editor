@@ -180,3 +180,16 @@ export async function pinZoom(page: Page, percent = 60): Promise<void> {
     (percent / 100).toFixed(2)
   );
 }
+
+/**
+ * Pick an entry out of the **menubar**, by the id the model gives it.
+ *
+ * The deck's twelve title-bar buttons retired into the menus, and this is what the checks that used
+ * to press them do instead. By id rather than by words, because a menu entry's words are the one
+ * thing about it a product is free to change.
+ */
+export async function pickMenu(page: Page, id: string) {
+  await page.locator(`.sl-menubar [data-menu="${id.split('.')[0]}"]`).click();
+  await page.locator(`[data-menu-item="${id}"]`).click();
+  await page.waitForTimeout(250);
+}

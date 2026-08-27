@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, pickMenu } from './helpers';
 
 /**
  * The reader's own decks, **by name**.
@@ -19,7 +19,7 @@ import { openDeck } from './helpers';
  * library — which is also the honest thing to test: the first row a reader ever makes.
  */
 const openLibrary = async (page: Page) => {
-  await page.locator('[data-deck-library]').click();
+  await pickMenu(page, 'file.library.0');
   await expect(page.locator('[data-library-keep]')).toBeVisible();
 };
 
@@ -157,7 +157,7 @@ test.describe('a component from another deck', () => {
   /** Keep the sample deck (which defines a card) and start a deck of the reader's own. */
   const withKit = async (page: Page) => {
     await openDeck(page);
-    await page.locator('[data-deck-library]').click();
+    await pickMenu(page, 'file.library.0');
     await page.locator('[data-library-keep]').click();
     await page.waitForTimeout(700);
     await page.locator('[data-library-close]').click();
@@ -165,14 +165,14 @@ test.describe('a component from another deck', () => {
 
     // A new deck: the library keeps the old one, which is the point.
     page.once('dialog', (dialog) => void dialog.accept());
-    await page.locator('[data-deck-new]').click();
+    await pickMenu(page, 'file.document.0');
     await page.waitForTimeout(700);
   };
 
   test('brings a value in from the same deck, and remembers whose it is', async ({ page }) => {
     await withKit(page);
 
-    await page.locator('[data-deck-library]').click();
+    await pickMenu(page, 'file.library.0');
     await page.locator('[data-library-look="one-engine-two-products"]').click();
     await page.waitForTimeout(600);
 
@@ -231,7 +231,7 @@ test.describe('a component from another deck', () => {
   test('lists what another deck defines, and brings one in', async ({ page }) => {
     await withKit(page);
 
-    await page.locator('[data-deck-library]').click();
+    await pickMenu(page, 'file.library.0');
     await page.locator('[data-library-look="one-engine-two-products"]').click();
     await page.waitForTimeout(600);
 
@@ -280,7 +280,7 @@ test.describe('a component from another deck', () => {
   }) => {
     await withKit(page);
 
-    await page.locator('[data-deck-library]').click();
+    await pickMenu(page, 'file.library.0');
     await page.locator('[data-library-look="one-engine-two-products"]').click();
     await page.waitForTimeout(500);
     await page.locator('[data-library-bring="metric-card"]').click();
@@ -323,7 +323,7 @@ test.describe('a component from another deck', () => {
     });
 
 
-    await page.locator('[data-deck-library]').click();
+    await pickMenu(page, 'file.library.0');
     await page.locator('[data-library-look="one-engine-two-products"]').click();
     await page.waitForTimeout(600);
 
@@ -364,15 +364,15 @@ test.describe('a library where the reader is looking', () => {
   test('says in the components panel that a definition’s deck has moved on', async ({ page }) => {
     await openDeck(page);
     // Keep this deck as a brand kit, then start a deck of the reader's own and import the card.
-    await page.locator('[data-deck-library]').click();
+    await pickMenu(page, 'file.library.0');
     await page.locator('[data-library-keep]').click();
     await page.waitForTimeout(700);
     await page.locator('[data-library-close]').click();
     page.once('dialog', (dialog) => void dialog.accept());
-    await page.locator('[data-deck-new]').click();
+    await pickMenu(page, 'file.document.0');
     await page.waitForTimeout(700);
 
-    await page.locator('[data-deck-library]').click();
+    await pickMenu(page, 'file.library.0');
     await page.locator('[data-library-look="one-engine-two-products"]').click();
     await page.waitForTimeout(500);
     await page.locator('[data-library-bring="metric-card"]').click();
@@ -429,7 +429,7 @@ test.describe('a library where the reader is looking', () => {
 
   test('offers the library’s names to a button that points at another deck', async ({ page }) => {
     await openDeck(page);
-    await page.locator('[data-deck-library]').click();
+    await pickMenu(page, 'file.library.0');
     await page.locator('[data-library-keep]').click();
     await page.waitForTimeout(700);
     await page.locator('[data-library-close]').click();

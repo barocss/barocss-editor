@@ -2833,3 +2833,12 @@ body {
  * the thirteenth to go, and somewhere the deck's 21 shortcuts can be read.
  */
 .sl-menubar { margin-left: 12px; }
+
+/*
+ * The file picker's button, hidden — the reader asks in 파일 now.
+ *
+ * Hidden rather than removed: the input beside it is what a browser hands a file to, and
+ * `FilePick` owns the awkward part of driving one. `display: none` would take the input with it,
+ * so only the button goes.
+ */
+.sl-file-picker > button { display: none; }

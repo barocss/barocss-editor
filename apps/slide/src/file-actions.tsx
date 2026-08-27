@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useImperativeHandle, useState, type Ref } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { Button, FilePick } from '@barocss/office-ui';
 import {
@@ -31,14 +31,33 @@ import {
  * here a reader could lose work to, so it asks, and only when there *is* work:
  * a reader who has changed nothing is not made to confirm anything.
  */
+/**
+ * The three acts, handed to whoever drew the control that asks for them.
+ *
+ * A **ref** rather than three props passed down, because the thing that has to stay here is the
+ * picker's hidden input: a file cannot be handed to a browser by any amount of clicking a button,
+ * so the input has to exist in the DOM whether or not there is a button beside it. What moved out
+ * is only *where the reader asks* — the menubar — and that is exactly what an imperative handle is
+ * for.
+ */
+export interface DeckFileActions {
+  create: () => void;
+  save: () => void;
+  /** Ask the browser for a file. The reading happens here when one comes back. */
+  open: () => void;
+}
+
 export function FileActions({
   editor,
-  onOpened
+  onOpened,
+  ref
 }: {
   editor: Editor | null;
   onOpened?: () => void;
+  ref?: Ref<DeckFileActions>;
 }) {
   const [problem, setProblem] = useState<string>();
+  const [picker, setPicker] = useState<HTMLInputElement | null>(null);
 
   const save = () => {
     const tree = editor?.exportDocument();
@@ -110,32 +129,34 @@ export function FileActions({
     onOpened?.();
   };
 
+  useImperativeHandle(ref, () => ({ create, save, open: () => picker?.click() }));
+
   /**
-   * The suite's controls, not this app's.
+   * The picker, and nothing else.
    *
-   * Both buttons and the picker were hand-written here, and the picker's own
-   * awkward part — hide the input, click it from a button, and clear its value so
-   * the same file twice is two openings — is now `FilePick`'s, in `office-ui`,
-   * where Word can have it the day it opens a document.
+   * The three buttons that used to be here are in **파일** now — they were three of the twelve
+   * application-level commands strung along the title bar, which is the shape a menubar takes in a
+   * product that does not have one. What cannot move is the input: `setInputFiles` needs the real
+   * control, and no amount of clicking a button hands a browser a file.
+   *
+   * `FilePick`'s own button is hidden rather than removed, because the awkward part of a file input
+   * — hide it, click it from something, clear its value so the same file twice is two openings — is
+   * that component's and worth keeping in one place.
    */
   return (
     <>
-      <Button title="새 프레젠테이션" onClick={create} data={{ 'deck-new': '' }}>
-        새로 만들기
-      </Button>
-      <Button title="파일로 저장" onClick={save} data={{ 'deck-save': '' }}>
-        저장
-      </Button>
-      <FilePick
-        title="파일 열기"
-        accept=".json,application/json"
-        ariaLabel="슬라이드 파일"
-        onPick={(file) => void open(file)}
-        data={{ 'deck-open': '' }}
-        inputData={{ 'deck-file': '' }}
-      >
-        열기
-      </FilePick>
+      <span className="sl-file-picker" ref={(host) => setPicker(host?.querySelector('input') ?? null)}>
+        <FilePick
+          title="파일 열기"
+          accept=".json,application/json"
+          ariaLabel="슬라이드 파일"
+          onPick={(file) => void open(file)}
+          data={{ 'deck-open': '' }}
+          inputData={{ 'deck-file': '' }}
+        >
+          열기
+        </FilePick>
+      </span>
 
       {/*
         * What was wrong with the file, in the chrome rather than in an alert.

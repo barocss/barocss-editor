@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
-import { FileActions } from './file-actions';
+import { FileActions, type DeckFileActions } from './file-actions';
 import { Filmstrip } from './filmstrip';
 import { SelectionOverlay } from './overlay';
 import { NotesPane } from './notes';
@@ -79,6 +79,7 @@ import { PresenterWindow } from './presenter-window';
 import { Properties } from './properties';
 import { Ribbon } from './ribbon';
 import { SLIDES_MENUS, slidesMenuEntry, slidesMenuId } from '@barocss/office-slides';
+
 import { Stage } from './stage';
 import { DeckMapView } from './deck-map-view';
 import { LibraryDialog } from './library-dialog';
@@ -405,84 +406,14 @@ export function App({
   >(null);
 
   /**
-   * The menubar, drawn from `SLIDES_MENUS` and greyed against the deck.
+   * The three file acts, which live with the picker because the picker's input cannot move.
    *
-   * An entry a reader can press that then does nothing is worse than one that is not there, and
-   * every command in the model already answers `canExecute`. A `view` entry has no command to ask,
-   * so it is never disabled: whether the audit pane is up is always a question a reader may answer.
+   * A file cannot be handed to a browser by clicking a button, so the input has to be in the DOM
+   * whether or not a button stands beside it. What moved is where a reader *asks* — 파일 — and an
+   * imperative handle is exactly what that situation is for.
    */
-  const menus = useMemo(
-    () =>
-      SLIDES_MENUS.map((menu) => ({
-        id: menu.id,
-        label: menu.label,
-        blocks: menu.blocks.map((block) => ({
-          id: block.id,
-          items: block.items.map((item, index) => ({
-            id: slidesMenuId(menu, block, index),
-            label: item.label,
-            hint: item.hint,
-            disabled: item.command
-              ? !editor?.canExecuteCommand?.(
-                  item.command,
-                  // `needs: 'slide'` is the model asking for the slide on screen, which only the app
-                  // knows — the document has no notion of one being current. Without it
-                  // 슬라이드 복제 answers `canExecute` against nothing and is greyed forever.
-                  (item.needs === 'slide' ? { ...item.payload, slideId: current } : item.payload) as never
-                )
-              : false
-          }))
-        }))
-      })),
-    [editor, answers, current]
-  );
+  const files = useRef<DeckFileActions>(null);
 
-  /**
-   * What a pick does — a command, or a change to how the reader is looking.
-   *
-   * The `view` branch is the one `switch` the model promises, and it is most of this menubar: opening
-   * a dialog, showing a pane, starting a presentation. None of those is a fact about the deck, which
-   * is why none of them is a command.
-   */
-  const onMenu = useCallback(
-    (id: string) => {
-      const entry = slidesMenuEntry(id);
-      if (!entry) return;
-
-      switch (entry.view) {
-        case 'library':
-          return setDialog((was) => (was === 'library' ? null : 'library'));
-        case 'template':
-          return setDialog('template');
-        case 'dialog.size':
-          return setDialog('size');
-        case 'dialog.layout':
-          return setDialog('layout');
-        case 'dialog.theme':
-          return setDialog('theme');
-        case 'audit':
-          return setAuditing((was) => !was);
-        case 'map':
-          return setMapping((was) => !was);
-        case 'focus':
-          return setFocused((on) => !on);
-        case 'present':
-          return setPresenting(true);
-        case 'scroll':
-          return setScrolling((was) => !was);
-        default:
-          break;
-      }
-
-      if (entry.command) {
-        void editor?.executeCommand(
-          entry.command,
-          (entry.needs === 'slide' ? { ...entry.payload, slideId: current } : entry.payload) as never
-        );
-      }
-    },
-    [editor, current]
-  );
 
   /**
    * How large the slide is drawn.
@@ -927,6 +858,116 @@ export function App({
    * giving a deck to somebody, in the order they do them.
    */
   const [auditing, setAuditing] = useState(false);
+
+  /**
+   * The menubar, drawn from `SLIDES_MENUS` and greyed against the deck.
+   *
+   * An entry a reader can press that then does nothing is worse than one that is not there, and
+   * every command in the model already answers `canExecute`. A `view` entry has no command to ask,
+   * so it is never disabled: whether the audit pane is up is always a question a reader may answer.
+   */
+  const menus = useMemo(
+    () =>
+      SLIDES_MENUS.map((menu) => ({
+        id: menu.id,
+        label: menu.label,
+        blocks: menu.blocks.map((block) => ({
+          id: block.id,
+          items: block.items.map((item, index) => ({
+            id: slidesMenuId(menu, block, index),
+            label: item.label,
+            hint: item.hint,
+            /*
+             * Why a greyed entry is greyed. A disabled control that says nothing is the commonest
+             * small cruelty in a tool: the reader can see the thing they want and has no way to
+             * learn what would make it available.
+             */
+            title:
+              item.view === 'scroll' && moveBy === 'links'
+                ? '버튼으로만 이동하는 덱은 스크롤로 볼 수 없습니다 — 스크롤은 한 줄이기 때문입니다'
+                : undefined,
+            checked:
+              item.view === 'audit'
+                ? auditing
+                : item.view === 'map'
+                  ? mapping
+                  : item.view === 'focus'
+                    ? focused
+                    : undefined,
+            disabled: item.view === 'scroll' ? moveBy === 'links' : item.command
+              ? !editor?.canExecuteCommand?.(
+                  item.command,
+                  // `needs: 'slide'` is the model asking for the slide on screen, which only the app
+                  // knows — the document has no notion of one being current. Without it
+                  // 슬라이드 복제 answers `canExecute` against nothing and is greyed forever.
+                  (item.needs === 'slide' ? { ...item.payload, slideId: current } : item.payload) as never
+                )
+              : false
+          }))
+        }))
+      })),
+    [editor, answers, current, moveBy, auditing, mapping, focused]
+  );
+
+  /**
+   * What a pick does — a command, or a change to how the reader is looking.
+   *
+   * The `view` branch is the one `switch` the model promises, and it is most of this menubar: opening
+   * a dialog, showing a pane, starting a presentation. None of those is a fact about the deck, which
+   * is why none of them is a command.
+   */
+  const onMenu = useCallback(
+    (id: string) => {
+      const entry = slidesMenuEntry(id);
+      if (!entry) return;
+
+      switch (entry.view) {
+        case 'file.new':
+          return files.current?.create();
+        case 'file.open':
+          return files.current?.open();
+        case 'file.save':
+          return files.current?.save();
+        case 'library':
+          return setDialog((was) => (was === 'library' ? null : 'library'));
+        case 'template':
+          return setDialog('template');
+        case 'dialog.size':
+          return setDialog('size');
+        case 'dialog.layout':
+          return setDialog('layout');
+        case 'dialog.theme':
+          return setDialog('theme');
+        case 'audit':
+          return setAuditing((was) => !was);
+        case 'map':
+          return setMapping((was) => !was);
+        case 'focus':
+          return setFocused((on) => !on);
+        case 'present':
+          return setPresenting(true);
+        case 'scroll':
+          /*
+           * The whole act, which was the button's: where the reader already is, then the show.
+           * A scroll show that started at the top would lose the slide they were looking at.
+           */
+          if (moveBy === 'links') return;
+          setScrolled(scrollTopOf(current, stretches));
+          setScrolling(true);
+          return setPresenting(true);
+        default:
+          break;
+      }
+
+      if (entry.command) {
+        void editor?.executeCommand(
+          entry.command,
+          (entry.needs === 'slide' ? { ...entry.payload, slideId: current } : entry.payload) as never
+        );
+      }
+    },
+    [editor, current, moveBy, stretches]
+  );
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f') return;
@@ -1692,6 +1733,7 @@ export function App({
           />
 
           <FileActions
+            ref={files}
             editor={editor}
             onOpened={() => {
               // A new document is a new deck: the slide that was on screen is not
@@ -1708,18 +1750,6 @@ export function App({
               setLibraryName(undefined);
             }}
           />
-          {/*
-            * The library, beside the file buttons because it is the same kind of act with a
-            * different destination: a file is the deck a reader can email, and a library row is
-            * the deck they can **point at from inside a document**.
-            */}
-          <Button
-            title="덱 라이브러리"
-            data={{ 'deck-library': '' }}
-            onClick={() => setDialog(dialog === 'library' ? null : 'library')}
-          >
-            라이브러리
-          </Button>
 
           {/*
             * The suite's button, four times — and the stylesheet's
@@ -1732,79 +1762,29 @@ export function App({
             * arriving from the other side: not a hand-rolled control, but a
             * hand-rolled control's leftover rules restyling a shared one.
             */}
-          <Button
-            title="템플릿으로 시작"
-            onClick={() => setDialog('template')}
-            data={{ 'deck-template': '' }}
-          >
-            템플릿
-          </Button>
-          <Button title="슬라이드 크기" onClick={() => setDialog('size')} data={{ 'slide-size': '' }}>
-            크기
-          </Button>
-          <Button
-            title="레이아웃"
-            onClick={() => setDialog('layout')}
-            data={{ 'slide-layout': '' }}
-          >
-            레이아웃
-          </Button>
-          <Button
-            title="덱 검사"
-            data={{ audit: '' }}
-            onClick={() => setAuditing((was) => !was)}
-          >
-            검사
-          </Button>
           {/*
-            * The deck as a picture of where its presses go.
-            *
-            * Beside 검사 because it answers the same kind of question — *is this deck all right?*
-            * — about the one thing a list cannot show: a page nothing leads to, and a button that
-            * leads nowhere.
-            */}
+            The two that stay, and which of them is **the** button.
+            
+            발표 is what a presentation tool is for, so it is the accent — the one thing on this bar
+            a reader can find without reading. It was plain while 전체 보기 beside it was blue,
+            because a *pressed toggle* and a *primary action* were the same colour: the blue meant
+            "this view is on" and read as "this is the main button".
+          */}
           <Button
-            title="덱 지도"
-            data={{ 'deck-map': '' }}
-            onClick={() => setMapping((was) => !was)}
+            tone="accent"
+            title="처음부터 발표"
+            onClick={() => setPresenting(true)}
+            data={{ present: '' }}
           >
-            지도
-          </Button>
-          <Button title="처음부터 발표" onClick={() => setPresenting(true)} data={{ present: '' }}>
             발표
-          </Button>
-          {/*
-            * The other way to show a deck: scrolled rather than clicked.
-            *
-            * Beside 발표 because it is the same act with a different audience — a presenter
-            * in a room clicks, a reader sent a link scrolls. The offset starts where the
-            * reader already was, so opening it does not lose their place.
-            */}
-          <Button
-            /*
-             * Refused in a **links-only** deck, visibly and with the reason: a scroll is a *line*,
-             * and a deck that is not one has nothing for it to run along. Greying it is the rule
-             * this product follows wherever the model has no answer — the frame's refused drag and
-             * a placement's size fields — rather than letting a reader scroll through a maze.
-             */
-            title={
-              moveBy === 'links'
-                ? '버튼으로만 이동하는 덱은 스크롤로 볼 수 없습니다 — 스크롤은 한 줄이기 때문입니다'
-                : '스크롤로 보기'
-            }
-            disabled={moveBy === 'links'}
-            onClick={() => {
-              setScrolled(scrollTopOf(current, stretches));
-              setScrolling(true);
-              setPresenting(true);
-            }}
-            data={{ 'scroll-present': '' }}
-          >
-            스크롤 상영
           </Button>
           <Button
             title="한 장만 보기 / 전체 보기"
-            pressed={focused}
+            /*
+             * Not `pressed`, which draws the accent: a view toggle beside the app's headline action
+             * cannot wear the same colour as it. The label already says which state it is in — it
+             * reads 전체 보기 when a reader is on one slide and 한 장 보기 when they are not.
+             */
             onClick={() => setFocused((on) => !on)}
             data={{ 'focus-toggle': '' }}
           >

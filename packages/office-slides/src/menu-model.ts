@@ -44,14 +44,24 @@ export const SLIDES_MENUS: SlidesMenu[] = [
     blocks: [
       {
         /*
-         * **Where a deck comes from.** A library row is the deck a reader can point at from inside a
-         * document; a template is the deck they start from.
+         * The three a file menu has had since there were file menus.
          *
-         * 새로 만들기 · 저장 · 열기 are **not here yet**, and that is a stated limit rather than an
-         * omission: `FileActions` holds those three inside itself along with the file picker's
-         * hidden input, so a menu entry cannot call them without that component publishing them
-         * upward. A half-built refactor of a file picker is not worth doing on the way past — the
-         * three are still buttons, and moving them is its own change.
+         * **Views, not commands**, and that is the honest shape: what a *file* is — a download, a
+         * blob, a handle to something on disk — is the app's question, and the document does not
+         * know a file exists. Opening one is not an edit either: it replaces the document and takes
+         * the history with it, so there is no undo back to what was on screen.
+         */
+        id: 'document',
+        items: [
+          { view: 'file.new', label: '새로 만들기' },
+          { view: 'file.open', label: '열기…' },
+          { view: 'file.save', label: '저장', hint: '⌘S' }
+        ]
+      },
+      {
+        /*
+         * **Where else a deck comes from.** A library row is the deck a reader can point at from
+         * inside a document; a template is the deck they start from.
          */
         id: 'library',
         items: [

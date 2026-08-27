@@ -47,6 +47,14 @@ export interface MenuEntry {
   hint?: string;
   disabled?: boolean;
   /**
+   * Why, when an entry is greyed for a reason a reader could act on.
+   *
+   * A disabled control that says nothing is the commonest small cruelty in a tool: the reader can
+   * see the thing they want and has no way to learn what would make it available. Drawn as the
+   * entry's own tooltip, which is where the toolbar already puts the same sentence.
+   */
+  title?: string;
+  /**
    * That this entry is a **setting that is currently on** — 미리보기, 개요, a board that is shown.
    *
    * `undefined` for an entry that *does* something, which is most of them, and that difference is
@@ -159,6 +167,7 @@ export function Menu({
                 data-menu-item={entry.id}
                 data-checked={entry.checked ? 'true' : undefined}
                 disabled={entry.disabled}
+                title={entry.title}
                 /**
                  * `pointerdown` rather than click, like the toolbar's buttons: the
                  * click that closes this menu must not also reach the slide

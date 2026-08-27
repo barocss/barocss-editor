@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, pickMenu } from './helpers';
 
 /**
  * The decks a reader can start from.
@@ -26,7 +26,7 @@ const slidesOf = (page: Page) =>
   });
 
 const openGallery = async (page: Page) => {
-  await page.locator('[data-deck-template]').click();
+  await pickMenu(page, 'file.library.1');
   await expect(page.locator('[data-template-start]')).toHaveCount(1);
 };
 
@@ -133,7 +133,7 @@ test.describe('starting from a template', () => {
 
   test('leaves 새로 만들기 alone, which is still the least a deck can be', async ({ page }) => {
     await openDeck(page);
-    await page.locator('[data-deck-new]').click();
+    await pickMenu(page, 'file.document.0');
     await page.waitForTimeout(600);
 
     // One title slide: the default answer stays the default answer, and the gallery is the

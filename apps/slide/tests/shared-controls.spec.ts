@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pickMenu } from './helpers';
 
 /**
  * The chrome uses the suite's controls, and this is the ratchet that keeps it.
@@ -184,10 +185,10 @@ test('every button with no words has a name', async ({ page }) => {
   await page.waitForSelector('.sl-overlay');
 
   // Open the panes, or their buttons are not in the DOM to be asked about.
-  for (const opener of ['[data-audit]', '.sl-layers-closed']) {
-    const found = page.locator(opener).first();
-    if ((await found.count()) > 0) await found.click();
-  }
+  // The audit pane is opened from 보기 now — it was one of the twelve title-bar buttons.
+  await pickMenu(page, 'view.panes.0');
+  const layers = page.locator('.sl-layers-closed').first();
+  if ((await layers.count()) > 0) await layers.click();
   await page.waitForTimeout(400);
 
   const nameless = await page.evaluate(() =>

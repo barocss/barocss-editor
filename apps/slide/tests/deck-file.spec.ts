@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, pickMenu } from './helpers';
 
 /**
  * A deck leaving the app and coming back.
@@ -22,7 +22,7 @@ test.describe('saving a deck', () => {
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.locator('[data-deck-save]').click()
+      pickMenu(page, 'file.document.2')
     ]);
 
     // Named after what the deck is about, which is what a reader would have typed.
@@ -60,7 +60,7 @@ test.describe('opening a deck', () => {
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.locator('[data-deck-save]').click()
+      pickMenu(page, 'file.document.2')
     ]);
     const saved = await download.path();
 
@@ -139,7 +139,7 @@ test.describe('starting a deck', () => {
     await openDeck(page);
     expect(await slideCount(page)).toBeGreaterThan(1);
 
-    await page.locator('[data-deck-new]').click();
+    await pickMenu(page, 'file.document.0');
     await page.waitForTimeout(600);
 
     // One slide in the model, in the rail — and in the DOM, which is the half the
@@ -173,7 +173,7 @@ test.describe('starting a deck', () => {
     page
   }) => {
     await openDeck(page);
-    await page.locator('[data-deck-new]').click();
+    await pickMenu(page, 'file.document.0');
     await page.waitForTimeout(600);
 
     const hint = (role: string) =>
@@ -240,7 +240,7 @@ test.describe('starting a deck', () => {
       asked.push(dialog.message());
       void dialog.dismiss();
     });
-    await page.locator('[data-deck-new]').click();
+    await pickMenu(page, 'file.document.0');
     await page.waitForTimeout(400);
 
     expect(asked).toHaveLength(1);

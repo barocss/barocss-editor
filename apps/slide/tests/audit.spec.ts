@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, currentSlide, visibleBoxes } from './helpers';
+import { openDeck, currentSlide, visibleBoxes, pickMenu } from './helpers';
 
 /**
  * The deck's own check.
@@ -18,7 +18,7 @@ const panel = (page: Page) => page.locator('.sl-audit');
 const rows = (page: Page) => page.locator('.sl-audit-list li');
 
 const openAudit = async (page: Page) => {
-  await page.locator('[data-audit]').first().click();
+  await pickMenu(page, 'view.panes.0');
   await expect(panel(page)).toHaveCount(1);
 };
 

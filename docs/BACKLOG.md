@@ -74,17 +74,13 @@ evidence rather than opinion: the same twelve are *missing entirely* from the ot
 - [x] **1. A menubar, in all three products, beside the toolbar rather than instead of it.** Built.
   See Done.
 
-- [ ] **1a. The deck's twelve title-bar buttons retire into it.** They are still there and the
-  menubar duplicates them, which is untidy rather than wrong — every application has a command in
-  two places. What makes it worth doing is that a row of twelve equal-weight buttons prioritises
-  nothing: 발표 is a primary action a presenter hits constantly and 크기 is a dialog opened twice in
-  a deck's life, and they are the same button. The end state is 발표 and 전체 보기 staying as
-  buttons and the other ten living only in the menus. **Costed: 78 checks name them by `data-*`.**
+- [x] **1a. The deck's twelve title-bar buttons retired into it.** Ten of them; 발표 and 전체 보기
+  stayed. See Done.
 
-- [ ] **1c. 새로 만들기 · 저장 · 열기 are not in the deck's 파일 menu.** `FileActions` holds those
-  three inside itself along with the file picker's hidden input, so a menu entry cannot call them
-  without that component publishing them upward. A half-built refactor of a file picker was not
-  worth doing on the way past.
+
+- [x] ~~**1c. 새로 만들기 · 저장 · 열기 are not in the deck's 파일 menu.**~~ They are — `FileActions`
+  publishes them through an imperative handle and keeps the picker's input, which is the one part
+  that cannot move. See Done.
 
 - [x] **1b. The site's toolbar stopped carrying what is not a tool**, and its menubar grew from 11
   entries to 33. See Done. Word's and the deck's toolbars are still what they were.
@@ -3113,6 +3109,34 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The deck's title bar went from twelve buttons to four things.** 파일 · 편집 · 슬라이드 · 보기,
+  the slide count, the zoom, and two buttons: **발표** and **전체 보기**. Ten retired into the menus.
+
+  Which two stay is the decision worth recording. A menubar does not mean no buttons — it means the
+  buttons left are the ones a reader reaches for **without reading**, and a presentation tool has
+  exactly one of those. Everything else on that bar was a dialog opened twice in a deck's life
+  (크기, 레이아웃) or a pane looked at occasionally (검사, 지도), sitting at the same size and weight
+  as the thing the product is for.
+
+  Three things came out of doing it:
+
+  - **`FileActions` publishes its three acts through an imperative handle.** What could not move is
+    the picker's hidden input — a file cannot be handed to a browser by clicking a button, so the
+    input has to be in the DOM whether or not a button stands beside it. What moved is only *where
+    the reader asks*, which is what a ref is for.
+  - **A menu entry can say why it is greyed.** 스크롤 상영 is refused in a links-only deck, with the
+    reason in its tooltip — *a scroll is a line, and a deck that is not one has nothing to run
+    along*. Moving it into a menu would have thrown that sentence away, and a disabled control that
+    says nothing is the commonest small cruelty in a tool. `MenuEntry` carries a `title` now.
+  - **A pressed toggle and a primary action were the same colour.** 전체 보기 was blue because its
+    view is on, beside a plain 발표 — so the accent read as *this is the main button* and pointed at
+    the wrong one. 발표 is the accent now and the toggle is plain; its label already says which state
+    it is in.
+
+  Costed at 78 checks naming the buttons by `data-*`; the ones that moved did so through one helper,
+  `pickMenu(page, 'file.document.0')`, which asks by the id the model gives an entry rather than by
+  words — a menu entry's words being the one thing a product is free to change.
 
 - **The site's menubar grew from 11 entries to 33, and its toolbar gave up what was not a tool.**
   Measured first: the product registers **128 commands** and the menubar reached eleven of them.

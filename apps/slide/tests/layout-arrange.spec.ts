@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, currentSlide } from './helpers';
+import { openDeck, currentSlide, pickMenu } from './helpers';
 
 /**
  * Putting a slide **into** a layout.
@@ -63,7 +63,7 @@ const layoutsOf = (page: Page) =>
   });
 
 const openLayoutDialog = async (page: Page) => {
-  await page.locator('[data-slide-layout]').click();
+  await pickMenu(page, 'slide.setup.1');
   await expect(page.locator('[data-layout-arrange]')).toHaveCount(1);
 };
 
