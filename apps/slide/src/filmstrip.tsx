@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import { TextField } from '@barocss/office-ui';
 import type { Slide } from '@barocss/office-slides';
 import { Thumbnail } from './thumbnail';
 
@@ -22,6 +24,7 @@ export function Filmstrip({
   slides,
   current,
   onSelect,
+  onRename,
   /** Bumped when the deck changes, so each picture is redrawn. */
   revision
 }: {
@@ -30,12 +33,36 @@ export function Filmstrip({
   current?: string;
   onSelect: (sid: string) => void;
   revision: number;
+  /** Naming one — see the field below for why the filmstrip is where it happens. */
+  onRename: (sid: string, name: string) => void;
 }) {
+  /**
+   * The slide whose name a reader is typing, if any.
+   *
+   * **Here** rather than in the properties panel, for the reason the site's layer list gave: this is
+   * where a reader is looking at a list of names, and a rename that sends them to another pane is
+   * three gestures for the smallest edit there is. Double-click, which is what a list of names has
+   * meant since before any of this.
+   */
+  const [renaming, setRenaming] = useState<string | undefined>();
+
   return (
     <nav className="sl-filmstrip" aria-label="슬라이드">
       <ol>
         {slides.map((slide) => (
           <li key={slide.sid}>
+            {renaming === slide.sid ? (
+              <span className="sl-filmstrip-rename">
+                <TextField
+                  value={slide.name}
+                  ariaLabel={`슬라이드 ${slide.number} 새 이름`}
+                  onCommit={(next: string) => {
+                    setRenaming(undefined);
+                    if (next !== slide.name) onRename(slide.sid, next);
+                  }}
+                />
+              </span>
+            ) : null}
             <button
               type="button"
               data-slide={slide.sid}
@@ -43,6 +70,7 @@ export function Filmstrip({
               data-hidden={slide.hidden ? 'true' : undefined}
               aria-current={slide.sid === current ? 'true' : undefined}
               onClick={() => onSelect(slide.sid)}
+              onDoubleClick={() => setRenaming(slide.sid)}
             >
               <span className="sl-filmstrip-number">{slide.number}</span>
               <Thumbnail editor={editor} slideSid={slide.sid} width={128} revision={revision} />

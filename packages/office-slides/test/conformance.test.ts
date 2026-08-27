@@ -261,6 +261,14 @@ describe('Slides draws what its schema declares', () => {
         Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
         Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
       exempt: {
+        /*
+         * The filmstrip — a double-click on a slide's row, which becomes a field in place.
+         *
+         * There rather than in the properties panel for the reason the site's layer list gave: it is
+         * where a reader is looking at a list of names, and a rename that sends them to another pane
+         * is three gestures for the smallest edit there is.
+         */
+        setSlideInfo: 'the filmstrip — a double-click on a slide’s row, which becomes a field in place',
         // ── Set by a gesture, never typed ──────────────────────────────────
         /**
          * A connector's ends and a path's outline.

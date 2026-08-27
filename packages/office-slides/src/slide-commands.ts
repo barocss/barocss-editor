@@ -1,6 +1,6 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { CANVAS_GEOMETRY_ATTRS, CANVAS_STYLE_ATTRS } from '@barocss/schema';
-import { transaction } from '@barocss/model';
+import { setAttrs, transaction } from '@barocss/model';
 import { laysOut, placeIsBound, sizeIsBound, turnIsBound } from '@barocss/office-canvas';
 import {
   copyOf,
@@ -340,6 +340,36 @@ export class SlidesExtension implements Extension {
      * the same document, and keeping the second shape means every reader has to
      * know both.
      */
+    /**
+     * What a slide is **called** — the one thing the sample writes and the product cannot.
+     *
+     * ## Found by looking, not by a check
+     *
+     * `sample-deck.ts` gives every slide a `name` in TypeScript — *Title*, *Shapes*, *Table* — and
+     * `nameOf` falls back to the title placeholder for a slide that has none. Between them the
+     * filmstrip always says *something*, which is exactly why nobody noticed that **a reader cannot
+     * write one**. It is the same finding this backlog has had about a site's pages and a component's
+     * name: the thing exists because a sample file said so.
+     *
+     * ## Why a slide is worth naming when Keynote does not offer it
+     *
+     * Because this deck has three surfaces that list slides *by name* and one that links to them: the
+     * filmstrip, the map, the audit, and the 누르면 → 이 슬라이드로 picker. A slide whose only content
+     * is a picture has no title to fall back to, so it is **nameless in all four** — and the reader
+     * looking at the map to find out where a button goes is shown a blank.
+     *
+     * `nameOf`'s own comment already says the half that makes this the right fix: *"a name invented
+     * here would be indistinguishable from one the author chose"*. So the author gets to choose.
+     *
+     * Emptying it takes it back to the title, which is why this is a set rather than two commands: a
+     * name and no name are the same field with and without a value.
+     */
+    register(
+      'setSlideInfo',
+      (payload) => this._setSlideInfo(editor, payload),
+      (payload) => !!this._slideAt(editor, payload?.slideId) && 'name' in (payload ?? {})
+    );
+
     register(
       'setSlideTransition',
       (payload) => this._setTransition(editor, payload?.slideId, payload?.effect, payload?.duration),
@@ -1206,6 +1236,22 @@ export class SlidesExtension implements Extension {
   }
 
   /** How the box is painted, including whatever this shape declares of its own. */
+  private async _setSlideInfo(editor: Editor, payload: any): Promise<boolean> {
+    const slide = this._slideAt(editor, payload?.slideId);
+    if (!slide) return false;
+
+    const given = payload?.name;
+    const name = typeof given === 'string' ? given.trim() : '';
+    /*
+     * Empty is **removal**, not an empty name: a slide called "" would sit in the filmstrip as a
+     * blank row that the title fallback can no longer fill, which is worse than the fallback.
+     */
+    const done = await transaction(editor, [
+      setAttrs(String(slide), { name: name || undefined })
+    ] as never).commit();
+    return done.success === true;
+  }
+
   private _styleOf(editor: Editor, payload: any): Record<string, unknown> {
     return this._valuesFor(
       payload,

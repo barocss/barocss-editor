@@ -1805,7 +1805,8 @@ export function App({
         <Filmstrip
             editor={editor}
             revision={revision}
-            slides={slides} current={current} onSelect={setCurrent} />
+            slides={slides} current={current} onSelect={setCurrent}   onRename={(sid, name) => void editor?.executeCommand('setSlideInfo', { slideId: sid, name })}
+            />
 
         {/*
           * What is on the slide, beside the strip of slides.

@@ -86,3 +86,59 @@ test.describe('the menubar', () => {
     expect(await page.locator('.sl-filmstrip button').count()).toBe(before + 1);
   });
 });
+
+/**
+ * **Naming a slide** — the one thing the sample writes and the product could not.
+ *
+ * `sample-deck.ts` gives every slide a `name` in TypeScript — *Title*, *Shapes*, *Table* — and
+ * `nameOf` falls back to the title placeholder for a slide with none. Between them the filmstrip
+ * always said *something*, which is exactly why nobody noticed that a reader could not write one.
+ * The same finding this backlog has had about a site's pages and a component's name: the thing
+ * exists because a sample file said so.
+ *
+ * It matters because four surfaces list slides by name — the filmstrip, the map, the audit and the
+ * 누르면 → 이 슬라이드로 picker — so a slide whose only content is a picture is nameless in all four,
+ * and the reader looking at the map to find where a button goes is shown a blank.
+ */
+test.describe('naming a slide', () => {
+  test('renames it where the names are read', async ({ page }) => {
+    await openDeck(page);
+
+    const row = page.locator('.sl-filmstrip li').nth(1);
+    const sid = await row.locator('[data-slide]').getAttribute('data-slide');
+    await row.locator('[data-slide]').dblclick();
+    await page.waitForTimeout(300);
+
+    const field = page.locator('.sl-filmstrip input').first();
+    await expect(field).toHaveCount(1);
+    await field.fill('예산 이야기');
+    await field.press('Enter');
+    await page.waitForTimeout(600);
+
+    await expect(row).toContainText('예산 이야기');
+    expect(
+      await page.evaluate((one) => (window as any).editor.dataStore.getNode(one)?.attributes?.name, sid)
+    ).toBe('예산 이야기');
+  });
+
+  test('an emptied name goes back to the title, rather than becoming a blank row', async ({ page }) => {
+    await openDeck(page);
+
+    const row = page.locator('.sl-filmstrip li').nth(1);
+    const sid = await row.locator('[data-slide]').getAttribute('data-slide');
+    await row.locator('[data-slide]').dblclick();
+    const field = page.locator('.sl-filmstrip input').first();
+    await field.fill('');
+    await field.press('Enter');
+    await page.waitForTimeout(600);
+
+    /*
+     * Empty is **removal**, not an empty name: a slide called "" would sit in the filmstrip as a
+     * blank row that the title fallback can no longer fill, which is worse than the fallback.
+     */
+    expect(
+      await page.evaluate((one) => (window as any).editor.dataStore.getNode(one)?.attributes?.name, sid)
+    ).toBeUndefined();
+    await expect(row).not.toHaveText('');
+  });
+});
