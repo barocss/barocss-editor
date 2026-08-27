@@ -117,3 +117,75 @@ describe('a component that manages its own DOM', () => {
     expect(seen.some((one) => one.at === 'unmount')).toBe(true);
   });
 });
+
+/**
+ * And the element it returns **is** the node's element.
+ *
+ * `mount(props, container): HTMLElement` says so in its own signature, and the return value was
+ * recorded on the instance and used for nothing. `createComponentVNode` hard-codes `tag: 'div'`, so
+ * a component that draws a `pre` got a `div` with a `pre` inside it: one element in the document per
+ * such node that nobody asked for, and a published page carrying a wrapper around every code block.
+ *
+ * Which is the claim not being kept rather than a detail. *The component owns its DOM* has to mean
+ * the element too — otherwise the renderer still decides what the node is and only lets the
+ * component fill it in.
+ */
+describe('the element a component returns', () => {
+  let host: HTMLElement;
+  let renderer: DOMRenderer;
+  let mounts: number;
+
+  beforeEach(() => {
+    mounts = 0;
+    define(
+      'ownsElement',
+      external({
+        managesDOM: true,
+        mount: (props: Record<string, any>, container: HTMLElement) => {
+          mounts += 1;
+          const el = container.ownerDocument.createElement('pre');
+          el.className = 'mine';
+          el.textContent = String(props.attributes?.said ?? '');
+          return el;
+        },
+        update: (instance: any, _prev: Record<string, any>, next: Record<string, any>) => {
+          if (instance?.element) instance.element.textContent = String(next.attributes?.said ?? '');
+        },
+        unmount: () => undefined
+      })
+    );
+
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    renderer = new DOMRenderer(getGlobalRegistry());
+  });
+
+  const draw = (said: string) =>
+    renderer.render(host, { sid: 'mine1', stype: 'ownsElement', attributes: { said } } as never, [], undefined);
+
+  it('is the node’s element, with no wrapper around it', () => {
+    draw('hello');
+    // The board's own child, not a div holding it.
+    expect(host.firstElementChild?.tagName).toBe('PRE');
+    expect(host.querySelectorAll('div')).toHaveLength(0);
+    expect(host.firstElementChild?.className).toBe('mine');
+  });
+
+  it('carries the node’s id, because everything else finds it by that', () => {
+    draw('hello');
+    /*
+     * Hit tests, the selection, the export's media queries and the layer that draws over a board all
+     * ask for `data-bc-sid`. An element the renderer adopts has to be stamped like one it made.
+     */
+    expect(host.firstElementChild?.getAttribute('data-bc-sid')).toBe('mine1');
+  });
+
+  it('is kept across renders rather than made again', () => {
+    draw('hello');
+    const first = host.firstElementChild;
+    draw('goodbye');
+    expect(host.firstElementChild).toBe(first);
+    expect(mounts).toBe(1);
+    expect(host.firstElementChild?.textContent).toBe('goodbye');
+  });
+});

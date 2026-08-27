@@ -42,6 +42,15 @@ export interface FiberNode {
   
   // Context
   context: any;
+
+  /**
+   * What this pass already did, for the pass after it.
+   *
+   * One entry so far: a node that **owns its DOM** is mounted in the render phase, because its
+   * element is what the commit is about to place rather than something to put inside a wrapper. The
+   * commit reads this so it does not mount the same component twice.
+   */
+  meta?: { mounted?: boolean };
   
   // Index (position in children array)
   index: number;

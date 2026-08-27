@@ -6,8 +6,8 @@
  * Syntax highlighting is two things: deciding what each character *is*, and drawing that. A scanner
  * written by hand can do the first badly for a handful of C-family languages; it cannot do HTML or
  * CSS at all, because those need a grammar rather than a word list. Prism has the grammars, and its
- * `tokenize` hands back a tree rather than a string — so the drawing stays this repository's, made
- * of the same `element()` calls as every other renderer.
+ * `highlight` fills the block's own element with its own escaped output — the code never reaches the
+ * page as markup a document could have written.
  *
  * The alternative that was tried first was the CSS Custom Highlight API, painting ranges over an
  * untouched flat run. It works and it was the wrong idea: it is a way to *colour* something, not a
@@ -40,7 +40,6 @@ import 'prismjs/components/prism-rust.js';
 import 'prismjs/components/prism-sql.js';
 import 'prismjs/components/prism-yaml.js';
 import 'prismjs/components/prism-markdown.js';
-import { element, type ElementChild } from '@barocss/dsl';
 
 /**
  * What a reader may write in the panel, and which grammar it means.
@@ -84,64 +83,82 @@ const ALIAS: Record<string, string> = {
   markdown: 'markdown'
 };
 
+/**
+ * A code block, **drawing itself**.
+ *
+ * `external({ managesDOM: true })` is how a node type says *I own my element* — the equivalent of a
+ * ProseMirror NodeView, and the honest home for a block whose content is a tokenized tree rather
+ * than a list of children. Two things it buys over building vnodes:
+ *
+ * - **No wrapper and no keys.** The element the renderer places *is* this `pre`, and what is inside
+ *   it is nobody else's to reconcile — so the tokens are set once with `Prism.highlight` instead of
+ *   being mapped one for one into vnodes that then need keys to be told apart.
+ * - **A place for the editor to live.** A code block is edited by a real editor, and an editor is
+ *   exactly the kind of DOM a renderer cannot express: it has its own view, its own state and its
+ *   own idea of what is in it. Owning the element is what lets one be put *in the block's own place*
+ *   rather than over it.
+ *
+ * `innerHTML` here is Prism's own escaped output and nothing else — the code never reaches the page
+ * as markup, which is what `Prism.highlight` guarantees and why it is used rather than a string this
+ * file assembles.
+ */
+export const codeComponent = {
+  managesDOM: true as const,
+
+  mount(props: Record<string, any>, container: HTMLElement): HTMLElement {
+    const pre = (container.ownerDocument ?? document).createElement('pre');
+    pre.className = 'st-code';
+    /*
+     * The caret never enters a code block. That is what makes the token spans safe: they are this
+     * component's, derived from the text, and nothing maps a caret through them.
+     */
+    pre.setAttribute('contenteditable', 'false');
+    pre.setAttribute('spellcheck', 'false');
+    paintInto(pre, props);
+    return pre;
+  },
+
+  update(instance: { element?: HTMLElement }, _before: Record<string, any>, after: Record<string, any>): void {
+    if (instance?.element) paintInto(instance.element, after);
+  },
+
+  unmount(): void {
+    // Nothing held open: the editing layer is the app's and closes itself.
+  }
+};
+
+/** The characters this node holds — its own when it has them, its children's when it does not. */
+function wordsIn(props: Record<string, any>, depth = 0): string {
+  if (typeof props?.text === 'string') return props.text;
+  if (depth > 8) return '';
+  return ((props?.content ?? []) as unknown[])
+    .map((one) => (one && typeof one === 'object' ? wordsIn(one as Record<string, any>, depth + 1) : ''))
+    .join('');
+}
+
+/** Fill an element with the code, coloured if the language is one Prism knows. */
+function paintInto(pre: HTMLElement, props: Record<string, any>): void {
+  const language = String(props?.attributes?.language ?? '');
+  const code = wordsIn(props);
+  const found = grammarFor(language);
+
+  if (language) pre.setAttribute('data-language', language);
+  else pre.removeAttribute('data-language');
+
+  if (!found) {
+    // No grammar: the characters, and no claim about what any of them are.
+    pre.textContent = code;
+    return;
+  }
+  pre.innerHTML = Prism.highlight(code, found.grammar as never, found.name);
+}
+
 /** The grammar for what a reader wrote, or nothing when Prism has never heard of it. */
 export function grammarFor(language: unknown): { name: string; grammar: unknown } | undefined {
   const said = String(language ?? '').trim().toLowerCase();
   const name = ALIAS[said];
   const grammar = name ? (Prism.languages as Record<string, unknown>)[name] : undefined;
   return grammar ? { name, grammar } : undefined;
-}
-
-/**
- * The code, as elements.
- *
- * Prism's token tree turned into `element()` calls one for one: a token becomes a span carrying its
- * type and its aliases as classes, a string becomes text, and a token whose content is itself a list
- * of tokens becomes a span around them. Which is Prism's own `Token.stringify` written as this
- * repository's renderer rather than as an HTML string — a string would have to be inserted as raw
- * markup, and raw markup is a hole in the reconciler and a place for a document to inject into a
- * published page.
- */
-export function codeElements(code: string, language: unknown): ElementChild[] {
-  const found = grammarFor(language);
-
-  /**
-   * Every child is an **element with a key**, including the plain one.
-   *
-   * Measured before it was: with no grammar the block drew one bare text child, and with one it drew
-   * a list of spans — so the child list changed *shape*, the reconciler had nothing to pair the text
-   * with, and the old characters stayed on the page underneath the new spans. A code block that had
-   * been given a language showed its program twice.
-   *
-   * A key is what says which child is which among siblings, and a node's own id is not: it is
-   * stamped on every element of its template, so all forty spans carry the same one. Told plainly
-   * here rather than left to a guess.
-   */
-  const wrap = (key: string, className: string | undefined, inside: ElementChild[]): ElementChild =>
-    element('span', className ? { key, className } : { key }, inside);
-
-  if (!found || code.length === 0) return [wrap('code', undefined, [code])];
-
-  let next = 0;
-  const drawn = (one: unknown): ElementChild => {
-    const key = `t${next++}`;
-    if (typeof one === 'string') return wrap(key, undefined, [one]);
-
-    const token = one as { type: string; alias?: string | string[]; content: unknown };
-    const names = ['token', token.type, ...(Array.isArray(token.alias) ? token.alias : token.alias ? [token.alias] : [])];
-    /*
-     * A token whose content is just characters gets them **directly**, not wrapped again: Prism's
-     * tree has a string there and a span around a span is one element per token more than the page
-     * needs, on every token, in every code block.
-     */
-    const inside: ElementChild[] = Array.isArray(token.content)
-      ? (token.content.map(drawn) as ElementChild[])
-      : [String(token.content)];
-
-    return wrap(key, names.join(' '), inside);
-  };
-
-  return (Prism.tokenize(code, found.grammar as never) as unknown[]).map(drawn);
 }
 
 /**

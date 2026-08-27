@@ -33,6 +33,29 @@ export class ComponentManager implements ComponentStateProvider {
     }
     return undefined;
   }
+
+  /**
+   * A node's children as **nodes**, whichever way the tree it came from is written.
+   *
+   * `content` holds child ids in the store and child objects in a detached tree, and both reach a
+   * renderer — the boards draw through a live document, an export renders a tree it just built. A
+   * component that reads `props.content` should not have to know which one it got, or reach around
+   * the renderer for a store the renderer is already holding: it asked about *this* node, and the
+   * answer is the same either way.
+   *
+   * Depth-bounded because a props flatten is not the place to discover a cycle.
+   */
+  private childrenOf(model: unknown, context?: ReconcileContext, depth = 0): unknown {
+    const content = (model as { content?: unknown })?.content;
+    if (!Array.isArray(content) || depth > 8) return content;
+
+    return content.map((child) => {
+      const found = typeof child === 'string' ? this.getModelFromDataStore(child, context) : child;
+      if (!found || typeof found !== 'object') return found;
+      const grown = this.childrenOf(found, context, depth + 1);
+      return grown === (found as { content?: unknown }).content ? found : { ...found, content: grown };
+    });
+  }
   
   /**
    * Check if reconciliation is in progress
@@ -188,7 +211,7 @@ export class ComponentManager implements ComponentStateProvider {
         ? {
             attributes: (model as any).attributes ?? {},
             text: (model as any).text,
-            content: (model as any).content,
+            content: this.childrenOf(model, context),
             nodeType: (model as any).stype
           }
         : {})
@@ -656,7 +679,7 @@ export class ComponentManager implements ComponentStateProvider {
                   ? {
                       attributes: (model as any).attributes ?? {},
                       text: (model as any).text,
-                      content: (model as any).content,
+                      content: this.childrenOf(model, context),
                       nodeType: (model as any).stype
                     }
                   : {};

@@ -87,13 +87,17 @@ entries are that.
   component — detaching a header must not detach the button in it. The deck's detach had the same
   fault and now takes the same argument.
 
-### `managesDOM` works; nothing is on it yet
+### `managesDOM`: the code block is on it; the editor is still beside it
 
-- [ ] The path is honoured now (see Done). **Nothing uses it**, which is its own risk: a capability
-  with no caller is a capability nobody notices breaking. The code block is the intended first — it
-  would fill its element with Prism directly instead of being mapped through vnodes and keys, and
-  CodeMirror would mount **in the block's own place** rather than as an overlay tracking a screen
-  rectangle.
+- [x] **The path is honoured and has its first caller.** `codeBlock` is
+  `external({ managesDOM: true })` — the `pre` the renderer places *is* the component's own element,
+  filled by `Prism.highlight`, and the vnode-and-keys mapping it used to need is gone (see Done).
+
+- [ ] **CodeMirror still mounts in a layer, not in the block's place.** Owning the element is what
+  makes mounting in place possible, and the layer is still what is built: a `position: fixed`
+  `.st-code-layer` at the block's screen rect, which has to be re-measured whenever the page scrolls
+  or a board resizes. In-place would be `unmount` clearing the `pre` and CodeMirror's view taking it —
+  no rect, no tracking. Held back only because the layer works and swapping it is a separate round.
 
 ### A code block, still missing
 
@@ -2758,6 +2762,33 @@ text-shaped.
 
   Four faults stacked, each of which alone was enough to make the feature do nothing. Held by
   `test/external-owns-its-dom.test.ts`, which states the contract rather than the current behaviour.
+
+- **…and the element it returns is now the node's, with nothing around it.** The fifth fault, and the
+  one that made the other four only half worth fixing: `createComponentVNode` hard-coded `tag: 'div'`,
+  so the renderer created a `div`, mounted the component *inside* it, and the page got two elements
+  where the component had made one. Every consequence of that was silent and wrong in a different
+  way — the block's own rect was the wrapper's, the editing layer opened over the wrong box, and a
+  `pre` inside a `div` is a different thing to CSS than a `pre`.
+
+  It mounts in the **render** phase now and adopts what `mount` returns as the fiber's element
+  (`mountOwnElement`, with `fiber.meta.mounted` so the commit does not mount it twice). Which is the
+  correct shape and not a smaller fix: what the renderer places is what the component made, so the
+  node's id, its class, its rect and its place in the tree are all one element's.
+
+  One more thing had to become honest for a component to be able to draw itself: `props.content` held
+  child **ids** when the tree came from a store and child **objects** when it came from a detached
+  one, and both reach a renderer — the boards draw through a live document, an export renders a tree
+  it just built. A component asked about a node should not have to know which it got, so
+  `childrenOf` resolves ids through the datastore the renderer is already holding.
+
+- **The code block is the first thing on `managesDOM`, and stopped needing keys.** It was mapped
+  token-for-token into vnodes, which needed a `key` on every span for the reconciler to tell them
+  apart, which is a lot of machinery to describe a tree that is not the document's and that nothing
+  else will ever reconcile. It fills its own `pre` with `Prism.highlight` now — the escaped output
+  Prism guarantees, so the code still never reaches the page as markup — and `codeElements` is gone.
+  Held by `packages/office-site/test/code.test.ts`, which draws it through an `EditorViewDOM` over a
+  store: a `pre` with the node's id and no wrapper, the same element kept across a language change,
+  and the export carrying the spans the reader saw.
 
 - **A flaky deck test made honest.** `filters as motion` waited a flat 1800ms for a filter to clean
   itself up and then asserted it had. It lost the day three browser suites ran at once and reported

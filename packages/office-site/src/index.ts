@@ -29,7 +29,7 @@ export { PAGE_CSS } from './page-css';
  * A code block, tokenized by Prism and drawn as elements — the same markup in the editor and on the
  * published page, with no script to run.
  */
-export { CODE_CSS, codeElements, grammarFor } from './code-render';
+export { CODE_CSS, codeComponent, grammarFor } from './code-render';
 export { createLinkCommands, SiteLinkExtension } from './link-commands';
 export { createPageCommands, SitePageExtension } from './page-commands';
 export {
