@@ -92,6 +92,16 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   const measure = useCallback((size: { width: number; height: number }) => setPlane(size), []);
   const [mode, setMode] = useState<PointerMode>('select');
   /**
+   * Whether the reader is **looking at** the site rather than building it.
+   *
+   * The gap this fills is not a nicety. A page has no height of its own — it is as tall as its
+   * content — so what a visitor sees is decided by the window they open it in, and a board that
+   * draws the whole page at full height on a plane can never show a **sticky header**, a scroll
+   * reveal, or a `:hover` that the tool's own layer is not standing on top of. All three are answers
+   * to *what the page does*, and until this there was nowhere for the page to do anything.
+   */
+  const [preview, setPreview] = useState(false);
+  /**
    * The container the reader has entered — the page until they double-click into something.
    *
    * One per reader rather than one per board: they are looking at three drawings of one page, so
@@ -314,7 +324,19 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     };
 
     const leave = (event: KeyboardEvent) => {
-      if (!root || elsewhere()) return;
+      if (!root) return;
+      /*
+       * Preview first, and without asking whether the reader is typing — in preview they are not,
+       * and it is the one state where a reader can be stuck: no overlay, no panel to press, and the
+       * boards are not editable. Escape is the way out of everything here, so it is the way out of
+       * this too.
+       */
+      if (preview && event.key === 'Escape') {
+        event.preventDefault();
+        setPreview(false);
+        return;
+      }
+      if (elsewhere()) return;
 
       /*
        * The two a builder cannot be without, on the keys every tool of this kind uses.
@@ -361,7 +383,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
     document.addEventListener('keydown', leave);
     return () => document.removeEventListener('keydown', leave);
-  }, [editor, mode, entered, scope, scopeRoot]);
+  }, [editor, mode, entered, scope, scopeRoot, preview]);
 
   /**
    * Fit: as far back as the reader has to stand to see every board at once.
@@ -464,6 +486,20 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           )}
 
           <div className="st-titlebar-end">
+            {/*
+              The one control that changes what the boards *are* rather than what they show. Beside
+              the zoom because both are about how the reader is looking, not about the document.
+            */}
+            <button
+              type="button"
+              className="st-preview-toggle"
+              data-preview={preview ? 'true' : undefined}
+              aria-pressed={preview}
+              title={preview ? '편집으로 돌아갑니다 (Esc)' : '방문자가 보는 대로 봅니다'}
+              onClick={() => setPreview((one) => !one)}
+            >
+              {preview ? '편집' : '미리보기'}
+            </button>
             {/* Typed or pressed, the middle of the view is what stays still — see `viewport.ts`. */}
             <ZoomControl zoom={zoom} onChange={(next) => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" />
           </div>
@@ -533,6 +569,11 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                      * at all, which is what *더블클릭 해도 편집모드가 되지 않아* was.
                      */
                     onEditComponent={openDefinition}
+                    preview={preview}
+                    onFollow={(path) => {
+                      const found = pages.find((one) => one.path === path);
+                      if (found) setCurrent(found.sid);
+                    }}
                     scope={inside ?? ''}
                     onScope={setScope}
                   />

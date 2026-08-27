@@ -4,6 +4,7 @@ import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import { SITE_ENV_KEY, createSiteEnv, type BreakpointId } from '@barocss/office-site';
+import { viewportOf } from '@barocss/office-site';
 import { Overlay, type PointerMode } from './overlay';
 
 /**
@@ -61,8 +62,10 @@ export function PageFrame({
   scopeRoot,
   zoom,
   mode,
+  preview,
   onEnterText,
   onEditComponent,
+  onFollow,
   redraw,
   scope,
   onScope
@@ -84,8 +87,20 @@ export function PageFrame({
   scopeRoot?: string;
   zoom: number;
   mode: PointerMode;
+  /**
+   * Whether the board is being **looked at** rather than built.
+   *
+   * The one thing a builder cannot otherwise show: a page has no height of its own, so what a
+   * visitor sees is decided by the window they open it in. In preview the board becomes a window —
+   * a typical one for this width — and the page scrolls inside it. Which is also the only way a
+   * sticky header, a scroll reveal or a real `:hover` can ever be judged: all three are answers to
+   * *what the page does*, and until now there was nowhere for the page to do anything.
+   */
+  preview?: boolean;
   onEnterText: (sid: string) => void;
   onEditComponent?: (componentId: string, from?: { collection: string; index: number }) => void;
+  /** A link followed in preview: the page it names, by address, rather than the browser's own. */
+  onFollow?: (path: string) => void;
   /**
    * A number that changes when the drawing must be rebuilt although the **document** did not.
    *
@@ -151,21 +166,64 @@ export function PageFrame({
     []
   );
 
+  /**
+   * In preview the board is not typable, and that is what makes its links work.
+   *
+   * A `contenteditable` element swallows a click on an `<a>` — the browser puts a caret in it rather
+   * than following it, which is right while a reader is writing and is the whole of what is wrong
+   * while they are looking. Turned off here rather than on the editor, because the editor is one and
+   * the boards are three: the document is still perfectly editable, this board just is not.
+   *
+   * Re-applied whenever the drawing is rebuilt, since the view writes the attribute itself.
+   */
+  useEffect(() => {
+    const board = host.current;
+    if (!board) return;
+    const content = board.querySelector<HTMLElement>('[contenteditable]');
+    if (!content) return;
+    const was = content.getAttribute('contenteditable');
+    content.setAttribute('contenteditable', preview ? 'false' : was ?? 'true');
+    return () => {
+      if (was !== null) content.setAttribute('contenteditable', was);
+    };
+  }, [preview, page, redraw]);
+
   return (
-    <section className="st-frame" data-frame={breakpoint} style={{ width: `${width}px` }}>
+    <section
+      className="st-frame"
+      data-frame={breakpoint}
+      data-preview={preview ? 'true' : undefined}
+      style={{ width: `${width}px`, ['--st-viewport' as never]: `${viewportOf(breakpoint)}px` }}
+    >
       {/* The label a reader reads to know which frame they are typing in. */}
       <header className="st-frame-label">
         <span>{label}</span>
         <span className="st-frame-width">{width}px</span>
       </header>
-      <div className="st-frame-body">
+      <div
+        className="st-frame-body"
+        /*
+         * A link in preview goes to **this site's** page rather than out of the app. The address is
+         * what the mark resolved to at draw time, and the app knows which page answers it — a
+         * builder whose preview navigated the browser away from itself would be a builder a reader
+         * only previews once.
+         */
+        onClick={(event) => {
+          if (!preview) return;
+          const link = (event.target as HTMLElement)?.closest?.('a[href]');
+          const href = link?.getAttribute('href');
+          if (!href) return;
+          event.preventDefault();
+          if (href.startsWith('/')) onFollow?.(href);
+        }}
+      >
         <div ref={host} className="st-frame-host" data-frame-host={breakpoint} />
         {/*
           The pointer's owner, drawn over the board rather than styled into it — see `overlay.tsx`.
           One per board, because the outline has to be drawn where the node is drawn, and the same
           node is drawn three times.
         */}
-        {page ? (
+        {page && !preview ? (
           <Overlay
             editor={editor}
             host={host}

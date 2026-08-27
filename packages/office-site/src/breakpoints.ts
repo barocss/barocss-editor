@@ -37,9 +37,9 @@ export const SITE_ENV_KEY = 'site';
  * web; the document is still in twips, and the conversion happens where a length is drawn.
  */
 export const BREAKPOINTS = [
-  { id: 'desktop', label: '데스크톱', width: 1280 },
-  { id: 'tablet', label: '태블릿', width: 834 },
-  { id: 'mobile', label: '모바일', width: 390 }
+  { id: 'desktop', label: '데스크톱', width: 1280, viewport: 800 },
+  { id: 'tablet', label: '태블릿', width: 834, viewport: 1112 },
+  { id: 'mobile', label: '모바일', width: 390, viewport: 844 }
 ] as const;
 
 export type BreakpointId = (typeof BREAKPOINTS)[number]['id'];
@@ -49,6 +49,22 @@ export interface SiteEnv {
   breakpoint: BreakpointId;
   /** How wide it is, in CSS pixels — what the reader sees along the top of the frame. */
   width: number;
+}
+
+/**
+ * How **tall** a window onto a page of this width is, in CSS pixels.
+ *
+ * Unused while a reader is building: a board draws the page at whatever height it turns out to be,
+ * because the whole point of laying three of them side by side is to compare the *pages*.
+ *
+ * It is the number preview mode needs, and it is not a made-up one. A page has no height of its own
+ * — it is as tall as its content — so what a visitor actually sees is decided by the window they
+ * open it in, and the only honest thing a builder can show is a *typical* one: a laptop, a tablet on
+ * its side, a phone. These are the three, and a reader who wants a different one is asking for a
+ * device list, which is a slice of its own.
+ */
+export function viewportOf(breakpoint: BreakpointId): number {
+  return (BREAKPOINTS.find((one) => one.id === breakpoint) ?? BREAKPOINTS[0]).viewport;
 }
 
 /** The environment for a view drawing at one width. */

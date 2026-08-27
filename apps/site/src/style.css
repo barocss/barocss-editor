@@ -271,6 +271,44 @@ body {
 /* The page itself. No padding here: a page's own margins are the reader's, set on the stacks. */
 .st-frame-host { min-height: 200px; }
 
+/*
+ * ── Preview: the board stops being a drawing and becomes a **window** ───────
+ *
+ * A page has no height of its own — it is as tall as its content — so what a visitor sees is decided
+ * by the window they open it in. While a reader is building, drawing the whole page at full height
+ * is right: three of them side by side is a comparison of *pages*. It is also why a sticky header, a
+ * scroll reveal and a real `:hover` could never be judged here — none of them is a property of a
+ * page, they are all answers to *what the page does*, and there was nowhere for it to do anything.
+ *
+ * The height is a typical one for this width, set as `--st-viewport` where the frame is drawn.
+ */
+.st-frame[data-preview='true'] .st-frame-body {
+  height: var(--st-viewport, 800px);
+  overflow: auto;
+  /* The page underneath is what scrolls; the lift stays on the window, as a window has a frame. */
+  overscroll-behavior: contain;
+}
+
+/* And the studio recedes, so what is left on screen is the page. */
+.st-frame[data-preview='true'] .st-frame-label { opacity: 0.5; }
+
+.st-preview-toggle {
+  height: var(--ou-control-h);
+  padding: 0 10px;
+  font-size: 11px;
+  border: 1px solid var(--st-line);
+  border-radius: 4px;
+  background: var(--st-panel);
+  color: var(--st-ink);
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.st-preview-toggle:hover { border-color: var(--st-accent); }
+.st-preview-toggle[data-preview='true'] {
+  background: var(--st-accent);
+  border-color: var(--st-accent);
+  color: var(--ou-accent-ink);
+}
+
 /* ── What the pointer is over, and what is selected ───────────────────────── */
 
 .st-overlay {

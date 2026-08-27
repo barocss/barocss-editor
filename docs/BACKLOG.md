@@ -118,18 +118,6 @@ entries are that.
   words and nothing else, so a card whose *colour* comes from a row draws the definition's colour
   while showing the row's words. Nothing in the sample does this yet, which is why it was left.
 
-### The tool's own layer stands between the page and the pointer
-
-- [ ] The boards are covered by `.st-overlay`, which is what makes a click mean something on this
-  product — and it means a page's own `:hover` never fires, because the page underneath is never the
-  topmost thing under the pointer. The panel draws the selected blocks in the state instead, which is
-  what every tool of this kind does and is the better answer for *editing*.
-
-  It is still not the answer for **looking**. A reader who wants to see the page behave like a page
-  has no way to ask, and the product has no preview mode at all. That is one mode and one
-  `pointer-events: none`, and it is also where a sticky header, a scroll reveal and a form would
-  first become visible — so it is probably the next thing rather than a nicety.
-
 ### `undefined` never reached an operation, so nothing could be taken back
 
 - [x] `transaction` copied every operation with `JSON.parse(JSON.stringify(...))`, and JSON has no
@@ -2748,6 +2736,17 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A reader can look at the site instead of building it.** A page has no height of its own, so what
+  a visitor sees is decided by the window they open it in — and a board drawing the whole page at
+  full height on a plane could never show a sticky header, a scroll reveal or a `:hover` the tool's
+  own layer was not standing on top of. In preview each board becomes a **window** of a typical
+  height for its width and the page scrolls inside it, the overlay is gone so the pointer reaches the
+  page, `contenteditable` is off so a link is followed rather than swallowed into a caret, and the
+  link goes to *this site's* page rather than navigating the browser away from the builder.
+
+  The hover written two rounds ago could be *drawn* on request and never actually hovered. Here it
+  is, by pointing at it.
 
 - **Code is coloured, in both grounds, by one function.** `paintCode` paints **ranges** through the
   CSS Custom Highlight API: no element is added and no text node is split, so the run under the caret

@@ -2258,3 +2258,106 @@ test.describe('code, coloured', () => {
 
 /** The properties panel, for the describes that reach it. */
 const panelOf = (page: Page) => page.locator('.office-properties');
+
+/**
+ * Looking at the site instead of building it.
+ *
+ * A page has **no height of its own** — it is as tall as its content — so what a visitor sees is
+ * decided by the window they open it in. While a reader is building, drawing the whole page at full
+ * height is right: three boards side by side is a comparison of *pages*. It is also why a sticky
+ * header, a scroll reveal and a real `:hover` could never be judged here. None of those is a property
+ * of a page; they are answers to *what the page does*, and there was nowhere for it to do anything.
+ *
+ * In preview each board becomes a **window** of a typical height for its width, and the page scrolls
+ * inside it.
+ */
+test.describe('preview', () => {
+  const toggle = (page: Page) => page.locator('.st-preview-toggle');
+  const board = (page: Page) => page.locator('[data-frame="desktop"] .st-frame-body');
+
+  test('turns the board into a window the page scrolls inside', async ({ page }) => {
+    await ready(page);
+    const before = await board(page).evaluate((el) => ({
+      height: (el as HTMLElement).getBoundingClientRect().height,
+      overflow: getComputedStyle(el as HTMLElement).overflowY
+    }));
+    expect(before.overflow).toBe('visible');
+
+    await toggle(page).click();
+    await page.waitForTimeout(500);
+
+    const after = await board(page).evaluate((el) => ({
+      height: getComputedStyle(el as HTMLElement).height,
+      overflow: getComputedStyle(el as HTMLElement).overflowY,
+      scrolls: el.scrollHeight > el.clientHeight
+    }));
+    // A laptop's worth of window, and the page taller than it.
+    expect(after.height).toBe('800px');
+    expect(after.overflow).toBe('auto');
+    expect(after.scrolls).toBe(true);
+    expect(before.height).toBeGreaterThan(1000);
+  });
+
+  test('hands the pointer back to the page, so a hover is a hover', async ({ page }) => {
+    await ready(page);
+    const item = page
+      .locator('[data-frame="desktop"] [data-name="내비게이션"] .st-stack[data-name="제품"]')
+      .first();
+    const fill = () => item.evaluate((el) => getComputedStyle(el as HTMLElement).backgroundColor);
+
+    await toggle(page).click();
+    await page.waitForTimeout(500);
+
+    /*
+     * The tool's own layer is what makes a click mean something while building, and it is what stood
+     * between the page and the pointer: a hover written two rounds ago could be *drawn* on request
+     * and never actually **hovered**. Here it is, by pointing at it.
+     */
+    expect(await fill()).toBe('rgba(0, 0, 0, 0)');
+    await item.hover();
+    await page.waitForTimeout(250);
+    expect(await fill()).toBe('rgb(238, 241, 238)');
+
+    // And nothing is selected by pointing: the overlay is not there to select with.
+    await expect(page.locator('[data-frame="desktop"] .st-overlay')).toHaveCount(0);
+  });
+
+  test('follows a link to this site’s page rather than out of the app', async ({ page }) => {
+    await ready(page);
+    await toggle(page).click();
+    await page.waitForTimeout(500);
+
+    await expect(page.locator('[data-where]').first()).toContainText('홈');
+    await page
+      .locator('[data-frame="desktop"] [data-name="내비게이션"] .st-stack[data-name="제품"]')
+      .first()
+      .click();
+    await page.waitForTimeout(700);
+
+    /*
+     * A builder whose preview navigated the browser away from itself is a builder a reader previews
+     * once. The address is what the link mark resolved to at draw time and the app knows which page
+     * answers it — the same `page:<id>` reference the export publishes as a real `href`.
+     */
+    await expect(page.locator('[data-where]').first()).toContainText('제품');
+  });
+
+  test('is not typable, and Escape is the way out', async ({ page }) => {
+    await ready(page);
+    await toggle(page).click();
+    await page.waitForTimeout(500);
+
+    // Not typable is what makes the links work: a contenteditable element swallows a click on an
+    // `<a>` and puts a caret in it instead.
+    expect(
+      await board(page).evaluate((el) => el.querySelector('[contenteditable]')?.getAttribute('contenteditable'))
+    ).toBe('false');
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-frame="desktop"] .st-overlay')).toHaveCount(1);
+    expect(
+      await board(page).evaluate((el) => el.querySelector('[contenteditable]')?.getAttribute('contenteditable'))
+    ).toBe('true');
+  });
+});

@@ -781,7 +781,8 @@ Measured against what the product can do today, in the order the next slices sho
    bug on a large card. It is one attribute and one CSS property, and it is the doorway to motion —
    which is still the single largest difference between a page built here and one built anywhere
    else.
-10. **Position.** No sticky header, no overlap, no negative offset: a page is a column of boxes. The
-   editor cannot show a sticky header at all — a board is drawn at its full height on a plane and
-   never scrolls — so this is the first thing the product would have to *communicate* rather than
-   draw, which is a decision worth taking deliberately.
+10. **Position.** Now judgeable, and still absent. No sticky header, no overlap, no negative offset: a page is a column of boxes. The
+   editor could not show a sticky header at all — a board was drawn at its full height on a plane
+   and never scrolled. **Preview mode fixed the ground under it**: a board is a window of a typical
+   height for its width and the page scrolls inside, so `position: sticky` would now be visible the
+   moment it is added. It is the next thing.

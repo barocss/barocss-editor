@@ -177,6 +177,7 @@ export {
   SITE_ENV_KEY,
   breakpointOf,
   createSiteEnv,
+  viewportOf,
   scopesFor,
   type BreakpointId,
   type SiteEnv
