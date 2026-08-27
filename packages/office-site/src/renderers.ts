@@ -194,6 +194,44 @@ export function registerSiteRenderers(): void {
   });
 
   /**
+   * A **list**, as a list.
+   *
+   * ## What it was drawing
+   *
+   * `<div class="w-list">` holding `<div class="w-list-item" data-marker="">`. No bullet, no number,
+   * no `<ul>` — a stack of paragraphs with nothing to say it is a list. The marker is Word's: it
+   * comes from a *numbering definition* through the env, which is the right answer for a document
+   * with multi-level numbering and eight list styles, and it resolves to the empty string for a
+   * product that has none. So 목록 in the toolbar put an indistinguishable pile of sentences on the
+   * page, and `PAGE_CSS` had rules for `ul`, `ol` and `li` that could never match anything.
+   *
+   * ## Why the browser's own marker is the right one here
+   *
+   * A site has no numbering definitions and wants none: a bulleted list on a page is `<ul>` and a
+   * numbered one is `<ol>`, the browser draws the markers, and the published page carries the two
+   * elements that *mean* a list to a screen reader and to a search engine. Word needs its own
+   * because Word's lists restart, skip levels and carry a format per level; a page's do not.
+   *
+   * `type` rather than `kind`, which is what the schema declares — `insertBulletList` had been
+   * writing `kind: 'bullet'`, an attribute nothing reads, since it was written.
+   */
+  override('list', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = drawnAttrs(node, ctx);
+    const ordered = attrs.type === 'ordered';
+    return element(
+      ordered ? 'ol' : 'ul',
+      {
+        className: 'st-list',
+        'data-type': ordered ? 'ordered' : 'bullet',
+        style: { ...sizingCss(attrs as never) }
+      },
+      [slot('content')]
+    );
+  });
+
+  override('listItem', element('li', { className: 'st-list-item' }, [slot('content')]));
+
+  /**
    * A page: one column, as wide as the window it is drawn in.
    *
    * `override`, because the text renderers do not draw a `surface` and Word's page renderer does —

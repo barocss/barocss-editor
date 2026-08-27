@@ -114,6 +114,9 @@ import {
   Eye,
   Lock,
   LockOpen,
+  Quote,
+  Code,
+  SeparatorHorizontal,
   type LucideIcon
 } from 'lucide-react';
 
@@ -178,6 +181,16 @@ const ICONS: Record<string, LucideIcon> = {
   'font-color': Baseline,
   'bullet-list': List,
   'ordered-list': ListOrdered,
+  /*
+   * The three blocks a *page* has that a document reaches for through a style menu.
+   *
+   * A quotation, code kept as it was typed, and a rule between two things — all three are ordinary
+   * blocks in this schema and none of them had a picture, because no product had offered them until
+   * a site builder put them on its rail. `every-icon-has-a-picture` is what said so.
+   */
+  quote: Quote,
+  code: Code,
+  divider: SeparatorHorizontal,
   indent: IndentIncrease,
   outdent: IndentDecrease,
   'track-changes': FilePen,

@@ -37,7 +37,19 @@ export function getStandardSchemaDefinition(): SchemaDefinition {
       paragraph: { name: 'paragraph', group: 'block', content: 'inline*', attrs: { placeholder: { type: 'string', required: false } } },
       blockQuote: { name: 'blockQuote', group: 'block', content: 'block+' },
       pullQuote: { name: 'pullQuote', group: 'block', content: 'inline*' },
-      codeBlock: { name: 'codeBlock', group: 'block', content: 'text*', attrs: { language: { type: 'string', required: false } } },
+      /*
+       * `inline*`, not `text*` — a group **no node in this schema is in**.
+       *
+       * Every text node here is `inline-text`, whose group is `inline`; nothing anywhere declares
+       * `text`. So a `codeBlock` could hold nothing at all: the schema refused every child it was
+       * offered, in silence, and a command that made one made an empty block. Found the day a site
+       * builder put 코드 on its rail and the insert reported success with nothing on the page.
+       *
+       * Code is a run of characters, which is what `inline` means here — the marks that may sit on
+       * one are the caller's business, and a code block that carries none is a code block nobody has
+       * formatted rather than one that refuses to be.
+       */
+      codeBlock: { name: 'codeBlock', group: 'block', content: 'inline*', attrs: { language: { type: 'string', required: false } } },
       horizontalRule: { name: 'horizontalRule', group: 'block', atom: true },
       pageBreak: { name: 'pageBreak', group: 'block', atom: true },
       docSection: { name: 'docSection', group: 'block', content: 'block+' },

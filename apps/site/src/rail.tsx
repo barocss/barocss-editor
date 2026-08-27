@@ -165,17 +165,18 @@ function AddPanel({
   revision: number;
 }) {
   void revision;
+  /*
+   * Read from the model, not restated here.
+   *
+   * These two groups were two arrays of command names written out in this file, and five inserts
+   * were registered, working and reachable by no button — because a hard-coded array is not a claim
+   * about anything and `every-command-can-be-seen` had nothing to read. A control now says whether
+   * it makes a thing that holds other things or a thing that goes in one, and the next one appears
+   * where it belongs by saying what it is.
+   */
   const groups: { label: string; controls: SiteControl[] }[] = [
-    {
-      label: '담는 것',
-      controls: siteControlsIn('insert').filter((one) => one.command.startsWith('insert') && ['insertSection', 'insertRow', 'insertGrid'].includes(one.command))
-    },
-    {
-      label: '넣는 것',
-      controls: siteControlsIn('insert').filter((one) =>
-        ['insertHeading', 'insertBodyText', 'insertPicture', 'insertBulletList'].includes(one.command)
-      )
-    }
+    { label: '담는 것', controls: siteControlsIn('insert').filter((one) => one.puts === 'container') },
+    { label: '넣는 것', controls: siteControlsIn('insert').filter((one) => one.puts === 'block') }
   ];
 
   return (

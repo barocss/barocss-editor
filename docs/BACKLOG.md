@@ -64,6 +64,40 @@ entries are that.
   for at the price of every reader wondering which of two places to set. The escape is written down —
   an `overrides` *inside* the state, the same map one level down — and nothing implements it.
 
+### A template can be rewired, and cannot be given a new wire
+
+- [ ] **A part cannot be bound from the panel.** 데이터 › 카드에 넣을 값 answers *which column feeds
+  this slot*, and only for slots the definition already asks about: `componentVar` and
+  `componentBind` can be written by hand and by nothing else. So a reader who adds a 할인 column can
+  point an existing slot at it and cannot make a new one — the same wall as before, one step further
+  in. The gesture is *this text comes from the data*, on a selected part while a definition is open.
+
+- [ ] **A placement cannot override what the definition did not ask about.** A card whose padding
+  should differ on one page has to become a second definition. Every component system grows this and
+  every one of them regrets the shape it chose first; worth reading the deck's variants note before
+  picking one.
+
+- [ ] **Nothing detaches.** A placement is a placement for life. There is no *make this ordinary
+  again*, which is the escape hatch a component system needs for the case where the abstraction was
+  the wrong call — and the absence of it is why readers avoid making components at all.
+
+### A code block has no mode, and the schema cannot say what it refuses
+
+- [ ] **`marks` is declared on a node definition and nothing reads it.** `SchemaNodeDefinition.marks`
+  is a `string[]` and no validator, operation or command consults it — so "no formatting inside a
+  code block" cannot be stated, only hoped for. It is the same shape of fault as the two this month
+  already found: a field the model carries and nothing asks about.
+
+- [ ] **Enter, Tab and the mark commands all answer the prose question inside code.** Enter makes a
+  new block where it should make a newline, Tab moves focus where it should indent, and bold applies.
+  The text stack is shared by three products, so this is a change Word and the deck feel — which is
+  why it is a slice rather than a fix.
+
+- [ ] **And then, maybe, an editor of its own.** The data grid already opens over the page here,
+  because five columns in a 280px rail is slivers. A long code block has the same shape of problem.
+  Reasonable as an escape hatch; wrong as the only way in, because a modal editor is the one thing
+  that makes the page on screen stop being the page.
+
 ### A list's card can be edited, and three things around it cannot yet
 
 - [ ] **The preview does not follow the data.** A reader who opens the product card against row 3 and
@@ -2710,6 +2744,24 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A list was not a list.** It drew `<div class="w-list">` holding `<div class="w-list-item"
+  data-marker="">`: no bullet, no number, no `<ul>`. The marker is Word's — it comes from a
+  *numbering definition* through the env, which is right for a document with eight list styles and
+  resolves to the empty string for a product that has none. So 목록 in the toolbar put an
+  indistinguishable pile of sentences on the page, and `PAGE_CSS` carried rules for `ul`, `ol` and
+  `li` that could never match anything. A site draws `<ul>`/`<ol>` and lets the browser mark them,
+  which is also the two elements that *mean* a list to a screen reader and to a search engine.
+
+  Under it: the insert wrote `kind: 'bullet'` and the schema declares `type`. An attribute nothing
+  reads, on the one node whose whole question is *which kind* — and invisible for as long as a list
+  was not a list. The exemption saying `type` was "office-text's to draw" went stale the same minute
+  and the harness said so, which is exactly what an exemption is for.
+
+- **The rail restated the model.** 담는 것 and 넣는 것 were two arrays of command names written out
+  in `rail.tsx`, so five newly registered inserts were reachable by no button and nothing could see
+  it — a hard-coded array is not a claim about anything. A control now says whether it makes a thing
+  that holds other things or a thing that goes in one.
 
 - **A component's nodes were in no stylesheet at all.** The export keyed a rule by a node's id and
   found the nodes by walking the page — and a component definition lives *beside* the pages rather

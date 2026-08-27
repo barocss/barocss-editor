@@ -70,6 +70,14 @@ export type SitePanelControl =
   | 'column'
   /** A placement's answers, one row per question its definition asks. */
   | 'values'
+  /**
+   * The same, for a **list's card** — and the answers are columns rather than words.
+   *
+   * A separate kind rather than `values` with a flag, because it is a different question: a
+   * placement is asked *what does this one say*, and a list's card is asked *where does each row get
+   * this from*. One draws text fields, the other draws a picker of the dataset's columns.
+   */
+  | 'cardValues'
   /** A sentence rather than a control: the note that says which width is being edited. */
   | 'note';
 
@@ -453,6 +461,42 @@ export const SITE_PANEL: SitePanelRow[] = [
   { attr: 'where', command: 'setBlockFormat', group: '거르기', tab: 'data', label: '칸', ariaLabel: '거를 칸', control: 'column', on: ['collection'] },
   { attr: 'equals', command: 'setBlockFormat', group: '거르기', tab: 'data', label: '값', ariaLabel: '거를 값', control: 'text', on: ['collection'], needs: 'where' },
 
+  // ── The blocks that have a question of their own ──────────────────────────
+  /*
+   * Which kind of list. `type`, which is what the schema declares — the insert had been writing
+   * `kind` since it was written, and nothing read either of them until a site drew `<ul>` and `<ol>`
+   * instead of two identical `<div>`s.
+   */
+  {
+    attr: 'type',
+    command: 'setBlockFormat',
+    group: '목록',
+    tab: 'block',
+    label: '종류',
+    ariaLabel: '목록 종류',
+    control: 'choice',
+    fallback: 'bullet',
+    on: ['list'],
+    options: [
+      { id: 'bullet', label: '글머리' },
+      { id: 'ordered', label: '번호' }
+    ]
+  },
+  /*
+   * What a code block is in. Written on the drawing as `data-language`, so a published page can be
+   * highlighted by whatever the reader's site uses without this product shipping a highlighter.
+   */
+  {
+    attr: 'language',
+    command: 'setBlockFormat',
+    group: '코드',
+    tab: 'block',
+    label: '언어',
+    ariaLabel: '코드 언어',
+    control: 'text',
+    on: ['codeBlock']
+  },
+
   // ── 값 — a placement's answers to its definition's questions ───────────────
   /*
    * One row here and many on screen: how many there are is a fact about the *definition*, which only
@@ -469,6 +513,34 @@ export const SITE_PANEL: SitePanelRow[] = [
     ariaLabel: '값',
     control: 'values',
     on: ['instance']
+  },
+
+  /**
+   * And the same question for a **list**, where it is the one that closes the loop.
+   *
+   * A list is a dataset, a card, and *which column goes into which slot of the card*. The first two
+   * were reachable and the third was not: a reader could add a 할인 column to the data and had no way
+   * to make the card show it, because the answers live on the list's template placement and nothing
+   * selects a template.
+   *
+   * So the rows are drawn from the **card's** questions and written to the list's template, which is
+   * the sentence a reader would say — *the card asks for a name; give it the 이름 column.*
+   */
+  {
+    /*
+     * `componentValue`, the same node the row above writes — because it *is* that node, put on the
+     * list's template rather than on a placement a reader selected. The panel's own check reads this
+     * name and asks the schema for it, which is what says the row writes something that exists.
+     */
+    attr: 'componentValue',
+    writes: 'child',
+    command: 'setComponentValue',
+    group: '카드에 넣을 값',
+    tab: 'data',
+    label: '값',
+    ariaLabel: '카드에 넣을 값',
+    control: 'cardValues',
+    on: ['collection']
   },
 
   // ── 페이지 — shown when nothing is selected, because a page is the board ───

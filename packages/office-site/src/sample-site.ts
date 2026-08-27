@@ -253,6 +253,52 @@ const navItem = (label: string, page: string): Node =>
     [paragraph([toPage(label, page, '3A443E')], { partId: `nav-${page}-label` })]
   );
 
+/**
+ * A list of things, in the two kinds a page has.
+ *
+ * `type`, which is what the schema declares — the sample said `kind` and so did the insert command,
+ * and neither of them was ever read: the marker came from Word's numbering, a site has none, and so
+ * a list drew as an indented column of sentences whichever word was used. It is `<ul>` and `<ol>`
+ * now, and the browser draws the markers.
+ */
+const listOf = (kind: 'bullet' | 'ordered', items: string[], extra: Record<string, unknown> = {}): Node => ({
+  stype: 'list',
+  attributes: { type: kind, ...extra },
+  content: items.map((one) => ({
+    stype: 'listItem',
+    attributes: {},
+    content: [paragraph(one)]
+  }))
+});
+
+/**
+ * A quotation, as the node for one.
+ *
+ * It was a bordered stack holding a big paragraph and a small one — which looked right and said
+ * nothing: a published page carried two divs where a reader's browser, a screen reader and a search
+ * engine all wanted a `blockquote`. The node has been in the schema since it was written; the sample
+ * drew a picture of it instead, which is exactly the gap this round was looking for.
+ */
+const quoteOf = (said: string, who: string, extra: Record<string, unknown> = {}): Node => ({
+  stype: 'blockQuote',
+  /*
+   * No `maxWidth` here, and it is worth the line: the sizing attributes are declared on the nodes a
+   * page *arranges* — frame, collection, picture, instance, surface — and not on a text block, on
+   * purpose. A heading that wants to hug its words goes in a stack that hugs, which is how every
+   * auto-layout tool works: text sizing is the stack's question, asked one level up. Writing one
+   * here would be an attribute nothing reads, which is the fault this round spent its morning on.
+   */
+  attributes: { ...extra },
+  content: [paragraph([atSize(said, '20px')]), quiet(who)]
+});
+
+/** A division between two things, which is a block and not a border on one of them. */
+const rule = (extra: Record<string, unknown> = {}): Node => ({
+  stype: 'horizontalRule',
+  attributes: extra,
+  content: []
+});
+
 /** One person: a portrait with a name under it, which is a card without being one. */
 const person = (name: string, role: string, art: string): Node =>
   stack('column', { name, gap: GAP.tight, sizing: 'fill' }, [
@@ -657,10 +703,10 @@ function home(): Node {
             strokeWidth: px(1)
           },
           [
-            paragraph([
-              atSize('“편집기에서 본 것과 내보낸 파일이 같습니다. 검수에 쓰던 시간이 절반으로 줄었어요.”', '20px')
-            ]),
-            quiet('임세라 · 한결제작소 편집팀')
+            quoteOf(
+              '“편집기에서 본 것과 내보낸 파일이 같습니다. 검수에 쓰던 시간이 절반으로 줄었어요.”',
+              '임세라 · 한결제작소 편집팀'
+            )
           ]
         )
       ]),
@@ -741,6 +787,21 @@ function products(): Node {
           quiet(
             '무엇을 만들든 문서는 같은 규칙을 따릅니다. 아래는 그 규칙이 실제로 무엇이고, 그것이 만드는 사람에게 무엇을 덜어주는지입니다.'
           )
+        ])
+      ]),
+      /*
+       * The order a reader does things in — a **numbered** list, which is the one case where the
+       * marker carries information rather than decorating it: swap two of these and the sentence is
+       * wrong, which is not true of the bullets on 소개.
+       */
+      section('시작하는 순서', { paddingTop: 0, paddingBottom: px(40) }, [
+        stack('column', { name: '순서 글', gap: GAP.tight, maxWidth: WIDTH.text }, [
+          heading(2, '시작하는 순서'),
+          listOf('ordered', [
+            '문서를 하나 만듭니다. 워드로 시작하든 사이트로 시작하든 같은 문서입니다.',
+            '브랜드 색과 글꼴을 한 번 적습니다. 세 제품이 그것을 씁니다.',
+            '만든 것을 내보냅니다. 편집기에서 본 것이 그대로 나옵니다.'
+          ])
         ])
       ]),
       section('기능 그리드', { paddingTop: 0 }, [
@@ -962,27 +1023,11 @@ function about(): Node {
           quiet(
             '지금은 워드프로세서와 프레젠테이션과 사이트 빌더가 한 저장소 안에서 같은 노드를 씁니다. 새 제품을 만들 때 다시 만드는 것은 배치뿐입니다.'
           ),
-          {
-            stype: 'list',
-            attributes: { kind: 'bullet' },
-            content: [
-              {
-                stype: 'listItem',
-                attributes: {},
-                content: [paragraph('스키마가 먼저입니다. 문서가 무엇인지 정하지 않고 화면부터 그리면 세 번 만들게 됩니다.')]
-              },
-              {
-                stype: 'listItem',
-                attributes: {},
-                content: [paragraph('측정하고 나서 만듭니다. 없는 기능보다 있는데 아무도 못 쓰는 기능이 더 많았습니다.')]
-              },
-              {
-                stype: 'listItem',
-                attributes: {},
-                content: [paragraph('놀란 것은 적어둡니다. 다음 사람이 같은 자리에서 다시 놀라지 않도록.')]
-              }
-            ]
-          }
+          listOf('bullet', [
+            '스키마가 먼저입니다. 문서가 무엇인지 정하지 않고 화면부터 그리면 세 번 만들게 됩니다.',
+            '측정하고 나서 만듭니다. 없는 기능보다 있는데 아무도 못 쓰는 기능이 더 많았습니다.',
+            '놀란 것은 적어둡니다. 다음 사람이 같은 자리에서 다시 놀라지 않도록.'
+          ])
         ])
       ]),
       section('사람들', { paddingTop: 0 }, [
@@ -1078,6 +1123,12 @@ function blog(): Node {
         )
       ]),
       section('글 목록', { paddingTop: 0 }, [
+        /*
+         * A rule between the featured post and the rest, which is the one place on this site where a
+         * division is the content rather than the frame's border: the two things are the same kind of
+         * thing and the line says *and then the others*.
+         */
+        rule(),
         {
           stype: 'collection',
           attributes: {

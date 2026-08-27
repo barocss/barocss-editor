@@ -36,6 +36,18 @@ export interface SiteControl {
    */
   makes?: string;
   /**
+   * Whether it makes a thing that **holds** other things, or a thing that goes *in* one.
+   *
+   * The rail draws two groups — 담는 것 and 넣는 것 — and it drew them from a list of command names
+   * written out in the app: `['insertHeading', 'insertBodyText', 'insertPicture', 'insertBulletList']`.
+   * Which is the fault this file's own header names about ribbons, one layer over: a declaration
+   * nothing can read. Five new inserts were registered, reachable by no button, and the harness could
+   * not see it because a hard-coded array is not a claim about anything.
+   *
+   * Said here instead, so the next insert appears where it belongs by saying what it is.
+   */
+  puts?: 'container' | 'block';
+  /**
    * The picture beside the name, from the suite's own table.
    *
    * Declared here rather than chosen in the ribbon so that `every-icon-has-a-picture` can ask: a
@@ -52,9 +64,9 @@ export interface SiteControl {
  * shape, and `every-command-can-be-seen` refuses a command that could only answer "it depends".
  */
 export const SITE_TOOLBAR: SiteControl[] = [
-  { command: 'insertSection', label: '섹션', title: '세로로 쌓는 섹션', group: 'insert', icon: 'add', makes: '섹션' },
-  { command: 'insertRow', label: '가로', title: '가로로 늘어놓는 스택', group: 'insert', icon: 'add', makes: '가로 스택' },
-  { command: 'insertGrid', label: '그리드', title: '3열 그리드', group: 'insert', icon: 'add', makes: '그리드' },
+  { command: 'insertSection', puts: 'container', label: '섹션', title: '세로로 쌓는 섹션', group: 'insert', icon: 'add', makes: '섹션' },
+  { command: 'insertRow', puts: 'container', label: '가로', title: '가로로 늘어놓는 스택', group: 'insert', icon: 'add', makes: '가로 스택' },
+  { command: 'insertGrid', puts: 'container', label: '그리드', title: '3열 그리드', group: 'insert', icon: 'add', makes: '그리드' },
   /*
    * And the things that go *in* a stack.
    *
@@ -62,10 +74,35 @@ export const SITE_TOOLBAR: SiteControl[] = [
    * every builder of this kind puts them, because there are more of them than a toolbar has room for
    * and they are chosen by what they are rather than found by what they do.
    */
-  { command: 'insertHeading', label: '제목', title: '제목을 넣습니다', group: 'insert', makes: '제목' },
-  { command: 'insertBodyText', label: '본문', title: '본문을 넣습니다', group: 'insert', makes: '본문' },
-  { command: 'insertPicture', label: '이미지', title: '이미지를 넣습니다', group: 'insert', makes: '이미지' },
-  { command: 'insertBulletList', label: '목록', title: '글머리 목록을 넣습니다', group: 'insert', makes: '목록' },
+  { command: 'insertHeading', puts: 'block', label: '제목', title: '제목을 넣습니다', group: 'insert', makes: '제목' },
+  { command: 'insertBodyText', puts: 'block', label: '본문', title: '본문을 넣습니다', group: 'insert', makes: '본문' },
+  { command: 'insertPicture', puts: 'block', label: '이미지', title: '이미지를 넣습니다', group: 'insert', makes: '이미지' },
+  { command: 'insertBulletList', puts: 'block', label: '글머리 목록', title: '글머리 목록을 넣습니다', group: 'insert', makes: '목록' },
+  { command: 'insertNumberList', puts: 'block', label: '번호 목록', title: '번호 목록을 넣습니다', group: 'insert', makes: '번호 목록' },
+  { command: 'insertQuote', puts: 'block', label: '인용', title: '인용문을 넣습니다', group: 'insert', makes: '인용' },
+  /*
+   * 코드 is **not here**, and the empty space is the decision.
+   *
+   * The node was fixed on the way — `codeBlock` declared `content: 'text*'`, a group no node in this
+   * schema is in, so it could hold nothing at all and every insert made an empty block. It draws now
+   * and a document that arrives holding one is drawn correctly.
+   *
+   * What is missing is not the node. It is a **mode**: inside code, Enter is a newline rather than a
+   * new block, Tab is an indent rather than the next control, and every formatting command is
+   * meaningless — bold inside code publishes a `<strong>` into a `<pre>`, which no highlighter
+   * expects and no round-trip survives. The text stack answers all three the other way, correctly,
+   * for prose.
+   *
+   * So offering the insert would give a reader a block they can put on a page and then cannot type
+   * into — which is worse than not offering it. `docs/specs/site-builder.md` carries the design.
+   */
+  { command: 'insertRule', puts: 'block', label: '구분선', title: '가로 구분선을 넣습니다', group: 'insert', makes: '구분선' },
+  /*
+   * And the one that is a **composition** rather than a node: a box, a word, a hit area, a radius
+   * and an answer to the pointer. The knowledge is the arrangement, which is why it is a command
+   * rather than four rows of a panel a reader would have to know to fill in.
+   */
+  { command: 'insertButton', puts: 'block', label: '버튼', title: '버튼을 넣습니다', group: 'insert', makes: '버튼' },
   {
     command: 'duplicateBlocks',
     label: '복제',

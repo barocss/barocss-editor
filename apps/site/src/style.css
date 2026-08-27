@@ -647,6 +647,27 @@ body {
 .st-at-note { font-size: 11px; color: var(--st-accent); }
 
 /*
+ * One of a card's questions, and where its answer comes from.
+ *
+ * A label on the left because the question is the card's word — `이름`, `가격` — and a reader has to
+ * see which slot they are filling. The rest of the panel labels rows from the declaration; these
+ * come from the definition, so they are drawn here.
+ */
+.st-card-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--ou-control-h);
+}
+.st-card-value > span {
+  width: var(--ou-label-w);
+  flex: none;
+  font-size: var(--ou-text-small);
+  color: var(--ou-muted);
+}
+.st-card-value > :last-child { flex: 1; min-width: 0; }
+
+/*
  * Words that came from the data, marked where a reader asked to type them.
  *
  * The one colour on this chrome that is neither the accent nor the ink: this is not a selection and

@@ -530,6 +530,94 @@ placement is not something anybody edits — and it is exactly what throws the r
 is now a `drawnSidAtElement` beside it for the one question that is about the drawing rather than the
 document, and a double-click on the second product opens the second product.
 
+## Where a change to a template belongs
+
+The question a reader actually has is never *"how do I edit the component"*. It is one of four
+questions, and the whole design is that each has exactly one answer:
+
+| what the reader wants | where it happens | how they get there |
+| --- | --- | --- |
+| this card's design, for every row | the **definition** | double-click a row, or the rail's 컴포넌트 list |
+| this row's words | the **data** | the data grid |
+| where each slot's words come from | the list's **template** | 데이터 › 카드에 넣을 값 |
+| what *this one* placement says | the placement's **values** | select it, 값 |
+
+The fourth is the one every component system has and the third is the one this product was missing.
+Without it a list is a dataset and a card with a fixed wiring between them: a reader could add a
+column to the data and had no way to make the card show it, because the answers live on the list's
+template placement and **nothing selects a template**. So a template stopped being editable at
+whatever the sample's author wrote, which is the point at which a component system becomes a
+decoration.
+
+Three properties are worth stating as rules rather than as behaviour:
+
+- **A change is global by default and the product says how global.** Editing a definition changes
+  every placement of it, and the bar says *5곳에서 사용 중* before anything is typed. That sentence
+  is read from the document rather than remembered, because a stored count is a stale count.
+- **A bound part is not editable where it is drawn.** The card's title draws the row's name, so
+  typing there changes the definition's fallback and the data overwrites it a frame later — not an
+  error, just a change that does not survive. The part says where its words come from instead.
+- **What a reader is looking at is not in the document.** Which row the card is being designed
+  against is a fact about this reader, this minute. A document that carried it would hand the next
+  person a card mysteriously showing the eleventh product.
+
+What is still missing, in the order it will be wanted:
+
+1. **A part cannot be bound from the panel.** `componentVar` and `componentBind` can only be written
+   by hand, so a reader who adds a 할인 column can wire it to a slot that already exists and cannot
+   make a *new* slot. That is the same wall one step further in, and it is the next slice.
+2. **A placement cannot override anything the definition did not ask about.** A card whose padding
+   should differ on one page has to become a second definition.
+3. **Nothing detaches.** A placement is a placement for life; there is no *make this ordinary again*,
+   which is the escape hatch every component system needs for the case the abstraction was wrong.
+
+## A code block: what it stores, and where it is edited
+
+Two questions get asked as one and they have different answers.
+
+### What it stores is text, and the schema was wrong about it
+
+`codeBlock` declared `content: 'text*'` — a group **no node in this schema is in**. Every text node
+here is `inline-text`, whose group is `inline`, and nothing anywhere declares `text`. So a code block
+could hold nothing at all: it refused every child it was offered, in silence, and any command that
+made one made an empty block. Since the standard schema was written; found the day a site builder put
+코드 on its rail and the insert reported success with nothing on the page.
+
+`inline*` is the right shape and it is what every editor of this kind stores — a run of characters,
+plus a `language`. Two things it must **not** store, and both are worth saying out loud:
+
+- **The highlighting.** Colours are derived from the text and the language, so storing them means
+  storing a value that goes stale the instant either changes. A published page carries `<pre>` with
+  `data-language`, and whatever highlights it does so at draw time, on the reader's side.
+- **Marks.** Bold inside code is meaningless, and a `<strong>` inside a `<pre>` is something no
+  highlighter expects and no round-trip survives. The schema has a place to say this — a node
+  definition may carry `marks: string[]` — and **nothing reads it**. So the constraint cannot be
+  enforced today, which is the second half of why the insert is not offered.
+
+### Where it is edited is a **mode**, and this product has none
+
+Inside prose, Enter makes a new block, Tab moves to the next control, and the formatting commands
+apply marks. All three are correct for prose and all three are wrong inside code: Enter is a newline,
+Tab is an indent, and there is no formatting. That is not a renderer's problem or a schema's — it is
+an input mode, and the text stack is shared by three products, so growing one is a change Word and
+the deck feel too.
+
+So the node is fixed and draws, and **the insert is not offered**. A block a reader can put on a page
+and then cannot type into is worse than a block that is not there, and a command nothing can reach
+fails `every-command-can-be-seen` — which is the harness agreeing.
+
+Two ways out, and the choice is not obvious:
+
+1. **A mode in the text stack.** Enter → newline, Tab → indent, marks refused, spellcheck off. The
+   honest answer, and the one that keeps the product's promise that the thing on screen is the page.
+2. **An editor of its own**, opened over the page — the shape the data grid already uses here,
+   because a five-column table drawn in a 280px rail is slivers. Reasonable as an *escape hatch* for
+   a long block; wrong as the only way in, because a modal editor is the one thing that makes the
+   page on screen stop being the page.
+
+They are not exclusive and the first is the prerequisite: an external editor still has to write the
+node back, and a node nothing can type into is a node nothing can write back either.
+
 ## What a site builder still needs
 
 Measured against what the product can do today, in the order the next slices should take them:
@@ -561,11 +649,13 @@ Measured against what the product can do today, in the order the next slices sho
    commands exist, the marks are not on screen yet.
 7. **Forms.** The one common site block with no node behind it — and the first thing here that would
    genuinely be new rather than reused.
-8. **A transition between the states.** A hover that arrives instantly is a hover that looks like a
+8. **A code mode.** The node is fixed and draws; Enter, Tab and the mark commands all answer the
+   prose question inside it. See above — it is the one insert this round deliberately did not ship.
+9. **A transition between the states.** A hover that arrives instantly is a hover that looks like a
    bug on a large card. It is one attribute and one CSS property, and it is the doorway to motion —
    which is still the single largest difference between a page built here and one built anywhere
    else.
-9. **Position.** No sticky header, no overlap, no negative offset: a page is a column of boxes. The
+10. **Position.** No sticky header, no overlap, no negative offset: a page is a column of boxes. The
    editor cannot show a sticky header at all — a board is drawn at its full height on a plane and
    never scrolls — so this is the first thing the product would have to *communicate* rather than
    draw, which is a decision worth taking deliberately.

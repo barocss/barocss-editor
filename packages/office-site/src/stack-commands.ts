@@ -338,6 +338,9 @@ export class SiteStackExtension implements Extension {
     'fit',
     // A heading's rank, which is the one thing about a heading that is not formatting.
     'level',
+    // Which kind of list, and what a code block is written in — each the one question its node has.
+    'type',
+    'language',
     // A list, and the question it asks of the data.
     'source',
     'sortBy',

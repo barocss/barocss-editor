@@ -121,10 +121,22 @@ export const PAGE_CSS = `
   text-wrap: pretty;
 }
 
+/*
+ * A list, with its markers put back.
+ *
+ * Tailwind's preflight sets list-style to none on every ul and ol, and the app that draws the boards
+ * loads it — so a list drew as an indented column of sentences even after it became a real ul. The
+ * published page has no preflight and needs the rule anyway: a browser's default indent is a margin
+ * this page does not want, and the marker is the one thing a list cannot be read without.
+ */
 .st-page ul,
 .st-page ol {
   padding-left: 1.25em;
+  list-style-position: outside;
 }
+
+.st-page ul { list-style-type: disc; }
+.st-page ol { list-style-type: decimal; }
 
 .st-page li {
   max-width: 68ch;
@@ -132,6 +144,47 @@ export const PAGE_CSS = `
 
 .st-page li + li {
   margin-top: 0.35em;
+}
+
+/*
+ * A quotation, marked by a rule rather than by quotation marks.
+ *
+ * The words are already the quotation; a pair of glyphs around them is the page saying it twice.
+ * The rule is what every editorial page uses and it survives being narrow, which a hanging quote
+ * mark does not.
+ */
+.st-page blockquote {
+  padding-left: 1.25em;
+  border-left: 2px solid currentColor;
+  font-size: 1.125em;
+  line-height: 1.5;
+}
+
+/* Code, kept as it was typed — and allowed to scroll rather than to widen the page. */
+.st-page pre {
+  overflow-x: auto;
+  padding: 1em 1.15em;
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  line-height: 1.6;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/*
+ * A division, drawn as a hairline in the text's own colour at a tenth of its weight.
+ *
+ * A browser's own horizontal rule is a bevelled two-pixel groove from 1996; anything that keeps it
+ * looks like a page nobody styled. (No back-ticks in here — see the header: one in a comment ends
+ * this template literal, and the app stops building.)
+ */
+.st-page hr {
+  height: 0;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
 }
 
 .st-page a {

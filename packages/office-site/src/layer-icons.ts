@@ -43,7 +43,14 @@ export function iconForBlock(node: Node | undefined): string {
     case 'instance':
       return 'component';
     case 'list':
-      return 'bullet-list';
+      // Which kind, because a reader scanning a column of rows is looking for the numbered one.
+      return attrs.type === 'ordered' ? 'ordered-list' : 'bullet-list';
+    case 'blockQuote':
+      return 'quote';
+    case 'codeBlock':
+      return 'code';
+    case 'horizontalRule':
+      return 'divider';
     case 'surface':
       return 'insert-frame';
     default:
@@ -64,6 +71,10 @@ export function siteLayerIcons(): string[] {
     'paragraph',
     'insert-image',
     'component',
-    'bullet-list'
+    'bullet-list',
+    'ordered-list',
+    'quote',
+    'code',
+    'divider'
   ];
 }

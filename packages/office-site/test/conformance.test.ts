@@ -73,6 +73,17 @@ describe('the site builder draws what it declares', () => {
     { command: 'insertBodyText', produces: 'paragraph' },
     { command: 'insertPicture', produces: 'picture' },
     { command: 'insertBulletList', produces: 'list' },
+    { command: 'insertNumberList', produces: 'list' },
+    { command: 'insertQuote', produces: 'blockQuote' },
+    { command: 'insertRule', produces: 'horizontalRule' },
+    /*
+     * A **composition**, and it produces a `frame` — which is the honest answer rather than a
+     * shrug. There is no `button` node in this schema and there should not be: a button is a box
+     * with a word in it, a colour, a radius, a hit area and an answer to the pointer, and every one
+     * of those is something a frame already says. What the command carries is the *arrangement*,
+     * which is where a product's taste lives.
+     */
+    { command: 'insertButton', produces: 'frame' },
     { command: 'insertPlacement', produces: 'instance' },
     { command: 'insertDataList', produces: 'collection' },
     // And the data a list draws, which nothing but TypeScript could make until now.
@@ -213,6 +224,18 @@ describe('the site builder draws what it declares', () => {
         canvasBlock: 'a canvas embedded in the flow — the one node that would bring the rest back',
         textFrame: 'a text box is a placed box; on a page, text is a block in the column',
 
+        /*
+         * A `listItem` directly inside a `listItem`, which the schema permits and no document holds.
+         *
+         * The permission is `listItem: content 'block+'` and a `listItem` is in the `block` group —
+         * so the schema says yes to something a list never does: a nested list goes through a
+         * `list`, which draws `<ul>`, and `<li><ul><li>` is exactly what the parser wants. The pair
+         * only became visible when the site started drawing real `<li>`s instead of `<div>`s, which
+         * is the check working: `<div>` inside `<div>` hid it for as long as a list was not a list.
+         */
+        'listItem > listItem':
+          'a nested list goes through a `list` — `<li><ul><li>` — and a document never holds one `listItem` directly inside another',
+
         // ── A definition is never drawn; a placement draws it ──────────────
         /*
          * The resources. `installSiteResolution` turns a placement into its definition's parts at
@@ -284,7 +307,12 @@ describe('the site builder draws what it declares', () => {
 
         // ── The office schema’s, for products that are not this one ────────
         placeholder: 'Word draws a prompt in an empty paragraph; a page has no forms yet',
-        type: 'a list’s numbering, `office-text`’s to draw',
+        /*
+         * `type` was here — *"a list's numbering, office-text's to draw"* — and it was true right up
+         * until a site drew `<ul>` and `<ol>` instead of two identical `<div>`s. The harness reported
+         * it stale the same minute, which is what an exemption is for: a claim that fails when it
+         * stops being true, rather than a note that quietly outlives it.
+         */
         format: 'a date field’s format, `office-text`’s to draw',
         advance: 'how a deck moves to the next slide; a page does not advance',
 
@@ -379,7 +407,7 @@ describe('the site builder draws what it declares', () => {
         caption: 'the shared text kit draws it; a site has no table panel yet — owed, in BACKLOG.md',
         colspan: 'the shared text kit draws it; a site has no table panel yet — owed, in BACKLOG.md',
         rowspan: 'the shared text kit draws it; a site has no table panel yet — owed, in BACKLOG.md',
-        language: 'the shared text kit draws it; a site has no code panel yet — owed, in BACKLOG.md',
+        // `language` was here on the same terms, and the debt is paid: 코드 › 언어 writes it.
 
         // ── Deliberately not offered ───────────────────────────────────────
         /**

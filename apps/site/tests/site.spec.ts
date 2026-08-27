@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { siteControlsIn } from '@barocss/office-site';
 
 /**
  * The site builder, in a browser.
@@ -703,8 +704,20 @@ test.describe('the rail', () => {
      * may not have.
      */
     const rows = page.locator('[data-insert]');
-    await expect(rows).toHaveText(['섹션', '가로 스택', '그리드', '제목', '본문', '이미지', '목록']);
-    await expect(page.locator('[data-insert]:not([disabled])')).toHaveCount(7);
+    await expect(rows).toHaveText([
+      '섹션',
+      '가로 스택',
+      '그리드',
+      '제목',
+      '본문',
+      '이미지',
+      '목록',
+      '번호 목록',
+      '인용',
+      '구분선',
+      '버튼'
+    ]);
+    await expect(page.locator('[data-insert]:not([disabled])')).toHaveCount(11);
   });
 
   test('adds a block, puts it where a reader can predict, and selects it', async ({ page }) => {
@@ -1614,5 +1627,147 @@ test.describe('the card a list draws', () => {
     await expect(list).toContainText('사이트');
     await expect(list).toContainText('문서');
     await expect(page.locator('.st-where-row')).toHaveCount(0);
+  });
+});
+
+/**
+ * The three things a list is, and the one that had no way in.
+ *
+ * A list is a **dataset**, a **card**, and *which column of the data goes into which slot of the
+ * card*. The first two were reachable — the data panel and, now, a double-click on a row — and the
+ * third was not: the answers live on the list's template placement, and nothing selects a template.
+ * So a reader who added a column to the data had no way to make the card show it, which is the point
+ * at which a template stops being editable and becomes whatever the sample's author wrote.
+ */
+test.describe('what the card is given', () => {
+  const panel = (page: Page) => page.locator('.office-properties');
+
+  test('lists the card’s questions, and where each answer comes from', async ({ page }) => {
+    await ready(page);
+    const list = page.locator('[data-frame="desktop"] .st-collection').first();
+    await bring(page, list);
+    await pressDeepAt(page, list.locator('> *').first());
+    await page.waitForTimeout(400);
+
+    await panel(page).locator('[data-tab="data"]').click();
+    await page.waitForTimeout(250);
+
+    // One row per question the card asks — a fact about the definition, so it is read and not declared.
+    const asks = panel(page).locator('.st-card-value');
+    await expect(asks).toHaveCount(3);
+    await expect(panel(page).getByLabel('이름에 넣을 칸')).toContainText('이름');
+    await expect(panel(page).getByLabel('가격에 넣을 칸')).toContainText('가격');
+  });
+
+  test('changes which column a slot draws, on every row at once', async ({ page }) => {
+    await ready(page);
+    const list = page.locator('[data-frame="desktop"] .st-collection').first();
+    await bring(page, list);
+    await expect(list).toContainText('쌓이는 섹션, 브라우저가 배치.');
+
+    await pressDeepAt(page, list.locator('> *').first());
+    await page.waitForTimeout(400);
+    await panel(page).locator('[data-tab="data"]').click();
+    await page.waitForTimeout(250);
+
+    /*
+     * The card's 설명 slot, told to take a different column. One gesture, forty cards — which is the
+     * whole reason a list draws a component rather than forty copies of one.
+     */
+    await panel(page).getByLabel('설명에 넣을 칸').click();
+    await page.locator('[role="option"]', { hasText: '분류' }).first().click();
+    await page.waitForTimeout(600);
+
+    await expect(list).not.toContainText('쌓이는 섹션, 브라우저가 배치.');
+    await expect(list).toContainText('제품');
+  });
+});
+
+/**
+ * What a reader can put on a page, and whether it is the thing they asked for.
+ *
+ * Two of these were already in the schema and unreachable, one was reachable and drew as something
+ * else, and the last is a composition rather than a node. Each is checked for what it *is* in the
+ * markup rather than for what it looks like: a list that is not a `<ul>` is a column of sentences to
+ * a screen reader and to a search engine however neatly it is indented.
+ */
+test.describe('the things a page can hold', () => {
+  const board = (page: Page) => page.locator('[data-frame="desktop"] .st-page');
+
+  test('draws a list as a list, with the markers a browser gives one', async ({ page }) => {
+    await ready(page);
+
+    /*
+     * It drew `<div class="w-list">` holding `<div class="w-list-item" data-marker="">`. The marker
+     * is Word's — it comes from a numbering definition through the env, which a site has none of —
+     * so 목록 put an indistinguishable pile of sentences on the page, and `PAGE_CSS` carried rules
+     * for `ul`, `ol` and `li` that could never match anything.
+     */
+    await page.locator('[data-insert="insertBulletList"]').click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-insert="insertNumberList"]').click();
+    await page.waitForTimeout(400);
+
+    const bullets = board(page).locator('ul.st-list');
+    const numbers = board(page).locator('ol.st-list');
+    await expect(bullets).toHaveCount(1);
+    await expect(numbers).toHaveCount(1);
+    // And the marker, which is the one thing a list cannot be read without. Tailwind's preflight
+    // takes it off every ul and ol in the window the boards are drawn in.
+    await expect(bullets.first()).toHaveCSS('list-style-type', 'disc');
+    await expect(numbers.first()).toHaveCSS('list-style-type', 'decimal');
+    await expect(bullets.locator('li')).toHaveCount(1);
+  });
+
+  test('draws a quotation as a blockquote, and a rule as a rule', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-insert="insertQuote"]').click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-insert="insertRule"]').click();
+    await page.waitForTimeout(400);
+
+    await expect(board(page).locator('blockquote').last()).toContainText('인용할 문장');
+    // One: the sample's own rule is on 블로그, between the featured post and the rest.
+    await expect(board(page).locator('hr')).toHaveCount(1);
+  });
+
+  test('makes a button that answers the pointer, out of a frame', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-insert="insertButton"]').click();
+    await page.waitForTimeout(500);
+
+    const made = board(page).locator('.st-stack[data-name="버튼"]').first();
+    await expect(made).toContainText('버튼');
+    /*
+     * There is no `button` node in this schema and there should not be: a button is a box with a
+     * word in it, a colour, a radius, a hit area and an answer to the pointer, and every one of
+     * those is something a frame already says. What the command carries is the arrangement — which
+     * is where a product's taste lives rather than in its vocabulary.
+     */
+    await expect(made).toHaveCSS('border-radius', '40px');
+    const box = await made.boundingBox();
+    const zoom = await page.evaluate(
+      () => Number((document.querySelector('.st-canvas') as HTMLElement).dataset.zoom) || 1
+    );
+    // A target a thumb can hit, measured back through the zoom the plane is drawn at.
+    expect((box?.height ?? 0) / zoom).toBeGreaterThan(40);
+  });
+
+  test('offers every insert the model declares, without the app restating them', async ({ page }) => {
+    await ready(page);
+    /*
+     * These two groups were two arrays of command names written out in the app, and five inserts
+     * were registered, working and reachable by no button. A control now says whether it makes a
+     * thing that holds other things or a thing that goes in one, so the next one appears where it
+     * belongs by saying what it is.
+     */
+    const declared = siteControlsIn('insert')
+      .filter((one) => one.puts)
+      .map((one) => one.command);
+    expect(declared.length).toBeGreaterThan(8);
+    const drawn = await page.locator('[data-insert]').evaluateAll((nodes) =>
+      nodes.map((one) => one.getAttribute('data-insert'))
+    );
+    for (const command of declared) expect(drawn).toContain(command);
   });
 });

@@ -67,6 +67,20 @@ const PLACEHOLDER =
  */
 const run = (text = ''): INode => textNode('inline-text', text);
 
+/** 15 twips to the CSS pixel — the document's unit, written as the number a reader is shown. */
+const px = (value: number): number => value * 15;
+
+/**
+ * The colour a new button arrives in.
+ *
+ * A literal rather than `var:강조`, and it is worth the sentence: a token is resolved against the
+ * *document*, and a document that has not declared one would draw a button with no colour at all —
+ * a reader's first button, on their first page, invisible. A reader who has tokens changes it in one
+ * gesture; a reader who has none gets a button.
+ */
+const ACCENT = '#0F7A5A';
+const ACCENT_DARK = '#0B5C44';
+
 export class SiteElementExtension implements Extension {
   name = 'siteElements';
   priority = 48;
@@ -103,13 +117,115 @@ export class SiteElementExtension implements Extension {
       () => node('picture', { src: PLACEHOLDER, alt: '', fit: 'cover', sizing: 'fill' }, []) as Node
     );
 
-    /** A list of things, with one thing in it a reader can type over. */
+    /**
+     * A list of things, with one thing in it a reader can type over.
+     *
+     * `type`, which is what the schema declares. It said `kind: 'bullet'` from the day it was
+     * written — an attribute nothing reads, on the one node whose whole question is *which kind* —
+     * and nothing noticed because the marker came from Word's numbering and a site has none, so
+     * every list drew as a stack of paragraphs whichever word was used.
+     */
     register(
       'insertBulletList',
       () =>
-        node('list', { kind: 'bullet' }, [
+        node('list', { type: 'bullet' }, [
           node('listItem', {}, [node('paragraph', {}, [run('항목')])])
         ]) as Node
+    );
+
+    /** And the other kind, which is `<ol>` and is the browser's to number. */
+    register(
+      'insertNumberList',
+      () =>
+        node('list', { type: 'ordered' }, [
+          node('listItem', {}, [node('paragraph', {}, [run('항목')])])
+        ]) as Node
+    );
+
+    /**
+     * A **quotation**.
+     *
+     * `blockQuote` holds blocks rather than words — `content: 'block+'` — which is the standard
+     * schema's answer and the right one: a pulled-out quotation on a page is usually two sentences
+     * and an attribution, and a node that held only inline content could not carry the second.
+     */
+    register(
+      'insertQuote',
+      () =>
+        node('blockQuote', {}, [
+          node('paragraph', {}, [run('인용할 문장을 여기에 씁니다.')]),
+          node('paragraph', {}, [run('— 말한 사람')])
+        ]) as Node
+    );
+
+    /**
+     * A **rule** between two things.
+     *
+     * An atom — it holds nothing and is the one block on a page that is purely a division. A frame
+     * with a top border would have drawn the same line and would have been a box a reader could put
+     * things in by accident, which is the difference between a separator and a container.
+     */
+    register('insertRule', () => node('horizontalRule', {}, []) as Node);
+
+    /*
+     * There is no `insertCode`, and its absence is on the record — see `toolbar-model.ts`.
+     *
+     * The node is fixed and draws; what it needs is a mode, because inside code Enter is a newline
+     * and every formatting command is meaningless. A command nothing can reach would fail
+     * `every-command-can-be-seen`, and a button that makes a block a reader cannot type into is
+     * worse than no button.
+     */
+
+    /**
+     * A **button**: the one thing on a page that is a composition rather than a node.
+     *
+     * ## Why it is not a node
+     *
+     * There is no `button` in this schema and there should not be. A button is a box with a word in
+     * it, a colour, a radius, a hit area and — since states — an answer to the pointer; every one of
+     * those is a thing a frame already says, and a node would be a second way to say them that the
+     * panel would then have to offer twice. The deck reached the same conclusion about its own
+     * shapes, one product earlier.
+     *
+     * ## Then why is it a command
+     *
+     * Because *the composition* is the knowledge. A reader who wants a button and is handed a frame
+     * has to know that a hit area is 44 high, that a border must exist before it can change colour,
+     * that the radius is the pill and not the box, and that a hover which changes the padding
+     * flickers. That is four decisions and a paragraph of arithmetic, and putting them in a command
+     * is how a product has taste rather than opinions.
+     *
+     * The link is left empty on purpose: a reader chooses the page, and the mark is `linkToPage`'s
+     * to write. A button with a made-up destination is worse than one with none.
+     */
+    register(
+      'insertButton',
+      () =>
+        node(
+          'frame',
+          {
+            name: '버튼',
+            layoutMode: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            sizing: 'hug',
+            // A target a thumb can hit: 44 is what every guideline asks for, and this is 20 + 12 + 12.
+            paddingTop: px(12),
+            paddingBottom: px(12),
+            paddingLeft: px(20),
+            paddingRight: px(20),
+            fill: ACCENT,
+            cornerRadius: px(40),
+            /*
+             * A border that is already the width it will be, so only its colour changes later — a
+             * border that grows on hover reflows the words inside it and the box leaves the pointer.
+             */
+            stroke: ACCENT,
+            strokeWidth: px(1),
+            states: { hover: { fill: ACCENT_DARK, stroke: ACCENT_DARK } }
+          },
+          [node('paragraph', {}, [run('버튼')]) as never]
+        ) as Node
     );
 
     /**

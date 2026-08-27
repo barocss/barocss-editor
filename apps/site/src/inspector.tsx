@@ -13,15 +13,19 @@ import {
 } from '@barocss/office-ui';
 import {
   BREAKPOINTS,
+  FIELD_PREFIX,
+  fieldNameOf,
   STATEABLE,
   STATES,
   attrsInState,
+  definitionOf,
   kindOfBlock,
   labelOfBlock,
   overriddenAt,
   sitePanelGroups,
   statedIn,
   statesOf,
+  templateOf,
   type BreakpointId,
   type SitePanelRow,
   type SitePanelTab,
@@ -108,6 +112,7 @@ export function Inspector({
      * is that selecting three cards and typing one number changes three cards.
      */
     const first = nodes[0] as Record<string, any>;
+    const rootId = editor.getRootId?.();
     return {
       ids,
       count: nodes.length,
@@ -133,6 +138,40 @@ export function Inspector({
       overridden: new Set(
         state ? statedIn(first.attributes ?? {}, state) : overriddenAt(first.attributes ?? {}, at)
       ),
+      /**
+       * And, for a **list**, the card's questions and where each one currently comes from.
+       *
+       * Read here rather than in the declaration because both halves are facts about the document:
+       * which definition the list's template places, and which of its variables that template has
+       * already answered. The answers live on the template — which nothing selects, and which is why
+       * this was unreachable before there was a row for it.
+       */
+      card:
+        first.stype === 'collection'
+          ? (() => {
+              const doc = { rootId: rootId ?? '', getNode: (sid: string) => store?.getNode(sid) };
+              const template = templateOf(doc as never, first as never);
+              const definition = definitionOf(
+                doc as never,
+                (template?.attributes as Record<string, unknown> | undefined)?.componentId
+              );
+              if (!template || !definition) return undefined;
+
+              const answered = new Map<string, string>();
+              for (const sid of (template.content ?? []) as unknown[]) {
+                if (typeof sid !== 'string') continue;
+                const child = store?.getNode(sid);
+                if (child?.stype === 'componentValue') {
+                  answered.set(String(child.attributes?.name), String(child.attributes?.value ?? ''));
+                }
+              }
+              return {
+                template: String(template.sid),
+                name: definition.name,
+                asks: definition.asks.map((one) => ({ name: one, value: answered.get(one) ?? '' }))
+              };
+            })()
+          : undefined,
       values: ((first.content ?? []) as unknown[])
         .filter((sid): sid is string => typeof sid === 'string')
         .map((sid) => store?.getNode(sid))
@@ -313,6 +352,8 @@ type Shown = {
   raw: Record<string, any>;
   overridden: Set<string>;
   values: { sid: string; name: string; value: string }[];
+  /** For a list: which card it draws, what that card asks, and what it is currently given. */
+  card?: { template: string; name: string; asks: { name: string; value: string }[] };
 };
 
 /**
@@ -596,6 +637,44 @@ function own(
               onCommit={(next) => run('setComponentValue', { nodeId: shown.ids[0], name: one.name, value: next })}
               ariaLabel={one.name}
             />
+          ))}
+        </span>
+      );
+
+    case 'cardValues':
+      /*
+       * Which column of the data goes into which slot of the card — the row that closes the loop.
+       *
+       * A list is three things and only two of them were reachable: the dataset, the card, and *this*.
+       * A reader who added a 할인 column had no way to make the card show it, because the answers live
+       * on the list's template placement and nothing selects a template.
+       *
+       * Written as `field:이름` rather than as a column id, which is the same reference this schema
+       * uses everywhere: `var:` for a colour, `page:` for a link, `field:` for a value from a row.
+       * A picker of the dataset's columns, because the answer is a column and typing one is a typo.
+       */
+      if (!shown?.card) return <PropertyEmpty>이 목록은 카드를 그리지 않습니다.</PropertyEmpty>;
+      if (shown.card.asks.length === 0) {
+        return <PropertyEmpty>{shown.card.name}은 묻는 것이 없습니다.</PropertyEmpty>;
+      }
+      return (
+        <span className="st-values">
+          {shown.card.asks.map((ask) => (
+            <label key={ask.name} className="st-card-value">
+              <span>{ask.name}</span>
+              <ChoiceSelect
+                value={fieldNameOf(ask.value) ?? ''}
+                options={[{ id: '', label: '없음' }, ...data.columns.filter((one) => one.id)]}
+                onChange={(next) =>
+                  run('setComponentValue', {
+                    nodeId: shown.card!.template,
+                    name: ask.name,
+                    value: next ? `${FIELD_PREFIX}${next}` : ''
+                  })
+                }
+                ariaLabel={`${ask.name}에 넣을 칸`}
+              />
+            </label>
           ))}
         </span>
       );
