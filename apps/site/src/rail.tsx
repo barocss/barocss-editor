@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import { Button, Dialog, DialogButton, Icon, IconButton, useRevision } from '@barocss/office-ui';
@@ -338,6 +338,88 @@ function LayersPanel({
     if (page) walk(page, 0);
     return found;
   }, [doc, page, revision, open, revealed, all]);
+
+  /**
+   * **Where a dragged row would land** — a parent and a place in it.
+   *
+   * ## Why `useStackOrder` is not the tool
+   *
+   * `office-ui` has one, and it assumes what the deck's list is: a flat row of shapes in one
+   * container, all the same height, so a drop is `(pointerY - top) / rowHeight`. A page's list is a
+   * **tree** — rows at four depths with different parents — and index arithmetic cannot say which
+   * parent, which is the whole question.
+   *
+   * ## The thirds
+   *
+   * The rule every tree list uses, and why it is that rule: a row is 27 pixels and there are three
+   * things a reader can mean by dropping on one. The top third is *before this*, the bottom third is
+   * *after this*, and the middle is *inside this* — offered only by a row that can hold something,
+   * because a drop into a paragraph has no meaning and a target that sometimes lies is worse than
+   * one that is smaller.
+   *
+   * Reparenting by **indent** — drag sideways to change depth — is the other convention, and it is
+   * the one that needs a tutorial. The thirds are visible: a line between two rows is a place, a
+   * highlighted row is a container.
+   */
+  const [drag, setDrag] = useState<{
+    sid: string;
+    over?: string;
+    where?: 'before' | 'after' | 'into';
+  }>();
+
+  const dropAt = (holds: boolean, y: number, box: DOMRect): 'before' | 'after' | 'into' => {
+    const third = box.height / 3;
+    if (holds && y > box.top + third && y < box.bottom - third) return 'into';
+    return y < box.top + box.height / 2 ? 'before' : 'after';
+  };
+
+  /** And what that means to the document: which parent, and at which index. */
+  const landing = (): { nodeId: string; parentId: string; index: number } | undefined => {
+    if (!drag?.over || !drag.where || drag.over === drag.sid) return undefined;
+    const target = doc.getNode(drag.over);
+    if (!target) return undefined;
+
+    if (drag.where === 'into') {
+      // At the end of what it holds, which is what a reader dropping *onto* a container means.
+      return { nodeId: drag.sid, parentId: drag.over, index: blocksIn(doc, drag.over).length };
+    }
+
+    const parentId = String(target.parentId ?? '');
+    const kids = blocksIn(doc, parentId);
+    const at = kids.indexOf(drag.over);
+    if (at < 0) return undefined;
+    /*
+     * Moving **down inside one parent** loses a place as the row leaves it, so the index a reader
+     * pointed at is one too many. Measured as exactly that off-by-one everywhere this has ever been
+     * written; said here rather than left to a `+1` nobody can explain a year later.
+     */
+    const from = kids.indexOf(drag.sid);
+    const raw = drag.where === 'before' ? at : at + 1;
+    return { nodeId: drag.sid, parentId, index: from >= 0 && from < raw ? raw - 1 : raw };
+  };
+
+  /**
+   * The drag ends **wherever the pointer is let go**, including outside the list.
+   *
+   * On the window rather than on a row, because a reader who drags past the last row and releases
+   * over the canvas has still finished a gesture — and a drag that never ends leaves every row
+   * marked and the next click doing something nobody asked for.
+   *
+   * `landing` is read here rather than remembered, so the drop is computed from the marker the
+   * reader could actually see.
+   */
+  useEffect(() => {
+    if (!drag) return;
+    const up = () => {
+      const where = landing();
+      setDrag(undefined);
+      if (where) run('moveBlockInto', where);
+    };
+    window.addEventListener('pointerup', up);
+    return () => window.removeEventListener('pointerup', up);
+    // `drag` is the whole input: a new target means a new landing.
+  }, [drag]);
+
   const select = (sid: string, add: boolean) => {
     const now = [...selected];
     const next = add ? (now.includes(sid) ? now.filter((one) => one !== sid) : [...now, sid]) : [sid];
@@ -360,6 +442,39 @@ function LayersPanel({
           data-selected={selected.has(row.sid) ? 'true' : undefined}
           data-hidden={row.hidden ? 'true' : undefined}
           data-locked={row.locked ? 'true' : undefined}
+          data-dragging={drag?.sid === row.sid ? 'true' : undefined}
+          data-drop={drag?.over === row.sid && drag.sid !== row.sid ? drag.where : undefined}
+          /*
+           * The whole row is the grip, which is what a list of names wants: a separate handle would
+           * be a sixth thing in a 27-pixel row, and a reader dragging a *name* is already pointing at
+           * the thing they mean. A press that does not move stays a click — `select` runs on `click`,
+           * which a drag never becomes.
+           */
+          onPointerDown={(event) => {
+            /*
+             * The row **is** a `<button>`, so `closest('button')` finds itself and a naive guard
+             * refused every drag — measured as a drag that never started. What has to be excluded is
+             * only what is *inside* it: the eye, the padlock, the triangle.
+             */
+            const inner = (event.target as HTMLElement).closest('button, [data-twist]');
+            if (inner && inner !== event.currentTarget) return;
+            /*
+             * **No pointer capture.** It was the first shape and it is exactly wrong here: capture
+             * sends every later `pointermove` to the row that was grabbed, so no other row's handler
+             * ever fires and the drop marker never appeared. What ends the drag is a window listener
+             * instead — see the effect below — which also survives a pointer that leaves the list.
+             */
+            setDrag({ sid: row.sid });
+          }}
+          onPointerMove={(event) => {
+            if (!drag || drag.sid === row.sid) return;
+            const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+            const where = dropAt(row.holds, event.clientY, box);
+            if (drag.over !== row.sid || drag.where !== where) {
+              setDrag({ sid: drag.sid, over: row.sid, where });
+            }
+          }}
+
           // The indent is the structure, so it is what the row is measured by rather than decoration.
           style={{ paddingLeft: `${8 + row.depth * 12}px` }}
           onClick={(event) => select(row.sid, event.shiftKey)}

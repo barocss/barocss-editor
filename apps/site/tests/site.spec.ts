@@ -922,6 +922,116 @@ test.describe('the layer list', () => {
     expect(await page.evaluate(() => (window as any).editor.selection?.nodeIds?.[0] ?? null)).not.toBe(sid);
   });
 
+  /**
+   * **Dragging a row**, which is the only way to reach some blocks at all.
+   *
+   * An empty stack and a block behind another block cannot be grabbed on the canvas — there is
+   * nothing to aim at — and the list is where they have a row. `office-ui`'s `useStackOrder` is not
+   * the tool: it assumes what the deck's list is, a flat row of shapes in one container all the same
+   * height, so a drop is `(pointerY - top) / rowHeight`. A page's list is a **tree**, and index
+   * arithmetic cannot say which parent.
+   *
+   * The thirds are what it uses instead — top is *before*, bottom is *after*, middle is *inside*,
+   * and the middle is offered only by a row that can hold something. Reparenting by indent is the
+   * other convention and it is the one that needs a tutorial; a line between two rows is a place and
+   * a filled row is a container, which a reader can see.
+   */
+  const dragRow = async (page: Page, from: number, to: number, where: 'before' | 'after' | 'into') => {
+    const rows = page.locator('[data-layer]');
+    const a = (await rows.nth(from).boundingBox())!;
+    const b = (await rows.nth(to).boundingBox())!;
+    const y = where === 'into' ? b.y + b.height / 2 : where === 'before' ? b.y + 2 : b.y + b.height - 2;
+    await page.mouse.move(a.x + 60, a.y + a.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + 60, y, { steps: 10 });
+    await page.waitForTimeout(200);
+  };
+
+  test('moves a block to a new place in its list', async ({ page }) => {
+    await ready(page);
+    await layers(page);
+
+    const order = async () =>
+      await page.locator('[data-layer]').evaluateAll((all) =>
+        all.map((one) => one.getAttribute('data-layer'))
+      );
+    const before = await order();
+
+    await dragRow(page, 1, 4, 'after');
+    await expect(page.locator('[data-drop="after"]')).toHaveCount(1);
+    await expect(page.locator('[data-dragging="true"]')).toHaveCount(1);
+    await page.mouse.up();
+    await page.waitForTimeout(700);
+
+    const after = await order();
+    expect(after).not.toEqual(before);
+    // The same blocks, in a different order — a move rather than a copy or a loss.
+    expect([...after].sort()).toEqual([...before].sort());
+    expect(after.indexOf(before[1])).toBeGreaterThan(1);
+  });
+
+  test('puts a block inside a container when the drop is on its middle', async ({ page }) => {
+    await ready(page);
+    await layers(page);
+
+    const rows = page.locator('[data-layer]');
+    const moving = await rows.nth(1).getAttribute('data-layer');
+    const target = await rows.nth(4).getAttribute('data-layer');
+
+    await dragRow(page, 1, 4, 'into');
+    /*
+     * A different mark for a different meaning: a line between two rows is a place in a list and a
+     * filled row is a container to go inside. One highlight for both would make "after the card row"
+     * and "into the card row" the same picture.
+     */
+    await expect(page.locator('[data-drop="into"]')).toHaveCount(1);
+    await page.mouse.up();
+    await page.waitForTimeout(700);
+
+    expect(
+      await page.evaluate((sid) => (window as any).editor.dataStore.getNode(sid)?.parentId, moving)
+    ).toBe(target);
+  });
+
+  test('will not drop a container into itself', async ({ page }) => {
+    await ready(page);
+    await layers(page);
+
+    const rows = page.locator('[data-layer]');
+    const sid = await rows.nth(1).getAttribute('data-layer');
+    const parent = await page.evaluate(
+      (one) => (window as any).editor.dataStore.getNode(one)?.parentId,
+      sid
+    );
+
+    // Onto itself: no mark, and nothing to commit — the row a reader is holding is not a place.
+    await dragRow(page, 1, 1, 'into');
+    await expect(page.locator('[data-drop]')).toHaveCount(0);
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    expect(
+      await page.evaluate((one) => (window as any).editor.dataStore.getNode(one)?.parentId, sid)
+    ).toBe(parent);
+  });
+
+  test('a press that does not move is still a selection', async ({ page }) => {
+    await ready(page);
+    await layers(page);
+
+    /*
+     * The whole row is the grip, which is what a list of names wants — a separate handle would be a
+     * sixth thing in a 27-pixel row. So the two gestures share a starting point, and a press that
+     * goes nowhere has to stay a click.
+     */
+    const row = page.locator('[data-layer]').nth(2);
+    const sid = await row.getAttribute('data-layer');
+    await row.click();
+    await page.waitForTimeout(300);
+
+    expect(await page.evaluate(() => (window as any).editor.selection?.nodeIds?.[0])).toBe(sid);
+  });
+
   test('reveals where a block lives when it is selected on the canvas', async ({ page }) => {
     await ready(page);
     await layers(page);

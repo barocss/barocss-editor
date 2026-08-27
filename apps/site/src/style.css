@@ -1025,3 +1025,29 @@ body {
 /* A hidden row says so in the name as well: the glyph is at the far end and the name is what is read. */
 .st-layer[data-hidden='true'] .st-layer-name { opacity: 0.45; }
 .st-layer[data-locked='true'] .st-layer-name { font-style: italic; }
+
+/*
+ * ── Dragging a layer row ───────────────────────────────────────────────────
+ *
+ * Three things a reader can mean, and each says which with a different mark: a **line** between two
+ * rows is a place in a list, and a **filled row** is a container to go inside. A single highlight
+ * for both would make "after the card row" and "into the card row" the same picture.
+ */
+.st-layer[data-dragging='true'] { opacity: 0.4; }
+.st-layer[data-drop] { position: relative; }
+.st-layer[data-drop='before']::before,
+.st-layer[data-drop='after']::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: var(--st-accent);
+  border-radius: 1px;
+}
+.st-layer[data-drop='before']::before { top: -1px; }
+.st-layer[data-drop='after']::after { bottom: -1px; }
+.st-layer[data-drop='into'] {
+  background: var(--ou-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--st-accent);
+}
