@@ -416,6 +416,19 @@ describe('the site builder draws what it declares', () => {
          * list**, which is a thing only a list has.
          */
         movePage: 'the left rail — the ↑ on a page’s row; the order of five pages changes twice in a site’s life, so it is a button rather than a drag',
+        /*
+         * The same argument one list over. A definition is not a selection either — nothing on the
+         * canvas *is* one — so the list that gives it a row is the only honest home for renaming it
+         * and taking it away.
+         *
+         * Worth recording why these existed at all: measured against the other two lists this rail
+         * draws, a page could be made, renamed, duplicated and removed and a dataset made, renamed
+         * and removed, while a component could **only be made**. One shape, three answers, and the
+         * library was the list that only grew.
+         */
+        setComponentInfo: 'the left rail — 컴포넌트, the ✎ on a definition’s row, which becomes a field in place',
+        removeComponent:
+          'the left rail — 컴포넌트, the ␡ on a definition’s row, refused while anything places it and saying how many',
 
         // ── The data grid ──────────────────────────────────────────────────
         /*

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
-import { Button, Dialog, DialogButton, Icon, IconButton, useRevision } from '@barocss/office-ui';
+import { Button, Dialog, DialogButton, Icon, IconButton, useRevision, TextField } from '@barocss/office-ui';
 import { DataEditor } from './data-editor';
 import {
   blocksIn,
@@ -735,6 +735,15 @@ function ComponentsPanel({
 
   if (components.length === 0) return <p className="st-rail-note">아직 컴포넌트가 없습니다.</p>;
 
+  /**
+   * The definition whose name a reader is typing, if any.
+   *
+   * A field that **replaces the row** rather than a dialog: renaming is the smallest edit there is,
+   * and a modal for it is three gestures where one would do. Escape puts the row back, which is the
+   * rule every list in this suite follows for the same reason.
+   */
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | undefined>();
+
   return (
     <div className="st-rail-list" data-components>
       {components.map((one) => (
@@ -744,6 +753,25 @@ function ComponentsPanel({
           data-component-row={one.id}
           data-current={one.id === editing ? 'true' : undefined}
         >
+          {renaming?.id === one.id ? (
+            /*
+             * The field **replaces the row** rather than opening a dialog: renaming is the smallest
+             * edit there is, and a modal for it is three gestures where one would do. `TextField`
+             * commits on blur and on Enter and puts the old value back on Escape, which is the rule
+             * every field in this suite already follows.
+             */
+            <TextField
+              value={renaming.name}
+              ariaLabel={`${one.name} 새 이름`}
+              onCommit={(next: string) => {
+                setRenaming(undefined);
+                if (next.trim() && next.trim() !== one.name) {
+                  run('setComponentInfo', { componentId: one.id, name: next.trim() });
+                }
+              }}
+            />
+          ) : (
+            <>
           {/* Placing is the common act, so it is the row. */}
           <button
             type="button"
@@ -769,6 +797,37 @@ function ComponentsPanel({
           >
             편집
           </button>
+          {/*
+            And the two the library never had: a **name** and a way out of it.
+            
+            Measured against the other two lists this rail draws — a page can be made, renamed,
+            duplicated and removed; a dataset can be made, renamed and removed; a component could
+            only be made. One shape, three answers, and this is the list that only grew.
+          */}
+          <IconButton
+            size="sm"
+            label={`${one.name} 이름 바꾸기`}
+            onClick={() => setRenaming({ id: one.id, name: one.name })}
+          >
+            <Icon name="edit" size={13} />
+          </IconButton>
+          <IconButton
+            size="sm"
+            label={`${one.name} 삭제`}
+            disabled={one.uses > 0}
+            /*
+             * The **reason**, not a grey button. `removeComponent` refuses while anything places it —
+             * a placement whose definition has gone draws nothing, and nothing is what a reader would
+             * be looking at while wondering what they broke — and a disabled control that says
+             * nothing is the commonest small cruelty in a tool.
+             */
+            title={one.uses > 0 ? `${one.uses}곳에서 쓰는 중이라 지울 수 없습니다` : undefined}
+            onClick={() => run('removeComponent', { componentId: one.id })}
+          >
+            <Icon name="delete" size={13} />
+          </IconButton>
+            </>
+          )}
         </div>
       ))}
     </div>

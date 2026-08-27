@@ -55,8 +55,8 @@ Five tabs, and what each can do:
 | **추가** | 15 inserts, each with a picture | — |
 | **구성** | a tree that opens and closes, click to select, shift to add, hide, lock, **drag to reorder or reparent** | **rename** |
 | **페이지** | list · 위로 · 복제 · 삭제(asks first) | 아래로; reorder by drag |
-| **컴포넌트** | list · 놓기 · 편집 | rename, delete, where-used |
-| **데이터** | list · 데이터셋 만들기 | rename, delete, duplicate |
+| **컴포넌트** | list · 놓기 · 편집 · **이름** · **삭제**(refused while placed, and says why) | where-used |
+| **데이터** | list · 만들기; rename and delete **in the data editor** | duplicate |
 
 The **구성** list is the one that was a selector where every other builder's is a manipulator, and
 the first half of that is fixed (see Done). What is left, in the order a reader would miss it:
@@ -70,8 +70,13 @@ the first half of that is fixed (see Done). What is left, in the order a reader 
 - [ ] **4. Rename on the row.** The name is in the panel, and a layer list is where a reader is
   thinking about names. Double-click is the convention.
 
-- [ ] **5. The three lists that only add.** 컴포넌트 and 데이터 can make one and cannot rename,
-  duplicate or remove one; 페이지 can do all four. Same shape, three answers.
+- [x] ~~**5. The three lists that only add.**~~ The component library can be renamed and cleaned out
+  now — see Done. 데이터's rename and delete were already there, **inside the data editor** rather
+  than on the rail row, which is where a dataset is edited and is defensible.
+
+- [ ] **5b. A dataset cannot be duplicated.** The one act of the four that no list offers for a
+  dataset, where a page has it. Small, and worth doing when somebody wants a second dataset shaped
+  like the first.
 
 ### The chrome, looked at as a professional tool would be — measured 2026-08-27
 
@@ -3127,6 +3132,30 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The component library can be renamed and cleaned out.** `createComponentFrom` has existed since
+  components did and **nothing has ever renamed one or removed one** — a reader who made a card,
+  called it what they were thinking at the time, and made three more had a list that only grew and a
+  name that was wrong forever.
+
+  Found by comparing the three lists the rail draws rather than by anything reporting it: a page can
+  be made, renamed, duplicated and removed; a dataset can be made, renamed and removed; a component
+  could **only be made**. One shape, three answers — and the kind of gap no check catches, because
+  every part of it works.
+
+  Two decisions:
+
+  - **The name and not the id.** `name` is what a reader calls it; `componentId` is what a placement
+    points at. Renaming the id would be `setComponentVar`'s job — the same rewrite across every
+    placement — for no gain, since an id nobody sees is not a thing a reader is dissatisfied with.
+  - **Removing refuses while anything places it**, which is `removeDataset`'s rule for
+    `removeDataset`'s reason: a placement whose definition has gone draws *nothing*, and nothing is
+    exactly what a reader would be looking at while wondering what they broke. The button says
+    *3곳에서 쓰는 중이라 지울 수 없습니다* rather than greying in silence — which needed `IconButton`
+    to grow a `title` that is longer than its accessible name.
+
+  The field **replaces the row** rather than opening a dialog: renaming is the smallest edit there
+  is, and a modal for it is three gestures where one would do.
 
 - **A layer row can be dragged — to a place, or into a container.** Which is the only way to reach
   some blocks at all: an empty stack and a block behind another block cannot be grabbed on the

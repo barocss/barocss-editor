@@ -1068,6 +1068,89 @@ test.describe('the layer list', () => {
   });
 });
 
+/**
+ * The component library, which could be **added to and never cleaned out**.
+ *
+ * Measured against the other two lists this rail draws: a page can be made, renamed, duplicated and
+ * removed; a dataset can be made, renamed and removed; a component could only be made. One shape,
+ * three answers — the kind of gap nothing reports, because every part of it works.
+ *
+ * `component-library.test.ts` holds what the commands do. What only a browser shows is the row: a
+ * field that replaces it rather than a dialog, and a delete that says why it is refused.
+ */
+test.describe('the component library', () => {
+  const components = async (page: Page) => {
+    await page.locator('[data-panel="components"]').click();
+    await page.waitForTimeout(300);
+  };
+
+  test('renames a definition in place, without a dialog for it', async ({ page }) => {
+    await ready(page);
+    await components(page);
+
+    const row = page.locator('[data-component-row="cta"]');
+    await expect(row.locator('.st-rail-name')).toHaveText('버튼');
+
+    await row.getByLabel('버튼 이름 바꾸기').click();
+    const field = row.getByLabel('버튼 새 이름');
+    await field.fill('주 버튼');
+    await field.press('Enter');
+    await page.waitForTimeout(500);
+
+    /*
+     * Renaming is the smallest edit there is and a modal for it is three gestures where one would do.
+     * The field commits on Enter and on blur and puts the old value back on Escape, which is the rule
+     * every field in this suite already follows.
+     */
+    await expect(row.locator('.st-rail-name')).toHaveText('주 버튼');
+  });
+
+  test('says why a definition cannot be removed, rather than greying in silence', async ({ page }) => {
+    await ready(page);
+    await components(page);
+
+    const row = page.locator('[data-component-row="cta"]');
+    const remove = row.getByLabel('버튼 삭제');
+    await expect(remove).toBeDisabled();
+    /*
+     * A placement whose definition has gone draws **nothing**, and nothing is what a reader would be
+     * looking at while wondering what they broke. So it is refused while anything places it — and a
+     * disabled control that says nothing is the commonest small cruelty in a tool.
+     */
+    await expect(remove).toHaveAttribute('title', /곳에서 쓰는 중/);
+  });
+
+  test('removes one nothing places any more', async ({ page }) => {
+    await ready(page);
+
+    // Take the last placement of a definition away, which is the situation this exists for.
+    await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const found: string[] = [];
+      const walk = (sid: string) => {
+        const node = store.getNode(sid);
+        if (!node) return;
+        if (node.stype === 'instance' && node.attributes?.componentId === 'ghost') found.push(sid);
+        for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
+      };
+      walk(editor.getRootId());
+      return editor.executeCommand('removeBlocks', { nodeIds: found });
+    });
+    await page.waitForTimeout(700);
+    await components(page);
+
+    const row = page.locator('[data-component-row="ghost"]');
+    await expect(row).toHaveCount(1);
+    await row.getByLabel(/삭제$/).click();
+    await page.waitForTimeout(600);
+
+    await expect(page.locator('[data-component-row="ghost"]')).toHaveCount(0);
+    // And the rest of the library is untouched.
+    await expect(page.locator('[data-component-row="cta"]')).toHaveCount(1);
+  });
+});
+
 test.describe('the rail', () => {
   test('offers what a page is made of, and every one of them on a page nobody has touched', async ({ page }) => {
     await ready(page);

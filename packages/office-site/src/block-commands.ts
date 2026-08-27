@@ -280,6 +280,81 @@ export class SiteBlockExtension implements Extension {
      */
     register('moveBlockUp', async () => await this._nudge(editor, -1), () => !!this._nudgeable(editor, -1));
     register('moveBlockDown', async () => await this._nudge(editor, 1), () => !!this._nudgeable(editor, 1));
+
+    /**
+     * What a definition is **called** — and taking one out of the library.
+     *
+     * ## The library could be added to and never cleaned out
+     *
+     * `createComponentFrom` has existed since components did; nothing has ever renamed one or removed
+     * one. A reader who made a card, called it what they were thinking at the time, and made three
+     * more had a list that only grew and a name that was wrong forever. Measured against the other
+     * two lists the rail draws: a page can be made, renamed, duplicated and removed; a dataset can be
+     * made, renamed and removed; a component could only be made. One shape, three answers.
+     *
+     * ## The name and not the id
+     *
+     * `name` is what a reader calls it; `componentId` is what a placement points at. Renaming the id
+     * would be `setComponentVar`'s job — the same rewrite across every placement — for no gain: an
+     * id nobody sees is not a thing a reader is dissatisfied with.
+     *
+     * ## Removing refuses while anything places it
+     *
+     * `removeDataset`'s rule, for `removeDataset`'s reason: a placement whose definition has gone
+     * draws **nothing**, and nothing is exactly what a reader would be looking at while wondering
+     * what they broke. Refusing while it is still a gesture beats letting them make a document that
+     * cannot be drawn — and the count is why the panel can say *3곳에서 씁니다* rather than greying a
+     * button with no reason.
+     */
+    register(
+      'setComponentInfo',
+      async (payload) => await this._setComponentInfo(editor, payload),
+      (payload) =>
+        !!this._definitionAt(editor, payload?.componentId) &&
+        typeof payload?.name === 'string' &&
+        payload.name.trim().length > 0
+    );
+
+    register(
+      'removeComponent',
+      async (payload) => await this._removeComponent(editor, payload),
+      (payload) => {
+        const found = this._definitionAt(editor, payload?.componentId);
+        return !!found && found.uses === 0;
+      }
+    );
+  }
+
+  /** The definition a call is about, with how many places use it — or nothing when there is none. */
+  private _definitionAt(editor: Editor, componentId: unknown): { sid: string; uses: number } | undefined {
+    const store = this._store(editor);
+    const rootId = (editor as never as { getRootId?: () => string }).getRootId?.();
+    if (!store || !rootId || typeof componentId !== 'string') return undefined;
+
+    const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+    const found = definitionsOf(doc as never).find((one) => one.id === componentId);
+    return found ? { sid: found.sid, uses: found.uses } : undefined;
+  }
+
+  private async _setComponentInfo(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const found = this._definitionAt(editor, payload?.componentId);
+    const name = String(payload?.name ?? '').trim();
+    if (!found || !name) return false;
+    return (
+      (await transaction(editor, [setAttrs(found.sid, { name })] as never).commit()).success === true
+    );
+  }
+
+  private async _removeComponent(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const found = this._definitionAt(editor, payload?.componentId);
+    if (!found || found.uses > 0) return false;
+
+    const store = this._store(editor)!;
+    const parentId = String(store.getNode(found.sid)?.parentId ?? '');
+    if (!parentId) return false;
+    return (
+      (await transaction(editor, [removeChild(parentId, found.sid)] as never).commit()).success === true
+    );
   }
 
   /**

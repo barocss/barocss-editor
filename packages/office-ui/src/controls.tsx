@@ -105,6 +105,7 @@ export type ButtonTone = 'plain' | 'accent';
  */
 export function IconButton({
   label,
+  title,
   children,
   onClick,
   pressed,
@@ -114,8 +115,17 @@ export function IconButton({
   testClass,
   data
 }: {
-  /** What it does, in words. Becomes both the title and the accessible name. */
+  /** What it does, in words. Becomes the accessible name, and the title unless one is given. */
   label: string;
+  /**
+   * A **longer** sentence for the tooltip, when there is one worth saying.
+   *
+   * Almost always absent: an icon button's words are its name and its explanation at once. What it
+   * is for is the disabled case — *3곳에서 쓰는 중이라 지울 수 없습니다* is a sentence a reader can
+   * act on, and a greyed control that says nothing is the commonest small cruelty in a tool. The
+   * accessible name stays the short one, because a screen reader is reading a list.
+   */
+  title?: string;
   children: React.ReactNode;
   onClick?: () => void;
   /** A toggle's state — the eye, the lock. Omitted for a button that only does something. */
@@ -138,7 +148,7 @@ export function IconButton({
       // Both, from the one string: a pointer reads the title and a screen reader reads the
       // name, and an icon button that has one and not the other is a control only half the
       // readers can use.
-      title={label}
+      title={title ?? label}
       aria-label={label}
       aria-pressed={pressed}
       disabled={disabled}
