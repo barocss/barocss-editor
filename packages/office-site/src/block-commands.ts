@@ -19,7 +19,7 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { addChild, moveNode, node, removeChild, setAttrs, transaction } from '@barocss/model';
 import { definitionsOf } from './components';
-import { SELECTABLE } from './selection';
+import { SELECTABLE, TEXTUAL } from './selection';
 
 type Node = Record<string, any>;
 
@@ -75,6 +75,44 @@ export class SiteBlockExtension implements Extension {
       'setComponentValue',
       async (payload) => await this._setValue(editor, payload),
       (payload) => this._canSetValue(editor, payload)
+    );
+
+    /**
+     * Where a part's **words** come from — the wall a template hit.
+     *
+     * ## What could not be done
+     *
+     * A card asks questions and a list answers them with columns, and both halves were reachable:
+     * a reader could rewire which column feeds which slot. What they could not do was make a **new**
+     * slot. `componentVar` and `componentBind` could be written by hand and by nothing else, so a
+     * card was stuck with whatever questions its author had thought of — add a 할인 column to the
+     * data and there is nowhere on the card for it to go.
+     *
+     * That is the point at which a component system stops being a system. A template that cannot
+     * grow is a drawing somebody made once.
+     *
+     * ## One command, because it is one sentence
+     *
+     * *This text comes from the card's data, and the question is called 할인.* Naming a question that
+     * does not exist declares it; naming one that does binds to it; naming nothing unbinds. Three
+     * outcomes, one gesture — which is the rule `setBlockFormat` already follows about widths and
+     * states, for the same reason: a reader who has to choose between two commands has been handed
+     * the editor's bookkeeping.
+     *
+     * ## The two things it does that a reader never sees
+     *
+     * A binding names a part by its **`partId`**, which is durable where a sid is not — and a block a
+     * reader added inside a definition has none, because nothing has ever needed to name it. So one
+     * is minted, from the words the part holds, deduped inside that definition.
+     *
+     * And a new question is declared holding **the part's current words** as its default. A placement
+     * that answers nothing then draws what the card already drew, so declaring a question cannot
+     * empty a page — which is the property that makes it safe to try.
+     */
+    register(
+      'bindPartText',
+      async (payload) => await this._bindPart(editor, payload),
+      (payload) => !!this._partAt(editor, payload?.nodeId)
     );
 
     /**
@@ -339,6 +377,137 @@ export class SiteBlockExtension implements Extension {
         addChild(String(placement.sid), node('componentValue', { name, value }, []) as never, 0);
 
     return (await transaction(editor, [step] as never).commit()).success === true;
+  }
+
+  /**
+   * The part a binding would be about, and the definition it is inside.
+   *
+   * Both or neither: a heading on a page is nobody's part, and a command that bound one would write
+   * a `componentBind` into a document that has nothing to resolve it.
+   */
+  private _partAt(
+    editor: Editor,
+    nodeId: unknown
+  ): { part: Record<string, any>; definition: Record<string, any> } | undefined {
+    const store = this._store(editor);
+    const part = store?.getNode(String(nodeId ?? ''));
+    if (!part || !TEXTUAL.has(String(part.stype))) return undefined;
+
+    let at: string | undefined = String(part.parentId ?? '');
+    for (let hop = 0; at && hop < 64; hop += 1) {
+      const one = store!.getNode(at);
+      if (!one) return undefined;
+      if (one.stype === 'component') return { part, definition: one };
+      at = one.parentId as string | undefined;
+    }
+    return undefined;
+  }
+
+  /** The words a part holds, for naming a question after them and for its default. */
+  private _wordsIn(editor: Editor, sid: string, depth = 0): string {
+    const store = this._store(editor);
+    const one = store?.getNode(sid);
+    if (!one || depth > 8) return '';
+    if (typeof one.text === 'string') return one.text;
+    let said = '';
+    for (const child of (one.content ?? []) as unknown[]) {
+      if (typeof child === 'string') said += this._wordsIn(editor, child, depth + 1);
+    }
+    return said;
+  }
+
+  private async _bindPart(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const found = this._partAt(editor, payload?.nodeId);
+    if (!found) return false;
+    const { part, definition } = found;
+
+    const store = this._store(editor)!;
+    const children = ((definition.content ?? []) as unknown[])
+      .filter((sid): sid is string => typeof sid === 'string')
+      .map((sid) => store.getNode(sid))
+      .filter(Boolean) as Record<string, any>[];
+
+    const asked = children.filter((one) => one.stype === 'componentVar');
+    const binds = children.filter((one) => one.stype === 'componentBind');
+
+    const name = typeof payload?.var === 'string' && payload.var.trim() ? payload.var.trim() : undefined;
+
+    /*
+     * A durable name for the part, minted from its own words when it has none.
+     *
+     * A block a reader added inside a definition has no `partId`, because until a binding names it
+     * nothing needed one. Deduped inside this definition rather than globally: a `partId` means
+     * something only in the card it is in.
+     */
+    const held = typeof part.attributes?.partId === 'string' ? part.attributes.partId : '';
+    const taken = new Set(
+      binds.map((one) => String(one.attributes?.part ?? '')).filter(Boolean)
+    );
+    const partId =
+      held ||
+      (() => {
+        /*
+         * Named after the **question**, not after the words.
+         *
+         * The words are a placeholder at the moment a reader binds — `본문을 입력하세요` — and a
+         * `partId` outlives them: it is the durable name a binding uses, and a saved document would
+         * carry a sentence nobody wrote as the name of a slot. The question is what the reader just
+         * decided to call this, which is the one name that will still make sense next year.
+         */
+        const base = name ?? (this._wordsIn(editor, String(part.sid)).trim().slice(0, 12) || '부품');
+        let candidate = base;
+        for (let n = 2; taken.has(candidate); n += 1) candidate = `${base} ${n}`;
+        return candidate;
+      })();
+
+    const already = binds.find(
+      (one) => one.attributes?.part === partId && one.attributes?.attr === 'text'
+    );
+
+    const steps: unknown[] = [];
+    if (!held) steps.push(setAttrs(String(part.sid), { partId }));
+
+    if (!name) {
+      /*
+       * Unbound, and the **question stays**. Removing it would change every placement of this card
+       * at once, which is not what a reader taking one slot off the data means — and another part
+       * may be answering the same question.
+       */
+      if (!already) return false;
+      steps.push(removeChild(String(definition.sid), String(already.sid)));
+      return (await transaction(editor, steps as never).commit()).success === true;
+    }
+
+    if (!asked.some((one) => one.attributes?.name === name)) {
+      /*
+       * Declared holding the part's **current words**, so a placement that answers nothing draws
+       * what the card already drew. Declaring a question cannot empty a page, which is the property
+       * that makes it safe to try.
+       */
+      steps.push(
+        addChild(
+          String(definition.sid),
+          node('componentVar', {
+            name,
+            kind: 'text',
+            value: this._wordsIn(editor, String(part.sid))
+          }) as never,
+          0
+        )
+      );
+    }
+
+    steps.push(
+      already
+        ? setAttrs(String(already.sid), { var: name })
+        : addChild(
+            String(definition.sid),
+            node('componentBind', { part: partId, attr: 'text', var: name }) as never,
+            0
+          )
+    );
+
+    return (await transaction(editor, steps as never).commit()).success === true;
   }
 
   private async _setPage(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {

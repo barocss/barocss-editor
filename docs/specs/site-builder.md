@@ -540,6 +540,7 @@ questions, and the whole design is that each has exactly one answer:
 | this card's design, for every row | the **definition** | double-click a row, or the rail's 컴포넌트 list |
 | this row's words | the **data** | the data grid |
 | where each slot's words come from | the list's **template** | 데이터 › 카드에 넣을 값 |
+| a slot the card does not have yet | the **definition**, as a question | 블록 › 카드 › 새 질문 |
 | what *this one* placement says | the placement's **values** | select it, 값 |
 
 The fourth is the one every component system has and the third is the one this product was missing.
@@ -561,11 +562,34 @@ Three properties are worth stating as rules rather than as behaviour:
   against is a fact about this reader, this minute. A document that carried it would hand the next
   person a card mysteriously showing the eleventh product.
 
+### And the card can be asked something new
+
+The fourth row of that table is only worth having if the *first column* of it can grow. Wiring a
+question to a column is editing a template; adding a question is what makes it a template at all.
+
+`bindPartText` is one command because it is one sentence — *this text comes from the card's data, and
+the question is called 할인.* Naming a question the card does not ask declares it; naming one it does
+binds to it; naming nothing unbinds. Which is the rule `setBlockFormat` already follows about widths
+and states, and for the same reason: a reader choosing between two commands is a reader keeping the
+editor's books.
+
+Two things it does that nobody sees, and both are decisions:
+
+- **The part is named after the question, not after its words.** A binding names a part by its
+  `partId`, which is durable where a sid is not — and a block a reader just added has none, because
+  until a binding names it nothing needed one. Minting it from the words would put `본문을 입력하세요`
+  in a saved file as the name of a slot; the question is the name that still makes sense next year.
+- **A new question is declared holding the part's current words as its default.** So a placement that
+  answers nothing draws what the card already drew: declaring a question cannot empty a page, which
+  is the property that makes it safe to try.
+
+And unbinding **leaves the question**. Taking it away would change every placement of the card at
+once, which is not what a reader unhooking one slot means — and another part may be answering it.
+
 What is still missing, in the order it will be wanted:
 
-1. **A part cannot be bound from the panel.** `componentVar` and `componentBind` can only be written
-   by hand, so a reader who adds a 할인 column can wire it to a slot that already exists and cannot
-   make a *new* slot. That is the same wall one step further in, and it is the next slice.
+1. **A question cannot be renamed or removed from the panel.** It can be declared and bound; the
+   other two halves of managing one are still hand work.
 2. **A placement cannot override anything the definition did not ask about.** A card whose padding
    should differ on one page has to become a second definition.
 3. **Nothing detaches.** A placement is a placement for life; there is no *make this ordinary again*,

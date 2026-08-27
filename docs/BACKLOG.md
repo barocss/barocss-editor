@@ -66,11 +66,10 @@ entries are that.
 
 ### A template can be rewired, and cannot be given a new wire
 
-- [ ] **A part cannot be bound from the panel.** 데이터 › 카드에 넣을 값 answers *which column feeds
-  this slot*, and only for slots the definition already asks about: `componentVar` and
-  `componentBind` can be written by hand and by nothing else. So a reader who adds a 할인 column can
-  point an existing slot at it and cannot make a new one — the same wall as before, one step further
-  in. The gesture is *this text comes from the data*, on a selected part while a definition is open.
+- [ ] **A question cannot be renamed or removed.** `bindPartText` declares one and binds it, which is
+  the half a reader needs to grow a card. The other half — rename, retype (`text` → `color`), remove
+  — is still hand work, and removing is the one that needs a sentence before it: it changes every
+  placement of the card at once.
 
 - [ ] **A placement cannot override what the definition did not ask about.** A card whose padding
   should differ on one page has to become a second definition. Every component system grows this and

@@ -18,6 +18,8 @@ import {
   STATEABLE,
   STATES,
   attrsInState,
+  boundVarOf,
+  definitionAt,
   definitionOf,
   kindOfBlock,
   labelOfBlock,
@@ -172,6 +174,16 @@ export function Inspector({
               };
             })()
           : undefined,
+      /** And, for a part of a card, which of the card's questions its words come from. */
+      part: (() => {
+        const doc = { rootId: rootId ?? '', getNode: (sid: string) => store?.getNode(sid) };
+        const inside = definitionAt(doc as never, String(first.sid));
+        if (!inside) return undefined;
+        return {
+          asks: inside.asks,
+          bound: boundVarOf({ getNode: (sid: string) => store?.getNode(sid) } as never, String(first.sid))
+        };
+      })(),
       values: ((first.content ?? []) as unknown[])
         .filter((sid): sid is string => typeof sid === 'string')
         .map((sid) => store?.getNode(sid))
@@ -251,6 +263,14 @@ export function Inspector({
   const write = (row: SitePanelRow, value: unknown) => {
     if (!row.command) return;
     if (row.command === 'setPageInfo') run('setPageInfo', { nodeId: page, [row.attr]: value });
+    /*
+     * Naming a question the card does not ask **declares** it, so the field that types a name and
+     * the picker that chooses one run the same command. One sentence — *this text comes from the
+     * card's data, and the question is called 할인* — which is why there is one command and not two.
+     */
+    else if (row.command === 'bindPartText') {
+      run('bindPartText', { nodeId: shown?.ids[0], var: value || undefined });
+    }
     else {
       /*
        * A shorthand answers for its four sides as well as for itself.
@@ -354,6 +374,14 @@ type Shown = {
   values: { sid: string; name: string; value: string }[];
   /** For a list: which card it draws, what that card asks, and what it is currently given. */
   card?: { template: string; name: string; asks: { name: string; value: string }[] };
+  /**
+   * For a **part of a definition**: what the card asks, and which question this part's words are.
+   *
+   * `undefined` for anything not inside a definition — a heading on a page is nobody's part, and the
+   * row is not drawn for it. That is a fact about where the node *is*, which no declaration can
+   * carry and only the document can answer.
+   */
+  part?: { asks: string[]; bound?: string };
 };
 
 /**
@@ -419,6 +447,12 @@ function Groups({
       rows: group.rows.filter(
         (row) =>
           visible(row, attrs, count) &&
+          /*
+           * The card group only where a card is: a heading on a page is nobody's part, and a row
+           * offering to bind it would write a `componentBind` into a document with nothing to
+           * resolve it.
+           */
+          (row.group !== '카드' || !!shown?.part) &&
           /*
            * And in a state, only what a state may hold. Paint, never an arrangement — a block that
            * resized under the pointer would move out from under it and flicker, so the panel does not
@@ -639,6 +673,27 @@ function own(
             />
           ))}
         </span>
+      );
+
+    case 'question':
+      /*
+       * Which of the card's questions this part's words come from.
+       *
+       * Only drawn inside a definition, and the row above it in the group — 새 질문 — is what makes
+       * the list able to grow: a picker can only ever offer what is already there, and the wall a
+       * template hit was that nothing could add one.
+       */
+      if (!shown?.part) return null;
+      return (
+        <ChoiceSelect
+          value={shown.part.bound ?? ''}
+          options={[
+            { id: '', label: '이 카드의 글' },
+            ...shown.part.asks.map((one) => ({ id: one, label: one }))
+          ]}
+          onChange={(next) => run('bindPartText', { nodeId: shown.ids[0], var: next || undefined })}
+          ariaLabel={row.ariaLabel}
+        />
       );
 
     case 'cardValues':

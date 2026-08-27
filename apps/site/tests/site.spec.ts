@@ -1771,3 +1771,134 @@ test.describe('the things a page can hold', () => {
     for (const command of declared) expect(drawn).toContain(command);
   });
 });
+
+/**
+ * A card that can grow a slot, which is where a template stops being a drawing.
+ *
+ * A list is a dataset, a card, and a wiring between them. The wiring became editable and the card's
+ * questions did not: `componentVar` and `componentBind` could be written by hand and by nothing
+ * else, so a reader who added a 할인 column to the data had nowhere on the card to put it. A
+ * template that cannot grow is a drawing somebody made once.
+ */
+test.describe('a card can be asked something new', () => {
+  const panel = (page: Page) => page.locator('.office-properties');
+
+  /** What the document holds, as the two node types a binding is made of. */
+  const wiring = (page: Page, id: string) =>
+    page.evaluate((componentId) => {
+      const editor = (window as never as { editor: any }).editor;
+      const store = editor.dataStore;
+      let found: any;
+      const walk = (sid: string) => {
+        const one = store.getNode(sid);
+        if (!one) return;
+        if (one.stype === 'component' && one.attributes?.id === componentId) found = one;
+        for (const child of one.content ?? []) if (typeof child === 'string') walk(child);
+      };
+      walk(editor.getRootId());
+      const kids = (found?.content ?? [])
+        .filter((sid: unknown) => typeof sid === 'string')
+        .map((sid: string) => store.getNode(sid));
+      return {
+        asks: kids.filter((one: any) => one?.stype === 'componentVar').map((one: any) => one.attributes?.name),
+        binds: kids
+          .filter((one: any) => one?.stype === 'componentBind')
+          .map((one: any) => `${one.attributes?.part}->${one.attributes?.var}`)
+      };
+    }, id);
+
+  const openCard = async (page: Page) => {
+    await page.locator('[data-panel="components"]').click();
+    await page.locator('[data-edit-component="product-card"]').click();
+    await page.waitForTimeout(600);
+  };
+
+  test('declares the question and binds the part, in one gesture', async ({ page }) => {
+    await ready(page);
+    await openCard(page);
+
+    await page.locator('[data-panel="add"]').click();
+    await page.locator('[data-insert="insertBodyText"]').click();
+    await page.waitForTimeout(500);
+
+    await panel(page).locator('[data-tab="block"]').click();
+    await panel(page).getByLabel('새 질문 이름').fill('할인');
+    await panel(page).getByLabel('새 질문 이름').press('Enter');
+    await page.waitForTimeout(600);
+
+    const said = await wiring(page, 'product-card');
+    expect(said.asks).toContain('할인');
+    /*
+     * And the part is named after the **question** rather than after its words. The words are a
+     * placeholder at the moment of binding — `본문을 입력하세요` — and a `partId` outlives them: it is
+     * the durable name a binding uses, and a saved document would carry a sentence nobody wrote as
+     * the name of a slot.
+     */
+    expect(said.binds).toContain('할인->할인');
+  });
+
+  test('and the list is then asked for a column to put in it', async ({ page }) => {
+    await ready(page);
+    await openCard(page);
+    await page.locator('[data-panel="add"]').click();
+    await page.locator('[data-insert="insertBodyText"]').click();
+    await page.waitForTimeout(500);
+    await panel(page).locator('[data-tab="block"]').click();
+    await panel(page).getByLabel('새 질문 이름').fill('할인');
+    await panel(page).getByLabel('새 질문 이름').press('Enter');
+    await page.waitForTimeout(600);
+
+    // Back to the page, where the loop closes: a new question is a new row in 카드에 넣을 값.
+    await page.locator('.st-back').click();
+    await page.waitForTimeout(600);
+    const list = page.locator('[data-frame="desktop"] .st-collection').first();
+    await bring(page, list);
+    await pressDeepAt(page, list.locator('> *').first());
+    await page.waitForTimeout(400);
+    await panel(page).locator('[data-tab="data"]').click();
+    await page.waitForTimeout(300);
+
+    await expect(panel(page).locator('.st-card-value')).toHaveCount(4);
+    await expect(panel(page).getByLabel('할인에 넣을 칸')).toBeVisible();
+  });
+
+  test('unbinds without taking the question away', async ({ page }) => {
+    await ready(page);
+    await openCard(page);
+
+    const title = page.locator('[data-frame="desktop"] .st-frame-host h3').first();
+    await bring(page, page.locator('[data-frame="desktop"] .st-frame-host'));
+    await pressDeep(page, title);
+    await page.waitForTimeout(400);
+    await panel(page).locator('[data-tab="block"]').click();
+    await page.waitForTimeout(200);
+
+    await expect(panel(page).getByLabel('이 글이 오는 곳')).toContainText('이름');
+    await panel(page).getByLabel('이 글이 오는 곳').click();
+    await page.locator('[role="option"]', { hasText: '이 카드의 글' }).first().click();
+    await page.waitForTimeout(600);
+
+    const said = await wiring(page, 'product-card');
+    expect(said.binds).not.toContain('p-name->이름');
+    /*
+     * And 이름 is still a question. Taking it away would change every placement of this card at
+     * once, which is not what a reader unhooking one slot means — and another part may be answering
+     * the same question.
+     */
+    expect(said.asks).toContain('이름');
+  });
+
+  test('is not offered for a block that is nobody’s part', async ({ page }) => {
+    await ready(page);
+    const hero = page.locator('[data-frame="desktop"] .st-page h1').first();
+    await pressDeep(page, hero);
+    await page.waitForTimeout(300);
+    await panel(page).locator('[data-tab="block"]').click();
+    await page.waitForTimeout(200);
+
+    // A heading on a page is nobody's part: a row offering to bind it would write a binding into a
+    // document with nothing to resolve it.
+    await expect(panel(page)).not.toContainText('새 질문');
+    await expect(panel(page).getByLabel('이 글이 오는 곳')).toHaveCount(0);
+  });
+});

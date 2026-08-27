@@ -79,7 +79,15 @@ export type SitePanelControl =
    */
   | 'cardValues'
   /** A sentence rather than a control: the note that says which width is being edited. */
-  | 'note';
+  | 'note'
+  /**
+   * Which of the **card's** questions a part's words come from.
+   *
+   * Only a document can list them — they are the definition this part is inside — and only a
+   * document knows whether the part is inside one at all. A heading on a page is nobody's part and
+   * the row is not drawn for it.
+   */
+  | 'question';
 
 /** Which pane of the panel a row sits in. */
 export type SitePanelTab = 'block' | 'style' | 'data' | 'values' | 'page';
@@ -495,6 +503,50 @@ export const SITE_PANEL: SitePanelRow[] = [
     ariaLabel: '코드 언어',
     control: 'text',
     on: ['codeBlock']
+  },
+
+  // ── 카드 — where a part's words come from, while a definition is open ──────
+  /*
+   * The wall a template hit, as two rows.
+   *
+   * A card asks questions and a list answers them with columns; both halves were reachable and a
+   * reader still could not make a **new** question, because `componentVar` and `componentBind` could
+   * be written by hand and by nothing else. So a card was stuck with whatever its author had thought
+   * of, and a template that cannot grow is a drawing somebody made once.
+   *
+   * Two rows rather than one control with a hidden second state: pick an existing question, or type
+   * a new one. Each is a row the harness can read, and neither hides a mode.
+   */
+  {
+    /*
+     * A **node**, because that is what the row writes: a `componentBind` on the definition this part
+     * is inside. `writes: 'child'` is the panel's word for *this row is not an attribute of the
+     * selected node*, and it is doubly true here — the child lands on the card rather than on the
+     * part, which is where a binding has always lived.
+     */
+    attr: 'componentBind',
+    writes: 'child',
+    command: 'bindPartText',
+    group: '카드',
+    tab: 'block',
+    label: '내용',
+    ariaLabel: '이 글이 오는 곳',
+    control: 'question',
+    single: true,
+    on: ['heading', 'paragraph', 'listItem']
+  },
+  {
+    /** And this one declares the question itself — a `componentVar`, on the same card. */
+    attr: 'componentVar',
+    writes: 'child',
+    command: 'bindPartText',
+    group: '카드',
+    tab: 'block',
+    label: '새 질문',
+    ariaLabel: '새 질문 이름',
+    control: 'text',
+    single: true,
+    on: ['heading', 'paragraph', 'listItem']
   },
 
   // ── 값 — a placement's answers to its definition's questions ───────────────
