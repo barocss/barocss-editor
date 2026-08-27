@@ -1,4 +1,5 @@
 import { CODE_CSS } from './code-render';
+import { REVEAL_KEYFRAMES } from './reveal';
 
 /**
  * What a **page** looks like before anybody styles it — the type scale, and nothing else.
@@ -38,6 +39,11 @@ import { CODE_CSS } from './code-render';
  */
 export const PAGE_CSS =
   CODE_CSS +
+  /*
+   * The five ways a block can arrive, once for the whole page: a hundred sections choosing the same
+   * one share the definition, and what differs per block is only which of these it names.
+   */
+  REVEAL_KEYFRAMES +
   `
 .st-page {
   /*

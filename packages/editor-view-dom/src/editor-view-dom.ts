@@ -214,7 +214,25 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     // Set container styles
     this.container.style.position = 'relative';
-    this.container.style.overflow = 'hidden';
+    /**
+     * **`clip`, not `hidden`** — and the difference is not cosmetic.
+     *
+     * What this line wants is *do not paint outside me*: the layers are positioned inside the
+     * container and an overlay must not spill. `hidden` says that **and** makes the element a scroll
+     * container, which is a claim nothing here meant to make and which nothing could see, because a
+     * scroll container with no scrollable content behaves exactly like a clipped box.
+     *
+     * Until something asks which element scrolls. Measured in the site builder: a block told to
+     * arrive on scroll never arrived. `animation-timeline: view()` takes its clock from the nearest
+     * scrollport, that turned out to be this container, and this container has nothing to scroll —
+     * so the timeline sat at 3% forever while the pane that actually scrolls moved underneath it.
+     * The rule was written correctly, the browser accepted it, and it did nothing.
+     *
+     * `clip` clips and is not a scroll container, which is exactly what was meant. Nothing in the
+     * three products scrolls this element — they scroll a pane above it — so the only behaviour that
+     * changes is the one that was wrong.
+     */
+    this.container.style.overflow = 'clip';
     
     // Layer 1: Content (contentEditable)
     const contentLayer = document.createElement('div');

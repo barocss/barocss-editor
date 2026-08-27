@@ -46,6 +46,7 @@ import {
   panelRowsFor,
   type PanelRow
 } from '@barocss/office-controls';
+import { REVEALS } from './reveal';
 import { SELECTABLE } from './selection';
 
 /**
@@ -397,6 +398,32 @@ export const SITE_PANEL: SitePanelRow[] = [
   },
   { attr: 'stroke', command: 'setBlockFormat', group: '테두리', tab: 'style', label: '색', ariaLabel: '테두리 색', control: 'colour' },
   { attr: 'strokeWidth', command: 'setBlockFormat', group: '테두리', tab: 'style', label: '두께', ariaLabel: '테두리 두께', control: 'number', unit: 'px', min: 0 },
+
+  // ── 등장 — how this block arrives as a visitor scrolls to it ──────────────
+  /**
+   * The thing a page built here had none of, and a page built anywhere else has.
+   *
+   * A choice and not a number, because the five are compositions — a fade *and* a lift *and* the
+   * range they happen over — and a reader picking 부드럽게 올라오기 is picking a look rather than
+   * assembling one. The names are the deck's own, which is the paint decision again (`reveal.ts`).
+   *
+   * On every block a reader can select rather than only on stacks: a heading arriving on its own
+   * above a paragraph that is already there is the commonest reveal on any page, and it is a
+   * *heading* that arrives.
+   */
+  {
+    attr: 'reveal',
+    command: 'setBlockFormat',
+    group: '등장',
+    tab: 'style',
+    label: '방식',
+    ariaLabel: '등장 방식',
+    control: 'choice',
+    options: [
+      { id: '', label: '없음' },
+      ...REVEALS.map((one) => ({ id: one.id, label: one.label }))
+    ]
+  },
 
   // ── 전환 — how long this block takes to answer the pointer ────────────────
   /**

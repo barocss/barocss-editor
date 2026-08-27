@@ -186,16 +186,74 @@ and should stay one.
   spike, before anything is designed. The question the spike has to answer is the caret one: what a
   reader does when they click a translated run and want to fix the Korean.
 
+#### And should the tool for it be **Figma's variables panel**?
+
+Asked 2026-08-27, and it is the right question to ask *before* the spike, because it decides what the
+thing a reader manages actually is.
+
+Figma's shape, and what it gets right: variables are a **first-class, document-wide list** with a
+panel of their own, grouped into collections, and each collection has **modes** — light/dark,
+compact/comfortable, EN/JA — where one variable holds one value per mode. Anything can reference a
+variable, and switching a mode on a frame re-resolves everything under it. The insight is that
+*theme*, *density* and *language* are the same mechanism: a set of named values with several columns.
+
+Three reasons it fits this product better than it might look:
+
+- **The reference syntax already exists.** `var:이름` is resolved at draw time by
+  `office-canvas`'s `resolveVarValue`, and a page's colours already follow tokens through it. A
+  translated string would be one more thing a reference can point at rather than a new mechanism.
+- **A collection with modes is exactly the translation table** from the section above — keys down the
+  side, languages across the top — reached from a panel instead of from a dataset. Which means
+  choosing this shape does not change the storage argument, only what a reader opens to edit it.
+- **The env is already the mode switch.** One document, N views, and env is the only per-view channel
+  there is (`breakpoints.ts`). A mode is what the breakpoint already is, generalised.
+
+And the reasons to be careful, which are the real content of the question:
+
+- **This repository has refused a map three times**, and Figma's `boundVariables` is a map on the
+  node. `componentBind` exists because *a value nothing can check is the fault it keeps finding*. A
+  variables panel must not quietly reintroduce the shape the schema already rejected — the binding
+  stays a node.
+- **Modes multiply.** Two collections with three modes each is nine combinations, and Figma's own
+  answer (modes are per-collection, resolved by the nearest frame that sets one) took them years and
+  is still the part users get wrong. This product has *three* things that look like modes already —
+  a width, a state, and now a language — and they are deliberately **not** the same: a width is
+  resolved per view, a state is published as a rule and resolved by the browser, and a language would
+  be per view again. Collapsing them into one "mode" concept would be a rewrite of three working
+  mechanisms to make a fourth one fit, and the honest answer is probably that a language is a mode
+  and the other two are not.
+- **A panel of every variable in the document is a fourth surface**, and the harness has no notion of
+  one. `panel-model.ts` exists because a panel that declares nothing is a panel the harness cannot
+  see; a variables panel needs the same treatment from the start rather than as a retrofit.
+
+- [ ] Decide this before the spike, and write the decision down: **does a language become a mode of a
+  variable collection, or a column of a dataset?** They store the same bytes and they are different
+  products — one is a designer's panel of named values, the other is a translator's spreadsheet. The
+  answer probably depends on whether the first user of it is the person who wrote the page or the
+  person translating it.
+
 ### A state can be promised, but nothing gets between one and the next
 
 - [x] ~~A hover that arrives **instantly** looks like a bug.~~ Built: `transitionMs`, one number on
   the block, published as a `transition` on the block's own rule. See Done.
 
-- [ ] **A page still has no scroll reveal and no motion of its own.** The transition was the doorway
-  and only the doorway: it answers *the pointer arrived*, and the thing a page built anywhere else
-  has that one built here does not is content that arrives **as a visitor scrolls to it**. That is a
-  different mechanism — it needs the page to observe, not merely to declare — and the deck's timeline
-  is the vocabulary to read before choosing one.
+- [x] ~~**A page still has no scroll reveal.**~~ Built: `reveal`, five of the deck's own names,
+  published as a scroll-driven keyframe animation with no script. See Done.
+
+- [ ] **It scrubs; it does not fire once.** A scroll-driven animation is tied to scroll position, so
+  scrolling back up plays it backwards. Most builders fire once and stay, and that cannot be had in
+  pure CSS today: it needs `animation-trigger` (too new to publish against) or a script, which the
+  export deliberately does not carry. Worth revisiting when `animation-trigger` is safe — the shape
+  of the rule does not change, only one more declaration.
+
+- [ ] **Nothing staggers.** A row of three cards all arriving at once is the difference between a page
+  with motion and a page where things pop. It is *not* `animation-delay`: a scroll-driven animation
+  has no time to delay, so a stagger is a **shifted range** per child — `entry 0% entry 70%`, then
+  `entry 10% entry 80%`, and so on. The rules are already written per block, so this is one attribute
+  on the frame and an offset in `revealRules`.
+
+- [ ] **The range is chosen, not offered.** One range that reads well at every page length, and the
+  second knob a designer would want.
 
 - [ ] **The enter and the leave share a curve.** `cubic-bezier(0.2, 0, 0, 1)` in both directions.
   Every considered system uses ease-out on the way in and ease-in on the way out, which needs the base
@@ -2914,6 +2972,52 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A block can say how it arrives as a visitor scrolls to it.** `reveal` — five of the deck's own
+  names (`rise`, `slideIn`, `pop`, `focusIn`, `appearSlowly`), because the deck arrived at that
+  vocabulary first and a second product spelling the same idea differently is the fault this backlog
+  keeps finding. What is *not* shared is the arithmetic: a slide's motion is a timeline played on
+  arrival, and a page has no timeline — a visitor scrolls, and how far they have scrolled is the only
+  clock there is. The deck's other nine are deliberately not offered: they either need a script
+  (`typewriter` is per-glyph) or say something a scroll cannot (`springIn` rings over its own
+  settling time).
+
+  **No script**, which is the property `states.ts` already argued for and this keeps:
+  `animation-timeline: view()` is the browser's own answer to *how far has this entered the
+  viewport*. Every other builder does this with an `IntersectionObserver` that adds a class.
+
+  Two guards that are not optional, because the hidden half of every one of these is `opacity: 0`:
+  `@supports (animation-timeline: view())`, or a browser that cannot run it applies the start state
+  and never advances — a page whose content is invisible forever; and
+  `prefers-reduced-motion: no-preference`, dropping the whole block rather than shortening it,
+  because there is no reduced version of an animation whose first frame is invisible.
+
+  It runs **only in preview**. Every one of these starts invisible, and a builder that hid half a
+  page from the person building it would be unusable — so while editing every block is simply there.
+  That is the same argument the state switch makes, with the mode doing the switch's work.
+
+  Two things only a browser could have said, and both were wrong first:
+
+  - **The last block on a page never finished arriving.** The range ended at `cover 30%` — a third of
+    the way through the block covering the window — and there is no scroll left underneath the last
+    block, so that point is unreachable and it sat at 14% opacity forever. A page's footer is the one
+    thing on it that is always last. Everything inside the `entry` phase is reachable for every block
+    including the last, because a scroller's end still brings its final element fully into view.
+  - **The animation was attached to the wrong scroller** — see the next entry.
+
+- **`EditorViewDOM` was making every editor container a scroll container, in all three products.**
+  `container.style.overflow = 'hidden'`, which says *do not paint outside me* **and** *I am a scroll
+  container*. The second half is a claim nothing here meant to make and that nothing could see: a
+  scroll container with no scrollable content behaves exactly like a clipped box.
+
+  Until something asks which element scrolls. `view()` takes its clock from the nearest scrollport,
+  found this container, and this container has nothing to scroll — so a block told to arrive on
+  scroll never arrived, while the pane that actually scrolls moved underneath it. The rule was
+  written correctly and the browser accepted it.
+
+  `overflow: clip` clips and is not a scroll container, which is what was meant. Nothing in the three
+  products scrolls this element — they scroll a pane above it — so the only behaviour that changed is
+  the one that was wrong. Word 353 and the deck 395 say so.
 
 - **A component's variable can be renamed and taken away.** `bindPartText` gave a template the half a
   reader needs to grow a card — name a variable that does not exist and it is declared. The other

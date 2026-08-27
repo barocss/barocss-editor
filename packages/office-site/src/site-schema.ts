@@ -113,7 +113,38 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
      * it is a fact about the block that the state rules are written against. `STATEABLE` says what
      * a state may say, and this is not one of them.
      */
-    transitionMs: { type: 'number' as const, required: false }
+    transitionMs: { type: 'number' as const, required: false },
+    /**
+     * How this block **arrives as a visitor scrolls to it**.
+     *
+     * The single largest difference between a page built here and a page built anywhere else: this
+     * product could answer the pointer and had nothing at all to say about arriving.
+     *
+     * ## Why it is a name and not a description
+     *
+     * Five names the deck already uses — `rise`, `slideIn`, `pop`, `focusIn`, `appearSlowly` — which
+     * is the paint decision again: the deck arrived at this vocabulary first, and a second product
+     * spelling the same idea differently is the fault this repository keeps finding. A reader who has
+     * learned 부드럽게 올라오기 on a slide has learned it on a page.
+     *
+     * What is *not* shared is the arithmetic, and that difference is the interesting one. A slide's
+     * motion is a **timeline**: a step of a given duration, played when the slide arrives. A page has
+     * no timeline and no arrival — a visitor scrolls, and how far they have scrolled is the only
+     * clock there is. So the deck's `duration` and `easing` have no meaning here and are not carried
+     * over: the same five names, resolved against a different instrument.
+     *
+     * ## Why five and not fourteen
+     *
+     * The deck's other nine either need a script (`typewriter`, `letterByLetter`, `wordByWord` are
+     * per-glyph) or say something a scroll cannot (`springIn` rings over its own settling time, which
+     * a scroll position has no way to advance). A name a page could not honour would be a name a
+     * reader picks once and never trusts again.
+     */
+    reveal: {
+      type: 'string' as const,
+      required: false,
+      options: ['rise', 'slideIn', 'pop', 'focusIn', 'appearSlowly']
+    }
   };
 
   /**

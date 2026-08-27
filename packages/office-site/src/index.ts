@@ -30,6 +30,7 @@ export { PAGE_CSS } from './page-css';
  * published page, with no script to run.
  */
 export { CODE_CSS, codeComponent, grammarFor } from './code-render';
+export { REVEALS, REVEAL_IDS, REVEAL_KEYFRAMES, revealOf, revealRule, type RevealKind } from './reveal';
 export { createLinkCommands, SiteLinkExtension } from './link-commands';
 export { createPageCommands, SitePageExtension } from './page-commands';
 export {
@@ -120,6 +121,7 @@ export {
   exportPage,
   exportSite,
   mediaRules,
+  revealRules,
   stateChanges,
   stateRules,
   type ExportedPage,

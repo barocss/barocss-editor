@@ -321,6 +321,13 @@ describe('the site builder draws what it declares', () => {
          */
         transitionMs:
           'published as a rule, not folded into a drawing: read by `stateRules` and `editorStateCss` — held in `states.test.ts`',
+        /*
+         * The third, and the clearest of the three: there is no moment at which a document is *being
+         * scrolled to*. A width is known before the drawing, a pointer is the visitor's, and a scroll
+         * position is the visitor's **and keeps changing** — so this leaves the model as a keyframe
+         * animation whose clock is the scroll, and a renderer is right not to read it.
+         */
+        reveal: 'published as a rule, not folded into a drawing: read by `revealRules` — held in `reveal.test.ts`',
 
         // ── The office schema’s, for products that are not this one ────────
         placeholder: 'Word draws a prompt in an empty paragraph; a page has no forms yet',

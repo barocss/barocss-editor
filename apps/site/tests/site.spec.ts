@@ -2320,6 +2320,66 @@ test.describe('preview', () => {
     await expect(page.locator('[data-frame="desktop"] .st-overlay')).toHaveCount(0);
   });
 
+  /**
+   * And the thing preview mode was built to make judgeable: a block **arriving as the page scrolls**.
+   *
+   * `reveal.test.ts` holds everything about the rule that can be read — that it names `view()`, that
+   * it is wrapped in both guards, that the export carries no script. What only a browser can answer
+   * is whether the browser *runs* it, and that question has a specific trap in it: a scroll-driven
+   * animation that a browser silently declines looks identical to one that has already finished,
+   * because both leave the element at `opacity: 1`. So this scrolls to it and watches it change.
+   */
+  test('a block arrives as the page is scrolled to it', async ({ page }) => {
+    await ready(page);
+
+    /*
+     * The **last** band of the page, which is the one guaranteed to be below an 800px window. A band
+     * that starts above the fold has already arrived when the page opens, and a test that scrolled to
+     * it would be asserting `1` before and `1` after.
+     */
+    const sid = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const home = (root.content ?? [])
+        .map((one: string) => store.getNode(one))
+        .find((one: any) => one?.stype === 'surface');
+      const kids = (home.content ?? []) as string[];
+      return kids[kids.length - 1];
+    });
+    await page.evaluate((one) => (window as any).editor.executeCommand('setNode', { nodeIds: [one] }), sid);
+    await page.waitForTimeout(200);
+    await page.evaluate(() => (window as any).editor.executeCommand('setBlockFormat', { reveal: 'rise' }));
+    await page.waitForTimeout(400);
+
+    /*
+     * While **building**, it is simply there. A builder that hid half a page from the person building
+     * it would be unusable, so this is the one place the product deliberately shows a reader
+     * something a visitor will not see.
+     */
+    const block = page.locator(`[data-frame="desktop"] [data-bc-sid="${sid}"]`).first();
+    expect(await block.evaluate((el) => getComputedStyle(el as HTMLElement).opacity)).toBe('1');
+
+    await toggle(page).click();
+    await page.waitForTimeout(600);
+
+    const opacityOf = () => block.evaluate((el) => Number(getComputedStyle(el as HTMLElement).opacity));
+
+    await board(page).evaluate((el) => el.scrollTo({ top: 0 }));
+    await page.waitForTimeout(300);
+    // Below the window and not yet arrived. This is the assertion the `@supports` guard exists for:
+    // a browser that could not run the animation would read 1 here and the page would be fine —
+    // and the same 1 is what a broken rule reads, which is why the next step matters.
+    const away = await opacityOf();
+    expect(away).toBeLessThan(1);
+
+    await block.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    await page.waitForTimeout(400);
+    // Arrived — driven by the scroll and by nothing else. No observer, no class, no script.
+    expect(await opacityOf()).toBe(1);
+    expect(await opacityOf()).toBeGreaterThan(away);
+  });
+
   test('follows a link to this site’s page rather than out of the app', async ({ page }) => {
     await ready(page);
     await toggle(page).click();

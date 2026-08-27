@@ -52,6 +52,7 @@ import { stackCss } from './renderers';
 import { BREAKPOINTS, SITE_ENV_KEY, createSiteEnv, type BreakpointId } from './breakpoints';
 import { BASE_BREAKPOINT, overridesOf } from './responsive';
 import { STATES, attrsInState, hasStates, statesOf, type StateId } from './states';
+import { revealOf, revealRule } from './reveal';
 import { PAGE_CSS } from './page-css';
 import { sizingCss } from './sizing';
 import { pagesOf } from './selection';
@@ -101,6 +102,12 @@ export function exportPage(editor: Editor, pageSid: string): ExportedPage {
    * width's query, and it has to arrive after the rule it is about. See `stateRules`.
    */
   const states = stateRules(store, pageSid, lifted.classOf);
+  /*
+   * After the states, because it is the last thing a reader of the stylesheet needs and because it
+   * is the only part wrapped in `@supports` — a block a browser cannot animate is a block it simply
+   * draws, and that is easier to see when the guard is at the bottom rather than woven through.
+   */
+  const reveals = revealRules(store, pageSid, lifted.classOf);
 
   const name = String(page?.attributes?.name ?? '');
   const path = String(page?.attributes?.path ?? '/');
@@ -111,7 +118,7 @@ export function exportPage(editor: Editor, pageSid: string): ExportedPage {
     html: document_(
       name,
       host.innerHTML,
-      [lifted.css, responsive, states].filter(Boolean).join('\n\n')
+      [lifted.css, responsive, states, reveals].filter(Boolean).join('\n\n')
     )
   };
 }
@@ -524,6 +531,35 @@ function transitionsFor(
 
 /** See `transitionsFor` for why this curve and not another. */
 const EASE = 'cubic-bezier(0.2, 0, 0, 1)';
+
+/**
+ * The blocks that **arrive as a visitor scrolls to them**, as rules.
+ *
+ * The third thing on a page published as a rule rather than folded into a drawing, and the one with
+ * the clearest reason: there is no moment at which a document is *being scrolled to*. A width is
+ * known before the page is drawn and a pointer is the visitor's; a scroll position is the visitor's
+ * too, and it keeps changing.
+ *
+ * Written whether or not anything else about the block is — a section with a reveal and no hover is
+ * ordinary — so this walks the page itself rather than reading `stateChanges`.
+ *
+ * The keyframes are not here: they are five, they are the same on every page, and they go out once
+ * in `PAGE_CSS` (`reveal.ts`). What is per block is which one it names.
+ */
+export function revealRules(
+  store: { getNode: (sid: string) => Node | undefined },
+  pageSid: string,
+  classOf: (sid: string) => string | undefined = () => undefined,
+  attribute?: string
+): string {
+  const out: string[] = [];
+  for (const one of styledNodes(store, pageSid)) {
+    const kind = revealOf((store.getNode(one.sid) as Node | undefined)?.attributes);
+    if (!kind) continue;
+    out.push(revealRule(whereFor(one, classOf, attribute), kind, attribute !== undefined));
+  }
+  return out.join('\n');
+}
 
 /** The CSS a state is, by its id — one lookup, so neither notation can invent its own. */
 function selectorOf(state: StateId): string {

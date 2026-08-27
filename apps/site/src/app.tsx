@@ -16,6 +16,7 @@ import {
   BREAKPOINTS,
   definitionOf,
   editorStateCss,
+  revealRules,
   enclosing,
   pagesOf,
   previewForRow,
@@ -305,6 +306,30 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     document.head.append(sheet);
     return () => sheet.remove();
   }, [editor, root, revision, state, chosen]);
+
+  /**
+   * And the **arrivals**, which are drawn only while previewing.
+   *
+   * The other half of the same idea and the one place this product deliberately shows a reader
+   * something different from what a visitor gets: every one of these starts at `opacity: 0`, and a
+   * builder that hid half a page from the person building it would be unusable. So while editing,
+   * every block is simply there.
+   *
+   * Preview is where it runs, and it runs for real: the frame scrolls, `view()` takes its clock from
+   * the nearest scrollport, and what the reader sees is the page arriving exactly as a visitor's
+   * will. That is the same argument the state switch makes — a designer who has to publish to see
+   * the motion is a designer guessing — with the mode doing the work the switch does there.
+   */
+  useEffect(() => {
+    const store = editor?.dataStore as { getNode: (sid: string) => any } | undefined;
+    if (!store || !root || !preview) return;
+
+    const sheet = document.createElement('style');
+    sheet.dataset.siteReveals = 'true';
+    sheet.textContent = revealRules(store as never, root, () => undefined, 'data-bc-sid');
+    document.head.append(sheet);
+    return () => sheet.remove();
+  }, [editor, root, revision, preview]);
 
   /**
    * `Escape`, which is the way **out** of wherever the reader is — and listened for exactly once.

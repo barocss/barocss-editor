@@ -333,6 +333,11 @@ export class SiteStackExtension implements Extension {
      */
     'transitionMs',
     /*
+     * And **how it arrives**. Beside the transition rather than in `_stateFields` for the same
+     * reason: it is a fact about the block that a rule is written from, not a value a state changes.
+     */
+    'reveal',
+    /*
      * Whether it is a window.
      *
      * A page does not clip by silence — see `stackCss` — so this is a reader asking for something
