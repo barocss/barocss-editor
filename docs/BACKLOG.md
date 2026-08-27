@@ -46,6 +46,41 @@ entries are that.
 
 ## Open
 
+### The sidebar, measured — 2026-08-28
+
+Five tabs, and what each can do:
+
+| tab | what it offers | what it does not |
+| --- | --- | --- |
+| **추가** | 15 inserts, each with a picture | — |
+| **구성** | a tree that opens and closes, click to select, shift to add | **hide, lock, reorder, rename** |
+| **페이지** | list · 위로 · 복제 · 삭제(asks first) | 아래로; reorder by drag |
+| **컴포넌트** | list · 놓기 · 편집 | rename, delete, where-used |
+| **데이터** | list · 데이터셋 만들기 | rename, delete, duplicate |
+
+The **구성** list is the one that was a selector where every other builder's is a manipulator, and
+the first half of that is fixed (see Done). What is left, in the order a reader would miss it:
+
+- [ ] **1. Reorder by dragging a row.** The canvas can drag a block and the list cannot, and the list
+  is the only place an empty stack or a block behind another block can be *reached* at all. The deck's
+  layer panel already drags (`useStackOrder` in `office-ui`), so the shape exists.
+
+- [ ] **2. Hide a block.** Drafting a section and wanting it off the page is the commonest reason to
+  open a layer list. The site schema has no `visible` — the office schema's `CANVAS_PRESENCE_ATTRS`
+  does, for placed things — so this is a schema widening, a renderer reading it, and the export
+  agreeing. Which is the whole flow, and worth it: the alternative a reader has today is to delete
+  the section and undo later.
+
+- [ ] **3. Lock a block.** The other half of the same pair. Cheaper than hiding — nothing about the
+  drawing changes, only what the overlay will select — and it is what makes a background picture
+  editable at all.
+
+- [ ] **4. Rename on the row.** The name is in the panel, and a layer list is where a reader is
+  thinking about names. Double-click is the convention.
+
+- [ ] **5. The three lists that only add.** 컴포넌트 and 데이터 can make one and cannot rename,
+  duplicate or remove one; 페이지 can do all four. Same shape, three answers.
+
 ### The chrome, looked at as a professional tool would be — measured 2026-08-27
 
 Three products on one shared chrome package, screenshotted at 1600×1000 and counted.
@@ -3100,6 +3135,28 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The layer list is a tree rather than a wall.** Measured on the sample's home page: **110 rows,
+  2,923 pixels of them, in a 928-pixel pane** — three screens of list, every row expanded because
+  there was nothing to close, and a reader looking for the footer scrolling past a hundred rows of
+  things they were not looking for. It opens at **twelve**.
+
+  Closed by default is what every tool of this kind does, and the reason here is that number rather
+  than the convention. Two halves make it work, and each is easy to leave out:
+
+  - **The ancestors of what is selected are always open.** A reader clicks a card on the canvas and
+    the list opens the path to it, rather than showing a closed band and leaving them to guess which
+    one to press.
+  - **A tree that fits on a screen is simply open.** Closed-by-default answers 110 rows; it does not
+    answer two. The boards' root changes when a definition is being edited — a stack with a word in
+    it — and being shown one closed row there is being made to press a triangle for something you
+    could have been shown. Twenty-four rows, which is what the pane holds with room to spare.
+
+  And a triangle shows what is inside where the row beside it selects: a reader who had their
+  selection replaced every time they went looking would lose it constantly. The disclosure is a
+  `span` with a role rather than a nested `<button>`, because a button inside a button is invalid and
+  the browser's recovery is to close the outer one early — the whole row after it would stop being
+  clickable.
 
 - **A sweep that pressed all 33 menu entries, and the four faults it found.** Worth more than any of
   the fixes: an entry that can *never* be enabled looks exactly like one that is merely unavailable
