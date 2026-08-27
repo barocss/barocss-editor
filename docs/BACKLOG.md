@@ -46,6 +46,70 @@ entries are that.
 
 ## Open
 
+### The chrome, looked at as a professional tool would be — measured 2026-08-27
+
+Three products on one shared chrome package, screenshotted at 1600×1000 and counted.
+
+| | Word | 덱 | 사이트 |
+| --- | --- | --- | --- |
+| toolbar controls, one flat strip | **71** | **60** | 19 |
+| toolbar rows always on screen | 2 | 2 | 1 |
+| application-level commands (파일/보기/도구) | **0** | **12, as title-bar buttons** | **0** |
+| keyboard shortcuts bound | **72** | 21 | 6 |
+| places a reader can *see* a shortcut | tooltip only | tooltip only | tooltip only |
+| menubar | — | — | — |
+
+**The finding that is not a matter of taste: the site builder cannot export.** `exportSite` renders
+every page and it is reachable from `window.exportSite` and from tests, and **from no control in the
+product**. A site builder that cannot publish is not finished, and the reason nothing caught it is
+worth as much as the fault: `every-command-can-be-reached` counts *commands*, and this is a function.
+A capability that is not a command is invisible to the harness.
+
+**And the deck has already grown a menubar, without having one.** 새로 만들기 · 저장 · 열기 ·
+라이브러리 · 템플릿 · 크기 · 레이아웃 · 검사 · 지도 · 발표 · 스크롤 상영 · 전체 보기 — twelve
+application-level commands as equal-weight text buttons in the title bar, because there was nowhere
+else for them to go. That is the shape a menubar takes when a product does not have one, and it is
+evidence rather than opinion: the same twelve are *missing entirely* from the other two products.
+
+- [ ] **1. A menubar, and the toolbar stops carrying what is not a tool.** The split is the standard
+  one and it is standard because it is true: a **menubar** holds what acts on the *document and the
+  application* — open, save, export, undo, find, zoom, which panels are shown — and a **toolbar**
+  holds what acts on the *selection*. Today the deck's title bar mixes both, the site's one toolbar
+  row mixes a tool mode (선택/텍스트), object actions (복제/삭제), a property (링크) and a view
+  setting (which boards are shown), and Word has 71 icons in one undifferentiated wall.
+
+  Declared, not written in JSX — `menu-model.ts` beside `toolbar-model.ts`, for the reason that file's
+  own header gives: a surface that declares nothing is a surface the harness cannot see, and this
+  backlog has paid for that lesson twice.
+
+  It also fixes the shortcut problem for free: `MenuEntry` already carries a `hint`, so **99 bindings
+  across three products get somewhere to be read**. A tooltip teaches a shortcut to someone who has
+  already found the button.
+
+- [ ] **2. A toolbar that is contextual.** Word's second row is table operations, list operations and
+  arrange — 40+ icons that are meaningless unless a table or a drawing is selected, and they are on
+  screen always. Every serious editor answers this the same way (Word's own *Table Tools*, Figma's
+  contextual bar): the strip shows what the selection can be asked. The declaration already has `on`
+  for panel rows; a toolbar control needs the same field.
+
+- [ ] **3. Two kinds of toggle drawn identically.** 선택/텍스트 is *one of these* and
+  데스크톱/태블릿/모바일 is *any of these*, and both are `ToolbarToggle` with an accent border. A
+  segmented control for the first is the convention, and the difference is not decoration — a reader
+  cannot currently tell that turning off 태블릿 is allowed and turning off 선택 is not.
+
+- [ ] **4. Panel rows whose control column is too narrow.** Measured in the site's 모양 pane: 지우기
+  wraps to two lines inside the 그라디언트 and 그림자 rows, and the 데스크톱/태블릿/모바일 buttons in
+  the panel header are truncated to 데 / 태 / 모. A one-syllable truncation is not an abbreviation,
+  it is an unreadable label.
+
+- [ ] **5. Word's font and size pickers show `—` when nothing is selected.** A font picker showing an
+  em-dash reads as broken rather than as *no selection*. The document's own default is the honest
+  thing to show, which is what every word processor does.
+
+- [ ] **6. An insert palette of plain text.** The site's 추가 rail lists 섹션 · 가로 스택 · 그리드 ·
+  제목 · 본문 · 이미지 … as unadorned text. `office-icons` exists and the toolbar uses it; a palette
+  a reader picks shapes from is the one place an icon earns its keep.
+
 ### The whole suite speaks one language, and a browser test is what noticed
 
 Raised on 2026-08-27, reading `slide-features.spec.ts`: every check asks for a control **by its
