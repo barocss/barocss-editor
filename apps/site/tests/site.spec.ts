@@ -2004,9 +2004,13 @@ test.describe('a link to another page', () => {
     await ready(page);
 
     const picker = page.locator('.st-link-page');
-    // Nothing selected: a mark covers a range, and linking a caret writes a zero-length link — the
-    // shape of failure that draws nothing and reports success.
-    await expect(picker).toBeDisabled();
+    /*
+     * Nothing selected: **not offered**, where it used to be a 144-pixel dropdown reading 링크 없음
+     * that sat there at all times. What a block links to is a fact about *words*, and a reader who
+     * has selected a card is not being asked about it. A mark covers a range, and linking a caret
+     * would write a zero-length link — the shape of failure that draws nothing and reports success.
+     */
+    await expect(picker).toHaveCount(0);
 
     // Into the words: ⌘ reaches the heading, and one double-click asks for the caret.
     const hero = page.locator('[data-frame="mobile"] h1');

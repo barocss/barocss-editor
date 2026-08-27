@@ -182,13 +182,19 @@ export function Ribbon({
       )}
 
       {/*
-        Where the selected words go.
+        Where the selected words go — **drawn only when there are words**.
 
         A picker rather than a button, and one that offers **pages** rather than an address box: a
         page's address is a value a reader edits in the panel, so a link that spelled it would go
         nowhere the first time they did. The link stores the page's id and the address is worked out
         where it is drawn — see `page-link.ts`.
+
+        A 144-pixel dropdown reading 링크 없음 sat here at all times, and it was the last item of the
+        chrome audit: what a block links to is a fact about *words*, and a reader who has selected a
+        card is not being asked about it. Chasing whether it could ever be enabled is what found the
+        selection sync — it could not, in any state.
       */}
+      {siteControlsIn('link').some((control) => can(control.command)) && (
       <ToolbarGroup id="link">
         {siteControlsIn('link').map((control) =>
           control.command === 'linkToPage' ? (
@@ -217,6 +223,7 @@ export function Ribbon({
           )
         )}
       </ToolbarGroup>
+      )}
 
       {/*
         The board toggles used to be here, and they are in **보기** now.
