@@ -48,13 +48,11 @@ entries are that.
 
 ### Found walking the site builder in a browser
 
-- [ ] **The published page has no description and no Open Graph.** Measured with the landmarks: a
-  page carries a name and an address and says neither to a crawler or a chat that unfurls it. One
-  `description` on `surface` and four meta tags is the whole of it, and it is the other half of what
-  makes a published page real.
-
-- [ ] **And no skip link.** A keyboard visitor tabs through the whole navigation on every page. Now
-  that a page can say where its body is, the link has somewhere to point.
+- [ ] **A site has no address of its own.** Found writing the Open Graph tags: `og:url` and a
+  canonical link both need an **absolute** address, and a document here knows its pages' paths and
+  nothing about where the site lives. It is also what a sitemap and an RSS feed would need. One field
+  on the document root, and the reason it is not there yet is that it is the first thing this model
+  has wanted that is a fact about **publishing** rather than about the document.
 
 
 - [x] ~~**`PropertyNumber` in `office-ui` is called by nobody.**~~ **Wrong, and corrected within the
@@ -2877,6 +2875,38 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The other half of what makes a published page real.** The same reading that found forty `<div>`s
+  found two more things missing from the `<head>` and the top of the body, and both are one line each
+  once the page can say what it is.
+
+  **What a crawler and a chat read.** A page carried a name and an address and said neither to
+  anything but a browser tab — no `description`, no Open Graph at all. So a search result showed
+  whatever an engine could scrape from the first paragraph, and a page pasted into a chat unfurled as
+  a bare address. `description` is on the page now, and it is the third thing a page is: a title is
+  what it is *called*, an address is where it *answers*, and this is what it is *about*.
+
+  Two decisions:
+
+  - **Nothing written is nothing said.** An empty `<meta name="description" content="">` is worse
+    than none — it tells an engine the page has been described and the description is nothing — and
+    an `og:title` with no body is an unfurl that looks like a template. Both are written only when a
+    reader has written one, and they go together.
+  - **Not guessed from the first paragraph.** Every builder that guesses gets it wrong on the page it
+    matters most — a hero whose first words are *무료로 시작하기* — and a guess a reader cannot see is
+    a guess they cannot correct.
+
+  **A way past the navigation.** The first thing on every page of the sample is a header with four
+  links, so a visitor tabbing reaches the words on the fifth press, on every page, every time. The
+  link every accessible site has is one line — and it could not be written until a page could say
+  **where its body is**, which landed an hour earlier. A page that has not said gets no link at all,
+  because one that points nowhere is worse than none: it looks like the page has one.
+
+  And the bug that only a real export found: the lookup used `data-bc-sid`, which is the **editor's**
+  name for a node's id. `lift` has already renamed it to `data-b` by then — the published page keeps
+  the id under a shorter name so a media query can point at it — so the query found nothing and the
+  page shipped silently without the link. Silently is the word: a missing skip link is invisible to
+  everyone who is not using it.
 
 - **One control in the suite had a tooltip; the other sixty had the browser's.** Counted: a ribbon's
   `ToolbarToggle` opened a real one, and every other icon in all three products used `title=` — the

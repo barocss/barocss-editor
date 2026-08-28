@@ -94,7 +94,7 @@ describe('what the panel declares', () => {
     // A page is the board rather than a block — `SELECTABLE` leaves it out — so its rows are reached
     // by selecting nothing, and no block row may appear beside them.
     const surface = sitePanelRows('surface');
-    expect(surface.map((row) => row.attr).sort()).toEqual(['name', 'path']);
+    expect(surface.map((row) => row.attr).sort()).toEqual(['description', 'name', 'path']);
     expect(sitePanelRows('frame').every((row) => row.tab !== 'page')).toBe(true);
   });
 

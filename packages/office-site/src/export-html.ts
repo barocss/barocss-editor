@@ -113,13 +113,45 @@ export function exportPage(editor: Editor, pageSid: string): ExportedPage {
   const name = String(page?.attributes?.name ?? '');
   const path = String(page?.attributes?.path ?? '/');
 
+  /*
+   * **Where the body begins**, so a skip link has somewhere to point.
+   *
+   * The first block on this page that says it is the page's `main`, given an id in the drawing. A
+   * page that has not said which block is its body gets **no skip link at all** rather than one
+   * pointing at the top of the document — a link that goes nowhere is worse than none, because it
+   * looks like the page has one.
+   */
+  const main = (() => {
+    const found = firstLandmark(store, pageSid, 'main');
+    if (!found) return undefined;
+    /*
+     * Quoted rather than `CSS.escape`d: the export runs in **Node** as well as in a browser — the
+     * publish command is a unit test's first caller — and `CSS` is a browser global. A sid is
+     * `site:45`; it has never contained a quote, and the attribute selector needs nothing else.
+     */
+    /*
+     * **`data-b`**, not `data-bc-sid`: `lift` has already run by here and renames the attribute — the
+     * published page keeps the node's id under a shorter name because a media query has to be able
+     * to point at it. Looked for under the editor's name, this found nothing and the page silently
+     * shipped without a skip link.
+     *
+     * Quoted rather than `CSS.escape`d, too: the export runs in **Node** as well as a browser and
+     * `CSS` is a browser global. A sid is `site:45` and has never held a quote.
+     */
+    const el = host.querySelector<HTMLElement>(`[data-b="${found.replace(/"/g, '\\"')}"]`);
+    if (!el) return undefined;
+    el.id = 'main';
+    return 'main';
+  })();
+
   return {
     path,
     name,
     html: document_(
       name,
       host.innerHTML,
-      [lifted.css, responsive, states, reveals].filter(Boolean).join('\n\n')
+      [lifted.css, responsive, states, reveals].filter(Boolean).join('\n\n'),
+      { description: page?.attributes?.description as string | undefined, main }
     )
   };
 }
@@ -903,6 +935,36 @@ function changed(before: Record<string, string>, after: Record<string, string>):
   return out;
 }
 
+/**
+ * The first block on a page that says it is a given landmark, in document order.
+ *
+ * The **first**, and a page with two `main`s is a document fault the panel reports — see
+ * `documentFaults`. This one takes the first rather than refusing, because an export that would not
+ * publish a page over a landmark a reader can see and fix in the panel is an export that has decided
+ * something the reader has not.
+ */
+function firstLandmark(
+  store: { getNode: (sid: string) => Node | undefined },
+  pageSid: string,
+  want: string
+): string | undefined {
+  let found: string | undefined;
+  const look = (sid: string, depth = 0) => {
+    if (found || depth > 64) return;
+    const node = store.getNode(sid);
+    if (!node) return;
+    if (node.attributes?.landmark === want) {
+      found = sid;
+      return;
+    }
+    for (const child of (node.content ?? []) as unknown[]) {
+      if (typeof child === 'string') look(child, depth + 1);
+    }
+  };
+  look(pageSid);
+  return found;
+}
+
 /** A style map as CSS text, in the notation a stylesheet uses. */
 function declarations(css: Record<string, string>): string {
   return Object.entries(css)
@@ -928,14 +990,71 @@ function dashed(key: string): string {
  * while the editor drew the same heading at the app's 12px chrome size. Two grounds, one document,
  * and export-as-a-render cannot mean anything while they differ.
  */
-function document_(name: string, body: string, responsive: string): string {
+function document_(
+  name: string,
+  body: string,
+  responsive: string,
+  /** What the page is about, and where its body begins — see below. Both may be absent. */
+  said?: { description?: string; main?: string }
+): string {
+  /*
+   * **What a crawler and a chat read.**
+   *
+   * Measured before this existed: the page had a `lang`, a `<title>`, a viewport and no script, and
+   * **no description and no Open Graph at all**. So a search result showed whatever an engine could
+   * scrape from the first paragraph, and a page pasted into a chat unfurled as a bare address.
+   *
+   * Written only when a reader has written one. A `<meta name="description" content="">` is worse
+   * than none — it tells an engine the page has been described and the description is nothing — and
+   * `og:title` alone is an unfurl with a heading and no body, which is what a template looks like.
+   *
+   * `og:url` is **not** here, and its absence is a finding rather than an omission: Open Graph needs
+   * an absolute address and a site in this product has no address of its own. See `BACKLOG.md`.
+   */
+  const about = said?.description?.trim();
+  const meta = about
+    ? [
+        `<meta name="description" content="${escape(about)}">`,
+        `<meta property="og:type" content="website">`,
+        `<meta property="og:title" content="${escape(name)}">`,
+        `<meta property="og:description" content="${escape(about)}">`
+      ].join('\n')
+    : '';
+
+  /*
+   * **A way past the navigation**, for a visitor who is tabbing.
+   *
+   * The first thing on every page of this sample is a header with four links in it, so reaching the
+   * words costs five presses of Tab — on every page, every time. The link every accessible site has
+   * is one line, and it could not be written until a page could say **where its body is**: a skip
+   * link that points at nothing is worse than none, because it looks like the page has one.
+   *
+   * Visually hidden until it has the focus, which is the whole convention: it is for the reader who
+   * is already tabbing, and it must not be a stray line above the header for everyone else.
+   */
+  const skip = said?.main
+    ? `<a class="st-skip" href="#${escape(said.main)}">본문으로 건너뛰기</a>`
+    : '';
+
   return `<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escape(name)}</title>
+${meta}
 <style>
+.st-skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 9;
+  padding: 8px 14px;
+  background: #ffffff;
+  color: #111111;
+  border: 1px solid #111111;
+}
+.st-skip:focus { left: 8px; top: 8px; }
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; }
 ${PAGE_CSS}
@@ -943,6 +1062,7 @@ ${responsive}
 </style>
 </head>
 <body>
+${skip}
 ${body}
 </body>
 </html>

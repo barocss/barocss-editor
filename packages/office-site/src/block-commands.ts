@@ -214,7 +214,10 @@ export class SiteBlockExtension implements Extension {
       async (payload) => await this._setPage(editor, payload),
       (payload) => {
         const node = this._store(editor)?.getNode(String(payload?.nodeId ?? ''));
-        return node?.stype === 'surface' && (typeof payload?.name === 'string' || typeof payload?.path === 'string');
+        return (
+          node?.stype === 'surface' &&
+          ['name', 'path', 'description'].some((one) => typeof payload?.[one] === 'string')
+        );
       }
     );
 
@@ -1026,6 +1029,8 @@ export class SiteBlockExtension implements Extension {
     const attrs: Record<string, unknown> = {};
     if (typeof payload?.name === 'string') attrs.name = payload.name;
     if (typeof payload?.path === 'string') attrs.path = payload.path;
+    // …and what it is **about**, which is what a search result shows and a chat unfurls.
+    if (typeof payload?.description === 'string') attrs.description = payload.description;
     if (Object.keys(attrs).length === 0) return false;
 
     return (

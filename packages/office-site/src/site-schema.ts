@@ -363,7 +363,25 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
            * Not derived from the name. Two pages may be called 소개 and one of them may be the
            * landing page; an address is what a site *is*, and a name is what a reader calls it.
            */
-          path: { type: 'string' as const, required: false }
+          path: { type: 'string' as const, required: false },
+          /**
+           * The **sentence a page is found by**, and the one it is shared with.
+           *
+           * Measured on the sample's published home page: it has a `lang`, a `<title>`, a viewport
+           * and no script — and no `description` and no Open Graph at all. So a search result shows
+           * whatever the engine can scrape from the first paragraph, and a page pasted into a chat
+           * unfurls as a bare address.
+           *
+           * The page already carries a **name** and an **address** and says neither to anything but
+           * a browser tab. This is the third thing a page is, and the only one a reader has to write
+           * rather than being able to derive: a title is what it is called, an address is where it
+           * answers, and a description is what it is *about*.
+           *
+           * Not derived from the first paragraph, deliberately. Every builder that guesses one gets
+           * it wrong on the page it matters most — a hero whose first words are 무료로 시작하기 — and
+           * a guess a reader cannot see is a guess they cannot correct.
+           */
+          description: { type: 'string' as const, required: false }
         }
       },
 

@@ -118,6 +118,44 @@ describe('how a block arrives', () => {
    * the tags were `div, section, p, h1…h4, a, img, span, blockquote`, with nothing saying which of
    * forty divs was the header, the navigation, the body or the footer.
    */
+  /**
+   * **What a crawler and a chat read**, and a way past the navigation.
+   *
+   * The other half of what makes a published page real, measured in the same reading that found the
+   * forty `<div>`s: the page had a `lang`, a `<title>`, a viewport and no script — and no
+   * description, no Open Graph, and no skip link.
+   */
+  it('says what the page is about, once a reader has said it', async () => {
+    // Nothing written is **nothing said**: an empty `description` tells an engine the page has been
+    // described and the description is nothing, which is worse than leaving it out.
+    expect(exportPage(editor, home).html).not.toContain('name="description"');
+
+    await run('setPageInfo', { nodeId: home, description: '문서 한 벌로 세 가지를 만듭니다.' });
+    const html = exportPage(editor, home).html;
+    expect(html).toContain('<meta name="description" content="문서 한 벌로 세 가지를 만듭니다.">');
+    expect(html).toContain('og:description');
+    // A title with no body is an unfurl that looks like a template, so the pair goes together.
+    expect(html).toContain('og:title');
+  });
+
+  it('offers a way past the navigation, and only when there is somewhere to go', async () => {
+    /*
+     * The first thing on every page of this sample is a header with four links, so reaching the words
+     * costs five presses of Tab, on every page. The link could not be written until a page could say
+     * **where its body is** — one that points at nothing is worse than none, because it looks like
+     * the page has one.
+     */
+    expect(exportPage(editor, home).html).not.toContain('st-skip"');
+
+    const body = blocksIn(doc, home).find((sid) => (store.getNode(sid) as any)?.stype === 'frame')!;
+    editor.executeCommand('setNode', { nodeIds: [body] });
+    await run('setBlockFormat', { landmark: 'main' });
+
+    const html = exportPage(editor, home).html;
+    expect(html).toContain('<a class="st-skip" href="#main">');
+    expect(html).toMatch(/<main[^>]*id="main"/);
+  });
+
   it('publishes the element a reader said a block is', async () => {
     const holder = blocksIn(doc, band)[0];
     editor.executeCommand('setNode', { nodeIds: [holder] });

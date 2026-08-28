@@ -865,7 +865,24 @@ export const SITE_PANEL: SitePanelRow[] = [
 
   // ── 페이지 — shown when nothing is selected, because a page is the board ───
   { attr: 'name', command: 'setPageInfo', group: '페이지', tab: 'page', label: '이름', ariaLabel: '페이지 이름', control: 'text', on: ['surface'] },
-  { attr: 'path', command: 'setPageInfo', group: '페이지', tab: 'page', label: '주소', ariaLabel: '페이지 주소', control: 'text', on: ['surface'] }
+  { attr: 'path', command: 'setPageInfo', group: '페이지', tab: 'page', label: '주소', ariaLabel: '페이지 주소', control: 'text', on: ['surface'] },
+  /**
+   * And what the page is **about**, which is the third thing it is.
+   *
+   * A title is what it is called and an address is where it answers; both are here and both were
+   * being said to a browser tab and to nothing else. This is what a search result shows and what a
+   * chat unfurls, and the published page had neither it nor an Open Graph tag.
+   */
+  {
+    attr: 'description',
+    command: 'setPageInfo',
+    group: '페이지',
+    tab: 'page',
+    label: '설명',
+    ariaLabel: '페이지 설명',
+    control: 'text',
+    on: ['surface']
+  }
 ];
 
 /**

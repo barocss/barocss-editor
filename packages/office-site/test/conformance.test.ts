@@ -428,6 +428,12 @@ describe('the site builder draws what it declares', () => {
          * position is the visitor's **and keeps changing** — so this leaves the model as a keyframe
          * animation whose clock is the scroll, and a renderer is right not to read it.
          */
+        /*
+         * And what the page is **about**, which no renderer can read because it is not on the page:
+         * it is what the `<head>` says to a crawler and to a chat that unfurls the address.
+         */
+        description:
+          'published in the document’s head, not drawn: read by `exportPage` — held in `reveal.test.ts`',
         reveal: 'published as a rule, not folded into a drawing: read by `revealRules` — held in `reveal.test.ts`',
         /*
          * And whose arrival it is, which is the same fact one level down: a container that stagger
