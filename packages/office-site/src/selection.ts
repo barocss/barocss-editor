@@ -276,6 +276,31 @@ export function isInside(doc: Access, sid: string | undefined, ancestor: string)
   return false;
 }
 
+/**
+ * The nearest thing a reader could actually **select**, walking up from anything at all.
+ *
+ * Every other function here starts from a page, because every other question about selection starts
+ * from a pointer and a pointer is always on a board. This one starts from a *node* — a fault list
+ * names the run of text carrying a broken link, and a run is not a thing anybody aims at — and it
+ * has to answer inside a definition too, which is not a page.
+ *
+ * **A lock does not stop it**, which is the one difference from `pathFromPage`. A lock means *do not
+ * pick this up while pointing at the canvas*; a reader who has pressed a row in a list of faults has
+ * already said which block they mean, and refusing them there would leave a fault nothing can reach.
+ * A hidden layer stays in the layer list for exactly the same reason.
+ */
+export function selectableAt(doc: Access, sid: string | undefined): string | undefined {
+  let at = sid;
+  let depth = 0;
+  while (at && depth++ < 64) {
+    const node = doc.getNode(at);
+    if (!node) return undefined;
+    if (SELECTABLE.has(String(node.stype))) return at;
+    at = node.parentId as string | undefined;
+  }
+  return undefined;
+}
+
 /** Whether a double-click here means a caret rather than another level down. */
 export function isTextual(doc: Access, sid: string | undefined): boolean {
   return TEXTUAL.has(String(doc.getNode(sid ?? '')?.stype));

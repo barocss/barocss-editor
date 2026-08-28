@@ -397,13 +397,30 @@ were where the symptom was:
   cannot delete a page is a gap on its own; what the link work adds is that deleting one has to say
   what it breaks, which is what `linkFaults` is for. The test uses a fixture until then, and says so.
 
-- [ ] **`linkFaults` has no reader-facing surface.** It is the sibling of `collectionFaults` and
-  `overrideFaults` and, unlike those, nothing draws it yet. A link with nowhere to go draws as
-  ordinary words — that is the honest drawing — so the *only* way a reader can find one is a list.
+- [x] ~~**`linkFaults` has no reader-facing surface.**~~ Nor did the other two. The rail has a footer
+  now — see Done. The entry was right about the shape of it and understated the size: *nothing* ran
+  any of the three over a real document.
 
 - [ ] **A link out of the site still has no control.** `toggleLink` is registered and reachable by
   nothing here: the picker offers pages, which is the half that needed a model. An address box is the
   other half, and it belongs with whatever answers the same question in Word.
+
+- [ ] **The fault list reads and cannot repair.** A row goes to the block and the reader fixes it with
+  the ordinary controls, which is the honest first version — but the commonest fault by far has one
+  obvious repair (*point this link at another page*) and the picker that would do it is already on the
+  toolbar. A row with a fix on it is the second version, and it is worth waiting for a second kind of
+  fault that has one, so the mechanism is not designed around a single case.
+
+- [ ] **`documentFaults` names two different lists.** `editor.documentFaults` is the **core**'s — what
+  `validateTree` says about a loaded document, a `TreeFinding[]` with a `path`. `documentFaults(doc)`
+  is this package's — what is wrong with a site a reader is building, a `Fault[]` with a `sid`. Both
+  are "what is wrong with this document" and neither knows about the other, and the rail draws one of
+  them while `loadDocument` records the other and nothing shows it. Two lists of the same shape with
+  different answers, which is the check at the top of this file, found in the file that implements it.
+
+- [ ] **Word and the deck have no such surface.** The rail's footer is the pattern — a status line
+  that says the check ran, quiet when there is nothing to say — and it wants to be `office-ui`'s the
+  day a second product draws one, not before.
 
 ### Editing a definition is pointing the boards at it
 
@@ -2773,6 +2790,72 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A site could be broken and say nothing.** Three checks — `overrideFaults`, `linkFaults`,
+  `collectionFaults` — each written with a unit test beside it, and `faults.ts` walking a real
+  document with all three. **Nothing drew the result.** Which `faults.ts`'s own header says is worse
+  than not having them: a check nobody runs reads, to the next person, exactly like a check that
+  passes.
+
+  The gesture it exists for is exact, and the browser suite now runs it end to end: removing a page
+  says *이 페이지로 가는 링크 2개가 끊어집니다*, the reader accepts, and there are two links in the
+  site that go nowhere. A broken link's honest drawing is **ordinary words** — no underline, no
+  pointer, no announcement, which is what an `<a>` with no `href` is and the whole reason `linkFaults`
+  was written — so the canvas cannot show it and a list is the only way to find one.
+
+  **A footer on the rail, not a sixth tab**, and the stylesheet had predicted the wrong half of that:
+  it says five is what fits before the words truncate and that a sixth makes this an icon rail. True,
+  and beside the point. The other five answer a question the reader arrived with; this one answers a
+  question they do not know to ask yet, and a tab is a surface you have to choose. So it sits under
+  all five, and it opens **upward** — a drawer that grew downward would push its own trigger out of
+  the rail, and the trigger is what closes it.
+
+  Four decisions, each with an easier wrong answer:
+
+  - **It says 문제 없음 when there is nothing wrong.** A footer that vanished when it was happy would
+    reproduce at the surface exactly the fault it was built to fix. Not a disabled button either —
+    that reads as *you may not look at the problems*; it is plain text, faint, 28 pixels.
+  - **Every kind is named, in `FAULT_KINDS`, beside the checks.** A heading written in the panel is a
+    heading nothing can read, which is what `toolbar-model.ts` and `panel-model.ts` already say about
+    their own surfaces. A fifth `kind` on `Fault` with no line there is a group of rows with no title,
+    and a test refuses it. Each carries a **why**, once per group: a list that says only what is wrong
+    teaches a reader to dismiss it.
+  - **Each row says where it is**, which is the half that makes it somewhere to go rather than a
+    complaint. `holderOf` walks up to the page or the definition — and *both* of these links are in
+    the 머리말 and 꼬리말 definitions, which is why the dialog counts two and the site draws ten. A
+    reader told only 링크 would look through five pages and find it on none of them.
+  - **It goes to the block, not to the node the check named.** `linkFaults` reports the **run of text**
+    carrying the mark, correctly — that is where the fault is — and a run is not a thing anybody can
+    select. `selectableAt` is the walk up, and it deliberately ignores a **lock**, unlike
+    `pathFromPage`: a lock means *do not pick this up while pointing at the canvas*, and a reader who
+    pressed a row in a list has already said which block they mean.
+
+  And it is not a gate. Nothing refuses an edit and nothing is marked on the canvas — a page a reader
+  is midway through building is *supposed* to be half-wrong, and a builder that underlines it in red
+  while they work is one they turn off.
+
+- **The token system could not say "something is wrong".** Found needing to paint *문제 2개*: twelve
+  colour tokens, and every one of them is a surface, a rule, an ink or the accent. So there was no
+  honest choice — the accent means *this is the thing you chose*, and painting a warning with it says
+  a reader selected their own broken links.
+
+  `--ou-warn` and `--ou-warn-soft`, in all three blocks. **Amber and not red**, and the distinction is
+  the whole of what the token is for: red is refusal, the edit did not happen, and nothing in this
+  suite refuses — a link whose page was deleted is a document a reader still has to be able to open
+  and fix. Amber is *look at this when you have a moment*, which is what every one of these findings
+  actually is. Lifted rather than deepened in the dark, because `#B45309` on `#171717` is a brown
+  nobody reads as a warning.
+
+  The wash is `color-mix`ed rather than stated, for the reason `--ou-accent-soft` gives at length —
+  and therefore repeated in each dark block, because substitution happens where the property is
+  declared. `tokens.test.ts` was already asking both of those questions and needed no change, which is
+  the first time that has been true of a new token.
+
+- **`pnpm type-check` ran the wrong thing, and esbuild had been saying so.** `package.json` declared
+  `type-check` twice — `pnpm -r type-check` at line 24 and `node scripts/typecheck-all.mjs` at 33.
+  JSON keeps the last, so the whole-suite check is what ran and the per-package one was dead; the
+  warning was printed by every vitest run in the repository. The per-package form is `type-check:each`
+  now. A duplicate key is the one kind of defect where both readings are plausible and only one runs.
 
 - **A state now eases in one way and out another.** `transitionMs` shipped with one curve,
   `cubic-bezier(0.2, 0, 0, 1)`, on the block's own rule — which governs **both directions**, so a

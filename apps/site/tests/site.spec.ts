@@ -1740,6 +1740,94 @@ test.describe('the pages of a site', () => {
     await expect(links.nth(1)).toHaveAttribute('href', '/가격');
     // And the footer's link to the same page is gone too, because it named the same page.
     await expect(links.nth(4)).not.toHaveAttribute('href', /./);
+
+    /*
+     * …and this is where the fault list earns its place. Everything above is correct and **invisible**
+     * — see the block below.
+     */
+    await expect(page.locator('[data-faults]')).toContainText('문제 2개');
+  });
+});
+
+/**
+ * What is wrong with the site, and the one gesture that makes something wrong.
+ *
+ * The removal test above ends with seven links, two of which now go nowhere and are drawn as
+ * ordinary words — the honest drawing, and the reason the canvas can never show this. So the rail
+ * has a footer, and these are the two states it has.
+ */
+test.describe('what is wrong with the site', () => {
+  const footer = (page: Page) => page.locator('[data-faults]');
+
+  test('says so when nothing is, which is what makes it worth reading', async ({ page }) => {
+    await ready(page);
+
+    /*
+     * Three checks existed here for weeks with unit tests beside them and nothing ran any of them
+     * over a real document. A footer that vanished when it was happy would reproduce exactly that at
+     * the surface: a check nobody runs reads like a check that passes.
+     */
+    await expect(footer(page)).toHaveAttribute('data-clear', 'true');
+    await expect(footer(page)).toContainText('문제 없음');
+    // Nothing to open, so it is not a button — a disabled one would read as *you may not look*.
+    await expect(footer(page).locator('[data-faults-open]')).toHaveCount(0);
+  });
+
+  test('counts what a removed page broke, and says where each one is', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+    await page.locator('[data-page-remove]').nth(1).click();
+    await page.locator('[data-page-remove-confirm]').click();
+    await page.waitForTimeout(700);
+
+    await expect(footer(page)).toContainText('문제 2개');
+    await expect(footer(page)).not.toHaveAttribute('data-clear', 'true');
+
+    // Shut until asked. A drawer that opened itself would cover the panel a reader is working in.
+    await expect(page.locator('[data-faults-list]')).toHaveCount(0);
+    await footer(page).locator('[data-faults-open]').click();
+
+    const list = page.locator('[data-faults-list]');
+    await expect(list).toContainText('끊어진 링크');
+    // The *reason*, once per group: a list that only says what is wrong teaches a reader to dismiss it.
+    await expect(list).toContainText('화면만 봐서는 찾을 수 없습니다');
+
+    const found = list.locator('[data-fault]');
+    await expect(found).toHaveCount(2);
+
+    /*
+     * And **where**, which is the half that makes a row somewhere to go rather than a complaint. Both
+     * of these links live in the 머리말 and 꼬리말 *definitions* — which is why the dialog said two
+     * and the page draws ten. A reader told only 링크 would look through five pages and find it on
+     * none of them, because a definition is not a page.
+     */
+    await expect(found.first()).toContainText('컴포넌트');
+  });
+
+  test('goes to the block, which for a definition means opening it', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+    await page.locator('[data-page-remove]').nth(1).click();
+    await page.locator('[data-page-remove-confirm]').click();
+    await page.waitForTimeout(700);
+
+    await footer(page).locator('[data-faults-open]').click();
+    await page.locator('[data-faults-list] [data-fault]').first().click();
+    await page.waitForTimeout(700);
+
+    /*
+     * Two moves in one press, because the two places a fault can live are reached differently: a page
+     * is what the boards already draw, and a definition is a thing they have to be *aimed* at. The
+     * board's label says which — it carries the definition's name while one is open.
+     */
+    await expect(page.locator('[data-frame="desktop"]')).toContainText('머리말');
+    /*
+     * And the block itself is selected — the *block*, not the run of text the check named. A broken
+     * link is reported against the run carrying the mark, which is where the fault is and is not a
+     * thing anybody can select; a row that selected it would land the reader on nothing.
+     */
+    // Three, because there is one selection and three boards drawing it — the product's first claim.
+    await expect(page.locator('.st-mark-selected')).toHaveCount(3);
   });
 });
 

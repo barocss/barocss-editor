@@ -6,10 +6,15 @@ import { DataEditor } from './data-editor';
 import {
   blocksIn,
   definitionsOf,
+  documentFaults,
+  FAULT_KINDS,
+  holderOf,
   iconForBlock,
   labelOfBlock,
   linksTo,
+  selectableAt,
   siteControlsIn,
+  type Fault,
   type SiteControl
 } from '@barocss/office-site';
 
@@ -160,6 +165,21 @@ export function Rail({
         ) : null}
         {panel === 'data' ? <DataPanel editor={editor} run={run} can={can} revision={revision} /> : null}
       </div>
+
+      {/*
+        And underneath all five of them, what is wrong with the site.
+
+        Outside the tabs on purpose — see `FaultsFooter`. A reader who has just deleted a page is not
+        going to go looking for the panel that would have told them what it broke.
+      */}
+      <FaultsFooter
+        editor={editor}
+        doc={doc}
+        revision={revision}
+        page={page}
+        onPage={onPage}
+        onEdit={onEdit}
+      />
     </aside>
   );
 }
@@ -1014,5 +1034,161 @@ function DataPanel({
       </section>
       <p className="st-rail-note">카드 하나로 행 전체를 그립니다. 문서에는 카드 하나만 저장됩니다.</p>
     </>
+  );
+}
+
+/**
+ * What is wrong with the site, in the one place a reader will see it without going to look.
+ *
+ * ## Why this is not a sixth tab
+ *
+ * The strip above holds five, and the stylesheet says why five: it is what fits before the words
+ * truncate. But the real reason is about *when* this is read rather than how wide it is. The other
+ * five answer a question the reader came with — where do I add a heading, what is on this page. This
+ * one answers a question they do not know to ask yet, and a tab is a surface you have to choose.
+ *
+ * The gesture it exists for is exact: removing a page says *"이 페이지로 가는 링크 3개가
+ * 끊어집니다"*, the reader accepts, and then there are three links in the site that go nowhere. A
+ * broken link's honest drawing is **ordinary words** — that is the whole reason `linkFaults` was
+ * written — so the canvas cannot show it and a list is the only way to find one.
+ *
+ * ## Why it says something when there is nothing wrong
+ *
+ * `문제 없음` and a tick, rather than nothing at all. Three checks had existed here for weeks with
+ * unit tests beside them and **nothing ran any of them over a real document**, which `faults.ts`
+ * already says is worse than not having them: a check nobody runs reads, to the next person, exactly
+ * like a check that passes. A footer that disappears when it is happy reproduces that at the surface.
+ *
+ * ## What it is not
+ *
+ * Not a gate. Nothing here refuses an edit and nothing marks the canvas — a page a reader is midway
+ * through building is *supposed* to be half-wrong, and a builder that underlines it in red while they
+ * work is one they will turn off.
+ */
+function FaultsFooter({
+  editor,
+  doc,
+  revision,
+  page,
+  onPage,
+  onEdit
+}: {
+  editor: Editor;
+  doc: { getNode: (sid: string) => any };
+  revision: number;
+  page?: string;
+  onPage: (sid: string) => void;
+  onEdit: (componentId: string | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const faults = useMemo(() => {
+    const rootId = editor.getRootId();
+    if (!rootId) return [] as Fault[];
+    /*
+     * The schema, which is what the two attribute checks need and neither can get on its own. Without
+     * it they fall back to accepting every name — `faults.ts` chose that default deliberately, and it
+     * means a rail in a document with no schema under-reports rather than crying wolf.
+     */
+    const schema = (editor.dataStore as never as { getActiveSchema?: () => any })?.getActiveSchema?.();
+    const declares = (node: { stype?: unknown }) =>
+      Object.keys(schema?.getNodeType?.(String(node?.stype ?? ''))?.attrs ?? {});
+    return documentFaults({ rootId, getNode: doc.getNode }, { declares });
+    // `revision` is the whole input: the document changed, so the answer may have.
+  }, [editor, doc, revision]);
+
+  /** Grouped in the declaration's order, so 끊어진 링크 is first whatever order the walk found them. */
+  const groups = FAULT_KINDS.map((kind) => ({
+    ...kind,
+    rows: faults.filter((one) => one.kind === kind.id)
+  })).filter((group) => group.rows.length > 0);
+
+  /*
+   * Going to one. Two moves rather than one, because the two places a fault can live are reached
+   * differently: a page is what the boards draw, and a definition is a thing they are *aimed* at.
+   */
+  const goTo = (fault: Fault) => {
+    const holder = holderOf(doc, fault.sid);
+    if (!holder) return;
+    if (holder.kind === 'page') onPage(holder.sid);
+    else onEdit(holder.sid);
+    /*
+     * The block, not the node the check named. A broken link is reported against the **run of text**
+     * carrying the mark, which is right — that is where the fault is — and a run is not a thing
+     * anybody can select. `selectableAt` walks up to the heading or paragraph a reader would click.
+     */
+    const block = selectableAt(doc as never, fault.sid);
+    // A page is never selectable — it is the board — so a fault written on one only moves the reader.
+    if (!block || block === holder.sid) return;
+    void editor.executeCommand('setNode', { nodeIds: [block] });
+  };
+
+  if (faults.length === 0) {
+    return (
+      <p className="st-faults" data-faults data-clear="true">
+        <Icon name="all-clear" size={13} />
+        문제 없음
+      </p>
+    );
+  }
+
+  return (
+    <div className="st-faults" data-faults data-open={open ? 'true' : undefined}>
+      <button
+        type="button"
+        className="st-faults-head"
+        data-faults-open
+        aria-expanded={open}
+        onClick={() => setOpen((was) => !was)}
+      >
+        <Icon name="problem" size={13} />
+        문제 {faults.length}개
+        <span className="st-faults-chevron">
+          <Icon name="open" size={12} />
+        </span>
+      </button>
+
+      {open ? (
+        <div className="st-faults-list" data-faults-list>
+          {groups.map((group) => (
+            <section key={group.id} className="st-faults-group">
+              <h3>
+                {group.label}
+                <span>{group.rows.length}</span>
+              </h3>
+              <p>{group.why}</p>
+              {group.rows.map((fault) => {
+                const holder = holderOf(doc, fault.sid);
+                return (
+                  <button
+                    key={`${fault.kind}:${fault.sid}:${fault.said}`}
+                    type="button"
+                    className="st-faults-row"
+                    data-fault={fault.sid}
+                    data-fault-kind={fault.kind}
+                    onClick={() => goTo(fault)}
+                  >
+                    <span className="st-faults-what">{fault.said}</span>
+                    <span className="st-faults-where">
+                      {labelOfBlock(doc, selectableAt(doc as never, fault.sid) ?? fault.sid)}
+                      {holder ? (
+                        <em>
+                          {/*
+                            Where it is, and a definition says so — a reader who is told 상품 카드
+                            and looks through five pages for it will not find it on any of them.
+                          */}
+                          {holder.kind === 'component' ? `컴포넌트 · ${holder.name}` : holder.name}
+                          {holder.kind === 'page' && holder.sid === page ? ' · 이 페이지' : ''}
+                        </em>
+                      ) : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </section>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }

@@ -76,6 +76,25 @@
    */
   --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 22%, var(--ou-panel));
   /**
+   * **Something is wrong** — the first colour in this system that is not the accent and not the ink.
+   *
+   * The gap it fills was found by a page builder needing to say *문제 3개* and having nothing to say
+   * it with: twelve tokens, and not one of them means anything. The accent means *this is the thing
+   * you chose*, so painting a warning with it says a reader selected their broken links.
+   *
+   * **Amber, and not red**, because the distinction is the whole of what this token is for. Red is
+   * refusal — the edit did not happen — and nothing in this suite refuses: a link whose page was
+   * deleted is a document a reader still has to be able to open and fix. Amber is *look at this when
+   * you have a moment*, which is what every one of these findings actually is.
+   *
+   * Mixed for the wash rather than stated, for the reason `--ou-accent-soft` gives at length: a
+   * literal is a token every product has to remember to remap, and a mix cannot be forgotten. Which
+   * also means it is repeated in the dark block, because substitution happens where the property is
+   * declared.
+   */
+  --ou-warn: #B45309;
+  --ou-warn-soft: color-mix(in srgb, var(--ou-warn) 14%, var(--ou-panel));
+  /**
    * What a shadow is made of.
    *
    * Tinted rather than black: a neutral shadow on a panel that is not neutral reads as dirt. One
@@ -226,6 +245,9 @@
     --ou-faint: #737373;
     --ou-accent: #3b82f6;
     --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 22%, var(--ou-panel));
+    /* Lifted rather than deepened — see the other dark block. */
+    --ou-warn: #FBBF24;
+    --ou-warn-soft: color-mix(in srgb, var(--ou-warn) 14%, var(--ou-panel));
     --ou-shadow: rgb(0 0 0 / 0.5);
     --ou-lift-1: 0 1px 2px var(--ou-shadow);
     --ou-lift-2: 0 4px 12px var(--ou-shadow);
@@ -256,6 +278,9 @@
   --ou-faint: #737373;
   --ou-accent: #3b82f6;
   --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 22%, var(--ou-panel));
+  /* Lifted rather than deepened: `#B45309` on `#171717` is a brown nobody reads as a warning. */
+  --ou-warn: #FBBF24;
+  --ou-warn-soft: color-mix(in srgb, var(--ou-warn) 14%, var(--ou-panel));
   --ou-shadow: rgb(0 0 0 / 0.5);
   --ou-lift-1: 0 1px 2px var(--ou-shadow);
   --ou-lift-2: 0 4px 12px var(--ou-shadow);

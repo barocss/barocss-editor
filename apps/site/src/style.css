@@ -515,6 +515,145 @@ body {
   padding-bottom: 8px;
 }
 
+/*
+ * **What is wrong with the site**, along the bottom of the rail.
+ *
+ * `column-reverse` so the list opens *upward*, over the panel rather than off the end of it. A
+ * drawer at the bottom of a window that grew downward would push its own trigger out of the rail —
+ * and the trigger has to stay put, because the reader presses it again to close. DOM order is still
+ * button then region, which is the order a keyboard and a screen reader want.
+ */
+.st-faults {
+  display: flex;
+  flex-direction: column-reverse;
+  flex-shrink: 0;
+  border-top: 1px solid var(--st-line);
+  background: var(--st-panel);
+}
+
+/*
+ * Nothing wrong, said out loud.
+ *
+ * Not a button, because there is nothing to open — a disabled control here would read as *you may
+ * not look at the problems*. Faint and 28 pixels tall: it is the quietest row in the window, and it
+ * is still there, which is the point of it.
+ */
+.st-faults[data-clear='true'] {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  margin: 0;
+  font-size: var(--ou-text-small);
+  color: var(--st-faint);
+}
+
+.st-faults-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  font-size: var(--ou-text-small);
+  font-weight: 600;
+  color: var(--ou-warn);
+  text-align: left;
+  transition: background var(--ou-quick);
+}
+
+.st-faults-head:hover { background: var(--ou-warn-soft); }
+
+/* The chevron points at the list: down when it is shut, up while it is open. */
+.st-faults-chevron {
+  display: flex;
+  margin-left: auto;
+  transition: transform var(--ou-quick);
+}
+
+.st-faults[data-open='true'] .st-faults-chevron { transform: rotate(180deg); }
+
+.st-faults-list {
+  max-height: 40vh;
+  overflow-y: auto;
+  border-top: 1px solid var(--st-line);
+}
+
+.st-faults-group { padding: 8px 10px 6px; }
+.st-faults-group + .st-faults-group { border-top: 1px solid var(--st-line); }
+
+.st-faults-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px;
+  font-size: var(--ou-text-small);
+  font-weight: 600;
+  color: var(--st-ink);
+}
+
+/* The count as a chip rather than a bracketed number, so the heading stays a heading. */
+.st-faults-group h3 span {
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--ou-warn-soft);
+  color: var(--ou-warn);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Why it matters, once per group. On every row it would be noise; nowhere it is a list of riddles. */
+.st-faults-group > p {
+  margin: 0 0 6px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--st-faint);
+}
+
+.st-faults-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  text-align: left;
+  transition: background var(--ou-quick);
+}
+
+.st-faults-row:hover { background: var(--ou-ground); }
+
+.st-faults-what {
+  font-size: var(--ou-text-small);
+  line-height: 1.4;
+  color: var(--st-ink);
+}
+
+/* Which block, and which page or definition holds it — the half that makes the row somewhere to go. */
+.st-faults-where {
+  display: flex;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--st-faint);
+}
+
+.st-faults-where em {
+  font-style: normal;
+  color: var(--st-faint);
+  opacity: 0.75;
+}
+
+.st-faults-where em::before { content: '·'; margin-right: 4px; }
+
 .st-rail-group {
   padding: 4px 0 8px;
   border-bottom: 1px solid var(--st-line);

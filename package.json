@@ -21,7 +21,7 @@
     "test:e2e": "pnpm --filter @barocss/editor-test test:e2e",
     "test:e2e:react": "pnpm --filter @barocss/editor-react test:e2e",
     "lint": "pnpm -r lint",
-    "type-check": "pnpm -r type-check",
+    "type-check:each": "pnpm -r type-check",
     "clean": "pnpm -r clean",
     "changeset": "changeset",
     "version-packages": "changeset version",

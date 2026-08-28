@@ -137,7 +137,7 @@ export {
   type SiteMenuEntry
 } from './menu-model';
 export { createPublishCommands, type Published } from './publish-commands';
-export { documentFaults, type Declares, type Fault } from './faults';
+export { documentFaults, FAULT_KINDS, holderOf, type Declares, type Fault } from './faults';
 export {
   STATEABLE,
   STATES,
@@ -174,6 +174,7 @@ export {
   enclosing,
   firstRunIn,
   innermostOf,
+  selectableAt,
   isCode,
   isTextual,
   kindOfBlock,

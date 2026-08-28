@@ -16,7 +16,8 @@ import {
   withState
 } from '../src/states';
 import { editorStateCss, exportPage, mediaRules, stateChanges, stateRules } from '../src/export-html';
-import { documentFaults } from '../src/faults';
+import { documentFaults, FAULT_KINDS, holderOf } from '../src/faults';
+import { definitionsOf } from '../src/components';
 import { pagesOf } from '../src/selection';
 
 /**
@@ -406,5 +407,44 @@ describe('what is wrong with the document', () => {
         said: "'hover' sets 'padding', which moves the thing out from under the pointer"
       }
     ]);
+  });
+
+  /*
+   * And the half a list needs before it is a list a reader can act on. Both of these are about the
+   * surface rather than the arithmetic, which is why they live here: `documentFaults` had been
+   * correct and unreadable for as long as nothing drew it.
+   */
+  it('names every kind it can report, so no group is drawn without a heading', () => {
+    // A `kind` `Fault` can carry and `FAULT_KINDS` does not name is a group of rows with no title.
+    const named = new Set(FAULT_KINDS.map((one) => one.id));
+    expect([...named].sort()).toEqual(['data', 'link', 'state', 'width']);
+    // Each says *why*, because a list that only says what is wrong teaches a reader to dismiss it.
+    for (const kind of FAULT_KINDS) expect(kind.why.length).toBeGreaterThan(10);
+  });
+
+  it('says which page or definition holds a node, which is where a reader has to go', () => {
+    const home = pagesOf(doc)[0];
+    // A block deep inside the home page answers with the page, walked up rather than searched down.
+    const deep = (function first(sid: string, depth = 0): string {
+      const node = doc.getNode(sid);
+      const child = (node?.content ?? []).find((one: unknown) => typeof one === 'string');
+      return child && depth < 8 ? first(child, depth + 1) : sid;
+    })(home.sid);
+    expect(holderOf(doc, deep)).toEqual({ kind: 'page', sid: home.sid, name: home.name });
+
+    // A page answers with itself: a fault on the page *is* on the page.
+    expect(holderOf(doc, home.sid)?.sid).toBe(home.sid);
+
+    // And a definition is not a page — it is reached by opening it, and by its id rather than sid.
+    const definition = definitionsOf(doc)[0];
+    const part = definition.part!;
+    expect(holderOf(doc, part)).toEqual({
+      kind: 'component',
+      sid: definition.id,
+      name: definition.name
+    });
+
+    // Nothing at all for a node that is not there, rather than a made-up place.
+    expect(holderOf(doc, 'no-such-node')).toBeUndefined();
   });
 });

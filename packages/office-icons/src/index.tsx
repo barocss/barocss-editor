@@ -122,6 +122,8 @@ import {
   Quote,
   Code,
   SeparatorHorizontal,
+  TriangleAlert,
+  CircleCheck,
   type LucideIcon
 } from 'lucide-react';
 
@@ -423,7 +425,21 @@ const ICONS: Record<string, LucideIcon> = {
    */
   shown: Eye,
   locked: Lock,
-  unlocked: LockOpen
+  unlocked: LockOpen,
+
+  /**
+   * What is wrong with the document, and what it looks like when nothing is.
+   *
+   * A **triangle**, which is the one shape in this table that has to be that shape: a warning
+   * triangle is the same picture on a road sign, and it is read before it is looked at. A circle
+   * would be an announcement and a cross would be an error, and a broken link is neither.
+   *
+   * `all-clear` is the other half and it is not decoration. A list that draws nothing when there is
+   * nothing wrong reads exactly like a list that never ran — which is the failure this repository has
+   * written down about itself three times. The tick says the question was asked.
+   */
+  problem: TriangleAlert,
+  'all-clear': CircleCheck
 };
 
 /**
