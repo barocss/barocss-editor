@@ -9,6 +9,7 @@ import {
   ToolbarGroup,
   ToolbarSeparator,
   ToolbarToggle,
+  onApple,
   useRevision
 } from '@barocss/office-ui';
 import { chordFor, keyLabel } from '@barocss/office-controls';
@@ -54,11 +55,7 @@ export function Ribbon({
    * that covers every browser this runs in — the deck's reasoning exactly, and the same two lines,
    * because *which* convention a reader reads is their platform's business and not the product's.
    */
-  const apple = useMemo(() => {
-    const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
-    const name = nav.userAgentData?.platform ?? nav.platform ?? '';
-    return /mac|iphone|ipad/i.test(name);
-  }, []);
+  const apple = useMemo(() => onApple(), []);
 
   /**
    * The chord for a control, **asked of the key map** and written the way a reader reads it.

@@ -284,6 +284,60 @@ test.describe('pointing at the page', () => {
     await expect(page.locator('.st-mark-selected .st-mark-name').first()).toHaveText('카드 줄');
   });
 
+  /**
+   * And **`Escape` comes back out**, one level per press, from a selection made any way at all.
+   *
+   * The rail's own instruction tells a reader how to go in — "한 번 누르면 바깥쪽 블록, 두 번 누르면
+   * 그 안쪽입니다" — and nothing told them how to come back, because nothing could. `Escape` was a
+   * handler in the app that climbed only while the reader was inside a *drill*; a selection made by
+   * a click, the layer list, ⌘A or a paste carried no scope and the key threw the whole thing away.
+   *
+   * In a browser rather than beside the command's own unit tests, because what is being checked here
+   * is that the **key** reaches it — the fault was never in the walk up the tree, it was that the
+   * only thing bound to the gesture was undeclared and knew about one case out of five.
+   */
+  test('Escape comes back out one level at a time, and lets go at the top', async ({ page }) => {
+    await ready(page);
+    const heading = cardRow(page, 'desktop').locator('h3').first();
+
+    // Down to the card, by the gesture a reader actually uses — the drill the test above walks.
+    await press(page, heading);
+    await page.waitForTimeout(200);
+    for (let step = 0; step < 3; step += 1) {
+      await pressTwice(page, heading);
+      await page.waitForTimeout(200);
+    }
+    expect(await selection(page)).toEqual(['frame']);
+
+    const namedNow = async () =>
+      await page.locator('.st-mark-selected .st-mark-name').first().textContent();
+    const inside = await namedNow();
+
+    /*
+     * And back up. Asserted on the **name** rather than on the stype, because every rung of this
+     * ladder is a `frame` — a check that only read the type would pass on a key that did nothing.
+     */
+    const climbed: (string | null)[] = [];
+    for (let step = 0; step < 3; step += 1) {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(250);
+      climbed.push(await namedNow());
+    }
+    expect(climbed[climbed.length - 1]).toBe('카드 줄');
+    expect(new Set([inside, ...climbed]).size).toBeGreaterThan(1);
+
+    /*
+     * At the top of the page the command refuses, the key is not swallowed, and the app's older
+     * meaning takes over: let go of everything. Two behaviours on one key, and the seam between them
+     * is `canExecute` rather than a second branch that could disagree with it.
+     */
+    for (let step = 0; step < 4; step += 1) {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
+    }
+    expect(await selection(page)).toEqual([]);
+  });
+
   test('a double-click goes one level in, and a second reaches the words', async ({ page }) => {
     await ready(page);
     const heading = cardRow(page, 'desktop').locator('h3').first();
@@ -342,6 +396,56 @@ test.describe('pointing at the page', () => {
 
     expect(await selection(page)).toEqual(['frame', 'frame']);
     await expect(page.locator('[data-frame="desktop"] .st-mark-selected')).toHaveCount(2);
+  });
+
+  /**
+   * **담는 곳** — the panel says where a decision it cannot make is made, and gets you there.
+   *
+   * Measured before it existed, on the sample: select a paragraph and the whole 240px panel held one
+   * row, `종류 · 본문`, restating what the reader had just clicked, over six hundred pixels of
+   * nothing. That is not a fault in the panel — the schema keeps width off text blocks on purpose,
+   * because the renderer that would read it is `office-text`'s and a site does not own it. What was
+   * missing is the second half of that same reasoning, which the schema had already written down and
+   * the panel had never said: "text sizing is the stack's question, asked one level up."
+   *
+   * Asserted as a **press** rather than as a row that exists, because the row is only worth anything
+   * if it goes somewhere: a breadcrumb that names the parent and cannot reach it is decoration.
+   */
+  test('names what holds the selected block, and selects it when pressed', async ({ page }) => {
+    await ready(page);
+
+    /*
+     * The heading named rather than drilled to, because the gesture is the test above's subject and
+     * this one's is the panel. Four double-clicks reach it and the fourth enters the text, which is
+     * a different state with a different panel.
+     */
+    await page.evaluate(() => {
+      const ed = (window as any).editor;
+      const store = ed.dataStore;
+      let hit = '';
+      const walk = (sid: string) => {
+        const n = store.getNode(sid);
+        if (!n) return;
+        if (!hit && n.stype === 'heading') hit = sid;
+        for (const k of n.content ?? []) if (typeof k === 'string') walk(k);
+      };
+      walk(ed.getRootId());
+      ed.executeCommand('setNode', { nodeIds: [hit] });
+    });
+    await page.waitForTimeout(400);
+    expect(await selection(page)).toEqual(['heading']);
+
+    const holder = page.locator('[data-property-panel] [data-property-link]');
+    await expect(holder).toBeVisible();
+    const named = (await holder.textContent()) ?? '';
+
+    await holder.click();
+    await page.waitForTimeout(300);
+    // The block the row named is the block that is selected now — the row is a way there, not a label.
+    expect(await selection(page)).toEqual(['frame']);
+    await expect(page.locator('.st-mark-selected .st-mark-name').first()).toHaveText(
+      named.replace(/⎋|Escape/g, '').trim()
+    );
   });
 
   test('the layer list reaches the same blocks, and shows the same selection', async ({ page }) => {

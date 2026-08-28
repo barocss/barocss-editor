@@ -102,6 +102,22 @@ describe('what a key means, and what the menu says it means', () => {
     expect(siteKeyFor({ key: 'Delete' }, 'select')?.command).toBe('removeBlocks');
   });
 
+  /**
+   * **Escape is in the map**, which is the half of this that had never been written down.
+   *
+   * It was listened for in the app and declared nowhere, so it was in no menu, no control could
+   * print it as a hint, and the harness could not ask whether it did anything — this repository's
+   * own rule about a surface that declares nothing, broken by the one key a reader reaches for when
+   * they are stuck.
+   *
+   * `select` only: in text mode `Escape` means *finish typing*, which is the app's business and not
+   * a command's, and a map that claimed it there would take the way out of the caret away.
+   */
+  it('answers Escape in select and leaves it alone in text', () => {
+    expect(siteKeyFor({ key: 'Escape' }, 'select')?.command).toBe('selectParent');
+    expect(siteKeyFor({ key: 'Escape' }, 'text')).toBeUndefined();
+  });
+
   it('does not answer a chord with a modifier it did not ask for', () => {
     const undo = SITE_KEYS.find((one) => one.command === 'undo')!;
     expect(matchesSiteKey(undo, { key: 'z', metaKey: true })).toBe(true);

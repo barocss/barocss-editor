@@ -176,6 +176,7 @@ export {
   dropTarget,
   isInside,
   enclosing,
+  pageOf,
   firstRunIn,
   innermostOf,
   selectableAt,

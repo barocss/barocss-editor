@@ -37,6 +37,26 @@ export interface SiteKey extends KeyModel {
 }
 
 export const SITE_KEYS: SiteKey[] = [
+  /**
+   * **Out one level**, and the first thing this map says about `Escape`.
+   *
+   * The key was already listened for — in the app, in a `keydown` handler, undeclared. That is what
+   * made it invisible: not in a menu, not printable as a hint beside anything, and not a question
+   * the harness could ask, which is this repository's own rule about a surface that declares
+   * nothing. Declared here it is all four, and the handler keeps only the part that is genuinely the
+   * app's — leaving *text* editing, which is a mode rather than a selection.
+   *
+   * `needsSelection` is what makes it fall through at the top of a page: with nothing above the
+   * chosen block the command refuses, the key is not handled, and the app's `Escape` clears the
+   * selection as it always did. Climb while there is somewhere to climb; let go at the top.
+   */
+  {
+    key: 'Escape',
+    command: 'selectParent',
+    mode: 'select',
+    needsSelection: true,
+    label: '담고 있는 블록 선택'
+  },
   {
     key: 'Delete',
     command: 'removeBlocks',

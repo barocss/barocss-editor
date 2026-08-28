@@ -47,6 +47,20 @@ import type { Check, Finding } from '../types';
  *
  * A scene container whose content is a flow — a `textFrame` holds `block+` — is not
  * consulted. Its children are words, and words are not layers.
+ *
+ * ## And what a product can add to that list
+ *
+ * The derivation above is a canvas's, and it was written on a canvas product. A **page builder**
+ * has a layer list too, and half of what is in it is not on a canvas at all: a quotation, a code
+ * block, a rule and a list item are flow blocks, so `group !== 'scene'` and this check could not
+ * see one of them. It passed, on a product where four of the rows in the list said `blockQuote`,
+ * `codeBlock`, `horizontalRule` and `listItem` — the stype, in English, in a reader's panel.
+ *
+ * So a product may also **say what a reader can select**, and those are asked about as well. Named
+ * rather than derived, and that is the exception this check argues against everywhere else — but
+ * the thing being named is not a claim about *names*, it is the product's own selection rule, which
+ * it already holds as one list and uses to decide what a click may land on. A product that changed
+ * that rule and forgot this would be caught by the same click it broke.
  */
 
 export const everyDrawingCanBeNamed: Check = {
@@ -54,7 +68,7 @@ export const everyDrawingCanBeNamed: Check = {
   describe:
     'a node type a canvas can hold has a name the product can show in a list, or is exempt with the reason it never appears in one',
 
-  run: ({ schema, nameOf }) => {
+  run: ({ schema, nameOf, nameable }) => {
     const findings: Finding[] = [];
     let examined = 0;
 
@@ -78,6 +92,9 @@ export const everyDrawingCanBeNamed: Check = {
       }
     }
 
+    // What the product says a reader can select, when it says so — see the note above.
+    for (const name of nameable ?? []) onCanvas.add(name);
+
     for (const name of onCanvas) {
       examined += 1;
       const word = nameOf(name);
@@ -87,8 +104,8 @@ export const everyDrawingCanBeNamed: Check = {
         check: 'every-drawing-can-be-named',
         subject: name,
         detail:
-          `the schema declares \`${name}\` and the product has no name for it — a list ` +
-          `of what is on a slide would show a row a reader cannot tell from any other. ` +
+          `the schema declares \`${name}\` and the product has no name for it — the list ` +
+          `beside the canvas would show a row a reader cannot tell from any other. ` +
           `Name it, or exempt it with the reason it never appears in such a list.`
       });
     }

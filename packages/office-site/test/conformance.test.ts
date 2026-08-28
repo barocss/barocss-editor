@@ -15,7 +15,7 @@ import { siteMenuCommands } from '../src/menu-model';
 const siteToolbarControls = () => SITE_TOOLBAR;
 import { DataStore } from '@barocss/datastore';
 import { createSampleSite } from '../src/sample-site';
-import { blocksIn, kindOfBlock, pagesOf } from '../src/selection';
+import { SELECTABLE, blocksIn, kindOfBlock, pagesOf } from '../src/selection';
 import { SITE_ENV_KEY, createSiteEnv } from '../src/breakpoints';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import { iconNames } from '@barocss/office-icons';
@@ -211,6 +211,18 @@ describe('the site builder draws what it declares', () => {
        * fallback makes a missing name look like a name.
        */
       nameOf: (type: string) => kindOfBlock(type),
+      /**
+       * And **what a reader can select**, which is the other half of what is in the layer list.
+       *
+       * The check derives its list from the `scene` group — a canvas's answer, written on the deck.
+       * Half of a page is flow: a quotation, a code block, a rule and a list item are all things a
+       * click can land on and all things the list draws a row for, and none of them is a scene node.
+       * So the check passed over four rows that showed their stype in English.
+       *
+       * `SELECTABLE` rather than a list written here, because that *is* the product's selection rule
+       * — the one a click already consults. Two lists would drift; one cannot.
+       */
+      nameable: [...SELECTABLE],
       /*
        * The toolbar's **and the layer list's** — a row in that list asks for a picture the same way
        * a button does, and an icon the suite does not draw comes out as its own name in a 240px

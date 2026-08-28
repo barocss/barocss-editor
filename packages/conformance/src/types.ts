@@ -197,6 +197,17 @@ export interface Subject {
    */
   nameOf?: (nodeType: string) => string | null;
   /**
+   * The node types a reader can **select** — asked about by name, on top of what a canvas holds.
+   *
+   * `every-drawing-can-be-named` derives its list from the `scene` group, which is a canvas's
+   * answer and was written on a canvas product. A page builder's layer list holds flow blocks too,
+   * so the derivation could not see four of that product's rows and the check passed while they
+   * showed `blockQuote`, `codeBlock`, `horizontalRule` and `listItem` in a reader's panel.
+   *
+   * Optional and additive: a product with only a canvas leaves it out and nothing changes.
+   */
+  nameable?: string[];
+  /**
    * Whether the product's drawing of a node type **changes** when an attribute is
    * set — which is the only definition of "read" that can be taken from the product
    * rather than claimed about it.

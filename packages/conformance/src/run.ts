@@ -47,6 +47,7 @@ export interface ConformanceInput {
    * canvas. Leave it out and that check abstains rather than guessing.
    */
   nameOf?: Subject['nameOf'];
+  nameable?: Subject['nameable'];
   /**
    * Whether setting an attribute changes what the product draws, by drawing it
    * twice. Leave it out and that check abstains rather than guessing.
@@ -205,6 +206,7 @@ export function conformance(input: ConformanceInput): Report {
     drawnAs: input.drawnAs,
     holdsIn: input.holdsIn,
     nameOf: input.nameOf,
+    nameable: input.nameable,
     attributeRead: input.attributeRead,
     editable: input.editable,
     markDrawn: input.markDrawn,

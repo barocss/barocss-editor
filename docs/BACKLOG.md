@@ -46,6 +46,62 @@ entries are that.
 
 ## Open
 
+### A panel with one row, and no way back up — measured 2026-08-29 *(fixed)*
+
+Started by asking what the site builder's panel offers per block kind, in the
+declaration and then in a browser. Select a paragraph and the whole 240px panel
+holds **one** row — `종류 · 본문` — restating what the reader just clicked, over
+six hundred pixels of nothing.
+
+That is **not** a fault in the panel. The schema deliberately keeps width off
+text blocks, and the recorded reason is right: the renderer that would read it
+is `office-text`'s and a site does not own it, so "a schema that offers a reader
+something nothing draws is worse than one that offers less." Two other readings
+were tried on the way and both were wrong, which is worth keeping:
+
+- *"138 frames for 137 flow blocks — the page is one wrapper per block."* No: 62
+  of the 66 frames holding flow blocks set a `gap`. Stacking with a gap is a
+  container's job, not a workaround.
+- *"Give the flow blocks spacing and colour attributes."* That would have undone
+  a narrowing the schema already made on purpose.
+
+What was actually missing is the **second half of the schema's own sentence**.
+It says where the decision does live — "text sizing is the stack's question,
+asked one level up" — and nothing in the product said so or could get you there:
+
+- **There is no *select what holds this*.** `Escape` was a `keydown` handler in
+  the app, declared in no key map, so it was in no menu, printable beside
+  nothing, and invisible to the harness. It climbed only while the reader was
+  inside a **drill**; a selection made by a click, the layer list, ⌘A or a paste
+  carried no scope. Measured: a paragraph seven levels deep, `Escape` → nothing
+  selected, four times running.
+- **`labelOfBlock` printed the stype for six selectable kinds** — `listItem`,
+  `blockQuote`, `codeBlock`, `horizontalRule`, `textFrame`, `canvasBlock`. In
+  the layer list and now in a panel row: English stypes in a reader's panel.
+- **`every-drawing-can-be-named` could not see any of them.** It derives its
+  list from the `scene` group, which is a canvas's answer written on the deck.
+  Half a page is flow, so the check passed over four rows it exists to catch.
+- **`PropertyPanel` had no data attribute at all.** A probe written to read the
+  panel's rows matched the left rail's `aside` instead and reported two groups
+  the panel has never had.
+
+Fixed as a command (`selectParent`), declared in the key map and the menu, a
+shared `PropertyLink` in `office-ui`, a `담는 곳` row that names the holder and
+presses through to it, and `nameable` on the conformance input so a product can
+say what a reader may select. Also `onApple()` moved into `office-ui` — the
+sniff `keys.ts` refuses to do was about to exist twice in one app.
+
+Two faults of my own found by a browser, both the same shape:
+
+- **`return` one indent from where I meant it.** The refusal check went inside
+  the `if (bound)` block, so it returned from the whole handler and `Escape` at
+  the top of a page did nothing rather than falling through. It belongs in the
+  condition — whether the binding *applies*, not a branch inside it.
+- **Two mechanisms on one key.** After the command climbed out, the scope left
+  over from a drill made the next press re-select the scope instead of clearing,
+  so `Escape` stuck one level short of nothing. The app's half is now only *let
+  go of everything*, which is all it still has to do.
+
 ### White on white, in all three products — measured 2026-08-28 *(fixed)*
 
 The suite ships a dark theme. Nothing in the repository asked a single question

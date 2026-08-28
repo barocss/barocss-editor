@@ -150,6 +150,103 @@ describe('what a reader can do to a block', () => {
  * about the *model* — so if it passes and the browser still refuses, the fault is in the app and the
  * search is already halved.
  */
+/**
+ * **Going up a level**, which every tool of this kind has and this one only listened for.
+ *
+ * The gesture existed as an `Escape` handler in the app: undeclared, so in no menu and printable
+ * beside nothing, and it climbed only while the reader happened to be inside a **drill**. Any other
+ * selection — a click, the layer list, ⌘A, the block a paste leaves behind — carried no scope, and
+ * `Escape` fell through to clearing the whole thing. Measured on the sample: a paragraph seven
+ * levels deep went to nothing selected, in one key.
+ *
+ * Held here rather than in a browser because the question is about **the tree**, and a walk up a
+ * tree is settled by asking the document, in a millisecond, at every depth the sample has.
+ */
+describe('selecting what holds a block', () => {
+  let editor: any;
+  let store: DataStore;
+  let doc: any;
+  let page: string;
+
+  const at = (sid: string) => doc.getNode(sid)?.stype;
+  const chosen = () => (editor.selection?.nodeIds ?? []) as string[];
+
+  beforeEach(() => {
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    store = new DataStore(undefined as never, schema as never);
+    editor = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+    doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+    page = pagesOf(doc)[0].sid;
+  });
+
+  it('climbs one level, and keeps climbing', async () => {
+    const row = named(doc, page, '제품 셋');
+    const card = blocksIn(doc, row)[0];
+    const inside = blocksIn(doc, card)[0];
+    editor.executeCommand('setNode', { nodeIds: [inside] });
+
+    expect(await editor.executeCommand('selectParent')).toBe(true);
+    expect(chosen()).toEqual([card]);
+
+    expect(await editor.executeCommand('selectParent')).toBe(true);
+    expect(chosen()).toEqual([row]);
+  });
+
+  /**
+   * And it stops at the page rather than selecting it.
+   *
+   * A page is the board, not a block on it — `SELECTABLE` leaves it out on purpose — so returning it
+   * would put the panel in a state a click cannot reach. Refusing is also what lets the app's
+   * `Escape` keep its old meaning underneath: climb while there is somewhere to climb, clear the
+   * selection at the top.
+   */
+  it('refuses at the top of a page, rather than selecting the page', async () => {
+    const top = blocksIn(doc, page)[0];
+    editor.executeCommand('setNode', { nodeIds: [top] });
+
+    expect(editor.canExecuteCommand('selectParent', { nodeIds: [top] })).toBe(false);
+    expect(await editor.executeCommand('selectParent')).toBe(false);
+    // Untouched, so the app can decide what a key with nothing to do should mean.
+    expect(chosen()).toEqual([top]);
+  });
+
+  /**
+   * Two blocks with one parent between them go up to **one** block, not two of it.
+   *
+   * A selection is a set, and the set of parents is a set too. Written because the naive version
+   * maps and would have selected the same row twice — which reads as one selection everywhere
+   * except the count in the panel's heading.
+   */
+  it('takes two siblings up to the one thing that holds them', async () => {
+    const row = named(doc, page, '제품 셋');
+    const [first, second] = blocksIn(doc, row);
+    editor.executeCommand('setNode', { nodeIds: [first, second] });
+
+    expect(await editor.executeCommand('selectParent')).toBe(true);
+    expect(chosen()).toEqual([row]);
+  });
+
+  /**
+   * And a **locked** block is not a rung on the ladder.
+   *
+   * `pathFromPage` leaves a locked node out of the chain entirely, which is the whole of what a lock
+   * does here — so going up from inside one lands on whatever holds *it*, rather than selecting the
+   * thing the reader said they were finished nudging.
+   */
+  it('steps over a locked block on the way up', async () => {
+    const row = named(doc, page, '제품 셋');
+    const card = blocksIn(doc, row)[0];
+    const inside = blocksIn(doc, card)[0];
+    await editor.executeCommand('setBlockFormat', { nodeIds: [card], locked: true });
+    editor.executeCommand('setNode', { nodeIds: [inside] });
+
+    expect(await editor.executeCommand('selectParent')).toBe(true);
+    expect(chosen()).toEqual([row]);
+    expect(at(row)).toBe('frame');
+  });
+});
+
 describe('a block at the top of a page', () => {
   let editor: any;
   let store: DataStore;

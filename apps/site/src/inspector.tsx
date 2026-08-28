@@ -7,6 +7,8 @@ import {
   ChoiceSelect,
   PropertyEmpty,
   PropertyGroup,
+  PropertyLink,
+  onApple,
   PropertyPanel,
   PropertySheet,
   PropertyTabs,
@@ -25,8 +27,11 @@ import {
   definitionAt,
   definitionOf,
   kindOfBlock,
+  SITE_KEYS,
+  enclosing,
   labelOfBlock,
   overriddenAt,
+  pageOf,
   sitePanelGroups,
   statedIn,
   statesOf,
@@ -36,6 +41,7 @@ import {
   type SitePanelTab,
   type StateId
 } from '@barocss/office-site';
+import { chordFor, keyLabel } from '@barocss/office-controls';
 
 /** 15 twips to the CSS pixel: the document keeps twips and a reader is shown pixels. */
 const PX = 15;
@@ -123,6 +129,19 @@ export function Inspector({
       count: nodes.length,
       stype: String(first.stype),
       label: labelOfBlock(doc, ids[0]),
+      /**
+       * **What holds it**, so the panel can say where a decision that is not here is made.
+       *
+       * The first of the selection, like every other field: two cards in a row have one parent
+       * between them, and a panel that showed *3개 선택됨* above a single parent name is saying
+       * something true. Undefined at the top of a page, which is where the row disappears rather
+       * than greying — there is nothing above it and a disabled control invites a press.
+       */
+      holder: (() => {
+        const page = pageOf(doc, ids[0]);
+        const up = page ? enclosing(doc, ids[0], page) : undefined;
+        return up ? { sid: up, label: labelOfBlock(doc, up) } : undefined;
+      })(),
       /** Resolved for the width **and the state** being edited — what the reader is looking at. */
       attrs: attrsInState(first.attributes ?? {}, at, state),
       /**
@@ -369,6 +388,40 @@ export function Inspector({
             write={write}
             run={run}
           />
+          {/*
+            **담는 곳** — the way out, and the only thing some blocks have to say.
+
+            ## What the panel looked like without it
+
+            Measured by selecting a paragraph on the sample: the whole panel held one row, `종류 ·
+            본문`, restating what the reader had just clicked, over six hundred pixels of nothing.
+            That is not a bug in the panel — the schema deliberately keeps width off text blocks,
+            because the renderer that would read it is `office-text`'s and a site does not own it,
+            and the recorded reason is right: "a schema that offers a reader something nothing draws
+            is worse than one that offers less."
+
+            But the reasoning has a second half nobody had written down. The schema's own note says
+            where the decision *does* live — "text sizing is the stack's question, asked one level
+            up" — and until now the panel knew that and did not say it. This row is that sentence
+            made pressable: the name of the stack, and the key that goes there.
+
+            ## Why it is on 블록 rather than everywhere
+
+            Because it is a fact about where the block *is*, which is what the 블록 pane is for; 모양
+            answers what it looks like. And it stays on a frame that already has 28 rows, rather than
+            appearing only when the panel is empty — an affordance that comes and going teaches a
+            reader nothing, and going up is the same gesture whether or not the panel is full.
+          */}
+          {tab === 'block' && shown.holder ? (
+            <PropertyGroup label="담는 곳">
+              <PropertyLink
+                label="위"
+                value={shown.holder.label}
+                shortcut={keyLabel(chordFor(SITE_KEYS, { command: 'selectParent' }), onApple())}
+                onPress={() => run('selectParent', { nodeIds: shown.ids })}
+              />
+            </PropertyGroup>
+          ) : null}
         </>
       )}
     </PropertyPanel>

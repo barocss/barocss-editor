@@ -27,7 +27,6 @@ import {
   definitionOf,
   editorStateCss,
   revealRules,
-  enclosing,
   pagesOf,
   previewForRow,
   rowLabelsOf,
@@ -613,7 +612,24 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
        * be taught without being bound and cannot be bound without being findable.
        */
       const bound = siteKeyFor(event, mode);
-      if (bound) {
+      /*
+       * **A key whose command refuses is not this app's to swallow** — and the test is part of
+       * *whether the binding applies*, not a branch inside it.
+       *
+       * Written for `Escape`, which now means *select what holds this* and has to keep meaning
+       * *clear the selection* at the top of a page, where there is nothing above the block to go to.
+       * The first version asked inside the branch and returned, which returns from the whole handler
+       * — so at the outermost block `Escape` did nothing at all rather than falling through to the
+       * step below. A browser found it in one press; the shape of the fault is that `return` means
+       * two different things one indent apart.
+       *
+       * Asked of every binding rather than of this one, because it is true of every binding: the app
+       * can only honestly claim a chord it is about to act on. `canRun` fills the selection in and is
+       * the same answer the menubar greys an entry by, so the key and the entry now agree about being
+       * dead as well as about being alive.
+       */
+      const acts = !!bound && (!bound.command || editor.canRun(bound.command, payloadFor(bound, page)));
+      if (bound && acts) {
         /*
          * **Who wins when both layers bind the same chord**, which a browser had to settle.
          *
@@ -651,16 +667,22 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         return;
       }
 
-      const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } }).dataStore;
-      const doc = { getNode: (sid: string) => store?.getNode(sid) };
-      const here = scope ?? scopeRoot;
-      if (here === scopeRoot) {
-        select([]);
-        return;
-      }
-      const up = enclosing(doc, here, scopeRoot) ?? scopeRoot;
-      setScope(up === scopeRoot ? undefined : up);
-      select([here]);
+      /*
+       * **Let go of everything** — which is all this handler still has to do about `Escape`.
+       *
+       * It used to walk the **scope** up a level and select what it left, which was this app's whole
+       * answer to *go out*. It is not any more: `selectParent` climbs the selection, from a selection
+       * made any way at all, and reaching here at all means that command declined — there is nothing
+       * above the chosen block, so the reader is at the top of the page.
+       *
+       * Two mechanisms answering one key is what the browser found: after climbing out with the
+       * command, the leftover scope from the drill made the next press *re-select the scope* instead
+       * of clearing, so `Escape` stuck one level short of nothing. The scope goes back to the page
+       * for the same reason the selection does — a reader who has let go of the block has let go of
+       * being inside it, and a click after that should mean the outermost block again.
+       */
+      setScope(undefined);
+      select([]);
     };
 
     document.addEventListener('keydown', leave);

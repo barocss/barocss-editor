@@ -20,7 +20,7 @@ import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { addChild, moveNode, node, removeChild, setAttrs, transaction, transformNode } from '@barocss/model';
 import { detachedCopyOf, instanceParts } from '@barocss/office-canvas';
 import { definitionsOf } from './components';
-import { blocksIn, SELECTABLE, TEXTUAL } from './selection';
+import { blocksIn, enclosing, pageOf, SELECTABLE, TEXTUAL } from './selection';
 
 type Node = Record<string, any>;
 
@@ -39,6 +39,40 @@ export class SiteBlockExtension implements Extension {
         execute: async (_ed: Editor, payload?: Record<string, unknown>) => await execute(payload),
         canExecute: (_ed: Editor, payload?: Record<string, unknown>) => can(payload)
       });
+
+    /**
+     * **Select what holds this** — the gesture every tool of this kind has and this one had not.
+     *
+     * ## What was there instead, measured
+     *
+     * The rail's own instruction tells a reader how to go *in*: "한 번 누르면 바깥쪽 블록, 두 번
+     * 누르면 그 안쪽입니다." Nothing told them how to come back out, because nothing could. The app
+     * listens for `Escape` and it climbs only while the reader is inside a **drill** — a selection
+     * made any other way (a click, the layer list, ⌘A, the block that a paste just left selected)
+     * carries no scope, so `Escape` fell through to `select([])`. Measured on the sample: select a
+     * paragraph seven levels deep, press `Escape` four times, and the answer each time is *nothing
+     * selected*. Seven levels down to nothing, in one key, with no way back but pointing again.
+     *
+     * ## Why it is a command rather than one more branch in that key handler
+     *
+     * Because a key handler is invisible. `Escape` is in no key map, so it is in no menu, the harness
+     * cannot ask whether it does anything, and no control can print it as a hint — which is this
+     * repository's own rule about surfaces that declare nothing. As a command it is all four at once:
+     * a chord, a menu entry, something `every-command-does-something` can run, and something the
+     * panel can offer as a button next to the name of the block it would go to.
+     *
+     * ## What it refuses
+     *
+     * A block already at the top of its page. Not "select the page" — a page is the board rather
+     * than a block, it is never in a selection, and returning it would put the panel into a state a
+     * click cannot reach. Refusing is also what lets `Escape` keep its old meaning underneath: climb
+     * while there is somewhere to climb to, and clear the selection at the top.
+     */
+    register(
+      'selectParent',
+      async (payload) => await this._up(editor, payload),
+      (payload) => this._above(editor, payload).length > 0
+    );
 
     /** Take the selected blocks off the page. */
     register(
@@ -469,6 +503,35 @@ export class SiteBlockExtension implements Extension {
   }
 
   /** The blocks a command is about: the ones named, or the ones selected. */
+  /**
+   * What holds each chosen block, as a set and in the document's own order.
+   *
+   * A set because a selection is one: two cards in the same row have one parent between them, and
+   * going up from both must not select that row twice. Ordered by where the parents sit rather than
+   * by how the selection was made, for the reason `copyBlocks` sorts — a reader who shift-picks
+   * bottom-up and then goes up expects what they see on the page, not what they clicked.
+   */
+  private _above(editor: Editor, payload?: Record<string, unknown>): string[] {
+    const store = this._store(editor);
+    if (!store) return [];
+    const doc = { getNode: (sid: string) => store.getNode(sid) };
+
+    const parents = new Set<string>();
+    for (const sid of this._chosen(editor, payload)) {
+      const page = pageOf(doc, sid);
+      const up = page ? enclosing(doc, sid, page) : undefined;
+      // Undefined at the top of a page, which is the one case this command declines.
+      if (up) parents.add(up);
+    }
+    return [...parents];
+  }
+
+  private async _up(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const parents = this._above(editor, payload);
+    if (parents.length === 0) return false;
+    return (await editor.executeCommand('setNode', { nodeIds: parents })) === true;
+  }
+
   private _chosen(editor: Editor, payload?: Record<string, unknown>): string[] {
     const store = this._store(editor);
     if (!store) return [];

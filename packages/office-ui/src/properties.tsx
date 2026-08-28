@@ -44,6 +44,17 @@ export function PropertyPanel({
   return (
     <aside
       aria-label={title}
+      /*
+       * **A handle**, so the panel can be aimed at without knowing what it is styled with.
+       *
+       * It had none: no data attribute anywhere in this file, so a test reaching for "the panel"
+       * matched a Tailwind class it does not own or an `aside` that turned out to be the rail. Which
+       * is what happened — a probe written to read the panel's rows read the left sidebar's instead
+       * and reported the panel as holding two groups it has never had.
+       *
+       * On the shared component rather than in each product, so the three panels answer to one name.
+       */
+      data-property-panel
       className={cn(
         /*
          * **240px**, which is what a design tool's inspector is.
@@ -521,6 +532,70 @@ export function PropertyChoice({
  * rather than there — a control that needs the app to finish its layout is a control every app will
  * finish differently.
  */
+/**
+ * **A row whose value is somewhere else** — a name to press, and the chord that presses it.
+ *
+ * ## What it is for
+ *
+ * Every tool of this kind has one: Figma's parent chip, Webflow's breadcrumb, the layer name at the
+ * top of Sketch's inspector. It is how a panel says *this decision is not made here* while still
+ * letting the reader get to where it is made — which a panel needs exactly when it has least to
+ * show. The site builder's was measured at its worst: select a paragraph and the whole 240px panel
+ * held **one** row, `종류 · 본문`, restating what the reader had just clicked.
+ *
+ * ## Why the chord is beside it and not only in a menu
+ *
+ * Because this is the affordance a reader uses ten times a minute once they know it exists, and the
+ * second time they use it they would rather press a key. That is the same argument `Tip` makes for
+ * putting a chord in a tooltip, and it is possible for the same reason: a key map answers `chordFor`
+ * rather than a label being typed beside a string.
+ *
+ * Rendered as a `button` inside a `PropertyRow`'s value area, so it lines up with every other value
+ * in the panel — a link that sat where a control sits but did not align with it would read as a
+ * sentence that had escaped from somewhere.
+ */
+export function PropertyLink({
+  label,
+  value,
+  shortcut,
+  onPress,
+  disabled
+}: {
+  label: string;
+  /** What is over there — a block's name, a page's title. */
+  value: string;
+  /** Already written the way a reader reads it: `keyLabel` in `office-controls`. */
+  shortcut?: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <PropertyRow label={label}>
+      <button
+        type="button"
+        data-property-link
+        disabled={disabled}
+        onClick={onPress}
+        title={value}
+        className={cn(
+          'flex h-[var(--ou-control-h)] min-w-0 flex-1 items-center gap-1.5 rounded-[var(--ou-radius)]',
+          'px-1.5 text-left text-[length:var(--ou-text)] text-[color:var(--ou-ink)]',
+          'hover:bg-[color:var(--ou-ground)] focus:outline-none focus:ring-1 focus:ring-[color:var(--ou-accent)]',
+          'disabled:opacity-40'
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">{value}</span>
+        {shortcut ? (
+          // Quieter than the name, which is the order a reader reads them in — `Tip`'s rule.
+          <span className="shrink-0 text-[length:var(--ou-text-small)] tabular-nums text-[color:var(--ou-faint)]">
+            {shortcut}
+          </span>
+        ) : null}
+      </button>
+    </PropertyRow>
+  );
+}
+
 export function PropertyEmpty({ children }: { children: React.ReactNode }) {
   return (
     <p className="px-3 py-2 text-[length:var(--ou-text)] leading-relaxed text-[color:var(--ou-muted)]">

@@ -33,6 +33,7 @@
 
 export { Tip, TipProvider } from './tip';
 export { cn } from './cn';
+export { onApple } from './platform';
 
 export {
   SegmentedControl,
@@ -73,6 +74,7 @@ export {
   PropertyToggle,
   PropertyChoice,
   PropertyEmpty,
+  PropertyLink,
   PropertyTabs
 } from './properties';
 

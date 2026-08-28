@@ -120,7 +120,17 @@ const DECLARED: SiteMenu[] = [
            * `selectAll`, and a browser found what that does here: with a card selected, ⌘A cleared
            * the selection. See `selectAllBlocks`.
            */
-          { command: 'selectAllBlocks', label: '모두 선택', needs: 'page' }
+          { command: 'selectAllBlocks', label: '모두 선택', needs: 'page' },
+          /*
+           * And the way **out**, beside the way to everything, because they are the same question.
+           *
+           * The rail already tells a reader how to go in — one press for the outer block, two for
+           * what is inside it. Coming back out was `Escape` in a key handler nobody declared, which
+           * climbed only while the reader happened to be inside a drill and otherwise threw the
+           * whole selection away. Here it is a sentence a reader can find without knowing the key,
+           * which is the point of a menu.
+           */
+          { command: 'selectParent', label: '담고 있는 블록 선택' }
         ]
       },
       {

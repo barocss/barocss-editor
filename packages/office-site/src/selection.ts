@@ -217,6 +217,30 @@ export function enclosing(doc: Access, sid: string | undefined, page: string): s
   return chain.length > 1 ? chain[chain.length - 2] : undefined;
 }
 
+/**
+ * **Which page a block is on**, which every walk up the tree needs and nothing could ask for.
+ *
+ * `pathFromPage`, `enclosing`, `childOfScope` and `outermostOf` all take the page as an argument,
+ * and the only thing that ever knew it was the app — it holds one in a `scopeRoot` because it draws
+ * one board at a time. So a **command** could not use any of them: given a sid and nothing else,
+ * there was no way to find the surface it belongs to, which is why going up a level existed as a key
+ * handler in the app and not as something a menu could offer.
+ *
+ * Climbing rather than reading the root, because a site holds several pages and a command is handed
+ * a block, not a board.
+ */
+export function pageOf(doc: Access, sid: string | undefined): string | undefined {
+  let at = sid;
+  let depth = 0;
+  while (at && depth++ < 64) {
+    const node = doc.getNode(at);
+    if (!node) return undefined;
+    if (node.stype === 'surface') return at;
+    at = node.parentId as string | undefined;
+  }
+  return undefined;
+}
+
 /** The stypes that hold other blocks and arrange them — what a drag can be dropped into. */
 export const CONTAINERS = new Set(['frame', 'collection']);
 
@@ -337,6 +361,26 @@ export function kindOfBlock(type: string): string | null {
       return '표';
     case 'inline-text':
       return '텍스트';
+    /*
+     * The five the rail grew and this switch did not — the same omission, in the same shape, as the
+     * one `SELECTABLE` had a round earlier and for the same reason: each was added where it is
+     * *drawn* and nowhere it is *named*.
+     *
+     * A `textFrame` and a `canvasBlock` are the other half: they were selectable from the beginning
+     * and have never had a word, because nothing asked. What asked in the end was a panel row that
+     * prints the name of the block above the selected one, where a paragraph inside a list reported
+     * its holder as `listItem` — the stype, in a reader's panel, in English.
+     */
+    case 'blockQuote':
+      return '인용';
+    case 'codeBlock':
+      return '코드';
+    case 'horizontalRule':
+      return '구분선';
+    case 'textFrame':
+      return '글상자';
+    case 'canvasBlock':
+      return '그림판';
     default:
       return null;
   }
@@ -371,8 +415,22 @@ export function labelOfBlock(doc: Access, sid: string): string {
       return '목록';
     case 'bTable':
       return '표';
-    default:
-      return String(node?.stype ?? '알 수 없음');
+    /*
+     * The rest, from `kindOfBlock`, which is the one list of words this product has.
+     *
+     * Written as a fallthrough to that rather than as six more cases, because the two functions
+     * differ only where a *particular* block says more than its kind does — a stack says its
+     * direction, a placement says its definition. A quotation is a quotation.
+     */
+    default: {
+      const word = kindOfBlock(String(node?.stype ?? ''));
+      /*
+       * And the stype only when there is genuinely no word, which stays visible on purpose: it is
+       * what `every-drawing-can-be-named` reports, and a friendlier fallback here would hide the
+       * finding rather than fix it.
+       */
+      return word ?? String(node?.stype ?? '알 수 없음');
+    }
   }
 }
 
