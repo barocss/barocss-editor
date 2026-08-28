@@ -1750,6 +1750,170 @@ test.describe('the pages of a site', () => {
 });
 
 /**
+ * **The panel is an inspector.**
+ *
+ * 240 pixels, 24-pixel rows, 11-pixel type — what a design tool's inspector is, rather than the
+ * 288/28/12 form it grew into. What only a browser can say is whether the density cost anything:
+ * whether a control still writes, whether a reader can see where they are typing, and whether the
+ * rows that were made denser are still readable.
+ */
+test.describe('the panel', () => {
+  const panel = (page: Page) => page.locator('.office-properties');
+
+  const holding = async (page: Page) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').nth(3).click();
+    await page.waitForTimeout(500);
+  };
+
+  test('is 240 wide, and every row fits inside it', async ({ page }) => {
+    await holding(page);
+    expect(await panel(page).evaluate((el) => (el as HTMLElement).offsetWidth)).toBe(240);
+
+    /*
+     * Nothing clipped, on either tab. Measured before this: 그라디언트 needed 296 pixels in 263 and
+     * its angle and shape were **not on screen at all** — not clipped in a way a reader could scroll
+     * to, gone. A row that does not fit wraps now, which is why the panel could get narrower rather
+     * than wider.
+     */
+    for (const tab of ['블록', '모양']) {
+      await panel(page).getByText(tab, { exact: true }).click();
+      await page.waitForTimeout(300);
+      const over = await panel(page)
+        .locator('label')
+        .evaluateAll((els) =>
+          els
+            .filter((el) => (el as HTMLElement).scrollWidth > (el as HTMLElement).clientWidth + 2)
+            .map((el) => (el.textContent ?? '').trim().slice(0, 20))
+        );
+      expect(over, tab).toEqual([]);
+    }
+  });
+
+  test('says which field the caret is in', async ({ page }) => {
+    await holding(page);
+    const field = panel(page).locator('input[type="number"]').first();
+    const edge = () => field.evaluate((el) => getComputedStyle(el).borderColor);
+    const accent = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--ou-accent').trim()
+    );
+
+    // At rest a panel's field has no edge — twenty edges down a column is a fence.
+    expect(await edge()).toBe('rgba(0, 0, 0, 0)');
+    await field.hover();
+    await page.waitForTimeout(200);
+    const hovered = await edge();
+    expect(hovered).not.toBe('rgba(0, 0, 0, 0)');
+
+    /*
+     * And the accent while the caret is in it, **after the pointer has gone**. Measured before this:
+     * a field focused by clicking drew the hover edge, and the moment the pointer moved away it drew
+     * nothing at all — caret inside, nothing on screen saying where a reader was typing.
+     */
+    await field.click();
+    await page.mouse.move(1200, 900);
+    await page.waitForTimeout(250);
+    expect(await edge()).not.toBe(hovered);
+    expect(await edge()).toBe(
+      await page.evaluate((hex) => {
+        const probe = document.createElement('span');
+        probe.style.color = hex;
+        document.body.append(probe);
+        const said = getComputedStyle(probe).color;
+        probe.remove();
+        return said;
+      }, accent)
+    );
+  });
+
+  test('picks a stack’s direction with pictures, not a dropdown', async ({ page }) => {
+    await holding(page);
+    const group = page.locator('[data-segmented="방향"]');
+    await expect(group.locator('button')).toHaveCount(3);
+    // A name the icon table does not know draws as the name itself, in a 24-pixel button.
+    await expect(group.locator('[data-icon-missing]')).toHaveCount(0);
+
+    const said = () =>
+      page.evaluate(() => {
+        const editor = (window as never as { editor: any }).editor;
+        return editor.dataStore.getNode(editor.selection?.nodeIds?.[0])?.attributes?.layoutMode;
+      });
+    expect(await said()).toBe('column');
+    await expect(group.locator('[data-state="on"]')).toHaveAttribute('data-segment', 'column');
+
+    /*
+     * The row that earns three buttons: a stack's direction is what a reader changes while they are
+     * arranging, over and over, and a `<select>` costs a gesture to open before it costs one to
+     * choose. Six choices stay a list — `분배` is six, and six unlabelled glyphs is a puzzle.
+     */
+    await group.locator('[data-segment="row"]').click();
+    await page.waitForTimeout(400);
+    expect(await said()).toBe('row');
+    await expect(group.locator('[data-state="on"]')).toHaveAttribute('data-segment', 'row');
+  });
+
+  test('names each of the four sides, which had been five identical boxes', async ({ page }) => {
+    await holding(page);
+    const row = panel(page).locator('label').filter({ hasText: '안쪽 여백' }).first();
+    /*
+     * `상 우 하 좌`, inside the fields. A companion cannot borrow the row's one label — it is one of
+     * five things on the line — and that label was drawn nowhere at all, so a padding was five
+     * identical boxes with no way to tell which was which.
+     */
+    await expect(row).toContainText('상');
+    await expect(row).toContainText('우');
+    await expect(row).toContainText('하');
+    await expect(row).toContainText('좌');
+    // The long form stays where a screen reader reads it, which has the room and no adjacency.
+    await expect(row.getByLabel('위쪽 여백')).toHaveCount(1);
+  });
+
+  test('writes from every control it offers', async ({ page }) => {
+    await holding(page);
+    const attrs = () =>
+      page.evaluate(() => {
+        const editor = (window as never as { editor: any }).editor;
+        const node = editor.dataStore.getNode(editor.selection?.nodeIds?.[0]);
+        return JSON.stringify(node?.attributes ?? {});
+      });
+
+    /*
+     * The sweep the panel had never had: press every enabled control and check the **document**
+     * moved. A control that is offered and writes nothing is the fault this repository keeps
+     * finding, and a panel of thirty-five rows is where it would hide.
+     */
+    const dead: string[] = [];
+    const fields = panel(page).locator('input[type="number"], input[type="text"], select');
+    for (let at = 0; at < (await fields.count()); at++) {
+      const one = fields.nth(at);
+      if (await one.isDisabled()) continue;
+      const name = (await one.getAttribute('aria-label')) ?? String(at);
+      const before = await attrs();
+      const kind = await one.evaluate((el) => el.tagName.toLowerCase());
+      if (kind === 'select') {
+        const options = await one.locator('option').evaluateAll((els) =>
+          els.map((el) => (el as HTMLOptionElement).value)
+        );
+        const now = await one.inputValue();
+        const next = options.find((option) => option !== now && option !== '');
+        if (!next) continue;
+        await one.selectOption(next);
+      } else {
+        const low = Number((await one.getAttribute('min')) ?? '-99999');
+        const high = Number((await one.getAttribute('max')) ?? '99999');
+        await one.fill(kind === 'input' ? String(Math.min(high, Math.max(low, 37))) : '시험');
+        await one.press('Enter');
+      }
+      await page.waitForTimeout(250);
+      if ((await attrs()) === before) dead.push(name);
+    }
+    expect(dead).toEqual([]);
+  });
+});
+
+/**
  * **The viewport is a scale, and a scale is not a redraw.**
  *
  * Reported by a reader in four parts, and they turned out to be two faults: *the rendering keeps

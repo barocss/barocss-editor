@@ -2842,6 +2842,32 @@ text-shaped.
 
 ## Done
 
+- **A stack's direction is three pictures now, and a field says where the caret is.** The second half
+  of the panel work, and both came out of *asking whether it still works* rather than looking at it.
+
+  **The sweep it had never had.** Every enabled control in the panel, on four kinds of block and on
+  the page, pressed once with the document read before and after: **thirty-five controls, thirty-five
+  writes, nothing dead.** The only ones that did nothing were the ones that are correctly greyed —
+  a gradient's angle with no gradient, a shadow's blur with no shadow — and the one that looked dead
+  was the probe's fault: `진하기` is `max: 1` and the sweep was writing 37. It is a test now, so a
+  control that stops writing fails by name in the commit that stopped it.
+
+  **A `<select>` where three buttons belong.** `PanelOption.icon` turns a choice row into a segmented
+  group, and `방향` is the row that earns it: a stack's direction is what a reader changes while they
+  are arranging, over and over, and a dropdown costs a gesture to open before it costs one to choose.
+  Three pictures cost one, and the current answer is *visible* rather than remembered. The decision is
+  the declaration's — six choices stay a list, because six unlabelled glyphs across 159 pixels is a
+  puzzle — and `every-icon-has-a-picture` now reads the panel's names as well as the toolbar's, which
+  it could not before because a panel had no icons to collect.
+
+  **A focused field drew nothing.** Measured: at rest a panel's field has no edge (right — twenty
+  edges down a column is a fence), on hover a hairline (right), and focused by a click it drew the
+  **hover** edge — so the moment the pointer moved away there was nothing on screen at all, with the
+  caret inside it. `STATE` answers focus with `focus-visible` and a ring, and that reasoning is about
+  **buttons**: a ring left behind by every mouse click is what made rings get avoided. A field is the
+  other case, so `CONTROL` answers `:focus` with one pixel of accent, which is what every tool of this
+  kind draws and what the border was already the right shape for.
+
 - **The properties panel is an inspector now, not a form.** Asked for as *"figma 수준으로, 좀 더
   컴팩트하게, 전문가 툴처럼"*, and measured before and after rather than adjusted by eye.
 

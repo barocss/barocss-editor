@@ -1,6 +1,6 @@
 import { ColorField, type ThemeSwatch } from './color-field';
 import { NumberField, TextField } from './controls';
-import { PropertyChoice, PropertyGroup, PropertyRow, PropertyToggle } from './properties';
+import { PropertyChoice, PropertyGroup, PropertyRow, PropertySegmented, PropertyToggle } from './properties';
 
 /**
  * A property panel, drawn from a declaration.
@@ -41,7 +41,8 @@ export interface SheetRow {
   label: string;
   ariaLabel: string;
   control: string;
-  options?: { id: string; label: string }[];
+  /** `icon` turns the row into a segmented group rather than a dropdown — see the `choice` case. */
+  options?: { id: string; label: string; icon?: string }[];
   fallback?: unknown;
   unit?: string;
   min?: number;
@@ -251,6 +252,27 @@ export function PropertySheet<Row extends SheetRow>({
          * <select> element"*. The site builder's panel had been using the ribbon's control all along
          * and nothing had noticed, because nothing had a reason to open it.
          */
+        /*
+         * …**unless every option has a picture**, in which case it is a segmented row.
+         *
+         * The decision is the declaration's and it is made by giving the options icons or not: a
+         * stack's direction is three choices a reader makes constantly and a `<select>` costs two
+         * gestures every time, while a `분배` is six and six unlabelled glyphs across 159 pixels is
+         * a puzzle. So a product says which of its rows is which, and this reads the answer rather
+         * than guessing from how many there are.
+         */
+        if ((one.options ?? []).length > 0 && (one.options ?? []).every((option) => option.icon)) {
+          return (
+            <PropertySegmented
+              key={key(one)}
+              value={String(current ?? one.fallback ?? '')}
+              options={one.options ?? []}
+              onChange={(next) => onWrite(one, next || undefined)}
+              ariaLabel={one.ariaLabel}
+              disabled={disabled}
+            />
+          );
+        }
         return (
           <PropertyChoice
             key={key(one)}

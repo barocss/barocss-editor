@@ -1,5 +1,6 @@
+import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
-import { CONTROL, NumberField } from './controls';
+import { CONTROL, NumberField, STATE } from './controls';
 
 /**
  * The properties of the thing that is selected.
@@ -376,6 +377,81 @@ export function PropertyToggle({
  />
       {label ? <span className="truncate">{label}</span> : null}
     </label>
+  );
+}
+
+/**
+ * A few choices as **pictures**, side by side — a panel's segmented row.
+ *
+ * ## Why this is not a dropdown
+ *
+ * Because of how often the row is used. A stack's direction is picked twenty times an hour and a
+ * `<select>` costs two gestures every time — one to open it, one to choose — and hides the other
+ * options until the first. Three pictures cost one gesture, and the current answer is *visible*
+ * rather than remembered. Every design tool draws its layout row this way and its font row as a
+ * list, and the difference is exactly that: how often, and how few.
+ *
+ * ## Why the panel's and not the toolbar's
+ *
+ * `SegmentedControl` is a ribbon's — it takes a text label per option and sits at a toolbar's
+ * height. A panel's is one control height tall, fills the row's width so the three share it evenly,
+ * and is keyed by icon with the word kept for the tooltip and the screen reader. Those are different
+ * enough to be two components and near enough that the second one is fifteen lines.
+ */
+export function PropertySegmented({
+  value,
+  options,
+  onChange,
+  disabled,
+  ariaLabel
+}: {
+  value: string;
+  options: { id: string; label: string; icon?: string }[];
+  onChange: (id: string) => void;
+  disabled?: boolean;
+  ariaLabel: string;
+}) {
+  return (
+    <span
+      role="radiogroup"
+      aria-label={ariaLabel}
+      data-segmented={ariaLabel}
+      className={cn(
+        'flex min-w-0 flex-1 items-center gap-0.5 rounded-[var(--ou-radius)] p-0.5',
+        // The enclosure is what makes these one control rather than three buttons.
+        'bg-[color:var(--ou-ground)]',
+        disabled && 'pointer-events-none opacity-40'
+      )}
+    >
+      {options.map((one) => (
+        <button
+          key={one.id}
+          type="button"
+          role="radio"
+          aria-checked={value === one.id}
+          aria-label={one.label}
+          title={one.label}
+          data-segment={one.id}
+          data-state={value === one.id ? 'on' : 'off'}
+          disabled={disabled}
+          onClick={() => onChange(one.id)}
+          className={cn(
+            'flex h-[calc(var(--ou-control-h)-4px)] flex-1 items-center justify-center',
+            'rounded-[calc(var(--ou-radius)-1px)] text-[color:var(--ou-muted)]',
+            STATE,
+            /*
+             * Lifted rather than outlined, which is `SegmentedControl`'s reasoning and the same here:
+             * an outline is what a *toggle* uses for on, and a reader who has one of three has not
+             * turned anything on — they have said which one it is.
+             */
+            'data-[state=on]:bg-[color:var(--ou-panel)] data-[state=on]:text-[color:var(--ou-ink)]',
+            'data-[state=on]:shadow-[var(--ou-lift-1)]'
+          )}
+        >
+          <Icon name={one.icon ?? ''} size={13} />
+        </button>
+      ))}
+    </span>
   );
 }
 

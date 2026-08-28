@@ -190,10 +190,17 @@ export const SITE_PANEL: SitePanelRow[] = [
     control: 'choice',
     fallback: 'column',
     on: STACKS,
+    /*
+     * **Pictures**, which turns this row from a dropdown into three buttons — see `PanelOption.icon`.
+     *
+     * The row that earns it: a stack's direction is the thing a reader changes while they are
+     * arranging, over and over, and a `<select>` costs a gesture to open before it costs one to
+     * choose. The three drawings already exist because the toolbar makes the same three stacks.
+     */
     options: [
-      { id: 'column', label: '세로' },
-      { id: 'row', label: '가로' },
-      { id: 'grid', label: '그리드' }
+      { id: 'column', label: '세로', icon: 'frame-column' },
+      { id: 'row', label: '가로', icon: 'frame-row' },
+      { id: 'grid', label: '그리드', icon: 'frame-grid' }
     ]
   },
   {
@@ -820,6 +827,24 @@ export function sitePanelGroups(
 /** Every command the panel can run — the third answer to "what can a reader reach". */
 export function sitePanelCommands(): string[] {
   return panelCommands(SITE_PANEL);
+}
+
+/**
+ * The pictures the **panel** asks for, so the icon table can be asked whether it has them.
+ *
+ * The toolbar's have been collected since the harness could see a toolbar; a panel had none to
+ * collect until a row's choices could carry one. A name the table does not know draws as the name
+ * itself, in a 24-pixel button — see `every-icon-has-a-picture`.
+ */
+export function sitePanelIcons(rows: SitePanelRow[] = SITE_PANEL): string[] {
+  return [
+    ...new Set(
+      rows
+        .flatMap((row) => [row, ...(row.with ?? [])])
+        .flatMap((row) => (row.options ?? []).map((one) => one.icon))
+        .filter((one): one is string => typeof one === 'string' && one.length > 0)
+    )
+  ];
 }
 
 /** Every attribute the panel can set — see `panelAttrs`. */

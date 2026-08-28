@@ -48,6 +48,7 @@ export {
   SITE_PANEL,
   sitePanelAttrs,
   sitePanelCommands,
+  sitePanelIcons,
   sitePanelGroups,
   sitePanelRows,
   type SitePanelControl,

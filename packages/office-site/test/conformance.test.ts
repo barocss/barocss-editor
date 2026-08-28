@@ -8,7 +8,7 @@ import { createSiteEditor, createSiteOwnExtensions } from '../src/site-kit';
 import { siteKeyCommands } from '../src/keymap';
 import { siteLayerIcons } from '../src/layer-icons';
 import { SITE_TOOLBAR, siteToolbarCommands, siteToolbarIcons } from '../src/toolbar-model';
-import { sitePanelAttrs, sitePanelCommands } from '../src/panel-model';
+import { sitePanelAttrs, sitePanelCommands, sitePanelIcons } from '../src/panel-model';
 import { siteMenuCommands } from '../src/menu-model';
 
 /** Every declared toolbar control, whichever group it is in. */
@@ -152,7 +152,7 @@ describe('the site builder draws what it declares', () => {
        * a button does, and an icon the suite does not draw comes out as its own name in a 240px
        * column. A product can only be checked on what it writes down.
        */
-      iconsAsked: [...siteToolbarIcons(), ...siteLayerIcons()],
+      iconsAsked: [...siteToolbarIcons(), ...siteLayerIcons(), ...sitePanelIcons()],
       iconDrawn: (name: string) => iconNames().includes(name),
       attributeRead: attributeReadFrom(
         registry as never,

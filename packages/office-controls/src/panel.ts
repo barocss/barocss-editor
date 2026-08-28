@@ -41,6 +41,19 @@ export type CommonPanelControl = 'text' | 'number' | 'colour' | 'choice' | 'togg
 export interface PanelOption {
   id: string;
   label: string;
+  /**
+   * A **picture** for this choice, as a name in the shared icon table.
+   *
+   * What turns a dropdown into the segmented row every design tool uses for the two or three
+   * choices a reader makes constantly: a stack's direction is picked twenty times an hour and a
+   * `<select>` costs two gestures and hides the other options until the first one. Three pictures
+   * side by side cost one, and the current one is *visible* rather than remembered.
+   *
+   * Only where it earns it. A list of six — a stack's `분배` — is a list, and six unlabelled glyphs
+   * across 159 pixels is a puzzle. A product says which of its rows is which by giving the options
+   * icons or not, and `every-icon-has-a-picture` holds the names it uses to the table.
+   */
+  icon?: string;
 }
 
 export interface PanelRow<Kind extends string = string> {

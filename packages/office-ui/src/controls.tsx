@@ -52,6 +52,20 @@ export const CONTROL = [
    */
   'border border-[color:var(--ou-field-line)] text-[color:var(--ou-ink)]',
   'hover:border-[color:var(--ou-line)]',
+  /*
+   * And the **accent** while the caret is in it, which is a field's own rule and not a button's.
+   *
+   * `STATE` answers focus with `focus-visible` and a ring, and the reasoning there is about buttons:
+   * a ring left behind by every mouse click is what made the rings that existed get avoided. A field
+   * is the other case. Measured in the panel: a number field focused by clicking it drew the *hover*
+   * edge, and the moment the pointer moved away it drew **nothing at all** — caret inside, and not
+   * one pixel on screen saying where a reader was typing.
+   *
+   * `:focus` rather than `:focus-visible`, deliberately: showing where the caret is after a click is
+   * not a stray ring, it is the answer to *where am I typing*. One pixel of accent, which is what
+   * every tool of this kind draws and what the border was already the right shape for.
+   */
+  'focus:border-[color:var(--ou-accent)] focus:outline-none',
   'disabled:pointer-events-none disabled:opacity-40'
 ].join(' ');
 
@@ -479,7 +493,6 @@ export function NumberField({
         className={cn(
           CONTROL,
           STATE,
-        STATE,
           'w-full min-w-0 bg-transparent text-right tabular-nums',
           /*
            * **No spin buttons.** Chrome draws a pair of arrows on every `type="number"` and reserves
