@@ -20,7 +20,7 @@ import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { addChild, moveNode, node, removeChild, setAttrs, transaction, transformNode } from '@barocss/model';
 import { detachedCopyOf, instanceParts } from '@barocss/office-canvas';
 import { definitionsOf } from './components';
-import { SELECTABLE, TEXTUAL } from './selection';
+import { blocksIn, SELECTABLE, TEXTUAL } from './selection';
 
 type Node = Record<string, any>;
 
@@ -280,6 +280,49 @@ export class SiteBlockExtension implements Extension {
      */
     register('moveBlockUp', async () => await this._nudge(editor, -1), () => !!this._nudgeable(editor, -1));
     register('moveBlockDown', async () => await this._nudge(editor, 1), () => !!this._nudgeable(editor, 1));
+
+    /**
+     * **모두 선택**, which in a builder means the blocks on this page and not the words in one.
+     *
+     * ## What it replaced, and how that was found
+     *
+     * The menu's 모두 선택 ran the shared kit's `selectAll`, and a browser was pressed to find out
+     * what that does here: with a card selected, ⌘A **cleared the selection**. Not an error and not a
+     * refusal — a control that lights up, runs, and leaves the reader with less than they had. The
+     * kit's is right about a document, where selecting everything means a range over all the text;
+     * this product has no such caret when a reader is holding a card, so the range it made was empty.
+     *
+     * ## One level, which is what every design tool means by it
+     *
+     * The blocks sitting **on the page**, not every block inside every one of them. Figma, Sketch and
+     * Illustrator all answer this way, for a reason a reader feels immediately: selecting a section
+     * and everything inside it means the next nudge moves each of them independently, which pulls the
+     * page apart. `blocksIn` is one level by definition.
+     *
+     * Inside a definition it is the definition's part and its siblings, because `pageId` is whatever
+     * the boards are drawing — which is the same answer the rail's list gives.
+     */
+    register(
+      'selectAllBlocks',
+      async (payload) => {
+        const store = this._store(editor);
+        const where = payload?.pageId ?? payload?.nodeId;
+        if (!store || typeof where !== 'string') return false;
+        const all = blocksIn(store as never, where);
+        if (all.length === 0) return false;
+        (editor as never as { executeCommand: (n: string, p?: unknown) => unknown }).executeCommand(
+          'setNode',
+          { nodeIds: all }
+        );
+        return true;
+      },
+      (payload) => {
+        const store = this._store(editor);
+        const where = payload?.pageId ?? payload?.nodeId;
+        if (!store || typeof where !== 'string') return false;
+        return blocksIn(store as never, where).length > 0;
+      }
+    );
 
     /**
      * What a definition is **called** — and taking one out of the library.

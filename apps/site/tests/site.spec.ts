@@ -1750,6 +1750,107 @@ test.describe('the pages of a site', () => {
 });
 
 /**
+ * **The keys the menubar teaches.**
+ *
+ * Written after a browser was used to press every chord the menu printed, one at a time, with a
+ * block selected: fourteen were printed and three were answered. ⌘Z, ⇧⌘Z, ⌘X, ⌘C, ⌘V, ⌘A, ⌘F and
+ * the four zoom keys all did nothing at all, because the hints were typed beside the labels and the
+ * app had its own `keydown` that remembered two bindings out of a key map nobody read.
+ *
+ * These are here rather than only in `keymap.test.ts` because the unit test can hold the two
+ * declarations to each other and cannot tell you whether a press does anything. That was the whole
+ * of the fault.
+ */
+test.describe('the keys', () => {
+  const zoom = (page: Page) => page.locator('.st-canvas').first().getAttribute('data-zoom');
+
+  const hold = async (page: Page) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.locator('[data-layer]').nth(3).click();
+    await page.waitForTimeout(300);
+  };
+
+  test('undoes what no keystroke could reach before', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+    await page.locator('[data-page-remove]').nth(1).click();
+    await page.locator('[data-page-remove-confirm]').click();
+    await page.waitForTimeout(700);
+    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(4);
+
+    await page.keyboard.press('Meta+z');
+    await page.waitForTimeout(800);
+    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(5);
+    // And the footer heard it, which is the other half: a fault list that lags undo is a list lying.
+    await expect(page.locator('[data-faults]')).toHaveAttribute('data-clear', 'true');
+  });
+
+  test('selects the blocks on the page, where it used to clear the selection', async ({ page }) => {
+    await hold(page);
+    // One block, drawn at three widths.
+    await expect(page.locator('.st-mark-selected')).toHaveCount(3);
+
+    await page.keyboard.press('Meta+a');
+    await page.waitForTimeout(400);
+
+    /*
+     * Every block **on** the page, not every block inside every one of them — one level, which is
+     * what every design tool means by it and what stops the next nudge pulling the page apart.
+     *
+     * It ran the shared kit's `selectAll` before, and this is the measurement that found it: with a
+     * card held, ⌘A left the reader with **nothing** selected. Not an error and not a refusal.
+     */
+    const layers = await page.locator('[data-layer]').count();
+    await expect(page.locator('.st-mark-selected')).toHaveCount(layers * 3);
+  });
+
+  test('zooms about the plane on the four keys the menu prints', async ({ page }) => {
+    await hold(page);
+    const opened = Number(await zoom(page));
+
+    await page.keyboard.press('Meta+Equal');
+    await page.waitForTimeout(300);
+    expect(Number(await zoom(page))).toBeGreaterThan(opened);
+
+    await page.keyboard.press('Meta+0');
+    await page.waitForTimeout(300);
+    expect(Number(await zoom(page))).toBe(1);
+
+    await page.keyboard.press('Meta+Minus');
+    await page.waitForTimeout(300);
+    expect(Number(await zoom(page))).toBeLessThan(1);
+
+    /*
+     * ⇧1, and it is the one chord that could not be matched on `event.key`: shift and `1` types `!`
+     * on a US layout and something else on several others. Matched on `event.code`, so this passes on
+     * a keyboard that is not the one it was written on.
+     */
+    await page.keyboard.press('Shift+Digit1');
+    await page.waitForTimeout(400);
+    expect(Number(await zoom(page))).not.toBe(1);
+  });
+
+  test('prints no chord for a key it does not answer', async ({ page }) => {
+    await ready(page);
+    await page.locator('.st-menubar [data-menu="edit"]').click();
+    await page.waitForTimeout(200);
+
+    // Derived from the key map, so what is printed is what is bound.
+    await expect(page.locator('[data-menu-item="edit.history.0"]')).toContainText('⌘Z');
+    await expect(page.locator('[data-menu-item="edit.blocks.0"]')).toContainText('⌘D');
+
+    /*
+     * And 찾기 is **gone**. `editor-core` registers `find` as `execute: () => true` — a stub — so the
+     * entry lit up, ran, and drew nothing, every time. A menu entry that always works and never does
+     * anything is worse than a missing one.
+     */
+    await expect(page.locator('[data-menu-item^="edit.find"]')).toHaveCount(0);
+    await expect(page.locator('[data-menu-item]').filter({ hasText: '찾기' })).toHaveCount(0);
+  });
+});
+
+/**
  * What is wrong with the site, and the one gesture that makes something wrong.
  *
  * The removal test above ends with seven links, two of which now go nowhere and are drawn as

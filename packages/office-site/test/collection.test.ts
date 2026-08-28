@@ -161,13 +161,13 @@ describe('a list, drawn', () => {
     // The failure mode a data-bound list has and a paragraph does not: nothing drawn looks the same
     // whether nothing matched or the name is misspelt.
     expect(collectionFaults(doc, { attributes: { source: '상픔' } }, { attributes: {} })).toEqual([
-      "there is no data called '상픔'"
+      "'상픔' 데이터가 없습니다"
     ]);
     expect(
       collectionFaults(doc, { attributes: { source: '상품' } }, { attributes: {} }, ['field:색상'])
-    ).toEqual(["'상품' has no column called '색상'"]);
+    ).toEqual(["'상품'에 '색상' 칸이 없습니다"]);
     expect(collectionFaults(doc, { attributes: { source: '상품' } }, undefined)).toEqual([
-      'this list has nothing to draw for each row'
+      '이 목록은 한 줄마다 그릴 틀이 없습니다'
     ]);
   });
 });

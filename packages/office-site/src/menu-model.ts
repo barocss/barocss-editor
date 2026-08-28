@@ -25,6 +25,7 @@
  * *is* — that is the panel's, and the toolbar's.
  */
 
+import { hintFor } from './keymap';
 import { SITE_TOOLBAR } from './toolbar-model';
 import {
   menuCommands,
@@ -53,7 +54,7 @@ export type SiteMenu = MenuModel;
  * application's file menu is, and a reader looking for *how do I publish this* looks there before
  * they look anywhere else.
  */
-export const SITE_MENUS: SiteMenu[] = [
+const DECLARED: SiteMenu[] = [
   {
     id: 'file',
     label: '파일',
@@ -87,8 +88,8 @@ export const SITE_MENUS: SiteMenu[] = [
       {
         id: 'history',
         items: [
-          { command: 'undo', label: '실행 취소', hint: '⌘Z' },
-          { command: 'redo', label: '다시 실행', hint: '⇧⌘Z' }
+          { command: 'undo', label: '실행 취소' },
+          { command: 'redo', label: '다시 실행' }
         ]
       },
       {
@@ -100,17 +101,32 @@ export const SITE_MENUS: SiteMenu[] = [
          */
         id: 'clipboard',
         items: [
+          /*
+           * The chords here are typed rather than derived, and it is the one place in this file where
+           * that is right: ⌘X, ⌘C and ⌘V in text belong to the **platform**, not to this app. Nothing
+           * in `SITE_KEYS` answers them and nothing should — a builder that intercepted ⌘C inside a
+           * paragraph would be a builder that broke copying.
+           *
+           * With a *block* selected all three are greyed, and they are right to be: the kit's
+           * clipboard commands take a caret's range, and a reader holding a card has no caret. That
+           * a builder cannot copy a block at all is a gap, not a wiring fault — see `BACKLOG.md`.
+           */
           { command: 'cut', label: '잘라내기', hint: '⌘X' },
           { command: 'copy', label: '복사', hint: '⌘C' },
           { command: 'paste', label: '붙여넣기', hint: '⌘V' },
-          { command: 'selectAll', label: '모두 선택', hint: '⌘A' }
+          /*
+           * And this one **is** the app's, on a command written for it. It used to run the kit's
+           * `selectAll`, and a browser found what that does here: with a card selected, ⌘A cleared
+           * the selection. See `selectAllBlocks`.
+           */
+          { command: 'selectAllBlocks', label: '모두 선택', needs: 'page' }
         ]
       },
       {
         id: 'blocks',
         items: [
-          { command: 'duplicateBlocks', label: '복제', hint: '⌘D' },
-          { command: 'removeBlocks', label: '삭제', hint: 'Delete' },
+          { command: 'duplicateBlocks', label: '복제' },
+          { command: 'removeBlocks', label: '삭제' },
           /*
            * Ordering, which a page has instead of a z-order: a page stacks, so *forward* and *back*
            * mean **up** and **down**. Registered, bound to nothing, and on no control until now.
@@ -125,10 +141,18 @@ export const SITE_MENUS: SiteMenu[] = [
           { command: 'moveBlockDown', label: '아래로 옮기기' }
         ]
       },
-      {
-        id: 'find',
-        items: [{ command: 'find', label: '찾기', hint: '⌘F' }]
-      },
+      /*
+       * **찾기 was here and has been taken out**, which is the honest half of a fault a browser found.
+       *
+       * `editor-core` registers `find` as `execute: () => true` with `canExecute: () => true` — a
+       * stub. So the entry lit up, ran, and drew nothing, every time, and no check could see it: the
+       * harness asks whether every command has a surface and never whether a surface has a command
+       * that does anything. A menu entry that always works and never does anything is worse than a
+       * missing one, because a reader stops believing the rest of the menu.
+       *
+       * It comes back the day this product has a find of its own. See `BACKLOG.md` — the stub itself
+       * is the deck's and Word's problem too, and Word's ⌘F runs it right now.
+       */
       {
         id: 'components',
         items: [
@@ -235,10 +259,10 @@ export const SITE_MENUS: SiteMenu[] = [
          */
         id: 'zoom',
         items: [
-          { view: 'zoom.in', label: '확대', hint: '⌘+' },
-          { view: 'zoom.out', label: '축소', hint: '⌘-' },
-          { view: 'zoom.reset', label: '실제 크기', hint: '⌘0' },
-          { view: 'zoom.fit', label: '화면에 맞춤', hint: '⇧1' }
+          { view: 'zoom.in', label: '확대' },
+          { view: 'zoom.out', label: '축소' },
+          { view: 'zoom.reset', label: '실제 크기' },
+          { view: 'zoom.fit', label: '화면에 맞춤' }
         ]
       },
       {
@@ -248,6 +272,26 @@ export const SITE_MENUS: SiteMenu[] = [
     ]
   }
 ];
+
+/**
+ * …and the same menus with each entry's **chord filled in from the key map**.
+ *
+ * The hints used to be typed above, beside the labels, and a browser found what that costs: eleven
+ * of the fourteen printed chords were keys this product did not answer. A hint is the product
+ * promising the reader can stop opening the menu, and a promise restated in a second place is a
+ * promise that stops being kept.
+ *
+ * An entry with no binding gets nothing rather than a guess, which is the honest way for a menu to
+ * describe a key that does not work — and a typed `hint` still wins, for the one entry that is a
+ * note rather than a chord (미리보기's *Esc로 나가기*).
+ */
+export const SITE_MENUS: SiteMenu[] = DECLARED.map((menu) => ({
+  ...menu,
+  blocks: menu.blocks.map((block) => ({
+    ...block,
+    items: block.items.map((item) => ({ ...item, hint: item.hint ?? hintFor(item) }))
+  }))
+}));
 
 /** Every command the menubar can run — the harness's question, answered by the model. */
 export function siteMenuCommands(menus: SiteMenu[] = SITE_MENUS): string[] {

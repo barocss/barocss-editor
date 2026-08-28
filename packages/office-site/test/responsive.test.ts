@@ -78,16 +78,16 @@ describe('what a narrower width says', () => {
     expect(overrideFaults(row, declared)).toEqual([]);
     // A width nobody draws.
     expect(overrideFaults({ overrides: { watch: { gap: 1 } } }, declared)).toEqual([
-      "no width is drawn at 'watch'"
+      "'watch' 너비는 그려지지 않습니다"
     ]);
     // The base width, which is the node itself and therefore never an override.
     expect(overrideFaults({ overrides: { desktop: { gap: 1 } } }, declared)).toEqual([
-      "no width is drawn at 'desktop'"
+      "'desktop' 너비는 그려지지 않습니다"
     ]);
     // An attribute this node does not have — how `layoutMode` written on a heading is caught
     // instead of silently drawing nothing.
     expect(overrideFaults({ overrides: { mobile: { layoutMode: 'column' } } }, ['level'])).toEqual([
-      "'mobile' sets 'layoutMode', which this node does not have"
+      "'mobile'에서 'layoutMode'을(를) 바꾸는데, 이 블록에는 없는 속성입니다"
     ]);
   });
 });

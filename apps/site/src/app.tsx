@@ -17,6 +17,7 @@ import {
 import {
   BREAKPOINTS,
   SITE_MENUS,
+  siteKeyFor,
   siteMenuEntry,
   siteMenuId,
   definitionOf,
@@ -337,11 +338,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * command has to mean something to *somebody*, and the app is the only layer that knows how many
    * boards are on screen.
    */
-  const onMenu = useCallback(
-    (id: string) => {
-      const entry = siteMenuEntry(id);
-      if (!entry) return;
-
+  const runEntry = useCallback(
+    (entry: { command?: string; view?: string; payload?: Record<string, unknown>; needs?: string }) => {
       switch (entry.view) {
         case 'frames.desktop':
         case 'frames.tablet':
@@ -400,6 +398,22 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       void editor?.executeCommand(entry.command, payload as never);
     },
     [editor, page, controls, view.zoom, plane, shown]
+  );
+
+  /**
+   * A pick in the menubar, which is `runEntry` with the entry looked up.
+   *
+   * Two ways to reach one act, one place that performs it — split when the key map started being
+   * read, because a chord and a menu entry differ only in how the reader said it. Two handlers for
+   * one act is how ⌘F came to open a pane from the menu and do nothing from the keyboard in the
+   * product next door.
+   */
+  const onMenu = useCallback(
+    (id: string) => {
+      const entry = siteMenuEntry(id);
+      if (entry) runEntry(entry);
+    },
+    [runEntry]
   );
   /**
    * What the pointer treats as the outermost thing.
@@ -551,23 +565,43 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       if (elsewhere()) return;
 
       /*
-       * The two a builder cannot be without, on the keys every tool of this kind uses.
+       * **What the key map says**, rather than what this handler used to remember of it.
        *
-       * Only in select mode and only when nothing is being typed into: `Delete` inside a paragraph is
-       * a letter, and a builder that took it would be a builder nobody could write a sentence in.
+       * `SITE_KEYS` had `Delete`, `Backspace` and `⌘D` written into it *and* into the two branches
+       * that used to be here — and the harness could only see the list, so it reported two commands
+       * as reachable while the handler was the thing that made them so. A browser then found the
+       * other end of the same split: the menubar printed eleven chords beside its labels and this
+       * handler answered none of them.
+       *
+       * One list now. It is what the app dispatches on and what the menu prints, so a chord cannot
+       * be taught without being bound and cannot be bound without being findable.
        */
-      if (mode === 'select' && (event.key === 'Delete' || event.key === 'Backspace')) {
+      const bound = siteKeyFor(event, mode);
+      if (bound) {
+        /*
+         * **Who wins when both layers bind the same chord**, which a browser had to settle.
+         *
+         * The board is a real editor: it resolves its own key map on the element and the event
+         * bubbles here afterwards, so a chord both layers answer runs **twice**. The damage was
+         * exact — a reader typed in a code block, pressed Escape, pressed ⌘Z, and the engine's undo
+         * took the code edit back while this handler took the block itself away.
+         *
+         * The split is `mode`, and it is the same claim `elsewhere()` makes one line up:
+         *
+         * - **`select`** is the builder's own. The reader is holding blocks and is not typing by
+         *   definition, so this app is right and the engine's `editorFocus` is a lie — the board is
+         *   `contenteditable` and holds the focus whether or not anybody is writing. `Delete` and
+         *   `⌘A` are both bound on both sides and both must mean the builder's thing here.
+         * - **`any`** could be anywhere, so a key the engine has already answered is not this app's
+         *   to answer again. `defaultPrevented` is the signal, because the view sets it the moment a
+         *   binding resolves.
+         */
+        if (bound.mode === 'any' && event.defaultPrevented) return;
+        // A binding that acts on a selection means nothing without one — the same rule a greyed
+        // menu entry follows, kept here so the key and the entry agree about when they are dead.
+        if (bound.needsSelection && (selectedNodeIds(editor.selection) ?? []).length === 0) return;
         event.preventDefault();
-        (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(
-          'removeBlocks'
-        );
-        return;
-      }
-      if (mode === 'select' && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
-        event.preventDefault();
-        (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(
-          'duplicateBlocks'
-        );
+        runEntry(bound);
         return;
       }
 
@@ -595,7 +629,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
     document.addEventListener('keydown', leave);
     return () => document.removeEventListener('keydown', leave);
-  }, [editor, mode, entered, scope, scopeRoot, preview]);
+    // `runEntry` is in here because the key map dispatches through it — see the handler.
+  }, [editor, mode, entered, scope, scopeRoot, preview, runEntry]);
 
   /**
    * Fit: as far back as the reader has to stand to see every board at once.

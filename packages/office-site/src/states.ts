@@ -210,17 +210,20 @@ export function stateFaults(
 
   for (const [id, scope] of Object.entries(map)) {
     if (!STATE_IDS.includes(id as StateId)) {
-      faults.push(`no state is drawn for '${id}'`);
+      faults.push(`'${id}' 상태는 그려지지 않습니다`);
       continue;
     }
     if (!isRecord(scope)) {
-      faults.push(`'${id}' is not a set of attributes`);
+      faults.push(`'${id}'에 적힌 것이 설정이 아닙니다`);
       continue;
     }
     for (const name of Object.keys(scope)) {
-      if (name === 'states' || name === 'overrides') faults.push(`'${id}' sets '${name}', which is a map rather than a value`);
-      else if (!paint.has(name)) faults.push(`'${id}' sets '${name}', which moves the thing out from under the pointer`);
-      else if (known.size > 0 && !known.has(name)) faults.push(`'${id}' sets '${name}', which this node does not have`);
+      if (name === 'states' || name === 'overrides')
+        faults.push(`'${id}'에서 '${name}'을(를) 바꾸는데, 그것은 값이 아니라 목록입니다`);
+      else if (!paint.has(name))
+        faults.push(`'${id}'에서 '${name}'을(를) 바꾸면 블록이 포인터 아래에서 벗어납니다`);
+      else if (known.size > 0 && !known.has(name))
+        faults.push(`'${id}'에서 '${name}'을(를) 바꾸는데, 이 블록에는 없는 속성입니다`);
     }
   }
   return faults;

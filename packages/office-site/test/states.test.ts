@@ -79,7 +79,7 @@ describe('what a block says under the pointer', () => {
 
     // A state no browser has.
     expect(stateFaults({ states: { pressed: { fill: '#000' } } }, declared)).toEqual([
-      "no state is drawn for 'pressed'"
+      "'pressed' 상태는 그려지지 않습니다"
     ]);
 
     /*
@@ -88,12 +88,12 @@ describe('what a block says under the pointer', () => {
      * states alternately for as long as the visitor holds still.
      */
     expect(stateFaults({ states: { hover: { gap: 1 } } }, declared)).toEqual([
-      "'hover' sets 'gap', which moves the thing out from under the pointer"
+      "'hover'에서 'gap'을(를) 바꾸면 블록이 포인터 아래에서 벗어납니다"
     ]);
 
     // An attribute this node does not have — `overrideFaults`' check, for the same reason.
     expect(stateFaults({ states: { hover: { fill: '#000' } } }, ['level'])).toEqual([
-      "'hover' sets 'fill', which this node does not have"
+      "'hover'에서 'fill'을(를) 바꾸는데, 이 블록에는 없는 속성입니다"
     ]);
   });
 
@@ -404,7 +404,7 @@ describe('what is wrong with the document', () => {
       {
         sid: 'r',
         kind: 'state',
-        said: "'hover' sets 'padding', which moves the thing out from under the pointer"
+        said: "'hover'에서 'padding'을(를) 바꾸면 블록이 포인터 아래에서 벗어납니다"
       }
     ]);
   });

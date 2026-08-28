@@ -46,6 +46,40 @@ entries are that.
 
 ## Open
 
+### A surface can name a command that does nothing
+
+- [ ] **`find` and `findAndReplace` are registered by `editor-core` as `execute: () => true`.** With
+  `canExecute: () => true` beside them, which is the pair that makes a control **always offered and
+  never working**. Found by pressing 편집 › 찾기 in the site builder and watching the page not change:
+  the entry lit up, ran, returned success, and drew nothing.
+
+  It is not the site's alone. `word-keymap.ts` binds `Mod+f` to the same stub, so **Word's ⌘F is a
+  no-op** while Word's menu opens a real pane through `view: 'find'` — one label, two behaviours, and
+  the keyboard is the one that does nothing. The site's entry has been removed; the stub and Word's
+  binding are the next reader.
+
+  The real `FindReplaceExtension` exists in `packages/extensions` and is in nobody's kit, which is
+  arguably right as it stands: its panel is scratch-era — `position: fixed`, hard-coded white,
+  `↓ ↑ ×` as buttons — and wiring it as it is would put three unicode glyphs where icons go.
+
+- [ ] **Nothing checks that a surface's command does anything.** `every-command-can-be-reached` asks
+  whether every command a product adds has a surface. The other direction has no check at all, and it
+  is the one that was wrong: the menu named `find`, `find` was registered, and the harness was
+  satisfied by a command whose body is `() => true`. A command that always says yes and changes
+  nothing is the same shape as a `canExecute` looser than its `execute`, one step further along.
+
+- [ ] **A builder cannot copy a block.** `cut`, `copy` and `paste` come from the shared kit and take a
+  caret's **range**; a reader holding a card has no caret, so all three refuse — correctly, and the
+  menu greys them. Which leaves duplicate (⌘D) as the only way to get a second copy of anything, and
+  no way at all to move a block from one page to another. The same finding `moveBlockUp` produced,
+  in the same place, for the same reason: these need a site-native pair that reads `_chosen`.
+
+- [ ] **Word and the deck type their menu hints.** The site's are derived from its key map now, and
+  the check that keeps them honest is `keymap.test.ts` — a chord printed beside a label must be a
+  chord the product binds. Both other products still write theirs by hand, and Word's ⌘F is already
+  the first one that is not true.
+
+
 ### A check for a `canExecute` that is looser than its `execute`
 
 Four in one sweep, all the same shape and none of them visible:
@@ -2790,6 +2824,58 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The menubar taught eleven shortcuts and the product answered none of them.** Measured in a
+  browser, chord by chord, with a block selected: ⌘Z, ⇧⌘Z, ⌘X, ⌘C, ⌘V, ⌘A, ⌘F and the four zoom keys
+  each pressed once, and the document, the selection and the zoom compared before and after.
+  **Fourteen chords printed, three answered.** A hint beside a menu label is not decoration — it is
+  the product telling a reader they can stop opening the menu.
+
+  The cause was three statements of one fact: the hints typed into `menu-model.ts`, the bindings in
+  `keymap.ts`, and a `keydown` in the app that had `Delete` and `⌘D` written into it. `SITE_KEYS`
+  existed so `every-command-can-be-reached` could see two commands — a declaration only a check read,
+  which is what its own header warns about one level further in than it looked.
+
+  One list now. The app dispatches on it, the menu derives its chords from it (`hintFor`), and an
+  entry with no binding prints nothing rather than a promise. What that bought, in order of size:
+
+  - **⌘Z and ⇧⌘Z work at all.** Undo was reachable only through the menu, in a builder.
+  - **모두 선택 selects the page's blocks.** It ran the kit's `selectAll`, and the browser found what
+    that does here: with a card held, ⌘A **cleared the selection**. Not an error, not a refusal — a
+    control that leaves the reader with less than they had. `selectAllBlocks` takes the blocks *on*
+    the page, one level, which is what every design tool means by it and what stops the next nudge
+    pulling the page apart.
+  - **The four zoom keys**, which are views rather than commands — so a binding names a command or a
+    view now, exactly as a menu entry does, and `runEntry` performs either. Two ways to reach one
+    act, one place that does it.
+  - **⌘X, ⌘C and ⌘V are deliberately *not* bound**, and that is the same finding from the other end.
+    Bound in select mode they never fired: the kit's clipboard commands take a caret's range. In text
+    they are the platform's, and a builder that intercepted them would break copying. The menu prints
+    those three chords itself, marked, and a test holds the marking to a written list.
+
+  Two things only a browser could have settled:
+
+  - **⇧1 cannot be matched on `event.key`.** Shift and `1` types `!` on a US layout and something else
+    on several others. Matched on `event.code` for digits, compared as typed for everything else.
+  - **Who wins when both layers bind the same chord.** The board is a real editor and resolves its own
+    key map on the element, and the event bubbles to the app afterwards — so ⌘Z ran twice. The damage
+    was exact and the suite caught it: a reader typed in a code block, pressed Escape, pressed ⌘Z, and
+    the engine's undo took the code edit back while the app's took the block away. The split is
+    `mode`, which is the claim `elsewhere()` already makes: `select` is the builder's, because the
+    reader is not typing by definition and the engine's `editorFocus` is a lie there — the board is
+    `contenteditable` and holds focus either way. `any` defers to `defaultPrevented`, because a key
+    another layer has answered is not this app's to answer twice.
+
+- **The fault list spoke two languages.** `linkFaults`' sentence was composed in Korean in
+  `documentFaults`, and `overrideFaults`, `stateFaults` and `collectionFaults` returned
+  developer-English — *"this list has nothing to draw for each row"*, *"'hover' sets 'gap', which
+  moves the thing out from under the pointer"*. They were internal until a panel drew them, and
+  `Fault.said`'s own line says *in the words a reader would use*.
+
+  All eleven now do. And the link's leads with the **missing page** rather than with *이 링크가*: six
+  broken links read as six copies of one sentence when the differing part is at the end of a wrapped
+  line. The other checks already led with the name; this is the reading of a *list*, not of a
+  sentence.
 
 - **A site could be broken and say nothing.** Three checks — `overrideFaults`, `linkFaults`,
   `collectionFaults` — each written with a unit test beside it, and `faults.ts` walking a real

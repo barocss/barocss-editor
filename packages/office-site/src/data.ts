@@ -212,20 +212,20 @@ export function collectionFaults(
   const source = node?.attributes?.source;
   const dataset = datasetNamed(doc, source);
 
-  if (typeof source !== 'string' || !source) faults.push('this list names no data');
-  else if (!dataset) faults.push(`there is no data called '${source}'`);
-  if (!template) faults.push('this list has nothing to draw for each row');
+  if (typeof source !== 'string' || !source) faults.push('이 목록은 어떤 데이터를 쓸지 정하지 않았습니다');
+  else if (!dataset) faults.push(`'${source}' 데이터가 없습니다`);
+  if (!template) faults.push('이 목록은 한 줄마다 그릴 틀이 없습니다');
 
   if (dataset && dataset.fields.length > 0) {
     for (const value of values) {
       const field = fieldNameOf(value);
       if (field && !dataset.fields.includes(field)) {
-        faults.push(`'${dataset.name}' has no column called '${field}'`);
+        faults.push(`'${dataset.name}'에 '${field}' 칸이 없습니다`);
       }
     }
     const sortBy = node?.attributes?.sortBy;
     if (typeof sortBy === 'string' && sortBy && !dataset.fields.includes(sortBy)) {
-      faults.push(`'${dataset.name}' has no column called '${sortBy}' to sort by`);
+      faults.push(`'${dataset.name}'에 정렬 기준으로 쓸 '${sortBy}' 칸이 없습니다`);
     }
   }
   return faults;

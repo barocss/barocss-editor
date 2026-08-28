@@ -154,23 +154,24 @@ export function overrideFaults(
 ): string[] {
   const map = attrs?.overrides;
   if (map === undefined) return [];
-  if (!isRecord(map)) return ['overrides is not a map of widths'];
+  if (!isRecord(map)) return ['너비별 설정이 목록이 아닙니다'];
 
   const known = new Set(declared);
   const faults: string[] = [];
 
   for (const [id, scope] of Object.entries(map)) {
     if (!OVERRIDABLE.includes(id as BreakpointId)) {
-      faults.push(`no width is drawn at '${id}'`);
+      faults.push(`'${id}' 너비는 그려지지 않습니다`);
       continue;
     }
     if (!isRecord(scope)) {
-      faults.push(`'${id}' is not a set of attributes`);
+      faults.push(`'${id}'에 적힌 것이 설정이 아닙니다`);
       continue;
     }
     for (const name of Object.keys(scope)) {
-      if (name === 'overrides') faults.push(`'${id}' overrides the overrides`);
-      else if (known.size > 0 && !known.has(name)) faults.push(`'${id}' sets '${name}', which this node does not have`);
+      if (name === 'overrides') faults.push(`'${id}'가 너비별 설정을 또 담고 있습니다`);
+      else if (known.size > 0 && !known.has(name))
+        faults.push(`'${id}'에서 '${name}'을(를) 바꾸는데, 이 블록에는 없는 속성입니다`);
     }
   }
   return faults;

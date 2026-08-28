@@ -161,7 +161,13 @@ export function documentFaults(
   walk(doc.rootId);
 
   for (const fault of linkFaults(doc)) {
-    found.push({ sid: fault.sid, kind: 'link', said: `이 링크가 가리키는 페이지가 없습니다 (${fault.missing})` });
+    /*
+     * The **missing page first**, which is a fact about reading a list rather than about links.
+     * Six broken links read as six copies of one sentence when the sentence leads with *이 링크가*,
+     * and the only part that differs — which page is gone — lands at the end of a wrapped line. The
+     * other checks already lead with the name for the same reason.
+     */
+    found.push({ sid: fault.sid, kind: 'link', said: `'${fault.missing}' 페이지가 없습니다` });
   }
 
   return found;
