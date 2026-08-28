@@ -776,6 +776,19 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           />
 
           {/*
+            **The tools, on the same row as the menu.**
+
+            They were a second row, and counted: six buttons across 1600 pixels, four of them greyed
+            with nothing selected. A full-width strip is what a *ribbon* is — Word's carries 69
+            controls and needs the width — and this is not one: it is a mode switch and four things
+            you can do to what is held, which is Figma's toolbar and belongs where Figma's is.
+
+            42 pixels of canvas back, and the row that is left says what every design tool's top row
+            says: who you are, what the document can do, what the pointer is, and how you are looking.
+          */}
+          {editor ? <Ribbon editor={editor} mode={mode} onMode={setMode} /> : null}
+
+          {/*
             Which page is being edited, said rather than chosen.
 
             The list of pages moved to the rail, where a site's other lists are — its components and
@@ -847,14 +860,6 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             <ZoomControl zoom={zoom} onChange={(next) => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" />
           </div>
         </div>
-
-        {editor ? (
-          <Ribbon
-            editor={editor}
-            mode={mode}
-            onMode={setMode}
-          />
-        ) : null}
       </AppChrome>
 
       <AppBody className="st-body">

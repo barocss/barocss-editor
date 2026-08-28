@@ -1750,6 +1750,72 @@ test.describe('the pages of a site', () => {
 });
 
 /**
+ * **One chrome row**, which is what every design tool's top is.
+ *
+ * It was two — a title bar and a toolbar under it — and the toolbar was counted: six buttons across
+ * 1600 pixels, four of them greyed with nothing selected. A full-width strip is what a *ribbon* is;
+ * Word's carries 69 controls and needs the width. This is a mode switch and four things a reader can
+ * do to what they are holding, which is Figma's toolbar and fits beside the menu with room over.
+ */
+test.describe('the top of the window', () => {
+  const bar = (page: Page) => page.locator('.st-titlebar');
+
+  const fits = async (page: Page) =>
+    bar(page).evaluate((el) => (el as HTMLElement).scrollWidth <= (el as HTMLElement).clientWidth + 1);
+
+  test('holds the menu, the tools, the page and the zoom on one line', async ({ page }) => {
+    await ready(page);
+    // One row of chrome, not two: 42 pixels of canvas back on every screen.
+    await expect(page.locator('.st-chrome')).toHaveCount(1);
+    // A child of the row rather than a second row under it — `>` is the whole assertion.
+    await expect(page.locator('.st-chrome > .st-ribbon')).toHaveCount(0);
+    await expect(page.locator('.st-titlebar > .st-ribbon')).toHaveCount(1);
+    expect(await fits(page)).toBe(true);
+  });
+
+  test('still fits when the tools grow, and at a narrow window', async ({ page }) => {
+    await ready(page);
+
+    /*
+     * The toolbar grows by about 360 pixels the moment a reader selects words — the character
+     * controls and the link picker appear — and the row has to absorb that without overflowing.
+     */
+    const h1 = page.locator('[data-frame="desktop"] .st-page h1').first();
+    for (let at = 0; at < 5; at += 1) {
+      if ((await page.locator('.st-overlay').first().getAttribute('data-mode')) === 'text') break;
+      await h1.dblclick({ force: true });
+      await page.waitForTimeout(350);
+    }
+    await page.keyboard.press('Shift+ArrowRight');
+    await page.waitForTimeout(300);
+    expect(await fits(page)).toBe(true);
+
+    for (const width of [1280, 1100, 960]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.waitForTimeout(350);
+      expect(await fits(page), `${width}px`).toBe(true);
+    }
+  });
+
+  test('keeps the page’s name beside the zoom, where it does not move', async ({ page }) => {
+    await ready(page);
+    const where = () => page.locator('[data-where]').boundingBox();
+    const before = await where();
+
+    /*
+     * `margin-left: auto` on the name collapses the free space *before* it, so a toolbar that grows
+     * grows into that space instead of dragging the name across the row. A row that moves while
+     * somebody is working is the one thing a single chrome row must not do.
+     */
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').nth(3).click();
+    await page.waitForTimeout(400);
+    expect((await where())?.x).toBe(before?.x);
+  });
+});
+
+/**
  * **Finding a block in a hundred-row list**, and a menu that was dead on a fresh page.
  *
  * Both found the same way: opening each of the four chrome surfaces in each of its states and writing

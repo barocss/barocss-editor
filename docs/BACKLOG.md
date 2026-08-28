@@ -48,14 +48,6 @@ entries are that.
 
 ### Found walking the site builder in a browser
 
-- [ ] **The toolbar is six buttons across the whole window.** Counted in four states: two mode
-  switches and four object actions, of which four are greyed with nothing selected and one is greyed
-  in every state but a placement's. In text it grows to twelve. A full-width strip is what a *ribbon*
-  is — Word's has 69 controls and needs the width — and this is not one: it is Figma's toolbar, which
-  is a small floating island of tools with everything else in the panel. The question is whether the
-  strip becomes an island or grows contextual groups, and it is a product decision rather than a
-  defect, which is why it is written down instead of changed.
-
 - [ ] **Three rail panels have no group headings.** 추가 and 데이터 divide themselves up (담는 것 /
   넣는 것, 어떤 디자인으로 / 어떤 데이터를); 페이지, 컴포넌트 and 구성 are one undivided list each.
   For 구성 that is right — a tree is its own structure — and for the other two it is the same
@@ -2858,6 +2850,25 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **One chrome row, which is what every design tool's top is.** The toolbar was counted in four
+  states and the number is the argument: **six buttons across 1600 pixels**, four of them greyed with
+  nothing selected. A full-width strip is what a *ribbon* is — Word's carries 69 controls and needs
+  the width — and this is a mode switch and four things a reader can do to what they are holding,
+  which is Figma's toolbar and fits beside the menu with room over.
+
+  It reads the way a design tool's top row reads now: who you are, what the document can do, what the
+  pointer is, where you are, and how you are looking. **42 pixels of canvas back**, on every screen.
+
+  Two things it needed to be safe:
+
+  - **The page's name is anchored to the right**, beside the zoom, with `margin-left: auto`. The
+    toolbar grows by about 360 pixels the moment a reader selects words — the character controls and
+    the link picker appear — and the free space collapses *before* the name, so the toolbar grows
+    into it instead of dragging the name across the row. A row that moves while somebody is working
+    is the one thing a single chrome row must not do, and there is a test that presses on it.
+  - **It fits at 960**, in both modes, measured rather than hoped: at that width everything gives a
+    little and nothing overflows.
 
 - **The deck's eight, worked off — and seven were one decision each side of a boundary.** The check
   opened at nine on its first run; one was a clipboard and the rest were faults. **9 → 1 → 0.**

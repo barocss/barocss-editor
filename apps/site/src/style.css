@@ -132,16 +132,26 @@ body {
  * regions by *ground*: the chrome and the panels are paper, the studio is not, and the only lines
  * left are where two scrolling areas meet.
  */
+/*
+ * **One chrome row**, which is what every design tool's top is.
+ *
+ * It was two: a title bar and a toolbar under it. The toolbar was counted — six buttons across 1600
+ * pixels, four greyed with nothing selected — and a full-width strip is what a *ribbon* is. Word's
+ * carries 69 controls and needs the width; this is a mode switch and four things you can do to what
+ * is held, which is Figma's toolbar and fits beside the menu with room over.
+ *
+ * 40 rather than 36, because the controls in it are `--ou-control-h` tall and a row that is exactly
+ * its contents leaves them touching the rule underneath.
+ */
 .st-titlebar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 36px;
+  gap: 10px;
+  height: 40px;
   padding: 0 12px;
 }
 
 .st-titlebar-end {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -163,8 +173,14 @@ body {
   color: var(--st-ink);
 }
 
+/*
+ * On the title bar now, so no padding of its own and no growing: what is beside it — the page's name
+ * and the zoom — has a claim on the row too, and a toolbar that pushed them off it as a reader
+ * selected something would be a row that moved while they worked.
+ */
 .st-ribbon {
-  padding: 0 8px 6px;
+  min-width: 0;
+  padding: 0;
 }
 
 .st-body {
@@ -795,7 +811,20 @@ body {
 }
 
 /* Where the reader is: a page and its address, or a definition and how many places use it. */
-.st-where { display: flex; align-items: baseline; gap: 6px; font-size: var(--ou-text); }
+/*
+ * Anchored to the **right**, beside the zoom, rather than trailing the tools.
+ *
+ * `margin-left: auto` collapses the free space before it, so the toolbar can grow — it does, by 360
+ * pixels the moment a reader selects words — without dragging the page's name across the row. A row
+ * that moves while somebody works is the thing a single chrome row has to not do.
+ */
+.st-where {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-left: auto;
+  font-size: var(--ou-text);
+}
 .st-where-name { font-weight: 600; }
 
 /*
