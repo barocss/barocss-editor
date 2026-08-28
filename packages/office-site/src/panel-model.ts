@@ -472,6 +472,27 @@ export const SITE_PANEL: SitePanelRow[] = [
       ...REVEALS.map((one) => ({ id: one.id, label: one.label }))
     ]
   },
+  /**
+   * **Whose** arrival it is — the block's, or its children's one after another.
+   *
+   * `needs: 'reveal'`, because a stagger with no arrival to stagger is a switch that does nothing;
+   * greyed rather than hidden, so a reader who wants it can see it is there and what it wants first.
+   *
+   * Only on a container. A heading has nothing inside it to arrive in turn, and offering the switch
+   * there would be a control that is on and changes nothing — which is the fault this repository has
+   * a check for now.
+   */
+  {
+    attr: 'revealStagger',
+    command: 'setBlockFormat',
+    group: '등장',
+    tab: 'style',
+    label: '차례로',
+    ariaLabel: '안에 있는 것들이 차례로',
+    control: 'toggle',
+    needs: 'reveal',
+    on: STACKS
+  },
 
   // ── 전환 — how long this block takes to answer the pointer ────────────────
   /**

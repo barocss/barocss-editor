@@ -377,9 +377,23 @@ were where the symptom was:
   `--ou-board-lift`. Word has no studio at all and will want one the day a drawing is edited on a
   canvas rather than in the flow.
 
-- [ ] **A site has no motion, and a landing page is mostly motion.** Nothing in the model says a
-  section fades in on scroll, and the deck's `motion` node is a *slide's* answer. This is the largest
-  single thing a visitor would notice between a page built here and one built anywhere else.
+- [x] ~~**A site has no motion, and a landing page is mostly motion.**~~ **Stale for a while** — a
+  page has had scroll arrivals since `reveal.ts`, five of them, in pure CSS with no script in the
+  export. Written before that landed and never struck out, which is the note-that-rots this file is
+  shaped around, in the file itself.
+
+  What is genuinely left of motion, now that the item has been looked at rather than reread:
+
+- [ ] **A reveal scrubs; it cannot fire once.** A scroll-driven animation is tied to scroll position,
+  so scrolling back up plays it backwards. That is what the Apple-style pages do and it is not what
+  most builders mean by 등장. Fire-once needs a trigger, which needs a script or `animation-trigger`
+  — too new to publish against. `reveal.ts` says so in its own header; this is the entry that would
+  have to change when the browser catches up.
+
+- [ ] **Where the arrival happens is chosen, not offered.** `entry 0% entry 70%`, one range for every
+  page length. It is the knob a designer wants second — after which kind and after 차례로 — and the
+  cap the stagger discovered (thirty points of headroom) is the constraint any control here has to
+  respect.
 
 ### A page can be painted, and two limits that turned up with it
 
@@ -2854,6 +2868,36 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **차례로 — a row of cards that arrives one after another.** Three cards appearing at the same
+  instant is the tell of a template, and every landing page staggers them. The site could choose
+  *how* a block arrives and not *whose* arrival it is.
+
+  **The fix cannot be an animation on the row**, and that is the whole shape of it: a scroll
+  animation on a parent moves the parent, children and all. So a container carrying `revealStagger`
+  gives its `reveal` to its **children** and takes none itself — which is why the two are one choice
+  in the panel and not two. A block either arrives, or what is in it does.
+
+  **What shifts is the scroll, not the time.** `animation-delay` is time, and a scroll-driven
+  animation has no clock: its progress is *how far this element has entered the viewport*, so 200ms
+  against that means nothing at all. Each child's `animation-range` starts a little further along —
+  the first is arriving while the third has not begun, and the reader's own scrolling spaces them.
+
+  **And the step shrinks with the count**, which is the arithmetic worth keeping: the range ends at
+  `entry 70%` and everything to `entry 100%` is reachable for every block including the last — the
+  property the range was chosen for in the first place. So a stagger has **thirty points** to spend.
+  Ten each is right for three cards and would put the sixth of six at 120%, where there is no scroll
+  left to reach it, and that card would sit half-arrived forever — the same fault the range itself was
+  written to avoid, arriving from the other direction. `min(10, 30 / (n - 1))`.
+
+  Two small things the tests found rather than the reading:
+
+  - `blocksIn({ getNode: store.getNode })` **loses its `this`** — `DataStore.getNode` resolves an
+    alias through it, so the bound method threw. Caught in the first run, which is the argument for a
+    unit test that stands up the real store rather than a fake with one method on it.
+  - The rules exist **in preview only** and the probe looked for them while editing. Deliberate, and
+    the reason is in `app.tsx`: every arrival starts at `opacity: 0`, and a builder that hid half a
+    page from the person building it would be unusable.
 
 - **The pile that had been measured and left, paid off — and two of my own findings were wrong.**
   Asked directly whether anything was being recorded rather than fixed. Counted: of the last twelve

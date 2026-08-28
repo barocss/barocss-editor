@@ -1750,6 +1750,61 @@ test.describe('the pages of a site', () => {
 });
 
 /**
+ * **차례로** — a row of cards arriving one after another.
+ *
+ * Three cards appearing at the same instant is the tell of a template, and every landing page
+ * staggers them. The fix cannot be an animation on the row: a scroll animation on a parent moves the
+ * whole thing. So a container carrying `revealStagger` gives its arrival to its **children** and
+ * takes none itself, and each child starts a little further along the **scroll** — a scroll-driven
+ * animation has no clock, so a delay in milliseconds would mean nothing at all.
+ */
+test.describe('what arrives, and in what order', () => {
+  test('hands the arrival to the cards inside, and keeps none', async ({ page }) => {
+    await ready(page);
+    const holder = await page.evaluate(() => {
+      const el = document.querySelector('[data-frame="desktop"] .st-stack[data-name="제품 셋"]');
+      const sid = el?.getAttribute('data-bc-sid');
+      (window as never as { editor: any }).editor.executeCommand('setNode', { nodeIds: [sid] });
+      return sid;
+    });
+    await page.waitForTimeout(500);
+    await page.locator('.office-properties').getByText('모양', { exact: true }).click();
+    await page.waitForTimeout(300);
+
+    // Greyed until there is an arrival to stagger: a switch with nothing to order is a switch that
+    // does nothing, and it says what it wants first rather than hiding.
+    const order = page.locator('.office-properties').getByLabel('안에 있는 것들이 차례로');
+    await expect(order).toBeDisabled();
+    await page.locator('.office-properties').getByLabel('등장 방식').selectOption('rise');
+    await page.waitForTimeout(400);
+    await expect(order).toBeEnabled();
+    await order.click();
+    await page.waitForTimeout(500);
+
+    /*
+     * The rules exist **in preview only**, and that is deliberate: every arrival starts at
+     * `opacity: 0`, and a builder that hid half a page from the person building it would be unusable.
+     */
+    await page.locator('.st-menubar [data-menu="view"]').click();
+    await page.waitForTimeout(250);
+    await page.locator('[data-menu-item]').filter({ hasText: '미리보기' }).first().click();
+    await page.waitForTimeout(800);
+
+    const said = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('style'))
+        .map((one) => one.textContent ?? '')
+        .join('\n')
+    );
+    const ranges = said.match(/animation-range: entry [\d.]+%/g) ?? [];
+    expect(ranges.length).toBe(3);
+    // Each starts further along the scroll — 0, 10, 20 for three of them.
+    expect(new Set(ranges).size).toBe(3);
+    // And the row itself does not arrive: it either arrives, or what is in it does.
+    expect(said).not.toContain(`[data-bc-sid="${holder}"] { animation`);
+  });
+});
+
+/**
  * **How much of a block comes through**, which the whole product could not say.
  *
  * `opacity` was exempt from `every-attribute-is-read` with the reason *"a canvas idea; a page has no

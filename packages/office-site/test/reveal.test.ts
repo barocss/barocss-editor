@@ -5,10 +5,10 @@ import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { registerSiteRenderers } from '../src/renderers';
 import { createSampleSite } from '../src/sample-site';
-import { REVEALS, REVEAL_IDS, REVEAL_KEYFRAMES, revealOf } from '../src/reveal';
+import { REVEALS, REVEAL_IDS, REVEAL_KEYFRAMES, revealOf, revealRangeFor } from '../src/reveal';
 import { exportPage, revealRules } from '../src/export-html';
 import { PAGE_CSS } from '../src/page-css';
-import { pagesOf } from '../src/selection';
+import { blocksIn, pagesOf } from '../src/selection';
 import { definitionsOf } from '../src/components';
 
 /**
@@ -120,6 +120,52 @@ describe('how a block arrives', () => {
     expect(html).toContain('@supports (animation-timeline: view())');
     // And still no script, which is the whole reason it is written this way.
     expect(html).not.toContain('<script');
+  });
+
+  /**
+   * **차례로** — the row of cards that every landing page staggers and this one could not.
+   *
+   * Three cards appearing at the same instant is the tell of a template. The fix cannot be an
+   * animation on the row, because a scroll animation on a parent moves the whole thing — so a
+   * container carrying `revealStagger` gives its arrival to its **children** and takes none itself.
+   */
+  it('gives the arrival to what is inside, one after another', async () => {
+    const holder = blocksIn(doc, band)[0];
+    const inside = blocksIn(doc, holder);
+    expect(inside.length).toBeGreaterThan(1);
+
+    editor.executeCommand('setNode', { nodeIds: [holder] });
+    await run('setBlockFormat', { reveal: 'rise', revealStagger: true });
+
+    const said = rules();
+    // One rule per child, and **none** for the container: it either arrives or its children do.
+    expect(said.split('animation: st-rise').length - 1).toBe(inside.length);
+    for (const sid of inside) expect(said).toContain(sid);
+    expect(said).not.toContain(`data-bc-sid="${holder}"`);
+
+    /*
+     * And each starts a little further along the **scroll**, not a little later in time: a
+     * scroll-driven animation has no clock, so `animation-delay` would mean nothing at all. What
+     * moves is where in the range it begins.
+     */
+    expect(said).toContain('animation-range: entry 0% entry 70%');
+    expect(said).toContain('animation-range: entry 10% entry 80%');
+  });
+
+  it('never pushes the last one past where the scroll can reach', () => {
+    /*
+     * The range ends at `entry 70%` and everything to `entry 100%` is reachable for every block
+     * including the last — which is the property the range was chosen for. So a stagger has thirty
+     * points to spend: ten each is right for three cards and would put the sixth of six at 120%,
+     * where there is no scroll left, and the card would sit half-arrived forever. The same fault the
+     * range itself was written to avoid, arriving from the other direction.
+     */
+    expect(revealRangeFor(2, 3)).toBe('entry 20% entry 90%');
+    expect(revealRangeFor(5, 6)).toBe('entry 30% entry 100%');
+    expect(revealRangeFor(9, 10)).toBe('entry 30% entry 100%');
+    // One child, or the first of any number, is the ordinary range.
+    expect(revealRangeFor(0, 4)).toBe('entry 0% entry 70%');
+    expect(revealRangeFor(0, 1)).toBe('entry 0% entry 70%');
   });
 
   it('can be taken back', async () => {

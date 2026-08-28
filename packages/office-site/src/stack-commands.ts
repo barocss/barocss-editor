@@ -344,6 +344,8 @@ export class SiteStackExtension implements Extension {
      * reason: it is a fact about the block that a rule is written from, not a value a state changes.
      */
     'reveal',
+    // …and whose arrival it is: the block's, or its children's, one after another.
+    'revealStagger',
     /*
      * Whether it is **on the page**, and whether a reader may pick it up.
      *

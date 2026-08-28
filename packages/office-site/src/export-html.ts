@@ -56,7 +56,7 @@ import { isHidden } from './presence';
 import { revealOf, revealRule } from './reveal';
 import { PAGE_CSS } from './page-css';
 import { sizingCss } from './sizing';
-import { pagesOf } from './selection';
+import { pagesOf, blocksIn } from './selection';
 
 type Node = Record<string, any>;
 
@@ -626,8 +626,44 @@ export function revealRules(
 ): string {
   const out: string[] = [];
   for (const one of styledNodes(store, pageSid)) {
-    const kind = revealOf((store.getNode(one.sid) as Node | undefined)?.attributes);
+    const attrs = (store.getNode(one.sid) as Node | undefined)?.attributes;
+    const kind = revealOf(attrs);
     if (!kind) continue;
+
+    /*
+     * **차례로**: the container's own arrival is given to what is inside it instead.
+     *
+     * A row of three cards that all appear at the same instant is the tell of a template, and the
+     * fix cannot be an animation on the row — a scroll animation on a parent moves the whole thing.
+     * So a container that says `revealStagger` animates its **children**, each starting a little
+     * further along the scroll, and does not animate itself. Which is also why the two are one
+     * choice in the panel rather than two: a block either arrives, or what is in it does.
+     */
+    /*
+     * `(sid) => store.getNode(sid)` rather than `store.getNode` — the bound method loses its `this`,
+     * and `DataStore.getNode` resolves an alias through it. The test found it immediately, which is
+     * the argument for a test that runs the real store rather than a fake with one method on it.
+     */
+    const inside =
+      attrs?.revealStagger === true
+        ? blocksIn({ getNode: (sid: string) => store.getNode(sid) } as never, one.sid)
+        : [];
+    if (inside.length > 1) {
+      inside.forEach((sid, at) => {
+        if (isHidden((store.getNode(sid) as Node | undefined)?.attributes)) return;
+        out.push(
+          revealRule(
+            whereFor({ sid, part: one.part }, classOf, attribute),
+            kind,
+            attribute !== undefined,
+            at,
+            inside.length
+          )
+        );
+      });
+      continue;
+    }
+
     out.push(revealRule(whereFor(one, classOf, attribute), kind, attribute !== undefined));
   }
   return out.join('\n');

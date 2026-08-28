@@ -146,6 +146,18 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
       options: ['rise', 'slideIn', 'pop', 'focusIn', 'appearSlowly']
     },
     /**
+     * Whether the arrival belongs to **what is inside** rather than to the block itself.
+     *
+     * A row of three cards that all appear at the same instant is the tell of a template, and every
+     * landing page staggers them. The fix cannot be an animation on the row — a scroll animation on a
+     * parent moves the whole thing — so a container carrying this gives its `reveal` to its children,
+     * each starting a little further along the scroll, and does not animate itself.
+     *
+     * Beside `reveal` rather than a second kind of reveal, because it is a different question: *what*
+     * the arrival is, and *whose* it is. A block either arrives, or what is in it does.
+     */
+    revealStagger: { type: 'boolean' as const, required: false },
+    /**
      * Whether this block is **on the page** — and whether a reader can pick it up.
      *
      * The office schema has both, on `CANVAS_PRESENCE_ATTRS`, for things placed on a canvas. A page

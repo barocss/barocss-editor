@@ -101,9 +101,50 @@ export const REVEAL_KEYFRAMES = REVEALS.map(
  */
 const RANGE = 'entry 0% entry 70%';
 
+/**
+ * How much of the range is left over, and why the number is 30.
+ *
+ * The arrival ends at `entry 70%` and everything up to `entry 100%` is reachable for every block
+ * including the last — which is the property the range was chosen for. So a stagger has **thirty
+ * points** to spend and not one more: a child pushed past 100% ends where there is no scroll left to
+ * reach, and sits half-arrived forever. That is the same fault the range itself was written to
+ * avoid, arriving from the other direction.
+ */
+const HEADROOM = 30;
+
+/** What a comfortable step would be, before the headroom has a say. */
+const STEP = 10;
+
+/**
+ * Where the **nth of several** arrives, so a row of cards comes in one after another.
+ *
+ * ## Why the range moves and the delay does not
+ *
+ * `animation-delay` is time, and a scroll-driven animation has no clock — its progress is *how far
+ * this element has entered the viewport*, and a delay of 200ms against that means nothing at all. So
+ * what shifts is **where in the scroll** each child starts: the first is already arriving while the
+ * third has not begun, and the reader's own scrolling is what spaces them.
+ *
+ * ## Why the step shrinks with the count
+ *
+ * `min(STEP, HEADROOM / (n - 1))`, so the last child always finishes at or before `entry 100%`. Ten
+ * points each is right for three cards and would put the sixth of six at 120%, where there is no
+ * scroll left to reach — a card that never finishes arriving. The cap is arithmetic rather than
+ * taste, and it is the reason this is a function and not a constant beside the others.
+ */
+export function revealRangeFor(index = 0, count = 1): string {
+  if (index <= 0 || count <= 1) return RANGE;
+  const step = Math.min(STEP, HEADROOM / (count - 1));
+  const shift = Math.round(step * Math.min(index, count - 1) * 10) / 10;
+  return `entry ${shift}% entry ${Math.round((70 + shift) * 10) / 10}%`;
+}
+
 /** The one declaration a block carrying a reveal gets. */
-export function revealDeclaration(kind: RevealKind): string {
-  return `animation: st-${kind.id} linear both; animation-timeline: view(); animation-range: ${RANGE};`;
+export function revealDeclaration(kind: RevealKind, index = 0, count = 1): string {
+  return (
+    `animation: st-${kind.id} linear both; animation-timeline: view(); ` +
+    `animation-range: ${revealRangeFor(index, count)};`
+  );
 }
 
 /**
@@ -112,10 +153,17 @@ export function revealDeclaration(kind: RevealKind): string {
  * Both guards wrap **every** rule rather than the stylesheet, because the rules are written per
  * block and a page holds a mix: a section that arrives and a header that does not.
  */
-export function revealRule(selector: string, kind: RevealKind, important = false): string {
+export function revealRule(
+  selector: string,
+  kind: RevealKind,
+  important = false,
+  /** Which of several, when a container is arriving its children one after another. */
+  index = 0,
+  count = 1
+): string {
   const said = important
-    ? revealDeclaration(kind).replace(/;/g, ' !important;')
-    : revealDeclaration(kind);
+    ? revealDeclaration(kind, index, count).replace(/;/g, ' !important;')
+    : revealDeclaration(kind, index, count);
   return [
     '@supports (animation-timeline: view()) {',
     '  @media (prefers-reduced-motion: no-preference) {',

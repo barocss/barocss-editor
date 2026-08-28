@@ -429,6 +429,13 @@ describe('the site builder draws what it declares', () => {
          * animation whose clock is the scroll, and a renderer is right not to read it.
          */
         reveal: 'published as a rule, not folded into a drawing: read by `revealRules` — held in `reveal.test.ts`',
+        /*
+         * And whose arrival it is, which is the same fact one level down: a container that stagger
+         * its children writes **their** rules instead of its own, so nothing about the container's
+         * own drawing changes and a renderer is right not to read it.
+         */
+        revealStagger:
+          'published as a rule, not folded into a drawing: read by `revealRules` — held in `reveal.test.ts`',
 
         // ── The office schema’s, for products that are not this one ────────
         placeholder: 'Word draws a prompt in an empty paragraph; a page has no forms yet',
