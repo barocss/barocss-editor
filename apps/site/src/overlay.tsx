@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import { useRevision } from '@barocss/office-ui';
@@ -364,6 +364,90 @@ export function Overlay({
     .filter((one): one is { sid: string; box: NonNullable<ReturnType<typeof boxOf>> } => !!one.box);
   const hovered = hover && !selected.includes(hover) ? boxOf(hover) : undefined;
 
+  /**
+   * **The space inside the block**, drawn — its padding and the gaps between what it holds.
+   *
+   * ## Why this rather than a ruler
+   *
+   * A reader asked for one, and a ruler is the wrong instrument for a page. Word's measures margins
+   * and indents and a slide's measures x and y, and in both the number under the ruler is a number
+   * the reader **sets**. A page is a flow: nothing here has a coordinate, and a block's position is
+   * what its parent's stacking, gap, padding and order come out as. A ruler along the top would be
+   * measuring numbers a reader cannot type anywhere.
+   *
+   * The two numbers they *can* type are these, and neither is visible: a section is 112 above and 48
+   * below and there is nothing on the page that says so, and the 64 between two cards looks exactly
+   * like the 40 between two others. So the padding and the gaps are drawn on the block that is
+   * selected, which is what Figma and Webflow both do and for the same reason.
+   *
+   * ## Read from the drawing, not from the document
+   *
+   * `getComputedStyle`, because that is what the reader is looking at: an override at this width, a
+   * fallback the renderer chose, a `gap` the grid resolved — all of them are already in the number
+   * the browser used, and none of them is in the attribute. It also means the bands are right for a
+   * block whose padding is not set at all, which is the case a reader most wants to see.
+   *
+   * One block only, and only in select mode. Four bands and six gaps on each of three selected
+   * sections is not a measurement, it is a pattern.
+   */
+  const inside = useMemo(() => {
+    if (mode !== 'select' || boxes.length !== 1) return undefined;
+    const board = host.current;
+    if (!board) return undefined;
+    const el = board.querySelector<HTMLElement>(`[data-bc-sid="${CSS.escape(boxes[0].sid)}"]`);
+    if (!el) return undefined;
+
+    const scale = scaleOf(board);
+    const frame = el.getBoundingClientRect();
+    const said = getComputedStyle(el);
+    const at = (value: string) => Math.round(Number.parseFloat(value) || 0);
+
+    const pad = {
+      top: at(said.paddingTop),
+      right: at(said.paddingRight),
+      bottom: at(said.paddingBottom),
+      left: at(said.paddingLeft)
+    };
+
+    /*
+     * The gap **between drawn children**, measured rather than taken from `gap`: a grid's rows and a
+     * flex line's wrap both produce spaces the one declared number does not describe, and a child
+     * that is `position: absolute` produces none at all.
+     */
+    const gaps: { left: number; top: number; width: number; height: number; said: number }[] = [];
+    const kids = [...el.children]
+      .filter((kid): kid is HTMLElement => kid instanceof HTMLElement && kid.offsetParent !== null)
+      .map((kid) => kid.getBoundingClientRect());
+    for (let i = 1; i < kids.length; i++) {
+      const a = kids[i - 1];
+      const b = kids[i];
+      const down = Math.round((b.top - a.bottom) / scale);
+      const across = Math.round((b.left - a.right) / scale);
+      if (down > 0 && b.top >= a.bottom) {
+        gaps.push({
+          left: Math.round((Math.max(a.left, b.left) - frame.left) / scale),
+          top: Math.round((a.bottom - frame.top) / scale),
+          width: Math.round((Math.min(a.right, b.right) - Math.max(a.left, b.left)) / scale),
+          height: down,
+          said: down
+        });
+      } else if (across > 0 && b.left >= a.right) {
+        gaps.push({
+          left: Math.round((a.right - frame.left) / scale),
+          top: Math.round((Math.max(a.top, b.top) - frame.top) / scale),
+          width: across,
+          height: Math.round((Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)) / scale),
+          said: across
+        });
+      }
+    }
+
+    const width = Math.round(frame.width / scale);
+    const height = Math.round(frame.height / scale);
+    return { pad, gaps, width, height };
+    // `revision` and the boxes: the drawing moved, so the spaces inside it may have.
+  }, [mode, boxes.length, boxes[0]?.sid, host, revision, boxes[0]?.box?.width, boxes[0]?.box?.height]);
+
   return (
     <div
       ref={layer}
@@ -627,6 +711,50 @@ export function Overlay({
             {labelOfBlock(doc(), sid)}
             {mode === 'text' ? ' · 편집 중' : ''}
           </span>
+
+          {/*
+            The space inside, and the number on it where there is room for one.
+            
+            A band rather than a line, because what a reader is looking for is *how much* and not
+            *where the edge is* — the edge is the outline they are already looking at. The number is
+            counter-scaled like the name chip so it stays readable at 40%, and it is left out of a
+            band under about 24 pixels, where a number is a smudge rather than a fact.
+          */}
+          {inside
+            ? (['top', 'right', 'bottom', 'left'] as const)
+                .filter((side) => inside.pad[side] > 0)
+                .map((side) => (
+                  <span
+                    key={side}
+                    className="st-inset"
+                    data-inset={side}
+                    style={
+                      side === 'top'
+                        ? { left: 0, top: 0, width: inside.width, height: inside.pad.top }
+                        : side === 'bottom'
+                          ? { left: 0, top: inside.height - inside.pad.bottom, width: inside.width, height: inside.pad.bottom }
+                          : side === 'left'
+                            ? { left: 0, top: inside.pad.top, width: inside.pad.left, height: inside.height - inside.pad.top - inside.pad.bottom }
+                            : { left: inside.width - inside.pad.right, top: inside.pad.top, width: inside.pad.right, height: inside.height - inside.pad.top - inside.pad.bottom }
+                    }
+                  >
+                    {(side === 'top' || side === 'bottom' ? inside.pad[side] : inside.pad[side]) >= 24 ? (
+                      <em>{inside.pad[side]}</em>
+                    ) : null}
+                  </span>
+                ))
+            : null}
+
+          {inside?.gaps.map((gap, at) => (
+            <span
+              key={`gap-${at}`}
+              className="st-inset"
+              data-inset="gap"
+              style={{ left: gap.left, top: gap.top, width: gap.width, height: gap.height }}
+            >
+              {gap.said >= 24 ? <em>{gap.said}</em> : null}
+            </span>
+          ))}
         </div>
       ))}
       {/* Read so the boxes are recomputed when the document or the selection moves. */}

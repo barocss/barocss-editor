@@ -79,9 +79,18 @@ describe('what the menubar offers', () => {
     const needing = SITE_MENUS.flatMap((menu) =>
       menu.blocks.flatMap((block) => block.items.filter((one) => one.needs === 'page').map((one) => one.command))
     );
-    // 모두 선택 is the fourth, and the same fact from the other end: it selects the blocks on the
-    // page a reader is looking at, which the model has no way to know and the app does.
-    expect(needing).toEqual(['exportPage', 'duplicatePage', 'removePage', 'selectAllBlocks']);
+    /*
+     * 붙여넣기 and 모두 선택 are the other two, and they are the same fact from the other end: both act
+     * on *the page a reader is looking at*, which the model has no way to know and the app does. A
+     * paste with nothing selected has to land somewhere, and an empty page is somewhere.
+     */
+    expect(needing).toEqual([
+      'exportPage',
+      'duplicatePage',
+      'removePage',
+      'pasteBlocks',
+      'selectAllBlocks'
+    ]);
   });
 
   it('gives every entry a name a reader can find it by', () => {

@@ -1750,6 +1750,153 @@ test.describe('the pages of a site', () => {
 });
 
 /**
+ * **The space inside a block**, which is what a reader asked for a ruler to see.
+ *
+ * A ruler is the wrong instrument for a page. Word's measures margins and indents and a slide's
+ * measures x and y, and in both the number under it is a number the reader **sets**. A page is a
+ * flow: nothing here has a coordinate, so a ruler along the top would be measuring numbers nobody
+ * can type anywhere.
+ *
+ * The two numbers they *can* type are the padding and the gap, and neither was visible: a section is
+ * 112 above and 48 below and nothing on the page said so, and the 64 between two cards looked exactly
+ * like the 40 between two others.
+ */
+test.describe('what a block holds its content at', () => {
+  const bands = (page: Page) => page.locator('[data-frame="desktop"] .st-inset');
+
+  test('draws a stack’s padding, with the number on it', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').nth(3).click();
+    await page.waitForTimeout(600);
+
+    /*
+     * Read from `getComputedStyle` rather than from the attribute, because that is what the reader is
+     * looking at: an override at this width, a fallback the renderer chose, a gap the grid resolved
+     * — all of them are in the number the browser used and none is in what the node says.
+     */
+    await expect(bands(page)).toHaveCount(4);
+    const said = await bands(page).evaluateAll((els) =>
+      els.map((el) => `${el.getAttribute('data-inset')}=${(el.textContent ?? '').trim()}`)
+    );
+    expect(said).toEqual(['top=112', 'right=72', 'bottom=48', 'left=72']);
+  });
+
+  test('draws the gap between what a stack holds, and agrees with the panel', async ({ page }) => {
+    await ready(page);
+    await page.evaluate(() => {
+      const el = document.querySelector('[data-frame="desktop"] .st-stack[data-name="제품 셋"]');
+      const editor = (window as never as { editor: any }).editor;
+      editor.executeCommand('setNode', { nodeIds: [el?.getAttribute('data-bc-sid')] });
+    });
+    await page.waitForTimeout(700);
+
+    // Two gaps for three cards, measured **between the drawn children** rather than read off `gap` —
+    // a grid's wrap and an absolutely placed child both make that number a poor description.
+    const said = await bands(page).evaluateAll((els) =>
+      els.map((el) => `${el.getAttribute('data-inset')}=${(el.textContent ?? '').trim()}`)
+    );
+    expect(said).toEqual(['gap=24', 'gap=24']);
+    // And the panel says the same thing, which is the whole point of drawing it.
+    await expect(page.locator('.office-properties').getByLabel('간격')).toHaveValue('24');
+  });
+
+  test('says nothing when several blocks are held', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').nth(3).click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-layer]').nth(5).click({ modifiers: ['Shift'] });
+    await page.waitForTimeout(400);
+    // Four bands and six gaps on each of three sections is not a measurement, it is a pattern.
+    await expect(page.locator('.st-inset')).toHaveCount(0);
+  });
+});
+
+/**
+ * **Copying a block**, which a builder had no answer for.
+ *
+ * `cut`, `copy` and `paste` are the shared kit's and they take a caret's **range**, so a reader
+ * holding a card had all three greyed — correctly, and uselessly. Measured from the other end: ⌘D was
+ * the only way to get a second copy of anything, and there was no way at all to move a block from one
+ * page to another.
+ */
+test.describe('a block on the clipboard', () => {
+  const sections = (page: Page) => page.locator('[data-frame="desktop"] .st-page > .st-stack');
+
+  const hold = async (page: Page, at: number) => {
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').nth(at).click();
+    await page.waitForTimeout(400);
+  };
+
+  test('copies, pastes after itself, and comes back in one undo', async ({ page, context }) => {
+    // The system clipboard is what carries a block to another tab; the extension keeps its own copy
+    // as well, because reading the system's needs a permission the browser may refuse.
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await ready(page);
+    const before = await sections(page).count();
+    await hold(page, 3);
+
+    await page.keyboard.press('Meta+c');
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Meta+v');
+    await page.waitForTimeout(600);
+    await expect(sections(page)).toHaveCount(before + 1);
+    // What was pasted is what is selected, so the next gesture acts on it rather than on the original.
+    await expect(page.locator('.st-mark-selected')).toHaveCount(3);
+
+    /*
+     * **One** undo. A paste is one gesture, so it is one entry in the history — which is why the
+     * blocks are added in a single transaction rather than one command per block.
+     */
+    await page.keyboard.press('Meta+z');
+    await page.waitForTimeout(700);
+    await expect(sections(page)).toHaveCount(before);
+  });
+
+  test('moves a block from one page to another, which was impossible', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await ready(page);
+    await hold(page, 3);
+    const before = await sections(page).count();
+
+    // Cut is copy and then remove, in one command: undo after a cut gives the block back, once.
+    await page.keyboard.press('Meta+x');
+    await page.waitForTimeout(600);
+    await expect(sections(page)).toHaveCount(before - 1);
+
+    await page.locator('[data-panel="pages"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-pages] [data-page]').nth(2).click();
+    await page.waitForTimeout(700);
+    const there = await sections(page).count();
+
+    // Nothing selected on the new page, so it lands at the end of it — which only the app knows.
+    await page.keyboard.press('Meta+v');
+    await page.waitForTimeout(700);
+    await expect(sections(page)).toHaveCount(there + 1);
+  });
+
+  test('is on the menubar too, with the chord it is actually bound to', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await ready(page);
+    await hold(page, 3);
+    await page.locator('.st-menubar [data-menu="edit"]').click();
+    await page.waitForTimeout(250);
+
+    await expect(page.locator('[data-menu-item="edit.clipboard.0"]')).toContainText('⌘X');
+    await expect(page.locator('[data-menu-item="edit.clipboard.1"]')).toContainText('⌘C');
+    // Greyed until something has been copied — `canExecute` answers for what the extension holds,
+    // because reading the system clipboard is asynchronous and may prompt.
+    await expect(page.locator('[data-menu-item="edit.clipboard.2"]')).toBeDisabled();
+  });
+});
+
+/**
  * **The panel is an inspector.**
  *
  * 240 pixels, 24-pixel rows, 11-pixel type — what a design tool's inspector is, rather than the

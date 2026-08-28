@@ -387,6 +387,41 @@ body {
 .st-mark-selected { outline: calc(1px / var(--st-zoom, 1)) solid var(--st-accent); }
 
 /*
+ * **The space inside a block**, which is the thing a reader asked for a ruler to see.
+ *
+ * A page has no coordinates, so a ruler along the top would measure numbers nobody can type. The two
+ * numbers a reader *can* type are the padding and the gap, and neither is visible: a section is 112
+ * above and 48 below and nothing on the page says so.
+ *
+ * A **wash** rather than lines, because the question is *how much* and not *where the edge is* — the
+ * edge is the outline they are already looking at. The accent at a tenth is enough to read as "this
+ * is the tool talking" and not enough to change what the colours underneath look like, which matters
+ * on a surface whose whole job is judging colour.
+ */
+.st-inset {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--st-accent) 10%, transparent);
+  pointer-events: none;
+}
+
+/*
+ * The number, counter-scaled so it is the same size at 40% and at 400% — the same rule the name chip
+ * follows and for the same reason: a measurement drawn at the reader's zoom is unreadable exactly
+ * when they have stood back to see the whole page.
+ */
+.st-inset em {
+  font-size: calc(10px / var(--st-zoom, 1));
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--st-accent);
+  white-space: nowrap;
+}
+
+/*
  * The block whose words are being typed in.
  *
  * Dashed, because nothing is *selected* — the caret is the selection now — and a solid edge would be

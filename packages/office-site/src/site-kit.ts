@@ -35,6 +35,7 @@ import {
   createCoreExtensions
 } from '@barocss/extensions';
 import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
+import { SiteClipboardExtension } from './clipboard-commands';
 import { createSchema } from '@barocss/schema';
 import { installSiteResolution } from './collection-resolution';
 import { getSiteSchemaDefinition } from './site-schema';
@@ -98,7 +99,14 @@ export function createSiteOwnExtensions(): Extension[] {
      * all — `exportSite` was a function on `window`, put there for the console and for tests. A
      * capability that is not a command is invisible to every check this repository has.
      */
-    createPublishCommands()
+    createPublishCommands(),
+    /*
+     * And **copying a block**, which the shared kit's `copy`/`cut`/`paste` cannot do: those take a
+     * range and a reader holding a card has no caret, so all three refused, correctly, every time.
+     * Measured from the other end — ⌘D was the only way to get a second copy of anything, and there
+     * was no way at all to move a block from one page to another. See `clipboard-commands.ts`.
+     */
+    new SiteClipboardExtension()
   ];
 }
 

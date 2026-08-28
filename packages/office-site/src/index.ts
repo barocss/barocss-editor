@@ -138,6 +138,7 @@ export {
   type SiteMenuEntry
 } from './menu-model';
 export { createPublishCommands, type Published } from './publish-commands';
+export { SiteClipboardExtension } from './clipboard-commands';
 export { documentFaults, FAULT_KINDS, holderOf, type Declares, type Fault } from './faults';
 export {
   STATEABLE,

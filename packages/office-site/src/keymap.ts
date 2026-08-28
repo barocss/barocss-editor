@@ -90,12 +90,39 @@ export const SITE_KEYS: SiteKey[] = [
     label: '다시 실행'
   },
   /*
-   * ⌘X, ⌘C and ⌘V are **not here**, and their absence is the same finding as the presence of the
-   * rest. Bound in select mode they never fired: the kit's clipboard commands take a caret's range
-   * and a reader holding a card has no caret, so all three refused, correctly, every time. In text
-   * they are the platform's and a builder that intercepted them would break copying. Either way this
-   * app answers none of them, so it says so — the menu prints those three chords itself, marked.
+   * ⌘X, ⌘C and ⌘V, **in select mode only**.
+   *
+   * They were deliberately absent for a while and the note said why: bound to the kit's clipboard
+   * commands they never fired, because those take a caret's range and a reader holding a card has no
+   * caret. That was the right reading of the wrong problem — the missing thing was not a binding, it
+   * was a **command for blocks**. There is one now (`clipboard-commands.ts`), and these reach it.
+   *
+   * Still nothing in `text`: there the three are the platform's, and a builder that intercepted them
+   * would be a builder that broke copying. Which is why the mode matters and why the menu prints the
+   * chord for both cases from one line — the act a reader means is the one their selection is of.
    */
+  {
+    key: 'Mod+c',
+    command: 'copyBlocks',
+    mode: 'select',
+    needsSelection: true,
+    label: '선택한 블록 복사'
+  },
+  {
+    key: 'Mod+x',
+    command: 'cutBlocks',
+    mode: 'select',
+    needsSelection: true,
+    label: '선택한 블록 잘라내기'
+  },
+  {
+    key: 'Mod+v',
+    // No `needsSelection`: pasting needs somewhere to put something, and an empty page is somewhere.
+    command: 'pasteBlocks',
+    mode: 'select',
+    needs: 'page',
+    label: '블록 붙여넣기'
+  },
   {
     key: 'Mod+a',
     // The **site's**, not the kit's: `selectAll` clears the selection when a block is held.

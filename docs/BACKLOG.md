@@ -48,6 +48,17 @@ entries are that.
 
 ### Found walking the site builder in a browser
 
+- [ ] **A pasted block that names a component or a dataset carries neither.** Within one document
+  that is fine — the definition is already there. Across documents it is the gap the deck already
+  solved (`cardsFor` / `pasteCardsPlan`): a payload is a copy of a *name*, and pasting one into a
+  fresh site gives an invisible empty box with nothing saying so. The payload is versioned by its
+  marker, so the fix is additive.
+
+- [ ] **The bands measure and cannot be dragged.** Figma's padding can be pulled; ours is a readout,
+  and the number beside it in the panel is where it is changed. Worth it once, and worth waiting for
+  the same gesture to be wanted on a gap and on a corner rather than building it three times.
+
+
 - [ ] **A corner wants a drawing, not a word.** 상좌/상우/하우/하좌 is honest and it is four words
   where every design tool draws four pictures — a square with one corner rounded, per field. Same for
   a padding's four sides. `office-icons` has no entry for either and lucide has nothing that means
@@ -84,12 +95,6 @@ entries are that.
   is the one that was wrong: the menu named `find`, `find` was registered, and the harness was
   satisfied by a command whose body is `() => true`. A command that always says yes and changes
   nothing is the same shape as a `canExecute` looser than its `execute`, one step further along.
-
-- [ ] **A builder cannot copy a block.** `cut`, `copy` and `paste` come from the shared kit and take a
-  caret's **range**; a reader holding a card has no caret, so all three refuse — correctly, and the
-  menu greys them. Which leaves duplicate (⌘D) as the only way to get a second copy of anything, and
-  no way at all to move a block from one page to another. The same finding `moveBlockUp` produced,
-  in the same place, for the same reason: these need a site-native pair that reads `_chosen`.
 
 - [ ] **Word and the deck type their menu hints.** The site's are derived from its key map now, and
   the check that keeps them honest is `keymap.test.ts` — a chord printed beside a label must be a
@@ -2841,6 +2846,66 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A builder can copy a block.** `cut`, `copy` and `paste` are the shared kit's and take a caret's
+  **range**, so a reader holding a card had all three greyed — correctly, and uselessly. Measured
+  from the other end: ⌘D was the only way to get a second copy of anything, and there was **no way at
+  all** to move a block from one page to another.
+
+  `copyBlocks` / `cutBlocks` / `pasteBlocks`, and the whole extension is a fifth the size of the
+  deck's for a reason worth keeping: `SlidesClipboardExtension` is long because a slide has
+  **coordinates** — a box copied out of a frame has to arrive with different numbers to stay in the
+  same place — and a page is a **flow**. There is no x, no y and no z-order; where a paste lands is a
+  parent and a place in its content, and both are the paste's to decide.
+
+  - **After what is selected**, in its parent, which is `duplicateBlocks`' answer to the same
+    question: a copy that jumps to the bottom of the page is a copy the reader has to go and find.
+    With nothing selected, the end of the page on screen — which only the app knows, so `pageId` is
+    the app's to give.
+  - **Cut is copy and then remove, in one command.** Not two from the app: undo after a cut gives the
+    blocks back once.
+  - **One transaction for the paste**, so one press of undo takes it back — and the blocks are added
+    from the last backwards at one index, because inserting forwards at a fixed place reverses them.
+  - **Two clipboards**, for the deck's reason: the system's carries a block to another tab and JSON in
+    text is the only format two windows agree on, but reading it needs a permission the browser may
+    refuse. Without the in-memory fallback this would be a feature that works on the developer's
+    machine.
+
+  The menu's three entries point at these now rather than at the kit's, and the chords come from the
+  key map — which is how ⌘X/⌘C/⌘V came back after being deliberately unbound: the note then said the
+  missing thing was a binding, and it was a **command for blocks**.
+
+- **A ruler, answered as the thing behind the question.** Asked for directly, and a ruler is the wrong
+  instrument for a page — which is worth writing down rather than finding out after building one:
+
+  | | what the ruler measures | does the reader set it |
+  | --- | --- | :---: |
+  | Word | margins, indents, tab stops | yes |
+  | the deck | a box's x and y on the slide | yes |
+  | a page | an absolute coordinate | **no** |
+
+  A page is a flow. A block's position is what its parent's stacking, gap, padding and order come out
+  as, so a ruler along the top would be measuring numbers a reader cannot type anywhere.
+
+  The two numbers they *can* type are the **padding** and the **gap**, and neither was visible: a
+  section is 112 above and 48 below with nothing on the page saying so, and the 64 between two cards
+  looks exactly like the 40 between two others. Both are drawn on the selected block now, as a wash
+  with the number on it — which is what Figma and Webflow both do, and for this reason.
+
+  Three decisions:
+
+  - **Read from the drawing, not the document.** `getComputedStyle`, because an override at this
+    width, a fallback the renderer chose and a gap a grid resolved are all already in the number the
+    browser used and none of them is in the attribute. It also means the bands are right for a block
+    whose padding is not set at all, which is the case a reader most wants to see.
+  - **The gaps are measured between drawn children**, not taken from `gap`: a grid's wrap and an
+    absolutely placed child both make that one number a poor description of the spaces on screen.
+  - **One block, and only in select mode.** Four bands and six gaps on each of three selected sections
+    is not a measurement, it is a pattern.
+
+  A thing that fell out of it and is better than the feature: the three boards each draw **their own**
+  numbers, so a reader sees 112/72 on desktop, 96/40 on tablet and 56 on mobile at once. The
+  responsive padding is a thing this product could only be told about one width at a time.
 
 - **A stack's direction is three pictures now, and a field says where the caret is.** The second half
   of the panel work, and both came out of *asking whether it still works* rather than looking at it.

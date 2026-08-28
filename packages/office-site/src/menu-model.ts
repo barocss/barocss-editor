@@ -103,18 +103,18 @@ const DECLARED: SiteMenu[] = [
         id: 'clipboard',
         items: [
           /*
-           * The chords here are typed rather than derived, and it is the one place in this file where
-           * that is right: ⌘X, ⌘C and ⌘V in text belong to the **platform**, not to this app. Nothing
-           * in `SITE_KEYS` answers them and nothing should — a builder that intercepted ⌘C inside a
-           * paragraph would be a builder that broke copying.
+           * **The block ones**, which is what this menu is for: a menubar acts on what a reader has
+           * selected, and in this product that is a block far more often than it is a run of text.
            *
-           * With a *block* selected all three are greyed, and they are right to be: the kit's
-           * clipboard commands take a caret's range, and a reader holding a card has no caret. That
-           * a builder cannot copy a block at all is a gap, not a wiring fault — see `BACKLOG.md`.
+           * They used to be the shared kit's `cut`/`copy`/`paste` — the *text* ones — so with a card
+           * held all three were greyed, correctly and uselessly: ⌘D was the only way to get a second
+           * copy of anything and there was no way at all to move a block between pages. The text
+           * three are still bound, by the **platform**, inside a paragraph; a builder that
+           * intercepted ⌘C there would be a builder that broke copying.
            */
-          { command: 'cut', label: '잘라내기', hint: '⌘X' },
-          { command: 'copy', label: '복사', hint: '⌘C' },
-          { command: 'paste', label: '붙여넣기', hint: '⌘V' },
+          { command: 'cutBlocks', label: '잘라내기' },
+          { command: 'copyBlocks', label: '복사' },
+          { command: 'pasteBlocks', label: '붙여넣기', needs: 'page' },
           /*
            * And this one **is** the app's, on a command written for it. It used to run the kit's
            * `selectAll`, and a browser found what that does here: with a card selected, ⌘A cleared
