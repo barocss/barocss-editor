@@ -18,26 +18,24 @@
  * finding.
  */
 
-export interface SlidesKey {
-  /**
-   * The chord, with `Mod` for "Cmd on a Mac and Ctrl everywhere else".
-   *
-   * Written the way a reader would say it rather than as a browser event, so
-   * the list reads as a list of shortcuts: `Mod+Shift+g`, `Delete`, `ArrowUp`.
-   */
-  key: string;
-  command: string;
-  /** What the command is given. Fixed, because the chord says which case it is. */
-  payload?: Record<string, unknown>;
-  /**
-   * Whether boxes have to be selected for this to mean anything.
-   *
-   * Almost all of them: what Delete means depends entirely on what is selected.
-   * Paste is the exception — it needs somewhere to put something rather than
-   * something to act on, and an empty slide is somewhere.
-   */
-  needsSelection?: boolean;
-}
+import {
+  chordFor,
+  keyCommands,
+  keyLabel as labelOfChord,
+  matchesKey as matchesChord,
+  type KeyModel
+} from '@barocss/office-controls';
+
+/**
+ * A deck's binding is `office-controls`' shape.
+ *
+ * The fields were declared here first and the site copied them under other names; the shape, the
+ * matching and the way a chord is written for a reader are shared now. `needsSelection` reads the
+ * same as it always did — almost every binding here needs boxes, and paste is the exception because
+ * it needs somewhere to put something rather than something to act on, and an empty slide is
+ * somewhere.
+ */
+export type SlidesKey = KeyModel;
 
 /**
  * A nudge is one pixel, or a tenth of an inch with Shift held.
@@ -95,86 +93,65 @@ export const SLIDES_KEYS: SlidesKey[] = [
    */
   { key: 'Alt+.', command: 'addSlideGuide', payload: { axis: 'x' } },
   { key: 'Alt+,', command: 'addSlideGuide', payload: { axis: 'y' } },
-  { key: 'Alt+Shift+<', command: 'clearSlideGuides' }
+  { key: 'Alt+Shift+<', command: 'clearSlideGuides' },
+
+  /*
+   * ## The three the menubar was teaching and nothing answered
+   *
+   * Measured in a browser, one chord at a time: ⌘S, ⌘M and F5 were printed beside their labels in
+   * 파일, 편집 and 보기, and pressing them changed nothing. The menu entries themselves all worked —
+   * so the fault was never the act, it was that the chord was **typed** beside the label instead of
+   * being read from here.
+   *
+   * Two of the three are **views**, which is why they could not have been added before: this list
+   * could only name commands, and saving a file and starting a show are the app's rather than the
+   * deck's. The site builder found the same limit on the same day, from the other end.
+   */
+  { key: 'Mod+m', command: 'insertSlide' },
+  { key: 'Mod+s', view: 'file.save' },
+  // What every presentation tool has bound since before any of this.
+  { key: 'F5', view: 'present' },
+
+  /*
+   * And undo, which the *engine* also binds — `Mod+z` → `historyUndo`, gated on `editorFocus`. So
+   * this fires only where that does not: a reader holding a box is not in any text, and the deck's
+   * whole select mode was outside the engine's reach. The host checks `defaultPrevented` so the two
+   * cannot both run, which is the one-line lesson the site builder paid for with a double undo.
+   */
+  { key: 'Mod+z', command: 'historyUndo' },
+  { key: 'Mod+Shift+z', command: 'historyRedo' }
 ];
 
 /** Every command a key can run, for the check that asks what is reachable. */
 export function slidesKeyCommands(): string[] {
-  return [...new Set(SLIDES_KEYS.map((entry) => entry.command))];
+  return keyCommands(SLIDES_KEYS);
 }
 
 /**
- * Whether a press matches a chord.
+ * Whether a press matches a chord — `office-controls`', so every product matches alike.
  *
- * Here rather than in the host so that the list and the matching cannot drift:
- * a chord written `Mod+Shift+g` and matched by a handler that forgot Shift is
- * two statements about one binding.
+ * Kept under this name because the overlay calls it and the name reads correctly there. What moved
+ * is the body: the old one compared `event.key` for every chord, which cannot match a digit — `⇧1`
+ * types `!` on a US layout and something else on several others.
  */
-export function matchesKey(entry: SlidesKey, event: {
-  key: string;
-  shiftKey: boolean;
-  altKey: boolean;
-  ctrlKey: boolean;
-  metaKey: boolean;
-}): boolean {
-  const parts = entry.key.split('+');
-  const wanted = parts[parts.length - 1].toLowerCase();
-  if (event.key.toLowerCase() !== wanted) return false;
-
-  const mod = parts.includes('Mod');
-  const shift = parts.includes('Shift');
-  const alt = parts.includes('Alt');
-
-  if (mod !== (event.metaKey || event.ctrlKey)) return false;
-  if (shift !== event.shiftKey) return false;
-  if (alt !== event.altKey) return false;
-  return true;
+export function matchesKey(
+  entry: SlidesKey,
+  event: Parameters<typeof matchesChord>[1]
+): boolean {
+  return matchesChord(entry, event);
 }
 
 /**
- * The chord a command is bound to, if it is bound to one.
+ * The chord a command **or a view** is bound to, if it is bound to one.
  *
- * The *first* binding, because several keys can run one command — every nudge is
- * `nudgeBoxes` — and what a button wants to say is one chord rather than eight.
- * A control asks by command, which is the only name it has for the thing it does.
+ * The *first* binding, because several keys can run one command — every nudge is `nudgeBoxes` — and
+ * what a button wants to say is one chord rather than eight.
  */
-export function shortcutOf(command: string): string | undefined {
-  return SLIDES_KEYS.find((entry) => entry.command === command)?.key;
+export function shortcutOf(what: string | { command?: string; view?: string }): string | undefined {
+  return chordFor(SLIDES_KEYS, typeof what === 'string' ? { command: what } : what);
 }
 
-/** The symbols a chord is drawn with, which is not what it is written as. */
-const SIGNS: Record<string, string> = {
-  Shift: '⇧',
-  Alt: '⌥',
-  ArrowLeft: '←',
-  ArrowRight: '→',
-  ArrowUp: '↑',
-  ArrowDown: '↓',
-  Delete: 'Del',
-  Backspace: '⌫',
-  Escape: 'Esc'
-};
-
-/**
- * A chord as a reader reads it — `Mod+d` → `⌘D` on a Mac, `Ctrl+D` elsewhere.
- *
- * Two conventions, and they are not a preference: Apple writes chords as symbols
- * with nothing between them and everyone else writes them as words joined by
- * plus signs. A tool that shows `Ctrl+D` on a Mac looks like it was ported, which
- * is the whole thing this is for.
- *
- * `apple` comes in rather than being sniffed here, because a pure function of the
- * platform is testable and `navigator` is not — and the caller knows anyway.
- */
+/** A chord as a reader reads it — see `office-controls`, where the two conventions are written out. */
 export function keyLabel(chord: string | undefined, apple: boolean): string | undefined {
-  if (!chord) return undefined;
-
-  const parts = chord.split('+').map((part) => {
-    if (part === 'Mod') return apple ? '⌘' : 'Ctrl';
-    if (SIGNS[part]) return apple ? SIGNS[part] : part;
-    // A single letter is shown as a capital: `⌘D`, not `⌘d`.
-    return part.length === 1 ? part.toUpperCase() : part;
-  });
-
-  return apple ? parts.join('') : parts.join('+');
+  return labelOfChord(chord, apple);
 }

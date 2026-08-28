@@ -223,17 +223,14 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     command: 'toggleBlockquote',
     when: 'editorFocus && editorEditable'
   },
-  // Find & Replace
-  {
-    key: 'Mod+f',
-    command: 'find',
-    when: 'editorFocus'
-  },
-  {
-    key: 'Mod+h',
-    command: 'findAndReplace',
-    when: 'editorFocus && editorEditable'
-  },
+  /*
+   * Find & Replace **were here**, bound to two commands the editor registered as `() => true`. A
+   * binding to a stub is worse than no binding: `Mod+f` resolved, `preventDefault` was called, the
+   * stub ran, and the key was swallowed — so Word's own ⌘F, which opens a real find pane, stopped
+   * working the moment the app stopped answering keys the engine had already claimed.
+   *
+   * A product with a find registers one and binds its own chord. See `editor.ts`.
+   */
 
   // Block movement (up/down)
   {

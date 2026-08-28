@@ -28,16 +28,18 @@ import {
   menuCommands,
   menuEntry,
   menuId,
+  withHints,
   type MenuBlockModel,
   type MenuEntryModel,
   type MenuModel
 } from '@barocss/office-controls';
+import { SLIDES_KEYS } from './keymap';
 
 export type SlidesMenuEntry = MenuEntryModel;
 export type SlidesMenuBlock = MenuBlockModel;
 export type SlidesMenu = MenuModel;
 
-export const SLIDES_MENUS: SlidesMenu[] = [
+const DECLARED: SlidesMenu[] = [
   {
     id: 'file',
     label: '파일',
@@ -55,7 +57,7 @@ export const SLIDES_MENUS: SlidesMenu[] = [
         items: [
           { view: 'file.new', label: '새로 만들기' },
           { view: 'file.open', label: '열기…' },
-          { view: 'file.save', label: '저장', hint: '⌘S' }
+          { view: 'file.save', label: '저장' }
         ]
       },
       {
@@ -78,14 +80,14 @@ export const SLIDES_MENUS: SlidesMenu[] = [
       {
         id: 'history',
         items: [
-          { command: 'historyUndo', label: '실행 취소', hint: '⌘Z' },
-          { command: 'historyRedo', label: '다시 실행', hint: '⇧⌘Z' }
+          { command: 'historyUndo', label: '실행 취소' },
+          { command: 'historyRedo', label: '다시 실행' }
         ]
       },
       {
         id: 'slides',
         items: [
-          { command: 'insertSlide', label: '새 슬라이드', hint: '⌘M' },
+          { command: 'insertSlide', label: '새 슬라이드' },
           { command: 'duplicateSlide', needs: 'slide', label: '슬라이드 복제' },
           { command: 'deleteSlide', needs: 'slide', label: '슬라이드 삭제' }
         ]
@@ -93,8 +95,8 @@ export const SLIDES_MENUS: SlidesMenu[] = [
       {
         id: 'boxes',
         items: [
-          { command: 'duplicateBoxes', label: '복제', hint: '⌘D' },
-          { command: 'deleteBoxes', label: '삭제', hint: 'Delete' }
+          { command: 'duplicateBoxes', label: '복제' },
+          { command: 'deleteBoxes', label: '삭제' }
         ]
       }
     ]
@@ -136,13 +138,26 @@ export const SLIDES_MENUS: SlidesMenu[] = [
       {
         id: 'present',
         items: [
-          { view: 'present', label: '처음부터 발표', hint: 'F5' },
+          { view: 'present', label: '처음부터 발표' },
           { view: 'scroll', label: '스크롤 상영' }
         ]
       }
     ]
   }
 ];
+
+/**
+ * …and the same menus with each entry's **chord filled in from the key map**.
+ *
+ * The hints were typed above, beside the labels, and a browser found what that costs: ⌘S, ⌘M and F5
+ * were all printed and none of them did anything. A hint is the product promising a reader can stop
+ * opening the menu, and a promise restated in a second place is a promise that stops being kept.
+ *
+ * `⌘Z` prints correctly again for a second reason worth knowing: it used to be typed as `⌘Z` and is
+ * derived from `Mod+z` now, and `⇧⌘Z` from `Mod+Shift+z` — macOS's modifier order, which the shared
+ * label applies whatever order the binding was written in.
+ */
+export const SLIDES_MENUS: SlidesMenu[] = withHints(DECLARED, SLIDES_KEYS);
 
 /** Every command the menubar can run — the harness's question, answered by the model. */
 export function slidesMenuCommands(menus: SlidesMenu[] = SLIDES_MENUS): string[] {

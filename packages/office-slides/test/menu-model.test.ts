@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { menuFaults } from '@barocss/office-controls';
+import { chordFor, keyFaults, keyLabel, menuFaults } from '@barocss/office-controls';
+import { SLIDES_KEYS } from '../src/keymap';
 import { SLIDES_MENUS, slidesMenuCommands, slidesMenuEntry, slidesMenuId } from '../src/menu-model';
 import { createSlidesEditor } from '../src/slides-kit';
 
@@ -45,5 +46,30 @@ describe('what the menubar offers', () => {
 
   it('puts 파일 first, where a reader looks for it', () => {
     expect(SLIDES_MENUS[0].label).toBe('파일');
+  });
+
+  /**
+   * And the chords, which a browser had to be opened to distrust.
+   *
+   * Pressed one at a time on a fresh deck: ⌘S, ⌘M and F5 were printed beside their labels in 파일,
+   * 편집 and 보기 and **none of them did anything**, while pressing the entries worked. Two of the
+   * three are views, which is why they could not have been bound before — this deck's key map could
+   * name only commands, and saving a file and starting a show are the app's.
+   */
+  it('prints a chord only where the deck binds one', () => {
+    for (const menu of SLIDES_MENUS) {
+      for (const block of menu.blocks) {
+        for (const item of block.items) {
+          const bound = chordFor(SLIDES_KEYS, item);
+          if (bound) expect(item.hint, item.label).toBe(keyLabel(bound, true));
+          // Nothing where nothing is bound, which is the honest thing to say about a dead key.
+          else expect(item.hint, item.label).toBeUndefined();
+        }
+      }
+    }
+  });
+
+  it('binds a command or a view and says exactly one, once per chord', () => {
+    expect(keyFaults(SLIDES_KEYS)).toEqual([]);
   });
 });

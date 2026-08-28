@@ -3,7 +3,8 @@ import type { Editor } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { AppBody, AppChrome, AppMain, AppShell, MenuBar, useRevision } from '@barocss/office-ui';
-import { WORD_MENUS, wordMenuEntry, wordMenuId } from '@barocss/office-word';
+import { WORD_MENUS, WORD_VIEW_KEYS, wordMenuEntry, wordMenuId } from '@barocss/office-word';
+import { matchesKey } from '@barocss/office-controls';
 import type { FontLoader } from './font-loader';
 import { Ribbon } from './ribbon';
 import { FindPanel } from './find-panel';
@@ -117,11 +118,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * document because it is the *browser's*: `print-pages.ts` hooks `beforeprint`, so ⌘P and this
    * entry get the same paginated document, and neither is something the editor knows how to do.
    */
-  const onMenu = useCallback(
-    (id: string) => {
-      const entry = wordMenuEntry(id);
-      if (!entry) return;
-
+  const runEntry = useCallback(
+    (entry: { command?: string; view?: string; payload?: Record<string, unknown> }) => {
       switch (entry.view) {
         case 'print':
           return window.print();
@@ -145,16 +143,41 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     },
     [instance]
   );
+
+  /** A pick in the menubar, which is `runEntry` with the entry looked up. */
+  const onMenu = useCallback(
+    (id: string) => {
+      const entry = wordMenuEntry(id);
+      if (entry) runEntry(entry);
+    },
+    [runEntry]
+  );
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
+      /*
+       * The **view** bindings, which are this app's half of what Word binds.
+       *
+       * The engine's registry runs `WORD_KEYBINDINGS` against a caret and can only run *commands*; a
+       * zoom and a find pane are not commands and never will be. Until this loop existed, ⌘F was a
+       * hand-written branch right here — `event.key === 'f'`, nothing declared — and ⌘+, ⌘- and ⌘0
+       * were printed in 보기 and answered by nothing at all. Measured in a browser, all three.
+       *
+       * Read from `WORD_VIEW_KEYS`, so the menu's chords and the keyboard's are one statement.
+       */
+      if (event.defaultPrevented) return;
+      const at = document.activeElement as HTMLElement | null;
+      // A field's own keys are the field's; the document is `contenteditable` and is not a field.
+      if (at?.tagName === 'INPUT' || at?.tagName === 'TEXTAREA') return;
+      for (const binding of WORD_VIEW_KEYS) {
+        if (!matchesKey(binding, event)) continue;
         event.preventDefault();
-        setFinding(true);
+        return runEntry(binding);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [runEntry]);
 
   /**
    * The window is the frame.

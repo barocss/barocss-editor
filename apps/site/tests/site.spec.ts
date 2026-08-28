@@ -1750,6 +1750,148 @@ test.describe('the pages of a site', () => {
 });
 
 /**
+ * **The viewport is a scale, and a scale is not a redraw.**
+ *
+ * Reported by a reader in four parts, and they turned out to be two faults: *the rendering keeps
+ * breaking when I only change the scale*, *only the transform should change*, *the caret stops the
+ * selection changing*, and *on the mobile board the cursor keeps landing in the wrong place*.
+ */
+test.describe('standing back from the page', () => {
+  const scale = (page: Page) => page.locator('.st-canvas').first().getAttribute('data-zoom');
+
+  test('goes back where it came from, in as many steps as it took', async ({ page }) => {
+    await ready(page);
+    const opened = await scale(page);
+
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press('Meta+Equal');
+      await page.waitForTimeout(120);
+    }
+    expect(Number(await scale(page))).toBeGreaterThan(Number(opened));
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press('Meta+Minus');
+      await page.waitForTimeout(120);
+    }
+
+    /*
+     * Exactly, and it used to be 69% having started at 70%. The steps were `round(z * 110) / 100`
+     * and `round(z * 90) / 100`: not inverses — 1.1 × 0.9 is 0.99 — with a round-to-two-decimals
+     * inside each compounding it. A reader who zooms in to look at something and back out is making
+     * round trips all day. One multiplier now, shared with the zoom control's own buttons.
+     */
+    expect(await scale(page)).toBe(opened);
+  });
+
+  test('redraws nothing at all', async ({ page }) => {
+    await ready(page);
+    await page.evaluate(() => {
+      (window as never as { seen: Record<string, number> }).seen = { desktop: 0, tablet: 0, mobile: 0 };
+      for (const at of ['desktop', 'tablet', 'mobile']) {
+        const host = document.querySelector(`[data-frame="${at}"] .st-frame-host`);
+        if (!host) continue;
+        new MutationObserver((records) => {
+          (window as never as { seen: Record<string, number> }).seen[at] += records.length;
+        }).observe(host, { childList: true, subtree: true, characterData: true, attributes: true });
+      }
+    });
+
+    const pane = (await page.locator('.st-canvas').boundingBox())!;
+    for (let i = 0; i < 8; i++) {
+      await page.mouse.move(pane.x + pane.width / 2, pane.y + pane.height / 2);
+      await page.keyboard.down('Meta');
+      await page.mouse.wheel(0, -100);
+      await page.keyboard.up('Meta');
+      await page.waitForTimeout(100);
+    }
+    await page.waitForTimeout(400);
+    expect(Number(await scale(page))).toBeGreaterThan(1);
+
+    /*
+     * **Not one mutation**, on any of the three boards. The overlay used to take the zoom as a prop,
+     * so every wheel tick re-rendered three boards' worth of markers and recomputed every box with
+     * `getBoundingClientRect` — for an answer that cannot change: a box measured in the board's own
+     * pixels is scale-invariant by construction, which is exactly why the measurement divides by the
+     * scale. It reads the scale off the board now, and `--st-zoom` is set on the plane beside the
+     * transform it describes.
+     */
+    expect(await page.evaluate(() => (window as never as { seen: Record<string, number> }).seen)).toEqual({
+      desktop: 0,
+      tablet: 0,
+      mobile: 0
+    });
+  });
+});
+
+/**
+ * **Editing text is a state you are in, not a mode you are stuck in.**
+ *
+ * The mode is the app's — one reader, one caret — but the layer that owns the pointer switched itself
+ * off on **all three boards at once**. So the moment a reader double-clicked into a heading, every
+ * board became a plain `contenteditable`: a press anywhere could only put a caret, the block
+ * selection could not be changed at all, and the way out was Escape.
+ */
+test.describe('a caret, and everything outside it', () => {
+  const mode = (page: Page) => page.locator('.st-overlay').first().getAttribute('data-mode');
+
+  /** Double-click goes one level in, so reaching the words is a gesture repeated, not a special one. */
+  const intoText = async (page: Page, selector: string) => {
+    for (let i = 0; i < 5; i++) {
+      if ((await mode(page)) === 'text') return;
+      await page.locator(selector).first().dblclick({ force: true });
+      await page.waitForTimeout(400);
+    }
+  };
+
+  test('lets a press inside move the caret and nothing else', async ({ page }) => {
+    await ready(page);
+    await intoText(page, '[data-frame="desktop"] .st-page h1');
+    await expect(page.locator('.st-overlay').first()).toHaveAttribute('data-mode', 'text');
+
+    await page.locator('[data-frame="desktop"] .st-page h1').first().click({ force: true, position: { x: 40, y: 10 } });
+    await page.waitForTimeout(400);
+    // Still editing, and still a caret: this is the whole of what text mode is for.
+    expect(await mode(page)).toBe('text');
+    expect(await page.evaluate(() => window.getSelection()?.type)).toBe('Caret');
+  });
+
+  test('leaves the text when the press is somewhere else, and selects what was pressed', async ({ page }) => {
+    await ready(page);
+    await intoText(page, '[data-frame="desktop"] .st-page h1');
+
+    await page.locator('[data-frame="desktop"] .st-page h2').first().click({ force: true });
+    await page.waitForTimeout(600);
+    expect(await mode(page)).toBe('select');
+    // The outermost block, which is what a plain press means everywhere else in this product.
+    await expect(page.locator('.st-mark-selected')).toHaveCount(3);
+  });
+
+  test('answers a press on another board, which is where a reader met this', async ({ page }) => {
+    await ready(page);
+    await intoText(page, '[data-frame="desktop"] .st-page h1');
+
+    /*
+     * The report was *on mobile I cannot click the element I want — a text cursor keeps landing
+     * somewhere wrong*, and this is why: the caret was on the desktop board and the mobile board was
+     * an ordinary editor, so a press on it placed a second caret rather than selecting anything.
+     */
+    await page.locator('[data-frame="mobile"] .st-page h2').first().click({ force: true });
+    await page.waitForTimeout(600);
+    expect(await mode(page)).toBe('select');
+    await expect(page.locator('.st-mark-selected')).toHaveCount(3);
+  });
+
+  test('lets go of everything on the grey around the boards', async ({ page }) => {
+    await ready(page);
+    await intoText(page, '[data-frame="desktop"] .st-page h1');
+    await page.locator('.st-canvas').click({ position: { x: 20, y: 400 } });
+    await page.waitForTimeout(500);
+    expect(await mode(page)).toBe('select');
+    // Pressing nothing has always meant selecting nothing.
+    await expect(page.locator('.st-mark-selected')).toHaveCount(0);
+  });
+});
+
+/**
  * **The keys the menubar teaches.**
  *
  * Written after a browser was used to press every chord the menu printed, one at a time, with a

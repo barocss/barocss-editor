@@ -2292,8 +2292,20 @@ export function SelectionOverlay({
        * could read a toolbar and not a handler. It reads this now.
        */
       for (const binding of SLIDES_KEYS) {
+        /*
+         * The **commands**. A binding that names a view — ⌘S, F5 — is the app's: it has nothing to do
+         * with what is selected, and this overlay has never heard of a file or a projector. One key
+         * map, two hosts, and `keyFaults` is what guarantees a binding is exactly one of the two.
+         */
+        if (!binding.command) continue;
         if (!matchesKey(binding, event)) continue;
         if (binding.needsSelection && chosen.length === 0) continue;
+        /*
+         * …and not one the engine has already answered. `Mod+z` is bound here *and* by the engine
+         * against a caret, so a reader undoing while typing in a box would undo twice. The site
+         * builder paid for this one with a code edit and its block going together.
+         */
+        if (event.defaultPrevented) continue;
         return run(binding.command, {
           ...binding.payload,
           // The container the reader has gone into, which only the overlay

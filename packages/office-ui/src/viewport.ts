@@ -43,6 +43,31 @@ import { useCallback, useEffect, useRef, type RefObject } from 'react';
  * hit answers "the overlay" and a listener scoped to the pane never runs.
  */
 
+/**
+ * One step of a zoom, and the reason there is a constant at all.
+ *
+ * ## The two ladders that were not each other's inverse
+ *
+ * Measured in the site builder, keyboard only: **⌘+ five times then ⌘− five times left the reader at
+ * 69% having started at 70%.** The steps were `round(z * 110) / 100` and `round(z * 90) / 100` —
+ * two numbers that are not inverses (1.1 × 0.9 = 0.99), with a round-to-two-decimals inside each one
+ * compounding it. Every round trip drifted, and a reader who zooms to look at something and back is
+ * making round trips all day.
+ *
+ * The `ZoomControl`'s own buttons had it right — `z * 1.25` and `z / 1.25`, which *are* inverses and
+ * do not round — so the suite already held the answer in one place and the wrong answer in another.
+ * Now there is one, and it is a multiplier rather than a table of stops: a table needs a rule for
+ * *where a zoom that is not on it goes next*, and a reader who typed 83% into the box is entitled to
+ * step from 83%.
+ *
+ * 1.25 rather than 1.1, because a step a reader cannot see is a step they press again.
+ */
+export const ZOOM_STEP = 1.25;
+
+/** One step in, and one step out — an exact pair, which is the whole point. */
+export const zoomIn = (zoom: number) => zoom * ZOOM_STEP;
+export const zoomOut = (zoom: number) => zoom / ZOOM_STEP;
+
 export interface Viewport {
   /** Where the plane's origin sits in the pane, in the pane's own pixels. */
   x: number;

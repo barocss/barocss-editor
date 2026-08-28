@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
 import { STATE } from './controls';
+import { zoomIn, zoomOut } from './viewport';
 
 /**
  * How large the document is drawn.
@@ -52,7 +53,7 @@ export function ZoomControl({
 
  return (
     <div className={cn('office-zoom flex items-center gap-0.5', className)} data-zoom={zoom.toFixed(2)}>
- <button type="button" data-zoom-out aria-label="축소" className={button} onClick={() => onChange(zoom / 1.25)}>
+ <button type="button" data-zoom-out aria-label="축소" className={button} onClick={() => onChange(zoomOut(zoom))}>
  <Icon name="zoom-out" size={14} />
       </button>
 
@@ -84,7 +85,7 @@ export function ZoomControl({
         )}
       />
 
-      <button type="button" data-zoom-in aria-label="확대" className={button} onClick={() => onChange(zoom * 1.25)}>
+      <button type="button" data-zoom-in aria-label="확대" className={button} onClick={() => onChange(zoomIn(zoom))}>
  <Icon name="zoom-in" size={14} />
       </button>
 

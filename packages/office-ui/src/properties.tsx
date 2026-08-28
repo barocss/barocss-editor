@@ -172,21 +172,34 @@ export function PropertyTabs({
 /**
  * A row: a label on the left, the controls on the right.
  *
- * A stated height, because a row whose height comes from whatever is in it makes a column of twenty
- * of them ripple — a toggle is 20px, a field is 28, a swatch is 24, and the eye reads the ripple as
- * misalignment rather than as variety. The label is the panel's quiet ink and truncates rather than
- * wrapping: a two-line label pushes its own control out of the rhythm it is supposed to keep.
+ * A stated **minimum** height, because a row whose height comes from whatever is in it makes a column
+ * of twenty of them ripple — a toggle is 20px, a field is 28, a swatch is 24, and the eye reads the
+ * ripple as misalignment rather than as variety. The label is the panel's quiet ink and truncates
+ * rather than wrapping: a two-line label pushes its own control out of the rhythm it keeps.
+ *
+ * ## The controls wrap, and that was found in a browser
+ *
+ * Measured in the site builder's page tab at the panel's own width: 그라디언트 carries four controls —
+ * two swatches, an angle and a shape — and needs **296 pixels in 263**. The last two were simply
+ * **not on screen**: not clipped in a way a reader could scroll to, not greyed, gone. A gradient's
+ * angle and whether it is linear or radial could not be reached at all. 배경 그림 was the same at 273.
+ *
+ * `flex-wrap` costs nothing until a row overflows and then costs one line, which is the right trade
+ * for a panel where most rows hold one control and a few hold four. The alternative — capping what a
+ * row may carry — moves the decision to every declaration and gets it wrong the first time somebody
+ * adds a fifth.
  */
 export function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex min-h-[var(--ou-control-h)] items-center gap-2 text-[length:var(--ou-text)]">
+    <label className="flex min-h-[var(--ou-control-h)] items-start gap-2 py-0.5 text-[length:var(--ou-text)]">
       <span
-        className="w-[var(--ou-label-w)] shrink-0 truncate text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)]"
+        className="flex h-[var(--ou-control-h)] w-[var(--ou-label-w)] shrink-0 items-center truncate text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)]"
         title={label}
       >
         {label}
       </span>
-      <span className="flex min-w-0 flex-1 items-center gap-1.5">{children}</span>
+      {/* `items-center` within a line, so a wrapped row's two lines each sit on their own centre. */}
+      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">{children}</span>
     </label>
   );
 }

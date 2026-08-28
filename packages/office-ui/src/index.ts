@@ -104,7 +104,7 @@ export { useWheelZoom, anchorOf, anchorShift, type WheelZoom } from './wheel-zoo
  * which one a product wants and why the scrolling one cannot anchor a zoom outward from a fitted
  * view.
  */
-export { useViewport, type Viewport, type ViewportControls } from './viewport';
+export { useViewport, zoomIn, zoomOut, ZOOM_STEP, type Viewport, type ViewportControls } from './viewport';
 
 export {
   LENGTH_UNITS,

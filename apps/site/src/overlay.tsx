@@ -51,11 +51,33 @@ import {
  */
 export type PointerMode = 'select' | 'text';
 
+/**
+ * How far away the reader is standing, **asked of the DOM**.
+ *
+ * The plane carries `translate(x, y) scale(z)` and everything inside it — the boards, this overlay —
+ * is drawn at `z`. Which means the number is already in the layout: a board's `getBoundingClientRect`
+ * is its scaled width and its `offsetWidth` is the width it was laid out at, and the ratio is `z`.
+ *
+ * Asked rather than handed in, because a prop makes a scale change a **React** change: it re-renders
+ * every board and every overlay for a number the browser has already applied, and every box those
+ * overlays then recompute comes out the same. A reader reported this as *the rendering breaks when I
+ * only change the scale*, and they were right about the cause — a viewport's scale should move a
+ * transform and nothing else.
+ *
+ * `1` for a board with no width yet, which is the only honest answer before layout.
+ */
+function scaleOf(board: HTMLElement | null): number {
+  if (!board) return 1;
+  const laid = board.offsetWidth;
+  if (!laid) return 1;
+  const shown = board.getBoundingClientRect().width;
+  return shown > 0 ? shown / laid : 1;
+}
+
 export function Overlay({
   editor,
   host,
   page,
-  zoom,
   breakpoint,
   mode,
   onEnterText,
@@ -68,7 +90,6 @@ export function Overlay({
   /** The board this draws over. */
   host: React.RefObject<HTMLDivElement | null>;
   page: string;
-  zoom: number;
   /** Which width this board is, so a drag reads the arrangement **this** board is drawing. */
   breakpoint: BreakpointId;
   mode: PointerMode;
@@ -178,16 +199,30 @@ export function Overlay({
 
       const rect = el.getBoundingClientRect();
       const frame = board.getBoundingClientRect();
-      // Divided by the zoom because this layer lives *inside* the scaled plane: its own pixels are
-      // the board's, and `getBoundingClientRect` answers in the screen's.
+      /*
+       * Divided by the scale because this layer lives *inside* the scaled plane: its own pixels are
+       * the board's, and `getBoundingClientRect` answers in the screen's.
+       *
+       * **Read from the board, not handed in.** It used to be a `zoom` prop, and that one prop was
+       * the whole of a fault a reader reported as *the rendering breaks when I only change the
+       * scale*: every wheel tick changed it, which re-rendered this overlay and every box in it —
+       * three boards' worth of `getBoundingClientRect` per frame — for an answer that **cannot
+       * change**. A box measured in board pixels is scale-invariant by construction: the numerator
+       * and the denominator scale together, which is exactly why the division is here.
+       *
+       * So a zoom now changes one transform and one custom property, and nothing else re-renders at
+       * all. `scaleOf` is the same number the plane is drawn at, asked of the DOM at the moment it is
+       * needed, which is also the only place it cannot be stale.
+       */
+      const scale = scaleOf(board);
       return {
-        left: (rect.left - frame.left) / zoom,
-        top: (rect.top - frame.top) / zoom,
-        width: rect.width / zoom,
-        height: rect.height / zoom
+        left: (rect.left - frame.left) / scale,
+        top: (rect.top - frame.top) / scale,
+        width: rect.width / scale,
+        height: rect.height / scale
       };
     },
-    [host, zoom]
+    [host]
   );
 
   /* Redrawn when the document, the selection, the width or the hover changes. */
@@ -215,7 +250,8 @@ export function Overlay({
   const pointIn = (event: { clientX: number; clientY: number }) => {
     const frame = host.current?.getBoundingClientRect();
     if (!frame) return undefined;
-    return { x: (event.clientX - frame.left) / zoom, y: (event.clientY - frame.top) / zoom };
+    const scale = scaleOf(host.current!);
+    return { x: (event.clientX - frame.left) / scale, y: (event.clientY - frame.top) / scale };
   };
 
   /**
@@ -336,19 +372,19 @@ export function Overlay({
       // Where letting go would put it, on the drawing — so a test can ask what a reader can see.
       data-landing={landing ? String(landing.index) : undefined}
       /*
-       * The zoom, as a number the **stylesheet** can divide by, and nothing else.
+       * `--st-zoom` is **the plane's**, not this layer's — see `canvas.tsx`.
        *
-       * This layer lives inside the scaled plane, so everything drawn here is scaled with the page:
-       * at 40% a selection outline is 0.4 of a pixel and the name chip is unreadable, which is the
-       * opposite of what a marker is for. Every tool of this kind draws its chrome at a constant
-       * size on screen whatever the zoom, and `calc(1px / var(--st-zoom))` is how that is said in
-       * CSS — one number down, and every rule in `style.css` divides by it.
+       * Everything drawn here is inside the scaled plane and so is scaled with the page: at 40% a
+       * selection outline is 0.4 of a pixel and the name chip is unreadable, which is the opposite of
+       * what a marker is for. `calc(1px / var(--st-zoom))` is how a constant on-screen size is said in
+       * CSS, and the number is set once where the scale actually lives and inherited by all three
+       * boards. Set here it was a React prop, and a custom property that arrives through React is a
+       * re-render of every overlay for something the browser could have inherited.
        */
       style={
         {
           // In text mode the board is an ordinary editor again, and this draws without taking anything.
-          pointerEvents: mode === 'select' ? 'auto' : 'none',
-          '--st-zoom': zoom
+          pointerEvents: mode === 'select' ? 'auto' : 'none'
         } as React.CSSProperties
       }
       /*

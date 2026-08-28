@@ -60,7 +60,6 @@ export function PageFrame({
   width,
   page,
   scopeRoot,
-  zoom,
   mode,
   preview,
   onEnterText,
@@ -86,7 +85,6 @@ export function PageFrame({
    * point, never the thing rendered.
    */
   scopeRoot?: string;
-  zoom: number;
   mode: PointerMode;
   /**
    * Whether the board is being **looked at** rather than built.
@@ -231,7 +229,6 @@ export function PageFrame({
             editor={editor}
             host={host}
             page={scopeRoot ?? page}
-            zoom={zoom}
             breakpoint={breakpoint}
             mode={mode}
             onEnterText={onEnterText}

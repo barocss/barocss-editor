@@ -70,7 +70,10 @@ describe('what a key means, and what the menu says it means', () => {
   it('writes a chord the way a menu prints it', () => {
     expect(hintOf('Mod+z')).toBe('⌘Z');
     expect(hintOf('Mod+Shift+z')).toBe('⇧⌘Z');
-    expect(hintOf('Delete')).toBe('Delete');
+    // `Del`, which is the deck's convention and now the suite's — one table of symbols, not three.
+    expect(hintOf('Delete')).toBe('Del');
+    // And the modifiers come out in macOS order whatever order the declaration wrote them in.
+    expect(hintOf('Shift+Mod+z')).toBe('⇧⌘Z');
     expect(hintOf('Shift+1')).toBe('⇧1');
     // `=` and `+` are one key, and the menu names the one on the keycap.
     expect(hintOf('Mod+=')).toBe('⌘+');

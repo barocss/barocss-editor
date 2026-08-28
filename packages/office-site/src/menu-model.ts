@@ -25,7 +25,8 @@
  * *is* — that is the panel's, and the toolbar's.
  */
 
-import { hintFor } from './keymap';
+import { withHints } from '@barocss/office-controls';
+import { SITE_KEYS } from './keymap';
 import { SITE_TOOLBAR } from './toolbar-model';
 import {
   menuCommands,
@@ -285,13 +286,7 @@ const DECLARED: SiteMenu[] = [
  * describe a key that does not work — and a typed `hint` still wins, for the one entry that is a
  * note rather than a chord (미리보기's *Esc로 나가기*).
  */
-export const SITE_MENUS: SiteMenu[] = DECLARED.map((menu) => ({
-  ...menu,
-  blocks: menu.blocks.map((block) => ({
-    ...block,
-    items: block.items.map((item) => ({ ...item, hint: item.hint ?? hintFor(item) }))
-  }))
-}));
+export const SITE_MENUS: SiteMenu[] = withHints(DECLARED, SITE_KEYS);
 
 /** Every command the menubar can run — the harness's question, answered by the model. */
 export function siteMenuCommands(menus: SiteMenu[] = SITE_MENUS): string[] {

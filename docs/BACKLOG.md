@@ -46,6 +46,27 @@ entries are that.
 
 ## Open
 
+### Found walking the site builder in a browser
+
+- [ ] **A `with:` row's companions are drawn with no name.** The declaration has one — `각도`, `모양`,
+  `번짐`, `위쪽`/`오른쪽`/`아래쪽`/`왼쪽` — and the sheet draws the row's *one* label and then bare
+  controls, deliberately: four labelled boxes down a 263-pixel column is what the one-label rule was
+  avoiding. It read acceptably while everything sat on one line and stopped the moment rows began to
+  wrap: a bare `180 °` on a line of its own is a number a reader has to guess at.
+
+  A `title` was tried and reverted — wrapping each control in a box to hang one on broke the row that
+  most needs to stay on one line (안쪽 여백's four numbers each took a line). The real answer is
+  probably not a word at all: every tool of this kind draws padding as a **diagram** and a gradient's
+  angle as a **dial**, and those are drawings rather than labels.
+
+- [ ] **A press on the grey deselects only while editing text.** It is handled by the pointerdown
+  that ends text mode; in `select` mode nothing listens, so a reader who wants to let go of a
+  selection has to press Escape. The two should be the same gesture.
+
+- [ ] **The panel says "블록을 선택하면 …" underneath a full set of page properties.** Read top to
+  bottom it says the panel is empty while showing six rows. The sentence is the block section's empty
+  state and there is no heading between them to say so.
+
 ### A surface can name a command that does nothing
 
 - [ ] **`find` and `findAndReplace` are registered by `editor-core` as `execute: () => true`.** With
@@ -2824,6 +2845,58 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A viewport's scale was a React change.** Reported by a reader in two halves — *"viewport 에 scale
+  만 바꿔도 렌더링이 계속 깨진다"* and *"scale 이 바뀌는 건 viewport 만의 문제라, transform 이랑
+  transform-origin 만 바뀌어야 하는 것 아니냐"* — and the second half is the whole answer.
+
+  The overlay took `zoom` as a **prop**. So every wheel tick re-rendered three boards' overlays and
+  recomputed every marker box with `getBoundingClientRect` — for an answer that **cannot change**: a
+  box is measured in the board's own pixels, which is scale-invariant by construction, and the
+  division by the scale is exactly what makes it so. The number is read off the board now
+  (`getBoundingClientRect().width / offsetWidth`), and `--st-zoom` is set on the plane beside the
+  transform it describes, where the browser inherits it for free.
+
+  Measured after: **not one DOM mutation** on any of the three boards across eight ⌘-wheel zooms,
+  held by a test. The document was never being redrawn — that part was already right — but three
+  overlays' worth of layout reads per frame is what a reader sees as the drawing coming apart.
+
+  And the drift, found while measuring it: ⌘+ five times then ⌘− five times left **69% having
+  started at 70%**. The steps were `round(z * 110) / 100` and `round(z * 90) / 100` — not inverses,
+  1.1 × 0.9 is 0.99, with a round-to-two-decimals inside each compounding it. The `ZoomControl`'s own
+  buttons had it right all along (`z * 1.25`, `z / 1.25`), so the suite held the answer in one place
+  and the wrong answer in another. One `zoomIn`/`zoomOut` in `office-ui` now, and a round trip is
+  exact.
+
+- **Editing text was a mode a reader could get stuck in.** Two more of the same report — *"편집 커서가
+  있어서 selection 된 대상이 바뀌지 않는다"* and *"모바일에서 내가 원하는 편집요소를 클릭할 수 없다,
+  계속 엉뚱한 데 텍스트 커서가 들어가서"* — and they are one fault.
+
+  The mode is the **app's**, which is right: there is one reader and one caret. But the layer that
+  owns the pointer switches itself off in `text` on **all three boards at once**. So the moment a
+  reader double-clicked into a heading on the desktop board, every board became a plain
+  `contenteditable`: a press anywhere on any of them could only place a caret, the block selection
+  could not be changed at all, and the way out was `Escape` — which a reader has no reason to know.
+
+  A press outside the block being edited now ends the editing and selects what was pressed, which is
+  what Figma, Framer and Webflow all do and is what makes text editing a state a reader is *in*
+  rather than a mode they are stuck in. Caught on `pointerdown` in the **capture** phase, because the
+  caret is placed by the default action and the only way not to place one is to get there first.
+
+  Three cases, and each is a test: inside the edited block the caret moves and nothing else; on
+  another block — including on **another board**, which is where the reader met it — the mode ends
+  and that block is selected; on the grey around the boards the mode ends and nothing is selected,
+  because pressing nothing has always meant selecting nothing here.
+
+- **Four controls in a 263-pixel row were simply not on screen.** Found by measuring every row of the
+  properties panel at its own width: 그라디언트 carries a start colour, an end colour, an angle and a
+  shape and needs **296 pixels in 263**; 배경 그림 needs 273. The angle and the shape were not clipped
+  in a way a reader could scroll to — they were **gone**, so a gradient's direction and whether it
+  was linear or radial could not be reached at all.
+
+  `PropertyRow` wraps now, which costs nothing until a row overflows and then costs one line. The
+  alternative — capping what a row may carry — moves the decision into every declaration and gets it
+  wrong the first time somebody adds a fifth control.
 
 - **The menubar taught eleven shortcuts and the product answered none of them.** Measured in a
   browser, chord by chord, with a block selected: ⌘Z, ⇧⌘Z, ⌘X, ⌘C, ⌘V, ⌘A, ⌘F and the four zoom keys

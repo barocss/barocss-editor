@@ -454,3 +454,13 @@ export {
   type MenuEntryModel,
   type MenuModel
 } from './menu';
+export {
+  chordFor,
+  keyCommands,
+  keyFaults,
+  keyFor,
+  keyLabel,
+  matchesKey,
+  withHints,
+  type KeyModel
+} from './keys';

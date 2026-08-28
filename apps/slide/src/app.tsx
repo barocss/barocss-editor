@@ -78,7 +78,13 @@ import { Presenter } from './presenter';
 import { PresenterWindow } from './presenter-window';
 import { Properties } from './properties';
 import { Ribbon } from './ribbon';
-import { SLIDES_MENUS, slidesMenuEntry, slidesMenuId } from '@barocss/office-slides';
+import {
+  SLIDES_KEYS,
+  SLIDES_MENUS,
+  matchesKey,
+  slidesMenuEntry,
+  slidesMenuId
+} from '@barocss/office-slides';
 
 import { Stage } from './stage';
 import { DeckMapView } from './deck-map-view';
@@ -916,11 +922,8 @@ export function App({
    * a dialog, showing a pane, starting a presentation. None of those is a fact about the deck, which
    * is why none of them is a command.
    */
-  const onMenu = useCallback(
-    (id: string) => {
-      const entry = slidesMenuEntry(id);
-      if (!entry) return;
-
+  const runEntry = useCallback(
+    (entry: { command?: string; view?: string; payload?: Record<string, unknown>; needs?: string }) => {
       switch (entry.view) {
         case 'file.new':
           return files.current?.create();
@@ -968,15 +971,46 @@ export function App({
     },
     [editor, current, moveBy, stretches]
   );
+
+  /** A pick in the menubar, which is `runEntry` with the entry looked up. */
+  const onMenu = useCallback(
+    (id: string) => {
+      const entry = slidesMenuEntry(id);
+      if (entry) runEntry(entry);
+    },
+    [runEntry]
+  );
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f') return;
-      event.preventDefault();
-      setFinding(true);
+      if (event.defaultPrevented) return;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
+        event.preventDefault();
+        return setFinding(true);
+      }
+
+      /*
+       * The key map's **view** bindings, which are this app's half of it.
+       *
+       * The overlay runs the ones that name a command, because only it knows what is selected; ⌘S and
+       * F5 have nothing to do with a selection and everything to do with a file and a projector,
+       * which only this layer has heard of. One list, two hosts, and `keyFaults` guarantees a binding
+       * is exactly one of the two.
+       *
+       * Found by pressing what the menubar printed: ⌘S, ⌘M and F5 were all taught and none answered,
+       * because this list could name only commands and two of the three are not commands.
+       */
+      const at = document.activeElement as HTMLElement | null;
+      if (at?.tagName === 'INPUT' || at?.tagName === 'TEXTAREA' || at?.isContentEditable) return;
+      for (const binding of SLIDES_KEYS) {
+        if (!binding.view || !matchesKey(binding, event)) continue;
+        event.preventDefault();
+        return runEntry(binding);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [runEntry]);
 
   const [stepEdit, setStepEdit] = useState<string[]>([]);
   /**

@@ -7,7 +7,7 @@
  * engine below it knows none of that.
  */
 export { getWordSchemaDefinition } from './word-schema';
-export { WORD_KEYBINDINGS } from './word-keymap';
+export { WORD_KEYBINDINGS, WORD_KEYS, WORD_VIEW_KEYS } from './word-keymap';
 export { createWordEditor, createWordExtensions, type WordEditorOptions } from './word-kit';
 export {
   paragraphFormatAttrs,

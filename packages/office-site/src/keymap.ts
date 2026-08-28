@@ -10,45 +10,29 @@
  * kept where the check cannot look is a binding nothing can hold to anything.
  *
  * The deck learned the same thing the same way and its comment says it best: what a product binds is
- * a fact about the product; *how* the press is caught is the host's. Here the host is the overlay,
+ * a fact about the product; *how* the press is caught is the host's. Here the host is the app,
  * because only it knows whether the reader is in the text or holding a block.
+ *
+ * ## …and what a binding *is* is `office-controls`'
+ *
+ * The shape, the matching and the way a chord is written for a reader all moved there once this was
+ * the second product to need them and Word was found to have neither. Three answers to one question
+ * is the fault this repository keeps finding one layer up from where it looks; see `keys.ts` for the
+ * measurement that forced it — seventeen chords taught across the suite, six answered.
  */
 
-export interface SiteKey {
-  /** The chord, with `Mod` for "Cmd on a Mac and Ctrl everywhere else". */
-  key: string;
-  /** What it runs. A binding names a command **or** a view, exactly as a menu entry does. */
-  command?: string;
+import { keyFor, keyLabel, chordFor, keyCommands, type KeyModel } from '@barocss/office-controls';
+
+export interface SiteKey extends KeyModel {
   /**
-   * …or how the reader is looking, which is not a command and never will be.
+   * **Required here**, unlike in the shared shape.
    *
-   * The zoom is the app's, not the document's — `menu-model.ts` made the same split for the same
-   * reason, and a key map that could only name commands would have left every chord in 보기 unbound
-   * while the menu went on teaching them.
-   */
-  view?: string;
-  /** What the command is given. Fixed, because the chord says which case it is. */
-  payload?: Record<string, unknown>;
-  /**
-   * Which mode the press belongs to.
-   *
-   * `select` is the builder's own: the reader is holding blocks, so `Delete` means *take this away*.
-   * In `text` the very same key is a letter, and a builder that took it would be a builder nobody
-   * could write a sentence in.
+   * A builder has two modes and every binding belongs to one of them: `select` is its own — the
+   * reader is holding blocks, so `Delete` means *take this away* — and in `text` the very same key
+   * is a letter. A product with one mode leaves this out; one with two cannot.
    */
   mode: 'select' | 'text' | 'any';
-  /** Whether something has to be selected for this to mean anything. */
-  needsSelection?: boolean;
-  /**
-   * What the act needs told, in the menu's own word.
-   *
-   * `'page'` means *the page on screen*, which the model has no notion of and should not grow one —
-   * so the app says it. Named the same way `MenuEntryModel` names it because it is the same fact: a
-   * chord and a menu entry are two ways to reach one act, and the act needs the same thing either
-   * way. Without it ⌘A reached `selectAllBlocks` with no page and the command refused, correctly.
-   */
-  needs?: 'page';
-  /** What a reader would be told this does, in a tooltip or a menu. */
+  /** And a name, because every binding here is offered somewhere a reader can read it. */
   label: string;
 }
 
@@ -137,7 +121,7 @@ export const SITE_KEYS: SiteKey[] = [
 
 /** Every command the keys reach, for the check that asks what a reader can run. */
 export function siteKeyCommands(): string[] {
-  return [...new Set(SITE_KEYS.map((entry) => entry.command).filter((one): one is string => !!one))];
+  return keyCommands(SITE_KEYS);
 }
 
 /**
@@ -150,86 +134,26 @@ export function siteKeyCommands(): string[] {
  * is the honest thing for a menu to say about a key that does not work.
  */
 export function hintFor(what: { command?: string; view?: string }): string | undefined {
-  const found = SITE_KEYS.find(
-    (entry) =>
-      (what.command !== undefined && entry.command === what.command) ||
-      (what.view !== undefined && entry.view === what.view)
-  );
-  return found ? hintOf(found.key) : undefined;
+  return keyLabel(chordFor(SITE_KEYS, what));
 }
 
-/** A chord in the symbols a menu prints. */
+/** A chord in the symbols a menu prints — `office-controls`', so all three products write one alike. */
 export function hintOf(chord: string): string {
-  const parts = chord.split('+');
-  // A trailing `+` splits into an empty last part; the key is then `+` itself.
-  const key = parts[parts.length - 1] || '+';
-  const wants = new Set(parts.slice(0, -1).map((one) => one.toLowerCase()));
-  const said = [
-    wants.has('ctrl') ? '⌃' : '',
-    wants.has('alt') ? '⌥' : '',
-    wants.has('shift') ? '⇧' : '',
-    wants.has('mod') ? '⌘' : ''
-  ].join('');
-  /*
-   * `=` prints as `+`. They are one key, and every application shows the one on the keycap — a menu
-   * that read `⌘=` would be describing the chord correctly and naming a key nobody looks for.
-   */
-  const shown = key === '=' ? '+' : key.length === 1 ? key.toUpperCase() : key;
-  return `${said}${shown}`;
+  return keyLabel(chord) ?? chord;
 }
 
-/**
- * Whether a press matches a chord.
- *
- * Here rather than in the host so the list and the matching cannot drift: a chord written `Mod+d`
- * and matched by a handler that forgot the modifier is two statements about one binding.
- */
+/** Whether a press matches a chord. */
 export function matchesSiteKey(
   entry: SiteKey,
-  event: {
-    key: string;
-    /** Where the key **is**, which is the only reliable way to match a digit — see below. */
-    code?: string;
-    metaKey?: boolean;
-    ctrlKey?: boolean;
-    shiftKey?: boolean;
-    altKey?: boolean;
-  }
+  event: Parameters<typeof keyFor>[1]
 ): boolean {
-  const parts = entry.key.split('+');
-  const key = parts[parts.length - 1];
-  const wants = new Set(parts.slice(0, -1).map((one) => one.toLowerCase()));
-
-  /*
-   * A **digit** is matched by its place on the keyboard rather than by what it types. `Shift+1` types
-   * `!` on a US layout and something else on half a dozen others, so a chord compared against
-   * `event.key` would be a chord that works on one keyboard. Everything else is compared as typed,
-   * which is what a letter chord means.
-   */
-  if (/^[0-9]$/.test(key)) {
-    if (event.code !== `Digit${key}`) return false;
-  } else if (key.toLowerCase() !== event.key.toLowerCase()) return false;
-  // `Mod` is one key on a Mac and another everywhere else, and a reader means the same thing by it.
-  const mod = !!event.metaKey || !!event.ctrlKey;
-  if (wants.has('mod') !== mod) return false;
-  if (wants.has('shift') !== !!event.shiftKey) return false;
-  if (wants.has('alt') !== !!event.altKey) return false;
-  return true;
+  return !!keyFor([entry], event);
 }
 
 /** The binding a press means, given where the reader is. */
 export function siteKeyFor(
-  event: {
-    key: string;
-    code?: string;
-    metaKey?: boolean;
-    ctrlKey?: boolean;
-    shiftKey?: boolean;
-    altKey?: boolean;
-  },
+  event: Parameters<typeof keyFor>[1],
   mode: 'select' | 'text'
 ): SiteKey | undefined {
-  return SITE_KEYS.find(
-    (entry) => (entry.mode === 'any' || entry.mode === mode) && matchesSiteKey(entry, event)
-  );
+  return keyFor(SITE_KEYS, event, mode);
 }

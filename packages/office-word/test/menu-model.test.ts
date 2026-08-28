@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { menuFaults } from '@barocss/office-controls';
+import { chordFor, keyFaults, keyLabel, menuFaults } from '@barocss/office-controls';
+import { WORD_KEYS, WORD_VIEW_KEYS } from '../src/word-keymap';
 import { WORD_MENUS, wordMenuCommands, wordMenuEntry, wordMenuId } from '../src/menu-model';
 import { createWordEditor } from '../src/word-kit';
 
@@ -45,5 +46,43 @@ describe('what the menubar offers', () => {
 
   it('puts 파일 first, where a reader looks for it', () => {
     expect(WORD_MENUS[0].label).toBe('파일');
+  });
+
+  /**
+   * And the chords, which a browser had to be opened to distrust.
+   *
+   * Pressed one at a time with a caret in the document: ⌘+, ⌘- and ⌘0 were printed beside their
+   * labels in 보기 and **none of them did anything**, while pressing the entries worked. The chords
+   * were typed here rather than read from a binding, so nothing could tell that no binding existed.
+   */
+  it('prints a chord only where Word binds one', () => {
+    for (const menu of WORD_MENUS) {
+      for (const block of menu.blocks) {
+        for (const item of block.items) {
+          const bound = chordFor(WORD_KEYS, item);
+          if (bound) expect(item.hint, item.label).toBe(keyLabel(bound));
+          /*
+           * ⌘P is the one typed chord, and it is a claim: printing is the **browser's**, hooked at
+           * `beforeprint`, so it is a fact about the platform rather than something Word binds. The
+           * list is written out because it is short and every line on it is a claim.
+           */
+          else expect(item.hint ? { [item.label]: item.hint } : undefined, item.label).toEqual(
+            item.label === '인쇄' ? { 인쇄: '⌘P' } : undefined
+          );
+        }
+      }
+    }
+  });
+
+  it('offers every view it binds a key to somewhere a reader can find it', () => {
+    // A chord nobody can discover is a chord only the person who wrote it knows about.
+    const offered = new Set(
+      WORD_MENUS.flatMap((menu) => menu.blocks.flatMap((block) => block.items.map((one) => one.view)))
+    );
+    for (const key of WORD_VIEW_KEYS) expect.soft(offered.has(key.view), key.key).toBe(true);
+  });
+
+  it('binds a command or a view and says exactly one', () => {
+    expect(keyFaults(WORD_KEYS)).toEqual([]);
   });
 });

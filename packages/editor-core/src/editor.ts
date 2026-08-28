@@ -290,17 +290,20 @@ export class Editor implements ContextProvider {
       canExecute: () => true
     });
 
-    this.registerCommand({
-      name: 'find',
-      execute: () => true,
-      canExecute: () => true
-    });
-
-    this.registerCommand({
-      name: 'findAndReplace',
-      execute: () => true,
-      canExecute: () => true
-    });
+    /*
+     * `find` and `findAndReplace` **were registered here**, as `execute: () => true` with
+     * `canExecute: () => true` beside them — the pair that makes a control always offered and never
+     * working. Found by pressing 편집 › 찾기 in the site builder and watching nothing happen: the
+     * entry lit up, ran, reported success, and drew nothing.
+     *
+     * It was worse than an empty menu entry. Word binds ⌘F to its own find pane and the engine
+     * resolved the chord *first*, called `preventDefault`, ran the stub, and swallowed the key — so
+     * the stub was actively stopping the real thing from opening. The default bindings for both went
+     * with them; a product with a find registers it (`FindReplaceExtension`) and binds its own chord.
+     *
+     * The general lesson is in `BACKLOG.md`: nothing here checks that a surface's command *does*
+     * anything, and a command whose body is `() => true` satisfies every check there is.
+     */
   }
 
   private _registerDefaultKeybindings(): void {

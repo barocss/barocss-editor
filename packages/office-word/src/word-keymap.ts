@@ -1,4 +1,5 @@
 import type { Keybinding } from '@barocss/editor-core';
+import type { KeyModel } from '@barocss/office-controls';
 
 /**
  * Word's key map.
@@ -177,6 +178,52 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   { key: 'Mod+a', command: 'selectAll', when: 'editorFocus' },
 
   // ── Search ─────────────────────────────────────────────────────────────────
-  { key: 'Mod+f', command: 'find', when: 'editorFocus' },
+  //
+  // `Mod+f` was here, bound to `find` — and `editor-core` registers `find` as `execute: () => true`,
+  // a stub. So Word's ⌘F ran nothing while Word's *menu* opened a real pane through `view: 'find'`:
+  // one label, two behaviours, and the keyboard was the one that did nothing. It is a view binding
+  // now, below, where the thing it opens actually lives.
   { key: 'Mod+h', command: 'replace', when: 'editorFocus' }
 ];
+
+/**
+ * …and the keys that change **how the reader is looking** rather than the document.
+ *
+ * A second list because the engine's registry can only run **commands**, and none of these is one: a
+ * zoom, a find pane and an outline are the app's, and a command for any of them would be telling the
+ * harness something exists which does not. The menu model has said so with `view:` since it was
+ * written; the key map had no way to.
+ *
+ * Which is exactly what a browser measured: ⌘+, ⌘- and ⌘0 were printed in 보기 beside their labels
+ * and **none of the three did anything**, while pressing the entries worked. The chords were typed
+ * beside the labels rather than read from a binding, so nothing could tell that no binding existed.
+ *
+ * ⌘P is not here on purpose. Printing is the **browser's** — the app hooks `beforeprint` so a
+ * document laid out in pages comes out whichever way it was asked for — so the menu prints that one
+ * chord itself, marked, and Word's test holds the marking to a written list.
+ */
+export const WORD_VIEW_KEYS: KeyModel[] = [{ key: 'Mod+f', view: 'find', label: '찾기' }];
+
+/*
+ * ## And the zoom is deliberately **not** bound, which the check is what settled
+ *
+ * The menu printed ⌘+, ⌘- and ⌘0 and nothing answered them, so the first repair was to bind them —
+ * and `keyFaults` reported `Mod+=` bound twice. It is bound to **subscript**, twenty lines up, which
+ * is Word's own shortcut and has been since long before this: `Ctrl+=` is subscript and
+ * `Ctrl+Shift+=` is superscript in every version of it.
+ *
+ * So the invented chord was the wrong half of the pair, not the missing binding. Word has no keyboard
+ * zoom — its zoom is a slider in the status bar and three entries in 보기 — and binding two thirds of
+ * a zoom (⌘- and ⌘0, leaving ⌘+ to subscript) would be worse than none: a reader who can zoom out and
+ * not in has found a bug rather than a shortcut.
+ *
+ * The menu prints nothing beside those three now, which is what an entry with no binding should say.
+ */
+
+/**
+ * Everything Word binds, for the one question a menu asks of a key map: *is this chord real?*
+ *
+ * Both lists, because a reader does not care which layer answers a press. `WORD_KEYBINDINGS` is the
+ * engine's — resolved against a caret, gated on `editorFocus` — and `WORD_VIEW_KEYS` is the app's.
+ */
+export const WORD_KEYS: KeyModel[] = [...WORD_VIEW_KEYS, ...WORD_KEYBINDINGS];

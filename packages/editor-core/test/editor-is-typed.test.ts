@@ -69,8 +69,12 @@ describe('the editor is a type, not an escape hatch', () => {
    * the same shape: `(editor as never as { getRootId?: () => string }).getRootId?.()` and
    * `(editor as never as { dataStore?: … }).dataStore` — over two members the class declares
    * publicly. Which is the finding this file was written about, arriving again.
+   *
+   * 339 → 338 when the site builder's `keydown` stopped restating its own key map: two branches that
+   * each cast the editor to call `executeCommand` became one `runEntry`. A cast disappearing because
+   * a duplicate declaration was removed is the ordinary way this number falls.
    */
-  const ALLOWED = 339;
+  const ALLOWED = 338;
 
   it('declares everything the casts are casting away', () => {
     const source = readFileSync(join(__dirname, '..', 'src', 'editor.ts'), 'utf8');

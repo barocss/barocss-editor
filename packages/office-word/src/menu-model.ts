@@ -28,8 +28,10 @@ import {
   menuId,
   type MenuBlockModel,
   type MenuEntryModel,
-  type MenuModel
+  type MenuModel,
+  withHints
 } from '@barocss/office-controls';
+import { WORD_KEYS } from './word-keymap';
 
 export type WordMenuEntry = MenuEntryModel;
 export type WordMenuBlock = MenuBlockModel;
@@ -41,7 +43,7 @@ export type WordMenu = MenuModel;
  * 파일 first, because that is where it is in every application a reader has used, and a reader
  * looking for *how do I print this* looks there before they look anywhere else.
  */
-export const WORD_MENUS: WordMenu[] = [
+const DECLARED: WordMenu[] = [
   {
     id: 'file',
     label: '파일',
@@ -65,8 +67,8 @@ export const WORD_MENUS: WordMenu[] = [
       {
         id: 'history',
         items: [
-          { command: 'historyUndo', label: '실행 취소', hint: '⌘Z' },
-          { command: 'historyRedo', label: '다시 실행', hint: '⇧⌘Z' }
+          { command: 'historyUndo', label: '실행 취소' },
+          { command: 'historyRedo', label: '다시 실행' }
         ]
       },
       {
@@ -76,7 +78,7 @@ export const WORD_MENUS: WordMenu[] = [
          * prevent — a shortcut is a *second* way to reach something, never the only one.
          */
         id: 'find',
-        items: [{ view: 'find', label: '찾기', hint: '⌘F' }]
+        items: [{ view: 'find', label: '찾기' }]
       }
     ]
   },
@@ -99,14 +101,27 @@ export const WORD_MENUS: WordMenu[] = [
       {
         id: 'zoom',
         items: [
-          { view: 'zoom.in', label: '확대', hint: '⌘+' },
-          { view: 'zoom.out', label: '축소', hint: '⌘-' },
-          { view: 'zoom.reset', label: '실제 크기', hint: '⌘0' }
+          { view: 'zoom.in', label: '확대' },
+          { view: 'zoom.out', label: '축소' },
+          { view: 'zoom.reset', label: '실제 크기' }
         ]
       }
     ]
   }
 ];
+
+/**
+ * …and the same menus with each entry's **chord filled in from what Word binds**.
+ *
+ * Both lists — the engine's `WORD_KEYBINDINGS` and the app's `WORD_VIEW_KEYS` — because a reader does
+ * not care which layer answers a press. What they do care about is that the chord printed beside a
+ * label is one the product answers, and a browser found three that were not: ⌘+, ⌘- and ⌘0 were all
+ * taught in 보기 and none of them did anything.
+ *
+ * ⌘P stays typed above, and it is the only one: printing is the browser's, so that chord is a fact
+ * about the platform rather than a binding Word could derive.
+ */
+export const WORD_MENUS: WordMenu[] = withHints(DECLARED, WORD_KEYS);
 
 /** Every command the menubar can run — the harness's question, answered by the model. */
 export function wordMenuCommands(menus: WordMenu[] = WORD_MENUS): string[] {

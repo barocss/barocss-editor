@@ -133,7 +133,22 @@ export function Canvas({
       <div
         ref={plane}
         className="st-plane"
-        style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, transformOrigin: '0 0' }}
+        /*
+         * `--st-zoom` **here**, with the transform it describes.
+         *
+         * Every marker inside a board counter-scales by it — `calc(1px / var(--st-zoom))` — so that a
+         * selection outline is a hairline at 40% and at 400%. It used to be set on each overlay from
+         * a React prop, which made a scale change a re-render of three boards and every box in them,
+         * for a number the browser inherits for free. A viewport's scale moves a transform; this is
+         * the one other thing it changes, and it changes in the same place.
+         */
+        style={
+          {
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
+            transformOrigin: '0 0',
+            '--st-zoom': view.zoom
+          } as React.CSSProperties
+        }
       >
         <div className="st-boards">{children}</div>
       </div>

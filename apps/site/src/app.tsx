@@ -12,11 +12,15 @@ import {
   ZoomControl,
   useRevision,
   useViewport,
+  zoomIn,
+  zoomOut,
   type Viewport
 } from '@barocss/office-ui';
 import {
   BREAKPOINTS,
   SITE_MENUS,
+  drawnSidAtElement,
+  outermostOf,
   siteKeyFor,
   siteMenuEntry,
   siteMenuId,
@@ -368,10 +372,18 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
          * distinction cost a reader their top-left corner once already. So these go through the same
          * `setView` every other zoom gesture does, rather than being a second idea of what zoom is.
          */
+        /*
+         * One ladder, shared with the zoom control's own buttons — `office-ui`'s `zoomIn`/`zoomOut`.
+         *
+         * These were `round(z * 110) / 100` and `round(z * 90) / 100`, which are **not inverses**:
+         * measured with the keyboard, ⌘+ five times and ⌘− five times took 70% to 69%, and every
+         * round trip a reader makes drifts a little further. `useViewport` clamps the ends, so the
+         * `Math.min`/`Math.max` that used to be here were a second opinion about the limits as well.
+         */
         case 'zoom.in':
-          return controls.zoomAt(Math.min(4, Math.round(view.zoom * 110) / 100));
+          return controls.zoomAt(zoomIn(view.zoom));
         case 'zoom.out':
-          return controls.zoomAt(Math.max(0.1, Math.round(view.zoom * 90) / 100));
+          return controls.zoomAt(zoomOut(view.zoom));
         case 'zoom.reset':
           return controls.zoomAt(1);
         case 'zoom.fit':
@@ -633,6 +645,70 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   }, [editor, mode, entered, scope, scopeRoot, preview, runEntry]);
 
   /**
+   * **A press outside what is being edited leaves the text**, and selects what was pressed.
+   *
+   * ## What this was reported as
+   *
+   * Two things, and they are one thing: *"편집 커서가 있어서 selection 된 대상이 바뀌지 않음"* and
+   * *"모바일에서 내가 원하는 편집요소를 클릭 할 수 없음 — 계속 엉뚱한 데 텍스트 커서가 들어가서."*
+   *
+   * The mode is the **app's**, which is right — there is one reader and one caret — but the overlay
+   * that owns the pointer switches itself off in `text`, on **all three boards at once**. So the
+   * moment a reader double-clicked a heading on the desktop board, every board became a plain
+   * `contenteditable`: a press anywhere on any of them could only put a caret, the block selection
+   * could not be changed at all, and the way out was `Escape` — which a reader has no reason to know.
+   *
+   * ## What every tool of this kind does instead
+   *
+   * Editing text is scoped to **one object**. A press inside it moves the caret; a press outside it
+   * ends the editing and selects whatever was pressed. Figma, Framer and Webflow are identical here,
+   * and it is what makes editing text a state a reader is *in* rather than a mode they are stuck in.
+   *
+   * Caught on `pointerdown` in the **capture** phase, because the caret is placed by the default
+   * action and the only way to not place one is to get there first. And only over the plane: a press
+   * in the rail, the panel or a menu belongs to that surface.
+   */
+  useEffect(() => {
+    if (mode !== 'text' || !editor) return;
+
+    const onDown = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (!target) return;
+
+      const frame = target.closest('.st-frame');
+      // The chrome is not the document: a press in a field while editing belongs to that field.
+      if (!frame && !target.closest('.st-canvas')) return;
+
+      /*
+       * Inside the block being edited: an ordinary caret move, which is the whole of what text mode
+       * is for. `data-bc-sid` is on the drawn element and a run inside it answers `closest` — and
+       * the same block is drawn on three boards, so this is true on whichever one the reader is on.
+       */
+      if (entered && target.closest(`[data-bc-sid="${CSS.escape(entered)}"]`)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      setMode('select');
+      setEntered(undefined);
+
+      const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } }).dataStore;
+      const doc = { getNode: (sid: string) => store?.getNode(sid) };
+      const board = frame?.querySelector<HTMLElement>('.st-frame-host');
+      const hit = board ? drawnSidAtElement(target, board) : undefined;
+      /*
+       * The **outermost** block, which is what a plain press means everywhere else in this product.
+       * A press on the grey around the boards selects nothing, which is what pressing nothing has
+       * always meant here.
+       */
+      const block = hit ? outermostOf(doc as never, hit, scopeRoot) : undefined;
+      void editor.executeCommand('setNode', { nodeIds: block ? [block] : [] });
+    };
+
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, [mode, entered, editor, scopeRoot]);
+
+  /**
    * Fit: as far back as the reader has to stand to see every board at once.
    *
    * Measured from what is drawn rather than computed from the widths, because the gaps, the frame
@@ -820,7 +896,6 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                     page={root}
                     scopeRoot={scopeRoot}
                     redraw={redraw}
-                    zoom={zoom}
                     mode={mode}
                     onEnterText={(sid) => {
                       setEntered(sid);
