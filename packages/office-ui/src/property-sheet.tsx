@@ -128,7 +128,17 @@ export function PropertySheet<Row extends SheetRow>({
    * `null` means the product asked for this row to be hidden; `undefined` means it drew nothing and
    * this sheet has no kind for it either, which is visible as an empty row rather than guessed at.
    */
-  const control = (row: Row | SheetRow): React.ReactNode | null | undefined => {
+  const control = (
+    row: Row | SheetRow,
+    /**
+     * That this is a **companion** — one of the controls sharing a row's single label.
+     *
+     * A companion cannot borrow that label: it is one of two, three or five things on the line, and
+     * the label names the first of them. So a companion draws its own short name inside the field,
+     * which is what `W`/`H` are in every inspector, and costs no line to do it. See `PanelRow.with`.
+     */
+    beside = false
+  ): React.ReactNode | null | undefined => {
     const one = row as Row;
     const own = render?.(one);
     if (own === null) return null;
@@ -185,7 +195,14 @@ export function PropertySheet<Row extends SheetRow>({
              */
             onClear={() => onWrite(one, undefined)}
             ariaLabel={one.ariaLabel}
-            suffix={suffix ? suffix(one) : one.unit}
+            prefix={beside ? one.label : undefined}
+            /*
+             * A companion carrying its own name does **not** repeat the unit. Measured at 240px:
+             * five fields in one row's control area is 34 pixels each, and `상 112 px` in 34 pixels
+             * draws as `p상`. The row's own field says `px` once, which is where a reader reads it —
+             * the four sides of a padding are the same unit by definition.
+             */
+            suffix={beside ? undefined : suffix ? suffix(one) : one.unit}
             min={one.min}
             max={one.max}
             disabled={disabled}
@@ -210,7 +227,13 @@ export function PropertySheet<Row extends SheetRow>({
             key={key(one)}
             value={current === true}
             onChange={(next) => onWrite(one, next)}
-            label={one.label}
+            /*
+             * **The word once.** A toggle that is a row's own control sits beside that row's label,
+             * and drawing its own text there made every switch read `보임  ☐ 보임`. A companion keeps
+             * its text, because there is no label beside it to borrow — the same split the number
+             * fields make with `prefix`.
+             */
+            label={beside ? one.label : undefined}
             ariaLabel={one.ariaLabel}
             disabled={disabled}
           />
@@ -260,13 +283,38 @@ export function PropertySheet<Row extends SheetRow>({
              * weight, and three rows of it would be three labels saying almost the same word down a
              * 280px column. A companion that draws nothing is left out rather than left blank.
              */
-            const beside = (row.with ?? []).map(control).filter((one) => one !== null && one !== undefined);
+            const drawnBeside = (row.with ?? [])
+              .map((one) => ({ one, what: control(one, true) }))
+              .filter(({ what }) => what !== null && what !== undefined);
+            const kept = drawnBeside.map(({ one }) => one);
+            const beside = drawnBeside.map(({ what }) => what);
+            /*
+             * **A grid is for a set of the same kind.**
+             *
+             * Three or more numbers are a box's four sides or a shadow's three amounts: they are one
+             * idea measured several ways, they read as a block, and two to a line is the shape every
+             * inspector draws them in. A *mixed* set is not that — `그라디언트` is an end colour, an
+             * angle and a shape, three different questions — and forcing those into equal cells cut
+             * the colour's own name to `없` to make room for a cell it had nothing to do with.
+             */
+            const grid = kept.length >= 3 && kept.every((one) => one.control === 'number');
             if (drawn === undefined && beside.length === 0) return null;
 
             return (
               <Cell key={key(row)} row={row} marked={marked}>
                 {drawn}
-                {beside}
+                {/*
+                  **Three or more companions go two to a line**, which is what a padding is.
+
+                  Four numbers strung along one line are four numbers 34 pixels wide; two lines of
+                  two are 80, which is a number a reader can read and retype. It is also the shape
+                  every inspector draws for a box's four sides, and the shape says what the labels
+                  would otherwise have to say twice — these belong together, and there are four.
+
+                  One or two stay on the line: `그라디언트`'s end colour beside its start colour is a
+                  pair a reader reads across, and a grid would separate them.
+                */}
+                {grid ? <span className="grid w-full grid-cols-2 gap-1">{beside}</span> : beside}
               </Cell>
             );
           })}

@@ -233,11 +233,20 @@ export const SITE_PANEL: SitePanelRow[] = [
      * reads. What forced the four is that a hero is 96 above and 64 below, and until now the answer
      * to that was a second stack.
      */
+    /*
+     * The four say **상 우 하 좌** now, and the word is the field's own rather than a row's.
+     *
+     * They were 위/오른쪽/아래/왼쪽 and drawn nowhere at all: the sheet draws a row's one label and
+     * then bare controls, so four numbers sat in a line with nothing to tell them apart. Inside the
+     * field the name costs no line, which is the whole reason it can be there — and one character
+     * is what fits, which is what the Sino-Korean pair 상하좌우 is for. `ariaLabel` keeps the long
+     * form, because a screen reader has the room and no adjacency to read from.
+     */
     with: [
-      { attr: 'paddingTop', command: 'setBlockFormat', group: '배치', tab: 'block', label: '위', ariaLabel: '위쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'paddingRight', command: 'setBlockFormat', group: '배치', tab: 'block', label: '오른쪽', ariaLabel: '오른쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'paddingBottom', command: 'setBlockFormat', group: '배치', tab: 'block', label: '아래', ariaLabel: '아래쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'paddingLeft', command: 'setBlockFormat', group: '배치', tab: 'block', label: '왼쪽', ariaLabel: '왼쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS }
+      { attr: 'paddingTop', command: 'setBlockFormat', group: '배치', tab: 'block', label: '상', ariaLabel: '위쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'paddingRight', command: 'setBlockFormat', group: '배치', tab: 'block', label: '우', ariaLabel: '오른쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'paddingBottom', command: 'setBlockFormat', group: '배치', tab: 'block', label: '하', ariaLabel: '아래쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'paddingLeft', command: 'setBlockFormat', group: '배치', tab: 'block', label: '좌', ariaLabel: '왼쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS }
     ]
   },
   /**
@@ -506,10 +515,21 @@ export const SITE_PANEL: SitePanelRow[] = [
      * tab, a speech bubble, or a card whose top is flush with the picture above it.
      */
     with: [
-      { attr: 'cornerTopLeft', command: 'setBlockFormat', group: '상자', tab: 'style', label: '↖', ariaLabel: '왼쪽 위 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'cornerTopRight', command: 'setBlockFormat', group: '상자', tab: 'style', label: '↗', ariaLabel: '오른쪽 위 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'cornerBottomRight', command: 'setBlockFormat', group: '상자', tab: 'style', label: '↘', ariaLabel: '오른쪽 아래 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'cornerBottomLeft', command: 'setBlockFormat', group: '상자', tab: 'style', label: '↙', ariaLabel: '왼쪽 아래 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS }
+    /*
+     * **상좌 상우 하우 하좌**, and they used to be `↖ ↗ ↘ ↙`.
+     *
+     * Which nothing drew, so nobody had seen them: a companion's label was declared and unread until
+     * the field started carrying its own name. Drawn, they are four arrows standing in for four
+     * pictures of a corner — an icon made out of a character, which is the one thing this repository
+     * has written down about icons. The same shorthand the padding row uses, in the same vocabulary.
+     *
+     * A corner honestly wants a **drawing** — a square with one rounded corner, which is what every
+     * design tool puts here and what `office-icons` has no entry for. See `BACKLOG.md`.
+     */
+      { attr: 'cornerTopLeft', command: 'setBlockFormat', group: '상자', tab: 'style', label: '상좌', ariaLabel: '왼쪽 위 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'cornerTopRight', command: 'setBlockFormat', group: '상자', tab: 'style', label: '상우', ariaLabel: '오른쪽 위 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'cornerBottomRight', command: 'setBlockFormat', group: '상자', tab: 'style', label: '하우', ariaLabel: '오른쪽 아래 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'cornerBottomLeft', command: 'setBlockFormat', group: '상자', tab: 'style', label: '하좌', ariaLabel: '왼쪽 아래 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS }
     ]
   },
   { attr: 'clipsContent', command: 'setBlockFormat', group: '상자', tab: 'style', label: '넘침', ariaLabel: '넘치는 것 자르기', control: 'toggle', on: STACKS },

@@ -45,23 +45,39 @@ export function PropertyPanel({
       aria-label={title}
       className={cn(
         /*
-         * 288px, up from 256.
+         * **240px**, which is what a design tool's inspector is.
          *
-         * A fill row is a swatch, a kind, an opacity, an eye and a bin — five
-         * controls — and at 256 the opacity box showed "10C". The panel's width
- * is not a taste: it is whatever the widest row honestly needs.
- */
-        'office-properties flex w-72 shrink-0 flex-col overflow-y-auto',
+         * It was 288 — up from 256 because a fill row is a swatch, a kind, an opacity, an eye and a
+         * bin, and at 256 the opacity box read "10C". That reasoning was right and the remedy was
+         * the wrong one: the answer to a row that does not fit is a row that **wraps**, not a panel
+         * that grows, and a panel grows once and then never comes back. Every serious tool of this
+         * kind is between 232 and 248 — Figma 240, Sketch 240, Illustrator 232 — and the number is
+         * not a taste either: it is about how far the eye travels between a label and its value.
+         *
+         * 48 pixels of canvas back, on every screen, for the whole life of the product.
+         */
+        'office-properties flex w-60 shrink-0 flex-col overflow-y-auto',
         /*
          * Inside a panel a field has no resting edge — see `--ou-field-line`. Set here rather than in
          * every control, because it is a fact about *this surface* and not about any one row.
          */
         '[--ou-field-line:transparent]',
+        /*
+         * And the panel's own **scale**, for the same reason: this surface is denser than a toolbar.
+         *
+         * A ribbon's control is a thing to press once and wants a press-sized target; a panel is
+         * twenty rows a reader scans, and 28px rows with a 68px label column put a two-line gap
+         * between what a value is called and what it says. The tokens are the mechanism the
+         * stylesheet already had — `[data-density='dense']` says the same thing about instruments —
+         * used here on the surface that needed it rather than by changing what a control is
+         * everywhere.
+         */
+        '[--ou-control-h:24px] [--ou-text:11px] [--ou-text-small:10px] [--ou-label-w:58px]',
  'border-l border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] text-[color:var(--ou-ink)]',
  className
       )}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-[color:var(--ou-line)] px-3 py-1.5">
+      <div className="flex items-center justify-between gap-2 border-b border-[color:var(--ou-line)] px-2 py-1.5">
  <h2 className="text-[length:var(--ou-text-small)] font-semibold uppercase tracking-wider text-[color:var(--ou-muted)]">
  {title}
         </h2>
@@ -101,13 +117,13 @@ export function PropertyGroup({
   return (
     <section
       className={cn(
-        'flex flex-col gap-1.5 px-3 py-2.5',
+        'flex flex-col gap-0.5 px-2 py-2',
  // The rule between sections, and none above the first: a line at the top
         // of a panel is a line under its own header.
         'border-t border-[color:var(--ou-line)] first:border-t-0'
  )}
     >
-      <div className="flex h-5 items-center justify-between">
+      <div className="mb-0.5 flex h-4 items-center justify-between">
         {/*
           10px and tracked, which is the size a *label* is rather than a heading: a section's name is
           there to be found when a reader looks for it and to disappear when they do not. At the
@@ -191,7 +207,7 @@ export function PropertyTabs({
  */
 export function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex min-h-[var(--ou-control-h)] items-start gap-2 py-0.5 text-[length:var(--ou-text)]">
+    <label className="flex min-h-[var(--ou-control-h)] items-start gap-1.5 text-[length:var(--ou-text)]">
       <span
         className="flex h-[var(--ou-control-h)] w-[var(--ou-label-w)] shrink-0 items-center truncate text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)]"
         title={label}
@@ -220,6 +236,7 @@ export function PropertyNumber({
  value,
  onCommit,
   suffix,
+  prefix,
   disabled,
   ariaLabel,
   step = 1
@@ -228,6 +245,8 @@ export function PropertyNumber({
   value: number | null;
   onCommit: (value: number) => void;
   suffix?: string;
+  /** A short name inside the field, for a number that shares a line — see `NumberField`. */
+  prefix?: string;
   disabled?: boolean;
   ariaLabel: string;
   step?: number;
@@ -251,9 +270,15 @@ export function PropertyNumber({
       value={value}
       onCommit={onCommit}
       suffix={suffix}
+      prefix={prefix}
       step={step}
       decimals={2}
-      padding="px-1.5"
+      /*
+       * A prefixed field has its left padding **already**, in the shape of its own name — measured
+       * on the gradient row, `각도` plus `px-1.5` left an input 40 pixels wide needing 44, so the
+       * last digit of `180` was cut. Padding twice is what made it four short.
+       */
+      padding={prefix ? 'pl-0 pr-1.5' : 'px-1.5'}
       disabled={disabled}
       ariaLabel={ariaLabel}
     />
@@ -329,7 +354,13 @@ export function PropertyToggle({
 }: {
   value: boolean;
   onChange: (value: boolean) => void;
-  label: string;
+  /**
+   * The word beside the box — **or nothing**, when the row it sits in already carries it.
+   *
+   * A toggle that is a row's own control was drawing its name a second time: `보임  ☐ 보임`, on every
+   * switch in the panel. A companion keeps its text, because there is no label beside it to borrow.
+   */
+  label?: string;
   disabled?: boolean;
   ariaLabel: string;
 }) {
@@ -343,7 +374,7 @@ export function PropertyToggle({
         onChange={(event) => onChange(event.target.checked)}
         className="h-3.5 w-3.5 shrink-0 accent-[color:var(--ou-accent)] disabled:opacity-40"
  />
-      {label}
+      {label ? <span className="truncate">{label}</span> : null}
     </label>
   );
 }

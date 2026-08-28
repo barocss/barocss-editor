@@ -353,6 +353,7 @@ export function NumberField({
   onCommit,
   onClear,
   suffix,
+  prefix,
   min,
   max,
   step = 1,
@@ -376,6 +377,8 @@ export function NumberField({
   onClear?: () => void;
   /** The unit, after the number it belongs to. */
   suffix?: string;
+  /** A short name drawn **inside** the field, before the number — see below. */
+  prefix?: string;
   min?: number;
   max?: number;
   step?: number;
@@ -408,7 +411,32 @@ export function NumberField({
   };
 
   return (
-    <span className={cn('inline-flex min-w-0 flex-1 items-center gap-1', className)}>
+    /*
+     * `min-w-[52px]`: a number field **wraps rather than shrinks**.
+     *
+     * Everything on a panel row is `flex-1 min-w-0`, which lets a field give way until it has no
+     * width left — measured on the gradient row at 240px, an angle of `180` drew as `18` with the
+     * last digit half off the end. A floor turns that into a second line, which is a line a reader
+     * can read.
+     */
+    <span className={cn('inline-flex min-w-[64px] flex-1 items-center gap-1', className)}>
+      {/*
+        The field's **own name**, inside it.
+        
+        Figma's `W`/`H`/`X`/`Y` and every inspector since: a number that shares a line with three
+        others cannot borrow the row's one label, and giving each of them a labelled row of its own
+        is four lines for what a reader reads as one thing. Inside the field it costs no line at all,
+        and it is the half that was missing when a row started wrapping — a bare `180` on a line by
+        itself is a number a reader has to guess at.
+        
+        Muted and `select-none`, because it is a name and not a value: a reader dragging across the
+        field to retype it should get the digits.
+      */}
+      {prefix && (
+        <span className="shrink-0 select-none pl-1 text-[length:var(--ou-text-small)] leading-none text-[color:var(--ou-faint)]">
+          {prefix}
+        </span>
+      )}
  <input
         type="number"
  min={min}
@@ -453,6 +481,17 @@ export function NumberField({
           STATE,
         STATE,
           'w-full min-w-0 bg-transparent text-right tabular-nums',
+          /*
+           * **No spin buttons.** Chrome draws a pair of arrows on every `type="number"` and reserves
+           * the room for them whether or not they are showing — measured at 15 pixels in a 40-pixel
+           * field, which is where `180` came to be drawn as `18`. No tool of this kind shows them:
+           * a value is typed, dragged or stepped with the arrow keys, and a two-pixel arrow nobody
+           * can hit is a control that only costs width.
+           *
+           * `appearance: textfield` is the Firefox half of the same sentence.
+           */
+          '[appearance:textfield] [&::-webkit-inner-spin-button]:m-0',
+          '[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
           padding,
  testClass
         )}

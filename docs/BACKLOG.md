@@ -48,16 +48,12 @@ entries are that.
 
 ### Found walking the site builder in a browser
 
-- [ ] **A `with:` row's companions are drawn with no name.** The declaration has one — `각도`, `모양`,
-  `번짐`, `위쪽`/`오른쪽`/`아래쪽`/`왼쪽` — and the sheet draws the row's *one* label and then bare
-  controls, deliberately: four labelled boxes down a 263-pixel column is what the one-label rule was
-  avoiding. It read acceptably while everything sat on one line and stopped the moment rows began to
-  wrap: a bare `180 °` on a line of its own is a number a reader has to guess at.
+- [ ] **A corner wants a drawing, not a word.** 상좌/상우/하우/하좌 is honest and it is four words
+  where every design tool draws four pictures — a square with one corner rounded, per field. Same for
+  a padding's four sides. `office-icons` has no entry for either and lucide has nothing that means
+  *this corner of this box*; they would have to be drawn. Worth it the day a second surface needs
+  them, which a canvas panel will.
 
-  A `title` was tried and reverted — wrapping each control in a box to hang one on broke the row that
-  most needs to stay on one line (안쪽 여백's four numbers each took a line). The real answer is
-  probably not a word at all: every tool of this kind draws padding as a **diagram** and a gradient's
-  angle as a **dial**, and those are drawings rather than labels.
 
 - [ ] **A press on the grey deselects only while editing text.** It is handled by the pointerdown
   that ends text mode; in `select` mode nothing listens, so a reader who wants to let go of a
@@ -2845,6 +2841,46 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The properties panel is an inspector now, not a form.** Asked for as *"figma 수준으로, 좀 더
+  컴팩트하게, 전문가 툴처럼"*, and measured before and after rather than adjusted by eye.
+
+  | | before | after |
+  | --- | ---: | ---: |
+  | panel width | 288px | **240px** |
+  | control height | 28px | **24px** |
+  | text | 12px | **11px** |
+  | label column | 68px | **58px** |
+  | section padding | 10/12px | **8px** |
+
+  240 is what a design tool's inspector is — Figma 240, Sketch 240, Illustrator 232 — and the number
+  is not a taste: it is how far the eye travels between a label and its value. The panel had grown
+  256 → 288 because a fill row would not fit, which was the right observation and the wrong remedy:
+  the answer to a row that does not fit is a row that **wraps**, and a panel grows once and never
+  comes back. 48 pixels of canvas returned, on every screen, for the life of the product.
+
+  The scale is set **on the surface** rather than in the tokens — the same mechanism
+  `[data-density='dense']` already uses, applied where it was needed. A ribbon's control is a thing
+  to press once and wants a press-sized target; a panel is twenty rows a reader scans.
+
+  Four things changed shape, and each was a defect as well as a density win:
+
+  - **A field carries its own name.** Figma's `W`/`H`/`X`/`Y`: a number sharing a line with three
+    others cannot borrow the row's one label, and the label was drawn nowhere at all — so 안쪽 여백
+    was five identical boxes. `상 112 · 우 72 · 하 48 · 좌 72` now, inside the fields, costing no line.
+  - **Three or more numbers go two to a line.** Four sides strung along one row are 34 pixels each;
+    two lines of two are 80, which is a number a reader can read and retype. Only for a set of the
+    **same kind** — `그라디언트` is a colour, an angle and a shape, three different questions, and
+    equal cells cut the colour's name to `없` to make room for one it had nothing to do with.
+  - **A switch says its word once.** Every toggle read `보임  ☐ 보임`: the row's label and the
+    control's, side by side, on every one of them.
+  - **No spin buttons.** Chrome reserves 15 pixels for a pair of arrows on every `type="number"`
+    whether they show or not — which is where `180` came to be drawn as `18` in a 40-pixel field. No
+    tool of this kind shows them: a value is typed, dragged, or stepped with the arrow keys.
+
+  And one thing the change *exposed*: the corner-radius companions were labelled `↖ ↗ ↘ ↙`, four
+  arrows standing in for four pictures of a corner. Nothing drew a companion's label before, so
+  nobody had seen them. 상좌/상우/하우/하좌 now, in the same vocabulary the padding uses.
 
 - **A viewport's scale was a React change.** Reported by a reader in two halves — *"viewport 에 scale
   만 바꿔도 렌더링이 계속 깨진다"* and *"scale 이 바뀌는 건 viewport 만의 문제라, transform 이랑

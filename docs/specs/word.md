@@ -79,7 +79,7 @@ Four numbers, all produced by `packages/office-word/test/conformance.test.ts`:
 
 | | |
 | --- | ---: |
-| commands registered | 166 (152 Word's own) |
+| commands registered | 164 (152 Word's own) |
 | attributes the product **draws** | 611 |
 | of those, **unread** — declared and reaching nothing | 185 *(ratchet)* |
 | of those, **unsettable** — drawn and reachable by nothing | 182 *(ratchet)* |
