@@ -104,11 +104,13 @@ entries are that.
   arguably right as it stands: its panel is scratch-era — `position: fixed`, hard-coded white,
   `↓ ↑ ×` as buttons — and wiring it as it is would put three unicode glyphs where icons go.
 
-- [ ] **Nothing checks that a surface's command does anything.** `every-command-can-be-reached` asks
-  whether every command a product adds has a surface. The other direction has no check at all, and it
-  is the one that was wrong: the menu named `find`, `find` was registered, and the harness was
-  satisfied by a command whose body is `() => true`. A command that always says yes and changes
-  nothing is the same shape as a `canExecute` looser than its `execute`, one step further along.
+- [x] ~~**Nothing checks that a surface's command does anything.**~~ `every-command-does-something`
+  — see Done. It found four in the site builder (all exempt, all application-level) and **nine in the
+  deck**, seven of which look like real faults.
+
+- [ ] **The deck's eight, worked off.** The ratchet is the list; the four text commands are one
+  decision (a text command offered against a node selection), `sendBackward`/`sendToBack` at the back
+  of the stack are another, and `insertTable` is a bug on its own.
 
 - [x] ~~**Word and the deck type their menu hints.**~~ All three derive them now — `withHints` in
   `office-controls`, and each product's own `menu-model.test.ts` holds the derivation. Written as an
@@ -2859,6 +2861,53 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **`every-command-does-something` — the question every other command check could not ask.** The
+  others are all about a command's *description*: what the schema says it makes, whether the product
+  draws that, whether anything surfaces it. None of them can see what a reader meets — a control that
+  lights up, runs, and changes nothing. The last several faults were all that shape:
+  `find`/`findAndReplace` registered by the **engine** as `execute: () => true`, four `canExecute`s
+  looser than their `execute`, a whole 삽입 menu greyed on a fresh page.
+
+  **How it can be asked at all.** The naive version is not available — running a command changes the
+  document, so a probe measures a moving target — and the BACKLOG entry that scoped this concluded the
+  tractable shape was *a list of states each command claims to need*. It turned out to be simpler: one
+  **fresh editor per command**, the product's own canonical state, run, compare. One editor each looks
+  expensive and is what makes the answer trustworthy — undoing instead would be testing the undo as
+  well, and a command that does not undo would then read as a command that does nothing.
+
+  The running is the **product's**: what state a command needs is a fact about that product, and a
+  harness that guessed would guess differently for each of three. The probe answers three ways —
+  moved, did not move, or *could not be asked*, which is counted separately so a probe that quietly
+  stopped setting anything up is visible rather than looking like coverage.
+
+  **The measurement it was written for.** Wired to two products the same afternoon:
+
+  | | offered and runnable | moved the document | findings |
+  | --- | ---: | ---: | ---: |
+  | the site builder | 24 | 20 | **4** |
+  | the deck | 27 | 18 | **9** |
+
+  The site's four were all the kind the check's own header predicts — a clipboard, a selection and
+  two exports — and are exemptions with reasons. The deck's are the other kind and are a **ratchet**
+  at 8, because none of them is a decision yet:
+
+  - `setFontColor`, `removeFontColor`, `toggleBulletList`, `toggleOrderedList` — **text** commands,
+    offered with a *box* selected. They say yes to a node selection and have no range to write to,
+    which is exactly the `canExecute` looser than its `execute` this repository has found four of.
+  - `sendBackward`, `sendToBack` — the box is already at the back. Every design tool greys these
+    there; this one offers them and does nothing.
+  - `insertTable` — says it can and puts no table on the slide. The one that looks like a plain bug.
+  - `nudgeBoxes` — offered with no `dx`/`dy`, which no surface actually does.
+
+  And one thing the probe taught about itself: measured the wrong way first — comparing the document
+  on the line after `executeCommand`, which is `async` — and **all 24** came back "changed nothing",
+  including inserts the browser suite watches work. A probe that is wrong in that direction fails
+  loudly; wrong the other way it reports a broken product as fine, which is the failure this harness
+  exists to prevent. The answers are awaited in a `beforeAll` and the check reads them.
+
+  Word gets it free the day it wires its surfaces — the check keys off `reachable`, which Word does
+  not pass yet (see Open).
 
 - **The four surfaces, counted in each of their states.** Opened the toolbar, the rail, the menubar
   and the panel in every state a reader can put them in and wrote down what each offers. Two faults

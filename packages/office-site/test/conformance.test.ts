@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import { assertConforms, attributeReadFrom, contentTagFrom, drawnTagFrom } from '@barocss/conformance';
 import { createSchema } from '@barocss/schema';
 import { getGlobalRegistry } from '@barocss/dsl';
@@ -13,7 +13,9 @@ import { siteMenuCommands } from '../src/menu-model';
 
 /** Every declared toolbar control, whichever group it is in. */
 const siteToolbarControls = () => SITE_TOOLBAR;
-import { kindOfBlock } from '../src/selection';
+import { DataStore } from '@barocss/datastore';
+import { createSampleSite } from '../src/sample-site';
+import { blocksIn, kindOfBlock, pagesOf } from '../src/selection';
 import { SITE_ENV_KEY, createSiteEnv } from '../src/breakpoints';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import { iconNames } from '@barocss/office-icons';
@@ -133,6 +135,68 @@ describe('the site builder draws what it declares', () => {
     ...siteToolbarControls().flatMap((control) => Object.keys(control.payload ?? {}))
   ];
 
+  /**
+   * And whether a command a surface offers **does anything when it runs**.
+   *
+   * The other command checks ask about a command's description — what the schema says it makes,
+   * whether the product draws that, whether anything surfaces it. None can see the fault a reader
+   * meets: a control that lights up, runs, and changes nothing. The engine's `find` was that for
+   * months, and four `canExecute`s looser than their `execute` were the same shape.
+   *
+   * ## What a fresh editor and one gesture buys
+   *
+   * A command needs a **state**, and the state a page's commands need is short: a document, a page,
+   * and something selected. So the probe builds one editor per command — the document is changed by
+   * running it, and reusing one would be measuring a moving target — puts the first block of the
+   * home page in the selection, and asks whether the document moved.
+   *
+   * One editor each is the expensive-looking choice and it is what makes the answer trustworthy:
+   * undoing instead would test the undo as well, which is a different and worthy check, and a
+   * command that does not undo would then read as a command that does nothing.
+   */
+  const moved = new Map<string, boolean | null>();
+
+  /**
+   * Run **before** the check, because a command is `async` and a check is not.
+   *
+   * Which is not a wrinkle worth hiding: measured the wrong way first, comparing the document on the
+   * line after `executeCommand`, and **all 24** answers came back "changed nothing" — including
+   * `insertSection`, which the browser suite watches work. A probe that is wrong in one direction
+   * reports the whole product as broken, which at least fails loudly; wrong in the other it reports
+   * a broken product as fine, and that is the failure this harness exists to prevent. So the answers
+   * are awaited here and the check reads them.
+   */
+  beforeAll(async () => {
+    for (const command of [...new Set(reachable)]) {
+      const store = new DataStore(undefined as never, schema as never);
+      const editor: any = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+      editor.loadDocument(createSampleSite(), 'site');
+
+      const rootId = editor.getRootId();
+      const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+      const page = pagesOf(doc as never)[0]?.sid;
+      const block = page ? blocksIn(doc as never, page)[0] : undefined;
+      if (!page || !block) {
+        moved.set(command, null);
+        continue;
+      }
+
+      // The state a page's surfaces act from: one block held, and the page it is on named.
+      await editor.executeCommand('setNode', { nodeIds: [block] });
+      const payload = { nodeId: page, pageId: page, parentId: page };
+      if (editor.canExecuteCommand(command, payload) !== true) {
+        moved.set(command, null);
+        continue;
+      }
+
+      const before = JSON.stringify(editor.exportDocument?.(rootId) ?? '');
+      await editor.executeCommand(command, payload);
+      moved.set(command, JSON.stringify(editor.exportDocument?.(rootId) ?? '') !== before);
+    }
+  });
+
+  const changes = (command: string): boolean | null => moved.get(command) ?? null;
+
   it('draws what it declares, expects only what it says it expects', () => {
     assertConforms({
       schema: schema as never,
@@ -154,6 +218,7 @@ describe('the site builder draws what it declares', () => {
        */
       iconsAsked: [...siteToolbarIcons(), ...siteLayerIcons(), ...sitePanelIcons()],
       iconDrawn: (name: string) => iconNames().includes(name),
+      commandChanges: changes,
       attributeRead: attributeReadFrom(
         registry as never,
         (type: string) => (schema.nodes.get(type) as { attrs?: Record<string, never> } | undefined)?.attrs,
@@ -222,6 +287,21 @@ describe('the site builder draws what it declares', () => {
         Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
         Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
       exempt: {
+        /*
+         * ── Commands that change the **application** rather than the document ──
+         *
+         * `every-command-does-something` found exactly the three kinds its own header predicts, and
+         * nothing else — which is the useful result: the surfaces offer 24 commands that can run in
+         * this state and 20 of them move the document.
+         *
+         * Each of these is a claim. The day one of them starts writing to the document — a paste
+         * history, an export that stamps the file — this fails on the exemption rather than passing.
+         */
+        copyBlocks: 'puts blocks on a clipboard, which is a property of the reader and not of the site',
+        selectAllBlocks: 'moves the selection, which is what a reader is *looking at* rather than what they wrote',
+        exportSite: 'reads the document out as files; a publish that edited the document would be a bug',
+        exportPage: 'the same, for one page',
+
         // ── A page has no canvas ───────────────────────────────────────────
         /*
          * Eight node types a *slide* is made of and a page has none of. The office schema is one

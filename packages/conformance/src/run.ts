@@ -10,6 +10,7 @@ import { everyCommandCanBeSeen, type CommandProducing } from './checks/every-com
 import { everyCommandMakesSomethingReal } from './checks/every-command-makes-something-real';
 import { everyInsertIsAccountedFor } from './checks/every-insert-is-accounted-for';
 import { everyCommandCanBeReached } from './checks/every-command-can-be-reached';
+import { everyCommandDoesSomething } from './checks/every-command-does-something';
 import type { Check, Exemptions, Ratchets, Report, Subject } from './types';
 
 /** The checks that need nothing from the product but its schema and renderers. */
@@ -118,6 +119,15 @@ export interface ConformanceInput {
    */
   reachable?: string[];
   /**
+   * Whether **running** a command moves the document — the last question the other command checks
+   * cannot ask. See `every-command-does-something`.
+   *
+   * The product runs it, because what state a command needs is a fact about that product: a
+   * selection, a page on screen, a caret in a table. `null` for a command the product could not put
+   * itself in a state to try, which is counted as unanswered rather than passed.
+   */
+  commandChanges?: (command: string) => boolean | null;
+  /**
    * Findings a check is allowed while the product works them off, by check name.
    *
    * For adopting a check that finds hundreds at once — see `Ratchets` for why this is
@@ -176,7 +186,16 @@ export function conformance(input: ConformanceInput): Report {
     ...(input.commands ? [everyInsertIsAccountedFor(input.commands, input.produces ?? [])] : []),
     // Asked last and answered first in practice: a command nothing surfaces is
     // one nobody can run, whatever the checks above say about what it makes.
-    ...(input.own ? [everyCommandCanBeReached(input.own, input.reachable ?? [])] : [])
+    ...(input.own ? [everyCommandCanBeReached(input.own, input.reachable ?? [])] : []),
+    /*
+     * And the one that asks what a reader asks. The checks above are all about a command's
+     * *description* — what the schema says it makes, whether the product draws that, whether
+     * anything surfaces it — and none of them can see a command that is offered, says it can run,
+     * and does nothing.
+     */
+    ...(input.commandChanges
+      ? [everyCommandDoesSomething(input.reachable ?? [], input.commandChanges)]
+      : [])
   ];
   const checks = input.only ? all.filter((check) => input.only!.includes(check.name)) : all;
 

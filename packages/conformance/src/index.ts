@@ -16,6 +16,7 @@ export { everyCommandCanBeSeen, type CommandProducing } from './checks/every-com
 export { everyCommandMakesSomethingReal } from './checks/every-command-makes-something-real';
 export { everyInsertIsAccountedFor } from './checks/every-insert-is-accounted-for';
 export { everyCommandCanBeReached } from './checks/every-command-can-be-reached';
+export { everyCommandDoesSomething } from './checks/every-command-does-something';
 export { everyDrawingCanBeNamed } from './checks/every-drawing-can-be-named';
 export { everyAttributeIsRead } from './checks/every-attribute-is-read';
 export { everyMarkIsDrawn } from './checks/every-mark-is-drawn';

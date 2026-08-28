@@ -1,4 +1,5 @@
-import { describe, it } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
+import { DataStore } from '@barocss/datastore';
 import { assertConforms, attributeReadFrom, contentTagFrom, drawnTagFrom } from '@barocss/conformance';
 import { createSchema } from '@barocss/schema';
 import { markAttributes, markCss } from '@barocss/office-text';
@@ -7,6 +8,7 @@ import { getGlobalRegistry } from '@barocss/dsl';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { registerSlidesRenderers } from '../src/renderers';
 import { createSlidesEditor, createSlidesOwnExtensions } from '../src/slides-kit';
+import { createSampleDeck } from '../src/sample-deck';
 import { kindOfBox } from '../src/layers';
 import { slidesToolbarCommands, slidesToolbarIcons } from '../src/toolbar-model';
 import { slidesKeyCommands } from '../src/keymap';
@@ -148,6 +150,46 @@ describe('Slides draws what its schema declares', () => {
     ...slidesMenuCommands()
   ];
 
+  /**
+   * And whether a command a surface offers **does anything when it runs**.
+   *
+   * The site builder's probe, in a deck's state: a slide with a box on it and that box selected.
+   * Awaited in a `beforeAll` because a command is `async` and a check is not — the site measured the
+   * wrong way first and got "changed nothing" for all 24, which is the shape of a probe that fails
+   * loudly rather than quietly.
+   */
+  const moved = new Map<string, boolean | null>();
+
+  beforeAll(async () => {
+    for (const command of [...new Set(reachable)]) {
+      const store = new DataStore(undefined as never, schema as never);
+      const editor: any = createSlidesEditor({ editable: true, schema, dataStore: store } as never);
+      editor.loadDocument(createSampleDeck() as never, 'slides');
+
+      const rootId = editor.getRootId();
+      const slide = ((store.getNode(rootId) as any)?.content ?? []).find(
+        (sid: unknown) => typeof sid === 'string' && (store.getNode(sid as string) as any)?.stype === 'surface'
+      ) as string | undefined;
+      const box = slide ? (((store.getNode(slide) as any)?.content ?? [])[0] as string | undefined) : undefined;
+      if (!slide || typeof box !== 'string') {
+        moved.set(command, null);
+        continue;
+      }
+
+      // The state a deck's surfaces act from: one box held, and the slide it is on named.
+      await editor.executeCommand('setNode', { nodeIds: [box] });
+      const payload = { slideId: slide, parentId: slide, nodeId: slide };
+      if (editor.canExecuteCommand(command, payload) !== true) {
+        moved.set(command, null);
+        continue;
+      }
+
+      const before = JSON.stringify(editor.exportDocument?.(rootId) ?? '');
+      await editor.executeCommand(command, payload);
+      moved.set(command, JSON.stringify(editor.exportDocument?.(rootId) ?? '') !== before);
+    }
+  });
+
   it('draws what it declares, expects only what it says it expects', () => {
     assertConforms({
       schema: schema as never,
@@ -158,6 +200,7 @@ describe('Slides draws what its schema declares', () => {
       // draws as: a table header draws a `<thead>` and holds its cells in a
       // `<tr>` inside it.
       holdsIn: contentTagFrom(registry as never),
+      commandChanges: (command: string) => moved.get(command) ?? null,
       /**
        * What this product calls a node type in a list — the layer panel's rows.
        *
@@ -260,7 +303,34 @@ describe('Slides draws what its schema declares', () => {
         registry.has(`mark:${mark}`) ||
         Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
         Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
+      ratchet: {
+        /**
+         * **Eight commands that say they can run and change nothing**, on this check's first run here.
+         *
+         * A ratchet rather than eight exemptions, because none of these is a decision yet. The site
+         * builder's four all turned out to be *application* commands — a clipboard, a selection, two
+         * exports — and were exempted with reasons in an afternoon. The deck's are the other kind.
+         * What each looks like, from one look:
+         *
+         * - `setFontColor`, `removeFontColor`, `toggleBulletList`, `toggleOrderedList` — **text**
+         *   commands, offered with a *box* selected. They say yes to a node selection and then have
+         *   no range to write to, which is precisely the `canExecute` looser than its `execute` this
+         *   repository has already found four of.
+         * - `sendBackward`, `sendToBack` — the box is already at the back. Every design tool greys
+         *   these there; this one offers them and does nothing.
+         * - `insertTable` — says it can and puts no table on the slide, which is the one here that
+         *   looks like a plain bug.
+         * - `nudgeBoxes` — offered with no `dx`/`dy`, which no surface actually does: the key map
+         *   always supplies them. Arguably the probe's fault and arguably the command's, and a
+         *   ratchet is the honest place for a finding nobody has decided about.
+         *
+         * The number has to come **down** with the work: fewer findings than this fails too, which is
+         * what stops a fixed four leaving room to break four more quietly.
+         */
+        'every-command-does-something': 8
+      },
       exempt: {
+        copyBoxes: 'puts boxes on a clipboard, which is a property of the reader and not of the deck',
         /*
          * The filmstrip — a double-click on a slide's row, which becomes a field in place.
          *
