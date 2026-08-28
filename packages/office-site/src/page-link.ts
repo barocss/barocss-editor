@@ -40,8 +40,15 @@ export const PAGE_PREFIX = 'page:';
 type Node = Record<string, any>;
 type Access = { rootId: string; getNode: (sid: string) => Node | undefined };
 
-/** Whether an `href` names a page of this document rather than an address. */
-export function isPageRef(href: unknown): href is string {
+/**
+ * Whether an `href` names a page of this document rather than an address.
+ *
+ * The predicate is the **prefixed** type rather than `string`, which is not pedantry: as
+ * `href is string` the *false* branch of a call on a known string narrows to `never`, so the first
+ * function that asked "not a page reference, then what kind of address is it" could not call a single
+ * method on the answer. `page:${string}` leaves a string a string on the way out.
+ */
+export function isPageRef(href: unknown): href is `page:${string}` {
   return typeof href === 'string' && href.startsWith(PAGE_PREFIX);
 }
 
@@ -77,11 +84,74 @@ export function hrefFor(doc: Access | undefined, href: unknown): string | undefi
 
 /** The page a text node's link names, if it names one rather than an address. */
 export function pageLinkOf(node: Node | undefined): string | undefined {
+  const href = linkOf(node);
+  return isPageRef(href) ? pageIdOf(href) : undefined;
+}
+
+/**
+ * The **address** a text node's link names, if it names one rather than a page.
+ *
+ * `pageLinkOf`'s other half, and it did not exist because for a while nothing could write one: the
+ * toolbar offered a page picker and no way to type `https://…` at all, so every link on a page this
+ * product built was internal by construction. That made `pageLinkOf` a complete answer to *is there
+ * a link here*, and the ribbon used it as one — the 링크 없음 button asks it and would have been grey
+ * over an address link, which is a control that greys itself out of a job the moment the job exists.
+ */
+export function addressLinkOf(node: Node | undefined): string | undefined {
+  const href = linkOf(node);
+  return typeof href === 'string' && !isPageRef(href) ? href : undefined;
+}
+
+/**
+ * The `href` of the first link mark on a node, whatever kind it is.
+ *
+ * One walk, so *is there a link* and *what kind of link* cannot answer differently — which they did:
+ * the ribbon asked `pageLinkOf` for both questions and got "no link" for an address.
+ */
+export function linkOf(node: Node | undefined): string | undefined {
   for (const mark of (node?.marks ?? []) as Node[]) {
     const href = mark?.attributes?.href ?? mark?.attrs?.href;
-    if (isPageRef(href)) return pageIdOf(href);
+    if (typeof href === 'string' && href.length > 0) return href;
   }
   return undefined;
+}
+
+/**
+ * An address as a reader typed it, made into one a browser can follow — or nothing.
+ *
+ * ## Why a builder normalises this and a word processor need not
+ *
+ * A reader linking a card to their shop types `barocss.com`, because that is what the address *is*
+ * to them. Written into an `href` unchanged it is a **relative** path: the browser reads it against
+ * the current page and goes to `/제품/barocss.com`, which does not exist. Every builder of this kind
+ * normalises for exactly this reason, and the failure it prevents is the worst kind — the link is
+ * drawn, it is clickable, it looks right, and it is wrong only once somebody follows it.
+ *
+ * ## What is left alone
+ *
+ * Anything that already says how to be followed. A scheme (`https:`, `mailto:`, `tel:`), a root-
+ * relative path (`/가격`), a fragment (`#요금`) and a protocol-relative address are all deliberate,
+ * and a builder that "helpfully" prefixed them would break the three most useful ones.
+ *
+ * And `page:` is refused rather than normalised: it is this product's own mechanism for naming a
+ * page, and a reader who types it means the letters, not a link to whatever `홈` happens to be.
+ */
+export function addressFor(typed: unknown): string | undefined {
+  if (typeof typed !== 'string') return undefined;
+  const said = typed.trim();
+  if (said.length === 0) return undefined;
+  if (isPageRef(said)) return undefined;
+
+  // Already says how to be followed.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(said) || said.startsWith('//') || said.startsWith('/') || said.startsWith('#')) {
+    return said;
+  }
+  /*
+   * And otherwise it is a host, which is the case this exists for. `https` rather than `http`
+   * because a site published today is served over it and a builder that writes the other one is
+   * writing a redirect at best and a warning at worst.
+   */
+  return `https://${said}`;
 }
 
 /**

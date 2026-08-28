@@ -5,6 +5,7 @@ import {
   Icon,
   ChoiceSelect,
   SegmentedControl,
+  TextField,
   Toolbar,
   ToolbarGroup,
   ToolbarSeparator,
@@ -15,6 +16,7 @@ import {
 import { chordFor, keyLabel } from '@barocss/office-controls';
 import {
   SITE_KEYS,
+  addressLinkOf,
   pageLinkOf,
   pagesIn,
   siteControlsIn
@@ -105,12 +107,21 @@ export function Ribbon({
   const pages =
     store && rootId ? pagesIn({ rootId, getNode: (sid: string) => store.getNode(sid) as never }) : [];
 
-  /** Where the selected words already go, so the picker shows the answer rather than a blank. */
-  const linked = (() => {
+  /**
+   * Where the selected words already go — as a page, as an address, or not at all.
+   *
+   * Three answers rather than one, because the group has three controls and each shows a different
+   * part of it. It was `pageLinkOf` alone doing two jobs: *which page* and *is there a link*, which
+   * agreed for as long as a page link was the only kind this product could write. The day it could
+   * write an address, 링크 없음 would have been grey over one — a control that disables itself out of
+   * the job it exists for.
+   */
+  const link = (() => {
     const selection = editor.selection as { startNodeId?: string } | undefined;
     const at = selection?.startNodeId ? store?.getNode(selection.startNodeId) : undefined;
-    return pageLinkOf(at as never);
+    return { page: pageLinkOf(at as never), address: addressLinkOf(at as never) };
   })();
+  const linked = link.page ?? link.address;
 
   return (
     <Toolbar className="st-ribbon" label="사이트 도구">
@@ -228,11 +239,32 @@ export function Ribbon({
             <ChoiceSelect
               key={control.command}
               options={pages.map((one) => ({ id: one.id, label: one.name }))}
-              value={linked ?? null}
+              value={link.page ?? null}
               ariaLabel={control.title ?? control.label}
               disabled={!can(control.command)}
               onChange={(id) => run(control.command, { id })}
               testClass="st-link-page"
+            />
+          ) : control.command === 'linkToAddress' ? (
+            /*
+              **Committed, not typed through.** `TextField` writes on Enter and on blur, which is the
+              rule the whole suite follows for a field that edits the document — a link written per
+              keystroke would put `h`, `ht`, `htt` into the history, and the first two are addresses
+              the reader never meant.
+
+              The value is the address only: over a *page* link this box is empty, because the page
+              is what the picker beside it is showing, and a box that printed `page:홈` would be
+              showing a reader the mechanism.
+            */
+            <TextField
+              key={control.command}
+              value={link.address ?? ''}
+              placeholder="주소"
+              ariaLabel={control.title ?? control.label}
+              disabled={!can(control.command)}
+              onCommit={(href) => run(control.command, { href })}
+              testClass="st-link-address"
+              className="w-40"
             />
           ) : (
             <ToolbarToggle

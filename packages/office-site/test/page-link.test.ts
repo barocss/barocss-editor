@@ -4,7 +4,17 @@ import { createSchema } from '@barocss/schema';
 import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
-import { hrefFor, isPageRef, linkFaults, pageIdOf, pageLinkOf, pageRef, pagesIn } from '../src/page-link';
+import {
+  addressFor,
+  addressLinkOf,
+  hrefFor,
+  isPageRef,
+  linkFaults,
+  pageIdOf,
+  pageLinkOf,
+  pageRef,
+  pagesIn
+} from '../src/page-link';
 
 /**
  * A link that goes to a page of this site.
@@ -183,5 +193,79 @@ describe('a link to a page of this site', () => {
     expect(await run('linkToPage', { id: '없는페이지' })).toBe(false);
     expect(await run('linkToPage')).toBe(false);
     expect(pageLinkOf(store.getNode(sid) as never)).toBeUndefined();
+  });
+
+  /**
+   * **A link out of the site**, and the one thing about it that is not obvious.
+   *
+   * A reader types `barocss.com`, because that is what the address *is* to them. Written into an
+   * `href` unchanged it is relative: followed from `/제품` it goes to `/제품/barocss.com`. The link
+   * draws, it is clickable, it looks right, and it is wrong only once somebody follows it — which is
+   * the shape of failure this whole file exists about, one layer out.
+   */
+  it('writes an address a browser can follow, from one a reader would type', async () => {
+    const sid = someWords();
+    select(sid, 0, 2);
+
+    expect(await run('linkToAddress', { href: 'barocss.com' })).toBe(true);
+    expect(addressLinkOf(store.getNode(sid) as never)).toBe('https://barocss.com');
+    // And it is not mistaken for a page of this site, which is what would break the fault list.
+    expect(pageLinkOf(store.getNode(sid) as never)).toBeUndefined();
+    expect(linkFaults(doc as never)).toEqual([]);
+  });
+
+  /**
+   * And everything that already says how to be followed is left exactly alone.
+   *
+   * The three most useful addresses a page carries are the ones a "helpful" prefix would ruin: a
+   * mail link, a link to another page by path, and a jump to a section of this one.
+   */
+  it('leaves an address that already says how to be followed', () => {
+    expect(addressFor('https://barocss.com/제품')).toBe('https://barocss.com/제품');
+    expect(addressFor('mailto:hello@barocss.com')).toBe('mailto:hello@barocss.com');
+    expect(addressFor('tel:+82-2-0000-0000')).toBe('tel:+82-2-0000-0000');
+    expect(addressFor('/가격')).toBe('/가격');
+    expect(addressFor('#요금')).toBe('#요금');
+    expect(addressFor('//cdn.example.com/a')).toBe('//cdn.example.com/a');
+    // Typed with room around it, which is what a paste from a browser's address bar looks like.
+    expect(addressFor('  barocss.com  ')).toBe('https://barocss.com');
+  });
+
+  /**
+   * `page:` is refused rather than normalised.
+   *
+   * It is this product's own way of naming a page, and accepting it here would be a second way to
+   * write an internal link — one that does not check the page is there, which is exactly what
+   * `linkToPage` refuses to do.
+   */
+  it('refuses a page reference, an empty address, and a caret', async () => {
+    const sid = someWords();
+    select(sid, 0, 2);
+
+    expect(can('linkToAddress', { href: pageRef('홈') })).toBe(false);
+    expect(await run('linkToAddress', { href: pageRef('홈') })).toBe(false);
+    expect(can('linkToAddress', { href: '   ' })).toBe(false);
+    expect(addressLinkOf(store.getNode(sid) as never)).toBeUndefined();
+
+    // A mark covers a range, and a caret is not one — the neighbouring command's rule.
+    select(sid, 1, 1);
+    expect(can('linkToAddress', { href: 'barocss.com' })).toBe(false);
+    expect(await run('linkToAddress', { href: 'barocss.com' })).toBe(false);
+  });
+
+  /**
+   * With nothing typed yet, the answer is *can a reader link at all* — and it has to be yes.
+   *
+   * A control asks this on every render before anything is in the box. `linkToPage` records the same
+   * mistake being made once already: answering `false` here leaves the field permanently disabled
+   * while every check stays green.
+   */
+  it('says yes to a field that has nothing in it yet, when there are words to link', () => {
+    const sid = someWords();
+    select(sid, 0, 2);
+    expect(can('linkToAddress')).toBe(true);
+
+    select(sid, 1, 1);
+    expect(can('linkToAddress')).toBe(false);
   });
 });

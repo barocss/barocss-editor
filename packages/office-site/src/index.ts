@@ -37,7 +37,10 @@ export { createLinkCommands, SiteLinkExtension } from './link-commands';
 export { createPageCommands, SitePageExtension } from './page-commands';
 export {
   PAGE_PREFIX,
+  addressFor,
+  addressLinkOf,
   hrefFor,
+  linkOf,
   isPageRef,
   linkFaults,
   linksTo,

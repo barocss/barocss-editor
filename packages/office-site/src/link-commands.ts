@@ -1,5 +1,5 @@
 /**
- * Linking words to a page of this site.
+ * Linking words to a page of this site, and to anywhere else.
  *
  * ## What was missing
  *
@@ -22,7 +22,7 @@
  */
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction, toggleLink } from '@barocss/model';
-import { pageRef, pagesIn } from './page-link';
+import { addressFor, pageRef, pagesIn } from './page-link';
 
 type Range = { type?: string; startNodeId?: string; startOffset?: number; endNodeId?: string; endOffset?: number };
 
@@ -74,6 +74,59 @@ export class SiteLinkExtension implements Extension {
         const there = pages();
         return payload?.id === undefined ? there.length > 0 : there.includes(payload.id);
       }
+    });
+
+    /**
+     * And a link **out** of the site, which is the half that had no way in.
+     *
+     * ## What was measured
+     *
+     * `toggleLink` takes an address and every product's kit has registered it for months. The site's
+     * toolbar offers a page picker and 링크 없음, and **nothing at all** that types an address — so a
+     * landing page built with this product could not carry a link to a shop, a repository, a mail
+     * address or anything else off the site. `hrefFor` has always passed a non-`page:` href straight
+     * through and the export has always drawn it; the drawing end was finished and the writing end
+     * did not exist.
+     *
+     * ## Why it is a second command rather than an argument to the first
+     *
+     * The same reason `removeLink` is not a row in the picker, which this file's neighbour already
+     * argues: folding two gestures into one control needs a sentinel that is not a page id, and a
+     * sentinel is a value that collides the day somebody names a page it. It is also two different
+     * *questions* — which page, and which address — and a command that took either would have to
+     * guess which one an ambiguous payload meant.
+     *
+     * ## What it refuses
+     *
+     * A caret, like its neighbour and for its reason: a mark covers a range, and a zero-length link
+     * is nothing to read, nothing to click, and nothing on screen that says it went wrong.
+     *
+     * And a `page:` reference, which `addressFor` returns nothing for. A reader cannot type one
+     * usefully — the ids are internal — and accepting it would make this a second, unchecked way to
+     * write an internal link, one that does not verify the page exists.
+     */
+    editor.registerCommand({
+      name: 'linkToAddress',
+      execute: async (ed: Editor, payload?: { href?: string }) => {
+        const href = addressFor(payload?.href);
+        if (!href || !linkable()) return false;
+        const result = await transaction(ed, [toggleLink(href)]).commit();
+        return result.success;
+      },
+      /**
+       * Two questions again, and the same split.
+       *
+       * **Without an address** — *can a reader link at all right now?* A control asks this on every
+       * render before anything is typed, and answering `false` would leave the field permanently
+       * disabled with every check still green. That is the exact mistake `linkToPage` records above,
+       * and it is repeated here rather than shared because the two commands answer it about
+       * different things: a picker needs somewhere to send words *to*, and a field needs only words.
+       *
+       * **With one** — it also has to be an address this can write, which is `addressFor`'s answer
+       * and not a second opinion about what an address is.
+       */
+      canExecute: (_ed: Editor, payload?: { href?: string }) =>
+        linkable() && (payload?.href === undefined || !!addressFor(payload.href))
     });
   }
 

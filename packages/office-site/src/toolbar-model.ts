@@ -230,6 +230,32 @@ export const SITE_TOOLBAR: SiteControl[] = [
      * one for a picture. `every-icon-has-a-picture` asks about the icons a product *asks for*, so
      * asking for a `link` the suite does not draw would have been a control labelled `link`.
      */
+  },
+  /**
+   * And a link **out** of the site — the third control in a group that had two.
+   *
+   * ## What the group could not say
+   *
+   * A picker whose choices are this document's pages, and a button that takes a link away. Between
+   * them: no way to type an address. A landing page built with this product could not carry a link
+   * to a shop, a repository or a mail address, and the drawing end had been finished the whole time
+   * — `hrefFor` passes a non-`page:` href straight through and the export writes it.
+   *
+   * ## Three controls rather than one that switches
+   *
+   * The same argument this file already makes about 링크 없음, one step further. A picker with an
+   * *주소…* row needs a sentinel that is not a page id; a kind switch with a field under it makes a
+   * reader choose a category before saying the thing they already know. Three controls, each one
+   * gesture, and only one of them ever holds a value — the ribbon shows the address when the link is
+   * an address and the page when it is a page.
+   *
+   * A field, so no icon, for the picker's reason: there is nowhere on a text box for a picture.
+   */
+  {
+    command: 'linkToAddress',
+    label: '주소 링크',
+    title: '선택한 글자를 다른 주소로 연결합니다',
+    group: 'link'
   }
 ];
 

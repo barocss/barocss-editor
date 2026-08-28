@@ -580,20 +580,46 @@ were where the symptom was:
 
   The sample now navigates: four `<a>` elements where there were four words that looked like links.
 
-- [ ] **No command removes a page, and none changes a page's id.** Found writing the test for
-  `linkFaults`, which reports links naming a page that is not there — and the fault could not be
-  *made* through the product, because `_chosen` refuses a surface by name ("the page itself is not a
-  thing a reader can remove") and `id` is exempt from the panel on purpose. A site builder that
-  cannot delete a page is a gap on its own; what the link work adds is that deleting one has to say
-  what it breaks, which is what `linkFaults` is for. The test uses a fixture until then, and says so.
+- [x] ~~**No command removes a page, and none changes a page's id.**~~ Done and the box was never
+  ticked, which is its own small lesson: `insertPage`, `duplicatePage`, `removePage`, `movePage` and
+  `setPageInfo` are all in `page-commands.ts` and all four are in the 파일 menu. Found while
+  answering "is the site builder finished" — an open item that is closed reads exactly like one that
+  is open, which is the same failure as a check nobody runs.
 
 - [x] ~~**`linkFaults` has no reader-facing surface.**~~ Nor did the other two. The rail has a footer
   now — see Done. The entry was right about the shape of it and understated the size: *nothing* ran
   any of the three over a real document.
 
-- [ ] **A link out of the site still has no control.** `toggleLink` is registered and reachable by
-  nothing here: the picker offers pages, which is the half that needed a model. An address box is the
-  other half, and it belongs with whatever answers the same question in Word.
+- [x] ~~**A link out of the site still has no control.**~~ `linkToAddress` is a command, declared in
+  `toolbar-model.ts` and drawn as a field beside the page picker. The drawing end had been finished
+  the whole time — `hrefFor` passes a non-`page:` href straight through and the export writes it —
+  so the gap was one field wide and no check could see it: a command nothing offers is not a command
+  a surface got wrong.
+
+  Three things it turned up:
+
+  - **`addressFor` is why this is not one line.** A reader types `barocss.com`, which written into an
+    `href` unchanged is *relative* — followed from `/제품` it goes to `/제품/barocss.com`. The link
+    draws, it is clickable, it looks right, and it is wrong only when somebody follows it. What is
+    left alone is as important: a scheme, a root-relative path, a fragment and a protocol-relative
+    address are all deliberate, and prefixing them would break the three most useful ones.
+  - **링크 없음 would have greyed over the new link.** The ribbon asked `pageLinkOf` two questions —
+    *which page* and *is there a link* — which agreed for exactly as long as a page link was the only
+    kind this product could write.
+  - **`isPageRef` was typed `href is string`.** So the *false* branch of a call on a known string
+    narrows to `never`, and the first function to ask "not a page reference, then what kind of address
+    is it" could not call a method on the answer. `page:${string}` leaves a string a string.
+
+- [ ] **`every-command-does-something` can ask about 31 of 44, and the 13 are worth naming.** The
+  probe sets up one state — a block selected, the page named — and that is one of the **two** a
+  builder has. Adding a range over some words took it from 24 asked to 31: the whole link group and
+  all four mark toggles had been in the *could not be asked* column, silently, and `linkToAddress`
+  went straight into it the day it was written. What is left is a payload gap rather than a state
+  one: `setBlockFormat` — the command **35 panel rows** write through, the busiest in the product —
+  cannot be asked because the probe has no attribute to give it. Same for `setPageInfo`,
+  `setSiteAddress`, `bindPartText` and the three `component*` writers. `undo`, `redo`, `pasteBlocks`,
+  `selectParent` and `moveBlockUp` are honest `null`s: nothing to undo, nothing on the clipboard,
+  nothing above the first block on a page.
 
 - [ ] **The fault list reads and cannot repair.** A row goes to the block and the reader fixes it with
   the ordinary controls, which is the honest first version — but the commonest fault by far has one

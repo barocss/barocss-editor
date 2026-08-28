@@ -156,6 +156,23 @@ describe('the site builder draws what it declares', () => {
    */
   const moved = new Map<string, boolean | null>();
 
+  /** The first run of words on a page — what a range selection needs somewhere to be. */
+  const firstRun = (store: DataStore, from: string): string | undefined => {
+    const walk = (sid: string): string | undefined => {
+      const node = store.getNode(sid) as any;
+      if (!node) return undefined;
+      if (typeof node.text === 'string' && node.text.length > 2) return sid;
+      for (const child of node.content ?? []) {
+        if (typeof child === 'string') {
+          const hit = walk(child);
+          if (hit) return hit;
+        }
+      }
+      return undefined;
+    };
+    return walk(from);
+  };
+
   /**
    * Run **before** the check, because a command is `async` and a check is not.
    *
@@ -183,10 +200,45 @@ describe('the site builder draws what it declares', () => {
 
       // The state a page's surfaces act from: one block held, and the page it is on named.
       await editor.executeCommand('setNode', { nodeIds: [block] });
-      const payload = { nodeId: page, pageId: page, parentId: page };
+      const payload: Record<string, unknown> = { nodeId: page, pageId: page, parentId: page };
+
+      /**
+       * **And the other state a page's surfaces act from**, which this probe did not have.
+       *
+       * A builder has two: a block selected, and **words** selected. Everything in the ribbon's link
+       * group needs the second — a mark covers a range and a node selection is not one — so every
+       * one of those commands refused, came back `null`, and was counted as *could not be asked*.
+       * Honest, and it meant the check had nothing to say about a whole group of controls; the day
+       * `linkToAddress` was added it went straight into that same silent column.
+       *
+       * So a command that cannot run over a block is offered a range over some words before being
+       * given up on. `null` still means what it meant — neither state let it run.
+       */
       if (editor.canExecuteCommand(command, payload) !== true) {
-        moved.set(command, null);
-        continue;
+        const words = firstRun(store, page);
+        if (!words) {
+          moved.set(command, null);
+          continue;
+        }
+        editor.selectionManager.setSelection({
+          type: 'range',
+          startNodeId: words,
+          startOffset: 0,
+          endNodeId: words,
+          endOffset: 2,
+          collapsed: false
+        } as never);
+        /*
+         * And what each needs **beyond** a selection, which is the same thing `nodeId`/`pageId` are
+         * two lines up: a probe that offered a link command no destination would watch it decline and
+         * report the command as one that says yes and does nothing — a finding about the probe.
+         */
+        payload.id = pagesOf(doc as never)[1]?.id ?? pagesOf(doc as never)[0]?.id;
+        payload.href = 'barocss.com';
+        if (editor.canExecuteCommand(command, payload) !== true) {
+          moved.set(command, null);
+          continue;
+        }
       }
 
       const before = JSON.stringify(editor.exportDocument?.(rootId) ?? '');

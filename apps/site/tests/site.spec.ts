@@ -3129,6 +3129,68 @@ test.describe('a link to another page', () => {
     );
   });
 
+  /**
+   * And a link **out** of the site, which had no control at all.
+   *
+   * ## What was measured
+   *
+   * The link group offered a picker of this document's pages and a button that takes a link away.
+   * Between them there was no way to type an address — so a landing page built with this product
+   * could not carry a link to a shop, a repository or a mail address. The *drawing* end had been
+   * finished the whole time: `hrefFor` passes a non-`page:` href straight through and the export
+   * writes it, so the gap was one field wide and invisible to every check, because a command nothing
+   * offers is not a command a surface got wrong.
+   *
+   * ## Why the typed value is not the written one
+   *
+   * A reader types `barocss.com`, because that is what the address *is* to them. Written into an
+   * `href` unchanged it is **relative**: followed from `/제품` it goes to `/제품/barocss.com`. The
+   * link is drawn, it is clickable, it looks right, and it is wrong only once somebody follows it —
+   * which is why this asserts the `https://` that `addressFor` puts on rather than the letters.
+   */
+  test('links the words a reader has chosen to an address they type', async ({ page }) => {
+    await ready(page);
+
+    const field = page.locator('.st-link-address');
+    // Nothing selected: not offered, for the picker's reason — a link is a fact about words.
+    await expect(field).toHaveCount(0);
+
+    const hero = page.locator('[data-frame="mobile"] h1');
+    await pressDeep(page, hero);
+    await page.waitForTimeout(200);
+    await pressTwice(page, hero);
+    await page.waitForTimeout(300);
+    for (let i = 0; i < 3; i += 1) await page.keyboard.press('Shift+ArrowRight');
+    await page.waitForTimeout(300);
+    await expect(field).toBeEnabled();
+
+    await field.fill('barocss.com');
+    await field.press('Enter');
+    await page.waitForTimeout(600);
+
+    const made = page.locator('[data-frame="desktop"] .st-page h1 a.mark-link');
+    await expect(made).toHaveAttribute('href', 'https://barocss.com');
+    // One document, three boards — the same link on each, drawn from the same mark.
+    await expect(page.locator('[data-frame="tablet"] .st-page h1 a.mark-link')).toHaveAttribute(
+      'href',
+      'https://barocss.com'
+    );
+
+    // The field reads the link back, so a reader can see where the words already go.
+    await expect(field).toHaveValue('https://barocss.com');
+
+    /*
+     * And 링크 없음 works over it. It used to ask `pageLinkOf`, which answers only about page links —
+     * so this button would have been grey over the one kind of link it had just become possible to
+     * make, which is a control disabling itself out of the job it exists for.
+     */
+    const remove = page.getByRole('button', { name: '선택한 글자의 링크를 없앱니다' });
+    await expect(remove).toBeEnabled();
+    await remove.click();
+    await page.waitForTimeout(500);
+    await expect(made).toHaveCount(0);
+  });
+
   test('links the words a reader has chosen to a page they pick', async ({ page }) => {
     await ready(page);
 
