@@ -325,6 +325,20 @@ function LayersPanel({
   }, [doc, page, revision]);
   const all = whole <= SMALL;
 
+  /**
+   * What a reader is **looking for**, which a hundred-row list has to be able to answer.
+   *
+   * Measured on the sample's home page: 110 rows and four levels. Closed-by-default made that
+   * navigable and it did not make it *searchable* — a reader who knows the block is called 요금
+   * still has to guess which of nine bands it is under, and open them one at a time.
+   *
+   * Every tool of this kind has this field and puts it in the same place, and the reason is the
+   * number rather than convention: a tree deep enough to need closing is a tree deep enough to get
+   * lost in.
+   */
+  const [looking, setLooking] = useState('');
+  const wanted = looking.trim().toLowerCase();
+
   const rows = useMemo(() => {
     const found: {
       sid: string;
@@ -335,12 +349,31 @@ function LayersPanel({
       shown: boolean;
       hidden: boolean;
       locked: boolean;
+      /** Whether this row is what was searched for, rather than an ancestor kept for the shape. */
+      hit: boolean;
     }[] = [];
+
+    /**
+     * While searching, a row is kept if it matches **or holds something that does**.
+     *
+     * Which is the whole of what makes a filtered tree readable: a list of bare matches has lost the
+     * one thing a layer list is for — where the block lives. Figma, Sketch and every file browser
+     * answer this the same way, and a flat list of names is what it looks like when they do not.
+     */
+    const matches = (sid: string, depth = 0): boolean => {
+      if (labelOfBlock(doc, sid).toLowerCase().includes(wanted)) return true;
+      if (depth > 12) return false;
+      return blocksIn(doc, sid).some((child) => matches(child, depth + 1));
+    };
+
     const walk = (sid: string, depth: number) => {
       if (depth > 12) return;
       for (const child of blocksIn(doc, sid)) {
+        if (wanted && !matches(child)) continue;
         const holds = blocksIn(doc, child).length > 0;
-        const shown = holds && (all || open.has(child) || revealed.has(child));
+        // Searching opens what it kept: a match three levels down that a reader has to click to see
+        // is a search that found nothing as far as they can tell.
+        const shown = holds && (!!wanted || all || open.has(child) || revealed.has(child));
         const attrs = (doc.getNode(child)?.attributes ?? {}) as Record<string, unknown>;
         found.push({
           sid: child,
@@ -350,14 +383,15 @@ function LayersPanel({
           holds,
           shown,
           hidden: attrs.visible === false,
-          locked: attrs.locked === true
+          locked: attrs.locked === true,
+          hit: !!wanted && labelOfBlock(doc, child).toLowerCase().includes(wanted)
         });
         if (shown) walk(child, depth + 1);
       }
     };
     if (page) walk(page, 0);
     return found;
-  }, [doc, page, revision, open, revealed, all]);
+  }, [doc, page, revision, open, revealed, all, wanted]);
 
   /**
    * **Where a dragged row would land** — a parent and a place in it.
@@ -451,10 +485,36 @@ function LayersPanel({
     });
   };
 
-  if (rows.length === 0) return <p className="st-rail-note">이 페이지에는 아직 아무것도 없습니다.</p>;
+  /*
+   * The field is drawn whatever the list says, because a search that disappears when it finds nothing
+   * is a search a reader cannot correct — they would have to clear something they can no longer see.
+   */
+  const find = (
+    <div className="st-rail-find">
+      {/* Live, not committed: the list under it is the answer to the query as it is typed. */}
+      <TextField
+        value={looking}
+        placeholder="블록 찾기"
+        ariaLabel="블록 찾기"
+        onChange={setLooking}
+      />
+    </div>
+  );
+
+  if (rows.length === 0)
+    return (
+      <>
+        {find}
+        <p className="st-rail-note">
+          {wanted ? `'${looking}'와(과) 맞는 블록이 없습니다.` : '이 페이지에는 아직 아무것도 없습니다.'}
+        </p>
+      </>
+    );
 
   return (
-    <div className="st-layers-list" data-layers>
+    <>
+      {find}
+    <div className="st-layers-list" data-layers data-finding={wanted ? 'true' : undefined}>
       {rows.map((row) =>
         renaming === row.sid ? (
           /*
@@ -489,6 +549,8 @@ function LayersPanel({
           data-selected={selected.has(row.sid) ? 'true' : undefined}
           data-hidden={row.hidden ? 'true' : undefined}
           data-locked={row.locked ? 'true' : undefined}
+          // What the search found, as against a branch kept to show where it lives.
+          data-hit={row.hit ? 'true' : undefined}
           data-dragging={drag?.sid === row.sid ? 'true' : undefined}
           data-drop={drag?.over === row.sid && drag.sid !== row.sid ? drag.where : undefined}
           /*
@@ -602,6 +664,7 @@ function LayersPanel({
         )
       )}
     </div>
+    </>
   );
 }
 

@@ -1750,6 +1750,64 @@ test.describe('the pages of a site', () => {
 });
 
 /**
+ * **Finding a block in a hundred-row list**, and a menu that was dead on a fresh page.
+ *
+ * Both found the same way: opening each of the four chrome surfaces in each of its states and writing
+ * down what it offers. A list of what a reader can press is a thing this repository can only get from
+ * a browser, and it is where the two faults below were sitting in plain sight.
+ */
+test.describe('the rail and the menubar, counted', () => {
+  test('finds a block by name, keeping the branch it hangs off', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(400);
+    const all = await page.locator('[data-layer]').count();
+    expect(all).toBeGreaterThan(8);
+
+    await page.getByLabel('블록 찾기').fill('요금');
+    await page.waitForTimeout(400);
+
+    /*
+     * A row is kept if it matches **or holds something that does**, which is the whole of what makes
+     * a filtered tree readable: a list of bare matches has lost the one thing a layer list is for —
+     * where the block lives. And the two kinds are told apart, or a list of one match reads as ten.
+     */
+    const rows = page.locator('[data-layer]');
+    expect(await rows.count()).toBeLessThan(all);
+    await expect(rows.first()).toContainText('요금');
+    expect(await page.locator('[data-layer][data-hit="true"]').count()).toBeGreaterThan(0);
+
+    await page.getByLabel('블록 찾기').fill('있을리없는이름');
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-layer]')).toHaveCount(0);
+    // The field stays: a search that disappears when it finds nothing cannot be corrected.
+    await expect(page.getByLabel('블록 찾기')).toHaveCount(1);
+
+    await page.getByLabel('블록 찾기').fill('');
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-layer]')).toHaveCount(all);
+  });
+
+  test('offers every insert on a page with nothing selected', async ({ page }) => {
+    await ready(page);
+    await page.locator('.st-menubar [data-menu="insert"]').click();
+    await page.waitForTimeout(300);
+
+    /*
+     * Measured before this: **twelve entries in 삽입, twelve greyed**, on a freshly opened site. An
+     * insert lands after what is selected and, with nothing selected, at the end of the page a reader
+     * is looking at — which the model has no notion of, so the app says it with `needs: 'page'`. The
+     * rail's 추가 had been passing it since the day it was written; this menu was not.
+     */
+    const entries = page.locator('[data-menu-item]');
+    expect(await entries.count()).toBeGreaterThan(10);
+    for (const one of await entries.all()) {
+      await expect(one, (await one.innerText()).trim()).toBeEnabled();
+    }
+  });
+});
+
+/**
  * **The space inside a block**, which is what a reader asked for a ruler to see.
  *
  * A ruler is the wrong instrument for a page. Word's measures margins and indents and a slide's

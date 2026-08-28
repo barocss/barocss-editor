@@ -179,16 +179,29 @@ const DECLARED: SiteMenu[] = [
     id: 'insert',
     label: '삽입',
     blocks: [
+      /*
+       * **`needs: 'page'` on every one of them**, and without it the whole menu was dead.
+       *
+       * Measured on a freshly opened site with nothing selected: twelve entries in 삽입, **twelve
+       * greyed**. An insert lands *after what is selected*, and with nothing selected it lands at the
+       * end of the page a reader is looking at — which the model has no notion of and should not grow
+       * one, so the app says it. The rail's 추가 has been passing it since the day it was written;
+       * this menu was not, so from a fresh document every entry refused.
+       *
+       * The same fault `duplicatePage` and `removePage` had, in the same file, for the same reason —
+       * *an entry that can never be enabled is worse than one that is not there* — and it recurred
+       * because these are derived from the toolbar, where the app supplies the page a different way.
+       */
       {
         id: 'containers',
         items: SITE_TOOLBAR.filter((one) => one.group === 'insert' && one.puts === 'container').map(
-          (one) => ({ command: one.command, label: one.makes ?? one.label })
+          (one) => ({ command: one.command, label: one.makes ?? one.label, needs: 'page' })
         )
       },
       {
         id: 'blocks',
         items: SITE_TOOLBAR.filter((one) => one.group === 'insert' && one.puts === 'block').map(
-          (one) => ({ command: one.command, label: one.makes ?? one.label })
+          (one) => ({ command: one.command, label: one.makes ?? one.label, needs: 'page' })
         )
       },
       {

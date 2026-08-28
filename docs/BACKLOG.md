@@ -48,6 +48,20 @@ entries are that.
 
 ### Found walking the site builder in a browser
 
+- [ ] **The toolbar is six buttons across the whole window.** Counted in four states: two mode
+  switches and four object actions, of which four are greyed with nothing selected and one is greyed
+  in every state but a placement's. In text it grows to twelve. A full-width strip is what a *ribbon*
+  is — Word's has 69 controls and needs the width — and this is not one: it is Figma's toolbar, which
+  is a small floating island of tools with everything else in the panel. The question is whether the
+  strip becomes an island or grows contextual groups, and it is a product decision rather than a
+  defect, which is why it is written down instead of changed.
+
+- [ ] **Three rail panels have no group headings.** 추가 and 데이터 divide themselves up (담는 것 /
+  넣는 것, 어떤 디자인으로 / 어떤 데이터를); 페이지, 컴포넌트 and 구성 are one undivided list each.
+  For 구성 that is right — a tree is its own structure — and for the other two it is the same
+  "lists of the same shape with different answers" the check at the top of this file is about.
+
+
 - [ ] **A pasted block that names a component or a dataset carries neither.** Within one document
   that is fine — the definition is already there. Across documents it is the gap the deck already
   solved (`cardsFor` / `pasteCardsPlan`): a payload is a copy of a *name*, and pasting one into a
@@ -96,10 +110,9 @@ entries are that.
   satisfied by a command whose body is `() => true`. A command that always says yes and changes
   nothing is the same shape as a `canExecute` looser than its `execute`, one step further along.
 
-- [ ] **Word and the deck type their menu hints.** The site's are derived from its key map now, and
-  the check that keeps them honest is `keymap.test.ts` — a chord printed beside a label must be a
-  chord the product binds. Both other products still write theirs by hand, and Word's ⌘F is already
-  the first one that is not true.
+- [x] ~~**Word and the deck type their menu hints.**~~ All three derive them now — `withHints` in
+  `office-controls`, and each product's own `menu-model.test.ts` holds the derivation. Written as an
+  open item and closed in the same commit that opened it; kept because the *finding* is the entry.
 
 
 ### A check for a `canExecute` that is looser than its `execute`
@@ -2846,6 +2859,39 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The four surfaces, counted in each of their states.** Opened the toolbar, the rail, the menubar
+  and the panel in every state a reader can put them in and wrote down what each offers. Two faults
+  were sitting in plain sight, and both are the shape this repository keeps finding.
+
+  **삽입 was dead on a freshly opened page.** Twelve entries, **twelve greyed** — because an insert
+  lands after what is selected and, with nothing selected, at the end of the page the reader is
+  looking at, which the model has no notion of and should not grow one. The rail's 추가 has been
+  passing `pageId` since the day it was written; the menu was not, so from a fresh document every
+  entry refused. It is the same fault `duplicatePage` and `removePage` had, in the same file, and it
+  recurred because these entries are **derived from the toolbar**, where the app supplies the page a
+  different way. The test writes the whole list out rather than counting it: an entry that needs the
+  page and does not say so is greyed forever, and one that says so and does not need it sends a
+  `nodeId` to a command that will use it for something else.
+
+  **The layer list could not be searched.** 110 rows, four levels. Closed-by-default made that
+  navigable and did not make it findable: a reader who knows the block is called 요금 still had to
+  guess which of nine bands it is under and open them one at a time. There is a field now, and the
+  two things that make a filtered tree readable rather than a flat list of names:
+
+  - **A row is kept if it matches or holds something that does**, so the answer arrives with the
+    branch it hangs off. A list of bare matches has lost the one thing a layer list is for.
+  - **The two kinds are told apart** — what was found is ink, what is kept for the shape is faint.
+    Without that, one match in a four-deep tree reads as four.
+
+  Searching also opens what it kept: a match three levels down that a reader has to click to see is a
+  search that found nothing as far as they can tell. And the field stays when nothing matches,
+  because a search that disappears cannot be corrected.
+
+  What the count also said, and is not a defect: the site's toolbar is **six buttons across 1600
+  pixels**, four of them greyed with nothing selected. Figma's toolbar is a small island of *tools*
+  and everything else is in the panel; ours is a full-width strip with almost nothing on it. That is
+  a shape question rather than a gap — see Open.
 
 - **A builder can copy a block.** `cut`, `copy` and `paste` are the shared kit's and take a caret's
   **range**, so a reader holding a card had all three greyed — correctly, and uselessly. Measured

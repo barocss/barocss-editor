@@ -544,6 +544,30 @@ body {
   box-shadow: var(--ou-lift-1);
 }
 
+/*
+ * The field that finds a block in a hundred-row list.
+ *
+ * Pinned above the list rather than scrolling with it: a search a reader has to scroll back to is a
+ * search they retype instead. Every tool of this kind puts it exactly here.
+ */
+.st-rail-find {
+  padding: 2px 8px 6px;
+  border-bottom: 1px solid var(--st-line);
+  /* A field in the rail is the panel's kind — no resting edge until the pointer arrives. */
+  --ou-field-line: transparent;
+}
+
+/*
+ * What the search actually **found**, against what is kept to show where it lives.
+ *
+ * A filtered tree has two kinds of row and a reader has to be able to tell them apart: 요금 미리보기
+ * is the answer and 히어로 is the branch it hangs off. Without this the list reads as ten matches
+ * when there is one.
+ */
+.st-layers-list[data-finding='true'] .st-layer:not([data-hit='true']) .st-layer-name {
+  color: var(--st-faint);
+}
+
 .st-rail-body {
   flex: 1;
   overflow-y: auto;

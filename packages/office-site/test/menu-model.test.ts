@@ -80,16 +80,34 @@ describe('what the menubar offers', () => {
       menu.blocks.flatMap((block) => block.items.filter((one) => one.needs === 'page').map((one) => one.command))
     );
     /*
-     * 붙여넣기 and 모두 선택 are the other two, and they are the same fact from the other end: both act
-     * on *the page a reader is looking at*, which the model has no way to know and the app does. A
-     * paste with nothing selected has to land somewhere, and an empty page is somewhere.
+     * …and **every insert**, which is the same fact once more and the one that had been missed.
+     * Measured on a freshly opened site with nothing selected: twelve entries in 삽입, twelve greyed.
+     * An insert lands after what is selected, and with nothing selected it lands at the end of the
+     * page a reader is looking at — which the model has no notion of and the app does. The rail's
+     * 추가 had been saying it since the day it was written.
+     *
+     * Written out rather than counted, because the list is the claim: an entry that needs the page
+     * and does not say so is greyed forever, and an entry that says so and does not need it sends a
+     * `nodeId` to a command that will use it for something else.
      */
     expect(needing).toEqual([
       'exportPage',
       'duplicatePage',
       'removePage',
       'pasteBlocks',
-      'selectAllBlocks'
+      'selectAllBlocks',
+      'insertSection',
+      'insertRow',
+      'insertGrid',
+      'insertHeading',
+      'insertBodyText',
+      'insertPicture',
+      'insertBulletList',
+      'insertNumberList',
+      'insertQuote',
+      'insertCode',
+      'insertRule',
+      'insertButton'
     ]);
   });
 
