@@ -303,15 +303,37 @@ describe('how long a block takes to answer the pointer', () => {
     expect(css).not.toMatch(/transition:[^;]*\b(width|height|padding|gap|margin)\b/);
   });
 
-  it('is on the block itself, without the pseudo-class', () => {
+  it('is on the block, and again on the state, with a different curve each way', () => {
     const css = rulesNow();
-    const line = css.split('\n').find((one) => one.includes('transition:'))!;
+    const lines = css.split('\n').filter((one) => one.includes('transition:'));
+
     /*
-     * A `transition` inside `:hover` animates the arrival and not the leaving, which is the classic
-     * half-built hover: the colour eases in over 160ms and snaps back the instant the pointer
-     * leaves. Declared on the block, both directions are the same gesture.
+     * **Two curves**, and this is the whole of how they fit on one property: a browser reads the
+     * transition of the ruleset it is going *to*, so the state's rule governs the arrival and the
+     * block's own governs the return.
+     *
+     * Which is why one curve was half an answer rather than a simplification. A `transition` only on
+     * the block eases in the same way it eases out; only inside `:hover` it eases in and **snaps
+     * back**, which is the classic half-built hover.
      */
-    expect(line).not.toContain(':hover');
+    const base = lines.find((one) => !one.includes(':hover'))!;
+    const hover = lines.find((one) => one.includes(':hover'))!;
+    expect(base).toBeTruthy();
+    expect(hover).toBeTruthy();
+
+    // Arriving: fast to leave, slow to settle — what makes a change noticed and then followable.
+    expect(hover).toContain('cubic-bezier(0.2, 0, 0, 1)');
+    // Leaving: the other way round, so the thing lets go rather than being snatched away.
+    expect(base).toContain('cubic-bezier(0.4, 0, 1, 1)');
+    expect(base).not.toContain('cubic-bezier(0.2, 0, 0, 1)');
+  });
+
+  it('says nothing about time in either rule until a reader asks', async () => {
+    // The pair is still one attribute: silence on the block is silence in both directions.
+    await editor.executeCommand('setNode', { nodeIds: [card] });
+    await editor.executeCommand('setBlockFormat', { transitionMs: undefined });
+    expect(rulesNow()).not.toContain('transition');
+    await editor.executeCommand('setBlockFormat', { transitionMs: 160 });
   });
 
   it('is drawn on the boards too, so a designer sees what a visitor will', () => {

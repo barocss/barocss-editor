@@ -2774,6 +2774,32 @@ text-shaped.
 
 ## Done
 
+- **A state now eases in one way and out another.** `transitionMs` shipped with one curve,
+  `cubic-bezier(0.2, 0, 0, 1)`, on the block's own rule — which governs **both directions**, so a
+  card eased *in* the same way it eased *out*. Every considered system uses ease-out arriving and
+  ease-in leaving, for a reason about eyes rather than taste: arriving, fast-to-leave is what makes a
+  change *noticed* and slow-to-settle is what makes it *followable*; leaving, the opposite, so the
+  thing reads as letting go rather than being snatched away and the eye is not pulled back to
+  something the reader has moved on from.
+
+  **The whole of how two curves fit on one property**: a browser reads the transition of the ruleset
+  it is going *to*. So the block's own rule carries `LEAVE` and the state's rule carries `ENTER`, and
+  the hover's curve governs the arrival while the base's governs the return. One extra declaration
+  rather than a mechanism — `transitionsFor` grew a fifth parameter and `stateRules` calls it twice,
+  keying the second pass by selector so each state rule can pick up its own arriving line.
+
+  Both notations, because a state has always had two: the published rule and the board's
+  `!important` one. The test states the contract in the shape the old one denied — the previous
+  assertion was `expect(line).not.toContain(':hover')`, and it still passed, because it found the
+  *first* line with a `transition:` in it. A test whose premise had changed and whose subject had
+  not: it was asserting the base rule exists, which is true either way. It now finds both lines and
+  names the curve each carries.
+
+  This closes the refinement the original entry left on the table with the reasoning attached — the
+  bullet below reading **It is on the block, not in the `:hover`** was right about the fault and
+  wrong about the remedy being exclusive. It is on the block *and* in the `:hover`, with a different
+  curve each way.
+
 - **The link picker is offered when there are words to link.** The last item of the chrome audit: a
   144-pixel dropdown reading 링크 없음 sat on the site's toolbar at all times, and what a block links
   to is a fact about *words* — a reader who has selected a card is not being asked about it.
@@ -3329,7 +3355,9 @@ text-shaped.
     `STATEABLE`, because it is not a list — it is what the block actually promised.
   - **It is on the block, not in the `:hover`.** Declared inside the state it would animate the
     arrival and not the leaving: eased in over 160ms and snapped back the instant the pointer goes.
-    One line's difference, and it is the classic half-built hover.
+    One line's difference, and it is the classic half-built hover. *(Superseded: it is on the block
+    **and** in the `:hover` now, carrying a different curve each way — see the enter/leave entry at
+    the top of Done. The fault this names is real; "not in the `:hover`" was one remedy too few.)*
   - **Unset is not zero.** A block nobody has told answers the way it always did and carries no rule;
     `0` is a reader saying *instantly*, on purpose. Same drawing, different documents — and both are
     reachable only because the number field learned what an emptied field means, one commit earlier.

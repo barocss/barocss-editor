@@ -386,12 +386,29 @@ export function stateRules(
     flat.push(`${selector} { ${said} }`);
   }
 
+  /**
+   * The **arriving** curve, on the state's own rule.
+   *
+   * A browser reads the transition of the ruleset it is going *to*, so this one governs the arrival
+   * and the block's own governs the return. Which is what makes two curves possible at all without a
+   * second mechanism — see `ENTER` and `LEAVE`.
+   *
+   * Keyed by selector so a block with a hover and a focus is told once rather than twice: they are
+   * the same arrival and the same block.
+   */
+  const entering = new Map<string, string>();
+  for (const [selector, said] of transitionsFor(store, changes, classOf, undefined, ENTER)) {
+    entering.set(selector, said);
+  }
+
   for (const change of changes) {
-    const selector = whereFor(change, classOf)
+    const where = whereFor(change, classOf);
+    const selector = where
       .split(', ')
       .map((one) => `${one}${selectorOf(change.state)}`)
       .join(', ');
-    const rule = `${selector} { ${declarations(change.css)} }`;
+    const arriving = entering.get(where);
+    const rule = `${selector} { ${declarations(change.css)}${arriving ? ` ${arriving}` : ''} }`;
     if (!change.width) {
       flat.push(rule);
       continue;
@@ -447,13 +464,27 @@ export function editorStateCss(
     rules.push(`${selector} { ${said.replace(';', ' !important;')} }`);
   }
 
+  /*
+   * And the arriving curve, in the board's notation — see `stateRules` for why there are two, and
+   * `ENTER`/`LEAVE` for which is which. A designer who is shown a fade that eases the same way in
+   * both directions has been shown something a visitor will not get.
+   */
+  const entering = new Map<string, string>();
+  for (const [selector, said] of transitionsFor(store, changes, () => undefined, 'data-bc-sid', ENTER)) {
+    entering.set(selector, said.replace(';', ' !important;'));
+  }
+
   for (const change of changes) {
     const at = change.width ? `[data-frame="${change.width}"] ` : '';
     const said = Object.entries(change.css)
       .map(([key, value]) => `${dashed(key)}: ${value} !important;`)
       .join(' ');
-    const where = whereFor(change, () => undefined, 'data-bc-sid').split(', ');
-    rules.push(`${where.map((one) => `${at}${one}${selectorOf(change.state)}`).join(', ')} { ${said} }`);
+    const whole = whereFor(change, () => undefined, 'data-bc-sid');
+    const where = whole.split(', ');
+    const arriving = entering.get(whole);
+    rules.push(
+      `${where.map((one) => `${at}${one}${selectorOf(change.state)}`).join(', ')} { ${said}${arriving ? ` ${arriving}` : ''} }`
+    );
 
     /*
      * And the same declarations again with no pseudo-class, on the blocks the panel has opened.
@@ -494,12 +525,13 @@ export function editorStateCss(
  * along with it. Naming the properties also means the list can never fall behind `STATEABLE`,
  * because it is not a list: it is what this block actually promised.
  *
- * ## Why it is on the block and not in the `:hover`
+ * ## Why it is on the block *and* on the state
  *
- * A `transition` declared inside `:hover` animates the arrival and not the leaving — the colour
- * eases in over 160ms and snaps back the instant the pointer goes. It is the classic half-built
- * hover, and it is one line's difference. Declared on the block, both directions are the same
- * gesture, which is what a reader means by *this card fades*.
+ * A `transition` declared **only** inside `:hover` animates the arrival and not the leaving — the
+ * colour eases in over 160ms and snaps back the instant the pointer goes. It is the classic
+ * half-built hover, and it is one line's difference. So the block carries one, which is what a
+ * reader means by *this card fades*; and then the state carries one too, with the other curve, which
+ * is what a reader means by *and it fades back differently*. See `ENTER` and `LEAVE`.
  *
  * A property here can be a **shorthand** — a state that changes a stroke's colour changes the whole
  * `border` declaration, so the rule names `border` — and that is safe rather than lucky. A shorthand
@@ -507,24 +539,20 @@ export function editorStateCss(
  * change: `STATEABLE` leaves `strokeWidth` out for exactly that reason, so the width is identical in
  * both rules and there is nothing there to animate.
  *
- * ## One curve, and why it is that one
+ * ## Which curve, which is the caller's to say
  *
- * `cubic-bezier(0.2, 0, 0, 1)` — fast to leave, slow to settle. It is the curve every system with a
- * considered one has converged on, for a reason that is about eyes rather than taste: a change that
- * starts fast is *noticed*, and a change that ends slowly can be *followed*. `linear` reads as
- * mechanical and `ease-in` reads as laggy, because the first thing it does is nothing.
- *
- * The refinement this leaves on the table, so it is a decision and not an omission: enter and leave
- * ideally use different curves (out on the way in, in on the way out), which needs the base rule and
- * the state rule to carry one each. Worth doing the day a reader can choose a curve at all; today
- * they cannot, and one curve in one place is the honest shape of that.
+ * This writes whichever curve it was handed and defaults to `LEAVE`, because the block's own rule is
+ * the one it is asked for most and the one a reader would forget. `ENTER` and `LEAVE` carry the
+ * reasoning; the only thing this function knows about them is that a ruleset gets exactly one.
  */
 function transitionsFor(
   store: { getNode: (sid: string) => Node | undefined },
   changes: StateChange[],
   classOf: (sid: string) => string | undefined,
   /** The attribute the selector matches on — `data-b` on a published page, the sid on a board. */
-  attribute?: string
+  attribute?: string,
+  /** Which curve these rules carry — see `ENTER` and `LEAVE`. */
+  curve: string = LEAVE
 ): [string, string][] {
   /** Every property any of this block's states changes, in the order they were first seen. */
   const properties = new Map<string, { one: StateChange; keys: Set<string> }>();
@@ -542,14 +570,39 @@ function transitionsFor(
     // page that says nothing about time carries no rule about time.
     if (typeof ms !== 'number' || !Number.isFinite(ms)) continue;
 
-    const said = [...keys].map((key) => `${key} ${Math.max(0, Math.round(ms))}ms ${EASE}`).join(', ');
+    const said = [...keys].map((key) => `${key} ${Math.max(0, Math.round(ms))}ms ${curve}`).join(', ');
     out.push([whereFor(one, classOf, attribute), `transition: ${said};`]);
   }
   return out;
 }
 
-/** See `transitionsFor` for why this curve and not another. */
-const EASE = 'cubic-bezier(0.2, 0, 0, 1)';
+/**
+ * The two curves, and why there are two.
+ *
+ * ## One curve was half of an answer
+ *
+ * A `transition` on the block governs **both directions** — the arrival and the leaving — so one
+ * curve means a card that eases *in* the same way it eases *out*. Every considered system uses
+ * ease-out on the way in and ease-in on the way out, and the reason is about eyes rather than taste:
+ *
+ * - **Arriving**, the change should start fast and settle slowly. Fast to leave is what makes it
+ *   *noticed*; slow to settle is what makes it *followable*. That is `ENTER`.
+ * - **Leaving**, the opposite. A change that starts slowly reads as the thing letting go rather than
+ *   being snatched away, and it keeps the eye from being pulled back to something the reader has
+ *   already moved on from. That is `LEAVE`.
+ *
+ * Reversed — ease-in on the way in — the first thing a hover does is nothing, which reads as lag.
+ * `linear` in either direction reads as mechanical.
+ *
+ * ## How two curves fit on one property
+ *
+ * The block's own rule carries `LEAVE` and the state's rule carries `ENTER`. A browser reads the
+ * transition of the ruleset it is *going to*, so the hover rule's curve governs the arrival and the
+ * base rule's governs the return — which is the whole trick, and it is one extra declaration rather
+ * than a mechanism.
+ */
+const ENTER = 'cubic-bezier(0.2, 0, 0, 1)';
+const LEAVE = 'cubic-bezier(0.4, 0, 1, 1)';
 
 /**
  * The blocks that **arrive as a visitor scrolls to them**, as rules.
