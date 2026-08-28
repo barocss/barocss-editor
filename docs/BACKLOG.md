@@ -46,6 +46,34 @@ entries are that.
 
 ## Open
 
+### A check for a `canExecute` that is looser than its `execute`
+
+Four in one sweep, all the same shape and none of them visible:
+
+| command | said | did |
+| --- | --- | --- |
+| `moveBlockUp` / `moveBlockDown` | *there is a selection* | needed a **range**, returned false to a console |
+| `copy` | *there is a range* | wanted one with **something in it**; copying nothing emptied the clipboard |
+| `removeLink` | `() => true` | a mark covers a range; taking one off a caret changes nothing |
+
+A `canExecute` looser than its `execute` is **worse than one that is wrong**, because the product
+looks like it works: the control lights up, the reader presses it, and nothing happens. And the
+harness cannot see it — `every-command-can-be-reached` asks whether a command is *reachable*, never
+whether it is telling the truth about when it can run.
+
+- [ ] **The check, and why it is not obvious.** The naive version — run every command in every state
+  and compare — is not available: running a command *changes the document*, so a probe would be
+  measuring a moving target and would need a fresh editor per command per state. The tractable shape
+  is narrower and still catches all four: for each command, in a handful of **named states** (nothing
+  selected, a node selected, a collapsed caret, a range), assert that `canExecute` and a *dry* run
+  agree. That needs commands to be able to answer "would you do anything" without doing it, which
+  most cannot — so the honest first version may be a **list of states each command claims to need**,
+  declared beside it, with the check comparing the claim against `canExecute`.
+
+  Worth doing: this is the third class of fault this repository has found that every part of works.
+  The first was *declared and unread*, the second was *lists of the same shape with different
+  answers*, and this is *a control that lies about itself*.
+
 ### `editor._viewDOM` is one slot — swept, and the engine is clean
 
 Recorded as a limitation, then found to be the cause of a large fault (see Done). Swept afterwards
