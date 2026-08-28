@@ -58,10 +58,21 @@ import type { PointerMode } from './overlay';
  */
 function download(page: { path: string; name: string; html: string }): void {
   const file = page.path === '/' ? 'index' : page.path.replace(/^\//, '').replace(/\//g, '-');
-  const url = URL.createObjectURL(new Blob([page.html], { type: 'text/html;charset=utf-8' }));
+  save(`${file || 'index'}.html`, page.html, 'text/html');
+}
+
+/**
+ * One file, handed to the browser.
+ *
+ * Named by the caller rather than derived here, which is what let a **sitemap** come out of the same
+ * publish: it is XML, it is called `sitemap.xml`, and neither of those is something the page-naming
+ * rule above could have produced.
+ */
+function save(name: string, text: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: `${type};charset=utf-8` }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${file || 'index'}.html`;
+  link.download = name;
   document.body.append(link);
   link.click();
   link.remove();
@@ -401,8 +412,21 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       if (entry.command === 'exportPage' || entry.command === 'exportSite') {
         void editor?.executeCommand(entry.command, {
           ...payload,
-          write: ({ pages }: { pages: { path: string; name: string; html: string }[] }) =>
-            pages.forEach(download)
+          write: ({
+            pages,
+            files
+          }: {
+            pages: { path: string; name: string; html: string }[];
+            files?: { file: string; text: string; type: string }[];
+          }) => {
+            pages.forEach(download);
+            /*
+             * And the site's own files — a sitemap today. They arrive naming themselves, which is how
+             * the app stopped having to know that a page at `/` is written as `index.html` and a
+             * sitemap is XML.
+             */
+            (files ?? []).forEach((one) => save(one.file, one.text, one.type));
+          }
         } as never);
         return;
       }

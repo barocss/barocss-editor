@@ -434,6 +434,13 @@ describe('the site builder draws what it declares', () => {
          */
         description:
           'published in the document’s head, not drawn: read by `exportPage` — held in `reveal.test.ts`',
+        /*
+         * And where the **site** lives, which no renderer can read for a stronger reason than the
+         * description's: it is not on any page. It is what `og:url`, the canonical link and every
+         * `<loc>` in the sitemap are made of, and all three of those are absolute by definition.
+         */
+        address:
+          'published in the head and in the sitemap, not drawn: read by `exportPage` and `sitemapFor` — held in `reveal.test.ts`',
         reveal: 'published as a rule, not folded into a drawing: read by `revealRules` — held in `reveal.test.ts`',
         /*
          * And whose arrival it is, which is the same fact one level down: a container that stagger

@@ -340,6 +340,35 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
       ...office.nodes,
 
       /**
+       * The document, with the one thing a **site** has that a document does not: an address.
+       *
+       * ## Why the model wanted this at last
+       *
+       * Found writing the Open Graph tags. `og:url` and a `<link rel="canonical">` both need an
+       * **absolute** address, and a document here knew its pages' paths and nothing about where the
+       * site lives. So does a sitemap, and so would a feed.
+       *
+       * It is the first fact this model has wanted that is about **publishing** rather than about
+       * the document — everything else here is what the pages *are*. It belongs on the document all
+       * the same, for the reason a page's own address does: two people editing one site do not
+       * publish it to two places, and a thing kept beside the document instead of in it is a thing
+       * that goes missing the first time the file is opened somewhere else.
+       *
+       * ## Silence is not a guess
+       *
+       * A site that has not said gets no `og:url`, no canonical and no sitemap — rather than a
+       * relative address, which Open Graph does not accept and a crawler reads as nothing. Which is
+       * the same rule the description follows one level down: written only when a reader wrote it.
+       */
+      document: {
+        ...(office.nodes as Record<string, any>).document,
+        attrs: {
+          ...((office.nodes as Record<string, any>).document?.attrs ?? {}),
+          address: { type: 'string' as const, required: false }
+        }
+      },
+
+      /**
        * A page of a site.
        *
        * The same surface, with the two things a *site* has that a document does not: an address, and

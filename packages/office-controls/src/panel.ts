@@ -94,6 +94,19 @@ export interface PanelRow<Kind extends string = string> {
   /** The fixed set, for a `choice`. */
   options?: PanelOption[];
   /**
+   * The node type this row **writes**, when it is not the one whose selection shows it.
+   *
+   * Almost never. A panel row is a fact about the thing a reader has selected, and the two are the
+   * same node — which is why `on` alone was enough until a site wanted an address.
+   *
+   * A **site's** address is a fact about the document: there is one of it and five pages. The row
+   * appears in the pane a reader reaches by selecting nothing (which is the page's, so `on` says
+   * `surface`) and writes the *document*. Said out loud because a check reads it: `sets only
+   * attributes those node types declare` looked the attribute up on `surface`, correctly found
+   * nothing, and reported a row that lies about what it writes — which it was.
+   */
+  of?: string;
+  /**
    * How far one press of an arrow key moves a **number**, and what a browser will accept in it.
    *
    * Both, and the second is what made this necessary: `<input type="number">` sanitises what is typed

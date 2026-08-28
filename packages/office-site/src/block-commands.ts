@@ -209,6 +209,31 @@ export class SiteBlockExtension implements Extension {
      * purpose, and every other command here acts on a selection. A reader edits a page's address
      * from the panel with nothing selected, which is where every builder of this kind puts it.
      */
+    /**
+     * Where the **site** lives, which is not a page's business and not a block's.
+     *
+     * Its own command for the reason `setPageInfo` is: the thing it writes is not a selection. This
+     * one goes one further — it writes the **document**, and there is exactly one of those, so it
+     * takes no `nodeId` at all. Every other command in this file needed to be told what to act on.
+     */
+    register(
+      'setSiteAddress',
+      async (payload) => {
+        const rootId = editor.getRootId();
+        const said = typeof payload?.address === 'string' ? payload.address.trim() : '';
+        if (!rootId) return false;
+        return (
+          (
+            await transaction(editor, [
+              // Emptied means the site has not said, which is a value: no canonical, no sitemap.
+              setAttrs(rootId, { address: said || undefined })
+            ] as never).commit()
+          ).success === true
+        );
+      },
+      (payload) => typeof payload?.address === 'string' && !!editor.getRootId()
+    );
+
     register(
       'setPageInfo',
       async (payload) => await this._setPage(editor, payload),

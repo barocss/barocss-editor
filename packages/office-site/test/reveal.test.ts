@@ -6,7 +6,7 @@ import { getSiteSchemaDefinition } from '../src/site-schema';
 import { registerSiteRenderers } from '../src/renderers';
 import { createSampleSite } from '../src/sample-site';
 import { REVEALS, REVEAL_IDS, REVEAL_KEYFRAMES, revealOf, revealRangeFor } from '../src/reveal';
-import { exportPage, revealRules } from '../src/export-html';
+import { exportPage, revealRules, sitemapFor } from '../src/export-html';
 import { PAGE_CSS } from '../src/page-css';
 import { blocksIn, pagesOf } from '../src/selection';
 import { definitionsOf } from '../src/components';
@@ -136,6 +136,48 @@ describe('how a block arrives', () => {
     expect(html).toContain('og:description');
     // A title with no body is an unfurl that looks like a template, so the pair goes together.
     expect(html).toContain('og:title');
+  });
+
+  /**
+   * **Where the site lives**, which is the first fact this model has wanted that is about publishing
+   * rather than about the document — and which three separate things turned out to need.
+   */
+  it('says where a page is, once the site says where it is', async () => {
+    /*
+     * A site that has not said gets neither, rather than a relative one: Open Graph will not take a
+     * relative address, and a canonical link that is relative says the page is canonical to itself —
+     * which is what a duplicate looks like to a crawler.
+     */
+    expect(exportPage(editor, home).html).not.toContain('rel="canonical"');
+
+    await run('setSiteAddress', { address: 'https://barocss.example/' });
+    const html = exportPage(editor, home).html;
+    // Joined in one place, because the two halves disagree about slashes in exactly the way that
+    // produces `https://x.example//about` and `https://x.examplepricing`.
+    expect(html).toContain('<link rel="canonical" href="https://barocss.example/">');
+    expect(html).toContain('<meta property="og:url" content="https://barocss.example/">');
+  });
+
+  it('writes a sitemap, and none at all without an address', async () => {
+    expect(sitemapFor(editor)).toBeUndefined();
+
+    await run('setSiteAddress', { address: 'https://barocss.example' });
+    const map = sitemapFor(editor)!;
+    expect(map).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(map).toContain('<loc>https://barocss.example/</loc>');
+    // One `<url>` per page of the site, which is what a sitemap is.
+    expect(map.match(/<loc>/g)?.length).toBe(pagesOf(doc).length);
+
+    /*
+     * And **no `<lastmod>`**, which is a decision rather than an omission: this model records no
+     * times, and stamping the export's own clock would tell a crawler every page changed every time
+     * anybody published — which is how a site teaches a crawler to stop believing its sitemap.
+     */
+    expect(map).not.toContain('lastmod');
+
+    // Emptied means the site has not said, which is a value: the sitemap goes with it.
+    await run('setSiteAddress', { address: '  ' });
+    expect(sitemapFor(editor)).toBeUndefined();
   });
 
   it('offers a way past the navigation, and only when there is somewhere to go', async () => {

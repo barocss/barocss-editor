@@ -48,11 +48,10 @@ entries are that.
 
 ### Found walking the site builder in a browser
 
-- [ ] **A site has no address of its own.** Found writing the Open Graph tags: `og:url` and a
-  canonical link both need an **absolute** address, and a document here knows its pages' paths and
-  nothing about where the site lives. It is also what a sitemap and an RSS feed would need. One field
-  on the document root, and the reason it is not there yet is that it is the first thing this model
-  has wanted that is a fact about **publishing** rather than about the document.
+- [ ] **A feed is the other thing the address unlocks.** A blog page draws a `collection` over a
+  dataset, which is exactly the shape an RSS or JSON feed is made of — and `Published.files` is now
+  the place a second site-level file would go. What it needs that nothing here has is a **date** per
+  row, which is a dataset column rather than a schema field.
 
 
 - [x] ~~**`PropertyNumber` in `office-ui` is called by nobody.**~~ **Wrong, and corrected within the
@@ -2875,6 +2874,36 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A site knows where it lives, and three things wanted it.** Found writing the Open Graph tags:
+  `og:url` needs an **absolute** address, and so does a canonical link, and so does every `<loc>` in
+  a sitemap. The document knew its pages' paths and nothing about where the site is published.
+
+  It is the first fact this model has wanted that is about **publishing** rather than about the
+  document — everything else here is what the pages *are*. It goes on the document all the same, for
+  the reason a page's own address does: two people editing one site do not publish it to two places,
+  and a thing kept beside a document rather than in it is a thing that goes missing the first time
+  the file is opened somewhere else.
+
+  What it bought, and what each cost:
+
+  - **`<link rel="canonical">` and `og:url`.** A site that has not said gets neither, rather than a
+    relative one — Open Graph will not take a relative address, and a relative canonical says the
+    page is canonical to itself, which is what a duplicate looks like to a crawler.
+  - **A sitemap**, handed back as a **sibling** of the pages rather than one of them. `ExportedPage`
+    carries an `html`, and a field called `html` holding XML is the small lie this repository spends
+    its time finding. So `Published` grew a `files`, each naming its own file and type — which is
+    also how the app stopped having to know that a page at `/` is written as `index.html`.
+  - **No `<lastmod>`.** This model records no times, and stamping the export's own clock would tell a
+    crawler that every page changed every time anybody published, which is how a site teaches a
+    crawler to stop believing its sitemap.
+
+  **And a row that lied about what it writes.** The address appears in the pane a reader reaches by
+  selecting nothing — which is the *page's* pane — and writes the **document**. `sets only attributes
+  those node types declare` looked the attribute up on `surface`, correctly found nothing, and
+  reported it. `PanelRow.of` is the field that says so, one row in the whole product uses it, and the
+  check reads it: a row whose `on` and `attr` disagree is now something a product has to *say* rather
+  than something that quietly happens.
 
 - **The other half of what makes a published page real.** The same reading that found forty `<div>`s
   found two more things missing from the `<head>` and the top of the body, and both are one line each

@@ -22,12 +22,23 @@
  * different answer with the same command in front of it.
  */
 import { Editor, Extension } from '@barocss/editor-core';
-import { exportPage, exportSite, type ExportedPage } from './export-html';
+import { exportPage, exportSite, sitemapFor, type ExportedPage } from './export-html';
 import { pagesOf } from './selection';
 
 /** What a publish produced, handed to whoever asked to run it. */
 export interface Published {
   pages: ExportedPage[];
+  /**
+   * And the files that are the **site's** rather than a page's — a sitemap, and one day a feed.
+   *
+   * Beside the pages rather than among them, because a page carries an `html` and a sitemap carries
+   * XML: one list holding both would need a field called `html` that sometimes is not. Each says its
+   * own file name and type, which is also how the app stopped having to know that a page at `/` is
+   * written as `index.html`.
+   *
+   * Empty when the site has not said where it lives — every `<loc>` in a sitemap is absolute.
+   */
+  files: { file: string; text: string; type: string }[];
 }
 
 type Access = { rootId: string; getNode: (sid: string) => unknown };
@@ -63,7 +74,15 @@ export class SitePublishExtension implements Extension {
      */
     register(
       'exportSite',
-      async (payload) => this._hand(payload, exportSite(editor)),
+      async (payload) => {
+        // The sitemap goes with the whole site and never with one page of it.
+        const map = sitemapFor(editor);
+        return this._hand(
+          payload,
+          exportSite(editor),
+          map ? [{ file: 'sitemap.xml', text: map, type: 'application/xml' }] : []
+        );
+      },
       () => this._pages(editor).length > 0
     );
 
@@ -117,10 +136,14 @@ export class SitePublishExtension implements Extension {
    * `write` is optional on purpose — see the class header. A caller that only wants to know the
    * command works gets `true`; an app gets the pages.
    */
-  private async _hand(payload: Record<string, unknown> | undefined, pages: ExportedPage[]): Promise<boolean> {
+  private async _hand(
+    payload: Record<string, unknown> | undefined,
+    pages: ExportedPage[],
+    files: Published['files'] = []
+  ): Promise<boolean> {
     if (pages.length === 0) return false;
     const write = payload?.write;
-    if (typeof write === 'function') await (write as (result: Published) => unknown)({ pages });
+    if (typeof write === 'function') await (write as (result: Published) => unknown)({ pages, files });
     return true;
   }
 }

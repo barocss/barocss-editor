@@ -53,7 +53,12 @@ describe('what the panel declares', () => {
         expect(schema.nodes.has(row.attr), `${row.label} writes ${row.attr}`).toBe(true);
         continue;
       }
-      const types = row.on ?? [...SELECTABLE];
+      /*
+       * `of` where a row writes a node other than the one that shows it — a site's address appears in
+       * the page's pane and belongs to the **document**. Exactly one row does this and it says so;
+       * without the field this check reported it, correctly, as a row lying about what it writes.
+       */
+      const types = row.of ? [row.of] : (row.on ?? [...SELECTABLE]);
       const anywhere = types.some((type) => (schema.nodes.get(type) as any)?.attrs?.[row.attr]);
       if (!anywhere) wrong.push(`${row.group} › ${row.label} sets ${row.attr}, which none of ${types.join('/')} declares`);
     }
@@ -94,7 +99,7 @@ describe('what the panel declares', () => {
     // A page is the board rather than a block — `SELECTABLE` leaves it out — so its rows are reached
     // by selecting nothing, and no block row may appear beside them.
     const surface = sitePanelRows('surface');
-    expect(surface.map((row) => row.attr).sort()).toEqual(['description', 'name', 'path']);
+    expect(surface.map((row) => row.attr).sort()).toEqual(['address', 'description', 'name', 'path']);
     expect(sitePanelRows('frame').every((row) => row.tab !== 'page')).toBe(true);
   });
 

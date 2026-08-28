@@ -90,6 +90,47 @@ export function exportSite(editor: Editor): ExportedPage[] {
   return pagesOf(doc as never).map((page) => exportPage(editor, page.sid));
 }
 
+/**
+ * The **sitemap**, or nothing when the site has not said where it lives.
+ *
+ * ## Why it is a sibling of the pages rather than one of them
+ *
+ * `ExportedPage` carries an `html`, and a field called `html` holding XML is the kind of small lie
+ * this repository spends its time finding. A page and a sitemap are different things — one is a
+ * document a visitor opens and the other is a list a crawler reads — so they are handed over
+ * separately, and the publish command's payload says which is which.
+ *
+ * ## Why it needs the address
+ *
+ * Every `<loc>` in a sitemap is absolute; the format has no relative form. So a site that has not
+ * said where it lives gets **no sitemap at all** rather than one full of paths, which a crawler
+ * would reject as a whole. Same rule as the canonical link and the description: written only when a
+ * reader has said enough for it to be true.
+ *
+ * No `<lastmod>`, and that is a decision rather than an omission: this model records no times, and
+ * stamping the export's own clock would tell a crawler every page changed every time anybody
+ * published — which is how a site teaches a crawler to stop believing its sitemap.
+ */
+export function sitemapFor(editor: Editor): string | undefined {
+  const store = editor.dataStore;
+  const rootId = editor.getRootId?.();
+  if (!store || !rootId) return undefined;
+
+  const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+  const locations = pagesOf(doc as never)
+    .map((page) => addressOf(store, rootId, String(page.path ?? '/')))
+    .filter((one): one is string => !!one);
+  if (locations.length === 0) return undefined;
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...locations.map((at) => `  <url><loc>${escape(at)}</loc></url>`),
+    '</urlset>',
+    ''
+  ].join('\n');
+}
+
 /** One page. */
 export function exportPage(editor: Editor, pageSid: string): ExportedPage {
   const store = editor.dataStore!;
@@ -151,7 +192,12 @@ export function exportPage(editor: Editor, pageSid: string): ExportedPage {
       name,
       host.innerHTML,
       [lifted.css, responsive, states, reveals].filter(Boolean).join('\n\n'),
-      { description: page?.attributes?.description as string | undefined, main }
+      {
+        description: page?.attributes?.description as string | undefined,
+        main,
+        // Where the site lives, which only the document knows and only publishing needs.
+        at: addressOf(store, editor.getRootId?.(), path)
+      }
     )
   };
 }
@@ -936,6 +982,23 @@ function changed(before: Record<string, string>, after: Record<string, string>):
 }
 
 /**
+ * A page's **absolute** address, or nothing when the site has not said where it lives.
+ *
+ * Joined here rather than by the caller because the two halves disagree about slashes in exactly the
+ * way that produces `https://example.com//about` and `https://example.compricing` — one of which a
+ * crawler follows to a 404 and the other to nowhere at all.
+ */
+export function addressOf(
+  store: { getNode: (sid: string) => Node | undefined },
+  rootId: string | undefined,
+  path: string
+): string | undefined {
+  const said = rootId ? (store.getNode(rootId) as Node | undefined)?.attributes?.address : undefined;
+  if (typeof said !== 'string' || !said.trim()) return undefined;
+  return `${said.trim().replace(/\/+$/, '')}/${String(path ?? '/').replace(/^\/+/, '')}`;
+}
+
+/**
  * The first block on a page that says it is a given landmark, in document order.
  *
  * The **first**, and a page with two `main`s is a document fault the panel reports — see
@@ -995,7 +1058,7 @@ function document_(
   body: string,
   responsive: string,
   /** What the page is about, and where its body begins — see below. Both may be absent. */
-  said?: { description?: string; main?: string }
+  said?: { description?: string; main?: string; at?: string }
 ): string {
   /*
    * **What a crawler and a chat read.**
@@ -1012,14 +1075,27 @@ function document_(
    * an absolute address and a site in this product has no address of its own. See `BACKLOG.md`.
    */
   const about = said?.description?.trim();
-  const meta = about
-    ? [
-        `<meta name="description" content="${escape(about)}">`,
-        `<meta property="og:type" content="website">`,
-        `<meta property="og:title" content="${escape(name)}">`,
-        `<meta property="og:description" content="${escape(about)}">`
-      ].join('\n')
-    : '';
+  const meta = [
+    ...(about
+      ? [
+          `<meta name="description" content="${escape(about)}">`,
+          `<meta property="og:type" content="website">`,
+          `<meta property="og:title" content="${escape(name)}">`,
+          `<meta property="og:description" content="${escape(about)}">`
+        ]
+      : []),
+    /*
+     * And **where this page is**, which needs the site's own address: Open Graph will not take a
+     * relative one and a canonical link that is relative says the page is canonical to itself, which
+     * is what a duplicate looks like to a crawler. A site that has not said gets neither.
+     */
+    ...(said?.at
+      ? [
+          `<link rel="canonical" href="${escape(said.at)}">`,
+          `<meta property="og:url" content="${escape(said.at)}">`
+        ]
+      : [])
+  ].join('\n');
 
   /*
    * **A way past the navigation**, for a visitor who is tabbing.

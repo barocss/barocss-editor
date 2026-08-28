@@ -863,6 +863,31 @@ export const SITE_PANEL: SitePanelRow[] = [
     on: ['collection']
   },
 
+  /**
+   * ── 사이트 — the one thing above a page ──────────────────────────────────
+   *
+   * Where the site lives. Found writing the Open Graph tags: `og:url`, a canonical link and a
+   * sitemap all need an **absolute** address, and the document knew its pages' paths and nothing
+   * about where the site is published.
+   *
+   * Above 페이지 because it is above it: a site has one address and five pages, and a reader who has
+   * nothing selected is looking at the page *and* the site. Written to the document rather than to a
+   * page, so `setSiteAddress` takes no `nodeId` — the only command in this product that does not.
+   */
+  {
+    attr: 'address',
+    command: 'setSiteAddress',
+    group: '사이트',
+    tab: 'page',
+    label: '주소',
+    ariaLabel: '사이트 주소',
+    control: 'text',
+    // Shown in the page's pane, which is where a reader who selected nothing is…
+    on: ['surface'],
+    // …and written to the **document**, of which there is one. See `PanelRow.of`.
+    of: 'document'
+  },
+
   // ── 페이지 — shown when nothing is selected, because a page is the board ───
   { attr: 'name', command: 'setPageInfo', group: '페이지', tab: 'page', label: '이름', ariaLabel: '페이지 이름', control: 'text', on: ['surface'] },
   { attr: 'path', command: 'setPageInfo', group: '페이지', tab: 'page', label: '주소', ariaLabel: '페이지 주소', control: 'text', on: ['surface'] },
