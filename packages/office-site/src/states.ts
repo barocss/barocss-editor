@@ -100,7 +100,14 @@ export const STATEABLE: readonly string[] = [
   'cornerTopLeft',
   'cornerTopRight',
   'cornerBottomRight',
-  'cornerBottomLeft'
+  'cornerBottomLeft',
+  /*
+   * And **how much of it comes through**, which is the commonest hover a page has: a card that lifts
+   * to full and a picture that brightens under the pointer are both this one number. Safe here for
+   * the reason `strokeWidth` is not — opacity moves nothing, so a block cannot fade itself out from
+   * under the pointer.
+   */
+  'opacity'
 ];
 
 /** What a node states in each state, keyed by state. */

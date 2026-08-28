@@ -351,7 +351,6 @@ describe('the site builder draws what it declares', () => {
         width: 'a block is as wide as the column it is in — `sizing` is what a page says instead',
         height: 'a page is as tall as it turns out, which is the whole difference from a sheet',
         rotation: 'nothing on a page is at an angle',
-        opacity: 'a canvas idea; a page has no z-order to see through',
         /*
          * `visible` was *"a canvas idea; a page shows what it holds"* and it is not any more — a page
          * hides a block a reader is drafting, which is the commonest reason anybody opens a layer

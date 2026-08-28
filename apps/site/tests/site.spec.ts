@@ -1750,6 +1750,72 @@ test.describe('the pages of a site', () => {
 });
 
 /**
+ * **How much of a block comes through**, which the whole product could not say.
+ *
+ * `opacity` was exempt from `every-attribute-is-read` with the reason *"a canvas idea; a page has no
+ * z-order to see through"* — and z-order is not what opacity is. Z-order decides *which* of two
+ * overlapping things you see; opacity decides how much of one you see, and a flow page uses it
+ * constantly. What the wrong reason cost is `backgroundOpacity`: a special case built for the one
+ * place the need could not be argued away.
+ */
+test.describe('a block that is partly there', () => {
+  test('is set in the panel and drawn on the page', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').nth(3).click();
+    await page.waitForTimeout(400);
+    await page.locator('.office-properties').getByText('모양', { exact: true }).click();
+    await page.waitForTimeout(300);
+
+    const field = page.locator('.office-properties').getByLabel('투명도');
+    await expect(field).toHaveValue('1');
+
+    /*
+     * A hundredth, and both halves of that matter. `<input type="number">` sanitises what is typed
+     * against `step`, so at the default of 1 a typed `0.4` came out of the field as `0`; and the
+     * panel's commit rounded anything without a `px` unit to a whole number, which was right while
+     * every such row was a count or a degree. Two roundings, one value, and the block vanished.
+     */
+    await expect(field).toHaveAttribute('step', '0.01');
+    await field.fill('0.4');
+    await field.press('Enter');
+    await page.waitForTimeout(500);
+
+    const said = await page.evaluate(() => {
+      const editor = (window as never as { editor: any }).editor;
+      const sid = editor.selection?.nodeIds?.[0];
+      const el = document.querySelector(`[data-frame="desktop"] [data-bc-sid="${sid}"]`);
+      return {
+        stored: editor.dataStore.getNode(sid)?.attributes?.opacity,
+        drawn: el ? getComputedStyle(el as Element).opacity : null
+      };
+    });
+    expect(said.stored).toBe(0.4);
+    expect(said.drawn).toBe('0.4');
+  });
+
+  test('can be promised under the pointer, because it moves nothing', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').nth(3).click();
+    await page.waitForTimeout(400);
+    await page.locator('.office-properties').getByText('모양', { exact: true }).click();
+    await page.waitForTimeout(300);
+
+    /*
+     * A card that lifts to full and a picture that brightens under the pointer are both this one
+     * number, and it is safe in a state for the reason `strokeWidth` is not: opacity moves nothing,
+     * so a block cannot fade itself out from under the pointer.
+     */
+    await page.locator('.office-properties').getByText('포인터', { exact: true }).click();
+    await page.waitForTimeout(300);
+    await expect(page.locator('.office-properties').getByLabel('투명도')).toHaveCount(1);
+  });
+});
+
+/**
  * **One chrome row**, which is what every design tool's top is.
  *
  * It was two — a title bar and a toolbar under it — and the toolbar was counted: six buttons across

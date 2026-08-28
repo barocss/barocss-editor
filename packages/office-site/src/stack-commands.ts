@@ -300,6 +300,13 @@ export class SiteStackExtension implements Extension {
     'fill',
     'stroke',
     'strokeWidth',
+    /*
+     * **How much of it comes through**, which the whole product could not set: `opacity` had been
+     * exempted from the read check with the reason *"a canvas idea; a page has no z-order to see
+     * through"*, and z-order is not what opacity is. `backgroundOpacity`, four lines down, is what
+     * that cost — a special case for the one place the need could not be argued away.
+     */
+    'opacity',
     // A rounded card, which the schema had no word for until a page needed one.
     'cornerRadius',
     // And the four corners, for a box that is square where it meets the one under it.

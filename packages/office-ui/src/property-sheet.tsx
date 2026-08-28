@@ -43,6 +43,8 @@ export interface SheetRow {
   control: string;
   /** `icon` turns the row into a segmented group rather than a dropdown — see the `choice` case. */
   options?: { id: string; label: string; icon?: string }[];
+  /** How far an arrow key moves it, and what the browser will accept typed — see `PanelRow.step`. */
+  step?: number;
   fallback?: unknown;
   unit?: string;
   min?: number;
@@ -197,6 +199,7 @@ export function PropertySheet<Row extends SheetRow>({
             onClear={() => onWrite(one, undefined)}
             ariaLabel={one.ariaLabel}
             prefix={beside ? one.label : undefined}
+            step={one.step}
             /*
              * A companion carrying its own name does **not** repeat the unit. Measured at 240px:
              * five fields in one row's control area is 34 pixels each, and `상 112 px` in 34 pixels

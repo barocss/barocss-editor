@@ -540,6 +540,38 @@ export const SITE_PANEL: SitePanelRow[] = [
     ]
   },
   { attr: 'clipsContent', command: 'setBlockFormat', group: '상자', tab: 'style', label: '넘침', ariaLabel: '넘치는 것 자르기', control: 'toggle', on: STACKS },
+  /**
+   * **How much of the block comes through.**
+   *
+   * The property every design tool puts near the top of its inspector and this one could not set at
+   * all: `opacity` was exempt from `every-attribute-is-read` with the reason *"a canvas idea; a page
+   * has no z-order to see through"*, which is not what opacity is. Z-order decides *which* of two
+   * overlapping things you see; opacity decides how much of one you see, and a flow page uses it
+   * constantly — a scrim over a hero, a caption at 60%, a card that reads as not-yet-available.
+   *
+   * What the wrong reason cost is `backgroundOpacity`, three groups up: a special case built for the
+   * one place the need could not be argued away. It stays, and it is still the right control for the
+   * job it does — it fades the **picture and not the words**, which this cannot — but it was built
+   * beside a general answer that a sentence had ruled out.
+   *
+   * 0–1 rather than a percentage, because that is what the document stores and what the renderer
+   * writes; a panel that showed 60 and stored 0.6 is a second unit for a reader to be wrong about.
+   */
+  {
+    attr: 'opacity',
+    command: 'setBlockFormat',
+    group: '상자',
+    tab: 'style',
+    label: '투명도',
+    ariaLabel: '투명도',
+    control: 'number',
+    fallback: 1,
+    min: 0,
+    max: 1,
+    // A hundredth, or a browser turns a typed `0.4` into `0` — see `PanelRow.step`.
+    step: 0.01,
+    on: [...STACKS, 'picture', 'instance', 'textFrame']
+  },
 
   // ── 이미지 ─────────────────────────────────────────────────────────────────
   { attr: 'src', command: 'setBlockFormat', group: '이미지', tab: 'style', label: '주소', ariaLabel: '이미지 주소', control: 'text', on: ['picture'] },

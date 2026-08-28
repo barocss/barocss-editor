@@ -94,6 +94,17 @@ export interface PanelRow<Kind extends string = string> {
   /** The fixed set, for a `choice`. */
   options?: PanelOption[];
   /**
+   * How far one press of an arrow key moves a **number**, and what a browser will accept in it.
+   *
+   * Both, and the second is what made this necessary: `<input type="number">` sanitises what is typed
+   * against `step`, so a field left at the default of 1 turned a typed `0.4` into `0`. Measured on
+   * the day 투명도 was added — the row said `min: 0, max: 1` and could store nothing between them.
+   *
+   * A row with a range under about ten wants a fraction here; everything measured in pixels or
+   * degrees wants the default.
+   */
+  step?: number;
+  /**
    * What the control shows when the node says nothing.
    *
    * A **product** decision rather than a control's default: a page's stack shows 채우기 with nothing

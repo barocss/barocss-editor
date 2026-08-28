@@ -627,7 +627,22 @@ function commit(row: SitePanelRow, next: unknown): unknown {
   // it — see `shorthandOf` for why it can be showing nothing at the time.
 
   const floor = row.min ?? 0;
-  const kept = Math.max(floor, row.unit === 'px' ? Number(next) : Math.round(Number(next)));
+  /*
+   * Rounded to the row's **step**, not to a whole number.
+   *
+   * It was `Math.round` for anything without a `px` unit, which was right while every such row was a
+   * count or a degree — 열, 전환 시간, 그림자 방향, 몇 줄까지. 투명도 is the first that is not: a
+   * reader typed `0.4`, the field held `0.4`, and the document stored **0**, so the block vanished.
+   *
+   * The step is what says how fine the value is — it is already on the row, because a browser
+   * sanitises what is typed into a number field against it — so one number answers both questions.
+   */
+  const step = row.step ?? 1;
+  const places = step >= 1 ? 0 : (String(step).split('.')[1]?.length ?? 0);
+  const kept = Math.max(
+    floor,
+    row.unit === 'px' ? Number(next) : Number(Number(next).toFixed(places))
+  );
   if (row.fallback === undefined && kept <= 0) return undefined;
   return kept * (row.unit === 'px' ? PX : 1);
 }

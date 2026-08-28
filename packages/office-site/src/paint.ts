@@ -161,12 +161,42 @@ export function cornersCss(attrs: Attrs | undefined): Css {
   return { borderRadius: named.map(one).join(' ') };
 }
 
+/**
+ * How much of the block comes through — the one property a page had written off.
+ *
+ * ## The exemption that was wrong, and what it cost
+ *
+ * `opacity` was exempt from `every-attribute-is-read` with the reason *"a canvas idea; a page has no
+ * z-order to see through"*, which is not what opacity is. Z-order decides *which* of two overlapping
+ * things you see; opacity decides how much of one you see, and a flow page uses it constantly — a
+ * scrim over a hero picture, a caption at 60%, a card that reads as not-yet-available.
+ *
+ * What the wrong reason cost is visible in this same file: `backgroundOpacity` exists because a hero
+ * is words over a photograph and the photograph has to be faded. A special case was built for the
+ * one place the need could not be argued away, and it is still the right control — it fades the
+ * **picture and not the words**, which `opacity` cannot do — but it was built beside a general answer
+ * that had been ruled out by a sentence.
+ *
+ * ## Silence is 1, and 1 draws nothing
+ *
+ * A block that says nothing about opacity gets no `opacity` in its style at all, rather than
+ * `opacity: 1`. The two look identical and are not: `opacity` below 1 makes a **stacking context**,
+ * which changes what a `position: sticky` header inside it can escape. A page that stated 1
+ * everywhere would be a page whose sticky headers stopped working for a value nobody set.
+ */
+export function opacityCss(attrs: Attrs | undefined): Css {
+  const said = attrs?.opacity;
+  if (typeof said !== 'number' || !Number.isFinite(said) || said >= 1) return {};
+  return { opacity: String(Math.max(0, said)) };
+}
+
 /** Everything a page paints a box with, as one style object. */
 export function paintCss(attrs: Attrs | undefined, resolve: Resolve): Css {
   const shadow = shadowCss(attrs, resolve);
   return {
     ...backgroundCss(attrs, resolve),
     ...cornersCss(attrs),
+    ...opacityCss(attrs),
     ...(shadow ? { boxShadow: shadow } : {})
   };
 }

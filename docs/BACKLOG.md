@@ -48,6 +48,13 @@ entries are that.
 
 ### Found walking the site builder in a browser
 
+- [ ] **`PropertyNumber` in `office-ui` is called by nobody.** `PropertySheet` renders `NumberField`
+  directly; the wrapper is a second copy of the same decisions (two decimals, a little more padding)
+  that nothing reaches. Found by editing it and watching the change do nothing. Either the sheet
+  should use it or it should go — and the same question is worth asking of the other `Property*`
+  exports, which is a five-minute count nobody has done.
+
+
 - [ ] **Three rail panels have no group headings.** 추가 and 데이터 divide themselves up (담는 것 /
   넣는 것, 어떤 디자인으로 / 어떤 데이터를); 페이지, 컴포넌트 and 구성 are one undivided list each.
   For 구성 that is right — a tree is its own structure — and for the other two it is the same
@@ -2850,6 +2857,41 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **A page could not say how much of a block comes through.** Measured by asking, for every
+  selectable node type, which of its declared attributes the panel offers: the unsettable lists are
+  almost all canvas coordinates and a deck's jump targets, which a flow page rightly has none of —
+  and then `opacity`, on **all five** of `frame`, `collection`, `instance`, `picture` and `textFrame`.
+
+  It was exempt from `every-attribute-is-read` with the reason *"a canvas idea; a page has no z-order
+  to see through"*, and that is not what opacity is. Z-order decides **which** of two overlapping
+  things you see; opacity decides **how much** of one you see, and a flow page uses it constantly — a
+  scrim over a hero, a caption at 60%, a card that reads as not-yet-available.
+
+  What the wrong reason cost is in the same file: `backgroundOpacity` exists because a hero is words
+  over a photograph and the photograph has to be faded. A special case was built for the one place
+  the need could not be argued away, beside a general answer a sentence had ruled out. It stays —
+  it fades the **picture and not the words**, which `opacity` cannot — but it should not have been
+  the only one.
+
+  Drawn, settable, and stateable, and each has a reason:
+
+  - **Silence is not `opacity: 1`.** A block that says nothing gets no `opacity` in its style at all.
+    The two look identical and are not: a value below 1 makes a **stacking context**, which changes
+    what a `position: sticky` header inside it can escape. Stating 1 everywhere would break sticky
+    headers for a value nobody set.
+  - **`picture` and `instance` draw it themselves**, which the harness is what settled: adding the
+    panel row made `every-attribute-is-read` report both immediately, because `paintCss` is a
+    stack's and neither of those goes through it. A picture is the node a reader reaches for this on
+    first, and a placement's opacity is the one paint decision a placement gets to make.
+  - **It is in `STATEABLE`**, for the reason `strokeWidth` is not: opacity moves nothing, so a block
+    cannot fade itself out from under the pointer. A card that lifts to full on hover is this number.
+
+  **And two roundings, one value.** A typed `0.4` came out as `0`, twice over: `<input type="number">`
+  sanitises against `step`, which was the default 1; and the panel's commit rounded anything without
+  a `px` unit to a whole number — right while every such row was a count or a degree (열, 전환 시간,
+  그림자 방향). `PanelRow.step` is the one number that answers both, and the commit rounds to its
+  decimals rather than to an integer.
 
 - **One chrome row, which is what every design tool's top is.** The toolbar was counted in four
   states and the number is the argument: **six buttons across 1600 pixels**, four of them greyed with

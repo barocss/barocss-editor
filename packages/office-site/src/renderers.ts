@@ -27,7 +27,7 @@ import { getWordDocument, registerTextRenderers } from '@barocss/office-text';
 import { isVarRef, resolveVarValue } from '@barocss/office-canvas';
 import { frameCss } from '@barocss/office-word';
 import { hrefFor } from './page-link';
-import { paintCss } from './paint';
+import { opacityCss, paintCss } from './paint';
 import { presenceCss } from './presence';
 import { sizingCss } from './sizing';
 import { breakpointOf } from './breakpoints';
@@ -357,7 +357,19 @@ export function registerSiteRenderers(): void {
          * writes what a drawn element *is* rather than making a reader infer it.
          */
         'data-row': typeof attrs.rowIndex === 'number' ? String(attrs.rowIndex) : undefined,
-        style: { display: 'flex', flexDirection: 'column', ...sizingCss(attrs), ...presenceCss(attrs) }
+        /*
+         * And its own opacity, which is the one paint decision a **placement** gets to make. What a
+         * card looks like is its definition's; how much of it comes through here is this one's — a
+         * placement faded to show it is a draft, or a row of them where one is highlighted by the
+         * others being at 40%.
+         */
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          ...sizingCss(attrs),
+          ...opacityCss(attrs),
+          ...presenceCss(attrs)
+        }
       },
       [slot('content')]
     );
@@ -422,6 +434,12 @@ export function registerSiteRenderers(): void {
             }
           : {}),
         ...sizingCss(attrs),
+        /*
+         * And **how much of it comes through**, which is the case opacity exists for: a photograph
+         * behind words, a logo at a quarter, an image that brightens on hover. A picture is the one
+         * node where a reader reaches for this first.
+         */
+        ...opacityCss(attrs),
         ...presenceCss(attrs)
       }
     });
