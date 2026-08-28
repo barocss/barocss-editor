@@ -236,8 +236,11 @@ export function PropertyRow({ label, children }: { label: string; children: Reac
 export function PropertyNumber({
  value,
  onCommit,
+  onClear,
   suffix,
   prefix,
+  min,
+  max,
   disabled,
   ariaLabel,
   step = 1
@@ -245,9 +248,19 @@ export function PropertyNumber({
   /** `null` when the selection does not agree, drawn as empty. */
   value: number | null;
   onCommit: (value: number) => void;
+  /**
+   * What an **emptied** field means, for a caller that has an answer.
+   *
+   * Here because `PropertySheet` needed it and could not use this wrapper without it — so the sheet
+   * drew `NumberField` directly, and for a while there were two paths to one control. A caller with
+   * no meaning for *take it back* leaves it off, and an emptied field stays what it was.
+   */
+  onClear?: () => void;
   suffix?: string;
   /** A short name inside the field, for a number that shares a line — see `NumberField`. */
   prefix?: string;
+  min?: number;
+  max?: number;
   disabled?: boolean;
   ariaLabel: string;
   step?: number;
@@ -270,8 +283,11 @@ export function PropertyNumber({
     <NumberField
       value={value}
       onCommit={onCommit}
+      onClear={onClear}
       suffix={suffix}
       prefix={prefix}
+      min={min}
+      max={max}
       step={step}
       decimals={2}
       /*

@@ -1,6 +1,13 @@
 import { ColorField, type ThemeSwatch } from './color-field';
-import { NumberField, TextField } from './controls';
-import { PropertyChoice, PropertyGroup, PropertyRow, PropertySegmented, PropertyToggle } from './properties';
+import { TextField } from './controls';
+import {
+  PropertyChoice,
+  PropertyGroup,
+  PropertyNumber,
+  PropertyRow,
+  PropertySegmented,
+  PropertyToggle
+} from './properties';
 
 /**
  * A property panel, drawn from a declaration.
@@ -165,7 +172,15 @@ export function PropertySheet<Row extends SheetRow>({
 
       case 'number':
         return (
-          <NumberField
+          /*
+           * `PropertyNumber`, not `NumberField` — one path to one control.
+           *
+           * The sheet drew the raw field because the wrapper had no `onClear`, `min` or `max`, so for
+           * a while a decision made in the wrapper (a prefixed field needs less left padding, since
+           * its own name already provides some) reached the deck's dialogs and not the panel. The
+           * wrapper carries all three now.
+           */
+          <PropertyNumber
             key={key(one)}
             /*
              * `null` is **mixed**, and it has to survive the fallback.

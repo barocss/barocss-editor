@@ -2390,6 +2390,26 @@ test.describe('a caret, and everything outside it', () => {
     // Pressing nothing has always meant selecting nothing.
     await expect(page.locator('.st-mark-selected')).toHaveCount(0);
   });
+
+  test('and in select mode too, which it did not for two rounds', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').nth(3).click();
+    await page.waitForTimeout(400);
+    await expect(page.locator('.st-mark-selected')).toHaveCount(3);
+
+    /*
+     * The overlay owns every press on a board and already decides what one means there; what it does
+     * not cover is the plane *around* the boards. So a reader who wanted to let go of a selection had
+     * to press Escape — a key they have no reason to know, for the gesture every tool of this kind
+     * answers with a click on nothing. Measured, written down, and left for two rounds while it was
+     * one condition away.
+     */
+    await page.locator('.st-canvas').click({ position: { x: 20, y: 400 } });
+    await page.waitForTimeout(400);
+    await expect(page.locator('.st-mark-selected')).toHaveCount(0);
+  });
 });
 
 /**

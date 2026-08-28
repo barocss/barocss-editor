@@ -48,17 +48,22 @@ entries are that.
 
 ### Found walking the site builder in a browser
 
-- [ ] **`PropertyNumber` in `office-ui` is called by nobody.** `PropertySheet` renders `NumberField`
-  directly; the wrapper is a second copy of the same decisions (two decimals, a little more padding)
-  that nothing reaches. Found by editing it and watching the change do nothing. Either the sheet
-  should use it or it should go — and the same question is worth asking of the other `Property*`
-  exports, which is a five-minute count nobody has done.
+- [x] ~~**`PropertyNumber` in `office-ui` is called by nobody.**~~ **Wrong, and corrected within the
+  hour** — it is called by the deck's `component-panel.tsx` and `deck-dialogs.tsx`. What is true is
+  narrower: `PropertySheet` renders `NumberField` *directly* rather than through it, so a change to
+  the wrapper does not reach the panel, which is how the wrong conclusion was reached. The reason it
+  could not use it was real — the wrapper had no `onClear`, `min` or `max` — and it does now, so
+  there is one path. See Done.
+
+  Kept rather than deleted because the *mistake* is instructive: "I edited it and nothing happened"
+  is evidence about one caller, and it was written down as evidence about all of them. The count that
+  settled it took thirty seconds and should have come first.
 
 
-- [ ] **Three rail panels have no group headings.** 추가 and 데이터 divide themselves up (담는 것 /
-  넣는 것, 어떤 디자인으로 / 어떤 데이터를); 페이지, 컴포넌트 and 구성 are one undivided list each.
-  For 구성 that is right — a tree is its own structure — and for the other two it is the same
-  "lists of the same shape with different answers" the check at the top of this file is about.
+- [x] ~~**Three rail panels have no group headings.**~~ **Not a finding.** 페이지, 컴포넌트 and 구성
+  hold **one** list each and 추가 and 데이터 hold **two kinds** — so they are not lists of the same
+  shape, and a heading over a single list repeats the tab above it. Written down as a finding and
+  withdrawn on the second look, which is what the second look is for.
 
 
 - [ ] **A pasted block that names a component or a dataset carries neither.** Within one document
@@ -78,14 +83,6 @@ entries are that.
   *this corner of this box*; they would have to be drawn. Worth it the day a second surface needs
   them, which a canvas panel will.
 
-
-- [ ] **A press on the grey deselects only while editing text.** It is handled by the pointerdown
-  that ends text mode; in `select` mode nothing listens, so a reader who wants to let go of a
-  selection has to press Escape. The two should be the same gesture.
-
-- [ ] **The panel says "블록을 선택하면 …" underneath a full set of page properties.** Read top to
-  bottom it says the panel is empty while showing six rows. The sentence is the block section's empty
-  state and there is no heading between them to say so.
 
 ### A surface can name a command that does nothing
 
@@ -2857,6 +2854,41 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The pile that had been measured and left, paid off — and two of my own findings were wrong.**
+  Asked directly whether anything was being recorded rather than fixed. Counted: of the last twelve
+  commits, eleven changed code and one was the deliberate *write the harness idea down first* step.
+  What was true is that four small findings had been written down and left, so they are done, and
+  two of them turned out not to be what the note said.
+
+  - **A press on the grey now deselects in select mode too.** The overlay owns every press on a board
+    and already decides what one means; the plane *around* the boards was covered by nothing, so
+    letting go of a selection meant pressing Escape — a key a reader has no reason to know, for the
+    gesture every tool of this kind answers with a click on nothing. Written down twice and left
+    while it was one condition away from the handler that already did it for text mode.
+  - **The panel's "블록을 선택하면 …" is a section now.** It was a bare paragraph under the last of the
+    page's six rows, so top to bottom the panel read *here is the background, here is the shadow,
+    select a block and its properties will appear here* — which says the panel is empty while six
+    rows of it are on screen. A heading is the whole fix.
+  - **`ComponentsPanel` called `useState` after an early return.** A rules-of-hooks violation, and a
+    reachable one: the component rendered one hook with an empty library and two with a full one, so
+    the *first* definition a reader made and the last they deleted each threw. A sweep of the other
+    five files in the app found no second instance. No browser test, and that is worth saying rather
+    than implying: the sample's six definitions are all placed and two of the placements are inside
+    other definitions, so the empty state cannot be reached cheaply from it. The fix stands on the
+    rule, not on a measurement.
+  - **`PropertyNumber` is called by the deck**, so the note saying nothing called it was wrong —
+    corrected within the hour. What was true is narrower: `PropertySheet` drew `NumberField`
+    *directly*, so a decision made in the wrapper reached the deck's dialogs and not the panel. The
+    wrapper could not be used because it had no `onClear`, `min` or `max`; it has them now and there
+    is one path.
+
+  The instructive one is the last, and the lesson is about evidence rather than about the code: *"I
+  edited it and nothing happened"* is a fact about **one caller**, and it was written down as a fact
+  about all of them. The count that settled it took thirty seconds and should have come first. The
+  same shape as the rail-headings note beside it, which claimed *lists of the same shape with
+  different answers* about three panels holding **one** list each and two holding **two kinds** — not
+  the same shape, and so not a finding.
 
 - **A page could not say how much of a block comes through.** Measured by asking, for every
   selectable node type, which of its declared attributes the panel offers: the unsettable lists are

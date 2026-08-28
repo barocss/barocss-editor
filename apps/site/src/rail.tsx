@@ -845,16 +845,22 @@ function ComponentsPanel({
     return rootId ? definitionsOf({ rootId, getNode: doc.getNode }) : [];
   }, [doc, editor, revision]);
 
-  if (components.length === 0) return <p className="st-rail-note">아직 컴포넌트가 없습니다.</p>;
-
   /**
    * The definition whose name a reader is typing, if any.
    *
    * A field that **replaces the row** rather than a dialog: renaming is the smallest edit there is,
    * and a modal for it is three gestures where one would do. Escape puts the row back, which is the
    * rule every list in this suite follows for the same reason.
+   *
+   * **Above the early return**, which it was not: `useState` sat under `if (components.length === 0)
+   * return …`, so this component rendered one hook with an empty library and two with a full one.
+   * React counts hooks per render and the count has to be the same every time — so the *first*
+   * component a reader made, and the last one they deleted, each threw. The most ordinary gesture in
+   * the panel, on the two occasions it is most likely.
    */
   const [renaming, setRenaming] = useState<{ id: string; name: string } | undefined>();
+
+  if (components.length === 0) return <p className="st-rail-note">아직 컴포넌트가 없습니다.</p>;
 
   return (
     <div className="st-rail-list" data-components>

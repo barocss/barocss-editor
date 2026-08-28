@@ -669,7 +669,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * in the rail, the panel or a menu belongs to that surface.
    */
   useEffect(() => {
-    if (mode !== 'text' || !editor) return;
+    if (!editor) return;
 
     const onDown = (event: PointerEvent) => {
       const target = event.target as Element | null;
@@ -678,6 +678,21 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       const frame = target.closest('.st-frame');
       // The chrome is not the document: a press in a field while editing belongs to that field.
       if (!frame && !target.closest('.st-canvas')) return;
+
+      /*
+       * **In select mode, only the grey.** The overlay owns every press on a board and already
+       * decides what one means there; what it does not cover is the plane around the boards, so a
+       * reader who wanted to let go of a selection had to press Escape — a key they have no reason
+       * to know, for the gesture every tool of this kind answers with a click on nothing.
+       *
+       * Measured and left for two rounds, which is the reason it is written here rather than in the
+       * backlog: it was one condition away the whole time.
+       */
+      if (mode !== 'text') {
+        if (frame) return;
+        void editor.executeCommand('setNode', { nodeIds: [] });
+        return;
+      }
 
       /*
        * Inside the block being edited: an ordinary caret move, which is the whole of what text mode

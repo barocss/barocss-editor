@@ -6,6 +6,7 @@ import {
   Button,
   ChoiceSelect,
   PropertyEmpty,
+  PropertyGroup,
   PropertyPanel,
   PropertySheet,
   PropertyTabs,
@@ -517,7 +518,20 @@ function Groups({
         onWrite={(row, next) => write(row, commit(row, next))}
         render={(row) => own(row, { attrs, shown, at, data, run })}
       />
-      {after ? <PropertyEmpty>{after}</PropertyEmpty> : null}
+      {/*
+        The sentence about **the next thing**, under a heading that says it is one.
+        
+        It was a bare paragraph directly under the last of the page's six rows, so read top to bottom
+        the panel said *here is the page's background, here is its shadow, select a block and its
+        properties will appear here* — which reads as though the panel is empty while six rows of it
+        are on screen. A section heading is the whole fix: the sentence is now the content of a
+        section called 블록 rather than a trailing remark about the one above it.
+      */}
+      {after ? (
+        <PropertyGroup label="블록">
+          <PropertyEmpty>{after}</PropertyEmpty>
+        </PropertyGroup>
+      ) : null}
     </>
   );
 }
