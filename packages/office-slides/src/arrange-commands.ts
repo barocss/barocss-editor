@@ -84,11 +84,16 @@ export class SlidesArrangeExtension implements Extension {
     });
 
     // ── In front, behind ─────────────────────────────────────────────────────
+    /*
+     * The guard asks the **command's own question**: not *is anything selected* but *would anything
+     * move*. See `_reorderPlan` — they were two questions, and 뒤로 on a shape already at the back
+     * was the difference between them.
+     */
     const order = (name: string, where: 'front' | 'back' | 'forward' | 'backward') =>
       register(
         name,
         () => this._reorder(editor, where),
-        () => this._boxes(editor).length > 0
+        () => this._reorderPlan(editor, where)?.moves === true
       );
 
     order('bringToFront', 'front');
@@ -294,18 +299,18 @@ export class SlidesArrangeExtension implements Extension {
    * way. Front and back move the boxes in document order so a set of three
    * arrives at the front in the order it was already in.
    */
-  private async _reorder(
+  private _reorderPlan(
     editor: Editor,
     where: 'front' | 'back' | 'forward' | 'backward'
-  ): Promise<boolean> {
+  ): { steps: { type: string; payload: Record<string, unknown> }[]; moves: boolean } | null {
     const doc = this._access(editor);
     const boxes = this._boxes(editor);
-    if (!doc || boxes.length === 0) return false;
+    if (!doc || boxes.length === 0) return null;
 
     const slide = this._containerOf(doc, boxes[0].sid);
     const surface: any = slide ? doc.getNode(slide) : undefined;
     const children: string[] = Array.isArray(surface?.content) ? [...surface.content] : [];
-    if (!slide || children.length === 0) return false;
+    if (!slide || children.length === 0) return null;
 
     const chosen = boxes.map((entry) => entry.sid);
     const steps: { type: string; payload: Record<string, unknown> }[] = [];
@@ -339,8 +344,37 @@ export class SlidesArrangeExtension implements Extension {
       }
     }
 
-    if (steps.length === 0) return false;
-    return (await transaction(editor, steps as never).commit()).success;
+    /*
+     * And what the slide would look like afterwards, computed the way the store computes it: a
+     * `moveNode` removes and re-inserts, so a shape told to go where it already is lands back
+     * exactly where it was. `moveNode` to position 0 on the first child is a real transaction that
+     * commits and changes nothing, which is what 맨 뒤로 was doing.
+     */
+    const after = [...children];
+    for (const step of steps) {
+      const sid = step.payload.nodeId as string;
+      const held = after.indexOf(sid);
+      if (held < 0) continue;
+      after.splice(held, 1);
+      after.splice(Math.min(Math.max(0, step.payload.position as number), after.length), 0, sid);
+    }
+
+    return { steps, moves: steps.length > 0 && after.join() !== children.join() };
+  }
+
+  /**
+   * Reordering, which is `_reorderPlan` committed.
+   *
+   * The guard and the command were two questions — *is anything selected* and *does anything move* —
+   * and 뒤로 on a shape already at the back was the difference between them. One function now.
+   */
+  private async _reorder(
+    editor: Editor,
+    where: 'front' | 'back' | 'forward' | 'backward'
+  ): Promise<boolean> {
+    const plan = this._reorderPlan(editor, where);
+    if (!plan?.moves) return false;
+    return (await transaction(editor, plan.steps as never).commit()).success;
   }
 
   /**

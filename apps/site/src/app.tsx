@@ -691,8 +691,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       setMode('select');
       setEntered(undefined);
 
-      const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } }).dataStore;
-      const doc = { getNode: (sid: string) => store?.getNode(sid) };
+      // `dataStore` is a public getter; the cast beside it two effects up is one this file still owes.
+      const doc = { getNode: (sid: string) => editor.dataStore?.getNode(sid) };
       const board = frame?.querySelector<HTMLElement>('.st-frame-host');
       const hit = board ? drawnSidAtElement(target, board) : undefined;
       /*

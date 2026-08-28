@@ -65,7 +65,7 @@ export class SiteClipboardExtension implements Extension {
       execute: (payload?: Record<string, unknown>) => Promise<boolean>,
       can: (payload?: Record<string, unknown>) => boolean
     ) =>
-      (editor as never as { registerCommand: (spec: unknown) => void }).registerCommand({
+      editor.registerCommand({
         name,
         execute: async (_ed: Editor, payload?: Record<string, unknown>) => await execute(payload),
         canExecute: (_ed: Editor, payload?: Record<string, unknown>) => can(payload)
@@ -111,7 +111,7 @@ export class SiteClipboardExtension implements Extension {
   // ── Reading ────────────────────────────────────────────────────────────────
 
   private _store(editor: Editor): { getNode: (sid: string) => Node | undefined } | undefined {
-    return (editor as never as { dataStore?: { getNode: (sid: string) => Node } }).dataStore;
+    return editor.dataStore as { getNode: (sid: string) => Node | undefined } | undefined;
   }
 
   /**
@@ -144,7 +144,7 @@ export class SiteClipboardExtension implements Extension {
      */
     const blocks = [...chosen]
       .sort((a, b) => this._indexOf(store, a) - this._indexOf(store, b))
-      .map((sid) => (editor as never as { exportDocument?: (sid: string) => unknown }).exportDocument?.(sid))
+      .map((sid) => editor.exportDocument(sid))
       .filter((tree): tree is Node => !!tree)
       .map((tree) => stripped(tree) as Node);
 
@@ -158,12 +158,7 @@ export class SiteClipboardExtension implements Extension {
   private async _cut(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
     if (!(await this._copy(editor, payload))) return false;
     // Through the command rather than by hand, so cutting refuses exactly what removing refuses.
-    return (
-      (await (editor as never as { executeCommand: (n: string, p?: unknown) => Promise<unknown> }).executeCommand(
-        'removeBlocks',
-        payload
-      )) === true
-    );
+    return (await editor.executeCommand('removeBlocks', payload)) === true;
   }
 
   // ── Pasting ────────────────────────────────────────────────────────────────
@@ -221,9 +216,7 @@ export class SiteClipboardExtension implements Extension {
       .slice(into.at, into.at + held.blocks.length)
       .filter((sid): sid is string => typeof sid === 'string');
 
-    (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.('setNode', {
-      nodeIds: landed
-    });
+    void editor.executeCommand('setNode', { nodeIds: landed });
     return true;
   }
 

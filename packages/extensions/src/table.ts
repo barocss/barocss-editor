@@ -1,3 +1,4 @@
+import { hasRange } from './guards';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import {
   transaction,
@@ -58,7 +59,12 @@ export class TableExtension implements Extension {
         }).commit();
         return result.success;
       },
-      canExecute: () => true
+      /*
+       * The operation needs a **range**: `insertTable` reads `context.selection.current` and
+       * throws without one, so with a box selected on a slide this said yes, threw, and the
+       * transaction failed silently. A caret is enough — the table lands where it is.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
     });
 
     const structural: Array<[string, (cellId: string) => any]> = [

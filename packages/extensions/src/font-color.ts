@@ -1,5 +1,6 @@
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, applyMark, toggleMark } from '@barocss/model';
+import { hasRange } from './guards';
 
 export class FontColorExtension implements Extension {
   name = 'fontColor';
@@ -23,7 +24,10 @@ export class FontColorExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      canExecute: () => true
+      // A colour covers the text between two points; on a caret it is a commit that changes
+      // nothing. See `guards.ts` — this was `() => true` and the command asked for a range.
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; color?: string }) =>
+        hasRange(ed, payload, 'something')
     });
 
     (editor as any).registerCommand({
@@ -40,7 +44,10 @@ export class FontColorExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      canExecute: () => true
+      // A colour covers the text between two points; on a caret it is a commit that changes
+      // nothing. See `guards.ts` — this was `() => true` and the command asked for a range.
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; color?: string }) =>
+        hasRange(ed, payload, 'something')
     });
 
     (editor as any).registerCommand({
@@ -70,7 +77,10 @@ export class FontColorExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      canExecute: () => true
+      // A colour covers the text between two points; on a caret it is a commit that changes
+      // nothing. See `guards.ts` — this was `() => true` and the command asked for a range.
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; color?: string }) =>
+        hasRange(ed, payload, 'something')
     });
 
     (editor as any).registerCommand({
@@ -87,7 +97,10 @@ export class FontColorExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      canExecute: () => true
+      // A colour covers the text between two points; on a caret it is a commit that changes
+      // nothing. See `guards.ts` — this was `() => true` and the command asked for a range.
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; color?: string }) =>
+        hasRange(ed, payload, 'something')
     });
   }
 

@@ -303,33 +303,26 @@ describe('Slides draws what its schema declares', () => {
         registry.has(`mark:${mark}`) ||
         Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
         Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
-      ratchet: {
-        /**
-         * **Eight commands that say they can run and change nothing**, on this check's first run here.
-         *
-         * A ratchet rather than eight exemptions, because none of these is a decision yet. The site
-         * builder's four all turned out to be *application* commands — a clipboard, a selection, two
-         * exports — and were exempted with reasons in an afternoon. The deck's are the other kind.
-         * What each looks like, from one look:
-         *
-         * - `setFontColor`, `removeFontColor`, `toggleBulletList`, `toggleOrderedList` — **text**
-         *   commands, offered with a *box* selected. They say yes to a node selection and then have
-         *   no range to write to, which is precisely the `canExecute` looser than its `execute` this
-         *   repository has already found four of.
-         * - `sendBackward`, `sendToBack` — the box is already at the back. Every design tool greys
-         *   these there; this one offers them and does nothing.
-         * - `insertTable` — says it can and puts no table on the slide, which is the one here that
-         *   looks like a plain bug.
-         * - `nudgeBoxes` — offered with no `dx`/`dy`, which no surface actually does: the key map
-         *   always supplies them. Arguably the probe's fault and arguably the command's, and a
-         *   ratchet is the honest place for a finding nobody has decided about.
-         *
-         * The number has to come **down** with the work: fewer findings than this fails too, which is
-         * what stops a fixed four leaving room to break four more quietly.
-         */
-        'every-command-does-something': 8
-      },
       exempt: {
+        /*
+         * ── Commands that change the **application** rather than the document ──
+         *
+         * `every-command-does-something` opened at **nine** here and every one of the other eight
+         * turned out to be a real fault rather than a decision. They are worked off; what is left is
+         * the one kind that legitimately changes nothing in the deck.
+         *
+         * The eight, and what each was:
+         *
+         * - `sendBackward`, `sendToBack` — offered on a box already at the back. The guard asked *is
+         *   anything selected* and the command asked *does anything move*; one function answers both
+         *   now (`_reorderPlan`).
+         * - `setFontColor`, `removeFontColor`, `toggleBulletList`, `toggleOrderedList`, `insertTable`
+         *   — **text** commands whose `execute` asks for a range and whose `canExecute` said
+         *   `() => true`. Fixed in `@barocss/extensions`, where they are shared, so every product got
+         *   it: `hasRange` in `guards.ts` is the one line, and it says whether a caret is enough.
+         * - `nudgeBoxes` — a nudge of nothing. Every surface supplies a delta, so nothing was broken
+         *   for a reader; a guard true where the command is false is the fault class either way.
+         */
         copyBoxes: 'puts boxes on a clipboard, which is a property of the reader and not of the deck',
         /*
          * The filmstrip — a double-click on a slide's row, which becomes a field in place.

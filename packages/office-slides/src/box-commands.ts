@@ -159,12 +159,24 @@ export class SlidesBoxExtension implements Extension {
     const onSelection = (
       name: string,
       execute: (payload?: any) => Promise<boolean>,
-      atLeast = 1
+      atLeast = 1,
+      /**
+       * And what the **payload** has to say, for a command that takes one.
+       *
+       * A selection is not always the whole question. `nudgeBoxes` moves by `dx`/`dy` and a nudge of
+       * nothing is a transaction that commits and changes nothing — found by
+       * `every-command-does-something`, which offered it the way a menubar would, with no payload.
+       * Every surface that runs it does supply a delta, so nothing was broken for a reader; a guard
+       * that is true where the command is false is still the fault class this repository has now
+       * found nine of, and it costs one line to not have.
+       */
+      wants: (payload?: any) => boolean = () => true
     ) => {
       editor.registerCommand({
         name,
         execute: async (_ed: Editor, payload?: any) => await execute(payload),
-        canExecute: () => this._selected(editor).length >= atLeast
+        canExecute: (_ed: Editor, payload?: any) =>
+          this._selected(editor).length >= atLeast && wants(payload)
       });
     };
 
@@ -194,8 +206,12 @@ export class SlidesBoxExtension implements Extension {
      * rather than a destination and each press is its own entry in the history.
      * Coarser with a modifier, which is the convention everywhere.
      */
-    onSelection('nudgeBoxes', (payload) =>
-      this._nudge(editor, Number(payload?.dx) || 0, Number(payload?.dy) || 0)
+    onSelection(
+      'nudgeBoxes',
+      (payload) => this._nudge(editor, Number(payload?.dx) || 0, Number(payload?.dy) || 0),
+      1,
+      // A nudge of nothing is not a nudge.
+      (payload) => (Number(payload?.dx) || 0) !== 0 || (Number(payload?.dy) || 0) !== 0
     );
   }
 

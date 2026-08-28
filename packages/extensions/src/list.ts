@@ -1,3 +1,4 @@
+import { hasRange } from './guards';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, wrapInList as wrapInListOp, splitListItem as splitListItemOp } from '@barocss/model';
 
@@ -32,7 +33,13 @@ export class ListExtension implements Extension {
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
         return await this._executeWrapInList(ed, 'bullet', payload?.selection);
       },
-      canExecute: () => true
+      /*
+       * A caret is enough — a list toggle acts on the **block** the caret is in, and demanding a
+       * selection would make a reader select a paragraph to make it a bullet. What it is not
+       * enough for is a *node* selection, which is what this said yes to: measured on a deck with
+       * a box held, both toggles lit up and did nothing.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
     });
 
     (editor as any).registerCommand({
@@ -40,7 +47,13 @@ export class ListExtension implements Extension {
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
         return await this._executeWrapInList(ed, 'ordered', payload?.selection);
       },
-      canExecute: () => true
+      /*
+       * A caret is enough — a list toggle acts on the **block** the caret is in, and demanding a
+       * selection would make a reader select a paragraph to make it a bullet. What it is not
+       * enough for is a *node* selection, which is what this said yes to: measured on a deck with
+       * a box held, both toggles lit up and did nothing.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
     });
 
     (editor as any).registerCommand({
@@ -48,7 +61,13 @@ export class ListExtension implements Extension {
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
         return await this._executeSplitListItem(ed, payload?.selection);
       },
-      canExecute: () => true
+      /*
+       * A caret is enough — a list toggle acts on the **block** the caret is in, and demanding a
+       * selection would make a reader select a paragraph to make it a bullet. What it is not
+       * enough for is a *node* selection, which is what this said yes to: measured on a deck with
+       * a box held, both toggles lit up and did nothing.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
     });
   }
 

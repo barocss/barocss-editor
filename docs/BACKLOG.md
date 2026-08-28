@@ -108,9 +108,6 @@ entries are that.
   — see Done. It found four in the site builder (all exempt, all application-level) and **nine in the
   deck**, seven of which look like real faults.
 
-- [ ] **The deck's eight, worked off.** The ratchet is the list; the four text commands are one
-  decision (a text command offered against a node selection), `sendBackward`/`sendToBack` at the back
-  of the stack are another, and `insertTable` is a bug on its own.
 
 - [x] ~~**Word and the deck type their menu hints.**~~ All three derive them now — `withHints` in
   `office-controls`, and each product's own `menu-model.test.ts` holds the derivation. Written as an
@@ -2861,6 +2858,45 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The deck's eight, worked off — and seven were one decision each side of a boundary.** The check
+  opened at nine on its first run; one was a clipboard and the rest were faults. **9 → 1 → 0.**
+
+  **Five were in `@barocss/extensions`, which means every product had them.** `setFontColor`,
+  `removeFontColor`, `toggleBulletList`, `toggleOrderedList` and `insertTable` are all the same two
+  lines: an `execute` that reads the selection, refuses anything that is not a range, and a
+  `canExecute: () => true` beside it. `insertTable` is the sharpest — the operation reads
+  `context.selection.current` and **throws** without a range, so with a box selected it said yes,
+  threw, and the transaction failed where nobody was looking.
+
+  Why it stayed invisible: **in a word processor the selection is a range essentially always**, so the
+  guard and the command agree in every state anybody had looked at. It takes a product where a *node*
+  can be selected — a deck, a page builder — for the two to come apart, and then they come apart
+  everywhere at once. `hasRange` in `guards.ts` is the one line, and it takes the one argument the
+  distinction needs: a colour wants *something* selected, and a list toggle is happy with a caret
+  because it acts on the block the caret is in.
+
+  **Two were the deck's own.** `sendBackward` and `sendToBack` had a guard asking *is anything
+  selected* and a command asking *does anything move* — so on a box already at the back they lit up,
+  committed a `moveNode` to the place it was already in, and changed nothing. `_reorderPlan` answers
+  both questions now, by computing the order the moves would leave behind and comparing it with the
+  one there is.
+
+  **And one was a payload.** `nudgeBoxes` offered with no `dx`/`dy`. Every surface that runs it
+  supplies a delta, so nothing was broken for a reader — and a guard that is true where the command
+  is false is the fault class either way, at a cost of one line.
+
+  The ratchet is gone and the deck has one exemption: `copyBoxes`, which puts boxes on a clipboard.
+
+- **`editor as any` is back to 338, having drifted to 344 unnoticed.** Six casts came in over four
+  commits while the check was not being run — the clipboard extension copied five of them from the
+  file it was modelled on, and all five were over **public** members: `registerCommand`, `dataStore`,
+  `exportDocument`, `executeCommand`. Which is the finding the ratchet exists for, arriving the way
+  it always does: not as a decision, as a habit copied from the neighbouring file.
+
+  Worth recording about the *process* rather than the code: the drift happened because the whole-repo
+  typecheck and the touched packages' tests were run each time and `editor-core`'s were not. A ratchet
+  in a package nobody is editing is a ratchet nobody is reading.
 
 - **`every-command-does-something` — the question every other command check could not ask.** The
   others are all about a command's *description*: what the schema says it makes, whether the product

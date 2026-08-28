@@ -1,4 +1,5 @@
 // Extension exports
+export { hasRange } from './guards';
 export * from './text';
 export * from './align';
 export * from './delete';
