@@ -22,7 +22,14 @@
 import { collectionFaults } from './data';
 import { linkFaults } from './page-link';
 import { overrideFaults } from './responsive';
+import { pagesOf } from './selection';
 import { SITE_SURFACE_KIND } from './site-schema';
+
+/** The three a page has one of. `nav` and `aside` are not among them — see `documentFaults`. */
+const ONE_EACH = ['header', 'main', 'footer'];
+
+/** What a reader calls each, which is what the panel calls it. */
+const NAME_OF: Record<string, string> = { header: '머리말', main: '본문', footer: '꼬리말' };
 import { stateFaults } from './states';
 
 /** What a walk needs of a document: where it starts, and how to get a node. */
@@ -32,7 +39,7 @@ export interface Fault {
   /** The node a reader would click to fix it. */
   sid: string;
   /** Which question found it, so a panel can group them. */
-  kind: 'width' | 'state' | 'link' | 'data';
+  kind: 'width' | 'state' | 'link' | 'data' | 'landmark';
   /** What is wrong, in the words a reader would use. */
   said: string;
 }
@@ -50,6 +57,11 @@ export interface Fault {
  * dismiss it.
  */
 export const FAULT_KINDS: { id: Fault['kind']; label: string; why: string }[] = [
+  {
+    id: 'landmark',
+    label: '페이지 역할',
+    why: '한 페이지에 머리말·본문·꼬리말은 하나씩입니다. 둘이면 화면 낭독기가 어느 쪽이 본문인지 말할 수 없습니다.'
+  },
   {
     id: 'link',
     label: '끊어진 링크',
@@ -159,6 +171,48 @@ export function documentFaults(
     }
   };
   walk(doc.rootId);
+
+  /**
+   * **One header, one body, one footer, per page.**
+   *
+   * The fault the landmark field creates the moment it exists, and it is the reader-facing half of
+   * what makes landmarks worth having: a screen reader offers a list of them to jump between, and
+   * two things both calling themselves the page's body is a list that cannot be used. HTML permits
+   * several `<header>`s — they scope to the nearest sectioning element — but a page builder's blocks
+   * are all in one flow, so on a page there is one of each.
+   *
+   * `nav` and `aside` are **not** counted: several navigations is ordinary (a bar and a footer's
+   * links) and so is more than one aside. Which is the difference between a rule and a habit, and
+   * the reason this counts three rather than five.
+   */
+  for (const page of pagesOf(doc as never)) {
+    const seen = new Map<string, string[]>();
+    const look = (sid: string, depth = 0) => {
+      if (depth > 64) return;
+      const node = doc.getNode(sid);
+      if (!node) return;
+      const said = node.attributes?.landmark;
+      if (typeof said === 'string' && ONE_EACH.includes(said)) {
+        seen.set(said, [...(seen.get(said) ?? []), sid]);
+      }
+      for (const child of (node.content ?? []) as unknown[]) {
+        if (typeof child === 'string') look(child, depth + 1);
+      }
+    };
+    look(page.sid);
+    for (const [said, where] of seen) {
+      if (where.length < 2) continue;
+      // Every one of them, so a reader can go to each and decide which is the real one.
+      for (const sid of where) {
+        found.push({
+          sid,
+          kind: 'landmark',
+          // 머리말·본문·꼬리말 all end in a consonant, so the particle is 이 and needs no hedge.
+          said: `'${page.name}'에 ${NAME_OF[said]}이 ${where.length}개 있습니다`
+        });
+      }
+    }
+  }
 
   for (const fault of linkFaults(doc)) {
     /*

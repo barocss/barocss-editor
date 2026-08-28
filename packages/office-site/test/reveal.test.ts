@@ -110,6 +110,25 @@ describe('how a block arrives', () => {
     expect(PAGE_CSS).toContain('@keyframes st-rise');
   });
 
+  /**
+   * **What the published page is made of**, which had never been read.
+   *
+   * Measured on the sample's home page: `lang`, a `<title>`, a viewport, **no script at all** and
+   * **not one inline style** — 286 classes and zero `style=`. And every structural element a `<div>`:
+   * the tags were `div, section, p, h1…h4, a, img, span, blockquote`, with nothing saying which of
+   * forty divs was the header, the navigation, the body or the footer.
+   */
+  it('publishes the element a reader said a block is', async () => {
+    const holder = blocksIn(doc, band)[0];
+    editor.executeCommand('setNode', { nodeIds: [holder] });
+    await run('setBlockFormat', { landmark: 'main' });
+
+    const html = exportPage(editor, home).html;
+    expect(html).toContain('<main');
+    // And the export follows for free, because the published page is drawn through the renderers.
+    expect(html).not.toContain('<script');
+  });
+
   it('reaches the visitor, inside the document the export writes', async () => {
     editor.executeCommand('setNode', { nodeIds: [band] });
     await run('setBlockFormat', { reveal: 'focusIn' });

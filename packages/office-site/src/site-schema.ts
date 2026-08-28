@@ -290,10 +290,48 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
     attrs: { ...nodes[name]?.attrs, ...everyBlockAttrs }
   });
 
+  /**
+   * What only a **container** can say, which is what part of the page it is.
+   *
+   * Narrowed rather than exempted, which is the rule this schema already follows about `sizing`: an
+   * `<img>` cannot be a header, so declaring `landmark` on `picture` would be offering a reader
+   * something nothing can draw. `frame`, `collection` and `instance` are the three things on a page
+   * that hold other things — and the third matters most, because the sample's header **is** a
+   * placement of a definition.
+   */
+  const landmarkAttrs = {
+    /**
+     * **What part of the page this is** — and so which element it is published as.
+     *
+     * ## Measured on the sample's own published home page
+     *
+     * The export gets a great deal right — `lang`, a `<title>`, a viewport, **no script at all** and
+     * **not one inline style** — and every structural element on it was a `<div>`. The tags it used
+     * were `div, section, p, h1…h4, a, img, span, blockquote`, and nothing said which of forty divs
+     * was the page's header, its navigation, its body or its footer.
+     *
+     * The document *knows*: the sample places a `site-header` and a `site-footer` on every page and
+     * the four links in the bar are a navigation. Nothing had a word for it, so nothing was said —
+     * the shape of finding this repository keeps making, arriving at the one surface where being
+     * unsaid costs a **visitor** rather than a reader. A screen reader jumps between landmarks, a
+     * search engine reads `<main>`, and a browser's reader mode looks for the page's body.
+     *
+     * ## Why on the block and not inferred
+     *
+     * The header is a *placement of a definition*, and inferring "this component id means header"
+     * would be a rule about a name a reader may change at any time.
+     */
+    landmark: {
+      type: 'string' as const,
+      required: false,
+      options: ['header', 'nav', 'main', 'aside', 'footer']
+    }
+  };
+
   /** A container, which on a page is also a surface somebody paints. */
   const withPaint = (name: string) => ({
     ...withBlockAttrs(name),
-    attrs: { ...withBlockAttrs(name).attrs, ...paintAttrs }
+    attrs: { ...withBlockAttrs(name).attrs, ...paintAttrs, ...landmarkAttrs }
   });
 
   return {
@@ -350,7 +388,7 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
       picture: withBlockAttrs('picture'),
 
       /** A placement in the flow says what it does with the width, like any other block. */
-      instance: withBlockAttrs('instance'),
+      instance: { ...withBlockAttrs('instance'), attrs: { ...withBlockAttrs('instance').attrs, ...landmarkAttrs } },
 
       /**
        * A **dataset**: rows the page draws from, named so a list can point at it.
@@ -408,6 +446,7 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
           ...(nodes.frame?.attrs ?? {}),
           ...everyBlockAttrs,
           ...paintAttrs,
+          ...landmarkAttrs,
           /** The dataset this draws. */
           source: { type: 'string' as const, required: true },
           /** At most this many rows — "the three featured products". */

@@ -1750,6 +1750,67 @@ test.describe('the pages of a site', () => {
 });
 
 /**
+ * **What part of the page a block is**, which the published page could not say.
+ *
+ * Measured on the sample's own export: `lang`, a `<title>`, a viewport, **no script at all** and
+ * **not one inline style** — and every structural element a `<div>`. Nothing said which of forty of
+ * them was the header, the navigation, the body or the footer, and the document knew: the sample
+ * places a `site-header` and a `site-footer` on every page.
+ */
+test.describe('what a block is on the page', () => {
+  test('is drawn as that element, on a placement, which is where the header is', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').nth(0).click();
+    await page.waitForTimeout(400);
+
+    /*
+     * A **placement**, and that is the case that matters: the header is a placement of a definition,
+     * so a panel offering this only on a plain stack would offer it everywhere except where a reader
+     * needs it. Caught by a browser and not by the harness, which counts rows against a schema.
+     */
+    await page.locator('.office-properties').getByLabel('페이지에서의 역할').selectOption('header');
+    await page.waitForTimeout(600);
+
+    const drawn = await page.evaluate(() => {
+      const editor = (window as never as { editor: any }).editor;
+      const sid = editor.selection?.nodeIds?.[0];
+      return document
+        .querySelector(`[data-frame="desktop"] [data-bc-sid="${sid}"]`)
+        ?.tagName.toLowerCase();
+    });
+    expect(drawn).toBe('header');
+  });
+
+  test('says so when a page has two of something it has one of', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    for (const at of [0, 1]) {
+      await page.locator('[data-layer]').nth(at).click();
+      await page.waitForTimeout(400);
+      await page.locator('.office-properties').getByLabel('페이지에서의 역할').selectOption('header');
+      await page.waitForTimeout(500);
+    }
+
+    /*
+     * The fault the field creates the moment it exists, and the reader-facing half of what makes a
+     * landmark worth having: a screen reader offers a list of them to jump between, and two things
+     * both calling themselves the page's header is a list nobody can use. `nav` and `aside` are not
+     * counted — several navigations is ordinary — which is the difference between a rule and a habit.
+     */
+    await expect(page.locator('[data-faults]')).toContainText('문제 2개');
+    await page.locator('[data-faults-open]').click();
+    await page.waitForTimeout(300);
+    const rows = page.locator('[data-fault][data-fault-kind="landmark"]');
+    // Both offenders, so a reader can go to each and decide which is the real one.
+    await expect(rows).toHaveCount(2);
+    await expect(rows.first()).toContainText('머리말이 2개');
+  });
+});
+
+/**
  * **차례로** — a row of cards arriving one after another.
  *
  * Three cards appearing at the same instant is the tell of a template, and every landing page

@@ -313,7 +313,24 @@ export function registerSiteRenderers(): void {
   override('frame', (_props: NodeData, node: NodeData, ctx: any) => {
     const attrs = drawnAttrs(node, ctx);
     return element(
-      'div',
+      /*
+       * **The element a reader said this is**, and `div` when they said nothing.
+       *
+       * Measured on the sample's published home page: `lang`, a `<title>`, a viewport, no script and
+       * not one inline style — and every structural element a `<div>`. Nothing said which of forty
+       * of them was the header, the navigation, the body or the footer, and the document knew.
+       *
+       * `div` rather than `section` for the silent case, deliberately: a `<section>` with no
+       * accessible name is a landmark a screen reader announces as "section" and cannot be told
+       * apart from the next one, which is worse than a plain box. A stack that means something says
+       * so; one that is a stack stays a stack.
+       *
+       * The **export follows for free**, which is the whole argument for drawing the published page
+       * through these renderers: there is no second place where the tag could be older.
+       */
+      (typeof attrs.landmark === 'string' && attrs.landmark
+        ? attrs.landmark
+        : 'div') as 'header' | 'nav' | 'main' | 'aside' | 'footer' | 'div',
       {
         className: 'st-stack',
         'data-layout': typeof attrs.layoutMode === 'string' ? attrs.layoutMode : 'none',
@@ -347,7 +364,14 @@ export function registerSiteRenderers(): void {
   define('instance', (_props: NodeData, node: NodeData, ctx: any) => {
     const attrs = drawnAttrs(node, ctx);
     return element(
-      'div',
+      /*
+       * A placement can be a landmark, and it is **the case that matters**: the sample's header and
+       * footer are placements of definitions, so a page whose only landmark-capable node was a plain
+       * stack could not have marked its own header.
+       */
+      (typeof attrs.landmark === 'string' && attrs.landmark
+        ? attrs.landmark
+        : 'div') as 'header' | 'nav' | 'main' | 'aside' | 'footer' | 'div',
       {
         className: 'st-placement',
         'data-component-id': typeof attrs.componentId === 'string' ? attrs.componentId : undefined,
@@ -389,7 +413,10 @@ export function registerSiteRenderers(): void {
   define('collection', (_props: NodeData, node: NodeData, ctx: any) => {
     const attrs = drawnAttrs(node, ctx);
     return element(
-      'div',
+      // A list of posts is very often the page's body — see `frame` for the whole reasoning.
+      (typeof attrs.landmark === 'string' && attrs.landmark
+        ? attrs.landmark
+        : 'div') as 'header' | 'nav' | 'main' | 'aside' | 'footer' | 'div',
       {
         className: 'st-collection',
         'data-source': typeof attrs.source === 'string' ? attrs.source : undefined,

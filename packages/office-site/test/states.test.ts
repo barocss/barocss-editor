@@ -417,7 +417,7 @@ describe('what is wrong with the document', () => {
   it('names every kind it can report, so no group is drawn without a heading', () => {
     // A `kind` `Fault` can carry and `FAULT_KINDS` does not name is a group of rows with no title.
     const named = new Set(FAULT_KINDS.map((one) => one.id));
-    expect([...named].sort()).toEqual(['data', 'link', 'state', 'width']);
+    expect([...named].sort()).toEqual(['data', 'landmark', 'link', 'state', 'width']);
     // Each says *why*, because a list that only says what is wrong teaches a reader to dismiss it.
     for (const kind of FAULT_KINDS) expect(kind.why.length).toBeGreaterThan(10);
   });

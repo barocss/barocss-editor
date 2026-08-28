@@ -347,6 +347,11 @@ export class SiteStackExtension implements Extension {
     // …and whose arrival it is: the block's, or its children's, one after another.
     'revealStagger',
     /*
+     * And **what part of the page** this stack is, which decides the element it publishes as. Here
+     * rather than in `_stateFields` for the obvious reason: a hover cannot make a box into a footer.
+     */
+    'landmark',
+    /*
      * Whether it is **on the page**, and whether a reader may pick it up.
      *
      * Through `setBlockFormat` like every other fact about a block, rather than commands of their

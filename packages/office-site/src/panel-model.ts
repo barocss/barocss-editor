@@ -177,6 +177,43 @@ export const SITE_PANEL: SitePanelRow[] = [
     control: 'toggle',
     fallback: false
   },
+  /**
+   * **What part of the page this is**, which is the one property here that is not about how it looks.
+   *
+   * On the **블록** tab beside 이름 and 보임 rather than in 모양, because it is what the block *is*.
+   * Measured on the sample's published page: `lang`, a `<title>`, a viewport, no script and not one
+   * inline style — and forty `<div>`s, with nothing saying which was the header, the navigation, the
+   * body or the footer. A screen reader jumps between landmarks and a search engine reads `<main>`;
+   * the document knew and had no word for it.
+   *
+   * 구역 for the silent case rather than "없음": a stack that says nothing still publishes as
+   * something, and calling that nothing would be a panel disagreeing with the page.
+   */
+  {
+    attr: 'landmark',
+    command: 'setBlockFormat',
+    group: '선택',
+    tab: 'block',
+    label: '역할',
+    ariaLabel: '페이지에서의 역할',
+    control: 'choice',
+    /*
+     * **And a placement**, which is the case that matters: the sample's header and footer are
+     * placements of definitions, so a panel that offered this only on a plain stack would offer it
+     * everywhere except where a reader needs it. Caught by the browser and not by the harness —
+     * `every-property-can-be-edited` counts rows against the schema and passed, which is the open
+     * item about it counting rows rather than panes.
+     */
+    on: [...STACKS, 'instance'],
+    options: [
+      { id: '', label: '구역' },
+      { id: 'header', label: '머리말' },
+      { id: 'nav', label: '둘러보기' },
+      { id: 'main', label: '본문' },
+      { id: 'aside', label: '곁들이' },
+      { id: 'footer', label: '꼬리말' }
+    ]
+  },
   { attr: 'overrides', group: '선택', tab: 'block', label: '편집 중인 폭', ariaLabel: '편집 중인 폭', control: 'note' },
 
   // ── 배치 — a stack, and how it arranges what is in it ──────────────────────

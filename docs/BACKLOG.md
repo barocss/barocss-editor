@@ -48,6 +48,15 @@ entries are that.
 
 ### Found walking the site builder in a browser
 
+- [ ] **The published page has no description and no Open Graph.** Measured with the landmarks: a
+  page carries a name and an address and says neither to a crawler or a chat that unfurls it. One
+  `description` on `surface` and four meta tags is the whole of it, and it is the other half of what
+  makes a published page real.
+
+- [ ] **And no skip link.** A keyboard visitor tabs through the whole navigation on every page. Now
+  that a page can say where its body is, the link has somewhere to point.
+
+
 - [x] ~~**`PropertyNumber` in `office-ui` is called by nobody.**~~ **Wrong, and corrected within the
   hour** — it is called by the deck's `component-panel.tsx` and `deck-dialogs.tsx`. What is true is
   narrower: `PropertySheet` renders `NumberField` *directly* rather than through it, so a change to
@@ -2868,6 +2877,40 @@ text-shaped.
   themselves.)*
 
 ## Done
+
+- **The published page was forty `<div>`s.** Read the export rather than the editor for the first
+  time, which is the surface the whole product is for. It gets a great deal right — `lang`, a
+  `<title>`, a viewport, **no script at all**, and **not one inline style**: 286 classes and zero
+  `style=`. And the tags it used were `div, section, p, h1…h4, a, img, span, blockquote`, with
+  nothing saying which of forty divs was the page's header, its navigation, its body or its footer.
+
+  The document **knew**: the sample places a `site-header` and a `site-footer` on every page and the
+  four links in the bar are a navigation. Nothing had a word for it, so nothing was said — the shape
+  of finding this repository keeps making, arriving at the one surface where being unsaid costs a
+  **visitor** rather than a reader. A screen reader jumps between landmarks; a search engine reads
+  `<main>`; a reader-mode looks for the body.
+
+  `landmark` on a container — 머리말 / 둘러보기 / 본문 / 곁들이 / 꼬리말 — and the block publishes as
+  that element. Four decisions:
+
+  - **The export follows for free.** It is drawn through the same renderers, so there is no second
+    place where the tag could be older. That is the whole argument for export-as-a-render, collected.
+  - **Silence stays `div`, not `section`.** A `<section>` with no accessible name is a landmark a
+    screen reader announces as "section" and cannot tell from the next one — worse than a plain box.
+    A stack that means something says so; one that is a stack stays a stack.
+  - **Narrowed, not exempted.** The check reported it on `picture` the moment it existed: an `<img>`
+    cannot be a header, so `landmark` moved out of `everyBlockAttrs` into a container-only group.
+    Which is the rule this schema already followed about `sizing`.
+  - **A placement can carry it**, and that is the case that matters — the sample's header *is* one.
+    The panel offered it on stacks only at first and a browser caught that in the first run;
+    `every-property-can-be-edited` passed, because it counts rows against a schema rather than asking
+    what a reader can reach with a given thing selected. That open item now has evidence.
+
+  **And the fault the field creates the moment it exists.** One header, one body, one footer per
+  page: a screen reader offers a list of landmarks to jump between, and two things both calling
+  themselves the body is a list nobody can use. Reported against **both** offenders, so a reader can
+  go to each and decide which is the real one — and `nav` and `aside` are deliberately not counted,
+  because several navigations is ordinary. That is the difference between a rule and a habit.
 
 - **차례로 — a row of cards that arrives one after another.** Three cards appearing at the same
   instant is the tell of a template, and every landing page staggers them. The site could choose
