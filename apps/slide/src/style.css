@@ -42,6 +42,13 @@
  * rule here that set, say, a title's size would silently win over the
  * document's own formatting and make the whole style cascade untestable. So
  * this file stops at the slide's edge.
+ *
+ * It did not, and inheritance is why: `body` sets `color: var(--sl-ink)`, and a
+ * colour crosses a boundary a comment describes. In the dark that made every
+ * bullet and table cell on a **white** slide near-white — measured by rendering
+ * the deck twice and comparing, 23 runs that changed colour with the theme. The
+ * one rule below is what actually stops the file at the edge; see it for why the
+ * colour is stated rather than themed.
  */
 :root {
   color-scheme: light dark;
@@ -77,6 +84,26 @@
     --sl-muted: #98a1b0;
     --sl-accent: #6f9bff;
   }
+}
+
+/*
+ * **The slide holds its own ink** — the rule that makes the boundary above true.
+ *
+ * A slide is paper: white in both themes, which the deck already got right because the colour comes
+ * from the model rather than from a token. What it did not state was the colour of what is *on* it,
+ * so the words took `--sl-ink` by inheritance from `body` and flipped — near-white on white in the
+ * dark, on the bullets and the table, while the metric cards read fine because their runs carry
+ * colours of their own.
+ *
+ * The same fault, in the same week, in all three products: Word's flow, the site builder's boards,
+ * and this. Each had a background that correctly stayed paper-coloured and nothing at all said what
+ * was written on it. `--ou-board-written` is that missing half, shared, and deliberately absent from
+ * every dark block — paper does not follow the theme, so neither does the ink on it.
+ *
+ * Anything the model gives a colour still wins: this is what a run that says nothing gets.
+ */
+.sl-slide {
+  color: var(--ou-board-written);
 }
 
 html,

@@ -56,7 +56,7 @@ body,
 
 body {
   margin: 0;
-  background: #f1f3f5;
+  background: var(--ou-ground);
   font-family: system-ui, sans-serif;
   overflow: hidden;
 }
@@ -71,8 +71,8 @@ body {
 /* Ribbon, title and ruler: the look, the height is the frame's. */
 .w-shell > .w-chrome {
   padding: 0 24px;
-  background: #f1f3f5;
-  border-bottom: 1px solid #dee2e6;
+  background: var(--ou-ground);
+  border-bottom: 1px solid var(--ou-line);
 }
 
 /* The one thing that scrolls — which is this product's choice, not the frame's. */
@@ -108,19 +108,34 @@ body {
   color: inherit;
   min-width: 6ch;
 }
-.doc-title-field::placeholder { color: #9aa4b2; }
-.doc-title-field:hover { border-color: #d8dde3; }
-.doc-title-field:focus { outline: none; border-color: #2f6fdb; background: #fff; }
+.doc-title-field::placeholder { color: var(--ou-muted); }
+.doc-title-field:hover { border-color: var(--ou-line); }
+.doc-title-field:focus { outline: none; border-color: var(--ou-accent); background: #fff; }
 .doc-title-docTitle { font-size: 18px; font-weight: 650; flex: 0 0 auto; min-width: 18ch; }
-.doc-title-docAuthor { color: #5a6472; font-size: 13px; flex: 0 0 auto; min-width: 12ch; }
+.doc-title-docAuthor { color: var(--ou-muted); font-size: 13px; flex: 0 0 auto; min-width: 12ch; }
 /* Takes what is left: it is the longest of the three and the one that gets cut. */
-.doc-title-docSubtitle { color: #5a6472; font-size: 13px; flex: 1 1 24ch; min-width: 20ch; }
+.doc-title-docSubtitle { color: var(--ou-muted); font-size: 13px; flex: 1 1 24ch; min-width: 20ch; }
 
-@media (prefers-color-scheme: dark) {
-  .doc-title-field:hover { border-color: #39404a; }
-  .doc-title-field:focus { background: #22262d; border-color: #4f86e8; }
-  .doc-title-docSubtitle, .doc-title-docAuthor { color: #9aa4b2; }
-}
+/*
+ * **The dark block that used to be here is gone**, and its absence is the record.
+ *
+ * Three rules restating in a second palette what the first said in literals — a hover border, a focus
+ * background, a muted colour — which is the shape of every hand-written dark theme: two palettes and
+ * one of them always behind. Written as tokens above, there is nothing to restate.
+ *
+ * Word carried **123** colour literals and mapped none of the suite's tokens, which the backlog had
+ * recorded and nobody had looked at. A screenshot is what settled it: in dark mode the brand was
+ * white on white, the menubar was near-invisible, and the toolbar was a black band inside a white
+ * window — because the toolbar is `office-ui`'s and takes the tokens, and everything around it was
+ * this file's.
+ *
+ * ## The rule, which is the deck's
+ *
+ * **The chrome follows the theme; the paper does not.** `.w-sheet` stays `#fff` in the dark and so do
+ * the line numbers, the page breaks, the find highlights and the revision marks — every one of those
+ * is drawn *on the page*, and a page is white in both themes because a page is paper. What flips is
+ * the window: the chrome band, the panes, the ruler, the outline, the zoom, the title fields.
+ */
 
 /* A section renders as the page it describes; its box comes from page setup. */
 /*
@@ -129,6 +144,34 @@ body {
  */
 .w-surface {
   outline: none;
+}
+
+/*
+ * **The ink, stated — because the paper's colour was only half the rule.**
+ *
+ * `.w-sheet` sets `background: #fff` and that was already right: a page is white in both themes,
+ * which the deck's slide and the site's boards agree about. What no rule said was the colour of what
+ * is **on** the page. The text took its colour by inheritance from the window, and the window now
+ * takes `--ou-ink` — so in the dark the document was **white on white**. Every word of the sample was
+ * on screen and none of it could be read; the screenshot that found it looked, at a glance, like a
+ * page that had not finished loading.
+ *
+ * ## And it belongs here rather than on `.w-sheet`, which is the mistake this was fixed twice for
+ *
+ * The obvious place is beside the background — and putting it there changed nothing, because the
+ * sheets are **behind** the text rather than around it. `.w-sheet` is a drawn rectangle; the flow is
+ * `.w-document › .w-surface › .w-paragraph`, and the sheet is in none of their ancestries. Measured
+ * by walking the paragraph's parents: twelve boxes from `<p>` to `<body>`, every one of them white,
+ * and no `.w-sheet` among them. The comment two rules up was true and the selector was wrong, which
+ * is the exact shape a CSS fix takes when a rule is written from the intent rather than from the
+ * tree.
+ *
+ * A stated colour rather than a token, and that is the whole point: paper does not follow the theme,
+ * so neither does the ink on it. `#1a1a1a` rather than pure black for the reason a printed book uses
+ * one — pure black on pure white is the pairing that reads as glare.
+ */
+.w-document {
+  color: #1a1a1a;
 }
 
 .w-sheet {
@@ -594,7 +637,7 @@ body {
   user-select: none;
   touch-action: none;
   font-size: 9px;
-  color: #868e96;
+  color: var(--ou-muted);
   cursor: default;
 }
 
@@ -603,7 +646,7 @@ body {
   position: absolute;
   top: 7px;
   height: 12px;
-  background: #ced4da;
+  background: var(--ou-line);
   border-radius: 2px;
 }
 .w-ruler-text {
@@ -611,7 +654,7 @@ body {
   top: 7px;
   height: 12px;
   background: #fff;
-  box-shadow: inset 0 0 0 1px #dee2e6;
+  box-shadow: inset 0 0 0 1px var(--ou-line);
 }
 
 .w-ruler-tick {
@@ -619,7 +662,7 @@ body {
   top: 11px;
   width: 1px;
   height: 4px;
-  background: #adb5bd;
+  background: var(--ou-faint);
 }
 .w-ruler-inch {
   position: absolute;
@@ -639,7 +682,7 @@ body {
   top: 20px;
   width: 1px;
   height: 3px;
-  background: #ced4da;
+  background: var(--ou-line);
 }
 
 .w-ruler-stop {
@@ -648,7 +691,7 @@ body {
   transform: translateX(-50%);
   font-size: 11px;
   line-height: 18px;
-  color: #212529;
+  color: var(--ou-ink);
   cursor: pointer;
 }
 
@@ -668,12 +711,12 @@ body {
 }
 .w-ruler-marker.is-first {
   top: 2px;
-  border-top: 7px solid #495057;
+  border-top: 7px solid var(--ou-ink);
 }
 .w-ruler-marker.is-left,
 .w-ruler-marker.is-right {
   top: 17px;
-  border-bottom: 7px solid #495057;
+  border-bottom: 7px solid var(--ou-ink);
 }
 
 /*
@@ -690,15 +733,15 @@ body {
   min-width: 148px;
   padding: 4px;
   background: #fff;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--ou-line);
   border-radius: 6px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, .16);
   font-size: 12px;
-  color: #212529;
+  color: var(--ou-ink);
 }
 .w-ruler-menu-title {
   padding: 4px 8px 6px;
-  color: #868e96;
+  color: var(--ou-muted);
   font-size: 11px;
 }
 .w-ruler-menu button {
@@ -715,17 +758,17 @@ body {
 }
 .w-ruler-menu button:hover,
 .w-ruler-menu button:focus-visible {
-  background: #f1f3f5;
+  background: var(--ou-ground);
 }
 /* Which one this stop already is. */
 .w-ruler-menu button[aria-checked='true'] {
-  background: #e7f5ff;
+  background: var(--ou-accent-soft);
   font-weight: 600;
 }
 .w-ruler-menu hr {
   margin: 4px 2px;
   border: 0;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid var(--ou-ground);
 }
 
 /*
@@ -740,8 +783,8 @@ body {
   min-width: 0;
   overflow: auto;
   padding: 12px 8px 24px;
-  border-right: 1px solid #dee2e6;
-  background: #f8f9fa;
+  border-right: 1px solid var(--ou-line);
+  background: var(--ou-panel);
   font-size: 13px;
 }
 .w-outline-title {
@@ -749,7 +792,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0 8px 8px;
-  color: #868e96;
+  color: var(--ou-muted);
   font-size: 11px;
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -772,28 +815,28 @@ body {
   background: none;
   text-align: left;
   font: inherit;
-  color: #343a40;
+  color: var(--ou-ink);
   cursor: pointer;
   /* One line each: a heading is a landmark here, not something to read */
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.w-outline li button:hover { background: #e9ecef; }
+.w-outline li button:hover { background: var(--ou-ground); }
 /* Where the caret is, which is what makes this a map rather than a list. */
 .w-outline li button.is-here {
-  background: #e7f5ff;
-  color: #1864ab;
+  background: var(--ou-accent-soft);
+  color: var(--ou-accent);
   font-weight: 600;
 }
-.w-outline-empty { padding: 8px; color: #adb5bd; }
+.w-outline-empty { padding: 8px; color: var(--ou-faint); }
 
 .w-outline-closed {
   flex: 0 0 32px;
   border: 0;
-  border-right: 1px solid #dee2e6;
-  background: #f8f9fa;
-  color: #868e96;
+  border-right: 1px solid var(--ou-line);
+  background: var(--ou-panel);
+  color: var(--ou-muted);
   cursor: pointer;
 }
 
@@ -809,9 +852,9 @@ body {
   position: relative;
   flex: 0 0 32px;
   border: 0;
-  border-left: 1px solid #dee2e6;
-  background: #f8f9fa;
-  color: #868e96;
+  border-left: 1px solid var(--ou-line);
+  background: var(--ou-panel);
+  color: var(--ou-muted);
   cursor: pointer;
 }
 .w-comments-count {
@@ -853,7 +896,7 @@ body {
   line-height: 1;
   cursor: pointer;
 }
-.w-zoom-control button:hover { background: #f1f3f5; }
+.w-zoom-control button:hover { background: var(--ou-ground); }
 .w-zoom-control input {
   width: 48px;
   height: 24px;
@@ -868,7 +911,7 @@ body {
   color: inherit;
 }
 .w-zoom-control input:hover,
-.w-zoom-control input:focus { border-color: #dee2e6; background: #fff; }
+.w-zoom-control input:focus { border-color: var(--ou-line); background: #fff; }
 
 /*
  * What is selected **on a drawing**, and the band that catches several.

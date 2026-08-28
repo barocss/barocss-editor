@@ -365,6 +365,20 @@ export const SITE_PANEL: SitePanelRow[] = [
   // ── 바탕 and 테두리 — any of these may hold `var:이름` rather than a colour ─
   { attr: 'fill', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '배경', ariaLabel: '배경', control: 'colour' },
   /**
+   * The colour of what is **on** the background — the row directly under it, because it is the same
+   * decision made twice.
+   *
+   * Until this row a builder could paint a section near-black and had no control that made the words
+   * on it light. The only way was to select each run and set a text colour, which is why the sample's
+   * one dark band has a coloured paragraph and an uncoloured heading: the person writing it did the
+   * work per run and missed one, and the heading shipped dark-on-dark at 1.06:1.
+   *
+   * It inherits, so setting it on a section reaches everything added to that section afterwards. A
+   * `colour` control rather than a choice, because a dark band's ink is rarely pure white — the band
+   * in the sample wants a faintly green off-white to sit in the same family as its gradient.
+   */
+  { attr: 'ink', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '글자', ariaLabel: '글자 색', control: 'colour' },
+  /**
    * A gradient, as its two ends — the row that turns a flat band into a designed one.
    *
    * Under 배경 rather than in a group of its own, because it *is* the background: a reader who has

@@ -228,6 +228,22 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
      */
     fill: { type: 'string' as const, required: false },
     /**
+     * And the colour of **what is on it**, which is the other half of the same decision.
+     *
+     * Found by measuring contrast on the built page rather than by reading the schema: the closing
+     * band of the sample sets a near-black gradient and the heading on it came out at 1.06:1, dark
+     * on dark, unreadable in both themes. The paragraph beside it was fine only because its author
+     * had reached for a **text colour on the run** — which is the workaround, and the evidence that
+     * the attribute was missing. A band that flips the ground has to say what is written on it once,
+     * not once per run, or every block added to it later inherits the wrong colour and the person
+     * who added it has to remember.
+     *
+     * Inherited, so it reaches everything in the box: a section states it and the headings,
+     * paragraphs, list markers and quiet text inside all take it, while any run that states its own
+     * still wins. That is what makes it one decision rather than a colour to reapply.
+     */
+    ink: { type: 'string' as const, required: false },
+    /**
      * A gradient, as its two ends and an angle.
      *
      * The angle is CSS's: 0 points up, 90 to the right. Stated because the deck's is measured the

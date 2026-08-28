@@ -166,6 +166,22 @@
   --ou-board-ink: #6b7280;
 
   /**
+   * **What is written on the board** — and the half of the rule that was missing.
+   *
+   * `--ou-board` is `#ffffff` and stays white in the dark, which is right and which every product
+   * here agrees about: a page is paper. The token said nothing about the **colour of the words on
+   * it**, so the words took theirs by inheritance from the window, and the window's ink flips. In
+   * the dark the site builder drew every heading in near-white on a white board — measured at
+   * 1.04:1 against its own background, 57 elements of it, while the paragraphs beside them were
+   * fine because their colour happened to be stated by hand.
+   *
+   * Deliberately **not** in the dark blocks below, and that is the whole point: paper does not
+   * follow the theme, so neither does the ink on it. `#1a1a1a` rather than pure black for the reason
+   * a printed book uses one.
+   */
+  --ou-board-written: #1a1a1a;
+
+  /**
    * The line a **field** rests behind, which is not always the line everything else uses.
    *
    * A toolbar's control is a thing to press and wears an edge; a panel's twenty rows are a form, and

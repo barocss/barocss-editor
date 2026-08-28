@@ -274,10 +274,17 @@ body {
 
 .st-frame-width { font-variant-numeric: tabular-nums; opacity: 0.75; }
 
-/* The board and the layer over it share one box, so the overlay can be measured against it. */
+/*
+ * The board and the layer over it share one box, so the overlay can be measured against it.
+ *
+ * `color` beside `background`, because the two are one decision: what a reader sees on a page is
+ * the pair, and stating only the ground is what left every heading here white on white in the dark.
+ * A block that sets its own 글자 wins over this; this is what everything that sets nothing gets.
+ */
 .st-frame-body {
   position: relative;
   background: var(--ou-board);
+  color: var(--ou-board-written);
   border-radius: 4px;
   /* A hairline and a soft shadow rather than a border: the board is lifted off the studio, which is
      what makes a page read as a sheet rather than as a pane in the window. */

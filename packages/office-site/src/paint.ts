@@ -94,6 +94,14 @@ export function backgroundCss(attrs: Attrs | undefined, resolve: Resolve): Css {
   const fill = resolve(attrs.fill);
   if (fill) css.backgroundColor = fill;
 
+  /*
+   * The pair: what the box is painted with, and what is written on it. `color` inherits, so stating
+   * it on a section is what makes one decision reach every block inside — and a run that states its
+   * own colour still wins over it, which is the order a reader expects.
+   */
+  const ink = resolve(attrs.ink);
+  if (ink) css.color = ink;
+
   return css;
 }
 

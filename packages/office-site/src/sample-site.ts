@@ -750,12 +750,23 @@ function home(): Node {
           gradientFrom: '#0E1512',
           gradientTo: '#0B3D31',
           gradientAngle: 160,
+          /*
+           * The band says what is written on it, once.
+           *
+           * It did not, and the heading came out near-black on a near-black gradient — measured at
+           * 1.06:1, in both themes, on a page this repository has screenshotted a dozen times. The
+           * paragraph under it read fine only because its colour was set run by run, which is the
+           * workaround this attribute replaces: one statement here, and the heading, the paragraph
+           * and anything added to the band later all take it.
+           */
+          ink: '#E8EFEB',
           paddingTop: px(96),
           paddingBottom: px(96)
         },
         [
           stack('column', { name: '마무리 글', gap: GAP.mid, alignItems: 'center', maxWidth: WIDTH.text }, [
             heading(2, '문서 하나로 시작해 보세요'),
+            // Quieter than the heading above it, and a colour of its own for that reason only.
             paragraph([
               inColour('계정을 만들면 세 제품이 함께 열립니다. 카드 정보는 나중에 물어봅니다.', 'C8D3CD')
             ]),

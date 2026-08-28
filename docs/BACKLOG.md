@@ -46,6 +46,56 @@ entries are that.
 
 ## Open
 
+### White on white, in all three products — measured 2026-08-28 *(fixed)*
+
+The suite ships a dark theme. Nothing in the repository asked a single question
+about it: across three apps, **zero** tests mentioned `colorScheme`. What that
+cost, found by opening each product in a dark browser and comparing:
+
+| Product | In the dark | Why |
+| --- | --- | --- |
+| Word | the whole document unreadable | the flow inherited `--ou-ink` over a `#fff` sheet |
+| Site builder | **every heading** unreadable, 57 elements at 1.04:1 | boards are `--ou-board`, and nothing said what was written on them |
+| Deck | every bullet and table cell, 23 runs | `body { color: var(--sl-ink) }`, inherited past a comment saying this file stops at the slide's edge |
+
+One fault, three times, and the same shape each time: a **background** that
+correctly stays paper-coloured in both themes, and **nothing at all** saying what
+colour the words on it are. Each product got the first half right, which is why
+it survived — a rule half-written looks like a rule.
+
+The missing half is now a token, `--ou-board-written`, deliberately absent from
+every dark block. **The chrome follows the theme; the paper does not — and
+neither does the ink on it.**
+
+Three things this turned up that were not the fault itself:
+
+- **The obvious probe is wrong on a canvas.** Walking up from a word to its first
+  painted ancestor and comparing luminance reported 75 unreadable elements in a
+  Word document that reads perfectly and 3 in a deck card that is white-on-green.
+  Word's sheet is drawn *behind* the flow and a deck's card is a rectangle with
+  its text placed *over* it — on a canvas, what is behind a word is not among its
+  parents. The check that works asks whether a colour **moved between the two
+  themes**, which needs no ancestry and is exactly the rule.
+- **The same mistake put the first fix on the wrong selector.** `color` went
+  beside `background` on `.w-sheet`, which changed nothing, because the sheet is
+  not an ancestor of the text either. A CSS rule written from the intent rather
+  than from the tree.
+- **"The deck is the good one" was a claim about the chrome.** It was written
+  down in these notes as a claim about the product, and the check added to
+  confirm it failed on its first run.
+
+And one product gap, found in the same pass and from the other direction: the
+sample's closing band paints itself near-black and its heading was near-black
+too, 1.06:1, in **both** themes. Not a theming fault — the band had no way to say
+what was written on it, because the panel offered a 배경 row and no 글자 row. A
+builder could paint a section dark and had no control that made the words light;
+the only way was to select each run. That is `ink` on a box now, inherited, so
+one statement reaches everything added to the band afterwards — which is what the
+sample's own author had done run by run, and missed one.
+
+Guarded by `word-theme.spec.ts`, `site-theme.spec.ts` and `slide-theme.spec.ts`.
+Each was checked against the un-fixed source: Word's fails on 25 words.
+
 ### Found walking the site builder in a browser
 
 - [ ] **A feed is the other thing the address unlocks.** A blog page draws a `collection` over a
