@@ -1144,6 +1144,16 @@ test.describe('the component library', () => {
      * looking at while wondering what they broke. So it is refused while anything places it — and a
      * disabled control that says nothing is the commonest small cruelty in a tool.
      */
+    /*
+     * The **browser's** tooltip here, and only here. A disabled button receives no pointer events, so
+     * the suite's tooltip never opens on one — and this is exactly the case where a control most
+     * needs to say something. A native `title` still shows on a disabled control everywhere.
+     */
+    /*
+     * The **browser's** tooltip here, and only here. A disabled button receives no pointer events, so
+     * the suite's own tooltip never opens on one — and this is exactly the case where a control most
+     * needs to say something. A native `title` still shows on a disabled control everywhere.
+     */
     await expect(remove).toHaveAttribute('title', /곳에서 쓰는 중/);
   });
 
@@ -1746,6 +1756,53 @@ test.describe('the pages of a site', () => {
      * — see the block below.
      */
     await expect(page.locator('[data-faults]')).toContainText('문제 2개');
+  });
+});
+
+/**
+ * **What a picture is called, and the key that reaches it.**
+ *
+ * Counted across the suite: **one** control had a real tooltip — a ribbon's toggle — and every other
+ * icon in every product used the browser's `title`. Sixty-odd of them, including the eye and the lock
+ * in a layer row and every `IconButton` in three apps. A native `title` appears after about a second
+ * with no way to change that, is drawn by the operating system, cannot hold a chord legibly, and
+ * **never appears for a reader using the keyboard**.
+ */
+test.describe('what a picture says when you point at it', () => {
+  test('names an icon in the rail, which had only the browser’s', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').first().hover();
+    await page.locator('.st-layer button').first().hover();
+    await page.waitForTimeout(800);
+
+    const tip = page.locator('[role="tooltip"]');
+    await expect(tip).toHaveCount(1);
+    await expect(tip).toContainText('숨기기');
+    // And no second one from the browser underneath it.
+    await expect(page.locator('.st-layer button[title]').first()).toHaveCount(0);
+  });
+
+  test('writes the chord the way a reader reads it, never as `Mod`', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').nth(3).click();
+    await page.waitForTimeout(400);
+
+    await page.locator('.st-ribbon button').nth(2).hover();
+    await page.waitForTimeout(800);
+    const said = await page.locator('[role="tooltip"]').innerText();
+
+    /*
+     * It was `Mod+D` on screen. `Mod` is how a chord is **written down** so that one line can mean ⌘
+     * on a Mac and Ctrl everywhere else; it is not a key anybody has. And the chord is asked of the
+     * key map now rather than typed beside the label — the same second-statement the menubar had.
+     */
+    expect(said).toContain('복제');
+    expect(said).not.toContain('Mod');
+    expect(said).toMatch(/⌘D|Ctrl\+D/);
   });
 });
 

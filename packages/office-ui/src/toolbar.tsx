@@ -1,5 +1,6 @@
 import * as RadixToolbar from '@radix-ui/react-toolbar';
 import * as RadixTooltip from '@radix-ui/react-tooltip';
+import { Tip } from './tip';
 import { createContext, useContext } from 'react';
 import { cn } from './cn';
 import { STATE } from './controls';
@@ -224,8 +225,7 @@ export function ToolbarToggle({
   children: React.ReactNode;
 }) {
   return (
-    <RadixTooltip.Root>
-      <RadixTooltip.Trigger asChild>
+    <Tip label={label} shortcut={shortcut}>
         <RadixToolbar.Button
           data-control={id}
           data-state={state}
@@ -261,33 +261,6 @@ export function ToolbarToggle({
         >
           {children}
         </RadixToolbar.Button>
-      </RadixTooltip.Trigger>
-      <RadixTooltip.Portal>
-        <RadixTooltip.Content
-          sideOffset={6}
-          /*
-           * **Inverted**, and it was white on white.
-           *
-           * This read `bg-[--ou-panel] text-white`, and `--ou-panel` is `#ffffff`: every tooltip in
-           * every product was invisible in the light theme — the one every product ships in — and
-           * legible only in the dark, where a `dark:` variant swapped the background out. Nobody saw
-           * it because a tooltip you cannot read looks like a tooltip that did not open.
-           *
-           * `--ou-ink` on `--ou-panel` is the inversion, and it needs no variant: both tokens flip
-           * with the theme, so the tooltip is dark-on-light in one and light-on-dark in the other.
-           */
-          className="rounded bg-[color:var(--ou-ink)] px-2 py-1 text-xs text-[color:var(--ou-panel)] shadow-[var(--ou-lift-2)]"
-        >
-          {label}
-          {shortcut && (
-            // Quieter than the name, which is the order a reader reads them in.
-            <span className="ml-1.5 opacity-60" data-shortcut>
-              {shortcut}
-            </span>
-          )}
-          <RadixTooltip.Arrow className="fill-[color:var(--ou-ink)]" />
-        </RadixTooltip.Content>
-      </RadixTooltip.Portal>
-    </RadixTooltip.Root>
+    </Tip>
   );
 }

@@ -302,6 +302,9 @@ importers:
       '@barocss/office-canvas':
         specifier: workspace:*
         version: link:../../packages/office-canvas
+      '@barocss/office-controls':
+        specifier: workspace:*
+        version: link:../../packages/office-controls
       '@barocss/office-site':
         specifier: workspace:*
         version: link:../../packages/office-site

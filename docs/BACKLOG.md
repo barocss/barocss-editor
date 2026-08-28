@@ -2878,6 +2878,38 @@ text-shaped.
 
 ## Done
 
+- **One control in the suite had a tooltip; the other sixty had the browser's.** Counted: a ribbon's
+  `ToolbarToggle` opened a real one, and every other icon in all three products used `title=` — the
+  eye and the lock in a layer row, the × on every pane, the zoom's three buttons, every `IconButton`
+  in twelve files.
+
+  A native `title` is not a smaller version of the same thing. It appears after about a second with
+  no way to change that, is drawn by the operating system in a font and colour nothing in the product
+  chose, cannot hold a chord legibly, and **never appears for a reader using the keyboard** — which
+  is the reader who most needs to be told what a picture means.
+
+  `Tip` and `TipProvider` in `office-ui`, `IconButton` uses them, and `AppShell` renders the provider
+  so a product gets the *grouping* — the second tooltip opening instantly after the first — without
+  knowing it exists. That grouping is most of what separates a tooltip a reader tolerates from one
+  they use.
+
+  **And the chord beside the name**, which is where every design tool puts it: this is the reader who
+  has already found the button and is about to press it for the tenth time. It could not be done
+  while a chord was a string typed beside a label; it is one line now that a key map answers
+  `chordFor`. The shortcut work pays for the UI work.
+
+  Two things found in the doing:
+
+  - **Readers were being shown `Mod+D`.** The site's toolbar model types its chords, and `Mod` is how
+    a chord is *written down* so one line can mean ⌘ on a Mac and Ctrl elsewhere — it is not a key
+    anybody has. Asked of `SITE_KEYS` and written with `keyLabel` now, falling back to the model for
+    the chords the **engine** binds (bold, italic, underline), which this product does not own.
+  - **A disabled button receives no pointer events**, so the good tooltip never opens on one — and
+    the disabled case is exactly where a control most needs to say something (*3곳에서 쓰는 중이라
+    지울 수 없습니다*). The browser's `title` still shows there, so that is what is used, and only
+    there. Caught by a browser test that had been asserting the attribute: it looked like it was
+    protecting a detail and was protecting the behaviour.
+
 - **The published page was forty `<div>`s.** Read the export rather than the editor for the first
   time, which is the surface the whole product is for. It gets a great deal right — `lang`, a
   `<title>`, a viewport, **no script at all**, and **not one inline style**: 286 classes and zero

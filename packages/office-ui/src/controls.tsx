@@ -1,3 +1,4 @@
+import { Tip } from './tip';
 import type React from 'react';
 import { cn } from './cn';
 
@@ -119,6 +120,7 @@ export type ButtonTone = 'plain' | 'accent';
  */
 export function IconButton({
   label,
+  shortcut,
   title,
   children,
   onClick,
@@ -129,8 +131,16 @@ export function IconButton({
   testClass,
   data
 }: {
-  /** What it does, in words. Becomes the accessible name, and the title unless one is given. */
+  /** What it does, in words. Becomes the accessible name, and the tooltip unless one is given. */
   label: string;
+  /**
+   * The chord that reaches it, written the way a reader reads it — `keyLabel` in `office-controls`.
+   *
+   * Beside the name in the tooltip, which is where every design tool puts it: this is the reader who
+   * has already found the button and is about to press it for the tenth time. Impossible while a
+   * chord was a string typed beside a label, and cheap now that a key map answers `chordFor`.
+   */
+  shortcut?: string;
   /**
    * A **longer** sentence for the tooltip, when there is one worth saying.
    *
@@ -157,38 +167,58 @@ export function IconButton({
   data?: Record<string, string | undefined>;
 }) {
   return (
-    <button
-      type="button"
-      // Both, from the one string: a pointer reads the title and a screen reader reads the
-      // name, and an icon button that has one and not the other is a control only half the
-      // readers can use.
-      title={title ?? label}
-      aria-label={label}
-      aria-pressed={pressed}
-      disabled={disabled}
-      onClick={onClick}
-      {...Object.fromEntries(
-        Object.entries(data ?? {}).map(([key, value]) => [`data-${key}`, value])
-      )}
-      className={cn(
-        'inline-flex shrink-0 cursor-pointer items-center justify-center',
-        'rounded-[var(--ou-radius)] border border-transparent text-[color:var(--ou-ink)]',
-        'disabled:pointer-events-none disabled:opacity-40',
-        size === 'sm'
-          ? 'h-[var(--ou-icon-h)] w-[var(--ou-icon-h)]'
-          : 'h-[var(--ou-control-h)] w-[var(--ou-control-h)]',
-        // No ground of its own: it sits on a pane, a row or a bar, and a button with a
-        // background in a list row draws a grid nobody asked for.
-        'bg-transparent hover:bg-[color:var(--ou-ground)]',
-        // A pressed toggle is the accent, whatever its size: "this one is on" is one idea
-        // and one colour — the same rule `Button` follows.
-        pressed && 'bg-[color:var(--ou-accent)] text-[color:var(--ou-accent-ink)]',
-        testClass,
-        className
-      )}
-    >
-      {children}
-    </button>
+    /*
+     * The suite's tooltip, not the browser's — see `tip.tsx`.
+     *
+     * It was `title={title ?? label}`, which is a tooltip in the sense that something appears:
+     * after about a second, drawn by the operating system, in a font nothing here chose, with no
+     * room for a chord and **never for a reader using the keyboard**. Sixty-odd icons across three
+     * products had that one, and a single ribbon toggle had the real one.
+     */
+    <Tip label={disabled ? undefined : title ?? label} shortcut={disabled ? undefined : shortcut}>
+      <button
+        type="button"
+        /*
+         * …and the **browser's** when it is disabled, which is the one case the good one cannot serve.
+         *
+         * A disabled button receives no pointer events, so a tooltip that opens on hover never opens
+         * on one — and the disabled case is exactly where a control most needs to say something:
+         * *3곳에서 쓰는 중이라 지울 수 없습니다* is a sentence a reader can act on, and a greyed
+         * control that says nothing is the commonest small cruelty in a tool. A native `title` still
+         * shows on a disabled control in every browser, so that is what is used there.
+         *
+         * Caught by the browser suite, which had been asserting the attribute: the assertion looked
+         * like it was protecting a detail and was protecting the behaviour.
+         */
+        title={disabled ? title ?? label : undefined}
+        aria-keyshortcuts={shortcut}
+        aria-label={label}
+        aria-pressed={pressed}
+        disabled={disabled}
+        onClick={onClick}
+        {...Object.fromEntries(
+          Object.entries(data ?? {}).map(([key, value]) => [`data-${key}`, value])
+        )}
+        className={cn(
+          'inline-flex shrink-0 cursor-pointer items-center justify-center',
+          'rounded-[var(--ou-radius)] border border-transparent text-[color:var(--ou-ink)]',
+          'disabled:pointer-events-none disabled:opacity-40',
+          size === 'sm'
+            ? 'h-[var(--ou-icon-h)] w-[var(--ou-icon-h)]'
+            : 'h-[var(--ou-control-h)] w-[var(--ou-control-h)]',
+          // No ground of its own: it sits on a pane, a row or a bar, and a button with a
+          // background in a list row draws a grid nobody asked for.
+          'bg-transparent hover:bg-[color:var(--ou-ground)]',
+          // A pressed toggle is the accent, whatever its size: "this one is on" is one idea
+          // and one colour — the same rule `Button` follows.
+          pressed && 'bg-[color:var(--ou-accent)] text-[color:var(--ou-accent-ink)]',
+          testClass,
+          className
+        )}
+      >
+        {children}
+      </button>
+    </Tip>
   );
 }
 

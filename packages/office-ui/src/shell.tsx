@@ -1,3 +1,4 @@
+import { TipProvider } from './tip';
 import type React from 'react';
 import { cn } from './cn';
 
@@ -106,7 +107,16 @@ function region(
  * inside able to scroll rather than grow.
  */
 export function AppShell(props: Region) {
-  return region(props, 'flex h-full min-h-0 flex-col');
+  /*
+   * And the **tooltip provider**, once for the window.
+   *
+   * It is what makes the second tooltip open instantly after the first — the behaviour that
+   * separates a tooltip a reader tolerates from one they use — and it has to be an ancestor of every
+   * control that shows one. A ribbon had its own; the eye in a layer row, the × on a pane and every
+   * other `IconButton` in three products had the browser's `title` instead. Here a product gets it
+   * without knowing, and nested providers are legal so `Toolbar` keeps its own.
+   */
+  return <TipProvider>{region(props, 'flex h-full min-h-0 flex-col')}</TipProvider>;
 }
 
 /**

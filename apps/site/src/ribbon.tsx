@@ -11,7 +11,9 @@ import {
   ToolbarToggle,
   useRevision
 } from '@barocss/office-ui';
+import { chordFor, keyLabel } from '@barocss/office-controls';
 import {
+  SITE_KEYS,
   pageLinkOf,
   pagesIn,
   siteControlsIn
@@ -44,6 +46,34 @@ export function Ribbon({
   onMode: (mode: PointerMode) => void;
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
+
+  /**
+   * Whether to write a chord Apple's way or everyone else's.
+   *
+   * `userAgentData` where it exists and the old `platform` where it does not, which is the only pair
+   * that covers every browser this runs in — the deck's reasoning exactly, and the same two lines,
+   * because *which* convention a reader reads is their platform's business and not the product's.
+   */
+  const apple = useMemo(() => {
+    const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+    const name = nav.userAgentData?.platform ?? nav.platform ?? '';
+    return /mac|iphone|ipad/i.test(name);
+  }, []);
+
+  /**
+   * The chord for a control, **asked of the key map** and written the way a reader reads it.
+   *
+   * It was `control.shortcut` straight onto the tooltip, which had two things wrong with it and one
+   * was on screen: readers were being shown `Mod+D`. `Mod` is how a chord is *written down* so that
+   * one line can mean ⌘ on a Mac and Ctrl elsewhere; it is not a key anybody has.
+   *
+   * And the other is the fault the menubar had: a chord typed beside a label is a second statement
+   * about a binding. `SITE_KEYS` answers first; a control whose chord the *engine* binds — bold,
+   * italic, underline — falls back to what the model says, which is the honest half of a product
+   * that does not own the engine's key map.
+   */
+  const chordOf = (control: { command: string; shortcut?: string }) =>
+    keyLabel(chordFor(SITE_KEYS, { command: control.command }) ?? control.shortcut, apple);
 
   /**
    * What the selection has to say about itself, re-read whenever it moves.
@@ -128,7 +158,7 @@ export function Ribbon({
             key={control.command}
             id={control.command}
             label={control.title ?? control.label}
-            shortcut={control.shortcut}
+            shortcut={chordOf(control)}
             state="off"
             disabled={!can(control.command)}
             onActivate={() => run(control.command)}
@@ -168,7 +198,7 @@ export function Ribbon({
                 key={control.command}
                 id={control.command}
                 label={control.title ?? control.label}
-                shortcut={control.shortcut}
+                shortcut={chordOf(control)}
                 state={control.mark ? markState(summary, control.mark) : 'off'}
                 disabled={!can(control.command)}
                 onActivate={() => run(control.command)}

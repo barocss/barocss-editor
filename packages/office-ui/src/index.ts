@@ -31,6 +31,7 @@
  * here.
  */
 
+export { Tip, TipProvider } from './tip';
 export { cn } from './cn';
 
 export {
