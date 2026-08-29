@@ -104,7 +104,7 @@ export type SitePanelControl =
   | 'variableRemove';
 
 /** Which pane of the panel a row sits in. */
-export type SitePanelTab = 'block' | 'style' | 'data' | 'values' | 'page';
+export type SitePanelTab = 'block' | 'style' | 'data' | 'values' | 'page' | 'text';
 
 /** A row of the site's panel — `office-controls`' shape, with this product's kinds. */
 export type SitePanelRow = PanelRow<SitePanelControl> & { tab: SitePanelTab };
@@ -363,6 +363,66 @@ export const SITE_PANEL: SitePanelRow[] = [
   { attr: 'maxWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대', ariaLabel: '최대 폭', control: 'number', unit: 'px', min: 0 },
 
   // ── 바탕 and 테두리 — any of these may hold `var:이름` rather than a colour ─
+  /**
+   * **What the words look like** — the pane a reader gets when they have selected some.
+   *
+   * ## The gap this closes, which is the third of its kind
+   *
+   * `FontSizeExtension` and `FontColorExtension` are installed by this product's kit and have been
+   * for as long as it has existed. `setFontSize`, `setFontColor`, `removeFontSize` and
+   * `removeFontColor` are all registered, all work, and **no surface anywhere offered one** — the
+   * toolbar has four mark toggles and stops. The sample uses both, twenty times, through helpers
+   * written by hand in `sample-site.ts`: a reader of this product could not make the page this
+   * product ships as its own example.
+   *
+   * The same shape as `linkToAddress` and as the `ink` on a box: something the model can do, the
+   * renderer already draws, the export already writes, and nothing lets a reader say.
+   *
+   * ## Why it is a pane and not two more toolbar buttons
+   *
+   * Because of what the panel does *instead* right now. Select some words and it shows the **page's**
+   * background and shadow, under a sentence asking the reader to select a block — at the exact
+   * moment they have selected the most specific thing in the document. Every tool of this kind puts
+   * type properties in the panel for this reason: the panel describes what is selected, and words
+   * are a thing that can be selected.
+   *
+   * ## `on: ['inline-text']`
+   *
+   * Which is what a range's ends actually name, and it is also what makes the rows escape the schema
+   * gate: a mark is not an attribute, so `declares` would answer no for both of these forever. A row
+   * with `on` is a claim the product makes directly, which is right here — that marks apply to runs
+   * is a fact about the mark vocabulary rather than about this schema.
+   */
+  {
+    attr: 'fontSize',
+    command: 'setFontSize',
+    group: '글자',
+    tab: 'text',
+    label: '크기',
+    ariaLabel: '글자 크기',
+    control: 'number',
+    unit: 'px',
+    min: 1,
+    on: ['inline-text']
+  },
+  {
+    attr: 'fontColor',
+    command: 'setFontColor',
+    group: '글자',
+    tab: 'text',
+    label: '색',
+    /*
+     * Not 글자 색, which the box's `ink` row already answers to. Two different decisions were about
+     * to share one accessible name: a **block** states the colour everything inside it inherits, and
+     * this states the colour of the run a reader has selected. `calls no two rows the same thing`
+     * caught it the minute the row was declared, which is what that check is for — and the fix is
+     * two names that are each more precise than the one they collided over.
+     */
+    ariaLabel: '선택한 글자 색',
+    control: 'colour',
+    on: ['inline-text']
+  },
+
   { attr: 'fill', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '배경', ariaLabel: '배경', control: 'colour' },
   /**
    * The colour of what is **on** the background — the row directly under it, because it is the same
@@ -377,7 +437,7 @@ export const SITE_PANEL: SitePanelRow[] = [
    * `colour` control rather than a choice, because a dark band's ink is rarely pure white — the band
    * in the sample wants a faintly green off-white to sit in the same family as its gradient.
    */
-  { attr: 'ink', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '글자', ariaLabel: '글자 색', control: 'colour' },
+  { attr: 'ink', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '글자', ariaLabel: '블록 안 글자 색', control: 'colour' },
   /**
    * A gradient, as its two ends — the row that turns a flat band into a designed one.
    *

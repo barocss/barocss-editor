@@ -235,6 +235,8 @@ describe('the site builder draws what it declares', () => {
          */
         payload.id = pagesOf(doc as never)[1]?.id ?? pagesOf(doc as never)[0]?.id;
         payload.href = 'barocss.com';
+        payload.size = '48px';
+        payload.color = '#0F7A5A';
         if (editor.canExecuteCommand(command, payload) !== true) {
           moved.set(command, null);
           continue;

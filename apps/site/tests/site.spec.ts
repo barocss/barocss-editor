@@ -3148,6 +3148,56 @@ test.describe('a link to another page', () => {
    * link is drawn, it is clickable, it looks right, and it is wrong only once somebody follows it —
    * which is why this asserts the `https://` that `addressFor` puts on rather than the letters.
    */
+  /**
+   * **What the words look like**, which the panel said nothing about at the moment it mattered most.
+   *
+   * ## Measured before it existed
+   *
+   * Select some words and the panel showed the **page's** background and shadow, under a sentence
+   * asking the reader to select a block — at the moment they had selected the most specific thing in
+   * the document. And there was nowhere else to go: `setFontSize` and `setFontColor` are registered
+   * by this product's kit and have been since it existed, and **no surface anywhere offered either**.
+   * The sample uses both, twenty times, through helpers written by hand — a reader of this product
+   * could not make the page it ships as its own example.
+   *
+   * ## Why the size is asserted on the drawing rather than on the mark
+   *
+   * Because the one thing that could go wrong here is a unit. `unit: 'px'` in this panel has always
+   * meant two things at once — print px, and *the document stores twips* — and every length in this
+   * schema is twips, so the two never came apart. A mark's size is a CSS length. Sent through the
+   * twips arithmetic a reader typing 44 would have written `660px`, and the only place that shows is
+   * the page.
+   */
+  test('sets the size and the colour of the words a reader has chosen', async ({ page }) => {
+    await ready(page);
+
+    const hero = page.locator('[data-frame="mobile"] h1');
+    await pressDeep(page, hero);
+    await page.waitForTimeout(200);
+    await pressTwice(page, hero);
+    await page.waitForTimeout(300);
+    for (let i = 0; i < 5; i += 1) await page.keyboard.press('Shift+ArrowRight');
+    await page.waitForTimeout(300);
+
+    const size = page.getByLabel('글자 크기', { exact: true });
+    await expect(size).toBeVisible();
+    await size.fill('48');
+    await size.press('Enter');
+    await page.waitForTimeout(600);
+
+    const drawn = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-frame="desktop"] .st-page h1 span')].map(
+        (one) => getComputedStyle(one as HTMLElement).fontSize
+      )
+    );
+    // The chosen run at the size that was typed, and the rest of the heading left alone.
+    expect(drawn).toContain('48px');
+    expect(drawn.filter((one) => one === '48px').length).toBeLessThan(drawn.length);
+
+    // And the field reads it back, so a reader can see what the words already say.
+    await expect(size).toHaveValue('48');
+  });
+
   test('links the words a reader has chosen to an address they type', async ({ page }) => {
     await ready(page);
 

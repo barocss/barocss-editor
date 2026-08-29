@@ -610,6 +610,31 @@ were where the symptom was:
     narrows to `never`, and the first function to ask "not a page reference, then what kind of address
     is it" could not call a method on the answer. `page:${string}` leaves a string a string.
 
+- [x] ~~**A reader cannot set the size or the colour of the words.**~~ The third of this shape in two
+  days: `FontSizeExtension` and `FontColorExtension` are installed by this product's kit and have
+  been since it existed, all four commands work, and **no surface anywhere offered one**. The sample
+  uses both twenty times through helpers written by hand — a reader of this product could not make
+  the page it ships as its own example.
+
+  It is a **pane**, not two toolbar buttons, because of what the panel did instead: select some
+  words and it showed the *page's* background and shadow under a sentence asking the reader to
+  select a block, at the moment they had selected the most specific thing in the document.
+
+  Four things it turned up:
+
+  - **`setFontSize`'s guard was looser than its execute.** `canExecute` accepted a collapsed range;
+    `applyMark` over zero characters commits and changes nothing. That is the class `guards.ts` was
+    written for and these two were missed when it was applied to the nine beside them.
+  - **`unit: 'px'` meant two things at once** — *print px* and *the document stores twips*. Every
+    length in this schema is twips so they never came apart; a mark's size is a CSS length, and
+    through the twips arithmetic a reader typing 44 would have written `660px`.
+  - **`as never` on a partial `Shown` blanked the whole app.** `PropertySheet` asks
+    `shown.overridden.has(...)` per row and an undefined `Set` throws during render, which React
+    answers by unmounting. A cast is a promise, and that one was false.
+  - **Two rows were about to share an accessible name.** A block's `ink` and a run's colour were both
+    글자 색; `calls no two rows the same thing` caught it the minute the row was declared, and both
+    names are more precise now than the one they collided over.
+
 - [ ] **`every-command-does-something` can ask about 31 of 44, and the 13 are worth naming.** The
   probe sets up one state — a block selected, the page named — and that is one of the **two** a
   builder has. Adding a range over some words took it from 24 asked to 31: the whole link group and

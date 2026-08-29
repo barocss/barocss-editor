@@ -111,6 +111,62 @@ export function Inspector({
   /** What the document's schema says a node type has — see `Groups`. */
   const schema = (store as never as { getActiveSchema?: () => any })?.getActiveSchema?.();
 
+  /**
+   * **The words**, when a range is what is selected — the other thing a reader can hold.
+   *
+   * `shown` answers about *nodes*, and a range selects none, so the panel fell through to its "page,
+   * because nothing is selected" branch: it showed the page's background and shadow under a sentence
+   * asking the reader to select a block, at the moment they had selected the most specific thing in
+   * the document.
+   *
+   * Read from the **start** of the range, which is the same simplification `shown` makes about a
+   * multiple selection and has the same answer: what a mixed range should show per field is a slice
+   * of its own, and what matters first is that selecting words and typing a size changes them.
+   */
+  const words = useMemo(() => {
+    const selection = editor.selection as
+      | { type?: string; collapsed?: boolean; startNodeId?: string }
+      | undefined;
+    if (!selection || selection.type !== 'range' || selection.collapsed) return null;
+    const at = selection.startNodeId ? store?.getNode(selection.startNodeId) : undefined;
+    if (!at) return null;
+
+    // Marks carry their values in `attributes`; a run with none is a run that says nothing.
+    const marks = ((at as Record<string, any>).marks ?? []) as Record<string, any>[];
+    const valueOf = (type: string, key: string) =>
+      marks.find((mark) => mark?.type === type)?.attributes?.[key];
+
+    /*
+     * A whole `Shown`, not a partial one dressed as one.
+     *
+     * The first version passed `{ attrs }` with `as never` on it, and the panel drew **nothing at
+     * all** — a white window, every board gone. `PropertySheet` asks `shown.overridden.has(...)` for
+     * every row, and an undefined `Set` throws during render, which React answers by unmounting the
+     * tree. `as never` is what let that compile: a cast is a promise, and this one was false.
+     */
+    return {
+      // A range selects no nodes, which is the whole reason this branch exists.
+      ids: [],
+      count: 1,
+      stype: 'inline-text',
+      label: '글자',
+      /** `size` and `color` are what the commands take; the row names the **mark**. */
+      attrs: {
+        fontSize: valueOf('fontSize', 'size'),
+        fontColor: valueOf('fontColor', 'color')
+      } as Record<string, any>,
+      // A mark colour can follow a token, so raw and resolved are the same read here.
+      raw: {
+        fontSize: valueOf('fontSize', 'size'),
+        fontColor: valueOf('fontColor', 'color')
+      } as Record<string, any>,
+      // Nothing here is overridden at a width: a mark is on the run, and a run has one of it.
+      overridden: new Set<string>(),
+      values: [] as { sid: string; name: string; value: string }[]
+    };
+    // The revision is what makes this re-read after a mark is applied.
+  }, [editor, revision, store]);
+
   const shown = useMemo(() => {
     const ids = selectedNodeIds(editor.selection) ?? [];
     const nodes = ids.map((sid) => store?.getNode(sid)).filter(Boolean);
@@ -294,6 +350,23 @@ export function Inspector({
     else if (row.command === 'bindPartText') {
       run('bindPartText', { nodeId: shown?.ids[0], var: value || undefined });
     }
+    /*
+     * A **mark**, which takes the selection rather than a node and names its value its own way.
+     *
+     * The row is declared by the mark it reads — `fontSize`, `fontColor` — because that is what has
+     * to be found on the run to show the current value. What the command takes is `size` and
+     * `color`, and translating here is the same shape as `bindPartText` above: a row whose payload
+     * key is not its attr, said once, where the panel already knows about such rows.
+     *
+     * An empty value **removes** the mark rather than writing an empty one. A `fontSize` of `''` is
+     * a mark on the run that says nothing, which survives a copy and confuses every later read;
+     * clearing is what the × on the control means and `removeFont*` is what does it.
+     */
+    else if (row.command === 'setFontSize' || row.command === 'setFontColor') {
+      const said = typeof value === 'number' ? `${value}px` : String(value ?? '');
+      if (!said) run(row.command === 'setFontSize' ? 'removeFontSize' : 'removeFontColor', {});
+      else run(row.command, row.attr === 'fontSize' ? { size: said } : { color: said });
+    }
     else {
       /*
        * A shorthand answers for its four sides as well as for itself.
@@ -342,7 +415,26 @@ export function Inspector({
         </div>
       }
     >
-      {!shown ? (
+      {words ? (
+        /*
+         * **The words**, when a range is what is selected — and before the page, because a range is
+         * the more specific answer to *what is selected* and the panel showed the less specific one.
+         *
+         * A pane rather than a tab: there is nothing else to say about a run of text, and a tab strip
+         * with one tab in it is a control that teaches a reader there is somewhere else to look.
+         */
+        <Groups
+          stype="inline-text"
+          tab="text"
+          shown={words}
+          at={at}
+          tokens={tokens}
+          data={data}
+          schema={schema}
+          write={write}
+          run={run}
+        />
+      ) : !shown ? (
         /*
          * The page, when nothing is selected — where every builder of this kind puts it, and the
          * only place a page's **address** can be edited at all: a page is the board rather than a
@@ -551,6 +643,13 @@ function Groups({
         value={(row) => {
           const held = shorthandOf(row, attrs);
           if (row.unit !== 'px' || held === undefined || held === null) return held;
+          /*
+           * A **string** is already CSS. Twips are numbers in this schema, without exception, so a
+           * length that arrived with its unit written on it came from a mark rather than from an
+           * attribute — and dividing `'44px'` by fifteen is `NaN`, which a number field draws as an
+           * empty box. The size row would have shown nothing over text that plainly has a size.
+           */
+          if (typeof held === 'string') return parseFloat(held);
           return Math.round(Number(held) / PX);
         }}
         /* A colour that follows a token must not be shown as the hex it resolves to. */
@@ -568,7 +667,7 @@ function Groups({
               : (shown?.label ?? group.label)
             : group.label
         }
-        onWrite={(row, next) => write(row, commit(row, next))}
+        onWrite={(row, next) => write(row, isMarkRow(row) ? next : commit(row, next))}
         render={(row) => own(row, { attrs, shown, at, data, run })}
       />
       {/*
@@ -681,6 +780,19 @@ const SHORTHAND: Record<string, string[]> = {
  * `minWidth` draw the same and mean different things — one is a decision — and `undefined` is how a
  * reader takes a value back at this width.
  */
+/**
+ * Whether a row writes a **mark** rather than an attribute of a node.
+ *
+ * The distinction matters for exactly one reason and it is worth naming: `unit: 'px'` in this panel
+ * has always meant two things at once — *print px after the number* and *the document stores this in
+ * twips*. Every length in this schema is twips, so the two never came apart. A mark's `fontSize` is a
+ * **CSS length**: it is the shared mark vocabulary's, Word and the deck read the same one, and it is
+ * a string with its unit on it. Sent through the twips arithmetic, a reader typing 44 would have
+ * written `660px`.
+ */
+const isMarkRow = (row: SitePanelRow) =>
+  row.command === 'setFontSize' || row.command === 'setFontColor';
+
 function commit(row: SitePanelRow, next: unknown): unknown {
   if (row.control !== 'number') return row.control === 'toggle' && next !== true ? undefined : next;
   /*

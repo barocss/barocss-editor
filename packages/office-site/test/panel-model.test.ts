@@ -58,6 +58,16 @@ describe('what the panel declares', () => {
        * the page's pane and belongs to the **document**. Exactly one row does this and it says so;
        * without the field this check reported it, correctly, as a row lying about what it writes.
        */
+      /*
+       * A row that writes a **mark** names one, and a mark is not an attribute of anything.
+       *
+       * The schema declares marks in their own vocabulary — a run carries them, no node type lists
+       * them under `attrs` — so asking `attrs[row.attr]` about `fontSize` answers no forever. The
+       * check is the same claim either way and it is worth keeping both halves: *the thing this row
+       * writes exists in the schema*. Only where to look for it changes.
+       */
+      if (schema.marks?.has?.(row.attr)) continue;
+
       const types = row.of ? [row.of] : (row.on ?? [...SELECTABLE]);
       const anywhere = types.some((type) => (schema.nodes.get(type) as any)?.attrs?.[row.attr]);
       if (!anywhere) wrong.push(`${row.group} › ${row.label} sets ${row.attr}, which none of ${types.join('/')} declares`);
