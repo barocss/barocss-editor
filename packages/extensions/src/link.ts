@@ -1,4 +1,5 @@
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
+import { hasRange } from './guards';
 import { transaction, toggleLink as toggleLinkOp } from '@barocss/model';
 
 export interface LinkExtensionOptions {
@@ -25,7 +26,19 @@ export class LinkExtension implements Extension {
         const result = await transaction(ed, ops).commit();
         return result.success;
       },
-      canExecute: (_ed: Editor, payload?: { href?: string }) => !!payload?.href
+      /**
+       * An address — **and words to put it on.**
+       *
+       * A link is a mark and a mark covers the text between two points; `toggleLink` over a caret
+       * writes a zero-length link, which is nothing to read, nothing to click, and nothing on screen
+       * to say it went wrong. The guard asked only about the address, so with a box held or nothing
+       * selected the control lit up and the run declined.
+       *
+       * `removeLink` beside it has asked the fuller question since the day it was written — the two
+       * halves of one gesture, and only one of them was checked.
+       */
+      canExecute: (ed: Editor, payload?: { href?: string; selection?: ModelSelection }) =>
+        !!payload?.href && hasRange(ed, payload, 'something')
     });
 
     (editor as any).registerCommand({

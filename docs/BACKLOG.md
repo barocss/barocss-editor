@@ -46,7 +46,7 @@ entries are that.
 
 ## Open
 
-### 42 controls light up over a held box and do nothing — 2026-08-29 *(question added; 3 fixed, 39 on a ceiling)*
+### 42 controls light up over a held box and do nothing — 2026-08-29 *(37 fixed, 5 left)*
 
 Nineteen files in `packages/extensions` still carried `canExecute: () => true`,
 and the probe said **0 findings**. Both were true, and the gap between them is
@@ -70,12 +70,34 @@ moves the caret or opens a menu has not refused, it has changed the application)
 Word's is **45** on the same question, and Word is a text editor — it lives in
 the state that hides this.
 
-Three went the same afternoon, all the identical shape: `canExecute: () => true`
-beside an execute whose first line is
-`if (!selection || selection.type !== 'range') return false`, which is what
-`guards.ts` was written for. The rest need their own execute read to know what
-each wants — a node, a cell, a payload, a range — so they are a ceiling rather
-than a claim.
+**Thirty-seven went the same afternoon**, and almost all of them were one
+sentence written thirty times: `canExecute: () => true` beside an execute whose
+first line is `if (!selection || selection.type !== 'range') return false`. That
+is what `guards.ts` exists for, and **nineteen files had not used it**.
+
+The others were each their own:
+
+- **`toggleChecklistItem`** asked nothing at all and needed a `taskItem`, *named*.
+- **`toggleLink` and `insertImage`** asked about the address and not about the
+  words: a mark covers the text between two points, and over a caret both write
+  nothing.
+- **`deleteForward`, `backspace` and the two word deletes** asked
+  `selection != null`, which a **node** selection passes — and a delete acts on
+  text between two points.
+- **`deleteNode`** asked `payload.nodeId != null`, a claim about the payload
+  rather than about the document: an id naming nothing passes it.
+
+Word's count went **45 → 30 without Word changing**, because most of what it
+registers is the shared kit's. That is what a shared layer is for, and it is why
+the count is kept on both sides: the next fifteen are Word's own, and nothing
+else will find them.
+
+**Four of the forty-two were the probe's own fault** and are worth keeping: the
+payload was built from the main editor and handed to the *builder* editor, so
+every command taking a node was given an id that named nothing there. A probe
+that hands a command a dangling reference is measuring its own mistake — the
+third time this week a measurement has been wrong in the direction of reporting
+a working product as broken.
 
 One thing the attempt taught: a **scripted** rewrite across nineteen files
 matched `guards.ts`' own documentation and broke the file that defines the fix.

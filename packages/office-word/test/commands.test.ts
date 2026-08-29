@@ -275,12 +275,17 @@ describe('every command Word registers', () => {
    * Word is a text editor and spends most of its time with a caret, which is exactly why nothing had
    * ever asked: the state that finds this is the one a *builder* lives in.
    *
-   * About twenty of the 45 are not faults — caret moves, selection extensions, clipboard, focus,
-   * reading a flag. The rest are the `() => true` class, each needing its own execute read to know
-   * what it wants. A number rather than a list, so it can only come down.
+   * It opened at **45** and is **30**, and Word did not change: fifteen came off in
+   * `packages/extensions`, because most of what Word registers is the shared kit's. That is what a
+   * shared layer is for, and it is also why the count is worth keeping here — the next fifteen are
+   * Word's own, and nothing else will find them.
+   *
+   * About twenty of the 30 are not faults: caret moves, selection extensions, clipboard, focus and
+   * reading a flag have not refused, they have changed the application. A number rather than a list
+   * of exemptions because the remainder have a cause and not yet a reason.
    */
   it('lights up over a held box and declines, in no more places than it did', () => {
-    expect(answers.saysYesAndDeclines.length).toBeLessThanOrEqual(45);
+    expect(answers.saysYesAndDeclines.length).toBeLessThanOrEqual(30);
   });
 
   it('gives the document back when it is undone', () => {

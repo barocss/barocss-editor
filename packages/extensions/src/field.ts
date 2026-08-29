@@ -1,4 +1,5 @@
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
+import { hasRange } from './guards';
 import { transaction, addChild } from '@barocss/model';
 
 type FieldType = 'fieldPageNumber' | 'fieldPageCount' | 'fieldDateTime' | 'fieldDocTitle' | 'fieldAuthor';
@@ -45,7 +46,12 @@ export class FieldExtension implements Extension {
           const result = await transaction(ed, ops, { applySelectionToView: true }).commit();
           return result.success;
         },
-        canExecute: () => true
+        /*
+         * A **range**, which the run has always required: `_getInsertInfo` refuses anything else and
+         * says so to nobody. The class `guards.ts` names, and the one a builder meets most — a deck or
+         * a page builder holds a box rather than a caret, and every one of these lit up over one.
+         */
+        canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
       });
     }
   }

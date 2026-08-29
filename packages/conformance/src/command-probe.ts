@@ -272,6 +272,21 @@ async function ask(
     const { editor: builder, store: theirs } = input.fresh();
     const block = everyNode(builder, theirs, 'paragraph')[0];
 
+    /**
+     * The payload again, **for this editor**.
+     *
+     * It was the one built above, and a sid built from one document does not exist in another: every
+     * command that takes a node came back as *lit up and declined* because the id it was handed
+     * named nothing. Fourteen of them, all false — a probe that hands a command a dangling reference
+     * is measuring its own mistake.
+     */
+    const theirSaid: Record<string, unknown> = { ...(input.says?.[name] ?? {}) };
+    if (wants) {
+      const found = everyNode(builder, theirs, wants.stype);
+      for (const key of wants.keys) if (found[0]) theirSaid[key] = found[0];
+    }
+    Object.assign(theirSaid, input.derive?.(name, builder, theirs) ?? {});
+
     const shapes = [
       () => {
         if (block) builder.selectionManager?.setSelection({ type: 'node', nodeIds: [block] });
@@ -285,11 +300,11 @@ async function ask(
       } catch {
         continue;
       }
-      if (builder.canExecuteCommand(name, said) !== true) continue;
+      if (builder.canExecuteCommand(name, theirSaid) !== true) continue;
 
       const was = asWritten(builder);
       try {
-        await builder.executeCommand(name, said);
+        await builder.executeCommand(name, theirSaid);
       } catch {
         // A throw is an answer too, and the answer is *the document did not move*.
       }

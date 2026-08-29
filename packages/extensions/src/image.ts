@@ -1,4 +1,5 @@
-import { Editor, Extension } from '@barocss/editor-core';
+import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
+import { hasRange } from './guards';
 import { transaction, insertImage as insertImageOp } from '@barocss/model';
 
 export class ImageExtension implements Extension {
@@ -14,7 +15,13 @@ export class ImageExtension implements Extension {
         const result = await transaction(ed, ops).commit();
         return result.success;
       },
-      canExecute: (_ed: Editor, payload?: { src?: string }) => !!payload?.src
+      /*
+       * An address — **and somewhere to put the picture.** The run inserts at the selection and
+       * refuses without one; the guard asked only about the address, so with a box held the control
+       * lit up and the run declined. `toggleLink` had the identical pair and the identical fix.
+       */
+      canExecute: (ed: Editor, payload?: { src?: string; selection?: ModelSelection }) =>
+        !!payload?.src && hasRange(ed, payload)
     });
   }
 

@@ -586,20 +586,34 @@ describe('every command this package registers', () => {
    * deck with a box held, both toggles lit up and did nothing."*
    *
    * Asking it costs one more editor per command and made **42** appear that nothing had ever seen.
-   * Three went the same afternoon — `insertMathInline`, `insertMention`, `insertPageBreak`, all the
-   * identical shape: `canExecute: () => true` beside an execute whose first line is
-   * `if (selection.type !== 'range') return false`, which is what `guards.ts` exists for.
+   * **Thirty-seven went the same afternoon**, and almost all of them were one sentence written
+   * thirty times: `canExecute: () => true` beside an execute whose first line is
+   * `if (!selection || selection.type !== 'range') return false`. That is what `guards.ts` exists
+   * for, and nineteen files had not used it.
    *
-   * The rest are a work list rather than a claim: every one is a `() => true` guard, and each needs
-   * its execute read to know *what* it wants — a node, a cell, a payload, a range. A number, so it
-   * can only come down.
+   * The others were each their own:
+   *
+   * - **`toggleChecklistItem`** asked nothing at all and needed a `taskItem`, *named*.
+   * - **`toggleLink` and `insertImage`** asked about the address and not about the words: a mark
+   *   covers the text between two points, and over a caret both write nothing.
+   * - **`deleteForward`, `backspace` and the two word deletes** asked `selection != null`, which a
+   *   **node** selection passes — and a delete acts on text between two points.
+   * - **`deleteNode`** asked `payload.nodeId != null`, which is a claim about the payload rather
+   *   than about the document: an id naming nothing passes it.
+   *
+   * And **four of the forty-two were the probe's own fault**, worth keeping: the payload was built
+   * from the main editor and handed to the builder editor, so every command taking a node was given
+   * an id that named nothing there. A probe that hands a command a dangling reference is measuring
+   * its own mistake.
+   *
+   * Five left, each needing its own execute read. A number, so it can only come down.
    *
    * The exemptions are the other check's, and they are the same exemptions for the same reason: a
    * command that moves the caret or opens a menu has not refused, it has changed the application.
    */
   it('lights up over a held box and declines, in no more places than it did', () => {
     const real = answers.saysYesAndDeclines.filter((one) => !(one in exempt));
-    expect(real.length).toBeLessThanOrEqual(39);
+    expect(real.length).toBeLessThanOrEqual(5);
   });
 
   it('gives the document back when it is undone', () => {

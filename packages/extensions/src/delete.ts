@@ -1,4 +1,5 @@
 import { Editor, Extension } from '@barocss/editor-core';
+import { hasRange } from './guards';
 import type { ModelSelection } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import { transaction, control, deleteRange, deleteOp, deleteTextRange } from '@barocss/model';
@@ -41,9 +42,15 @@ export class DeleteExtension implements Extension {
       execute: async (editor: any, payload: { nodeId: string }) => {
         return await this._executeDeleteNode(editor, payload.nodeId);
       },
-      canExecute: (_editor: any, payload?: any) => {
-        return payload?.nodeId != null;
-      }
+      /**
+       * A node that is **there**.
+       *
+       * `payload.nodeId != null` is a claim about the payload and not about the document: an id
+       * naming nothing passes it, and the run then walks to a node that is gone. One lookup, so the
+       * guard and the run agree about what "a node" means.
+       */
+      canExecute: (ed: Editor, payload?: { nodeId?: string }) =>
+        !!payload?.nodeId && !!ed.dataStore?.getNode(payload.nodeId)
     });
 
     // 2. Cross-node text deletion
@@ -84,11 +91,14 @@ export class DeleteExtension implements Extension {
         }
         return await this._executeBackspace(editor, selection);
       },
-      canExecute: (editor: any, payload?: any) => {
-        // Executable if selection exists
-        const selection = payload?.selection || editor.selection;
-        return selection != null;
-      }
+      /**
+       * A **range**, not any selection.
+       *
+       * `selection != null` lets a **node** selection through, and every one of these deletes text
+       * between two points — so with a box held on a deck or a card held on a page the control lit
+       * up, ran, and did nothing. The class `guards.ts` names, and the state a builder lives in.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
     });
 
     // 5. Word deletion (Option/Ctrl + Backspace or Delete)
@@ -106,7 +116,8 @@ export class DeleteExtension implements Extension {
         }
         return await this._executeDeleteWord(editor, selection, 'backward');
       },
-      canExecute: (editor: any, payload?: any) => (payload?.selection || editor.selection) != null
+      // A range, for the reason `backspace` above gives: a word is text between two points.
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
     });
 
     editor.registerCommand({
@@ -119,7 +130,8 @@ export class DeleteExtension implements Extension {
         }
         return await this._executeDeleteWord(editor, selection, 'forward');
       },
-      canExecute: (editor: any, payload?: any) => (payload?.selection || editor.selection) != null
+      // A range, for the reason `backspace` above gives: a word is text between two points.
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
     });
 
     // 6. Delete key handling (Forward Delete, symmetric with Backspace)
@@ -136,11 +148,8 @@ export class DeleteExtension implements Extension {
         }
         return await this._executeDeleteForward(editor, selection);
       },
-      canExecute: (editor: any, payload?: any) => {
-        // Executable if selection exists
-        const selection = payload?.selection || editor.selection;
-        return selection != null;
-      }
+      // A range, for the reason `backspace` gives: a delete acts on text between two points.
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
     });
   }
 

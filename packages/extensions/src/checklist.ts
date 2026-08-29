@@ -1,4 +1,5 @@
-import { Editor, Extension } from '@barocss/editor-core';
+import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
+import { hasRange } from './guards';
 import { transaction, control, insertChecklist as insertChecklistOp } from '@barocss/model';
 
 export interface ChecklistExtensionOptions {
@@ -24,7 +25,11 @@ export class ChecklistExtension implements Extension {
         const result = await transaction(ed, ops, { applySelectionToView: true }).commit();
         return result.success;
       },
-      canExecute: () => true
+      /*
+       * A **range**, like every other insert here: the run needs somewhere to put the item and says
+       * so to nobody. See `guards.ts`.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
     });
 
     (editor as any).registerCommand({
@@ -44,7 +49,16 @@ export class ChecklistExtension implements Extension {
         const result = await transaction(ed, ops).commit();
         return result.success;
       },
-      canExecute: () => true
+      /**
+       * A `taskItem`, **named** — which is the whole of what the run needs and none of what this
+       * asked.
+       *
+       * It answered yes to everything, so 체크 lit up with a paragraph held, with a heading held and
+       * with nothing held, and declined every time. One lookup, shared with the run, so the two
+       * cannot come apart.
+       */
+      canExecute: (ed: Editor, payload?: { nodeId?: string }) =>
+        !!payload?.nodeId && ed.dataStore?.getNode(payload.nodeId)?.stype === 'taskItem'
     });
   }
 
