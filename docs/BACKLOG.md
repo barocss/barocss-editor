@@ -46,6 +46,57 @@ entries are that.
 
 ## Open
 
+### `numId` is a position dressed as a name — 2026-08-29 *(design, before collaboration)*
+
+Asked while fixing Word's list toggles: if definitions live in `resources`, what
+happens when two people open the document at once?
+
+**One `resources` is right**, and it is what Word itself does — OOXML keeps
+`numbering.xml`, `styles.xml`, `comments.xml` and `footnotes.xml` as parts
+separate from the body, referenced by id. The reason is that **one of them serves
+many**: ten paragraphs share a numbering, a footnote is referenced from one
+place, a comment thread is anchored by a mark. Put a definition in the flow and
+deleting the paragraph that holds it takes the other nine's numbering with it. A
+definition has to outlive its references, so it lives outside them. Nine kinds
+are in there today: `numberingDef`, `footnoteDef`, `endnoteDef`, `commentThread`,
+`surfaceNote`, `docHeader`, `docFooter`, `bibliography`, `indexBlock`.
+
+**And the nesting is not the problem — the naming is.** A sid is
+`${sessionId}:${counter}` and cannot collide across sessions, so two peers each
+adding a definition make two nodes with two sids and a sound tree.
+
+What collides is `numId`, which is **not a sid**. It is a name a command invents:
+
+```ts
+for (let n = 1; ; n++) if (!taken.has(`${kind}-${n}`)) return `${kind}-${n}`;
+```
+
+Both peers look at their own document and both choose `bullet-1`. After a merge
+there are two definitions with one name, each side's paragraphs point at the
+other's, and the numbering continues from somebody else's list. Nothing breaks
+and nothing is lost — **it is quietly wrong**, which is worse than a sid
+collision, because a sid collision corrupts the tree and announces itself.
+
+The fix is one line and it is the decision this repository has already made four
+times — a colour is `var:강조`, a placement is a `componentId`, a link is
+`page:<id>`, a list names its dataset by `name`. Every one of them says *a
+reference is a name, not a position*. `bullet-1` looks like a name and **is a
+position**: it is decided by how many the document happens to hold.
+
+So: `numId` should come from `generateId()`. Session-stamped, collision-free,
+and nothing is lost — it is not a name a reader ever sees, because it appears in
+no list.
+
+Worth sweeping for others of the same shape before doing it; a naming rule broken
+once is rarely broken once.
+
+**And the question that is genuinely collaboration's**, left for when
+collaboration is: two peers making *the same* bullet definition independently.
+Not merging them grows `resources` by one per session; merging them needs a
+definition of "the same", which is a product decision a CRDT cannot make. Per
+`collaboration-is-deferred`, that is decided when collaboration is switched on,
+not built ahead of it.
+
 ### The `/` menu, and the test of the split — 2026-08-29
 
 The point of publishing *where the selection is* was that a **second** floating

@@ -164,8 +164,30 @@ export class WordListExtension implements Extension {
           const selection = payload?.selection ?? ed.selection;
           return selection ? await run(ed, selection) : false;
         },
-        canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) =>
-          this._blocks(ed, payload?.selection ?? ed.selection).length > 0
+        /**
+         * A block — **and, for `outdentText`, something to take off it.**
+         *
+         * One helper registers seven commands and gave all seven the same guard: *there is a block*.
+         * That is what six of them need. `outdentText` needs a block carrying an indent or a
+         * numbering level, and its run says so — it builds no operation and returns `false`. So
+         * 내어쓰기 lit up over every paragraph in the document and did nothing on all but the
+         * indented ones, which is a control a reader presses once and stops trusting.
+         *
+         * **`outdentFirstLine` is not the same case**, and the first version of this narrowed both.
+         * It works on `indentFirstLine`, and below zero that becomes a **hanging** indent — a real
+         * thing a reader wants from a paragraph with no indent at all. Measured before and after:
+         * it moved the document at every caret position, and narrowing it broke it. The two share a
+         * name and not a question.
+         *
+         * Found by the shared command probe the day it was pointed at Word. A private helper is why
+         * it lasted: a sweep reading `canExecute:` at each command's own declaration sees one guard,
+         * not seven.
+         */
+        canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => {
+          const blocks = this._blocks(ed, payload?.selection ?? ed.selection);
+          if (blocks.length === 0) return false;
+          return name !== 'outdentText' || blocks.some((block) => outdentable(block));
+        }
       });
 
     register('toggleBulletList', (ed, selection) => this._toggleList(ed, 'bullet', selection));
@@ -563,4 +585,17 @@ export class WordListExtension implements Extension {
 
 export function createWordListCommands(): WordListExtension {
   return new WordListExtension();
+}
+
+/**
+ * Whether outdenting this block would take anything off it.
+ *
+ * The same question `_shift(-1)` answers by building no operation: a numbering level above zero, or
+ * a left indent above zero. A block with neither is a block already at the margin, and the run says
+ * so silently — this says it where a control can see it.
+ */
+function outdentable(block: { attributes?: Record<string, unknown> }): boolean {
+  const attributes = block.attributes ?? {};
+  if (typeof attributes.numId === 'string') return true;
+  return (typeof attributes.indentLeft === 'number' ? attributes.indentLeft : 0) > 0;
 }

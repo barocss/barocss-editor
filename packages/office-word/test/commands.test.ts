@@ -47,8 +47,15 @@ const document_ = () => ({
         { stype: 'heading', attributes: { level: 1 }, content: [{ stype: 'inline-text', text: '제목 한 줄' }] },
         { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '한 문단의 글자들' }] },
         { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '두 번째 문단입니다' }] },
-        // Already indented, so there is something for `outdentText` to take off.
-        { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '  들여 쓴 문단' }] },
+        /*
+         * Already indented, so there is something for `outdentText` to take off — and by
+         * `indentLeft` rather than by leading spaces, which is what **Word's** outdent works on. The
+         * extensions' one takes characters off the front of a run; these two share a name and not a
+         * question, and a fixture indented the other way had the command declining everywhere and
+         * looking like a fault.
+         */
+        { stype: 'paragraph', attributes: { indentLeft: 720 }, content: [{ stype: 'inline-text', text: '들여 쓴 문단' }] },
+
         {
           stype: 'list',
           attributes: { type: 'bullet' },
@@ -84,7 +91,18 @@ const document_ = () => ({
           ]
         }
       ]
-    }
+    },
+    /*
+     * And `resources`, **after the surface** — `document` is `docMeta? surface+ resources? …`, and a
+     * fixture with it first is a tree the schema refuses, which the validity check said about a
+     * hundred commands at once.
+     *
+     * It is here because a numbering definition has to live somewhere the resolver looks: without a
+     * `resources` node the two list toggles build nothing and return `false`, at every caret position
+     * in the document. A fixture gap that reads exactly like two dead buttons on the ribbon, and it
+     * took a measurement of the *reason* to tell those apart.
+     */
+    { stype: 'resources', attributes: {}, content: [] }
   ]
 });
 
@@ -217,21 +235,32 @@ describe('every command Word registers', () => {
   /**
    * **How many say they can run and then change nothing** — a ceiling, so it can only come down.
    *
-   * 98 move the document, 33 do not, 33 cannot be asked. The 33 that do not are not all faults:
-   * moving the caret, extending a selection, copying, focusing and reading a flag are application
-   * changes, and there are about twenty of those here. What is left is a work list, and the shape of
-   * it is already familiar — `list-commands.ts` registers **seven** commands through one helper whose
-   * guard is *"there is a block"*, which is looser than what any of the seven actually needs.
-   * `TextFormattingExtension` had exactly this, in exactly this shape, and a private helper is why a
-   * sweep reading `canExecute:` at each command's own declaration never sees it.
+   * It opened at **33** and is **29**. Four went the same afternoon, and two of them were the
+   * fixture's rather than the product's — which is the distinction this whole file is for:
    *
-   * A number rather than a list of exemptions because none of them has a *reason* yet; they have a
-   * cause, which is what a ratchet is for. Word's own `conformance.test.ts` owns the finding-level
-   * question with its own probe — this is the count, held so it cannot grow quietly.
+   * - **`outdentText`** was the real one. `list-commands.ts` registers seven commands through one
+   *   helper and gave all seven the guard *"there is a block"*, which is what six of them need. Its
+   *   run refuses a block with no indent and no numbering level, and says so to nobody, so 내어쓰기
+   *   lit up over every paragraph and did nothing on all but the indented ones. A private helper is
+   *   why it lasted: a sweep reading `canExecute:` at each command's own declaration sees one guard,
+   *   not seven.
+   * - **`toggleBulletList` and `toggleOrderedList`** looked identical and were not. A numbering
+   *   definition has to live in a `resources` node, and this fixture had none — so both built nothing
+   *   and returned `false` at every caret position in the document, which reads exactly like two dead
+   *   buttons on the ribbon.
+   *
+   * And one **near miss** worth keeping: the first fix narrowed `outdentFirstLine` too. It works on
+   * `indentFirstLine`, and below zero that becomes a **hanging** indent — a real thing a reader wants
+   * from a paragraph with no indent at all. Measured before and after, it moved the document at every
+   * caret position, and narrowing it broke it. The two share a name and not a question.
+   *
+   * The rest are not faults: moving the caret, extending a selection, copying, focusing and reading a
+   * flag are application changes, and about twenty of the 29 are those. A number rather than a list
+   * of exemptions because the remainder have a cause and not yet a reason.
    */
   it('says it can run and then changes nothing, in no more places than it did', () => {
     const dead = [...answers.moved].filter(([, answer]) => answer === false).map(([name]) => name);
-    expect(dead.length).toBeLessThanOrEqual(33);
+    expect(dead.length).toBeLessThanOrEqual(29);
 
     // And it did ask about most of them — a probe that stopped setting up would pass the line above.
     const asked = [...answers.moved].filter(([, answer]) => answer !== null).length;
@@ -254,7 +283,25 @@ describe('every command Word registers', () => {
     expect([...new Set(answers.ghost)]).toEqual([]);
   });
 
+  /**
+   * **A toggle is its own inverse** — except the two that leave a *resource* behind.
+   *
+   * Pressing 글머리 목록 twice returns the paragraph exactly: it loses its `numId` and `numLevel`
+   * and is a plain paragraph again. What stays is the **numbering definition** the first press put
+   * in `resources`, and that is Word's behaviour rather than a leak — a definition is a document
+   * resource, other paragraphs may be using it, and `listToJoin` reuses it the moment the reader
+   * bullets anything again. Deleting it would make the second bulleting build a new one and quietly
+   * renumber a list somewhere else in the document.
+   *
+   * Named with the reason rather than passed over: the day the definition stops being reusable, or
+   * the day it starts being deleted, this claim is wrong and says so.
+   */
+  const keepsAResource = new Set(['toggleBulletList', 'toggleOrderedList']);
+
   it('undoes itself when a toggle is pressed twice', () => {
-    expect(answers.notSelfInverse).toEqual([]);
+    expect(answers.notSelfInverse.filter((one) => !keepsAResource.has(one))).toEqual([]);
+    // And the two that are exempt really are in the pile — an exemption for a finding that does not
+    // happen is a note, which is what the conformance harness fails on elsewhere.
+    expect(answers.notSelfInverse.sort()).toEqual([...keepsAResource].sort());
   });
 });
