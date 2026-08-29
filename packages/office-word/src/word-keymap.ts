@@ -179,10 +179,15 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
 
   // ── Search ─────────────────────────────────────────────────────────────────
   //
-  // `Mod+f` was here, bound to `find` — and `editor-core` registers `find` as `execute: () => true`,
-  // a stub. So Word's ⌘F ran nothing while Word's *menu* opened a real pane through `view: 'find'`:
-  // one label, two behaviours, and the keyboard was the one that did nothing. It is a view binding
-  // now, below, where the thing it opens actually lives.
+  // `Mod+f` was here, bound to `find`, and it ran nothing while Word's *menu* opened a real pane
+  // through `view: 'find'`: one label, two behaviours, and the keyboard was the one that did
+  // nothing. It is a view binding now, below, where the thing it opens actually lives.
+  //
+  // **The reason written here was wrong**, and the correction is worth more than the fix was:
+  // `editor-core` registers no `find`, and `FindReplaceExtension` has been complete since the day it
+  // was written. What was true is that **nothing installed it** — not this kit, not the deck's, not
+  // the site's — which from a keyboard looks exactly like reaching a stub. Word has its own pane and
+  // does not need the extension; the note mattered because the site deleted its 찾기 entry over it.
   { key: 'Mod+h', command: 'replace', when: 'editorFocus' }
 ];
 

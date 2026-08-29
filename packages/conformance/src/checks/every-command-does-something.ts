@@ -10,9 +10,16 @@ import type { Check, Finding } from '../types';
  * reader asks, which is whether pressing it does anything — and that is where the last several
  * faults have been:
  *
- * - `find` and `findAndReplace` were registered by the **engine** as `execute: () => true`, with
- *   `canExecute: () => true` beside them. So 편집 › 찾기 lit up, ran, reported success and drew
- *   nothing, in every product that offered it. Every check passed.
+ * - 편집 › 찾기 lit up, ran, reported success and drew nothing, in every product that offered it,
+ *   and every check passed. **Written here for two years as "`find` is registered by the engine as
+ *   `execute: () => true`, a stub" — which was never true.** `editor-core` registers no `find` at
+ *   all; `FindReplaceExtension` has been a complete implementation since the day it was written; and
+ *   **nothing installed it**, which from a keyboard is indistinguishable from reaching a stub.
+ *
+ *   Kept, corrected, because the correction is the better lesson: this check finds *symptoms*
+ *   honestly and says nothing about causes, and a cause guessed from a symptom and written down
+ *   becomes a fact nobody re-measures. Word's key map took ⌘F out over it and the site deleted a
+ *   menu entry over it.
  * - Four `canExecute`s were looser than their `execute` — `moveBlockUp`, `moveBlockDown`, `copy`,
  *   `removeLink`. The control lights up, the reader presses it, and the reason it declined goes to a
  *   console nobody is watching.

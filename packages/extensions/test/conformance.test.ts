@@ -79,6 +79,14 @@ const SAYS: Record<string, Record<string, unknown>> = {
   insertEmoji: { emoji: '🙂' },
   replaceText: { text: '바뀐 글자' },
   setContext: { key: 'probe', value: 1 },
+
+  /*
+   * A search, and what to put in its place. `find` is no longer a panel-opener — see
+   * `find-replace.ts` — so the probe can hand it the query a panel would have collected, and the
+   * four commands that need a search in progress become answerable.
+   */
+  find: { query: '문단' },
+  findAndReplace: { query: '문단', replacement: '단락' },
   focus: { text: '' },
 
   /*
@@ -156,6 +164,26 @@ const NOT_SELF_INVERSE: string[] = [];
 const HISTORY = new Set(['undo', 'historyUndo']);
 
 const AFTER_AN_EDIT = new Set(['undo', 'redo', 'historyUndo', 'historyRedo']);
+
+/**
+ * And the ones that need an edit **and an undo** before they mean anything.
+ *
+ * Redo over a document nothing has undone is a command with nothing to do, which is not the same
+ * sentence as a command that does nothing — the same distinction `AFTER_AN_EDIT` draws one step
+ * earlier, and the probe has to be able to tell them apart or it turns a working history into two
+ * findings.
+ */
+const AFTER_AN_UNDO = new Set(['redo', 'historyRedo']);
+
+/**
+ * And the four that need a **search in progress**.
+ *
+ * `findNext`, `findPrev`, `replaceOne` and `replaceAll` all read the result of a `find`, and the
+ * probe runs each command over a fresh editor — so all four asked their question of a search nobody
+ * had started, declined, correctly, and were counted as unaskable. Four commands reading like four
+ * nobody had written, in a file that turned out to have been complete all along.
+ */
+const AFTER_A_SEARCH = new Set(['findNext', 'findPrev', 'replaceOne', 'replaceAll']);
 
 /** What each of these needs is **a node of some kind**, filled in from the document below. */
 const WANTS_NODE: Record<string, string> = {
@@ -418,13 +446,20 @@ describe('every command this package registers', () => {
     nextCell: 'moves the caret to the next cell; only Tab past the last one grows the table',
     previousCell: 'moves the caret to the previous cell, and never grows anything',
 
-    /*
-     * And the two that are **not** application commands and are exempt anyway, because the finding is
-     * already recorded and this check would report it every run until it is fixed. An exemption with
-     * a reason is how a known fault stays visible without drowning a new one.
+    /**
+     * And the four a search is made of, which change **where the reader is** and not the document.
+     *
+     * These two used to be exempted as *"registered as `execute: () => true` — a stub"*, which is
+     * what Word's key map says, what the site deleted its 찾기 entry over, and what
+     * `every-command-does-something` opens by naming as the fault it was written for. **None of it
+     * was true.** `editor-core` registers no `find`; `FindReplaceExtension` has been a complete
+     * implementation since the day it was written; and nothing installed it, which from a keyboard
+     * is indistinguishable from reaching a stub. See `find-replace.ts`.
      */
-    find: 'registered as `execute: () => true` — a stub. See BACKLOG; Word’s ⌘F runs it today',
-    findAndReplace: 'the same stub, and the same entry'
+    find: 'runs a search and moves the selection onto the first result; the document is untouched',
+    findAndReplace: 'the same search, remembering what to put in their place',
+    findNext: 'moves the selection onto the next result — a match a reader can act on, not a drawing',
+    findPrev: 'the same, backwards'
   };
 
   it('changes the document when it says it can run', () => {
@@ -489,13 +524,15 @@ describe('every command this package registers', () => {
    * in and hides the asymmetry; `canExecuteCommand` does not, and both are used. Ten commands sat in
    * the unaskable column reading exactly like ten nobody had got round to.
    *
-   * What is left:
+   * Then six more went by setting up two states the probe had not: an edit **and an undo** for
+   * `redo`, and a **search in progress** for the four commands that read one. Both were the same
+   * shape as the ten above — a command declining honestly from a state nobody had built, which reads
+   * exactly like a command nobody had written. `find` was the extreme case: it had been called a
+   * stub in three places for months, and it was complete.
    *
-   * - **A find that has not been run.** `findNext`, `findPrev`, `replaceOne`, `replaceAll` all need
-   *   a search in progress, and `find` itself is a stub. They come back when it does.
+   * **8** left:
+   *
    * - **A menu that is not open.** `hideSlashMenu`.
-   * - **History that has not moved forward.** `redo` and `historyRedo` need an undo first; the probe
-   *   does one edit, not an edit and an undo.
    * - **A payload the probe does not know how to make.** `deleteCrossNode` wants a range across two
    *   nodes; `moveBlockUp`/`moveBlockDown`, `indentNode`/`outdentNode`, `insertEmoji` and
    *   `splitCell` each want a node, a value or a merged cell in a shape not yet written down.
@@ -617,8 +654,8 @@ describe('every command this package registers', () => {
       commandChanges: (command: string) => moved.get(command) ?? null
     });
 
-    expect(report.examined['every-command-does-something']).toBeGreaterThanOrEqual(122);
-    expect(report.unanswered['every-command-does-something']).toBeLessThanOrEqual(14);
+    expect(report.examined['every-command-does-something']).toBeGreaterThanOrEqual(128);
+    expect(report.unanswered['every-command-does-something']).toBeLessThanOrEqual(8);
   });
 });
 
@@ -677,6 +714,8 @@ async function ask(name: string): Promise<boolean | null> {
   for (const set of states) {
     set();
     if (AFTER_AN_EDIT.has(name)) await editor.executeCommand('toggleBold', {});
+    if (AFTER_AN_UNDO.has(name)) await editor.executeCommand('undo', {});
+    if (AFTER_A_SEARCH.has(name)) await editor.executeCommand('find', { query: '문단', replacement: '단락' });
     if (span) said.range = editor.selection;
     if (editor.canExecuteCommand(name, said) !== true) continue;
 

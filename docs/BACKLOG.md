@@ -46,6 +46,55 @@ entries are that.
 
 ## Open
 
+### `find` was never a stub — 2026-08-29 *(record corrected; extension rewritten)*
+
+The last four *unanswered* commands were blocked on `find`, which three places in
+this repository called a stub:
+
+- `word-keymap.ts`, explaining why ⌘F was taken out;
+- `every-command-does-something.ts`, opening with it as the fault that check
+  exists for;
+- `BACKLOG.md`, as an open item.
+
+**None of it was true.** `editor-core` registers no `find` at all, and
+`FindReplaceExtension` has been a complete implementation since the day it was
+written — measured: three matches found in a two-paragraph document, all three
+replaced correctly, undone correctly. What was true is smaller and stranger:
+**nothing installed it.** Not Word's kit, not the deck's, not the site's, not
+`createDefaultExtensions` — which from a keyboard is indistinguishable from
+reaching a stub.
+
+The symptom was recorded honestly (편집 › 찾기 lit up, ran, drew nothing); the
+**cause was guessed, written down, and then quoted for months**. Word removed a
+key binding over it and the site deleted a menu entry over it. The BACKLOG entry
+even had the right answer in its own last paragraph — *"the real
+`FindReplaceExtension` exists and is in nobody's kit"* — under a headline that
+contradicted it.
+
+**Why nothing installed it** was in that paragraph too: it drew its own panel.
+`document.createElement`, `position: fixed`, `background: white`, `#e2e8f0`
+borders, appended to `document.body` — a shared model package building UI, in a
+repository whose whole shape is that `office-ui` draws and the packages below it
+do not. It could not be themed, placed or styled by a product, and would have
+been white-on-white in the dark theme all three now honour.
+
+The highlighting told the same story from the other end: `_highlightMatches` was
+an **empty method** under a comment saying the drawing was *"deferred to the DOM
+layer"*. A search found twelve matches and showed the reader none of them.
+
+It is a search and a place in it now, with no DOM. `findNext` and `findPrev` move
+through the results by **moving the editor's selection onto the match** — what
+every editor of this kind does, needing no injected layer, and making the match
+a thing a reader can act on rather than look at. A product draws the panel it
+wants and reads `state`.
+
+The `editor as any` count fell **337 → 332** with it. Five at once is what a
+*layer* being wrong looks like from the outside: a model package building UI
+reaches for the escape hatch at every line, and the count is the symptom.
+
+Unanswered went 14 → **8**, and `replaceOne`/`replaceAll` are now exercised by
+all six questions rather than skipped.
+
 ### A heading's level could not be changed — 2026-08-29 *(fixed)*
 
 Closing the probe's *unanswered* column is the work of exercising the commands
@@ -435,19 +484,32 @@ Each was checked against the un-fixed source: Word's fails on 25 words.
 
 ### A surface can name a command that does nothing
 
-- [ ] **`find` and `findAndReplace` are registered by `editor-core` as `execute: () => true`.** With
-  `canExecute: () => true` beside them, which is the pair that makes a control **always offered and
-  never working**. Found by pressing 편집 › 찾기 in the site builder and watching the page not change:
-  the entry lit up, ran, returned success, and drew nothing.
+- [x] ~~**`find` and `findAndReplace` are registered by `editor-core` as `execute: () => true`.**~~
+  **The headline was wrong and this entry's own last paragraph said so.** `editor-core` registers no
+  `find` at all, and `FindReplaceExtension` has been a complete implementation since the day it was
+  written — measured: three matches found in a two-paragraph document, all three replaced correctly.
 
-  It is not the site's alone. `word-keymap.ts` binds `Mod+f` to the same stub, so **Word's ⌘F is a
-  no-op** while Word's menu opens a real pane through `view: 'find'` — one label, two behaviours, and
-  the keyboard is the one that does nothing. The site's entry has been removed; the stub and Word's
-  binding are the next reader.
+  What was true is smaller and stranger: **nothing installed it.** Not Word's kit, not the deck's,
+  not the site's, and not `createDefaultExtensions` — which from a keyboard is indistinguishable
+  from reaching a stub. The symptom was recorded honestly (편집 › 찾기 lit up, ran, drew nothing) and
+  the cause was guessed, written down, and then quoted for months: Word's key map took ⌘F out over
+  it, the site deleted its 찾기 entry over it, and `every-command-does-something` opened by naming
+  it as the fault that check was written for. All three are corrected.
 
-  The real `FindReplaceExtension` exists in `packages/extensions` and is in nobody's kit, which is
-  arguably right as it stands: its panel is scratch-era — `position: fixed`, hard-coded white,
-  `↓ ↑ ×` as buttons — and wiring it as it is would put three unicode glyphs where icons go.
+  And the reason nothing installed it was in the last paragraph too: **it drew its own panel.**
+  `document.createElement`, `position: fixed`, `background: white`, `#e2e8f0` borders, appended to
+  `document.body` — a shared model package building UI, in a repository whose whole shape is that
+  `office-ui` draws and the packages below it do not. It could not be themed, placed or styled by a
+  product, and would have been white-on-white in the dark theme all three now honour.
+
+  The highlighting told the same story from the other end: `_highlightMatches` was an **empty
+  method** under a comment saying the drawing was *"deferred to the DOM layer"*. A search found
+  twelve matches and showed the reader none of them.
+
+  It is a search and a place in it now, with no DOM. `findNext` and `findPrev` move through the
+  results by **moving the editor's selection onto the match** — which is what every editor of this
+  kind does, needs no injected layer, and makes the match a thing a reader can act on rather than
+  look at. A product draws the panel it wants and reads `state`.
 
 - [x] ~~**Nothing checks that a surface's command does anything.**~~ `every-command-does-something`
   — see Done. It found four in the site builder (all exempt, all application-level) and **nine in the

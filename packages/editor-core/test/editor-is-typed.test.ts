@@ -78,8 +78,13 @@ describe('the editor is a type, not an escape hatch', () => {
    * block through `(editor as any).dataStore`; the walk moved into one method that both the guard and
    * the run call, and the cast went with the duplicate. The same shape twice over: the cast was not
    * the fault, it was standing next to it.
+   *
+   * 337 → 332 when `FindReplaceExtension` stopped drawing its own panel. Six `(editor as any)`
+   * registrations became one typed `register`, and the DOM the casts were reaching around went with
+   * them. Five at once is what a *layer* being wrong looks like from here: a shared model package
+   * building UI reaches for the escape hatch at every line, and the count is the symptom.
    */
-  const ALLOWED = 337;
+  const ALLOWED = 332;
 
   it('declares everything the casts are casting away', () => {
     const source = readFileSync(join(__dirname, '..', 'src', 'editor.ts'), 'utf8');
