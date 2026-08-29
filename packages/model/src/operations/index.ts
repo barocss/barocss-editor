@@ -72,6 +72,7 @@ export * from './removeMark';
 export * from './reorderChildren';
 export * from './replacePattern';
 export * from './replaceText';
+export * from './restoreRuns';
 export * from './restoreTextNodes';
 export * from './selectNode';
 export * from './selectRange';

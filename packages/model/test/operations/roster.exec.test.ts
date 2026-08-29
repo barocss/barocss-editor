@@ -220,6 +220,18 @@ const ROSTER: Record<string, Scenario> = {
     payload: { nodeId: 'm-1', pieces: [{ sid: 'm-1', length: 6 }, { sid: 'm-2', length: 8 }] },
     undo: 'its inverse is autoMergeTextNodes, which joins them again — a round trip, and the fixture holds them already apart'
   },
+  /**
+   * Putting the words back into the runs they were taken out of.
+   *
+   * `deleteRange`'s inverse for a range spanning more than one run, and it exists because that case
+   * used to have **none**: select across two paragraphs, press Backspace, press ⌘Z, and the words
+   * were gone for good. The reason written into the operation was that a cross-node deletion removes
+   * structure — and it does not; `range.deleteText` only ever rewrites text and marks, on nodes that
+   * all survive. Its own inverse is itself, carrying what was there, which is what makes redo work.
+   */
+  restoreRuns: {
+    payload: { runs: [{ sid: 'r-1', text: '되돌린 글', marks: [] }] }
+  },
 
   // ── blocks ────────────────────────────────────────────────────────────────
   insertParagraph: { select: caretIn('r-2', 1) },

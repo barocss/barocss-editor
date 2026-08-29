@@ -47,10 +47,21 @@ describe('EmojiExtension', () => {
     ext.onCreate(editor);
     const cmd = editor.__getCommand('insertEmoji');
     expect(cmd).toBeDefined();
-    expect(cmd.canExecute(editor, { shortcode: ':smile:' })).toBe(true);
-    expect(cmd.canExecute(editor, { unicode: '😀' })).toBe(true);
-    expect(cmd.canExecute(editor, {})).toBe(false);
+    /*
+     * An emoji **and somewhere to put it**. The second half used to be missing: the guard asked only
+     * whether an emoji had been named, while the run refuses without a range and says so to nobody —
+     * so a picker with nothing selected lit up, ran and did nothing. This fake editor has no
+     * selection at all, which is exactly that state, so the range comes in on the payload.
+     */
+    const caret = {
+      type: 'range', startNodeId: 'text-1', startOffset: 1, endNodeId: 'text-1', endOffset: 1, collapsed: true
+    };
+    expect(cmd.canExecute(editor, { shortcode: ':smile:', selection: caret })).toBe(true);
+    expect(cmd.canExecute(editor, { unicode: '😀', selection: caret })).toBe(true);
+    expect(cmd.canExecute(editor, { selection: caret })).toBe(false);
     expect(cmd.canExecute(editor)).toBe(false);
+    // Named, and nowhere to put it — the case the guard could not see.
+    expect(cmd.canExecute(editor, { unicode: '😀' })).toBe(false);
   });
 
   it('insertEmoji canExecute is false when schema has no emoji type', async () => {

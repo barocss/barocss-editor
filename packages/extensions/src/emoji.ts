@@ -1,4 +1,5 @@
 import { Editor, Extension } from '@barocss/editor-core';
+import { hasRange } from './guards';
 import type { ModelSelection } from '@barocss/editor-core';
 import { transaction, control, splitTextNode, addChild } from '@barocss/model';
 
@@ -36,13 +37,23 @@ export class EmojiExtension implements Extension {
 
     editor.registerCommand({
       name: 'insertEmoji',
+      /*
+       * The **editor's** selection when the caller did not pass one, which the run needs and did not
+       * fall back to — so an emoji picker that sent only the emoji got a command that declined.
+       */
       execute: async (ed: Editor, payload?: InsertEmojiPayload) => {
-        return await this._executeInsertEmoji(ed, payload);
+        const selection = payload?.selection ?? (ed as { selection?: ModelSelection }).selection;
+        return await this._executeInsertEmoji(ed, { ...(payload as InsertEmojiPayload), selection });
       },
-      canExecute: (_ed: Editor, payload?: InsertEmojiPayload) => {
-        if (!payload || (payload.shortcode == null && payload.unicode == null)) return false;
-        return true;
-      },
+      /**
+       * An emoji **and somewhere to put it** — the second half was missing.
+       *
+       * The guard asked only whether an emoji had been named; the run refuses without a range, and
+       * says so to nobody. So a picker with nothing selected lit up, ran and did nothing, which is
+       * the class `guards.ts` names. Found by the conformance run in this package's own tests.
+       */
+      canExecute: (ed: Editor, payload?: InsertEmojiPayload) =>
+        !!payload && (payload.shortcode != null || payload.unicode != null) && hasRange(ed, payload),
     });
   }
 

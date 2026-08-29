@@ -46,6 +46,49 @@ entries are that.
 
 ## Open
 
+### Backspace across two paragraphs could not be undone — 2026-08-29 *(fixed)*
+
+Closing the probe's last *unanswered* commands, 8 → **2**. Every one of the six
+turned out to be a fault rather than a blank, and the last of them is the worst
+thing this repository has found:
+
+**Select across two paragraphs, press Backspace, press ⌘Z — the words are gone
+for good.** The everyday gesture, in all three products, losing text in silence.
+
+`deleteRange` offered **no inverse at all** for a range spanning more than one
+run, and said why: *"a deletion spanning several nodes removes structure as well
+as characters, and re-inserting a string would not rebuild it — so rather than
+offer an inverse that half-works, it offers none."*
+
+Careful reasoning from a **wrong premise**. `range.deleteText` removes no
+structure: it truncates the run the range starts in, empties the runs between,
+and trims the run it ends in. Nothing is added, nothing is taken away, and every
+node involved survives — so the deletion is exactly reversible, and declining to
+try is what cost the text. `restoreRuns` is the way back, and its argument is
+`restoreTextNodes`': an operation that cannot be undone can usually be **told**
+what it would need to know. That precedent is in this file, about
+`autoMergeTextNodes`, recorded as a decision and then reversed for the same
+reason.
+
+The other five, all the same class — a guard looser than its run:
+
+- **`insertEmoji`** asked only whether an emoji had been named; the run refuses
+  without a range. A picker with nothing selected lit up and did nothing.
+- **`moveBlockUp`/`moveBlockDown`** said yes on the **first** block of a page.
+  Their guards also demanded `payload.selection` while their runs read the
+  editor's — the same asymmetry as the ten heading commands.
+- **`splitCell`** needed a merged cell to be exercised at all; the probe was
+  handing it the one case the operation declines.
+- **`hideSlashMenu`** needed a menu open first.
+
+And **two** left, which are not a probe gap: `indentNode` and `outdentNode` act
+only on a node type the schema marks `indentable`, and **no schema here marks
+one** — not the standard schema, not the office schema. Word found this and
+worked around it (`word-keymap.ts` binds `indentText` instead, with the reason
+written down); the commands are still registered, still reachable, and still
+impossible to run. Recorded as a claim rather than a blank: the day something
+declares `indentable`, the ceiling in the test fails.
+
 ### `find` was never a stub — 2026-08-29 *(record corrected; extension rewritten)*
 
 The last four *unanswered* commands were blocked on `find`, which three places in

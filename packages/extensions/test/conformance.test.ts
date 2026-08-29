@@ -76,7 +76,7 @@ const SAYS: Record<string, Record<string, unknown>> = {
   insertPullQuote: { text: '인용' },
   insertTable: { rows: 2, cols: 2 },
   insertColumns: { count: 2 },
-  insertEmoji: { emoji: '🙂' },
+  insertEmoji: { unicode: '🙂', shortcode: ':slightly_smiling_face:' },
   replaceText: { text: '바뀐 글자' },
   setContext: { key: 'probe', value: 1 },
 
@@ -184,6 +184,9 @@ const AFTER_AN_UNDO = new Set(['redo', 'historyRedo']);
  * nobody had written, in a file that turned out to have been complete all along.
  */
 const AFTER_A_SEARCH = new Set(['findNext', 'findPrev', 'replaceOne', 'replaceAll']);
+
+/** And the one that needs a menu open, which the command beside it opens. */
+const AFTER_A_MENU = new Set(['hideSlashMenu']);
 
 /** What each of these needs is **a node of some kind**, filled in from the document below. */
 const WANTS_NODE: Record<string, string> = {
@@ -306,8 +309,12 @@ const document_ = () => ({
               stype: 'bTableRow',
               attributes: {},
               content: [
-                { stype: 'bTableCell', attributes: {}, content: [{ stype: 'inline-text', text: '다' }] },
-                { stype: 'bTableCell', attributes: {}, content: [{ stype: 'inline-text', text: '라' }] }
+                /*
+                 * Already merged, because `splitTableCell` refuses a cell that is not — with the
+                 * reason in the operation — so without one in the fixture `splitCell` correctly
+                 * declines everywhere and is never exercised.
+                 */
+                { stype: 'bTableCell', attributes: { colspan: 2 }, content: [{ stype: 'inline-text', text: '다' }] }
               ]
             }
           ]
@@ -432,11 +439,13 @@ describe('every command this package registers', () => {
     setContext: 'writes a value the view reads; deliberately outside the document',
     setAbsolutePos: 'positions the view’s own overlay',
     /*
-     * `showSlashMenu` only. Its twin was here too and the harness deleted it — **stale**, because
-     * `hideSlashMenu` never says it can run over a document with no menu open, so it is unanswered
-     * rather than a finding, and an exemption for a finding that does not happen is a note.
+     * Both, now. `hideSlashMenu` used to be exempt too and the harness **deleted** the exemption as
+     * stale — it never said it could run over a document with no menu open, so it was unanswered
+     * rather than a finding, and an exemption for a finding that does not happen is a note. The
+     * probe opens a menu before asking it now, so the claim is real again.
      */
     showSlashMenu: 'opens a menu',
+    hideSlashMenu: 'closes it — and it is asked now, because the probe opens one first',
     /*
      * Tab and ⇧Tab between cells. What they are **for** is moving the caret, and only one case in a
      * table changes the document: Tab past the last cell grows a row, which every word processor and
@@ -530,12 +539,19 @@ describe('every command this package registers', () => {
    * exactly like a command nobody had written. `find` was the extreme case: it had been called a
    * stub in three places for months, and it was complete.
    *
-   * **8** left:
+   * The last six went one at a time, and every one of them was a fault rather than a blank: a menu
+   * to open first, an emoji command whose run needed a selection its guard never asked for, a move
+   * command that said yes on the first block of a page, a merged cell to split, and a **range across
+   * two nodes** — which found the worst thing in this repository, in `deleteRange`.
    *
-   * - **A menu that is not open.** `hideSlashMenu`.
-   * - **A payload the probe does not know how to make.** `deleteCrossNode` wants a range across two
-   *   nodes; `moveBlockUp`/`moveBlockDown`, `indentNode`/`outdentNode`, `insertEmoji` and
-   *   `splitCell` each want a node, a value or a merged cell in a shape not yet written down.
+   * **2** left, and they are not a probe gap:
+   *
+   * - **`indentNode` and `outdentNode` cannot run at all.** They act only on a node type the schema
+   *   marks `indentable`, and **no schema in this repository marks one** — not the standard one, not
+   *   the office one. Word found this and worked around it (`word-keymap.ts` binds `indentText`
+   *   instead, with the reason written down); the commands are still here, still reachable, and
+   *   still impossible. A claim rather than a blank: the day something declares `indentable`, this
+   *   number drops and the ceiling below fails.
    *
    * Every one of them is a **probe** gap rather than a product one, which is exactly what this
    * number is for: it says how much of the answer is still missing, out loud, instead of letting a
@@ -654,8 +670,8 @@ describe('every command this package registers', () => {
       commandChanges: (command: string) => moved.get(command) ?? null
     });
 
-    expect(report.examined['every-command-does-something']).toBeGreaterThanOrEqual(128);
-    expect(report.unanswered['every-command-does-something']).toBeLessThanOrEqual(8);
+    expect(report.examined['every-command-does-something']).toBeGreaterThanOrEqual(134);
+    expect(report.unanswered['every-command-does-something']).toBeLessThanOrEqual(2);
   });
 });
 
@@ -680,6 +696,18 @@ async function ask(name: string): Promise<boolean | null> {
      * And a column to take out of it, which is the second of the two ids `removeColumn` needs. It
      * asked for neither until its guard was written, so the probe had never had to supply one.
      */
+    /*
+     * And the **merged** one, for the command that needs one. `splitTableCell` refuses a cell whose
+     * colspan and rowspan are both 1 — there is nothing to split — so handing it the first cell in
+     * the table is handing it the one case it declines.
+     */
+    if (name === 'splitCell') {
+      const merged = found.find((sid) => {
+        const attrs = (store.getNode(sid)?.attributes ?? {}) as { colspan?: number; rowspan?: number };
+        return (attrs.colspan ?? 1) > 1 || (attrs.rowspan ?? 1) > 1;
+      });
+      if (merged) said.cellId = merged;
+    }
     if (name === 'removeColumn' && found[0]) {
       said.columnId = ((store.getNode(found[0])?.content ?? []) as string[]).find(
         (sid) => typeof sid === 'string'
@@ -709,14 +737,25 @@ async function ask(name: string): Promise<boolean | null> {
   const runs = every(editor, store, 'inline-text');
   const states = [...runs.map((run) => at(run, 0, 3)), ...runs.map((run) => at(run, 1, 1))];
   void words;
-  const span = ['deleteText', 'deleteCrossNode', 'replaceText'].includes(name);
+  const span = ['deleteText', 'replaceText'].includes(name);
+  /*
+   * And one that wants a range across **two** nodes, which is the whole of what it is for — a range
+   * inside one run is `deleteText`'s, and the command refuses it by name.
+   */
+  const across = name === 'deleteCrossNode';
 
   for (const set of states) {
     set();
     if (AFTER_AN_EDIT.has(name)) await editor.executeCommand('toggleBold', {});
     if (AFTER_AN_UNDO.has(name)) await editor.executeCommand('undo', {});
     if (AFTER_A_SEARCH.has(name)) await editor.executeCommand('find', { query: '문단', replacement: '단락' });
+    if (AFTER_A_MENU.has(name)) await editor.executeCommand('showSlashMenu', {});
     if (span) said.range = editor.selection;
+    if (across && runs.length > 1) {
+      said.range = {
+        type: 'range', startNodeId: runs[0], startOffset: 1, endNodeId: runs[1], endOffset: 2, collapsed: false
+      };
+    }
     if (editor.canExecuteCommand(name, said) !== true) continue;
 
     const before = asWritten(editor);
