@@ -96,9 +96,22 @@ export class IndentExtension implements Extension {
         }
         return await this._executeOutdentText(editor, selection, payload?.indent);
       },
+      /**
+       * A range — **and something to take off the front of it.**
+       *
+       * `outdentText` the operation refuses a stretch it would leave unchanged, and says why: a
+       * range that does not move is not something to undo. The command said yes anyway, so 내어쓰기
+       * lit up over every paragraph on the page and did nothing on all but the indented ones.
+       *
+       * Found by this package's conformance run. The operation had the same fault in its *other*
+       * branch until the same afternoon — the single-node path never learned the refusal its range
+       * sibling grew, and handed back an `indentText` inverse, so undoing an outdent that had done
+       * nothing added an indent the text had never had.
+       */
       canExecute: (editor: any, payload?: any) => {
         const selection = payload?.selection || (editor as any).selection;
-        return selection != null && selection.type === 'range';
+        if (selection == null || selection.type !== 'range') return false;
+        return outdentable(editor, selection, payload?.indent);
       }
     });
   }
@@ -332,3 +345,18 @@ export class IndentExtension implements Extension {
   }
 }
 
+/**
+ * Whether outdenting this range would take anything off it.
+ *
+ * The same prediction the operation makes before it writes: an indent is removed from the start of
+ * every line, and a range where that changes nothing is a range the operation refuses. Asked here so
+ * a control can be grey rather than dead.
+ */
+function outdentable(editor: any, selection: ModelSelection, indentStr?: string): boolean {
+  const indent = indentStr ?? '  ';
+  const held = editor?.dataStore?.range?.extractText?.({ ...selection, type: 'range' as const });
+  if (typeof held !== 'string' || held.length === 0) return false;
+
+  const escaped = indent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return held.replace(new RegExp(`(^|\\n)${escaped}`, 'g'), (_m, lineStart) => lineStart) !== held;
+}

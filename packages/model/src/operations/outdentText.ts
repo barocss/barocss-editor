@@ -69,9 +69,39 @@ defineOperation('outdentText', async (operation: { payload: OutdentTextOperation
   try {
     const payload = operation.payload;
     const indent = payload.indent ?? '  ';
-    
-    if ('range' in payload) {
-      const { range } = payload;
+
+    /**
+     * **One body, two ways of naming the same stretch.**
+     *
+     * A `control(nodeId, [outdentText(start, end)])` chain and a direct
+     * `outdentText(startId, startOffset, endId, endOffset)` describe the same
+     * edit; they arrived here as two branches, and the branches drifted. The
+     * range one grew the refusal below — *"a range this leaves unchanged is not
+     * something to undo"* — and the whole-text inverse that goes with it. The
+     * single-node one kept neither: it always reported success and handed back
+     * an `indentText` inverse, so undoing an outdent that had done nothing
+     * **added an indent the text had never had**, and the marks were re-derived
+     * on the way.
+     *
+     * Found by the extensions' conformance run, which reported `outdentText` as
+     * a command that says yes and changes nothing — the command's guard is the
+     * other half and is fixed with it.
+     */
+    const asRange: ModelSelection =
+      'range' in payload
+        ? payload.range
+        : {
+            type: 'range',
+            startNodeId: payload.nodeId,
+            startOffset: payload.start,
+            endNodeId: payload.nodeId,
+            endOffset: payload.end,
+            collapsed: false,
+            direction: 'forward'
+          };
+
+    {
+      const range = asRange;
       const { startNodeId, endNodeId, startOffset, endOffset } = range;
       const startNode = context.dataStore.getNode(startNodeId);
       const endNode = context.dataStore.getNode(endNodeId);
@@ -157,31 +187,6 @@ defineOperation('outdentText', async (operation: { payload: OutdentTextOperation
           : {})
       };
     }
-    
-    const { nodeId, start, end } = payload;
-    const node = context.dataStore.getNode(nodeId);
-    if (!node) throw new Error(`Node not found: ${nodeId}`);
-    if (typeof node.text !== 'string') {
-      throw new Error(`Node ${nodeId} is not a text node`);
-    }
-    if (typeof start !== 'number' || typeof end !== 'number' || start > end || start < 0 || end > (node.text as string).length) {
-      throw new Error('Invalid range');
-    }
-    const range: ModelSelection = {
-      type: 'range',
-      startNodeId: nodeId,
-      startOffset: start,
-      endNodeId: nodeId,
-      endOffset: end,
-      collapsed: false,
-      direction: 'forward'
-    };
-    const result = context.dataStore.range.outdent(range, indent);
-    return {
-      ok: true,
-      data: result,
-      inverse: { type: 'indentText', payload: { nodeId, start, end, indent } }
-    };
   } catch (e) {
     throw new Error(`Failed to outdent text: ${e instanceof Error ? e.message : 'Unknown error'}`);
   }

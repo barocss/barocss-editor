@@ -1,4 +1,5 @@
 import { defineOperation } from './define-operation';
+import { subtreeOf } from './subtree';
 import type { TransactionContext } from '../types';
 import { defineOperationDSL } from './define-operation-dsl';
 
@@ -43,7 +44,12 @@ defineOperation('removeChildren', async (operation: any, context: TransactionCon
    * when they were next to each other — which is what removing several at once
    * means in every caller here.
    */
-  const removed = (childIds || []).map((id: string) => context.dataStore.getNode(id));
+  /*
+   * Each of them **and everything under it** — see `subtree.ts`. `getNode` gives a node whose
+   * `content` is sids, and a removed node's sids resolve to nothing, so undo used to hand every one
+   * of these back empty.
+   */
+  const removed = (childIds || []).map((id: string) => subtreeOf(context, id));
   const positions = (childIds || []).map((id: string) =>
     Array.isArray((parent as any).content) ? ((parent as any).content as string[]).indexOf(id) : -1
   );

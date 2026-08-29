@@ -1,6 +1,7 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
 import { defineOperationDSL } from './define-operation-dsl';
+import { subtreeOf } from './subtree';
 
 
 type DeleteOperation = { type: 'delete'; nodeId: string };
@@ -51,6 +52,27 @@ defineOperation('delete',
         throw new Error('Cannot delete root node');
       }
       
+      /**
+       * **What was in it**, captured while it is still there — which is the whole of this fix.
+       *
+       * The comment further down records mending this inverse once already: it used to be a `create`
+       * that left the node unattached, so a parent and an index were added to it. What nobody looked
+       * at was the node's *contents*. `getNode` hands back a node whose `content` is a list of sids,
+       * and the next three lines delete every one of those descendants — so the inverse put the node
+       * back **empty**. Delete a paragraph, press undo, and the paragraph returns without its words.
+       *
+       * Here rather than beside the inverse for the reason the fix took two goes: written down there
+       * it ran *after* the loop below, and captured a node whose children were already gone. The
+       * capture has to happen before the deletion it is the record of.
+       *
+       * Everything about the fault looked right, which is why it lasted: the delete works, the undo
+       * runs, the node reappears, the count is correct, and no test had ever looked inside one. It
+       * was found by asking a different question — the extensions' conformance run puts every
+       * command through *move the document, undo it, compare* — which that check's own documentation
+       * calls two answers for the price of one.
+       */
+      const restoreTree = subtreeOf(context, nodeId) ?? nodeToDelete;
+
       // Subtree deletion (recursively deletes child nodes)
       const descendants = context.dataStore.getAllDescendants(nodeId);
       const descendantIds = descendants.map(node => node.sid!);
@@ -77,6 +99,7 @@ defineOperation('delete',
       const restoreIndex = restoreParentId
         ? ((context.dataStore.getNode(restoreParentId)?.content as string[]) ?? []).indexOf(nodeId)
         : -1;
+
 
       if (nodeToDelete.parentId) {
         const parent = context.dataStore.getNode(nodeToDelete.parentId);
@@ -123,9 +146,9 @@ defineOperation('delete',
           restoreParentId && restoreIndex >= 0
             ? {
                 type: 'addChild',
-                payload: { parentId: restoreParentId, child: nodeToDelete, position: restoreIndex }
+                payload: { parentId: restoreParentId, child: restoreTree, position: restoreIndex }
               }
-            : { type: 'create', payload: { node: nodeToDelete } }
+            : { type: 'create', payload: { node: restoreTree } }
       };
     } catch (error) {
       throw new Error(`Failed to delete node ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`);

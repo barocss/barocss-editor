@@ -112,6 +112,17 @@ const SAYS: Record<string, Record<string, unknown>> = {
  * and a probe that cannot tell those apart turns a whole history into a finding. So the document is
  * moved first, by a command already known to move it, and then the question is asked.
  */
+/**
+ * Commands that move the document and **cannot be put back** — filled by the probe, asserted below.
+ *
+ * The check this file runs asks whether a command changes the document. Undo is the other half of
+ * the same run and costs nothing: the probe has the document before and after already, so putting it
+ * back and comparing is one more line. `every-command-does-something`'s own documentation says as
+ * much — *"which is two answers for the price of one, because a command that cannot be undone is its
+ * own fault and a worse one."* Nothing had ever collected the second answer.
+ */
+const UNDONE: string[] = [];
+
 const AFTER_AN_EDIT = new Set(['undo', 'redo', 'historyUndo', 'historyRedo']);
 
 /** What each of these needs is **a node of some kind**, filled in from the document below. */
@@ -176,6 +187,12 @@ const document_ = () => ({
     { stype: 'heading', attributes: { level: 1 }, content: [{ stype: 'inline-text', text: '제목 한 줄' }] },
     { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '한 문단의 글자들' }] },
     { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '두 번째 문단입니다' }] },
+    /*
+     * Already indented, so there is something for `outdentText` to take off. Without one it is a
+     * command that correctly declines everywhere in this document — honest, and it means the check
+     * never runs it.
+     */
+    { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '  들여 쓴 문단' }] },
     {
       stype: 'list',
       attributes: { type: 'bullet' },
@@ -239,6 +256,36 @@ const document_ = () => ({
     }
   ]
 });
+
+/**
+ * A document as a **string that means the same thing** — what two of these can be compared by.
+ *
+ * Straight `JSON.stringify` is not it, and the difference is not cosmetic. Undo a `toggleBold` and
+ * the run comes back carrying `marks: []` where it had no `marks` key at all: the same document by
+ * every reading, and a different string. Measured before this existed, **45** of the commands that
+ * move the document looked like commands that cannot be undone — every mark toggle, every delete,
+ * every text insert — which is a finding so large it can only be the probe.
+ *
+ * So: an empty array or an empty object is the same as absent, and `metadata` is the store's own
+ * bookkeeping rather than the document.
+ */
+const meaning = (node: unknown): unknown => {
+  if (Array.isArray(node)) return node.map(meaning);
+  if (!node || typeof node !== 'object') return node;
+
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    if (key === 'metadata') continue;
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    if (!Array.isArray(value) && typeof value === 'object' && Object.keys(value as object).length === 0) continue;
+    out[key] = meaning(value);
+  }
+  return out;
+};
+
+const asWritten = (editor: { exportDocument: (sid: string) => unknown; getRootId: () => string }) =>
+  JSON.stringify(meaning(editor.exportDocument(editor.getRootId()) ?? ''));
 
 const everyExtension = () =>
   Object.entries(extensions)
@@ -400,6 +447,31 @@ describe('every command this package registers', () => {
    * number is for: it says how much of the answer is still missing, out loud, instead of letting a
    * green run imply there was none.
    */
+  /**
+   * **And every one of them can be put back.**
+   *
+   * Two are not faults and never could be: undoing an `undo` is a *redo*, and the document is
+   * supposed to end up where the undo left it. Everything else that moves the document has to be
+   * able to give it back, and the run that first asked found one that could not:
+   *
+   * **`deleteNode` returned the node without its contents.** `delete`'s inverse carried the node
+   * from `getNode`, whose `content` is a list of sids, and the next lines deleted every one of those
+   * descendants — so undo put an **empty** paragraph back. Delete a paragraph, press ⌘Z, and the
+   * words are gone for good.
+   *
+   * It survived because everything about it looks right: the delete works, the undo runs, the node
+   * reappears, the paragraph count is correct, and no test had ever looked inside one. The same
+   * fault was in `removeChild` and `removeChildren`, which were mended with it.
+   *
+   * The comparison is `meaning` and not `JSON.stringify`, for a reason that is its own small lesson:
+   * undo a `toggleBold` and the run comes back carrying `marks: []` where it had no `marks` key —
+   * the same document, a different string. Before that was allowed for, **45** commands looked like
+   * commands that cannot be undone, which is a finding so large it can only be the probe.
+   */
+  it('gives the document back when it is undone', () => {
+    expect(UNDONE.filter((one) => one !== 'undo' && one !== 'historyUndo')).toEqual([]);
+  });
+
   it('can ask about most of them, and says how many it cannot', () => {
     const report = conformance({
       schema: createSchema('standard', getStandardSchemaDefinition()) as never,
@@ -472,14 +544,22 @@ async function ask(name: string): Promise<boolean | null> {
     if (span) said.range = editor.selection;
     if (editor.canExecuteCommand(name, said) !== true) continue;
 
-    const before = JSON.stringify(editor.exportDocument(editor.getRootId()) ?? '');
+    const before = asWritten(editor);
     try {
       await editor.executeCommand(name, said);
     } catch {
       // A throw is an answer too, and the answer is *the document did not move*.
     }
-    if (JSON.stringify(editor.exportDocument(editor.getRootId()) ?? '') !== before) return true;
-    return false;
+    if (asWritten(editor) === before) return false;
+
+    /*
+     * And back. A command that moved the document is asked to give it back, in the same run, over
+     * the same editor — which is the cheapest question in this file and the one that found the
+     * worst fault in it.
+     */
+    await editor.executeCommand('undo', {});
+    if (asWritten(editor) !== before) UNDONE.push(name);
+    return true;
   }
   return null;
 }

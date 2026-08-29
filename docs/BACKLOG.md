@@ -46,6 +46,42 @@ entries are that.
 
 ## Open
 
+### Undo gave a paragraph back without its words — 2026-08-29 *(fixed)*
+
+The extensions' conformance run asks whether a command changes the document.
+**Undo is the other half of the same run and costs one line** — the probe has
+the document before and after already, so putting it back and comparing is free.
+`every-command-does-something`'s own documentation says so: *"two answers for
+the price of one, because a command that cannot be undone is its own fault and a
+worse one."* Nothing had ever collected the second answer.
+
+**`deleteNode` returned the node empty.** `delete`'s inverse carried the node
+from `getNode`, whose `content` is a list of **sids**, and the next lines delete
+every one of those descendants — so undo put an empty paragraph back. Delete a
+paragraph, press ⌘Z, and the words are gone for good. `removeChild` and
+`removeChildren` had the same fault and were mended with it (`subtree.ts`).
+
+Everything about it looked right, which is why it lasted: the delete works, the
+undo runs, the node reappears, the paragraph count is correct, and no test had
+ever looked *inside* one. `delete`'s inverse had even been mended once before —
+the comment above it records adding the parent and the index because a `create`
+left the node unattached — and the contents were not looked at then either.
+
+Three smaller things the same run turned up:
+
+- **The fix took two goes, and the second is the lesson.** Written beside the
+  inverse it ran *after* the descendant loop and captured a node whose children
+  were already gone. A record of a deletion has to be taken before the deletion.
+- **`outdentText` said yes over text with no indent** — and the *operation* had
+  already fixed exactly this in its range branch, with the reason written down.
+  Its single-node branch never learned it, and handed back an `indentText`
+  inverse, so undoing an outdent that had done nothing **added an indent the
+  text had never had**. One body now, two ways of naming the same stretch.
+- **The comparison is `meaning`, not `JSON.stringify`.** Undo a `toggleBold` and
+  the run comes back carrying `marks: []` where it had no `marks` key: the same
+  document, a different string. Before that was allowed for, **45** commands
+  looked un-undoable — a finding so large it can only be the probe.
+
 ### The extensions had no self-test — measured 2026-08-29 *(harness written; 11 findings, all closed)*
 
 Asked after a reader's question: *"shouldn't the extensions test themselves,

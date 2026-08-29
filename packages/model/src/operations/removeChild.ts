@@ -1,4 +1,5 @@
 import { defineOperation } from './define-operation';
+import { subtreeOf } from './subtree';
 import type { TransactionContext } from '../types';
 import { defineOperationDSL } from './define-operation-dsl';
 
@@ -50,8 +51,16 @@ defineOperation('removeChild', async (operation: any, context: TransactionContex
   const parent = context.dataStore.getNode(parentId);
   if (!parent) throw new Error(`Parent not found: ${parentId}`);
   
-  // Store child node information to remove (for inverse function)
-  const childToRemove = context.dataStore.getNode(childId);
+  /**
+   * The child **and everything under it**, which the inverse did not keep.
+   *
+   * `getNode` hands back a node whose `content` is a list of sids, and those sids resolve to nothing
+   * the moment the node is gone — so undo put the node back **empty**. Measured: delete a paragraph,
+   * press undo, and the paragraph returns without its words. Everything about it looks right, which
+   * is why it lasted: the removal works, the undo runs, the node reappears, and no test had ever
+   * looked inside one.
+   */
+  const childToRemove = subtreeOf(context, childId);
   if (!childToRemove) throw new Error(`Child not found: ${childId}`);
   /**
    * And where it was, which the inverse did not say.
