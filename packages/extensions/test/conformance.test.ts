@@ -125,7 +125,8 @@ const SAYS: Record<string, Record<string, unknown>> = {
   insertDocFooter: { attrs: {} },
   insertEndnote: { attrs: { id: '1' } },
 
-  moveBlockToPosition: { targetIndex: 0 }
+  /* A caption to set, or it writes the empty string the figure was already given. */
+  setFigcaption: { caption: '바뀐 설명' }
 };
 
 /**
@@ -166,6 +167,23 @@ const DERIVED = (name: string, editor: ProbeEditor, store: ProbeStore): Record<s
   }
 
   const cells = everyNode(editor, store, 'bTableCell');
+  /**
+   * **Somewhere else**, which a constant cannot say.
+   *
+   * `targetIndex: 0` was the first attempt and `1` the second, and both were the index the block was
+   * already at — `wantsNode` hands over the *first* paragraph, and where that sits depends on the
+   * fixture. A move to where a block already is asks for nothing and gets nothing, and came back as
+   * a command that says yes and declines. Twice, in a row, which is the tell: a payload written as a
+   * number is a payload that is wrong the moment the document changes shape.
+   */
+  if (name === 'moveBlockToPosition') {
+    const block = everyNode(editor, store, 'paragraph')[0];
+    const parentId = block ? (store.getNode(block) as { parentId?: string } | undefined)?.parentId : undefined;
+    const held = parentId ? ((store.getNode(parentId)?.content ?? []) as string[]) : [];
+    const at = block ? held.indexOf(block) : -1;
+    return at >= 0 && held.length > 1 ? { targetIndex: at === 0 ? held.length - 1 : 0 } : undefined;
+  }
+
   if (name === 'mergeCells' && cells[1]) return { toCellId: cells[1] };
   if (name === 'splitCell') {
     const merged = cells.find((sid: string) => {
@@ -606,7 +624,15 @@ describe('every command this package registers', () => {
    * an id that named nothing there. A probe that hands a command a dangling reference is measuring
    * its own mistake.
    *
-   * Five left, each needing its own execute read. A number, so it can only come down.
+   * **Five left, and they are all in one state: nothing selected at all.** Every one takes a node by
+   * id, so none of them should need a selection — and every one examined so far turned out to be the
+   * probe rather than the product. `moveBlockToPosition` was measured three times: `targetIndex: 0`
+   * and then `1` were both the index the block was already at, because `wantsNode` hands over the
+   * *first* paragraph and where that sits is a fact about the fixture. A payload written as a number
+   * is wrong the moment the document changes shape, so it is derived now.
+   *
+   * They stay on the ceiling rather than being exempted, because *"probably the probe"* is not a
+   * reason — it is where to look next. A number, so it can only come down.
    *
    * The exemptions are the other check's, and they are the same exemptions for the same reason: a
    * command that moves the caret or opens a menu has not refused, it has changed the application.

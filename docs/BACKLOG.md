@@ -99,6 +99,18 @@ that hands a command a dangling reference is measuring its own mistake — the
 third time this week a measurement has been wrong in the direction of reporting
 a working product as broken.
 
+**Five left, and they are all in one state: nothing selected at all.** Every one
+takes a node by id, so none should need a selection, and every one examined so
+far turned out to be the probe rather than the product.
+`moveBlockToPosition` was measured three times: `targetIndex: 0` and then `1`
+were both the index the block was already at, because `wantsNode` hands over the
+*first* paragraph and where that sits is a fact about the fixture. **A payload
+written as a number is wrong the moment the document changes shape**, so it is
+derived now.
+
+They stay on the ceiling rather than being exempted, because *"probably the
+probe"* is not a reason — it is where to look next.
+
 One thing the attempt taught: a **scripted** rewrite across nineteen files
 matched `guards.ts`' own documentation and broke the file that defines the fix.
 Reverted, and the three that were genuinely mechanical were kept. The repository
