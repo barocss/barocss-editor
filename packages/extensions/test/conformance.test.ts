@@ -480,9 +480,16 @@ describe('every command this package registers', () => {
    * quietly stopped setting things up would drive this number *up* and fail, rather than reporting
    * a smaller, greener product.
    *
-   * It was **28**, and walking every run in the document rather than one took it to **23** — five
-   * commands that were only ever unaskable because a caret happened to be in a paragraph. What is
-   * left, and why:
+   * It was **28**. Walking every run in the document rather than one took it to **23**; ten guards
+   * that demanded `payload.selection` while their `execute` read the editor's took it to **14**.
+   *
+   * That second batch is the lesson. `setHeading`, `setHeading1`–`6`, `setParagraph` and
+   * `insertParagraph` all answered *no* to any caller that asked "can this run right now" without
+   * threading a selection — which is what a toolbar does on every render. `Editor.canRun` fills it
+   * in and hides the asymmetry; `canExecuteCommand` does not, and both are used. Ten commands sat in
+   * the unaskable column reading exactly like ten nobody had got round to.
+   *
+   * What is left:
    *
    * - **A find that has not been run.** `findNext`, `findPrev`, `replaceOne`, `replaceAll` all need
    *   a search in progress, and `find` itself is a stub. They come back when it does.
@@ -490,8 +497,8 @@ describe('every command this package registers', () => {
    * - **History that has not moved forward.** `redo` and `historyRedo` need an undo first; the probe
    *   does one edit, not an edit and an undo.
    * - **A payload the probe does not know how to make.** `deleteCrossNode` wants a range across two
-   *   nodes; `moveBlockUp`/`moveBlockDown`, `indentNode`/`outdentNode`, `insertParagraph` and
-   *   `insertEmoji` each want a node or a value in a shape not yet written down.
+   *   nodes; `moveBlockUp`/`moveBlockDown`, `indentNode`/`outdentNode`, `insertEmoji` and
+   *   `splitCell` each want a node, a value or a merged cell in a shape not yet written down.
    *
    * Every one of them is a **probe** gap rather than a product one, which is exactly what this
    * number is for: it says how much of the answer is still missing, out loud, instead of letting a
@@ -610,8 +617,8 @@ describe('every command this package registers', () => {
       commandChanges: (command: string) => moved.get(command) ?? null
     });
 
-    expect(report.examined['every-command-does-something']).toBeGreaterThanOrEqual(113);
-    expect(report.unanswered['every-command-does-something']).toBeLessThanOrEqual(23);
+    expect(report.examined['every-command-does-something']).toBeGreaterThanOrEqual(122);
+    expect(report.unanswered['every-command-does-something']).toBeLessThanOrEqual(14);
   });
 });
 

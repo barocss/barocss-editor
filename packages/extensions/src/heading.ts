@@ -1,4 +1,5 @@
 import { findAncestorNode } from '@barocss/datastore';
+import { hasRange } from './guards';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, control, transformNode } from '@barocss/model';
 
@@ -34,12 +35,27 @@ export class HeadingExtension implements Extension {
     this._options.levels?.forEach(level => {
       (editor as any).registerCommand({
         name: `setHeading${level}`,
-        execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
-          return await this._executeSetHeading(ed, level, payload?.selection);
-        },
-        canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
-          return !!payload?.selection && this._canSetHeading(_ed, level);
-        }
+        /*
+         * The **editor's** selection when the caller did not pass one, which is what every other
+         * command in this package does and these did not. A command only usable by a caller that
+         * threads its own selection is one a toolbar cannot call.
+         */
+        execute: async (ed: Editor, payload?: { selection?: ModelSelection }) =>
+          await this._executeSetHeading(ed, level, selectionOf(ed, payload)),
+        /**
+         * The **editor's** selection when the caller did not pass one — which its `execute` has always
+         * done and this had not.
+         *
+         * A guard that only reads `payload.selection` answers no to every caller that asks *can this
+         * run right now* before deciding what to send, which is what a toolbar does on every render.
+         * `Editor.canRun` fills the selection in and hides it; `canExecuteCommand` does not, and the
+         * two are used side by side. Ten commands were in this state — the six `setHeading{n}`,
+         * `setHeading`, `setParagraph` and `insertParagraph` — and the extensions' conformance run
+         * counted every one of them as a command it *could not ask about*, which reads exactly like
+         * ten commands nobody had got round to.
+         */
+        canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) =>
+          hasRange(ed, payload) && this._canSetHeading(ed, level) && !this._alreadyAt(ed, payload, level)
       });
     });
 
@@ -51,12 +67,14 @@ export class HeadingExtension implements Extension {
         if (typeof level !== 'number') {
           return false;
         }
-        return await this._executeSetHeading(ed, level, payload?.selection);
+        return await this._executeSetHeading(ed, level, selectionOf(ed, payload));
       },
-      canExecute: (_ed: Editor, payload?: { level?: number; selection?: ModelSelection }) => {
-        const level = payload?.level;
-        return typeof level === 'number' && !!payload?.selection && this._canSetHeading(_ed, level);
-      }
+      // The editor's selection when none is passed — see the note on the numbered commands above.
+      canExecute: (ed: Editor, payload?: { level?: number; selection?: ModelSelection }) =>
+        typeof payload?.level === 'number' &&
+        hasRange(ed, payload) &&
+        this._canSetHeading(ed, payload.level) &&
+        !this._alreadyAt(ed, payload, payload.level)
     });
 
     // Remove heading command
@@ -125,6 +143,24 @@ export class HeadingExtension implements Extension {
 
   private _canSetHeading(_editor: Editor, level: number): boolean {
     return this._options.levels?.includes(level) || false;
+  }
+
+  /**
+   * Whether the block is **already** that heading, which is a no-op and should not light a control.
+   *
+   * `_executeSetHeading` returns `true` in that case — defensible, because the state the reader asked
+   * for is the state they have. What is not defensible is a control that says it can run: 제목 1 over
+   * a heading 1 lit up, ran, reported success and changed nothing. A toolbar wants this as *active*
+   * rather than *enabled*, which is the same answer said in the right place.
+   */
+  private _alreadyAt(editor: Editor, payload: { selection?: ModelSelection } | undefined, level: number): boolean {
+    const selection = selectionOf(editor, payload);
+    const store = (editor as { dataStore?: any }).dataStore;
+    if (!selection || !store) return false;
+
+    const targetNodeId = this._getTargetBlockNodeId(store, selection);
+    const target = targetNodeId ? store.getNode(targetNodeId) : undefined;
+    return target?.stype === 'heading' && target?.attributes?.level === level;
   }
 
   /**
@@ -207,4 +243,12 @@ export class HeadingExtension implements Extension {
 // Convenience function
 export function createHeadingExtension(options?: HeadingExtensionOptions): HeadingExtension {
   return new HeadingExtension(options);
+}
+
+/** The selection a command should act on: the one it was handed, or the editor's. */
+function selectionOf(
+  editor: Editor,
+  payload: { selection?: ModelSelection } | undefined
+): ModelSelection | undefined {
+  return payload?.selection ?? (editor as { selection?: ModelSelection }).selection;
 }

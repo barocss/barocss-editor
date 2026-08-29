@@ -46,6 +46,42 @@ entries are that.
 
 ## Open
 
+### A heading's level could not be changed — 2026-08-29 *(fixed)*
+
+Closing the probe's *unanswered* column is the work of exercising the commands
+nothing had exercised, and it went 23 → **14** with one change and found two
+faults on the way.
+
+**Ten guards demanded `payload.selection` while their `execute` read the
+editor's.** `setHeading`, `setHeading1`–`6`, `setParagraph` and
+`insertParagraph` all answered *no* to any caller that asks "can this run right
+now" without threading a selection — which is what a toolbar does on every
+render. `Editor.canRun` fills it in and hides the asymmetry; `canExecuteCommand`
+does not, and both are used side by side. Ten commands sat in the unaskable
+column reading exactly like ten nobody had got round to.
+
+Asking them properly then found the real one:
+
+**`transformNode` treated *same type* as *nothing to do*, whatever the
+attributes said.** `node.stype === newType` was the whole test, so turning a
+heading 1 into a heading 2 returned success and wrote nothing. **A heading's
+level could not be changed** — in Word, whose toolbar offers all six. Measured
+by putting a caret in a heading and asking `setHeading2` whether it had done
+anything.
+
+And fixing that surfaced the one underneath it: **a transform merged the old
+node's attributes into the new one's.** Right for a heading becoming a heading,
+wrong for a heading becoming a paragraph — `level` is a heading's. Nothing drew
+it and nothing complained, so it sat there; what made it visible is **undo**.
+Turning a paragraph into a heading 1 and pressing ⌘Z produced
+`paragraph { level: 1 }`, because the inverse is a transform back and the stray
+attribute rode home with it. The attributes are filtered by what the new type
+declares now, and a type that declares nothing is left alone.
+
+The same-type path updates **in place** rather than recreating: a heading whose
+level changed is the same heading, and every selection, comment anchor and link
+pointing at it should survive.
+
 ### A list could not be turned back into paragraphs — 2026-08-29 *(fixed)*
 
 Two more questions on the extensions' probe, both free — it already has the

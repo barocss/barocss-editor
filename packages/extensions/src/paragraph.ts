@@ -1,4 +1,5 @@
 import { findAncestorNode } from '@barocss/datastore';
+import { hasRange } from './guards';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, control, transformNode, insertParagraph as insertParagraphOp, splitListItem as splitListItemOp } from '@barocss/model';
 
@@ -34,22 +35,33 @@ export class ParagraphExtension implements Extension {
     (editor as any).registerCommand({
       name: 'setParagraph',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
-        return await this._executeSetParagraph(ed, payload?.selection);
+        // The editor's selection when none is passed — see the guard beside this.
+        return await this._executeSetParagraph(ed, payload?.selection ?? (ed as { selection?: ModelSelection }).selection);
       },
-      canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
-        return !!payload?.selection;
-      }
+      /*
+       * The **editor's** selection when the caller did not pass one — which the `execute` beside this
+       * has always done. A guard that only reads `payload.selection` answers no to every caller that
+       * asks *can this run right now* before deciding what to send, which is what a toolbar does on
+       * every render. Ten commands were in this state and the conformance run counted them all as
+       * unaskable; see `heading.ts` for the note.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
     });
 
     // Enter key: insertParagraph (Model-first, transaction-based)
     (editor as any).registerCommand({
       name: 'insertParagraph',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
-        return await this._executeInsertParagraph(ed, payload?.selection);
+        return await this._executeInsertParagraph(ed, payload?.selection ?? (ed as { selection?: ModelSelection }).selection);
       },
-      canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
-        return !!payload?.selection;
-      }
+      /*
+       * The **editor's** selection when the caller did not pass one — which the `execute` beside this
+       * has always done. A guard that only reads `payload.selection` answers no to every caller that
+       * asks *can this run right now* before deciding what to send, which is what a toolbar does on
+       * every render. Ten commands were in this state and the conformance run counted them all as
+       * unaskable; see `heading.ts` for the note.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
     });
 
     // Keyboard shortcut registration is not yet directly handled by ParagraphExtension.

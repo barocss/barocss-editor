@@ -395,8 +395,36 @@ export class CoreOperations {
       return { valid: false, errors: [`Node not found: ${nodeId}`] };
     }
 
-    // No-op if same type
+    /**
+     * **A no-op only when the attributes match too**, which is the half this was missing.
+     *
+     * `node.stype === newType` was the whole test, so transforming a `heading` into a `heading` with
+     * a different `level` returned success and wrote nothing. What that cost is the ordinary case:
+     * a reader with the caret in a heading 1 pressing 제목 2 got a command that lit up, ran, reported
+     * success and left the heading at 1. **A heading's level could not be changed** — in Word, whose
+     * toolbar offers all six.
+     *
+     * Found by the extensions' conformance run, which put a caret in a heading and asked
+     * `setHeading2` whether it had done anything.
+     *
+     * The same type with different attributes is an **attribute change**, and it is written as one:
+     * updating in place keeps the sid, which recreating the node would not, and a heading whose level
+     * changed is the same heading — every selection, comment anchor and link pointing at it should
+     * survive.
+     */
     if (node.stype === newType) {
+      const wanted = { ...(node.attributes || {}), ...(newAttrs || {}) };
+      const held = (node.attributes || {}) as Record<string, unknown>;
+      const same = Object.keys(wanted).every((key) => wanted[key] === held[key]);
+      if (same) return { valid: true, errors: [], newNodeId: nodeId };
+
+      const activeSchema = this.dataStore.getActiveSchema();
+      if (activeSchema) {
+        const validation = this.dataStore.validateNode({ ...node, attributes: wanted }, activeSchema);
+        if (!validation.valid) return { valid: false, errors: validation.errors };
+      }
+
+      this.dataStore.updateNode(nodeId, { attributes: wanted }, false);
       return { valid: true, errors: [], newNodeId: nodeId };
     }
 
@@ -410,18 +438,33 @@ export class CoreOperations {
       }
     }
 
-    // Create new node (preserve existing properties, only change stype and attributes)
-    const newNode: INode = {
-      ...node,
-      stype: newType,
-      attributes: {
-        ...(node.attributes || {}),
-        ...(newAttrs || {})
-      }
-    };
+    /**
+     * The new node — and **only the attributes the new type has**.
+     *
+     * It was a flat merge of the old node's attributes with the new ones, which is right for a
+     * heading becoming a heading and wrong for a heading becoming a paragraph: `level` is a
+     * heading's, and a paragraph carrying one is a node with an attribute its type does not declare.
+     * Nothing drew it, and nothing complained, so it sat there.
+     *
+     * What made it visible is undo. Turning a paragraph into a heading 1 and pressing ⌘Z produced
+     * `paragraph { level: 1 }` — the inverse is a transform back, so the stray attribute rode home
+     * with it and the document after an undo was not the document before it.
+     *
+     * Filtered by the schema rather than by a list: a type that declares nothing is left alone, which
+     * is how a product adopting this before it has a full schema keeps working.
+     */
+    const activeSchema = this.dataStore.getActiveSchema();
+    const declared = (activeSchema as { nodes?: Map<string, { attrs?: Record<string, unknown> }> } | undefined)
+      ?.nodes?.get?.(newType)?.attrs;
+
+    const merged: Record<string, any> = { ...(node.attributes || {}), ...(newAttrs || {}) };
+    const kept = declared
+      ? Object.fromEntries(Object.entries(merged).filter(([key]) => key in declared))
+      : merged;
+
+    const newNode: INode = { ...node, stype: newType, attributes: kept };
 
     // Schema validation
-    const activeSchema = this.dataStore.getActiveSchema();
     if (activeSchema) {
       const validation = this.dataStore.validateNode(newNode, activeSchema);
       if (!validation.valid) {
