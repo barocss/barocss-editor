@@ -73,8 +73,13 @@ describe('the editor is a type, not an escape hatch', () => {
    * 339 → 338 when the site builder's `keydown` stopped restating its own key map: two branches that
    * each cast the editor to call `executeCommand` became one `runEntry`. A cast disappearing because
    * a duplicate declaration was removed is the ordinary way this number falls.
+   *
+   * 338 → 337 when `removeHeading`'s guard stopped being `return true`. Its `execute` walked to the
+   * block through `(editor as any).dataStore`; the walk moved into one method that both the guard and
+   * the run call, and the cast went with the duplicate. The same shape twice over: the cast was not
+   * the fault, it was standing next to it.
    */
-  const ALLOWED = 338;
+  const ALLOWED = 337;
 
   it('declares everything the casts are casting away', () => {
     const source = readFileSync(join(__dirname, '..', 'src', 'editor.ts'), 'utf8');

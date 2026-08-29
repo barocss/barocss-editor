@@ -46,6 +46,71 @@ entries are that.
 
 ## Open
 
+### The extensions had no self-test — measured 2026-08-29 *(harness written; 9 findings, 6 fixed)*
+
+Asked after a reader's question: *"shouldn't the extensions test themselves,
+independent of Word, Slides and the site? Why didn't they?"* Both halves are
+right, and the answer is worth keeping.
+
+**They have tests. The tests are the wrong shape.** 97 commands, 22 test files:
+
+| | |
+| --- | ---: |
+| commands registered in `packages/extensions` | 97 |
+| never named in any test | 36 |
+| test files that mock `commit` | 18 of 22 |
+
+`setFontSize`'s is representative. It builds a **fake** editor, mocks
+`transaction().commit()`, hands the command a good range, and asserts the
+*operation it would have built*. It never loads a document, never applies
+anything, never asks `canExecute`. So when its guard turned out to accept a
+collapsed range — where `applyMark` commits and changes nothing — every one of
+its tests passed, and **the passing tests are what made it invisible**.
+
+**And the mechanism that catches this already existed.** `every-command-does-
+something` runs a command over a real document and asks whether the document
+moved. It had only ever been wired **per product**, so whether a command was
+checked at all depended on whether Word's, the deck's or the site's probe
+happened to reach it. The deck caught `setFontColor` doing exactly this months
+ago; `setFontSize`, three lines away in a neighbouring file, survived because no
+product had put a size control on a surface.
+
+`packages/extensions/test/conformance.test.ts` is that check, wired where the
+commands live: a real editor with all 50 extensions, the standard schema, a
+document with one of most things in it. **136 commands — 88 move, 3 do not, 28
+cannot be asked**, and the third number is asserted as a ceiling so a probe that
+stops setting things up fails rather than looking greener.
+
+**Nine findings on the first run. Six fixed the same afternoon:**
+
+- **`TextFormattingExtension`: `canExecute: () => true` on six commands** whose
+  execute refuses without a range *and* without a value. Alive because they are
+  registered through a private helper, so a sweep reading `canExecute:` at each
+  command's own declaration never saw them.
+- **`DocStructureExtension`: four inserts that drew nothing.** `hasContent: true`
+  gave every node a **paragraph** as its empty content, and `docHeader`,
+  `docFooter` and `endnoteDef` hold `inline*` — the schema refused the child,
+  while the three beside them in the same table and through the same code worked.
+  `chart` was the fourth: it *requires* a `values` attribute and nothing checked.
+  Its seven guards were `() => true` as well.
+- **`removeHeading`: `return true`** under a comment reading *"conservative
+  default"*. 제목 해제 lit up with the caret in an ordinary paragraph.
+- **`splitListItem`: asked for a range and not for a list item.** There is
+  nothing to split outside one, and the operation knows that and quietly produces
+  nothing.
+
+Three left, on the ratchet: `removeColumn`, `splitCell`, `setFigcaption`.
+
+Two things the probe itself taught:
+
+- **A payload table is not cheating, and guessing at one is.** Six commands came
+  back broken because the keys were guessed from the registration call
+  (`spacing`, `height`, `shadow`) when the helper always uses `value`. A table
+  that had kept guessing would have reported six working commands as faults.
+- **A caret in a table cell was the wrong idea.** Nine table commands were added
+  a selection state and nothing changed, because their guards take a `cellId` and
+  never look at the selection at all.
+
 ### A panel with one row, and no way back up — measured 2026-08-29 *(fixed)*
 
 Started by asking what the site builder's panel offers per block kind, in the

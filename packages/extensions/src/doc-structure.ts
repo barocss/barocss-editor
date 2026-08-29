@@ -8,7 +8,20 @@ type DocStructureType =
 interface DocStructureSpec {
   cmd: string;
   stype: DocStructureType;
-  hasContent: boolean;
+  /**
+   * What an empty one is made of — and it is **not** a boolean.
+   *
+   * It was `hasContent: boolean`, and `true` meant *give it a paragraph*. Three of these hold
+   * `inline*`: `docHeader`, `docFooter` and `endnoteDef` are runs of words, not stacks of blocks. So
+   * the command built a header with a paragraph inside it, the schema refused the child, and the
+   * insert drew nothing — while `insertDocSection`, `insertBibliography` and `insertIndexBlock`,
+   * three lines away in the same table and through the same code, worked perfectly.
+   *
+   * Found by this package's own conformance run, which is the first thing that ever ran these:
+   * `every-command-does-something` reported four of the seven as commands that say yes and change
+   * nothing, and the four were exactly the ones whose content this got wrong.
+   */
+  holds: 'blocks' | 'words' | 'nothing';
   attrKeys?: string[];
 }
 
@@ -17,13 +30,13 @@ export class DocStructureExtension implements Extension {
   priority = 80;
 
   private static _specs: DocStructureSpec[] = [
-    { cmd: 'insertDocSection', stype: 'docSection', hasContent: true },
-    { cmd: 'insertDocHeader', stype: 'docHeader', hasContent: true },
-    { cmd: 'insertDocFooter', stype: 'docFooter', hasContent: true },
-    { cmd: 'insertBibliography', stype: 'bibliography', hasContent: true },
-    { cmd: 'insertEndnote', stype: 'endnoteDef', hasContent: true, attrKeys: ['id'] },
-    { cmd: 'insertIndexBlock', stype: 'indexBlock', hasContent: true },
-    { cmd: 'insertChart', stype: 'chart', hasContent: false, attrKeys: ['title', 'values'] },
+    { cmd: 'insertDocSection', stype: 'docSection', holds: 'blocks' },
+    { cmd: 'insertDocHeader', stype: 'docHeader', holds: 'words' },
+    { cmd: 'insertDocFooter', stype: 'docFooter', holds: 'words' },
+    { cmd: 'insertBibliography', stype: 'bibliography', holds: 'blocks' },
+    { cmd: 'insertEndnote', stype: 'endnoteDef', holds: 'words', attrKeys: ['id'] },
+    { cmd: 'insertIndexBlock', stype: 'indexBlock', holds: 'blocks' },
+    { cmd: 'insertChart', stype: 'chart', holds: 'nothing', attrKeys: ['title', 'values'] },
   ];
 
   onCreate(editor: Editor): void {
@@ -36,23 +49,43 @@ export class DocStructureExtension implements Extension {
 
           const nodeData: any = { stype: spec.stype };
 
-          if (spec.attrKeys && payload?.attrs) {
-            const attrs: Record<string, any> = {};
-            for (const key of spec.attrKeys) {
-              if (payload.attrs[key] !== undefined) attrs[key] = payload.attrs[key];
-            }
-            if (Object.keys(attrs).length > 0) nodeData.attributes = attrs;
+          const attrs = pickAttrs(spec, payload?.attrs);
+          if (attrs) nodeData.attributes = attrs;
+
+          /*
+           * An empty one, in the shape the node actually holds. A paragraph inside something that
+           * holds `inline*` is a child the schema refuses, and a refused child is an insert that
+           * reports success and draws nothing.
+           */
+          if (spec.holds === 'blocks') {
+            nodeData.content = [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: '' }] }];
+          } else if (spec.holds === 'words') {
+            nodeData.content = [{ stype: 'inline-text', text: '' }];
           }
 
-          if (spec.hasContent && !nodeData.content) {
-            nodeData.content = [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: '' }] }];
-          }
+          /*
+           * An attribute the node **requires** and the caller did not give is a node the schema will
+           * refuse — a `chart` with no `values` is the case here. Refusing in the command is the
+           * difference between a control that greys and one that runs and draws nothing.
+           */
+          if (spec.attrKeys && !hasRequired(ed, spec.stype, nodeData.attributes)) return false;
 
           const ops = [addChild(insertInfo.parentId, nodeData, insertInfo.position)];
           const result = await transaction(ed, ops, { applySelectionToView: true }).commit();
           return result.success;
         },
-        canExecute: () => true
+        /**
+         * **`() => true` was the whole guard**, on all seven, beside an execute that refuses without
+         * a range and — for two of them — without a required attribute.
+         *
+         * The class `guards.ts` names, found again by this package's own conformance run. A control
+         * that lights up and does nothing is worse than one that is missing, because a reader stops
+         * believing the rest of the surface.
+         */
+        canExecute: (ed: Editor, payload?: { selection?: ModelSelection; attrs?: Record<string, any> }) => {
+          if (!this._getInsertInfo(ed, payload?.selection)) return false;
+          return !spec.attrKeys || hasRequired(ed, spec.stype, pickAttrs(spec, payload?.attrs));
+        }
       });
     }
   }
@@ -90,4 +123,35 @@ export class DocStructureExtension implements Extension {
 
 export function createDocStructureExtension(): DocStructureExtension {
   return new DocStructureExtension();
+}
+
+/**
+ * The attributes this spec accepts, out of what a caller sent — or nothing when there are none.
+ *
+ * Lifted out of `execute` so that the guard and the run filter identically. Two copies of a filter
+ * is how a `canExecute` comes to be looser than its `execute` without anybody writing it that way.
+ */
+function pickAttrs(
+  spec: DocStructureSpec,
+  said: Record<string, any> | undefined
+): Record<string, any> | undefined {
+  if (!spec.attrKeys || !said) return undefined;
+  const attrs: Record<string, any> = {};
+  for (const key of spec.attrKeys) if (said[key] !== undefined) attrs[key] = said[key];
+  return Object.keys(attrs).length > 0 ? attrs : undefined;
+}
+
+/**
+ * Whether every attribute the schema **requires** of this node type has been given.
+ *
+ * `editor.dataStore` and `getActiveSchema()` are both public and typed; only the *shape* of a node
+ * definition needs naming, and it is named here rather than reached for with a cast — the engine
+ * counts those (`editor-is-typed`), and it counted this one the minute it was written.
+ */
+function hasRequired(editor: Editor, stype: string, attrs: Record<string, any> | undefined): boolean {
+  const schema = editor.dataStore?.getActiveSchema() as
+    | { nodes?: Map<string, { attrs?: Record<string, { required?: boolean }> }> }
+    | undefined;
+  const declared = schema?.nodes?.get(stype)?.attrs ?? {};
+  return Object.entries(declared).every(([key, one]) => !one?.required || attrs?.[key] !== undefined);
 }

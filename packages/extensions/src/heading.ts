@@ -127,9 +127,31 @@ export class HeadingExtension implements Extension {
     return this._options.levels?.includes(level) || false;
   }
 
-  private _canRemoveHeading(_editor: any): boolean {
-    // Conservative default: allow heading removal command when called
-    return true;
+  /**
+   * **Is the caret in a heading** — the same question the execute asks, asked here too.
+   *
+   * It was `return true` with the comment *"conservative default: allow heading removal command when
+   * called"*, and conservative is the wrong word for it: a menu entry called 제목 해제 lit up with the
+   * caret in an ordinary paragraph, ran, declined, and said nothing. Found by this package's own
+   * conformance run, which is the class `guards.ts` names — a `canExecute` looser than its `execute`.
+   *
+   * One lookup, used by both, so the two cannot come apart again.
+   */
+  private _canRemoveHeading(editor: any): boolean {
+    return this._headingAt(editor) !== undefined;
+  }
+
+  /** The heading the caret is in, if it is in one. */
+  private _headingAt(editor: any): string | undefined {
+    const selection: ModelSelection | null = editor?.selection ?? null;
+    if (!selection || selection.type !== 'range') return undefined;
+
+    const dataStore = editor?.dataStore;
+    if (!dataStore) return undefined;
+
+    const targetNodeId = this._getTargetBlockNodeId(dataStore, selection);
+    if (!targetNodeId) return undefined;
+    return dataStore.getNode(targetNodeId)?.stype === 'heading' ? targetNodeId : undefined;
   }
 
   /**
@@ -163,17 +185,8 @@ export class HeadingExtension implements Extension {
   }
 
   private async _removeHeading(editor: any): Promise<boolean> {
-    const selection: ModelSelection | null = editor.selection;
-    if (!selection || selection.type !== 'range') return false;
-
-    const dataStore = (editor as any).dataStore;
-    if (!dataStore) return false;
-
-    const targetNodeId = this._getTargetBlockNodeId(dataStore, selection);
+    const targetNodeId = this._headingAt(editor);
     if (!targetNodeId) return false;
-
-    const targetNode = dataStore.getNode(targetNodeId);
-    if (!targetNode || targetNode.stype !== 'heading') return false;
 
     const ops = [
       ...control(targetNodeId, [

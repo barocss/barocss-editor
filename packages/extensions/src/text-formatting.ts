@@ -1,5 +1,6 @@
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, toggleMark, applyMark } from '@barocss/model';
+import { hasRange } from './guards';
 
 /**
  * TextFormattingExtension — aggregates less-common text-style marks:
@@ -41,10 +42,14 @@ export class TextFormattingExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
-        const sel = payload?.selection || (_ed as any).selection;
-        return !!sel && sel.type === 'range';
-      }
+      /*
+       * A mark covers the text **between two points**. On a caret `toggleMark` commits and changes
+       * nothing, so a control over one lit up, ran, reported success and drew nothing — see
+       * `guards.ts`, which was written for exactly this and applied to nine commands while these
+       * three, registered through a helper, were not among them.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) =>
+        hasRange(ed, payload, 'something')
     });
   }
 
@@ -63,7 +68,24 @@ export class TextFormattingExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      canExecute: () => true
+      /**
+       * **`() => true` was the whole guard**, on four commands, next to an execute that refuses
+       * without a range *and* without a value.
+       *
+       * Found by the conformance run in this package's own tests — the first thing it did. It is the
+       * class `guards.ts` names and this is the fourth batch of it: a control lights up, a reader
+       * presses it, the command declines, and the reason goes to a console nobody is watching. What
+       * kept it alive here is that these four are registered through a helper, so a sweep reading
+       * `canExecute:` at each command's own declaration never saw them.
+       *
+       * The value is part of the guard because it is part of the execute. A colour command may
+       * legitimately say yes before a colour is picked — a control has to know whether to be enabled
+       * before it knows what it will send — but that is a claim about a payload the *caller* has not
+       * filled in yet, and it only holds when the caller is going to. Here the value is the whole
+       * command: `setLineHeight` with no height is not a control waiting for input, it is a mistake.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; value?: string }) =>
+        hasRange(ed, payload, 'something') && payload?.value !== undefined
     });
   }
 
@@ -88,7 +110,16 @@ export class TextFormattingExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      canExecute: () => true
+      /**
+       * The same, and one thing more: the execute also refuses `attrs` that holds **none of the keys
+       * this mark takes**, so the guard has to ask the same question or it is looser again.
+       *
+       * `{ colour: 'red' }` on a border — a caller who spelled it the other way — passes an `attrs`
+       * check and fails the filter inside, which is a yes followed by nothing.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; attrs?: Record<string, string> }) =>
+        hasRange(ed, payload, 'something') &&
+        attrKeys.some((key) => payload?.attrs?.[key] !== undefined)
     });
   }
 }
