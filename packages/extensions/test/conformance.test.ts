@@ -205,7 +205,7 @@ for (const name of ['findNext', 'findPrev', 'replaceOne', 'replaceAll']) {
     await editor.executeCommand('find', { query: '문단', replacement: '단락' });
   };
 }
-for (const name of ['hideSlashMenu', 'filterSlashMenu', 'runSlashMenuItem']) {
+for (const name of ['hideSlashMenu', 'filterSlashMenu', 'runSlashMenuItem', 'moveSlashMenu']) {
   BEFORE[name] = async (editor) => {
     await editor.executeCommand('showSlashMenu', {});
   };
@@ -417,6 +417,7 @@ describe('every command this package registers', () => {
      * probe opens a menu before asking it now, so the claim is real again.
      */
     showSlashMenu: 'opens a menu',
+    moveSlashMenu: 'moves the highlight down the rows — a place in a list, not a change to the page',
     filterSlashMenu: 'narrows the rows the menu is showing as the reader types',
     hideSlashMenu: 'closes it — and it is asked now, because the probe opens one first',
     /*

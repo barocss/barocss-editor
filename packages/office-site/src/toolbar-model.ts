@@ -270,6 +270,44 @@ export function siteToolbarCommands(): string[] {
 }
 
 /** The controls in one group, in the order the ribbon draws them. */
+/**
+ * The `/` menu's rows, **made from this list** rather than written a second time.
+ *
+ * ## Why it is derived
+ *
+ * A slash menu and an insert toolbar answer the same question — *what can I put here* — and the
+ * only difference is how the reader asked. Two lists is how they come apart: an insert added to one
+ * and not the other is a reader who can find a thing by pressing and not by typing, and the version
+ * of that fault this repository already has on record is a menubar printing eleven chords the key
+ * handler answered none of.
+ *
+ * So the toolbar is the declaration and this is a reading of it. Everything a row needs is already
+ * there: `label` is what it is called, `title` is the sentence beside it, `icon` is the picture, and
+ * `makes` is what appears — which is a better description for a menu than a toolbar's tooltip,
+ * because a reader typing `/제` is looking for the **thing**, not the button.
+ *
+ * `puts` is what narrows it: a slash menu is typed **into a block**, so the containers are not on it.
+ * A reader who wants a section reaches for the rail, where a container is a thing you place rather
+ * than a thing you type.
+ */
+export function siteSlashItems(): {
+  id: string;
+  label: string;
+  description?: string;
+  icon?: string;
+  command: string;
+  group?: string;
+}[] {
+  return SITE_TOOLBAR.filter((one) => one.group === 'insert' && one.puts === 'block').map((one) => ({
+    id: one.command,
+    label: one.label,
+    description: one.makes,
+    icon: one.icon,
+    command: one.command,
+    group: 'insert'
+  }));
+}
+
 export function siteControlsIn(group: SiteControl['group']): SiteControl[] {
   return SITE_TOOLBAR.filter((one) => one.group === group);
 }

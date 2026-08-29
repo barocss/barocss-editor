@@ -36,6 +36,7 @@ import {
 } from '@barocss/office-site';
 import { Canvas } from './canvas';
 import { Inspector } from './inspector';
+import { SlashSurface } from './slash-surface';
 import { TextSurface } from './text-surface';
 import { Rail, type Panel as RailPanel } from './rail';
 import { CodeEditor, type CodeEdit } from './code-editor';
@@ -1056,6 +1057,9 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           installed by nobody.
         */}
         {editor ? <TextSurface editor={editor} mode={mode} /> : null}
+
+        {/* And the `/` menu at the caret — the second one, and it is a list. */}
+        {editor ? <SlashSurface editor={editor} mode={mode} /> : null}
 
         {editor ? (
           <Inspector

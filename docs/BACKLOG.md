@@ -46,6 +46,45 @@ entries are that.
 
 ## Open
 
+### The `/` menu, and the test of the split — 2026-08-29
+
+The point of publishing *where the selection is* was that a **second** floating
+surface should be a list rather than a mechanism. The site's `/` menu is that
+test, and it held: rows, a keydown handler, and one more published thing.
+
+**Its rows are the toolbar's insert group, read** — `siteSlashItems()`. Two lists
+is how a slash menu and an insert toolbar come apart: an insert added to one and
+not the other is a thing a reader can find by pressing and not by typing, which
+is the same fault already on record here as a menubar printing eleven chords the
+key handler answered none of.
+
+**`Editor.getExtension` was the one thing still missing.** The suite's shape is
+that an extension holds commands and *state* and a product draws it — a menu's
+open flag, its rows, the highlighted one. `_extensions` was private, so a
+product's only route to a piece of state was to keep its own copy and hope the
+two agreed. **Which is why the two extensions with state to show drew it
+themselves.** Publishing the object took two casts with it: 330 → **328**.
+
+Two faults of my own, both found by a screenshot rather than a state dump:
+
+- **`useLayoutEffect` with `children` in its deps** — a new array every render,
+  so measure, set state, render, measure. React stopped it with *"Maximum update
+  depth exceeded"*, the surface threw and unmounted, and the menu was **built
+  perfectly and never appeared**: the state dump showed nine correct rows and the
+  page had nothing on it.
+- **The effect that opens the menu depended on `revision` and raised it.** Filter,
+  tell, re-render, filter. It calls only when the query actually changed now.
+
+Both are the same shape and worth naming together: *a measurement that is also a
+cause*. The state was right at every point and the page was empty, which is
+exactly the class of fault a screenshot finds and a log does not.
+
+And one design note taken while wiring it: **`/` is not a chord.** A key map
+answers a key with modifiers in a mode; `/` is a character typed into the
+document, and the menu opens *because the document now ends with one*. Binding it
+would mean a reader could never type a slash. So the app watches what was typed —
+its own business — and everything after that is a command the key map can bind.
+
 ### A floating surface needed four layers and the repository had three — 2026-08-29 *(fixed)*
 
 Asked: *how do you build a floating toolbar or a `/` menu properly in an app?*

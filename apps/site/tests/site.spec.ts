@@ -3179,6 +3179,56 @@ test.describe('a link to another page', () => {
    * Asserted as a **position** rather than as an element that exists, because existing is the easy
    * half: a toolbar in the corner of the window is a toolbar that appeared and did not follow.
    */
+  /**
+   * **The `/` menu — the second floating surface, and it is a list.**
+   *
+   * That is the test of the split. The first cost four layers: a declaration, a command and its
+   * state, a themed component, and *where the selection is on screen*. With all four in place this
+   * is rows and a keydown handler, and its rows are **the toolbar's insert group, read** — two lists
+   * is how a slash menu and an insert toolbar come apart.
+   */
+  test('a slash menu opens at the caret, offers what the page can insert, and runs a row', async ({ page }) => {
+    await ready(page);
+
+    const hero = page.locator('[data-frame="mobile"] h1');
+    await pressDeep(page, hero);
+    await page.waitForTimeout(200);
+    await pressTwice(page, hero);
+    await page.waitForTimeout(400);
+    await page.keyboard.press('End');
+    await page.keyboard.type(' /');
+    await page.waitForTimeout(500);
+
+    const rows = page.locator('[data-slash-item]');
+    await expect(rows).toHaveCount(9);
+    // This product's own inserts, not the shared kit's: a page's blocks have a page's names.
+    await expect(page.locator('[data-slash-item="insertQuote"]')).toHaveText(/인용/);
+
+    /*
+     * Below the caret, because a caret at the top of a heading has no room above it — the surface
+     * flips rather than sitting off the window, which is the case a constant offset gets wrong.
+     */
+    const menu = (await page.locator('[data-floating-surface]').boundingBox())!;
+    const caret = await page.evaluate(() => {
+      const dom = window.getSelection();
+      const at = dom && dom.rangeCount ? dom.getRangeAt(0).getBoundingClientRect() : null;
+      return at ? { top: at.top, bottom: at.bottom } : null;
+    });
+    expect(menu.y).toBeGreaterThanOrEqual(caret!.top - 1);
+
+    // Typing narrows it, and the arrow moves the highlight.
+    await page.keyboard.type('인');
+    await page.waitForTimeout(400);
+    await expect(rows).toHaveCount(1);
+
+    // And Enter runs the row, which puts a block on the page.
+    const before = await page.locator('[data-frame="desktop"] blockquote').count();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(600);
+    await expect(page.locator('[data-floating-surface]')).toHaveCount(0);
+    expect(await page.locator('[data-frame="desktop"] blockquote').count()).toBe(before + 1);
+  });
+
   test('a toolbar follows the words a reader has chosen, and goes when they let go', async ({ page }) => {
     await ready(page);
     await expect(page.locator('[data-floating-surface]')).toHaveCount(0);

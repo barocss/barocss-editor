@@ -97,8 +97,13 @@ describe('the editor is a type, not an escape hatch', () => {
    * 331 → 330 when the slash menu stopped drawing its own. The floating toolbar went with it —
    * deleted rather than rewritten, because it registered no commands at all: a selection toolbar,
    * entirely UI, sitting in the model layer, that no product had ever built the equivalent of.
+   *
+   * 330 → 328 when `Editor.getExtension` was published. The slash menu had been reaching around the
+   * registry for `emit` and `commandNames`, both of which the engine has had all along — a cast
+   * beside a public member is usually a caller who could not get at the *object*, and publishing the
+   * object took the casts with it.
    */
-  const ALLOWED = 330;
+  const ALLOWED = 328;
 
   it('declares everything the casts are casting away', () => {
     const source = readFileSync(join(__dirname, '..', 'src', 'editor.ts'), 'utf8');

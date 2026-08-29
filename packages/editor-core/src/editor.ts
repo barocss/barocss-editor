@@ -969,6 +969,25 @@ export class Editor implements ContextProvider {
     return null;
   }
 
+  /**
+   * An extension, by name — **so a product can draw what one is holding.**
+   *
+   * The suite's shape is that an extension holds commands and *state* and a product draws it: a `/`
+   * menu's open flag and its rows, a search's match count, a slash menu's highlighted row. Every one
+   * of those is a fact the model owns and the app renders.
+   *
+   * Nothing published it. `_extensions` is private, so a product's only way to a piece of state was
+   * to keep its own copy and hope the two agreed — which is why the two extensions in this suite
+   * that had state to show **drew it themselves**, in a model package, and were installed by nobody.
+   *
+   * By the instance's `name`, which is what the registry is keyed by and what an extension calls
+   * itself. Returns nothing for one that is not installed, which is the honest answer for a product
+   * that did not take it.
+   */
+  getExtension<T extends Extension = Extension>(name: string): T | undefined {
+    return this._extensions.get(name) as T | undefined;
+  }
+
   on(event: EditorEventType, callback: Function): void {
     if (!this._eventListeners.has(event)) {
       this._eventListeners.set(event, new Set());

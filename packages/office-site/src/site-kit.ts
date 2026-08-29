@@ -31,6 +31,7 @@ import {
   SubSuperExtension,
   TextFormattingExtension,
   UnderlineExtension,
+  SlashCommandExtension,
   createBasicExtensions,
   createCoreExtensions
 } from '@barocss/extensions';
@@ -39,6 +40,7 @@ import { SiteClipboardExtension } from './clipboard-commands';
 import { createSchema } from '@barocss/schema';
 import { installSiteResolution } from './collection-resolution';
 import { getSiteSchemaDefinition } from './site-schema';
+import { siteSlashItems } from './toolbar-model';
 import { createStackCommands } from './stack-commands';
 import { createBlockCommands } from './block-commands';
 import { createDataCommands } from './data-commands';
@@ -127,6 +129,21 @@ export function createSiteExtensions(): Extension[] {
     new SubSuperExtension(),
     new TextFormattingExtension(),
     new DragDropExtension(),
+
+    /**
+     * The `/` menu, **with this product's own rows**.
+     *
+     * The shared defaults name `insertCallout`, `insertMathBlock`, `insertComment` and the kit's
+     * `setHeading` — none of which this product registers, because a page's inserts are its own
+     * (`insertHeading`, `insertBodyText`, `insertQuote`…). The extension filters to what the editor
+     * can run, so passing nothing would still be safe; passing the list makes the menu say what a
+     * page *offers* rather than what survived a filter.
+     *
+     * And the list is `siteSlashItems()` — the **toolbar's** insert group, read. Two lists is how a
+     * slash menu and an insert toolbar come apart: an insert added to one and not the other is a
+     * thing a reader can find by pressing and not by typing.
+     */
+    new SlashCommandExtension({ items: siteSlashItems() }),
 
     ...createSiteOwnExtensions()
   ];

@@ -80,6 +80,7 @@ export {
 export {
   SITE_TOOLBAR,
   siteControlsIn,
+  siteSlashItems,
   siteToolbarCommands,
   siteToolbarIcons,
   type SiteControl

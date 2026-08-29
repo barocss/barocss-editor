@@ -125,6 +125,19 @@ export class SlashCommandExtension implements Extension {
     );
     register('hideSlashMenu', () => this._close(), () => this._state.open);
 
+    /**
+     * Moving the highlight — **a command, not a method**.
+     *
+     * It was `moveBy()` on the instance, which meant a product reached past the registry to call it:
+     * a surface the harness cannot see, and one no key map can bind. Every other thing this menu
+     * does is a command, and the highlight is the one a reader presses most.
+     */
+    register(
+      'moveSlashMenu',
+      (payload) => this._moveBy((payload as { by?: number } | undefined)?.by ?? 1),
+      () => this._state.items.length > 0
+    );
+
     /** Narrowing as the reader types — the product sends what it has, this decides what is left. */
     register(
       'filterSlashMenu',
@@ -153,11 +166,7 @@ export class SlashCommandExtension implements Extension {
          * A command that says it worked before the work happened is the same fault as one that says
          * it can run and then does nothing, a moment earlier.
          */
-        return (
-          (await (editor as never as {
-            executeCommand: (name: string, payload?: unknown) => Promise<unknown>;
-          }).executeCommand(item.command, item.payload ?? {})) === true
-        );
+        return (await editor.executeCommand(item.command, item.payload ?? {})) === true;
       },
       () => this._state.currentIndex >= 0
     );
@@ -169,10 +178,23 @@ export class SlashCommandExtension implements Extension {
   }
 
   /** Move the highlight, rounding — a reader at the last row pressing down means the first. */
-  moveBy(step: number): void {
+  private _moveBy(step: number): boolean {
     const held = this._state.items;
-    if (held.length === 0) return;
+    if (held.length === 0) return false;
     this._state.currentIndex = (this._state.currentIndex + step + held.length) % held.length;
+    this._told();
+    return true;
+  }
+
+  /**
+   * Say that it changed, so a product redraws.
+   *
+   * An event rather than a callback the product hands in: several things may want to know — the menu
+   * itself, a status line, a test — and a callback is one of them. `watchAnswers` already carries the
+   * events a surface listens to; this is one more of the same kind.
+   */
+  private _told(): void {
+    this._editor?.emit('editor:slashMenu.change', this._state);
   }
 
   private _open(query: string): boolean {
@@ -186,11 +208,13 @@ export class SlashCommandExtension implements Extension {
     );
 
     this._state = { open: true, query, items, currentIndex: items.length > 0 ? 0 : -1 };
+    this._told();
     return true;
   }
 
   private _close(): boolean {
     this._state = { open: false, query: '', items: [], currentIndex: -1 };
+    this._told();
     return true;
   }
 
@@ -205,9 +229,7 @@ export class SlashCommandExtension implements Extension {
    */
   private _offered(): SlashMenuItem[] {
     const items = this._options.items ?? DEFAULT_ITEMS;
-    const known = new Set(
-      (this._editor as never as { commandNames?: () => string[] })?.commandNames?.() ?? []
-    );
+    const known = new Set(this._editor?.commandNames() ?? []);
     return known.size === 0 ? items : items.filter((item) => known.has(item.command));
   }
 }

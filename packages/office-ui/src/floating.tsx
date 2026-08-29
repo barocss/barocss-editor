@@ -62,7 +62,7 @@ export function FloatingSurface({
    */
   useLayoutEffect(() => {
     if (!open || !at || !host.current) {
-      setPlaced(null);
+      setPlaced((held) => (held === null ? held : null));
       return;
     }
 
@@ -77,8 +77,20 @@ export function FloatingSurface({
     const wanted = at.left + at.width / 2 - box.width / 2;
     const left = Math.min(Math.max(wanted, margin), window.innerWidth - box.width - margin);
 
-    setPlaced({ top, left });
-  }, [open, at, gap, children]);
+    /*
+     * **Only when it moved**, and the guard is not a nicety.
+     *
+     * This runs after every layout and sets state, so an unconditional `setPlaced` is a render that
+     * schedules a layout that schedules a render. The first version had `children` in the dependency
+     * list as well — a new array on every render — and React stopped it with *"Maximum update depth
+     * exceeded"*: the surface rendered, threw, and unmounted, so the menu was **built correctly and
+     * never appeared**. Everything measured right and nothing was on the page, which is the shape of
+     * fault a screenshot finds and a state dump does not.
+     */
+    setPlaced((held) =>
+      held && Math.abs(held.top - top) < 0.5 && Math.abs(held.left - left) < 0.5 ? held : { top, left }
+    );
+  }, [open, at, gap]);
 
   if (!open || !at || typeof document === 'undefined') return null;
 
