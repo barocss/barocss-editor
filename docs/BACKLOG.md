@@ -46,6 +46,53 @@ entries are that.
 
 ## Open
 
+### The layer is three, not two — 2026-08-29 *(the last two UI extensions resolved)*
+
+Asked directly: *if an extension draws its own DOM, does every application have
+to build its own copy?* Half right, and the missing half is the one that makes
+this engine worth having. The split is **three**, not two:
+
+| layer | what it holds | shared? |
+| --- | --- | --- |
+| `extensions` | commands, state, no DOM | yes, by every product |
+| `office-ui` | the drawing — tokens, themes, `Toolbar`, `PropertyPanel`, `Tip` | **yes, by every product** |
+| the app | which command, which panel, where | no, and that is the point |
+
+So UI *is* shared. What cannot be shared is UI **in the model package**, because
+a product cannot theme it, place it or style it — which is exactly why three
+extensions sat in no kit.
+
+`SlashCommandExtension` was the last one with a model half worth keeping, and it
+had three faults in one file:
+
+- **It drew its own menu** — the reason nothing installed it.
+- **Its icons were unicode characters**: `¶ • ☑ — ⊞ ℹ ⚠ ∑ 💬`. This repository
+  has one absolute rule there and a character is not an icon. The defaults name
+  none now: `office-icons` has no heading, quotation, code block or divider yet,
+  and inventing eight for a menu nobody renders is the same mistake in a new
+  package. A product that draws this menu names icons from its own vocabulary.
+- **It listed commands a product may not have.** `insertComment` is Word's;
+  `insertCallout` and `insertMathBlock` are ones Word deliberately leaves out.
+  A shared default list offering rows that decline is
+  `every-command-does-something`'s fault waiting to happen — so the menu answers
+  with **what this editor actually registers** and cannot show a dead row.
+
+`FloatingToolbarExtension` was **deleted**, not rewritten. It registered *no
+commands at all* — a selection toolbar, entirely UI, in the model layer, and no
+product had ever built the equivalent. Writing it into `office-ui` instead would
+be a component nobody renders at a new address; the day a product wants one, it
+belongs there, where it can take the tokens all three theme by.
+
+Two more faults fell out of the rewrite:
+
+- **`runSlashMenuItem` reported success before the work happened** — it fired the
+  row's command without awaiting and returned `true`, so it would have said yes
+  even for a row whose command declined. The same fault as *says it can run and
+  then does nothing*, one moment earlier.
+- The cast count went **331 → 330**, and the exemption list on
+  `every-extension-is-in-a-kit` is now **empty**: every extension this package
+  exports is one a product can install.
+
 ### Four extensions were in no kit, and three of them drew their own UI — 2026-08-29 *(fixed)*
 
 `FindReplaceExtension` was called a stub in three places for months and was

@@ -93,8 +93,12 @@ describe('the editor is a type, not an escape hatch', () => {
    * hatch's name inside a note about avoiding it adds to the number. Worth knowing about the
    * measurement rather than working around — a count that reads prose is a count that can be argued
    * with, and the argument is cheaper than the alternative, which is a count nobody keeps.
+   *
+   * 331 → 330 when the slash menu stopped drawing its own. The floating toolbar went with it —
+   * deleted rather than rewritten, because it registered no commands at all: a selection toolbar,
+   * entirely UI, sitting in the model layer, that no product had ever built the equivalent of.
    */
-  const ALLOWED = 331;
+  const ALLOWED = 330;
 
   it('declares everything the casts are casting away', () => {
     const source = readFileSync(join(__dirname, '..', 'src', 'editor.ts'), 'utf8');

@@ -22,7 +22,6 @@ export * from './code-block';
 export * from './horizontal-rule';
 export * from './table';
 export * from './slash-command';
-export * from './floating-toolbar';
 export * from './drag-drop';
 export * from './hard-break';
 export * from './code-mark';
@@ -85,6 +84,7 @@ import { HighlightExtension } from './highlight';
 import { FontColorExtension } from './font-color';
 import { SubSuperExtension } from './sub-super';
 import { EmojiExtension } from './emoji';
+import { SlashCommandExtension } from './slash-command';
 import { FindReplaceExtension } from './find-replace';
 import { MathInlineExtension } from './math-inline';
 import { PageBreakExtension } from './page-break';
@@ -164,6 +164,7 @@ export function createRichExtensions(): Extension[] {
      */
     new EmojiExtension(),
     new FindReplaceExtension(),
+    new SlashCommandExtension(),
     new PageBreakExtension(),
     new PullQuoteExtension(),
     new ColumnsExtension(),

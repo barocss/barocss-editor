@@ -41,17 +41,17 @@ describe('every extension this package exports', () => {
   /**
    * Extensions a product **cannot** install as they are, and what has to change first.
    *
-   * Not "we chose not to ship these". Each of these is a shared model package building UI — the
-   * exact reason `FindReplaceExtension` sat unused while three places explained its absence wrongly,
-   * and the exact thing that was removed from it to make it installable.
+   * **Empty**, and it was three: `FindReplaceExtension`, `SlashCommandExtension` and
+   * `FloatingToolbarExtension`, every one of them a shared model package building its own DOM.
+   * Two had their drawing taken out and went into a kit; the third registered **no commands at
+   * all** — a selection toolbar, entirely UI, in the model layer, that no product had ever built the
+   * equivalent of. It was deleted rather than moved, because a component nobody renders written into
+   * a second package is the same mistake with a new address. The day a product wants a floating
+   * toolbar it belongs in `office-ui`, where it can take the tokens all three products theme by.
+   *
+   * An entry here is a claim about why nobody *can* install something, not a note that nobody has.
    */
-  const cannotBeInstalled: Record<string, string> = {
-    slashCommand:
-      'builds a menu with `document.createElement` and inline styles — 14 lines of DOM in a model ' +
-      'package. A product draws its own menu; this one cannot be themed, placed or styled by it',
-    floatingToolbar:
-      'the same, for a toolbar. `office-ui` has one that takes tokens; this one has `background: white`'
-  };
+  const cannotBeInstalled: Record<string, string> = {};
 
   it('is in a kit, or names what would have to change first', () => {
     const classes = Object.entries(extensions).filter(

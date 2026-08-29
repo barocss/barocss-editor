@@ -205,9 +205,11 @@ for (const name of ['findNext', 'findPrev', 'replaceOne', 'replaceAll']) {
     await editor.executeCommand('find', { query: '문단', replacement: '단락' });
   };
 }
-BEFORE.hideSlashMenu = async (editor) => {
-  await editor.executeCommand('showSlashMenu', {});
-};
+for (const name of ['hideSlashMenu', 'filterSlashMenu', 'runSlashMenuItem']) {
+  BEFORE[name] = async (editor) => {
+    await editor.executeCommand('showSlashMenu', {});
+  };
+}
 
 /**
  * What each of these needs is **a node of some kind**, and the key each one calls it.
@@ -415,6 +417,7 @@ describe('every command this package registers', () => {
      * probe opens a menu before asking it now, so the claim is real again.
      */
     showSlashMenu: 'opens a menu',
+    filterSlashMenu: 'narrows the rows the menu is showing as the reader types',
     hideSlashMenu: 'closes it — and it is asked now, because the probe opens one first',
     /*
      * Tab and ⇧Tab between cells. What they are **for** is moving the caret, and only one case in a
