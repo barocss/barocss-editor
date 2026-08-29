@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { assertConforms, conformance } from '@barocss/conformance';
 import { DataStore } from '@barocss/datastore';
-import { createSchema, getStandardSchemaDefinition } from '@barocss/schema';
+import { createSchema, getStandardSchemaDefinition, validateTree } from '@barocss/schema';
 import * as extensions from '../src';
 
 /**
@@ -122,6 +122,35 @@ const SAYS: Record<string, Record<string, unknown>> = {
  * own fault and a worse one."* Nothing had ever collected the second answer.
  */
 const UNDONE: string[] = [];
+
+/**
+ * Commands that move the document and cannot be **put forward again** — the third leg of a history.
+ *
+ * Undo and redo are not one mechanism tested twice. Undo replays an *inverse*; redo replays the
+ * *original*, against a document the undo has just rewritten — so a redo that fails is a command
+ * whose operation is not repeatable against its own result, which is a different fault and one no
+ * amount of undo testing reaches.
+ */
+const UNREDONE: string[] = [];
+
+/**
+ * Commands that leave a document the **schema will not accept**.
+ *
+ * Operations validate what they write, one node at a time; nothing had ever asked whether the tree
+ * they leave behind is still a tree this schema describes. `validateTree` is the check written for
+ * exactly that gap — see its own note, where a deck's sample table drew perfectly and every table
+ * operation refused it, four levels away from the thing that was wrong.
+ */
+const BROKEN: string[] = [];
+
+/**
+ * The two that are not faults and could not be.
+ *
+ * Undoing an `undo` is a **redo**, and the document is supposed to end up where the undo left it —
+ * not where it started. Both history questions below have to say so out loud, because the alternative
+ * is a probe that reports the history as broken by the history working.
+ */
+const HISTORY = new Set(['undo', 'historyUndo']);
 
 const AFTER_AN_EDIT = new Set(['undo', 'redo', 'historyUndo', 'historyRedo']);
 
@@ -269,23 +298,41 @@ const document_ = () => ({
  * So: an empty array or an empty object is the same as absent, and `metadata` is the store's own
  * bookkeeping rather than the document.
  */
-const meaning = (node: unknown): unknown => {
-  if (Array.isArray(node)) return node.map(meaning);
+const meaning = (node: unknown, keepSids = true): unknown => {
+  if (Array.isArray(node)) return node.map((one) => meaning(one, keepSids));
   if (!node || typeof node !== 'object') return node;
 
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
     if (key === 'metadata') continue;
+    if (!keepSids && (key === 'sid' || key === 'parentId')) continue;
     if (value === undefined || value === null) continue;
     if (Array.isArray(value) && value.length === 0) continue;
     if (!Array.isArray(value) && typeof value === 'object' && Object.keys(value as object).length === 0) continue;
-    out[key] = meaning(value);
+    out[key] = meaning(value, keepSids);
   }
   return out;
 };
 
 const asWritten = (editor: { exportDocument: (sid: string) => unknown; getRootId: () => string }) =>
   JSON.stringify(meaning(editor.exportDocument(editor.getRootId()) ?? ''));
+
+/**
+ * The same, **without the identity of the nodes** — which is what a *redo* has to be compared by.
+ *
+ * The two history questions are not one mechanism asked twice, and the difference is exactly here.
+ *
+ * **Undo** is *put it back*, and back means the same nodes: a selection, a comment anchor or a link
+ * points at a sid, and an undo that returned an equivalent document made of new nodes would break
+ * every one of them. So undo is compared strictly, and that strictness is what caught a `deleteNode`
+ * returning an empty paragraph.
+ *
+ * **Redo** is *do it again*, and doing it again makes new nodes exactly as doing it the first time
+ * did. Compared strictly, **15** commands looked broken — every insert and every block toggle —
+ * and every one of them had reproduced the document perfectly with fresh sids.
+ */
+const asMeant = (editor: { exportDocument: (sid: string) => unknown; getRootId: () => string }) =>
+  JSON.stringify(meaning(editor.exportDocument(editor.getRootId()) ?? '', false));
 
 const everyExtension = () =>
   Object.entries(extensions)
@@ -469,7 +516,55 @@ describe('every command this package registers', () => {
    * commands that cannot be undone, which is a finding so large it can only be the probe.
    */
   it('gives the document back when it is undone', () => {
-    expect(UNDONE.filter((one) => one !== 'undo' && one !== 'historyUndo')).toEqual([]);
+    expect(UNDONE.filter((one) => !HISTORY.has(one))).toEqual([]);
+  });
+
+  /**
+   * **And does it again when it is redone**, which is not the same claim.
+   *
+   * Undo replays an *inverse*; redo replays the *original*, against a document the undo has just
+   * rewritten. A command whose operation is not repeatable against its own result fails here and
+   * nowhere else, however many times undo is tested.
+   *
+   * Compared by `asMeant` rather than `asWritten` — see the note there. Doing something again makes
+   * new nodes, exactly as doing it the first time did; only *undo* owes the reader the same ones.
+   */
+  it('does it again when it is redone', () => {
+    expect(UNREDONE.filter((one) => !HISTORY.has(one))).toEqual([]);
+  });
+
+  /**
+   * **And leaves a document the schema still accepts.**
+   *
+   * Operations validate what they *write* — one node, as it goes in — and nothing had ever asked
+   * whether the tree they add up to is still a tree this schema describes. That is the gap
+   * `validateTree` was written for, and its own note is the reason to keep asking: a deck's sample
+   * table had its rows directly under `bTable`, it **drew perfectly**, and every table operation
+   * refused it — surfacing four levels away as `mergeTableCells: cell not found in table`.
+   *
+   * Nothing here breaks it today. The value is the day something does, at the command that did it,
+   * rather than four levels away in a product.
+   */
+  it('leaves a document the schema still accepts', () => {
+    expect(BROKEN).toEqual([]);
+  });
+
+  /**
+   * And the line above **can fail** — which a check reporting an empty list has to prove.
+   *
+   * An empty result is the same shape whether nothing is wrong or nothing is being asked, and this
+   * repository has been caught by that difference more than once. `bTableRow` under a `document` is
+   * a tree no schema here describes; if `validateTree` says nothing about it, the assertion above is
+   * decoration.
+   */
+  it('would say so if a command left an invalid tree', () => {
+    const schema = createSchema('standard', getStandardSchemaDefinition());
+    const wrong = {
+      stype: 'document',
+      attributes: {},
+      content: [{ stype: 'bTableRow', attributes: {}, content: [] }]
+    };
+    expect(validateTree(schema as never, wrong).length).toBeGreaterThan(0);
   });
 
   it('can ask about most of them, and says how many it cannot', () => {
@@ -550,7 +645,18 @@ async function ask(name: string): Promise<boolean | null> {
     } catch {
       // A throw is an answer too, and the answer is *the document did not move*.
     }
-    if (asWritten(editor) === before) return false;
+    const after = asWritten(editor);
+    if (after === before) return false;
+    const afterMeant = asMeant(editor);
+
+    /*
+     * Still a document this schema describes. Asked of the tree rather than of the node an operation
+     * wrote, because an operation validates its own write and nothing validates the shape they add
+     * up to — which is the gap `validateTree` exists for.
+     */
+    const schema = editor.dataStore?.getActiveSchema?.();
+    const tree = editor.exportDocument(editor.getRootId());
+    if (schema && tree && validateTree(schema as never, tree).length > 0) BROKEN.push(name);
 
     /*
      * And back. A command that moved the document is asked to give it back, in the same run, over
@@ -559,6 +665,13 @@ async function ask(name: string): Promise<boolean | null> {
      */
     await editor.executeCommand('undo', {});
     if (asWritten(editor) !== before) UNDONE.push(name);
+
+    /*
+     * And forward again. Redo replays the original operation against a document the undo has just
+     * rewritten, which is a different claim from undo's and is not reached by testing undo twice.
+     */
+    await editor.executeCommand('redo', {});
+    if (asMeant(editor) !== afterMeant) UNREDONE.push(name);
     return true;
   }
   return null;

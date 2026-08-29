@@ -46,6 +46,42 @@ entries are that.
 
 ## Open
 
+### Three more questions, asked in the same run — 2026-08-29
+
+The extensions' probe already had the document before and after every command,
+so each further question costs a line. The point of writing them down is that
+each is a **different claim**, and two of the three cannot be reached by asking
+the others harder.
+
+| question | asks | result |
+| --- | --- | ---: |
+| moves the document | the command does something | 0 findings |
+| gives it back | undo replays an **inverse** | 1 (fixed — see below) |
+| does it again | redo replays the **original**, against a document undo rewrote | 0 |
+| still a valid tree | `validateTree` over the whole document | 0 |
+
+**Undo and redo are not one mechanism tested twice.** Undo replays an inverse;
+redo replays the original against a document the undo has just rewritten, so a
+command whose operation is not repeatable against its own result fails there and
+nowhere else.
+
+And they are compared **differently**, which is the part worth keeping:
+
+- **Undo is strict, sids included.** *Back* means the same nodes — a selection, a
+  comment anchor or a link points at a sid, and an undo that returned an
+  equivalent document made of new nodes would break every one of them. That
+  strictness is what caught `deleteNode` returning an empty paragraph.
+- **Redo ignores sids.** Doing something again makes new nodes, exactly as doing
+  it the first time did. Compared strictly, **15** commands looked broken — every
+  insert and every block toggle — and every one had reproduced the document
+  perfectly with fresh sids.
+
+The validity check found nothing today, and that is the point: operations
+validate what they *write*, one node as it goes in, and nothing had asked whether
+the tree they add up to is still a tree the schema describes. It has a companion
+test proving it **can** fail, because an empty result is the same shape whether
+nothing is wrong or nothing is being asked.
+
 ### Undo gave a paragraph back without its words — 2026-08-29 *(fixed)*
 
 The extensions' conformance run asks whether a command changes the document.
