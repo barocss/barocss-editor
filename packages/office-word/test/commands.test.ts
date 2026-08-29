@@ -267,6 +267,22 @@ describe('every command Word registers', () => {
     expect(asked).toBeGreaterThanOrEqual(131);
   });
 
+  /**
+   * **A control that lights up over a held box and does nothing** — 45, held as a ceiling.
+   *
+   * The other question, *does it move the document*, stops at the first state a command can run in,
+   * so a command that works from a caret and declines over a node selection comes back as **works**.
+   * Word is a text editor and spends most of its time with a caret, which is exactly why nothing had
+   * ever asked: the state that finds this is the one a *builder* lives in.
+   *
+   * About twenty of the 45 are not faults — caret moves, selection extensions, clipboard, focus,
+   * reading a flag. The rest are the `() => true` class, each needing its own execute read to know
+   * what it wants. A number rather than a list, so it can only come down.
+   */
+  it('lights up over a held box and declines, in no more places than it did', () => {
+    expect(answers.saysYesAndDeclines.length).toBeLessThanOrEqual(45);
+  });
+
   it('gives the document back when it is undone', () => {
     expect(answers.undone.filter((one) => !HISTORY.has(one))).toEqual([]);
   });

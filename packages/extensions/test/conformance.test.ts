@@ -576,6 +576,32 @@ describe('every command this package registers', () => {
     expect(answers.made.size).toBeGreaterThanOrEqual(30);
   });
 
+  /**
+   * **A control that lights up over a held box and does nothing** — 39, and a ceiling.
+   *
+   * The other question, *does it move the document*, stops at the first state a command can run in.
+   * So a command that works from a caret and declines over a node selection comes back as **works** —
+   * and half the products on this engine spend their time with a node selected rather than a caret.
+   * The fault the harness is named after was found by hand in exactly that state: *"measured on a
+   * deck with a box held, both toggles lit up and did nothing."*
+   *
+   * Asking it costs one more editor per command and made **42** appear that nothing had ever seen.
+   * Three went the same afternoon — `insertMathInline`, `insertMention`, `insertPageBreak`, all the
+   * identical shape: `canExecute: () => true` beside an execute whose first line is
+   * `if (selection.type !== 'range') return false`, which is what `guards.ts` exists for.
+   *
+   * The rest are a work list rather than a claim: every one is a `() => true` guard, and each needs
+   * its execute read to know *what* it wants — a node, a cell, a payload, a range. A number, so it
+   * can only come down.
+   *
+   * The exemptions are the other check's, and they are the same exemptions for the same reason: a
+   * command that moves the caret or opens a menu has not refused, it has changed the application.
+   */
+  it('lights up over a held box and declines, in no more places than it did', () => {
+    const real = answers.saysYesAndDeclines.filter((one) => !(one in exempt));
+    expect(real.length).toBeLessThanOrEqual(39);
+  });
+
   it('gives the document back when it is undone', () => {
     expect(answers.undone.filter((one) => !HISTORY.has(one))).toEqual([]);
   });

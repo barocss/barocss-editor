@@ -116,6 +116,16 @@ export interface CommandAnswers {
   notSelfInverse: string[];
   /** What each `insert…` put in the document, by node type — observed, not declared. */
   made: Map<string, string[]>;
+  /**
+   * Commands whose guard says **yes** in some state where the run then refuses.
+   *
+   * Not the same question as `moved`. That one stops at the first state a command can run in and
+   * reports what happened there, so a command that works from a caret and declines over a held box
+   * comes back as *works*. This asks every state and keeps the disagreements — which is the fault
+   * class this whole harness is named after, and the one the deck found by hand: *"measured on a
+   * deck with a box held, both toggles lit up and did nothing."*
+   */
+  saysYesAndDeclines: string[];
 }
 
 /**
@@ -203,7 +213,8 @@ export async function askEveryCommand(input: CommandProbeInput): Promise<Command
     broken: [],
     ghost: [],
     notSelfInverse: [],
-    made: new Map()
+    made: new Map(),
+    saysYesAndDeclines: []
   };
 
   for (const name of input.names) {
@@ -245,6 +256,58 @@ async function ask(
    */
   const states = [...runs.map((run) => at(run, 0, 3)), ...runs.map((run) => at(run, 1, 1))];
 
+  /**
+   * And the two states a **builder** has, asked separately and on an editor of their own.
+   *
+   * A node held, and nothing held. Half the products on this engine spend most of their time in one
+   * of those — a deck with a box selected, a page builder with a card — and the fault this harness
+   * is named after was found by hand in exactly that state: *"measured on a deck with a box held,
+   * both toggles lit up and did nothing."*
+   *
+   * Separately, because the loop above stops at the first state a command can run in: a command that
+   * works from a caret would never be asked about a held box. And on its own editor, because asking
+   * means *running*, and running a command twice over one document compounds the edits.
+   */
+  const askBuilderStates = async () => {
+    const { editor: builder, store: theirs } = input.fresh();
+    const block = everyNode(builder, theirs, 'paragraph')[0];
+
+    const shapes = [
+      () => {
+        if (block) builder.selectionManager?.setSelection({ type: 'node', nodeIds: [block] });
+      },
+      () => builder.selectionManager?.clearSelection?.()
+    ];
+
+    for (const shape of shapes) {
+      try {
+        shape();
+      } catch {
+        continue;
+      }
+      if (builder.canExecuteCommand(name, said) !== true) continue;
+
+      const was = asWritten(builder);
+      try {
+        await builder.executeCommand(name, said);
+      } catch {
+        // A throw is an answer too, and the answer is *the document did not move*.
+      }
+      if (asWritten(builder) === was && !answers.saysYesAndDeclines.includes(name)) {
+        answers.saysYesAndDeclines.push(name);
+      }
+    }
+  };
+
+  /*
+   * Whether the guard ever said yes. It separates the two answers that used to be one: a command
+   * that declined everywhere is **dead** (`false`), and one no state could even ask is **unanswered**
+   * (`null`). Before the loop kept going past a refusal those were the same line.
+   */
+  let asked = false;
+
+  await askBuilderStates();
+
   for (const set of states) {
     set();
     await input.before?.[name]?.(editor);
@@ -254,6 +317,7 @@ async function ask(
      */
     Object.assign(said, input.derive?.(name, editor, store) ?? {});
     if (editor.canExecuteCommand(name, said) !== true) continue;
+    asked = true;
 
     const before = asWritten(editor);
     const wasKinds = kinds(editor, store);
@@ -264,7 +328,15 @@ async function ask(
     }
 
     const after = asWritten(editor);
-    if (after === before) return false;
+    if (after === before) {
+      /*
+       * The guard said yes and the run refused. Kept and the loop continues, because a command that
+       * declines from one state and works from another is *both* — and it is the first half a
+       * reader meets: a control that lights up over what they are holding.
+       */
+      if (!answers.saysYesAndDeclines.includes(name)) answers.saysYesAndDeclines.push(name);
+      continue;
+    }
     const afterMeant = asMeant(editor);
 
     /*
@@ -330,5 +402,5 @@ async function ask(
 
     return true;
   }
-  return null;
+  return asked ? false : null;
 }

@@ -46,6 +46,42 @@ entries are that.
 
 ## Open
 
+### 42 controls light up over a held box and do nothing — 2026-08-29 *(question added; 3 fixed, 39 on a ceiling)*
+
+Nineteen files in `packages/extensions` still carried `canExecute: () => true`,
+and the probe said **0 findings**. Both were true, and the gap between them is
+the finding.
+
+*Does it move the document* stops at the **first** state a command can run in. So
+a command that works from a caret and declines over a node selection comes back
+as **works** — and half the products on this engine spend their time with a node
+selected rather than a caret. The fault this harness is named after was found by
+hand in exactly that state: *"measured on a deck with a box held, both toggles lit
+up and did nothing."*
+
+So the probe asks a second question now — **is there a state where the guard says
+yes and the run refuses** — from the two states a builder has: a node held, and
+nothing held. On its own editor, because asking means running, and the loop above
+stops at the first success so a working command would never be asked.
+
+**42 appeared that nothing had ever seen** (60 before the application-command
+exemptions, which are the same exemptions for the same reason: a command that
+moves the caret or opens a menu has not refused, it has changed the application).
+Word's is **45** on the same question, and Word is a text editor — it lives in
+the state that hides this.
+
+Three went the same afternoon, all the identical shape: `canExecute: () => true`
+beside an execute whose first line is
+`if (!selection || selection.type !== 'range') return false`, which is what
+`guards.ts` was written for. The rest need their own execute read to know what
+each wants — a node, a cell, a payload, a range — so they are a ceiling rather
+than a claim.
+
+One thing the attempt taught: a **scripted** rewrite across nineteen files
+matched `guards.ts`' own documentation and broke the file that defines the fix.
+Reverted, and the three that were genuinely mechanical were kept. The repository
+already had this written down about a different day.
+
 ### `numId` is a position dressed as a name — 2026-08-29 *(design, before collaboration)*
 
 Asked while fixing Word's list toggles: if definitions live in `resources`, what
