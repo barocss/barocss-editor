@@ -233,7 +233,24 @@ export class ParagraphExtension implements Extension {
     if (this._isSelectionInsideListItem(dataStore, selection)) {
       ops.push(splitListItemOp());
     } else {
-      ops.push(insertParagraphOp('same'));
+      /**
+       * **A heading ends where the reader presses Enter at the end of it.**
+       *
+       * It was always `'same'`, so Enter at the end of a heading made **another heading** — measured:
+       * `heading2("제목")` became `heading2("제목") + heading2("")`. Every editor of this kind gives a
+       * paragraph here, and for a reason a reader could state: a heading is a title, and the thing
+       * after a title is prose.
+       *
+       * **At the end**, and nowhere else. Enter in the middle of a heading splits a title into two
+       * titles, which is what a reader means by putting a break in the middle of one; only the split
+       * that leaves the second half **empty** is the reader saying *this heading is finished*.
+       *
+       * The operation has taken `'paragraph'` since it was written and nothing ever asked for it.
+       * Found by counting what each `insert…` command actually puts in the document — the table
+       * reported `insertParagraph → heading`, which is a command producing the one thing its name
+       * says it does not.
+       */
+      ops.push(insertParagraphOp(atEndOfHeading(dataStore, selection) ? 'paragraph' : 'same'));
     }
     return ops;
   }
@@ -260,4 +277,24 @@ export function createParagraphExtension(options?: ParagraphExtensionOptions): P
   return new ParagraphExtension(options);
 }
 
+/**
+ * Whether the caret sits at the very end of a heading.
+ *
+ * The two halves of the question a reader is answering with Enter: *is this a title*, and *am I done
+ * with it*. A caret anywhere else in a heading is a break inside a title, which stays a title.
+ */
+function atEndOfHeading(dataStore: any, selection: ModelSelection): boolean {
+  if (selection.type !== 'range' || !selection.collapsed) return false;
 
+  const run = dataStore?.getNode?.(selection.startNodeId);
+  if (!run || typeof run.text !== 'string') return false;
+  if (selection.startOffset !== run.text.length) return false;
+
+  const parentId = run.parentId ? (dataStore.resolveAlias?.(run.parentId) ?? run.parentId) : undefined;
+  const block = parentId ? dataStore.getNode(parentId) : undefined;
+  if (block?.stype !== 'heading') return false;
+
+  // And the last run in it — a heading of several runs ends at the end of the last one.
+  const held = (block.content ?? []) as string[];
+  return held[held.length - 1] === selection.startNodeId;
+}

@@ -100,12 +100,30 @@ defineOperation('insertParagraph', async (operation: { type: string; payload: In
   // empty paragraph before it.
   const insertIndex = cut.at === 'end' ? idx + 1 : idx;
   const stype = blockType === 'paragraph' ? 'paragraph' : (parentBlock as { stype: string }).stype;
+
+  /**
+   * The block's attributes — and **only the ones the new type has**.
+   *
+   * Carrying them all over is right for `'same'`: a heading split into two headings keeps its level,
+   * which is the whole of what `'same'` means. It is wrong the moment the type changes. Enter at the
+   * end of a heading makes a **paragraph**, and the paragraph came out carrying `level: 2` — a node
+   * with an attribute its type does not declare, which nothing draws and nothing complains about.
+   *
+   * Exactly the fault `transformNode` had, in the other operation that changes a block's type, found
+   * the same afternoon and fixed the same way: filtered by what the schema declares, and a type that
+   * declares nothing is left alone.
+   */
+  const held = { ...((parentBlock as { attributes?: Record<string, unknown> }).attributes || {}) };
+  const declared = (schema as { nodes?: Map<string, { attrs?: Record<string, unknown> }> } | undefined)
+    ?.nodes?.get?.(stype)?.attrs;
+  const kept =
+    declared && stype !== (parentBlock as { stype: string }).stype
+      ? Object.fromEntries(Object.entries(held).filter(([key]) => key in declared))
+      : held;
+
   const newBlock = {
     stype,
-    attributes: {
-      ...((parentBlock as { attributes?: Record<string, unknown> }).attributes || {}),
-      $alias: selectionAlias
-    },
+    attributes: { ...kept, $alias: selectionAlias },
     content: [] as string[]
   };
   const childId = dataStore.content.addChild(grandParent.sid!, newBlock, insertIndex);

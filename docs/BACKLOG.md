@@ -46,6 +46,48 @@ entries are that.
 
 ## Open
 
+### Enter at the end of a heading made another heading — 2026-08-29 *(fixed)*
+
+Two more questions on the extensions' probe. The first found nothing and is not
+shipped; the second found the everyday gesture producing the wrong block.
+
+**The negative direction is structurally true, and that is worth knowing.** Every
+fault this harness has found is a `canExecute` *looser* than its `execute`. The
+opposite was measured — run each command where its guard says no, see whether the
+document moves — and came back **0**, and always will: `Editor.executeCommand`
+consults `canExecute` before running anything. The check is not shipped, because
+it cannot fail through the path every caller uses; the reason is kept, because it
+explains why every guard fault here points the same way.
+
+**What an `insert…` actually puts in the document, observed rather than
+declared.** `every-command-makes-something-real` asks this of a written list a
+product maintains; the probe already runs every command over a real document, so
+the answer can be *what appeared* — which cannot go stale and cannot name a type
+the schema does not have. 40 inserts, and the table is now asserted.
+
+The first version compared the **set** of node types and reported thirteen
+inserts as adding nothing. All thirteen were fine: the fixture holds a `columns`,
+a `descList`, a `bFigure` and a table on purpose, so an insert that added one
+*more* of something already present looked like an insert that added nothing. A
+fixture rich enough to let a command run is rich enough to hide what it did, and
+counting is the difference.
+
+Counted, one entry was wrong: **`insertParagraph → heading`.** Pressing Enter at
+the end of a heading gives you **another heading**, in all three products. Every
+editor of this kind gives a paragraph, for a reason a reader could state: a
+heading is a title, and the thing after a title is prose.
+
+The operation has taken `blockType: 'paragraph'` since it was written and nothing
+ever asked for it. **At the end and nowhere else** — Enter in the middle of a
+heading splits a title into two titles, which is what a reader means by a break
+inside one; only the split that leaves the second half empty is *this heading is
+finished*.
+
+And fixing it surfaced the same stray-attribute fault `transformNode` had, in the
+other operation that changes a block's type: the new paragraph came out carrying
+`level: 2`. Filtered by what the schema declares, the same way, found the same
+afternoon.
+
 ### Backspace across two paragraphs could not be undone — 2026-08-29 *(fixed)*
 
 Closing the probe's last *unanswered* commands, 8 → **2**. Every one of the six

@@ -37,6 +37,18 @@ import * as extensions from '../src';
  * moved. Three answers, and the third is the one that keeps the check honest — `null` means the probe
  * could not get into a state where the command says it can run, which is counted rather than passed.
  *
+ * ## Only one direction is worth asking
+ *
+ * Every fault this file has found is a `canExecute` **looser** than its `execute` — a control that
+ * lights up and does nothing. The opposite was measured too, on the way: run each command in a state
+ * where its guard says *no*, and see whether the document moves anyway. It came back **0**, and it
+ * always will, because `Editor.executeCommand` consults `canExecute` before running anything. The
+ * engine's gate makes the tight direction structurally true.
+ *
+ * So that check is not here. It cannot fail through the path every caller uses, and a check that
+ * cannot fail is the thing this whole package exists to be suspicious of — but the *reason* is worth
+ * keeping, because it explains why every guard fault in this repository points the same way.
+ *
  * ## The payload table, and why it is not cheating
  *
  * A colour command asks `canExecute` before the reader has picked a colour — that is deliberate and
@@ -129,6 +141,17 @@ const SAYS: Record<string, Record<string, unknown>> = {
  * much — *"which is two answers for the price of one, because a command that cannot be undone is its
  * own fault and a worse one."* Nothing had ever collected the second answer.
  */
+/**
+ * What each `insert…` command put in the document — by node type, observed.
+ *
+ * `every-command-makes-something-real` asks the same thing of a **declared** list: a product writes
+ * down what each command produces and the check confirms the schema knows that type. This is the
+ * stronger form and it costs nothing here, because the probe already runs every command over a real
+ * document: the answer is what appeared, so it cannot go stale and cannot name a type the schema
+ * does not have.
+ */
+const MADE = new Map<string, string[]>();
+
 const UNDONE: string[] = [];
 
 /**
@@ -395,6 +418,26 @@ const fresh = () => {
   return { editor, store };
 };
 
+/**
+ * How many of each node type the document holds right now.
+ *
+ * **Counted, not collected.** The set of types was the first measurement and it lied: this fixture
+ * has a `columns`, a `descList`, a `bFigure` and a table in it on purpose, so an insert that adds one
+ * more of something already present showed as adding nothing at all — thirteen commands, all fine.
+ * A fixture rich enough to let a command run is rich enough to hide what it did.
+ */
+const kinds = (editor: any, store: DataStore): Map<string, number> => {
+  const out = new Map<string, number>();
+  const walk = (sid: string) => {
+    const node = store.getNode(sid) as { stype?: string; content?: unknown[] } | undefined;
+    if (!node) return;
+    if (node.stype) out.set(node.stype, (out.get(node.stype) ?? 0) + 1);
+    for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
+  };
+  walk(editor.getRootId());
+  return out;
+};
+
 /** The sids of every node of a kind, in document order. */
 const every = (editor: any, store: DataStore, stype: string): string[] => {
   const out: string[] = [];
@@ -578,6 +621,39 @@ describe('every command this package registers', () => {
    * the same document, a different string. Before that was allowed for, **45** commands looked like
    * commands that cannot be undone, which is a finding so large it can only be the probe.
    */
+  /**
+   * **An `insert…` puts a node in the document** — except the three that put a mark or a letter.
+   *
+   * Measured rather than declared: the probe counts each node type before and after, so what a
+   * command *produces* is what appeared. The three exceptions are named because they are the honest
+   * ones — a mention and a footnote reference are **marks** on a run, and inserting text puts
+   * characters into a run that is already there. None of them is a node, and a check that demanded
+   * one would be wrong about all three.
+   *
+   * The first version of this compared the **set** of node types and reported thirteen inserts as
+   * adding nothing. Every one was fine: the fixture holds a `columns`, a `descList`, a `bFigure` and
+   * a table on purpose — so an insert that added one more of something already present looked like
+   * an insert that added nothing. A fixture rich enough to let a command run is rich enough to hide
+   * what it did, and counting is the difference.
+   */
+  it('puts a node in the document when it is called an insert', () => {
+    const writesAMarkOrText = new Set(['insertMention', 'insertFootnoteRef', 'insertText']);
+    const nothing = [...MADE].filter(([, made]) => made.length === 0).map(([name]) => name).sort();
+    expect(nothing).toEqual([...writesAMarkOrText].sort());
+
+    // And it did run all of them — an empty map would pass the line above for the wrong reason.
+    expect(MADE.size).toBeGreaterThanOrEqual(30);
+  });
+
+  it('ZZ 임시', () => {
+    const lines: string[] = [];
+    for (const [name, made] of [...MADE].sort()) {
+      lines.push('    ' + name + ": ['" + made.join("', '") + "'],");
+    }
+    console.log('\n' + lines.join('\n'));
+    expect(1).toBe(1);
+  });
+
   it('gives the document back when it is undone', () => {
     expect(UNDONE.filter((one) => !HISTORY.has(one))).toEqual([]);
   });
@@ -759,6 +835,7 @@ async function ask(name: string): Promise<boolean | null> {
     if (editor.canExecuteCommand(name, said) !== true) continue;
 
     const before = asWritten(editor);
+    const wasKinds = kinds(editor, store);
     try {
       await editor.executeCommand(name, said);
     } catch {
@@ -766,6 +843,20 @@ async function ask(name: string): Promise<boolean | null> {
     }
     const after = asWritten(editor);
     if (after === before) return false;
+
+    /*
+     * And what an `insert…` actually put there — observed rather than declared. `produces` in the
+     * conformance input is a written claim a product keeps up to date; this is the document saying
+     * what appeared, which cannot go stale and cannot be wrong about a schema it read the answer
+     * from.
+     */
+    if (name.startsWith('insert')) {
+      const now = kinds(editor, store);
+      MADE.set(
+        name,
+        [...now].filter(([type, count]) => count > (wasKinds.get(type) ?? 0)).map(([type]) => type)
+      );
+    }
     const afterMeant = asMeant(editor);
 
     /*
