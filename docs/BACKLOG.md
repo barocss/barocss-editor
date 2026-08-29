@@ -46,6 +46,48 @@ entries are that.
 
 ## Open
 
+### The six questions are a shared probe now, and Word answers them — 2026-08-29
+
+The probe that found eleven faults in `packages/extensions` was answering six
+questions about **one package** and nothing about the products standing on it.
+Word registers **164** commands and only about 136 come from that layer; the
+rest are its revisions, comments, tables, shapes, maths, fields and tab stops,
+and **not one of them had ever been asked whether it can be undone**.
+
+Which is the same shape as the fault the probe was built to find: *a mechanism
+that exists and is wired in one place.* It is `@barocss/conformance`'s now —
+`askEveryCommand` — and a product wires it with a document fixture, a payload
+table and four lines. That is what the next application has to write to inherit
+all six.
+
+**Word's first run: 98 move the document, 33 do not, 33 cannot be asked.** No
+undo, redo, validity, selection or self-inverse fault among the 164, which is
+the good news and the reason to keep the count rather than a list.
+
+The 33 that say yes and change nothing are not all faults — about twenty are
+caret moves, selection extensions, clipboard, focus and a flag read. What is
+left is a work list, and its shape is already familiar: `list-commands.ts`
+registers **seven** commands through one helper whose guard is *"there is a
+block"*, which is looser than what any of the seven needs.
+`TextFormattingExtension` had exactly this, in exactly this shape, and a private
+helper is why a sweep reading `canExecute:` at each command's own declaration
+never sees it. Held as a ceiling so it cannot grow quietly.
+
+Three things the move itself taught:
+
+- **`says` and `wantsNode` are not enough.** A merge wants the cell *beside* the
+  first; a split wants the one cell that is actually merged; three commands take
+  the **span** they act on rather than reading the editor's. Those are facts
+  about one command and one fixture, so `derive` belongs to the product — the
+  alternative is the conformance package knowing what `mergeCells` is.
+- **A probe should not make its callers reach for the escape hatch.** It exports
+  the shape it needs of an editor, so a product's tables are typed by that. The
+  cast count went 332 → **331** across the move.
+- **That count reads prose.** Two of the matches it found were *comments* — the
+  phrase written inside a note about avoiding it. Worth knowing about the
+  measurement rather than working around: a count that can be argued with is
+  cheaper than a count nobody keeps.
+
 ### Enter at the end of a heading made another heading — 2026-08-29 *(fixed)*
 
 Two more questions on the extensions' probe. The first found nothing and is not

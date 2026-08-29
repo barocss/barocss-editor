@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeAll } from 'vitest';
-import { assertConforms, conformance } from '@barocss/conformance';
+import { askEveryCommand, assertConforms, conformance, everyNode, type CommandAnswers,
+  type ProbeEditor,
+  type ProbeStore
+} from '@barocss/conformance';
 import { DataStore } from '@barocss/datastore';
 import { createSchema, getStandardSchemaDefinition, validateTree } from '@barocss/schema';
 import * as extensions from '../src';
@@ -126,138 +129,116 @@ const SAYS: Record<string, Record<string, unknown>> = {
 };
 
 /**
- * Commands that need something to **have happened** before they mean anything.
+ * What has to **have happened** before a command means anything.
  *
  * Undo over a fresh document is not a command that does nothing; it is a command with nothing to do,
- * and a probe that cannot tell those apart turns a whole history into a finding. So the document is
- * moved first, by a command already known to move it, and then the question is asked.
+ * and a probe that cannot tell those apart turns a working history into a finding. The same is true
+ * of a redo with nothing undone, a `findNext` with no search, and a `hideSlashMenu` with no menu.
+ *
+ * Six commands sat in the *could not be asked* column for exactly this reason, and `find` was the
+ * extreme case: it had been called a stub in three places for months, and it was complete.
  */
 /**
- * Commands that move the document and **cannot be put back** — filled by the probe, asserted below.
+ * What a command needs that has to be **read out of the document it is about to run on**.
  *
- * The check this file runs asks whether a command changes the document. Undo is the other half of
- * the same run and costs nothing: the probe has the document before and after already, so putting it
- * back and comparing is one more line. `every-command-does-something`'s own documentation says as
- * much — *"which is two answers for the price of one, because a command that cannot be undone is its
- * own fault and a worse one."* Nothing had ever collected the second answer.
- */
-/**
- * What each `insert…` command put in the document — by node type, observed.
+ * `SAYS` is a constant and `WANTS_NODE` is the shorthand for *the first node of a kind*; this is the
+ * rest, and every one of these was found by a command coming back as unaskable:
  *
- * `every-command-makes-something-real` asks the same thing of a **declared** list: a product writes
- * down what each command produces and the check confirms the schema knows that type. This is the
- * stronger form and it costs nothing here, because the probe already runs every command over a real
- * document: the answer is what appeared, so it cannot go stale and cannot name a type the schema
- * does not have.
+ * - three commands take the **span** they act on rather than reading the editor's selection;
+ * - `deleteCrossNode` wants a range across **two** nodes, which is the whole of what it is for;
+ * - a merge wants a second cell, and the one beside the first;
+ * - `removeColumn` wants the column as well as the block it is in — its guard asked for neither
+ *   until it was written, so the probe had never had to supply one;
+ * - `splitCell` wants the one cell in the table that is actually **merged**, because
+ *   `splitTableCell` declines every other with the reason in the operation. Handing it the first
+ *   cell is handing it the one case it refuses.
  */
-const MADE = new Map<string, string[]>();
+const DERIVED = (name: string, editor: ProbeEditor, store: ProbeStore): Record<string, unknown> | undefined => {
+  const runs = everyNode(editor, store, 'inline-text');
 
-const UNDONE: string[] = [];
+  if (['deleteText', 'replaceText'].includes(name)) return { range: editor.selection };
+  if (name === 'deleteCrossNode' && runs.length > 1) {
+    return {
+      range: {
+        type: 'range', startNodeId: runs[0], startOffset: 1, endNodeId: runs[1], endOffset: 2, collapsed: false
+      }
+    };
+  }
 
-/**
- * Commands that move the document and cannot be **put forward again** — the third leg of a history.
- *
- * Undo and redo are not one mechanism tested twice. Undo replays an *inverse*; redo replays the
- * *original*, against a document the undo has just rewritten — so a redo that fails is a command
- * whose operation is not repeatable against its own result, which is a different fault and one no
- * amount of undo testing reaches.
- */
-const UNREDONE: string[] = [];
-
-/**
- * Commands that leave a document the **schema will not accept**.
- *
- * Operations validate what they write, one node at a time; nothing had ever asked whether the tree
- * they leave behind is still a tree this schema describes. `validateTree` is the check written for
- * exactly that gap — see its own note, where a deck's sample table drew perfectly and every table
- * operation refused it, four levels away from the thing that was wrong.
- */
-const BROKEN: string[] = [];
+  const cells = everyNode(editor, store, 'bTableCell');
+  if (name === 'mergeCells' && cells[1]) return { toCellId: cells[1] };
+  if (name === 'splitCell') {
+    const merged = cells.find((sid: string) => {
+      const attrs = (store.getNode(sid)?.attributes ?? {}) as { colspan?: number; rowspan?: number };
+      return (attrs.colspan ?? 1) > 1 || (attrs.rowspan ?? 1) > 1;
+    });
+    return merged ? { cellId: merged } : undefined;
+  }
+  if (name === 'removeColumn') {
+    const columns = everyNode(editor, store, 'columns')[0];
+    const first = columns
+      ? ((store.getNode(columns)?.content ?? []) as string[]).find((sid) => typeof sid === 'string')
+      : undefined;
+    return first ? { columnId: first } : undefined;
+  }
+  return undefined;
+};
 
 /**
  * The two that are not faults and could not be.
  *
  * Undoing an `undo` is a **redo**, and the document is supposed to end up where the undo left it —
- * not where it started. Both history questions below have to say so out loud, because the alternative
- * is a probe that reports the history as broken by the history working.
+ * not where it started. Both history questions have to say so out loud, because the alternative is a
+ * probe that reports the history as broken by the history working.
  */
-const GHOST: string[] = [];
-const NOT_SELF_INVERSE: string[] = [];
-
 const HISTORY = new Set(['undo', 'historyUndo']);
 
-const AFTER_AN_EDIT = new Set(['undo', 'redo', 'historyUndo', 'historyRedo']);
-
-/**
- * And the ones that need an edit **and an undo** before they mean anything.
- *
- * Redo over a document nothing has undone is a command with nothing to do, which is not the same
- * sentence as a command that does nothing — the same distinction `AFTER_AN_EDIT` draws one step
- * earlier, and the probe has to be able to tell them apart or it turns a working history into two
- * findings.
- */
-const AFTER_AN_UNDO = new Set(['redo', 'historyRedo']);
-
-/**
- * And the four that need a **search in progress**.
- *
- * `findNext`, `findPrev`, `replaceOne` and `replaceAll` all read the result of a `find`, and the
- * probe runs each command over a fresh editor — so all four asked their question of a search nobody
- * had started, declined, correctly, and were counted as unaskable. Four commands reading like four
- * nobody had written, in a file that turned out to have been complete all along.
- */
-const AFTER_A_SEARCH = new Set(['findNext', 'findPrev', 'replaceOne', 'replaceAll']);
-
-/** And the one that needs a menu open, which the command beside it opens. */
-const AFTER_A_MENU = new Set(['hideSlashMenu']);
-
-/** What each of these needs is **a node of some kind**, filled in from the document below. */
-const WANTS_NODE: Record<string, string> = {
-  toggleChecklistItem: 'taskItem',
-  deleteNode: 'paragraph',
-  indentNode: 'paragraph',
-  outdentNode: 'paragraph',
-  moveBlockToPosition: 'paragraph',
-  setFigcaption: 'bFigure',
-  addDescriptionItem: 'descList',
-  addColumn: 'columns',
-  removeColumn: 'columns',
-
-  /*
-   * A table's nine, which take the **cell** they act from rather than reading it out of the
-   * selection. Worth writing down because it was guessed the other way first: a caret was put in a
-   * cell as a third selection state and nothing changed, because the guard never looks there.
-   */
-  deleteRow: 'bTableCell',
-  insertRowAbove: 'bTableCell',
-  insertRowBelow: 'bTableCell',
-  insertColumnLeft: 'bTableCell',
-  insertColumnRight: 'bTableCell',
-  deleteColumn: 'bTableCell',
-  splitCell: 'bTableCell',
-  mergeCells: 'bTableCell'
+const BEFORE: Record<string, (editor: ProbeEditor) => Promise<void>> = {};
+for (const name of ['undo', 'redo', 'historyUndo', 'historyRedo']) {
+  BEFORE[name] = async (editor) => {
+    await editor.executeCommand('toggleBold', {});
+    if (name === 'redo' || name === 'historyRedo') await editor.executeCommand('undo', {});
+  };
+}
+for (const name of ['findNext', 'findPrev', 'replaceOne', 'replaceAll']) {
+  BEFORE[name] = async (editor) => {
+    await editor.executeCommand('find', { query: '문단', replacement: '단락' });
+  };
+}
+BEFORE.hideSlashMenu = async (editor) => {
+  await editor.executeCommand('showSlashMenu', {});
 };
 
-/** And the key each of them calls it, which is not one name. */
-const NODE_KEY: Record<string, string[]> = {
-  toggleChecklistItem: ['nodeId'],
-  deleteNode: ['nodeId'],
-  indentNode: ['nodeId'],
-  outdentNode: ['nodeId'],
-  moveBlockToPosition: ['blockId'],
-  setFigcaption: ['figureId'],
-  addDescriptionItem: ['descListId'],
-  addColumn: ['columnsId'],
-  removeColumn: ['columnsId'],
-  deleteRow: ['cellId'],
-  insertRowAbove: ['cellId'],
-  insertRowBelow: ['cellId'],
-  insertColumnLeft: ['cellId'],
-  insertColumnRight: ['cellId'],
-  deleteColumn: ['cellId'],
-  splitCell: ['cellId'],
-  // Two cells, and the second is the one beside it — a merge of a cell with itself is not a merge.
-  mergeCells: ['fromCellId']
+/**
+ * What each of these needs is **a node of some kind**, and the key each one calls it.
+ *
+ * Two tables to begin with, which drifted the first time one grew: the stype and the payload key are
+ * one fact about a command and they belong in one entry.
+ */
+const WANTS_NODE: Record<string, { stype: string; keys: string[] }> = {
+  toggleChecklistItem: { stype: 'taskItem', keys: ['nodeId'] },
+  deleteNode: { stype: 'paragraph', keys: ['nodeId'] },
+  indentNode: { stype: 'paragraph', keys: ['nodeId'] },
+  outdentNode: { stype: 'paragraph', keys: ['nodeId'] },
+  moveBlockToPosition: { stype: 'paragraph', keys: ['blockId'] },
+  setFigcaption: { stype: 'bFigure', keys: ['figureId'] },
+  addDescriptionItem: { stype: 'descList', keys: ['descListId'] },
+  addColumn: { stype: 'columns', keys: ['columnsId'] },
+  removeColumn: { stype: 'columns', keys: ['columnsId'] },
+
+  /*
+   * A table's, which take the **cell** they act from rather than reading it out of the selection.
+   * Worth writing down because it was guessed the other way first: a caret was put in a cell as a
+   * third selection state and nothing changed, because the guard never looks there.
+   */
+  deleteRow: { stype: 'bTableCell', keys: ['cellId'] },
+  insertRowAbove: { stype: 'bTableCell', keys: ['cellId'] },
+  insertRowBelow: { stype: 'bTableCell', keys: ['cellId'] },
+  insertColumnLeft: { stype: 'bTableCell', keys: ['cellId'] },
+  insertColumnRight: { stype: 'bTableCell', keys: ['cellId'] },
+  deleteColumn: { stype: 'bTableCell', keys: ['cellId'] },
+  splitCell: { stype: 'bTableCell', keys: ['cellId'] },
+  mergeCells: { stype: 'bTableCell', keys: ['fromCellId'] }
 };
 
 /**
@@ -347,54 +328,6 @@ const document_ = () => ({
   ]
 });
 
-/**
- * A document as a **string that means the same thing** — what two of these can be compared by.
- *
- * Straight `JSON.stringify` is not it, and the difference is not cosmetic. Undo a `toggleBold` and
- * the run comes back carrying `marks: []` where it had no `marks` key at all: the same document by
- * every reading, and a different string. Measured before this existed, **45** of the commands that
- * move the document looked like commands that cannot be undone — every mark toggle, every delete,
- * every text insert — which is a finding so large it can only be the probe.
- *
- * So: an empty array or an empty object is the same as absent, and `metadata` is the store's own
- * bookkeeping rather than the document.
- */
-const meaning = (node: unknown, keepSids = true): unknown => {
-  if (Array.isArray(node)) return node.map((one) => meaning(one, keepSids));
-  if (!node || typeof node !== 'object') return node;
-
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
-    if (key === 'metadata') continue;
-    if (!keepSids && (key === 'sid' || key === 'parentId')) continue;
-    if (value === undefined || value === null) continue;
-    if (Array.isArray(value) && value.length === 0) continue;
-    if (!Array.isArray(value) && typeof value === 'object' && Object.keys(value as object).length === 0) continue;
-    out[key] = meaning(value, keepSids);
-  }
-  return out;
-};
-
-const asWritten = (editor: { exportDocument: (sid: string) => unknown; getRootId: () => string }) =>
-  JSON.stringify(meaning(editor.exportDocument(editor.getRootId()) ?? ''));
-
-/**
- * The same, **without the identity of the nodes** — which is what a *redo* has to be compared by.
- *
- * The two history questions are not one mechanism asked twice, and the difference is exactly here.
- *
- * **Undo** is *put it back*, and back means the same nodes: a selection, a comment anchor or a link
- * points at a sid, and an undo that returned an equivalent document made of new nodes would break
- * every one of them. So undo is compared strictly, and that strictness is what caught a `deleteNode`
- * returning an empty paragraph.
- *
- * **Redo** is *do it again*, and doing it again makes new nodes exactly as doing it the first time
- * did. Compared strictly, **15** commands looked broken — every insert and every block toggle —
- * and every one of them had reproduced the document perfectly with fresh sids.
- */
-const asMeant = (editor: { exportDocument: (sid: string) => unknown; getRootId: () => string }) =>
-  JSON.stringify(meaning(editor.exportDocument(editor.getRootId()) ?? '', false));
-
 const everyExtension = () =>
   Object.entries(extensions)
     .filter(([name, made]) => name.endsWith('Extension') && typeof made === 'function' && /^[A-Z]/.test(name))
@@ -418,40 +351,6 @@ const fresh = () => {
   return { editor, store };
 };
 
-/**
- * How many of each node type the document holds right now.
- *
- * **Counted, not collected.** The set of types was the first measurement and it lied: this fixture
- * has a `columns`, a `descList`, a `bFigure` and a table in it on purpose, so an insert that adds one
- * more of something already present showed as adding nothing at all — thirteen commands, all fine.
- * A fixture rich enough to let a command run is rich enough to hide what it did.
- */
-const kinds = (editor: any, store: DataStore): Map<string, number> => {
-  const out = new Map<string, number>();
-  const walk = (sid: string) => {
-    const node = store.getNode(sid) as { stype?: string; content?: unknown[] } | undefined;
-    if (!node) return;
-    if (node.stype) out.set(node.stype, (out.get(node.stype) ?? 0) + 1);
-    for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
-  };
-  walk(editor.getRootId());
-  return out;
-};
-
-/** The sids of every node of a kind, in document order. */
-const every = (editor: any, store: DataStore, stype: string): string[] => {
-  const out: string[] = [];
-  const walk = (sid: string) => {
-    const node = store.getNode(sid) as any;
-    if (!node) return;
-    if (node.stype === stype) out.push(sid);
-    if (stype === 'inline-text' && typeof node.text === 'string') out.push(sid);
-    for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
-  };
-  walk(editor.getRootId());
-  return [...new Set(out)];
-};
-
 describe('every command this package registers', () => {
   /**
    * Asked once, before the checks, because a command is `async` and a check is not.
@@ -460,12 +359,40 @@ describe('every command this package registers', () => {
    * after `executeCommand` reported **all 24** of its commands as changing nothing, including ones a
    * browser watches work. A probe wrong in that direction at least fails loudly.
    */
+  /*
+   * The registry, asked for by name. It reached into `_commands` through the escape hatch — a private, for a
+   * private through the escape hatch the engine counts, for a list it publishes.
+   */
+  const names: string[] = [...fresh().editor.commandNames()].sort();
+
+  /**
+   * Every answer, collected once by the **shared** probe.
+   *
+   * It was written here and it found eleven faults on its first afternoon, all of them in the layer
+   * three products stand on. Then Word turned out to register **164** commands, of which only about
+   * 136 come from this package — so the six questions were being asked about one package and about
+   * none of the products, which is the same shape as the fault the probe was built to find: a
+   * mechanism that exists and is wired in one place. It lives in `@barocss/conformance` now, and
+   * this file is one of its callers.
+   */
+  let answers: CommandAnswers;
   const moved = new Map<string, boolean | null>();
 
-  const names: string[] = [...(fresh().editor as any)._commands.keys()].sort();
-
   beforeAll(async () => {
-    for (const name of names) moved.set(name, await ask(name));
+    answers = await askEveryCommand({
+      fresh,
+      names,
+      says: SAYS,
+      wantsNode: WANTS_NODE,
+      before: BEFORE,
+      derive: DERIVED,
+      validates: (editor) => {
+        const schema = editor.dataStore?.getActiveSchema?.();
+        const tree = editor.exportDocument(editor.getRootId());
+        return !schema || !tree || validateTree(schema as never, tree).length === 0;
+      }
+    });
+    for (const [name, answer] of answers.moved) moved.set(name, answer);
   });
 
   /**
@@ -638,24 +565,15 @@ describe('every command this package registers', () => {
    */
   it('puts a node in the document when it is called an insert', () => {
     const writesAMarkOrText = new Set(['insertMention', 'insertFootnoteRef', 'insertText']);
-    const nothing = [...MADE].filter(([, made]) => made.length === 0).map(([name]) => name).sort();
+    const nothing = [...answers.made].filter(([, made]) => made.length === 0).map(([name]) => name).sort();
     expect(nothing).toEqual([...writesAMarkOrText].sort());
 
     // And it did run all of them — an empty map would pass the line above for the wrong reason.
-    expect(MADE.size).toBeGreaterThanOrEqual(30);
-  });
-
-  it('ZZ 임시', () => {
-    const lines: string[] = [];
-    for (const [name, made] of [...MADE].sort()) {
-      lines.push('    ' + name + ": ['" + made.join("', '") + "'],");
-    }
-    console.log('\n' + lines.join('\n'));
-    expect(1).toBe(1);
+    expect(answers.made.size).toBeGreaterThanOrEqual(30);
   });
 
   it('gives the document back when it is undone', () => {
-    expect(UNDONE.filter((one) => !HISTORY.has(one))).toEqual([]);
+    expect(answers.undone.filter((one) => !HISTORY.has(one))).toEqual([]);
   });
 
   /**
@@ -669,7 +587,7 @@ describe('every command this package registers', () => {
    * new nodes, exactly as doing it the first time did; only *undo* owes the reader the same ones.
    */
   it('does it again when it is redone', () => {
-    expect(UNREDONE.filter((one) => !HISTORY.has(one))).toEqual([]);
+    expect(answers.unredone.filter((one) => !HISTORY.has(one))).toEqual([]);
   });
 
   /**
@@ -696,7 +614,7 @@ describe('every command this package registers', () => {
    * Nothing here does it today. The value is the day something does, named by the command.
    */
   it('leaves the selection pointing at nodes that exist', () => {
-    expect([...new Set(GHOST)]).toEqual([]);
+    expect([...new Set(answers.ghost)]).toEqual([]);
   });
 
   /**
@@ -712,11 +630,11 @@ describe('every command this package registers', () => {
    * three products. The only route out was undo, and only if it was the last thing you did.
    */
   it('undoes itself when a toggle is pressed twice', () => {
-    expect(NOT_SELF_INVERSE).toEqual([]);
+    expect(answers.notSelfInverse).toEqual([]);
   });
 
   it('leaves a document the schema still accepts', () => {
-    expect(BROKEN).toEqual([]);
+    expect(answers.broken).toEqual([]);
   });
 
   /**
@@ -750,174 +668,3 @@ describe('every command this package registers', () => {
     expect(report.unanswered['every-command-does-something']).toBeLessThanOrEqual(2);
   });
 });
-
-/**
- * Run one command over a fresh document and say whether the document moved.
- *
- * `null` when no state this probe can build lets the command say it can run — counted rather than
- * passed, which is what keeps a probe that stopped setting anything up visible.
- */
-async function ask(name: string): Promise<boolean | null> {
-  const { editor, store } = fresh();
-  const words = every(editor, store, 'inline-text')[1] ?? every(editor, store, 'inline-text')[0];
-
-  const said: Record<string, unknown> = { ...(SAYS[name] ?? {}) };
-  const wants = WANTS_NODE[name];
-  if (wants) {
-    const found = every(editor, store, wants);
-    for (const key of NODE_KEY[name] ?? []) if (found[0]) said[key] = found[0];
-    // The one beside it, for the command that needs two.
-    if (name === 'mergeCells' && found[1]) said.toCellId = found[1];
-    /*
-     * And a column to take out of it, which is the second of the two ids `removeColumn` needs. It
-     * asked for neither until its guard was written, so the probe had never had to supply one.
-     */
-    /*
-     * And the **merged** one, for the command that needs one. `splitTableCell` refuses a cell whose
-     * colspan and rowspan are both 1 — there is nothing to split — so handing it the first cell in
-     * the table is handing it the one case it declines.
-     */
-    if (name === 'splitCell') {
-      const merged = found.find((sid) => {
-        const attrs = (store.getNode(sid)?.attributes ?? {}) as { colspan?: number; rowspan?: number };
-        return (attrs.colspan ?? 1) > 1 || (attrs.rowspan ?? 1) > 1;
-      });
-      if (merged) said.cellId = merged;
-    }
-    if (name === 'removeColumn' && found[0]) {
-      said.columnId = ((store.getNode(found[0])?.content ?? []) as string[]).find(
-        (sid) => typeof sid === 'string'
-      );
-    }
-  }
-
-  const at = (sid: string, from: number, to: number) => () =>
-    editor.selectionManager.setSelection({
-      type: 'range', startNodeId: sid, startOffset: from, endNodeId: sid, endOffset: to, collapsed: from === to
-    });
-
-  /**
-   * **Every run in the document**, as a range and as a caret.
-   *
-   * It was one run — the second, chosen because it is an ordinary paragraph — and that made a whole
-   * class of command unaskable for a reason that had nothing to do with the command: `removeHeading`
-   * needs the caret in a **heading**, `splitListItem` in a **list item**, `nextCell` in a **cell**,
-   * and none of them was ever offered one. Eleven commands sat in the *could not be asked* column
-   * because of where a single caret happened to be, which reads exactly like eleven commands nobody
-   * had got round to.
-   *
-   * Walking them all is what a document is for. The loop stops at the first state a command says it
-   * can run in, so the cost is a few `canExecute` calls for the commands that are picky and one for
-   * everything else.
-   */
-  const runs = every(editor, store, 'inline-text');
-  const states = [...runs.map((run) => at(run, 0, 3)), ...runs.map((run) => at(run, 1, 1))];
-  void words;
-  const span = ['deleteText', 'replaceText'].includes(name);
-  /*
-   * And one that wants a range across **two** nodes, which is the whole of what it is for — a range
-   * inside one run is `deleteText`'s, and the command refuses it by name.
-   */
-  const across = name === 'deleteCrossNode';
-
-  for (const set of states) {
-    set();
-    if (AFTER_AN_EDIT.has(name)) await editor.executeCommand('toggleBold', {});
-    if (AFTER_AN_UNDO.has(name)) await editor.executeCommand('undo', {});
-    if (AFTER_A_SEARCH.has(name)) await editor.executeCommand('find', { query: '문단', replacement: '단락' });
-    if (AFTER_A_MENU.has(name)) await editor.executeCommand('showSlashMenu', {});
-    if (span) said.range = editor.selection;
-    if (across && runs.length > 1) {
-      said.range = {
-        type: 'range', startNodeId: runs[0], startOffset: 1, endNodeId: runs[1], endOffset: 2, collapsed: false
-      };
-    }
-    if (editor.canExecuteCommand(name, said) !== true) continue;
-
-    const before = asWritten(editor);
-    const wasKinds = kinds(editor, store);
-    try {
-      await editor.executeCommand(name, said);
-    } catch {
-      // A throw is an answer too, and the answer is *the document did not move*.
-    }
-    const after = asWritten(editor);
-    if (after === before) return false;
-
-    /*
-     * And what an `insert…` actually put there — observed rather than declared. `produces` in the
-     * conformance input is a written claim a product keeps up to date; this is the document saying
-     * what appeared, which cannot go stale and cannot be wrong about a schema it read the answer
-     * from.
-     */
-    if (name.startsWith('insert')) {
-      const now = kinds(editor, store);
-      MADE.set(
-        name,
-        [...now].filter(([type, count]) => count > (wasKinds.get(type) ?? 0)).map(([type]) => type)
-      );
-    }
-    const afterMeant = asMeant(editor);
-
-    /*
-     * Still a document this schema describes. Asked of the tree rather than of the node an operation
-     * wrote, because an operation validates its own write and nothing validates the shape they add
-     * up to — which is the gap `validateTree` exists for.
-     */
-    const schema = editor.dataStore?.getActiveSchema?.();
-    const tree = editor.exportDocument(editor.getRootId());
-    if (schema && tree && validateTree(schema as never, tree).length > 0) BROKEN.push(name);
-
-    /*
-     * And back. A command that moved the document is asked to give it back, in the same run, over
-     * the same editor — which is the cheapest question in this file and the one that found the
-     * worst fault in it.
-     */
-    await editor.executeCommand('undo', {});
-    if (asWritten(editor) !== before) UNDONE.push(name);
-
-    /*
-     * And forward again. Redo replays the original operation against a document the undo has just
-     * rewritten, which is a different claim from undo's and is not reached by testing undo twice.
-     */
-    await editor.executeCommand('redo', {});
-    if (asMeant(editor) !== afterMeant) UNREDONE.push(name);
-
-    /*
-     * And the selection still names nodes that exist. A command that removes what the caret was in
-     * has to leave the caret somewhere, and a selection pointing at a deleted sid is a panel
-     * describing something nobody can see — the fault the site's `removeBlocks` records having had.
-     */
-    const sel: any = editor.selection;
-    for (const key of ['startNodeId', 'endNodeId']) {
-      const sid = sel?.[key];
-      if (typeof sid === 'string' && !store.getNode(sid)) GHOST.push(`${name}(${key})`);
-    }
-    for (const sid of (sel?.nodeIds ?? []) as string[]) {
-      if (!store.getNode(sid)) GHOST.push(`${name}(nodeIds)`);
-    }
-
-    /*
-     * And a toggle is its own inverse: doing it twice is doing nothing. Over a **fresh** editor
-     * rather than this one, because by here the document has been undone and redone and the point is
-     * the pair of presses on their own.
-     */
-    if (name.startsWith('toggle')) {
-      const { editor: twice, store: s2 } = fresh();
-      const runs2 = every(twice, s2, 'inline-text');
-      const set2 = () => twice.selectionManager.setSelection({
-        type: 'range', startNodeId: runs2[1], startOffset: 0, endNodeId: runs2[1], endOffset: 3, collapsed: false
-      });
-      set2();
-      if (twice.canExecuteCommand(name, said) === true) {
-        const start = asWritten(twice);
-        await twice.executeCommand(name, said);
-        set2();
-        await twice.executeCommand(name, said);
-        if (asWritten(twice) !== start) NOT_SELF_INVERSE.push(name);
-      }
-    }
-    return true;
-  }
-  return null;
-}

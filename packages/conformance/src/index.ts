@@ -25,4 +25,12 @@ export { everyIconHasAPicture } from './checks/every-icon-has-a-picture';
 export { placeableTypes, childTypes, namesIn, type NodeShape } from './placeable';
 export { drawnTagFrom, contentTagFrom } from './drawn-as';
 export { attributeReadFrom, probeValues, type AttrShape } from './attribute-read';
+export {
+  askEveryCommand,
+  everyNode,
+  type CommandAnswers,
+  type CommandProbeInput,
+  type ProbeEditor,
+  type ProbeStore
+} from './command-probe';
 export type { Check, Exemptions, Finding, Report, Subject } from './types';

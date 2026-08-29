@@ -79,12 +79,22 @@ describe('the editor is a type, not an escape hatch', () => {
    * the run call, and the cast went with the duplicate. The same shape twice over: the cast was not
    * the fault, it was standing next to it.
    *
-   * 337 → 332 when `FindReplaceExtension` stopped drawing its own panel. Six `(editor as any)`
-   * registrations became one typed `register`, and the DOM the casts were reaching around went with
-   * them. Five at once is what a *layer* being wrong looks like from here: a shared model package
-   * building UI reaches for the escape hatch at every line, and the count is the symptom.
+   * 337 → 332 when `FindReplaceExtension` stopped drawing its own panel. Six untyped registrations
+   * became one typed `register`, and the DOM the casts were reaching around went with them. Five at
+   * once is what a *layer* being wrong looks like from here: a shared model package building UI
+   * reaches for the escape hatch at every line, and the count is the symptom.
+   *
+   * 332 → 331 when the command probe moved into `@barocss/conformance`. It exports the shape it
+   * needs of an editor, so a product's tables are typed by that rather than by `any` — and the
+   * extensions' own run stopped reaching into `_commands` for a list the engine publishes as
+   * `commandNames()`.
+   *
+   * Two of those were **comments**: this counts the phrase, not the code, so writing the escape
+   * hatch's name inside a note about avoiding it adds to the number. Worth knowing about the
+   * measurement rather than working around — a count that reads prose is a count that can be argued
+   * with, and the argument is cheaper than the alternative, which is a count nobody keeps.
    */
-  const ALLOWED = 332;
+  const ALLOWED = 331;
 
   it('declares everything the casts are casting away', () => {
     const source = readFileSync(join(__dirname, '..', 'src', 'editor.ts'), 'utf8');
