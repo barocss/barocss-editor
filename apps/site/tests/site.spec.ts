@@ -3168,6 +3168,50 @@ test.describe('a link to another page', () => {
    * twips arithmetic a reader typing 44 would have written `660px`, and the only place that shows is
    * the page.
    */
+  /**
+   * **A toolbar that follows the chosen words**, which needed four layers and had three.
+   *
+   * There have been two floating surfaces in `packages/extensions` for as long as it has existed and
+   * no product installed either: they drew their own DOM into `document.body`, which a product
+   * cannot theme, place or style. Taking the drawing out left one layer unreachable — *where the
+   * selection is on screen* — which lived inside the decorator system and nothing published.
+   *
+   * Asserted as a **position** rather than as an element that exists, because existing is the easy
+   * half: a toolbar in the corner of the window is a toolbar that appeared and did not follow.
+   */
+  test('a toolbar follows the words a reader has chosen, and goes when they let go', async ({ page }) => {
+    await ready(page);
+    await expect(page.locator('[data-floating-surface]')).toHaveCount(0);
+
+    const hero = page.locator('[data-frame="mobile"] h1');
+    await pressDeep(page, hero);
+    await page.waitForTimeout(200);
+    await pressTwice(page, hero);
+    await page.waitForTimeout(300);
+    for (let i = 0; i < 5; i += 1) await page.keyboard.press('Shift+ArrowRight');
+    await page.waitForTimeout(400);
+
+    const bar = page.locator('[data-floating-surface]');
+    await expect(bar).toHaveCount(1);
+
+    const box = (await bar.boundingBox())!;
+    const words = await page.evaluate(() => {
+      const dom = window.getSelection();
+      const at = dom && dom.rangeCount ? dom.getRangeAt(0).getClientRects()[0] : null;
+      return at ? { top: at.top, left: at.left, width: at.width } : null;
+    });
+
+    // Above the words, and centred on them — the two things a reader reads as "this is about these".
+    expect(box.y + box.height).toBeLessThanOrEqual(words!.top + 1);
+    expect(Math.abs(box.x + box.width / 2 - (words!.left + words!.width / 2))).toBeLessThan(24);
+
+    // And gone when the selection is. A surface that outlives what it describes is a surface a
+    // reader presses by accident.
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(400);
+    await expect(bar).toHaveCount(0);
+  });
+
   test('sets the size and the colour of the words a reader has chosen', async ({ page }) => {
     await ready(page);
 

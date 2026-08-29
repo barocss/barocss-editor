@@ -36,6 +36,7 @@ import {
 } from '@barocss/office-site';
 import { Canvas } from './canvas';
 import { Inspector } from './inspector';
+import { TextSurface } from './text-surface';
 import { Rail, type Panel as RailPanel } from './rail';
 import { CodeEditor, type CodeEdit } from './code-editor';
 import { PageFrame } from './page-frame';
@@ -1044,6 +1045,17 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             }}
           />
         ) : null}
+
+        {/*
+          The toolbar that follows the chosen words — see `text-surface.tsx`.
+
+          Four layers had to exist for this to be four lines: a declaration, a command and its state,
+          a themed component in `office-ui`, and *where the selection is on screen*. The last was
+          reachable only from inside the decorator system until today, which is why the two floating
+          surfaces this suite had were built in a **model** package, drawing their own DOM, and
+          installed by nobody.
+        */}
+        {editor ? <TextSurface editor={editor} mode={mode} /> : null}
 
         {editor ? (
           <Inspector

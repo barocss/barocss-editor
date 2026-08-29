@@ -46,6 +46,50 @@ entries are that.
 
 ## Open
 
+### A floating surface needed four layers and the repository had three — 2026-08-29 *(fixed)*
+
+Asked: *how do you build a floating toolbar or a `/` menu properly in an app?*
+Measured rather than answered, and the answer is that almost all of it was
+already built:
+
+| layer | what it is | state |
+| --- | --- | --- |
+| what it offers | a declaration, `toolbar-model.ts`'s shape | ✅ `SlashMenuItem[]` |
+| when it is open, where the reader is | a command and a piece of state | ✅ today's rewrite |
+| what it looks like | `office-ui` — tokens, theme, portal | ✅ `Toolbar`, `Menu`, `Tip` |
+| **where it goes** | the selection's rectangle on screen | ❌ reachable by nobody |
+
+`DOMQuery.calculateTextPosition` has answered the fourth since the decorator
+system was written, and lives inside it. So a surface needing all four could not
+be built by a product at all — **which is why the two that existed were built
+inside a model package, drawing their own DOM, installed by nobody.** The same
+sentence as `find`: the mechanism exists, in one place, unpublished.
+
+`selectionRectIn` publishes it, `FloatingSurface` draws it in the suite's
+tokens, and the site's selection toolbar is a list of two buttons. That is the
+test of the split: a **second** floating surface is now a list, not a mechanism.
+
+Four things it took measuring to get right:
+
+- **A product may hold several views of one document.** The site makes an
+  `EditorViewDOM` per board and draws three at once, so a view's own
+  contains-check answers `null` for two of them. `EditorViewDOM.selectionRect()`
+  passes its content layer, which is right for Word; a multi-view product passes
+  a root holding them all. Asking each view in turn would be three answers to a
+  question with one.
+- **`getClientRects()[0]`, not the range's bounding box.** A selection wrapping
+  across lines has a box covering the whole paragraph, and a toolbar centred on
+  that sits in the middle of the text.
+- **Measured in `useLayoutEffect` with the element's own size.** In an effect it
+  paints at 0,0 for a frame first, which reads as a flicker in the corner; from
+  a constant it is wrong the first time a product puts a longer label in it.
+- **`office-ui`'s own guard caught a hardcoded `z-50`** — the check written the
+  day a select opened underneath a dialog. It is `--ou-z-popover` now.
+
+Corrected on the way: *"three apps each call `window.getSelection()` for this"*
+was wrong. All four calls **set** the selection; nothing had ever asked where it
+is.
+
 ### The layer is three, not two — 2026-08-29 *(the last two UI extensions resolved)*
 
 Asked directly: *if an extension draws its own DOM, does every application have

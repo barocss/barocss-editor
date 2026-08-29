@@ -34,6 +34,7 @@
 export { Tip, TipProvider } from './tip';
 export { cn } from './cn';
 export { onApple } from './platform';
+export { FloatingSurface } from './floating';
 
 export {
   SegmentedControl,
