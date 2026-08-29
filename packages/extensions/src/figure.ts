@@ -1,6 +1,6 @@
 import { registerFigureRenderers } from './default-renderers';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
-import { transaction, addChild } from '@barocss/model';
+import { transaction, addChild, setText } from '@barocss/model';
 
 export class FigureExtension implements Extension {
   name = 'figure';
@@ -43,19 +43,43 @@ export class FigureExtension implements Extension {
 
     (editor as any).registerCommand({
       name: 'setFigcaption',
+      /**
+       * **Set**, which is what it is called and was not what it did.
+       *
+       * It only ever *added* a `bFigcaption`. A `bFigure` holds
+       * `(inline-image|…)+ bFigcaption?` — **at most one** — so on a figure that already had a
+       * caption the schema refused the second one and the command reported success and changed
+       * nothing. Which is every figure this extension itself makes: `insertFigure` builds one with
+       * a caption in it, so setting the caption of a figure you had just inserted was the case that
+       * did not work.
+       *
+       * Found by this package's own conformance run. The command was in the first nine and it is the
+       * subtlest of them, because it works exactly once per figure and then silently stops.
+       */
       execute: async (ed: Editor, payload?: { figureId?: string; caption?: string }) => {
-        if (!payload?.figureId) return false;
-        const dataStore = (ed as any).dataStore;
-        if (!dataStore) return false;
-        const figNode = dataStore.getNode(payload.figureId);
-        if (!figNode || figNode.stype !== 'bFigure') return false;
+        const held = figcaptionOf(ed, payload?.figureId);
+        if (!held) return false;
 
-        const captionNode = { stype: 'bFigcaption', content: [{ stype: 'inline-text', text: payload?.caption ?? '' }] };
-        const ops = [addChild(payload.figureId, captionNode as any)];
+        const said = payload?.caption ?? '';
+        /*
+         * The words of the caption it already has, or a caption where there was none. Two shapes for
+         * one sentence, and the reader means the same thing by both.
+         */
+        const ops = held.caption
+          ? [setText(held.words ?? held.caption, said)]
+          : [addChild(held.figure, { stype: 'bFigcaption', content: [{ stype: 'inline-text', text: said }] } as any)];
+
         const result = await transaction(ed, ops, { applySelectionToView: true }).commit();
         return result.success;
       },
-      canExecute: () => true
+      /**
+       * A figure has to be **named and be one** — `() => true` was the whole guard.
+       *
+       * The class `guards.ts` names, and the fourth batch of it this package's conformance run has
+       * turned up. A control that lights up over a paragraph and does nothing is worse than one that
+       * is missing.
+       */
+      canExecute: (ed: Editor, payload?: { figureId?: string }) => !!figcaptionOf(ed, payload?.figureId)
     });
   }
 
@@ -89,4 +113,35 @@ export class FigureExtension implements Extension {
 
 export function createFigureExtension(): FigureExtension {
   return new FigureExtension();
+}
+
+/**
+ * The figure, and the caption it already has — the one lookup the guard and the run share.
+ *
+ * `undefined` when the id names nothing or names something that is not a figure, which is the whole
+ * of what `canExecute` needs to answer. Two copies of this walk is how a guard comes to be looser
+ * than its command without anybody writing it that way.
+ */
+function figcaptionOf(
+  editor: Editor,
+  figureId: string | undefined
+): { figure: string; caption?: string; words?: string } | undefined {
+  if (!figureId) return undefined;
+  const store = editor.dataStore;
+  if (!store) return undefined;
+
+  const figure = store.getNode(figureId);
+  if (!figure || figure.stype !== 'bFigure') return undefined;
+
+  const caption = ((figure.content ?? []) as unknown[])
+    .filter((sid): sid is string => typeof sid === 'string')
+    .find((sid) => store.getNode(sid)?.stype === 'bFigcaption');
+  if (!caption) return { figure: figureId };
+
+  // The run inside it, which is what carries the words — a caption is a box around them.
+  const words = ((store.getNode(caption)?.content ?? []) as unknown[])
+    .filter((sid): sid is string => typeof sid === 'string')
+    .find((sid) => typeof store.getNode(sid)?.text === 'string');
+
+  return { figure: figureId, caption, words };
 }

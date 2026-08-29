@@ -88,8 +88,23 @@ export class TableExtension implements Extension {
           }).commit();
           return result.success;
         },
-        canExecute: (ed: Editor, payload?: { selection?: ModelSelection; cellId?: string }) =>
-          !!(payload?.cellId ?? this._currentCellId(ed, payload?.selection))
+        /**
+         * A cell — and, for **one** of these seven, a cell that is actually merged.
+         *
+         * `splitTableCell` refuses a cell whose `colspan` and `rowspan` are both 1, with the reason
+         * written into the operation: *"cell is not merged"*. There is nothing to split. So 셀 나누기
+         * lit up over every cell in every table, ran, and did nothing on all but the merged ones —
+         * which is a control a reader presses once, gets nothing from, and stops trusting.
+         *
+         * Found by this package's own conformance run. The other six take any cell and the
+         * distinction lives here rather than in seven separate registrations, because six of them
+         * genuinely do share one guard.
+         */
+        canExecute: (ed: Editor, payload?: { selection?: ModelSelection; cellId?: string }) => {
+          const cellId = payload?.cellId ?? this._currentCellId(ed, payload?.selection);
+          if (!cellId) return false;
+          return name !== 'splitCell' || isMerged(ed, cellId);
+        }
       });
     }
 
@@ -263,4 +278,17 @@ export class TableExtension implements Extension {
 
 export function createTableExtension(options?: TableExtensionOptions): TableExtension {
   return new TableExtension(options);
+}
+
+/**
+ * Whether a cell spans more than one — the only kind there is anything to split in.
+ *
+ * The same question `splitTableCell` asks before refusing, asked where a control can see the answer.
+ * A default of 1 for both, which is what the schema declares and what a cell that has never been
+ * merged carries.
+ */
+function isMerged(editor: Editor, cellId: string): boolean {
+  const cell = editor.dataStore?.getNode(cellId);
+  const attrs = (cell?.attributes ?? {}) as { colspan?: number; rowspan?: number };
+  return (attrs.colspan ?? 1) > 1 || (attrs.rowspan ?? 1) > 1;
 }

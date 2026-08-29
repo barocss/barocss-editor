@@ -132,15 +132,47 @@ describe('ColumnsExtension', () => {
     expect(recordedTransactions[0][0].payload.child.stype).toBe('column');
   });
 
-  it('removeColumn removes a column', async () => {
+  /**
+   * The columns have to **be there** — which this test used not to say.
+   *
+   * It handed the command `cols-1` and `col-2` over a store that answers `null` for both, and
+   * asserted that a `removeChild` transaction came out. That is the command building an operation
+   * against two ids naming nothing: the validator would refuse it, the document would not move, and
+   * the command would report success. The test was asserting the bug.
+   *
+   * It broke the day the guard started asking whether the pair is real, which is the right way round
+   * — and it is a small example of the shape this package's conformance run exists to correct: a
+   * fake store and a mocked commit can only check the operation a command *builds*, never whether
+   * anything happens.
+   */
+  it('removeColumn removes a column that is there, and leaves the last one alone', async () => {
     const { ColumnsExtension } = await import('../src/columns');
-    const editor = createFakeEditor();
+    const twoColumns = {
+      getNode: (id: string) => {
+        if (id === 'cols-1') return { sid: 'cols-1', stype: 'columns', content: ['col-1', 'col-2'] };
+        if (id === 'col-1' || id === 'col-2') return { sid: id, stype: 'column', content: [], parentId: 'cols-1' };
+        return null;
+      }
+    };
+    const editor = createFakeEditor(twoColumns);
     const ext = new ColumnsExtension();
     ext.onCreate(editor);
 
     await editor.__getCommand('removeColumn').execute(editor, { columnsId: 'cols-1', columnId: 'col-2' });
     expect(commitMock).toHaveBeenCalledTimes(1);
     expect(recordedTransactions[0][0].type).toBe('removeChild');
+
+    // And a `columns` holds `column+`: emptying it is a document the schema will not take.
+    const one = createFakeEditor({
+      getNode: (id: string) =>
+        id === 'cols-1'
+          ? { sid: 'cols-1', stype: 'columns', content: ['col-1'] }
+          : id === 'col-1'
+            ? { sid: 'col-1', stype: 'column', content: [], parentId: 'cols-1' }
+            : null
+    });
+    new ColumnsExtension().onCreate(one);
+    expect(one.__getCommand('removeColumn').canExecute(one, { columnsId: 'cols-1', columnId: 'col-1' })).toBe(false);
   });
 });
 

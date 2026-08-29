@@ -312,6 +312,14 @@ describe('every command this package registers', () => {
      * rather than a finding, and an exemption for a finding that does not happen is a note.
      */
     showSlashMenu: 'opens a menu',
+    /*
+     * Tab and ⇧Tab between cells. What they are **for** is moving the caret, and only one case in a
+     * table changes the document: Tab past the last cell grows a row, which every word processor and
+     * spreadsheet does. The probe reaches the first cell it finds, so it measures the ordinary case
+     * — and the ordinary case is a selection move.
+     */
+    nextCell: 'moves the caret to the next cell; only Tab past the last one grows the table',
+    previousCell: 'moves the caret to the previous cell, and never grows anything',
 
     /*
      * And the two that are **not** application commands and are exempt anyway, because the finding is
@@ -331,32 +339,39 @@ describe('every command this package registers', () => {
       commandChanges: (command: string) => moved.get(command) ?? null,
       exempt,
       /**
-       * **Three left**, and they are a work list rather than a claim.
+       * **No ratchet**, and it opened at nine.
        *
-       * A ratchet says how much of a known pile is still there; it cannot go stale, because the day
-       * one is fixed the number is wrong in the direction that fails — and it says so out loud:
-       * *"3 finding(s), and 5 were allowed. Lower the ratchet to 3."*
+       * A ratchet says how much of a known pile is left, and it cannot go stale because the day one
+       * is fixed the number is wrong in the direction that fails — which it said out loud, four
+       * times, each time a batch went: *"0 finding(s), and 3 were allowed. Lower the ratchet to 0."*
+       * It is gone rather than set to zero, because zero is what an assertion already means and a
+       * number kept at zero is a note.
        *
-       * It opened at **nine**, on the first run, and six went the same afternoon:
+       * What the nine were, on the first run this package had ever had of this check:
        *
-       * - **Four** to one change. `DocStructure` gave every node it makes a **paragraph** as its
-       *   empty content, and `docHeader`, `docFooter` and `endnoteDef` hold `inline*` — so the schema
-       *   refused the child and three inserts drew nothing, while the three beside them in the same
-       *   table and through the same code worked perfectly. `chart` was the fourth and a different
-       *   shape of the same thing: it *requires* a `values` attribute and the command never checked,
-       *   so it built a node the schema would not take.
+       * - **Six `canExecute: () => true`** in `TextFormattingExtension`, beside an execute that
+       *   refuses without a range *and* without a value. Alive because they are registered through a
+       *   private helper, so a sweep reading `canExecute:` at each command's own declaration never
+       *   saw them.
+       * - **Four inserts that drew nothing** in `DocStructureExtension`. `hasContent: true` gave
+       *   every node it makes a **paragraph** as its empty content, and `docHeader`, `docFooter` and
+       *   `endnoteDef` hold `inline*` — the schema refused the child, while the three beside them in
+       *   the same table and through the same code worked. `chart` was a different shape of the same
+       *   thing: it *requires* a `values` attribute and nothing checked.
        * - **`removeHeading`**, whose guard was `return true` under a comment reading *"conservative
        *   default"*. 제목 해제 lit up with the caret in an ordinary paragraph.
-       * - **`splitListItem`**, whose guard asked for a range and not for a **list item**. There is
-       *   nothing to split outside one, and the operation knows that and quietly produces nothing.
+       * - **`splitListItem`**, which asked for a range and not for a **list item**.
+       * - **`setFigcaption`**, which only ever *added* a caption. A `bFigure` holds at most one, so
+       *   on a figure that already had one — which is every figure `insertFigure` makes — the schema
+       *   refused the second and the command reported success.
+       * - **`splitCell`**, over a cell that is not merged. `splitTableCell` refuses one with the
+       *   reason in the operation: there is nothing to split.
+       * - **`removeColumn`**, needing two ids with a guard that asked for neither, and taking the
+       *   **last** column out of a `column+` besides.
        *
-       * What is left: `removeColumn`, `splitCell` — a column and a cell that will not go — and
-       * `setFigcaption`, which declines with a figure handed to it. Each says it can run first,
-       * which is the fault this check is named after. They are here rather than exempt because none
-       * of them has a *reason*; they have a cause, which is not the same thing and is what a number
-       * is for.
+       * Eight of the nine were a `canExecute` looser than its `execute`, which is the class
+       * `guards.ts` names and the reason it exists.
        */
-      ratchet: { 'every-command-does-something': 3 }
     });
   });
 
@@ -367,6 +382,23 @@ describe('every command this package registers', () => {
    * it can run. That is honest and it is not coverage, so it is asserted as a ceiling: a probe that
    * quietly stopped setting things up would drive this number *up* and fail, rather than reporting
    * a smaller, greener product.
+   *
+   * It was **28**, and walking every run in the document rather than one took it to **23** — five
+   * commands that were only ever unaskable because a caret happened to be in a paragraph. What is
+   * left, and why:
+   *
+   * - **A find that has not been run.** `findNext`, `findPrev`, `replaceOne`, `replaceAll` all need
+   *   a search in progress, and `find` itself is a stub. They come back when it does.
+   * - **A menu that is not open.** `hideSlashMenu`.
+   * - **History that has not moved forward.** `redo` and `historyRedo` need an undo first; the probe
+   *   does one edit, not an edit and an undo.
+   * - **A payload the probe does not know how to make.** `deleteCrossNode` wants a range across two
+   *   nodes; `moveBlockUp`/`moveBlockDown`, `indentNode`/`outdentNode`, `insertParagraph` and
+   *   `insertEmoji` each want a node or a value in a shape not yet written down.
+   *
+   * Every one of them is a **probe** gap rather than a product one, which is exactly what this
+   * number is for: it says how much of the answer is still missing, out loud, instead of letting a
+   * green run imply there was none.
    */
   it('can ask about most of them, and says how many it cannot', () => {
     const report = conformance({
@@ -377,8 +409,8 @@ describe('every command this package registers', () => {
       commandChanges: (command: string) => moved.get(command) ?? null
     });
 
-    expect(report.examined['every-command-does-something']).toBeGreaterThanOrEqual(108);
-    expect(report.unanswered['every-command-does-something']).toBeLessThanOrEqual(28);
+    expect(report.examined['every-command-does-something']).toBeGreaterThanOrEqual(113);
+    expect(report.unanswered['every-command-does-something']).toBeLessThanOrEqual(23);
   });
 });
 
@@ -399,6 +431,15 @@ async function ask(name: string): Promise<boolean | null> {
     for (const key of NODE_KEY[name] ?? []) if (found[0]) said[key] = found[0];
     // The one beside it, for the command that needs two.
     if (name === 'mergeCells' && found[1]) said.toCellId = found[1];
+    /*
+     * And a column to take out of it, which is the second of the two ids `removeColumn` needs. It
+     * asked for neither until its guard was written, so the probe had never had to supply one.
+     */
+    if (name === 'removeColumn' && found[0]) {
+      said.columnId = ((store.getNode(found[0])?.content ?? []) as string[]).find(
+        (sid) => typeof sid === 'string'
+      );
+    }
   }
 
   const at = (sid: string, from: number, to: number) => () =>
@@ -406,12 +447,23 @@ async function ask(name: string): Promise<boolean | null> {
       type: 'range', startNodeId: sid, startOffset: from, endNodeId: sid, endOffset: to, collapsed: from === to
     });
 
-  /*
-   * The states a text editor's surfaces act from. A range first, because almost everything here is
-   * about words; a caret second, because a list toggle and a block insert both work from one and
-   * demanding a selection would be the opposite fault.
+  /**
+   * **Every run in the document**, as a range and as a caret.
+   *
+   * It was one run — the second, chosen because it is an ordinary paragraph — and that made a whole
+   * class of command unaskable for a reason that had nothing to do with the command: `removeHeading`
+   * needs the caret in a **heading**, `splitListItem` in a **list item**, `nextCell` in a **cell**,
+   * and none of them was ever offered one. Eleven commands sat in the *could not be asked* column
+   * because of where a single caret happened to be, which reads exactly like eleven commands nobody
+   * had got round to.
+   *
+   * Walking them all is what a document is for. The loop stops at the first state a command says it
+   * can run in, so the cost is a few `canExecute` calls for the commands that are picky and one for
+   * everything else.
    */
-  const states = [at(words, 0, 3), at(words, 1, 1)];
+  const runs = every(editor, store, 'inline-text');
+  const states = [...runs.map((run) => at(run, 0, 3)), ...runs.map((run) => at(run, 1, 1))];
+  void words;
   const span = ['deleteText', 'deleteCrossNode', 'replaceText'].includes(name);
 
   for (const set of states) {

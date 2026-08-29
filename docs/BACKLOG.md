@@ -46,7 +46,7 @@ entries are that.
 
 ## Open
 
-### The extensions had no self-test — measured 2026-08-29 *(harness written; 9 findings, 6 fixed)*
+### The extensions had no self-test — measured 2026-08-29 *(harness written; 11 findings, all closed)*
 
 Asked after a reader's question: *"shouldn't the extensions test themselves,
 independent of Word, Slides and the site? Why didn't they?"* Both halves are
@@ -77,7 +77,7 @@ product had put a size control on a surface.
 
 `packages/extensions/test/conformance.test.ts` is that check, wired where the
 commands live: a real editor with all 50 extensions, the standard schema, a
-document with one of most things in it. **136 commands — 88 move, 3 do not, 28
+document with one of most things in it. **136 commands — 113 examined, 0 findings, 23
 cannot be asked**, and the third number is asserted as a ceiling so a probe that
 stops setting things up fails rather than looking greener.
 
@@ -99,7 +99,32 @@ stops setting things up fails rather than looking greener.
   nothing to split outside one, and the operation knows that and quietly produces
   nothing.
 
-Three left, on the ratchet: `removeColumn`, `splitCell`, `setFigcaption`.
+**And then the last three, so the ratchet is gone rather than set to zero:**
+
+- **`setFigcaption` only ever *added* a caption.** A `bFigure` holds at most one,
+  so on a figure that already had one — which is every figure `insertFigure`
+  makes — the schema refused the second and the command reported success. It
+  works exactly once per figure and then silently stops, which is the subtlest
+  of the nine.
+- **`splitCell` over a cell that is not merged.** `splitTableCell` refuses one
+  with the reason written into the operation: there is nothing to split. 셀 나누기
+  lit up over every cell in every table.
+- **`removeColumn` needed two ids and its guard asked for neither**, and would
+  take the **last** column out of a `column+` besides.
+
+Eight of the nine were a `canExecute` looser than its `execute` — the class
+`guards.ts` names and the reason it exists.
+
+Fixing them turned four into *unanswered*, because the probe's single caret was
+in a paragraph. So the probe walks **every run in the document** now: 28
+unanswered → 23, examined 108 → 113, and two more findings fell out of the five
+it unlocked (`nextCell`/`previousCell`, now exempt with the reason — moving the
+caret is what they are for, and only Tab past the last cell grows a table).
+
+What is still unanswered is a **probe** gap rather than a product one, and it is
+written down in the test: a find that has not been run, a menu that is not open,
+history that has not moved forward, and six commands wanting a payload in a
+shape nobody has written down yet.
 
 Two things the probe itself taught:
 
