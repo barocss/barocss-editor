@@ -84,6 +84,8 @@ import { CodeMarkExtension } from './code-mark';
 import { HighlightExtension } from './highlight';
 import { FontColorExtension } from './font-color';
 import { SubSuperExtension } from './sub-super';
+import { EmojiExtension } from './emoji';
+import { FindReplaceExtension } from './find-replace';
 import { MathInlineExtension } from './math-inline';
 import { PageBreakExtension } from './page-break';
 import { PullQuoteExtension } from './pull-quote';
@@ -149,6 +151,19 @@ export function createRichExtensions(): Extension[] {
     new FontColorExtension(),
     new SubSuperExtension(),
     new MathInlineExtension(),
+    /*
+     * Both in a kit at last. They were in none of the four, which is how an extension becomes
+     * invisible: a product can only find it by reading this file's exports, and none of the three
+     * ever did. `FindReplaceExtension` spent months being called a **stub** in three places for
+     * exactly that reason — it was complete, and nothing installed it, which from a keyboard is the
+     * same thing. See `every-extension-is-in-a-kit`, the sweep that found both.
+     *
+     * It could not have gone in a kit before: it drew its own panel into `document.body`, and a
+     * shared model package building UI is one a product cannot use. That went, and this is what
+     * being installable looks like.
+     */
+    new EmojiExtension(),
+    new FindReplaceExtension(),
     new PageBreakExtension(),
     new PullQuoteExtension(),
     new ColumnsExtension(),

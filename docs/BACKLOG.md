@@ -46,6 +46,39 @@ entries are that.
 
 ## Open
 
+### Four extensions were in no kit, and three of them drew their own UI — 2026-08-29 *(fixed)*
+
+`FindReplaceExtension` was called a stub in three places for months and was
+complete all along — nothing installed it. The obvious next question is whether
+anything else is in that position, and the answer is a check this package can
+run on itself: **every extension it exports is in a kit a product can take.**
+
+Four were not: `FindReplaceExtension`, `EmojiExtension`, `SlashCommandExtension`,
+`FloatingToolbarExtension`.
+
+**Three of the four build their own DOM**, and that is not a coincidence. A
+shared model package drawing UI is a package a product cannot use, in a
+repository whose whole shape is that `office-ui` draws and the packages below it
+do not. It is the same fault that kept `find` unused, seen from the other end —
+and the measurement that names it is *"which of these is in no kit"*, not
+*"which of these looks wrong"*.
+
+`FindReplaceExtension` had its panel removed earlier today, so it is installable
+now and is in `createRichExtensions()`. `EmojiExtension` was a plain wiring gap
+and went in with it. The other two are exemptions naming what would have to
+change first — 14 lines of `document.createElement` in one, `background: white`
+in the other — and the day either stops drawing, the check fails and it goes in
+a kit.
+
+**Word names its extensions one at a time and that is not a counter-example.**
+Its kit takes core and basic and then lists twenty-two by hand, with the reason
+written down: `createRichExtensions()` registers an insert for every node in it,
+including ten Word cannot draw, so `insertCallout` reported success and left the
+reader's text invisible. That is the right decision, and it is one **only a
+reader of these exports can make**. A product that reads the list can choose; a
+product that takes a kit gets what the kit has; an extension in neither is one
+nobody chooses *or* inherits. The next application starts from a kit.
+
 ### The six questions are a shared probe now, and Word answers them — 2026-08-29
 
 The probe that found eleven faults in `packages/extensions` was answering six
