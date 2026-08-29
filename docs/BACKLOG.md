@@ -46,6 +46,45 @@ entries are that.
 
 ## Open
 
+### A list could not be turned back into paragraphs — 2026-08-29 *(fixed)*
+
+Two more questions on the extensions' probe, both free — it already has the
+document before and after:
+
+- **Does the selection still name nodes that exist?** 0 findings. A command that
+  takes away what the caret was in has to leave the caret somewhere, and a
+  selection pointing at a deleted sid is the state the site builder records
+  having had once: *"a panel describing something nobody can see."*
+- **Is a toggle its own inverse?** **3 findings**, and they are the three block
+  toggles: `toggleBulletList`, `toggleOrderedList`, `toggleBlockquote`.
+
+Every **mark** toggle was self-inverse. The three that change the *shape* of the
+document each called a `wrapIn…` operation **and nothing else**. A paragraph
+became a bullet the first time and stayed one for ever: pressing the control
+again ran the command, wrapped nothing, reported success and changed nothing.
+
+So **there was no way to turn a list or a quotation back into paragraphs** in
+any of the three products. The only route out was undo, and only if it was the
+last thing you did. Three toolbar buttons, in three shipping products, that a
+reader can press twice and only the first press means anything.
+
+The way out is composed rather than a new operation (`lift.ts`): move the blocks
+up to where the wrapper sits, then take the wrapper away — two operations this
+package already has, so the inverse comes for nothing and the pair undoes as one
+gesture. Two things it took measuring to get right:
+
+- **The wrapper goes with its children.** `removeChild` takes the list's
+  reference out of its parent and leaves the `listItem`s in the store, by then
+  empty. The transaction validates what it touched at commit and refused the
+  whole thing: *"Content of 'listItem' ended early; 'block+' requires more
+  children."* `deleteOp` takes the descendants with it.
+- **A list holds items which hold blocks; a quotation holds blocks.** The level
+  between is named rather than guessed — a walk that guessed would lift a
+  `listItem` onto the page, and nothing accepts one there.
+
+`toggleBlockquote`'s guard was `() => true` besides, on an operation that reads
+the selection and refuses without one.
+
 ### Three more questions, asked in the same run — 2026-08-29
 
 The extensions' probe already had the document before and after every command,

@@ -150,6 +150,9 @@ const BROKEN: string[] = [];
  * not where it started. Both history questions below have to say so out loud, because the alternative
  * is a probe that reports the history as broken by the history working.
  */
+const GHOST: string[] = [];
+const NOT_SELF_INVERSE: string[] = [];
+
 const HISTORY = new Set(['undo', 'historyUndo']);
 
 const AFTER_AN_EDIT = new Set(['undo', 'redo', 'historyUndo', 'historyRedo']);
@@ -545,6 +548,37 @@ describe('every command this package registers', () => {
    * Nothing here breaks it today. The value is the day something does, at the command that did it,
    * rather than four levels away in a product.
    */
+  /**
+   * **And the selection still names nodes that are there.**
+   *
+   * A command that takes away what the caret was in has to leave the caret somewhere. A selection
+   * pointing at a deleted sid is the state the site builder records already having had once — *"a
+   * selection naming a node that is gone is a panel describing something nobody can see"* — and it
+   * is invisible until something reads it, which is usually a panel or a keystroke rather than a
+   * test.
+   *
+   * Nothing here does it today. The value is the day something does, named by the command.
+   */
+  it('leaves the selection pointing at nodes that exist', () => {
+    expect([...new Set(GHOST)]).toEqual([]);
+  });
+
+  /**
+   * **And a toggle is its own inverse** — doing it twice is doing nothing.
+   *
+   * The mark toggles all were. The three **block** ones were not, and they are exactly the three
+   * that change the shape of the document rather than the look of a run: `toggleBulletList`,
+   * `toggleOrderedList` and `toggleBlockquote` each called a `wrapIn…` operation **and nothing
+   * else**. A paragraph became a bullet the first time and stayed one for ever; pressing the control
+   * again ran the command, wrapped nothing and reported success.
+   *
+   * Which means there was no way to turn a list or a quotation back into paragraphs in any of the
+   * three products. The only route out was undo, and only if it was the last thing you did.
+   */
+  it('undoes itself when a toggle is pressed twice', () => {
+    expect(NOT_SELF_INVERSE).toEqual([]);
+  });
+
   it('leaves a document the schema still accepts', () => {
     expect(BROKEN).toEqual([]);
   });
@@ -672,6 +706,41 @@ async function ask(name: string): Promise<boolean | null> {
      */
     await editor.executeCommand('redo', {});
     if (asMeant(editor) !== afterMeant) UNREDONE.push(name);
+
+    /*
+     * And the selection still names nodes that exist. A command that removes what the caret was in
+     * has to leave the caret somewhere, and a selection pointing at a deleted sid is a panel
+     * describing something nobody can see — the fault the site's `removeBlocks` records having had.
+     */
+    const sel: any = editor.selection;
+    for (const key of ['startNodeId', 'endNodeId']) {
+      const sid = sel?.[key];
+      if (typeof sid === 'string' && !store.getNode(sid)) GHOST.push(`${name}(${key})`);
+    }
+    for (const sid of (sel?.nodeIds ?? []) as string[]) {
+      if (!store.getNode(sid)) GHOST.push(`${name}(nodeIds)`);
+    }
+
+    /*
+     * And a toggle is its own inverse: doing it twice is doing nothing. Over a **fresh** editor
+     * rather than this one, because by here the document has been undone and redone and the point is
+     * the pair of presses on their own.
+     */
+    if (name.startsWith('toggle')) {
+      const { editor: twice, store: s2 } = fresh();
+      const runs2 = every(twice, s2, 'inline-text');
+      const set2 = () => twice.selectionManager.setSelection({
+        type: 'range', startNodeId: runs2[1], startOffset: 0, endNodeId: runs2[1], endOffset: 3, collapsed: false
+      });
+      set2();
+      if (twice.canExecuteCommand(name, said) === true) {
+        const start = asWritten(twice);
+        await twice.executeCommand(name, said);
+        set2();
+        await twice.executeCommand(name, said);
+        if (asWritten(twice) !== start) NOT_SELF_INVERSE.push(name);
+      }
+    }
     return true;
   }
   return null;

@@ -1,6 +1,7 @@
 import { hasRange } from './guards';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, wrapInList as wrapInListOp, splitListItem as splitListItemOp } from '@barocss/model';
+import { liftOutOf, wrapperAround } from './lift';
 import { findAncestorNode } from '@barocss/datastore';
 
 export interface ListExtensionOptions {
@@ -32,7 +33,7 @@ export class ListExtension implements Extension {
     (editor as any).registerCommand({
       name: 'toggleBulletList',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
-        return await this._executeWrapInList(ed, 'bullet', payload?.selection);
+        return await this._toggleList(ed, 'bullet', payload?.selection);
       },
       /*
        * A caret is enough — a list toggle acts on the **block** the caret is in, and demanding a
@@ -46,7 +47,7 @@ export class ListExtension implements Extension {
     (editor as any).registerCommand({
       name: 'toggleOrderedList',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
-        return await this._executeWrapInList(ed, 'ordered', payload?.selection);
+        return await this._toggleList(ed, 'ordered', payload?.selection);
       },
       /*
        * A caret is enough — a list toggle acts on the **block** the caret is in, and demanding a
@@ -81,6 +82,51 @@ export class ListExtension implements Extension {
   }
 
   onDestroy(_editor: Editor): void {}
+
+  /**
+   * **Toggle**, which is what these two are called and was half of what they did.
+   *
+   * ## What they were
+   *
+   * `wrapInList`, and nothing else. A paragraph became a bullet the first time and stayed one for
+   * ever: pressing 글머리 목록 again ran the command, wrapped nothing, reported success and changed
+   * nothing. So **there was no way to turn a list back into paragraphs** in any of the three
+   * products — the only route out was undo, and only if it was the last thing you did.
+   *
+   * Found by asking whether a toggle is its own inverse. Every mark toggle here is; the three block
+   * ones — this pair and `toggleBlockquote` — were not, and they are the three that change the shape
+   * of the document rather than the look of a run.
+   *
+   * ## Why the way out is composed rather than a new operation
+   *
+   * There is no `unwrapFromList`, and `unwrap` is about the characters at the ends of a range. What
+   * getting out of a list *is* — move each item's blocks up to where the list sits, then take the
+   * empty list away — is two operations this package already has, and composing them means the
+   * inverse comes for nothing: `moveNode` and `removeChild` each know how to undo themselves, and a
+   * transaction of the two undoes as one gesture.
+   *
+   * The blocks are moved **from the last backwards**, at one index, so they arrive in the order they
+   * were in. Inserting forwards at a fixed place reverses them — the same arithmetic a paste does,
+   * and the same reason.
+   */
+  private async _toggleList(
+    editor: Editor,
+    listType: 'bullet' | 'ordered',
+    selection?: ModelSelection
+  ): Promise<boolean> {
+    const inside = listAround(editor, selection);
+    // Not in a list, or in one of the other kind: wrapping is what the reader means.
+    if (!inside || inside.type !== listType) {
+      return await this._executeWrapInList(editor, listType, selection);
+    }
+
+    // A list holds `listItem`s which hold the blocks, so the lift goes through them — see `lift.ts`.
+    const ops = liftOutOf(editor, inside.list, 'listItem');
+    if (!ops) return false;
+
+    const result = await transaction(editor, ops as never, { applySelectionToView: true }).commit();
+    return result.success;
+  }
 
   private async _executeWrapInList(
     editor: Editor,
@@ -124,4 +170,23 @@ function inListItem(editor: Editor, selection?: ModelSelection): boolean {
     at.startNodeId,
     (node: { stype?: string }) => node.stype === 'listItem'
   );
+}
+
+/**
+ * The list the caret is in, and what kind it is — or nothing.
+ *
+ * Named by the kind rather than by "is it in a list", because that is the question a toggle asks: a
+ * caret in a numbered list, given 글머리 목록, means *make this a bullet list* and not *take it out
+ * of the list it is in*. Which is what every editor of this kind does, and the one case a plain
+ * boolean would get wrong.
+ */
+function listAround(
+  editor: Editor,
+  selection?: ModelSelection
+): { list: string; type: string } | undefined {
+  const at = selection ?? (editor as { selection?: ModelSelection }).selection;
+  if (!at || at.type !== 'range') return undefined;
+
+  const found = wrapperAround(editor, at.startNodeId, 'list');
+  return found ? { list: found.sid, type: String(found.attributes?.type ?? 'bullet') } : undefined;
 }
