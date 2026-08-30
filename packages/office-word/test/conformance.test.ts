@@ -270,7 +270,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * to set them, because Word has no panel and no dialogs. Real attributes, really drawn,
        * owed to the sixth dialog rather than regressed.
        */
-      ratchet: { 'every-attribute-is-read': 134, 'every-property-can-be-edited': 182 },
+      ratchet: { 'every-attribute-is-read': 79, 'every-property-can-be-edited': 182 },
 
       /**
        * Every attribute a reader can **set**, out of Word's two writing surfaces.
@@ -312,6 +312,35 @@ const schema = createSchema('word', getWordSchemaDefinition());
         revisionDate: 'when the edit happened, from the clock, for the same reason as the author',
 
         /*
+         * ── Read when a **cell** is drawn, which a bare table has none of ──
+         *
+         * A table's interior and its cell margins are stated once on the table and applied to every
+         * cell: `cellBorders(tableFormat, cellFormat, at)` picks `borderInsideH` for a cell's top and
+         * bottom unless it is on the table's own edge, `borderInsideV` for its sides, and
+         * `cellMargins(tableFormat)` becomes each cell's padding — which is why they are named
+         * `cellMargin*` on the table and `margin*` on the cell.
+         *
+         * Rendering a bare `bTable` draws a `<table>` and no cells, so the check has nothing for the
+         * value to change. The same shape as the header ids below, and the same answer.
+         *
+         * The **cells'** copies of `borderInside*` were a different matter and are gone: a cell has no
+         * interior in this model, because merging removes the cells it swallowed. See
+         * `tableCellFormatAttrs`.
+         */
+        'bTable.borderInsideHStyle': 'drawn by `cellBorders` on each cell’s top and bottom, unless the cell sits on the table’s own edge',
+        'bTable.borderInsideHColor': 'drawn by `cellBorders` on each cell’s top and bottom, unless the cell sits on the table’s own edge',
+        'bTable.borderInsideHWidth': 'drawn by `cellBorders` on each cell’s top and bottom, unless the cell sits on the table’s own edge',
+        'bTable.borderInsideHSpace': 'part of the border `cellBorders` draws on each cell; a bare table has no cells to draw it on',
+        'bTable.borderInsideVStyle': 'drawn by `cellBorders` on each cell’s sides, unless the cell sits on the table’s own edge',
+        'bTable.borderInsideVColor': 'drawn by `cellBorders` on each cell’s sides, unless the cell sits on the table’s own edge',
+        'bTable.borderInsideVWidth': 'drawn by `cellBorders` on each cell’s sides, unless the cell sits on the table’s own edge',
+        'bTable.borderInsideVSpace': 'part of the border `cellBorders` draws on each cell; a bare table has no cells to draw it on',
+        'bTable.cellMarginTop': 'becomes every cell’s `marginTop` through `cellMargins`, under the cell’s own',
+        'bTable.cellMarginBottom': 'becomes every cell’s `marginBottom` through `cellMargins`, under the cell’s own',
+        'bTable.cellMarginLeft': 'becomes every cell’s `marginLeft` through `cellMargins`, under the cell’s own',
+        'bTable.cellMarginRight': 'becomes every cell’s `marginRight` through `cellMargins`, under the cell’s own',
+
+        /*
          * ── Read by the page renderer, which a bare render cannot reach ────
          *
          * `renderers/page.ts` builds a `FurnitureBinding` out of these five and hands it to
@@ -328,6 +357,34 @@ const schema = createSchema('word', getWordSchemaDefinition());
          * This sat in the unread pile as *"five names nothing looks up"*, which was wrong. Reading
          * the list is what found it; counting it is what hid it.
          */
+        /*
+         * And the **page border**, for the same reason one step over: it is drawn on each *sheet*,
+         * because that is where a page border is — inside the paper's edge, once per page — and the
+         * sheets come from the layout. A bare `surface` draws no sheets.
+         *
+         * `pageSetupAttrs` has carried `boxBorderAttrs()` since the schema was written and `pageCss`
+         * has known how to draw them for just as long, and **nothing ever called `pageCss`** — it was
+         * exported from `index.ts` and reachable from a console. `pageBorderCss` is the part a sheet
+         * wants: handing a sheet the whole of `pageCss` puts a width and a padding on something that
+         * already has both.
+         */
+        'surface.borderTopStyle': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderTopColor': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderTopWidth': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderTopSpace': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderBottomStyle': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderBottomColor': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderBottomWidth': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderBottomSpace': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderLeftStyle': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderLeftColor': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderLeftWidth': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderLeftSpace': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderRightStyle': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderRightColor': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderRightWidth': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+        'surface.borderRightSpace': 'drawn on each sheet by `pageBorderCss`; a bare surface has no sheets',
+
         headerId: 'read by `renderers/page.ts` through `furnitureFor`, which needs a paginated layout a bare render has no pages for',
         footerId: 'read by `renderers/page.ts` through `furnitureFor`, which needs a paginated layout a bare render has no pages for',
         firstPageHeaderId: 'the title page’s header, chosen by `furnitureFor` when the section’s `titlePage` switch is on',
@@ -460,6 +517,27 @@ const schema = createSchema('word', getWordSchemaDefinition());
         isHeader: 'the paginator — `table-pagination.ts` repeats it at the top of each page',
         contextualSpacing:
           'the space between two blocks of the same style, which `spacing.ts` answers and `blockStyle` applies the result of — the attribute is read one step away from the drawing',
+        /*
+         * Word's **fifth border**, and the same shape as `contextualSpacing` beside it: a run of
+         * consecutive paragraphs asking for the same borders is one bordered box, so the line between
+         * two of them is drawn instead of each one's own edge. `sharedBorders` answers whether this
+         * block's neighbour is in the box and `blockStyle` applies the result — so the attribute is
+         * read one step away from the drawing, and a probe rendering a **bare** paragraph has no
+         * neighbour for it to share an edge with.
+         *
+         * It was genuinely unread until this: the comment over `betweenBorderAttrs` said *"Nothing
+         * draws it here yet."* and it stayed true, so every bordered pair in the product had two
+         * solid lines between it with the margin showing through. Word's sample had no bordered
+         * paragraph at all, which is why nothing could see it.
+         */
+        borderBetweenStyle:
+          'the line between two blocks in one bordered box, which `sharedBorders` answers and `blockStyle` applies — a bare paragraph has no neighbour to share an edge with',
+        borderBetweenWidth:
+          'the line between two blocks in one bordered box, which `sharedBorders` answers and `blockStyle` applies — a bare paragraph has no neighbour to share an edge with',
+        borderBetweenColor:
+          'the line between two blocks in one bordered box, which `sharedBorders` answers and `blockStyle` applies — a bare paragraph has no neighbour to share an edge with',
+        borderBetweenSpace:
+          'part of the between border `applyBorders` draws; a bare paragraph has no neighbour to share an edge with',
         mirrorIndents:
           '`css.ts`, but only once the layout says which page the block landed on: an inside indent is the binding edge, and that changes side every page. The probe renders no pages',
         suppressAutoHyphens:

@@ -23,7 +23,7 @@ So Word and the site builder take the *same* document shape and disagree about
 one thing: Word cuts it into pages of a fixed size, and a site builder reflows it
 to the width of a window. Neither is a new document.
 
-What it holds, measured: **107 node types, 1,058 attribute slots** — which is
+What it holds, measured: **107 node types, 1,029 attribute slots** — which is
 three times the deck's and eight times the site builder's, and is the whole
 reason Word is where the shared vocabulary came from.
 
@@ -81,7 +81,7 @@ Four numbers, all produced by `packages/office-word/test/conformance.test.ts`:
 | --- | ---: |
 | commands registered | 167 (155 Word's own) |
 | attributes the product **draws** | 611 |
-| of those, **unread** — declared and reaching nothing | 134 *(ratchet)* |
+| of those, **unread** — declared and reaching nothing | 79 *(ratchet)* |
 | of those, **unsettable** — drawn and reachable by nothing | 182 *(ratchet)* |
 | attributes a reader can set, from the two declared surfaces | 21 |
 

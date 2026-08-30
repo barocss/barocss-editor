@@ -94,7 +94,21 @@ export const paragraphFormatAttrs = (): Attrs => ({
 
   alignment: str(),                   // left | center | right | justify | distribute
   textDirection: str(),               // ltr | rtl
-  verticalAlign: str(),               // baseline | superscript | subscript (for the run default)
+  /*
+   * **No `verticalAlign` here.** It was declared as *"baseline | superscript | subscript (for the run
+   * default)"* and there is no such thing: raising and lowering text is `w:vertAlign` on a **run**,
+   * and in this model it is a pair of marks — `subscript` and `superscript`, drawn by
+   * `mark-format.ts` with the size change Word applies too. A paragraph carrying one meant nothing,
+   * and nothing drew it, on three node types.
+   *
+   * `pageSetupAttrs` keeps its own `verticalAlign`, which is Word's section `w:vAlign` and a real
+   * thing — where the text block sits between the top and bottom margins. A cell keeps its own for
+   * the same reason. Three attributes, three different questions, and only one of them was fictional.
+   *
+   * Found by `every-attribute-is-read`, and it is the second finding on that list where the answer is
+   * to take the declaration away rather than to write a drawing for it — see the note in
+   * `tableCellFormatAttrs`.
+   */
 
   indentLeft: num(),                  // twips
   indentRight: num(),
@@ -293,7 +307,22 @@ export const tableCellFormatAttrs = (): Attrs => ({
   marginLeft: num(),
   marginRight: num(),
   ...boxBorderAttrs(),
-  ...insideBorderAttrs(),
+  /*
+   * **Not `insideBorderAttrs()`**, which was here and could never mean anything.
+   *
+   * An inside border is a line *between* cells, and a cell has no interior in this model: merging
+   * makes the surviving cell carry a span and the cells it swallowed are **gone** — see the note in
+   * `renderers.ts`. So there is nothing between anything for a cell's own `borderInsideH` to draw,
+   * and `cellBorders` correctly reads the pair off the **table** and never off the cell.
+   *
+   * OOXML has `tcBorders/insideH`, which is why it was copied here, and it means something there
+   * only for a cell that is itself a merged region with the covered cells still present. Eight
+   * attributes on two node types that a reader could set and nothing could ever draw — the schema
+   * was describing a document this model cannot hold.
+   *
+   * Found by `every-attribute-is-read`, and it is the one kind of finding on that list where the
+   * answer is to take the declaration away rather than to write a drawing for it.
+   */
   ...shadingAttrs()
 });
 

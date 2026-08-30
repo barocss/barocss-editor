@@ -62,3 +62,80 @@ export function suppressedSpacing(
 
   return { before: matches(siblings[at - 1]), after: matches(siblings[at + 1]) };
 }
+
+/**
+ * Which of a block's four edges are **shared with a neighbour**, and so drawn as one line.
+ *
+ * ## What Word does, and what this drew instead
+ *
+ * A run of consecutive paragraphs that ask for the same borders is one bordered *box* in Word, not a
+ * stack of boxes: the top border is drawn above the first, the bottom below the last, and between
+ * each pair there is a single line — `w:pBdr/w:between`, the fifth border. Drawing each paragraph's
+ * own top and bottom instead puts **two** lines between every pair, at twice the weight, with the
+ * space between them showing through.
+ *
+ * `borderBetween` has been in the schema as long as the other four and nothing read it: the comment
+ * over `betweenBorderAttrs` said so in as many words — *"Nothing draws it here yet."* Twelve of
+ * Word's unread attributes were this one border on three node types.
+ *
+ * ## Why it is here rather than in `css.ts`
+ *
+ * For the reason this file exists at all. The answer is about the block's **neighbours**, so it
+ * cannot come from the format; and it has to be answered the same way twice, because the renderer
+ * draws the border and the paginator measures the height it adds. `suppressedSpacing` above is the
+ * same shape and the same pair of callers.
+ *
+ * Two blocks share an edge when they ask for the *same* border there — a paragraph with a thin rule
+ * beside one with a thick one is two boxes, and Word draws both edges. Comparing the resolved
+ * values rather than the style id, because two paragraphs of different styles can land on the same
+ * border and should join.
+ */
+export interface SharedBorders {
+  /** The block above asks for the same borders, so this block's top is a shared line. */
+  before: boolean;
+  /** The block below does, so this block's bottom is. */
+  after: boolean;
+}
+
+const UNSHARED: SharedBorders = { before: false, after: false };
+
+/** The four values that decide whether two blocks are inside one bordered box. */
+const EDGES = ['Top', 'Bottom', 'Left', 'Right'] as const;
+
+function borderSignature(format: Record<string, unknown>): string {
+  const of = (prefix: string) =>
+    `${format[`${prefix}Style`] ?? ''}/${format[`${prefix}Width`] ?? ''}/${format[`${prefix}Color`] ?? ''}`;
+  return EDGES.map((side) => of(`border${side}`)).join('|');
+}
+
+/** Whether a block asks for any border at all — an unbordered pair shares nothing. */
+function hasAnyBorder(format: Record<string, unknown>): boolean {
+  return EDGES.some((side) => {
+    const style = format[`border${side}Style`];
+    return typeof style === 'string' && style.length > 0 && style !== 'none';
+  });
+}
+
+export function sharedBorders(
+  doc: DocumentAccess | undefined,
+  styles: StyleResolver | undefined,
+  node: DocumentNode
+): SharedBorders {
+  if (!doc || !styles || !node.parentId) return UNSHARED;
+
+  const own = styles.resolveNode(node, 'paragraph') as Record<string, unknown>;
+  // A block with no borders has no edge to share, and `borderBetween` on its own is not a border:
+  // it says how the line *between* two bordered blocks is drawn, not that there is one.
+  if (!hasAnyBorder(own)) return UNSHARED;
+
+  const siblings = childrenOf(doc, doc.getNode(node.parentId));
+  const at = siblings.findIndex((each) => each.sid === node.sid);
+  if (at < 0) return UNSHARED;
+
+  const mine = borderSignature(own);
+  const matches = (other: DocumentNode | undefined) =>
+    other !== undefined &&
+    borderSignature(styles.resolveNode(other, 'paragraph') as Record<string, unknown>) === mine;
+
+  return { before: matches(siblings[at - 1]), after: matches(siblings[at + 1]) };
+}

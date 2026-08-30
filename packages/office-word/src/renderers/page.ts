@@ -30,6 +30,7 @@ import {
 import {
   documentSettings,
   indexResources,
+  pageBorderCss,
   type DocumentAccess,
   type DocumentNode
 } from '@barocss/office-text';
@@ -284,6 +285,25 @@ export function registerPageRenderers(): void {
     const sheets = Array.from({ length: sheetCount }, (_, index) => {
       const { height, width, gap } = layout!.metrics;
       const page = { index };
+      /**
+       * The **page border**, which the section declares and nothing drew.
+       *
+       * `pageSetupAttrs` has carried `boxBorderAttrs()` — the four edges and their `*Space` — since
+       * the schema was written, `pageCss` has known how to turn them into CSS for just as long, and
+       * **nothing called `pageCss`**. It was exported from `index.ts` and reachable from a console.
+       * Twelve of Word's unread attributes were this.
+       *
+       * On the sheet rather than on the surface, because that is where a page border is: Word draws
+       * it inside the paper's edge, once per sheet, and the surface is the whole run of them. The
+       * sheets are drawn here already and each one knows its size, so this is where the border can
+       * be one line around one page.
+       *
+       * `pageBorderCss` rather than `pageCss`, which also answers how wide the page is and what
+       * room it leaves — a sheet already knows both from the layout, and handing it those measured
+       * as a sheet the wrong size. `boxSizing` so the border grows inward: a sheet is a sheet of
+       * paper, and its size is the paper's rather than the paper plus a rule around it.
+       */
+      const border = pageBorderCss(format);
       return element('div', {
         className: 'w-sheet',
         // Keyed because the sheets are a list. Reconciliation no longer needs it
@@ -297,7 +317,8 @@ export function registerPageRenderers(): void {
           left: '0',
           top: `${page.index * (height + gap)}px`,
           width: `${width}px`,
-          height: `${height}px`
+          height: `${height}px`,
+          ...(Object.keys(border).length > 0 ? { boxSizing: 'border-box', ...border } : {})
         }
       });
     });

@@ -113,6 +113,50 @@ export function createSampleDocument(): INode {
             ]
           },
 
+          /**
+           * Three paragraphs inside **one bordered box** — Word's fifth border.
+           *
+           * A run of consecutive paragraphs asking for the same borders is one box: the top above
+           * the first, the bottom below the last, and a single dotted rule between each pair. Drawn
+           * as each paragraph's own edges it is two solid lines between every pair with the margin
+           * showing through, which is what the product did — `borderBetween` was in the schema and
+           * nothing read it.
+           *
+           * Here because the fault was invisible without it: the sample had no bordered paragraph at
+           * all, so no test could have seen the doubled line. The borders are stated directly rather
+           * than through a style so the run is legible as one thing in this file.
+           */
+          ...[
+            'A run of paragraphs that ask for the same borders is one box.',
+            'Between two of them Word draws a single rule, not two edges.',
+            'The box closes under the last one.'
+          ].map((text) => ({
+            stype: 'paragraph',
+            attributes: {
+              styleId: 'Body',
+              borderTopStyle: 'single',
+              borderTopWidth: 8,
+              borderTopColor: '2C5282',
+              borderBottomStyle: 'single',
+              borderBottomWidth: 8,
+              borderBottomColor: '2C5282',
+              borderLeftStyle: 'single',
+              borderLeftWidth: 8,
+              borderLeftColor: '2C5282',
+              borderRightStyle: 'single',
+              borderRightWidth: 8,
+              borderRightColor: '2C5282',
+              borderTopSpace: 6,
+              borderBottomSpace: 6,
+              borderLeftSpace: 8,
+              borderRightSpace: 8,
+              borderBetweenStyle: 'dotted',
+              borderBetweenWidth: 4,
+              borderBetweenColor: '94A3B8'
+            },
+            content: [{ stype: 'inline-text', text }]
+          })),
+
           {
             // Tracked changes are marks because they cover a range, and the same
             // range can carry an insertion and a comment at once.

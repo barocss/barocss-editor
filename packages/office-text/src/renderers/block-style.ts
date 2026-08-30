@@ -8,6 +8,7 @@
 import type { RenderEnv } from '@barocss/dsl';
 import { authorColor, revisionTitle } from '../revisions';
 import {
+  betweenBorderCss,
   characterCss,
   hyphenationCss,
   mirroredIndents,
@@ -25,7 +26,7 @@ import {
   getWordStyles
 } from '../text-context';
 import { blockStyleLayers } from '../table-style';
-import { suppressedSpacing } from '../spacing';
+import { sharedBorders, suppressedSpacing } from '../spacing';
 import { childrenOf, documentSettings, type DocumentNode } from '../document-access';
 import { INDENT_STEP as LIST_INDENT_STEP } from '../formatting';
 
@@ -109,6 +110,34 @@ export function blockStyle(node: Record<string, any>, env: RenderEnv | undefined
   const suppressed = suppressedSpacing(getWordDocument(env), getWordStyles(env), node as never);
   if (suppressed.before) style.marginTop = '0';
   if (suppressed.after) style.marginBottom = '0';
+
+  /**
+   * And the **fifth border**: one line where two bordered blocks meet, not two.
+   *
+   * A run of consecutive paragraphs asking for the same borders is one bordered box in Word. Drawing
+   * each block's own top and bottom puts two lines between every pair, at twice the weight, with the
+   * space between them showing through — which is what this did, because `borderBetween` was in the
+   * schema and nothing read it. Twelve of Word's unread attributes were this one border.
+   *
+   * `sharedBorders` answers it, beside `suppressedSpacing` and for the same reason: it is a question
+   * about the block's neighbours, and the paginator has to answer it the same way.
+   */
+  const shared = sharedBorders(getWordDocument(env), getWordStyles(env), node as never);
+  if (shared.before || shared.after) {
+    /*
+     * The **format**, not the CSS. `formatFor` above returns what to draw with; the between border
+     * has to be read off the resolved values, through the same layers, or it comes back undefined
+     * and the shared edge is drawn as `none` — measured in a browser as `none 0px` where a dotted
+     * rule belonged.
+     */
+    const between = betweenBorderCss(
+      getWordStyles(env)?.resolveNodeWith(node as never, 'paragraph', layers) ?? {}
+    );
+    // The shared edge becomes the between border — or nothing, where the block asks for none, which
+    // is Word's answer too: a bordered box with no `between` is one box with no rules inside it.
+    if (shared.before) style.borderTop = between ?? 'none';
+    if (shared.after) style.borderBottom = between ?? 'none';
+  }
 
   // The block that opens a page is pushed down to meet its sheet. It replaces
   // the block's own space before rather than adding to it, which is the same

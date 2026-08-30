@@ -134,9 +134,21 @@ describe('paragraph CSS', () => {
     expect(css.marginBottom).toBe('0pt');
   });
 
-  it('maps borders from eighths of a point', () => {
+  /**
+   * And the colour goes through `normalizeColor` — which this line asserted it did **not**.
+   *
+   * Word writes a colour as six hex digits and no `#`, which is not a CSS colour: `1pt solid 000000`
+   * is an invalid shorthand and a browser drops the **entire declaration**, so a bordered paragraph
+   * got no line at all rather than a black one. Every other colour in `css.ts` was normalized and the
+   * borders were not.
+   *
+   * This test compared the string and agreed with the bug — the same shape as the deck's sample
+   * writing `listType` to match a renderer rather than the schema. Found the first time a bordered
+   * paragraph was put in Word's sample document and the *computed* width came back `0px`.
+   */
+  it('maps borders from eighths of a point, in a colour a browser accepts', () => {
     const css = paragraphCss({ borderTopStyle: 'single', borderTopWidth: 8, borderTopColor: '000000' });
-    expect(css.borderTop).toBe('1pt solid 000000');
+    expect(css.borderTop).toBe('1pt solid #000000');
   });
 
   /**

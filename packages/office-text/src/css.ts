@@ -140,9 +140,53 @@ function borderCss(format: EffectiveFormat, prefix: string): string | undefined 
   if (!style || style === 'none') return undefined;
   // Word stores border width in eighths of a point.
   const width = num(format[`${prefix}Width`]);
-  const color = str(format[`${prefix}Color`]) ?? 'currentColor';
+  /**
+   * **Through `normalizeColor`**, which every other colour in this file went through and this did
+   * not.
+   *
+   * Word writes a colour as six hex digits and no `#` — `2C5282` — which is not a CSS colour, so the
+   * whole shorthand was invalid and the browser dropped the **entire declaration**: no line at all,
+   * not a black one. Every bordered paragraph and every table drawing its rules from a style was
+   * affected, and the sample's own `GridTable` states its inside borders exactly that way.
+   *
+   * Invisible in a unit test, which compares the string this returns; found the first time a bordered
+   * paragraph was put in the sample and the *computed* width came back `0px`.
+   */
+  const color = normalizeColor(str(format[`${prefix}Color`]) ?? 'currentColor');
   const cssWidth = width !== undefined ? `${round(width / 8)}pt` : '1pt';
   return `${cssWidth} ${BORDER_STYLE[style] ?? 'solid'} ${color}`;
+}
+
+/**
+ * A **page border**: the four edges a section asks for, and nothing else about the page.
+ *
+ * Separate from `pageCss` on purpose. That one answers *"how big is this page and what room does it
+ * leave"* — width, height, padding, columns — and a page border is drawn on the **sheet**, which
+ * already knows its size from the layout. Handing it `pageCss` put a width and a padding on a sheet
+ * that had both, measured as a sheet the wrong size.
+ *
+ * `pageSetupAttrs` has carried `boxBorderAttrs()` since the schema was written and `pageCss` has
+ * known how to draw them for just as long, and nothing ever called `pageCss` — it was exported and
+ * reachable from a console. Twelve of Word's unread attributes were this.
+ */
+export function pageBorderCss(format: EffectiveFormat): CssStyle {
+  const out: CssStyle = {};
+  applyBorders(out, format);
+  return out;
+}
+
+/**
+ * The line drawn **between** two blocks that share an edge — Word's fifth border.
+ *
+ * Exported because the decision is not the format's: a block's top is its own border where it stands
+ * alone and this one where its neighbour asks for the same box, and only `sharedBorders` knows
+ * which. See `blockStyle`, which is the one caller.
+ *
+ * `undefined` where the block asks for no `between`, which is Word's answer as well: a bordered box
+ * with no between border is one box with no rules inside it, not a box with doubled edges.
+ */
+export function betweenBorderCss(format: EffectiveFormat): string | undefined {
+  return borderCss(format, 'borderBetween');
 }
 
 /**

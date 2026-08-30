@@ -950,3 +950,193 @@ test('the sample document is one the schema accepts', async ({ page }) => {
     `\n${faults.map((f: any) => `${f.path}: ${f.message}`).join('\n')}\n`
   ).toEqual([]);
 });
+
+/**
+ * **The fifth border** — one line where two bordered paragraphs meet, not two.
+ *
+ * A run of consecutive paragraphs asking for the same borders is one bordered *box* in Word: the top
+ * above the first, the bottom below the last, and a single rule between each pair. Drawn as each
+ * paragraph's own edges it is two solid lines between every pair with the margin showing through.
+ *
+ * `borderBetween` had been in the schema as long as the other four edges and nothing read it — the
+ * comment over `betweenBorderAttrs` said *"Nothing draws it here yet."* and it stayed true. Twelve of
+ * Word's 185 unread attributes were this one border on three node types.
+ *
+ * **The sample had no bordered paragraph at all**, which is why no test could have seen the doubled
+ * line. It has three now, and this is what they are for: measuring the *computed* border of each,
+ * because the fault is one the model cannot show — every paragraph's attributes were correct.
+ */
+test.describe('a run of paragraphs inside one bordered box', () => {
+  const bordered = (page: import('@playwright/test').Page) =>
+    page.locator('.w-paragraph').filter({ hasText: 'A run of paragraphs that ask for the same borders' });
+
+  test('draws one rule between them and the box’s own edges at the ends', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const first = bordered(page).first();
+    await first.scrollIntoViewIfNeeded();
+
+    const box = await page.evaluate(() => {
+      const wanted = [
+        'A run of paragraphs that ask for the same borders is one box.',
+        'Between two of them Word draws a single rule, not two edges.',
+        'The box closes under the last one.'
+      ];
+      const paragraphs = [...document.querySelectorAll('.w-paragraph')].filter((el) =>
+        wanted.some((text) => (el.textContent ?? '').includes(text))
+      );
+      return paragraphs.map((el) => {
+        const drawn = getComputedStyle(el);
+        return {
+          top: `${drawn.borderTopStyle} ${drawn.borderTopWidth}`,
+          bottom: `${drawn.borderBottomStyle} ${drawn.borderBottomWidth}`,
+          left: drawn.borderLeftStyle,
+          right: drawn.borderRightStyle
+        };
+      });
+    });
+
+    expect(box).toHaveLength(3);
+
+    // The box's own top and bottom, once each, at the outer ends of the run.
+    expect(box[0].top).toBe('solid 1px');
+    expect(box[2].bottom).toBe('solid 1px');
+
+    // And between the pairs: the dotted rule, on one side of each boundary only — the first's bottom
+    // and the second's top are the *same* line, so exactly one of them may be solid, and neither is.
+    expect(box[0].bottom).toBe('dotted 1px');
+    expect(box[1].top).toBe('dotted 1px');
+    expect(box[1].bottom).toBe('dotted 1px');
+    expect(box[2].top).toBe('dotted 1px');
+
+    // The sides belong to every paragraph in the box: they are not shared with anybody.
+    for (const one of box) {
+      expect(one.left).toBe('solid');
+      expect(one.right).toBe('solid');
+    }
+  });
+
+  /*
+   * And the room the border leaves the letters — `*Space`, which was declared on every kind of box
+   * and drawn nowhere until `applyBorders` read it, so every bordered paragraph had its line hard
+   * against the text.
+   */
+  test('leaves the text the room the border asks for', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const first = bordered(page).first();
+    await first.scrollIntoViewIfNeeded();
+    const padding = await first.evaluate((el) => {
+      const drawn = getComputedStyle(el);
+      return { left: parseFloat(drawn.paddingLeft), top: parseFloat(drawn.paddingTop) };
+    });
+
+    expect(padding.left).toBeGreaterThan(0);
+    expect(padding.top).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * A **page border** — the rule Word draws inside the paper's edge.
+ *
+ * `pageSetupAttrs` has carried the four edges and their `*Space` since the schema was written, and
+ * `pageCss` has known how to turn them into CSS for just as long. **Nothing called `pageCss`.** It
+ * was exported from `index.ts` and reachable from a console; twelve of Word's 185 unread attributes
+ * were this one thing.
+ *
+ * Set here rather than in the sample document because a page border belongs on a document that wants
+ * one, and putting one round every page of the sample would be the product showing off a feature
+ * instead of a document using it. The section is edited at runtime, which is also how a reader would
+ * turn it on once the page-setup dialog exists.
+ */
+test.describe('a page border', () => {
+  test('is drawn inside the sheet, once per page', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    /*
+     * The **width**, not the style: Tailwind's preflight puts `border-style: solid; border-width: 0`
+     * on every element in the page, so asking whether the style is `none` answers `solid` before
+     * anything has asked for a border. Nothing asked for one yet, and this is what makes the next
+     * assertion mean something rather than measuring a border that was always there.
+     */
+    const before = await page
+      .locator('.w-sheet')
+      .first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth));
+    expect(before).toBe(0);
+
+    /*
+     * Loaded rather than commanded, because **Word has no page-setup dialog yet** — page size,
+     * margins, columns and these four edges are one of the four dialogs its own conformance file
+     * lists as owed. `setAttrs` is an operation and not a command, so there is nothing to execute;
+     * a document that asks for a page border is the honest way to ask for one today.
+     */
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const tree = editor.exportDocument(editor.getRootId());
+      // The **first** section only. A page border is a section property, and the sample has two —
+      // which is what makes the last assertion below worth making.
+      const surface = (tree.content ?? []).find((one: any) => one.stype === 'surface');
+      Object.assign(surface.attributes, {
+        borderTopStyle: 'single',
+        borderTopWidth: 16,
+        borderTopColor: '2C5282',
+        borderBottomStyle: 'single',
+        borderBottomWidth: 16,
+        borderBottomColor: '2C5282',
+        borderLeftStyle: 'single',
+        borderLeftWidth: 16,
+        borderLeftColor: '2C5282',
+        borderRightStyle: 'single',
+        borderRightWidth: 16,
+        borderRightColor: '2C5282'
+      });
+      editor.loadDocument(tree, 'word');
+    });
+    await page.waitForTimeout(900);
+
+    const sheets = page.locator('.w-sheet');
+    const count = await sheets.count();
+    expect(count).toBeGreaterThan(1);
+
+    const drawn = await sheets.first().evaluate((el) => {
+      const style = getComputedStyle(el);
+      return {
+        style: style.borderTopStyle,
+        // 16 eighths of a point is 2pt. A browser resolves that at 96dpi and rounds the used value
+        // to a whole device pixel, so what comes back is 2px rather than 2.667px.
+        width: parseFloat(style.borderTopWidth),
+        colour: style.borderTopColor,
+        // The border grows inward: a sheet is a sheet of paper, and its size is the paper's rather
+        // than the paper plus a rule around it.
+        sizing: style.boxSizing
+      };
+    });
+
+    expect(drawn.style).toBe('solid');
+    expect(drawn.width).toBeGreaterThanOrEqual(2);
+    // The colour, which is the half that says `normalizeColor` ran: Word writes `2C5282` with no
+    // `#`, and without it the whole shorthand is invalid and the browser draws nothing.
+    expect(drawn.colour).toBe('rgb(44, 82, 130)');
+    expect(drawn.sizing).toBe('border-box');
+
+    /**
+     * Once per page of **the section that asked**, and not on the other one's.
+     *
+     * Which is two things at once: a page border is drawn per sheet rather than once around the run
+     * of them — the difference between a page border and a border round the section — and it belongs
+     * to the section, so the sample's second section is untouched. Measured as seven sheets with the
+     * rule and one without, which is exactly the shape a wrong implementation would not produce:
+     * putting it on the surface would give eight or none.
+     */
+    const everySheet = await sheets.evaluateAll((els) =>
+      els.map((el) => parseFloat(getComputedStyle(el).borderTopWidth))
+    );
+    expect(everySheet.filter((one) => one >= 2).length).toBeGreaterThan(1);
+    expect(everySheet.some((one) => one === 0)).toBe(true);
+  });
+});
+

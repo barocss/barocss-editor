@@ -46,6 +46,104 @@ entries are that.
 
 ## Open
 
+### Every border in the product was an invalid CSS declaration — 2026-08-30 *(fixed)*
+
+Word writes a colour as six hex digits and no `#` — `2C5282`. Every other colour
+in `css.ts` went through `normalizeColor`, which puts the `#` back. **The borders
+did not.** `1pt solid 2C5282` is an invalid shorthand and a browser drops the
+*entire* declaration, so a bordered paragraph got no line at all — not a black
+one, none — and so did every table drawing its rules from a style. The sample's
+own `GridTable` states its inside borders exactly that way.
+
+The unit test for it **asserted the broken string**: `expect(css.borderTop).toBe(
+'1pt solid 000000')`. The same shape as the deck's sample writing `listType` to
+match a renderer rather than the schema — a test that agrees with the bug.
+
+Found the first time a bordered paragraph was put in the sample document and the
+*computed* width came back `0px`. A unit test compares the string the function
+returns; only a browser knows whether a browser accepts it.
+
+### Word's fifth border, and a schema that described a document this model cannot hold — 2026-08-30 *(fixed)*
+
+Two piles off the unread list, and they wanted opposite answers.
+
+**`borderBetween` — write the drawing.** A run of consecutive paragraphs asking
+for the same borders is one bordered *box* in Word: the top above the first, the
+bottom below the last, and a single rule between each pair. Drawn as each
+paragraph's own edges it is two solid lines between every pair with the margin
+showing through. `sharedBorders` answers it beside `suppressedSpacing`, for the
+same reason that one is there — it is a question about the block's **neighbours**,
+and the paginator has to reach the same answer. 12 findings.
+
+**A cell's `borderInsideH` / `borderInsideV` — take the declaration away.** An
+inside border is a line *between* cells, and a cell has no interior in this
+model: merging leaves the surviving cell carrying a span and the cells it
+swallowed are gone. So there was nothing for it to draw, ever, and `cellBorders`
+correctly reads the pair off the **table**. OOXML has `tcBorders/insideH`, which
+is why it was copied, and it means something there only for a merged region with
+the covered cells still present. Eight attributes on two node types describing a
+document this model cannot hold. 16 findings.
+
+**And 12 more that were read all along**: a table's `borderInside*` and
+`cellMargin*` are applied when a **cell** is drawn (`cellBorders`, `cellMargins`),
+and rendering a bare `bTable` draws no cells. Exemptions, like the header ids.
+
+**The sample document had no bordered paragraph at all**, which is why no test
+could have seen the doubled line — or the invalid colour. It has a three-paragraph
+box now, and `word-rendering.spec.ts` measures the *computed* border of each.
+
+### A page border nothing ever drew — 2026-08-30 *(fixed)*
+
+`pageSetupAttrs` has carried the four edges and their `*Space` since the schema
+was written. `pageCss` has known how to turn them into CSS for just as long.
+**Nothing ever called `pageCss`** — it was exported from `index.ts` and reachable
+from a console, and that was the whole of its life. Twelve of Word's unread
+attributes were this one feature.
+
+Drawn on the **sheet** now, which is where a page border is: inside the paper's
+edge, once per page. `pageBorderCss` rather than `pageCss`, because that one also
+answers how wide the page is and what room it leaves — a sheet already knows both
+from the layout, and handing it those measured as a sheet the wrong size.
+
+The browser test loads a document that asks for one rather than running a
+command, because **Word has no page-setup dialog yet** — page size, margins,
+columns and these four edges are one of the four dialogs its own conformance file
+lists as owed. It measures seven sheets with the rule and one without, because
+the sample has two sections and only the first asked: putting the border on the
+surface instead of the sheet would give eight or none.
+
+### A paragraph's `verticalAlign` was a property Word does not have — 2026-08-30 *(fixed)*
+
+Declared on paragraphs, headings and list items as *"baseline | superscript |
+subscript (for the run default)"*, and there is no such thing. Raising and
+lowering text is `w:vertAlign` on a **run**, and in this model it is a pair of
+marks — `subscript` and `superscript`, drawn by `mark-format.ts` with the size
+change Word applies too. Three node types carrying a property that meant nothing.
+
+A section keeps its own `verticalAlign` — Word's `w:vAlign`, where the text block
+sits between the top and bottom margins — and so does a cell. Three attributes,
+three different questions, and only one of them was fictional.
+
+The second finding on the unread list whose answer is to take the declaration
+away rather than write a drawing for it; the first was a cell's `borderInside*`.
+
+**185 → 79.** Well over half, and what came off divides in three: features
+finished at one layer with nothing above reaching down (block revisions, the page
+border, `borderBetween`), attributes read in a context the probe cannot build
+(header ids, a table's interior, the between border), and declarations describing
+a document this model cannot hold (a cell's interior, a paragraph's vertical
+alignment).
+
+### `surface.verticalAlign` needs the paginator, not CSS
+
+Word's `w:vAlign` on a section puts the text block at the top, centre or bottom
+of **each page** — which is what a title page is usually made with. `flowCss` has
+no vertical padding on purpose (*"where a page starts is what the computed break
+produces"*), so this cannot be drawn as CSS on the flow without fighting the
+layout's absolute positioning. It belongs in the pass that computes each page's
+block positions, beside the rule that pushes the first block down to meet its
+sheet. Left in the count, unexempted, because it is genuinely unread.
+
 ### A whole feature was written down and invisible — 2026-08-30 *(fixed)*
 
 `every-attribute-is-read` reported **185** attributes Word declares and nothing
@@ -144,12 +242,6 @@ worth recording so it is not run again from scratch:
 
 From the same list, and each is a decision rather than a forgotten line:
 
-- **~40: borders declared where they belong and drawn nowhere.** A block's
-  `borderBetween` — the single line Word draws where two bordered paragraphs
-  meet, which needs the neighbour the way `suppressedSpacing` already asks for
-  one — and a table's `borderInsideH` / `borderInsideV`, its interior, which
-  needs the cell's position and so belongs with the per-cell style layers rather
-  than in `applyBorders`.
 - **~25: the OMML switches.** `hideSub`, `hideDegree`, `plcHide`, `zeroWidth`,
   `strikeHorizontal`, `noBreak`, `operatorEmulator` and the rest. No `.docx`
   converter yet either, so they are not even round-tripped.
