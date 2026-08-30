@@ -1,3 +1,4 @@
+import { hasRange } from './guards';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, applyMark, toggleMark } from '@barocss/model';
 
@@ -34,10 +35,13 @@ export class HighlightExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
-        const sel = payload?.selection || (_ed as any).selection;
-        return !!sel && sel.type === 'range';
-      }
+      /*
+       * A range covering **something**, and a colour to set. The hand-written version asked only for
+       * a range, so over a caret 형광펜 lit up, committed and drew nothing — the same sentence, the
+       * same fault, as the nine `guards.ts` was written for, in a file it had not reached.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; color?: string }) =>
+        !!payload?.color && hasRange(ed, payload, 'something')
     });
 
     /**
@@ -76,10 +80,9 @@ export class HighlightExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
-        const sel = payload?.selection || (_ed as any).selection;
-        return !!sel && sel.type === 'range';
-      }
+      /* A range covering **something** — over a caret this commits and takes nothing off. */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) =>
+        hasRange(ed, payload, 'something')
     });
 
     /**
@@ -107,10 +110,9 @@ export class HighlightExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
-        const sel = payload?.selection || (_ed as any).selection;
-        return !!sel && sel.type === 'range';
-      }
+      /* A range covering **something** — over a caret this commits and takes nothing off. */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) =>
+        hasRange(ed, payload, 'something')
     });
   }
 

@@ -88,7 +88,14 @@ export function getStandardSchemaDefinition(): SchemaDefinition {
       columns: { name: 'columns', group: 'block', content: 'column+' },
       column: { name: 'column', group: 'block', content: 'block+', attrs: { width: { type: 'string', required: false } } },
       toc: { name: 'toc', group: 'block', atom: true },
-      footnoteDef: { name: 'footnoteDef', group: 'block', content: 'inline*', attrs: { id: { type: 'string', required: true } } },
+      /*
+       * `block+`, not `inline*` — because office re-declares this node as a resource holding `block+`
+       * and one node cannot mean two things. The shared `insertFootnote` wrote what *this* line said,
+       * the validator read what office said, and every footnote insert in every product rolled back
+       * silently. And a footnote body that cannot hold two paragraphs or a list is a limit with no
+       * reason behind it: Word's own sample document has written a paragraph in here from the start.
+       */
+      footnoteDef: { name: 'footnoteDef', group: 'block', content: 'block+', attrs: { id: { type: 'string', required: true } } },
       list: { name: 'list', group: 'block', content: 'listItem+', attrs: { type: { type: 'string', default: 'bullet', options: ['bullet', 'ordered'] } } },
       listItem: { name: 'listItem', group: 'block', content: 'block+' },
       taskItem: { name: 'taskItem', group: 'block', content: 'inline*', attrs: { checked: { type: 'boolean', default: false } } },
@@ -111,7 +118,12 @@ export function getStandardSchemaDefinition(): SchemaDefinition {
       docFooter: { name: 'docFooter', group: 'block', content: 'inline*' },
       bibliography: { name: 'bibliography', group: 'block', content: 'block*' },
       commentThread: { name: 'commentThread', group: 'block', content: 'inline*', attrs: { id: { type: 'string', required: true } } },
-      endnoteDef: { name: 'endnoteDef', group: 'block', content: 'inline*', attrs: { id: { type: 'string', required: true } } },
+      /*
+       * `block+`, for the same reason as `footnoteDef` above and found the same afternoon: office
+       * re-declares this as a resource holding `block+`, and one node cannot mean two things. A note
+       * body that cannot hold two paragraphs or a list is a limit with no reason behind it.
+       */
+      endnoteDef: { name: 'endnoteDef', group: 'block', content: 'block+', attrs: { id: { type: 'string', required: true } } },
       indexBlock: { name: 'indexBlock', group: 'block', content: 'block*' },
       fieldPageNumber: { name: 'fieldPageNumber', group: 'inline', atom: true },
       fieldPageCount: { name: 'fieldPageCount', group: 'inline', atom: true },
@@ -184,6 +196,13 @@ export function getStandardSchemaDefinition(): SchemaDefinition {
       mention: { name: 'mention', group: 'text-style', attrs: { id: { type: 'string', required: true } } },
       spoiler: { name: 'spoiler', group: 'text-style', attrs: { revealed: { type: 'boolean', default: false } } },
       footnoteRef: { name: 'footnoteRef', group: 'text-style', attrs: { id: { type: 'string', required: true } } },
+      /*
+       * The endnote's half of the pair. `endnoteDef` has been in both schemas from the start and the
+       * office comment above it already said the body is *"referenced from the flow by `footnoteRef` /
+       * `endnoteRef` marks"* — the mark had simply never been declared, so there was no way to point
+       * at a body and 미주 삽입 was a key bound to a command nobody registers.
+       */
+      endnoteRef: { name: 'endnoteRef', group: 'text-style', attrs: { id: { type: 'string', required: true } } },
     },
   };
 }

@@ -84,7 +84,25 @@ export class WordTableExtension implements Extension {
       editor.registerCommand({
         name,
         execute: async (ed: Editor) => await this._run(ed, op, payload),
-        canExecute: (ed: Editor) => !!this._cell(ed)
+        /**
+         * A cell — **and, for `splitCell`, a cell that is actually merged.**
+         *
+         * One helper registers them all and gave them all *"the caret is in a cell"*, which is what
+         * the rest need. `splitTableCell` refuses a cell whose colspan and rowspan are both 1, with
+         * the reason written into the operation: there is nothing to split. So 셀 나누기 lit up over
+         * every cell in every table and worked on the merged ones.
+         *
+         * The same fault, in the same shape, as the one `packages/extensions` had — a private helper
+         * is why both lasted: a sweep reading `canExecute:` at each command's own declaration sees
+         * one guard, not seven.
+         */
+        canExecute: (ed: Editor) => {
+          const cell = this._cell(ed);
+          if (!cell) return false;
+          if (name !== 'splitCell') return true;
+          const attrs = (cell.attributes ?? {}) as { colspan?: number; rowspan?: number };
+          return (attrs.colspan ?? 1) > 1 || (attrs.rowspan ?? 1) > 1;
+        }
       });
     }
 
@@ -153,7 +171,16 @@ export class WordTableExtension implements Extension {
           look[payload.flag] = !look[payload.flag];
           return await this._format(ed, { look: formatTableLook(look) });
         },
-        canExecute: (ed: Editor) => !!this._cell(ed)
+        /**
+         * A cell — **and a flag to turn.**
+         *
+         * The run refuses without one and says so to nobody, so every entry in the 표 스타일 group
+         * lit up before a reader had chosen which look to toggle. The class `guards.ts` names, in
+         * the one shape a surface hits every render: a control asks *can this run* before it knows
+         * what it will send, and the honest answer here is *tell me which*.
+         */
+        canExecute: (ed: Editor, payload: { flag?: keyof TableLook } = {}) =>
+          !!payload.flag && !!this._cell(ed)
       });
 
       /**

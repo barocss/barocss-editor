@@ -44,8 +44,14 @@ export class ParagraphExtension implements Extension {
        * asks *can this run right now* before deciding what to send, which is what a toolbar does on
        * every render. Ten commands were in this state and the conformance run counted them all as
        * unaskable; see `heading.ts` for the note.
+       *
+       * **And the block is not already a paragraph.** The run answers *"no-op if already paragraph"*
+       * with `return true` — success, and the document untouched — so 본문으로 lit up on every
+       * paragraph in the document and reported that it had done something. Which is worse than a
+       * refusal: a caller that trusts the answer thinks the conversion happened.
        */
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) =>
+        hasRange(ed, payload) && !this._alreadyParagraph(ed, payload?.selection)
     });
 
     // Enter key: insertParagraph (Model-first, transaction-based)
@@ -115,6 +121,22 @@ export class ParagraphExtension implements Extension {
 
     const result = await transaction(editor, ops, { applySelectionToView: true }).commit();
     return result.success;
+  }
+
+  /**
+   * Whether the block the caret is in is already a paragraph — the question the guard asks and the
+   * run answers with `return true`, which is how it went unnoticed.
+   */
+  private _alreadyParagraph(editor: Editor, selection?: ModelSelection): boolean {
+    const at = selection ?? (editor as { selection?: ModelSelection }).selection;
+    if (!at || at.type !== 'range') return false;
+
+    const store = (editor as { dataStore?: { getNode: (id: string) => { stype?: string } | undefined } })
+      .dataStore;
+    if (!store) return false;
+
+    const blockId = this._getTargetBlockNodeId(store as never, at as never);
+    return !!blockId && store.getNode(blockId)?.stype === 'paragraph';
   }
 
   /**

@@ -68,6 +68,7 @@ export * from './outdentText';
 export * from './paste';
 export * from './removeChild';
 export * from './removeChildren';
+export * from './clearFormatting';
 export * from './removeMark';
 export * from './reorderChildren';
 export * from './replacePattern';

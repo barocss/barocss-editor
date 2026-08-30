@@ -246,12 +246,27 @@ export function withHints<M extends MenuModel>(menus: M[], keys: KeyModel[], app
 /**
  * What is wrong with a key map, in the words its author would use.
  *
- * The sibling of `menuFaults`, and it asks the two questions that shape had no check for: a binding
- * runs a command **or** changes a view and says exactly one, and no two bindings in one mode claim
- * the same chord — which is a fault a reader meets as *sometimes it duplicates and sometimes it does
- * nothing*, depending on which the array happened to list first.
+ * The sibling of `menuFaults`, and it asks the three questions that shape had no check for.
+ *
+ * 1. A binding runs a command **or** changes a view, and says exactly one.
+ * 2. No two bindings in one mode claim the same chord — a fault a reader meets as *sometimes it
+ *    duplicates and sometimes it does nothing*, depending on which the array happened to list first.
+ * 3. **The command it names exists.** Pass `knows` and it is asked; leave it out and it is not, which
+ *    is right for a caller that has a key map and no editor.
+ *
+ * The third one was added last and found four in Word, where 72 chords were printed and 68 answered:
+ * ⌘Space named `clearFormatting`, ⌥⌘D named `insertEndnote`, ⌘H named `replace` and Shift+Enter named
+ * `insertLineBreak`. Two were the wrong name for a command that exists (`replaceText`; the input
+ * handler's own `beforeinput`). **⌘Space was a capability nobody had built** — eleven commands each
+ * took off one mark and none took off all of them, over a walk `DataStore.range.clearFormatting` had
+ * been able to do since the range API existed. **⌥⌘D was a capability nobody had finished**: the
+ * command was in a shared extension no product installs, and it inserted an empty note body with no
+ * reference pointing at it, because the mark that refers to one was never declared.
+ *
+ * Nothing could see any of it, because a command that does not exist and a key nobody presses look
+ * identical from every other angle.
  */
-export function keyFaults(keys: KeyModel[]): string[] {
+export function keyFaults(keys: KeyModel[], knows?: (command: string) => boolean): string[] {
   const faults: string[] = [];
   const seen = new Set<string>();
   for (const entry of keys) {
@@ -267,6 +282,10 @@ export function keyFaults(keys: KeyModel[]): string[] {
     const at = `${entry.mode ?? entry.when ?? 'any'}:${entry.key.toLowerCase()}`;
     if (seen.has(at)) faults.push(`${entry.key} — bound twice in the same mode, and one of them wins`);
     seen.add(at);
+
+    if (knows && entry.command && !knows(entry.command)) {
+      faults.push(`${entry.key} — names '${entry.command}', which nothing registers`);
+    }
   }
   return faults;
 }

@@ -1,6 +1,6 @@
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
-import { transaction, toggleMark, applyMark } from '@barocss/model';
-import { hasRange } from './guards';
+import { transaction, toggleMark, applyMark, clearFormatting } from '@barocss/model';
+import { hasRange, wears } from './guards';
 
 /**
  * TextFormattingExtension — aggregates less-common text-style marks:
@@ -23,9 +23,49 @@ export class TextFormattingExtension implements Extension {
 
     this._registerApplyMulti(editor, 'setBorder', 'border', ['style', 'width', 'color']);
     this._registerApplyMulti(editor, 'setSpanLang', 'spanLang', ['lang', 'dir']);
-  }
 
-  onDestroy(_editor: Editor): void {}
+    /**
+     * **서식 지우기** — the one control that undoes all the others at once.
+     *
+     * Word binds it to ⌘Space and has since the first key map in this repository; nothing registered
+     * it, so the key was a lie. Found by asking a question nothing had asked: *does every chord this
+     * product prints name a command it registers?* Word printed 72 and answered 68.
+     *
+     * The eleven `remove…` commands beside it each take one mark away, which is the wrong shape for
+     * this gesture: a reader who has bolded, coloured and raised a word wants it plain in one press,
+     * not eleven. So this asks the runs what they are actually wearing and takes those off — which
+     * also means it stays right when a mark is added to the schema, where a written list would not.
+     *
+     * **Marks only.** A paragraph's own formatting — its style, its indents, its alignment — is not
+     * what ⌘Space clears in Word either; 스타일 지우기 is the separate gesture, and conflating them
+     * would make one key destroy work a reader cannot see selected.
+     */
+    (editor as Editor & { registerCommand: (c: unknown) => void }).registerCommand({
+      name: 'clearFormatting',
+      execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
+        const at = payload?.selection ?? (ed as { selection?: ModelSelection }).selection;
+        if (!at || at.type !== 'range') return false;
+
+        const result = await transaction(
+          ed,
+          [clearFormatting(at.startNodeId, at.startOffset, at.endNodeId, at.endOffset)] as never,
+          {}
+        ).commit();
+        return result.success;
+      },
+      /**
+       * A range covering **something**, and something on it to clear.
+       *
+       * The first half is the usual one: over a caret there is no text to clear. The second half was
+       * argued away when this was written — *a reader pressing 서식 지우기 on plain text has got what
+       * they asked for* — and the harness disagreed the same afternoon, correctly. A control that
+       * lights up, commits and changes nothing is the class this package's conformance run is named
+       * after, and *plain text* is the case where it happens every time rather than rarely.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) =>
+        hasRange(ed, payload, 'something') && wears(ed, payload?.selection)
+    });
+  }
 
   private _registerToggle(editor: Editor, cmdName: string, markType: string): void {
     (editor as any).registerCommand({

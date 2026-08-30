@@ -296,9 +296,18 @@ const ROSTER: Record<string, Scenario> = {
 
   // ── marks ─────────────────────────────────────────────────────────────────
   applyMark: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, markType: 'bold' } },
-  // A mark applied across several nodes has no single operation that removes it.
-  // Kept as a scenario so the limit is on the record rather than a surprise.
+  // A mark applied across several nodes has no single operation that removes it *by type* —
+  // `clearFormatting` below takes every mark off a range and is the one that walks.
   removeMark: { payload: { nodeId: 'r-2', markType: 'bold', range: [0, 3] } },
+  /*
+   * Every mark off the selected text, in one gesture — 서식 지우기, and the walk across nodes that
+   * `removeMark` above cannot do. `DataStore.range.clearFormatting` had existed as long as the range
+   * API with nothing above it able to reach it: no operation, no command, and a ⌘Space binding in
+   * Word naming a command nobody registered.
+   */
+  clearFormatting: {
+    payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-2', endOffset: 3 } }
+  },
   updateMark: { payload: { nodeId: 'r-2', markType: 'bold', range: [0, 3], newAttrs: {} } },
   setMarks: { payload: { nodeId: 'r-1', marks: [{ stype: 'bold', range: [0, 2] }] } },
   toggleMark: { payload: { nodeId: 'r-1', range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, markType: 'bold' } },

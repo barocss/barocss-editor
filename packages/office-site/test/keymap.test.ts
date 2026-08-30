@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { SITE_KEYS, hintFor, hintOf, matchesSiteKey, siteKeyFor } from '../src/keymap';
 import { SITE_MENUS } from '../src/menu-model';
+import { keyFaults } from '@barocss/office-controls';
+import { createSiteEditor } from '../src/site-kit';
 
 /**
  * The keys, and the menu that teaches them.
@@ -125,5 +127,18 @@ describe('what a key means, and what the menu says it means', () => {
     expect(matchesSiteKey(undo, { key: 'z', metaKey: true, shiftKey: true })).toBe(false);
     expect(matchesSiteKey(undo, { key: 'z' })).toBe(false);
     expect(siteKeyFor({ key: 'z', metaKey: true, shiftKey: true }, 'select')?.command).toBe('redo');
+  });
+
+  /**
+   * And every chord names something that answers it.
+   *
+   * The two above hold the *hints* to the bindings; this holds the **bindings to the product**. A
+   * chord naming a command nobody registers is a key that does nothing, and from every other angle it
+   * is indistinguishable from a key nobody presses — which is how Word carried four of them, two of
+   * which were capabilities that had never been built at all.
+   */
+  it('binds a command or a view and says exactly one, and the command exists', () => {
+    const known = new Set(createSiteEditor().commandNames());
+    expect(keyFaults(SITE_KEYS, (command) => known.has(command))).toEqual([]);
   });
 });

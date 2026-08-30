@@ -53,6 +53,22 @@ describe('every extension this package exports', () => {
    */
   const cannotBeInstalled: Record<string, string> = {};
 
+  /**
+   * Extensions a shared kit deliberately does **not** hold, and the product that takes them by name.
+   *
+   * A different claim from the one above and worth keeping apart: nothing is wrong with these, and
+   * putting them in `createRichExtensions()` would be the fault — a kit three products share cannot
+   * carry a control that means nothing on two of them. It is the same decision `site-kit.ts` writes
+   * out about Word's pagination, headers and footnotes, one extension at a time.
+   *
+   * An entry here says *this product installs it*, so it goes stale the day that product stops.
+   */
+  const chosenByProduct: Record<string, string> = {
+    endnote:
+      'Word, by name in `word-kit.ts`. A note at the end of a *page* is not a thing, so a page ' +
+      'builder and a deck would get 미주 on a surface where it means nothing.'
+  };
+
   it('is in a kit, or names what would have to change first', () => {
     const classes = Object.entries(extensions).filter(
       ([name, made]) => name.endsWith('Extension') && typeof made === 'function' && /^[A-Z]/.test(name)
@@ -84,7 +100,9 @@ describe('every extension this package exports', () => {
     }
 
     const outside = [...nameOf.values()].filter((name) => !held.has(name)).sort();
-    expect(outside).toEqual(Object.keys(cannotBeInstalled).sort());
+    expect(outside).toEqual(
+      [...Object.keys(cannotBeInstalled), ...Object.keys(chosenByProduct)].sort()
+    );
 
     // And it looked at all of them — an empty list would pass the line above for the wrong reason.
     expect(nameOf.size).toBeGreaterThanOrEqual(45);

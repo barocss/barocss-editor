@@ -46,7 +46,28 @@ const document_ = () => ({
       content: [
         { stype: 'heading', attributes: { level: 1 }, content: [{ stype: 'inline-text', text: '제목 한 줄' }] },
         { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '한 문단의 글자들' }] },
-        { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '두 번째 문단입니다' }] },
+        /*
+         * **Formatted text**, which this fixture had none of.
+         *
+         * The guards that ask *is there a mark here* cannot be asked by a document wearing nothing:
+         * `removeLink` over unlinked words and 서식 지우기 over plain text both decline, correctly,
+         * everywhere — and a command nothing can ask reads exactly like a command nobody wrote. The
+         * link comes first because the probe's range states are a run's first three characters.
+         */
+        {
+          stype: 'paragraph',
+          attributes: {},
+          content: [
+            {
+              stype: 'inline-text',
+              text: '두 번째 문단입니다',
+              marks: [
+                { stype: 'link', attrs: { href: 'https://example.com' }, range: [0, 3] },
+                { stype: 'bold', range: [4, 7] }
+              ]
+            }
+          ]
+        },
         /*
          * Already indented, so there is something for `outdentText` to take off — and by
          * `indentLeft` rather than by leading spaces, which is what **Word's** outdent works on. The
@@ -138,14 +159,14 @@ const SAYS: Record<string, Record<string, unknown>> = {
 
   // Word's own.
   insertComment: { text: '한마디' },
-  setParagraphIndents: { indentLeft: 720 },
+  setParagraphIndents: { indents: { indentLeft: 720 } },
   setTabStops: { tabs: [{ pos: 1440, align: 'left' }] },
   setRowHeight: { height: 400 },
   setCellShading: { fill: '#FDE68A' },
   setCellVerticalAlign: { align: 'center' },
   setCellTextDirection: { direction: 'btLr' },
   setTableStyle: { styleId: 'TableGrid' },
-  toggleTableLook: { look: 'firstRow' },
+  toggleTableLook: { flag: 'firstRow' },
   moveShapes: { dx: 100, dy: 100 },
   resizeShapes: { width: 2000, height: 1000 }
 };
@@ -233,34 +254,48 @@ describe('every command Word registers', () => {
   }, 120_000);
 
   /**
-   * **How many say they can run and then change nothing** — a ceiling, so it can only come down.
+   * **The application's own commands, named** — and the document's, none.
    *
-   * It opened at **33** and is **29**. Four went the same afternoon, and two of them were the
-   * fixture's rather than the product's — which is the distinction this whole file is for:
+   * This started as a ceiling of 33 because the remainder had a cause and not yet a reason. It is a
+   * list now, because it does: every one of the 23 below changes the *application* — where the caret
+   * is, what is selected, what is on the clipboard, what has focus, which cell or math slot is next,
+   * whether tracking is on. `moved` asks about the *document*, so all 23 answer no honestly, and a
+   * count would let a 24th in without saying which.
    *
-   * - **`outdentText`** was the real one. `list-commands.ts` registers seven commands through one
-   *   helper and gave all seven the guard *"there is a block"*, which is what six of them need. Its
-   *   run refuses a block with no indent and no numbering level, and says so to nobody, so 내어쓰기
-   *   lit up over every paragraph and did nothing on all but the indented ones. A private helper is
-   *   why it lasted: a sweep reading `canExecute:` at each command's own declaration sees one guard,
-   *   not seven.
-   * - **`toggleBulletList` and `toggleOrderedList`** looked identical and were not. A numbering
-   *   definition has to live in a `resources` node, and this fixture had none — so both built nothing
-   *   and returned `false` at every caret position in the document, which reads exactly like two dead
-   *   buttons on the ribbon.
+   * ## What came off, and what each one was
+   *
+   * - **`outdentText`** — `list-commands.ts` registers seven commands through one helper and gave all
+   *   seven *"there is a block"*, which is what six of them need. Its run refuses a block with no
+   *   indent and no numbering level and says so to nobody, so 내어쓰기 lit up over every paragraph.
+   * - **`insertTab`** — the same helper, and it needs a **collapsed** caret.
+   * - **`toggleBulletList` / `toggleOrderedList`** — not faults at all: a numbering definition has to
+   *   live in a `resources` node and the fixture had none, so both returned false everywhere. The
+   *   fixture was wrong, and it read exactly like two dead buttons on the ribbon.
+   * - **`insertFootnote`** — the last one, and the oldest. It put the footnote's body at the document
+   *   root; office says `document` holds `docMeta? surface+ resources?` and re-declares `footnoteDef`
+   *   as a *resource* so a body cannot sit between two paragraphs. Every insert built a tree the
+   *   validator refused and rolled back. Then, one layer down, `footnoteDef` held `block+` in office
+   *   and `inline*` in the standard schema, and the command wrote the inline one — so **no footnote
+   *   had ever been inserted, in any of the three products.** The schema now says `block+` in both
+   *   places, which is what Word's own sample document had been writing all along.
    *
    * And one **near miss** worth keeping: the first fix narrowed `outdentFirstLine` too. It works on
    * `indentFirstLine`, and below zero that becomes a **hanging** indent — a real thing a reader wants
    * from a paragraph with no indent at all. Measured before and after, it moved the document at every
    * caret position, and narrowing it broke it. The two share a name and not a question.
-   *
-   * The rest are not faults: moving the caret, extending a selection, copying, focusing and reading a
-   * flag are application changes, and about twenty of the 29 are those. A number rather than a list
-   * of exemptions because the remainder have a cause and not yet a reason.
    */
-  it('says it can run and then changes nothing, in no more places than it did', () => {
+  const APPLICATION_ONLY = [
+    'clearSelection', 'copy', 'escape',
+    'extendSelectionLeft', 'extendSelectionRight', 'extendSelectionWordLeft', 'extendSelectionWordRight',
+    'focus', 'isTrackingChanges',
+    'moveCursorLeft', 'moveCursorRight', 'moveCursorWordLeft', 'moveCursorWordRight',
+    'nextCell', 'nextMathSlot', 'paste', 'previousCell', 'previousMathSlot',
+    'selectAll', 'setAbsolutePos', 'setContext', 'setNode', 'setRange'
+  ];
+
+  it('says it can run and then changes nothing, only where the change is not the document', () => {
     const dead = [...answers.moved].filter(([, answer]) => answer === false).map(([name]) => name);
-    expect(dead.length).toBeLessThanOrEqual(29);
+    expect(dead.sort()).toEqual([...APPLICATION_ONLY].sort());
 
     /*
      * And it did ask about most of them — a probe that stopped setting up would pass the line above.
@@ -274,24 +309,25 @@ describe('every command Word registers', () => {
   });
 
   /**
-   * **A control that lights up over a held box and does nothing** — 45, held as a ceiling.
+   * **A control that lights up over a held box and does nothing** — opened at 45, and is the same 23.
    *
-   * The other question, *does it move the document*, stops at the first state a command can run in,
-   * so a command that works from a caret and declines over a node selection comes back as **works**.
-   * Word is a text editor and spends most of its time with a caret, which is exactly why nothing had
-   * ever asked: the state that finds this is the one a *builder* lives in.
+   * The other question stops at the first state a command can run in, so a command that works from a
+   * caret and declines over a node selection comes back as **works**. Word is a text editor and
+   * spends its time with a caret, which is exactly why nothing had ever asked: the state that finds
+   * this is the one a *builder* lives in.
    *
-   * It opened at **45** and is **30**, and Word did not change: fifteen came off in
-   * `packages/extensions`, because most of what Word registers is the shared kit's. That is what a
-   * shared layer is for, and it is also why the count is worth keeping here — the next fifteen are
-   * Word's own, and nothing else will find them.
+   * Fifteen of the 45 came off in `packages/extensions`, because most of what Word registers is the
+   * shared kit's — that is what a shared layer is for. The rest were Word's own and nothing else
+   * would have found them: `toggleTableLook` wanted a `flag`, `insertColumnBreak` a range,
+   * `setParagraphIndents` an `indents` object, `splitCell` a cell that is actually **merged** — one
+   * helper had given all seven table commands *"the caret is in a cell"*, so 셀 나누기 lit up over
+   * every cell in every table and worked on the merged ones.
    *
-   * About twenty of the 30 are not faults: caret moves, selection extensions, clipboard, focus and
-   * reading a flag have not refused, they have changed the application. A number rather than a list
-   * of exemptions because the remainder have a cause and not yet a reason.
+   * That the two lists ended up identical is the finding: what a builder cannot do and what does
+   * nothing are now the same set, and it is the application's set.
    */
-  it('lights up over a held box and declines, in no more places than it did', () => {
-    expect(answers.saysYesAndDeclines.length).toBeLessThanOrEqual(30);
+  it('lights up over a held box and declines, only where the change is not the document', () => {
+    expect([...answers.saysYesAndDeclines].sort()).toEqual([...APPLICATION_ONLY].sort());
   });
 
   it('gives the document back when it is undone', () => {

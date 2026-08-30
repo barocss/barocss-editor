@@ -85,6 +85,8 @@ const SAYS: Record<string, Record<string, unknown>> = {
   insertBookmark: { id: '요금' },
   insertFootnote: { id: '1', text: '각주' },
   insertFootnoteRef: { id: '1' },
+  insertEndnote: { id: 'e1', text: '미주' },
+  insertEndnoteRef: { id: 'e1' },
   insertCallout: { type: 'note', title: '알림' },
   insertCodeBlock: { language: 'ts' },
   insertDetails: { summary: '더 보기' },
@@ -123,7 +125,6 @@ const SAYS: Record<string, Record<string, unknown>> = {
   insertChart: { attrs: { title: '분기 매출', values: '3,5,8' } },
   insertDocHeader: { attrs: {} },
   insertDocFooter: { attrs: {} },
-  insertEndnote: { attrs: { id: '1' } },
 
   /* A caption to set, or it writes the empty string the figure was already given. */
   setFigcaption: { caption: '바뀐 설명' }
@@ -273,7 +274,34 @@ const document_ = () => ({
   content: [
     { stype: 'heading', attributes: { level: 1 }, content: [{ stype: 'inline-text', text: '제목 한 줄' }] },
     { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '한 문단의 글자들' }] },
-    { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '두 번째 문단입니다' }] },
+    /*
+     * **Bold on the first three characters**, so there is something to clear.
+     *
+     * Without a single mark anywhere, `clearFormatting` correctly declines at every caret in the
+     * document — honest, and it means the check never runs it. The same gap as the indented paragraph
+     * below, and the same fix: a fixture with no formatted text is not a document, it is an argument.
+     */
+    {
+      stype: 'paragraph',
+      attributes: {},
+      content: [
+        {
+          stype: 'inline-text',
+          text: '두 번째 문단입니다',
+          /*
+           * A link as well as the bold, and for the same reason: `removeLink` asks whether there *is*
+           * one now — its own comment had named that as the tighter answer and left it for the day a
+           * reader complained, and the day arrived as a measurement — so a document with no link in
+           * it cannot ask the question at all.
+           */
+          marks: [
+            // The link first, because the probe's range states are the run's first three characters.
+            { stype: 'link', attrs: { href: 'https://example.com' }, range: [0, 3] },
+            { stype: 'bold', range: [4, 7] }
+          ]
+        }
+      ]
+    },
     /*
      * Already indented, so there is something for `outdentText` to take off. Without one it is a
      * command that correctly declines everywhere in this document — honest, and it means the check
@@ -586,7 +614,9 @@ describe('every command this package registers', () => {
    * what it did, and counting is the difference.
    */
   it('puts a node in the document when it is called an insert', () => {
-    const writesAMarkOrText = new Set(['insertMention', 'insertFootnoteRef', 'insertText']);
+    const writesAMarkOrText = new Set([
+      'insertMention', 'insertFootnoteRef', 'insertEndnoteRef', 'insertText'
+    ]);
     const nothing = [...answers.made].filter(([, made]) => made.length === 0).map(([name]) => name).sort();
     expect(nothing).toEqual([...writesAMarkOrText].sort());
 
@@ -624,22 +654,25 @@ describe('every command this package registers', () => {
    * an id that named nothing there. A probe that hands a command a dangling reference is measuring
    * its own mistake.
    *
-   * **Five left, and they are all in one state: nothing selected at all.** Every one takes a node by
-   * id, so none of them should need a selection — and every one examined so far turned out to be the
-   * probe rather than the product. `moveBlockToPosition` was measured three times: `targetIndex: 0`
-   * and then `1` were both the index the block was already at, because `wantsNode` hands over the
-   * *first* paragraph and where that sits is a fact about the fixture. A payload written as a number
-   * is wrong the moment the document changes shape, so it is derived now.
+   * **And the last five were one line of the probe.** They were all in the state *nothing selected*,
+   * every one of them took a node by id, and every one worked when tried by hand. The cause: the two
+   * builder states — a node held, nothing held — ran on **one editor**. A command that succeeded in
+   * the first state left the document changed, and then declined in the second because there was
+   * nothing left to do. One editor per state, and all five went at once.
    *
-   * They stay on the ceiling rather than being exempted, because *"probably the probe"* is not a
-   * reason — it is where to look next. A number, so it can only come down.
+   * `moveBlockToPosition` was measured three times before that: `targetIndex: 0` and then `1` were
+   * both the index the block was already at, because `wantsNode` hands over the *first* paragraph and
+   * where that sits is a fact about the fixture. A payload written as a number is wrong the moment
+   * the document changes shape, so it is derived now.
    *
-   * The exemptions are the other check's, and they are the same exemptions for the same reason: a
-   * command that moves the caret or opens a menu has not refused, it has changed the application.
+   * **Zero**, so it is an equality rather than a ceiling: the next one that appears has to be looked
+   * at rather than absorbed. The exemptions are the other check's, and they are the same exemptions
+   * for the same reason: a command that moves the caret or opens a menu has not refused, it has
+   * changed the application.
    */
-  it('lights up over a held box and declines, in no more places than it did', () => {
+  it('never lights up over a held box and then declines', () => {
     const real = answers.saysYesAndDeclines.filter((one) => !(one in exempt));
-    expect(real.length).toBeLessThanOrEqual(5);
+    expect(real).toEqual([]);
   });
 
   it('gives the document back when it is undone', () => {
@@ -735,6 +768,13 @@ describe('every command this package registers', () => {
     });
 
     expect(report.examined['every-command-does-something']).toBeGreaterThanOrEqual(134);
+    /*
+     * Which two: `indentNode` and `outdentNode`. Both ask the schema whether a node is `indentable`
+     * and **no schema in this repository marks one**, so neither can be run from any state — see the
+     * comment above. A permanently-correct decline, and the reason this is a number: it is the count
+     * of questions the probe cannot ask, not a ceiling on faults.
+     */
     expect(report.unanswered['every-command-does-something']).toBeLessThanOrEqual(2);
   });
+
 });

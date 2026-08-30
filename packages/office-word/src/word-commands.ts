@@ -80,8 +80,15 @@ export class WordExtension implements Extension {
         ).commit();
         return result.success;
       },
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) =>
-        !!(payload?.selection ?? (ed as any).selection)
+      /*
+       * A **range**, not any selection. `!!selection` lets a node selection through and the run
+       * refuses one — so with a drawing held the control lit up and did nothing. The class
+       * `guards.ts` names, and the state Word's canvas lives in.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => {
+        const selection = payload?.selection ?? ed.selection;
+        return selection?.type === 'range';
+      }
     });
 
     /**

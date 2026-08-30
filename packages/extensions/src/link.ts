@@ -1,5 +1,5 @@
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
-import { hasRange } from './guards';
+import { hasRange, wears } from './guards';
 import { transaction, toggleLink as toggleLinkOp } from '@barocss/model';
 
 export interface LinkExtensionOptions {
@@ -57,14 +57,17 @@ export class LinkExtension implements Extension {
        * go away with nothing selected: `linkToPage` refused correctly and this one held the group open
        * on its own.
        *
-       * Not *"and there is a link here"*, which would be the tighter answer and needs the marks under
-       * the selection rather than the selection: worth having the day a reader complains that it is
-       * offered on unlinked words, and a great deal better than always.
+       * **And there is a link there**, which this said was the tighter answer and left for *"the day
+       * a reader complains that it is offered on unlinked words"*. The day arrived as a measurement
+       * rather than a complaint: over unlinked words the command committed and changed nothing, which
+       * is the class this package's conformance run is named after.
+       *
+       * The `!selection.collapsed` this used to read is gone with it. **Nothing sets that field** —
+       * `SelectionManager` stores what it is handed — so it was `undefined` and the test was always
+       * true; `hasRange` computes it from the offsets now. See `guards.ts`.
        */
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => {
-        const selection = payload?.selection ?? (ed as { selection?: ModelSelection }).selection;
-        return !!selection && selection.type === 'range' && !selection.collapsed;
-      }
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) =>
+        hasRange(ed, payload, 'something') && wears(ed, payload?.selection, 'link')
     });
   }
 

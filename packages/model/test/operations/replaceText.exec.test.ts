@@ -67,6 +67,41 @@ describe('replaceText operation (exec)', () => {
     expect(dataStore.getNode('b')?.text).toBe('');
   });
 
+  /**
+   * **The marks over the run come back, and come back where they were.**
+   *
+   * `range.replaceText` re-derives a run's marks by the store's rules for an *edit* — right for a
+   * reader making one, and not reversible: replacing two characters inside a bold span brought the
+   * span back two characters shorter. The range form of this operation had captured the list for its
+   * inverse for exactly that reason; this form, which `replaceAll` builds, had not. So 모두 바꾸기
+   * followed by ⌘Z returned the words and not the emphasis, silently, in every product.
+   *
+   * Invisible until the extensions' conformance fixture grew a bold run: a document with no formatted
+   * text in it cannot notice a fault about formatting.
+   */
+  it('gives the marks back exactly where they were, when it is undone', async () => {
+    dataStore.setNode({
+      sid: 't1',
+      stype: 'inline-text',
+      text: 'Hello World',
+      marks: [{ stype: 'bold', range: [0, 8] }]
+    } as never);
+
+    const op = globalOperationRegistry.get('replaceText');
+    const done = await op!.execute(
+      { type: 'replaceText', payload: { nodeId: 't1', start: 6, end: 11, newText: 'there' } } as never,
+      context
+    );
+    expect(dataStore.getNode('t1')?.text).toBe('Hello there');
+
+    await op!.execute(done.inverse as never, context);
+
+    expect(dataStore.getNode('t1')?.text).toBe('Hello World');
+    expect((dataStore.getNode('t1') as never as { marks: unknown[] }).marks).toEqual([
+      { stype: 'bold', range: [0, 8] }
+    ]);
+  });
+
   describe('replaceText operation DSL', () => {
     it('builds descriptor from DSL (control form)', () => {
       const dsl = replaceTextDsl(1, 3, 'XY');

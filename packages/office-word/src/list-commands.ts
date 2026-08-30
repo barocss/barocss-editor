@@ -186,6 +186,14 @@ export class WordListExtension implements Extension {
         canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => {
           const blocks = this._blocks(ed, payload?.selection ?? ed.selection);
           if (blocks.length === 0) return false;
+          /*
+           * And `insertTab` wants a **caret**: a tab is a character put at one point, and the run
+           * refuses a selection with anything in it. Two of the seven ask their own question now.
+           */
+          if (name === 'insertTab') {
+            const selection = payload?.selection ?? ed.selection;
+            return selection?.type === 'range' && selection.collapsed === true;
+          }
           return name !== 'outdentText' || blocks.some((block) => outdentable(block));
         }
       });

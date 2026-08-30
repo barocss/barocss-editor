@@ -33,6 +33,7 @@ import './selectNode';
 import './clearSelection';
 import './setSelection';
 // Removed redundant legacy ops: splitBlock/mergeBlock/addMark
+import './clearFormatting';
 import './removeMark';
 import './toggleMark';
 import './updateMark';

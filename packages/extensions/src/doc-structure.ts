@@ -34,7 +34,17 @@ export class DocStructureExtension implements Extension {
     { cmd: 'insertDocHeader', stype: 'docHeader', holds: 'words' },
     { cmd: 'insertDocFooter', stype: 'docFooter', holds: 'words' },
     { cmd: 'insertBibliography', stype: 'bibliography', holds: 'blocks' },
-    { cmd: 'insertEndnote', stype: 'endnoteDef', holds: 'words', attrKeys: ['id'] },
+    /*
+     * **`insertEndnote` is not here any more.** It was, and it put an *empty* `endnoteDef` into the
+     * flow with no reference pointing at it — a body nothing refers to, which is not a note; and
+     * under the office schema `endnoteDef` is a resource that cannot sit in the flow at all, so on
+     * every product that matters it built a tree the validator refused.
+     *
+     * It lives in `footnote.ts` now, beside the footnote, where the pair is one gesture: a body into
+     * `resources` and an `endnoteRef` over the words the reader selected. Found when Word's key map
+     * was asked whether ⌥⌘D names anything — no product installs this extension, so the answer was
+     * no, and building the command turned up the one that already existed.
+     */
     { cmd: 'insertIndexBlock', stype: 'indexBlock', holds: 'blocks' },
     { cmd: 'insertChart', stype: 'chart', holds: 'nothing', attrKeys: ['title', 'values'] },
   ];

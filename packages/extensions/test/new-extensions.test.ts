@@ -572,17 +572,15 @@ describe('DocStructureExtension', () => {
     expect(child.attributes.values).toBe('10,20,30');
   });
 
-  it('insertEndnote creates endnoteDef with id attr', async () => {
-    const { DocStructureExtension } = await import('../src/doc-structure');
-    const editor = createFakeEditor();
-    const ext = new DocStructureExtension();
-    ext.onCreate(editor);
-
-    await editor.__getCommand('insertEndnote').execute(editor, { attrs: { id: 'en-1' } });
-    expect(commitMock).toHaveBeenCalledTimes(1);
-    expect(recordedTransactions[0][0].payload.child.stype).toBe('endnoteDef');
-    expect(recordedTransactions[0][0].payload.child.attributes.id).toBe('en-1');
-  });
+  /*
+   * `insertEndnote` used to be here, and this test is why it is worth saying where it went rather
+   * than deleting the line: it inserted an **empty** `endnoteDef` into the flow with no reference
+   * pointing at it, and this test passed on exactly that. A body nothing refers to is not a note, and
+   * under the office schema `endnoteDef` is a resource that cannot sit in the flow at all.
+   *
+   * It is in `footnote.ts` now, beside the footnote, where the two halves are one gesture — see
+   * `clear-formatting-and-notes.test.ts`.
+   */
 
   it('insertBibliography creates bibliography block', async () => {
     const { DocStructureExtension } = await import('../src/doc-structure');

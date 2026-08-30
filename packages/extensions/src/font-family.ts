@@ -1,3 +1,4 @@
+import { hasRange } from './guards';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, applyMark, toggleMark } from '@barocss/model';
 
@@ -20,13 +21,16 @@ export class FontFamilyExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      // A value control that cannot go grey is a control that fails silently:
-      // with nothing selected there is nothing to set, and answering yes left
-      // the dropdown live and inert.
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => {
-        const selection = payload?.selection || (ed as any).selection;
-        return !!selection && selection.type === 'range';
-      }
+      /*
+       * A value control that cannot go grey is a control that fails silently: with nothing selected
+       * there is nothing to set, and answering yes left the dropdown live and inert.
+       *
+       * And a **collapsed** range is the same failure one step in — `applyMark` over zero characters
+       * commits and draws nothing. `font-size.ts` and `font-color.ts` were given `'something'` for
+       * exactly that and this file, three lines different from both, was not.
+       */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; family?: string }) =>
+        !!payload?.family && hasRange(ed, payload, 'something')
     });
 
     (editor as any).registerCommand({
@@ -43,13 +47,9 @@ export class FontFamilyExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      // A value control that cannot go grey is a control that fails silently:
-      // with nothing selected there is nothing to set, and answering yes left
-      // the dropdown live and inert.
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => {
-        const selection = payload?.selection || (ed as any).selection;
-        return !!selection && selection.type === 'range';
-      }
+      /* A range covering **something** — over a caret this commits and takes nothing off. */
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) =>
+        hasRange(ed, payload, 'something')
     });
   }
 

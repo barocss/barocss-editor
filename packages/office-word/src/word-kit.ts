@@ -6,6 +6,7 @@ import {
   FontColorExtension,
   FontFamilyExtension,
   FontSizeExtension,
+  EndnoteExtension,
   FootnoteExtension,
   HighlightExtension,
   HorizontalRuleExtension,
@@ -87,6 +88,12 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
     new TextFormattingExtension(),
     new MentionExtension(),
     new FootnoteExtension(),
+    /*
+     * And the **endnote**, which is Word's alone: a note at the end of a *page* is not a thing, so
+     * this stays out of the shared list rather than going on surfaces where 미주 means nothing. ⌥⌘D
+     * has been in `word-keymap.ts` since its first version, naming a command nobody registered.
+     */
+    new EndnoteExtension(),
     new BookmarkExtension(),
     new FieldExtension(),
 

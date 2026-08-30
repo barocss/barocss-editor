@@ -269,6 +269,21 @@ async function ask(
    * means *running*, and running a command twice over one document compounds the edits.
    */
   const askBuilderStates = async () => {
+    /*
+     * **One editor per shape**, and the reason is the note two paragraphs down, which this function
+     * did not follow: asking means *running*, and running a command twice over one document
+     * compounds the edits. Both shapes shared an editor, so a command that worked from a held box
+     * left the document changed and then declined from *nothing selected* because there was nothing
+     * left to do. Five commands were reported that way and all five work — the third time this probe
+     * has measured its own mistake, and the second time by handing a command a state its own earlier
+     * run had spoiled.
+     */
+    for (const shape of ['node', 'none'] as const) {
+      await askOneBuilderState(shape);
+    }
+  };
+
+  const askOneBuilderState = async (shape: 'node' | 'none') => {
     const { editor: builder, store: theirs } = input.fresh();
     const block = everyNode(builder, theirs, 'paragraph')[0];
 
@@ -287,30 +302,27 @@ async function ask(
     }
     Object.assign(theirSaid, input.derive?.(name, builder, theirs) ?? {});
 
-    const shapes = [
-      () => {
-        if (block) builder.selectionManager?.setSelection({ type: 'node', nodeIds: [block] });
-      },
-      () => builder.selectionManager?.clearSelection?.()
-    ];
+    try {
+      if (shape === 'node') {
+        if (!block) return;
+        builder.selectionManager?.setSelection({ type: 'node', nodeIds: [block] });
+      } else {
+        builder.selectionManager?.clearSelection?.();
+      }
+    } catch {
+      return;
+    }
 
-    for (const shape of shapes) {
-      try {
-        shape();
-      } catch {
-        continue;
-      }
-      if (builder.canExecuteCommand(name, theirSaid) !== true) continue;
+    if (builder.canExecuteCommand(name, theirSaid) !== true) return;
 
-      const was = asWritten(builder);
-      try {
-        await builder.executeCommand(name, theirSaid);
-      } catch {
-        // A throw is an answer too, and the answer is *the document did not move*.
-      }
-      if (asWritten(builder) === was && !answers.saysYesAndDeclines.includes(name)) {
-        answers.saysYesAndDeclines.push(name);
-      }
+    const was = asWritten(builder);
+    try {
+      await builder.executeCommand(name, theirSaid);
+    } catch {
+      // A throw is an answer too, and the answer is *the document did not move*.
+    }
+    if (asWritten(builder) === was && !answers.saysYesAndDeclines.includes(name)) {
+      answers.saysYesAndDeclines.push(name);
     }
   };
 

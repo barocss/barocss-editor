@@ -83,7 +83,14 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   { key: 'Mod+k', command: 'toggleLink', when: 'editorFocus' },
   { key: 'Mod+Enter', command: 'insertPageBreak', when: 'editorFocus' },
   { key: 'Mod+Shift+Enter', command: 'insertColumnBreak', when: 'editorFocus' },
-  { key: 'Shift+Enter', command: 'insertLineBreak', when: 'editorFocus' },
+  /*
+   * **Not bound here.** Shift+Enter arrives as a `beforeinput` of type `insertLineBreak` and the input
+   * handler answers it, which is the rule this repository already settled: beforeinput writes typing.
+   * The binding named a command nobody registers, so it had never fired — two mechanisms on one key,
+   * with one of them a name. `insertHardBreak` (a `hardBreak` node, which is what OOXML's `<w:br/>`
+   * is) is the better document and is left for the day the input handler hands the key over rather
+   * than both trying: see `docs/BACKLOG.md`.
+   */
   { key: 'Mod+Alt+f', command: 'insertFootnote', when: 'editorFocus' },
   { key: 'Mod+Alt+d', command: 'insertEndnote', when: 'editorFocus' },
   { key: 'Mod+Alt+m', command: 'insertComment', when: 'editorFocus' },
@@ -188,7 +195,8 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   // was written. What was true is that **nothing installed it** — not this kit, not the deck's, not
   // the site's — which from a keyboard looks exactly like reaching a stub. Word has its own pane and
   // does not need the extension; the note mattered because the site deleted its 찾기 entry over it.
-  { key: 'Mod+h', command: 'replace', when: 'editorFocus' }
+  /* `replaceText`, which is the command's name. `replace` was nobody's, so ⌘H did nothing. */
+  { key: 'Mod+h', command: 'replaceText', when: 'editorFocus' }
 ];
 
 /**

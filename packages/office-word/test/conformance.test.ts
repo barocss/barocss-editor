@@ -84,6 +84,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
     { command: 'insertColumnRight', produces: 'bTableCell' },
     { command: 'insertBookmark', produces: 'bookmarkAnchor' },
     { command: 'insertFootnote', produces: 'footnoteDef' },
+    { command: 'insertEndnote', produces: 'endnoteDef' },
     { command: 'insertComment', produces: 'commentThread' }
   ];
 
@@ -510,6 +511,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
         insertText: 'writes characters into a run; makes no node',
         insertMention: 'applies a mark over a range, not a node',
         insertFootnoteRef: 'a mark over a range, not a node',
+        insertEndnoteRef: 'a mark over a range, not a node',
         insertFieldPageNumber: 'a mark over a range, not a node',
         insertFieldPageCount: 'a mark over a range, not a node',
         insertFieldDateTime: 'a mark over a range, not a node',

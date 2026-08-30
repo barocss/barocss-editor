@@ -202,6 +202,7 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
     }
     
     const { nodeId, start, end, newText } = payload;
+    const marksAfter = (payload as any).marksAfter as any[] | undefined;
     const node = context.dataStore.getNode(nodeId);
     if (!node) throw new Error(`Node not found: ${nodeId}`);
     if (typeof node.text !== 'string') throw new Error(`Node ${nodeId} is not a text node`);
@@ -211,6 +212,22 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
     
     // Store the original text for inverse operation
     const prevText = (node.text as string).substring(start, end);
+
+    /**
+     * And the marks over it, for the same reason the range form above captures them — which this
+     * form did not, so undo put the text back and left the formatting wrong.
+     *
+     * `range.replaceText` re-derives a run's marks by the store's rules for an *edit*, which are
+     * right for a reader making one and are not reversible: replacing two characters inside a bold
+     * span came back with the span two characters shorter. So 모두 바꾸기 followed by ⌘Z returned the
+     * words and not the emphasis, silently, in every product — `replaceAll` builds this form.
+     *
+     * Invisible until the conformance fixture grew a bold run and a link. A document with no
+     * formatted text in it cannot notice a fault about formatting.
+     */
+    const marksHere = Array.isArray((node as any).marks)
+      ? JSON.parse(JSON.stringify((node as any).marks))
+      : [];
     
     const deleted = context.dataStore.range.replaceText({
       type: 'range',
@@ -220,12 +237,33 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
       endOffset: end
     }, newText);
 
+    // Exactly the marks the run is to end up with, when the caller knows — the inverse putting back
+    // what it took, the same as the range form.
+    if (Array.isArray(marksAfter)) {
+      const current = context.dataStore.getNode(nodeId);
+      if (current) {
+        context.dataStore.setNode(
+          { ...current, marks: JSON.parse(JSON.stringify(marksAfter)) } as any,
+          false
+        );
+      }
+    }
+
     context.selection.setCaret(nodeId, start + newText.length);
 
     return {
       ok: true,
       data: deleted,
-      inverse: { type: 'replaceText', payload: { nodeId, start, end: start + newText.length, newText: prevText } }
+      inverse: {
+        type: 'replaceText',
+        payload: {
+          nodeId,
+          start,
+          end: start + newText.length,
+          newText: prevText,
+          marksAfter: marksHere
+        }
+      }
     };
   } catch (e) {
     console.log('replaceText error:', e);

@@ -82,7 +82,15 @@ describe('what the menubar offers', () => {
     for (const key of WORD_VIEW_KEYS) expect.soft(offered.has(key.view), key.key).toBe(true);
   });
 
-  it('binds a command or a view and says exactly one', () => {
-    expect(keyFaults(WORD_KEYS)).toEqual([]);
+  it('binds a command or a view and says exactly one, and the command exists', () => {
+    /*
+     * The third argument is the one that matters here: a chord naming a command nobody registers is a
+     * key that does nothing, and from every other angle it is indistinguishable from a key nobody
+     * presses. It found four in Word — two misspellings and **two capabilities that had never been
+     * built**, ⌘Space for 서식 지우기 and ⌥⌘D for 미주, both written as keys years before anything
+     * could answer them.
+     */
+    const known = new Set(createWordEditor().commandNames());
+    expect(keyFaults(WORD_KEYS, (command) => known.has(command))).toEqual([]);
   });
 });

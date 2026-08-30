@@ -46,6 +46,143 @@ entries are that.
 
 ## Open
 
+### A key that names a command nobody registers — 2026-08-30 *(fixed, and now asked)*
+
+Nothing had ever asked the question *does every chord this product prints name a
+command it registers?* Word printed **72** and answered **68**. The four are
+worth reading one at a time, because they are four different failures:
+
+- **⌘H → `replace`.** The command is `replaceText`. A misspelling, and 바꾸기 had
+  never worked from the keyboard.
+- **Shift+Enter → `insertLineBreak`.** No such command — and the key works
+  anyway, because it arrives as a `beforeinput` of that type and the input
+  handler answers it. Two mechanisms on one key, one of them a name. The binding
+  is gone; see the open item below about which document a line break should make.
+- **⌘Space → `clearFormatting`.** 서식 지우기, and **nothing had ever built it**.
+  Eleven `remove…` commands each take off one mark; the gesture takes off all of
+  them. `DataStore.range.clearFormatting` had existed as long as the range API
+  with nothing above it able to reach it — no operation, no command, one binding
+  naming a command that did not exist. Now an operation with an inverse, a
+  command, and the fixture grew a bold run so the check can run it.
+- **⌥⌘D → `insertEndnote`.** Not missing — *unfinished*, which took longer to
+  see. The name was registered in `doc-structure.ts`, a shared extension **no
+  product installs**, and what it did was put an *empty* `endnoteDef` into the
+  flow with **no reference pointing at it**. A body nothing refers to is not a
+  note, and the mark that refers to one, `endnoteRef`, was never declared at all
+  — `office-text` had been drawing it in superscript for months with nothing able
+  to write one. Under the office schema it is worse: `endnoteDef` is a resource
+  there and cannot sit in the flow, so every insert built a tree the validator
+  refused. It is one command now, beside the footnote, and `doc-structure.ts`
+  no longer claims the name.
+
+`keyFaults(keys, knows?)` asks it now, and all three products' tests pass their
+editor's command names. The two questions it already asked — a binding runs a
+command or changes a view and says exactly one, no chord bound twice in a mode —
+did not need an editor, which is why the third had been missing.
+
+### Replace all, then undo, and the formatting came back wrong — 2026-08-30 *(fixed)*
+
+`replaceText` has two payload forms. The **range** form captured the run's marks
+so its inverse could put them back — with the reason written above it, that
+`range.replaceText` re-derives marks by the store's rules for an *edit*, which
+are right for a reader making one and are not reversible. The **single-node**
+form, which is the one `replaceAll` builds, did not.
+
+So 모두 바꾸기 followed by ⌘Z returned the words and not the emphasis: a bold
+span over `[4, 7]` came back as `[4, 5]`. Silently, in every product.
+
+Invisible until the extensions' conformance fixture grew a bold run and a link —
+which it grew for an unrelated reason. **A document with no formatted text in it
+cannot notice a fault about formatting**, and this fixture had none for as long
+as it has existed. Worth remembering when the next fixture is written.
+
+### Four more controls that lit up over a caret and did nothing — 2026-08-30 *(fixed)*
+
+Found by sweeping every `toggle…`/`set…`/`remove…` command over a **collapsed
+caret** and asking whether the document moved — the state the probe reaches only
+after a range state has already succeeded, so it stops there.
+
+- **`setHighlight`, `setFontFamily`** — hand-written guards asking only for a
+  range, three lines different from `font-size.ts` and `font-color.ts`, which had
+  been given `'something'` for exactly this.
+- **`removeLink`** — its own comment named the tighter answer, *"and there is a
+  link here"*, and left it for *"the day a reader complains that it is offered on
+  unlinked words"*. The day arrived as a measurement. `wears(editor, selection,
+  kind?)` in `guards.ts` is that question now, shared with 서식 지우기.
+- **`setParagraph`** — the run answers *"no-op if already paragraph"* with
+  `return true`. Success, and the document untouched, on every paragraph in the
+  document. Worse than a refusal: a caller that trusts the answer believes the
+  conversion happened.
+
+### The guard against marking a caret read a field nothing sets — 2026-08-30 *(fixed)*
+
+`hasRange(editor, payload, 'something')` is the argument that separates *a
+command needing text between two points* from *one needing a caret*, and it is
+asked in **seventeen** places — every colour, size, family, link and note. It
+answered by reading `selection.collapsed`.
+
+**Nothing sets that field.** `SelectionManager` stores what it is handed and the
+view builds a range from two points; neither computes it. So it is `undefined`
+essentially always, `!undefined` is `true`, and the argument written to stop a
+mark being applied over zero characters permitted exactly that, everywhere.
+
+It reads the offsets now, and honours `collapsed` where a caller sets it — the
+probe does, which is why the harness never saw this. Found writing a test for
+미주's guard by hand: it lit up over a caret.
+
+### No footnote had ever been inserted, in any product — 2026-08-30 *(fixed)*
+
+Found by the other half of the probe, *does it move the document*, with a caret
+in a run where the guard says yes. Two faults stacked:
+
+1. The body went to the **document root**. Office says `document` holds
+   `docMeta? surface+ resources?` and re-declares `footnoteDef` as a *resource*
+   precisely so a body cannot sit between two paragraphs. Every insert built a
+   tree the validator refused and rolled back.
+2. Under that, `footnoteDef` held `block+` in office and `inline*` in the
+   standard schema, and the command wrote the inline one. **One node meant two
+   things.** The schema says `block+` in both places now — which is what Word's
+   own sample document had been writing all along.
+
+The endnote inherits the fixed path rather than a copy of it.
+
+### Word's two probe questions are answered — 2026-08-30 *(measured)*
+
+`moved` and `saysYesAndDeclines` opened at 33 and 45. Both are **23** and both
+are the *same* 23, and every one of them changes the application rather than the
+document: caret moves, selection extensions, clipboard, focus, cell and math-slot
+navigation, reading the tracking flag. So both are equalities against a named
+list now rather than ceilings — a 24th has to be looked at rather than absorbed.
+`packages/extensions` is at **zero** by the same measure.
+
+What came off on the way, beyond the notes above: `toggleTableLook` wanted a
+`flag`, `insertColumnBreak` a range, `setParagraphIndents` an `indents` object,
+`insertTab` a collapsed caret, and `splitCell` a cell that is actually **merged**
+— one helper had given all seven table commands *"the caret is in a cell"*, so
+셀 나누기 lit up over every cell in every table and worked on the merged ones.
+The same fault, in the same shape, as the one `packages/extensions` had, and a
+private helper is why both lasted: a sweep reading `canExecute:` at each command's
+own declaration sees one guard, not seven.
+
+### Shift+Enter should probably make a `hardBreak`, not a `\n`
+
+`EditorViewDOM.insertLineBreak` is `insertText('\n')`, and `hardBreak` is a real
+node in both schemas with a command (`insertHardBreak`) and a renderer. OOXML's
+`<w:br/>` is the node, not the character, so a document round-tripping through
+Word loses the distinction. Not changed now because the input handler owns that
+key through `beforeinput` and moving it to the key map would mean **two**
+mechanisms answering one press — the trap this session already fell into twice.
+The fix is to have the input handler run `insertHardBreak` for that inputType,
+which is a change to typing and wants its own measurement.
+
+### An endnote's body has nowhere to be drawn yet
+
+The node, the mark, the command and the superscript reference all work. Word lays
+out footnotes at the foot of the page their reference is on; the endnote's body
+should be at the end of the *document*, and Word has no pass that does that. The
+`resources` node holds it and nothing reads it, so it is invisible rather than
+wrong.
+
 ### The model layer does not draw, and does not guess — 2026-08-30 *(asserted)*
 
 Two claims, each false in several files a week ago, each now a test — because

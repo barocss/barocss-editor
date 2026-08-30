@@ -340,7 +340,13 @@ function bootstrap() {
         sid: 'fn-1',
         stype: 'footnoteDef',
         attributes: { id: '1' },
-        content: [ { sid: 'fn-1-text', stype: 'inline-text', text: 'This is the footnote content.' } ]
+        content: [
+          {
+            sid: 'fn-1-para',
+            stype: 'paragraph',
+            content: [ { sid: 'fn-1-text', stype: 'inline-text', text: 'This is the footnote content.' } ]
+          }
+        ]
       },
       // 새로운 섹션들 시작 - blockquote 테스트
       {
