@@ -1,5 +1,5 @@
 /**
- * Whether a node sits inside a region the document says may not be edited.
+ * Whether a node sits inside a region the document says may not be edited, or may not be removed.
  *
  * ## Why the engine knows about this at all
  *
@@ -21,6 +21,19 @@
  *
  * Deliberately not `locked`, which the canvas nodes carry and means something else: a locked *shape*
  * cannot be moved or resized, and its text is still text.
+ *
+ * ## And `lockDelete`, which is the other half
+ *
+ * Word's content control has two locks and they are separate on purpose: a form's instructions may
+ * be read and not edited (`lockContent`) and also not thrown away (`lockDelete`), and a field a
+ * reader fills in is the first without the second. `deleteNode` asks the second one.
+ *
+ * ## Why this is in `editor-core`
+ *
+ * Both layers need it and neither can reach the other: the typing gates are in `editor-view-dom` and
+ * the delete command is in `extensions`. It lived in the view first, which is where the typing fault
+ * was found, and moved here the moment the delete path wanted the same walk — one convention, read
+ * from one place, rather than two copies that could come apart.
  */
 interface NodeLike {
   parentId?: string;
@@ -34,12 +47,19 @@ interface StoreLike {
 /** How far up to look before deciding the tree is malformed rather than deep. */
 const MAX_DEPTH = 64;
 
-export function insideLockedRegion(store: StoreLike | undefined, sid: string | undefined): boolean {
+/** Which lock is being asked about — see above for why they are two. */
+export type Lock = 'lockContent' | 'lockDelete';
+
+export function insideLockedRegion(
+  store: StoreLike | undefined,
+  sid: string | undefined,
+  lock: Lock = 'lockContent'
+): boolean {
   if (!store?.getNode || !sid) return false;
 
   let current = store.getNode(sid);
   for (let depth = 0; current && depth < MAX_DEPTH; depth++) {
-    if (current.attributes?.lockContent === true) return true;
+    if (current.attributes?.[lock] === true) return true;
     if (!current.parentId) return false;
     current = store.getNode(current.parentId);
   }

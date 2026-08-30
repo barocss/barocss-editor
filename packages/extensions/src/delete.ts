@@ -1,7 +1,7 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { hasRange } from './guards';
 import type { ModelSelection } from '@barocss/editor-core';
-import { selectedNodeIds } from '@barocss/editor-core';
+import { insideLockedRegion, selectedNodeIds } from '@barocss/editor-core';
 import { transaction, control, deleteRange, deleteOp, deleteTextRange } from '@barocss/model';
 
 /**
@@ -43,14 +43,22 @@ export class DeleteExtension implements Extension {
         return await this._executeDeleteNode(editor, payload.nodeId);
       },
       /**
-       * A node that is **there**.
+       * A node that is **there**, and one the document has not said may not be removed.
        *
        * `payload.nodeId != null` is a claim about the payload and not about the document: an id
        * naming nothing passes it, and the run then walks to a node that is gone. One lookup, so the
        * guard and the run agree about what "a node" means.
+       *
+       * And `lockDelete`, which is the other half of a content control's pair — Word keeps the two
+       * apart on purpose: a form's instructions may be read and not edited *and* not thrown away,
+       * while a field a reader fills in is the first without the second. `lockContent` got its guard
+       * on the typing path; this is the same walk on the delete path, and without it a reader could
+       * not type in a protected region and could delete the whole of it.
        */
       canExecute: (ed: Editor, payload?: { nodeId?: string }) =>
-        !!payload?.nodeId && !!ed.dataStore?.getNode(payload.nodeId)
+        !!payload?.nodeId &&
+        !!ed.dataStore?.getNode(payload.nodeId) &&
+        !insideLockedRegion(ed.dataStore as never, payload.nodeId, 'lockDelete')
     });
 
     // 2. Cross-node text deletion

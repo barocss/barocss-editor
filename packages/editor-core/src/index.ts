@@ -4,6 +4,7 @@ export { CommandManager, InsertTextCommand, InsertNodeCommand, DeleteNodeCommand
 export { PluginManager, AutoSavePlugin } from './plugins';
 export * from './keybinding';
 export { evaluateWhenExpression } from './when-expression';
+export { insideLockedRegion, type Lock } from './locked-region';
 export * from './context/default-context';
 // Extension interface is exported from types.ts
 // Extension implementations are provided by @barocss/extensions package

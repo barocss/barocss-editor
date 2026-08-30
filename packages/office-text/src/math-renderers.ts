@@ -128,14 +128,33 @@ export function registerMathRenderers(): void {
       'span',
       {
         className: 'w-math-frac',
+        /**
+         * **Which of Word's four fractions this is** — and it read one of them.
+         *
+         * `bar` is the ordinary stacked fraction, `lin` writes the two slots side by side, `skw` sets
+         * them on a diagonal with a solidus, and `noBar` stacks them with no rule at all — which is
+         * how a binomial coefficient is written. `lin` was the only one the style function looked at,
+         * so a skewed fraction came out stacked and a binomial came out with a bar through it.
+         *
+         * The bar itself is the stylesheet's, which is why this says which kind rather than drawing
+         * it: `noBar` and `bar` differ only in a border.
+         *
+         * And the attribute is `data-type`, which `style.css` has had rules for since it was
+         * written — `.w-math-frac[data-type='lin']` draws the solidus. **Nothing ever wrote it.** So
+         * a linear fraction has never been drawn as one: two rules matching an attribute no renderer
+         * emitted, and a stacked fraction where a solidus belonged.
+         */
+        'data-type': (d: Record<string, any>) => String(d.attributes?.type ?? 'bar'),
         style: (d: Record<string, any>) => ({
           display: 'inline-flex',
           flexDirection: 'column',
           alignItems: 'center',
           verticalAlign: 'middle',
-          // Word's skewed and linear fractions are the same two slots written
-          // differently; only the bar changes.
-          ...(d.attributes?.type === 'lin' ? { flexDirection: 'row' } : {})
+          // A linear fraction is the same two slots written side by side, and a skewed one is those
+          // two on a diagonal — both are a row; what separates them is the separator, in `style.css`.
+          ...(d.attributes?.type === 'lin' || d.attributes?.type === 'skw'
+            ? { flexDirection: 'row' }
+            : {})
         })
       },
       [slot('content')]
@@ -154,7 +173,24 @@ export function registerMathRenderers(): void {
    * the body it covers is whatever height it happens to be. A border along the
    * top of the body carries the bar across, and the hook is the glyph.
    */
-  define('mathRadical', element('span', { className: 'w-math-rad' }, [slot('content')]));
+  define(
+    'mathRadical',
+    element(
+      'span',
+      {
+        className: 'w-math-rad',
+        /*
+         * Whether the degree is shown — Word's `m:degHide`, and on by default because a square root
+         * is written `√` and not `²√`. It was declared and read nowhere, so a cube root and a square
+         * root were the same drawing: the degree slot stays in the document either way, so an author
+         * can put one back.
+         */
+        'data-hide-degree': (d: Record<string, any>) =>
+          d.attributes?.hideDegree === false ? 'false' : 'true'
+      },
+      [slot('content')]
+    )
+  );
 
   /**
    * An n-ary operator.
@@ -348,7 +384,15 @@ export function registerMathRenderers(): void {
       {
         className: 'w-math-groupchar',
         'data-char': (d: Record<string, any>) => String(d.attributes?.char ?? '⏟'),
-        'data-position': (d: Record<string, any>) => String(d.attributes?.position ?? 'bot')
+        'data-position': (d: Record<string, any>) => String(d.attributes?.position ?? 'bot'),
+        /*
+         * Where the *label* sits, which is not where the brace does: Word keeps `m:pos` for the
+         * brace and `m:vertJc` for the text under or over it, so an author can put a brace beneath a
+         * term and its label above. One was read and the other was not, so the label always followed
+         * the brace.
+         */
+        'data-label-position': (d: Record<string, any>) =>
+          String(d.attributes?.verticalAlign ?? 'bot')
       },
       [slot('content')]
     )

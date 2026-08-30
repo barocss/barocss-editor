@@ -322,7 +322,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * to set them, because Word has no panel and no dialogs. Real attributes, really drawn,
        * owed to the sixth dialog rather than regressed.
        */
-      ratchet: { 'every-attribute-is-read': 20, 'every-property-can-be-edited': 182 },
+      ratchet: { 'every-attribute-is-read': 16, 'every-property-can-be-edited': 182 },
 
       /**
        * Every attribute a reader can **set**, out of Word's two writing surfaces.
@@ -452,6 +452,8 @@ const schema = createSchema('word', getWordSchemaDefinition());
         'group.name': 'a layer list, which a document’s canvas has not got — drawn as the group’s accessible name',
         'fieldRef.useHyperlink': 'a field’s own settings, a dialog Word has not got — drawn as whether the reference is a link',
         'mathRun.style': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathFraction.type': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathRadical.hideDegree': 'the equation tools’ properties, which Word has not got — see BACKLOG',
 
         'surface.name': 'page setup, a dialog Word has not got yet — drawn as the section’s accessible name',
         'paragraph.placeholder': 'a template author’s surface, which Word has not got — drawn by `text.css` while the paragraph is empty',
@@ -663,6 +665,17 @@ const schema = createSchema('word', getWordSchemaDefinition());
          * reason about editing. What *should* change is the overlay, which draws no handles on a
          * locked box — and Word's does not know yet. See BACKLOG.
          */
+        /*
+         * The other half of a content control's pair, and read the same way `locked` is: by a
+         * command rather than by a drawing. `deleteNode` refuses a node inside a region the document
+         * says may not be removed — the same walk `lockContent` got on the typing path, in
+         * `editor-core` now because both layers need it and neither can reach the other.
+         *
+         * A drawing that changed would be a region that looks different for a reason about editing,
+         * which is the same argument `locked` makes below.
+         */
+        lockDelete:
+          '`deleteNode` refuses a node inside it — `insideLockedRegion(store, sid, \'lockDelete\')`, the same walk the typing gates make about `lockContent`',
         locked:
           'the canvas shape commands — `moveShapes`, `resizeShapes`, `deleteShapes` and the align and spread commands all refuse a locked shape, through `_movable`',
 

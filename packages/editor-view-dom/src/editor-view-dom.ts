@@ -1,6 +1,5 @@
-import { Editor, ModelSelection } from '@barocss/editor-core';
+import { Editor, ModelSelection, insideLockedRegion } from '@barocss/editor-core';
 import { selectionRectIn } from './selection-rect';
-import { insideLockedRegion } from './locked-region';
 import type { ModelData, RenderEnv } from '@barocss/dsl';
 import { IEditorViewDOM, EditorViewDOMOptions, LayerConfiguration, LayoutPass } from './types';
 import { InputHandlerImpl } from './event-handlers/input-handler';

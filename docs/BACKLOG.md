@@ -92,6 +92,48 @@ and rendering a bare `bTable` draws no cells. Exemptions, like the header ids.
 could have seen the doubled line — or the invalid colour. It has a three-paragraph
 box now, and `word-rendering.spec.ts` measures the *computed* border of each.
 
+### Two locks, and a fraction that was never linear — 2026-08-30 *(fixed)*
+
+**`lockDelete`.** Word's content control has two locks and keeps them apart on
+purpose: a form's instructions may be read and not edited *and* not thrown away,
+while a field a reader fills in is the first without the second. `lockContent`
+got its guard on the typing path; without this one a reader could not type in a
+protected region and could **delete the whole of it**. `insideLockedRegion` moved
+to `editor-core` and takes which lock to ask about — both layers need it and
+neither can reach the other: the typing gates are in `editor-view-dom` and the
+delete command is in `extensions`.
+
+**A linear fraction has never been drawn as one.** `style.css` has had
+`.w-math-frac[data-type='lin']` rules since it was written — the solidus, the
+missing bar — and **no renderer ever emitted `data-type`**. Two rules matching an
+attribute nothing wrote. Found while giving the fraction its other three values:
+`skw` sets the slots on a diagonal and `noBar` stacks them with no rule, which is
+how a binomial coefficient is written, and the style function looked only at
+`lin` — the one value whose CSS could not match anyway.
+
+The same shape as the deck's `listType` and Word's `borderTopColor`: a name
+written on one side of a seam and not the other, with nothing in between to
+notice. Three of those in one session is the argument for a check that reads
+`data-*` out of a renderer and out of a stylesheet and compares them.
+
+And two more of the maths pile: a **radical**'s `hideDegree` (a square root is
+`√` and a cube root `³√`, and the two were the same drawing) and a **group
+character**'s `verticalAlign` — where the *label* sits, which is not where the
+brace does. One was read and the other was not, so the label always followed the
+brace.
+
+**185 → 16.**
+
+### A check for `data-*` written on one side of a seam
+
+Three faults this session were one name on two sides that did not match: the
+deck's renderer wrote `listType` where the schema said `type`; `style.css` drew
+`.w-math-frac[data-type='lin']` where no renderer wrote `data-type`; and the
+site's `insertBulletList` wrote `kind` where the schema said `type`. Each cost
+months and each is mechanical to find — collect the `data-*` names a renderer
+emits, collect the ones the stylesheets select on, and report the ones that
+appear on one side only.
+
 ### The maths pile wanted code, not a decision — 2026-08-30 *(fixed)*
 
 Twenty-five attributes, the largest thing on Word's unread list, and this
@@ -459,7 +501,7 @@ worth recording so it is not run again from scratch:
 - **Every toolbar, panel, ruler and menu entry names a command that exists**, in
   all three products.
 
-### What is left of Word's 20
+### What is left of Word's 16
 
 Nothing left is a pile. Each of these is one node's answer, and three of them are
 the same answer twice:
@@ -470,9 +512,13 @@ the same answer twice:
   rather than wrapping it, which CSS has no property for: it is a measurement,
   and it belongs beside `tab-layout.ts` where the other measured-then-drawn
   values live.
-- **`contentControl.lockDelete`** wants a guard on the delete path, the way
-  `lockContent` got one on the typing path; **`dataBinding`** wants a custom XML
-  part to resolve against, which no document here has.
+- **`contentControl.dataBinding`** wants a custom XML part to resolve against,
+  which no document here has.
+- **The four field switches** — `fieldSeq.restartLevel`,
+  `fieldStyleRef.searchFromBottom`, and `format` on three field types. The last
+  three are read by the field resolver and unaskable rather than unread: the
+  probe renders against an environment with no resolver and no clock, so every
+  format draws the empty string.
 - **`surface.sectionStart` and `columnsEqualWidth`**, both the paginator's:
   where a section begins (`nextPage`, `evenPage`…) is a decision about sheets,
   and unequal columns cannot be drawn with `column-count` at all — CSS's

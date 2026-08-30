@@ -407,12 +407,56 @@ body {
   padding: 0 0.2em;
   border-top: 1px solid currentColor;
 }
-/* A linear fraction is the same two slots with a solidus between them. */
-.w-math-frac[data-type='lin'] > .w-math-den {
+/*
+ * A linear fraction is the same two slots with a solidus between them, and a **skewed** one is those
+ * two on a diagonal — Word's `m:type` has four values and this file had rules for one of them.
+ *
+ * Which is worse than it sounds: the rules were written against `data-type` and **no renderer ever
+ * emitted it**, so even the one they covered never matched. A linear fraction has never been drawn
+ * as one in this product.
+ */
+.w-math-frac[data-type='lin'] > .w-math-den,
+.w-math-frac[data-type='skw'] > .w-math-den {
   border-top: none;
 }
 .w-math-frac[data-type='lin'] > .w-math-num::after {
   content: '/';
+}
+/*
+ * A skewed fraction is the same solidus set at an angle, with the two slots raised and lowered
+ * against it — which is what separates it from the linear one a reader would otherwise not notice.
+ */
+.w-math-frac[data-type='skw'] > .w-math-num {
+  vertical-align: super;
+}
+.w-math-frac[data-type='skw'] > .w-math-num::after {
+  content: '\2044';
+  padding: 0 0.1em;
+}
+.w-math-frac[data-type='skw'] > .w-math-den {
+  vertical-align: sub;
+}
+/* No rule at all, which is how a binomial coefficient is written. */
+.w-math-frac[data-type='noBar'] > .w-math-den {
+  border-top: none;
+}
+
+/*
+ * A square root is written `√` and a cube root `³√`. Word keeps the degree slot either way so an
+ * author can put one back, and says which with `m:degHide` — declared, and read nowhere, so the two
+ * were the same drawing.
+ */
+.w-math-rad[data-hide-degree='true'] > .w-math-deg {
+  display: none;
+}
+
+/*
+ * Where the **label** sits, which is not where the brace does: Word keeps `m:pos` for the brace and
+ * `m:vertJc` for the text under or over it, so an author can put a brace beneath a term and its
+ * label above.
+ */
+.w-math-groupchar[data-label-position='top'] {
+  flex-direction: column-reverse;
 }
 
 .w-math-sup-box > .w-math-sup,

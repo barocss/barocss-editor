@@ -1,7 +1,6 @@
 import { InputHandler, IEditorViewDOM } from '../types';
-import { Editor, type ModelSelection } from '@barocss/editor-core';
+import { Editor, insideLockedRegion, type ModelSelection } from '@barocss/editor-core';
 import { handleEfficientEdit } from '../utils/efficient-edit-handler';
-import { insideLockedRegion } from '../locked-region';
 import { type MarkRange, type DecoratorRange } from '../utils/edit-position-converter';
 import { classifyDomChange, type ClassifiedChange, type InputHint } from '../dom-sync/dom-change-classifier';
 import { analyzeTextChanges } from '@barocss/text-analyzer';

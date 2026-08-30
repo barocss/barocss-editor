@@ -66,4 +66,35 @@ describe('a region the document locked', () => {
     expect(insideLockedRegion(document_, undefined)).toBe(false);
     expect(insideLockedRegion(document_, 'nobody')).toBe(false);
   });
+
+  /**
+   * And the **other** lock, which is why this takes which one to ask about.
+   *
+   * Word's content control has two and keeps them apart on purpose: a form's instructions may be
+   * read and not edited *and* not thrown away, while a field a reader fills in is the first without
+   * the second. `lockContent` guards typing, `lockDelete` guards `deleteNode` — and without the
+   * second a reader could not type in a protected region and could delete the whole of it.
+   */
+  describe('the two locks are two questions', () => {
+    const both = store({
+      'edit-only': { attributes: { lockContent: true } },
+      'delete-only': { attributes: { lockDelete: true } },
+      'edit-child': { parentId: 'edit-only' },
+      'delete-child': { parentId: 'delete-only' }
+    });
+
+    it('answers about the lock it was asked about', () => {
+      expect(insideLockedRegion(both, 'edit-child', 'lockContent')).toBe(true);
+      expect(insideLockedRegion(both, 'edit-child', 'lockDelete')).toBe(false);
+
+      expect(insideLockedRegion(both, 'delete-child', 'lockDelete')).toBe(true);
+      expect(insideLockedRegion(both, 'delete-child', 'lockContent')).toBe(false);
+    });
+
+    /* Editing is the one a typing gate asks about, so it is the one asked when nobody says. */
+    it('asks about editing when nobody says which', () => {
+      expect(insideLockedRegion(both, 'edit-child')).toBe(true);
+      expect(insideLockedRegion(both, 'delete-child')).toBe(false);
+    });
+  });
 });
