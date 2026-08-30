@@ -1,3 +1,4 @@
+import { Icon } from '@barocss/office-icons';
 import { Tip } from './tip';
 import type React from 'react';
 import { cn } from './cn';
@@ -398,6 +399,7 @@ export function NumberField({
   onClear,
   suffix,
   prefix,
+  prefixIcon,
   min,
   max,
   step = 1,
@@ -423,6 +425,14 @@ export function NumberField({
   suffix?: string;
   /** A short name drawn **inside** the field, before the number — see below. */
   prefix?: string;
+  /**
+   * A **picture** in place of the prefix, for a companion a reader picks out by shape.
+   *
+   * The four corners of a box and the four sides of its padding are what every design tool draws
+   * here. `prefix` stays as the fallback and `ariaLabel` is still the name, so a field with a
+   * picture is not a field without one.
+   */
+  prefixIcon?: string;
   min?: number;
   max?: number;
   step?: number;
@@ -476,11 +486,23 @@ export function NumberField({
         Muted and `select-none`, because it is a name and not a value: a reader dragging across the
         field to retype it should get the digits.
       */}
-      {prefix && (
+      {prefixIcon ? (
+        /*
+         * **A picture**, where the name is a shape rather than a word — a corner of a box, a side of
+         * its padding. Four of these on a line is what every design tool draws there, and what this
+         * suite drew as 상좌 상우 하우 하좌.
+         *
+         * `aria-hidden`, because the field already has its accessible name from `ariaLabel`; a
+         * picture announcing itself beside a name is the same thing said twice.
+         */
+        <span className="flex shrink-0 select-none items-center pl-1 text-[color:var(--ou-faint)]" aria-hidden>
+          <Icon name={prefixIcon} size={13} />
+        </span>
+      ) : prefix ? (
         <span className="shrink-0 select-none pl-1 text-[length:var(--ou-text-small)] leading-none text-[color:var(--ou-faint)]">
           {prefix}
         </span>
-      )}
+      ) : null}
  <input
         type="number"
  min={min}

@@ -633,6 +633,66 @@ test.describe('the panel', () => {
     await expect(hero).toHaveCSS('overflow', 'hidden');
   });
 
+  /**
+   * **The four corners and the four sides are drawn, not spelled.**
+   *
+   * They were 상좌 상우 하우 하좌 over four number fields and 상 우 하 좌 over four more — honest,
+   * and eight words where a reader is matching a shape rather than reading one. The version before
+   * that was `↖ ↗ ↘ ↙`, four arrows standing in for four drawings, which is an icon made out of a
+   * character and the one thing this repository has written down about icons.
+   *
+   * `lucide` has nothing that means *this corner of this box*, so these are the first pictures in
+   * `office-icons` that are not a library's. Asserted here rather than in a unit test because what
+   * is being claimed is that a reader **sees** a drawing and a screen reader still **hears** the
+   * name: an icon with no accessible name is the fault this replaces, not a new one.
+   */
+  test('draws the corners and the padding sides rather than spelling them', async ({ page }) => {
+    await ready(page);
+    const hero = page.locator('[data-frame="desktop"] .st-stack[data-name="히어로"]');
+    await press(page, hero);
+    await page.waitForTimeout(300);
+    await panel(page).getByRole('tab', { name: '모양' }).click();
+
+    /*
+     * Beside the field rather than in the label column: these four share **one** row and one label —
+     * the shape every inspector draws a box's four sides in — so each carries its own short name
+     * inside its field. That is where the drawing goes, in place of the word.
+     */
+    for (const name of ['왼쪽 위 둥글기', '오른쪽 위 둥글기', '오른쪽 아래 둥글기', '왼쪽 아래 둥글기']) {
+      const field = panel(page).getByLabel(name);
+      await expect(field, name).toHaveCount(1);
+
+      const drawn = field.locator('xpath=preceding-sibling::span[1]');
+      await expect(drawn.locator('svg'), name).toHaveCount(1);
+      // A picture and no word: the four used to read 상좌 상우 하우 하좌.
+      expect((await drawn.innerText()).trim(), name).toBe('');
+      // …and the field still carries the words, which is the half a screen reader gets.
+      await expect(field).toHaveAttribute('aria-label', name);
+    }
+
+    await panel(page).getByRole('tab', { name: '블록' }).click();
+    for (const name of ['위쪽 여백', '오른쪽 여백', '아래쪽 여백', '왼쪽 여백']) {
+      const field = panel(page).getByLabel(name);
+      await expect(field, name).toHaveCount(1);
+      await expect(field.locator('xpath=preceding-sibling::span[1]').locator('svg'), name).toHaveCount(1);
+      await expect(field).toHaveAttribute('aria-label', name);
+    }
+
+    /*
+     * And the four sides sit **two to a line**, which is the shape every inspector draws a box's four
+     * sides in and the half of this that is not about pictures. The row's own 안쪽 여백 is above
+     * them and is a fifth field, so the four are asked about by name rather than by the pattern.
+     */
+    const tops = await Promise.all(
+      ['위쪽 여백', '오른쪽 여백', '아래쪽 여백', '왼쪽 여백'].map((name) =>
+        panel(page)
+          .getByLabel(name)
+          .evaluate((el) => Math.round(el.getBoundingClientRect().top))
+      )
+    );
+    expect(new Set(tops).size).toBe(2);
+  });
+
   test('names the selected block, and changes what it is called', async ({ page }) => {
     await ready(page);
     await press(page, page.locator('[data-frame="desktop"] .st-stack[data-name="히어로"]'));
@@ -2468,18 +2528,34 @@ test.describe('the panel', () => {
     await expect(group.locator('[data-state="on"]')).toHaveAttribute('data-segment', 'row');
   });
 
-  test('names each of the four sides, which had been five identical boxes', async ({ page }) => {
+  /**
+   * **Each of the four sides can be told from the others**, which is what this has always been about.
+   *
+   * It was five identical boxes: a companion cannot borrow the row's one label — it is one of five
+   * things on the line — and that label was drawn nowhere at all. Then it was `상 우 하 좌` inside
+   * the fields, which is what this test used to assert.
+   *
+   * It is a **picture** now, one per field, which is what every design tool puts there. So the
+   * assertion moves with it: not *which word is in the row* but *is each field marked, and is the
+   * mark different for each* — which is the thing a reader needs and the thing all three versions
+   * were trying to give them.
+   */
+  test('marks each of the four sides, which had been five identical boxes', async ({ page }) => {
     await holding(page);
     const row = panel(page).locator('label').filter({ hasText: '안쪽 여백' }).first();
-    /*
-     * `상 우 하 좌`, inside the fields. A companion cannot borrow the row's one label — it is one of
-     * five things on the line — and that label was drawn nowhere at all, so a padding was five
-     * identical boxes with no way to tell which was which.
-     */
-    await expect(row).toContainText('상');
-    await expect(row).toContainText('우');
-    await expect(row).toContainText('하');
-    await expect(row).toContainText('좌');
+
+    const drawn = await Promise.all(
+      ['위쪽 여백', '오른쪽 여백', '아래쪽 여백', '왼쪽 여백'].map(async (name) => {
+        const mark = row.getByLabel(name).locator('xpath=preceding-sibling::span[1]');
+        await expect(mark.locator('svg'), name).toHaveCount(1);
+        return mark.locator('svg path').first().getAttribute('d');
+      })
+    );
+
+    // Four marks, and four *different* marks — one picture repeated would be the five identical boxes
+    // again with a drawing on them.
+    expect(new Set(drawn).size).toBe(4);
+
     // The long form stays where a screen reader reads it, which has the room and no adjacency.
     await expect(row.getByLabel('위쪽 여백')).toHaveCount(1);
   });

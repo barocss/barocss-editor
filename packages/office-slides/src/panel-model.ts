@@ -227,10 +227,10 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
      * as ordinary on a slide as it is on a page.
      */
     with: [
-      { attr: 'paddingTop', command: 'setFrameLayout', group: '배치', tab: 'style', label: '위', ariaLabel: '위쪽 여백', control: 'number', min: 0 },
-      { attr: 'paddingRight', command: 'setFrameLayout', group: '배치', tab: 'style', label: '오른쪽', ariaLabel: '오른쪽 여백', control: 'number', min: 0 },
-      { attr: 'paddingBottom', command: 'setFrameLayout', group: '배치', tab: 'style', label: '아래', ariaLabel: '아래쪽 여백', control: 'number', min: 0 },
-      { attr: 'paddingLeft', command: 'setFrameLayout', group: '배치', tab: 'style', label: '왼쪽', ariaLabel: '왼쪽 여백', control: 'number', min: 0 }
+      { attr: 'paddingTop', command: 'setFrameLayout', group: '배치', tab: 'style', label: '위', ariaLabel: '위쪽 여백', icon: 'padding-top', control: 'number', min: 0 },
+      { attr: 'paddingRight', command: 'setFrameLayout', group: '배치', tab: 'style', label: '오른쪽', ariaLabel: '오른쪽 여백', icon: 'padding-right', control: 'number', min: 0 },
+      { attr: 'paddingBottom', command: 'setFrameLayout', group: '배치', tab: 'style', label: '아래', ariaLabel: '아래쪽 여백', icon: 'padding-bottom', control: 'number', min: 0 },
+      { attr: 'paddingLeft', command: 'setFrameLayout', group: '배치', tab: 'style', label: '왼쪽', ariaLabel: '왼쪽 여백', icon: 'padding-left', control: 'number', min: 0 }
     ]
   },
   /** And where they sit **along** the axis — `교차 축 맞춤`'s other half. */
@@ -326,10 +326,10 @@ export const SLIDES_PANEL: SlidesPanelRow[] = [
     ]
   },
   { attr: 'cornerRadius', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '둥글기', ariaLabel: '모서리 둥글기', control: 'number', fallback: 0, min: 0 },
-  { attr: 'cornerTopLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 위', ariaLabel: '왼쪽 위 모서리', control: 'number', min: 0 },
-  { attr: 'cornerTopRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 위', ariaLabel: '오른쪽 위 모서리', control: 'number', min: 0 },
-  { attr: 'cornerBottomRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 아래', ariaLabel: '오른쪽 아래 모서리', control: 'number', min: 0 },
-  { attr: 'cornerBottomLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 아래', ariaLabel: '왼쪽 아래 모서리', control: 'number', min: 0 },
+  { attr: 'cornerTopLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 위', ariaLabel: '왼쪽 위 모서리', icon: 'corner-top-left', control: 'number', min: 0 },
+  { attr: 'cornerTopRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 위', ariaLabel: '오른쪽 위 모서리', icon: 'corner-top-right', control: 'number', min: 0 },
+  { attr: 'cornerBottomRight', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '오른쪽 아래', ariaLabel: '오른쪽 아래 모서리', icon: 'corner-bottom-right', control: 'number', min: 0 },
+  { attr: 'cornerBottomLeft', command: 'setBoxStyle', group: '채우기와 선', tab: 'style', label: '왼쪽 아래', ariaLabel: '왼쪽 아래 모서리', icon: 'corner-bottom-left', control: 'number', min: 0 },
 
   // ── 텍스트 — a box that holds words ────────────────────────────────────────
   {

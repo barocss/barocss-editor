@@ -23,6 +23,7 @@
   * model says which act each of its controls is (`icon: 'duplicate'`), and a third
   * editor names acts it shares without adding its vocabulary here.
   */
+import type { ReactElement } from 'react';
 import {
   AlignCenter,
   Network,
@@ -170,6 +171,110 @@ import {
   * And the character controls were the plain letters B, I, U, S: the first thing
   * a formatting button should do is look like what it does, and none of them did.
   */
+/**
+ * **Drawn here**, because no library has them and a word is not a picture.
+ *
+ * A corner and a side of a box are the two things every design tool draws and this suite spelled:
+ * 상좌 상우 하우 하좌 over four number fields, and 상 우 하 좌 over four more. Honest, and eight
+ * words where a reader expects eight pictures — which is also how the *previous* version got away
+ * with `↖ ↗ ↘ ↙`, four arrows standing in for four drawings, until the rule about not making icons
+ * out of characters caught them.
+ *
+ * `lucide` has nothing that means *this corner of this box*: its `RadiusCorner` is one shape at one
+ * corner and there is no set of four, and its padding icons are a box with an inset box, which says
+ * *padding* and not *which side*. So these are the first pictures in this package that are not a
+ * library's, and they are deliberately the same drawing eight times over with one part filled in —
+ * a reader picking a field out of eight is matching a shape, not reading a diagram.
+ *
+ * The same 16×16 box and the same 2px stroke every lucide icon here uses, so a row of them sits with
+ * the rest of a toolbar rather than beside it.
+ */
+type Drawn = (props: { size?: number }) => ReactElement;
+
+/** The box every one of these is a part of: inset by 2 so a 2px stroke sits inside the 16. */
+const BOX = { x: 2.5, y: 2.5, size: 11 };
+
+const outline = (children: ReactElement, size: number): ReactElement => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    {children}
+  </svg>
+);
+
+/**
+ * A corner, drawn as **the box faint and that one corner solid** — which is what a reader is picking
+ * between when four of these sit in a row.
+ *
+ * The rounded quarter is a quarter-circle arc with the two straight runs that reach it, so the
+ * *shape* says which corner rather than a label saying it in words.
+ */
+const corner = (path: string): Drawn =>
+  function CornerIcon({ size = 16 }: { size?: number }) {
+    return outline(
+      <>
+        <rect
+          x={BOX.x}
+          y={BOX.y}
+          width={BOX.size}
+          height={BOX.size}
+          rx={1}
+          opacity={0.3}
+          strokeWidth={1.5}
+        />
+        <path d={path} />
+      </>,
+      size
+    );
+  };
+
+/**
+ * A side, drawn as **the box faint and that one edge solid**, with the inset the padding would leave
+ * shown as a second faint line. Four of them differ in which edge is drawn, which is the whole of
+ * what a reader is choosing.
+ */
+const side = (path: string): Drawn =>
+  function SideIcon({ size = 16 }: { size?: number }) {
+    return outline(
+      <>
+        <rect
+          x={BOX.x}
+          y={BOX.y}
+          width={BOX.size}
+          height={BOX.size}
+          rx={1}
+          opacity={0.3}
+          strokeWidth={1.5}
+        />
+        <path d={path} />
+      </>,
+      size
+    );
+  };
+
+/** The eight, keyed the way a panel row names them. */
+const DRAWN: Record<string, Drawn> = {
+  // A quarter turn at one corner, and the two runs that reach it.
+  'corner-top-left': corner('M13.5 2.5H8a5.5 5.5 0 0 0-5.5 5.5v5.5'),
+  'corner-top-right': corner('M2.5 2.5H8a5.5 5.5 0 0 1 5.5 5.5v5.5'),
+  'corner-bottom-right': corner('M13.5 2.5v5.5A5.5 5.5 0 0 1 8 13.5H2.5'),
+  'corner-bottom-left': corner('M2.5 2.5v5.5A5.5 5.5 0 0 0 8 13.5h5.5'),
+
+  // One edge of the box, solid, and the line the padding would hold the content back to.
+  'padding-top': side('M2.5 2.5h11M4.5 6h7'),
+  'padding-right': side('M13.5 2.5v11M10 4.5v7'),
+  'padding-bottom': side('M2.5 13.5h11M4.5 10h7'),
+  'padding-left': side('M2.5 2.5v11M6 4.5v7')
+};
+
 const ICONS: Record<string, LucideIcon> = {
   undo: Undo2,
   redo: Redo2,
@@ -465,6 +570,13 @@ export function Icon({
    */
   size?: number;
 }) {
+  /*
+   * The hand-drawn ones first, because they are the answer where a library has none — see `DRAWN`.
+   * They take the same `size` and draw at the same stroke, so a row mixing the two reads as one set.
+   */
+  const Made = DRAWN[name];
+  if (Made) return <Made size={size} />;
+
   const Glyph = ICONS[name];
   // `aria-hidden` because the button already has an accessible name from the
   // model's label — announcing the icon too would say everything twice.
@@ -483,4 +595,4 @@ export function Icon({
   * Exported as a list rather than the table itself, so nothing outside can reach
   * past `Icon` to a component and pin the library in place again.
   */
-export const iconNames = (): string[] => Object.keys(ICONS);
+export const iconNames = (): string[] => [...Object.keys(ICONS), ...Object.keys(DRAWN)];

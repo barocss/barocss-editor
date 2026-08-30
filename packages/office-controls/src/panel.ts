@@ -90,6 +90,17 @@ export interface PanelRow<Kind extends string = string> {
    * of thing a declaration gets wrong and only a browser can catch.
    */
   ariaLabel: string;
+  /**
+   * A **picture** in place of the label, for a row a reader picks out by shape.
+   *
+   * The four corners of a box and the four sides of its padding are the two places every design tool
+   * draws and this suite spelled — 상좌 상우 하우 하좌 over four number fields, and 상 우 하 좌 over
+   * four more. Honest, and eight words where a reader is matching a shape rather than reading.
+   *
+   * The label stays: it is what a narrow panel falls back to, and `ariaLabel` is still what a screen
+   * reader gets — a picture with no name is the fault this replaces, not a new one.
+   */
+  icon?: string;
   control: Kind;
   /** The fixed set, for a `choice`. */
   options?: PanelOption[];

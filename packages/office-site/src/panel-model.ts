@@ -287,10 +287,10 @@ export const SITE_PANEL: SitePanelRow[] = [
      * form, because a screen reader has the room and no adjacency to read from.
      */
     with: [
-      { attr: 'paddingTop', command: 'setBlockFormat', group: '배치', tab: 'block', label: '상', ariaLabel: '위쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'paddingRight', command: 'setBlockFormat', group: '배치', tab: 'block', label: '우', ariaLabel: '오른쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'paddingBottom', command: 'setBlockFormat', group: '배치', tab: 'block', label: '하', ariaLabel: '아래쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'paddingLeft', command: 'setBlockFormat', group: '배치', tab: 'block', label: '좌', ariaLabel: '왼쪽 여백', control: 'number', unit: 'px', min: 0, on: STACKS }
+      { attr: 'paddingTop', command: 'setBlockFormat', group: '배치', tab: 'block', label: '상', ariaLabel: '위쪽 여백', icon: 'padding-top', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'paddingRight', command: 'setBlockFormat', group: '배치', tab: 'block', label: '우', ariaLabel: '오른쪽 여백', icon: 'padding-right', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'paddingBottom', command: 'setBlockFormat', group: '배치', tab: 'block', label: '하', ariaLabel: '아래쪽 여백', icon: 'padding-bottom', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'paddingLeft', command: 'setBlockFormat', group: '배치', tab: 'block', label: '좌', ariaLabel: '왼쪽 여백', icon: 'padding-left', control: 'number', unit: 'px', min: 0, on: STACKS }
     ]
   },
   /**
@@ -665,10 +665,10 @@ export const SITE_PANEL: SitePanelRow[] = [
      * A corner honestly wants a **drawing** — a square with one rounded corner, which is what every
      * design tool puts here and what `office-icons` has no entry for. See `BACKLOG.md`.
      */
-      { attr: 'cornerTopLeft', command: 'setBlockFormat', group: '상자', tab: 'style', label: '상좌', ariaLabel: '왼쪽 위 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'cornerTopRight', command: 'setBlockFormat', group: '상자', tab: 'style', label: '상우', ariaLabel: '오른쪽 위 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'cornerBottomRight', command: 'setBlockFormat', group: '상자', tab: 'style', label: '하우', ariaLabel: '오른쪽 아래 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'cornerBottomLeft', command: 'setBlockFormat', group: '상자', tab: 'style', label: '하좌', ariaLabel: '왼쪽 아래 둥글기', control: 'number', unit: 'px', min: 0, on: STACKS }
+      { attr: 'cornerTopLeft', command: 'setBlockFormat', group: '상자', tab: 'style', label: '상좌', ariaLabel: '왼쪽 위 둥글기', icon: 'corner-top-left', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'cornerTopRight', command: 'setBlockFormat', group: '상자', tab: 'style', label: '상우', ariaLabel: '오른쪽 위 둥글기', icon: 'corner-top-right', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'cornerBottomRight', command: 'setBlockFormat', group: '상자', tab: 'style', label: '하우', ariaLabel: '오른쪽 아래 둥글기', icon: 'corner-bottom-right', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'cornerBottomLeft', command: 'setBlockFormat', group: '상자', tab: 'style', label: '하좌', ariaLabel: '왼쪽 아래 둥글기', icon: 'corner-bottom-left', control: 'number', unit: 'px', min: 0, on: STACKS }
     ]
   },
   { attr: 'clipsContent', command: 'setBlockFormat', group: '상자', tab: 'style', label: '넘침', ariaLabel: '넘치는 것 자르기', control: 'toggle', on: STACKS },

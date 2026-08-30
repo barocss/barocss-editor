@@ -1758,11 +1758,27 @@ Each was checked against the un-fixed source: Word's fails on 25 words.
   the same gesture to be wanted on a gap and on a corner rather than building it three times.
 
 
-- [ ] **A corner wants a drawing, not a word.** 상좌/상우/하우/하좌 is honest and it is four words
-  where every design tool draws four pictures — a square with one corner rounded, per field. Same for
-  a padding's four sides. `office-icons` has no entry for either and lucide has nothing that means
-  *this corner of this box*; they would have to be drawn. Worth it the day a second surface needs
-  them, which a canvas panel will.
+- [x] ~~**A corner wants a drawing, not a word.**~~ **Drawn.** 상좌/상우/하우/하좌 was honest and it
+  was four words where every design tool draws four pictures — and the version before it was
+  `↖ ↗ ↘ ↙`, four arrows standing in for four drawings, which is an icon made out of a character.
+  Eight now: the four corners and the four sides of a padding, in `office-icons`, and the **first
+  pictures in that package that are not a library's**. `lucide` has nothing that means *this corner
+  of this box* — its one corner icon is a single shape and its padding icons say *padding* rather
+  than *which side*.
+
+  Deliberately the same drawing eight times over with one part filled in: a reader picking a field
+  out of eight is matching a shape, not reading a diagram. The 16×16 box and the 2px stroke are
+  lucide's, so a row of them sits with the rest of a toolbar rather than beside it.
+
+  The second surface arrived the same afternoon rather than later — the deck's panel spells the same
+  eight (왼쪽 위, 위, …) and takes the same pictures. Two products, one set.
+
+  What it needed underneath: `PanelRow.icon`, so a *field* can carry a picture the way a choice's
+  options already could, and `NumberField.prefixIcon`, because these four share one row and one
+  label — the shape every inspector draws a box's four sides in — so each carries its own short name
+  **inside** its field, and that is where the drawing goes. The label stays as the fallback and
+  `ariaLabel` is still the accessible name: an icon with no name is the fault this replaces, not a
+  new one.
 
 
 ### A surface can name a command that does nothing

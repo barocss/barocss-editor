@@ -217,14 +217,36 @@ export function PropertyTabs({
  * row may carry — moves the decision to every declaration and gets it wrong the first time somebody
  * adds a fifth.
  */
-export function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
+export function PropertyRow({
+  label,
+  icon,
+  children
+}: {
+  label: string;
+  /**
+   * A **picture** in the label column, for a row a reader picks out by shape.
+   *
+   * The four corners of a box and the four sides of its padding are what every design tool draws
+   * here, and this suite spelled them: 상좌 상우 하우 하좌 over four number fields. Honest, and
+   * eight words where a reader is matching a shape rather than reading one.
+   *
+   * The column narrows to the picture, which is the point — four of these fit on a line where four
+   * labelled fields wrapped onto two. `title` and the accessible name still carry the words, so
+   * nothing is lost to a screen reader or to a reader who hovers.
+   */
+  icon?: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="flex min-h-[var(--ou-control-h)] items-start gap-1.5 text-[length:var(--ou-text)]">
       <span
-        className="flex h-[var(--ou-control-h)] w-[var(--ou-label-w)] shrink-0 items-center truncate text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)]"
+        className={`flex h-[var(--ou-control-h)] shrink-0 items-center text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)] ${
+          icon ? 'w-[var(--ou-control-h)] justify-center' : 'w-[var(--ou-label-w)] truncate'
+        }`}
         title={label}
+        aria-hidden={icon ? true : undefined}
       >
-        {label}
+        {icon ? <Icon name={icon} size={14} /> : label}
       </span>
       {/* `items-center` within a line, so a wrapped row's two lines each sit on their own centre. */}
       <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">{children}</span>
@@ -250,6 +272,7 @@ export function PropertyNumber({
   onClear,
   suffix,
   prefix,
+  prefixIcon,
   min,
   max,
   disabled,
@@ -270,6 +293,8 @@ export function PropertyNumber({
   suffix?: string;
   /** A short name inside the field, for a number that shares a line — see `NumberField`. */
   prefix?: string;
+  /** A picture in place of the prefix — see `NumberField.prefixIcon`. */
+  prefixIcon?: string;
   min?: number;
   max?: number;
   disabled?: boolean;
@@ -297,6 +322,7 @@ export function PropertyNumber({
       onClear={onClear}
       suffix={suffix}
       prefix={prefix}
+      prefixIcon={prefixIcon}
       min={min}
       max={max}
       step={step}
@@ -306,7 +332,7 @@ export function PropertyNumber({
        * on the gradient row, `각도` plus `px-1.5` left an input 40 pixels wide needing 44, so the
        * last digit of `180` was cut. Padding twice is what made it four short.
        */
-      padding={prefix ? 'pl-0 pr-1.5' : 'px-1.5'}
+      padding={prefix || prefixIcon ? 'pl-0 pr-1.5' : 'px-1.5'}
       disabled={disabled}
       ariaLabel={ariaLabel}
     />

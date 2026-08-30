@@ -47,6 +47,11 @@ export interface SheetRow {
   group: string;
   label: string;
   ariaLabel: string;
+  /**
+   * A picture in the label column, for a row a reader picks out by shape — a corner of a box, a side
+   * of its padding. The label stays as the tooltip and `ariaLabel` as the name; see `PropertyRow`.
+   */
+  icon?: string;
   control: string;
   /** `icon` turns the row into a segmented group rather than a dropdown — see the `choice` case. */
   options?: { id: string; label: string; icon?: string }[];
@@ -213,7 +218,13 @@ export function PropertySheet<Row extends SheetRow>({
              */
             onClear={() => onWrite(one, undefined)}
             ariaLabel={one.ariaLabel}
+            /*
+             * A companion's own short name, or its **picture** where it has one — a corner of a box,
+             * a side of its padding. The picture wins because that is what a reader is matching; the
+             * label stays as the fallback for a companion with no drawing, which is most of them.
+             */
             prefix={beside ? one.label : undefined}
+            prefixIcon={beside ? one.icon : undefined}
             step={one.step}
             /*
              * A companion carrying its own name does **not** repeat the unit. Measured at 240px:
@@ -398,5 +409,19 @@ function Cell<Row extends SheetRow>({
   marked?: (row: Row) => boolean;
   children: React.ReactNode;
 }) {
-  return <PropertyRow label={`${row.label}${marked?.(row) ? ' ·' : ''}`}>{children}</PropertyRow>;
+  /*
+   * A picture where the row has one — the four corners of a box and the four sides of its padding,
+   * which is what every design tool draws and this suite spelled. The label goes with it as the
+   * tooltip and the accessible name, so nothing is lost; see `PropertyRow`.
+   *
+   * The mark stays a character either way: `·` says *this width owns the value* and belongs to the
+   * row rather than to what the row is about, so drawing it into the picture would say the wrong
+   * thing about the shape.
+   */
+  const marker = marked?.(row) ? ' ·' : '';
+  return (
+    <PropertyRow label={`${row.label}${marker}`} icon={row.icon}>
+      {children}
+    </PropertyRow>
+  );
 }
