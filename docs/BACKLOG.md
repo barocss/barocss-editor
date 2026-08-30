@@ -1721,6 +1721,43 @@ sample's own author had done run by run, and missed one.
 Guarded by `word-theme.spec.ts`, `site-theme.spec.ts` and `slide-theme.spec.ts`.
 Each was checked against the un-fixed source: Word's fails on 25 words.
 
+### The chrome, measured — 2026-08-30 *(fixed, and now a check)*
+
+Four things separate a tool from a mock-up that a **measurement** can answer, and
+every one of them found something the eye had walked past for weeks. Asked of
+every control in the app's own chrome — 108 of them — with the boards left out,
+because a reader's page is not this product's design.
+
+| | |
+|---|---|
+| a target a pointer can hit | **3**: the width switches were 22×20 |
+| a name a screen reader can read | 0 |
+| ink a reader can see | **5**: the rail's tabs at 4.3:1 |
+| a ring the keyboard can follow | **8**: six swatches, a clear, the zoom field |
+
+**`--ou-muted` was chosen against the wrong surface.** `#737373` is 4.74:1 on
+white — over the 4.5 a reader needs — and 4.35:1 on `--ou-ground`, which is where
+most of it is actually drawn: a rail's unselected tabs, a panel's row labels, a
+chip's caption. It is `#6b6b6b` now, which answers both. The dark theme's was
+already 7.11:1.
+
+**A swatch takes `CONTROL`, which answers focus by drawing the border in the
+accent** — a field's rule, and the right one for a field: one pixel of accent
+where the caret is. A swatch is a *button* whose border is a hairline around a
+filled square, so the accent landed on the part of the control a reader is least
+likely to be looking at. `STATE` as well, which every other button has.
+
+**Two ways the measurement itself was wrong first**, both worth keeping:
+
+- It read the whole document and reported eleven faint controls, **six of them
+  the reader's own page** drawn on the boards. A check that reports somebody
+  else's design is a check nobody can act on.
+- It called `el.focus()`, which does not raise `:focus-visible` — so it reported
+  nine controls with no ring that all have one. **Tabbing is the only honest way
+  to ask**, because tabbing is what a reader does.
+
+`chrome-is-a-tool.spec.ts` asks all four now.
+
 ### Found walking the site builder in a browser
 
 - [ ] **A feed is the other thing the address unlocks.** A blog page draws a `collection` over a

@@ -42,9 +42,23 @@
   --ou-ground: #f5f5f5;
   --ou-line: #d4d4d4;
 
-  /* Ink. */
+  /*
+   * Ink.
+   *
+   * `--ou-muted` is **#6b6b6b and not #737373**, which is the colour a check picked out and a person
+   * would not have. The old value is 4.74:1 on white — over the 4.5 a reader needs — and 4.35:1 on
+   * `--ou-ground`, which is where most of it actually sits: a rail's unselected tabs, a panel's row
+   * labels, a chip's caption. It was chosen against the surface it is *least* often drawn on.
+   *
+   * Five of the site's rail tabs came back at 4.3:1 from a sweep that measured every control's text
+   * against the ground it is really painted on rather than against the token beside it. Half a step
+   * darker answers both — 5.33:1 on white, 4.89:1 on the panel — and is still plainly quieter than
+   * `--ou-ink`, which is the whole job of the token.
+   *
+   * The dark theme's is left alone: 7.11:1 on its panel, with room to spare.
+   */
   --ou-ink: #171717;
-  --ou-muted: #737373;
+  --ou-muted: #6b6b6b;
   --ou-faint: #a3a3a3;
 
   /* The one colour that means "this one". */

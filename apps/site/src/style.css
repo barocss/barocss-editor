@@ -1018,10 +1018,24 @@ body {
 }
 
 /* Which width the panel is writing to. Three letters, because the panel header has room for three. */
+/*
+ * **24 square**, which is the smallest a control in this suite gets.
+ *
+ * They were 22×20, which is what a 14px picture and 2px of padding come to when nobody states a
+ * size — and every other button on this panel is `--ou-control-h`. Found by a sweep that measured
+ * every control in the chrome: three, and all three of them these.
+ *
+ * It is not a rounding error. These three switch which width a reader is editing at, they sit in a
+ * panel header beside nothing else, and a target under 24 is one a pointer has to be aimed at rather
+ * than moved to — which is the difference a reader feels as *this tool is fiddly*.
+ */
 .st-at { display: flex; gap: 2px; }
 .st-at button {
-  width: 22px;
-  padding: 2px 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   font-size: 11px;
   border: 1px solid var(--st-line);
   border-radius: 3px;

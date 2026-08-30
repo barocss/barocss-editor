@@ -80,7 +80,15 @@ export function ZoomControl({
         className={cn(
           'h-[var(--ou-control-h)] w-14 rounded-[var(--ou-radius)] border border-transparent bg-transparent',
           'text-center text-xs tabular-nums hover:border-[color:var(--ou-line)]',
+          /*
+           * A **ring** as well as the accent border, which is the field's own rule everywhere else in
+           * this library and is not enough here: this field's border is *transparent* until the
+           * pointer arrives, so an accent border is one hairline against the toolbar's own ground and
+           * the only thing on screen saying where the keyboard is. Measured by tabbing through the
+           * app — it came back with no visible focus at all.
+           */
           'focus:border-[color:var(--ou-accent)] focus:outline-none',
+          'focus-visible:ring-2 focus-visible:ring-[color:var(--ou-accent)]',
           'transition-colors duration-[var(--ou-quick)]'
         )}
       />

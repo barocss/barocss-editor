@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
-import { CONTROL } from './controls';
+import { CONTROL, STATE } from './controls';
 import { useDismiss } from './stack';
 import { ColorPicker } from './color-picker';
 
@@ -161,6 +161,19 @@ export function ColorField({
         onClick={() => setOpen((wasOpen) => !wasOpen)}
         className={cn(
           CONTROL,
+          /**
+           * **`STATE` as well**, which every other button in this library has and this one did not.
+           *
+           * `CONTROL` answers focus by drawing the border in the accent — a field's rule, and the
+           * right one for a field: one pixel of accent where the caret is. A swatch is a **button**,
+           * and its border is a hairline around a filled square, so the accent lands on the one part
+           * of the control a reader is least likely to be looking at. Measured by tabbing through
+           * the app: six colour swatches and nothing on screen saying where the keyboard was.
+           *
+           * `focus-visible`, so a mouse click still leaves nothing behind — which is the reason the
+           * rings this library does have get used rather than avoided.
+           */
+          STATE,
           'w-[calc(var(--ou-control-h)*1.3)] shrink-0 p-0.5',
  ''
  )}
@@ -195,6 +208,8 @@ export function ColorField({
              * other *clear* in this suite is already a glyph. `shrink-0` as well, because the fault
              * underneath was a button that agreed to be squeezed.
              */
+            // A button, so it answers focus the way a button does — see the swatch above.
+            STATE,
             'shrink-0 px-1.5 hover:bg-[color:var(--ou-ground)]',
             'inline-flex items-center text-[color:var(--ou-faint)] hover:text-[color:var(--ou-ink)]'
           )}
