@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import * as extensions from '../src';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * **Every extension this package exports is in a kit a product can install.**
@@ -106,5 +108,38 @@ describe('every extension this package exports', () => {
 
     // And it looked at all of them — an empty list would pass the line above for the wrong reason.
     expect(nameOf.size).toBeGreaterThanOrEqual(45);
+  });
+
+  /**
+   * **And every extension is named in a test of its own.**
+   *
+   * The conformance probe exercises all of them — it builds every class it can and asks its seven
+   * questions of all 139 commands — which is what made this look covered. It is not the same thing:
+   * a probe asks whether a command *moves the document*, and every branch of a fault moves it.
+   *
+   * Measured the day it was asked, and the answer was **seven** extensions named in no test but the
+   * generic sweeps. Writing two of them one found four faults the probe could not see: a link that
+   * was taken off when a reader gave it a new address, two links stacked on one word, a 링크 제거
+   * that laid `href: ''` on the text, and a numbered list that could not be made a bullet list.
+   *
+   * The sweeps themselves are excluded, which is the whole point: they name every class by
+   * construction, so counting them would make this check say what it is here to disprove.
+   */
+  it('is named in a test that is about it, not only in a sweep', () => {
+    const sweeps = ['conformance.test.ts', 'every-extension-is-in-a-kit.test.ts', 'the-model-layer-does-not-draw.test.ts'];
+
+    const tests = readdirSync(__dirname)
+      .filter((name) => name.endsWith('.test.ts') && !sweeps.includes(name))
+      .map((name) => readFileSync(join(__dirname, name), 'utf8'))
+      .join('\n');
+
+    const classes = Object.keys(extensions).filter(
+      (name) => name.endsWith('Extension') && /^[A-Z]/.test(name)
+    );
+
+    const unnamed = classes.filter((name) => !new RegExp(`\\b${name}\\b`).test(tests)).sort();
+
+    expect(classes.length).toBeGreaterThanOrEqual(45);
+    expect(unnamed).toEqual([]);
   });
 });

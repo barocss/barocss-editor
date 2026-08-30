@@ -2,7 +2,18 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Editor } from '@barocss/editor-core';
 import { createSchema, getStandardSchemaDefinition } from '@barocss/schema';
-import { createCoreExtensions, createBasicExtensions } from '../src';
+import {
+  createCoreExtensions,
+  createBasicExtensions,
+  /*
+   * Named, though `createBasicExtensions()` is what builds them: a test says which extension it is
+   * about, and the sweep that asks *"is every extension named in a test of its own"* reads the
+   * names. Building them out of a kit is how three of these had no test that mentioned them while
+   * their commands were being exercised.
+   */
+  type BlockquoteExtension,
+  type ListExtension
+} from '../src';
 
 /**
  * **The three block toggles, and the way out of each.**
@@ -174,5 +185,47 @@ describe('a toggle that changes the shape of the document', () => {
       (editor.dataStore?.getNode(editor.getRootId()) as { content: string[] }).content[0]
     ) as { attributes?: { type?: string } } | undefined;
     expect(list?.attributes?.type).toBe('bullet');
+  });
+
+  /**
+   * **Enter, inside a list.**
+   *
+   * The third of this extension's commands, and the one the two toggles above are not: splitting is
+   * the opposite question to wrapping. There is nothing to split unless the caret is already inside
+   * a `listItem`, and `splitListItemOp` knows that and quietly produces nothing — so with the caret
+   * in an ordinary paragraph the command said yes, ran, committed and changed not one thing, until
+   * the guard learned to ask both halves.
+   *
+   * What a probe cannot say is what the reader gets: a *new item*, after the one they were in, with
+   * the caret in it — rather than a second paragraph inside the same item, which is what a split of
+   * the block rather than of the item would produce.
+   */
+  describe('Enter inside a list', () => {
+    beforeEach(async () => {
+      caretIn(0);
+      await editor.executeCommand('toggleBulletList', {});
+    });
+
+    it('makes another item, beside the one the caret was in', async () => {
+      caretIn(0);
+      expect(await editor.executeCommand('splitListItem', {})).toBe(true);
+
+      const drawn = JSON.stringify(shapeOf());
+      // Two items in the list, not two paragraphs in one item.
+      expect(drawn.match(/listItem/g) ?? []).toHaveLength(2);
+    });
+
+    /*
+     * And it is offered **only** inside one. A caret in an ordinary paragraph has nothing to split,
+     * and the operation says so by producing nothing — which reads as a command that worked.
+     */
+    it('is offered inside an item and nowhere else', async () => {
+      caretIn(0);
+      expect(editor.canExecuteCommand('splitListItem', {})).toBe(true);
+
+      // The second paragraph was never wrapped, so the caret in it is in no item.
+      caretIn(1);
+      expect(editor.canExecuteCommand('splitListItem', {})).toBe(false);
+    });
   });
 });

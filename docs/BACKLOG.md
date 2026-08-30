@@ -189,11 +189,30 @@ Found by writing the three block toggles their first test by hand. Which is the
 answer to *when is it finished*: **the checks are, and the hand-written tests are
 not.**
 
-Measured properly rather than by filename: **seven** extension classes are named
+Measured properly rather than by filename: **seven** extension classes were named
 in no test but the generic sweeps — `Blockquote`, `FindReplace`, `Image`, `Link`,
-`List`, `SelectAll`, `Text`. Two of them have been written since, and between
-them they held **four faults the probe could not see**. Five left, and the rate
-so far says to expect more.
+`List`, `SelectAll`, `Text`. All seven have one now, and between them they held
+**four faults the probe could not see**: a link taken off when a reader gave it a
+new address, two links stacked on one word, a 링크 제거 that laid `href: ''` on
+the text, and a numbered list that could not be made a bullet list. The other
+three — `image`, `text`, `select-all` — came back clean in eighteen assertions.
+
+**And the sweep is a check now**, so it is not measured by hand again:
+`every-extension-is-in-a-kit.test.ts` asks whether each of the 50 classes is
+*named* in a test that is about it, with the three generic sweeps excluded —
+because they name every class by construction and counting them would make the
+check say what it is there to disprove. Verified by renaming one and watching it
+fail.
+
+Two of the seven had to be *imported by name* to satisfy it, having been built
+out of a kit. That is not bookkeeping: building them from `createBasicExtensions()`
+is exactly how three of them had no test that mentioned them while their commands
+were being exercised.
+
+So the answer, today: **every check is answered and every extension has a test of
+its own.** What is left is not a list of gaps but a rate — the last four faults
+came out of the last two tests written, and the next ones will come from asking
+what a reader gets rather than what the document does.
 
 ### `packages/extensions` ran one of the harness's thirteen checks — 2026-08-30 *(two more, and one taken out)*
 
