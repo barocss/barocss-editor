@@ -1,9 +1,45 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction, reorderChildren } from '@barocss/model';
 
+/**
+ * Moving a block to another place among its siblings — **the model half of a drag.**
+ *
+ * ## What this was, and why three products installed it and none used it
+ *
+ * 230 lines, of which 180 drew and listened: a handle and a placeholder built with
+ * `document.createElement`, `mousedown` on a container, `mousemove`, `mouseup` and `keydown` bound
+ * to `document`, an auto-scroll, and `document.querySelector('[data-bc-layer="content"]')` to find
+ * the editor — **one** of them, in a product that draws three boards of the same page at once.
+ *
+ * The classes it made, `bc-drag-handle` and `bc-drag-placeholder`, were styled by `styles.ts`, whose
+ * `injectEditorStyles` was called by the slash menu and by nothing else — so once that stopped
+ * drawing its own DOM, the handle appeared unstyled. **No product references either class.** All
+ * three install this and all three do their own dragging: the site through its overlay and
+ * `moveBlockInto`, the deck through `reorderIndexAt`, Word through its drawing overlay.
+ *
+ * So three products carried four global pointer listeners for a feature that drew an unstyled box
+ * nobody could see. The same layer fault as `FindReplaceExtension` and the slash menu, with one
+ * difference that made it harder to notice: **this one was installed.**
+ *
+ * ## Where a drag actually belongs, measured
+ *
+ * Three layers, and the hard one is already shared:
+ *
+ * | | | |
+ * | --- | --- | --- |
+ * | **where a drop lands** | `reorderIndexAt` in `office-canvas` | the deck **and** the site use it |
+ * | **what moves** | `moveBlockToPosition`, `moveBlockInto`, `moveShapes`, `movePage` | by *kind of surface* |
+ * | **the pointer and the drawing** | each app's overlay | the app's, and rightly |
+ *
+ * And the middle row does not divide by product. A **flow** — Word's paragraphs, the site's blocks —
+ * is a parent and a place in it. A **canvas** — the deck's boxes, Word's shapes — is coordinates. A
+ * **list** — the deck's slides, the site's pages — is an index. Word and the site share the first;
+ * the deck and Word's shapes share the second. Three surfaces, not three products.
+ *
+ * This is the flow's, and it is all that is left here.
+ */
 export interface DragDropExtensionOptions {
   enabled?: boolean;
-  handleSelector?: string;
 }
 
 export class DragDropExtension implements Extension {
@@ -11,217 +47,67 @@ export class DragDropExtension implements Extension {
   priority = 60;
 
   private _options: DragDropExtensionOptions;
-  private _dragState: { blockId: string; startY: number; element: HTMLElement } | null = null;
-  private _placeholder: HTMLElement | null = null;
-  private _boundMouseMove: ((e: MouseEvent) => void) | null = null;
-  private _boundMouseUp: (() => void) | null = null;
-  private _boundKeyDown: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(options: DragDropExtensionOptions = {}) {
-    this._options = {
-      enabled: true,
-      handleSelector: '[data-bc-stype]',
-      ...options
-    };
+    this._options = { enabled: true, ...options };
   }
 
   onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
 
-    (editor as any).registerCommand({
+    (editor as never as { registerCommand: (spec: unknown) => void }).registerCommand({
       name: 'moveBlockToPosition',
       execute: async (ed: Editor, payload?: { blockId?: string; targetIndex?: number }) => {
         if (!payload?.blockId || payload.targetIndex == null) return false;
-        return this._moveBlock(ed, payload.blockId, payload.targetIndex);
+        return await this._moveBlock(ed, payload.blockId, payload.targetIndex);
       },
-      canExecute: (_ed: Editor, payload?: { blockId?: string }) => !!payload?.blockId
+      /**
+       * A block that is **there**, and a place that is **not where it already is**.
+       *
+       * `!!payload.blockId` was the whole guard — a claim about the payload rather than about the
+       * document, so an id naming nothing passed it, and so did a move to the index the block
+       * already occupies. Both make the run return `false` and say so to nobody.
+       *
+       * The second half is the one a reader meets: an up arrow on the first block of a page.
+       */
+      canExecute: (ed: Editor, payload?: { blockId?: string; targetIndex?: number }) =>
+        this._movable(ed, payload?.blockId, payload?.targetIndex)
     });
-
-    this._setupDragListeners(editor);
   }
 
-  onDestroy(_editor: Editor): void {
-    this._cleanupDrag();
-    this._removeGlobalListeners();
+  onDestroy(_editor: Editor): void {}
+
+  /** Where the block is now, when it is somewhere — the one lookup the guard and the run share. */
+  private _where(
+    editor: Editor,
+    blockId: string | undefined
+  ): { parentId: string; order: string[]; at: number } | null {
+    if (!blockId) return null;
+    const store = editor.dataStore;
+    const parentId = store?.getNode(blockId)?.parentId as string | undefined;
+    if (!store || !parentId) return null;
+
+    const order = (store.getNode(parentId)?.content ?? []) as string[];
+    const at = Array.isArray(order) ? order.indexOf(blockId) : -1;
+    return at >= 0 ? { parentId, order, at } : null;
   }
 
-  private _setupDragListeners(editor: Editor): void {
-    const container = this._getContentContainer();
-    if (!container) return;
-
-    container.addEventListener('mousedown', (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const handle = target.closest('.bc-drag-handle');
-      if (!handle) return;
-
-      const block = handle.closest('[data-bc-sid]') as HTMLElement | null;
-      if (!block) return;
-
-      const blockId = block.getAttribute('data-bc-sid');
-      if (!blockId) return;
-
-      e.preventDefault();
-      this._startDrag(editor, blockId, e.clientY, block);
-    });
-
-    this._boundMouseMove = (e: MouseEvent) => {
-      if (this._dragState) {
-        e.preventDefault();
-        this._onDragMove(e.clientY);
-        this._autoScroll(e.clientY);
-      }
-    };
-
-    this._boundMouseUp = () => {
-      if (this._dragState) {
-        this._endDrag(editor);
-      }
-    };
-
-    this._boundKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && this._dragState) {
-        e.preventDefault();
-        this._cleanupDrag();
-      }
-    };
-
-    document.addEventListener('mousemove', this._boundMouseMove);
-    document.addEventListener('mouseup', this._boundMouseUp);
-    document.addEventListener('keydown', this._boundKeyDown);
-  }
-
-  private _startDrag(_editor: Editor, blockId: string, startY: number, element: HTMLElement): void {
-    this._dragState = { blockId, startY, element };
-
-    element.style.opacity = '0.4';
-    element.style.transition = 'none';
-
-    this._placeholder = document.createElement('div');
-    this._placeholder.className = 'bc-drag-placeholder';
-    this._placeholder.style.cssText = `
-      height: 2px; background: #3b82f6; border-radius: 1px;
-      margin: 2px 0; transition: none;
-    `;
-  }
-
-  private _onDragMove(clientY: number): void {
-    if (!this._dragState || !this._placeholder) return;
-
-    const container = this._getContentContainer();
-    if (!container) return;
-
-    const blocks = Array.from(container.querySelectorAll(':scope > [data-bc-sid]'));
-    let insertBefore: Element | null = null;
-
-    for (const block of blocks) {
-      const rect = block.getBoundingClientRect();
-      if (clientY < rect.top + rect.height / 2) {
-        insertBefore = block;
-        break;
-      }
-    }
-
-    if (insertBefore) {
-      container.insertBefore(this._placeholder, insertBefore);
-    } else {
-      container.appendChild(this._placeholder);
-    }
-  }
-
-  private async _endDrag(editor: Editor): Promise<void> {
-    if (!this._dragState) return;
-
-    const { blockId, element } = this._dragState;
-    element.style.opacity = '';
-    element.style.transition = '';
-
-    if (this._placeholder?.parentNode) {
-      const container = this._placeholder.parentNode as HTMLElement;
-      let targetIndex = 0;
-      let count = 0;
-      for (const child of Array.from(container.children)) {
-        if (child === this._placeholder) {
-          targetIndex = count;
-          break;
-        }
-        if ((child as HTMLElement).hasAttribute?.('data-bc-sid')) {
-          count++;
-        }
-      }
-
-      await this._moveBlock(editor, blockId, targetIndex);
-    }
-
-    this._cleanupDrag();
-  }
-
-  private _cleanupDrag(): void {
-    if (this._placeholder) {
-      this._placeholder.remove();
-      this._placeholder = null;
-    }
-    if (this._dragState) {
-      this._dragState.element.style.opacity = '';
-      this._dragState.element.style.transition = '';
-      this._dragState = null;
-    }
-  }
-
-  private _removeGlobalListeners(): void {
-    if (this._boundMouseMove) {
-      document.removeEventListener('mousemove', this._boundMouseMove);
-      this._boundMouseMove = null;
-    }
-    if (this._boundMouseUp) {
-      document.removeEventListener('mouseup', this._boundMouseUp);
-      this._boundMouseUp = null;
-    }
-    if (this._boundKeyDown) {
-      document.removeEventListener('keydown', this._boundKeyDown);
-      this._boundKeyDown = null;
-    }
+  private _movable(editor: Editor, blockId: string | undefined, targetIndex: number | undefined): boolean {
+    if (targetIndex == null) return false;
+    const held = this._where(editor, blockId);
+    return !!held && held.at !== targetIndex;
   }
 
   private async _moveBlock(editor: Editor, blockId: string, targetIndex: number): Promise<boolean> {
-    const dataStore = (editor as any).dataStore;
-    if (!dataStore) return false;
+    const held = this._where(editor, blockId);
+    if (!held || held.at === targetIndex) return false;
 
-    const node = dataStore.getNode(blockId);
-    if (!node || !node.parentId) return false;
+    const order = [...held.order];
+    order.splice(held.at, 1);
+    order.splice(Math.min(targetIndex, order.length), 0, blockId);
 
-    const parent = dataStore.getNode(node.parentId);
-    if (!parent || !Array.isArray(parent.content)) return false;
-
-    const currentIndex = parent.content.indexOf(blockId);
-    if (currentIndex === -1 || currentIndex === targetIndex) return false;
-
-    const newOrder = [...parent.content];
-    newOrder.splice(currentIndex, 1);
-    const insertAt = Math.min(targetIndex, newOrder.length);
-    newOrder.splice(insertAt, 0, blockId);
-
-    const result = await transaction(editor, [reorderChildren(node.parentId, newOrder) as any]).commit();
+    const result = await transaction(editor, [reorderChildren(held.parentId, order) as never]).commit();
     return result.success;
-  }
-
-  private _autoScroll(clientY: number): void {
-    const container = this._getContentContainer();
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const threshold = 40;
-    const speed = 8;
-
-    if (clientY < rect.top + threshold) {
-      container.scrollTop -= speed;
-    } else if (clientY > rect.bottom - threshold) {
-      container.scrollTop += speed;
-    }
-  }
-
-  private _getContentContainer(): HTMLElement | null {
-    return document.querySelector('[data-bc-layer="content"]') ||
-           document.querySelector('[data-testid="editor-content"]');
   }
 }
 

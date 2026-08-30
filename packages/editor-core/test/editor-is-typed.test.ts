@@ -103,7 +103,13 @@ describe('the editor is a type, not an escape hatch', () => {
    * beside a public member is usually a caller who could not get at the *object*, and publishing the
    * object took the casts with it.
    */
-  const ALLOWED = 328;
+  /*
+   * 328 → 327 when `DragDropExtension` stopped drawing. 180 of its 230 lines were a handle, a
+   * placeholder and four global pointer listeners; what is left is one command and two lookups, and
+   * the cast went with the DOM it was reaching around. The third time a *layer* being wrong showed up
+   * here as a count.
+   */
+  const ALLOWED = 327;
 
   it('declares everything the casts are casting away', () => {
     const source = readFileSync(join(__dirname, '..', 'src', 'editor.ts'), 'utf8');

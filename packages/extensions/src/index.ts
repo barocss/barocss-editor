@@ -34,7 +34,6 @@ export * from './find-replace';
 export * from './checklist';
 export * from './callout';
 export * from './math-block';
-export * from './styles';
 export * from './pull-quote';
 export * from './columns';
 export * from './toc';

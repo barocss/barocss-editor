@@ -262,9 +262,15 @@ describe('every command Word registers', () => {
     const dead = [...answers.moved].filter(([, answer]) => answer === false).map(([name]) => name);
     expect(dead.length).toBeLessThanOrEqual(29);
 
-    // And it did ask about most of them — a probe that stopped setting up would pass the line above.
+    /*
+     * And it did ask about most of them — a probe that stopped setting up would pass the line above.
+     *
+     * 131 → 130 when `moveBlockToPosition` stopped saying yes to a move to the index a block already
+     * occupies. A command that declines honestly is one fewer the probe can ask, which is the right
+     * direction and reads as a loss in this number.
+     */
     const asked = [...answers.moved].filter(([, answer]) => answer !== null).length;
-    expect(asked).toBeGreaterThanOrEqual(131);
+    expect(asked).toBeGreaterThanOrEqual(130);
   });
 
   /**

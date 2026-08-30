@@ -32,7 +32,21 @@ export class SelectAllExtension implements Extension {
 
         return true;
       },
-      canExecute: () => true
+      /**
+       * A document with something in it.
+       *
+       * `() => true` was the last one of these in the package, and it is honest for almost every
+       * state — selecting everything works from a caret, from a held box and from nothing held. It
+       * is not honest over an **empty** document, where the run selects nothing and reports success.
+       *
+       * A narrow case, and the reason to close it anyway is that `() => true` is not a guard: it is
+       * the absence of one, and the day the run grows a requirement nothing will say so.
+       */
+      canExecute: (ed: Editor) => {
+        const rootId = ed.getRootId?.();
+        const root = rootId ? ed.dataStore?.getNode(rootId) : undefined;
+        return ((root?.content ?? []) as unknown[]).length > 0;
+      }
     });
   }
 

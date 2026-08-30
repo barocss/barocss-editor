@@ -46,6 +46,56 @@ entries are that.
 
 ## Open
 
+### The model layer does not draw, and does not guess — 2026-08-30 *(asserted)*
+
+Two claims, each false in several files a week ago, each now a test — because
+both grew back once already.
+
+**It does not draw.** Five files did. Three built whole surfaces
+(`FindReplaceExtension`, `SlashCommandExtension`, `FloatingToolbarExtension`) and
+two carried a stylesheet and a drag handle. A shared model package drawing UI is
+one a product **cannot use** — it cannot be themed, placed or styled by it — and
+what each cost is on the record:
+
+- `FindReplaceExtension` was called a **stub** in three places for months. It was
+  complete; nothing installed it, which from a keyboard is the same thing. Word
+  removed a key binding over that belief and the site deleted a menu entry.
+- `FloatingToolbarExtension` registered **no commands at all**, and no product
+  had ever built the equivalent. Deleted.
+- `styles.ts` held `.callout`, `.code-block`, `.task-item` — a **product's**
+  stylesheet — and its `injectEditorStyles` was called by the slash menu and by
+  nothing else. Once that stopped drawing, it was dead. Deleted.
+- **`DragDropExtension` was the one that was installed** — by all three — and
+  used by none. Four global pointer listeners, a handle styled by a stylesheet
+  nothing injected, and `document.querySelector('[data-bc-layer="content"]')` to
+  find *the* editor in a product that draws three boards at once. Meanwhile every
+  product does its own dragging. 180 of its 230 lines were drawing and listening;
+  what is left is one command and two lookups.
+
+**It does not guess.** `canExecute: () => true` is not a guard, it is the absence
+of one, and it was in **nineteen** files. 37 of the 42 "lights up over a held box
+and declines" findings were this, almost all one sentence written thirty times.
+
+Both are `the-model-layer-does-not-draw.test.ts` now. The cast count fell
+**328 → 327** with the drag-drop rewrite — the third time a *layer* being wrong
+has shown up here as a number.
+
+### And where a drag actually belongs, measured
+
+Not per product. Three layers, and the hard one is already shared:
+
+| | | |
+| --- | --- | --- |
+| **where a drop lands** | `reorderIndexAt` in `office-canvas` | the deck **and** the site use it |
+| **what moves** | `moveBlockToPosition`, `moveBlockInto`, `moveShapes`, `movePage` | by *kind of surface* |
+| **the pointer and the drawing** | each app's overlay | the app's, and rightly |
+
+And the middle row does not divide by product. A **flow** — Word's paragraphs,
+the site's blocks — is a parent and a place in it. A **canvas** — the deck's
+boxes, Word's shapes — is coordinates. A **list** — slides, pages — is an index.
+Word and the site share the first; the deck and Word's shapes share the second.
+**Three surfaces, not three products.**
+
 ### 42 controls light up over a held box and do nothing — 2026-08-29 *(37 fixed, 5 left)*
 
 Nineteen files in `packages/extensions` still carried `canExecute: () => true`,
