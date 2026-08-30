@@ -124,6 +124,47 @@ brace.
 
 **185 → 16.**
 
+### When is `packages/extensions` finished — 2026-08-30
+
+Asked directly, so answered with the measurements rather than a feeling. What the
+harness can ask of a model package, and where each stands:
+
+| | |
+|---|---|
+| moves the document when it says it can | **0** left, and the list is named |
+| gives it back when undone | 0 |
+| does it again when redone | 0 |
+| leaves a valid tree | 0 |
+| leaves the selection pointing at nodes that exist | 0 |
+| a toggle is its own inverse | 0 |
+| an `insert…` puts a node in | 0 |
+| lights up over a held box and declines | **0**, an equality rather than a ceiling |
+| every extension is in a kit | 0 outside one, one chosen by a product |
+| the model layer draws nothing | 0 files build DOM, 0 `canExecute: () => true` |
+| makes a node the schema has | 0 |
+| every `insert…` is accounted for | 0, four exempted out loud |
+| commands the probe cannot ask about | **2**, and permanently |
+
+The two are `indentNode` and `outdentNode`. Measured today rather than assumed:
+mark `paragraph` as `indentable` in a scratch schema and both **work** — a
+paragraph moves inside the quotation before it and the tree validates. No schema
+here sets it, which `types.ts` already explains: Word nests a list by giving a
+paragraph a numbering *level*, not by putting one node inside another. A capability
+no product wants, kept for the outliner that would.
+
+**So the checks are answered.** What is not finished is what a check cannot see,
+and today gave the example: 글머리 목록 pressed inside a *numbered* list did
+nothing at all. The probe asks whether a command moves the document and takes the
+first state it can run in — a caret in an ordinary paragraph, where wrapping is
+right. `listAround`'s own comment named this case as the reason it exists, and
+the code then called `wrapInList`, which wraps the block the caret is in; there
+was already a list around it, so there was nothing to wrap.
+
+Found by writing the three block toggles their first test by hand. Which is the
+answer to *when is it finished*: **the checks are, and the hand-written tests are
+not.** Three extensions had none of their own — and one of the three was hiding
+a fault the probe is not shaped to see.
+
 ### `packages/extensions` ran one of the harness's thirteen checks — 2026-08-30 *(two more, and one taken out)*
 
 Reasonable when the probe was written: the other twelve are about *drawing*, and

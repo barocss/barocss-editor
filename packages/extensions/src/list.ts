@@ -115,9 +115,30 @@ export class ListExtension implements Extension {
     selection?: ModelSelection
   ): Promise<boolean> {
     const inside = listAround(editor, selection);
-    // Not in a list, or in one of the other kind: wrapping is what the reader means.
-    if (!inside || inside.type !== listType) {
-      return await this._executeWrapInList(editor, listType, selection);
+
+    // Not in a list at all: wrapping is what the reader means.
+    if (!inside) return await this._executeWrapInList(editor, listType, selection);
+
+    /**
+     * In a list of the **other** kind: change what it is, rather than wrap it again.
+     *
+     * The comment on `listAround` said this was the case it existed for — *"a caret in a numbered
+     * list, given 글머리 목록, means make this a bullet list"* — and the code then called
+     * `wrapInList`, which reads the selection and wraps the **block** it is in. There was already a
+     * list around it, so there was nothing to wrap: the operation found no work, the transaction
+     * committed nothing, and 글머리 목록 on a numbered list did nothing at all.
+     *
+     * Invisible to the probe, which asks whether a command moves the document and gets *yes* from
+     * the first state it can run in — a caret in an ordinary paragraph, where wrapping is right.
+     * Found writing this package's first test for the three block toggles by hand.
+     */
+    if (inside.type !== listType) {
+      const changed = await transaction(
+        editor,
+        [{ type: 'setAttrs', payload: { nodeId: inside.list, attrs: { type: listType } } }] as never,
+        { applySelectionToView: true }
+      ).commit();
+      return changed.success;
     }
 
     // A list holds `listItem`s which hold the blocks, so the lift goes through them — see `lift.ts`.
