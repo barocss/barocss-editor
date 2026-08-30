@@ -34,3 +34,4 @@ export {
   type ProbeStore
 } from './command-probe';
 export type { Check, Exemptions, Finding, Report, Subject } from './types';
+export { dataNamesSelected, dataNamesWritten, deadSelectors } from './seam';

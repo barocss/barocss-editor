@@ -124,15 +124,39 @@ brace.
 
 **185 → 16.**
 
-### A check for `data-*` written on one side of a seam
+### A check for `data-*` written on one side of a seam — 2026-08-30 *(built)*
 
 Three faults this session were one name on two sides that did not match: the
 deck's renderer wrote `listType` where the schema said `type`; `style.css` drew
-`.w-math-frac[data-type='lin']` where no renderer wrote `data-type`; and the
+`.w-math-frac[data-type='lin']` where **no renderer wrote `data-type`**; and the
 site's `insertBulletList` wrote `kind` where the schema said `type`. Each cost
-months and each is mechanical to find — collect the `data-*` names a renderer
-emits, collect the ones the stylesheets select on, and report the ones that
-appear on one side only.
+months and each is mechanical to find.
+
+`deadSelectors` asks one direction only: **does anything a product draws with
+write the names its stylesheets select on?** The other direction is noise — half
+of this repository's `data-*` are for a test to find an element by or an event
+handler to read, and a check reporting thirty of those beside one fault is a
+check nobody reads.
+
+Building it was four wrong answers, and each is in the code:
+
+1. **The whole repository on both sides** did not catch the fraction:
+   `data-type` is written by the *site's* list renderer, so Word's dead rule
+   looked answered by a product Word shares no stylesheet with. The scope is a
+   product's dependency graph now — **read from `package.json`**, because a
+   hand-kept list of what a product draws with put `office-word` in Word's tree
+   only, and `apps/slide` imports `installCellSelection` out of it.
+2. **Only `data-x` literals** reported nine of the deck's names dead when eight
+   were written as `data={{ presenting: 'true' }}` — `office-ui`'s convention.
+3. **Every object key in the source** reported none of them, and would have
+   missed `data-type`: `type:` appears in a thousand places.
+4. **Comments and tests counted as writes.** Taking the fraction's fix back out
+   left the check quiet twice — once on the sentence in the comment explaining
+   that nothing wrote `data-type`, and once on two converter fixtures carrying
+   whole pages of HTML.
+
+Verified by taking the fix out and watching it fail, which is the only way to
+know a check is one.
 
 ### The maths pile wanted code, not a decision — 2026-08-30 *(fixed)*
 
