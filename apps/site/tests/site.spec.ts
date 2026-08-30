@@ -2319,10 +2319,18 @@ test.describe('what a block holds its content at', () => {
     });
     await page.waitForTimeout(700);
 
-    // Two gaps for three cards, measured **between the drawn children** rather than read off `gap` —
-    // a grid's wrap and an absolutely placed child both make that number a poor description.
+    /*
+     * Two gaps for three cards, measured **between the drawn children** rather than read off `gap` —
+     * a grid's wrap and an absolutely placed child both make that number a poor description.
+     *
+     * Filtered to the gaps, because the four sides are drawn now whether or not they measure
+     * anything: a side with no padding is a hairline a reader can still pull, and it comes before
+     * the gaps in the same list.
+     */
     const said = await bands(page).evaluateAll((els) =>
-      els.map((el) => `${el.getAttribute('data-inset')}=${(el.textContent ?? '').trim()}`)
+      els
+        .filter((el) => el.getAttribute('data-inset') === 'gap')
+        .map((el) => `${el.getAttribute('data-inset')}=${(el.textContent ?? '').trim()}`)
     );
     expect(said).toEqual(['gap=24', 'gap=24']);
     // And the panel says the same thing, which is the whole point of drawing it.
@@ -2540,6 +2548,92 @@ test.describe('the panel', () => {
    * mark different for each* — which is the thing a reader needs and the thing all three versions
    * were trying to give them.
    */
+  /**
+   * **The band can be pulled**, which is the gesture Figma has here and this had a readout of.
+   *
+   * The number in the panel was where a padding was changed, so a reader looking at the band had to
+   * look away to change the thing they were looking at. The whole argument for drawing the band is
+   * that *how much* is the question, and answering it and then sending them elsewhere to act is half
+   * a tool.
+   *
+   * Two things are asserted that a screenshot would not say: the document holds the new number
+   * afterwards, and it holds it **once** — Word learned on its ruler that writing on every pointer
+   * move makes one drag into ten entries of the history, and a reader's undo then walks back through
+   * positions the box was never meant to be in.
+   */
+  test('pulls a padding band, and writes it once', async ({ page }) => {
+    await holding(page);
+
+    const band = page.locator('.st-inset[data-inset="bottom"]').first();
+    await expect(band).toHaveCount(1);
+    /*
+     * It takes the pointer, which it did not — the bands were `pointer-events: none`. On the strip
+     * rather than on the band: only the outer edge is pressable, so the cursor lives on the `::after`
+     * that is the strip.
+     */
+    const strip = await band.evaluate((el) => {
+      const drawn = getComputedStyle(el, '::after');
+      return { cursor: drawn.cursor, events: drawn.pointerEvents };
+    });
+    expect(strip.cursor).toBe('ns-resize');
+    expect(strip.events).toBe('auto');
+
+    const padOf = () =>
+      page.evaluate(() => {
+        const editor = (window as never as { editor: any }).editor;
+        const node = editor.dataStore.getNode(editor.selection?.nodeIds?.[0]);
+        return Number(node?.attributes?.paddingBottom ?? 0);
+      });
+    /*
+     * `getStats().totalEntries`, which is what the history actually offers — `undoStack` is not a
+     * thing it has, and asking for one gave `0` both times, so the count *looked* like one entry per
+     * drag whatever the drag wrote.
+     */
+    const historyOf = () =>
+      page.evaluate(
+        () => (window as never as { editor: any }).editor.historyManager?.getStats?.().totalEntries ?? -1
+      );
+
+    const before = await padOf();
+    const entries = await historyOf();
+
+    /*
+     * The **edge** of the band, not its middle: only the outer strip takes the pointer, because a
+     * section's padding is often 96 deep and a band that deep swallows every press in the top
+     * quarter of the block — which is what stopped a card being dragged out of its row the first
+     * time these took the pointer at all.
+     */
+    const box = (await band.boundingBox())!;
+    const grip = box.y + box.height - 3;
+    await page.mouse.move(box.x + box.width / 2, grip);
+    await page.mouse.down();
+    /*
+     * **Up**, in four steps — a real drag rather than a jump, and the direction that makes a bottom
+     * padding bigger: the band is drawn inside the block, so its far edge is the one that moves.
+     * Dragged down first, and the document took a 0, because less than none is none.
+     */
+    for (let step = 1; step <= 4; step++) {
+      await page.mouse.move(box.x + box.width / 2, grip - step * 10);
+    }
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    const after = await page.evaluate(() => {
+      const editor = (window as never as { editor: any }).editor;
+      const ids = editor.selection?.nodeIds ?? [];
+      const node = editor.dataStore.getNode(ids[0]);
+      return JSON.stringify({ ids, pad: node?.attributes?.paddingBottom, stype: node?.stype });
+    });
+    expect(await padOf(), after).toBeGreaterThan(before);
+    // One drag, one entry — not one per pointer move.
+    expect(await historyOf()).toBe(entries + 1);
+
+    // And one undo puts it back, which is what a reader means by taking a drag back.
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(400);
+    expect(await padOf()).toBe(before);
+  });
+
   test('marks each of the four sides, which had been five identical boxes', async ({ page }) => {
     await holding(page);
     const row = panel(page).locator('label').filter({ hasText: '안쪽 여백' }).first();

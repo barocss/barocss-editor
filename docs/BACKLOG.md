@@ -1753,9 +1753,34 @@ Each was checked against the un-fixed source: Word's fails on 25 words.
   fresh site gives an invisible empty box with nothing saying so. The payload is versioned by its
   marker, so the fix is additive.
 
-- [ ] **The bands measure and cannot be dragged.** Figma's padding can be pulled; ours is a readout,
-  and the number beside it in the panel is where it is changed. Worth it once, and worth waiting for
-  the same gesture to be wanted on a gap and on a corner rather than building it three times.
+- [x] ~~**The bands measure and cannot be dragged.**~~ **They can be pulled now.** The number beside
+  them in the panel was where a padding was changed, so a reader looking at the band had to look away
+  to change the thing they were looking at — and the whole argument for drawing the band is that
+  *how much* is the question. Answering it and then sending them elsewhere to act is half a tool.
+
+  Four things it needed, and three of them were found by the drag not working:
+
+  - **Every side gets a band, drawn or not.** It was `pad > 0`, so a section with no padding had no
+    band — and a band with nothing in it is the one a reader most wants to pull. A zero side draws
+    as a 3px hairline, fainter than a measurement because it is an offer rather than a fact.
+  - **The bands take the pointer** (they were `pointer-events: none`), and **the number does not**:
+    it sits in the middle of the band it measures, so it caught the press meant for the band.
+    Measured as a drag that started on `<em>48</em>` and did nothing at all.
+  - **Twips, not pixels.** The band is read out of `getComputedStyle`, so it is CSS pixels; the
+    document keeps twips, which is why the panel's own field multiplies by 15. Written in pixels the
+    first time and the document took a `0`.
+  - **Inward is bigger.** A padding band is drawn *inside* the block, so its far edge is the one that
+    moves: pulling the bottom band **up** grows the bottom padding. With the opposite sign a bottom
+    band pulled down came out as less, and less than none is none.
+
+  Written **once, on release** — the drag moves the drawing and the document hears about it when the
+  pointer comes up. Word learned that on its ruler: writing on every pointer move made one drag into
+  ten entries of the history, and a reader's undo then walked back through positions the box was
+  never meant to be in. The test asserts the count, not just the value.
+
+  A **gap** is deliberately not draggable: it is the space between two children and belongs to
+  neither, so pulling one would have to decide which child moves — a question the drag cannot answer
+  and the panel's `gap` field can.
 
 
 - [x] ~~**A corner wants a drawing, not a word.**~~ **Drawn.** 상좌/상우/하우/하좌 was honest and it

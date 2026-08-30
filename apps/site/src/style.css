@@ -421,6 +421,14 @@ body {
  * is the tool talking" and not enough to change what the colours underneath look like, which matters
  * on a surface whose whole job is judging colour.
  */
+/*
+ * The space inside a block, and — for the four sides — **a thing a reader can pull.**
+ *
+ * It was a readout, and the number beside it in the panel was where a padding was changed: a reader
+ * looking at the band had to look away to change the thing they were looking at. The whole argument
+ * for drawing the band is that *how much* is the question, and answering it and then sending them
+ * elsewhere to act is half a tool.
+ */
 .st-inset {
   position: absolute;
   display: flex;
@@ -431,11 +439,87 @@ body {
 }
 
 /*
+ * **A strip along the edge takes the pointer**, not the whole band.
+ *
+ * A gap never does: it is the space *between two children* and belongs to neither, so pulling one
+ * would have to decide which child moves — a question the drag cannot answer and the panel's `gap`
+ * field can.
+ *
+ * And the four sides take it only at their outer edge. A section's top padding is often 96, and a
+ * band that deep swallows every press in the top quarter of the block — measured as a card that
+ * could no longer be dragged out of its row, because the drag started inside the row's own padding.
+ * Ten pixels is what a window's resize edge is, and for the same reason.
+ */
+.st-inset[data-inset='top']::after,
+.st-inset[data-inset='bottom']::after,
+.st-inset[data-inset='left']::after,
+.st-inset[data-inset='right']::after {
+  content: '';
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.st-inset[data-inset='top']::after {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--st-grip, 3px);
+  cursor: ns-resize;
+}
+
+.st-inset[data-inset='bottom']::after {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--st-grip, 3px);
+  cursor: ns-resize;
+}
+
+.st-inset[data-inset='left']::after {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--st-grip, 3px);
+  cursor: ew-resize;
+}
+
+.st-inset[data-inset='right']::after {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: var(--st-grip, 3px);
+  cursor: ew-resize;
+}
+
+/*
+ * A side with **no** padding is still there to be pulled, drawn as a hairline: a band with nothing
+ * in it is the one a reader most wants to pull, and an area of no height is invisible however it is
+ * painted. Fainter than a real measurement, because it is an offer rather than a fact.
+ */
+.st-inset[data-empty='true'] {
+  background: color-mix(in srgb, var(--st-accent) 22%, transparent);
+}
+
+.st-inset[data-inset='top']:has(::after:hover),
+.st-inset[data-inset='bottom']:has(::after:hover),
+.st-inset[data-inset='left']:has(::after:hover),
+.st-inset[data-inset='right']:has(::after:hover) {
+  background: color-mix(in srgb, var(--st-accent) 24%, transparent);
+}
+
+/*
  * The number, counter-scaled so it is the same size at 40% and at 400% — the same rule the name chip
  * follows and for the same reason: a measurement drawn at the reader's zoom is unreadable exactly
  * when they have stood back to see the whole page.
  */
 .st-inset em {
+  /*
+   * The number is read, never grabbed. Without this it sits in the middle of the band it measures
+   * and takes the press meant for the band — measured as a drag that started on `<em>48</em>` and
+   * did nothing at all.
+   */
+  pointer-events: none;
   font-size: calc(10px / var(--st-zoom, 1));
   font-style: normal;
   font-variant-numeric: tabular-nums;

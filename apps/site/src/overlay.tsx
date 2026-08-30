@@ -722,25 +722,127 @@ export function Overlay({
           */}
           {inside
             ? (['top', 'right', 'bottom', 'left'] as const)
-                .filter((side) => inside.pad[side] > 0)
+                /*
+                 * **Every side, drawn or not** — because a band with nothing in it is the one a
+                 * reader most wants to pull. It was `> 0`, so a section with no padding had no band,
+                 * and the gesture that gives it one had nowhere to start.
+                 *
+                 * A zero band is drawn as a hairline rather than as nothing: `st-inset` paints its
+                 * area, and an area of no height is invisible however it is painted.
+                 */
                 .map((side) => (
                   <span
                     key={side}
                     className="st-inset"
                     data-inset={side}
+                    data-empty={inside.pad[side] === 0 ? 'true' : undefined}
+                    /**
+                     * **A strip along the edge**, not the whole band.
+                     *
+                     * The band is drawn at its full depth — that is the measurement, and the number
+                     * sits in it — but only the outer ~10 pixels take the pointer. A section's top
+                     * padding is often 96, and a band that deep swallows every press in the top
+                     * quarter of the block: dragging a card out of a row started `+8, +8` into the
+                     * row and got the row's own padding instead, which is the drag this broke the
+                     * first time it took the pointer at all.
+                     *
+                     * Ten pixels is what a window's resize edge is, and the same reason: wide enough
+                     * to hit without aiming, narrow enough that everything else still gets its press.
+                     */
+                    data-grip={inside.pad[side] >= 4 ? 'true' : undefined}
                     style={
-                      side === 'top'
-                        ? { left: 0, top: 0, width: inside.width, height: inside.pad.top }
-                        : side === 'bottom'
-                          ? { left: 0, top: inside.height - inside.pad.bottom, width: inside.width, height: inside.pad.bottom }
-                          : side === 'left'
-                            ? { left: 0, top: inside.pad.top, width: inside.pad.left, height: inside.height - inside.pad.top - inside.pad.bottom }
-                            : { left: inside.width - inside.pad.right, top: inside.pad.top, width: inside.pad.right, height: inside.height - inside.pad.top - inside.pad.bottom }
+                      {
+                        ...(side === 'top'
+                          ? { left: 0, top: 0, width: inside.width, height: Math.max(inside.pad.top, 3) }
+                          : side === 'bottom'
+                            ? { left: 0, top: inside.height - Math.max(inside.pad.bottom, 3), width: inside.width, height: Math.max(inside.pad.bottom, 3) }
+                            : side === 'left'
+                              ? { left: 0, top: inside.pad.top, width: Math.max(inside.pad.left, 3), height: inside.height - inside.pad.top - inside.pad.bottom }
+                              : { left: inside.width - Math.max(inside.pad.right, 3), top: inside.pad.top, width: Math.max(inside.pad.right, 3), height: inside.height - inside.pad.top - inside.pad.bottom }),
+                        // The strip that takes the pointer, as a fraction of the band — read by the
+                        // stylesheet's `::after`, which is the part that is actually pressable.
+                        ['--st-grip' as string]: `${Math.min(10, Math.max(inside.pad[side], 3))}px`
+                      } as React.CSSProperties
                     }
+                    /**
+                     * **And it can be pulled**, which is the gesture Figma has here and this had a
+                     * readout of.
+                     *
+                     * The number in the panel is where a padding was changed, and a reader looking at
+                     * the band had to look away to change the thing they were looking at. The whole
+                     * argument for drawing the band is that *how much* is the question; answering it
+                     * and then sending them elsewhere to act is half a tool.
+                     *
+                     * Written **once, on release**. Word learned this on its ruler: writing on every
+                     * pointer move made one drag into ten entries of the document's history, and a
+                     * reader's undo then walked back through positions the box was never meant to be
+                     * in. So the drag moves the *drawing* — a CSS variable the band and the block
+                     * both read — and the document hears about it when the pointer comes up.
+                     */
+                    onPointerDown={(event) => {
+                      if (mode !== 'select') return;
+                      event.preventDefault();
+                      event.stopPropagation();
+
+                      const board = host.current;
+                      const el = board?.querySelector<HTMLElement>(
+                        `[data-bc-sid="${CSS.escape(sid)}"]`
+                      );
+                      if (!board || !el) return;
+
+                      const scale = scaleOf(board);
+                      const from = side === 'top' || side === 'bottom' ? event.clientY : event.clientX;
+                      const was = inside.pad[side];
+                      /**
+                       * Which way makes it **bigger**, and it is the same way on all four.
+                       *
+                       * A padding band is drawn *inside* the block, so its far edge is the one that
+                       * moves: pulling the bottom band **up** grows the bottom padding, and pulling
+                       * the top band **down** grows the top. Measured with the opposite sign first
+                       * and the drag wrote a 0 — a bottom band pulled down came out as *less*, and
+                       * less than none is none.
+                       *
+                       * So `top` and `left` follow the pointer and `bottom` and `right` oppose it,
+                       * which is what every inspector's inside-the-box handle does.
+                       */
+                      const way = side === 'bottom' || side === 'right' ? -1 : 1;
+                      const attr = `padding${side[0].toUpperCase()}${side.slice(1)}`;
+                      let now = was;
+
+                      const onMove = (move: PointerEvent) => {
+                        const travelled = ((side === 'top' || side === 'bottom' ? move.clientY : move.clientX) - from) / scale;
+                        now = Math.max(0, Math.round(was + travelled * way));
+                        el.style.setProperty(`padding-${side}`, `${now}px`);
+                      };
+
+                      const onUp = () => {
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                        /*
+                         * The inline style comes off before the command runs, so the document's own
+                         * value is what draws: leaving it on would paint the block at the dragged
+                         * number for ever, whatever the document said afterwards.
+                         */
+                        el.style.removeProperty(`padding-${side}`);
+                        if (now === was) return;
+                        /*
+                         * **Twips**, which is what the document keeps and the band is not: the band
+                         * is read out of `getComputedStyle`, so it is CSS pixels, and the panel's
+                         * own field multiplies by 15 on its way in for the same reason. Written in
+                         * pixels the first time, and the document took a padding of 0 — a number so
+                         * small in twips that it rounds to nothing on the way back out.
+                         */
+                        void editor.executeCommand('setBlockFormat', {
+                          nodeIds: [sid],
+                          [attr]: Math.round(now * 15)
+                        });
+                      };
+
+                      window.addEventListener('pointermove', onMove);
+                      window.addEventListener('pointerup', onUp);
+                    }}
                   >
-                    {(side === 'top' || side === 'bottom' ? inside.pad[side] : inside.pad[side]) >= 24 ? (
-                      <em>{inside.pad[side]}</em>
-                    ) : null}
+                    {inside.pad[side] >= 24 ? <em>{inside.pad[side]}</em> : null}
                   </span>
                 ))
             : null}
