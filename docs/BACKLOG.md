@@ -149,6 +149,49 @@ with. Writing that test found three:
 `find-replace` got its first test the same afternoon and had **none** — eight
 assertions about what a reader gets, all green.
 
+### Can the extensions be used properly in all three products — 2026-08-30 *(measured)*
+
+Asked directly, so measured rather than claimed. For each product: take the
+extension commands it *installs*, take the node types the probe watched each one
+produce, and ask whether that product's registry can draw them.
+
+| | inserts installed whose node the product cannot draw |
+|---|---:|
+| the deck | **0** |
+| the site | **0** |
+| Word | 3, and all three are honest |
+
+Word's three are `fieldPageNumber`, `fieldPageCount` and `footnoteDef`, and none
+is in the node registry because none is drawn *in the flow*: the first two are
+drawn by `page-furniture.ts` inside a header or footer, and a footnote's body by
+`footnoteAreaTemplate` at the foot of the page its reference is on. A registry
+entry for any of them would put a second copy in the text.
+
+So: **yes.** Every insert each product installs makes something that product can
+draw, and Word's kit is why — it lists its extensions one at a time rather than
+taking `createRichExtensions()`, which registers inserts for ten node types Word
+has no renderer for.
+
+### Word's `produces` list was believed by two checks and compared to nothing — 2026-08-30 *(fixed)*
+
+`conformance.test.ts` carries 23 hand-written pairs of a command and the node it
+makes. Two checks read that list — is the type in the schema, is every `insert…`
+on the list at all — and **neither asks whether it is true.** A hand-kept list
+that nothing compares to the document is the hand-kept list this whole harness
+replaced.
+
+The probe already knew: `made` is what it watched appear, counted before and
+after, with the payloads Word's own test gives each command. Comparing them costs
+nothing.
+
+It found one disagreement and the disagreement was the **check's** limit, not the
+product's: `insertParagraph` is declared `paragraph` and was watched making a
+`heading`. Both are right — Enter in the middle of a heading splits the heading,
+Enter at the end of one starts a paragraph — and the probe stops at the first
+state a command can run in, which is the sample's first heading. Reporting it
+would have been reporting where the fixture's first block is, so it is out of the
+comparison with the reason written down.
+
 ### When is `packages/extensions` finished — 2026-08-30
 
 Asked directly, so answered with the measurements rather than a feeling. What the

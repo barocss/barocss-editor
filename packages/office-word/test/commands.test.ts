@@ -293,6 +293,76 @@ describe('every command Word registers', () => {
     'selectAll', 'setAbsolutePos', 'setContext', 'setNode', 'setRange'
   ];
 
+  /**
+   * **What Word says its inserts make, against what they were watched making.**
+   *
+   * `conformance.test.ts` carries a `produces` list by hand — 23 pairs of a command and the node type
+   * it puts in — and two checks read it: one asks whether that node type is in the schema, the other
+   * whether every command named `insert…` is on the list at all. Neither asks whether the list is
+   * **true**, and a hand-kept list that nothing compares to the document is the hand-kept list this
+   * whole harness replaced.
+   *
+   * The probe already knows: `made` is what it watched appear, counted before and after, with the
+   * payloads this file gives each command. So the comparison costs nothing and closes the loop —
+   * a declared `produces` that drifts from what the command does now fails here rather than being
+   * quietly believed by the two checks that read it.
+   *
+   * Only what the probe could ask about. A command it never ran says nothing about the claim, which
+   * is a different answer from *the claim is wrong* — and reporting the two together is how a check
+   * comes to be ignored.
+   */
+  it('makes what its own list says it makes', () => {
+    const declared: Array<[string, string]> = [
+      /*
+       * `insertParagraph` is **not** here, and the reason is the check's own limit rather than the
+       * command's.
+       *
+       * The probe watched it make a `heading`, which is correct: it presses Enter at the first place
+       * the command can run, which is the middle of the sample's first heading, and a split of a
+       * heading is a heading. Enter at the *end* of one starts a paragraph — measured by hand, and
+       * it is what the declared type says.
+       *
+       * So the claim and the observation are both true and about different presses, and the probe
+       * stops at the first state a command can run in. A check that reported this would be reporting
+       * where the fixture's first block is, which is the class of false finding this repository has
+       * paid for twice.
+       */
+      ['insertHardBreak', 'hardBreak'],
+      ['insertLineBreak', 'hardBreak'],
+      ['insertImage', 'inline-image'],
+      ['insertHorizontalRule', 'horizontalRule'],
+      ['insertPageBreak', 'pageBreak'],
+      ['insertColumnBreak', 'columnBreak'],
+      ['insertTable', 'bTable'],
+      ['insertRowAbove', 'bTableRow'],
+      ['insertRowBelow', 'bTableRow'],
+      ['insertColumnLeft', 'bTableCell'],
+      ['insertColumnRight', 'bTableCell'],
+      ['insertBookmark', 'bookmarkAnchor'],
+      ['insertFootnote', 'footnoteDef'],
+      ['insertEndnote', 'endnoteDef'],
+      ['insertComment', 'commentThread']
+    ];
+
+    /*
+     * A command whose observed list is *empty* was never run — a different answer from *the claim is
+     * wrong*, and reporting the two together is how a check comes to be ignored.
+     *
+     * And `insertParagraph` is watched making a `heading`, because the probe presses Enter in the
+     * middle of one and a split of a heading is a heading. So the claim is that the declared type is
+     * **among** what was seen, not that it is all of it: a command with two honest answers has two.
+     */
+    const wrong = declared
+      .filter(([command]) => (answers.made.get(command)?.length ?? 0) > 0)
+      .filter(([command, kind]) => !answers.made.get(command)!.includes(kind))
+      .map(([command, kind]) => `${command}: says ${kind}, made ${answers.made.get(command)!.join(', ')}`);
+
+    expect(wrong).toEqual([]);
+    // And enough of them were watched for the comparison to mean something.
+    const asked = declared.filter(([command]) => (answers.made.get(command)?.length ?? 0) > 0);
+    expect(asked.length).toBeGreaterThanOrEqual(8);
+  });
+
   it('says it can run and then changes nothing, only where the change is not the document', () => {
     const dead = [...answers.moved].filter(([, answer]) => answer === false).map(([name]) => name);
     expect(dead.sort()).toEqual([...APPLICATION_ONLY].sort());
