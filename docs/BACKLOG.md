@@ -124,6 +124,45 @@ brace.
 
 **185 → 16.**
 
+### `packages/extensions` ran one of the harness's thirteen checks — 2026-08-30 *(two more, and one taken out)*
+
+Reasonable when the probe was written: the other twelve are about *drawing*, and
+a model package does not draw. **Two of them are not.**
+`every-command-makes-something-real` asks whether the node a command produces is
+one the schema declares; `every-insert-is-accounted-for` asks whether every
+command named `insert…` has said what it makes. Neither needs a renderer, and
+this package registers **31 inserts** that nothing had asked either question of.
+
+The `produces` list is **observed** — `answers.made`, counted before and after by
+the probe — so it cannot go stale the way a written one can. Four commands are
+exempted out loud (`insertMention`, the two note references, `insertText`): they
+write a mark or a letter, and a command called `insert…` that makes no node is a
+claim somebody has to make where a reader of the file can check it.
+
+And one was written, passed, and **taken out again**: *"every node this package
+can make is drawn by something a product would have."* It cannot fail. A node
+type outside the schema is one the validator refuses, so the insert rolls back
+and the probe records that the command made nothing; every node it does make is
+in the standard schema, which is what `office-text` draws. Kept as a note in the
+file rather than as a passing test, because this repository has been caught twice
+by a check reporting an empty list for the wrong reason.
+
+The question is real and belongs to the **products**, which ask it as
+`every-node-is-drawn` against their own registries — and Word already answers it
+by not taking `createRichExtensions()`, a bundle that registers inserts for ten
+node types Word cannot draw.
+
+### Word does not run `every-command-can-be-reached`, and has not declined it
+
+The deck runs it and examines 97. Word runs neither it nor a `notYet` saying why.
+Measured by hand: Word registers **167** commands and its four surfaces — ribbon,
+menubar, key map, ruler — name **93** of them. Most of the 74 are the engine's
+(`backspace`, `deleteForward`, `escape`, the selection extensions) and arrive
+through `beforeinput` or the engine's own bindings rather than a product surface,
+which is exactly the shape the check's exemptions are for. Turning it on is a
+pass of its own: ~74 findings, each of which is either a surface Word is missing
+or a reason nobody has written down.
+
 ### A check for `data-*` written on one side of a seam — 2026-08-30 *(built)*
 
 Three faults this session were one name on two sides that did not match: the

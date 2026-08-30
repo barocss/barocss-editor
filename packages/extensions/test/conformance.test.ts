@@ -7,6 +7,7 @@ import { askEveryCommand, assertConforms, conformance, everyNode, type CommandAn
 import { DataStore } from '@barocss/datastore';
 import { createSchema, getStandardSchemaDefinition, validateTree } from '@barocss/schema';
 import * as extensions from '../src';
+import { getGlobalRegistry } from '@barocss/dsl';
 
 /**
  * **Every command this package registers, run over a real document.**
@@ -775,6 +776,87 @@ describe('every command this package registers', () => {
      * of questions the probe cannot ask, not a ceiling on faults.
      */
     expect(report.unanswered['every-command-does-something']).toBeLessThanOrEqual(2);
+  });
+
+  /**
+   * **What its inserts make is a node the schema has, and every insert is accounted for.**
+   *
+   * This package ran **one** of the harness's thirteen checks. Which was reasonable when the probe
+   * was written — the other twelve are about *drawing*, and a model package does not draw — but two
+   * of them are not: `every-command-makes-something-real` asks whether the node a command produces
+   * is one the schema declares, and `every-insert-is-accounted-for` asks whether every command named
+   * `insert…` has said what it makes. Neither needs a renderer, and this package registers **31**
+   * inserts that nothing had asked either question of.
+   *
+   * The list is **observed**, not written: `answers.made` is what the probe watched appear, counted
+   * before and after. So this cannot go stale the way a declared `produces` can — which is the whole
+   * argument for measuring it, and is why the products' hand-written lists sit beside their own
+   * observed ones rather than instead of them.
+   *
+   * The four exceptions are the ones named above: a mention and the two note references are **marks**,
+   * and `insertText` puts characters into a run that is already there. They are out of the observed
+   * list *and* named as exemptions, which is not a belt and braces: the first is what the probe saw
+   * and the second is what a reader of this file can check. A command called `insert…` that makes
+   * nothing is a claim somebody has to make out loud.
+   */
+  /*
+   * ── A check that was written here and taken out again ─────────────────────
+   *
+   * *"Every node this package can make is drawn by something a product would have"* — it passed, and
+   * then it turned out it **cannot fail**. A node type outside the schema is one the validator
+   * refuses, so the insert rolls back and the probe records that the command made nothing; and every
+   * node it does make is in the standard schema, which is what `office-text` draws. There is no
+   * document in which the assertion is false.
+   *
+   * Kept as a note rather than as a passing test, because this repository has been caught twice by a
+   * check that reported an empty list for the wrong reason. The question is real — a command that
+   * inserts a node nobody draws is exactly the class this session kept finding — and it belongs to
+   * the **products**, which ask it as `every-node-is-drawn` against their own registries. Word
+   * already answers it by not taking `createRichExtensions()`: that bundle registers inserts for ten
+   * node types Word cannot draw, and the kit lists its extensions one at a time for that reason.
+   */
+
+  it('makes nodes the schema has, and accounts for every insert', () => {
+    const writesAMarkOrText = new Set([
+      'insertMention', 'insertFootnoteRef', 'insertEndnoteRef', 'insertText'
+    ]);
+
+    const produces = [...answers.made]
+      .filter(([name]) => !writesAMarkOrText.has(name))
+      .flatMap(([command, types]) => types.map((produces) => ({ command, produces })));
+
+    const report = conformance({
+      schema: createSchema('standard', getStandardSchemaDefinition()) as never,
+      hasRenderer: () => true,
+      only: ['every-command-makes-something-real', 'every-insert-is-accounted-for'],
+      reachable: names,
+      /*
+       * `commands` as well as `reachable`, which is what `every-insert-is-accounted-for` reads — and
+       * leaving it out is why the check reported nothing at all rather than failing: a check with no
+       * input is not run, and `examined` said so. The first version of this test asserted a count it
+       * never got, which is how that was caught.
+       */
+      commands: names,
+      produces,
+      /*
+       * And the four that put no node in, said out loud — which is what this check asks for. They are
+       * out of the observed list above because the probe watched them and saw no node appear; they
+       * are named here because a command called `insert…` that makes nothing is a claim somebody has
+       * to make, and "the probe saw nothing" is not one a reader of this file can check.
+       */
+      exempt: {
+        insertMention: 'applies a mark over a range, not a node',
+        insertFootnoteRef: 'a mark over a range, not a node',
+        insertEndnoteRef: 'a mark over a range, not a node',
+        insertText: 'writes characters into a run; makes no node'
+      }
+    });
+
+    expect(report.findings.map((one) => `${one.subject}: ${one.detail ?? ''}`)).toEqual([]);
+    expect(report.staleExemptions.map((one) => one.subject)).toEqual([]);
+    // And it looked at them — an empty result would pass for the wrong reason otherwise.
+    expect(report.examined['every-insert-is-accounted-for']).toBeGreaterThanOrEqual(25);
+    expect(report.examined['every-command-makes-something-real']).toBeGreaterThanOrEqual(25);
   });
 
 });
