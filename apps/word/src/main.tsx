@@ -392,6 +392,14 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
     const target = entry?.getAttribute('data-toc-target');
     if (!target) return;
 
+    /*
+     * **Unless the field says its entries are not links.** `useHyperlinks` is one of the three
+     * things a `tableOfContents` says about itself that nothing read: an entry always took a reader
+     * to its heading, so turning the switch off did nothing at all. The renderer writes the answer
+     * out; this is the half of it that decides what a press does.
+     */
+    if (entry?.getAttribute('data-linked') === 'false') return;
+
     const heading = container.querySelector(`[data-bc-sid="${CSS.escape(target)}"]`);
     if (!heading) return;
 

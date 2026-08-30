@@ -421,6 +421,25 @@ export function registerPageRenderers(): void {
         : [];
 
     const showPages = node.attributes?.showPageNumbers !== false;
+    /**
+     * The three things the field says about how the list is set, and nothing read any of them.
+     *
+     * `leader` is the character filling the space between an entry and its page number — Word's tab
+     * leader, and one of `dot`, `hyphen`, `underscore`, `middleDot` or `none`. The stylesheet drew a
+     * dotted rule and said in a comment that *"the dotted leader is a viewer concern"*, which was a
+     * rationalisation of an unread attribute: **which** leader is the document's, and how it is
+     * painted — its colour, its weight — is the viewer's. Those are two decisions and only the second
+     * one was being made.
+     *
+     * `rightAlignPageNumbers` decides whether the numbers line up down the right edge or follow the
+     * text; a list with it off has no leader either, because there is no gap to fill.
+     *
+     * `useHyperlinks` decides whether an entry takes you to the heading. It always did — the app
+     * wires the click — so turning it off did nothing at all.
+     */
+    const rightAligned = node.attributes?.rightAlignPageNumbers !== false;
+    const leader = typeof node.attributes?.leader === 'string' ? node.attributes.leader : 'dot';
+    const linked = node.attributes?.useHyperlinks !== false;
 
     return element(
       'nav',
@@ -435,6 +454,16 @@ export function registerPageRenderers(): void {
             className: 'w-toc-entry',
             key: entry.sid,
             'data-level': String(entry.level),
+            // What fills the gap, and whether there is a gap to fill — see above.
+            'data-leader': showPages && rightAligned ? leader : 'none',
+            'data-align': rightAligned ? 'right' : 'left',
+            /*
+             * Whether this entry takes a reader anywhere. Read by the app's click handler as well as
+             * by the stylesheet, because being a link is a fact about what a press does and not only
+             * about how the line looks.
+             */
+            'data-linked': linked ? 'true' : 'false',
+            ...(linked ? { role: 'link', tabindex: '0' } : {}),
             /**
              * Which heading this line stands for.
              *

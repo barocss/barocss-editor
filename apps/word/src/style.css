@@ -290,8 +290,13 @@ body {
 
 
 /*
- * The dotted leader is a viewer concern: what the model says is which headings
- * are listed and what page each is on.
+ * **Which** leader is the document's; how it is painted is the viewer's.
+ *
+ * This drew a dotted rule and said the leader was a viewer concern, which was a rationalisation of
+ * an unread attribute: the field carries `leader` — Word's tab leader, one of `dot`, `hyphen`,
+ * `underscore`, `middleDot` or `none` — and nothing looked at it. Two decisions were being folded
+ * into one, and only the second was being made. The colour and the weight below are still this
+ * file's; the character is the document's.
  */
 .w-toc-entry {
   display: flex;
@@ -304,12 +309,52 @@ body {
   display: inline-block;
   width: 100%;
   margin-left: .5em;
-  border-bottom: 1px dotted #adb5bd;
   transform: translateY(-.25em);
 }
 
+/* A run of dots — Word's default, and the one a reader pictures when they hear "table of contents". */
+.w-toc-entry[data-leader='dot'] .w-toc-text::after,
+.w-toc-entry[data-leader='middleDot'] .w-toc-text::after {
+  border-bottom: 1px dotted #adb5bd;
+}
+
+.w-toc-entry[data-leader='hyphen'] .w-toc-text::after {
+  border-bottom: 1px dashed #adb5bd;
+}
+
+.w-toc-entry[data-leader='underscore'] .w-toc-text::after {
+  border-bottom: 1px solid #adb5bd;
+}
+
+/*
+ * `leader: none`, and the same rule for a list whose numbers are not right-aligned: the number
+ * follows the text, so there is no gap for a leader to cross.
+ */
+.w-toc-entry[data-leader='none'] .w-toc-text::after {
+  content: none;
+}
+
 .w-toc-text { display: flex; flex: 1; white-space: nowrap; }
+
+/* Numbers that follow the text rather than lining up down the right edge. */
+.w-toc-entry[data-align='left'] .w-toc-text {
+  flex: none;
+}
+
 .w-toc-page { font-variant-numeric: tabular-nums; }
+
+/*
+ * An entry that takes a reader to its heading looks like one it can be pressed. `data-linked` is
+ * the field's `useHyperlinks`, which the app's click handler reads too — being a link is a fact
+ * about what a press does, not only about how the line is drawn.
+ */
+.w-toc-entry[data-linked='true'] {
+  cursor: pointer;
+}
+
+.w-toc-entry[data-linked='true']:hover .w-toc-text {
+  text-decoration: underline;
+}
 
 /*
  * A search result. Drawn, not written: which words a reader is looking for is

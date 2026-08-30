@@ -162,6 +162,17 @@ const schema = createSchema('word', getWordSchemaDefinition());
               return [[{ x: 0, y: 0 }, { x: 1440, y: 0 }, { x: 720, y: 1440 }]];
             case 'varBinds':
               return [[{ attr: 'fill', var: '강조' }]];
+            /**
+             * How a picture fills a box that is not its own shape.
+             *
+             * Not `options` in the schema, because the site and the deck pass it straight through as
+             * CSS `object-fit` and take everything that property takes; Word maps three of them onto
+             * SVG's `preserveAspectRatio`. So the *product* says what its values are, which is what
+             * this hook is for — and until it did, the probe invented strings, every one of them fell
+             * to the same default, and `fit` came back as an attribute nothing reads.
+             */
+            case 'fit':
+              return ['contain', 'cover', 'fill'];
             default:
               return undefined;
           }
@@ -270,7 +281,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * to set them, because Word has no panel and no dialogs. Real attributes, really drawn,
        * owed to the sixth dialog rather than regressed.
        */
-      ratchet: { 'every-attribute-is-read': 79, 'every-property-can-be-edited': 182 },
+      ratchet: { 'every-attribute-is-read': 70, 'every-property-can-be-edited': 182 },
 
       /**
        * Every attribute a reader can **set**, out of Word's two writing surfaces.
@@ -306,6 +317,30 @@ const schema = createSchema('word', getWordSchemaDefinition());
          * A reason rather than a bigger ratchet, because a ratchet is a count that has to come down
          * and this is a decision that does not.
          */
+        /*
+         * ── Owed to a dialog Word has never had ───────────────────────────
+         *
+         * Both arrived in front of this check the day they started being *drawn*, which is the check
+         * working: an attribute that starts being drawn starts needing an answer to *who sets it*.
+         * They belong to Format Picture, which is not among the four dialogs the note above lists
+         * only because nothing drew a picture's alt text or its fit until now.
+         */
+        'picture.alt': 'Format Picture → Alt Text, a dialog Word has not got yet — drawn as the `aria-label` of the SVG image',
+        'picture.fit': 'Format Picture → Size, the same dialog — drawn as the image’s `preserveAspectRatio`',
+        /*
+         * And the two a **text box** started saying the same afternoon. Word sets both from Format
+         * Shape → Layout — where the box is anchored, and how the text behaves around it — and this
+         * product has an overlay that drags a shape on a *canvas* and nothing at all for a box
+         * anchored in the flow. A surface rather than a dialog, and in the backlog as one.
+         *
+         * `width` and `height` are **not** here: the ruler already writes them, which is the answer
+         * this check wants and the reason a written exemption for them went stale the moment it was
+         * added.
+         */
+        'textBox.anchorTo': 'Format Shape → Layout, a surface the flow has no overlay for yet — see BACKLOG',
+        'textBox.wrapType': 'Format Shape → Layout, the same surface — how the text behaves around the box',
+
+
         revisionId: 'stamped by `tracking-commands.ts` when a reader edits with tracking on; a reader never sets one',
         revisionType: 'stamped by `tracking-commands.ts` — what the edit was, not a property somebody chooses',
         revisionAuthor: 'the reviewer, from the editor; a control for typing one would be a control for forging one',
@@ -357,6 +392,27 @@ const schema = createSchema('word', getWordSchemaDefinition());
          * This sat in the unread pile as *"five names nothing looks up"*, which was wrong. Reading
          * the list is what found it; counting it is what hid it.
          */
+        /*
+         * ── How the **contents** are set, which needs headings to set ──────
+         *
+         * A `tableOfContents` renders the headings of its section: `tocEntries` walks the document
+         * and the layout says what page each landed on. A bare one draws an empty `nav`, so nothing
+         * about how the *entries* are set can change what a probe sees — there are no entries.
+         *
+         * All three were genuinely unread until now and each in its own way. `leader` — Word's tab
+         * leader, one of `dot`, `hyphen`, `underscore`, `middleDot` or `none` — lost to a stylesheet
+         * that drew a dotted rule and called the leader *"a viewer concern"*, folding two decisions
+         * into one: **which** leader is the document's, and how it is painted is the viewer's.
+         * `rightAlignPageNumbers` was always on. `useHyperlinks` was always on, because the click
+         * handler matched every `.w-toc-entry` there was.
+         *
+         * Covered by `word-outline.spec.ts`, which measures the drawn leader and where a press
+         * actually takes the reader.
+         */
+        'tableOfContents.leader': 'drawn on each entry, and a bare table of contents has no entries — see `word-outline.spec.ts`',
+        'tableOfContents.rightAlignPageNumbers': 'decides whether an entry’s leader grows; a bare table of contents has no entries',
+        'tableOfContents.useHyperlinks': 'read by the entry’s drawing and by the app’s click handler; a bare table of contents has no entries',
+
         /*
          * And the **page border**, for the same reason one step over: it is drawn on each *sheet*,
          * because that is where a page border is — inside the paper's edge, once per page — and the

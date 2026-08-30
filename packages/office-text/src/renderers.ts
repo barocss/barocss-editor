@@ -22,7 +22,7 @@ import {
 } from './text-context';
 import { formatDateField } from './date-field';
 import { leaderStyle } from './tabs';
-import { imageCss } from './image-layout';
+import { imageCss, textBoxCss } from './image-layout';
 import { blockLanguage, blockRevision, blockStyle, formatFor, listMarker, listTypeOf, revisionDrawing } from './renderers/block-style';
 import { cellBorders, cellMargins, gridOf, tableElementCss } from './table-format';
 import { cellPlacementOf, cellStyleLayers, rowFormat, tableStyleLayer } from './table-style';
@@ -422,10 +422,17 @@ export function registerTextRenderers(): void {
     element(
       'aside',
       {
-        className: 'w-text-box',
+        className: (d: Record<string, any>) =>
+          `w-text-box w-text-box-${String(d.attributes?.wrapType ?? 'square')}`,
+        // What the offsets are measured from. Not drawn — see `textBoxCss` — but said, so the pass
+        // that will answer it has somewhere to read it from and a reader can see it in the markup.
+        'data-anchor': (d: Record<string, any>) => String(d.attributes?.anchorTo ?? 'paragraph'),
         'data-revision': (d: Record<string, any>) => revisionDrawing(d)['data-revision'],
         title: (d: Record<string, any>) => revisionDrawing(d).title,
-        style: (d: Record<string, any>) => revisionDrawing(d).style
+        style: (d: Record<string, any>) => ({
+          ...textBoxCss(d.attributes as never),
+          ...revisionDrawing(d).style
+        })
       },
       [slot('content')]
     )

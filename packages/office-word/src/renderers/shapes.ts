@@ -205,6 +205,24 @@ export function registerShapeRenderers(): void {
       transform: turned,
       href: (d: Record<string, any>) =>
         typeof (d.attributes as any)?.src === 'string' ? (d.attributes as any).src : '',
+      /**
+       * What the picture is, for a reader who cannot see it.
+       *
+       * `aria-label` rather than an `alt`: this is an SVG `<image>` and `alt` means nothing on one.
+       * Word keeps a drawing's alt text in Format Picture → Alt Text, `inline-image` in the flow has
+       * drawn it since it was written, and the same node on a canvas drew nothing — so a picture a
+       * reader dragged onto the page was invisible to a screen reader and one they typed into a
+       * paragraph was not.
+       *
+       * `role` with it, because an `<image>` with a name and no role is announced as a graphic in
+       * some readers and skipped in others.
+       */
+      'aria-label': (d: Record<string, any>) =>
+        typeof (d.attributes as any)?.alt === 'string' ? (d.attributes as any).alt : '',
+      role: (d: Record<string, any>) =>
+        typeof (d.attributes as any)?.alt === 'string' && (d.attributes as any).alt.length > 0
+          ? 'img'
+          : 'presentation',
       x: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).x,
       y: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).y,
       width: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).width,

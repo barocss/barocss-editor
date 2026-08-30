@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { imageCss, isInFlow, polygonCss } from '../src/image-layout';
+import { imageCss, isInFlow, polygonCss, textBoxCss } from '../src/image-layout';
 
 /**
  * Where a picture sits, and what the text does about it.
@@ -133,3 +133,70 @@ describe('what the paginator needs to know', () => {
     expect(isInFlow(undefined)).toBe(true);
   });
 });
+
+/**
+ * **A floating box of text**, which drew as a plain `<aside>` and read none of its seven attributes.
+ *
+ * A `textBox` is Word's anchored box: a size, something to be anchored to, a way the text around it
+ * behaves, and an order in the stack. A box a reader gave a width and a wrap to came out the width
+ * of the column, in the flow, pushing everything below it down.
+ *
+ * The rules were already written, because a floating box of text and a floating picture do the same
+ * thing to the lines around them — that is what `wrapType` means, and Word spells it the same way
+ * for both. What differed was the vocabulary, and `textBoxCss` is that translation.
+ */
+describe('a floating box of text', () => {
+  it('takes the size the box asks for', () => {
+    const css = textBoxCss({ width: 2880, height: 1440 });
+
+    expect(css.width).toBe('192px');
+    expect(css.height).toBe('96px');
+  });
+
+  /*
+   * `square` is the default and the one that makes a box worth having: the lines beside it are
+   * shorter and get their width back once it has been passed.
+   */
+  it('floats, on the side the box says', () => {
+    expect(textBoxCss({ wrapType: 'square' }).float).toBe('right');
+    expect(textBoxCss({ wrapType: 'square', horizontalAlign: 'left' }).float).toBe('left');
+  });
+
+  it('stops the text above and starts it again below, for topAndBottom', () => {
+    const css = textBoxCss({ wrapType: 'topAndBottom' });
+
+    expect(css.display).toBe('block');
+    expect(css.clear).toBe('both');
+  });
+
+  /**
+   * Out of the flow, and **in the order the box asks for**.
+   *
+   * `zOrder` is the one thing a text box says that a picture has no word for, so a reader who put
+   * one box over another can say which is on top. `inFront` is the schema's spelling and `front` is
+   * `imageCss`'s — the one place the two vocabularies disagree on a value rather than on a name, and
+   * the reason `textBoxCss` exists rather than a rename at the call site.
+   */
+  it('leaves the flow, and stacks where the box says', () => {
+    const front = textBoxCss({ wrapType: 'inFront', offsetX: 1440, offsetY: 720, zOrder: 3 });
+
+    expect(front.position).toBe('absolute');
+    expect(front.left).toBe('96px');
+    expect(front.top).toBe('48px');
+    expect(front.zIndex).toBe('4');
+
+    const behind = textBoxCss({ wrapType: 'behind', zOrder: 3 });
+    expect(behind.zIndex).toBe('2');
+    // Nobody is meant to press a box behind the text, so it must not eat the presses.
+    expect(behind.pointerEvents).toBe('none');
+  });
+
+  /*
+   * And a box **in** the flow takes no `z-index`: two floats are ordered by where they are, and a
+   * stacking order on them would say something the document did not.
+   */
+  it('does not stack a box that is still in the flow', () => {
+    expect(textBoxCss({ wrapType: 'square', zOrder: 3 }).zIndex).toBeUndefined();
+  });
+});
+

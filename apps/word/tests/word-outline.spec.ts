@@ -235,3 +235,115 @@ test('the pane and its own close button say the same thing', async ({ page }) =>
   await page.locator('.w-outline-closed').click();
   await expect(page.locator('[data-control="view-outline"]')).toHaveAttribute('data-state', 'on');
 });
+
+/**
+ * **How the contents are set** — the three things the field says about itself that nothing read.
+ *
+ * A `tableOfContents` carries `leader`, `rightAlignPageNumbers` and `useHyperlinks`. The stylesheet
+ * drew a dotted rule and said in a comment that *"the dotted leader is a viewer concern"*, which was
+ * a rationalisation of an unread attribute: **which** leader is the document's and how it is painted
+ * is the viewer's — two decisions, and only the second was being made. The numbers were always right
+ * aligned, and an entry always took a reader to its heading, so turning either off did nothing.
+ *
+ * Loaded rather than commanded, because Word has no field-settings dialog yet — a field's own
+ * settings are one of the four dialogs its conformance file lists as owed.
+ */
+test.describe('how a table of contents is set', () => {
+  const reload = (page: import('@playwright/test').Page, attrs: Record<string, unknown>) =>
+    page.evaluate((wanted) => {
+      const editor = (window as any).editor;
+      const tree = editor.exportDocument(editor.getRootId());
+      const find = (node: any): any => {
+        if (node?.stype === 'tableOfContents') return node;
+        for (const child of node?.content ?? []) {
+          if (typeof child === 'object') {
+            const found = find(child);
+            if (found) return found;
+          }
+        }
+        return undefined;
+      };
+      Object.assign(find(tree).attributes, wanted);
+      editor.loadDocument(tree, 'word');
+    }, attrs);
+
+  const leaderOf = (page: import('@playwright/test').Page) =>
+    page.locator('.w-toc-entry').first().evaluate((el) => ({
+      said: el.getAttribute('data-leader'),
+      drawn: getComputedStyle(el.querySelector('.w-toc-text')!, '::after').borderBottomStyle,
+      grows: getComputedStyle(el.querySelector('.w-toc-text')!).flexGrow
+    }));
+
+  test('draws the leader the field asks for', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await page.waitForSelector('.w-toc-entry');
+
+    // Dots by default, which is Word's and the one a reader pictures.
+    expect(await leaderOf(page)).toMatchObject({ said: 'dot', drawn: 'dotted' });
+
+    await reload(page, { leader: 'hyphen' });
+    await page.waitForTimeout(700);
+    expect(await leaderOf(page)).toMatchObject({ said: 'hyphen', drawn: 'dashed' });
+
+    await reload(page, { leader: 'underscore' });
+    await page.waitForTimeout(700);
+    expect(await leaderOf(page)).toMatchObject({ said: 'underscore', drawn: 'solid' });
+
+    // And none, which has to remove the rule rather than draw a fainter one.
+    await reload(page, { leader: 'none' });
+    await page.waitForTimeout(700);
+    const bare = await page
+      .locator('.w-toc-entry')
+      .first()
+      .evaluate((el) => getComputedStyle(el.querySelector('.w-toc-text')!, '::after').content);
+    expect(bare).toBe('none');
+  });
+
+  /*
+   * Numbers that follow the text instead of lining up down the right edge — and no leader with them,
+   * because there is no gap left to cross.
+   */
+  test('lets the page numbers follow the text', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await page.waitForSelector('.w-toc-entry');
+
+    expect((await leaderOf(page)).grows).toBe('1');
+
+    await reload(page, { rightAlignPageNumbers: false });
+    await page.waitForTimeout(700);
+
+    const drawn = await leaderOf(page);
+    expect(drawn.said).toBe('none');
+    expect(drawn.grows).toBe('0');
+  });
+
+  /**
+   * And an entry that is not a link takes nobody anywhere.
+   *
+   * The switch existed and nothing read it: the click handler matched `.w-toc-entry` and went, every
+   * time. Measured by where the reader ends up rather than by the attribute, because what
+   * `useHyperlinks` means is what a press does.
+   */
+  test('goes nowhere when the field says its entries are not links', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await page.waitForSelector('.w-toc-entry');
+
+    await reload(page, { useHyperlinks: false });
+    await page.waitForTimeout(700);
+
+    const entry = page.locator('.w-toc-entry').nth(1);
+    await expect(entry).toHaveAttribute('data-linked', 'false');
+    // Not offered as a link either: no pointer, and nothing for the keyboard to land on.
+    expect(await entry.evaluate((el) => getComputedStyle(el).cursor)).not.toBe('pointer');
+    expect(await entry.getAttribute('role')).toBeNull();
+
+    const where = await page.evaluate(() => window.scrollY);
+    await entry.click();
+    await page.waitForTimeout(700);
+    expect(await page.evaluate(() => window.scrollY)).toBe(where);
+  });
+});
+

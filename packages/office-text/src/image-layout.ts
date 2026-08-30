@@ -170,3 +170,61 @@ export function isInFlow(attrs: ImageAttributes | undefined): boolean {
 export function wrapsText(attrs: ImageAttributes | undefined): boolean {
   return attrs?.wrap === 'square' || attrs?.wrap === 'tight';
 }
+
+/**
+ * A **floating box of text**, drawn by the same rules as a floating picture.
+ *
+ * A `textBox` is Word's anchored box: it has a size, a place to be anchored to, a way the text
+ * around it behaves, and an order in the stack. The renderer drew a plain `<aside>` and read **none**
+ * of it — a box a reader gave a width and a wrap to came out the width of the column, in the flow,
+ * pushing everything below it down. Seven of Word's unread attributes were this one node.
+ *
+ * The rules are already here, because a floating box of text and a floating picture do the same
+ * thing to the lines around them — that is what `wrapType` means, and Word spells it the same way
+ * for both. What differs is the vocabulary: a picture says `wrap` and `side`, a text box says
+ * `wrapType` and `horizontalAlign`. This is the translation and nothing else.
+ *
+ * `anchorTo` and `verticalAlign` are deliberately not translated: they say *what the offsets are
+ * measured from* — the paragraph, the page, the margin — and answering that needs the laid-out
+ * position of the anchor, which is the paginator's. See `docs/BACKLOG.md`.
+ */
+export interface TextBoxAttributes {
+  wrapType?: string;
+  horizontalAlign?: string;
+  width?: number;
+  height?: number;
+  offsetX?: number;
+  offsetY?: number;
+  zOrder?: number;
+}
+
+export function textBoxCss(attrs: TextBoxAttributes | undefined): CssStyle {
+  const a = attrs ?? {};
+
+  /*
+   * `inFront` is what the schema calls it and `front` is what `imageCss` does, which is the one
+   * place the two vocabularies disagree on a *value* rather than on a name.
+   */
+  const wrap = a.wrapType === 'inFront' ? 'front' : a.wrapType;
+
+  const drawn = imageCss({
+    wrap,
+    side: a.horizontalAlign === 'left' ? 'left' : 'right',
+    width: a.width,
+    height: a.height,
+    offsetX: a.offsetX,
+    offsetY: a.offsetY
+  } as ImageAttributes);
+
+  /*
+   * And the stack, which a picture has no word for: a text box carries an explicit `zOrder`, so a
+   * reader who put one box over another can say which is on top. Only where the box is out of the
+   * flow — two floats in the flow are ordered by where they are, and a `z-index` on them would say
+   * something the document did not.
+   */
+  const stacked = wrap === 'behind' || wrap === 'front';
+  const order = typeof a.zOrder === 'number' && Number.isFinite(a.zOrder) ? a.zOrder : undefined;
+  if (!stacked || order === undefined) return drawn;
+
+  return { ...drawn, zIndex: String(wrap === 'behind' ? order - 1 : order + 1) };
+}

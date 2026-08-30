@@ -92,6 +92,54 @@ and rendering a bare `bTable` draws no cells. Exemptions, like the header ids.
 could have seen the doubled line — or the invalid colour. It has a three-paragraph
 box now, and `word-rendering.spec.ts` measures the *computed* border of each.
 
+### A picture on a canvas had no name, and a contents page ignored how it was set — 2026-08-30 *(fixed)*
+
+**`picture.alt`.** It has been in the schema for as long as `picture` has, and
+`inline-image` — the same idea in the flow — has drawn it since it was written.
+The canvas version drew nothing. So a picture a reader *dragged onto the page*
+was invisible to a screen reader and one they *typed into a paragraph* was not:
+one node, two drawings, one of them nameless. `aria-label` and `role` now, not
+`alt`, because this is an SVG `<image>` and `alt` means nothing on one.
+
+**`picture.fit` was reported unread and was not**, which is worth keeping. It
+draws as `preserveAspectRatio`, but the schema does not declare which values it
+takes — a page and a deck pass it straight through as CSS `object-fit` and take
+everything that property takes. So the probe invented strings, all of them fell
+to the same default, and a working attribute looked dead. Told through the
+product's `probes` hook rather than narrowed in the schema, because the schema
+is right and it was the probe that could not guess.
+
+**A table of contents had three switches and read none of them.** `leader` — the
+character filling the gap to the page number, Word's tab leader — lost to a
+stylesheet that drew a dotted rule and called the leader *"a viewer concern"*.
+That folded two decisions into one: **which** leader is the document's, and how
+it is painted is the viewer's. `rightAlignPageNumbers` was always on.
+`useHyperlinks` was always on, because the click handler matched every
+`.w-toc-entry` there was.
+
+### A text box read none of the seven things it says about itself — 2026-08-30 *(fixed)*
+
+A `textBox` is Word's anchored box: a size, something to be anchored to, a way
+the text around it behaves, an order in the stack. The renderer drew a plain
+`<aside>`, so a box a reader gave a width and a wrap to came out **the width of
+the column, in the flow, pushing everything below it down**.
+
+The rules were already written and one node over. A floating box of text and a
+floating picture do the same thing to the lines around them — that is what
+`wrapType` means, and Word spells it the same way for both. What differed was the
+vocabulary: a picture says `wrap` and `side`, a text box says `wrapType` and
+`horizontalAlign`, and `inFront` against `front` is the one place the two
+disagree on a value rather than a name. `textBoxCss` is that translation, plus
+the one thing a text box says that a picture has no word for — `zOrder`, and only
+where the box is out of the flow, because two floats in the flow are ordered by
+where they are.
+
+`anchorTo` and `verticalAlign` are deliberately not drawn: they say *what the
+offsets are measured from* — the paragraph, the page, the margin — and answering
+that needs the laid-out position of the anchor, which is the paginator's.
+
+**185 → 70.**
+
 ### A page border nothing ever drew — 2026-08-30 *(fixed)*
 
 `pageSetupAttrs` has carried the four edges and their `*Space` since the schema
@@ -133,6 +181,15 @@ border, `borderBetween`), attributes read in a context the probe cannot build
 (header ids, a table's interior, the between border), and declarations describing
 a document this model cannot hold (a cell's interior, a paragraph's vertical
 alignment).
+
+### A text box has no overlay, so it can only be dragged on a canvas
+
+Word sets a box's anchor and its wrap from Format Shape → Layout, and its size by
+dragging it. This product has an overlay that drags a shape on a **canvas** and
+nothing at all for a box anchored in the flow — the ruler writes its width and
+height and there is no way to say where it is anchored or how the text should
+behave around it. A surface rather than a dialog, and the last thing standing
+between `textBox` and being a feature rather than a node.
 
 ### `surface.verticalAlign` needs the paginator, not CSS
 
