@@ -1,6 +1,6 @@
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { hasRange, wears } from './guards';
-import { transaction, toggleLink as toggleLinkOp } from '@barocss/model';
+import { transaction, removeMark, toggleLink as toggleLinkOp } from '@barocss/model';
 
 export interface LinkExtensionOptions {
   enabled?: boolean;
@@ -44,8 +44,25 @@ export class LinkExtension implements Extension {
     (editor as any).registerCommand({
       name: 'removeLink',
       execute: async (ed: Editor) => {
-        const ops = [toggleLinkOp('')];
-        const result = await transaction(ed, ops).commit();
+        /**
+         * `removeMark`, not `toggleLink('')`.
+         *
+         * Taking a link off by toggling an **empty address** worked only while `toggleLink` read
+         * *"do these words carry a link at all"* — and that reading was the fault beside it: pressing
+         * 링크 with a new address took the link off instead of changing it. Once it asks about *this*
+         * address, an empty one is a new link to nowhere, and 링크 제거 laid `href: ''` over the
+         * words.
+         *
+         * Which is the honest shape anyway: this command's name says what it does, and saying it
+         * through a toggle was borrowing a gesture to do the opposite of what the gesture means.
+         */
+        const at = (ed as { selection?: ModelSelection }).selection;
+        if (!at || at.type !== 'range') return false;
+
+        const ops = [
+          removeMark(at.startNodeId, 'link', [at.startOffset, at.endOffset] as [number, number])
+        ];
+        const result = await transaction(ed, ops as never).commit();
         return result.success;
       },
       /**

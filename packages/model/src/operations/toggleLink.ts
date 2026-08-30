@@ -25,7 +25,24 @@ defineOperation('toggleLink', async (operation: any, context: TransactionContext
   const startNode = dataStore.getNode(startNodeId);
   if (!startNode) throw new Error('toggleLink: start node not found');
 
-  const hasLink = startNode.marks?.some((m: any) => (m.stype || m.type) === 'link');
+  /**
+   * Whether these words already point **at this address**.
+   *
+   * It was *whether they carry a link at all*, and the difference is a fault a reader meets the
+   * second time they use the command: press 링크 on linked words with a new address and the link was
+   * **taken off** — the href in the payload was read only on the branch that adds one, so a change of
+   * address was silently a removal.
+   *
+   * A toggle takes off what it would have put on. `toggleBold` pressed on bold text unbolds it
+   * because there is only one bold; a link is a *value*, so the same gesture with a different value
+   * is a change and not a removal — which is what `removeLink` beside it is for.
+   *
+   * Found writing this operation's first test by hand: the conformance probe asks whether a command
+   * moves the document, and both branches move it.
+   */
+  const hasLink = startNode.marks?.some(
+    (m: any) => (m.stype || m.type) === 'link' && (m.attrs?.href ?? m.attrs?.url) === href
+  );
 
   /**
    * Exactly what every run in the range carried, before this rewrites them.
@@ -86,6 +103,16 @@ defineOperation('toggleLink', async (operation: any, context: TransactionContext
     endNodeId,
     endOffset: endOffset || 0
   };
+  /*
+   * Off first, then on — because a change of address is one link and not two.
+   *
+   * `applyMark` appends, so laying `https://…/docs` over words already pointing at `https://…` left
+   * **both** marks on the run: two links over the same characters, and which one a reader followed
+   * depended on which the drawing happened to read first. `removeMark` over the range takes whatever
+   * was there off, whatever it pointed at, and the mark below is the one that stays.
+   */
+  dataStore.removeMark(rangeSelection as any, 'link');
+
   const markData = {
     stype: 'link',
     attrs: { href, ...(title != null && { title }) },

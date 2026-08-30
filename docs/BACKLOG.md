@@ -124,6 +124,31 @@ brace.
 
 **185 → 16.**
 
+### Three faults in one command, found by its first test — 2026-08-30 *(fixed)*
+
+`toggleLink` and `removeLink` are two commands and one gesture, and they had no
+test of their own. The conformance probe asked whether each moves the document
+and got yes, which is true of both and says nothing about what a reader ends up
+with. Writing that test found three:
+
+1. **A new address took the link off.** `toggleLink` asked *"do these words carry
+   a link at all"* and, if so, removed it — the `href` in the payload was read
+   only on the branch that adds one. So pressing 링크 on linked words with a
+   different address was silently a removal. It asks whether they point at *this*
+   address now: a toggle takes off what it would have put on, and a link is a
+   **value**, so the same gesture with a different value is a change.
+2. **Then two links stacked.** `applyMark` appends, so laying a second address
+   over the first left both marks on the run — two links over the same
+   characters, and which one a reader followed depended on which the drawing
+   read first. Off, then on.
+3. **`removeLink` laid `href: ''` on the words.** It took a link off by toggling
+   an *empty* address, which worked only while the first fault existed. It calls
+   `removeMark` now, which is what its name says — saying it through a toggle was
+   borrowing a gesture to do the opposite of what the gesture means.
+
+`find-replace` got its first test the same afternoon and had **none** — eight
+assertions about what a reader gets, all green.
+
 ### When is `packages/extensions` finished — 2026-08-30
 
 Asked directly, so answered with the measurements rather than a feeling. What the
@@ -162,8 +187,13 @@ was already a list around it, so there was nothing to wrap.
 
 Found by writing the three block toggles their first test by hand. Which is the
 answer to *when is it finished*: **the checks are, and the hand-written tests are
-not.** Three extensions had none of their own — and one of the three was hiding
-a fault the probe is not shaped to see.
+not.**
+
+Measured properly rather than by filename: **seven** extension classes are named
+in no test but the generic sweeps — `Blockquote`, `FindReplace`, `Image`, `Link`,
+`List`, `SelectAll`, `Text`. Two of them have been written since, and between
+them they held **four faults the probe could not see**. Five left, and the rate
+so far says to expect more.
 
 ### `packages/extensions` ran one of the harness's thirteen checks — 2026-08-30 *(two more, and one taken out)*
 
