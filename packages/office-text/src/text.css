@@ -137,7 +137,14 @@
  * with nothing in it at all, and with the caret filler in it once a caret has been there.
  */
 .w-content-control[data-placeholder]:not([data-placeholder='']):has(> :only-child:empty)::before,
-.w-content-control[data-placeholder]:not([data-placeholder='']):has(> :only-child > [data-bc-filler]:only-child)::before {
+.w-content-control[data-placeholder]:not([data-placeholder='']):has(> :only-child > [data-bc-filler]:only-child)::before,
+/*
+ * And a **paragraph's own**, which is the same idea one level down and drawn by the same rule: the
+ * hint sits in the block rather than around it, so `:empty` is the whole question — plus the caret
+ * filler, which an empty block renders once a caret has been in it.
+ */
+.w-paragraph[data-placeholder]:not([data-placeholder='']):empty::before,
+.w-paragraph[data-placeholder]:not([data-placeholder='']):has(> [data-bc-filler]:only-child)::before {
   content: attr(data-placeholder);
   color: #868e96;
   user-select: none;

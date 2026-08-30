@@ -192,6 +192,69 @@ describe('moving what is on a drawing', () => {
     // And a drag that went nowhere writes nothing rather than an entry that changes nothing.
     expect(editor.canExecuteCommand('moveShapes', { nodeIds: shapes(), dx: 0, dy: 0 })).toBe(false);
   });
+
+  /**
+   * **A shape the reader locked stays where it is.**
+   *
+   * `locked` is on every scene node the office schema declares and it means one thing: *I have
+   * decided where this goes.* The deck has read it since its arrange commands were written — its
+   * `box-commands.ts` skips locked boxes when it moves, duplicates or deletes them, and its tidy
+   * pass treats one as a pin. **Word read it nowhere**, so a shape a reader locked could still be
+   * dragged, nudged, resized, aligned, spread and deleted.
+   *
+   * Asked through `_movable`, which is the one question every one of those commands comes through:
+   * `resizeShapes` calls it, `deleteShapes` calls it with a distance of one, and the align and
+   * spread commands read the same list. So this is three assertions about one line.
+   */
+  describe('a shape the reader locked', () => {
+    /*
+     * Two shapes, because what a lock has to survive is being dragged **together with** something
+     * that is not locked — a marquee across a diagram. The document arrives empty of shapes and
+     * every test in this file makes its own, which is what keeps them from leaning on each other.
+     */
+    beforeEach(async () => {
+      const canvas = editor.dataStore.getNode(shapes()[0]).parentId;
+      await editor.executeCommand('insertEllipse', { canvasId: canvas, x: 400, y: 200 });
+    });
+
+    const lock = (sid: string) => {
+      const node = editor.dataStore.getNode(sid);
+      editor.dataStore.setNode({ ...node, attributes: { ...node.attributes, locked: true } }, false);
+    };
+
+    it('will not be moved, resized or deleted', async () => {
+      const [pinned, loose] = shapes();
+      lock(pinned);
+
+      expect(editor.canExecuteCommand('moveShapes', { nodeIds: [pinned], dx: 40, dy: 0 })).toBe(false);
+      expect(
+        editor.canExecuteCommand('resizeShapes', { nodeIds: [pinned], handle: 'se', dx: 40, dy: 40 })
+      ).toBe(false);
+      expect(editor.canExecuteCommand('deleteShapes', { nodeIds: [pinned] })).toBe(false);
+
+      // And the one beside it is untouched by any of that.
+      expect(editor.canExecuteCommand('moveShapes', { nodeIds: [loose], dx: 40, dy: 0 })).toBe(true);
+    });
+
+    /*
+     * A drag that holds a locked shape and a loose one moves the loose one — which is what a reader
+     * pulling a marquee across a diagram means, and why this filters rather than refuses the set.
+     */
+    it('stays put while what is selected with it moves', async () => {
+      const [pinned, loose] = shapes();
+      lock(pinned);
+
+      const before = {
+        pinned: { ...editor.dataStore.getNode(pinned).attributes },
+        loose: { ...editor.dataStore.getNode(loose).attributes }
+      };
+
+      expect(await editor.executeCommand('moveShapes', { nodeIds: [pinned, loose], dx: 60, dy: 0 })).toBe(true);
+
+      expect(editor.dataStore.getNode(pinned).attributes.x).toBe(before.pinned.x);
+      expect(editor.dataStore.getNode(loose).attributes.x).toBe(before.loose.x + 60);
+    });
+  });
 });
 
 /**

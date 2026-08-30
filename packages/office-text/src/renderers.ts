@@ -232,6 +232,15 @@ export function registerTextRenderers(): void {
          */
         'data-revision': (d: Record<string, any>) => blockRevision(d)?.type ?? '',
         title: (d: Record<string, any>) => blockRevision(d)?.title ?? '',
+        /**
+         * What to say while the paragraph is empty.
+         *
+         * Declared on a paragraph since the schema was written and drawn nowhere — the same
+         * attribute a content control has, and the same rule draws both: `text.css` shows it while
+         * the block holds nothing. A hint that were text in the document would be text a caret could
+         * sit in and a copy would carry out, which is why it is drawn rather than written.
+         */
+        'data-placeholder': (d: Record<string, any>) => String(d.attributes?.placeholder ?? ''),
         style: (d: Record<string, any>, env?: RenderEnv) => {
           const revision = blockRevision(d);
           const drawn = blockStyle(d, env);

@@ -328,6 +328,22 @@ export function registerPageRenderers(): void {
       {
         className: 'w-surface',
         'data-kind': String(node.attributes?.kind ?? 'flow'),
+        /**
+         * What this section is called.
+         *
+         * Word keeps a section's name and shows it nowhere — there is no chrome for it in Word
+         * either. What a name is *for* is being able to say which section: a navigation pane, an
+         * outline, a jump. So it is an accessible name on the region rather than a label drawn on
+         * the page, which is the reading that costs a sighted reader nothing and gives a screen
+         * reader the thing it is missing — "section" and "section" and "section" is what it
+         * announced before.
+         *
+         * `role="region"` only where there is a name, because an unnamed region is a landmark a
+         * screen reader has to announce and cannot describe, which is worse than no landmark.
+         */
+        ...(typeof node.attributes?.name === 'string' && node.attributes.name.length > 0
+          ? { 'aria-label': String(node.attributes.name), role: 'region' }
+          : {}),
         style: {
           position: 'relative',
           // A stacking context, so that the sheets drawn inside it can be put

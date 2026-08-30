@@ -92,6 +92,59 @@ and rendering a bare `bTable` draws no cells. Exemptions, like the header ids.
 could have seen the doubled line — or the invalid colour. It has a three-paragraph
 box now, and `word-rendering.spec.ts` measures the *computed* border of each.
 
+### A locked shape was not locked either — 2026-08-30 *(fixed)*
+
+`locked` is on every scene node the office schema declares and it means one
+thing: *I have decided where this goes.* The deck has read it since its arrange
+commands were written — `box-commands.ts` skips locked boxes when it moves,
+duplicates or deletes them, and the tidy pass treats one as a pin. **Word read it
+nowhere**, so a shape a reader locked could still be dragged, nudged, resized,
+aligned, spread and deleted.
+
+One line, in `_movable`, because every one of those commands comes through it:
+`resizeShapes` calls it, `deleteShapes` calls it with a distance of one, and the
+align and spread commands read the same list. It **filters** rather than refusing
+the set, so a drag holding a locked shape and a loose one moves the loose one —
+which is what a reader pulling a marquee across a diagram means.
+
+Distinct from `lockContent`, which is a region of *text* that may not be edited.
+A locked shape's text is still text.
+
+### The probe's filler was setting the one attribute that made the rest impossible — 2026-08-30 *(fixed)*
+
+`attributeReadFrom` fills every *other* attribute before asking about one, so an
+attribute that only matters in combination is still visible. It built that filler
+from the schema's own values and **deliberately not** from what a product taught,
+for a good reason recorded when a deck was taught what a `fills` is: an array
+value is usually a whole sub-system that *supersedes* the flat attributes it
+replaces, and teaching the harness one thing made it wrong about fourteen others.
+
+That reasoning is about **arrays**. A string does not supersede anything — it is
+usually the switch that turns the others on. A frame reads `alignItems`,
+`justifyContent`, `gap` and `columns` only when `layoutMode` says `row`, `column`
+or `grid`, and the schema's first option is `none`; a text box reads
+`horizontalAlign` only for a `wrapType` that floats. In both cases the filler was
+setting the one attribute that made the rest impossible to see.
+
+A taught **array or object** still stays out of everybody else's question; a
+taught **scalar** joins the filler. Six findings came off that were never faults.
+
+### Values the probe could not guess, told by the product
+
+Four more of the same class, all of them attributes a product plainly reads whose
+values it cannot invent: `grid` (a table's column widths, which `gridOf` splits
+on commas), `layout` (`fixed` or `auto`), `wrapType`, and a date field's picture
+string — `formatDateField` honours a subset of Word's and falls back to the ISO
+date for anything else, which is right and means an invented string draws exactly
+what no string draws.
+
+None of them belongs in the schema as `options`: a page and a deck take the CSS
+property's whole vocabulary for `fit` and `layout`, and Word maps a subset. What
+the values are is the **product's** to say, which is what the `probes` hook is
+for.
+
+**185 → 44.**
+
 ### A locked region was not locked — 2026-08-30 *(fixed)*
 
 Word's content control is how a form or a template says *this part is yours to
@@ -371,23 +424,24 @@ worth recording so it is not run again from scratch:
 - **Every toolbar, panel, ruler and menu entry names a command that exists**, in
   all three products.
 
-### What is left of Word's 58
+### What is left of Word's 44
 
 - **~25: the OMML switches.** `hideSub`, `hideDegree`, `plcHide`, `zeroWidth`,
   `strikeHorizontal`, `noBreak`, `operatorEmulator` and the rest — the maths
   model this schema follows, drawn by nothing. No `.docx` converter yet either,
   so they are not even round-tripped. The largest remaining pile by far, and the
   one that wants a decision about maths before it wants code.
-- **`locked` on seven types**, which Slides' commands read and Word's do not: a
-  locked shape may not be moved or resized, and Word's overlay does not ask.
-  Different from `lockContent`, which is now read — see above.
 - **A `picture`'s `fill`, `stroke` and `strokeWidth`** — Word's picture border.
   An SVG `<image>` paints neither, so it wants a companion `<rect>`, which turns
   the element into a group and changes what the overlay hit-tests.
-- **A `bTable`'s `grid`, `layout`, `look` and `overlap`**, a `surface`'s
-  `columnsEqualWidth`, `name` and `sectionStart`, a `group`'s two, and the field
-  switches (`format`, `useHyperlink`, `restartLevel`, `searchFromBottom`) — one
-  node each, each its own small answer.
+- **`surface.sectionStart` and `columnsEqualWidth`**, both the paginator's:
+  where a section begins (`nextPage`, `evenPage`…) is a decision about sheets,
+  and unequal columns cannot be drawn with `column-count` at all — CSS's
+  multi-column always divides evenly, so honouring `columnsEqualWidth: false`
+  means a different mechanism.
+- **The rest, one node each**: `bTable.overlap`, `fitText` on the two cell types,
+  a `group`'s two, `contentControl`'s `lockDelete` and `dataBinding`, and the
+  field switches (`useHyperlink`, `restartLevel`, `searchFromBottom`).
 
 ### Accepting or rejecting a block's revision
 

@@ -251,23 +251,46 @@ export function attributeReadFrom(
      * alone on a bare node reported a third of a product's attributes as unread.
      */
     /*
-     * Built from what the **schema** can derive, and deliberately not from what a product taught.
+     * Built from what the schema can derive, and from what a product taught **when the taught value
+     * is a scalar** — which is the narrower version of a rule that used to exclude every taught
+     * value, and the reason for both halves is worth keeping.
      *
-     * A taught value is taught because the schema cannot describe it — an `array` or an `object` —
-     * and a value of that shape is usually a whole sub-system in one attribute, which *supersedes*
-     * the flat attributes it replaces. Measured the first time a deck was taught what a `fills` is:
-     * `paintsOf` takes the list branch whenever there is a list, so every render in this combination
-     * carried a gradient, and `gradientFrom`, `gradientTo`, `gradientAngle`, `gradientKind` and the
-     * three `shadow*` attributes on six shape types each — **fourteen attributes the product plainly
-     * reads** — came back unread. Teaching the harness one thing had made it wrong about seven
-     * others.
+     * ## Why taught values were excluded
      *
-     * So a taught value answers its own question and stays out of everybody else's. The `alone`
-     * question below is the one that sees a superseded attribute, and it only works when the
-     * superseding one is absent.
+     * A taught value is often taught because the schema cannot describe it — an `array` or an
+     * `object` — and a value of that shape is usually a whole sub-system in one attribute, which
+     * *supersedes* the flat attributes it replaces. Measured the first time a deck was taught what a
+     * `fills` is: `paintsOf` takes the list branch whenever there is a list, so every render in this
+     * combination carried a gradient, and `gradientFrom`, `gradientTo`, `gradientAngle`,
+     * `gradientKind` and the three `shadow*` attributes on six shape types each — **fourteen
+     * attributes the product plainly reads** — came back unread. Teaching the harness one thing had
+     * made it wrong about seven others.
+     *
+     * ## Why a scalar is different, and has to be included
+     *
+     * A string does not supersede anything; it is usually the *switch that turns the others on*. A
+     * frame reads `alignItems`, `justifyContent`, `gap` and `columns` only when its `layoutMode` says
+     * `row`, `column` or `grid` — and the schema's first option is `none`, which is the value that
+     * switches the family off, so all four came back unread. A text box reads `horizontalAlign` and
+     * `zOrder` only for a `wrapType` that floats or leaves the flow, and an invented string floats
+     * nothing. In both cases the filler was setting the one attribute that made the rest impossible.
+     *
+     * So: a taught **array or object** answers its own question and stays out of everybody else's,
+     * exactly as before; a taught **scalar** joins the filler, because a product teaching one is
+     * telling the probe what a working document looks like. The `alone` question below still sees a
+     * superseded attribute, and it still only works when the superseding one is absent.
      */
     const all: Record<string, unknown> = {};
     for (const [name, shape] of Object.entries(shapes)) {
+      const taught = probes?.(nodeType, name);
+      const scalar =
+        taught && taught.length > 0 && (typeof taught[0] === 'string' || typeof taught[0] === 'number')
+          ? taught[0]
+          : undefined;
+      if (scalar !== undefined) {
+        all[name] = scalar;
+        continue;
+      }
       const values = probeValues(shape, name);
       if (values !== UNPROBEABLE) all[name] = values[0];
     }

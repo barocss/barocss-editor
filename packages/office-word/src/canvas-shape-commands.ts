@@ -450,7 +450,26 @@ export class WordCanvasShapeExtension implements Extension {
       : this._selected(editor);
     if (asked.length === 0) return [];
     if (number(payload?.dx) === 0 && number(payload?.dy) === 0) return [];
-    return asked.filter((sid) => !!doc.getNode(sid) && !!canvasAt(doc, sid));
+    /**
+     * And **not a shape the reader has locked.**
+     *
+     * `locked` is on every scene node the office schema declares and it means one thing: *I have
+     * decided where this goes.* The deck has read it since its arrange commands were written —
+     * `box-commands.ts` skips locked boxes when it moves, duplicates or deletes, and the tidy pass
+     * treats one as a pin — and Word read it nowhere, so a shape a reader locked could still be
+     * dragged, nudged, resized, aligned and deleted. Seven node types carry it and none of them was
+     * asked.
+     *
+     * Here rather than at each command, because every one of them comes through this: `_resizable`
+     * calls it, `deleteShapes` calls it with a distance of one, and the align and spread commands
+     * read the same list. One question, asked once, for the same reason the deck asks it once.
+     */
+    return asked.filter(
+      (sid) =>
+        !!doc.getNode(sid) &&
+        !!canvasAt(doc, sid) &&
+        (doc.getNode(sid) as { attributes?: { locked?: unknown } }).attributes?.locked !== true
+    );
   }
 
   private async _move(editor: Editor, payload?: MoveShapesOptions): Promise<boolean> {

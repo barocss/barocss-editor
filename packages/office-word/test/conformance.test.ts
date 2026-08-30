@@ -173,6 +173,40 @@ const schema = createSchema('word', getWordSchemaDefinition());
              */
             case 'fit':
               return ['contain', 'cover', 'fill'];
+            /*
+             * A table's column widths, in twips — `gridOf` splits on commas and drops anything that
+             * is not a positive number, so an invented string parses to an empty grid and a table
+             * that plainly reads this looked as though it did not.
+             */
+            case 'grid':
+              return ['1440,2880,1440'];
+            /*
+             * `auto` or `fixed`, which `css.ts` reads as `table-layout`. Not `options` in the schema
+             * because it is `str('auto')` and every product that draws a table takes the CSS
+             * property's own vocabulary; the two values Word maps are the product's to name.
+             */
+            case 'layout':
+              return ['fixed', 'auto'];
+            /*
+             * How a **text box** is wrapped, which is what decides whether it floats, clears, or
+             * leaves the flow — and with it whether `horizontalAlign` (which side it floats to) and
+             * `zOrder` (which of two stacked boxes is on top) mean anything at all. Not `options` in
+             * the schema for the reason `fit` is not: the value comes from Word's own vocabulary and
+             * a page and a deck use the same node with more of it.
+             */
+            case 'wrapType':
+              return ['square', 'topAndBottom', 'behind', 'inFront'];
+            /* Which side a floating box goes to. `left` or the other one, which is `right`. */
+            case 'horizontalAlign':
+              return ['left', 'right'];
+            /*
+             * A date field's picture string. `formatDateField` honours a subset of Word's and falls
+             * back to the ISO date for anything else — which is right, and means an invented string
+             * draws exactly what no string draws, so a field that plainly reads this looked as
+             * though it did not.
+             */
+            case 'format':
+              return ['yyyy-MM-dd', 'd MMMM yyyy', 'MMMM d, yyyy', 'dddd', 'HH:mm'];
             default:
               return undefined;
           }
@@ -281,7 +315,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * to set them, because Word has no panel and no dialogs. Real attributes, really drawn,
        * owed to the sixth dialog rather than regressed.
        */
-      ratchet: { 'every-attribute-is-read': 58, 'every-property-can-be-edited': 182 },
+      ratchet: { 'every-attribute-is-read': 44, 'every-property-can-be-edited': 182 },
 
       /**
        * Every attribute a reader can **set**, out of Word's two writing surfaces.
@@ -352,12 +386,31 @@ const schema = createSchema('word', getWordSchemaDefinition());
          * the sample writes them and no reader can. A control a *template author* sets up and a
          * reader fills in is the shape of the feature, and the author's half is what is missing.
          */
+        /*
+         * And the two a **table** started drawing the same afternoon. Both belong to Table
+         * Properties, which is one of the four dialogs the note above already lists as owed — a
+         * reader can drag a column edge on the ruler and cannot say `fixed` or state a grid.
+         */
+        'bTable.grid': 'Table Properties → Column, a dialog Word has not got yet — drawn as the table’s `<col>` widths',
+        'bTable.layout': 'Table Properties → Table, the same dialog — drawn as `table-layout`',
+
+        /*
+         * A **section's name** and a **paragraph's hint**, both drawn now and neither settable. The
+         * section's belongs to page setup, which is already on the owed list; the paragraph's belongs
+         * to whatever surface makes a template, which is the same thing a content control's
+         * properties want and is one gap rather than two.
+         */
+        'surface.name': 'page setup, a dialog Word has not got yet — drawn as the section’s accessible name',
+        'paragraph.placeholder': 'a template author’s surface, which Word has not got — drawn by `text.css` while the paragraph is empty',
+
         'contentControl.id': 'Developer → Properties, a dialog Word has not got yet — drawn as `data-control-id`',
         'contentControl.title': 'Developer → Properties — drawn as the region’s accessible name',
         'contentControl.controlType': 'Developer → Properties — drawn as `data-control-type`',
         'contentControl.placeholder': 'Developer → Properties — drawn by `text.css` while the control is empty',
         'contentControl.lockContent': 'Developer → Properties — drawn as `contenteditable="false"`, and refused by the typing gate',
 
+        /* And the side a floating box goes to, which the same surface would set. */
+        'textBox.horizontalAlign': 'Format Shape → Layout, the same surface — which side the box floats to',
         'textBox.anchorTo': 'Format Shape → Layout, a surface the flow has no overlay for yet — see BACKLOG',
         'textBox.wrapType': 'Format Shape → Layout, the same surface — how the text behaves around the box',
 
@@ -391,6 +444,25 @@ const schema = createSchema('word', getWordSchemaDefinition());
         'bTable.borderInsideVColor': 'drawn by `cellBorders` on each cell’s sides, unless the cell sits on the table’s own edge',
         'bTable.borderInsideVWidth': 'drawn by `cellBorders` on each cell’s sides, unless the cell sits on the table’s own edge',
         'bTable.borderInsideVSpace': 'part of the border `cellBorders` draws on each cell; a bare table has no cells to draw it on',
+        /*
+         * **What of a table style this table wants** — `firstRow`, `lastColumn`, banded rows and the
+         * rest, which `regionsAt` and `rowRegionsAt` read when a **cell** or a **row** is drawn.
+         * `parseTableLook` takes both spellings a document can carry: the names a person writes and
+         * the bitmask a `.docx` does. Rendering a bare `bTable` draws neither a row nor a cell, so
+         * there is nothing for the value to change — the same shape as its neighbours here.
+         */
+        'bTable.look': 'read by `regionsAt` and `rowRegionsAt` when a cell or a row is drawn; a bare table has neither',
+
+        /*
+         * **Which of two stacked boxes is on top**, which only means something for a box that has
+         * left the flow: two floats are ordered by where they are, and a `z-index` on them would say
+         * something the document did not. `textBoxCss` reads it in the `behind` and `inFront`
+         * branches only, and the probe fills `wrapType` with the first value it is told — `square`,
+         * which floats. Telling it `behind` first would hide `horizontalAlign` instead: one filler,
+         * one value, and this family has two switches that cannot both be on.
+         */
+        'textBox.zOrder': 'read by `textBoxCss` for a box that has left the flow; the probe fills `wrapType` with `square`, which has not',
+
         'bTable.cellMarginTop': 'becomes every cell’s `marginTop` through `cellMargins`, under the cell’s own',
         'bTable.cellMarginBottom': 'becomes every cell’s `marginBottom` through `cellMargins`, under the cell’s own',
         'bTable.cellMarginLeft': 'becomes every cell’s `marginLeft` through `cellMargins`, under the cell’s own',
@@ -525,6 +597,21 @@ const schema = createSchema('word', getWordSchemaDefinition());
          * is that the words look exactly like the words around them.
          */
         noProof: 'tells a spell-checker to leave the run alone — a drawing would defeat it',
+        /**
+         * **"I have decided where this goes"**, which is a fact about editing rather than about
+         * drawing — the deck's copy of this file says the same thing about the same attribute.
+         *
+         * Word read it nowhere: a shape a reader locked could still be dragged, nudged, resized,
+         * aligned, spread and deleted. `_movable` in `canvas-shape-commands.ts` asks now, and every
+         * one of those commands comes through it — `_resizable` calls it, `deleteShapes` calls it
+         * with a distance of one, and the align and spread commands read the same list.
+         *
+         * A drawing that changed would be a shape that looks different from the one beside it for a
+         * reason about editing. What *should* change is the overlay, which draws no handles on a
+         * locked box — and Word's does not know yet. See BACKLOG.
+         */
+        locked:
+          'the canvas shape commands — `moveShapes`, `resizeShapes`, `deleteShapes` and the align and spread commands all refuse a locked shape, through `_movable`',
 
         /*
          * ── The three the probe could not ask about until it was taught their shape ──
