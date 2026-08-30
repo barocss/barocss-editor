@@ -64,7 +64,7 @@
 import { define, element, slot,
   override
 } from '@barocss/dsl';
-import { getWordDocument, registerTextRenderers } from '@barocss/office-text';
+import { getWordDocument, listTypeOf, registerTextRenderers } from '@barocss/office-text';
 import { placementCss, slideSize, twipToPx, type CssStyle, type Placement } from './geometry';
 import { deckFillLayers, deckPaintCss, svgDash, svgFlow } from './paint';
 import { svgPaintOf, type SvgNode } from './svg-paint';
@@ -1304,27 +1304,28 @@ export function registerSlidesRenderers(): void {
    * renamed, a deck that had gone on silently defining would draw its answer to a question nobody
    * asks any more.
    */
+  /**
+   * A list, **on a slide** — the class only, because the type is the shared renderer's now.
+   *
+   * This used to write `data-list-type` itself, and the note is worth keeping: it read `listType`, a
+   * name nothing writes, so a reader who pressed the numbered-list button got `type: 'ordered'` from
+   * the operation and a list drawn `data-list-type="bullet"` — **a numbered list with bullets.** The
+   * sample deck hid it by writing `listType` too, matching the renderer rather than the schema, so
+   * every test agreed with the bug. Found by `every-attribute-is-read`.
+   *
+   * The fix then stayed here for months while `office-text` went on drawing a plain `div`, so a page
+   * inherited the original fault and so would the next product. It is shared now — see
+   * `listTypeOf` — and this override carries the one thing that is really the deck's: `sl-list`,
+   * which is how a slide's markers are sized against a slide's type rather than a document's.
+   */
   override(
     'list',
     element(
       'div',
       {
         className: 'w-list sl-list',
-        /**
-         * `type`, which is the name the schema declares and `wrapInList` writes.
-         *
-         * This read `listType` — a name nothing writes. So a reader who pressed the
-         * numbered-list button got `type: 'ordered'` from the operation and a list
-         * drawn `data-list-type="bullet"`: **a numbered list with bullets.** The
-         * sample deck hid it by writing `listType` too, matching the renderer rather
-         * than the schema, so every test agreed with the bug.
-         *
-         * Found by `every-attribute-is-read`, which is the shape of finding this
-         * harness is for: nothing was wrong in any one file.
-         */
-        'data-list-type': (d: NodeData) =>
-          typeof attrsOf(d).type === 'string' ? attrsOf(d).type : 'bullet'
-      } as never,
+        'data-list-type': (d: NodeData) => listTypeOf(d)
+      },
       [slot('content')]
     )
   );

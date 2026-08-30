@@ -651,5 +651,41 @@ test.describe('recording the rest of an edit', () => {
     expect(await page.locator('.w-paragraph').count()).toBe(blocksBefore);
     const run = await caretRun(page);
     expect(run.blockAttrs).toMatchObject({ revisionType: 'deletion' });
+
+    /**
+     * **And the reader can see it** — which the three lines above cannot tell.
+     *
+     * This test passed for as long as it has existed while the screen showed nothing at all:
+     * `revision-record.ts` wrote the id, the type, the author and the date, and the only thing that
+     * read any of them was `recordParagraphMerge` checking whether it had already proposed one.
+     * A reviewer had no way to know there was anything to accept or reject.
+     *
+     * Found by `every-attribute-is-read` — 44 of Word's 185 unread attributes were these four on
+     * eleven node types, the largest single pile. Asserting the model and not the drawing is how a
+     * whole feature stays written down and invisible, and it is the reason to assert both here.
+     */
+    const proposed = page.locator('.w-paragraph[data-revision="deletion"]');
+    await expect(proposed).toHaveCount(1);
+
+    // The change bar, in the author's colour rather than in a class name — one reviewer is one
+    // colour whether they changed a word or a boundary, which is what `authorColor` is for.
+    const bar = await proposed.evaluate((el) => {
+      const painted = getComputedStyle(el, '::after');
+      return {
+        drawn: painted.content !== 'none',
+        colour: painted.backgroundColor,
+        variable: getComputedStyle(el).getPropertyValue('--w-revision').trim()
+      };
+    });
+    expect(bar.drawn).toBe(true);
+    expect(bar.variable).not.toBe('');
+    expect(bar.colour).not.toBe('rgba(0, 0, 0, 0)');
+
+    // And the ¶ that says *what* is proposed: the boundary, not the words.
+    const mark = await proposed.evaluate((el) => getComputedStyle(el, '::before').content);
+    expect(mark).toContain('¶');
+
+    // Who and when, for a reviewer hovering it.
+    await expect(proposed).toHaveAttribute('title', /deletion by /);
   });
 });

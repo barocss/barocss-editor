@@ -353,6 +353,31 @@ test.describe('the toolbar', () => {
     await page.waitForSelector('.w-toolbar');
     await placeCaret(page, '.w-paragraph', 1);
 
+    /**
+     * **Words, not a caret** — because a font is a mark, and a mark over zero characters is written
+     * nowhere.
+     *
+     * This held the caret and expected 글꼴 to be live, and it was: the guard asked only for a range
+     * and a collapsed one passed. So a reader could click into a word, choose a font, and have
+     * nothing happen — the class `guards.ts` is named after. 크기 and 색 had been given the tighter
+     * question long before and were already grey here; 글꼴 was the odd one, and the three agree now.
+     *
+     * The test is about the *cleared* selection either way, and it says the same thing over a
+     * selection as over a caret — it just says it about a control that means something.
+     */
+    await page.keyboard.down('Shift');
+    for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
+    await page.keyboard.up('Shift');
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const at = (window as never as { editor?: { selection?: Record<string, number | string> } })
+            .editor?.selection;
+          return at ? at.endOffset !== at.startOffset : false;
+        })
+      )
+      .toBe(true);
+
     const font = page.locator('.w-toolbar-font-family');
     await expect(font).toBeEnabled();
     await expect(page.locator('.w-toolbar-style')).toContainText('Body text');

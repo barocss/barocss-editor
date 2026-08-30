@@ -46,6 +46,124 @@ entries are that.
 
 ## Open
 
+### A whole feature was written down and invisible — 2026-08-30 *(fixed)*
+
+`every-attribute-is-read` reported **185** attributes Word declares and nothing
+draws. Reading the list rather than the number, the largest pile was one thing:
+**44 of them were block-level tracked changes.** `revisionId`, `revisionType`,
+`revisionAuthor` and `revisionDate`, on eleven node types, written by
+`revision-record.ts` — and the only code that read any of them was
+`recordParagraphMerge`, checking whether it had already proposed one.
+
+So with 변경 내용 추적 on, pressing Backspace at the start of a paragraph
+proposed the merge, recorded who and when, and **the screen showed nothing at
+all**. The paragraphs stayed apart with no mark on them and a reviewer had
+nothing to accept or reject. Tracked changes to *text* had been drawn since the
+feature was written, because those are marks; a block's revision is not a mark —
+what it proposes is not about a range of characters — and nobody had drawn the
+other half.
+
+`blockRevision` draws it now: a change bar in the margin in the author's colour,
+from the same `authorColor` the marks use, so one reviewer is one colour whether
+they changed a word or a boundary; and a struck-through ¶ where a paragraph mark
+is the thing being deleted. Nine node types carry it, through one
+`revisionDrawing` helper — *the repetition is how six of them would be
+forgotten, which is what happened to all nine.*
+
+**The browser test for this already existed and passed the whole time.** It
+asserted `blockAttrs` and never looked at the page. Asserting the model and not
+the drawing is exactly how a feature stays written down and invisible.
+
+**185 → 134**, and six of the fifty came off without a line of product code:
+`headerId`, `footerId` and the four first-page and even-page names are read by
+`renderers/page.ts` through `furnitureFor`, which picks a header per page in
+Word's order. The check cannot see it because the whole branch is behind
+`if (doc && layout)` — choosing a header needs a **paginated layout**, and
+rendering a `surface` on its own has no pages to choose between. They had been
+sitting in the pile described as *"five names nothing looks up"*, which was
+wrong. Reading the list is what found it; counting it is what hid it.
+
+### A numbered list drew nothing at all, off Word — 2026-08-30 *(fixed)*
+
+A marker comes from the numbering definition in `resources`: `listItem` draws
+`data-marker` from `numberFor(sid)`. That is Word's model and the right one. But
+the shared `toggleBulletList` / `toggleOrderedList` write `type` on the list and
+**no `numId` on anything**, so the resolver had nothing to resolve, the marker
+was the empty string, and a list on a page drew no bullet and no number.
+
+**All three products had already fixed it, each in its own way, and the shared
+default stayed wrong.** Word numbers from a `numId` definition in `resources`.
+The deck draws CSS counters from a `data-list-type` its own renderer writes —
+added when `every-attribute-is-read` reported a numbered list wearing bullets.
+The site overrides the node entirely and emits real `ul` / `ol` — added when
+`insertBulletList` turned out to be writing `kind: 'bullet'`, an attribute
+nothing reads.
+
+Three products, three separate discoveries of one fault, three separate repairs,
+and `office-text` went on drawing a plain `div` through all of them. Nobody was
+wrong in any one file, which is the shape this whole harness is for.
+
+It is shared now (`listTypeOf`), the deck's override keeps only what is really
+the deck's, and `text.css` draws the fallback **only where `data-marker` is
+empty** so a resolved number always wins. No product needs it today — Word
+suppresses it, the deck and the site override the node — and the fourth product
+gets a list that draws like a list without finding this out for itself.
+
+### A caret has no pending format, so the font controls go grey on one
+
+`setFontFamily` joined `setFontSize` and `setFontColor` in asking for a range
+that covers **something** — a mark over zero characters is written nowhere, so
+over a caret the dropdown was live and inert. The three agree now, and Word's
+toolbar test had to select words rather than place a caret, which is the tell:
+it had been asserting that a dead control looked alive.
+
+What Word actually does with a caret is hold the choice for the **next character
+typed** — a pending format, which this engine has no concept of. That is the
+feature the grey control is standing in for: a `pendingMarks` on the selection
+that `insertText` applies and any selection move clears. Until it exists, grey
+is the honest answer and a live dropdown is a lie.
+
+### What the sweep found and ruled out
+
+Run for the reflection that this repository lists code without reading it, and
+worth recording so it is not run again from scratch:
+
+- **13 `RangeOperations` methods nothing above calls** — `expandToWord`,
+  `expandToLine`, `findAll`, `moveText`, `duplicateText`, `trimText`,
+  `normalizeWhitespace`, `constrainMarksToRange` and five more. Not faults:
+  double-click word selection is the browser's inside a contenteditable, and
+  find-replace has its own collect because it needs whole-word and case. Worth
+  a look the day one of them is about to be written a second time.
+- **Every mark the office schema declares has a writer.** All 25.
+- **Every chord in all three products names a command that exists.** The check
+  that found four in Word now runs for the deck and the site too.
+- **Every toolbar, panel, ruler and menu entry names a command that exists**, in
+  all three products.
+
+### The next piles in Word's 140
+
+From the same list, and each is a decision rather than a forgotten line:
+
+- **~40: borders declared where they belong and drawn nowhere.** A block's
+  `borderBetween` — the single line Word draws where two bordered paragraphs
+  meet, which needs the neighbour the way `suppressedSpacing` already asks for
+  one — and a table's `borderInsideH` / `borderInsideV`, its interior, which
+  needs the cell's position and so belongs with the per-cell style layers rather
+  than in `applyBorders`.
+- **~25: the OMML switches.** `hideSub`, `hideDegree`, `plcHide`, `zeroWidth`,
+  `strikeHorizontal`, `noBreak`, `operatorEmulator` and the rest. No `.docx`
+  converter yet either, so they are not even round-tripped.
+- **A `contentControl`'s five**, a `picture`'s `alt`/`fill`/`stroke`, a
+  `textBox`'s `wrapType`/`zOrder`, and `locked` on seven types which Slides'
+  commands read and Word's do not.
+
+### Accepting or rejecting a block's revision
+
+The bar is drawn and the ¶ says what is proposed; 적용 and 되돌리기 still act on
+marks only. A rejected paragraph-mark deletion has to put the `revision*`
+attributes back and nothing else; an accepted one has to actually merge the two
+blocks, which is `mergeBlockNodes` plus taking the attributes off.
+
 ### A key that names a command nobody registers — 2026-08-30 *(fixed, and now asked)*
 
 Nothing had ever asked the question *does every chord this product prints name a

@@ -31,6 +31,101 @@
 }
 
 /*
+ * And a marker from the **list itself**, when numbering had nothing to say.
+ *
+ * Word numbers a list from a definition in `resources`, so `data-marker` carries the text and the
+ * rule above draws it. A product with no numbering definitions — a page, a deck, anything using the
+ * shared `toggleBulletList` / `toggleOrderedList`, which write `type` and no `numId` — got an empty
+ * marker and a list with **no bullet and no number at all**.
+ *
+ * Only where the marker is empty, so this can never double Word's: a resolved number wins, and this
+ * is the fallback rather than a second opinion.
+ */
+.w-list > .w-list-item[data-marker=''] {
+  display: flex;
+  gap: 0.5em;
+  /* So the marker sits on the first line's baseline rather than at the top of an item that wraps. */
+  align-items: baseline;
+}
+
+.w-list > .w-list-item[data-marker='']::before {
+  flex: none;
+  /* Never part of the text: a marker is computed, and a caret must not enter it. */
+  user-select: none;
+}
+
+.w-list[data-list-type='bullet'] {
+  counter-reset: none;
+}
+
+.w-list[data-list-type='bullet'] > .w-list-item[data-marker='']::before {
+  content: '\2022';
+}
+
+.w-list[data-list-type='ordered'],
+.w-list[data-list-type='number'] {
+  counter-reset: w-item;
+}
+
+.w-list[data-list-type='ordered'] > .w-list-item[data-marker=''],
+.w-list[data-list-type='number'] > .w-list-item[data-marker=''] {
+  counter-increment: w-item;
+}
+
+.w-list[data-list-type='ordered'] > .w-list-item[data-marker='']::before,
+.w-list[data-list-type='number'] > .w-list-item[data-marker='']::before {
+  content: counter(w-item) '.';
+  /* Right-aligned in a fixed column so the text after them lines up. */
+  min-width: 1.4em;
+  text-align: right;
+}
+
+/*
+ * A block somebody has proposed a change to — the **change bar**, in the margin.
+ *
+ * Tracked changes to *text* are marks and are drawn on the text: underlined for an insertion,
+ * struck through for a deletion, in the author's colour. A change to a **block** cannot be drawn
+ * that way, because the text it proposes about may be untouched — `revisionType: 'deletion'` on a
+ * paragraph is Word's deleted paragraph mark, and a paragraph whose mark is deleted reads exactly as
+ * it did. So it is marked beside the block, which is where Word marks it too.
+ *
+ * `--w-revision` carries the author's colour from `authorColor`, the same function the marks use, so
+ * one reviewer is one colour whether they changed a word or a boundary.
+ */
+[data-revision]:not([data-revision='']) {
+  position: relative;
+}
+
+[data-revision]:not([data-revision=''])::after {
+  content: '';
+  position: absolute;
+  /* Outside the text column, in the margin — never over a character. */
+  left: -0.75em;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--w-revision, currentColor);
+  /* A bar is not content: a caret must not enter it and a copy must not take it. */
+  user-select: none;
+  pointer-events: none;
+}
+
+/*
+ * A **deleted paragraph mark** — the boundary this block would lose. Struck through where the
+ * boundary is, which is the end of the block, so a reader can see what the revision proposes rather
+ * than only that one exists.
+ */
+[data-revision='deletion']::before {
+  content: '¶';
+  color: var(--w-revision, currentColor);
+  text-decoration: line-through;
+  /* Beside the text it belongs to, and never part of it. */
+  float: right;
+  user-select: none;
+  pointer-events: none;
+}
+
+/*
  * The caret filler is renderer bookkeeping, and it must never look like
  * content: an empty block renders a marked filler so a caret has somewhere to
  * go, and every offset calculation excludes it.

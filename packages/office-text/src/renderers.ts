@@ -23,7 +23,7 @@ import {
 import { formatDateField } from './date-field';
 import { leaderStyle } from './tabs';
 import { imageCss } from './image-layout';
-import { blockLanguage, blockStyle, formatFor, listMarker } from './renderers/block-style';
+import { blockLanguage, blockRevision, blockStyle, formatFor, listMarker, listTypeOf, revisionDrawing } from './renderers/block-style';
 import { cellBorders, cellMargins, gridOf, tableElementCss } from './table-format';
 import { cellPlacementOf, cellStyleLayers, rowFormat, tableStyleLayer } from './table-style';
 import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
@@ -225,7 +225,18 @@ export function registerTextRenderers(): void {
          * two languages at once.
          */
         'lang': (d: Record<string, any>, env?: RenderEnv) => blockLanguage(d, env),
-        style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env)
+        /*
+         * And whether this block is somebody's proposed change — see `blockRevision`. A revision of a
+         * block is not a mark, because what it proposes is not about a range of characters, so it is
+         * drawn in the margin as a change bar rather than on the text.
+         */
+        'data-revision': (d: Record<string, any>) => blockRevision(d)?.type ?? '',
+        title: (d: Record<string, any>) => blockRevision(d)?.title ?? '',
+        style: (d: Record<string, any>, env?: RenderEnv) => {
+          const revision = blockRevision(d);
+          const drawn = blockStyle(d, env);
+          return revision ? { ...drawn, '--w-revision': revision.color } : drawn;
+        }
       },
       [slot('content')]
     )
@@ -252,18 +263,69 @@ export function registerTextRenderers(): void {
          * two languages at once.
          */
         'lang': (d: Record<string, any>, env?: RenderEnv) => blockLanguage(d, env),
-        style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env)
+        /*
+         * And whether this block is somebody's proposed change — see `blockRevision`. A revision of a
+         * block is not a mark, because what it proposes is not about a range of characters, so it is
+         * drawn in the margin as a change bar rather than on the text.
+         */
+        'data-revision': (d: Record<string, any>) => blockRevision(d)?.type ?? '',
+        title: (d: Record<string, any>) => blockRevision(d)?.title ?? '',
+        style: (d: Record<string, any>, env?: RenderEnv) => {
+          const revision = blockRevision(d);
+          const drawn = blockStyle(d, env);
+          return revision ? { ...drawn, '--w-revision': revision.color } : drawn;
+        }
       },
       [slot('content')]
     )
   );
 
-  define('list', element('div', { className: 'w-list' }, [slot('content')]));
+  /**
+   * A list, **saying which kind it is** — which this drew as a plain `div` for as long as it existed.
+   *
+   * A marker comes from the numbering definition when there is one: `listItem` draws `data-marker`
+   * from `numberFor(sid)`, which is Word's model and the right one, because Word's lists are numbered
+   * by a definition in `resources` rather than by the node they sit in. Without a definition that
+   * resolver returns nothing, the marker is the empty string, and **the list drew no bullet and no
+   * number at all** — which is what the shared `toggleOrderedList` produces on a page, since
+   * `wrapInList` writes `type` and no `numId`.
+   *
+   * All three products had already found this and fixed it **each in its own way**: the deck draws
+   * CSS counters from a `data-list-type` its renderer writes, added when `every-attribute-is-read`
+   * reported a numbered list wearing bullets; the site overrides the node and emits real `ul` / `ol`,
+   * added when `insertBulletList` turned out to be writing `kind`, an attribute nothing reads. Three
+   * separate discoveries of one fault, three separate repairs, and this went on drawing a plain
+   * `div` through all of them.
+   *
+   * See `text.css` for the half that only fires when numbering said nothing.
+   */
+  define(
+    'list',
+    element(
+      'div',
+      {
+        className: 'w-list',
+        'data-list-type': (d: Record<string, any>) => listTypeOf(d)
+      } as never,
+      [slot('content')]
+    )
+  );
   define(
     'listItem',
     element(
       'div',
-      { className: 'w-list-item', 'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env), style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env) },
+      {
+        className: 'w-list-item',
+        'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env),
+        // The same change bar a paragraph gets — a list item is a block and can be proposed too.
+        'data-revision': (d: Record<string, any>) => blockRevision(d)?.type ?? '',
+        title: (d: Record<string, any>) => blockRevision(d)?.title ?? '',
+        style: (d: Record<string, any>, env?: RenderEnv) => {
+          const revision = blockRevision(d);
+          const drawn = blockStyle(d, env);
+          return revision ? { ...drawn, '--w-revision': revision.color } : drawn;
+        }
+      },
       [slot('content')]
     )
   );
@@ -309,12 +371,21 @@ export function registerTextRenderers(): void {
    * 469, and the second half at 482 — all three on the first sheet, with the
    * document one page taller and no break anywhere on it.
    */
+  /*
+   * A break carries a revision too — inserting one with 변경 내용 추적 on is a proposal like any
+   * other, and Word marks it in the margin the same way. See `revisionDrawing`.
+   */
   define(
     'pageBreak',
     element('div', {
       className: 'w-page-break',
       role: 'separator',
-      style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env)
+      'data-revision': (d: Record<string, any>) => revisionDrawing(d)['data-revision'],
+      title: (d: Record<string, any>) => revisionDrawing(d).title,
+      style: (d: Record<string, any>, env?: RenderEnv) => ({
+        ...blockStyle(d, env),
+        ...revisionDrawing(d).style
+      })
     })
   );
   define(
@@ -322,13 +393,43 @@ export function registerTextRenderers(): void {
     element('div', {
       className: 'w-column-break',
       role: 'separator',
-      style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env)
+      'data-revision': (d: Record<string, any>) => revisionDrawing(d)['data-revision'],
+      title: (d: Record<string, any>) => revisionDrawing(d).title,
+      style: (d: Record<string, any>, env?: RenderEnv) => ({
+        ...blockStyle(d, env),
+        ...revisionDrawing(d).style
+      })
     })
   );
   define('horizontalRule', element('hr', { className: 'w-rule' }));
 
-  define('contentControl', element('div', { className: 'w-content-control', 'data-tag': (d: Record<string, any>) => String(d.attributes?.tag ?? '') }, [slot('content')]));
-  define('textBox', element('aside', { className: 'w-text-box' }, [slot('content')]));
+  define(
+    'contentControl',
+    element(
+      'div',
+      {
+        className: 'w-content-control',
+        'data-tag': (d: Record<string, any>) => String(d.attributes?.tag ?? ''),
+        'data-revision': (d: Record<string, any>) => revisionDrawing(d)['data-revision'],
+        title: (d: Record<string, any>) => revisionDrawing(d).title,
+        style: (d: Record<string, any>) => revisionDrawing(d).style
+      },
+      [slot('content')]
+    )
+  );
+  define(
+    'textBox',
+    element(
+      'aside',
+      {
+        className: 'w-text-box',
+        'data-revision': (d: Record<string, any>) => revisionDrawing(d)['data-revision'],
+        title: (d: Record<string, any>) => revisionDrawing(d).title,
+        style: (d: Record<string, any>) => revisionDrawing(d).style
+      },
+      [slot('content')]
+    )
+  );
 
   // ── Tables ─────────────────────────────────────────────────────────────────
   /**
@@ -375,10 +476,14 @@ export function registerTextRenderers(): void {
       'table',
       {
         className: 'w-table',
+        // And the table itself, which Word tracks when a whole table is inserted or deleted.
+        'data-revision': revisionDrawing(node)['data-revision'],
+        title: revisionDrawing(node).title,
         style: {
           ...blockStyle(node, env),
           ...formatFor(node, 'table', env, layers),
-          ...tableElementCss(format)
+          ...tableElementCss(format),
+          ...revisionDrawing(node).style
         }
       },
       [
@@ -453,13 +558,17 @@ export function registerTextRenderers(): void {
        * not in the document: the row is the header, and inventing a node for it
        * would be the renderer changing what the document says.
        */
+      // A row can be somebody's proposed change — Word tracks an inserted or deleted row as one.
+      const revision = revisionDrawing(node);
+      const marked = { ...revision, className, style: { ...style, ...revision.style } };
+
       if (tag === 'thead') {
-        return element('thead', { className, style }, [
+        return element('thead', marked, [
           element('tr', { className: 'w-tr' }, [slot('content')])
         ]);
       }
 
-      return element(tag, { className, style }, [slot('content')]);
+      return element(tag, marked, [slot('content')]);
     });
 
   rowNode('bTableRow', 'tr', 'w-tr');
@@ -548,6 +657,10 @@ export function registerTextRenderers(): void {
           className: 'w-cell',
           colspan: Number(node.attributes?.colspan) || 1,
           rowspan: Number(node.attributes?.rowspan) || 1,
+          // A cell can be somebody's proposed change on its own — Word tracks a cell's insertion and
+          // deletion separately from the row's. See `revisionDrawing`.
+          'data-revision': revisionDrawing(node)['data-revision'],
+          title: revisionDrawing(node).title,
           // The region's run formatting is on the cell as well as on the blocks
           // inside it: a cell may hold text directly, with no paragraph to carry
           // it, and a header row is bold either way. A paragraph inside states
@@ -556,7 +669,8 @@ export function registerTextRenderers(): void {
             ...(regions ? characterCss(regions.text) : {}),
             ...cellCss,
             ...(clip ? { padding: '0' } : {}),
-            ...borders
+            ...borders,
+            ...revisionDrawing(node).style
           }
         } as never,
         [content]

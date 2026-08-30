@@ -73,6 +73,6 @@ export * from './table-style';
  * grammar rather than a word list and puts the spans in the markup the export writes.
  */
 export { registerTextRenderers } from './renderers';
-export { blockLanguage, blockStyle, formatFor, listMarker } from './renderers/block-style';
+export { blockLanguage, blockRevision, blockStyle, formatFor, listMarker, listTypeOf, revisionDrawing } from './renderers/block-style';
 export { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
 export { registerMathRenderers } from './math-renderers';

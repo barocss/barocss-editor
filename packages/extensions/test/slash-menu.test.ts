@@ -66,15 +66,16 @@ describe('슬래시 메뉴', () => {
     } as never);
 
     told = [];
-    (editor as never as { on: (e: string, f: (s: unknown) => void) => void }).on(
-      'editor:slashMenu.change',
-      (state) => told.push(JSON.parse(JSON.stringify(state)))
+    editor.on('editor:slashMenu.change' as never, (state: unknown) =>
+      told.push(JSON.parse(JSON.stringify(state)))
     );
   });
 
-  const menu = () =>
-    (editor as never as { getExtension: (n: string) => { state: { open: boolean; query: string; items: Array<{ id: string }>; currentIndex: number } } })
-      .getExtension('slashCommand');
+  /*
+   * Through `getExtension`, which the editor declares — the state is the extension's, and a product
+   * that wants to draw the menu reaches it exactly this way.
+   */
+  const menu = () => editor.getExtension<SlashCommandExtension>('slashCommand')!;
 
   /**
    * The row naming a command nobody registers **never appears**.

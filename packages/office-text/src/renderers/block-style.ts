@@ -6,6 +6,7 @@
  * all resolve their formatting the same way, and a table adds to it.
  */
 import type { RenderEnv } from '@barocss/dsl';
+import { authorColor, revisionTitle } from '../revisions';
 import {
   characterCss,
   hyphenationCss,
@@ -143,6 +144,82 @@ export function blockStyle(node: Record<string, any>, env: RenderEnv | undefined
 }
 
 /** The list marker for a numbered block, if it has one. */
+/**
+ * What a block's own tracked revision is, for the renderer to draw — or nothing.
+ *
+ * ## The half of tracked changes nobody drew
+ *
+ * An insertion and a deletion of *text* are marks, and `registerRevisionMarks` has drawn them in the
+ * author's colour since the feature was written. A revision of a **block** is not a mark, because
+ * what it proposes is not about a range of characters: `revisionType: 'deletion'` on a paragraph is
+ * Word's deleted paragraph mark — the boundary goes and this block joins the one after it.
+ *
+ * `recordParagraphMerge` writes exactly that, and **nothing anywhere read it.** So with 변경 내용
+ * 추적 on, pressing Backspace at the start of a paragraph proposed the merge, recorded the author and
+ * the date, and the screen showed nothing at all: the paragraphs stayed apart with no mark on them,
+ * and a reviewer had no way to see there was anything to accept or reject.
+ *
+ * Found by `every-attribute-is-read` — 36 of its 185 findings were these four attributes on nine node
+ * types, the single largest thing this product declares and does not look at.
+ *
+ * ## Why a data attribute and a colour rather than a decoration
+ *
+ * A block's revision is drawn in the **margin**, as a change bar, because the block's own text may
+ * be untouched: a paragraph whose mark is deleted reads exactly as it did. `text.css` draws the bar
+ * from `data-revision`, and the colour comes from `authorColor` — the same function the marks use,
+ * so one reviewer is one colour whether they changed a word or a boundary.
+ */
+export function blockRevision(
+  node: Record<string, any>
+): { type: string; color: string; title: string } | undefined {
+  const attrs = (node?.attributes ?? {}) as Record<string, unknown>;
+  if (typeof attrs.revisionId !== 'string' || attrs.revisionId.length === 0) return undefined;
+
+  const type = typeof attrs.revisionType === 'string' ? attrs.revisionType : 'change';
+  const author = typeof attrs.revisionAuthor === 'string' ? attrs.revisionAuthor : undefined;
+  return {
+    type,
+    color: authorColor(author),
+    title: revisionTitle(type, { author, date: attrs.revisionDate })
+  };
+}
+
+/**
+ * The two attributes and the colour variable a renderer needs to draw a block's revision.
+ *
+ * One helper rather than three lines repeated at every node that can carry one, because *nine* node
+ * types can and the repetition is how six of them would be forgotten — which is exactly what
+ * happened to all nine before this existed.
+ */
+export function revisionDrawing(node: Record<string, any>): {
+  'data-revision': string;
+  title: string;
+  style: Record<string, string>;
+} {
+  const revision = blockRevision(node);
+  return {
+    'data-revision': revision?.type ?? '',
+    title: revision?.title ?? '',
+    style: revision ? { '--w-revision': revision.color } : {}
+  };
+}
+
+/**
+ * Which kind of list this is — the fallback marker, for a product with no numbering definitions.
+ *
+ * Beside `listMarker` because they are the two halves of one question and they answer it in a fixed
+ * order: a definition in `resources` resolves to a marker's *text*, and where there is none this says
+ * what the list is so CSS can draw a plain bullet or a counter. Word takes the first path and
+ * everything else takes the second, and until this existed the second drew nothing at all.
+ *
+ * A list with nothing said about it is a bullet list, which is what `wrapInList`'s own default
+ * writes and what every editor of this kind means by an unqualified list.
+ */
+export function listTypeOf(node: Record<string, any>): string {
+  const type = (node?.attributes ?? {}).type;
+  return typeof type === 'string' && type.length > 0 ? type : 'bullet';
+}
+
 export function listMarker(node: Record<string, any>, env: RenderEnv | undefined): string {
   const numbering = getWordNumbering(env);
   const sid = node.sid as string | undefined;

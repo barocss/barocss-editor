@@ -220,12 +220,15 @@ const schema = createSchema('word', getWordSchemaDefinition());
        *     per-cell style layers rather than in `applyBorders`. The four `*Space`
        *     values came off this pile: every bordered paragraph in the product had its
        *     line hard against the letters.
-       *   - **44: block revisions are recorded and never shown.** `revisionId`,
-       *     `revisionType`, `revisionAuthor`, `revisionDate` on eleven node types.
-       *     `revision-record.ts` writes all four; the only thing that reads any of them
-       *     is `recordParagraphMerge`, checking whether it already proposed one.
-       *     Nothing draws a tracked change on a block and nothing accepts or rejects
-       *     one — a whole feature written down and invisible.
+       *   - ~~**44: block revisions are recorded and never shown.**~~ **Done**, and it was the
+       *     largest pile: `revisionId`, `revisionType`, `revisionAuthor` and `revisionDate` on
+       *     eleven node types, written by `revision-record.ts` and read by nothing but
+       *     `recordParagraphMerge` checking whether it had already proposed one. A whole feature
+       *     written down and invisible — with 변경 내용 추적 on, Backspace at the start of a
+       *     paragraph recorded the merge, the author and the date, and the screen showed nothing.
+       *     `blockRevision` draws it now: a change bar in the margin in the author's colour, from
+       *     the same `authorColor` the marks use, and a struck-through ¶ where a paragraph mark is
+       *     the thing being deleted. Accepting and rejecting one is still owed — see BACKLOG.
        *   - **~25: the OMML switches.** `hideSub`, `hideSup`, `hideDegree`, `plcHide`,
        *     `zeroWidth`, `strikeHorizontal`, `noBreak`, `operatorEmulator` and the
        *     rest: the maths model this schema follows, drawn by nothing. There is no
@@ -267,7 +270,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * to set them, because Word has no panel and no dialogs. Real attributes, really drawn,
        * owed to the sixth dialog rather than regressed.
        */
-      ratchet: { 'every-attribute-is-read': 185, 'every-property-can-be-edited': 182 },
+      ratchet: { 'every-attribute-is-read': 134, 'every-property-can-be-edited': 182 },
 
       /**
        * Every attribute a reader can **set**, out of Word's two writing surfaces.
@@ -291,6 +294,63 @@ const schema = createSchema('word', getWordSchemaDefinition());
         Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
         Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
       exempt: {
+        /*
+         * ── Written by the tracking commands, never typed by a reader ──────
+         *
+         * These four became *drawn* the day `blockRevision` existed, and being drawn is what puts an
+         * attribute in front of `every-property-can-be-edited`. They are not properties: nobody sets
+         * a revision's author in a panel, `tracking-commands.ts` stamps all four when a reader edits
+         * with 변경 내용 추적 on. A control that let a reader type an author into a revision would be
+         * a control that lets them forge one.
+         *
+         * A reason rather than a bigger ratchet, because a ratchet is a count that has to come down
+         * and this is a decision that does not.
+         */
+        revisionId: 'stamped by `tracking-commands.ts` when a reader edits with tracking on; a reader never sets one',
+        revisionType: 'stamped by `tracking-commands.ts` — what the edit was, not a property somebody chooses',
+        revisionAuthor: 'the reviewer, from the editor; a control for typing one would be a control for forging one',
+        revisionDate: 'when the edit happened, from the clock, for the same reason as the author',
+
+        /*
+         * ── Read by the page renderer, which a bare render cannot reach ────
+         *
+         * `renderers/page.ts` builds a `FurnitureBinding` out of these five and hands it to
+         * `furnitureFor`, which picks the header or footer for each page in Word's order: the title
+         * page's if this is the first and the section asks for one, the even one if the page number
+         * is even and it asks for that, otherwise the ordinary one. It is read, drawn and covered by
+         * `word-page-furniture.spec.ts`.
+         *
+         * The check cannot see it because the whole branch is behind `if (doc && layout)`: a header
+         * repeats on every page, so choosing one needs a **paginated layout**, and rendering a
+         * `surface` on its own has no pages to choose between. The same shape as the three `array`
+         * attributes below — read somewhere a bare render cannot reach — and the same answer.
+         *
+         * This sat in the unread pile as *"five names nothing looks up"*, which was wrong. Reading
+         * the list is what found it; counting it is what hid it.
+         */
+        headerId: 'read by `renderers/page.ts` through `furnitureFor`, which needs a paginated layout a bare render has no pages for',
+        footerId: 'read by `renderers/page.ts` through `furnitureFor`, which needs a paginated layout a bare render has no pages for',
+        firstPageHeaderId: 'the title page’s header, chosen by `furnitureFor` when the section’s `titlePage` switch is on',
+        firstPageFooterId: 'the title page’s footer, chosen by `furnitureFor` when the section’s `titlePage` switch is on',
+        evenPageHeaderId: 'the even-page header, chosen by `furnitureFor` when `differentOddEven` is on',
+        evenPageFooterId: 'the even-page footer, chosen by `furnitureFor` when `differentOddEven` is on',
+
+        /**
+         * **Word does not number a list by the node it sits in.**
+         *
+         * `list-commands.ts` writes `numId` on each block and puts the definition in `resources` —
+         * which is Word's model, and the reason two lists can share a numbering and a third can
+         * restart it. `type` on the `list` node is what the *shared* `toggleBulletList` /
+         * `toggleOrderedList` write, and it is drawn as a fallback for a product with no numbering
+         * definitions at all (see `listTypeOf`). Word has them, so its marker always comes from the
+         * definition and a control for setting this would be a second, quieter answer to a question
+         * the ribbon already answers.
+         *
+         * It arrived in front of this check the day the fallback existed, which is the check working:
+         * an attribute that starts being drawn starts needing an answer to *who sets it*.
+         */
+        'list.type': 'Word numbers a list from a `numId` definition in `resources`; `type` is the shared toggles’ fallback for a product with none',
+
         // ── Marks read by something that is not a renderer ─────────────────
         /**
          * A comment's range, drawn by the **overlay** rather than by the text: the highlight follows
