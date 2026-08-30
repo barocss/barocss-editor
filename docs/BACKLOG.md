@@ -92,6 +92,41 @@ and rendering a bare `bTable` draws no cells. Exemptions, like the header ids.
 could have seen the doubled line — or the invalid colour. It has a three-paragraph
 box now, and `word-rendering.spec.ts` measures the *computed* border of each.
 
+### The maths pile wanted code, not a decision — 2026-08-30 *(fixed)*
+
+Twenty-five attributes, the largest thing on Word's unread list, and this
+repository had described them twice as *"the maths model this schema follows,
+drawn by nothing"* — with the note that they wanted a decision about maths before
+they wanted code. **Reading the list turned them into twenty lines.**
+
+Every one is a setting Word's own constructs carry, and every one is drawable:
+
+- A **matrix** says how its columns line up and how far apart they sit
+  (`m:mcJc`, `m:cGp`, `m:rSp`) and whether an empty cell shows its placeholder.
+  The stylesheet drew a fixed `gap: 0.15em 0.5em` and a fixed centring.
+- An **n-ary operator** says whether its limits are shown (`m:subHide`) — a sum
+  with no lower limit is written `∑`, not `∑` with an empty box under it, and
+  Word says so with a switch rather than by removing the slot so an author can
+  put it back. It came out as an empty box.
+- A **phantom** says which of its dimensions it gives up. All three were
+  declared, none read, so every phantom took all of its room.
+- A **border box** says whether a rule is drawn *through* it — which is how a
+  cancelled factor is written. The four `hide*` were read and the two `strike*`
+  were not: the half of a border box that is not a border.
+- A **run** says which **alphabet** its letters are in. In maths these are
+  meanings and not fonts: ℝ is the real numbers and R is a variable called R,
+  and a reader must be able to tell them apart. Every one came out as an
+  ordinary italic letter.
+
+The number had been hiding the work rather than describing it, which is the same
+finding this whole sweep keeps producing.
+
+The stylesheet's half is the product's: which face carries a fraktur letter, how
+a strike is painted. The renderer says only which one, which is the split the
+list markers and the table of contents both arrived at.
+
+**185 → 20.**
+
 ### A locked shape was not locked either — 2026-08-30 *(fixed)*
 
 `locked` is on every scene node the office schema declares and it means one
@@ -424,16 +459,20 @@ worth recording so it is not run again from scratch:
 - **Every toolbar, panel, ruler and menu entry names a command that exists**, in
   all three products.
 
-### What is left of Word's 44
+### What is left of Word's 20
 
-- **~25: the OMML switches.** `hideSub`, `hideDegree`, `plcHide`, `zeroWidth`,
-  `strikeHorizontal`, `noBreak`, `operatorEmulator` and the rest — the maths
-  model this schema follows, drawn by nothing. No `.docx` converter yet either,
-  so they are not even round-tripped. The largest remaining pile by far, and the
-  one that wants a decision about maths before it wants code.
+Nothing left is a pile. Each of these is one node's answer, and three of them are
+the same answer twice:
 - **A `picture`'s `fill`, `stroke` and `strokeWidth`** — Word's picture border.
   An SVG `<image>` paints neither, so it wants a companion `<rect>`, which turns
   the element into a group and changes what the overlay hit-tests.
+- **`fitText` on the two cell types** — Word shrinks a cell's text to its width
+  rather than wrapping it, which CSS has no property for: it is a measurement,
+  and it belongs beside `tab-layout.ts` where the other measured-then-drawn
+  values live.
+- **`contentControl.lockDelete`** wants a guard on the delete path, the way
+  `lockContent` got one on the typing path; **`dataBinding`** wants a custom XML
+  part to resolve against, which no document here has.
 - **`surface.sectionStart` and `columnsEqualWidth`**, both the paginator's:
   where a section begins (`nextPage`, `evenPage`…) is a decision about sheets,
   and unequal columns cannot be drawn with `column-count` at all — CSS's

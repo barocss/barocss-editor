@@ -140,7 +140,21 @@ export function registerTextRenderers(): void {
     // reference to something that has been deleted is a fact the author needs.
     return element(
       'span',
-      { className: 'w-field w-field-ref', 'data-target': String(node.attributes?.targetId ?? '') },
+      {
+        className: 'w-field w-field-ref',
+        'data-target': String(node.attributes?.targetId ?? ''),
+        /**
+         * Whether pressing it takes you there — Word's `\h` switch on a REF field, which is on by
+         * default and was read nowhere, so every cross-reference was a link and turning it off did
+         * nothing.
+         *
+         * `role` and `tabindex` rather than an `<a href>`: the target is a `bookmarkAnchor` in this
+         * document and going to it is a scroll and a caret, which the app does — the same shape as a
+         * table of contents entry, and for the same reason.
+         */
+        'data-linked': node.attributes?.useHyperlink === false ? 'false' : 'true',
+        ...(node.attributes?.useHyperlink === false ? {} : { role: 'link', tabindex: '0' })
+      },
       value ?? 'Error! Reference source not found.'
     );
   });

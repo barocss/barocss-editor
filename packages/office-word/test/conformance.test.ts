@@ -200,6 +200,13 @@ const schema = createSchema('word', getWordSchemaDefinition());
             case 'horizontalAlign':
               return ['left', 'right'];
             /*
+             * How a run of maths is set — Word's `m:sty`: plain, bold, italic or both. Four values,
+             * and the renderer switches on every one of them; an invented string falls to italic,
+             * which is also what `i` gives, so the attribute looked unread.
+             */
+            case 'style':
+              return ['p', 'b', 'i', 'bi'];
+            /*
              * A date field's picture string. `formatDateField` honours a subset of Word's and falls
              * back to the ISO date for anything else — which is right, and means an invented string
              * draws exactly what no string draws, so a field that plainly reads this looked as
@@ -315,7 +322,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * to set them, because Word has no panel and no dialogs. Real attributes, really drawn,
        * owed to the sixth dialog rather than regressed.
        */
-      ratchet: { 'every-attribute-is-read': 44, 'every-property-can-be-edited': 182 },
+      ratchet: { 'every-attribute-is-read': 20, 'every-property-can-be-edited': 182 },
 
       /**
        * Every attribute a reader can **set**, out of Word's two writing surfaces.
@@ -400,6 +407,52 @@ const schema = createSchema('word', getWordSchemaDefinition());
          * to whatever surface makes a template, which is the same thing a content control's
          * properties want and is one gap rather than two.
          */
+        /*
+         * ── The **equation tools' properties**, which Word has not got ─────
+         *
+         * All twenty arrived in front of this check the same afternoon, because that is the afternoon
+         * they started being *drawn*. Word sets every one of them from the ribbon's equation tools —
+         * a matrix's alignment and gaps, whether an n-ary sign shows its limits, which alphabet a run
+         * of letters is in — and this product has `math-commands.ts`, which builds the constructs,
+         * and no surface at all for what a construct is *set* to.
+         *
+         * One gap and not twenty: the reason is the same for every line, and each one goes stale on
+         * the day that surface exists. A ratchet would be the wrong shape — it is a count that has to
+         * come **down**, and these went up because more is drawn than was.
+         */
+        'mathArray.maxDistance': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathArray.objectDistance': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathBorderBox.strikeHorizontal': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathBorderBox.strikeVertical': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathBox.differential': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathBox.noBreak': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathBox.operatorEmulator': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathDelimiter.separator': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathDelimiter.shape': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathMatrix.columnAlignment': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathMatrix.columnGap': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathMatrix.plcHide': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathMatrix.rowGap': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathNary.grow': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathNary.hideSub': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathNary.hideSup': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathPhantom.zeroAscent': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathPhantom.zeroDescent': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathPhantom.zeroWidth': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+        'mathRun.script': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+
+        /*
+         * Three more **names**, and a field switch, all drawn the same afternoon and none settable.
+         *
+         * A name is what a layer list shows and what a screen reader announces, and this product has
+         * no layer list for a document's canvas — the deck has one and Word does not. `useHyperlink`
+         * belongs to a field's own settings, which is already on the owed list above.
+         */
+        'frame.name': 'a layer list, which a document’s canvas has not got — drawn as the box’s accessible name',
+        'group.name': 'a layer list, which a document’s canvas has not got — drawn as the group’s accessible name',
+        'fieldRef.useHyperlink': 'a field’s own settings, a dialog Word has not got — drawn as whether the reference is a link',
+        'mathRun.style': 'the equation tools’ properties, which Word has not got — see BACKLOG',
+
         'surface.name': 'page setup, a dialog Word has not got yet — drawn as the section’s accessible name',
         'paragraph.placeholder': 'a template author’s surface, which Word has not got — drawn by `text.css` while the paragraph is empty',
 

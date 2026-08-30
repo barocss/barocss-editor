@@ -128,6 +128,19 @@ export function registerShapeRenderers(): void {
         {
           className: `w-shape w-shape-${stype}`,
           style: hidden,
+          /*
+           * What the reader called this group — the same reading as a frame's and a section's: a name
+           * is what a layer list shows and what a screen reader announces, and a group of shapes
+           * with no name is announced as nothing at all.
+           */
+          'aria-label': (d: Record<string, any>) => {
+            const name = (d.attributes as { name?: unknown } | undefined)?.name;
+            return typeof name === 'string' && name.length > 0 ? name : undefined;
+          },
+          role: (d: Record<string, any>) => {
+            const name = (d.attributes as { name?: unknown } | undefined)?.name;
+            return typeof name === 'string' && name.length > 0 ? 'group' : undefined;
+          },
           transform: (d: Record<string, any>) => {
             const attrs = d.attributes as Record<string, any> | undefined;
             const x = typeof attrs?.x === 'number' ? attrs.x : 0;
@@ -175,6 +188,22 @@ export function registerShapeRenderers(): void {
       'div',
       {
         className: 'w-frame',
+        /**
+         * What the reader called this box.
+         *
+         * A name is what a layer list shows and what a screen reader announces; a frame is a
+         * *group* of things, so an unnamed one is announced as nothing at all. `role="group"` only
+         * where there is a name, because a landmark a reader cannot describe is worse than none —
+         * the same rule the section above it follows.
+         */
+        'aria-label': (d: Record<string, any>) => {
+          const name = (d.attributes as { name?: unknown } | undefined)?.name;
+          return typeof name === 'string' && name.length > 0 ? name : undefined;
+        },
+        role: (d: Record<string, any>) => {
+          const name = (d.attributes as { name?: unknown } | undefined)?.name;
+          return typeof name === 'string' && name.length > 0 ? 'group' : undefined;
+        },
         'data-layout': (d: Record<string, any>) => {
           const mode = (d.attributes as any)?.layoutMode;
           return mode === 'row' || mode === 'column' || mode === 'grid' ? mode : undefined;

@@ -19,6 +19,9 @@
  */
 import { define, element, slot } from '@barocss/dsl';
 
+/** Two decimal places, which is as fine as an `em` is worth stating. */
+const round = (value: number): number => Math.round(value * 100) / 100;
+
 /** The class every slot carries, for the caret and the empty-box styling. */
 export const MATH_SLOT_CLASS = 'w-math-slot';
 
@@ -71,6 +74,22 @@ export function registerMathRenderers(): void {
       'span',
       {
         className: 'w-math-run',
+        /**
+         * **Which alphabet the letters are in** — Word's `m:scr`.
+         *
+         * `roman`, `script`, `fraktur`, `double-struck`, `sans-serif` and `monospace` are not fonts
+         * in maths, they are *meanings*: ℝ is the real numbers and R is a variable called R, and the
+         * two are different symbols that a reader must be able to tell apart. Declared since the
+         * math schema was written and drawn nowhere, so every one of them came out as an ordinary
+         * italic letter.
+         *
+         * An attribute rather than a `font-family` here, because which face carries a given alphabet
+         * is a decision about the fonts a product ships — see `style.css`.
+         */
+        'data-script': (d: Record<string, any>) =>
+          typeof d.attributes?.script === 'string' && d.attributes.script.length > 0
+            ? d.attributes.script
+            : undefined,
         style: (d: Record<string, any>) => {
           const style = String(d.attributes?.style ?? '');
           return {
@@ -152,7 +171,20 @@ export function registerMathRenderers(): void {
       {
         className: 'w-math-nary',
         'data-limits': (d: Record<string, any>) => String(d.attributes?.limitLocation ?? 'undOvr'),
-        'data-char': (d: Record<string, any>) => String(d.attributes?.char ?? '∑')
+        'data-char': (d: Record<string, any>) => String(d.attributes?.char ?? '∑'),
+        /**
+         * **Which limits are shown, and whether the sign grows to its contents.**
+         *
+         * A sum with no lower limit is written `∑` and not `∑` with an empty box under it, and Word
+         * says so with `m:subHide` and `m:supHide` rather than by leaving the slot out — the slot
+         * stays, so an author can put the limit back. All three were declared and drawn nowhere, so
+         * an author who hid a limit got an empty box where it had been.
+         */
+        'data-hide-sub': (d: Record<string, any>) =>
+          d.attributes?.hideSub === true ? 'true' : undefined,
+        'data-hide-sup': (d: Record<string, any>) =>
+          d.attributes?.hideSup === true ? 'true' : undefined,
+        'data-grow': (d: Record<string, any>) => String(d.attributes?.grow !== false)
       },
       [slot('content')]
     )
@@ -202,7 +234,20 @@ export function registerMathRenderers(): void {
         // reaching into the children.
         'data-open': (d: Record<string, any>) => String(d.attributes?.open ?? '('),
         'data-close': (d: Record<string, any>) => String(d.attributes?.close ?? ')'),
-        'data-grow': (d: Record<string, any>) => String(d.attributes?.grow !== false)
+        'data-grow': (d: Record<string, any>) => String(d.attributes?.grow !== false),
+        /**
+         * The character **between** the delimited items, and how tall the fences are drawn.
+         *
+         * `m:sepChr` is what separates a pair inside one set of brackets — a binomial's two rows have
+         * none, a set-builder's has `|`. It was declared with a default of `|` and drawn nowhere, so
+         * every multi-part delimiter came out with its parts run together.
+         *
+         * `shape` is `centered` or `match`: a centred fence is one glyph stretched about the middle,
+         * a matching one follows the contents' own outline. The stylesheet decides how; this says
+         * which, which is the document's half.
+         */
+        'data-separator': (d: Record<string, any>) => String(d.attributes?.separator ?? ''),
+        'data-shape': (d: Record<string, any>) => String(d.attributes?.shape ?? 'centered')
       },
       [fence('open'), slot('content'), fence('close')]
     )
@@ -212,9 +257,65 @@ export function registerMathRenderers(): void {
   define('mathLimitLower', element('span', { className: 'w-math-limlow' }, [slot('content')]));
   define('mathLimitUpper', element('span', { className: 'w-math-limupp' }, [slot('content')]));
 
-  define('mathMatrix', element('span', { className: 'w-math-matrix' }, [slot('content')]));
+  /**
+   * A **matrix**, set the way the document asks.
+   *
+   * `columnAlignment`, `columnGap`, `rowGap` and `plcHide` are Word's `m:mPr` — how the columns line
+   * up, how far apart they sit, and whether the placeholders of an empty cell are shown. The
+   * stylesheet drew a fixed `gap: 0.15em 0.5em` and a fixed centring, so a matrix that asked for
+   * anything else got the same one.
+   *
+   * The gaps are twips, like every other measurement in this repository, and become `em` here rather
+   * than `px`: a matrix inside a fraction inside a superscript is drawn at a fraction of the body
+   * size, and a gap in pixels would be the same gap at every one of them.
+   */
+  define(
+    'mathMatrix',
+    element(
+      'span',
+      {
+        className: 'w-math-matrix',
+        'data-align': (d: Record<string, any>) => String(d.attributes?.columnAlignment ?? 'center'),
+        // Word hides an empty cell's placeholder box when the matrix asks; the stylesheet draws it.
+        'data-placeholders': (d: Record<string, any>) =>
+          d.attributes?.plcHide === true ? 'hidden' : 'shown',
+        style: (d: Record<string, any>) => {
+          const gap = (value: unknown): string | undefined =>
+            typeof value === 'number' && Number.isFinite(value) ? `${round(value / 240)}em` : undefined;
+          const rows = gap(d.attributes?.rowGap);
+          const columns = gap(d.attributes?.columnGap);
+          return rows !== undefined || columns !== undefined
+            ? { gap: `${rows ?? '0.15em'} ${columns ?? '0.5em'}` }
+            : {};
+        }
+      },
+      [slot('content')]
+    )
+  );
   define('mathRow', element('span', { className: 'w-math-row' }, [slot('content')]));
-  define('mathArray', element('span', { className: 'w-math-array' }, [slot('content')]));
+  /**
+   * A stack of equations, spaced the way the document asks.
+   *
+   * `maxDistance` and `objectDistance` are Word's `m:eqArrPr`: the first spaces the rows to the
+   * tallest one so every gap matches, the second spaces them to each row's own height. Neither was
+   * read, so a stack of equations was always set the second way and the reader had no say.
+   */
+  define(
+    'mathArray',
+    element(
+      'span',
+      {
+        className: 'w-math-array',
+        'data-spacing': (d: Record<string, any>) =>
+          d.attributes?.maxDistance === true
+            ? 'max'
+            : d.attributes?.objectDistance === true
+              ? 'object'
+              : 'default'
+      },
+      [slot('content')]
+    )
+  );
 
   define(
     'mathAccent',
@@ -253,12 +354,28 @@ export function registerMathRenderers(): void {
     )
   );
 
+  /**
+   * A box round something, **and the lines drawn through it.**
+   *
+   * The four `hide*` switches were read and the two `strike*` were not — which is the half of a
+   * border box that is not a border: Word's `m:strikeH` and `m:strikeV` draw a rule *through* the
+   * contents, which is how a cancelled term is written. A box that asked to be struck out came out
+   * merely boxed.
+   */
   define(
     'mathBorderBox',
     element(
       'span',
       {
         className: 'w-math-borderbox',
+        'data-strike': (d: Record<string, any>) => {
+          const horizontal = d.attributes?.strikeHorizontal === true;
+          const vertical = d.attributes?.strikeVertical === true;
+          if (horizontal && vertical) return 'both';
+          if (horizontal) return 'horizontal';
+          if (vertical) return 'vertical';
+          return undefined;
+        },
         style: (d: Record<string, any>) => ({
           borderTop: d.attributes?.hideTop === true ? 'none' : '1px solid currentColor',
           borderBottom: d.attributes?.hideBottom === true ? 'none' : '1px solid currentColor',
@@ -283,13 +400,58 @@ export function registerMathRenderers(): void {
       'span',
       {
         className: 'w-math-phantom',
-        style: (d: Record<string, any>) => ({
-          visibility: d.attributes?.showContents === true ? 'visible' : 'hidden'
-        })
+        style: (d: Record<string, any>) => {
+          /**
+           * And **which of its dimensions it gives up.**
+           *
+           * A phantom that takes room and shows nothing is the default; Word's `m:zeroWid`,
+           * `m:zeroAsc` and `m:zeroDesc` each take one of those dimensions back — a zero-width
+           * phantom reserves height and no width, which is how a term is aligned above another
+           * without pushing it sideways. All three were declared and none was read, so every
+           * phantom took all of its room whatever it asked for.
+           */
+          const drawn: Record<string, string> = {
+            visibility: d.attributes?.showContents === true ? 'visible' : 'hidden'
+          };
+          if (d.attributes?.zeroWidth === true) {
+            drawn.width = '0';
+            drawn.display = 'inline-block';
+            drawn.overflow = 'hidden';
+          }
+          // Ascent is the part above the baseline and descent the part below, so giving one up is a
+          // negative margin on that side — the box keeps its ink and stops claiming the space.
+          if (d.attributes?.zeroAscent === true) drawn.marginTop = '-1em';
+          if (d.attributes?.zeroDescent === true) drawn.marginBottom = '-0.3em';
+          return drawn;
+        }
       },
       [slot('content')]
     )
   );
 
-  define('mathBox', element('span', { className: 'w-math-box' }, [slot('content')]));
+  /**
+   * A **box** round a run of maths, and the three things Word says about one.
+   *
+   * `noBreak` keeps it on one line, which is the whole reason a box exists in `m:box`. `differential`
+   * and `operatorEmulator` are typesetting hints — the first says the box is a differential (`dx`)
+   * and should be spaced as an operator's argument, the second that it behaves as an operator for
+   * spacing. Drawn as attributes rather than as CSS because what they change is the *spacing rules
+   * around* the box, which the stylesheet decides.
+   */
+  define(
+    'mathBox',
+    element(
+      'span',
+      {
+        className: 'w-math-box',
+        'data-no-break': (d: Record<string, any>) =>
+          d.attributes?.noBreak === true ? 'true' : undefined,
+        'data-differential': (d: Record<string, any>) =>
+          d.attributes?.differential === true ? 'true' : undefined,
+        'data-operator': (d: Record<string, any>) =>
+          d.attributes?.operatorEmulator === true ? 'true' : undefined
+      },
+      [slot('content')]
+    )
+  );
 }

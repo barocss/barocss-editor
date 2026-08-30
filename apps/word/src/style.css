@@ -535,6 +535,20 @@ body {
   vertical-align: middle;
   gap: 0.15em 0.5em;
 }
+/*
+ * How the columns line up — Word's `m:mcJc`. The gaps come from the document as an inline style;
+ * this is the half a stylesheet decides, which is what "left" and "right" mean in a grid cell.
+ */
+.w-math-matrix[data-align='left'] > .w-math-row > * {
+  text-align: left;
+}
+.w-math-matrix[data-align='right'] > .w-math-row > * {
+  text-align: right;
+}
+/* An empty cell's placeholder box, which a matrix can ask to do without. */
+.w-math-matrix[data-placeholders='hidden'] .w-math-e:empty {
+  visibility: hidden;
+}
 .w-math-row {
   display: contents;
 }
@@ -542,6 +556,105 @@ body {
   display: inline-flex;
   flex-direction: column;
   vertical-align: middle;
+}
+/*
+ * How a stack of equations is spaced — Word's `m:eqArrPr`. `max` spaces every row to the tallest so
+ * the gaps match down the stack; `object` spaces each row to its own height, which is the default a
+ * flex column already gives.
+ */
+.w-math-array[data-spacing='max'] > * {
+  align-self: stretch;
+}
+
+/*
+ * A rule **through** a boxed term — Word's `m:strikeH` and `m:strikeV`, which is how a cancelled
+ * factor is written. Drawn as a gradient rather than a pseudo-element because a border box already
+ * uses `::before` for nothing and its contents are editable text: a line has to sit behind the ink
+ * without taking a place in the box.
+ */
+.w-math-borderbox[data-strike='horizontal'],
+.w-math-borderbox[data-strike='both'] {
+  background-image: linear-gradient(to bottom, transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px));
+}
+.w-math-borderbox[data-strike='vertical'],
+.w-math-borderbox[data-strike='both'] {
+  background-image: linear-gradient(to right, transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px));
+}
+.w-math-borderbox[data-strike='both'] {
+  background-image:
+    linear-gradient(to bottom, transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(to right, transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px));
+}
+
+/*
+ * A limit an n-ary operator asks not to show — Word's `m:subHide` and `m:supHide`. The slot stays in
+ * the document so an author can put the limit back; what goes is the box under or over the sign.
+ */
+.w-math-nary[data-hide-sub='true'] > .w-math-sub,
+.w-math-nary[data-hide-sub='true'] > .w-math-limlow {
+  display: none;
+}
+.w-math-nary[data-hide-sup='true'] > .w-math-sup,
+.w-math-nary[data-hide-sup='true'] > .w-math-limupp {
+  display: none;
+}
+/* A sign that does not grow stays at its own size whatever it is summing over. */
+.w-math-nary[data-grow='false']::before {
+  font-size: 1em;
+}
+
+/*
+ * The character between the parts of one delimiter — Word's `m:sepChr`. Between each pair, never
+ * before the first or after the last, which is what a separator is.
+ */
+.w-math-delim[data-separator]:not([data-separator='']) > .w-math-e + .w-math-e::before {
+  content: attr(data-separator);
+  padding: 0 0.25em;
+  user-select: none;
+}
+/* Fences that follow the contents' outline rather than being one stretched glyph. */
+.w-math-delim[data-shape='match'] > .w-math-fence {
+  transform: scaleY(1);
+  align-self: stretch;
+}
+
+/*
+ * **Which alphabet a letter is in.** In maths these are meanings and not fonts: ℝ is the real
+ * numbers and R is a variable called R, and a reader must be able to tell them apart. Which face
+ * carries a given alphabet is this file's decision, which is why the renderer says only which one.
+ */
+.w-math-run[data-script='roman'] {
+  font-style: normal;
+}
+.w-math-run[data-script='script'] {
+  font-family: 'Apple Chancery', 'URW Chancery L', cursive;
+}
+.w-math-run[data-script='fraktur'] {
+  font-family: 'UnifrakturMaguntia', 'Blackletter', serif;
+}
+.w-math-run[data-script='double-struck'] {
+  /* Outlined, which is what a double-struck letter is where the font has no such face. */
+  font-style: normal;
+  -webkit-text-stroke: 0.4px currentColor;
+}
+.w-math-run[data-script='sans-serif'] {
+  font-family: system-ui, sans-serif;
+}
+.w-math-run[data-script='monospace'] {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+/* A box that must not be broken across a line — the whole reason `m:box` exists. */
+.w-math-box[data-no-break='true'] {
+  white-space: nowrap;
+}
+/*
+ * A differential (`dx`) and an operator emulator are spacing hints: both ask for the room an
+ * operator's argument gets, which is a thin space before.
+ */
+.w-math-box[data-differential='true'],
+.w-math-box[data-operator='true'] {
+  margin-left: 0.17em;
 }
 
 .w-math-accent::after {
