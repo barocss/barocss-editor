@@ -126,6 +126,33 @@
 }
 
 /*
+ * A **content control's hint**, shown while it holds nothing.
+ *
+ * Word draws the placeholder text inside an empty control and replaces it the moment a reader types.
+ * Drawn rather than written, for the reason the list markers above are: a hint that were text in the
+ * document would be text a caret could sit in and a copy would carry out.
+ *
+ * `:has()` on the control rather than `:empty` on it: a control always holds a block, so the control
+ * is never `:empty` even when it looks it. Two selectors because an empty block is drawn two ways —
+ * with nothing in it at all, and with the caret filler in it once a caret has been there.
+ */
+.w-content-control[data-placeholder]:not([data-placeholder='']):has(> :only-child:empty)::before,
+.w-content-control[data-placeholder]:not([data-placeholder='']):has(> :only-child > [data-bc-filler]:only-child)::before {
+  content: attr(data-placeholder);
+  color: #868e96;
+  user-select: none;
+  pointer-events: none;
+}
+
+/*
+ * A control whose content is locked. It refuses the keystrokes through `contenteditable="false"`;
+ * this is only so a reader can see *why* nothing is happening before they try.
+ */
+.w-content-control[data-locked='true'] {
+  cursor: default;
+}
+
+/*
  * The caret filler is renderer bookkeeping, and it must never look like
  * content: an empty block renders a marked filler so a caret has somewhere to
  * go, and every offset calculation excludes it.

@@ -239,6 +239,32 @@ export function frameCss(
   const corner = number(attrs?.cornerRadius, 0);
   if (corner > 0) css.borderRadius = `${twipToPx(corner)}px`;
 
+  /**
+   * Hidden, faded and turned — **the three every shape beside it draws and a frame did not.**
+   *
+   * `visible`, `opacity` and `rotation` are on the shared geometry, so a `rectangle`, an `ellipse`,
+   * a `line`, a `path` and a `picture` all honour them: `isVisible` and `shapeTransform` are applied
+   * to each of them by name in `renderers/shapes.ts`. A frame took neither, because it is a `<div>`
+   * and those two answer in SVG — `display: none` happens to be the same, and a `rotate(deg cx cy)`
+   * about a point in the canvas's coordinates is not a CSS `transform` at all.
+   *
+   * So a reader could hide, fade or turn any box on the canvas *except a frame*, which is the one
+   * they are most likely to want to turn: a frame is the box that holds the card.
+   *
+   * `transform-origin: center` because that is what the SVG version rotates about — the middle of
+   * the box — and the CSS default is the same point said a different way.
+   */
+  const opacity = attrs?.opacity;
+  if (typeof opacity === 'number' && Number.isFinite(opacity) && opacity < 1) {
+    css.opacity = String(Math.max(0, opacity));
+  }
+
+  const rotation = number(attrs?.rotation, 0);
+  if (rotation !== 0) {
+    css.transform = `rotate(${rotation}deg)`;
+    css.transformOrigin = 'center';
+  }
+
   /*
    * `backgroundColor`, not the `background` shorthand. A shorthand **resets the image**, and a page
    * paints a gradient and a picture into the same box with longhands (`office-site`'s `paint.ts`) —
@@ -279,13 +305,23 @@ export function frameCss(
           : 'flex-start';
   const justify = JUSTIFY[String(attrs?.justifyContent)] ?? 'flex-start';
 
+  /**
+   * **Last**, because every branch below writes a `display` and would overwrite it.
+   *
+   * Set before the switch first, and a hidden frame with `layoutMode: 'row'` came back `flex` — the
+   * unit test agreed because it asked with no layout mode, which is a frame nobody arranges. The
+   * fixture was not wearing the thing the fault needed, one more time.
+   */
+  const shown = (laid: CssStyle): CssStyle =>
+    attrs?.visible === false ? { ...laid, display: 'none' } : laid;
+
   switch (attrs?.layoutMode) {
     case 'row':
-      return { ...css, display: 'flex', flexDirection: 'row', gap, padding, alignItems: align, justifyContent: justify };
+      return shown({ ...css, display: 'flex', flexDirection: 'row', gap, padding, alignItems: align, justifyContent: justify });
     case 'column':
-      return { ...css, display: 'flex', flexDirection: 'column', gap, padding, alignItems: align, justifyContent: justify };
+      return shown({ ...css, display: 'flex', flexDirection: 'column', gap, padding, alignItems: align, justifyContent: justify });
     case 'grid':
-      return {
+      return shown({
         ...css,
         display: 'grid',
         gridTemplateColumns: `repeat(${Math.max(1, Math.round(number(attrs?.columns, 2)))}, minmax(0, 1fr))`,
@@ -301,8 +337,8 @@ export function frameCss(
                 : 'start',
         // A grid distributes its **tracks**, which is what `justify-content` means on one.
         justifyContent: justify
-      };
+      });
     default:
-      return { ...css, padding };
+      return shown({ ...css, padding });
   }
 }

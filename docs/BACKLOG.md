@@ -92,6 +92,82 @@ and rendering a bare `bTable` draws no cells. Exemptions, like the header ids.
 could have seen the doubled line — or the invalid colour. It has a three-paragraph
 box now, and `word-rendering.spec.ts` measures the *computed* border of each.
 
+### A locked region was not locked — 2026-08-30 *(fixed)*
+
+Word's content control is how a form or a template says *this part is yours to
+fill in and that part is not*. The renderer read **one of its eight attributes**,
+so a locked control could be typed over, one with a placeholder showed an empty
+box, and one with a title was announced to a screen reader as an unlabelled
+group. The sample document had no content control at all, which is why nothing
+could have seen any of it.
+
+The lock took three goes and each one is worth keeping:
+
+1. `contenteditable="false"` on the element. It went on and **the text still
+   went in.**
+2. The keydown gate already refuses a caret the DOM puts inside one — and a
+   browser will not put a caret inside `contenteditable="false"`, so it leaves
+   the DOM selection *outside* while the model's still points *in*, and
+   `beforeinput` writes at the model's. The second gate then let the key through
+   because *either* selection naming somewhere is enough, which is a rule written
+   for a real problem: the DOM selection is momentarily wrong while a render is
+   in flight, and a character refused then is refused for good. So the model has
+   to be able to answer the same question, which is `insideLockedRegion`.
+3. It still went in, through `tryHandleInsertViaGetTargetRanges` — the path that
+   writes the model straight from a `beforeinput`'s target range, and asked only
+   whether the ends were inline text. **A lock that only holds against the
+   keyboard is not a lock**: a paste, a replacement and an IME's committed text
+   all arrive there.
+
+`lockContent` is read as a convention rather than a node name — the engine does
+not know what a content control is and must not. Deliberately not `locked`, which
+the canvas nodes carry and means something else: a locked *shape* cannot be moved
+or resized, and its text is still text.
+
+`lockDelete` and `dataBinding` are still unread and stay in the count: one wants
+a guard on the delete path and the other wants a custom XML part to resolve
+against, and neither is a drawing.
+
+### A frame could not be hidden, faded or turned — 2026-08-30 *(fixed)*
+
+`visible`, `opacity` and `rotation` are on the shared geometry, so a rectangle,
+an ellipse, a line, a path and a picture all honour them: `isVisible` and
+`shapeTransform` are applied to each by name. A frame took neither, because it is
+a `<div>` and both helpers answer in SVG — `display: none` happens to be the same
+in both, and a `rotate(deg cx cy)` about a point in the canvas's coordinates is
+not a CSS `transform` at all. So a reader could hide, fade or turn any box on the
+canvas **except a frame**, which is the one they are most likely to want to turn.
+
+And the first fix was wrong in a way worth recording: `display: none` was set
+before the layout switch, and every branch of that switch writes its own
+`display`. The unit test agreed, because it asked with no `layoutMode` — a frame
+nobody arranges, which is not the frame a reader hides. **The fixture was not
+wearing the thing the fault needed**, one more time.
+
+### A frame's arrangement is read, and the probe cannot build the combination
+
+`frameCss` reads `alignItems`, `justifyContent`, `gap` and `columns` inside its
+`row`, `column` and `grid` branches and nowhere else, which is right: CSS
+`align-items` on a box that is not a flex or grid container does nothing. The
+probe fills every *other* attribute from the schema's own values and takes the
+first — and `layoutMode`'s first option is `none`, the value that switches the
+family off. Left as the schema's order rather than one arranged to suit the
+probe: `none` is what a frame means when it says nothing, and documenting it
+second to make a check happy would be the schema describing the tool.
+
+### A content control has no author's surface
+
+Word sets every one of a control's properties from Developer → Properties. This
+product has nothing — the sample writes them and no reader can. A control a
+*template author* sets up and a reader fills in is the shape of the feature, and
+the author's half is the part that is missing.
+
+### The canvas overlay has no handle for hiding, fading or turning
+
+It drags and resizes a box. Hiding one, fading one and turning one are three
+things the model now draws and no reader can ask for — on a frame or on any other
+shape.
+
 ### A picture on a canvas had no name, and a contents page ignored how it was set — 2026-08-30 *(fixed)*
 
 **`picture.alt`.** It has been in the schema for as long as `picture` has, and
@@ -295,16 +371,23 @@ worth recording so it is not run again from scratch:
 - **Every toolbar, panel, ruler and menu entry names a command that exists**, in
   all three products.
 
-### The next piles in Word's 140
-
-From the same list, and each is a decision rather than a forgotten line:
+### What is left of Word's 58
 
 - **~25: the OMML switches.** `hideSub`, `hideDegree`, `plcHide`, `zeroWidth`,
-  `strikeHorizontal`, `noBreak`, `operatorEmulator` and the rest. No `.docx`
-  converter yet either, so they are not even round-tripped.
-- **A `contentControl`'s five**, a `picture`'s `alt`/`fill`/`stroke`, a
-  `textBox`'s `wrapType`/`zOrder`, and `locked` on seven types which Slides'
-  commands read and Word's do not.
+  `strikeHorizontal`, `noBreak`, `operatorEmulator` and the rest — the maths
+  model this schema follows, drawn by nothing. No `.docx` converter yet either,
+  so they are not even round-tripped. The largest remaining pile by far, and the
+  one that wants a decision about maths before it wants code.
+- **`locked` on seven types**, which Slides' commands read and Word's do not: a
+  locked shape may not be moved or resized, and Word's overlay does not ask.
+  Different from `lockContent`, which is now read — see above.
+- **A `picture`'s `fill`, `stroke` and `strokeWidth`** — Word's picture border.
+  An SVG `<image>` paints neither, so it wants a companion `<rect>`, which turns
+  the element into a group and changes what the overlay hit-tests.
+- **A `bTable`'s `grid`, `layout`, `look` and `overlap`**, a `surface`'s
+  `columnsEqualWidth`, `name` and `sectionStart`, a `group`'s two, and the field
+  switches (`format`, `useHyperlink`, `restartLevel`, `searchFromBottom`) — one
+  node each, each its own small answer.
 
 ### Accepting or rejecting a block's revision
 

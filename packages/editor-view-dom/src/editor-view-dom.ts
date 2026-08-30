@@ -1,5 +1,6 @@
 import { Editor, ModelSelection } from '@barocss/editor-core';
 import { selectionRectIn } from './selection-rect';
+import { insideLockedRegion } from './locked-region';
 import type { ModelData, RenderEnv } from '@barocss/dsl';
 import { IEditorViewDOM, EditorViewDOMOptions, LayerConfiguration, LayoutPass } from './types';
 import { InputHandlerImpl } from './event-handlers/input-handler';
@@ -690,7 +691,8 @@ export class EditorViewDOM implements IEditorViewDOM {
       const node = dataStore.getNode(sid);
       if (!node) return false;
       const stype = (node as { stype?: string }).stype ?? (node as { type?: string }).type;
-      return stype === 'inline-text';
+      if (stype !== 'inline-text') return false;
+      return !insideLockedRegion(dataStore, sid);
     };
 
     return isText(selection.startNodeId) && isText(selection.endNodeId ?? selection.startNodeId);
@@ -767,6 +769,28 @@ export class EditorViewDOM implements IEditorViewDOM {
       !typingBurst &&
       !this.isSelectionInsideEditableText() &&
       !this.isModelSelectionInEditableText()
+    ) {
+      event.preventDefault();
+      return;
+    }
+
+    /**
+     * And a **locked region**, which no burst and no IME opens.
+     *
+     * The escape hatches above are all about one thing: the DOM selection is momentarily wrong while
+     * a render replaces the text node under it, and a character refused then is refused for good. A
+     * lock is not that case — it is the answer, not a stale reading of it, which is the distinction
+     * `isModelSelectionInEditableText` already writes out about chrome.
+     *
+     * Asked of the **model**, because the DOM cannot answer it: a browser will not put a caret inside
+     * `contenteditable="false"`, so it leaves the DOM selection outside while the model's still points
+     * in — and `beforeinput` writes at the model's. Measured in a browser: every character typed at a
+     * locked content control landed in it, while the element around it said `contenteditable="false"`
+     * the whole time and both gates above agreed it was fine.
+     */
+    if (
+      isTypingKey(event) &&
+      insideLockedRegion(this.editor.dataStore as never, this.editor.selection?.startNodeId)
     ) {
       event.preventDefault();
       return;

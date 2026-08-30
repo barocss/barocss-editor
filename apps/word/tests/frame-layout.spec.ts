@@ -130,3 +130,81 @@ test.describe('a frame in the document flow', () => {
     }
   });
 });
+
+/**
+ * **Hidden, faded and turned** — the three every shape beside a frame drew, and a frame did not.
+ *
+ * `visible`, `opacity` and `rotation` are on the shared geometry, so a rectangle, an ellipse, a
+ * line, a path and a picture all honour them. A frame took none, because it is a `<div>` and the two
+ * helpers that answer them speak SVG — `display: none` happens to be the same in both, and a
+ * `rotate(deg cx cy)` about a point in the canvas's coordinates is not a CSS `transform` at all.
+ *
+ * So a reader could hide, fade or turn any box on the canvas **except a frame** — which is the one
+ * they are most likely to want to turn, because a frame is the box that holds the card.
+ *
+ * Loaded rather than dragged, because the overlay has no handle for any of the three: that is the
+ * other half of this, and it is in the backlog.
+ */
+test.describe('a frame that is hidden, faded or turned', () => {
+  const reframe = async (page: any, attrs: Record<string, unknown>) => {
+    await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
+    await page.getByRole('button', { name: 'Side by side' }).click();
+    await expect(page.locator('.w-frame')).toHaveCount(1);
+
+    await page.evaluate((wanted: Record<string, unknown>) => {
+      const editor = (window as any).editor;
+      const tree = editor.exportDocument(editor.getRootId());
+      const find = (node: any): any => {
+        if (node?.stype === 'frame') return node;
+        for (const child of node?.content ?? []) {
+          if (typeof child === 'object') {
+            const found = find(child);
+            if (found) return found;
+          }
+        }
+        return undefined;
+      };
+      Object.assign(find(tree).attributes, wanted);
+      editor.loadDocument(tree, 'word');
+    }, attrs);
+    await page.waitForTimeout(800);
+
+  };
+
+  test('goes away when the box says it is not visible', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await reframe(page, { visible: false });
+
+    await expect(page.locator('.w-frame')).toBeHidden();
+  });
+
+  test('fades to the opacity the box asks for, and turns about its middle', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await reframe(page, { opacity: 0.4, rotation: 15 });
+
+    const drawn = await page.locator('.w-frame').evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { opacity: style.opacity, transform: style.transform, origin: style.transformOrigin };
+    });
+
+    expect(drawn.opacity).toBe('0.4');
+    // A computed `transform` is a matrix; 15° is cos 15° ≈ 0.966 down the diagonal.
+    expect(drawn.transform).toMatch(/^matrix\(0\.9659/);
+    /*
+     * About its middle, which is what the SVG version rotates about.
+     *
+     * Measured against `offsetWidth`, not the bounding rectangle: a turned box's bounding rectangle
+     * is the *outline of the turned thing*, which is larger than the box — asking against it made
+     * the origin look 6.7px off centre when it was exactly on it.
+     */
+    const box = await page
+      .locator('.w-frame')
+      .evaluate((el) => ({ width: (el as HTMLElement).offsetWidth, height: (el as HTMLElement).offsetHeight }));
+    const [x, y] = drawn.origin.split(' ').map(parseFloat);
+    expect(Math.abs(x - box.width / 2)).toBeLessThan(2);
+    expect(Math.abs(y - box.height / 2)).toBeLessThan(2);
+  });
+});
+

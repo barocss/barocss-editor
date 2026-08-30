@@ -1140,3 +1140,61 @@ test.describe('a page border', () => {
   });
 });
 
+/**
+ * **A content control** — Word's structured document tag, and the product read one of its eight
+ * attributes.
+ *
+ * A control is how a form or a template says *this part is yours to fill in and that part is not*:
+ * a named region with a kind, a label, a hint for when it is empty, and two locks. The renderer drew
+ * a `<div>` carrying its `tag` and nothing else, so a control a reader had **locked could be typed
+ * over**, one with a placeholder showed an empty box, and one with a title was announced to a screen
+ * reader as an unlabelled group.
+ *
+ * The sample had no content control at all, which is why nothing could have seen any of it. It has
+ * two now — one to fill in and one that cannot be — because a fixture with only the unlocked one
+ * would let the lock go wrong without anybody noticing.
+ */
+test.describe('a content control', () => {
+  test('shows its hint while it is empty, and says what it is', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const control = page.locator('[data-control-id="ctl-name"]');
+    await control.scrollIntoViewIfNeeded();
+
+    await expect(control).toHaveAttribute('data-control-type', 'plainText');
+    await expect(control).toHaveAttribute('aria-label', '검토자 이름');
+    await expect(control).toHaveAttribute('role', 'group');
+
+    // The hint is drawn, never written: text in the document would be text a caret could sit in and
+    // a copy would carry out.
+    const hint = await control.evaluate((el) => getComputedStyle(el, '::before').content);
+    expect(hint).toContain('이름을 입력하세요');
+  });
+
+  /**
+   * And a **locked** one refuses the keystrokes.
+   *
+   * `contenteditable="false"` on a subtree of a contenteditable is how a browser does that, and it
+   * is the same guarantee Word gives: the caret can go there and nothing types. Measured by typing
+   * rather than by reading the attribute, because what the lock means is what happens when a reader
+   * presses a key.
+   */
+  test('refuses to be typed over when its content is locked', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const locked = page.locator('[data-control-id="ctl-terms"]');
+    await locked.scrollIntoViewIfNeeded();
+    await expect(locked).toHaveAttribute('contenteditable', 'false');
+
+    const before = (await locked.textContent()) ?? '';
+    await locked.locator('p').first().click();
+    await page.keyboard.type('망가뜨리기');
+    await page.waitForTimeout(500);
+
+    expect(await locked.textContent()).toBe(before);
+    expect(before).not.toContain('망가뜨리기');
+  });
+});
+

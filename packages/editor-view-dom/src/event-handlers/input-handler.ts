@@ -1,6 +1,7 @@
 import { InputHandler, IEditorViewDOM } from '../types';
 import { Editor, type ModelSelection } from '@barocss/editor-core';
 import { handleEfficientEdit } from '../utils/efficient-edit-handler';
+import { insideLockedRegion } from '../locked-region';
 import { type MarkRange, type DecoratorRange } from '../utils/edit-position-converter';
 import { classifyDomChange, type ClassifiedChange, type InputHint } from '../dom-sync/dom-change-classifier';
 import { analyzeTextChanges } from '@barocss/text-analyzer';
@@ -1469,9 +1470,21 @@ export class InputHandlerImpl implements InputHandler {
 
     const startNode = modelRange?.type === 'range' ? dataStore.getNode(modelRange.startNodeId) : undefined;
     const endNode = modelRange?.type === 'range' ? dataStore.getNode(modelRange.endNodeId) : undefined;
+    /**
+     * Inline text, **and not inside a locked region.**
+     *
+     * The keydown gate refuses a key before `beforeinput` fires, and it was the only place that
+     * asked — so this path, which writes the model directly from the target range, would still take
+     * a character that reached it another way: a paste, a replacement, an IME's committed text. A
+     * lock that only holds against the keyboard is not a lock.
+     *
+     * See `locked-region.ts` for why the model is asked rather than the DOM.
+     */
     const isEditable =
       startNode?.stype === 'inline-text' &&
-      endNode?.stype === 'inline-text';
+      endNode?.stype === 'inline-text' &&
+      !insideLockedRegion(dataStore as never, modelRange?.startNodeId) &&
+      !insideLockedRegion(dataStore as never, modelRange?.endNodeId);
 
     /**
      * A character is never dropped while we know where the typing is.

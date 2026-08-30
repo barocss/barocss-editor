@@ -149,3 +149,55 @@ describe('the canvas', () => {
     expect(canvasViewBox(undefined)).toBe('0 0 0 0');
   });
 });
+
+/**
+ * **Hidden, faded and turned** — the three every shape beside a frame drew, and a frame did not.
+ *
+ * They are on the shared geometry, so a `rectangle`, an `ellipse`, a `line`, a `path` and a
+ * `picture` all honour them: `isVisible` and `shapeTransform` are applied to each by name in
+ * `renderers/shapes.ts`. A frame took neither, because it is a `<div>` and those two answer in SVG —
+ * `display: none` happens to be the same, and a `rotate(deg cx cy)` about a point in the canvas's
+ * coordinates is not a CSS `transform` at all.
+ *
+ * So a reader could hide, fade or turn any box on the canvas **except a frame**, which is the one
+ * they are most likely to want to turn: a frame is the box that holds the card.
+ */
+describe('a frame that is hidden, faded or turned', () => {
+  /**
+   * **Wearing a layout mode**, which is what the first version of this test did not.
+   *
+   * It asked `frameCss({ visible: false })` and passed, while a hidden frame in a browser stayed on
+   * screen: every layout branch writes its own `display`, so setting it before the switch was setting
+   * it and then throwing it away. A frame nobody arranges is not the frame a reader hides.
+   */
+  it('goes away when the box says it is not visible, whatever it is arranging', () => {
+    for (const layoutMode of [undefined, 'none', 'row', 'column', 'grid']) {
+      expect(frameCss({ layoutMode, visible: false } as never).display, String(layoutMode)).toBe('none');
+    }
+
+    // Absent means visible, which is what every other shape reads too.
+    expect(frameCss({ layoutMode: 'row' } as never).display).toBe('flex');
+    expect(frameCss({ layoutMode: 'row', visible: true } as never).display).toBe('flex');
+    expect(frameCss({} as never).display).toBeUndefined();
+  });
+
+  it('fades to the opacity the box asks for', () => {
+    expect(frameCss({ opacity: 0.4 } as never).opacity).toBe('0.4');
+    // Fully opaque is the default, and writing it out would beat a stylesheet that said otherwise.
+    expect(frameCss({ opacity: 1 } as never).opacity).toBeUndefined();
+    expect(frameCss({} as never).opacity).toBeUndefined();
+  });
+
+  /*
+   * About its middle, which is what the SVG version rotates about — `shapeTransform` turns a shape
+   * around the centre of its box, and `transform-origin: center` is the same point said in CSS.
+   */
+  it('turns about its middle', () => {
+    const turned = frameCss({ rotation: 45 } as never);
+
+    expect(turned.transform).toBe('rotate(45deg)');
+    expect(turned.transformOrigin).toBe('center');
+    expect(frameCss({ rotation: 0 } as never).transform).toBeUndefined();
+  });
+});
+

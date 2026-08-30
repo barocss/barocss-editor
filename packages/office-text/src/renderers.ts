@@ -403,6 +403,18 @@ export function registerTextRenderers(): void {
   );
   define('horizontalRule', element('hr', { className: 'w-rule' }));
 
+  /**
+   * A **content control** — Word's structured document tag, and it read one of its eight attributes.
+   *
+   * A control is a named region with a kind, a label, a hint for when it is empty and two locks.
+   * This drew a `<div>` carrying its `tag` and nothing else, so a control a reader had **locked
+   * could be typed over**, one with a placeholder showed an empty box, and one with a title was
+   * announced to a screen reader as an unlabelled group.
+   *
+   * `lockDelete` and `dataBinding` are still unread and stay in the count: one wants a guard on the
+   * delete path and the other wants a custom XML part to resolve against, and neither is a drawing.
+   * See `docs/BACKLOG.md`.
+   */
   define(
     'contentControl',
     element(
@@ -410,6 +422,37 @@ export function registerTextRenderers(): void {
       {
         className: 'w-content-control',
         'data-tag': (d: Record<string, any>) => String(d.attributes?.tag ?? ''),
+        // Which control this is, so a command, a pane or a form can address one by name.
+        'data-control-id': (d: Record<string, any>) => String(d.attributes?.id ?? ''),
+        /*
+         * The kind of control. An attribute rather than a different element, because what a control
+         * *is* does not change what it holds — `block+`, whatever the kind — and how a date or a
+         * checkbox is offered is a product's decision.
+         */
+        'data-control-type': (d: Record<string, any>) =>
+          String(d.attributes?.controlType ?? 'richText'),
+        // Shown by `text.css` while the control holds nothing, the way Word shows its hint.
+        'data-placeholder': (d: Record<string, any>) => String(d.attributes?.placeholder ?? ''),
+        /*
+         * Locked content refuses the keystrokes rather than looking as though it took them.
+         * `contenteditable="false"` inside a contenteditable is how a browser does that, and it is
+         * the same guarantee Word gives: the caret can go there and nothing types.
+         */
+        contenteditable: (d: Record<string, any>) =>
+          d.attributes?.lockContent === true ? 'false' : undefined,
+        'data-locked': (d: Record<string, any>) =>
+          d.attributes?.lockContent === true ? 'true' : undefined,
+        /*
+         * What this region is, for a reader who cannot see the label Word draws on its tab. Not
+         * `title`, which the revision tooltip below already uses — and an accessible name is what a
+         * screen reader is after anyway.
+         */
+        'aria-label': (d: Record<string, any>) =>
+          typeof d.attributes?.title === 'string' ? d.attributes.title : undefined,
+        role: (d: Record<string, any>) =>
+          typeof d.attributes?.title === 'string' && d.attributes.title.length > 0
+            ? 'group'
+            : undefined,
         'data-revision': (d: Record<string, any>) => revisionDrawing(d)['data-revision'],
         title: (d: Record<string, any>) => revisionDrawing(d).title,
         style: (d: Record<string, any>) => revisionDrawing(d).style

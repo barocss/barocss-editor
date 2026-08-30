@@ -114,6 +114,54 @@ export function createSampleDocument(): INode {
           },
 
           /**
+           * A **content control**: a named region with a label, a hint and a lock.
+           *
+           * Word's structured document tag, which is how a form or a template says *this part is
+           * yours to fill in and that part is not*. The renderer read one of its eight attributes,
+           * so a locked control could be typed over and a placeholder showed an empty box — and
+           * nothing could have seen either, because the sample had no control at all.
+           *
+           * Two of them on purpose: one a reader fills in, one they cannot. A fixture with only the
+           * unlocked one would let the lock go wrong without anybody noticing.
+           */
+          {
+            stype: 'contentControl',
+            attributes: {
+              id: 'ctl-name',
+              tag: 'reviewerName',
+              title: '검토자 이름',
+              controlType: 'plainText',
+              placeholder: '이름을 입력하세요'
+            },
+            content: [{ stype: 'paragraph', attributes: { styleId: 'Body' }, content: [] }]
+          },
+          {
+            stype: 'contentControl',
+            attributes: {
+              id: 'ctl-terms',
+              tag: 'terms',
+              title: '변경할 수 없는 문구',
+              controlType: 'richText',
+              lockContent: true,
+              lockDelete: true
+            },
+            content: [
+              {
+                stype: 'paragraph',
+                attributes: { styleId: 'Body' },
+                content: [
+                  {
+                    stype: 'inline-text',
+                    text:
+                      'This paragraph is inside a locked content control. A reader can put the ' +
+                      'caret in it and read it, and typing does nothing at all.'
+                  }
+                ]
+              }
+            ]
+          },
+
+          /**
            * Three paragraphs inside **one bordered box** — Word's fifth border.
            *
            * A run of consecutive paragraphs asking for the same borders is one box: the top above

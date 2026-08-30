@@ -281,7 +281,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * to set them, because Word has no panel and no dialogs. Real attributes, really drawn,
        * owed to the sixth dialog rather than regressed.
        */
-      ratchet: { 'every-attribute-is-read': 70, 'every-property-can-be-edited': 182 },
+      ratchet: { 'every-attribute-is-read': 58, 'every-property-can-be-edited': 182 },
 
       /**
        * Every attribute a reader can **set**, out of Word's two writing surfaces.
@@ -337,6 +337,27 @@ const schema = createSchema('word', getWordSchemaDefinition());
          * this check wants and the reason a written exemption for them went stale the moment it was
          * added.
          */
+        /*
+         * And the three a **frame** started drawing the same afternoon. The overlay drags and
+         * resizes a box on the canvas; hiding one, fading one and turning one are the three things
+         * it has no handle for, on a frame or on any other shape — see BACKLOG.
+         */
+        'frame.visible': 'the canvas overlay has no handle for hiding a box yet — see BACKLOG',
+        'frame.opacity': 'the canvas overlay has no handle for fading a box yet — see BACKLOG',
+        'frame.rotation': 'the canvas overlay has no rotation handle yet — see BACKLOG',
+
+        /*
+         * And the five a **content control** started drawing the same afternoon. Word sets every one
+         * of them from Developer → Properties, a dialog this product has never had — which is why
+         * the sample writes them and no reader can. A control a *template author* sets up and a
+         * reader fills in is the shape of the feature, and the author's half is what is missing.
+         */
+        'contentControl.id': 'Developer → Properties, a dialog Word has not got yet — drawn as `data-control-id`',
+        'contentControl.title': 'Developer → Properties — drawn as the region’s accessible name',
+        'contentControl.controlType': 'Developer → Properties — drawn as `data-control-type`',
+        'contentControl.placeholder': 'Developer → Properties — drawn by `text.css` while the control is empty',
+        'contentControl.lockContent': 'Developer → Properties — drawn as `contenteditable="false"`, and refused by the typing gate',
+
         'textBox.anchorTo': 'Format Shape → Layout, a surface the flow has no overlay for yet — see BACKLOG',
         'textBox.wrapType': 'Format Shape → Layout, the same surface — how the text behaves around the box',
 
@@ -409,6 +430,27 @@ const schema = createSchema('word', getWordSchemaDefinition());
          * Covered by `word-outline.spec.ts`, which measures the drawn leader and where a press
          * actually takes the reader.
          */
+        /*
+         * ── A frame's arrangement, which needs a `layoutMode` to arrange by ─
+         *
+         * `frameCss` reads all four inside the `row`, `column` and `grid` branches and nowhere else,
+         * which is right: CSS `align-items` on a box that is not a flex or grid container does
+         * nothing, so emitting it would be the drawing claiming something the browser ignores.
+         *
+         * The probe cannot build that combination. It fills every *other* attribute from the
+         * schema's own values and takes the first — and `layoutMode`'s first option is `none`, which
+         * is the value that switches this family off. Deliberately the schema's order rather than
+         * one arranged to suit the probe: `none` is what a frame means when it says nothing, and
+         * documenting it second to make a check happy would be the schema describing the tool.
+         *
+         * `frame-layout.spec.ts` measures all four in a browser, which is where an arrangement is
+         * either right or visibly not.
+         */
+        'frame.alignItems': 'read by `frameCss` inside its `row`, `column` and `grid` branches; the probe fills `layoutMode` with its first option, `none`',
+        'frame.justifyContent': 'read by `frameCss` inside its `row`, `column` and `grid` branches; the probe fills `layoutMode` with `none`',
+        'frame.gap': 'read by `frameCss` inside its `row`, `column` and `grid` branches; the probe fills `layoutMode` with `none`',
+        'frame.columns': 'read by `frameCss` in its `grid` branch; the probe fills `layoutMode` with `none`',
+
         'tableOfContents.leader': 'drawn on each entry, and a bare table of contents has no entries — see `word-outline.spec.ts`',
         'tableOfContents.rightAlignPageNumbers': 'decides whether an entry’s leader grows; a bare table of contents has no entries',
         'tableOfContents.useHyperlinks': 'read by the entry’s drawing and by the app’s click handler; a bare table of contents has no entries',

@@ -81,7 +81,7 @@ Four numbers, all produced by `packages/office-word/test/conformance.test.ts`:
 | --- | ---: |
 | commands registered | 167 (155 Word's own) |
 | attributes the product **draws** | 611 |
-| of those, **unread** — declared and reaching nothing | 70 *(ratchet)* |
+| of those, **unread** — declared and reaching nothing | 58 *(ratchet)* |
 | of those, **unsettable** — drawn and reachable by nothing | 182 *(ratchet)* |
 | attributes a reader can set, from the two declared surfaces | 21 |
 
