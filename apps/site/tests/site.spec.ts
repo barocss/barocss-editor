@@ -5580,11 +5580,20 @@ test.describe('the menubar', () => {
     expect(names).toContain('index.html');
     expect(names).toContain('제품/index.html');
     /*
-     * **No sitemap**, and that is right rather than missing: every `<loc>` in one is absolute, and
-     * this document has not said where the site lives. A sitemap of relative addresses is a file a
-     * crawler reads and cannot use.
+     * **And the two files that are about being found**, which this used to assert were *absent*.
+     *
+     * They were, and correctly: every `<loc>` in a sitemap is absolute and the sample had not said
+     * where it lives, so it published five pages and nothing else. That is the honest export of a
+     * document with no address — and it meant the archive a reader gets from the one document
+     * anybody looks at was missing the two files a published site is incomplete without, with
+     * nothing anywhere saying why.
+     *
+     * The sample says where it lives now. The rule it used to demonstrate — no address, no sitemap —
+     * is held in `reveal.test.ts` and `site-files.test.ts`, against a document emptied on purpose
+     * rather than against a fixture that happened to be bare.
      */
-    expect(names).not.toContain('sitemap.xml');
+    expect(names).toContain('sitemap.xml');
+    expect(names).toContain('robots.txt');
   });
 
   /**

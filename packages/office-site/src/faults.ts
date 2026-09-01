@@ -26,6 +26,16 @@ import { overrideFaults } from './responsive';
 import { pagesOf } from './selection';
 import { SITE_SURFACE_KIND } from './site-schema';
 
+/**
+ * Where a search result cuts a description, which is a fact about the world rather than a rule this
+ * product invented — every major engine renders about this much and truncates the rest mid-word.
+ *
+ * A round number for a thing that is not exact on purpose: the real limit is measured in pixels and
+ * differs per engine and per query. Telling a reader *about* 160 is honest; enforcing 155 would be a
+ * precision this product does not have.
+ */
+const DESCRIPTION_LIMIT = 160;
+
 /** The three a page has one of. `nav` and `aside` are not among them — see `documentFaults`. */
 const ONE_EACH = ['header', 'main', 'footer'];
 
@@ -43,7 +53,17 @@ export interface Fault {
   /** The node a reader would click to fix it. */
   sid: string;
   /** Which question found it, so a panel can group them. */
-  kind: 'width' | 'state' | 'link' | 'data' | 'landmark' | 'form' | 'asset' | 'address' | 'reference';
+  kind:
+    | 'width'
+    | 'state'
+    | 'link'
+    | 'data'
+    | 'landmark'
+    | 'form'
+    | 'asset'
+    | 'address'
+    | 'reference'
+    | 'found';
   /** What is wrong, in the words a reader would use. */
   said: string;
 }
@@ -106,6 +126,25 @@ export const FAULT_KINDS: { id: Fault['kind']; label: string; why: string }[] = 
      * from noticing.
      */
     why: '두 페이지가 같은 주소를 씁니다. 한쪽은 발행되지 않고, 그쪽을 가리키는 링크는 모두 다른 페이지로 갑니다.'
+  },
+  {
+    id: 'found',
+    label: '검색과 공유',
+    /*
+     * The one group about a page a reader **never sees while making it**, and the reason it is a
+     * fault rather than a nicety is the same one the form group gives: the page looks finished.
+     *
+     * Measured on this product's own sample, five pages published: `lang`, `<title>`, a viewport and
+     * nothing else. So every search result was whatever an engine could scrape out of the first
+     * paragraph — on a landing page, the words 무료로 시작하기 — and every link anybody pasted into a
+     * chat unfurled as a bare address. The schema has carried `description` and `image` since the
+     * head was written, the panel has offered both, and `setPageInfo` has accepted both. Nobody had
+     * ever written one, and nothing had ever said so.
+     *
+     * Which is the shape this product keeps finding: a mechanism alive in all four places and dead
+     * in the only document anybody looks at.
+     */
+    why: '설명이 없는 페이지는 검색 결과와 공유 카드가 스스로 채워집니다 — 첫 문단에서 긁어온 아무 문장으로. 화면은 완성돼 보이고, 그것을 볼 수 있는 자리는 편집기 어디에도 없습니다.'
   },
   {
     id: 'reference',
@@ -324,6 +363,40 @@ export function documentFaults(
    */
   for (const fault of pathFaults(pagesOf(doc as never))) {
     found.push({ sid: fault.sid, kind: 'address', said: fault.said });
+  }
+
+  /*
+   * And **what a page says about itself to everything that is not a browser**.
+   *
+   * Two pages are deliberately not asked. A `notFound` page is served for a request that matched
+   * nothing — nobody arrives at it from a search result, and describing it describes an error — and
+   * a `noIndex` page has *said* it does not want to be found, so telling a reader to describe it is
+   * telling them to undo a decision they made on purpose. A fault list that argues with the reader's
+   * own settings is a fault list they learn to close.
+   *
+   * The length is the second half, and it is the one nothing else could catch: an engine cuts a
+   * description at about 160 characters, mid-word, and shows the cut. A reader who wrote three
+   * sentences sees all three in the panel and two and a half in the world.
+   */
+  for (const page of pagesOf(doc as never)) {
+    const attrs = (doc.getNode(page.sid)?.attributes ?? {}) as Record<string, unknown>;
+    if (attrs.notFound === true || attrs.noIndex === true) continue;
+
+    const about = typeof attrs.description === 'string' ? attrs.description.trim() : '';
+    const name = typeof attrs.name === 'string' && attrs.name ? attrs.name : page.name;
+    if (!about) {
+      found.push({
+        sid: page.sid,
+        kind: 'found',
+        said: `'${name}'에 설명이 없습니다 — 검색 결과와 공유 카드가 비어서 나갑니다`
+      });
+    } else if (about.length > DESCRIPTION_LIMIT) {
+      found.push({
+        sid: page.sid,
+        kind: 'found',
+        said: `'${name}'의 설명이 ${about.length}자입니다 — 검색 결과는 ${DESCRIPTION_LIMIT}자에서 자릅니다`
+      });
+    }
   }
 
   for (const fault of linkFaults(doc)) {

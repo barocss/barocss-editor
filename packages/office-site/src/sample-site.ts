@@ -511,7 +511,22 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
      * `baseSize` is **twips**, like every length here — see `type-scale.ts` for what reading it as
      * pixels cost.
      */
-    attributes: { scale: 'loud', baseSize: 17 * 15 },
+    attributes: {
+      scale: 'loud',
+      baseSize: 17 * 15,
+      /**
+       * And **where it lives**, which four separate things in the export need and none of which the
+       * sample was exercising: the canonical link, `og:url`, the sitemap, and a share image written
+       * as a relative address. All four are written *only* when a site has said, which is the right
+       * rule — a relative canonical says a page is canonical to itself, which is what a duplicate
+       * looks like to a crawler — and it meant a fixture with no address published a head with three
+       * Open Graph tags out of five and no `sitemap.xml` at all, silently and correctly.
+       *
+       * The same argument the connection two hundred lines down already makes for its endpoint: what
+       * a reader replaces is this string, and what they never have to discover is that it was needed.
+       */
+      address: 'https://barocss.example'
+    },
     content: [
       home(),
       products(),
@@ -661,11 +676,28 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
 }
 
 /** Every page wears the same paper. */
-const pageAttrs = (id: string, name: string, path: string) => ({
+/**
+ * And **the sentence each page is found by**, which this sample did not have.
+ *
+ * Measured by exporting it: five pages, each with a `lang`, a `<title>`, a viewport and nothing
+ * else — no description, no Open Graph, nothing. Every one of the four places `description` has to
+ * be alive in was alive: the schema declares it, `export-html` writes it, the panel offers a 설명
+ * row, and `setPageInfo` accepts it. Nobody had ever written one.
+ *
+ * Which is the thing a sample is for, and the reason it is `required` here rather than optional:
+ * the fixture is the only document anybody reads, so a fixture that does not wear a feature is a
+ * feature nobody has ever seen work. `faults.ts` now says so for any page, and a sample that trips
+ * its own fault list is a sample nobody would trust about anything else.
+ *
+ * Under 160 characters each, which is where a search result cuts — and written from what the page
+ * actually says rather than from what a landing page usually says.
+ */
+const pageAttrs = (id: string, name: string, path: string, description: string) => ({
   kind: 'flow',
   id,
   name,
   path,
+  description,
   fill: 'var:종이'
 });
 
@@ -673,7 +705,12 @@ const pageAttrs = (id: string, name: string, path: string) => ({
 function home(): Node {
   return {
     stype: 'surface',
-    attributes: pageAttrs('home', '홈', '/'),
+    attributes: pageAttrs(
+      'home',
+      '홈',
+      '/',
+      '문서와 프레젠테이션과 사이트를 한 스키마로 만듭니다. 브랜드 색과 글꼴을 한 번 적으면 세 제품이 그것을 씁니다. 이 페이지도 그중 하나로 만들었습니다.'
+    ),
     content: [
       placed('site-header', {}, HEADER),
 
@@ -1161,7 +1198,12 @@ const ask = (question: string, answer: string, part: string): Node =>
 function products(): Node {
   return {
     stype: 'surface',
-    attributes: pageAttrs('products', '제품', '/제품'),
+    attributes: pageAttrs(
+      'products',
+      '제품',
+      '/제품',
+      '문서, 덱, 사이트가 같은 문서 규칙을 따릅니다. 노드 하나를 더하면 세 제품이 함께 알게 되고, 새 제품에서 다시 만드는 것은 배치뿐입니다.'
+    ),
     content: [
       placed('site-header', {}, HEADER),
       section('제품 머리', { paddingBottom: px(28) }, [
@@ -1275,7 +1317,12 @@ function products(): Node {
 function pricing(): Node {
   return {
     stype: 'surface',
-    attributes: pageAttrs('pricing', '가격', '/가격'),
+    attributes: pageAttrs(
+      'pricing',
+      '가격',
+      '/가격',
+      '제품 하나씩 월 7,900원부터, 셋을 묶으면 월 19,900원. 언제든 그만둘 수 있고 남은 기간은 돌려드립니다. 무료로 쓰는 동안 카드 정보는 묻지 않습니다.'
+    ),
     content: [
       placed('site-header', {}, HEADER),
       section('가격 머리', { paddingBottom: px(28) }, [
@@ -1446,7 +1493,12 @@ function pricing(): Node {
 function about(): Node {
   return {
     stype: 'surface',
-    attributes: pageAttrs('about', '소개', '/소개'),
+    attributes: pageAttrs(
+      'about',
+      '소개',
+      '/소개',
+      '화면보다 스키마가 먼저였고, 기능보다 측정이 먼저였습니다. 워드프로세서와 프레젠테이션과 사이트 빌더를 한 저장소에서 만드는 사람들입니다.'
+    ),
     content: [
       placed('site-header', {}, HEADER),
       section('소개 머리', { paddingBottom: px(40) }, [
@@ -1515,7 +1567,12 @@ function about(): Node {
 function blog(): Node {
   return {
     stype: 'surface',
-    attributes: pageAttrs('blog', '블로그', '/블로그'),
+    attributes: pageAttrs(
+      'blog',
+      '블로그',
+      '/블로그',
+      '측정한 것과, 측정하고 나서 놀란 것을 적습니다. 대부분은 기능을 더한 이야기가 아니라 이미 있던 것을 읽은 이야기입니다.'
+    ),
     content: [
       placed('site-header', {}, HEADER),
       section('블로그 머리', { paddingBottom: px(28) }, [

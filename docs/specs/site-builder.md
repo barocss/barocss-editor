@@ -1086,18 +1086,60 @@ in `FIELDS`, and items 4 and 5 were the same item written twice. A list of open 
 re-measures becomes a list of things that *were* open, which is worse than no list — it is a claim
 with a date on it that nothing checks.
 
+Checked again, and **two of the four were done**: a feed exists (`/블로그` draws a collection over
+글 sorted by 날짜, and the date reads as a date because `value-format.ts` was written since), and the
+probes' silent columns are empty. Which is the second time in a row this list was more than half
+stale — the entries that survive are the ones nobody could close by writing code.
+
 1. **Where a form's answers actually go.** The product takes an address a service gives you and does
    not have an opinion about which service. A first-party inbox is a product decision, not a schema
    one, and it is the next thing anybody will ask for.
-3. **A feed.** Still needs a date column per row in a dataset, which is the piece that has been
-   missing since the data model was written.
-3. **A syntax palette the document owns.** Code is told apart by weight now, because six hard-coded
+2. **A syntax palette the document owns.** Code is told apart by weight now, because six hard-coded
    hues failed AA on a dark band and one of them was a brand colour that no longer existed. Weight
    distinguishes fewer roles than hue does; a document that wants its own is a feature nobody has
    asked for yet.
-5. **The rows and commands no probe can reach**: 12 rows and 11 commands, both printed by name in
-   `conformance.test.ts` rather than left as a number. Most need a state the probe cannot build yet —
-   a definition open, a service resource named.
+3. **What a page is *for*, beyond what it is about.** A page now says what it is about and the
+   product checks that it does (below). The next thing a plan says — *what a visitor should do here*
+   — has nowhere to live, and it is the one that would let the product check a drawing against an
+   intention rather than against itself.
+
+
+## What a page says about itself to everything that is not a browser
+
+`description` and `image` have been on a page since the head was written. All four places were alive:
+the schema declares them, `export-html` writes them, the panel offers a 설명 row and a 공유 그림 row,
+and `setPageInfo` accepts both. The sample had never used either.
+
+So the export of the one document anybody looks at was five pages carrying a `lang`, a `<title>`, a
+viewport and nothing else. Every search result was whatever an engine could scrape out of the first
+paragraph — on the landing page, the words 무료로 시작하기 — and every link pasted into a chat
+unfurled as a bare address.
+
+**A page that does not describe itself is a fault**, in the group `검색과 공유`, and it is the first
+check in this product about something a reader cannot see while making it. Two pages are deliberately
+not asked: a `notFound` page is served for a request that matched nothing, and a `noIndex` page has
+*said* it does not want to be found — a fault list that argues with a reader's own settings is one
+they learn to close. And a description over 160 characters is its own fault, because that is where a
+search result cuts, mid-word, and the panel shows all three sentences while the world gets two.
+
+### What describing the sample found
+
+**A `data:` is not an address.** Every picture this sample draws is generated and inlined, so asking
+what the home page's share image would be produced `og:image` pointing at a base64 string. A crawler
+does not render the page: it reads the tag and *fetches* what it says. The first fix — dropping
+`data:` from the absolute test — was worse, because the value then fell to the relative branch and
+was pasted onto the site's address as `https://…/data:image/svg+xml;base64,…`. Refused before the
+join now, which is the tag the surrounding comment already argued for and did not enforce.
+
+**The sample did not say where it lives**, and four things need it: the canonical link, `og:url`, the
+sitemap, and a share image written as a relative address. All four are written only when a site has
+said — the right rule, and it meant the archive a reader downloads from the sample was missing
+`sitemap.xml` and `robots.txt` with nothing anywhere explaining why. It says now.
+
+**Five tests held because the fixture was thin.** Each read the bare sample and asserted an absence —
+no canonical, no sitemap, no robots, no `_next`, no `og:image` — and each one was measuring the
+document rather than the product. They empty the address on purpose now, which is the state they were
+always about.
 
 
 ## Copying a block out of one site and into another

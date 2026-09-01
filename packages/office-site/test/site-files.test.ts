@@ -62,6 +62,9 @@ describe('what a published folder holds', () => {
      * Nothing without an address, which is the rule `og:url` and the sitemap already follow: a
      * `Sitemap:` line takes an absolute address and there is nothing honest to put in a relative one.
      */
+    // Emptied rather than assumed: the sample says where it lives now, so a test that read the
+    // fixture bare was reporting the fixture. `'  '` is what a reader clearing the field writes.
+    await editor.executeCommand('setSiteAddress', { address: '  ' });
     expect(robotsFor(editor)).toBeUndefined();
     expect((await files()).map((one) => one.file)).not.toContain('robots.txt');
 

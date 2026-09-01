@@ -203,11 +203,34 @@ describe('what a shared link shows', () => {
     expect(html).toContain('name="twitter:card" content="summary_large_image"');
   });
 
+  /**
+   * And **an inlined picture is not a picture anybody can share**, which is the case this rule used
+   * to let through — found by describing the sample and then asking what its share image would be,
+   * since every picture it draws is generated and inlined.
+   *
+   * A crawler does not render the page. It reads `og:image`, *fetches* what it says, and a `data:`
+   * is not something to fetch — so an inlined one wrote the exact tag the rule above exists to
+   * prevent: present, plausible in the source, and an empty card everywhere it is pasted.
+   */
+  it('refuses an inlined picture, which is not an address a crawler can fetch', async () => {
+    const { editor, home } = site();
+    await editor.executeCommand('setSiteAddress', { address: 'https://barocss.com' });
+    await editor.executeCommand('setPageInfo', {
+      nodeId: home,
+      image: 'data:image/svg+xml;base64,PHN2Zy8+'
+    });
+    const html = exportPage(editor, home).html;
+    expect(html).not.toContain('og:image');
+    expect(html).not.toContain('twitter:card');
+  });
+
   it('joins a relative one onto the site’s address, and refuses it without one', async () => {
     const { editor, store, home } = site();
     await editor.executeCommand('setPageInfo', { nodeId: home, image: '/share.png' });
 
-    // No site address: no tag at all, rather than one a crawler cannot resolve.
+    // No site address: no tag at all, rather than one a crawler cannot resolve. Emptied rather than
+    // assumed — the sample says where it lives now, because four things in the export need it.
+    await editor.executeCommand('setSiteAddress', { address: '  ' });
     expect(exportPage(editor, home).html).not.toContain('og:image');
 
     await editor.executeCommand('setSiteAddress', { address: 'https://barocss.com' });
@@ -414,6 +437,7 @@ describe('what happens after it is sent', () => {
      * address against — the same rule `og:url` and `og:image` follow. A site that has not said where
      * it lives publishes no return rather than one that sends somebody nowhere.
      */
+    await editor.executeCommand('setSiteAddress', { address: '  ' });
     expect(exportPage(editor, about).html).not.toContain('_next');
 
     await editor.executeCommand('setSiteAddress', { address: 'https://barocss.com' });

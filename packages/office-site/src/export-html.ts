@@ -1606,13 +1606,30 @@ function document_(
      * one. That is the same rule `og:url` follows two lines up, and the same reason: a tag that is
      * present and wrong is worse than one that is absent, because nothing ever reports it.
      *
+     * **And a `data:` is not an address**, which this rule used to let through — found by putting a
+     * description on the sample and then asking what its picture would be, since every picture this
+     * sample draws is generated and inlined. A crawler does not render the page and does not read
+     * a `data:`; it takes what `og:image` says and *fetches* it. So an inlined picture wrote the
+     * exact tag this comment argues against: present, plausible in the source, and an unfurl that
+     * comes back empty from every service that draws one.
+     *
+     * A picture that is going to be shared has to be a **file**, which is what `asset:` is for.
+     *
      * `twitter:card` beside it because without it X draws the small square thumbnail whatever the
      * image is, and one word is the difference between a banner and a postage stamp.
      */
     ...(() => {
       const picture = said?.image?.trim();
       if (!picture) return [];
-      const absolute = /^(https?:|data:)/i.test(picture)
+      /*
+       * Refused **before** the join, not merely left out of the absolute test — which is where this
+       * first went, and it was worse than the fault it fixed: a `data:` is not `https?:`, so it fell
+       * to the relative branch and was pasted onto the site's address as
+       * `https://barocss.com/data:image/svg+xml;base64,…`. A tag that is present and wrong, written
+       * by the line whose comment says that is the one thing to avoid.
+       */
+      if (/^[a-z][a-z0-9+.-]*:/i.test(picture) && !/^https?:/i.test(picture)) return [];
+      const absolute = /^https?:/i.test(picture)
         ? picture
         : said?.at
           ? `${said.at.replace(/\/[^/]*$/, '')}/${picture.replace(/^\/+/, '')}`

@@ -126,8 +126,16 @@ describe('how a block arrives', () => {
    * description, no Open Graph, and no skip link.
    */
   it('says what the page is about, once a reader has said it', async () => {
-    // Nothing written is **nothing said**: an empty `description` tells an engine the page has been
-    // described and the description is nothing, which is worse than leaving it out.
+    /*
+     * Nothing written is **nothing said**: an empty `description` tells an engine the page has been
+     * described and the description is nothing, which is worse than leaving it out.
+     *
+     * Cleared rather than assumed. This used to read the sample's home page as it came, which was
+     * bare — and stayed true only until somebody described the sample, which `faults.ts` now asks
+     * every page to do. A test that holds because the fixture is thin is a test that reports the
+     * fixture rather than the product.
+     */
+    await run('setPageInfo', { nodeId: home, description: '' });
     expect(exportPage(editor, home).html).not.toContain('name="description"');
 
     await run('setPageInfo', { nodeId: home, description: '문서 한 벌로 세 가지를 만듭니다.' });
@@ -148,6 +156,14 @@ describe('how a block arrives', () => {
      * relative address, and a canonical link that is relative says the page is canonical to itself —
      * which is what a duplicate looks like to a crawler.
      */
+    /*
+     * **Emptied first**, rather than read off a fixture that happened to be bare. This held only
+     * while the sample had no address, and the sample now has one — because four separate things in
+     * the export need it and a fixture exercising none of them was reporting the fixture rather than
+     * the product. `'  '` is what a reader clearing the field writes, which is the state this is
+     * about.
+     */
+    await run('setSiteAddress', { address: '  ' });
     expect(exportPage(editor, home).html).not.toContain('rel="canonical"');
 
     await run('setSiteAddress', { address: 'https://barocss.example/' });
@@ -159,6 +175,8 @@ describe('how a block arrives', () => {
   });
 
   it('writes a sitemap, and none at all without an address', async () => {
+    // Emptied first — see the canonical test above for why the fixture can no longer be read bare.
+    await run('setSiteAddress', { address: '  ' });
     expect(sitemapFor(editor)).toBeUndefined();
 
     await run('setSiteAddress', { address: 'https://barocss.example' });
