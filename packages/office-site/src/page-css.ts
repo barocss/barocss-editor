@@ -85,6 +85,23 @@ export const PAGE_CSS =
    */
   word-break: keep-all;
   overflow-wrap: anywhere;
+  /**
+   * **Spaces are text.**
+   *
+   * HTML collapses a run of them to one and drops a trailing one entirely, which is right for markup
+   * a person wrote by hand and wrong for every editor: typing two spaces between words showed one,
+   * and a space at the end of a paragraph did not appear at all — the caret simply refused to move.
+   *
+   * office-text has said this since it was written, on the **word** document's own wrapper. A page
+   * is a different element and inherits nothing from it, so the site builder had the browser default
+   * and the two products behaved differently at the most basic keystroke there is.
+   *
+   * pre-wrap rather than pre: runs of spaces and trailing spaces are kept, and lines still wrap. The
+   * model holds no newlines — a line break is a block — so nothing else changes.
+   *
+   * (No back-ticks in this comment, for the reason the caret rule below spells out.)
+   */
+  white-space: pre-wrap;
   /* So the sizes below can ask how wide the page is rather than how wide the window is. */
   container-type: inline-size;
   /**

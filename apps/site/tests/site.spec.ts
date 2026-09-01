@@ -6015,7 +6015,7 @@ test.describe('a site-wide row shows what the document holds', () => {
     await expect(address).toHaveValue('https://barocss.test');
 
     // A toggle is the one that showed the fault loudest: it came back up on its own.
-    const noIndex = page.getByLabel('검색 엔진에서 제외');
+    const noIndex = page.getByLabel('검색 엔진에서 사이트 전체를 제외');
     await noIndex.click({ force: true });
     await page.waitForTimeout(500);
     await expect(noIndex).toBeChecked();

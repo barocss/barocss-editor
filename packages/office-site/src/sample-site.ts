@@ -770,7 +770,23 @@ function home(): Node {
               maxWidth: WIDTH.page,
               // And it centres itself, now that the band above stretches rather than centring it.
               centred: true,
-              overrides: { mobile: { layoutMode: 'column', gap: px(32) } }
+              /**
+               * **Both narrow widths become a column**, not only the phone.
+               *
+               * It said `mobile` alone, so a tablet kept the 7-to-5 row — and 7 to 5 of 754px is a
+               * 440px column of words beside a 270px picture, which is neither. The row's content
+               * wanted 804px in a box of 754, and flex let it overflow rather than shrink: the
+               * symptom a reader reported was *the hero ignores its padding on tablet*, which is the
+               * same fault seen from the other end.
+               *
+               * The rule this sample keeps forgetting is in `site-builder.md`: a layout that changes
+               * at one width almost always changes at both, and the tablet is the width nobody looks
+               * at because it is neither of the two a person has open.
+               */
+              overrides: {
+                tablet: { layoutMode: 'column', gap: px(40) },
+                mobile: { layoutMode: 'column', gap: px(32) }
+              }
             },
             [
               stack(
