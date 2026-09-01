@@ -158,6 +158,39 @@ export const SITE_KEYS: SiteKey[] = [
    * chord that insisted on the shift would miss half the presses. `hintFor` prints it as `⌘+`, which
    * is what every application shows and what is on the keycap.
    */
+  /**
+   * **The arrow keys, for a block that places itself.**
+   *
+   * A drag is how a reader finds a position and a key is how they finish one — a pixel is a distance
+   * no pointer can ask for. Ten with Shift, which is what every tool of this kind offers and what a
+   * reader reaches for when they mean *about here* rather than *exactly here*.
+   *
+   * `needsSelection`, and the command refuses a stacked block on top of that: with nothing placed
+   * selected the key is not handled and the app's own arrow behaviour keeps working underneath.
+   */
+  ...([
+    ['ArrowLeft', 'x', -15],
+    ['ArrowRight', 'x', 15],
+    ['ArrowUp', 'y', -15],
+    ['ArrowDown', 'y', 15]
+  ] as const).flatMap(([key, axis, by]) => [
+    {
+      key,
+      command: 'nudgeBlock',
+      payload: { axis, by },
+      mode: 'select' as const,
+      needsSelection: true,
+      label: '놓인 블록 1px 밀기'
+    },
+    {
+      key: `Shift+${key}`,
+      command: 'nudgeBlock',
+      payload: { axis, by: by * 10 },
+      mode: 'select' as const,
+      needsSelection: true,
+      label: '놓인 블록 10px 밀기'
+    }
+  ]),
   { key: 'Mod+=', view: 'zoom.in', mode: 'any', label: '확대' },
   { key: 'Mod+Shift+=', view: 'zoom.in', mode: 'any', label: '확대' },
   { key: 'Mod+-', view: 'zoom.out', mode: 'any', label: '축소' },

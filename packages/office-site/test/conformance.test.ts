@@ -359,6 +359,42 @@ describe('the site builder draws what it declares', () => {
         }
       }
 
+      /**
+       * **Two blocks at coordinates**, for the two commands that are about where a block *is*.
+       *
+       * A page is a stack, so nothing on it places itself until a reader says so — and both of these
+       * refuse a stacked block on purpose: writing an inset onto one produces a number the drawing
+       * ignores, which is a command that says it ran and changed nothing. So the probe says so
+       * first, on two blocks, which is also what lining up needs.
+       */
+      if (command === 'nudgeBlock' || command === 'alignBlocks') {
+        const two = blocksIn(doc as never, page).slice(0, 3);
+        if (two.length > 2) {
+          /*
+           * At **three different places**, which is the trap the row probe already documents: three
+           * blocks all at `insetLeft: 0` are already aligned left, so the command runs, writes the
+           * number that was there, and reports itself as doing nothing. A probe that sets the state
+           * it is about to ask for is not asking anything.
+           */
+          for (const [at, sid] of two.entries()) {
+            await editor.executeCommand('setBlockFormat', {
+              nodeIds: [sid],
+              position: 'absolute',
+              insetLeft: (at + 1) * 40 * 15,
+              insetTop: (at + 1) * 30 * 15,
+              maxWidth: (300 - at * 40) * 15,
+              minHeight: 100 * 15
+            });
+          }
+          await editor.executeCommand('setNode', { nodeIds: two });
+          payload.nodeIds = two;
+          payload.nodeId = two[0];
+          payload.axis = 'x';
+          payload.by = 15;
+          payload.how = 'left';
+        }
+      }
+
       /*
        * **Something with a shape worth reusing**, for the command that turns a block into a card.
        *

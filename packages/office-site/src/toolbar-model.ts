@@ -206,6 +206,37 @@ export const SITE_TOOLBAR: SiteControl[] = [
    * And the way back out, which `createComponentFrom` needs in order to be a door rather than a
    * decision. A reader who cannot undo a component is a reader who stops making them.
    */
+  /**
+   * **Lining several placed blocks up, and spreading them out** — the pair a free canvas is unusable
+   * without, and the one every design tool has had since the first.
+   *
+   * Against the **outermost of the chosen blocks** rather than against their parent, which is the
+   * choice worth stating: aligning to the parent is a different gesture (*fill this box*), and
+   * aligning to each other is what a reader means having picked three things. `alignBlocks` refuses
+   * fewer than two, and the two spreads refuse fewer than three — with two there is nothing between
+   * them to space — so the controls grey themselves without the toolbar knowing why.
+   *
+   * Only a block at coordinates. A stacked one has no position of its own to line up: its parent
+   * decided, and the row that changes *that* is 배치 › 가로 정렬.
+   */
+  ...([
+    ['left', '왼쪽', 'align-boxes-left', '고른 블록들의 왼쪽 끝을 맞춥니다'],
+    ['centreX', '가로 가운데', 'align-boxes-centre', '고른 블록들의 가로 가운데를 맞춥니다'],
+    ['right', '오른쪽', 'align-boxes-right', '고른 블록들의 오른쪽 끝을 맞춥니다'],
+    ['top', '위', 'align-boxes-top', '고른 블록들의 윗변을 맞춥니다'],
+    ['centreY', '세로 가운데', 'align-boxes-middle', '고른 블록들의 세로 가운데를 맞춥니다'],
+    ['bottom', '아래', 'align-boxes-bottom', '고른 블록들의 아랫변을 맞춥니다'],
+    ['spreadX', '가로로 고르게', 'distribute-h', '고른 블록들 사이의 가로 간격을 고르게 합니다'],
+    ['spreadY', '세로로 고르게', 'distribute-v', '고른 블록들 사이의 세로 간격을 고르게 합니다']
+  ] as const).map(([how, label, icon, title]) => ({
+    command: 'alignBlocks',
+    payload: { how },
+    label,
+    title,
+    group: 'arrange' as const,
+    icon
+  })),
+
   {
     command: 'detachComponent',
     label: '컴포넌트 해제',

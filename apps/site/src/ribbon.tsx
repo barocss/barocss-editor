@@ -245,13 +245,21 @@ export function Ribbon({
       <ToolbarGroup id="arrange">
         {siteControlsIn('arrange').map((control) => (
           <ToolbarToggle
-            key={control.command}
+            /**
+             * **Keyed by the command and what it says**, not by the command alone.
+             *
+             * Eight controls run `alignBlocks` and differ only in the `how` they carry, so keying by
+             * the command gave React eight children with one key: it drew the first and dropped the
+             * other seven, and the toolbar had a 왼쪽 button and nothing else. Found the moment the
+             * align controls were declared, by counting them in a browser and getting zero.
+             */
+            key={`${control.command}:${JSON.stringify(control.payload ?? {})}`}
             id={control.command}
             label={control.title ?? control.label}
             shortcut={chordOf(control)}
             state="off"
-            disabled={!can(control.command)}
-            onActivate={() => run(control.command)}
+            disabled={!can(control.command, control.payload)}
+            onActivate={() => run(control.command, control.payload)}
           >
             {/*
               The picture, not the word — and all four already declared one that nothing drew.

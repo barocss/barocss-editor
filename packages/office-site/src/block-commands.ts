@@ -23,6 +23,14 @@ import { definitionsOf, freshPartId, scopeOf } from './components';
 import { pathFor, slugFor } from './slug';
 import { blocksIn, enclosing, pageOf, SELECTABLE, TEXTUAL } from './selection';
 
+/**
+ * The six a reader can line blocks up by, in the order a toolbar draws them.
+ *
+ * `spreadX` and `spreadY` are not among them: spreading needs three blocks where lining up needs
+ * two, so the guard asks a different question and the list would hide that.
+ */
+export const ALIGNMENTS = ['left', 'centreX', 'right', 'top', 'centreY', 'bottom'];
+
 type Node = Record<string, any>;
 
 export class SiteBlockExtension implements Extension {
@@ -522,6 +530,147 @@ export class SiteBlockExtension implements Extension {
         return !!found && found.uses === 0;
       }
     );
+
+    /**
+     * **Moving a placed block by a number rather than by hand.**
+     *
+     * A drag is how a reader finds a position and a key is how they finish one: nudging by a pixel is
+     * a gesture no pointer can make, and every tool of this kind puts it on the arrow keys. One entry
+     * in the history per press, which is what makes it usable — holding an arrow down is a run of
+     * presses and undoing them one at a time is the reader taking back exactly what they did.
+     *
+     * **Only a block at coordinates.** A stacked block has no position of its own to nudge: the stack
+     * decides where it goes, and the arrow keys there mean what they mean in a list. Refusing is what
+     * lets the app's own arrow handling keep working underneath.
+     */
+    register(
+      'nudgeBlock',
+      async (payload) => await this._shift(editor, payload),
+      (payload) => this._placed(editor, payload).length > 0
+    );
+
+    /**
+     * **Lining several blocks up, and spreading them out** — the two gestures a free canvas is
+     * unusable without, and the pair every design tool has had since the first one.
+     *
+     * Against the **outermost** of the chosen blocks rather than against their parent, which is the
+     * choice worth stating: aligning to the parent is a different gesture (*fill this box*), and
+     * aligning to each other is what a reader means when they have picked three things and pressed
+     * 왼쪽. The two are indistinguishable with one block chosen, which is why this refuses fewer than
+     * two.
+     *
+     * Distributing needs three: with two there is nothing between them to space.
+     */
+    register(
+      'alignBlocks',
+      async (payload) => await this._align(editor, payload),
+      (payload) => {
+        const chosen = this._placed(editor, payload);
+        const how = String(payload?.how ?? '');
+        if (['spreadX', 'spreadY'].includes(how)) return chosen.length > 2;
+        return chosen.length > 1 && ALIGNMENTS.includes(how);
+      }
+    );
+  }
+
+  /**
+   * The chosen blocks that **place themselves**, which is what these three act on.
+   *
+   * A stacked block has no coordinates: its parent decided where it goes, and writing an inset onto
+   * it would produce a number the drawing ignores — a command that says it ran and changed nothing,
+   * which is the fault this repository's harness is named after.
+   */
+  private _placed(editor: Editor, payload?: Record<string, unknown>): string[] {
+    const store = this._store(editor);
+    if (!store) return [];
+    return this._chosen(editor, payload).filter(
+      (sid) => store.getNode(sid)?.attributes?.position === 'absolute'
+    );
+  }
+
+  /** Where a placed block sits and how big it is, in twips — the space every number here is in. */
+  private _boxOf(editor: Editor, sid: string): { left: number; top: number; width: number; height: number } {
+    const attrs = (this._store(editor)?.getNode(sid)?.attributes ?? {}) as Record<string, unknown>;
+    const number = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : 0);
+    return {
+      left: number(attrs.insetLeft),
+      top: number(attrs.insetTop),
+      /*
+       * The **stated** size, which is the only one this layer has: a width the browser worked out is
+       * a fact about a drawing, and a command that read one would give a different answer depending
+       * on which board the reader was looking at. A block with no stated size counts as a point,
+       * which lines its corner up — the honest answer when it has not said how big it is.
+       */
+      width: number(attrs.maxWidth),
+      height: number(attrs.minHeight)
+    };
+  }
+
+  private async _shift(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const chosen = this._placed(editor, payload);
+    if (chosen.length === 0) return false;
+
+    const by = typeof payload?.by === 'number' ? Math.round(payload.by) : 0;
+    const axis = payload?.axis === 'y' ? 'y' : 'x';
+    if (by === 0) return false;
+
+    const steps = chosen.map((sid) => {
+      const box = this._boxOf(editor, sid);
+      return setAttrs(sid, axis === 'x' ? { insetLeft: box.left + by } : { insetTop: box.top + by });
+    });
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  private async _align(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const chosen = this._placed(editor, payload);
+    const how = String(payload?.how ?? '');
+    if (chosen.length < 2) return false;
+
+    const boxes = chosen.map((sid) => ({ sid, ...this._boxOf(editor, sid) }));
+    const left = Math.min(...boxes.map((one) => one.left));
+    const right = Math.max(...boxes.map((one) => one.left + one.width));
+    const top = Math.min(...boxes.map((one) => one.top));
+    const bottom = Math.max(...boxes.map((one) => one.top + one.height));
+
+    const steps: unknown[] = [];
+    if (how === 'spreadX' || how === 'spreadY') {
+      if (boxes.length < 3) return false;
+      /*
+       * **Even space between them**, not even centres — which is what a reader looking at three
+       * boxes of different widths means, and the one every tool computes. The two at the ends stay
+       * where they are: they are what the reader is spreading things *between*.
+       */
+      const along = how === 'spreadX' ? 'x' : 'y';
+      const order = [...boxes].sort((a, b) => (along === 'x' ? a.left - b.left : a.top - b.top));
+      const span = along === 'x' ? right - left : bottom - top;
+      const filled = order.reduce((sum, one) => sum + (along === 'x' ? one.width : one.height), 0);
+      const air = Math.round((span - filled) / (order.length - 1));
+      let at = along === 'x' ? left : top;
+      for (const one of order) {
+        if (one !== order[0] && one !== order[order.length - 1]) {
+          steps.push(setAttrs(one.sid, along === 'x' ? { insetLeft: at } : { insetTop: at }));
+        }
+        at += (along === 'x' ? one.width : one.height) + air;
+      }
+    } else {
+      for (const one of boxes) {
+        const said =
+          how === 'left'
+            ? { insetLeft: left }
+            : how === 'right'
+              ? { insetLeft: right - one.width }
+              : how === 'centreX'
+                ? { insetLeft: Math.round((left + right) / 2 - one.width / 2) }
+                : how === 'top'
+                  ? { insetTop: top }
+                  : how === 'bottom'
+                    ? { insetTop: bottom - one.height }
+                    : { insetTop: Math.round((top + bottom) / 2 - one.height / 2) };
+        steps.push(setAttrs(one.sid, said));
+      }
+    }
+    if (steps.length === 0) return false;
+    return (await transaction(editor, steps as never).commit()).success === true;
   }
 
   /** The definition a call is about, with how many places use it — or nothing when there is none. */

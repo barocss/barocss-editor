@@ -613,6 +613,33 @@ export function Inspector({
 
   const write = (row: SitePanelRow, value: unknown) => {
     if (!row.command) return;
+    /**
+     * **Taking a block out of the flow freezes the size it had** — the same thing ⌘-dragging one out
+     * does, and for the reason that gesture found: `fill` takes whatever the stack gives, so a block
+     * left stretching after it is placed has a width handle that writes a `maxWidth` it never
+     * reaches, and every alignment reads it as a point rather than as a box.
+     *
+     * Here rather than in the command, because the command has no measurements: a document holds
+     * what a reader stated and the browser holds what it made of it. Which is the same division
+     * `alignBlocks` documents — it lines up **stated** sizes, so a block that has never said how big
+     * it is lines up by its corner.
+     */
+    if (row.attr === 'position' && value === 'absolute' && shown?.ids.length) {
+      const board = document.querySelector('[data-frame="desktop"]');
+      for (const sid of shown.ids) {
+        const el = board?.querySelector<HTMLElement>(`[data-bc-sid="${CSS.escape(sid)}"]`);
+        if (!el) continue;
+        const held = (editor.dataStore?.getNode(sid)?.attributes ?? {}) as Record<string, unknown>;
+        if (typeof held.maxWidth === 'number' && typeof held.minHeight === 'number') continue;
+        run('setBlockFormat', {
+          nodeIds: [sid],
+          sizing: 'fixed',
+          maxWidth: Math.round(el.offsetWidth * PX),
+          minWidth: Math.round(el.offsetWidth * PX),
+          minHeight: Math.round(el.offsetHeight * PX)
+        });
+      }
+    }
     if (row.command === 'setPageInfo') run('setPageInfo', { nodeId: page, [row.attr]: value });
     /*
      * Naming a question the card does not ask **declares** it, so the field that types a name and

@@ -140,6 +140,94 @@ describe('what a reader can do to a block', () => {
     await editor.executeCommand('undo');
     expect(blocksIn(doc, cardRow)).toEqual(before);
   });
+  /**
+   * **Lining placed blocks up, and spreading them out.**
+   *
+   * The arithmetic rather than the gesture: a browser holds the drag and this holds the numbers, and
+   * they are different questions. Every one of these is in **twips**, which is what the document
+   * keeps — a test written in pixels would pass against a command that was out by fifteen.
+   */
+  describe('where several placed blocks sit', () => {
+    /** Three blocks taken out of the flow at three different places and three different widths. */
+    const three = async (): Promise<string[]> => {
+      const found = blocksIn(doc, page).slice(0, 3);
+      for (const [where, sid] of found.entries()) {
+        await run('setBlockFormat', {
+          nodeIds: [sid],
+          position: 'absolute',
+          insetLeft: (where + 1) * 100,
+          insetTop: (where + 1) * 50,
+          maxWidth: 400 - where * 100,
+          minHeight: 200
+        });
+      }
+      return found;
+    };
+    const at = (sid: string) => {
+      const attrs = store.getNode(sid)?.attributes as Record<string, number>;
+      return { left: attrs.insetLeft, top: attrs.insetTop };
+    };
+
+    it('lines them up on the outermost edge, not on their parent', async () => {
+      const found = await three();
+      await run('alignBlocks', { nodeIds: found, how: 'left' });
+      // 100 is the leftmost of the three; the parent's own edge is 0 and is deliberately not it.
+      expect(found.map((sid) => at(sid).left)).toEqual([100, 100, 100]);
+    });
+
+    it('lines up a right edge by where each block ends, not where it starts', async () => {
+      const found = await three();
+      // Widths 400, 300, 200 at 100, 200, 300 — so the rightmost edge is 500.
+      await run('alignBlocks', { nodeIds: found, how: 'right' });
+      expect(found.map((sid) => at(sid).left)).toEqual([100, 200, 300]);
+    });
+
+    it('centres them on the middle of what they span', async () => {
+      const found = await three();
+      await run('alignBlocks', { nodeIds: found, how: 'centreX' });
+      // The span is 100..500, so the middle is 300 and each sits half its own width before it.
+      expect(found.map((sid) => at(sid).left)).toEqual([100, 150, 200]);
+    });
+
+    it('spreads the middle one and leaves the two ends where they are', async () => {
+      const found = await three();
+      const ends = [at(found[0]).left, at(found[2]).left];
+      await run('alignBlocks', { nodeIds: found, how: 'spreadX' });
+      expect([at(found[0]).left, at(found[2]).left]).toEqual(ends);
+      // Even **space between**, not even centres — the one every tool computes.
+      expect(at(found[1]).left).toBe(100 + 400 + Math.round((400 - 900) / 2));
+    });
+
+    it('refuses to spread two, because there is nothing between them', async () => {
+      const found = await three();
+      expect(editor.canExecuteCommand('alignBlocks', { nodeIds: found.slice(0, 2), how: 'spreadX' })).toBe(false);
+      expect(editor.canExecuteCommand('alignBlocks', { nodeIds: found.slice(0, 2), how: 'left' })).toBe(true);
+    });
+
+    it('refuses a block the stack placed, whichever gesture is asked for', async () => {
+      const stacked = blocksIn(doc, page).slice(0, 2);
+      expect(editor.canExecuteCommand('alignBlocks', { nodeIds: stacked, how: 'left' })).toBe(false);
+      expect(editor.canExecuteCommand('nudgeBlock', { nodeIds: stacked, axis: 'x', by: 15 })).toBe(false);
+    });
+
+    it('nudges by the number it is given, on the axis it is given', async () => {
+      const found = await three();
+      await run('nudgeBlock', { nodeIds: [found[0]], axis: 'x', by: 15 });
+      expect(at(found[0])).toEqual({ left: 115, top: 50 });
+      await run('nudgeBlock', { nodeIds: [found[0]], axis: 'y', by: -150 });
+      expect(at(found[0])).toEqual({ left: 115, top: -100 });
+    });
+
+    it('moves every chosen block by the same amount, in one entry of the history', async () => {
+      const found = await three();
+      await run('nudgeBlock', { nodeIds: found, axis: 'x', by: 150 });
+      expect(found.map((sid) => at(sid).left)).toEqual([250, 350, 450]);
+
+      // One press, one undo — which is what makes holding an arrow key down usable.
+      await run('undo', {});
+      expect(found.map((sid) => at(sid).left)).toEqual([100, 200, 300]);
+    });
+  });
 });
 
 /**

@@ -149,7 +149,18 @@ const DECLARED: SiteMenu[] = [
            * lit up, ran, and did nothing.
            */
           { command: 'moveBlockUp', label: '위로 옮기기' },
-          { command: 'moveBlockDown', label: '아래로 옮기기' }
+          { command: 'moveBlockDown', label: '아래로 옮기기' },
+          /*
+           * **The arrow keys**, which move a block that places itself by a pixel — a distance no
+           * pointer can ask for. Here as well as on the keys, because a chord nobody can discover is
+           * a chord only the person who wrote it knows about: this menu is where a reader finds out
+           * the arrows do anything at all.
+           *
+           * One entry rather than eight. The four directions and the ten-pixel step are the same
+           * gesture said four and two ways, and a menu with eight rows of *1px 왼쪽으로* is a menu
+           * nobody reads to the end. The chord beside it says the rest.
+           */
+          { command: 'nudgeBlock', payload: { axis: 'x', by: -15 }, label: '놓인 블록 밀기' }
         ]
       },
       /*

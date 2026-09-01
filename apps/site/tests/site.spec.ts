@@ -1233,6 +1233,76 @@ test.describe('the exported page', () => {
     expect(Number.parseFloat(said.top ?? '0')).toBeGreaterThan(60);
   });
 
+  test('nudges a placed block by a key, and offers the eight ways to line blocks up', async ({ page }) => {
+    /**
+     * **A drag finds a position and a key finishes one** — a pixel is a distance no pointer can ask
+     * for, so the arrow keys move a placed block by one and Shift by ten, which is what every tool of
+     * this kind offers. One entry in the history per press: holding an arrow down is a run of presses,
+     * and taking them back one at a time is the reader undoing exactly what they did.
+     *
+     * The arithmetic of lining several up is held in `block-commands.test.ts`, in twips, where it can
+     * be asked in a millisecond. What a browser is for is the **wiring**: that eight controls exist
+     * rather than one, and that they say whether they can run.
+     *
+     * Eight of them run one command and differ only in what they carry — which is how they were all
+     * missing at first: keyed by the command alone, React drew the first and dropped seven, and the
+     * toolbar had a 왼쪽 button and nothing else.
+     */
+    await ready(page);
+    const band = page.locator('[data-frame="desktop"] [data-name="문제"]').first();
+    await press(page, band);
+    await page.waitForTimeout(300);
+    await page.getByLabel('배치 방식').selectOption('absolute');
+    await page.waitForTimeout(450);
+    await press(page, band);
+    await page.waitForTimeout(300);
+
+    const left = async () =>
+      await page.evaluate(() =>
+        Math.round(
+          Number.parseFloat(
+            getComputedStyle(
+              document.querySelector('[data-frame="desktop"] [data-name="문제"]') as HTMLElement
+            ).left
+          )
+        )
+      );
+
+    const before = await left();
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(300);
+    expect(await left()).toBe(before + 1);
+
+    await page.keyboard.press('Shift+ArrowRight');
+    await page.waitForTimeout(300);
+    expect(await left()).toBe(before + 11);
+
+    // And one press, one undo, which is what makes holding the key down usable.
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+    await page.waitForTimeout(400);
+    expect(await left()).toBe(before + 1);
+
+    /*
+     * The eight controls, and each one saying whether it can run. With a single block chosen, lining
+     * up has nothing to line up against — so every one of them is off, which is the toolbar telling
+     * the truth rather than lighting up and doing nothing.
+     */
+    const align = [
+      '고른 블록들의 왼쪽 끝을 맞춥니다',
+      '고른 블록들의 가로 가운데를 맞춥니다',
+      '고른 블록들의 오른쪽 끝을 맞춥니다',
+      '고른 블록들의 윗변을 맞춥니다',
+      '고른 블록들의 세로 가운데를 맞춥니다',
+      '고른 블록들의 아랫변을 맞춥니다',
+      '고른 블록들 사이의 가로 간격을 고르게 합니다',
+      '고른 블록들 사이의 세로 간격을 고르게 합니다'
+    ];
+    for (const said of align) {
+      await expect(page.getByLabel(said)).toHaveCount(1);
+      await expect(page.getByLabel(said)).toBeDisabled();
+    }
+  });
+
   test('gives a free block all eight handles, and the left one moves it as it narrows', async ({ page }) => {
     /**
      * **Eight for a block that places itself, three for one that does not** — and the difference is
