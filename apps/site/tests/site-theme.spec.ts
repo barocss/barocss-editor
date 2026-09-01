@@ -63,14 +63,36 @@ test('a section that paints itself dark states its own ink, and it reaches the w
   await page.waitForSelector('.st-frame-body');
   await page.waitForTimeout(2000);
 
+  /**
+   * The colour is **read from the document**, not written here.
+   *
+   * It held the sample's own hex, and a change of palette broke a check that is not about a colour:
+   * what it claims is that a band which flips its ground states what is written on it, and that the
+   * statement reaches the words. So it asks the document what the band said, and compares.
+   */
   const band = await page.evaluate(() => {
     const heading = [...document.querySelectorAll('.st-frame-body *')].find((n) =>
       (n.textContent ?? '').trim().startsWith('문서 하나로 시작해')
     );
-    return heading ? getComputedStyle(heading as HTMLElement).color : 'not drawn';
+    const editor = (window as any).editor;
+    const store = editor.dataStore;
+    let said = '';
+    const walk = (sid: string) => {
+      const node = store.getNode(sid);
+      if (!node || said) return;
+      if (node.stype === 'variable' && node.attributes?.name === '종이') said = String(node.attributes.value);
+      for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
+    };
+    walk(editor.getRootId());
+    const hex = said.replace('#', '');
+    const rgb = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    return {
+      drawn: heading ? getComputedStyle(heading as HTMLElement).color : 'not drawn',
+      wanted: `rgb(${rgb.join(', ')})`
+    };
   });
 
   // Light on the band's near-black, rather than the board's near-black it would inherit otherwise.
-  expect(band).toBe('rgb(232, 239, 235)');
+  expect(band.drawn).toBe(band.wanted);
   await ctx.close();
 });

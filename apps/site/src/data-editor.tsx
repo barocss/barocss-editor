@@ -8,6 +8,7 @@ import {
   Field,
   Icon,
   IconButton,
+  PropertyToggle,
   TextField
 } from '@barocss/office-ui';
 
@@ -61,12 +62,72 @@ export function DataEditor({
       label: String(attrs.label ?? attrs.name ?? ''),
       kind: attrs.kind === 'url' ? 'url' : 'inline',
       url: String(attrs.url ?? ''),
+      live: attrs.live === true,
       fields: ((attrs.fields ?? []) as unknown[]).filter((one): one is string => typeof one === 'string'),
       records: ((attrs.records ?? []) as unknown[]).map((row) => (row ?? {}) as Record<string, unknown>)
     };
   }, [store, sid, revision]);
 
   if (!sid || !data) return null;
+
+  /**
+   * **Moving between cells the way a grid moves**, which is the other half of *feels like a
+   * spreadsheet*.
+   *
+   * Tab already worked, because these are ordinary inputs in document order — and that is exactly
+   * the problem: Tab walks along a row and into the **delete button at the end of it**, which is
+   * where a reader pressing it to reach the next column arrives. A grid moves by direction.
+   *
+   * ## Which keys, and when
+   *
+   * Up and down always: a column of values is read and typed downward, and nothing else in a text
+   * box wants a vertical arrow. Left and right **only from an end** — a reader editing a cell's
+   * words uses those to move the caret, and taking them would make the grid useless for what it is
+   * mostly used for. So the caret has to be against the edge it is moving past already, which is
+   * the rule a spreadsheet's own formula bar follows. Enter is down; Shift+Enter is up.
+   *
+   * ## Why it is here and not on the container
+   *
+   * It was written once as a `keydown` on the scroll box and never fired: `TextField` stops the
+   * event on purpose, so that an Enter committing a field cannot also reach the paragraph inside
+   * the shape being edited. `onKeys` is the door that control declares for exactly this, and going
+   * through it is also more honest — the handler is handed its own row and column rather than
+   * parsing them back out of an attribute.
+   */
+  const moveCell = (event: React.KeyboardEvent<HTMLInputElement>, row: number, field: string) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    const box = event.currentTarget;
+    const column = data.fields.indexOf(field);
+
+    const atStart = box.selectionStart === 0 && box.selectionEnd === 0;
+    const atEnd = box.selectionStart === box.value.length && box.selectionEnd === box.value.length;
+
+    const step =
+      event.key === 'ArrowDown' || (event.key === 'Enter' && !event.shiftKey)
+        ? [1, 0]
+        : event.key === 'ArrowUp' || (event.key === 'Enter' && event.shiftKey)
+          ? [-1, 0]
+          : event.key === 'ArrowRight' && atEnd
+            ? [0, 1]
+            : event.key === 'ArrowLeft' && atStart
+              ? [0, -1]
+              : undefined;
+    if (!step) return;
+
+    const wanted = `${row + step[0]}:${data.fields[column + step[1]] ?? ''}`;
+    const next = document.querySelector<HTMLInputElement>(`input[data-cell="${wanted}"]`);
+    if (!next) return;
+
+    /*
+     * **Prevented**, so Enter does not also commit-and-blur its way out from under the reader and an
+     * arrow does not scroll the dialog. Selected rather than merely focused, which is what every
+     * grid does: landing on a cell means *replace this*, and a reader who meant to edit types a key
+     * and starts from what was there.
+     */
+    event.preventDefault();
+    next.focus();
+    next.select();
+  };
   const set = (payload: Record<string, unknown>) => run('setDatasetInfo', { nodeId: sid, ...payload });
 
   return (
@@ -131,12 +192,6 @@ export function DataEditor({
           </Field>
           {data.kind === 'url' ? (
             <Field label="주소">
-              {/*
-                Nothing fetches this, and that is the design rather than an omission (`data.ts`):
-                the document keeps the address and the handful of rows a reader designs against.
-                Said in the panel too, because a reader typing an address into a box that does
-                nothing deserves to be told which half of the job it is doing.
-              */}
               <TextField
                 value={data.url}
                 onCommit={(value) => set({ url: value })}
@@ -148,7 +203,43 @@ export function DataEditor({
         </div>
 
         {data.kind === 'url' ? (
-          <p className="st-data-note">아래 행은 디자인용 미리보기입니다. 게시된 페이지가 주소에서 받아옵니다.</p>
+          <div className="st-data-fetch">
+            {/*
+              The half that did not exist. The rows are fetched **here**, into the document, rather
+              than by the published page — see `refreshDataset` for the argument, which comes down to
+              this: the other way ships a script on every page, and this way the rows are in the HTML
+              a crawler reads.
+
+              So the sentence under it is not a caveat, it is the contract: what a visitor sees is
+              what was here the last time somebody pressed this.
+            */}
+            <Button
+              onClick={() => run('refreshDataset', { nodeId: sid })}
+              disabled={!data.url.trim()}
+              ariaLabel="주소에서 새로 가져오기"
+            >
+              새로 가져오기
+            </Button>
+            <p className="st-data-note">
+              눌렀을 때 받아온 행이 문서에 저장되고, 게시된 페이지에 그대로 실립니다.
+            </p>
+            {/*
+              And the deliberate second mode. The sentence under it says every cost, because all of
+              them show up somewhere the reader is not: a script on the page, a crawler that reads
+              the old rows, a list that moves after the page paints, and an address that has to let
+              a stranger's browser read it. `live.ts` argues why it is off by default.
+            */}
+            <PropertyToggle
+              value={data.live}
+              onChange={(value) => set({ live: value })}
+              label="방문자 브라우저에서도 새로 가져오기"
+              ariaLabel="방문자 브라우저에서도 새로 가져오기"
+            />
+            <p className="st-data-note">
+              켜면 게시된 페이지가 열릴 때마다 이 주소를 다시 읽습니다. 페이지에 스크립트가 실리고,
+              검색 엔진은 게시할 때의 행을 봅니다.
+            </p>
+          </div>
         ) : null}
 
         {/*
@@ -156,7 +247,59 @@ export function DataEditor({
           where every cell needs its column read out beside it. `scope="col"` is what makes 가격
           the *name* of the cell rather than a word above it.
         */}
-        <div className="st-data-scroll">
+        {/**
+          * **A block of cells, pasted.**
+          *
+          * The reason a dataset exists is that the data is somewhere else — a spreadsheet, a page, a
+          * CSV somebody was sent — and typing forty cells back in one at a time is the work this
+          * feature was supposed to remove. A paste is what a reader tries first, and until now it
+          * put the whole clipboard into whichever single box had the caret.
+          *
+          * ## Where it lands, and where it stops
+          *
+          * At the **focused cell**, which is what every grid does and what a reader is pointing at.
+          * Rows grow to fit; columns are trimmed at the last one, because a column has a *name* — one
+          * `field:가격` refers to and a card is bound through — and a paste cannot invent one.
+          *
+          * ## Why it does not fire on every paste in this dialog
+          *
+          * The name field and the address field are ordinary boxes and a paste in one of them means
+          * what it always did. So this asks whether the paste happened **in a cell**, and lets every
+          * other one alone rather than swallowing it.
+          *
+          * ## One line is not a block
+          *
+          * A paste with no tab and no newline is a single value, and handling it here would take a
+          * gesture the browser already does perfectly well and do it again, worse: the box would
+          * lose its selection, its caret and its undo. Left to the browser.
+          */}
+        <div
+          className="st-data-scroll"
+          onPaste={(event) => {
+            const at = (event.target as HTMLElement).closest?.('[data-cell]');
+            const said = at?.getAttribute('data-cell');
+            if (!said) return;
+
+            const text = event.clipboardData.getData('text/plain');
+            if (!text || !/[\t\n]/.test(text)) return;
+
+            /*
+             * Tabs and newlines, which is what every spreadsheet puts on a clipboard — and the
+             * trailing newline a copy of whole rows always carries is dropped, or a paste of three
+             * rows writes four and the last one is empty.
+             */
+            const values = text
+              .replace(/\r\n/g, '\n')
+              .replace(/\n+$/, '')
+              .split('\n')
+              .map((line) => line.split('\t'));
+            if (values.length === 0) return;
+
+            const [row, field] = [said.slice(0, said.indexOf(':')), said.slice(said.indexOf(':') + 1)];
+            event.preventDefault();
+            run('setDatasetCells', { nodeId: sid, row: Number(row), field, values });
+          }}
+        >
           <table className="st-data-grid">
             <thead>
               <tr>
@@ -223,6 +366,7 @@ export function DataEditor({
                       <TextField
                         value={String(row[field] ?? '')}
                         onCommit={(value) => run('setDatasetCell', { nodeId: sid, row: index, field, value })}
+                        onKeys={(event) => moveCell(event, index, field)}
                         ariaLabel={`${index + 1}행 ${field}`}
                         data={{ 'cell': `${index}:${field}` }}
                       />

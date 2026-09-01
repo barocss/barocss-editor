@@ -439,6 +439,107 @@ body {
 }
 
 /*
+ * **The two handles a flow block has**, and why there are two rather than eight.
+ *
+ * A page has no coordinates: where a block sits is a parent and a place in that parent's content, so
+ * a top or a left handle would be a control that cannot do what its shape promises. What is
+ * genuinely draggable is how wide it may be and how tall it must be — the right edge and the bottom.
+ *
+ * Drawn **on** the outline rather than beside it, and counter-scaled by nothing: at 40% zoom a
+ * handle sized in page pixels is two pixels of screen, so the bar is given a screen-sized thickness
+ * through a fixed length and the hit area is wider than the paint, which is what every resize edge
+ * on a desktop does.
+ */
+.st-grip {
+  position: absolute;
+  z-index: 2;
+  background: transparent;
+  /*
+   * The mark itself does not take the pointer — it is a drawing over a page a reader is still
+   * clicking through — so each handle turns it back on for its own ten pixels. The same thing the
+   * padding strips do one rule down, for the same reason.
+   */
+  pointer-events: auto;
+  touch-action: none;
+}
+
+/*
+ * **Counter-scaled**, like the outline one rule up and the name chip beside it.
+ *
+ * The overlay lives inside the plane the boards are zoomed in, so a handle sized in page pixels is
+ * whatever fraction of that the reader happens to be standing at: measured at 74%, a 3px bar drew as
+ * two screen pixels at half opacity, which is a handle nobody can see and nobody would try to grab.
+ * Everything here is divided by the zoom so it is the same size on screen at 40% and at 200% — the
+ * rule this file already follows for every other piece of tool furniture.
+ */
+/*
+ * **Entirely outside the box**, and that is not a nicety: the ten pixels *inside* an edge already
+ * belong to the padding band, which is pulled to change the space within the block. Sharing them
+ * gave one strip of screen two meanings, and the resize handle won — measured as a padding drag that
+ * silently stopped writing, on a gesture that had worked for weeks.
+ *
+ * So the rule is a sentence a reader can hold: **inside the edge is the space in it, outside the
+ * edge is how big it is.**
+ */
+.st-grip[data-grip-edge='right'] {
+  top: 14%;
+  bottom: 14%;
+  right: calc(-11px / var(--st-zoom, 1));
+  width: calc(11px / var(--st-zoom, 1));
+  cursor: ew-resize;
+}
+
+.st-grip[data-grip-edge='bottom'] {
+  left: 14%;
+  right: 14%;
+  bottom: calc(-11px / var(--st-zoom, 1));
+  height: calc(11px / var(--st-zoom, 1));
+  cursor: ns-resize;
+}
+
+/* The paint: a short bar in the accent, drawn inside the wider area that takes the pointer. */
+.st-grip::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  background: var(--st-accent);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.st-grip[data-grip-edge='right']::after {
+  top: 50%;
+  right: calc(4px / var(--st-zoom, 1));
+  width: calc(4px / var(--st-zoom, 1));
+  height: calc(30px / var(--st-zoom, 1));
+  transform: translateY(-50%);
+}
+
+.st-grip[data-grip-edge='bottom']::after {
+  left: 50%;
+  bottom: calc(4px / var(--st-zoom, 1));
+  height: calc(4px / var(--st-zoom, 1));
+  width: calc(30px / var(--st-zoom, 1));
+  transform: translateX(-50%);
+}
+
+/*
+ * Shown on the selected block rather than on hover alone: the block is already outlined, so the
+ * handles are part of *what is selected* and not a thing a reader has to go hunting for with the
+ * pointer. They stay quiet until the pointer is near, which is the difference between a tool and a
+ * page covered in furniture.
+ */
+.st-mark-selected .st-grip::after {
+  opacity: 1;
+  /* A hairline of the page's own ground around it, so the bar reads on a dark band as well. */
+  box-shadow: 0 0 0 calc(1px / var(--st-zoom, 1)) var(--ou-panel, #ffffff);
+}
+
+.st-mark-selected .st-grip:hover::after {
+  opacity: 1;
+}
+
+/*
  * **A strip along the edge takes the pointer**, not the whole band.
  *
  * A gap never does: it is the space *between two children* and belongs to neither, so pulling one
@@ -1202,6 +1303,96 @@ body {
   color: var(--ou-muted);
 }
 
+/*
+ * The one control in this panel that reaches outside the document, so it is given a line of its own
+ * rather than sitting in the row of fields: pressing it changes every row, and a reader should see
+ * that it is a different kind of act from typing a label.
+ */
+/*
+ * A list that grows: one box per option and an empty one at the end. Stacked rather than in a row,
+ * because the boxes hold sentences and a row of five short fields is five fields nobody can read.
+ */
+.st-choices {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/*
+ * The picture row: which file, and a way to add one — one row, because a reader choosing a picture is
+ * doing one thing. The file input is a `<label>` wrapping a hidden `<input type=file>`, which is the
+ * only way to make one look like the rest of the panel and still be a real file picker.
+ */
+.st-picture-row {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.st-file {
+  position: relative;
+  display: inline-flex;
+  height: var(--ou-control-h);
+  cursor: pointer;
+  align-items: center;
+  border-radius: var(--ou-radius);
+  border: 1px solid var(--ou-line);
+  padding: 0 8px;
+  font-size: var(--ou-text-small);
+  color: var(--ou-ink);
+}
+
+.st-file:hover {
+  background: var(--ou-accent-soft);
+}
+
+/*
+ * The input **covers** the label rather than hiding in a corner of it.
+ *
+ * A visually-hidden file input is the usual pattern and it leaves a 1×1 control: the thing a pointer
+ * aims at and a focus ring is drawn on is one pixel across, in a corner, invisible. Measured by the
+ * chrome sweep, which asks how big every control is. Covering the label makes the target the button
+ * a reader can see, which is what it looked like all along.
+ */
+.st-file input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  opacity: 0;
+}
+
+/*
+ * The address a form's answers go to, and how many forms share it — the count under the field rather
+ * than beside it, because it is a *consequence* of typing there rather than another thing to type.
+ */
+.st-endpoint {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.st-uses {
+  font-size: var(--ou-text-small);
+  font-style: normal;
+  color: var(--ou-muted);
+}
+
+.st-data-fetch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 /* The one thing a table must never do to the page around it. */
 .st-data-scroll {
   overflow-x: auto;
@@ -1382,4 +1573,72 @@ body {
 .st-layer[data-drop='into'] {
   background: var(--ou-accent-soft);
   box-shadow: inset 0 0 0 1px var(--st-accent);
+}
+
+
+/*
+ * **The sheet behind the +**, which is the rail's own two groups plus the reader's definitions.
+ *
+ * A grid rather than the rail's single column, because a dialog has width and a rail does not — and
+ * the whole reason this door exists is that a reader's pointer is here rather than over there. Three
+ * across at the dialog's width, so a group of six is two rows a reader takes in at once.
+ */
+.st-add-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 420px;
+}
+
+.st-add-sheet h3 {
+  margin: 0 0 8px;
+  font-size: var(--ou-text-small);
+  font-weight: 600;
+  color: var(--ou-muted);
+}
+
+.st-add-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.st-add-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--ou-line);
+  border-radius: var(--ou-radius);
+  background: var(--ou-panel);
+  color: var(--ou-ink);
+  font-size: var(--ou-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.st-add-item:hover:not(:disabled) {
+  border-color: var(--ou-accent);
+  background: var(--ou-ground);
+}
+
+.st-add-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ou-accent-soft);
+}
+
+/*
+ * Greyed rather than hidden: a reader who cannot put a component on this page needs to know the
+ * component exists, which is the same argument the menubar makes about a disabled entry.
+ */
+.st-add-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.st-add-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

@@ -457,17 +457,102 @@ three things follow from that sentence rather than from taste:
   under the pointer, so its `:hover` never fires. The panel opens a state and the selected blocks are
   **drawn** in it — which is what every tool of this kind does, and is better anyway: a hover that
   goes away when you move the mouse to the colour field cannot be looked at.
-- **Only paint may change.** Not a rule anybody chose: a state that changed the arrangement would
-  resize the block, the block would move out from under the pointer, the pointer would then not be on
-  it, and the browser would draw the two states alternately for as long as a visitor held still.
-  `STATEABLE` is the list, `stateFaults` is the check, and the panel does not offer the rows rather
-  than offering them and refusing.
+- **Only paint may change** — in a state a visitor *holds*. Not a rule anybody chose: a state that
+  changed the arrangement would resize the block, the block would move out from under the pointer,
+  the pointer would then not be on it, and the browser would draw the two states alternately for as
+  long as a visitor held still. `STATEABLE` is the list, `stateFaults` is the check, and the panel
+  does not offer the rows rather than offering them and refusing.
 
 A state is deliberately **not per-width**: a card that lifts under the pointer lifts at 390 as well
 as at 1280, because the gesture is the same gesture. The cascade is base → this width → this state,
 so a width still applies underneath one. The day a hover genuinely has to differ at one width it
 takes an `overrides` inside the state, which is the same map one level down rather than a new
 mechanism.
+
+### And a third state, which a visitor decides
+
+`hover` and `focus` are things a visitor happens into. **열림** is the one they choose, and adding it
+was the difference between a page that has two navigations and a page whose phone menu works.
+
+The model could already say the hard-looking half: the wide menu is `visible: false` at mobile, the
+hamburger is `visible: false` everywhere and `true` at mobile, both live in `overrides`, and every
+placement of the component follows. What it could not say was what happens when the hamburger is
+**pressed** — and a hamburger that does not open is a picture of a menu.
+
+One mechanism answers a hamburger, an accordion, a tab strip, a 더보기 and a filter drawer. All five
+are *a visitor asked for more of this block*, and all five were going to be asked for separately.
+
+Four decisions, each of which had a wrong answer that also works:
+
+- **It is remembered, not held — so it may move things.** `OPENABLE` is `STATEABLE` plus `visible`,
+  `layoutMode` and `gap`. The flicker argument above is about a state that *depends on where the
+  pointer is*; nothing is holding this one, so nothing alternates, and a menu that appears is the
+  entire point. `stateableIn(state)` is now the question, asked by the schema check, by the command
+  and by the panel — three places that had a copy of one list between them.
+- **It publishes as a checkbox, and the page ships no script.** The browser already has one thing
+  that remembers a choice a visitor made and can be styled on it. `openSwitches` puts an
+  `<input type="checkbox">` in the exported markup and wraps whatever the designer drew in a
+  `<label for>`; the rule is `.st-open-switch:checked + [data-b="…"]`. A menu that opens on a page
+  whose script failed, in a crawler, on a phone on a train — and this product still ships no runtime,
+  which is where every other builder's runtime starts.
+- **The switch goes *before* the block, not inside it.** Both work as CSS; only one can be reached
+  from a keyboard. A closed menu is `display: none`, and a checkbox inside that `none` is not
+  rendered, so it is not in the focus order: 열림 would have been a pointer-only gesture. Outside, it
+  is one Tab and one Space. Its own ring is off the page, so `openerRules` puts one on the block
+  being looked at — named per switch, or one accordion taking focus rings all four.
+- **`opens` holds a `partId`, not a sid.** `componentBind`'s rule, for `componentBind`'s reason: a
+  sid is given out at load, so nothing *written down* can hold one — not a library component, not
+  this product's own sample, not a page pasted from another document. `setOpens` mints the name on
+  the block being opened when it has none, which is why the row has its own command: it writes two
+  blocks. Resolution is scoped to the page or the definition, so each placement opens **its own**
+  copy for nothing.
+
+#### 아코디언과 탭, which turned out to be one thing
+
+An accordion's answer and a tab strip's panel are the **identical node**: `visible: false` with
+`states: { open: { visible: true } }`, opened by a sibling that names it. Everything that separates
+the two is one attribute on the container.
+
+- **`opensOne`** on the block that holds the openers — *only one of these at a time*. The switches
+  under it become **radios sharing a name** instead of checkboxes, and that *is* the rule: choosing
+  the second tab unchecks the first, its panel falls back to what it says at rest, and nothing keeps
+  them in step because a radio group has kept them in step since 1993. No extra CSS, no script, and
+  nothing that can drift.
+- **`openAtRest`** on an opener — *already pressed when the page loads*. A tab strip needs exactly
+  one; a menu needs none. It comes with the one behaviour that is not a choice: a radio cannot be
+  unpressed, so the last-chosen panel in a `opensOne` group stays open. That is what a tab strip
+  wants and what an accordion's author agrees to by turning 하나만 on.
+
+**The one rule that could not be adjacent.** A tab strip where a visitor cannot tell which tab they
+are on does not work — and the tab is not next to its switch (the *panel* is). So an opener's
+`states.open` is published by `openerRules` as `body:has(#id:checked) [for="id"] > *`, keyed by the
+switch's id. A block's `states.open` therefore has one meaning and two shapes: for a block that is
+opened it is what it becomes, and for a block that opens it is what it looks like having done so.
+
+Both are inserts — 추가 › 아코디언 and 탭 — because *the composition is the knowledge*. Every piece
+already existed; what a reader would have had to know is that the body must be a **sibling** of the
+header, that it needs a `partId` because `opens` records a name, and that the name has to be one
+nothing else in the page is using. That last one is a silent fault rather than a visible one: two
+accordions both calling their body 내용 is the second header opening the first body, in the published
+page only, because `opens` resolves by name and the first match wins. `freshPartId` mints against the
+page **and against the names the same insert is about to make**.
+
+Three walks were minting or resolving these names, and two of the three stopped at `stype === 'page'`
+— a page here is a `surface`, so they walked past it to the document root. `scopeOf` is the one walk
+now.
+
+#### What it found: `visible: false` meant two opposite things
+
+A hidden block is cut from the published page — the words of a draft should not reach a crawler. A
+**closed menu** and a **phone-only hamburger** write exactly the same attribute and mean the
+opposite, and both were being deleted: the hamburger vanished, its `<label>` was published empty, and
+the media query and state rule for the menu stayed in the stylesheet naming an element that was not
+there.
+
+`neverShown` is the honest question — hidden at *every* width and in every state — and it is now
+asked in three places that must agree: the markup (`clean`), the media queries and the state rules
+(`styledNodes`), and the scroll reveals. A block shown only on a phone had been losing its rules to
+the same fault since before states existed.
 
 ### Two things it found on the way
 
@@ -698,43 +783,823 @@ design above.
 
 ## What a site builder still needs
 
-Measured against what the product can do today, in the order the next slices should take them:
+Re-measured 2026-08-31 twice: once to see what the last list had missed, and again after building
+the seven things it named. Six of the original ten had quietly been done; the seven that were open
+are now closed. What is below is what is left, and it is a different list from any of the previous
+ones — which is the point of measuring rather than remembering.
 
-1. **A panel for the data, and a command that makes a list.** A dataset a reader cannot see is a
-   dataset only a developer has — the rows, the fields, and which of them each part of the card
-   takes. `collection` has no insert yet on purpose: making one means choosing a dataset and a
-   component, which is a panel's question, and a command nothing can call is the thing
-   `every-command-can-be-reached` exists to catch.
-2. **HTML export.** The product's actual output, and the thing that makes every layout decision above
-   testable against a real browser rather than this one.
-3. ~~**Links between pages.**~~ **Built**, and the shape is the one this schema uses everywhere else:
-   a link stores `page:<id>` — the page's durable id, never its address — and the address is resolved
-   where the mark is drawn (`page-link.ts`). So renaming `/제품` to `/products` moves every link into
-   it, and the published page carries a real `href` because `exportSite` draws through the same
-   renderers the editor does. The fourth reference of this shape after `var:이름`, `componentId` and a
-   dataset's `name`; a deck's `goTo` is the same question answered for slides.
+### Done since, with what each one turned out to cost
 
-   Two things fell out of it that are not links. Nothing in this product **removes a page** or
-   changes a page's **id**, so a link that names a page which is not there cannot be made through the
-   product at all today — and `linkFaults` reports them, with nothing yet drawing that report. Both
-   are in `BACKLOG.md`.
-4. **Fetching a `url` dataset.** Declared and not read: today only `records` draws. The design already
-   says the editor keeps a few rows to design against and the published page fetches.
-5. **Per-page metadata.** Title, description, social image — a page of a site has them and a page of a
-   document does not.
-6. **Filling in the override panel.** `overriddenAt` says which attributes a width changes, so a
-   reader can be shown that the value in front of them is this width's rather than the page's; the
-   commands exist, the marks are not on screen yet.
-7. **Forms.** The one common site block with no node behind it — and the first thing here that would
-   genuinely be new rather than reused.
-8. **The external-component path.** `managesDOM` is declared and not honoured — see above. Until it
-   is, a code block is drawn through vnodes and edited in an overlay rather than owning its element.
-9. **A transition between the states.** A hover that arrives instantly is a hover that looks like a
-   bug on a large card. It is one attribute and one CSS property, and it is the doorway to motion —
-   which is still the single largest difference between a page built here and one built anywhere
-   else.
-10. **Position.** Now judgeable, and still absent. No sticky header, no overlap, no negative offset: a page is a column of boxes. The
-   editor could not show a sticky header at all — a board was drawn at its full height on a plane
-   and never scrolled. **Preview mode fixed the ground under it**: a board is a window of a typical
-   height for its width and the page scrolls inside, so `position: sticky` would now be visible the
-   moment it is added. It is the next thing.
+1. **Height.** `minHeight`/`maxHeight`, the same shape as the width pair. The argument against a
+   stated `height` is the one a reader already knows: a box with a promised height either spills or
+   clips, and both are the tool lying. The measurement that closed it is small and exact — the
+   product's own hamburger had to be an **SVG**, because a box with nothing in it was a box of no
+   height. It is three boxes now, and `sample-art.ts` is one function shorter. *A schema gap shows up
+   as artwork standing in for a layout.*
+2. **Position.** `sticky` and `absolute`, four insets that take a negative number, and `zOrder`.
+   `fixed` is deliberately absent — it positions against the window, which in this editor is the
+   tool's own chrome, and on a phone it is the commonest way a page becomes unusable.
+
+   Three things fell out of it:
+   - **every stack is `position: relative`**, so a badge put in a card's corner is placed against the
+     card. Not a `positionsChildren` switch to remember: it changes no layout, makes no stacking
+     context on its own, and is the only answer a reader ever means;
+   - **a sticky block with no inset gets `top: 0`.** `position: sticky` with no `top` never sticks —
+     valid rule, browser accepts it, nothing happens — and it is the most-made mistake with the
+     property;
+   - **a position goes on the placement, not inside the definition.** A block inside a component has
+     the placement's box as its parent, and that box is exactly that block's height, so sticky there
+     has nowhere to travel. Measured at 82 pixels in a browser. `display: contents` on the wrapper
+     fixes it and costs more than it is worth — an element with no box cannot be pressed, measured or
+     selected, and thirteen browser tests said so at once.
+3. **Forms.** The one genuinely new thing: `form` and `field`, and a real `<form>` in the published
+   page. What that buys is four things every div-and-script form throws away — the Enter key submits,
+   the browser's own validation runs, a password manager can see it, and a page whose script failed
+   still works. `kind` decides the control, `submit` among them, because a submit that is a styled box
+   is a form a keyboard cannot send.
+
+   Two decisions worth the record. **The label is always drawn**: labelling a form with its
+   placeholders is the commonest accessibility fault on the web, and the words vanish the moment
+   somebody types. And **a form has no default destination and none of this product's own** — a
+   builder that quietly posted a stranger's message to its own server would be doing something nobody
+   asked for with somebody else's data. So a new form arrives *broken on purpose*, and `formFaults`
+   says so; a form with nowhere to send looks exactly like one that works.
+
+   It is also the one place the board's drawing is allowed to differ from the published page rather
+   than being a removal made afterwards: on a board the fields are read-only, the button is disabled
+   and there is no `action`. `SiteEnv.published` is the one flag, read in one place.
+4. **Fetching a `url` dataset.** The fetch happens **in the editor, into the document** —
+   `refreshDataset` — not in the published page. The other way ships a script on every page, hands a
+   crawler an empty list, and gives a visitor whose request failed a section with nothing in it. This
+   way the rows are in the HTML, and the contract is what the button says: what a visitor sees is what
+   was here when somebody last pressed it. It **never empties a dataset**: a service that answers with
+   an object, with nothing, or not at all leaves the rows exactly where they were, because one bad
+   deploy of somebody's API must not delete the content of their page.
+5. **`og:image`.** Absolute or absent — a relative one is joined onto the site's address, and a site
+   that has not said where it lives gets no tag rather than a broken one. On the **page** rather than
+   the site, because the card that matters most is a post's.
+6. **Closing a menu a visitor tapped through.** The only item here with no CSS answer, having looked
+   for one: a `<label>` around the link does not fire (HTML skips label activation on interactive
+   content), `:target` goes on matching so the hamburger cannot reopen the menu, and a second switch
+   is two controls for one gesture. So this product now ships **one line of script** — a single
+   listener that unchecks the switches — and only on a page that has both an opener and a same-page
+   link. Every page of the sample still exports with no `<script>` in it.
+7. **What 하나만 열림 costs.** A radio cannot be unpressed, so the last-opened panel in a `opensOne`
+   group stays open. Right for a tab strip, a surprise for an accordion. Not a fault — nothing is
+   wrong with the document — so it is a line in the panel at the moment the reader chooses, rather
+   than a row in a list of problems.
+
+### What designing the sample with them found
+
+The sample was still drawn the way a product without these features has to draw: the FAQ was four
+cards in a grid, the contact section was a heading and a button that opened a mail client, and
+nothing on any page was ever *over* anything. All three are designs **forced by a missing schema**,
+and a sample that keeps them cannot find the next gap either.
+
+Redrawing them found one thing, and it is the kind that only shows up in use:
+
+**A narrower width could change a value and could not un-say one.** The contact form wants to be 340
+wide beside the words and the whole column under them, and `attrsAt` merges — so an override could
+say *this much instead* and never *none at all here*. The workaround is a number large enough to mean
+nothing, and the sample had already been writing it in three places: `minWidth: 0`.
+
+`null` in an override un-says the key. That forced the half that matters more: **`null` and
+`undefined` are different sentences and the panel had one gesture for both.**
+
+- *nothing at this width* — an emptied field, while a narrower width is being edited.
+- *the same as the page* — the **mark beside the label**, which is a button now rather than a `·`.
+
+That dot had been saying *this width owns this value* with no way to stop it owning one. A reader
+could type the page's number back in, which looks identical and is a different document: the width
+still states a value, it now happens to match, and it stops following the day the page's changes.
+`onUnmark` lives in `office-ui`, so the deck and Word get it the day either grows something to take
+back.
+
+### And redrawing the data found the best-shaped fault yet
+
+**The sample's pricing page had been sorting wrong, in a real browser, for as long as it existed.**
+
+A card's question was answered with a string and drawn exactly as stored, so the only way to make a
+price read as `월 9,900원` was to *store those words*. `요금제` sorts by that column descending and
+takes the top three — comparing `'월 9,900원'` against `'월 19,900원'` as text, where `9` comes after
+`1`. The page showed 문서 · 사이트 · 스위트 and looked completely fine.
+
+The fix is one sentence: **the data stores the value, and the card says how it reads.** `componentVar`
+gains `kind: 'date'` and a `format` picture string; `readValue` is the whole vocabulary and it is two
+placeholders wide (`#,##0` and the date tokens). Everything else in a pattern is literal, which is
+what a fixed list of named formats cannot do — every product that ships `currency | percent | decimal`
+grows a second attribute for the prefix within a month.
+
+`format` is on the **card** rather than on the data, which is the point: one dataset now feeds a price
+list that says `9,900원` and a summary that says `9.9천`.
+
+Three things it turned up:
+
+- **It has to run last.** A data list replaces a placement's answers *after* they are resolved, so
+  formatting inside `instanceValues` reached every card except the ones with data in them — which are
+  exactly the cards a format is for. `readValues` is applied after the rewrite and is idempotent, so
+  running last is survivable rather than fragile.
+- **The preview needs the same answer.** A designer editing the post card against a row has to see
+  what the page will show, or the preview is showing them a different product.
+- **A value it cannot read comes back unchanged**, never blank. A card whose column has one bad row
+  should draw that row's own text, which a reader can see and go and fix; a blank is a row that has
+  silently disappeared.
+
+### Where a form's answers go
+
+Framed three ways and only one is possible: **a published page is a static file.** It cannot write
+into the `.baro` document, so `resources` cannot be a *destination* and neither can an "answers as
+rows" store — both need something running. What already existed is the third: a real
+`<form action method="post">` posting straight to a service the reader chose, with nothing of this
+product's in between.
+
+So the open question was never *where*. It was how much the product helps you connect one — and the
+address-on-the-form shape got that wrong in the way this schema has three times refused elsewhere: a
+site with five forms carried five copies of one address, so changing services meant finding all five,
+and the one that was missed goes on posting to an endpoint nobody reads.
+
+**`service` is a resource with a name; `form.sends` names one.** The fourth reference of the shape
+`var:이름`, `componentId` and a dataset's `name` already use.
+
+- **No default and no address of this product's own.** A builder that quietly posted a stranger's
+  message to its own server would be doing something nobody asked for with somebody else's data. A
+  form arrives with a connection, and the connection arrives empty and reported.
+- **Two nodes, one transaction, one undo** — `insertForm` mints a connection only when there is none.
+- **No address means no `action` at all**, never `action=""` — which a browser resolves to *this page*,
+  so 보내기 reloads and looks exactly like a message that went somewhere.
+- **The panel says how many forms share it**, because one edit reaching every use is the whole reason
+  the name exists and therefore the one thing a reader must be told before making one.
+
+A first-party inbox is a product decision rather than a schema one — a server, storage, spam and a
+retention policy — and the schema is ready for it the day it exists.
+
+### A picture a reader can add
+
+The largest gap left, and it was found by asking whether the *form* work was the right next thing:
+a `picture` carried a `src` string and **nothing anywhere could put a file in one**. The sample got
+away with it by drawing its art as SVG data URIs — a thing a product's author can do and a reader
+cannot.
+
+`asset` is a resource with a name, a type and base64 bytes; `asset:로고` is the sixth use of the
+reference shape. **The bytes live in the document** because a site here is one file a reader owns:
+an image kept elsewhere would break that in the worst way — a document that draws correctly on the
+machine that made it and shows broken images everywhere else.
+
+**One `src`, two right answers.** A board draws the bytes (there is no server to ask); a published
+page points at `assets/로고.png` (inlining a logo used on five pages writes its bytes five times, and
+a photograph inside the HTML delays the first paint by exactly as long as it takes to download). The
+second deliberate difference between the two drawings, after a form's `action`, and the same flag.
+
+- **`Published.files` grew a `bytes`.** It could only carry words, which was enough until a site had
+  a photograph in it: base64 written through the text path is a file no viewer opens, and it fails
+  looking like a broken image rather than like a bad write.
+- **The file's own size is stored**, so an `<img>` reserves its space and the words under it do not
+  jump when it arrives. A builder that keeps only a URL has never seen the file and cannot.
+- **The cost is reported rather than hidden.** Base64 is a third larger than the file; `assetFaults`
+  says so past 8MB, against the document, because there is no block to click on for "this is 12MB".
+
+### Publishing, and the links that had never worked
+
+The asset work made a folder necessary, and asking what that meant found something older: **a link
+resolves to a page's address — `/제품` — and publishing wrote `제품.html`.** Every link on every
+published page was a 404 on any host that does not quietly try `.html` for you.
+
+It looked fine in the editor, and that is the point worth keeping: the editor follows the *reference*
+and never the file, so the mismatch is structurally invisible from inside the product. `fileFor` is
+the model's now — the mapping from an address to a file is a fact about how a site is served rather
+than about how a browser saves a download.
+
+`제품/index.html` is a tree, and a browser cannot be handed a folder, so a publish is **one archive**.
+`zipOf` lives in `office-site`: `publish` still says what a site *is* and the app still says what a
+file is, but turning a list of files into one array of bytes is arithmetic with no browser in it and
+belongs where the bytes can be asked about. Stored rather than deflated (a site's bytes are mostly
+pictures, already compressed), UTF-8 names with the flag bit set (or a Korean folder is mojibake on
+somebody else's machine), and a fixed timestamp so two publishes of an unchanged document are two
+identical files.
+
+The archive is checked by handing it to **somebody else's unarchiver** — a hand-written zip either is
+the format or silently is not. That turned up a fact about the reader rather than the writer: macOS's
+Info-ZIP `unzip` refuses to create a UTF-8 directory name whatever the locale, while `ditto`, the
+Finder and Python's `zipfile` all read the same file without complaint.
+
+### An address that is actually an address
+
+Asked whether the product should have a slug feature and prefer English. The answer split in two, and
+the useful half was not the language.
+
+**`path` was a free string with no opinion about it.** Measured by typing each of these in and asking
+the document what it kept:
+
+| typed | stored | what a browser does |
+|---|---|---|
+| `My Page` | as typed | no leading slash, so it is **relative** — from `/가격` the link means `/가격/My%20Page` |
+| `/제품?a=1` | as typed | `?` starts a query; the file `제품?a=1/index.html` can never be requested |
+| `/제품#어디` | as typed | `#` is a fragment and is **never sent to a server** |
+| `//x` | as typed | protocol-relative: a link to the host `x`, off the site |
+| `/A/` | as typed | a trailing slash is a second address for one page |
+| `/소개` on **two** pages | both | one page is unreachable; every link lands on the other. **Zero faults reported** |
+
+Not one of those is a Korean problem. `pathFor` repairs an address on the way in — the one place this
+product changes what a reader typed without asking, and the right one: a slug is the field every tool
+of this kind repairs as you type, the result is visible in the box immediately, and the alternative is
+an address the panel accepts and the site cannot serve. `pathFaults` reports the invisible one.
+
+**A name gives a page its address — once.** A reader who calls a page 제품 means `/제품`, and typing
+the word twice is what a tool should save them. Only while the address is still the minted `/page-3`,
+because an address is what has been shared and indexed: a rename must never move a page.
+
+**Hangul is not romanised**, and that is the answer to the English half. `제품` stays `제품`, never
+`jepum` — romanisation reads as neither language, nobody types it, nobody recognises it in a search
+result, and two people transliterate the same word differently. Every builder that does it
+automatically is one whose Korean users turn it off first. A reader who wants an English address types
+one; that is theirs to decide, which is the position this schema already takes about a component's
+name and a dataset's. What the product *does* do is lowercase ASCII, because a case-sensitive host
+turns `/Products` and `/products` into two pages and a case-insensitive one turns them into one.
+
+### Is a Korean address all right?
+
+Asked directly, and the answer is **yes, with one thing to get right that nothing warns about.**
+
+It works. Every browser and every static host has served UTF-8 paths for over a decade: `/제품` is
+sent as `%EC%A0%9C%ED%92%88` and shown as `제품`. The one cost a reader should know is that pasting
+one into plain text — an old chat client, a text-only mail — leaves the encoded form, nine characters
+per syllable.
+
+**The thing that would have bitten**: `제품` has two correct spellings in Unicode.
+
+```
+NFC   eca09c ed9288                    6 bytes
+NFD   e1848c e185a6 e18491 e185ae …    9 bytes
+```
+
+Identical on every screen, and `'제품' === '제품'` is `false` when one is each. A keyboard produces
+the composed form and a browser requests it; **a macOS file picker has handed over the decomposed one
+for twenty years**, and an asset is named after the file that arrived.
+
+So without composing:
+
+- two pictures both showing `로고` are two different names — the duplicate check passes, and one of
+  them is permanently unreachable, which is exactly the fault that check exists to prevent;
+- a page whose address arrived decomposed publishes a folder a browser never asks for: a 404 nobody
+  can see by looking at either the address or the folder.
+
+`names.ts` composes on the way in — an address, an asset's name — and compares composed on the way
+out, so a document written somewhere else still resolves rather than half-working. Held by a test
+whose failure message is the finding itself: *expected '로고' to be '로고'*.
+
+Measured on the way: modern macOS `ditto` preserves NFC (APFS does not force decomposition the way
+HFS+ did), so the archive round-trips cleanly here. The hazard is the file picker, not the archive.
+
+### A picture at the size it is needed
+
+Two things the asset work made possible, because both need the file rather than a URL.
+
+**`aspect`** is the shape a picture keeps at every width, and a height cannot say it: a picture in a
+column is 1200 wide on a laptop and 350 on a phone. Six named shapes — a banner, a video's frame, a
+photograph, a square, a portrait — rather than a free `w/h` field, which every builder that offers one
+fills with `1.7778`. `height: auto` goes with it, and that is the half everyone forgets: an `<img>`
+carrying a `height` attribute is sized from the attribute, so a ratio without releasing it is a box
+the browser ignores.
+
+**`srcset`** is the largest performance decision a builder makes for its readers. A photograph taken
+at 4000 pixels and sent whole to a 390-wide phone is most of what a builder-made page weighs, and no
+CSS shortens the download. Renditions at 640 / 1280 / 1920 are made when the file arrives — in a
+canvas, the app's for the same reason reading the file is — and each is published as its own file.
+**Which one to fetch is the browser's**, which knows the screen and the connection; the product's job
+is to hand it the list and say how wide the picture will be drawn.
+
+- A rendition must be **meaningfully** smaller: a 2000-wide file was making a 1920 one, four per cent
+  narrower, for another file and another entry. Found in a browser on the first picture tried; the
+  line is four fifths.
+- An **SVG** is left alone — already every size at once.
+- The **format is kept**: re-encoding a PNG as JPEG is smaller and is also deciding, silently, that a
+  reader's transparent background is gone.
+
+`defer` sits beside them and stays the reader's: `lazy` on a picture above the fold delays the one
+image a visitor is waiting for, and nothing but the design knows which that is.
+
+### Still open
+
+**This list is checked when it is read.** Three of its five entries were wrong the last time anybody
+looked: an aspect ratio had been built (`aspect.ts`), two of the field kinds it called missing were
+in `FIELDS`, and items 4 and 5 were the same item written twice. A list of open work that nobody
+re-measures becomes a list of things that *were* open, which is worse than no list — it is a claim
+with a date on it that nothing checks.
+
+1. **Where a form's answers actually go.** The product takes an address a service gives you and does
+   not have an opinion about which service. A first-party inbox is a product decision, not a schema
+   one, and it is the next thing anybody will ask for.
+3. **A feed.** Still needs a date column per row in a dataset, which is the piece that has been
+   missing since the data model was written.
+3. **A syntax palette the document owns.** Code is told apart by weight now, because six hard-coded
+   hues failed AA on a dark band and one of them was a brand colour that no longer existed. Weight
+   distinguishes fewer roles than hue does; a document that wants its own is a feature nobody has
+   asked for yet.
+5. **The rows and commands no probe can reach**: 12 rows and 11 commands, both printed by name in
+   `conformance.test.ts` rather than left as a number. Most need a state the probe cannot build yet —
+   a definition open, a service resource named.
+
+
+## Copying a block out of one site and into another
+
+`clipboard-commands.ts` could copy a block and paste it — in **one** document. Measured against a
+second one, the result was the fault the deck had already met once and this product had five copies
+of: a page's blocks refer to things **by name**, and a name means nothing anywhere else.
+
+| on a block | names | what a paste used to do |
+|---|---|---|
+| `instance.componentId` | a definition | an empty placement, drawing nothing |
+| `collection.source` | a dataset | an empty list |
+| `picture.src` = `asset:이름` | a file | a broken image |
+| `form.sends` | a connection | a form that sends nowhere |
+| any paint = `var:이름` | a variable | a colour nobody chose |
+
+So the payload carries the definitions the copied blocks point at (`carriedFor`), and a paste adds
+the ones the destination has not got (`missingFrom`), in one transaction with the blocks — a reader
+who undoes a pasted card should not be left holding its dataset.
+
+**By name, and never renamed.** A destination that already has a `강조` keeps its own, so a card
+pasted into a site with a different brand comes out in *that* site's colours, which is what a reader
+means by pasting a card into their site. The cost is stated rather than hidden: two documents that
+use one name for two things produce a paste that draws the destination's. That is the smaller
+surprise — the alternative is a document that accumulates `상품 2`, `상품 3` every time anybody pastes.
+
+A definition inside a definition travels too. A card that holds a card is what the sample's header
+already is, and carrying the first without the second is the same empty box one level down.
+
+### Two things it found
+
+**`pasteBlocks` could never paste into a second window.** Its `canExecute` asked whether *this*
+extension was holding something — the careful-looking answer, and the one that made the system
+clipboard unreachable from the window a block was **not** copied in, which is the only case the
+system clipboard exists for. Nothing said so, because a greyed menu item reads as a decision. It
+answers whether there is anywhere to paste now, and a paste that finds prose does nothing.
+
+**Two of the five references had no check at all.** A dataset is checked by the collection that
+reads it, a connection by the form, a file by the picture — and a `componentId` and a `var:이름`
+pointing at nothing were reported by nobody. Both are now a `reference` fault, which is also what
+tells a reader their paste landed in a document that could not resolve it.
+
+## A list the visitor's browser fetches again
+
+`refreshDataset` fetches a `kind: 'url'` dataset **in the editor**, into the document, and the
+argument for that being the default has not changed: the page stays a file, a crawler reads the
+rows, and a visitor whose network failed still sees something. The cost is that the rows are as
+fresh as the last time somebody pressed 새로 가져오기.
+
+For a price that changes hourly that cost is the whole problem, so `dataset.live` is the deliberate
+second mode — off by default, and turning it on buys freshness with four things that are all real
+and none of which are visible from the panel:
+
+- the page ships a runtime, and a visitor whose script failed sees the published rows;
+- a crawler indexes the published rows, not the live ones;
+- the list moves after the first paint;
+- the address has to let a stranger's browser read it, which the editor's own fetch never had to
+  care about because it runs where the reader is.
+
+**It does not re-render.** Shipping a renderer is the runtime this export exists without. It ships
+the drawing it already made, marked — the list says where it came from and how it was queried, each
+row says which one it is, and each drawn piece that took its words from a column says which column.
+The script then fetches, runs the same filter-sort-limit, writes the cells, clones the first row when
+there are more rows than were drawn, and hides the extras when there are fewer. A card that changes
+*shape* per row is beyond it: a row is the design the page was published with, with different words.
+
+That filter-sort-limit is the one rule in this product written twice — once in `rowsOf` and once in
+the language the page has — so the test runs both against the same rows, including the case every
+naive sort gets wrong: a price kept as a string.
+
+And it never empties a list, which is `refreshDataset`'s rule for `refreshDataset`'s reason.
+
+
+## What a browser found that the tests could not
+
+Five features went in with unit tests, a conformance harness and 185 browser tests behind them. Then
+they were opened in a browser and clicked, and four of them were broken in a way nothing had asked
+about — because every check that existed asked the **document** a question, and a reader asks the
+**panel**.
+
+| what was wrong | what every check saw |
+|---|---|
+| every `of: 'document'` row was write-only | the command ran, the document held the value |
+| the site's type never reached the boards | `typeRule` was called with the document's attributes and was right |
+| `baseSize` was read as pixels and stored as twips | every unit test wrote the number it then read |
+| a page table had no borders, padding or width | the model held a correct table |
+
+The shape is the same in all four: **something writes and nothing reads, or two sides read the same
+value in different units.** A test that calls a command and asks the document is blind to all of it.
+`of` is the sharpest example — it had been documented for a year as *which node this row writes*, and
+the word *writes* was doing all the work.
+
+What changed as a result: the panel layers the document's attributes for those rows rather than each
+control reading its own way (five controls read a value; a fix in four of them is the bug still
+there), and there are now browser tests that assert a control **shows what the document holds** —
+which is the only kind of test that could have caught any of this.
+
+
+## Two inks, and the nine sentences a layout could not say
+
+The sample was a green SaaS page: six hues with no dominance, three equal cards, a centred column of
+prose, and forty-seven hard-coded colours in a document with ten tokens. Redrawn against a two-ink
+editorial discipline — one plate dominant, one spent sparingly, the paper deliberately visible — and
+the redraw is what found everything below.
+
+### What the schema could not say, and now can
+
+| | what it says | where the argument is |
+|---|---|---|
+| `rotate` | the one deliberate disruption | `effectsCss` |
+| `opacity` | how much comes through — **it was read and never declared** | `site-schema.ts` |
+| `blend` | how a box mixes with what is under it; `multiply` is a second ink on paper | `effectsCss` |
+| `backdropBlur` | frosted glass, visible only through a translucent fill | `effectsCss` |
+| `letterSpacing` / `lineHeight` | the rhythm the words in a box are set at, as **percentages of their own size** | `typeRhythmCss` |
+| `overlay` / `overlayOpacity` | a sheet **over** the picture, which no layer could reach | `backgroundCss` |
+| `span` | how many columns of a grid a block takes — what turns tiles into a bento | `sizingCss` |
+| `centred` | where a capped block sits, which is a second decision from how wide | `sizingCss` |
+
+Two of those are worth their own line. **`opacity` was read by `paintCss` and offered by a panel row
+and never declared by the schema** — so the row wrote an attribute the validator threw away, a
+control that lit up and changed nothing. The harness asks whether every declared attribute is drawn;
+nothing asked the question the other way round. And **`centred`** exists because the first version
+inferred it from *has a maximum width*, which is right nine times out of ten and pushed every reading
+measure on the page into the middle the tenth.
+
+### An attribute has to be in four places to be alive
+
+Declared in the schema, drawn by a renderer, offered by a panel row, and named in the command's
+`FORMAT` list. Three of the four is a control that lights up and writes nothing — six of these
+shipped that way, and **the conformance harness could not see it**: it checks that a row exists, not
+that the command the row names will accept what the row sends. What caught them was the browser
+sweep that drives every control and asks the document whether anything moved.
+
+### What the palette change found
+
+- **A run cannot follow a token.** A mark's colour is a CSS string, and `named` resolves references
+  on a node's *attributes* — a mark is not one. So every coloured word was a hard-coded hex. The
+  answer is not to make marks resolve tokens; it is that **the accent belongs on a plate, not on a
+  word**, which is what the two-ink discipline says anyway. The remaining inline colours are three
+  statistics and two button labels, and they are listed in `BACKLOG.md`.
+- **Quiet text is not a colour a document holds.** Forty-seven muted sentences each carried their own
+  grey. Wrapping each in a box that states `ink` works and costs forty-seven boxes in the layer list.
+  It is one rule in `page-css.ts` instead — body text is the band's own ink at three-quarters, written
+  against `currentColor`, so a dark band gets a soft off-white from the same line.
+- **The footer went black on black.** It stated `fill: 'var:먹'` and never said what was written on
+  it, relying on those run colours; the day they went, so did the footer. Which is the fault `ink`
+  was added to make impossible, sitting in the document the whole time the workaround was in place.
+- **A band with a centred measure could not be said.** It worked by accident: the band centred its
+  child, and a centred flex child is *as wide as its content* — so a section whose widest block was a
+  row of cards began at the page margin and one whose widest block was a paragraph began 225px
+  further in. Three different left edges for seven headings of one page.
+- **Korean wraps mid-word by default.** The sample's own headline broke as 세 가 / 지를. `keep-all`,
+  paired with `overflow-wrap`, or one unbreakable string pushes the page sideways.
+- **A page table had no table in it** — no borders, no padding, 156px wide, because nothing in the
+  stylesheet had ever mentioned one.
+
+### And the tests that were asserting the design
+
+Six checks held one of the sample's hex values — a hover colour, a band's ink, a card's ground — and
+a change of palette broke every one of them. None is about a colour: what they claim is that a
+*token resolves*. They ask the document now. The two that were genuinely about a colour the test
+itself wrote keep their literal, named so it is obvious which is which; mixing the two is what made a
+repaint look like a broken feature.
+
+
+## The check that was missing, and the six dead controls it found
+
+The redesign shipped six attributes that were declared, drawn and given a panel row, with the
+command every one of those rows named refusing all six — controls that took a value and threw it
+away. **Every conformance check was green**, and correctly: `every-property-can-be-edited` asks
+whether an attribute has a row, and every one of them did.
+
+So there is a new check, `every-row-writes-what-it-names`, and it asks the question a reader asks:
+**use the row, and did the document move?** The product does the using, for the reason
+`every-command-does-something` does — what a row needs before it can be used is a fact about that
+product — and it answers three ways, the third being the one that keeps it honest: `null` for a row
+the product could not get into a state to try, counted rather than passed.
+
+### What it found on its first run
+
+| row | what was wrong |
+|---|---|
+| 블록 안 글자 색 (`ink`) | never in the command's list — **the row had never written anything** |
+| 여는 것 · 처음부터 열림 · 하나만 (`opens`, `openAtRest`, `opensOne`) | the same, on an accordion's three switches |
+| 제목 단계 (`level`) | a `<select>`'s value is a string and the schema declares a number, so the validator threw the whole transaction away |
+| 고를 것 (`choices`) | *the probe's* fault — it sent a word into an array attribute |
+
+`ink` is the sharpest of them. It is the attribute a band's readability rests on — the sample's
+footer went black on black the day its runs stopped carrying colours of their own, and `ink` is what
+fixed that, **from the document literal, because from the panel it could not be set at all**.
+
+`level` produced a fix in the product as well: the panel now asks the schema what kind an attribute
+is and converts, rather than sending whatever the DOM handed it. Derived rather than listed, because
+a list of numeric attributes is wrong the first time one is added.
+
+### And what the probe itself had to learn
+
+Twice the probe reported a working control as dead, and both are worth keeping:
+
+- it picked the first option a choice offers, the first block of the home page is a sticky header,
+  and 배치 방식's first option is 고정 — so it wrote 고정 onto something already 고정 and watched
+  nothing change. *A sweep that writes the value already there is measuring itself*, which is the
+  same sentence the browser's own sweep wrote about 투명도 before this check existed.
+- it walked one page and skipped the pages themselves, leaving **38 of 92 rows unanswered** — the
+  form is on 소개, a code block is on 블로그, and twelve rows are `on: ['surface']`, which is a page
+  and never *inside* one. Fourteen remain, and they are listed by name in the test rather than left
+  as a number, because a silent column is how a guard stops guarding without anyone noticing.
+
+
+## A table in the sample, and the insert it broke
+
+Eight table commands were registered, drawn, menued and **measured by nothing**: the one document
+every probe in this repository runs against had no table in it, so there was no cell to put a caret
+in and the harness counted all eight as *could not be asked*. Honestly, and silently.
+
+The pricing page said *어느 요금제든 이건 됩니다* over four boxes, which is what a comparison looks
+like when the model cannot hold one — a reader cannot scan a column and a screen reader gets a wall
+of words with no column names. It is a real table now: features down the side, products across the
+top, a header row from the start.
+
+### What it found within the hour
+
+**Every insert this product has was dead while the caret was in a table cell.** 섹션, 가로 스택,
+그리드, 제목, 본문, 이미지, 목록, 인용, 코드, 구분선, 표, 버튼 — the whole 추가 rail and the whole
+삽입 menu, each saying it could run, running, returning false, and changing nothing.
+
+Two walks climb from the caret to a place a block goes, and both stopped at the cell: a cell is a
+block a reader can select (it has to be — that is what lets them type in one), and its parent is a
+`bTableRow`, which holds cells and nothing else. So each insert put a frame inside a table row, the
+validator refused the transaction, and the control stayed lit.
+
+The rule is one function now, `holdsABlock`, asked of the **schema** rather than kept as a list of
+types a block may not go inside — a list is a second place to remember the schema and is wrong the
+first time a type is added. A type the schema does not know answers *yes*, which is the safe
+direction: a walk that stops too early is a refused insert a reader can see, and one that stops too
+late is a block somewhere nobody put it.
+
+### And the probe learned two things
+
+- **`command.includes('Row')` also catches `insertRow`**, which is this product's 가로 스택 and has
+  nothing to do with a table. The probe put a caret in a cell for it and reported a working insert as
+  dead — a probe deciding what a command is about from its spelling.
+- The command probe answered **25 of 62** commands with *could not ask*. It walked one page, held the
+  first block, and knew one payload shape. It now names what each command needs, moves to the second
+  block for `moveBlockUp`, makes an edit before asking about `undo`, and puts a caret in a cell for
+  the eight. **25 became 11**, and the eleven are printed by name.
+
+
+## A token at a weight
+
+A palette holds one value per name. A design wants that value at a *fraction* constantly — a frosted
+bar over a hero, a scrim, a hairline, a disabled control — and until now every one of those was a
+literal `rgba(...)` written beside the token it was a fraction of. Which is a colour that **stops
+following the palette**: change 종이 and the bar keeps the old paper at 82%, on every page, silently.
+This sample's own header bar was exactly that, and it went into the backlog the day it was written.
+
+A reference may carry one now: `var:종이/82`.
+
+- **A suffix, not a second token.** A token per weight is how a palette becomes forty names — 종이,
+  종이흐림, 종이더흐림 — each one a place the real decision can drift from. A weight is not a colour;
+  it is something being done to one.
+- **A slash**, because that is CSS's own in `rgb(0 0 0 / 40%)`, so a reader who has written a colour
+  has seen it mean this. Nothing in a variable's name can contain one.
+- **Mixed toward `transparent`**, not toward a ground: the resolver cannot see what is behind the
+  colour, and a colour with an alpha works wherever a colour goes — a fill, a border, a shadow, the
+  text. The same reason a background's veil composites a sheet instead of setting `opacity`.
+- **Only on a colour.** A weight on a text variable is a typo, and mixing a word with transparent
+  would put `color-mix(in srgb, Barocss 82%, transparent)` into a stylesheet — a value a browser
+  drops without a word. It is handed back whole, where it reads as the mistake it is.
+
+Everything that counts, renames or carries a reference reads its name through `varNameOf`, so a
+weight cost none of them a change — which is the argument for putting it in the reference.
+
+### And the panel had to be able to say it
+
+`office-ui` must not learn how a document spells a weighted reference, so the colour field takes
+three things from its caller: which swatch the value is **following**, how much of it, and what to do
+when a reader changes that. A caller with no weights passes none of them and the control behaves
+exactly as it did. The trigger draws the swatch *at* the weight, because a swatch that showed the
+full colour would be a reader choosing the wrong thing twice.
+
+
+## The other three pages, and what redrawing them found
+
+제품, 소개 and 블로그 had never been redrawn against the two-ink discipline. Three things were wrong
+in the same way on all three:
+
+- **No plate.** The home page opens every section with a short accent bar and these opened with
+  nothing, so a reader moving between them met two different sites.
+- **The second ink spent on decoration.** The team portraits and the blog cover were drawn *in* the
+  accent — one blog post put more red on the page than every button, badge and plate on the site put
+  together. They are charcoal now, each with a single accent mark. A second plate spent on a
+  decoration is a second plate that has stopped meaning anything.
+- **Six equal cards.** 제품's feature grid was 3×2 of identical boxes, which is what a page looks like
+  when the writer had six things and no opinion. The three the page is *about* take two columns each
+  and the three that follow from them take one — visible before a word is read.
+
+### Three faults it turned up
+
+**A form's controls had no rule at all.** Measured on the sample's own contact form: the label was
+290px wide and the box under it 147, because a text input's width comes from a `size` attribute
+nobody set. Every published form this product has ever made looked like that, on the board and on the
+page, and no check could see it — a field that draws is a field that draws.
+
+**A date column that was only a minimum.** Three rows on the blog, two left edges: one date happened
+to be a character longer, grew past its `minWidth`, and pushed its title four pixels right. A column
+is a minimum *and* a maximum.
+
+**The accent could not carry words.** `#E03A1F` with the paper on it is **4.24:1** — under AA for
+text at body size, on every button, badge and price on the site, looking perfectly fine the whole
+time. It is `#D6341A` now, at 4.65:1, and the two are indistinguishable side by side.
+
+The rule: **an accent that carries words has to be measured against them.** A plate the words sit
+beside can be any weight; a plate they sit *on* cannot.
+
+### And a contrast check that runs on the published pages
+
+It needs three things a unit test cannot have — the *composited* colour (a token at a weight is an
+alpha, and its readability is the readability of what it becomes over the ground), the *inherited*
+colour (body text is the band's own ink held back, which resolves differently on every band), and a
+real layout to say which ground that is. Five pages at two widths, every run of words.
+
+It has already earned its place twice: the accent above, and the footer that went black on black
+because it said what it was painted and not what it was written in.
+
+
+## A code block in the sample, and the stale palette under it
+
+`code-render.ts` highlights with Prism, the panel offers a language, and **no document in this
+repository contained a code block** — so every probe answered *could not ask* about the language row,
+and no highlighted line had ever been drawn. The same argument the table made an hour earlier, and
+the table found a real fault the same day.
+
+This one did too. The syntax theme's header said its colours were "against `currentColor` rather
+than a fixed palette" and six of the nine roles were hard-coded hex. Measured on the two grounds the
+product actually draws code on:
+
+- on the light code ground, the string colour is **4.05:1** — under AA;
+- on a dark band, **all six fail**, between 3.17 and 4.05.
+
+And one of them was `#0F7A5A` — the brand green, gone from every other file since the palette was
+redrawn. A stale colour nobody could see, in a stylesheet nothing measured.
+
+The roles are told apart by **weight** now, the way a printed book tells them apart: a comment
+recedes, a string leans, a keyword carries the weight. Every one is `currentColor`, so it reads on
+the paper and on the dark band from one rule and follows a repainted palette by construction. The
+two that survive as hues are `deleted` and `inserted`, because a diff says *added* and *removed* and
+no amount of weight says which is which.
+
+The cost is stated rather than hidden: six hues distinguish more roles than four weights. For a
+snippet on a page that is the right trade — the code is there to be read, not edited.
+
+
+## An exemption that answered a question it was never asked
+
+`sends` — which connection a form sends through — had a panel row, a command, and **no entry in that
+command's list of fields**. The 보낼 곳 연결 picker on every form has accepted a choice and thrown it
+away for as long as forms have existed.
+
+The check that runs every row *found it*. And an exemption on `sends`, written months earlier about a
+completely different question — whether the attribute is **read**, and the answer was a careful and
+true "only on the published page" — swallowed the finding, because an exemption is keyed by its
+**subject** and never by the check it was written for.
+
+So a reason about reading answered a question about writing, and nothing could see it happen.
+
+### What changed
+
+An exemption may now say which checks its reason covers:
+
+```ts
+sends: { reason: '…', covers: ['every-attribute-is-read'] }
+```
+
+A bare string still means what it always did — one subject, one check, the ordinary case. What is new
+is that an exemption excusing a check it does not name is a **finding**: somebody reads the reason
+again and decides. Not an error, because one reason genuinely can answer two checks — *a page has no
+coordinates* is why a rectangle is neither drawn nor nameable here, and writing it twice would be two
+places to keep it true. Fifteen of the site's exemptions are exactly that and now say so.
+
+The two that were not: `sends`, above, and `opens` — where the finding turned out to be the probe's
+(the row runs `setOpens`, which takes a `target` and writes two blocks, and had been handed the
+row's own attribute).
+
+### And "it said no" is two answers
+
+A row's command refusing is either *I could not build the state* — not a fault — or *this command
+will not take this field*, which is the fault. Filed as one, the second hides inside the first, which
+is where `sends` had been sitting. They are told apart by asking the same command for something it
+certainly takes: every block has a `name`, so a command that says yes to that on this selection and
+no to the row's own attribute was never short of state.
+
+
+## A file field, and the one thing it changes about the form
+
+`FIELDS` was missing exactly one kind, and it is the one whose presence changes the **form** rather
+than only itself. A browser sends a form as `application/x-www-form-urlencoded` unless told
+otherwise, and that encoding cannot carry a file — so a form with a file field and no `enctype` sends
+every other answer and **silently drops the attachment**. Nothing errors, nothing is logged, and the
+person who attached it has no idea.
+
+So `needsUpload` asks the fields, and the form writes `enctype` only when one of them is a file —
+every form already published is byte-for-byte what it was.
+
+Three smaller decisions came with it:
+
+- **Disabled on the board, not read-only.** `readonly` means nothing to a file input, so a designer
+  arranging the form would open a file picker by clicking it. The same choice a tick and a list
+  already make.
+- **Derived, not stored.** Whether the form uploads is read from the fields it holds; a stored copy
+  is a second thing to keep true the day the field is deleted — `hiddenFields`' argument exactly.
+- **The far end is said, not guessed.** Whether the service accepts `multipart/form-data` is a fact
+  about somebody else's server. A builder that assumed it does would be telling a reader their form
+  works while the file is dropped at the other end, which is this fault list's whole subject: a thing
+  that looks completely fine and loses the one answer that mattered.
+
+
+## Three things a reader asked for
+
+### Pulling a block bigger
+
+A page has **no coordinates** — where a block sits is a parent and a place in that parent's content —
+so seven of the eight handles a canvas offers would be lying about what they can do. Two are honest:
+how wide a block may be, and how tall it must be. The right edge writes `maxWidth` (and `minWidth` as
+well on a `fixed` block, which takes its width from the pair), and the bottom writes `minHeight` and
+deliberately not `maxHeight` — a maximum clips what is inside, and a reader pulling a box taller
+means *at least this tall*.
+
+The drag is the padding band's drag: the drawing moves, and the document hears once, on release, in
+twips. Word learned that on its ruler and this file learned it again on the bands.
+
+**And the rule that keeps the two apart**, which cost a working gesture to find: the first version
+shared six pixels with the padding band and won them, so a padding drag silently stopped writing. The
+handles are entirely outside the box now, and the sentence is one a reader can hold — **inside the
+edge is the space in it, outside the edge is how big it is.**
+
+### A `+` beside the tool
+
+Everything it opens is already reachable: the 추가 rail draws it, the 삽입 menu names it, the slash
+menu offers it at the caret. What none of those is, is *here* — where the pointer already is, on a
+screen whose rail may be showing pages or data or nothing at all.
+
+So it is a **fourth doorway and not a fourth list**: it reads `siteControlsIn('insert')`, the same
+declaration the rail reads, plus the document's own definitions — which sit in a different panel only
+because a rail has one column, and a reader wanting a button on the page does not first decide
+whether a button is an element or one of their definitions.
+
+It also needed the page: the model has no notion of *on screen*, so every surface that inserts is
+handed it, and without it every entry was greyed on a freshly opened site — the exact fault the rail
+had before it was given one.
+
+**And it found three icons that were words.** 아코디언, 탭 and 폼 named `accordion`, `tabs` and
+`form`, none of which this suite draws, so all three rendered as their own names in Latin letters —
+in the rail as well, since the day those blocks were added. `every-icon-has-a-picture` was green,
+because a missing icon is reported with the family `icon` and an exemption written about the
+**favicon attribute** happens to be keyed `icon` too. That exemption says which check it covers now,
+and the three have pictures.
+
+### Where the data is edited
+
+It already exists: the left rail's 데이터 panel, and the ✎ beside each dataset. A real grid — column
+names, add and delete a column, add and delete a row, every cell. What it was not yet was *Excel*,
+and the two gestures that made the difference are below.
+
+
+## Making the data grid feel like a spreadsheet
+
+The reason a dataset exists is that the data is **somewhere else** — a spreadsheet, a page, a CSV
+somebody was sent — and typing forty cells back in one at a time is the work this feature was
+supposed to remove. Two gestures were missing.
+
+### A block of cells, pasted
+
+At the focused cell, from tabs and newlines, which is what every spreadsheet puts on a clipboard.
+
+- **One command, one undo.** Forty `setDatasetCell`s would be forty entries in the history: the undo
+  that puts it back is forty presses, and the thirty-ninth leaves a half-pasted table that nothing on
+  screen explains. `setDatasetCells` writes the block in one transaction — the padding drag's rule,
+  and the ruler's before it.
+- **Rows grow; columns do not.** Eight rows into a table of three means eight, because stopping at
+  three would silently drop five and look exactly like a paste that worked. A wider paste is trimmed,
+  because a column has a **name** — one `field:가격` refers to and a card is bound through — and a
+  paste cannot invent one. `엑셀 열 6` in a document is worse than five columns.
+- **A single value is left to the browser.** A paste with no tab and no newline is one value, and
+  handling it here would take a gesture the browser does perfectly and do it worse — the box would
+  lose its selection, its caret and its own undo.
+
+The command is reachable by **pasting into a cell** and by nothing else, which is an event rather
+than a surface. That is an exemption with a reason, and the reason names the two checks it answers.
+
+### Moving by direction
+
+Tab already worked, and that is exactly the problem: tab order walks *along a row and into the delete
+button at the end of it*, which is where a reader pressing it to reach the next column arrives.
+
+Up and down always. Left and right **only from an end** — those keys are the caret's while there is
+a word to move in, and taking them would make the grid useless for what it is mostly used for. Enter
+is down, Shift+Enter is up. Landing on a cell selects it, because that is what a grid means by
+arriving somewhere.
+
+It was written once as a `keydown` on the scroll box and never fired: `TextField` stops the event on
+purpose, so an Enter that commits a field cannot also reach the paragraph inside the shape being
+edited. `onKeys` is the door that control declares for exactly this — and going through it is the
+better shape anyway, because the handler is handed its own row and column rather than parsing them
+back out of an attribute.

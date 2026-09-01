@@ -847,6 +847,110 @@ export function Overlay({
                 ))
             : null}
 
+          {/**
+            * **The handles**, which is the gesture a builder is expected to have and this had a
+            * number field for.
+            *
+            * ## Why two, and not eight
+            *
+            * A page is a **flow**. A block has no x and no y — where it sits is a parent and a place
+            * in that parent's content — so seven of the eight handles a canvas has would be lying
+            * about what they do: dragging a top edge cannot move a block up, because nothing is
+            * holding it at a height. What is genuinely resizable is how wide it may be and how tall
+            * it must be, and those are the right edge and the bottom one.
+            *
+            * ## What each writes, which is not the same attribute
+            *
+            * The **right** edge writes `maxWidth` — how wide this block may become — and `minWidth`
+            * as well when the block is `fixed`, because a fixed block takes its width from the pair
+            * and writing one of them leaves the drag half-applied.
+            *
+            * The **bottom** writes `minHeight` and deliberately not `maxHeight`: a maximum height
+            * clips what is inside, and a reader pulling a box taller means *at least this tall*, not
+            * *never more than this*. `sizing.ts` argues why the height is a pair in the first place.
+            *
+            * ## And the drag is the padding band's drag
+            *
+            * Written once, on release, with the drawing moved in between — Word learned that on its
+            * ruler and this file learned it again on the bands: writing on every pointer move makes
+            * one drag into ten entries of the document's history, and a reader's undo then walks back
+            * through sizes the box was never meant to be.
+            */}
+          {mode === 'select'
+            ? (['right', 'bottom'] as const).map((edge) => (
+                <span
+                  key={`grip-${edge}`}
+                  className="st-grip"
+                  data-grip-edge={edge}
+                  role="presentation"
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    const board = host.current;
+                    const el = board?.querySelector<HTMLElement>(`[data-bc-sid="${CSS.escape(sid)}"]`);
+                    if (!board || !el) return;
+
+                    const scale = scaleOf(board);
+                    const rect = el.getBoundingClientRect();
+                    const from = edge === 'right' ? event.clientX : event.clientY;
+                    const was = Math.round((edge === 'right' ? rect.width : rect.height) / scale);
+                    /*
+                     * Whether this block takes its width from the pair. Read from the document rather
+                     * than from the drawing, because `sizing` is what the reader said and the drawing
+                     * is what the browser made of it.
+                     */
+                    const fixed = String(doc().getNode(sid)?.attributes?.sizing) === 'fixed';
+                    let now = was;
+
+                    const onMove = (move: PointerEvent) => {
+                      const travelled = ((edge === 'right' ? move.clientX : move.clientY) - from) / scale;
+                      now = Math.max(8, Math.round(was + travelled));
+                      if (edge === 'right') {
+                        el.style.setProperty('max-width', `${now}px`);
+                        if (fixed) el.style.setProperty('min-width', `${now}px`);
+                      } else {
+                        el.style.setProperty('min-height', `${now}px`);
+                      }
+                    };
+
+                    const onUp = () => {
+                      window.removeEventListener('pointermove', onMove);
+                      window.removeEventListener('pointerup', onUp);
+                      /*
+                       * The inline styles come off before the command runs, so the document's own
+                       * value is what draws — leaving one on would paint the block at the dragged
+                       * number for ever, whatever the document said afterwards.
+                       */
+                      for (const one of ['max-width', 'min-width', 'min-height']) {
+                        el.style.removeProperty(one);
+                      }
+                      if (now === was) return;
+
+                      // Twips, which is what the document keeps and a drawn rectangle is not.
+                      const said = Math.round(now * 15);
+                      /*
+                       * **At the width being looked at**, which is what the panel's own field does:
+                       * a reader dragging on the 390 board means *this is how wide it is on a phone*,
+                       * and writing the page's number instead would change every width from a
+                       * gesture made on one.
+                       */
+                      void editor.executeCommand('setBlockFormat', {
+                        nodeIds: [sid],
+                        at: breakpoint,
+                        ...(edge === 'right'
+                          ? { maxWidth: said, ...(fixed ? { minWidth: said } : {}) }
+                          : { minHeight: said })
+                      });
+                    };
+
+                    window.addEventListener('pointermove', onMove);
+                    window.addEventListener('pointerup', onUp);
+                  }}
+                />
+              ))
+            : null}
+
           {inside?.gaps.map((gap, at) => (
             <span
               key={`gap-${at}`}

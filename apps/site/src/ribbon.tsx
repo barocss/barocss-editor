@@ -1,9 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { markState, watchAnswers } from '@barocss/editor-core';
 import {
   Icon,
+  IconButton,
   ChoiceSelect,
+  Dialog,
+  DialogButton,
   SegmentedControl,
   TextField,
   Toolbar,
@@ -17,6 +20,7 @@ import { chordFor, keyLabel } from '@barocss/office-controls';
 import {
   SITE_KEYS,
   addressLinkOf,
+  definitionsOf,
   pageLinkOf,
   pagesIn,
   siteControlsIn
@@ -43,12 +47,25 @@ export function Ribbon({
   editor,
   mode,
   onMode,
+  pageId
 }: {
   editor: Editor;
   mode: PointerMode;
   onMode: (mode: PointerMode) => void;
+  /**
+   * **Where an insert lands when nothing is selected** — the page on screen, which only the app
+   * knows.
+   *
+   * The model has no notion of *on screen* and should not grow one, so every surface that inserts is
+   * handed it: the rail takes it, the menubar takes it, and the moment this ribbon grew a door onto
+   * the same commands it needed one too. Without it every entry in that dialog was greyed on a
+   * freshly opened site — a list of things a reader may not have, which is exactly the fault the
+   * rail had before it was given the page.
+   */
+  pageId?: string;
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
+  const [adding, setAdding] = useState(false);
 
   /**
    * Whether to write a chord Apple's way or everyone else's.
@@ -87,10 +104,20 @@ export function Ribbon({
    * cached, because a control that remembers being available is wrong the moment something is
    * undone.
    */
-  const can = (name: string) =>
-    (editor as never as { canExecuteCommand?: (n: string) => boolean }).canExecuteCommand?.(name) ?? false;
-  const run = (name: string, payload?: unknown) =>
-    (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(name, payload);
+  const can = (name: string, payload?: Record<string, unknown>) =>
+    (
+      editor as never as {
+        canExecuteCommand?: (n: string, p?: Record<string, unknown>) => boolean;
+      }
+    ).canExecuteCommand?.(name, { pageId, ...payload }) ?? false;
+  /*
+   * The page goes with every run for the reason it goes with every `can`: an insert with nowhere
+   * named lands nowhere, and the two have to agree or a control says yes and then does nothing.
+   */
+  const run = (name: string, payload?: Record<string, unknown>) =>
+    (
+      editor as never as { executeCommand?: (n: string, p?: Record<string, unknown>) => void }
+    ).executeCommand?.(name, { pageId, ...payload });
 
   // Read so the enabled state is recomputed when the selection or the document moves.
   void revision;
@@ -123,6 +150,34 @@ export function Ribbon({
   })();
   const linked = link.page ?? link.address;
 
+  /**
+   * What the dialog offers, read from the two declarations that already answer it.
+   *
+   * Grouped the way the rail groups them — what holds things, what goes in one, and the reader's own
+   * definitions — because those are three different decisions and a flat grid of thirty would make
+   * a reader read all of them to find the one they meant.
+   */
+  const offering = useMemo(() => {
+    const store = editor.dataStore;
+    const rootId = editor.getRootId?.();
+    const doc = rootId ? { rootId, getNode: (sid: string) => store?.getNode(sid) } : undefined;
+    return [
+      { label: '담는 것', items: siteControlsIn('insert').filter((one) => one.puts === 'container') },
+      { label: '넣는 것', items: siteControlsIn('insert').filter((one) => one.puts === 'block') },
+      {
+        label: '컴포넌트',
+        items: (doc ? definitionsOf(doc as never) : []).map((one) => ({
+          command: 'insertPlacement',
+          label: one.name,
+          title: `${one.name}을(를) 놓습니다`,
+          icon: 'component',
+          payload: { componentId: one.id }
+        }))
+      }
+    ].filter((group) => group.items.length > 0);
+    // The revision, because a reader who has just made a component expects it in here.
+  }, [editor, revision]);
+
   return (
     <Toolbar className="st-ribbon" label="사이트 도구">
       <ToolbarGroup id="mode">
@@ -148,6 +203,33 @@ export function Ribbon({
           ]}
           onChange={onMode}
         />
+
+        {/**
+          * **A door onto what can be added**, beside the tool a reader is holding.
+          *
+          * ## Why a fourth doorway is not a fourth list
+          *
+          * Everything this opens is already reachable: the 추가 rail draws it, the 삽입 menu names
+          * it, and the slash menu offers it at the caret. What none of those is, is *here* — where
+          * the reader's pointer already is, next to the tool they are using, on a screen where the
+          * rail may be showing pages or data or nothing at all.
+          *
+          * So it reads the **same declaration** the rail reads (`siteControlsIn('insert')`) and the
+          * same definitions the components panel reads. Not a list written out again in this file —
+          * which is the mistake `toolbar-model.ts` exists to have already made once, when five
+          * working inserts had no button because a hard-coded array is not a claim anything can
+          * check. One source, four ways in.
+          *
+          * ## And why the components are in it
+          *
+          * Because *add something* does not distinguish them. A reader wanting a button on the page
+          * does not first decide whether a button is an element or one of their own definitions —
+          * that is the editor's filing system showing through, and the two lists sit in different
+          * panels only because the rail has one column.
+          */}
+        <IconButton label="넣을 것 고르기" onClick={() => setAdding(true)}>
+          <Icon name="add" />
+        </IconButton>
       </ToolbarGroup>
 
       <ToolbarSeparator />
@@ -293,6 +375,44 @@ export function Ribbon({
         against any of these, drawn identically, so nothing said that turning all three boards off is
         allowed while turning both modes off is not.
       */}
+      {/*
+        Closed by choosing, because choosing is the whole errand: a dialog a reader has to dismiss
+        after it has done what they opened it for is a dialog that has asked them twice.
+      */}
+      <Dialog
+        open={adding}
+        onOpenChange={setAdding}
+        title="무엇을 넣을까요"
+        description="고른 블록 다음에 들어갑니다. 아무것도 고르지 않았으면 페이지 끝입니다."
+        footer={<DialogButton onClick={() => setAdding(false)}>닫기</DialogButton>}
+      >
+        <div className="st-add-sheet">
+          {offering.map((group) => (
+            <section key={group.label}>
+              <h3>{group.label}</h3>
+              <div className="st-add-grid">
+                {group.items.map((one) => (
+                  <button
+                    key={`${one.command}-${one.label}`}
+                    type="button"
+                    className="st-add-item"
+                    data-add={one.command}
+                    title={one.title}
+                    disabled={!can(one.command, (one as { payload?: Record<string, unknown> }).payload)}
+                    onClick={() => {
+                      run(one.command, (one as { payload?: Record<string, unknown> }).payload);
+                      setAdding(false);
+                    }}
+                  >
+                    <Icon name={one.icon ?? 'add'} />
+                    <span>{one.label}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </Dialog>
     </Toolbar>
   );
 }

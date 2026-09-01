@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import { isVarRef, varNameOf, varRef, varRefAt, varWeightOf } from '@barocss/office-canvas';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import {
   Icon,
   Button,
-  ChoiceSelect,
+  PropertyChoice,
   PropertyEmpty,
   PropertyGroup,
   PropertyLink,
@@ -17,21 +18,33 @@ import {
   type ThemeSwatch
 } from '@barocss/office-ui';
 import {
+  ASSET_PREFIX,
+  assetsOf,
+  RENDITIONS,
+  BASE_BREAKPOINT,
   BREAKPOINTS,
   FIELD_PREFIX,
   fieldNameOf,
-  STATEABLE,
+  stateableIn,
   STATES,
   attrsInState,
+  blocksIn,
   boundVarOf,
   definitionAt,
   definitionOf,
+  definitionsOf,
+  holderOf,
   kindOfBlock,
   SITE_KEYS,
+  VALUE_FORMATS,
   enclosing,
+  isAssetRef,
   labelOfBlock,
   overriddenAt,
   pageOf,
+  pagesOf,
+  servicesOf,
+  SITE_PANEL,
   sitePanelGroups,
   statedIn,
   statesOf,
@@ -45,6 +58,120 @@ import { chordFor, keyLabel } from '@barocss/office-controls';
 
 /** 15 twips to the CSS pixel: the document keeps twips and a reader is shown pixels. */
 const PX = 15;
+
+/**
+ * **Reading a file off the reader's machine**, which is the app's job and nobody else's.
+ *
+ * The model package runs in a test with no `FileReader` in it, which is the same line publishing
+ * draws about *writing* one: a package that reached for a browser API to add a picture would be a
+ * package that only runs in a browser.
+ *
+ * What crosses into the document is base64, a media type, and **the file's own width and height** —
+ * the last of which is the reason this waits for the image to decode rather than committing as soon
+ * as the bytes are read. An `<img>` with no intrinsic size is a hole of zero height until it loads,
+ * so every word under it jumps down when it arrives, and a builder that stores only a URL cannot fix
+ * that because it has never seen the file.
+ *
+ * One command and one undo: the picture is pointed at the new file in the same gesture that adds it,
+ * because a reader who chose a file has not asked for a document with a file in it.
+ */
+async function addPicture(
+  editor: Editor,
+  file: File,
+  ids: string[],
+  /** Which command points at it afterwards — a block's `src`, or the site's tab picture. */
+  command = 'setBlockFormat',
+  attr = 'src'
+): Promise<void> {
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    // `readAsDataURL` rather than `readAsArrayBuffer` plus a manual encode: the browser's base64 is
+    // the one that is right about padding, and the prefix is a `split` away.
+    reader.onload = () => resolve(String(reader.result ?? '').split(',')[1] ?? '');
+    reader.readAsDataURL(file);
+  });
+  if (!data) return;
+
+  const decoded = await new Promise<HTMLImageElement | undefined>((resolve) => {
+    const image = new Image();
+    // A file the browser cannot decode still becomes an asset — an SVG it dislikes, a format it does
+    // not know — because a picture a reader can see is worth more than a size a layout would like.
+    image.onerror = () => resolve(undefined);
+    image.onload = () => resolve(image);
+    image.src = `data:${file.type};base64,${data}`;
+  });
+  const size = decoded ? { width: decoded.naturalWidth, height: decoded.naturalHeight } : {};
+
+  /**
+   * And **the same picture, smaller** — the renditions a browser chooses from.
+   *
+   * The single largest cost of a page anybody builds with a tool like this is a photograph taken at
+   * 4000 pixels and sent, whole, to a phone that is 390 wide. It is most of what such a page weighs,
+   * and no amount of CSS makes the download shorter.
+   *
+   * Made **here**, because resizing needs a canvas and a canvas is a browser's — the same line this
+   * file already draws about reading the file at all. A width the file is already narrower than is
+   * skipped: making a picture bigger is a larger download of a blurrier image, which is the one thing
+   * worse than sending the original.
+   *
+   * **An SVG is left alone**, and that is not an oversight: it is already every size at once, and a
+   * canvas would turn a few kilobytes of vector into a large picture of it.
+   */
+  const sizes: { width: number; data: string }[] = [];
+  if (decoded && file.type !== 'image/svg+xml') {
+    for (const width of RENDITIONS) {
+      /*
+       * **Meaningfully smaller, or not at all.** A 2000-wide file makes a 1920 rendition that is four
+       * per cent narrower: another file in the folder, another entry in the `srcset`, and a download
+       * a visitor will not notice. Measured, in the browser, on the first picture this was tried on.
+       *
+       * Four fifths is the line — a rendition earns its place when it is at most 80% of the original.
+       */
+      if (decoded.naturalWidth * 0.8 < width) continue;
+      const height = Math.round((decoded.naturalHeight * width) / decoded.naturalWidth);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (!context) break;
+      context.drawImage(decoded, 0, 0, width, height);
+      /*
+       * Kept in the file's own format — a PNG stays a PNG. Re-encoding a photograph as JPEG would be
+       * smaller and would also be this product deciding, silently, that a reader's transparent PNG no
+       * longer has a transparent background.
+       */
+      const said = canvas.toDataURL(file.type).split(',')[1];
+      if (said) sizes.push({ width, data: said });
+    }
+  }
+
+  const before = new Set(
+    assetsOf({
+      rootId: editor.getRootId?.() ?? '',
+      getNode: (sid: string) => editor.dataStore?.getNode(sid)
+    } as never).map((one) => one.name)
+  );
+
+  await editor.executeCommand('insertAsset', {
+    label: file.name,
+    type: file.type || 'image/png',
+    data,
+    ...size,
+    ...(sizes.length > 0 ? { sizes } : {})
+  });
+
+  const added = assetsOf({
+    rootId: editor.getRootId?.() ?? '',
+    getNode: (sid: string) => editor.dataStore?.getNode(sid)
+  } as never).find((one) => !before.has(one.name));
+  if (added) {
+    await editor.executeCommand(command, {
+      nodeIds: ids,
+      [attr]: `${ASSET_PREFIX}${added.name}`
+    });
+  }
+}
 
 /**
  * What the selected blocks are, and everything a reader can change about them.
@@ -104,6 +231,23 @@ export function Inspector({
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
   const [tab, setTab] = useState<SitePanelTab>('block');
+  /**
+   * **Which sections of the panel are put away.**
+   *
+   * The panel measured **959 pixels** in five open sections, so a reader who wanted a shadow scrolled
+   * past a whole arrangement and a whole size to reach it. Every inspector in this class folds and
+   * this one had no way to.
+   *
+   * Kept here rather than in the document, and it is the same argument the row preview makes: which
+   * sections a person has put away is a fact about *this reader, this minute* — the same kind of
+   * fact as which width they are editing — and a document that carried it would hand the next person
+   * a panel with three sections mysteriously shut.
+   *
+   * By **label**, so 그림자 stays folded as the selection moves from a card to a section. A fold is
+   * about the kind of thing a reader is not currently interested in, and re-opening it on every
+   * click would be the panel forgetting on their behalf.
+   */
+  const [folded, setFolded] = useState<Record<string, boolean>>({});
 
 
   const store = editor.dataStore;
@@ -257,10 +401,28 @@ export function Inspector({
         const doc = { rootId: rootId ?? '', getNode: (sid: string) => store?.getNode(sid) };
         const inside = definitionAt(doc as never, String(first.sid));
         if (!inside) return undefined;
+        const bound = boundVarOf(
+          { getNode: (sid: string) => store?.getNode(sid) } as never,
+          String(first.sid)
+        );
+        /*
+         * And **what the variable it is bound to actually declares** — the kind and the format.
+         *
+         * Read here rather than in the row, because it is a fact about the document: the declaration
+         * lives on the definition, and the part only names it. Without it the two rows about how a
+         * value reads would be drawing whatever they were last told rather than what is written.
+         */
+        const declared = ((store?.getNode(inside.sid)?.content ?? []) as unknown[])
+          .filter((sid): sid is string => typeof sid === 'string')
+          .map((sid) => store?.getNode(sid))
+          .find((one: any) => one?.stype === 'componentVar' && one.attributes?.name === bound);
+
         return {
           asks: inside.asks,
           uses: inside.uses,
-          bound: boundVarOf({ getNode: (sid: string) => store?.getNode(sid) } as never, String(first.sid))
+          bound,
+          kind: String((declared?.attributes as any)?.kind ?? 'text'),
+          format: String((declared?.attributes as any)?.format ?? '')
         };
       })(),
       values: ((first.content ?? []) as unknown[])
@@ -325,11 +487,80 @@ export function Inspector({
       }));
 
     const chosen = datasets.find((one) => one.name === shown?.attrs.source);
+
+    /**
+     * And the blocks this one could **open** — the third list only the document can supply.
+     *
+     * Scoped to the page or the component definition the selected block is in, and that scoping is
+     * the feature rather than a tidiness: a hamburger inside a navigation bar must open a block of
+     * that same definition, because every placement resolves the name to its own copy. Offering a
+     * block of some other page would write a document where two placements open one menu, or where
+     * pressing opens nothing at all.
+     *
+     * Itself excluded, and 자기 자신 offered as its own entry instead: a block that opens itself is
+     * a real design — a box with a header that expands it — and it is a different sentence from
+     * naming a sid, so it is a different choice.
+     */
+    const doc = { rootId, getNode: (sid: string) => store?.getNode(sid) };
+    const openable = (() => {
+      const me = shown?.ids?.[0];
+      if (!me) return [] as { id: string; label: string }[];
+      const held = holderOf(doc as never, me);
+      const from =
+        held?.kind === 'component'
+          ? definitionsOf(doc as never).find((one) => one.id === held.sid)?.part
+          : held?.sid;
+      if (!from) return [] as { id: string; label: string }[];
+
+      const found: { id: string; label: string }[] = [];
+      const walk = (sid: string, depth = 0) => {
+        if (depth > 24) return;
+        for (const child of blocksIn(doc as never, sid)) {
+          if (child !== me) found.push({ id: child, label: labelOfBlock(doc as never, child) });
+          walk(child, depth + 1);
+        }
+      };
+      walk(from);
+      return [
+        { id: '', label: '없음' },
+        { id: 'self', label: '자기 자신' },
+        ...found
+      ];
+    })();
+
+    /**
+     * And the **connections** answers go through, with how many forms share each.
+     *
+     * The count is not decoration: editing a connection's address from one form's panel changes every
+     * form that names it, and a named reference is worth having *because* one edit reaches every
+     * use — so a reader has to be told when they are about to make one. It is the same sentence the
+     * component list makes with 5곳.
+     */
+    const services = servicesOf(doc as never).map((one) => {
+      let uses = 0;
+      const count = (sid: string, depth = 0) => {
+        if (depth > 40) return;
+        const node = store?.getNode(sid) as any;
+        if (node?.stype === 'form' && node.attributes?.sends === one.name) uses += 1;
+        for (const child of (node?.content ?? []) as unknown[]) {
+          if (typeof child === 'string') count(child, depth + 1);
+        }
+      };
+      if (rootId) count(rootId);
+      return { ...one, uses };
+    });
+
     return {
+      /** The files the document holds, for a picture to be pointed at one. */
+      assets: assetsOf(doc as never).map((one) => ({ name: one.name, label: one.label })),
+      /** And the pages, for a form to say where a visitor lands after sending. */
+      pages: pagesOf(doc as never).map((one: any) => ({ id: String(one.id), name: String(one.name) })),
       datasets: datasets.map((one) => ({ id: one.name, label: `${one.label} (${one.rows})` })),
-      columns: [{ id: '', label: '없음' }, ...(chosen?.fields ?? []).map((f) => ({ id: f, label: f }))]
+      columns: [{ id: '', label: '없음' }, ...(chosen?.fields ?? []).map((f) => ({ id: f, label: f }))],
+      openable,
+      services
     };
-  }, [editor, revision, store, shown?.attrs.source]);
+  }, [editor, revision, store, shown?.attrs.source, shown?.ids]);
 
   const run = (name: string, payload: Record<string, unknown>) => void editor.executeCommand(name, payload);
 
@@ -339,6 +570,31 @@ export function Inspector({
    * One place, and it reads the row's own `command` rather than assuming `setBlockFormat` — which is
    * what lets 페이지 › 주소 and 값 be ordinary rows instead of two hand-written groups.
    */
+  /**
+   * **A `<select>`'s value is always a string, and some attributes are numbers.**
+   *
+   * 제목 단계 offered 제목 1 … 제목 6, sent `'4'`, and the schema declares `level` as a number — so
+   * the validator threw the whole transaction away and the control did nothing at all. Silent from
+   * every direction: the row existed, the command accepted the field, and the value was refused one
+   * layer further down.
+   *
+   * Asked of the **schema** rather than listed here, because a list is a second place to remember
+   * every numeric attribute and it would be wrong the first time one was added. The panel already
+   * asks the schema which attributes a node type declares; this is the same question about kind.
+   *
+   * Only a string that is entirely a number becomes one — a `type` of `'1'` on a list is a choice of
+   * numbering style and stays a string if the schema says so, and a half-typed `'4a'` is nothing.
+   */
+  const kinded = (row: SitePanelRow, value: unknown): unknown => {
+    if (typeof value !== 'string' || value === '') return value;
+    const stype = shown?.stype ?? (node(page) ? 'surface' : undefined);
+    const declared = stype ? schema?.getNodeType?.(stype)?.attrs?.[row.attr] : undefined;
+    const kind = (declared as { type?: unknown } | undefined)?.type;
+    if (kind !== 'number') return value;
+    const said = Number(value);
+    return Number.isFinite(said) ? said : value;
+  };
+
   const write = (row: SitePanelRow, value: unknown) => {
     if (!row.command) return;
     if (row.command === 'setPageInfo') run('setPageInfo', { nodeId: page, [row.attr]: value });
@@ -376,7 +632,20 @@ export function Inspector({
        * Clearing the sides is the honest reading of "make it this all the way round".
        */
       const sides = Object.fromEntries((SHORTHAND[row.attr] ?? []).map((side) => [side, undefined]));
-      run(row.command, { nodeIds: shown?.ids, at, state, ...sides, [row.attr]: value });
+      /**
+       * An **emptied field at a narrower width says *nothing here*, not *the same as the page*.**
+       *
+       * The two are different documents and a reader means the first far more often: a sidebar that
+       * is 340 wide beside the words and the whole column under them, a card whose maximum width a
+       * phone should ignore. Until `null` existed the second was all this could say, and the
+       * workaround was a number large enough to mean nothing — a lie in the document.
+       *
+       * The way to say *the same as the page* is the mark beside the label, which is where a reader
+       * looks for it because the mark is what told them the width owns the value.
+       */
+      const cleared = value === undefined || value === null || value === '';
+      const said = cleared && at !== BASE_BREAKPOINT && !state ? null : value;
+      run(row.command, { nodeIds: shown?.ids, at, state, ...sides, [row.attr]: kinded(row, said) });
     }
   };
 
@@ -424,6 +693,8 @@ export function Inspector({
          * with one tab in it is a control that teaches a reader there is somewhere else to look.
          */
         <Groups
+          folded={folded}
+          onFold={(label, next) => setFolded((was) => ({ ...was, [label]: next }))}
           stype="inline-text"
           tab="text"
           shown={words}
@@ -433,6 +704,7 @@ export function Inspector({
           schema={schema}
           write={write}
           run={run}
+          editor={editor}
         />
       ) : !shown ? (
         /*
@@ -441,6 +713,8 @@ export function Inspector({
          * block, so it is never in a selection (`SELECTABLE` leaves it out on purpose).
          */
         <Groups
+          folded={folded}
+          onFold={(label, next) => setFolded((was) => ({ ...was, [label]: next }))}
           stype={node(page) ? 'surface' : undefined}
           tab="page"
           shown={null}
@@ -451,6 +725,7 @@ export function Inspector({
           schema={schema}
           write={write}
           run={run}
+          editor={editor}
           empty="페이지에서 블록을 선택하세요. 한 번 누르면 바깥쪽 블록, 두 번 누르면 그 안쪽입니다."
           after="블록을 선택하면 그 블록의 속성이 여기에 나옵니다."
         />
@@ -469,6 +744,8 @@ export function Inspector({
             <StateSwitch state={state} onState={onState} />
           ) : null}
           <Groups
+          folded={folded}
+          onFold={(label, next) => setFolded((was) => ({ ...was, [label]: next }))}
             stype={shown.stype}
             tab={tab}
             shown={shown}
@@ -479,6 +756,7 @@ export function Inspector({
             schema={schema}
             write={write}
             run={run}
+            editor={editor}
           />
           {/*
             **담는 곳** — the way out, and the only thing some blocks have to say.
@@ -541,6 +819,9 @@ type Shown = {
   part?: {
     asks: string[];
     bound?: string;
+    /** What the variable it is bound to declares — see where it is read for why the panel needs it. */
+    kind?: string;
+    format?: string;
     /**
      * How many placements of this definition there are, which is what makes a removal sayable.
      *
@@ -565,6 +846,8 @@ type Shown = {
 function Groups({
   stype,
   tab,
+  folded,
+  onFold,
   shown,
   at,
   state,
@@ -574,9 +857,20 @@ function Groups({
   schema,
   write,
   run,
+  editor,
   empty,
   after
 }: {
+  /**
+   * **Which sections are put away**, held by the `Inspector` above rather than here.
+   *
+   * A fold has to survive the selection moving: a reader who put 그림자 away is not asking to be
+   * shown it again the moment they click the next card. This component is drawn from a different
+   * branch depending on what is selected, so state kept in it would be thrown away on exactly the
+   * gesture the fold is supposed to outlive.
+   */
+  folded: Record<string, boolean>;
+  onFold: (label: string, folded: boolean) => void;
   stype: string | undefined;
   tab: SitePanelTab;
   shown: Shown | null;
@@ -585,11 +879,29 @@ function Groups({
   state?: StateId;
   page?: any;
   tokens: ThemeSwatch[];
-  data: { datasets: { id: string; label: string }[]; columns: { id: string; label: string }[] };
+  data: {
+    datasets: { id: string; label: string }[];
+    columns: { id: string; label: string }[];
+    openable: { id: string; label: string }[];
+    services: {
+      name: string;
+      label?: string;
+      endpoint?: string;
+      method: string;
+      returnField?: string;
+      trapField?: string;
+      uses: number;
+    }[];
+    assets: { name: string; label?: string }[];
+    /** The pages of this site, for a form to say where a visitor lands after sending. */
+    pages: { id: string; name: string }[];
+  };
   /** The document's schema, which is what decides where a row appears. */
   schema?: { getNodeType?: (stype: string) => { attrs?: Record<string, unknown> } | undefined };
   write: (row: SitePanelRow, value: unknown) => void;
   run: (name: string, payload: Record<string, unknown>) => void;
+  /** The editor itself, for the one control that has to read a file off the reader's machine. */
+  editor: Editor;
   /** Shown instead of the groups when there is nothing to draw them about. */
   empty?: string;
   /** Shown under them, when a reader could be told what to do next. */
@@ -606,7 +918,40 @@ function Groups({
    */
   const declares = (one: string, attr: string) => schema?.getNodeType?.(one)?.attrs?.[attr] !== undefined;
 
-  const attrs = shown?.attrs ?? (page?.attributes as Record<string, any>) ?? {};
+  /**
+   * **What a row reads, when what it writes is not what is selected.**
+   *
+   * `of` says which node a row writes — the *document*, for the site's address, its faces, its tab
+   * picture and what a crawler is told. Nothing read it, so every one of those rows took its value
+   * from the selected node, which does not have the attribute and never will: they were **write
+   * only**. A reader who set the site's address, went away and came back was shown an empty box and
+   * would type it again; the 검색 제외 switch flicked back the moment it was let go, because React
+   * redraws a controlled checkbox from a value that was always `undefined`.
+   *
+   * Invisible from every direction it was looked at. The command worked, the document held the
+   * value, the published page used it, and the unit tests called the commands rather than the panel.
+   * Found by clicking the switch in a browser and watching it come back up.
+   *
+   * A row for a node *type* (`of: 'service'`) is a different question — that one is resolved from
+   * the block's own reference and already had an answer; this is only the document's.
+   *
+   * Layered into `attrs` rather than read at each control, because there are six places a control
+   * reads a value — the sheet's `value`, its `raw`, and four custom kinds that draw their own — and
+   * a fix in five of them is the bug still being there. Safe to layer: a row says what it writes,
+   * and the conformance check already refuses a row whose `of` type does not declare the attribute,
+   * so no selected block has one of these keys to lose.
+   */
+  const siteRoot = editor.getRootId?.();
+  const siteAttrs = (siteRoot ? editor.dataStore?.getNode(siteRoot)?.attributes : undefined) ?? {};
+
+  const attrs = (() => {
+    const base = shown?.attrs ?? (page?.attributes as Record<string, any>) ?? {};
+    const mine: Record<string, any> = { ...base };
+    for (const row of SITE_PANEL) {
+      if (row.of === 'document') mine[row.attr] = (siteAttrs as Record<string, any>)[row.attr];
+    }
+    return mine;
+  })();
   const count = shown?.count ?? 1;
   const groups = sitePanelGroups(stype, tab, declares)
     .map((group) => ({
@@ -621,11 +966,16 @@ function Groups({
            */
           (row.group !== '컴포넌트 변수' || !!shown?.part) &&
           /*
-           * And in a state, only what a state may hold. Paint, never an arrangement — a block that
-           * resized under the pointer would move out from under it and flicker, so the panel does not
-           * offer the gesture rather than accepting it and having the command refuse.
+           * And in a state, only what **that** state may hold. Paint under the pointer, never an
+           * arrangement — a block that resized under the pointer would move out from under it and
+           * flicker, so the panel does not offer the gesture rather than accepting it and having the
+           * command refuse.
+           *
+           * 열림 is the state where appearing is the point, so it offers 보임 and the two arrangement
+           * rows with it: a menu that can be made to appear and cannot be made to stack is half a
+           * design. `stateableIn` is the one list, asked rather than repeated here.
            */
-          (!state || STATEABLE.includes(row.attr))
+          (!state || stateableIn(state).includes(row.attr))
       )
     }))
     .filter((group) => group.rows.length > 0);
@@ -634,6 +984,8 @@ function Groups({
     <>
       <PropertySheet
         groups={groups}
+        folded={(group) => folded[group.label] === true}
+        onFold={(group, next) => onFold(group.label, next)}
         /*
          * Pixels out, twips in — and it is **here** rather than in the sheet because 15 twips to the
          * pixel is a fact about this document model, not about how a number field behaves. The sheet
@@ -653,8 +1005,49 @@ function Groups({
           return Math.round(Number(held) / PX);
         }}
         /* A colour that follows a token must not be shown as the hex it resolves to. */
-        raw={(row) => (shown?.raw ?? attrs)[row.attr]}
+        raw={(row) =>
+          row.of === 'document' ? attrs[row.attr] : (shown?.raw ?? attrs)[row.attr]
+        }
         marked={(row) => shown?.overridden.has(row.attr) === true}
+        /**
+         * And **taking it back** — the half the mark was missing.
+         *
+         * A dot said *this width owns this value* and there was no way to stop it owning one. Typing
+         * the page's number back in looks identical and is a different document: the width still
+         * states a value, it now happens to match, and it stops following the day the page's changes.
+         *
+         * `undefined` is what takes an override or a state's statement off (`withOverride`,
+         * `withState`) — which is deliberately **not** what an emptied field writes at a narrower
+         * width. That means *nothing at this width*, and the two were one gesture until now.
+         */
+        /**
+         * **A colour at a weight**, which is the panel saying a sentence the palette needed.
+         *
+         * A token holds one colour and a design wants it at a fraction constantly — a frosted bar, a
+         * scrim, a hairline. Written as a literal `rgba(...)` it stops following the palette: the
+         * sample's own header bar was exactly that, and it is in the backlog as a colour that would
+         * not move the day 종이 changed.
+         *
+         * The three questions the sheet asks are answered here, because how a document *spells* a
+         * weighted reference is the editor's business and `office-ui` must not learn it.
+         */
+        follows={(row) => {
+          const said = (shown?.raw ?? attrs)[row.attr];
+          return isVarRef(said) ? varRef(varNameOf(said)) : undefined;
+        }}
+        weightOf={(row) => {
+          const said = (shown?.raw ?? attrs)[row.attr];
+          return isVarRef(said) ? varWeightOf(said) : undefined;
+        }}
+        onWeight={(row, weight) => {
+          const said = (shown?.raw ?? attrs)[row.attr];
+          if (!isVarRef(said)) return;
+          write(row, varRefAt(varNameOf(said), weight));
+        }}
+        onUnmark={(row) => {
+          if (!row.command) return;
+          run(row.command, { nodeIds: shown?.ids, at, state, [row.attr]: undefined });
+        }}
         swatches={tokens}
         heading={(group) =>
           /*
@@ -668,7 +1061,7 @@ function Groups({
             : group.label
         }
         onWrite={(row, next) => write(row, isMarkRow(row) ? next : commit(row, next))}
-        render={(row) => own(row, { attrs, shown, at, data, run })}
+        render={(row) => own(row, { attrs, shown, at, data, run, editor })}
       />
       {/*
         The sentence about **the next thing**, under a heading that says it is one.
@@ -736,7 +1129,12 @@ function StateSwitch({
           </button>
         ))}
       </div>
-      {state ? (
+      {state === 'open' ? (
+        <p className="st-state-said">
+          방문자가 열었을 때의 모습입니다. 보임과 배치까지 바꿀 수 있고, 여는 블록은 아래 ‘여는 것’에서
+          고릅니다.
+        </p>
+      ) : state ? (
         <p className="st-state-said">
           모든 너비에 함께 적용됩니다. 색과 그림자만 바꿀 수 있습니다.
         </p>
@@ -839,17 +1237,50 @@ function own(
     attrs: Record<string, any>;
     shown: Shown | null;
     at: BreakpointId;
-    data: { datasets: { id: string; label: string }[]; columns: { id: string; label: string }[] };
+    data: {
+    datasets: { id: string; label: string }[];
+    columns: { id: string; label: string }[];
+    openable: { id: string; label: string }[];
+    services: {
+      name: string;
+      label?: string;
+      endpoint?: string;
+      method: string;
+      returnField?: string;
+      trapField?: string;
+      uses: number;
+    }[];
+    assets: { name: string; label?: string }[];
+    /** The pages of this site, for a form to say where a visitor lands after sending. */
+    pages: { id: string; name: string }[];
+  };
     run: (name: string, payload: Record<string, unknown>) => void;
+    /** The editor itself, for the one control that has to read a file off the reader's machine. */
+    editor: Editor;
   }
 ): React.ReactNode | undefined {
-  const { attrs, shown, at, data, run } = ctx;
+  const { attrs, shown, at, data, run, editor } = ctx;
 
   switch (row.control) {
     case 'static':
       return <span className="st-kind">{kindOfBlock(shown?.stype ?? '') ?? shown?.stype}</span>;
 
     case 'note':
+      /*
+       * What turning **하나만** on costs, said at the moment a reader turns it on.
+       *
+       * A radio cannot be unpressed — right for a tab strip, a surprise for an accordion, and the
+       * kind of thing a reader otherwise finds out from a visitor. Not a fault: nothing is wrong
+       * with the document and there is nothing to fix.
+       */
+      if (row.attr === 'opensOne') {
+        return (
+          <span className="st-at-note">
+            열어둔 것을 다시 눌러 닫을 수는 없습니다. 다른 것을 열면 바뀝니다.
+          </span>
+        );
+      }
+
       // Only worth saying when it is true: at the widest width every value is the page's own.
       if (at === 'desktop') return null;
       return (
@@ -867,7 +1298,7 @@ function own(
        * there is a row on screen.
        */
       return (
-        <ChoiceSelect
+        <PropertyChoice
           value={String(attrs[row.attr] ?? '')}
           options={row.control === 'dataset' ? data.datasets : data.columns}
           onChange={(next) => run('setBlockFormat', { nodeIds: shown?.ids, at, [row.attr]: next || undefined })}
@@ -875,6 +1306,137 @@ function own(
           disabled={row.needs !== undefined && !attrs[row.needs]}
         />
       );
+
+    case 'opens':
+      /*
+       * The blocks this one could open, by the names a reader gave them.
+       *
+       * A picker rather than a text field because the value is a sid, and a sid is not a thing
+       * anybody knows by looking at their page. The list is scoped to the page or the component the
+       * block is in — see where it is built for why that scoping is the feature.
+       */
+      return (
+        <PropertyChoice
+          value={String(attrs[row.attr] ?? '')}
+          options={data.openable}
+          onChange={(next) =>
+            run(row.command ?? 'setOpens', { nodeId: shown?.ids?.[0], target: next || undefined })
+          }
+          ariaLabel={row.ariaLabel}
+        />
+      );
+
+    case 'sends': {
+      /*
+       * Which connection this form's answers go through — a **name**, so five forms on a site are
+       * five references to one address rather than five copies of it. The address itself is the row
+       * under this one, because a reader is at the form when the question comes up.
+       */
+      const chosen = String(attrs.sends ?? '');
+      return (
+        <PropertyChoice
+          value={chosen}
+          options={[
+            { id: '', label: '고르지 않음' },
+            ...data.services.map((one) => ({ id: one.name, label: one.label ?? one.name }))
+          ]}
+          onChange={(next) =>
+            run('setBlockFormat', { nodeIds: shown?.ids, sends: next || undefined })
+          }
+          ariaLabel={row.ariaLabel}
+        />
+      );
+    }
+
+    case 'endpoint': {
+      /*
+       * The address the chosen connection points at — **the one thing about a form only a reader can
+       * supply.** There is no default and none of this product's own: a builder that quietly posted a
+       * stranger's message to its own server would be doing something nobody asked for.
+       *
+       * And how many forms share it, said beside the field rather than found out afterwards.
+       */
+      const service = data.services.find((one) => one.name === attrs.sends);
+      if (!service) return null;
+      return (
+        <span className="st-endpoint">
+          <TextField
+            value={service.endpoint ?? ''}
+            onCommit={(next) => run('setServiceInfo', { name: service.name, endpoint: next })}
+            placeholder="https://…"
+            ariaLabel={row.ariaLabel}
+          />
+          {service.uses > 1 ? <em className="st-uses">폼 {service.uses}개가 함께 씁니다</em> : null}
+        </span>
+      );
+    }
+
+    case 'serviceMethod': {
+      const service = data.services.find((one) => one.name === attrs.sends);
+      if (!service) return null;
+      return (
+        <PropertyChoice
+          value={service.method}
+          options={[
+            { id: 'post', label: '보통 (post)' },
+            { id: 'get', label: '주소에 담기 (get)' }
+          ]}
+          onChange={(next) => run('setServiceInfo', { name: service.name, method: next })}
+          ariaLabel={row.ariaLabel}
+        />
+      );
+    }
+
+    case 'picture': {
+      /**
+       * **Which picture this is** — the files the document holds, and a way to add one.
+       *
+       * One row rather than two, because a reader choosing a picture is doing one thing: two would
+       * have made them decide what *kind* of picture they wanted before they had chosen one, which is
+       * the editor's bookkeeping showing through.
+       *
+       * The file is read **here** — a browser's job, and the same line `publish` draws about writing
+       * one. What crosses into the model is base64, a media type, and the file's own size, which is
+       * what stops every word under an image jumping down when it arrives.
+       */
+      /*
+       * The **site's** tab picture is the same question as a block's picture — which file — so it is
+       * the same control, reading whichever attribute the row names and writing through whichever
+       * command it declares. A second kind for one extra row would be a second place to fix a bug.
+       */
+      const said = String(attrs[row.attr] ?? '');
+      return (
+        <span className="st-picture-row">
+          <PropertyChoice
+            value={isAssetRef(said) ? said : ''}
+            options={[
+              ...(isAssetRef(said) ? [] : [{ id: '', label: said ? '주소로 넣은 그림' : '없음' }]),
+              ...data.assets.map((one) => ({ id: `${ASSET_PREFIX}${one.name}`, label: one.name }))
+            ]}
+            onChange={(next) =>
+              run(row.command ?? 'setBlockFormat', {
+                nodeIds: shown?.ids,
+                [row.attr]: next || undefined
+              })
+            }
+            ariaLabel={row.ariaLabel}
+          />
+          <label className="st-file">
+            파일 넣기
+            <input
+              type="file"
+              accept="image/*"
+              aria-label="그림 파일 넣기"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                event.currentTarget.value = '';
+                if (file) void addPicture(editor, file, shown?.ids ?? [], row.command, row.attr);
+              }}
+            />
+          </label>
+        </span>
+      );
+    }
 
     case 'values':
       /*
@@ -907,7 +1469,7 @@ function own(
        */
       if (!shown?.part) return null;
       return (
-        <ChoiceSelect
+        <PropertyChoice
           value={shown.part.bound ?? ''}
           options={[
             { id: '', label: '연결 안 함' },
@@ -917,6 +1479,50 @@ function own(
           ariaLabel={row.ariaLabel}
         />
       );
+
+    case 'varKind':
+      /*
+       * **What kind of thing the answer is.** The reason a price can be a number in the data and
+       * still read as `월 9,900원` on the card — before this, the only way to get the words was to
+       * store them, and a stored caption is a value nothing can sort.
+       */
+      if (!shown?.part?.bound) return null;
+      return (
+        <PropertyChoice
+          value={shown.part.kind ?? 'text'}
+          options={[
+            { id: 'text', label: '글' },
+            { id: 'number', label: '숫자' },
+            { id: 'date', label: '날짜' },
+            { id: 'color', label: '색' },
+            { id: 'boolean', label: '예/아니오' },
+            { id: 'choice', label: '고르기' }
+          ]}
+          onChange={(next) =>
+            run('setComponentVar', { nodeId: shown.ids[0], name: shown.part!.bound, kind: next })
+          }
+          ariaLabel={row.ariaLabel}
+        />
+      );
+
+    case 'varFormat': {
+      /*
+       * And how it reads — only where there is a reading to choose. A text variable reads as itself,
+       * so the row is not drawn rather than being drawn with one option in it.
+       */
+      const kinds = VALUE_FORMATS[shown?.part?.kind ?? 'text'];
+      if (!shown?.part?.bound || !kinds) return null;
+      return (
+        <PropertyChoice
+          value={shown.part.format ?? ''}
+          options={kinds}
+          onChange={(next) =>
+            run('setComponentVar', { nodeId: shown.ids[0], name: shown.part!.bound, format: next })
+          }
+          ariaLabel={row.ariaLabel}
+        />
+      );
+    }
 
     case 'variable': {
       /*
@@ -990,7 +1596,7 @@ function own(
           {shown.card.asks.map((ask) => (
             <label key={ask.name} className="st-card-value">
               <span>{ask.name}</span>
-              <ChoiceSelect
+              <PropertyChoice
                 value={fieldNameOf(ask.value) ?? ''}
                 options={[{ id: '', label: '없음' }, ...data.columns.filter((one) => one.id)]}
                 onChange={(next) =>

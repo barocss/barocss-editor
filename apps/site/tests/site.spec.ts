@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { execFile } from 'node:child_process';
 import { siteControlsIn } from '@barocss/office-site';
 
 /**
@@ -51,6 +52,46 @@ const press = (page: Page, at: ReturnType<Page['locator']>, options?: { modifier
  */
 const pressDeep = (page: Page, at: ReturnType<Page['locator']>) =>
   at.click({ force: true, modifiers: ['Meta'] });
+
+/**
+ * **A colour this document names**, asked of the document rather than written into the test.
+ *
+ * Several checks here held one of the sample's hex values, and a change of palette broke every one
+ * of them — none of which is about a colour. What they claim is that a token *resolves*: the rule
+ * carries whatever this document says 강조 is, and the day it says something else they should still
+ * pass. `rgb(...)` because that is what `getComputedStyle` answers with.
+ */
+const tokenRgb = async (page: Page, name: string): Promise<string> =>
+  await page.evaluate((want) => {
+    const editor = (window as never as { editor: any }).editor;
+    const store = editor.dataStore;
+    let said = '';
+    const walk = (sid: string) => {
+      const node = store.getNode(sid);
+      if (!node || said) return;
+      if (node.stype === 'variable' && node.attributes?.name === want) said = String(node.attributes.value);
+      for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
+    };
+    walk(editor.getRootId());
+    const hex = said.replace('#', '');
+    return `rgb(${[0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+  }, name);
+
+/** The same, as the hex a published stylesheet is written in. */
+const tokenHex = async (page: Page, name: string): Promise<string> =>
+  await page.evaluate((want) => {
+    const editor = (window as never as { editor: any }).editor;
+    const store = editor.dataStore;
+    let said = '';
+    const walk = (sid: string) => {
+      const node = store.getNode(sid);
+      if (!node || said) return;
+      if (node.stype === 'variable' && node.attributes?.name === want) said = String(node.attributes.value);
+      for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
+    };
+    walk(editor.getRootId());
+    return said;
+  }, name);
 
 /**
  * The same gesture, **at a corner** rather than at the middle.
@@ -216,11 +257,12 @@ test.describe('a site at several widths', () => {
      * through it silently lost, on a page where the header looked like an empty box.
      */
     /*
-      Three: the header, the footer, and the button **inside the header's own definition** — a
-      placement of a definition that itself places one, which is what makes the bar's call to action
-      the same button as the hero's.
+      Five: the header, the footer, and the button **inside the header's own definition** — placed
+      twice there, once in the wide navigation and once in the menu a phone opens — plus the one the
+      page itself carries. A placement of a definition that itself places one is what makes the bar's
+      call to action the same button as the hero's.
     */
-    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(4);
+    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(5);
     await expect(page.locator('[data-frame="desktop"] .st-placement h4')).toHaveText('Barocss');
   });
 });
@@ -229,8 +271,13 @@ test.describe('a narrower width', () => {
   test('draws the same row as a row and as a column, at the same instant', async ({ page }) => {
     await ready(page);
 
-    await expect(cardRow(page, 'desktop')).toHaveCSS('flex-direction', 'row');
-    await expect(cardRow(page, 'mobile')).toHaveCSS('flex-direction', 'column');
+    /*
+     * A **grid** now, not a flex row — three columns with the first card across two of them, and one
+     * column on a phone. The claim is the one it always was: one document, two arrangements, drawn
+     * at the same instant. What changed is the sentence the document uses to say it.
+     */
+    await expect(cardRow(page, 'desktop')).toHaveCSS('grid-template-columns', /repeat|px/);
+    await expect(cardRow(page, 'mobile')).toHaveCSS('display', 'grid');
     // 360 twips = 24px; the override says 240, which is 16.
     await expect(cardRow(page, 'desktop')).toHaveCSS('gap', '24px');
     await expect(cardRow(page, 'mobile')).toHaveCSS('gap', '16px');
@@ -503,8 +550,14 @@ test.describe('the panel', () => {
     await expect(card('mobile')).toHaveCSS('gap', '4px');
     // The page is untouched: 180 twips of gap is 12px, and that is still what the desktop draws.
     await expect(card('desktop')).toHaveCSS('gap', '12px');
-    // And the panel marks the property, so the reader can tell this value from the page's own.
-    await expect(page.locator('.office-properties')).toContainText('간격 ·');
+    /*
+     * And the panel marks the property, so the reader can tell this value from the page's own — and
+     * the mark is a **control** now rather than a character: pressing it takes this width's value
+     * back, which is what the dot had been saying and could not do.
+     */
+    await expect(
+      page.locator('.office-properties').getByRole('button', { name: '간격 되돌리기' })
+    ).toBeVisible();
   });
 });
 
@@ -770,10 +823,15 @@ test.describe('the panel', () => {
   test('answers a placement’s own question, and the words change', async ({ page }) => {
     await ready(page);
     /*
-     * The hero's button. The header places one too — the bar's call to action is the same
-     * definition — so this is the *third* placement drawn on the page rather than the second.
+     * The hero's button, found by **where it is** rather than by which number it is.
+     *
+     * It was `.nth(2)`, because the header places the same definition and the hero's was the third
+     * drawn. The day the header grew a second one — the menu a phone opens carries the same call to
+     * action — the third placement became a block inside a closed menu, and the test failed by
+     * clicking something a reader cannot see. A block is found by what it is, never by where it
+     * currently sits.
      */
-    const button = page.locator('[data-frame="desktop"] .st-placement').nth(2);
+    const button = page.locator('[data-frame="desktop"] [data-name="히어로 줄"] .st-placement').first();
     await expect(button).toContainText('무료로 시작하기');
 
     /*
@@ -821,12 +879,13 @@ test.describe('the exported page', () => {
     const editorSays = async (frame: string) =>
       await cardRow(page, frame).evaluate((node) => {
         const style = getComputedStyle(node);
-        return { direction: style.flexDirection, padding: style.padding, gap: style.gap };
+        return { columns: style.gridTemplateColumns.split(' ').length, padding: style.padding, gap: style.gap };
       });
     const wide = await editorSays('desktop');
     const narrow = await editorSays('mobile');
-    expect(wide.direction).toBe('row');
-    expect(narrow.direction).toBe('column');
+    // Three tracks at 1280 and one at 390 — the trio is a bento now, and it still says two things.
+    expect(wide.columns).toBe(3);
+    expect(narrow.columns).toBe(1);
 
     // And what the **published** page does, in the same browser, with nothing but the file.
     const visitor = await page.context().newPage();
@@ -838,13 +897,856 @@ test.describe('the exported page', () => {
         .locator('.st-stack[data-name="제품 셋"]')
         .evaluate((node) => {
           const style = getComputedStyle(node);
-          return { direction: style.flexDirection, padding: style.padding, gap: style.gap };
+          return { columns: style.gridTemplateColumns.split(' ').length, padding: style.padding, gap: style.gap };
         });
     };
 
     expect(await asks(1280)).toEqual(wide);
     expect(await asks(390)).toEqual(narrow);
     await visitor.close();
+  });
+
+  /**
+   * **열림**, which is the one state a browser has to be asked about.
+   *
+   * `hover` and `focus` publish as a pseudo-class the browser already answers, and a unit test can
+   * read the rule and be satisfied. Being open is a control this product **puts into the page** — a
+   * checkbox, a label around whatever the designer drew, and a rule about two elements next to each
+   * other — and none of that is true until a browser has laid it out and something has been pressed.
+   *
+   * At 390 with nothing but the file, which is the whole claim: no script, no framework, a page a
+   * visitor could have saved to disk.
+   */
+  test('opens the phone’s menu, with nothing in the page but the page', async ({ page }) => {
+    await ready(page);
+    const html = await exported(page, '/');
+
+    const visitor = await page.context().newPage();
+    await visitor.setViewportSize({ width: 390, height: 900 });
+    await visitor.setContent(html);
+    await visitor.waitForTimeout(150);
+
+    const menu = visitor.locator('.st-stack[data-name="모바일 메뉴"]');
+    /*
+     * Scoped to the header, because the page has **seven** openers now: the hamburger and the six
+     * questions of the FAQ. That is the sample wearing what it tests rather than the test being
+     * fragile — an unscoped selector was right while the accordion existed only in a unit test.
+     */
+    const opener = visitor.locator(
+      '.st-placement[data-component-id="site-header"] label[for^="st-open-"]'
+    );
+
+    // The wide navigation is not on a phone, and the thing that opens the other one is.
+    await expect(visitor.locator('.st-stack[data-name="내비게이션"]')).toBeHidden();
+    await expect(opener).toBeVisible();
+    // Closed: shipped, in the markup, and not drawn — which is the difference between a menu and a
+    // draft, and the export cannot tell them apart from `visible: false` alone.
+    await expect(menu).toBeHidden();
+
+    await opener.click();
+    await visitor.waitForTimeout(150);
+    await expect(menu).toBeVisible();
+    // And it is a column of the same four pages, as links a visitor can follow.
+    await expect(menu.locator('a')).toHaveCount(4);
+    await expect(menu.locator('a').first()).toHaveAttribute('href', '/제품');
+
+    // Pressing again closes it: a checkbox remembers, which is why this needs no script at all.
+    await opener.click();
+    await visitor.waitForTimeout(150);
+    await expect(menu).toBeHidden();
+
+    await visitor.close();
+  });
+
+  /**
+   * And the same gesture from a keyboard, which is the reason the switch sits outside the menu.
+   *
+   * A checkbox inside the block it opens is inside that block's `display: none`, and an unrendered
+   * control is not in the focus order — the menu would open for a pointer and be unreachable by a
+   * key. Tabbed to rather than focused by script, because `.focus()` does not raise
+   * `:focus-visible` and the ring is half of what is being claimed.
+   */
+  test('opens from the keyboard, and says what pressing it does', async ({ page }) => {
+    await ready(page);
+    const html = await exported(page, '/');
+
+    const visitor = await page.context().newPage();
+    await visitor.setViewportSize({ width: 390, height: 900 });
+    await visitor.setContent(html);
+    await visitor.waitForTimeout(150);
+
+    const menu = visitor.locator('.st-stack[data-name="모바일 메뉴"]');
+    await expect(menu).toBeHidden();
+
+    /*
+     * Tabbed to **the hamburger's** switch by its name, not to the first switch on the page: the FAQ
+     * below it has six of its own now, and "the first one a Tab reaches" stopped being a question
+     * about the menu the day the sample grew an accordion.
+     */
+    const focused = async () =>
+      await visitor.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return { name: el?.className ?? '', said: el?.getAttribute('aria-label') ?? '' };
+      });
+
+    for (let press = 0; press < 60; press += 1) {
+      const at = await focused();
+      if (at.name.includes('st-open-switch') && at.said === '메뉴 열기') break;
+      await visitor.keyboard.press('Tab');
+    }
+    // A hamburger is three lines and has no words, so the name comes from what the reader called the
+    // block. Without it a screen reader announces "checkbox" and nothing else.
+    expect(await focused()).toEqual({
+      name: expect.stringContaining('st-open-switch'),
+      said: '메뉴 열기'
+    });
+
+    await visitor.keyboard.press('Space');
+    await visitor.waitForTimeout(150);
+    await expect(menu).toBeVisible();
+
+    // And the ring is drawn on the block being looked at, because the switch itself is off the page.
+    const ring = await visitor
+      .locator('.st-placement[data-component-id="site-header"] label[for^="st-open-"]')
+      .evaluate((node) => getComputedStyle(node).outlineWidth);
+    expect(Number.parseFloat(ring)).toBeGreaterThan(0);
+
+    await visitor.close();
+  });
+
+  /**
+   * **탭** — the one thing here a unit test cannot settle.
+   *
+   * Everything about an accordion can be read off the document and the stylesheet. A tab strip's
+   * whole claim is that pressing the second tab **closes the first**, and nothing writes that down:
+   * it is what a radio group does, and the only way to know a browser is doing it is to press two
+   * tabs in a browser and look.
+   *
+   * At 390 as well, because a tab strip that stops being one on a phone is the commonest way this
+   * kind of thing is half-built.
+   */
+  test('shows one tab at a time, and says which one', async ({ page }) => {
+    await ready(page);
+    // Made through the rail, which is where a reader finds it — a test that built the tree by hand
+    // would be testing the test.
+    await page.locator('[data-panel="add"]').click();
+    await page.locator('[data-insert="insertTabs"]').click();
+    await page.waitForTimeout(600);
+
+    const html = await exported(page, '/');
+    const visitor = await page.context().newPage();
+    await visitor.setContent(html);
+    await visitor.waitForTimeout(150);
+
+    const panel = (n: number) => visitor.locator(`.st-stack[data-name="탭 ${n} 내용"]`);
+    const tab = (n: number) => visitor.locator(`label:has(> .st-stack[data-name="탭 ${n}"])`);
+
+    // One already chosen: a tab strip showing nothing is the one state it must never be in.
+    await expect(panel(1)).toBeVisible();
+    await expect(panel(2)).toBeHidden();
+    await expect(panel(3)).toBeHidden();
+
+    // And the chosen one *looks* chosen — the rule that cannot be written as `switch:checked + block`,
+    // because the tab is not beside its switch.
+    const edge = async (n: number) =>
+      await tab(n)
+        .locator('> *')
+        .evaluate((node) => getComputedStyle(node).borderTopColor);
+    expect(await edge(1)).toBe('rgb(15, 122, 90)');
+    expect(await edge(2)).not.toBe('rgb(15, 122, 90)');
+
+    await tab(2).click();
+    await visitor.waitForTimeout(150);
+
+    // The whole claim: choosing the second closed the first, and nothing wrote that down.
+    await expect(panel(2)).toBeVisible();
+    await expect(panel(1)).toBeHidden();
+    expect(await edge(2)).toBe('rgb(15, 122, 90)');
+    expect(await edge(1)).not.toBe('rgb(15, 122, 90)');
+
+    // And on a phone, where this kind of thing is most often half-built.
+    await visitor.setViewportSize({ width: 390, height: 900 });
+    await visitor.waitForTimeout(150);
+    await tab(3).click();
+    await visitor.waitForTimeout(150);
+    await expect(panel(3)).toBeVisible();
+    await expect(panel(2)).toBeHidden();
+
+    await visitor.close();
+  });
+
+  /**
+   * **아코디언** — the same two blocks with the switch left alone.
+   *
+   * The claim is the opposite one and just as unwriteable: three answers open **independently**, so
+   * a visitor can have all three at once. A checkbox does that by being a checkbox.
+   */
+  test('opens as many answers as a visitor asks for', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="add"]').click();
+    await page.locator('[data-insert="insertAccordion"]').click();
+    await page.waitForTimeout(600);
+
+    const html = await exported(page, '/');
+    const visitor = await page.context().newPage();
+    await visitor.setContent(html);
+    await visitor.waitForTimeout(150);
+
+    const item = (n: number) => visitor.locator('.st-stack[data-name="항목"]').nth(n);
+    const answer = (n: number) => item(n).locator('.st-stack[data-name="답"]');
+    const question = (n: number) => item(n).locator('label');
+
+    for (const n of [0, 1, 2]) await expect(answer(n)).toBeHidden();
+
+    await question(0).click();
+    await question(2).click();
+    await visitor.waitForTimeout(150);
+
+    // Two open at once, which is the difference from a tab strip and the whole of it.
+    await expect(answer(0)).toBeVisible();
+    await expect(answer(1)).toBeHidden();
+    await expect(answer(2)).toBeVisible();
+
+    // And each closes on its own — a checkbox can be unpressed where a radio cannot.
+    await question(0).click();
+    await visitor.waitForTimeout(150);
+    await expect(answer(0)).toBeHidden();
+    await expect(answer(2)).toBeVisible();
+
+    await visitor.close();
+  });
+
+  /**
+   * **A header that follows the page**, which is the first thing anybody tries on a site builder and
+   * the thing this product could not do at all until `position.ts`.
+   *
+   * Only a browser can settle it. `position: sticky` is the property most often written correctly
+   * and defeated by something else on the page — an ancestor that clips, a stacking context from an
+   * opacity nobody set, a parent with no height — and every one of those failures leaves a valid
+   * stylesheet. So this scrolls the page and asks where the header actually is.
+   */
+  test('keeps the header at the top while the page moves under it', async ({ page }) => {
+    await ready(page);
+    const html = await exported(page, '/');
+
+    const visitor = await page.context().newPage();
+    await visitor.setViewportSize({ width: 1280, height: 800 });
+    await visitor.setContent(html);
+    await visitor.waitForTimeout(150);
+
+    /*
+     * The **placement**, not the stack inside it — see `renderers.ts`. A block inside a definition
+     * has the placement's box as its parent, and that box is exactly that block's height, so sticky
+     * there has nowhere to travel. Written the other way round first, and it failed by scrolling
+     * away with the page while the stylesheet said `position: sticky`.
+     */
+    const head = visitor.locator('.st-placement[data-component-id="site-header"]').first();
+    const topOf = async () => ((await head.boundingBox())?.y ?? -1);
+
+    expect(await topOf()).toBeCloseTo(0, 0);
+
+    await visitor.evaluate(() => window.scrollTo(0, 1200));
+    await visitor.waitForTimeout(200);
+
+    // Still at the top — and the page really did move, or this would pass on a page that cannot
+    // scroll at all.
+    expect(await visitor.evaluate(() => window.scrollY)).toBeGreaterThan(600);
+    expect(await topOf()).toBeCloseTo(0, 0);
+
+    /*
+     * And **over** what it passes, which is the second half and a separate failure: a sticky header
+     * that scrolls under the hero picture is a header nobody can read. One number.
+     */
+    expect(
+      await head.evaluate((node) => getComputedStyle(node).zIndex)
+    ).toBe('10');
+
+    await visitor.close();
+  });
+
+  /**
+   * **A form**, on the board and in the page — the one place the two drawings are allowed to differ.
+   *
+   * Every other difference between what a designer sees and what a visitor gets is a *removal* the
+   * export makes afterwards. This one is deliberate and goes the other way: a designer arranging a
+   * form must not be able to send a stranger a message, so the board's `<form>` has no address, its
+   * fields are read-only and its button is disabled. A browser is the only thing that can be asked
+   * whether that is actually true, because "read-only" is a fact about typing.
+   */
+  test('is arrangeable on a board and sendable on the page, and not the other way round', async ({
+    page
+  }) => {
+    await ready(page);
+    await page.locator('[data-panel="add"]').click();
+    await page.locator('[data-insert="insertForm"]').click();
+    await page.waitForTimeout(600);
+
+    // On the board: a real form, and nothing about it can be used.
+    const board = page.locator('[data-frame="desktop"] .st-form').first();
+    await expect(board).toBeVisible();
+    expect(await board.evaluate((node) => node.getAttribute('action'))).toBeNull();
+    expect(
+      await board.locator('input').first().evaluate((node) => (node as HTMLInputElement).readOnly)
+    ).toBe(true);
+    expect(
+      await board.locator('button').first().evaluate((node) => (node as HTMLButtonElement).disabled)
+    ).toBe(true);
+
+    /*
+     * The address is on a **connection**, not on the form — so five forms on a site are five
+     * references to one place rather than five copies of an address. Changed through the panel, from
+     * the form, because that is where a reader is when the question comes up.
+     *
+     * The form is already selected: an insert selects what it made.
+     */
+    const properties = page.locator('.office-properties');
+    await properties.locator('[role="tab"]', { hasText: '블록' }).click();
+    await page.waitForTimeout(250);
+    /*
+     * Located by its **name** rather than by `getByLabel`, which finds form controls: this one is a
+     * listbox trigger, not a `<select>`. Two kinds of picker in one panel is worth knowing and is
+     * written down in `BACKLOG.md` — the panel's own "every control writes something" sweep reaches
+     * only the `<select>` half.
+     */
+    await expect(properties.locator('[aria-label="보낼 곳 연결"]')).toContainText('문의 받는 곳');
+
+    await properties.getByLabel('연결 주소').fill('https://example.com/f');
+    await properties.getByLabel('연결 주소').press('Enter');
+    await page.waitForTimeout(400);
+
+    /*
+     * And the sample's own contact form goes with it, because it names the same connection. That is
+     * the whole point of the name and it is worth measuring rather than asserting in prose: one edit
+     * reached a form on a different page.
+     */
+    await expect(properties.locator('.st-uses')).toContainText('폼 2개');
+
+    const html = await exported(page, '/');
+    const visitor = await page.context().newPage();
+    await visitor.setContent(html);
+    await visitor.waitForTimeout(150);
+
+    const live = visitor.locator('.st-form').first();
+    await expect(live).toHaveAttribute('action', 'https://example.com/f');
+    await expect(live).toHaveAttribute('method', 'post');
+
+    // Typable, and the browser knows what kind of answer each one is.
+    await live.locator('input[name="name"]').fill('박진호');
+    expect(await live.locator('input[name="name"]').inputValue()).toBe('박진호');
+    await expect(live.locator('input[name="email"]')).toHaveAttribute('type', 'email');
+
+    /*
+     * And the browser's **own** validation, which is most of what making it a real `<form>` buys: an
+     * empty required field and a malformed address are both refused before anything is sent, with no
+     * code of ours anywhere.
+     */
+    await live.locator('input[name="email"]').fill('notanemail');
+    expect(
+      await live.locator('input[name="email"]').evaluate((node) => (node as HTMLInputElement).checkValidity())
+    ).toBe(false);
+    expect(await live.evaluate((node) => (node as HTMLFormElement).checkValidity())).toBe(false);
+
+    await visitor.close();
+  });
+
+  /**
+   * **The sample wearing what the product can now do**, measured in a browser.
+   *
+   * Three things it could not draw a day ago and now does, and each one is checked as a *visitor*
+   * would meet it rather than as a document: an answer that is not on the page until it is asked
+   * for, a form a browser will actually send, and a label that is over the box it belongs to.
+   *
+   * This is the fixture argument stated once more. The FAQ was four cards in a grid because a page
+   * with no 열림 has no other drawing for it; the contact section was a button that opened a mail
+   * client; and nothing anywhere overlapped anything. All three were *designs forced by a missing
+   * schema*, and a sample that keeps them is a sample that cannot find the next gap either.
+   */
+  test('takes a value back at one width, and says nothing at another', async ({ page }) => {
+    /*
+     * Two gestures that were one, and only a browser can tell them apart — because the difference is
+     * not in what is drawn, it is in **what happens next**: a width that says *the same as the page*
+     * follows the page when it changes, and one that has been given the same number by hand does not.
+     */
+    await ready(page);
+    await pressDeepAt(page, cardRow(page, 'desktop').locator('.st-stack').first());
+    await page.waitForTimeout(300);
+
+    const attrs = () =>
+      page.evaluate(() => {
+        const editor = (window as never as { editor: any }).editor;
+        const node = editor.dataStore.getNode(editor.selection?.nodeIds?.[0]);
+        return JSON.stringify(node?.attributes ?? {});
+      });
+
+    const properties = page.locator('.office-properties');
+    await properties.locator('[role="tab"]', { hasText: '블록' }).click();
+    await page.waitForTimeout(200);
+
+    // A value on the page itself, so there is something for a narrower width to disagree with.
+    await properties.getByLabel('최대 폭').fill('600');
+    await properties.getByLabel('최대 폭').press('Enter');
+    await page.waitForTimeout(300);
+    expect(JSON.parse(await attrs()).maxWidth).toBe(600 * 15);
+
+    // Now at 390, and emptied: **nothing at this width**.
+    await page.locator('.st-at [data-at="mobile"]').click();
+    await page.waitForTimeout(300);
+    await properties.getByLabel('최대 폭').fill('');
+    await properties.getByLabel('최대 폭').press('Enter');
+    await page.waitForTimeout(400);
+
+    /*
+     * `null`, not a number chosen to mean nothing — which is what the sample itself had been writing
+     * (`minWidth: 0` in three places) for want of a way to say this.
+     */
+    expect(JSON.parse(await attrs()).overrides?.mobile).toMatchObject({ maxWidth: null });
+
+    // Drawn as no cap at all on the phone, and still 600 on the page.
+    const capOf = async (frame: string) =>
+      await page
+        .locator(`[data-frame="${frame}"] .st-stack[data-name="제품 셋"] .st-stack`)
+        .first()
+        .evaluate((node) => getComputedStyle(node).maxWidth);
+    expect(await capOf('mobile')).toBe('none');
+    expect(await capOf('desktop')).toBe('600px');
+
+    /*
+     * And the other gesture: the mark beside the label, which takes this **width's** statement back
+     * rather than saying there is nothing here. The row is marked because the width owns a value —
+     * which is exactly what the mark was drawn to say and could not undo.
+     */
+    await properties.getByRole('button', { name: '최대 폭 되돌리기' }).click();
+    await page.waitForTimeout(400);
+    expect(JSON.parse(await attrs()).overrides?.mobile?.maxWidth).toBeUndefined();
+    expect(await capOf('mobile')).toBe('600px');
+  });
+
+  /**
+   * **What a value is, and how it reads** — two things that were one string.
+   *
+   * The best-shaped fault this package has found: a card's question was answered with a string and
+   * drawn exactly as stored, so the only way to make a price read as `월 9,900원` was to *store*
+   * those words. The pricing page sorts by that column, so it had been showing the wrong three plans
+   * in the wrong order in a real browser for as long as it existed — and looking completely fine.
+   *
+   * Held here as well as in the unit suite because the claim is about what a **visitor** sees: the
+   * order on the page and the words in the card, which is where the two halves have to meet.
+   */
+  test('shows the plans in the order they cost, and reads them the way a person says them', async ({
+    page
+  }) => {
+    await ready(page);
+    const html = await exported(page, '/가격');
+
+    const visitor = await page.context().newPage();
+    await visitor.setViewportSize({ width: 1280, height: 900 });
+    await visitor.setContent(html);
+    await visitor.waitForTimeout(200);
+
+    const cards = visitor.locator('.st-collection > .st-placement');
+    await expect(cards).toHaveCount(3);
+    // The three most expensive, descending — which is what `sortBy: 가격, desc, limit: 3` says and
+    // what the page was not doing.
+    await expect(cards.locator('h3')).toHaveText(['스위트', '덱', '문서']);
+
+    /*
+     * And the number reads as a price, from `9900` in the data plus `월 #,##0원` on the card. The
+     * data can be sorted and the reader gets words: before, one of those had to be given up.
+     */
+    await expect(cards.first()).toContainText('월 19,900원');
+    await expect(cards.first()).not.toContainText('19900');
+
+    await visitor.close();
+  });
+
+  test('reads a date the way a person writes it, and lets the card say which way', async ({ page }) => {
+    await ready(page);
+
+    const blog = await exported(page, '/블로그');
+    const visitor = await page.context().newPage();
+    await visitor.setContent(blog);
+    await visitor.waitForTimeout(200);
+
+    // The column stays ISO — the one date format that sorts as text, which is what makes the feed a
+    // feed — and the reader is shown what somebody would say out loud.
+    await expect(visitor.locator('.st-collection').first()).toContainText('2026년 8월 2일');
+    await expect(visitor.locator('.st-collection').first()).not.toContainText('2026-08-02');
+    await visitor.close();
+
+    /*
+     * And the card's **default** is a real date now, where it was the empty string.
+     *
+     * A card's default is what it draws when nobody has answered — which is exactly what a designer
+     * sees when they open the definition — and a date slot showing nothing reads as a card that is
+     * broken rather than as one waiting for data.
+     *
+     * That a reader can *change* the format is held in `panel-model.test.ts` and
+     * `component-vars.test.ts`: the two rows and the command. What only a browser can settle is what
+     * is above — that the order on the page and the words in the card are both right at once, which
+     * is the pair that could not be had before.
+     */
+    await page.locator('[data-panel="components"]').click();
+    await page.locator('[data-component="post-row"]').click();
+    await page.waitForTimeout(700);
+    await expect(page.locator('[data-frame="desktop"]')).toContainText('2026년 1월 1일');
+  });
+
+  /**
+   * **Putting a file in the document** — the gesture a site builder could not make at all.
+   *
+   * A `picture` carried a `src` string and nothing anywhere could put bytes in one; the sample got
+   * away with it by drawing its art as SVG data URIs, which is a thing a product's author can do and
+   * a reader cannot. Adding a photograph was impossible, which is the second most common thing
+   * anybody does on a page after writing on it.
+   *
+   * Only a browser can settle this one: the file is read by a `FileReader`, its size by decoding it,
+   * and the claim is that a **board draws the bytes** while a **published page points at a file** —
+   * the two halves of one drawing, and neither is visible from the model alone.
+   */
+  /**
+   * **The links in a published site point at files that are there.**
+   *
+   * Measured and they did not. A link resolves to a page's address — `/제품` — and publishing wrote
+   * `제품.html`, so every link on the site was broken on every host that does not quietly try `.html`
+   * for you. It looked completely fine in the editor, because the editor follows the *reference*
+   * rather than the file: the one thing an editor structurally cannot see about a published page.
+   *
+   * `제품/index.html` is the answer, which is a folder, which is why a site is one archive now.
+   */
+  test('names every page so the links it publishes actually resolve', async ({ page }) => {
+    await ready(page);
+
+    const published = await page.evaluate(async () => {
+      const editor = (window as never as { editor: any }).editor;
+      let got: any;
+      await editor.executeCommand('exportSite', { write: (one: unknown) => (got = one) });
+      return got.pages.map((one: any) => ({ path: one.path, file: one.file, html: one.html }));
+    });
+
+    // The home page is the root; everything else is a folder with an `index.html` in it.
+    expect(published.find((one: any) => one.path === '/').file).toBe('index.html');
+    expect(published.find((one: any) => one.path === '/제품').file).toBe('제품/index.html');
+
+    /*
+     * And the check that matters: **every address the site links to is a page the publish wrote.**
+     * A relative `href` is resolved against the page's own address, which is exactly what a browser
+     * does — and what makes `/제품` either a file or a 404.
+     */
+    const addresses = new Set(published.map((one: any) => one.path));
+    const links = [
+      ...published[0].html.matchAll(/<a[^>]*href="([^"]*)"/g)
+    ].map((one: any) => one[1] as string);
+
+    const inside = links.filter((one) => one.startsWith('/'));
+    expect(inside.length).toBeGreaterThan(3);
+    for (const one of inside) expect([...addresses]).toContain(one);
+  });
+
+  /**
+   * **A table**, which was deliberately left out and should not have been.
+   *
+   * The kit's own note said *"a table on a page is a layout decision a stack usually makes better"*.
+   * Half of that is right and the half that was wrong cost more: a **comparison** is tabular —
+   * features down the side, plans across the top, a header row a screen reader announces per cell —
+   * and a stack faking one is exactly the fault the argument was trying to avoid, built by hand and
+   * wrong on a phone.
+   *
+   * The drawing was never the missing part: `bTable` renders a real `<table>` everywhere in this
+   * suite. What was missing was the commands and the surfaces.
+   */
+  test('makes a table a screen reader can read, and grows it from the menu', async ({ page }) => {
+    await ready(page);
+
+    await page.locator('[data-panel="add"]').click();
+    await page.locator('[data-insert="insertTableBlock"]').click();
+    await page.waitForTimeout(600);
+
+    const table = page.locator('[data-frame="desktop"] table').first();
+    await expect(table).toBeVisible();
+    const rows = () => table.locator('tr');
+    const before = await rows().count();
+
+    /*
+     * Grown from the **menu**, because a row that goes above *this cell* is not a value a panel row
+     * could write — which is where every word processor puts these and why.
+     */
+    /*
+     * The caret into a cell, which is what the eight commands ask of a selection — and `force`,
+     * because the layer that owns the pointer is always over the page here, on purpose.
+     */
+    await pressTwice(page, table.locator('td, th').first());
+    await page.waitForTimeout(400);
+    await page.locator('[data-menu="table"]').click({ force: true });
+    await page.locator('[data-menu-item="table.rows.1"]').click();
+    await page.waitForTimeout(500);
+    await expect(rows()).toHaveCount(before + 1);
+
+    /*
+     * And it publishes as a **table**: a real `<table>` with `<th>` in it, which is the whole reason
+     * this is not a stack of rows. A screen reader reads a cell with the name of its column; a grid
+     * of divs reads as a wall of words.
+     */
+    const html = await exported(page, '/');
+    expect(html).toContain('<table');
+    expect(html).toContain('<th');
+  });
+
+  test('takes a file, draws it on the board, and publishes it as its own file', async ({ page }) => {
+    await ready(page);
+
+    // A one-pixel PNG, which is the smallest thing that is honestly a file.
+    const DOT =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+    /*
+     * The hero's picture, and **not** the first `img` on the page: the first is the wordmark inside
+     * the header's placement, and ⌘-click on a part of a placement selects the placement — a
+     * placement's parts are not selectable, which is the whole reason a component is one thing.
+     */
+    const picture = page.locator(
+      '[data-frame="desktop"] img.st-picture[alt="문서와 덱과 페이지가 한 화면에 놓인 그림"]'
+    );
+    await pressDeepAt(page, picture);
+    await page.waitForTimeout(300);
+
+    const properties = page.locator('.office-properties');
+    await properties.locator('[role="tab"]', { hasText: '모양' }).click();
+    await page.waitForTimeout(250);
+
+    /*
+     * Through the file input a reader would use, with the bytes handed to it the way a browser hands
+     * a chosen file over. `setInputFiles` is the closest a test gets to a person choosing one.
+     */
+    await properties.locator('input[type="file"]').setInputFiles({
+      name: '로고.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(DOT, 'base64')
+    });
+    await page.waitForTimeout(700);
+
+    // On the board: the bytes, because a board has no server to ask.
+    await expect(picture).toHaveAttribute('src', /^data:image\/png;base64,/);
+    /*
+     * And the file's own size on the element, which is what stops every word under an image jumping
+     * down as it arrives — a builder that stores only a URL cannot know it.
+     */
+    await expect(picture).toHaveAttribute('width', '1');
+
+    /*
+     * And in the published site: a **path**, and the bytes written once beside the pages. Inlining a
+     * logo used on five pages would be its bytes five times, and a photograph in the middle of the
+     * HTML delays the first paint by exactly as long as it takes to download.
+     */
+    const published = await page.evaluate(async () => {
+      const editor = (window as never as { editor: any }).editor;
+      let got: any;
+      await editor.executeCommand('exportSite', { write: (one: unknown) => (got = one) });
+      return {
+        html: got.pages[0].html as string,
+        files: got.files.map((one: any) => ({ file: one.file, bytes: !!one.bytes }))
+      };
+    });
+
+    expect(published.files).toContainEqual({ file: 'assets/로고.png', bytes: true });
+    expect(published.html).toContain('assets/로고.png');
+    expect(published.html).not.toContain(DOT);
+  });
+
+  /**
+   * **The same picture, smaller** — made when the file arrives, and only a browser can make them.
+   *
+   * The single largest cost of a page built with a tool like this is a photograph taken at 4000 pixels
+   * and sent, whole, to a phone that is 390 wide. Resizing needs a canvas, so this is the app's — the
+   * same line it draws about reading the file at all — and what it produces cannot be seen from the
+   * model.
+   */
+  test('makes smaller copies of a large picture, and lets the browser choose', async ({ page }) => {
+    await ready(page);
+
+    // A 2000×1000 PNG, drawn here rather than checked in: a fixture that is a real photograph is a
+    // megabyte in the repository for a fact that one gradient states just as well.
+    const wide = await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 2000;
+      canvas.height = 1000;
+      const context = canvas.getContext('2d')!;
+      const fill = context.createLinearGradient(0, 0, 2000, 0);
+      fill.addColorStop(0, '#0F7A5A');
+      fill.addColorStop(1, '#FFFFFF');
+      context.fillStyle = fill;
+      context.fillRect(0, 0, 2000, 1000);
+      return canvas.toDataURL('image/png').split(',')[1];
+    });
+
+    const picture = page.locator(
+      '[data-frame="desktop"] img.st-picture[alt="문서와 덱과 페이지가 한 화면에 놓인 그림"]'
+    );
+    await pressDeepAt(page, picture);
+    await page.waitForTimeout(300);
+
+    const properties = page.locator('.office-properties');
+    await properties.locator('[role="tab"]', { hasText: '모양' }).click();
+    await page.waitForTimeout(250);
+    await properties.locator('input[type="file"]').setInputFiles({
+      name: '사진.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(wide, 'base64')
+    });
+    await page.waitForTimeout(1500);
+
+    const made = await page.evaluate(() => {
+      const editor = (window as never as { editor: any }).editor;
+      const root = editor.dataStore.getNode(editor.getRootId());
+      for (const child of root.content ?? []) {
+        const box = editor.dataStore.getNode(child);
+        if (box?.stype !== 'resources') continue;
+        for (const one of box.content ?? []) {
+          const node = editor.dataStore.getNode(one);
+          if (node?.stype === 'asset' && node.attributes?.name === '사진') {
+            return {
+              width: node.attributes.width,
+              sizes: (node.attributes.sizes ?? []).map((s: any) => s.width)
+            };
+          }
+        }
+      }
+      return undefined;
+    });
+
+    expect(made?.width).toBe(2000);
+    /*
+     * 640 and 1280 — and **not 1920**, because the file is 2000 wide and making a picture bigger is a
+     * larger download of a blurrier image, which is the one thing worse than sending the original.
+     */
+    expect(made?.sizes).toEqual([640, 1280]);
+
+    // And the published page hands the browser the list, each rendition its own file.
+    const published = await page.evaluate(async () => {
+      const editor = (window as never as { editor: any }).editor;
+      let got: any;
+      await editor.executeCommand('exportSite', { write: (one: unknown) => (got = one) });
+      return { html: got.pages[0].html as string, files: got.files.map((one: any) => one.file) };
+    });
+
+    expect(published.html).toContain('assets/사진-640.png 640w');
+    expect(published.files).toContain('assets/사진-1280.png');
+  });
+
+  test('draws the sample’s own accordion, form and overlap the way a visitor meets them', async ({
+    page
+  }) => {
+    await ready(page);
+    const html = await exported(page, '/');
+
+    const visitor = await page.context().newPage();
+    await visitor.setViewportSize({ width: 1280, height: 900 });
+    await visitor.setContent(html);
+    await visitor.waitForTimeout(200);
+
+    /*
+     * **The FAQ.** Six questions where four fitted, because the answers are folded away — which is
+     * what let the two people actually ask about (the price, the lock-in) onto the list.
+     */
+    const questions = visitor.locator('.st-stack[data-name$=" 묻기"]');
+    await expect(questions).toHaveCount(6);
+
+    const answer = visitor.locator('.st-stack[data-name="무료로 어디까지 되나요 답"]');
+    await expect(answer).toBeHidden();
+    await visitor.locator('label:has(> [data-name="무료로 어디까지 되나요 묻기"])').click();
+    await visitor.waitForTimeout(150);
+    await expect(answer).toBeVisible();
+
+    // No 하나만 on this one, deliberately: a reader comparing two answers can have both open.
+    const second = visitor.locator('.st-stack[data-name="만든 사이트는 제 것인가요 답"]');
+    await visitor.locator('label:has(> [data-name="만든 사이트는 제 것인가요 묻기"])').click();
+    await visitor.waitForTimeout(150);
+    await expect(second).toBeVisible();
+    await expect(answer).toBeVisible();
+
+    await visitor.close();
+  });
+
+  test('sends the sample’s contact form, and draws its badge over the box', async ({ page }) => {
+    await ready(page);
+
+    const about = await exported(page, '/소개');
+    const visitor = await page.context().newPage();
+    await visitor.setViewportSize({ width: 1280, height: 900 });
+    await visitor.setContent(about);
+    await visitor.waitForTimeout(200);
+
+    /*
+     * **The form.** It was a heading and a button that opened a mail client, which loses everybody on
+     * a phone with none set up. A real `<form>` means the browser checks the answers and the Enter
+     * key sends it, with nothing of ours in between — and *that* is the claim, so it is measured by
+     * filling the thing in and asking the browser whether it would send.
+     */
+    const form = visitor.locator('.st-form[data-name="연락 폼"]');
+    await expect(form).toHaveAttribute('method', 'post');
+    await expect(form.locator('textarea')).toHaveCount(1);
+
+    const valid = async () =>
+      await form.evaluate((node) => (node as HTMLFormElement).checkValidity());
+
+    await form.locator('input[name="email"]').fill('그냥글자');
+    expect(await valid()).toBe(false);
+    await form.locator('input[name="name"]').fill('박진호');
+    await form.locator('input[name="email"]').fill('jinho@example.com');
+    await form.locator('textarea[name="message"]').fill('문서 모델이 궁금합니다.');
+
+    /*
+     * Still refused: a **list nobody has chosen from** and a **consent nobody has ticked**. Both are
+     * `required` and both are the browser's own check — no code of ours, in the visitor's language,
+     * with scripts off.
+     */
+    expect(await valid()).toBe(false);
+    await form.locator('select[name="topic"]').selectOption('버그 제보');
+    expect(await valid()).toBe(false);
+    await form.locator('input[name="consent"]').check();
+    expect(await valid()).toBe(true);
+
+    /*
+     * And the tick's **words** are the target, not the 14-pixel square: clicking the sentence toggles
+     * it, which is what wrapping the label buys and pointing at it does not.
+     */
+    await form.locator('.st-tick .st-label').click();
+    expect(await form.locator('input[name="consent"]').isChecked()).toBe(false);
+
+    await visitor.close();
+
+    /*
+     * **The overlap.** The first thing on this site that leaves its box: a label lifted out of the
+     * corner it belongs to, which every pricing page has and this one could not draw.
+     *
+     * Measured as a *position* rather than as a stylesheet: the badge's top edge has to be above the
+     * box's, which is the whole claim and the one a `position: absolute` that silently resolved
+     * against the page would also satisfy — so the horizontal offset is checked too.
+     */
+    const pricing = await exported(page, '/가격');
+    const two = await page.context().newPage();
+    await two.setViewportSize({ width: 1280, height: 900 });
+    await two.setContent(pricing);
+    await two.waitForTimeout(200);
+
+    const box = two.locator('.st-stack[data-name="추천"]');
+    const badge = two.locator('.st-stack[data-name="추천 배지"]');
+    const outer = await box.boundingBox();
+    const inner = await badge.boundingBox();
+
+    expect(inner!.y).toBeLessThan(outer!.y);
+    /*
+     * Against **the box**, not the page — 24px in, plus the box's own 2px border.
+     *
+     * An inset is measured from the **padding box**, which is inside the border, so a badge asked for
+     * 24 sits 26 from the outer edge. Written as 24 first and measured as 26: worth keeping as the
+     * number rather than loosening the assertion, because it is the difference between a placement
+     * that resolved against this box and one that resolved against the page.
+     */
+    expect(inner!.x - outer!.x).toBeCloseTo(26, 0);
+    // And over the box's own border, which is drawn on the same pixels.
+    expect(await badge.evaluate((node) => getComputedStyle(node).zIndex)).toBe('1');
+
+    await two.close();
   });
 
   test('draws the data, and the same rows in the same order', async ({ page }) => {
@@ -1525,6 +2427,12 @@ test.describe('the rail', () => {
       '섹션',
       '가로 스택',
       '그리드',
+      // Two containers a visitor **opens**, which is what they are — a reader puts things inside
+      // them, and the only difference between the pair is whether more than one may be open.
+      '아코디언',
+      '탭',
+      // The one block on an ordinary site that had no node behind it until now.
+      '폼',
       '제목',
       '본문',
       '이미지',
@@ -1534,9 +2442,15 @@ test.describe('the rail', () => {
       // Back on the rail: a code block can be typed into now that Enter inside one is a newline.
       '코드',
       '구분선',
+      /*
+       * A **table**, and a block rather than a container — a comparison is tabular and a section is
+       * not, and offering a table where the arrangements are is the fastest way to teach a reader
+       * the wrong one. Beside the rule, which is where it is declared.
+       */
+      '표',
       '버튼'
     ]);
-    await expect(page.locator('[data-insert]:not([disabled])')).toHaveCount(12);
+    await expect(page.locator('[data-insert]:not([disabled])')).toHaveCount(16);
   });
 
   test('adds a block, puts it where a reader can predict, and selects it', async ({ page }) => {
@@ -1575,8 +2489,9 @@ test.describe('the rail', () => {
     // The count is what makes a component list worth having: a definition used in five places is a
     // decision, and one used nowhere is a thing to delete.
     await expect(page.locator('[data-component="site-header"]')).toContainText('5곳');
-    // Six: twice on the home page, once in the header's own definition, and once on each of three others.
-    await expect(page.locator('[data-component="cta"]')).toContainText('6곳');
+    // Seven: twice on the home page, twice in the header's own definition — the wide navigation and
+    // the menu a phone opens — and once on each of three others.
+    await expect(page.locator('[data-component="cta"]')).toContainText('7곳');
 
     const placements = page.locator('[data-frame="desktop"] .st-placement');
     const before = await placements.count();
@@ -1584,7 +2499,7 @@ test.describe('the rail', () => {
     await page.waitForTimeout(600);
     await expect(placements).toHaveCount(before + 1);
     // And the count follows, because it is read from the document rather than remembered.
-    await expect(page.locator('[data-component="cta"]')).toContainText('7곳');
+    await expect(page.locator('[data-component="cta"]')).toContainText('8곳');
   });
 
   test('makes a data list from a dataset and a design, and refuses half of one', async ({ page }) => {
@@ -1719,15 +2634,23 @@ test.describe('a definition', () => {
     /*
      * Every board draws the definition, at its own width, and says whose it is.
      *
-     * Eight stacks, not one: the bar, the mark beside the wordmark, the row of links, the button the
-     * row ends with — a navigation bar once its ends are pushed apart rather than left to a spacer —
-     * and **each of the four links**, which became boxes rather than words when they were given a
-     * hover to hold. That turned out to be the same fix as giving a thumb something to hit: a
-     * 14-pixel-tall target where a guideline asks for 44, and nowhere for paint to live, were one
-     * fault about structure rather than two about styling.
+     * Sixteen stacks, not one: the head, the bar inside it, the mark beside the wordmark, the row of
+     * links, the button the row ends with — a navigation bar once its ends are pushed apart rather
+     * than left to a spacer — and **each of the four links**, which became boxes rather than words
+     * when they were given a hover to hold. That turned out to be the same fix as giving a thumb
+     * something to hit: a 14-pixel-tall target where a guideline asks for 44, and nowhere for paint
+     * to live, were one fault about structure rather than two about styling.
+     *
+     * And then the phone's half of the same navigation: the hamburger, **the three rules it is drawn
+     * with**, the menu it opens, and the four links again. A designer opening the definition can edit
+     * both — which is why the header is one root with two rows in it rather than two roots
+     * (`sample-site.ts`).
+     *
+     * The three rules are the payoff for `minHeight`: the mark used to be an SVG, because a box with
+     * nothing in it was a box of no height and three of them were three nothings.
      */
     await expect(page.locator('.st-frame-label').first()).toContainText('머리말');
-    await expect(page.locator('[data-frame="desktop"] .st-stack')).toHaveCount(8);
+    await expect(page.locator('[data-frame="desktop"] .st-stack')).toHaveCount(20);
 
     // And the way back is a control rather than a gesture: a reader who does not know they are
     // inside a definition is a reader about to change five pages by accident.
@@ -1846,7 +2769,7 @@ test.describe('the pages of a site', () => {
       The header and footer of the page it followed, as placements — so editing the header still
       changes this one too. Three drawn, because the header places the button.
      */
-    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(3);
+    await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(4);
     await expect(page.locator('[data-frame="desktop"] .st-page h1')).toHaveText('페이지 6');
   });
 
@@ -1889,7 +2812,7 @@ test.describe('the pages of a site', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('제품 삭제');
     // Two: the bar and the footer both name it, and both live in a definition every page places.
-    await expect(dialog).toContainText('링크 2개가 끊어집니다');
+    await expect(dialog).toContainText('링크 3개가 끊어집니다');
 
     await dialog.getByRole('button', { name: '취소' }).click();
     await page.waitForTimeout(300);
@@ -1909,17 +2832,20 @@ test.describe('the pages of a site', () => {
      * afterwards it looks like ordinary words, which is exactly what it now is.
      */
     const links = page.locator('[data-frame="desktop"] .st-page a.mark-link');
-    await expect(links).toHaveCount(7);
+    await expect(links).toHaveCount(11);
     await expect(links.first()).not.toHaveAttribute('href', /./);
     await expect(links.nth(1)).toHaveAttribute('href', '/가격');
-    // And the footer's link to the same page is gone too, because it named the same page.
+    // And the menu's and the footer's links to the same page are gone too, because all three named
+    // it. Three drawings of one broken link, which is why the dialog counts the *links* rather than
+    // the places they are drawn.
     await expect(links.nth(4)).not.toHaveAttribute('href', /./);
+    await expect(links.nth(8)).not.toHaveAttribute('href', /./);
 
     /*
      * …and this is where the fault list earns its place. Everything above is correct and **invisible**
      * — see the block below.
      */
-    await expect(page.locator('[data-faults]')).toContainText('문제 2개');
+    await expect(page.locator('[data-faults]')).toContainText('문제 3개');
   });
 });
 
@@ -1955,7 +2881,12 @@ test.describe('what a picture says when you point at it', () => {
     await page.locator('[data-layer]').nth(3).click();
     await page.waitForTimeout(400);
 
-    await page.locator('.st-ribbon button').nth(2).hover();
+    /*
+     * The button is asked for **by name**, not by where it sits. It was `nth(2)`, and the day the
+     * ribbon grew a control to the left of it this test started reading a different tooltip — which
+     * is a check that measures the layout rather than the thing it is about.
+     */
+    await page.getByRole('button', { name: /복제/ }).hover();
     await page.waitForTimeout(800);
     const said = await page.locator('[role="tooltip"]').innerText();
 
@@ -2425,9 +3356,16 @@ test.describe('a block on the clipboard', () => {
 
     await expect(page.locator('[data-menu-item="edit.clipboard.0"]')).toContainText('⌘X');
     await expect(page.locator('[data-menu-item="edit.clipboard.1"]')).toContainText('⌘C');
-    // Greyed until something has been copied — `canExecute` answers for what the extension holds,
-    // because reading the system clipboard is asynchronous and may prompt.
-    await expect(page.locator('[data-menu-item="edit.clipboard.2"]')).toBeDisabled();
+    /*
+     * **Enabled**, and it used to say greyed — which was the bug the cross-document test found.
+     *
+     * Reading the system clipboard is asynchronous and may prompt, so nothing can ask *now* whether
+     * it holds a block. The tight answer — enabled only when this window is the one that copied —
+     * made pasting a block from one site into another impossible, because a second window has its
+     * own extension and its own empty hand. So it answers whether there is anywhere to paste, and a
+     * paste that finds prose does nothing, which is what every editor's Paste does.
+     */
+    await expect(page.locator('[data-menu-item="edit.clipboard.2"]')).toBeEnabled();
   });
 });
 
@@ -2654,45 +3592,128 @@ test.describe('the panel', () => {
     await expect(row.getByLabel('위쪽 여백')).toHaveCount(1);
   });
 
-  test('writes from every control it offers', async ({ page }) => {
-    await holding(page);
-    const attrs = () =>
+  /**
+   * **Press every control the panel offers and check the document moved.**
+   *
+   * A control that is offered and writes nothing is the fault this repository keeps finding, and a
+   * panel of sixty rows is where it hides.
+   *
+   * ## What this used to miss, and it was most of it
+   *
+   * Two things, both found by asking what the sweep actually reaches:
+   *
+   * - **One selection.** It swept a stack, so every row that belongs to a picture, a form, a field or
+   *   a list — the ones added most recently and therefore least looked at — was never pressed. Nine
+   *   of them.
+   * - **One kind of picker.** The panel had two: the sheet's own declared `choice` rows are a native
+   *   `<select>` and the app's custom rows were a Radix listbox with a `<button>` trigger, which this
+   *   collects `select` and never saw. They also looked different from each other in the same column,
+   *   which is the half a reader notices. One picker now, and the sweep reaches all of it.
+   */
+  test('writes from every control it offers, on everything it offers them for', async ({ page }) => {
+    // Five selections, two panes each, sixty-odd controls — a sweep rather than a check.
+    test.setTimeout(180_000);
+    await ready(page);
+
+    /**
+     * The **whole document**, not the selected node.
+     *
+     * Two rows in the panel deliberately write somewhere else: a form's 주소 and 방식 write the
+     * *connection* it names, because an address said once is the whole reason a connection has a
+     * name. Compared against one node they looked like controls that do nothing — the check being
+     * narrower than the panel it is checking.
+     */
+    const shape = () =>
       page.evaluate(() => {
         const editor = (window as never as { editor: any }).editor;
-        const node = editor.dataStore.getNode(editor.selection?.nodeIds?.[0]);
-        return JSON.stringify(node?.attributes ?? {});
+        return JSON.stringify(editor.exportDocument?.(editor.getRootId()) ?? '');
       });
 
-    /*
-     * The sweep the panel had never had: press every enabled control and check the **document**
-     * moved. A control that is offered and writes nothing is the fault this repository keeps
-     * finding, and a panel of thirty-five rows is where it would hide.
-     */
-    const dead: string[] = [];
-    const fields = panel(page).locator('input[type="number"], input[type="text"], select');
-    for (let at = 0; at < (await fields.count()); at++) {
-      const one = fields.nth(at);
-      if (await one.isDisabled()) continue;
-      const name = (await one.getAttribute('aria-label')) ?? String(at);
-      const before = await attrs();
-      const kind = await one.evaluate((el) => el.tagName.toLowerCase());
-      if (kind === 'select') {
-        const options = await one.locator('option').evaluateAll((els) =>
-          els.map((el) => (el as HTMLOptionElement).value)
-        );
-        const now = await one.inputValue();
-        const next = options.find((option) => option !== now && option !== '');
-        if (!next) continue;
-        await one.selectOption(next);
-      } else {
-        const low = Number((await one.getAttribute('min')) ?? '-99999');
-        const high = Number((await one.getAttribute('max')) ?? '99999');
-        await one.fill(kind === 'input' ? String(Math.min(high, Math.max(low, 37))) : '시험');
-        await one.press('Enter');
+    /** Press everything on both panes of the panel, and say what moved nothing. */
+    const sweep = async (): Promise<string[]> => {
+      const dead: string[] = [];
+      for (const tab of ['블록', '모양']) {
+        const chosen = panel(page).locator('[role="tab"]', { hasText: tab });
+        if ((await chosen.count()) === 0) continue;
+        await chosen.click();
+        await page.waitForTimeout(250);
+
+        const fields = panel(page).locator('input[type="number"], input[type="text"], select');
+        for (let at = 0; at < (await fields.count()); at++) {
+          const one = fields.nth(at);
+          if (await one.isDisabled()) continue;
+          const name = (await one.getAttribute('aria-label')) ?? String(at);
+          const before = await shape();
+          const kind = await one.evaluate((el) => el.tagName.toLowerCase());
+          if (kind === 'select') {
+            const options = await one.locator('option').evaluateAll((els) =>
+              els.map((el) => (el as HTMLOptionElement).value)
+            );
+            const now = await one.inputValue();
+            const next = options.find((option) => option !== now && option !== '');
+            if (!next) continue;
+            await one.selectOption(next);
+          } else {
+            /*
+             * A value the control does not already hold. 37 is out of range for 투명도, whose bounds
+             * are 0 and 1, so the clamp produced 1 — which is what it already said, so nothing moved
+             * and the row looked dead. A sweep that writes the value already there is measuring
+             * itself.
+             */
+            const low = Number((await one.getAttribute('min')) ?? '-99999');
+            const high = Number((await one.getAttribute('max')) ?? '99999');
+            const now = await one.inputValue();
+            const wanted = Math.min(high, Math.max(low, 37));
+            const said =
+              kind !== 'input'
+                ? '시험'
+                : String(wanted) === now
+                  ? String(Math.min(high, Math.max(low, wanted === low ? high : low)))
+                  : String(wanted);
+            if (kind === 'input' && said === now) continue;
+            await one.fill(said);
+            await one.press('Enter');
+          }
+          await page.waitForTimeout(150);
+          if ((await shape()) === before) dead.push(`${tab} › ${name}`);
+        }
       }
-      await page.waitForTimeout(250);
-      if ((await attrs()) === before) dead.push(name);
+      return dead;
+    };
+
+    /*
+     * A stack, and then **each of the node types whose rows nothing had ever pressed**: a picture, a
+     * list, a form and one of its questions. Selected by walking the document rather than by clicking
+     * the page, because two of them are not on it until this test puts them there.
+     */
+    const select = async (stype: string) => {
+      await page.evaluate((want) => {
+        const editor = (window as never as { editor: any }).editor;
+        const found: string[] = [];
+        const walk = (sid: string, depth = 0) => {
+          if (depth > 40 || found.length > 0) return;
+          for (const child of (editor.dataStore.getNode(sid)?.content ?? []) as unknown[]) {
+            if (typeof child !== 'string') continue;
+            if (editor.dataStore.getNode(child)?.stype === want) {
+              found.push(child);
+              return;
+            }
+            walk(child, depth + 1);
+          }
+        };
+        walk(editor.getRootId());
+        if (found[0]) editor.executeCommand('setNode', { nodeIds: [found[0]] });
+      }, stype);
+      await page.waitForTimeout(400);
+    };
+
+    // A form and a field, which the sample has on 소개 — and a list and a picture, which it has here.
+    const dead: string[] = [];
+    for (const stype of ['frame', 'picture', 'collection', 'form', 'field']) {
+      await select(stype);
+      dead.push(...(await sweep()));
     }
+
     expect(dead).toEqual([]);
   });
 });
@@ -2991,7 +4012,7 @@ test.describe('what is wrong with the site', () => {
     await page.locator('[data-page-remove-confirm]').click();
     await page.waitForTimeout(700);
 
-    await expect(footer(page)).toContainText('문제 2개');
+    await expect(footer(page)).toContainText('문제 3개');
     await expect(footer(page)).not.toHaveAttribute('data-clear', 'true');
 
     // Shut until asked. A drawer that opened itself would cover the panel a reader is working in.
@@ -3004,13 +4025,14 @@ test.describe('what is wrong with the site', () => {
     await expect(list).toContainText('화면만 봐서는 찾을 수 없습니다');
 
     const found = list.locator('[data-fault]');
-    await expect(found).toHaveCount(2);
+    await expect(found).toHaveCount(3);
 
     /*
-     * And **where**, which is the half that makes a row somewhere to go rather than a complaint. Both
-     * of these links live in the 머리말 and 꼬리말 *definitions* — which is why the dialog said two
-     * and the page draws ten. A reader told only 링크 would look through five pages and find it on
-     * none of them, because a definition is not a page.
+     * And **where**, which is the half that makes a row somewhere to go rather than a complaint. All
+     * three of these links live in the 머리말 and 꼬리말 *definitions* — twice in the header, since
+     * the bar and the menu a phone opens each carry one — which is why the dialog said three and the
+     * page draws eleven. A reader told only 링크 would look through five pages and find it on none of
+     * them, because a definition is not a page.
      */
     await expect(found.first()).toContainText('컴포넌트');
   });
@@ -3180,7 +4202,13 @@ test.describe('the studio', () => {
      * A heading is a heading. It was 12px — the chrome's size, inherited through a preflight that
      * resets `h1` to `inherit` — so every board was a page set in panel-label type.
      */
-    expect(type.h1).toBeGreaterThanOrEqual(40);
+    /*
+     * 39, not 44 — and the number moved on purpose. The four heading sizes were hand-picked constants
+     * in `page-css.ts` and are a **computed scale** now, so a reader can change the rhythm of a whole
+     * site at once (`type-scale.ts`). What this is measuring is unchanged: a heading is a heading and
+     * not the chrome's 12px.
+     */
+    expect(type.h1).toBeGreaterThanOrEqual(38);
     expect(type.p).toBeGreaterThanOrEqual(15);
 
     /*
@@ -3260,9 +4288,15 @@ test.describe('a link to another page', () => {
      * than about the mark: an `<a>` is what a link *is* to a reader and to a browser.
      */
     const links = page.locator('[data-frame="desktop"] .st-page a.mark-link');
-    // Four in the bar and three in the footer, which are the two places a site puts them.
-    await expect(links).toHaveCount(7);
-    await expect(links).toHaveText(['제품', '가격', '소개', '블로그', '제품', '가격', '소개']);
+    // Four in the bar, four again in the menu a phone opens, and three in the footer — the three
+    // places this site puts them. The menu is not drawn until it is asked for and its links are
+    // still in the page, which is the whole difference between a closed menu and a draft.
+    await expect(links).toHaveCount(11);
+    await expect(links).toHaveText([
+      '제품', '가격', '소개', '블로그',
+      '제품', '가격', '소개', '블로그',
+      '제품', '가격', '소개'
+    ]);
 
     // The document stores `page:products`; what reaches the browser is the address it resolves to.
     await expect(links.first()).toHaveAttribute('href', '/제품');
@@ -3370,7 +4404,7 @@ test.describe('a link to another page', () => {
     await page.waitForTimeout(500);
 
     const rows = page.locator('[data-slash-item]');
-    await expect(rows).toHaveCount(9);
+    await expect(rows).toHaveCount(10);
     // This product's own inserts, not the shared kit's: a page's blocks have a page's names.
     await expect(page.locator('[data-slash-item="insertQuote"]')).toHaveText(/인용/);
 
@@ -3606,7 +4640,7 @@ test.describe('what a block promises under the pointer', () => {
      * carries `!important` where the published page's does not. Without that every rule would be
      * written correctly and do nothing, which looks exactly like not having the feature.
      */
-    expect(await border()).toBe('rgb(15, 122, 90)');
+    expect(await border()).toBe(await tokenRgb(page, '강조'));
     expect(await border()).not.toBe(resting);
 
     // Closing it puts the page back, so a reader is never left looking at a state nobody is in.
@@ -3618,15 +4652,31 @@ test.describe('what a block promises under the pointer', () => {
   test('gives the navigation a target a thumb can hit', async ({ page }) => {
     await ready(page);
 
-    const item = page
-      .locator('[data-frame="mobile"] [data-name="내비게이션"] .st-stack[data-name="제품"]')
-      .first();
-    const box = await item.boundingBox();
     const zoom = await page.evaluate(
       () => Number((document.querySelector('.st-canvas') as HTMLElement).dataset.zoom) || 1
     );
     // Measured back through the zoom: the plane is drawn at whatever the reader is standing at.
-    expect((box?.height ?? 0) / zoom).toBeGreaterThan(28);
+    const tall = async (at: ReturnType<Page['locator']>) =>
+      ((await at.boundingBox())?.height ?? 0) / zoom;
+
+    // On the wide board it is the link itself: a box rather than a word, which is what gave the
+    // hover somewhere to live and the thumb something to land on at the same time.
+    expect(
+      await tall(
+        page.locator('[data-frame="desktop"] [data-name="내비게이션"] .st-stack[data-name="제품"]').first()
+      )
+    ).toBeGreaterThan(28);
+
+    /*
+     * And on a phone it is the **hamburger**, because the wide navigation is not there at 390. Which
+     * is the shape of the finding rather than a change of subject: the target a thumb hits on a phone
+     * is the one that opens the menu, and until 열림 existed this page had no such block — the four
+     * links were being measured in a bar that, at 390, was four words and a button crushed against
+     * the wordmark.
+     */
+    expect(
+      await tall(page.locator('[data-frame="mobile"] [data-name="메뉴 열기"]').first())
+    ).toBeGreaterThan(40);
   });
 
   test('publishes the promise as a rule the browser already knows', async ({ page }) => {
@@ -3637,8 +4687,9 @@ test.describe('what a block promises under the pointer', () => {
     );
 
     expect(html).toContain(':hover');
-    // The pressed-in green, through the token — a hover colour written three times is three colours.
-    expect(html).toContain('#0B5C44');
+    // The pressed-in accent, **through the token** — a hover colour written three times is three
+    // colours that drift, and the value is asked of the document so a repaint does not break this.
+    expect(html).toContain(await tokenHex(page, '강조진함'));
     /*
      * And no `!important` in the page a visitor gets. Its styles were lifted into classes, so a
      * selector wins on its own; a page a reader cannot restyle with their own CSS is not theirs.
@@ -3889,8 +4940,12 @@ test.describe('what the card is given', () => {
      * The card's 설명 slot, told to take a different column. One gesture, forty cards — which is the
      * whole reason a list draws a component rather than forty copies of one.
      */
-    await panel(page).getByLabel('설명 변수에 넣을 컬럼').click();
-    await page.locator('[role="option"]', { hasText: '분류' }).first().click();
+    /*
+     * A real `<select>` now, like every other picker in this panel. It was a listbox with a `<button>`
+     * trigger, which looked different from the rows above it and — the half that mattered — was
+     * outside the sweep that presses every control and checks the document moved.
+     */
+    await panel(page).getByLabel('설명 변수에 넣을 컬럼').selectOption('분류');
     await page.waitForTimeout(600);
 
     await expect(list).not.toContainText('쌓이는 섹션, 브라우저가 배치.');
@@ -4088,9 +5143,8 @@ test.describe('a card can be asked something new', () => {
     await panel(page).locator('[data-tab="block"]').click();
     await page.waitForTimeout(200);
 
-    await expect(panel(page).getByLabel('연결된 변수')).toContainText('이름');
-    await panel(page).getByLabel('연결된 변수').click();
-    await page.locator('[role="option"]', { hasText: '연결 안 함' }).first().click();
+    await expect(panel(page).getByLabel('연결된 변수')).toHaveValue('이름');
+    await panel(page).getByLabel('연결된 변수').selectOption('');
     await page.waitForTimeout(600);
 
     const said = await wiring(page, 'product-card');
@@ -4493,17 +5547,44 @@ test.describe('the menubar', () => {
     expect(file.suggestedFilename()).toBe('index.html');
   });
 
-  test('publishes every page of the site, one file each', async ({ page }) => {
+  test('publishes the whole site as one archive, folders and all', async ({ page }) => {
     await ready(page);
 
-    const files: string[] = [];
-    page.on('download', (one) => files.push(one.suggestedFilename()));
-
+    /*
+     * **One file, not one per page**, and that changed the day two things did: a picture is written
+     * to `assets/로고.png`, and a browser cannot be handed a folder; and a link resolves to a page's
+     * address, so `/제품` has to be `제품/index.html` or every link on the published site is broken.
+     * Both need a tree, and a zip is the only shape a browser will take one in.
+     */
+    const wait = page.waitForEvent('download');
     await bar(page).locator('[data-menu="file"]').click();
     await page.locator('[data-menu-item="file.publish.1"]').click();
-    await expect.poll(() => files.length, { timeout: 15000 }).toBeGreaterThan(1);
+    const file = await wait;
 
-    expect(files).toContain('index.html');
+    // Named after the site's own home page, so two publishes are not two `download.zip`.
+    expect(file.suggestedFilename()).toBe('홈.zip');
+
+    /*
+     * And it is a real archive with the tree in it — read back with **somebody else's**
+     * implementation, because a hand-written zip either is the format or silently is not.
+     */
+    const at = await file.path();
+    const names = await new Promise<string[]>((resolve, reject) => {
+      execFile(
+        'python3',
+        ['-c', 'import zipfile,sys;[print(n) for n in zipfile.ZipFile(sys.argv[1]).namelist()]', at],
+        (error, out) => (error ? reject(error) : resolve(out.trim().split('\n')))
+      );
+    });
+
+    expect(names).toContain('index.html');
+    expect(names).toContain('제품/index.html');
+    /*
+     * **No sitemap**, and that is right rather than missing: every `<loc>` in one is absolute, and
+     * this document has not said where the site lives. A sitemap of relative addresses is a file a
+     * crawler reads and cannot use.
+     */
+    expect(names).not.toContain('sitemap.xml');
   });
 
   /**
@@ -4692,7 +5773,9 @@ test.describe('preview', () => {
     expect(await fill()).toBe('rgba(0, 0, 0, 0)');
     await item.hover();
     await page.waitForTimeout(250);
-    expect(await fill()).toBe('rgb(238, 241, 238)');
+    // The band's own ground, asked of the document — this check is about a hover reaching the page,
+    // not about which colour the site is painted in this month.
+    expect(await fill()).toBe(await tokenRgb(page, '바탕'));
 
     // And nothing is selected by pointing: the overlay is not there to select with.
     await expect(page.locator('[data-frame="desktop"] .st-overlay')).toHaveCount(0);
@@ -4795,5 +5878,597 @@ test.describe('preview', () => {
     expect(
       await board(page).evaluate((el) => el.querySelector('[contenteditable]')?.getAttribute('contenteditable'))
     ).toBe('true');
+  });
+});
+
+/**
+ * **The rows that write the document rather than the block.**
+ *
+ * `of` says which node a row writes — the *document*, for the site's address, its faces, its tab
+ * picture and what a crawler is told. Nothing ever read it, so all of those rows took their value
+ * from the selected node, which does not have the attribute and never will: they were **write
+ * only**. A reader who set the site's address, went away and came back was shown an empty box; the
+ * 검색 제외 switch flicked straight back up, because React redraws a controlled checkbox from a
+ * value that was always `undefined`.
+ *
+ * Invisible from every direction it had been looked at. The commands worked, the document held the
+ * values, the published page used them, and every unit test called the commands rather than the
+ * panel. It took opening a browser and clicking the switch.
+ *
+ * So this is a browser test and could not be anything else: what it is about is a control drawing
+ * what the document says.
+ */
+test.describe('a site-wide row shows what the document holds', () => {
+  test('reads its own value back, having written it', async ({ page }) => {
+    await ready(page);
+
+    const address = page.getByLabel('사이트 주소');
+    await address.click();
+    await address.fill('https://barocss.test');
+    await address.press('Enter');
+    await page.waitForTimeout(500);
+    await expect(address).toHaveValue('https://barocss.test');
+
+    // A toggle is the one that showed the fault loudest: it came back up on its own.
+    const noIndex = page.getByLabel('검색 엔진에서 제외');
+    await noIndex.click({ force: true });
+    await page.waitForTimeout(500);
+    await expect(noIndex).toBeChecked();
+
+    await page.getByLabel('본문 글꼴').selectOption('serif');
+    await page.getByLabel('제목 크기 단계').selectOption('loud');
+    await page.waitForTimeout(500);
+    await expect(page.getByLabel('본문 글꼴')).toHaveValue('serif');
+    await expect(page.getByLabel('제목 크기 단계')).toHaveValue('loud');
+  });
+
+  /**
+   * And the same question one level out: **the site's type on the boards**.
+   *
+   * The rule was built from `root`, which on this screen is the page being drawn — so `typeRule` was
+   * handed attributes that never held a `scale`, emitted the defaults for ever, and changing the
+   * face changed the *published* page and nothing a designer could see.
+   */
+  test('changes what the boards are drawn in, not only what is published', async ({ page }) => {
+    await ready(page);
+
+    const sizeOfHeading = () =>
+      page
+        .locator('[data-frame="desktop"] h1')
+        .first()
+        .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+
+    /*
+     * **Both directions**, because the sample now states a scale of its own: comparing against
+     * *bigger* passed only while the document said nothing, and the day it said 크게 the check
+     * compared 크게 with 크게 and reported the feature broken. A step down and a step up says what
+     * it means at any starting point.
+     */
+    const was = await sizeOfHeading();
+    await page.getByLabel('제목 크기 단계').selectOption('calm');
+    await page.waitForTimeout(600);
+    expect(await sizeOfHeading()).toBeLessThan(was);
+
+    await page.getByLabel('제목 크기 단계').selectOption('loud');
+    await page.waitForTimeout(600);
+    expect(await sizeOfHeading()).toBe(was);
+
+    // And the body size, which the panel writes in twips and the rule reads in twips.
+    const base = () =>
+      page
+        .locator('[data-frame="desktop"] .w-paragraph')
+        .first()
+        .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+
+    // Whatever the document states now — the sample sets its own, and this is about the field
+    // reaching the boards rather than about which number the site happens to be set at.
+    const started = await base();
+    /*
+     * **Cleared first.** The field holds what the document states, so focusing and typing appended:
+     * 17 became 1722, which is 114px, which is outside the bounds the row offers — so the site went
+     * on being drawn at its own size and the check read as a broken feature. A reader replacing a
+     * number selects it first; so does this.
+     */
+    const size = page.getByLabel('본문 글자 크기');
+    await size.click();
+    await size.fill('22');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(600);
+    /*
+     * 22, not 330. `unit: 'px'` on a row means *stored in twips*, and `baseSize` was the one length
+     * here that was read as pixels — so a reader typing 22 wrote 330, which is outside the bounds,
+     * and the site went on being drawn at 16 with nothing saying anything.
+     */
+    expect(await base()).toBe(22);
+    expect(started).not.toBe(22);
+    await expect(size).toHaveValue('22');
+  });
+});
+
+/**
+ * **A table a reader can insert, type in, and see.**
+ *
+ * Three separate things, and the model tests only ever covered the first. The gesture matters: a
+ * click selects the outermost block and a double-click goes in — a table is a picture of one until
+ * the caret can reach a cell.
+ */
+test.describe('a table on a page', () => {
+  test('takes words in a cell and lets the menu add a row', async ({ page }) => {
+    await ready(page);
+
+    await press(page, page.locator('[data-frame="desktop"] h2').first());
+    await page.waitForTimeout(300);
+    await page.locator('[data-insert="insertTableBlock"]').click();
+    await page.waitForTimeout(700);
+
+    const table = page.locator('[data-frame="desktop"] table').first();
+    await expect(table).toHaveCount(1);
+    await expect(table.locator('td, th')).toHaveCount(9);
+
+    // Drawn as a table: full width, a rule under the head, and room inside the cells.
+    const drawn = await table.evaluate((el) => {
+      const th = el.querySelector('th') as HTMLElement;
+      return {
+        width: parseFloat(getComputedStyle(el).width),
+        border: parseFloat(getComputedStyle(th).borderBottomWidth),
+        padding: parseFloat(getComputedStyle(th).paddingLeft)
+      };
+    });
+    expect(drawn.width).toBeGreaterThan(400);
+    expect(drawn.border).toBeGreaterThan(0);
+    expect(drawn.padding).toBeGreaterThan(0);
+
+    /*
+     * **Two gestures to reach a cell**, which is the canvas's own rule and not a table's: a click
+     * takes the outermost block and each step in goes one level, so a table selects as a table and
+     * the cell is one further. ⌘-click is the shortcut every other nested block here uses — it takes
+     * the innermost thing under the pointer — and the double-click after it goes into the words.
+     *
+     * The table has to be **on screen** first: a caret aimed at a cell the board has scrolled past
+     * lands where the click did, which is somewhere else.
+     */
+    await table.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(400);
+    const cell = table.locator('th').first();
+    await pressDeep(page, cell);
+    await page.waitForTimeout(400);
+    await cell.dblclick({ force: true });
+    await page.waitForTimeout(600);
+    await page.keyboard.type('요금제');
+    await page.waitForTimeout(500);
+    await expect(cell).toContainText('요금제');
+
+    const rows = await table.locator('tr').count();
+    await page.locator('.st-menubar [data-menu="table"]').click({ force: true });
+    await page.waitForTimeout(250);
+    const add = page.locator('[data-menu-item="table.rows.1"]');
+    await expect(add).toBeEnabled();
+    await add.click({ force: true });
+    await page.waitForTimeout(600);
+    expect(await table.locator('tr').count()).toBe(rows + 1);
+  });
+});
+
+/**
+ * **Every word on every published page can be read.**
+ *
+ * A contrast check needs three things a unit test cannot have: the composited colour (a token at a
+ * weight is `color-mix(... transparent)`, whose readability depends on what is behind it), the
+ * *inherited* colour (body text is the band's own ink held back, which resolves differently on every
+ * ground), and a real layout to say which ground that is. So it belongs here and nowhere else.
+ *
+ * It has already earned its place twice. The site's accent was `#E03A1F` and the paper on it came out
+ * at **4.24:1** — under AA for text at body size, on every button, badge and price on the site,
+ * looking perfectly fine the whole time. And a footer that stated what it was painted and not what it
+ * was written in went black on black, which is the same class of fault from the other end.
+ *
+ * The rule that came out of the first: **an accent that carries words has to be measured against
+ * them.** A plate the words sit beside can be any weight; a plate they sit *on* cannot.
+ */
+test.describe('what a visitor can read', () => {
+  test('meets AA on every page, at the widest and the narrowest', async ({ page, context }) => {
+    await ready(page);
+    const pages = await page.evaluate(() =>
+      (window as never as { exportSite: () => { file: string; html: string }[] }).exportSite()
+    );
+
+    const visitor = await context.newPage();
+    const failures: string[] = [];
+
+    for (const width of [1280, 390]) {
+      await visitor.setViewportSize({ width, height: 900 });
+      for (const one of pages) {
+        await visitor.setContent(one.html);
+        await visitor.waitForTimeout(120);
+
+        const said = await visitor.evaluate(() => {
+          /** A CSS colour as numbers, whichever of the three notations a browser answers with. */
+          const rgba = (value: string): number[] => {
+            const said = value.match(/-?\d*\.?\d+/g)?.map(Number) ?? [0, 0, 0];
+            const srgb = value.startsWith('color(');
+            const [r, g, b] = srgb ? said.slice(0, 3).map((one) => one * 255) : said.slice(0, 3);
+            return [r, g, b, said.length > 3 ? said[3] : 1];
+          };
+          const lum = ([r, g, b]: number[]): number => {
+            const f = [r, g, b].map((one) => {
+              const c = one / 255;
+              return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+            });
+            return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2];
+          };
+          /*
+           * The nearest ancestor that actually paints. A page of nested transparent boxes is the
+           * ordinary case, and comparing against `rgba(0,0,0,0)` is how a contrast check reports a
+           * readable page as unreadable.
+           */
+          const ground = (el: Element): number[] => {
+            let at: Element | null = el;
+            while (at) {
+              const said = rgba(getComputedStyle(at).backgroundColor);
+              if (said[3] > 0.5) return said;
+              at = at.parentElement;
+            }
+            return [255, 255, 255, 1];
+          };
+
+          const bad: string[] = [];
+          for (const el of document.querySelectorAll('p, h1, h2, h3, h4, a, li, label, button')) {
+            if (!el.textContent?.trim() || el.children.length > 0) continue;
+            const fg = rgba(getComputedStyle(el).color);
+            const bg = ground(el);
+            // Composited, because a colour at a weight is an alpha and its readability is the
+            // readability of what it becomes over the ground — not of the colour it is a weight of.
+            const over = [0, 1, 2].map((i) => fg[i] * fg[3] + bg[i] * (1 - fg[3]));
+            const one = lum(over);
+            const two = lum(bg);
+            const ratio = (Math.max(one, two) + 0.05) / (Math.min(one, two) + 0.05);
+            const large = parseFloat(getComputedStyle(el).fontSize) >= 24;
+            if (ratio < (large ? 3 : 4.5)) {
+              bad.push(`${ratio.toFixed(2)}:1 ${el.tagName} "${el.textContent.trim().slice(0, 20)}"`);
+            }
+          }
+          return bad;
+        });
+
+        for (const one of said) failures.push(`${width}px · ${one}`);
+      }
+    }
+
+    await visitor.close();
+    expect(failures).toEqual([]);
+  });
+});
+
+/**
+ * **The two handles a flow block has**, and the rule that keeps them out of the padding's way.
+ *
+ * A page has no coordinates — where a block sits is a parent and a place in that parent's content —
+ * so seven of the eight handles a canvas offers would be lying about what they can do. What is
+ * genuinely draggable is how wide a block may be and how tall it must be.
+ *
+ * The rule underneath is one sentence: **inside the edge is the space in it, outside the edge is how
+ * big it is.** The first version shared six pixels with the padding band and won them, so a gesture
+ * that had worked for weeks silently stopped writing — which is why the padding drag is checked here
+ * too, in the same file, one test above.
+ */
+test.describe('pulling a block bigger', () => {
+  test('drags the right edge into the document, once, in twips', async ({ page }) => {
+    await ready(page);
+
+    const held = await page.evaluate(() => {
+      const editor = (window as never as { editor: any }).editor;
+      const store = editor.dataStore;
+      let found = '';
+      const walk = (sid: string, depth = 0) => {
+        const node = store.getNode(sid);
+        if (!node || found || depth > 40) return;
+        if (node.stype === 'picture' && node.attributes?.sizing === 'fixed') found = sid;
+        for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
+      };
+      walk(editor.getRootId());
+      editor.executeCommand('setNode', { nodeIds: [found] });
+      return found;
+    });
+    await page.waitForTimeout(500);
+
+    const widthOf = async () =>
+      await page.evaluate(
+        (sid) => (window as never as { editor: any }).editor.dataStore.getNode(sid).attributes.maxWidth,
+        held
+      );
+    const entriesOf = async () =>
+      await page.evaluate(
+        () => (window as never as { editor: any }).editor.historyManager?.getStats?.().totalEntries ?? -1
+      );
+
+    const before = await widthOf();
+    const entries = await entriesOf();
+
+    const grip = page.locator('.st-grip[data-grip-edge="right"]').first();
+    const box = (await grip.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 90, box.y + box.height / 2, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    const after = await widthOf();
+    expect(after).toBeLessThan(before);
+    /*
+     * Twips, which is what the document keeps: a drag reading a rectangle in CSS pixels and writing
+     * the number straight in would put a 400px picture in the document as a quarter of an inch.
+     */
+    expect(after % 15).toBe(0);
+    // One drag, one entry — the padding band's rule, and the ruler's before it.
+    expect(await entriesOf()).toBe(entries + 1);
+  });
+
+  test('leaves the padding band its own ten pixels', async ({ page }) => {
+    await ready(page);
+    await press(page, cardRow(page, 'desktop'));
+    await page.waitForTimeout(400);
+
+    /*
+     * The claim in one measurement: the resize handle is **entirely outside** the block, so the strip
+     * the padding band takes the pointer on is untouched. Shared, the handle won and a padding drag
+     * silently stopped writing.
+     */
+    const overlap = await page.evaluate(() => {
+      const mark = document.querySelector('.st-mark-selected');
+      if (!mark) return 'no selection';
+      const box = mark.getBoundingClientRect();
+      const grip = mark.querySelector('.st-grip[data-grip-edge="bottom"]');
+      if (!grip) return 'no grip';
+      return grip.getBoundingClientRect().top >= box.bottom - 0.5 ? 'outside' : 'overlapping';
+    });
+    expect(overlap).toBe('outside');
+  });
+});
+
+/**
+ * **A door onto what can be added**, beside the tool the reader is holding.
+ *
+ * Everything it opens is reachable three other ways — the 추가 rail, the 삽입 menu, the slash menu at
+ * the caret. What none of those is, is *here*, where the pointer already is on a screen whose rail
+ * may be showing pages or data or nothing.
+ *
+ * What is checked is that it is a **doorway and not a fourth list**: it draws the same declaration
+ * the rail draws, plus the document's own definitions, and a control in it runs the command and
+ * leaves. A list written out again in this file is the mistake `toolbar-model.ts` exists to have
+ * already made once, when five working inserts had no button.
+ */
+test.describe('the + beside the tool', () => {
+  /** The blocks of the home page, which is what an insert with nothing selected adds one to. */
+  const blocks = (page: Page) => page.locator('[data-frame="desktop"] .st-page > .st-stack');
+
+  test('offers the rail’s own list and the document’s components, and inserts from it', async ({ page }) => {
+    await ready(page);
+
+    const before = await blocks(page).count();
+    await page.getByLabel('넣을 것 고르기').click();
+    await page.waitForTimeout(400);
+
+    await expect(page.locator('.st-add-sheet h3')).toHaveText(['담는 것', '넣는 것', '컴포넌트']);
+
+    /*
+     * The same commands the rail draws — read from the same declaration, so this compares the two
+     * surfaces rather than comparing one of them with a list typed here.
+     */
+    const inTheSheet = await page.locator('[data-add]').evaluateAll((els) =>
+      els.map((el) => el.getAttribute('data-add'))
+    );
+    const inTheRail = await page.locator('[data-insert]').evaluateAll((els) =>
+      els.map((el) => el.getAttribute('data-insert'))
+    );
+    for (const command of inTheRail) expect(inTheSheet).toContain(command);
+    // And the definitions, which the rail keeps in a different panel and a reader does not.
+    expect(inTheSheet).toContain('insertPlacement');
+
+    await page.locator('[data-add="insertSection"]').click();
+    await page.waitForTimeout(700);
+
+    // It inserted, and it closed: a dialog a reader dismisses after it has done the errand asks twice.
+    await expect(blocks(page)).toHaveCount(before + 1);
+    await expect(page.locator('.st-add-sheet')).toHaveCount(0);
+  });
+
+  /**
+   * And every picture in it is a **picture**.
+   *
+   * Three of them were the words `accordion`, `tabs` and `form` — an icon name with no glyph draws as
+   * its own name — in the rail as well, since the day those blocks were added. The check that exists
+   * to catch exactly that was green, because an exemption written about the favicon attribute is
+   * keyed `icon` and so is the family of every missing-icon finding.
+   */
+  test('draws a picture for every one of them, never a name', async ({ page }) => {
+    await ready(page);
+    await page.getByLabel('넣을 것 고르기').click();
+    await page.waitForTimeout(400);
+
+    const wordy = await page.locator('[data-add]').evaluateAll((els) =>
+      els
+        .filter((el) => !el.querySelector('svg'))
+        .map((el) => el.textContent?.trim() ?? '')
+    );
+    expect(wordy).toEqual([]);
+  });
+});
+
+/**
+ * **The data grid, made to feel like a spreadsheet.**
+ *
+ * The reason a dataset exists is that the data is somewhere else, and typing forty cells back in one
+ * at a time is the work the feature was supposed to remove. Two gestures make the difference: a
+ * block of cells pasted, and moving between cells by direction rather than by tab order.
+ */
+test.describe('the data grid', () => {
+  const openGrid = async (page: Page) => {
+    await ready(page);
+    await page.locator('[data-panel="data"]').click();
+    await page.waitForTimeout(300);
+    await page.getByLabel('상품 목록 데이터 고치기').click();
+    await page.waitForTimeout(500);
+  };
+
+  /** A spreadsheet's clipboard: tabs across, newlines down. */
+  const pasteInto = async (page: Page, cell: string, text: string) => {
+    const at = page.locator(`input[data-cell="${cell}"]`);
+    await at.click();
+    await at.evaluate((el, said) => {
+      const data = new DataTransfer();
+      data.setData('text/plain', said);
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    }, text);
+    await page.waitForTimeout(500);
+  };
+
+  const rowsOf = (page: Page) =>
+    page.evaluate(() => {
+      const editor = (window as never as { editor: any }).editor;
+      const store = editor.dataStore;
+      let said: any = null;
+      const walk = (sid: string) => {
+        const node = store.getNode(sid);
+        if (!node || said) return;
+        if (node.stype === 'dataset' && node.attributes?.name === '상품') said = node.attributes;
+        for (const child of node.content ?? []) if (typeof child === 'string') walk(child);
+      };
+      walk(editor.getRootId());
+      return said.records as Record<string, unknown>[];
+    });
+
+  test('takes a block of cells, in one thing to undo', async ({ page }) => {
+    await openGrid(page);
+    const entries = () =>
+      page.evaluate(
+        () => (window as never as { editor: any }).editor.historyManager?.getStats?.().totalEntries ?? -1
+      );
+
+    const before = await entries();
+    await pasteInto(page, '1:이름', '붙인 하나\t붙인 설명\n붙인 둘\t둘째 설명\n');
+
+    const rows = await rowsOf(page);
+    expect(rows[1]['이름']).toBe('붙인 하나');
+    expect(rows[2]['설명']).toBe('둘째 설명');
+    /*
+     * Forty writes would be forty presses of undo with a half-pasted table in between. The padding
+     * drag's rule, and the ruler's before it.
+     */
+    expect(await entries()).toBe(before + 1);
+  });
+
+  test('grows the table for a paste taller than it, and trims one wider', async ({ page }) => {
+    await openGrid(page);
+    const before = (await rowsOf(page)).length;
+
+    await pasteInto(page, `${before - 1}:이름`, '가\n나\n다\n라');
+    expect((await rowsOf(page)).length).toBe(before + 3);
+
+    // A column has a name a reference resolves through, so a wider paste is trimmed rather than
+    // inventing one — five columns and a trimmed paste beats a document carrying `엑셀 열 6`.
+    const columns = await page.locator('thead input[aria-label$="열 이름"]').count();
+    await pasteInto(page, '0:분류', '끝\t넘침 하나\t넘침 둘');
+    expect(await page.locator('thead input[aria-label$="열 이름"]').count()).toBe(columns);
+    expect((await rowsOf(page))[0]['분류']).toBe('끝');
+  });
+
+  /**
+   * And **moving by direction**, which Tab cannot do: tab order walks along a row and into the
+   * delete button at the end of it, which is where a reader pressing it to reach the next column
+   * arrives.
+   */
+  test('moves by direction, and leaves the caret alone inside a word', async ({ page }) => {
+    await openGrid(page);
+    const where = () =>
+      page.evaluate(() => document.activeElement?.getAttribute('data-cell') ?? document.activeElement?.tagName);
+
+    await page.locator('input[data-cell="1:설명"]').click();
+    await page.keyboard.press('ArrowDown');
+    expect(await where()).toBe('2:설명');
+    await page.keyboard.press('Enter');
+    expect(await where()).toBe('3:설명');
+    await page.keyboard.press('ArrowUp');
+    expect(await where()).toBe('2:설명');
+
+    // Sideways only from an end, because those keys are the caret's while there is a word to move in.
+    await page.keyboard.press('End');
+    await page.keyboard.press('ArrowRight');
+    expect(await where()).toBe('2:가격');
+
+    await page.locator('input[data-cell="0:설명"]').click();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowRight');
+    expect(await where()).toBe('0:설명');
+    expect(await page.evaluate(() => (document.activeElement as HTMLInputElement).selectionStart)).toBe(1);
+  });
+});
+
+/**
+ * **Putting a section of the panel away.**
+ *
+ * Measured before it existed: the properties panel drew **759 pixels** of controls in five open
+ * sections, so a reader who wanted a shadow scrolled past a whole arrangement and a whole size to
+ * reach it. Every inspector in this class folds and this one had no way to.
+ *
+ * The fold is held by the app and not by the document, which is the row preview's argument exactly:
+ * which sections a person has put away is a fact about *this reader, this minute*, and a document
+ * carrying it would hand the next person a panel with three sections mysteriously shut.
+ */
+test.describe('a panel section that folds', () => {
+  const contentHeight = (page: Page) =>
+    page.evaluate(() => {
+      const sections = [...document.querySelectorAll('.office-properties section')];
+      if (!sections.length) return 0;
+      return Math.round(
+        sections[sections.length - 1].getBoundingClientRect().bottom -
+          sections[0].getBoundingClientRect().top
+      );
+    });
+
+  test('shortens the panel, and keeps the controls it is hiding', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').nth(2).click();
+    await page.waitForTimeout(500);
+
+    const open = await contentHeight(page);
+    const heads = page.locator('.office-properties [aria-expanded]');
+    expect(await heads.count()).toBeGreaterThan(2);
+
+    await heads.nth(1).click();
+    await page.waitForTimeout(200);
+    await expect(heads.nth(1)).toHaveAttribute('aria-expanded', 'false');
+    expect(await contentHeight(page)).toBeLessThan(open);
+
+    /*
+     * `hidden`, not unrendered: a folded section's controls keep their state — a half-typed number,
+     * an open colour popover — and a reader who folds and unfolds expects to find what they left.
+     */
+    expect(await page.locator('.office-properties [hidden]').count()).toBeGreaterThan(0);
+  });
+
+  /**
+   * And it **survives the selection moving**, which is the whole point: a reader who put 그림자 away
+   * is not asking to be shown it again the moment they click the next block.
+   */
+  test('stays folded as the selection moves', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-layer]').nth(2).click();
+    await page.waitForTimeout(500);
+
+    const named = async (at: number) =>
+      await page.locator('.office-properties [aria-expanded] h3').nth(at).innerText();
+    const label = await named(1);
+    await page.locator('.office-properties [aria-expanded]').nth(1).click();
+    await page.waitForTimeout(200);
+
+    await page.locator('[data-layer]').nth(3).click();
+    await page.waitForTimeout(500);
+
+    const head = page.locator('.office-properties [aria-expanded]', { hasText: label }).first();
+    await expect(head).toHaveAttribute('aria-expanded', 'false');
   });
 });

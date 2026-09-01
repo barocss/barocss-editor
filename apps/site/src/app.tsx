@@ -31,6 +31,8 @@ import {
   previewForRow,
   rowLabelsOf,
   setRowPreview,
+  typeRule,
+  zipOf,
   type BreakpointId,
   type StateId
 } from '@barocss/office-site';
@@ -79,6 +81,41 @@ function save(name: string, text: string, type: string): void {
   link.remove();
   // Released on the next turn of the loop: revoking it synchronously races the download in Safari.
   setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/**
+ * The whole site, as one file a reader can hand to a host.
+ *
+ * A folder is the shape a published site has — `index.html`, `제품/index.html`, `assets/로고.png` —
+ * and a browser download cannot make one. The bytes are `zipOf`'s; this is the handing over.
+ */
+function saveArchive(name: string, bytes: Uint8Array): void {
+  /*
+   * `bytes.slice()` rather than the array itself: a `Uint8Array` over a `SharedArrayBuffer` is not a
+   * `BlobPart`, and TypeScript is right to say so — the copy is one array of a few hundred kilobytes
+   * and the alternative is a cast that would be wrong on the day it mattered.
+   */
+  const url = URL.createObjectURL(new Blob([bytes.slice().buffer], { type: 'application/zip' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/**
+ * What the archive is called — the site's own home page, or `site`.
+ *
+ * A reader who publishes twice should not have two files called `download.zip` in a folder. The home
+ * page's name is the closest thing a document has to the site's, which is what a reader would have
+ * typed if asked.
+ */
+function nameOfSite(pages: { path: string; name: string }[]): string {
+  const home = pages.find((one) => one.path === '/') ?? pages[0];
+  const said = (home?.name ?? '').trim().replace(/[\\/:*?"<>|]+/g, '-');
+  return `${said || 'site'}.zip`;
 }
 
 /**
@@ -417,16 +454,31 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             pages,
             files
           }: {
-            pages: { path: string; name: string; html: string }[];
-            files?: { file: string; text: string; type: string }[];
+            pages: { path: string; file: string; name: string; html: string }[];
+            files?: { file: string; text?: string; bytes?: string; type: string }[];
           }) => {
-            pages.forEach(download);
-            /*
-             * And the site's own files — a sitemap today. They arrive naming themselves, which is how
-             * the app stopped having to know that a page at `/` is written as `index.html` and a
-             * sitemap is XML.
+            /**
+             * **The whole site as one archive**, and one page as one file.
+             *
+             * Loose downloads were the shape until two things ended it on the same day: a picture is
+             * written to `assets/로고.png`, and a browser cannot be handed a folder; and a link
+             * resolves to a page's *address* — `/제품` — so the file has to be `제품/index.html` or
+             * every link on the published site is broken. Both need a tree, and a zip is the only
+             * shape a browser will take one in.
+             *
+             * `zipOf` does the arithmetic and this does the only part that needs a browser, which is
+             * handing the bytes over — the same line `publish` has always drawn about what a file is.
              */
-            (files ?? []).forEach((one) => save(one.file, one.text, one.type));
+            if (entry.command === 'exportPage') {
+              pages.forEach(download);
+              return;
+            }
+
+            const site = zipOf([
+              ...pages.map((one) => ({ file: one.file, text: one.html })),
+              ...(files ?? [])
+            ]);
+            saveArchive(nameOfSite(pages), site);
           }
         } as never);
         return;
@@ -551,6 +603,35 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     document.head.append(sheet);
     return () => sheet.remove();
   }, [editor, root, revision, preview]);
+
+  /**
+   * **What the site is set in**, on the boards.
+   *
+   * The type a document states is one rule, and a designer changing their site's face has to see it
+   * on the page rather than after publishing — the same argument the state switch and the reveal
+   * preview both make. `PAGE_CSS` names the properties and never knows what they are, so this is the
+   * only place the document's answer meets the stylesheet.
+   *
+   * **The document's root, not `root`.** `root` here is the page — or the definition — being drawn,
+   * which is what every other effect on this screen wants and is exactly wrong for this one: the
+   * type is the *site's*, and a page carries none of it. Read from the page, `typeRule` was handed
+   * attributes that never held a `scale` and emitted the defaults for ever, so changing the face or
+   * the scale changed the **published** page and nothing a designer could see. Nothing said so:
+   * every unit test called `typeRule` with the document's own attributes, and the harness's
+   * "is this attribute read" was satisfied by the export reading it. Found by opening a browser and
+   * watching the heading not move.
+   */
+  useEffect(() => {
+    const store = editor?.dataStore as { getNode: (sid: string) => any } | undefined;
+    const documentRoot = editor?.getRootId?.();
+    if (!store || !documentRoot) return;
+
+    const sheet = document.createElement('style');
+    sheet.dataset.siteType = 'true';
+    sheet.textContent = typeRule(store.getNode(documentRoot)?.attributes);
+    document.head.append(sheet);
+    return () => sheet.remove();
+  }, [editor, revision]);
 
   /**
    * `Escape`, which is the way **out** of wherever the reader is — and listened for exactly once.
@@ -849,7 +930,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             42 pixels of canvas back, and the row that is left says what every design tool's top row
             says: who you are, what the document can do, what the pointer is, and how you are looking.
           */}
-          {editor ? <Ribbon editor={editor} mode={mode} onMode={setMode} /> : null}
+          {editor ? <Ribbon editor={editor} mode={mode} onMode={setMode} pageId={root} /> : null}
 
           {/*
             Which page is being edited, said rather than chosen.
