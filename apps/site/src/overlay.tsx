@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import { Icon } from '@barocss/office-ui';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import { useRevision } from '@barocss/office-ui';
 import {
@@ -267,6 +268,8 @@ export function Overlay({
         sides: ('top' | 'right' | 'bottom' | 'left')[];
         was: Record<string, number>;
         moved?: Record<string, number>;
+        /** Puts the renderer's own inline values back — see `holdStyle`. */
+        restore: () => void;
         /** Where the block was when the press happened, in board pixels — what the snap compares. */
         from: { left: number; top: number; width: number; height: number };
         lines: { x: number[]; y: number[] };
@@ -282,6 +285,16 @@ export function Overlay({
    * as a bug. Every tool of this kind draws the line it caught, and this draws the same line.
    */
   const [guides, setGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] });
+  /**
+   * Which kind of space is being pulled, or none.
+   *
+   * A gap is the **stack's** number rather than the pair's, so pulling one moves them all — and a
+   * reader who expected the space between two cards to change alone reads that as a bug. So every
+   * gap lights up while one is held, which says *this is one number* before the release proves it.
+   */
+  const [pulling, setPulling] = useState<'gap' | undefined>(undefined);
+  /** What a resize is writing, while it is writing it — see the corner handle. */
+  const [sizing, setSizing] = useState<string | undefined>(undefined);
 
   /**
    * What a **free** drag would need, or nothing at all — which is the ordinary answer.
@@ -319,7 +332,7 @@ export function Overlay({
       width: rect.width / scale,
       height: rect.height / scale
     };
-    return { el, sides: [...sides], was, from, lines: linesFor(el) };
+    return { el, sides: [...sides], was, from, lines: linesFor(el), restore: holdStyle(el, [...sides]) };
   };
 
   /**
@@ -535,7 +548,15 @@ export function Overlay({
      * flex line's wrap both produce spaces the one declared number does not describe, and a child
      * that is `position: absolute` produces none at all.
      */
-    const gaps: { left: number; top: number; width: number; height: number; said: number }[] = [];
+    const gaps: {
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+      said: number;
+      /** Which way pulling it grows the gap — a column's gaps are pulled down, a row's across. */
+      way: 'down' | 'across';
+    }[] = [];
     const kids = [...el.children]
       .filter((kid): kid is HTMLElement => kid instanceof HTMLElement && kid.offsetParent !== null)
       .map((kid) => kid.getBoundingClientRect());
@@ -550,7 +571,8 @@ export function Overlay({
           top: Math.round((a.bottom - frame.top) / scale),
           width: Math.round((Math.min(a.right, b.right) - Math.max(a.left, b.left)) / scale),
           height: down,
-          said: down
+          said: down,
+          way: 'down'
         });
       } else if (across > 0 && b.left >= a.right) {
         gaps.push({
@@ -558,7 +580,8 @@ export function Overlay({
           top: Math.round((Math.max(a.top, b.top) - frame.top) / scale),
           width: across,
           height: Math.round((Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)) / scale),
-          said: across
+          said: across,
+          way: 'across'
         });
       }
     }
@@ -676,10 +699,10 @@ export function Overlay({
         (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
         setGuides({ x: [], y: [] });
         if (carry?.carrying && carry.free) {
-          const { el, sides, moved, was } = carry.free;
-          // The inline styles come off before the command runs, so the document's own value is what
-          // draws — the same rule the padding bands follow, and for the same reason.
-          for (const side of sides) el.style.removeProperty(side);
+          const { sides, moved, was, restore } = carry.free;
+          // Back to what the renderer had, so the document's own value is what draws — see
+          // `holdStyle` for why this is a restore rather than a remove.
+          restore();
           setLanding(null);
           if (!moved || sides.every((side) => moved[side] === was[side])) return;
           void (editor as never as { executeCommand?: (n: string, p?: unknown) => Promise<unknown> }).executeCommand?.(
@@ -943,6 +966,23 @@ export function Overlay({
           aria-hidden
         >
           <span className="st-mark-name">
+            {/**
+             * **Which way it stacks, beside its name.**
+             *
+             * `labelOfBlock` already says 가로 스택 / 세로 스택 / 그리드 — but only for a block with no
+             * name of its own, and every band on a real page has one. So the moment a reader names
+             * something the one fact they most need while looking at it disappears, which is what
+             * *어떤 방향인지 아니깐* is asking for.
+             *
+             * A drawn icon rather than a word: the chip is already carrying a name and a mode, and
+             * three more characters on it is a chip nobody reads.
+             */}
+            {(() => {
+              const how = String(doc().getNode(sid)?.attributes?.layoutMode ?? '');
+              const which =
+                how === 'row' ? 'frame-row' : how === 'grid' ? 'frame-grid' : how === 'column' ? 'frame-column' : undefined;
+              return which ? <Icon name={which as never} size={11} /> : null;
+            })()}
             {labelOfBlock(doc(), sid)}
             {mode === 'text' ? ' · 편집 중' : ''}
           </span>
@@ -1043,6 +1083,7 @@ export function Overlay({
                       const way = side === 'bottom' || side === 'right' ? -1 : 1;
                       const attr = `padding${side[0].toUpperCase()}${side.slice(1)}`;
                       let now = was;
+                      const restore = holdStyle(el, [`padding-${side}`]);
 
                       const onMove = (move: PointerEvent) => {
                         const travelled = ((side === 'top' || side === 'bottom' ? move.clientY : move.clientX) - from) / scale;
@@ -1053,12 +1094,13 @@ export function Overlay({
                       const onUp = () => {
                         window.removeEventListener('pointermove', onMove);
                         window.removeEventListener('pointerup', onUp);
-                        /*
-                         * The inline style comes off before the command runs, so the document's own
-                         * value is what draws: leaving it on would paint the block at the dragged
-                         * number for ever, whatever the document said afterwards.
+        /*
+                         * Back to what the renderer had before the command runs, so the document's own
+                         * value is what draws: leaving the dragged number on would paint the block at
+                         * it for ever, and *removing* the property would delete the rendered value —
+                         * see `holdStyle` for the drag that found that.
                          */
-                        el.style.removeProperty(`padding-${side}`);
+                        restore();
                         if (now === was) return;
                         /*
                          * **Twips**, which is what the document keeps and the band is not: the band
@@ -1121,8 +1163,9 @@ export function Overlay({
             * one drag into ten entries of the document's history, and a reader's undo then walks back
             * through sizes the box was never meant to be.
             */}
+          {sizing ? <span className="st-mark-size">{sizing}</span> : null}
           {mode === 'select'
-            ? (['right', 'bottom'] as const).map((edge) => (
+            ? (['right', 'bottom', 'corner'] as const).map((edge) => (
                 <span
                   key={`grip-${edge}`}
                   className="st-grip"
@@ -1138,42 +1181,54 @@ export function Overlay({
 
                     const scale = scaleOf(board);
                     const rect = el.getBoundingClientRect();
-                    const from = edge === 'right' ? event.clientX : event.clientY;
-                    const was = Math.round((edge === 'right' ? rect.width : rect.height) / scale);
+                    /*
+                     * **A corner does both**, which is the handle a reader looks for first: every
+                     * tool of this kind puts one there, and this had only the two edges — measured as
+                     * *여전히 객체 resize 가 어떻게 동작하는지 모르겠어*.
+                     */
+                    const across = edge !== 'bottom';
+                    const down = edge !== 'right';
+                    const fromX = event.clientX;
+                    const fromY = event.clientY;
+                    const wasW = Math.round(rect.width / scale);
+                    const wasH = Math.round(rect.height / scale);
                     /*
                      * Whether this block takes its width from the pair. Read from the document rather
                      * than from the drawing, because `sizing` is what the reader said and the drawing
                      * is what the browser made of it.
                      */
                     const fixed = String(doc().getNode(sid)?.attributes?.sizing) === 'fixed';
-                    let now = was;
+                    const restore = holdStyle(el, ['max-width', 'min-width', 'min-height']);
 
+                    let wide = wasW;
+                    let tall = wasH;
                     const onMove = (move: PointerEvent) => {
-                      const travelled = ((edge === 'right' ? move.clientX : move.clientY) - from) / scale;
-                      now = Math.max(8, Math.round(was + travelled));
-                      if (edge === 'right') {
-                        el.style.setProperty('max-width', `${now}px`);
-                        if (fixed) el.style.setProperty('min-width', `${now}px`);
-                      } else {
-                        el.style.setProperty('min-height', `${now}px`);
+                      if (across) {
+                        wide = Math.max(8, Math.round(wasW + (move.clientX - fromX) / scale));
+                        el.style.setProperty('max-width', `${wide}px`);
+                        if (fixed) el.style.setProperty('min-width', `${wide}px`);
                       }
+                      if (down) {
+                        tall = Math.max(8, Math.round(wasH + (move.clientY - fromY) / scale));
+                        el.style.setProperty('min-height', `${tall}px`);
+                      }
+                      /*
+                       * **What it is writing, while it is writing it.** A handle that moves a box and
+                       * says nothing leaves a reader to let go and go and read the panel — which is
+                       * the other half of *모르겠어*. The padding bands have said their number since
+                       * they were built.
+                       */
+                      setSizing(across && down ? `${wide} × ${tall}` : across ? `${wide}` : `${tall}`);
                     };
 
                     const onUp = () => {
                       window.removeEventListener('pointermove', onMove);
                       window.removeEventListener('pointerup', onUp);
-                      /*
-                       * The inline styles come off before the command runs, so the document's own
-                       * value is what draws — leaving one on would paint the block at the dragged
-                       * number for ever, whatever the document said afterwards.
-                       */
-                      for (const one of ['max-width', 'min-width', 'min-height']) {
-                        el.style.removeProperty(one);
-                      }
-                      if (now === was) return;
+                      // Back to what the renderer had — see `holdStyle`.
+                      restore();
+                      setSizing(undefined);
+                      if (wide === wasW && tall === wasH) return;
 
-                      // Twips, which is what the document keeps and a drawn rectangle is not.
-                      const said = Math.round(now * 15);
                       /*
                        * **At the width being looked at**, which is what the panel's own field does:
                        * a reader dragging on the 390 board means *this is how wide it is on a phone*,
@@ -1183,9 +1238,11 @@ export function Overlay({
                       void editor.executeCommand('setBlockFormat', {
                         nodeIds: [sid],
                         at: breakpoint,
-                        ...(edge === 'right'
-                          ? { maxWidth: said, ...(fixed ? { minWidth: said } : {}) }
-                          : { minHeight: said })
+                        // A corner writes both, which is what the reader dragged.
+                        ...(across && wide !== wasW
+                          ? { maxWidth: Math.round(wide * 15), ...(fixed ? { minWidth: Math.round(wide * 15) } : {}) }
+                          : {}),
+                        ...(down && tall !== wasH ? { minHeight: Math.round(tall * 15) } : {})
                       });
                     };
 
@@ -1196,12 +1253,64 @@ export function Overlay({
               ))
             : null}
 
+          {/**
+           * **The space between two children, and it can be pulled.**
+           *
+           * It was drawn and not touchable, which is the half-answer a reader notices immediately:
+           * every band inside the block could be pulled except the ones actually between things.
+           *
+           * One number for all of them, because that is what a stack has — `gap` is the stack's, not
+           * each pair's — so pulling any gap sets the gap. Which is worth saying on screen rather
+           * than discovering: the others move with it, and a reader who expected one to move alone
+           * would read that as a bug. They all light up together while one is held.
+           */}
           {inside?.gaps.map((gap, at) => (
             <span
               key={`gap-${at}`}
               className="st-inset"
               data-inset="gap"
+              data-gap-way={gap.way}
+              data-grip={pulling === 'gap' ? 'held' : 'true'}
               style={{ left: gap.left, top: gap.top, width: gap.width, height: gap.height }}
+              onPointerDown={(event) => {
+                if (mode !== 'select') return;
+                event.preventDefault();
+                event.stopPropagation();
+                const sid = boxes[0]?.sid;
+                const board = host.current;
+                const el = board?.querySelector<HTMLElement>(`[data-bc-sid="${CSS.escape(sid ?? '')}"]`);
+                if (!sid || !board || !el) return;
+
+                const scale = scaleOf(board);
+                const from = gap.way === 'down' ? event.clientY : event.clientX;
+                const was = gap.said;
+                let now = was;
+                setPulling('gap');
+                const restore = holdStyle(el, ['gap']);
+
+                const onMove = (move: PointerEvent) => {
+                  const travelled =
+                    ((gap.way === 'down' ? move.clientY : move.clientX) - from) / scale;
+                  now = Math.max(0, Math.round(was + travelled));
+                  el.style.setProperty('gap', `${now}px`);
+                };
+                const onUp = () => {
+                  window.removeEventListener('pointermove', onMove);
+                  window.removeEventListener('pointerup', onUp);
+                  setPulling(undefined);
+                  // Back to what the renderer had, so the document's own value is what draws.
+                  restore();
+                  if (now === was) return;
+                  // Twips, and at the width being looked at — the rule every drag here follows.
+                  void editor.executeCommand('setBlockFormat', {
+                    nodeIds: [sid],
+                    at: breakpoint,
+                    gap: Math.round(now * 15)
+                  });
+                };
+                window.addEventListener('pointermove', onMove);
+                window.addEventListener('pointerup', onUp);
+              }}
             >
               {gap.said >= 24 ? <em>{gap.said}</em> : null}
             </span>
@@ -1226,6 +1335,33 @@ function rowIndexOf(sid: string | undefined): number | undefined {
   const index = Number(String(sid ?? '').split('~')[1]);
   return Number.isInteger(index) && index >= 0 ? index : undefined;
 }
+
+/**
+ * Move a drawing while a drag is in flight, and **put back exactly what was there**.
+ *
+ * Every drag here works the same way: the block follows the pointer through an inline style, and the
+ * document hears about it once, on release. Undoing that used to be `style.removeProperty` — which is
+ * wrong on this canvas, and was wrong quietly.
+ *
+ * The boards are drawn by the renderer **inline**: a stack's `display`, its `gap`, its padding are
+ * all on the element's own `style`. So removing the property does not go back to the rendered value,
+ * it *deletes* it — and the only thing that hid this is that a drag which changed something wrote to
+ * the document and got a re-render that put it back. A drag that ended where it started wrote
+ * nothing, so the value stayed gone: a gap dragged and released unchanged came back `normal`, and the
+ * three cards closed up.
+ *
+ * So the previous inline value is kept and restored, which is true whether or not anything is written
+ * afterwards.
+ */
+const holdStyle = (el: HTMLElement, names: string[]) => {
+  const was = names.map((name) => [name, el.style.getPropertyValue(name)] as const);
+  return () => {
+    for (const [name, value] of was) {
+      if (value) el.style.setProperty(name, value);
+      else el.style.removeProperty(name);
+    }
+  };
+};
 
 const boxStyle = (box: { left: number; top: number; width: number; height: number }) => ({
   left: `${box.left}px`,

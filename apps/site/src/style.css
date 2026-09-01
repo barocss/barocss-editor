@@ -497,6 +497,53 @@ body {
   cursor: ns-resize;
 }
 
+/**
+ * **The corner**, which is the handle a reader looks for first and this did not have.
+ *
+ * Two edges is enough to change either dimension and it is not enough to *find*: every tool of this
+ * kind puts a square in the corner, so a reader who has used one aims there, finds nothing, and
+ * concludes the box cannot be resized. Reported exactly that way.
+ *
+ * A square rather than a bar, because a corner does both directions and a bar would say one.
+ */
+.st-grip[data-grip-edge='corner'] {
+  right: calc(-11px / var(--st-zoom, 1));
+  bottom: calc(-11px / var(--st-zoom, 1));
+  width: calc(16px / var(--st-zoom, 1));
+  height: calc(16px / var(--st-zoom, 1));
+  cursor: nwse-resize;
+}
+
+.st-grip[data-grip-edge='corner']::after {
+  right: calc(4px / var(--st-zoom, 1));
+  bottom: calc(4px / var(--st-zoom, 1));
+  width: calc(7px / var(--st-zoom, 1));
+  height: calc(7px / var(--st-zoom, 1));
+  border-radius: calc(2px / var(--st-zoom, 1));
+}
+
+/**
+ * **What a resize is writing, while it is writing it.**
+ *
+ * A handle that moves a box and says nothing leaves a reader to let go and go and read the panel to
+ * find out what happened — which is the other half of *resize 가 어떻게 동작하는지 모르겠어*. The
+ * padding bands have said their number since they were built; this says the same kind of thing, at
+ * the corner the hand is at.
+ */
+.st-mark-size {
+  position: absolute;
+  right: 0;
+  bottom: calc(-24px / var(--st-zoom, 1));
+  padding: calc(2px / var(--st-zoom, 1)) calc(6px / var(--st-zoom, 1));
+  border-radius: calc(3px / var(--st-zoom, 1));
+  background: var(--st-accent);
+  color: #ffffff;
+  font-size: calc(11px / var(--st-zoom, 1));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 /* The paint: a short bar in the accent, drawn inside the wider area that takes the pointer. */
 .st-grip::after {
   content: '';
@@ -542,9 +589,11 @@ body {
 /*
  * **A strip along the edge takes the pointer**, not the whole band.
  *
- * A gap never does: it is the space *between two children* and belongs to neither, so pulling one
- * would have to decide which child moves — a question the drag cannot answer and the panel's `gap`
- * field can.
+ * A gap takes it **whole**, and the reason this used to say it could not is worth keeping: pulling
+ * one looked like it would have to decide which of the two children moves. It does not. `gap` is the
+ * *stack's* single number, so pulling any gap sets the space between every pair at once and nothing
+ * moves relative to anything — the stack simply re-lays out. The band is the whole space rather than
+ * a strip at its edge because a gap is usually a handful of pixels: an edge of an edge is nothing.
  *
  * And the four sides take it only at their outer edge. A section's top padding is often 96, and a
  * band that deep swallows every press in the top quarter of the block — measured as a card that
@@ -591,6 +640,41 @@ body {
   right: 0;
   width: var(--st-grip, 3px);
   cursor: ew-resize;
+}
+
+/* The whole gap, both ways, because a gap is thin and has no edge worth aiming at. */
+.st-inset[data-inset='gap'] {
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.st-inset[data-inset='gap'][data-gap-way='down'] { cursor: ns-resize; }
+.st-inset[data-inset='gap'][data-gap-way='across'] { cursor: ew-resize; }
+
+/**
+ * **What a reader can pull, shown before they pull it.**
+ *
+ * Every grip here was a transparent strip with a cursor on it: correct, invisible, and reported as
+ * *패딩 영역에서 어디를 눌러야할지 제대로 표현되지 않고 있음* — which is the honest reading. A tool
+ * whose handles are found by sweeping the pointer is a tool with no handles.
+ *
+ * So the strip paints when the pointer is over the band it belongs to, and the whole set of gaps
+ * paints while any one of them is held — because they are one number and a reader is entitled to
+ * know that before the release proves it.
+ */
+.st-inset[data-inset='top']:hover::after,
+.st-inset[data-inset='bottom']:hover::after,
+.st-inset[data-inset='left']:hover::after,
+.st-inset[data-inset='right']:hover::after {
+  background: var(--st-accent);
+  box-shadow: 0 0 0 calc(1px / var(--st-zoom, 1)) var(--ou-panel, #ffffff);
+  border-radius: 999px;
+}
+
+.st-inset[data-inset='gap']:hover,
+.st-inset[data-inset='gap'][data-grip='held'] {
+  background: color-mix(in srgb, var(--st-accent) 26%, transparent);
+  outline: calc(1px / var(--st-zoom, 1)) solid var(--st-accent);
 }
 
 /*

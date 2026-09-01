@@ -931,6 +931,158 @@ test.describe('the exported page', () => {
    * does with the markup: that the box is the target and not the eight pixels of text, that Tab
    * reaches it, that Enter follows it.
    */
+  test('pulls the space between two children, which is one number for the stack', async ({ page }) => {
+    /**
+     * **The one band inside a block that could not be pulled** — and it was the one actually between
+     * things. The four padding sides had handles; the gaps were drawn and inert.
+     *
+     * The old reason was that pulling a gap would have to decide which of the two children moves. It
+     * does not: `gap` is the *stack's* single number, so pulling any gap sets the space between every
+     * pair and nothing moves relative to anything — the stack re-lays out. Which is worth saying on
+     * screen rather than discovering, so every gap lights up while one is held.
+     *
+     * The whole band takes the pointer rather than a strip at its edge, because a gap is usually a
+     * handful of pixels and an edge of an edge is nothing.
+     */
+    await ready(page);
+    const row = cardRow(page, 'desktop');
+    /*
+     * One level per gesture down to the row itself, which is the rule this canvas follows: a press
+     * selects the band, and the row of three cards is two steps inside it.
+     */
+    await press(page, row);
+    await page.waitForTimeout(250);
+    for (let step = 0; step < 4; step += 1) {
+      if ((await page.locator('[data-inset="gap"]').count()) > 0) break;
+      await pressTwice(page, row);
+      await page.waitForTimeout(250);
+    }
+
+    const gaps = page.locator('[data-inset="gap"]');
+    expect(await gaps.count()).toBeGreaterThan(0);
+
+    /** Whatever the drill actually reached — asked of the mark, so the test cannot pick the wrong one. */
+    const held = await page.evaluate(
+      () => document.querySelector('.st-mark-selected')?.getAttribute('data-selected') ?? ''
+    );
+    expect(held).not.toBe('');
+    const gapOf = async () =>
+      await page.evaluate((sid) => {
+        const el = document.querySelector(`[data-frame="desktop"] [data-bc-sid="${sid}"]`) as HTMLElement | null;
+        return el ? Math.round(Number.parseFloat(getComputedStyle(el).gap)) : -1;
+      }, held);
+    const before = await gapOf();
+
+    // Along the gap's own axis: a column's gaps are pulled down, a row's across.
+    const way = await gaps.first().getAttribute('data-gap-way');
+    const band = (await gaps.first().boundingBox())!;
+    const from = { x: band.x + band.width / 2, y: band.y + band.height / 2 };
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    // Every gap says so while one is held, because they are one number.
+    await page.mouse.move(
+      from.x + (way === 'across' ? 30 : 0),
+      from.y + (way === 'down' ? 30 : 0),
+      { steps: 6 }
+    );
+    await page.waitForTimeout(120);
+    await expect(page.locator('[data-inset="gap"][data-grip="held"]').first()).toBeVisible();
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    expect(await gapOf()).toBeGreaterThan(before);
+  });
+
+  test('resizes both ways from the corner, and says the numbers while it does', async ({ page }) => {
+    /**
+     * **The handle a reader looks for first**, which this did not have.
+     *
+     * Two edges is enough to change either dimension and it is not enough to *find*: every tool of
+     * this kind puts a square in the corner, so somebody who has used one aims there, finds nothing,
+     * and concludes the box cannot be resized. Reported in exactly those words.
+     *
+     * And it says what it is writing while it writes it. A handle that moves a box in silence leaves
+     * a reader to let go and go and read the panel to learn what happened, which is the other half of
+     * the same report. The padding bands have said their number since they were built.
+     */
+    await ready(page);
+    // A short band near the top, so its bottom-right corner is on screen without panning.
+    const band = page.locator('[data-frame="desktop"] [data-name="로고 줄"]').first();
+    await press(page, band);
+    await page.waitForTimeout(350);
+
+    const corner = page.locator('.st-grip[data-grip-edge="corner"]').first();
+    await expect(corner).toHaveCount(1);
+
+    const was = (await band.boundingBox())!;
+    const at = (await corner.boundingBox())!;
+    await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(at.x + at.width / 2 - 60, at.y + at.height / 2 + 40, { steps: 8 });
+    await page.waitForTimeout(120);
+
+    // Both numbers, because a corner drag is two decisions and the reader made both.
+    const said = await page.locator('.st-mark-size').first().textContent();
+    expect(said).toMatch(/^\d+ × \d+$/);
+
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    // And the label goes with the gesture rather than staying on the page.
+    await expect(page.locator('.st-mark-size')).toHaveCount(0);
+
+    const now = (await band.boundingBox())!;
+    expect(now.width).toBeLessThan(was.width);
+    expect(now.height).toBeGreaterThan(was.height);
+  });
+
+  test('a drag that changes nothing leaves the drawing exactly as it was', async ({ page }) => {
+    /**
+     * **Found by the gap drag and latent in every drag before it.**
+     *
+     * A drag moves the drawing through an inline style and writes the document once, on release.
+     * Undoing that was `style.removeProperty` — which is wrong on this canvas: the boards are drawn
+     * by the renderer *inline*, so a stack's `display`, its `gap` and its padding are all on the
+     * element's own style. Removing the property does not go back to the rendered value, it deletes
+     * it.
+     *
+     * What hid it for weeks is that a drag which changed something wrote to the document and got a
+     * re-render that put the value back. A drag released where it started writes nothing, so the
+     * value stayed gone: the gap came back `normal` and three cards closed up against each other.
+     */
+    await ready(page);
+    const row = cardRow(page, 'desktop');
+    await press(page, row);
+    await page.waitForTimeout(250);
+    for (let step = 0; step < 4; step += 1) {
+      if ((await page.locator('[data-inset="gap"]').count()) > 0) break;
+      await pressTwice(page, row);
+      await page.waitForTimeout(250);
+    }
+    const held = await page.evaluate(
+      () => document.querySelector('.st-mark-selected')?.getAttribute('data-selected') ?? ''
+    );
+    const gapOf = async () =>
+      await page.evaluate((sid) => {
+        const el = document.querySelector(`[data-frame="desktop"] [data-bc-sid="${sid}"]`) as HTMLElement | null;
+        return el ? getComputedStyle(el).gap : 'gone';
+      }, held);
+
+    const before = await gapOf();
+    expect(before).not.toBe('normal');
+
+    // Pressed, moved, and brought back to where it started: the document has nothing to hear.
+    const band = (await page.locator('[data-inset="gap"]').first().boundingBox())!;
+    const from = { x: band.x + band.width / 2, y: band.y + band.height / 2 };
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x, from.y + 20, { steps: 4 });
+    await page.mouse.move(from.x, from.y, { steps: 4 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    expect(await gapOf()).toBe(before);
+  });
+
   test('moves a block that places itself, rather than reordering it', async ({ page }) => {
     /**
      * **The drag a page had no answer for.**
