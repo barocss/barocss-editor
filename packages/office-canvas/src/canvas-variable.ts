@@ -55,9 +55,50 @@ export function isVarRef(value: unknown): value is string {
   return typeof value === 'string' && value.startsWith(PREFIX) && value.length > PREFIX.length;
 }
 
-/** The name a reference holds, without the prefix. */
+/**
+ * **A weight**, which a reference may carry after a slash: `var:종이/82` is the paper at 82%.
+ *
+ * ## The hole it fills
+ *
+ * A token holds **one** colour, and a design needs that colour at a weight all the time — a frosted
+ * bar over a hero, a scrim, a hairline, a disabled control. Every one of those was a literal
+ * `rgba(...)` written beside the token it was a weight of, which is a colour that does not follow
+ * the palette: the day somebody changes 종이, the bar painted at 82% of the old one does not move.
+ * Measured on a real page, where exactly that happened and had to be written into the backlog.
+ *
+ * ## Why a suffix and not a second token
+ *
+ * A second token per weight is how a palette becomes forty names — 종이, 종이흐림, 종이더흐림 — and
+ * every one of them a place the real decision can drift from. A weight is not a colour; it is
+ * something being done *to* one, and the reference is where it belongs.
+ *
+ * ## Why a slash
+ *
+ * CSS's own, in `rgb(0 0 0 / 40%)` and `hsl(...)` — so a reader who has ever written a colour has
+ * seen it mean this. Nothing else in a variable's name can contain one: a name is a word a person
+ * chose, and `var:강조/40` reads as *강조, at 40*.
+ */
+const WEIGHT = /\/(\d{1,3})$/;
+
+/** The name a reference holds, without the prefix and without any weight. */
 export function varNameOf(value: string): string {
-  return value.slice(PREFIX.length);
+  return value.slice(PREFIX.length).replace(WEIGHT, '');
+}
+
+/** The weight a reference asks for, as a percentage, or nothing when it asks for the colour itself. */
+export function varWeightOf(value: string): number | undefined {
+  const said = WEIGHT.exec(value.slice(PREFIX.length))?.[1];
+  if (said === undefined) return undefined;
+  const weight = Number(said);
+  // 100 is the colour itself and is written as no weight at all — a reference that says it anyway
+  // means the same thing, and answering `undefined` keeps one shape in the drawing.
+  return Number.isFinite(weight) && weight >= 0 && weight < 100 ? weight : undefined;
+}
+
+/** How a document writes a reference at a weight, so nothing builds the string by hand. */
+export function varRefAt(name: string, weight: number | undefined): string {
+  const said = typeof weight === 'number' && weight >= 0 && weight < 100 ? Math.round(weight) : undefined;
+  return said === undefined ? varRef(name) : `${PREFIX}${name}/${said}`;
 }
 
 /** How a document writes a reference, so nothing builds the string by hand. */
@@ -193,7 +234,25 @@ export function resolveVarValue(
   at?: string
 ): string | undefined {
   if (!isVarRef(value)) return typeof value === 'string' ? value : undefined;
-  return varInScope(doc, at, varNameOf(value))?.value || undefined;
+  const said = varInScope(doc, at, varNameOf(value))?.value || undefined;
+  if (said === undefined) return undefined;
+
+  /**
+   * And **at the weight it asked for**, composited against nothing rather than against a ground.
+   *
+   * `color-mix` toward `transparent` is the one form that works wherever a colour goes — a fill, a
+   * border, a shadow, a text colour — because it produces a colour with an alpha rather than a
+   * blend with a background this function cannot see. The same reason `backgroundOpacity` composites
+   * a sheet instead of setting `opacity`.
+   *
+   * Only for a colour. A weight on a text or a number variable is a reader's typo, and mixing a word
+   * with transparent is a stylesheet full of `color-mix(in srgb, Barocss 82%, transparent)` — so it
+   * is handed back untouched, where it reads as the mistake it is.
+   */
+  const weight = varWeightOf(value);
+  if (weight === undefined) return said;
+  if (varInScope(doc, at, varNameOf(value))?.kind !== 'color') return said;
+  return `color-mix(in srgb, ${said} ${weight}%, transparent)`;
 }
 
 /** One place that names a variable, as the count and the rename both need it. */

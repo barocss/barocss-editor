@@ -830,8 +830,25 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
         kind: {
           type: 'string' as const,
           default: 'text',
-          options: ['text', 'color', 'number', 'boolean', 'choice']
+          options: ['text', 'color', 'number', 'boolean', 'choice', 'date']
         },
+        /**
+         * **How the answer reads**, which is not the same question as what it is.
+         *
+         * A card's question was answered with a string and drawn exactly as stored, so the only way
+         * to make a price read as `월 9,900원` was to *store* those words — a value nothing can
+         * compare. The site's own pricing page had been sorting its plans by that string and getting
+         * the order wrong in a browser for as long as it existed: `월 9,900원` sorts above
+         * `월 19,900원`, because `9` comes after `1`.
+         *
+         * A picture string rather than a named format, because the literal text a reader wants around
+         * the number is half of what they mean. `readValue` is the whole vocabulary and it is two
+         * placeholders wide.
+         *
+         * On the **card** rather than on the data, which is the point of it: one dataset can feed a
+         * price list that says `9,900원` and a summary that says `9.9천`.
+         */
+        format: { type: 'string' as const, required: false },
         /**
          * The values a `choice` may take.
          *

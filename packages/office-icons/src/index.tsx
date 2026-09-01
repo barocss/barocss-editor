@@ -261,6 +261,24 @@ const side = (path: string): Drawn =>
   };
 
 /** The eight, keyed the way a panel row names them. */
+/**
+ * A picture made of two runs: the **structure** at full weight and the **detail** inside it lighter.
+ *
+ * The shape every one of these three needs — an accordion is rows with a row open, a tab strip is a
+ * panel with one tab raised, a form is a box with lines in it — and drawing them one at a time would
+ * have been three functions that differ by a string.
+ */
+const rows = (structure: string, detail: string): Drawn =>
+  function RowsIcon({ size = 16 }: { size?: number }) {
+    return outline(
+      <>
+        <path d={structure} strokeWidth={1.6} />
+        <path d={detail} opacity={0.55} strokeWidth={1.4} />
+      </>,
+      size
+    );
+  };
+
 const DRAWN: Record<string, Drawn> = {
   // A quarter turn at one corner, and the two runs that reach it.
   'corner-top-left': corner('M13.5 2.5H8a5.5 5.5 0 0 0-5.5 5.5v5.5'),
@@ -272,7 +290,23 @@ const DRAWN: Record<string, Drawn> = {
   'padding-top': side('M2.5 2.5h11M4.5 6h7'),
   'padding-right': side('M13.5 2.5v11M10 4.5v7'),
   'padding-bottom': side('M2.5 13.5h11M4.5 10h7'),
-  'padding-left': side('M2.5 2.5v11M6 4.5v7')
+  'padding-left': side('M2.5 2.5v11M6 4.5v7'),
+
+  /**
+   * **The three a site builder puts on its rail and this table did not draw.**
+   *
+   * 아코디언, 탭 and 폼 named `accordion`, `tabs` and `form`, none of which was here — so all three
+   * came out as **their own names in Latin letters**, on a Korean rail, in a 240px column. The check
+   * that exists to catch exactly that was green, because an exemption written about the favicon
+   * attribute happens to be keyed `icon` and the finding's family is `icon` too.
+   *
+   * Drawn rather than borrowed, because none of the three is a shape a general icon set has: they
+   * are compositions this product made up, and the picture has to say *what a reader gets* — rows
+   * with one of them open, tabs with one of them chosen, a box with two lines and a button.
+   */
+  accordion: rows('M2.5 3.5h11M2.5 8.5h11M2.5 12.5h11', 'M4.5 6h7'),
+  tabs: rows('M2.5 5.5h11v8h-11z', 'M2.5 5.5V3.5h4.5v2'),
+  form: rows('M2.5 2.5h11v11h-11z', 'M5 6h6M5 9h6M5 12h3')
 };
 
 const ICONS: Record<string, LucideIcon> = {

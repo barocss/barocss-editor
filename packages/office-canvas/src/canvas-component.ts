@@ -1,3 +1,4 @@
+import { readValue } from './value-format';
 import { childrenOf, copyOf, type CanvasAccess, type CanvasNode } from './canvas-access';
 import { documentVars, isVarRef, resolveVarValue, surfaceOf, surfaceVars } from './canvas-variable';
 
@@ -104,14 +105,16 @@ export interface ComponentBind {
 export interface ComponentVar {
   name: string;
   label: string;
-  kind: 'text' | 'color' | 'number' | 'boolean' | 'choice';
+  kind: 'text' | 'color' | 'number' | 'boolean' | 'choice' | 'date';
+  /** How the answer **reads**, when it is not read as itself — see `readValue`. */
+  format?: string;
   /** The values a `choice` may take; empty for every other kind. */
   choices: string[];
   /** What a placement gets when it says nothing. */
   value: string;
 }
 
-const VAR_KINDS = ['text', 'color', 'number', 'boolean', 'choice'] as const;
+const VAR_KINDS = ['text', 'color', 'number', 'boolean', 'choice', 'date'] as const;
 
 /** The variables one definition declares, in document order. */
 function componentVarsOf(doc: CanvasAccess, definition: CanvasNode): ComponentVar[] {
@@ -129,6 +132,7 @@ function componentVarsOf(doc: CanvasAccess, definition: CanvasNode): ComponentVa
       // The schema's own set, so a kind this does not know reads as text rather than as
       // nothing: a field a reader can still type in beats a field that vanishes.
       kind: VAR_KINDS.includes(kind as never) ? (kind as ComponentVar['kind']) : 'text',
+      format: typeof node.attributes?.format === 'string' ? node.attributes.format : undefined,
       choices: Array.isArray(node.attributes?.choices)
         ? node.attributes.choices.filter((one: unknown): one is string => typeof one === 'string')
         : [],
@@ -545,6 +549,32 @@ export function instanceValues(
     );
   }
   return said;
+}
+
+/**
+ * The same values, **read the way the card says they read**.
+ *
+ * A separate step and applied *last*, which is the whole of what went wrong the first time: a data
+ * list replaces a placement's answers with the row's own after they are resolved, so formatting
+ * inside `instanceValues` reached every card except the ones that had data in them — which are
+ * exactly the cards a format exists for.
+ *
+ * Safe to run over an already-formatted string, and that is worth knowing rather than avoiding: a
+ * value that no longer parses as a number or a date comes back unchanged, so a second pass is a
+ * no-op rather than `월 월 7,900원`.
+ */
+export function readValues(
+  values: Map<string, string>,
+  vars: readonly ComponentVar[]
+): Map<string, string> {
+  const out = new Map(values);
+  for (const one of vars) {
+    if (!one.format) continue;
+    const held = out.get(one.name);
+    if (held === undefined) continue;
+    out.set(one.name, readValue(held, one.kind, one.format));
+  }
+  return out;
 }
 
 /** The name a part gives its slot, when it is one. */

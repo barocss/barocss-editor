@@ -9,6 +9,7 @@ import { childrenOf, copyOf, type CanvasAccess, type CanvasNode } from './canvas
 import {
   componentsOf,
   instanceValues,
+  readValues,
   slotNameOf,
   type ComponentBind
 } from './canvas-component';
@@ -105,7 +106,13 @@ export function instanceParts(
   if (inside.includes(definition.id) || inside.length > NEST_LIMIT) return [];
 
   const resolved = instanceValues(doc, instance, definition);
-  const values = options?.rewrite ? options.rewrite(resolved) : resolved;
+  /*
+   * The row's own answers **first**, and then how the card says they read — in that order, because a
+   * data list replaces a placement's values after they are resolved. Formatting before the rewrite
+   * reached every card except the ones with data in them, which are exactly the cards a format is
+   * for: measured as a price list drawing `7900`.
+   */
+  const values = readValues(options?.rewrite ? options.rewrite(resolved) : resolved, definition.vars);
   const binds = definition.binds;
   const own = childrenOf(instance)
     .map((sid) => doc.getNode(sid) as CanvasNode)

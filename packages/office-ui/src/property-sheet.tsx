@@ -77,6 +77,12 @@ export function PropertySheet<Row extends SheetRow>({
   raw,
   onWrite,
   marked,
+  onUnmark,
+  folded,
+  onFold,
+  follows,
+  weightOf,
+  onWeight,
   swatches,
   heading,
   suffix,
@@ -104,10 +110,38 @@ export function PropertySheet<Row extends SheetRow>({
    * sixteen rows with two colours in it is a panel nobody reads.
    */
   marked?: (row: Row) => boolean;
+  /**
+   * What pressing a mark does — *take this value back*, in whatever sense the host marked it.
+   *
+   * Optional, and the mark stays a plain dot without it: a product whose marks are informational
+   * (nothing to undo) should not grow a button that does nothing. See `Cell`.
+   */
+  onUnmark?: (row: Row) => void;
+  /**
+   * **A colour that follows a token *at a weight***, which is a spelling this panel must not know.
+   *
+   * The document writes it — one product says `var:강조/40` and another may say something else — so
+   * the three questions come in as callbacks: which swatch the value is following, how much of it,
+   * and what to do when a reader changes that. A caller with no weights passes none of them and the
+   * colour field behaves exactly as it did.
+   */
+  follows?: (row: Row) => string | undefined;
+  weightOf?: (row: Row) => number | undefined;
+  onWeight?: (row: Row, weight: number | undefined) => void;
   /** A product's own named colours, offered beside any colour at all. */
   swatches?: ThemeSwatch[];
   /** The heading to draw for a group, when it is not the declared one. */
   heading?: (group: SheetGroup<Row>) => string;
+  /**
+   * **Which sections are put away**, and the switch that puts one away.
+   *
+   * Held by the caller for the reason every other answer here is: a fold is a fact about *this
+   * reader, this minute*, and a sheet that remembered its own would disagree with the next one drawn
+   * from the same state. A caller that passes neither gets a panel that never folds, which is what
+   * every caller had until a site builder's own measured **959 pixels** in five open sections.
+   */
+  folded?: (group: SheetGroup<Row>) => boolean;
+  onFold?: (group: SheetGroup<Row>, folded: boolean) => void;
   /**
    * What to write after a number, when the row cannot say.
    *
@@ -245,6 +279,9 @@ export function PropertySheet<Row extends SheetRow>({
             key={key(one)}
             value={typeof (raw ?? value)(one) === 'string' ? String((raw ?? value)(one)) : null}
             varSwatches={swatches}
+            follows={follows?.(one)}
+            weight={weightOf?.(one)}
+            onWeight={onWeight ? (next) => onWeight(one, next) : undefined}
             onChange={(next) => onWrite(one, next)}
             onClear={() => onWrite(one, undefined)}
             ariaLabel={one.ariaLabel}
@@ -325,7 +362,12 @@ export function PropertySheet<Row extends SheetRow>({
   return (
     <>
       {groups.map((group) => (
-        <PropertyGroup key={group.label} label={heading?.(group) ?? group.label}>
+        <PropertyGroup
+          key={group.label}
+          label={heading?.(group) ?? group.label}
+          folded={folded?.(group)}
+          onFold={onFold ? (next) => onFold(group, next) : undefined}
+        >
           {group.rows.map((row) => {
             const drawn = control(row);
             if (drawn === null) return null;
@@ -352,7 +394,7 @@ export function PropertySheet<Row extends SheetRow>({
             if (drawn === undefined && beside.length === 0) return null;
 
             return (
-              <Cell key={key(row)} row={row} marked={marked}>
+              <Cell key={key(row)} row={row} marked={marked} onUnmark={onUnmark}>
                 {drawn}
                 {/*
                   **Three or more companions go two to a line**, which is what a padding is.
@@ -403,10 +445,12 @@ function groupValue<Row extends SheetRow>(
 function Cell<Row extends SheetRow>({
   row,
   marked,
+  onUnmark,
   children
 }: {
   row: Row;
   marked?: (row: Row) => boolean;
+  onUnmark?: (row: Row) => void;
   children: React.ReactNode;
 }) {
   /*
@@ -418,9 +462,43 @@ function Cell<Row extends SheetRow>({
    * row rather than to what the row is about, so drawing it into the picture would say the wrong
    * thing about the shape.
    */
-  const marker = marked?.(row) ? ' ·' : '';
+  const owned = marked?.(row) === true;
+
+  /**
+   * And **pressing the mark takes the value back**, where the host says what that means.
+   *
+   * The mark said *this width owns this value* and there was no way to stop it owning one. A reader
+   * could type the page's number back in, which looks identical and is a different document: the
+   * width still states a value, it now happens to match, and it stops following when the page's
+   * changes. Every layout tool has this control and this one had the dot without it.
+   *
+   * Drawn only when there is something to take back, so a panel of forty rows carries no buttons a
+   * reader would have to learn to ignore.
+   */
+  const mark = owned ? (
+    onUnmark ? (
+      <button
+        type="button"
+        className="shrink-0 rounded-[3px] px-1 leading-none text-[color:var(--ou-accent)] hover:bg-[color:var(--ou-accent-soft)]"
+        /*
+         * Named by `ariaLabel` and not by `label`, which is the same reason the row has both: two
+         * rows in different panes can each be called 최대, and an accessible name has to be unique in
+         * the panel. Written with `label` first, and the button was unfindable by the name a reader
+         * — or a test — would say out loud.
+         */
+        title={`${row.ariaLabel} — 이 값을 되돌립니다`}
+        aria-label={`${row.ariaLabel} 되돌리기`}
+        onClick={() => onUnmark(row)}
+      >
+        ·
+      </button>
+    ) : (
+      <span aria-hidden>·</span>
+    )
+  ) : undefined;
+
   return (
-    <PropertyRow label={`${row.label}${marker}`} icon={row.icon}>
+    <PropertyRow label={row.label} icon={row.icon} mark={mark}>
       {children}
     </PropertyRow>
   );

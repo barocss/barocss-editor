@@ -176,7 +176,15 @@ describe('containers enforce their own shape', () => {
     // A blob of JSON in one attribute cannot be validated, probed or read by a panel without a
     // parser — the argument this schema has already made twice.
     const kinds = schema.getNodeType('componentVar')?.attrs?.kind?.options;
-    expect(kinds).toEqual(['text', 'color', 'number', 'boolean', 'choice']);
+    /*
+     * `date` is the sixth, and it arrived with `format` for a reason worth the line: a card's answer
+     * was drawn exactly as stored, so a price could only read as `월 9,900원` by *being* that string
+     * — a value nothing can sort, and the site's own pricing page had been sorting by one and
+     * getting the order wrong. Saying what kind of thing a value is is what lets the data keep the
+     * number and the card keep the caption.
+     */
+    expect(kinds).toEqual(['text', 'color', 'number', 'boolean', 'choice', 'date']);
+    expect(schema.getNodeType('componentVar')?.attrs?.format).toBeTruthy();
     expect(schema.getNodeType('componentVar')?.attrs?.name?.required).toBe(true);
     expect(schema.getNodeType('componentValue')?.attrs?.name?.required).toBe(true);
   });

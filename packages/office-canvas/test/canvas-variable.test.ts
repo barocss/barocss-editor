@@ -16,6 +16,9 @@ import {
   documentVars,
   isVarRef,
   resolveVarValue,
+  varNameOf,
+  varRefAt,
+  varWeightOf,
   varBindsOf,
   varRef,
   varUses,
@@ -97,6 +100,54 @@ describe('a reference to one', () => {
     expect(resolveVarValue(access, 'var:강조')).toBe('#0f766e');
     // Every document written before variables reads exactly as it did.
     expect(resolveVarValue(access, '#111111')).toBe('#111111');
+  });
+
+  /**
+   * **A colour at a weight**, which a token could not say and a design needs constantly.
+   *
+   * A frosted bar, a scrim, a hairline, a disabled control — every one of them wants a colour the
+   * palette already holds, at a fraction. Written as a literal `rgba(...)` beside the token it is a
+   * weight of, it stops following the palette: the day somebody changes 종이, a bar painted at 82%
+   * of the old one does not move. Measured on a real page, which is why this exists.
+   */
+  describe('at a weight', () => {
+    it('reads the name and the weight apart', () => {
+      expect(varNameOf('var:강조/40')).toBe('강조');
+      expect(varWeightOf('var:강조/40')).toBe(40);
+      // No weight is the colour itself, and so is 100 — one shape in the drawing rather than two.
+      expect(varWeightOf('var:강조')).toBeUndefined();
+      expect(varWeightOf('var:강조/100')).toBeUndefined();
+    });
+
+    it('is written by one function, so nothing builds the string by hand', () => {
+      expect(varRefAt('강조', 40)).toBe('var:강조/40');
+      expect(varRefAt('강조', undefined)).toBe('var:강조');
+      expect(varRefAt('강조', 100)).toBe('var:강조');
+    });
+
+    /*
+     * Mixed toward **transparent**, not toward a ground: this function cannot see what is behind the
+     * colour, and a colour with an alpha works wherever a colour goes — a fill, a border, a shadow,
+     * the text. The same reason a background's veil composites a sheet instead of setting `opacity`.
+     */
+    it('resolves to the colour with an alpha, wherever a colour may go', () => {
+      expect(resolveVarValue(deck(), 'var:강조/40')).toBe('color-mix(in srgb, #0f766e 40%, transparent)');
+    });
+
+    /*
+     * A weight on a word is a reader's typo. Mixing one with transparent would put
+     * `color-mix(in srgb, 바로씨에스 82%, transparent)` in a stylesheet, which is a value a browser
+     * drops silently — so it is handed back whole, where it reads as the mistake it is.
+     */
+    it('leaves a weight on something that is not a colour alone', () => {
+      expect(resolveVarValue(deck(), 'var:회사/82')).toBe('바로씨에스');
+    });
+
+    it('still finds the variable a weighted reference names', () => {
+      // Everything that counts uses, renames or carries a reference reads the name through
+      // `varNameOf` — so a weight costs none of them a change, which is the point of putting it here.
+      expect(documentVar(deck(), varNameOf('var:강조/40'))?.value).toBe('#0f766e');
+    });
   });
 
   it('resolves to nothing when the name is gone, rather than to a guess', () => {

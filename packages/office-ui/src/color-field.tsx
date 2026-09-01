@@ -44,6 +44,9 @@ export function ColorField({
   value,
   themeSwatches = [],
   varSwatches = [],
+  follows,
+  weight,
+  onWeight,
   onChange,
   onClear,
   disabled,
@@ -61,6 +64,23 @@ export function ColorField({
    * is one gesture.
    */
   varSwatches?: ThemeSwatch[];
+  /**
+   * **Which swatch this value follows**, when the value is not the swatch itself.
+   *
+   * A document may name a colour *at a weight* — the same token, at a fraction — and how it spells
+   * that is the editor's business, not this control's. So the caller says which swatch is being
+   * followed and this draws that one as chosen; without it the field falls back to matching the
+   * value, which is what every caller that has no weights does.
+   */
+  follows?: string | null;
+  /**
+   * And **how much of it**, 0–100, or nothing for the colour itself.
+   *
+   * Offered only when the value follows a swatch, because a weight on a literal colour is a colour
+   * the reader could simply have typed. `undefined` from `onWeight` means *the colour itself*.
+   */
+  weight?: number | null;
+  onWeight?: (weight: number | undefined) => void;
   onChange: (value: string) => void;
   onClear?: () => void;
   disabled?: boolean;
@@ -72,8 +92,16 @@ export function ColorField({
   // Whatever the value *names*, from either list: the trigger draws the colour it resolves to, so
   // a field showing the literal `var:강조` would be the one place in the product that leaked a
   // reference to the reader.
-  const named = [...themeSwatches, ...varSwatches].find((swatch) => swatch.value === value);
-  const shown = named ? named.colour : (value ?? null);
+  const named = [...themeSwatches, ...varSwatches].find((swatch) => swatch.value === (follows ?? value));
+  /*
+   * And at the weight, so a swatch a document holds at 40% draws as 40% rather than as the colour it
+   * is a fraction of — a trigger that lied about that is a reader choosing the wrong thing twice.
+   */
+  const shown = named
+    ? typeof weight === 'number'
+      ? `color-mix(in srgb, ${named.colour} ${weight}%, transparent)`
+      : named.colour
+    : (value ?? null);
 
   /**
    * Where the panel goes: the window's coordinates, not the field's.
@@ -248,6 +276,30 @@ export function ColorField({
             varSwatches={varSwatches}
             onChange={(next) => onChange(next)}
           />
+
+          {named && onWeight && (
+            /*
+             * **How much of it**, beside the picker rather than inside it: the picker answers *which
+             * colour*, and this answers *how much of that one*, which is only a question once a
+             * colour has been followed rather than typed.
+             */
+            <label className="mt-2 flex items-center justify-between gap-2 px-1 text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)]">
+              진하기
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                aria-label={`${ariaLabel} 진하기`}
+                value={weight ?? 100}
+                onChange={(event) => {
+                  const said = Number(event.currentTarget.value);
+                  onWeight(Number.isFinite(said) && said >= 0 && said < 100 ? said : undefined);
+                }}
+                className={cn(CONTROL, 'w-[72px] px-2 text-right')}
+              />
+            </label>
+          )}
 
           {onClear && (
             <button

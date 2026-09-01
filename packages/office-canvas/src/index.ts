@@ -120,6 +120,8 @@ export * from './canvas-graph-layout';
  * placement draw its definition on whatever store a product hands over.
  */
 export * from './canvas-component';
+/** How a value reads, which is not the same question as what it is. */
+export { readValue, VALUE_FORMATS } from './value-format';
 export * from './canvas-instance';
 
 /** A name the document declares and a shape takes its value from. */

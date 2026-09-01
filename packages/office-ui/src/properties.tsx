@@ -120,12 +120,29 @@ export function PropertyPanel({
 export function PropertyGroup({
  label,
  action,
+  folded,
+  onFold,
   children
 }: {
   label: string;
   action?: React.ReactNode;
+  /**
+   * **Whether this section is put away**, and the switch that puts it away.
+   *
+   * Measured on a site builder's own panel: **959 pixels** of controls in five sections, all of them
+   * open, so a reader who wanted a shadow scrolled past a whole arrangement and a whole size to
+   * reach it. Every inspector in this class folds; this one had no way to.
+   *
+   * Held by the **caller**, not here, and that is the same rule the rest of this package follows: a
+   * fold is a fact about *this reader, this minute* — like which width they are editing or which row
+   * of a list they are looking at — and a control that remembered its own would disagree with the
+   * next panel drawn from the same state. A caller that passes neither gets what it always had.
+   */
+  folded?: boolean;
+  onFold?: (folded: boolean) => void;
   children: React.ReactNode;
 }) {
+  const name = `property-group-${label}`;
   return (
     <section
       className={cn(
@@ -141,12 +158,44 @@ export function PropertyGroup({
           there to be found when a reader looks for it and to disappear when they do not. At the
           panel's own text size it competed with the rows under it.
         */}
-        <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ou-faint)]">
-          {label}
-        </h3>
+        {onFold ? (
+          /*
+            The **whole heading** is the switch, not a chevron beside it: a 10px label with a
+            separate 12px target next to it is two things to aim at for one act, and the heading is
+            already the width of the panel. The chevron says which way it goes.
+          */
+          <button
+            type="button"
+            /*
+             * **24 tall**, which is the smallest thing a pointer is *moved to* rather than aimed at —
+             * the chrome's own check, and it caught this at 16. Pulled back up by its own margin so
+             * the section's rhythm is what it was: the target grew and the drawing did not.
+             */
+            className="-mx-1 -my-1 flex h-6 flex-1 items-center gap-1 rounded px-1 text-left hover:bg-[color:var(--ou-ground)]"
+            aria-expanded={!folded}
+            aria-controls={name}
+            onClick={() => onFold(!folded)}
+          >
+            <Icon name={folded ? 'collapsed' : 'disclosed'} size={11} />
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ou-faint)]">
+              {label}
+            </h3>
+          </button>
+        ) : (
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ou-faint)]">
+            {label}
+          </h3>
+        )}
         {action}
       </div>
-      {children}
+      {/*
+        `hidden` rather than not rendered: a folded section's controls keep their state — a
+        half-typed number, a colour picker's open popover — and a reader who folds and unfolds
+        expects to find what they left. It is also what `[hidden]` is for.
+      */}
+      <div id={name} hidden={folded} className="flex flex-col gap-0.5">
+        {children}
+      </div>
     </section>
   );
 }
@@ -220,9 +269,22 @@ export function PropertyTabs({
 export function PropertyRow({
   label,
   icon,
+  mark,
   children
 }: {
   label: string;
+  /**
+   * A small control **beside the label**, for a row whose value came from somewhere the reader can
+   * take back — a narrower width's, a state's.
+   *
+   * In the label column rather than beside the field, because it is about *where the value came
+   * from* rather than about the value: put next to the control it reads as another way to change the
+   * number, which is the one thing it does not do.
+   *
+   * Safe inside the `<label>` because activation is skipped when a click lands on interactive
+   * content — the same rule that stops a link inside a label toggling its control.
+   */
+  mark?: React.ReactNode;
   /**
    * A **picture** in the label column, for a row a reader picks out by shape.
    *
@@ -240,13 +302,15 @@ export function PropertyRow({
   return (
     <label className="flex min-h-[var(--ou-control-h)] items-start gap-1.5 text-[length:var(--ou-text)]">
       <span
-        className={`flex h-[var(--ou-control-h)] shrink-0 items-center text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)] ${
-          icon ? 'w-[var(--ou-control-h)] justify-center' : 'w-[var(--ou-label-w)] truncate'
+        className={`flex h-[var(--ou-control-h)] shrink-0 items-center gap-1 text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)] ${
+          icon ? 'w-[var(--ou-control-h)] justify-center' : 'w-[var(--ou-label-w)]'
         }`}
         title={label}
-        aria-hidden={icon ? true : undefined}
       >
-        {icon ? <Icon name={icon} size={14} /> : label}
+        <span className={icon ? '' : 'truncate'} aria-hidden={icon ? true : undefined}>
+          {icon ? <Icon name={icon} size={14} /> : label}
+        </span>
+        {mark}
       </span>
       {/* `items-center` within a line, so a wrapped row's two lines each sit on their own centre. */}
       <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">{children}</span>
@@ -426,7 +490,49 @@ export function PropertyToggle({
         disabled={disabled}
         checked={value}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-3.5 w-3.5 shrink-0 accent-[color:var(--ou-accent)] disabled:opacity-40"
+        /**
+         * **A box of 14 and a target of 24**, which are two different numbers on purpose.
+         *
+         * A tick that *looks* right at 14 is a thing a pointer has to be aimed at rather than moved
+         * to, and on a trackpad that is the difference between one gesture and two. Every design
+         * tool draws a small box and gives it a large hit area; this drew a small box and a small hit
+         * area, and the chrome sweep said so the moment the page pane grew three of them.
+         *
+         * A negative margin so the row's rhythm is unchanged: the target grows outwards into padding
+         * that was already there, which is why this costs nothing above or below it.
+         */
+        /**
+         * **A box of 16 and a target of 24**, which are two numbers on purpose.
+         *
+         * A tick that looks right at 14 is a thing a pointer has to be *aimed at* rather than moved
+         * to, and on a trackpad that is the difference between one gesture and two. Measured by the
+         * chrome sweep the moment the page pane grew three of them: `14×14`, against a floor of 22.
+         *
+         * ## Why the box is drawn rather than the browser's
+         *
+         * Two attempts failed before this one and both are worth the line. Padding and a transparent
+         * border on a native checkbox are **ignored**: Chrome's `appearance: auto` drops them and
+         * reports `border-width: 0` back, so an inline style that plainly said `5px solid` measured
+         * as nothing at all. A native control's box is the browser's, and the only way to have one of
+         * a different size is to stop it being native.
+         *
+         * So `appearance: none`, a box drawn in the panel's own line and accent, and a tick as a
+         * background image — which is what every design system that wanted a 24-pixel target ended up
+         * doing, for exactly this reason.
+         */
+        className={cn(
+          'relative h-6 w-6 shrink-0 cursor-pointer appearance-none rounded-[4px]',
+          'border border-[color:var(--ou-line)] bg-[color:var(--ou-panel)]',
+          'bg-[length:14px_14px] bg-center bg-no-repeat',
+          'checked:border-[color:var(--ou-accent)] checked:bg-[color:var(--ou-accent)]',
+          'disabled:pointer-events-none disabled:opacity-40',
+          'focus-visible:shadow-[0_0_0_2px_var(--ou-accent-soft)]'
+        )}
+        style={{
+          backgroundImage: value
+            ? "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.5 3.5L13 5'/%3E%3C/svg%3E\")"
+            : undefined
+        }}
  />
       {label ? <span className="truncate">{label}</span> : null}
     </label>
@@ -537,7 +643,25 @@ export function PropertyChoice({
       onChange={(event) => onChange(event.target.value)}
       className={cn(
         CONTROL,
-        'w-full min-w-0 bg-transparent px-1'
+        'w-full min-w-0 bg-transparent px-1',
+        /**
+         * And a **ring**, which a field does not need and this does.
+         *
+         * `CONTROL` answers focus by changing the border's colour, and the reasoning there is about a
+         * field: the caret is already saying where a reader is, so a ring on top of it is the stray
+         * ring every tool learned to avoid. A `<select>` has no caret. One pixel of accent on a
+         * border is the whole signal, and it is below what anybody can see.
+         *
+         * Found by the chrome sweep — tab through everything and name what the keyboard reaches and
+         * nothing marks — the moment the page pane grew three of these.
+         */
+        /*
+         * A **shadow** rather than an outline, and not by preference: `CONTROL` already says
+         * `focus:outline-none`, which has the same specificity as a `focus-visible:outline` and wins
+         * or loses on source order — a fight nothing here controls. A ring drawn as a shadow is the
+         * same two pixels and answers to nobody.
+         */
+        'focus-visible:shadow-[0_0_0_2px_var(--ou-accent)]'
       )}
     >
       {options.map((option) => (
