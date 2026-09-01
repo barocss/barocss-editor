@@ -384,6 +384,13 @@ describe('Slides draws what its schema declares', () => {
         attr: 'which attribute a binding writes — the row it is on says so',
         type: 'what kind of value a variable holds — the 문서 변수 dialog',
         choices: 'the values a variable may take — the 문서 변수 dialog',
+        /*
+         * **How the answer reads**, which the deck honours through the shared `readValues` and the
+         * probe cannot reach: it draws a variable of the default `text` kind, and a format is only a
+         * change to a `number` or a `date`. A deck's card that shows a figure gets it for free the
+         * day somebody sets the kind — see `value-format.ts` for what it cost the site to be without.
+         */
+        format: 'how a number or a date reads — `readValues`; the probe draws the default text kind',
 
         // ── A film, and a picture's source ─────────────────────────────────
         /*
@@ -577,8 +584,10 @@ describe('Slides draws what its schema declares', () => {
          */
         locked:
           'the commands — `moveBoxes`, the arrange commands and `setBoxLocked` all refuse a locked box — and the layer list draws the padlock. A drawing that changed would be a shape that looks different from the one beside it for a reason about editing',
-        name:
-          'motion — a step names its box by it (`namedBoxes` in `timeline.ts`), `setBoxBuild` assigns one as it goes, and the deck file format is written in those names. A durable identity is the point: a sid is handed out at load, so a saved animation cannot be written in sids. A slide’s own `name` is read by the filmstrip (`titleOf` in `deck.ts`)',
+        name: {
+          reason: 'motion — a step names its box by it (`namedBoxes` in `timeline.ts`), `setBoxBuild` assigns one as it goes, and the deck file format is written in those names. A durable identity is the point: a sid is handed out at load, so a saved animation cannot be written in sids. A slide’s own `name` is read by the filmstrip (`titleOf` in `deck.ts`)',
+          covers: ['every-attribute-is-read', 'every-property-can-be-edited']
+        },
         partId:
           'components — a definition part’s own durable name. Read by `instanceParts` (which binding applies to which part) and by the properties panel, which says which piece of the card the reader is standing in. Not a sid, because saving strips those: a binding written in sids would come back from a file naming nothing',
         /**

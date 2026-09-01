@@ -11,6 +11,7 @@ import { everyCommandMakesSomethingReal } from './checks/every-command-makes-som
 import { everyInsertIsAccountedFor } from './checks/every-insert-is-accounted-for';
 import { everyCommandCanBeReached } from './checks/every-command-can-be-reached';
 import { everyCommandDoesSomething } from './checks/every-command-does-something';
+import { everyRowWritesWhatItNames } from './checks/every-row-writes-what-it-names';
 import type { Check, Exemptions, Ratchets, Report, Subject } from './types';
 
 /** The checks that need nothing from the product but its schema and renderers. */
@@ -129,6 +130,19 @@ export interface ConformanceInput {
    */
   commandChanges?: (command: string) => boolean | null;
   /**
+   * Every row the product's panels declare, and whether **using** one moves the document.
+   *
+   * The other half of `editable`, and the half a browser had to find: `editable` says a row exists,
+   * and a row names a *command*, and the command decides what it accepts. Six attributes once
+   * shipped declared, drawn and offered, with the command's whitelist quietly refusing all six.
+   *
+   * The product does the using, for `commandChanges`' reason — what a row needs before it can be
+   * used is a fact about that product. `null` for a row the product could not get into a state to
+   * try, counted as unanswered rather than passed. See `every-row-writes-what-it-names`.
+   */
+  rows?: { attr: string; label: string; command?: string }[];
+  rowChanges?: (row: { attr: string; label: string; command?: string }) => boolean | null;
+  /**
    * Findings a check is allowed while the product works them off, by check name.
    *
    * For adopting a check that finds hundreds at once — see `Ratchets` for why this is
@@ -177,6 +191,16 @@ export interface ConformanceInput {
  */
 export function conformance(input: ConformanceInput): Report {
   const exempt = input.exempt ?? {};
+  /** The words, whichever shape the exemption was written in. */
+  const reasonOf = (said: string | { reason: string } | undefined): string =>
+    typeof said === 'string' ? said : (said?.reason ?? '');
+  /** Which checks each exemption has excused, so one reason covering two faults is visible. */
+  const doubleDuty = new Map<string, Set<string>>();
+  const excused = (key: string, check: string) => {
+    const seen = doubleDuty.get(key) ?? new Set<string>();
+    seen.add(check);
+    doubleDuty.set(key, seen);
+  };
   const all = [
     ...CHECKS,
     // The schema question first: a command whose node the schema does not know
@@ -196,6 +220,13 @@ export function conformance(input: ConformanceInput): Report {
      */
     ...(input.commandChanges
       ? [everyCommandDoesSomething(input.reachable ?? [], input.commandChanges)]
+      : []),
+    /*
+     * And the same question one level down. A command that does something can still be named by a
+     * row it will not accept, which is a control that takes a value and throws it away.
+     */
+    ...(input.rows && input.rowChanges
+      ? [everyRowWritesWhatItNames(input.rows, input.rowChanges)]
       : [])
   ];
   const checks = input.only ? all.filter((check) => input.only!.includes(check.name)) : all;
@@ -239,8 +270,13 @@ export function conformance(input: ConformanceInput): Report {
           !(finding.subject in exempt) && !(finding.family && finding.family in exempt)
       );
       for (const finding of result.findings) {
-        if (finding.subject in exempt) matched.add(finding.subject);
-        else if (finding.family && finding.family in exempt) matched.add(finding.family);
+        if (finding.subject in exempt) {
+          matched.add(finding.subject);
+          excused(finding.subject, check.name);
+        } else if (finding.family && finding.family in exempt) {
+          matched.add(finding.family);
+          excused(finding.family, check.name);
+        }
       }
       ratcheted.push({
         check: check.name,
@@ -266,6 +302,7 @@ export function conformance(input: ConformanceInput): Report {
             : undefined;
       if (key !== undefined) {
         matched.add(key);
+        excused(key, check.name);
         continue;
       }
       findings.push(finding);
@@ -276,7 +313,41 @@ export function conformance(input: ConformanceInput): Report {
   // ignored: see above.
   const staleExemptions = Object.entries(exempt)
     .filter(([subjectName]) => !matched.has(subjectName))
-    .map(([subjectName, reason]) => ({ subject: subjectName, reason }));
+    .map(([subjectName, said]) => ({ subject: subjectName, reason: reasonOf(said) }));
+
+  /**
+   * **One exemption excusing two different faults**, which nothing could see.
+   *
+   * An exemption is keyed by the *subject* — an attribute, a command — and never by the check it was
+   * written for. So a reason about one question silently answers another about the same name, and
+   * the second fault is excused by an argument that was never about it.
+   *
+   * Measured, on a real product: `sends` carried "resolved to an `action` only on the published
+   * page", which is a true and careful claim about whether the attribute is **read**. The day a
+   * check about whether a panel row **writes** arrived, that same reason swallowed its finding — and
+   * the finding was a real one: the 보낼 곳 연결 picker on every form had never written anything.
+   *
+   * Not an error, because one reason genuinely can cover two checks. It is a finding, so somebody
+   * reads the reason again and decides — which is what an exemption is for.
+   */
+  const overloaded = [...doubleDuty]
+    .map(([subjectName, checks]) => {
+      const said = exempt[subjectName];
+      const covers = typeof said === 'string' ? undefined : said?.covers;
+      /*
+       * A bare reason answers one check. More than one and somebody has to look again — unless the
+       * exemption says out loud which checks it covers, in which case only a check it does not name
+       * is a surprise.
+       */
+      const unacknowledged = covers ? [...checks].filter((one) => !covers.includes(one)) : [...checks];
+      if (covers ? unacknowledged.length === 0 : checks.size < 2) return undefined;
+      return {
+        subject: subjectName,
+        reason: reasonOf(said),
+        checks: unacknowledged.sort()
+      };
+    })
+    .filter((one): one is { subject: string; reason: string; checks: string[] } => !!one);
 
   /*
    * What the product said it has not adopted, and whether that is still true. A check named here
@@ -284,7 +355,7 @@ export function conformance(input: ConformanceInput): Report {
    */
   const deferred = (input.notYet ?? []).map((check) => ({ check, examined: examined[check] ?? 0 }));
 
-  return { findings, staleExemptions, examined, unanswered, ratcheted, deferred };
+  return { findings, staleExemptions, overloaded, examined, unanswered, ratcheted, deferred };
 }
 
 /**
@@ -300,6 +371,17 @@ export function describeReport(report: Report): string {
     lines.push(`${report.findings.length} finding(s):`);
     for (const finding of report.findings) {
       lines.push(`  · [${finding.check}] ${finding.subject} — ${finding.detail}`);
+    }
+  }
+
+  if ((report.overloaded ?? []).length > 0) {
+    lines.push('', `${report.overloaded.length} exemption(s) excusing more than one check:`);
+    for (const one of report.overloaded) {
+      lines.push(
+        `  · ${one.subject} — also excuses ${one.checks.join(' and ')}, which it does not say it ` +
+          `covers. Its reason is "${one.reason}". Read it again: if it answers that question too, ` +
+          `say so with \`covers\`; if it does not, the finding is real.`
+      );
     }
   }
 

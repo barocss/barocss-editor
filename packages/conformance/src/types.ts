@@ -60,7 +60,31 @@ export interface Finding {
  * decide whether the exemption still applies, and it is the only thing that
  * separates "we decided" from "nobody noticed".
  */
-export type Exemptions = Record<string, string>;
+export type Exemptions = Record<string, string | ExemptionCovering>;
+
+/**
+ * An exemption that says **which checks its reason answers**.
+ *
+ * An exemption is keyed by its subject — an attribute, a command, a node type — and never by the
+ * check it was written for. So a reason about one question silently answers another about the same
+ * name, and nothing could see it happen. Measured on a real product: `sends` carried a careful,
+ * true claim about whether the attribute is **read**, and the day a check about whether a panel row
+ * **writes** arrived, that reason swallowed its finding. The finding was real — the 보낼 곳 연결
+ * picker on every form had never written anything.
+ *
+ * One reason genuinely can answer two checks: *a page has no coordinates* is why a shape is neither
+ * drawn nor nameable here, and writing it twice would be two places to keep it true. So the shape is
+ * an **acknowledgement** rather than a scope — say which checks it covers, once — and a check that
+ * turns up later and is not on the list fails loudly instead of inheriting an argument nobody made
+ * about it.
+ *
+ * A bare string still means what it always did, for the ordinary case: one subject, one check.
+ */
+export interface ExemptionCovering {
+  reason: string;
+  /** The checks this one reason answers. A check excusing itself here that is not listed fails. */
+  covers: string[];
+}
 
 /**
  * How many findings a check is *currently* allowed, while a product works them off.
@@ -94,6 +118,14 @@ export interface Report {
    * and it is the reason the whole harness exists in this shape.
    */
   staleExemptions: { subject: string; reason: string }[];
+  /**
+   * **Exemptions excusing more than one check.**
+   *
+   * An exemption is keyed by its subject and never by the check it was written for, so a reason
+   * about one question silently answers another about the same name. Reported rather than refused —
+   * one reason genuinely can cover two checks — so that somebody reads it again and decides.
+   */
+  overloaded: { subject: string; reason: string; checks: string[] }[];
   /** How many subjects each check looked at, so a silent check is visible. */
   examined: Record<string, number>;
   /**

@@ -8,7 +8,13 @@ import { createSiteEditor, createSiteOwnExtensions } from '../src/site-kit';
 import { siteKeyCommands } from '../src/keymap';
 import { siteLayerIcons } from '../src/layer-icons';
 import { SITE_TOOLBAR, siteToolbarCommands, siteToolbarIcons } from '../src/toolbar-model';
-import { sitePanelAttrs, sitePanelCommands, sitePanelIcons } from '../src/panel-model';
+import {
+  SITE_PANEL,
+  sitePanelAttrs,
+  sitePanelCommands,
+  sitePanelIcons,
+  type SitePanelRow
+} from '../src/panel-model';
 import { siteMenuCommands } from '../src/menu-model';
 
 /** Every declared toolbar control, whichever group it is in. */
@@ -88,6 +94,36 @@ describe('the site builder draws what it declares', () => {
      * which is where a product's taste lives.
      */
     { command: 'insertButton', produces: 'frame' },
+    /*
+     * And the two compositions a visitor **opens**, both `frame` for the same reason: an accordion is
+     * three boxes each holding a box that is not on the page yet, and a tab strip is the same three
+     * with one attribute turned on. Neither is a node type and neither should be — the day the schema
+     * grew an `accordion` node is the day a reader could no longer take one apart.
+     */
+    { command: 'insertAccordion', produces: 'frame' },
+    { command: 'insertTabs', produces: 'frame' },
+    /*
+     * And the one that produces a node type of its own, which is what makes it the only genuinely
+     * new thing in this product: a form is not a frame wearing a name, because what it does happens
+     * after a visitor has used it.
+     */
+    { command: 'insertForm', produces: 'form' },
+    /*
+     * And the one insert that puts a **resource** in rather than a block: a file the document holds,
+     * which a picture then names. Counted here for the same reason every other insert is — a command
+     * named `insert*` that no check covers is a command that could quietly stop working.
+     */
+    { command: 'insertAsset', produces: 'asset' },
+    /*
+     * And the table's five, which are the shared extension's rather than this product's — registered
+     * here because a comparison is tabular and a page has comparisons. Each says what it makes, which
+     * is what keeps them inside the two command checks rather than outside both.
+     */
+    { command: 'insertTableBlock', produces: 'bTable' },
+    { command: 'insertRowAbove', produces: 'bTableRow' },
+    { command: 'insertRowBelow', produces: 'bTableRow' },
+    { command: 'insertColumnLeft', produces: 'bTableCell' },
+    { command: 'insertColumnRight', produces: 'bTableCell' },
     { command: 'insertPlacement', produces: 'instance' },
     { command: 'insertDataList', produces: 'collection' },
     // And the data a list draws, which nothing but TypeScript could make until now.
@@ -154,6 +190,18 @@ describe('the site builder draws what it declares', () => {
    * undoing instead would test the undo as well, which is a different and worthy check, and a
    * command that does not undo would then read as a command that does nothing.
    */
+  /** The eight a table has, which need a caret in a cell and nothing else does. */
+  const TABLE_COMMANDS = [
+    'insertRowAbove',
+    'insertRowBelow',
+    'deleteRow',
+    'insertColumnLeft',
+    'insertColumnRight',
+    'deleteColumn',
+    'mergeCells',
+    'splitCell'
+  ];
+
   const moved = new Map<string, boolean | null>();
 
   /** The first run of words on a page — what a range selection needs somewhere to be. */
@@ -203,6 +251,96 @@ describe('the site builder draws what it declares', () => {
       const payload: Record<string, unknown> = { nodeId: page, pageId: page, parentId: page };
 
       /**
+       * **And what each of them needs beyond a selection.**
+       *
+       * Five commands write the *document* rather than a block — its address, its files, its type,
+       * a page's name — and take neither a `nodeIds` nor any of the three ids above. They said no,
+       * came back `null`, and sat in the silent column: five surfaces nothing was measuring, three
+       * of which had been added that week.
+       *
+       * A payload per command rather than a union of every key, because a union is how a probe ends
+       * up passing a `scale` to a command that wanted a `path` and reporting the refusal as a fault.
+       */
+      Object.assign(payload, {
+        setSiteAddress: { address: 'https://barocss.test' },
+        setSiteFiles: { noIndex: true },
+        setSiteType: { scale: 'calm' },
+        setPageInfo: { name: '시험 페이지' },
+        setBlockFormat: { nodeIds: [block], gap: 480 },
+        setOpens: { nodeIds: [block], opens: 'accordion' },
+        selectParent: { nodeIds: [block] }
+      }[command] ?? {});
+
+      /**
+       * **A block with something above it**, for the one command that needs one.
+       *
+       * `moveBlockUp` on the first block of a page is correctly refused, and the probe held exactly
+       * that block — so a command the browser suite watches work was counted as unaskable.
+       */
+      if (command === 'moveBlockUp') {
+        const second = blocksIn(doc as never, page)[1];
+        if (second) {
+          await editor.executeCommand('setNode', { nodeIds: [second] });
+          payload.nodeIds = [second];
+        }
+      }
+
+      /**
+       * **Something to take back**, for the two commands that are about time.
+       *
+       * `undo` and `redo` on a document nothing has happened to are correctly refused. So the probe
+       * does one edit first and then asks — which measures exactly what it should: whether taking it
+       * back moves the document.
+       */
+      if (command === 'undo' || command === 'redo') {
+        await editor.executeCommand('setBlockFormat', { nodeIds: [block], gap: 600 });
+        if (command === 'redo') await editor.executeCommand('undo', {});
+      }
+
+      /**
+       * **A caret in a table cell**, which is the third state a builder acts from and the one that
+       * left eight registered commands unmeasured.
+       *
+       * They were unaskable for a plainer reason than the state: the sample had **no table in it**,
+       * so there was no cell to put a caret in. The document wears one now — a comparison on the
+       * pricing page, which is what a table is for — and this puts the caret there.
+       */
+      /*
+       * **Named, not matched.** `command.includes('Row')` also caught `insertRow`, which is the
+       * site's 가로 스택 and has nothing to do with a table — so the probe put a caret in a cell and
+       * then reported a working insert as dead. A glob over command names is a probe deciding what a
+       * command is about from its spelling.
+       */
+      if (TABLE_COMMANDS.includes(command)) {
+        const cell = ((): string | undefined => {
+          for (const one of pagesOf(doc as never)) {
+            const found: string[] = [];
+            const walk = (sid: string, depth = 0) => {
+              if (depth > 40 || found.length > 0) return;
+              const node = store.getNode(sid) as any;
+              if (!node) return;
+              if (node.stype === 'bTableCell' || node.stype === 'bTableHeaderCell') found.push(sid);
+              for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
+            };
+            walk(one.sid);
+            if (found[0]) return found[0];
+          }
+          return undefined;
+        })();
+        const words = cell ? (store.getNode(cell) as any)?.content?.[0] : undefined;
+        if (typeof words === 'string') {
+          editor.selectionManager.setSelection({
+            type: 'range',
+            startNodeId: words,
+            startOffset: 0,
+            endNodeId: words,
+            endOffset: 0,
+            collapsed: true
+          } as never);
+        }
+      }
+
+      /**
        * **And the other state a page's surfaces act from**, which this probe did not have.
        *
        * A builder has two: a block selected, and **words** selected. Everything in the ribbon's link
@@ -250,6 +388,253 @@ describe('the site builder draws what it declares', () => {
   });
 
   const changes = (command: string): boolean | null => moved.get(command) ?? null;
+
+  /**
+   * **And the same question one level down**: does using a *row* write the attribute it names?
+   *
+   * The hole a browser found and this harness could not: `editable` says a row exists, a row names a
+   * command, and the command decides what it accepts. Six attributes shipped declared, drawn and
+   * offered, with `setBlockFormat`'s whitelist refusing every one — six controls that took a value
+   * and threw it away, with every check green.
+   *
+   * Driven the way the panel drives it: select a node the row says it is `on`, run the row's own
+   * command with the row's own attribute, and ask the document whether anything moved. A value the
+   * node does not already hold, because writing the value that is there is measuring the probe.
+   */
+  const wrote = new Map<string, boolean | null>();
+
+  beforeAll(async () => {
+    /**
+     * A value this row would actually send — **and one the node does not already hold**.
+     *
+     * The second half is not a detail: the first version picked the first option a choice offers,
+     * the first block of the home page is a sticky header, and 배치 방식's first option is 고정. So
+     * the probe wrote 고정 onto something already 고정, watched nothing change, and reported a
+     * working control as dead. A sweep that writes the value already there is measuring itself —
+     * which is the same lesson the browser's own sweep wrote down about 투명도, in almost the same
+     * words, before this check existed.
+     */
+    const valueFor = (row: SitePanelRow, held: unknown): unknown => {
+      if (row.control === 'toggle') return held === true ? false : true;
+      if (row.control === 'colour') return held === '#123456' ? '#654321' : '#123456';
+      if (row.control === 'choice') {
+        /*
+         * **Anything but what it already holds.** Preferring a value that is neither the fallback
+         * nor the held one is right when a row has three options and wrong when it has two: 목록 종류
+         * offers 글머리 and 번호, one of which is the fallback, and the sample's list is the other —
+         * so the probe found nothing to send and filed a working control under *could not ask*. The
+         * fallback is a legitimate thing to write; it is only the value already there that measures
+         * the probe instead of the product.
+         */
+        const options = (row.options ?? []).map((one) => one.id).filter((id) => id !== '');
+        return (
+          options.find((id) => id !== row.fallback && id !== String(held ?? '')) ??
+          options.find((id) => id !== String(held ?? ''))
+        );
+      }
+      if (row.control === 'number') {
+        const low = row.min ?? 0;
+        const high = row.max ?? 999;
+        const wanted = Math.min(high, Math.max(low, 7));
+        return wanted === held ? Math.min(high, Math.max(low, wanted === low ? high : low)) : wanted;
+      }
+      return held === '시험' ? '시험 둘' : '시험';
+    };
+
+    for (const row of SITE_PANEL) {
+      if (wrote.has(row.attr) || !row.command) continue;
+
+      const store = new DataStore(undefined as never, schema as never);
+      const editor: any = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+      editor.loadDocument(createSampleSite(), 'site');
+      const rootId = editor.getRootId();
+      const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+
+      /**
+       * A node of a type the row says it is offered on — searched across **every page**, and
+       * including the pages themselves.
+       *
+       * The first version walked inside the home page only, and it left a third of the panel
+       * unanswered: the form and its questions are on 소개, a code block is on 블로그, and twelve
+       * rows are `on: ['surface']` — a page, which is never *inside* a page. Thirty-six rows the
+       * check had nothing to say about, which is the quiet way a guard stops guarding.
+       */
+      const wants = row.on;
+      const found: string[] = [];
+      const walk = (sid: string, depth = 0) => {
+        if (depth > 40 || found.length > 0) return;
+        const node = store.getNode(sid) as any;
+        if (!node) return;
+        const kind = String(node.stype);
+        if (!wants || wants.includes(kind)) found.push(sid);
+        for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
+      };
+      for (const page of pagesOf(doc as never)) {
+        walk(page.sid);
+        if (found.length > 0) break;
+      }
+
+      const held = found[0] ? (store.getNode(found[0]) as any)?.attributes?.[row.attr] : undefined;
+      const value = valueFor(row, held);
+      if (found.length === 0 || value === undefined) {
+        wrote.set(row.attr, null);
+        continue;
+      }
+
+      /**
+       * **What shape the schema wants**, which is the difference between a probe that measures the
+       * product and one that measures itself.
+       *
+       * Two ways this went wrong before it went right, and both looked like a dead control:
+       *
+       * - a choice's ids are strings, because a `<select>`'s value is one, and 제목 단계 sent `'4'`
+       *   into a `number` attribute — the validator threw the whole transaction away. (That one was
+       *   a real fault as well: the panel had the same bug and now converts.)
+       * - `choices` is an `array`, and a probe with no opinion about shape sent the word 시험.
+       *
+       * Asked of the schema rather than listed per attribute, for the reason everything else here is:
+       * a list would be wrong the first time an attribute was added.
+       */
+      const declared = (schema as any).getNodeType?.(String((store.getNode(found[0]) as any)?.stype))
+        ?.attrs?.[row.attr];
+      const sent = ((): unknown => {
+        if (declared?.type === 'number' && typeof value === 'string' && Number.isFinite(Number(value))) {
+          return Number(value);
+        }
+        if (declared?.type === 'array') return ['하나', '둘'];
+        if (declared?.type === 'boolean') return held !== true;
+        return value;
+      })();
+      /**
+       * The payload key is the **attribute**, except where the row already says otherwise.
+       *
+       * A mark's row is named by the mark it reads — `fontSize`, `fontColor` — and its command takes
+       * `size` and `color`. The panel translates in one place and so does this; without it the two
+       * mark rows came back unanswered for ever, which is the silent column a check goes to die in.
+       */
+      const payload: Record<string, unknown> = { nodeIds: found, nodeId: found[0], [row.attr]: sent };
+      if (row.attr === 'fontSize') payload.size = '48px';
+      if (row.attr === 'fontColor') payload.color = '#123456';
+      /*
+       * And **what a block opens**, which is a second block rather than a value: `setOpens` takes a
+       * `target`, writes the opener's reference *and* a durable name on the thing opened, and reads
+       * nothing called `opens` at all. Handed the row's own attribute it read that as *take it back*,
+       * changed nothing, and the row was reported dead — a probe fault wearing the shape of a real
+       * one. The sibling after the opener is a block that certainly exists.
+       */
+      if (row.attr === 'opens') {
+        const parent = (store.getNode(found[0]) as any)?.parentId;
+        const siblings = ((store.getNode(String(parent)) as any)?.content ?? []) as string[];
+        const next = siblings.find((sid) => sid !== found[0]);
+        if (!next) {
+          wrote.set(row.attr, null);
+          continue;
+        }
+        payload.target = next;
+      }
+
+      /**
+       * **A row that writes a *resource*, named from the block that uses it.**
+       *
+       * Five rows on a form edit the **connection** it sends through, not the form — a shared thing
+       * edited from the panel of one of its users, which the panel says out loud by counting how many
+       * forms it reaches. `setServiceInfo` is asked by that connection's `name`, and the probe was
+       * handing it the form's sid, so all five came back *could not ask*: a whole group of controls
+       * this check had nothing to say about.
+       *
+       * Resolved the way the panel resolves it — from the block's own reference — rather than by
+       * finding any service, because a probe that edited a different connection from the one the
+       * form uses would be measuring something no reader can reach.
+       */
+      if (row.of === 'service') {
+        const said = (store.getNode(found[0]) as any)?.attributes?.sends;
+        if (typeof said === 'string' && said) payload.name = said;
+      }
+
+      /**
+       * **"It said no" is two different answers, and telling them apart is the check.**
+       *
+       * A refusal means either *I could not put the product in a state where this row applies* — not
+       * a fault, counted as unanswered — or *the command will not accept this field at all*, which is
+       * a control that takes a value and throws it away and is the exact fault this check exists for.
+       * Filed as one, the second hides inside the first: 보낼 곳 연결 sat in the silent column for as
+       * long as this check has existed, because `sends` is not in `setBlockFormat`'s list and the
+       * refusal read as a state the probe could not build.
+       *
+       * They are told apart by asking the same command for something it certainly takes. Every block
+       * has a `name`, so if the command says yes to *that* on this selection and no to the row's own
+       * attribute, the state was never the problem.
+       */
+      const refuses = () => editor.canExecuteCommand(row.command, payload) !== true;
+      const stateIsFine = () =>
+        row.command === 'setBlockFormat' &&
+        editor.canExecuteCommand('setBlockFormat', { nodeIds: found, nodeId: found[0], name: '시험' }) === true;
+
+      if (refuses() && stateIsFine()) {
+        // A selection this command can act on, and it still will not take this field.
+        wrote.set(row.attr, false);
+        continue;
+      }
+
+      if (editor.canExecuteCommand(row.command, payload) !== true) {
+        /*
+         * And **the other state a panel acts from**: words selected rather than a block. A mark
+         * covers a range and a node selection is not one, so the two mark rows refuse everything
+         * until there is a caret in some text. `every-command-does-something`'s probe learned this
+         * first, in the same file, for the same rows.
+         */
+        const words = firstRun(store, pagesOf(doc as never)[0]?.sid ?? rootId);
+        if (!words) {
+          wrote.set(row.attr, null);
+          continue;
+        }
+        editor.selectionManager.setSelection({
+          type: 'range',
+          startNodeId: words,
+          startOffset: 0,
+          endNodeId: words,
+          endOffset: 2,
+          collapsed: false
+        } as never);
+        if (editor.canExecuteCommand(row.command, payload) !== true) {
+          wrote.set(row.attr, null);
+          continue;
+        }
+      }
+
+      const before = JSON.stringify(editor.exportDocument?.(rootId) ?? '');
+      await editor.executeCommand(row.command, payload);
+      wrote.set(row.attr, JSON.stringify(editor.exportDocument?.(rootId) ?? '') !== before);
+    }
+  });
+
+  /**
+   * What the row probe could **not** ask about, printed rather than hidden.
+   *
+   * A check's unanswered count is the number the harness prints beside `examined`, and it is the one
+   * a reader has to look at to know whether a guard is still guarding: it went from 38 to 14 the day
+   * the probe learned to walk every page, and 24 rows silently stopped being checked the day before
+   * that would look exactly the same. This lists them by name so the number is actionable.
+   */
+  it('says which commands it could not put itself in a state to try', () => {
+    const silent = [...new Set(reachable)].filter((one) => moved.get(one) === null).sort();
+    // eslint-disable-next-line no-console
+    console.log(`명령 프로브가 답하지 못한 것 — ${silent.length}\n  ${silent.join('\n  ')}`);
+    expect(silent.length).toBeLessThanOrEqual(25);
+  });
+
+  it('says which rows it could not put itself in a state to try', () => {
+    const silent = SITE_PANEL.filter((row) => row.command && wrote.get(row.attr) === null)
+      .map((row) => `${row.ariaLabel} (${row.attr})`)
+      .filter((one, at, all) => all.indexOf(one) === at);
+    // eslint-disable-next-line no-console
+    console.log(`행 프로브가 답하지 못한 것 — ${silent.length}\n  ${silent.join('\n  ')}`);
+    /*
+     * A ratchet rather than a target. Every one of these is a row whose state this probe cannot
+     * build yet, and the number only being allowed to fall is what stops the silent column growing.
+     */
+    expect(silent.length).toBeLessThanOrEqual(14);
+  });
 
   it('draws what it declares, expects only what it says it expects', () => {
     assertConforms({
@@ -332,6 +717,9 @@ describe('the site builder draws what it declares', () => {
       own,
       reachable,
       editable,
+      /** Every row, and whether using it moves the document — see `wrote` above. */
+      rows: SITE_PANEL.map((row) => ({ attr: row.attr, label: row.ariaLabel, command: row.command })),
+      rowChanges: (row) => wrote.get(row.attr) ?? null,
       /**
        * Whether the product draws anything for a mark — the vocabulary no check could see.
        *
@@ -364,6 +752,39 @@ describe('the site builder draws what it declares', () => {
          * history, an export that stamps the file — this fails on the exemption rather than passing.
          */
         copyBlocks: 'puts blocks on a clipboard, which is a property of the reader and not of the site',
+        /**
+         * **A gesture, not a control** — and the distinction is the exemption.
+         *
+         * Every other command here is reached by pressing something: a button, a menu entry, a key.
+         * This one is reached by *pasting into a cell of the data grid*, which is an event the
+         * browser delivers and not a surface a product declares. A button labelled 붙여넣기 beside
+         * the grid would be a control that cannot read the clipboard without a permission and a
+         * gesture, which is the same wall `pasteBlocks` describes at length.
+         *
+         * The claim, so it fails rather than rots: the day this is reachable any other way, or the
+         * day a data grid grows a real toolbar, it comes off.
+         */
+        setDatasetCells: {
+          reason:
+            'pasted into a cell of the data grid — an event rather than a control; held in `data-commands.test.ts`',
+          covers: ['every-command-can-be-reached', 'every-command-can-be-seen']
+        },
+        /*
+         * The one exemption here that is a **deliberately looser** `canExecute` rather than a
+         * command that changes the application, and the reason is the browser's:
+         *
+         * Reading the system clipboard is asynchronous and may prompt, so nothing can be asked
+         * *now* whether it holds a block. The tight answer — enabled only when this window is the
+         * one that copied — is what the command used to say, and it made pasting a block from one
+         * site into another **impossible**: a second window has its own extension and its own empty
+         * hand, so ⌘V was refused before it ever reached the clipboard the copy actually went to.
+         *
+         * So it answers whether there is anywhere to paste, and a paste that finds prose does
+         * nothing — which is what every editor's Paste does. The claim: if the platform ever offers
+         * a synchronous *has a block* the loose answer stops being the honest one and this comes off.
+         */
+        pasteBlocks:
+          'enabled wherever a paste could land, because whether the system clipboard holds a block cannot be asked without awaiting it — and the tight answer made cross-document paste impossible',
         selectAllBlocks: 'moves the selection, which is what a reader is *looking at* rather than what they wrote',
         exportSite: 'reads the document out as files; a publish that edited the document would be a bug',
         exportPage: 'the same, for one page',
@@ -374,13 +795,34 @@ describe('the site builder draws what it declares', () => {
          * vocabulary for every product, so a site declares them by inheriting them — and a page has
          * no coordinates to put them at. The day a page can hold a canvas, this fails first.
          */
-        rectangle: 'a page has no coordinates: a shape is placed on a canvas, and a page stacks',
-        ellipse: 'a page has no coordinates: a shape is placed on a canvas, and a page stacks',
-        line: 'a page has no coordinates: a shape is placed on a canvas, and a page stacks',
-        path: 'a page has no coordinates: a shape is placed on a canvas, and a page stacks',
-        connector: 'a connector joins two placed shapes, and a page places nothing',
-        sticky: 'a note stuck to a board; a page has no board',
-        group: 'a group is a z-order over placed shapes, and a page has neither',
+        rectangle: {
+          reason: 'a page has no coordinates: a shape is placed on a canvas, and a page stacks',
+          covers: ['every-node-is-drawn', 'every-drawing-can-be-named']
+        },
+        ellipse: {
+          reason: 'a page has no coordinates: a shape is placed on a canvas, and a page stacks',
+          covers: ['every-node-is-drawn', 'every-drawing-can-be-named']
+        },
+        line: {
+          reason: 'a page has no coordinates: a shape is placed on a canvas, and a page stacks',
+          covers: ['every-node-is-drawn', 'every-drawing-can-be-named']
+        },
+        path: {
+          reason: 'a page has no coordinates: a shape is placed on a canvas, and a page stacks',
+          covers: ['every-node-is-drawn', 'every-drawing-can-be-named']
+        },
+        connector: {
+          reason: 'a connector joins two placed shapes, and a page places nothing',
+          covers: ['every-node-is-drawn', 'every-drawing-can-be-named']
+        },
+        sticky: {
+          reason: 'a note stuck to a board; a page has no board',
+          covers: ['every-node-is-drawn', 'every-drawing-can-be-named']
+        },
+        group: {
+          reason: 'a group is a z-order over placed shapes, and a page has neither',
+          covers: ['every-node-is-drawn', 'every-drawing-can-be-named']
+        },
         canvasBlock: 'a canvas embedded in the flow — the one node that would bring the rest back',
         textFrame: 'a text box is a placed box; on a page, text is a block in the column',
 
@@ -407,16 +849,34 @@ describe('the site builder draws what it declares', () => {
         component: 'a definition is resolved into a placement’s parts, never drawn where it is kept',
         componentVar: 'a question a definition asks; the answer is drawn, the question is not',
         componentBind: 'which part takes which answer — read by the resolver, drawn by nothing',
-        componentValue: 'a placement’s answer, read by the resolver and put into the part it names',
+        componentValue: {
+          reason: 'a placement’s answer, read by the resolver and put into the part it names',
+          covers: ['every-node-is-drawn', 'every-drawing-can-be-named']
+        },
         variables: 'named values, read where they are referenced (`var:이름`) and never drawn',
         variable: 'named values, read where they are referenced (`var:이름`) and never drawn',
 
         // ── Attributes a page has no coordinates for ───────────────────────
-        x: 'a page has no coordinates; the browser lays a stack out',
-        y: 'a page has no coordinates; the browser lays a stack out',
-        width: 'a block is as wide as the column it is in — `sizing` is what a page says instead',
-        height: 'a page is as tall as it turns out, which is the whole difference from a sheet',
-        rotation: 'nothing on a page is at an angle',
+        x: {
+          reason: 'a page has no coordinates; the browser lays a stack out',
+          covers: ['every-attribute-is-read', 'every-property-can-be-edited']
+        },
+        y: {
+          reason: 'a page has no coordinates; the browser lays a stack out',
+          covers: ['every-attribute-is-read', 'every-property-can-be-edited']
+        },
+        width: {
+          reason: 'a block is as wide as the column it is in — `sizing` is what a page says instead',
+          covers: ['every-attribute-is-read', 'every-property-can-be-edited']
+        },
+        height: {
+          reason: 'a page is as tall as it turns out, which is the whole difference from a sheet',
+          covers: ['every-attribute-is-read', 'every-property-can-be-edited']
+        },
+        rotation: {
+          reason: 'nothing on a page is at an angle',
+          covers: ['every-attribute-is-read', 'every-property-can-be-edited']
+        },
         /*
          * `visible` was *"a canvas idea; a page shows what it holds"* and it is not any more — a page
          * hides a block a reader is drafting, which is the commonest reason anybody opens a layer
@@ -489,6 +949,62 @@ describe('the site builder draws what it declares', () => {
         transitionMs:
           'published as a rule, not folded into a drawing: read by `stateRules` and `editorStateCss` — held in `states.test.ts`',
         /*
+         * And the **gesture** half of the same thing, which is even further from a drawing: `opens`
+         * does not change how this block looks at all. It changes what a *different* block looks
+         * like, and only after a visitor has pressed — so what it produces is a checkbox and a label
+         * in the published markup, and the editor draws neither on purpose (`openSwitches`).
+         *
+         * A block whose `opens` names nothing on the page publishes as an ordinary block, which is
+         * the same drawing and a different document — exactly the shape the probe cannot see.
+         */
+        opens:
+          'a gesture rather than a look: read by `openSwitches`, which puts a switch and a label in the exported page — held in `states.test.ts`',
+        /*
+         * And the two that qualify the gesture, exempt for the same reason and no further one. Both
+         * change the **control** the export writes rather than anything about the drawing:
+         * `openAtRest` ships the switch already `checked`, and `opensOne` makes the switches under a
+         * block radios that share a name — which is the whole of what a tab strip is.
+         */
+        openAtRest:
+          'ships the switch already pressed: read by `openSwitches` — held in `states.test.ts` and in the browser at 390',
+        opensOne:
+          'a checkbox or a radio, which is a fact about a set: read by `openSwitches` — held in `states.test.ts` and in the browser',
+        /*
+         * A form's two, and they are the only attributes in this product that are drawn **on the
+         * published page and deliberately not on a board**.
+         *
+         * Every other difference between the two drawings is a removal the export makes afterwards.
+         * These are the exception and the reason is not neatness: a designer pressing Enter in a
+         * field they are arranging must not send a stranger a message, so the board's `<form>` has no
+         * address and no method to send it with. `SiteEnv.published` is the one flag, read in one
+         * place, and `form.test.ts` holds both sides of it.
+         */
+        /*
+         * Which connection a form sends through — a **name**, resolved to an address at the moment
+         * the page is published, and drawn on a board as nothing at all: a designer pressing Enter in
+         * a field they are arranging must not send a stranger a message. So the probe, which draws a
+         * board, correctly sees nothing change.
+         */
+        sends: 'the connection a form sends through, resolved to an `action` only on the published page — held in `form.test.ts`',
+        /*
+         * And **when a picture is fetched**, which is a published page's question and a board's not at
+         * all: a board draws bytes it already has, so there is nothing to defer. The probe draws a
+         * board and correctly sees nothing change.
+         */
+        defer: 'drawn only on the published page — a board has the bytes already; held in `assets.test.ts`',
+        /*
+         * Where a visitor lands after sending, which is a **hidden field** on the published page and
+         * nothing at all on a board: a board has no address to return to and submitting means nothing
+         * there. The probe draws a board and correctly sees no change.
+         */
+        thanks: 'a hidden field on the published page, named by the connection — held in `form.test.ts`',
+        /*
+         * And how many lines a **paragraph** field shows, which the probe cannot reach: it draws a
+         * field with the default `kind`, which is one line, and a one-line field has no rows. Read by
+         * the `textarea` branch and held in `form.test.ts`.
+         */
+        lines: 'the rows of a paragraph field; the probe draws the default one-line field — held in `form.test.ts`',
+        /*
          * The third, and the clearest of the three: there is no moment at which a document is *being
          * scrolled to*. A width is known before the drawing, a pointer is the visitor's, and a scroll
          * position is the visitor's **and keeps changing** — so this leaves the model as a keyframe
@@ -496,10 +1012,14 @@ describe('the site builder draws what it declares', () => {
          */
         /*
          * And what the page is **about**, which no renderer can read because it is not on the page:
-         * it is what the `<head>` says to a crawler and to a chat that unfurls the address.
+         * it is what the `<head>` says to a crawler and to a chat that unfurls the address. `image`
+         * is the same thing one step further — the picture that card shows, which is the half of an
+         * unfurl anybody actually looks at and which nothing on the page itself ever draws.
          */
         description:
           'published in the document’s head, not drawn: read by `exportPage` — held in `reveal.test.ts`',
+        image:
+          'the picture a shared link shows: written into the `<head>` by `document_`, joined onto the site address when it is relative — held in `export.test.ts`',
         /*
          * And where the **site** lives, which no renderer can read for a stronger reason than the
          * description's: it is not on any page. It is what `og:url`, the canonical link and every
@@ -507,6 +1027,43 @@ describe('the site builder draws what it declares', () => {
          */
         address:
           'published in the head and in the sitemap, not drawn: read by `exportPage` and `sitemapFor` — held in `reveal.test.ts`',
+        /*
+         * **What the site is set in**, which is a rule rather than a value on a node — the fourth
+         * thing here published that way, after a state, a reveal and a transition. `typeRule` writes
+         * four custom properties and `PAGE_CSS` names them, so no one block's drawing changes and the
+         * whole page is set differently.
+         *
+         * The probe draws a *block*, so it correctly sees nothing: there is no block whose own style
+         * says what face the site is in.
+         */
+        bodyFace:
+          'published as a rule on the page, not folded into a block: read by `typeRule` — held in `type.test.ts`',
+        headingFace: 'published as a rule on the page — see `bodyFace`; held in `type.test.ts`',
+        baseSize: 'published as a rule on the page — see `bodyFace`; held in `type.test.ts`',
+        scale: 'published as a rule on the page — see `bodyFace`; held in `type.test.ts`',
+        /*
+         * The four that are about the **published folder** rather than about a drawing: the picture
+         * in a browser tab, what a crawler is told, and which page a host serves for an address it
+         * cannot match. A board has no tab, no crawler and no host, so the probe correctly sees
+         * nothing change.
+         */
+        /**
+         * **Scoped**, and it had to be: an icon that has no picture is reported with the family
+         * `icon`, and this key — written about the *favicon attribute* — was excusing every one of
+         * them. Three of the toolbar's icons name a glyph this suite does not draw, so 아코디언, 탭
+         * and 폼 have been rendering **as the words `accordion`, `tabs` and `form`** in the left rail
+         * since the day they were added, and the check that exists to catch exactly that was green.
+         *
+         * Found by the `+` dialog putting the same declaration on screen somewhere a person was
+         * looking at it — which is the argument for a second doorway onto one list.
+         */
+        icon: {
+          reason:
+            'the picture in a browser tab: written into the head by `exportPage` — held in `site-files.test.ts`',
+          covers: ['every-attribute-is-read']
+        },
+        noIndex: 'what a crawler is told: read by `robotsFor` and written into the head — held in `site-files.test.ts`',
+        notFound: 'which page a host serves for an address it cannot match: read by the publish as `404.html` — held in `site-files.test.ts`',
         reveal: 'published as a rule, not folded into a drawing: read by `revealRules` — held in `reveal.test.ts`',
         /*
          * And whose arrival it is, which is the same fact one level down: a container that stagger
@@ -517,7 +1074,14 @@ describe('the site builder draws what it declares', () => {
           'published as a rule, not folded into a drawing: read by `revealRules` — held in `reveal.test.ts`',
 
         // ── The office schema’s, for products that are not this one ────────
-        placeholder: 'Word draws a prompt in an empty paragraph; a page has no forms yet',
+        /*
+         * `placeholder` was here — *"a page has no forms yet"* — and the harness struck it out the
+         * hour a page had one. It is the exemption doing what an exemption is for: a claim that goes
+         * stale loudly, on the day it stops being true, rather than a comment nobody re-reads.
+         *
+         * A field's `placeholder` is drawn by `field` and set from 안내글; the paragraph's, which
+         * Word draws as a prompt in an empty block, is still office-text's.
+         */
         /*
          * `type` was here — *"a list's numbering, office-text's to draw"* — and it was true right up
          * until a site drew `<ul>` and `<ol>` instead of two identical `<div>`s. The harness reported
@@ -556,11 +1120,36 @@ describe('the site builder draws what it declares', () => {
          * is true again and says something sharper than it did: not merely *where* they are reached
          * but *why they cannot be reached anywhere else*.
          */
+        /*
+         * The shared kit's table, which puts one **at the caret** — Word's gesture, and one a page's
+         * rail has no way to make: an insert here lands after what is selected or at the end of the
+         * page, and with nothing selected there is no caret at all. `insertTableBlock` is this
+         * product's, named for what it makes, exactly as `insertBodyText` is beside `insertText`.
+         */
+        insertTable: 'the shared kit’s: a table at the caret; a page’s rail makes one with `insertTableBlock`',
         insertPlacement:
           'the left rail — 컴포넌트, which offers the definitions this document holds; a menu has no definition to name',
         insertDataList:
           'the left rail — 데이터, which offers a dataset and a definition together; a menu has neither to name',
-        insertDataset: 'the left rail — 데이터 › 새 데이터, which names it and opens its grid',
+        insertDataset: {
+          reason: 'the left rail — 데이터 › 새 데이터, which names it and opens its grid',
+          covers: ['every-command-can-be-reached', 'every-command-can-be-seen']
+        },
+        /*
+         * A button in the dataset's own editor, and only on a `url` dataset — which is why it is not
+         * on a toolbar: it is meaningless on the inline dataset a reader typed by hand, and a control
+         * that is greyed out nine times out of ten is a control nobody presses the tenth.
+         */
+        refreshDataset: 'the dataset editor — 새로 가져오기, drawn only for a dataset that has an address',
+        /*
+         * The picture row's 파일 넣기, which is a **file input** rather than a button — a toolbar
+         * cannot hold one, and a command that opened a file dialog by itself would be a model package
+         * reaching for the DOM. The app reads the file and runs this with the bytes.
+         */
+        insertAsset: {
+          reason: 'the picture row — 파일 넣기, a file input the app reads before running it',
+          covers: ['every-command-can-be-reached', 'every-command-can-be-seen']
+        },
 
         // ── The rail's list of pages ──────────────────────────────────────────────────────
         /*
@@ -636,7 +1225,12 @@ describe('the site builder draws what it declares', () => {
          * panel offers a **label** and keeps the name.
          */
         id: 'a durable reference target: a link names a page by it. The panel offers 이름 instead, and the id is never typed',
-        kind: 'what shape of surface a page is — set when it is made, and a page that changed kind would be a different page',
+        /*
+         * `kind` was one word for two things and the harness said so the day a `field` had one. A
+         * surface's is what shape of page it is — set when it is made, never edited. A field's is
+         * which control it draws, and is a row in the panel. Nothing shared but the spelling, which
+         * is the seam fault this repository keeps finding; both are read.
+         */
 
         // ── Word's vocabulary, drawn on a page and not yet editable here ───
         /**

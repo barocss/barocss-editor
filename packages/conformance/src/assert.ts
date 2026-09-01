@@ -28,6 +28,18 @@ export function assertConforms(input: ConformanceInput): void {
   if (report.staleExemptions.length > 0) {
     problems.push(`${report.staleExemptions.length} exemption(s) that no longer exempt anything`);
   }
+  /*
+   * And an exemption doing **two jobs**, which is the fourth thing to hold and the one that was
+   * found rather than designed: a reason is written about one question and keyed by a name, so the
+   * day a second check asks a different question about that name the old reason answers it. See
+   * `overloaded` — one reason genuinely can cover two checks, so this asks somebody to read it
+   * again rather than refusing outright.
+   */
+  if ((report.overloaded ?? []).length > 0) {
+    problems.push(
+      `${report.overloaded.length} exemption(s) excusing more than one check`
+    );
+  }
 
   for (const entry of report.ratcheted) {
     if (entry.found === entry.allowed) continue;

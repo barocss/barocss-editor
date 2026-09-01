@@ -818,8 +818,14 @@ const schema = createSchema('word', getWordSchemaDefinition());
 
         // The page itself. A surface draws its sheets from `layout.metrics`, so the
         // page geometry is read where the pages are computed.
-        marginTop: 'the page the paginator measures — `layout.ts`',
-        marginBottom: 'the page the paginator measures — `layout.ts`',
+        marginTop: {
+          reason: 'the page the paginator measures — `layout.ts`',
+          covers: ['every-attribute-is-read', 'every-property-can-be-edited']
+        },
+        marginBottom: {
+          reason: 'the page the paginator measures — `layout.ts`',
+          covers: ['every-attribute-is-read', 'every-property-can-be-edited']
+        },
         marginGutter: 'the page the paginator measures — `layout.ts`, the room for the binding',
         orientation: 'the page the paginator measures — `layout.ts`',
         'surface.width': 'the page the paginator measures — `layout.ts`; the surface draws its sheets from `layout.metrics`',
@@ -848,10 +854,16 @@ const schema = createSchema('word', getWordSchemaDefinition());
         // attribute is read, and the answer needs a document the check does not build.
         numId: 'the numbering resolver — `numbering-resolver.ts`; the definition is in the document',
         numLevel: 'the numbering resolver — how deep in the definition it is',
-        styleId: 'the style cascade — `style-resolver.ts`; the definition is in the document',
+        styleId: {
+          reason: 'the style cascade — `style-resolver.ts`; the definition is in the document',
+          covers: ['every-attribute-is-read', 'every-property-can-be-edited']
+        },
 
         // The contents page is built *from* these, rather than drawn by the node.
-        caption: 'the contents page — `toc.ts` builds it',
+        caption: {
+          reason: 'the contents page — `toc.ts` builds it',
+          covers: ['every-attribute-is-read', 'every-property-can-be-edited']
+        },
         levels: 'the contents page — which heading levels it lists',
         styleFilter: 'the contents page — which styles it collects',
         showPageNumbers: 'the contents page — `toc.ts`',
@@ -964,7 +976,10 @@ const schema = createSchema('word', getWordSchemaDefinition());
         components: 'the document’s library of definitions; Word has none to keep',
         component: 'a definition; Word has no library',
         componentVar: 'what a placement of a definition can be asked for; Word has no definitions',
-        componentValue: 'what one placement answers; the same',
+        componentValue: {
+          reason: 'what one placement answers; the same',
+          covers: ['every-node-is-drawn', 'every-drawing-can-be-named']
+        },
         /**
          * ── The document's own **named values** ────────────────────────────
          *
