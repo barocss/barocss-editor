@@ -655,6 +655,20 @@ body {
  * Bright and thin: it has to be seen against a card, a photograph and a dark footer, and it must not
  * be mistaken for something the page contains.
  */
+/**
+ * The line a free drag is lined up with.
+ *
+ * One hairline, a constant width on screen whatever the board's zoom — `--st-zoom` is the plane's,
+ * so `calc(1px / var(--st-zoom))` is how a constant is said inside something scaled. The accent
+ * rather than the selection's colour, because this is the tool talking rather than the document.
+ */
+.st-mark-guide {
+  border-left: calc(1px / var(--st-zoom)) solid var(--ou-accent);
+  border-top: calc(1px / var(--st-zoom)) solid var(--ou-accent);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
 .st-mark-landing {
   background: var(--st-accent);
   border-radius: 2px;

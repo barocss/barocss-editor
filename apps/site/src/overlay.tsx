@@ -8,6 +8,7 @@ import {
   firstRunIn,
   landingFor,
   innermostOf,
+  isInside,
   isTextual,
   boundVarOf,
   drawnSidAtElement,
@@ -243,8 +244,128 @@ export function Overlay({
    * that did not move and a builder where clicking selects *and* nudges is a builder that moves
    * things by accident.
    */
-  const held = useRef<{ sid: string; x: number; y: number; carrying: boolean } | null>(null);
+  const held = useRef<
+    {
+      sid: string;
+      x: number;
+      y: number;
+      carrying: boolean;
+      /**
+       * **Where the drag would put it, when the block places itself.**
+       *
+       * A block that states `position: absolute` is not in the stack any more — it is at coordinates
+       * inside whatever box positions it — so dragging it is a *move*, not a reorder. Which sides to
+       * write is the block's own decision, not this drag's: one that says `insetRight` is pinned to
+       * the right edge and stays pinned, because that is what a reader chose when they wrote it.
+       *
+       * `moved` is filled in as the pointer travels and read once, on release. The drawing follows
+       * the pointer through an inline style in the meantime — the pattern every drag here uses, and
+       * for its reason: a transaction per pointer event is a history a reader cannot undo through.
+       */
+      free?: {
+        el: HTMLElement;
+        sides: ('top' | 'right' | 'bottom' | 'left')[];
+        was: Record<string, number>;
+        moved?: Record<string, number>;
+        /** Where the block was when the press happened, in board pixels — what the snap compares. */
+        from: { left: number; top: number; width: number; height: number };
+        lines: { x: number[]; y: number[] };
+      };
+    } | null
+  >(null);
   const [landing, setLanding] = useState<Landing | null>(null);
+  /**
+   * The lines a free drag is **snapping to**, in the board's own pixels.
+   *
+   * Drawn rather than only felt, which is the whole difference between a snap that helps and one
+   * that fights: a block that stops moving for four pixels with nothing on screen to explain it reads
+   * as a bug. Every tool of this kind draws the line it caught, and this draws the same line.
+   */
+  const [guides, setGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] });
+
+  /**
+   * What a **free** drag would need, or nothing at all — which is the ordinary answer.
+   *
+   * A block places itself only when it says so, and a page is a stack of bands: almost nothing on it
+   * is absolute, and everything that is not keeps the reorder drag it has always had. So this is the
+   * one question asked at the start of every press, and it is cheap: read one attribute.
+   *
+   * The sides come from the document rather than from a rule of this drag's, because they are a
+   * decision a reader already made — a badge pinned to a card's right edge stays pinned to it when
+   * the card is dragged. A block that has said nothing gets top and left, which is the corner
+   * `positionCss` already puts it in.
+   */
+  const freeAt = (sid: string) => {
+    const attrs = (doc().getNode(sid)?.attributes ?? {}) as Record<string, unknown>;
+    if (attrs.position !== 'absolute') return undefined;
+    const board = host.current;
+    const el = board?.querySelector<HTMLElement>(`[data-bc-sid="${CSS.escape(sid)}"]`);
+    if (!el) return undefined;
+
+    const held = (['top', 'right', 'bottom', 'left'] as const).filter(
+      (side) => typeof attrs[`inset${side[0].toUpperCase()}${side.slice(1)}`] === 'number'
+    );
+    const sides = held.length > 0 ? held : (['top', 'left'] as const).slice();
+    const said = getComputedStyle(el);
+    const was: Record<string, number> = {};
+    for (const side of sides) was[side] = Math.round(Number.parseFloat(said[side]) || 0);
+
+    const scale = scaleOf(board!);
+    const frame = board!.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
+    const from = {
+      left: (rect.left - frame.left) / scale,
+      top: (rect.top - frame.top) / scale,
+      width: rect.width / scale,
+      height: rect.height / scale
+    };
+    return { el, sides: [...sides], was, from, lines: linesFor(el) };
+  };
+
+  /**
+   * **What a free drag lines up with**, gathered once when the drag starts.
+   *
+   * The box that positions the block — its edges and its two centre lines — and every sibling drawn
+   * beside it. Those are the lines a person actually aims at: flush with the card above, centred in
+   * the section, hard against the left edge. Anything further away is noise, so the list stops at
+   * the positioning parent rather than walking the whole page.
+   *
+   * In **board pixels**, like every other box here, so the comparison never has to think about zoom.
+   */
+  const linesFor = (el: HTMLElement) => {
+    const board = host.current;
+    const parent = (el.offsetParent as HTMLElement | null) ?? el.parentElement;
+    if (!board || !parent) return { x: [] as number[], y: [] as number[] };
+    const scale = scaleOf(board);
+    const frame = board.getBoundingClientRect();
+    const inBoard = (rect: DOMRect) => ({
+      left: (rect.left - frame.left) / scale,
+      right: (rect.right - frame.left) / scale,
+      top: (rect.top - frame.top) / scale,
+      bottom: (rect.bottom - frame.top) / scale
+    });
+
+    const x: number[] = [];
+    const y: number[] = [];
+    const box = inBoard(parent.getBoundingClientRect());
+    x.push(box.left, box.right, (box.left + box.right) / 2);
+    y.push(box.top, box.bottom, (box.top + box.bottom) / 2);
+
+    for (const other of [...parent.children]) {
+      if (other === el || !(other instanceof HTMLElement)) continue;
+      if (!other.getAttribute('data-bc-sid')) continue;
+      const each = inBoard(other.getBoundingClientRect());
+      x.push(each.left, each.right, (each.left + each.right) / 2);
+      y.push(each.top, each.bottom, (each.top + each.bottom) / 2);
+    }
+    return { x, y };
+  };
+
+  /**
+   * How close counts, in board pixels — constant on screen rather than in the document, because it is
+   * about a hand holding a pointer and not about the page.
+   */
+  const SNAP = 6;
 
   /** The pointer, in the board's own pixels — the space every box here is measured in. */
   const pointIn = (event: { clientX: number; clientY: number }) => {
@@ -483,6 +604,66 @@ export function Overlay({
           if (far) carry.carrying = true;
           if (carry.carrying) {
             setHover(undefined);
+            /*
+             * A block that places itself is **moved**, not landed: there is no stack to put it into
+             * and no line to draw between two of its siblings. The drawing follows the pointer and
+             * the document hears about it once, on release.
+             */
+            if (carry.free) {
+              const scale = scaleOf(host.current!);
+              let acrossX = (event.clientX - carry.x) / scale;
+              let acrossY = (event.clientY - carry.y) / scale;
+
+              /**
+               * **Lined up, unless the reader says otherwise.**
+               *
+               * Three lines are offered per axis — the block's two edges and its middle — against the
+               * parent's edges and centre and every sibling's. The *smallest* correction inside the
+               * threshold wins, so a block near two lines catches the nearer one rather than
+               * whichever was checked first.
+               *
+               * Alt turns it off, which is the shortcut every tool of this kind uses and the one a
+               * reader reaches for when they mean a number that is not round.
+               */
+              const caught: { x: number[]; y: number[] } = { x: [], y: [] };
+              if (!event.altKey) {
+                const { from, lines } = carry.free;
+                const pull = (
+                  at: number,
+                  size: number,
+                  across: number,
+                  candidates: number[]
+                ): { across: number; lines: number[] } => {
+                  let best: { by: number; line: number } | undefined;
+                  for (const edge of [at + across, at + across + size / 2, at + across + size]) {
+                    for (const line of candidates) {
+                      const by = line - edge;
+                      if (Math.abs(by) > SNAP) continue;
+                      if (!best || Math.abs(by) < Math.abs(best.by)) best = { by, line };
+                    }
+                  }
+                  return best ? { across: across + best.by, lines: [best.line] } : { across, lines: [] };
+                };
+                const alongX = pull(from.left, from.width, acrossX, lines.x);
+                const alongY = pull(from.top, from.height, acrossY, lines.y);
+                acrossX = alongX.across;
+                acrossY = alongY.across;
+                caught.x = alongX.lines;
+                caught.y = alongY.lines;
+              }
+              setGuides(caught);
+
+              const moved: Record<string, number> = {};
+              for (const side of carry.free.sides) {
+                // Right and bottom are measured **inward**, so the pointer moves them the other way.
+                const travelled =
+                  side === 'left' ? acrossX : side === 'right' ? -acrossX : side === 'top' ? acrossY : -acrossY;
+                moved[side] = Math.round(carry.free.was[side] + travelled);
+                carry.free.el.style.setProperty(side, `${moved[side]}px`);
+              }
+              carry.free.moved = moved;
+              return;
+            }
             setLanding(landingAt(event, carry.sid));
             return;
           }
@@ -493,6 +674,30 @@ export function Overlay({
         const carry = held.current;
         held.current = null;
         (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
+        setGuides({ x: [], y: [] });
+        if (carry?.carrying && carry.free) {
+          const { el, sides, moved, was } = carry.free;
+          // The inline styles come off before the command runs, so the document's own value is what
+          // draws — the same rule the padding bands follow, and for the same reason.
+          for (const side of sides) el.style.removeProperty(side);
+          setLanding(null);
+          if (!moved || sides.every((side) => moved[side] === was[side])) return;
+          void (editor as never as { executeCommand?: (n: string, p?: unknown) => Promise<unknown> }).executeCommand?.(
+            'setBlockFormat',
+            {
+              nodeIds: [carry.sid],
+              at: breakpoint,
+              // **Twips**, which is what the document keeps; the board is in CSS pixels.
+              ...Object.fromEntries(
+                sides.map((side) => [
+                  `inset${side[0].toUpperCase()}${side.slice(1)}`,
+                  Math.round(moved[side] * 15)
+                ])
+              )
+            }
+          );
+          return;
+        }
         if (!carry?.carrying || !landing) {
           setLanding(null);
           return;
@@ -521,7 +726,22 @@ export function Overlay({
         const outer = childOfScope(doc(), sid, page, scope);
         // What a drag would carry, remembered before anything is selected: a reader who presses on a
         // block and moves is moving *that* block, whatever the press did to the selection.
-        held.current = outer ? { sid: outer, x: event.clientX, y: event.clientY, carrying: false } : null;
+        /**
+         * **What a drag carries is what is selected**, when the press is inside it.
+         *
+         * A press resolves to the outermost block, which is right for *selecting* — a reader
+         * clicking a card means the card, not the word in it. It is wrong for *dragging*: a reader
+         * who has drilled down to a badge, seen it selected, and put the pointer on it is moving the
+         * badge. This carried the outermost block instead, so the first free drag ever tried picked
+         * up the whole section and dropped it somewhere else.
+         *
+         * Every design tool works this way and this is that rule: the selection wins inside itself.
+         */
+        const inSelection = selected.find((one) => one === sid || isInside(doc(), sid, one));
+        const carried = inSelection ?? outer;
+        held.current = carried
+          ? { sid: carried, x: event.clientX, y: event.clientY, carrying: false, free: freeAt(carried) }
+          : null;
         (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
 
         // Nothing under the pointer: the reader clicked the page's own margin, which means "none" —
@@ -548,7 +768,7 @@ export function Overlay({
           const deepest = innermostOf(doc(), sid, page) ?? outer;
           onScope(enclosing(doc(), deepest, page) ?? page);
           select([deepest]);
-          held.current = { sid: deepest, x: event.clientX, y: event.clientY, carrying: false };
+          held.current = { sid: deepest, x: event.clientX, y: event.clientY, carrying: false, free: freeAt(deepest) };
           return;
         }
 
@@ -657,6 +877,21 @@ export function Overlay({
         }
       }}
     >
+      {/**
+       * The lines a free drag caught, drawn the full height and width of the board.
+       *
+       * A hairline rather than a box, and in the tool's accent rather than the selection's colour,
+       * because it is the tool saying *this is what you are lined up with* — the same distinction the
+       * caret makes. They come and go with the drag and are never in the way of a press: the whole
+       * layer is `pointer-events: none` while one is in flight.
+       */}
+      {guides.x.map((at) => (
+        <div key={`x${at}`} className="st-mark st-mark-guide" style={{ left: `${at}px`, top: 0, width: 0, height: '100%' }} aria-hidden />
+      ))}
+      {guides.y.map((at) => (
+        <div key={`y${at}`} className="st-mark st-mark-guide" style={{ left: 0, top: `${at}px`, width: '100%', height: 0 }} aria-hidden />
+      ))}
+
       {landing ? (
         /*
          * Where it would land, drawn rather than guessed at. Every tool of this kind draws this line

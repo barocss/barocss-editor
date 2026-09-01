@@ -931,6 +931,136 @@ test.describe('the exported page', () => {
    * does with the markup: that the box is the target and not the eight pixels of text, that Tab
    * reaches it, that Enter follows it.
    */
+  test('moves a block that places itself, rather than reordering it', async ({ page }) => {
+    /**
+     * **The drag a page had no answer for.**
+     *
+     * Everything on a page is stacked, so dragging a block has always meant *put it between these
+     * two* — and a block that says `position: absolute` is not in the stack at all. It sits at
+     * coordinates inside whatever box positions it, and the only way to move it was to type two
+     * numbers into the panel. The model has carried `insetTop`/`insetLeft` since placement was added.
+     *
+     * So the drag branches: a block that places itself is **moved**, and everything else is landed
+     * between siblings exactly as before.
+     *
+     * Which sides get written is the block's own decision, not this drag's — one that says
+     * `insetRight` is pinned to the right edge and stays pinned when it is dragged, because that is
+     * what a reader chose. A block that has said nothing gets top and left.
+     */
+    await ready(page);
+    const band = page.locator('[data-frame="desktop"] [data-name="문제"]').first();
+    await press(page, band);
+    await page.waitForTimeout(300);
+    await page.getByLabel('배치 방식').selectOption('absolute');
+    await page.waitForTimeout(400);
+
+    /*
+     * Selected again: writing the row moved focus to the panel, and **a drag carries the selection**
+     * — which is its own rule and was its own finding. A press resolves to the outermost block,
+     * right for selecting and wrong for dragging: the first free drag ever tried picked up the whole
+     * section instead of the badge the reader had drilled down to.
+     */
+    await press(page, band);
+    await page.waitForTimeout(300);
+
+    const before = await band.boundingBox();
+    // The centre, which is the one point certain to be this block's: an absolute block sits over
+    // whatever was under it, so a corner can belong to something drawn above.
+    const from = { x: before!.x + before!.width / 2, y: before!.y + before!.height / 2 };
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 80, from.y + 50, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    const after = await band.boundingBox();
+    // It went where the pointer went, in the board's own pixels — the boards are drawn at a zoom, and
+    // a drag that forgot to divide by it moved the block twice as far as the hand.
+    expect(after!.x - before!.x).toBeGreaterThan(70);
+    expect(after!.y - before!.y).toBeGreaterThan(40);
+
+    /*
+     * And it is in the **document**, not only in a style: the drag writes once on release, in twips,
+     * at the width being looked at. Reloading is the honest way to ask.
+     */
+    const said = await page.evaluate(() => {
+      const el = document.querySelector('[data-frame="desktop"] [data-name="문제"]') as HTMLElement | null;
+      const s = el ? getComputedStyle(el) : undefined;
+      return { position: s?.position, left: s?.left, top: s?.top };
+    });
+    expect(said.position).toBe('absolute');
+    expect(Number.parseFloat(said.left ?? '0')).toBeGreaterThan(100);
+    expect(Number.parseFloat(said.top ?? '0')).toBeGreaterThan(60);
+  });
+
+  test('lines a free drag up with what is around it, and lets Alt say not to', async ({ page }) => {
+    /**
+     * **A snap nobody can see reads as a bug.**
+     *
+     * A block that stops moving for six pixels with nothing on screen to explain it is a tool
+     * fighting its reader, so the line it caught is drawn: one hairline in the accent, the tool
+     * talking rather than the document. Three lines are offered per axis — the block's two edges and
+     * its middle — against the positioning parent's edges and centre and every sibling's, and the
+     * *smallest* correction inside the threshold wins so a block near two lines catches the nearer.
+     *
+     * Alt turns it off, which is the shortcut every tool of this kind uses and the one a reader
+     * reaches for when they mean a number that is not round.
+     */
+    await ready(page);
+    const band = page.locator('[data-frame="desktop"] [data-name="문제"]').first();
+    await press(page, band);
+    await page.waitForTimeout(300);
+    await page.getByLabel('배치 방식').selectOption('absolute');
+    await page.waitForTimeout(400);
+    await press(page, band);
+    await page.waitForTimeout(300);
+
+    const scale = await page.evaluate(() => {
+      const plane = document.querySelector('[data-frame="desktop"]') as HTMLElement;
+      return plane.getBoundingClientRect().width / plane.offsetWidth;
+    });
+    const placed = async () =>
+      await page.evaluate(() => {
+        const el = document.querySelector('[data-frame="desktop"] [data-name="문제"]') as HTMLElement;
+        const said = getComputedStyle(el);
+        return { left: Number.parseFloat(said.left), top: Number.parseFloat(said.top) };
+      });
+
+    /** One drag, reporting how many guides were on screen at the end of it. */
+    const drag = async (dx: number, dy: number, alt: boolean) => {
+      const box = (await band.boundingBox())!;
+      const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      if (alt) await page.keyboard.down('Alt');
+      await page.mouse.move(from.x + dx, from.y + dy, { steps: 10 });
+      await page.waitForTimeout(120);
+      const lines = await page.locator('.st-mark-guide').count();
+      await page.mouse.up();
+      if (alt) await page.keyboard.up('Alt');
+      await page.waitForTimeout(400);
+      return lines;
+    };
+
+    // Far from anything: nothing to catch, and nothing drawn.
+    expect(await drag(90, 70, false)).toBe(0);
+    const away = await placed();
+    expect(away.left).toBeGreaterThan(100);
+
+    /*
+     * Back to within a few pixels of the parent's top-left. Both axes catch, both lines are drawn,
+     * and the block lands **exactly** on them rather than four pixels short.
+     */
+    expect(await drag(-(away.left - 4) * scale, -(away.top - 3) * scale, false)).toBe(2);
+    expect(await placed()).toEqual({ left: 0, top: 0 });
+
+    // The same journey with Alt held: no line, and the number the hand actually asked for.
+    await drag(90, 70, false);
+    const again = await placed();
+    expect(await drag(-(again.left - 4) * scale, -(again.top - 3) * scale, true)).toBe(0);
+    expect(await placed()).toEqual({ left: 4, top: 3 });
+  });
+
   test('types Korean into the block a fresh Enter made, in the order it was typed', async ({ page }) => {
     /**
      * **Every syllable went in front of the last one**, and only in a block Enter had just made.
