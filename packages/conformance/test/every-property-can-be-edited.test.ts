@@ -61,7 +61,7 @@ describe('every property can be edited', () => {
   it('counts what it could not ask about rather than guessing', () => {
     const report = run({ shapeless: { type: 'array' } }, () => null, []);
     expect(report.findings).toEqual([]);
-    expect(report.unanswered['every-property-can-be-edited']).toBe(1);
+    expect(report.unanswered['every-property-can-be-edited']).toEqual(['shape.shapeless']);
   });
 
   it('takes an exemption, and reports it when it stops exempting anything', () => {

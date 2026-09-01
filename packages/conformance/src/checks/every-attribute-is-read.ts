@@ -50,7 +50,7 @@ export const everyAttributeIsRead: Check = {
   run: ({ schema, attributeRead, hasRenderer }) => {
     const findings: Finding[] = [];
     let examined = 0;
-    let unanswered = 0;
+    const unanswered: string[] = [];
 
     // A product that has not adopted this yet: `examined: 0` is how a check doing
     // nothing stays visible rather than passing.
@@ -90,7 +90,7 @@ export const everyAttributeIsRead: Check = {
          * what its values look like — see `attributeReadFrom`'s `probes`.
          */
         if (read === null) {
-          unanswered += 1;
+          unanswered.push(`${name}.${attr}`);
           continue;
         }
 

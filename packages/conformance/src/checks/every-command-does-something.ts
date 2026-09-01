@@ -64,12 +64,12 @@ export function everyCommandDoesSomething(
     run: () => {
       const findings: Finding[] = [];
       let examined = 0;
-      let unanswered = 0;
+      const unanswered: string[] = [];
 
       for (const command of [...new Set(offered)].sort()) {
         const moved = probe(command);
         if (moved === null) {
-          unanswered += 1;
+          unanswered.push(command);
           continue;
         }
         examined += 1;

@@ -1,5 +1,11 @@
-import { beforeAll, describe, it } from 'vitest';
-import { assertConforms, attributeReadFrom, contentTagFrom, drawnTagFrom } from '@barocss/conformance';
+import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  assertConforms,
+  attributeReadFrom,
+  conformance,
+  contentTagFrom,
+  drawnTagFrom
+} from '@barocss/conformance';
 import { createSchema } from '@barocss/schema';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { getSiteSchemaDefinition } from '../src/site-schema';
@@ -987,7 +993,7 @@ describe('the site builder draws what it declares', () => {
   });
 
   it('draws what it declares, expects only what it says it expects', () => {
-    assertConforms({
+    const input: Parameters<typeof assertConforms>[0] = {
       schema: schema as never,
       hasRenderer: (nodeType) => registry.has(nodeType),
       drawnAs: drawnTagFrom(registry as never),
@@ -1060,7 +1066,29 @@ describe('the site builder draws what it declares', () => {
               ? // `office-canvas`'s shape — `{ attr, var }`. Given so this becomes an **answer**
                 // rather than a skip; the answer is no, and the exemption below says why.
                 [[{ attr: 'fill', var: '강조' }]]
-              : undefined
+              : /*
+                 * And the two `object`/`array` shapes this product's own vocabulary is made of,
+                 * which sat in the blind column until the harness started naming what it could not
+                 * ask about. Both become **answers** rather than skips, and the answers differ:
+                 *
+                 * `choices` is drawn — a `choice` field is a `<select>` and these are its options —
+                 * so it comes back read. `states` is not, on purpose, and the exemption below is
+                 * that reason written down where the check can find it stale.
+                 */
+                attr === 'states'
+                ? [{ hover: { fill: '#D6341A' } }]
+                : attr === 'choices'
+                  ? [['첫째', '둘째']]
+                  : /*
+                     * And **the switch that turns `choices` on**, which is the trap `attributeReadFrom`
+                     * documents at length: a field draws its options only when its `kind` says
+                     * `choice`, the schema's first value is `text`, and so the filler was setting the
+                     * one attribute that made the answer impossible. A taught scalar joins every
+                     * render, which is exactly what this is for.
+                     */
+                    attr === 'kind' && _type === 'field'
+                    ? ['choice']
+                    : undefined
       ),
       produces,
       commands,
@@ -1608,6 +1636,30 @@ describe('the site builder draws what it declares', () => {
          */
         componentId: 'instance swap, deferred with variants — a placement is made from a definition and points at it for life, for now',
 
+        /**
+         * **A rule, not a drawing** — and the six findings behind this one reason are six node types
+         * saying the same true thing.
+         *
+         * `:hover` and `:focus-visible` cannot be folded into a node's own attributes, because the
+         * browser is the thing that decides when they apply and it decides after the page is drawn.
+         * So a state is *published*: `export-html`'s `stateRules` writes one CSS rule per state per
+         * block, keyed by the class the lifted stylesheet gave it, and a `frame` drawn with states
+         * and a `frame` drawn without them are — correctly — the same element.
+         *
+         * Which is the one case where this check's question is the wrong question, and the reason is
+         * worth stating rather than probing around: the drawing is not where the answer lives. It is
+         * held where it is made, in `states.test.ts` and in `export-html`'s own tests, and a reader
+         * sees it work in `apps/site/tests/site.spec.ts`.
+         *
+         * The claim, so it fails rather than rots: the day a renderer starts folding a state into the
+         * node — an inline `:hover` a board can preview, say — this stops being true and comes off.
+         */
+        states: {
+          reason:
+            'published as a CSS rule by `export-html`’s `stateRules`, because the browser decides when a state applies and it decides after the drawing — held in `states.test.ts`',
+          covers: ['every-attribute-is-read']
+        },
+
         // ── The property panel ─────────────────────────────────────────────
         /*
          * Three exemptions used to be here, and the harness deleted them: `setBlockFormat`,
@@ -1625,6 +1677,29 @@ describe('the site builder draws what it declares', () => {
           'reached by **dragging a block**, which is neither a button nor a key. The gesture is held ' +
           'in `apps/site/tests/site.spec.ts`; the arithmetic is held in `landing.test.ts`'
       }
-    });
+    };
+
+    assertConforms(input);
+
+    /**
+     * And **what it could not ask about, by name**.
+     *
+     * Four checks count a question they could not put the product into a state to ask, and a count
+     * is not a work list: `7 unanswered` says a guard has seven holes and nothing about where. The
+     * harness now says which, so this reads them back and holds them at the number they are.
+     *
+     * All four are at **zero**, and the last seven came out the day they got names: six `states` and
+     * a `field`'s `choices`, which the probe had no value to invent for. Teaching it two shapes
+     * turned both into answers — and the answers differed, which is the whole reason a skip is not a
+     * pass. `choices` is drawn and came back read once the probe stopped setting the `kind` that made
+     * it impossible; `states` is not drawn at all, on purpose, and that is an exemption with a reason
+     * rather than a hole.
+     */
+    const report = conformance(input);
+    for (const [check, blind] of Object.entries(report.unanswered)) {
+      // eslint-disable-next-line no-console
+      console.log(`${check} 이(가) 묻지 못한 것 — ${blind.length}\n  ${blind.join('\n  ')}`);
+    }
+    expect(report.unanswered).toEqual({});
   });
 });

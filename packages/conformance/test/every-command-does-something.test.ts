@@ -55,7 +55,8 @@ describe('a command that says it can run and then does nothing', () => {
     });
     expect(report.findings).toEqual([]);
     expect(report.examined['every-command-does-something']).toBe(1);
-    expect(report.unanswered['every-command-does-something']).toBe(2);
+    // **By name**, so a reader of the report can go and build the state rather than reproduce the run.
+    expect(report.unanswered['every-command-does-something']).toEqual(['pasteBlocks', 'removeLink']);
   });
 
   it('is exempted by a reason, and the reason goes stale like every other', () => {

@@ -57,7 +57,7 @@ describe('every attribute is read', () => {
 
     expect(report.findings).toEqual([]);
     expect(report.examined['every-attribute-is-read']).toBe(1);
-    expect(report.unanswered['every-attribute-is-read']).toBe(2);
+    expect(report.unanswered['every-attribute-is-read']).toEqual(['shape.unknowable', 'shape.alsoUnknowable']);
   });
 
   it('does not count an attribute of a node type the product does not draw', () => {

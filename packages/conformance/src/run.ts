@@ -247,7 +247,7 @@ export function conformance(input: ConformanceInput): Report {
 
   const findings = [];
   const examined: Record<string, number> = {};
-  const unanswered: Record<string, number> = {};
+  const unanswered: Record<string, string[]> = {};
   const matched = new Set<string>();
   const ratchet: Ratchets = input.ratchet ?? {};
   const ratcheted: Report['ratcheted'] = [];
@@ -255,7 +255,7 @@ export function conformance(input: ConformanceInput): Report {
   for (const check of checks) {
     const result = check.run(subject);
     examined[check.name] = result.examined;
-    if (result.unanswered) unanswered[check.name] = result.unanswered;
+    if (result.unanswered?.length) unanswered[check.name] = result.unanswered;
 
     /**
      * A check the product is still working off: counted, not reported.
@@ -414,11 +414,21 @@ export function describeReport(report: Report): string {
    */
   const counted = Object.entries(report.examined)
     .map(([name, count]) => {
-      const blind = report.unanswered?.[name] ?? 0;
-      return blind > 0 ? `${name}: ${count} (${blind} unanswered)` : `${name}: ${count}`;
+      const blind = report.unanswered?.[name] ?? [];
+      return blind.length > 0 ? `${name}: ${count} (${blind.length} unanswered)` : `${name}: ${count}`;
     })
     .join(', ');
   lines.push('', `examined — ${counted}`);
+
+  /*
+   * And **which** ones, under the line that counts them. The count alone sends a reader back to
+   * reproduce the run before they can do anything with it, and a hole nobody can name is a hole
+   * nobody closes — the site builder carried 25 unaskable commands for a month behind the number.
+   */
+  for (const [name, blind] of Object.entries(report.unanswered ?? {})) {
+    if (blind.length === 0) continue;
+    lines.push(`  ${name} could not ask about — ${blind.join(', ')}`);
+  }
 
   // And what the product said it cannot answer yet, so a deferral is read beside the coverage rather
   // than found by noticing a check missing from the line above.

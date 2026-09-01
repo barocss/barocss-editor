@@ -50,7 +50,7 @@ export const everyPropertyCanBeEdited: Check = {
   run: ({ schema, attributeRead, hasRenderer, editable }) => {
     const findings: Finding[] = [];
     let examined = 0;
-    let unanswered = 0;
+    const unanswered: string[] = [];
 
     /*
      * Both, or the check abstains — and `examined: 0` is how a check doing nothing stays visible
@@ -76,7 +76,7 @@ export const everyPropertyCanBeEdited: Check = {
          * about is counted, not guessed at, the same way it is there.
          */
         if (read === null) {
-          unanswered += 1;
+          unanswered.push(`${name}.${attr}`);
           continue;
         }
         if (read !== true) continue;

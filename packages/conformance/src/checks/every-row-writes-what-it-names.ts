@@ -55,7 +55,7 @@ export function everyRowWritesWhatItNames(
     run: () => {
       const findings: Finding[] = [];
       let examined = 0;
-      let unanswered = 0;
+      const unanswered: string[] = [];
       const seen = new Set<string>();
 
       for (const row of rows) {
@@ -64,9 +64,18 @@ export function everyRowWritesWhatItNames(
         if (seen.has(row.attr)) continue;
         seen.add(row.attr);
 
+        /*
+         * A row that names **no command** is not a row this check is about. 종류 and 편집 중인 폭 are
+         * a label and a note — they show a reader what is selected and what width they are editing,
+         * and writing is not what they are for. Counting them as *could not be asked* put two rows
+         * in the blind column that were never in the question, which is the same dishonesty in the
+         * other direction: a number that says a guard has holes it does not have.
+         */
+        if (!row.command) continue;
+
         const wrote = probe(row);
         if (wrote === null) {
-          unanswered += 1;
+          unanswered.push(`${row.label} (${row.attr})`);
           continue;
         }
         examined += 1;

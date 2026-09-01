@@ -135,7 +135,7 @@ export interface Report {
    * how much was checked and the other is how much is invisible to the check. A
    * product shrinks this by telling the probe what its values look like.
    */
-  unanswered: Record<string, number>;
+  unanswered: Record<string, string[]>;
   /**
    * Checks the product named as not adopted, and whether the deferral is still true.
    *
@@ -297,6 +297,12 @@ export interface Check {
    * but the count was nowhere, and `examined: 128` read as full coverage over a
    * product with 21 unasked slots in it. One of them was `overrides`, the site
    * builder's whole responsive mechanism.
+   *
+   * **By name**, which it was not at first. A count is a number somebody has to go and reproduce
+   * before they can act on it: `7 unanswered` says a guard has seven holes and nothing about where.
+   * Two products grew a bespoke test whose whole job was printing those names for one check each,
+   * which is the shape of a fact that belongs in the harness. So a check says *what* it could not
+   * ask about, and the count is derived from the list.
    */
-  run: (subject: Subject) => { findings: Finding[]; examined: number; unanswered?: number };
+  run: (subject: Subject) => { findings: Finding[]; examined: number; unanswered?: string[] };
 }
