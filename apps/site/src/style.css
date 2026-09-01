@@ -523,6 +523,82 @@ body {
 }
 
 /**
+ * **The other five**, which only a block that places itself gets.
+ *
+ * A stacked block's left edge is not its to decide — the stack put it there — so offering a handle
+ * would be a control that writes nothing. A block at coordinates owns all four, and pulling its left
+ * edge moves it *and* narrows it, which is what the same handle does everywhere else.
+ */
+.st-grip[data-grip-edge='left'] {
+  top: 14%;
+  bottom: 14%;
+  left: calc(-11px / var(--st-zoom, 1));
+  width: calc(11px / var(--st-zoom, 1));
+  cursor: ew-resize;
+}
+
+.st-grip[data-grip-edge='top'] {
+  left: 14%;
+  right: 14%;
+  top: calc(-11px / var(--st-zoom, 1));
+  height: calc(11px / var(--st-zoom, 1));
+  cursor: ns-resize;
+}
+
+.st-grip[data-grip-edge='left']::after {
+  top: 50%;
+  left: calc(4px / var(--st-zoom, 1));
+  width: calc(4px / var(--st-zoom, 1));
+  height: calc(30px / var(--st-zoom, 1));
+  transform: translateY(-50%);
+}
+
+.st-grip[data-grip-edge='top']::after {
+  left: 50%;
+  top: calc(4px / var(--st-zoom, 1));
+  height: calc(4px / var(--st-zoom, 1));
+  width: calc(30px / var(--st-zoom, 1));
+  transform: translateX(-50%);
+}
+
+.st-grip[data-grip-edge='corner-tl'],
+.st-grip[data-grip-edge='corner-tr'],
+.st-grip[data-grip-edge='corner-bl'] {
+  width: calc(16px / var(--st-zoom, 1));
+  height: calc(16px / var(--st-zoom, 1));
+}
+
+.st-grip[data-grip-edge='corner-tl'] {
+  left: calc(-11px / var(--st-zoom, 1));
+  top: calc(-11px / var(--st-zoom, 1));
+  cursor: nwse-resize;
+}
+
+.st-grip[data-grip-edge='corner-tr'] {
+  right: calc(-11px / var(--st-zoom, 1));
+  top: calc(-11px / var(--st-zoom, 1));
+  cursor: nesw-resize;
+}
+
+.st-grip[data-grip-edge='corner-bl'] {
+  left: calc(-11px / var(--st-zoom, 1));
+  bottom: calc(-11px / var(--st-zoom, 1));
+  cursor: nesw-resize;
+}
+
+.st-grip[data-grip-edge='corner-tl']::after,
+.st-grip[data-grip-edge='corner-tr']::after,
+.st-grip[data-grip-edge='corner-bl']::after {
+  width: calc(7px / var(--st-zoom, 1));
+  height: calc(7px / var(--st-zoom, 1));
+  border-radius: calc(2px / var(--st-zoom, 1));
+}
+
+.st-grip[data-grip-edge='corner-tl']::after { left: calc(4px / var(--st-zoom, 1)); top: calc(4px / var(--st-zoom, 1)); }
+.st-grip[data-grip-edge='corner-tr']::after { right: calc(4px / var(--st-zoom, 1)); top: calc(4px / var(--st-zoom, 1)); }
+.st-grip[data-grip-edge='corner-bl']::after { left: calc(4px / var(--st-zoom, 1)); bottom: calc(4px / var(--st-zoom, 1)); }
+
+/**
  * **What a resize is writing, while it is writing it.**
  *
  * A handle that moves a box and says nothing leaves a reader to let go and go and read the panel to

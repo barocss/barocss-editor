@@ -1233,6 +1233,113 @@ test.describe('the exported page', () => {
     expect(Number.parseFloat(said.top ?? '0')).toBeGreaterThan(60);
   });
 
+  test('gives a free block all eight handles, and the left one moves it as it narrows', async ({ page }) => {
+    /**
+     * **Eight for a block that places itself, three for one that does not** — and the difference is
+     * what each block can actually say.
+     *
+     * A stacked block's left edge is not its to decide: the stack put it there, and a handle offering
+     * to move it would be a control that writes nothing. A block at coordinates owns all four, so
+     * pulling its left edge outward makes it wider **and** starts it further left — writing only the
+     * width would grow it to the right, away from the hand.
+     */
+    await ready(page);
+    const band = page.locator('[data-frame="desktop"] [data-name="문제"]').first();
+    await press(page, band);
+    await page.waitForTimeout(350);
+
+    const edges = async () =>
+      await page.evaluate(() =>
+        [...(document.querySelector('.st-mark-selected')?.querySelectorAll('.st-grip') ?? [])].map((one) =>
+          one.getAttribute('data-grip-edge')
+        )
+      );
+    expect(await edges()).toEqual(['right', 'bottom', 'corner']);
+
+    await page.getByLabel('배치 방식').selectOption('absolute');
+    await page.waitForTimeout(450);
+    await press(page, band);
+    await page.waitForTimeout(350);
+    expect((await edges()).length).toBe(8);
+
+    // The left edge, pulled outward: wider, and starting further left by the same amount.
+    const before = (await band.boundingBox())!;
+    const grip = (await page.locator('.st-grip[data-grip-edge="left"]').first().boundingBox())!;
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(grip.x + grip.width / 2 - 40, grip.y + grip.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    const after = (await band.boundingBox())!;
+    expect(after.width).toBeGreaterThan(before.width);
+    // Its right edge stayed put, which is what "the left edge moved" means.
+    expect(Math.abs(after.x + after.width - (before.x + before.width))).toBeLessThan(8);
+  });
+
+  test('lifts a block out of the flow with ⌘, and it does not jump', async ({ page }) => {
+    /**
+     * **Placing a block freely was three steps down a panel** — select, find 위치, set 방식 — and
+     * placement is the thing a page most needs in order to be interesting. Every tool of this kind
+     * has a gesture for it: Figma has *drag out of auto layout*, and this is the same idea said with
+     * a modifier, because a page's stacks fill the board and there is nowhere to drag *out* to.
+     *
+     * Decided during the drag rather than at the press, so a reader can change their mind with the
+     * block already moving: let go without ⌘ and it lands between two siblings as it always has.
+     *
+     * **And it does not jump**, which is the one thing a lift must not do. A stacked block's `top`
+     * and `left` are `auto` — the stack decided where it goes — so the coordinates it leaves with are
+     * the ones the browser had just laid it out at, measured against the box that will position it.
+     * Anything else and the block appears somewhere else at the moment it is let go.
+     */
+    await ready(page);
+    const band = page.locator('[data-frame="desktop"] [data-name="문제"]').first();
+    await press(page, band);
+    await page.waitForTimeout(350);
+
+    expect(
+      await page.evaluate(
+        () =>
+          getComputedStyle(
+            document.querySelector('[data-frame="desktop"] [data-name="문제"]') as HTMLElement
+          ).position
+      )
+    ).not.toBe('absolute');
+
+    const before = (await band.boundingBox())!;
+    const from = { x: before.x + before.width / 2, y: before.y + before.height / 2 };
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.keyboard.down('Meta');
+    await page.mouse.move(from.x + 70, from.y + 45, { steps: 10 });
+    await page.mouse.up();
+    await page.keyboard.up('Meta');
+    await page.waitForTimeout(600);
+
+    expect(
+      await page.evaluate(
+        () =>
+          getComputedStyle(
+            document.querySelector('[data-frame="desktop"] [data-name="문제"]') as HTMLElement
+          ).position
+      )
+    ).toBe('absolute');
+
+    // Where the hand left it, and nowhere else: the drag's distance and no jump on top of it.
+    const after = (await band.boundingBox())!;
+    expect(Math.abs(after.x - before.x - 70)).toBeLessThan(8);
+    expect(Math.abs(after.y - before.y - 45)).toBeLessThan(8);
+
+    /*
+     * And it kept its size. A stacked block's width is the stack's decision — `fill` takes whatever
+     * it is given — so a block left stretching after a lift has a width handle that writes a maximum
+     * it never reaches. Taking it out of the flow freezes what it had, which is also the only size
+     * that does not make it jump.
+     */
+    expect(Math.abs(after.width - before.width)).toBeLessThan(3);
+    expect(Math.abs(after.height - before.height)).toBeLessThan(3);
+  });
+
   test('lines a free drag up with what is around it, and lets Alt say not to', async ({ page }) => {
     /**
      * **A snap nobody can see reads as a bug.**

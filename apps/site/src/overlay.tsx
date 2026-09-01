@@ -270,6 +270,8 @@ export function Overlay({
         moved?: Record<string, number>;
         /** Puts the renderer's own inline values back — see `holdStyle`. */
         restore: () => void;
+        /** Whether this drag is taking the block **out of the flow**, and so writes `position` too. */
+        lift: boolean;
         /** Where the block was when the press happened, in board pixels — what the snap compares. */
         from: { left: number; top: number; width: number; height: number };
         lines: { x: number[]; y: number[] };
@@ -308,9 +310,9 @@ export function Overlay({
    * the card is dragged. A block that has said nothing gets top and left, which is the corner
    * `positionCss` already puts it in.
    */
-  const freeAt = (sid: string) => {
+  const freeAt = (sid: string, lift = false) => {
     const attrs = (doc().getNode(sid)?.attributes ?? {}) as Record<string, unknown>;
-    if (attrs.position !== 'absolute') return undefined;
+    if (attrs.position !== 'absolute' && !lift) return undefined;
     const board = host.current;
     const el = board?.querySelector<HTMLElement>(`[data-bc-sid="${CSS.escape(sid)}"]`);
     if (!el) return undefined;
@@ -321,7 +323,24 @@ export function Overlay({
     const sides = held.length > 0 ? held : (['top', 'left'] as const).slice();
     const said = getComputedStyle(el);
     const was: Record<string, number> = {};
-    for (const side of sides) was[side] = Math.round(Number.parseFloat(said[side]) || 0);
+    /*
+     * **Where it already is**, for a block being lifted out of the flow.
+     *
+     * A stacked block's `top` and `left` are `auto` — it has no coordinates, the stack decided where
+     * it goes — so the numbers to start from are the ones the browser has just laid it out at,
+     * measured against whatever box will position it. Anything else and the block jumps the moment
+     * it leaves the flow, which is the one thing a lift must not do.
+     */
+    if (lift && attrs.position !== 'absolute') {
+      const holder = (el.offsetParent as HTMLElement | null) ?? el.parentElement;
+      const mine = el.getBoundingClientRect();
+      const theirs = holder?.getBoundingClientRect();
+      const zoom = scaleOf(board!);
+      was.left = Math.round(((mine.left - (theirs?.left ?? 0)) / zoom));
+      was.top = Math.round(((mine.top - (theirs?.top ?? 0)) / zoom));
+    } else {
+      for (const side of sides) was[side] = Math.round(Number.parseFloat(said[side]) || 0);
+    }
 
     const scale = scaleOf(board!);
     const frame = board!.getBoundingClientRect();
@@ -332,7 +351,15 @@ export function Overlay({
       width: rect.width / scale,
       height: rect.height / scale
     };
-    return { el, sides: [...sides], was, from, lines: linesFor(el), restore: holdStyle(el, [...sides]) };
+    return {
+      el,
+      sides: [...sides],
+      was,
+      from,
+      lines: linesFor(el),
+      restore: holdStyle(el, [...sides, 'position']),
+      lift: lift && attrs.position !== 'absolute'
+    };
   };
 
   /**
@@ -632,8 +659,34 @@ export function Overlay({
              * and no line to draw between two of its siblings. The drawing follows the pointer and
              * the document hears about it once, on release.
              */
+            /**
+             * **⌘ lifts a block out of the flow**, mid-drag.
+             *
+             * Placing a block freely was three steps down a panel — select, find 위치, set 방식 — and
+             * placement is the thing a page most needs to be interesting. Every tool of this kind has
+             * a gesture for it: Figma has *drag out of auto layout*, and this is the same idea said
+             * with a modifier, because a page's stacks fill the board and there is nowhere to drag
+             * *out* to.
+             *
+             * Decided during the drag rather than at the press, so the reader can change their mind
+             * with the block already moving: let go without it and the block lands between two
+             * siblings as it always has.
+             *
+             * Alt is taken — it turns the snap off — so ⌘, which on this canvas already means *past
+             * the ordinary rule*.
+             */
+            if (!carry.free && (event.metaKey || event.ctrlKey)) {
+              const lifted = freeAt(carry.sid, true);
+              if (lifted) {
+                carry.free = lifted;
+                setLanding(null);
+              }
+            }
             if (carry.free) {
               const scale = scaleOf(host.current!);
+              // A block still in the flow has to be told it is out of it, or the inline coordinates
+              // it is being dragged by mean nothing.
+              if (carry.free.lift) carry.free.el.style.setProperty('position', 'absolute');
               let acrossX = (event.clientX - carry.x) / scale;
               let acrossY = (event.clientY - carry.y) / scale;
 
@@ -704,12 +757,43 @@ export function Overlay({
           // `holdStyle` for why this is a restore rather than a remove.
           restore();
           setLanding(null);
-          if (!moved || sides.every((side) => moved[side] === was[side])) return;
+          if (!moved || (!carry.free.lift && sides.every((side) => moved[side] === was[side]))) return;
           void (editor as never as { executeCommand?: (n: string, p?: unknown) => Promise<unknown> }).executeCommand?.(
             'setBlockFormat',
             {
               nodeIds: [carry.sid],
-              at: breakpoint,
+              /**
+               * **A lift writes the base; a move writes the width being looked at.**
+               *
+               * A block that is absolute at one width and in the flow at another is a document two
+               * people would read two ways, and it is never what a lift means. So the placement goes
+               * to the base — and so do the coordinates it arrives with, because an override with no
+               * base underneath it is a block with nowhere to be at every other width.
+               *
+               * Every drag *after* that is a move, and a move is per width like every other length
+               * here: a badge sits somewhere else on a phone.
+               */
+              at: carry.free.lift ? undefined : breakpoint,
+              /**
+               * And a lift **freezes the size**, which is what taking a block out of a stack means.
+               *
+               * A stacked block's width is the stack's decision — `fill` takes whatever it is given.
+               * Left on, a block at coordinates goes on stretching to its parent, so its width handle
+               * writes a `maxWidth` it never reaches and the handle is a control that draws nothing.
+               * Measured: pulling the left edge of a lifted band 78px moved it and did not widen it.
+               *
+               * So it keeps the size it had at the moment it left, which is also the only size that
+               * does not make it jump. Every tool of this kind does the same on the same gesture.
+               */
+              ...(carry.free.lift
+                ? {
+                    position: 'absolute',
+                    sizing: 'fixed',
+                    maxWidth: Math.round(carry.free.from.width * 15),
+                    minWidth: Math.round(carry.free.from.width * 15),
+                    minHeight: Math.round(carry.free.from.height * 15)
+                  }
+                : {}),
               // **Twips**, which is what the document keeps; the board is in CSS pixels.
               ...Object.fromEntries(
                 sides.map((side) => [
@@ -956,7 +1040,14 @@ export function Overlay({
         </div>
       ) : null}
 
-      {boxes.map(({ sid, box }) => (
+      {boxes.map(({ sid, box }) => {
+        /*
+         * Whether this block owns all four of its edges. Read from the document rather than from the
+         * drawing: `position` is what the reader said, and a block inside a positioned ancestor is
+         * not itself positioned.
+         */
+        const freeSides = doc().getNode(sid)?.attributes?.position === 'absolute';
+        return (
         <div
           key={sid}
           className="st-mark st-mark-selected"
@@ -1164,8 +1255,17 @@ export function Overlay({
             * through sizes the box was never meant to be.
             */}
           {sizing ? <span className="st-mark-size">{sizing}</span> : null}
+          {/**
+           * **Eight handles for a block that places itself, three for one that does not** — and the
+           * difference is what each block can actually say.
+           *
+           * A stacked block's left edge is not its to decide: the stack put it there, and a handle
+           * offering to move it would be a control that writes nothing. A block at coordinates owns
+           * all four, so pulling its left edge moves the block *and* narrows it, which is what the
+           * same handle does in every design tool.
+           */}
           {mode === 'select'
-            ? (['right', 'bottom', 'corner'] as const).map((edge) => (
+            ? ((freeSides ? (['right', 'bottom', 'corner', 'left', 'top', 'corner-tl', 'corner-tr', 'corner-bl'] as const) : (['right', 'bottom', 'corner'] as const)) as readonly string[]).map((edge) => (
                 <span
                   key={`grip-${edge}`}
                   className="st-grip"
@@ -1186,8 +1286,15 @@ export function Overlay({
                      * tool of this kind puts one there, and this had only the two edges — measured as
                      * *여전히 객체 resize 가 어떻게 동작하는지 모르겠어*.
                      */
-                    const across = edge !== 'bottom';
-                    const down = edge !== 'right';
+                    /*
+                     * Which axes this handle touches, and which **way** each one grows the box. A
+                     * left or top handle grows the block by moving its own anchor the other way,
+                     * which is why the two are read separately.
+                     */
+                    const across = edge !== 'bottom' && edge !== 'top';
+                    const down = edge !== 'right' && edge !== 'left';
+                    const fromLeft = edge === 'left' || edge === 'corner-tl' || edge === 'corner-bl';
+                    const fromTop = edge === 'top' || edge === 'corner-tl' || edge === 'corner-tr';
                     const fromX = event.clientX;
                     const fromY = event.clientY;
                     const wasW = Math.round(rect.width / scale);
@@ -1197,20 +1304,46 @@ export function Overlay({
                      * than from the drawing, because `sizing` is what the reader said and the drawing
                      * is what the browser made of it.
                      */
-                    const fixed = String(doc().getNode(sid)?.attributes?.sizing) === 'fixed';
+                    /*
+                     * Whether this block takes its width from the pair. Read from the document rather
+                     * than from the drawing, because `sizing` is what the reader said and the drawing
+                     * is what the browser made of it.
+                     *
+                     * A block at **coordinates** is treated as fixed whatever it says, and the drag
+                     * writes that too: `fill` on a placed block makes every width handle a max it
+                     * never reaches, so the handle would move and the block would not.
+                     */
+                    const placed = doc().getNode(sid)?.attributes?.position === 'absolute';
+                    const fixed = placed || String(doc().getNode(sid)?.attributes?.sizing) === 'fixed';
                     const restore = holdStyle(el, ['max-width', 'min-width', 'min-height']);
 
                     let wide = wasW;
                     let tall = wasH;
+                    let movedX = 0;
+                    let movedY = 0;
+                    const held = getComputedStyle(el);
+                    const wasLeft = Math.round(Number.parseFloat(held.left) || 0);
+                    const wasTop = Math.round(Number.parseFloat(held.top) || 0);
+
                     const onMove = (move: PointerEvent) => {
                       if (across) {
-                        wide = Math.max(8, Math.round(wasW + (move.clientX - fromX) / scale));
+                        const travelled = (move.clientX - fromX) / scale;
+                        wide = Math.max(8, Math.round(wasW + (fromLeft ? -travelled : travelled)));
                         el.style.setProperty('max-width', `${wide}px`);
                         if (fixed) el.style.setProperty('min-width', `${wide}px`);
+                        if (fromLeft) {
+                          movedX = wasW - wide;
+                          el.style.setProperty('left', `${wasLeft + movedX}px`);
+                        }
                       }
                       if (down) {
-                        tall = Math.max(8, Math.round(wasH + (move.clientY - fromY) / scale));
+                        const travelled = (move.clientY - fromY) / scale;
+                        tall = Math.max(8, Math.round(wasH + (fromTop ? -travelled : travelled)));
                         el.style.setProperty('min-height', `${tall}px`);
+                        if (fromTop) {
+                          movedY = wasH - tall;
+                          el.style.setProperty('top', `${wasTop + movedY}px`);
+                        }
                       }
                       /*
                        * **What it is writing, while it is writing it.** A handle that moves a box and
@@ -1239,10 +1372,19 @@ export function Overlay({
                         nodeIds: [sid],
                         at: breakpoint,
                         // A corner writes both, which is what the reader dragged.
+                        // A placed block that has not said so yet is saying so now, by being dragged.
+                        ...(placed ? { sizing: 'fixed' } : {}),
                         ...(across && wide !== wasW
                           ? { maxWidth: Math.round(wide * 15), ...(fixed ? { minWidth: Math.round(wide * 15) } : {}) }
                           : {}),
-                        ...(down && tall !== wasH ? { minHeight: Math.round(tall * 15) } : {})
+                        ...(down && tall !== wasH ? { minHeight: Math.round(tall * 15) } : {}),
+                        /*
+                         * And **the anchor**, for the two edges that grow a block by moving it. A left
+                         * handle pulled outward makes the block wider *and* starts it further left;
+                         * writing only the width would grow it to the right, away from the hand.
+                         */
+                        ...(fromLeft && movedX ? { insetLeft: Math.round((wasLeft + movedX) * 15) } : {}),
+                        ...(fromTop && movedY ? { insetTop: Math.round((wasTop + movedY) * 15) } : {})
                       });
                     };
 
@@ -1316,7 +1458,8 @@ export function Overlay({
             </span>
           ))}
         </div>
-      ))}
+        );
+      })}
       {/* Read so the boxes are recomputed when the document or the selection moves. */}
       <span hidden data-revision={revision} />
     </div>
