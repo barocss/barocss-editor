@@ -729,7 +729,20 @@ function home(): Node {
         'column',
         {
           name: '히어로',
-          alignItems: 'center',
+          /**
+           * **Stretch**, and the row inside centres itself — which is the fix `section` carries a
+           * comment about and this band, written by hand, never got.
+           *
+           * `center` in a flex column centres a child **at its content width**, and a child whose
+           * content does not fit overflows *both* sides equally instead of being clamped. Measured on
+           * the three boards: the row wants 804px, the tablet band's content box is 754, so 25px
+           * escaped on each side and a 40px padding drew as 15. On the phone a 20 drew as 5. Desktop
+           * looked perfect because 1136 of content fits inside 1136.
+           *
+           * So the visible symptom was *the content ignores the padding on tablet and phone*, and the
+           * cause was a value that is correct at one width and wrong at the two nobody checked.
+           */
+          alignItems: 'stretch',
           /*
            * **Taller.** The paper showing is a decision: the composition asks for a quarter to a half
            * of the page to be ground, and a hero that fills to its edges has nothing to be loud
@@ -752,8 +765,11 @@ function home(): Node {
             {
               name: '히어로 줄',
               gap: px(64),
+              // Vertical, which is what `center` means on a **row**: the words beside the picture.
               alignItems: 'center',
               maxWidth: WIDTH.page,
+              // And it centres itself, now that the band above stretches rather than centring it.
+              centred: true,
               overrides: { mobile: { layoutMode: 'column', gap: px(32) } }
             },
             [
@@ -786,8 +802,8 @@ function home(): Node {
                   text('이 페이지도 그중 하나로 만들었습니다.')
                 ]),
                 stack('row', { name: '히어로 버튼', gap: GAP.tight, sizing: 'hug', alignItems: 'center' }, [
-                  placed('cta', { 문구: '무료로 시작하기' }, { sizing: 'hug' }),
-                  placed('ghost', { 문구: '문서 읽기' }, { sizing: 'hug' })
+                  placed('cta', { 문구: '무료로 시작하기' }, { goes: pageRef('pricing'), sizing: 'hug' }),
+                  placed('ghost', { 문구: '문서 읽기' }, { goes: 'https://docs.barocss.example', sizing: 'hug' })
                 ])
                 ]
               ),
@@ -1134,7 +1150,7 @@ function home(): Node {
             paragraph([
               text('계정을 만들면 세 제품이 함께 열립니다. 카드 정보는 나중에 물어봅니다.')
             ]),
-            placed('cta', { 문구: '무료로 시작하기' }, { sizing: 'hug' })
+            placed('cta', { 문구: '무료로 시작하기' }, { goes: pageRef('pricing'), sizing: 'hug' })
           ])
         ],
         { alignItems: 'center' }
@@ -1304,7 +1320,7 @@ function products(): Node {
               heading(3, '어느 것부터 열어도 됩니다'),
               quiet('한 계정으로 셋이 함께 열립니다. 쓰지 않는 제품은 값을 내지 않습니다.')
             ]),
-            placed('cta', { 문구: '무료로 시작하기' }, { sizing: 'hug' })
+            placed('cta', { 문구: '무료로 시작하기' }, { goes: pageRef('pricing'), sizing: 'hug' })
           ]
         )
       ]),
@@ -1415,7 +1431,7 @@ function pricing(): Node {
               quiet('문서, 덱, 사이트를 한 계정으로. 두 제품 이상 쓰는 팀이면 이쪽이 쌉니다.')
             ]),
             paragraph([atSize('월 19,900원', '22px', '14110F')]),
-            placed('cta', { 문구: '무료로 시작하기' }, { sizing: 'hug' })
+            placed('cta', { 문구: '무료로 시작하기' }, { goes: pageRef('about'), sizing: 'hug' })
           ]
         )
       ]),
@@ -1479,7 +1495,7 @@ function pricing(): Node {
             stack(
               'column',
               { name: '문의 상자', gap: GAP.tight, sizing: 'fixed', minWidth: WIDTH.aside, maxWidth: WIDTH.aside },
-              [placed('cta', { 문구: '영업팀에 연락' }, { sizing: 'fill' })]
+              [placed('cta', { 문구: '영업팀에 연락' }, { goes: pageRef('about'), sizing: 'fill' })]
             )
           ]
         )
@@ -1552,7 +1568,7 @@ function about(): Node {
             stack('column', { name: '연락 글', gap: GAP.hair, sizing: 'fill' }, [
               heading(3, '무엇이든 물어보세요'),
               quiet('문서 모델에 대한 질문이든, 안 되는 것에 대한 제보든 같은 곳으로 옵니다.'),
-              placed('ghost', { 문구: 'hello@barocss.com' }, { sizing: 'hug' })
+              placed('ghost', { 문구: 'hello@barocss.com' }, { goes: 'mailto:hello@barocss.example', sizing: 'hug' })
             ]),
             contactForm()
           ]
@@ -1740,7 +1756,7 @@ function components(): Node {
                   navItem('가격', 'pricing'),
                   navItem('소개', 'about'),
                   navItem('블로그', 'blog'),
-                  placed('cta', { 문구: '무료로 시작하기' }, { sizing: 'hug' })
+                  placed('cta', { 문구: '무료로 시작하기' }, { goes: pageRef('pricing'), sizing: 'hug' })
                 ]
               ),
               /**
@@ -1812,7 +1828,7 @@ function components(): Node {
                 navItem('소개', 'about'),
                 navItem('블로그', 'blog')
               ]),
-              placed('cta', { 문구: '무료로 시작하기' }, { sizing: 'hug' })
+              placed('cta', { 문구: '무료로 시작하기' }, { goes: pageRef('pricing'), sizing: 'hug' })
             ]
           )
           ])

@@ -832,8 +832,18 @@ export function Overlay({
                          * pixels the first time, and the document took a padding of 0 — a number so
                          * small in twips that it rounds to nothing on the way back out.
                          */
+                        /*
+                         * **And at the width being looked at**, which this did not say — so a pull
+                         * on the tablet or the phone board wrote the *base* padding, the width's own
+                         * override immediately drew over it, and the band snapped back to where it
+                         * started. A drag that appears to do nothing, on two of the three boards.
+                         *
+                         * The resize handles a hundred lines down already said it. This is the same
+                         * fact: a number pulled on a board is a number for **that** board.
+                         */
                         void editor.executeCommand('setBlockFormat', {
                           nodeIds: [sid],
+                          at: breakpoint,
                           [attr]: Math.round(now * 15)
                         });
                       };

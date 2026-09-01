@@ -144,7 +144,7 @@ describe('what the panel declares', () => {
 
   it('groups in the order it lists, so moving a row moves it on screen', () => {
     const groups = sitePanelGroups('frame', 'block').map((one) => one.label);
-    expect(groups).toEqual(['선택', '배치', '크기', '위치', '열림']);
+    expect(groups).toEqual(['선택', '배치', '크기', '위치', '누르면', '열림']);
     // And a group is contiguous: two runs of one label would draw the heading twice.
     expect(new Set(groups).size).toBe(groups.length);
   });

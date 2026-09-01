@@ -917,6 +917,95 @@ test.describe('the exported page', () => {
    * At 390 with nothing but the file, which is the whole claim: no script, no framework, a page a
    * visitor could have saved to disk.
    */
+  /**
+   * **The call to action is a control**, which it was not for as long as this sample has existed.
+   *
+   * Measured by exporting the home page and looking: seven `무료로 시작하기` buttons across five
+   * pages, each drawn with the accent fill, the pill radius, a `:hover` that darkens and a
+   * `:focus-visible` ring — and every one published as `<div><p><span>무료로 시작하기</span></p></div>`.
+   * Outside the tab order, announced by a screen reader as a paragraph, and carrying a focus ring
+   * that a `<div>` can never fire. The primary thing this site asks a visitor to do could not be
+   * done without a mouse, and every check in the repository passed.
+   *
+   * Held in a browser rather than only in a unit test because the claim is about what a **browser**
+   * does with the markup: that the box is the target and not the eight pixels of text, that Tab
+   * reaches it, that Enter follows it.
+   */
+  test('keeps every band’s content inside its padding, at all three widths', async ({ page }) => {
+    /**
+     * **The one a reader saw before any check did**, and it looked like a responsive bug.
+     *
+     * Reported as *the hero ignores its padding on tablet and phone*. Measured on the three boards:
+     * the band's padding was exactly what the document said — 72, 40, 20 — and the row inside sat 15px
+     * and 5px from the edge on the two narrow ones. Desktop was perfect.
+     *
+     * The cause is one word. `alignItems: center` in a flex **column** centres a child at its
+     * *content* width, and a child whose content does not fit overflows both sides equally rather
+     * than being clamped: the row wants 804px, the tablet band's content box is 754, so 25px escaped
+     * on each side and a 40px padding drew as 15. Desktop looked right because 1136 fits in 1136.
+     *
+     * A value that is correct at one width and wrong at the two nobody looked at — which is what
+     * this test is: the ratio of the offset to the width, at each board, against the padding. Free of
+     * the zoom, so it is the same assertion on all three.
+     */
+    await ready(page);
+    const said = await page.evaluate(() => {
+      const out: { at: string; offset: number; padding: number }[] = [];
+      for (const board of [...document.querySelectorAll('[data-frame]')]) {
+        const row = board.querySelector<HTMLElement>('[data-name="히어로 줄"]');
+        const band = row?.parentElement;
+        if (!row || !band) continue;
+        const bb = band.getBoundingClientRect();
+        out.push({
+          at: String(board.getAttribute('data-frame')),
+          offset: (row.getBoundingClientRect().left - bb.left) / bb.width,
+          padding: Number.parseFloat(getComputedStyle(band).paddingLeft) / band.offsetWidth
+        });
+      }
+      return out;
+    });
+
+    expect(said.map((one) => one.at)).toEqual(['desktop', 'tablet', 'mobile']);
+    for (const one of said) {
+      // Within a pixel's worth of the band, which is all a rounded rect can promise.
+      expect(Math.abs(one.offset - one.padding)).toBeLessThan(0.002);
+    }
+  });
+
+  test('makes the button a link a keyboard can reach, and the whole box the target', async ({ page }) => {
+    await ready(page);
+    await page.setContent(await exported(page, '/'));
+
+    const button = page.locator('a', { hasText: '무료로 시작하기' }).first();
+    await expect(button).toHaveAttribute('href', '/가격');
+
+    /*
+     * **The box, not the words.** A link mark around the label would have made a 8px-tall target
+     * inside a 44px button, which is the shape every builder that does it with a mark ships. The
+     * wrapper is `display: contents`, so the box it draws is the block's own box — and a press in
+     * the padding, where a thumb actually lands, reaches the link.
+     */
+    const box = await button.boundingBox();
+    const label = await button.locator('span', { hasText: '무료로 시작하기' }).last().boundingBox();
+    expect(box!.height).toBeGreaterThan(label!.height + 10);
+
+    /*
+     * And **Tab reaches it**, which is the whole finding: the focus ring the document declared is
+     * only a ring if something can be focused.
+     */
+    /*
+     * Which a wrapper could not do. The first shape was an `<a>` of `display: contents` around the
+     * block — no box, so no layout change — and an element with no box **cannot take focus**:
+     * `document.activeElement` stayed on `<body>`, and the published link was reachable by mouse
+     * only. The exact fault this exists to fix, rebuilt one layer out and caught here.
+     */
+    await button.focus();
+    await expect(button).toBeFocused();
+
+    // And the other two kinds of destination this page carries, so a rename is not the only case.
+    await expect(page.locator('a[href="https://docs.barocss.example"]')).toHaveCount(1);
+  });
+
   test('opens the phone’s menu, with nothing in the page but the page', async ({ page }) => {
     await ready(page);
     const html = await exported(page, '/');
@@ -946,9 +1035,16 @@ test.describe('the exported page', () => {
     await opener.click();
     await visitor.waitForTimeout(150);
     await expect(menu).toBeVisible();
-    // And it is a column of the same four pages, as links a visitor can follow.
-    await expect(menu.locator('a')).toHaveCount(4);
+    /*
+     * And it is a column of the same four pages, as links a visitor can follow — **and the button**,
+     * which is the fifth and was not a link until `goes` existed. It was drawn as a `<div>` with an
+     * accent fill and a focus ring that could never fire: a visitor on a phone who opened the menu
+     * found four pages and a picture of a button.
+     */
+    await expect(menu.locator('a')).toHaveCount(5);
     await expect(menu.locator('a').first()).toHaveAttribute('href', '/제품');
+    await expect(menu.locator('a').last()).toHaveAttribute('href', '/가격');
+    await expect(menu.locator('a').last()).toContainText('무료로 시작하기');
 
     // Pressing again closes it: a checkbox remembers, which is why this needs no script at all.
     await opener.click();

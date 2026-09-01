@@ -460,6 +460,15 @@ export class SiteStackExtension implements Extension {
     'openAtRest',
     'opensOne',
     /**
+     * And **where pressing it goes**, which is `opens`'s sibling and *is* here — the distinction
+     * between them being the reason the comment above exists.
+     *
+     * `opens` names a second block and has to mint a durable name on it, so it needs a command of
+     * its own. A destination names nothing in this document that could need naming: a page id a
+     * reader picked from a list, or an address they typed. One node, one attribute.
+     */
+    'goes',
+    /**
      * **Which connection a form sends through**, which had a row and no way through.
      *
      * `sends` is the name of a resource, so it reads like the other references and was written

@@ -124,6 +124,13 @@ export type SitePanelControl =
    */
   | 'opens'
   /**
+   * **Where pressing a block goes** — a page of this site picked by name, or an address typed out.
+   *
+   * Its own kind rather than a `choice` plus a `text`, because the two are one decision: a reader
+   * chooses *a page* or *somewhere else*, and two rows would let a document hold both and draw one.
+   */
+  | 'goes'
+  /**
    * **Which connection a form sends through**, and the address that connection points at.
    *
    * Lists only the document can supply, like `dataset` and `column` — and the second is a control
@@ -980,6 +987,28 @@ export const SITE_PANEL: SitePanelRow[] = [
    * hamburger, and putting the row inside the state would have asked them to set it from the wrong
    * block.
    */
+  /**
+   * **Where pressing this goes** — the row without which `goes` is a field nothing can write.
+   *
+   * Its own group and above 열림, because between the two gestures a block can be, going somewhere is
+   * the ordinary one: most buttons on most sites are links, and one that opens a panel is the
+   * special case. A reader looking for 누르면 should find it first.
+   *
+   * Two halves in one row, because a destination is genuinely two kinds of thing and a reader knows
+   * which they mean: a **page of this site**, picked by name so a rename follows it, or an **address**
+   * typed out — `https://…`, `mailto:`, `#main`. Neither is a default and the empty choice is a
+   * block that is not a control at all, which is what most blocks are.
+   */
+  {
+    attr: 'goes',
+    command: 'setBlockFormat',
+    group: '누르면',
+    tab: 'block',
+    label: '가는 곳',
+    ariaLabel: '누르면 가는 곳',
+    control: 'goes',
+    on: [...STACKS, 'instance', 'picture', 'collection']
+  },
   {
     attr: 'opens',
     /*
@@ -1602,13 +1631,24 @@ export const SITE_PANEL: SitePanelRow[] = [
    * And what a crawler is told, which matters most in the state nobody tests: a staging copy of a
    * site that was published before it was ready and is now in somebody's search result.
    */
-  { attr: 'noIndex', of: 'document', command: 'setSiteFiles', group: '사이트', tab: 'page', label: '검색 제외', ariaLabel: '검색 엔진에서 제외', control: 'toggle', on: ['surface'] },
+  /**
+   * **Two rows say 검색 제외** and they are not the same decision, which the labels used to hide.
+   *
+   * This one writes `robots.txt` — `Disallow: /`, the whole site, every page — and the one in the
+   * 페이지 group writes `<meta name="robots" content="noindex">` on the page in front of the reader.
+   * Both were labelled `검색 제외`, on the **same tab**, so the 페이지 tab showed two checkboxes with
+   * identical words a group heading apart, and pressing the wrong one takes a site off the internet.
+   *
+   * The `ariaLabel`s were already distinct, which is the tell: somebody had already noticed the two
+   * needed telling apart and told only the screen reader.
+   */
+  { attr: 'noIndex', of: 'document', command: 'setSiteFiles', group: '사이트', tab: 'page', label: '사이트 전체 제외', ariaLabel: '검색 엔진에서 사이트 전체를 제외', control: 'toggle', on: ['surface'] },
   /*
    * And the two a **page** answers rather than the site: which one a host serves for an address it
    * cannot match, and whether this one in particular should stay out of a search result.
    */
   { attr: 'notFound', command: 'setPageInfo', group: '페이지', tab: 'page', label: '없는 주소용', ariaLabel: '주소가 틀렸을 때 보일 페이지', control: 'toggle', on: ['surface'] },
-  { attr: 'noIndex', command: 'setPageInfo', group: '페이지', tab: 'page', label: '검색 제외', ariaLabel: '이 페이지를 검색에서 제외', control: 'toggle', on: ['surface'] },
+  { attr: 'noIndex', command: 'setPageInfo', group: '페이지', tab: 'page', label: '이 페이지만 제외', ariaLabel: '이 페이지를 검색에서 제외', control: 'toggle', on: ['surface'] },
 
   // ── 서체 — what the whole site is set in ──────────────────────────────────
   /**

@@ -476,6 +476,7 @@ describe('what is wrong with the document', () => {
       'found',
       'landmark',
       'link',
+      'press',
       'reference',
       'state',
       'width'

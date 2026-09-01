@@ -62,6 +62,7 @@ import {
   statesOf,
   type StateId
 } from './states';
+import { hrefFor } from './page-link';
 import { liveScript, markLive } from './live';
 import { neverShown } from './presence';
 import { assetFileName, assetNameOf, assetNamed } from './assets';
@@ -622,6 +623,7 @@ function clean(
    * after the rename, because the switches are found by `data-b`.
    */
   openSwitches(store, host);
+  goesLinks(doc, store, host);
 
   /*
    * And last, the lists a visitor's browser goes and gets again — after the rename, because they are
@@ -660,6 +662,68 @@ function clean(
  * pinned to it by then. A wrapper of `display: contents` has no box at all: the layout is exactly
  * the layout, and a press anywhere in it reaches the switch.
  */
+/**
+ * The **links a block is**, which is `openSwitches`'s sibling and was missing for as long as it.
+ *
+ * A button in this model is a stack with a colour, a padding and words in it — that is the schema's
+ * own sentence and it is right about how a button *looks*. It said nothing about what a button *is*,
+ * and the sample proved the gap by wearing it: seven calls to action drawn with an accent fill, a
+ * pill radius, a `:hover` that darkens and a `:focus-visible` ring, every one of them published as
+ * `<div><p><span>무료로 시작하기</span></p></div>` — outside the tab order, announced as a paragraph,
+ * and carrying a focus ring that a `<div>` can never fire.
+ *
+ * ## The element becomes the link, rather than being wrapped in one
+ *
+ * Wrapped first, in an `<a>` of `display: contents` — which has no box, so the layout is untouched.
+ * Measured in a browser, and it does not work: **an element with no box cannot take focus.** Chromium
+ * leaves `document.activeElement` on `<body>`, so the wrapper published a link a mouse could press
+ * and a Tab key could not reach, which is the exact fault this whole thing exists to fix, rebuilt one
+ * layer out.
+ *
+ * So the block's own element is *replaced* by an `<a>` carrying every attribute it had. Its styling
+ * survives because styling is carried by **class** — `lift` has already pulled every rule out into a
+ * stylesheet by the time this runs — and the children move across, so the box is the box it was and
+ * the whole of it is the target rather than the eight pixels of text a link mark would have covered.
+ *
+ * `<a>` is transparent content: it holds whatever its parent could hold, so a paragraph, a stack and
+ * a picture inside one are all valid.
+ *
+ * ## And a reference that resolves to nothing publishes no `href`
+ *
+ * `hrefFor`'s rule, unchanged: a `page:` naming a page that is gone comes back undefined, and an
+ * `<a>` with no `href` is the one shape a browser draws as *not a link*. Honest, visible, and
+ * already reported by `linkFaults` — rather than a link that looks fine until somebody follows it.
+ */
+function goesLinks(
+  doc: { rootId: string; getNode: (sid: string) => Node | undefined },
+  store: { getNode: (sid: string) => Node | undefined },
+  host: HTMLElement
+): void {
+  for (const el of [...host.querySelectorAll<HTMLElement>('[data-b]')]) {
+    const name = el.getAttribute('data-b') ?? '';
+    const cut = name.lastIndexOf('~');
+    const own = cut < 0 ? name : name.slice(cut + 1);
+    const said = (store.getNode(own)?.attributes as Record<string, unknown> | undefined)?.goes;
+    if (typeof said !== 'string' || !said.trim()) continue;
+
+    const href = hrefFor(doc as never, said.trim());
+    const link = host.ownerDocument.createElement('a');
+    for (const attr of [...el.attributes]) link.setAttribute(attr.name, attr.value);
+    if (href) link.setAttribute('href', href);
+    /*
+     * And a **name**, for the very common button that draws its words as a picture — a monogram, an
+     * arrow, a chevron. The block's 이름 is what the reader typed in the panel, and it is the one
+     * sentence in the document that says what following this does.
+     */
+    if (!(el.textContent ?? '').trim()) {
+      const called = store.getNode(own)?.attributes?.name;
+      if (typeof called === 'string' && called) link.setAttribute('aria-label', called);
+    }
+    while (el.firstChild) link.appendChild(el.firstChild);
+    el.parentElement?.replaceChild(link, el);
+  }
+}
+
 function openSwitches(
   store: { getNode: (sid: string) => Node | undefined },
   host: HTMLElement

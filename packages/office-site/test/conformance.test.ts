@@ -1339,6 +1339,17 @@ describe('the site builder draws what it declares', () => {
         opens:
           'a gesture rather than a look: read by `openSwitches`, which puts a switch and a label in the exported page — held in `states.test.ts`',
         /*
+         * And its **sibling**, exempt for the same reason and reported the same way: `goes` does not
+         * change how the block looks either. It publishes an `<a>` of `display: contents` around it,
+         * so the drawing is byte-for-byte the drawing and the block is a control a Tab key reaches.
+         *
+         * The editor draws no wrapper for the same reason it draws no switch: a link a designer
+         * cannot click past is a link in the way of every drag. What the board shows is the panel
+         * row, which is where the reader wrote it.
+         */
+        goes:
+          'a gesture rather than a look: read by `goesLinks`, which wraps the block in a link in the exported page — held in `press.test.ts`',
+        /*
          * And the two that qualify the gesture, exempt for the same reason and no further one. Both
          * change the **control** the export writes rather than anything about the drawing:
          * `openAtRest` ships the switch already `checked`, and `opensOne` makes the switches under a

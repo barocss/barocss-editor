@@ -180,6 +180,57 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
      */
     opens: { type: 'string' as const, required: false },
     /**
+     * **Where this block goes when it is pressed** — `opens`'s sibling, and the half that was missing.
+     *
+     * ## The finding
+     *
+     * This schema says, in the sample, that there is no button node and does not need to be: *a
+     * button is a stack with a colour, a padding and words in it*. Which is true of how a button
+     * **looks** and says nothing about what it **is**, and the sample proved the gap by wearing it.
+     * Seven `무료로 시작하기` buttons across five pages, drawn perfectly — the accent fill, the pill
+     * radius, a `:hover` that darkens, a `:focus-visible` ring — and every one of them published as
+     * `<div><p><span>무료로 시작하기</span></p></div>`.
+     *
+     * So: not in the tab order, not announced as anything but a paragraph of text, and the focus ring
+     * the document carefully declared could never fire, because a `<div>` does not receive focus. The
+     * primary call to action on every page of this site was unreachable without a mouse, and every
+     * check this product has passed.
+     *
+     * ## Why an attribute and not a link mark
+     *
+     * A mark covers **words**. A button is a box: its padding, its fill and its corner are the target
+     * a visitor aims at, and a link mark around the label makes the words clickable and the box not —
+     * which is the eight-pixel target every builder that does it this way ships.
+     *
+     * `opens` had already settled this shape for the other gesture a block can be. That one publishes
+     * a hidden checkbox and a `<label>` wrapper; this one publishes an `<a href>` wrapper, both with
+     * `display: contents` so the layout is untouched, and both giving the block a real control a Tab
+     * key reaches and a screen reader names. See `pressables` in `export-html.ts`.
+     *
+     * ## What it may hold
+     *
+     * Exactly what a link mark's `href` holds, resolved by the same `hrefFor`:
+     *
+     * | written | goes to |
+     * |---|---|
+     * | `page:소개` | a page of this site, following it through a rename |
+     * | `https://…` | somewhere else, and `barocss.com` is normalised into one |
+     * | `#main` | this page's own body, past the navigation, with the smooth scroll the export ships |
+     * | `mailto:` `tel:` | the visitor's own mail or phone |
+     * | `/가격` | a path this site does not own a page for — a hand-written route |
+     *
+     * A fragment is deliberately the thin row: `#main` is the **only** spot a page currently names,
+     * because the export writes exactly one id (`main`, for the skip link) and a block has no way to
+     * say it is somewhere a link may aim at. Written down in `site-builder.md` rather than claimed
+     * here — a table row promising `#요금` would be this comment lying about the product, which is
+     * what it was doing until somebody exported the page and looked.
+     *
+     * A `page:` pointing at a page that is gone publishes an `<a>` with **no** `href`, which is the
+     * one shape a browser draws as *not a link* — and `linkFaults` reports it, because a reference
+     * that resolves to nothing is the fault this document model already has five other kinds of.
+     */
+    goes: { type: 'string' as const, required: false },
+    /**
      * **Whether this block is open when the page loads.**
      *
      * On the *opener*, beside `opens`, because it is a fact about the gesture rather than about the

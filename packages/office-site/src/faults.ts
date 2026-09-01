@@ -21,7 +21,7 @@
  */
 import { componentsOf, documentVars, isVarRef, varNameOf } from '@barocss/office-canvas';
 import { collectionFaults } from './data';
-import { linkFaults } from './page-link';
+import { linkFaults, linkOf } from './page-link';
 import { overrideFaults } from './responsive';
 import { pagesOf } from './selection';
 import { SITE_SURFACE_KIND } from './site-schema';
@@ -41,7 +41,7 @@ const ONE_EACH = ['header', 'main', 'footer'];
 
 /** What a reader calls each, which is what the panel calls it. */
 const NAME_OF: Record<string, string> = { header: '머리말', main: '본문', footer: '꼬리말' };
-import { stateFaults } from './states';
+import { opensOf, stateFaults, statesOf } from './states';
 import { formFaults, serviceNamed } from './form';
 import { assetFaults, assetNameOf, assetNamed, isAssetRef } from './assets';
 import { pathFaults } from './slug';
@@ -63,7 +63,8 @@ export interface Fault {
     | 'asset'
     | 'address'
     | 'reference'
-    | 'found';
+    | 'found'
+    | 'press';
   /** What is wrong, in the words a reader would use. */
   said: string;
 }
@@ -126,6 +127,28 @@ export const FAULT_KINDS: { id: Fault['kind']; label: string; why: string }[] = 
      * from noticing.
      */
     why: '두 페이지가 같은 주소를 씁니다. 한쪽은 발행되지 않고, 그쪽을 가리키는 링크는 모두 다른 페이지로 갑니다.'
+  },
+  {
+    id: 'press',
+    label: '누르는 것',
+    /*
+     * The one group whose evidence is **dead CSS** rather than a judgement about design.
+     *
+     * `:focus-visible` fires on a thing a keyboard can reach, and nothing else — a `<div>` never
+     * receives focus, whatever it is painted like. So a block that writes a focus rule has said, in
+     * the one vocabulary that cannot mean anything else, *a visitor arrives here by pressing Tab*,
+     * and if nothing makes it a control the rule is a decoration that can never draw.
+     *
+     * Found by exporting the sample: seven `무료로 시작하기` buttons across five pages, each with an
+     * accent fill, a pill radius, a `:hover` that darkens and a `:focus-visible` ring — published as
+     * `<div><p><span>무료로 시작하기</span></p></div>`. The primary call to action on every page was
+     * unreachable without a mouse and announced as a paragraph, and every check here passed.
+     *
+     * A `:hover` alone is deliberately **not** asked about. Nine cards in that same sample lift under
+     * the pointer and are not meant to be pressed, which is an ordinary design; a fault list that
+     * argued with all nine to catch the one is a fault list nobody reads to the end.
+     */
+    why: '포인터가 올라올 때만이 아니라 키보드가 들어올 때도 달라진다고 적어놓고, 정작 키보드가 갈 수 없는 블록입니다. `:focus-visible`은 초점을 받는 것에만 걸리므로 그 규칙은 영영 그려지지 않고, 방문자는 마우스 없이 이 블록에 닿을 수 없습니다.'
   },
   {
     id: 'found',
@@ -226,6 +249,82 @@ export function holderOf(
  */
 export type Declares = (node: { stype?: unknown }) => Iterable<string>;
 
+/**
+ * Whether pressing this block does anything — the question `press` is the other half of.
+ *
+ * A link mark is looked for **inside**, not on the block, because a mark covers words and a block is
+ * a box: the sample's navigation is a frame whose hover is on the box and whose link is on the word
+ * in it, which is a real control with a smaller target than it looks. `goes` exists because that
+ * trade should be a choice rather than the only shape available.
+ */
+function pressable(doc: Access, sid: string, attrs: Record<string, unknown>): boolean {
+  if (typeof attrs.goes === 'string' && attrs.goes.trim()) return true;
+  if (opensOf(attrs)) return true;
+
+  /*
+   * And **above it**, because a link is a wrapper: a block inside one is inside it. A row of three
+   * cards in a single `goes` frame is one control with three things drawn in it, which is an
+   * ordinary design and not three dead blocks.
+   */
+  let up = doc.getNode(sid)?.parentId as string | undefined;
+  for (let depth = 0; depth < 40 && up; depth += 1) {
+    const above = doc.getNode(up);
+    if (!above) break;
+    const said = above.attributes?.goes;
+    if (typeof said === 'string' && said.trim()) return true;
+    if (opensOf(above.attributes as Record<string, unknown> | undefined)) return true;
+    up = above.parentId as string | undefined;
+  }
+
+  let hit = false;
+  const look = (at: string, depth = 0) => {
+    if (depth > 30 || hit) return;
+    const node = doc.getNode(at);
+    if (!node) return;
+    if (linkOf(node as never)) {
+      hit = true;
+      return;
+    }
+    for (const child of (node.content ?? []) as unknown[]) {
+      if (typeof child === 'string') look(child, depth + 1);
+    }
+  };
+  look(sid);
+  return hit;
+}
+
+/** The definition a placement draws, by the id it names. */
+function definitionFor(doc: Access, componentId: unknown): string | undefined {
+  if (typeof componentId !== 'string' || !componentId) return undefined;
+  for (const child of (doc.getNode(doc.rootId)?.content ?? []) as unknown[]) {
+    if (typeof child !== 'string' || doc.getNode(child)?.stype !== 'components') continue;
+    for (const one of (doc.getNode(child)?.content ?? []) as unknown[]) {
+      if (typeof one === 'string' && doc.getNode(one)?.attributes?.id === componentId) return one;
+    }
+  }
+  return undefined;
+}
+
+/** Whether anything in a definition says a keyboard arrives at it. */
+function focusInside(doc: Access, sid: string | undefined): boolean {
+  if (!sid) return false;
+  let hit = false;
+  const look = (at: string, depth = 0) => {
+    if (depth > 40 || hit) return;
+    const node = doc.getNode(at);
+    if (!node) return;
+    if (statesOf(node.attributes as Record<string, unknown> | undefined).focus) {
+      hit = true;
+      return;
+    }
+    for (const child of (node.content ?? []) as unknown[]) {
+      if (typeof child === 'string') look(child, depth + 1);
+    }
+  };
+  look(sid);
+  return hit;
+}
+
 export function documentFaults(
   doc: Access,
   options?: { declares?: Declares }
@@ -233,7 +332,7 @@ export function documentFaults(
   const found: Fault[] = [];
   const declares = options?.declares ?? (() => []);
 
-  const walk = (sid: string, depth = 0) => {
+  const walk = (sid: string, depth = 0, inForm = false, inDefinition = false) => {
     if (depth > 64) return;
     const node = doc.getNode(sid) as { stype?: unknown; attributes?: Record<string, unknown>; content?: unknown[] } | undefined;
     if (!node) return;
@@ -300,8 +399,65 @@ export function documentFaults(
       }
     }
 
+    /*
+     * And **a block that says a keyboard arrives at it, which a keyboard cannot reach**.
+     *
+     * Three things make a block a control in this model, and a fourth makes it moot:
+     *
+     * - `goes` — the export wraps it in an `<a href>` (`goesLinks`)
+     * - `opens` — the export puts a checkbox before it and a `<label>` around it (`openSwitches`)
+     * - a **link mark** on words inside it — the words are the control, which is a smaller target
+     *   than the box but is a control
+     * - inside a `form` — the submit is a real `<button>`, drawn by the form renderer
+     *
+     * Everything else painted like a button is a `<div>`, and the focus rule on it is dead.
+     *
+     * ## Asked of the placement, not of the definition
+     *
+     * The look is the definition's and the destination is the placement's — which is the whole of
+     * what a component is, and it means neither node can answer this alone. A `버튼` definition
+     * declares the focus ring once; seven placements each say where they go, and an eighth added
+     * next month says nothing and is dead. So the question is asked where it can be answered and
+     * reported where it can be fixed: against the placement a reader would click.
+     */
+    if (node.stype === 'instance' && !inForm && focusInside(doc, definitionFor(doc, attrs.componentId)) && !pressable(doc, sid, attrs)) {
+      const called =
+        (typeof attrs.name === 'string' && attrs.name && `'${attrs.name}'`) ||
+        (typeof attrs.componentId === 'string' && attrs.componentId && `'${attrs.componentId}'`) ||
+        '이 블록';
+      found.push({
+        sid,
+        kind: 'press',
+        said: `${called}에 키보드 초점 표시가 있지만 갈 곳이 없습니다 — 누르면 어디로 갈지 정해주세요`
+      });
+    }
+    /*
+     * And a block that is its own button, which is the simpler half: a frame a designer painted and
+     * gave a focus ring, standing on a page. Inside a definition it is skipped — the placements
+     * above answer for it, and reporting both would be one fault written twice.
+     */
+    if (
+      node.stype !== 'instance' &&
+      !inForm &&
+      !inDefinition &&
+      statesOf(attrs).focus &&
+      !pressable(doc, sid, attrs)
+    ) {
+      const called =
+        (typeof attrs.name === 'string' && attrs.name && `'${attrs.name}'`) ||
+        (typeof attrs.partId === 'string' && attrs.partId && `'${attrs.partId}'`) ||
+        '이 블록';
+      found.push({
+        sid,
+        kind: 'press',
+        said: `${called}에 키보드 초점 표시가 있지만 갈 곳이 없습니다 — 누르면 어디로 갈지 정해주세요`
+      });
+    }
+
     for (const child of (node.content ?? []) as unknown[]) {
-      if (typeof child === 'string') walk(child, depth + 1);
+      if (typeof child === 'string') {
+        walk(child, depth + 1, inForm || node.stype === 'form', inDefinition || node.stype === 'component');
+      }
     }
   };
   walk(doc.rootId);

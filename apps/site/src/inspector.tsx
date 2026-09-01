@@ -49,6 +49,8 @@ import {
   statedIn,
   statesOf,
   templateOf,
+  PAGE_PREFIX,
+  addressFor,
   type BreakpointId,
   type SitePanelRow,
   type SitePanelTab,
@@ -1325,6 +1327,55 @@ function own(
           ariaLabel={row.ariaLabel}
         />
       );
+
+    case 'goes': {
+      /*
+       * **Where pressing this block goes**, which is two kinds of destination and one decision.
+       *
+       * A page of this site is picked by **name** and written as `page:<id>`, so renaming the page's
+       * address moves every button that points at it — the reference shape this document model uses
+       * six other times. Anything else is typed: an address, a `mailto:`, `#main`.
+       *
+       * One row rather than two, because a block goes to one place: two fields would let a document
+       * hold a page *and* an address, and only one of them would ever be published.
+       */
+      const said = String(attrs.goes ?? '');
+      const toPage = said.startsWith(PAGE_PREFIX) ? said.slice(PAGE_PREFIX.length) : '';
+      return (
+        <span className="st-goes">
+          <PropertyChoice
+            value={toPage ? toPage : said ? '주소' : ''}
+            options={[
+              { id: '', label: '아무 데도' },
+              ...data.pages.map((one) => ({ id: one.id, label: one.name })),
+              { id: '주소', label: '주소 직접' }
+            ]}
+            onChange={(next) =>
+              run('setBlockFormat', {
+                nodeIds: shown?.ids,
+                /*
+                 * 주소 직접 writes **nothing**, not an empty string: it is a reader saying which
+                 * half of this row they mean, and the field below is where they say the rest. A
+                 * placeholder value written here would publish a link to nowhere in the meantime.
+                 */
+                goes: next === '주소' ? (toPage ? undefined : said || undefined) : next ? `${PAGE_PREFIX}${next}` : undefined
+              })
+            }
+            ariaLabel={row.ariaLabel}
+          />
+          {said && !toPage ? (
+            <TextField
+              value={said}
+              onCommit={(next) =>
+                run('setBlockFormat', { nodeIds: shown?.ids, goes: addressFor(next) })
+              }
+              placeholder="https://…"
+              ariaLabel="누르면 가는 주소"
+            />
+          ) : null}
+        </span>
+      );
+    }
 
     case 'sends': {
       /*
