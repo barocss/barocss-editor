@@ -21,9 +21,10 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { addChild, node, textNode, setAttrs, transaction } from '@barocss/model';
 import { SIZING, type Sizing } from './site-schema';
+import { holdsABlock } from './selection';
 import type { BreakpointId } from './breakpoints';
 import { BASE_BREAKPOINT, withOverride } from './responsive';
-import { STATEABLE, STATE_IDS, withState, type StateId } from './states';
+import { STATE_IDS, stateableIn, withState, type StateId } from './states';
 
 /** What a caller may say about a new stack. */
 export interface InsertStackOptions {
@@ -187,7 +188,8 @@ export class SiteStackExtension implements Extension {
         typeof node.text !== 'string' &&
         node.stype !== 'inline-text' &&
         parent.stype !== 'paragraph' &&
-        parent.stype !== 'heading'
+        parent.stype !== 'heading' &&
+        holdsABlock(store as never, parent.stype)
       ) {
         return { sid: node.sid, parentId: parent.sid, at };
       }
@@ -296,8 +298,69 @@ export class SiteStackExtension implements Extension {
     'sizing',
     'minWidth',
     'maxWidth',
+    /*
+     * And how **tall**, which this schema could not say at all until a hamburger needed a line two
+     * pixels high. `sizing.ts` has the five blocks that turned out to need it.
+     */
+    'minHeight',
+    'maxHeight',
+    /*
+     * And **where it is**, when it is not simply the next thing in the column: a header that follows
+     * the page, a badge on a card's corner, a portrait lifted into the band above. `position.ts` has
+     * the argument, including why the offsets are the only lengths here that take a negative number.
+     */
+    /*
+     * And what a **form** and a **field** say, which is the one group of fields here that is not
+     * about how a block is drawn: where the answers go, what the question is, and what it arrives
+     * called. `setBlockFormat` writes them for the same reason it writes everything else — one
+     * command, one undo, and a panel that does not grow a special case per node type.
+     */
+    /*
+     * And what a **picture** says about itself beyond its address: the shape it keeps at every width,
+     * and whether a browser should wait until it is needed. `aspect.ts` has why a height cannot
+     * answer the first.
+     */
+    'aspect',
+    'defer',
+    'action',
+    'method',
+    'thanks',
+    'label',
+    'kind',
+    'name',
+    'required',
+    'placeholder',
+    'lines',
+    'choices',
+    'min',
+    'max',
+    'maxLength',
+    'position',
+    'insetTop',
+    'insetRight',
+    'insetBottom',
+    'insetLeft',
+    'zOrder',
+    /*
+     * And **how many columns of a grid** it takes, and whether it sits in the middle of what holds
+     * it — the two halves of a bento, and of the band-with-a-measure every page is made of.
+     */
+    'span',
+    'centred',
     // What it looks like. Any of these may hold `var:이름` rather than a colour.
     'fill',
+    /**
+     * And **what is written on it**, which had a row and no way through.
+     *
+     * `ink` was declared, drawn, offered as 바탕 › 글자 — and missing from this list, so the control
+     * had never written anything since the day it was added. Found by the check that runs each row
+     * and asks the document whether it moved, which is the check this list is the reason for.
+     *
+     * It is also the attribute a whole band's readability rests on: the sample's footer went black
+     * on black the day its runs stopped carrying colours of their own, and `ink` is what fixed it —
+     * from the document literal, because from the panel it could not be set at all.
+     */
+    'ink',
     'stroke',
     'strokeWidth',
     /*
@@ -331,6 +394,26 @@ export class SiteStackExtension implements Extension {
     'shadowDistance',
     'shadowAngle',
     /*
+     * And the sheet **over** the picture, which is a different layer from fading the picture itself
+     * — `paint.ts` has the argument and `backgroundOpacity` two lines up is the other half of it.
+     */
+    'overlay',
+    'overlayOpacity',
+    /*
+     * **The three effects and the two rhythms**, added the day a redesign asked for them.
+     *
+     * A reminder of what this list is, because forgetting it cost a round: an attribute has to be in
+     * **four** places to be alive — declared in the schema, drawn by a renderer, offered by a panel
+     * row, and named here. Three of the four is a control that lights up and writes nothing, and the
+     * conformance harness cannot see it: it asks whether a row exists, not whether the command the
+     * row names will accept what the row sends. The browser's own sweep is what caught these six.
+     */
+    'rotate',
+    'blend',
+    'backdropBlur',
+    'letterSpacing',
+    'lineHeight',
+    /*
      * **How long** it takes to get from what it says to what a state says.
      *
      * Here rather than in `_stateFields`, and the placement is the decision: this is not something a
@@ -361,6 +444,33 @@ export class SiteStackExtension implements Extension {
      */
     'visible',
     'locked',
+    /**
+     * **Whether it opens, how it starts, and whether only one of a set may be open.**
+     *
+     * Three more that were declared, drawn, given rows, and never listed here — an accordion whose
+     * 여는 것 picker wrote nothing. Grouped with `visible` because they are the same kind of fact: a
+     * reader looking at a block and saying what it does, rather than what it looks like.
+     */
+    /*
+     * `opens` is deliberately **not** here, and it was added by mistake for an afternoon: the row
+     * that writes it runs `setOpens`, because opening something writes *two* blocks — this one's
+     * reference and a durable name on the block being opened. Through this command it would have
+     * written the sid a reader pointed at, which no saved document can carry.
+     */
+    'openAtRest',
+    'opensOne',
+    /**
+     * **Which connection a form sends through**, which had a row and no way through.
+     *
+     * `sends` is the name of a resource, so it reads like the other references and was written
+     * beside them — and it was never on this list, so the 보낼 곳 연결 picker on every form has
+     * accepted a choice and thrown it away for as long as forms have existed.
+     *
+     * Invisible twice over, and the second time is the interesting one: the check that runs each row
+     * *did* find it, and an exemption on `sends` written about a different question — whether the
+     * attribute is **read** — silenced the finding. An exemption says which checks it covers now.
+     */
+    'sends',
     /*
      * Whether it is a window.
      *
@@ -394,14 +504,20 @@ export class SiteStackExtension implements Extension {
   }
 
   /**
-   * Which of them a **state** may hold — paint, and nothing that moves the block.
+   * Which of them **this** state may hold — and the answer is not the same for all three.
    *
-   * The same list `states.ts` keeps, asked here rather than copied: a command that accepted a `gap`
-   * on hover would write a document the schema's own check calls faulty, and a reader would find out
-   * from a published page that flickers under their pointer.
+   * A **held** state gets paint and nothing that moves the block: a `:hover` that moved its own
+   * block would move it out from under the pointer, and the browser would draw the two states
+   * alternately for as long as the visitor held still. An **open** state is remembered rather than
+   * held, so nothing alternates and a menu that appears is the whole point of it.
+   *
+   * The lists live in `states.ts` and are asked here rather than copied: a command that accepted a
+   * `gap` on hover would write a document the schema's own check calls faulty, and a reader would
+   * find out from a published page that flickers under their pointer.
    */
   private _stateFields(payload?: Record<string, unknown>): string[] {
-    return this._formatFields(payload).filter((name) => STATEABLE.includes(name));
+    const allowed = stateableIn(payload?.state as StateId);
+    return this._formatFields(payload).filter((name) => allowed.includes(name));
   }
 
   private async _format(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
@@ -440,9 +556,16 @@ export class SiteStackExtension implements Extension {
       }
 
       if (!narrower) {
-        // The widest width *is* the node.
+        /*
+         * The widest width *is* the node.
+         *
+         * `null` is normalised to `undefined` here, and only here: at a narrower width it means
+         * *nothing at this width*, which is a thing to write down; on the page itself there is
+         * nothing to un-say, so it is the same act as clearing the field. A `null` left in an
+         * attribute would be a third value — neither set nor unset — for every reader of it.
+         */
         const attrs: Record<string, unknown> = {};
-        for (const name of fields) attrs[name] = payload![name];
+        for (const name of fields) attrs[name] = payload![name] ?? undefined;
         return setAttrs(sid, attrs);
       }
 

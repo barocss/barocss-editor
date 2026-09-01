@@ -60,7 +60,21 @@ export const SELECTABLE = new Set([
    */
   'blockQuote',
   'codeBlock',
-  'horizontalRule'
+  'horizontalRule',
+  /**
+   * And a **table's cells**, without which a table on a page is a picture of one.
+   *
+   * Measured the hour tables arrived: a reader could insert one and it drew a real `<table>`, and a
+   * press anywhere in it selected the **table** — because this walk stops at the nearest selectable
+   * ancestor and a cell was not one. So no caret could go in, no words could be typed, and all eight
+   * structural commands greyed, because every one of them asks *which cell is the caret in*.
+   *
+   * A cell is a thing a reader points at in every table editor there has ever been. It costs a row in
+   * 구성 per cell, which is the honest trade: a list that shows what a reader can select is worth
+   * more than a short one that hides half of it.
+   */
+  'bTableCell',
+  'bTableHeaderCell'
 ]);
 
 /**
@@ -72,7 +86,25 @@ export const SELECTABLE = new Set([
  * not need to do. A double-click on one opens an editor of its own instead — `isCode` below is what
  * the overlay asks.
  */
-export const TEXTUAL = new Set(['heading', 'paragraph', 'listItem', 'textFrame']);
+export const TEXTUAL = new Set([
+  'heading',
+  'paragraph',
+  'listItem',
+  'textFrame',
+  /**
+   * And a **table's cells**, which is what makes a table on a page a table rather than a picture of
+   * one.
+   *
+   * Measured the hour tables arrived: a reader could insert one, it drew a real `<table>`, and not a
+   * cell in it could be typed into — so the eight structural commands greyed too, because every one
+   * of them asks *which cell is the caret in*. The whole feature was a drawing.
+   *
+   * A cell holds `inline*` rather than a paragraph, which is why it is here beside `textFrame`: the
+   * words are the node's own and the caret goes into it directly.
+   */
+  'bTableCell',
+  'bTableHeaderCell'
+]);
 
 /** Whether a double-click on this block means *open the code editor* rather than *put a caret in*. */
 export function isCode(doc: Access, sid: string | undefined): boolean {
@@ -359,6 +391,15 @@ export function kindOfBlock(type: string): string | null {
       return '항목';
     case 'bTable':
       return '표';
+    /*
+     * And the two a reader can now select, because a table whose cells cannot be pointed at is a
+     * picture of a table. Named apart: a header cell is the one a screen reader reads out beside
+     * every cell under it, which is the whole reason the row above is a header row.
+     */
+    case 'bTableCell':
+      return '칸';
+    case 'bTableHeaderCell':
+      return '머리 칸';
     case 'inline-text':
       return '텍스트';
     /*
@@ -517,4 +558,33 @@ export function pagesOf(
       name: typeof node.attributes?.name === 'string' ? node.attributes.name : '이름 없는 페이지',
       path: typeof node.attributes?.path === 'string' ? node.attributes.path : ''
     }));
+}
+
+
+/**
+ * **Whether a node type is somewhere a block may go**, asked of the schema.
+ *
+ * The rule two walks share and neither owned. `_blockAt` (a stack's inserts) and `_atCaret` (an
+ * element's) both climb from the caret to the first thing whose parent lists it, and both stopped
+ * at a table cell — whose parent is a `bTableRow`, which holds cells and nothing else. So every
+ * insert this product has put a block inside a table row, the validator refused the transaction, and
+ * the command returned false with its control lit.
+ *
+ * **Every insert.** 섹션, 가로 스택, 그리드, 제목, 본문, 이미지, 목록, 인용, 코드, 구분선, 표, 버튼
+ * — the whole 추가 rail and the whole 삽입 menu, dead for as long as the caret was in a cell. Nothing
+ * had ever been in the state: the sample had no table until the pricing page grew a real comparison,
+ * and the fault appeared the same hour the fixture did.
+ *
+ * Asked rather than listed, because a list of "types a block cannot go inside" is a second place to
+ * remember the schema and would be wrong the first time one was added. A type the schema does not
+ * know answers **yes** — the old behaviour, and the safe direction: a walk that stops too early is a
+ * refused insert a reader can see, and one that stops too late is a block somewhere nobody put it.
+ */
+export function holdsABlock(
+  store: { getActiveSchema?: () => { getNodeType?: (stype: string) => { content?: unknown } | undefined } | undefined },
+  stype: unknown
+): boolean {
+  const said = store.getActiveSchema?.()?.getNodeType?.(String(stype))?.content;
+  if (typeof said !== 'string') return true;
+  return /\bblock\b/.test(said);
 }

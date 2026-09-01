@@ -35,6 +35,7 @@ import { Editor, Extension } from '@barocss/editor-core';
 import { addChild, moveNode, node, removeChild, textNode, transaction } from '@barocss/model';
 import { copyOf } from '@barocss/office-canvas';
 import { pagesOf } from './selection';
+import { pathFor } from './slug';
 
 type Node = Record<string, any>;
 
@@ -145,8 +146,14 @@ export class SitePageExtension implements Extension {
     const fresh = this._fresh(taken);
     const paths = new Set(taken.map((one) => one.path));
 
-    let path = `${original.path}-2`;
-    for (let n = 2; paths.has(path); n += 1) path = `${original.path}-${n}`;
+    /*
+     * Through `pathFor`, because the original's own address may not be one: a document written before
+     * addresses were repaired, or one pasted from somewhere else, and a copy of a broken address is
+     * two broken addresses.
+     */
+    const from = pathFor(original.path);
+    let path = `${from}-2`;
+    for (let n = 2; paths.has(path); n += 1) path = `${from}-${n}`;
 
     return { id: fresh.id, name: `${original.name} 사본`, path };
   }

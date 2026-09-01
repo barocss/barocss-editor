@@ -95,19 +95,20 @@ describe('a link to a page of this site', () => {
 
   it('draws the sample’s navigation and footer as links, resolved to addresses', () => {
     const runs = navRuns();
-    // Four in the bar and three in the footer, which are the two places a site puts them.
-    expect(runs.map((one) => one.text)).toEqual(['제품', '가격', '소개', '블로그', '제품', '가격', '소개']);
+    // Four in the bar, four again in the menu a phone opens, and three in the footer — the three
+    // places this site puts them, and the middle one is why 열림 exists.
+    expect(runs.map((one) => one.text)).toEqual([
+      '제품', '가격', '소개', '블로그',
+      '제품', '가격', '소개', '블로그',
+      '제품', '가격', '소개'
+    ]);
 
     // The document stores ids; what a link *is* on the page is the address they resolve to.
     expect(runs.slice(0, 4).map((one) => pageLinkOf(one))).toEqual(['products', 'pricing', 'about', 'blog']);
     expect(runs.map((one) => hrefFor(doc, `page:${pageLinkOf(one)}`))).toEqual([
-      '/제품',
-      '/가격',
-      '/소개',
-      '/블로그',
-      '/제품',
-      '/가격',
-      '/소개'
+      '/제품', '/가격', '/소개', '/블로그',
+      '/제품', '/가격', '/소개', '/블로그',
+      '/제품', '/가격', '/소개'
     ]);
   });
 

@@ -30,7 +30,24 @@ import { hrefFor } from './page-link';
 import { opacityCss, paintCss } from './paint';
 import { presenceCss } from './presence';
 import { sizingCss } from './sizing';
-import { breakpointOf } from './breakpoints';
+import { positionCss } from './position';
+import { assetNameOf, assetNamed, assetSrc, isAssetRef, srcsetFor } from './assets';
+import { aspectCss } from './aspect';
+import { addressOf } from './export-html';
+import {
+  answerNameOf,
+  inputTypeOf,
+  choicesOf,
+  isChoiceField,
+  isParagraphField,
+  isSubmitField,
+  isTickField,
+  hiddenFields,
+  needsUpload,
+  serviceNamed,
+  type Service
+} from './form';
+import { breakpointOf, published } from './breakpoints';
 import { codeComponent } from './code-render';
 import { attrsAt } from './responsive';
 
@@ -124,6 +141,79 @@ const named = (attrs: Record<string, any>, node: NodeData, ctx: any): Record<str
  * A stack that states `alignItems` gets what it states, at every width, and these defaults never
  * override a reader — the header's row still centres its wordmark against its links.
  */
+/**
+ * The connection a form names, resolved through the environment the renderer was given.
+ *
+ * The document, reached the way every other renderer here reaches it: `WORD_ENV_KEY` carries the
+ * root and a `getNode`, which is what a page's blocks already use to resolve a `var:이름` and a
+ * `page:id`. A fourth reference of that shape needs no fourth mechanism.
+ */
+const serviceFor = (ctx: any, sends: unknown): Service | undefined => {
+  const doc = getWordDocument(ctx?.env as RenderEnv | undefined);
+  return doc ? serviceNamed(doc as never, sends) : undefined;
+};
+
+/**
+ * Where a visitor lands after sending — **absolute**, or nothing.
+ *
+ * A service redirecting a browser needs a whole address; it has no page to resolve a relative one
+ * against. So a site that has not said where it lives publishes no return at all rather than one the
+ * service will send somebody to nowhere with — the same rule `og:url` and `og:image` already follow,
+ * and the same answer.
+ */
+const thanksAt = (ctx: any, thanks: unknown): string | undefined => {
+  const doc = getWordDocument(ctx?.env as RenderEnv | undefined);
+  const path = doc ? hrefFor(doc as never, thanks) : undefined;
+  if (!path) return undefined;
+  const root = doc ? (doc as never as { rootId: string }).rootId : undefined;
+  return addressOf(doc as never, root, path);
+};
+
+/**
+ * What a **control** is painted with — the five a field declares, and no more.
+ *
+ * Named rather than `paintCss`, which answers eleven things a text box has no use for: a gradient
+ * behind an input and a shadow angle on a label are attributes that could have been declared and
+ * never drawn, and the harness reported every one of them the minute `field` existed. A field is a
+ * box with a line around it and words in it.
+ *
+ * On a wrapper rather than on the `<input>` itself, so the border a reader asks for is the border
+ * around the control **and its label's gap** — and so that a browser's own focus ring, which is
+ * drawn on the input, still lands inside it rather than being clipped by a radius.
+ */
+/**
+ * **Whether this form asks for a file**, read from the fields it holds.
+ *
+ * The one question a form has to ask of its own children before it can draw itself — see
+ * `needsUpload`, and `enctype` on the form for what it costs to get wrong.
+ */
+const uploadsIn = (ctx: any, node: NodeData): boolean => {
+  const doc = getWordDocument(ctx?.env as RenderEnv | undefined) as never as
+    | { getNode: (sid: string) => Record<string, any> | undefined }
+    | undefined;
+  if (!doc) return false;
+  return needsUpload(
+    ((node as Record<string, any>)?.content ?? [])
+      .map((child: unknown) => (typeof child === 'string' ? doc.getNode(child) : (child as Record<string, any>)))
+      .filter((child: Record<string, any> | undefined) => child?.stype === 'field')
+      .map((child: Record<string, any>) => child.attributes as Record<string, unknown> | undefined)
+  );
+};
+
+const controlPaint = (attrs: Record<string, any>): Record<string, string> => {
+  const css: Record<string, string> = {};
+  if (typeof attrs.fill === 'string' && attrs.fill) css.background = attrs.fill;
+  if (typeof attrs.ink === 'string' && attrs.ink) css.color = attrs.ink;
+  if (typeof attrs.stroke === 'string' && attrs.stroke) {
+    const width = typeof attrs.strokeWidth === 'number' ? attrs.strokeWidth : 15;
+    css.border = `${Math.round((width * 96) / 1440)}px solid ${attrs.stroke}`;
+  }
+  if (typeof attrs.cornerRadius === 'number') {
+    css.borderRadius = `${Math.round((attrs.cornerRadius * 96) / 1440)}px`;
+  }
+  return css;
+};
+
 export const stackCss = (attrs: Record<string, any>): Record<string, any> => ({
   ...frameCss(attrs as never),
   /*
@@ -134,7 +224,17 @@ export const stackCss = (attrs: Record<string, any>): Record<string, any> => ({
    */
   ...paintCss(attrs, asColour),
   ...(attrs.alignItems === undefined ? { alignItems: 'stretch' } : {}),
-  ...(attrs.clipsContent === undefined ? { overflow: 'visible' } : {})
+  ...(attrs.clipsContent === undefined ? { overflow: 'visible' } : {}),
+  /*
+   * And **positioned**, so that a block placed absolutely inside this stack is placed against *this
+   * stack* rather than against the page. `position.ts` argues why it is every stack rather than a
+   * switch: it changes no layout, makes no stacking context on its own, and is the only answer a
+   * reader ever means by "in the corner of this card".
+   *
+   * Before whatever the block says about its own placement, which is applied after and wins.
+   */
+  position: 'relative',
+  ...positionCss(attrs)
 });
 
 /**
@@ -360,6 +460,23 @@ export function registerSiteRenderers(): void {
    * `data-component` for the same reason the other products write it: the drawing has to be able to
    * say which definition it is, or a panel has to ask the model what the reader is already looking
    * at.
+   *
+   * ## And **it** is what gets a position, not the thing inside it
+   *
+   * A `position: sticky` block is held at an edge *within its parent's box*. A block inside a
+   * definition has this wrapper as its parent, and the wrapper is exactly that block's height — 82
+   * pixels, measured in a browser — so a header made sticky in its own definition had nowhere to
+   * travel and scrolled away with the page. The stylesheet was correct and nothing happened, which
+   * is `sticky`'s signature failure.
+   *
+   * `display: contents` on the wrapper fixes it and costs more than it is worth: an element with no
+   * box cannot be pressed, cannot be measured, and cannot be selected — thirteen browser tests said
+   * so at once, and every one of them was a reader losing the ability to pick up a placement.
+   *
+   * So a position goes **on the placement**, which is where it belongs anyway: whether a header
+   * follows the page is a fact about the page it is on, not about the component. A reader who
+   * assembled their header out of ordinary stacks sets it on the stack; a reader who placed one sets
+   * it on the placement; both are the same row in the panel.
    */
   define('instance', (_props: NodeData, node: NodeData, ctx: any) => {
     const attrs = drawnAttrs(node, ctx);
@@ -391,6 +508,7 @@ export function registerSiteRenderers(): void {
           display: 'flex',
           flexDirection: 'column',
           ...sizingCss(attrs),
+          ...positionCss(attrs),
           ...opacityCss(attrs),
           ...presenceCss(attrs)
         }
@@ -430,6 +548,242 @@ export function registerSiteRenderers(): void {
   });
 
   /**
+   * A **form**: a stack that submits.
+   *
+   * Drawn as a real `<form>`, which is the whole point rather than a detail — the Enter key submits,
+   * a browser's own validation runs, a password manager can see it, and a page whose script failed
+   * still works. Every builder that draws a form as a `<div>` and posts it with a script has taken
+   * all four of those away without telling anybody.
+   *
+   * `action` and `method` are written **only in the published page**, and they are **resolved from a
+   * name**: the form says which connection it sends through and the address lives on a `service` in
+   * `resources`, so five forms share one address rather than five copies of it.
+   *
+   * In the editor they are left off deliberately: a designer pressing Enter in a field they are
+   * laying out should not send a message to a stranger's service, and a board is not a place where
+   * submitting means anything. `siteEnv` says which side of that line the drawing is on.
+   */
+  define('form', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = drawnAttrs(node, ctx);
+    const live = published(ctx?.env as RenderEnv | undefined);
+    const service = live ? serviceFor(ctx, attrs.sends) : undefined;
+    return element(
+      'form',
+      {
+        className: 'st-form',
+        'data-name': typeof attrs.name === 'string' ? attrs.name : undefined,
+        'data-layout': typeof attrs.layoutMode === 'string' ? attrs.layoutMode : 'column',
+        'data-at': ctx?.env ? breakpointOf(ctx.env as RenderEnv) : undefined,
+        /*
+         * A connection with no address publishes as a form with **no `action` at all**, rather than
+         * one pointed at the empty string — which a browser resolves to *this page*, so pressing
+         * 보내기 would reload the page and look like the message went somewhere.
+         */
+        action: service?.endpoint?.trim() ? service.endpoint.trim() : undefined,
+        method: service?.endpoint?.trim() ? service.method : undefined,
+        /**
+         * And **how it is encoded**, which one field kind changes and the rest do not.
+         *
+         * A browser sends a form as `application/x-www-form-urlencoded` unless told otherwise, and
+         * that encoding cannot carry a file: a form with a file field and no `enctype` sends every
+         * other answer and **silently drops the attachment**. Nothing errors and nothing is logged;
+         * the person who attached it has no idea.
+         *
+         * Written only when a file is asked for, so every form this product has already published is
+         * byte-for-byte what it was. Read from the children rather than stored on the form — see
+         * `needsUpload`: a stored copy is a second thing to keep true the day the field is deleted.
+         */
+        enctype: uploadsIn(ctx, node) ? 'multipart/form-data' : undefined,
+        style: { ...stackCss(attrs), ...sizingCss(attrs), ...presenceCss(attrs) }
+      },
+      /**
+       * And **the two things the service has to be told**, as hidden fields — where to send the
+       * visitor back to, and which input a bot will fill.
+       *
+       * Before the content rather than after it, because a hidden input has no box and this is the
+       * order a reader of the markup would expect: what the form *is* about, then what it asks.
+       *
+       * On the published page only. A board has no address to return to and nothing to trap.
+       */
+      [
+        ...(live
+          ? hiddenFields(service, thanksAt(ctx, attrs.thanks)).map((one) =>
+              element('input', { type: 'hidden', name: one.name, value: one.value })
+            )
+          : []),
+        slot('content')
+      ]
+    );
+  });
+
+  /**
+   * A **field**: one question a visitor answers, or the button that sends them.
+   *
+   * ## The label is drawn, always
+   *
+   * A `<label>` with a real `for`, above the control, even when the field has a placeholder. Labelling
+   * a form with its placeholders is the commonest accessibility fault on the web and it is not a
+   * subtle one: the words vanish the moment somebody types, so anybody who looks away has lost the
+   * question, and a screen reader is told a hint where a name belongs.
+   *
+   * ## And it is not typable in the editor
+   *
+   * `readOnly` on a board, so a click selects the block a designer meant to select rather than
+   * putting a caret in a control they are arranging. In preview the pointer goes to the page and the
+   * fields are live, which is where a designer actually wants to try one.
+   */
+  define('field', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = drawnAttrs(node, ctx);
+    const live = published(ctx?.env as RenderEnv | undefined);
+    const name = answerNameOf(attrs);
+    const label = typeof attrs.label === 'string' ? attrs.label : '';
+    const id = `f-${String(node.sid ?? name)}`;
+
+    if (isSubmitField(attrs.kind)) {
+      return element(
+        'button',
+        {
+          className: 'st-field st-submit',
+          type: 'submit',
+          'data-name': typeof attrs.name === 'string' ? attrs.name : undefined,
+          // Not pressable on a board: a designer arranging a form should not be sending messages.
+          disabled: live ? undefined : true,
+          style: {
+            ...controlPaint(attrs),
+            ...sizingCss(attrs),
+            ...positionCss(attrs),
+            ...presenceCss(attrs)
+          }
+        },
+        [label || '보내기']
+      );
+    }
+
+    /**
+     * A **tick** is the one field whose label goes after its box and wraps it.
+     *
+     * Every other field is a question with a box under it. A checkbox is a statement with a box in
+     * front of it, and putting its words above would leave a labelled empty line followed by an
+     * unexplained square. It is also the one field whose label a visitor **clicks**, which is what
+     * wrapping buys and pointing at does not — a 14-pixel target becomes the whole sentence.
+     *
+     * In Korea this is the field a form collecting personal data needs, and the policy link that
+     * belongs beside it is an ordinary paragraph the form holds: a label is a string and a link is
+     * not, and a rich label would be a second text model inside an attribute.
+     */
+    if (isTickField(attrs.kind)) {
+      return element(
+        'label',
+        {
+          className: 'st-field st-tick',
+          'data-name': typeof attrs.name === 'string' ? attrs.name : undefined,
+          'data-kind': 'checkbox',
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            ...sizingCss(attrs),
+            ...positionCss(attrs),
+            ...presenceCss(attrs)
+          }
+        },
+        [
+          element('input', {
+            id,
+            name,
+            type: 'checkbox',
+            value: '예',
+            required: attrs.required === true ? true : undefined,
+            disabled: live ? undefined : true,
+            className: 'st-input'
+          }),
+          element('span', { className: 'st-label' }, [label || name])
+        ]
+      );
+    }
+
+    const control = isParagraphField(attrs.kind)
+      ? element('textarea', {
+          id,
+          name,
+          rows: typeof attrs.lines === 'number' ? attrs.lines : 4,
+          required: attrs.required === true ? true : undefined,
+          maxlength: typeof attrs.maxLength === 'number' ? attrs.maxLength : undefined,
+          placeholder: typeof attrs.placeholder === 'string' ? attrs.placeholder : undefined,
+          readonly: live ? undefined : true,
+          className: 'st-input'
+        } as never)
+      : isChoiceField(attrs.kind)
+        ? element(
+            'select',
+            {
+              id,
+              name,
+              required: attrs.required === true ? true : undefined,
+              disabled: live ? undefined : true,
+              className: 'st-input'
+            } as never,
+            [
+              /*
+               * An empty first option, so a `required` list is genuinely unanswered until somebody
+               * chooses. Without it a browser reports the first entry as the answer and every message
+               * arrives saying whatever happened to be at the top.
+               */
+              element('option', { value: '' }, [
+                typeof attrs.placeholder === 'string' && attrs.placeholder
+                  ? attrs.placeholder
+                  : '고르세요'
+              ]),
+              ...choicesOf(attrs).map((one) => element('option', { value: one }, [one]))
+            ]
+          )
+        : element('input', {
+            id,
+            name,
+            type: inputTypeOf(attrs.kind),
+            required: attrs.required === true ? true : undefined,
+            min: typeof attrs.min === 'number' ? attrs.min : undefined,
+            max: typeof attrs.max === 'number' ? attrs.max : undefined,
+            maxlength: typeof attrs.maxLength === 'number' ? attrs.maxLength : undefined,
+            placeholder: typeof attrs.placeholder === 'string' ? attrs.placeholder : undefined,
+            /*
+             * A **file** is disabled on the board rather than read-only, which is the same choice a
+             * tick and a list already make: `readonly` means nothing to a file input, so a designer
+             * arranging the form would open a file picker by clicking it.
+             */
+            readonly: live || attrs.kind === 'file' ? undefined : true,
+            disabled: !live && attrs.kind === 'file' ? true : undefined,
+            className: 'st-input'
+          } as never);
+
+    return element(
+      'div',
+      {
+        className: 'st-field',
+        'data-name': typeof attrs.name === 'string' ? attrs.name : undefined,
+        'data-kind': typeof attrs.kind === 'string' ? attrs.kind : 'text',
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+          ...sizingCss(attrs),
+          ...positionCss(attrs),
+          ...presenceCss(attrs)
+        }
+      },
+      [
+        /*
+         * `for` and the control attributes below are written verbatim: the DSL's attribute types are
+         * the ones a *document* renderer needs, and a form control's are HTML's own. A cast here is
+         * narrower than widening those types for one product's five node kinds.
+         */
+        element('label', { className: 'st-label', for: id } as never, [label || name]),
+        element('span', { className: 'st-input-wrap', style: controlPaint(attrs) }, [control])
+      ]
+    );
+  });
+
+  /**
    * A picture on a page.
    *
    * Its own renderer rather than Word's, for the reason the whole product exists: Word draws a
@@ -438,14 +792,72 @@ export function registerSiteRenderers(): void {
    */
   define('picture', (_props: NodeData, node: NodeData, ctx: any) => {
     const attrs = drawnAttrs(node, ctx);
+    /*
+     * **A file in the document**, or an address — see `assets.ts`. The bytes on a board, because a
+     * board has no server to ask; the file's own path on a published page, because inlining a logo
+     * used on five pages writes its bytes five times and a photograph in the middle of the HTML
+     * delays the first paint by exactly as long as it takes to download.
+     */
+    const doc = getWordDocument(ctx?.env as RenderEnv | undefined);
+    const asset = isAssetRef(attrs.src) ? assetNamed(doc as never, assetNameOf(attrs.src)) : undefined;
+
+    const live = published(ctx?.env as RenderEnv | undefined);
+
     return element('img', {
       className: 'st-picture',
-      src: String(attrs.src ?? ''),
+      src: assetSrc(doc as never, attrs.src, live),
       alt: String(attrs.alt ?? ''),
+      /**
+       * And **the sizes a browser may choose from**, on the published page only.
+       *
+       * The single largest cost of a page built with a tool like this is a photograph taken at 4000
+       * pixels and sent, whole, to a phone that is 390 wide. A browser has had the answer since 2014
+       * and needs to be handed the renditions; which one to fetch is a decision it makes knowing the
+       * screen and the connection, and one this product cannot make for it.
+       *
+       * Not on a board, and for the plain reason: a board has no files to point at, only bytes.
+       *
+       * `sizes` says how wide the picture will be drawn, which a browser cannot know before it has
+       * laid the page out and must guess before it fetches. The block's own `maxWidth` is the honest
+       * answer where there is one, and `100vw` — *as wide as the window* — where there is not: an
+       * overestimate costs a larger file, an underestimate costs a blurry one, and only one of those
+       * is a thing a reader will report.
+       */
+      srcset: live ? srcsetFor(asset) : undefined,
+      sizes:
+        live && srcsetFor(asset)
+          ? typeof attrs.maxWidth === 'number'
+            ? `(max-width: ${Math.round((attrs.maxWidth * 96) / 1440)}px) 100vw, ${Math.round((attrs.maxWidth * 96) / 1440)}px`
+            : '100vw'
+          : undefined,
+      /*
+       * And **not until it is needed**, for every picture but the first.
+       *
+       * `lazy` on a picture above the fold delays the one image a visitor is waiting for, which is
+       * why this is a reader's decision rather than a blanket rule — and why the default is off. The
+       * panel's 나중에 불러오기 is where a hero says no and a photograph far down the page says yes.
+       */
+      loading: live && attrs.defer === true ? 'lazy' : undefined,
+      decoding: live && attrs.defer === true ? 'async' : undefined,
+      /*
+       * And **how big the file is**, which is not how big it is drawn.
+       *
+       * An `<img>` with no intrinsic size is a hole of zero height until it has loaded, so every
+       * word under it jumps down when it arrives — the layout shift every performance guide measures,
+       * and the one a builder that stores only a URL cannot fix because it has never seen the file.
+       * This one has: the width and height are read off the file when it is added.
+       */
+      width: asset?.width,
+      height: asset?.height,
       style: {
         display: 'block',
         maxWidth: '100%',
         objectFit: typeof attrs.fit === 'string' ? String(attrs.fit) : 'cover',
+        /*
+         * And **the shape it keeps** at every width, which a height cannot say: a picture in a
+         * column is 1200 wide on a laptop and 350 on a phone. See `aspect.ts`.
+         */
+        ...aspectCss(attrs),
         /*
          * A ground behind it, and a line around it.
          *
@@ -461,6 +873,7 @@ export function registerSiteRenderers(): void {
             }
           : {}),
         ...sizingCss(attrs),
+        ...positionCss(attrs),
         /*
          * And **how much of it comes through**, which is the case opacity exists for: a photograph
          * behind words, a logo at a quarter, an image that brightens on hover. A picture is the one
@@ -469,6 +882,12 @@ export function registerSiteRenderers(): void {
         ...opacityCss(attrs),
         ...presenceCss(attrs)
       }
-    });
+      /*
+       * `srcset`, `sizes`, `loading` and `decoding` are HTML's own and are not in the DSL's attribute
+       * types — the same narrowing the form's controls take above, and for the same reason: those
+       * types are the ones a *document* renderer needs, and widening them for one product's five node
+       * kinds would be the larger change.
+       */
+    } as never);
   });
 }

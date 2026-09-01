@@ -22,8 +22,27 @@
  * different answer with the same command in front of it.
  */
 import { Editor, Extension } from '@barocss/editor-core';
-import { exportPage, exportSite, sitemapFor, type ExportedPage } from './export-html';
+import { exportPage, exportSite, robotsFor, sitemapFor, type ExportedPage } from './export-html';
+import { assetFileName, assetsOf, renditionFileName } from './assets';
 import { pagesOf } from './selection';
+
+/**
+ * One file a publish produced — **words or bytes**, and never both.
+ *
+ * `text` was the only shape, and it was enough right up until a site had a photograph in it. A PNG
+ * is not a string: base64 is how it *travels* through the document, and a file written as base64 is
+ * a file no browser can open. So a picture arrives as `bytes` — still base64, decoded by whoever
+ * writes it — and the two are separate fields rather than one union, because a caller that has to
+ * guess which it got is a caller that will guess wrong on the file that matters.
+ */
+export interface PublishedFile {
+  file: string;
+  type: string;
+  /** The contents, for a file made of words: a page, a sitemap. */
+  text?: string;
+  /** The contents as base64, for a file made of bytes: a picture. */
+  bytes?: string;
+}
 
 /** What a publish produced, handed to whoever asked to run it. */
 export interface Published {
@@ -38,7 +57,7 @@ export interface Published {
    *
    * Empty when the site has not said where it lives — every `<loc>` in a sitemap is absolute.
    */
-  files: { file: string; text: string; type: string }[];
+  files: PublishedFile[];
 }
 
 type Access = { rootId: string; getNode: (sid: string) => unknown };
@@ -77,11 +96,34 @@ export class SitePublishExtension implements Extension {
       async (payload) => {
         // The sitemap goes with the whole site and never with one page of it.
         const map = sitemapFor(editor);
-        return this._hand(
-          payload,
-          exportSite(editor),
-          map ? [{ file: 'sitemap.xml', text: map, type: 'application/xml' }] : []
-        );
+        const robots = robotsFor(editor);
+        const missing = this._notFound(editor);
+        return this._hand(payload, exportSite(editor), [
+          ...(map ? [{ file: 'sitemap.xml', text: map, type: 'application/xml' }] : []),
+          /*
+           * And what a crawler reads **before** anything else. A sitemap nothing points at is a file
+           * found only by guessing its name.
+           */
+          ...(robots ? [{ file: 'robots.txt', text: robots, type: 'text/plain' }] : []),
+          /**
+           * And **the page a visitor gets when they type the address wrong**.
+           *
+           * Not a page in the document, and that is the decision: a 404 is not somewhere a reader
+           * navigates to or links to, and putting one in the page list would put it in the navigation
+           * of every site made with this. It is the site's own page, drawn from the page a reader
+           * marked as it — see `notFoundFor`.
+           */
+          ...(missing ? [missing] : []),
+          /*
+           * And **the pictures**, each written once.
+           *
+           * Not inlined into the pages that draw them: a logo on five pages would be its bytes five
+           * times, and a photograph in the middle of the HTML delays the first paint by exactly as
+           * long as it takes to download — a browser cannot start drawing a page it has not finished
+           * reading. `assetSrc` is what points the pages here.
+           */
+          ...this._assetFiles(editor)
+        ]);
       },
       () => this._pages(editor).length > 0
     );
@@ -107,6 +149,58 @@ export class SitePublishExtension implements Extension {
 
   onDestroy(): void {
     // Nothing held.
+  }
+
+  /**
+   * Every file the document holds, as files to write.
+   *
+   * **Every** one, rather than only the ones this site's pages happen to draw. A picture a reader put
+   * in the document and then took off a page is a picture they are about to use again, and a publish
+   * that quietly dropped it would make the same document produce different folders on two days. What
+   * *is* worth reporting is a file nothing draws — and that is a fault for the panel rather than a
+   * decision for the exporter.
+   */
+  /**
+   * **The page a visitor gets when they type the address wrong**, as `404.html`.
+   *
+   * Every static host serves that name for a request it cannot match — Netlify, Vercel, GitHub Pages,
+   * S3, nginx with one line — which is why it is a *file* rather than a route this product invents.
+   *
+   * Drawn from a page a reader **marked** as it rather than from a page called `/404`: a page in the
+   * page list is a page that appears in navigation and in the sitemap, and a 404 is neither. So the
+   * page keeps its own address and gains a second one, and a site that has not marked any gets no
+   * file — a host's own blank 404 is honest where a made-up one would be a page saying nothing.
+   */
+  private _notFound(editor: Editor): PublishedFile | undefined {
+    const store = editor.dataStore as { getNode: (sid: string) => any } | undefined;
+    if (!store) return undefined;
+
+    const found = this._pages(editor).find(
+      (one) => store.getNode(one.sid)?.attributes?.notFound === true
+    );
+    if (!found) return undefined;
+
+    return { file: '404.html', type: 'text/html', text: exportPage(editor, found.sid).html };
+  }
+
+  private _assetFiles(editor: Editor): PublishedFile[] {
+    const store = (editor as never as { dataStore?: { getNode: (sid: string) => unknown } }).dataStore;
+    const rootId = editor.getRootId?.();
+    if (!store || !rootId) return [];
+
+    const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+    return assetsOf(doc as never).flatMap((one) => [
+      { file: assetFileName(one), type: one.type, bytes: one.data },
+      /*
+       * And **every rendition**, each as its own file — which is what a `srcset` points at and what
+       * lets a phone fetch 640 pixels of a picture taken at 4000.
+       */
+      ...one.sizes.map((size) => ({
+        file: renditionFileName(one, size.width),
+        type: one.type,
+        bytes: size.data
+      }))
+    ]);
   }
 
   /** The pages this document has, or none when it is not a site. */

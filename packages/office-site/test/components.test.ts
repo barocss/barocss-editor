@@ -35,13 +35,14 @@ describe('the definitions a site holds', () => {
   it('counts how many places use each, by walking rather than remembering', () => {
     const uses = usesOf(doc);
     /*
-     * The header and the footer are on all five pages; the button is placed five times — twice on
-     * the home page, once in the header's own definition, and once on each of two other pages.
-     * The count is a *walk*, so a placement inside a definition counts once wherever it is drawn.
+     * The header and the footer are on all five pages; the button is placed seven times — twice on
+     * the home page, twice in the header's own definition (once in the wide navigation and once in
+     * the menu a phone opens), and once on each of two other pages. The count is a *walk*, so a
+     * placement inside a definition counts once wherever it is drawn.
      */
     expect(uses.get('site-header')).toBe(5);
     expect(uses.get('site-footer')).toBe(5);
-    expect(uses.get('cta')).toBe(6);
+    expect(uses.get('cta')).toBe(7);
     // A number that is *stored* is a number that goes stale, and "5곳" is a question about the
     // document as it is now.
     expect(usesOf(doc)).toEqual(uses);
@@ -141,7 +142,12 @@ describe('making a definition out of what is already built', () => {
 
   it('refuses one paragraph, and refuses two blocks at once', () => {
     const words = named('히어로 글');
-    const heading = blocksIn(doc, words)[0];
+    /*
+     * The **heading**, asked for by what it is rather than by where it sits. It was `[0]`, and the
+     * day the hero grew a rule above the headline that index became a frame — which *can* be made
+     * into a component, so the check passed for the opposite of its reason.
+     */
+    const heading = blocksIn(doc, words).find((sid: string) => doc.getNode(sid)?.stype === 'heading')!;
     // Something with a shape worth reusing, rather than a single run of words.
     expect(editor.canExecuteCommand('createComponentFrom', { nodeIds: [heading] })).toBe(false);
     expect(editor.canExecuteCommand('createComponentFrom', { nodeIds: [words, named('제품 셋')] })).toBe(false);

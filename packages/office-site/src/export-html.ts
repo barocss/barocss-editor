@@ -51,11 +51,27 @@ import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import { stackCss } from './renderers';
 import { BREAKPOINTS, SITE_ENV_KEY, createSiteEnv, type BreakpointId } from './breakpoints';
 import { BASE_BREAKPOINT, overridesOf } from './responsive';
-import { STATES, attrsInState, hasStates, statesOf, type StateId } from './states';
-import { isHidden } from './presence';
+import {
+  STATES,
+  attrsInState,
+  hasStates,
+  opensAtRest,
+  opensOf,
+  opensOneOf,
+  selectorIn,
+  statesOf,
+  type StateId
+} from './states';
+import { liveScript, markLive } from './live';
+import { neverShown } from './presence';
+import { assetFileName, assetNameOf, assetNamed } from './assets';
+import { scopeOf } from './components';
+import { nfc } from './names';
 import { revealOf, revealRule } from './reveal';
 import { PAGE_CSS } from './page-css';
+import { typeRule } from './type-scale';
 import { sizingCss } from './sizing';
+import { positionCss } from './position';
 import { pagesOf, blocksIn } from './selection';
 
 type Node = Record<string, any>;
@@ -63,10 +79,44 @@ type Node = Record<string, any>;
 export interface ExportedPage {
   /** Where it answers. */
   path: string;
+  /**
+   * And **what it is called on disk**, which is not the app's to decide and was.
+   *
+   * Measured: a link to a page resolves to that page's `path` — `/제품` — and the app was writing it
+   * as `제품.html`. So **every link in a published site was broken**, on every host that does not
+   * quietly try `.html` for you, and it looked completely fine in the editor because the editor
+   * follows the reference rather than the file.
+   *
+   * `제품/index.html` is the answer, and it is the model's because the mapping from an address to a
+   * file is a fact about *how this site is served* rather than about how a browser saves a download.
+   * The sitemap has named its own file since the day it existed, for the same reason and by accident.
+   */
+  file: string;
   /** What a reader calls it, which is also the browser tab's words. */
   name: string;
   /** A complete document, openable on its own. */
   html: string;
+}
+
+/**
+ * The file a page's address is served from.
+ *
+ * `/` is `index.html` and `/제품` is `제품/index.html` — the shape every static host serves, and the
+ * one that makes the links the export already writes actually resolve. The alternative, `제품.html`,
+ * is a file whose own address is `/제품.html`, which is not what any link on the site says.
+ *
+ * A path is written as it is, Korean and all: a URL has carried non-Latin characters for twenty
+ * years, and a name transliterated into `jepum` would be a page whose address stops matching what a
+ * reader typed into the panel.
+ */
+export function fileFor(path: string): string {
+  /*
+   * **Composed**, which is the difference between a link that resolves and a 404 nobody can see: a
+   * browser requests `/제품` as NFC, and a file stored decomposed is the same word in different
+   * bytes. `names.ts` has the whole of it.
+   */
+  const clean = nfc(String(path ?? '/')).replace(/^\/+|\/+$/g, '');
+  return clean ? `${clean}/index.html` : 'index.html';
 }
 
 interface Editor {
@@ -111,6 +161,31 @@ export function exportSite(editor: Editor): ExportedPage[] {
  * stamping the export's own clock would tell a crawler every page changed every time anybody
  * published — which is how a site teaches a crawler to stop believing its sitemap.
  */
+/**
+ * **`robots.txt`** — what a crawler is told before it reads anything else.
+ *
+ * Two lines, and each is a decision a site had no way to make. `Sitemap:` is the one that matters
+ * most: a sitemap nothing points at is a file a crawler finds only by guessing its name, and every
+ * guide tells you to name it here. `Disallow: /` is the switch for the state nobody tests — a staging
+ * copy published before it was ready and now sitting in a search result.
+ *
+ * Nothing at all without a site address, and that is the same rule `og:url` and the sitemap follow: a
+ * `Sitemap:` line takes an absolute address and there is nothing honest to put in a relative one.
+ */
+export function robotsFor(editor: Editor): string | undefined {
+  const store = editor.dataStore;
+  const rootId = editor.getRootId?.();
+  if (!store || !rootId) return undefined;
+
+  const said = (store.getNode(rootId) as Node | undefined)?.attributes;
+  const at = typeof said?.address === 'string' ? said.address.trim().replace(/\/+$/, '') : '';
+  if (!at) return undefined;
+
+  // Silence is *yes*: a site somebody published is a site they meant to be found.
+  const allow = said?.noIndex === true ? 'Disallow: /' : 'Disallow:';
+  return `User-agent: *\n${allow}\nSitemap: ${at}/sitemap.xml\n`;
+}
+
 export function sitemapFor(editor: Editor): string | undefined {
   const store = editor.dataStore;
   const rootId = editor.getRootId?.();
@@ -150,6 +225,20 @@ export function exportPage(editor: Editor, pageSid: string): ExportedPage {
    * draws, and that is easier to see when the guard is at the bottom rather than woven through.
    */
   const reveals = revealRules(store, pageSid, lifted.classOf);
+  /*
+   * And the ring on whatever presses a switch — last, because it is about a control that only the
+   * published page has and a reader of the stylesheet meets it after everything they drew.
+   */
+  const openers = openerRules(host, store, pageSid);
+  /*
+   * And the one line of script this product ships, on the pages that need it. See `closerScript`.
+   */
+  const closer = closerScript(host);
+  /*
+   * And the other one, on the pages that have a list a visitor's browser goes and gets. Off by
+   * default and argued at length in `live.ts` — a page with no live list ships neither.
+   */
+  const live = host.querySelector('[data-st-live]') ? liveScript() : '';
 
   const name = String(page?.attributes?.name ?? '');
   const path = String(page?.attributes?.path ?? '/');
@@ -187,19 +276,210 @@ export function exportPage(editor: Editor, pageSid: string): ExportedPage {
 
   return {
     path,
+    file: fileFor(path),
     name,
     html: document_(
       name,
       host.innerHTML,
-      [lifted.css, responsive, states, reveals].filter(Boolean).join('\n\n'),
+      [lifted.css, responsive, states, reveals, openers].filter(Boolean).join('\n\n'),
       {
+        script: [closer, live].filter(Boolean).join('\n'),
+        /**
+         * **The picture in a browser tab** — the cheapest thing that makes a published site look
+         * like a site rather than a file somebody opened.
+         *
+         * Resolved to the path the archive will hold, which is why it could not exist before the
+         * assets did: a favicon is a *file*, and until a document could carry one there was nowhere
+         * for the bytes to be.
+         */
+        icon: (() => {
+          const said = store.getNode(editor.getRootId?.() ?? '')?.attributes?.icon;
+          const asset = assetNamed(
+            { rootId: editor.getRootId?.() ?? '', getNode: (sid: string) => store.getNode(sid) } as never,
+            assetNameOf(said)
+          );
+          return asset ? { href: assetFileName(asset), type: asset.type } : undefined;
+        })(),
+        /*
+         * And a page a crawler is told to skip, which is the **page's** half of the same question the
+         * site answers in `robots.txt`: a thank-you page is a page nobody should arrive at from a
+         * search result, and `robots.txt` has no way to say so about one page.
+         */
+        noIndex: page?.attributes?.noIndex === true,
+        /** What the site is set in — see `type-scale.ts` for why it is the document's. */
+        type: typeRule(store.getNode(editor.getRootId?.() ?? '')?.attributes),
         description: page?.attributes?.description as string | undefined,
+        /** And the picture an unfurl shows, which is most of what anybody sees of a shared link. */
+        image: page?.attributes?.image as string | undefined,
         main,
         // Where the site lives, which only the document knows and only publishing needs.
         at: addressOf(store, editor.getRootId?.(), path)
       }
     )
   };
+}
+
+/**
+ * The nearest block **above** this one that says only one thing inside it may be open — or nothing.
+ *
+ * Walked up the **drawing** rather than the document, which is the same choice `clean` makes and for
+ * the same reason: inside a placed component the drawing is where the placement's own copy of every
+ * part is, and the document would have to work that out again.
+ */
+function one(
+  from: HTMLElement,
+  store: { getNode: (sid: string) => Node | undefined }
+): HTMLElement | undefined {
+  let at: HTMLElement | null = from.parentElement;
+  for (let hop = 0; at && hop < 64; hop += 1) {
+    const name = at.getAttribute('data-b');
+    if (name) {
+      const cut = name.lastIndexOf('~');
+      const node = store.getNode(cut < 0 ? name : name.slice(cut + 1));
+      if (opensOneOf(node?.attributes as Record<string, unknown> | undefined)) return at;
+    }
+    at = at.parentElement;
+  }
+  return undefined;
+}
+
+/**
+ * The sid of the part called `partId`, in the page or definition that holds `from`.
+ *
+ * Scoped rather than searched document-wide, and the scoping is the feature: a navigation bar placed
+ * on five pages is one definition, and every part of it is named once. A document-wide search would
+ * find the first 메뉴 anywhere and open somebody else's.
+ */
+function partNamed(
+  store: { getNode: (sid: string) => Node | undefined },
+  from: string,
+  partId: string
+): string | undefined {
+  const holder = scopeOf(store, from);
+  if (!holder) return undefined;
+
+  const find = (sid: string, depth = 0): string | undefined => {
+    if (depth > 32) return undefined;
+    for (const child of (store.getNode(sid)?.content ?? []) as unknown[]) {
+      if (typeof child !== 'string') continue;
+      if (store.getNode(child)?.attributes?.partId === partId) return child;
+      const deeper = find(child, depth + 1);
+      if (deeper) return deeper;
+    }
+    return undefined;
+  };
+  return find(holder);
+}
+
+/**
+ * **The one line of script this product ships** — and only on a page that has no other answer.
+ *
+ * ## The case, which is smaller than it sounds and completely real
+ *
+ * A visitor on a phone opens the menu and taps a link. Following it to *another page* closes the
+ * menu for free: the next page is a new document and the checkbox starts unchecked. Following one to
+ * an **anchor on the same page** does not — nothing navigates, so nothing resets, and the menu stays
+ * over the section the visitor just asked to see.
+ *
+ * ## Why there is no CSS answer, having looked for one
+ *
+ * CSS cannot uncheck a checkbox. Three things were tried on paper and all three fail:
+ *
+ * - a `<label for>` wrapping the link — HTML says label activation is **skipped** when the click
+ *   lands on interactive content inside it, which an `<a>` is, so the switch never toggles;
+ * - `:target` on the section — it hides the menu and then goes on matching, so the hamburger stops
+ *   being able to reopen it;
+ * - a second switch — two controls for one gesture, and the visitor can now put them out of step.
+ *
+ * ## So: one line, and only where it is earned
+ *
+ * A page with an opener and no same-page link gets **nothing at all**, which is nearly every page —
+ * the sample's five all export with no `<script>` in them. This is not a runtime; it is a listener
+ * for one event that unchecks the switches, and the page works without it for every other gesture.
+ *
+ * `pointer-events` is deliberately not the mechanism, and neither is `history`: the browser's own
+ * navigation is left exactly as it was, so a middle-click, a long-press, ⌘-click and "open in new
+ * tab" all still do what they do.
+ */
+export function closerScript(host: HTMLElement): string {
+  const opens = host.querySelector('.st-open-switch');
+  const anchor = host.querySelector('a[href^="#"]');
+  if (!opens || !anchor) return '';
+
+  return (
+    "document.addEventListener('click',function(e){" +
+    "var a=e.target.closest&&e.target.closest('a[href^=\"#\"]');if(!a)return;" +
+    "document.querySelectorAll('.st-open-switch:checked').forEach(function(s){s.checked=false});" +
+    '});'
+  );
+}
+
+/**
+ * **Where the focus ring goes** when a visitor tabs to a switch.
+ *
+ * The switch is off the page — it has to be, or it would be a checkbox sitting in the middle of a
+ * navigation bar — and an off-the-page control draws its ring off the page too. So the ring is put
+ * on the thing the visitor is actually looking at: the block that presses it.
+ *
+ * One rule per switch rather than one rule for all of them, and that is the difference between a
+ * ring and a mess: `label[for]` with no id in it would ring **every** opener on the page the moment
+ * any one of them took focus, which on a page with a menu and three accordions is four rings and no
+ * information. CSS cannot match a `for` against an `id` on its own, so the pairing is written out.
+ *
+ * A browser without `:has()` loses the ring and keeps the menu; every current one has it.
+ */
+function openerRules(
+  host: HTMLElement,
+  store: { getNode: (sid: string) => Node | undefined },
+  pageSid: string
+): string {
+  const resolve = resolverFor(store, pageSid);
+  const rules: string[] = [];
+
+  for (const switch_ of [...host.querySelectorAll<HTMLElement>('.st-open-switch')]) {
+    const id = switch_.getAttribute('id');
+    if (!id) continue;
+
+    rules.push(
+      `body:has(#${id}:focus-visible) [for="${id}"] { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 4px; }`
+    );
+
+    /**
+     * And **what the opener itself looks like while the thing it opens is open**.
+     *
+     * The chosen tab, which is not a nicety: a tab strip where a visitor cannot tell which tab they
+     * are on is a tab strip that does not work. It is also the one 열림 that cannot be written as
+     * `switch:checked + block`, because the opener is not next to the switch — the switch sits by
+     * the *panel*, which may be anywhere on the page.
+     *
+     * So this is the second rule in the file that names a control by its id, and it reads as the
+     * sentence it is: *while this switch is on, the block that presses it looks like this.* The
+     * label wraps exactly one element, so `> *` is the opener and nothing else.
+     *
+     * A block's `states.open` therefore has one meaning and two shapes: for a block that is opened,
+     * it is what it becomes; for a block that opens, it is what it looks like having done so. A block
+     * that is both — a nested accordion's middle row — takes the gesture it owns, which is this one.
+     */
+    const opener = host.querySelector<HTMLElement>(`[for="${id}"] > [data-b]`);
+    const name = opener?.getAttribute('data-b') ?? '';
+    const cut = name.lastIndexOf('~');
+    const node = store.getNode(cut < 0 ? name : name.slice(cut + 1));
+    if (!node || !statesOf(node.attributes as Record<string, unknown> | undefined).open) continue;
+
+    /*
+     * At the widest width only. A chosen tab looks chosen the same way at 390 as at 1280 — it is the
+     * same gesture, which is the argument `states.ts` makes about states not being per-width — and
+     * the day one genuinely differs it takes an `overrides` inside the state, like every other.
+     */
+    const said = declarations(
+      changed(
+        cssFor(node, BASE_BREAKPOINT, resolve),
+        cssFor(node, BASE_BREAKPOINT, resolve, 'open')
+      )
+    );
+    if (said) rules.push(`body:has(#${id}:checked) [for="${id}"] > * { ${said} }`);
+  }
+  return rules.join('\n');
 }
 
 /**
@@ -260,37 +540,29 @@ function drawn(editor: Editor, pageSid: string): HTMLElement {
       getNode: (sid: string) => store.getNode(sid) as never
     } as never),
     // The widest width. Everything narrower is a media query, below.
-    [SITE_ENV_KEY]: createSiteEnv(BASE_BREAKPOINT)
+    /*
+     * The widest width, and **the page a visitor gets** — the second flag is read by exactly one
+     * thing, and it is the only place where the export's drawing is allowed to differ from a board's
+     * rather than being a removal made afterwards: a form on a board has no address and no live
+     * fields, because a designer arranging one should not be sending messages. See `SiteEnv`.
+     */
+    [SITE_ENV_KEY]: createSiteEnv(BASE_BREAKPOINT, true)
   } as never);
 
   const tree = editor.getDocumentProxy?.(pageSid);
   if (!tree) return host;
   renderer.render(host, tree as never, [], undefined);
 
-  return clean(host);
+  return clean({ rootId, getNode: (sid: string) => store.getNode(sid) }, host);
 }
 
 /** Everything an editor puts in a drawing that a reader has no use for. */
-function clean(host: HTMLElement): HTMLElement {
+function clean(
+  doc: { rootId: string; getNode: (sid: string) => Node | undefined },
+  host: HTMLElement
+): HTMLElement {
+  const store = doc;
   for (const filler of [...host.querySelectorAll('[data-bc-filler]')]) filler.remove();
-
-  /**
-   * And every block a reader **hid**, which is the one place the visitor is told less than the
-   * editor and is told it on purpose.
-   *
-   * The editor draws a hidden block `display: none` and goes on listing it in 구성, because a block
-   * a reader cannot get back to is a block they have lost. A published page has no such need and one
-   * strong reason against: `display: none` still *ships the words* — to a crawler, to a reader with
-   * styles off, to anybody who opens the source — and a section somebody hid is a section they did
-   * not mean to publish.
-   *
-   * Read from the drawing rather than from the document, because the drawing is what the export is
-   * about: a hidden block inside a component's definition is hidden in every placement of it, and
-   * walking the document would have to work that out again.
-   */
-  for (const hidden of [...host.querySelectorAll<HTMLElement>('[style*="display: none"]')]) {
-    hidden.remove();
-  }
 
   for (const el of [host, ...host.querySelectorAll('*')] as HTMLElement[]) {
     el.removeAttribute('contenteditable');
@@ -307,7 +579,191 @@ function clean(host: HTMLElement): HTMLElement {
       el.removeAttribute('data-bc-sid');
     }
   }
+
+  /**
+   * And every block a reader **hid**, which is the one place the visitor is told less than the
+   * editor and is told it on purpose.
+   *
+   * The editor draws a hidden block `display: none` and goes on listing it in 구성, because a block
+   * a reader cannot get back to is a block they have lost. A published page has no such need and one
+   * strong reason against: `display: none` still *ships the words* — to a crawler, to a reader with
+   * styles off, to anybody who opens the source — and a section somebody hid is a section they did
+   * not mean to publish.
+   *
+   * Read from the drawing rather than from the document, because the drawing is what the export is
+   * about: a hidden block inside a component's definition is hidden in every placement of it, and
+   * walking the document would have to work that out again.
+   */
+  for (const hidden of [...host.querySelectorAll<HTMLElement>('[style*="display: none"]')]) {
+    /*
+     * A **draft**, which is not the same question as "is it hidden right now".
+     *
+     * This width is the widest one, and two ordinary designs are hidden here and not drafts: a block
+     * shown only on a phone, and a block a visitor opens. Both were being cut — the sample's
+     * hamburger was removed from the published page and its label was left behind empty, so on the
+     * one width the menu existed for there was nothing to press. `neverShown` asks the whole
+     * question: hidden at every width, and in every state.
+     *
+     * Asked of the **node** where there is one. An element with no `data-b` that is drawn
+     * `display: none` was hidden by its own template rather than by a reader, and goes as it always
+     * did.
+     */
+    const name = hidden.getAttribute('data-b');
+    if (name) {
+      const cut = name.lastIndexOf('~');
+      const own = store.getNode(cut < 0 ? name : name.slice(cut + 1));
+      if (!neverShown(own?.attributes as Record<string, unknown> | undefined)) continue;
+    }
+    hidden.remove();
+  }
+
+  /*
+   * **After** the drafts go, so a switch is never left pointing at a block that is not there, and
+   * after the rename, because the switches are found by `data-b`.
+   */
+  openSwitches(store, host);
+
+  /*
+   * And last, the lists a visitor's browser goes and gets again — after the rename, because they are
+   * found by `data-b`, and after the drafts, because a hidden list is not one anybody fetches for.
+   */
+  markLive(doc, host);
   return host;
+}
+
+/**
+ * The **switches** an exported page opens with, and the labels that press them.
+ *
+ * ## Why a published page has controls the editor does not
+ *
+ * Everything else here is export-as-a-render: the published page is what the editor drew, and a
+ * second path is a place for a rule to get old. This is the exception, and it is the exception on
+ * purpose — a checkbox that remembers whether a menu is open is not something a *designer* edits.
+ * Drawing it on the board would put an invisible control inside every openable block, in the way of
+ * every drag, answering to nobody. The board previews 열림 by being told to (`editorStateCss`), which
+ * is the designer's version of the same fact.
+ *
+ * ## Why a checkbox, and no JavaScript at all
+ *
+ * A browser already has one thing that remembers a choice a visitor made and can be styled on it.
+ * Using it means the menu opens on a page whose script failed, on a crawler, on a phone on a train —
+ * and it means this product ships no runtime, which was worth keeping through a feature that on
+ * every other builder is where the runtime starts.
+ *
+ * The switch is put **before** the block it opens rather than inside it, and `states.ts` has the
+ * argument: inside, it is inside a `display: none`, and a key cannot reach it.
+ *
+ * ## Why the opener is wrapped rather than turned into a label
+ *
+ * The hamburger is whatever the designer drew — a stack with three lines in it, or a word. Making it
+ * a `<label>` would mean replacing its element and moving its children, and its own styles are
+ * pinned to it by then. A wrapper of `display: contents` has no box at all: the layout is exactly
+ * the layout, and a press anywhere in it reaches the switch.
+ */
+function openSwitches(
+  store: { getNode: (sid: string) => Node | undefined },
+  host: HTMLElement
+): void {
+  let next = 0;
+  /** One radio name per `opensOne` **element** — see below for why an element and not a node. */
+  const groups = new Map<HTMLElement, string>();
+
+  for (const el of [...host.querySelectorAll<HTMLElement>('[data-b]')]) {
+    const name = el.getAttribute('data-b') ?? '';
+    /*
+     * `owner~part` for a block inside a placed component, and the part is what the definition wrote.
+     * So the sid to ask the document about is the half after the tilde, and the placement's own
+     * prefix is what turns the answer back into *this* copy's element.
+     */
+    const cut = name.lastIndexOf('~');
+    const own = cut < 0 ? name : name.slice(cut + 1);
+    const prefix = cut < 0 ? '' : name.slice(0, cut + 1);
+
+    const opens = opensOf(store.getNode(own)?.attributes as Record<string, unknown> | undefined);
+    if (!opens) continue;
+
+    /*
+     * A **`partId`**, which is the durable name a part has and the only kind of name a document can
+     * be authored with: a component in a library, a sample, a page pasted in from elsewhere — none
+     * of them know the sids they will be given. `componentBind` learned this first and this follows
+     * it. So the sid is looked up from the name, inside the page or the definition the opener is in,
+     * which is the scope a `partId` means anything in.
+     */
+    const found = opens === 'self' ? own : partNamed(store, own, opens);
+    if (!found) continue;
+
+    const wanted = `${prefix}${found}`;
+    const target = host.querySelector<HTMLElement>(`[data-b="${wanted.replace(/"/g, '\"')}"]`);
+    // A block that opens something no longer on the page opens nothing, and says so by being an
+    // ordinary block: no switch, no label, and the state rule beside it matches nothing.
+    if (!target || !target.parentElement) continue;
+
+    /*
+     * **One at a time, or many** — a radio or a checkbox, which is the browser's own answer to the
+     * difference and has been since 1993.
+     *
+     * The nearest block above this one that says `opensOne` is the set: a tab strip says it, and
+     * pressing the second tab then unchecks the first, every other panel falls back to what it says
+     * at rest, and *nothing* had to be written to make that happen. An accordion that says it gets
+     * one answer open at a time; one that says nothing gets checkboxes and opens as many as it likes.
+     *
+     * The group is named after the **element**, not the node, and that is the placement rule again:
+     * a tab strip inside a component placed on five pages is five sets of tabs, and one shared name
+     * would make choosing a tab on one page choose it on all five.
+     */
+    const set = one(el, store);
+    const kind = set ? 'radio' : 'checkbox';
+    let group = set ? groups.get(set) : undefined;
+    if (set && !group) {
+      group = `st-one-${groups.size}`;
+      groups.set(set, group);
+    }
+
+    const id = `st-open-${next++}`;
+    const switch_ = host.ownerDocument.createElement('input');
+    switch_.setAttribute('type', kind);
+    switch_.setAttribute('class', 'st-open-switch');
+    switch_.setAttribute('id', id);
+    if (group) switch_.setAttribute('name', group);
+    /*
+     * And **already pressed**, where the document says so. A tab strip with nothing chosen shows
+     * nothing at all, which is the one state a tab strip must never be in; a menu with nothing
+     * chosen is a menu, so silence means closed.
+     */
+    if (opensAtRest(store.getNode(own)?.attributes as Record<string, unknown> | undefined)) {
+      switch_.setAttribute('checked', '');
+    }
+    /*
+     * Off the page and **not** `display: none` or `hidden`, which is the whole point of it being
+     * here: a control a browser does not render is a control a Tab key cannot reach, and 열림 would
+     * then be a pointer-only gesture. This one is in the focus order, takes Space, and is described
+     * by the label around the block that presses it.
+     */
+    switch_.setAttribute(
+      'style',
+      'position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;'
+    );
+    /*
+     * And a **name**, for the very common opener that has no words in it.
+     *
+     * A `<label for>` gives its control the label's own text, which for a hamburger drawn as three
+     * lines is the empty string: a checkbox announced as "checkbox" and nothing else. The block's
+     * 이름 is what the reader typed in the panel — 메뉴 열기 — and it is the one sentence in the
+     * document that says what pressing this does.
+     */
+    if (!(el.textContent ?? '').trim()) {
+      const said = store.getNode(own)?.attributes?.name;
+      switch_.setAttribute('aria-label', typeof said === 'string' && said ? said : '열기');
+    }
+    target.parentElement.insertBefore(switch_, target);
+
+    const label = host.ownerDocument.createElement('label');
+    label.setAttribute('for', id);
+    // No box of its own, so the opener lays out exactly where it laid out.
+    label.setAttribute('style', 'display: contents; cursor: pointer;');
+    el.parentElement?.insertBefore(label, el);
+    label.appendChild(el);
+  }
 }
 
 /**
@@ -480,10 +936,18 @@ export function stateRules(
   }
 
   for (const change of changes) {
+    /*
+     * An **opener's** 열림 is not written here. It is the one that cannot be said as
+     * `switch:checked + block` — the opener is not beside its switch — so `openerRules` writes it by
+     * the switch's id, and a rule written here as well would name two elements that are never
+     * adjacent and quietly match nothing.
+     */
+    if (change.state === 'open' && opensOf(store.getNode(change.sid)?.attributes)) continue;
+
     const where = whereFor(change, classOf);
     const selector = where
       .split(', ')
-      .map((one) => `${one}${selectorOf(change.state)}`)
+      .map((one) => selectorIn(one, change.state))
       .join(', ');
     const arriving = entering.get(where);
     const rule = `${selector} { ${declarations(change.css)}${arriving ? ` ${arriving}` : ''} }`;
@@ -553,6 +1017,12 @@ export function editorStateCss(
   }
 
   for (const change of changes) {
+    // The board has no switches at all, so an opener's 열림 is drawn only by the panel's preview
+    // below — see `stateRules` for why the adjacent-sibling rule cannot say it.
+    if (change.state === 'open' && opensOf(store.getNode(change.sid)?.attributes)) {
+      if (preview?.state !== change.state || !preview.sids.includes(change.sid)) continue;
+    }
+
     const at = change.width ? `[data-frame="${change.width}"] ` : '';
     const said = Object.entries(change.css)
       .map(([key, value]) => `${dashed(key)}: ${value} !important;`)
@@ -561,7 +1031,7 @@ export function editorStateCss(
     const where = whole.split(', ');
     const arriving = entering.get(whole);
     rules.push(
-      `${where.map((one) => `${at}${one}${selectorOf(change.state)}`).join(', ')} { ${said}${arriving ? ` ${arriving}` : ''} }`
+      `${where.map((one) => `${at}${selectorIn(one, change.state)}`).join(', ')} { ${said}${arriving ? ` ${arriving}` : ''} }`
     );
 
     /*
@@ -728,7 +1198,9 @@ export function revealRules(
         : [];
     if (inside.length > 1) {
       inside.forEach((sid, at) => {
-        if (isHidden((store.getNode(sid) as Node | undefined)?.attributes)) return;
+        // A draft, and not merely a block hidden at this width — see `clean`. A section that arrives
+        // only on a phone still arrives.
+        if (neverShown((store.getNode(sid) as Node | undefined)?.attributes)) return;
         out.push(
           revealRule(
             whereFor({ sid, part: one.part }, classOf, attribute),
@@ -745,11 +1217,6 @@ export function revealRules(
     out.push(revealRule(whereFor(one, classOf, attribute), kind, attribute !== undefined));
   }
   return out.join('\n');
-}
-
-/** The CSS a state is, by its id — one lookup, so neither notation can invent its own. */
-function selectorOf(state: StateId): string {
-  return STATES.find((one) => one.id === state)?.selector ?? '';
 }
 
 /**
@@ -792,7 +1259,16 @@ export function cssFor(
 
   return {
     ...(stack ? (stackCss(named as never) as Record<string, string>) : {}),
-    ...(sizingCss(named as never) as Record<string, string>)
+    ...(sizingCss(named as never) as Record<string, string>),
+    /*
+     * And **where the block is**, which a media query has to be able to change: a header that is
+     * sticky at 1280 and ordinary at 390 is the commonest thing anybody does with this, and a
+     * badge's offsets are different numbers on a phone.
+     *
+     * `stackCss` already answers it for a frame; this adds it for the nodes that are not stacks —
+     * a picture lifted over a band is the second commonest.
+     */
+    ...(stack ? {} : (positionCss(named as never) as Record<string, string>))
   };
 }
 
@@ -902,7 +1378,10 @@ function styledNodes(
      * that a section exists at all, and hiding a draft is the gesture that says it should not be
      * published.
      */
-    if (isHidden((store.getNode(sid) as Node | undefined)?.attributes)) return;
+    // The same question `clean` asks of the drawing: a block hidden at **every** width and in every
+    // state is a draft and its rules go with it; a block shown on a phone, or when opened, keeps
+    // both. Asked with one function, or the markup and the stylesheet disagree about what shipped.
+    if (neverShown((store.getNode(sid) as Node | undefined)?.attributes)) return;
     found.push({ sid, part });
   };
 
@@ -1058,7 +1537,26 @@ function document_(
   body: string,
   responsive: string,
   /** What the page is about, and where its body begins — see below. Both may be absent. */
-  said?: { description?: string; main?: string; at?: string }
+  said?: {
+    description?: string;
+    main?: string;
+    at?: string;
+    image?: string;
+    /** The one line of script a page ships when it has an openable block and a same-page link. */
+    script?: string;
+    /** The picture in a browser tab, already resolved to the file the archive will hold. */
+    icon?: { href: string; type: string };
+    /** Whether this page may be indexed — the page-level half of `robots.txt`. */
+    noIndex?: boolean;
+    /**
+     * **What the site is set in**, as one rule after the page's own stylesheet.
+     *
+     * After rather than inside `PAGE_CSS`, because that is the same bytes the boards draw with: the
+     * type is a *document's* answer and the stylesheet is the product's, and folding one into the
+     * other would make the page's own CSS differ between two sites.
+     */
+    type?: string;
+  }
 ): string {
   /*
    * **What a crawler and a chat read.**
@@ -1094,7 +1592,38 @@ function document_(
           `<link rel="canonical" href="${escape(said.at)}">`,
           `<meta property="og:url" content="${escape(said.at)}">`
         ]
-      : [])
+      : []),
+    /**
+     * And **the picture**, which is the half of an unfurl people actually look at.
+     *
+     * A title and a description with no image is the unfurl a chat draws as two lines of grey text;
+     * every service that shows one gives the image about nine tenths of the space. It was the last
+     * thing missing from the head and the cheapest.
+     *
+     * **Absolute or nothing.** Open Graph will not take a relative address — a crawler fetching the
+     * card has no page to resolve it against — so a relative one is joined onto the site's own
+     * address, and a site that has not said where it lives gets no image tag rather than a broken
+     * one. That is the same rule `og:url` follows two lines up, and the same reason: a tag that is
+     * present and wrong is worse than one that is absent, because nothing ever reports it.
+     *
+     * `twitter:card` beside it because without it X draws the small square thumbnail whatever the
+     * image is, and one word is the difference between a banner and a postage stamp.
+     */
+    ...(() => {
+      const picture = said?.image?.trim();
+      if (!picture) return [];
+      const absolute = /^(https?:|data:)/i.test(picture)
+        ? picture
+        : said?.at
+          ? `${said.at.replace(/\/[^/]*$/, '')}/${picture.replace(/^\/+/, '')}`
+          : undefined;
+      return absolute
+        ? [
+            `<meta property="og:image" content="${escape(absolute)}">`,
+            `<meta name="twitter:card" content="summary_large_image">`
+          ]
+        : [];
+    })()
   ].join('\n');
 
   /*
@@ -1118,6 +1647,8 @@ function document_(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escape(name)}</title>
+${said?.icon ? `<link rel="icon" href="${escape(said.icon.href)}" type="${escape(said.icon.type)}">` : ''}
+${said?.noIndex ? '<meta name="robots" content="noindex">' : ''}
 ${meta}
 <style>
 .st-skip {
@@ -1134,12 +1665,14 @@ ${meta}
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; }
 ${PAGE_CSS}
+${said?.type ?? ''}
 ${responsive}
 </style>
 </head>
 <body>
 ${skip}
 ${body}
+${said?.script ? `<script>${said.script}</script>` : ''}
 </body>
 </html>
 `;

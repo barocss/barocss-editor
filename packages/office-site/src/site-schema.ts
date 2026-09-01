@@ -32,6 +32,14 @@
  * different things depending on the axis and the container.
  */
 import { getOfficeSchemaDefinition, type SchemaDefinition } from '@barocss/schema';
+import { BLENDS } from './paint';
+import { POSITIONS } from './position';
+import { ASPECTS } from './aspect';
+import { FACES, SCALES } from './type-scale';
+
+const FACE_IDS = FACES.map((one) => one.id);
+const SCALE_IDS = SCALES.map((one) => one.id);
+import { FIELDS } from './form';
 
 /** What a child of a stack means to do with the space along the stack's axis. */
 export const SIZING = ['fill', 'hug', 'fixed'] as const;
@@ -56,6 +64,59 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
     /** The smallest and largest it may be drawn, in twips, for a `fill` that must not collapse. */
     minWidth: { type: 'number' as const, required: false },
     maxWidth: { type: 'number' as const, required: false },
+    /**
+     * And how **tall**, which this schema had no way to say at all — see `sizing.ts` for the five
+     * blocks that turned out to need it and for why it is a pair rather than a stated `height`.
+     */
+    minHeight: { type: 'number' as const, required: false },
+    maxHeight: { type: 'number' as const, required: false },
+    /**
+     * **Where this block is**, when it is not simply the next thing in the column.
+     *
+     * `sticky` — in the flow until the page scrolls past it, then held at an edge. `absolute` — out
+     * of the flow, placed against the stack it is in. Silence is the column, which is what every page
+     * in this document already is and why adding this moved nothing.
+     *
+     * `fixed` is deliberately not one of them; `position.ts` has the argument, and it is about a
+     * phone rather than about purity.
+     */
+    position: { type: 'string' as const, required: false, options: [...POSITIONS] },
+    /**
+     * How far in from each edge, in twips — and **negative is allowed**, which is the point.
+     *
+     * The schema's other lengths are sizes, where a negative number is nonsense. These are offsets:
+     * `insetTop: -240` is what lifts a card into the band above it, and overlap is most of what
+     * stops a page looking like a stack of rectangles.
+     */
+    insetTop: { type: 'number' as const, required: false },
+    insetRight: { type: 'number' as const, required: false },
+    insetBottom: { type: 'number' as const, required: false },
+    insetLeft: { type: 'number' as const, required: false },
+    /**
+     * And what is **over** what, which a column never had to answer and an overlap always does.
+     *
+     * Read even for a block in the flow: a header that scrolls under a hero picture is this one
+     * number, and it is a sticky block rather than a placed one.
+     */
+    zOrder: { type: 'number' as const, required: false },
+    /**
+     * **How many columns of a grid this block takes** — see `sizing.ts` for why a grid needed it.
+     *
+     * On every block rather than on grid children only, because the schema has no way to say "only
+     * inside a grid" and a reader who moves a card out of one has not made an error. It draws
+     * nothing outside a grid, which is the honest behaviour of `grid-column` itself.
+     */
+    span: { type: 'number' as const, required: false, min: 1, max: 12 },
+    /**
+     * **Centred in whatever holds it**, which is half of the commonest layout on the web and the
+     * half this schema had no word for: a band the width of the window, and a column of reading
+     * measure in the middle of it.
+     *
+     * A separate decision from `maxWidth`, and finding that out cost a wrong version: a cap says
+     * *how wide*, this says *where*, and inferring the second from the first put every heading on
+     * the sample into the middle of the page.
+     */
+    centred: { type: 'boolean' as const, required: false },
     /**
      * What this node says **differently at a narrower width** — and only what differs.
      *
@@ -86,12 +147,67 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
      * finished. So this is the first thing on a page that is published as a **rule** rather than
      * folded into the drawing, and the export grows a `:hover` selector for it.
      *
-     * Paint only, and that is arithmetic rather than taste: a state that changed the arrangement
-     * would move the block out from under the pointer, at which point the pointer is no longer on
-     * it, and the browser draws the two states alternately for as long as the visitor holds still.
-     * `STATEABLE` is the list and `stateFaults` is the check.
+     * Paint only for a **held** state, and that is arithmetic rather than taste: a state that changed
+     * the arrangement would move the block out from under the pointer, at which point the pointer is
+     * no longer on it, and the browser draws the two states alternately for as long as the visitor
+     * holds still. `STATEABLE` is that list and `stateFaults` is the check.
+     *
+     * `open` is the exception, and the exception is the point of it: being open is **remembered**
+     * rather than held, so nothing alternates, and a menu that appears is what a visitor pressed for.
+     * `OPENABLE` adds `visible`, `layoutMode` and `gap` — see `states.ts`.
      */
     states: { type: 'object' as const, required: false },
+    /**
+     * **What this block opens**, which is the half of `open` that is a gesture rather than a design.
+     *
+     * A hamburger is a block that says `opens: '메뉴'`; the menu is a block whose `partId` is 메뉴 and
+     * whose `states.open` says it is visible. Pressing the first changes the second, and the
+     * published page does it with a checkbox rather than with a script — see `openSwitches` in
+     * `export-html.ts`.
+     *
+     * A **`partId`** and not a sid, which is `componentBind`'s rule and for `componentBind`'s reason:
+     * a sid is given out when a document is loaded, so nothing that is *written down* can hold one —
+     * not a component in a library, not this product's own sample, not a page pasted in from another
+     * document. `setOpens` mints the name when the block being opened has none.
+     *
+     * Resolved inside the page or the definition the opener is in, which is the scope a `partId` is
+     * unique within. Every placement then opens **its own** copy for nothing: the export stamps
+     * `owner~part` on each element, so the same name is a different element in each placement, and
+     * two navigation bars each open their own menu without anything being told there are two.
+     *
+     * The two are the same block in the simple case — a box that opens itself — and `opens: 'self'`
+     * says so.
+     */
+    opens: { type: 'string' as const, required: false },
+    /**
+     * **Whether this block is open when the page loads.**
+     *
+     * On the *opener*, beside `opens`, because it is a fact about the gesture rather than about the
+     * block that appears: a tab strip is three openers of which exactly one has already been pressed.
+     *
+     * A tab strip needs it — a tab strip with nothing chosen shows nothing and is not a tab strip —
+     * and an accordion may want it, since a FAQ whose first answer is already open is an ordinary
+     * design. Silence means closed, which is what a menu and a 더보기 mean.
+     */
+    openAtRest: { type: 'boolean' as const, required: false },
+    /**
+     * **Whether only one thing inside this block may be open at a time.**
+     *
+     * On the *container*, and that is the only place it can be: it is a fact about a set. A tab strip
+     * says yes and is the reason this exists — pressing the second tab has to close the first, and
+     * nothing about either tab on its own can say that. An accordion says yes when its author wants
+     * one answer at a time and nothing when they do not.
+     *
+     * What it becomes is the difference between a **checkbox** and a **radio**, which is the browser's
+     * own answer to *one of these* and has been since 1993. The openers inside get radios sharing a
+     * name, so choosing one unchecks the rest and every panel but one falls back to what it says at
+     * rest — no rule, no script, and nothing to keep in step.
+     *
+     * The one behaviour that comes with it and is not a choice: a radio cannot be unchecked by
+     * pressing it again. So the last-opened panel in a `opensOne` group stays open, which is what a
+     * tab strip wants and what an accordion's author is agreeing to.
+     */
+    opensOne: { type: 'boolean' as const, required: false },
     /**
      * **How long** this block takes to get from what it says to what a state says, in milliseconds.
      *
@@ -274,12 +390,65 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
      * one number cannot say it.
      */
     backgroundOpacity: { type: 'number' as const, required: false, min: 0, max: 1 },
+    /**
+     * **A sheet over all of it**, so words can be read on a photograph.
+     *
+     * The layer that was missing rather than a second way to say `backgroundOpacity`: that one fades
+     * the picture toward the box's own ground, and a hero usually wants a *chosen* colour on top —
+     * the ink, at a quarter, so white words read and the photograph is still a photograph. See
+     * `backgroundCss` for why a gradient could not do it.
+     */
+    overlay: { type: 'string' as const, required: false },
+    overlayOpacity: { type: 'number' as const, required: false, min: 0, max: 1 },
 
     /** A shadow, as a colour, a softness and where the light is. */
     shadowColor: { type: 'string' as const, required: false },
     shadowBlur: { type: 'number' as const, required: false },
     shadowDistance: { type: 'number' as const, required: false },
     shadowAngle: { type: 'number' as const, required: false },
+
+    /**
+     * **How much of the box comes through at all.**
+     *
+     * Declared here, which it had not been: `paintCss` has read it since the day it was written and
+     * the panel has offered a row for it, so the row wrote an attribute the schema did not declare
+     * and the validator threw the whole transaction away. A control that lights up and changes
+     * nothing — the exact thing the harness exists to catch, in the one direction it does not look.
+     * The check asks whether every declared attribute is *read*; nothing asked whether every
+     * attribute a renderer reads is *declared*.
+     */
+    opacity: { type: 'number' as const, required: false, min: 0, max: 1 },
+
+    /**
+     * **The deliberate disruption**, in degrees.
+     *
+     * A page of upright rectangles reads as a template whatever is in them. One card at 3° is the
+     * cheapest sentence a layout can say about having been arranged by a person, and it is the one
+     * move the editorial vocabulary this sample is designed against asks for by name.
+     */
+    rotate: { type: 'number' as const, required: false },
+
+    /**
+     * **How this box mixes with what is under it.** `multiply` is what a second ink does on paper.
+     *
+     * Four modes and no more — see `effectsCss` for why a list of sixteen would be a list nobody
+     * can predict.
+     */
+    blend: { type: 'string' as const, required: false, options: [...BLENDS] },
+
+    /** **Frosted glass**, in twips. Only visible through a translucent fill, which the panel says. */
+    backdropBlur: { type: 'number' as const, required: false },
+
+    /**
+     * **The rhythm the words in this box are set at**, as percentages of their own size.
+     *
+     * `letterSpacing: -2.5` is `-0.025em`; `lineHeight: 140` is `1.4`. Percentages rather than twips
+     * because both mean a ratio to the font's size: tracking written as a length is right at one
+     * breakpoint and wrong at the next. Inherited, like `ink` and for `ink`'s reason — a band states
+     * it once and every block in it takes it.
+     */
+    letterSpacing: { type: 'number' as const, required: false },
+    lineHeight: { type: 'number' as const, required: false },
 
     /** And the four corners, for the boxes that round only two of them. */
     cornerTopLeft: { type: 'number' as const, required: false },
@@ -380,7 +549,49 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
         ...(office.nodes as Record<string, any>).document,
         attrs: {
           ...((office.nodes as Record<string, any>).document?.attrs ?? {}),
-          address: { type: 'string' as const, required: false }
+          address: { type: 'string' as const, required: false },
+          /**
+           * **What the site is set in** — see `type-scale.ts`.
+           *
+           * The document's, because a brand has one or two faces and one rhythm. Per-block type is
+           * what a mark is for and this product has those; what was missing is the level above, and
+           * it was missing completely: four heading sizes and a font stack were written into
+           * `page-css.ts`, so every site this product made came out in the same type.
+           */
+          bodyFace: { type: 'string' as const, required: false, options: [...FACE_IDS] },
+          headingFace: { type: 'string' as const, required: false, options: [...FACE_IDS] },
+          /**
+           * How large the words are, **in twips** — 16px unless a reader says.
+           *
+           * The document's unit and not the reader's, because the panel's `unit: 'px'` already means
+           * *stored in twips* for every other length here, and the one attribute that disagreed was
+           * silently ignored: 20 typed became 300 stored, 300 is outside the bounds, and the site
+           * stayed at 16. `baseSizeOf` is the one place it becomes pixels.
+           */
+          baseSize: { type: 'number' as const, required: false },
+          /** The ratio between one heading and the next; the steps are geometric. */
+          scale: { type: 'string' as const, required: false, options: [...SCALE_IDS] },
+          /**
+           * **The picture in a browser tab**, as `asset:이름`.
+           *
+           * The cheapest thing that makes a published site look like a site rather than a file
+           * somebody opened: without one, every tab shows the browser's blank page glyph, and a
+           * reader with six tabs open cannot find theirs.
+           *
+           * A reference to a file the document holds, which is what made this possible at all — it
+           * needed the asset work, and before that there was nowhere for the bytes to live.
+           */
+          icon: { type: 'string' as const, required: false },
+          /**
+           * **Whether search engines may index this site.**
+           *
+           * A `robots.txt` a site with no address cannot have — a `Sitemap:` line needs an absolute
+           * one — and a switch that matters most in the state nobody tests: a staging copy of a site
+           * that was published before it was ready and is now in a search result.
+           *
+           * Silence is *yes*, because a site somebody published is a site they meant to be found.
+           */
+          noIndex: { type: 'boolean' as const, required: false }
         }
       },
 
@@ -426,7 +637,40 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
            * it wrong on the page it matters most — a hero whose first words are 무료로 시작하기 — and
            * a guess a reader cannot see is a guess they cannot correct.
            */
-          description: { type: 'string' as const, required: false }
+          description: { type: 'string' as const, required: false },
+          /**
+           * And the **picture** a shared link shows, which is the half of an unfurl anybody looks at.
+           *
+           * A title and a description with no image is two lines of grey text; every service that
+           * draws a card gives the picture about nine tenths of it. It was the last thing missing
+           * from the head and the cheapest to add.
+           *
+           * A page's rather than the site's, because the one page whose card matters most is a
+           * *post*: a blog with one picture for every article is a blog nobody clicks twice. A site
+           * that wants one image everywhere writes the same address on each page, which is a
+           * repetition a reader can see, where a fallback would be a rule they could not.
+           *
+           * Absolute or relative — the export joins a relative one onto the site's address, because
+           * Open Graph will not take one and a crawler has no page to resolve it against.
+           */
+          image: { type: 'string' as const, required: false },
+          /**
+           * **Whether this is the page a visitor gets when they type the address wrong.**
+           *
+           * A `404.html` beside the pages, which is the name every static host serves for a request
+           * it cannot match — so it is a file rather than a route this product invents.
+           *
+           * A flag on a real page rather than a page called `/404`, because a page in the list is a
+           * page that appears in navigation and in the sitemap, and a 404 is neither. The page keeps
+           * its own address and gains a second one.
+           */
+          notFound: { type: 'boolean' as const, required: false },
+          /**
+           * And **whether a crawler should skip it** — the page's half of what `robots.txt` says
+           * about the site. A thank-you page is a page nobody should arrive at from a search result,
+           * and `robots.txt` has no way to say so about one page.
+           */
+          noIndex: { type: 'boolean' as const, required: false }
         }
       },
 
@@ -448,7 +692,38 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
          */
         content: '(block | scene | frame | collection)*'
       },
-      picture: withBlockAttrs('picture'),
+      /**
+       * A picture, and **the shape it keeps** whatever width it is given.
+       *
+       * `minHeight` answered a divider and a banner and does not answer this: a picture that must
+       * stay 16:9 in a column that is 1200 wide on a laptop and 350 on a phone needs a *ratio*, not a
+       * height — and stating a height instead is how a hero picture ends up letterboxed on one width
+       * and cropped on the other.
+       *
+       * The pair `aspect` and `fit` is the whole of it and they are two questions: what shape the box
+       * is, and what the picture does inside a box that is not its own shape. A reader who states an
+       * aspect almost always wants `cover` with it, which is a **crop** — so the two are next to each
+       * other in the panel rather than in different groups.
+       *
+       * Silence is the file's own shape, which is what `width` and `height` on the element already
+       * reserve — see `assets.ts`. So adding this moved nothing.
+       */
+      picture: {
+        ...withBlockAttrs('picture'),
+        attrs: {
+          ...withBlockAttrs('picture').attrs,
+          aspect: { type: 'string' as const, required: false, options: [...ASPECTS] },
+          /**
+           * **Whether to wait until it is needed.**
+           *
+           * `loading="lazy"` on a picture above the fold delays the one image a visitor is waiting
+           * for — which is why this is the reader's decision rather than a rule the product applies
+           * to everything but the first picture it happens to draw. A hero says no; a photograph
+           * eight sections down says yes, and there is nothing but the design that knows which.
+           */
+          defer: { type: 'boolean' as const, required: false }
+        }
+      },
 
       /** A placement in the flow says what it does with the width, like any other block. */
       instance: { ...withBlockAttrs('instance'), attrs: { ...withBlockAttrs('instance').attrs, ...landmarkAttrs } },
@@ -478,6 +753,17 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
           kind: { type: 'string' as const, default: 'inline', options: ['inline', 'url'] },
           /** Where the rows come from when they are not in the document. */
           url: { type: 'string' as const, required: false },
+          /**
+           * **Fetched again in the visitor's browser**, not only when a reader presses 새로 가져오기.
+           *
+           * The deliberate second mode, and it is off by default because it costs the thing this
+           * product's export is unusual for: a page whose list is live ships a script, and what a
+           * crawler reads is the rows as they were when the site was published. That is the right
+           * trade for a price that changes hourly and the wrong one for a list of five services.
+           *
+           * Only means anything with `kind: 'url'` — there is nothing to go and get otherwise.
+           */
+          live: { type: 'boolean' as const, default: false },
           /**
            * The columns. Declared, not inferred from the first row — a panel has to offer the
            * fields before there is a row on screen, and a misspelt `field:` is then a fault a
@@ -528,6 +814,320 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
           equals: { type: 'string' as const, required: false }
         }
       },
+
+      /**
+       * A **form**: the one block on an ordinary site with nothing in this model behind it.
+       *
+       * ## Why this is the only genuinely new thing here
+       *
+       * Every other node a page needed was already in the office schema or was a stack wearing a
+       * different name. A form is neither. It is the first block whose point is not what it *looks*
+       * like but what happens **after** a visitor has used it — and this product had a page that
+       * could say anything about how it is drawn and nothing at all about where a message goes.
+       *
+       * ## A stack that submits
+       *
+       * `content: '(block | frame | field)*'`, so a form holds whatever a section holds and fields
+       * as well: a heading, a paragraph, three fields and a button is what a contact form is, and a
+       * form that could only hold fields would have been a form nobody could design.
+       *
+       * It carries a stack's whole vocabulary — `layoutMode`, `gap`, `padding`, paint — for the same
+       * reason a collection does: a form *is* a column of things, and inventing a second arrangement
+       * vocabulary for it would be two ways to say one thing.
+       *
+       * ## `action`, and what it means to leave it empty
+       *
+       * Where the answers go — an address a service gives you. There is deliberately **no default**
+       * and no built-in destination: a builder that quietly posted a visitor's message to its own
+       * server would be doing something a reader did not ask for with a stranger's data.
+       *
+       * A form with no `action` is a form that goes nowhere, and `documentFaults` says so — it is
+       * exactly the kind of fault the screen cannot show, because a form with no destination looks
+       * identical to one that works right up until somebody sends a message into nothing.
+       */
+      form: {
+        name: 'form',
+        group: 'block',
+        /**
+         * Everything a section holds, **and fields, and not another form**.
+         *
+         * Written out rather than as `block*`, because `form` is itself a block and a form inside a
+         * form is the one arrangement a browser will not keep: the HTML parser moves the inner one
+         * out and leaves an empty `<form>` behind, so what is in the document stops being what is on
+         * the page. `every-drawing-keeps-its-children` said so the minute this node existed, which is
+         * the check earning its place — nothing errors and the page may even look right.
+         */
+        content:
+          '(heading | paragraph | list | blockQuote | horizontalRule | codeBlock | picture | instance | collection | frame | field)*',
+        attrs: {
+          ...(nodes.frame?.attrs ?? {}),
+          ...everyBlockAttrs,
+          ...paintAttrs,
+          /**
+           * **Which connection the answers go through** — by name, never by address.
+           *
+           * The address itself lives on a `service` in `resources`, and this is the fourth reference
+           * of the shape this schema uses everywhere: `var:이름` for a colour, `componentId` for a
+           * card, a dataset's `name` for rows, and now this. The argument is the same one each time
+           * and it is not tidiness — a site with five forms had five copies of one address, so
+           * changing services meant finding all five, and the one that was missed goes on posting to
+           * an endpoint nobody is reading.
+           *
+           * A `sends` naming a connection that is not there is a fault the panel reports, exactly
+           * like a link to a page that was deleted: the form draws perfectly and goes nowhere.
+           */
+          sends: { type: 'string' as const, required: false },
+          /**
+           * **Where the visitor lands after sending** — a page of this site, as `page:id`.
+           *
+           * The fifth use of the reference shape after `var:이름`, `componentId`, a dataset's `name`
+           * and a link's page, and for the same reason each time: an address changes and an id does
+           * not, so a 감사합니다 page a reader later moves takes its thank-you with it.
+           *
+           * It becomes a hidden field named by the connection — see `service.returnField` — and needs
+           * the site's own address to be absolute, which is the rule `og:url` and `og:image` already
+           * follow. A site that has not said where it lives publishes no return at all rather than a
+           * relative one the service cannot use.
+           */
+          thanks: { type: 'string' as const, required: false }
+        }
+      },
+
+      /**
+       * An **asset**: a file the site is made of, kept in the document.
+       *
+       * ## The gap this closes, which was the largest one left
+       *
+       * A `picture` carried a `src` string and nothing anywhere could put a **file** in one. The
+       * sample got away with it by drawing its art as SVG data URIs, which is a thing a product's
+       * author can do and a reader cannot: adding a photograph was not possible at all, and it is the
+       * second most common thing anybody does on a page after writing on it.
+       *
+       * ## Why the bytes are in the document
+       *
+       * A site here is one file that a reader owns — that is the promise the whole export makes, and
+       * an image kept somewhere else would break it in the worst way: a document that draws correctly
+       * on the machine that made it and shows broken images everywhere else. `forFile` already
+       * strips sids so a `.baro` travels; the pictures have to travel with it.
+       *
+       * The cost is real and is stated rather than hidden: base64 is a third larger than the file,
+       * and a document with twenty photographs in it is a large document. `assetFaults` says so at
+       * the point it starts to matter, and the export writes each one **once** as its own file rather
+       * than inlining it into every page that draws it.
+       *
+       * ## And why a name rather than a sid
+       *
+       * The sixth reference of the shape this schema uses everywhere — `var:이름`, `componentId`, a
+       * dataset's `name`, a link's `page:id`, a form's `sends`. A `src` of `asset:로고` survives a
+       * copy between documents, a `forFile`, and a reader renaming nothing.
+       */
+      asset: {
+        name: 'asset',
+        group: 'resource',
+        atom: true,
+        attrs: {
+          /** What a picture names. Durable: `forFile` strips sids, so a reference is never one. */
+          name: { type: 'string' as const, required: true },
+          /** What the file was called when it arrived, which is what a reader recognises it by. */
+          label: { type: 'string' as const, required: false },
+          /** Its media type — `image/png`. What the export writes the file's extension from. */
+          type: { type: 'string' as const, required: true },
+          /** The bytes, base64 and without a `data:` prefix — the prefix is `type` said twice. */
+          data: { type: 'string' as const, required: true },
+          /**
+           * How big it is, in **pixels of the file itself** — not twips, and not a size to draw at.
+           *
+           * A picture states how wide it is drawn like any other block. This is the file's own shape,
+           * which is what an `<img>` needs to reserve the right space before it has loaded: without
+           * it every image on the page pushes the text under it down as it arrives, which is the
+           * layout shift every performance guide measures and no builder that stores only a URL can
+           * fix.
+           */
+          width: { type: 'number' as const, required: false },
+          height: { type: 'number' as const, required: false },
+          /**
+           * **The same picture, smaller** — one entry per rendition, narrowest first.
+           *
+           * The single largest cost of a page anybody builds with a tool like this is a photograph
+           * taken at 4000 pixels and sent, whole, to a phone that is 390 wide. It is not a small
+           * effect: it is most of what a page weighs, and no amount of CSS makes the download shorter.
+           *
+           * A browser has had the answer since 2014 and needs to be handed the sizes: `srcset` lets
+           * it choose, knowing the screen and the connection, which is a decision this product cannot
+           * make and should not try to. So the renditions are made when the file arrives — the app
+           * has a canvas, which is the same line it draws about reading the file at all — and the
+           * export writes each as its own file.
+           *
+           * `[{ width, data }]` rather than a second asset per size, because they are **one picture**:
+           * a reader renaming it, replacing it or deleting it means all of them, and two nodes would
+           * be two things to keep in step.
+           */
+          sizes: { type: 'array' as const, required: false }
+        }
+      },
+
+      /**
+       * A **connection**: a place answers go, with a name on it.
+       *
+       * ## Why this is a resource and not an attribute
+       *
+       * A form used to carry the address itself, and a site with five forms carried five copies of
+       * it. Changing services meant finding all five, and the one that was missed goes on posting to
+       * an endpoint nobody reads — silently, because a form that posts somewhere wrong looks exactly
+       * like a form that works.
+       *
+       * The same argument `var:이름`, `componentId` and a dataset's `name` each won: **a thing
+       * referred to from several places is a thing with a name**, and the reference is the name
+       * rather than the value.
+       *
+       * ## And why the product has no address of its own
+       *
+       * There is deliberately no default and no Barocss endpoint. A builder that quietly posted a
+       * stranger's message to its own server would be doing something nobody asked for with somebody
+       * else's data, and the reader would have no way to know. So a connection arrives **empty**, the
+       * panel says so, and the address is one a reader got from a service they chose.
+       *
+       * The published page posts to it **directly** — a real `<form action method>` — so nothing of
+       * this product's is between a visitor and the service, and the page keeps working when every
+       * script on it fails.
+       */
+      service: {
+        name: 'service',
+        group: 'resource',
+        atom: true,
+        attrs: {
+          /** What a form names. Durable: `forFile` strips sids, so a reference is never one. */
+          name: { type: 'string' as const, required: true },
+          /** What a reader calls it, when the name is not what they would say out loud. */
+          label: { type: 'string' as const, required: false },
+          /** The address a service gave them. Empty is a fault a reader is told about. */
+          endpoint: { type: 'string' as const, required: false },
+          /**
+           * How the answers are sent. `post` for anything a person typed — a `get` puts a visitor's
+           * message in the address bar, in their history and in every log between here and there.
+           */
+          method: { type: 'string' as const, default: 'post', options: ['post', 'get'] },
+          /**
+           * **What this service calls the field that brings a visitor back** — `_next`, usually.
+           *
+           * The worst thing about a form as it stood: a visitor presses 보내기 and **lands on a
+           * stranger's page**. That is what a real `<form>` does — it navigates — and what the site's
+           * own design, header and footer are replaced by.
+           *
+           * Every service of this kind solves it the same way, a hidden field naming where to return
+           * to, and every one of them spells it differently: `_next`, `_redirect`, `_returnUrl`.
+           * Which is exactly what a **connection** is for: it is a fact about the service, not about
+           * the form, so a site with five forms says it once.
+           *
+           * Empty means the service has no such field, and a form that names a 감사 페이지 then
+           * publishes nothing rather than a hidden input the service will ignore.
+           */
+          returnField: { type: 'string' as const, required: false },
+          /**
+           * And **what it calls the field that catches a bot** — `_gotcha`, usually.
+           *
+           * A hidden text input a person never sees and an automated form-filler fills in; the
+           * service drops any message that has it filled. One name, one hidden input, no script, and
+           * it removes most of the spam a public form collects.
+           */
+          trapField: { type: 'string' as const, required: false }
+        }
+      },
+
+      /**
+       * A **field**: one question a visitor answers.
+       *
+       * ## One node type, not five
+       *
+       * `kind` decides which control is drawn — a line, a paragraph, an address, a number, and the
+       * button that sends it. Five node types would be five renderers, five inserts, five rows in
+       * every list and one shared set of attributes, and the difference between them is genuinely
+       * one word: `<input type>` is the same idea the HTML has had since the beginning.
+       *
+       * The **submit** is one of them, and that is the part worth arguing. A submit button is not a
+       * question, so it does not obviously belong here — but it is the one control that must be
+       * inside the form and must be a `<button type="submit">` rather than a styled box, or the
+       * Enter key does nothing and a keyboard cannot send the form. Putting it here is what makes
+       * that impossible to get wrong.
+       *
+       * ## `name` is what the answer arrives called
+       *
+       * Not the label. The person reading the messages sees `email`, `message`, `budget` — so it is
+       * a separate attribute, minted from the label when a reader has not said otherwise, and a form
+       * with two fields of one name is a message with one of them missing.
+       *
+       * ## Why it is an atom
+       *
+       * There is nothing inside a field to select or put a caret in: the label is a string and the
+       * control is drawn. A reader editing the label edits the attribute, which is what the panel
+       * is for and is the same answer a picture's `alt` gets.
+       */
+      field: {
+        name: 'field',
+        group: 'block',
+        atom: true,
+        attrs: {
+          ...everyBlockAttrs,
+          /**
+           * What it is **painted** with — the five a control actually uses, named rather than taken
+           * from `paintAttrs` wholesale.
+           *
+           * A gradient behind a text box and a shadow angle on a label are things this could have
+           * declared and nothing would ever have drawn; the harness reported eleven of them the
+           * minute the node existed. A field is a box with a line around it and words in it, and
+           * these five say that.
+           */
+          fill: { type: 'string' as const, required: false },
+          ink: { type: 'string' as const, required: false },
+          stroke: { type: 'string' as const, required: false },
+          strokeWidth: { type: 'number' as const, required: false },
+          cornerRadius: { type: 'number' as const, required: false },
+          /** What the visitor reads. Also the accessible name, which is why it is not decoration. */
+          label: { type: 'string' as const, required: false },
+          /** What the answer arrives called. Minted from the label when nobody said. */
+          name: { type: 'string' as const, required: false },
+          kind: {
+            type: 'string' as const,
+            default: 'text',
+            options: [...FIELDS]
+          },
+          /** Whether a visitor may send it empty. */
+          required: { type: 'boolean' as const, required: false },
+          /**
+           * The grey words inside the box — a **hint**, never the label.
+           *
+           * The single commonest accessibility fault on the web is a form labelled by its
+           * placeholders: the words vanish the moment somebody types, so anyone who looks away has
+           * lost the question, and a screen reader is told a hint where a name belongs. So a field
+           * always draws its label, and this is extra.
+           */
+          placeholder: { type: 'string' as const, required: false },
+          /** How many lines, for a `paragraph` field. */
+          lines: { type: 'number' as const, required: false },
+          /**
+           * What a `choice` offers, in order.
+           *
+           * An array of strings and not a comma-separated one: a Korean answer contains commas, and
+           * a separator a reader has to avoid typing is a field that quietly loses half an option.
+           */
+          choices: { type: 'array' as const, required: false },
+          /**
+           * The smallest and largest a **number** may be, and the longest a **text** may run.
+           *
+           * The browser's own validation, which is most of a form feature and costs nothing: it runs
+           * with scripts off, in the visitor's own language, and it is what makes insisting on a real
+           * `<form>` worth it.
+           *
+           * `pattern` is deliberately absent. It is a regular expression — a language a reader has to
+           * learn and cannot debug — and this schema turned that down once already when a list's
+           * filter became `where` + `equals` rather than an expression. A pattern worth having is a
+           * **kind**.
+           */
+          min: { type: 'number' as const, required: false },
+          max: { type: 'number' as const, required: false },
+          maxLength: { type: 'number' as const, required: false }
+        }
+      }
     }
   };
 }

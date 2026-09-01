@@ -31,7 +31,9 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { addChild, node, textNode, transaction } from '@barocss/model';
 import type { INode } from '@barocss/datastore';
-import { CONTAINERS, SELECTABLE } from './selection';
+import { CONTAINERS, holdsABlock, SELECTABLE } from './selection';
+import { freshPartId, scopeOf } from './components';
+import { servicesOf } from './form';
 
 type Node = Record<string, any>;
 
@@ -80,23 +82,176 @@ const px = (value: number): number => value * 15;
  */
 const ACCENT = '#0F7A5A';
 const ACCENT_DARK = '#0B5C44';
+/**
+ * The hairline and the faint fill an accordion and a tab strip are drawn with.
+ *
+ * Literals for the same reason `ACCENT` is one: a token is resolved against the document, and a
+ * reader whose page has declared none would get a structure with no lines in it at all — which reads
+ * as a broken insert rather than as a plain one.
+ */
+const LINE = '#E3E7E4';
+const TINT = '#F4F6F4';
+
+/**
+ * One question of a form: a label a reader can see, and the control under it.
+ *
+ * `required` on all three, because a contact form whose message may be empty is a form that collects
+ * blank messages — and a reader who wants one optional turns it off, which is one press against the
+ * three they would otherwise have to turn on.
+ */
+const field = (label: string, name: string, kind: string): Node =>
+  node('field', { label, name, kind, required: true, sizing: 'fill' }, []) as Node;
+
+/**
+ * One row of an accordion: the question, and the answer that is not there until it is asked for.
+ *
+ * The body is a **sibling** of the header rather than a child of it, which is the one structural
+ * fact this whole feature turns on: the switch is put immediately before the block it opens, and a
+ * switch inside a `display: none` is a switch no key can reach (`states.ts`).
+ */
+const accordionItem = (part: string, n: number): Node =>
+  node(
+    'frame',
+    {
+      name: '항목',
+      layoutMode: 'column',
+      sizing: 'fill',
+      gap: 0,
+      stroke: LINE,
+      strokeWidth: px(1)
+    },
+    [
+      node(
+        'frame',
+        {
+          name: '질문',
+          layoutMode: 'row',
+          sizing: 'fill',
+          justifyContent: 'between',
+          alignItems: 'center',
+          paddingTop: px(16),
+          paddingBottom: px(16),
+          paddingLeft: px(20),
+          paddingRight: px(20),
+          // Already the colour it will change *from*, so the state changes a value rather than
+          // inventing one — the same rule `insertButton` follows about a border's width.
+          fill: '#FFFFFF',
+          opens: part,
+          states: { hover: { fill: TINT }, open: { fill: TINT } },
+          transitionMs: 120
+        },
+        [node('paragraph', {}, [run(`질문 ${n + 1}`)]) as never]
+      ) as never,
+      node(
+        'frame',
+        {
+          name: '답',
+          partId: part,
+          layoutMode: 'column',
+          sizing: 'fill',
+          paddingBottom: px(20),
+          paddingLeft: px(20),
+          paddingRight: px(20),
+          visible: false,
+          states: { open: { visible: true } }
+        },
+        [node('paragraph', {}, [run('답을 입력하세요')]) as never]
+      ) as never
+    ]
+  ) as Node;
+
+/** One tab: a target a thumb can hit, and a look for having been chosen. */
+const tab = (part: string, n: number): Node =>
+  node(
+    'frame',
+    {
+      name: `탭 ${n + 1}`,
+      layoutMode: 'row',
+      sizing: 'hug',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: px(12),
+      paddingBottom: px(12),
+      paddingLeft: px(20),
+      paddingRight: px(20),
+      fill: '#FFFFFF',
+      stroke: '#FFFFFF',
+      strokeWidth: px(1),
+      cornerRadius: px(10),
+      // The first one has already been pressed: a tab strip showing nothing is not a tab strip.
+      ...(n === 0 ? { openAtRest: true } : {}),
+      opens: part,
+      states: { hover: { fill: TINT }, open: { fill: TINT, stroke: ACCENT } },
+      transitionMs: 120
+    },
+    [node('paragraph', {}, [run(`탭 ${n + 1}`)]) as never]
+  ) as Node;
+
+/** One panel: exactly an accordion's answer, and that is the point of both being one mechanism. */
+const panel = (part: string, n: number): Node =>
+  node(
+    'frame',
+    {
+      name: `탭 ${n + 1} 내용`,
+      partId: part,
+      layoutMode: 'column',
+      sizing: 'fill',
+      padding: px(20),
+      stroke: LINE,
+      strokeWidth: px(1),
+      cornerRadius: px(10),
+      visible: false,
+      states: { open: { visible: true } }
+    },
+    [node('paragraph', {}, [run(`탭 ${n + 1}의 내용입니다`)]) as never]
+  ) as Node;
 
 export class SiteElementExtension implements Extension {
   name = 'siteElements';
   priority = 48;
 
   onCreate(editor: Editor): void {
+    /**
+     * One place the engine is reached through, which is why the cast is here and not per command.
+     *
+     * `registerCommand` is not on the published `Editor` type, so registering needs one — and one is
+     * all this file writes. The count in `editor-is-typed.test.ts` is a ratchet: a second identical
+     * cast a few lines down would have been a number going up for no new reason, which is what that
+     * check exists to make impossible to do quietly.
+     */
+    const command = (spec: unknown) =>
+      (editor as never as { registerCommand: (spec: unknown) => void }).registerCommand(spec);
+
     const register = (
       name: string,
       make: () => Node,
       can: (payload?: Record<string, unknown>) => boolean = (payload) =>
         !!this._where(editor, payload?.selection, payload?.pageId)
     ) =>
-      (editor as never as { registerCommand: (spec: unknown) => void }).registerCommand({
+      command({
         name,
         execute: async (_ed: Editor, payload?: Record<string, unknown>) =>
           await this._put(editor, make(), payload),
         canExecute: (_ed: Editor, payload?: Record<string, unknown>) => can(payload)
+      });
+
+    /**
+     * The same, for an insert that has to know **where it is landing** before it can build itself.
+     *
+     * An accordion mints `partId`s, and a name is unique inside a page or a definition — so the one
+     * thing it cannot do is decide what to make without first knowing which page it is going onto.
+     * Every other insert here is the same block wherever it lands, which is why this is the second
+     * shape rather than the only one.
+     */
+    const registerMade = (name: string, make: (where: Where) => Node) =>
+      command({
+        name,
+        execute: async (_ed: Editor, payload?: Record<string, unknown>) => {
+          const where = this._where(editor, payload?.selection, payload?.pageId);
+          return where ? await this._put(editor, make(where), payload) : false;
+        },
+        canExecute: (_ed: Editor, payload?: Record<string, unknown>) =>
+          !!this._where(editor, payload?.selection, payload?.pageId)
       });
 
     /** A heading. Level 2, because a page has one level 1 and it is the page's own title. */
@@ -236,6 +391,274 @@ export class SiteElementExtension implements Extension {
     );
 
     /**
+     * **An accordion** — a stack of questions, each with an answer that is not on the page until it
+     * is asked for.
+     *
+     * ## Why this is a command and not four gestures
+     *
+     * Every piece of it already existed: a column, a row with words in it, a second column with
+     * `visible: false`, and `opens` naming the second from the first. A reader could have built one
+     * — by knowing that the body has to be a *sibling* of the header rather than inside it, that it
+     * needs a `partId` because `opens` records a name, and that the name has to be one nothing else
+     * on the page is using. That is three facts about the mechanism and none about their page, which
+     * is the definition of something a product should be doing for them.
+     *
+     * ## The name, minted here
+     *
+     * `opens` resolves a name inside the page or definition it is in, and **the first match wins**.
+     * Two accordions on one page both calling their body 내용 is the second accordion's header
+     * opening the first accordion's body — silently, and only in the published page. `freshPartId`
+     * is what stops it, and the three names are minted against each other as well as against the
+     * page, because they do not exist yet when the second one is asked for.
+     *
+     * ## Checkboxes, not radios
+     *
+     * No `opensOne`, so each answer opens and closes on its own and a visitor can have three open at
+     * once. An author who wants one at a time turns 하나만 열림 on in the panel, and the same
+     * structure becomes radios — which is the difference between an accordion and a tab strip stated
+     * as one switch rather than as two features.
+     */
+    registerMade('insertAccordion', (where) => {
+      const store = this._store(editor)!;
+      const scope = scopeOf(store as never, where.parentId);
+      const parts: string[] = [];
+      for (let n = 0; n < 3; n += 1) parts.push(freshPartId(store as never, scope, '내용', parts));
+
+      return node(
+        'frame',
+        { name: '아코디언', layoutMode: 'column', sizing: 'fill', gap: 0 },
+        parts.map((part, n) => accordionItem(part, n) as never)
+      ) as Node;
+    });
+
+    /**
+     * **A tab strip** — the same two blocks as an accordion, with one switch turned on.
+     *
+     * `opensOne` on the outer block is the whole difference: the switches inside become radios that
+     * share a name, so choosing the second tab unchecks the first and its panel falls back to what
+     * it says at rest, which is `visible: false`. No rule keeps them in step, because a radio group
+     * *is* the rule and the browser has had it since 1993.
+     *
+     * Two things a tab strip needs that an accordion does not, and both are one attribute:
+     *
+     * - **one already chosen** — `openAtRest` on the first tab, because a tab strip showing nothing
+     *   is the one state it must never be in;
+     * - **the chosen tab looking chosen** — `states.open` on the *tab*, which is the one 열림 that
+     *   cannot be written as `switch:checked + block` (the tab is not beside its switch; the panel
+     *   is). `openerRules` publishes it by the switch's id.
+     */
+    registerMade('insertTabs', (where) => {
+      const store = this._store(editor)!;
+      const scope = scopeOf(store as never, where.parentId);
+      const parts: string[] = [];
+      for (let n = 0; n < 3; n += 1) parts.push(freshPartId(store as never, scope, '탭 내용', parts));
+
+      return node(
+        'frame',
+        { name: '탭', layoutMode: 'column', sizing: 'fill', gap: 0, opensOne: true },
+        [
+          node(
+            'frame',
+            {
+              name: '탭 줄',
+              layoutMode: 'row',
+              sizing: 'fill',
+              alignItems: 'center',
+              gap: px(4),
+              paddingBottom: px(4)
+            },
+            parts.map((part, n) => tab(part, n) as never)
+          ) as never,
+          ...parts.map((part, n) => panel(part, n) as never)
+        ]
+      ) as Node;
+    });
+
+    /**
+     * **A form** — the one block on an ordinary site that had no node behind it.
+     *
+     * ## Why the insert is a whole form and not an empty one
+     *
+     * A `<form>` with nothing in it is not a thing anybody wants, and the arrangement is where the
+     * knowledge is: a label above every control rather than a placeholder standing in for one, a
+     * submit that is a real button so the Enter key works, and an `email` field that is actually
+     * `type="email"` so a phone shows the right keyboard and the browser checks it for free.
+     *
+     * ## And it arrives **broken on purpose**
+     *
+     * With no 보낼 곳, which `formFaults` reports the moment it exists. There is deliberately no
+     * default destination and none of this product's own: a builder that quietly posted a stranger's
+     * message to its own server would be doing something nobody asked for with somebody else's data.
+     *
+     * So the reader is handed a form that is complete except for the one decision only they can make,
+     * and told so — rather than one that looks finished and silently sends messages into nothing,
+     * which is what a form with an empty `action` does.
+     */
+    const formNode = (sends: string): Node =>
+      node(
+        'form',
+        {
+          name: '폼',
+          /*
+           * The connection it sends through, by name — minted with the form when the document has
+           * none. A reader who inserts their first form gets a form **and** a place to put the
+           * address, both incomplete and both reported; a reader who has one already gets a form
+           * pointed at it, which is what makes five forms one address rather than five copies.
+           */
+          sends,
+          layoutMode: 'column',
+          sizing: 'fill',
+          gap: px(16),
+          padding: px(24),
+          fill: '#FFFFFF',
+          stroke: LINE,
+          strokeWidth: px(1),
+          cornerRadius: px(14),
+          maxWidth: px(520)
+        },
+        [
+          node('heading', { level: 3 }, [run('연락하기')]) as never,
+          field('이름', 'name', 'text') as never,
+          field('이메일', 'email', 'email') as never,
+          field('하고 싶은 말', 'message', 'paragraph') as never,
+          node(
+            'field',
+            {
+              kind: 'submit',
+              label: '보내기',
+              name: 'submit',
+              sizing: 'hug',
+              fill: ACCENT,
+              ink: '#FFFFFF',
+              stroke: ACCENT,
+              strokeWidth: px(1),
+              cornerRadius: px(40)
+            },
+            []
+          ) as never
+        ]
+      ) as Node;
+
+    /**
+     * **A table** — a comparison, which is what a table on a page is for.
+     *
+     * ## Why this is the product's own and not the shared kit's
+     *
+     * `insertTable` exists in `@barocss/extensions` and puts a table **at the caret**, which is
+     * Word's gesture: a table lands in the prose a reader is typing. This rail's gesture is the other
+     * one — a block goes after what is selected, or at the end of the page a reader is looking at —
+     * and with nothing selected there is no caret at all, so the shared command refuses.
+     *
+     * Two commands with one name is one of them unreachable, and the check that counts what a reader
+     * can run would not have said which. So this is named for what it makes, exactly as
+     * `insertBodyText` is named beside the kit's `insertText`.
+     *
+     * ## Three columns, a header row, and a caption
+     *
+     * A comparison: features down the side, plans across the top. The header row is the reason this
+     * is a table rather than a stack — a screen reader reads a cell with the name of its column, and
+     * a grid of boxes reads as a wall of words — so it is there from the first press rather than
+     * being a switch a reader has to find.
+     */
+    register('insertTableBlock', () => {
+      const cell = (words: string, header = false): Node =>
+        node(header ? 'bTableHeaderCell' : 'bTableCell', {}, [run(words)]) as Node;
+
+      return node(
+        'bTable',
+        { caption: '' },
+        [
+          node('bTableHeader', {}, [
+            cell('', true) as never,
+            cell('기본', true) as never,
+            cell('프로', true) as never
+          ]) as never,
+          node(
+            'bTableBody',
+            {},
+            [
+              node('bTableRow', {}, [
+                cell('페이지 수') as never,
+                cell('5') as never,
+                cell('무제한') as never
+              ]) as never,
+              node('bTableRow', {}, [
+                cell('도메인 연결') as never,
+                cell('아니오') as never,
+                cell('예') as never
+              ]) as never
+            ]
+          ) as never
+        ]
+      ) as Node;
+    });
+
+    /**
+     * **A form**, and the connection it sends through — in **one** transaction.
+     *
+     * Two nodes and one undo, because it is one sentence a reader means: *put a form here that sends
+     * somewhere*. Two commands would be a form that exists for one keystroke with no destination, and
+     * a reader who pressed ⌘Z once and got a document with a connection nobody uses.
+     *
+     * The connection is the document's first when it has one — which is what makes five forms on a
+     * site five references to one address rather than five copies of it — and a fresh empty one when
+     * it has none.
+     */
+    command({
+      name: 'insertForm',
+      execute: async (_ed: Editor, payload?: Record<string, unknown>) => {
+        const where = this._where(editor, payload?.selection, payload?.pageId);
+        if (!where) return false;
+
+        const store = this._store(editor)!;
+        const root = this._rootOf(editor, where.parentId);
+        const doc = { rootId: String(root ?? ''), getNode: (sid: string) => store.getNode(sid) };
+
+        const held = servicesOf(doc as never)[0];
+        const sends = held?.name ?? '문의함';
+
+        const steps: unknown[] = [];
+        if (!held) {
+          /*
+           * Into `resources`, beside the datasets — the container this schema keeps referred-to
+           * things in, and the reason a form can name one at all.
+           *
+           * **Empty on purpose**: there is no default address and none of this product's own, so the
+           * reader is handed the one thing only they can supply, named and reported by
+           * `documentFaults`, rather than a form that looks finished and sends nowhere.
+           */
+          const box = ((store.getNode(String(root ?? ''))?.content ?? []) as unknown[])
+            .filter((sid): sid is string => typeof sid === 'string')
+            .map((sid) => store.getNode(sid))
+            .find((one) => one?.stype === 'resources');
+          if (!box) return false;
+          steps.push(
+            addChild(
+              String(box.sid),
+              node('service', { name: sends, label: '문의함', method: 'post' }, []) as never,
+              ((box.content ?? []) as unknown[]).length
+            )
+          );
+        }
+
+        steps.push(addChild(where.parentId, formNode(sends) as never, where.at));
+        const done = await transaction(editor, steps as never).commit();
+        if (done.success !== true) return false;
+
+        const made = ((store.getNode(where.parentId)?.content ?? []) as string[])[where.at];
+        if (made) {
+          void (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(
+            'setNode',
+            { nodeIds: [made] }
+          );
+        }
+        return true;
+      },
+      canExecute: (_ed: Editor, payload?: Record<string, unknown>) =>
+        !!this._where(editor, payload?.selection, payload?.pageId)
+    });
+
+    /**
      * A **placement** of a definition — the header, the button, the card.
      *
      * The one insert that takes an argument, because a placement without a definition is a placement
@@ -314,6 +737,19 @@ export class SiteElementExtension implements Extension {
     return this._resource(editor, 'resources', 'dataset', name, 'name');
   }
 
+
+  /** The document a block is in — the root, walked up. */
+  private _rootOf(editor: Editor, sid: string): string | undefined {
+    const store = this._store(editor);
+    let at: string | undefined = sid;
+    for (let hop = 0; at && hop < 24; hop += 1) {
+      const parent: unknown = store?.getNode(at)?.parentId;
+      if (typeof parent !== 'string' || !parent) return at;
+      at = parent;
+    }
+    return at;
+  }
+
   /** Where a new block goes — see the header for the rule. */
   private _where(editor: Editor, given?: unknown, page?: unknown): Where | null {
     const store = this._store(editor);
@@ -353,8 +789,10 @@ export class SiteElementExtension implements Extension {
   /**
    * After whatever the caret is in — the same walk both other products do.
    *
-   * Up from what the selection names until it reaches something whose parent lists it and is not a
-   * paragraph, which is a *block*.
+   * Up from what the selection names until it reaches something whose parent lists it, is a block a
+   * reader can select, **and sits somewhere a block may go**. The last of those is `holdsABlock`,
+   * and it is there because a table cell is all three of the first ones and its parent holds cells:
+   * without it every insert here put a block inside a table row and the validator threw it away.
    */
   private _atCaret(editor: Editor, given?: unknown): Where | null {
     const store = this._store(editor);
@@ -371,7 +809,8 @@ export class SiteElementExtension implements Extension {
         at >= 0 &&
         typeof node.text !== 'string' &&
         node.stype !== 'inline-text' &&
-        SELECTABLE.has(String(node.stype))
+        SELECTABLE.has(String(node.stype)) &&
+        holdsABlock(store as never, parent.stype)
       ) {
         return { parentId: String(parent.sid), at: at + 1 };
       }

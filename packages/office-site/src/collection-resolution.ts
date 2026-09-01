@@ -28,6 +28,7 @@ import {
   instanceParts,
   instanceValues,
   installInstanceResolution,
+  readValue,
   type CanvasAccess,
   type CanvasNode
 } from '@barocss/office-canvas';
@@ -206,7 +207,16 @@ function boundWords(
 
   const bind = definition.binds.find((one) => one.part === partId && one.attr === 'text');
   const said = bind ? preview.values[bind.var] : undefined;
-  return typeof said === 'string' ? said : undefined;
+  if (typeof said !== 'string') return undefined;
+
+  /*
+   * And **read the way the card says**, which the preview needs as much as the drawing: a designer
+   * editing the post card against a row should see `2026년 8월 2일` and not the ISO the column keeps.
+   * The same function the placement path uses, or the preview and the page would disagree about the
+   * one thing this preview exists to show.
+   */
+  const declared = bind ? definition.vars.find((one) => one.name === bind.var) : undefined;
+  return readValue(said, declared?.kind, declared?.format);
 }
 
 /**

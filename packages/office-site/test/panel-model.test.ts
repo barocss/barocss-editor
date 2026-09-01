@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createSchema } from '@barocss/schema';
 import { SITE_PANEL, sitePanelAttrs, sitePanelCommands, sitePanelGroups, sitePanelRows } from '../src/panel-model';
+import { VALUE_FORMATS } from '@barocss/office-canvas';
+import { SELECTABLE } from '../src/selection';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSiteEditor } from '../src/site-kit';
 import { SELECTABLE } from '../src/selection';
@@ -109,13 +111,40 @@ describe('what the panel declares', () => {
     // A page is the board rather than a block — `SELECTABLE` leaves it out — so its rows are reached
     // by selecting nothing, and no block row may appear beside them.
     const surface = sitePanelRows('surface');
-    expect(surface.map((row) => row.attr).sort()).toEqual(['address', 'description', 'name', 'path']);
+    /*
+     * Five about the page, and four about **what the site is set in** — the document's answer,
+     * reached the same way its address is: by selecting nothing.
+     */
+    /*
+     * The page's own five, the four about **what the site is set in**, and the four about **what the
+     * published folder holds** — a tab's picture, what a crawler is told, and which page a host
+     * serves for an address it cannot match. All of them are reached the same way: by selecting
+     * nothing, which is what the page pane is.
+     *
+     * `noIndex` twice, and that is not a collision: one is the **site's** and one is this **page's**,
+     * which the check about duplicate attributes tells apart by `of`.
+     */
+    expect(surface.map((row) => row.attr).sort()).toEqual([
+      'address',
+      'baseSize',
+      'bodyFace',
+      'description',
+      'headingFace',
+      'icon',
+      'image',
+      'name',
+      'noIndex',
+      'noIndex',
+      'notFound',
+      'path',
+      'scale'
+    ]);
     expect(sitePanelRows('frame').every((row) => row.tab !== 'page')).toBe(true);
   });
 
   it('groups in the order it lists, so moving a row moves it on screen', () => {
     const groups = sitePanelGroups('frame', 'block').map((one) => one.label);
-    expect(groups).toEqual(['선택', '배치', '크기']);
+    expect(groups).toEqual(['선택', '배치', '크기', '위치', '열림']);
     // And a group is contiguous: two runs of one label would draw the heading twice.
     expect(new Set(groups).size).toBe(groups.length);
   });
@@ -204,5 +233,76 @@ describe('taking a value back', () => {
     for (const side of ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']) {
       expect(side in attrs()).toBe(false);
     }
+  });
+});
+
+/**
+ * **The two rows about how a value reads**, which are the surface half of the finding that a card's
+ * question was answered with a string and drawn exactly as stored.
+ */
+describe('what a variable holds, and how it reads', () => {
+  it('offers both, on the part a variable is bound to', () => {
+    const rows = sitePanelRows('paragraph').filter((row) => row.group === '컴포넌트 변수');
+    expect(rows.map((one) => one.control)).toContain('varKind');
+    expect(rows.map((one) => one.control)).toContain('varFormat');
+    // Both write the declaration, so one undo puts a card back — and neither is a second command.
+    for (const one of rows.filter((r) => r.control === 'varKind' || r.control === 'varFormat')) {
+      expect(one.command).toBe('setComponentVar');
+      expect(one.writes).toBe('child');
+    }
+  });
+
+  it('offers a format for the kinds that have one, and for no others', () => {
+    // A text variable reads as itself and always will, so there is no list for it — which is what
+    // makes the row absent rather than present with one option in it.
+    expect(Object.keys(VALUE_FORMATS).sort()).toEqual(['date', 'number']);
+    for (const [kind, formats] of Object.entries(VALUE_FORMATS)) {
+      // The first is always *as it is*, so a reader can take the reading back.
+      expect(formats[0].id).toBe('');
+      expect(formats.length).toBeGreaterThan(2);
+      expect(kind).toBeTruthy();
+    }
+  });
+});
+
+/**
+ * **No two rows write one attribute for one node type.**
+ *
+ * A guard rather than a fix: nothing in the panel does this today, and it was written while chasing
+ * something that turned out not to be it — a field's 보낼 이름 looked as though it might collide with
+ * the generic 이름 row, and `field` is not in `SELECTABLE`, so that row was never offered for one.
+ *
+ * It is worth keeping anyway, and the reason is the shape of the thing it would catch: two rows on
+ * one attribute is a panel where setting either silently changes the other, and the browser's control
+ * sweep **cannot see it** — that check asks *did this control write something*, and the second row
+ * does write something. It writes over the first. This is the question that can be asked
+ * exhaustively, of every node type, without a browser.
+ */
+describe('a row per attribute', () => {
+  it('offers each attribute once, for every node type a reader can select', () => {
+    const clashes: string[] = [];
+
+    for (const stype of [...SELECTABLE, 'surface']) {
+      const seen = new Map<string, string>();
+      for (const row of sitePanelRows(stype)) {
+        // A row with no command reads rather than writes — the width note, the kind. Two of those
+        // about one attribute is not a collision, it is a label and a value.
+        if (!row.command) continue;
+        /*
+         * And a row that writes a **child node** names a node type rather than an attribute — which
+         * is what `writes: 'child'` says. The four rows of 컴포넌트 변수 are all about a
+         * `componentVar` and write different fields of it through different payload keys, which the
+         * model does not declare and this therefore cannot compare. Not a collision; a different
+         * question, and one nothing asks yet.
+         */
+        if (row.writes === 'child') continue;
+        const key = `${row.tab}:${row.attr}:${row.of ?? ''}`;
+        const first = seen.get(key);
+        if (first) clashes.push(`${stype}: ${first} and ${row.label} both write ${row.attr}`);
+        else seen.set(key, row.label);
+      }
+    }
+
+    expect(clashes).toEqual([]);
   });
 });

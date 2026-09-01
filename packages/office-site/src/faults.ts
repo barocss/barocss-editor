@@ -19,6 +19,7 @@
  * open it has turned a wrong colour into a lost afternoon. It **reports**, in the words a reader
  * would use, against the node they would click.
  */
+import { componentsOf, documentVars, isVarRef, varNameOf } from '@barocss/office-canvas';
 import { collectionFaults } from './data';
 import { linkFaults } from './page-link';
 import { overrideFaults } from './responsive';
@@ -31,6 +32,9 @@ const ONE_EACH = ['header', 'main', 'footer'];
 /** What a reader calls each, which is what the panel calls it. */
 const NAME_OF: Record<string, string> = { header: '머리말', main: '본문', footer: '꼬리말' };
 import { stateFaults } from './states';
+import { formFaults, serviceNamed } from './form';
+import { assetFaults, assetNameOf, assetNamed, isAssetRef } from './assets';
+import { pathFaults } from './slug';
 
 /** What a walk needs of a document: where it starts, and how to get a node. */
 type Access = { rootId: string; getNode: (sid: string) => any };
@@ -39,7 +43,7 @@ export interface Fault {
   /** The node a reader would click to fix it. */
   sid: string;
   /** Which question found it, so a panel can group them. */
-  kind: 'width' | 'state' | 'link' | 'data' | 'landmark';
+  kind: 'width' | 'state' | 'link' | 'data' | 'landmark' | 'form' | 'asset' | 'address' | 'reference';
   /** What is wrong, in the words a reader would use. */
   said: string;
 }
@@ -81,6 +85,53 @@ export const FAULT_KINDS: { id: Fault['kind']; label: string; why: string }[] = 
     id: 'state',
     label: '상태',
     why: '포인터를 올렸을 때 블록이 포인터 아래에서 벗어나거나, 이 블록에 없는 속성을 바꿉니다.'
+  },
+  {
+    id: 'form',
+    label: '폼',
+    /*
+     * The one group here about something that happens **after** the page is drawn, and the reason it
+     * is worth a fault rather than a nicety: a form with nowhere to send to looks exactly like a form
+     * that works, right up until somebody presses 보내기 and nobody ever hears from them.
+     */
+    why: '보낼 곳이 없거나, 이름이 가리키는 연결이 사라졌거나, 보내기 단추가 없습니다. 화면은 멀쩡해 보이고, 방문자가 보낸 내용은 아무 데도 가지 않습니다.'
+  },
+  {
+    id: 'address',
+    label: '페이지 주소',
+    /*
+     * The invisible one. Two pages at one address publish two files with one name — so one overwrites
+     * the other in the archive — and every link to either resolves to whichever the walk found first.
+     * The lost page is still in the panel and still editable, which is exactly what stops a reader
+     * from noticing.
+     */
+    why: '두 페이지가 같은 주소를 씁니다. 한쪽은 발행되지 않고, 그쪽을 가리키는 링크는 모두 다른 페이지로 갑니다.'
+  },
+  {
+    id: 'reference',
+    label: '이름이 가리키는 것',
+    /*
+     * The fault a **paste** makes, and the reason it was written the same day carrying was:
+     * copying a card into a site that does not define its component puts an *empty placement* on the
+     * page — it draws nothing, it selects like a block, and nothing anywhere says why. The same
+     * shape one level smaller for a `var:이름`, which falls back to the attribute's own value and so
+     * comes out in a colour nobody chose.
+     *
+     * The other three reference kinds are checked where they already were — a dataset by the
+     * collection, a connection by the form, a file by the picture — and this closes the two that had
+     * no check at all.
+     */
+    why: '가리키는 컴포넌트나 변수가 이 문서에 없습니다. 빈 자리로 그려지거나 엉뚱한 값이 쓰이고, 화면에는 아무 말도 없습니다.'
+  },
+  {
+    id: 'asset',
+    label: '그림 파일',
+    /*
+     * Two things a document can be wrong about a file, and neither shows on screen: a picture naming
+     * a file that is not there draws a broken image only on the page that uses it, and a document
+     * that has quietly become large is a document that is slow to open with nothing saying why.
+     */
+    why: '가리키는 그림 파일이 없거나, 문서에 담긴 그림이 너무 커졌습니다. 화면에서는 한 장이 깨져 보일 뿐이고, 무거워진 이유는 어디에도 적혀 있지 않습니다.'
   }
 ];
 
@@ -150,8 +201,52 @@ export function documentFaults(
 
     const attrs = node.attributes ?? {};
     const declared = declares(node);
+
+    /*
+     * A placement naming a definition this document has not got, and a `var:이름` naming a variable
+     * it has not got. Both are what a paste from another site leaves behind, and both draw as
+     * *something* — which is why neither was ever noticed.
+     */
+    if (node.stype === 'instance' && typeof attrs.componentId === 'string' && attrs.componentId) {
+      if (!componentsOf(doc as never).some((one) => one.id === attrs.componentId)) {
+        found.push({ sid, kind: 'reference', said: `'${attrs.componentId}' 컴포넌트가 없습니다` });
+      }
+    }
+    for (const value of Object.values(attrs)) {
+      if (!isVarRef(value)) continue;
+      const name = varNameOf(value);
+      if (!documentVars(doc as never).some((one) => one.name === name)) {
+        found.push({ sid, kind: 'reference', said: `'${name}' 변수가 없습니다` });
+      }
+    }
     for (const said of overrideFaults(attrs, declared)) found.push({ sid, kind: 'width', said });
     for (const said of stateFaults(attrs, declared)) found.push({ sid, kind: 'state', said });
+
+    /*
+     * And what is wrong with a **form**, asked here rather than inside the walk of its children,
+     * because two of its three faults are about the set: whether anything in it sends, and whether
+     * two questions arrive under one name.
+     */
+    if (node.stype === 'form') {
+      const fields = (node.content ?? [])
+        .filter((child): child is string => typeof child === 'string')
+        .map((child) => doc.getNode(child))
+        .filter((child) => child?.stype === 'field')
+        .map((child) => child.attributes as Record<string, unknown> | undefined);
+      for (const said of formFaults(attrs, fields, serviceNamed(doc as never, attrs.sends)))
+        found.push({ sid, kind: 'form', said });
+    }
+
+    /*
+     * And a picture naming a file the document does not hold — the same shape as a link to a page
+     * that was deleted, and just as invisible: the image breaks on the one page that draws it.
+     */
+    if (node.stype === 'picture' && isAssetRef(attrs.src)) {
+      const name = assetNameOf(attrs.src);
+      if (!assetNamed(doc as never, name)) {
+        found.push({ sid, kind: 'asset', said: `'${name}' 그림 파일이 없습니다` });
+      }
+    }
 
     if (node.stype === 'collection') {
       /*
@@ -212,6 +307,23 @@ export function documentFaults(
         });
       }
     }
+  }
+
+  /*
+   * And what is wrong with the **document's own** files rather than with a block: how large the
+   * pictures have made it. Reported against the root, because that is where a reader would go — there
+   * is no block to click on for "this document is 12MB".
+   */
+  for (const said of assetFaults(doc as never)) {
+    found.push({ sid: doc.rootId, kind: 'asset', said });
+  }
+
+  /*
+   * And two pages at one address, which nothing could see: the panel lists both, both are editable,
+   * and only one of them is ever served.
+   */
+  for (const fault of pathFaults(pagesOf(doc as never))) {
+    found.push({ sid: fault.sid, kind: 'address', said: fault.said });
   }
 
   for (const fault of linkFaults(doc)) {

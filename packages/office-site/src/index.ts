@@ -62,7 +62,17 @@ export {
 } from './panel-model';
 export { createElementCommands, SiteElementExtension } from './element-commands';
 /** The definitions a site holds, and what a builder needs to know about one. */
-export { boundVarOf, definitionAt, definitionOf, definitionsOf, usesOf, type Definition } from './components';
+export {
+  boundVarOf,
+  definitionAt,
+  definitionOf,
+  definitionsOf,
+  freshPartId,
+  partIdsIn,
+  scopeOf,
+  usesOf,
+  type Definition
+} from './components';
 /**
  * What a reader can reach — the keys and the toolbar, as **data in the package**.
  *
@@ -145,15 +155,82 @@ export {
 } from './menu-model';
 export { createPublishCommands, type Published } from './publish-commands';
 export { SiteClipboardExtension } from './clipboard-commands';
-export { documentFaults, FAULT_KINDS, holderOf, type Declares, type Fault } from './faults';
 export {
+  CARRIED_HOMES,
+  anyCarried,
+  boxOf,
+  carriedFor,
+  missingFrom,
+  type Carried,
+  type CarrySource
+} from './carried';
+export { documentFaults, FAULT_KINDS, holderOf, type Declares, type Fault } from './faults';
+/** Where a block is, when it is not simply the next thing in the column. */
+/** One spelling for a name a document stores — the same word can have two byte sequences. */
+/** The shape a picture keeps, whatever width it is given. */
+export { ASPECTS, ASPECT_LABELS, aspectCss } from './aspect';
+/** What a site is set in — its faces, its body size, and the rhythm of its headings. */
+export { FACES, SCALES, baseSizeOf, typeCss, typeRule, type TypeSetting } from './type-scale';
+export { nfc, sameName } from './names';
+/** An address that is actually an address — see the table of what a free string was doing instead. */
+export { holdsABlock } from './selection';
+export { isCleanPath, pathFaults, pathFor, slugFor } from './slug';
+export { liveScript, markLive, type LiveQuery } from './live';
+export { POSITIONS, positionCss, type Placed } from './position';
+/** A site as one file, because a folder is the only shape a published site has. */
+export { zipOf, type ZipEntry } from './zip';
+/** The files a site is made of, kept in the document and written out once when it is published. */
+export {
+  ASSET_BUDGET,
+  ASSET_PREFIX,
+  assetFaults,
+  assetFileName,
+  assetNameOf,
+  assetNamed,
+  assetSrc,
+  assetsOf,
+  RENDITIONS,
+  renditionFileName,
+  srcsetFor,
+  byteLength,
+  isAssetRef,
+  type Asset
+} from './assets';
+/**
+ * How a value reads, which is not the same question as what it is.
+ *
+ * Re-exported from `office-canvas` rather than re-declared: a deck's card and a page's card are the
+ * same node type asking the same question, and two lists of formats would be two answers to it.
+ */
+export { VALUE_FORMATS, readValue } from '@barocss/office-canvas';
+/** What a visitor sends, and where it goes. */
+export {
+  FIELDS,
+  answerNameOf,
+  formFaults,
+  serviceNamed,
+  servicesOf,
+  type Service,
+  inputTypeOf,
+  needsUpload,
+  isParagraphField,
+  isSubmitField,
+  type FieldKind
+} from './form';
+export {
+  OPENABLE,
   STATEABLE,
   STATES,
   STATE_IDS,
   attrsInState,
   hasStates,
+  opensAtRest,
+  opensOf,
+  opensOneOf,
   selectorFor,
+  selectorIn,
   stateFaults,
+  stateableIn,
   statedIn,
   statesOf,
   withState,

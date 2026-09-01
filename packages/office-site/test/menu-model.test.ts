@@ -99,6 +99,9 @@ describe('what the menubar offers', () => {
       'insertSection',
       'insertRow',
       'insertGrid',
+      'insertAccordion',
+      'insertTabs',
+      'insertForm',
       'insertHeading',
       'insertBodyText',
       'insertPicture',
@@ -107,6 +110,7 @@ describe('what the menubar offers', () => {
       'insertQuote',
       'insertCode',
       'insertRule',
+      'insertTableBlock',
       'insertButton'
     ]);
   });

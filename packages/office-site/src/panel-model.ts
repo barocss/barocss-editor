@@ -46,6 +46,8 @@ import {
   panelRowsFor,
   type PanelRow
 } from '@barocss/office-controls';
+import { ASPECT_LABELS } from './aspect';
+import { FACES, SCALES } from './type-scale';
 import { REVEALS } from './reveal';
 import { SELECTABLE } from './selection';
 
@@ -101,7 +103,62 @@ export type SitePanelControl =
    */
   | 'variable'
   /** And taking it away — its own command, so its own row beside the name. */
-  | 'variableRemove';
+  | 'variableRemove'
+  /**
+   * **What kind of thing the answer is**, and **how it reads** — two rows, one variable.
+   *
+   * Their own kinds rather than `choice` rows, because both offer a list only the *document* can
+   * supply: the second's options depend on the first's answer, and a declaration written once cannot
+   * say "the date formats when it is a date". `VALUE_FORMATS` is where that list lives.
+   */
+  | 'varKind'
+  | 'varFormat'
+  /**
+   * **Which block this one opens** — a list only the document can supply, like `dataset` and
+   * `column`.
+   *
+   * Not `options`, and for the same reason those two are not: the choices are the blocks of this
+   * page or this component, which a declaration written once cannot name. A reader picks the menu
+   * their hamburger opens rather than typing its id, which is the only version of this a reader
+   * could actually use — a sid is not a thing anybody knows by looking.
+   */
+  | 'opens'
+  /**
+   * **Which connection a form sends through**, and the address that connection points at.
+   *
+   * Lists only the document can supply, like `dataset` and `column` — and the second is a control
+   * that writes a **different node** from the one selected, which is what `writes: 'child'` says. A
+   * reader is at the form when the question comes up; the address lives with the connection.
+   */
+  | 'sends'
+  | 'endpoint'
+  | 'serviceMethod'
+  /**
+   * **Which picture this is** — the files the document holds, and a way to add one.
+   *
+   * A list only the document can supply, like `dataset` and `column`, with one thing those two do
+   * not have: a control that reads a file off the reader's machine. That reading is the app's, so the
+   * kind is declared here and drawn there.
+   */
+  | 'picture'
+  /**
+   * **A list that grows** — the rows a `choice` field offers.
+   *
+   * The panel had no control for one: `values` draws a fixed number of boxes from a definition, and a
+   * reader adding a fourth option needs a fourth box. Drawn with no buttons at all — one box per
+   * option and an empty one at the end — because *type in the blank row to add, empty a row to
+   * remove* is a thing a reader works out by looking, where a `+` and a `×` per row is two more
+   * targets in a panel that already has forty.
+   */
+  | 'choices'
+  /**
+   * **Where a visitor lands after sending** — the pages of this site, which only the document has.
+   *
+   * And the two names a service uses for its own hidden fields, which write the **connection** rather
+   * than the form: they are the service's vocabulary and a site says them once.
+   */
+  | 'thanks'
+  | 'serviceField';
 
 /** Which pane of the panel a row sits in. */
 export type SitePanelTab = 'block' | 'style' | 'data' | 'values' | 'page' | 'text';
@@ -119,6 +176,17 @@ export type SitePanelRow = PanelRow<SitePanelControl> & { tab: SitePanelTab };
  * none of which declares any of them. Seven controls that wrote nothing.
  */
 const STACKS = ['frame', 'collection'];
+
+/**
+ * And the same, plus a **placement** — for the rows about where a block sits.
+ *
+ * A placement is the one node a reader positions that is not a stack, and it is the commonest of
+ * them: a header is a component, and whether a header follows the page down is a decision about the
+ * page it is placed on. A block inside a definition cannot answer it — its parent is the placement's
+ * own box, which is exactly that block's height, so `sticky` there has nowhere to travel and does
+ * nothing at all (`renderers.ts`).
+ */
+const PLACED = [...STACKS, 'instance'];
 
 /**
  * The panel, in the order a reader meets it.
@@ -361,6 +429,229 @@ export const SITE_PANEL: SitePanelRow[] = [
   },
   { attr: 'minWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최소', ariaLabel: '최소 폭', control: 'number', unit: 'px', min: 0 },
   { attr: 'maxWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대', ariaLabel: '최대 폭', control: 'number', unit: 'px', min: 0 },
+  /*
+   * And the same pair for **height**, which is new and reads as though it had always been there —
+   * which is the point: a reader who has learned 최소/최대 폭 has learned this in the same gesture.
+   * `sizing.ts` has the five blocks that could not be drawn without it.
+   */
+  { attr: 'minHeight', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최소 높이', ariaLabel: '최소 높이', control: 'number', unit: 'px', min: 0 },
+  { attr: 'maxHeight', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대 높이', ariaLabel: '최대 높이', control: 'number', unit: 'px', min: 0 },
+
+  // ── 폼 — where what a visitor typed goes ──────────────────────────────────
+  /**
+   * **Where the answers go**, which is the only thing about a form that is not about drawing it.
+   *
+   * No default and no destination of this product's own: a builder that quietly posted a stranger's
+   * message to its own server would be doing something nobody asked for with somebody else's data.
+   * Empty is a **fault** the panel reports (`formFaults`) rather than a blank that looks fine — a
+   * form with nowhere to send to is identical on screen to one that works.
+   */
+  { attr: 'sends', command: 'setBlockFormat', group: '폼', tab: 'block', label: '보낼 곳', ariaLabel: '보낼 곳 연결', control: 'sends', on: ['form'] },
+  /**
+   * And **the address that connection points at**, edited from here.
+   *
+   * A shared thing edited from the panel of one of its users, which needs saying rather than hiding:
+   * the row under it counts how many forms send through it, because changing this changes all of
+   * them. That count is the same sentence the component list makes with 5곳 — a named reference is
+   * worth having exactly because one edit reaches every use, and a reader has to be told when they
+   * are about to make one.
+   */
+  { attr: 'endpoint', of: 'service', command: 'setServiceInfo', group: '폼', tab: 'block', label: '주소', ariaLabel: '연결 주소', control: 'endpoint', on: ['form'] },
+  /*
+   * And how. `post` for anything a person typed — a `get` puts a visitor's message in the address
+   * bar, in their history, and in every log between here and there.
+   */
+  {
+    attr: 'method',
+    of: 'service',
+    command: 'setServiceInfo',
+    group: '폼',
+    tab: 'block',
+    label: '방식',
+    ariaLabel: '보내는 방식',
+    control: 'serviceMethod',
+    on: ['form']
+  },
+
+  /**
+   * **Where a visitor lands after sending** — a page of this site.
+   *
+   * The worst thing about a form without it: 보내기 takes the visitor to the service's own page, and
+   * the site's design, header and footer are replaced by a stranger's. One hidden field fixes it, and
+   * the service's name for that field is on the connection because it is a fact about the service.
+   */
+  { attr: 'thanks', command: 'setBlockFormat', group: '폼', tab: 'block', label: '보낸 뒤', ariaLabel: '보낸 뒤 갈 페이지', control: 'thanks', on: ['form'] },
+  /*
+   * And the two names the service uses for its own hidden fields — written once for the whole site,
+   * because they are the service's vocabulary rather than this form's.
+   */
+  { attr: 'returnField', of: 'service', command: 'setServiceInfo', group: '폼', tab: 'block', label: '돌아오기 칸', ariaLabel: '돌아올 주소를 담는 칸 이름', control: 'serviceField', on: ['form'] },
+  { attr: 'trapField', of: 'service', command: 'setServiceInfo', group: '폼', tab: 'block', label: '스팸 칸', ariaLabel: '스팸을 거르는 칸 이름', control: 'serviceField', on: ['form'] },
+
+  // ── 질문 — one field of a form ────────────────────────────────────────────
+  /**
+   * What the visitor **reads**, which is also the accessible name — so it is not decoration.
+   *
+   * The first row of the group on purpose: a field with no label is the fault this product will not
+   * let a reader make by accident, because the alternative everyone reaches for — labelling with the
+   * placeholder — takes the question off the screen the moment somebody types in it.
+   */
+  { attr: 'label', command: 'setBlockFormat', group: '질문', tab: 'block', label: '이름표', ariaLabel: '질문 이름표', control: 'text', on: ['field'] },
+  /*
+   * And which control it is. One row rather than five node types: the difference between a line and
+   * an address really is one word, which is the same thing `<input type>` has said since the
+   * beginning.
+   */
+  {
+    attr: 'kind',
+    command: 'setBlockFormat',
+    group: '질문',
+    tab: 'block',
+    label: '종류',
+    ariaLabel: '질문 종류',
+    control: 'choice',
+    fallback: 'text',
+    options: [
+      { id: 'text', label: '한 줄' },
+      { id: 'email', label: '이메일' },
+      { id: 'tel', label: '전화' },
+      { id: 'number', label: '숫자' },
+      { id: 'date', label: '날짜' },
+      { id: 'paragraph', label: '여러 줄' },
+      { id: 'choice', label: '고르기' },
+      { id: 'checkbox', label: '동의 체크' },
+      /*
+       * The one kind whose presence changes the **form** rather than only itself — a form holding
+       * one is sent as `multipart/form-data`, or the file is dropped and everything else arrives.
+       * `needsUpload` sees to that; the fault list says the other half out loud, because whether the
+       * service at the far end takes a file is not this product's to know.
+       */
+      { id: 'file', label: '파일' },
+      { id: 'submit', label: '보내기 단추' }
+    ],
+    on: ['field']
+  },
+  /**
+   * **What a list offers**, in order — the rows a `choice` is made of.
+   *
+   * An array and not a comma-separated string: a Korean answer contains commas, and a separator a
+   * reader has to avoid typing is a field that quietly loses half an option.
+   *
+   * Its own kind, because the panel has no control for a list that grows. The one it draws is the
+   * pattern with no buttons in it: one box per option and an empty one at the end, so typing in the
+   * last row adds and emptying a row removes.
+   */
+  {
+    attr: 'choices',
+    command: 'setBlockFormat',
+    group: '질문',
+    tab: 'block',
+    label: '고를 것',
+    ariaLabel: '고를 수 있는 항목',
+    control: 'choices',
+    when: { attr: 'kind', is: ['choice'] },
+    on: ['field']
+  },
+  /*
+   * And the browser's own validation, which is most of a form feature and costs nothing: it runs with
+   * scripts off, in the visitor's own language. `pattern` is deliberately not here — see the schema.
+   */
+  { attr: 'min', command: 'setBlockFormat', group: '질문', tab: 'block', label: '최소', ariaLabel: '가장 작은 값', control: 'number', when: { attr: 'kind', is: ['number'] }, on: ['field'] },
+  { attr: 'max', command: 'setBlockFormat', group: '질문', tab: 'block', label: '최대', ariaLabel: '가장 큰 값', control: 'number', when: { attr: 'kind', is: ['number'] }, on: ['field'] },
+  { attr: 'maxLength', command: 'setBlockFormat', group: '질문', tab: 'block', label: '글자 수', ariaLabel: '최대 글자 수', control: 'number', min: 1, when: { attr: 'kind', is: ['text', 'email', 'tel', 'paragraph'] }, on: ['field'] },
+  /*
+   * What the answer arrives **called**, which is what the person reading the messages sees. Not the
+   * label: they get `email`, not 이메일 주소. Minted from the label when nobody says.
+   */
+  { attr: 'name', command: 'setBlockFormat', group: '질문', tab: 'block', label: '보낼 이름', ariaLabel: '답이 도착할 이름', control: 'text', on: ['field'] },
+  { attr: 'required', command: 'setBlockFormat', group: '질문', tab: 'block', label: '필수', ariaLabel: '반드시 답해야 함', control: 'toggle', on: ['field'] },
+  /*
+   * The grey words **inside** the box, which are a hint and never the question — see the schema.
+   */
+  { attr: 'placeholder', command: 'setBlockFormat', group: '질문', tab: 'block', label: '안내글', ariaLabel: '상자 안 안내글', control: 'text', on: ['field'] },
+  { attr: 'lines', command: 'setBlockFormat', group: '질문', tab: 'block', label: '줄 수', ariaLabel: '보이는 줄 수', control: 'number', min: 1, max: 20, when: { attr: 'kind', is: ['paragraph'] }, on: ['field'] },
+
+  // ── 위치 — the category of design a column of boxes could not express ──────
+  /**
+   * **Where this block is**, when it is not simply the next thing in the column.
+   *
+   * Its own group rather than a row in 크기, because it changes what the four numbers under it
+   * *mean*: with nothing chosen there are no offsets to state, and the panel does not offer four
+   * fields that write attributes nothing will read (`needs: 'position'`).
+   *
+   * 고정 and 겹침 rather than sticky and absolute — a reader is choosing between *follows the page*
+   * and *sits on top of things*, and neither English word says that to them.
+   */
+  {
+    attr: 'position',
+    command: 'setBlockFormat',
+    group: '위치',
+    tab: 'block',
+    label: '방식',
+    ariaLabel: '배치 방식',
+    control: 'choice',
+    fallback: '',
+    options: [
+      { id: '', label: '차례대로' },
+      { id: 'sticky', label: '고정' },
+      { id: 'absolute', label: '겹침' }
+    ],
+    on: PLACED
+  },
+  /*
+   * The four edges, drawn as the four pictures the padding rows already use — a reader matching a
+   * shape rather than reading 상 우 하 좌 four times.
+   *
+   * **No `min`**, where every other length here has one. These are offsets rather than sizes: a
+   * negative one lifts a card into the band above it, which is most of how a page stops looking like
+   * a stack of rectangles, and a field that refused it would have made overlap unreachable while
+   * appearing to offer it.
+   */
+  { attr: 'insetTop', command: 'setBlockFormat', group: '위치', tab: 'block', label: '위', ariaLabel: '위에서', icon: 'padding-top', control: 'number', unit: 'px', when: { attr: 'position' }, on: PLACED },
+  { attr: 'insetRight', command: 'setBlockFormat', group: '위치', tab: 'block', label: '오른쪽', ariaLabel: '오른쪽에서', icon: 'padding-right', control: 'number', unit: 'px', when: { attr: 'position' }, on: PLACED },
+  { attr: 'insetBottom', command: 'setBlockFormat', group: '위치', tab: 'block', label: '아래', ariaLabel: '아래에서', icon: 'padding-bottom', control: 'number', unit: 'px', when: { attr: 'position' }, on: PLACED },
+  { attr: 'insetLeft', command: 'setBlockFormat', group: '위치', tab: 'block', label: '왼쪽', ariaLabel: '왼쪽에서', icon: 'padding-left', control: 'number', unit: 'px', when: { attr: 'position' }, on: PLACED },
+  /*
+   * And what is **over** what. Offered with no position chosen as well, because a block in the flow
+   * needs it too: a header that scrolls under a hero picture is this one number.
+   */
+  { attr: 'zOrder', command: 'setBlockFormat', group: '위치', tab: 'block', label: '순서', ariaLabel: '겹침 순서', control: 'number', on: PLACED },
+  /**
+   * **How many columns of a grid this one takes** — what turns a page of equal tiles into a bento.
+   *
+   * In 위치 rather than 크기 because it is not a width: the block is still whatever the grid's column
+   * is, there are simply more of them. Offered on everything a grid can hold, and it draws nothing
+   * outside one — which is `grid-column`'s own honest behaviour and is argued in `sizing.ts`.
+   */
+  /**
+   * **Middle of what holds it** — the other half of a maximum width.
+   *
+   * Beside 칸 수 because both are about where a block sits rather than how big it is, and a reader
+   * who has just capped a column is one row away from the question this answers.
+   */
+  {
+    attr: 'centred',
+    command: 'setBlockFormat',
+    group: '위치',
+    tab: 'block',
+    label: '가운데',
+    ariaLabel: '가운데에 놓기',
+    control: 'toggle',
+    on: [...PLACED, 'picture', 'textFrame']
+  },
+  {
+    attr: 'span',
+    command: 'setBlockFormat',
+    group: '위치',
+    tab: 'block',
+    label: '칸 수',
+    ariaLabel: '그리드에서 차지할 칸 수',
+    control: 'number',
+    fallback: 1,
+    min: 1,
+    max: 12,
+    on: [...PLACED, 'picture', 'textFrame']
+  },
 
   // ── 바탕 and 테두리 — any of these may hold `var:이름` rather than a colour ─
   /**
@@ -536,6 +827,45 @@ export const SITE_PANEL: SitePanelRow[] = [
     ]
   },
   /**
+   * **The sheet over the picture** — the layer that makes white words on a photograph readable.
+   *
+   * Its own row rather than a fourth companion under 배경 그림, and that was measured rather than
+   * chosen: four controls sharing one line drew the last of them **11 pixels wide**, which the
+   * chrome's own check calls a target that is aimed at rather than moved to. A row holds a label and
+   * about two controls; the third is a row of its own.
+   *
+   * Beside 진하기 and not instead of it, because they do different things and a reader has to be able
+   * to see both: 진하기 fades the picture toward the box's own ground, and this puts a chosen colour
+   * on top of it. `paint.ts` argues why a gradient could not.
+   */
+  {
+    attr: 'overlay',
+    command: 'setBlockFormat',
+    group: '바탕',
+    tab: 'style',
+    label: '덮개',
+    ariaLabel: '배경 덮개 색',
+    control: 'colour',
+    needs: 'backgroundImage',
+    with: [
+      {
+        attr: 'overlayOpacity',
+        command: 'setBlockFormat',
+        group: '바탕',
+        tab: 'style',
+        label: '진하기',
+        ariaLabel: '배경 덮개 진하기',
+        control: 'number',
+        fallback: 1,
+        min: 0,
+        max: 1,
+        step: 0.01,
+        needs: 'overlay'
+      }
+    ]
+  },
+
+  /**
    * A shadow, which is how a card stops being a rectangle with a line round it.
    *
    * The colour is the row, because a shadow with no colour is not a shadow — the other three are
@@ -636,6 +966,101 @@ export const SITE_PANEL: SitePanelRow[] = [
     on: STACKS
   },
 
+  // ── 열림 — the gesture half of the third state ─────────────────────────────
+  /**
+   * What pressing this block opens.
+   *
+   * The other half of 열림 lives in the state picker: a block says what it looks like *when open*,
+   * and this says who opens it. Two blocks and one gesture, which is what a hamburger, an accordion,
+   * a tab and a 더보기 all are.
+   *
+   * At rest rather than inside the state, deliberately. It is not a value the state *changes* — it
+   * is a fact about **this** block, and the block it names is a different one. A reader setting the
+   * menu's open appearance is looking at the menu; a reader saying what opens it is looking at the
+   * hamburger, and putting the row inside the state would have asked them to set it from the wrong
+   * block.
+   */
+  {
+    attr: 'opens',
+    /*
+     * Its own command, because the row writes **two** blocks: what this one opens, and a durable
+     * name on the block being opened so there is something to record. `setBlockFormat` writes one
+     * node's attributes and would have written the sid a reader pointed at — a name no saved
+     * document can carry. See `setOpens`.
+     */
+    command: 'setOpens',
+    group: '열림',
+    tab: 'block',
+    label: '여는 것',
+    ariaLabel: '이 블록이 여는 블록',
+    control: 'opens',
+    on: STACKS
+  },
+  /**
+   * And whether it has **already been pressed** when a visitor arrives.
+   *
+   * Under 여는 것 rather than beside 보임, because it is a fact about the gesture: a reader setting it
+   * is looking at the tab, not at the panel. A tab strip needs exactly one of them on — a tab strip
+   * showing nothing is the one state it must never be in — and the insert turns the first one on so
+   * the reader starts from a working one rather than an empty box.
+   */
+  {
+    attr: 'openAtRest',
+    command: 'setBlockFormat',
+    group: '열림',
+    tab: 'block',
+    label: '처음부터',
+    ariaLabel: '처음부터 열려 있음',
+    control: 'toggle',
+    // Only where there is a gesture to qualify. A block that opens nothing cannot be open at rest.
+    when: { attr: 'opens' },
+    on: STACKS
+  },
+  /**
+   * And whether **only one** thing inside this block may be open at a time.
+   *
+   * The one switch that turns an accordion into a tab strip, which is why it is worth a row rather
+   * than two separate inserts that drift apart: it makes the switches inside radios that share a
+   * name, and a radio group is the browser's own answer to *one of these*.
+   *
+   * On the container, and the panel offers it on every stack rather than only on the two the insert
+   * makes — a reader who built their own three-panel thing out of rows has exactly the same set.
+   */
+  {
+    attr: 'opensOne',
+    command: 'setBlockFormat',
+    group: '열림',
+    tab: 'block',
+    label: '하나만',
+    ariaLabel: '안에서 하나만 열림',
+    control: 'toggle',
+    on: STACKS
+  },
+  /**
+   * And **what turning it on costs**, said once it is on.
+   *
+   * A radio cannot be unpressed. That is right for a tab strip — a tab strip with nothing chosen is
+   * the one state it must never be in — and it is a surprise for an accordion, where a visitor who
+   * has opened one answer can no longer close everything.
+   *
+   * A consequence rather than a fault, so it is not in the fault list: nothing is wrong with the
+   * document and there is nothing to fix. It is the kind of thing a reader finds out from a visitor,
+   * which is the worst way to find anything out, so the panel says it at the moment they choose.
+   *
+   * `needs: 'opensOne'` is the whole of its logic — the row is drawn only while the switch is on,
+   * which is the mechanism the panel already has rather than a special case in the surface.
+   */
+  {
+    attr: 'opensOne',
+    group: '열림',
+    tab: 'block',
+    label: '',
+    ariaLabel: '하나만 열림일 때의 동작',
+    control: 'note',
+    when: { attr: 'opensOne', is: [true] },
+    on: STACKS
+  },
+
   // ── 상자 — the two things a page's frame says that a canvas's does not ─────
   {
     attr: 'cornerRadius',
@@ -704,11 +1129,158 @@ export const SITE_PANEL: SitePanelRow[] = [
     step: 0.01,
     on: [...STACKS, 'picture', 'instance', 'textFrame']
   },
+  /**
+   * **The deliberate disruption.** A page of upright rectangles reads as a template.
+   *
+   * Beside 투명도 because it is the same kind of decision — what this box does that the flow did not
+   * ask for — and because both make a stacking context, which is a cost worth meeting in one place.
+   */
+  {
+    attr: 'rotate',
+    command: 'setBlockFormat',
+    group: '상자',
+    tab: 'style',
+    label: '기울기',
+    ariaLabel: '기울기',
+    control: 'number',
+    unit: '°',
+    fallback: 0,
+    min: -30,
+    max: 30,
+    step: 0.5,
+    on: [...STACKS, 'picture', 'instance', 'textFrame']
+  },
+  /**
+   * **How this box mixes with what is under it.** `곱하기` is what a second ink does on paper.
+   *
+   * Four and no more; `effectsCss` argues why a list of sixteen is a list nobody can predict.
+   */
+  {
+    attr: 'blend',
+    command: 'setBlockFormat',
+    group: '상자',
+    tab: 'style',
+    label: '섞임',
+    ariaLabel: '아래와 섞이는 방식',
+    control: 'choice',
+    fallback: '',
+    options: [
+      { id: '', label: '섞지 않음' },
+      { id: 'multiply', label: '곱하기' },
+      { id: 'screen', label: '밝게' },
+      { id: 'overlay', label: '겹치기' },
+      { id: 'difference', label: '반전' }
+    ],
+    on: [...STACKS, 'picture', 'instance', 'textFrame']
+  },
+  /**
+   * **Frosted glass.** Only visible through a translucent fill, which is what the label says out
+   * loud — a reader who sets it on an opaque card sees nothing and would otherwise think it broken.
+   */
+  {
+    attr: 'backdropBlur',
+    command: 'setBlockFormat',
+    group: '상자',
+    tab: 'style',
+    label: '뒤 흐리기',
+    ariaLabel: '뒤 흐리기 (반투명한 바탕에서만 보입니다)',
+    control: 'number',
+    unit: 'px',
+    fallback: 0,
+    min: 0,
+    max: 60,
+    on: [...STACKS, 'picture', 'instance', 'textFrame']
+  },
+
+  // ── 글 리듬 — what the words in this box are set at, for everything inside ──
+  /**
+   * **The rhythm, on the box rather than on the words**, and inherited — `ink`'s argument exactly.
+   *
+   * A band is set tight and everything in it is set tight; a run that says its own still wins. The
+   * unit is a **percentage of the font's own size**, so a heading tracked at -2.5% stays tracked
+   * when the type scale grows it — `paint.ts` says why twips would have been wrong here.
+   */
+  {
+    attr: 'letterSpacing',
+    command: 'setBlockFormat',
+    group: '글 리듬',
+    tab: 'style',
+    label: '자간',
+    ariaLabel: '글자 사이 간격',
+    control: 'number',
+    unit: '%',
+    fallback: 0,
+    min: -10,
+    max: 40,
+    step: 0.5,
+    on: [...STACKS, 'textFrame']
+  },
+  {
+    attr: 'lineHeight',
+    command: 'setBlockFormat',
+    group: '글 리듬',
+    tab: 'style',
+    label: '줄 간격',
+    ariaLabel: '줄 사이 간격',
+    control: 'number',
+    unit: '%',
+    min: 80,
+    max: 260,
+    step: 5,
+    on: [...STACKS, 'textFrame']
+  },
 
   // ── 이미지 ─────────────────────────────────────────────────────────────────
-  { attr: 'src', command: 'setBlockFormat', group: '이미지', tab: 'style', label: '주소', ariaLabel: '이미지 주소', control: 'text', on: ['picture'] },
+  /**
+   * **The file, or the address** — one row, because a reader choosing a picture is doing one thing.
+   *
+   * A picker of the files the document holds, plus 파일 넣기, plus whatever address is already there.
+   * Two rows would have made the reader decide which *kind* of picture they wanted before they had
+   * chosen one, which is the editor's bookkeeping showing through.
+   *
+   * The file itself is read by the **app** — a browser's job, and the same line `publish` draws about
+   * writing one — and arrives as `insertAsset`.
+   */
+  { attr: 'src', command: 'setBlockFormat', group: '이미지', tab: 'style', label: '그림', ariaLabel: '그림 파일', control: 'picture', on: ['picture'] },
   // Not decoration: it is what a reader of the published page hears.
   { attr: 'alt', command: 'setBlockFormat', group: '이미지', tab: 'style', label: '설명', ariaLabel: '대체 텍스트', control: 'text', on: ['picture'] },
+  /**
+   * **The shape it keeps** at every width, which a height cannot say — see `aspect.ts`.
+   *
+   * Beside 채우는 방식 rather than in 크기, because they are one decision: a reader who states a shape
+   * almost always wants the picture to fill it, which is a **crop**, and the two rows next to each
+   * other is what makes that visible before the crop is a surprise.
+   */
+  {
+    attr: 'aspect',
+    command: 'setBlockFormat',
+    group: '이미지',
+    tab: 'style',
+    label: '비율',
+    ariaLabel: '그림 비율',
+    control: 'choice',
+    fallback: '',
+    options: ASPECT_LABELS,
+    on: ['picture']
+  },
+  /**
+   * **Whether to wait until it is needed.**
+   *
+   * `lazy` on a picture above the fold delays the one image a visitor is waiting for, which is why
+   * this is the reader's decision rather than a rule the product applies to everything but the first
+   * picture it happens to draw: a hero says no and a photograph eight sections down says yes, and
+   * nothing but the design knows which.
+   */
+  {
+    attr: 'defer',
+    command: 'setBlockFormat',
+    group: '이미지',
+    tab: 'style',
+    label: '나중에',
+    ariaLabel: '보일 때 불러오기',
+    control: 'toggle',
+    on: ['picture']
+  },
   {
     attr: 'fit',
     command: 'setBlockFormat',
@@ -846,6 +1418,42 @@ export const SITE_PANEL: SitePanelRow[] = [
     single: true,
     on: ['heading', 'paragraph', 'listItem']
   },
+  /**
+   * **What kind of thing this variable holds**, and it is not decoration.
+   *
+   * A card's question was answered with a string and drawn exactly as stored, so the only way to
+   * make a price read as `월 9,900원` was to store those words — a value nothing can compare, and it
+   * cost the sample's own pricing page its order for as long as that page has existed. Saying the
+   * kind is what lets the data hold `9900` and the card say how it reads.
+   */
+  {
+    attr: 'componentVar',
+    writes: 'child',
+    command: 'setComponentVar',
+    group: '컴포넌트 변수',
+    tab: 'block',
+    label: '값 종류',
+    ariaLabel: '변수가 담는 값의 종류',
+    control: 'varKind',
+    single: true,
+    on: ['heading', 'paragraph', 'listItem']
+  },
+  /*
+   * And how it reads — offered only where there is a reading to choose, which is a `number` or a
+   * `date`. A text variable reads as itself and always will.
+   */
+  {
+    attr: 'componentVar',
+    writes: 'child',
+    command: 'setComponentVar',
+    group: '컴포넌트 변수',
+    tab: 'block',
+    label: '표시 형식',
+    ariaLabel: '값을 보여주는 형식',
+    control: 'varFormat',
+    single: true,
+    on: ['heading', 'paragraph', 'listItem']
+  },
   {
     /**
      * And **editing the variable this part is bound to** — its name, and taking it away.
@@ -979,6 +1587,68 @@ export const SITE_PANEL: SitePanelRow[] = [
     tab: 'page',
     label: '설명',
     ariaLabel: '페이지 설명',
+    control: 'text',
+    on: ['surface']
+  },
+  /**
+   * **The picture in a browser tab** — the cheapest thing that makes a published site look like a
+   * site rather than a file somebody opened.
+   *
+   * A file the document holds, which is why it could not exist before the assets did: a favicon is
+   * bytes, and until a document could carry a file there was nowhere for them to be.
+   */
+  { attr: 'icon', of: 'document', command: 'setSiteFiles', group: '사이트', tab: 'page', label: '탭 그림', ariaLabel: '브라우저 탭 그림', control: 'picture', on: ['surface'] },
+  /*
+   * And what a crawler is told, which matters most in the state nobody tests: a staging copy of a
+   * site that was published before it was ready and is now in somebody's search result.
+   */
+  { attr: 'noIndex', of: 'document', command: 'setSiteFiles', group: '사이트', tab: 'page', label: '검색 제외', ariaLabel: '검색 엔진에서 제외', control: 'toggle', on: ['surface'] },
+  /*
+   * And the two a **page** answers rather than the site: which one a host serves for an address it
+   * cannot match, and whether this one in particular should stay out of a search result.
+   */
+  { attr: 'notFound', command: 'setPageInfo', group: '페이지', tab: 'page', label: '없는 주소용', ariaLabel: '주소가 틀렸을 때 보일 페이지', control: 'toggle', on: ['surface'] },
+  { attr: 'noIndex', command: 'setPageInfo', group: '페이지', tab: 'page', label: '검색 제외', ariaLabel: '이 페이지를 검색에서 제외', control: 'toggle', on: ['surface'] },
+
+  // ── 서체 — what the whole site is set in ──────────────────────────────────
+  /**
+   * **What the site is set in.**
+   *
+   * Colour has been a token since the day the page had one; the second thing a brand changes has been
+   * unreachable. Four heading sizes and a font stack lived in `page-css.ts`, so every site this
+   * product made came out in the same type.
+   *
+   * In the page pane, which is the one a reader reaches by selecting nothing — because it is the
+   * **document's** answer, like the address, and not the page's. `of: 'document'` says so, which is
+   * what the check that reads these rows compares against.
+   */
+  { attr: 'bodyFace', of: 'document', command: 'setSiteType', group: '서체', tab: 'page', label: '본문', ariaLabel: '본문 글꼴', control: 'choice', fallback: '', options: FACES.map((one) => ({ id: one.id, label: one.label })), on: ['surface'] },
+  /*
+   * A site that says nothing about its headings is set in one face, which is what most sites are —
+   * so the fallback is *the body's*, and the row says so rather than repeating the list's first entry.
+   */
+  { attr: 'headingFace', of: 'document', command: 'setSiteType', group: '서체', tab: 'page', label: '제목', ariaLabel: '제목 글꼴', control: 'choice', fallback: '', options: [{ id: '', label: '본문과 같게' }, ...FACES.filter((one) => one.id).map((one) => ({ id: one.id, label: one.label }))], on: ['surface'] },
+  { attr: 'baseSize', of: 'document', command: 'setSiteType', group: '서체', tab: 'page', label: '글자 크기', ariaLabel: '본문 글자 크기', control: 'number', unit: 'px', min: 12, max: 24, on: ['surface'] },
+  /*
+   * A **ratio**, and the steps are geometric — which is what a design system means by a scale and what
+   * four hand-picked numbers only approximate. A reader who wants bigger headings wants all of them
+   * bigger in proportion, and keeping four numbers in proportion by hand is the work this replaces.
+   */
+  { attr: 'scale', of: 'document', command: 'setSiteType', group: '서체', tab: 'page', label: '제목 단계', ariaLabel: '제목 크기 단계', control: 'choice', fallback: '', options: SCALES.map((one) => ({ id: one.id, label: one.label })), on: ['surface'] },
+
+  /**
+   * And the **picture** a shared link shows — the half of an unfurl anybody actually looks at.
+   *
+   * The page's rather than the site's, because the page whose card matters most is a post: a blog
+   * with one picture for every article is a blog nobody clicks twice.
+   */
+  {
+    attr: 'image',
+    command: 'setPageInfo',
+    group: '페이지',
+    tab: 'page',
+    label: '공유 그림',
+    ariaLabel: '공유했을 때 보이는 그림',
     control: 'text',
     on: ['surface']
   }

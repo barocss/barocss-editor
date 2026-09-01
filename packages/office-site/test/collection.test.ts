@@ -10,6 +10,7 @@ import { registerSiteRenderers } from '../src/renderers';
 import { createSampleSite } from '../src/sample-site';
 import { SITE_ENV_KEY, createSiteEnv } from '../src/breakpoints';
 import { cellValue, collectionFaults, datasetNamed, rowsOf, valuesForRow } from '../src/data';
+import { readValue } from '@barocss/office-canvas';
 
 /**
  * A list that comes from data.
@@ -169,5 +170,64 @@ describe('a list, drawn', () => {
     expect(collectionFaults(doc, { attributes: { source: '상품' } }, undefined)).toEqual([
       '이 목록은 한 줄마다 그릴 틀이 없습니다'
     ]);
+  });
+});
+
+/**
+ * **How a value reads**, which is not the same question as what it is.
+ *
+ * The fault this closed is the best-shaped one this package has found: a card's question was
+ * answered with a string and drawn exactly as stored, so the only way to make a price read as
+ * `월 9,900원` was to *store* those words — and the sample's own pricing page had been sorting its
+ * plans by that string, in a browser, wrongly, for as long as it existed. `월 9,900원` sorts above
+ * `월 19,900원` because `9` comes after `1`, so the page showed the wrong three plans in the wrong
+ * order and looked completely fine.
+ *
+ * Nothing but asking the document what order it was in could have found it.
+ */
+describe('what a value is, and how it reads', () => {
+  it('reads a number and a date the way somebody says them', () => {
+    expect(readValue('9900', 'number', '월 #,##0원')).toBe('월 9,900원');
+    expect(readValue('2026-08-02', 'date', 'yyyy년 M월 d일')).toBe('2026년 8월 2일');
+    expect(readValue('2026-08-02', 'date', 'M월 d일')).toBe('8월 2일');
+  });
+
+  it('leaves a value it cannot read exactly as it is', () => {
+    /*
+     * A card whose column has one bad row should draw that row's own text, which a reader can see
+     * and go and fix. A blank is a row that has silently disappeared.
+     */
+    expect(readValue('곧 공개', 'number', '#,##0원')).toBe('곧 공개');
+    expect(readValue('언젠가', 'date', 'yyyy년 M월 d일')).toBe('언젠가');
+    // And silence in either half is the value itself, which is why adding this moved nothing.
+    expect(readValue('9900', 'number', undefined)).toBe('9900');
+    expect(readValue('9900', 'text', '#,##0')).toBe('9900');
+  });
+
+  it('is safe to read twice, which is what makes the order it runs in survivable', () => {
+    // A data list replaces a placement's answers *after* they are resolved, so the format has to be
+    // applied last — and a second pass over an already-formatted value must not make `월 월 9,900원`.
+    const once = readValue('9900', 'number', '월 #,##0원');
+    expect(readValue(once, 'number', '월 #,##0원')).toBe(once);
+  });
+
+  it('puts the sample’s plans in the order they actually cost', () => {
+    registerSiteRenderers();
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    const store = new DataStore(undefined as never, schema as never);
+    const editor: any = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+    const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+
+    /*
+     * The measurement that found it. Written as `'월 9,900원'` the answer was 문서 · 사이트 · 스위트;
+     * as a number it is what the page claims to be showing.
+     */
+    const rows = rowsOf(datasetNamed(doc as never, '상품')!, {
+      sortBy: '가격',
+      sortDir: 'desc',
+      limit: 3
+    });
+    expect(rows.map((one: any) => one.이름)).toEqual(['스위트', '덱', '문서']);
   });
 });

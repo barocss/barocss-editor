@@ -32,6 +32,8 @@
  */
 import { Editor, Extension } from '@barocss/editor-core';
 import { addChild, node, removeChild, setAttrs, transaction } from '@barocss/model';
+import { assetsOf } from './assets';
+import { nfc } from './names';
 
 type Node = Record<string, any>;
 
@@ -71,15 +73,115 @@ export class SiteDataExtension implements Extension {
      * `setPageInfo`'s shape, for `setPageInfo`'s reason: a resource is not a block, no selection
      * names it, and a reader edits it from the panel that lists it.
      *
-     * `kind: 'url'` is settable and nothing fetches — which is the design and not an omission. The
-     * document keeps the address and the handful of rows a reader designs against; who fetches is a
-     * question about the *published* page, and the answer is written in `data.ts` rather than
-     * guessed at here.
+     * `kind: 'url'` says where the rows come from; `refreshDataset` is what goes and gets them.
      */
     register(
       'setDatasetInfo',
       async (payload) => await this._setInfo(editor, payload),
       (payload) => this._canSetInfo(editor, payload)
+    );
+
+    /**
+     * **Putting a file in the document** — the gesture a site builder could not make.
+     *
+     * A `picture` carried a `src` string and nothing anywhere could put bytes in one. The sample got
+     * away with it by drawing its art as SVG data URIs, which is a thing a product's author can do
+     * and a reader cannot.
+     *
+     * ## What the app hands over, and what it does not
+     *
+     * Base64 and a media type, read from a `File` by the app — because reading a file is a browser's
+     * job and this package runs in a test with no `FileReader` in it, which is the same line
+     * `publish` draws about writing one.
+     *
+     * The **size** comes with it too, and it is not decoration: an `<img>` with no intrinsic size is
+     * a hole of zero height until it loads, so every word under it jumps down when it arrives. A
+     * builder that stores only a URL cannot fix that because it has never seen the file. This one
+     * has.
+     *
+     * ## The name is deduped, never overwritten
+     *
+     * Two files called `로고` is one of them unreachable — `assetNamed` answers with whichever came
+     * first — so the second becomes `로고 2`. Overwriting would be the more helpful-looking answer
+     * and the wrong one: a reader adding a second logo has not asked to lose the first.
+     */
+    register(
+      'insertAsset',
+      async (payload) => await this._insertAsset(editor, payload),
+      (payload) =>
+        typeof payload?.data === 'string' &&
+        !!payload.data &&
+        typeof payload?.type === 'string' &&
+        !!payload.type &&
+        !!this._resourcesBox(editor)
+    );
+
+    /**
+     * **The address a connection points at** — the one thing about a form only a reader can supply.
+     *
+     * `setDatasetInfo`'s shape, for `setDatasetInfo`'s reason: a resource is not a block, no
+     * selection names it, and a reader edits it from the panel of the thing that refers to it.
+     *
+     * Reached from the **form's** own panel rather than from a list of connections, which is where a
+     * reader is when the question comes up: they have just put a form on a page and it says it has
+     * nowhere to send. The row says how many forms share it, because changing it changes all of them
+     * and that is the one thing about a named reference a reader has to be told.
+     */
+    register(
+      'setServiceInfo',
+      async (payload) => await this._setService(editor, payload),
+      (payload) =>
+        !!this._service(editor, payload) &&
+        (typeof payload?.endpoint === 'string' ||
+          typeof payload?.label === 'string' ||
+          typeof payload?.returnField === 'string' ||
+          typeof payload?.trapField === 'string' ||
+          payload?.method === 'post' ||
+          payload?.method === 'get')
+    );
+
+    /**
+     * **Go and get the rows** — the half of a `url` dataset that did not exist.
+     *
+     * ## Why the fetch happens here and not in the published page
+     *
+     * A dataset could say `kind: 'url'` and name an address, and nothing anywhere called `fetch`.
+     * There were two places to put it and only one of them keeps what this product has:
+     *
+     * - **in the page**, which means shipping a script. Every page would grow a runtime, the rows
+     *   would arrive after the first paint, a crawler would see an empty list, and a visitor whose
+     *   request failed would get a section with nothing in it. The whole export currently contains
+     *   no `<script>` at all, and this would have been the thing that ended that.
+     * - **here**, which means the rows are *in the document* by the time anybody publishes. The page
+     *   stays a file, the list is in the HTML a crawler reads, and what a visitor sees is what the
+     *   reader saw when they pressed 새로 가져오기.
+     *
+     * The cost is honest and is the reason the button says what it says: the rows are as fresh as
+     * the last time somebody asked. A dataset that has to be live every minute is a different
+     * feature and needs the script; this is the one every site actually has.
+     *
+     * ## What it accepts
+     *
+     * A JSON array of objects. Not a CSV, not a nested envelope, not a `{ data: [...] }` unwrapped
+     * by guessing — a guess here is a silent wrong answer, and a reader whose service returns
+     * something else needs to be told rather than shown an empty list. The columns are the union of
+     * the keys, in the order they are first seen, which is what a person writing that JSON meant by
+     * putting them in that order.
+     *
+     * ## And it never empties a dataset
+     *
+     * A response that is not an array, or an array with nothing in it, leaves the rows alone and
+     * fails. Otherwise one bad deploy of somebody's API silently deletes the content of their page —
+     * and the rows a reader designed against are the only copy.
+     */
+    register(
+      'refreshDataset',
+      async (payload) => await this._refresh(editor, payload),
+      (payload) => {
+        const dataset = this._dataset(editor, payload);
+        const url = dataset?.attributes?.url;
+        return !!dataset && dataset.attributes?.kind === 'url' && typeof url === 'string' && !!url.trim();
+      }
     );
 
     /**
@@ -96,6 +198,36 @@ export class SiteDataExtension implements Extension {
       'setDatasetCell',
       async (payload) => await this._setCell(editor, payload),
       (payload) => this._canSetCell(editor, payload)
+    );
+
+    /**
+     * **A block of cells**, which is how data gets into this product at all.
+     *
+     * ## Why it is one command and not forty `setDatasetCell`s
+     *
+     * A reader copies eight rows of five columns out of a spreadsheet, and forty writes is forty
+     * entries in the document's history: the undo that puts it back is forty presses, and the
+     * thirty-ninth leaves a dataset half-pasted that nothing on screen explains. One transaction,
+     * one undo — the padding drag's rule, and the ruler's before it.
+     *
+     * ## What it will and will not grow
+     *
+     * **Rows, yes.** A paste of eight into a table of three means eight, and stopping at three would
+     * silently drop five and look like it worked.
+     *
+     * **Columns, no.** A wider paste is trimmed at the last column, because a column has a *name* —
+     * a name `field:가격` refers to, a name a card is bound through — and a paste cannot invent one.
+     * `엑셀 열 6` in a document is worse than five columns and a sentence saying so.
+     */
+    register(
+      'setDatasetCells',
+      async (payload) => await this._setCells(editor, payload),
+      (payload) =>
+        !!this._dataset(editor, payload) &&
+        Array.isArray(payload?.values) &&
+        (payload!.values as unknown[]).length > 0 &&
+        Number.isInteger(payload?.row) &&
+        typeof payload?.field === 'string'
     );
 
     /**
@@ -313,11 +445,163 @@ export class SiteDataExtension implements Extension {
     return (await transaction(editor, [step] as never).commit()).success === true;
   }
 
+  /**
+   * The fetch itself, and the three ways it refuses.
+   *
+   * `fetch` is taken from the payload when one is given, which is not a testing hook so much as the
+   * only honest way to hold this: a command that reached for a global would be a command no unit
+   * test could ask a question of, and the questions worth asking here — a service that returns an
+   * object, an empty array, a 500 — are exactly the ones a browser test cannot arrange.
+   */
+  private async _refresh(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const dataset = this._dataset(editor, payload);
+    const url = dataset?.attributes?.url;
+    if (!dataset || typeof url !== 'string' || !url.trim()) return false;
+
+    const get = (payload?.fetch as typeof fetch | undefined) ?? globalThis.fetch;
+    if (typeof get !== 'function') return false;
+
+    let rows: unknown;
+    try {
+      const answer = await get(url.trim());
+      if (!answer || (answer as Response).ok === false) return false;
+      rows = await (answer as Response).json();
+    } catch {
+      // A service that is down, an address that is wrong, a body that is not JSON. All three leave
+      // the rows a reader designed against exactly where they were.
+      return false;
+    }
+
+    if (!Array.isArray(rows) || rows.length === 0) return false;
+
+    const records = rows.filter(
+      (one): one is Record<string, unknown> => !!one && typeof one === 'object' && !Array.isArray(one)
+    );
+    if (records.length === 0) return false;
+
+    /*
+     * The columns are the union of the keys **in the order they are first seen**, which is what
+     * somebody writing that JSON meant by putting them in that order. Not the first row's keys: a
+     * service that omits an empty field would drop a column for every row after the first.
+     */
+    const fields: string[] = [];
+    for (const row of records) {
+      for (const key of Object.keys(row)) if (!fields.includes(key)) fields.push(key);
+    }
+
+    const step = setAttrs(String(dataset.sid), { fields, records });
+    return (await transaction(editor, [step] as never).commit()).success === true;
+  }
+
+  /** The container this schema keeps referred-to things in — datasets, connections, files. */
+  private _resourcesBox(editor: Editor): Node | undefined {
+    const store = this._store(editor);
+    const rootId = (editor as never as { getRootId?: () => string }).getRootId?.();
+    if (!store || !rootId) return undefined;
+    for (const child of (store.getNode(rootId)?.content ?? []) as unknown[]) {
+      if (typeof child !== 'string') continue;
+      const box = store.getNode(child);
+      if (box?.stype === 'resources') return box as Node;
+    }
+    return undefined;
+  }
+
+  private async _insertAsset(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const box = this._resourcesBox(editor);
+    const store = this._store(editor);
+    const rootId = (editor as never as { getRootId?: () => string }).getRootId?.();
+    if (!box || !store || !rootId) return false;
+
+    const data = String(payload?.data ?? '');
+    const type = String(payload?.type ?? '');
+    if (!data || !type) return false;
+
+    /*
+     * Named after the file, without its extension — `로고.png` becomes `로고`, because the type is
+     * already on the node and a name that repeats it reads as `로고.png.png` in the folder.
+     */
+    /*
+     * **Composed.** The name comes from the file a reader chose, and a macOS file picker hands over
+     * decomposed names — so two pictures both showing `로고` would be two different names, the check
+     * below would pass, and one of them would be permanently unreachable. `names.ts` has the rest.
+     */
+    const said = nfc(String(payload?.label ?? payload?.name ?? '그림'))
+      .replace(/\.[^.]+$/, '')
+      .trim();
+    const taken = new Set(
+      assetsOf({ rootId, getNode: (sid: string) => store.getNode(sid) } as never).map((one) => one.name)
+    );
+    let name = said || '그림';
+    for (let n = 2; taken.has(name); n += 1) name = `${said || '그림'} ${n}`;
+
+    const step = addChild(
+      String(box.sid),
+      node(
+        'asset',
+        {
+          name,
+          label: typeof payload?.label === 'string' ? payload.label : undefined,
+          type,
+          data,
+          width: typeof payload?.width === 'number' ? payload.width : undefined,
+          height: typeof payload?.height === 'number' ? payload.height : undefined,
+          /** The same picture, smaller — see `srcsetFor` for what a browser does with them. */
+          sizes: Array.isArray(payload?.sizes) ? payload.sizes : undefined
+        },
+        []
+      ) as never,
+      ((box.content ?? []) as unknown[]).length
+    );
+    return (await transaction(editor, [step] as never).commit()).success === true;
+  }
+
+  /** The connection a payload names, by name — never by sid, which a document cannot carry. */
+  private _service(editor: Editor, payload?: Record<string, unknown>): Node | undefined {
+    const store = this._store(editor);
+    const rootId = (editor as never as { getRootId?: () => string }).getRootId?.();
+    if (!store || !rootId) return undefined;
+
+    const name = payload?.name;
+    if (typeof name !== 'string' || !name) return undefined;
+
+    for (const child of (store.getNode(rootId)?.content ?? []) as unknown[]) {
+      if (typeof child !== 'string') continue;
+      const box = store.getNode(child);
+      if (box?.stype !== 'resources') continue;
+      for (const each of (box.content ?? []) as unknown[]) {
+        if (typeof each !== 'string') continue;
+        const one = store.getNode(each);
+        if (one?.stype === 'service' && one.attributes?.name === name) return one as Node;
+      }
+    }
+    return undefined;
+  }
+
+  private async _setService(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const service = this._service(editor, payload);
+    if (!service) return false;
+
+    const attrs: Record<string, unknown> = {};
+    if (typeof payload!.endpoint === 'string') attrs.endpoint = payload!.endpoint.trim() || undefined;
+    if (typeof payload!.label === 'string') attrs.label = payload!.label;
+    if (payload!.method === 'post' || payload!.method === 'get') attrs.method = payload!.method;
+    // The two names the service uses for its own hidden fields — see `hiddenFields`.
+    if (typeof payload!.returnField === 'string')
+      attrs.returnField = payload!.returnField.trim() || undefined;
+    if (typeof payload!.trapField === 'string')
+      attrs.trapField = payload!.trapField.trim() || undefined;
+    if (Object.keys(attrs).length === 0) return false;
+
+    const step = setAttrs(String(service.sid), attrs);
+    return (await transaction(editor, [step] as never).commit()).success === true;
+  }
+
   private _canSetInfo(editor: Editor, payload?: Record<string, unknown>): boolean {
     if (!this._dataset(editor, payload)) return false;
     return (
       typeof payload?.label === 'string' ||
       typeof payload?.url === 'string' ||
+      typeof payload?.live === 'boolean' ||
       payload?.kind === 'inline' ||
       payload?.kind === 'url'
     );
@@ -330,6 +614,11 @@ export class SiteDataExtension implements Extension {
     if (typeof payload!.label === 'string') attrs.label = payload!.label;
     if (payload!.kind === 'inline' || payload!.kind === 'url') attrs.kind = payload!.kind;
     if (typeof payload!.url === 'string') attrs.url = payload!.url;
+    /*
+     * And whether the **visitor's** browser fetches it too, which is the one attribute here that
+     * changes what the published page *is* rather than what it says. `live.ts` argues the cost.
+     */
+    if (typeof payload!.live === 'boolean') attrs.live = payload!.live;
 
     const step = setAttrs(String(dataset.sid), attrs);
     return (await transaction(editor, [step] as never).commit()).success === true;
@@ -404,6 +693,41 @@ export class SiteDataExtension implements Extension {
     const field = String(payload!.field);
     const records = this._records(dataset);
     records[row] = { ...records[row], [field]: payload!.value ?? '' };
+
+    const step = setAttrs(String(dataset.sid), { records });
+    return (await transaction(editor, [step] as never).commit()).success === true;
+  }
+
+  /**
+   * The block, written once. See the registration for why rows grow and columns do not.
+   */
+  private async _setCells(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const dataset = this._dataset(editor, payload);
+    const values = payload?.values;
+    if (!dataset || !Array.isArray(values) || values.length === 0) return false;
+
+    const fields = this._fields(dataset);
+    const at = Number(payload?.row);
+    const from = fields.indexOf(String(payload?.field));
+    if (!Number.isInteger(at) || at < 0 || from < 0) return false;
+
+    const records = this._records(dataset);
+    const blank = Object.fromEntries(fields.map((one) => [one, '']));
+
+    values.forEach((line, down) => {
+      if (!Array.isArray(line)) return;
+      const row = at + down;
+      // Grown rather than trimmed: a paste that quietly kept three of eight rows looks like it worked.
+      while (records.length <= row) records.push({ ...blank });
+      const said = { ...records[row] };
+      line.forEach((cell, across) => {
+        const field = fields[from + across];
+        // Past the last column: trimmed, because a column has a name and a paste cannot invent one.
+        if (field === undefined) return;
+        said[field] = typeof cell === 'string' ? cell : String(cell ?? '');
+      });
+      records[row] = said;
+    });
 
     const step = setAttrs(String(dataset.sid), { records });
     return (await transaction(editor, [step] as never).commit()).success === true;

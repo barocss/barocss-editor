@@ -464,3 +464,89 @@ describe('a placement’s answers, and a page’s own settings', () => {
     expect(editor.canExecuteCommand('setPageInfo', { nodeId: block, path: '/x' })).toBe(false);
   });
 });
+
+/**
+ * **Inserting while the caret is in a table cell.**
+ *
+ * Every insert this product has — 섹션, 가로 스택, 그리드, 제목, 본문, 이미지, the whole 추가 rail
+ * and the whole 삽입 menu — said it could run and did nothing, for as long as the caret was in a
+ * cell. `_blockAt` stopped at the cell, whose parent is a table row, so each one tried to put a
+ * block inside a row and the validator refused the whole transaction.
+ *
+ * Nothing in this repository had ever been in the state: the sample had no table in it, so there was
+ * no cell to put a caret in. It appeared the day the pricing page grew a real comparison — which is
+ * the argument for a fixture wearing what it tests, made by the fixture itself.
+ */
+describe('an insert, with the caret in a table cell', () => {
+  let editor: any;
+  let store: DataStore;
+  let doc: any;
+
+  beforeEach(() => {
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    store = new DataStore(undefined as never, schema as never);
+    editor = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+    doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+  });
+
+  /** The first cell of the sample's own comparison, and the run of words inside it. */
+  const inACell = (): string => {
+    for (const page of pagesOf(doc)) {
+      let found = '';
+      const walk = (sid: string, depth = 0) => {
+        if (depth > 40 || found) return;
+        const node = store.getNode(sid) as any;
+        if (!node) return;
+        if (node.stype === 'bTableCell') {
+          found = sid;
+          return;
+        }
+        for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
+      };
+      walk(page.sid);
+      if (found) return (store.getNode(found) as any).content[0] as string;
+    }
+    throw new Error('the sample has no table cell — the fixture stopped wearing what this tests');
+  };
+
+  const caretInACell = () => {
+    const words = inACell();
+    editor.selectionManager.setSelection({
+      type: 'range',
+      startNodeId: words,
+      startOffset: 0,
+      endNodeId: words,
+      endOffset: 0,
+      collapsed: true
+    } as never);
+  };
+
+  it('lands the block beside the table rather than inside a row', async () => {
+    caretInACell();
+    const before = JSON.stringify(editor.exportDocument(doc.rootId));
+    expect(await editor.executeCommand('insertRow', {})).toBe(true);
+    expect(JSON.stringify(editor.exportDocument(doc.rootId))).not.toBe(before);
+  });
+
+  /*
+   * All of them, because the fault was not one command's: it was the walk every insert shares, and
+   * a check on one of them would have gone on passing while the other five stayed dead.
+   */
+  it('is true of every insert the product offers, not one of them', async () => {
+    for (const command of [
+      'insertSection',
+      'insertGrid',
+      'insertHeading',
+      'insertBodyText',
+      'insertPicture',
+      'insertRule'
+    ]) {
+      caretInACell();
+      const before = JSON.stringify(editor.exportDocument(doc.rootId));
+      const ran = await editor.executeCommand(command, {});
+      const moved = JSON.stringify(editor.exportDocument(doc.rootId)) !== before;
+      expect(`${command}: ran=${ran} moved=${moved}`).toBe(`${command}: ran=true moved=true`);
+    }
+  });
+});

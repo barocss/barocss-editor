@@ -5,6 +5,7 @@ import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
 import { datasetNamed, datasetsOf, rowsOf } from '../src/data';
+import { registerSiteRenderers } from '../src/renderers';
 
 /**
  * Making the data, and changing it.
@@ -182,5 +183,203 @@ describe('a dataset a reader can change', () => {
     expect(can('removeDataset', { nodeId: sidOf('후기') })).toBe(true);
     await run('removeDataset', { nodeId: sidOf('후기') });
     expect(datasetNamed(doc, '후기')).toBeUndefined();
+  });
+});
+
+/**
+ * **Going and getting the rows** — the half of a `url` dataset that did not exist.
+ *
+ * The fetch happens **here**, into the document, rather than in the published page: the other way
+ * ships a script on every page, hands a crawler an empty list, and gives a visitor whose request
+ * failed a section with nothing in it. This way the rows are in the HTML, and the contract is the one
+ * the button states — what a visitor sees is what was here the last time somebody pressed it.
+ *
+ * Everything worth testing is a way it **refuses**, and none of them can be arranged in a browser:
+ * a service that answers with an object, one that answers with nothing, one that is down.
+ */
+describe('rows from an address', () => {
+  const setup = async () => {
+    registerSiteRenderers();
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    const store = new DataStore(undefined as never, schema as never);
+    const editor: any = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+    const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+
+    const sid = datasetsOf(doc as never)[0].sid as string;
+    await editor.executeCommand('setDatasetInfo', { nodeId: sid, kind: 'url', url: 'https://x/y.json' });
+    return { editor, store, sid, attrs: () => (store.getNode(sid) as any).attributes };
+  };
+
+  const answers = (body: unknown, ok = true) =>
+    (async () => ({ ok, json: async () => body })) as unknown as typeof fetch;
+
+  it('refuses to go anywhere until there is somewhere to go', async () => {
+    const { editor, store } = await setup();
+    const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+    const inline = datasetsOf(doc as never)[1]?.sid ?? datasetsOf(doc as never)[0].sid;
+    await editor.executeCommand('setDatasetInfo', { nodeId: inline, kind: 'inline' });
+    expect(editor.canExecuteCommand('refreshDataset', { nodeId: inline })).toBe(false);
+  });
+
+  it('takes the rows, and the columns in the order somebody wrote them', async () => {
+    const { editor, sid, attrs } = await setup();
+    const done = await editor.executeCommand('refreshDataset', {
+      nodeId: sid,
+      fetch: answers([
+        { 이름: '가', 가격: 1000 },
+        { 이름: '나', 가격: 2000, 비고: '재고 없음' }
+      ])
+    });
+    expect(done).toBe(true);
+    expect(attrs().records).toHaveLength(2);
+    /*
+     * The **union** of the keys, first-seen order — not the first row's. A service that omits an
+     * empty field would otherwise drop a column for every row after the first, and the reader would
+     * see a card with a blank slot and no way to find out why.
+     */
+    expect(attrs().fields).toEqual(['이름', '가격', '비고']);
+  });
+
+  it('never empties a dataset, whatever the service says', async () => {
+    const { editor, sid, attrs } = await setup();
+    await editor.executeCommand('refreshDataset', { nodeId: sid, fetch: answers([{ 이름: '가' }]) });
+    const kept = attrs().records;
+
+    /*
+     * One bad deploy of somebody's API must not silently delete the content of their page, and the
+     * rows a reader designed against are the only copy. Four ways to fail, all of them leaving the
+     * document exactly where it was.
+     */
+    for (const bad of [
+      answers({ data: [{ 이름: '나' }] }), // an envelope this deliberately does not unwrap by guessing
+      answers([]),
+      answers(['가', '나']),
+      answers(null, false)
+    ]) {
+      expect(await editor.executeCommand('refreshDataset', { nodeId: sid, fetch: bad })).toBe(false);
+      expect(attrs().records).toEqual(kept);
+    }
+
+    // Including a service that is simply not there.
+    const down = (async () => {
+      throw new Error('nope');
+    }) as unknown as typeof fetch;
+    expect(await editor.executeCommand('refreshDataset', { nodeId: sid, fetch: down })).toBe(false);
+    expect(attrs().records).toEqual(kept);
+  });
+});
+
+/**
+ * **A block of cells**, which is how data gets into this product at all.
+ *
+ * The reason a dataset exists is that the data is somewhere else — a spreadsheet, a page, a CSV
+ * somebody was sent — and typing forty cells back in one at a time is the work the feature was
+ * supposed to remove. What a reader tries is a paste, and until this existed it put the whole
+ * clipboard into whichever single box had the caret.
+ */
+describe('a block pasted into the grid', () => {
+  let editor: any;
+  let store: DataStore;
+  let doc: any;
+
+  const products = () => datasetNamed(doc, '상품')!;
+  const sidOf = () => datasetsOf(doc).find((one) => one.name === '상품')!.sid!;
+
+  beforeEach(() => {
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    store = new DataStore(undefined as never, schema as never);
+    editor = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+    doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+  });
+
+  it('writes the block from the cell it was dropped on, and leaves the rest alone', async () => {
+    const before = products().records;
+    expect(
+      await editor.executeCommand('setDatasetCells', {
+        nodeId: sidOf(),
+        row: 1,
+        field: '이름',
+        values: [
+          ['붙인 하나', '붙인 설명'],
+          ['붙인 둘', '둘째 설명']
+        ]
+      })
+    ).toBe(true);
+
+    const after = products().records;
+    expect(after[1]['이름']).toBe('붙인 하나');
+    expect(after[2]['설명']).toBe('둘째 설명');
+    // Columns the paste did not reach, and rows above it, are the document's own.
+    expect(after[1]['가격']).toBe(before[1]['가격']);
+    expect(after[0]).toEqual(before[0]);
+  });
+
+  /*
+   * **Rows grow.** Stopping at the table's own length would silently drop the rest and look exactly
+   * like a paste that worked — which is the failure mode every check in this package is about.
+   */
+  it('grows the table to fit what was pasted', async () => {
+    const before = products().records.length;
+    await editor.executeCommand('setDatasetCells', {
+      nodeId: sidOf(),
+      row: before - 1,
+      field: '이름',
+      values: [['가'], ['나'], ['다'], ['라']]
+    });
+    expect(products().records.length).toBe(before + 3);
+    // And the grown rows are whole: every column present, so nothing reads them as missing a field.
+    for (const field of products().fields) {
+      expect(Object.prototype.hasOwnProperty.call(products().records[before + 2], field)).toBe(true);
+    }
+  });
+
+  /**
+   * **Columns do not.** A column has a *name* — one `field:가격` refers to and a card is bound
+   * through — and a paste cannot invent one. Five columns and a trimmed paste beats a document
+   * carrying `엑셀 열 6`.
+   */
+  it('trims a paste wider than the table rather than inventing columns', async () => {
+    const fields = products().fields;
+    await editor.executeCommand('setDatasetCells', {
+      nodeId: sidOf(),
+      row: 0,
+      field: fields[fields.length - 1],
+      values: [['끝', '넘침 하나', '넘침 둘']]
+    });
+    expect(products().fields).toEqual(fields);
+    expect(products().records[0][fields[fields.length - 1]]).toBe('끝');
+  });
+
+  /**
+   * **One entry in the history**, which is the whole argument for a command rather than forty writes.
+   *
+   * Forty writes is an undo that takes forty presses and leaves a half-pasted table in between with
+   * nothing on screen explaining it. The padding drag's rule, and the ruler's before it.
+   */
+  it('is one thing to undo', async () => {
+    const entries = () => editor.historyManager?.getStats?.().totalEntries ?? -1;
+    const before = entries();
+    await editor.executeCommand('setDatasetCells', {
+      nodeId: sidOf(),
+      row: 0,
+      field: '이름',
+      values: [
+        ['가', '가설명', '1'],
+        ['나', '나설명', '2'],
+        ['다', '다설명', '3']
+      ]
+    });
+    expect(entries()).toBe(before + 1);
+  });
+
+  it('refuses a paste with nothing in it, or one aimed at no column', () => {
+    const can = (payload: Record<string, unknown>) =>
+      editor.canExecuteCommand('setDatasetCells', { nodeId: sidOf(), ...payload });
+    expect(can({ row: 0, field: '이름', values: [['가']] })).toBe(true);
+    expect(can({ row: 0, field: '이름', values: [] })).toBe(false);
+    expect(can({ row: 0, values: [['가']] })).toBe(false);
+    expect(can({ field: '이름', values: [['가']] })).toBe(false);
   });
 });

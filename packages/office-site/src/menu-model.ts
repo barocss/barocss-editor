@@ -241,6 +241,55 @@ const DECLARED: SiteMenu[] = [
       }
     ]
   },
+  /**
+   * **표** — the one menu whose entries are not attributes and never could be.
+   *
+   * A row goes above or below *this cell*; a panel row writes a value and there is no value here to
+   * write. Every word processor puts these in a menu for the same reason, and this product already
+   * decided where a command that is not a property lives when the ribbon's 정렬 group was made.
+   *
+   * **No `needs`** on any of them, and that is the field saying what it is for: `needs` is what the
+   * *app* has to supply because the model cannot know it — which page is open. A table command asks
+   * the editor's own selection for the cell the caret is in, so there is nothing to hand it.
+   *
+   * With the caret anywhere but in a table all eight grey, which is the extension's `canExecute`
+   * doing its job. Greying rather than hiding: a menu that appears and disappears is one a reader
+   * cannot learn the shape of, and that is the complaint every tool that hides them gets.
+   */
+  {
+    id: 'table',
+    label: '표',
+    blocks: [
+      {
+        id: 'rows',
+        items: [
+          { command: 'insertRowAbove', label: '위에 행 넣기' },
+          { command: 'insertRowBelow', label: '아래에 행 넣기' },
+          { command: 'deleteRow', label: '행 지우기' }
+        ]
+      },
+      {
+        id: 'columns',
+        items: [
+          { command: 'insertColumnLeft', label: '왼쪽에 열 넣기' },
+          { command: 'insertColumnRight', label: '오른쪽에 열 넣기' },
+          { command: 'deleteColumn', label: '열 지우기' }
+        ]
+      },
+      {
+        id: 'cells',
+        items: [
+          { command: 'mergeCells', label: '셀 합치기' },
+          /*
+           * And the one of the eight that asks more than a cell: `splitCell` refuses a cell that is
+           * not merged, because there is nothing to split. It greys where the other seven do not,
+           * which is the extension's own guard doing its job rather than this menu knowing about it.
+           */
+          { command: 'splitCell', label: '셀 나누기' }
+        ]
+      }
+    ]
+  },
   {
     id: 'view',
     label: '보기',

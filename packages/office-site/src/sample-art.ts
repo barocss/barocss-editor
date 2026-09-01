@@ -34,9 +34,9 @@ const asPicture = (svg: string): string =>
 export const wordmark = (): string =>
   asPicture(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
-      <rect x="6" y="10" width="26" height="32" rx="4" fill="#0F7A5A" opacity="0.25"/>
-      <rect x="11" y="7" width="26" height="32" rx="4" fill="#0F7A5A" opacity="0.55"/>
-      <rect x="16" y="4" width="26" height="32" rx="4" fill="#0F7A5A"/>
+      <rect x="6" y="10" width="26" height="32" rx="4" fill="#14110F" opacity="0.25"/>
+      <rect x="11" y="7" width="26" height="32" rx="4" fill="#14110F" opacity="0.55"/>
+      <rect x="16" y="4" width="26" height="32" rx="4" fill="#14110F"/>
     </svg>
   `);
 
@@ -52,18 +52,18 @@ export const enginePicture = (): string =>
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="640" height="480">
       <defs>
         <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#0F7A5A"/>
-          <stop offset="1" stop-color="#0B3D31"/>
+          <stop offset="0" stop-color="#14110F"/>
+          <stop offset="1" stop-color="#2A1512"/>
         </linearGradient>
       </defs>
       <rect width="640" height="480" rx="20" fill="url(#g)"/>
-      <g fill="#F6F7F5">
+      <g fill="#FCFBF9">
         <rect x="44" y="52" width="164" height="376" rx="10" opacity="0.96"/>
         <rect x="236" y="52" width="164" height="180" rx="10" opacity="0.9"/>
         <rect x="236" y="248" width="164" height="180" rx="10" opacity="0.9"/>
         <rect x="428" y="52" width="168" height="376" rx="10" opacity="0.84"/>
       </g>
-      <g fill="#0B3D31" opacity="0.55">
+      <g fill="#2A1512" opacity="0.55">
         <rect x="60" y="72" width="112" height="9" rx="4"/>
         <rect x="60" y="94" width="132" height="6" rx="3"/>
         <rect x="60" y="108" width="120" height="6" rx="3"/>
@@ -127,18 +127,24 @@ export const monogram = (letters: string, ink: string): string =>
  */
 export const portrait = (base: string, accent: string): string =>
   asPicture(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 380" width="320" height="380">
-      <rect width="320" height="380" fill="${base}"/>
-      <circle cx="160" cy="146" r="62" fill="${accent}" opacity="0.9"/>
-      <path d="M40 380c0-70 54-116 120-116s120 46 120 116z" fill="${accent}" opacity="0.72"/>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="320" height="320">
+      <rect width="320" height="320" fill="${base}"/>
+      <circle cx="160" cy="132" r="52" fill="${accent}" opacity="0.16"/>
+      <path d="M52 320c0-62 48-104 108-104s108 42 108 104z" fill="${accent}" opacity="0.13"/>
+      <circle cx="238" cy="72" r="13" fill="${accent}"/>
     </svg>
   `);
 
 /**
- * The picture a blog post is filed under: a horizon, in two greens.
+ * The picture a blog post is filed under: a horizon, in the first ink.
  *
  * Abstract on purpose. A post about input handling illustrated with a photograph of a keyboard is
  * the kind of stock-image decision that makes a page look bought rather than made.
+ *
+ * **In the charcoal, with the accent as a bar** — and that was measured rather than chosen: drawn as
+ * a gradient *of* the accent, one blog post put more red on the page than every button, badge and
+ * plate on the site put together. A second ink spent on a decoration is a second ink that has
+ * stopped meaning anything, which is the discipline's whole point.
  */
 export const postCover = (from: string, to: string, shift: number): string =>
   asPicture(`
@@ -150,7 +156,8 @@ export const postCover = (from: string, to: string, shift: number): string =>
         </linearGradient>
       </defs>
       <rect width="480" height="320" fill="url(#p)"/>
-      <circle cx="${shift}" cy="196" r="132" fill="#F6F7F5" opacity="0.14"/>
-      <rect y="${236 + (shift % 24)}" width="480" height="84" fill="#F6F7F5" opacity="0.09"/>
+      <circle cx="${shift}" cy="196" r="132" fill="#FCFBF9" opacity="0.08"/>
+      <rect y="${236 + (shift % 24)}" width="480" height="84" fill="#FCFBF9" opacity="0.05"/>
+      <rect x="40" y="40" width="72" height="8" fill="#D6341A"/>
     </svg>
   `);

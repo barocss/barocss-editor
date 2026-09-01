@@ -87,7 +87,29 @@ export function attrsAt(
   if (apply.length === 0) return attrs ?? {};
 
   let merged = { ...(attrs ?? {}) };
-  for (const id of apply) merged = { ...merged, ...overrides[id] };
+  for (const id of apply) {
+    for (const [name, value] of Object.entries(overrides[id] ?? {})) {
+      /**
+       * **`null` un-says it**, which a merge on its own could not.
+       *
+       * An override could change a number and could not take one back: `{ mobile: { maxWidth: … } }`
+       * says *this much instead*, and there was no way to say *none at all here*. Every real design
+       * needs it — a sidebar that is a sidebar at 1280 and the whole column at 390, a card with a
+       * maximum width that a phone should ignore — and the workaround is a number large enough to
+       * mean nothing, which is a lie in the document that a later reader has to decode.
+       *
+       * Found by drawing the sample's contact form rather than by reading this file: it wanted to be
+       * 340 wide beside the words and full width under them, and the second half could not be said.
+       *
+       * `null` and not `undefined`, and the difference is the whole point: `undefined` is what
+       * `withOverride` writes to **take the override back**, leaving the page's own answer. Two
+       * gestures a reader genuinely means differently — *nothing here* and *the same as everywhere* —
+       * and one of them was unreachable.
+       */
+      if (value === null) delete merged[name];
+      else merged[name] = value;
+    }
+  }
   // The map itself is not an attribute anything draws with, and leaving it in would hand `frameCss`
   // a key it has no answer for. Taken off here, once, rather than in every renderer.
   delete merged.overrides;

@@ -51,10 +51,40 @@ export const PAGE_CSS =
    * paragraph can be read at. Everything below is relative to this, so a product that wants a
    * larger site changes one number.
    */
-  font-size: 16px;
+  /*
+   * Read from the **document** now, with the old values as the fallback — so a page whose document
+   * says nothing is drawn exactly as it was, and a site that says something is set in it everywhere
+   * at once. type-scale.ts writes the properties; nothing here knows what they are.
+   *
+   * No backticks in this comment, and that is not a style choice: everything below is inside a
+   * template literal, so one would end the stylesheet in the middle of a sentence. It did.
+   */
+  font-size: var(--st-base, 16px);
   line-height: 1.65;
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+  font-family: var(
+    --st-body-face,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Apple SD Gothic Neo',
+    sans-serif
+  );
   -webkit-font-smoothing: antialiased;
+  /*
+   * **Korean does not break inside a word**, and a browser's default says it does.
+   *
+   * Measured on this sample's own headline, which wrapped as 세 가 / 지를 - a word split across two
+   * lines at the point a Latin-first default thought was fine. CSS calls the fix keep-all, and every
+   * Korean site sets it; a page builder that does not is a page builder whose every headline in this
+   * language is wrong and whose author cannot see why.
+   *
+   * Paired with overflow-wrap, so a single unbreakable string - a URL, an id - still breaks rather
+   * than pushing the column wider than the page. Without the pair, keep-all trades one bad wrap for
+   * a horizontal scrollbar.
+   */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   /* So the sizes below can ask how wide the page is rather than how wide the window is. */
   container-type: inline-size;
   /**
@@ -93,7 +123,8 @@ export const PAGE_CSS =
 
 /* A display size: tight, and tracked in, which is what large type needs to stop looking loose. */
 .st-page h1 {
-  font-size: 2.75rem;
+  font-size: var(--st-h1, 2.75rem);
+  font-family: var(--st-head-face, inherit);
   line-height: 1.1;
   font-weight: 700;
   letter-spacing: -0.025em;
@@ -101,7 +132,8 @@ export const PAGE_CSS =
 }
 
 .st-page h2 {
-  font-size: 1.875rem;
+  font-size: var(--st-h2, 1.875rem);
+  font-family: var(--st-head-face, inherit);
   line-height: 1.2;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -109,14 +141,16 @@ export const PAGE_CSS =
 }
 
 .st-page h3 {
-  font-size: 1.25rem;
+  font-size: var(--st-h3, 1.25rem);
+  font-family: var(--st-head-face, inherit);
   line-height: 1.35;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .st-page h4 {
-  font-size: 1rem;
+  font-size: var(--st-h4, 1rem);
+  font-family: var(--st-head-face, inherit);
   line-height: 1.4;
   font-weight: 600;
   letter-spacing: -0.005em;
@@ -184,6 +218,27 @@ export const PAGE_CSS =
 }
 
 /*
+ * **Body text is the band's ink, held back** - and headings are the ink itself.
+ *
+ * The oldest typographic move on a page and the one this stylesheet had no way to make: a heading
+ * at full strength over paragraphs at three-quarters is what makes a page read as set rather than
+ * typed. It was being done by hand, on the run, forty-seven times, in a hard-coded grey that a
+ * change of palette could not reach.
+ *
+ * Against currentColor rather than a value, which is the whole reason it can live here: a band that
+ * flips to the dark ink gets a soft off-white by the same rule, and a band that states nothing gets
+ * the page's own. One rule, every ground.
+ *
+ * Not on a list item or a pull quote: those are the argument, not the aside.
+ *
+ * (No back-ticks in this comment. Everything here is inside a template literal and one of them ends
+ * it - which is exactly what happened while this rule was being written, for the third time.)
+ */
+.st-page p {
+  color: color-mix(in srgb, currentColor 76%, transparent);
+}
+
+/*
  * A division, drawn as a hairline in the text's own colour at a tenth of its weight.
  *
  * A browser's own horizontal rule is a bevelled two-pixel groove from 1996; anything that keeps it
@@ -201,6 +256,92 @@ export const PAGE_CSS =
   color: inherit;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
+}
+
+/*
+ * A **table**, which drew as four words in a row with nothing between them.
+ *
+ * Found by inserting one in a browser: the model was right, the cells took text, the eight commands
+ * worked — and what was on the page had no borders, no padding, and shrank to 156px, because
+ * nothing in this stylesheet had ever mentioned a table. A browser's own default is a table with no
+ * rules at all, so a comparison drawn with it reads as a paragraph somebody pressed Tab in.
+ *
+ * Hairlines in the text's own colour at a tenth of its weight, which is the rule the divider above
+ * already follows: a table on a page is structure, not a box, and a grid of grey boxes is the look
+ * of a spreadsheet screenshot. The head keeps a heavier line under it, because the one thing a
+ * reader has to see is where the names stop and the numbers start.
+ *
+ * Full width, because a table that hugs its content is a table with a ragged right edge in the
+ * middle of a page of justified blocks. (No back-ticks in here — see the header.)
+ */
+.st-page table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.st-page th,
+.st-page td {
+  padding: 0.6em 0.75em;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.st-page th {
+  font-weight: 600;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+}
+
+/* The last line would draw a rule under the table with nothing below it to divide. */
+.st-page tr:last-child td {
+  border-bottom: 0;
+}
+
+/*
+ * **A form's controls**, which had no rule at all and drew at the browser's own 1990s defaults.
+ *
+ * Measured on the sample's contact form: the label was 290px wide and the box under it 147, because
+ * a text input's width comes from a size attribute nobody set. Every published form this product has
+ * ever made looked like that, on the board and on the page, and no check could see it - a field that
+ * draws is a field that draws.
+ *
+ * Full width is the whole fix. The rest is what a control needs to be usable rather than merely
+ * present: the page's own type instead of the browser's, room to type in, and a focus ring that a
+ * keyboard can find. The hairline is currentColor at a tenth, like every other line on the page, so
+ * a form on a dark band gets a light one from the same rule.
+ *
+ * The field's own paint - its fill, its border, its radius - is on the wrapper around this, which is
+ * why nothing here fights it: a reader who paints a field paints the box, and this is the control.
+ *
+ * (No back-ticks in this comment. See the header.)
+ */
+.st-page .st-input {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  padding: 0.55em 0.7em;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 3%, transparent);
+}
+
+.st-page .st-input:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+
+/*
+ * A tick is a target before it is a control, and a 13px one is what a browser gives you. Square,
+ * because it is a checkbox, and sized so a finger can find it.
+ */
+.st-page .st-input[type='checkbox'],
+.st-page .st-input[type='radio'] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  flex: none;
+  accent-color: currentColor;
 }
 
 /* A picture is as wide as it is given and keeps its shape, which is the one thing every page needs. */

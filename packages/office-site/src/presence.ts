@@ -26,10 +26,38 @@
  * what makes a full-width background picture editable at all, because today the only way past one is
  * to find something on top of it and walk up.
  */
+import { BREAKPOINTS } from './breakpoints';
+import { attrsAt } from './responsive';
+import { statesOf } from './states';
+
 
 /** Whether a node says it is off the page. Silence is *shown*, which is what a document without the field means. */
 export function isHidden(attrs: Record<string, unknown> | undefined): boolean {
   return attrs?.visible === false;
+}
+
+/**
+ * Whether a block is hidden **everywhere** — the question the export actually meant to ask.
+ *
+ * `isHidden` reads what the block says at its widest, and the export used it to decide what a draft
+ * is. Two designs say `visible: false` there and are not drafts at all:
+ *
+ * - a block shown only on a **phone** — a hamburger is `visible: false` and `{ mobile: { visible:
+ *   true } }`, which is the ordinary way a page has two navigations;
+ * - a block a visitor **opens** — a menu is not on the page until it is pressed for.
+ *
+ * Both published as nothing. The hamburger was cut from the markup and its label was left behind
+ * empty, so the menu it opened was unreachable at the one width it existed for — measured in the
+ * exported sample, in exactly that shape.
+ *
+ * So the rule is the honest one: a draft is a block hidden at **every** width and in every state.
+ * Anything else is a design, and a design ships.
+ */
+export function neverShown(attrs: Record<string, unknown> | undefined): boolean {
+  if (!isHidden(attrs)) return false;
+  for (const one of BREAKPOINTS) if (attrsAt(attrs, one.id).visible !== false) return false;
+  for (const scope of Object.values(statesOf(attrs))) if (scope.visible === true) return false;
+  return true;
 }
 
 /** Whether a node says a reader may not pick it up. Silence is *free*. */

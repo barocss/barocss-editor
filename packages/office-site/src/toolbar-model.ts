@@ -98,11 +98,31 @@ export const SITE_TOOLBAR: SiteControl[] = [
   { command: 'insertCode', puts: 'block', label: '코드', title: '코드 블록을 넣습니다 — 안에서 Enter는 줄바꿈입니다', group: 'insert', icon: 'code', makes: '코드' },
   { command: 'insertRule', puts: 'block', label: '구분선', title: '가로 구분선을 넣습니다', group: 'insert', icon: 'divider', makes: '구분선' },
   /*
+   * A **block**, beside a quote and a rule — deliberately not a container. A comparison is tabular
+   * and a section is not, and the fastest way to teach a reader the wrong one would be to offer a
+   * table where the arrangements are.
+   */
+  { command: 'insertTableBlock', puts: 'block', label: '표', title: '표를 넣습니다 — 비교표처럼 칸이 뜻을 갖는 곳에', group: 'insert', icon: 'insert-table', makes: '표' },
+  /*
    * And the one that is a **composition** rather than a node: a box, a word, a hit area, a radius
    * and an answer to the pointer. The knowledge is the arrangement, which is why it is a command
    * rather than four rows of a panel a reader would have to know to fill in.
    */
   { command: 'insertButton', puts: 'block', label: '버튼', title: '버튼을 넣습니다', group: 'insert', icon: 'component', makes: '버튼' },
+  /*
+   * The two things a visitor **opens**, and one mechanism between them: an accordion's answer and a
+   * tab's panel are the same block, and the only difference is whether more than one may be open.
+   *
+   * `container`, not `block`, and that is what they are: a reader puts things inside them. Grouped
+   * with the section and the grid rather than with the button for that reason.
+   */
+  { command: 'insertAccordion', puts: 'container', label: '아코디언', title: '눌러서 펼치는 항목들', group: 'insert', icon: 'accordion', makes: '아코디언' },
+  { command: 'insertTabs', puts: 'container', label: '탭', title: '한 번에 하나만 보이는 탭', group: 'insert', icon: 'tabs', makes: '탭' },
+  /*
+   * And the one block on an ordinary site that had no node behind it. `container`, because a reader
+   * puts things inside one — a heading, a paragraph, and the questions.
+   */
+  { command: 'insertForm', puts: 'container', label: '폼', title: '방문자가 보내는 폼', group: 'insert', icon: 'form', makes: '폼' },
   /**
    * **What a word looks like** — the group a page builder had none of.
    *

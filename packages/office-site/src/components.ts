@@ -122,6 +122,73 @@ export function boundVarOf(
 }
 
 /**
+ * The page or the component definition a block is inside — the scope a `partId` means anything in.
+ *
+ * Three places asked this and each had its own walk: the command that records what a block opens,
+ * the command that inserts an accordion, and the export that resolves a name back to a node. Two of
+ * the three had it wrong in the same way — they stopped at `stype === 'page'`, and a page in this
+ * schema is a `surface`, so the walk went past it to the document root and searched every page.
+ */
+export function scopeOf(
+  doc: { getNode: (sid: string) => Node | undefined },
+  sid: string
+): string | undefined {
+  let at: string | undefined = sid;
+  for (let hop = 0; at && hop < 64; hop += 1) {
+    const one = doc.getNode(at);
+    if (!one) return undefined;
+    if (one.stype === 'surface' || one.stype === 'component') return String(one.sid);
+    at = one.parentId as string | undefined;
+  }
+  return undefined;
+}
+
+/** Every `partId` already taken inside one scope. */
+export function partIdsIn(
+  doc: { getNode: (sid: string) => Node | undefined },
+  scope: string | undefined
+): Set<string> {
+  const taken = new Set<string>();
+  const walk = (sid: string, depth = 0) => {
+    if (depth > 32) return;
+    for (const child of (doc.getNode(sid)?.content ?? []) as unknown[]) {
+      if (typeof child !== 'string') continue;
+      const said = doc.getNode(child)?.attributes?.partId;
+      if (typeof said === 'string' && said) taken.add(said);
+      walk(child, depth + 1);
+    }
+  };
+  if (scope) walk(scope);
+  return taken;
+}
+
+/**
+ * A `partId` that nothing in this scope is using, from a name a reader would recognise.
+ *
+ * Numbered rather than made unique with an id, because a `partId` is a name a reader **reads**: it
+ * is what the panel shows beside 여는 것, and `본문 2` is a thing somebody can find on their page
+ * where `본문-a3f9` is a thing they will not touch again.
+ *
+ * The one bug this exists to stop: two accordions on one page, both with a part called 본문, and the
+ * second accordion's header opening the first accordion's body. `opens` resolves by name, and the
+ * first match wins.
+ */
+export function freshPartId(
+  doc: { getNode: (sid: string) => Node | undefined },
+  scope: string | undefined,
+  base: string,
+  /** Names this call has already handed out but not yet written — one insert makes several at once. */
+  alsoTaken: Iterable<string> = []
+): string {
+  const taken = partIdsIn(doc, scope);
+  for (const one of alsoTaken) taken.add(one);
+
+  let candidate = base;
+  for (let n = 2; taken.has(candidate); n += 1) candidate = `${base} ${n}`;
+  return candidate;
+}
+
+/**
  * How many placements name each definition, anywhere in the document.
  *
  * Counted by walking rather than kept as a number on the definition, for the reason every count in

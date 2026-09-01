@@ -42,7 +42,7 @@ import type { BreakpointId } from './breakpoints';
 import { attrsAt } from './responsive';
 
 /** A state a page can be in under a visitor's hands. */
-export type StateId = 'hover' | 'focus';
+export type StateId = 'hover' | 'focus' | 'open';
 
 export interface StateKind {
   id: StateId;
@@ -50,6 +50,15 @@ export interface StateKind {
   label: string;
   /** The CSS that asks the question — the browser's own, never a class this product invents. */
   selector: string;
+  /**
+   * And what goes **in front** of the block's own selector, for a state whose evidence is not on the
+   * block itself.
+   *
+   * `hover` and `focus` are questions about the block, so they are suffixes and this is empty. Being
+   * open is a question about a **checkbox**, because that is where a browser keeps a fact a visitor
+   * decided — so the rule is `switch:checked + block`, and the switch's half comes first.
+   */
+  before?: string;
   /** Why a reader would set it, for the panel's title. */
   title: string;
 }
@@ -64,7 +73,46 @@ export interface StateKind {
  */
 export const STATES: readonly StateKind[] = [
   { id: 'hover', label: '포인터', selector: ':hover', title: '포인터가 올라갔을 때' },
-  { id: 'focus', label: '키보드', selector: ':focus-visible', title: '키보드로 초점이 갔을 때' }
+  { id: 'focus', label: '키보드', selector: ':focus-visible', title: '키보드로 초점이 갔을 때' },
+  /**
+   * **열림** — the one state a visitor *decides* rather than one they happen into.
+   *
+   * ## Why a page needs a third
+   *
+   * A navigation bar is two designs and this model could already say that: the wide menu hides at
+   * `mobile`, the hamburger hides above it, both in `overrides`, and every placement of the
+   * component follows. What it could not say is what happens when the hamburger is **pressed** —
+   * and a hamburger that does not open is a picture of a menu.
+   *
+   * The same one mechanism answers an accordion, a tab strip, a 더보기 and a filter drawer. Every
+   * one of them is *a visitor asked for more of this block*, and every one of them was going to be
+   * asked for separately.
+   *
+   * ## Why it is a state and not a script
+   *
+   * `hover` and `focus` are published as a **promise about a value** rather than as a value, because
+   * the hovering happens after the drawing has finished. Being open is the same shape one step
+   * further: it happens after the drawing *and* it is remembered. A checkbox remembers it, which is
+   * why this ships as CSS and not as JavaScript — see `export-html.ts`.
+   *
+   * ## Why the switch goes *before* the block and not inside it
+   *
+   * Both work as CSS. Only one of them can be reached from a keyboard. A block that is open-only —
+   * a menu, an accordion's body — is `display: none` when closed, and a checkbox inside it is inside
+   * that `none`: a pointer can still toggle it through its label, and a **Tab key cannot reach it at
+   * all**, because an unrendered control is not in the focus order. The switch sits outside the
+   * thing it opens, always rendered, so 열림 is one Tab and one Space away.
+   *
+   * `+` rather than `:has()` for a smaller reason worth having: the rule then names two elements
+   * that are next to each other, which is a thing a reader can find in the markup by looking.
+   */
+  {
+    id: 'open',
+    label: '열림',
+    selector: '',
+    before: '.st-open-switch:checked + ',
+    title: '방문자가 열었을 때'
+  }
 ];
 
 export const STATE_IDS: readonly StateId[] = STATES.map((one) => one.id);
@@ -74,7 +122,27 @@ export function selectorFor(state: StateId): string | undefined {
   return STATES.find((one) => one.id === state)?.selector;
 }
 
-/** What a state changes, by what a page is *painted* with — see the header for why not layout. */
+/**
+ * One block's selector, in one state — the only place the two halves are put together.
+ *
+ * Both notations ask this: the published page names blocks by `data-b` and the board by
+ * `data-bc-sid`, and neither of them should have to know that one state is a suffix and another is a
+ * prefix. It was a suffix everywhere until 열림 arrived, and the day a caller kept its own `+` was
+ * the day the two notations could disagree about it.
+ */
+export function selectorIn(where: string, state: StateId): string {
+  const kind = STATES.find((one) => one.id === state);
+  if (!kind) return where;
+  return `${kind.before ?? ''}${where}${kind.selector}`;
+}
+
+/**
+ * What a **held** state may change — paint, and nothing that moves anything. See the header.
+ *
+ * `open` is the exception and the reason this is now two lists: a held state flickers if it moves
+ * the thing out from under the pointer, and a remembered one cannot, because nothing is holding it.
+ * A menu that appears is the whole point of being open. See `stateableIn`.
+ */
 export const STATEABLE: readonly string[] = [
   // The flat colour, and the **colour** of the line around it — `frameCss`'s two.
   //
@@ -107,8 +175,46 @@ export const STATEABLE: readonly string[] = [
    * the reason `strokeWidth` is not — opacity moves nothing, so a block cannot fade itself out from
    * under the pointer.
    */
-  'opacity'
+  'opacity',
+  /*
+   * And the two of the new effects that a state may safely change.
+   *
+   * `blend` mixes and moves nothing, and `overlay` is a sheet drawn inside the box — both are the
+   * same kind of promise as a colour. **`rotate` and `backdropBlur` are deliberately not here**, and
+   * the reason is the one `strokeWidth` gives two paragraphs up: a box that turns under the pointer
+   * moves its own corners out from under it, the pointer is then not on it, and the browser draws
+   * the two states alternately for as long as a visitor holds still. A frosting is safe to move but
+   * costs a repaint of everything behind it on every pointer move, which is a promise this product
+   * should not make lightly.
+   */
+  'overlay',
+  'overlayOpacity',
+  'blend'
 ];
+
+/**
+ * What an **open** state may change — everything a held state may, and the three that move things.
+ *
+ * `visible` is the one that matters: a menu that is not there and then is. `layoutMode` and `gap`
+ * come with it because a strip of links that becomes a column is the same gesture, and a reader who
+ * can make it appear and cannot make it stack has been given half the design.
+ *
+ * A held state may change none of these, and the reason is arithmetic rather than taste: a `:hover`
+ * that moved its own block would move it out from under the pointer, the pointer would then not be
+ * on it, and the browser would draw the two states alternately for as long as the visitor held
+ * still. Being open is remembered, so nothing is being held and nothing alternates.
+ */
+export const OPENABLE: readonly string[] = [
+  ...STATEABLE,
+  'visible',
+  'layoutMode',
+  'gap'
+];
+
+/** What this state may change — see `STATEABLE` and `OPENABLE` for why they differ. */
+export function stateableIn(state: StateId): readonly string[] {
+  return state === 'open' ? OPENABLE : STATEABLE;
+}
 
 /** What a node states in each state, keyed by state. */
 export type StateMap = Partial<Record<StateId, Record<string, unknown>>>;
@@ -132,6 +238,35 @@ export function statesOf(attrs: Record<string, unknown> | undefined): StateMap {
 /** Whether this node promises anything at all — the cheap question, asked per node per export. */
 export function hasStates(attrs: Record<string, unknown> | undefined): boolean {
   return Object.keys(statesOf(attrs)).length > 0;
+}
+
+/**
+ * **What this block opens**, or nothing — the gesture half of 열림.
+ *
+ * A `partId`, and `'self'` where a block opens itself. The durable name rather than a sid, which is
+ * `componentBind`'s rule and for its reason: a sid is given out at load, so nothing written down can
+ * hold one. Resolved inside the page or the definition the opener is in, so every placement of a
+ * navigation bar opens **its own** menu without anything being told there are several.
+ */
+export function opensOf(attrs: Record<string, unknown> | undefined): string | undefined {
+  const said = attrs?.opens;
+  return typeof said === 'string' && said.length > 0 ? said : undefined;
+}
+
+/** Whether this opener has **already been pressed** when the page loads — see the schema. */
+export function opensAtRest(attrs: Record<string, unknown> | undefined): boolean {
+  return attrs?.openAtRest === true;
+}
+
+/**
+ * Whether only one thing inside this block may be open at a time — a checkbox or a **radio**.
+ *
+ * A fact about a set, so it lives on the container that holds the openers. The export walks up from
+ * each opener to the nearest block that says this; everything under one such block shares a radio
+ * name, and the browser does the rest.
+ */
+export function opensOneOf(attrs: Record<string, unknown> | undefined): boolean {
+  return attrs?.opensOne === true;
 }
 
 /**
@@ -212,7 +347,6 @@ export function stateFaults(
   if (!isRecord(map)) return ['states is not a map of states'];
 
   const known = new Set(declared);
-  const paint = new Set(STATEABLE);
   const faults: string[] = [];
 
   for (const [id, scope] of Object.entries(map)) {
@@ -224,10 +358,17 @@ export function stateFaults(
       faults.push(`'${id}'에 적힌 것이 설정이 아닙니다`);
       continue;
     }
+    /*
+     * Asked **per state**, which is the difference 열림 made: the same attribute is a fault in one
+     * state and the point of another. A `visible` on hover is the flicker the header describes; a
+     * `visible` on open is a menu appearing, and a check that called it a fault would have made the
+     * state unusable while reporting itself clean.
+     */
+    const allowed = new Set(stateableIn(id as StateId));
     for (const name of Object.keys(scope)) {
       if (name === 'states' || name === 'overrides')
         faults.push(`'${id}'에서 '${name}'을(를) 바꾸는데, 그것은 값이 아니라 목록입니다`);
-      else if (!paint.has(name))
+      else if (!allowed.has(name))
         faults.push(`'${id}'에서 '${name}'을(를) 바꾸면 블록이 포인터 아래에서 벗어납니다`);
       else if (known.size > 0 && !known.has(name))
         faults.push(`'${id}'에서 '${name}'을(를) 바꾸는데, 이 블록에는 없는 속성입니다`);

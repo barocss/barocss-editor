@@ -164,26 +164,56 @@ export function grammarFor(language: unknown): { name: string; grammar: unknown 
 /**
  * What Prism's classes look like.
  *
- * Prism's own token names, coloured against `currentColor` rather than a fixed palette: a code block
- * is drawn on whatever ground the page gives it, and a theme that assumed white would be unreadable
- * in a dark band. The hues are the ones every editor theme has agreed on — a comment recedes, a
- * string is warm, a keyword carries the weight.
+ * ## Told apart by **weight**, not by hue — and that was measured
+ *
+ * The header above used to say the colours were "against `currentColor` rather than a fixed
+ * palette", and six of the nine roles were hard-coded hex. Measured on the two grounds this product
+ * actually draws code on:
+ *
+ * - on the light code ground, the string colour came out at **4.05:1** — under AA;
+ * - on a dark band, **every one of the six failed**, between 3.17 and 4.05.
+ *
+ * One of them was `#0F7A5A`, a brand green that had not existed anywhere in this repository since
+ * the palette was redrawn: a stale colour nobody could see, in a stylesheet nothing measured.
+ *
+ * So the roles are told apart the way a printed book tells them apart — weight, italics, and how
+ * much of the ink they take — and every one of them is `currentColor`. A comment recedes, a string
+ * leans, a keyword carries the weight, a function is solid. It reads on the paper and on the dark
+ * band from the same rule, follows a repainted palette by construction, and is the only version of
+ * this that a two-ink page could honestly ship.
+ *
+ * The cost is real and worth stating: six hues distinguish more roles than four weights do. For a
+ * snippet on a page that is the right trade — the code is there to be *read*, not edited — and a
+ * document that wants its own syntax palette is a feature, in `docs/BACKLOG.md`.
  *
  * Only the token types this product's languages actually produce; Prism has dozens and a stylesheet
  * naming all of them would be a claim about languages nobody has loaded.
  */
 export const CODE_CSS = `
 .token.comment, .token.prolog, .token.doctype, .token.cdata {
-  color: color-mix(in srgb, currentColor 45%, transparent);
+  color: color-mix(in srgb, currentColor 52%, transparent);
   font-style: italic;
 }
-.token.punctuation { color: color-mix(in srgb, currentColor 60%, transparent); }
-.token.string, .token.char, .token.attr-value, .token.regex { color: #B25E28; }
-.token.number, .token.boolean, .token.constant, .token.symbol { color: #7A4FBF; }
-.token.keyword, .token.atrule, .token.important, .token.selector { color: #0F7A5A; font-weight: 600; }
-.token.function, .token.class-name, .token.tag { color: #1E6FB8; }
-.token.attr-name, .token.property, .token.variable { color: #8A5A00; }
+.token.punctuation { color: color-mix(in srgb, currentColor 62%, transparent); }
+.token.string, .token.char, .token.attr-value, .token.regex {
+  color: color-mix(in srgb, currentColor 88%, transparent);
+  font-style: italic;
+}
+.token.number, .token.boolean, .token.constant, .token.symbol {
+  color: color-mix(in srgb, currentColor 88%, transparent);
+}
+.token.keyword, .token.atrule, .token.important, .token.selector {
+  color: currentColor;
+  font-weight: 700;
+}
+.token.function, .token.class-name, .token.tag { color: currentColor; font-weight: 600; }
+.token.attr-name, .token.property, .token.variable { color: currentColor; }
 .token.operator, .token.entity, .token.url { color: color-mix(in srgb, currentColor 75%, transparent); }
-.token.deleted { color: #B23A3A; }
-.token.inserted { color: #2E7D32; }
+/*
+ * The two that are genuinely about **change** rather than about syntax, and the only place a hue
+ * still earns its keep: a diff says added and removed, and nothing about weight says which is which.
+ * Written as a mix with the ink so they sit on either ground.
+ */
+.token.deleted { color: color-mix(in srgb, #C0392B 78%, currentColor); }
+.token.inserted { color: color-mix(in srgb, #1E7A3C 78%, currentColor); }
 `;

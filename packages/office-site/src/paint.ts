@@ -84,6 +84,32 @@ export function backgroundCss(attrs: Attrs | undefined, resolve: Resolve): Css {
     repeats.push('no-repeat');
   }
 
+  /**
+   * And a **cover over all of it**, which is the layer this had no way to state.
+   *
+   * The stack above is picture over gradient over colour, and every one of those is *behind* the
+   * picture or is the picture. What a hero actually needs is a sheet **on top**: white words over a
+   * photograph are unreadable until something dims it, and the two answers that existed were both
+   * the wrong shape — `backgroundOpacity` fades the picture toward the box's own `fill`, which is
+   * the page's ground and not a colour anybody chose, and a gradient is underneath where an opaque
+   * photograph hides it entirely.
+   *
+   * A colour and how much of it, rather than a gradient, because a scrim is one decision: *make this
+   * darker so the words read*. A reader who wants a fade from one edge has `gradientFrom` and no
+   * picture, which is a different design.
+   *
+   * `unshift`, because `background-image` paints its **first** layer in front.
+   */
+  const cover = resolve(attrs.overlay);
+  if (cover) {
+    const much = Math.max(0, Math.min(1, number(attrs.overlayOpacity, 1)));
+    const sheet =
+      much >= 1 ? cover : `color-mix(in srgb, ${cover} ${Math.round(much * 100)}%, transparent)`;
+    layers.unshift(`linear-gradient(${sheet} 0 0)`);
+    sizes.unshift('auto');
+    repeats.unshift('repeat');
+  }
+
   if (layers.length > 0) {
     css.backgroundImage = layers.join(', ');
     css.backgroundSize = sizes.join(', ');
@@ -205,6 +231,92 @@ export function paintCss(attrs: Attrs | undefined, resolve: Resolve): Css {
     ...backgroundCss(attrs, resolve),
     ...cornersCss(attrs),
     ...opacityCss(attrs),
+    ...typeRhythmCss(attrs),
+    ...effectsCss(attrs),
     ...(shadow ? { boxShadow: shadow } : {})
   };
+}
+
+
+/**
+ * **The rhythm the words in a box are set at** — their line spacing and their tracking.
+ *
+ * On the box rather than on the words, and inherited, which is the argument `ink` already won: a
+ * band states it once and every heading, paragraph and list inside takes it, while anything that
+ * states its own still wins. Per-run tracking is a mark and this is not that — this is *a section is
+ * set tight*, which is one decision and not forty.
+ *
+ * ## The units, and why they are not twips
+ *
+ * Both are **percentages of the font's own size**, because that is what they mean. A tracking of
+ * -2.5% stays -2.5% when the heading grows from 44px to 96px; a tracking of -1.1px becomes wrong at
+ * the first breakpoint. Twips would have made them lengths that do not scale, which is the fault
+ * every one of these attributes exists to avoid — and `baseSize` already cost a feature by being
+ * read in the wrong unit, so it is written down here rather than assumed.
+ *
+ * `lineHeight` is a percentage too: 140 is 1.4, which is how every type tool states it.
+ */
+export function typeRhythmCss(attrs: Attrs | undefined): Css {
+  const css: Css = {};
+
+  const tracking = attrs?.letterSpacing;
+  if (typeof tracking === 'number' && Number.isFinite(tracking) && tracking !== 0) {
+    css.letterSpacing = `${Math.round(tracking * 1000) / 100000}em`;
+  }
+
+  const leading = attrs?.lineHeight;
+  if (typeof leading === 'number' && Number.isFinite(leading) && leading > 0) {
+    css.lineHeight = String(Math.round(leading * 100) / 10000);
+  }
+
+  return css;
+}
+
+/** The blend modes a page may ask for — short on purpose; see `effectsCss`. */
+export const BLENDS = ['', 'multiply', 'screen', 'overlay', 'difference'] as const;
+
+/**
+ * **The three effects that make a page look made rather than assembled**, and their costs.
+ *
+ * - **`rotate`** — the deliberate disruption. A page of upright rectangles reads as a template no
+ *   matter what is in them, and one thing at 3° is the cheapest way to say a person arranged this.
+ *   Degrees, CSS's direction: positive is clockwise.
+ * - **`blend`** — how this box mixes with what is under it. The short list is the point: `multiply`
+ *   is what a second ink does on paper and is most of why a two-colour print looks printed;
+ *   `screen`, `overlay` and `difference` are the three anybody else asks for. A longer list would be
+ *   sixteen modes nobody can predict.
+ * - **`backdropBlur`** — frosted glass, in twips like every other length. Only visible through a
+ *   translucent fill, which is a fact about the effect rather than about this code: a reader who
+ *   sets it on an opaque box sees nothing, and the panel says so.
+ *
+ * ## What each of them costs, said once
+ *
+ * `rotate` and `backdropBlur` both make a **stacking context**, which is the same cost `opacity`
+ * carries and is documented there: a `position: sticky` header inside a rotated box can no longer
+ * escape it. So none of them is written when the value says nothing — a `rotate: 0` and no rotate at
+ * all look identical and are not.
+ */
+export function effectsCss(attrs: Attrs | undefined): Css {
+  const css: Css = {};
+
+  const turn = attrs?.rotate;
+  if (typeof turn === 'number' && Number.isFinite(turn) && turn !== 0) {
+    css.transform = `rotate(${Math.round(turn * 100) / 100}deg)`;
+  }
+
+  const blend = attrs?.blend;
+  if (typeof blend === 'string' && (BLENDS as readonly string[]).includes(blend) && blend) {
+    css.mixBlendMode = blend;
+  }
+
+  const frost = attrs?.backdropBlur;
+  if (typeof frost === 'number' && Number.isFinite(frost) && frost > 0) {
+    const radius = `${Math.round(twipToPx(frost))}px`;
+    css.backdropFilter = `blur(${radius})`;
+    // Safari still wants the prefix, and a hero that frosts on one browser and not another is worse
+    // than one that frosts on neither.
+    css.WebkitBackdropFilter = `blur(${radius})`;
+  }
+
+  return css;
 }

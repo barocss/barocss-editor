@@ -44,6 +44,13 @@ export interface Dataset {
   name: string;
   label?: string;
   kind: 'inline' | 'url';
+  /**
+   * Whether the visitor's browser goes and gets it too, not only the reader's.
+   *
+   * The deliberate second mode, and everything it costs is argued in `live.ts` rather than here —
+   * this is only where a reader of a dataset finds out the switch exists.
+   */
+  live: boolean;
   /** Where the rows come from when they are not in the document. */
   url?: string;
   /**
@@ -82,6 +89,7 @@ export function datasetsOf(doc: Access | undefined): Dataset[] {
         name: attrs.name,
         label: typeof attrs.label === 'string' ? attrs.label : undefined,
         kind: attrs.kind === 'url' ? 'url' : 'inline',
+        live: attrs.live === true,
         url: typeof attrs.url === 'string' ? attrs.url : undefined,
         fields: Array.isArray(attrs.fields)
           ? attrs.fields.filter((one): one is string => typeof one === 'string')

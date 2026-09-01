@@ -145,9 +145,23 @@ describe('two widths of one document', () => {
   const cardRow = (root: HTMLElement) =>
     root.querySelector<HTMLElement>('.st-stack[data-name="제품 셋"]')!;
 
-  it('draws the same row as a row and as a column', () => {
-    expect(cardRow(wide).style.flexDirection).toBe('row');
-    expect(cardRow(narrow).style.flexDirection).toBe('column');
+  /**
+   * The trio is a **grid** now, not a flex row, and the claim is unchanged: one document, two
+   * arrangements. What it says at 1280 is three columns with the first card across two of them —
+   * three equal cards being the layout a page falls into when nothing was ranked — and at 390 it is
+   * one column, where the ranking shows as order instead.
+   */
+  it('draws the same trio as three columns and as one', () => {
+    expect(cardRow(wide).style.display).toBe('grid');
+    expect(cardRow(wide).style.gridTemplateColumns).toBe('repeat(3, minmax(0, 1fr))');
+    expect(cardRow(narrow).style.gridTemplateColumns).toBe('repeat(1, minmax(0, 1fr))');
+  });
+
+  it('gives the card this page is about the room, at the width that has room to give', () => {
+    const first = (root: HTMLElement) => cardRow(root).children[0] as HTMLElement;
+    expect(first(wide).style.gridColumn).toBe('span 2');
+    // And nothing at all on a phone: `span 2` in a one-column grid is a card that overflows it.
+    expect(first(narrow).style.gridColumn).toBe('');
   });
 
   it('takes the narrower gap with it and leaves the rest alone', () => {
@@ -173,8 +187,10 @@ describe('two widths of one document', () => {
     expect(cardRow(narrow).style.alignItems).toBe('stretch');
     expect(cardRow(wide).style.alignItems).toBe('stretch');
 
-    // And never over a reader: the header's bar says `center`, and still says it.
-    const bar = narrow.querySelector<HTMLElement>('.st-placement .st-stack')!;
+    // And never over a reader: the header's bar says `center`, and still says it. Named rather than
+    // taken first — the header's root is now the column holding the bar *and* the menu a phone
+    // opens, and `.first()` quietly became a question about a different block.
+    const bar = narrow.querySelector<HTMLElement>('.st-placement [data-name="머리말"] .st-stack')!;
     expect(bar.style.alignItems).toBe('center');
     // The same bar is the one row on the site that pushes its ends apart, which silence cannot say.
     expect(bar.style.justifyContent).toBe('space-between');
@@ -187,5 +203,54 @@ describe('two widths of one document', () => {
       [...cardRow(root).querySelectorAll('h3')].map((one) => one.textContent);
     expect(words(narrow)).toEqual(words(wide));
     expect(words(wide)).toEqual(['사이트', '문서', '덱']);
+  });
+});
+
+/**
+ * **Nothing at this width**, and **the same as the page** — two gestures that were one.
+ *
+ * An override could change a number and could not take one back. `{ mobile: { maxWidth: … } }` says
+ * *this much instead*; there was no way to say *none at all here*, and the workaround is a number
+ * large enough to mean nothing, which is a lie in the document a later reader has to decode.
+ *
+ * Found by drawing the sample's contact form rather than by reading the file: it wanted to be 340
+ * wide beside the words and the whole column under them, and the second half could not be said.
+ */
+describe('a width that takes a value back', () => {
+  const card = { sizing: 'fixed', maxWidth: 5100, gap: 240 };
+
+  it('un-says one value without touching the rest', () => {
+    const at = attrsAt({ ...card, overrides: { mobile: { maxWidth: null, gap: 120 } } }, 'mobile');
+    // Gone, rather than replaced with a number chosen to mean nothing.
+    expect('maxWidth' in at).toBe(false);
+    // And everything else is still the page's, or this width's.
+    expect(at.sizing).toBe('fixed');
+    expect(at.gap).toBe(120);
+  });
+
+  it('leaves the wider widths exactly as they were', () => {
+    const attrs = { ...card, overrides: { mobile: { maxWidth: null } } };
+    expect(attrsAt(attrs, 'desktop').maxWidth).toBe(5100);
+    expect(attrsAt(attrs, 'tablet').maxWidth).toBe(5100);
+  });
+
+  it('is a different document from taking the width’s value back', () => {
+    /*
+     * The distinction the panel now has two controls for. `null` is *nothing here*; `undefined` is
+     * *the same as everywhere*, which is what the mark beside the label writes — and a reader who
+     * typed the page's number back in would get a third document again: this width still states a
+     * value, it now happens to match, and it stops following the day the page's changes.
+     */
+    const none = withOverride(card, 'mobile', 'maxWidth', null);
+    expect(none.mobile).toEqual({ maxWidth: null });
+
+    const back = withOverride({ ...card, overrides: none }, 'mobile', 'maxWidth', undefined);
+    expect(back.mobile).toBeUndefined();
+    expect(attrsAt({ ...card, overrides: back }, 'mobile').maxWidth).toBe(5100);
+  });
+
+  it('is not a fault, and does not become one', () => {
+    // A value the schema declares, said as nothing — the check reads keys, and this is still one.
+    expect(overrideFaults({ overrides: { mobile: { maxWidth: null } } }, ['maxWidth', 'gap'])).toEqual([]);
   });
 });

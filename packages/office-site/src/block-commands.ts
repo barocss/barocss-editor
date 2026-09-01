@@ -19,7 +19,8 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { addChild, moveNode, node, removeChild, setAttrs, transaction, transformNode } from '@barocss/model';
 import { detachedCopyOf, instanceParts } from '@barocss/office-canvas';
-import { definitionsOf } from './components';
+import { definitionsOf, freshPartId, scopeOf } from './components';
+import { pathFor, slugFor } from './slug';
 import { blocksIn, enclosing, pageOf, SELECTABLE, TEXTUAL } from './selection';
 
 type Node = Record<string, any>;
@@ -184,6 +185,36 @@ export class SiteBlockExtension implements Extension {
     );
 
     /**
+     * **What pressing this block opens** — the gesture half of 열림.
+     *
+     * ## Why this is not `setBlockFormat`
+     *
+     * Because it writes **two** blocks. The opener records what it opens; the block being opened has
+     * to have a durable name to be recorded *as*, and a block a reader drew has none — `partId` is
+     * minted the first time something needs to name a part, which until now was only a binding.
+     *
+     * A sid could have been written instead and would have needed no second write. It would also
+     * have been unauthorable: a component in a library, a sample, a page pasted from another
+     * document — none of them know the sids they will be given, and `componentBind` learned this
+     * lesson first. So the name is a name, and this is the command that makes sure there is one.
+     *
+     * ## Why the panel offers blocks and this takes a sid
+     *
+     * A reader picks *the menu*, and a picker can only hand back something unique — two blocks may
+     * be called 메뉴 and the same name in a list twice is a choice a reader cannot make. So the panel
+     * passes the sid it drew the row from, and this turns it into the durable name. The document
+     * never holds the sid.
+     *
+     * Nothing at all — `target` absent — takes the gesture back, and `'self'` is a block that opens
+     * itself, which needs no second name and mints none.
+     */
+    register(
+      'setOpens',
+      async (payload) => await this._setOpens(editor, payload),
+      (payload) => !!this._nodeAt(editor, payload?.nodeId)
+    );
+
+    /**
      * **Editing a variable itself** — its name, its kind, its label, what a placement gets for free.
      *
      * ## Why this is not four panel writes
@@ -250,6 +281,68 @@ export class SiteBlockExtension implements Extension {
      * one goes one further — it writes the **document**, and there is exactly one of those, so it
      * takes no `nodeId` at all. Every other command in this file needed to be told what to act on.
      */
+    /**
+     * **What the site is set in** — its faces, its body size, and the rhythm of its headings.
+     *
+     * `setSiteAddress`'s shape, for its reason: the thing it writes is the **document**, which no
+     * selection names. A reader reaches it by selecting nothing, which is the page pane.
+     */
+    register(
+      'setSiteType',
+      async (payload) => {
+        const rootId = editor.getRootId();
+        if (!rootId) return false;
+
+        const attrs: Record<string, unknown> = {};
+        for (const one of ['bodyFace', 'headingFace', 'scale'] as const) {
+          if (typeof payload?.[one] === 'string') attrs[one] = payload[one] || undefined;
+        }
+        /*
+         * Emptied is **unset**, which a number field can say: a site that has taken its size back
+         * reads at 16 like one that never stated one, and those are the same drawing and the same
+         * document.
+         */
+        if ('baseSize' in (payload ?? {})) {
+          attrs.baseSize = typeof payload!.baseSize === 'number' ? payload!.baseSize : undefined;
+        }
+        if (Object.keys(attrs).length === 0) return false;
+
+        return (
+          (await transaction(editor, [setAttrs(rootId, attrs)] as never).commit()).success === true
+        );
+      },
+      (payload) =>
+        !!editor.getRootId() &&
+        ['bodyFace', 'headingFace', 'scale', 'baseSize'].some((one) => one in (payload ?? {}))
+    );
+
+    /**
+     * **What the published folder holds beyond the pages** — the tab's picture, and what a crawler is
+     * told.
+     *
+     * `setSiteAddress`'s shape and reason: the thing it writes is the document, which no selection
+     * names, so a reader reaches it by selecting nothing.
+     */
+    register(
+      'setSiteFiles',
+      async (payload) => {
+        const rootId = editor.getRootId();
+        if (!rootId) return false;
+
+        const attrs: Record<string, unknown> = {};
+        if ('icon' in (payload ?? {})) {
+          attrs.icon = typeof payload!.icon === 'string' && payload!.icon ? payload!.icon : undefined;
+        }
+        if ('noIndex' in (payload ?? {})) attrs.noIndex = payload!.noIndex === true || undefined;
+        if (Object.keys(attrs).length === 0) return false;
+
+        return (
+          (await transaction(editor, [setAttrs(rootId, attrs)] as never).commit()).success === true
+        );
+      },
+      (payload) => !!editor.getRootId() && ['icon', 'noIndex'].some((one) => one in (payload ?? {}))
+    );
+
     register(
       'setSiteAddress',
       async (payload) => {
@@ -275,7 +368,8 @@ export class SiteBlockExtension implements Extension {
         const node = this._store(editor)?.getNode(String(payload?.nodeId ?? ''));
         return (
           node?.stype === 'surface' &&
-          ['name', 'path', 'description'].some((one) => typeof payload?.[one] === 'string')
+          (['name', 'path', 'description', 'image'].some((one) => typeof payload?.[one] === 'string') ||
+            ['notFound', 'noIndex'].some((one) => one in (payload ?? {})))
         );
       }
     );
@@ -759,6 +853,57 @@ export class SiteBlockExtension implements Extension {
     return undefined;
   }
 
+  /** Any block, by sid — the loosest of the three, for a command that is about a block and not a part. */
+  private _nodeAt(editor: Editor, nodeId: unknown): Record<string, any> | undefined {
+    const found = this._store(editor)?.getNode(String(nodeId ?? ''));
+    return found && SELECTABLE.has(String(found.stype)) ? found : undefined;
+  }
+
+  /**
+   * Recording what a block opens, and giving the block it opens a name to be recorded as.
+   *
+   * The name is minted from the target's own — `name` if a reader gave it one, its words if not —
+   * and deduped against every other `partId` under the same page or definition, because that is the
+   * scope a name means anything in and the scope the export searches.
+   */
+  private async _setOpens(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const store = this._store(editor);
+    const opener = this._nodeAt(editor, payload?.nodeId);
+    if (!store || !opener) return false;
+
+    const target = payload?.target === undefined ? undefined : String(payload.target);
+
+    // Taking it back, and opening itself — neither needs a second block to be named.
+    if (!target || target === 'self') {
+      return (
+        (
+          await transaction(editor, [
+            setAttrs(String(opener.sid), { opens: target || undefined })
+          ] as never).commit()
+        ).success === true
+      );
+    }
+
+    const opened = store.getNode(target) as Record<string, any> | undefined;
+    if (!opened) return false;
+
+    const held = typeof opened.attributes?.partId === 'string' ? opened.attributes.partId : '';
+    const steps: unknown[] = [];
+    let partId = held;
+
+    if (!partId) {
+      const base =
+        (typeof opened.attributes?.name === 'string' && opened.attributes.name.trim()) ||
+        this._wordsIn(editor, target).trim().slice(0, 12) ||
+        '블록';
+      partId = freshPartId(store as never, scopeOf(store as never, target), base);
+      steps.push(setAttrs(target, { partId }));
+    }
+
+    steps.push(setAttrs(String(opener.sid), { opens: partId }));
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
   /** The words a part holds, for naming a question after them and for its default. */
   private _wordsIn(editor: Editor, sid: string, depth = 0): string {
     const store = this._store(editor);
@@ -983,6 +1128,12 @@ export class SiteBlockExtension implements Extension {
     const said: Record<string, unknown> = {};
     if (rename) said.name = rename;
     if (payload?.kind !== undefined) said.kind = payload.kind;
+    /*
+     * And **how the answer reads**, which is a fact about the card rather than about the data —
+     * `''` takes it back to reading as itself, which is why an empty string is written rather than
+     * being treated as "nothing said".
+     */
+    if (payload?.format !== undefined) said.format = String(payload.format) || undefined;
     if (payload?.label !== undefined) said.label = payload.label;
     if (payload?.value !== undefined) said.value = payload.value;
     if (Object.keys(said).length === 0) return undefined;
@@ -1116,9 +1267,50 @@ export class SiteBlockExtension implements Extension {
 
     const attrs: Record<string, unknown> = {};
     if (typeof payload?.name === 'string') attrs.name = payload.name;
-    if (typeof payload?.path === 'string') attrs.path = payload.path;
+    /*
+     * **An address, made into one.** `pathFor` composes it, drops a query and a fragment, slugs each
+     * segment and puts one leading slash on it — `slug.ts` has the table of what a free string was
+     * doing instead, and every row of it is a link that goes somewhere else or nowhere.
+     *
+     * Repaired rather than refused, which is the one place this product changes what a reader typed
+     * without asking. A slug is the field every tool of this kind repairs as you type, the result is
+     * visible in the box the moment it commits, and the alternative — an address the panel accepts
+     * and the published site cannot serve — is worse in the way that only shows up later.
+     */
+    if (typeof payload?.path === 'string') attrs.path = pathFor(payload.path);
+
+    /**
+     * And **a name gives a page its address**, once — while the address is still the minted one.
+     *
+     * A reader who makes a page and calls it 제품 means it to be at `/제품`, and typing the same word
+     * twice is the kind of thing a tool should do for them. Every builder of this kind does it.
+     *
+     * **Once**, and that is the important half: a page's address is what has been shared, linked and
+     * indexed, so renaming a page must never move it. So this fires only while the address is still
+     * `/page-3` — what `insertPage` minted and nobody has touched — and never again. A reader who
+     * wants the address to follow a rename types the new one, which is a decision with consequences
+     * and should read as one.
+     */
+    const untouched = String(node.attributes?.path ?? '') === `/${String(node.attributes?.id ?? '')}`;
+    if (
+      typeof payload?.name === 'string' &&
+      payload.path === undefined &&
+      untouched &&
+      slugFor(payload.name)
+    ) {
+      attrs.path = pathFor(payload.name);
+    }
     // …and what it is **about**, which is what a search result shows and a chat unfurls.
     if (typeof payload?.description === 'string') attrs.description = payload.description;
+    // And the picture a shared link shows — see the schema for why it is the page's and not the site's.
+    if (typeof payload?.image === 'string') attrs.image = payload.image;
+    /*
+     * And the two a page answers about the *published folder*: which one a host serves for an address
+     * it cannot match, and whether this one should stay out of a search result.
+     */
+    for (const one of ['notFound', 'noIndex'] as const) {
+      if (one in (payload ?? {})) attrs[one] = payload![one] === true || undefined;
+    }
     if (Object.keys(attrs).length === 0) return false;
 
     return (

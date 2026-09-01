@@ -165,4 +165,18 @@ describe('sizing', () => {
       maxWidth: '192px'
     });
   });
+
+  /**
+   * **Where** is a second decision from **how wide**, and the first version got that wrong.
+   *
+   * Deriving the centring from *has a maximum* is the page pattern nine times out of ten and pushes
+   * every reading measure on the page into the middle the tenth time — measured on this sample,
+   * which is why it is stated.
+   */
+  it('centres a block only where the document says so', () => {
+    expect(sizingCss({ maxWidth: 2880 }).marginInline).toBeUndefined();
+    expect(sizingCss({ maxWidth: 2880, centred: true }).marginInline).toBe('auto');
+    // And a width with it: auto side margins alone beat the stretch and make the block *narrower*.
+    expect(sizingCss({ maxWidth: 2880, centred: true }).width).toBe('100%');
+  });
 });

@@ -54,6 +54,19 @@ export interface SiteEnv {
   breakpoint: BreakpointId;
   /** How wide it is, in CSS pixels — what the reader sees along the top of the frame. */
   width: number;
+  /**
+   * Whether this drawing is **the page a visitor gets** rather than a board a designer is on.
+   *
+   * One flag, and it exists for exactly one kind of thing: a control that *does* something. A form
+   * in the editor has no `action` and its fields are read-only, because a designer pressing Enter in
+   * a field they are arranging should not send a stranger a message, and a click on a text box
+   * should select the block they meant rather than put a caret in it.
+   *
+   * Not a general "am I exporting" switch. Every other difference between a board and a published
+   * page is a *removal* the export makes afterwards (`clean`), and that is the rule this deliberately
+   * does not break: the two drawings agree about everything a reader designed.
+   */
+  published?: boolean;
 }
 
 /**
@@ -73,9 +86,14 @@ export function viewportOf(breakpoint: BreakpointId): number {
 }
 
 /** The environment for a view drawing at one width. */
-export function createSiteEnv(breakpoint: BreakpointId): SiteEnv {
+export function createSiteEnv(breakpoint: BreakpointId, published = false): SiteEnv {
   const found = BREAKPOINTS.find((one) => one.id === breakpoint) ?? BREAKPOINTS[0];
-  return { breakpoint: found.id, width: found.width };
+  return { breakpoint: found.id, width: found.width, published };
+}
+
+/** Whether the drawing being made is the page a visitor gets — see `SiteEnv.published`. */
+export function published(env: Record<string, unknown> | undefined): boolean {
+  return (env?.[SITE_ENV_KEY] as SiteEnv | undefined)?.published === true;
 }
 
 /** Which width the view being drawn is, or the widest when a host has not said. */

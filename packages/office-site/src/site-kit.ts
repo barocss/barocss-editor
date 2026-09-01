@@ -16,9 +16,15 @@
  * a point is the thing this product deliberately does not start with — a site builder that starts
  * with coordinates ends up as a slide editor with a scroll bar (`docs/specs/site-builder.md`).
  *
- * **Tables, for now.** They work — a `bTable` is the same node everywhere — but a table on a page
- * is a layout decision a stack usually makes better, and offering both on day one would teach a
- * reader the wrong one.
+ * **Tables were here**, with the reason *"a table on a page is a layout decision a stack usually
+ * makes better, and offering both on day one would teach a reader the wrong one"*. Half of that was
+ * right and the half that was wrong cost more: a **comparison** is tabular — features down the side,
+ * plans across the top, a header row a screen reader announces per cell — and a stack faking one is
+ * exactly the fault the argument was trying to avoid, drawn by hand and wrong on a phone.
+ *
+ * So the table is in and the risk is managed the way this product manages every other one: the
+ * honest thing is easy and the reason is written down. A table is a **block** on the rail, beside a
+ * quote and a rule; the arrangement of a section is still a stack, and nothing offers a table as one.
  */
 import {
   DragDropExtension,
@@ -32,6 +38,7 @@ import {
   TextFormattingExtension,
   UnderlineExtension,
   SlashCommandExtension,
+  TableExtension,
   createBasicExtensions,
   createCoreExtensions
 } from '@barocss/extensions';
@@ -144,6 +151,17 @@ export function createSiteExtensions(): Extension[] {
      * thing a reader can find by pressing and not by typing.
      */
     new SlashCommandExtension({ items: siteSlashItems() }),
+
+    /**
+     * **A table**, which a comparison is and a layout is not — see the header for the half of the
+     * old argument that was right.
+     *
+     * The shared extension whole, because every one of its eight structural commands is the same
+     * question wherever it is asked: a row goes above or below *this cell*, and a page has cells the
+     * moment it has a table. The renderers were already there — `bTable` draws a real `<table>` with
+     * `<th scope>` in it — so this is the commands and the surfaces, not the drawing.
+     */
+    new TableExtension(),
 
     ...createSiteOwnExtensions()
   ];

@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { backgroundCss, cornersCss, gradientCss, paintCss, shadowCss } from '../src/paint';
+import { resolveVarValue } from '@barocss/office-canvas';
+import {
+  backgroundCss,
+  cornersCss,
+  effectsCss,
+  gradientCss,
+  paintCss,
+  shadowCss,
+  typeRhythmCss
+} from '../src/paint';
 import { sitePanelRows } from '../src/panel-model';
 import { createSchema } from '@barocss/schema';
 import { getSiteSchemaDefinition } from '../src/site-schema';
@@ -149,5 +158,150 @@ describe('painting a box on a page', () => {
     for (const attr of [...paint, 'cornerTopLeft', 'gradientAngle', 'backgroundOpacity', 'shadowAngle']) {
       expect(onABlock).toContain(attr);
     }
+  });
+});
+
+/**
+ * **The vocabulary a page was missing to look designed rather than assembled.**
+ *
+ * Nine attributes, added together because a redesign asked for them together and each one is a
+ * sentence a layout could not say: the rhythm the words are set at, one card at an angle, a second
+ * ink multiplying, a sheet over a photograph, a card across two columns of a grid.
+ *
+ * Each is checked for the same two things: it draws when stated, and **nothing at all** when not —
+ * which is not a nicety. `opacity`, `rotate` and `backdropBlur` each make a stacking context, so a
+ * page that wrote a resting value everywhere would be a page whose sticky headers quietly stopped
+ * escaping their sections.
+ */
+describe('the effects a page can now ask for', () => {
+  const none = (css: Record<string, string>) => expect(Object.keys(css)).toEqual([]);
+
+  describe('the rhythm the words in a box are set at', () => {
+    it('is a ratio to the font, so it survives the type scale', () => {
+      // -2.5% is -0.025em, and 140% is 1.4 — the two numbers every type tool states.
+      expect(typeRhythmCss({ letterSpacing: -2.5 })).toEqual({ letterSpacing: '-0.025em' });
+      expect(typeRhythmCss({ lineHeight: 140 })).toEqual({ lineHeight: '1.4' });
+    });
+
+    it('says nothing about a box that says nothing, and nothing about a zero', () => {
+      none(typeRhythmCss({}));
+      none(typeRhythmCss(undefined));
+      // Tracking of exactly none is what a box already does; writing it would beat an outer band's.
+      none(typeRhythmCss({ letterSpacing: 0 }));
+      none(typeRhythmCss({ lineHeight: 0 }));
+    });
+  });
+
+  describe('the three effects', () => {
+    it('turns a box, in degrees, the way CSS turns one', () => {
+      expect(effectsCss({ rotate: -3 })).toEqual({ transform: 'rotate(-3deg)' });
+    });
+
+    it('mixes with what is under it, from a list a reader can predict', () => {
+      expect(effectsCss({ blend: 'multiply' })).toEqual({ mixBlendMode: 'multiply' });
+      // Not one of the four is not a blend mode: a document saying so draws nothing rather than
+      // writing a word a browser will ignore and a reader will not find.
+      none(effectsCss({ blend: 'color-dodge' }));
+    });
+
+    it('frosts in twips, and says so twice because Safari wants the prefix', () => {
+      // 240 twips is 16px — and a hero that frosts in one browser and not another is worse than one
+      // that frosts in neither.
+      expect(effectsCss({ backdropBlur: 240 })).toEqual({
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)'
+      });
+    });
+
+    it('writes none of them at a resting value, because each makes a stacking context', () => {
+      none(effectsCss({}));
+      none(effectsCss({ rotate: 0, blend: '', backdropBlur: 0 }));
+    });
+  });
+
+  describe('a sheet over the picture', () => {
+    const flat = (value: unknown) => (typeof value === 'string' ? value : undefined);
+
+    it('goes over everything, which is the layer that did not exist', () => {
+      const css = backgroundCss(
+        { backgroundImage: '/hero.jpg', overlay: '#14110F', overlayOpacity: 0.55 },
+        flat
+      );
+      // First in `background-image` is painted **in front** — the whole point of the attribute.
+      expect(css.backgroundImage.startsWith('linear-gradient(color-mix(')).toBe(true);
+      expect(css.backgroundImage).toContain('55%');
+      expect(css.backgroundImage).toContain('url("/hero.jpg")');
+    });
+
+    it('is the colour itself when nothing is taken off it', () => {
+      const css = backgroundCss({ backgroundImage: '/hero.jpg', overlay: '#14110F' }, flat);
+      expect(css.backgroundImage.startsWith('linear-gradient(#14110F 0 0)')).toBe(true);
+    });
+
+    it('is nothing without a colour, because a sheet of no colour is not one', () => {
+      const css = backgroundCss({ backgroundImage: '/hero.jpg', overlayOpacity: 0.5 }, flat);
+      expect(css.backgroundImage).toBe('url("/hero.jpg")');
+    });
+  });
+});
+
+/**
+ * **A colour a document holds at a weight**, which is the sentence a token could not say.
+ *
+ * A palette holds one value per name, and a design wants that value at a fraction constantly — a
+ * frosted bar over a hero, a scrim, a hairline. Written as a literal `rgba(...)` beside the token it
+ * is a fraction of, it stops following the palette: change the token and the literal keeps the old
+ * colour, on every page, silently. This sample's own header bar was exactly that until the reference
+ * learned to carry a weight.
+ *
+ * What is checked here is the only thing that matters about it: **it follows.**
+ */
+describe('a token at a weight', () => {
+  const doc = () => {
+    const nodes: Record<string, any> = {
+      root: { sid: 'root', stype: 'document', content: ['vars', 'box'] },
+      vars: { sid: 'vars', stype: 'variables', parentId: 'root', content: ['v'] },
+      v: {
+        sid: 'v',
+        stype: 'variable',
+        parentId: 'vars',
+        attributes: { name: '종이', kind: 'color', value: '#FCFBF9' }
+      },
+      box: { sid: 'box', stype: 'frame', parentId: 'root', attributes: {}, content: [] }
+    };
+    return {
+      rootId: 'root',
+      getNode: (sid: string) => nodes[sid],
+      /** So a test can repaint the palette the way a reader does — one value, one place. */
+      repaint: (value: string) => {
+        nodes.v.attributes.value = value;
+      }
+    };
+  };
+
+  const painted = (access: ReturnType<typeof doc>, said: string): string | undefined =>
+    backgroundCss({ fill: said }, (value) => resolveVarValue(access as never, value, 'box')).backgroundColor;
+
+  it('draws the colour with an alpha, wherever a colour may go', () => {
+    expect(painted(doc(), 'var:종이/82')).toBe('color-mix(in srgb, #FCFBF9 82%, transparent)');
+  });
+
+  it('follows the palette, which a literal does not', () => {
+    const access = doc();
+    const before = painted(access, 'var:종이/82');
+    access.repaint('#101014');
+    const after = painted(access, 'var:종이/82');
+
+    expect(before).not.toBe(after);
+    expect(after).toBe('color-mix(in srgb, #101014 82%, transparent)');
+    /*
+     * And the literal it replaced, for contrast. This is the fault in one line: a colour written as
+     * a weight of a token, by hand, is a colour that outlives the decision it was a weight of.
+     */
+    expect(painted(access, 'rgba(252, 251, 249, 0.82)')).toBe('rgba(252, 251, 249, 0.82)');
+  });
+
+  it('is the colour itself at no weight, so a page that says nothing is unchanged', () => {
+    expect(painted(doc(), 'var:종이')).toBe('#FCFBF9');
   });
 });

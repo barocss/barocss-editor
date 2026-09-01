@@ -1,6 +1,15 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { addChild, transaction } from '@barocss/model';
 import { SELECTABLE } from './selection';
+import {
+  CARRIED_HOMES,
+  anyCarried,
+  boxOf,
+  carriedFor,
+  missingFrom,
+  type Carried,
+  type CarrySource
+} from './carried';
 
 /**
  * Copying **blocks** — the gesture a builder had no answer for.
@@ -33,6 +42,13 @@ import { SELECTABLE } from './selection';
  * prefers the system's when it can read one. Without the fallback, copy and paste inside one site
  * would work only where the permission happened to be granted, which is a feature that works on the
  * developer's machine.
+ *
+ * ## What a block carries besides itself
+ *
+ * A page's blocks refer to five things by name — a component, a dataset, a picture's file, a form's
+ * connection, and a `var:이름` — and a name means nothing in another document. So the payload carries
+ * the definitions too, and a paste adds the ones the destination has not got. `carried.ts` has the
+ * whole argument, including why a name that already exists is **not** renamed.
  */
 
 type Node = Record<string, any>;
@@ -43,6 +59,13 @@ interface Payload {
   barocssSite: 1;
   /** The blocks, as trees with no sids — `addChild` gives them new ones. */
   blocks: Node[];
+  /**
+   * The definitions those blocks refer to by name, so a paste into another site is not an empty box.
+   *
+   * Optional, because a payload written by an older build has none — and a paste that refused one
+   * would be a paste that broke on the reader's other tab.
+   */
+  carried?: Carried;
 }
 
 const MARKER = 'barocssSite';
@@ -98,13 +121,24 @@ export class SiteClipboardExtension implements Extension {
      * so `pageId` is the app's to give, the way it is for every other insert here.
      *
      * `canExecute` cannot ask the **system** clipboard whether it holds a block: reading it is
-     * asynchronous and may prompt. So it answers for what this extension is holding, and a paste
-     * that finds nothing does nothing.
+     * asynchronous and may prompt. So it answers **whether there is anywhere to paste**, and a
+     * paste that finds nothing on either clipboard does nothing.
+     *
+     * It used to also require `this._held`, which read as the careful answer and was the bug: a
+     * second window has its own extension and its own empty `_held`, so ⌘V in the window a block
+     * was *not* copied in was refused before it ever reached the system clipboard — which is to
+     * say **copying a block from one site into another could not work at all**, in exactly the
+     * case the system clipboard exists for. Measured by a test that pasted across two documents
+     * and got `false`; nothing on screen said anything, because a greyed menu item looks like a
+     * considered decision.
+     *
+     * The cost of the looser answer is an enabled 붙여넣기 that sometimes does nothing, which is
+     * what every editor's Paste does when the clipboard holds prose.
      */
     register(
       'pasteBlocks',
       (payload) => this._paste(editor, payload),
-      (payload) => this._held !== null && !!this._into(editor, payload)
+      (payload) => !!this._into(editor, payload)
     );
   }
 
@@ -112,6 +146,26 @@ export class SiteClipboardExtension implements Extension {
 
   private _store(editor: Editor): { getNode: (sid: string) => Node | undefined } | undefined {
     return editor.dataStore as { getNode: (sid: string) => Node | undefined } | undefined;
+  }
+
+  /**
+   * The document as `carried.ts` reads it: root, nodes, and a whole tree for one of them.
+   *
+   * `treeAt` strips on the way out for the same reason a block is stripped — a carried definition
+   * that kept its sids would be a second node claiming the first one's identity.
+   */
+  private _source(editor: Editor): CarrySource | undefined {
+    const store = this._store(editor);
+    const rootId = (editor as never as { getRootId?: () => string }).getRootId?.();
+    if (!store || !rootId) return undefined;
+    return {
+      rootId,
+      getNode: (sid: string) => store.getNode(sid),
+      treeAt: (sid: string) => {
+        const tree = editor.exportDocument(sid);
+        return tree ? stripped(tree) : undefined;
+      }
+    };
   }
 
   /**
@@ -150,7 +204,10 @@ export class SiteClipboardExtension implements Extension {
 
     if (blocks.length === 0) return false;
 
-    this._held = { barocssSite: 1, blocks };
+    const source = this._source(editor);
+    const carried = source ? carriedFor(source, blocks) : undefined;
+
+    this._held = { barocssSite: 1, blocks, carried };
     await this._write(this._held);
     return true;
   }
@@ -198,9 +255,29 @@ export class SiteClipboardExtension implements Extension {
      * copied in — inserting at a fixed place pushes what is already there along, and inserting
      * forwards would reverse them.
      */
-    const steps = [...held.blocks]
-      .reverse()
-      .map((block) => addChild(into.parentId, stripped(block) as never, into.at));
+    /*
+     * The definitions first, in `CARRIED_HOMES`' order, and only the ones this document has not got.
+     * In the **same** transaction as the blocks, so one undo takes back the whole paste: a reader
+     * who undoes a pasted card and is left holding its dataset has been given something they never
+     * asked for.
+     */
+    const source = this._source(editor);
+    const missing = source ? missingFrom(source, held.carried) : undefined;
+    const adding: unknown[] = [];
+    if (source && missing && anyCarried(missing)) {
+      for (const { key, box } of CARRIED_HOMES) {
+        if (missing[key].length === 0) continue;
+        const home = boxOf(source, box);
+        // No such container in this document: the paste still happens, and the fault says why.
+        if (!home) continue;
+        for (const one of missing[key]) adding.push(addChild(home.sid, stripped(one) as never));
+      }
+    }
+
+    const steps = [
+      ...adding,
+      ...[...held.blocks].reverse().map((block) => addChild(into.parentId, stripped(block) as never, into.at))
+    ];
 
     if ((await transaction(editor, steps as never).commit()).success !== true) return false;
 

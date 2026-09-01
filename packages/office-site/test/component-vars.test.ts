@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import { createSchema } from '@barocss/schema';
 import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
 import { definitionsOf } from '../src/components';
+import { registerSiteRenderers } from '../src/renderers';
 import { pagesOf } from '../src/selection';
 
 /**
@@ -213,5 +214,77 @@ describe('renaming and removing a component variable', () => {
     // The same node, renamed in place — and still pointing at the same column.
     expect(attrs(named.sid).name).toBe('상품명');
     expect(attrs(named.sid).value).toBe(named.value);
+  });
+});
+
+/**
+ * **What kind of thing a variable holds, and how it reads** — the two rows that let the data keep
+ * the value and the card keep the caption.
+ *
+ * Held here rather than in a browser because both are facts about the document: the format is on the
+ * *definition*, so a change reaches every placement and every row a list draws, and what a browser
+ * could show is one of those rather than the rule.
+ */
+describe('what a variable holds, and how it reads', () => {
+  let editor: any;
+  let store: DataStore;
+  let part: string;
+
+  beforeAll(() => {
+    registerSiteRenderers();
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    store = new DataStore(undefined as never, schema as never);
+    editor = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+    const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+
+    // The part of the post card that draws the date — found by its durable name, never by position.
+    const definition = definitionsOf(doc as never).find((one) => one.id === 'post-row')!;
+    const walk = (sid: string, depth = 0): string | undefined => {
+      if (depth > 12) return undefined;
+      for (const child of ((store.getNode(sid) as any)?.content ?? []) as unknown[]) {
+        if (typeof child !== 'string') continue;
+        if ((store.getNode(child) as any)?.attributes?.partId === 'b-date') return child;
+        const found = walk(child, depth + 1);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    part = walk(definition.part!)!;
+  });
+
+  const declared = () => {
+    const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+    const definition = definitionsOf(doc as never).find((one) => one.id === 'post-row')!;
+    return ((store.getNode(definition.part!)?.parentId
+      ? (store.getNode(store.getNode(definition.part!)!.parentId as string) as any)?.content
+      : []) as string[])
+      .map((sid) => store.getNode(sid) as any)
+      .find((one) => one?.stype === 'componentVar' && one.attributes?.name === '날짜');
+  };
+
+  it('says the sample’s date is a date, and how it should read', () => {
+    expect(declared()?.attributes).toMatchObject({ kind: 'date', format: 'yyyy년 M월 d일' });
+  });
+
+  it('changes the format from the row a reader would use', async () => {
+    editor.executeCommand('setNode', { nodeIds: [part] });
+    const done = await editor.executeCommand('setComponentVar', {
+      nodeId: part,
+      name: '날짜',
+      format: 'M월 d일'
+    });
+    expect(done).toBe(true);
+    expect(declared()?.attributes?.format).toBe('M월 d일');
+  });
+
+  it('takes the format back to reading as itself', async () => {
+    /*
+     * An empty string is written as *nothing said* rather than as an empty format — a format of `''`
+     * would be a value that draws every date as the empty string, which is a card that has silently
+     * lost its dates.
+     */
+    await editor.executeCommand('setComponentVar', { nodeId: part, name: '날짜', format: '' });
+    expect(declared()?.attributes?.format).toBeUndefined();
   });
 });
