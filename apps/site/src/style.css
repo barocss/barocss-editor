@@ -1740,3 +1740,71 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+
+/**
+ * **쓰임** — what a block leans on and what leans on it.
+ *
+ * The one tab with no property rows in it, so it does not borrow the row rhythm: a list of names,
+ * each one a place to go. Quieter than the panel's own headings, because this is a fact about the
+ * document rather than a control.
+ */
+.st-uses {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px;
+}
+
+.st-uses-none {
+  margin: 0;
+  color: var(--ou-muted);
+  font-size: var(--ou-text-small);
+}
+
+.st-uses-group h3 {
+  margin: 0 0 4px;
+  color: var(--ou-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.st-uses-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.st-uses-group li > button,
+.st-uses-group li > span {
+  display: block;
+  width: 100%;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--ou-radius);
+  background: transparent;
+  color: var(--ou-ink);
+  font-size: var(--ou-text);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-uses-group li > button {
+  cursor: pointer;
+}
+
+.st-uses-group li > button:hover {
+  background: var(--ou-accent-soft);
+  color: var(--ou-accent);
+}
+
+.st-uses-group li > span {
+  color: var(--ou-muted);
+}

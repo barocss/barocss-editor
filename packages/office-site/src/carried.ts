@@ -70,7 +70,15 @@ export interface Carried {
 const EMPTY: Carried = { components: [], datasets: [], assets: [], services: [], variables: [] };
 
 /** Every name a tree refers to, by kind — walked once. */
-function namesIn(tree: unknown, found = {
+/**
+ * **What a block refers to, by name** — the five kinds of reference this document model has.
+ *
+ * Exported because it answers a second question as well as the one it was written for. Carrying a
+ * paste needs to know what travels with it; a reader looking at a block needs to know what it
+ * *depends on*, which is the same list — and it is the one thing about a block that the property
+ * panel cannot show, because a reference is not a property of any one row.
+ */
+export function namesIn(tree: unknown, found = {
   components: new Set<string>(),
   datasets: new Set<string>(),
   assets: new Set<string>(),
@@ -208,6 +216,61 @@ export const CARRIED_HOMES: { key: keyof Carried; box: string }[] = [
 ];
 
 /** The container of this kind under the root, for a paste to add into. */
+/**
+ * **Where a name is used**, which is `namesIn` read the other way.
+ *
+ * A reader who changes a colour, renames a dataset or edits a card wants to know what they are about
+ * to change — and this product's whole reference shape means the answer is always *somewhere else*.
+ * Six references, five kinds, and nothing in the editor ever said who was pointing at what.
+ *
+ * Answered per **page and definition**, because that is where a reader would go to look, and not per
+ * block: a list of forty sids is not something anybody reads.
+ *
+ * `components.ts` has a `usesOf` that counts placements per definition — the same question narrowed
+ * to one kind and answered as a number. This says *which*, for all five.
+ */
+export function whereUsed(
+  doc: Access,
+  kind: 'components' | 'datasets' | 'assets' | 'services' | 'variables',
+  name: string
+): { sid: string; label: string; kind: 'page' | 'component' }[] {
+  if (!name) return [];
+  const found: { sid: string; label: string; kind: 'page' | 'component' }[] = [];
+
+  const holders: { sid: string; label: string; kind: 'page' | 'component' }[] = [];
+  for (const child of (doc.getNode(doc.rootId)?.content ?? []) as unknown[]) {
+    if (typeof child !== 'string') continue;
+    const node = doc.getNode(child) as Record<string, any> | undefined;
+    if (node?.stype === 'surface') {
+      holders.push({
+        sid: child,
+        label: typeof node.attributes?.name === 'string' ? node.attributes.name : '이름 없는 페이지',
+        kind: 'page'
+      });
+      continue;
+    }
+    if (node?.stype !== 'components') continue;
+    for (const one of (node.content ?? []) as unknown[]) {
+      if (typeof one !== 'string') continue;
+      const each = doc.getNode(one) as Record<string, any> | undefined;
+      holders.push({
+        sid: one,
+        label:
+          (typeof each?.attributes?.name === 'string' && each.attributes.name) ||
+          (typeof each?.attributes?.id === 'string' ? each.attributes.id : '이름 없는 컴포넌트'),
+        kind: 'component'
+      });
+    }
+  }
+
+  for (const holder of holders) {
+    const tree = doc.treeAt(holder.sid);
+    if (!tree) continue;
+    if (namesIn(tree)[kind].has(name)) found.push(holder);
+  }
+  return found;
+}
+
 export function boxOf(doc: Access, stype: string): { sid: string } | undefined {
   for (const child of (doc.getNode(doc.rootId)?.content ?? []) as unknown[]) {
     if (typeof child !== 'string') continue;

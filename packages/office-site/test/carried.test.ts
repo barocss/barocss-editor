@@ -5,7 +5,7 @@ import { createSchema } from '@barocss/schema';
 import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
-import { carriedFor, missingFrom, type CarrySource } from '../src/carried';
+import { carriedFor, missingFrom, namesIn, whereUsed, type CarrySource } from '../src/carried';
 import { datasetsOf } from '../src/data';
 import { documentFaults } from '../src/faults';
 
@@ -144,6 +144,36 @@ describe('a block that travels with what it refers to', () => {
    * The whole gesture, through the commands, across **two documents** — which is the only place the
    * fault ever showed and the reason the payload is JSON: two windows agree on nothing else.
    */
+  /**
+   * **Where a name is used**, which is `namesIn` read the other way and the question the editor could
+   * never answer.
+   *
+   * Six things in this model are referred to by name and a name means *somewhere else*, so a reader
+   * renaming a colour or editing a card has been changing pages they cannot see. Answered per page
+   * and per definition, because a list of forty sids is not something anybody reads.
+   */
+  describe('what leans on a name', () => {
+    it('names every page and definition that points at a component', () => {
+      const found = whereUsed(source as never, 'components', 'site-header');
+
+      // The sample places the header on every page of the site.
+      expect(found.filter((one) => one.kind === 'page').length).toBeGreaterThan(1);
+      expect(found.map((one) => one.label)).toContain('홈');
+      expect(found.every((one) => one.sid)).toBe(true);
+    });
+
+    it('answers nothing for a name the document has not got', () => {
+      expect(whereUsed(source as never, 'variables', '없는 이름')).toEqual([]);
+      expect(whereUsed(source as never, 'datasets', '')).toEqual([]);
+    });
+
+    it('reads the same five kinds a paste carries, from one tree', () => {
+      const said = namesIn(editor.exportDocument(productList()));
+      expect([...said.components]).toContain('product-card');
+      expect([...said.datasets]).toContain('상품');
+    });
+  });
+
   describe('copied out of one site and pasted into another', () => {
     let held = '';
     let before: PropertyDescriptor | undefined;

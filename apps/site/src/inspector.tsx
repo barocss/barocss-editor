@@ -47,8 +47,10 @@ import {
   SITE_PANEL,
   sitePanelGroups,
   statedIn,
+  namesIn,
   statesOf,
   templateOf,
+  whereUsed,
   PAGE_PREFIX,
   addressFor,
   type BreakpointId,
@@ -212,7 +214,9 @@ export function Inspector({
   onAt,
   state,
   onState,
-  page
+  page,
+  onPage,
+  onEditComponent
 }: {
   editor: Editor;
   /** The width being edited. The widest is the page itself; the others say only what differs. */
@@ -230,6 +234,9 @@ export function Inspector({
   onState: (state: StateId | undefined) => void;
   /** The page on screen, so the panel has something to say when nothing is selected. */
   page?: string;
+  /** Going to a page, and opening a definition — what the 쓰임 tab's rows do when pressed. */
+  onPage?: (sid: string) => void;
+  onEditComponent?: (componentId: string) => void;
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
   const [tab, setTab] = useState<SitePanelTab>('block');
@@ -250,6 +257,13 @@ export function Inspector({
    * click would be the panel forgetting on their behalf.
    */
   const [folded, setFolded] = useState<Record<string, boolean>>({});
+  /**
+   * What the reader is looking for in the panel, and it is **cleared when the tab changes**.
+   *
+   * A filter carried from one tab to another is a panel that looks empty for a reason nothing on
+   * screen explains — the box is at the top of a list that no longer has anything in it.
+   */
+  const [find, setFind] = useState('');
 
 
   const store = editor.dataStore;
@@ -655,7 +669,17 @@ export function Inspector({
     { id: 'block', label: '블록' },
     { id: 'style', label: '모양' },
     ...(shown?.stype === 'collection' ? ([{ id: 'data', label: '데이터' }] as const) : []),
-    ...(shown?.stype === 'instance' ? ([{ id: 'values', label: '값' }] as const) : [])
+    ...(shown?.stype === 'instance' ? ([{ id: 'values', label: '값' }] as const) : []),
+    /*
+     * **What this block leans on, and what leans on it** — the tab that holds no properties.
+     *
+     * Six things in this document model are referred to **by name**: a component, a dataset, a file,
+     * a connection, a variable, a page. A name means *somewhere else*, and nothing in the editor has
+     * ever said where — so a reader renaming a colour or editing a card has been changing things they
+     * could not see. It is offered only with something selected, because with nothing selected the
+     * question has no subject.
+     */
+    ...(shown ? ([{ id: 'uses', label: '쓰임' }] as const) : [])
   ];
 
   return (
@@ -697,6 +721,8 @@ export function Inspector({
         <Groups
           folded={folded}
           onFold={(label, next) => setFolded((was) => ({ ...was, [label]: next }))}
+          find={find}
+          onFind={setFind}
           stype="inline-text"
           tab="text"
           shown={words}
@@ -717,6 +743,8 @@ export function Inspector({
         <Groups
           folded={folded}
           onFold={(label, next) => setFolded((was) => ({ ...was, [label]: next }))}
+          find={find}
+          onFind={setFind}
           stype={node(page) ? 'surface' : undefined}
           tab="page"
           shown={null}
@@ -738,6 +766,7 @@ export function Inspector({
             active={tab}
             onChange={(id) => {
               setTab(id as SitePanelTab);
+              setFind('');
               // Only 모양 can hold a state, so leaving it puts the panel back on the resting page.
               if (id !== 'style') onState(undefined);
             }}
@@ -745,9 +774,14 @@ export function Inspector({
           {tab === 'style' ? (
             <StateSwitch state={state} onState={onState} />
           ) : null}
+          {tab === 'uses' ? (
+            <Uses editor={editor} sid={shown.ids[0]} onPage={onPage} onEdit={onEditComponent} />
+          ) : null}
           <Groups
           folded={folded}
           onFold={(label, next) => setFolded((was) => ({ ...was, [label]: next }))}
+          find={find}
+          onFind={setFind}
             stype={shown.stype}
             tab={tab}
             shown={shown}
@@ -845,11 +879,138 @@ type Shown = {
  * That split is the point of the shared sheet. The deck's panel and this one drew the same five
  * controls twice over, and every editor after them would have drawn them a third time.
  */
+/**
+ * **What this block leans on, and what leans on it.**
+ *
+ * The tab that holds no properties, and the one this document model needs most: six things are
+ * referred to **by name** — a component, a dataset, a file, a connection, a variable, a page — and a
+ * name means *somewhere else*. Nothing in the editor had ever said where, so a reader renaming a
+ * colour or editing a card was changing pages they could not see.
+ *
+ * Two directions, and they are different questions:
+ *
+ * - **쓰는 것** — what this block would need in order to draw anywhere else. `namesIn`'s answer, the
+ *   same walk a copy uses to decide what travels with a paste.
+ * - **여기를 쓰는 곳** — for a placement or a list, which other pages and definitions point at the
+ *   same thing. `whereUsed`, per page and per definition, because that is where a reader would go.
+ *
+ * Every row goes somewhere. A list of pages a reader cannot open is half an answer: the question is
+ * *what am I about to change*, and the way to find out is to look.
+ */
+function Uses({
+  editor,
+  sid,
+  onPage,
+  onEdit
+}: {
+  editor: Editor;
+  sid: string | undefined;
+  onPage?: (sid: string) => void;
+  onEdit?: (componentId: string) => void;
+}) {
+  const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
+  const store = editor.dataStore;
+  const rootId = (editor as never as { getRootId?: () => string }).getRootId?.();
+
+  const said = useMemo(() => {
+    if (!store || !rootId || !sid) return undefined;
+    const doc = {
+      rootId,
+      getNode: (one: string) => store.getNode(one),
+      treeAt: (one: string) => (editor as never as { exportDocument?: (s: string) => unknown }).exportDocument?.(one)
+    };
+    const tree = doc.treeAt(sid);
+    if (!tree) return undefined;
+
+    const leans = namesIn(tree);
+    const attrs = (store.getNode(sid)?.attributes ?? {}) as Record<string, unknown>;
+    /*
+     * And **what points back**, asked only where it means something: a placement and a list are the
+     * two blocks that *are* a reference, so their own answer is the interesting one. A frame is not
+     * referred to by anything, and asking would be a section headed with nothing under it.
+     */
+    const mine =
+      typeof attrs.componentId === 'string' && attrs.componentId
+        ? { kind: 'components' as const, name: attrs.componentId }
+        : typeof attrs.source === 'string' && attrs.source
+          ? { kind: 'datasets' as const, name: attrs.source }
+          : undefined;
+
+    return {
+      leans: (
+        [
+          ['components', '컴포넌트'],
+          ['datasets', '데이터'],
+          ['assets', '파일'],
+          ['services', '연결'],
+          ['variables', '변수']
+        ] as const
+      )
+        .map(([key, label]) => ({ key, label, names: [...leans[key]] }))
+        .filter((one) => one.names.length > 0),
+      mine,
+      elsewhere: mine ? whereUsed(doc as never, mine.kind, mine.name) : []
+    };
+    // `revision`: the document changed, so what it points at may have.
+  }, [editor, store, rootId, sid, revision]);
+
+  if (!said) return null;
+
+  return (
+    <div className="st-uses">
+      {said.leans.length === 0 && said.elsewhere.length === 0 ? (
+        <p className="st-uses-none">이 블록은 이름으로 가리키는 것이 없습니다</p>
+      ) : null}
+
+      {said.leans.map((one) => (
+        <section key={one.key} className="st-uses-group">
+          <h3>{one.label}</h3>
+          <ul>
+            {one.names.map((name) => (
+              <li key={name}>
+                {one.key === 'components' && onEdit ? (
+                  <button type="button" data-uses={name} onClick={() => onEdit(name)}>
+                    {name}
+                  </button>
+                ) : (
+                  <span data-uses={name}>{name}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+
+      {said.mine && said.elsewhere.length > 0 ? (
+        <section className="st-uses-group">
+          <h3>‘{said.mine.name}’을 쓰는 곳 {said.elsewhere.length}</h3>
+          <ul>
+            {said.elsewhere.map((one) => (
+              <li key={one.sid}>
+                <button
+                  type="button"
+                  data-uses-at={one.sid}
+                  onClick={() => (one.kind === 'page' ? onPage?.(one.sid) : onEdit?.(one.label))}
+                >
+                  {one.kind === 'page' ? '페이지 · ' : '컴포넌트 · '}
+                  {one.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
 function Groups({
   stype,
   tab,
   folded,
   onFold,
+  find,
+  onFind,
   shown,
   at,
   state,
@@ -873,6 +1034,9 @@ function Groups({
    */
   folded: Record<string, boolean>;
   onFold: (label: string, folded: boolean) => void;
+  /** What the reader typed into 속성 찾기, and how to tell the panel they typed it. */
+  find: string;
+  onFind: (said: string) => void;
   stype: string | undefined;
   tab: SitePanelTab;
   shown: Shown | null;
@@ -988,6 +1152,13 @@ function Groups({
         groups={groups}
         folded={(group) => folded[group.label] === true}
         onFold={(group, next) => onFold(group.label, next)}
+        /*
+         * **Finding a row**, which a panel of 114 is bad at however well the groups are named. Held
+         * here rather than in the sheet because it is a fact about this reader's session, and cleared
+         * when the tab changes: a filter left over from another tab is a panel that looks empty.
+         */
+        find={find}
+        onFind={onFind}
         /*
          * Pixels out, twips in — and it is **here** rather than in the sheet because 15 twips to the
          * pixel is a fact about this document model, not about how a number field behaves. The sheet

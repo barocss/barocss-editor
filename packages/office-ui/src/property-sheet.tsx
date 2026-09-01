@@ -80,6 +80,8 @@ export function PropertySheet<Row extends SheetRow>({
   onUnmark,
   folded,
   onFold,
+  find,
+  onFind,
   follows,
   weightOf,
   onWeight,
@@ -90,6 +92,15 @@ export function PropertySheet<Row extends SheetRow>({
 }: {
   /** The groups to draw, in order — the product's declaration, already filtered. */
   groups: SheetGroup<Row>[];
+  /**
+   * What a reader is looking for, and how to tell the product they typed it.
+   *
+   * Held by the caller rather than here, for this package's rule: props in, callbacks out. The sheet
+   * draws the box and does the matching; whether the panel *has* one is the product's decision, and a
+   * product that passes no `onFind` gets no box.
+   */
+  find?: string;
+  onFind?: (said: string) => void;
   /** What a row's attribute currently is. */
   value: (row: Row) => unknown;
   /**
@@ -359,9 +370,57 @@ export function PropertySheet<Row extends SheetRow>({
     }
   };
 
+  /**
+   * **Finding a row**, which is the thing a panel of this size is actually bad at.
+   *
+   * Measured on the site builder: 114 rows over six tabs, 55 of them on the one a reader is on most,
+   * in eleven groups. Every one is in a sensible place and none of that helps somebody who knows the
+   * word 여백 and does not know it lives under 배치. Reported as *속성 패널은 다루기가 쉽지 않은 UI*.
+   *
+   * Matched against the **label a reader sees** and against the group's, not against the attribute
+   * name: `insetTop` is the engine's word and 위 is theirs. A group whose own name matches keeps all
+   * its rows, which is how somebody types 배치 and gets the whole section.
+   *
+   * Nothing is hidden when the box is empty, so the panel a reader already knows is untouched until
+   * they ask for something else.
+   */
+  const wanted = (find ?? '').trim().toLowerCase();
+  const shown = wanted
+    ? groups
+        .map((group) => ({
+          ...group,
+          rows: group.label.toLowerCase().includes(wanted)
+            ? group.rows
+            : group.rows.filter((row) =>
+                [row.label, row.attr, ...(row.with ?? []).map((one) => one.label)]
+                  .join(' ')
+                  .toLowerCase()
+                  .includes(wanted)
+              )
+        }))
+        .filter((group) => group.rows.length > 0)
+    : groups;
+
   return (
     <>
-      {groups.map((group) => (
+      {onFind ? (
+        <div className="sticky top-0 z-10 border-b border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] px-2 py-1.5">
+          <input
+            type="search"
+            value={find ?? ''}
+            onChange={(event) => onFind(event.target.value)}
+            placeholder="속성 찾기"
+            aria-label="속성 찾기"
+            className="h-[var(--ou-control-h)] w-full rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] bg-[color:var(--ou-ground)] px-2 text-[length:var(--ou-text)] text-[color:var(--ou-ink)] placeholder:text-[color:var(--ou-faint)]"
+          />
+          {wanted && shown.length === 0 ? (
+            <p className="px-1 py-2 text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)]">
+              이 블록에는 ‘{find}’와 맞는 속성이 없습니다
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {shown.map((group) => (
         <PropertyGroup
           key={group.label}
           label={heading?.(group) ?? group.label}

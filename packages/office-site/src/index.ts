@@ -161,6 +161,8 @@ export {
   boxOf,
   carriedFor,
   missingFrom,
+  namesIn,
+  whereUsed,
   type Carried,
   type CarrySource
 } from './carried';

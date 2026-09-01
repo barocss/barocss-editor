@@ -1150,6 +1150,17 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             state={state}
             onState={setState}
             page={definition ? undefined : page}
+            /*
+             * Where the 쓰임 tab's rows go. A list of the pages a variable is on that a reader cannot
+             * click is half an answer — the question is *what am I about to change*, and the way to
+             * find out is to go and look.
+             */
+            onPage={(sid) => {
+              setCurrent(sid);
+              setScope(undefined);
+              setEditing(undefined);
+            }}
+            onEditComponent={openDefinition}
           />
         ) : null}
       </AppBody>

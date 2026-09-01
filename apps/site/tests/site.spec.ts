@@ -993,6 +993,94 @@ test.describe('the exported page', () => {
     expect(await gapOf()).toBeGreaterThan(before);
   });
 
+  test('says what a block leans on, and what leans on it', async ({ page }) => {
+    /**
+     * **The tab that holds no properties**, and the one this document model needs most.
+     *
+     * Six things here are referred to **by name** — a component, a dataset, a file, a connection, a
+     * variable, a page — and a name means *somewhere else*. Nothing in the editor had ever said
+     * where, so a reader renaming a colour or editing a card was changing pages they could not see.
+     *
+     * Two directions, and they are different questions: what this block would need in order to draw
+     * anywhere else, and — for a placement or a list, which *are* references — what else points at
+     * the same thing. Every row goes somewhere, because a list of pages a reader cannot open is half
+     * an answer.
+     */
+    await ready(page);
+
+    // A band: what it leans on.
+    await press(page, page.locator('[data-frame="desktop"] [data-name="히어로"]').first());
+    await page.waitForTimeout(350);
+    await page.locator('[role="tab"][data-tab="uses"]').click();
+    await page.waitForTimeout(350);
+    const leans = await page.evaluate(() => ({
+      groups: [...document.querySelectorAll('.st-uses-group h3')].map((o) => o.textContent),
+      names: [...document.querySelectorAll('[data-uses]')].map((o) => o.textContent)
+    }));
+    expect(leans.groups).toContain('컴포넌트');
+    expect(leans.groups).toContain('변수');
+    expect(leans.names).toContain('cta');
+    expect(leans.names).toContain('강조');
+
+    // A placement: the other direction, which is the one that changes what a reader dares to edit.
+    await page
+      .locator('[data-frame="desktop"] .st-placement[data-component-id="cta"]')
+      .first()
+      .click({ force: true, modifiers: ['Meta'] });
+    await page.waitForTimeout(350);
+    await page.locator('[role="tab"][data-tab="uses"]').click();
+    await page.waitForTimeout(350);
+    await expect(page.locator('.st-uses-group h3').filter({ hasText: '쓰는 곳' })).toBeVisible();
+
+    // And the rows go somewhere: pressing a page's takes the boards to it.
+    const at = page.locator('[data-uses-at]').first();
+    if ((await at.count()) > 0 && (await at.textContent())?.startsWith('페이지')) {
+      await at.click();
+      await page.waitForTimeout(600);
+      await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', /.+/);
+    }
+  });
+
+  test('finds a property by the word a reader knows', async ({ page }) => {
+    /**
+     * **114 rows over six tabs**, 55 of them on the one a reader is on most, in eleven groups. Every
+     * one is in a sensible place and none of that helps somebody who knows the word 여백 and does not
+     * know it lives under 배치 — which is what *속성 패널은 다루기가 쉽지 않은 UI* is about.
+     *
+     * Matched against the **label a reader sees** and against the group's, never against the
+     * attribute name: `insetTop` is the engine's word and 위 is theirs. A group whose own name matches
+     * keeps all its rows, so typing 배치 gives the whole section.
+     */
+    await ready(page);
+    await press(page, page.locator('[data-frame="desktop"] [data-name="문제"]').first());
+    await page.waitForTimeout(400);
+
+    const groups = page.locator('[role="group"], section').filter({ has: page.locator('h3') });
+    const before = await groups.count();
+    expect(before).toBeGreaterThan(4);
+
+    const box = page.getByLabel('속성 찾기');
+    await box.fill('여백');
+    await page.waitForTimeout(300);
+    expect(await groups.count()).toBeLessThan(before);
+    await expect(page.getByLabel('안쪽 여백').first()).toBeVisible();
+
+    // A group's own name takes the whole section with it.
+    await box.fill('배치');
+    await page.waitForTimeout(300);
+    expect(await groups.count()).toBeGreaterThan(0);
+
+    // Nothing found says so, rather than showing an empty panel and letting a reader guess.
+    await box.fill('없는속성이름');
+    await page.waitForTimeout(300);
+    await expect(page.getByText('와 맞는 속성이 없습니다')).toBeVisible();
+
+    // Emptied, and the panel is the one they already knew.
+    await box.fill('');
+    await page.waitForTimeout(300);
+    expect(await groups.count()).toBe(before);
+  });
+
   test('resizes both ways from the corner, and says the numbers while it does', async ({ page }) => {
     /**
      * **The handle a reader looks for first**, which this did not have.

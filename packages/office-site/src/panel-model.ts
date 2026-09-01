@@ -168,7 +168,39 @@ export type SitePanelControl =
   | 'serviceField';
 
 /** Which pane of the panel a row sits in. */
-export type SitePanelTab = 'block' | 'style' | 'data' | 'values' | 'page' | 'text';
+/**
+ * The tabs the panel offers, and `uses` is the one that holds no rows.
+ *
+ * Every other tab is a list of properties. `uses` answers the question a property cannot: **what
+ * does this block depend on, and what depends on it** — which in this document model is the whole
+ * of what a reader has to know before changing anything, because six things are referred to by name
+ * and a name means *somewhere else*.
+ */
+/**
+ * **Which words a panel uses, and when the English one is the plain one.**
+ *
+ * This file's rule has been *say it in the words a reader would use*, and it produced 차례대로, 고정
+ * and 겹침 for `static`, `sticky` and `absolute` — three invented Korean words for three concepts
+ * that have had settled names for twenty years. Reported by somebody who could not tell what any of
+ * them meant, which is the whole test: a translation nobody has heard before is not plainer than the
+ * word everybody has.
+ *
+ * So the rule is narrower and says which way to go:
+ *
+ * - **English** where the concept is a CSS or design-tool primitive with no settled Korean —
+ *   `Static / Sticky / Absolute`, the blend modes (untranslated in Korean Figma too), `Fill / Hug /
+ *   Fixed`, `Cover / Contain`, `Linear / Radial`. These are what a designer says out loud.
+ * - **Korean** where an ordinary word does the job — 세로 / 가로, 가운데, 오름차순, 글머리 / 번호,
+ *   머리말 / 본문 / 꼬리말. Writing `Ascending` here would be the same mistake in the other
+ *   direction: reaching for English to sound technical.
+ *
+ * The test to apply to a new one: **would somebody who uses design tools recognise the English word
+ * without being told?** If yes it is a name, and names are not translated. If no, it is a
+ * description, and a description belongs in the reader's language.
+ *
+ * `ariaLabel` stays Korean throughout — it is a sentence, not a name.
+ */
+export type SitePanelTab = 'block' | 'style' | 'data' | 'values' | 'page' | 'text' | 'uses';
 
 /** A row of the site's panel — `office-controls`' shape, with this product's kinds. */
 export type SitePanelRow = PanelRow<SitePanelControl> & { tab: SitePanelTab };
@@ -429,9 +461,9 @@ export const SITE_PANEL: SitePanelRow[] = [
      */
     fallback: 'fill',
     options: [
-      { id: 'fill', label: '채우기' },
-      { id: 'hug', label: '내용만큼' },
-      { id: 'fixed', label: '고정' }
+      { id: 'fill', label: 'Fill' },
+      { id: 'hug', label: 'Hug' },
+      { id: 'fixed', label: 'Fixed' }
     ]
   },
   { attr: 'minWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최소', ariaLabel: '최소 폭', control: 'number', unit: 'px', min: 0 },
@@ -599,9 +631,9 @@ export const SITE_PANEL: SitePanelRow[] = [
     control: 'choice',
     fallback: '',
     options: [
-      { id: '', label: '차례대로' },
-      { id: 'sticky', label: '고정' },
-      { id: 'absolute', label: '겹침' }
+      { id: '', label: 'Static' },
+      { id: 'sticky', label: 'Sticky' },
+      { id: 'absolute', label: 'Absolute' }
     ],
     on: PLACED
   },
@@ -779,8 +811,8 @@ export const SITE_PANEL: SitePanelRow[] = [
         fallback: 'linear',
         needs: 'gradientFrom',
         options: [
-          { id: 'linear', label: '직선' },
-          { id: 'radial', label: '원형' }
+          { id: 'linear', label: 'Linear' },
+          { id: 'radial', label: 'Radial' }
         ]
       }
     ]
@@ -812,9 +844,9 @@ export const SITE_PANEL: SitePanelRow[] = [
         fallback: 'cover',
         needs: 'backgroundImage',
         options: [
-          { id: 'cover', label: '꽉 채움' },
-          { id: 'contain', label: '전체 보임' },
-          { id: 'tile', label: '바둑판' }
+          { id: 'cover', label: 'Cover' },
+          { id: 'contain', label: 'Contain' },
+          { id: 'tile', label: 'Tile' }
         ]
       },
       {
@@ -1194,11 +1226,11 @@ export const SITE_PANEL: SitePanelRow[] = [
     control: 'choice',
     fallback: '',
     options: [
-      { id: '', label: '섞지 않음' },
-      { id: 'multiply', label: '곱하기' },
-      { id: 'screen', label: '밝게' },
-      { id: 'overlay', label: '겹치기' },
-      { id: 'difference', label: '반전' }
+      { id: '', label: 'Normal' },
+      { id: 'multiply', label: 'Multiply' },
+      { id: 'screen', label: 'Screen' },
+      { id: 'overlay', label: 'Overlay' },
+      { id: 'difference', label: 'Difference' }
     ],
     on: [...STACKS, 'picture', 'instance', 'textFrame']
   },
@@ -1321,9 +1353,9 @@ export const SITE_PANEL: SitePanelRow[] = [
     fallback: 'cover',
     on: ['picture'],
     options: [
-      { id: 'cover', label: '꽉 채움' },
-      { id: 'contain', label: '전체 보임' },
-      { id: 'fill', label: '늘림' }
+      { id: 'cover', label: 'Cover' },
+      { id: 'contain', label: 'Contain' },
+      { id: 'fill', label: 'Stretch' }
     ]
   },
 
