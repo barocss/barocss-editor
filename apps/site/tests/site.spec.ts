@@ -931,6 +931,70 @@ test.describe('the exported page', () => {
    * does with the markup: that the box is the target and not the eight pixels of text, that Tab
    * reaches it, that Enter follows it.
    */
+  test('types Korean into the block a fresh Enter made, in the order it was typed', async ({ page }) => {
+    /**
+     * **Every syllable went in front of the last one**, and only in a block Enter had just made.
+     *
+     * Reported by somebody typing: the caret jumped to the start of the line on each keystroke and
+     * the text came out backwards — 가, then 나가, then 나다가. Measured with a real IME through CDP,
+     * because `keyboard.type` does not compose and the slow path passes:
+     *
+     *     확정 직후   dom "﻿가"@2   model 1     <- both right
+     *     80ms 뒤     dom "가"@0     model 0     <- the render had run
+     *
+     * The renderer wrote the span's text with `element.textContent = …`, which **destroys the text
+     * node** and builds a new one. A caret lives in a text node, so it had nowhere to be and fell to
+     * 0; the next composition then inserted there. Only after Enter, because only there does the text
+     * change shape — the empty-block filler is dropped once real text arrives, so that is the one
+     * render that rewrites a node the caret is sitting in.
+     *
+     * The fix writes into the existing node, and only the stretch that differs, so the DOM
+     * specification's own range rules move the caret: "﻿가" to "가" is a one-character delete at 0,
+     * and a caret at 2 becomes 1. Held here rather than in a unit test because a caret is a browser.
+     */
+    await ready(page);
+    const para = page
+      .locator('[data-frame="desktop"] .st-page .w-paragraph')
+      .filter({ hasText: '세 제품을 따로' })
+      .first();
+    await press(page, para);
+    await page.waitForTimeout(200);
+    const overlay = page.locator('[data-frame="desktop"] .st-overlay');
+    for (let step = 0; step < 8; step += 1) {
+      if ((await overlay.getAttribute('data-mode')) === 'text') break;
+      await pressTwice(page, para);
+      await page.waitForTimeout(250);
+    }
+    await expect(overlay).toHaveAttribute('data-mode', 'text');
+
+    await page.keyboard.press('End');
+    await page.waitForTimeout(150);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(400);
+
+    const cdp = await page.context().newCDPSession(page);
+    for (const [being, done] of [['ㄱ', '가'], ['ㄴ', '나'], ['ㄷ', '다']]) {
+      for (const said of [being, done]) {
+        await cdp.send('Input.imeSetComposition', {
+          text: said,
+          selectionStart: said.length,
+          selectionEnd: said.length
+        });
+        await page.waitForTimeout(60);
+      }
+      await cdp.send('Input.insertText', { text: done });
+      await page.waitForTimeout(120);
+    }
+
+    const said = await page.evaluate(() => {
+      const sel = document.getSelection();
+      const node = sel?.anchorNode as Text | null;
+      return { text: node?.data ?? '', offset: sel?.anchorOffset };
+    });
+    expect(said.text).toBe('가나다');
+    expect(said.offset).toBe(3);
+  });
+
   test('keeps every band’s content inside its padding, at all three widths', async ({ page }) => {
     /**
      * **The one a reader saw before any check did**, and it looked like a responsive bug.

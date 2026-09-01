@@ -1,3 +1,4 @@
+import { writeText } from './renderer-owned-nodes';
 import { createOwnedTextNode } from './renderer-owned-nodes';
 /**
  * sid 기반 Text Node Pool
@@ -71,7 +72,7 @@ export class SidTextNodePool implements TextNodePoolLike {
     // 1) Selection 우선
     if (selectionTextNode && candidates.includes(selectionTextNode)) {
       const t = selectionTextNode;
-      if (t.data !== desiredText) t.data = desiredText;
+      writeText(t, desiredText);
       this.touchSid(sid);
       console.log('[TextNodePool] reused selection text node', { sid, text: t.data.slice(0, 30) });
       return t;
@@ -79,7 +80,7 @@ export class SidTextNodePool implements TextNodePoolLike {
     // 2) 첫 후보 재사용
     if (candidates.length > 0) {
       const t = candidates[0];
-      if (t.data !== desiredText) t.data = desiredText;
+      writeText(t, desiredText);
       this.touchSid(sid);
       console.log('[TextNodePool] reused existing text node', { sid, text: t.data.slice(0, 30) });
       return t;

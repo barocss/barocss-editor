@@ -4,7 +4,7 @@
  * - Attribute and style management
  * - Namespace handling
  */
-import { createOwnedTextNode, markRendererOwned, setOwnedTextContent } from './renderer-owned-nodes';
+import { createOwnedTextNode, markRendererOwned, setOwnedTextContent, writeText } from './renderer-owned-nodes';
 import { VNode, VNodeTag, DOMAttribute } from './vnode/types';
 import { DOMWorkInProgress } from './work-in-progress';
 import { 
@@ -74,7 +74,12 @@ export class DOMOperations {
    */
   public updateTextContent(textNode: Text, prevText: string, nextText: string): void {
     if (prevText !== nextText) {
-      textNode.textContent = nextText;
+      /*
+       * Only the stretch that differs — see `writeText`. Writing the whole node moves any caret
+       * inside it to 0, which the DOM specification requires and which is what made typing after
+       * Enter put every syllable in front of the last one.
+       */
+      writeText(textNode, nextText);
     }
   }
 
