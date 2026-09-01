@@ -6,6 +6,7 @@ import { getSiteSchemaDefinition } from '../src/site-schema';
 import { registerSiteRenderers } from '../src/renderers';
 import { createSiteEditor, createSiteOwnExtensions } from '../src/site-kit';
 import { siteKeyCommands } from '../src/keymap';
+import { definitionsOf } from '../src/components';
 import { siteLayerIcons } from '../src/layer-icons';
 import { SITE_TOOLBAR, siteToolbarCommands, siteToolbarIcons } from '../src/toolbar-model';
 import {
@@ -267,7 +268,7 @@ describe('the site builder draws what it declares', () => {
         setSiteType: { scale: 'calm' },
         setPageInfo: { name: '시험 페이지' },
         setBlockFormat: { nodeIds: [block], gap: 480 },
-        setOpens: { nodeIds: [block], opens: 'accordion' },
+        setOpens: { nodeIds: [block], nodeId: block },
         selectParent: { nodeIds: [block] }
       }[command] ?? {});
 
@@ -295,6 +296,178 @@ describe('the site builder draws what it declares', () => {
       if (command === 'undo' || command === 'redo') {
         await editor.executeCommand('setBlockFormat', { nodeIds: [block], gap: 600 });
         if (command === 'redo') await editor.executeCommand('undo', {});
+      }
+
+      /**
+       * **Inside a definition**, which is the fourth state and the one five commands are about: a
+       * part bound to a variable, the variable itself, what one placement answers. A page has
+       * headings of its own, so the probe found one immediately and every one of the five was
+       * refused — a state it was one step from building.
+       */
+      if (['bindPartText', 'setComponentVar', 'removeComponentVar'].includes(command)) {
+        /*
+         * And **a variable the definition already declares**, for the two of the three that are
+         * about one that exists. `_varAt` looks the name up among the definition's own children and
+         * answers nothing when it is not there, so a probe inventing 시험 변수 was asking both
+         * commands to act on a variable no card has — refused, correctly, and counted as unaskable.
+         */
+        const found = ((): { part: string; declared?: string } | undefined => {
+          const definitions = (store.getNode(rootId)?.content ?? []).filter(
+            (sid: unknown) => typeof sid === 'string' && store.getNode(sid)?.stype === 'components'
+          ) as string[];
+          for (const box of definitions) {
+            for (const one of (store.getNode(box)?.content ?? []) as unknown[]) {
+              if (typeof one !== 'string') continue;
+              const children = ((store.getNode(one) as any)?.content ?? []).filter(
+                (sid: unknown) => typeof sid === 'string'
+              ) as string[];
+              const declared = children
+                .map((sid) => store.getNode(sid) as any)
+                .find((node) => node?.stype === 'componentVar')?.attributes?.name;
+              let part: string | undefined;
+              const look = (sid: string, depth = 0) => {
+                if (depth > 40 || part) return;
+                const node = store.getNode(sid) as any;
+                if (!node) return;
+                if (['heading', 'paragraph', 'listItem'].includes(String(node.stype))) part = sid;
+                for (const child of node.content ?? []) if (typeof child === 'string') look(child, depth + 1);
+              };
+              look(one);
+              if (part && (declared || command === 'bindPartText')) return { part, declared };
+            }
+          }
+          return undefined;
+        })();
+        if (found) {
+          await editor.executeCommand('setNode', { nodeIds: [found.part] });
+          payload.nodeIds = [found.part];
+          payload.nodeId = found.part;
+          payload.var = found.declared ?? '시험 변수';
+          payload.name = found.declared ?? '시험 변수';
+          /*
+           * And **something to say about it**. `_varPlan` refuses a payload that names a variable
+           * and then asks for no change, which is right — a command that writes nothing is not a
+           * command — and a probe that only named one was asking for exactly that.
+           */
+          payload.label = '시험 이름표';
+        }
+      }
+
+      /*
+       * **Something with a shape worth reusing**, for the command that turns a block into a card.
+       *
+       * It refuses a paragraph on purpose — one paragraph is not a component — and it refuses
+       * anything already inside a definition, which is where the probe had been putting it. So it
+       * gets what it actually asks for: a frame or a collection standing on a page.
+       */
+      if (command === 'createComponentFrom') {
+        const reusable = ((): string | undefined => {
+          for (const one of pagesOf(doc as never)) {
+            let hit: string | undefined;
+            const look = (sid: string, depth = 0) => {
+              if (depth > 40 || hit) return;
+              const node = store.getNode(sid) as any;
+              if (!node) return;
+              if (['frame', 'collection'].includes(String(node.stype))) hit = sid;
+              for (const child of node.content ?? []) if (typeof child === 'string') look(child, depth + 1);
+            };
+            look(one.sid);
+            if (hit) return hit;
+          }
+          return undefined;
+        })();
+        if (reusable) {
+          await editor.executeCommand('setNode', { nodeIds: [reusable] });
+          payload.nodeIds = [reusable];
+          payload.nodeId = reusable;
+          payload.name = '시험 카드';
+        }
+      }
+
+      /*
+       * **A block with something above it**, for the climb. The probe held the first block of the
+       * page, whose parent is the page — which `selectParent` refuses on purpose, because a page is
+       * the board rather than a block. One level in is the state the gesture is for.
+       */
+      /*
+       * **A second block to open**, for the command whose key is `target`.
+       *
+       * The probe had been sending `opens`, which is the *attribute* the command writes rather than
+       * the payload it takes — so it took the taking-it-back branch, wrote `opens: undefined` onto a
+       * block that already opened nothing, and committed a transaction that changed not one word.
+       * `canExecute` said yes to that, honestly: clearing something already clear is a legal no-op.
+       */
+      if (command === 'setOpens') {
+        const second = blocksIn(doc as never, page)[1];
+        if (second) payload.target = second;
+      }
+
+      if (command === 'selectParent') {
+        const nested = ((): string | undefined => {
+          for (const top of blocksIn(doc as never, page)) {
+            const child = ((store.getNode(top) as any)?.content ?? []).find(
+              (sid: unknown) => typeof sid === 'string' && store.getNode(sid)
+            ) as string | undefined;
+            if (child) return child;
+          }
+          return undefined;
+        })();
+        if (nested) {
+          await editor.executeCommand('setNode', { nodeIds: [nested] });
+          payload.nodeIds = [nested];
+          payload.nodeId = nested;
+        }
+      }
+
+      /*
+       * **One of the two words a connection's method may be** — the same thing the row probe found.
+       * A connection is named rather than selected, so this also names the one the sample carries.
+       */
+      if (command === 'setServiceInfo') {
+        const service = (store.getNode(rootId)?.content ?? [])
+          .filter((sid: unknown) => typeof sid === 'string')
+          .flatMap((sid: string) => ((store.getNode(sid) as any)?.content ?? []) as unknown[])
+          .map((sid: unknown) => (typeof sid === 'string' ? (store.getNode(sid) as any) : undefined))
+          .find((node: any) => node?.stype === 'service');
+        if (service?.attributes?.name) {
+          payload.name = service.attributes.name;
+          payload.method = String(service.attributes.method) === 'get' ? 'post' : 'get';
+        }
+      }
+
+      /*
+       * And **what one placement answers**, which is asked by the variable's name on a card that
+       * actually declares one — the header asks nothing, and it is the first instance on the page.
+       */
+      if (command === 'setComponentValue') {
+        const asking = definitionsOf(doc as never).filter((one) => (one.asks ?? []).length > 0);
+        let placement: string | undefined;
+        const look = (sid: string, depth = 0) => {
+          if (depth > 40 || placement) return;
+          const node = store.getNode(sid) as any;
+          if (!node) return;
+          if (
+            node.stype === 'instance' &&
+            asking.some((one) => one.id === node.attributes?.componentId)
+          ) {
+            placement = sid;
+            return;
+          }
+          for (const child of node.content ?? []) if (typeof child === 'string') look(child, depth + 1);
+        };
+        for (const one of pagesOf(doc as never)) {
+          look(one.sid);
+          if (placement) break;
+        }
+        const wanted = asking.find(
+          (one) => one.id === (store.getNode(String(placement)) as any)?.attributes?.componentId
+        );
+        if (placement && wanted?.asks?.[0]) {
+          payload.nodeIds = [placement];
+          payload.nodeId = placement;
+          payload.name = wanted.asks[0];
+          payload.value = '시험 값';
+        }
       }
 
       /**
@@ -327,6 +500,29 @@ describe('the site builder draws what it declares', () => {
           }
           return undefined;
         })();
+        /*
+         * And for the two that act on **more than one cell**, the two ends of a range. A caret is
+         * the state six of the eight act from; merging is by definition a second cell, and splitting
+         * needs a cell that has already been merged — so the probe merges, then asks.
+         */
+        if (command === 'mergeCells' || command === 'splitCell') {
+          const row = cell ? (store.getNode(cell) as any)?.parentId : undefined;
+          const cells = ((store.getNode(String(row)) as any)?.content ?? []).filter(
+            (sid: unknown) => typeof sid === 'string'
+          ) as string[];
+          if (cells.length > 1) {
+            payload.fromCellId = cells[0];
+            payload.toCellId = cells[1];
+            payload.cellId = cells[0];
+            if (command === 'splitCell') {
+              await editor.executeCommand('mergeCells', {
+                fromCellId: cells[0],
+                toCellId: cells[1]
+              });
+            }
+          }
+        }
+
         const words = cell ? (store.getNode(cell) as any)?.content?.[0] : undefined;
         if (typeof words === 'string') {
           editor.selectionManager.setSelection({
@@ -353,7 +549,30 @@ describe('the site builder draws what it declares', () => {
        * given up on. `null` still means what it meant — neither state let it run.
        */
       if (editor.canExecuteCommand(command, payload) !== true) {
-        const words = firstRun(store, page);
+        /*
+         * And for the one command that needs the words to already **wear** something, words that do.
+         * `removeLink` asks whether the range carries a link, so any old run refuses it — and the
+         * sample's navigation is made of links, which is where a reader would use this.
+         */
+        const linked = ((): string | undefined => {
+          let hit: string | undefined;
+          const walk = (sid: string, depth = 0) => {
+            if (depth > 60 || hit) return;
+            const node = store.getNode(sid) as any;
+            if (!node) return;
+            if (
+              typeof node.text === 'string' &&
+              ((node.marks ?? []) as any[]).some((mark) => mark?.stype === 'link')
+            ) {
+              hit = sid;
+              return;
+            }
+            for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
+          };
+          walk(rootId);
+          return hit;
+        })();
+        const words = (command === 'removeLink' ? linked : undefined) ?? firstRun(store, page);
         if (!words) {
           moved.set(command, null);
           continue;
@@ -451,6 +670,41 @@ describe('the site builder draws what it declares', () => {
       const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
 
       /**
+       * **Inside a definition**, for the rows that are about a card's own variables.
+       *
+       * Six rows and five commands are about what a *component* asks for — a part bound to a
+       * variable, the variable's kind, the format it reads in, what one placement answers. None of
+       * them applies to a block on a page, so all eleven sat in the silent column: the probe walked
+       * the pages and a definition is not on one.
+       *
+       * Searched in the components box, which is where `definitionsOf` looks, and the part handed
+       * over is the first **textual** one — `bindPartText` refuses anything else, correctly, because
+       * a variable that drives a picture is a binding and not a caption.
+       */
+      const partInADefinition = (): string | undefined => {
+        let found: string | undefined;
+        const walk = (sid: string, depth = 0) => {
+          if (depth > 40 || found) return;
+          const node = store.getNode(sid) as any;
+          if (!node) return;
+          if (['heading', 'paragraph', 'listItem'].includes(String(node.stype))) {
+            found = sid;
+            return;
+          }
+          for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
+        };
+        for (const child of (store.getNode(rootId)?.content ?? []) as unknown[]) {
+          if (typeof child !== 'string') continue;
+          if (store.getNode(child)?.stype !== 'components') continue;
+          for (const each of (store.getNode(child)?.content ?? []) as unknown[]) {
+            if (typeof each === 'string') walk(each);
+            if (found) return found;
+          }
+        }
+        return found;
+      };
+
+      /**
        * A node of a type the row says it is offered on — searched across **every page**, and
        * including the pages themselves.
        *
@@ -469,9 +723,22 @@ describe('the site builder draws what it declares', () => {
         if (!wants || wants.includes(kind)) found.push(sid);
         for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
       };
-      for (const page of pagesOf(doc as never)) {
-        walk(page.sid);
-        if (found.length > 0) break;
+      /*
+       * A card's variable rows look **inside a definition first**, and that is not a preference: the
+       * command refuses a part that is not in one, and a page has headings and paragraphs of its own
+       * — so the walk found one immediately, the command said no, and six rows were filed as *could
+       * not ask* about a state the probe was one step from building.
+       */
+      const wantsAPart = row.attr === 'componentVar' || row.attr === 'componentBind';
+      if (wantsAPart) {
+        const inside = partInADefinition();
+        if (inside) found.push(inside);
+      }
+      if (found.length === 0) {
+        for (const page of pagesOf(doc as never)) {
+          walk(page.sid);
+          if (found.length > 0) break;
+        }
       }
 
       const held = found[0] ? (store.getNode(found[0]) as any)?.attributes?.[row.attr] : undefined;
@@ -522,6 +789,65 @@ describe('the site builder draws what it declares', () => {
        * changed nothing, and the row was reported dead — a probe fault wearing the shape of a real
        * one. The sibling after the opener is a block that certainly exists.
        */
+      /*
+       * **What a card's variable rows send**, which is not the row's own attribute: `bindPartText`
+       * takes a `var`, and `setComponentVar` is asked by the variable's `name`. The panel translates
+       * in one place and so does this — handed the attribute they read, all six wrote nothing and
+       * were filed as unaskable.
+       */
+      /*
+       * **What one placement answers.** `setComponentValue` is asked by the *variable's* name, so a
+       * probe handing it the row's attribute is naming nothing — and the placement has to be one
+       * whose definition actually declares that variable, or the write is refused for a second
+       * reason the finding would not distinguish.
+       */
+      if (row.attr === 'componentValue') {
+        /*
+         * And a placement **whose definition asks something**. The first instance on the home page is
+         * the header, which asks nothing, so the probe named no variable and filed two working rows
+         * as unaskable — a walk that takes the first match is measuring where the document happens
+         * to put things rather than what the row is about.
+         */
+        const asking = definitionsOf(doc as never).filter((one) => (one.asks ?? []).length > 0);
+        const wanted = found
+          .concat(
+            pagesOf(doc as never).flatMap((page) => {
+              const seen: string[] = [];
+              const look = (sid: string, depth = 0) => {
+                if (depth > 40) return;
+                const node = store.getNode(sid) as any;
+                if (!node) return;
+                if (node.stype === 'instance') seen.push(sid);
+                for (const child of node.content ?? []) if (typeof child === 'string') look(child, depth + 1);
+              };
+              look(page.sid);
+              return seen;
+            })
+          )
+          .find((sid) =>
+            asking.some((one) => one.id === (store.getNode(sid) as any)?.attributes?.componentId)
+          );
+        const variable = asking.find(
+          (one) => one.id === (store.getNode(String(wanted)) as any)?.attributes?.componentId
+        )?.asks?.[0];
+        if (!wanted || !variable) {
+          wrote.set(row.attr, null);
+          continue;
+        }
+        payload.nodeIds = [wanted];
+        payload.nodeId = wanted;
+        payload.name = variable;
+        payload.value = '시험 값';
+      }
+
+      if (row.attr === 'componentVar' || row.attr === 'componentBind') {
+        payload.var = '시험 변수';
+        payload.name = '시험 변수';
+        if (row.control === 'varKind') payload.kind = 'number';
+        if (row.control === 'varFormat') payload.format = '#,##0원';
+        if (row.control === 'variable') payload.rename = '바뀐 변수';
+      }
+
       if (row.attr === 'opens') {
         const parent = (store.getNode(found[0]) as any)?.parentId;
         const siblings = ((store.getNode(String(parent)) as any)?.content ?? []) as string[];
@@ -549,6 +875,15 @@ describe('the site builder draws what it declares', () => {
       if (row.of === 'service') {
         const said = (store.getNode(found[0]) as any)?.attributes?.sends;
         if (typeof said === 'string' && said) payload.name = said;
+        /*
+         * And **one of the two words** a connection's method may be. The control is its own kind and
+         * declares no `options`, so a probe with no opinion sent 시험 — which `setServiceInfo`
+         * refuses, correctly, and the refusal read as a state that could not be built.
+         */
+        if (row.attr === 'method') {
+          payload.method =
+            String((store.getNode(found[0]) as any)?.attributes?.method) === 'get' ? 'post' : 'get';
+        }
       }
 
       /**
@@ -620,7 +955,17 @@ describe('the site builder draws what it declares', () => {
     const silent = [...new Set(reachable)].filter((one) => moved.get(one) === null).sort();
     // eslint-disable-next-line no-console
     console.log(`명령 프로브가 답하지 못한 것 — ${silent.length}\n  ${silent.join('\n  ')}`);
-    expect(silent.length).toBeLessThanOrEqual(25);
+    /*
+     * **Zero**, from 25, and every step down was the probe learning a state a reader is already in
+     * rather than the product losing a command: a caret in a table cell, a part inside a definition,
+     * a second cell to merge with, words that already wear a link. Two of the steps found real
+     * things — `setOpens` was being sent the attribute it writes instead of the payload it takes,
+     * and `setComponentVar` was being asked to change a variable without being told what to change.
+     *
+     * A ratchet rather than a target: the day a command arrives whose state this cannot build, this
+     * fails, and somebody decides whether to teach the probe or to name the gap in an exemption.
+     */
+    expect(silent.length).toBeLessThanOrEqual(0);
   });
 
   it('says which rows it could not put itself in a state to try', () => {
@@ -630,10 +975,15 @@ describe('the site builder draws what it declares', () => {
     // eslint-disable-next-line no-console
     console.log(`행 프로브가 답하지 못한 것 — ${silent.length}\n  ${silent.join('\n  ')}`);
     /*
-     * A ratchet rather than a target. Every one of these is a row whose state this probe cannot
-     * build yet, and the number only being allowed to fall is what stops the silent column growing.
+     * **Zero**, and it earned the number: it was 38, then 14, then 8, then 1, as the probe learned
+     * the states a panel actually acts from — a part inside a definition, a placement whose card asks
+     * something, one of the two words a connection's method may be. Every row this product declares
+     * is now measured.
+     *
+     * A ratchet rather than a target, still: the day a row arrives whose state this cannot build,
+     * this fails and somebody decides whether to teach the probe or to admit the gap by name.
      */
-    expect(silent.length).toBeLessThanOrEqual(14);
+    expect(silent.length).toBeLessThanOrEqual(0);
   });
 
   it('draws what it declares, expects only what it says it expects', () => {
@@ -786,6 +1136,7 @@ describe('the site builder draws what it declares', () => {
         pasteBlocks:
           'enabled wherever a paste could land, because whether the system clipboard holds a block cannot be asked without awaiting it — and the tight answer made cross-document paste impossible',
         selectAllBlocks: 'moves the selection, which is what a reader is *looking at* rather than what they wrote',
+        selectParent: 'climbs the selection one level, which moves what a reader is looking at rather than what they wrote',
         exportSite: 'reads the document out as files; a publish that edited the document would be a bug',
         exportPage: 'the same, for one page',
 
