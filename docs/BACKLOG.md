@@ -46,6 +46,22 @@ entries are that.
 
 ## Open
 
+### Two inline nodes are built everywhere except where it counts — 2026-09-02 *(open)*
+
+`emoji` and `mathInline` are declared in `standard-schema`, have an extension each
+(`extensions/emoji.ts`, `extensions/math-inline.ts`), and are handled by the PDF exporter. **No office
+schema inherits either**, so no product can hold one and no renderer draws one.
+
+Three layers of a feature with the middle one missing — and the harness cannot see it, which is the
+part worth keeping: every check here asks *about the nodes a product declares*, so a node no product
+declares is a node nothing asks about. A fourth kind of blind spot, next to the three
+`operation-harness` already names.
+
+What each would take is written down in `docs/specs/inline-content.md`, including the one that is a
+real trade rather than an oversight: drawing a formula means shipping a typesetter, and this product
+currently ships no runtime at all.
+
+
 ### The type check had been passing because the grep was wrong — 2026-08-31 *(fixed)*
 
 `npx tsc --noEmit` run **from inside a package** prints `src/renderers.ts(...)`;

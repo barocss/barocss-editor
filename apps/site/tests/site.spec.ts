@@ -1233,6 +1233,38 @@ test.describe('the exported page', () => {
     expect(Number.parseFloat(said.top ?? '0')).toBeGreaterThan(60);
   });
 
+  test('draws the four layout choices as pictures rather than four dropdowns', async ({ page }) => {
+    /**
+     * **The row a designer touches most, and it was four menus.**
+     *
+     * Direction, distribution, cross-axis alignment and width: open a menu, read four words, choose
+     * one — to say *push these to the middle*, whose whole meaning is a picture. Every tool of this
+     * kind draws these as a strip of small pictures, because the answer is a shape and a shape is
+     * faster to recognise than to read.
+     *
+     * The sheet already knew how: it draws a `choice` as a segmented row when **every** option
+     * carries an icon. So this is a declaration, not a second control kind — a product says which of
+     * its rows is a shape by drawing the shapes, and a list of ten field kinds stays words because
+     * ten glyphs a reader has to learn is worse than ten words they can read.
+     */
+    await ready(page);
+    await press(page, page.locator('[data-frame="desktop"] [data-name="문제"]').first());
+    await page.waitForTimeout(450);
+
+    for (const [said, count] of [
+      ['방향', 3],
+      ['주 축 분배', 6],
+      ['맞춤', 4],
+      ['폭', 3]
+    ] as const) {
+      const strip = page.getByRole('radiogroup', { name: said });
+      await expect(strip).toHaveCount(1);
+      // A picture per option, and no option left as bare text among them.
+      await expect(strip.locator('button')).toHaveCount(count);
+      expect(await strip.locator('svg').count()).toBe(count);
+    }
+  });
+
   test('offers X · Y · W · H once a block places itself, and the constraints until then', async ({ page }) => {
     /**
      * **The four numbers a designer looks for, and could not find here.**

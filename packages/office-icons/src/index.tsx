@@ -279,7 +279,67 @@ const rows = (structure: string, detail: string): Drawn =>
     );
   };
 
+/**
+ * **What a stack does with the space it has**, drawn as bars in a box.
+ *
+ * The auto-layout row is the one a designer touches most, and it was three dropdowns: a reader had to
+ * open a menu, read four words and choose one, to say *push these to the middle* — a thing whose
+ * whole meaning is a picture. Every tool of this kind draws these as a strip of small pictures,
+ * because the answer is a shape and a shape is faster to recognise than to read.
+ *
+ * One helper for all thirteen: a faint box for the container and the bars the children would be. The
+ * bars are what differ — where they sit, and how long — which is exactly the decision.
+ */
+const stackIcon = (bars: string, faint?: string): Drawn =>
+  function StackIcon({ size = 16 }: { size?: number }) {
+    return outline(
+      <>
+        <rect
+          x={BOX.x}
+          y={BOX.y}
+          width={BOX.size}
+          height={BOX.size}
+          rx={1}
+          opacity={0.28}
+          strokeWidth={1.4}
+        />
+        {faint ? <path d={faint} opacity={0.35} strokeWidth={1.4} /> : null}
+        <path d={bars} strokeWidth={2.2} />
+      </>,
+      size
+    );
+  };
+
 const DRAWN: Record<string, Drawn> = {
+  /*
+   * **Across the stack** — where the children sit on the axis it does *not* run along. Four bars of
+   * different lengths pinned to one side, or stretched, which is the whole of what the choice says.
+   */
+  'cross-stretch': stackIcon('M5 5v6M8 5v6M11 5v6'),
+  'cross-start': stackIcon('M5 5v3M8 5v4.5M11 5v2.5'),
+  'cross-centre': stackIcon('M5 6.5v3M8 5.75v4.5M11 6.75v2.5'),
+  'cross-end': stackIcon('M5 8v3M8 6.5v4.5M11 8.5v2.5'),
+
+  /*
+   * **Along the stack** — the six ways the space left over is handed out. Three bars of one length,
+   * moved and spaced; the difference between 둘레 and 고르게 is one gap's worth at each end, which is
+   * why both are drawn rather than described.
+   */
+  'along-start': stackIcon('M4.5 5v6M7 5v6M9.5 5v6'),
+  'along-centre': stackIcon('M5.75 5v6M8 5v6M10.25 5v6'),
+  'along-end': stackIcon('M6.5 5v6M9 5v6M11.5 5v6'),
+  'along-between': stackIcon('M4 5v6M8 5v6M12 5v6'),
+  'along-around': stackIcon('M4.75 5v6M8 5v6M11.25 5v6', 'M2.6 8h1.1M12.3 8h1.1'),
+  'along-evenly': stackIcon('M5 5v6M8 5v6M11 5v6', 'M2.6 8h1.6M11.8 8h1.6'),
+
+  /*
+   * **How much room a child takes** — Figma's three, drawn as the three shapes they are: filling the
+   * box, wrapping what is in it, and a stated width that ignores both.
+   */
+  'size-fill': stackIcon('M4 5v6M12 5v6', 'M5.5 8h5'),
+  'size-hug': stackIcon('M6.5 5v6M9.5 5v6', 'M4 8h2M10 8h2'),
+  'size-fixed': stackIcon('M5.5 5v6M10.5 5v6', 'M5.5 8h5'),
+
   // A quarter turn at one corner, and the two runs that reach it.
   'corner-top-left': corner('M13.5 2.5H8a5.5 5.5 0 0 0-5.5 5.5v5.5'),
   'corner-top-right': corner('M2.5 2.5H8a5.5 5.5 0 0 1 5.5 5.5v5.5'),

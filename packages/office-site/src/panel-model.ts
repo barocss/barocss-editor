@@ -63,6 +63,14 @@ export type SitePanelControl =
   | 'text'
   | 'number'
   | 'colour'
+  /**
+   * A list of words, or — when **every** option carries an icon — a strip of small pictures.
+   *
+   * The sheet decides from the declaration rather than from a second control kind, and that is the
+   * declaration's job: a stack's direction is three choices a reader makes constantly and a
+   * `<select>` costs two gestures every time, while a list of ten field kinds is words and should
+   * stay words. Give the options icons to say *this one is a shape*.
+   */
   | 'choice'
   | 'toggle'
   /** Read and never written — the kind of block, which a reader is told rather than asked. */
@@ -419,12 +427,12 @@ export const SITE_PANEL: SitePanelRow[] = [
     on: STACKS,
     when: { attr: 'layoutMode', is: ['row', 'column'] },
     options: [
-      { id: 'start', label: '앞으로' },
-      { id: 'center', label: '가운데' },
-      { id: 'end', label: '뒤로' },
-      { id: 'between', label: '양끝' },
-      { id: 'around', label: '둘레' },
-      { id: 'evenly', label: '고르게' }
+      { id: 'start', label: '앞으로', icon: 'along-start' },
+      { id: 'center', label: '가운데', icon: 'along-centre' },
+      { id: 'end', label: '뒤로', icon: 'along-end' },
+      { id: 'between', label: '양끝', icon: 'along-between' },
+      { id: 'around', label: '둘레', icon: 'along-around' },
+      { id: 'evenly', label: '고르게', icon: 'along-evenly' }
     ]
   },
   {
@@ -438,10 +446,10 @@ export const SITE_PANEL: SitePanelRow[] = [
     fallback: 'stretch',
     on: STACKS,
     options: [
-      { id: 'stretch', label: '채움' },
-      { id: 'start', label: '앞' },
-      { id: 'center', label: '가운데' },
-      { id: 'end', label: '뒤' }
+      { id: 'stretch', label: '채움', icon: 'cross-stretch' },
+      { id: 'start', label: '앞', icon: 'cross-start' },
+      { id: 'center', label: '가운데', icon: 'cross-centre' },
+      { id: 'end', label: '뒤', icon: 'cross-end' }
     ]
   },
 
@@ -461,9 +469,9 @@ export const SITE_PANEL: SitePanelRow[] = [
      */
     fallback: 'fill',
     options: [
-      { id: 'fill', label: 'Fill' },
-      { id: 'hug', label: 'Hug' },
-      { id: 'fixed', label: 'Fixed' }
+      { id: 'fill', label: 'Fill', icon: 'size-fill' },
+      { id: 'hug', label: 'Hug', icon: 'size-hug' },
+      { id: 'fixed', label: 'Fixed', icon: 'size-fixed' }
     ]
   },
   { attr: 'minWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최소', ariaLabel: '최소 폭', control: 'number', unit: 'px', min: 0, when: { attr: 'position', is: [undefined, '', 'sticky'] } },
