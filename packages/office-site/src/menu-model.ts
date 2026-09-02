@@ -137,6 +137,8 @@ const DECLARED: SiteMenu[] = [
         id: 'blocks',
         items: [
           { command: 'duplicateBlocks', label: '복제' },
+          { command: 'groupBlocks', label: '묶기' },
+          { command: 'ungroupBlocks', label: '묶음 풀기' },
           { command: 'removeBlocks', label: '삭제' },
           /*
            * Ordering, which a page has instead of a z-order: a page stacks, so *forward* and *back*
@@ -370,6 +372,63 @@ const DECLARED: SiteMenu[] = [
  * note rather than a chord (미리보기's *Esc로 나가기*).
  */
 export const SITE_MENUS: SiteMenu[] = withHints(DECLARED, SITE_KEYS);
+
+/**
+ * **What a press of the right button offers**, which is the gesture every builder has and this had
+ * none of.
+ *
+ * Declared here rather than written into the board's JSX, for the reason this file exists: a menu
+ * written in a component is a menu no check can read, and `every-command-can-be-reached` asks the
+ * *product* what a reader can run. Every command below is already on the menubar — this is the same
+ * list, cut down to what somebody who has just pressed on a block actually wants, in the order they
+ * want it.
+ *
+ * **Nothing new.** A context menu that offered a command the menubar did not would be a second place
+ * to keep the truth about what this product does; one that offered *everything* would be the menubar
+ * again, drawn over the page, which is what makes most of them useless.
+ *
+ * The blocks are the four things a reader does to a block they are pointing at: take it somewhere,
+ * make another, change what it is, get rid of it. `needs` and each command's own guard decide what is
+ * greyed — the same answer the menubar gets, from the same place.
+ */
+export const SITE_CONTEXT: SiteMenuBlock[] = [
+  {
+    id: 'clipboard',
+    items: [
+      { command: 'cutBlocks', label: '잘라내기' },
+      { command: 'copyBlocks', label: '복사' },
+      { command: 'pasteBlocks', label: '붙여넣기', needs: 'page' },
+      { command: 'duplicateBlocks', label: '복제' }
+    ]
+  },
+  {
+    id: 'order',
+    items: [
+      { command: 'moveBlockUp', label: '위로 옮기기' },
+      { command: 'moveBlockDown', label: '아래로 옮기기' }
+    ]
+  },
+  {
+    id: 'become',
+    items: [
+      /*
+       * **묶기 first**, above 컴포넌트로 만들기, because it is the lighter of the two and the one a
+       * reader reaches for far more often: a group is a frame that keeps these blocks together on
+       * this page, a component is a shape reused across pages. Offering the heavier one first is how
+       * a builder ends up with twelve one-off components.
+       */
+      { command: 'groupBlocks', label: '묶기' },
+      { command: 'ungroupBlocks', label: '묶음 풀기' },
+      { command: 'createComponentFrom', label: '컴포넌트로 만들기' },
+      { command: 'detachComponent', label: '컴포넌트 해제' },
+      { command: 'selectParent', label: '담고 있는 블록 선택' }
+    ]
+  },
+  {
+    id: 'remove',
+    items: [{ command: 'removeBlocks', label: '삭제' }]
+  }
+];
 
 /** Every command the menubar can run — the harness's question, answered by the model. */
 export function siteMenuCommands(menus: SiteMenu[] = SITE_MENUS): string[] {

@@ -47,6 +47,7 @@ import {
   type PanelRow
 } from '@barocss/office-controls';
 import { ASPECT_LABELS } from './aspect';
+import { PROVIDERS } from './embed';
 import { FACES, SCALES } from './type-scale';
 import { REVEALS } from './reveal';
 import { SELECTABLE } from './selection';
@@ -272,25 +273,32 @@ export const SITE_PANEL: SitePanelRow[] = [
    * what a switch is. The labels say the **true** state rather than the act — 보임 and 잠금 — because
    * a switch's label names what it controls and its position says which way.
    */
+  /*
+   * On **one row**, because they are the two things a reader says about a block without changing how
+   * it looks: is it there, and can it be touched. Every panel of this kind puts the pair together —
+   * two whole rows for two switches is two rows of eye travel for one question.
+   */
   {
     attr: 'visible',
     command: 'setBlockFormat',
     group: '선택',
     tab: 'block',
-    label: '보임',
+    label: '보임 · 잠금',
     ariaLabel: '페이지에 보임',
     control: 'toggle',
-    fallback: true
-  },
-  {
-    attr: 'locked',
-    command: 'setBlockFormat',
-    group: '선택',
-    tab: 'block',
-    label: '잠금',
-    ariaLabel: '잠금',
-    control: 'toggle',
-    fallback: false
+    fallback: true,
+    with: [
+      {
+        attr: 'locked',
+        command: 'setBlockFormat',
+        group: '선택',
+        tab: 'block',
+        label: '잠금',
+        ariaLabel: '잠금',
+        control: 'toggle',
+        fallback: false
+      }
+    ]
   },
   /**
    * **What part of the page this is**, which is the one property here that is not about how it looks.
@@ -371,6 +379,83 @@ export const SITE_PANEL: SitePanelRow[] = [
     when: { attr: 'layoutMode', is: ['grid'] }
   },
   { attr: 'gap', command: 'setBlockFormat', group: '배치', tab: 'block', label: '간격', ariaLabel: '간격', control: 'number', unit: 'px', min: 0, fallback: 0, on: STACKS },
+  /**
+   * **A row that scrolls sideways**, which is also exactly a carousel.
+   *
+   * Three words rather than a switch, because the third is a different thing rather than more of the
+   * second: *넘김* is what turns a scrolling strip into a carousel — letting go lands on a card
+   * instead of between two. A reader who wants a free-running strip of logos wants 옆으로 and not
+   * 넘김, and one word could not have offered both.
+   *
+   * Under 배치 beside 간격 rather than in 모양, because it is what the stack **does** with what it
+   * holds, which is the same question 방향 and 간격 answer.
+   */
+  /**
+   * **What to embed, and which service it comes from.**
+   *
+   * Two rows for one decision, and they are genuinely two: *which service* is a list this product
+   * keeps (`embed.ts`), and *which thing on it* is something only the reader knows. A single field
+   * taking a URL would be the third option and the wrong one — the document would then hold one
+   * company's address shape, and the day it changes every page that used it breaks.
+   *
+   * The id field takes a **pasted URL** and finds the id in it, which is what somebody will actually
+   * do. Telling a reader to go and find an id themselves is telling them to do a computer's job.
+   */
+  {
+    attr: 'provider',
+    command: 'setBlockFormat',
+    group: '넣은 것',
+    tab: 'block',
+    label: '어디',
+    ariaLabel: '넣을 곳',
+    control: 'choice',
+    on: ['mediaEmbed'],
+    options: [{ id: '', label: '고르지 않음' }, ...PROVIDERS.map((one) => ({ id: one.id, label: one.label }))]
+  },
+  { attr: 'id', command: 'setBlockFormat', group: '넣은 것', tab: 'block', label: '무엇', ariaLabel: '넣을 것의 주소나 id', control: 'text', on: ['mediaEmbed'] },
+  { attr: 'title', command: 'setBlockFormat', group: '넣은 것', tab: 'block', label: '설명', ariaLabel: '넣은 것의 설명', control: 'text', on: ['mediaEmbed'] },
+
+  /**
+   * **A video**, and the four things a reader decides about one.
+   *
+   * `src` is a file or an address like a picture's; the other three are what the browser does with
+   * it. 조작 defaults on and that is the honest default rather than the pretty one — a video a
+   * visitor cannot pause is a video they close the tab on.
+   */
+  { attr: 'src', command: 'setBlockFormat', group: '영상', tab: 'block', label: '파일', ariaLabel: '영상 파일', control: 'picture', on: ['mediaVideo'] },
+  { attr: 'poster', command: 'setBlockFormat', group: '영상', tab: 'block', label: '표지', ariaLabel: '재생 전 보일 그림', control: 'picture', on: ['mediaVideo'] },
+  {
+    attr: 'controls',
+    command: 'setBlockFormat',
+    group: '영상',
+    tab: 'block',
+    label: '조작 · 소리 없이',
+    ariaLabel: '재생 조작 보이기',
+    control: 'toggle',
+    fallback: true,
+    on: ['mediaVideo'],
+    with: [
+      { attr: 'muted', command: 'setBlockFormat', group: '영상', tab: 'block', label: '소리 없이', ariaLabel: '소리 없이', control: 'toggle', fallback: false, on: ['mediaVideo'] }
+    ]
+  },
+  { attr: 'loop', command: 'setBlockFormat', group: '영상', tab: 'block', label: '반복', ariaLabel: '끝나면 다시', control: 'toggle', fallback: false, on: ['mediaVideo'] },
+
+  {
+    attr: 'scrolls',
+    command: 'setBlockFormat',
+    group: '배치',
+    tab: 'block',
+    label: '가로 스크롤',
+    ariaLabel: '가로로 스크롤',
+    control: 'choice',
+    on: STACKS,
+    when: { attr: 'layoutMode', is: ['row'] },
+    options: [
+      { id: '', label: '없음' },
+      { id: 'x', label: '옆으로' },
+      { id: 'x-snap', label: '넘김' }
+    ]
+  },
   {
     attr: 'padding',
     command: 'setBlockFormat',
@@ -474,8 +559,34 @@ export const SITE_PANEL: SitePanelRow[] = [
       { id: 'fixed', label: 'Fixed', icon: 'size-fixed' }
     ]
   },
-  { attr: 'minWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최소', ariaLabel: '최소 폭', control: 'number', unit: 'px', min: 0, when: { attr: 'position', is: [undefined, '', 'sticky'] } },
-  { attr: 'maxWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대', ariaLabel: '최대 폭', control: 'number', unit: 'px', min: 0, when: { attr: 'position', is: [undefined, '', 'sticky'] } },
+  /**
+   * **Two halves of one decision, on one row** — which is how every panel of this kind draws a pair
+   * and how this one did not.
+   *
+   * Measured against the shape a designer expects: sixteen of this panel's rows spend a whole 240
+   * pixels on a single control, and four of them are 최소/최대 twice. A minimum without its maximum
+   * beside it is half a sentence, and reading the pair costs two rows of eye travel where it should
+   * cost none.
+   *
+   * `with` is the mechanism the padding row already uses for 상하좌우: one label, the controls
+   * beside each other. Nothing new — it was simply never applied to the pairs that most obviously
+   * are pairs.
+   */
+  {
+    attr: 'minWidth',
+    command: 'setBlockFormat',
+    group: '크기',
+    tab: 'block',
+    label: '폭 범위',
+    ariaLabel: '최소 폭',
+    control: 'number',
+    unit: 'px',
+    min: 0,
+    when: { attr: 'position', is: [undefined, '', 'sticky'] },
+    with: [
+      { attr: 'maxWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대', ariaLabel: '최대 폭', control: 'number', unit: 'px', min: 0 }
+    ]
+  },
   /*
    * And the same pair for **height**, which is new and reads as though it had always been there —
    * which is the point: a reader who has learned 최소/최대 폭 has learned this in the same gesture.
@@ -487,8 +598,21 @@ export const SITE_PANEL: SitePanelRow[] = [
    * under 위치. Two rows writing one attribute is a panel where setting either silently changes the
    * other — the fault `a row per attribute` refuses — and `when` is what keeps them apart.
    */
-  { attr: 'minHeight', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최소 높이', ariaLabel: '최소 높이', control: 'number', unit: 'px', min: 0, when: { attr: 'position', is: [undefined, '', 'sticky'] } },
-  { attr: 'maxHeight', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대 높이', ariaLabel: '최대 높이', control: 'number', unit: 'px', min: 0, when: { attr: 'position', is: [undefined, '', 'sticky'] } },
+  {
+    attr: 'minHeight',
+    command: 'setBlockFormat',
+    group: '크기',
+    tab: 'block',
+    label: '높이 범위',
+    ariaLabel: '최소 높이',
+    control: 'number',
+    unit: 'px',
+    min: 0,
+    when: { attr: 'position', is: [undefined, '', 'sticky'] },
+    with: [
+      { attr: 'maxHeight', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대', ariaLabel: '최대 높이', control: 'number', unit: 'px', min: 0 }
+    ]
+  },
 
   // ── 폼 — where what a visitor typed goes ──────────────────────────────────
   /**

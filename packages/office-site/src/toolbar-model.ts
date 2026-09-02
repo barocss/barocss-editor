@@ -116,6 +116,22 @@ export const SITE_TOOLBAR: SiteControl[] = [
    * `container`, not `block`, and that is what they are: a reader puts things inside them. Grouped
    * with the section and the grid rather than with the button for that reason.
    */
+  /*
+   * **Three shapes rather than three nodes.** A two-up, a row of cards and a numbered column are all
+   * frames and text this product has had since the first week — what was missing is that a reader
+   * had to assemble each one every time from a menu that offers primitives. Which is exactly what
+   * 아코디언 and 탭 already are, and nothing had generalised from them.
+   */
+  /*
+   * **Two things a page has and a printed document cannot** — which is why office leaves both in the
+   * standard schema and the site takes them. Neither ships a byte of script: a video is `<video>` and
+   * an embed is an `<iframe>`, both of which a browser has had for fifteen years.
+   */
+  { command: 'insertVideo', puts: 'block', label: '영상', title: '영상을 넣습니다', group: 'insert', icon: 'insert-image', makes: '영상' },
+  { command: 'insertEmbed', puts: 'block', label: '넣은 것', title: '영상·지도 등 다른 곳의 것을 넣습니다', group: 'insert', icon: 'frame-grid', makes: '넣은 것' },
+  { command: 'insertSplit', puts: 'container', label: '두 칸', title: '나란한 두 칸 — 좁은 화면에서는 위아래로', group: 'insert', icon: 'frame-row', makes: '두 칸' },
+  { command: 'insertCards', puts: 'container', label: '카드 셋', title: '제목과 설명이 있는 카드 세 장', group: 'insert', icon: 'frame-grid', makes: '카드 셋' },
+  { command: 'insertSteps', puts: 'container', label: '단계', title: '번호가 붙은 단계 목록', group: 'insert', icon: 'frame-column', makes: '단계' },
   { command: 'insertAccordion', puts: 'container', label: '아코디언', title: '눌러서 펼치는 항목들', group: 'insert', icon: 'accordion', makes: '아코디언' },
   { command: 'insertTabs', puts: 'container', label: '탭', title: '한 번에 하나만 보이는 탭', group: 'insert', icon: 'tabs', makes: '탭' },
   /*
@@ -236,6 +252,14 @@ export const SITE_TOOLBAR: SiteControl[] = [
     group: 'arrange' as const,
     icon
   })),
+
+  /*
+   * **Putting several blocks into one, and taking one apart** — the gesture a designer reaches for
+   * most after moving something, and the page had no word for it. A frame, because that is what a
+   * group is here: a page has no `group` node, and a stack of blocks already is the shape.
+   */
+  { command: 'groupBlocks', label: '묶기', title: '고른 블록들을 하나로 묶습니다', group: 'arrange', icon: 'group' },
+  { command: 'ungroupBlocks', label: '묶음 풀기', title: '묶음 안의 블록들을 밖으로 꺼냅니다', group: 'arrange', icon: 'ungroup' },
 
   {
     command: 'detachComponent',

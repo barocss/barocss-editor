@@ -141,6 +141,110 @@ describe('what a reader can do to a block', () => {
     expect(blocksIn(doc, cardRow)).toEqual(before);
   });
   /**
+   * **Putting several blocks into one, and taking one apart.**
+   *
+   * The gesture a designer reaches for most after moving something, and the page had no word for it —
+   * a **frame**, because that is what a group is here: a page has no `group` node, that is a z-order
+   * over placed shapes and a page places none.
+   */
+  describe('several blocks becoming one', () => {
+    const kids = (sid: string) => ((store.getNode(sid) as any)?.content ?? []) as string[];
+
+    it('wraps them in a frame where the first one was, in the order they sat', async () => {
+      const before = blocksIn(doc, page);
+      const chosen = before.slice(1, 4);
+      await run('groupBlocks', { nodeIds: chosen });
+
+      const after = blocksIn(doc, page);
+      expect(after.length).toBe(before.length - 2);
+      // In the first one's place, which is what makes it read as wrapping rather than moving.
+      const made = after[1];
+      expect(store.getNode(made)?.stype).toBe('frame');
+      expect(kids(made).length).toBe(3);
+    });
+
+    it('sorts by where they sit, not by the order they were clicked', async () => {
+      // A reader who shift-clicked bottom-to-top did not mean to reverse them.
+      const before = blocksIn(doc, page).slice(0, 3);
+      const words = before.map((sid) => JSON.stringify(editor.exportDocument(sid)));
+      await run('groupBlocks', { nodeIds: [...before].reverse() });
+      const made = blocksIn(doc, page)[0];
+      expect(kids(made).map((sid) => JSON.stringify(editor.exportDocument(sid)))).toEqual(words);
+    });
+
+    it('takes the direction of the stack they were in', async () => {
+      /*
+       * A group that turned a row into a column would rearrange everything it touched. Read from the
+       * parent rather than assumed.
+       */
+      const row = named(doc, page, '제품 셋');
+      const inside = kids(row).slice(0, 2);
+      await run('groupBlocks', { nodeIds: inside });
+      expect((store.getNode(kids(row)[0]) as any)?.attributes?.layoutMode).toBe('row');
+    });
+
+    it('refuses one block, and two in different parents', async () => {
+      const one = blocksIn(doc, page)[0];
+      expect(editor.canExecuteCommand('groupBlocks', { nodeIds: [one] })).toBe(false);
+
+      /*
+       * Grouping across two sections has no honest answer: it has to move at least one of them
+       * somewhere else, and a reader who wanted that would have dragged it.
+       */
+      const deep = kids(named(doc, page, '제품 셋'))[0];
+      expect(editor.canExecuteCommand('groupBlocks', { nodeIds: [one, deep] })).toBe(false);
+    });
+
+    it('puts the children back where the frame was, in order', async () => {
+      const before = blocksIn(doc, page);
+      await run('groupBlocks', { nodeIds: before.slice(1, 4) });
+      const made = blocksIn(doc, page)[1];
+      const words = kids(made).map((sid) => JSON.stringify(editor.exportDocument(sid)));
+
+      await run('ungroupBlocks', { nodeIds: [made] });
+      const after = blocksIn(doc, page);
+      expect(after.length).toBe(before.length);
+      expect(after.slice(1, 4).map((sid) => JSON.stringify(editor.exportDocument(sid)))).toEqual(words);
+    });
+
+    it('leaves the reader holding the children, not the frame that is gone', async () => {
+      const before = blocksIn(doc, page);
+      await run('groupBlocks', { nodeIds: before.slice(1, 4) });
+      const made = blocksIn(doc, page)[1];
+      await run('ungroupBlocks', { nodeIds: [made] });
+
+      const held = (editor.selection?.nodeIds ?? []) as string[];
+      expect(held).toHaveLength(3);
+      expect(held).toEqual(blocksIn(doc, page).slice(1, 4));
+    });
+
+    it('finds them all when two groups come apart at once', async () => {
+      /*
+       * The arithmetic the single case cannot see: a frame taken apart at a lower index pushes every
+       * span after it along by one less than it put back. Two groups of three, and the second one's
+       * children sit four places further down than where its frame stood.
+       */
+      const before = blocksIn(doc, page);
+      await run('groupBlocks', { nodeIds: before.slice(0, 3) });
+      await run('groupBlocks', { nodeIds: blocksIn(doc, page).slice(1, 4) });
+      const two = blocksIn(doc, page).slice(0, 2);
+      expect(two.map((sid) => store.getNode(sid)?.stype)).toEqual(['frame', 'frame']);
+
+      await run('ungroupBlocks', { nodeIds: two });
+      const held = (editor.selection?.nodeIds ?? []) as string[];
+      expect(held).toHaveLength(6);
+      expect(held).toEqual(blocksIn(doc, page).slice(0, 6));
+    });
+
+    it('refuses an empty frame and anything that is not one', async () => {
+      const words = blocksIn(doc, page).find(
+        (sid) => (store.getNode(sid) as any)?.stype === 'heading'
+      );
+      expect(editor.canExecuteCommand('ungroupBlocks', { nodeIds: [words] })).toBe(false);
+    });
+  });
+
+  /**
    * **Lining placed blocks up, and spreading them out.**
    *
    * The arithmetic rather than the gesture: a browser holds the drag and this holds the numbers, and

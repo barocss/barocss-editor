@@ -10,6 +10,7 @@ import {
   landingFor,
   innermostOf,
   isInside,
+  SITE_CONTEXT,
   isTextual,
   boundVarOf,
   drawnSidAtElement,
@@ -302,6 +303,13 @@ export function Overlay({
    * chosen by drawing a box around them, and this had only Shift-click — one press per block, in a
    * tool where the whole point of placing things freely is that there are several of them.
    */
+  /**
+   * **Where a press of the right button opened a menu**, or nothing.
+   *
+   * On screen coordinates rather than board ones: the menu is drawn outside the zoomed plane, like
+   * every other piece of chrome, so a menu at 40% zoom is the same size as one at 200%.
+   */
+  const [context, setContext] = useState<{ x: number; y: number } | null>(null);
   const [sweep, setSweep] = useState<{
     from: { x: number; y: number };
     to: { x: number; y: number };
@@ -889,6 +897,23 @@ export function Overlay({
         setLanding(null);
       }}
       onPointerLeave={() => setHover(undefined)}
+      /**
+       * **The gesture every builder has**, and this had none of.
+       *
+       * A press of the right button on a block selects it — unless it is already in the selection,
+       * which is the rule every tool follows and the one that makes *right-click three things and
+       * delete them* work at all. Then the menu opens where the pointer is.
+       *
+       * The list is the product's (`SITE_CONTEXT`), not this file's: a menu written into a component
+       * is a menu no check can read, and `every-command-can-be-reached` asks the product.
+       */
+      onContextMenu={(event) => {
+        if (mode !== 'select') return;
+        event.preventDefault();
+        const outer = childOfScope(doc(), hit(event), page, scope);
+        if (outer && !selected.includes(outer)) select([outer]);
+        setContext({ x: event.clientX, y: event.clientY });
+      }}
       onPointerDown={(event) => {
         if (mode !== 'select') return;
         // Any new press answers the last one, so the note about bound words goes with it.
@@ -1091,6 +1116,73 @@ export function Overlay({
       {guides.y.map((at) => (
         <div key={`y${at}`} className="st-mark st-mark-guide" style={{ left: 0, top: `${at}px`, width: '100%', height: 0 }} aria-hidden />
       ))}
+
+      {context ? (
+        /**
+         * **The menu**, drawn outside the zoomed plane so it is the same size at 40% and at 200% —
+         * the rule every other piece of tool furniture here follows.
+         *
+         * Closed by choosing, by pressing away, and by Escape. A menu a reader has to dismiss after
+         * it has done what they opened it for is a menu that asked them twice; one with no way out
+         * but choosing is worse.
+         */
+        <>
+          <div className="st-context-shade" onPointerDown={() => setContext(null)} aria-hidden />
+          <div
+            className="st-context"
+            data-context
+            role="menu"
+            style={{ left: `${context.x}px`, top: `${context.y}px` }}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setContext(null);
+            }}
+          >
+            {SITE_CONTEXT.map((block) => (
+              <div key={block.id} className="st-context-block">
+                {block.items.map((one) => {
+                  const said = { nodeIds: selected, ...(one.needs === 'page' ? { nodeId: page, pageId: page } : {}) };
+                  const can =
+                    (editor as never as {
+                      canExecuteCommand?: (n: string, p?: unknown) => boolean;
+                    }).canExecuteCommand?.(one.command!, said) ?? false;
+                  return (
+                    <button
+                      key={one.command}
+                      type="button"
+                      role="menuitem"
+                      data-context-item={one.command}
+                      disabled={!can}
+                      /*
+                       * The press is stopped here as well as the click: this button is inside the
+                       * overlay, whose own `pointerdown` starts a selection or a drag — so a press on
+                       * a menu item was also a press on the page behind it, which cleared the
+                       * selection the item was about to act on and left the menu open over it.
+                       */
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={() => {
+                        /*
+                         * **Closed first, then run.** A command re-renders the boards, and a
+                         * `setContext` queued behind one was measured landing on a component the
+                         * render had already replaced — the menu stayed open over the thing it had
+                         * just changed. Closing is this layer's own state and owes the command
+                         * nothing.
+                         */
+                        setContext(null);
+                        void (editor as never as {
+                          executeCommand?: (n: string, p?: unknown) => void;
+                        }).executeCommand?.(one.command!, said);
+                      }}
+                    >
+                      {one.label}
+                      {one.hint ? <em>{one.hint}</em> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
 
       {sweep ? (
         /*

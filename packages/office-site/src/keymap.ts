@@ -72,6 +72,25 @@ export const SITE_KEYS: SiteKey[] = [
     needsSelection: true,
     label: '선택한 블록 삭제'
   },
+  /*
+   * **⌘G and ⇧⌘G**, which is what every tool of this kind binds and therefore what a reader's hands
+   * already know. `needsSelection` on both: with nothing held the key is not handled and falls
+   * through, rather than being a chord that does nothing.
+   */
+  {
+    key: 'Mod+g',
+    command: 'groupBlocks',
+    mode: 'select',
+    needsSelection: true,
+    label: '고른 블록 묶기'
+  },
+  {
+    key: 'Mod+Shift+g',
+    command: 'ungroupBlocks',
+    mode: 'select',
+    needsSelection: true,
+    label: '묶음 풀기'
+  },
   {
     key: 'Mod+d',
     command: 'duplicateBlocks',

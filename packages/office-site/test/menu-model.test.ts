@@ -5,7 +5,7 @@ import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
 import { registerSiteRenderers } from '../src/renderers';
-import { SITE_MENUS, siteMenuCommands, siteMenuEntry, siteMenuId } from '../src/menu-model';
+import { SITE_MENUS, siteMenuCommands, siteMenuEntry, siteMenuId, SITE_CONTEXT } from '../src/menu-model';
 import { pagesOf } from '../src/selection';
 
 /**
@@ -99,6 +99,15 @@ describe('what the menubar offers', () => {
       'insertSection',
       'insertRow',
       'insertGrid',
+      /*
+       * Three **shapes** — a two-up, a row of cards, a numbered column — which are frames and text
+       * rather than new nodes, and which a reader had been assembling by hand every time. They need
+       * the page for the same reason every other insert does: with nothing selected they land at the
+       * end of the page a reader is looking at, which the model has no notion of.
+       */
+      'insertSplit',
+      'insertCards',
+      'insertSteps',
       'insertAccordion',
       'insertTabs',
       'insertForm',
@@ -111,7 +120,10 @@ describe('what the menubar offers', () => {
       'insertCode',
       'insertRule',
       'insertTableBlock',
-      'insertButton'
+      'insertButton',
+      /* Two things a page has and a printed document cannot — see `docs/specs/site-blocks.md`. */
+      'insertVideo',
+      'insertEmbed'
     ]);
   });
 
@@ -147,6 +159,45 @@ describe('what the menubar offers', () => {
  * host — is the app's question, and the day this grows a deploy target it is a different answer
  * behind the same command.
  */
+/**
+ * **The context menu offers nothing the menubar does not.**
+ *
+ * A press of the right button is the gesture every builder has, and the temptation is to write it
+ * into the board's JSX where it is needed — which is a second place to keep the truth about what this
+ * product does, and the reason `menu-model.ts` exists at all. So it is declared, and this holds the
+ * one property that keeps it from drifting: every command in it is a command the menubar already
+ * offers.
+ *
+ * The other direction is deliberately **not** asserted. A context menu that offered everything would
+ * be the menubar drawn over the page, which is what makes most of them useless: this is the same list
+ * cut down to what somebody pointing at a block wants.
+ */
+describe('what a press of the right button offers', () => {
+  it('offers nothing the menubar does not', () => {
+    const menubar = new Set(siteMenuCommands());
+    const stray = SITE_CONTEXT.flatMap((block) =>
+      block.items.map((one) => one.command).filter((one) => one && !menubar.has(one))
+    );
+    expect(stray).toEqual([]);
+  });
+
+  it('is shorter than the menubar, because a shortened list is the whole point', () => {
+    const mine = SITE_CONTEXT.flatMap((block) => block.items).length;
+    expect(mine).toBeGreaterThan(4);
+    expect(mine).toBeLessThan(siteMenuCommands().length);
+  });
+
+  it('names a command for every item, so nothing draws as a dead row', () => {
+    for (const block of SITE_CONTEXT) {
+      expect(block.items.length).toBeGreaterThan(0);
+      for (const one of block.items) {
+        expect(one.command, `${one.label}에 명령이 없습니다`).toBeTruthy();
+        expect(one.label.length).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
 describe('publishing', () => {
   let editor: any;
   let store: DataStore;

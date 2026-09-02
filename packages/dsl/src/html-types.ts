@@ -199,6 +199,35 @@ export interface MediaAttributes extends BaseHTMLAttributes {
   width?: number | string;
   height?: number | string;
   crossOrigin?: 'anonymous' | 'use-credentials';
+  /**
+   * **Plays where it sits**, rather than taking over the screen.
+   *
+   * iOS opens a video full-screen without it, which for an inline video on a page is the browser
+   * doing something nobody asked for — a background clip in a hero becoming a film the visitor has to
+   * dismiss. Every product that puts video in a page sets it, and it is spelled all-lowercase because
+   * the attribute is.
+   */
+  playsinline?: boolean | string;
+}
+
+/**
+ * **A frame holding somebody else's page.**
+ *
+ * Its own interface because the attributes that matter are the ones that make it safe to have: a
+ * `sandbox` so the frame cannot navigate the page it is in, a `referrerpolicy` so a visitor's address
+ * is not handed to a third party, and `loading` so a map three screens down is not fetched before the
+ * page is read.
+ */
+export interface FrameAttributes extends BaseHTMLAttributes {
+  src?: string;
+  title?: string;
+  width?: number | string;
+  height?: number | string;
+  loading?: 'eager' | 'lazy';
+  sandbox?: string;
+  allow?: string;
+  referrerpolicy?: string;
+  allowfullscreen?: boolean | string;
 }
 
 // Table attributes
@@ -316,6 +345,7 @@ export type HTMLAttributes =
   | LinkAttributes
   | ImageAttributes
   | MediaAttributes
+  | FrameAttributes
   | TableAttributes
   | TableCellAttributes
   | ListAttributes
@@ -372,6 +402,7 @@ export interface ElementAttributeMap {
   // Media elements
   img: ImageAttributes;
   video: MediaAttributes;
+  iframe: FrameAttributes;
   audio: MediaAttributes;
   canvas: CanvasAttributes;
   

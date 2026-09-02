@@ -150,6 +150,7 @@ export {
   siteMenuEntry,
   siteMenuId,
   type SiteMenu,
+  SITE_CONTEXT,
   type SiteMenuBlock,
   type SiteMenuEntry
 } from './menu-model';

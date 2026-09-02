@@ -113,6 +113,16 @@ describe('the site builder draws what it declares', () => {
      * with one attribute turned on. Neither is a node type and neither should be — the day the schema
      * grew an `accordion` node is the day a reader could no longer take one apart.
      */
+    /*
+     * Three **shapes**, each of which is a `frame` with frames and text in it — the same answer
+     * 아코디언 and 탭 give, and the reason `produces` names a node type rather than a pattern: what a
+     * reader gets is a composition, and what the document gains is a frame.
+     */
+    { command: 'insertVideo', produces: 'mediaVideo' },
+    { command: 'insertEmbed', produces: 'mediaEmbed' },
+    { command: 'insertSplit', produces: 'frame' },
+    { command: 'insertCards', produces: 'frame' },
+    { command: 'insertSteps', produces: 'frame' },
     { command: 'insertAccordion', produces: 'frame' },
     { command: 'insertTabs', produces: 'frame' },
     /*
@@ -381,6 +391,37 @@ describe('the site builder draws what it declares', () => {
       if (command === 'insertEmoji') {
         payload.shortcode = ':tada:';
         payload.unicode = '🎉';
+      }
+
+      /**
+       * **Two blocks in the same stack, and a frame that already holds some**, for putting several
+       * into one and taking one apart.
+       *
+       * Both refuse on purpose and for opposite reasons, which is why neither could be probed with
+       * the default payload: grouping refuses one block and refuses two in different parents, and
+       * ungrouping refuses anything that is not a frame with children in it. So the probe finds the
+       * shapes rather than making them — the sample site has both, and a probe that had to build a
+       * frame to ask about frames would be testing its own scaffolding.
+       */
+      if (command === 'groupBlocks') {
+        const two = blocksIn(doc as never, page).slice(0, 2);
+        if (two.length === 2) {
+          await editor.executeCommand('setNode', { nodeIds: two });
+          payload.nodeIds = two;
+          payload.nodeId = two[0];
+        }
+      }
+
+      if (command === 'ungroupBlocks') {
+        const holding = blocksIn(doc as never, page).find((sid) => {
+          const node = store.getNode(sid) as any;
+          return node?.stype === 'frame' && (node.content ?? []).length > 0;
+        });
+        if (holding) {
+          await editor.executeCommand('setNode', { nodeIds: [holding] });
+          payload.nodeIds = [holding];
+          payload.nodeId = holding;
+        }
       }
 
       if (command === 'nudgeBlock' || command === 'alignBlocks') {
@@ -1114,6 +1155,17 @@ describe('the site builder draws what it declares', () => {
                * default, so a narrow width saying it is a drawing that differs.
                */
               [{ mobile: { sizing: 'hug' } }]
+            : /*
+               * **What an embed needs before it draws anything.** A `mediaEmbed` with no provider is
+               * a box with nothing in it, on purpose — so every attribute about its frame read as
+               * unread until the probe was told what a provider looks like. The same trap
+               * `field.kind` documents: the filler was setting the one value that made the answer
+               * impossible.
+               */
+              attr === 'provider'
+              ? ['youtube']
+              : attr === 'id'
+              ? ['dQw4w9WgXcQ']
             : attr === 'varBinds'
               ? // `office-canvas`'s shape — `{ attr, var }`. Given so this becomes an **answer**
                 // rather than a skip; the answer is no, and the exemption below says why.
@@ -1656,17 +1708,29 @@ describe('the site builder draws what it declares', () => {
          * The check is right to ask. A mechanism nothing names is a mechanism nobody can find, and
          * the answer being "all of them" is worth writing down once.
          */
-        overrides:
-          'written by every row: `setBlockFormat` takes the width being edited and puts the difference here when it is not the widest',
+        /*
+         * Two checks, said out loud rather than left to be inferred: nothing **reads** `overrides`
+         * as a drawing — `mediaRules` turns it into a stylesheet — and no row **writes** it either,
+         * because every row writes *through* it. One reason, two questions, and the harness asked
+         * for the second to be named the day a new node made the pair visible.
+         */
+        overrides: {
+          reason:
+            'written by every row: `setBlockFormat` takes the width being edited and puts the difference here when it is not the widest',
+          covers: ['every-attribute-is-read', 'every-property-can-be-edited']
+        },
 
         // ── A durable name, which a reader must not type ───────────────────
         /*
-         * `id` is how one node refers to another — a link names a page, a placement names a
-         * definition — and `forFile` strips sids precisely so that a reference is never one. A
-         * reader renaming an id by hand breaks every reference to it silently, which is why the
-         * panel offers a **label** and keeps the name.
+         * **`id` used to be exempt and no longer is**, and the reason it was is still true of the id
+         * it was about: a page's id is how a link names it, `forFile` strips sids precisely so a
+         * reference is never one, and renaming one by hand breaks every reference silently — which is
+         * why the panel offers a **label** and keeps the name.
+         *
+         * What changed is that `mediaEmbed` has an `id` too, and it is the opposite kind: a thing a
+         * reader types, or pastes a URL for. One name, two ideas, and the exemption keyed by name was
+         * quietly covering both — which the harness caught the moment the second one grew a row.
          */
-        id: 'a durable reference target: a link names a page by it. The panel offers 이름 instead, and the id is never typed',
         /*
          * `kind` was one word for two things and the harness said so the day a `field` had one. A
          * surface's is what shape of page it is — set when it is made, never edited. A field's is
@@ -1737,6 +1801,20 @@ describe('the site builder draws what it declares', () => {
          * The claim, so it fails rather than rots: the day a renderer starts folding a state into the
          * node — an inline `:hover` a board can preview, say — this stops being true and comes off.
          */
+        /*
+         * **Six exemptions used to be here and the harness deleted them all**, which is the shape of
+         * every good thing this thing does.
+         *
+         * They said an embed's `provider`, `title`, `poster` and a video's `controls`/`loop` were
+         * attributes the *browser* reads rather than the drawing — true, and it was the wrong reason.
+         * The real one was that `setBlockFormat`'s whitelist did not carry those names, so every panel
+         * row accepted a value and dropped it, so nothing ever changed and every check reported the
+         * change it could not see. Found by asking the fault list about an embed with no id.
+         *
+         * The rows write now. The findings went with them, and the harness reported all six reasons
+         * as **stale** rather than letting them sit as notes that would hide the next fault.
+         */
+
         states: {
           reason:
             'published as a CSS rule by `export-html`’s `stateRules`, because the browser decides when a state applies and it decides after the drawing — held in `states.test.ts`',

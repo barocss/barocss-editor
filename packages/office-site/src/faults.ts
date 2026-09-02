@@ -21,6 +21,7 @@
  */
 import { componentsOf, documentVars, isVarRef, varNameOf } from '@barocss/office-canvas';
 import { collectionFaults } from './data';
+import { embedFaults } from './embed';
 import { linkFaults, linkOf } from './page-link';
 import { overrideFaults } from './responsive';
 import { pagesOf } from './selection';
@@ -357,6 +358,24 @@ export function documentFaults(
         found.push({ sid, kind: 'reference', said: `'${name}' 변수가 없습니다` });
       }
     }
+    /*
+     * **An embed naming nothing it can draw**, which is the one fault this node has and is invisible:
+     * a frame with no source is a box, and a box is what an embed looks like before it loads. A
+     * reader cannot tell *waiting* from *wrong* by looking, which is exactly the shape every fault in
+     * this list has.
+     */
+    if (node.stype === 'mediaEmbed') {
+      for (const said of embedFaults(attrs)) found.push({ sid, kind: 'reference', said });
+    }
+    /*
+     * And a **video with no file**. `src` is required by the schema, so an insert puts a space there
+     * — the node is legal, draws nothing, and says so here rather than looking like a video that has
+     * not started.
+     */
+    if (node.stype === 'mediaVideo' && !String(attrs.src ?? '').trim()) {
+      found.push({ sid, kind: 'asset', said: '영상 파일을 정하지 않았습니다' });
+    }
+
     for (const said of overrideFaults(attrs, declared)) found.push({ sid, kind: 'width', said });
     for (const said of stateFaults(attrs, declared)) found.push({ sid, kind: 'state', said });
 

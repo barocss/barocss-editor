@@ -105,6 +105,55 @@ export class SiteBlockExtension implements Extension {
     );
 
     /**
+     * **Putting several blocks into one**, which is the gesture a designer reaches for most after
+     * moving something — and the page had no word for it.
+     *
+     * A **frame**, because that is what a group is here. `detachComponent` already argues this at
+     * length: a page has no `group` node — that is a z-order over placed shapes and a page places
+     * none — so a stack of blocks *is* the shape, and a second node meaning the same thing would be
+     * two ways to say one thing.
+     *
+     * ## What it keeps
+     *
+     * The **order they were in** and the place the first one held, which is what makes it feel like
+     * wrapping rather than moving: three cards in the middle of a page become one frame in the middle
+     * of a page. Sorted by index rather than by the order they were clicked, because a reader who
+     * shift-clicked bottom-to-top did not mean to reverse them.
+     *
+     * The new frame takes the **direction of the stack they were in**, so grouping three things in a
+     * row gives a row and grouping three in a column gives a column. A group that changed the layout
+     * it was made from would be a group that moved everything it touched.
+     *
+     * ## What it refuses
+     *
+     * Blocks in **different parents**, and that is the whole guard. Grouping across two sections is a
+     * gesture with no honest answer: it has to move at least one of them somewhere else, and a reader
+     * who wanted that would have dragged it. Every tool of this kind refuses it the same way.
+     */
+    register(
+      'groupBlocks',
+      async (payload) => await this._group(editor, payload),
+      (payload) => this._groupable(editor, payload).length > 1
+    );
+
+    /**
+     * And **taking one apart**, which is its other half and has to exist for the first to be safe.
+     *
+     * The children go back where the frame was, in order, and the **children** end up selected — the
+     * same rule `detachComponent` follows and for its reason: the next thing a reader does is to the
+     * things they just let out, not to the space they came from.
+     *
+     * A frame that says anything about itself — a colour, a padding, a corner — is still ungrouped,
+     * and what it said is lost. That is what the gesture means, and undo is one press away; a command
+     * that refused because the box was painted would be a command a reader cannot predict.
+     */
+    register(
+      'ungroupBlocks',
+      async (payload) => await this._ungroup(editor, payload),
+      (payload) => this._ungroupable(editor, payload).length > 0
+    );
+
+    /**
      * What a **placement** answers.
      *
      * A card asks questions (`componentVar`) and a placement answers them (`componentValue`), and
@@ -805,6 +854,133 @@ export class SiteBlockExtension implements Extension {
       );
     }
     return done;
+  }
+
+  /**
+   * The chosen blocks, when they are **siblings** — which is the one state grouping has an answer for.
+   *
+   * Fewer than two is nothing to group, and two in different parents is a gesture that has to move
+   * one of them somewhere else. A reader who wanted that would have dragged it.
+   */
+  private _groupable(editor: Editor, payload?: Record<string, unknown>): string[] {
+    const store = this._store(editor);
+    const chosen = this._chosen(editor, payload);
+    if (!store || chosen.length < 2) return [];
+    const parents = new Set(chosen.map((sid) => String(store.getNode(sid)?.parentId ?? '')));
+    if (parents.size !== 1 || parents.has('')) return [];
+    // In the order they sit, not the order they were clicked: a reader who shift-clicked upward did
+    // not mean to reverse them.
+    return [...chosen].sort((a, b) => this._indexOf(store, a) - this._indexOf(store, b));
+  }
+
+  private async _group(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const chosen = this._groupable(editor, payload);
+    if (chosen.length < 2) return false;
+
+    const store = this._store(editor)!;
+    const parentId = String(store.getNode(chosen[0])!.parentId);
+    const at = this._indexOf(store, chosen[0]);
+
+    const trees = chosen
+      .map((sid) => (editor as never as { exportDocument?: (s: string) => unknown }).exportDocument?.(sid))
+      .filter(Boolean);
+    if (trees.length !== chosen.length) return false;
+
+    /*
+     * The stack they were in, so a row groups into a row. Read from the parent rather than assumed:
+     * a group that turned a row into a column would rearrange everything it touched.
+     */
+    /*
+     * A **grid** counts as a row, which is the honest reading: its children sit beside each other,
+     * and three cells grouped into a column would stack where everything around them does not. The
+     * grid itself keeps its columns; the group takes one cell's worth of them.
+     */
+    const said = String((store.getNode(parentId) as any)?.attributes?.layoutMode ?? 'column');
+    const how = said === 'row' || said === 'grid' ? 'row' : 'column';
+
+    const steps: unknown[] = chosen.map((sid) => removeChild(parentId, sid));
+    steps.push(
+      addChild(
+        parentId,
+        node(
+          'frame',
+          { name: '묶음', layoutMode: how, sizing: 'fill', gap: 0 },
+          trees as never
+        ) as never,
+        at
+      )
+    );
+
+    const result = await transaction(editor, steps as never).commit();
+    if (!result.success) return false;
+
+    // And the new frame is what the reader is holding, because it is what they just made.
+    const made = ((store.getNode(parentId)?.content ?? []) as string[])[at];
+    if (made) void editor.executeCommand('setNode', { nodeIds: [made] });
+    return true;
+  }
+
+  /** The chosen blocks that are frames with something in them — the only thing an ungroup can act on. */
+  private _ungroupable(editor: Editor, payload?: Record<string, unknown>): string[] {
+    const store = this._store(editor);
+    if (!store) return [];
+    return this._chosen(editor, payload).filter((sid) => {
+      const found = store.getNode(sid);
+      return found?.stype === 'frame' && ((found.content ?? []) as unknown[]).length > 0;
+    });
+  }
+
+  private async _ungroup(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const store = this._store(editor)!;
+    const chosen = this._ungroupable(editor, payload);
+    if (chosen.length === 0) return false;
+
+    const steps: unknown[] = [];
+    /* Where each frame's children land, so the reader is left holding them rather than nothing. */
+    const spans: { parentId: string; at: number; count: number }[] = [];
+    /*
+     * Deepest-last, so taking two frames apart does not shift the second one's index out from under
+     * it — the same reason `_duplicate` sorts the other way for the same arithmetic.
+     */
+    for (const sid of [...chosen].sort((a, b) => this._indexOf(store, b) - this._indexOf(store, a))) {
+      const holder = store.getNode(sid);
+      const parentId = String(holder?.parentId ?? '');
+      if (!parentId) continue;
+      const at = this._indexOf(store, sid);
+      const trees = ((holder?.content ?? []) as unknown[])
+        .filter((one): one is string => typeof one === 'string')
+        .map((one) => (editor as never as { exportDocument?: (s: string) => unknown }).exportDocument?.(one))
+        .filter(Boolean);
+      if (trees.length === 0) continue;
+      steps.push(removeChild(parentId, sid));
+      trees.forEach((tree, n) => steps.push(addChild(parentId, tree as never, at + n)));
+      spans.push({ parentId, at, count: trees.length });
+    }
+    if (steps.length === 0) return false;
+
+    const result = await transaction(editor, steps as never).commit();
+    if (!result.success) return false;
+
+    /*
+     * **And the children are what the reader is holding**, which is the half that makes ungrouping
+     * usable: a reader takes a group apart in order to do something to the things that were in it,
+     * and being left holding a frame that no longer exists is being left holding nothing.
+     *
+     * The children come back as new marks — they are rebuilt from exported trees, not moved — so
+     * they are read out of the page rather than remembered. A frame taken apart at a *lower* index
+     * pushes every span after it along by one less than it put back, which is the shift below; with
+     * one frame it is zero, and it is only ever more when a reader ungroups several at once.
+     */
+    const freed: string[] = [];
+    for (const span of [...spans].sort((a, b) => a.at - b.at)) {
+      const shift = spans
+        .filter((one) => one.parentId === span.parentId && one.at < span.at)
+        .reduce((sum, one) => sum + one.count - 1, 0);
+      const kids = (store.getNode(span.parentId)?.content ?? []) as string[];
+      freed.push(...kids.slice(span.at + shift, span.at + shift + span.count));
+    }
+    if (freed.length > 0) void editor.executeCommand('setNode', { nodeIds: freed });
+    return true;
   }
 
   private async _duplicate(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {

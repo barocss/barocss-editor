@@ -453,7 +453,33 @@ export function PropertySheet<Row extends SheetRow>({
             if (drawn === undefined && beside.length === 0) return null;
 
             return (
-              <Cell key={key(row)} row={row} marked={marked} onUnmark={onUnmark}>
+              <Cell
+                key={key(row)}
+                row={row}
+                /**
+                 * **The half that owns a value is the half that can take it back.**
+                 *
+                 * A row's mark asks about the row's own attribute, which is right until two
+                 * attributes share a row: 최소 폭 and 최대 폭 are one label and two numbers, and the
+                 * second of them could be set at a narrow width with no way to undo it — the mark
+                 * drew for the leader and the follower had no control at all. Found the moment those
+                 * pairs were put on one line.
+                 *
+                 * So the mark is asked of the leader **or any companion**, and taking it back takes
+                 * back the one that has it. Both, when both do: a reader who set two numbers at one
+                 * width means the width to stop stating both.
+                 */
+                marked={(one) => marked?.(one) === true || kept.some((each) => marked?.(each as Row) === true)}
+                owner={marked?.(row) ? row : (kept.find((each) => marked?.(each as Row)) as Row | undefined)}
+                onUnmark={
+                  onUnmark
+                    ? (one) => {
+                        if (marked?.(one)) onUnmark(one);
+                        for (const each of kept) if (marked?.(each as Row)) onUnmark(each as Row);
+                      }
+                    : undefined
+                }
+              >
                 {drawn}
                 {/*
                   **Three or more companions go two to a line**, which is what a padding is.
@@ -505,11 +531,22 @@ function Cell<Row extends SheetRow>({
   row,
   marked,
   onUnmark,
+  owner,
   children
 }: {
   row: Row;
   marked?: (row: Row) => boolean;
   onUnmark?: (row: Row) => void;
+  /**
+   * **Which half of the row owns the value**, when a row carries two.
+   *
+   * The mark is named after the attribute it takes back — `최대 폭 되돌리기` — because two rows in
+   * different panes can each be called 최대 and an accessible name has to be unique. Once a row holds
+   * a pair, the name has to follow the *half that has something to undo* rather than the leader, or
+   * a reader looking for the control by the number they set finds one called after the number beside
+   * it.
+   */
+  owner?: Row;
   children: React.ReactNode;
 }) {
   /*
@@ -521,6 +558,7 @@ function Cell<Row extends SheetRow>({
    * row rather than to what the row is about, so drawing it into the picture would say the wrong
    * thing about the shape.
    */
+  const said = owner ?? row;
   const owned = marked?.(row) === true;
 
   /**
@@ -545,8 +583,8 @@ function Cell<Row extends SheetRow>({
          * the panel. Written with `label` first, and the button was unfindable by the name a reader
          * — or a test — would say out loud.
          */
-        title={`${row.ariaLabel} — 이 값을 되돌립니다`}
-        aria-label={`${row.ariaLabel} 되돌리기`}
+        title={`${said.ariaLabel} — 이 값을 되돌립니다`}
+        aria-label={`${said.ariaLabel} 되돌리기`}
         onClick={() => onUnmark(row)}
       >
         ·

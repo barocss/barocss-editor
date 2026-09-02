@@ -457,6 +457,29 @@ export class SiteStackExtension implements Extension {
      * reference and a durable name on the block being opened. Through this command it would have
      * written the sid a reader pointed at, which no saved document can carry.
      */
+    /*
+     * A row that scrolls sideways — the stack's own decision about what it does with what it holds,
+     * beside `gap` and `layoutMode` rather than among the paint.
+     */
+    'scrolls',
+    /**
+     * **What a video plays and what an embed shows.**
+     *
+     * Seven names, and they are here for the reason this whole list exists: every one of them has a
+     * panel row, and a row whose command will not write its attribute is a control that accepts a
+     * value and throws it away. Found the moment a test asked the fault list about an embed with no
+     * id — the row wrote, the command dropped it, and the document never changed.
+     *
+     * `id` is the one to look at twice: it is a name generic enough to belong to anything, and it
+     * belongs here because `mediaEmbed` is the only node in this schema that has one.
+     */
+    'provider',
+    'id',
+    'title',
+    'poster',
+    'controls',
+    'muted',
+    'loop',
     'openAtRest',
     'opensOne',
     /**

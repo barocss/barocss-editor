@@ -31,7 +31,11 @@
  * a CSS one-liner apiece and it is not derivable from silence, because silence already means two
  * different things depending on the axis and the container.
  */
-import { getOfficeSchemaDefinition, type SchemaDefinition } from '@barocss/schema';
+import {
+  getOfficeSchemaDefinition,
+  getStandardSchemaDefinition,
+  type SchemaDefinition
+} from '@barocss/schema';
 import { BLENDS } from './paint';
 import { POSITIONS } from './position';
 import { ASPECTS } from './aspect';
@@ -51,6 +55,25 @@ export const SITE_SURFACE_KIND = 'flow';
 export function getSiteSchemaDefinition(): SchemaDefinition {
   const office = getOfficeSchemaDefinition();
   const nodes = office.nodes as Record<string, any>;
+
+  /**
+   * **Two nodes the site takes from the standard schema that office leaves behind.**
+   *
+   * `OFFICE_LEAVES_BEHIND` says why office does not want them: *a document that cannot play one has
+   * no word for it*. Which is exactly right — and a page **is** the product whose domain they are.
+   * Video and an embed are the two things every site has that no printed document can.
+   *
+   * Taken here rather than added to office, and that is the whole design of this layering: office is
+   * the vocabulary three products share, and a node only one of them draws does not belong in it —
+   * that list exists to stop precisely that. A page adds its own words on top, the way it already
+   * does for `frame`, `collection`, `form` and the rest.
+   *
+   * **And no library comes with them.** A video is `<video controls>` and an embed is an `<iframe>`;
+   * both are things a browser has had for fifteen years. The published page still ships zero bytes of
+   * script — see `docs/specs/site-blocks.md` for why that is the answer to the library question
+   * rather than a constraint on it.
+   */
+  const standard = getStandardSchemaDefinition().nodes as Record<string, any>;
 
   /**
    * What every block on a page may say about its own width.
@@ -107,6 +130,7 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
      * nothing outside a grid, which is the honest behaviour of `grid-column` itself.
      */
     span: { type: 'number' as const, required: false, min: 1, max: 12 },
+
     /**
      * **Centred in whatever holds it**, which is half of the commonest layout on the web and the
      * half this schema had no word for: a band the width of the window, and a column of reading
@@ -509,6 +533,33 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
   };
 
   /**
+   * **What a box can say when its face is not its own** — a video, an embed.
+   *
+   * The corners, the stroke and the shadow, and nothing else. `paintAttrs` also carries a ground, a
+   * gradient, a background picture, an ink and a blend, every one of which one of these draws over
+   * completely the moment it has a frame to show — and a node declaring what it cannot draw is a
+   * reader setting something and seeing nothing.
+   *
+   * Measured rather than judged: `every-attribute-is-read` reported forty-two of them across the two
+   * nodes, one per attribute, the moment they were declared with the whole palette.
+   */
+  const boxAttrs = {
+    cornerTopLeft: paintAttrs.cornerTopLeft,
+    cornerTopRight: paintAttrs.cornerTopRight,
+    cornerBottomRight: paintAttrs.cornerBottomRight,
+    cornerBottomLeft: paintAttrs.cornerBottomLeft,
+    shadowColor: paintAttrs.shadowColor,
+    shadowBlur: paintAttrs.shadowBlur,
+    shadowDistance: paintAttrs.shadowDistance,
+    shadowAngle: paintAttrs.shadowAngle,
+    opacity: paintAttrs.opacity,
+    /* The two office already gives a frame, spelled here because these two nodes are not frames. */
+    cornerRadius: { type: 'number' as const, required: false },
+    stroke: { type: 'string' as const, required: false },
+    strokeWidth: { type: 'number' as const, required: false }
+  };
+
+  /**
    * A node that may state its own width.
    *
    * **Containers only**, and that is a narrowing rather than an omission. It was on `heading`,
@@ -725,6 +776,65 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
         }
       },
 
+      /**
+       * **A video**, which a browser plays and no library is needed for.
+       *
+       * The standard schema's node, taken as it is and given a page's own attributes — a video on a
+       * page has a width, a corner and a shadow like anything else in the flow. `src` takes an
+       * `asset:이름` or an address, resolved by `assetSrc` the way a picture's is: a file a reader
+       * dropped in, or one that lives somewhere else.
+       *
+       * `controls` defaults on, and that is the honest default rather than the pretty one: a video a
+       * visitor cannot pause is a video they close the tab on.
+       */
+      mediaVideo: {
+        ...standard.mediaVideo,
+        attrs: {
+          ...standard.mediaVideo.attrs,
+          ...everyBlockAttrs,
+          /*
+           * **A corner and a shadow, not a whole palette.** `paintAttrs` is a ground, a gradient, a
+           * background picture, an ink and a blend — every one of which a video draws over completely
+           * the moment it has a frame to show. The harness said so as forty-two findings, which is the
+           * useful shape of that answer: a node declaring what it cannot draw is a reader setting
+           * something and seeing nothing.
+           */
+          ...boxAttrs,
+          /*
+           * The shape it keeps, which matters more here than for a picture: a video that has not
+           * loaded yet has **no** intrinsic size, so a page without this jumps by several hundred
+           * pixels the moment the metadata arrives.
+           */
+          aspect: { type: 'string' as const, required: false, options: [...ASPECTS] },
+          /** Muted and looping, which is the pair a background video needs and a film must not have. */
+          muted: { type: 'boolean' as const, required: false },
+          loop: { type: 'boolean' as const, required: false }
+        }
+      },
+
+      /**
+       * **An embed** — a map, a video somebody else hosts, a form from another service.
+       *
+       * The standard schema names a `provider` and an `id` rather than a URL, and that is the
+       * decision worth keeping: a document that stores `https://www.youtube.com/embed/xyz` has stored
+       * one company's URL shape, and the day it changes every page breaks. A provider and an id are
+       * what a reader actually knows, and `embedSrc` turns the pair into an address at draw time —
+       * the same reference shape this model has six of.
+       *
+       * Which also means the list of providers is a **decision this product makes**, in one place,
+       * and an unknown one draws nothing rather than an iframe pointing at whatever a reader pasted.
+       */
+      mediaEmbed: {
+        ...standard.mediaEmbed,
+        attrs: {
+          ...standard.mediaEmbed.attrs,
+          ...everyBlockAttrs,
+          // The same narrowing as a video, and for the same reason — see above.
+          ...boxAttrs,
+          aspect: { type: 'string' as const, required: false, options: [...ASPECTS] }
+        }
+      },
+
       /** A stack, and everything it may say about the space it takes. */
       frame: {
         ...withPaint('frame'),
@@ -741,7 +851,33 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
          * honest statement for this product: a page has one kind of child, and the group a node
          * carries is about where else it can go.
          */
-        content: '(block | scene | frame | collection)*'
+        content: '(block | scene | frame | collection)*',
+        attrs: {
+          ...(withPaint('frame') as { attrs?: Record<string, unknown> }).attrs,
+          /**
+           * **A row that scrolls sideways** — which is also, exactly, a carousel.
+           *
+           * `overflow-x: auto` with `scroll-snap-type: x mandatory` is a carousel the browser draws:
+           * it takes a swipe, a trackpad, a shift-wheel and the arrow keys, it works while a page's
+           * script is still downloading, and it costs **no script at all**. Every carousel library
+           * exists to reimplement this badly for browsers that no longer run.
+           *
+           * Its own attribute rather than a third state on `clipsContent`, which is a boolean in the
+           * office schema shared by three products: widening it would make the word processor and the
+           * deck answer a question only a page asks.
+           *
+           * And on **the frame only**, which the harness insisted on and was right about:
+           * `everyBlockAttrs` put it on a picture, a placement and a form field, none of which is a
+           * row and none of which reads it. An attribute a reader can set and nothing draws is the
+           * fault `every-attribute-is-read` is named after, and it found three of them the moment
+           * this was written one level too high.
+           *
+           * `x-snap` is the difference between *a row you can scroll* and *a carousel*: with it,
+           * letting go lands on a card rather than between two. A reader who wants a free-running
+           * strip of logos wants `x`, which is why it is a third word and not implied by the second.
+           */
+          scrolls: { type: 'string' as const, required: false, options: ['', 'x', 'x-snap'] }
+        }
       },
       /**
        * A picture, and **the shape it keeps** whatever width it is given.

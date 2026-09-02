@@ -1184,6 +1184,33 @@ function Groups({
     <>
       <PropertySheet
         groups={groups}
+        /**
+         * **Every section starts open**, and the reason it is not cleverer than that is measured.
+         *
+         * The panel is long: five groups on an ordinary band came to **946 pixels in a 679 pixel
+         * window**, so opening only the groups that hold a value was the obvious fix. Built, and then
+         * measured again: **790 pixels**. Still taller than the window, so the scroll a reader was
+         * doing is the scroll they still do — and the bill for those 156 pixels was four carve-outs
+         * and seven browser tests.
+         *
+         * Each carve-out was the rule being wrong in a way that had to be *listed* rather than
+         * derived:
+         *
+         * - 사이트 and 페이지 are drawn **twice** on the page tab, so the second run of rows closed on
+         *   a document whose value sat under the first — and its controls could not be reached.
+         * - 코드 › 언어 is empty until somebody types it. Closing the only place a value can come
+         *   from is the opposite of tidying.
+         * - 컴포넌트 변수 is where a variable is *made*, so it is empty by definition.
+         * - A group of one row shut is a heading with nothing under it and no way in.
+         *
+         * A rule that needs a hand-kept list of exceptions is a rule that will be wrong the next time
+         * somebody adds a group, and it would be wrong silently. The height was worth having and this
+         * was not the way to get it: the four segmented rows took more pixels out of this panel than
+         * folding did, and they took them out of every selection rather than out of two groups.
+         *
+         * What stays is the reader's own fold, remembered per heading — which is what they asked for
+         * and the only version of this that cannot be wrong.
+         */
         folded={(group) => folded[group.label] === true}
         onFold={(group, next) => onFold(group.label, next)}
         /*

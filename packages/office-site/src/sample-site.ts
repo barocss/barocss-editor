@@ -1288,6 +1288,66 @@ function products(): Node {
        * marker carries information rather than decorating it: swap two of these and the sentence is
        * wrong, which is not true of the bullets on 소개.
        */
+      /**
+       * **A video and a map**, because a fixture that does not wear a feature is a feature nobody
+       * has seen work.
+       *
+       * Both are the browser's own elements and neither ships a byte of script — which is the point
+       * being demonstrated as much as the shape: a page that plays a video and shows a map is a page
+       * every builder is asked for, and this one does it with `<video>` and `<iframe>`.
+       *
+       * The embed holds a **provider and an id** rather than a URL, so a company changing its address
+       * shape does not break this page — `embed.ts` says why, and this is the reference shape's
+       * seventh use.
+       */
+      section('보여주기', { paddingTop: 0, paddingBottom: px(40) }, [
+        stack('column', { name: '보여주기 머리', gap: GAP.hair, maxWidth: WIDTH.text }, [
+          plate(52),
+          heading(2, '움직이는 걸 보는 게 빠릅니다'),
+          quiet('90초짜리 소개입니다. 소리는 없어도 됩니다.')
+        ]),
+        /*
+         * A video of the product itself, muted and looping — which is what a hero clip is, and the
+         * one combination that must never be a film: a video that plays sound at somebody who has
+         * just opened a page is the reason every browser now blocks it.
+         */
+        {
+          stype: 'mediaVideo',
+          attributes: {
+            name: '움직이는 화면',
+            /*
+             * An address rather than a file in the document, deliberately: a video is megabytes, and
+             * `assetFaults` reports a document that has grown past a few. What a reader replaces is
+             * this string.
+             */
+            src: 'https://barocss.example/움직이는-화면.mp4',
+            poster: 'asset:하트',
+            muted: true,
+            loop: true,
+            controls: false,
+            aspect: '16/9',
+            sizing: 'fill',
+            cornerRadius: ROUND.box,
+            maxWidth: WIDTH.page
+          },
+          content: []
+        } as unknown as Node,
+        {
+          stype: 'mediaEmbed',
+          attributes: {
+            name: '소개 영상',
+            provider: 'youtube',
+            id: 'dQw4w9WgXcQ',
+            title: '바로시스 소개 영상',
+            aspect: '16/9',
+            sizing: 'fill',
+            cornerRadius: ROUND.box,
+            maxWidth: WIDTH.page
+          },
+          content: []
+        } as unknown as Node
+      ]),
+
       section('시작하는 순서', { paddingTop: 0, paddingBottom: px(40) }, [
         stack('column', { name: '순서 글', gap: GAP.tight, maxWidth: WIDTH.text }, [
           heading(2, '시작하는 순서'),

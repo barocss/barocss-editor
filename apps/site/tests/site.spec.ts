@@ -43,6 +43,17 @@ const press = (page: Page, at: ReturnType<Page['locator']>, options?: { modifier
   at.click({ force: true, ...options });
 
 /**
+ * A menu entry **by the name a reader reads**, not by where it sits.
+ *
+ * `edit.blocks.2` is an address that means *the third one down*, and three checks here held one —
+ * so the day 편집 grew 묶기 and 묶음 풀기 all three started asserting things about 삭제 instead of
+ * about 위로 옮기기, and two of them failed for a reason that had nothing to do with what they test.
+ * A menu that cannot grow without breaking its own tests is a menu nobody adds to.
+ */
+const menuItem = (page: Page, label: string) =>
+  page.locator('[data-menu-item]').filter({ hasText: label }).first();
+
+/**
  * A press that reaches **all the way in**, which is what ⌘ means on a canvas.
  *
  * A click selects the outermost block and a double-click goes one level further — right, and the
@@ -1231,6 +1242,377 @@ test.describe('the exported page', () => {
     expect(said.position).toBe('absolute');
     expect(Number.parseFloat(said.left ?? '0')).toBeGreaterThan(100);
     expect(Number.parseFloat(said.top ?? '0')).toBeGreaterThan(60);
+  });
+
+  test('plays a video and shows an embed, with no library and no script', async ({ page }) => {
+    /**
+     * **The two things a page has that a printed document cannot.**
+     *
+     * `mediaVideo` and `mediaEmbed` are in the standard schema and office deliberately leaves both
+     * behind — *a document that cannot play one has no word for it* — which is right, and a page is
+     * exactly the product whose domain they are. So the site takes them from the standard schema
+     * directly rather than pushing them into the vocabulary three products share.
+     *
+     * **And no library comes with them.** `<video controls>` and `<iframe>` are browser features
+     * from the nineties; every video library exists to skin the first and every embed wrapper to
+     * wrap the second. The published page still ships zero bytes of script.
+     *
+     * An embed holds a **provider and an id**, not a URL: a document storing one company's address
+     * shape breaks the day the shape changes, and has no way to know what it meant — the address
+     * *was* the meaning. `embed.ts` builds the address at draw time, and an unknown provider draws a
+     * box rather than a frame pointing at whatever somebody pasted.
+     */
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+    await page.locator('[data-pages] [data-page]').nth(1).click();
+    await page.waitForTimeout(900);
+
+    const video = page.locator('[data-frame="desktop"] video.st-video').first();
+    await expect(video).toHaveCount(1);
+    const said = await video.evaluate((el: HTMLVideoElement) => ({
+      muted: el.muted,
+      loop: el.loop,
+      controls: el.controls,
+      preload: el.preload,
+      ratio: getComputedStyle(el).aspectRatio
+    }));
+    /*
+     * A hero clip: muted and looping, and **not** a film. A video that plays sound at somebody who
+     * has just opened a page is why every browser now blocks it.
+     *
+     * `muted` is also the one media attribute a browser does not reflect onto an element it has
+     * already built — the attribute is the *initial* state — so the board had a video with
+     * `muted="true"` in the markup playing sound. Fixed where that fact belongs: in the renderer
+     * that knows about browsers, not in the one that describes a document.
+     */
+    expect(said).toEqual({ muted: true, loop: true, controls: false, preload: 'metadata', ratio: '16 / 9' });
+
+    const frame = page.locator('[data-frame="desktop"] iframe.st-embed').first();
+    await expect(frame).toHaveCount(1);
+    // The host that does not set a cookie before a visitor has pressed anything.
+    expect(await frame.getAttribute('src')).toContain('youtube-nocookie.com/embed/');
+    // A frame that can navigate the page it is in can take a visitor somewhere they did not ask.
+    expect(await frame.getAttribute('sandbox')).toContain('allow-scripts');
+    // A map three screens down should not be fetched before the page is read.
+    expect(await frame.getAttribute('loading')).toBe('lazy');
+
+    // And the published page carries both with no script of its own.
+    const html = await exported(page, '/제품');
+    expect(html).toContain('<video');
+    expect(html).toContain('youtube-nocookie');
+    expect(html).not.toContain('<script');
+  });
+
+  test('makes a row scroll sideways, which is a carousel and costs no script', async ({ page }) => {
+    /**
+     * **A carousel, and the browser draws it.**
+     *
+     * `overflow-x: auto` with `scroll-snap-type: x mandatory` takes a swipe, a trackpad, a
+     * shift-wheel and the arrow keys; it works while a page's script is still downloading; and it
+     * costs **zero bytes**. Every carousel library exists to reimplement this badly for browsers that
+     * no longer run — which is the answer to *외부 라이브러리를 어떻게 쓸지*: the published page gets
+     * none, because the browser already has the feature.
+     *
+     * Three things had to line up and each was its own finding:
+     *
+     * - **The child's half.** `scroll-snap-align` belongs to each child and CSS gives a parent no way
+     *   to write it for them, so the renderer stamps the attribute on the element and a rule keys off
+     *   it — a renderer draws a node without knowing whose child it is; a selector knows exactly that.
+     * - **Nothing shrinks.** Shrinking is what a row does *instead* of scrolling. `sizing` is written
+     *   inline, so a child that says Fill carries its flex on the element and no rule could reach it:
+     *   measured as a container that scrolled with nothing to scroll.
+     * - **The frame only.** `everyBlockAttrs` put the attribute on a picture, a placement and a form
+     *   field, none of which is a row. `every-attribute-is-read` found all three the moment it was
+     *   written one level too high.
+     */
+    await ready(page);
+    const row = page.locator('[data-frame="desktop"] [data-name="히어로 줄"]').first();
+    await press(page, row);
+    await page.waitForTimeout(250);
+    for (let step = 0; step < 5; step += 1) {
+      if ((await page.getByLabel('가로로 스크롤').count()) > 0) break;
+      await pressTwice(page, row);
+      await page.waitForTimeout(250);
+    }
+
+    // Offered on a row and nowhere else: a column that scrolls sideways is a column with nothing in
+    // it to scroll to.
+    await expect(page.getByLabel('가로로 스크롤')).toHaveCount(1);
+    await page.getByLabel('가로로 스크롤').selectOption('x-snap');
+    await page.waitForTimeout(600);
+
+    const said = await page.evaluate(() => {
+      const el = document.querySelector('[data-frame="desktop"] [data-scrolls]') as HTMLElement;
+      const style = getComputedStyle(el);
+      const kid = getComputedStyle(el.firstElementChild as HTMLElement);
+      return {
+        overflowX: style.overflowX,
+        snap: style.scrollSnapType,
+        align: kid.scrollSnapAlign,
+        /*
+         * **Whether there is anything to scroll**, which is the question — not what any one property
+         * says. A child that says Fill carries its flex inline, so no rule can stop it shrinking; the
+         * parent stops it by not stretching its items, and the only honest check of that is whether
+         * the content is wider than the box.
+         *
+         * The first attempt used an important flag, which the browser suite refused and was right to:
+         * a published page carries none, because a page a reader cannot restyle with their own CSS is
+         * not theirs.
+         */
+        scrollable: el.scrollWidth > el.clientWidth
+      };
+    });
+    expect(said).toEqual({ overflowX: 'auto', snap: 'x mandatory', align: 'start', scrollable: true });
+
+    // And the published page carries it with no script of its own.
+    const html = await exported(page, '/');
+    expect(html).toContain('data-scrolls="x-snap"');
+    expect(html).not.toContain('<script');
+  });
+
+  test('offers whole shapes to insert, not only the pieces to build them from', async ({ page }) => {
+    /**
+     * **Most of what a real site asks for was never a missing node.**
+     *
+     * Surveyed against what pages actually contain (`docs/specs/site-blocks.md`): a two-up, a row of
+     * cards, a numbered how-it-works — every one of them is frames and text this product has had
+     * since the first week. What was missing is that a reader had to assemble each one, every time,
+     * from an insert menu that offers primitives.
+     *
+     * Which 아코디언 and 탭 already answered for two shapes, and nothing had generalised from: they
+     * are not nodes either, they are **compositions given a name and a command**. These are three
+     * more of the same kind, chosen by how often a page has one.
+     *
+     * Each arrives at the widths as well: a two-up stacks on a phone, three cards become two on a
+     * tablet and one on a phone. A two-column band that stays two columns at 390px is the single
+     * most common way a page breaks, and a reader who has to discover that themselves will discover
+     * it after publishing.
+     */
+    await ready(page);
+    await page.getByLabel('넣을 것 고르기').click();
+    await page.waitForTimeout(400);
+
+    for (const said of ['두 칸', '카드 셋', '단계']) {
+      await expect(page.locator('.st-add-item', { hasText: said })).toHaveCount(1);
+    }
+
+    await page.locator('.st-add-item', { hasText: '카드 셋' }).first().click();
+    await page.waitForTimeout(700);
+
+    // Three cards in three columns, made whole rather than as an empty frame to fill in.
+    const made = page.locator('[data-frame="desktop"] [data-name="카드 셋"]').first();
+    await expect(made).toHaveCount(1);
+    await expect(made.locator('> *')).toHaveCount(3);
+    expect(
+      await made.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length)
+    ).toBe(3);
+
+    // And it says something a reader edits rather than something they delete.
+    await expect(made).toContainText('첫째 제목');
+
+    // One column on the phone, which is the half a reader would have found out after publishing.
+    expect(
+      await page.evaluate(() => {
+        const el = document.querySelector('[data-frame="mobile"] [data-name="카드 셋"]') as HTMLElement;
+        return getComputedStyle(el).gridTemplateColumns.split(' ').length;
+      })
+    ).toBe(1);
+  });
+
+  test('opens a menu where the pointer is, offering what the menubar already offers', async ({ page }) => {
+    /**
+     * **The gesture every builder has**, and this had none of: a press of the right button on the
+     * boards did nothing at all.
+     *
+     * The list is the **product's** (`SITE_CONTEXT`), not the board's JSX. A menu written into a
+     * component is a menu no check can read, and `every-command-can-be-reached` asks the product what
+     * a reader can run — which is the whole reason `menu-model.ts` exists. Every command in it is one
+     * the menubar already offers, held by a unit test; it is that list cut down to what somebody
+     * pointing at a block wants, because a context menu offering everything is the menubar drawn over
+     * the page, which is what makes most of them useless.
+     *
+     * A press selects what it lands on **unless it is already in the selection** — the rule every
+     * tool follows, and the one that makes *right-click three things and delete them* work.
+     */
+    await ready(page);
+    await page
+      .locator('[data-frame="desktop"] [data-name="문제"]')
+      .first()
+      .click({ force: true, button: 'right' });
+    await page.waitForTimeout(400);
+
+    const menu = page.locator('[data-context]');
+    await expect(menu).toHaveCount(1);
+
+    // Each item says whether it can run, from the same guard the menubar asks.
+    await expect(page.locator('[data-context-item="duplicateBlocks"]')).toBeEnabled();
+    await expect(page.locator('[data-context-item="detachComponent"]')).toBeDisabled();
+
+    // And it runs: duplicating adds a sibling, and the menu goes with the choosing.
+    const before = await page.evaluate(
+      () => document.querySelectorAll('[data-frame="desktop"] [data-name="문제"]').length
+    );
+    await page.locator('[data-context-item="duplicateBlocks"]').click();
+    await page.waitForTimeout(600);
+    await expect(menu).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        () => document.querySelectorAll('[data-frame="desktop"] [data-name="문제"]').length
+      )
+    ).toBeGreaterThan(before);
+
+    // Escape and a press away both close it, because a menu with one way out is a trap.
+    await page
+      .locator('[data-frame="desktop"] [data-name="히어로"]')
+      .first()
+      .click({ force: true, button: 'right' });
+    await page.waitForTimeout(300);
+    await expect(menu).toHaveCount(1);
+    await page.locator('.st-context-shade').click({ position: { x: 5, y: 5 } });
+    await page.waitForTimeout(250);
+    await expect(menu).toHaveCount(0);
+  });
+
+  test('puts two blocks into one, and takes it apart again', async ({ page }) => {
+    /**
+     * **⌘G**, which is the gesture a designer reaches for right after moving something, and which
+     * this builder had no word for at all: three cards a reader wanted to move together had to be
+     * moved three times, every time.
+     *
+     * A group is a **frame** here rather than a node of its own, and that is the whole design: a
+     * page is a stack, so a thing that holds several blocks and lays them out is already the shape
+     * the schema has. `detachComponent` made the same argument first.
+     *
+     * The two halves are checked together on purpose. A group that cannot be ungrouped is a trap —
+     * the reader has permanently gained a level of nesting they did not ask for — so this presses
+     * both chords and asserts the page comes back to the count it started at.
+     */
+    await ready(page);
+    const cards = cardRow(page, 'desktop').locator('.st-stack');
+    await bring(page, cardRow(page, 'desktop'));
+
+    const inside = async () =>
+      await page.evaluate(() => {
+        const editor = (window as any).editor;
+        const store = editor.dataStore;
+        const chosen = editor.selection?.nodeIds?.[0];
+        const parent = chosen ? store.getNode(chosen)?.parentId : undefined;
+        return ((parent ? store.getNode(parent)?.content : []) ?? []).length;
+      });
+
+    await pressDeepAt(page, cards.nth(0));
+    await page.waitForTimeout(250);
+    await press(page, cards.nth(1).locator('h3'), { modifiers: ['Shift'] });
+    await page.waitForTimeout(300);
+    const before = await inside();
+    expect(before).toBeGreaterThan(2);
+
+    await page.keyboard.press('Meta+g');
+    await page.waitForTimeout(500);
+
+    // Two blocks became one, and the one is what is now held — a reader groups in order to move it.
+    expect(await inside()).toBe(before - 1);
+    expect(await selection(page)).toEqual(['frame']);
+    await expect(page.locator('[data-frame="desktop"] [data-name="묶음"]')).toHaveCount(1);
+    // Taking the row's direction rather than a default, or grouping would rearrange what it wraps.
+    expect(
+      await page.evaluate(() => {
+        const el = document.querySelector('[data-frame="desktop"] [data-name="묶음"]') as HTMLElement;
+        return getComputedStyle(el).flexDirection;
+      })
+    ).toBe('row');
+
+    await page.keyboard.press('Meta+Shift+g');
+    await page.waitForTimeout(500);
+    expect(await inside()).toBe(before);
+    await expect(page.locator('[data-frame="desktop"] [data-name="묶음"]')).toHaveCount(0);
+    // The children, not the frame that no longer exists — which is what lets a reader keep going.
+    expect(await selection(page)).toEqual(['frame', 'frame']);
+  });
+
+  test('pairs the rows that are two halves of one decision', async ({ page }) => {
+    /**
+     * **Sixteen rows spent a whole 240 pixels on a single control**, measured against the shape a
+     * designer expects from a panel of this kind — and four of them were 최소/최대 twice. A minimum
+     * without its maximum beside it is half a sentence, and reading the pair costs two rows of eye
+     * travel where it should cost none.
+     *
+     * `with` is the mechanism the padding row has used for 상하좌우 since it was written: one label,
+     * the controls beside each other. Nothing new — it had simply never been applied to the pairs
+     * that most obviously are pairs.
+     *
+     * 946 → 868 pixels and 26 → 23 rows, without a fold, without an exception list, and on **every**
+     * selection rather than on the two groups a fold would have closed. Which is the finding kept in
+     * the test below this one.
+     */
+    await ready(page);
+    await press(page, page.locator('[data-frame="desktop"] [data-name="문제"]').first());
+    await page.waitForTimeout(450);
+
+    const said = await page.evaluate(() => {
+      const panel = document.querySelector('.office-properties') as HTMLElement;
+      const rows = [...panel.querySelectorAll('label')] as HTMLElement[];
+      return {
+        paired: rows.filter((one) => one.querySelectorAll('input, select, button').length > 1).length,
+        tall: panel.scrollHeight
+      };
+    });
+
+    // The pairs: padding's four sides, X·Y, W·H, 폭 범위, 높이 범위, 보임·잠금, and the marks.
+    expect(said.paired).toBeGreaterThanOrEqual(6);
+    expect(said.tall).toBeLessThan(900);
+
+    // And each half still writes its own attribute rather than the pair sharing one.
+    await expect(page.getByLabel('최소 폭')).toHaveCount(1);
+    await expect(page.getByLabel('최대 폭')).toHaveCount(1);
+    await expect(page.getByLabel('페이지에 보임')).toHaveCount(1);
+    await expect(page.getByLabel('잠금')).toHaveCount(1);
+  });
+
+  test('remembers a fold per heading, and starts every section open', async ({ page }) => {
+    /**
+     * **Measured, tried, and backed out** — kept here because the measurement is the useful part.
+     *
+     * Five groups on an ordinary band come to **946 pixels in a 679 pixel window**, so opening only
+     * the groups that hold a value looked like the fix. Built, measured again: **790 pixels**. Still
+     * taller than the window, so the scroll a reader was doing is the scroll they still do — and the
+     * bill for those 156 pixels was four carve-outs and seven browser tests.
+     *
+     * Each carve-out was the rule being wrong in a way that had to be listed rather than derived:
+     * 사이트 and 페이지 are drawn *twice* on the page tab, so the second run closed on a value sitting
+     * under the first; 코드 › 언어 is empty until somebody types it, and closing the only door a value
+     * comes through is the opposite of tidying; 컴포넌트 변수 is where a variable is *made*; a group
+     * of one row shut is a heading with no way in. A rule needing a hand-kept exception list will be
+     * wrong the next time somebody adds a group, and silently.
+     *
+     * The four segmented rows took more pixels out of this panel than folding did, and took them out
+     * of every selection rather than out of two groups.
+     *
+     * What is left is the reader's own fold, which is the only version that cannot be wrong.
+     */
+    await ready(page);
+    await press(page, page.locator('[data-frame="desktop"] [data-name="문제"]').first());
+    await page.waitForTimeout(450);
+
+    const shut = async () =>
+      await page.evaluate(() =>
+        [...document.querySelectorAll('section')]
+          .filter((one) => one.querySelector('[aria-expanded="false"]'))
+          .map((one) => one.querySelector('h3')?.textContent?.trim())
+      );
+
+    // Nothing is shut on arrival: a reader who has just selected something is shown what it says.
+    expect(await shut()).toEqual([]);
+
+    const heading = page.getByRole('button', { name: '열림' }).first();
+    await heading.click();
+    await page.waitForTimeout(250);
+    expect(await shut()).toContain('열림');
+
+    // And it survives the selection moving, which is what "remembered" means.
+    await press(page, page.locator('[data-frame="desktop"] [data-name="히어로"]').first());
+    await page.waitForTimeout(400);
+    expect(await shut()).toContain('열림');
   });
 
   test('takes a picture dropped onto the boards, and replaces one dropped onto a picture', async ({ page }) => {
@@ -3534,6 +3916,15 @@ test.describe('the rail', () => {
       '섹션',
       '가로 스택',
       '그리드',
+      /*
+       * Three **shapes** rather than three nodes — a two-up, a row of cards, a numbered column, each
+       * of which is frames and text a reader had been assembling by hand every time. Named here
+       * because this list is the claim: the rail offers what the product says it offers, and a new
+       * insert that does not appear is one nobody can reach from the place they look first.
+       */
+      '두 칸',
+      '카드 셋',
+      '단계',
       // Two containers a visitor **opens**, which is what they are — a reader puts things inside
       // them, and the only difference between the pair is whether more than one may be open.
       '아코디언',
@@ -3555,9 +3946,15 @@ test.describe('the rail', () => {
        * the wrong one. Beside the rule, which is where it is declared.
        */
       '표',
-      '버튼'
+      '버튼',
+      /*
+       * Two things a page has that a printed document cannot — and which office deliberately leaves
+       * in the standard schema for exactly this product to take. Neither ships a byte of script.
+       */
+      '영상',
+      '넣은 것'
     ]);
-    await expect(page.locator('[data-insert]:not([disabled])')).toHaveCount(16);
+    await expect(page.locator('[data-insert]:not([disabled])')).toHaveCount(21);
   });
 
   test('adds a block, puts it where a reader can predict, and selects it', async ({ page }) => {
@@ -5511,7 +5908,12 @@ test.describe('a link to another page', () => {
     await page.waitForTimeout(500);
 
     const rows = page.locator('[data-slash-item]');
-    await expect(rows).toHaveCount(10);
+    /*
+     * Twelve, and the two that arrived are a video and an embed — the same list the rail and the
+     * menubar offer, because all three read `siteControlsIn('insert')`. A number here that had to be
+     * bumped separately would be a fourth place that decides what a page can hold.
+     */
+    await expect(rows).toHaveCount(12);
     // This product's own inserts, not the shared kit's: a page's blocks have a page's names.
     await expect(page.locator('[data-slash-item="insertQuote"]')).toHaveText(/인용/);
 
@@ -6740,8 +7142,8 @@ test.describe('the menubar', () => {
     await page.waitForTimeout(400);
 
     await bar(page).locator('[data-menu="edit"]').click();
-    await expect(page.locator('[data-menu-item="edit.blocks.2"]')).toBeEnabled();
-    await expect(page.locator('[data-menu-item="edit.blocks.3"]')).toBeDisabled();
+    await expect(menuItem(page, '위로 옮기기')).toBeEnabled();
+    await expect(menuItem(page, '아래로 옮기기')).toBeDisabled();
     await page.keyboard.press('Escape');
 
     await bar(page).locator('[data-menu="insert"]').click();
@@ -6784,7 +7186,7 @@ test.describe('the menubar', () => {
     const before = (await order()).split(',');
 
     await bar(page).locator('[data-menu="edit"]').click();
-    await page.locator('[data-menu-item="edit.blocks.2"]').click();
+    await menuItem(page, '위로 옮기기').click();
     await page.waitForTimeout(600);
 
     const after = (await order()).split(',');

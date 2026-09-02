@@ -62,8 +62,37 @@ const number = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 
 /** The CSS a child's own intent becomes. Empty when it states none. */
-export function sizingCss(attrs: Sized | undefined): Record<string, string> {
+export function sizingCss(
+  attrs: Sized | undefined,
+  /**
+   * **Whether the stack this sits in scrolls sideways**, which changes what Fill can mean.
+   *
+   * Fill is *take the space the stack has left* — and a scrolling row has no space left to take: its
+   * children decide how wide it is, not the other way round. A card that says Fill inside one shrinks
+   * to nothing and the scroll has nothing to scroll.
+   *
+   * Passed in rather than read from the node, because it is the **parent's** decision and a node
+   * cannot see whose child it is. The first attempt was a stylesheet rule with an important flag,
+   * which the browser suite refused and was right to: a published page carries none, because a page a
+   * reader cannot restyle with their own CSS is not theirs. And an ordinary rule cannot win, because
+   * this is written inline.
+   */
+  inScrollingRow = false
+): Record<string, string> {
   const css: Record<string, string> = {};
+
+  if (inScrollingRow) {
+    /*
+     * Its content's width, and it does not shrink. Which is what every card in a swipeable strip
+     * wants and is the only shape that leaves anything to scroll.
+     */
+    css.flex = '0 0 auto';
+    if (attrs?.maxWidth === undefined) css.width = 'max-content';
+    if (typeof attrs?.maxWidth === 'number') css.maxWidth = `${Math.round((attrs.maxWidth * 96) / 1440)}px`;
+    if (typeof attrs?.minWidth === 'number') css.minWidth = `${Math.round((attrs.minWidth * 96) / 1440)}px`;
+    if (typeof attrs?.minHeight === 'number') css.minHeight = `${Math.round((attrs.minHeight * 96) / 1440)}px`;
+    return css;
+  }
 
   switch (attrs?.sizing) {
     case 'fill':

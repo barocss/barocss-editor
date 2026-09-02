@@ -32,6 +32,7 @@ import { presenceCss } from './presence';
 import { sizingCss } from './sizing';
 import { positionCss } from './position';
 import { assetNameOf, assetNamed, assetSrc, isAssetRef, srcsetFor } from './assets';
+import { embedSrc } from './embed';
 import { aspectCss } from './aspect';
 import { addressOf } from './export-html';
 import {
@@ -148,6 +149,29 @@ const named = (attrs: Record<string, any>, node: NodeData, ctx: any): Record<str
  * root and a `getNode`, which is what a page's blocks already use to resolve a `var:이름` and a
  * `page:id`. A fourth reference of that shape needs no fourth mechanism.
  */
+/**
+ * **Whether the stack this node sits in scrolls sideways** — asked of the document, because a
+ * renderer draws a node without being told whose child it is.
+ *
+ * Which is the one thing a scrolling row needs its children to know. A card that says Fill inside one
+ * shrinks to nothing and the scroll has nothing to scroll — and the fix cannot be a stylesheet rule:
+ * `sizing` is written **inline**, so no selector can beat it, and the first attempt used an important
+ * flag that the browser suite refused. It was right to: a published page carries none, because a page
+ * a reader cannot restyle with their own CSS is not theirs.
+ *
+ * So the node asks. `WORD_ENV_KEY` already carries the root and a `getNode` — the same access a
+ * `var:이름` and a `page:id` are resolved through — and one `parentId` lookup is the whole of it.
+ */
+const inScrollingRow = (ctx: any, node: NodeData): boolean => {
+  const doc = getWordDocument(ctx?.env as RenderEnv | undefined) as
+    | { getNode: (sid: string) => { attributes?: Record<string, unknown> } | undefined }
+    | undefined;
+  const parentId = (node as { parentId?: unknown }).parentId;
+  if (!doc || typeof parentId !== 'string') return false;
+  const said = doc.getNode(parentId)?.attributes?.scrolls;
+  return said === 'x' || said === 'x-snap';
+};
+
 const serviceFor = (ctx: any, sends: unknown): Service | undefined => {
   const doc = getWordDocument(ctx?.env as RenderEnv | undefined);
   return doc ? serviceNamed(doc as never, sends) : undefined;
@@ -225,6 +249,45 @@ export const stackCss = (attrs: Record<string, any>): Record<string, any> => ({
   ...paintCss(attrs, asColour),
   ...(attrs.alignItems === undefined ? { alignItems: 'stretch' } : {}),
   ...(attrs.clipsContent === undefined ? { overflow: 'visible' } : {}),
+  /**
+   * **Sideways**, when the block says so — and `overflow-x` alone, so a card that pokes out the top
+   * still does. A row of cards that scrolls is the shape a phone needs for anything wider than it is,
+   * and `hidden` on both axes to get it is a row whose shadows are cut off.
+   *
+   * The **children** have to say `scroll-snap-align` — that is the child's half of the pair and CSS
+   * gives a parent no way to say it for them. It is written as a rule in `PAGE_CSS` keyed off this
+   * attribute rather than by the renderer, because the renderer draws a node without knowing whose
+   * child it is, and a selector knows exactly that. Without the child's half the container snaps to
+   * nothing and the whole thing is an ordinary scroll.
+   */
+  ...(attrs.scrolls === 'x' || attrs.scrolls === 'x-snap'
+    ? {
+        overflowX: 'auto',
+        overflowY: 'visible',
+        ...(attrs.scrolls === 'x-snap' ? { scrollSnapType: 'x mandatory' } : {}),
+        // A row that scrolls does not also wrap: wrapping is what a reader does *instead* of this.
+        flexWrap: 'nowrap',
+        /**
+         * **The parent saying it for the children**, which is the one way CSS allows.
+         *
+         * A child that says Fill carries its flex **inline**, written by the renderer — so no
+         * stylesheet rule can stop it shrinking, and the first attempt used an important flag that
+         * the browser suite refused: a published page carries none, because a page a reader cannot
+         * restyle with their own CSS is not theirs.
+         *
+         * `align-items` is the parent's own property and it is inherited by the children's *layout*
+         * rather than by their styles, so a row that starts its items rather than stretching them
+         * gives each one its content width — which is exactly *do not shrink*, said by the only
+         * participant that has the standing to say it.
+         *
+         * Measured before this: the container scrolled and the children shrank, so the scroll had
+         * nothing to scroll.
+         */
+        alignItems: 'flex-start',
+        // The strip keeps its own scrollbar rather than the page gaining one.
+        scrollbarWidth: 'thin'
+      }
+    : {}),
   /*
    * And **positioned**, so that a block placed absolutely inside this stack is placed against *this
    * stack* rather than against the page. `position.ts` argues why it is every stack rather than a
@@ -325,7 +388,7 @@ export function registerSiteRenderers(): void {
       {
         className: 'st-list',
         'data-type': ordered ? 'ordered' : 'bullet',
-        style: { ...sizingCss(attrs as never), ...presenceCss(attrs) }
+        style: { ...sizingCss(attrs as never, inScrollingRow(ctx, node)), ...presenceCss(attrs) }
       },
       [slot('content')]
     );
@@ -434,6 +497,12 @@ export function registerSiteRenderers(): void {
       {
         className: 'st-stack',
         'data-layout': typeof attrs.layoutMode === 'string' ? attrs.layoutMode : 'none',
+        /*
+         * Said on the element as well as in its style, because the **children** need it: a snapping
+         * child says `scroll-snap-align` and CSS gives a parent no way to say it for them. A rule in
+         * `PAGE_CSS` keys off this.
+         */
+        'data-scrolls': attrs.scrolls ? String(attrs.scrolls) : undefined,
         // What a reader called this stack, which the layer list shows and the drawing should say.
         'data-name': typeof attrs.name === 'string' ? attrs.name : undefined,
         'data-sizing': typeof attrs.sizing === 'string' ? attrs.sizing : undefined,
@@ -442,7 +511,11 @@ export function registerSiteRenderers(): void {
          * can tell an override from the page's own answer by looking at the drawing.
          */
         'data-at': ctx?.env ? breakpointOf(ctx.env as RenderEnv) : undefined,
-        style: { ...stackCss(attrs), ...sizingCss(attrs), ...presenceCss(attrs) }
+        style: {
+          ...stackCss(attrs),
+          ...sizingCss(attrs, inScrollingRow(ctx, node)),
+          ...presenceCss(attrs)
+        }
       },
       [slot('content')]
     );
@@ -507,7 +580,7 @@ export function registerSiteRenderers(): void {
         style: {
           display: 'flex',
           flexDirection: 'column',
-          ...sizingCss(attrs),
+          ...sizingCss(attrs, inScrollingRow(ctx, node)),
           ...positionCss(attrs),
           ...opacityCss(attrs),
           ...presenceCss(attrs)
@@ -540,8 +613,18 @@ export function registerSiteRenderers(): void {
         'data-source': typeof attrs.source === 'string' ? attrs.source : undefined,
         'data-name': typeof attrs.name === 'string' ? attrs.name : undefined,
         'data-layout': typeof attrs.layoutMode === 'string' ? attrs.layoutMode : 'none',
+        /*
+         * Said on the element as well as in its style, because the **children** need it: a snapping
+         * child says `scroll-snap-align` and CSS gives a parent no way to say it for them. A rule in
+         * `PAGE_CSS` keys off this.
+         */
+        'data-scrolls': attrs.scrolls ? String(attrs.scrolls) : undefined,
         'data-at': ctx?.env ? breakpointOf(ctx.env as RenderEnv) : undefined,
-        style: { ...stackCss(attrs), ...sizingCss(attrs), ...presenceCss(attrs) }
+        style: {
+          ...stackCss(attrs),
+          ...sizingCss(attrs, inScrollingRow(ctx, node)),
+          ...presenceCss(attrs)
+        }
       },
       [slot('content')]
     );
@@ -594,7 +677,11 @@ export function registerSiteRenderers(): void {
          * `needsUpload`: a stored copy is a second thing to keep true the day the field is deleted.
          */
         enctype: uploadsIn(ctx, node) ? 'multipart/form-data' : undefined,
-        style: { ...stackCss(attrs), ...sizingCss(attrs), ...presenceCss(attrs) }
+        style: {
+          ...stackCss(attrs),
+          ...sizingCss(attrs, inScrollingRow(ctx, node)),
+          ...presenceCss(attrs)
+        }
       },
       /**
        * And **the two things the service has to be told**, as hidden fields — where to send the
@@ -650,7 +737,7 @@ export function registerSiteRenderers(): void {
           disabled: live ? undefined : true,
           style: {
             ...controlPaint(attrs),
-            ...sizingCss(attrs),
+            ...sizingCss(attrs, inScrollingRow(ctx, node)),
             ...positionCss(attrs),
             ...presenceCss(attrs)
           }
@@ -682,7 +769,7 @@ export function registerSiteRenderers(): void {
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            ...sizingCss(attrs),
+            ...sizingCss(attrs, inScrollingRow(ctx, node)),
             ...positionCss(attrs),
             ...presenceCss(attrs)
           }
@@ -766,7 +853,7 @@ export function registerSiteRenderers(): void {
           display: 'flex',
           flexDirection: 'column',
           gap: '6px',
-          ...sizingCss(attrs),
+          ...sizingCss(attrs, inScrollingRow(ctx, node)),
           ...positionCss(attrs),
           ...presenceCss(attrs)
         }
@@ -817,6 +904,161 @@ export function registerSiteRenderers(): void {
        * are different heights. A reader who wants a big one wants a block, and the page has one.
        */
       style: { height: '1.35em', width: 'auto', verticalAlign: '-0.28em' }
+    });
+  });
+
+/**
+   * **A video**, drawn by the browser.
+   *
+   * `<video controls>` and nothing else: no player, no library, no script. Every video library on the
+   * web exists to skin this element, and a skin is a thing a visitor has to download before they can
+   * press play.
+   *
+   * `aspect` matters more here than on a picture and the reason is worth stating: a video that has
+   * not loaded has **no** intrinsic size, so a page without one jumps by several hundred pixels the
+   * moment the metadata arrives — the classic layout shift, and the one every performance report
+   * blames on video.
+   */
+  define('mediaVideo', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = (node.attributes ?? {}) as Record<string, unknown>;
+    const doc = getWordDocument(ctx?.env as RenderEnv | undefined);
+    const live = published(ctx?.env as RenderEnv | undefined);
+    return element('video', {
+      className: 'st-video',
+      src: assetSrc(doc as never, attrs.src, live),
+      poster: attrs.poster ? assetSrc(doc as never, attrs.poster, live) : undefined,
+      /*
+       * On unless a reader says otherwise, which is the honest default rather than the pretty one: a
+       * video a visitor cannot pause is a video they close the tab on.
+       */
+      controls: attrs.controls === false ? undefined : true,
+      /*
+       * **The attribute, and it is not the same as the property.**
+       *
+       * `muted` is the one media attribute a browser does *not* reflect onto an element it has
+       * already created: the attribute is the page's *initial* state, so setting it on a live element
+       * leaves `video.muted` false. Measured — `getAttribute('muted')` said "true" and the video was
+       * not muted.
+       *
+       * A published page is parsed from markup, so the attribute is the whole answer there. The board
+       * builds elements, so the board also needs the property said — which is what the reconciler's
+       * property path is for and is why this is written as `true` rather than as a string.
+       */
+      muted: attrs.muted === true ? true : undefined,
+      loop: attrs.loop === true ? true : undefined,
+      // `metadata`, not `auto`: a page with three videos on it should not download three videos.
+      preload: 'metadata',
+      playsinline: true,
+      style: {
+        display: 'block',
+        maxWidth: '100%',
+        /*
+         * The same set a picture draws, because a video and an embed are the same kind of thing: a
+         * rectangle in the flow that a reader sizes, places, paints and reveals. Sharing the list
+         * rather than choosing a subset is also what stops three block types drifting into three
+         * different ideas of what a block can say.
+         */
+        ...aspectCss(attrs as never),
+        ...sizingCss(attrs as never, inScrollingRow(ctx, node)),
+        ...positionCss(attrs as never),
+        /*
+         * `frameCss` before `paintCss`, which is the order a stack uses and for its reason: the first
+         * writes the flat colour, the single radius and the border; the second is the longer answer —
+         * four separate corners, a shadow — and the longer answer has to win.
+         *
+         * A video and an embed take the border and the corners from it, because their fill is painted
+         * over by whatever they end up showing. `boxAttrs` is the schema half of the same sentence.
+         */
+        ...frameCss(attrs as never),
+        ...paintCss(attrs as never, asColour),
+        ...opacityCss(attrs as never),
+        ...presenceCss(attrs as never)
+      }
+    });
+  });
+
+  /**
+   * **An embed** — a map, or a video somebody else hosts.
+   *
+   * An `<iframe>`, which is a browser feature from 1997 and needs nothing. What this adds is the one
+   * thing worth adding: the document holds a **provider and an id** rather than a URL, so a company
+   * changing its address shape does not break every page that used it, and an unknown provider draws
+   * nothing rather than a frame pointing at whatever somebody pasted. See `embed.ts`.
+   *
+   * `loading="lazy"` and a `sandbox`, both of which an embed on somebody else's page should have had
+   * from the beginning: a map three screens down should not be fetched before the page is read, and
+   * a frame that can navigate the page it is in is a frame that can take a visitor somewhere they did
+   * not ask to go.
+   */
+  define('mediaEmbed', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = (node.attributes ?? {}) as Record<string, unknown>;
+    const src = embedSrc(attrs.provider, attrs.id);
+    if (!src) {
+      /*
+       * Nothing to draw, drawn as nothing — and said in the fault list rather than as a grey
+       * rectangle a reader cannot tell from a broken one. The rule every reference in this model
+       * follows.
+       */
+      return element('div', {
+        className: 'st-embed st-embed-empty',
+        'data-embed': 'none',
+        /*
+         * **Still a box.** An embed with nothing to show is still something a reader placed, sized
+         * and gave a corner to — drawing it as a bare `div` made every one of those attributes read
+         * as unread, which the harness said thirty-six times and was right about each. It is also
+         * what a reader needs to see: a rectangle where the thing will be, not a collapse.
+         */
+        style: {
+          display: 'block',
+          maxWidth: '100%',
+          ...aspectCss(attrs as never),
+          ...sizingCss(attrs as never, inScrollingRow(ctx, node)),
+          ...positionCss(attrs as never),
+          ...paintCss(attrs as never, asColour),
+          ...opacityCss(attrs as never),
+          ...presenceCss(attrs as never)
+        }
+      });
+    }
+    return element('iframe', {
+      className: 'st-embed',
+      src,
+      title: typeof attrs.title === 'string' && attrs.title ? attrs.title : '넣은 콘텐츠',
+      loading: 'lazy',
+      referrerpolicy: 'no-referrer',
+      sandbox: 'allow-scripts allow-same-origin allow-popups allow-presentation',
+      allow: 'accelerometer; encrypted-media; picture-in-picture; fullscreen',
+      style: {
+        display: 'block',
+        maxWidth: '100%',
+        /*
+         * A frame's own border comes off first and the reader's goes on after — every browser draws
+         * an iframe with a 2px inset one, which is a border nobody chose and which sat under a
+         * reader's until this was moved above `frameCss` rather than below it.
+         */
+        border: 0,
+        /*
+         * The same set a picture draws, because a video and an embed are the same kind of thing: a
+         * rectangle in the flow that a reader sizes, places, paints and reveals. Sharing the list
+         * rather than choosing a subset is also what stops three block types drifting into three
+         * different ideas of what a block can say.
+         */
+        ...aspectCss(attrs as never),
+        ...sizingCss(attrs as never, inScrollingRow(ctx, node)),
+        ...positionCss(attrs as never),
+        /*
+         * `frameCss` before `paintCss`, which is the order a stack uses and for its reason: the first
+         * writes the flat colour, the single radius and the border; the second is the longer answer —
+         * four separate corners, a shadow — and the longer answer has to win.
+         *
+         * A video and an embed take the border and the corners from it, because their fill is painted
+         * over by whatever they end up showing. `boxAttrs` is the schema half of the same sentence.
+         */
+        ...frameCss(attrs as never),
+        ...paintCss(attrs as never, asColour),
+        ...opacityCss(attrs as never),
+        ...presenceCss(attrs as never)
+      }
     });
   });
 
@@ -902,7 +1144,7 @@ export function registerSiteRenderers(): void {
               border: `${Math.round(((typeof attrs.strokeWidth === 'number' ? attrs.strokeWidth : 15) * 96) / 1440)}px solid ${attrs.stroke}`
             }
           : {}),
-        ...sizingCss(attrs),
+        ...sizingCss(attrs, inScrollingRow(ctx, node)),
         ...positionCss(attrs),
         /*
          * And **how much of it comes through**, which is the case opacity exists for: a photograph

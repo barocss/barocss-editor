@@ -79,6 +79,31 @@ export function setAttributeWithNamespace(element: Element, key: string, value: 
     if (current !== null && current === String(value)) return;
   }
 
+  /**
+   * **`muted` is the one attribute a browser does not reflect.**
+   *
+   * A media attribute is the element's *initial* state, and for `muted` that is where it stops: set
+   * it on an element the browser has already created and `video.muted` stays false. Measured in the
+   * site builder — `getAttribute('muted')` said "true" beside a video playing sound.
+   *
+   * A published page is parsed from markup, so the attribute is the whole answer there; a board
+   * builds its elements, so the board needs the property said as well. Written here rather than in
+   * the renderer that draws a video, because a renderer describes a document and *which attributes a
+   * browser reflects* is a fact about browsers.
+   *
+   * The narrow list on purpose. `value` and `checked` have the same split and are deliberately not
+   * here: those two are what a **reader** is typing into, and writing the property from a render is
+   * how an editor takes a half-typed word away from somebody. `muted` is not typed into.
+   */
+  if (key === 'muted' && 'muted' in element) {
+    // Only when it differs, which is the rule the attribute path above already follows and for its
+    // reason: writing a value that is already there is a mutation record, an observer callback and a
+    // diff, for nothing.
+    const wanted = value !== false && value !== 'false';
+    const holder = element as unknown as { muted: boolean };
+    if (holder.muted !== wanted) holder.muted = wanted;
+  }
+
   // Special handling for xmlns - don't override if already set by createElementWithNamespace
   if (key === 'xmlns') {
     const existingXmlns = element.getAttribute('xmlns');

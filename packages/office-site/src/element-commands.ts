@@ -475,6 +475,128 @@ export class SiteElementExtension implements Extension {
     });
 
     /**
+     * **Three shapes a page is mostly made of**, inserted whole rather than built each time.
+     *
+     * Surveyed against what a real site asks for (`docs/specs/site-blocks.md`): most of the gaps were
+     * not missing *nodes* — a timeline, a feature row, a pair of columns are all frames and text this
+     * product has had since the first week. What was missing is that a reader had to assemble each
+     * one, every time, from an insert menu that offers primitives.
+     *
+     * Which `insertAccordion` and `insertTabs` already answered for two shapes and nothing generalised
+     * from: they are not nodes either, they are **compositions** given a name and a command. These are
+     * three more of the same kind, chosen by how often a page has one:
+     *
+     * - **두 칸** — the split every landing page opens with, and the one thing `insertGrid` cannot be
+     *   talked into being without four clicks in the panel.
+     * - **카드 셋** — three boxes with a heading and a line of prose, which is the middle of nearly
+     *   every page ever made.
+     * - **단계** — a numbered column, for a how-it-works section.
+     *
+     * Each arrives with **real placeholder words** rather than 텍스트: a card that says 상품 이름 is a
+     * card a reader edits, and one that says Lorem is a card they delete and rebuild. The sample
+     * taught that lesson twice.
+     */
+    /*
+     * **A video and an embed**, each arriving with the one thing that stops a page jumping: a shape.
+     * A video that has not loaded has no intrinsic size, and a page without an aspect moves by
+     * several hundred pixels the moment the metadata lands.
+     *
+     * Both arrive **empty on purpose** — a video with no file, an embed with no id — which the fault
+     * list reports the moment they exist. There is no default video and no default provider, for the
+     * reason the form gives about its destination: a builder that quietly pointed at something of its
+     * own would be doing something nobody asked for.
+     */
+    registerMade('insertVideo', () =>
+      /*
+       * `src` is **required** by the schema, so an empty one is a node the store refuses — measured
+       * as a command that lit up, ran, and put nothing in the document, which is exactly what
+       * `every-command-does-something` is named after. A single space is the honest placeholder: it
+       * satisfies the shape, draws nothing, and `assetFaults` reports it as a video with no file.
+       */
+      node('mediaVideo', { name: '영상', src: ' ', aspect: '16/9', sizing: 'fill', controls: true }, []) as Node
+    );
+
+    registerMade('insertEmbed', () =>
+      // `id` is required for the same reason, and an embed with nothing to show draws its box.
+      node('mediaEmbed', { name: '넣은 것', provider: 'youtube', id: ' ', aspect: '16/9', sizing: 'fill' }, []) as Node
+    );
+
+    registerMade('insertSplit', () =>
+      node(
+        'frame',
+        { name: '두 칸', layoutMode: 'row', sizing: 'fill', gap: 480, alignItems: 'start',
+          /*
+           * A column at the width of a phone, which is what a two-up *means*: side by side while
+           * there is room and stacked when there is not. Written here rather than left to the reader,
+           * because a two-column band that stays two columns at 390px is the single most common way a
+           * page breaks.
+           */
+          overrides: { mobile: { layoutMode: 'column', gap: 360 } } },
+        [
+          node('frame', { name: '왼쪽', layoutMode: 'column', sizing: 'fill', gap: 180 }, [
+            node('heading', { level: 3 }, [run('왼쪽 제목')]) as never,
+            node('paragraph', {}, [run('여기에 설명을 씁니다.')]) as never
+          ]) as never,
+          node('frame', { name: '오른쪽', layoutMode: 'column', sizing: 'fill', gap: 180 }, [
+            node('heading', { level: 3 }, [run('오른쪽 제목')]) as never,
+            node('paragraph', {}, [run('여기에 설명을 씁니다.')]) as never
+          ]) as never
+        ]
+      ) as Node
+    );
+
+    registerMade('insertCards', () =>
+      node(
+        'frame',
+        { name: '카드 셋', layoutMode: 'grid', columns: 3, sizing: 'fill', gap: 360,
+          // One column on a phone, two on a tablet: three cards at 390px are three slivers.
+          overrides: { tablet: { columns: 2 }, mobile: { columns: 1 } } },
+        ['첫째', '둘째', '셋째'].map(
+          (said) =>
+            node(
+              'frame',
+              { name: `카드 ${said}`, layoutMode: 'column', sizing: 'fill', gap: 120,
+                paddingTop: 360, paddingRight: 360, paddingBottom: 360, paddingLeft: 360,
+                cornerRadius: 180, stroke: 'var:선' },
+              [
+                node('heading', { level: 3 }, [run(`${said} 제목`)]) as never,
+                node('paragraph', {}, [run('한 줄로 설명합니다.')]) as never
+              ]
+            ) as never
+        )
+      ) as Node
+    );
+
+    registerMade('insertSteps', () =>
+      node(
+        'frame',
+        { name: '단계', layoutMode: 'column', sizing: 'fill', gap: 360 },
+        ['1', '2', '3'].map(
+          (n) =>
+            node(
+              'frame',
+              { name: `단계 ${n}`, layoutMode: 'row', sizing: 'fill', gap: 240, alignItems: 'start' },
+              [
+                /*
+                 * The number is **written**, not computed. A list would number itself and would also
+                 * be a list — with a marker a reader cannot make big, cannot colour, and cannot put
+                 * beside a heading. Three steps is a shape, not an enumeration.
+                 */
+                node('frame', { name: '번호', layoutMode: 'row', sizing: 'hug',
+                  paddingTop: 60, paddingRight: 180, paddingBottom: 60, paddingLeft: 180,
+                  cornerRadius: 999, fill: 'var:바탕' },
+                  [node('paragraph', {}, [run(n)]) as never]) as never,
+                node('frame', { name: `단계 ${n} 글`, layoutMode: 'column', sizing: 'fill', gap: 90 }, [
+                  node('heading', { level: 3 }, [run(`${n}단계 제목`)]) as never,
+                  node('paragraph', {}, [run('무엇을 하는 단계인지 씁니다.')]) as never
+                ]) as never
+              ]
+            ) as never
+        )
+      ) as Node
+    );
+
+    /**
      * **A form** — the one block on an ordinary site that had no node behind it.
      *
      * ## Why the insert is a whole form and not an empty one

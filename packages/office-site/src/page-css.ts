@@ -386,4 +386,39 @@ export const PAGE_CSS =
   .st-page h2 { font-size: 1.375rem; }
   .st-page h3 { font-size: 1.125rem; }
 }
+
+/**
+ * **A row that scrolls sideways**, and the half of it a parent cannot say.
+ *
+ * The container gets overflow-x and scroll-snap-type from the renderer, because those are its own.
+ * scroll-snap-align belongs to each child, and CSS gives a parent no way to write it for them — so
+ * it is a rule here, keyed off the attribute the parent states. The renderer draws a node without
+ * knowing whose child it is; a selector knows exactly that.
+ *
+ * start rather than center: a strip of cards a reader has scrolled should sit against the edge they
+ * scrolled from, and centre leaves a half card showing on both sides at every stop.
+ */
+/**
+ * And nothing in a scrolling row shrinks to fit — shrinking is what a row does *instead* of
+ * scrolling, and a row that does both puts eight squeezed cards on a phone rather than three
+ * readable ones.
+ *
+ * Written first with an important flag, which the browser suite refused and was right to: a published
+ * page carries none, its styles are lifted into classes so a selector wins on its own, and a page a
+ * reader cannot restyle with their own CSS is not theirs.
+ *
+ * Two attribute selectors instead of one, which is the whole fix. Sizing is written **inline** by the
+ * renderer, so a child that says Fill carries a flex on the element and an ordinary rule loses — but
+ * this does not need to beat an inline style, it needs to beat the *stack's* own rule, and naming
+ * both values raises the specificity enough to do it while a reader's own selector still wins.
+ *
+ * Measured before that: the container scrolled, the children shrank, and the scroll had nothing to
+ * scroll.
+ *
+ * (No back-ticks in this comment. The whole stylesheet is a template literal and one of those in a
+ * comment ends it — which is written at the caret rule and happened again here.)
+ */
+.st-page [data-scrolls='x-snap'] > * {
+  scroll-snap-align: start;
+}
 `;
