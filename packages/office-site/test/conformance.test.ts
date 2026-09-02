@@ -92,6 +92,12 @@ describe('the site builder draws what it declares', () => {
     { command: 'insertNumberList', produces: 'list' },
     { command: 'insertQuote', produces: 'blockQuote' },
     { command: 'insertRule', produces: 'horizontalRule' },
+    /*
+     * The one insert here that makes something **inside a line** rather than a block on the page: an
+     * emoji takes its place beside the words, which is why it is reached from the text toolbar and
+     * not from 넣는 것.
+     */
+    { command: 'insertEmoji', produces: 'emoji' },
     { command: 'insertCode', produces: 'codeBlock' },
     /*
      * A **composition**, and it produces a `frame` — which is the honest answer rather than a
@@ -367,6 +373,16 @@ describe('the site builder draws what it declares', () => {
        * ignores, which is a command that says it ran and changed nothing. So the probe says so
        * first, on two blocks, which is also what lining up needs.
        */
+      /*
+       * **An emoji to put in**, for the one insert that makes something inside a line. It needs the
+       * emoji as well as the caret — a command that says *put one here* and is not told which is a
+       * command with nothing to make.
+       */
+      if (command === 'insertEmoji') {
+        payload.shortcode = ':tada:';
+        payload.unicode = '🎉';
+      }
+
       if (command === 'nudgeBlock' || command === 'alignBlocks') {
         const two = blocksIn(doc as never, page).slice(0, 3);
         if (two.length > 2) {
@@ -1681,6 +1697,26 @@ describe('the site builder draws what it declares', () => {
          * one feature in every tool that has them, and taking one without the others gives a reader
          * a swap that cannot be undone into anything meaningful. Written in `docs/BACKLOG.md`.
          */
+        /**
+         * **An emoji is chosen, not edited.**
+         *
+         * Both of these are written once, by the picker, at the moment a reader chooses which emoji
+         * they mean — and there is nothing to change afterwards: a different emoji is a different
+         * emoji, put in by choosing again. A panel row offering to retype `shortcode` would be a
+         * text field where the value has to match a set, which is a picker with the help taken out.
+         *
+         * The claim, so it fails rather than rots: the day an emoji grows something a reader adjusts
+         * — a size, a skin tone — that is a row, and this comes off.
+         */
+        shortcode: {
+          reason: 'chosen rather than edited: the picker writes it when a reader picks an emoji, and a different emoji is a different choice',
+          covers: ['every-property-can-be-edited']
+        },
+        unicode: {
+          reason: 'the character the picker wrote beside the name — see `shortcode`',
+          covers: ['every-property-can-be-edited']
+        },
+
         componentId: 'instance swap, deferred with variants — a placement is made from a definition and points at it for life, for now',
 
         /**

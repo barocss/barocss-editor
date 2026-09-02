@@ -233,3 +233,16 @@
   border-color: #2563eb;
   background: #eff6ff;
 }
+
+
+/**
+ * An emoji is **one thing**.
+ *
+ * The element is `contenteditable="false"`, which is what stops a caret going inside it; this is the
+ * other half — without it a reader can sweep a selection through the character itself and copy half
+ * an atom. `pointer-events` stays on, because a press on it should still put the caret *beside* it.
+ */
+.w-emoji {
+  user-select: none;
+  -webkit-user-select: none;
+}

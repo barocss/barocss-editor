@@ -264,6 +264,21 @@ export const SITE_TOOLBAR: SiteControl[] = [
    * command `every-command-can-be-reached` counts as unreachable — which is exactly the drift this
    * file exists to prevent.
    */
+  /**
+   * **An emoji**, in the text group beside the marks — because it is a thing that goes *into a line*
+   * rather than onto the page, and the line is what the reader is in when they want one.
+   *
+   * The picker is the app's; what is declared here is that the gesture exists, so the check that
+   * every command is reachable can see it and a reader can find it where the other text gestures are.
+   */
+  {
+    command: 'insertEmoji',
+    label: '이모지',
+    title: '커서 자리에 이모지를 넣습니다',
+    group: 'text',
+    icon: 'emoji'
+  },
+
   {
     command: 'removeLink',
     label: '링크 없음',

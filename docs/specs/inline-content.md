@@ -24,7 +24,7 @@ product actually loads know it, does a renderer draw it, and can a reader make o
 | `fieldRef` `fieldSeq` `fieldStyleRef` | word | ✓ | ✓ | cross-references and numbering |
 | `noteNumber` | word | ✓ | — | the mark a footnote leaves in the text |
 | `tab` `softHyphen` `noBreakHyphen` | word | ✓ | ✓ | typesetting a word processor needs |
-| **`emoji`** | standard | **✗** | **✗** | a character or a picture standing for one |
+| `emoji` | office | ✓ | ✓ `insertEmoji` | a character **and the name for it** |
 | **`mathInline`** | standard | **✗** | **✗** | a formula, `tex` and an engine |
 
 **The two at the bottom look like a gap and are a decision.** Both are declared, both have an
@@ -42,9 +42,34 @@ That was prose until this was written, which was the actual fault: a name in **n
 in silence, and no check here could see it — every check asks about the nodes a product *declares*.
 Building the office schema now refuses a standard node that is neither taken nor explained.
 
-**`emoji` is the one that is a decision rather than a difference.** There is nothing an office
-document cannot do with one; it is out because nothing offered a picker. Which is exactly the kind of
-answer that should be revisited when a product asks, and the site builder is asking.
+**`emoji` was the one that was a decision rather than a difference**, and the decision expired: there
+is nothing an office document cannot do with one, and it was out because nothing offered a picker.
+The site builder asked, so it came in — schema, renderer, picker, and a browser test.
+
+### What an emoji being a *node* buys
+
+A character in a run needs none of this. The node exists for the other half:
+
+- The document keeps **`:tada:` beside the glyph**, so a search finds the word a reader typed rather
+  than a character nobody can type into a search box.
+- A screen reader is told **the name they meant** rather than whatever its own table calls the
+  codepoint.
+- A document that travels between products means the same thing in each.
+
+And it is an **atom**, which is a claim the DOM has to be told about. Left alone the browser put the
+caret *inside* the new node, at offset 0 of the character — where the next keystroke goes into a node
+that cannot hold one, and where the run index has no entry for the reader's position. Three things
+together, all needed:
+
+1. `contenteditable="false"` on the element, so a caret cannot go in. **On its own it made things
+   worse**: the caret was already in there and could no longer get out.
+2. The insert says where the caret lands — the start of the text that now follows, or the end of the
+   run before it. Both are a caret in text, which is the only place a caret belongs.
+3. It says it to the **model and the DOM**. Setting the model alone leaves the browser's caret where
+   it put it, and the next read writes that back over the answer.
+
+Word and the deck draw it and offer no picker, which is written down in each rather than exempted
+away: the command is shared, the surface is not.
 
 ## What an inline thing has to have to be alive
 

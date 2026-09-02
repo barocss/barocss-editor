@@ -113,7 +113,58 @@ export class EmojiExtension implements Extension {
     const result = await transaction(editor, ops, {
       applySelectionToView: true,
     }).commit();
-    return result.success;
+    if (!result.success) return false;
+
+    /**
+     * **And the caret goes beside it, not into it.**
+     *
+     * An emoji is an atom: the schema says it holds nothing and the element says
+     * `contenteditable="false"`. Left to itself the browser put the caret *inside* the new node —
+     * measured, at offset 0 of `🎉` — where a reader's next keystroke would have gone into a node
+     * that cannot hold characters, and where the arrow keys could not get out again because the
+     * element refuses to be edited.
+     *
+     * So the run says where the caret is, which is the same rule every other insert here follows: at
+     * the start of the text that now **follows** the emoji, or — when it went in at the end of the
+     * block — at the end of the run before it. Both are a caret in text, which is the only place a
+     * caret belongs.
+     */
+    const holder = dataStore.getNode(blockId);
+    const kids: string[] = Array.isArray(holder?.content) ? holder.content : [];
+    const at = kids.findIndex((sid) => {
+      const one = dataStore.getNode(sid);
+      return one?.stype === 'emoji' && one?.attributes?.shortcode === attrs.shortcode
+        && one?.attributes?.unicode === attrs.unicode;
+    });
+    const after = at >= 0 ? dataStore.getNode(kids[at + 1]) : undefined;
+    const before = at > 0 ? dataStore.getNode(kids[at - 1]) : undefined;
+    const land =
+      typeof after?.text === 'string'
+        ? { sid: after.sid as string, offset: 0 }
+        : typeof before?.text === 'string'
+          ? { sid: before.sid as string, offset: (before.text as string).length }
+          : undefined;
+    if (land) {
+      const said = {
+        type: 'range' as const,
+        startNodeId: land.sid,
+        startOffset: land.offset,
+        endNodeId: land.sid,
+        endOffset: land.offset,
+        collapsed: true
+      };
+      /*
+       * **The model and the DOM**, in that order. Setting the model alone leaves the browser's own
+       * caret where it put it — inside the new atom — and the next thing to read the DOM writes that
+       * back over the answer this just gave. Measured: the model said `site:15@21` and the caret was
+       * at offset 0 of `🎉`.
+       */
+      (editor as unknown as { updateSelection?: (one: unknown) => void }).updateSelection?.(said);
+      (editor as unknown as {
+        view?: { convertModelSelectionToDOM?: (one: unknown) => void };
+      }).view?.convertModelSelectionToDOM?.(said);
+    }
+    return true;
   }
 
   private _getBlockId(dataStore: any, schema: any, startNode: any): string | null {

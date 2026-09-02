@@ -1989,3 +1989,63 @@ body {
   border: calc(1px / var(--st-zoom, 1)) solid var(--st-accent);
   pointer-events: none;
 }
+
+
+/**
+ * The emoji picker: three short groups, each a grid of characters.
+ *
+ * The characters are drawn at the size a reader picks them at rather than at the size they will be
+ * in the text — a grid of 13px glyphs is a grid nobody can tell apart.
+ */
+.st-emoji-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 260px;
+}
+
+.st-emoji-sheet h3 {
+  margin: 0 0 4px;
+  color: var(--ou-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.st-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+
+.st-emoji-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  border: 0;
+  border-radius: var(--ou-radius);
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.st-emoji-item:hover {
+  background: var(--ou-accent-soft);
+}
+
+/**
+ * And the emoji **in the page**: no font of its own.
+ *
+ * Every platform draws these from its own set, and asking for a different one is how a page ends up
+ * with two different smiles on two machines. What this does say is that the glyph keeps the line's
+ * rhythm rather than pushing it around, which is the one thing a colour glyph in a run of text
+ * reliably gets wrong.
+ */
+.w-emoji {
+  display: inline-block;
+  line-height: 1;
+  vertical-align: -0.1em;
+}

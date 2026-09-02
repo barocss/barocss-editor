@@ -243,12 +243,21 @@ describe('the document vocabulary survives the merge', () => {
       'bFigure',
       'mediaVideo',
       'chart',
-      'emoji',
       'toc',
       'docSection'
     ]) {
       expect(schema.getNodeType(absent), `${absent}이 여전히 선언되어 있습니다`).toBeUndefined();
     }
+
+    /*
+     * **`emoji` is not among them any more**, and the way it left is the point.
+     *
+     * It was the only one of the twenty-three whose reason was not a difference: there is nothing an
+     * office document cannot do with an emoji, and it was out because nothing offered a picker. So
+     * the reason expired the day a product asked, rather than being argued with — which is what
+     * `OFFICE_LEAVES_BEHIND` carrying a reason each is for. The other twenty-two are still true.
+     */
+    expect(schema.getNodeType('emoji')).toBeDefined();
 
     // The three office does differently rather than not at all: equations are
     // OMML node names, a page number is furniture the layout pass paints, and a

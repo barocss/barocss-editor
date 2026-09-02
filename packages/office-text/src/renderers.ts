@@ -800,6 +800,60 @@ export function registerTextRenderers(): void {
     style: (d: Record<string, any>) => imageCss(d.attributes as never)
   }));
 
+  /**
+   * **An emoji**, which is a character and a name for one.
+   *
+   * Drawn as a `<span>` rather than as bare text, and that is the whole reason the node exists: the
+   * element carries the **shortcode** as well as the character, so a document keeps `:tada:` and a
+   * search finds the word a reader typed rather than a glyph nobody can type into a search box. The
+   * character is what a person sees; the name is what the document means.
+   *
+   * `unicode` first, `shortcode` as the fallback drawn between colons — a document that names an
+   * emoji the running product has no character for shows the name, which a reader can read, rather
+   * than a blank the width of a space.
+   *
+   * No font stack of its own. Every platform draws emoji from its own set and asking for a different
+   * one is how a page ends up with two different smiles on two machines; `font-variant-emoji` is the
+   * only honest lever and it is not for this to pull.
+   */
+  define('emoji', element('span', {
+    className: 'w-emoji',
+    /**
+     * **One thing, not two characters** — which is what an atom means and what the DOM has to be told.
+     *
+     * Measured before this line existed: inserting one left the caret *inside* the emoji's own text
+     * node, at offset 0 of `🎉`. A reader typing there would have put characters inside a node the
+     * schema says holds nothing, and the run index — which strips renderer-owned text and counts what
+     * a document contains — would have had no entry for where they were.
+     *
+     * `contenteditable="false"` is what this repository already uses for a locked control: the
+     * browser then treats the whole span as a single uneditable unit, refuses a caret inside it, and
+     * moves over it in one press of an arrow. `user-select: none` is the second half — without it a
+     * reader can still sweep a selection through the character and copy half an atom.
+     *
+     * Neither takes anything away: the emoji is still selected *with* the words around it, still
+     * deleted by Backspace as one unit, and still copied as part of the run.
+     */
+    contentEditable: 'false',
+    'data-emoji': (d: Record<string, any>) => String(d.attributes?.shortcode ?? ''),
+    role: 'img',
+    /*
+     * The name, said out loud. A screen reader given a bare character reads whatever its own table
+     * calls it; given the shortcode a reader typed, it reads what they meant.
+     */
+    'aria-label': (d: Record<string, any>) => {
+      const said = String(d.attributes?.shortcode ?? '').replace(/^:|:$/g, '');
+      return said || String(d.attributes?.unicode ?? '이모지');
+    }
+  }, [
+    (d: Record<string, any>) => {
+      const glyph = String(d.attributes?.unicode ?? '');
+      if (glyph) return glyph;
+      const said = String(d.attributes?.shortcode ?? '').replace(/^:|:$/g, '');
+      return said ? `:${said}:` : '';
+    }
+  ]));
+
   define('hardBreak', element('br', { className: 'w-break' }));
   /**
    * A tab: an instruction to reach the next stop, drawn as the space it crosses.

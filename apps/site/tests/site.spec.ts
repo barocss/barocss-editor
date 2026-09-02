@@ -1233,6 +1233,105 @@ test.describe('the exported page', () => {
     expect(Number.parseFloat(said.top ?? '0')).toBeGreaterThan(60);
   });
 
+  test('puts an emoji in a line, and keeps the name as well as the character', async ({ page }) => {
+    /**
+     * **The node that was built in three layers and reachable from none.**
+     *
+     * `emoji` was declared in the standard schema, had an extension, and was handled by the PDF
+     * exporter — and no office schema took it, so no product could hold one. It was the only one of
+     * the twenty-three office leaves behind whose reason was not a difference: there is nothing an
+     * office document cannot do with an emoji, and it was out because nothing offered a picker.
+     *
+     * **A node rather than a character**, which is the whole point of having it: the document keeps
+     * `:tada:` beside the glyph, so a search finds the word a reader typed rather than a character
+     * nobody can type into a search box, and a screen reader is told the name they meant instead of
+     * whatever its own table calls the codepoint.
+     */
+    await ready(page);
+    const para = page
+      .locator('[data-frame="desktop"] .st-page .w-paragraph')
+      .filter({ hasText: '세 제품을 따로' })
+      .first();
+    await press(page, para);
+    await page.waitForTimeout(250);
+    const overlay = page.locator('[data-frame="desktop"] .st-overlay');
+    for (let step = 0; step < 8; step += 1) {
+      if ((await overlay.getAttribute('data-mode')) === 'text') break;
+      await pressTwice(page, para);
+      await page.waitForTimeout(250);
+    }
+    await expect(overlay).toHaveAttribute('data-mode', 'text');
+    await page.keyboard.press('End');
+    await page.waitForTimeout(150);
+
+    // In the text group, beside the marks: it goes *into a line*, and the line is where the reader is.
+    const button = page.getByLabel('커서 자리에 이모지를 넣습니다');
+    await expect(button).toBeEnabled();
+    await button.click();
+    await page.waitForTimeout(300);
+
+    // A short grouped set rather than the whole of Unicode, which is a thing a reader abandons.
+    expect(await page.locator('[data-emoji]').count()).toBeGreaterThan(15);
+    await page.locator('[data-emoji=":tada:"]').click();
+    await page.waitForTimeout(500);
+
+    /*
+     * Chosen closes it: a dialog a reader dismisses after it did what they opened it for asks twice.
+     * Asked of the picker's own buttons — the `data-emoji` that survive are the ones now *in the
+     * page*, on three boards, which is the drawing rather than the dialog.
+     */
+    await expect(page.locator('.st-emoji-item')).toHaveCount(0);
+
+    const drawn = para.locator('.w-emoji').last();
+    await expect(drawn).toHaveText('🎉');
+    await expect(drawn).toHaveAttribute('data-emoji', ':tada:');
+    // The name, said out loud — not the codepoint's own.
+    await expect(drawn).toHaveAttribute('aria-label', 'tada');
+
+    /**
+     * **And the caret is beside it, never inside it** — asked because somebody looked at the markup
+     * and said *span 렌더링 사이로 커서가 들어가면 안 될 듯한데*, which was exactly right.
+     *
+     * An emoji is an atom: the schema says it holds nothing. Left alone the browser put the caret
+     * *inside* the new node, at offset 0 of the character, where the next keystroke would have gone
+     * into a node that cannot hold one and the run index would have had no entry for where the reader
+     * was. `contenteditable="false"` stops a caret going in — and on its own it made things worse,
+     * because the caret was already in there and could no longer get out.
+     *
+     * So three things together, and all three are needed: the element refuses to be edited, the
+     * insert says where the caret lands, and it says it to the **model and the DOM** — setting the
+     * model alone leaves the browser's own caret where it put it, and the next read writes that back.
+     */
+    const caret = async () =>
+      await page.evaluate(() => {
+        const sel = document.getSelection();
+        const node = sel?.anchorNode;
+        const el = node?.nodeType === 3 ? node.parentElement : (node as HTMLElement | null);
+        return { inside: !!el?.closest('.w-emoji'), offset: sel?.anchorOffset };
+      });
+
+    expect((await caret()).inside).toBe(false);
+    // And the arrows move through it rather than being trapped by it.
+    for (let step = 0; step < 3; step += 1) {
+      await page.keyboard.press('ArrowLeft');
+      await page.waitForTimeout(150);
+      expect((await caret()).inside).toBe(false);
+    }
+    // A press on the emoji itself puts the caret beside it, which is what an atom means.
+    await page.locator('[data-frame="desktop"] .w-emoji').last().click({ force: true });
+    await page.waitForTimeout(300);
+    expect((await caret()).inside).toBe(false);
+
+    /*
+     * And it **publishes**, carrying both: the character a visitor sees and the name the document
+     * meant. A node that only existed while editing would be a fourth kind of thing this repository
+     * has a word for — declared, drawn, reachable, and gone from the file.
+     */
+    const html = await exported(page, '/');
+    expect(html).toContain('data-emoji=":tada:"');
+    expect(html).toContain('🎉');
+  });
+
   test('draws the four layout choices as pictures rather than four dropdowns', async ({ page }) => {
     /**
      * **The row a designer touches most, and it was four menus.**

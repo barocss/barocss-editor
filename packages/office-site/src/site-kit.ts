@@ -28,6 +28,7 @@
  */
 import {
   DragDropExtension,
+  EmojiExtension,
   FontColorExtension,
   FontFamilyExtension,
   FontSizeExtension,
@@ -130,6 +131,15 @@ export function createSiteExtensions(): Extension[] {
     new StrikeThroughExtension(),
     new LinkExtension(),
     new ImageExtension(),
+    /**
+     * **An emoji**, which is a character and a name for one.
+     *
+     * Named here rather than arriving with a bundle, like everything else on this list: a page's
+     * vocabulary is a decision, and a product that took whatever the shared kit happened to register
+     * would grow surfaces nobody chose. The extension has existed for as long as the node has; what
+     * it lacked was a schema that declared one and a product that asked.
+     */
+    new EmojiExtension(),
     new FontColorExtension(),
     new FontSizeExtension(),
     new FontFamilyExtension(),

@@ -43,6 +43,57 @@ import type { PointerMode } from './overlay';
  * look like on a phone" while they are still deciding what it says — and a picker would quietly make
  * it one-at-a-time again, which is the tool this is meant not to be.
  */
+/**
+ * **What the picker offers**, and it is short on purpose.
+ *
+ * Fifteen hundred glyphs behind a search box is a thing a reader scrolls and abandons. Every picker
+ * that works is a handful of common ones grouped the way people reach for them; the rest is what a
+ * search is for, and a search over a set this size would be furniture.
+ *
+ * The shortcode is the name the **document** keeps — `:tada:` — and the character is what a reader
+ * sees. Both travel, so a search finds the word rather than the glyph and a rename of the set changes
+ * every use.
+ */
+const EMOJI: { label: string; items: { shortcode: string; unicode: string }[] }[] = [
+  {
+    label: '반응',
+    items: [
+      { shortcode: ':tada:', unicode: '🎉' },
+      { shortcode: ':fire:', unicode: '🔥' },
+      { shortcode: ':sparkles:', unicode: '✨' },
+      { shortcode: ':rocket:', unicode: '🚀' },
+      { shortcode: ':+1:', unicode: '👍' },
+      { shortcode: ':clap:', unicode: '👏' },
+      { shortcode: ':heart:', unicode: '❤️' },
+      { shortcode: ':eyes:', unicode: '👀' }
+    ]
+  },
+  {
+    label: '표정',
+    items: [
+      { shortcode: ':smile:', unicode: '🙂' },
+      { shortcode: ':laughing:', unicode: '😄' },
+      { shortcode: ':thinking:', unicode: '🤔' },
+      { shortcode: ':sweat:', unicode: '😅' },
+      { shortcode: ':cry:', unicode: '😢' },
+      { shortcode: ':wink:', unicode: '😉' }
+    ]
+  },
+  {
+    label: '표시',
+    items: [
+      { shortcode: ':check:', unicode: '✅' },
+      { shortcode: ':x:', unicode: '❌' },
+      { shortcode: ':warning:', unicode: '⚠️' },
+      { shortcode: ':bulb:', unicode: '💡' },
+      { shortcode: ':pin:', unicode: '📌' },
+      { shortcode: ':link:', unicode: '🔗' },
+      { shortcode: ':star:', unicode: '⭐' },
+      { shortcode: ':point_right:', unicode: '👉' }
+    ]
+  }
+];
+
 export function Ribbon({
   editor,
   mode,
@@ -66,6 +117,8 @@ export function Ribbon({
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
   const [adding, setAdding] = useState(false);
+  /** Whether the emoji picker is open — see the text group, and `EMOJI` below. */
+  const [picking, setPicking] = useState(false);
 
   /**
    * Whether to write a chord Apple's way or everyone else's.
@@ -298,8 +351,19 @@ export function Ribbon({
                 label={control.title ?? control.label}
                 shortcut={chordOf(control)}
                 state={control.mark ? markState(summary, control.mark) : 'off'}
-                disabled={!can(control.command)}
-                onActivate={() => run(control.command)}
+                /*
+                 * The one control here that has to **ask which** before it can run: every other text
+                 * gesture is a mark a reader already means by pressing it, and an emoji is a choice
+                 * out of a set. So it opens the picker and the picker runs the command.
+                 */
+                disabled={
+                  control.command === 'insertEmoji'
+                    ? !can('insertEmoji', { unicode: '🙂' })
+                    : !can(control.command)
+                }
+                onActivate={() =>
+                  control.command === 'insertEmoji' ? setPicking(true) : run(control.command)
+                }
               >
                 <Icon name={control.icon ?? 'bold'} />
               </ToolbarToggle>
@@ -387,6 +451,55 @@ export function Ribbon({
         Closed by choosing, because choosing is the whole errand: a dialog a reader has to dismiss
         after it has done what they opened it for is a dialog that has asked them twice.
       */}
+      {/**
+       * **The emoji picker**, which is the surface the node has been waiting for.
+       *
+       * A short, grouped set rather than the whole of Unicode: fifteen hundred glyphs behind a search
+       * box is a thing a reader scrolls and abandons, and every picker that works is a handful of
+       * common ones plus a way to find the rest. The way to find the rest is the search here.
+       *
+       * Each one carries its **shortcode** as well as its character, because that is the point of the
+       * node: the document keeps `:tada:`, a search finds the word a reader typed rather than a glyph
+       * nobody can type into a search box, and a document that travels between products means the
+       * same thing in each.
+       *
+       * Closed by choosing — a dialog a reader has to dismiss after it has done what they opened it
+       * for is a dialog that has asked them twice.
+       */}
+      <Dialog
+        open={picking}
+        onOpenChange={setPicking}
+        title="이모지"
+        description="커서 자리에 들어갑니다."
+        footer={<DialogButton onClick={() => setPicking(false)}>닫기</DialogButton>}
+      >
+        <div className="st-emoji-sheet">
+          {EMOJI.map((group) => (
+            <section key={group.label}>
+              <h3>{group.label}</h3>
+              <div className="st-emoji-grid">
+                {group.items.map((one) => (
+                  <button
+                    key={one.shortcode}
+                    type="button"
+                    className="st-emoji-item"
+                    data-emoji={one.shortcode}
+                    title={one.shortcode}
+                    aria-label={one.shortcode.replace(/:/g, '')}
+                    onClick={() => {
+                      run('insertEmoji', { shortcode: one.shortcode, unicode: one.unicode });
+                      setPicking(false);
+                    }}
+                  >
+                    {one.unicode}
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </Dialog>
+
       <Dialog
         open={adding}
         onOpenChange={setAdding}

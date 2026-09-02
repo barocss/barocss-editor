@@ -322,7 +322,14 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * to set them, because Word has no panel and no dialogs. Real attributes, really drawn,
        * owed to the sixth dialog rather than regressed.
        */
-      ratchet: { 'every-attribute-is-read': 16, 'every-property-can-be-edited': 182 },
+      /*
+       * 184, and the two that arrived are `shortcode` and `unicode`: an `emoji` came into the office
+       * schema the day the site builder asked for one, and Word draws it and offers no picker. A
+       * ratchet that only falls says so rather than letting it pass — the honest reading is that Word
+       * has an emoji it cannot insert, which is a gap and not a fault, and the number records it
+       * until somebody closes it.
+       */
+      ratchet: { 'every-attribute-is-read': 16, 'every-property-can-be-edited': 184 },
 
       /**
        * Every attribute a reader can **set**, out of Word's two writing surfaces.

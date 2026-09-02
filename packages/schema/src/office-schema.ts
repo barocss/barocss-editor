@@ -1479,19 +1479,6 @@ const OFFICE_LEAVES_BEHIND: Record<string, string> = {
   chart: 'a chart is drawn from data by a renderer nothing here ships',
   docSection: 'office sections are `surface` attributes, which is where a page size and its margins live',
 
-  /**
-   * **The one that is a decision rather than a difference**, and it is written apart from the others
-   * for that reason.
-   *
-   * There is nothing an office document cannot do with an emoji — it is a character, and a node for
-   * one exists so a document can keep `:tada:` and draw it from a named set, which is the same
-   * reference shape this model has six of. It is out because nothing offered a picker, not because
-   * anything could not hold one.
-   *
-   * Weighed again the day the site builder asked: see `docs/specs/inline-content.md`. If it comes in,
-   * it comes in here, with a renderer and a way to reach it, or it stays a character in a run.
-   */
-  emoji: 'no product offers a picker yet — a decision, not a difference; see `docs/specs/inline-content.md`'
 };
 
 const OFFICE_STANDARD_NODES = [
@@ -1507,6 +1494,20 @@ const OFFICE_STANDARD_NODES = [
   'hardBreak',
   'inline-text',
   'inline-image',
+  /**
+   * **An emoji**, which came in the day a product asked for one.
+   *
+   * It was the only one of the twenty-three left behind for a reason that was not a difference: there
+   * is nothing an office document cannot do with an emoji, and it was out because nothing offered a
+   * picker. So the reason expired rather than being argued with.
+   *
+   * A **node** rather than a character in a run, and that is the whole point of having it: a document
+   * keeps `:tada:` and draws it from a named set, so a search finds the word, a rename of the set
+   * changes every use, and a document that travels between products means the same thing in each.
+   * `unicode` is the fallback for the ordinary case where the character *is* the answer — see
+   * `docs/specs/inline-content.md`.
+   */
+  'emoji',
   'bookmarkAnchor',
 
   // Tables, all seven parts.
@@ -1562,7 +1563,7 @@ export function getOfficeSchemaDefinition(): SchemaDefinition {
    * standard schema fails until somebody says whether office offers it, at the moment they are in a
    * position to answer.
    */
-  const taken = new Set(OFFICE_STANDARD_NODES);
+  const taken = new Set<string>(OFFICE_STANDARD_NODES);
   const missing = Object.keys(standard.nodes).filter(
     (name) => name !== 'document' && !taken.has(name) && !OFFICE_LEAVES_BEHIND[name]
   );

@@ -369,6 +369,20 @@ describe('Slides draws what its schema declares', () => {
         part: 'which piece of a definition this is; a binding names it',
         layoutId: 'which layout a slide follows — chosen from the layout list, never typed',
         role: 'what a placeholder is for; a layout decides it and a slide inherits it',
+        /**
+         * **A deck draws an emoji and cannot put one in.**
+         *
+         * `emoji` came into the office schema the day the site builder asked for one, and it arrives
+         * everywhere the office vocabulary does — which is the point of a shared schema and is also
+         * how a deck ended up with a node it draws, publishes, and offers no way to make.
+         *
+         * Written as a gap rather than exempted away: the picker is `apps/site`'s, the command is in
+         * the shared extensions, and a deck that wants one adds the extension and a control. Named
+         * here so the day somebody does, this comes off rather than staying as a reason nobody reads.
+         */
+        shortcode: 'a deck draws an emoji and has no picker yet — the command is shared, the surface is not',
+        unicode: 'the character beside the name — see `shortcode`',
+
         componentId: 'which definition a placement draws — instance swap, deferred with variants',
         hidden: 'a layout’s placeholder a slide has turned off — the layer list’s eye, not a field',
 

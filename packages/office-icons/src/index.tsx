@@ -315,6 +315,24 @@ const DRAWN: Record<string, Drawn> = {
    * **Across the stack** — where the children sit on the axis it does *not* run along. Four bars of
    * different lengths pinned to one side, or stretched, which is the whole of what the choice says.
    */
+  /**
+   * **An emoji**, drawn rather than being one.
+   *
+   * A face is the obvious icon and the wrong one: this strip is a set of line drawings at one weight,
+   * and a colour glyph among them is a sticker on a blueprint — it also draws differently on every
+   * platform, which is the whole reason the *node* carries a name as well as a character.
+   */
+  emoji: function EmojiIcon({ size = 16 }: { size?: number }) {
+    return outline(
+      <>
+        <circle cx={8} cy={8} r={5.5} strokeWidth={1.6} />
+        <path d="M6 7v.01M10 7v.01" strokeWidth={2} />
+        <path d="M5.9 9.9a2.8 2.8 0 0 0 4.2 0" strokeWidth={1.6} />
+      </>,
+      size
+    );
+  },
+
   'cross-stretch': stackIcon('M5 5v6M8 5v6M11 5v6'),
   'cross-start': stackIcon('M5 5v3M8 5v4.5M11 5v2.5'),
   'cross-centre': stackIcon('M5 6.5v3M8 5.75v4.5M11 6.75v2.5'),
