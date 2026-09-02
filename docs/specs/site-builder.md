@@ -1645,3 +1645,131 @@ purpose, so an Enter that commits a field cannot also reach the paragraph inside
 edited. `onKeys` is the door that control declares for exactly this — and going through it is the
 better shape anyway, because the handler is handed its own row and column rather than parsing them
 back out of an attribute.
+
+## Three gestures a designer's hands already know
+
+Measured against Figma with a real page open, asking only *what would my hands try*. Three answers,
+and each one turned out to be a gap the model could describe and the product could not do.
+
+### 묶기 is a frame
+
+A page has no `group` node and should not get one: a group in a drawing tool is a z-order over shapes
+that place themselves, and a page **stacks**. What a group means here is *these blocks are one thing
+in the flow*, and a frame is already exactly that — the same argument `detachComponent` makes about a
+component being a frame with a name.
+
+So the decisions are all about not disturbing what it wraps:
+
+- **The parent's direction**, so a row groups into a row. A grid counts as a row, because its children
+  sit beside each other and three cells grouped into a column would stack where nothing around them
+  does. The grid keeps its columns; the group takes one cell's worth.
+- **The first block's index**, so the group appears where the reader was looking rather than at the
+  end of the page.
+- **Where they sit, not the order they were clicked.** A reader who shift-clicked bottom-to-top did
+  not mean to reverse them.
+- **It refuses blocks in different parents.** Grouping across two sections has to move at least one of
+  them somewhere else, and a reader who wanted that would have dragged it.
+- **Ungrouping leaves the children selected.** A reader takes a group apart in order to do something
+  to the things that were in it, and being left holding a frame that no longer exists is being left
+  holding nothing. The children come back as new marks — they are rebuilt from exported trees — so
+  they are read back out of the page rather than remembered.
+
+### A number field can be dragged
+
+Measured by watching a padding get set: click the field, select the digits, type, tab out, look at the
+page, click again. **Six actions to try one number**, and trying numbers is most of what laying out a
+page is. Every inspector of this kind answers it on the same target — the small name or picture to the
+left of the digits, which is otherwise decoration.
+
+One pixel is one `step`, which matters more here than it looks: the model's unit is the twip, so a
+field counting in screen pixels would need fifteen of them to move a point. Shift is ten times, Alt a
+tenth — the arrow keys' own modifiers in the same field.
+
+**One write, on release.** Not a choice about feel: Word's ruler measured that writing on every
+pointer move turns one drag into ten entries of history, and a reader's undo then walks back through
+positions the box was never meant to be in. The number under the pointer is live; the document is
+written once, exactly as if it had been typed. The board's own drags follow the same rule from the
+other side, previewing with inline style and writing at release.
+
+And the arithmetic is a **function** — `scrubbedTo` — rather than a pointer handler, for the reason
+`readNumberField` is: it is wrong at the edges (a step of 0.1 with a modifier on it, a minimum a fast
+drag flies past) and a rule inside a handler can only be measured by moving a real pointer thirty
+times.
+
+### A field keeps only the keys it has a meaning for
+
+Found by the drag above. With the caret in a panel field, ⌘Z did nothing at all: the field's own
+keydown handler stops every key so that *`Delete` in a number box is a digit* — which is true of bare
+keys and of almost no chord. A reader had to click the board before they could undo what they had just
+done in the panel.
+
+`fieldKeeps` is the one answer both layers ask for, exported from `office-ui` because the app's key
+handler asks the same question of `document.activeElement`. The clipboard and select-all stay the
+field's, because a reader copying digits out of a box means the box; everything else held with ⌘ or
+Ctrl is the document's, which is what undo, group, duplicate and save do from a panel in every tool of
+this kind.
+
+### And the size is drawn the whole time
+
+Reported as *여전히 객체 resize 가 어떻게 동작하는지 모르겠어*, and half of it was that the readout only
+existed **while** a block was being pulled: there was nothing to compare a pull against, and no way to
+tell a block that fills its stack from one set to exactly that width. The settled size is under the
+selection now, where every design tool draws it, quieter than the live one and only for a single
+selection — six chips over six cards is six numbers a reader has to match to boxes by eye.
+
+## 와이어프레임은 보기이지 문서가 아니다
+
+Asked as a choice between two things — a filter over the page, or a wireframe editor beside the site
+builder — and it is neither.
+
+**A separate editor is a second document.** Two documents have to be kept in step, and keeping them in
+step is the work that makes a plan and a design drift apart; it is the thing *선언하고, 검사한다* was
+chosen to avoid. The premise of this repository is one schema and one renderer across three products.
+A wireframe is not a different document. It is the same page with the finish taken off.
+
+**A filter alone cannot say what a thing is.** `grayscale()` gives a page with the colour taken out,
+which is a different thing from a wireframe: the job is to show structure and intent, so the grey box
+where a form was has to be able to say 폼.
+
+So it is a third **view**, beside 미리보기 — which is already a view rather than a command, because
+nothing in the site changes and there is nothing to undo. The sheet is generated from the document the
+way `editorStateCss` and `revealRules` already are, and keys its selectors on `data-bc-sid` the way
+they do, so nothing new is written into the drawing and nothing reaches a published page.
+
+### Grey is the removal. The wireframe is what goes in its place
+
+Four things are in it, and each one arrived because the version without it was wrong:
+
+1. **Colour, shadow and photographs down**, so what is left drawing the eye is size, order and space.
+2. **The boxes that go unreadable say what they are** — 폼 · 데이터 목록 · 표 · 코드. Not everything:
+   `instance` was on that list for one screenshot and put 컴포넌트 on a dozen things at once, over the
+   words on a button among them. A placement draws its own content; a reader can see what it is.
+3. **Anything with a rounded corner keeps a hairline.** A button here is a frame with a fill, so
+   laying fills down to grey made the page's one call to action vanish. What separates a band from a
+   control in the drawing is the radius — and the same rule draws every card as a box, which is what
+   a wireframe is for.
+4. **The layout is untouched to the pixel**, which cost the nicest version of this. Emptying the media
+   with `content: url()` gave a hatched box with a caption in it and changed every picture's size,
+   because it replaces the intrinsic size an auto-width image lays out from. Washing with
+   `contrast(0)` changes nothing a layout can see. An `outline` rather than a border, for the same
+   reason at one pixel.
+
+### And four things it should draw and does not
+
+Every one is a fact the document already holds:
+
+- **Reading order** — 1 · 2 · 3 down the sections. Half the reason anybody shows a wireframe to
+  somebody else is *this is the order it reads in*.
+- **What this width hides.** `neverShown` and the per-width hiding are in the schema; a section that
+  drops out on the tablet currently looks exactly like a section that does not exist.
+- **The one thing a visitor is here to do**, which is an open question of its own. Five buttons at one
+  weight is a page with no answer; in a wireframe the answer is the one heavy outline.
+- **Spacing and direction**, which the editor draws as bands and gap strips and this does not — and
+  *여기가 좁다* is most of what a reviewer has to say.
+
+### What is deliberately out
+
+**Annotations.** A note is information the page does not have, so putting it in the document makes it
+publishable, and at that moment "one document" is over. The point where annotations become genuinely
+necessary — arrows between screens, a screen that does not exist yet — is the point where a **화면
+흐름도** is necessary, and that is a different product.

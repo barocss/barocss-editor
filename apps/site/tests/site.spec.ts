@@ -1126,8 +1126,13 @@ test.describe('the exported page', () => {
 
     await page.mouse.up();
     await page.waitForTimeout(500);
-    // And the label goes with the gesture rather than staying on the page.
-    await expect(page.locator('.st-mark-size')).toHaveCount(0);
+    /*
+     * And the **live** number goes with the gesture. The settled one stays, which is the half that
+     * arrived later and for a reported reason — *여전히 객체 resize 가 어떻게 동작하는지 모르겠어* — so
+     * this asks for both: nothing left over from the drag, and the size still readable afterwards.
+     */
+    await expect(page.locator('[data-frame="desktop"] .st-mark-size:not([data-settled])')).toHaveCount(0);
+    await expect(page.locator('[data-frame="desktop"] .st-mark-size[data-settled="true"]')).toHaveCount(1);
 
     const now = (await band.boundingBox())!;
     expect(now.width).toBeLessThan(was.width);
@@ -1528,6 +1533,157 @@ test.describe('the exported page', () => {
     await expect(page.locator('[data-frame="desktop"] [data-name="묶음"]')).toHaveCount(0);
     // The children, not the frame that no longer exists — which is what lets a reader keep going.
     expect(await selection(page)).toEqual(['frame', 'frame']);
+  });
+
+  test('changes a number by dragging its handle, and writes it once', async ({ page }) => {
+    /**
+     * **Figma's gesture**, and the panel's signature omission.
+     *
+     * Measured by watching a padding get set: click the field, select the digits, type, tab out,
+     * look at the page, click again. Six actions to try one number — and trying numbers is most of
+     * what laying out a page *is*. Every inspector of this kind answers it on the same target, the
+     * little picture to the left of the digits, which is otherwise decoration.
+     *
+     * The second half is the one worth a browser. **One write, on release**: the number under the
+     * pointer is live and the document is written once, exactly as if it had been typed. Word's
+     * ruler measured why — a write per pointer move turns one drag into ten entries of history, and
+     * a reader's undo then walks back through positions the box was never meant to be in. So the
+     * check is not *did the number change*, which a unit test already holds; it is **one press of
+     * undo puts it back**.
+     */
+    await ready(page);
+    await page.locator('[data-frame="desktop"] [data-name="문제"]').first().click({ force: true });
+    await page.waitForTimeout(500);
+
+    const field = page.getByLabel('위쪽 여백', { exact: true }).first();
+    const before = await field.inputValue();
+    const handle = field.locator('xpath=preceding-sibling::span[1]');
+    const at = await handle.boundingBox();
+    expect(at).not.toBeNull();
+
+    await page.mouse.move(at!.x + at!.width / 2, at!.y + at!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(at!.x + at!.width / 2 + 30, at!.y + at!.height / 2, { steps: 10 });
+    // Live under the pointer, before anything has been written.
+    expect(Number(await field.inputValue())).toBe(Number(before) + 30);
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    // And the page took it: the field is not talking to itself.
+    expect(
+      await page.evaluate(() => {
+        const el = document.querySelector('[data-frame="desktop"] [data-name="문제"]') as HTMLElement;
+        return Math.round(Number.parseFloat(getComputedStyle(el).paddingTop));
+      })
+    ).toBe(Number(before) + 30);
+
+    await page.keyboard.press('Meta+z');
+    await page.waitForTimeout(600);
+    expect(await field.inputValue()).toBe(before);
+  });
+
+  test('gives the wheel to whatever is under it', async ({ page }) => {
+    /**
+     * Reported as *미리 보기는 스크롤이 되어야 하는데, 마우스로 스크롤을 할 수가 없어* — and it was
+     * the canvas: `useViewport` listens for the wheel on `window`, in the **capture** phase, and
+     * called `preventDefault` on every tick inside the pane. Nothing downstream ever saw one, so a
+     * preview was a page a reader could look at the top of and nothing else.
+     *
+     * Measured before the rule was written, because a rule that took the pan away would have been
+     * worse than the fault: while editing, nothing inside the plane scrolls — every board, body and
+     * page is `overflow: visible` with its scroll height equal to its client height — and in preview
+     * the frame's body is `overflow: auto` at 5063 over 800.
+     *
+     * So both halves are checked here, with the same gesture at the same point: in preview the page
+     * scrolls, and out of it the plane moves.
+     */
+    await ready(page);
+    const body = page.locator('[data-frame="desktop"] .st-frame-body');
+    const scrolled = async () => await body.evaluate((el) => el.scrollTop);
+
+    await page.locator('[data-menu="view"]').click();
+    await page.locator('[data-menu-item]').filter({ hasText: '미리보기' }).first().click();
+    await page.waitForTimeout(800);
+
+    const box = (await body.boundingBox())!;
+    const middle = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    expect(await scrolled()).toBe(0);
+    await page.mouse.move(middle.x, middle.y);
+    await page.mouse.wheel(0, 600);
+    await page.waitForTimeout(400);
+    expect(await scrolled()).toBeGreaterThan(0);
+
+    // Escape leaves preview, which is the only way out and the reason the entry says so.
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(700);
+
+    const plane = async () =>
+      await page.locator('.st-plane').evaluate((el) => getComputedStyle(el).transform);
+    const was = await plane();
+    await page.mouse.move(middle.x, middle.y);
+    await page.mouse.wheel(0, 600);
+    await page.waitForTimeout(400);
+    expect(await plane()).not.toBe(was);
+  });
+
+  test('takes the finish off the page without touching the page', async ({ page }) => {
+    /**
+     * **와이어프레임 보기**, asked as a choice between a filter and a separate editor and answered as
+     * neither: a separate editor is a second document to keep in step, which is the work that makes a
+     * plan and a design drift apart, and a filter cannot say *what a thing is*.
+     *
+     * So it is a third view, and the two things worth driving a browser for are the two a unit test
+     * cannot see: that the boards obey it, and that **nothing in the document changed** — a reader
+     * who looks at their site in grey and finds it grey afterwards has been given a filter that ate
+     * their page.
+     */
+    const pictureBoxes = async (at: Page) =>
+      await at.evaluate(() =>
+        [...document.querySelectorAll('[data-frame="desktop"] img')].map((el) => {
+          const rect = el.getBoundingClientRect();
+          return `${Math.round(rect.width)}x${Math.round(rect.height)}`;
+        })
+      );
+
+    await ready(page);
+    const before = await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
+    const was = await pictureBoxes(page);
+    expect(was.length).toBeGreaterThan(0);
+
+    await page.locator('[data-menu="view"]').click();
+    await page.locator('[data-menu-item]').filter({ hasText: '와이어프레임' }).first().click();
+    await page.waitForTimeout(600);
+
+    // Every board, because a reader looking at three widths wants all three in it.
+    await expect(page.locator('.st-frame[data-wireframe="true"]')).toHaveCount(3);
+    await expect(page.locator('style[data-site-wireframe]')).toHaveCount(1);
+
+    /*
+     * The pictures are emptied and their boxes are exactly where they were — the whole point of a
+     * wireframe being about the space a thing takes rather than about the thing. Measured as the
+     * *same* rectangle rather than as a plausible one, because a placeholder that resized the page
+     * would be showing a layout the reader does not have.
+     */
+    expect(await pictureBoxes(page)).toEqual(was);
+    expect(
+      await page
+        .locator('[data-frame="desktop"] img')
+        .first()
+        .evaluate((el) => getComputedStyle(el).filter)
+    ).toContain('contrast(0)');
+
+    // And the words are still the words: a wireframe with the real copy in it is the one that
+    // produces real decisions.
+    await expect(page.locator('[data-frame="desktop"] [data-name="히어로"]')).toContainText('문서');
+
+    await page.locator('[data-menu="view"]').click();
+    await page.locator('[data-menu-item]').filter({ hasText: '와이어프레임' }).first().click();
+    await page.waitForTimeout(500);
+    await expect(page.locator('.st-frame[data-wireframe="true"]')).toHaveCount(0);
+    await expect(page.locator('style[data-site-wireframe]')).toHaveCount(0);
+
+    // Nothing in the site changed, which is what makes this a view rather than a command.
+    expect(await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(before);
   });
 
   test('pairs the rows that are two halves of one decision', async ({ page }) => {

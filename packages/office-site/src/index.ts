@@ -241,6 +241,14 @@ export {
   type StateKind,
   type StateMap
 } from './states';
+/**
+ * **와이어프레임 보기** — the same page with the finish taken off, as a stylesheet the boards obey.
+ *
+ * A view rather than a second document: keeping two documents in step is the work that makes a plan
+ * and a design drift apart. See the file for the whole argument, and for the three things a browser
+ * had to settle about what a replaced element will and will not paint.
+ */
+export { wireframeCss, wireframeRules, wireframeName, WIREFRAME_CSS, WIREFRAME_NAMES } from './wireframe';
 /** Where a carried block would land — which stack, which place, and the line a reader steers by. */
 export { landingFor, type Box, type Landing } from './landing';
 /**

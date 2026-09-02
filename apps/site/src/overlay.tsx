@@ -1457,7 +1457,27 @@ export function Overlay({
             * one drag into ten entries of the document's history, and a reader's undo then walks back
             * through sizes the box was never meant to be.
             */}
-          {sizing ? <span className="st-mark-size">{sizing}</span> : null}
+          {/**
+           * **And the size, whenever something is held** — not only while it is being pulled.
+           *
+           * Reported as *여전히 객체 resize 가 어떻게 동작하는지 모르겠어*, and the readout is half the
+           * answer: a reader could not see what a block measured until they had already started
+           * changing it, so there was nothing to compare a pull against and no way to tell a block
+           * that fills its stack from one that was set to exactly that width. Every design tool
+           * draws this under the selection the whole time it is selected.
+           *
+           * The drag's own number wins while there is one — it is the *live* size and this is the
+           * settled one — and only one block's is drawn, because six chips over six selected cards
+           * is six numbers a reader has to match up to boxes by eye. Left out under about 32 pixels,
+           * where the chip is wider than the thing it measures.
+           */}
+          {sizing ? (
+            <span className="st-mark-size">{sizing}</span>
+          ) : mode === 'select' && boxes.length === 1 && box.width >= 32 && box.height >= 32 ? (
+            <span className="st-mark-size" data-settled="true">
+              {Math.round(box.width)} × {Math.round(box.height)}
+            </span>
+          ) : null}
           {/**
            * **Eight handles for a block that places itself, three for one that does not** — and the
            * difference is what each block can actually say.

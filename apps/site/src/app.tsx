@@ -9,6 +9,7 @@ import {
   AppMain,
   AppShell,
   MenuBar,
+  fieldKeeps,
   ZoomControl,
   useRevision,
   useViewport,
@@ -27,6 +28,7 @@ import {
   definitionOf,
   editorStateCss,
   revealRules,
+  wireframeCss,
   pagesOf,
   previewForRow,
   rowLabelsOf,
@@ -206,6 +208,16 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * to *what the page does*, and until this there was nowhere for the page to do anything.
    */
   const [preview, setPreview] = useState(false);
+  /**
+   * **와이어프레임 보기** — the same page with the finish taken off.
+   *
+   * Beside `preview` rather than folded into it, because they are opposite views of one document and
+   * a reader wants each for a different reason: preview is *what a visitor gets*, and this is *what
+   * a visitor is being asked to look at*. Both are views rather than commands — nothing in the site
+   * changes, so there is nothing to undo — and both are the boards' state rather than the
+   * application's, so a reader with three widths open sees all three in it.
+   */
+  const [wireframe, setWireframe] = useState(false);
 
   /**
    * The container the reader has entered — the page until they double-click into something.
@@ -412,6 +424,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           return setShown(['desktop', 'tablet', 'mobile']);
         case 'preview':
           return setPreview((was) => !was);
+        case 'wireframe':
+          return setWireframe((was) => !was);
         case 'rail.components':
           return setPanel('components');
         case 'rail.data':
@@ -581,6 +595,26 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   }, [editor, root, revision, state, chosen]);
 
   /**
+   * And the **wireframe**, which is the third sheet the boards obey and the only one of the three
+   * that is about the *tool* rather than about the page.
+   *
+   * Generated from the document for the half that has to be — a form, a data list and a placed
+   * component are all a `div` with children as far as a browser is concerned, so what they are
+   * called comes from the model. See `wireframe.ts` for the argument, and for what a browser had to
+   * settle about labelling a photograph.
+   */
+  useEffect(() => {
+    const store = editor?.dataStore as { getNode: (sid: string) => any } | undefined;
+    if (!store || !root || !wireframe) return;
+
+    const sheet = document.createElement('style');
+    sheet.dataset.siteWireframe = 'true';
+    sheet.textContent = wireframeCss(store as never, root);
+    document.head.append(sheet);
+    return () => sheet.remove();
+  }, [editor, root, revision, wireframe]);
+
+  /**
    * And the **arrivals**, which are drawn only while previewing.
    *
    * The other half of the same idea and the one place this product deliberately shows a reader
@@ -660,10 +694,26 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
      * could be deleted or duplicated, and `Escape` did nothing either. In select mode the reader is
      * not typing by definition — that is what the mode *is*.
      */
-    const elsewhere = () => {
+    const elsewhere = (event: KeyboardEvent) => {
       const at = document.activeElement as HTMLElement | null;
       if (!at) return false;
-      if (at.tagName === 'INPUT' || at.tagName === 'TEXTAREA') return true;
+      if (at.tagName === 'INPUT' || at.tagName === 'TEXTAREA') {
+        /**
+         * **A field keeps the keys it has a meaning for, and no others.**
+         *
+         * It used to keep them all, and the sentence above is why that read as right: `Delete` in a
+         * number box is a digit. But it is only true of **bare** keys. Measured by dragging a
+         * padding's handle and pressing ⌘Z: focus was in the panel, so the chord went to the field's
+         * own text undo — which for a field that commits on blur has nothing to take back — and the
+         * document kept the number. A reader had to click the board first to undo what they had just
+         * done in the panel, which is not something any reader would work out.
+         *
+         * So: the clipboard and select-all stay the field's, because a reader copying digits out of
+         * a box means the box. Everything else with ⌘ or Ctrl held is the document's, which is what
+         * every tool of this kind does — undo, group, duplicate and save all work from a panel.
+         */
+        return fieldKeeps(event);
+      }
       return mode === 'text' && at.isContentEditable;
     };
 
@@ -680,7 +730,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         setPreview(false);
         return;
       }
-      if (elsewhere()) return;
+      if (elsewhere(event)) return;
 
       /*
        * **What the key map says**, rather than what this handler used to remember of it.
@@ -1107,6 +1157,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                     onEditComponent={openDefinition}
                     onEditCode={openCode}
                     preview={preview}
+                    wireframe={wireframe}
                     onFollow={(path) => {
                       const found = pages.find((one) => one.path === path);
                       if (found) setCurrent(found.sid);

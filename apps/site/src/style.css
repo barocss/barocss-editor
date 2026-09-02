@@ -674,6 +674,19 @@ body {
   pointer-events: none;
 }
 
+/*
+  The **settled** size, which is drawn the whole time a block is held rather than only while it is
+  being pulled. Under the block and centred, where every design tool puts it, and quieter than the
+  live one: a number that is always there must not read as something happening.
+*/
+.st-mark-size[data-settled='true'] {
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--st-accent) 88%, #000000);
+  opacity: 0.92;
+}
+
 /* The paint: a short bar in the accent, drawn inside the wider area that takes the pointer. */
 .st-grip::after {
   content: '';

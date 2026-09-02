@@ -1,6 +1,7 @@
 import { Icon } from '@barocss/office-icons';
 import { Tip } from './tip';
 import type React from 'react';
+import { useRef, useState } from 'react';
 import { cn } from './cn';
 
 /**
@@ -377,6 +378,28 @@ export function Choice({
  * A rule rather than a blur handler, because a decision inside an event handler can only be checked
  * by driving a browser. `test/number-field.test.ts` states it.
  */
+/**
+ * **Whether a field has a meaning of its own for this key.**
+ *
+ * The rule two layers need and neither could see: a field stops a key from reaching the document
+ * because *`Delete` in a number box is a digit* — which is true of **bare** keys and of almost no
+ * chord. Measured by dragging a padding's handle in the panel and pressing ⌘Z: the field's keydown
+ * handler stopped the chord dead, so the document kept the number and a reader had to click the
+ * board before they could undo what they had just done in the panel.
+ *
+ * The clipboard and select-all stay the field's, because a reader copying digits out of a box means
+ * the box. Everything else held with ⌘ or Ctrl is the document's — undo, group, duplicate and save
+ * all work from a panel in every tool of this kind.
+ *
+ * Exported because the app's own key handler asks the same question about `document.activeElement`,
+ * and two answers to one question is the fault this suite keeps finding one layer up from where it
+ * looks.
+ */
+export function fieldKeeps(event: { key: string; metaKey?: boolean; ctrlKey?: boolean }): boolean {
+  if (!(event.metaKey || event.ctrlKey)) return true;
+  return ['c', 'x', 'v', 'a'].includes(event.key.toLowerCase());
+}
+
 export type NumberFieldSaid =
   | { kind: 'value'; value: number }
   | { kind: 'clear' }
@@ -391,6 +414,42 @@ export function readNumberField(text: string, value: number | null): NumberField
   // Not a number and not empty is a reader mid-word, which is not an instruction either way.
   if (text.trim() !== '') return { kind: 'nothing' };
   return value === null ? { kind: 'nothing' } : { kind: 'clear' };
+}
+
+/**
+ * **Where a drag of a number field's handle lands** — the arithmetic on its own, so it can be
+ * checked in milliseconds rather than by driving a browser.
+ *
+ * Out here for the same reason `readNumberField` is: the rule is small, it is wrong in ways that
+ * only show up at the edges — a step of 0.1 and a modifier that multiplies it, a minimum that a
+ * fast drag flies past — and a rule kept inside a pointer handler can only be measured by moving a
+ * real pointer thirty times.
+ *
+ * One pixel is one `step`, which is what every inspector of this kind does, so a field that counts
+ * in twips does not need a reader to drag fifteen pixels to move a point.
+ */
+export function scrubbedTo(from: {
+  from: number;
+  dx: number;
+  step: number;
+  /** Ten times as fast, and a tenth as fast — the arrow keys' modifiers in this same field. */
+  shift?: boolean;
+  alt?: boolean;
+  min?: number;
+  max?: number;
+  decimals?: number;
+}): number {
+  const per = from.step * (from.shift ? 10 : from.alt ? 0.1 : 1);
+  const scale = 10 ** (from.decimals ?? 3);
+  /*
+   * Rounded to what the field *shows*, so the number a reader releases on is the number they read
+   * under the pointer. A drag of 0.1 steps otherwise lands on 4.300000000000001 and the field would
+   * commit a value it never drew.
+   */
+  let next = Math.round((from.from + from.dx * per) * scale) / scale;
+  if (typeof from.min === 'number') next = Math.max(from.min, next);
+  if (typeof from.max === 'number') next = Math.min(from.max, next);
+  return next;
 }
 
 export function NumberField({
@@ -456,6 +515,46 @@ export function NumberField({
   const scale = 10 ** decimals;
   const shown = value === null ? '' : String(Math.round(value * scale) / scale);
 
+  /**
+   * **Dragging the field's own name changes the number** — Figma's gesture, and this panel's
+   * signature omission.
+   *
+   * Measured by watching a reader set a padding: click the field, select the digits, type, tab out,
+   * look at the page, click again. Six actions to try a number, and trying numbers is most of what
+   * laying out a page *is*. Every inspector of this kind answers it the same way, on the same
+   * target: the little name or picture to the left of the digits, which is otherwise decoration.
+   *
+   * **One write, on release.** Not a choice about feel — Word's ruler measured it: writing on every
+   * pointer move turned one drag into ten entries of the document's history, and a reader's undo
+   * then walks back through positions the box was never meant to be in. The number under the pointer
+   * is live; the document is written once, exactly as if it had been typed. The board's own drags
+   * follow the same rule from the other side, previewing with inline style and writing at release.
+   *
+   * Shift multiplies by ten and Alt divides by ten, which is what the arrow keys in this same field
+   * already do in every tool — a reader who knows one knows the other.
+   */
+  const box = useRef<HTMLInputElement | null>(null);
+  const drag = useRef<{ x: number; from: number; at: number } | null>(null);
+  const [scrubbing, setScrubbing] = useState(false);
+
+  const scrubTo = (event: React.PointerEvent) => {
+    const held = drag.current;
+    if (!held) return;
+    held.at = scrubbedTo({
+      from: held.from,
+      dx: event.clientX - held.x,
+      step,
+      shift: event.shiftKey,
+      alt: event.altKey,
+      min,
+      max,
+      decimals
+    });
+    // What a reader reads under the pointer, written straight into the field: the input is
+    // uncontrolled between commits, so there is nothing here for React to redraw.
+    if (box.current) box.current.value = String(held.at);
+  };
+
   const commit = (text: string) => {
     const said = readNumberField(text, value);
     if (said.kind === 'value') onCommit(said.value);
@@ -463,6 +562,36 @@ export function NumberField({
     // emptied field there stays what it always was: leave it alone.
     else if (said.kind === 'clear') onClear?.();
   };
+
+  /*
+   * `setPointerCapture` rather than listeners on the window: a drag that leaves the panel — and it
+   * will, the handle sits 40 pixels from the board — goes on belonging to the handle, and a pointer
+   * released outside still arrives. `lostpointercapture` is the one that always fires, so the
+   * release is written there and `onPointerUp` is left out rather than written twice.
+   *
+   * An **empty** field scrubs from zero, which is the reading a reader means: a padding that states
+   * nothing is a padding of nothing, and dragging it up from there is how they state one.
+   */
+  const handle = disabled
+    ? undefined
+    : {
+        onPointerDown: (event: React.PointerEvent<HTMLSpanElement>) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          drag.current = { x: event.clientX, from: value ?? 0, at: value ?? 0 };
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setScrubbing(true);
+        },
+        onPointerMove: (event: React.PointerEvent<HTMLSpanElement>) => {
+          if (drag.current) scrubTo(event);
+        },
+        onLostPointerCapture: () => {
+          const held = drag.current;
+          drag.current = null;
+          setScrubbing(false);
+          if (held && held.at !== value) commit(String(held.at));
+        }
+      };
 
   return (
     /*
@@ -486,6 +615,12 @@ export function NumberField({
         Muted and `select-none`, because it is a name and not a value: a reader dragging across the
         field to retype it should get the digits.
       */}
+      {/*
+        The handle's own behaviour, hung on whichever of the two is drawn. A field with neither name
+        nor picture has nothing to grab and stays a field a reader types in — which is the honest
+        answer rather than a missing feature: a bare number field is a row's only control and the
+        row's label is not inside it.
+      */}
       {prefixIcon ? (
         /*
          * **A picture**, where the name is a shape rather than a word — a corner of a box, a side of
@@ -495,17 +630,33 @@ export function NumberField({
          * `aria-hidden`, because the field already has its accessible name from `ariaLabel`; a
          * picture announcing itself beside a name is the same thing said twice.
          */
-        <span className="flex shrink-0 select-none items-center pl-1 text-[color:var(--ou-faint)]" aria-hidden>
+        <span
+          className={cn(
+            'flex shrink-0 select-none items-center pl-1 text-[color:var(--ou-faint)]',
+            !disabled && 'cursor-ew-resize touch-none hover:text-[color:var(--ou-ink)]',
+            scrubbing && 'text-[color:var(--ou-accent)]'
+          )}
+          aria-hidden
+          {...handle}
+        >
           <Icon name={prefixIcon} size={13} />
         </span>
       ) : prefix ? (
-        <span className="shrink-0 select-none pl-1 text-[length:var(--ou-text-small)] leading-none text-[color:var(--ou-faint)]">
+        <span
+          className={cn(
+            'shrink-0 select-none pl-1 text-[length:var(--ou-text-small)] leading-none text-[color:var(--ou-faint)]',
+            !disabled && 'cursor-ew-resize touch-none hover:text-[color:var(--ou-ink)]',
+            scrubbing && 'text-[color:var(--ou-accent)]'
+          )}
+          {...handle}
+        >
           {prefix}
         </span>
       ) : null}
- <input
+      <input
+        ref={box}
         type="number"
- min={min}
+        min={min}
         max={max}
         step={step}
         aria-label={ariaLabel}
@@ -533,8 +684,12 @@ export function NumberField({
            * So `stopPropagation` alone was not enough and was not the point.
            * Preventing the default is: this field is handling Enter, and a handled
            * key has no default left to run.
+           *
+           * And **only the keys this field has a meaning for** — see `fieldKeeps`. It used to be
+           * every key, which is how ⌘Z pressed with the caret in a number box reached nothing at
+           * all.
            */
- event.stopPropagation();
+          if (fieldKeeps(event)) event.stopPropagation();
           if (event.key === 'Enter' || event.key === 'Escape') event.preventDefault();
  if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
  if (event.key === 'Escape') {
@@ -685,8 +840,10 @@ export function TextField({
          * shape being edited — and `stopPropagation` alone does not stop it, because
          * what carries it is `beforeinput` rather than `keydown`. Preventing the
          * default is what does. See `NumberField` for the measurement.
+         *
+         * And **only the keys a field has a meaning for** — see `fieldKeeps`.
          */
-        event.stopPropagation();
+        if (fieldKeeps(event)) event.stopPropagation();
         if (!live) {
           if (event.key === 'Enter' || event.key === 'Escape') event.preventDefault();
           if (event.key === 'Enter') (event.target as HTMLInputElement).blur();

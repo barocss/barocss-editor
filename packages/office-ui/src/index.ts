@@ -147,6 +147,11 @@ export {
   FieldGroup,
   NumberField,
   TextField,
+  /*
+   * The rule a field and the app that hosts it both need — which keys are the field's own. See
+   * `fieldKeeps` for the chord that reached nothing at all until they shared one answer.
+   */
+  fieldKeeps,
   type ButtonTone
 } from './controls';
 

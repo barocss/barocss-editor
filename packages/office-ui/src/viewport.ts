@@ -191,6 +191,35 @@ export function useViewport({
     const host = pane.current;
     if (!host) return;
 
+    /**
+     * **A wheel over something that can scroll belongs to that thing.**
+     *
+     * Reported as *미리 보기는 스크롤이 되어야 하는데, 마우스로 스크롤을 할 수가 없어* — and it was
+     * this listener: it is on `window`, in the **capture** phase, and it called `preventDefault` on
+     * every tick inside the pane's rectangle. Nothing downstream ever saw one.
+     *
+     * Measured before writing the rule, because a rule that took the pan away would be worse than
+     * the fault: while editing, **nothing inside the plane scrolls** — every board, body and page is
+     * `overflow: visible` with its scroll height equal to its client height — and in preview the
+     * frame's body is `overflow: auto` at 5063 over 800. So this gives the plane's gesture away in
+     * exactly the case where the plane is not what the reader is pointing at, and in no other.
+     *
+     * Whether it is *at its end* is deliberately not asked. A page scrolled to the bottom does
+     * nothing more when you keep scrolling, which is what a browser does and what the reader in
+     * preview is expecting to be looking at.
+     */
+    const scrollerUnder = (event: WheelEvent, within: HTMLElement): boolean => {
+      let at = event.target as HTMLElement | null;
+      while (at && at !== within && within.contains(at)) {
+        const said = getComputedStyle(at);
+        const down = /(auto|scroll)/.test(said.overflowY) && at.scrollHeight > at.clientHeight;
+        const across = /(auto|scroll)/.test(said.overflowX) && at.scrollWidth > at.clientWidth;
+        if (Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? down : across) return true;
+        at = at.parentElement;
+      }
+      return false;
+    };
+
     const onWheel = (event: WheelEvent) => {
       // The rectangle, not the target: a canvas draws a layer over its pane, so the event's target
       // is that layer and a listener scoped to the pane would never run.
@@ -202,15 +231,25 @@ export function useViewport({
         event.clientY <= rect.bottom;
       if (!inside) return;
 
-      // Before anything else: the browser's own page zoom is what this gesture means to the browser,
-      // and a pane with no scrollbars still scrolls its ancestors.
-      event.preventDefault();
-
+      /*
+       * The zoom first, and it keeps the whole gesture: the browser's own page zoom is what ⌘ with a
+       * wheel means to the browser, and a reader zooming the plane does not want the application to
+       * grow around it.
+       */
       if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
         const { view: now } = latest.current;
         zoomAt(now.zoom * (event.deltaY < 0 ? step : 1 / step), { x: event.clientX, y: event.clientY });
         return;
       }
+
+      // And a scroller under the pointer keeps it, untouched — no `preventDefault`, so the browser
+      // scrolls it exactly as it would anywhere else.
+      if (scrollerUnder(event, host)) return;
+
+      // Otherwise the plane answers, which it has to: a pane with no scrollbars still scrolls its
+      // ancestors if nothing here says no.
+      event.preventDefault();
 
       /*
        * A plain wheel **pans**, and shift swaps the axis.

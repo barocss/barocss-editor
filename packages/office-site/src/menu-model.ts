@@ -353,7 +353,20 @@ const DECLARED: SiteMenu[] = [
       },
       {
         id: 'preview',
-        items: [{ view: 'preview', label: '미리보기', hint: 'Esc로 나가기' }]
+        items: [
+          { view: 'preview', label: '미리보기', hint: 'Esc로 나가기' },
+          /*
+           * **와이어프레임**, which is a `view` for the same reason 미리보기 is: it changes how the
+           * reader is looking rather than what their site says, so it is not a command and there is
+           * nothing in the document to undo.
+           *
+           * Asked as a choice between a filter and a separate editor, and it is neither — a separate
+           * editor would be a second document to keep in step, which is the work that makes a plan
+           * and a design drift apart. See `wireframe.ts` for the whole argument and for the three
+           * things a browser had to settle.
+           */
+          { view: 'wireframe', label: '와이어프레임' }
+        ]
       }
     ]
   }

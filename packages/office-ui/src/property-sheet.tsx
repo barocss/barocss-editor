@@ -404,7 +404,7 @@ export function PropertySheet<Row extends SheetRow>({
   return (
     <>
       {onFind ? (
-        <div className="sticky top-0 z-10 border-b border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] px-2 py-1.5">
+        <div className="sticky top-0 z-[var(--ou-z-panel)] border-b border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] px-2 py-1.5">
           <input
             type="search"
             value={find ?? ''}

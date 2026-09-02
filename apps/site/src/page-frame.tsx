@@ -62,6 +62,7 @@ export function PageFrame({
   scopeRoot,
   mode,
   preview,
+  wireframe,
   onEnterText,
   onEditComponent,
   onEditCode,
@@ -72,6 +73,8 @@ export function PageFrame({
 }: {
   editor: Editor;
   breakpoint: BreakpointId;
+  /** Whether this board is drawing the page with its finish taken off — see `wireframe.ts`. */
+  wireframe?: boolean;
   label: string;
   width: number;
   page?: string;
@@ -194,6 +197,8 @@ export function PageFrame({
       className="st-frame"
       data-frame={breakpoint}
       data-preview={preview ? 'true' : undefined}
+      /* Read by the sheet `wireframeCss` generates — the board's state, not the application's. */
+      data-wireframe={wireframe ? 'true' : undefined}
       style={{ width: `${width}px`, ['--st-viewport' as never]: `${viewportOf(breakpoint)}px` }}
     >
       {/* The label a reader reads to know which frame they are typing in. */}

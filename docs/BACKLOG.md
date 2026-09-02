@@ -46,6 +46,124 @@ entries are that.
 
 ## Open
 
+### 캔버스의 휠이 미리보기의 스크롤을 먹고 있었다 — 2026-09-02 *(fixed)*
+
+Reported as *미리 보기는 스크롤이 되어야 하는데, 마우스로 스크롤을 할 수가 없어, 뭔가 편집 상태에서
+누군가 이벤트를 가로막고 있는 것 같아* — and that is exactly what it was, one layer further out than
+the editor: `useViewport` listens for the wheel on **`window`, in the capture phase**, and called
+`preventDefault` on every tick whose point fell inside the pane. Nothing downstream ever saw one, in
+any mode, for any reason. A preview was a page a reader could look at the top of and nothing else.
+
+**Measured before writing the rule**, because a rule that took the plane's pan away would have been
+worse than the fault:
+
+| | 편집 | 미리보기 |
+| --- | --- | --- |
+| `.st-frame` | `visible`, 5085/5085 | `visible`, 823/823 |
+| `.st-frame-body` | `visible`, 5063/5063 | **`auto`, 5063/800** |
+| `.st-page` | `visible`, 5063/5063 | `visible`, 5063/5063 |
+
+Nothing inside the plane scrolls while editing. So the rule gives the gesture away in exactly the
+case where the plane is not what the reader is pointing at, and in no other: **a wheel over something
+that can scroll belongs to that thing** — no `preventDefault`, so the browser scrolls it as it would
+anywhere else. Whether the scroller is *at its end* is deliberately not asked; a page scrolled to the
+bottom does nothing more when you keep scrolling, which is what a browser does and what a reader in
+preview is looking at.
+
+⌘ with the wheel keeps the whole gesture regardless, because the browser's own page zoom is what that
+means to a browser and a reader zooming the plane does not want the application to grow around it.
+
+In `office-ui`, so all three products have it. The deck's 407 browser checks pass unchanged.
+
+### 와이어프레임은 회색이 아니다 — 회색은 덜어내는 쪽이고, 그 자리에 정보가 들어가야 한다 — 2026-09-02
+
+Asked straight after the view landed: *와이어프레임은 그냥 회색톤으로만 만들면 되는 것인가?* No —
+and the four things already in it are the answer to why not. Grey is the **removal**; a wireframe's
+job is what goes into the space it leaves.
+
+What is in it: the colour, shadows and photographs taken down; the boxes whose content is unreadable
+once grey **say what they are** (폼 · 데이터 목록 · 표 · 코드); anything with a rounded corner keeps a
+hairline, so a control still reads as one; and the layout is untouched to the pixel.
+
+What is **not** in it yet, all four of which are facts the document already holds and nothing draws:
+
+- **Reading order** — 1 · 2 · 3 on the sections. Half the reason anybody shows a wireframe to someone
+  else is *this is the order it reads in*, and the drawing does not say it.
+- **What this width hides.** `neverShown` and the per-width hiding are in the schema. A section that
+  drops out on the tablet currently looks identical to a section that does not exist, and it should
+  be a dotted place holding its own space.
+- **The one thing a visitor is here to do.** Already an open question of its own below. Five buttons
+  at one weight is a page with no answer to it; in a wireframe the answer should be the one heavy
+  outline.
+- **Spacing and direction.** The bands and the gap strips exist while editing and are absent here,
+  which is backwards: *여기가 좁다* is most of what a reviewer has to say.
+
+And one thing that is deliberately out: **annotations**. A note is information the page does not have,
+so putting it in the document makes it publishable — and the moment it is, "one document" is over.
+The moment annotations are genuinely needed is the moment a **화면 흐름도** is needed, which is a
+different product and is the other half of *선언하고, 검사한다*.
+
+### 와이어프레임은 다른 문서가 아니다 — 필터도, 별도 에디터도 아니라 세 번째 보기 — 2026-09-02 *(built)*
+
+Asked as a choice between two: *와이어프레임처럼 보이도록 필터를 입히는 게 좋을까, 아니면 와이어프레임
+에디터를 따로 만드는 게 좋을까?* Measured before answering, and the measurement says neither.
+
+**A separate editor is a second document.** The two would have to be kept in step, and keeping them in
+step is exactly the work that makes a plan and a design drift apart — the thing *선언하고, 검사한다*
+was chosen to avoid. This repository's premise is one schema and one renderer across three products; a
+wireframe is not a different document but the same page **read at a lower fidelity**.
+
+**A filter alone cannot say what a thing is.** `grayscale()` and hidden images produce a page with the
+colour taken out, which is not a wireframe: a wireframe's job is to show structure and intent, so a
+grey box has to be able to say 영상, 폼, 데이터 목록. Measured in the board's own DOM — it carries
+`data-name`, `data-kind`, `data-layout` and `data-sizing` and **not the node's type**, so as things
+stand a stylesheet has nothing to write in the box.
+
+So: a third `view`, beside 미리보기 — which is already declared as a view rather than a command, and
+already answered by one `switch` in the app. `view: 'wireframe'` in `menu-model.ts`, and a stylesheet
+generated from the document the way `editorStateCss` and `revealRules` already generate one.
+
+**Two of the three parts this entry first listed were wrong, and building it is what said so.**
+
+- *"The renderer writes the node's type onto every drawn block"* — **not needed at all.** The
+  generated half keys its selectors on `data-bc-sid`, exactly as the two sheets it sits beside do, so
+  the name in the box comes from the model and the DOM learns nothing new. A renderer change that
+  would have shipped in every published page, avoided by using the path that was already there.
+- *"pictures to a hatched box"* — it worked, it looked right, and **it moved them.** `content:
+  url(<a 1×1 svg>)` empties a replaced element and replaces the intrinsic size every `width: auto`
+  image is laid out from: the browser check compared picture boxes before and after and found 266×199
+  become 225×225 and four 61×20 logos become 2×2. A wireframe whose boxes are the wrong size is a
+  layout the reader does not have, which is worse than a photograph with no caption on it. The media
+  is **washed** instead — `contrast(0)` makes one flat grey — with an `outline` rather than a border,
+  because a border made every picture a pixel wider.
+
+Two more things a browser settled: a replaced element paints no `::before` (probed on an `img`, a
+`video`, an `iframe` and a `div` — only the `div` drew one), and a button on this page is a *frame
+with a fill*, so the rule that lays fills down to grey made the page's one call to action disappear.
+What tells a band from a control in the drawing is the rounded corner, so anything with a radius keeps
+a hairline — which draws the buttons back and every card as a box.
+
+The text stays the text. A wireframe with real copy in it is the one that produces real decisions, and
+lorem ipsum is how a layout gets approved for a paragraph nobody has written yet.
+
+**And the one case that genuinely is a separate product**: when it has to *differ* from the real page —
+annotations, arrows between screens, a screen that does not exist yet. That is not a wireframe, it is a
+화면 흐름도, and it is the other half of *선언하고, 검사한다*.
+
+### Six of Word's browser checks fail, and none of them is this branch's — 2026-09-02
+
+Found while running the browser suites for a change in `office-ui`, and **proved not to be it**: the
+two that looked most suspicious were re-run with `packages/office-ui` stashed and failed exactly the
+same way. Five are pagination — lines drawn outside the printable area of a sheet the moment the sample
+opens, a page that does not start at the top of its own sheet, a table longer than a page, and two
+boundaries that land on a wrapped picture — and the sixth is `moving between slots › makes a place for
+the caret in an empty slot` in the maths tests.
+
+They fail in isolation as well as in the suite, so this is not the load-sensitivity already recorded
+against the Enter sweep further down. Recorded rather than fixed here because this branch is the site
+builder's, and a pagination fault deserves its own measurement rather than being tidied on the way
+past.
+
 ### An extension called `dragDrop` that listens for no drop — 2026-09-02 *(fixed)*
 
 Asked in three words — *드래그 드롭도 돼?* — and measured by dropping a real file on the boards:
