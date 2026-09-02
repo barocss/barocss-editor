@@ -56,6 +56,7 @@ import { createElementCommands } from './element-commands';
 import { createLinkCommands } from './link-commands';
 import { createPublishCommands } from './publish-commands';
 import { createPageCommands } from './page-commands';
+import { createWidthCommands } from './width-commands';
 
 /** What the site product itself adds, as one list. */
 export function createSiteOwnExtensions(): Extension[] {
@@ -98,6 +99,8 @@ export function createSiteOwnExtensions(): Extension[] {
      * product that made one. They exist because `sample-site.ts` wrote them in TypeScript.
      */
     createPageCommands(),
+    /* The widths this site is designed at — a list a reader adds to, not a constant. */
+    createWidthCommands(),
     /*
      * And the one thing five pages with addresses could not do to each other: link. The shared
      * `toggleLink` takes an address, which is the one thing a page must not store — see

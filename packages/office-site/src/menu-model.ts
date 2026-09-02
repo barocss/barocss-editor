@@ -27,6 +27,7 @@
 
 import { withHints } from '@barocss/office-controls';
 import { SITE_KEYS } from './keymap';
+import { BREAKPOINTS, type SiteWidth } from './breakpoints';
 import { SITE_TOOLBAR } from './toolbar-model';
 import {
   menuCommands,
@@ -328,14 +329,18 @@ const DECLARED: SiteMenu[] = [
            * accent-bordered toggles beside 선택/텍스트, which is *one of these*, and nothing said
            * that turning all three off is allowed while turning both modes off is not.
            */
-          { view: 'frames.desktop', label: '데스크톱' },
-          { view: 'frames.tablet', label: '태블릿' },
-          { view: 'frames.mobile', label: '모바일' }
+          /*
+           * **Built from the document's widths**, which is what `siteMenusFor` is for: the three were
+           * written out here, so a site with a fourth had a board nothing could turn off and a menu
+           * that lied about what it was showing. `SITE_MENUS` is this list with the default three in
+           * it, which is what every caller that has no document gets.
+           */
+          ...BREAKPOINTS.map((one) => ({ view: `frames.${one.id}`, label: one.label }))
         ]
       },
       {
         id: 'frameSets',
-        items: [{ view: 'frames.all', label: '세 폭 모두 보기' }]
+        items: [{ view: 'frames.all', label: '폭 모두 보기' }]
       },
       {
         /*
@@ -449,6 +454,35 @@ export function siteMenuCommands(menus: SiteMenu[] = SITE_MENUS): string[] {
 }
 
 /** One entry, by the id the menubar hands back. */
+/**
+ * The menubar for a document that declares its **own** widths.
+ *
+ * One block of it is a fact about the document rather than about the product — one entry per board —
+ * so the whole bar is a function of the list, and `SITE_MENUS` is this called with the default three.
+ * The app passes the document's, so a width a reader adds arrives with its own entry rather than
+ * needing one written here.
+ *
+ * Everything else is identical, and deliberately so: a menubar that reshuffled itself as a document
+ * changed would be a menubar nobody could learn.
+ */
+export function siteMenusFor(widths: SiteWidth[] = BREAKPOINTS): SiteMenu[] {
+  return SITE_MENUS.map((menu) =>
+    menu.label !== '보기'
+      ? menu
+      : {
+          ...menu,
+          blocks: menu.blocks.map((block) =>
+            block.id !== 'frames'
+              ? block
+              : {
+                  ...block,
+                  items: widths.map((one) => ({ view: `frames.${one.id}`, label: one.label }))
+                }
+          )
+        }
+  );
+}
+
 export function siteMenuEntry(id: string, menus: SiteMenu[] = SITE_MENUS): SiteMenuEntry | undefined {
   return menuEntry(menus, id);
 }

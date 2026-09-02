@@ -6,6 +6,7 @@ import {
   Icon,
   Button,
   PropertyChoice,
+  PropertyNumber,
   PropertyEmpty,
   PropertyGroup,
   PropertyLink,
@@ -14,6 +15,8 @@ import {
   PropertySheet,
   PropertyTabs,
   TextField,
+  Dialog,
+  DialogButton,
   useRevision,
   type ThemeSwatch
 } from '@barocss/office-ui';
@@ -23,6 +26,11 @@ import {
   RENDITIONS,
   BASE_BREAKPOINT,
   BREAKPOINTS,
+  widthsOf,
+  DEVICES,
+  deviceMatches,
+  iconForWidth,
+  type SiteWidth,
   FIELD_PREFIX,
   fieldNameOf,
   stateableIn,
@@ -578,6 +586,13 @@ export function Inspector({
       assets: assetsOf(doc as never).map((one) => ({ name: one.name, label: one.label })),
       /** And the pages, for a form to say where a visitor lands after sending. */
       pages: pagesOf(doc as never).map((one: any) => ({ id: String(one.id), name: String(one.name) })),
+      /**
+       * And the **widths this site is designed at**, which only the document can list.
+       *
+       * Read here rather than in the control, because the panel already has the document open and a
+       * control that fetched its own would be a second answer to a question with one.
+       */
+      widths: widthsOf(store as never, rootId),
       datasets: datasets.map((one) => ({ id: one.name, label: `${one.label} (${one.rows})` })),
       columns: [{ id: '', label: '없음' }, ...(chosen?.fields ?? []).map((f) => ({ id: f, label: f }))],
       openable,
@@ -738,7 +753,7 @@ export function Inspector({
                 all — and these three are exactly what a glyph says instantly. Which glyph means
                 *tablet* is declared with the breakpoint (`breakpoints.ts`), not here.
               */}
-              <Icon name={one.icon} size={14} />
+              <Icon name={one.icon ?? iconForWidth(one.width)} size={14} />
             </button>
           ))}
         </div>
@@ -767,6 +782,7 @@ export function Inspector({
           write={write}
           run={run}
           editor={editor}
+          onAt={onAt}
         />
       ) : !shown ? (
         /*
@@ -790,6 +806,7 @@ export function Inspector({
           write={write}
           run={run}
           editor={editor}
+          onAt={onAt}
           empty="페이지에서 블록을 선택하세요. 한 번 누르면 바깥쪽 블록, 두 번 누르면 그 안쪽입니다."
           after="블록을 선택하면 그 블록의 속성이 여기에 나옵니다."
         />
@@ -827,6 +844,7 @@ export function Inspector({
             write={write}
             run={run}
             editor={editor}
+            onAt={onAt}
           />
           {/*
             **담는 곳** — the way out, and the only thing some blocks have to say.
@@ -1055,6 +1073,7 @@ function Groups({
   write,
   run,
   editor,
+  onAt,
   empty,
   after
 }: {
@@ -1095,6 +1114,8 @@ function Groups({
     assets: { name: string; label?: string }[];
     /** The pages of this site, for a form to say where a visitor lands after sending. */
     pages: { id: string; name: string }[];
+    /** The widths this site is designed at — the list itself, which only the document has. */
+    widths: SiteWidth[];
   };
   /** The document's schema, which is what decides where a row appears. */
   schema?: { getNodeType?: (stype: string) => { attrs?: Record<string, unknown> } | undefined };
@@ -1102,6 +1123,8 @@ function Groups({
   run: (name: string, payload: Record<string, unknown>) => void;
   /** The editor itself, for the one control that has to read a file off the reader's machine. */
   editor: Editor;
+  /** Which width a reader is editing at — the widths list can move them to another one. */
+  onAt: (at: BreakpointId) => void;
   /** Shown instead of the groups when there is nothing to draw them about. */
   empty?: string;
   /** Shown under them, when a reader could be told what to do next. */
@@ -1295,7 +1318,7 @@ function Groups({
             : group.label
         }
         onWrite={(row, next) => write(row, isMarkRow(row) ? next : commit(row, next))}
-        render={(row) => own(row, { attrs, shown, at, data, run, editor })}
+        render={(row) => own(row, { attrs, shown, at, data, run, editor, onAt })}
       />
       {/*
         The sentence about **the next thing**, under a heading that says it is one.
@@ -1465,6 +1488,222 @@ function commit(row: SitePanelRow, next: unknown): unknown {
  * this does not answer and the sheet does not know draws nothing — visible and askable, rather than
  * a guessed control that writes the wrong thing.
  */
+/**
+ * **The widths this site is designed at**, as one control.
+ *
+ * Four commands, one list — which is what the four declared panel rows say and why only the leader
+ * draws. A row per width: its name, how wide, and the two things a reader does to it. Adding one is
+ * the row at the bottom; moving one is the two arrows, because a drag inside a 240-pixel panel of
+ * forty rows is a gesture that fights the panel's own scrolling.
+ *
+ * **A device is a shorthand for the numbers.** Choosing one writes the width, the height and the
+ * picture; typing a number afterwards keeps the device's name and stops matching it, and the control
+ * says 직접 입력 rather than claiming a phone the page is not drawn at (`deviceMatches`).
+ *
+ * The row a reader is editing at is marked and pressable, so this list is also how they move between
+ * boards — which is the same answer the three glyphs at the top of the panel give, for a list that
+ * can now be longer than three.
+ */
+function Widths({
+  widths,
+  at,
+  onRun,
+  onAt
+}: {
+  widths: SiteWidth[];
+  at: BreakpointId;
+  onRun: (command: string, payload: Record<string, unknown>) => void;
+  onAt: (at: BreakpointId) => void;
+}) {
+  const [picking, setPicking] = useState(false);
+
+  return (
+    <span className="st-widths" data-widths>
+      {widths.map((one, index) => (
+        <span
+          key={one.id}
+          className="st-width"
+          data-width={one.id}
+          data-current={one.id === at ? 'true' : undefined}
+        >
+          {/*
+            **Two lines**, because one could not hold them.
+
+            A name a reader can type, a width, a window height, and three acts — that is five controls
+            in a 240px column, and the single line that came first fitted them by making the name 60
+            pixels wide, which is a name nobody can read or retype. So: what it is called on top, what
+            it measures underneath.
+          */}
+          <span className="st-width-top">
+            {/*
+              The picture is the **way there**: pressing it edits at this width, which is the same
+              answer the three glyphs at the top of the panel give and the one that has to keep
+              working now that the list can be longer than three.
+            */}
+            <button
+              type="button"
+              className="st-width-go"
+              /*
+               * What it is a window onto, in the tooltip rather than on the row: the name had a
+               * column of its own for one screenshot and every entry in it was cut to 노… / 태… — a
+               * 240px panel has no room for a fourth thing per line, and the picture beside the name
+               * already says which shape it is.
+               */
+              title={`${one.label}에서 편집 · ${
+                deviceMatches(one)
+                  ? (DEVICES.find((each) => each.name === one.device)?.label ?? '')
+                  : '직접 입력'
+              }`}
+              aria-label={`${one.label}에서 편집`}
+              onClick={() => onAt(one.id)}
+            >
+              <Icon name={one.icon ?? iconForWidth(one.width)} size={13} />
+            </button>
+            {/*
+              And the name is a **field**, asked for directly (*사이즈별 제목 수정하게 해주고*). It is
+              the `label` and never the `name`: the name is what every `overrides` key in the document
+              points at, so renaming it would be a migration rather than an edit — which is the
+              distinction `variable` drew first and this copies.
+            */}
+            <TextField
+              value={one.label}
+              onCommit={(next) => onRun('setWidth', { name: one.id, label: next || one.id })}
+              ariaLabel={`${one.label} 이름`}
+              className="st-width-label"
+            />
+            <button
+              type="button"
+              className="st-width-move"
+              disabled={index === 0}
+              title="위로"
+              aria-label={`${one.label} 위로`}
+              onClick={() => onRun('moveWidth', { name: one.id, to: index - 1 })}
+            >
+              <Icon name="move-up" size={12} />
+            </button>
+            <button
+              type="button"
+              className="st-width-move"
+              disabled={index === widths.length - 1}
+              title="아래로"
+              aria-label={`${one.label} 아래로`}
+              onClick={() => onRun('moveWidth', { name: one.id, to: index + 1 })}
+            >
+              <Icon name="move-down" size={12} />
+            </button>
+            <button
+              type="button"
+              className="st-width-remove"
+              /* Never the last one: a site with no widths is a site with no boards. */
+              disabled={widths.length < 2}
+              title="이 폭 삭제"
+              aria-label={`${one.label} 삭제`}
+              onClick={() => onRun('removeWidth', { name: one.id })}
+            >
+              <Icon name="delete" size={12} />
+            </button>
+          </span>
+
+          {/*
+            The two numbers, and the second is not decoration: the window height is what preview shows
+            and what a device frame is drawn around. A width that says nothing about it is a square.
+          */}
+          <span className="st-width-size">
+            <PropertyNumber
+              value={one.width}
+              onCommit={(next) => onRun('setWidth', { name: one.id, size: next })}
+              prefix="W"
+              suffix="px"
+              min={200}
+              ariaLabel={`${one.label} 폭`}
+            />
+            <PropertyNumber
+              value={one.viewport}
+              onCommit={(next) => onRun('setWidth', { name: one.id, viewport: next })}
+              prefix="H"
+              suffix="px"
+              min={200}
+              ariaLabel={`${one.label} 창 높이`}
+            />
+
+          </span>
+        </span>
+      ))}
+
+      {/*
+        **A plus that opens the list**, which is the same shape the board's plus takes and was asked
+        for in the same words: *사이즈 다이얼로그로 나와서 선택하면 추가*. A `<select>` of devices was
+        here first and it is the wrong control for a choice a reader makes once and wants to *see* —
+        a phone and a tablet are shapes, and a dropdown shows one line of text at a time.
+      */}
+      <button
+        type="button"
+        className="st-widths-plus"
+        data-add-width
+        title="폭 추가"
+        aria-label="폭 추가"
+        onClick={() => setPicking(true)}
+      >
+        <Icon name="add" size={12} />
+        <span>폭 추가</span>
+      </button>
+
+      <Dialog
+        open={picking}
+        onOpenChange={setPicking}
+        title="어떤 크기를 더할까요"
+        description="장치를 고르면 폭과 창 높이가 같이 들어갑니다. 나중에 숫자만 바꿔도 됩니다."
+        footer={<DialogButton onClick={() => setPicking(false)}>닫기</DialogButton>}
+      >
+        <div className="st-add-sheet">
+          <section>
+            <h3>장치</h3>
+            <div className="st-add-grid">
+              {DEVICES.map((one) => (
+                <button
+                  key={one.name}
+                  type="button"
+                  className="st-add-item"
+                  data-add-device={one.name}
+                  title={`${one.width} × ${one.viewport}`}
+                  onClick={() => {
+                    setPicking(false);
+                    onRun('insertWidth', { device: one.name });
+                  }}
+                >
+                  <Icon name={one.icon} />
+                  <span>
+                    {one.label}
+                    <em>{one.width}px</em>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+          <section>
+            <h3>직접</h3>
+            <div className="st-add-grid">
+              <button
+                type="button"
+                className="st-add-item"
+                data-add-device=""
+                title="가장 좁은 것보다 한 단계 좁게"
+                onClick={() => {
+                  setPicking(false);
+                  onRun('insertWidth', {});
+                }}
+              >
+                <Icon name="add" />
+                <span>빈 폭</span>
+              </button>
+            </div>
+          </section>
+        </div>
+      </Dialog>
+    </span>
+  );
+}
+
 function own(
   row: SitePanelRow,
   ctx: {
@@ -1487,13 +1726,17 @@ function own(
     assets: { name: string; label?: string }[];
     /** The pages of this site, for a form to say where a visitor lands after sending. */
     pages: { id: string; name: string }[];
+    /** The widths this site is designed at — the list itself, which only the document has. */
+    widths: SiteWidth[];
   };
     run: (name: string, payload: Record<string, unknown>) => void;
     /** The editor itself, for the one control that has to read a file off the reader's machine. */
     editor: Editor;
+    /** Which width a reader is editing at, and how to move them to another one. */
+    onAt: (at: BreakpointId) => void;
   }
 ): React.ReactNode | undefined {
-  const { attrs, shown, at, data, run, editor } = ctx;
+  const { attrs, shown, at, data, run, editor, onAt } = ctx;
 
   /**
    * **A companion answers `when` too**, which it could not until a grid needed two gaps.
@@ -1536,6 +1779,24 @@ function own(
         <span className="st-at-note">
           {BREAKPOINTS.find((one) => one.id === at)?.label}에서 바꾼 값만 이 폭에 적용됩니다.
         </span>
+      );
+
+    case 'widths-part':
+      /*
+       * Declared so `every-command-can-be-reached` can see `setWidth`, `removeWidth` and `moveWidth`;
+       * drawn by the leader below, because a widths list is one list and four labelled rows would be
+       * four labels for it. `null` is the sheet's word for *leave this row out*.
+       */
+      return null;
+
+    case 'widths':
+      return (
+        <Widths
+          widths={data.widths}
+          at={at}
+          onRun={(command, payload) => run(command, payload)}
+          onAt={onAt}
+        />
       );
 
     case 'dataset':

@@ -325,6 +325,43 @@ body {
 /* And the studio recedes, so what is left on screen is the page. */
 .st-frame[data-preview='true'] .st-frame-label { opacity: 0.5; }
 
+/**
+ * **The device**, drawn around the window while previewing.
+ *
+ * Asked for as *실제 장치 이미지가 외곽선에 있으면 좀 더 실감 날 듯* — and it is a **shape**, not a
+ * photograph: a picture of a phone is a licensing question, 200KB per device, and a thing that is
+ * wrong the year the phone changes. A bezel of the right thickness with the right corner radius reads
+ * as the device at a glance, and every tool that draws these draws them this way.
+ *
+ * Only in preview, and only where a width says which device it is a window onto — a laptop declares
+ * no bezel, because what a reader designing for a desktop wants to look at is the page.
+ *
+ * The numbers come from the document by way of two custom properties, so this rule knows nothing
+ * about which devices exist: `--st-bezel` and `--st-bezel-radius` are set on the frame.
+ */
+.st-frame[data-preview='true'][data-device] .st-frame-body {
+  padding: var(--st-bezel, 0px);
+  border-radius: calc(var(--st-bezel-radius, 0px) + var(--st-bezel, 0px));
+  background: #1c1e22;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 8%) inset,
+    var(--ou-board-lift);
+  /* The page's own corners follow the bezel's, which is what makes it read as one object. */
+  overflow: hidden;
+}
+
+/*
+ * The window inside it, which is the part that scrolls. `overflow` moves here from the body: a body
+ * that scrolled would scroll the bezel with it.
+ */
+.st-frame[data-preview='true'][data-device] .st-frame-host {
+  height: 100%;
+  border-radius: var(--st-bezel-radius, 0px);
+  background: var(--ou-board);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
 /*
  * ── The code editor, over the board and outside it ─────────────────────────
  *
@@ -752,6 +789,12 @@ body {
   being pulled. Under the block and centred, where every design tool puts it, and quieter than the
   live one: a number that is always there must not read as something happening.
 */
+/* Why this number is what it is, when it is the block's own maximum rather than its parent. */
+.st-mark-size em {
+  font-style: normal;
+  opacity: 0.72;
+}
+
 .st-mark-size[data-settled='true'] {
   right: auto;
   left: 50%;
@@ -1053,6 +1096,140 @@ body {
 /* Hovering is not selecting, and the chip says so by being the same colour as its outline. */
 .st-mark-hover .st-mark-name {
   background: color-mix(in srgb, var(--st-accent) 45%, transparent);
+}
+
+/**
+ * **The widths a site is designed at**, in the panel.
+ *
+ * A row each, and each row is a name, a number and three small acts. Dense on purpose — this sits in
+ * a 240px column beside forty other rows — so the acts are 18px glyphs that only carry colour when
+ * the pointer is on them, and the width a reader is editing at is marked by its ground rather than by
+ * a fourth control saying so.
+ */
+.st-widths {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.st-width {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px;
+  border-radius: var(--ou-radius);
+}
+
+/* What it is called, and the three acts. */
+.st-width-top {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* What it measures. Indented under the name, so the two lines read as one row. */
+.st-width-size {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding-left: 22px;
+}
+
+.st-width-size .office-number-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.st-width-go {
+  display: flex;
+  width: 20px;
+  height: var(--ou-control-h);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ou-muted);
+  cursor: pointer;
+}
+
+.st-width[data-current='true'] .st-width-go { color: var(--ou-accent); }
+.st-width-go:hover { background: var(--ou-ground); color: var(--ou-ink); }
+
+.st-width-label {
+  min-width: 0;
+  flex: 1;
+}
+
+.st-width[data-current='true'] {
+  background: var(--ou-accent-soft);
+}
+
+/*
+ * **22 tall, everything in the row** — which the chrome check settled, by failing: a name button 15
+ * high and three glyphs 18 square are targets a pointer is *aimed at* rather than moved to, and this
+ * suite holds one minimum for every control it draws. Dense is not the same as small.
+ */
+.st-width-move,
+.st-width-remove {
+  display: flex;
+  width: 20px;
+  height: var(--ou-control-h);
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ou-faint);
+  cursor: pointer;
+}
+
+.st-width-move:hover:not(:disabled),
+.st-width-remove:hover:not(:disabled) {
+  background: var(--ou-ground);
+  color: var(--ou-ink);
+}
+
+/* A width that cannot move, and the last one that cannot go — greyed rather than gone, so the
+   list does not change shape as a reader works down it. */
+.st-width-move:disabled,
+.st-width-remove:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* A door onto the sizes, rather than a dropdown of them — see the control. */
+.st-widths-plus {
+  display: flex;
+  height: var(--ou-control-h);
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 3px;
+  padding: 0 8px;
+  border: 1px dashed var(--ou-line);
+  border-radius: var(--ou-radius);
+  background: transparent;
+  color: var(--ou-muted);
+  font-size: var(--ou-text-small);
+  cursor: pointer;
+}
+
+.st-widths-plus:hover {
+  background: var(--ou-ground);
+}
+
+/* The size beside a device's name in the picker, quieter than the name itself. */
+.st-add-item em {
+  display: block;
+  color: var(--ou-faint);
+  font-size: var(--ou-text-small);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── The rail: one column, several panels ─────────────────────────────────── */
@@ -1963,6 +2140,12 @@ body {
   gap: 6px;
 }
 
+/*
+  The sheet a plus opens is the **ribbon's dialog**, in the middle of the window — it was drawn at the
+  pointer for a while and reported straight back: a sheet anchored to a point is a sheet that is
+  somewhere else the moment the plane moves under it. So there is nothing here for it; the rules it
+  needs are `st-add-sheet` and `st-add-grid`, which the dialog already had.
+*/
 .st-add-item {
   display: flex;
   align-items: center;

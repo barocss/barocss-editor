@@ -649,6 +649,19 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
        */
       document: {
         ...(office.nodes as Record<string, any>).document,
+        /**
+         * **And the widths this site is designed at**, which used to be a `const` with three entries.
+         *
+         * Asked as three things that are one — *사이즈를 더 추가할 수도 있지 않을까 / 순서도 바꿀 수
+         * 있어야할 듯 / 미리보기에 실제 장치 테두리가* — and the missing fact under all three is that
+         * the list of widths belongs to the **document**. A site with a fourth board, a site with two,
+         * a site whose phone is 360 rather than 390: all of them were unsayable.
+         *
+         * Last, after `variables`, because a content expression is an order and this is the newest
+         * thing a document holds. A document that says nothing about widths gets the three every site
+         * starts with — see `widthsOf`.
+         */
+        content: 'docMeta? surface+ resources? components? variables? widths?',
         attrs: {
           ...((office.nodes as Record<string, any>).document?.attrs ?? {}),
           address: { type: 'string' as const, required: false },
@@ -928,6 +941,61 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
        * this choice is written there too — editing one cell rewrites the array — which is what
        * `kind: 'url'` is for.
        */
+      /**
+       * **The widths a site is designed at**, and the list a reader can add to.
+       *
+       * ## Why these are nodes
+       *
+       * Because a width is **referred to by name**. Every `overrides` key in every document is one
+       * (`{ mobile: … }`), every board is keyed by it, and `attrsAt` walks it — which is this
+       * repository's reference shape, used seven times already, and the answer it has always given is
+       * a declared node.
+       *
+       * `variable` is the closest match and it settles the two-name question as well: a **durable
+       * `name`** that references point at and that is not renameable, and a `label` a reader changes
+       * freely. Renaming the reference would mean rewriting every `overrides` map in the document,
+       * which is a migration rather than an edit.
+       *
+       * ## What a width holds
+       *
+       * `size` rather than `width`, because an attribute called `width` on a node called `width` is a
+       * sentence nobody can read. Both it and `viewport` are **CSS pixels** — the unit a breakpoint is
+       * written in everywhere on the web — while the document stays in twips and the conversion
+       * happens where a length is drawn.
+       */
+      widths: { name: 'widths', group: 'document', content: 'width*' },
+      width: {
+        name: 'width',
+        group: 'width',
+        atom: true,
+        attrs: {
+          /** What `overrides` keys and boards name. Durable: not renameable once anything uses it. */
+          name: { type: 'string' as const, required: true },
+          /** What a reader reads. Theirs to change, which is the whole reason it is separate. */
+          label: { type: 'string' as const, required: false },
+          /** How wide the board is, in CSS pixels. */
+          size: { type: 'number' as const, required: true },
+          /**
+           * How **tall** a window onto a page of this width is, in CSS pixels.
+           *
+           * Unused while a reader is building — a board is as tall as the page turns out to be, which
+           * is the point of laying several side by side. It is the number preview needs, and it is
+           * what a device frame is a picture of.
+           */
+          viewport: { type: 'number' as const, required: false },
+          /** The picture the panel and the boards draw it with — see `office-icons`. */
+          icon: { type: 'string' as const, required: false },
+          /**
+           * The device this width **is a window onto**, by name — see `DEVICES`.
+           *
+           * Beside `size` and `viewport` rather than as a second idea, because that is what it is:
+           * choosing a device fills all three in, and the numbers stay the thing the document holds.
+           * A width with no device is a width a reader typed, which is the common case.
+           */
+          device: { type: 'string' as const, required: false }
+        }
+      },
+
       dataset: {
         name: 'dataset',
         group: 'resource',

@@ -46,6 +46,64 @@ entries are that.
 
 ## Open
 
+### 컴포넌트 편집 중의 삽입은 페이지 뒤에 놓이고 있었다 — 2026-09-03 *(fixed)*
+
+Reported as *컴포넌트 편집 화면에서 아무것도 추가 할 수 없음*, and it was **worse than nothing
+happening**: 삽입 and every insert chord were putting blocks on the page *behind* the component. The
+command ran, the document changed, and the reader watched a screen where nothing appeared — with no
+reason to go looking on another page for what they had just made.
+
+The rail and the ribbon already took the boards' subject (`root` — a page, or the part of a component
+being edited); the menubar and the key map took the **page**. One word, three call sites. The
+exception worth stating is a command that is genuinely *about a page* — publishing it, copying it,
+deleting it — and those are told apart by name rather than by hoping.
+
+### 순서 이동이 안 됐던 이유는 픽스처가 그 상태를 안 입었기 때문 — 2026-09-03 *(fixed)*
+
+Reported in five words — *순서 이동 눌러도 동작을 안해* — and the cause is the thing this repository's
+own rule warns about: **a fixture must wear what it tests.**
+
+A document that has said nothing about widths draws at three, and those three are a **default rather
+than nodes**. So the panel listed them, a reader pressed ↑, and the command looked for a node with
+that name, found none, and refused — correctly, and uselessly. Twelve unit tests covered the commands
+and every one of them ran `insertWidth` first, so not one of them wore the state **every document
+opens in**.
+
+The fix is the one `insertWidth` already made: the first change of any kind **materialises the list**.
+A document that never touches its widths never grows a `widths` box, and the first reader who moves
+one gets a list that says exactly what they were already looking at. Five tests now wear that state
+and nothing else.
+
+### 페이지도 폭마다 다르게 꾸밀 수 있어야 한다 — 2026-09-03 *(built)*
+
+Asked as *개별 크기별 페이지도 속성 설정할 수 있어야 하는 거 아니야? 여기도 배경색이랑 꾸밀 수 있는 걸
+따로 둘 수 있잖아* — and two things were missing, which turned out to be one feature.
+
+- **The panel had no paint rows for a page at all.** Its pane held an address, a name and a type
+  scale, and nothing about how it looks — while `paintCss` has read a page's own fill, gradient and
+  overlay in the renderer since the day one could hold them. The rows are the same rows a block gets,
+  **declared once** and mapped onto the page's pane, because two declarations of one thing is how a
+  panel and a product drift apart.
+- **The page's renderer read its raw attributes**, so a page could hold an override and no board would
+  ever draw it. A page that is white on a desktop and dark on a phone is one page with an override,
+  not two pages.
+
+The mapped rows get a name of their own — `페이지 배경` — which `calls no two rows the same thing` is
+right to insist on, and which is true anyway: a block's 배경 is that band's, and this is the paper the
+whole page is printed on.
+
+### 같은 그룹이 두 번 열리던 것 — 선언이 정한다 — 2026-09-03 *(fixed)*
+
+Reported as *사이트 패널, 페이지 패널, 이 2개씩 있는데 이거 다 합쳐야 하는 거 아니니?* — and the page
+pane had **two 사이트 and three 페이지**, interleaved.
+
+`panelGroupsFor` splits by *run* rather than by name, and that is deliberate: its own test says a map
+keyed by label would silently merge two runs and move a row up the panel, so **the declaration is
+what decides** and a repeated heading is a fault in the declaration. So the declaration was fixed —
+and the rule turned into a check, which is the part worth keeping: no pane may open the same group
+twice, asked of every node type in every pane. It was *visible and therefore fixable*; it is
+checkable now.
+
 ### 오른쪽 버튼 메뉴의 세 가지 — 원인은 둘이었다 — 2026-09-02 *(fixed)*
 
 Reported as three: *항상 데스크탑에서만 뜨고 있어* / *마우스 커서 위치에 애초에 안 뜨는구만* / *멀티 선택

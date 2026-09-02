@@ -3,8 +3,8 @@ import type { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
-import { SITE_ENV_KEY, createSiteEnv, type BreakpointId } from '@barocss/office-site';
-import { viewportOf } from '@barocss/office-site';
+import { SITE_ENV_KEY, createSiteEnv, type BreakpointId, type SiteWidth } from '@barocss/office-site';
+import { viewportOf, deviceNamed, deviceMatches } from '@barocss/office-site';
 import { Overlay, type PointerMode } from './overlay';
 
 /**
@@ -63,6 +63,8 @@ export function PageFrame({
   mode,
   preview,
   wireframe,
+  widths,
+  onAdd,
   onEnterText,
   onEditComponent,
   onEditCode,
@@ -75,6 +77,15 @@ export function PageFrame({
   breakpoint: BreakpointId;
   /** Whether this board is drawing the page with its finish taken off — see `wireframe.ts`. */
   wireframe?: boolean;
+  /** A plus at the end of a block's flow was pressed — the app opens the one dialog. */
+  onAdd?: (place: { parentId: string; at: number }) => void;
+  /**
+   * The widths this **document** is designed at, so this view resolves overrides through its own list.
+   *
+   * Passed rather than read here: the app has already asked the document once, and three boards each
+   * asking again would be three answers that can differ for one frame after a change.
+   */
+  widths?: SiteWidth[];
   label: string;
   width: number;
   page?: string;
@@ -147,7 +158,11 @@ export function PageFrame({
            * belongs to the store, and every view would get the same answer to a question whose
            * whole point is that the answers differ (`breakpoints.ts`).
            */
-          [SITE_ENV_KEY]: createSiteEnv(breakpoint)
+          /*
+           * The document's **own** widths, so the order an override resolves through is this site's
+           * rather than the three every site starts with — see `widthsOf`.
+           */
+          [SITE_ENV_KEY]: createSiteEnv(breakpoint, false, widths)
         }
       } as never);
     }
@@ -192,6 +207,18 @@ export function PageFrame({
     };
   }, [preview, page, redraw]);
 
+  /*
+   * The device this width is a window onto, and only while previewing: a bezel around a board a
+   * reader is editing would be 20 pixels of nothing between them and their page.
+   */
+  const device = preview
+    ? (() => {
+        const here = (widths ?? []).find((one) => one.id === breakpoint);
+        const found = deviceNamed(here?.device);
+        return found && found.bezel > 0 && deviceMatches(here) ? found : undefined;
+      })()
+    : undefined;
+
   return (
     <section
       className="st-frame"
@@ -199,7 +226,22 @@ export function PageFrame({
       data-preview={preview ? 'true' : undefined}
       /* Read by the sheet `wireframeCss` generates — the board's state, not the application's. */
       data-wireframe={wireframe ? 'true' : undefined}
-      style={{ width: `${width}px`, ['--st-viewport' as never]: `${viewportOf(breakpoint)}px` }}
+      /*
+       * **Which device this board is a window onto**, when the width says so and its numbers still
+       * match — a width that says 휴대폰 and is 500 wide is not one, and drawing a phone around it
+       * would be the tool claiming a shape the page is not drawn at (`deviceMatches`).
+       */
+      data-device={device?.name}
+      style={{
+        width: `${width}px`,
+        ['--st-viewport' as never]: `${viewportOf(breakpoint, widths)}px`,
+        ...(device
+          ? {
+              ['--st-bezel' as never]: `${device.bezel}px`,
+              ['--st-bezel-radius' as never]: `${device.radius}px`
+            }
+          : {})
+      }}
     >
       {/* The label a reader reads to know which frame they are typing in. */}
       <header className="st-frame-label">
@@ -239,6 +281,7 @@ export function PageFrame({
             onEnterText={onEnterText}
             onEditComponent={onEditComponent}
             onEditCode={onEditCode}
+            onAdd={onAdd}
             scope={scope}
             onScope={onScope}
           />

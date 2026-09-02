@@ -49,10 +49,23 @@ test.describe('the chrome, measured', () => {
         (el) => !boards.some((board) => board.contains(el))
       );
 
+      /**
+       * The three numbers, **whichever notation the browser hands them back in**.
+       *
+       * `rgb(23, 23, 23)` counts to 255 and `color(srgb 0.81 0.86 0.98)` counts to 1 — and this read
+       * both as 255, so every token that resolves through a `color-mix` came back as near-black. It
+       * reported a 13:1 pair as 1.2:1, which is the check calling a legible control unreadable: the
+       * worst kind of failure, because the fix it asks for makes the product worse.
+       *
+       * Told apart by the notation rather than by the size of the numbers — `rgb(0, 0, 1)` is a real
+       * colour and guessing from magnitude would read it as white.
+       */
       const luminance = (colour: string) => {
-        const [r, g, b] = (colour.match(/[\d.]+/g) ?? ['0', '0', '0']).map(Number);
+        const parts = (colour.match(/[\d.]+/g) ?? ['0', '0', '0']).map(Number);
+        const scale = colour.startsWith('color(') ? 1 : 255;
+        const [r, g, b] = parts;
         const lin = (v: number) => {
-          const c = v / 255;
+          const c = v / scale;
           return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
         };
         return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);

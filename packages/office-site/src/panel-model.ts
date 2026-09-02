@@ -78,6 +78,16 @@ export type SitePanelControl =
   | 'static'
   /** The datasets this document holds, which only the document can list. */
   | 'dataset'
+  /**
+   * **The widths this site is designed at** — the whole list, with its add, its remove and its drag.
+   *
+   * One control drawn from four declared rows, which is the honest way round: a widths list *is* four
+   * things a reader can do, and four labelled rows would be four labels for one list. The leader
+   * draws all of it; the three `widths-part` rows exist so `every-command-can-be-reached` can see the
+   * other three commands, and answer `null` when the sheet asks them to draw.
+   */
+  | 'widths'
+  | 'widths-part'
   /** The columns of the dataset a list is drawing — likewise. */
   | 'column'
   /** A placement's answers, one row per question its definition asks. */
@@ -242,6 +252,217 @@ const PLACED = [...STACKS, 'instance'];
  * Order is meaning here, the same way it is in `SITE_TOOLBAR`: the panel draws these top to bottom,
  * so moving a row in this array moves it on screen.
  */
+/**
+ * **What a box is painted with** — declared once, offered twice.
+ *
+ * A block's paint is on the 모양 pane, and a **page** has exactly the same paint: `paintCss` reads
+ * the page's own attributes in the renderer, and has since the day a page could hold a gradient. What
+ * was missing was anywhere to say it — the page pane held its address, its type and nothing about how
+ * it looks — which is what *여기도 배경색이랑 꾸밀 수 있는 걸 따로 둘 수 있잖아* is asking for.
+ *
+ * Written out once and mapped onto the page pane rather than declared twice, because two declarations
+ * of one thing is how a panel and a product drift apart — the fault this whole file exists to have
+ * already made once.
+ */
+const PAINT: SitePanelRow[] = [
+  { attr: 'fill', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '배경', ariaLabel: '배경', control: 'colour' },
+  /**
+   * The colour of what is **on** the background — the row directly under it, because it is the same
+   * decision made twice.
+   *
+   * Until this row a builder could paint a section near-black and had no control that made the words
+   * on it light. The only way was to select each run and set a text colour, which is why the sample's
+   * one dark band has a coloured paragraph and an uncoloured heading: the person writing it did the
+   * work per run and missed one, and the heading shipped dark-on-dark at 1.06:1.
+   *
+   * It inherits, so setting it on a section reaches everything added to that section afterwards. A
+   * `colour` control rather than a choice, because a dark band's ink is rarely pure white — the band
+   * in the sample wants a faintly green off-white to sit in the same family as its gradient.
+   */
+  { attr: 'ink', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '글자', ariaLabel: '블록 안 글자 색', control: 'colour' },
+  /**
+   * A gradient, as its two ends — the row that turns a flat band into a designed one.
+   *
+   * Under 배경 rather than in a group of its own, because it *is* the background: a reader who has
+   * set a colour and wants it to fade is looking at the row they set the colour on. The angle and
+   * the kind ride with it for the same reason the four paddings ride with the one — four labelled
+   * rows about one idea is a panel nobody reads.
+   */
+  {
+    attr: 'gradientFrom',
+    command: 'setBlockFormat',
+    group: '바탕',
+    tab: 'style',
+    label: '그라디언트',
+    ariaLabel: '그라디언트 시작 색',
+    control: 'colour',
+    with: [
+      { attr: 'gradientTo', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '끝', ariaLabel: '그라디언트 끝 색', control: 'colour' },
+      {
+        attr: 'gradientAngle',
+        command: 'setBlockFormat',
+        group: '바탕',
+        tab: 'style',
+        label: '각도',
+        ariaLabel: '그라디언트 각도',
+        control: 'number',
+        unit: '°',
+        fallback: 180,
+        min: 0,
+        max: 360,
+        needs: 'gradientFrom'
+      },
+      {
+        attr: 'gradientKind',
+        command: 'setBlockFormat',
+        group: '바탕',
+        tab: 'style',
+        label: '모양',
+        ariaLabel: '그라디언트 모양',
+        control: 'choice',
+        fallback: 'linear',
+        needs: 'gradientFrom',
+        options: [
+          { id: 'linear', label: 'Linear' },
+          { id: 'radial', label: 'Radial' }
+        ]
+      }
+    ]
+  },
+  /**
+   * A picture **behind** what is in the box, and how much of it comes through.
+   *
+   * The one thing a landing page cannot be built without: a hero is words over a photograph, and
+   * the only picture a page could draw before this was a `picture` node in the flow, which pushes
+   * the words off it.
+   */
+  {
+    attr: 'backgroundImage',
+    command: 'setBlockFormat',
+    group: '바탕',
+    tab: 'style',
+    label: '배경 그림',
+    ariaLabel: '배경 그림 주소',
+    control: 'text',
+    with: [
+      {
+        attr: 'backgroundFit',
+        command: 'setBlockFormat',
+        group: '바탕',
+        tab: 'style',
+        label: '맞춤',
+        ariaLabel: '배경 그림 맞춤',
+        control: 'choice',
+        fallback: 'cover',
+        needs: 'backgroundImage',
+        options: [
+          { id: 'cover', label: 'Cover' },
+          { id: 'contain', label: 'Contain' },
+          { id: 'tile', label: 'Tile' }
+        ]
+      },
+      {
+        // Only the picture fades, never the words on it — see `paint.ts`.
+        attr: 'backgroundOpacity',
+        command: 'setBlockFormat',
+        group: '바탕',
+        tab: 'style',
+        label: '진하기',
+        ariaLabel: '배경 그림 진하기',
+        control: 'number',
+        fallback: 1,
+        min: 0,
+        max: 1,
+        needs: 'backgroundImage'
+      }
+    ]
+  },
+  /**
+   * **The sheet over the picture** — the layer that makes white words on a photograph readable.
+   *
+   * Its own row rather than a fourth companion under 배경 그림, and that was measured rather than
+   * chosen: four controls sharing one line drew the last of them **11 pixels wide**, which the
+   * chrome's own check calls a target that is aimed at rather than moved to. A row holds a label and
+   * about two controls; the third is a row of its own.
+   *
+   * Beside 진하기 and not instead of it, because they do different things and a reader has to be able
+   * to see both: 진하기 fades the picture toward the box's own ground, and this puts a chosen colour
+   * on top of it. `paint.ts` argues why a gradient could not.
+   */
+  {
+    attr: 'overlay',
+    command: 'setBlockFormat',
+    group: '바탕',
+    tab: 'style',
+    label: '덮개',
+    ariaLabel: '배경 덮개 색',
+    control: 'colour',
+    needs: 'backgroundImage',
+    with: [
+      {
+        attr: 'overlayOpacity',
+        command: 'setBlockFormat',
+        group: '바탕',
+        tab: 'style',
+        label: '진하기',
+        ariaLabel: '배경 덮개 진하기',
+        control: 'number',
+        fallback: 1,
+        min: 0,
+        max: 1,
+        step: 0.01,
+        needs: 'overlay'
+      }
+    ]
+  },
+
+  /**
+   * A shadow, which is how a card stops being a rectangle with a line round it.
+   *
+   * The colour is the row, because a shadow with no colour is not a shadow — the other three are
+   * only meaningful once there is one, and say so with `needs`.
+   */
+  {
+    attr: 'shadowColor',
+    command: 'setBlockFormat',
+    group: '그림자',
+    tab: 'style',
+    label: '색',
+    ariaLabel: '그림자 색',
+    control: 'colour',
+    with: [
+      { attr: 'shadowBlur', command: 'setBlockFormat', group: '그림자', tab: 'style', label: '번짐', ariaLabel: '그림자 번짐', control: 'number', unit: 'px', min: 0, needs: 'shadowColor' },
+      { attr: 'shadowDistance', command: 'setBlockFormat', group: '그림자', tab: 'style', label: '거리', ariaLabel: '그림자 거리', control: 'number', unit: 'px', min: 0, needs: 'shadowColor' },
+      { attr: 'shadowAngle', command: 'setBlockFormat', group: '그림자', tab: 'style', label: '방향', ariaLabel: '그림자 방향', control: 'number', unit: '°', fallback: 180, min: 0, max: 360, needs: 'shadowColor' }
+    ]
+  }
+];
+
+/**
+ * The same rows, asked of the **page**.
+ *
+ * `on: ['surface']` because a page is not a block — `SELECTABLE` leaves it out on purpose — and
+ * `tab: 'page'` because that is the pane a reader reaches by selecting nothing, which is the only way
+ * to reach a page at all.
+ */
+const pagePaint = (one: SitePanelRow): SitePanelRow => ({
+  ...one,
+  tab: 'page',
+  on: ['surface'],
+  /**
+   * **A name of its own**, which `calls no two rows the same thing` is right to insist on: an
+   * accessible name has to be unique across the whole declaration, so that a reader — or a test —
+   * can address any row by saying it. `label` may repeat, because a label is read *inside* a group
+   * that has already said which pane it is.
+   *
+   * And the two really are different things: a block's 배경 is the band's, and this is the paper the
+   * whole page is printed on — the thing a reader sees under every section shorter than the window.
+   */
+  ariaLabel: `페이지 ${one.ariaLabel}`,
+  /* A companion is a row too, and it needs the same three answers — see `PanelRow.with`. */
+  with: one.with?.map((each) => pagePaint(each as SitePanelRow))
+});
+
 export const SITE_PANEL: SitePanelRow[] = [
   // ── What is selected ───────────────────────────────────────────────────────
   { attr: 'stype', group: '선택', tab: 'block', label: '종류', ariaLabel: '종류', control: 'static' },
@@ -984,177 +1205,8 @@ export const SITE_PANEL: SitePanelRow[] = [
     on: ['inline-text']
   },
 
-  { attr: 'fill', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '배경', ariaLabel: '배경', control: 'colour' },
-  /**
-   * The colour of what is **on** the background — the row directly under it, because it is the same
-   * decision made twice.
-   *
-   * Until this row a builder could paint a section near-black and had no control that made the words
-   * on it light. The only way was to select each run and set a text colour, which is why the sample's
-   * one dark band has a coloured paragraph and an uncoloured heading: the person writing it did the
-   * work per run and missed one, and the heading shipped dark-on-dark at 1.06:1.
-   *
-   * It inherits, so setting it on a section reaches everything added to that section afterwards. A
-   * `colour` control rather than a choice, because a dark band's ink is rarely pure white — the band
-   * in the sample wants a faintly green off-white to sit in the same family as its gradient.
-   */
-  { attr: 'ink', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '글자', ariaLabel: '블록 안 글자 색', control: 'colour' },
-  /**
-   * A gradient, as its two ends — the row that turns a flat band into a designed one.
-   *
-   * Under 배경 rather than in a group of its own, because it *is* the background: a reader who has
-   * set a colour and wants it to fade is looking at the row they set the colour on. The angle and
-   * the kind ride with it for the same reason the four paddings ride with the one — four labelled
-   * rows about one idea is a panel nobody reads.
-   */
-  {
-    attr: 'gradientFrom',
-    command: 'setBlockFormat',
-    group: '바탕',
-    tab: 'style',
-    label: '그라디언트',
-    ariaLabel: '그라디언트 시작 색',
-    control: 'colour',
-    with: [
-      { attr: 'gradientTo', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '끝', ariaLabel: '그라디언트 끝 색', control: 'colour' },
-      {
-        attr: 'gradientAngle',
-        command: 'setBlockFormat',
-        group: '바탕',
-        tab: 'style',
-        label: '각도',
-        ariaLabel: '그라디언트 각도',
-        control: 'number',
-        unit: '°',
-        fallback: 180,
-        min: 0,
-        max: 360,
-        needs: 'gradientFrom'
-      },
-      {
-        attr: 'gradientKind',
-        command: 'setBlockFormat',
-        group: '바탕',
-        tab: 'style',
-        label: '모양',
-        ariaLabel: '그라디언트 모양',
-        control: 'choice',
-        fallback: 'linear',
-        needs: 'gradientFrom',
-        options: [
-          { id: 'linear', label: 'Linear' },
-          { id: 'radial', label: 'Radial' }
-        ]
-      }
-    ]
-  },
-  /**
-   * A picture **behind** what is in the box, and how much of it comes through.
-   *
-   * The one thing a landing page cannot be built without: a hero is words over a photograph, and
-   * the only picture a page could draw before this was a `picture` node in the flow, which pushes
-   * the words off it.
-   */
-  {
-    attr: 'backgroundImage',
-    command: 'setBlockFormat',
-    group: '바탕',
-    tab: 'style',
-    label: '배경 그림',
-    ariaLabel: '배경 그림 주소',
-    control: 'text',
-    with: [
-      {
-        attr: 'backgroundFit',
-        command: 'setBlockFormat',
-        group: '바탕',
-        tab: 'style',
-        label: '맞춤',
-        ariaLabel: '배경 그림 맞춤',
-        control: 'choice',
-        fallback: 'cover',
-        needs: 'backgroundImage',
-        options: [
-          { id: 'cover', label: 'Cover' },
-          { id: 'contain', label: 'Contain' },
-          { id: 'tile', label: 'Tile' }
-        ]
-      },
-      {
-        // Only the picture fades, never the words on it — see `paint.ts`.
-        attr: 'backgroundOpacity',
-        command: 'setBlockFormat',
-        group: '바탕',
-        tab: 'style',
-        label: '진하기',
-        ariaLabel: '배경 그림 진하기',
-        control: 'number',
-        fallback: 1,
-        min: 0,
-        max: 1,
-        needs: 'backgroundImage'
-      }
-    ]
-  },
-  /**
-   * **The sheet over the picture** — the layer that makes white words on a photograph readable.
-   *
-   * Its own row rather than a fourth companion under 배경 그림, and that was measured rather than
-   * chosen: four controls sharing one line drew the last of them **11 pixels wide**, which the
-   * chrome's own check calls a target that is aimed at rather than moved to. A row holds a label and
-   * about two controls; the third is a row of its own.
-   *
-   * Beside 진하기 and not instead of it, because they do different things and a reader has to be able
-   * to see both: 진하기 fades the picture toward the box's own ground, and this puts a chosen colour
-   * on top of it. `paint.ts` argues why a gradient could not.
-   */
-  {
-    attr: 'overlay',
-    command: 'setBlockFormat',
-    group: '바탕',
-    tab: 'style',
-    label: '덮개',
-    ariaLabel: '배경 덮개 색',
-    control: 'colour',
-    needs: 'backgroundImage',
-    with: [
-      {
-        attr: 'overlayOpacity',
-        command: 'setBlockFormat',
-        group: '바탕',
-        tab: 'style',
-        label: '진하기',
-        ariaLabel: '배경 덮개 진하기',
-        control: 'number',
-        fallback: 1,
-        min: 0,
-        max: 1,
-        step: 0.01,
-        needs: 'overlay'
-      }
-    ]
-  },
+  ...PAINT,
 
-  /**
-   * A shadow, which is how a card stops being a rectangle with a line round it.
-   *
-   * The colour is the row, because a shadow with no colour is not a shadow — the other three are
-   * only meaningful once there is one, and say so with `needs`.
-   */
-  {
-    attr: 'shadowColor',
-    command: 'setBlockFormat',
-    group: '그림자',
-    tab: 'style',
-    label: '색',
-    ariaLabel: '그림자 색',
-    control: 'colour',
-    with: [
-      { attr: 'shadowBlur', command: 'setBlockFormat', group: '그림자', tab: 'style', label: '번짐', ariaLabel: '그림자 번짐', control: 'number', unit: 'px', min: 0, needs: 'shadowColor' },
-      { attr: 'shadowDistance', command: 'setBlockFormat', group: '그림자', tab: 'style', label: '거리', ariaLabel: '그림자 거리', control: 'number', unit: 'px', min: 0, needs: 'shadowColor' },
-      { attr: 'shadowAngle', command: 'setBlockFormat', group: '그림자', tab: 'style', label: '방향', ariaLabel: '그림자 방향', control: 'number', unit: '°', fallback: 180, min: 0, max: 360, needs: 'shadowColor' }
-    ]
-  },
   { attr: 'stroke', command: 'setBlockFormat', group: '테두리', tab: 'style', label: '색', ariaLabel: '테두리 색', control: 'colour' },
   { attr: 'strokeWidth', command: 'setBlockFormat', group: '테두리', tab: 'style', label: '두께', ariaLabel: '테두리 두께', control: 'number', unit: 'px', min: 0 },
 
@@ -1848,6 +1900,76 @@ export const SITE_PANEL: SitePanelRow[] = [
    * nothing selected is looking at the page *and* the site. Written to the document rather than to a
    * page, so `setSiteAddress` takes no `nodeId` — the only command in this product that does not.
    */
+  /**
+   * **The widths this site is designed at**, as a list a reader adds to.
+   *
+   * Four commands and one control, which is what the four rows here say. A widths list *is* four
+   * things a reader can do — add one, change one, take one away, move one — and drawing them as four
+   * separate panel rows would be four labels for one list. So they are **declared** separately, which
+   * is how `every-command-can-be-reached` can see all four, and **drawn** together by the one control
+   * the leader names: the companions answer `null` from `own`, and the comment there says why.
+   *
+   * In 사이트 rather than in the rail, because the rail is at five panels and its own note says the
+   * sixth turns it into an icon rail — a redesign that has nothing to do with widths. And a width is
+   * the site's, like its address: a reader with nothing selected is looking at the page *and* the
+   * site, which is exactly when they want to add a board.
+   */
+  {
+    attr: 'width',
+    of: 'document',
+    writes: 'child',
+    command: 'insertWidth',
+    group: '폭',
+    tab: 'page',
+    label: '폭',
+    ariaLabel: '이 사이트를 그리는 폭',
+    control: 'widths',
+    /*
+     * The whole width, with no label column: the group already says 폭, and saying it again beside
+     * every line costs 74 pixels of a list that needs all of them — see `SheetRow.wide`.
+     */
+    wide: true,
+    on: ['surface'],
+    with: [
+      {
+        attr: 'width',
+        of: 'document',
+        writes: 'child',
+        command: 'setWidth',
+        group: '폭',
+        tab: 'page',
+        label: '폭 고치기',
+        ariaLabel: '폭 고치기',
+        control: 'widths-part',
+        on: ['surface']
+      },
+      {
+        attr: 'width',
+        of: 'document',
+        writes: 'child',
+        command: 'removeWidth',
+        group: '폭',
+        tab: 'page',
+        label: '폭 삭제',
+        ariaLabel: '폭 삭제',
+        control: 'widths-part',
+        on: ['surface']
+      },
+      {
+        attr: 'width',
+        of: 'document',
+        writes: 'child',
+        command: 'moveWidth',
+        group: '폭',
+        tab: 'page',
+        label: '폭 순서',
+        ariaLabel: '폭 순서 바꾸기',
+        control: 'widths-part',
+        on: ['surface']
+      }
+    ]
+  },
+
   {
     attr: 'address',
     command: 'setSiteAddress',
@@ -1862,26 +1984,6 @@ export const SITE_PANEL: SitePanelRow[] = [
     of: 'document'
   },
 
-  // ── 페이지 — shown when nothing is selected, because a page is the board ───
-  { attr: 'name', command: 'setPageInfo', group: '페이지', tab: 'page', label: '이름', ariaLabel: '페이지 이름', control: 'text', on: ['surface'] },
-  { attr: 'path', command: 'setPageInfo', group: '페이지', tab: 'page', label: '주소', ariaLabel: '페이지 주소', control: 'text', on: ['surface'] },
-  /**
-   * And what the page is **about**, which is the third thing it is.
-   *
-   * A title is what it is called and an address is where it answers; both are here and both were
-   * being said to a browser tab and to nothing else. This is what a search result shows and what a
-   * chat unfurls, and the published page had neither it nor an Open Graph tag.
-   */
-  {
-    attr: 'description',
-    command: 'setPageInfo',
-    group: '페이지',
-    tab: 'page',
-    label: '설명',
-    ariaLabel: '페이지 설명',
-    control: 'text',
-    on: ['surface']
-  },
   /**
    * **The picture in a browser tab** — the cheapest thing that makes a published site look like a
    * site rather than a file somebody opened.
@@ -1906,12 +2008,51 @@ export const SITE_PANEL: SitePanelRow[] = [
    * needed telling apart and told only the screen reader.
    */
   { attr: 'noIndex', of: 'document', command: 'setSiteFiles', group: '사이트', tab: 'page', label: '사이트 전체 제외', ariaLabel: '검색 엔진에서 사이트 전체를 제외', control: 'toggle', on: ['surface'] },
+
+
+  // ── 페이지 — shown when nothing is selected, because a page is the board ───
+  { attr: 'name', command: 'setPageInfo', group: '페이지', tab: 'page', label: '이름', ariaLabel: '페이지 이름', control: 'text', on: ['surface'] },
+  { attr: 'path', command: 'setPageInfo', group: '페이지', tab: 'page', label: '주소', ariaLabel: '페이지 주소', control: 'text', on: ['surface'] },
+  /**
+   * And what the page is **about**, which is the third thing it is.
+   *
+   * A title is what it is called and an address is where it answers; both are here and both were
+   * being said to a browser tab and to nothing else. This is what a search result shows and what a
+   * chat unfurls, and the published page had neither it nor an Open Graph tag.
+   */
+  {
+    attr: 'description',
+    command: 'setPageInfo',
+    group: '페이지',
+    tab: 'page',
+    label: '설명',
+    ariaLabel: '페이지 설명',
+    control: 'text',
+    on: ['surface']
+  },
   /*
    * And the two a **page** answers rather than the site: which one a host serves for an address it
    * cannot match, and whether this one in particular should stay out of a search result.
    */
   { attr: 'notFound', command: 'setPageInfo', group: '페이지', tab: 'page', label: '없는 주소용', ariaLabel: '주소가 틀렸을 때 보일 페이지', control: 'toggle', on: ['surface'] },
   { attr: 'noIndex', command: 'setPageInfo', group: '페이지', tab: 'page', label: '이 페이지만 제외', ariaLabel: '이 페이지를 검색에서 제외', control: 'toggle', on: ['surface'] },
+
+  /**
+   * And the **picture** a shared link shows — the half of an unfurl anybody actually looks at.
+   *
+   * The page's rather than the site's, because the page whose card matters most is a post: a blog
+   * with one picture for every article is a blog nobody clicks twice.
+   */
+  {
+    attr: 'image',
+    command: 'setPageInfo',
+    group: '페이지',
+    tab: 'page',
+    label: '공유 그림',
+    ariaLabel: '공유했을 때 보이는 그림',
+    control: 'text',
+    on: ['surface']
+  },
 
   // ── 서체 — what the whole site is set in ──────────────────────────────────
   /**
@@ -1940,21 +2081,17 @@ export const SITE_PANEL: SitePanelRow[] = [
   { attr: 'scale', of: 'document', command: 'setSiteType', group: '서체', tab: 'page', label: '제목 단계', ariaLabel: '제목 크기 단계', control: 'choice', fallback: '', options: SCALES.map((one) => ({ id: one.id, label: one.label })), on: ['surface'] },
 
   /**
-   * And the **picture** a shared link shows — the half of an unfurl anybody actually looks at.
+   * **And the page's own paint** — the same rows a block gets, asked of the page.
    *
-   * The page's rather than the site's, because the page whose card matters most is a post: a blog
-   * with one picture for every article is a blog nobody clicks twice.
+   * Last, because it is the least identifying thing about a page and a reader arriving with nothing
+   * selected is most often looking for the address. `paintCss` has read these off a page since the
+   * day one could hold a gradient; what was missing was anywhere to say them.
+   *
+   * They are written **at the width being edited**, like every other paint row — which is the other
+   * half of *개별 크기별 페이지도 속성 설정할 수 있어야 하는 거 아니야?*: a page that is white on a
+   * desktop and dark on a phone is one page with an override, not two pages.
    */
-  {
-    attr: 'image',
-    command: 'setPageInfo',
-    group: '페이지',
-    tab: 'page',
-    label: '공유 그림',
-    ariaLabel: '공유했을 때 보이는 그림',
-    control: 'text',
-    on: ['surface']
-  }
+  ...PAINT.map(pagePaint)
 ];
 
 /**

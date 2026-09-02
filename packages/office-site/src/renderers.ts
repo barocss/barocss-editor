@@ -48,9 +48,9 @@ import {
   serviceNamed,
   type Service
 } from './form';
-import { breakpointOf, published } from './breakpoints';
+import { breakpointOf, published, scopesOf } from './breakpoints';
 import { codeComponent } from './code-render';
-import { attrsAt } from './responsive';
+import { attrsThrough } from './responsive';
 
 type NodeData = Record<string, any>;
 
@@ -68,7 +68,12 @@ const attrsOf = (data: NodeData): Record<string, any> => (data?.attributes ?? {}
  * blocks cost one map lookup and no copy.
  */
 const drawnAttrs = (node: NodeData, ctx: any): Record<string, any> => {
-  const at = attrsAt(attrsOf(node), breakpointOf(ctx?.env as RenderEnv | undefined));
+  /*
+   * The **scopes**, from the env, rather than the width and a constant list: which widths a drawing
+   * resolves through is a fact about the *document's* widths, and a renderer is handed a node and an
+   * env. The host works the order out once per view — see `createSiteEnv`.
+   */
+  const at = attrsThrough(attrsOf(node), scopesOf(ctx?.env as RenderEnv | undefined));
   return named(at, node, ctx) as never;
 };
 
@@ -421,8 +426,7 @@ export function registerSiteRenderers(): void {
    * from an accident: if the shared answer moves, this stops being an override and the product
    * finds out.
    */
-  override(
-    'surface',
+  override('surface', (_props: NodeData, _node: NodeData, ctx: any) =>
     element(
         'section',
         {
@@ -455,8 +459,14 @@ export function registerSiteRenderers(): void {
             /*
              * And the page's own paint. A site whose sections can hold a gradient and whose *page*
              * cannot is a site with a white band under every page shorter than the window.
+             *
+             * **At the width this view is drawing**, which it was not: this read the node's raw
+             * attributes, so a page could hold an override and no board would ever show it — a page
+             * that is white on a desktop and dark on a phone was unsayable. Only the paint: a page's
+             * address and its id are what it *is* rather than how it looks, and a page with two
+             * addresses is two pages.
              */
-            ...paintCss(attrsOf(d), asColour)
+            ...paintCss(attrsThrough(attrsOf(d), scopesOf(ctx?.env as RenderEnv | undefined)), asColour)
           }),
         },
         [slot('content')]

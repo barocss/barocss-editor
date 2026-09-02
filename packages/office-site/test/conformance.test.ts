@@ -12,6 +12,7 @@ import { getSiteSchemaDefinition } from '../src/site-schema';
 import { registerSiteRenderers } from '../src/renderers';
 import { createSiteEditor, createSiteOwnExtensions } from '../src/site-kit';
 import { siteKeyCommands } from '../src/keymap';
+import { widthsOf } from '../src/breakpoints';
 import { definitionsOf } from '../src/components';
 import { siteLayerIcons } from '../src/layer-icons';
 import { SITE_TOOLBAR, siteToolbarCommands, siteToolbarIcons } from '../src/toolbar-model';
@@ -156,7 +157,13 @@ describe('the site builder draws what it declares', () => {
      * obvious: the sample's five pages are five pages because `sample-site.ts` says so. A page is a
      * `surface`, the same node a document's page is — the product decides what it means.
      */
-    { command: 'insertPage', produces: 'surface' }
+    { command: 'insertPage', produces: 'surface' },
+    /*
+     * A width the site is designed at — the one insert here that puts nothing on a page. It goes in
+     * the document's own `widths` box, which is where a thing referred to by name lives in this
+     * schema; see `width-commands.ts` for why it is a node at all.
+     */
+    { command: 'insertWidth', produces: 'width' }
   ];
 
   /**
@@ -403,6 +410,34 @@ describe('the site builder draws what it declares', () => {
        * shapes rather than making them — the sample site has both, and a probe that had to build a
        * frame to ask about frames would be testing its own scaffolding.
        */
+      /**
+       * **A width by name**, for the three commands that act on one.
+       *
+       * All three refuse without one, correctly: a width is referred to by name and a payload naming
+       * none is asking them to act on nothing. The document declares none until a reader adds one, so
+       * the probe asks the product what it is drawing at — which is the three every site starts with
+       * — and names the narrowest, because the widest is the base and `removeWidth` refusing the last
+       * width is a different rule this must not accidentally test.
+       */
+      if (command === 'setWidth' || command === 'removeWidth' || command === 'moveWidth') {
+        /*
+         * …and a document that **declares** one, which is the half the first version missed. A site
+         * that has said nothing about widths is drawn at the three every site starts with, and those
+         * are a default rather than nodes — so all three refused, correctly, against a document with
+         * no widths in it at all. `insertWidth` writes the default three *and* the new one the first
+         * time it runs, which is exactly the state these are about.
+         */
+        await editor.executeCommand('insertWidth', {});
+        const widths = widthsOf(store as never, rootId);
+        const narrowest = [...widths].sort((a, b) => a.width - b.width)[0];
+        if (narrowest) {
+          payload.name = narrowest.id;
+          payload.label = '시험 폭';
+          payload.size = narrowest.width + 20;
+          payload.to = 0;
+        }
+      }
+
       if (command === 'groupBlocks') {
         const two = blocksIn(doc as never, page).slice(0, 2);
         if (two.length === 2) {
@@ -1366,9 +1401,69 @@ describe('the site builder draws what it declares', () => {
           reason: 'a page has no coordinates; the browser lays a stack out',
           covers: ['every-attribute-is-read', 'every-property-can-be-edited']
         },
+        /**
+         * ── `width`, which was **one exemption doing two jobs** ────────────
+         *
+         * It was keyed `width`, which is a *family* — every node's `width` at once — and the day a
+         * node called `width` was declared the harness said so: *"also excuses every-node-is-drawn,
+         * which it does not say it covers"*. Splitting it found the second fault underneath, which is
+         * the one worth keeping: the six subjects have **two different reasons**, and the one sentence
+         * was only true of three of them.
+         *
+         * On a `frame`, a `collection` and a `form`, `width` **is** read — `frameCss` writes it when
+         * it is set. What is true there is that a page never sets it, which is a different claim from
+         * the drawing ignoring it, and a different check reports it.
+         */
+        'frame.width': {
+          reason: 'read by `frameCss` when set; a page never sets it — `sizing` is what a page says instead',
+          covers: ['every-property-can-be-edited']
+        },
+        'collection.width': {
+          reason: 'read by `frameCss` when set; a page never sets it — `sizing` is what a page says instead',
+          covers: ['every-property-can-be-edited']
+        },
+        'form.width': {
+          reason: 'read by `frameCss` when set; a page never sets it — `sizing` is what a page says instead',
+          covers: ['every-property-can-be-edited']
+        },
+        'surface.width': {
+          reason: 'a page is as wide as the window; the boards are what several widths look like',
+          covers: ['every-attribute-is-read']
+        },
+        'picture.width': {
+          reason: 'a picture is as wide as the column it is in — `sizing` and `aspect` are what a page says instead',
+          covers: ['every-attribute-is-read']
+        },
+        'instance.width': {
+          reason: 'a placement is as wide as what it draws; the definition decides',
+          covers: ['every-attribute-is-read']
+        },
+
+        /*
+         * ── And the widths a site is designed at ───────────────────────────
+         *
+         * Declared, never drawn, and read where they are **referenced**: an `overrides` key names
+         * one, a board is keyed by one, and `attrsAt` walks them. The same sentence `variables` and
+         * `variable` carry, for the same shape of thing.
+         */
+        widths: {
+          reason: 'the widths a site is designed at, read where they are referenced (`overrides`, the boards) and never drawn',
+          covers: ['every-node-is-drawn']
+        },
+        /*
+         * And the command that makes one, which **is** visible — as a board. What a width changes is
+         * how many boards the app draws and how wide each one is, which is not a renderer's answer
+         * and cannot be: a renderer is handed a node and draws it, and a width is not on the page.
+         * `site.spec.ts` presses the button and counts the boards, which is where this is either true
+         * or visibly not.
+         */
+        insertWidth: {
+          reason: 'a width is drawn as a **board**, which is the app’s answer rather than a renderer’s — see `site.spec.ts`',
+          covers: ['every-command-can-be-seen']
+        },
         width: {
-          reason: 'a block is as wide as the column it is in — `sizing` is what a page says instead',
-          covers: ['every-attribute-is-read', 'every-property-can-be-edited']
+          reason: 'a width a site is designed at, read where it is referenced (`overrides`, the boards) and never drawn; the panel row that makes one writes a child node rather than an attribute',
+          covers: ['every-node-is-drawn', 'every-drawing-can-be-named', 'every-row-writes-what-it-names']
         },
         height: {
           reason: 'a page is as tall as it turns out, which is the whole difference from a sheet',

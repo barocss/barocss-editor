@@ -1821,3 +1821,50 @@ A device frame in preview is *what this width is a window onto*, so it belongs b
 `viewport` rather than being a second idea. Choosing a device fills all three in — which is the answer
 to *장치별로 사이즈가 자동으로 바뀌던가*: the device is a shorthand for the numbers, and the numbers stay
 the thing the document holds.
+
+## 폭이 문서의 것이 되고 나서 드러난 것들
+
+The list of widths moving into the document was one change, and it turned four other things into
+faults that had been sitting there — which is the usual shape of this work: a constant is a place
+where nothing can be wrong, and the moment it becomes data every reader of it has to be honest.
+
+### `desktop` was not the base. The widest is
+
+`BASE_BREAKPOINT` said `'desktop'`, and that was true of the three there were rather than of anything.
+The widest **is** the base, because a node's own attributes are what the widest width draws — so it is
+computed, and a reader who adds a wider width moves it.
+
+`scopesFor` was `['mobile', 'tablet', 'desktop']` and is a sort by size. A width added between two
+resolves between them, which is the whole reason for being able to add one.
+
+### An override at a width the document no longer has is kept
+
+`overridesOf` filtered to the three ids it knew. Now it keeps every scope it finds, and `scopesFor`
+decides which apply — so deleting a width leaves the work done at it in the file, and putting the
+width back brings the design back with it. A file that silently lost half a design because somebody
+tidied a list is the worst kind of data loss, because nothing on screen says it happened.
+
+### The scopes travel in the env, not the list
+
+A renderer is handed a node and an env, and which widths a drawing resolves through is a fact about the
+**document**. So `createSiteEnv` works the order out once per view and the renderer asks for it —
+`scopesOf(env)` — which is the same seam that told one view it was the notes pane and one view which
+width it is. The env is the only per-view channel there is.
+
+### The first change writes the list down
+
+Three widths with no `widths` box is a document drawing at the **default**, and the default is not
+nodes. So every command that acts on a width materialises the list first — which is what `insertWidth`
+had done from the day it existed, for the mirror-image reason: a first insert that wrote one width
+alone would make `widthsOf` return it by itself and three boards would silently become one.
+
+A document that never touches its widths never grows a box. Nothing changes in any file already
+written until a reader asks for something the constant could not say.
+
+### A device is a shorthand for the numbers
+
+Choosing one writes the width, the window height and the picture, and remembers which device they came
+from. Typing a number afterwards keeps the name and stops matching it, and the panel says 직접 입력
+rather than claiming a phone the page is not drawn at. The frame preview draws is a **shape** — a
+bezel of the right thickness and the right corner radius — because a photograph of a phone is a
+licensing question, 200KB per device, and wrong the year the phone changes.

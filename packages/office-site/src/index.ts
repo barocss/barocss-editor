@@ -35,6 +35,14 @@ export { REVEALS, REVEAL_IDS, REVEAL_KEYFRAMES, revealOf, revealRule, type Revea
 } from './reveal';
 export { createLinkCommands, SiteLinkExtension } from './link-commands';
 export { createPageCommands, SitePageExtension } from './page-commands';
+/**
+ * **The widths a site is designed at**, as a list the document holds.
+ *
+ * It was a `const` with three entries, so a fourth board — or two, or a phone that is 360 — was
+ * unsayable. A width is a **node** because it is referred to by name: every `overrides` key is one.
+ */
+export { createWidthCommands, SiteWidthExtension } from './width-commands';
+export { DEVICES, deviceNamed, deviceMatches, iconForWidth, type Device } from './devices';
 export {
   PAGE_PREFIX,
   addressFor,
@@ -146,6 +154,8 @@ export {
 } from './export-html';
 export {
   SITE_MENUS,
+  /* The same bar, with one entry per width the **document** declares — see `siteMenusFor`. */
+  siteMenusFor,
   siteMenuCommands,
   siteMenuEntry,
   siteMenuId,
@@ -251,6 +261,18 @@ export {
 export { wireframeCss, wireframeRules, wireframeName, WIREFRAME_CSS, WIREFRAME_NAMES } from './wireframe';
 /** Where a carried block would land — which stack, which place, and the line a reader steers by. */
 export { landingFor, type Box, type Landing } from './landing';
+/**
+ * **The widths a site is designed at**, and the devices a width can be a window onto.
+ *
+ * `widthsOf` reads the document's list and falls back to the three every site starts with, which is
+ * what makes every document written before there was a list open unchanged.
+ */
+export {
+  widthsOf,
+  baseOf,
+  overridableIn,
+  type SiteWidth
+} from './breakpoints';
 /**
  * What a click means on a page: the outermost block, one level in, or the caret.
  *

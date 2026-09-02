@@ -1585,6 +1585,35 @@ test.describe('the exported page', () => {
 
     const adds = page.locator('[data-frame="desktop"] .st-add');
     await expect(adds).toHaveCount(2);
+    /*
+     * **It opens the list, not a paragraph** — reported twice. First that a plus which inserted body
+     * text was choosing for the reader (*내가 추가할 수 있는 기능들의 목록을 다이얼로그로 띄워줘야
+     * 하는거 아니야?*), and then that a **menu** of it was 21 items in one column (*메뉴로 뜨면 너무
+     * 기니깐*). A one-column list is right for *acts on this thing* and wrong for *choose one of
+     * twenty-one*, which a reader scans.
+     *
+     * So it is the sheet the ribbon's 넣을 것 고르기 already draws, at the point the plus was pressed:
+     * one declaration, four ways in. Portalled out of the plane, for the reason the context menu is —
+     * measured here as a 420px sheet arriving 280 wide, because a `transform` scales what is `fixed`
+     * inside it.
+     */
+    await adds.first().click({ force: true });
+    await page.waitForTimeout(500);
+    const sheet = page.locator('.st-add-sheet');
+    await expect(sheet).toHaveCount(1);
+    expect(await page.locator('.st-add-sheet .st-add-item').count()).toBeGreaterThan(15);
+    /*
+     * **In the middle of the window**, not at the pointer — reported after the anchored version:
+     * *추가 버튼 클릭 이후에 화면을 움직일 수 있기 때문에 다이얼로그가 가운데 뜨는 게 더 좋아*. A sheet
+     * pinned to a point is somewhere else the moment the plane moves under it, and the plane moves
+     * whenever a reader scrolls to see what they are about to add to.
+     */
+    const box = (await sheet.boundingBox())!;
+    const view = page.viewportSize()!;
+    expect(Math.abs(box.x + box.width / 2 - view.width / 2)).toBeLessThan(40);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    await expect(sheet).toHaveCount(0);
     // A band sits in the page's column, so the two ends are above and below it.
     await expect(adds.first()).toHaveAttribute('data-add-way', 'down');
 
@@ -1599,6 +1628,8 @@ test.describe('the exported page', () => {
     const was = await around();
 
     await adds.first().click({ force: true });
+    await page.waitForTimeout(400);
+    await page.locator('.st-add-item[data-add="insertBodyText"]').click();
     await page.waitForTimeout(700);
 
     const now = await page.evaluate(() => {
@@ -1803,6 +1834,285 @@ test.describe('the exported page', () => {
     await page.mouse.wheel(0, 600);
     await page.waitForTimeout(400);
     expect(await plane()).not.toBe(was);
+  });
+
+  test('says when a block’s width is its own maximum rather than its parent’s', async ({ page }) => {
+    /**
+     * Reported as *부모의 여백을 크게 해서 콘텐츠 영역을 줄여도 줄어들지 않음* — and the layout was
+     * right, which is what made it worth answering rather than fixing.
+     *
+     * Measured on the sample: a band's padding went 72 → 200, the frame inside it went 1136 → 880
+     * exactly as it should, and the words inside **that** stayed 680 and only moved — because 680 is
+     * their own 최대 폭 and 880 is more than that. Nothing was broken, and nothing on screen said so,
+     * which to a reader is the same thing.
+     *
+     * So the number they are already looking at says which of the two decided it.
+     */
+    await ready(page);
+    const chip = page.locator('[data-frame="desktop"] .st-mark-size[data-settled="true"]');
+
+    /*
+     * Selected by name rather than by pressing down to it: a plain press takes the outermost block
+     * and ⌘ goes all the way to the paragraph, and the block this is about is the one in between —
+     * which the drill's own check covers. What this one is about is what the chip *says*.
+     */
+    const hold = async (name: string) =>
+      await page.evaluate((said) => {
+        const editor = (window as any).editor;
+        const el = document.querySelector(`[data-frame="desktop"] [data-name="${said}"]`);
+        editor.executeCommand('setNode', { nodeIds: [el?.getAttribute('data-bc-sid')] });
+      }, name);
+
+    // A block held by its own maximum.
+    await hold('문제 글');
+    await page.waitForTimeout(600);
+    await expect(chip).toContainText('최대 폭');
+    /*
+     * And the claim under the words: it says so because the drawn width **is** the maximum, in
+     * pixels, from a document that keeps twips.
+     */
+    expect(
+      await page.evaluate(() => {
+        const editor = (window as any).editor;
+        const sid = editor.selection?.nodeIds?.[0];
+        const most = Number(editor.dataStore.getNode(sid)?.attributes?.maxWidth);
+        const el = document.querySelector(`[data-frame="desktop"] [data-bc-sid="${sid}"]`) as HTMLElement;
+        return Math.abs(most / 15 - Number.parseFloat(getComputedStyle(el).width)) < 1.5;
+      })
+    ).toBe(true);
+
+    // And one that is as wide as it is given, which says nothing extra.
+    await hold('문제');
+    await page.waitForTimeout(600);
+    await expect(chip).not.toContainText('최대 폭');
+  });
+
+  test('paints the page itself, and at one width only', async ({ page }) => {
+    /**
+     * Asked as *개별 크기별 페이지도 선택 가능해서 속성 설정할 수 있어야 하는 거 아니야? 여기도 배경색
+     * 이랑 꾸밀 수 있는 걸 따로 둘 수 있잖아* — and two things were missing, which are one feature.
+     *
+     * The panel had **no paint rows for a page at all**: its pane held an address, a name and a type
+     * scale, and nothing about how it looks — while `paintCss` has read a page's own fill and
+     * gradient in the renderer since the day one could hold them. The rows are the same rows a block
+     * gets, declared once and mapped onto the page's pane.
+     *
+     * And the page's renderer read its **raw** attributes, so a page could hold an override and no
+     * board would ever draw it. A page that is white on a desktop and dark on a phone is one page
+     * with an override, not two pages — which is what this checks, in the only place it can be
+     * checked: three boards at once.
+     */
+    await ready(page);
+    const paint = async () =>
+      await page.evaluate(() =>
+        ['desktop', 'tablet', 'mobile'].map((at) => {
+          const el = document.querySelector(`[data-frame="${at}"] .st-page`) as HTMLElement;
+          return getComputedStyle(el).backgroundColor;
+        })
+      );
+    const before = await paint();
+
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const home = ((root?.content ?? []) as string[])
+        .map((sid) => store.getNode(sid))
+        .find((one: any) => one?.stype === 'surface');
+      await editor.executeCommand('setBlockFormat', {
+        nodeIds: [home.sid],
+        at: 'mobile',
+        fill: '#101317'
+      });
+    });
+    await page.waitForTimeout(800);
+
+    const now = await paint();
+    expect(now[2]).toBe('rgb(16, 19, 23)');
+    // The two wider boards are untouched, which is what makes it an override rather than a change.
+    expect(now[0]).toBe(before[0]);
+    expect(now[1]).toBe(before[1]);
+
+    // And the panel offers it, which is how a reader would have got here without the console.
+    await expect(page.getByLabel('페이지 배경', { exact: true })).toHaveCount(1);
+  });
+
+  test('adds into the component a reader is editing, from every surface', async ({ page }) => {
+    /**
+     * Reported as *컴포넌트 편집 화면에서 아무것도 추가 할 수 없음* — and it was worse than nothing
+     * happening. 삽입 and every insert chord were putting blocks on the **page behind** the component:
+     * the command ran, the document changed, and the reader watched a screen where nothing appeared
+     * and had no reason to go looking on another page for what they had just made.
+     *
+     * The rail and the ribbon already took the boards' subject; the menubar and the keys took the
+     * page. One word, three call sites — and the exception worth stating is a command that is
+     * genuinely *about a page*, which is told apart by name rather than by hoping.
+     */
+    await ready(page);
+    await page.locator('[data-panel="components"]').click();
+    await page.locator('[data-edit-component]').first().click();
+    await page.waitForTimeout(900);
+
+    const inside = async () =>
+      await page.evaluate(() => {
+        const editor = (window as any).editor;
+        const drawn = document.querySelector('[data-frame="desktop"] [data-bc-sid]');
+        const part = drawn?.getAttribute('data-bc-sid');
+        return ((editor.dataStore.getNode(part ?? '')?.content ?? []) as unknown[]).length;
+      });
+    const onThePage = async () =>
+      await page.evaluate(() => {
+        const editor = (window as any).editor;
+        const store = editor.dataStore;
+        const root = store.getNode(editor.getRootId());
+        const home = ((root?.content ?? []) as string[])
+          .map((sid) => store.getNode(sid))
+          .find((one: any) => one?.stype === 'surface');
+        return ((home?.content ?? []) as unknown[]).length;
+      });
+
+    const was = await inside();
+    const wasPage = await onThePage();
+
+    await page.locator('[data-menu="insert"]').click();
+    await page.locator('[data-menu-item]').filter({ hasText: '제목' }).first().click();
+    await page.waitForTimeout(800);
+    expect(await inside()).toBe(was + 1);
+    // And **not** on the page, which is the half that made this invisible rather than merely broken.
+    expect(await onThePage()).toBe(wasPage);
+
+    // The ribbon's door onto the same list, which took the boards' subject already.
+    await page.locator('[aria-label="넣을 것 고르기"]').click();
+    await page.waitForTimeout(400);
+    await page.locator('.st-add-item[data-add="insertBodyText"]').click();
+    await page.waitForTimeout(800);
+    expect(await inside()).toBe(was + 2);
+    expect(await onThePage()).toBe(wasPage);
+  });
+
+  test('brings the view to the component when a reader goes into one', async ({ page }) => {
+    /**
+     * Reported as *컴포넌트 편집 모드로 가게 되면 viewport 를 컴포넌트 편집 할 수 있는 곳으로 바로
+     * 이동해줘야지. viewport 가 안 움직여서 엄청 헷갈렸잖아.*
+     *
+     * A definition's part is a **card**, not a page, so the boards go from five thousand pixels tall
+     * to two hundred while the plane stays exactly where the reader had scrolled a page to. What is
+     * on screen is empty studio, with the thing they asked to edit somewhere above it — and nothing
+     * on the way in said so.
+     *
+     * Not the opening fit, which runs once on purpose so a reader who has moved the view is not moved
+     * back. This is the other case: what they had moved to is **gone**.
+     */
+    await ready(page);
+    const plane = async () =>
+      await page.locator('.st-plane').evaluate((el) => getComputedStyle(el).transform);
+
+    await page.mouse.move(700, 600);
+    await page.mouse.wheel(0, 1800);
+    await page.waitForTimeout(400);
+    const scrolled = await plane();
+    // Well away from the top, which is the state the confusion happens in.
+    expect(scrolled).not.toBe(await page.evaluate(() => 'matrix(1, 0, 0, 1, 0, 0)'));
+
+    await page.locator('[data-panel="components"]').click();
+    await page.locator('[data-edit-component]').first().click();
+    await page.waitForTimeout(900);
+
+    expect(await plane()).not.toBe(scrolled);
+    // Back at the top of the plane, which is where the boards now are.
+    expect(await plane()).toContain(', 40)');
+  });
+
+  test('adds a width, and the boards follow the document', async ({ page }) => {
+    /**
+     * Asked as three things that turned out to be one — *사이즈를 더 추가할 수도 있지 않을까 / 순서도
+     * 바꿀 수 있어야할 듯 / 미리보기에 실제 장치 이미지가 외곽선에* — and the missing fact under all
+     * three is that the **list of widths belongs to the document**. It was a `const` with three
+     * entries, so a site with a fourth board was unsayable.
+     *
+     * Three claims here, and the first is the one a browser is for: adding a width adds a **board**,
+     * which is not a renderer's answer and cannot be — a width is not on the page. That is the reason
+     * this product's own harness exempts `insertWidth` from *every-command-can-be-seen* and points at
+     * this check by name.
+     */
+    await ready(page);
+    await expect(page.locator('.st-frame')).toHaveCount(3);
+    await expect(page.locator('[data-widths] .st-width')).toHaveCount(3);
+
+    /*
+     * The plus opens the **sizes**, which is what was asked for after the first version added one
+     * directly: *사이즈 다이얼로그로 나와서 선택하면 추가*. A phone and a tablet are shapes, and a
+     * control that shows one line of text at a time is the wrong one for choosing between them.
+     */
+    await page.locator('.st-widths-plus').click();
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-add-device]')).not.toHaveCount(0);
+    await page.locator('[data-add-device=""]').click();
+    await page.waitForTimeout(900);
+    await expect(page.locator('.st-frame')).toHaveCount(4);
+    await expect(page.locator('[data-widths] .st-width')).toHaveCount(4);
+
+    /*
+     * **The order is the document's**, which is the second ask. Weighed both ways: it is a fact about
+     * how this site's author works rather than about the site, but there is no per-reader store here,
+     * so a reader-owned order would vanish on reload — and an order that will not stay put is worse
+     * than one kept in a slightly wrong place.
+     */
+    const boards = async () =>
+      await page.evaluate(() =>
+        [...document.querySelectorAll('.st-frame')].map((el) => el.getAttribute('data-frame'))
+      );
+    expect((await boards())[3]).toBe('width-4');
+    await page.locator('[data-width="width-4"] [aria-label$="위로"]').click();
+    await page.waitForTimeout(700);
+    expect((await boards())[2]).toBe('width-4');
+
+    // And the last one cannot go: a site with no widths is a site with no boards.
+    for (const name of ['desktop', 'tablet', 'mobile']) {
+      await page.locator(`[data-width="${name}"] [aria-label$="삭제"]`).click();
+      await page.waitForTimeout(500);
+    }
+    await expect(page.locator('.st-frame')).toHaveCount(1);
+    await expect(page.locator('[data-width="width-4"] [aria-label$="삭제"]')).toBeDisabled();
+  });
+
+  test('draws the device a width is a window onto, while previewing', async ({ page }) => {
+    /**
+     * *실제 장치 이미지가 외곽선에 있으면 좀 더 실감 날 듯* — and it is a **shape** rather than a
+     * photograph: a picture of a phone is a licensing question, 200KB per device, and wrong the year
+     * the phone changes. A bezel of the right thickness and the right corner radius reads as the
+     * device at a glance.
+     *
+     * Only where the width *says* which device it is a window onto **and its numbers still match** —
+     * a width that says 휴대폰 and is 500 wide is not one, and drawing a phone around it would be the
+     * tool claiming a shape the page is not drawn at.
+     */
+    await ready(page);
+    // The sample declares no widths, so the first insert writes the three defaults as nodes too.
+    await page.evaluate(async () => {
+      await (window as any).editor.executeCommand('insertWidth', { device: 'phone-small' });
+    });
+    await page.waitForTimeout(800);
+
+    // Nothing while editing: a bezel around a board a reader is working on is 20 pixels of nothing
+    // between them and their page.
+    await expect(page.locator('.st-frame[data-device]')).toHaveCount(0);
+
+    await page.locator('[data-menu="view"]').click();
+    await page.locator('[data-menu-item]').filter({ hasText: '미리보기' }).first().click();
+    await page.waitForTimeout(900);
+
+    await expect(page.locator('[data-frame="tablet"][data-device="tablet"]')).toHaveCount(1);
+    await expect(page.locator('[data-frame="width-4"][data-device="phone-small"]')).toHaveCount(1);
+    // A laptop declares no bezel, because what a reader designing for a desktop wants is the page.
+    await expect(page.locator('[data-frame="desktop"][data-device]')).toHaveCount(0);
+
+    // And a number typed by hand stops it matching, so the frame goes.
+    await page.evaluate(async () => {
+      await (window as any).editor.executeCommand('setWidth', { name: 'tablet', size: 700 });
+    });
+    await page.waitForTimeout(700);
+    await expect(page.locator('[data-frame="tablet"][data-device]')).toHaveCount(0);
   });
 
   test('takes the finish off the page without touching the page', async ({ page }) => {
@@ -5225,6 +5535,19 @@ test.describe('the panel', () => {
     await page.waitForTimeout(300);
     await page.locator('[data-layer]').nth(3).click();
     await page.waitForTimeout(500);
+    /**
+     * **And on screen**, which this did not say and got away with for a while.
+     *
+     * The block it selects sits low on a 5000-pixel page in a 720-pixel window, so its bottom band's
+     * ten-pixel grip was a few pixels above the edge — and the day the chrome above the boards grew
+     * by four (a larger type size in the panel, which is a change to a different thing entirely) the
+     * grip went **off** it. `elementFromPoint` came back null and a drag that had worked for weeks
+     * failed for a reason that had nothing to do with dragging.
+     *
+     * Which is a reader's problem too, and their answer is the same: scroll to what you are pulling.
+     */
+    await bring(page, page.locator('.st-mark-selected').first());
+    await page.waitForTimeout(300);
   };
 
   test('is 240 wide, and every row fits inside it', async ({ page }) => {

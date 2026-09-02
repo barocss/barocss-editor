@@ -36,30 +36,42 @@
  * the store and the store has one, so every view would get the same answer to the one question whose
  * whole point is that three views answer it differently (`breakpoints.ts`).
  */
-import { BREAKPOINTS, scopesFor, type BreakpointId } from './breakpoints';
+import { BREAKPOINTS, baseOf, overridableIn, scopesFor, type BreakpointId, type SiteWidth } from './breakpoints';
 
 /** What a node says at widths narrower than its own. The widest is the node itself. */
 export type OverrideMap = Partial<Record<BreakpointId, Record<string, unknown>>>;
 
-/** The widest breakpoint, which is the one a node's own attributes *are*. */
-export const BASE_BREAKPOINT: BreakpointId = 'desktop';
+/**
+ * The widest breakpoint, which is the one a node's own attributes *are*.
+ *
+ * **A default, not a fact.** It used to be `'desktop'` and it is the widest of whatever the document
+ * declares now — see `baseOf`. Kept as a constant for the callers that have no document to hand and
+ * for every document that declares no widths, which is what makes the change invisible to them.
+ */
+export const BASE_BREAKPOINT: BreakpointId = baseOf();
 
 /** The widths an override may be written at: every one but the base, which is the node itself. */
-export const OVERRIDABLE: BreakpointId[] = BREAKPOINTS.map((one) => one.id).filter(
-  (id) => id !== BASE_BREAKPOINT
-);
+export const OVERRIDABLE: BreakpointId[] = overridableIn();
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value);
 
-/** What a node states at narrower widths, or nothing when it states nothing. */
+/**
+ * What a node states at narrower widths, or nothing when it states nothing.
+ *
+ * **Every scope it names is kept**, not only the ones a list knows about — which is the half that had
+ * to change when the list stopped being a constant. An override written at a width the document no
+ * longer has is *kept and never applied*: deleting a width is not a reason to destroy the work done
+ * at it, and a file that silently lost half a design because somebody tidied a list is the worst kind
+ * of data loss, because it is invisible. What decides whether a scope applies is `scopesFor`, which
+ * reads the document's own list.
+ */
 export function overridesOf(attrs: Record<string, unknown> | undefined): OverrideMap {
   const map = attrs?.overrides;
   if (!isRecord(map)) return {};
 
   const kept: OverrideMap = {};
-  for (const id of OVERRIDABLE) {
-    const at = map[id];
+  for (const [id, at] of Object.entries(map)) {
     if (isRecord(at)) kept[id] = at;
   }
   return kept;
@@ -78,11 +90,37 @@ export function overridesOf(attrs: Record<string, unknown> | undefined): Overrid
  */
 export function attrsAt(
   attrs: Record<string, unknown> | undefined,
-  breakpoint: BreakpointId
+  breakpoint: BreakpointId,
+  /**
+   * The document's own widths, when the caller has them.
+   *
+   * Defaulted rather than required, and the default is the three every site starts with: a caller
+   * that has no document to hand — a test, a probe, a renderer whose host predates the list — gets
+   * exactly the behaviour it had. A caller that *does* have one passes it, and a fourth width works.
+   */
+  widths: SiteWidth[] = BREAKPOINTS
+): Record<string, unknown> {
+  return attrsThrough(attrs, scopesFor(breakpoint, widths));
+}
+
+/**
+ * The same, given the **scopes** rather than a width and a list.
+ *
+ * Which is what a renderer has: it is handed a node and an env, and the env carries the order this
+ * view resolves through because the order is a fact about the document's list of widths and a
+ * renderer cannot reach one (`breakpoints.ts`).
+ *
+ * Narrowest-first, ending at the base — so the last entry is the base and this drops it, which is
+ * how the function knows which one is the node's own without being told twice.
+ */
+export function attrsThrough(
+  attrs: Record<string, unknown> | undefined,
+  scopes: BreakpointId[]
 ): Record<string, unknown> {
   const overrides = overridesOf(attrs);
-  const apply = scopesFor(breakpoint)
-    .filter((id) => id !== BASE_BREAKPOINT && overrides[id])
+  const apply = scopes
+    .slice(0, Math.max(0, scopes.length - 1))
+    .filter((id) => overrides[id])
     .reverse();
   if (apply.length === 0) return attrs ?? {};
 
@@ -126,12 +164,14 @@ export function attrsAt(
  */
 export function overriddenAt(
   attrs: Record<string, unknown> | undefined,
-  breakpoint: BreakpointId
+  breakpoint: BreakpointId,
+  widths: SiteWidth[] = BREAKPOINTS
 ): string[] {
   const overrides = overridesOf(attrs);
+  const base = baseOf(widths);
   const names = new Set<string>();
-  for (const id of scopesFor(breakpoint)) {
-    if (id === BASE_BREAKPOINT) continue;
+  for (const id of scopesFor(breakpoint, widths)) {
+    if (id === base) continue;
     for (const name of Object.keys(overrides[id] ?? {})) names.add(name);
   }
   return [...names].sort();

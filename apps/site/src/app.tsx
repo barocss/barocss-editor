@@ -19,8 +19,8 @@ import {
   type Viewport
 } from '@barocss/office-ui';
 import {
-  BREAKPOINTS,
-  SITE_MENUS,
+  siteMenusFor,
+  widthsOf,
   drawnSidAtElement,
   outermostOf,
   siteKeyFor,
@@ -153,12 +153,29 @@ function nameOfSite(pages: { path: string; name: string }[]): string {
  */
 function payloadFor(
   entry: { command?: string; payload?: Record<string, unknown>; needs?: string },
+  /**
+   * **What the boards are drawing** — a page, or the part of a component being edited.
+   *
+   * It was the *page* here, and that is what *컴포넌트 편집 화면에서 아무것도 추가 할 수 없음* turned
+   * out to be. It was worse than nothing happening: 삽입 and every insert chord were putting blocks
+   * on the page **behind** the component, where the reader could not see them arrive and had no
+   * reason to look. The rail and the ribbon already took the boards' subject; the menubar and the
+   * keys took the page.
+   *
+   * The one exception is a command that is genuinely *about a page* — publishing it, copying it,
+   * deleting it — and those are told apart by name below rather than by hoping.
+   */
+  root: string | undefined,
   page: string | undefined
 ): Record<string, unknown> | undefined {
   if (entry.needs === 'page') {
-    // `nodeId` is what the page commands read and `pageId` is what publishing reads: two names for
-    // one idea, and the day they are one name this line is where it is fixed.
-    return { ...entry.payload, nodeId: page, pageId: page };
+    /*
+     * A page command means the page; an insert means wherever the reader is looking. `nodeId` is
+     * what the page commands read and `pageId` is what an insert and publishing read — two names for
+     * one idea, and the day they are one name this line is where it is fixed.
+     */
+    const about = ['exportPage', 'duplicatePage', 'removePage'].includes(entry.command ?? '');
+    return { ...entry.payload, nodeId: page, pageId: about ? page : (root ?? page) };
   }
   return entry.payload;
 }
@@ -181,7 +198,14 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * All four are the app's rather than the document's: how many screens a *reader* is looking at,
    * and how big, is not a fact about their site.
    */
-  const [shown, setShown] = useState<BreakpointId[]>(['desktop', 'tablet', 'mobile']);
+  /**
+   * **Which boards are open**, held by name rather than by which three there are.
+   *
+   * `undefined` means *all of them*, which is what it has to mean now that the list is the
+   * document's: a state initialised with three names would go stale the moment a reader added a
+   * fourth, and the fourth board would arrive switched off for a reason nobody could see.
+   */
+  const [hidden, setHidden] = useState<BreakpointId[]>([]);
   /**
    * Where the plane is and how large it is drawn — an **offset and a scale**, not a scroll.
    *
@@ -219,6 +243,15 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * application's, so a reader with three widths open sees all three in it.
    */
   const [wireframe, setWireframe] = useState(false);
+  /**
+   * **What a reader may add, and where** — one dialog with two ways in.
+   *
+   * The ribbon's 넣을 것 고르기 opens it, and so does the plus at either end of a selected block. The
+   * state is here rather than in the ribbon because two surfaces change it, and the **place** is here
+   * because only one of them has one: with nothing said the dialog inserts where it always did.
+   */
+  const [adding, setAdding] = useState(false);
+  const [addAt, setAddAt] = useState<{ parentId: string; at: number } | null>(null);
 
   /**
    * The container the reader has entered — the page until they double-click into something.
@@ -353,6 +386,37 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * out to — asks "what is the root here", and this is the one place that answers.
    */
   const root = definition?.part ?? page;
+  /**
+   * **The widths this site is designed at**, from the document — three unless it says otherwise.
+   *
+   * Read here rather than in each place that needs one, because three things need the same answer at
+   * the same instant: which boards to draw, what the 보기 menu offers, and what a renderer resolves
+   * an override through. Recomputed on the revision, which is when a width can have changed.
+   */
+  const widths = useMemo(
+    /*
+     * The **document's** root, not `root` — which is this app's word for the page (or the part of a
+     * component) being drawn. The widths box is the document's own child, so asking a page for it
+     * finds nothing and falls silently back to the three every site starts with: the panel listed
+     * four and the boards went on drawing three, which is exactly how it was found.
+     */
+    () => widthsOf(editor?.dataStore as never, editor?.getRootId?.()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editor, revision]
+  );
+  const shown = useMemo(
+    () => widths.filter((one) => !hidden.includes(one.id)),
+    [widths, hidden]
+  );
+
+  /*
+   * **The bar, built from the document's widths.** One entry per board, so a width a reader adds
+   * arrives with its own entry rather than needing one written into the model — and the same list is
+   * what `siteMenuEntry` resolves an id against, so the two cannot disagree about what exists.
+   */
+  const menus = useMemo(() => siteMenusFor(widths), [widths]);
+
+
 
   /**
    * The menubar, drawn from `SITE_MENUS` — and **greyed against the document**.
@@ -364,9 +428,9 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * A `view` entry has no command to ask, so it is never disabled: how many boards are open is
    * always a question a reader may answer.
    */
-  const menus = useMemo(
+  const bar = useMemo(
     () =>
-      SITE_MENUS.map((menu) => ({
+      menus.map((menu) => ({
         id: menu.id,
         label: menu.label,
         blocks: menu.blocks.map((block) => ({
@@ -376,7 +440,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             label: item.label,
             hint: item.hint,
             disabled: item.command
-              ? !editor?.canExecuteCommand?.(item.command, payloadFor(item, page) as never)
+              ? !editor?.canExecuteCommand?.(item.command, payloadFor(item, root, page) as never)
               : false,
             /*
              * The settings a reader is **in**, marked. `undefined` for everything that *does*
@@ -387,7 +451,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               item.view === 'preview'
                 ? preview
                 : item.view?.startsWith('frames.') && item.view !== 'frames.all'
-                  ? shown.includes(item.view.slice('frames.'.length) as BreakpointId)
+                  ? shown.some((one) => one.id === item.view!.slice('frames.'.length))
                   : undefined
           }))
         }))
@@ -406,23 +470,23 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   const runEntry = useCallback(
     (entry: { command?: string; view?: string; payload?: Record<string, unknown>; needs?: string }) => {
+      /*
+       * **Any width the document declares**, matched by name rather than by three cases: the menu is
+       * built from the same list, so a fourth width brings its own entry and this answers it.
+       */
+      if (entry.view?.startsWith('frames.') && entry.view !== 'frames.all') {
+        /*
+         * A board a reader turns off, and **not the last one**: a builder showing no boards is a
+         * builder showing nothing, and the reader who got there has no board left to press.
+         */
+        const which = entry.view.slice('frames.'.length) as BreakpointId;
+        if (hidden.includes(which)) return setHidden(hidden.filter((one) => one !== which));
+        if (widths.length - hidden.length <= 1) return;
+        return setHidden([...hidden, which]);
+      }
       switch (entry.view) {
-        case 'frames.desktop':
-        case 'frames.tablet':
-        case 'frames.mobile': {
-          /*
-           * A board a reader turns off, and **not the last one**: a builder showing no boards is a
-           * builder showing nothing, and the reader who got there has no board left to press.
-           */
-          const which = entry.view.slice('frames.'.length) as BreakpointId;
-          if (!shown.includes(which)) return setShown([...shown, which].sort(
-            (a, b) => BREAKPOINTS.findIndex((one) => one.id === a) - BREAKPOINTS.findIndex((one) => one.id === b)
-          ));
-          if (shown.length === 1) return;
-          return setShown(shown.filter((one) => one !== which));
-        }
         case 'frames.all':
-          return setShown(['desktop', 'tablet', 'mobile']);
+          return setHidden([]);
         case 'preview':
           return setPreview((was) => !was);
         case 'wireframe':
@@ -459,7 +523,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       }
 
       if (!entry.command) return;
-      const payload = payloadFor(entry, page);
+      const payload = payloadFor(entry, root, page);
 
       // Publishing hands back what to write; what a *file* is, is the app's question. See `download`.
       if (entry.command === 'exportPage' || entry.command === 'exportSite') {
@@ -514,7 +578,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   const onMenu = useCallback(
     (id: string) => {
-      const entry = siteMenuEntry(id);
+      const entry = siteMenuEntry(id, menus);
       if (entry) runEntry(entry);
     },
     [runEntry]
@@ -733,6 +797,27 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       }
       if (elsewhere(event)) return;
 
+      /**
+       * **A key that something on top is handling is not the board's.**
+       *
+       * Found by pressing Escape to close the insert dialog: it closed, *and* the board's Escape ran
+       * as well and cleared the selection the reader had just been adding next to. One press, two
+       * layers, and the second one undoing the reason for the first.
+       *
+       * Asked of the **target** rather than of the document, which is a timing fact rather than a
+       * style one: the dialog closes itself on the same keydown, in the capture phase, so by the time
+       * this listener runs there is no dialog left in the DOM to find. The event's target is a
+       * reference taken when it was dispatched, and it still points inside the thing that handled it.
+       *
+       * Asked of the drawing rather than of a flag, because these layers are drawn by three different
+       * components and a flag would be a fourth place to keep the truth. An open dialog and an open
+       * menu both say so in the DOM, which is what makes them askable at all.
+       */
+      const inLayer = (event.target as Element | null)?.closest?.(
+        '[role="dialog"], [data-context-menu]'
+      );
+      if (inLayer) return;
+
       /*
        * **What the key map says**, rather than what this handler used to remember of it.
        *
@@ -762,7 +847,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
        * the same answer the menubar greys an entry by, so the key and the entry now agree about being
        * dead as well as about being alive.
        */
-      const acts = !!bound && (!bound.command || editor.canRun(bound.command, payloadFor(bound, page)));
+      const acts = !!bound && (!bound.command || editor.canRun(bound.command, payloadFor(bound, root, page)));
       if (bound && acts) {
         /*
          * **Who wins when both layers bind the same chord**, which a browser had to settle.
@@ -937,6 +1022,44 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     );
   }, [controls, plane]);
 
+  /**
+   * **And again when the boards become something else** — which is what entering a component is.
+   *
+   * Reported as *컴포넌트 편집 모드로 가게 되면 viewport 를 컴포넌트 편집 할 수 있는 곳으로 바로
+   * 이동해줘야지. viewport 가 안 움직여서 엄청 헷갈렸잖아.* — and it is the whole of the confusion: a
+   * definition's part is a card, not a page, so the boards shrink from 5000 pixels tall to 200 while
+   * the plane stays exactly where the reader had scrolled a page to. They are looking at empty studio
+   * with their component somewhere off screen, and nothing on the way in said so.
+   *
+   * The same fit the opening view uses, and deliberately not `settled` — that ref exists so a reader
+   * who has moved the view is not moved back, and this is not that: the thing they had moved to is
+   * **gone**. Keyed on what the boards are drawing, so it runs on the way in and on the way out.
+   */
+  const looking = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (plane.width <= 0) return;
+    /*
+     * **Only on a change**, which means the first pass has to be remembered rather than acted on.
+     * Written the other way round first and it fitted on load as well — a second fit racing the
+     * opening one, computed against a plane that had not settled, which moved every board a few
+     * pixels down. Two browser checks that press a 10-pixel strip at the bottom of the window failed
+     * with `elementFromPoint` returning nothing at all: the strip had been pushed off screen.
+     */
+    if (looking.current === undefined) {
+      looking.current = root;
+      return;
+    }
+    if (looking.current === root) return;
+    looking.current = root;
+    const board = pane.current?.querySelector('.st-frame') as HTMLElement | null;
+    if (!board) return;
+    controls.fitTo(
+      { width: board.offsetWidth + 128, height: plane.height },
+      { padding: 40, only: 'width' }
+    );
+    // `root` is the boards' subject — a page, or the part of a component being edited.
+  }, [controls, plane, root]);
+
   return (
     <AppShell className="st-shell">
       {/*
@@ -966,7 +1089,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           <MenuBar
             className="st-menubar"
             label="사이트 메뉴"
-            menus={menus}
+            menus={bar}
             onPick={onMenu}
           />
 
@@ -981,7 +1104,21 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             42 pixels of canvas back, and the row that is left says what every design tool's top row
             says: who you are, what the document can do, what the pointer is, and how you are looking.
           */}
-          {editor ? <Ribbon editor={editor} mode={mode} onMode={setMode} pageId={root} /> : null}
+          {editor ? (
+            <Ribbon
+              editor={editor}
+              mode={mode}
+              onMode={setMode}
+              pageId={root}
+              adding={adding}
+              /* The place goes with the dialog: closing it forgets where the plus pointed. */
+              onAdding={(open) => {
+                setAdding(open);
+                if (!open) setAddAt(null);
+              }}
+              place={addAt}
+            />
+          ) : null}
 
           {/*
             Which page is being edited, said rather than chosen.
@@ -1148,7 +1285,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             }}
           >
             {instance
-              ? BREAKPOINTS.filter((one) => shown.includes(one.id)).map((one) => (
+              ? shown.map((one) => (
                   <PageFrame
                     key={one.id}
                     editor={instance.editor}
@@ -1176,6 +1313,11 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                     onEditCode={openCode}
                     preview={preview}
                     wireframe={wireframe}
+                    widths={widths}
+                    onAdd={(place) => {
+                      setAddAt(place);
+                      setAdding(true);
+                    }}
                     onFollow={(path) => {
                       const found = pages.find((one) => one.path === path);
                       if (found) setCurrent(found.sid);

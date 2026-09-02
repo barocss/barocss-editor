@@ -86,6 +86,7 @@ export function Overlay({
   onEnterText,
   onEditComponent,
   onEditCode,
+  onAdd,
   scope,
   onScope
 }: {
@@ -112,6 +113,15 @@ export function Overlay({
    * would be drawn at the reader's zoom — code at 70% is code nobody can read.
    */
   onEditCode?: (sid: string, box: { left: number; top: number; width: number; height: number }) => void;
+  /**
+   * **A plus at the end of a block's flow was pressed**, and this is where it points.
+   *
+   * Reported rather than answered here, because what a reader may add is a *dialog in the middle of
+   * the window* and this layer lives inside a plane that zooms and pans — a sheet it drew itself was
+   * measured arriving 280 pixels wide when it asked for 420, and would have been somewhere else the
+   * moment the plane moved. The app owns the one dialog; this says where its choice should land.
+   */
+  onAdd?: (place: { parentId: string; at: number }) => void;
   /**
    * The reader has entered this block's text.
    *
@@ -310,6 +320,7 @@ export function Overlay({
    * every other piece of chrome, so a menu at 40% zoom is the same size as one at 200%.
    */
   const [context, setContext] = useState<{ x: number; y: number } | null>(null);
+
   const [sweep, setSweep] = useState<{
     from: { x: number; y: number };
     to: { x: number; y: number };
@@ -1501,6 +1512,23 @@ export function Overlay({
           ) : mode === 'select' && boxes.length === 1 && box.width >= 32 && box.height >= 32 ? (
             <span className="st-mark-size" data-settled="true">
               {Math.round(box.width)} × {Math.round(box.height)}
+              {/**
+               * **And what is holding it there**, when the answer is not its parent.
+               *
+               * Reported as *부모의 여백을 크게 해서 콘텐츠 영역을 줄여도 줄어들지 않음* — and the
+               * layout was right. Measured on the sample: a band's padding went 72 → 200, the frame
+               * inside it went 1136 → 880 as it should, and the words inside **that** stayed 680 and
+               * only moved, because 680 is their own 최대 폭 and 880 is more than that.
+               *
+               * So nothing was broken and nothing on screen said so, which is the same thing to a
+               * reader. The number they are looking at now says which of the two decided it.
+               */}
+              {(() => {
+                const most = Number(doc().getNode(sid)?.attributes?.maxWidth);
+                if (!Number.isFinite(most) || most <= 0) return null;
+                /* Twips in the document, pixels on the board — the conversion every length makes. */
+                return Math.abs(most / 15 - box.width) < 1.5 ? <em> · 최대 폭</em> : null;
+              })()}
             </span>
           ) : null}
           {/**
@@ -1558,12 +1586,26 @@ export function Overlay({
                     const kids = ((doc().getNode(parentId)?.content ?? []) as string[]) ?? [];
                     const at = kids.indexOf(sid);
                     if (!parentId || at < 0) return;
-                    void (editor as never as {
-                      executeCommand?: (n: string, p?: unknown) => void;
-                    }).executeCommand?.('insertBodyText', {
-                      parentId,
-                      at: end === 'before' ? at : at + 1
-                    });
+                    /*
+                     * **The list, at the point** — not a paragraph.
+                     *
+                     * The first version put a paragraph in and said so: *a plus that opened a list
+                     * would be a menu where a reader asked for a block*. That was the wrong call for
+                     * a page. What goes in a gap is a **choice** — a section, a heading, a picture, a
+                     * row of cards — and this product already declares the list of them: it is what
+                     * the rail's 담는 것 / 넣는 것 draw, and reading the same declaration is what keeps
+                     * a new insert from having to be added here too.
+                     */
+                    /*
+                     * **The app's dialog, in the middle** — this layer says only *where*.
+                     *
+                     * It drew its own sheet at the pointer for a while and that was reported straight
+                     * back: *추가 버튼 클릭 이후에 화면을 움직일 수 있기 때문에 다이얼로그가 가운데 뜨는
+                     * 게 더 좋아*. A sheet anchored to a point is a sheet that is somewhere else the
+                     * moment the plane moves under it — and the dialog it was copying already exists,
+                     * in the ribbon, reading the same declaration.
+                     */
+                    onAdd?.({ parentId, at: end === 'before' ? at : at + 1 });
                   }}
                 >
                   <Icon name="add" size={11} />

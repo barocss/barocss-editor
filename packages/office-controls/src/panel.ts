@@ -190,6 +190,13 @@ export interface PanelRow<Kind extends string = string> {
    * questions changes. What changes is only where they are drawn.
    */
   with?: PanelRow<Kind>[];
+  /**
+   * **The whole width, with no label column** — for a control that is a list rather than a value.
+   *
+   * Read by the sheet that draws it; declared here so a product says it once, beside everything else
+   * it says about the row. See `SheetRow.wide` for the measurement that asked for it.
+   */
+  wide?: boolean;
 }
 
 /** A row and everything drawn beside it, which is what the harness's questions are asked of. */

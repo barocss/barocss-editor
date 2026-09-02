@@ -64,6 +64,17 @@ export interface SheetRow {
   needs?: string;
   /** More controls in this row, drawn after it under its one label — see `PanelRow.with`. */
   with?: SheetRow[];
+  /**
+   * **The whole width, with no label column** — for a control that is a *list* rather than a value.
+   *
+   * Reported on the widths list: *이미 제목이 폭인데, 라벨을 굳이 그 밑에 또 표현할 필요가 있을까?* And
+   * it is the same word twice — the group says 폭 and the row's label column says 폭 — costing 74
+   * pixels of every line in a list that needs all of them.
+   *
+   * Only for a control that says what it is by its own shape. A value still gets a label column, and
+   * that is the whole point of having one: every control in a panel starts at the same x.
+   */
+  wide?: boolean;
 }
 
 export interface SheetGroup<Row extends SheetRow> {
@@ -593,6 +604,12 @@ function Cell<Row extends SheetRow>({
       <span aria-hidden>·</span>
     )
   ) : undefined;
+
+  /*
+   * A row that takes the whole width draws no label column and no mark — a list has nothing for a
+   * mark to be about, and the group heading above it is already its name.
+   */
+  if (row.wide) return <div className="w-full">{children}</div>;
 
   return (
     <PropertyRow label={row.label} icon={row.icon} mark={mark}>

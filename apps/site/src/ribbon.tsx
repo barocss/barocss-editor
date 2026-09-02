@@ -99,7 +99,10 @@ export function Ribbon({
   editor,
   mode,
   onMode,
-  pageId
+  pageId,
+  place,
+  adding: openAdding,
+  onAdding
 }: {
   editor: Editor;
   mode: PointerMode;
@@ -115,6 +118,21 @@ export function Ribbon({
    * rail had before it was given the page.
    */
   pageId?: string;
+  /**
+   * **A place a plus on the board pointed at**, when a reader opened this dialog from there.
+   *
+   * The board's plus and this door are one gesture with two starting points — *무엇을 넣을까요* — so
+   * there is one dialog, not two: it was drawn at the pointer for a while and reported straight back,
+   * *추가 버튼 클릭 이후에 화면을 움직일 수 있기 때문에 다이얼로그가 가운데 뜨는 게 더 좋아*. A sheet
+   * anchored to a point is a sheet that is somewhere else the moment the plane moves under it.
+   *
+   * So the overlay says **where**, and this says **what** — and with nothing said the dialog lands
+   * where it always did: after what is selected, or at the end of the page on screen.
+   */
+  place?: { parentId: string; at: number } | null;
+  /** Opened from the board as well as from here, so the state is the app's — see `place`. */
+  adding?: boolean;
+  onAdding?: (open: boolean) => void;
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
 
@@ -136,7 +154,14 @@ export function Ribbon({
     );
     // `revision`: a reader who has just added a file should see it here.
   }, [editor, revision]);
-  const [adding, setAdding] = useState(false);
+  /*
+   * Held here when nothing else asks for it, and by the app when the board can open it too — the
+   * same shape `folded` takes in the panel, and for the same reason: a state two surfaces change is
+   * a state neither of them owns.
+   */
+  const [ownAdding, setOwnAdding] = useState(false);
+  const adding = openAdding ?? ownAdding;
+  const setAdding = onAdding ?? setOwnAdding;
   /** Whether the emoji picker is open — see the text group, and `EMOJI` below. */
   const [picking, setPicking] = useState(false);
 
@@ -552,7 +577,16 @@ export function Ribbon({
         open={adding}
         onOpenChange={setAdding}
         title="무엇을 넣을까요"
-        description="고른 블록 다음에 들어갑니다. 아무것도 고르지 않았으면 페이지 끝입니다."
+        /*
+         * Where it lands, said honestly for **both** ways in. Opened from here it goes after what is
+         * selected; opened from a plus on the board it goes where the plus pointed, which may be
+         * *above* the block — so the sentence that was here would have been a lie half the time.
+         */
+        description={
+          place
+            ? '고른 자리에 들어갑니다.'
+            : '고른 블록 다음에 들어갑니다. 아무것도 고르지 않았으면 페이지 끝입니다.'
+        }
         footer={<DialogButton onClick={() => setAdding(false)}>닫기</DialogButton>}
       >
         <div className="st-add-sheet">
@@ -567,9 +601,22 @@ export function Ribbon({
                     className="st-add-item"
                     data-add={one.command}
                     title={one.title}
-                    disabled={!can(one.command, (one as { payload?: Record<string, unknown> }).payload)}
+                    /*
+                     * With the place the board's plus pointed at, when it opened this — see `place`.
+                     * Without one every insert answers where it always did, which is what makes the
+                     * two starting points one dialog rather than two.
+                     */
+                    disabled={
+                      !can(one.command, {
+                        ...((one as { payload?: Record<string, unknown> }).payload ?? {}),
+                        ...(place ?? {})
+                      })
+                    }
                     onClick={() => {
-                      run(one.command, (one as { payload?: Record<string, unknown> }).payload);
+                      run(one.command, {
+                        ...((one as { payload?: Record<string, unknown> }).payload ?? {}),
+                        ...(place ?? {})
+                      });
                       setAdding(false);
                     }}
                   >

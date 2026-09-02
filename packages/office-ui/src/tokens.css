@@ -216,8 +216,20 @@
    */
   --ou-icon-h: 18px;
   --ou-radius: 4px;
-  --ou-text: 12px;
-  --ou-text-small: 11px;
+  /**
+   * **13 and 12**, up from 12 and 11 — reported as *속성 패널 글자가 너무 작은 거 아니야? 뭐가 뭔지
+   * 하나도 모르겠어*.
+   *
+   * The old pair came from wanting a panel that fits without scrolling, and that is the wrong thing
+   * to buy with type: a reader who cannot read a label has not been given a shorter panel, they have
+   * been given one they have to lean into. Scrolling is a gesture; squinting is not.
+   *
+   * The **dense** surface below keeps 11 and 10, and that is the distinction this pair exists for: an
+   * instrument a reader watches — a timeline, a status bar — is read at a glance and by shape, and a
+   * panel is read a word at a time.
+   */
+  --ou-text: 13px;
+  --ou-text-small: 12px;
   /**
    * The label column of a labelled row.
    *
@@ -225,7 +237,7 @@
    * in a panel starts at the same x — and two panels with two widths is the same
    * fault one level up.
    */
-  --ou-label-w: 68px;
+  --ou-label-w: 74px;
 }
 
 /**

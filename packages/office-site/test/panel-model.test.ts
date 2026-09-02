@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createSchema } from '@barocss/schema';
-import { SITE_PANEL, sitePanelAttrs, sitePanelCommands, sitePanelGroups, sitePanelRows } from '../src/panel-model';
+import {
+  SITE_PANEL,
+  sitePanelAttrs,
+  sitePanelCommands,
+  sitePanelGroups,
+  sitePanelRows,
+  type SitePanelTab
+} from '../src/panel-model';
 import { VALUE_FORMATS } from '@barocss/office-canvas';
 import { SELECTABLE } from '../src/selection';
 import { getSiteSchemaDefinition } from '../src/site-schema';
@@ -126,20 +133,61 @@ describe('what the panel declares', () => {
      */
     expect(surface.map((row) => row.attr).sort()).toEqual([
       'address',
+      /*
+       * **The page's own paint**, interleaved here only because this list is sorted — the same rows a
+       * block gets on the 모양 pane, mapped onto this one. `paintCss` has read them off a page since
+       * the day one could hold a gradient; what was missing was anywhere to say them, which is what
+       * *여기도 배경색이랑 꾸밀 수 있는 걸 따로 둘 수 있잖아* asked for. Declared once and offered
+       * twice — see `PAINT` and `pagePaint`. Leaders only: this returns rows, not the companions
+       * drawn beside them.
+       */
+      'backgroundImage',
       'baseSize',
       'bodyFace',
       'description',
+      'fill',
+      'gradientFrom',
       'headingFace',
       'icon',
       'image',
+      'ink',
       'name',
       'noIndex',
       'noIndex',
       'notFound',
+      'overlay',
       'path',
-      'scale'
+      'scale',
+      'shadowColor',
+      /* And the widths this site is designed at, which is a list rather than a value. */
+      'width'
     ]);
     expect(sitePanelRows('frame').every((row) => row.tab !== 'page')).toBe(true);
+  });
+
+  it('opens each group once, in every pane', () => {
+    /**
+     * Reported as *사이트 패널, 페이지 패널, 이 2개씩 있는데 이거 다 합쳐야 하는 거 아니니?* — and the
+     * page pane had **two 사이트 and three 페이지**, interleaved.
+     *
+     * `panelGroupsFor` splits by *run* rather than by name, deliberately: a map keyed by label would
+     * silently merge two runs and move a row up the panel, and its own test says so. So the
+     * declaration is what decides — which makes a repeated heading a fault in the declaration, and
+     * this is that fault turned into a question. It was *visible and therefore fixable*; now it is
+     * checkable, which is the difference between a rule and a habit.
+     *
+     * Asked of every pane, because the same row can be in more than one and a fix to one pane's order
+     * is not a fix to another's.
+     */
+    for (const tab of ['block', 'shape', 'text', 'page'] as SitePanelTab[]) {
+      for (const stype of ['frame', 'heading', 'paragraph', 'picture', 'surface', 'form', 'collection']) {
+        const seen: string[] = [];
+        for (const row of sitePanelRows(stype, tab)) {
+          if (seen[seen.length - 1] !== row.group) seen.push(row.group);
+        }
+        expect(seen.length, `${tab} · ${stype}`).toBe(new Set(seen).size);
+      }
+    }
   });
 
   it('groups in the order it lists, so moving a row moves it on screen', () => {
