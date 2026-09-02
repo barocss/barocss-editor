@@ -87,14 +87,21 @@ inserted, which is a legitimate answer and is written here so nobody adds a redu
 
 ## Where this product stops, and why
 
-**Yes, and soon:**
+**Built:**
 
 - **Emoji.** A character in a run needs nothing at all — it is text, and a picker is a convenience.
   The `emoji` *node* is for the other case: a shortcode a document keeps as `:tada:` and draws from a
   set, so a document is searchable and a rename of the set changes every use. That is the same
   reference shape this model has six of, and the reason to have the node rather than the character.
-- **A sticker**, which is an `inline-image` with an `asset:이름` in it and nothing new in the model.
-  What it needs is a *place to pick one from* — the assets box already exists.
+~~- **A sticker**~~ — **built**. An `inline-image` naming a file, which is the whole of it: no new node
+  type and no second box. Two things were missing and neither was in the model: somewhere to pick one
+  from, and one line in the renderer — the *block* `picture` has always resolved `asset:이름` and the
+  inline one did not, so a sticker would have drawn a broken image with `asset:하트` in its `src`.
+
+  In the same dialog as the emoji, because from a reader's side they are one errand — *put a small
+  picture here* — and two buttons would be the model's shape leaking into the toolbar. It draws at
+  the line's height: a picture that decides its own height mid-paragraph is a paragraph whose lines
+  are different heights, and a reader who wants a big one wants a block.
 
 **Yes, but not free:**
 

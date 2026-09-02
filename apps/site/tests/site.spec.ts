@@ -1233,6 +1233,56 @@ test.describe('the exported page', () => {
     expect(Number.parseFloat(said.top ?? '0')).toBeGreaterThan(60);
   });
 
+  test('puts a sticker in a line, as a name rather than as bytes', async ({ page }) => {
+    /**
+     * **A sticker is an `inline-image` naming a file**, and that is the whole of it: no new node
+     * type, no second box to keep them in. What was missing was somewhere to pick one from — and one
+     * line in the renderer, because the *block* picture has always resolved `asset:이름` and the
+     * inline one did not, so a sticker would have drawn a broken image with `asset:하트` in its `src`.
+     *
+     * In the same dialog as the emoji, because from a reader's side they are one errand — *put a
+     * small picture here* — and two buttons would be the model's shape leaking into the toolbar.
+     *
+     * The name, not the bytes: a rename moves every sticker, and the file is written once however
+     * many times it is used.
+     */
+    await ready(page);
+    const para = page
+      .locator('[data-frame="desktop"] .st-page .w-paragraph')
+      .filter({ hasText: '세 제품을 따로' })
+      .first();
+    await press(page, para);
+    await page.waitForTimeout(250);
+    const overlay = page.locator('[data-frame="desktop"] .st-overlay');
+    for (let step = 0; step < 8; step += 1) {
+      if ((await overlay.getAttribute('data-mode')) === 'text') break;
+      await pressTwice(page, para);
+      await page.waitForTimeout(250);
+    }
+    await page.keyboard.press('End');
+    await page.waitForTimeout(150);
+    await page.getByLabel('커서 자리에 이모지를 넣습니다').click();
+    await page.waitForTimeout(300);
+
+    // The document's own picture files, offered first — the sample wears two, because a picker with
+    // nothing in it draws an empty grid and looks broken.
+    await expect(page.locator('[data-sticker]')).toHaveCount(2);
+    await page.locator('[data-sticker="하트"]').click();
+    await page.waitForTimeout(500);
+
+    const drawn = para.locator('img.st-sticker').last();
+    await expect(drawn).toHaveCount(1);
+    // The line's height, so a sticker sits in a sentence rather than pushing it apart.
+    expect((await drawn.boundingBox())!.height).toBeLessThan(34);
+
+    /*
+     * And it publishes as a **file**, not as bytes in the markup: the same rule every other picture
+     * on a page follows, and the reason a logo used on five pages is downloaded once.
+     */
+    const html = await exported(page, '/');
+    expect(html).toContain('assets/하트');
+  });
+
   test('puts an emoji in a line, and keeps the name as well as the character', async ({ page }) => {
     /**
      * **The node that was built in three layers and reachable from none.**

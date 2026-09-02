@@ -35,6 +35,17 @@ import {
  */
 
 /** A one-pixel PNG, as base64 — the smallest thing that is honestly a file. */
+/**
+ * The files a test **added**, in order — the sample's own two stickers left out.
+ *
+ * A fixture that wears what it tests grows, and a test that counts the whole box then measures the
+ * sample rather than the command it is about. `로고` and its kin are what these tests put in.
+ */
+const added = (doc: { rootId: string; getNode: (sid: string) => unknown }): string[] =>
+  assetsOf(doc as never)
+    .map((one) => one.name)
+    .filter((one) => one.startsWith('로고'));
+
 const DOT =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
@@ -65,7 +76,12 @@ describe('a file the document holds', () => {
   it('names it after the file, without repeating the type', () => {
     // `로고.png` becomes `로고`: the type is on the node already, and a name that repeats it reads as
     // `로고.png.png` in the published folder.
-    expect(assetsOf(doc).map((one) => one.name)).toEqual(['로고']);
+    /*
+     * The names this test **put in**, not every name the sample has: the fixture wears two stickers
+     * now, and a test that counts the whole box is a test measuring the sample rather than the
+     * command it is about.
+     */
+    expect(added(doc)).toEqual(['로고']);
     expect(assetNamed(doc, '로고')?.type).toBe('image/png');
   });
 
@@ -76,7 +92,7 @@ describe('a file the document holds', () => {
      * them unreachable.
      */
     await editor.executeCommand('insertAsset', { label: '로고.png', type: 'image/png', data: DOT });
-    expect(assetsOf(doc).map((one) => one.name)).toEqual(['로고', '로고 2']);
+    expect(added(doc)).toEqual(['로고', '로고 2']);
   });
 
   it('is the bytes on a board and the file’s own path on a published page', async () => {
@@ -132,8 +148,14 @@ describe('a file the document holds', () => {
     let got: any;
     void editor.executeCommand('exportSite', { write: (one: unknown) => (got = one) });
     const files = got.files.filter((one: any) => one.file.startsWith('assets/'));
-    expect(files).toHaveLength(1);
-    expect(files[0]).toEqual({ file: 'assets/로고.png', type: 'image/png', bytes: DOT });
+    /*
+     * **This** file, once — rather than a count of the whole folder, which is the sample's business:
+     * a fixture that wears what it tests has two stickers in it, and neither is what this asks about.
+     * The claim is that a file used from more than one place is written a single time.
+     */
+    const mine = files.filter((one: any) => one.file === 'assets/로고.png');
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toEqual({ file: 'assets/로고.png', type: 'image/png', bytes: DOT });
   });
 
   it('says how large the pictures have made the document, at the point it matters', () => {
@@ -232,7 +254,7 @@ describe('a name a reader can read', () => {
      * `assetNamed` would answer with the first for both references: one picture permanently
      * unreachable, and nothing anywhere saying so.
      */
-    expect(assetsOf(doc).map((one) => one.name)).toEqual(['로고', '로고 2']);
+    expect(added(doc)).toEqual(['로고', '로고 2']);
     // And either spelling finds the first, which is what a document from somewhere else needs.
     expect(assetNamed(doc, decomposed('로고'))?.name).toBe('로고');
   });

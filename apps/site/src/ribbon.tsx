@@ -23,7 +23,8 @@ import {
   definitionsOf,
   pageLinkOf,
   pagesIn,
-  siteControlsIn
+  siteControlsIn,
+  assetsOf
 } from '@barocss/office-site';
 import type { PointerMode } from './overlay';
 
@@ -116,6 +117,25 @@ export function Ribbon({
   pageId?: string;
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
+
+  /**
+   * **The stickers this document has** — which are its picture files, offered in a line.
+   *
+   * No new node type and no new box to keep them in: a sticker *is* an `inline-image` with an
+   * `asset:이름` in it, and the assets box is where a page's files already live. What was missing was
+   * somewhere to pick one, which is why this sits in the same dialog as the emoji: from a reader's
+   * side they are one errand — *put a small picture here* — and splitting them into two buttons would
+   * be the model's shape leaking into the toolbar.
+   */
+  const stickers = useMemo(() => {
+    const store = editor.dataStore;
+    const rootId = (editor as never as { getRootId?: () => string }).getRootId?.();
+    if (!store || !rootId) return [];
+    return assetsOf({ rootId, getNode: (sid: string) => store.getNode(sid) } as never).filter((one) =>
+      String(one.type ?? '').startsWith('image/')
+    );
+    // `revision`: a reader who has just added a file should see it here.
+  }, [editor, revision]);
   const [adding, setAdding] = useState(false);
   /** Whether the emoji picker is open — see the text group, and `EMOJI` below. */
   const [picking, setPicking] = useState(false);
@@ -469,11 +489,39 @@ export function Ribbon({
       <Dialog
         open={picking}
         onOpenChange={setPicking}
-        title="이모지"
-        description="커서 자리에 들어갑니다."
+        title="이모지와 그림"
+        description="커서 자리에 들어갑니다. 문서에 넣은 그림 파일은 맨 위에 있습니다."
         footer={<DialogButton onClick={() => setPicking(false)}>닫기</DialogButton>}
       >
         <div className="st-emoji-sheet">
+          {stickers.length > 0 ? (
+            <section>
+              <h3>이 문서의 그림</h3>
+              <div className="st-emoji-grid" data-stickers>
+                {stickers.map((one) => (
+                  <button
+                    key={one.name}
+                    type="button"
+                    className="st-emoji-item st-sticker-item"
+                    data-sticker={one.name}
+                    title={one.label ?? one.name}
+                    aria-label={one.label ?? one.name}
+                    onClick={() => {
+                      /*
+                       * The **name**, not the bytes: `asset:하트` is the reference every other
+                       * picture on a page uses, so a rename moves every sticker and the file is
+                       * written once however many times it is used.
+                       */
+                      run('insertImage', { src: `asset:${one.name}`, alt: one.label ?? one.name });
+                      setPicking(false);
+                    }}
+                  >
+                    <img src={one.data} alt="" />
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
           {EMOJI.map((group) => (
             <section key={group.label}>
               <h3>{group.label}</h3>

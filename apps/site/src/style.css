@@ -2049,3 +2049,28 @@ body {
   line-height: 1;
   vertical-align: -0.1em;
 }
+
+
+/**
+ * A sticker in the picker: the file itself, at the size the grid draws everything else.
+ *
+ * `object-fit: contain` rather than cover — a logo cropped to a square in a picker is a logo a reader
+ * cannot recognise, and recognising it is the whole of what they are doing here.
+ */
+.st-sticker-item img {
+  max-width: 22px;
+  max-height: 22px;
+  object-fit: contain;
+}
+
+/**
+ * And a sticker **in the page**: the height of the line it sits in.
+ *
+ * A picture that decides its own height in the middle of a paragraph is a paragraph whose lines are
+ * different heights. A reader who wants a big one wants a block, and the page has one.
+ */
+.st-sticker {
+  height: 1.35em;
+  width: auto;
+  vertical-align: -0.28em;
+}

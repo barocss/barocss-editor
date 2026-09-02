@@ -790,6 +790,36 @@ export function registerSiteRenderers(): void {
    * `picture` inside an `<svg>` canvas at a coordinate, and a page has no canvas and no
    * coordinates. Here it is an `<img>` in the flow that fills the width it is given.
    */
+/**
+   * **A picture inside a line** — a sticker, in the words a reader would use.
+   *
+   * Its own renderer here rather than `office-text`'s, and the difference is one line: an `asset:`
+   * reference. A page's pictures are files **in the document**, named, so a rename moves every use
+   * and the bytes are written once — which the block `picture` below has always done and the inline
+   * one did not, so a sticker put in from the asset box drew a broken image with `asset:하트` in the
+   * `src` attribute.
+   *
+   * No new node type, which is the point: a sticker *is* an inline image. What it needed was
+   * somewhere to pick one from, and for the picture to resolve the name like everything else on a
+   * page does.
+   */
+  define('inline-image', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = (node.attributes ?? {}) as Record<string, unknown>;
+    const doc = getWordDocument(ctx?.env as RenderEnv | undefined);
+    const live = published(ctx?.env as RenderEnv | undefined);
+    return element('img', {
+      className: 'st-sticker',
+      src: assetSrc(doc as never, attrs.src, live),
+      alt: String(attrs.alt ?? ''),
+      /*
+       * Its height is the line's, so a sticker sits in a sentence rather than pushing it apart — a
+       * picture that decides its own height in the middle of a paragraph is a paragraph whose lines
+       * are different heights. A reader who wants a big one wants a block, and the page has one.
+       */
+      style: { height: '1.35em', width: 'auto', verticalAlign: '-0.28em' }
+    });
+  });
+
   define('picture', (_props: NodeData, node: NodeData, ctx: any) => {
     const attrs = drawnAttrs(node, ctx);
     /*

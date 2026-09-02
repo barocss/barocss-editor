@@ -546,6 +546,42 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
         attributes: {},
         content: [
           /**
+           * **Two small pictures**, which is what a sticker is: an `inline-image` naming a file in
+           * the document rather than carrying its bytes.
+           *
+           * Here because the fixture has to wear what it tests. The picker offers a document's own
+           * picture files, and a sample with none offered nothing — so the whole gesture drew an
+           * empty grid and looked broken, which is exactly what a reader would have seen.
+           *
+           * Drawn rather than photographed, and tiny, because every byte of a fixture is a byte in
+           * every test that loads it.
+           */
+          {
+            stype: 'asset',
+            attributes: {
+              name: '하트',
+              label: '하트',
+              type: 'image/svg+xml',
+              data: 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48cGF0aCBkPSJNMTIgMjAuNVMzLjUgMTQuOCAzLjUgOS40QTQuOSA0LjkgMCAwIDEgMTIgNi4zYTQuOSA0LjkgMCAwIDEgOC41IDMuMWMwIDUuNC04LjUgMTEuMS04LjUgMTEuMXoiIGZpbGw9IiNENjM0MUEiLz48L3N2Zz4=',
+              width: 24,
+              height: 24
+            },
+            content: []
+          },
+          {
+            stype: 'asset',
+            attributes: {
+              name: '확인 도장',
+              label: '확인 도장',
+              type: 'image/svg+xml',
+              data: 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI5LjUiIGZpbGw9IiMxNDExMEYiLz48cGF0aCBkPSJNNy42IDEyLjRsMyAzIDUuOC02LjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZDRkJGOSIgc3Ryb2tlLXdpZHRoPSIyLjEiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==',
+              width: 24,
+              height: 24
+            },
+            content: []
+          },
+
+          /**
            * **Where a form's answers go** — one place, named, and every form points at it.
            *
            * A resource, like a dataset: a thing referred to by name from the flow. The address is a
