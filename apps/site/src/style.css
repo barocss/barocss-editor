@@ -1884,3 +1884,16 @@ body {
 .st-uses-group li > span {
   color: var(--ou-muted);
 }
+
+
+/**
+ * The rectangle a reader sweeps to choose several blocks.
+ *
+ * A faint wash with a hairline, in the tool's accent — the tool talking, like the guides and the
+ * landing line. Counter-scaled so the edge is one screen pixel at every zoom.
+ */
+.st-mark-sweep {
+  background: color-mix(in srgb, var(--st-accent) 12%, transparent);
+  border: calc(1px / var(--st-zoom, 1)) solid var(--st-accent);
+  pointer-events: none;
+}

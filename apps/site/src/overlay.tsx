@@ -295,6 +295,20 @@ export function Overlay({
    * gap lights up while one is held, which says *this is one number* before the release proves it.
    */
   const [pulling, setPulling] = useState<'gap' | undefined>(undefined);
+  /**
+   * **The rectangle a reader is sweeping**, in board pixels, or nothing.
+   *
+   * The gesture a canvas with free placement is unusable without: three badges laid out by hand are
+   * chosen by drawing a box around them, and this had only Shift-click — one press per block, in a
+   * tool where the whole point of placing things freely is that there are several of them.
+   */
+  const [sweep, setSweep] = useState<{
+    from: { x: number; y: number };
+    to: { x: number; y: number };
+    add: boolean;
+    /** The block a Shift **click** would toggle, when the rectangle turns out to be nothing. */
+    toggle?: string;
+  } | null>(null);
   /** What a resize is writing, while it is writing it — see the corner handle. */
   const [sizing, setSizing] = useState<string | undefined>(undefined);
 
@@ -406,6 +420,35 @@ export function Overlay({
    * about a hand holding a pointer and not about the page.
    */
   const SNAP = 6;
+
+  /**
+   * **What a swept rectangle catches.**
+   *
+   * The blocks at the level a **click** would select, which is the rule worth stating: a box drawn
+   * over a section would otherwise catch the section, its column, its row and every card and word in
+   * it — forty things for one gesture. `childOfScope` is the same walk a press already does, so a
+   * sweep chooses the things a reader could have chosen one at a time.
+   *
+   * **Touching, not containing.** Every tool of this kind counts a block the rectangle overlaps,
+   * because a reader sweeping across a row of cards does not draw around them, they draw *through*
+   * them — and demanding containment makes the gesture fail on the first card that sticks out.
+   */
+  const sweptIn = (box: { left: number; top: number; right: number; bottom: number }): string[] => {
+    const board = host.current;
+    if (!board) return [];
+    const found = new Set<string>();
+    for (const el of board.querySelectorAll<HTMLElement>('[data-bc-sid]')) {
+      const sid = el.getAttribute('data-bc-sid');
+      if (!sid) continue;
+      const at = boxOf(sid);
+      if (!at) continue;
+      if (at.left > box.right || at.left + at.width < box.left) continue;
+      if (at.top > box.bottom || at.top + at.height < box.top) continue;
+      const outer = childOfScope(doc(), sid, page, scope);
+      if (outer) found.add(outer);
+    }
+    return [...found];
+  };
 
   /** The pointer, in the board's own pixels — the space every box here is measured in. */
   const pointIn = (event: { clientX: number; clientY: number }) => {
@@ -648,6 +691,11 @@ export function Overlay({
        * the engine talking to a reader.
        */
       onPointerMove={(event) => {
+        if (sweep) {
+          const at = pointIn(event);
+          if (at) setSweep({ ...sweep, to: at });
+          return;
+        }
         const carry = held.current;
         if (carry) {
           const far = Math.abs(event.clientX - carry.x) + Math.abs(event.clientY - carry.y) > 4;
@@ -747,6 +795,31 @@ export function Overlay({
         setHover(childOfScope(doc(), hit(event), page, scope));
       }}
       onPointerUp={(event) => {
+        if (sweep) {
+          setSweep(null);
+          (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
+          const box = {
+            left: Math.min(sweep.from.x, sweep.to.x),
+            top: Math.min(sweep.from.y, sweep.to.y),
+            right: Math.max(sweep.from.x, sweep.to.x),
+            bottom: Math.max(sweep.from.y, sweep.to.y)
+          };
+          // A press that did not move is a press, not a sweep: a Shift-click toggles, and a press on
+          // the page's own margin has already cleared.
+          if (box.right - box.left < 4 && box.bottom - box.top < 4) {
+            if (sweep.toggle) {
+              select(
+                selected.includes(sweep.toggle)
+                  ? selected.filter((one) => one !== sweep.toggle)
+                  : [...selected, sweep.toggle]
+              );
+            }
+            return;
+          }
+          const caught = sweptIn(box);
+          select(sweep.add ? [...new Set([...selected, ...caught])] : caught);
+          return;
+        }
         const carry = held.current;
         held.current = null;
         (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
@@ -851,11 +924,19 @@ export function Overlay({
           : null;
         (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
 
-        // Nothing under the pointer: the reader clicked the page's own margin, which means "none" —
-        // and leaves whatever they had entered, because that is where they just clicked.
+        /*
+         * Nothing under the pointer: the reader pressed the page's own margin, which means *none* —
+         * and leaves whatever they had entered, because that is where they just pressed.
+         *
+         * And it is where a **sweep** begins. A press that does not move is still a press on nothing,
+         * so the selection is cleared here and the sweep only replaces it once it has a rectangle:
+         * clearing on release instead would make a click on the margin flicker.
+         */
         if (!outer) {
           onScope(page);
-          select([]);
+          if (!event.shiftKey) select([]);
+          const at = pointIn(event);
+          if (at) setSweep({ from: at, to: at, add: event.shiftKey });
           return;
         }
         /**
@@ -879,10 +960,22 @@ export function Overlay({
           return;
         }
 
-        // Shift adds and removes, because a selection is a set — three cards told to fill is one
-        // gesture, and doing it a card at a time is the reader keeping the editor's books.
+        /**
+         * **Shift adds and removes** — a selection is a set, and three cards told to fill is one
+         * gesture where doing it a card at a time is the reader keeping the editor's books.
+         *
+         * And **Shift held while dragging sweeps**, which is the same sentence at a different scale:
+         * *add what I am pointing at*, said about a rectangle rather than about a block. It has to
+         * live here rather than on the page's own margin, because on a real page there is no margin —
+         * the boards are exactly the page, and every point in one resolves to some block. Measured:
+         * the sweep as first built could not be started anywhere on the sample.
+         *
+         * The toggle is what happens when the rectangle turns out to be nothing, so a Shift-click is
+         * still a Shift-click: one press, two readings, settled on release by whether the hand moved.
+         */
         if (event.shiftKey) {
-          select(selected.includes(outer) ? selected.filter((one) => one !== outer) : [...selected, outer]);
+          const at = pointIn(event);
+          if (at) setSweep({ from: at, to: at, add: true, toggle: outer });
           return;
         }
         select([outer]);
@@ -998,6 +1091,24 @@ export function Overlay({
       {guides.y.map((at) => (
         <div key={`y${at}`} className="st-mark st-mark-guide" style={{ left: 0, top: `${at}px`, width: '100%', height: 0 }} aria-hidden />
       ))}
+
+      {sweep ? (
+        /*
+         * The rectangle itself, drawn while it is being swept. A gesture with no rectangle on screen
+         * is a gesture a reader cannot aim: they would be sweeping and finding out afterwards.
+         */
+        <div
+          className="st-mark st-mark-sweep"
+          data-sweep
+          style={boxStyle({
+            left: Math.min(sweep.from.x, sweep.to.x),
+            top: Math.min(sweep.from.y, sweep.to.y),
+            width: Math.abs(sweep.to.x - sweep.from.x),
+            height: Math.abs(sweep.to.y - sweep.from.y)
+          })}
+          aria-hidden
+        />
+      ) : null}
 
       {landing ? (
         /*

@@ -1233,6 +1233,67 @@ test.describe('the exported page', () => {
     expect(Number.parseFloat(said.top ?? '0')).toBeGreaterThan(60);
   });
 
+  test('sweeps a rectangle to choose several blocks, and still toggles on a click', async ({ page }) => {
+    /**
+     * **The gesture a canvas with free placement is unusable without.**
+     *
+     * Three badges laid out by hand are chosen by drawing a box around them, and this had Shift-click
+     * alone: one press per block, in a tool whose whole point is that there are several of them.
+     *
+     * **Shift held while dragging**, rather than a drag on empty canvas — which is where it was
+     * built first and where it could not be reached. Measured: the boards are *exactly* the page,
+     * there is no margin around one, and every point inside resolves to some block. So the sweep
+     * lives on the modifier that already means *add what I am pointing at*, said about a rectangle
+     * instead of a block.
+     *
+     * A Shift-click still toggles: one press, two readings, settled on release by whether the hand
+     * moved.
+     *
+     * **Touching, not containing**, and at the level a click would select. A box over a section would
+     * otherwise catch the section, its column, its row and every card and word in it — forty things
+     * for one gesture — and demanding containment makes a sweep across a row fail on the first card
+     * that sticks out.
+     */
+    await ready(page);
+    const chosen = async () =>
+      await page.evaluate(
+        () =>
+          new Set(
+            [...document.querySelectorAll('.st-mark-selected')].map((one) =>
+              one.getAttribute('data-selected')
+            )
+          ).size
+      );
+
+    const board = (await page.locator('[data-frame="desktop"] .st-page').first().boundingBox())!;
+    const from = { x: board.x + 20, y: board.y + 140 };
+    await page.keyboard.down('Shift');
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 40, from.y + 60, { steps: 5 });
+    await page.waitForTimeout(120);
+
+    // Drawn while it is being swept: a gesture with no rectangle on screen cannot be aimed.
+    await expect(page.locator('[data-sweep]')).toHaveCount(1);
+
+    await page.mouse.move(board.x + board.width - 20, board.y + 700, { steps: 10 });
+    await page.mouse.up();
+    await page.keyboard.up('Shift');
+    await page.waitForTimeout(400);
+
+    const swept = await chosen();
+    expect(swept).toBeGreaterThan(1);
+    // And the rectangle goes with the gesture rather than staying on the page.
+    await expect(page.locator('[data-sweep]')).toHaveCount(0);
+
+    // A Shift-click on one of them takes it out, which is what a set means.
+    await page.keyboard.down('Shift');
+    await press(page, page.locator('[data-frame="desktop"] [data-name="히어로"]').first());
+    await page.keyboard.up('Shift');
+    await page.waitForTimeout(300);
+    expect(await chosen()).toBe(swept - 1);
+  });
+
   test('nudges a placed block by a key, and offers the eight ways to line blocks up', async ({ page }) => {
     /**
      * **A drag finds a position and a key finishes one** — a pixel is a distance no pointer can ask
