@@ -1233,6 +1233,58 @@ test.describe('the exported page', () => {
     expect(Number.parseFloat(said.top ?? '0')).toBeGreaterThan(60);
   });
 
+  test('draws padding and gap in two inks and two hatches', async ({ page }) => {
+    /**
+     * **They were the same wash**, so a section's bottom padding and the gap under its last child
+     * were one colour touching itself, and a reader pulling one could not tell which they had had.
+     * Reported as 헷갈림.
+     *
+     * **Two inks and two textures**, because either alone is half an answer. Colour separates them at
+     * a glance and fails for a reader who cannot tell these two hues apart; a hatch separates them
+     * for everybody, including at the zoom where a four-pixel band is one colour smear. The leans go
+     * opposite ways so the two never merge into one texture where they meet.
+     *
+     * The hues are far apart on purpose. Two tints of one colour read as *more* and *less* of the
+     * same thing, which is the opposite of what these two are.
+     */
+    await ready(page);
+    const read = async (which: string) =>
+      await page.evaluate((want) => {
+        const el =
+          want === 'gap'
+            ? document.querySelector('[data-inset="gap"]')
+            : [...document.querySelectorAll('[data-inset="top"], [data-inset="bottom"]')].find(
+                (one) => one.getAttribute('data-empty') !== 'true'
+              );
+        if (!el) return null;
+        const style = getComputedStyle(el as HTMLElement);
+        return {
+          lean: /(-?\d+)deg/.exec(style.backgroundImage)?.[1] ?? null,
+          ink: style.getPropertyValue('--st-inset-ink').trim()
+        };
+      }, which);
+
+    // A band, for its padding: it has all four sides and one child, so no gaps.
+    const band = page.locator('[data-frame="desktop"] [data-name="문제"]').first();
+    await press(page, band);
+    await page.waitForTimeout(400);
+    const padding = await read('padding');
+
+    // And the column inside it, for a gap: several children, so there is space between them.
+    for (let step = 0; step < 4; step += 1) {
+      if ((await page.locator('[data-inset="gap"]').count()) > 0) break;
+      await pressTwice(page, band);
+      await page.waitForTimeout(250);
+    }
+    const gap = await read('gap');
+
+    expect(padding?.lean).toBe('45');
+    expect(gap?.lean).toBe('-45');
+    expect(padding?.ink).not.toBe('');
+    expect(gap?.ink).not.toBe('');
+    expect(padding?.ink).not.toBe(gap?.ink);
+  });
+
   test('sweeps a rectangle to choose several blocks, and still toggles on a click', async ({ page }) => {
     /**
      * **The gesture a canvas with free placement is unusable without.**

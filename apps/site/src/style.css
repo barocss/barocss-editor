@@ -429,13 +429,67 @@ body {
  * for drawing the band is that *how much* is the question, and answering it and then sending them
  * elsewhere to act is half a tool.
  */
+/**
+ * **The space inside a block, drawn** — and padding and gap are drawn *differently*, which they were
+ * not.
+ *
+ * Both were one wash of the accent at ten percent, so a section's bottom padding and the gap under
+ * its last child were the same colour touching each other, and a reader pulling one could not tell
+ * which they had. Reported as 헷갈림.
+ *
+ * **Two inks and two textures**, because either alone is half an answer. Colour separates them at a
+ * glance and fails for a reader who cannot tell these two hues apart — and a hatch separates them
+ * for everybody, including at the zoom where a four-pixel band is one colour smear. Every tool that
+ * draws both uses the pair for exactly this reason.
+ *
+ *   padding — warm, hatched leaning **right**: the room a block keeps inside itself
+ *   gap     — cool, hatched leaning **left**: the room between two of its children
+ *
+ * (No slash-star pair in this comment: one of them closed it early and took the whole rule
+ * with it, so every padding band drew with no background at all.)
+ *
+ * The stripes are in **screen** pixels — `--st-zoom` divides them the way it divides every other
+ * piece of tool furniture here — so the texture reads the same at 40% and at 200% rather than
+ * turning into a flat wash at one end and a ladder at the other.
+ */
 .st-inset {
   position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--st-accent) 10%, transparent);
   pointer-events: none;
+
+  /* The padding ink: the accent, warm, leaning right. */
+  --st-inset-ink: var(--st-accent);
+  background:
+    repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--st-inset-ink) 26%, transparent) 0,
+      color-mix(in srgb, var(--st-inset-ink) 26%, transparent) calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(5px / var(--st-zoom, 1))
+    ),
+    color-mix(in srgb, var(--st-inset-ink) 9%, transparent);
+}
+
+/**
+ * The gap's own ink and its own lean.
+ *
+ * A **teal** against the accent's red rather than a lighter accent: two tints of one hue read as
+ * *more* and *less* of the same thing, which is the opposite of what these two are. And the hatch
+ * leans the other way, so the two never merge into one texture where they meet.
+ */
+.st-inset[data-inset='gap'] {
+  --st-inset-ink: #0F7A5A;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--st-inset-ink) 30%, transparent) 0,
+      color-mix(in srgb, var(--st-inset-ink) 30%, transparent) calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(5px / var(--st-zoom, 1))
+    ),
+    color-mix(in srgb, var(--st-inset-ink) 11%, transparent);
 }
 
 /*
@@ -747,10 +801,23 @@ body {
   border-radius: 999px;
 }
 
+/*
+ * Held, or under the pointer: the same texture, turned up — rather than a flat wash, which would
+ * take away the one thing that says which kind of space this is at the moment a reader is aiming
+ * at it.
+ */
 .st-inset[data-inset='gap']:hover,
 .st-inset[data-inset='gap'][data-grip='held'] {
-  background: color-mix(in srgb, var(--st-accent) 26%, transparent);
-  outline: calc(1px / var(--st-zoom, 1)) solid var(--st-accent);
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--st-inset-ink) 52%, transparent) 0,
+      color-mix(in srgb, var(--st-inset-ink) 52%, transparent) calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(5px / var(--st-zoom, 1))
+    ),
+    color-mix(in srgb, var(--st-inset-ink) 20%, transparent);
+  outline: calc(1px / var(--st-zoom, 1)) solid var(--st-inset-ink);
 }
 
 /*
@@ -758,15 +825,33 @@ body {
  * in it is the one a reader most wants to pull, and an area of no height is invisible however it is
  * painted. Fainter than a real measurement, because it is an offer rather than a fact.
  */
+/*
+ * A side with **no** padding is still a hairline: a band with nothing in it is the one a reader most
+ * wants to pull, and three pixels of hatch is not a hatch — so this is the one place a flat wash is
+ * right, and it keeps the band's own ink so it still says which kind of space it is offering.
+ */
 .st-inset[data-empty='true'] {
-  background: color-mix(in srgb, var(--st-accent) 22%, transparent);
+  background: color-mix(in srgb, var(--st-inset-ink) 34%, transparent);
 }
 
-.st-inset[data-inset='top']:has(::after:hover),
-.st-inset[data-inset='bottom']:has(::after:hover),
-.st-inset[data-inset='left']:has(::after:hover),
-.st-inset[data-inset='right']:has(::after:hover) {
-  background: color-mix(in srgb, var(--st-accent) 24%, transparent);
+/*
+ * Under the pointer: the same texture, turned up — see the gap's rule for why this is not a flat
+ * wash. A band that loses its hatch at the moment a reader aims at it loses it exactly when they are
+ * deciding which one they have.
+ */
+.st-inset[data-inset='top']:hover,
+.st-inset[data-inset='bottom']:hover,
+.st-inset[data-inset='left']:hover,
+.st-inset[data-inset='right']:hover {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--st-inset-ink) 48%, transparent) 0,
+      color-mix(in srgb, var(--st-inset-ink) 48%, transparent) calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(5px / var(--st-zoom, 1))
+    ),
+    color-mix(in srgb, var(--st-inset-ink) 18%, transparent);
 }
 
 /*
@@ -785,7 +870,14 @@ body {
   font-style: normal;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  color: var(--st-accent);
+  /*
+   * The band's own ink, so the number says which kind of space it measures as well as how much — and
+   * a plate of the page's ground behind it, because a numeral on a hatch is a numeral nobody reads.
+   */
+  color: var(--st-inset-ink, var(--st-accent));
+  background: var(--ou-panel, #ffffff);
+  padding: 0 calc(2px / var(--st-zoom, 1));
+  border-radius: calc(2px / var(--st-zoom, 1));
   white-space: nowrap;
 }
 
