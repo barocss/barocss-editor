@@ -283,7 +283,7 @@ describe('a row per attribute', () => {
     const clashes: string[] = [];
 
     for (const stype of [...SELECTABLE, 'surface']) {
-      const seen = new Map<string, string>();
+      const seen = new Map<string, { label: string; when?: { attr: string; is?: unknown[] } }>();
       for (const row of sitePanelRows(stype)) {
         // A row with no command reads rather than writes — the width note, the kind. Two of those
         // about one attribute is not a collision, it is a label and a value.
@@ -296,10 +296,24 @@ describe('a row per attribute', () => {
          * question, and one nothing asks yet.
          */
         if (row.writes === 'child') continue;
+        /*
+         * And two rows a reader can **never see together** are not a collision. `when` decides which
+         * of a pair is drawn, so a `position` that is `absolute` shows W beside X and Y, and one that
+         * is anything else shows 최대 폭 under 크기 — the same attribute under the name each kind of
+         * block needs, and only ever one of them on screen.
+         *
+         * Compared rather than assumed: the two conditions clash only if some value satisfies both.
+         * A row with no `when` is satisfied by everything, so it still collides with anything.
+         */
         const key = `${row.tab}:${row.attr}:${row.of ?? ''}`;
-        const first = seen.get(key);
-        if (first) clashes.push(`${stype}: ${first} and ${row.label} both write ${row.attr}`);
-        else seen.set(key, row.label);
+        const held = seen.get(key);
+        const apart = (a?: { attr: string; is?: unknown[] }, b?: { attr: string; is?: unknown[] }) =>
+          !!a?.is && !!b?.is && a.attr === b.attr && !a.is.some((one) => b.is!.includes(one));
+        if (held && !apart(held.when, row.when)) {
+          clashes.push(`${stype}: ${held.label} and ${row.label} both write ${row.attr}`);
+        } else if (!held) {
+          seen.set(key, { label: row.label, when: row.when });
+        }
       }
     }
 

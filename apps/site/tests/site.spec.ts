@@ -1233,6 +1233,59 @@ test.describe('the exported page', () => {
     expect(Number.parseFloat(said.top ?? '0')).toBeGreaterThan(60);
   });
 
+  test('offers X · Y · W · H once a block places itself, and the constraints until then', async ({ page }) => {
+    /**
+     * **The four numbers a designer looks for, and could not find here.**
+     *
+     * The attributes were always there — `insetLeft`/`insetTop` for where a block starts,
+     * `maxWidth`/`minHeight` for how big it is — spread over two groups under names a flow layout
+     * needs and a placed block does not. A width that is pinned is not a **최대**, it is the width;
+     * 왼쪽 is a distance from an edge until the block has coordinates, and then it is simply X. Asked
+     * for directly: *절대 위치로, 사이즈 크기 지정하는 방법도 설명해줘*.
+     *
+     * So the same attributes are offered under two names and `when` decides which pair a reader sees
+     * — never both, which is what stops one row silently writing over the other. `Sticky` keeps the
+     * edge names, because a sticky block genuinely is *some distance from an edge*: it is placed
+     * against the scroll rather than at a coordinate.
+     */
+    await ready(page);
+    const band = page.locator('[data-frame="desktop"] [data-name="문제"]').first();
+    await press(page, band);
+    await page.waitForTimeout(400);
+
+    // In the flow: the four constraints, and no coordinates.
+    await expect(page.getByLabel('최대 폭')).toHaveCount(1);
+    await expect(page.getByLabel('가로 위치')).toHaveCount(0);
+
+    await page.getByLabel('배치 방식').selectOption('absolute');
+    await page.waitForTimeout(450);
+    await press(page, band);
+    await page.waitForTimeout(400);
+
+    // Placed: X and Y on one row, W and H on the next, and the constraints gone.
+    for (const said of ['가로 위치', '세로 위치', '너비', '높이']) {
+      await expect(page.getByLabel(said)).toHaveCount(1);
+    }
+    await expect(page.getByLabel('최대 폭')).toHaveCount(0);
+    await expect(page.getByLabel('최소 높이')).toHaveCount(0);
+
+    // And they write: typing a number moves the block to it.
+    await page.getByLabel('가로 위치').fill('120');
+    await page.getByLabel('가로 위치').press('Enter');
+    await page.waitForTimeout(450);
+    expect(
+      await page.evaluate(() =>
+        Math.round(
+          Number.parseFloat(
+            getComputedStyle(
+              document.querySelector('[data-frame="desktop"] [data-name="문제"]') as HTMLElement
+            ).left
+          )
+        )
+      )
+    ).toBe(120);
+  });
+
   test('draws padding and gap in two inks and two hatches', async ({ page }) => {
     /**
      * **They were the same wash**, so a section's bottom padding and the gap under its last child

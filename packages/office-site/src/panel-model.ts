@@ -466,15 +466,21 @@ export const SITE_PANEL: SitePanelRow[] = [
       { id: 'fixed', label: 'Fixed' }
     ]
   },
-  { attr: 'minWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최소', ariaLabel: '최소 폭', control: 'number', unit: 'px', min: 0 },
-  { attr: 'maxWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대', ariaLabel: '최대 폭', control: 'number', unit: 'px', min: 0 },
+  { attr: 'minWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최소', ariaLabel: '최소 폭', control: 'number', unit: 'px', min: 0, when: { attr: 'position', is: [undefined, '', 'sticky'] } },
+  { attr: 'maxWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대', ariaLabel: '최대 폭', control: 'number', unit: 'px', min: 0, when: { attr: 'position', is: [undefined, '', 'sticky'] } },
   /*
    * And the same pair for **height**, which is new and reads as though it had always been there —
    * which is the point: a reader who has learned 최소/최대 폭 has learned this in the same gesture.
    * `sizing.ts` has the five blocks that could not be drawn without it.
    */
-  { attr: 'minHeight', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최소 높이', ariaLabel: '최소 높이', control: 'number', unit: 'px', min: 0 },
-  { attr: 'maxHeight', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대 높이', ariaLabel: '최대 높이', control: 'number', unit: 'px', min: 0 },
+  /*
+   * The four **constraints** a block in a flow has, and they are hidden once it places itself: a
+   * placed block's width is a width rather than a bound on one, and it is offered as W beside X and Y
+   * under 위치. Two rows writing one attribute is a panel where setting either silently changes the
+   * other — the fault `a row per attribute` refuses — and `when` is what keeps them apart.
+   */
+  { attr: 'minHeight', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최소 높이', ariaLabel: '최소 높이', control: 'number', unit: 'px', min: 0, when: { attr: 'position', is: [undefined, '', 'sticky'] } },
+  { attr: 'maxHeight', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대 높이', ariaLabel: '최대 높이', control: 'number', unit: 'px', min: 0, when: { attr: 'position', is: [undefined, '', 'sticky'] } },
 
   // ── 폼 — where what a visitor typed goes ──────────────────────────────────
   /**
@@ -646,10 +652,60 @@ export const SITE_PANEL: SitePanelRow[] = [
    * a stack of rectangles, and a field that refused it would have made overlap unreachable while
    * appearing to offer it.
    */
-  { attr: 'insetTop', command: 'setBlockFormat', group: '위치', tab: 'block', label: '위', ariaLabel: '위에서', icon: 'padding-top', control: 'number', unit: 'px', when: { attr: 'position' }, on: PLACED },
-  { attr: 'insetRight', command: 'setBlockFormat', group: '위치', tab: 'block', label: '오른쪽', ariaLabel: '오른쪽에서', icon: 'padding-right', control: 'number', unit: 'px', when: { attr: 'position' }, on: PLACED },
-  { attr: 'insetBottom', command: 'setBlockFormat', group: '위치', tab: 'block', label: '아래', ariaLabel: '아래에서', icon: 'padding-bottom', control: 'number', unit: 'px', when: { attr: 'position' }, on: PLACED },
-  { attr: 'insetLeft', command: 'setBlockFormat', group: '위치', tab: 'block', label: '왼쪽', ariaLabel: '왼쪽에서', icon: 'padding-left', control: 'number', unit: 'px', when: { attr: 'position' }, on: PLACED },
+  /**
+   * **X · Y · W · H**, for a block that places itself — the four numbers a designer looks for and
+   * could not find here.
+   *
+   * The attributes are the ones this model has always had: `insetLeft`/`insetTop` for where it
+   * starts, and `maxWidth`/`minHeight` for how big it is. What was missing is that they were spread
+   * over two groups under names a flow layout needs and a placed block does not: a width that is
+   * pinned is not a **최대**, it is the width, and 왼쪽 is a distance from an edge until the block has
+   * coordinates and then it is simply X.
+   *
+   * So the same attributes are offered twice, under two names, and `when` decides which pair a
+   * reader sees. `Sticky` keeps the edge names, because a sticky block genuinely is *some distance
+   * from an edge* — it is placed relative to the scroll, not at a coordinate.
+   *
+   * Only `absolute`, and the four together: two of them under one heading is the layout every design
+   * tool draws, and finding W three groups below X is the thing that made this unfindable.
+   */
+  {
+    attr: 'insetLeft',
+    command: 'setBlockFormat',
+    group: '위치',
+    tab: 'block',
+    label: 'X',
+    ariaLabel: '가로 위치',
+    control: 'number',
+    unit: 'px',
+    when: { attr: 'position', is: ['absolute'] },
+    on: PLACED,
+    // Side by side, because X and Y are one decision said twice — the layout every tool draws.
+    with: [
+      { attr: 'insetTop', command: 'setBlockFormat', group: '위치', tab: 'block', label: 'Y', ariaLabel: '세로 위치', control: 'number', unit: 'px', on: PLACED }
+    ]
+  },
+  {
+    attr: 'maxWidth',
+    command: 'setBlockFormat',
+    group: '위치',
+    tab: 'block',
+    label: 'W',
+    ariaLabel: '너비',
+    control: 'number',
+    unit: 'px',
+    min: 0,
+    when: { attr: 'position', is: ['absolute'] },
+    on: PLACED,
+    with: [
+      { attr: 'minHeight', command: 'setBlockFormat', group: '위치', tab: 'block', label: 'H', ariaLabel: '높이', control: 'number', unit: 'px', min: 0, on: PLACED }
+    ]
+  },
+
+  { attr: 'insetTop', command: 'setBlockFormat', group: '위치', tab: 'block', label: '위', ariaLabel: '위에서', icon: 'padding-top', control: 'number', unit: 'px', when: { attr: 'position', is: ['sticky'] }, on: PLACED },
+  { attr: 'insetRight', command: 'setBlockFormat', group: '위치', tab: 'block', label: '오른쪽', ariaLabel: '오른쪽에서', icon: 'padding-right', control: 'number', unit: 'px', when: { attr: 'position', is: ['sticky'] }, on: PLACED },
+  { attr: 'insetBottom', command: 'setBlockFormat', group: '위치', tab: 'block', label: '아래', ariaLabel: '아래에서', icon: 'padding-bottom', control: 'number', unit: 'px', when: { attr: 'position', is: ['sticky'] }, on: PLACED },
+  { attr: 'insetLeft', command: 'setBlockFormat', group: '위치', tab: 'block', label: '왼쪽', ariaLabel: '왼쪽에서', icon: 'padding-left', control: 'number', unit: 'px', when: { attr: 'position', is: ['sticky'] }, on: PLACED },
   /*
    * And what is **over** what. Offered with no position chosen as well, because a block in the flow
    * needs it too: a header that scrolls under a hero picture is this one number.
