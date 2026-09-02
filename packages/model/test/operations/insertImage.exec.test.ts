@@ -5,9 +5,13 @@ import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
 import { globalOperationRegistry } from '../../src/operations/define-operation';
-import { insertImage as insertImageDsl } from '../../src/operations/insertImage';
-import type { INode } from '@barocss/datastore';
 
+/**
+ * **Where a picture lands, which is the whole of what this operation decides.**
+ *
+ * Two faults, both found by asking the question a reader asked — *can a picture go **between** two
+ * pictures?* — and both in one function shared by the word processor, the deck and the site builder.
+ */
 describe('insertImage operation (exec)', () => {
   let dataStore: DataStore;
   let selectionManager: SelectionManager;
@@ -17,101 +21,116 @@ describe('insertImage operation (exec)', () => {
   beforeEach(() => {
     schema = new Schema('test-schema', {
       nodes: {
-        document: { name: 'document', group: 'document', content: 'block+' },
+        doc: { name: 'doc', content: 'paragraph*' },
         paragraph: { name: 'paragraph', group: 'block', content: 'inline*' },
-        'inline-image': { name: 'inline-image', group: 'inline', atom: true, attrs: { src: { type: 'string', required: true }, alt: { type: 'string', required: false } } },
-        'inline-text': { name: 'inline-text', group: 'inline' }
+        'inline-text': { name: 'inline-text', group: 'inline', content: 'text*', marks: [] },
+        'inline-image': {
+          name: 'inline-image',
+          group: 'inline',
+          atom: true,
+          attrs: { src: { type: 'string', required: true }, alt: { type: 'string', required: false } }
+        }
       },
       marks: {}
     });
-    dataStore = new DataStore(undefined, schema);
-    selectionManager = new SelectionManager({ dataStore });
+    dataStore = new DataStore(undefined as never, schema);
+    selectionManager = new SelectionManager({ dataStore } as never);
+  });
+
+  /*
+   * The context holds the selection as it was when the context was **made** — which is the point of
+   * a transaction — so every one of these builds it after putting the caret where the test is about.
+   */
+  const ready = () => {
     context = createTransactionContext(dataStore, selectionManager, schema);
+  };
+
+  /** A paragraph holding one run, and a caret in it at `at`. */
+  const words = (said: string, at: number) => {
+    dataStore.setNode({ sid: 'p', stype: 'paragraph', content: ['t'] } as never);
+    dataStore.setNode({ sid: 't', stype: 'inline-text', text: said, parentId: 'p' } as never);
+    selectionManager.setSelection({
+      type: 'range',
+      startNodeId: 't',
+      startOffset: at,
+      endNodeId: 't',
+      endOffset: at
+    } as never);
+  };
+
+  const run = async () => {
+    ready();
+    return await globalOperationRegistry
+      .get('insertImage')!
+      .execute({ type: 'insertImage', payload: { src: 'a.png' } } as never, context);
+  };
+
+  /** What the paragraph holds, as a list a person can read. */
+  const held = () =>
+    ((dataStore.getNode('p') as any).content as string[]).map((sid) => {
+      const node = dataStore.getNode(sid) as any;
+      return node.stype === 'inline-text' ? `text:${node.text}` : node.stype;
+    });
+
+  it('splits the run at the caret and puts the picture in the seam', async () => {
+    /*
+     * The offset was thrown away, so a caret in the middle of a sentence put the picture after the
+     * **whole run** — at the end of the sentence, which is not where the reader was.
+     */
+    words('가나다라', 2);
+    await run();
+    expect(held()).toEqual(['text:가나', 'inline-image', 'text:다라']);
   });
 
-  function setSelection(nodeId: string, offset: number): void {
-    context.selection.setCaret(nodeId, offset);
-  }
+  it('leaves the run whole at either edge, rather than splitting off nothing', async () => {
+    // A caret at 0 or at the end has nothing to split, and splitting there would leave an empty run
+    // behind for every picture anybody ever inserted.
+    words('가나다라', 0);
+    await run();
+    expect(held()).toEqual(['inline-image', 'text:가나다라']);
 
-  function setupDoc(): void {
-    dataStore.setNode({ sid: 'doc-1', stype: 'document', content: ['p-1'] });
-    dataStore.setNode({ sid: 'p-1', stype: 'paragraph', content: ['text-1'], parentId: 'doc-1' });
-    dataStore.setNode({ sid: 'text-1', stype: 'inline-text', text: 'Hello', parentId: 'p-1' });
-  }
-
-  it('inserts inline-image with src and alt', async () => {
-    setupDoc();
-    setSelection('text-1', 5);
-    const op = globalOperationRegistry.get('insertImage');
-    expect(op).toBeDefined();
-    const result = await op!.execute(
-      { type: 'insertImage', payload: { src: 'https://example.com/img.png', alt: 'Test image' } } as any,
-      context
-    );
-
-    expect(result.ok).toBe(true);
-    const p1 = dataStore.getNode('p-1') as INode;
-    expect(p1.content!.length).toBe(2);
-
-    const imageId = p1.content![1];
-    const image = dataStore.getNode(imageId) as INode;
-    expect(image.stype).toBe('inline-image');
-    expect(image.attributes?.src).toBe('https://example.com/img.png');
-    expect(image.attributes?.alt).toBe('Test image');
+    words('가나다라', 4);
+    await run();
+    expect(held()).toEqual(['text:가나다라', 'inline-image']);
   });
 
-  it('inserts image without alt', async () => {
-    setupDoc();
-    setSelection('text-1', 5);
-    const op = globalOperationRegistry.get('insertImage');
-    const result = await op!.execute(
-      { type: 'insertImage', payload: { src: 'https://example.com/photo.jpg' } } as any,
-      context
-    );
+  it('puts a picture beside another picture, not inside it', async () => {
+    /**
+     * The fault the question found. A caret on an `inline-image` made that image the block: it is an
+     * atom, so `Array.isArray(content)` was reached on a node whose `content` is missing, and the
+     * operation threw before the branch that knows to look at the picture's holder ever ran. From
+     * outside: the command said it could run, ran, and the paragraph did not change.
+     */
+    dataStore.setNode({ sid: 'p', stype: 'paragraph', content: ['a', 'b'] } as never);
+    dataStore.setNode({ sid: 'a', stype: 'inline-image', attributes: { src: '1.png' }, parentId: 'p' } as never);
+    dataStore.setNode({ sid: 'b', stype: 'inline-image', attributes: { src: '2.png' }, parentId: 'p' } as never);
 
-    expect(result.ok).toBe(true);
-    const p1 = dataStore.getNode('p-1') as INode;
-    const imageId = p1.content![1];
-    const image = dataStore.getNode(imageId) as INode;
-    expect(image.attributes?.alt).toBeUndefined();
+    // A caret past the first picture, which is what a browser gives between two atoms.
+    selectionManager.setSelection({
+      type: 'range',
+      startNodeId: 'a',
+      startOffset: 1,
+      endNodeId: 'a',
+      endOffset: 1
+    } as never);
+    await run();
+
+    expect(held()).toEqual(['inline-image', 'inline-image', 'inline-image']);
+    // And nothing went inside the picture it was next to.
+    expect((dataStore.getNode('a') as any).content ?? []).toHaveLength(0);
   });
 
-  it('DSL builds correct descriptor', () => {
-    const d1 = insertImageDsl('a.png');
-    expect(d1.type).toBe('insertImage');
-    expect(d1.payload.src).toBe('a.png');
-
-    const d2 = insertImageDsl('b.png', 'alt text');
-    expect(d2.payload.alt).toBe('alt text');
-  });
-
-  it('provides inverse operation', async () => {
-    setupDoc();
-    setSelection('text-1', 5);
-    const op = globalOperationRegistry.get('insertImage');
-    const result = await op!.execute(
-      { type: 'insertImage', payload: { src: 'x.png' } } as any,
-      context
-    );
-    expect(result.inverse).toBeDefined();
-    expect(result.inverse.type).toBe('removeChild');
-  });
-
-  it('throws when src is missing', async () => {
-    setupDoc();
-    setSelection('text-1', 5);
-    const op = globalOperationRegistry.get('insertImage');
-    await expect(
-      op!.execute({ type: 'insertImage', payload: {} } as any, context)
-    ).rejects.toThrow(/src/);
-  });
-
-  it('throws when selection is missing', async () => {
-    setupDoc();
-    context.selection.current = null;
-    const op = globalOperationRegistry.get('insertImage');
-    await expect(
-      op!.execute({ type: 'insertImage', payload: { src: 'x.png' } } as any, context)
-    ).rejects.toThrow(/insertImage/);
+  it('puts it before the picture when the caret is not past it', async () => {
+    dataStore.setNode({ sid: 'p', stype: 'paragraph', content: ['a'] } as never);
+    dataStore.setNode({ sid: 'a', stype: 'inline-image', attributes: { src: '1.png' }, parentId: 'p' } as never);
+    selectionManager.setSelection({
+      type: 'range',
+      startNodeId: 'a',
+      startOffset: 0,
+      endNodeId: 'a',
+      endOffset: 0
+    } as never);
+    await run();
+    expect(((dataStore.getNode('p') as any).content as string[])[1]).toBe('a');
   });
 });

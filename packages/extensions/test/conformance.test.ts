@@ -770,12 +770,13 @@ describe('every command this package registers', () => {
 
     expect(report.examined['every-command-does-something']).toBeGreaterThanOrEqual(134);
     /*
-     * Which two: `indentNode` and `outdentNode`. Both ask the schema whether a node is `indentable`
-     * and **no schema in this repository marks one**, so neither can be run from any state — see the
-     * comment above. A permanently-correct decline, and the reason this is a number: it is the count
-     * of questions the probe cannot ask, not a ceiling on faults.
+     * Which two, **by name** — the harness says so now rather than only counting, so this asserts the
+     * two rather than a ceiling of two. Both ask the schema whether a node is `indentable` and **no
+     * schema in this repository marks one**, so neither can be run from any state. A
+     * permanently-correct decline; the day a schema marks something indentable, this fails and
+     * somebody looks.
      */
-    expect(report.unanswered['every-command-does-something']).toBeLessThanOrEqual(2);
+    expect(report.unanswered['every-command-does-something'] ?? []).toEqual(['indentNode', 'outdentNode']);
   });
 
   /**
