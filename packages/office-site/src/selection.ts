@@ -445,7 +445,13 @@ export function labelOfBlock(doc: Access, sid: string): string {
     case 'collection':
       return `목록 · ${typeof attrs.source === 'string' ? attrs.source : '데이터 없음'}`;
     case 'instance':
-      return `블록 · ${typeof attrs.componentId === 'string' ? attrs.componentId : '정의 없음'}`;
+      /*
+       * **컴포넌트**, not 블록. Everything on a page is a block; what this one *is* is a placement of
+       * a component, and that is the word the rail, the panel and the menus all use for it. Read on
+       * a real board it said 블록 · site-header, which names the one thing it has in common with
+       * everything around it.
+       */
+      return `컴포넌트 · ${typeof attrs.componentId === 'string' ? attrs.componentId : '정의 없음'}`;
     case 'picture':
       return '이미지';
     case 'heading':

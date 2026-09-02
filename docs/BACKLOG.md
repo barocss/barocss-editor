@@ -46,6 +46,28 @@ entries are that.
 
 ## Open
 
+### 오른쪽 버튼 메뉴의 세 가지 — 원인은 둘이었다 — 2026-09-02 *(fixed)*
+
+Reported as three: *항상 데스크탑에서만 뜨고 있어* / *마우스 커서 위치에 애초에 안 뜨는구만* / *멀티 선택
+한 다음에는 context menu 를 띄우지 못해, 선택이 풀려버림*.
+
+**The first two are one fault, and the comment above the code claimed the opposite.** The menu was
+written inside the overlay; the overlay is inside the plane; the plane carries a `transform` — which
+makes it the containing block for a `position: fixed` descendant **and** scales it. So client
+coordinates were read against the plane's box, at the plane's zoom, from the plane's origin, which is
+the leftmost board's corner. The comment said *"drawn outside the zoomed plane"*, and it was not.
+
+Fixed by **deleting it**: `office-ui`'s `Menu` is a menu at a point, portals into the body, flips at
+the window's edge and walks with the arrow keys, and its own header explains the portal with a
+measurement from the deck. Two answers to one question, and this one had drifted into being the wrong
+answer. The board's copy is gone along with 34 lines of its stylesheet.
+
+**The third is one missing condition.** A press of the right button is a `pointerdown` like any other,
+so the overlay's press handler ran first and did what a press does — resolved the block under the
+pointer and made it the whole selection. `onContextMenu` is careful to *keep* a selection the pointer
+is already inside, and arrived to find a selection of one. `event.button !== 0` now returns early; the
+middle button is the plane's and belongs to the canvas.
+
 ### 캔버스의 휠이 미리보기의 스크롤을 먹고 있었다 — 2026-09-02 *(fixed)*
 
 Reported as *미리 보기는 스크롤이 되어야 하는데, 마우스로 스크롤을 할 수가 없어, 뭔가 편집 상태에서

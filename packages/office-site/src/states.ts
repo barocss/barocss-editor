@@ -208,7 +208,9 @@ export const OPENABLE: readonly string[] = [
   ...STATEABLE,
   'visible',
   'layoutMode',
-  'gap'
+  /* Both gaps, because a strip that becomes a grid when it opens spaces its lines as well. */
+  'gap',
+  'gapCross'
 ];
 
 /** What this state may change — see `STATEABLE` and `OPENABLE` for why they differ. */

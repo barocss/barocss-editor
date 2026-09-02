@@ -1773,3 +1773,51 @@ Every one is a fact the document already holds:
 publishable, and at that moment "one document" is over. The point where annotations become genuinely
 necessary — arrows between screens, a screen that does not exist yet — is the point where a **화면
 흐름도** is necessary, and that is a different product.
+
+## 폭은 문서의 것이다
+
+Asked as three things that turned out to be one: *사이즈를 더 추가할 수도 있지 않을까 / 순서도 바꿀 수
+있어야할 듯 / 미리보기에 실제 장치 테두리가 있으면*. All three are the same missing fact — **the list of
+widths belongs to the document** — and today it is a `const` in `breakpoints.ts` with three entries.
+
+### Why a node and not an array
+
+A width is **referred to by name**. Every `overrides` key in every document is one (`{ mobile: … }`),
+the boards are keyed by it, and `attrsAt` walks it. That is this repository's reference shape, used
+seven times already, and the answer it has always given is a **declared node**: `variable` is the
+closest match and settles the two-field question as well — a **durable `name`** that references point
+at and cannot be renamed, and a `label` a reader changes freely.
+
+    widths: { content: 'width*' }
+    width:  { name, label?, size, viewport?, icon? }
+
+`size` rather than `width`, because an attribute called `width` on a node called `width` is a sentence
+nobody can read. Both are CSS pixels, which is the unit a breakpoint is written in everywhere on the
+web; the document is still in twips and the conversion stays where a length is drawn.
+
+### What stops being a constant
+
+- `BASE_BREAKPOINT` — the widest, computed rather than named. `desktop` is the widest *today*.
+- `OVERRIDABLE` — every width but the base.
+- `scopesFor` — narrowest-first from the width being drawn up to the base, which is a sort by `size`
+  rather than the hard-coded `['mobile', 'tablet', 'desktop']`.
+- `BreakpointId` — a `string`, because a reader can name one.
+
+An override written at a width the document no longer has is **kept and not applied**. Deleting a
+width is not a reason to destroy the work done at it, and a file that silently lost half a design
+because somebody tidied a list is the worst kind of data loss: invisible.
+
+### The order is the document's
+
+Weighed both ways. It is a fact about how *this site's author* works rather than about the site — but
+there is no per-reader store in this product, so a reader-owned order would vanish on reload, and an
+order that will not stay put is worse than one kept in a slightly wrong place. The published CSS does
+not care either way: its media queries are sorted by `size` regardless, so the list's order is purely
+which board sits where.
+
+### The device is a width's, not a mode's
+
+A device frame in preview is *what this width is a window onto*, so it belongs beside `size` and
+`viewport` rather than being a second idea. Choosing a device fills all three in — which is the answer
+to *장치별로 사이즈가 자동으로 바뀌던가*: the device is a shorthand for the numbers, and the numbers stay
+the thing the document holds.

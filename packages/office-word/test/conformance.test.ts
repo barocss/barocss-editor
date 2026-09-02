@@ -583,6 +583,13 @@ const schema = createSchema('word', getWordSchemaDefinition());
         'frame.alignItems': 'read by `frameCss` inside its `row`, `column` and `grid` branches; the probe fills `layoutMode` with its first option, `none`',
         'frame.justifyContent': 'read by `frameCss` inside its `row`, `column` and `grid` branches; the probe fills `layoutMode` with `none`',
         'frame.gap': 'read by `frameCss` inside its `row`, `column` and `grid` branches; the probe fills `layoutMode` with `none`',
+        /*
+         * The space **across** the flow, which is the same exemption for the same reason — and one
+         * more besides: written short when the two agree, so a frame that states only this one and
+         * leaves `gap` at nothing has two gaps of zero and draws `gap: 0px`, exactly as it did
+         * before there were two. Both halves are measured in `shapes.test.ts`, in milliseconds.
+         */
+        'frame.gapCross': 'read by `frameCss` inside its `row`, `column` and `grid` branches; the probe fills `layoutMode` with `none`',
         'frame.columns': 'read by `frameCss` in its `grid` branch; the probe fills `layoutMode` with `none`',
 
         'tableOfContents.leader': 'drawn on each entry, and a bare table of contents has no entries — see `word-outline.spec.ts`',

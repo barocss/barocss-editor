@@ -328,7 +328,32 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
           required: false,
           options: ['none', 'row', 'column', 'grid']
         },
+        /**
+         * The space between its children **along the flow**, in twips.
+         *
+         * Along the flow rather than in a named direction, so a reader who turns a row into a column
+         * keeps the gap they set: a number called `columnGap` would have to be renamed by the tool
+         * every time the direction changed, or read as the wrong axis.
+         */
         gap: { type: 'number', default: 0 },
+        /**
+         * And **across** the flow, which is a second number a grid genuinely has.
+         *
+         * Asked as *gap 설정할 때 column gap 이랑 row gap 을 분리해야하지 않아?* and measured: one
+         * number was written to the CSS `gap` shorthand, so a grid's rows and its columns could never
+         * differ — and a card grid usually wants more air between its rows than between its columns.
+         * The board's own gap strips already knew which axis each of them was and wrote both into the
+         * one attribute, so dragging a grid's row gap moved its column gap with it.
+         *
+         * **Absent means *the same as `gap`***, which is what keeps every document already written
+         * looking exactly as it did — and is the honest default anyway: equal gaps are what a reader
+         * means until they say otherwise.
+         *
+         * It says nothing for a row or a column, because nothing here wraps: a single line has no
+         * second axis to space. It is declared on the frame rather than on the grid because *grid* is
+         * a `layoutMode` and not a node — and the day a row wraps, this is already the number for it.
+         */
+        gapCross: { type: 'number', required: false },
         padding: { type: 'number', default: 0 },
         /**
          * And the four sides, when they differ — each falling back to `padding`.

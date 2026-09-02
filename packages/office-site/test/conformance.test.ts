@@ -1339,6 +1339,24 @@ describe('the site builder draws what it declares', () => {
         variables: 'named values, read where they are referenced (`var:이름`) and never drawn',
         variable: 'named values, read where they are referenced (`var:이름`) and never drawn',
 
+        /*
+         * ── The gap across the flow ────────────────────────────────────────
+         *
+         * Read by `frameCss`, and only inside its `row`, `column` and `grid` branches — which is
+         * right, because a `column-gap` on a box that is not a flex or grid container does nothing
+         * and emitting it would be the drawing claiming something the browser ignores. The probe
+         * fills `layoutMode` from the schema's own options and takes the first, which is `none`: the
+         * value that switches the whole family off. `frame.alignItems` and `frame.gap` carry the
+         * identical exemption in Word's own harness for the identical reason.
+         *
+         * The arithmetic is measured in `shapes.test.ts` in milliseconds, and the gesture — dragging
+         * a grid's row gap without moving its columns — in `site.spec.ts`.
+         */
+        gapCross: {
+          reason: 'read by `frameCss` inside its `row`, `column` and `grid` branches; the probe fills `layoutMode` with its first option, `none`',
+          covers: ['every-attribute-is-read']
+        },
+
         // ── Attributes a page has no coordinates for ───────────────────────
         x: {
           reason: 'a page has no coordinates; the browser lays a stack out',

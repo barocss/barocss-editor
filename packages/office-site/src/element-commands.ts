@@ -226,7 +226,7 @@ export class SiteElementExtension implements Extension {
       name: string,
       make: () => Node,
       can: (payload?: Record<string, unknown>) => boolean = (payload) =>
-        !!this._where(editor, payload?.selection, payload?.pageId)
+        !!this._where(editor, payload?.selection, payload?.pageId, payload)
     ) =>
       command({
         name,
@@ -247,11 +247,11 @@ export class SiteElementExtension implements Extension {
       command({
         name,
         execute: async (_ed: Editor, payload?: Record<string, unknown>) => {
-          const where = this._where(editor, payload?.selection, payload?.pageId);
+          const where = this._where(editor, payload?.selection, payload?.pageId, payload);
           return where ? await this._put(editor, make(where), payload) : false;
         },
         canExecute: (_ed: Editor, payload?: Record<string, unknown>) =>
-          !!this._where(editor, payload?.selection, payload?.pageId)
+          !!this._where(editor, payload?.selection, payload?.pageId, payload)
       });
 
     /** A heading. Level 2, because a page has one level 1 and it is the page's own title. */
@@ -729,7 +729,7 @@ export class SiteElementExtension implements Extension {
     command({
       name: 'insertForm',
       execute: async (_ed: Editor, payload?: Record<string, unknown>) => {
-        const where = this._where(editor, payload?.selection, payload?.pageId);
+        const where = this._where(editor, payload?.selection, payload?.pageId, payload);
         if (!where) return false;
 
         const store = this._store(editor)!;
@@ -777,7 +777,7 @@ export class SiteElementExtension implements Extension {
         return true;
       },
       canExecute: (_ed: Editor, payload?: Record<string, unknown>) =>
-        !!this._where(editor, payload?.selection, payload?.pageId)
+        !!this._where(editor, payload?.selection, payload?.pageId, payload)
     });
 
     /**
@@ -796,7 +796,7 @@ export class SiteElementExtension implements Extension {
           payload
         ),
       canExecute: (_ed: Editor, payload?: Record<string, unknown>) =>
-        !!this._where(editor, payload?.selection, payload?.pageId) &&
+        !!this._where(editor, payload?.selection, payload?.pageId, payload) &&
         this._hasComponent(editor, payload?.componentId)
     });
 
@@ -826,7 +826,7 @@ export class SiteElementExtension implements Extension {
           payload
         ),
       canExecute: (_ed: Editor, payload?: Record<string, unknown>) =>
-        !!this._where(editor, payload?.selection, payload?.pageId) &&
+        !!this._where(editor, payload?.selection, payload?.pageId, payload) &&
         this._hasComponent(editor, payload?.componentId) &&
         this._hasDataset(editor, payload?.source)
     });
@@ -873,9 +873,29 @@ export class SiteElementExtension implements Extension {
   }
 
   /** Where a new block goes — see the header for the rule. */
-  private _where(editor: Editor, given?: unknown, page?: unknown): Where | null {
+  private _where(editor: Editor, given?: unknown, page?: unknown, said?: Record<string, unknown>): Where | null {
     const store = this._store(editor);
     if (!store) return null;
+
+    /**
+     * **Where the caller says**, when it knows better than the selection does.
+     *
+     * Every other answer below derives a place from what is *selected*, which is right for a rail
+     * and a menu — a reader who has chosen a block and asked for a heading means after it. It cannot
+     * say **before**, and the board needs to: the plus above a block is that gesture, and it was the
+     * question underneath *선택상자에서 객체 추가 버튼은 왜 없어?*
+     *
+     * Checked against the document rather than trusted: a parent that does not exist, or an index
+     * outside it, is a caller with stale state and would land the block somewhere nobody pointed.
+     */
+    if (typeof said?.parentId === 'string' && typeof said?.at === 'number') {
+      const parent = store.getNode(said.parentId);
+      const many = ((parent?.content ?? []) as unknown[]).length;
+      if (parent && said.at >= 0 && said.at <= many) {
+        return { parentId: said.parentId, at: Math.round(said.at) };
+      }
+      return null;
+    }
 
     const chosen = selectedNodeIds((editor as never as { selection?: never }).selection).filter((sid) =>
       store.getNode(sid)
@@ -950,7 +970,7 @@ export class SiteElementExtension implements Extension {
    * the hard way: a command that acted on a set has to say what the set is afterwards.
    */
   private async _put(editor: Editor, child: Node, payload?: Record<string, unknown>): Promise<boolean> {
-    const where = this._where(editor, payload?.selection, payload?.pageId);
+    const where = this._where(editor, payload?.selection, payload?.pageId, payload);
     if (!where) return false;
 
     const store = this._store(editor)!;

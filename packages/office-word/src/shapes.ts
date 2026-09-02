@@ -208,6 +208,7 @@ export function frameCss(
     | (ShapeGeometry & ShapeStyle & {
         layoutMode?: string;
         gap?: number;
+        gapCross?: number;
         padding?: number;
         paddingTop?: number;
         paddingRight?: number;
@@ -276,7 +277,40 @@ export function frameCss(
     css.border = `${twipToPx(number(attrs.strokeWidth, 15))}px solid ${attrs.stroke}`;
   }
 
-  const gap = `${twipToPx(number(attrs?.gap, 0))}px`;
+  /**
+   * **Two gaps, along the flow and across it** — and the shorthand is what made them one.
+   *
+   * `gap` was written to the CSS `gap`, which sets both axes, so a grid's rows and its columns could
+   * never differ however hard a reader tried. Asked directly — *column gap 이랑 row gap 을 분리해야
+   * 하지 않아?* — and the answer is yes, in exactly one arrangement: a grid. A row and a column have
+   * one line each, and nothing here wraps, so their second axis spaces nothing at all. Written for
+   * all three anyway, because writing the axis that cannot matter costs nothing and the day a row
+   * wraps this is already right.
+   *
+   * `gapCross` **absent falls back to `gap`**, which keeps every document already written looking
+   * exactly as it did.
+   */
+  const along = `${twipToPx(number(attrs?.gap, 0))}px`;
+  const across = `${twipToPx(number(attrs?.gapCross, number(attrs?.gap, 0)))}px`;
+  /*
+   * Which CSS property is which depends on the direction, and that is the whole reason the model
+   * names these *along* and *across* rather than *row* and *column*: a reader who turns a row into a
+   * column keeps the gap they set instead of having the tool rename it under them.
+   */
+  const down = attrs?.layoutMode === 'column' ? along : across;
+  const sideways = attrs?.layoutMode === 'column' ? across : along;
+  /**
+   * **Written short when the two agree**, which is the rule the padding above already follows and
+   * for the same measured reason: a browser serialises `row-gap: 20px; column-gap: 20px` back as
+   * `gap: 20px`, so a check comparing what the export wrote against what the editor drew was
+   * comparing a string the browser had shortened against one this had not.
+   *
+   * It also means every document written before there were two gaps produces the identical
+   * declaration it always did — the longhands appear only where a reader has actually asked for two
+   * different numbers.
+   */
+  const gaps: CssStyle =
+    down === sideways ? { gap: down } : { rowGap: down, columnGap: sideways };
 
   /**
    * The four sides, each falling back to the one number.
@@ -317,15 +351,15 @@ export function frameCss(
 
   switch (attrs?.layoutMode) {
     case 'row':
-      return shown({ ...css, display: 'flex', flexDirection: 'row', gap, padding, alignItems: align, justifyContent: justify });
+      return shown({ ...css, display: 'flex', flexDirection: 'row', ...gaps, padding, alignItems: align, justifyContent: justify });
     case 'column':
-      return shown({ ...css, display: 'flex', flexDirection: 'column', gap, padding, alignItems: align, justifyContent: justify });
+      return shown({ ...css, display: 'flex', flexDirection: 'column', ...gaps, padding, alignItems: align, justifyContent: justify });
     case 'grid':
       return shown({
         ...css,
         display: 'grid',
         gridTemplateColumns: `repeat(${Math.max(1, Math.round(number(attrs?.columns, 2)))}, minmax(0, 1fr))`,
-        gap,
+        ...gaps,
         padding,
         alignItems:
           attrs?.alignItems === 'center'

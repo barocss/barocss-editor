@@ -1495,6 +1495,21 @@ function own(
 ): React.ReactNode | undefined {
   const { attrs, shown, at, data, run, editor } = ctx;
 
+  /**
+   * **A companion answers `when` too**, which it could not until a grid needed two gaps.
+   *
+   * `visible` filters the panel's rows, and a **companion** is not one of them: it is drawn beside
+   * its leader by the sheet, which asks this function first and takes `null` for *leave it out*. So a
+   * companion could say `when` and be drawn anyway — a control that writes an attribute the drawing
+   * ignores, which is the fault the harness exists to catch, arriving through the one door it does
+   * not watch.
+   *
+   * Asked of every row rather than of the one that needed it. A leader has already been filtered by
+   * the time it reaches here, so this is only ever a second identical answer for those, and the day
+   * another pair needs it the mechanism is the one already declared.
+   */
+  if (!visible(row, attrs, shown?.count ?? 1)) return null;
+
   switch (row.control) {
     case 'static':
       return <span className="st-kind">{kindOfBlock(shown?.stype ?? '') ?? shown?.stype}</span>;

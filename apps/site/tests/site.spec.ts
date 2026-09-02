@@ -512,7 +512,9 @@ test.describe('pointing at the page', () => {
     await page.locator('[data-panel="layers"]').click();
 
     const rows = page.locator('.st-layer');
-    await expect(rows.first()).toHaveText(/블록/);
+    // 컴포넌트, not 블록: everything on a page is a block, so naming a placement by the one thing it
+    // has in common with everything around it said nothing. See `labelOfBlock`.
+    await expect(rows.first()).toHaveText(/컴포넌트/);
 
     await rows.nth(2).click();
     await page.waitForTimeout(300);
@@ -530,7 +532,7 @@ test.describe('the panel', () => {
     await pressDeepAt(page, card('desktop'));
     await page.waitForTimeout(300);
 
-    const gap = page.locator('.office-properties').getByLabel('간격');
+    const gap = page.locator('.office-properties').getByLabel('간격', { exact: true });
     await gap.fill('40');
     await gap.press('Enter');
     await page.waitForTimeout(400);
@@ -553,7 +555,7 @@ test.describe('the panel', () => {
     // nobody else can see.
     await expect(page.locator('.st-at-note')).toContainText('모바일');
 
-    const gap = page.locator('.office-properties').getByLabel('간격');
+    const gap = page.locator('.office-properties').getByLabel('간격', { exact: true });
     await gap.fill('4');
     await gap.press('Enter');
     await page.waitForTimeout(400);
@@ -1004,6 +1006,67 @@ test.describe('the exported page', () => {
     expect(await gapOf()).toBeGreaterThan(before);
   });
 
+  test('pulls a grid’s rows apart without moving its columns', async ({ page }) => {
+    /**
+     * Asked as *gap 설정할 때 column gap 이랑 row gap 을 분리해야하지 않아?* — and the board was the
+     * clearest proof that it had to be. Every gap strip already knew its own axis, and all of them
+     * wrote the same attribute into the CSS `gap` **shorthand**, which sets both: so pulling the
+     * space between a grid's rows pulled its columns apart with it, in front of the reader.
+     *
+     * The model names the two along the flow and across it rather than row and column, so a reader
+     * who turns a row into a column keeps the gap they set. Which strip is which is therefore the
+     * parent's direction and not the strip's — down a column is *along*, down a grid is *across* —
+     * and that is the arithmetic this drives a browser for.
+     */
+    await ready(page);
+    const grid = cardRow(page, 'desktop');
+    await bring(page, grid);
+    await page.waitForTimeout(300);
+
+    /*
+     * Selected by name rather than by pressing down to it: the drill has its own check above, and
+     * what this one is about is the arithmetic of two gaps. The grid is given a second **line** at
+     * the same time — three cards in three columns is one row, and a grid with one row has no space
+     * between rows to pull.
+     */
+    await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const el = document.querySelector('[data-frame="desktop"] .st-stack[data-name="제품 셋"]');
+      const sid = el?.getAttribute('data-bc-sid');
+      editor.executeCommand('setNode', { nodeIds: [sid] });
+      editor.executeCommand('setBlockFormat', { nodeIds: [sid], columns: 2 });
+    });
+    await page.waitForTimeout(700);
+
+    const both = async () =>
+      await page.evaluate(() => {
+        const el = document.querySelector(
+          '[data-frame="desktop"] .st-stack[data-name="제품 셋"]'
+        ) as HTMLElement;
+        const said = getComputedStyle(el);
+        return {
+          down: Math.round(Number.parseFloat(said.rowGap) || 0),
+          across: Math.round(Number.parseFloat(said.columnGap) || 0)
+        };
+      });
+    const was = await both();
+
+    // Two lines now, so the board draws strips of both kinds; this one is between the lines.
+    const strip = page.locator('[data-inset="gap"][data-gap-way="down"]').first();
+    await expect(strip).toBeVisible();
+    const band = (await strip.boundingBox())!;
+    await page.mouse.move(band.x + band.width / 2, band.y + band.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(band.x + band.width / 2, band.y + band.height / 2 + 40, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    const now = await both();
+    expect(now.down).toBeGreaterThan(was.down);
+    // The half the whole change is for.
+    expect(now.across).toBe(was.across);
+  });
+
   test('says what a block leans on, and what leans on it', async ({ page }) => {
     /**
      * **The tab that holds no properties**, and the one this document model needs most.
@@ -1440,42 +1503,158 @@ test.describe('the exported page', () => {
      * tool follows, and the one that makes *right-click three things and delete them* work.
      */
     await ready(page);
-    await page
-      .locator('[data-frame="desktop"] [data-name="문제"]')
-      .first()
-      .click({ force: true, button: 'right' });
+    const menu = page.locator('[data-context-menu]');
+
+    /*
+     * **On the board the pointer is over, at the point the pointer is at** — both of which were
+     * reported wrong, and both from one cause: the menu was written inside the overlay, the overlay
+     * is inside the plane, and the plane carries a `transform`, which makes it the containing block
+     * for a `position: fixed` descendant *and* scales it. So a menu opened on the tablet appeared
+     * over the desktop (the plane's origin is the leftmost board's corner) at the plane's zoom.
+     *
+     * `office-ui`'s `Menu` portals into the body, which is what its own header says the portal is
+     * for. Asked of the **tablet** deliberately: on the desktop board the fault is invisible.
+     */
+    const block = page.locator('[data-frame="tablet"] [data-name="문제"]').first();
+    const box = (await block.boundingBox())!;
+    const at = { x: box.x + 24, y: box.y + 24 };
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.click(at.x, at.y, { button: 'right' });
     await page.waitForTimeout(400);
 
-    const menu = page.locator('[data-context]');
     await expect(menu).toHaveCount(1);
+    /*
+     * At the pointer — and the vertical claim is *at it or lifted just enough to fit*, because this
+     * point is in the lower half of the window and a menu of eleven items would run off the bottom.
+     * Measured while writing this: 181 pixels of lift, which is the placement working rather than
+     * failing. What would have caught the reported fault either way is the **x**: the menu used to
+     * land against the plane's origin, hundreds of pixels away and on another board.
+     */
+    const view = page.viewportSize()!;
+    const where = (await menu.boundingBox())!;
+    expect(Math.abs(where.x - at.x)).toBeLessThan(6);
+    expect(where.y).toBeLessThanOrEqual(at.y + 6);
+    expect(where.y + where.height).toBeLessThanOrEqual(view.height);
+    // And on the board the pointer is over, which is the other half of what was reported.
+    const board = (await page.locator('[data-frame="tablet"]').boundingBox())!;
+    expect(where.x).toBeGreaterThan(board.x - 8);
 
     // Each item says whether it can run, from the same guard the menubar asks.
-    await expect(page.locator('[data-context-item="duplicateBlocks"]')).toBeEnabled();
-    await expect(page.locator('[data-context-item="detachComponent"]')).toBeDisabled();
+    await expect(page.locator('[data-menu-item="duplicateBlocks"]')).toBeEnabled();
+    await expect(page.locator('[data-menu-item="detachComponent"]')).toBeDisabled();
 
     // And it runs: duplicating adds a sibling, and the menu goes with the choosing.
     const before = await page.evaluate(
-      () => document.querySelectorAll('[data-frame="desktop"] [data-name="문제"]').length
+      () => document.querySelectorAll('[data-frame="tablet"] [data-name="문제"]').length
     );
-    await page.locator('[data-context-item="duplicateBlocks"]').click();
+    await page.locator('[data-menu-item="duplicateBlocks"]').click();
     await page.waitForTimeout(600);
     await expect(menu).toHaveCount(0);
     expect(
       await page.evaluate(
-        () => document.querySelectorAll('[data-frame="desktop"] [data-name="문제"]').length
+        () => document.querySelectorAll('[data-frame="tablet"] [data-name="문제"]').length
       )
     ).toBeGreaterThan(before);
 
     // Escape and a press away both close it, because a menu with one way out is a trap.
-    await page
-      .locator('[data-frame="desktop"] [data-name="히어로"]')
-      .first()
-      .click({ force: true, button: 'right' });
+    await page.mouse.click(at.x, at.y, { button: 'right' });
     await page.waitForTimeout(300);
     await expect(menu).toHaveCount(1);
-    await page.locator('.st-context-shade').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press('Escape');
     await page.waitForTimeout(250);
     await expect(menu).toHaveCount(0);
+  });
+
+  test('puts a block at either end of the flow, and only where there is an end', async ({ page }) => {
+    /**
+     * Asked as *선택상자에서 객체 추가 버튼은 왜 없어? (위,아래,왼쪽,오른쪽)* — and the answer is **two**
+     * rather than four, which is the whole claim this drives a browser for.
+     *
+     * A block in a column has a place above it and a place below it. To its left there is no place at
+     * all until something is wrapped in a new row, and a plus button has no business making that
+     * change to the tree without being asked. So the two that exist are drawn, on the edges where
+     * they act, and they turn with the stack: a card in a row gets them left and right.
+     *
+     * Underneath is the model half — before this an insert could only say *after what is selected*,
+     * so the plus **above** a block was unsayable. `insert*` takes a place now, checked against the
+     * document rather than trusted.
+     */
+    await ready(page);
+    await page.locator('[data-frame="desktop"] [data-name="문제"]').first().click({ force: true });
+    await page.waitForTimeout(500);
+
+    const adds = page.locator('[data-frame="desktop"] .st-add');
+    await expect(adds).toHaveCount(2);
+    // A band sits in the page's column, so the two ends are above and below it.
+    await expect(adds.first()).toHaveAttribute('data-add-way', 'down');
+
+    const around = async () =>
+      await page.evaluate(() => {
+        const editor = (window as any).editor;
+        const sid = editor.selection?.nodeIds?.[0];
+        const parent = editor.dataStore.getNode(sid)?.parentId;
+        const kids = (editor.dataStore.getNode(parent)?.content ?? []) as string[];
+        return { many: kids.length, at: kids.indexOf(sid) };
+      });
+    const was = await around();
+
+    await adds.first().click({ force: true });
+    await page.waitForTimeout(700);
+
+    const now = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const sid = editor.selection?.nodeIds?.[0];
+      const parent = editor.dataStore.getNode(sid)?.parentId;
+      const kids = (editor.dataStore.getNode(parent)?.content ?? []) as string[];
+      return { many: kids.length, at: kids.indexOf(sid), stype: editor.dataStore.getNode(sid)?.stype };
+    });
+    expect(now.many).toBe(was.many + 1);
+    // **Before** it, which is the half that could not be said at all until the model took a place.
+    expect(now.at).toBe(was.at);
+    // And what it made is what the reader can immediately type into.
+    expect(now.stype).toBe('paragraph');
+
+    /*
+     * A block that places itself by coordinates has no flow to be at the end of — its neighbours are
+     * not beside it, they are wherever they were put — so it gets none.
+     */
+    await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const sid = editor.selection?.nodeIds?.[0];
+      editor.executeCommand('setBlockFormat', { nodeIds: [sid], position: 'absolute' });
+    });
+    await page.waitForTimeout(600);
+    await expect(page.locator('[data-frame="desktop"] .st-add')).toHaveCount(0);
+  });
+
+  test('keeps a selection of several when the right button opens the menu', async ({ page }) => {
+    /**
+     * Reported as *멀티 선택 한 다음에는 context menu 를 띄우지 못해, 선택이 풀려버림*, and it was one
+     * missing condition: a press of the right button is a `pointerdown` like any other, so the
+     * overlay's press handler ran first and did what a press does — resolved the block under the
+     * pointer and made it the whole selection. `onContextMenu` is careful to *keep* a selection the
+     * pointer is already inside, and arrived to find a selection of one.
+     *
+     * Which is the gesture the rule exists for: right-click three things and delete them.
+     */
+    await ready(page);
+    const cards = cardRow(page, 'desktop').locator('.st-stack');
+    await bring(page, cardRow(page, 'desktop'));
+
+    await pressDeepAt(page, cards.nth(0));
+    await page.waitForTimeout(250);
+    await press(page, cards.nth(1).locator('h3'), { modifiers: ['Shift'] });
+    await page.waitForTimeout(300);
+    expect(await selection(page)).toHaveLength(2);
+
+    const box = (await cards.nth(1).boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + 12, { button: 'right' });
+    await page.waitForTimeout(400);
+
+    await expect(page.locator('[data-context-menu]')).toHaveCount(1);
+    // Both still held, so 묶기 is offered — a command that refuses a single block.
+    expect(await selection(page)).toHaveLength(2);
+    await expect(page.locator('[data-menu-item="groupBlocks"]')).toBeEnabled();
   });
 
   test('puts two blocks into one, and takes it apart again', async ({ page }) => {
@@ -4925,7 +5104,7 @@ test.describe('what a block holds its content at', () => {
     );
     expect(said).toEqual(['gap=24', 'gap=24']);
     // And the panel says the same thing, which is the whole point of drawing it.
-    await expect(page.locator('.office-properties').getByLabel('간격')).toHaveValue('24');
+    await expect(page.locator('.office-properties').getByLabel('간격', { exact: true })).toHaveValue('24');
   });
 
   test('says nothing when several blocks are held', async ({ page }) => {

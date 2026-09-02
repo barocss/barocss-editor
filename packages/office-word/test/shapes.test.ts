@@ -35,6 +35,50 @@ describe('a frame, as CSS', () => {
     expect(frameCss({ layoutMode: 'row' } as never).justifyContent).toBe('flex-start');
   });
 
+  it('spaces the flow and the lines separately, which the shorthand could not', () => {
+    /*
+     * Asked as *gap 설정할 때 column gap 이랑 row gap 을 분리해야하지 않아?* and it had to be: `gap`
+     * went to the CSS shorthand, which sets both axes, so a grid's rows and its columns could never
+     * differ — and a card grid usually wants more air between its rows than between its columns.
+     *
+     * The model names them **along the flow** and **across** it rather than row and column, so a
+     * reader who turns a row into a column keeps the gap they set instead of having the tool rename
+     * it under them. Which CSS property each becomes is therefore the direction's answer, and that
+     * is what these check: 300 twips is 20px, 600 is 40.
+     */
+    const row = frameCss({ layoutMode: 'row', gap: 300, gapCross: 600 } as never);
+    expect(row.columnGap).toBe('20px');
+    expect(row.rowGap).toBe('40px');
+
+    // A column reads the same two numbers the other way round, from the same document.
+    const column = frameCss({ layoutMode: 'column', gap: 300, gapCross: 600 } as never);
+    expect(column.rowGap).toBe('20px');
+    expect(column.columnGap).toBe('40px');
+
+    // A grid flows across, so its lines are its rows — the case the whole thing is for.
+    const grid = frameCss({ layoutMode: 'grid', gap: 300, gapCross: 600 } as never);
+    expect(grid.columnGap).toBe('20px');
+    expect(grid.rowGap).toBe('40px');
+  });
+
+  it('writes the one number short, the way the padding does', () => {
+    /*
+     * Two halves of one decision. It keeps every document written before there were two gaps drawing
+     * the identical declaration it always did — and it is the rule the padding beside it already
+     * follows, for a reason that was measured there: a browser serialises `row-gap: 20px;
+     * column-gap: 20px` back as `gap: 20px`, so a check comparing what the export wrote against what
+     * the editor drew was comparing a string the browser had shortened against one this had not.
+     */
+    const grid = frameCss({ layoutMode: 'grid', gap: 300 } as never);
+    expect(grid.gap).toBe('20px');
+    expect(grid.rowGap).toBeUndefined();
+    expect(grid.columnGap).toBeUndefined();
+
+    // And a grid told the same number twice is still one number, not two that happen to agree.
+    expect(frameCss({ layoutMode: 'grid', gap: 300, gapCross: 300 } as never).gap).toBe('20px');
+    expect(frameCss({ layoutMode: 'row' } as never).gap).toBe('0px');
+  });
+
   it('writes four sides, each falling back to the one number', () => {
     // 300 twips is 20px; a side that says nothing takes the shorthand rather than zero, which is
     // the whole difference between "no padding here" and "nothing said about here".

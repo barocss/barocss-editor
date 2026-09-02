@@ -378,7 +378,50 @@ export const SITE_PANEL: SitePanelRow[] = [
     // of the three arrangements is a row a reader learns to ignore.
     when: { attr: 'layoutMode', is: ['grid'] }
   },
-  { attr: 'gap', command: 'setBlockFormat', group: '배치', tab: 'block', label: '간격', ariaLabel: '간격', control: 'number', unit: 'px', min: 0, fallback: 0, on: STACKS },
+  {
+    attr: 'gap',
+    command: 'setBlockFormat',
+    group: '배치',
+    tab: 'block',
+    label: '간격',
+    ariaLabel: '간격',
+    control: 'number',
+    unit: 'px',
+    min: 0,
+    fallback: 0,
+    on: STACKS,
+    /**
+     * **And the gap across the flow, which only a grid has.**
+     *
+     * Asked as *column gap 이랑 row gap 을 분리해야하지 않아?* — and it had to be, for a grid: one
+     * number went to the CSS `gap` shorthand, so a card grid could not have more air between its rows
+     * than between its columns, and the board's row-gap strip moved the column gap with it.
+     *
+     * A companion rather than a row of its own, and drawn **only for a grid**: a row and a column
+     * have one line each and nothing here wraps, so a second number there would be a control that
+     * writes something no drawing reads — which is the exact fault this suite's harness exists to
+     * catch. The companion is left out where it means nothing (`own` answers `null`), the way every
+     * companion that draws nothing is.
+     *
+     * 줄 간격 rather than 세로 간격, because what it spaces is the **lines** of the grid, and that
+     * stays true if the grid is ever read in another direction.
+     */
+    with: [
+      {
+        attr: 'gapCross',
+        command: 'setBlockFormat',
+        group: '배치',
+        tab: 'block',
+        label: '줄 간격',
+        ariaLabel: '줄 간격',
+        control: 'number',
+        unit: 'px',
+        min: 0,
+        on: STACKS,
+        when: { attr: 'layoutMode', is: ['grid'] }
+      }
+    ]
+  },
   /**
    * **A row that scrolls sideways**, which is also exactly a carousel.
    *

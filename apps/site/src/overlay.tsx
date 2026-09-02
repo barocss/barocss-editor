@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { Editor } from '@barocss/editor-core';
-import { Icon } from '@barocss/office-ui';
+import { Icon, Menu } from '@barocss/office-ui';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import { useRevision } from '@barocss/office-ui';
 import {
@@ -916,6 +916,18 @@ export function Overlay({
       }}
       onPointerDown={(event) => {
         if (mode !== 'select') return;
+        /**
+         * **Only the primary button selects.**
+         *
+         * Reported as *멀티 선택 한 다음에는 context menu 를 띄우지 못해, 선택이 풀려버림*, and this
+         * one line is the whole of it: a press of the right button is a `pointerdown` like any other,
+         * so this ran first and did what a press does — resolved the block under the pointer and made
+         * it the selection — and `onContextMenu`, which is careful to *keep* a selection the pointer
+         * is already inside, arrived to find a selection of one.
+         *
+         * The middle button is the plane's, and it belongs to the canvas rather than to this layer.
+         */
+        if (event.button !== 0) return;
         // Any new press answers the last one, so the note about bound words goes with it.
         setBound(undefined);
         /*
@@ -1119,69 +1131,62 @@ export function Overlay({
 
       {context ? (
         /**
-         * **The menu**, drawn outside the zoomed plane so it is the same size at 40% and at 200% —
-         * the rule every other piece of tool furniture here follows.
+         * **The menu is `office-ui`'s**, which is where a menu at a point already lived.
          *
-         * Closed by choosing, by pressing away, and by Escape. A menu a reader has to dismiss after
-         * it has done what they opened it for is a menu that asked them twice; one with no way out
-         * but choosing is worse.
+         * This file had its own, and the comment above it claimed it was *"drawn outside the zoomed
+         * plane"*. It was not: it is written inside the overlay, the overlay is inside the plane, and
+         * the plane carries a `transform` — which makes it the containing block for a `position:
+         * fixed` descendant **and** scales it. So both halves of what was reported are the one fault:
+         * *항상 데스크탑에서만 뜨고 있어* (the plane's origin is the leftmost board's corner) and
+         * *마우스 커서 위치에 애초에 안 뜨는구만* (client coordinates read against the plane's box, at
+         * the plane's zoom).
+         *
+         * `Menu` portals into the body, so no ancestor's transform, clip or scroll can reach it — the
+         * reason its own header gives for the portal, measured on a deck where a menu near the bottom
+         * corner was cut away. It also flips at the window's edge and walks with the arrow keys,
+         * neither of which this had.
+         *
+         * Two answers to one question, again, and this one had drifted into being the wrong answer.
          */
-        <>
-          <div className="st-context-shade" onPointerDown={() => setContext(null)} aria-hidden />
-          <div
-            className="st-context"
-            data-context
-            role="menu"
-            style={{ left: `${context.x}px`, top: `${context.y}px` }}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') setContext(null);
-            }}
-          >
-            {SITE_CONTEXT.map((block) => (
-              <div key={block.id} className="st-context-block">
-                {block.items.map((one) => {
-                  const said = { nodeIds: selected, ...(one.needs === 'page' ? { nodeId: page, pageId: page } : {}) };
-                  const can =
-                    (editor as never as {
-                      canExecuteCommand?: (n: string, p?: unknown) => boolean;
-                    }).canExecuteCommand?.(one.command!, said) ?? false;
-                  return (
-                    <button
-                      key={one.command}
-                      type="button"
-                      role="menuitem"
-                      data-context-item={one.command}
-                      disabled={!can}
-                      /*
-                       * The press is stopped here as well as the click: this button is inside the
-                       * overlay, whose own `pointerdown` starts a selection or a drag — so a press on
-                       * a menu item was also a press on the page behind it, which cleared the
-                       * selection the item was about to act on and left the menu open over it.
-                       */
-                      onPointerDown={(event) => event.stopPropagation()}
-                      onClick={() => {
-                        /*
-                         * **Closed first, then run.** A command re-renders the boards, and a
-                         * `setContext` queued behind one was measured landing on a component the
-                         * render had already replaced — the menu stayed open over the thing it had
-                         * just changed. Closing is this layer's own state and owes the command
-                         * nothing.
-                         */
-                        setContext(null);
-                        void (editor as never as {
-                          executeCommand?: (n: string, p?: unknown) => void;
-                        }).executeCommand?.(one.command!, said);
-                      }}
-                    >
-                      {one.label}
-                      {one.hint ? <em>{one.hint}</em> : null}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </>
+        <Menu
+          at={context}
+          label="블록"
+          blocks={SITE_CONTEXT.map((block) => ({
+            id: block.id,
+            items: block.items.map((one) => ({
+              id: one.command!,
+              label: one.label,
+              hint: one.hint,
+              disabled: !(
+                (editor as never as {
+                  canExecuteCommand?: (n: string, p?: unknown) => boolean;
+                }).canExecuteCommand?.(one.command!, {
+                  nodeIds: selected,
+                  ...(one.needs === 'page' ? { nodeId: page, pageId: page } : {})
+                }) ?? false
+              )
+            }))
+          }))}
+          onClose={() => setContext(null)}
+          onPick={(command) => {
+            const one = SITE_CONTEXT.flatMap((block) => block.items).find(
+              (each) => each.command === command
+            );
+            /*
+             * **Closed first, then run.** A command re-renders the boards, and a `setContext` queued
+             * behind one was measured landing on a component the render had already replaced — the
+             * menu stayed open over the thing it had just changed. Closing is this layer's own state
+             * and owes the command nothing.
+             */
+            setContext(null);
+            void (editor as never as {
+              executeCommand?: (n: string, p?: unknown) => void;
+            }).executeCommand?.(command, {
+              nodeIds: selected,
+              ...(one?.needs === 'page' ? { nodeId: page, pageId: page } : {})
+            });
+          }}
+        />
       ) : null}
 
       {sweep ? (
@@ -1212,7 +1217,12 @@ export function Overlay({
       ) : null}
 
       {hovered ? (
-        <div className="st-mark st-mark-hover" style={boxStyle(hovered)} aria-hidden>
+        <div
+          className="st-mark st-mark-hover"
+          data-component={doc().getNode(hover!)?.stype === 'instance' ? 'true' : undefined}
+          style={boxStyle(hovered)}
+          aria-hidden
+        >
           <span className="st-mark-name">{labelOfBlock(doc(), hover!)}</span>
         </div>
       ) : null}
@@ -1255,6 +1265,13 @@ export function Overlay({
           key={sid}
           className="st-mark st-mark-selected"
           data-selected={sid}
+          /*
+           * **That this is a placement of a component**, said in the drawing so the stylesheet can
+           * colour it. Asked for as *컴포넌트를 좀 더 강조하면 좋을 듯* — and it is worth more than
+           * emphasis: a reader editing a placement is editing one of many, and the moment they cannot
+           * tell is the moment they change every page at once by accident.
+           */
+          data-component={doc().getNode(sid)?.stype === 'instance' ? 'true' : undefined}
           data-editing={mode === 'text' ? 'true' : undefined}
           style={boxStyle(box)}
           aria-hidden
@@ -1272,7 +1289,15 @@ export function Overlay({
              * three more characters on it is a chip nobody reads.
              */}
             {(() => {
-              const how = String(doc().getNode(sid)?.attributes?.layoutMode ?? '');
+              /*
+               * A **placement** says so first: it is the one thing on the chip a reader has to know
+               * before they touch anything, because editing a placement edits every page it is on.
+               * The arrangement icon is the other case, and a placement has no arrangement of its
+               * own — it draws whatever its definition arranges.
+               */
+              const node = doc().getNode(sid);
+              if (node?.stype === 'instance') return <Icon name="component" size={11} />;
+              const how = String(node?.attributes?.layoutMode ?? '');
               const which =
                 how === 'row' ? 'frame-row' : how === 'grid' ? 'frame-grid' : how === 'column' ? 'frame-column' : undefined;
               return which ? <Icon name={which as never} size={11} /> : null;
@@ -1479,6 +1504,74 @@ export function Overlay({
             </span>
           ) : null}
           {/**
+           * **A plus at each end of the flow**, which is the gesture a page has and a canvas does not.
+           *
+           * Asked as *선택상자에서 객체 추가 버튼은 왜 없어? (위,아래,왼쪽,오른쪽)* — and the answer is
+           * **two**, not four, because only two of the four are true at a time. A block in a column
+           * has a place above it and a place below it; left and right of it there is no place at all
+           * until something is wrapped in a new row, which is a change to the tree that a plus button
+           * has no business making without being asked. So the two that exist are drawn, on the edges
+           * where they act, and they turn with the stack: a card in a row gets them left and right.
+           *
+           * Where it lands is the **parent's** business and the model's — `insert*` takes a place now,
+           * checked against the document rather than trusted. Before this a caller could only say
+           * *after what is selected*, so the plus above a block was unsayable.
+           *
+           * What it puts there is a paragraph, which is what a page is mostly made of and the one
+           * thing a reader can immediately type into. Everything else is one press away in 넣는 것,
+           * and a plus that opened a list would be a menu where a reader asked for a block.
+           */}
+          {mode === 'select' && boxes.length === 1 && !freeSides
+            ? (['before', 'after'] as const).map((end) => (
+                <button
+                  key={`add-${end}`}
+                  type="button"
+                  className="st-add"
+                  data-add={end}
+                  data-add-way={alongOf(doc(), sid)}
+                  title={
+                    alongOf(doc(), sid) === 'across'
+                      ? end === 'before'
+                        ? '왼쪽에 본문 넣기'
+                        : '오른쪽에 본문 넣기'
+                      : end === 'before'
+                        ? '위에 본문 넣기'
+                        : '아래에 본문 넣기'
+                  }
+                  aria-label={
+                    alongOf(doc(), sid) === 'across'
+                      ? end === 'before'
+                        ? '왼쪽에 본문 넣기'
+                        : '오른쪽에 본문 넣기'
+                      : end === 'before'
+                        ? '위에 본문 넣기'
+                        : '아래에 본문 넣기'
+                  }
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    const node = doc().getNode(sid);
+                    const parentId = String(node?.parentId ?? '');
+                    const kids = ((doc().getNode(parentId)?.content ?? []) as string[]) ?? [];
+                    const at = kids.indexOf(sid);
+                    if (!parentId || at < 0) return;
+                    void (editor as never as {
+                      executeCommand?: (n: string, p?: unknown) => void;
+                    }).executeCommand?.('insertBodyText', {
+                      parentId,
+                      at: end === 'before' ? at : at + 1
+                    });
+                  }}
+                >
+                  <Icon name="add" size={11} />
+                </button>
+              ))
+            : null}
+
+          {/**
            * **Eight handles for a block that places itself, three for one that does not** — and the
            * difference is what each block can actually say.
            *
@@ -1651,13 +1744,29 @@ export function Overlay({
                 const was = gap.said;
                 let now = was;
                 setPulling('gap');
-                const restore = holdStyle(el, ['gap']);
+
+                /**
+                 * **Which of the two gaps this strip is**, which it had been getting wrong.
+                 *
+                 * Every strip already knew its own axis — it is measured between drawn children — and
+                 * all of them wrote the same attribute, so dragging the space between a grid's *rows*
+                 * moved the space between its columns with it. Reported as the question underneath:
+                 * *column gap 이랑 row gap 을 분리해야하지 않아?*
+                 *
+                 * The model names the two along the flow and across it, so the answer is the parent's
+                 * direction and not the strip's: down a column is along, down a grid is across.
+                 */
+                const how = String(doc().getNode(sid)?.attributes?.layoutMode ?? 'column');
+                const alongTheFlow = gap.way === (how === 'column' ? 'down' : 'across');
+                const writes = alongTheFlow ? 'gap' : 'gapCross';
+                const paints = gap.way === 'down' ? 'row-gap' : 'column-gap';
+                const restore = holdStyle(el, [paints]);
 
                 const onMove = (move: PointerEvent) => {
                   const travelled =
                     ((gap.way === 'down' ? move.clientY : move.clientX) - from) / scale;
                   now = Math.max(0, Math.round(was + travelled));
-                  el.style.setProperty('gap', `${now}px`);
+                  el.style.setProperty(paints, `${now}px`);
                 };
                 const onUp = () => {
                   window.removeEventListener('pointermove', onMove);
@@ -1670,7 +1779,7 @@ export function Overlay({
                   void editor.executeCommand('setBlockFormat', {
                     nodeIds: [sid],
                     at: breakpoint,
-                    gap: Math.round(now * 15)
+                    [writes]: Math.round(now * 15)
                   });
                 };
                 window.addEventListener('pointermove', onMove);
@@ -1687,6 +1796,20 @@ export function Overlay({
       <span hidden data-revision={revision} />
     </div>
   );
+}
+
+/**
+ * **Which way the stack holding this block runs**, which is what says where a plus can go.
+ *
+ * Asked of the **parent**, because a block has no direction of its own — the stack it is in decided,
+ * and that is the same reading `_group` takes when it wraps blocks and `frameCss` takes when it lays
+ * them out. A grid counts as `across`, because its children sit beside each other; the plus still
+ * lands at an index, and where that index draws is the grid's business.
+ */
+function alongOf(doc: { getNode: (sid: string) => any }, sid: string): 'down' | 'across' {
+  const parentId = String(doc.getNode(sid)?.parentId ?? '');
+  const how = String((doc.getNode(parentId)?.attributes as any)?.layoutMode ?? 'column');
+  return how === 'row' || how === 'grid' ? 'across' : 'down';
 }
 
 /**

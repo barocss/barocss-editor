@@ -281,6 +281,8 @@ export class SiteStackExtension implements Extension {
     // A stack's arrangement.
     'layoutMode',
     'gap',
+    /* The gap across the flow, which a grid has and a single line does not — see the schema. */
+    'gapCross',
     'padding',
     /*
      * And the four sides, which a hero needs and a shorthand cannot say: 96 above a heading and 64

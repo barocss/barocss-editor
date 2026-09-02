@@ -9,6 +9,7 @@ import {
   AppMain,
   AppShell,
   MenuBar,
+  IconButton,
   fieldKeeps,
   ZoomControl,
   useRevision,
@@ -1040,6 +1041,23 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               The one control that changes what the boards *are* rather than what they show. Beside
               the zoom because both are about how the reader is looking, not about the document.
             */}
+            {/*
+              **와이어프레임 beside 미리보기**, because they are the same kind of thing said two ways:
+              what a visitor gets, and what a visitor is being asked to look at. Asked for as *와이어
+              프레임 모드도 toolbar 에 있어도 좋겠고* — and this is where it belongs rather than on the
+              block strip, which acts on **what is selected**. A view acts on the reader.
+
+              An icon rather than a word, because the strip is short and the two of them side by side
+              as words would read as a pair of choices about the document.
+            */}
+            <IconButton
+              label={wireframe ? '색을 되돌립니다' : '색을 빼고 구조만 봅니다'}
+              data-wireframe-toggle={wireframe ? 'true' : undefined}
+              aria-pressed={wireframe}
+              onClick={() => setWireframe((one) => !one)}
+            >
+              <Icon name="outline" />
+            </IconButton>
             <button
               type="button"
               className="st-preview-toggle"
