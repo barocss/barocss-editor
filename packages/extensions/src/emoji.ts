@@ -159,7 +159,13 @@ export class EmojiExtension implements Extension {
        * back over the answer this just gave. Measured: the model said `site:15@21` and the caret was
        * at offset 0 of `🎉`.
        */
-      (editor as unknown as { updateSelection?: (one: unknown) => void }).updateSelection?.(said);
+      editor.updateSelection(said);
+      /*
+       * The **view**, which is not a member of `Editor` — the engine does not know it has one, and
+       * this is the one place that has to reach past the type. A caret set in the model alone is a
+       * caret the browser has not been told about, and the next read writes the browser's answer back
+       * over it.
+       */
       (editor as unknown as {
         view?: { convertModelSelectionToDOM?: (one: unknown) => void };
       }).view?.convertModelSelectionToDOM?.(said);

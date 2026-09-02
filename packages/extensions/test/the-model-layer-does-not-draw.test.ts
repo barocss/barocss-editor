@@ -21,7 +21,7 @@ import { join } from 'node:path';
  *   that belief and the site deleted a menu entry.
  * - `FloatingToolbarExtension` registered **no commands at all** and no product had ever built the
  *   equivalent. Deleted.
- * - `DragDropExtension` was the one that was **installed** — by all three — and used by none. It
+ * - `ReorderExtension` was the one that was **installed** — by all three — and used by none. It
  *   bound four global pointer listeners and drew a handle styled by a stylesheet nothing injected,
  *   while every product did its own dragging. 180 of its 230 lines were drawing and listening.
  *

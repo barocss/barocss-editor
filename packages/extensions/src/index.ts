@@ -22,7 +22,7 @@ export * from './code-block';
 export * from './horizontal-rule';
 export * from './table';
 export * from './slash-command';
-export * from './drag-drop';
+export * from './reorder';
 export * from './hard-break';
 export * from './code-mark';
 export * from './highlight';
@@ -76,7 +76,7 @@ import { TableExtension } from './table';
 import { ChecklistExtension } from './checklist';
 import { CalloutExtension } from './callout';
 import { MathBlockExtension } from './math-block';
-import { DragDropExtension } from './drag-drop';
+import { ReorderExtension } from './reorder';
 import { HardBreakExtension } from './hard-break';
 import { CodeMarkExtension } from './code-mark';
 import { HighlightExtension } from './highlight';
@@ -144,7 +144,7 @@ export function createRichExtensions(): Extension[] {
     new CalloutExtension(),
     new MathBlockExtension(),
     new MoveBlockExtension(),
-    new DragDropExtension(),
+    new ReorderExtension(),
     new CodeMarkExtension(),
     new HighlightExtension(),
     new FontColorExtension(),

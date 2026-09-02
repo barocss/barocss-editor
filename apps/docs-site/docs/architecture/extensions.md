@@ -193,7 +193,7 @@ Full schema-complete extension set covering all 48 node types and 24 marks:
 
 User experience enhancements:
 - `MoveBlockExtension` - Block reordering (`Mod+ArrowUp/Down`)
-- `DragDropExtension` - Block-level drag and drop
+- `ReorderExtension` - Block-level drag and drop
 - `SlashCommandExtension` - Slash command palette (`/`)
 - `FloatingToolbarExtension` - Floating toolbar on selection
 - `FindReplaceExtension` - Find and replace (`Mod+f`, `Mod+h`)

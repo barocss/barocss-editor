@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DragDropExtension } from '../src/drag-drop';
+import { ReorderExtension } from '../src/reorder';
 
 const recordedTransactions: any[][] = [];
 const commitMock = vi.fn();
@@ -32,7 +32,7 @@ function createFakeEditor(nodes: Record<string, any>) {
   };
 }
 
-describe('DragDropExtension', () => {
+describe('ReorderExtension', () => {
   beforeEach(() => {
     recordedTransactions.length = 0;
     commitMock.mockReset();
@@ -49,7 +49,7 @@ describe('DragDropExtension', () => {
     };
 
     const editor = createFakeEditor(nodes);
-    const ext = new DragDropExtension();
+    const ext = new ReorderExtension();
     (ext as any)._getContentContainer = () => null;
     ext.onCreate(editor as any);
 
@@ -76,7 +76,7 @@ describe('DragDropExtension', () => {
     };
 
     const editor = createFakeEditor(nodes);
-    const ext = new DragDropExtension();
+    const ext = new ReorderExtension();
     (ext as any)._getContentContainer = () => null;
     ext.onCreate(editor as any);
 
@@ -93,7 +93,7 @@ describe('DragDropExtension', () => {
     };
 
     const editor = createFakeEditor(nodes);
-    const ext = new DragDropExtension();
+    const ext = new ReorderExtension();
     (ext as any)._getContentContainer = () => null;
     ext.onCreate(editor as any);
 
@@ -111,7 +111,7 @@ describe('DragDropExtension', () => {
     };
 
     const editor = createFakeEditor(nodes);
-    const ext = new DragDropExtension();
+    const ext = new ReorderExtension();
     (ext as any)._getContentContainer = () => null;
     ext.onCreate(editor as any);
 
@@ -133,7 +133,7 @@ describe('DragDropExtension', () => {
     };
 
     const editor = createFakeEditor(nodes);
-    const ext = new DragDropExtension();
+    const ext = new ReorderExtension();
     (ext as any)._getContentContainer = () => null;
     ext.onCreate(editor as any);
 

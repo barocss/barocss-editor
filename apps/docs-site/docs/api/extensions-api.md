@@ -889,7 +889,7 @@ Provides slash command menu (type `/` to see command palette).
 
 Provides floating toolbar that appears on text selection.
 
-### DragDropExtension
+### ReorderExtension
 
 Provides block-level drag and drop with auto-scroll and ESC cancellation.
 
@@ -1004,7 +1004,7 @@ editor.use(...richExtensions);
 | Extension | Keybindings | Commands |
 |----------|------------|----------|
 | `MoveBlockExtension` | `Mod+ArrowUp/Down` | `moveBlockUp`, `moveBlockDown` |
-| `DragDropExtension` | - | `moveBlockToPosition` |
+| `ReorderExtension` | - | `moveBlockToPosition` |
 | `FindReplaceExtension` | `Mod+f`, `Mod+h` | `find`, `findAndReplace` |
 | `SlashCommandExtension` | `/` | - |
 | `FloatingToolbarExtension` | - | - |

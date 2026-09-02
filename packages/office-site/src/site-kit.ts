@@ -27,7 +27,7 @@
  * quote and a rule; the arrangement of a section is still a stack, and nothing offers a table as one.
  */
 import {
-  DragDropExtension,
+  ReorderExtension,
   EmojiExtension,
   FontColorExtension,
   FontFamilyExtension,
@@ -145,7 +145,7 @@ export function createSiteExtensions(): Extension[] {
     new FontFamilyExtension(),
     new SubSuperExtension(),
     new TextFormattingExtension(),
-    new DragDropExtension(),
+    new ReorderExtension(),
 
     /**
      * The `/` menu, **with this product's own rows**.

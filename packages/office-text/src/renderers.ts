@@ -834,7 +834,7 @@ export function registerTextRenderers(): void {
      * Neither takes anything away: the emoji is still selected *with* the words around it, still
      * deleted by Backspace as one unit, and still copied as part of the run.
      */
-    contentEditable: 'false',
+    contenteditable: 'false',
     'data-emoji': (d: Record<string, any>) => String(d.attributes?.shortcode ?? ''),
     role: 'img',
     /*

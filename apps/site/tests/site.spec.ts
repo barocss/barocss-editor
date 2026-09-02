@@ -1236,7 +1236,7 @@ test.describe('the exported page', () => {
   test('takes a picture dropped onto the boards, and replaces one dropped onto a picture', async ({ page }) => {
     /**
      * **The way anybody who has used a builder puts a picture on a page** — and it did nothing at
-     * all. `DragDropExtension` registers one command about reordering blocks and listens for no drop,
+     * all. `ReorderExtension` registers one command about reordering blocks and listens for no drop,
      * so a file dropped on the boards was the browser navigating away from the editor.
      *
      * Where it lands is what it was dropped **on**: a picture takes the file, which is how a reader

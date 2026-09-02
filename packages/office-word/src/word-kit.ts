@@ -1,7 +1,7 @@
 import {
   BookmarkExtension,
   CodeMarkExtension,
-  DragDropExtension,
+  ReorderExtension,
   FieldExtension,
   FontColorExtension,
   FontFamilyExtension,
@@ -77,7 +77,7 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
     new ImageExtension(),
     new HorizontalRuleExtension(),
     new MoveBlockExtension(),
-    new DragDropExtension(),
+    new ReorderExtension(),
     new CodeMarkExtension(),
     new HighlightExtension(),
     new FontColorExtension(),

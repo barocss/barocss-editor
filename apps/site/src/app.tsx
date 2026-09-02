@@ -1041,7 +1041,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             onMeasure={measure}
             /**
              * **A picture dragged onto the page**, which is how anybody who has used a builder puts
-             * one there — and which did nothing at all until now: `DragDropExtension` registers one
+             * one there — and which did nothing at all until now: `ReorderExtension` registers one
              * command about reordering blocks and listens for no drop, so a file dropped on the
              * boards was the browser navigating away from the editor.
              *

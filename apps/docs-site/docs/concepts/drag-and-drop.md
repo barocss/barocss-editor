@@ -1,6 +1,6 @@
 # Drag and Drop
 
-Drag and drop allows users to reorder blocks by dragging them with a handle. The `DragDropExtension` provides a mouse-based drag system that integrates with the model's `reorderChildren` operation.
+Drag and drop allows users to reorder blocks by dragging them with a handle. The `ReorderExtension` provides a mouse-based drag system that integrates with the model's `reorderChildren` operation.
 
 ## How It Works
 
@@ -8,7 +8,7 @@ Drag and drop allows users to reorder blocks by dragging them with a handle. The
 sequenceDiagram
     participant User
     participant DOM
-    participant DragDrop as DragDropExtension
+    participant DragDrop as ReorderExtension
     participant Editor
     participant DataStore
 
@@ -32,11 +32,11 @@ sequenceDiagram
 ## Setup
 
 ```typescript
-import { DragDropExtension } from '@barocss/extensions';
+import { ReorderExtension } from '@barocss/extensions';
 
 const editor = new Editor({
   extensions: [
-    new DragDropExtension({
+    new ReorderExtension({
       enabled: true,
       handleSelector: '[data-bc-stype]'  // which elements are draggable
     })

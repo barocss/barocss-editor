@@ -38,17 +38,29 @@ import { transaction, reorderChildren } from '@barocss/model';
  *
  * This is the flow's, and it is all that is left here.
  */
-export interface DragDropExtensionOptions {
+export interface ReorderExtensionOptions {
   enabled?: boolean;
 }
 
-export class DragDropExtension implements Extension {
-  name = 'dragDrop';
+/**
+ * **Named for what it does**, which took a question to notice.
+ *
+ * This was `DragDropExtension` and it has never had anything to do with dropping anything: it
+ * registers one command, `moveBlockToPosition`, which moves a block to an index in the stack it is
+ * already in. No `drop` listener, no `dataTransfer`, no file.
+ *
+ * Asked as *드래그 드롭도 돼?* — and the name answered yes on this extension's behalf while a file
+ * dropped on the editor made the browser navigate away from it. A name that answers a question
+ * wrongly is worse than no name: nobody looks twice at a thing that is already called what they
+ * wanted. The drop itself lives in `apps/site` now, where the canvas that files land on is.
+ */
+export class ReorderExtension implements Extension {
+  name = 'reorder';
   priority = 60;
 
-  private _options: DragDropExtensionOptions;
+  private _options: ReorderExtensionOptions;
 
-  constructor(options: DragDropExtensionOptions = {}) {
+  constructor(options: ReorderExtensionOptions = {}) {
     this._options = { enabled: true, ...options };
   }
 
@@ -111,6 +123,6 @@ export class DragDropExtension implements Extension {
   }
 }
 
-export function createDragDropExtension(options?: DragDropExtensionOptions): DragDropExtension {
-  return new DragDropExtension(options);
+export function createReorderExtension(options?: ReorderExtensionOptions): ReorderExtension {
+  return new ReorderExtension(options);
 }

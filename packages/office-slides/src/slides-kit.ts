@@ -1,5 +1,5 @@
 import {
-  DragDropExtension,
+  ReorderExtension,
   FontColorExtension,
   FontFamilyExtension,
   FontSizeExtension,
@@ -168,7 +168,7 @@ export function createSlidesExtensions(): Extension[] {
     new SubSuperExtension(),
     new TextFormattingExtension(),
     new MoveBlockExtension(),
-    new DragDropExtension(),
+    new ReorderExtension(),
 
     // A table on a slide is Word's table in a placed box; see the sample deck.
     createTableExtension({ defaultRows: 3, defaultCols: 3 }),

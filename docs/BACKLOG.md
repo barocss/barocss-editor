@@ -49,7 +49,7 @@ entries are that.
 ### An extension called `dragDrop` that listens for no drop — 2026-09-02 *(fixed)*
 
 Asked in three words — *드래그 드롭도 돼?* — and measured by dropping a real file on the boards:
-nothing happened. `DragDropExtension` registers one command, `moveBlockToPosition`, about reordering
+nothing happened. `ReorderExtension` registers one command, `moveBlockToPosition`, about reordering
 blocks in a stack. It listens for no `drop`, reads no `dataTransfer`, and has never had anything to do
 with a file. The name is the whole of the misunderstanding.
 
@@ -1445,7 +1445,7 @@ what each cost is on the record:
 - `styles.ts` held `.callout`, `.code-block`, `.task-item` — a **product's**
   stylesheet — and its `injectEditorStyles` was called by the slash menu and by
   nothing else. Once that stopped drawing, it was dead. Deleted.
-- **`DragDropExtension` was the one that was installed** — by all three — and
+- **`ReorderExtension` was the one that was installed** — by all three — and
   used by none. Four global pointer listeners, a handle styled by a stylesheet
   nothing injected, and `document.querySelector('[data-bc-layer="content"]')` to
   find *the* editor in a product that draws three boards at once. Meanwhile every
