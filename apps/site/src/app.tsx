@@ -37,7 +37,7 @@ import {
   type StateId
 } from '@barocss/office-site';
 import { Canvas } from './canvas';
-import { Inspector } from './inspector';
+import { Inspector, addPicture } from './inspector';
 import { SlashSurface } from './slash-surface';
 import { TextSurface } from './text-surface';
 import { Rail, type Panel as RailPanel } from './rail';
@@ -1033,7 +1033,52 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         ) : null}
 
         <AppMain className="st-main">
-          <Canvas paneRef={pane} view={view} onView={setView} controls={controls} onMeasure={measure}>
+          <Canvas
+            paneRef={pane}
+            view={view}
+            onView={setView}
+            controls={controls}
+            onMeasure={measure}
+            /**
+             * **A picture dragged onto the page**, which is how anybody who has used a builder puts
+             * one there — and which did nothing at all until now: `DragDropExtension` registers one
+             * command about reordering blocks and listens for no drop, so a file dropped on the
+             * boards was the browser navigating away from the editor.
+             *
+             * Where it lands is what was dropped **on**. A picture takes the file, which is how a
+             * reader replaces one; anything else gets a new picture after it. Both go through the
+             * panel's own `addPicture`, so a dropped file is read, sized, named and put in the assets
+             * box exactly the way a chosen one is — one errand, one implementation.
+             */
+            onFiles={(files, at) => {
+              const editor = instance?.editor;
+              if (!editor) return;
+              const under = document
+                .elementsFromPoint(at.x, at.y)
+                .find((one) => one.hasAttribute('data-bc-sid'));
+              const sid = under?.getAttribute('data-bc-sid')?.split('~').pop();
+              const node = sid ? editor.dataStore?.getNode(sid) : undefined;
+
+              void (async () => {
+                for (const file of files) {
+                  if (node?.stype === 'picture') {
+                    await addPicture(editor, file, [sid!]);
+                    continue;
+                  }
+                  /*
+                   * A new picture **after what it was dropped on**, which is the same place every
+                   * other insert here puts a block — and then the file goes into it. Selecting it
+                   * first is what tells the insert where; it is also what leaves the reader holding
+                   * the thing they just made.
+                   */
+                  if (sid) await editor.executeCommand('setNode', { nodeIds: [sid] });
+                  await editor.executeCommand('insertPicture', {});
+                  const made = selectedNodeIds(editor.selection as never)[0];
+                  if (made) await addPicture(editor, file, [made]);
+                }
+              })();
+            }}
+          >
             {instance
               ? BREAKPOINTS.filter((one) => shown.includes(one.id)).map((one) => (
                   <PageFrame

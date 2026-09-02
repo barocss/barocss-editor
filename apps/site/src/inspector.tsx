@@ -79,7 +79,14 @@ const PX = 15;
  * One command and one undo: the picture is pointed at the new file in the same gesture that adds it,
  * because a reader who chose a file has not asked for a document with a file in it.
  */
-async function addPicture(
+/**
+ * Exported because a **drop** needs it too.
+ *
+ * Reading a file, sizing it, putting it in the assets box and pointing something at it is one errand
+ * whichever gesture starts it — the panel's 파일 고르기 or a picture dragged onto the board. Two
+ * copies of it would be two places that decide what `image/png` means and how a name is made.
+ */
+export async function addPicture(
   editor: Editor,
   file: File,
   ids: string[],

@@ -46,6 +46,25 @@ entries are that.
 
 ## Open
 
+### An extension called `dragDrop` that listens for no drop — 2026-09-02 *(fixed)*
+
+Asked in three words — *드래그 드롭도 돼?* — and measured by dropping a real file on the boards:
+nothing happened. `DragDropExtension` registers one command, `moveBlockToPosition`, about reordering
+blocks in a stack. It listens for no `drop`, reads no `dataTransfer`, and has never had anything to do
+with a file. The name is the whole of the misunderstanding.
+
+So a file dropped on the editor was the browser navigating away from it — the default a page gets when
+nobody cancels `dragover`.
+
+The canvas takes one now, and where it lands is what it was dropped **on**: a picture takes the file,
+anything else gets a new picture after it. Both go through the panel's own `addPicture`, so a dropped
+file is read, sized, named and put in the assets box exactly the way a chosen one is.
+
+**Still open**, and worth naming while it is fresh: a drop is only pictures. A `.csv` onto a
+collection, a font, an SVG meant as a sticker rather than as a block — each is a different errand and
+none is wired. And the extension keeps its misleading name.
+
+
 ### A decision that only prose was keeping — 2026-09-02 *(fixed)*
 
 `emoji` and `mathInline` are declared in `standard-schema`, have an extension each

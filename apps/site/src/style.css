@@ -2074,3 +2074,17 @@ body {
   width: auto;
   vertical-align: -0.28em;
 }
+
+
+/**
+ * **The canvas will take this file**, said while the pointer is still holding it.
+ *
+ * An inset ring rather than a wash: a drag is a moment where the reader is looking at the page under
+ * their pointer, and covering it with a colour hides the thing they are aiming at. The ring is on the
+ * pane rather than on a board, because the answer is the same wherever they let go — the drop decides
+ * *what* from where it lands, and the pane decides *whether*.
+ */
+.st-canvas[data-dropping='true'] {
+  outline: 2px solid var(--st-accent);
+  outline-offset: -2px;
+}

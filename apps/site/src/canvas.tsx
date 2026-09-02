@@ -38,6 +38,7 @@ export function Canvas({
   onView,
   controls,
   onMeasure,
+  onFiles,
   children
 }: {
   /** Held by the app, because the zoom control and 맞춤 live in the chrome and act on this pane. */
@@ -47,10 +48,21 @@ export function Canvas({
   controls: ViewportControls;
   /** The plane's unscaled size, so the app can fit the boards without measuring the DOM itself. */
   onMeasure: (size: { width: number; height: number }) => void;
+  /**
+   * Pictures dropped onto the boards, with the point they were dropped at.
+   *
+   * Here rather than in the app because this is the element a file lands on, and a callback because
+   * what a page *does* with a picture is the app's decision — this one only knows where the pointer
+   * was. `dragover` has to be cancelled for a drop to fire at all, which is the browser's oldest and
+   * least guessable rule.
+   */
+  onFiles?: (files: File[], at: { x: number; y: number }) => void;
   children: React.ReactNode;
 }) {
   const plane = useRef<HTMLDivElement>(null);
   const [panning, setPanning] = useState(false);
+  /** Whether a file is being dragged over the boards — so the canvas can say it will take it. */
+  const [dropping, setDropping] = useState(false);
   const grab = useRef<{ x: number; y: number; from: Viewport } | null>(null);
 
   /**
@@ -87,6 +99,29 @@ export function Canvas({
       ref={paneRef}
       className="st-canvas"
       data-panning={panning ? 'true' : undefined}
+      data-dropping={dropping ? 'true' : undefined}
+      onDragOver={(event) => {
+        if (!onFiles || !event.dataTransfer?.types.includes('Files')) return;
+        // Cancelled, or no `drop` ever fires — the browser's oldest and least guessable rule.
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+        if (!dropping) setDropping(true);
+      }}
+      onDragLeave={(event) => {
+        // Only when the pointer has actually left this pane: a drag over a child fires `dragleave`
+        // on the way in, and a highlight that flickers is worse than none.
+        if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+        setDropping(false);
+      }}
+      onDrop={(event) => {
+        setDropping(false);
+        const files = [...(event.dataTransfer?.files ?? [])].filter((one) =>
+          one.type.startsWith('image/')
+        );
+        if (!onFiles || files.length === 0) return;
+        event.preventDefault();
+        onFiles(files, { x: event.clientX, y: event.clientY });
+      }}
       data-space={spaceHeld ? 'true' : undefined}
       data-zoom={view.zoom.toFixed(3)}
       tabIndex={-1}

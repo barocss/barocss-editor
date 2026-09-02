@@ -1233,6 +1233,59 @@ test.describe('the exported page', () => {
     expect(Number.parseFloat(said.top ?? '0')).toBeGreaterThan(60);
   });
 
+  test('takes a picture dropped onto the boards, and replaces one dropped onto a picture', async ({ page }) => {
+    /**
+     * **The way anybody who has used a builder puts a picture on a page** — and it did nothing at
+     * all. `DragDropExtension` registers one command about reordering blocks and listens for no drop,
+     * so a file dropped on the boards was the browser navigating away from the editor.
+     *
+     * Where it lands is what it was dropped **on**: a picture takes the file, which is how a reader
+     * replaces one, and anything else gets a new picture after it. Both go through the panel's own
+     * `addPicture`, so a dropped file is read, sized, named and put in the assets box exactly the way
+     * a chosen one is — one errand, one implementation.
+     */
+    await ready(page);
+    const drop = async (at: { x: number; y: number }, name: string) =>
+      await page.evaluate(
+        ({ x, y, name: said }) => {
+          const data = new DataTransfer();
+          const svg =
+            '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="red"/></svg>';
+          data.items.add(new File([svg], said, { type: 'image/svg+xml' }));
+          const el = document.elementFromPoint(x, y) as HTMLElement | null;
+          for (const type of ['dragenter', 'dragover', 'drop']) {
+            el?.dispatchEvent(
+              new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data, clientX: x, clientY: y })
+            );
+          }
+        },
+        { ...at, name }
+      );
+
+    const count = async () =>
+      await page.evaluate(() => document.querySelectorAll('[data-frame="desktop"] img').length);
+
+    // On a paragraph: a new picture, after what it landed on.
+    const before = await count();
+    const band = (await page.locator('[data-frame="desktop"] [data-name="문제"]').first().boundingBox())!;
+    await drop({ x: band.x + band.width / 2, y: band.y + 40 }, '떨군그림.svg');
+    await page.waitForTimeout(1200);
+    expect(await count()).toBe(before + 1);
+
+    /*
+     * And onto a picture: the same picture, a different file. A drop that made a second picture
+     * beside the one a reader aimed at would be the gesture doing the opposite of what it looks like.
+     */
+    const picture = page.locator('[data-frame="desktop"] img.st-picture').first();
+    const was = await picture.getAttribute('src');
+    const box = (await picture.boundingBox())!;
+    await drop({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, '바꾼그림.svg');
+    await page.waitForTimeout(1200);
+
+    expect(await count()).toBe(before + 1);
+    expect(await picture.getAttribute('src')).not.toBe(was);
+  });
+
   test('puts a sticker in a line, as a name rather than as bytes', async ({ page }) => {
     /**
      * **A sticker is an `inline-image` naming a file**, and that is the whole of it: no new node
