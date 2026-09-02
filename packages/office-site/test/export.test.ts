@@ -169,7 +169,7 @@ describe('the page a visitor gets', () => {
 
   it('exports every page of the site, each at its own address', () => {
     const pages = exportSite(editor);
-    expect(pages.map((one) => one.path)).toEqual(['/', '/제품', '/가격', '/소개', '/블로그']);
+    expect(pages.map((one) => one.path)).toEqual(['/', '/제품', '/가격', '/소개', '/블로그', '/블로그/스택']);
     // The header is a definition placed on every page, so every page carries its parts.
     for (const page of pages) expect(page.html).toContain('Barocss');
   });

@@ -32,9 +32,10 @@
  * the same definition rather than a copy of it: editing the header still changes every page.
  */
 import { Editor, Extension } from '@barocss/editor-core';
-import { addChild, moveNode, node, removeChild, textNode, transaction } from '@barocss/model';
+import { addChild, moveNode, node, removeChild, setAttrs, textNode, transaction } from '@barocss/model';
 import { copyOf } from '@barocss/office-canvas';
 import { pagesOf } from './selection';
+import { definitionsOf } from './components';
 import { pathFor } from './slug';
 
 type Node = Record<string, any>;
@@ -86,6 +87,40 @@ export class SitePageExtension implements Extension {
       'removePage',
       async (payload) => await this._remove(editor, payload),
       (payload) => this._canRemove(editor, payload?.nodeId)
+    );
+
+    /**
+     * **A page drawn through a template**, which is how two hundred posts share a shape.
+     *
+     * Asked as the biggest question left: `collection` answers *a list on a page*, and this answers
+     * *a page of the list's own*. An address, a search result and formatted text are a **page's**
+     * properties rather than a datum's, so an entry is a page — and data is what makes lists.
+     *
+     * Nothing new underneath: a definition may hold a part with a `slot`, and a placement's own
+     * children are drawn there. A template page is that sentence with a page as the placement, so
+     * this command writes **one attribute** and the resolver does the rest.
+     *
+     * Emptied is *no template*, which is a real gesture: a page that was an entry becomes an
+     * ordinary page holding exactly the blocks it always held.
+     */
+    register(
+      'setPageTemplate',
+      async (payload) => await this._setTemplate(editor, payload),
+      (payload) => this._canSetTemplate(editor, payload)
+    );
+
+    /**
+     * **A new entry of a template**, which is the gesture a blog is used through.
+     *
+     * `insertPage` copies the chrome off the page it follows, which is right for a page a reader is
+     * building by hand and wrong for an entry: an entry's chrome is the template's, and copying it
+     * would give the new page two headers. So this is its own command rather than a flag — the same
+     * reason `duplicatePage` is not `insertPage` with an argument.
+     */
+    register(
+      'insertEntry',
+      async (payload) => await this._insertEntry(editor, payload),
+      (payload) => this._templateNamed(editor, payload?.template) !== undefined
     );
 
     /** Reorder, by where the page should end up — 0 is first, like a slide. */
@@ -156,6 +191,101 @@ export class SitePageExtension implements Extension {
     for (let n = 2; paths.has(path); n += 1) path = `${from}-${n}`;
 
     return { id: fresh.id, name: `${original.name} 사본`, path };
+  }
+
+  /** The definition a name refers to, when the document actually holds one — the reference shape. */
+  private _templateNamed(editor: Editor, named: unknown): { id: string } | undefined {
+    const doc = this._doc(editor);
+    if (!doc || typeof named !== 'string' || !named) return undefined;
+    return definitionsOf(doc as never).find((one: { id: string }) => one.id === named);
+  }
+
+  private _canSetTemplate(editor: Editor, payload?: Record<string, unknown>): boolean {
+    const sid = this._pageAt(editor, payload?.nodeId);
+    if (!sid) return false;
+    const said = payload?.template;
+    const already = String(this._doc(editor)?.getNode(sid)?.attributes?.template ?? '');
+
+    /**
+     * **Emptying is only possible when there is something to empty** — which the harness said out
+     * loud: *said it could run and then changed nothing*.
+     *
+     * Emptied is a real gesture: a page that was an entry becomes an ordinary page holding exactly
+     * the blocks it always held. It is not a gesture on a page that has no template, and a control
+     * that lights up for it is a control a reader stops believing.
+     */
+    if (said === undefined || said === null || said === '') return already !== '';
+    /* And naming the one it already has is not a change either. */
+    return said !== already && this._templateNamed(editor, said) !== undefined;
+  }
+
+  private async _setTemplate(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const sid = this._pageAt(editor, payload?.nodeId);
+    if (!sid || !this._canSetTemplate(editor, payload)) return false;
+    const said = payload?.template;
+    const done = await transaction(editor, [
+      setAttrs(sid, { template: typeof said === 'string' && said ? said : undefined } as never)
+    ] as never).commit();
+    return done.success === true;
+  }
+
+  private async _insertEntry(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const doc = this._doc(editor);
+    const template = this._templateNamed(editor, payload?.template);
+    if (!doc || !template) return false;
+
+    const pages = pagesOf(doc as never);
+    const named = this._fresh(pages);
+    /*
+     * A heading and nothing else, which is what an entry's slot holds on the day it is made: the
+     * template already draws everything around it. `insertPage`'s copied chrome would be a second
+     * header inside the template's own.
+     */
+    const made = node(
+      'surface',
+      {
+        kind: 'flow',
+        id: named.id,
+        name: typeof payload?.name === 'string' && payload.name ? payload.name : named.name,
+        path: typeof payload?.path === 'string' && payload.path ? payload.path : named.path,
+        template: template.id
+      },
+      [node('heading', { level: 1 }, [textNode('inline-text', named.name) as never]) as never]
+    ) as never;
+
+    const rootId = editor.getRootId();
+    const store = editor.dataStore as { getNode: (sid: string) => Node | undefined } | undefined;
+    if (!rootId || !store) return false;
+
+    /**
+     * **After the last page**, not at the end of the document — which the harness found by saying
+     * *`insertEntry` said it could run and then changed nothing*.
+     *
+     * A document's content is `docMeta? surface+ resources? components? variables? widths?`, so a
+     * `surface` appended after the boxes is a document the validator refuses: the transaction failed
+     * silently and the command reported success it had not had. The pages are a **run** near the
+     * front, and a new one goes at the end of that run.
+     */
+    const kids = ((store.getNode(rootId)?.content ?? []) as unknown[]).filter(
+      (sid): sid is string => typeof sid === 'string'
+    );
+    const last = kids.reduce(
+      (found, sid, index) => (store.getNode(sid)?.stype === 'surface' ? index : found),
+      -1
+    );
+    const at = last + 1;
+
+    const done = await transaction(editor, [addChild(rootId, made, at)] as never).commit();
+    if (done.success !== true) return false;
+
+    const put = ((store.getNode(rootId)?.content ?? []) as string[])[at];
+    if (put) {
+      (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(
+        'setNode',
+        { nodeIds: [put] }
+      );
+    }
+    return true;
   }
 
   private async _insert(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {

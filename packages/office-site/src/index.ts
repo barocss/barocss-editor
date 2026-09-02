@@ -262,6 +262,24 @@ export { wireframeCss, wireframeRules, wireframeName, WIREFRAME_CSS, WIREFRAME_N
 /** Where a carried block would land — which stack, which place, and the line a reader steers by. */
 export { landingFor, type Box, type Landing } from './landing';
 /**
+ * **글 고치기** — one declaration of what a writer may do, read by the panel, the toolbar, the keys
+ * and a check. A mode a reader chooses rather than a permission this product can enforce, which it
+ * says out loud because there are no accounts.
+ */
+export { WRITER_ATTRS, WRITER_COMMANDS, writerMayRun, writerMaySet } from './writing';
+/**
+ * **What a publish left behind**, and the one question work asks about it: *is what is live the same
+ * as what I have?* Three answers, because *never published* is not *behind*.
+ */
+export {
+  digestOf,
+  lastPublish,
+  publishSaid,
+  publishState,
+  publishesOf,
+  type PublishRecord
+} from './publishes';
+/**
  * **The widths a site is designed at**, and the devices a width can be a window onto.
  *
  * `widthsOf` reads the document's list and falls back to the three every site starts with, which is

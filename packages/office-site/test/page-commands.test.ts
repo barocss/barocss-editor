@@ -47,16 +47,17 @@ describe('the commands a page has', () => {
       const [, products] = pages();
       expect(await run('insertPage', { nodeId: products.sid })).toBe(true);
 
-      expect(names()).toEqual(['홈', '제품', '페이지 6', '가격', '소개', '블로그']);
+      expect(names()).toEqual(['홈', '제품', '페이지 7', '가격', '소개', '블로그', '스택이 페이지의 문법이다']);
       const made = pages()[2];
-      expect(made.path).toBe('/page-6');
-      expect(new Set(pages().map((page) => page.id)).size).toBe(6);
-      expect(new Set(pages().map((page) => page.path)).size).toBe(6);
+      expect(made.path).toBe('/page-7');
+      expect(new Set(pages().map((page) => page.id)).size).toBe(7);
+      expect(new Set(pages().map((page) => page.path)).size).toBe(7);
     });
 
     it('appends when nothing is named, which is where a reader is looking', async () => {
       expect(await run('insertPage')).toBe(true);
-      expect(names()[5]).toBe('페이지 6');
+      // The seventh, because the sample has a post drawn through a template as well as five pages.
+      expect(names()[6]).toBe('페이지 7');
     });
 
     it('arrives wearing the navigation of the page it follows', async () => {
@@ -82,7 +83,7 @@ describe('the commands a page has', () => {
     it('is one thing to undo', async () => {
       await run('insertPage');
       await editor.undo();
-      expect(names()).toEqual(['홈', '제품', '가격', '소개', '블로그']);
+      expect(names()).toEqual(['홈', '제품', '가격', '소개', '블로그', '스택이 페이지의 문법이다']);
     });
   });
 
@@ -100,7 +101,7 @@ describe('the commands a page has', () => {
        * failure this whole reference pattern exists to avoid.
        */
       expect(copy.id).not.toBe(products.id);
-      expect(new Set(pages().map((page) => page.id)).size).toBe(6);
+      expect(new Set(pages().map((page) => page.id)).size).toBe(7);
     });
 
     it('copies the contents, marks and all', async () => {
@@ -127,7 +128,7 @@ describe('the commands a page has', () => {
     it('is one thing to undo', async () => {
       await run('duplicatePage', { nodeId: pages()[0].sid });
       await editor.undo();
-      expect(names()).toEqual(['홈', '제품', '가격', '소개', '블로그']);
+      expect(names()).toEqual(['홈', '제품', '가격', '소개', '블로그', '스택이 페이지의 문법이다']);
     });
   });
 
@@ -135,7 +136,7 @@ describe('the commands a page has', () => {
     it('removes the page and everything on it', async () => {
       const [, products] = pages();
       expect(await run('removePage', { nodeId: products.sid })).toBe(true);
-      expect(names()).toEqual(['홈', '가격', '소개', '블로그']);
+      expect(names()).toEqual(['홈', '가격', '소개', '블로그', '스택이 페이지의 문법이다']);
     });
 
     it('says what it broke, rather than refusing', async () => {
@@ -167,7 +168,7 @@ describe('the commands a page has', () => {
       await run('removePage', { nodeId: pages()[1].sid });
       await editor.undo();
 
-      expect(names()).toEqual(['홈', '제품', '가격', '소개', '블로그']);
+      expect(names()).toEqual(['홈', '제품', '가격', '소개', '블로그', '스택이 페이지의 문법이다']);
       expect(shapeOf(pages()[1].sid)).toEqual(before);
     });
   });
@@ -175,7 +176,7 @@ describe('the commands a page has', () => {
   describe('reordering', () => {
     it('moves a page to the position asked for', async () => {
       expect(await run('movePage', { nodeId: pages()[3].sid, to: 0 })).toBe(true);
-      expect(names()).toEqual(['소개', '홈', '제품', '가격', '블로그']);
+      expect(names()).toEqual(['소개', '홈', '제품', '가격', '블로그', '스택이 페이지의 문법이다']);
     });
 
     it('refuses a move that changes nothing, and one that goes nowhere', () => {
@@ -183,7 +184,8 @@ describe('the commands a page has', () => {
       // An edit that undoes to the same document is an entry in the history a reader cannot see the
       // point of pressing Ctrl+Z over.
       expect(can('movePage', { nodeId: home.sid, to: 0 })).toBe(false);
-      expect(can('movePage', { nodeId: home.sid, to: 5 })).toBe(false);
+      // Past the end of the list, which is six pages and a post.
+      expect(can('movePage', { nodeId: home.sid, to: 7 })).toBe(false);
       expect(can('movePage', { nodeId: home.sid, to: -1 })).toBe(false);
       expect(can('movePage', { nodeId: home.sid, to: 1.5 })).toBe(false);
     });
@@ -191,7 +193,7 @@ describe('the commands a page has', () => {
     it('is one thing to undo', async () => {
       await run('movePage', { nodeId: pages()[3].sid, to: 0 });
       await editor.undo();
-      expect(names()).toEqual(['홈', '제품', '가격', '소개', '블로그']);
+      expect(names()).toEqual(['홈', '제품', '가격', '소개', '블로그', '스택이 페이지의 문법이다']);
     });
   });
 

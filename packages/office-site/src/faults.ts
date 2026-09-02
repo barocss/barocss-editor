@@ -25,6 +25,7 @@ import { embedFaults } from './embed';
 import { linkFaults, linkOf } from './page-link';
 import { attrsAt, overrideFaults } from './responsive';
 import { BREAKPOINTS, type SiteWidth } from './breakpoints';
+import { definitionsOf } from './components';
 import { pagesOf } from './selection';
 import { SITE_SURFACE_KIND } from './site-schema';
 
@@ -327,6 +328,24 @@ function focusInside(doc: Access, sid: string | undefined): boolean {
   return hit;
 }
 
+/**
+ * Whether a definition has a part that says *what is put into this goes here*.
+ *
+ * Asked of the whole subtree rather than of the top-level parts: a template's slot is usually a
+ * frame two levels down — a page's chrome above it and its footer below — which is exactly the shape
+ * that made a top-level-only answer wrong the first time it was tried.
+ */
+function hasSlot(doc: Access, sid: string, depth = 0): boolean {
+  if (depth > 64) return false;
+  const node = doc.getNode(sid) as { attributes?: Record<string, unknown>; content?: unknown[] } | undefined;
+  if (!node) return false;
+  const said = node.attributes?.slot;
+  if (typeof said === 'string' && said.length > 0) return true;
+  return ((node.content ?? []) as unknown[]).some(
+    (one) => typeof one === 'string' && hasSlot(doc, one, depth + 1)
+  );
+}
+
 export function documentFaults(
   doc: Access,
   options?: {
@@ -408,6 +427,31 @@ export function documentFaults(
      * and legitimate (something pulled up into a band above it); a block past the right edge is
      * always a reader who has not looked at that width yet.
      */
+    /**
+     * **A page drawn through a template that has no slot** — where the page's words disappear.
+     *
+     * `instanceParts` puts the placement's own children in the part marked `slot`, and a definition
+     * with none drops them. For a *placement* that is right and harmless: a card with no slot is a
+     * card, and nobody put anything in it. For a **page** it is the worst kind of silence — the
+     * reader's own blocks are still in the file, still in the layer list, and nowhere on screen.
+     *
+     * Measured on the first template ever chosen: a page of twelve blocks drew one, and nothing said
+     * why. So the fault names the definition and what to do about it, which is a row that exists now
+     * (`내용 자리`) and did not when this was first possible.
+     */
+    if (node.stype === 'surface' && typeof attrs.template === 'string' && attrs.template) {
+      const definition = definitionsOf(doc as never).find((one) => one.id === attrs.template);
+      if (!definition) {
+        found.push({ sid, kind: 'reference', said: `'${attrs.template}' 템플릿이 없습니다` });
+      } else if (!hasSlot(doc, definition.sid)) {
+        found.push({
+          sid,
+          kind: 'reference',
+          said: `'${definition.name}' 템플릿에 내용 자리가 없어서 이 페이지의 블록이 그려지지 않습니다`
+        });
+      }
+    }
+
     if (attrs.position === 'absolute') {
       const off = widths.filter((one) => {
         const at = attrsAt(attrs, one.id, widths);

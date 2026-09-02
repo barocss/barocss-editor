@@ -1924,3 +1924,122 @@ it was asked for — and the document says where it is incomplete. Which is what
    lengths are relative — `%`, `rem`, `vw`, `min()`, `clamp()` — and `sizing: fill | hug | fixed` with
    twip bounds covers a great deal and cannot say *half the parent* or *min(90vw, 1200px)*. That is a
    boundary of the model rather than an omission, and the schema is not frozen.
+
+## 한 템플릿, N개의 페이지
+
+The biggest modelling question this product had left, and the answer turned out to be **one
+attribute** — because the machinery had been built two years' worth of decisions ago, for something
+else.
+
+### An entry is a page, not a row
+
+`collection` answers *a list on a page*: cards drawn from a dataset. It cannot answer *a page of the
+list's own*, and a blog needs that. An **address** a visitor can be sent, a **description** a search
+result shows, and a body that is **formatted text** are a page's properties; a datum has none of
+them, and a body is not a cell in a table.
+
+So: an entry is a `surface` with a `template`, and data is what makes lists. Deciding it the other way
+round — an entry as a dataset row with a rich-text column — would have made every page property a
+column and every column a page property, and the migration out of that is the whole document.
+
+### Why it is one attribute
+
+A definition may hold a part marked `slot`, and `instanceParts` puts the placement's **own children**
+there. A template page is that sentence with a page in the placement's position: it names a
+definition, and what a reader sees is the definition with this page's blocks in its slot. The store's
+content resolver is where it happens — the same seam a placement is resolved through, and for the
+same measured reason a renderer cannot do it.
+
+The page's **stored** children are untouched, so the save says what a reader has: a page, its blocks,
+and the name of the thing that draws them.
+
+### Two things it found
+
+- **`slot` was declared and drawn and offered nowhere.** Three of the four places an attribute has to
+  be in to be alive. A reader could name a template for a page and had no way to say where the page's
+  blocks go — and a template with no slot draws none of them, which is the worst kind of silence: the
+  words are in the file, in the layer list, and nowhere on screen. There is a row now, and a fault
+  that says it when a page is drawn through a slotless template.
+- **`instanceParts` searched for the slot in the top-level parts only.** `resolvePart` has always
+  *filled* a nested one; what was shallow was the finding. So a definition whose slot was two levels
+  down dropped the placement's children in silence — which is the ordinary shape, not an exotic one:
+  a card with a header above its slot, or a page template with the site's header above and its footer
+  below. Measured on the first template ever chosen.
+
+## 발행은 내보내기가 아니다
+
+`exportSite` hands back what to write and records nothing. That is exactly right for the gesture it
+is — *give me the files*, which a reader does to look at something or to hand it to somebody — and it
+is not a publish.
+
+Work needs four things, and the shape says which of them are answerable:
+
+| | |
+| --- | --- |
+| **어디로** | `document.publishTo`, a connection's name — a deploy target is exactly what a `service` already is |
+| **무엇이·언제** | a `publish` record: the instant, how many pages, a digest |
+| **누가** | empty until there are accounts. A name the tool invented would be a lie in a record whose entire value is being trustworthy |
+| **되돌리기** | **not offered.** A copy of every published page would multiply the file by the number of publishes, and a document that grows every time a reader presses a button is one they stop pressing |
+
+What is left is the question a reader actually asks — *is what is live the same as what I have?* —
+answered by comparing two strings, with no rendering and no network. Three answers, because **never
+published is not behind**: a builder that said 바뀐 것이 있습니다 on the day somebody started would
+be one that cried wolf on day one.
+
+### What the digest counts, and what it must not
+
+Of the **document** rather than of the output: comparing outputs means rendering the whole site to
+find out, and a publish that produced identical HTML from an edited document is still one a reader
+wants to know about.
+
+And it took two corrections, both the same shape — *counting things the reader did not change*:
+
+- **The record itself.** Writing a publish changes the document, so a digest taken before the write
+  stopped matching the instant it landed: a site was *behind* one moment after being published, every
+  time.
+- **`sid` and `metadata.loadedAt`.** Sids are minted per session and `loadedAt` is *when this file was
+  opened*, so the same document read thirteen milliseconds apart hashed differently. A reader who
+  opens their site and is told it has changed learns to ignore the answer.
+
+## 글만 고치는 자리
+
+The third thing work needs, and the one that is **not** collaboration — that is deferred, and the
+order was agreed. This is the half of it that is not about two people editing at once: in real work
+the owner of the layout and the owner of the words are different people, and today changing a word
+comes with permission to break the layout.
+
+### A mode, not a permission — and saying so
+
+There are no accounts, so *this person may only write* cannot be enforced and must not be claimed. A
+mode is what can honestly be built: a reader **chooses** to be in it, the way they choose preview.
+Which is what Webflow's Editor and a locked Notion page are, and it is genuinely useful — most of the
+damage a writer does to a layout is done by accident, and a mode stops all of it.
+
+The day this product has accounts, the mode becomes the shape a permission is expressed in. Nothing
+about the declaration changes; what changes is who may leave it.
+
+### One declaration, four surfaces
+
+`stateableIn` is the precedent: a list of what may change in a state, read by the panel so a row that
+cannot apply is not drawn. The same shape here, and it has to be **commands** rather than attributes,
+because what a writer is refused is mostly *acts* — adding a block, deleting one, dragging one.
+
+Read by four surfaces, which is the whole point of declaring it once:
+
+- the **panel** draws only rows whose command a writer may run;
+- the **toolbar** greys the rest;
+- the **key map** does not answer a chord for one;
+- and a check can ask the question that matters — *is there a way to change the layout from inside
+  writing mode?* — which is a question no amount of hiding controls answers on its own.
+
+### What a writer may do
+
+Type, in any text on the page. Replace a picture. Change where a link goes. Rename the page and write
+its description, because a title and a summary are **words**, and the person who writes the words
+writes those too.
+
+### What they may not
+
+Everything that moves or resizes anything, adds a block or takes one away, changes a colour, a
+width, a padding or a template. Not because those are dangerous — because they are somebody else's
+work, and the whole value of the mode is that a writer can stop being careful.

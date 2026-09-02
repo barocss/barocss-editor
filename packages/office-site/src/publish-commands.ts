@@ -25,6 +25,8 @@ import { Editor, Extension } from '@barocss/editor-core';
 import { exportPage, exportSite, robotsFor, sitemapFor, type ExportedPage } from './export-html';
 import { assetFileName, assetsOf, renditionFileName } from './assets';
 import { pagesOf } from './selection';
+import { addChild, node, transaction } from '@barocss/model';
+import { digestOf, publishesBox } from './publishes';
 
 /**
  * One file a publish produced — **words or bytes**, and never both.
@@ -91,6 +93,80 @@ export class SitePublishExtension implements Extension {
      * still succeeds and still renders — that is how a test asks "does this produce five pages"
      * without inventing a download.
      */
+    /**
+     * **Publishing, and remembering that it happened.**
+     *
+     * `exportSite` hands back what to write and records nothing, which is right for the gesture it
+     * is — *give me the files* — and is not a publish. What work needs is the four things: where it
+     * goes, who pressed it, what went, and how to roll back. Three are answerable cheaply; the
+     * fourth is not, and `publishes.ts` says which is which rather than pretending.
+     *
+     * So this is `exportSite` **plus a record**: the instant, how many pages, where it went, and a
+     * digest of the document at the time. Which makes the question a reader actually asks answerable
+     * in one comparison — *is what is live the same as what I have?*
+     *
+     * The clock is the **payload's**, because a package that read `Date.now()` would be a package
+     * whose tests are different every time they run. The app has a clock; this has an argument.
+     */
+    register(
+      'publishSite',
+      async (payload) => {
+        const rootId = editor.getRootId();
+        if (!rootId) return false;
+
+        /*
+         * Rendered first, and recorded only if the render produced pages. A record of a publish that
+         * produced nothing is a line in a history that says something happened when it did not.
+         */
+        const pages = exportSite(editor);
+        if (pages.length === 0) return false;
+
+        const store = editor.dataStore as
+          | { getNode: (sid: string) => Record<string, any> | undefined }
+          | undefined;
+        if (!store) return false;
+        const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+
+        const made = node('publish', {
+          at:
+            typeof payload?.at === 'string' && payload.at
+              ? payload.at
+              : /* The app's clock, and this is the fallback a test never reaches. */
+                new Date(0).toISOString(),
+          pages: pages.length,
+          digest: digestOf(
+            (editor as never as { exportDocument?: () => unknown }).exportDocument?.()
+          ),
+          to: String((store.getNode(rootId)?.attributes as any)?.publishTo ?? '') || undefined,
+          /* Never invented: empty until this product has accounts. */
+          by: typeof payload?.by === 'string' && payload.by ? payload.by : undefined
+        }) as never;
+
+        const box = publishesBox(doc as never);
+        const steps: unknown[] = box
+          ? [addChild(box, made, ((store.getNode(box)?.content ?? []) as unknown[]).length)]
+          : [
+              addChild(
+                rootId,
+                node('publishes', {}, [made] as never) as never,
+                ((store.getNode(rootId)?.content ?? []) as unknown[]).length
+              )
+            ];
+
+        const done = await transaction(editor, steps as never).commit();
+        if (done.success !== true) return false;
+
+        /* And the files, exactly as `exportSite` hands them over — one gesture, one answer. */
+        return this._hand(payload, pages, [
+          ...(sitemapFor(editor) ? [{ file: 'sitemap.xml', text: sitemapFor(editor)!, type: 'application/xml' }] : []),
+          ...(robotsFor(editor) ? [{ file: 'robots.txt', text: robotsFor(editor)!, type: 'text/plain' }] : []),
+          ...(this._notFound(editor) ? [this._notFound(editor)!] : []),
+          ...this._assetFiles(editor)
+        ]);
+      },
+      () => !!editor.getRootId()
+    );
+
     register(
       'exportSite',
       async (payload) => {

@@ -73,8 +73,8 @@ describe('a site draws', () => {
   });
 
   it('draws every page, with the address that makes it a page of a site', () => {
-    expect(pages()).toHaveLength(5);
-    expect(pages().map((page) => page.dataset.path)).toEqual(['/', '/제품', '/가격', '/소개', '/블로그']);
+    expect(pages()).toHaveLength(6);
+    expect(pages().map((page) => page.dataset.path)).toEqual(['/', '/제품', '/가격', '/소개', '/블로그', '/블로그/스택']);
     // The kind is the schema's record of which shape of surface this is, and a site's is a page's.
     expect(pages()[0].dataset.kind).toBe('flow');
   });

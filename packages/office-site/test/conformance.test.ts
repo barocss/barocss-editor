@@ -163,7 +163,13 @@ describe('the site builder draws what it declares', () => {
      * the document's own `widths` box, which is where a thing referred to by name lives in this
      * schema; see `width-commands.ts` for why it is a node at all.
      */
-    { command: 'insertWidth', produces: 'width' }
+    { command: 'insertWidth', produces: 'width' },
+    /*
+     * A page of a template's own — the second insert here that puts nothing *on* a page. An entry is
+     * a `surface` because an address, a search result and formatted text are a page's properties
+     * rather than a datum's; see `page-commands.ts`.
+     */
+    { command: 'insertEntry', produces: 'surface' }
   ];
 
   /**
@@ -419,6 +425,23 @@ describe('the site builder draws what it declares', () => {
        * — and names the narrowest, because the widest is the base and `removeWidth` refusing the last
        * width is a different rule this must not accidentally test.
        */
+      /**
+       * **A page and a definition to draw it through**, for the two commands about a template.
+       *
+       * Both refuse without one, correctly: `setPageTemplate` refuses a name no definition has *and*
+       * the name a page already carries — emptying is only a gesture on a page that has a template —
+       * and `insertEntry` has nothing to make a page from. The sample holds several definitions, so
+       * the probe names the first and the page a reader is on.
+       */
+      if (command === 'setPageTemplate' || command === 'insertEntry') {
+        const definitions = definitionsOf(doc as never);
+        if (definitions.length > 0) {
+          payload.template = definitions[0].id;
+          payload.nodeId = page;
+          payload.pageId = page;
+        }
+      }
+
       if (command === 'setWidth' || command === 'removeWidth' || command === 'moveWidth') {
         /*
          * …and a document that **declares** one, which is the half the first version missed. A site
@@ -982,6 +1005,23 @@ describe('the site builder draws what it declares', () => {
         if (row.control === 'variable') payload.rename = '바뀐 변수';
       }
 
+      /**
+       * **A definition to be drawn through**, for the row that names a page's template.
+       *
+       * The value is a definition's id and the sample holds several, so the probe names one — and it
+       * has to be one the page is **not** already drawn through, because naming the template a page
+       * already has is not a change and the command says so.
+       */
+      if (row.attr === 'template') {
+        const already = String((store.getNode(found[0]) as any)?.attributes?.template ?? '');
+        const definitions = definitionsOf(doc as never).filter((one) => one.id !== already);
+        if (definitions.length === 0) {
+          wrote.set(row.attr, null);
+          continue;
+        }
+        payload.template = definitions[0].id;
+      }
+
       if (row.attr === 'opens') {
         const parent = (store.getNode(found[0]) as any)?.parentId;
         const siblings = ((store.getNode(String(parent)) as any)?.content ?? []) as string[];
@@ -1375,6 +1415,39 @@ describe('the site builder draws what it declares', () => {
         variable: 'named values, read where they are referenced (`var:이름`) and never drawn',
 
         /*
+         * ── A page drawn through a template ────────────────────────────────
+         *
+         * Read by the **content resolver**, which is the store's proxy for a node's children — the
+         * same place a placement's definition is resolved and for the same measured reason (a
+         * renderer that built the parts itself gave every one of them the placement's box and sid).
+         * This probe renders a node and compares drawings, so a resolver is a place it cannot reach;
+         * `locked` carries the identical exemption for the identical shape of answer.
+         *
+         * `widths.test.ts` and `site.spec.ts` both drive it, which is the trade this exemption is
+         * making: not *nothing checks it*, but *this check cannot*.
+         */
+        template: {
+          reason: 'read by the content resolver, which draws a page through the definition it names — a place this probe cannot reach, since it renders a node and compares drawings',
+          covers: ['every-attribute-is-read']
+        },
+
+        /*
+         * ── How many shares of a row a block takes ─────────────────────────
+         *
+         * Read by `sizingCss` inside its `share` branch and nowhere else, which is right: a share on
+         * a block that has not said `sizing: 'share'` is a number the drawing has no use for, and
+         * writing it anyway would be the drawing claiming something the browser ignores.
+         *
+         * The probe fills `sizing` from the schema's own options and takes the first, which is
+         * `fill` — the same shape as `frame.gap` against a `layoutMode` of `none`, two exemptions
+         * down. `sizing.test.ts` measures the arithmetic in milliseconds.
+         */
+        share: {
+          reason: 'read by `sizingCss` in its `share` branch; the probe fills `sizing` with its first option, `fill`',
+          covers: ['every-attribute-is-read']
+        },
+
+        /*
          * ── The gap across the flow ────────────────────────────────────────
          *
          * Read by `frameCss`, and only inside its `row`, `column` and `grid` branches — which is
@@ -1449,6 +1522,30 @@ describe('the site builder draws what it declares', () => {
         widths: {
           reason: 'the widths a site is designed at, read where they are referenced (`overrides`, the boards) and never drawn',
           covers: ['every-node-is-drawn']
+        },
+
+        /*
+         * ── What a publish left behind ─────────────────────────────────────
+         *
+         * A history is not on the page. These are read where a reader asks *is what is live the same
+         * as what I have* — the rail's foot and whatever a publish dialog turns out to be — and a
+         * renderer for them would be a record drawn into the site it is a record of.
+         *
+         * `publishTo` is the same shape one level down: it names the connection a publish is sent to,
+         * and the **sending** is the app's, which is the division this package has stated since
+         * `publish-commands.ts` was written.
+         */
+        publishes: {
+          reason: 'what a publish left behind, read where a reader asks whether the live site is theirs — never drawn, because a history is not on the page',
+          covers: ['every-node-is-drawn']
+        },
+        publish: {
+          reason: 'one publish, read where a reader asks whether the live site is theirs — never drawn',
+          covers: ['every-node-is-drawn', 'every-drawing-can-be-named']
+        },
+        publishTo: {
+          reason: 'the connection a publish is sent to, by name — read by the command that records a publish, and sent by the app, which is whose question a file is',
+          covers: ['every-attribute-is-read']
         },
         /*
          * And the command that makes one, which **is** visible — as a board. What a width changes is

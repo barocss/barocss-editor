@@ -37,6 +37,8 @@ const px = (twips: number): string => `${Math.round(twips * PX_PER_TWIP * 100) /
 
 export interface Sized {
   sizing?: unknown;
+  /** How many shares of the row this one takes, when `sizing` is `share` — see the switch. */
+  share?: unknown;
   minWidth?: unknown;
   maxWidth?: unknown;
   minHeight?: unknown;
@@ -105,6 +107,24 @@ export function sizingCss(
        */
       css.minWidth = '0';
       break;
+    case 'share': {
+      /**
+       * **This many shares of what is left**, which is how a page divides a row.
+       *
+       * `flex: <n> 1 0%` — grow by n, shrink, and start from nothing. Starting from nothing is the
+       * half that makes it a share rather than a nudge: with `flex-basis: auto` the content's own
+       * width is taken out first, so two blocks at 1 and 2 come out 55/45 when one holds a long word.
+       *
+       * A share and not a percentage, and the arithmetic is why: 40% + 60% is the whole row and the
+       * gap between them is not, so a percentage row overflows by exactly the gap. Shares divide what
+       * is left **after** the gaps and the padding.
+       */
+      const many = number(attrs?.share);
+      css.flex = `${many !== undefined && many > 0 ? many : 1} 1 0%`;
+      /* The same reason `fill` says it: a flex item's `min-width` is its content unless told. */
+      css.minWidth = '0';
+      break;
+    }
     case 'hug':
       css.flex = '0 0 auto';
       css.width = 'fit-content';

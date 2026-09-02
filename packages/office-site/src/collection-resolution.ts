@@ -220,6 +220,37 @@ function boundWords(
 }
 
 /**
+ * **What a page drawn through a template shows**: the definition's parts, with the page's own blocks
+ * in its slot.
+ *
+ * Out here as a function rather than inside the resolver, for this repository's usual reason: the
+ * resolver is reached only through the **view's** proxy — `store.getNode(sid).content` does not go
+ * through it — so a rule kept in there can be measured only by driving a browser. A test that read
+ * the store directly would be measuring stored sids and calling them a drawing.
+ *
+ * Nothing new underneath. A definition may hold a part with a `slot`, and `instanceParts` puts the
+ * placement's own children there — so a template page is that sentence with a **page** as the
+ * placement. `componentId` is what `instanceParts` reads; the page goes on saying `template`, which
+ * is the reader's word and the honest one: a page *has* a template, and a card *is* a placement.
+ *
+ * `undefined` for a page that names none, and for one whose children are already nodes — the proxy
+ * asks about everything a resolver returns, and only a resolved node's children are nodes.
+ */
+export function templateParts(
+  doc: CanvasAccess,
+  page: CanvasNode | undefined
+): unknown[] | undefined {
+  const named = page?.attributes?.template;
+  if (typeof named !== 'string' || !named) return undefined;
+  const kids = (page as { content?: unknown[] } | undefined)?.content;
+  if (Array.isArray(kids) && kids.some((one) => typeof one !== 'string')) return undefined;
+  return instanceParts(doc, {
+    ...page,
+    attributes: { ...(page?.attributes ?? {}), componentId: named }
+  } as never) as unknown[];
+}
+
+/**
  * Install the site's resolution: placements draw their definitions, lists draw their rows, and a
  * definition being designed against a row draws that row's words.
  *
@@ -233,6 +264,23 @@ export function installSiteResolution(editor: {
 }): void {
   installInstanceResolution(editor, (node, _getNode, doc) => {
     if (node?.stype === 'collection') return collectionRows(doc, node) as never;
+
+    /**
+     * **A page drawn through its template**, which is how two hundred posts share a shape.
+     *
+     * The same sentence a placement already says, with a page in the placement's part: it names a
+     * definition, and what a reader sees is the definition with **this page's own blocks in its
+     * slot**. `instanceParts` does all of it — the slot, the variables, the cycle refusal — so this
+     * is the one line that says a page may be a placement too.
+     *
+     * `componentId` rather than `template` in what is handed down, because that is the name
+     * `instanceParts` reads. The page keeps saying `template`, which is the reader's word for it and
+     * the honest one: a page has a template, and a card is a placement.
+     *
+     * Guarded by `alreadyDrawn` the way the shared answer guards itself — the proxy asks about every
+     * node a resolver returns, and a resolved page's children are nodes rather than sids.
+     */
+    if (node?.stype === 'surface') return templateParts(doc, node) as never;
 
     /*
      * The words only, and the node keeps its own sid — which is what makes the preview *editable*.

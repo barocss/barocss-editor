@@ -88,6 +88,8 @@ export type SitePanelControl =
    */
   | 'widths'
   | 'widths-part'
+  /** The definitions this document holds, offered as the template a page is drawn through. */
+  | 'template'
   /** The columns of the dataset a list is drawing — likewise. */
   | 'column'
   /** A placement's answers, one row per question its definition asks. */
@@ -599,6 +601,39 @@ export const SITE_PANEL: SitePanelRow[] = [
     // of the three arrangements is a row a reader learns to ignore.
     when: { attr: 'layoutMode', is: ['grid'] }
   },
+  /**
+   * **The part that holds what is put into this definition** — its slot.
+   *
+   * Declared and drawn since before templates existed (`instanceParts` puts a placement's own
+   * children in it) and **offered nowhere**, which is three of the four places an attribute has to
+   * be in to be alive. So a reader could name a template for a page and had no way to say where the
+   * page's blocks go — and a template with no slot draws none of them, which is the worst kind of
+   * silence: the page's words simply disappear.
+   *
+   * Only inside a definition, because that is the only place it means anything: a stack on a page has
+   * nothing being put into it. `inside` is the declaration for exactly this — see `PanelRow.inside`.
+   *
+   * A name rather than a switch, because a definition may one day hold two — and the name is what the
+   * page's blocks would be matched against. One slot draws them today; the second is a slice of its
+   * own, and a name written now is not a promise broken later.
+   */
+  {
+    attr: 'slot',
+    command: 'setBlockFormat',
+    /*
+     * In 배치 rather than in a group of its own: this is what the stack **holds**, which is the same
+     * question 방향 and 간격 answer, and a one-row group is a heading a reader reads past. It is kept
+     * off every ordinary page by `inside` rather than by the group it is in.
+     */
+    group: '배치',
+    tab: 'block',
+    label: '내용 자리',
+    ariaLabel: '이 부분이 내용 자리입니다',
+    control: 'text',
+    on: STACKS,
+    inside: 'component'
+  },
+
   {
     attr: 'gap',
     command: 'setBlockFormat',
@@ -820,7 +855,37 @@ export const SITE_PANEL: SitePanelRow[] = [
     options: [
       { id: 'fill', label: 'Fill', icon: 'size-fill' },
       { id: 'hug', label: 'Hug', icon: 'size-hug' },
-      { id: 'fixed', label: 'Fixed', icon: 'size-fixed' }
+      { id: 'fixed', label: 'Fixed', icon: 'size-fixed' },
+      /*
+       * **Share** — the fourth, and the one a page could not say: two columns at 40 and 60. English
+       * like the other three, which is the rule this panel follows for the words a designer already
+       * knows from every tool of this kind.
+       */
+      { id: 'share', label: 'Share', icon: 'distribute-h' }
+    ],
+    /**
+     * **How many shares**, beside the mode rather than under it — one decision, two halves.
+     *
+     * Drawn only when the mode is `share`, which `when` is exactly for: a number that means nothing
+     * for three of the four answers is a control a reader learns to ignore.
+     *
+     * Its unit is *the other children*: two blocks at 1 and 2 are a third and two thirds of what is
+     * left after the gaps. Which is why it is a share and not a percentage — 40% + 60% is the whole
+     * row and the gap between them is not, so a percentage row overflows by exactly the gap.
+     */
+    with: [
+      {
+        attr: 'share',
+        command: 'setBlockFormat',
+        group: '크기',
+        tab: 'block',
+        label: '몫',
+        ariaLabel: '몫',
+        control: 'number',
+        min: 1,
+        fallback: 1,
+        when: { attr: 'sizing', is: ['share'] }
+      }
     ]
   },
   /**
@@ -2034,6 +2099,26 @@ export const SITE_PANEL: SitePanelRow[] = [
    * And the two a **page** answers rather than the site: which one a host serves for an address it
    * cannot match, and whether this one in particular should stay out of a search result.
    */
+  /**
+   * **The template this page is drawn through** — the row that makes two hundred posts share a shape.
+   *
+   * A picker rather than a text field, because the value is a definition's id and an id is not a
+   * thing anybody knows by looking at their site. The list is the document's own definitions, which
+   * only the document can supply — the same reason `dataset` and `column` are control kinds.
+   *
+   * 없음 is a real answer and the first one: a page that was an entry becomes an ordinary page
+   * holding exactly the blocks it always held.
+   */
+  {
+    attr: 'template',
+    command: 'setPageTemplate',
+    group: '페이지',
+    tab: 'page',
+    label: '템플릿',
+    ariaLabel: '이 페이지를 그리는 템플릿',
+    control: 'template',
+    on: ['surface']
+  },
   { attr: 'notFound', command: 'setPageInfo', group: '페이지', tab: 'page', label: '없는 주소용', ariaLabel: '주소가 틀렸을 때 보일 페이지', control: 'toggle', on: ['surface'] },
   { attr: 'noIndex', command: 'setPageInfo', group: '페이지', tab: 'page', label: '이 페이지만 제외', ariaLabel: '이 페이지를 검색에서 제외', control: 'toggle', on: ['surface'] },
 

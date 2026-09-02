@@ -255,7 +255,7 @@ test.describe('a site at several widths', () => {
 
     // `[data-page]` rather than any button in the list: a row is a page **and** what can be done to
     // it — copy it, move it, take it away — so counting buttons counts the acts as well.
-    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(5);
+    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(6);
     await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/');
 
     await page.locator('[data-pages] [data-page]').nth(1).click();
@@ -1836,6 +1836,245 @@ test.describe('the exported page', () => {
     expect(await plane()).not.toBe(was);
   });
 
+  test('divides a row into shares, which a percentage could not', async ({ page }) => {
+    /**
+     * The fourth thing work needs, and the boundary a document that keeps **absolute** lengths runs
+     * into: two columns at 40 and 60 is an ordinary layout and there was no way to write it — `fill`
+     * on both makes them equal, and `fixed` in twips breaks at every other width.
+     *
+     * A **share** rather than a percentage, and the arithmetic is the reason this check measures what
+     * it measures: 40% + 60% is the whole row and the gap between them is not, so a percentage row
+     * overflows by exactly the gap. Shares divide what is left **after** the gaps and the padding —
+     * which is what the two widths below add up to, and why they are not 40 and 60 of anything.
+     */
+    await ready(page);
+    const row = cardRow(page, 'desktop');
+    await bring(page, row);
+    await page.waitForTimeout(300);
+
+    const widths = async () =>
+      await page.evaluate(() => {
+        const el = document.querySelector('[data-frame="desktop"] .st-stack[data-name="제품 셋"]');
+        return [...(el?.children ?? [])].map((one) =>
+          Math.round(one.getBoundingClientRect().width)
+        );
+      });
+
+    /* A grid divides by columns; this is about a **row**, so it is asked as one. */
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const el = document.querySelector('[data-frame="desktop"] .st-stack[data-name="제품 셋"]');
+      const sid = el?.getAttribute('data-bc-sid');
+      await editor.executeCommand('setBlockFormat', { nodeIds: [sid], layoutMode: 'row' });
+      const kids = (editor.dataStore.getNode(sid)?.content ?? []) as string[];
+      /*
+       * The caps come off first, and that is a fact about the feature rather than test scaffolding:
+       * a **maximum wins over a share**. Measured before it was written this way — the first card
+       * came out 263 where two shares of the row are 294, because the sample caps it.
+       */
+      await editor.executeCommand('setBlockFormat', {
+        nodeIds: [kids[0]],
+        sizing: 'share',
+        share: 2,
+        maxWidth: undefined
+      });
+      for (const one of kids.slice(1)) {
+        await editor.executeCommand('setBlockFormat', {
+          nodeIds: [one],
+          sizing: 'share',
+          share: 1,
+          maxWidth: undefined
+        });
+      }
+    });
+    await page.waitForTimeout(800);
+
+    /**
+     * Two claims, and they are different claims on purpose.
+     *
+     * **What the model produces** is the flex, and that is what a share *is*: grow by n, shrink, and
+     * start from nothing. Starting from nothing is the half that makes it a share rather than a
+     * nudge — with `flex-basis: auto` each card's own content comes out first, and two cards holding
+     * different words come out different widths however equal their shares.
+     *
+     * **What a reader sees** is measured separately and asserted more loosely, because a cap wins
+     * over a share: the sample's first card has a maximum, so it lands at 263 where two shares of
+     * this row are 294. That is the layout being right rather than the share being wrong, and a check
+     * that demanded exactly twice would be asserting that a maximum does nothing.
+     */
+    const flex = await page.evaluate(() => {
+      const el = document.querySelector('[data-frame="desktop"] .st-stack[data-name="제품 셋"]');
+      return [...(el?.children ?? [])].map((one) => getComputedStyle(one as HTMLElement).flex);
+    });
+    expect(flex).toEqual(['2 1 0%', '1 1 0%', '1 1 0%']);
+
+    const said = await widths();
+    expect(said.length).toBe(3);
+    expect(said[0]).toBeGreaterThan(said[1]);
+    // And the two equal shares are equal, which a percentage of the row would also have got right and
+    // `flex-basis: auto` would not.
+    expect(Math.abs(said[1] - said[2])).toBeLessThan(2);
+  });
+
+  test('gives a writer the words and nothing else', async ({ page }) => {
+    /**
+     * **글 고치기** — the third thing work needs, and the one that is *not* collaboration.
+     *
+     * In real work the owner of the layout and the owner of the words are different people, and
+     * until now changing a word came with permission to break the layout. There are no accounts, so
+     * *this person may only write* cannot be enforced and **must not be claimed** — what can honestly
+     * be built is a mode a reader chooses, the way they choose preview. Most of the damage a writer
+     * does to a layout is done by accident, and a mode stops all of it.
+     *
+     * One declaration (`writing.ts`) read by four surfaces, which is what this drives: the board's
+     * gestures, the panel's rows, the menubar's greying, and the command a chord would run.
+     */
+    await ready(page);
+    await page.locator('[aria-label^="글만 고칩니다"]').click();
+    await page.waitForTimeout(900);
+    await expect(page.locator('[data-writing-toggle]')).toHaveCount(1);
+
+    /*
+     * **The board's gestures are gone** — not greyed. A writer is put in the mode where a press puts
+     * a caret, so there are no handles to hide one by one: the handles, the padding bands, the
+     * marquee and the plus all live in `select`.
+     */
+    await page.locator('[data-frame="desktop"] [data-name="문제"]').first().click({ force: true });
+    await page.waitForTimeout(500);
+    await expect(page.locator('.st-grip')).toHaveCount(0);
+    await expect(page.locator('.st-add')).toHaveCount(0);
+    await expect(page.locator('[data-frame="desktop"] .st-mark-selected')).toHaveCount(0);
+
+    /*
+     * **The panel is a writer's panel**, which is a different panel rather than the builder's with
+     * rows hidden — and saying so with a key is what actually removed them: the component rendered
+     * one group of three rows while the panel on screen went on showing six, because React was
+     * reconciling the new list onto the old sections.
+     */
+    const labels = await page.evaluate(() =>
+      [...document.querySelectorAll('.office-properties [aria-label]')].map((el) =>
+        el.getAttribute('aria-label')
+      )
+    );
+    expect(labels).toContain('페이지 이름');
+    expect(labels).toContain('페이지 설명');
+    // The page's paint, its widths, its type scale — somebody else's work.
+    expect(labels.filter((one) => one?.includes('배경'))).toEqual([]);
+    expect(labels.filter((one) => one?.includes('폭'))).toEqual([]);
+
+    // And the menubar greys what the mode refuses, because a mode a reader leaves through a menu is
+    // not a mode.
+    await page.locator('[data-menu="edit"]').click();
+    await page.waitForTimeout(300);
+    await expect(menuItem(page, '모두 선택')).toBeDisabled();
+    await expect(menuItem(page, '복제')).toBeDisabled();
+    /*
+     * 실행 취소 is deliberately not asserted here: it is greyed because the history is empty, which
+     * is a fact about the document rather than about the mode — and a check that read one for the
+     * other would pass for the wrong reason the day undo *was* refused.
+     */
+    await page.keyboard.press('Escape');
+  });
+
+  test('says whether what is live is what the reader has', async ({ page }) => {
+    /**
+     * The second thing a site builder needs before anybody uses it at work, asked as four: *어디로
+     * 가는지, 누가 눌렀는지, 무엇이 나갔는지, 어떻게 되돌리는지.*
+     *
+     * Three are answerable cheaply and the fourth is not, and the shape says which is which:
+     * **rolling back is not offered**, because a copy of every published page in the document would
+     * multiply the file by the number of publishes; and **who** stays empty until this product has
+     * accounts, because a name invented by the tool would be a lie in a record whose entire value is
+     * being trustworthy.
+     *
+     * What is left is the question a reader actually asks, and these are its three answers — *never*
+     * is not *behind*, and a builder that said 바뀐 것이 있습니다 on the day somebody started would
+     * be one that cried wolf on day one.
+     */
+    await ready(page);
+    const said = page.locator('[data-published]');
+    await expect(said).toHaveAttribute('data-published', 'never');
+    await expect(said).toContainText('아직 발행하지 않았습니다');
+
+    await page.evaluate(async () => {
+      await (window as any).editor.executeCommand('publishSite', {
+        at: '2026-09-03T10:00:00.000Z'
+      });
+    });
+    await page.waitForTimeout(800);
+    await expect(said).toHaveAttribute('data-published', 'current');
+    await expect(said).toContainText('2026-09-03 10:00');
+
+    /*
+     * And an edit puts it behind. The digest is of the **document** — comparing outputs would mean
+     * rendering the whole site to answer it, and a publish that produced identical HTML from an
+     * edited document is still one a reader wants to know about.
+     */
+    await page.locator('[data-frame="desktop"] [data-name="문제"]').first().click({ force: true });
+    await page.waitForTimeout(400);
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      await editor.executeCommand('setBlockFormat', {
+        nodeIds: editor.selection.nodeIds,
+        gap: 40 * 15
+      });
+    });
+    await page.waitForTimeout(800);
+    await expect(said).toHaveAttribute('data-published', 'behind');
+    await expect(said).toContainText('이후로 바뀐 것이');
+  });
+
+  test('draws a post through its template, and publishes it that way', async ({ page }) => {
+    /**
+     * **A page from a template**, which is how two hundred posts share a shape — and the biggest
+     * modelling question this product had left.
+     *
+     * `collection` answers *a list on a page*. It cannot answer *a page of the list's own*, and a
+     * blog needs that: an address a visitor can be sent, a description a search result shows, and a
+     * body that is **formatted text**. A datum has none of those. So an entry is a page, and data is
+     * what makes lists.
+     *
+     * One attribute underneath, because the machinery already existed for placements: a definition
+     * may hold a part with a `slot`, and the placement's own children are drawn there. A template
+     * page is that sentence with a page as the placement.
+     */
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-pages] [data-page]').nth(5).click();
+    await page.waitForTimeout(1000);
+
+    const board = page.locator('[data-frame="desktop"] .st-page');
+    await expect(board).toHaveAttribute('data-path', '/블로그/스택');
+
+    /*
+     * The template's chrome **and** the page's own words, which is the whole claim: neither on its
+     * own is a post. The slot is two levels down in the definition — header above, footer below —
+     * which is the ordinary shape and the one that had `instanceParts` finding no slot at all.
+     */
+    await expect(board).toContainText('Barocss');
+    await expect(board).toContainText('스택이 페이지의 문법이다');
+    await expect(board).toContainText('© 2026 Barocss');
+
+    // And nothing is wrong with it — a template with no slot is a fault, and this one has one.
+    await expect(page.locator('[data-faults]')).toContainText('문제 없음');
+
+    /*
+     * And it **publishes** that way. The export draws through the same renderers, so a page that is
+     * drawn through a template on a board is drawn through it in the file — there is no second
+     * place where the two could disagree.
+     */
+    const html = await page.evaluate(async () => {
+      let held: any;
+      await (window as any).editor.executeCommand('exportSite', {
+        write: (result: unknown) => (held = result)
+      });
+      return held.pages.find((one: any) => one.path === '/블로그/스택')?.html ?? '';
+    });
+    expect(html).toContain('스택이 페이지의 문법이다');
+    expect(html).toContain('© 2026 Barocss');
+  });
+
   test('says which widths a freely placed block is off the side of', async ({ page }) => {
     /**
      * The one fault absolute placement produces on its own, and the reason this product treats
@@ -2524,7 +2763,12 @@ test.describe('the exported page', () => {
       ['방향', 3],
       ['주 축 분배', 6],
       ['맞춤', 4],
-      ['폭', 3]
+      /*
+       * **Four**, since 폭 grew a fourth answer: Fill, Hug, Fixed and **Share** — the one a page
+       * could not say, because two columns at 40 and 60 is `fill` on both (equal) or `fixed` in
+       * twips (broken at every other width).
+       */
+      ['폭', 4]
     ] as const) {
       const strip = page.getByRole('radiogroup', { name: said });
       await expect(strip).toHaveCount(1);
@@ -4675,9 +4919,15 @@ test.describe('the rail', () => {
     await ready(page);
     await page.locator('[data-panel="components"]').click();
 
-    // The count is what makes a component list worth having: a definition used in five places is a
-    // decision, and one used nowhere is a thing to delete.
-    await expect(page.locator('[data-component="site-header"]')).toContainText('5곳');
+    /*
+     * The count is what makes a component list worth having: a definition used in six places is a
+     * decision, and one used nowhere is a thing to delete.
+     *
+     * Six rather than five since the sample grew a **post template**: a template is chrome around a
+     * slot, and the chrome is the site's own header and footer rather than a second copy of them —
+     * which is the whole reason a page from a template is a placement of a definition.
+     */
+    await expect(page.locator('[data-component="site-header"]')).toContainText('6곳');
     // Seven: twice on the home page, twice in the header's own definition — the wide navigation and
     // the menu a phone opens — and once on each of three others.
     await expect(page.locator('[data-component="cta"]')).toContainText('7곳');
@@ -4713,7 +4963,7 @@ test.describe('the rail', () => {
   test('shows the pages, with the address that makes each one a page of a site', async ({ page }) => {
     await ready(page);
     await page.locator('[data-panel="pages"]').click();
-    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(5);
+    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(6);
 
     await page.locator('[data-page][title="/블로그"]').click();
     await page.waitForTimeout(500);
@@ -4818,7 +5068,7 @@ test.describe('a definition', () => {
     const where = page.locator('[data-where]');
     await expect(where).toHaveAttribute('data-editing-component', 'site-header');
     await expect(where).toContainText('머리말');
-    await expect(where).toContainText('5곳에서 사용 중');
+    await expect(where).toContainText('6곳에서 사용 중');
 
     /*
      * Every board draws the definition, at its own width, and says whose it is.
@@ -4948,18 +5198,18 @@ test.describe('the pages of a site', () => {
     await page.waitForTimeout(700);
 
     // After the page it follows, not at the end — a reader adding a page is adding it *here*.
-    await expect(rows(page)).toHaveCount(6);
-    await expect(rows(page).nth(2)).toContainText('페이지 6');
+    await expect(rows(page)).toHaveCount(7);
+    await expect(rows(page).nth(2)).toContainText('페이지 7');
 
     await rows(page).nth(2).click();
     await page.waitForTimeout(600);
-    await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/page-6');
+    await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/page-7');
     /*
       The header and footer of the page it followed, as placements — so editing the header still
       changes this one too. Three drawn, because the header places the button.
      */
     await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(4);
-    await expect(page.locator('[data-frame="desktop"] .st-page h1')).toHaveText('페이지 6');
+    await expect(page.locator('[data-frame="desktop"] .st-page h1')).toHaveText('페이지 7');
   });
 
   test('copies a page, with an address of its own', async ({ page }) => {
@@ -4967,7 +5217,7 @@ test.describe('the pages of a site', () => {
     await page.locator('[data-page-duplicate]').nth(1).click();
     await page.waitForTimeout(700);
 
-    await expect(rows(page)).toHaveCount(6);
+    await expect(rows(page)).toHaveCount(7);
     await expect(rows(page).nth(2)).toContainText('제품 사본');
     await expect(rows(page).nth(2)).toContainText('/제품-2');
   });
@@ -5005,13 +5255,13 @@ test.describe('the pages of a site', () => {
 
     await dialog.getByRole('button', { name: '취소' }).click();
     await page.waitForTimeout(300);
-    await expect(rows(page)).toHaveCount(5);
+    await expect(rows(page)).toHaveCount(6);
 
     await page.locator('[data-page-remove]').nth(1).click();
     await page.locator('[data-page-remove-confirm]').click();
     await page.waitForTimeout(700);
 
-    await expect(rows(page)).toHaveCount(4);
+    await expect(rows(page)).toHaveCount(5);
     await expect(page.locator('[data-pages]')).not.toContainText('/제품');
 
     /*
@@ -6110,11 +6360,11 @@ test.describe('the keys', () => {
     await page.locator('[data-page-remove]').nth(1).click();
     await page.locator('[data-page-remove-confirm]').click();
     await page.waitForTimeout(700);
-    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(4);
+    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(5);
 
     await page.keyboard.press('Meta+z');
     await page.waitForTimeout(800);
-    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(5);
+    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(6);
     // And the footer heard it, which is the other half: a fault list that lags undo is a list lying.
     await expect(page.locator('[data-faults]')).toHaveAttribute('data-clear', 'true');
   });
@@ -7517,7 +7767,7 @@ test.describe('a component can be let go', () => {
       await page.waitForTimeout(300);
       return await page.locator('[data-component="site-header"]').innerText();
     };
-    expect(await uses()).toContain('5곳');
+    expect(await uses()).toContain('6곳');
 
     await page.locator('[data-panel="add"]').click();
     await press(page, page.locator('[data-frame="desktop"] .st-placement').first());
@@ -7526,7 +7776,7 @@ test.describe('a component can be let go', () => {
     await page.waitForTimeout(700);
 
     // One fewer place uses it, and the component is still there for the four that do.
-    expect(await uses()).toContain('4곳');
+    expect(await uses()).toContain('5곳');
   });
 
   test('refuses a data list’s card, which is not a block on the page', async ({ page }) => {
@@ -7738,8 +7988,13 @@ test.describe('the menubar', () => {
      * greyed forever. The model says `needs: 'page'` now and the app fills in the page a reader is
      * on — which is genuinely the app's to know, since the document has no notion of one being open.
      */
-    await expect(page.locator('[data-menu-item="file.pages.1"]')).toBeEnabled();
-    await expect(page.locator('[data-menu-item="file.pages.2"]')).toBeEnabled();
+    /*
+     * By the name a reader reads, not by where it sits. `file.pages.2` is an address meaning *the
+     * third one down*, and the day 페이지 grew 템플릿으로 페이지 만들기 it started asserting things
+     * about a different entry — the third time a positional id has done this in this file.
+     */
+    await expect(menuItem(page, '페이지 복제')).toBeEnabled();
+    await expect(menuItem(page, '페이지 삭제')).toBeEnabled();
   });
 
   test('publishes the page, which is the gesture this product is for', async ({ page }) => {

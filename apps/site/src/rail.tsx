@@ -7,6 +7,8 @@ import {
   blocksIn,
   definitionsOf,
   documentFaults,
+  publishSaid,
+  publishState,
   widthsOf,
   FAULT_KINDS,
   holderOf,
@@ -173,6 +175,16 @@ export function Rail({
         Outside the tabs on purpose — see `FaultsFooter`. A reader who has just deleted a page is not
         going to go looking for the panel that would have told them what it broke.
       */}
+      {/*
+        **Whether what is live is what the reader has**, above the faults and in the same strip.
+
+        The one question work asks about a publish, and it belongs here for the same reason the faults
+        do: a reader who has just changed a page is not going to go looking for the panel that would
+        have told them the live site no longer matches. Three answers, because *never published* is
+        not *behind* — see `publishes.ts`.
+      */}
+      <PublishFooter editor={editor} doc={doc} revision={revision} />
+
       <FaultsFooter
         editor={editor}
         doc={doc}
@@ -1135,6 +1147,44 @@ function DataPanel({
  * through building is *supposed* to be half-wrong, and a builder that underlines it in red while they
  * work is one they will turn off.
  */
+/**
+ * **What a publish left behind**, said in one line.
+ *
+ * Three states rather than two, and the third is why this is worth drawing: *never published* is not
+ * *behind*, and a builder that said 바뀐 것이 있습니다 on the day a reader started would be one that
+ * cried wolf on day one.
+ *
+ * The sentence is the **product's** (`publishSaid`), not this file's — the same division the fault
+ * list follows: the model says what is true and in what words, and the app says where it goes.
+ */
+function PublishFooter({
+  editor,
+  doc,
+  revision
+}: {
+  editor: Editor;
+  doc: { getNode: (sid: string) => any };
+  revision: number;
+}) {
+  const said = useMemo(() => {
+    const rootId = editor.getRootId?.();
+    if (!rootId) return undefined;
+    const exported = (editor as never as { exportDocument?: () => unknown }).exportDocument?.();
+    const found = publishState({ rootId, getNode: doc.getNode } as never, exported);
+    return { ...found, words: publishSaid(found.state, found.last) };
+    // `revision` is the whole input: the document changed, so the answer may have.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, doc, revision]);
+
+  if (!said) return null;
+  return (
+    <p className="st-published" data-published={said.state}>
+      <Icon name={said.state === 'current' ? 'all-clear' : said.state === 'behind' ? 'problem' : 'open'} size={13} />
+      {said.words}
+    </p>
+  );
+}
+
 function FaultsFooter({
   editor,
   doc,

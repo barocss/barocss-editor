@@ -70,7 +70,16 @@ const DECLARED: SiteMenu[] = [
            * keyboard can bind to one of them, and the harness can ask about each.
            */
           { command: 'exportPage', needs: 'page', label: '이 페이지 내보내기' },
-          { command: 'exportSite', label: '사이트 전체 내보내기' }
+          { command: 'exportSite', label: '사이트 전체 내보내기' },
+          /**
+           * **Publishing**, which is 내보내기 *and a record that it happened*.
+           *
+           * Two entries rather than one, because they are two gestures: 내보내기 is *give me the
+           * files*, which a reader does to look at something or to hand it to somebody, and 발행 is
+           * *this is now the site*. Only the second is worth remembering, and only the second can
+           * answer the question work asks — **is what is live the same as what I have?**
+           */
+          { command: 'publishSite', label: '발행하기' }
         ]
       },
       {
@@ -78,6 +87,17 @@ const DECLARED: SiteMenu[] = [
         items: [
           { command: 'insertPage', label: '새 페이지' },
           { command: 'duplicatePage', needs: 'page', label: '페이지 복제' },
+          /*
+           * **A new entry of a template**, which is how a blog is used: the template draws everything
+           * around the words, and the page holds only what this entry says. `insertPage` copies the
+           * chrome off the page it follows, which would give an entry two headers — so it is its own
+           * command rather than a flag, the same reason `duplicatePage` is not `insertPage` with an
+           * argument.
+           *
+           * No `needs: 'page'`: what it needs is a **template**, which the rail's component list is
+           * where a reader picks. The entry lands at the end of the site, like a new page.
+           */
+          { command: 'insertEntry', label: '템플릿으로 페이지 만들기…' },
           { command: 'removePage', needs: 'page', label: '페이지 삭제' }
         ]
       }
@@ -370,7 +390,18 @@ const DECLARED: SiteMenu[] = [
            * and a design drift apart. See `wireframe.ts` for the whole argument and for the three
            * things a browser had to settle.
            */
-          { view: 'wireframe', label: '와이어프레임' }
+          { view: 'wireframe', label: '와이어프레임' },
+          /**
+           * **글 고치기**, which is a view for the same reason the other two are: it changes what the
+           * reader may do rather than what the site says, and there is nothing in the document to
+           * undo.
+           *
+           * A mode and **not a permission**, which is worth being precise about: there are no accounts
+           * here, so *this person may only write* cannot be enforced and must not be claimed. What a
+           * reader gets is a mode they chose — and most of the damage a writer does to a layout is
+           * done by accident, so a mode stops all of it. See `writing.ts`.
+           */
+          { view: 'writing', label: '글 고치기' }
         ]
       }
     ]

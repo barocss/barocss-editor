@@ -1232,6 +1232,26 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/**
+ * **Whether what is live is what the reader has** — one line, above the faults.
+ *
+ * Quieter than a fault when it is *current* or *never*, and the fault colour when it is **behind**:
+ * a live site that no longer matches is not an error in the document, and it is the one thing a
+ * reader wants to know before they close the tab.
+ */
+.st-published {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--st-line);
+  margin: 0;
+  color: var(--ou-muted);
+  font-size: var(--ou-text-small);
+}
+
+.st-published[data-published='behind'] { color: var(--ou-warn, #b45309); }
+
 /* ── The rail: one column, several panels ─────────────────────────────────── */
 
 .st-rail {

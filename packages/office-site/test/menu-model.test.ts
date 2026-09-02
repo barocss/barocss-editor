@@ -146,7 +146,16 @@ describe('what the menubar offers', () => {
 
   it('puts publishing first, where a reader looks for it', () => {
     expect(SITE_MENUS[0].label).toBe('파일');
-    expect(SITE_MENUS[0].blocks[0].items.map((one) => one.command)).toEqual(['exportPage', 'exportSite']);
+    /*
+     * And **발행하기** with them, which is a third gesture rather than a third name for one: 내보내기
+     * is *give me the files*, and 발행 is *this is now the site* — only the second is worth
+     * remembering, and only the second can answer whether what is live is what the reader has.
+     */
+    expect(SITE_MENUS[0].blocks[0].items.map((one) => one.command)).toEqual([
+      'exportPage',
+      'exportSite',
+      'publishSite'
+    ]);
   });
 });
 

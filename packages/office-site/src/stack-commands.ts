@@ -280,9 +280,17 @@ export class SiteStackExtension implements Extension {
   private static readonly FORMAT = [
     // A stack's arrangement.
     'layoutMode',
+    /* How many shares of the row a block takes, when it has said `sizing: 'share'`. */
+    'share',
     'gap',
     /* The gap across the flow, which a grid has and a single line does not — see the schema. */
     'gapCross',
+    /*
+     * **Which part of a definition holds what is put into it** — its slot. Read by `instanceParts`
+     * since before templates existed and accepted by nothing, which is why a reader could name a
+     * template for a page and not say where the page's blocks go.
+     */
+    'slot',
     'padding',
     /*
      * And the four sides, which a hero needs and a shorthand cannot say: 96 above a heading and 64

@@ -159,6 +159,12 @@ describe('what the panel declares', () => {
       'path',
       'scale',
       'shadowColor',
+      /*
+       * The template this page is drawn through — how two hundred posts share a shape. The row is a
+       * picker of the document's own definitions, because the value is a definition's id and an id
+       * is not a thing anybody knows by looking at their site.
+       */
+      'template',
       /* And the widths this site is designed at, which is a list rather than a value. */
       'width'
     ]);

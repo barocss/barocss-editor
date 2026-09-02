@@ -118,7 +118,18 @@ export function instanceParts(
     .map((sid) => doc.getNode(sid) as CanvasNode)
     .filter((node) => node && node.stype !== 'componentValue');
 
-  const slot = definition.parts.find((part) => slotNameOf(doc, part));
+  /**
+   * The slot, **at any depth** — and it used to be a search of the top-level parts only.
+   *
+   * `resolvePart` has always filled a nested one (`sid === where.slotOf`); what was shallow was the
+   * finding. So a definition whose slot was two levels down dropped the placement's children in
+   * silence, which is the ordinary shape rather than an exotic one: a card with a header above its
+   * slot, or a page template with the site's header above and its footer below.
+   *
+   * Measured on the first template ever chosen — a post drew the site's header and footer and none
+   * of its own three blocks, and nothing said why.
+   */
+  const slot = findSlot(doc, definition.parts);
 
   /**
    * The parts that were told to fill the placement take its box.
@@ -565,6 +576,22 @@ export function installInstanceResolution(
     }
     return andThen?.(node, getNode, doc);
   });
+}
+
+/**
+ * The first part that says *what is put into this goes here*, searched depth-first.
+ *
+ * Depth-first and in declaration order, so a definition with two says the same thing every time —
+ * and the one nearer the top wins, which is the one a reader marked first.
+ */
+function findSlot(doc: CanvasAccess, parts: readonly string[], depth = 0): string | undefined {
+  if (depth > NEST_LIMIT) return undefined;
+  for (const part of parts) {
+    if (slotNameOf(doc, part)) return part;
+    const inside = findSlot(doc, childrenOf(doc.getNode(part)), depth + 1);
+    if (inside) return inside;
+  }
+  return undefined;
 }
 
 /**

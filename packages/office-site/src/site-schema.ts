@@ -45,8 +45,25 @@ const FACE_IDS = FACES.map((one) => one.id);
 const SCALE_IDS = SCALES.map((one) => one.id);
 import { FIELDS } from './form';
 
-/** What a child of a stack means to do with the space along the stack's axis. */
-export const SIZING = ['fill', 'hug', 'fixed'] as const;
+/**
+ * What a child of a stack means to do with the space along the stack's axis.
+ *
+ * **`share` is the fourth**, and it is the one a page could not say. Two columns at 40 and 60 is an
+ * ordinary layout and there was no way to write it: `fill` on both makes them equal, and `fixed` in
+ * twips breaks at every other width. Which is the boundary a document that keeps **absolute** lengths
+ * runs into, and the honest answer to it.
+ *
+ * A **share** rather than a percentage, deliberately, and the arithmetic is the reason: 40% + 60% is
+ * 100% and the gap between them is not, so a percentage row overflows by exactly the gap. Shares are
+ * of what is *left after* the gaps and the padding — which is how the web actually divides a row, and
+ * how a reader means it when they say *twice as wide*.
+ *
+ * Percentages, `vw`, `clamp()` and `rem` stay unsayable and that is on the record in
+ * `docs/BACKLOG.md`: the schema's own type system has no union, so a length that is sometimes a
+ * number of twips and sometimes a string with a unit cannot be declared. What could be added without
+ * lying was this.
+ */
+export const SIZING = ['fill', 'hug', 'fixed', 'share'] as const;
 export type Sizing = (typeof SIZING)[number];
 
 /** The kind a site's pages carry, which is the kind Word's sections carry. */
@@ -84,6 +101,15 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
    */
   const everyBlockAttrs = {
     sizing: { type: 'string' as const, required: false, options: [...SIZING] },
+    /**
+     * **How many shares of the row this block takes** — read only when `sizing` is `share`.
+     *
+     * A plain number, and its unit is *the other children*: two blocks at 1 and 2 are a third and two
+     * thirds of what is left after the gaps. One is the default, which makes `share` with nothing
+     * said mean the same as `fill` — the honest reading of a reader who chose the mode and has not
+     * yet said how much.
+     */
+    share: { type: 'number' as const, required: false },
     /** The smallest and largest it may be drawn, in twips, for a `fill` that must not collapse. */
     minWidth: { type: 'number' as const, required: false },
     maxWidth: { type: 'number' as const, required: false },
@@ -661,7 +687,7 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
          * thing a document holds. A document that says nothing about widths gets the three every site
          * starts with — see `widthsOf`.
          */
-        content: 'docMeta? surface+ resources? components? variables? widths?',
+        content: 'docMeta? surface+ resources? components? variables? widths? publishes?',
         attrs: {
           ...((office.nodes as Record<string, any>).document?.attrs ?? {}),
           address: { type: 'string' as const, required: false },
@@ -706,7 +732,20 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
            *
            * Silence is *yes*, because a site somebody published is a site they meant to be found.
            */
-          noIndex: { type: 'boolean' as const, required: false }
+          noIndex: { type: 'boolean' as const, required: false },
+          /**
+           * **Where a publish goes**, by the name of a connection the document holds.
+           *
+           * A deploy target is exactly the shape a `service` already is — a name, an endpoint, a
+           * method — so this is the reference shape for the ninth time rather than a new family of
+           * nodes. And it keeps the division `publish-commands.ts` states: the *document* says where,
+           * and the **app** does the sending, because what a file is (a download, a zip, a POST) is
+           * the app's question.
+           *
+           * Silence is *hand me the files*, which is what publishing has always done here and stays
+           * the honest default: a site with nowhere to go is still a site somebody can put somewhere.
+           */
+          publishTo: { type: 'string' as const, required: false }
         }
       },
 
@@ -723,6 +762,25 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
         content: 'variable* (block | scene | frame | collection)*',
         attrs: {
           ...nodes.surface.attrs,
+          /**
+           * **The template this page is drawn through**, as a component's id.
+           *
+           * Asked as the biggest question left: *한 템플릿, N개 항목* — two hundred posts that share a
+           * shape. `collection` answers *a list on a page*; this answers *a page of the list's own*,
+           * which is a different thing because an address, a search result and formatted text are a
+           * **page's** properties and not a datum's. So an entry is a page, and data is what makes
+           * lists.
+           *
+           * The mechanism was already built, for placements: a definition may hold a part with a
+           * `slot`, and `instanceParts` puts the placement's **own children** there. A template page
+           * is that sentence with a page as the placement — it names a definition, and what a reader
+           * sees is the definition with this page's blocks in its slot. Which is why this is one
+           * attribute rather than a family of new node types.
+           *
+           * The reference shape, for the eighth time: `var:이름`, `componentId`, a dataset's `name`,
+           * `page:id`, a form's `sends`, `asset:이름`, an embed's `provider`+`id` — and now this.
+           */
+          template: { type: 'string' as const, required: false },
           /*
            * A page is painted like any other box on it. A site whose sections can hold a gradient
            * and whose *page* cannot is a site with a white band under every short page.
@@ -964,6 +1022,50 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
        * happens where a length is drawn.
        */
       widths: { name: 'widths', group: 'document', content: 'width*' },
+
+      /**
+       * **What a publish left behind** — when it happened, how much went, and what the document said
+       * at the time.
+       *
+       * Asked as the second thing a site builder needs before anybody can use it at work: *어디로
+       * 가는지, 누가 눌렀는지, 무엇이 나갔는지, 어떻게 되돌리는지.* Three are answerable cheaply and the
+       * fourth is not, and saying which is which is the point of this shape.
+       *
+       * **Not the bytes.** A copy of every published page in the document would multiply the file by
+       * the number of publishes, and a document that grows every time a reader presses a button is a
+       * document they stop pressing it in. So rolling back is **not** possible from here, and this
+       * does not pretend to offer it.
+       *
+       * What it does answer is the question a reader actually asks — *is what is live the same as what
+       * I have?* — in one comparison, with no rendering and no network.
+       *
+       * `by` stays empty until this product has accounts. A name invented by the tool would be a lie
+       * in a record whose whole value is being trustworthy.
+       */
+      publishes: { name: 'publishes', group: 'document', content: 'publish*' },
+      publish: {
+        name: 'publish',
+        group: 'publish',
+        atom: true,
+        attrs: {
+          /** When, as an ISO instant — the clock is the app's to supply. */
+          at: { type: 'string' as const, required: true },
+          /** How many pages went, which is what a reader remembers a publish by. */
+          pages: { type: 'number' as const, required: false },
+          /**
+           * What the document said at the time, as a digest.
+           *
+           * Of the **document** rather than of the output, deliberately: comparing outputs means
+           * rendering the whole site to answer *am I behind*, and comparing documents is a string
+           * against a string. What a reader changes is the document.
+           */
+          digest: { type: 'string' as const, required: false },
+          /** Where it went, by the name of the connection it was sent to — see `publishTo`. */
+          to: { type: 'string' as const, required: false },
+          /** Who pressed it. Empty until this product has accounts; never invented. */
+          by: { type: 'string' as const, required: false }
+        }
+      },
       width: {
         name: 'width',
         group: 'width',

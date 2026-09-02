@@ -669,6 +669,14 @@ describe('Slides draws what its schema declares', () => {
           'the arrangement — `layoutChildren` gives a stretched child the frame’s room across the axis. A box that is not in a frame that arranges draws the same either way, which is what this check is measuring',
         layoutGrow: 'the arrangement — the same, sharing what is left along the axis',
         gap: 'the arrangement — `layoutChildren`',
+        /*
+         * The gap **across** the flow, which a deck's frames read through `frameCss` inside its
+         * `row`, `column` and `grid` branches — and the probe fills `layoutMode` from the schema's
+         * own options, whose first is `none`, the value that switches the whole family off. Word's
+         * harness carries the identical exemption for `frame.alignItems`, `frame.gap` and this, for
+         * the identical reason; the arithmetic is measured in `office-word/test/shapes.test.ts`.
+         */
+        gapCross: 'the arrangement across the flow — `frameCss` inside its row, column and grid branches; the probe fills `layoutMode` with `none`',
         padding: 'the arrangement — `layoutChildren`',
         /*
          * The four sides, for the same reason and by the same reader. They arrived with the page

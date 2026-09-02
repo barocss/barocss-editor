@@ -533,6 +533,8 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
       pricing(),
       about(),
       blog(),
+      /* And one post of the blog's own, drawn through the post template — see `post`. */
+      post(),
 
       /**
        * The **data** the pages draw from.
@@ -1691,6 +1693,45 @@ function about(): Node {
   };
 }
 
+/**
+ * `/블로그/스택` — **one post, drawn through the post template.**
+ *
+ * The sixth page, and the one that makes the feature visible: it holds a heading and two paragraphs
+ * and nothing else, and what a reader sees is the site's header, a readable column with those three
+ * blocks in it, and the footer — because the template draws all of that around its slot.
+ *
+ * Which is the whole argument for an entry being a **page** rather than a row of data: it has an
+ * address a visitor can be sent, a description a search result shows, and a body that is *formatted
+ * text*. A datum has none of those.
+ *
+ * One entry rather than twenty. A sample is read, and twenty of anything is scrolled past; what a
+ * second entry would prove that the first does not is nothing.
+ */
+function post(): Node {
+  return {
+    stype: 'surface',
+    attributes: {
+      ...pageAttrs(
+        'post-stack',
+        '스택이 페이지의 문법이다',
+        '/블로그/스택',
+        '자유 배치를 만들고 나서 알게 된 것: 다시 흐르는 페이지에서 좌표는 폭마다 손으로 놓는 약속이다.'
+      ),
+      /* The one attribute that makes this a page of a template rather than a page of its own. */
+      template: 'post-page'
+    },
+    content: [
+      heading(1, '스택이 페이지의 문법이다'),
+      paragraph(
+        '자유 배치를 만들어 달라는 요청을 받고 만들었고, 만든 것 자체는 후회하지 않습니다. 틀린 것은 그것을 스택과 동급으로 둔 것입니다.'
+      ),
+      paragraph(
+        '페이지는 다시 흐릅니다. 좌표로 놓은 블록은 그 전제에서 빠져나가고, 폭이 셋이면 자리를 세 번 말해야 합니다. 그래서 이제 문서가 어느 폭에서 화면 밖에 있는지 말합니다.'
+      )
+    ]
+  };
+}
+
 /** `/블로그` — a featured post, then the rest, newest first. */
 function blog(): Node {
   return {
@@ -2123,6 +2164,59 @@ function components(): Node {
               paragraph([inColour('0원', 'D6341A')], { partId: 'p-price' })
             ]
           )
+        ]
+      },
+      /**
+       * **The template a post is drawn through** — and the reason this definition is in the sample.
+       *
+       * A fixture must wear what it tests. Templates were built, checked and unusable to look at:
+       * every definition here is a *card*, so choosing one as a page's template drew the card and
+       * dropped the page's twelve blocks on the floor, which is the exact fault the new check
+       * reports. A sample with no template is a sample that cannot show the feature working or
+       * failing.
+       *
+       * The slot is a frame two levels down — the site's header above it, the footer below — which
+       * is the ordinary shape and the one that made a top-level-only `hasSlot` wrong.
+       */
+      {
+        stype: 'component',
+        attributes: { id: 'post-page', name: '글 페이지' },
+        content: [
+          stack('column', { gap: 0, sizing: 'fill', partId: 't-root' }, [
+            placed('site-header'),
+            stack(
+              'column',
+              {
+                gap: GAP.wide,
+                paddingTop: px(72),
+                paddingBottom: px(96),
+                paddingLeft: px(72),
+                paddingRight: px(72),
+                sizing: 'fill',
+                alignItems: 'center',
+                partId: 't-band',
+                overrides: { mobile: { paddingLeft: px(20), paddingRight: px(20) } }
+              },
+              [
+                /*
+                 * **The slot**, and the only thing in this definition that is not chrome: a column a
+                 * post's own blocks are drawn into, at a width a person can read a paragraph at.
+                 */
+                stack(
+                  'column',
+                  {
+                    gap: GAP.mid,
+                    sizing: 'fill',
+                    maxWidth: px(720),
+                    partId: 't-slot',
+                    slot: '본문'
+                  },
+                  []
+                )
+              ]
+            ),
+            placed('site-footer')
+          ])
         ]
       },
       {

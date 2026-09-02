@@ -30,6 +30,7 @@ import {
   DEVICES,
   deviceMatches,
   iconForWidth,
+  writerMaySet,
   type SiteWidth,
   FIELD_PREFIX,
   fieldNameOf,
@@ -227,6 +228,7 @@ export function Inspector({
   editor,
   at,
   onAt,
+  writing,
   state,
   onState,
   page,
@@ -237,6 +239,8 @@ export function Inspector({
   /** The width being edited. The widest is the page itself; the others say only what differs. */
   at: BreakpointId;
   onAt: (at: BreakpointId) => void;
+  /** Whether the reader is in 글 고치기, where only the words are theirs — see `writing.ts`. */
+  writing?: boolean;
   /**
    * The state being edited, held by the **app** rather than here.
    *
@@ -593,6 +597,13 @@ export function Inspector({
        * control that fetched its own would be a second answer to a question with one.
        */
       widths: widthsOf(store as never, rootId),
+      /*
+       * The definitions, for the template row. The same list the rail's 컴포넌트 panel draws — one
+       * source, because a page drawn through a definition and a placement of one name the same thing.
+       */
+      templates: definitionsOf({ rootId: rootId ?? '', getNode: (sid: string) => store?.getNode(sid) } as never).map(
+        (one: { id: string; name: string }) => ({ id: one.id, label: one.name })
+      ),
       datasets: datasets.map((one) => ({ id: one.name, label: `${one.label} (${one.rows})` })),
       columns: [{ id: '', label: '없음' }, ...(chosen?.fields ?? []).map((f) => ({ id: f, label: f }))],
       openable,
@@ -783,6 +794,7 @@ export function Inspector({
           run={run}
           editor={editor}
           onAt={onAt}
+          writing={writing}
         />
       ) : !shown ? (
         /*
@@ -807,6 +819,7 @@ export function Inspector({
           run={run}
           editor={editor}
           onAt={onAt}
+          writing={writing}
           empty="페이지에서 블록을 선택하세요. 한 번 누르면 바깥쪽 블록, 두 번 누르면 그 안쪽입니다."
           after="블록을 선택하면 그 블록의 속성이 여기에 나옵니다."
         />
@@ -845,6 +858,7 @@ export function Inspector({
             run={run}
             editor={editor}
             onAt={onAt}
+            writing={writing}
           />
           {/*
             **담는 곳** — the way out, and the only thing some blocks have to say.
@@ -1074,6 +1088,7 @@ function Groups({
   run,
   editor,
   onAt,
+  writing,
   empty,
   after
 }: {
@@ -1116,6 +1131,8 @@ function Groups({
     pages: { id: string; name: string }[];
     /** The widths this site is designed at — the list itself, which only the document has. */
     widths: SiteWidth[];
+    /** The definitions this document holds, for a page to say which one draws it. */
+    templates: { id: string; label: string }[];
   };
   /** The document's schema, which is what decides where a row appears. */
   schema?: { getNodeType?: (stype: string) => { attrs?: Record<string, unknown> } | undefined };
@@ -1125,6 +1142,8 @@ function Groups({
   editor: Editor;
   /** Which width a reader is editing at — the widths list can move them to another one. */
   onAt: (at: BreakpointId) => void;
+  /** Whether the reader is in 글 고치기, where only the words are theirs — see `writing.ts`. */
+  writing?: boolean;
   /** Shown instead of the groups when there is nothing to draw them about. */
   empty?: string;
   /** Shown under them, when a reader could be told what to do next. */
@@ -1198,14 +1217,38 @@ function Groups({
            * rows with it: a menu that can be made to appear and cannot be made to stack is half a
            * design. `stateableIn` is the one list, asked rather than repeated here.
            */
-          (!state || stateableIn(state).includes(row.attr))
+          (!state || stateableIn(state).includes(row.attr)) &&
+          /**
+           * And in **글 고치기**, only what a writer may change.
+           *
+           * Drawn rather than greyed, and that is the difference the mode is for: a greyed control
+           * is a thing a reader keeps looking at and wondering about, and a writer looking at 폭 ·
+           * 배치 · 그림자 is a writer being shown somebody else's work. What is left is the words and
+           * the thing the words are about.
+           *
+           * Asked of the row's **attribute** rather than its command, because that is the question a
+           * panel has: not *may this run* — the guarded editor answers that — but *is this row worth
+           * drawing*. A picture's file is; its corner radius is not, and both go through one command.
+           */
+          (!writing || writerMaySet(row.attr))
       )
     }))
     .filter((group) => group.rows.length > 0);
-
   return (
     <>
       <PropertySheet
+        /**
+         * **A different panel in 글 고치기**, said with a key.
+         *
+         * Measured rather than guessed at: with the mode on, this component renders one group of
+         * three rows — logged from inside the sheet itself — and the panel on screen went on showing
+         * six. React was reconciling the new list onto the old sections instead of removing them,
+         * and no amount of filtering upstream reaches that.
+         *
+         * A key is the honest description as well as the fix: a writer's panel is not the builder's
+         * panel with rows hidden, it is a different panel, and saying so lets React build it.
+         */
+        key={writing ? 'writing' : 'all'}
         groups={groups}
         /**
          * **Every section starts open**, and the reason it is not cleverer than that is measured.
@@ -1318,7 +1361,7 @@ function Groups({
             : group.label
         }
         onWrite={(row, next) => write(row, isMarkRow(row) ? next : commit(row, next))}
-        render={(row) => own(row, { attrs, shown, at, data, run, editor, onAt })}
+        render={(row) => own(row, { attrs, shown, at, data, run, editor, onAt, page })}
       />
       {/*
         The sentence about **the next thing**, under a heading that says it is one.
@@ -1728,15 +1771,24 @@ function own(
     pages: { id: string; name: string }[];
     /** The widths this site is designed at — the list itself, which only the document has. */
     widths: SiteWidth[];
+    /** The definitions this document holds, for a page to say which one draws it. */
+    templates: { id: string; label: string }[];
   };
     run: (name: string, payload: Record<string, unknown>) => void;
     /** The editor itself, for the one control that has to read a file off the reader's machine. */
     editor: Editor;
     /** Which width a reader is editing at, and how to move them to another one. */
     onAt: (at: BreakpointId) => void;
+    /**
+     * The page the panel is on, for the rows whose subject is the page rather than a selection.
+     *
+     * The page pane is drawn with **nothing selected** — that is how a reader reaches a page at all
+     * — so a row there has no `shown.ids` to act on and its command needs to be told which page.
+     */
+    page?: { sid?: string };
   }
 ): React.ReactNode | undefined {
-  const { attrs, shown, at, data, run, editor, onAt } = ctx;
+  const { attrs, shown, at, data, run, editor, onAt, page } = ctx;
 
   /**
    * **A companion answers `when` too**, which it could not until a grid needed two gaps.
@@ -1796,6 +1848,24 @@ function own(
           at={at}
           onRun={(command, payload) => run(command, payload)}
           onAt={onAt}
+        />
+      );
+
+    case 'template':
+      /*
+       * **The definitions this document holds**, offered as the template a page is drawn through —
+       * a picker rather than a field, because the value is a definition's id and an id is not a
+       * thing anybody knows by looking at their site. 없음 is the first entry and a real answer: a
+       * page that was an entry becomes an ordinary page holding exactly the blocks it always held.
+       */
+      return (
+        <PropertyChoice
+          value={String(attrs.template ?? '')}
+          options={[{ id: '', label: '없음' }, ...data.templates]}
+          onChange={(next) =>
+            run('setPageTemplate', { nodeId: shown?.ids?.[0] ?? page?.sid, template: next })
+          }
+          ariaLabel={row.ariaLabel}
         />
       );
 

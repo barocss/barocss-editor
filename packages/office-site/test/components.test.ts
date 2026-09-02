@@ -35,13 +35,16 @@ describe('the definitions a site holds', () => {
   it('counts how many places use each, by walking rather than remembering', () => {
     const uses = usesOf(doc);
     /*
-     * The header and the footer are on all five pages; the button is placed seven times — twice on
-     * the home page, twice in the header's own definition (once in the wide navigation and once in
-     * the menu a phone opens), and once on each of two other pages. The count is a *walk*, so a
-     * placement inside a definition counts once wherever it is drawn.
+     * The header and the footer are on all five pages **and in the post template**, which is six —
+     * a template is chrome around a slot, and the chrome is the site's own header and footer rather
+     * than a second copy of them. The button is placed seven times: twice on the home page, twice in
+     * the header's own definition (once in the wide navigation and once in the menu a phone opens),
+     * and once on each of two other pages.
+     *
+     * The count is a *walk*, so a placement inside a definition counts once wherever it is drawn.
      */
-    expect(uses.get('site-header')).toBe(5);
-    expect(uses.get('site-footer')).toBe(5);
+    expect(uses.get('site-header')).toBe(6);
+    expect(uses.get('site-footer')).toBe(6);
     expect(uses.get('cta')).toBe(7);
     // A number that is *stored* is a number that goes stale, and "5곳" is a question about the
     // document as it is now.

@@ -46,6 +46,39 @@ entries are that.
 
 ## Open
 
+### 상대 길이는 몫까지가 정직한 범위 — 2026-09-03 *(built, and the rest is on the record)*
+
+The fourth thing work needs. The document keeps **twips**, which is Word's unit and an absolute one,
+and the web's lengths are relative: `%`, `rem`, `vw`, `min()`, `clamp()`.
+
+What could be added without lying was a **share**. Two columns at 40 and 60 is an ordinary layout and
+there was no way to write it — `fill` on both makes them equal, `fixed` in twips breaks at every other
+width — so `sizing` has a fourth answer and a `share` number beside it.
+
+A share rather than a percentage, and the arithmetic is the reason: **40% + 60% is the whole row and
+the gap between them is not**, so a percentage row overflows by exactly the gap. Shares divide what is
+left after the gaps and the padding, which is how the web actually divides a row and how a reader
+means it when they say *twice as wide*.
+
+**What stays unsayable, and why it is not laziness.** The schema's attribute types are
+`'string' | 'number' | 'boolean' | 'array' | 'object' | 'custom'` with **no union**, so a length that
+is sometimes a number of twips and sometimes a string with a unit cannot be declared. Saying it would
+mean one of:
+
+- every length becomes a string (`'1200px'`, `'40%'`) — a migration of every document and every check;
+- a second attribute per length (`maxWidthPercent`) — a parallel vocabulary, which is how a model
+  starts having two words for one idea;
+- or `type: 'custom'` on the lengths, which is the validation being switched off to avoid the
+  question.
+
+None is worth doing before something needs it. What is owed and named: a section that is **as tall as
+the window** (`100vh`), and lengths that follow the document's own base size (`rem`).
+
+**And the sample does not wear it yet**, which is stated rather than hidden. The place it belongs is
+the hero — words beside a picture at 3:2 — and changing it moves the picture's measured width, which
+several browser checks hold as a number. The gesture is driven end to end in `site.spec.ts` instead;
+the fixture is the next thing to fix, not a thing to forget.
+
 ### 컴포넌트 편집 중의 삽입은 페이지 뒤에 놓이고 있었다 — 2026-09-03 *(fixed)*
 
 Reported as *컴포넌트 편집 화면에서 아무것도 추가 할 수 없음*, and it was **worse than nothing

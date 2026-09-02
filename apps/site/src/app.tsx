@@ -21,6 +21,7 @@ import {
 import {
   siteMenusFor,
   widthsOf,
+  writerMayRun,
   drawnSidAtElement,
   outermostOf,
   siteKeyFor,
@@ -151,6 +152,43 @@ function nameOfSite(pages: { path: string; name: string }[]): string {
  * knowing something the model does not. Which page is open is genuinely the app's: the document has
  * no notion of one being on screen, and every command here that acts on a page names it by sid.
  */
+/**
+ * What kind of block is selected — the second half of the question `writerMayRun` asks.
+ *
+ * `setBlockFormat` is this product's 24-field command: it writes a heading's level *and* a section's
+ * padding, so a list of command names alone cannot say whether a writer may use it. The list carries
+ * `setBlockFormat.picture`, and this is what tells it which.
+ */
+function stypeOf(editor: Editor | null): string | undefined {
+  const sid = selectedNodeIds(editor?.selection as never)?.[0];
+  if (!editor || !sid) return undefined;
+  return String((editor.dataStore as never as { getNode?: (s: string) => any })?.getNode?.(sid)?.stype ?? '');
+}
+
+/**
+ * **The editor a writer is handed**, which refuses everything the mode does not allow.
+ *
+ * One gate rather than a rule each surface remembers. The rail, the ribbon, the panel and the board
+ * each build their own `run` from the editor they are given — so a mode enforced surface by surface
+ * is a mode that leaks the day somebody adds a fifth. `Object.create` keeps the editor exactly as it
+ * is and overrides the two methods a command goes through.
+ *
+ * `canExecuteCommand` as well as `executeCommand`, because a control that lights up and then refuses
+ * is worse than one that is greyed: a reader stops believing the rest of the surface.
+ */
+function forWriter(editor: Editor): Editor {
+  const held = editor as never as {
+    executeCommand: (name: string, payload?: unknown) => Promise<boolean>;
+    canExecuteCommand?: (name: string, payload?: unknown) => boolean;
+  };
+  const guard = Object.create(editor) as typeof held;
+  guard.executeCommand = async (name: string, payload?: unknown) =>
+    writerMayRun(name, stypeOf(editor)) ? await held.executeCommand(name, payload) : false;
+  guard.canExecuteCommand = (name: string, payload?: unknown) =>
+    writerMayRun(name, stypeOf(editor)) && (held.canExecuteCommand?.(name, payload) ?? false);
+  return guard as never as Editor;
+}
+
 function payloadFor(
   entry: { command?: string; payload?: Record<string, unknown>; needs?: string },
   /**
@@ -243,6 +281,16 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * application's, so a reader with three widths open sees all three in it.
    */
   const [wireframe, setWireframe] = useState(false);
+  /**
+   * **글 고치기** — the mode in which a reader may change the words and nothing else.
+   *
+   * A mode and **not a permission**, which this product has to be precise about: there are no
+   * accounts, so *this person may only write* cannot be enforced and must not be claimed. What a
+   * reader gets is a mode they chose — and most of the damage a writer does to a layout is done by
+   * accident, so a mode stops all of it. The day there are accounts, this is the shape a permission
+   * is expressed in.
+   */
+  const [writing, setWriting] = useState(false);
   /**
    * **What a reader may add, and where** — one dialog with two ways in.
    *
@@ -416,6 +464,18 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   const menus = useMemo(() => siteMenusFor(widths), [widths]);
 
+  /**
+   * **What the surfaces are handed** — the editor, or the one a writer gets.
+   *
+   * One gate rather than a rule each surface remembers: the rail, the ribbon, the panel and the
+   * board each build their own `run` from the editor they are given, so a mode enforced surface by
+   * surface is a mode that leaks the day somebody adds a fifth.
+   */
+  const given = useMemo(
+    () => (editor && writing ? forWriter(editor) : editor),
+    [editor, writing]
+  );
+
 
 
   /**
@@ -440,7 +500,11 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             label: item.label,
             hint: item.hint,
             disabled: item.command
-              ? !editor?.canExecuteCommand?.(item.command, payloadFor(item, root, page) as never)
+              /*
+                * Asked of the editor the **surfaces** are handed, which is the guarded one in 글
+                * 고치기 — a menu that greys nothing is a mode a reader gets out of through the menu.
+                */
+                ? !given?.canExecuteCommand?.(item.command, payloadFor(item, root, page) as never)
               : false,
             /*
              * The settings a reader is **in**, marked. `undefined` for everything that *does*
@@ -458,7 +522,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       })),
     // The selection as well as the content: 복제 is possible or not depending on what is chosen, and
     // `watchContent` does not fire when only the selection moves.
-    [editor, revision, answers, page, preview, shown]
+    // `given` rather than `editor`: in 글 고치기 the bar greys what the mode refuses.
+    [given, editor, revision, answers, page, preview, shown, writing]
   );
 
   /**
@@ -474,6 +539,14 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
        * **Any width the document declares**, matched by name rather than by three cases: the menu is
        * built from the same list, so a fourth width brings its own entry and this answers it.
        */
+      /*
+       * **A command a writer may not run is not run**, wherever it was pressed from. The mode has to
+       * be enforced where the command is dispatched rather than by hiding controls: a greyed toolbar
+       * is a mode a reader gets out of through the menubar, and a hidden menu is one they get out of
+       * with a chord.
+       */
+      if (writing && entry.command && !writerMayRun(entry.command, stypeOf(editor))) return;
+
       if (entry.view?.startsWith('frames.') && entry.view !== 'frames.all') {
         /*
          * A board a reader turns off, and **not the last one**: a builder showing no boards is a
@@ -491,6 +564,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           return setPreview((was) => !was);
         case 'wireframe':
           return setWireframe((was) => !was);
+        case 'writing':
+          return setWriting((was) => !was);
         case 'rail.components':
           return setPanel('components');
         case 'rail.data':
@@ -1106,7 +1181,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           */}
           {editor ? (
             <Ribbon
-              editor={editor}
+              editor={given ?? editor}
               mode={mode}
               onMode={setMode}
               pageId={root}
@@ -1187,10 +1262,25 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               An icon rather than a word, because the strip is short and the two of them side by side
               as words would read as a pair of choices about the document.
             */}
+            {/*
+              **글 고치기**, beside the other two views — all three change what the reader is doing
+              rather than what the site says. A mode and not a permission, which the tooltip says out
+              loud: there are no accounts here, so what this buys is *stopping the accidents*, which
+              is most of the damage a writer does to a layout.
+            */}
+            <IconButton
+              label={writing ? '모든 편집으로 돌아갑니다' : '글만 고칩니다 — 배치는 잠깁니다'}
+              /* `IconButton` passes arbitrary attributes through `data`, not as loose props. */
+              data={{ 'writing-toggle': writing ? 'true' : undefined }}
+              pressed={writing}
+              onClick={() => setWriting((one) => !one)}
+            >
+              <Icon name="paragraph" />
+            </IconButton>
             <IconButton
               label={wireframe ? '색을 되돌립니다' : '색을 빼고 구조만 봅니다'}
-              data-wireframe-toggle={wireframe ? 'true' : undefined}
-              aria-pressed={wireframe}
+              data={{ 'wireframe-toggle': wireframe ? 'true' : undefined }}
+              pressed={wireframe}
               onClick={() => setWireframe((one) => !one)}
             >
               <Icon name="outline" />
@@ -1220,7 +1310,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         */}
         {editor ? (
           <Rail
-            editor={editor}
+            editor={given ?? editor}
             panel={panel}
             onPanel={setPanel}
             page={scopeRoot}
@@ -1295,7 +1385,15 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                     page={root}
                     scopeRoot={scopeRoot}
                     redraw={redraw}
-                    mode={mode}
+                    /**
+                     * **A writer is in text**, always — which is the mode rather than a default.
+                     *
+                     * `select` is the mode the board's own gestures live in: the handles, the
+                     * padding bands, the marquee, the plus. A writer has none of them, so putting
+                     * them in `select` and then hiding each one would be four places to forget. The
+                     * mode they are already in is the one where a press puts a caret.
+                     */
+                    mode={writing ? 'text' : mode}
                     onEnterText={(sid) => {
                       setEntered(sid);
                       setMode('text');
@@ -1400,7 +1498,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
         {editor ? (
           <Inspector
-            editor={editor}
+            editor={given ?? editor}
+            writing={writing}
             at={at}
             onAt={setAt}
             state={state}
