@@ -1436,6 +1436,64 @@ export function getSurfaceNodeDefinitions(): Record<string, NodeTypeDefinition> 
  * of them (`bFigure` names `bFigcaption` and the media types, `descList` names
  * its own terms), so nothing that stays points at something that went.
  */
+/**
+ * **What office leaves in the standard schema, and why** — the other half of the list below.
+ *
+ * The prose above has named these since the day they were left out, and prose is where this went
+ * wrong: a name that is in **neither** list disappears in silence. A node added to the standard
+ * schema tomorrow is a node office does not get, nothing says so, and no check in this repository can
+ * see it — every one of them asks about the nodes a product *declares*, so a node no product declares
+ * is a node nothing asks about.
+ *
+ * So the exclusions are data with a reason each, and `getOfficeSchemaDefinition` refuses a standard
+ * node that is in neither list. Adding one to the standard schema now forces the question *does
+ * office offer this?* at the moment somebody is in a position to answer it.
+ *
+ * A reason rather than a flag, because the reasons differ and two of them are decisions somebody may
+ * want to revisit: `emoji` is here because office had no picker, not because office cannot hold one.
+ */
+const OFFICE_LEAVES_BEHIND: Record<string, string> = {
+  // ── Office does the same thing its own way, and a second way is a second thing to keep working ──
+  mathInline: 'Word draws equations from OMML node names; a second spelling of a formula is a second thing to keep working',
+  mathBlock: 'the same, for a formula on its own line',
+  fieldPageNumber: 'a page number is furniture the layout pass paints, not a node in the flow — Word has its own',
+  fieldPageCount: 'the same, for how many pages there are',
+  toc: 'office computes a contents page from the headings (`tableOfContents`), rather than holding a node for it',
+
+  // ── The web's vocabulary, which an office document has no word for ──
+  bFigure: 'a figure with a caption is HTML\'s idea; a document has a picture and a paragraph under it',
+  bFigcaption: 'half of `bFigure`',
+  bDetails: 'a disclosure widget is a thing a page does and a printed document cannot',
+  bSummary: 'half of `bDetails`',
+  columns: 'a document lays out columns from a section\'s own settings, not from a wrapper node',
+  column: 'half of `columns`',
+  descList: 'a description list is HTML\'s; a document writes one as paragraphs',
+  descTerm: 'part of `descList`',
+  descDef: 'part of `descList`',
+  mediaVideo: 'a document that cannot play one has no word for it — a page holds one as a block with a source',
+  mediaAudio: 'the same',
+  mediaEmbed: 'the same, and an arbitrary embed is a block rather than something between two words',
+  callout: 'a styled aside is a frame with a fill in every one of these products',
+  pullQuote: 'a quotation set large is a `blockQuote` with a style, not a second node',
+  taskItem: 'a checklist is a list whose items carry a state; office has neither the state nor a use for it',
+  chart: 'a chart is drawn from data by a renderer nothing here ships',
+  docSection: 'office sections are `surface` attributes, which is where a page size and its margins live',
+
+  /**
+   * **The one that is a decision rather than a difference**, and it is written apart from the others
+   * for that reason.
+   *
+   * There is nothing an office document cannot do with an emoji — it is a character, and a node for
+   * one exists so a document can keep `:tada:` and draw it from a named set, which is the same
+   * reference shape this model has six of. It is out because nothing offered a picker, not because
+   * anything could not hold one.
+   *
+   * Weighed again the day the site builder asked: see `docs/specs/inline-content.md`. If it comes in,
+   * it comes in here, with a renderer and a way to reach it, or it stays a character in a run.
+   */
+  emoji: 'no product offers a picker yet — a decision, not a difference; see `docs/specs/inline-content.md`'
+};
+
 const OFFICE_STANDARD_NODES = [
   // The flow itself.
   'paragraph',
@@ -1496,6 +1554,31 @@ export function getOfficeSchemaDefinition(): SchemaDefinition {
    * everything office does not offer; see `OFFICE_STANDARD_NODES`.
    */
   const standardNodes: Record<string, NodeTypeDefinition> = {};
+  /**
+   * **Every standard node is accounted for, one way or the other.**
+   *
+   * A name in neither list is the failure this catches: it used to vanish in silence, and no check
+   * here could see it — they all ask about the nodes a product *declares*. Now adding a node to the
+   * standard schema fails until somebody says whether office offers it, at the moment they are in a
+   * position to answer.
+   */
+  const taken = new Set(OFFICE_STANDARD_NODES);
+  const missing = Object.keys(standard.nodes).filter(
+    (name) => name !== 'document' && !taken.has(name) && !OFFICE_LEAVES_BEHIND[name]
+  );
+  if (missing.length > 0) {
+    throw new Error(
+      `office schema neither takes nor explains a standard node: ${missing.join(', ')} — ` +
+        'add it to OFFICE_STANDARD_NODES, or to OFFICE_LEAVES_BEHIND with the reason'
+    );
+  }
+
+  // And the other way: a reason for a node that is also taken is a reason nobody has to read again.
+  const both = Object.keys(OFFICE_LEAVES_BEHIND).filter((name) => taken.has(name));
+  if (both.length > 0) {
+    throw new Error(`office schema both takes and explains away: ${both.join(', ')}`);
+  }
+
   for (const name of OFFICE_STANDARD_NODES) {
     const node = standard.nodes[name];
     // A name here that the standard schema no longer has is a rename nobody

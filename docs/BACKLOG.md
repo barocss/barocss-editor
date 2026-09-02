@@ -46,20 +46,30 @@ entries are that.
 
 ## Open
 
-### Two inline nodes are built everywhere except where it counts — 2026-09-02 *(open)*
+### A decision that only prose was keeping — 2026-09-02 *(fixed)*
 
 `emoji` and `mathInline` are declared in `standard-schema`, have an extension each
-(`extensions/emoji.ts`, `extensions/math-inline.ts`), and are handled by the PDF exporter. **No office
-schema inherits either**, so no product can hold one and no renderer draws one.
+(`extensions/emoji.ts`, `extensions/math-inline.ts`) and are handled by the PDF exporter — and no
+office schema inherits either, so no product can hold one and nothing draws one.
 
-Three layers of a feature with the middle one missing — and the harness cannot see it, which is the
-part worth keeping: every check here asks *about the nodes a product declares*, so a node no product
-declares is a node nothing asks about. A fourth kind of blind spot, next to the three
-`operation-harness` already names.
+Asked as *why is there a schema for this if nothing uses it*, and the answer turned out to be that
+**it was deliberate**: office takes what it offers from the standard schema by name, and the prose
+above that list has named all twenty-three exclusions since the day they were made, with reasons.
+Word draws equations from OMML, its page numbers are furniture the layout paints, its contents page
+is computed from headings — a second way to say one thing is a second thing to keep working.
 
-What each would take is written down in `docs/specs/inline-content.md`, including the one that is a
-real trade rather than an oversight: drawing a formula means shipping a typesetter, and this product
-currently ships no runtime at all.
+The fault was that prose was the only place it was said. A name in **neither** list disappeared in
+silence, and no check here could see it: every check asks about the nodes a product *declares*, so a
+node no product declares is a node nothing asks about — a fourth kind of blind spot next to the three
+`operation-harness` names.
+
+Fixed by making the exclusions data with a reason each, and refusing to build a schema when a
+standard node is in neither list. Adding one to the standard schema now forces the question *does
+office offer this?* at the moment somebody can answer it.
+
+**One of the twenty-three is a decision rather than a difference**, and it is written apart for that
+reason: `emoji` is out because nothing offered a picker, not because anything could not hold one. See
+`docs/specs/inline-content.md`.
 
 
 ### The type check had been passing because the grep was wrong — 2026-08-31 *(fixed)*

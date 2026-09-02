@@ -27,11 +27,24 @@ product actually loads know it, does a renderer draw it, and can a reader make o
 | **`emoji`** | standard | **✗** | **✗** | a character or a picture standing for one |
 | **`mathInline`** | standard | **✗** | **✗** | a formula, `tex` and an engine |
 
-**The two at the bottom are the finding.** Both are declared, both have an extension
-(`extensions/emoji.ts`, `extensions/math-inline.ts`), and both are handled by the PDF exporter — and
-**no office schema inherits either**, so no product can hold one and no renderer draws one. Three
-layers of a feature with the middle one missing, which is the shape this repository's harness exists
-to catch and cannot: a node nothing declares is a node no check asks about.
+**The two at the bottom look like a gap and are a decision.** Both are declared, both have an
+extension, both are handled by the PDF exporter — and no office schema inherits either, so no product
+can hold one and nothing draws one.
+
+Office takes what it offers from the standard schema **by name**, and twenty-three standard nodes are
+deliberately left behind: `OFFICE_LEAVES_BEHIND` in `office-schema.ts` names each with its reason.
+Most are the web's vocabulary an office document has no word for (`bFigure`, `descList`, `mediaVideo`)
+or something office does its own way (`mathInline` against Word's OMML, `fieldPageNumber` against
+furniture the layout paints, `toc` against a contents page computed from headings). A second spelling
+of one idea is a second thing to keep working.
+
+That was prose until this was written, which was the actual fault: a name in **neither** list vanished
+in silence, and no check here could see it — every check asks about the nodes a product *declares*.
+Building the office schema now refuses a standard node that is neither taken nor explained.
+
+**`emoji` is the one that is a decision rather than a difference.** There is nothing an office
+document cannot do with one; it is out because nothing offered a picker. Which is exactly the kind of
+answer that should be revisited when a product asks, and the site builder is asking.
 
 ## What an inline thing has to have to be alive
 
