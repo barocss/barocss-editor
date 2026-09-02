@@ -212,17 +212,27 @@ export function withOverride(
  */
 export function overrideFaults(
   attrs: Record<string, unknown> | undefined,
-  declared: Iterable<string>
+  declared: Iterable<string>,
+  /**
+   * The widths this **document** is designed at, when the caller has them.
+   *
+   * It asked `OVERRIDABLE` — the three every site starts with — and that was right for exactly as
+   * long as the list was a constant. A reader who added a fourth width and said something at it got
+   * *'width-4' 너비는 그려지지 않습니다* about a width their own document declares: the fault list
+   * calling correct work wrong, which is worse than not checking, because the reader believes it.
+   */
+  widths: SiteWidth[] = BREAKPOINTS
 ): string[] {
   const map = attrs?.overrides;
   if (map === undefined) return [];
   if (!isRecord(map)) return ['너비별 설정이 목록이 아닙니다'];
 
   const known = new Set(declared);
+  const drawn = overridableIn(widths);
   const faults: string[] = [];
 
   for (const [id, scope] of Object.entries(map)) {
-    if (!OVERRIDABLE.includes(id as BreakpointId)) {
+    if (!drawn.includes(id as BreakpointId)) {
       faults.push(`'${id}' 너비는 그려지지 않습니다`);
       continue;
     }

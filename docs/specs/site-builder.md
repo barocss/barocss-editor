@@ -1868,3 +1868,59 @@ from. Typing a number afterwards keeps the name and stops matching it, and the p
 rather than claiming a phone the page is not drawn at. The frame preview draws is a **shape** — a
 bezel of the right thickness and the right corner radius — because a photograph of a phone is a
 licensing question, 200KB per device, and wrong the year the phone changes.
+
+## 이 제품은 사이트를 발행하는 문서 도구다
+
+Asked directly, after a session of building: *실제로 업무에서 쓴다고 생각해보자. 우리가 지금 만들고 있는
+개념이 맞는 개념이야?* Two concepts are possible for a tool of this kind, and they are not variations
+of each other — they disagree about what the document **is**.
+
+**(가) A design tool that emits a site.** The model is boxes at coordinates; the output is an
+application with a runtime that reproduces the design. Figma Sites and Framer are this.
+
+**(나) A document tool that publishes a site.** The model is structured content — pages, stacks,
+text, data — and the output is documents: HTML and CSS that a browser draws by itself.
+
+**This is (나), and the choice is now on the record.** Everything this product is unusual for comes
+from it:
+
+- The published page carries **zero bytes of script** but the two named exceptions, so it is fast,
+  findable, and readable in ten years.
+- The editor and the export **cannot disagree**, because they are the same renderers. The commonest
+  distrust of this kind of tool — *the preview lied* — is structurally impossible here.
+- One document holds pages, widths, components, variables, datasets, files and connections, so there
+  is one thing to version and one thing to diff.
+
+The UI, meanwhile, is (가)-shaped: free placement, snapping, eight handles, marquee selection. That
+tension is deliberate and worth naming rather than resolving — a designer's hands know that UI, and
+the model underneath does not have to be the one their last tool had.
+
+### What choosing (나) settles by itself
+
+**Absolute placement is a decoration layer, not a peer of stacking.** The premise of (나) is that a
+page **re-flows**, and `position: absolute` is the one attribute that opts out of it. Per-width
+overrides make the cost double: a block placed by coordinates has to be re-placed at **every width,
+by hand**, and a document that does not say so is a document that let a reader promise something they
+did not know they were promising.
+
+Demoted by **honesty rather than by removal**: the gesture stays — it is what makes a page rich, and
+it was asked for — and the document says where it is incomplete. Which is what `faults.ts` is for.
+
+### And what it puts in order
+
+1. **A page from a template.** The biggest modelling question left, and the one that is a migration if
+   it is answered late. `collection` + `dataset` answers *a list on a page*; a blog is **one template,
+   N entries, each with its own address and its own rich body**. A body is not a cell in a table: an
+   address, a search result and formatted text are a page's properties, not a datum's. So an entry is
+   a page from a template, and data is what makes *lists*.
+2. **Where a publish goes, and what went.** `exportSite` hands back HTML, and `publish-commands.ts`
+   already says the day this grows a deploy target it is a different answer. That day is the first day
+   anybody uses it at work: where it goes, who pressed it, what shipped, how to roll back. There is no
+   publish history at all today.
+3. **A place for whoever only writes.** Not collaboration — that is deferred and the order was agreed.
+   The half that is not: in real work the owner of the layout and the owner of the words are different
+   people, and today changing a word comes with permission to break the layout.
+4. **Relative lengths.** The document keeps twips, which is Word's unit and an absolute one. The web's
+   lengths are relative — `%`, `rem`, `vw`, `min()`, `clamp()` — and `sizing: fill | hug | fixed` with
+   twip bounds covers a great deal and cannot say *half the parent* or *min(90vw, 1200px)*. That is a
+   boundary of the model rather than an omission, and the schema is not frozen.

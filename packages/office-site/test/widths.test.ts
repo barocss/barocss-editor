@@ -7,6 +7,9 @@ import { createSampleSite } from '../src/sample-site';
 import { BREAKPOINTS, baseOf, overridableIn, scopesFor, widthsOf } from '../src/breakpoints';
 import { attrsAt, attrsThrough, overridesOf } from '../src/responsive';
 import { DEVICES, deviceMatches, deviceNamed } from '../src/devices';
+import { overrideFaults } from '../src/responsive';
+import { documentFaults } from '../src/faults';
+import { pagesOf } from '../src/selection';
 
 /**
  * **The widths a site is designed at**, which used to be a `const` with three entries.
@@ -235,5 +238,96 @@ describe('a document that has said nothing about widths', () => {
   it('refuses a name it is not drawing at, even now', () => {
     expect(editor.canExecuteCommand('moveWidth', { name: '없는폭', to: 0 })).toBe(false);
     expect(editor.canExecuteCommand('removeWidth', { name: '없는폭' })).toBe(false);
+  });
+});
+
+/**
+ * **What a changing list of widths makes wrong elsewhere**, which is the usual shape of turning a
+ * constant into data: a constant is a place where nothing can be *wrong*, and the moment it becomes
+ * data every reader of it has to be honest.
+ */
+describe('what the fault list says about widths', () => {
+  let editor: any;
+  let store: DataStore;
+  const run = async (command: string, payload?: unknown) => await editor.executeCommand(command, payload);
+  const widths = () => widthsOf(store as never, editor.getRootId());
+
+  beforeEach(() => {
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    store = new DataStore(undefined as never, schema as never);
+    editor = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+  });
+
+  it('does not call a width the document declares undrawn', async () => {
+    /*
+     * It did. `overrideFaults` asked `OVERRIDABLE` — the three every site starts with — so a reader
+     * who added a fourth width and said something at it was told *'width-4' 너비는 그려지지 않습니다*
+     * about a width their own document declares. A fault list calling correct work wrong is worse
+     * than one that does not check, because the reader believes it.
+     */
+    await run('insertWidth', {});
+    const said = { overrides: { 'width-4': { gap: 30 } } };
+    expect(overrideFaults(said, ['gap'], widths())).toEqual([]);
+    // And a name no width has is still a fault, which is what the check is for.
+    expect(overrideFaults({ overrides: { watch: { gap: 30 } } }, ['gap'], widths())).toEqual([
+      "'watch' 너비는 그려지지 않습니다"
+    ]);
+  });
+
+  it('says which widths a placed block is off the side of', async () => {
+    /**
+     * The one fault absolute placement produces on its own, and the reason this product treats
+     * placement as a **decoration layer** rather than a peer of stacking: a page re-flows, and a
+     * block at coordinates opts out — so a card at x=900 on a 1280 board is simply not on a 390 one,
+     * and nothing on the wide board a reader is looking at says so.
+     *
+     * Measured rather than moralised. Not *you promised to place this at every width*, which is a
+     * lecture; which widths it is outside of, which is a fact and a thing to go and fix.
+     */
+    const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+    const page = pagesOf(doc as never)[0];
+    const block = ((store.getNode(page.sid) as any)?.content ?? [])[0] as string;
+
+    await run('setBlockFormat', {
+      nodeIds: [block],
+      position: 'absolute',
+      /* 900 CSS pixels: inside the desktop board, outside both narrower ones. */
+      insetLeft: 900 * 15,
+      insetTop: 40 * 15
+    });
+
+    const said = documentFaults(doc as never, { widths: widths() }).filter((one) => one.sid === block);
+    expect(said).toHaveLength(1);
+    expect(said[0].kind).toBe('width');
+    expect(said[0].said).toContain('태블릿');
+    expect(said[0].said).toContain('모바일');
+    expect(said[0].said).not.toContain('데스크톱');
+  });
+
+  it('says nothing when a narrower width has been placed', async () => {
+    // Which is the whole point of saying it: a reader who has done the work is not told off for it.
+    const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+    const page = pagesOf(doc as never)[0];
+    const block = ((store.getNode(page.sid) as any)?.content ?? [])[0] as string;
+
+    await run('setBlockFormat', { nodeIds: [block], position: 'absolute', insetLeft: 900 * 15 });
+    for (const [at, left] of [['tablet', 400], ['mobile', 40]] as const) {
+      await run('setBlockFormat', { nodeIds: [block], at, insetLeft: left * 15 });
+    }
+
+    expect(
+      documentFaults(doc as never, { widths: widths() }).filter((one) => one.sid === block)
+    ).toEqual([]);
+  });
+
+  it('says nothing about a block the page lays out', () => {
+    // A stacked block has no coordinates to be outside of — its parent decided where it is.
+    const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+    expect(
+      documentFaults(doc as never, { widths: widths() }).filter((one) =>
+        one.said.includes('화면 밖에')
+      )
+    ).toEqual([]);
   });
 });

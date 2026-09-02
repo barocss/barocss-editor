@@ -7,6 +7,7 @@ import {
   blocksIn,
   definitionsOf,
   documentFaults,
+  widthsOf,
   FAULT_KINDS,
   holderOf,
   iconForBlock,
@@ -1162,7 +1163,15 @@ function FaultsFooter({
     const schema = (editor.dataStore as never as { getActiveSchema?: () => any })?.getActiveSchema?.();
     const declares = (node: { stype?: unknown }) =>
       Object.keys(schema?.getNodeType?.(String(node?.stype ?? ''))?.attrs ?? {});
-    return documentFaults({ rootId, getNode: doc.getNode }, { declares });
+    /*
+     * And the widths this **document** is designed at, which two of the checks need: whether an
+     * override names a width that is drawn, and whether a block placed by coordinates is on the board
+     * at all. Asked with the constant, both got the wrong answer the day a reader added a width.
+     */
+    return documentFaults(
+      { rootId, getNode: doc.getNode },
+      { declares, widths: widthsOf(editor.dataStore as never, rootId) }
+    );
     // `revision` is the whole input: the document changed, so the answer may have.
   }, [editor, doc, revision]);
 

@@ -1836,6 +1836,46 @@ test.describe('the exported page', () => {
     expect(await plane()).not.toBe(was);
   });
 
+  test('says which widths a freely placed block is off the side of', async ({ page }) => {
+    /**
+     * The one fault absolute placement produces on its own, and the reason this product treats
+     * placement as a **decoration layer** rather than a peer of stacking — which is what choosing to
+     * be *a document tool that publishes a site* settles by itself.
+     *
+     * A page re-flows; a block at coordinates opts out. So a card at x=900 on a 1280 board is simply
+     * not on a 390 one, and nothing on the wide board a reader is looking at says so. Per-width
+     * overrides double the cost: a placed block has to be re-placed at every width, by hand.
+     *
+     * Demoted by **honesty rather than removal**. The gesture stays — it is what makes a page rich,
+     * and it was asked for — and the document says where it is incomplete. Not *you promised to place
+     * this at every width*, which is a lecture; which widths it is outside of, which is a fact.
+     */
+    await ready(page);
+    const faults = page.locator('[data-faults]');
+    await expect(faults).toContainText('문제 없음');
+
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const el = document.querySelector('[data-frame="desktop"] [data-name="문제"]');
+      await editor.executeCommand('setBlockFormat', {
+        nodeIds: [el?.getAttribute('data-bc-sid')],
+        position: 'absolute',
+        /* 900 CSS pixels: inside the desktop board, outside both narrower ones. */
+        insetLeft: 900 * 15,
+        insetTop: 20 * 15
+      });
+    });
+    await page.waitForTimeout(800);
+
+    await faults.locator('button').first().click();
+    await page.waitForTimeout(400);
+    await expect(faults).toContainText('자유 배치인데');
+    await expect(faults).toContainText('태블릿');
+    await expect(faults).toContainText('모바일');
+    // And not the width it *is* on, which is what makes the sentence worth reading.
+    await expect(faults).not.toContainText('데스크톱에서 화면 밖에');
+  });
+
   test('says when a block’s width is its own maximum rather than its parent’s', async ({ page }) => {
     /**
      * Reported as *부모의 여백을 크게 해서 콘텐츠 영역을 줄여도 줄어들지 않음* — and the layout was

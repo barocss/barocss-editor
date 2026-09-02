@@ -23,7 +23,8 @@ import { componentsOf, documentVars, isVarRef, varNameOf } from '@barocss/office
 import { collectionFaults } from './data';
 import { embedFaults } from './embed';
 import { linkFaults, linkOf } from './page-link';
-import { overrideFaults } from './responsive';
+import { attrsAt, overrideFaults } from './responsive';
+import { BREAKPOINTS, type SiteWidth } from './breakpoints';
 import { pagesOf } from './selection';
 import { SITE_SURFACE_KIND } from './site-schema';
 
@@ -328,10 +329,21 @@ function focusInside(doc: Access, sid: string | undefined): boolean {
 
 export function documentFaults(
   doc: Access,
-  options?: { declares?: Declares }
+  options?: {
+    declares?: Declares;
+    /**
+     * The widths this document is designed at — three unless it says otherwise.
+     *
+     * Two questions here need them and both got the wrong answer from a constant: whether an
+     * override names a width that is drawn, and whether a block placed by coordinates is on the
+     * board at all.
+     */
+    widths?: SiteWidth[];
+  }
 ): Fault[] {
   const found: Fault[] = [];
   const declares = options?.declares ?? (() => []);
+  const widths = options?.widths ?? BREAKPOINTS;
 
   const walk = (sid: string, depth = 0, inForm = false, inDefinition = false) => {
     if (depth > 64) return;
@@ -376,7 +388,41 @@ export function documentFaults(
       found.push({ sid, kind: 'asset', said: '영상 파일을 정하지 않았습니다' });
     }
 
-    for (const said of overrideFaults(attrs, declared)) found.push({ sid, kind: 'width', said });
+    for (const said of overrideFaults(attrs, declared, widths))
+      found.push({ sid, kind: 'width', said });
+
+    /**
+     * **A block placed by coordinates that is off a narrower board.**
+     *
+     * The one fault absolute placement produces on its own, and the reason this product treats
+     * placement as a decoration layer rather than a peer of stacking: a page **re-flows**, and a
+     * block at coordinates opts out of that — so a card at x=900 on a 1280 board is simply *not on*
+     * a 390 one, and nothing on the wide board a reader is looking at says so.
+     *
+     * Measured rather than moralised. It does not say *you promised to place this at every width*,
+     * which is a lecture; it says which widths the block is outside of, which is a fact and a thing
+     * to go and fix. The gesture stays — it is what makes a page rich, and it was asked for — and
+     * the document says where it is incomplete.
+     *
+     * Only the left edge, and only past the far side. A block above the top of a board is unusual
+     * and legitimate (something pulled up into a band above it); a block past the right edge is
+     * always a reader who has not looked at that width yet.
+     */
+    if (attrs.position === 'absolute') {
+      const off = widths.filter((one) => {
+        const at = attrsAt(attrs, one.id, widths);
+        const left = Number(at.insetLeft);
+        /* Twips in the document, CSS pixels on a board — the conversion every length here makes. */
+        return Number.isFinite(left) && left / 15 >= one.width;
+      });
+      if (off.length > 0) {
+        found.push({
+          sid,
+          kind: 'width',
+          said: `자유 배치인데 ${off.map((one) => one.label).join(' · ')}에서 화면 밖에 있습니다`
+        });
+      }
+    }
     for (const said of stateFaults(attrs, declared)) found.push({ sid, kind: 'state', said });
 
     /*
