@@ -37,6 +37,8 @@ const px = (twips: number): string => `${Math.round(twips * PX_PER_TWIP * 100) /
 
 export interface Sized {
   sizing?: unknown;
+  /** Where in its stack it is drawn, when it is not where it is in the tree — see `sizingCss`. */
+  order?: unknown;
   /** How many shares of the row this one takes, when `sizing` is `share` — see the switch. */
   share?: unknown;
   minWidth?: unknown;
@@ -82,6 +84,19 @@ export function sizingCss(
   inScrollingRow = false
 ): Record<string, string> {
   const css: Record<string, string> = {};
+
+  /**
+   * **몇 번째로 놓일지**, and it is written before every other branch because it is true of all of
+   * them: a scrolling row, a grid and an ordinary stack all lay their children out in order, and
+   * `order` is the one thing that changes which order that is.
+   *
+   * Written **only when the node says one**, which is the whole subtlety: `order: 0` is a real CSS
+   * value that puts a child before every positive one, so writing 0 for silence would make one block
+   * saying `order: 1` send every other block in the page in front of it — a document saying
+   * something nobody wrote.
+   */
+  const order = attrs?.order;
+  if (typeof order === 'number' && Number.isFinite(order)) css.order = String(Math.trunc(order));
 
   if (inScrollingRow) {
     /*

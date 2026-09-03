@@ -887,6 +887,31 @@ export const SITE_PANEL: SitePanelRow[] = [
         min: 1,
         fallback: 1,
         when: { attr: 'sizing', is: ['share'] }
+      },
+      /**
+       * **순서** — the one thing a width could not change.
+       *
+       * `overrides` could say a different gap, padding, width and whether a block is on this width
+       * at all; it could not say a different **order**. So a page whose picture sits beside its words
+       * on a desktop and should be *above* them on a phone had one answer — two blocks, one hidden at
+       * each width — which is two copies of the same picture and exactly the drift this model exists
+       * to avoid.
+       *
+       * A companion of 크기 rather than a group of its own, because it is the same decision as `몫`:
+       * both are what this child says about its place in the row its parent arranges.
+       *
+       * **No fallback**, which is the subtlety: `0` is a real CSS order that puts a child before
+       * every positive one, so a row drawn as `0` for silence would make one block saying `1` send
+       * every other block in front of it. The field is empty until a reader says a number.
+       */
+      {
+        attr: 'order',
+        command: 'setBlockFormat',
+        group: '크기',
+        tab: 'block',
+        label: '순서',
+        ariaLabel: '놓이는 순서',
+        control: 'number'
       }
     ]
   },
@@ -2084,6 +2109,30 @@ export const SITE_PANEL: SitePanelRow[] = [
         tab: 'page',
         label: '폭 고치기',
         ariaLabel: '폭 고치기',
+        control: 'widths-part',
+        on: ['surface']
+      },
+      {
+        /**
+         * **어느 폭이 기준인지**, which is the one row here that is not about a width.
+         *
+         * A node says `gap: 40` and `{ mobile: { gap: 6 } }`, so which width is the base decides
+         * what every unqualified attribute in the document means — and it used to be *the widest*,
+         * computed, which silently rewrote every page's meaning the moment a reader added a wider
+         * board. See `baseOf`.
+         *
+         * A companion of the same row as the rest, because it is a thing said **about one width in
+         * the list**: the control draws it per line, where a reader is already looking at that
+         * width's numbers.
+         */
+        attr: 'width',
+        of: 'document',
+        writes: 'child',
+        command: 'setBaseWidth',
+        group: '폭',
+        tab: 'page',
+        label: '기준 폭',
+        ariaLabel: '이 폭을 기준으로',
         control: 'widths-part',
         on: ['surface']
       },

@@ -111,6 +111,31 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
      * yet said how much.
      */
     share: { type: 'number' as const, required: false },
+    /**
+     * **몇 번째로 놓일지** — the one thing a width could not change, and the reason it is here.
+     *
+     * `overrides` can say a different gap, a different padding, a different width, and whether a
+     * block is on this width at all. It could not say a different **order**, so a page whose picture
+     * is beside its words on a desktop and should be *above* them on a phone had one answer: two
+     * blocks, one hidden at each width — two copies of the same picture, which is exactly the drift
+     * this model exists to avoid.
+     *
+     * ## Why a number and not a per-width list of children
+     *
+     * Because the tree stays one tree. A list of children per width is a second document per width
+     * wearing a smaller word — the thing `overrides` was written to refuse — and it makes *which
+     * block is this* a question with three answers. A number on the child is what CSS itself chose,
+     * for the same reason.
+     *
+     * ## Zero is 'where it is in the tree', and that is not the same as 0
+     *
+     * `order: 0` in CSS is a real value: it puts a child *before* every child with a positive one
+     * and after every negative. So an unset order cannot be written as `0` — a page where one block
+     * says `order: 1` would then have every other block jump in front of it, which is a document
+     * saying something nobody wrote. Silence writes **no `order` at all**, and a reader who wants a
+     * block first says a negative number, which is what the panel offers.
+     */
+    order: { type: 'number' as const, required: false },
     /** The smallest and largest it may be drawn, in twips, for a `fill` that must not collapse. */
     minWidth: { type: 'number' as const, required: false },
     maxWidth: { type: 'number' as const, required: false },
@@ -1022,7 +1047,37 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
        * written in everywhere on the web — while the document stays in twips and the conversion
        * happens where a length is drawn.
        */
-      widths: { name: 'widths', group: 'document', content: 'width*' },
+      /**
+       * **The widths a site is designed at** — and which of them a node's own attributes *are*.
+       *
+       * ## `base`, and the trap it closes
+       *
+       * A node says `gap: 40` and `{ mobile: { gap: 6 } }`: the first is what it means at the base
+       * width, the second is what differs. So *which one is the base* decides what every unqualified
+       * attribute in the document means.
+       *
+       * It was **the widest**, computed. Which is right for as long as nobody adds a width, and is a
+       * trap the moment somebody does: adding a 1920 board makes it the widest, so every unqualified
+       * attribute on every page silently stops meaning *at 1280* and starts meaning *at 1920* — and
+       * the pages that used to be right at 1280 are now overriding nothing. A document that did not
+       * change, meaning something different.
+       *
+       * So the document says it, as a reference to a width's durable id — the shape this schema uses
+       * for every other name. Adding a width then does what a reader expects: it adds a board, and
+       * nothing already written changes meaning.
+       *
+       * Silence still means the widest, which is what every document written before this said and
+       * what a reader who has never thought about it means.
+       */
+      widths: {
+        name: 'widths',
+        group: 'document',
+        content: 'width*',
+        attrs: {
+          /** Which width a node's own attributes are — by id, and the widest when unsaid. */
+          base: { type: 'string' as const, required: false }
+        }
+      },
 
       /**
        * **What a publish left behind** — when it happened, how much went, and what the document said

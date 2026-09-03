@@ -1173,6 +1173,22 @@ body {
  * high and three glyphs 18 square are targets a pointer is *aimed at* rather than moved to, and this
  * suite holds one minimum for every control it draws. Dense is not the same as small.
  */
+/*
+ * **기준 폭**, on each line and quiet until it is the one.
+ *
+ * A radio rather than a switch, because exactly one of them is it — and the chosen one is the only
+ * thing on this list drawn in the accent, because it is the fact that decides what every unqualified
+ * attribute in the document means.
+ */
+.st-width-base {
+  color: var(--ou-faint);
+}
+
+.st-width-base[aria-checked='true'] {
+  color: var(--ou-accent);
+}
+
+.st-width-base,
 .st-width-move,
 .st-width-remove {
   display: flex;
@@ -2965,3 +2981,37 @@ body {
 }
 
 .st-to-admin { margin-right: 8px; }
+
+/*
+ * **이 폭에서만**, on a layer row.
+ *
+ * A block shown only on the phone is not on the desktop board at all, so this is the only place a
+ * reader can find out it exists. Quiet, because most rows do not have one — and a mark on every row
+ * is a mark nobody reads by the third.
+ */
+.st-layer-only {
+  flex: none;
+  padding: 0 4px;
+  border-radius: var(--ou-radius);
+  background: var(--ou-accent-soft);
+  color: var(--ou-accent);
+  font-size: var(--ou-text-label);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/*
+ * **이 폭에서 몇 개가 안 보이는지**, on a board's own label.
+ *
+ * A block shown only on the phone is simply absent from the desktop board, so a reader looking at
+ * one has no way to know how much is missing — and that is where a design that diverges per width
+ * starts drifting. Quiet, and only when there is something to say.
+ */
+.st-frame-missing {
+  padding: 0 5px;
+  border-radius: var(--ou-radius);
+  background: var(--ou-accent-soft);
+  color: var(--ou-accent);
+  font-size: var(--ou-text-small);
+  white-space: nowrap;
+}

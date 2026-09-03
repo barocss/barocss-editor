@@ -69,6 +69,23 @@ export class SiteWidthExtension implements Extension {
       (payload) => this._named(editor, payload?.name)
     );
 
+    /**
+     * **어느 폭이 기준인지**, which is the one thing about the list that is not about a width.
+     *
+     * A node says `gap: 40` and `{ mobile: { gap: 6 } }`, so which width is the base decides what
+     * every unqualified attribute in the document means. It used to be *the widest*, computed — and
+     * that is a trap the moment a reader adds a wider board: every page silently stops meaning what
+     * it meant. See `baseOf`.
+     *
+     * On the `widths` box rather than on a width, because it is a fact about the **list**: exactly
+     * one of them is the base, and putting a flag on each would let a document say two.
+     */
+    register(
+      'setBaseWidth',
+      async (payload) => await this._setBase(editor, payload),
+      (payload) => this._named(editor, payload?.name) && this._notBase(editor, payload?.name)
+    );
+
     register(
       'removeWidth',
       async (payload) => await this._remove(editor, payload),
@@ -240,6 +257,43 @@ export class SiteWidthExtension implements Extension {
       icon: one.icon,
       device: one.device
     });
+  }
+
+  /**
+   * Whether the document does not **already say** this one.
+   *
+   * Not *whether it is the base*, which is what this asked first and is the wrong comparison: the
+   * base is the widest until the document says otherwise, so naming the width that already happens
+   * to be widest is not a no-op — it moves the document from *implicitly the widest* to
+   * **explicitly this**, and those are different documents.
+   *
+   * Which is also the gesture a reader needs most, and refusing it broke exactly the thing this
+   * command exists for: pin the base, *then* add a wider board. The first version refused the pin
+   * and the board silently became the base.
+   */
+  private _notBase(editor: Editor, name: unknown): boolean {
+    const store = this._store(editor);
+    const rootSid = editor.getRootId();
+    if (!store || !rootSid) return false;
+
+    const box = this._box(editor);
+    const said = box ? store.getNode(box)?.attributes?.base : undefined;
+    return said !== String(name ?? '');
+  }
+
+  private async _setBase(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    if (!this._named(editor, payload?.name) || !this._notBase(editor, payload?.name)) return false;
+    /*
+     * The list has to exist as nodes first, the same reason every other write here calls this: a
+     * document that has said nothing about widths draws at the default three, and those are a
+     * **default rather than nodes** — which is what made 순서 이동 do nothing until it was measured.
+     */
+    await this._ensure(editor);
+    const box = this._box(editor);
+    if (!box) return false;
+
+    const step = setAttrs(box, { base: String(payload!.name) });
+    return (await transaction(editor, [step] as never).commit()).success === true;
   }
 
   private async _set(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {

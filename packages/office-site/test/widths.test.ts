@@ -6,6 +6,7 @@ import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
 import { BREAKPOINTS, baseOf, overridableIn, scopesFor, widthsOf } from '../src/breakpoints';
 import { attrsAt, attrsThrough, overridesOf } from '../src/responsive';
+import { neverShown, shownAt, shownSomewhere } from '../src/presence';
 import { DEVICES, deviceMatches, deviceNamed } from '../src/devices';
 import { overrideFaults } from '../src/responsive';
 import { documentFaults } from '../src/faults';
@@ -329,5 +330,185 @@ describe('what the fault list says about widths', () => {
         one.said.includes('화면 밖에')
       )
     ).toEqual([]);
+  });
+});
+
+/**
+ * **어느 폭이 기준인가** — the one fact about the list that decides what every page means.
+ *
+ * A node says `gap: 40` and `{ mobile: { gap: 6 } }`: the first is what it means at the base width
+ * and the second is what differs. So *which one is the base* is not a detail about the list — it is
+ * the meaning of every unqualified attribute in the document.
+ */
+describe('the width a node’s own attributes are', () => {
+  const schema = createSchema('site', getSiteSchemaDefinition());
+  let store: DataStore;
+  let editor: any;
+
+  beforeEach(() => {
+    store = new DataStore(undefined as never, schema as never);
+    editor = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createSampleSite(), 'site');
+  });
+
+  const widths = () => widthsOf(store as never, editor.getRootId());
+
+  it('is the widest when the document has not said', () => {
+    /* Which is what every document written before this said, and what a reader who has never
+       thought about it means. */
+    expect(baseOf(widths())).toBe('desktop');
+    expect(overridableIn(widths())).toEqual(['tablet', 'mobile']);
+  });
+
+  it('does not move when a wider width is added — which is the trap it closes', async () => {
+    /**
+     * The whole reason the document has to say it.
+     *
+     * It was **computed** — the widest — and that is right until somebody adds a width. Add a 1920
+     * board and it becomes the widest, so every unqualified attribute on every page silently stops
+     * meaning *at 1280* and starts meaning *at 1920*: a document that did not change, meaning
+     * something else, and every page that was right at 1280 now overriding nothing.
+     */
+    await editor.executeCommand('setBaseWidth', { name: 'desktop' });
+    await editor.executeCommand('insertWidth', { name: 'wide', label: '와이드', size: 1920 });
+
+    const now = widths();
+    expect(now.some((one) => one.id === 'wide')).toBe(true);
+    /* The widest is 와이드 and the base is still 데스크톱, which is the point. */
+    expect([...now].sort((a, b) => b.width - a.width)[0].id).toBe('wide');
+    expect(baseOf(now)).toBe('desktop');
+    /* And 와이드 is now a width an override may be written at, which it could not be as the base. */
+    expect(overridableIn(now)).toContain('wide');
+  });
+
+  it('is a reference, so a width that is gone falls back rather than to nothing', async () => {
+    /*
+     * A document mid-edit is a document a reader is still holding. A dangling name is reported by
+     * `overrideFaults`; it is not a reason to draw nothing.
+     */
+    await editor.executeCommand('setBaseWidth', { name: 'mobile' });
+    expect(baseOf(widths())).toBe('mobile');
+
+    await editor.executeCommand('removeWidth', { name: 'mobile' });
+    expect(baseOf(widths())).toBe('desktop');
+  });
+
+  it('lets a reader pin the base it already has, which is not a no-op', async () => {
+    /**
+     * The comparison this got wrong first, and it is worth stating because *refuse an edit that
+     * changes nothing* is a rule this product follows everywhere else and is the wrong rule here.
+     *
+     * The base **is** the widest until the document says otherwise. So naming the width that
+     * already happens to be widest moves the document from *implicitly the widest* to **explicitly
+     * this** — a different document, and the gesture a reader needs most: pin the base, *then* add a
+     * wider board. The first version refused the pin, and the board silently became the base.
+     */
+    expect(editor.canExecuteCommand('setBaseWidth', { name: 'desktop' })).toBe(true);
+    await editor.executeCommand('setBaseWidth', { name: 'desktop' });
+    /* And *now* it changes nothing, because the document says it. */
+    expect(editor.canExecuteCommand('setBaseWidth', { name: 'desktop' })).toBe(false);
+    expect(editor.canExecuteCommand('setBaseWidth', { name: 'mobile' })).toBe(true);
+    /* A width this document does not have is refused whatever it says. */
+    expect(editor.canExecuteCommand('setBaseWidth', { name: '없는것' })).toBe(false);
+  });
+
+  it('changes what an unqualified attribute means, which is the whole of it', async () => {
+    /**
+     * Read through `attrsAt`, which is what the drawing and the panel both ask — so this is the
+     * claim as a reader would meet it rather than as the list would state it.
+     *
+     * A node saying `gap: 40` with `{ mobile: { gap: 6 } }` means 40 **at the base**. Move the base
+     * to mobile and the node's own 40 is what mobile draws, and the override becomes a thing said
+     * about a width that is no longer underneath it.
+     */
+    const said = { gap: 40, overrides: { mobile: { gap: 6 } } };
+    expect(attrsThrough(said, scopesFor('desktop', widths())).gap).toBe(40);
+    expect(attrsThrough(said, scopesFor('mobile', widths())).gap).toBe(6);
+
+    await editor.executeCommand('setBaseWidth', { name: 'mobile' });
+    const now = widths();
+    expect(baseOf(now)).toBe('mobile');
+    /* 데스크톱 is now narrower-than-base in the cascade's terms: it takes the node's own answer. */
+    expect(attrsThrough(said, scopesFor('desktop', now)).gap).toBe(40);
+  });
+});
+
+/**
+ * **어느 폭에 있는가** — the fact two surfaces needed and neither could ask for.
+ *
+ * `isHidden` reads what a node says at its **base**; `neverShown` asks whether it is hidden
+ * everywhere, which is what a *draft* is and what the export drops. Between them is the ordinary
+ * case — a block that is on some widths and not others — and nothing had named it, so the layer list
+ * drew a mobile-only hamburger as **hidden**: a block a reader put there on purpose, marked as
+ * though it were a draft, with no way to tell the two apart.
+ */
+describe('which widths a block is on', () => {
+  const schema = createSchema('site', getSiteSchemaDefinition());
+  const store = new DataStore(undefined as never, schema as never);
+  const editor: any = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+  editor.loadDocument(createSampleSite(), 'site');
+
+  it('is all of them when a node says nothing', () => {
+    expect(shownAt(undefined)).toEqual(['desktop', 'tablet', 'mobile']);
+    expect(shownAt({})).toEqual(['desktop', 'tablet', 'mobile']);
+    expect(shownSomewhere({})).toBe(false);
+  });
+
+  it('tells a design apart from a draft, which is the whole point', () => {
+    /*
+     * Three states and the middle one had no name: on every width, on **some**, on none. A draft is
+     * the third; the second is a mobile navigation, and `isHidden` said the same word for both.
+     */
+    const design = { visible: false, overrides: { mobile: { visible: true } } };
+    const draft = { visible: false };
+
+    expect(shownAt(design)).toEqual(['mobile']);
+    expect(shownSomewhere(design)).toBe(true);
+    expect(neverShown(design)).toBe(false);
+
+    expect(shownAt(draft)).toEqual([]);
+    expect(shownSomewhere(draft)).toBe(false);
+    expect(neverShown(draft)).toBe(true);
+
+    /* And the other direction, which is the same design said from the wide end. */
+    const wide = { overrides: { mobile: { visible: false } } };
+    expect(shownAt(wide)).toEqual(['desktop', 'tablet']);
+    expect(shownSomewhere(wide)).toBe(true);
+  });
+
+  it('answers in the document’s own widths, not in three constants', () => {
+    const four = [...BREAKPOINTS, { id: 'wide', label: '와이드', width: 1920, viewport: 900 }];
+    expect(shownAt({ overrides: { mobile: { visible: false } } }, four)).toEqual([
+      'desktop',
+      'tablet',
+      'wide'
+    ]);
+    /* A block on every width of a four-width site is still on every width. */
+    expect(shownSomewhere({}, four)).toBe(false);
+  });
+
+  it('is worn by the sample, which is where the fault was', () => {
+    /*
+     * The sample's only two width-conditional blocks are a nav bar and a hamburger, and both are
+     * inside the header **definition** — which is why the page's layer list never showed either, and
+     * why this is checked against the document rather than against a page.
+     */
+    const found: { name: string; on: string[] }[] = [];
+    const walk = (sid: string, depth: number) => {
+      if (depth > 40) return;
+      const node = store.getNode(sid) as any;
+      if (!node) return;
+      const attrs = (node.attributes ?? {}) as Record<string, unknown>;
+      if (shownSomewhere(attrs)) found.push({ name: String(attrs.name ?? node.stype), on: shownAt(attrs) });
+      for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
+    };
+    walk(editor.getRootId(), 0);
+
+    expect(found).toEqual([
+      { name: '내비게이션', on: ['desktop', 'tablet'] },
+      { name: '메뉴 열기', on: ['mobile'] }
+    ]);
+    /* And **neither is a draft**, which is what the list was calling them. */
+    expect(found.every((one) => one.on.length > 0)).toBe(true);
   });
 });

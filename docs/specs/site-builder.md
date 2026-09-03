@@ -2508,3 +2508,96 @@ document:  a page's body (widths inside it) · the site's library (component · 
 
 **The index is the first step and it pays before anything splits**: those three questions are walks
 today, on every keystroke that redraws the admin.
+
+---
+
+## 반응형만으로 되는가 — 세 가지를 고치고 나서
+
+Asked as a design question rather than a bug: *디자인을 완전히 별도로 정의하는 게 맞을지, 아님
+반응형 대응만 하는 게 맞을지.* And the honest answer came from where other tools hurt rather than
+from preference.
+
+| tool | shape | outcome |
+|---|---|---|
+| Figma | a separate frame per width | fine — it **does not publish**. Copies that drift are seen by nobody |
+| Webflow · Framer · Elementor | one tree + per-width overrides + show/hide | this model |
+| CSS itself | one DOM + media queries + `order` | the web already made this choice |
+| Wix | separate desktop/mobile **editors** | the most-criticised part of that product: mobile drifts, fixes do not carry |
+
+One product went the other way, and it is the cautionary tale. The reason compresses to one
+sentence: **layout may fork; words must not.** The test to apply is *how many times does a copy edit
+have to be made?* Two is wrong, and a separate design answers N.
+
+And *구성이 다를 수 있다* was already possible without splitting anything, because `visible` is an
+attribute and can be overridden per width — the sample's nav bar and hamburger are exactly that. The
+difference is **forced versus chosen**: split the document and *everything* is three copies; keep it
+and only what has to differ is two.
+
+So: **responsive-first, with an escape hatch that is still one document.** Three things were missing,
+and none of them needed a second document.
+
+### 1. 기준 폭이 암묵적이었다
+
+A node says `gap: 40` and `{ mobile: { gap: 6 } }`, so *which width is the base* is the meaning of
+every unqualified attribute in the document. It was **computed** — the widest — which is right until
+somebody adds a width and a trap the moment they do: a 1920 board becomes the widest, so every page
+silently stops meaning *at 1280*. A document that did not change, meaning something else.
+
+Now `widths.base`, a reference to a durable id. Two things it taught:
+
+- **Threading it as an argument was the wrong shape.** `baseOf(widths, base)` would have to pass
+  through `overridableIn`, `scopesFor` and `attrsThrough` — four places to forget it. Marking the base
+  **on the list** (`SiteWidth.base`) made every existing caller correct without changing.
+- **Pinning the base you already have is not a no-op.** The first guard refused it, on this
+  repository's own rule that an edit changing nothing is not one — and that was the wrong comparison:
+  the base *is* the widest until the document says otherwise, so naming it moves the document from
+  implicit to **explicit**. Which is the gesture a reader makes right before adding a wider board, so
+  refusing it broke the one thing the command exists for.
+
+### 2. `숨김` was one word for two different things
+
+The layer list read `attrs.visible === false` — what a node says at its **base**. So a hamburger that
+is `visible: false` with `{ mobile: { visible: true } }` drew as **숨김**: a block a reader put there
+on purpose, marked as though it were a draft, with no way to tell them apart.
+
+Three states, two names:
+
+| | | |
+|---|---|---|
+| on every width | ordinary | had a name |
+| **on some widths** | a mobile navigation | **had none** |
+| on none | a draft; the export drops it | `neverShown` |
+
+The middle one *is* the escape hatch, and the list was calling it unfinished. `shownAt` and
+`shownSomewhere` name it — and `presence.ts` turned out not to be **exported at all**, so the app had
+no way to ask.
+
+What it buys is legibility, which is the whole point: the layer list says *which* (`내비게이션
+데스크톱·태블릿`), and a board's own label says *how many* (`1개 숨음`) — the only thing on the desktop
+board that says the hamburger exists.
+
+`hiddenAt` walks the **definitions** too, because a page-level count says 0 on every page: the
+sample's two width-conditional blocks are in the header definition, and a placement's children are
+resolved rather than stored. `styledNodes` found this about media queries and `wireframeRules` about
+its labels — **the same four blocks, three times.**
+
+### 3. `order`, and why silence cannot be zero
+
+The last thing a width could not say. Words beside a picture on a desktop and picture above words on
+a phone had exactly one answer — two pictures, one hidden at each width — which is two copies of one
+file, drifting.
+
+A number on the child, which is what CSS chose and for the same reason: a per-width list of children
+is a second document per width wearing a smaller word, and it makes *which block is this* a question
+with three answers.
+
+**`order: 0` is a real value.** It puts a child before every positive one and after every negative,
+so writing 0 for silence would make one block saying `order: 1` send every other block on the page in
+front of it — a document saying something nobody wrote. Silence writes no `order` at all, and a reader
+who wants a block first says `-1`, which is what the hero's picture now says on a phone.
+
+### And what stays impossible, on purpose
+
+**Different text per width** — one block, one set of words. **A different parent per width** — a
+block cannot be inside A on a desktop and inside B on a phone. If the tree differs per width, those
+are two pages, and this model says so.

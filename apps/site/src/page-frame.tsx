@@ -1,9 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
-import { SITE_ENV_KEY, createSiteEnv, type BreakpointId, type SiteWidth } from '@barocss/office-site';
+import {
+  SITE_ENV_KEY,
+  createSiteEnv,
+  hiddenAt,
+  type BreakpointId,
+  type SiteWidth
+} from '@barocss/office-site';
 import { viewportOf, deviceNamed, deviceMatches } from '@barocss/office-site';
 import { Overlay, type PointerMode } from './overlay';
 
@@ -137,6 +143,18 @@ export function PageFrame({
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
 
+  /*
+   * How many blocks this width does not show — asked of the document, because only it knows: a
+   * hidden block is not on this board, so nothing here can count what is absent.
+   */
+  const missing = useMemo(() => {
+    const store = (editor as never as { dataStore?: { getNode: (sid: string) => any } }).dataStore;
+    const rootId = (editor as never as { getRootId: () => string }).getRootId();
+    if (!store || !rootId || !page) return 0;
+    return hiddenAt({ rootId, getNode: (sid: string) => store.getNode(sid) }, page, breakpoint, widths);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, page, breakpoint, widths, redraw]);
+
   useEffect(() => {
     if (!host.current || !page) return;
 
@@ -252,6 +270,22 @@ export function PageFrame({
       {/* The label a reader reads to know which frame they are typing in. */}
       <header className="st-frame-label">
         <span>{label}</span>
+        {/**
+          **How much of the design this width does not show**, on the board's own label.
+          
+          A block shown only on the phone is simply **absent** from the desktop board, so a reader
+          looking at one has no way to know how much is missing — and that is where a design that
+          diverges per width starts drifting. The layer list says *which*; this says *how many*, which
+          is the number a reader scanning three boards can compare.
+          
+          Blocks, not drawings: one hidden block inside a definition placed on six pages is one
+          block. See `hiddenAt`.
+        */}
+        {missing > 0 ? (
+          <span className="st-frame-missing" data-missing={String(missing)} title={`이 폭에서 ${missing}개가 보이지 않습니다`}>
+            {missing}개 숨음
+          </span>
+        ) : null}
         <span className="st-frame-width">{width}px</span>
       </header>
       <div

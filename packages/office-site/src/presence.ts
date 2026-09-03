@@ -26,7 +26,7 @@
  * what makes a full-width background picture editable at all, because today the only way past one is
  * to find something on top of it and walk up.
  */
-import { BREAKPOINTS } from './breakpoints';
+import { BREAKPOINTS, type BreakpointId, type SiteWidth } from './breakpoints';
 import { attrsAt } from './responsive';
 import { statesOf } from './states';
 
@@ -74,4 +74,111 @@ export function isLocked(attrs: Record<string, unknown> | undefined): boolean {
  */
 export function presenceCss(attrs: Record<string, unknown> | undefined): Record<string, string> {
   return isHidden(attrs) ? { display: 'none' } : {};
+}
+
+/**
+ * **Which widths this block is on** — the fact two surfaces need and neither could ask for.
+ *
+ * `isHidden` reads what a node says at its **base** and nothing else, so a hamburger that is
+ * `visible: false` with `{ mobile: { visible: true } }` reads as *hidden* — and that is what the
+ * layer list has been drawing: a block a reader put there on purpose, marked as though it were a
+ * draft, with no way to tell the two apart.
+ *
+ * `neverShown` asks the other extreme — *hidden everywhere*, which is what a draft is and what the
+ * export drops. Between them is the ordinary case and nothing named it.
+ *
+ * The **list** rather than a sentence, because the two callers want different things from it: the
+ * wireframe writes a label (`데스크톱·태블릿만`) and the layer list draws a mark and a count. A
+ * function that returned the sentence made the second one parse Korean.
+ */
+export function shownAt(
+  attrs: Record<string, unknown> | undefined,
+  widths: SiteWidth[] = BREAKPOINTS
+): BreakpointId[] {
+  if (!attrs) return widths.map((one) => one.id);
+  return widths.filter((one) => attrsAt(attrs, one.id).visible !== false).map((one) => one.id);
+}
+
+/**
+ * Whether a block is on **some** widths and not others — the case that is a design rather than a
+ * draft, and the one a reader has to be able to see.
+ */
+export function shownSomewhere(
+  attrs: Record<string, unknown> | undefined,
+  widths: SiteWidth[] = BREAKPOINTS
+): boolean {
+  const on = shownAt(attrs, widths);
+  return on.length > 0 && on.length < widths.length;
+}
+
+/**
+ * **How many blocks this width does not show** — the number a board's own label can carry.
+ *
+ * ## Why it walks the definitions too
+ *
+ * Because a page-level count would say **0 on every page** and be useless: the sample's only two
+ * width-conditional blocks are a nav bar and a hamburger, and both live in the header *definition*.
+ * A page holds a placement of it, and a placement's children are resolved rather than stored — so a
+ * walk of the page reaches neither.
+ *
+ * Which is the same finding `styledNodes` made about media queries and `wireframeRules` made about
+ * its labels, both for the same four blocks. Three walks have now needed it; that it is written a
+ * third time here rather than shared is deliberate — each one stops somewhere different (this one
+ * counts, the export writes rules, the wireframe names) and a shared walk would take a callback per
+ * caller, which is the same code with an indirection.
+ *
+ * ## And it counts blocks, not drawings
+ *
+ * One hidden block inside a definition placed on six pages is **one** block. A reader looking at a
+ * board wants to know how much of their design this width does not show, and *six* would be counting
+ * placements — the same distinction `linksTo` draws about marks.
+ */
+export function hiddenAt(
+  doc: { rootId: string; getNode: (sid: string) => Record<string, any> | undefined },
+  /** The page (or the definition's part) being drawn — **not** the document. See below. */
+  root: string,
+  width: BreakpointId,
+  widths: SiteWidth[] = BREAKPOINTS
+): number {
+  let count = 0;
+  const seen = new Set<string>();
+
+  const look = (sid: string, depth: number) => {
+    if (depth > 64 || seen.has(sid)) return;
+    seen.add(sid);
+    const node = doc.getNode(sid);
+    if (!node) return;
+
+    const attrs = (node.attributes ?? {}) as Record<string, unknown>;
+    /*
+     * Only the ones this width **misses while another shows them**. A draft — hidden everywhere — is
+     * not something a width is failing to show, and counting it here would put the same number on
+     * every board and mean nothing.
+     */
+    if (shownSomewhere(attrs, widths) && !shownAt(attrs, widths).includes(width)) count += 1;
+
+    for (const child of (node.content ?? []) as unknown[]) {
+      if (typeof child === 'string') look(child, depth + 1);
+    }
+  };
+
+  look(root, 0);
+  /*
+   * And the definitions, because a placement's children are resolved rather than stored — see above.
+   * Every definition in the document rather than the ones this page places: a page holds a
+   * placement of one, and finding out *which* is the resolution this walk is trying to avoid doing.
+   * The cost of the wider answer is a definition nothing on this page places, which is a definition
+   * the reader is about to place or has just stopped placing.
+   */
+  for (const child of (doc.getNode(doc.rootId)?.content ?? []) as unknown[]) {
+    if (typeof child !== 'string') continue;
+    const node = doc.getNode(child);
+    if (node?.stype === 'component') look(child, 0);
+    else if (node?.stype === 'components') {
+      for (const one of (node.content ?? []) as unknown[]) {
+        if (typeof one === 'string' && doc.getNode(one)?.stype === 'component') look(one, 0);
+      }
+    }
+  }
+  return count;
 }

@@ -197,6 +197,23 @@ export {
 } from './carried';
 export { documentFaults, FAULT_KINDS, holderOf, type Declares, type Fault } from './faults';
 export { refCounts, refsFrom, refsIn, type Ref, type RefKind } from './refs';
+
+/**
+ * **Whether a block is on the page, and at which widths** — and this file exported none of it.
+ *
+ * Which is half of why the layer list drew a hamburger as *hidden*: it could not ask. `isHidden`
+ * reads what a node says at its base, `neverShown` asks whether it is hidden **everywhere** (which
+ * is what a draft is), and `shownAt` is the ordinary case between them that nothing had named.
+ */
+export {
+  hiddenAt,
+  isHidden,
+  isLocked,
+  neverShown,
+  presenceCss,
+  shownAt,
+  shownSomewhere
+} from './presence';
 /** Where a block is, when it is not simply the next thing in the column. */
 /** One spelling for a name a document stores — the same word can have two byte sequences. */
 /** The shape a picture keeps, whatever width it is given. */

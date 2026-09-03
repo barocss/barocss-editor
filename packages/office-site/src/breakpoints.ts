@@ -67,6 +67,18 @@ export interface SiteWidth {
   icon?: string;
   /** The device this width is a window onto, by name — see `DEVICES`. */
   device?: string;
+  /**
+   * **Whether a node's own attributes are this width** — the base, marked on the list rather than
+   * asked for separately.
+   *
+   * On the list because that is what makes every caller correct without changing: `baseOf(widths)`,
+   * `overridableIn(widths)`, `scopesFor(bp, widths)` and `attrsThrough` all already take the list,
+   * and a second argument threaded through four of them is four places to forget it.
+   *
+   * Read from `widths.base` by `widthsOf` — see `baseOf` for the trap that made the document have to
+   * say it at all.
+   */
+  base?: boolean;
 }
 
 export type BreakpointId = string;
@@ -125,12 +137,43 @@ export function widthsOf(
    * no widths: a site with no boards at all is a site nobody can edit, and a reader who deletes the
    * last width has made a mistake rather than a decision.
    */
-  return found.length > 0 ? found : BREAKPOINTS;
+  if (found.length === 0) return BREAKPOINTS;
+
+  /*
+   * **Which of them the base is**, marked on the one it names — see `baseOf` and `SiteWidth.base`.
+   * A name the document no longer has marks nothing, and `baseOf` then falls back to the widest: a
+   * document mid-edit is one a reader is still holding.
+   */
+  const base = box.attributes?.base;
+  return typeof base === 'string' && found.some((one) => one.id === base)
+    ? found.map((one) => (one.id === base ? { ...one, base: true } : one))
+    : found;
 }
 
-/** The widest, which is the width a node's own attributes **are**. */
+/**
+ * **Which width a node's own attributes are** — the document's answer, and the widest when it has
+ * not given one.
+ *
+ * A node says `gap: 40` and `{ mobile: { gap: 6 } }`, so *which one is the base* decides what every
+ * unqualified attribute in the document means. It used to be **computed** — the widest — which is
+ * right until somebody adds a width and is a trap the moment they do: a 1920 board becomes the
+ * widest, and every unqualified attribute on every page silently stops meaning *at 1280*. A document
+ * that did not change, meaning something else.
+ *
+ * So it is `widths.base`, a reference to a durable id, and adding a width does what a reader expects:
+ * it adds a board. Silence is still the widest, which is what every document written before this
+ * said and what a reader who has never thought about it means.
+ *
+ * A `base` naming a width the document no longer has falls back to the widest rather than to
+ * nothing: a document mid-edit is a document a reader is still holding, and `overrideFaults` is where
+ * a dangling name is reported.
+ */
 export function baseOf(widths: SiteWidth[] = BREAKPOINTS): BreakpointId {
-  return [...widths].sort((a, b) => b.width - a.width)[0]?.id ?? 'desktop';
+  return (
+    widths.find((one) => one.base)?.id ??
+    [...widths].sort((a, b) => b.width - a.width)[0]?.id ??
+    'desktop'
+  );
 }
 
 /** The widths an override may be written at: every one but the widest, which is the node itself. */

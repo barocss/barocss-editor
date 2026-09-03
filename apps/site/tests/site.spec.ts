@@ -2372,6 +2372,171 @@ test.describe('the exported page', () => {
     await expect(page.locator('[data-width="width-4"] [aria-label$="삭제"]')).toBeDisabled();
   });
 
+
+  test('puts the hero’s picture above its words on a phone, and beside them on a desktop', async ({ page }) => {
+    /**
+     * **순서** — the one thing a width could not say, and the hero is the case that asks for it.
+     *
+     * `overrides` could already say a different gap, padding, width, and whether a block is on this
+     * width at all. Not a different **order**. So *words beside a picture* on a desktop and *picture
+     * above words* on a phone had exactly one answer: two pictures, one hidden at each width — two
+     * copies of the same file, drifting apart. Which is the shape this whole model exists to refuse.
+     *
+     * And it is the ordinary case rather than an exotic one: every hero on every phone puts the
+     * picture on top, because stacked in tree order it puts a 520px image between the reader and the
+     * two sentences that say what the site is.
+     */
+    await ready(page);
+
+    const kids = (at: string) =>
+      page.locator(`[data-frame="${at}"] [data-name="히어로 줄"] > *`).evaluateAll((all) =>
+        all.map((one) => ({
+          tag: one.tagName,
+          order: getComputedStyle(one).order,
+          top: Math.round(one.getBoundingClientRect().top)
+        }))
+      );
+
+    /* Beside, in tree order, and nothing said about it. */
+    const wide = await kids('desktop');
+    expect(wide.map((one) => one.order)).toEqual(['0', '0']);
+    expect(wide[0].tag).toBe('DIV');
+
+    /*
+     * And above on the phone — **drawn** above, not merely marked: the picture's top is higher than
+     * the words', which is the claim a computed `order` alone would not make.
+     */
+    const narrow = await kids('mobile');
+    const words = narrow.find((one) => one.tag === 'DIV')!;
+    const picture = narrow.find((one) => one.tag === 'IMG')!;
+    expect(picture.order).toBe('-1');
+    expect(picture.top).toBeLessThan(words.top);
+
+    /*
+     * **And silence stayed silence**, which is the subtlety this was built around: `order: 0` is a
+     * real CSS value that puts a child before every positive one, so a fallback of 0 would have made
+     * one block saying `1` send every other block on the page in front of it. The words say nothing
+     * and get the browser's own default.
+     */
+    expect(words.order).toBe('0');
+    expect(
+      await page.evaluate(() => {
+        const held = (window as never as { editor: any }).editor;
+        const store = held.dataStore;
+        const found: unknown[] = [];
+        const walk = (sid: string, depth: number) => {
+          const node = store.getNode(sid);
+          if (!node || depth > 40) return;
+          if (node.attributes?.name === '히어로 글') found.push(node.attributes.order);
+          for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
+        };
+        walk(held.getRootId(), 0);
+        return found;
+      })
+    ).toEqual([undefined]);
+  });
+
+  test('says which widths a block is on, and how many each board does not show', async ({ page }) => {
+    /**
+     * **어떤 건 보이고 어떤 건 안 보이는지** — asked for directly, and the gap was sharper than it
+     * sounds: the layer list drew a mobile-only hamburger as **숨김**, the same word it uses for a
+     * draft. A block a reader put there on purpose, marked as though it were unfinished, with no way
+     * to tell the two apart.
+     *
+     * Which matters because *두 블록으로 나누기* is how this product does a genuinely different
+     * composition per width — and an escape hatch nobody can see is where a Wix-style drift starts:
+     * two designs that are both real and only one of which anybody can find.
+     */
+    await ready(page);
+
+    /*
+     * **On the board's label first**, because it is the number a reader scanning three boards can
+     * compare — and the only thing on the desktop board that says the hamburger exists at all.
+     * One each: desktop and tablet miss the hamburger, mobile misses the bar.
+     */
+    for (const at of ['desktop', 'tablet', 'mobile']) {
+      await expect(page.locator(`.st-frame[data-frame="${at}"] [data-missing]`)).toHaveText('1개 숨음');
+    }
+
+    /*
+     * And **which**, in the layer list. The sample's two are inside the header **definition** — a
+     * page holds a placement of it and a placement's children are resolved rather than stored — so
+     * this goes in, which is also why the page's own list could never have shown them.
+     */
+    await page.locator('[data-panel="components"]').click();
+    await page.locator('[data-edit-component="site-header"]').click();
+    await page.waitForTimeout(600);
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(300);
+    for (let round = 0; round < 3; round += 1) {
+      const shut = await page.locator('[data-twist="closed"]').all();
+      for (const one of shut) await one.click({ timeout: 2000 }).catch(() => {});
+      await page.waitForTimeout(200);
+    }
+
+    await expect(page.locator('[data-only-at="desktop tablet"]')).toHaveText('데스크톱·태블릿');
+    await expect(page.locator('[data-only-at="mobile"]')).toHaveText('모바일');
+
+    /*
+     * **And neither is a draft**, which is what the list was calling them: `hidden` now means hidden
+     * at *every* width, which is what the export drops.
+     */
+    await expect(page.locator('[data-layer][data-hidden="true"]')).toHaveCount(0);
+  });
+
+  test('says which width a node’s own attributes are, and keeps it when a wider one arrives', async ({ page }) => {
+    /**
+     * **기준 폭** — the one fact about this list that is not about a width.
+     *
+     * A node says `gap: 40` and `{ mobile: { gap: 6 } }`: the first is what it means at the base and
+     * the second is what differs. So which width is the base is not a detail — it is the meaning of
+     * every unqualified attribute in the document.
+     *
+     * It used to be *the widest*, computed, and that is right until somebody adds a width and a trap
+     * the moment they do: a 1920 board becomes the widest, so every page silently stops meaning *at
+     * 1280*. A document that did not change, meaning something else.
+     */
+    await ready(page);
+    const base = page.locator('[data-width-base]');
+    await expect(base).toHaveCount(3);
+    /* The widest, which is what a document that has said nothing means. */
+    await expect(page.locator('[data-width-base="desktop"]')).toHaveAttribute('aria-checked', 'true');
+
+    /*
+     * **Pinning the one it already has is not a no-op**, and refusing it broke the gesture this
+     * exists for: pin the base, *then* add a wider board. It moves the document from *implicitly the
+     * widest* to explicitly this.
+     */
+    await page.locator('[data-width-base="desktop"]').click();
+    await page.waitForTimeout(400);
+
+    await page.locator('.st-widths-plus').click();
+    /* The empty one is *직접 입력*, which adds a width wider than any device in the list. */
+    await page.locator('[data-add-device=""]').click();
+    await page.waitForTimeout(600);
+
+    /* Four boards, the new one is the widest, and the base has not moved. */
+    await expect(page.locator('.st-frame')).toHaveCount(4);
+    await expect(page.locator('[data-width-base="desktop"]')).toHaveAttribute('aria-checked', 'true');
+    expect(
+      await page.evaluate(() => {
+        const held = (window as never as { editor: any }).editor;
+        const store = held.dataStore;
+        const root = store.getNode(held.getRootId());
+        const box = (root.content as string[])
+          .map((sid: string) => store.getNode(sid))
+          .find((one: any) => one?.stype === 'widths');
+        return box?.attributes?.base;
+      })
+    ).toBe('desktop');
+
+    /* And choosing another moves it, which is the other half. */
+    await page.locator('[data-width-base="mobile"]').click();
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-width-base="mobile"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('[data-width-base="desktop"]')).toHaveAttribute('aria-checked', 'false');
+  });
+
   test('draws the device a width is a window onto, while previewing', async ({ page }) => {
     /**
      * *실제 장치 이미지가 외곽선에 있으면 좀 더 실감 날 듯* — and it is a **shape** rather than a

@@ -26,6 +26,7 @@ import {
   RENDITIONS,
   BASE_BREAKPOINT,
   BREAKPOINTS,
+  baseOf,
   widthsOf,
   DEVICES,
   deviceMatches,
@@ -1587,6 +1588,11 @@ function Widths({
   onAt: (at: BreakpointId) => void;
 }) {
   const [picking, setPicking] = useState(false);
+  /*
+   * **Which one the base is**, asked of the list rather than kept: `baseOf` reads the flag the
+   * document set and falls back to the widest, which is what a document that has said nothing means.
+   */
+  const base = baseOf(widths);
 
   return (
     <span className="st-widths" data-widths>
@@ -1642,6 +1648,29 @@ function Widths({
               ariaLabel={`${one.label} 이름`}
               className="st-width-label"
             />
+            {/**
+              **기준**, and it is the one thing on this line that is not about the width.
+              
+              A node says `gap: 40` and `{ mobile: { gap: 6 } }`, so which width is the base decides
+              what every unqualified attribute in the document means. It used to be *the widest*,
+              computed — and adding a wider board silently rewrote every page's meaning.
+              
+              A radio rather than a switch, because exactly one of them is it. And pressing the one
+              that already is **is not a no-op**: it moves the document from *implicitly the widest*
+              to explicitly this, which is the gesture a reader makes before adding a wider board.
+            */}
+            <button
+              type="button"
+              className="st-width-base"
+              role="radio"
+              aria-checked={one.id === base}
+              title={one.id === base ? '기준 폭' : '이 폭을 기준으로'}
+              aria-label={`${one.label}을 기준으로`}
+              data-width-base={one.id}
+              onClick={() => onRun('setBaseWidth', { name: one.id })}
+            >
+              <Icon name={one.id === base ? 'chosen' : 'shown'} size={12} />
+            </button>
             <button
               type="button"
               className="st-width-move"

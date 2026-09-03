@@ -443,7 +443,17 @@ describe('the site builder draws what it declares', () => {
         }
       }
 
-      if (command === 'setWidth' || command === 'removeWidth' || command === 'moveWidth') {
+      if (
+        command === 'setWidth' ||
+        command === 'removeWidth' ||
+        command === 'moveWidth' ||
+        /*
+         * …and `setBaseWidth`, which is the fourth of the same shape and needed the same scaffolding:
+         * it refuses a width that is **already** the base, so the probe has to name one that is not.
+         * The narrowest is that by construction, which is what this block already picks.
+         */
+        command === 'setBaseWidth'
+      ) {
         /*
          * …and a document that **declares** one, which is the half the first version missed. A site
          * that has said nothing about widths is drawn at the three every site starts with, and those

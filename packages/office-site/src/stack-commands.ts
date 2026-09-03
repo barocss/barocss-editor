@@ -282,6 +282,11 @@ export class SiteStackExtension implements Extension {
     'layoutMode',
     /* How many shares of the row a block takes, when it has said `sizing: 'share'`. */
     'share',
+    /*
+     * And **where in the row it is drawn**, which is the one thing an override could not say. See
+     * the schema for why silence is no `order` at all rather than a zero.
+     */
+    'order',
     'gap',
     /* The gap across the flow, which a grid has and a single line does not — see the schema. */
     'gapCross',

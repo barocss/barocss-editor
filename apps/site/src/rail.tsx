@@ -6,6 +6,9 @@ import {
   blocksIn,
   definitionsOf,
   templatesIn,
+  neverShown,
+  shownAt,
+  shownSomewhere,
   documentFaults,
   publishSaid,
   publishState,
@@ -304,6 +307,15 @@ function LayersPanel({
    * Photoshop's layer sets — and the reason is this number rather than convention: a page is a tree
    * four deep, and the top of it is the only part a reader can hold in their head.
    */
+  /*
+   * The document's **own** widths, because what the list says about a block depends on how many
+   * there are: *데스크톱·태블릿만* is a different sentence in a site with four boards.
+   */
+  const widths = useMemo(
+    () => widthsOf(editor.dataStore as never, editor.getRootId()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editor, revision]
+  );
   const [open, setOpen] = useState<Set<string>>(new Set());
 
   /**
@@ -375,6 +387,8 @@ function LayersPanel({
       holds: boolean;
       shown: boolean;
       hidden: boolean;
+      /** The widths it is on, when it is not on all of them — see below. */
+      onlyAt?: string[];
       locked: boolean;
       /** Whether this row is what was searched for, rather than an ancestor kept for the shape. */
       hit: boolean;
@@ -409,7 +423,26 @@ function LayersPanel({
           stype: String(doc.getNode(child)?.stype),
           holds,
           shown,
-          hidden: attrs.visible === false,
+          /**
+           * **숨김**, and it is the *draft* kind: hidden at every width and in every state, which is
+           * what `neverShown` means and what the export drops.
+           *
+           * It was `attrs.visible === false` — what the node says at its **base** — so a hamburger
+           * that is `visible: false` with `{ mobile: { visible: true } }` read as hidden. A block a
+           * reader put there on purpose, marked as though it were a draft, with no way to tell the
+           * two apart. Which is the shape a mobile-only design *is*, so the list was mislabelling
+           * the escape hatch it exists to make legible.
+           */
+          hidden: neverShown(attrs),
+          /**
+           * And **which widths it is on**, when it is not on all of them — the fact that makes two
+           * blocks-instead-of-one an honest way to build.
+           *
+           * Without it a reader on the desktop board has no way to know a hamburger exists: it is
+           * not on the board, and the list said nothing. That is where a Wix-style drift starts —
+           * two designs that are both real and only one of which anybody can see.
+           */
+          onlyAt: shownSomewhere(attrs, widths) ? shownAt(attrs, widths) : undefined,
           locked: attrs.locked === true,
           hit: !!wanted && labelOfBlock(doc, child).toLowerCase().includes(wanted)
         });
@@ -418,7 +451,8 @@ function LayersPanel({
     };
     if (page) walk(page, 0);
     return found;
-  }, [doc, page, revision, open, revealed, all, wanted]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, page, revision, open, revealed, all, wanted, widths]);
 
   /**
    * **Where a dragged row would land** — a parent and a place in it.
@@ -655,6 +689,30 @@ function LayersPanel({
           */}
           <Icon name={iconForBlock(doc.getNode(row.sid))} size={13} />
           <span className="st-layer-name">{row.label}</span>
+          {/**
+            **이 폭에서만** — the mark that makes two-blocks-instead-of-one an honest way to build.
+            
+            A block shown only on the phone is not on the desktop board at all, so without this a
+            reader looking at desktop has no way to know a hamburger exists. That is where a
+            Wix-style drift starts: two designs that are both real and only one of which anybody
+            can see.
+            
+            The **labels**, not the ids, and the count when there are more than two — a site with
+            five widths would otherwise put a sentence in a 240px column.
+          */}
+          {row.onlyAt ? (
+            <span
+              className="st-layer-only"
+              data-only-at={row.onlyAt.join(' ')}
+              title={`${row.onlyAt
+                .map((id) => widths.find((one) => one.id === id)?.label ?? id)
+                .join(' · ')}에서만 보입니다`}
+            >
+              {row.onlyAt.length > 2
+                ? `${row.onlyAt.length}폭`
+                : row.onlyAt.map((id) => widths.find((one) => one.id === id)?.label ?? id).join('·')}
+            </span>
+          ) : null}
           {/*
             The eye and the padlock — **drawn only when they say something**, or on hover.
 

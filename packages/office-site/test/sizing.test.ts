@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { sizingCss } from '../src/sizing';
+import { attrsThrough } from '../src/responsive';
+import { scopesFor } from '../src/breakpoints';
 
 /**
  * **What a child of a stack does with the space along the axis** — and the fourth answer, which is
@@ -50,5 +52,60 @@ describe('a share of the row', () => {
     expect(sizingCss({ sizing: 'fill' }).flex).toBe('1 1 0%');
     expect(sizingCss({ sizing: 'hug' }).width).toBe('fit-content');
     expect(sizingCss({ sizing: 'fixed' }).flex).toBe('none');
+  });
+});
+
+/**
+ * **순서** — the one thing an override could not say.
+ *
+ * `overrides` could say a different gap, padding, width, and whether a block is on this width at
+ * all. It could not say a different **order**, so a page whose picture sits beside its words on a
+ * desktop and should be *above* them on a phone had one answer: two blocks, one hidden at each
+ * width — two copies of the same picture, which is the drift this model exists to avoid.
+ */
+describe('where in its stack a block is drawn', () => {
+  it('writes nothing when the node says nothing', () => {
+    /**
+     * The subtlety, and it is the whole of why this is not a fallback of `0`.
+     *
+     * `order: 0` is a **real** CSS value: it puts a child before every child with a positive order
+     * and after every negative one. So writing 0 for silence would make one block saying `order: 1`
+     * send every other block in the page in front of it — a document saying something nobody wrote.
+     */
+    expect(sizingCss({}).order).toBeUndefined();
+    expect(sizingCss({ sizing: 'fill' }).order).toBeUndefined();
+    expect(sizingCss(undefined).order).toBeUndefined();
+  });
+
+  it('is written wherever the node says one, including zero', () => {
+    /* Zero said out loud is a reader putting this before everything positive, which is a choice. */
+    expect(sizingCss({ order: 0 }).order).toBe('0');
+    expect(sizingCss({ order: -1 }).order).toBe('-1');
+    expect(sizingCss({ order: 2 }).order).toBe('2');
+    /* A number that is not one is not a decision — the same rule every length here follows. */
+    expect(sizingCss({ order: Number.NaN }).order).toBeUndefined();
+    expect(sizingCss({ order: '앞' as never }).order).toBeUndefined();
+  });
+
+  it('applies to every kind of stack, which is why it is before the branches', () => {
+    /*
+     * A scrolling row, a grid and an ordinary stack all lay their children out in order, and this is
+     * the one thing that changes which order that is. Written before the branch that returns early
+     * for a scrolling row, or a swipeable strip would be the one place it did not work.
+     */
+    expect(sizingCss({ order: 3, sizing: 'fill' }, true).order).toBe('3');
+    expect(sizingCss({ order: 3, sizing: 'hug' }).order).toBe('3');
+    expect(sizingCss({ order: 3, sizing: 'share', share: 2 }).order).toBe('3');
+  });
+
+  it('is a per-width answer, which is the point of adding it', () => {
+    /**
+     * The reason it is on the node rather than on the parent: `overrides` names attributes of **this**
+     * node, so a width can say a different one — and a picture that is second on a desktop and first
+     * on a phone is one picture, said twice about, rather than two pictures.
+     */
+    const said = { order: 2, overrides: { mobile: { order: -1 } } };
+    expect(sizingCss(attrsThrough(said, scopesFor('desktop'))).order).toBe('2');
+    expect(sizingCss(attrsThrough(said, scopesFor('mobile'))).order).toBe('-1');
   });
 });

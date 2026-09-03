@@ -1057,9 +1057,22 @@ function home(): Node {
                 shadowColor: 'rgba(20, 17, 15, 0.16)',
                 shadowBlur: px(48),
                 shadowDistance: px(18),
+                /**
+                 * And on a phone it goes **first**, which is the one thing a width could not say
+                 * until `order` existed.
+                 *
+                 * The hero is the case that asks for it: words beside a picture reads left-to-right
+                 * on a desktop, and stacked it reads *claim, then picture* — which puts a 520px
+                 * image between the reader and the two sentences that say what this is. Every hero on
+                 * every phone puts the picture on top, and the only way to say that was two pictures
+                 * with one hidden at each width: two copies of the same file, drifting.
+                 *
+                 * `-1` rather than a 0 for the words, because silence has to stay silence — see the
+                 * schema. One block says where it goes and every other block is left alone.
+                 */
                 overrides: {
                   tablet: { minWidth: px(320), maxWidth: px(380) },
-                  mobile: { sizing: 'fill', minWidth: 0 }
+                  mobile: { sizing: 'fill', minWidth: 0, order: -1 }
                 }
               })
             ]
