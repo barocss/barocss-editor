@@ -78,6 +78,7 @@ export {
   freshPartId,
   partIdsIn,
   scopeOf,
+  templatesIn,
   usesOf,
   type Definition
 } from './components';
@@ -119,7 +120,24 @@ export {
   isFieldRef,
   rowsOf,
   valuesForRow,
+  cellFor,
+  bodiesForRow,
+  richPlain,
+  richRef,
+  richNameOf,
+  richTextNamed,
+  isRichRef,
+  RICH_PREFIX,
+  DATA_FIELD_KIND_ICONS,
+  columnNames,
+  fieldNamed,
+  fieldOf,
+  fieldsFrom,
+  DATA_FIELD_KINDS,
+  DATA_FIELD_KIND_NAMES,
   type Dataset,
+  type DataField,
+  type DataFieldKind,
   type RowQuery
 } from './data';
 export {
@@ -178,6 +196,7 @@ export {
   type CarrySource
 } from './carried';
 export { documentFaults, FAULT_KINDS, holderOf, type Declares, type Fault } from './faults';
+export { refCounts, refsFrom, refsIn, type Ref, type RefKind } from './refs';
 /** Where a block is, when it is not simply the next thing in the column. */
 /** One spelling for a name a document stores — the same word can have two byte sequences. */
 /** The shape a picture keeps, whatever width it is given. */
@@ -258,7 +277,15 @@ export {
  * and a design drift apart. See the file for the whole argument, and for the three things a browser
  * had to settle about what a replaced element will and will not paint.
  */
-export { wireframeCss, wireframeRules, wireframeName, WIREFRAME_CSS, WIREFRAME_NAMES } from './wireframe';
+export {
+  wireframeCss,
+  wireframeRules,
+  wireframeName,
+  shownOnlyAt,
+  WIREFRAME_CSS,
+  WIREFRAME_NAMES,
+  WIREFRAME_PALETTE
+} from './wireframe';
 /** Where a carried block would land — which stack, which place, and the line a reader steers by. */
 export { landingFor, type Box, type Landing } from './landing';
 /**

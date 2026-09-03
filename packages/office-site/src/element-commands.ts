@@ -34,6 +34,7 @@ import type { INode } from '@barocss/datastore';
 import { CONTAINERS, holdsABlock, SELECTABLE } from './selection';
 import { freshPartId, scopeOf } from './components';
 import { servicesOf } from './form';
+import { datasetNamed } from './data';
 
 type Node = Record<string, any>;
 
@@ -828,6 +829,51 @@ export class SiteElementExtension implements Extension {
       canExecute: (_ed: Editor, payload?: Record<string, unknown>) =>
         !!this._where(editor, payload?.selection, payload?.pageId, payload) &&
         this._hasComponent(editor, payload?.componentId) &&
+        this._hasDataset(editor, payload?.source)
+    });
+
+    /**
+     * A **chart**: the same rows, drawn as a picture.
+     *
+     * One argument where a list needs two, and that is the whole difference between them: a list
+     * needs something to draw *per row* — a definition — and a chart draws the rows itself. So a
+     * dataset is all it takes, and which columns become the label and the value are chosen in the
+     * panel afterwards, the way a list's sort is.
+     *
+     * The first two **text** columns are a guess and are the right one: a dataset's first text column
+     * is what `rowLabelsOf` already calls a row by, and a chart with nothing filled in draws an empty
+     * box that a reader has to work out how to fix. Guessing wrong costs a dropdown.
+     */
+    (editor as never as { registerCommand: (spec: unknown) => void }).registerCommand({
+      name: 'insertChart',
+      execute: async (_ed: Editor, payload?: Record<string, unknown>) => {
+        const store = this._store(editor);
+        const doc = {
+          rootId: (editor as never as { getRootId: () => string }).getRootId(),
+          getNode: (sid: string) => store?.getNode(sid)
+        };
+        const data = datasetNamed(doc as never, payload?.source);
+        const label = data?.fields.find((one) => one.kind === 'text')?.name ?? data?.fields[0]?.name;
+        const value = data?.fields.find((one) => one.kind === 'number')?.name;
+
+        return await this._put(
+          editor,
+          node(
+            'chart',
+            {
+              source: String(payload?.source ?? ''),
+              kind: 'bar',
+              labelBy: label ?? '',
+              valueBy: value ?? '',
+              sizing: 'fill'
+            },
+            []
+          ) as Node,
+          payload
+        );
+      },
+      canExecute: (_ed: Editor, payload?: Record<string, unknown>) =>
+        !!this._where(editor, payload?.selection, payload?.pageId, payload) &&
         this._hasDataset(editor, payload?.source)
     });
   }

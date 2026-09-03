@@ -65,7 +65,9 @@ import {
   type BreakpointId,
   type SitePanelRow,
   type SitePanelTab,
-  type StateId
+  type StateId,
+  columnNames,
+  fieldsFrom
 } from '@barocss/office-site';
 import { chordFor, keyLabel } from '@barocss/office-controls';
 
@@ -233,7 +235,9 @@ export function Inspector({
   onState,
   page,
   onPage,
-  onEditComponent
+  onEditComponent,
+  row,
+  onEditRow
 }: {
   editor: Editor;
   /** The width being edited. The widest is the page itself; the others say only what differs. */
@@ -256,6 +260,16 @@ export function Inspector({
   /** Going to a page, and opening a definition — what the 쓰임 tab's rows do when pressed. */
   onPage?: (sid: string) => void;
   onEditComponent?: (componentId: string) => void;
+  /**
+   * **The row of data the selected block is drawn from**, when it is drawn from one.
+   *
+   * Handed in rather than looked up, because it cannot be looked up here: a row's number lives only
+   * in the **drawing** (`${collection}~${index}`) and the selection carries document ids, which for
+   * every row of a list is the same collection. The board reads it at the moment of the press.
+   */
+  row?: { sid: string; row: number; label: string };
+  /** Open that row as a form — see `RowForm`. */
+  onEditRow?: () => void;
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
   const [tab, setTab] = useState<SitePanelTab>('block');
@@ -517,7 +531,14 @@ export function Inspector({
       .map((one: any) => ({
         name: String(one.attributes.name),
         label: String(one.attributes.label ?? one.attributes.name),
-        fields: (one.attributes.fields ?? []) as string[],
+        /*
+         * **Through `fieldsFrom`**, because a column is a declaration now — `{ name, kind }` — and
+         * not a name. Read as `string[]` it put objects where labels belonged, and React answered by
+         * unmounting the panel: the whole 데이터 tab went white the moment a list was selected.
+         *
+         * A cast is a promise, and this one had been true for as long as a column was a string.
+         */
+        fields: columnNames(fieldsFrom(one.attributes.fields)),
         rows: ((one.attributes.records ?? []) as unknown[]).length
       }));
 
@@ -859,6 +880,8 @@ export function Inspector({
             editor={editor}
             onAt={onAt}
             writing={writing}
+            row={row}
+            onEditRow={onEditRow}
           />
           {/*
             **담는 곳** — the way out, and the only thing some blocks have to say.
@@ -1090,7 +1113,9 @@ function Groups({
   onAt,
   writing,
   empty,
-  after
+  after,
+  row,
+  onEditRow
 }: {
   /**
    * **Which sections are put away**, held by the `Inspector` above rather than here.
@@ -1148,6 +1173,9 @@ function Groups({
   empty?: string;
   /** Shown under them, when a reader could be told what to do next. */
   after?: string;
+  /** The row of data the selection is drawn from, and how to open its form — see `rowEdit`. */
+  row?: { sid: string; row: number; label: string };
+  onEditRow?: () => void;
 }) {
   if (empty && !page) return <PropertyEmpty>{empty}</PropertyEmpty>;
 
@@ -1361,7 +1389,7 @@ function Groups({
             : group.label
         }
         onWrite={(row, next) => write(row, isMarkRow(row) ? next : commit(row, next))}
-        render={(row) => own(row, { attrs, shown, at, data, run, editor, onAt, page })}
+        render={(one) => own(one, { attrs, shown, at, data, run, editor, onAt, page, row, onEditRow })}
       />
       {/*
         The sentence about **the next thing**, under a heading that says it is one.
@@ -1786,9 +1814,12 @@ function own(
      * — so a row there has no `shown.ids` to act on and its command needs to be told which page.
      */
     page?: { sid?: string };
+    /** The row of data the selected block is drawn from, and how to open its form. */
+    row?: { sid: string; row: number; label: string };
+    onEditRow?: () => void;
   }
 ): React.ReactNode | undefined {
-  const { attrs, shown, at, data, run, editor, onAt, page } = ctx;
+  const { attrs, shown, at, data, run, editor, onAt, page, row: atRow, onEditRow } = ctx;
 
   /**
    * **A companion answers `when` too**, which it could not until a grid needed two gaps.
@@ -2203,6 +2234,28 @@ function own(
         </Button>
       );
     }
+
+    case 'rowEdit':
+      /**
+       * **이 행 편집** — from the page, which is where a reader is when they want it.
+       *
+       * The form existed and its only door was the grid's row number, behind a dialog opened from
+       * the rail: *페이지에서 Drawer 를 어떻게 열어서 편집해야 할지 모르겠어.* Somebody looking at the
+       * third card of a blog index is looking at row three.
+       *
+       * Which row is a fact about the **drawing** — a row's sid is `${collection}~${index}` and the
+       * selection carries document ids, which for every card in a list is the same collection — so
+       * the board reads it at the press and hands it here. Nothing selected inside a row means no
+       * button rather than a button that opens the wrong thing.
+       */
+      if (!atRow) {
+        return <PropertyEmpty>페이지에서 목록의 한 줄을 누르면 그 행을 폼으로 고칠 수 있습니다.</PropertyEmpty>;
+      }
+      return (
+        <Button onClick={onEditRow} data={{ 'row-edit': String(atRow.row) }}>
+          {atRow.row + 1}행 편집
+        </Button>
+      );
 
     case 'cardValues':
       /*

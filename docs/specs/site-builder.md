@@ -1754,18 +1754,116 @@ Four things are in it, and each one arrived because the version without it was w
    `contrast(0)` changes nothing a layout can see. An `outline` rather than a border, for the same
    reason at one pixel.
 
-### And four things it should draw and does not
+### Two of the four are drawn now
 
-Every one is a fact the document already holds:
+A wireframe is shown to somebody else, and what they are being asked is *does it read in the right
+order* and *what happens on a phone*. Both facts were in the document and neither was on the drawing,
+so the answer to both was **look at it and count** — which is the thing a wireframe exists to stop.
 
-- **Reading order** — 1 · 2 · 3 down the sections. Half the reason anybody shows a wireframe to
-  somebody else is *this is the order it reads in*.
-- **What this width hides.** `neverShown` and the per-width hiding are in the schema; a section that
-  drops out on the tablet currently looks exactly like a section that does not exist.
-- **The one thing a visitor is here to do**, which is an open question of its own. Five buttons at one
-  weight is a page with no answer; in a wireframe the answer is the one heavy outline.
-- **Spacing and direction**, which the editor draws as bands and gap strips and this does not — and
-  *여기가 좁다* is most of what a reviewer has to say.
+- **읽는 순서** — 1 · 2 · 3 down the page's *direct children*, and only those. A number on every box
+  is a wireframe with a hundred numbers on it; the sections are what a reader is being asked the
+  order of. The badge sits **outside** the board on the left, where a numbered list keeps its numbers
+  — possible because a board is `overflow: visible` while editing. In preview it is not, and the
+  numbers are clipped there; stated rather than worked around, because preview is the board becoming
+  a window onto the real page and a number floating beside the real page is what would be wrong.
+- **이 폭에서만** — a block that is not on every width says which widths it *is* on, composed into
+  the same label that says what the box is: `폼 · 모바일만`. An element has two pseudo-elements and
+  the reading order owns the second.
+
+Two things this settled that were not obvious before writing it:
+
+**A ghost where the hidden block would be is wrong.** It is the obvious notation and it adds a box to
+the layout — the reviewer would be reading a page taller than the page. Every mistake this file has
+already made was a notation that moved something: emptying a picture (266×199 became 225×225), giving
+it a border (one pixel each way). So the note goes on the block wherever it *is* drawn.
+
+**The answer lives in the definitions, not in the pages.** The sample has exactly two blocks that are
+not on every width — a nav bar that is 데스크톱·태블릿만 and a hamburger that is 모바일만 — and both
+are inside the header **definition**, which a walk of a page never reaches. `styledNodes` in
+`export-html.ts` had learned this once already, the same way and for the same four blocks; the
+selector that says it is `[data-bc-sid$="~part"]`, meaning *every placement of this part*.
+
+And a **dead selector** fell out of it: `[data-kind='button']` was in the blanket sheet and matched
+nothing, because `data-kind` is a form field's kind and a page's surface kind and is never `button`.
+A real `<button>` was already covered by the rule beside it. A selector that matches nothing is the
+CSS shape of the fault the conformance harness exists to find, and this one survived a rewrite of the
+file by looking plausible.
+
+### 회색이냐 선이냐는 선택지가 아니었다
+
+Asked as three options: *그냥 회색톤이 좋은가, 순수하게 검은 선만 쓰는 게 좋은가, 아니면 테마처럼 고를
+수 있게 하는 게 좋은가?* Measured before answering, and the numbers say the first two were not the
+choice they looked like.
+
+The sheet used four values. Against the white page:
+
+| | contrast |
+|---|---|
+| the band grey against the **photo grey** | **1.04:1** |
+| the band grey against the page | **1.14:1** |
+| the photo grey against the page | 1.19:1 |
+| the line against the page | 1.68:1 |
+
+And the sample has **25 boxes** that carry a fill and no corner and no border.
+
+Two things follow that were invisible without the arithmetic:
+
+- **Two greys meant two different things and were the same grey.** *A reader put a background here*
+  and *there is a photograph here* are different facts, 1.04:1 apart.
+- **The argument for keeping the band grey was already false.** It was kept in this file so the
+  page's rhythm would survive the wash — and at 1.14:1 there was no rhythm to survive. Those 25
+  boxes were invisible the whole time.
+
+So what the sheet drew was not a grey wireframe. It was a **white page pretending to be grey**, and
+*회색이냐 선이냐* was a choice between a thing and itself.
+
+**The answer the numbers point at:**
+
+1. **The line carries the structure** — 3.27:1, which is the bar a mark that is not text has to clear
+   to be readable at all.
+2. **A fill becomes a box.** *There is a background here* is translated into the line's vocabulary —
+   white, with a hairline — which is what makes those 25 boxes appear for the first time.
+3. **Grey keeps exactly one meaning: 사진.** One grey, one fact, visibly a shaded box (1.54:1). The
+   wash's `brightness` moved from 1.78 to 1.63 so a photograph that has loaded lands on the same grey
+   as one that has not — two shapes for one fact, and they were two shades apart.
+
+**And not a theme picker.** A wireframe is made to be *handed to somebody else*; a notation each
+reader configures is one where 그 회색 박스 means one thing to the person who drew it and another to
+the person reading it, which is the single job it has, failed. `WIREFRAME_NAMES` is a fixed vocabulary
+for the same reason. The one condition that would justify a second mode is named rather than left
+implied: **print** — a grey wash on a mono laser is mush, and a line-only sheet is what a printed
+handout wants. Nobody has asked, and building it now is the theme picker with extra steps.
+
+### `a, b::before` attaches the pseudo-element to `b`
+
+The best-shaped fault of the day, because of what could not see it.
+
+A part of a definition is named by two selectors: `[data-bc-sid$="~part"]` for every placement of it,
+and the bare sid for the board where the definition is being edited alone. Written as one list with
+the pseudo on the end, the `::before` belongs to the **second** selector only. Every drawn placement
+matched the first and received a `content` declaration on the element itself, which does nothing.
+
+The sheet was generated. The rule was in it. The word was in the rule. **Eighteen unit tests passed**,
+because every one of them asserts on the string — and the string was correct. Only a browser could
+say that the correct string draws nothing.
+
+It is now a string check too, phrased as the rule rather than as the case: in a rule that draws a
+pseudo-element, *every* selector in the list carries it.
+
+### And two that stay open, with what each one is actually waiting for
+
+- **The one thing a visitor is here to do.** Five buttons at one weight is a page with no answer, and
+  in a wireframe the answer is the one heavy outline. This is *not* a fact the document holds — the
+  backlog entry claimed it was and the claim was wrong. Nothing in the schema marks a primary action;
+  what the sample has is two **definitions** called `cta` and `ghost`, which is the sample's own
+  vocabulary and not the model's. So it is a schema question — one attribute on one block per page —
+  and it belongs to whoever asks for it, not to the wireframe.
+- **Spacing and direction.** The document holds `gap`, the paddings and `layoutMode`, so it could be
+  drawn — as `세로 24` on every stack, which is a hundred badges on a page and a label nobody reads by
+  the third one. It is a **selection-time** fact, and the editor already draws it that way: bands on
+  the block a reader has picked up, which is when they are asking. A wireframe answers *어떻게
+  읽히나*, and the bands answer *여기가 좁나*; they are different questions and the second one already
+  has a good answer.
 
 ### What is deliberately out
 
@@ -2043,3 +2141,370 @@ writes those too.
 Everything that moves or resizes anything, adds a block or takes one away, changes a colour, a
 width, a padding or a template. Not because those are dangerous — because they are somebody else's
 work, and the whole value of the mode is that a writer can stop being careful.
+
+---
+
+## 목록의 줄은 저마다 다른 곳으로 간다
+
+The blog's index is a list of posts. A list of posts links to its posts. This did not work, it had
+never worked, and nothing in the product could have noticed — which makes it the most instructive
+fault this file has recorded.
+
+### The fault: a row has no stored node
+
+`goes` is *where pressing this block goes*, and the published page turns it into an `<a>` wrapping the
+whole block. The export read it like this:
+
+```
+data-b="site:510~3~site:654"   →  the sid after the last ~   →  store.getNode(...).goes
+```
+
+For a block a reader wrote a destination on, that is exactly right. For a **row of a list** it is
+exactly wrong: a row is drawn, not stored. Its `data-b` is `${collection}~${index}~${part}`, and the
+sid after the last `~` is the **card definition's** part — one node, shared by every row. So all four
+rows of the blog took whatever that one part said.
+
+The failure mode is the expensive kind: every row drew correctly, every row published a real `<a>`,
+every link resolved to a real page, and every one of them went to the same wrong place. There is no
+error, no fault report, no missing `href` — only a reader wondering why the third post opens the
+first. **A fixture with one post draws it perfectly.**
+
+### The fix: the drawing already knows
+
+The renderer writes `data-goes` from the **resolved** attributes — the ones a placement's variables
+and a row's `field:` references have already been substituted into. The export prefers that and falls
+back to the stored lookup, which keeps every document written before this drawing exactly as it did.
+
+Two consequences worth stating:
+
+- **The reference does not travel.** `page:post-stack` is this document's vocabulary and means nothing
+  in a browser; the `<a>` drops `data-goes` on the way out. `export.test.ts` has asserted *no `page:`
+  appears in a published page* since the export existed, and it caught the leak within the hour.
+- **An empty answer is not a broken one.** A row about a post nobody has written yet publishes **no
+  `<a>` at all** — an ordinary box. An `<a>` with no `href` is what a *broken* reference produces, and
+  `linkFaults` reports that; these are not broken, they are unwritten.
+
+### What it needed from the model: a destination is data
+
+None of the above is reachable unless the card can be *asked* where it goes. So `post-row` declares a
+fourth variable — 가는 곳, beside 제목, 요약 and 날짜 — and the list answers it with `field:페이지`,
+a column of the dataset holding `page:post-stack`.
+
+That is the whole join, and it is the same shape as everything else here: the card's variables were
+all *what it says*, and this is the first one that is *what it does*. The panel needed nothing new —
+`cardValues` already offers each of a card's questions a picker of the dataset's columns — which is
+the strongest evidence available that the shape was right before this needed it.
+
+### And the fixture now has two posts
+
+One post was the honest answer for as long as a **template** was the thing being demonstrated: a
+sample is read, twenty of anything is scrolled past, and a second entry proved nothing the first did
+not. It proves something now. Two posts, two addresses, two rows that link to different pages, and two
+rows that link nowhere — the smallest fixture that can tell a per-row destination apart from a fixed
+one.
+
+The list also wears the **share**: the index takes two thirds of the row and a sidebar takes one, which
+is the first place in this document that states a ratio. It was the hero's job in the plan, and the
+hero was the wrong home — its picture's width is a number several browser checks hold. A list beside
+an aside is the ordinary case for a share, and nothing had measured it.
+
+---
+
+## 데이터는 자기가 무엇인지 안다
+
+Asked as three things at once: *노션은 row를 폼처럼 입력하게 해주고, 필드마다 자료형이 있고, 메타데이터도
+추가할 수 있는데 — 우리는 단순한 row/cell 표라서 블로그 같은 큰 글에 안 맞는 것 아닌가? 데이터 관리
+방식을 바꾸는 게 좋지 않을까?*
+
+Measured before answering, and the measurement moved the question: the grid was not the fault.
+
+### 자료형이 한 단계 바깥에 있었다
+
+`dataset.fields` was `string[]` — bare names. The type lived on the **card**, as `componentVar.kind`.
+Three consequences, all of them already in the sample:
+
+- a column drawn by two cards declares its kind **twice**, and the two can disagree;
+- nothing can check a cell. `추천` held `'예'` and `'아니오'` — a boolean spelled as words, because
+  there was nowhere to say it was one — and it was read by **nothing**, which is the same finding
+  from the other side: a column that cannot say what it is, is a column nothing can do anything with;
+- the grid drew one text box for every column, so a date, a price and a page reference were the same
+  control. That is what made entering data feel like typing into a spreadsheet by hand.
+
+**`format` stays on the card.** The split is not arbitrary: *what a value is* belongs to the data;
+*how this page reads it* belongs to the thing drawing it. One dataset feeding a price list that says
+`9,900원` and a summary that says `9.9천` is the whole argument for a format, and none of it applies
+to the kind. A card's `kind` becomes a **fallback** — where the data says one, the data wins, because
+a definition is placed against more than one dataset over its life and the data is what knows.
+
+**A bare name still works, forever.** A column with nothing said about it is text, which is what it
+was already being treated as. Both shapes, one reader (`fieldsFrom`), nothing migrated.
+
+Seven kinds — 글자 · 숫자 · 예/아니오 · 날짜 · 선택 · 페이지 · 주소 — five of them worn by the sample
+the same day. A date stays a **string** deliberately: `2026-09-03` sorts as text, is what
+`<input type="date">` speaks, and means the same thing in every timezone; a `Date` in the document
+would be a value that cannot survive being saved.
+
+And a kind is **not a conversion**. Changing a column's kind rewrites no cell — a text column of
+`'예'` turned to boolean keeps those words until a reader replaces them, or the undo of a mis-click
+is a column of nothing. What does convert is a *write*: `cellFor` stores by the column's kind, so a
+price typed or **pasted** as `'9900'` lands as `9900`, which is the fault this dataset already
+carried once (`월 9,900원` sorted 문서 above 사이트, and looked exactly like a working sort).
+
+### 표는 훑는 것이고, 폼은 채우는 것이다
+
+A grid is for **scanning** — twenty rows where a wrong cell stands out. It is the wrong shape for
+entering one row, and gets worse the more a row holds: a blog entry is five fields of which two are
+sentences, and at 8rem a column the summary has scrolled off the right edge before it is finished.
+
+So both, unchanged and added: the grid compares rows, a form fills one in. The row **number** is the
+way in — the one part of a row that is not a value, and the one a reader is already aiming at when
+they mean *this row* rather than *this cell*.
+
+**A drawer, not a second dialog**, and the reason is where it opens from: a row is opened from the
+grid *and* from the page, and in the second case the thing being edited is behind it, drawn. A dialog
+in the middle covers the card whose summary is being typed. So `Drawer` is its own component in
+office-ui rather than `Dialog` with a class — a dialog is a **question** (answered and dismissed, two
+buttons at the bottom right); a drawer is a **place to work** (edits land as they are made, no
+footer, a lighter scrim because the page behind is what the edit is checked against).
+
+The form holds no draft. Every field commits on blur or Enter, exactly as the grid's do, so there is
+no 저장 button and one commit is one entry in the history.
+
+### 해석이 원본을 지운다
+
+Asked separately and it is the same subject: *전체 페이지 중에 어디가 데이타이고 어디가 아닌지 구분이 잘
+안 된다.*
+
+The reason is a property of the design rather than an oversight. **Resolution is total**: `field:제목`
+has become the post's title by the time anything draws, so a value that came from a column is
+indistinguishable from one somebody typed. There was nothing left to mark.
+
+`canvas-instance` now keeps the reference beside the resolved value (`boundFrom`), and the renderers
+write it as `data-from`. Three things that settled:
+
+- **It has to be in office-text.** The values that matter are a card's *words* — 제목, 요약 — and a
+  heading is drawn by the shared text renderers, not the site's, so at first only `field:페이지`
+  (which lands on a frame) was marked. It belongs there anyway: a deck's card bound to a variable has
+  the same question about it, and this package draws every block that holds words in all three
+  products.
+- **So the guard cannot be per-renderer.** `data-from` is the editor's and must not ship, and the
+  renderers that draw it are in two packages — so `clean` strips it in **one** place. That is the
+  rule `data-goes` needed, learned once and applied before it had to be learned twice.
+- **An empty attribute marks everything.** `String(x ?? '')` put `data-from=""` on all 27 paragraphs
+  of the page; `[data-from]` in CSS would have marked the whole page and said nothing.
+
+The notation is an **inset underline** in the accent colour — inset, so nothing moves, which is the
+rule the wireframe had to learn twice — plus the **list's name** on the box that owns the rows,
+because *어디가 데이터인가* is asked coarsely first and finely second. Editor only: preview draws the
+page a visitor gets, and a visitor is not being told which words came from a spreadsheet.
+
+### 그리고 긴 본문은 행에 넣지 않는다 — 페이지가 집이다
+
+The one part of this that is a product decision rather than a measurement, and it was made
+deliberately: a blog post's body stays a **page**, and a dataset becomes a *view of pages*.
+
+The alternative — a record that holds document content, which is Notion's shape — was refused for two
+reasons. It breaks `cellValue`'s one-shape rule, on which saving, diffing and validation all rest;
+and it contradicts the concept this product already chose (**a document tool that publishes a site**),
+whose unit is a page with an address, a description and formatted text. A datum has none of those.
+
+What that leaves owing is written down rather than done: the `페이지` column joining the index to its
+posts is **hand-written**, so renaming a post's title on the page leaves the list showing the old
+one. The fix is a third `dataset.kind` — `pages` — whose rows are computed from the pages drawn
+through a template, and whose columns are those pages' own facts. `rowsOf`'s filter, sort and limit
+work on it unchanged, which is the strongest evidence available that the shape was right before this
+needed it. It needs one thing the schema has not got: a page has no **date**.
+
+---
+
+## 데이터셋은 한 판이 아니라 장소다
+
+The data grid was a **dialog**, and this file argued for it:
+
+> *A dataset is not on the page. It is a resource the page refers to by name, and what it needs is
+> the one shape neither side of the shell can give: **width**. … Editing data is a stint, not an
+> adjustment — a reader comes here to fill a table in and leaves.*
+
+The first half is true and the conclusion did not follow. A dialog is what you reach for when width
+is the only problem, and its width kept having to grow — 56rem, then 76rem the day each column's
+header held two controls instead of one. The half that was actually wrong is the second one. **A
+dataset is a place**: a reader goes back to it, it holds most of what the site says, and the work is
+the same kind of work as editing a page.
+
+And the mechanism was already here, twice. A board takes a `rootId` and draws whatever node it names,
+which is how editing a **component definition** works: the main area shows something that is not a
+page, and the rail, the panel and the selection are untouched. A dataset is the third thing that area
+can show — one `useState` beside `editing`, and the width problem stops existing.
+
+**What it costs, stated:** a reader editing data is not looking at the page. Which is exactly what a
+reader editing a definition already accepts, and two browser checks now say so by pressing 페이지로
+before asserting that the list redrew.
+
+## 자료형은 열넷이고, 그 목록을 무엇이 정했나
+
+One question decided it: **what can a page draw with it?**
+
+글자 · 여러 줄 · 서식 있는 글 · 숫자 · 예/아니오 · 날짜 · 선택 · 여러 선택 · 색 · 그림 · 페이지 ·
+주소 · 메일 · 전화.
+
+Notion's list is longer and the difference is the interesting part. 사람 and 만든 사람 would be values
+nothing can fill, because this product has no accounts. 수식 and 롤업 are an expression language,
+which this schema refused once already — a list's filter is `where` and `equals`, two attributes, and
+the recorded reason is that every builder that started with a grammar arrived at a row of pickers
+anyway. 관계 is a second document model. **A kind nothing on a page could draw is a column a reader
+can fill in and never see**, which is the fault the conformance harness exists to find.
+
+All fourteen pictures were **drawn** for this rather than borrowed, and two of the borrowings would
+have been lies: `math` is Σ, so putting it on a number column says *this is computed*, which is
+precisely the kind this product does not have; `paragraph` is prose, which is the long-text kind and
+not the short one.
+
+### And a kind names two acts, which reading it as one refused
+
+`setDatasetField` took a `kind` and required the column to **exist** — because the first thing it was
+asked for was *change this column's type*. Adding a column with a kind is the same word meaning the
+other thing, and the whole 속성 추가 surface came back `false` in silence: a form offering fourteen
+kinds, none of which added anything.
+
+`발행일, 날짜` is one decision. Every table of this kind asks for both at once, and the reason ours
+did not was one branch.
+
+## 셀은 문자열이고, 서식 있는 글은 그것을 깨지 않는다
+
+Asked for directly — *RichText 자료형 하나 더*, to write blog posts more richly — and the only real
+question is where the words live.
+
+**Not in the cell.** `cellValue` returns a string, always, and saving, diffing, sorting, filtering
+and every card binding rest on that. So the cell holds `text:요약-스택` and the words are `richText`
+nodes in `resources`, which is what a **footnote** has always done here (`footnoteRef` in the flow,
+`footnoteDef` beside it) and is the tenth use of the reference shape.
+
+Three things it buys that a markdown string would not:
+
+- **No parser.** A string with syntax in it is a language — a grammar, an error message, something to
+  learn — and this schema refused one when a list's filter became two attributes instead of an
+  expression.
+- **Editing is free.** The caret, the marks, undo and every text command run on nodes.
+- **One model.** A link in a summary is the same `link` mark a link in a paragraph is, so it exports,
+  validates and resolves through code that already exists.
+
+### The marks have to reach the card, or the kind is text with a redirection
+
+A bound part takes a **string**, and `withText` collapses its runs to one — right for every value a
+card asks for, and unable to carry an emphasis. So content arrives **beside** the strings: a second
+map keyed by the same variable name, filled by whoever resolved the row, replacing what the part
+holds. `canvas-instance` knows nothing about `resources` or the `text:` prefix — resolving is the
+caller's job, and what crosses the boundary is the thing every renderer already understands.
+
+`richPlain` is the fallback and it matters: a part that cannot take content — a `title`, an `alt`, a
+button's label — gets the **words**, so a rich column bound somewhere unexpected degrades to a text
+column instead of leaking `text:요약-스택` onto a page. It joins **runs with nothing and blocks with a
+space**, which took one measurement to get right: a run is a piece of a sentence, and joining those
+with a space puts one inside every emphasised word.
+
+### Editing one is a second view, not a second editor
+
+`page-frame.tsx` wrote the contract: *a view that draws part of a document says so and asks for
+nothing — `rootId` — and then takes the same path the main view takes and redraws itself with the
+caret where the reader left it.*
+
+A `richText` node is a node. So the editor in the row's form is an `EditorViewDOM` over **the same
+editor and the same store**, pointed at it — the third time that mechanism answers a question. One
+selection, one history, every mark command, and the floating toolbar and `/` menu follow because they
+follow the selection.
+
+It needed exactly one thing that did not exist: **a renderer for `richText`**, because a view can
+only draw a node type something has defined. Nothing on a page ever draws one — a card gets its
+*blocks* — so there had never been a reason for it, and without it the view mounted and drew an empty
+box.
+
+Two things not to do, both already paid for once here: **the host must not redraw it** (a view
+subscribes to content changes; a second render from outside replaces the DOM under a reader who is
+typing), and **do not hand it a tree** (`render(tree)` mutates what it is given, so a proxy over the
+store gets resolved nodes written back into the document).
+
+**What is owed:** a row is an element of an array, so nothing ties a `richText` node's lifetime to
+it — deleting a row leaves the words behind. That is a sweep, and `documentFaults` should report a
+`richText` nothing references.
+
+---
+
+## 모든 것이 문서는 아니다
+
+Asked as a correction, and it was one: *왜 문서가 하나야? 사이트 페이지마다 별도의 문서가 아니었어?*
+
+It is one, and the reason is not a site-builder decision at all. `surface` is the **seam** of the
+shared schema — `document → surface+` is a Word document's pages, a deck's slides and a site's pages,
+all three — so a site being one document is the same fact as a deck being one. That is what makes a
+header definition change six pages, a `page:소개` follow a rename, and one undo walk back across the
+whole site.
+
+**And the reason was written nowhere.** The schema's `document` explains its address and its widths
+at length and never says why the pages are inside it; the spec says *a site is one document* once, in
+passing, in an argument about breakpoints. This section is that omission being paid.
+
+### The decomposition, and what measuring it found
+
+The proposal was: a company has many **sites**, a site has many **pages**, a page has many **device
+sizes** — and *the site is service information, the pages are service information, only the per-device
+rendering structure is a document*.
+
+Two of those three are right, and the measurement is more interesting than the argument.
+
+**1. The site's own facts are already service information, and the schema said so from the other
+side.** When `address` was added the comment written here was: *the first fact this model has wanted
+that is about **publishing** rather than about the document.* It was kept on the document anyway, for
+the reason *a thing beside the file goes missing the first time the file is opened somewhere else* —
+which is true exactly as long as a file is the only store. `address`, `publishTo`, the `publishes`
+history and the site's files are all in that class.
+
+**2. The page list is already records — and the code already treats it as one.** `pagesOf` returns
+four fields (`sid`, `id`, `name`, `path`) and nothing else. Of its **19 callers, 18 use only those
+four**; the one that goes inside a page is `exportSite`. So the product already asks "the page list"
+as a query and answers it by walking 740 nodes.
+
+**3. Splitting by device is the one to refuse**, and this file refused it on day one:
+
+> What must **not** happen is a second document per breakpoint. A site is one document; a breakpoint
+> is an override on a node.
+
+A width is not another version of the page — it is the same blocks saying something different about
+width, which is what `overrides`, `attrsAt` and `scopesFor` all rest on. Split it and a heading typed
+at desktop does not appear at mobile: three copies of the words, and keeping them in step becomes the
+reader's job. Three boards side by side mean something *because* they are one document at three
+widths.
+
+### And a fourth thing, which is where the cost actually is
+
+`resources` is not one kind of thing, and that is the part the proposal did not name:
+
+| | | |
+|---|---|---|
+| `dataset` | **record** | its rows are already an attribute, not nodes — for the reason written in `data.ts`: 500 rows is 4,000 nodes nothing ever selects |
+| `asset` | **record** | a `data:` URI and its size |
+| `service` | **record** | an endpoint |
+| `richText` | **document** | real blocks with marks |
+| `component` | **document** | nodes with `partId`, binds and slots |
+
+So the library that has to stay a document is **two** node types, not five.
+
+### The real price: three questions that cross every page
+
+`usesOf` — *머리말이 6곳에서 쓰입니다*, the sentence that has to be said before anybody edits a
+definition. `linksTo` — *이 페이지를 지우면 링크 3개가 끊어집니다*, the moment before a link breaks
+silently. `documentFaults` — every reference in the site.
+
+All three walk **every node of every page**, and all three are what the admin screen is made of. Split
+the pages into documents and none of them can be a walk any more: they become an **index**, written
+when a page is saved, holding what that page refers to.
+
+That is what this decomposition actually buys and costs. Opening one page stops meaning reading the
+site; *what uses what* stops being a walk and becomes a thing the service knows.
+
+```
+service:   site · page (record) · dataset · asset · service · publishes · reference index
+document:  a page's body (widths inside it) · the site's library (component · richText)
+```
+
+**The index is the first step and it pays before anything splits**: those three questions are walks
+today, on every keystroke that redraws the admin.

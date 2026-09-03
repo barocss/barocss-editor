@@ -63,7 +63,7 @@ import {
   type StateId
 } from './states';
 import { hrefFor } from './page-link';
-import { liveScript, markLive } from './live';
+import { liveScript, markLive, markLiveCharts } from './live';
 import { neverShown } from './presence';
 import { assetFileName, assetNameOf, assetNamed } from './assets';
 import { scopeOf } from './components';
@@ -194,6 +194,19 @@ export function sitemapFor(editor: Editor): string | undefined {
 
   const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
   const locations = pagesOf(doc as never)
+    /**
+     * **Not the pages that said not to read them.**
+     *
+     * Found the day the sample grew a dashboard, which is the first page in it to say `noIndex`: the
+     * head said *do not index this* and the sitemap said *here it is*, in the same publish. A crawler
+     * given both obeys the first and learns the second is unreliable — which is the one thing a
+     * sitemap must not teach, and is what this file already argues about publishing one full of
+     * paths a site cannot serve.
+     *
+     * It is also the cheaper half of the same rule `robots.txt` follows here: a site that says
+     * `noIndex` gets `Disallow: /`, and a page that says it gets left out of the map.
+     */
+    .filter((page) => (store.getNode(page.sid) as Node | undefined)?.attributes?.noIndex !== true)
     .map((page) => addressOf(store, rootId, String(page.path ?? '/')))
     .filter((one): one is string => !!one);
   if (locations.length === 0) return undefined;
@@ -569,6 +582,18 @@ function clean(
     el.removeAttribute('contenteditable');
     el.removeAttribute('spellcheck');
     el.removeAttribute('data-bc-layer');
+    /**
+     * **`data-from` is the editor's**, and this is the one place that has to say so.
+     *
+     * It names *where a value came from* — `field:제목`, `var:강조` — so the board can mark which
+     * words on a page are not typed there. A visitor has no use for it, and it is this document's
+     * own vocabulary, which is exactly what `data-goes` had to be stopped from publishing.
+     *
+     * Stripped **here** rather than guarded in each renderer, because the renderers that draw it are
+     * in two packages now: the site's blocks and the shared text ones. One rule in the place that
+     * decides what ships beats the same guard written four times and forgotten on the fifth.
+     */
+    el.removeAttribute('data-from');
     const sid = el.getAttribute('data-bc-sid');
     if (sid) {
       /*
@@ -630,6 +655,12 @@ function clean(
    * found by `data-b`, and after the drafts, because a hidden list is not one anybody fetches for.
    */
   markLive(doc, host);
+  /*
+   * And the charts, which are the same rule one step further: a list's refetch rewrites **words**
+   * and a chart's rewrites **where its points are**. Both are marked here so the one script the page
+   * ships can find either.
+   */
+  markLiveCharts(doc, host);
   return host;
 }
 
@@ -703,12 +734,35 @@ function goesLinks(
     const name = el.getAttribute('data-b') ?? '';
     const cut = name.lastIndexOf('~');
     const own = cut < 0 ? name : name.slice(cut + 1);
-    const said = (store.getNode(own)?.attributes as Record<string, unknown> | undefined)?.goes;
+    /**
+     * The **drawn** destination first, and the stored one after.
+     *
+     * A row of a list draws as `${collection}~${index}~${part}`, so looking the sid up in the store
+     * lands on the *definition's* part — and every row in a list went to the same place. The drawing
+     * carries the resolved answer (`data-goes`), which is the one that knows which row it is.
+     *
+     * The store stays as the fallback rather than being replaced: a block whose destination was
+     * written before this existed is still drawn by a renderer that may not have said it, and the
+     * older answer was right for every case except the one it could not see.
+     */
+    const drawn = el.getAttribute('data-goes');
+    const said =
+      drawn && drawn.trim()
+        ? drawn
+        : (store.getNode(own)?.attributes as Record<string, unknown> | undefined)?.goes;
     if (typeof said !== 'string' || !said.trim()) continue;
 
     const href = hrefFor(doc as never, said.trim());
     const link = host.ownerDocument.createElement('a');
     for (const attr of [...el.attributes]) link.setAttribute(attr.name, attr.value);
+    /*
+     * And the destination itself does **not** travel. It is a reference in this document's own
+     * vocabulary (`page:post-stack`), which means nothing outside this document — the published page
+     * says where it goes with `href`, and a second, unresolved copy of the same fact is a leak of
+     * the editor into the thing it published. The check that says so is `no editor vocabulary in the
+     * export`, which found this the first time a row of a list carried one.
+     */
+    link.removeAttribute('data-goes');
     if (href) link.setAttribute('href', href);
     /*
      * And a **name**, for the very common button that draws its words as a picture — a monogram, an

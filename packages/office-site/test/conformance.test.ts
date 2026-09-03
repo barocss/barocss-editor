@@ -150,6 +150,7 @@ describe('the site builder draws what it declares', () => {
     { command: 'insertColumnRight', produces: 'bTableCell' },
     { command: 'insertPlacement', produces: 'instance' },
     { command: 'insertDataList', produces: 'collection' },
+    { command: 'insertChart', produces: 'chart' },
     // And the data a list draws, which nothing but TypeScript could make until now.
     { command: 'insertDataset', produces: 'dataset' },
     /*
@@ -1835,6 +1836,12 @@ describe('the site builder draws what it declares', () => {
           'the left rail — 컴포넌트, which offers the definitions this document holds; a menu has no definition to name',
         insertDataList:
           'the left rail — 데이터, which offers a dataset and a definition together; a menu has neither to name',
+        /*
+         * Beside it, and for half of the same reason: a chart needs a **dataset** and a menubar has
+         * none to name. It needs no definition, which is the whole difference between them — a list
+         * draws something per row and a chart draws the rows itself.
+         */
+        insertChart: 'the left rail — 데이터, which offers the datasets this document holds',
         insertDataset: {
           reason: 'the left rail — 데이터 › 새 데이터, which names it and opens its grid',
           covers: ['every-command-can-be-reached', 'every-command-can-be-seen']

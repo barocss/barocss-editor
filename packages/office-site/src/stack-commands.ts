@@ -537,7 +537,22 @@ export class SiteStackExtension implements Extension {
     'sortDir',
     'limit',
     'where',
-    'equals'
+    'equals',
+    /*
+     * And a **chart**, which asks the same question of the same data and then two more: what a point
+     * is called and what it is worth. `kind`, `title` and `ink` are its own.
+     *
+     * `labelBy`/`valueBy` and not `x`/`y`, and the conformance harness is the reason: a canvas node's
+     * `x` and `y` are coordinates, exempted with *a page has no coordinates* — and an exemption is
+     * keyed by name, so a chart calling its columns `x` and `y` was excused by a sentence about
+     * geometry. A false pass, caught the first time the check ran.
+     */
+    'labelBy',
+    'valueBy',
+    'plotInk',
+    // And what a dashboard asks: which column makes the groups, and what each group answers with.
+    'groupBy',
+    'agg'
   ] as const;
 
   /** Which of them this call is actually about — a panel sends one at a time. */

@@ -112,4 +112,25 @@ describe('what a published folder holds', () => {
     // The page keeps its own address too: it gained a second one rather than moving.
     expect(exportPage(editor, about.sid).file).toBe('소개/index.html');
   });
+
+  it('leaves out a page that said not to read it', async () => {
+    /**
+     * **The head and the sitemap have to agree**, and they did not.
+     *
+     * Found the day the sample grew a dashboard — the first page in it to say `noIndex`. The page's
+     * own head said *do not index this*; the sitemap published beside it said *here it is*. A crawler
+     * handed both obeys the first and learns the second is unreliable, which is the one thing a
+     * sitemap must not teach and is the same argument this file already makes about publishing one
+     * full of paths a site cannot serve.
+     */
+    /* Through the archive, which is how a sitemap actually reaches anybody. */
+    const map = (await files()).find((one) => one.file === 'sitemap.xml')!.text!;
+    expect(map).toContain('/가격');
+    expect(map).not.toContain('/대시보드');
+
+    /* And the page still publishes, and still says so in its own head — it is not hidden, it is
+       unlisted, which are different things and both are the page's own decision. */
+    const dashboard = pagesOf(doc as never).find((one) => one.path === '/대시보드')!;
+    expect(exportPage(editor, dashboard.sid).html).toContain('name="robots" content="noindex"');
+  });
 });

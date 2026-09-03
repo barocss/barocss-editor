@@ -14,11 +14,28 @@ import { siteControlsIn } from '@barocss/office-site';
  * 3. **A narrower width says only what differs.** Changing something while editing the mobile width
  *    changes mobile and leaves the page alone — and the panel marks that it did.
  */
+/**
+ * The builder, on the first page — which is now a step **in**.
+ *
+ * The window opens into 관리, because *관리가 밖이고 편집이 안*: six of the things this product draws
+ * are about the site rather than about a page, and a document tool cannot decide what a page looks
+ * like without opening the page. So this does what a reader does — press 편집 on the first row — and
+ * every check below is about the builder, which is why it belongs in the helper rather than in each
+ * of them.
+ */
 const ready = async (page: Page) => {
   await page.goto('/');
+  await page.waitForSelector('[data-admin-page]');
+  await page.locator('[data-admin-open]').first().click();
   await page.waitForSelector('[data-frame="desktop"] .st-page');
   // The boards render on an effect; one settle is enough because a page places nothing.
   await page.waitForTimeout(400);
+};
+
+/** The admin, which is where the window opens — for the checks that are about it. */
+const admin = async (page: Page) => {
+  await page.goto('/');
+  await page.waitForSelector('[data-admin-page]');
 };
 
 /**
@@ -255,7 +272,7 @@ test.describe('a site at several widths', () => {
 
     // `[data-page]` rather than any button in the list: a row is a page **and** what can be done to
     // it — copy it, move it, take it away — so counting buttons counts the acts as well.
-    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(6);
+    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(8);
     await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/');
 
     await page.locator('[data-pages] [data-page]').nth(1).click();
@@ -2453,6 +2470,119 @@ test.describe('the exported page', () => {
     // Nothing in the site changed, which is what makes this a view rather than a command.
     expect(await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(before);
   });
+  /**
+   * **선이 구조를 진다** — the palette, asked as a question and answered by measuring the old one.
+   *
+   * Asked as three options: *그냥 회색톤이 좋은가, 순수하게 검은 선만 쓰는 게 좋은가, 테마처럼 고르게
+   * 하는 게 좋은가?* The sheet's own values settled it: the band grey was **1.14:1** against the page
+   * and **1.04:1** against the photo grey, so what it drew was a white page with three invisible
+   * marks — and the sample has 25 boxes carrying a fill and no corner and no border, every one of
+   * them lost. *회색이냐 선이냐* was never the choice.
+   *
+   * `wireframe.test.ts` holds the arithmetic. This holds the part only a browser can say: that the
+   * translation **arrives** — a fill becomes an outlined box, in the drawing, on the real page.
+   */
+  /**
+   * **데이터가 있던 자리에는 변수 이름**, asked as *실제 데이터 말고 데이터 변수만 보이면 더 명확하지
+   * 않을까* — and it sits against what this view already argues about words.
+   *
+   * Both are right, and the line is sharp: **words a person wrote** are the content, and a wireframe
+   * with them in it produces real decisions. A **value from a column** is one of forty, and the thing
+   * being reviewed is the shape that holds all forty — which the real data hides, because every row
+   * is a different length and so every row looks different.
+   *
+   * What the notation must not do is move anything, which this file has learned twice. So the words
+   * are made **transparent** rather than removed: a title that runs to three lines still runs to
+   * three lines, and the layout under review is the real one.
+   */
+  test('says which column a value came from, without moving it', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+    await page.locator('[data-page][title="/블로그"]').click();
+    await page.waitForTimeout(700);
+
+    const title = page.locator('[data-frame="desktop"] .st-collection [data-from="field:제목"]').first();
+    await bring(page, title);
+    const was = await title.boundingBox();
+
+    await page.locator('[data-menu="view"]').click();
+    await page.locator('[data-menu-item]').filter({ hasText: '와이어프레임' }).first().click();
+    await page.waitForTimeout(600);
+
+    /* **The same rectangle**, which is the whole constraint — see the picture boxes check above. */
+    expect(await title.boundingBox()).toEqual(was);
+
+    const drawn = await title.evaluate((el) => ({
+      colour: getComputedStyle(el).color,
+      label: getComputedStyle(el, '::after').content,
+      /* The page's own size, inherited — a title still reads as a title. */
+      size: getComputedStyle(el, '::after').fontSize
+    }));
+    expect(drawn.colour).toBe('rgba(0, 0, 0, 0)');
+    expect(drawn.label).toBe('"field:제목"');
+    expect(drawn.size).toBe(await title.evaluate((el) => getComputedStyle(el).fontSize));
+
+    /*
+     * And the **row's frame** keeps its words, which is the half that decides whether the notation
+     * is readable: `data-from` is on it too — its destination comes from a column — and a rule that
+     * reached it would blank the whole row and write `field:페이지` across it.
+     */
+    const row = page.locator('[data-frame="desktop"] .st-collection > *').first();
+    expect(await row.evaluate((el) => getComputedStyle(el).color)).not.toBe('rgba(0, 0, 0, 0)');
+
+    await page.locator('[data-menu="view"]').click();
+    await page.locator('[data-menu-item]').filter({ hasText: '와이어프레임' }).first().click();
+    await page.waitForTimeout(400);
+  });
+
+  test('draws a filled band as an outlined box, and numbers the sections', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-menu="view"]').click();
+    await page.locator('[data-menu-item]').filter({ hasText: '와이어프레임' }).first().click();
+    await page.waitForTimeout(600);
+
+    /*
+     * Every block that carries a background: white ground, one hairline. Asked of **all** of them
+     * rather than of one, because the fault this replaced was that a whole class of box was
+     * invisible, and one example passing is what that fault looked like too.
+     */
+    const bands = await page.locator('[data-frame="desktop"] .st-page [style*="background"]').evaluateAll(
+      (all) =>
+        all.map((el) => {
+          const style = getComputedStyle(el);
+          return { ground: style.backgroundColor, width: style.outlineWidth, style: style.outlineStyle };
+        })
+    );
+    expect(bands.length).toBeGreaterThan(10);
+    for (const one of bands) {
+      expect(one.ground).toBe('rgb(255, 255, 255)');
+      expect(one.style).toBe('solid');
+      expect(one.width).toBe('1px');
+    }
+
+    /*
+     * **읽는 순서.** The page's own sections, 1 · 2 · 3, outside the board on the left — half the
+     * reason anybody shows a wireframe to somebody else, and the drawing could not say it.
+     */
+    const numbers = await page.locator('[data-frame="desktop"] .st-page > *').evaluateAll((all) =>
+      all.map((el) => getComputedStyle(el, '::after').content)
+    );
+    expect(numbers.slice(0, 3)).toEqual(['"1"', '"2"', '"3"']);
+
+    /*
+     * **이 폭에서만.** The sample's only two width-conditional blocks are the bar and the hamburger,
+     * and both live in the header *definition* — which is why a walk of the page found neither.
+     */
+    const labels = await page.locator('[data-frame="mobile"] .st-page *').evaluateAll((all) =>
+      all.map((el) => getComputedStyle(el, '::before').content).filter((one) => one.includes('만'))
+    );
+    expect(labels.join(' ')).toContain('모바일만');
+
+    await page.locator('[data-menu="view"]').click();
+    await page.locator('[data-menu-item]').filter({ hasText: '와이어프레임' }).first().click();
+    await page.waitForTimeout(400);
+  });
+
 
   test('pairs the rows that are two halves of one decision', async ({ page }) => {
     /**
@@ -4946,7 +5076,7 @@ test.describe('the rail', () => {
     await page.locator('[data-panel="data"]').click();
 
     await expect(page.locator('[data-dataset="상품"]')).toContainText('4행');
-    await expect(page.locator('[data-dataset="글"]')).toContainText('3행');
+    await expect(page.locator('[data-dataset="글"]')).toContainText('4행');
 
     // A list needs both halves: a dataset *and* something to draw for each row.
     await page.locator('[data-design="product-card"]').click();
@@ -4963,7 +5093,7 @@ test.describe('the rail', () => {
   test('shows the pages, with the address that makes each one a page of a site', async ({ page }) => {
     await ready(page);
     await page.locator('[data-panel="pages"]').click();
-    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(6);
+    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(8);
 
     await page.locator('[data-page][title="/블로그"]').click();
     await page.waitForTimeout(500);
@@ -4982,21 +5112,321 @@ test.describe('the rail', () => {
  */
 test.describe('the data', () => {
   const rail = (page: Page) => page.locator('.st-rail');
-  const grid = (page: Page) => page.locator('[role="dialog"]');
+  /**
+   * The table, **in the main area** — it was `[role="dialog"]` for as long as it opened over the
+   * page, and the reason it no longer does is written in `data-editor.tsx`: a dataset is a place, not
+   * a stint, and the main area already knew how to show something that is not a page.
+   */
+  const grid = (page: Page) => page.locator('[data-dataset-page]');
 
   const openData = async (page: Page) => {
     await ready(page);
     await rail(page).getByRole('button', { name: '데이터' }).first().click();
   };
 
-  test('opens over the page, because a table needs width the rail has not got', async ({ page }) => {
+  test('takes the main area, because a dataset is a place rather than a stint', async ({ page }) => {
     await openData(page);
     // One list, two acts: the name makes a list from the dataset, the pencil opens its rows.
-    await expect(page.locator('[data-dataset]')).toHaveCount(2);
+    await expect(page.locator('[data-dataset]')).toHaveCount(3);
     await page.locator('[data-dataset-edit="상품"]').click();
 
     await expect(grid(page)).toBeVisible();
     await expect(grid(page).locator('[data-column]')).toHaveCount(5);
+    await expect(grid(page).locator('tbody tr')).toHaveCount(4);
+
+    /**
+     * **The boards are gone, and there is no dialog** — which is the whole of the change.
+     *
+     * It was a dialog because a table needs width the shell cannot give, which is true and was the
+     * wrong conclusion: a dialog is what you reach for when width is the only problem, and its width
+     * kept having to grow. What was actually wrong is *editing data is a stint* — a dataset is a
+     * **place**, and the main area already knew how to show one thing that is not a page.
+     */
+    await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+    await expect(page.locator('.st-frame')).toHaveCount(0);
+    // And the reader is told where they are, with the way back — the same strip a definition uses.
+    await expect(page.locator('[data-where]')).toContainText('상품 목록');
+    await expect(page.locator('[data-editing-dataset="상품"]')).toHaveCount(1);
+
+    await page.getByRole('button', { name: '페이지로' }).click();
+    await page.waitForTimeout(400);
+    await expect(page.locator('.st-frame')).toHaveCount(3);
+  });
+
+  /**
+   * **한 행을, 폼으로** — the half a grid cannot be.
+   *
+   * A grid is for **scanning**: twenty rows where a wrong cell stands out. It is the wrong shape for
+   * entering one row, and gets worse the more a row holds — a blog entry is five fields of which two
+   * are sentences, and at 8rem a column the summary has scrolled off the right edge before it is
+   * finished. So: both, and each is bad at the other's job rather than merely less good.
+   *
+   * A **drawer**, because of where it is opened from: the thing being edited is behind it, drawn, and
+   * a dialog in the middle of the window covers the card whose summary is being typed.
+   */
+  test('opens one row as a form, with a control for what each column holds', async ({ page }) => {
+    await openData(page);
+    await page.locator('[data-dataset-edit="글"]').click();
+    await expect(grid(page).locator('[data-column]')).toHaveCount(5);
+
+    /*
+     * **자료형**, beside each column's name. It used to live on the *card* that drew the column —
+     * so two cards drawing one column declared it twice and could disagree, and nothing could check
+     * a cell. `추천` held `'예'` and `'아니오'`: a boolean spelled as words, because there was
+     * nowhere to say it was one.
+     */
+    const kinds = grid(page).locator('.st-data-kind');
+    await expect(kinds).toHaveCount(5);
+    // Asked as the **word a reader reads** rather than as the id, because a picker's job is to say
+    // what the column is in the same terms the form beside it does.
+    await expect(kinds.nth(2)).toHaveText('날짜');
+    await expect(kinds.nth(3)).toHaveText('예/아니오');
+
+    // And the grid draws each cell as its kind: a real date field, a checkbox, a page picker.
+    await expect(grid(page).locator('td[data-cell-kind="date"] input').first()).toHaveAttribute('type', 'date');
+    await expect(grid(page).locator('td[data-cell-kind="boolean"] input').first()).toHaveAttribute('type', 'checkbox');
+
+    /* The row number is the way in: the one part of a row that is not a value. */
+    await page.locator('[data-row-open="1"]').click();
+    await page.waitForTimeout(300);
+
+    const form = page.locator('[data-row-form]');
+    await expect(form).toBeVisible();
+    await expect(form.locator('[data-field]')).toHaveCount(5);
+
+    /*
+     * **서식 있는 글 is the one field that is not a box.** 요약 holds a reference and its paragraphs
+     * live in `resources`, so what the form draws is a **view over those nodes** — the same editor,
+     * pointed at them. A text box here would be a reader typing over a reference. `edits a rich
+     * value in place` drives that; this only says which control it is.
+     */
+    await expect(form.locator('[data-field="요약"] [data-rich-edit]')).toHaveCount(1);
+    await expect(form.locator('[data-field="요약"] input')).toHaveCount(0);
+
+    const title = form.locator('[data-field="제목"] input');
+    await title.fill('폼에서 고친 제목');
+    await title.blur();
+    await page.waitForTimeout(400);
+
+    /*
+     * And it writes through to the page. **Back to it first**, which is the honest cost of the table
+     * being the main area rather than a dialog over it: a reader editing data is not looking at the
+     * page, the same way a reader editing a component definition is not.
+     */
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    await page.getByRole('button', { name: '페이지로' }).click();
+    await page.locator('[data-panel="pages"]').click();
+    await page.locator('[data-page][title="/블로그"]').click();
+    await page.waitForTimeout(700);
+    await expect(page.locator('[data-frame="desktop"] .st-collection')).toContainText('폼에서 고친 제목');
+  });
+
+  /**
+   * **어디가 데이터인가**, asked because it could not be seen.
+   *
+   * Resolution is total: `field:제목` is the post's title by the time the board draws it, so a value
+   * that came from a column looked exactly like one somebody typed. The reference is kept beside the
+   * resolved value now and written on the drawing.
+   */
+  test('marks the values that came from data, and nothing a reader typed', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+    await page.locator('[data-page][title="/블로그"]').click();
+    await page.waitForTimeout(700);
+
+    const board = page.locator('[data-frame="desktop"] .st-page');
+    /* Four values a row, four rows — 제목, 요약, 날짜 and where the row goes. */
+    await expect(board.locator('[data-from]')).toHaveCount(16);
+    await expect(board.locator('[data-from="field:제목"]')).toHaveCount(4);
+
+    /*
+     * And the coarse half: which **list** it came from, on the box that owns the rows. A reader
+     * asking *어디가 데이터인가* asks this first.
+     */
+    await expect(board.locator('.st-collection[data-source="글"]')).toHaveCount(1);
+
+    /*
+     * The featured card above it is the same design written by hand, and carries no mark — which is
+     * what keeps the notation meaning something rather than saying *this page has words on it*.
+     */
+    await expect(board.locator('[data-name="머리글 카드"] [data-from]')).toHaveCount(0);
+  });
+
+  /**
+   * **The door from the page to the row**, which the form did not have.
+   *
+   * Reported as *페이지에서 Drawer 를 어떻게 열어서 편집해야 할지 모르겠어* — and it was true: the only
+   * way in was the grid's row number, behind a dialog opened from the rail. Somebody looking at the
+   * third card of a blog index is looking at row three.
+   *
+   * The **context menu**, because it is the one surface whose whole premise is *what is under the
+   * pointer* — and because a single click on a card selects the **section** it is in, so reaching
+   * the list through the panel is two more gestures a reader has to already know about. The panel
+   * keeps the same door for when the list itself is selected.
+   *
+   * Which row is a fact about the **drawing**: a row is `${collection}~${index}` and the selection
+   * carries document ids, which for every card in a list is the same collection. So it is read at
+   * the press and travels with the menu.
+   */
+  test('opens a row’s form from the page, where the reader already is', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+    await page.locator('[data-page][title="/블로그"]').click();
+    await page.waitForTimeout(700);
+
+    const third = page.locator('[data-frame="desktop"] .st-collection [data-from="field:제목"]').nth(2);
+    /* The list is well below the fold on a real page, and the plane has no scrollbars — see `bring`. */
+    await bring(page, third);
+    const box = (await third.boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+
+    /* Named by the row it is about, so a reader can tell it opened the one they pointed at. */
+    await page.getByRole('menuitem', { name: /3행 편집/ }).click();
+    await page.waitForTimeout(400);
+
+    const form = page.locator('[data-row-form="2"]');
+    await expect(form).toBeVisible();
+    await expect(form.locator('[data-field]')).toHaveCount(5);
+    // The third post, newest first — not the first row, which is what a lookup by node would give.
+    await expect(form.locator('[data-field="제목"] input')).toHaveValue('커서는 누구의 것인가');
+  });
+
+  /**
+   * **A dialog is not the plane's**, reported as *다이얼로그 같은 게 뜨면 viewport 가 스크롤되면 안 돼*.
+   *
+   * The plane's wheel listener is on `window`, in the capture phase, scoped by the pane's
+   * **rectangle** — and a dialog, a drawer, a menu or a select's list is drawn in a portal at the end
+   * of `document.body`, which is over that rectangle and not in it. So the plane took a gesture aimed
+   * at something sitting on top of it.
+   */
+  test('leaves the plane alone while something is open over it', async ({ page }) => {
+    await ready(page);
+    await rail(page).getByRole('button', { name: '데이터' }).first().click();
+    await page.locator('[data-dataset-edit="상품"]').click();
+    await expect(grid(page)).toBeVisible();
+
+    const before = await page.evaluate(
+      () => document.querySelector('.st-plane')?.getAttribute('style') ?? ''
+    );
+
+    /* A wheel over the dialog, where the pane's rectangle is — which is exactly the case that failed. */
+    const box = (await grid(page).boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(300);
+
+    expect(await page.evaluate(() => document.querySelector('.st-plane')?.getAttribute('style') ?? '')).toBe(
+      before
+    );
+  });
+
+  /**
+   * **속성 추가** — a name and what it holds, in one gesture, from the row's own form.
+   *
+   * Which is where a reader is when they find a field missing, and where every tool of this kind
+   * puts it. It adds a **column**, so the table gets it and every other row gets it empty: two views
+   * of one thing rather than two places to keep in step.
+   *
+   * It was a name alone, and every column a reader made came out 글자 — setting it to a date was a
+   * second act on a control they had to go and find. `발행일, 날짜` is one decision.
+   */
+  /**
+   * **서식 있는 글을 고치는 자리**, and there is no new editor in it — which is the point.
+   *
+   * `page-frame.tsx` wrote the contract this leans on: a view that draws part of a document says so
+   * and asks for nothing — `rootId` — and then takes the same path the main view takes and redraws
+   * itself with the caret where the reader left it. A `richText` node is a node, so editing one is a
+   * **second view over the same editor**, pointed at it. The third time that mechanism answers a
+   * question: the boards draw a page, editing a definition points them at its part, and this points
+   * a small one at paragraphs living in `resources`.
+   *
+   * Which is also the hole the conformance harness reported out loud the day the sample first put a
+   * link in one: `removeLink` found the run, said it could run, and changed nothing, because nothing
+   * could put a caret there.
+   */
+  test('edits a rich value in place, with the marks and the history it already had', async ({ page }) => {
+    await openData(page);
+    await page.locator('[data-dataset-edit="글"]').click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-row-open="0"]').click();
+    await page.waitForTimeout(500);
+
+    const rich = page.locator('[data-rich-edit]');
+    await expect(rich).toBeVisible();
+    /* The document's own words, with the document's own mark on one of them. */
+    await expect(rich).toContainText('페이지의 문법은');
+    expect(await rich.locator('[style*="italic"], em, i').count()).toBeGreaterThan(0);
+    /* And typable, because it is the editor — not a box drawn to look like one. */
+    await expect(rich.locator('[contenteditable]')).toHaveCount(1);
+
+    await rich.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' 그리고 더.');
+    await page.waitForTimeout(400);
+
+    /*
+     * **In the document**, not in a draft this surface is holding: one editor, one store, so the
+     * words land where the reference points and every other reader of them sees it.
+     */
+    const words = () =>
+      page.evaluate(() => {
+        const held = (window as never as { editor: any }).editor;
+        const store = held.dataStore;
+        const out: string[] = [];
+        const dig = (sid: string, depth: number) => {
+          const node = store.getNode(sid);
+          if (!node || depth > 40) return;
+          if (node.stype === 'richText' && node.attributes?.id === '요약-스택') {
+            const bits: string[] = [];
+            const runs = (one: string) => {
+              const at = store.getNode(one);
+              if (!at) return;
+              if (typeof at.text === 'string') bits.push(at.text);
+              for (const child of at.content ?? []) if (typeof child === 'string') runs(child);
+            };
+            for (const child of node.content ?? []) if (typeof child === 'string') runs(child);
+            out.push(bits.join(''));
+          }
+          for (const child of node.content ?? []) if (typeof child === 'string') dig(child, depth + 1);
+        };
+        dig(held.getRootId(), 0);
+        return out[0] ?? '';
+      });
+
+    expect(await words()).toContain('그리고 더.');
+
+    /* **One history**, which is what makes it the same editor rather than a second one. */
+    await page.keyboard.press('Meta+z');
+    await page.waitForTimeout(400);
+    expect(await words()).not.toContain('그리고 더.');
+  });
+
+  test('adds a property from the form, with its kind, and the table gets the column', async ({ page }) => {
+    await openData(page);
+    await page.locator('[data-dataset-edit="글"]').click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-row-open="0"]').click();
+    await page.waitForTimeout(300);
+
+    await page.locator('[data-add-field="form"]').click();
+    await page.waitForTimeout(200);
+
+    /* Fourteen kinds, each with a picture — a reader picks by recognising a shape, not by reading. */
+    await expect(page.locator('[data-add-kind]')).toHaveCount(14);
+    await expect(page.locator('[data-add-kind="date"] svg')).toHaveCount(1);
+
+    await page.locator('[data-add-field-name="폼"]').fill('태그');
+    await page.locator('[data-add-kind="choices"]').click();
+    await page.locator('[data-add-field-do="폼"]').click();
+    await page.waitForTimeout(500);
+
+    /* In the form, as its kind… */
+    await expect(page.locator('[data-row-form] [data-field="태그"]')).toHaveAttribute('data-kind', 'choices');
+    /* …and in the table, because it is one column and not two. */
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    await expect(grid(page).locator('[data-column="태그"]')).toHaveCount(1);
     await expect(grid(page).locator('tbody tr')).toHaveCount(4);
   });
 
@@ -5008,9 +5438,21 @@ test.describe('the data', () => {
      */
     await openData(page);
     await page.locator('[data-dataset-edit="상품"]').click();
-    await grid(page).locator('[data-cell="0:가격"]').fill('월 1원');
+    /*
+     * **A number, because 가격 is a number column now** — and this used to type `월 1원`, which is
+     * the exact thing the kind was added to stop: a price stored as words sorts alphabetically, and
+     * the pricing page ordered 문서 · 사이트 · 스위트 by it for as long as it existed.
+     *
+     * The words are still what a reader sees; they come from the **card**'s `format`, which is the
+     * half of this that stays on the drawing. So the claim is unchanged and is now stronger: a
+     * number typed here is `9,900원` out there.
+     */
+    await grid(page).locator('[data-cell="0:가격"]').fill('1');
     await grid(page).locator('[data-cell="0:가격"]').press('Enter');
 
+    /* Back to the page to see it — the table is the main area now, not a sheet over it. */
+    await page.getByRole('button', { name: '페이지로' }).click();
+    await page.waitForTimeout(600);
     await expect(page.locator('[data-frame="desktop"] .st-collection')).toContainText('월 1원');
   });
 
@@ -5093,7 +5535,7 @@ test.describe('a definition', () => {
 
     // And the way back is a control rather than a gesture: a reader who does not know they are
     // inside a definition is a reader about to change five pages by accident.
-    await page.locator('.st-back').click();
+    await page.locator('[data-to-page]').click();
     await page.waitForTimeout(500);
     await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/');
   });
@@ -5142,7 +5584,7 @@ test.describe('a definition', () => {
     await page.waitForTimeout(300);
     await expect(page.locator('.office-properties')).toContainText('스택');
 
-    await page.locator('.st-back').click();
+    await page.locator('[data-to-page]').click();
     await page.waitForTimeout(600);
     // The page is drawing again, and the placements are still there — a definition edited is a
     // definition every placement follows, because a placement draws it rather than a copy of it.
@@ -5194,22 +5636,75 @@ test.describe('the pages of a site', () => {
     await rows(page).nth(1).click();
     await page.waitForTimeout(400);
 
+    /* 새 페이지 asks what to start from now — 빈 페이지 is one of the answers, not the button. */
     await page.locator('[data-page-add]').click();
+    await page.locator('[data-page-from="blank"]').click();
     await page.waitForTimeout(700);
 
     // After the page it follows, not at the end — a reader adding a page is adding it *here*.
-    await expect(rows(page)).toHaveCount(7);
-    await expect(rows(page).nth(2)).toContainText('페이지 7');
+    await expect(rows(page)).toHaveCount(9);
+    await expect(rows(page).nth(2)).toContainText('페이지 9');
 
     await rows(page).nth(2).click();
     await page.waitForTimeout(600);
-    await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/page-7');
+    await expect(page.locator('[data-frame="desktop"] .st-page')).toHaveAttribute('data-path', '/page-9');
     /*
       The header and footer of the page it followed, as placements — so editing the header still
       changes this one too. Three drawn, because the header places the button.
      */
     await expect(page.locator('[data-frame="desktop"] .st-placement')).toHaveCount(4);
-    await expect(page.locator('[data-frame="desktop"] .st-page h1')).toHaveText('페이지 7');
+    await expect(page.locator('[data-frame="desktop"] .st-page h1')).toHaveText('페이지 9');
+  });
+
+  /**
+   * **템플릿으로 페이지 만들기**, which existed as a command for as long as templates did and had no
+   * door.
+   *
+   * `insertEntry` was offered by one menubar entry that could not say **which** template. With one
+   * template in the document that reads as a missing argument; with two — a post and a dashboard —
+   * it is the whole gesture missing, and the second template is what made it obvious.
+   *
+   * A button each rather than a picker, because there are two: a dropdown to choose between two
+   * things costs a press to say what a label already says.
+   */
+  test('starts a page from a template, and offers only the definitions that are one', async ({ page }) => {
+    await pages(page);
+
+    /**
+     * **모든 것은 페이지야**, which is why there is one button and the choices are inside it.
+     *
+     * It was three buttons in the rail — 새 페이지 · 글 페이지로 · 대시보드로 — and that turns a
+     * starting point into a category, growing a button every time somebody makes a definition. 빈
+     * 페이지 is a row in the list rather than the button beside it, which is what stops it being the
+     * default nobody chose.
+     *
+     * **A template is a definition with a slot** — somewhere a page's own blocks are drawn. One
+     * without is a card, and starting a page from it would hand a reader a page they cannot type in.
+     * So the sample's nine definitions offer two.
+     */
+    await page.locator('[data-page-add]').click();
+    const from = page.locator('[data-page-from]');
+    await expect(from).toHaveCount(3);
+    await expect(page.locator('[data-page-from="blank"]')).toContainText('빈 페이지');
+    await expect(page.locator('[data-page-from="post-page"]')).toContainText('글 페이지');
+    await expect(page.locator('[data-page-from="dashboard-page"]')).toContainText('대시보드');
+
+    const before = await rows(page).count();
+    await page.locator('[data-page-from="dashboard-page"]').click();
+    await page.waitForTimeout(700);
+    await expect(rows(page)).toHaveCount(before + 1);
+
+    /*
+     * And the page it made **is** one of the template's: the chrome comes from the definition, so
+     * the new page holds only its own heading — which is why `insertEntry` is its own command rather
+     * than `insertPage` with a flag. `insertPage` copies the chrome off the page it follows, and
+     * that would give this one two bars.
+     */
+    await rows(page).last().click();
+    await page.waitForTimeout(600);
+    const board = page.locator('[data-frame="desktop"] .st-page');
+    await expect(board).toContainText('Barocss · 지표');
+    await expect(board).not.toContainText('href="/제품"');
   });
 
   test('copies a page, with an address of its own', async ({ page }) => {
@@ -5217,7 +5712,7 @@ test.describe('the pages of a site', () => {
     await page.locator('[data-page-duplicate]').nth(1).click();
     await page.waitForTimeout(700);
 
-    await expect(rows(page)).toHaveCount(7);
+    await expect(rows(page)).toHaveCount(9);
     await expect(rows(page).nth(2)).toContainText('제품 사본');
     await expect(rows(page).nth(2)).toContainText('/제품-2');
   });
@@ -5255,13 +5750,13 @@ test.describe('the pages of a site', () => {
 
     await dialog.getByRole('button', { name: '취소' }).click();
     await page.waitForTimeout(300);
-    await expect(rows(page)).toHaveCount(6);
+    await expect(rows(page)).toHaveCount(8);
 
     await page.locator('[data-page-remove]').nth(1).click();
     await page.locator('[data-page-remove-confirm]').click();
     await page.waitForTimeout(700);
 
-    await expect(rows(page)).toHaveCount(5);
+    await expect(rows(page)).toHaveCount(7);
     await expect(page.locator('[data-pages]')).not.toContainText('/제품');
 
     /*
@@ -6360,11 +6855,11 @@ test.describe('the keys', () => {
     await page.locator('[data-page-remove]').nth(1).click();
     await page.locator('[data-page-remove-confirm]').click();
     await page.waitForTimeout(700);
-    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(5);
+    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(7);
 
     await page.keyboard.press('Meta+z');
     await page.waitForTimeout(800);
-    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(6);
+    await expect(page.locator('[data-pages] [data-page]')).toHaveCount(8);
     // And the footer heard it, which is the other half: a fault list that lags undo is a list lying.
     await expect(page.locator('[data-faults]')).toHaveAttribute('data-clear', 'true');
   });
@@ -7342,7 +7837,7 @@ test.describe('the card a list draws', () => {
   test('goes back to the page, and the list draws its own rows again', async ({ page }) => {
     await ready(page);
     await open(page, 1);
-    await page.locator('.st-back').click();
+    await page.locator('[data-to-page]').click();
     await page.waitForTimeout(600);
 
     // Every row again, each with its own words — the preview was never in the document.
@@ -7576,7 +8071,7 @@ test.describe('a card can be asked something new', () => {
     await page.waitForTimeout(600);
 
     // Back to the page, where the loop closes: a new question is a new row in 카드에 넣을 값.
-    await page.locator('.st-back').click();
+    await page.locator('[data-to-page]').click();
     await page.waitForTimeout(600);
     const list = page.locator('[data-frame="desktop"] .st-collection').first();
     await bring(page, list);
@@ -7653,7 +8148,7 @@ test.describe('a card can be asked something new', () => {
      * the answers with the declaration. A rename that touched only the definition would leave every
      * card drawing the fallback word 상품 in place of what its row says.
      */
-    await page.locator('.st-back').click();
+    await page.locator('[data-to-page]').click();
     await page.waitForTimeout(700);
     const cards = page.locator('[data-frame="desktop"] .st-collection').first();
     // The 이름 column's own words, still on the cards under a variable that is now called 상품명.
@@ -8838,9 +9333,15 @@ test.describe('the data grid', () => {
     // A column has a name a reference resolves through, so a wider paste is trimmed rather than
     // inventing one — five columns and a trimmed paste beats a document carrying `엑셀 열 6`.
     const columns = await page.locator('thead input[aria-label$="열 이름"]').count();
-    await pasteInto(page, '0:분류', '끝\t넘침 하나\t넘침 둘');
+    /*
+     * Pasted into the **last text column**, and that is not incidental: 분류 is a `choice` now and is
+     * drawn as a select, which has no caret and takes no paste. A grid of typed columns has a
+     * clipboard only where a value is typed, which is the honest cost of the kinds and is why this
+     * aims at 설명 — the last column before them.
+     */
+    await pasteInto(page, '0:설명', '끝\t넘침 하나\t넘침 둘');
     expect(await page.locator('thead input[aria-label$="열 이름"]').count()).toBe(columns);
-    expect((await rowsOf(page))[0]['분류']).toBe('끝');
+    expect((await rowsOf(page))[0]['설명']).toBe('끝');
   });
 
   /**
@@ -8941,5 +9442,246 @@ test.describe('a panel section that folds', () => {
 
     const head = page.locator('.office-properties [aria-expanded]', { hasText: label }).first();
     await expect(head).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+/**
+ * **A chart** — the same data a list draws, drawn as a picture.
+ *
+ * The arithmetic is checked in `chart.test.ts`, in milliseconds, because that is where everything
+ * that can be wrong with a chart is wrong: a bar starting above zero, an axis reading `0, 0, 0`
+ * because every value arrived as a string. What only a browser can say is the two things below —
+ * that it reaches the page at all, and that the **published** page carries it with no library.
+ */
+test.describe('a chart', () => {
+  test('draws the rows it is given, in the ink the document names', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+    await page.locator('[data-page][title="/가격"]').click();
+    await page.waitForTimeout(700);
+
+    /* The first of the two the pricing page carries — the second is the grouped one, below. */
+    const chart = page.locator('[data-frame="desktop"] .st-chart').first();
+    await expect(chart).toHaveAttribute('data-source', '상품');
+    await expect(chart).toHaveAttribute('data-chart', 'bar');
+
+    /*
+     * Four bars, **sorted by 순서** — the same query a list asks, deliberately with the same
+     * attributes, so a chart and the list beside it can be given one answer and be about one thing.
+     */
+    const points = chart.locator('[data-st-point]');
+    await expect(points).toHaveCount(4);
+    expect(await points.evaluateAll((all) => all.map((one) => one.getAttribute('data-st-value')))).toEqual([
+      '7900',
+      '9900',
+      '12900',
+      '19900'
+    ]);
+
+    /*
+     * And in `var:강조`, resolved — a chart that could only be a literal colour would be the one
+     * block on the page that does not follow the site's own accent.
+     */
+    await expect(points.first()).toHaveAttribute('fill', '#D6341A');
+    /* Each point says which row it is, so a live page can find it again — see `live.ts`. */
+    expect(await points.evaluateAll((all) => all.map((one) => one.getAttribute('data-st-point')))).toEqual([
+      '0',
+      '1',
+      '2',
+      '3'
+    ]);
+  });
+
+  test('groups the rows when it is told to, and draws the shares as arcs', async ({ page }) => {
+    /**
+     * **묶어서 세기**, which is the other question a dashboard asks and the one a list cannot answer.
+     *
+     * Two attributes and not a formula box, which is this schema's own precedent from the same
+     * place: a list's filter is `where` and `equals` for the recorded reason that a grammar is a
+     * thing to learn. The arithmetic is checked in `chart.test.ts`; what a browser has to say is that
+     * it reaches the page — and that a **donut** draws arcs, which is the one kind whose geometry is
+     * about the drawing rather than about the data.
+     */
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+    await page.locator('[data-page][title="/가격"]').click();
+    await page.waitForTimeout(700);
+
+    const charts = page.locator('[data-frame="desktop"] .st-chart');
+    await expect(charts).toHaveCount(2);
+
+    const grouped = charts.nth(1);
+    await expect(grouped).toHaveAttribute('data-chart', 'donut');
+    await expect(grouped).toHaveAttribute('data-group-by', '분류');
+    await expect(grouped).toHaveAttribute('data-agg', 'sum');
+
+    /* Two groups out of four rows, each the sum of its own — 제품 30,700 and 묶음 19,900. */
+    const slices = grouped.locator('[data-st-point]');
+    await expect(slices).toHaveCount(2);
+    expect(await slices.evaluateAll((all) => all.map((one) => one.getAttribute('data-st-value')))).toEqual([
+      '30700',
+      '19900'
+    ]);
+    /* Arcs, not bars: a share of a whole has no height. */
+    expect(await slices.first().evaluate((one) => one.tagName)).toBe('path');
+  });
+
+  test('can be held, which is the third time this list has been the fault', async ({ page }) => {
+    /**
+     * Reported as *차트를 더블클릭해서 선택할 수가 없어* — and the cause is a set with a node type
+     * missing from it, for the **third** recorded time.
+     *
+     * A quotation, a rule and a code block were first; a table's cells second. Every time, the round
+     * that added the node checked that it **appears** and never that a reader can get hold of one,
+     * and every time the drawing was perfect — which is exactly what makes it invisible. A chart that
+     * cannot be selected cannot be moved, deleted, resized, recoloured or told which column to draw:
+     * the whole 차트 group in the panel was unreachable.
+     *
+     * `every-node-is-drawn` asks whether a renderer exists. Nothing asks whether a reader can hold
+     * what it drew, and that check is owed — on the record in `BACKLOG.md`.
+     */
+    await ready(page);
+    await page.locator('[data-panel="pages"]').click();
+    await page.locator('[data-page][title="/대시보드"]').click();
+    await page.waitForTimeout(700);
+
+    const chart = page.locator('[data-frame="desktop"] .st-chart').first();
+    await bring(page, chart);
+    const dot = chart.locator('[data-st-point]').nth(2);
+
+    /* A double-click, which is what was reported: it drills into the row and holds the chart. */
+    await dot.dblclick({ force: true });
+    await page.waitForTimeout(400);
+    expect(await selection(page)).toEqual(['chart']);
+
+    /* And the panel then offers what a chart has to say — which is the point of being able to hold one. */
+    const properties = page.locator('.office-properties');
+    await expect(properties).toContainText('차트');
+    await expect(properties.getByLabel('차트 종류')).toContainText('꺾은선');
+    await expect(properties.getByLabel('값 칸')).toContainText('가입');
+  });
+
+  test('publishes as an SVG, and the page still ships no library', async ({ page }) => {
+    /**
+     * The claim the whole shape rests on. `live.ts` settled it for lists — the export ships **the
+     * drawing it already made**, marked, and a script rewrites the marked parts — and a chart is the
+     * same shape one step further: an `<svg>` drawn at export time, whose points say which row they
+     * are, so a live dashboard is the geometry re-run rather than a charting library booted in a
+     * visitor's browser.
+     */
+    await ready(page);
+    const html = await page.evaluate(
+      () => (window as any).exportSite().find((one: any) => one.path === '/가격')?.html ?? ''
+    );
+
+    expect(html).toContain('data-chart="bar"');
+    expect(html).toContain('<svg');
+    /* Six points in the file — four bars and the grouped chart's two slices — each with its value. */
+    expect([...html.matchAll(/data-st-point="/g)]).toHaveLength(6);
+    /* And nothing fetched to draw them: no chart library, by name or by CDN. */
+    expect(html).not.toMatch(/chart\.js|d3|echarts|highcharts|plotly/i);
+    expect(html).not.toMatch(/<script[^>]+src=/);
+  });
+});
+
+/**
+ * **관리가 밖이고 편집이 안.**
+ *
+ * Six of the things this product draws are about the **site** rather than about a page — its pages,
+ * its data, its definitions, its publishes, its faults, its files — and they had ended up in three
+ * unrelated places: some as rail tabs, two in the rail's *footer*, one in the main area, and the
+ * files nowhere at all. All six want width, no canvas and no properties panel, which is a mode
+ * rather than a fifth view of the main area.
+ *
+ * It is the **outside** because a document tool cannot decide what a page looks like without opening
+ * the page: opening one is a step in. Which is also why `ready()` now presses 편집 — every other
+ * check in this file is about the builder.
+ */
+test.describe('관리', () => {
+  test('is what the window opens into, with the five things a site is made of', async ({ page }) => {
+    await admin(page);
+
+    await expect(page.locator('[data-admin-tab]')).toHaveCount(5);
+    /* Its own nav, not the builder's rail: 추가 and 구성 are tools for editing a page. */
+    await expect(page.locator('.st-rail')).toHaveCount(0);
+    /*
+     * And **no properties panel**, which is the sharpest of the three: a panel is about a block, and
+     * the admin has none. Drawn beside a table it would be six hundred pixels saying *아무것도
+     * 선택되지 않았습니다*.
+     */
+    await expect(page.locator('.office-properties')).toHaveCount(0);
+    await expect(page.locator('.st-frame')).toHaveCount(0);
+  });
+
+  test('shows what a 280px rail could not: the four facts a page is managed by', async ({ page }) => {
+    await admin(page);
+
+    /*
+     * The rail listed a name and an address and had room for nothing else. **링크** is the column
+     * that earns the table: removing a page breaks every link into it, and a broken link draws as
+     * ordinary words — the number here is the moment before that is still preventable.
+     */
+    await expect(page.locator('[data-admin-page]')).toHaveCount(8);
+    const head = page.locator('.st-admin-table thead');
+    for (const one of ['이름', '주소', '틀', '블록', '링크', '색인']) await expect(head).toContainText(one);
+
+    /* The dashboard is the one page that says both of the last two things. */
+    const dash = page.locator('[data-admin-page="dashboard"]');
+    await expect(dash).toContainText('dashboard-page');
+    await expect(dash).toContainText('아니오');
+  });
+
+  test('goes in, and comes back out', async ({ page }) => {
+    await admin(page);
+    await page.locator('[data-admin-open="blog"]').click();
+    await page.waitForTimeout(700);
+
+    /* In: the builder, whole — rail, boards, panel. */
+    await expect(page.locator('.st-frame')).toHaveCount(3);
+    await expect(page.locator('.st-rail')).toHaveCount(1);
+    await expect(page.locator('[data-where]')).toContainText('블로그');
+
+    /* And one way out, the same on all three things a reader can be in. */
+    await page.locator('[data-to-admin]').click();
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-admin-page]')).toHaveCount(8);
+  });
+
+  test('gathers what was scattered — including the files, which had nowhere', async ({ page }) => {
+    await admin(page);
+
+    await page.locator('[data-admin-tab="data"]').click();
+    await expect(page.locator('[data-admin-data]')).toHaveCount(3);
+    /* Where the rows come from, and whether the published page goes back for them. */
+    await expect(page.locator('[data-admin-data="지표"]')).toContainText('metrics.barocss.example');
+
+    await page.locator('[data-admin-tab="components"]').click();
+    /* **How many places use each**, which has to be said before anybody edits one. */
+    await expect(page.locator('[data-admin-component="site-header"]')).toContainText('6');
+    /*
+     * **And a template counts**, which the walk this replaced did not see: `usesOf` counts placements,
+     * and a page drawn through a template names it in `surface.template`. 글 페이지 read *0곳에서
+     * 사용 중* while two pages were drawn through it — a reader about to edit it was told they were
+     * changing nothing. Found the first time the index and the walk were compared.
+     */
+    await expect(page.locator('[data-admin-component="post-page"]')).toContainText('2');
+
+    /*
+     * 발행 and 결함 were both in the rail's **footer** — where a thing goes when nobody has decided
+     * where it belongs. Neither is about a page, and together they are one question asked twice:
+     * *is this ready to go out.*
+     */
+    await page.locator('[data-admin-tab="publish"]').click();
+    await expect(page.locator('.st-admin-body')).toContainText('아직 발행하지 않았습니다');
+    await expect(page.locator('.st-admin-body')).toContainText('고칠 것 없음');
+
+    /*
+     * And the **files**, which had nowhere at all: an asset went in when a picture was dropped on a
+     * page, and the only way to see the list was to select a picture and open a dropdown. A document
+     * could carry a 2MB photograph nothing draws and no surface would say so.
+     */
+    await page.locator('[data-admin-tab="files"]').click();
+    await expect(page.locator('[data-admin-file]')).toHaveCount(2);
+    await expect(page.locator('.st-admin-table thead')).toContainText('크기');
   });
 });

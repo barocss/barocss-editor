@@ -33,6 +33,8 @@ import { sizingCss } from './sizing';
 import { positionCss } from './position';
 import { assetNameOf, assetNamed, assetSrc, isAssetRef, srcsetFor } from './assets';
 import { embedSrc } from './embed';
+import { datasetNamed } from './data';
+import { CHART_BOX, baselineOf, chartRows, chartShape } from './chart';
 import { aspectCss } from './aspect';
 import { addressOf } from './export-html';
 import {
@@ -312,6 +314,21 @@ export const stackCss = (attrs: Record<string, any>): Record<string, any> => ({
  * the last narrowing rather than the resolution: a value that is not a non-empty string is not a
  * colour, and writing it into CSS would be writing `undefined` into a stylesheet.
  */
+/**
+ * A number on an axis, as a person would have written it.
+ *
+ * Thousands as `12k`, because a chart 320 units wide has about five characters of room at the left
+ * and `12900` in them is a wall of digits. Not `toLocaleString`, which is a different answer per
+ * machine — an axis has to read the same in the editor and in the published page, and the published
+ * page is read where the *visitor* is.
+ */
+const axisNumber = (value: number): string => {
+  const size = Math.abs(value);
+  if (size >= 1_000_000) return `${Number((value / 1_000_000).toFixed(1))}M`;
+  if (size >= 1000) return `${Number((value / 1000).toFixed(1))}k`;
+  return String(Number(value.toFixed(2)));
+};
+
 const asColour = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 
@@ -515,6 +532,32 @@ export function registerSiteRenderers(): void {
         'data-scrolls': attrs.scrolls ? String(attrs.scrolls) : undefined,
         // What a reader called this stack, which the layer list shows and the drawing should say.
         'data-name': typeof attrs.name === 'string' ? attrs.name : undefined,
+        /**
+         * **Where pressing this goes**, drawn — and it used to be read from the stored node at
+         * export time only.
+         *
+         * Which worked for a block a reader wrote a destination on, and could not work for a **row
+         * of a list**: a row draws as `${collection}~${index}~${part}`, so the lookup landed on the
+         * *definition's* part and every row went to the same place. A blog whose list of posts could
+         * not link to the posts is the shape that found it.
+         *
+         * From the **resolved** attributes, so `var:` and `field:` have already become what they
+         * mean — which is what makes a destination a thing a dataset can say.
+         */
+        'data-goes': typeof attrs.goes === 'string' && attrs.goes.trim() ? attrs.goes.trim() : undefined,
+        /**
+         * **Where this value came from**, when it was not typed here — a column of a dataset, or the
+         * document's own named value.
+         *
+         * Asked for as *어디가 데이터이고 어디가 아닌지 구분이 잘 안 된다*, and the reason it could not be
+         * said is that resolution is total: `field:제목` has become the title by the time anything draws, so
+         * the drawing had no way to know it had not been typed. `canvas-instance` keeps the reference beside
+         * the resolved value now, and this is where it reaches the page.
+         *
+         * **Editor only**, and the export is what says so — `clean` strips it, in one place, because
+         * the renderers that draw it are in two packages now.
+         */
+        'data-from': typeof attrs.boundFrom === 'string' ? attrs.boundFrom : undefined,
         'data-sizing': typeof attrs.sizing === 'string' ? attrs.sizing : undefined,
         /*
          * Whether this stack is drawing something a narrower width said, so a reader — and a test —
@@ -582,6 +625,25 @@ export function registerSiteRenderers(): void {
          */
         'data-row': typeof attrs.rowIndex === 'number' ? String(attrs.rowIndex) : undefined,
         /*
+         * **Where pressing this goes**, drawn from the resolved attributes — see the stack renderer
+         * for why the export can no longer read it from the stored node. A placement is the shape a
+         * row of a list actually has, so this is the one that mattered.
+         */
+        'data-goes': typeof attrs.goes === 'string' && attrs.goes.trim() ? attrs.goes.trim() : undefined,
+        /**
+         * **Where this value came from**, when it was not typed here — a column of a dataset, or the
+         * document's own named value.
+         *
+         * Asked for as *어디가 데이터이고 어디가 아닌지 구분이 잘 안 된다*, and the reason it could not be
+         * said is that resolution is total: `field:제목` has become the title by the time anything draws, so
+         * the drawing had no way to know it had not been typed. `canvas-instance` keeps the reference beside
+         * the resolved value now, and this is where it reaches the page.
+         *
+         * **Editor only**, and the export is what says so — `clean` strips it, in one place, because
+         * the renderers that draw it are in two packages now.
+         */
+        'data-from': typeof attrs.boundFrom === 'string' ? attrs.boundFrom : undefined,
+        /*
          * And its own opacity, which is the one paint decision a **placement** gets to make. What a
          * card looks like is its definition's; how much of it comes through here is this one's — a
          * placement faded to show it is a draft, or a row of them where one is highlighted by the
@@ -611,6 +673,276 @@ export function registerSiteRenderers(): void {
    * `frameCss` again, and `drawnAttrs` again, so a product grid is three across on a desktop and one
    * on a phone by saying so in the same attribute every other stack uses.
    */
+  /**
+   * **서식 있는 글**, drawn — which is what makes it editable at all.
+   *
+   * A `richText` lives in `resources` and is pointed at from a cell (`text:요약-스택`), so nothing on
+   * a page ever draws one: what a card gets is its **blocks**, lifted into the bound part by
+   * `bodiesForRow`. So this renderer exists for exactly one caller — the small view the row's form
+   * mounts over it — and without it that view drew an empty box, because a view can only draw a node
+   * type something has defined.
+   *
+   * A plain box with its children in it, and **not** the `w-def` treatment the other resources get
+   * (`display: none`, because a style definition is read and never drawn). This one is read *and*
+   * drawn: it is the only resource in this schema whose content is words a person writes.
+   */
+  define('richText', element('div', { className: 'st-rich' }, [slot('content')]));
+
+  /**
+   * A **chart**, drawn as an `<svg>` from the arithmetic in `chart.ts`.
+   *
+   * ## No library, in the editor or in the published page
+   *
+   * `live.ts` settled this rule for lists and this is the same shape one step further: the export
+   * ships **the drawing it already made**, marked, and its script rewrites the marked parts. So the
+   * chart a visitor sees is this SVG, and a live one is the same geometry re-run over new numbers —
+   * not a charting library booted in their browser.
+   *
+   * Which is why every point says which row it is (`data-st-point`), in exactly the place a live
+   * list's rows say which row they are.
+   *
+   * ## The rows are the list's rows
+   *
+   * `rowsOf` with the node's own attributes: a chart names a dataset and asks the same
+   * filter-sort-limit question a `collection` asks, deliberately with the same four attributes. So a
+   * chart and the list beside it can be given the same answer and be about the same thing.
+   */
+  define('chart', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = drawnAttrs(node, ctx);
+    const doc = getWordDocument(ctx?.env as RenderEnv | undefined);
+    const dataset = datasetNamed(doc as never, attrs.source);
+    /*
+     * **Filter, group, then sort and limit** — see `chartRows`. *상위 세 분류* means three of the
+     * groups, not the groups of the first three rows, and the two are different answers to one
+     * sentence.
+     */
+    const asked = chartRows(dataset as never, attrs as never);
+    const shape = chartShape(asked.rows, { ...attrs, valueBy: asked.valueBy } as never);
+    /* `drawnAttrs` has already resolved a `var:강조` by here — see `named`. */
+    const ink = asColour(attrs.plotInk) ?? 'currentColor';
+    const base = baselineOf(shape);
+
+    /**
+     * **A donut**, which is the one kind whose arithmetic is about the drawing rather than the data.
+     *
+     * `chartShape` gives every kind the same three facts — which row, what it says, what it is worth
+     * — and stops there, because a value's *place* in a donut is not a point in a box: it is a share
+     * of a turn, which only exists once every other value is known. So the angles are worked out
+     * here, where the shape is.
+     *
+     * A **donut** and not a pie, deliberately: a hole in the middle is where the total goes, and a
+     * total is the number a reader of a dashboard is looking for first. It also makes the slices read
+     * as lengths rather than as areas, which is the one thing a pie chart is criticised for.
+     *
+     * Negative values are **left out**. A share of a whole is a thing a negative number does not
+     * have, and drawing one as a slice would be the chart saying something false about arithmetic
+     * rather than about the data — `boundsOf` makes the same call from the other side by keeping zero
+     * in range on every other kind.
+     */
+    const donut = () => {
+      const parts = shape.points.filter((one) => one.value > 0);
+      const whole = parts.reduce((total, one) => total + one.value, 0);
+      if (whole <= 0) return [] as ReturnType<typeof element>[];
+
+      const middle = { x: shape.plot.x + shape.plot.width / 2, y: shape.plot.y + shape.plot.height / 2 };
+      const outer = Math.min(shape.plot.width, shape.plot.height) / 2;
+      const inner = outer * 0.58;
+
+      let turned = -Math.PI / 2;
+      return parts.map((one, index) => {
+        const sweep = (one.value / whole) * Math.PI * 2;
+        const from = turned;
+        const to = turned + sweep;
+        turned = to;
+
+        const at = (radius: number, angle: number) => ({
+          x: middle.x + Math.cos(angle) * radius,
+          y: middle.y + Math.sin(angle) * radius
+        });
+        const a = at(outer, from);
+        const b = at(outer, to);
+        const c = at(inner, to);
+        const d = at(inner, from);
+        /* The flag every arc needs: more than half a turn is drawn the long way round. */
+        const big = sweep > Math.PI ? 1 : 0;
+
+        return element('path', {
+          key: `d${index}`,
+          'data-st-point': String(one.row),
+          'data-st-value': String(one.value),
+          d:
+            `M${a.x} ${a.y} A${outer} ${outer} 0 ${big} 1 ${b.x} ${b.y} ` +
+            `L${c.x} ${c.y} A${inner} ${inner} 0 ${big} 0 ${d.x} ${d.y} Z`,
+          fill: ink,
+          /*
+           * One ink, faded by position — a palette per slice would be a second colour decision the
+           * document never made, and this site has **one** accent by design. Order is what
+           * distinguishes them, which is also what the labels say.
+           */
+          opacity: String(Math.max(0.28, 1 - index * 0.18))
+        });
+      });
+    };
+
+    /** One point, as the shape its kind is. Each carries its row, so a live page can rewrite it. */
+    const drawn = shape.kind === 'donut' ? donut() : shape.points.map((one, index) => {
+      const mark = {
+        'data-st-point': String(one.row),
+        'data-st-value': String(one.value),
+        key: `p${index}`
+      };
+      if (shape.kind === 'bar') {
+        const width = Math.max(1, (shape.plot.width / Math.max(1, shape.points.length)) * 0.62);
+        return element('rect', {
+          ...mark,
+          x: String(one.x - width / 2),
+          y: String(Math.min(one.y, base)),
+          width: String(width),
+          height: String(Math.max(1, Math.abs(base - one.y))),
+          fill: ink,
+          rx: '1'
+        });
+      }
+      /*
+       * A line and an area both draw their path once, below — what a point contributes here is the
+       * **dot**, which is what a reader aims at and what a live update moves.
+       */
+      return element('circle', { ...mark, cx: String(one.x), cy: String(one.y), r: '2.5', fill: ink });
+    });
+
+    const path = shape.points.map((one, index) => `${index === 0 ? 'M' : 'L'}${one.x} ${one.y}`).join(' ');
+
+    return element(
+      'div',
+      {
+        className: 'st-chart',
+        'data-source': typeof attrs.source === 'string' ? attrs.source : undefined,
+        'data-chart': shape.kind,
+        /**
+         * **Which columns it is drawn from**, on the drawing.
+         *
+         * The conformance harness asked for these and it was right to: a chart with no `source` has
+         * no points, so changing which column is the label changed nothing at all — an attribute a
+         * reader can set, a file can record, and the page is identical.
+         *
+         * Said here rather than exempted, because the published page needs them for the same reason
+         * a live **list** writes `data-st-field` on each drawn piece: a script that refetches has to
+         * know which column each part of the drawing came from. So this is the fact the drawing was
+         * always going to have to carry, arriving early because a check asked for it.
+         */
+        'data-label-by': typeof attrs.labelBy === 'string' ? attrs.labelBy : undefined,
+        /* What was **grouped into**, which is `개수` when the aggregate needs no value column. */
+        'data-value-by': asked.valueBy || undefined,
+        'data-group-by': typeof attrs.groupBy === 'string' && attrs.groupBy ? attrs.groupBy : undefined,
+        'data-agg': typeof attrs.groupBy === 'string' && attrs.groupBy ? String(attrs.agg ?? 'sum') : undefined,
+        style: {
+          ...sizingCss(attrs, inScrollingRow(ctx, node)),
+          ...paintCss(attrs, asColour),
+          ...positionCss(attrs),
+          ...presenceCss(attrs)
+        }
+      },
+      [
+        ...(typeof attrs.title === 'string' && attrs.title
+          ? [element('p', { className: 'st-chart-title' }, [attrs.title])]
+          : []),
+        element(
+          'svg',
+          {
+            className: 'st-chart-plot',
+            viewBox: `0 0 ${CHART_BOX.width} ${CHART_BOX.height}`,
+            /*
+             * **The plot box, on the drawing**, so a live refetch can put a point where the axis
+             * says without being told the axis: the published SVG already has the columns, the
+             * labels and the widths, and what changes is how tall each one is. The axis itself is
+             * *not* sent — it is recomputed, because a value that grew past the published maximum
+             * drawn against the published axis is a bar out of its own chart.
+             */
+            /*
+             * **What it is drawn in, on the drawing** — the points carry it too, and this is what a
+             * chart with no rows yet still says. A default `fill` is also what an `<svg>` is for:
+             * everything inside takes it unless it says otherwise.
+             */
+            fill: ink,
+            'data-plot-top': String(shape.plot.y),
+            'data-plot-height': String(shape.plot.height),
+            role: 'img',
+            /*
+             * **What it is, in words**, because an `<svg>` of rectangles says nothing to a screen
+             * reader and a chart is exactly the kind of thing somebody is told about rather than
+             * shown. The numbers themselves are in the list a dashboard puts beside it.
+             */
+            'aria-label': `${typeof attrs.title === 'string' && attrs.title ? attrs.title : '차트'} · ${
+              shape.points.length
+            }개`
+          },
+          [
+            /* The axis: a line per tick, and the number at the left of it. */
+            ...shape.ticks.flatMap((tick, index) => {
+              const span = shape.high - shape.low || 1;
+              const y = shape.plot.y + shape.plot.height - ((tick - shape.low) / span) * shape.plot.height;
+              return [
+                element('line', {
+                  key: `t${index}`,
+                  x1: String(shape.plot.x),
+                  y1: String(y),
+                  x2: String(shape.plot.x + shape.plot.width),
+                  y2: String(y),
+                  stroke: 'currentColor',
+                  'stroke-width': '0.5',
+                  opacity: tick === 0 ? '0.45' : '0.15'
+                }),
+                element(
+                  'text',
+                  {
+                    key: `n${index}`,
+                    x: String(shape.plot.x - 4),
+                    y: String(y + 3),
+                    'text-anchor': 'end',
+                    'font-size': '8',
+                    fill: 'currentColor',
+                    opacity: '0.6'
+                  },
+                  [axisNumber(tick)]
+                )
+              ];
+            }),
+            ...(shape.kind === 'area' && shape.points.length > 1
+              ? [
+                  element('path', {
+                    key: 'fill',
+                    d: `${path} L${shape.points[shape.points.length - 1].x} ${base} L${shape.points[0].x} ${base} Z`,
+                    fill: ink,
+                    opacity: '0.18'
+                  })
+                ]
+              : []),
+            ...(shape.kind !== 'bar' && shape.kind !== 'donut' && shape.points.length > 1
+              ? [element('path', { key: 'line', d: path, fill: 'none', stroke: ink, 'stroke-width': '2' })]
+              : []),
+            ...drawn,
+            /* And what each point is called, under it — the axis a reader actually reads. */
+            ...shape.points.map((one, index) =>
+              element(
+                'text',
+                {
+                  key: `l${index}`,
+                  x: String(one.x),
+                  y: String(shape.plot.y + shape.plot.height + 12),
+                  'text-anchor': 'middle',
+                  'font-size': '8',
+                  fill: 'currentColor',
+                  opacity: '0.7'
+                },
+                [one.label]
+              )
+            )
+          ]
+        )
+      ]
+    );
+  });
+
   define('collection', (_props: NodeData, node: NodeData, ctx: any) => {
     const attrs = drawnAttrs(node, ctx);
     return element(
@@ -622,6 +954,32 @@ export function registerSiteRenderers(): void {
         className: 'st-collection',
         'data-source': typeof attrs.source === 'string' ? attrs.source : undefined,
         'data-name': typeof attrs.name === 'string' ? attrs.name : undefined,
+        /**
+         * **Where pressing this goes**, drawn — and it used to be read from the stored node at
+         * export time only.
+         *
+         * Which worked for a block a reader wrote a destination on, and could not work for a **row
+         * of a list**: a row draws as `${collection}~${index}~${part}`, so the lookup landed on the
+         * *definition's* part and every row went to the same place. A blog whose list of posts could
+         * not link to the posts is the shape that found it.
+         *
+         * From the **resolved** attributes, so `var:` and `field:` have already become what they
+         * mean — which is what makes a destination a thing a dataset can say.
+         */
+        'data-goes': typeof attrs.goes === 'string' && attrs.goes.trim() ? attrs.goes.trim() : undefined,
+        /**
+         * **Where this value came from**, when it was not typed here — a column of a dataset, or the
+         * document's own named value.
+         *
+         * Asked for as *어디가 데이터이고 어디가 아닌지 구분이 잘 안 된다*, and the reason it could not be
+         * said is that resolution is total: `field:제목` has become the title by the time anything draws, so
+         * the drawing had no way to know it had not been typed. `canvas-instance` keeps the reference beside
+         * the resolved value now, and this is where it reaches the page.
+         *
+         * **Editor only**, and the export is what says so — `clean` strips it, in one place, because
+         * the renderers that draw it are in two packages now.
+         */
+        'data-from': typeof attrs.boundFrom === 'string' ? attrs.boundFrom : undefined,
         'data-layout': typeof attrs.layoutMode === 'string' ? attrs.layoutMode : 'none',
         /*
          * Said on the element as well as in its style, because the **children** need it: a snapping
@@ -1089,6 +1447,24 @@ export function registerSiteRenderers(): void {
       className: 'st-picture',
       src: assetSrc(doc as never, attrs.src, live),
       alt: String(attrs.alt ?? ''),
+      /*
+       * **Where pressing this goes**, drawn from the resolved attributes — see the stack renderer for
+       * why the export can no longer read it from the stored node.
+       */
+      'data-goes': typeof attrs.goes === 'string' && attrs.goes.trim() ? attrs.goes.trim() : undefined,
+      /**
+       * **Where this value came from**, when it was not typed here — a column of a dataset, or the
+       * document's own named value.
+       *
+       * Asked for as *어디가 데이터이고 어디가 아닌지 구분이 잘 안 된다*, and the reason it could not be
+       * said is that resolution is total: `field:제목` has become the title by the time anything draws, so
+       * the drawing had no way to know it had not been typed. `canvas-instance` keeps the reference beside
+       * the resolved value now, and this is where it reaches the page.
+       *
+       * **Editor only**, and the export is what says so — `clean` strips it, in one place, because
+       * the renderers that draw it are in two packages now.
+       */
+      'data-from': typeof attrs.boundFrom === 'string' ? attrs.boundFrom : undefined,
       /**
        * And **the sizes a browser may choose from**, on the published page only.
        *

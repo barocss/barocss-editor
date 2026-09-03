@@ -74,7 +74,23 @@ export const SELECTABLE = new Set([
    * more than a short one that hides half of it.
    */
   'bTableCell',
-  'bTableHeaderCell'
+  'bTableHeaderCell',
+  /**
+   * And a **chart**, reported as *차트를 더블클릭해서 선택할 수가 없어* — which is the **third** time
+   * this exact fault has been recorded in this one list.
+   *
+   * A quotation, a rule and a code block were here first; a table's cells second. Every time, the
+   * round that added the node checked that it **appears** and never checked that a reader can get
+   * hold of one — and every time the drawing was perfect, which is what makes it invisible. A chart
+   * that cannot be selected cannot be moved, deleted, resized, recoloured, or told which column to
+   * draw: the whole 차트 group in the panel was unreachable.
+   *
+   * Three times is a pattern rather than an accident, and the honest reading is that this list is a
+   * second place a node type has to be registered, which nothing forces. `every-node-is-drawn` asks
+   * whether a renderer exists; nothing asks whether a reader can hold what it drew. That check is
+   * owed, and it is on the record.
+   */
+  'chart'
 ]);
 
 /**
@@ -377,6 +393,8 @@ export function kindOfBlock(type: string): string | null {
       return '스택';
     case 'collection':
       return '목록';
+    case 'chart':
+      return '차트';
     case 'instance':
       return '블록';
     case 'picture':
@@ -444,6 +462,13 @@ export function labelOfBlock(doc: Access, sid: string): string {
       return attrs.layoutMode === 'row' ? '가로 스택' : attrs.layoutMode === 'grid' ? '그리드' : '세로 스택';
     case 'collection':
       return `목록 · ${typeof attrs.source === 'string' ? attrs.source : '데이터 없음'}`;
+    /*
+     * A chart says **which data** for the same reason a list does: a dashboard is four of them and
+     * `차트` four times is a layer list a reader has to click through to read. Its kind comes second
+     * because the picture on the board already says which it is.
+     */
+    case 'chart':
+      return `차트 · ${typeof attrs.source === 'string' ? attrs.source : '데이터 없음'}`;
     case 'instance':
       /*
        * **컴포넌트**, not 블록. Everything on a page is a block; what this one *is* is a placement of

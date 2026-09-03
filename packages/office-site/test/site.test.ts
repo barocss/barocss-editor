@@ -73,10 +73,27 @@ describe('a site draws', () => {
   });
 
   it('draws every page, with the address that makes it a page of a site', () => {
-    expect(pages()).toHaveLength(6);
-    expect(pages().map((page) => page.dataset.path)).toEqual(['/', '/제품', '/가격', '/소개', '/블로그', '/블로그/스택']);
+    expect(pages()).toHaveLength(8);
+    expect(pages().map((page) => page.dataset.path)).toEqual(['/', '/제품', '/가격', '/소개', '/블로그', '/블로그/스택', '/블로그/한-모델', '/대시보드']);
     // The kind is the schema's record of which shape of surface this is, and a site's is a page's.
     expect(pages()[0].dataset.kind).toBe('flow');
+  });
+
+  it('draws the blog’s list and its aside at two to one', () => {
+    /**
+     * The **fixture wearing the fourth sizing mode**, which is the only reason `share` is worth
+     * having: the arithmetic was tested from the first day and the sample said it nowhere, so
+     * nothing in the product had ever drawn a row that was not either equal halves or a fixed width.
+     *
+     * A list beside a sidebar is the ordinary case for it. Read off the drawn elements rather than
+     * off the attributes, because the claim is that the *browser* divides the row.
+     */
+    const blog = pages()[4];
+    const row = blog.querySelector<HTMLElement>('[data-name="목록과 옆"]')!;
+    const shares = [...row.children].map((one) => (one as HTMLElement).style.flex);
+    expect(shares).toEqual(['2 1 0%', '1 1 0%']);
+    /* And neither may be pushed wider by one long word — a share is a claim, not a minimum. */
+    for (const one of row.children) expect((one as HTMLElement).style.minWidth).toBe('0');
   });
 
   it('is a column of stacks, laid out by the browser', () => {

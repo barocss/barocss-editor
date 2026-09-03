@@ -27,6 +27,9 @@ const read = async (browser: Browser, scheme: 'light' | 'dark') => {
   const ctx = await browser.newContext({ colorScheme: scheme, viewport: { width: 1500, height: 950 } });
   const page = await ctx.newPage();
   await page.goto('/');
+  /* 관리가 밖이고 편집이 안 — the window opens into the admin, so this goes in. */
+  await page.waitForSelector('[data-admin-page]');
+  await page.locator('[data-admin-open]').first().click();
   await page.waitForSelector('.st-frame-body');
   await page.waitForTimeout(2000);
   const seen = await page.evaluate(() => ({
@@ -60,6 +63,9 @@ test('a section that paints itself dark states its own ink, and it reaches the w
   const ctx = await browser.newContext({ viewport: { width: 1500, height: 950 } });
   const page = await ctx.newPage();
   await page.goto('/');
+  /* 관리가 밖이고 편집이 안 — the window opens into the admin, so this goes in. */
+  await page.waitForSelector('[data-admin-page]');
+  await page.locator('[data-admin-open]').first().click();
   await page.waitForSelector('.st-frame-body');
   await page.waitForTimeout(2000);
 

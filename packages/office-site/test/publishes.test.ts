@@ -56,8 +56,8 @@ describe('what a publish leaves behind', () => {
     const said = publishesOf(doc() as never);
     expect(said).toHaveLength(1);
     expect(said[0].at).toBe('2026-09-03T10:00:00.000Z');
-    /* Six: five pages and the post drawn through the template. */
-    expect(said[0].pages).toBe(6);
+    /* Eight: five a visitor navigates to, two posts, and the dashboard the site's own people read. */
+    expect(said[0].pages).toBe(8);
     // Never invented — this product has no accounts, and a record's value is being trustworthy.
     expect(said[0].by).toBeUndefined();
   });

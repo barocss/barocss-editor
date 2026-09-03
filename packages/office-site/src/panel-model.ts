@@ -46,6 +46,7 @@ import {
   panelRowsFor,
   type PanelRow
 } from '@barocss/office-controls';
+import { CHART_AGGS, CHART_AGG_NAMES, CHART_KINDS, CHART_KIND_NAMES } from './chart';
 import { ASPECT_LABELS } from './aspect';
 import { PROVIDERS } from './embed';
 import { FACES, SCALES } from './type-scale';
@@ -102,6 +103,7 @@ export type SitePanelControl =
    * this from*. One draws text fields, the other draws a picker of the dataset's columns.
    */
   | 'cardValues'
+  | 'rowEdit'
   /** A sentence rather than a control: the note that says which width is being edited. */
   | 'note'
   /**
@@ -1722,8 +1724,8 @@ export const SITE_PANEL: SitePanelRow[] = [
   },
 
   // ── 데이터 — the question a list asks of its dataset ───────────────────────
-  { attr: 'source', command: 'setBlockFormat', group: '데이터', tab: 'data', label: '목록', ariaLabel: '데이터 목록', control: 'dataset', on: ['collection'] },
-  { attr: 'sortBy', command: 'setBlockFormat', group: '데이터', tab: 'data', label: '정렬', ariaLabel: '정렬 기준', control: 'column', on: ['collection'] },
+  { attr: 'source', command: 'setBlockFormat', group: '데이터', tab: 'data', label: '목록', ariaLabel: '데이터 목록', control: 'dataset', on: ['collection', 'chart'] },
+  { attr: 'sortBy', command: 'setBlockFormat', group: '데이터', tab: 'data', label: '정렬', ariaLabel: '정렬 기준', control: 'column', on: ['collection', 'chart'] },
   {
     attr: 'sortDir',
     command: 'setBlockFormat',
@@ -1733,16 +1735,67 @@ export const SITE_PANEL: SitePanelRow[] = [
     ariaLabel: '정렬 순서',
     control: 'choice',
     fallback: 'asc',
-    on: ['collection'],
+    on: ['collection', 'chart'],
     options: [
       { id: 'asc', label: '오름차순' },
       { id: 'desc', label: '내림차순' }
     ]
   },
   // Empty means all of them, which is what a list with nothing said has always drawn.
-  { attr: 'limit', command: 'setBlockFormat', group: '데이터', tab: 'data', label: '개수', ariaLabel: '개수', control: 'number', min: 0, on: ['collection'] },
-  { attr: 'where', command: 'setBlockFormat', group: '거르기', tab: 'data', label: '칸', ariaLabel: '거를 칸', control: 'column', on: ['collection'] },
-  { attr: 'equals', command: 'setBlockFormat', group: '거르기', tab: 'data', label: '값', ariaLabel: '거를 값', control: 'text', on: ['collection'], needs: 'where' },
+  { attr: 'limit', command: 'setBlockFormat', group: '데이터', tab: 'data', label: '개수', ariaLabel: '개수', control: 'number', min: 0, on: ['collection', 'chart'] },
+  { attr: 'where', command: 'setBlockFormat', group: '거르기', tab: 'data', label: '칸', ariaLabel: '거를 칸', control: 'column', on: ['collection', 'chart'] },
+  { attr: 'equals', command: 'setBlockFormat', group: '거르기', tab: 'data', label: '값', ariaLabel: '거를 값', control: 'text', on: ['collection', 'chart'], needs: 'where' },
+
+  /**
+   * ── 차트 — the two columns that turn rows into a picture ───────────────────
+   *
+   * Everything above this is a **collection's** question asked again, deliberately with the same
+   * attributes: which dataset, which rows, in what order, how many. A chart adds exactly two facts —
+   * what a point is *called* and what it is *worth* — plus which picture to draw it as.
+   *
+   * Which is the argument for it being a node rather than an embed: two attributes on top of a query
+   * this schema already had.
+   */
+  {
+    attr: 'kind',
+    command: 'setBlockFormat',
+    group: '차트',
+    tab: 'block',
+    label: '종류',
+    ariaLabel: '차트 종류',
+    control: 'choice',
+    fallback: 'bar',
+    on: ['chart'],
+    options: CHART_KINDS.map((one) => ({ id: one, label: CHART_KIND_NAMES[one] }))
+  },
+  { attr: 'labelBy', command: 'setBlockFormat', group: '차트', tab: 'block', label: '이름', ariaLabel: '이름 칸', control: 'column', on: ['chart'] },
+  { attr: 'valueBy', command: 'setBlockFormat', group: '차트', tab: 'block', label: '값', ariaLabel: '값 칸', control: 'column', on: ['chart'] },
+  { attr: 'title', command: 'setBlockFormat', group: '차트', tab: 'block', label: '제목', ariaLabel: '차트 제목', control: 'text', on: ['chart'] },
+
+  /**
+   * ── 묶기 — the other half of what a dashboard asks ─────────────────────────
+   *
+   * Two rows and not a formula box, which is this schema's precedent from the same place: a list's
+   * filter is `where` and `equals` for the recorded reason that a grammar is a thing to learn.
+   *
+   * `agg` waits for `groupBy`, because an arithmetic with nothing to group by is a control that
+   * changes nothing — the same `needs` the filter's 값 row already uses.
+   */
+  { attr: 'groupBy', command: 'setBlockFormat', group: '묶기', tab: 'data', label: '기준', ariaLabel: '묶을 칸', control: 'column', on: ['chart'] },
+  {
+    attr: 'agg',
+    command: 'setBlockFormat',
+    group: '묶기',
+    tab: 'data',
+    label: '셈',
+    ariaLabel: '묶어서 셀 방법',
+    control: 'choice',
+    fallback: 'sum',
+    on: ['chart'],
+    needs: 'groupBy',
+    options: CHART_AGGS.map((one) => ({ id: one, label: CHART_AGG_NAMES[one] }))
+  },
+  { attr: 'plotInk', command: 'setBlockFormat', group: '차트', tab: 'style', label: '색', ariaLabel: '차트 색', control: 'colour', on: ['chart'] },
 
   // ── The blocks that have a question of their own ──────────────────────────
   /*
@@ -1951,6 +2004,32 @@ export const SITE_PANEL: SitePanelRow[] = [
     label: '변수',
     ariaLabel: '카드 변수에 넣을 컬럼',
     control: 'cardValues',
+    on: ['collection']
+  },
+
+  /**
+   * **이 행 편집** — the door from the page to the row's own form.
+   *
+   * Reported as *페이지에서 Drawer 를 어떻게 열어서 편집해야 할지 모르겠어*, and the answer is that
+   * there was no door: the form existed and the only way in was the grid's row number, behind a
+   * dialog a reader opens from the rail. Somebody looking at the third card of a blog index is
+   * looking at row three, and this is where they already are.
+   *
+   * **No `command` and no `writes`**, which is what a row that only *reads* looks like here — the
+   * shape `편집 중인 폭` already has. It changes nothing; it opens something, and the panel's own
+   * check knows not to ask the schema for an attribute a row like this names.
+   *
+   * On the **collection**, because that is what selecting a card selects: a row is resolved at draw
+   * time, so `sidAtElement` collapses every part of it to the list. Which row is a fact about the
+   * *drawing*, read at the press and handed to the panel — see `Overlay`'s `onRow`.
+   */
+  {
+    attr: 'rowEdit',
+    group: '데이터',
+    tab: 'data',
+    label: '행',
+    ariaLabel: '이 행을 폼으로 편집',
+    control: 'rowEdit',
     on: ['collection']
   },
 

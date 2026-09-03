@@ -108,6 +108,10 @@ const atSize = (value: string, size: string, colour?: string): Node =>
     ...(colour ? [mark('fontColor', { color: colour, range: [0, value.length] })] : [])
   ]);
 
+/** A run in italics, which is how a summary emphasises one word without shouting. */
+const emphasised = (value: string): Node =>
+  text(value, [mark('italic', { range: [0, value.length] })]);
+
 /**
  * A run that goes to **a page of this site**, named by its durable id rather than its address.
  *
@@ -533,8 +537,15 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
       pricing(),
       about(),
       blog(),
-      /* And one post of the blog's own, drawn through the post template — see `post`. */
+      /* And two posts of the blog's own, both drawn through the post template — see `post`. */
       post(),
+      postSchema(),
+      /*
+       * And the page the people who **run** the site read, drawn through a template of its own —
+       * which is the point of it being here: every piece of this existed and nothing had put them
+       * together on a page.
+       */
+      dashboard(),
 
       /**
        * The **data** the pages draw from.
@@ -617,7 +628,26 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
               name: '상품',
               label: '상품 목록',
               kind: 'inline',
-              fields: ['이름', '설명', '가격', '순서', '분류'],
+              /**
+               * **The columns say what they hold**, which used to be the card's job.
+               *
+               * A bare list of names still works — a column with nothing said about it is text, and
+               * every document written before this has one — but the type belongs here: a column
+               * drawn by two cards declared its kind twice, nothing could check a cell, and the grid
+               * drew one text box for a price, a date and a page reference alike.
+               *
+               * `format` stays on the card, and the split is not arbitrary: *what a value is* is the
+               * data's, *how this page reads it* is the drawing's. One dataset feeding a price list
+               * that says `9,900원` and a summary that says `9.9천` is the whole argument for it.
+               */
+              fields: [
+                { name: '이름', kind: 'text' },
+                { name: '설명', kind: 'text' },
+                /* Already stored as a number — see the record below for what storing it as words cost. */
+                { name: '가격', kind: 'number' },
+                { name: '순서', kind: 'number' },
+                { name: '분류', kind: 'choice', options: ['제품', '묶음'] }
+              ],
               records: [
                 /*
                  * **A price is a number.** Written as `'월 9,900원'` the pricing page sorted 문서 ·
@@ -633,17 +663,169 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
             },
             content: []
           },
+          /**
+           * **서식 있는 글**, which is the one kind whose value is not in the cell.
+           *
+           * `{ 요약: 'text:요약-스택' }`, and the words are here as ordinary blocks — the same shape a
+           * footnote has always had in this schema (`footnoteRef` in the flow, `footnoteDef` beside
+           * it), and the tenth use of the reference pattern.
+           *
+           * Which is what the blog's index could not say before: a summary was plain characters, so a
+           * post about 스택 could not put the word in italics. The card draws these nodes rather than
+           * a string, so the emphasis is real emphasis and the export writes it as one.
+           *
+           * **And no link in one yet**, which the conformance harness said out loud the first time
+           * there was: `removeLink` found the run, said it could run, and changed nothing. It is
+           * right — nothing can put a caret in a `richText` until the drawer edits one, so a mark
+           * inside it is a mark no command can reach. Recorded in `BACKLOG.md` rather than exempted,
+           * because the answer is the editing half rather than a note.
+           */
+          /**
+           * **지표** — the sample's first **live** dataset, and the reason it is here.
+           *
+           * Everything else this document holds is `inline`: rows a person typed, which is the right
+           * default and the one `data-commands.ts` argues for at length — the rows end up *in the
+           * document*, so a published page stays a file, a crawler reads the list, and a visitor
+           * whose network failed still sees something.
+           *
+           * A dashboard is the case that trade gets wrong. Numbers that change hourly are the whole
+           * point of one, so this is `kind: 'url'` with `live` on — and it is the first thing in the
+           * sample that makes `markLiveCharts` run at all. Without it the live path was code with a
+           * unit test and no fixture, which is the shape this repository keeps finding faults in.
+           *
+           * The rows stay anyway, and that is not a contradiction: a `url` dataset keeps a handful to
+           * **design against**. A chart with no rows is a box, and a reader arranging a dashboard
+           * cannot arrange one of those.
+           *
+           * The address is `example` on purpose — a fixture that fetched somebody's real endpoint
+           * would be a test suite making network calls, and a sample that stops working when a
+           * service moves.
+           */
+          {
+            stype: 'dataset',
+            attributes: {
+              name: '지표',
+              label: '월별 지표',
+              kind: 'url',
+              url: 'https://metrics.barocss.example/monthly.json',
+              live: true,
+              fields: [
+                { name: '달', kind: 'text' },
+                { name: '가입', kind: 'number' },
+                { name: '해지', kind: 'number' },
+                { name: '분류', kind: 'choice', options: ['직접', '추천', '검색'] }
+              ],
+              records: [
+                { 달: '4월', 가입: 128, 해지: 14, 분류: '검색' },
+                { 달: '5월', 가입: 164, 해지: 21, 분류: '검색' },
+                { 달: '6월', 가입: 142, 해지: 18, 분류: '추천' },
+                { 달: '7월', 가입: 203, 해지: 12, 분류: '추천' },
+                { 달: '8월', 가입: 251, 해지: 26, 분류: '직접' }
+              ]
+            },
+            content: []
+          },
+          {
+            stype: 'richText',
+            attributes: { id: '요약-스택' },
+            content: [
+              paragraph([
+                text('자유 배치를 만들고 나서 알게 된 것: 페이지의 문법은 '),
+                emphasised('쌓임'),
+                text('이고, 좌표는 폭마다 손으로 놓는 약속입니다.')
+              ])
+            ]
+          },
+          {
+            stype: 'richText',
+            attributes: { id: '요약-모델' },
+            content: [
+              paragraph([
+                text('스키마가 먼저 있었다는 이야기. 워드에서 시작한 노드가 '),
+                emphasised('덱과 사이트'),
+                text('로 흘러간 경로를 따라갑니다.')
+              ])
+            ]
+          },
           {
             stype: 'dataset',
             attributes: {
               name: '글',
               label: '블로그 글',
               kind: 'inline',
-              fields: ['제목', '요약', '날짜', '추천'],
+              /**
+               * **`페이지`** — which page each row is *about*, and the join that makes a list of
+               * posts a list of links.
+               *
+               * A row's card binds its destination to this field, so each row goes somewhere
+               * different. Before it, a card in a list could carry a destination only if every row
+               * carried the *same* one — the drawn sid of a row is
+               * `${collection}~${index}~${part}`, so the export's lookup landed on the definition's
+               * part. A blog whose index could not link to its posts is what found it.
+               *
+               * A page's **durable id**, not its address — the same reference every link in this
+               * document uses, so renaming `/블로그/스택` moves the list's link with it.
+               */
+              fields: [
+                { name: '제목', kind: 'text' },
+                /*
+                 * **서식 있는 글**, and the first column in this document whose value is a reference
+                 * rather than characters: `text:요약-스택` points at blocks in `resources`. A summary
+                 * with a link and an emphasised word in it is a summary plain characters could not
+                 * hold — see the `richText` nodes above, and `richPlain` for what a part that cannot
+                 * take content gets instead.
+                 */
+                { name: '요약', kind: 'richText' },
+                /*
+                 * **A date, and the card no longer has to be told.** `post-row` declares 날짜 as a
+                 * date so it can be read as *2026년 9월 3일*; that is the card's `format`. That it
+                 * *is* a date is this column's fact, and a second card drawing the same column no
+                 * longer has to rediscover it.
+                 */
+                { name: '날짜', kind: 'date' },
+                /*
+                 * **A boolean spelled as words, until there was somewhere to say it was one.** It
+                 * held `'예'` and `'아니오'` — and nothing on the site reads it, which is the other
+                 * half of the finding: a column that could not say what it was is a column nothing
+                 * could do anything with. Now it is `true`/`false` and a list can filter on it.
+                 */
+                { name: '추천', kind: 'boolean' },
+                { name: '페이지', kind: 'page' }
+              ],
               records: [
-                { 제목: '한 문서 모델로 세 제품', 요약: '스키마가 먼저 있었다는 이야기.', 날짜: '2026-08-02', 추천: '예' },
-                { 제목: '커서는 누구의 것인가', 요약: '입력 경로를 다시 그린 기록.', 날짜: '2026-07-19', 추천: '예' },
-                { 제목: '측정하고 나서 만들기', 요약: '스크린샷 한 장이 찾아낸 것들.', 날짜: '2026-06-30', 추천: '아니오' }
+                {
+                  제목: '스택이 페이지의 문법이다',
+                  요약: 'text:요약-스택',
+                  날짜: '2026-09-03',
+                  추천: true,
+                  페이지: 'page:post-stack'
+                },
+                {
+                  제목: '한 문서 모델로 세 제품',
+                  요약: 'text:요약-모델',
+                  날짜: '2026-08-02',
+                  추천: true,
+                  페이지: 'page:post-schema'
+                },
+                {
+                  제목: '커서는 누구의 것인가',
+                  요약: '입력 경로를 다시 그린 기록.',
+                  날짜: '2026-07-19',
+                  추천: false,
+                  /* Written, but not yet a page here — see below. */
+                  페이지: ''
+                },
+                {
+                  제목: '측정하고 나서 만들기',
+                  요약: '스크린샷 한 장이 찾아낸 것들.',
+                  날짜: '2026-06-30',
+                  추천: false,
+                  /* No page yet — a row may be a note about something unwritten. An empty answer
+                     writes no destination, so the card publishes as the box it is rather than as a
+                     link to nowhere: `<a>` with no `href` is what a *broken* reference produces, and
+                     these two are not broken. */
+                  페이지: ''
+                }
               ]
             },
             content: []
@@ -1471,6 +1653,76 @@ function pricing(): Node {
        * *out of the row*, above it, and it is the only place on the site that uses the second
        * accent — which is what "one accent" means in practice.
        */
+      /**
+       * **The plans as a picture**, from the same rows the cards are drawn from.
+       *
+       * The first chart in this document, and it is on the pricing page rather than on a dashboard of
+       * its own on purpose: a chart is worth having where a reader is already comparing numbers, and
+       * four prices in four cards is exactly the comparison a bar makes in one glance.
+       *
+       * It names **상품** — the dataset the cards beside it draw — so the two are about the same
+       * thing rather than about two copies of it. And it asks the same query a list asks (`sortBy`,
+       * `sortDir`), deliberately with the same attributes, which is the whole argument for a chart
+       * being a node here instead of an embed pointing at a charting service.
+       *
+       * `가격` is a **number** column, which is what makes any of this possible — a price stored as
+       * `월 9,900원` has no height. That is the same fault this dataset already carried once, from the
+       * other side: the pricing page sorted 문서 · 사이트 · 스위트 by it and looked exactly like a
+       * working sort.
+       */
+      section('가격 그림', { paddingTop: 0, paddingBottom: px(28) }, [
+        stack('column', { name: '가격 그림 글', gap: GAP.mid, maxWidth: WIDTH.text }, [
+          heading(2, '한눈에'),
+          stack('row', { name: '가격 그림 줄', gap: GAP.wide, alignItems: 'start', sizing: 'fill', overrides: { mobile: { layoutMode: 'column', gap: px(20) } } }, [
+          {
+            stype: 'chart',
+            attributes: {
+              name: '요금 막대',
+              source: '상품',
+              kind: 'bar',
+              labelBy: '이름',
+              valueBy: '가격',
+              sortBy: '순서',
+              sortDir: 'asc',
+              title: '제품별 월 요금',
+              plotInk: 'var:강조',
+              sizing: 'share',
+              share: 2
+            },
+            content: []
+          },
+          /**
+           * **And the same rows grouped**, which is the other question a dashboard asks and the one a
+           * list cannot answer: 분류별 합계.
+           *
+           * Two charts side by side is what a dashboard *is* — one saying what each thing costs and
+           * one saying what the kinds add up to — and it is why they are here rather than on a page
+           * of their own: a chart is worth having where a reader is already comparing numbers.
+           *
+           * A **donut**, because a share of a whole is what a grouped sum is, and because it is the
+           * one kind whose arithmetic is about the drawing rather than the data — the fixture has to
+           * wear that too or nothing exercises the angles.
+           */
+          {
+            stype: 'chart',
+            attributes: {
+              name: '분류 도넛',
+              source: '상품',
+              kind: 'donut',
+              labelBy: '분류',
+              valueBy: '가격',
+              groupBy: '분류',
+              agg: 'sum',
+              title: '분류별 합계',
+              plotInk: 'var:강조',
+              sizing: 'share',
+              share: 1
+            },
+            content: []
+          }
+          ])
+        ])
+      ]),
       section('추천 요금제', { paddingTop: 0, paddingBottom: px(28) }, [
         /**
          * **A heading over the plans**, which this section did not have — and the gap was structural
@@ -1704,8 +1956,16 @@ function about(): Node {
  * address a visitor can be sent, a description a search result shows, and a body that is *formatted
  * text*. A datum has none of those.
  *
- * One entry rather than twenty. A sample is read, and twenty of anything is scrolled past; what a
- * second entry would prove that the first does not is nothing.
+ * **Two** entries rather than one, and rather than twenty.
+ *
+ * One was the answer for as long as a template was the thing being shown: a sample is read, twenty
+ * of anything is scrolled past, and what a second entry proved that the first did not was nothing.
+ *
+ * It is something now. The index links to its posts through a column of the dataset, and one row
+ * going somewhere cannot tell a per-row destination apart from a fixed one — which is precisely the
+ * fault that shipped: every row of a list went to the same place, and a fixture with one post would
+ * have drawn it correctly. So: two posts, two addresses, and two rows that are *not* links because
+ * those two are unwritten.
  */
 function post(): Node {
   return {
@@ -1732,6 +1992,200 @@ function post(): Node {
   };
 }
 
+/**
+ * `/블로그/한-모델` — **the second post**, and the reason there is a second one.
+ *
+ * Same template, different words: what a reader sees is the header, the readable column, and the
+ * footer, none of which is written here. What it is *for* is the row above it — the index's second
+ * row points here, and the first points at `/블로그/스택`, so a build in which every row shared one
+ * destination is a build a check can see.
+ */
+function postSchema(): Node {
+  return {
+    stype: 'surface',
+    attributes: {
+      ...pageAttrs(
+        'post-schema',
+        '한 문서 모델로 세 제품',
+        '/블로그/한-모델',
+        '스키마가 먼저 있었다는 이야기. 워드에서 시작한 노드가 덱과 사이트로 흘러간 경로를 따라갑니다.'
+      ),
+      template: 'post-page'
+    },
+    content: [
+      heading(1, '한 문서 모델로 세 제품'),
+      paragraph(
+        '문단은 워드에서 만들어졌습니다. 덱에서도 문단이고, 지금 읽고 계신 이 페이지에서도 문단입니다. 세 제품이 공유하는 것은 렌더러가 아니라 저장된 모양입니다.'
+      ),
+      paragraph(
+        '그래서 제품마다 다른 것은 어휘가 아니라 어휘 중 무엇을 읽느냐입니다. 페이지는 좌표를 거의 읽지 않고, 덱은 거의 그것만 읽습니다. 스키마에 있는데 아무도 읽지 않는 속성을 세는 일이, 다음에 무엇을 만들지 정하는 방법이 되었습니다.'
+      )
+    ]
+  };
+}
+
+/**
+ * `/대시보드` — **the page the people who run the site read**, drawn through a template.
+ *
+ * ## Why the sample has one at all
+ *
+ * Because every piece of this exists and nothing had put them together: a `url` dataset that
+ * refetches in the visitor's browser, charts that group and re-scale, a template that is not a blog's.
+ * Each had a unit test; none had a **page**, and this repository's own rule is that a fixture has to
+ * wear what it tests — a clean run usually means the fixture is thin, not the product correct.
+ *
+ * ## And what it is *not*
+ *
+ * Not marketing. It has no site header, no footer and no call to action, because a dashboard is a
+ * page of the **tool** rather than of the site — see `dashboard-page` for why the template's chrome
+ * is deliberately less than a public page's.
+ *
+ * `noIndex`, which is the first page in this sample to say it. A dashboard behind a plain address is
+ * as private as the address is, and telling a crawler not to read it is the least a page can do.
+ */
+function dashboard(): Node {
+  return {
+    stype: 'surface',
+    attributes: {
+      ...pageAttrs(
+        'dashboard',
+        '지표',
+        '/대시보드',
+        '가입과 해지, 달마다. 이 페이지는 방문자가 아니라 이 사이트를 운영하는 사람이 읽습니다.'
+      ),
+      /* A page of the tool, not of the site — see the template. */
+      template: 'dashboard-page',
+      /*
+       * **Not for a crawler.** The first page here to say so, and it turned up a real fault the
+       * moment it did: `sitemapFor` listed every page, so a site would tell a crawler *do not read
+       * this* in the head and *here it is* in the sitemap. See `sitemapFor`.
+       */
+      noIndex: true
+    },
+    content: [
+      stack('column', { name: '지표 머리', gap: GAP.hair }, [
+        heading(1, '이번 달'),
+        quiet('가입과 해지, 달마다. 숫자는 매 시간 다시 가져옵니다.')
+      ]),
+
+      /*
+       * **The three numbers first**, which is what a dashboard is read for: somebody opens one to
+       * find out whether anything needs attention, and a chart answers that second.
+       *
+       * Written by hand rather than drawn from the data, and that is the honest state of it: this
+       * product can group rows into a chart and cannot yet put one number on a page. It is the next
+       * thing this page will ask for, and saying so here is cheaper than discovering it.
+       */
+      stack(
+        'row',
+        {
+          name: '큰 수',
+          gap: GAP.mid,
+          sizing: 'fill',
+          overrides: { mobile: { layoutMode: 'column', gap: px(12) } }
+        },
+        [
+          figure('이번 달 가입', '251'),
+          figure('이번 달 해지', '26'),
+          figure('순 증가', '+225')
+        ]
+      ),
+
+      /*
+       * Then the two pictures, side by side — a dashboard is read **across**: two charts beside each
+       * other is a comparison, and two stacked is two facts.
+       */
+      stack(
+        'row',
+        {
+          name: '그림 둘',
+          gap: GAP.mid,
+          alignItems: 'start',
+          sizing: 'fill',
+          overrides: { mobile: { layoutMode: 'column', gap: px(20) } }
+        },
+        [
+          {
+            stype: 'chart',
+            attributes: {
+              name: '월별 가입',
+              source: '지표',
+              kind: 'line',
+              labelBy: '달',
+              valueBy: '가입',
+              title: '월별 가입',
+              plotInk: 'var:강조',
+              sizing: 'share',
+              share: 2
+            },
+            content: []
+          },
+          {
+            stype: 'chart',
+            attributes: {
+              name: '유입 분류',
+              source: '지표',
+              kind: 'donut',
+              labelBy: '분류',
+              valueBy: '가입',
+              groupBy: '분류',
+              agg: 'sum',
+              title: '유입 분류별',
+              plotInk: 'var:강조',
+              sizing: 'share',
+              share: 1
+            },
+            content: []
+          }
+        ]
+      ),
+
+      /*
+       * And the rows themselves under them, which is the half a chart cannot be: a picture says the
+       * shape and a table says *which month, exactly*. Every dashboard worth reading has both.
+       */
+      stack('column', { name: '지표 표', gap: GAP.tight, sizing: 'fill' }, [
+        heading(2, '달마다'),
+        {
+          stype: 'collection',
+          attributes: {
+            name: '지표 목록',
+            source: '지표',
+            sortBy: '달',
+            layoutMode: 'column',
+            gap: 0,
+            sizing: 'fill'
+          },
+          content: [placed('metric-row', { 달: 'field:달', 가입: 'field:가입', 해지: 'field:해지' })]
+        }
+      ])
+    ]
+  };
+}
+
+/** One big number with its name under it — the shape every dashboard opens with. */
+const figure = (name: string, value: string): Node =>
+  stack(
+    'column',
+    {
+      name,
+      gap: GAP.hair,
+      padding: px(20),
+      sizing: 'fill',
+      fill: 'var:면',
+      cornerRadius: ROUND.box,
+      stroke: 'var:선',
+      strokeWidth: px(1)
+    },
+    /*
+     * A **paragraph** around the run, which the schema said out loud the moment the page loaded:
+     * `atSize` makes an inline run, and a stack holds blocks. Three faults, one per figure, and the
+     * page drew perfectly — which is exactly why the check is a getter the test reads rather than
+     * something anybody notices.
+     */
+    [quiet(name), paragraph([atSize(value, '32px')])]
+  );
+
 /** `/블로그` — a featured post, then the rest, newest first. */
 function blog(): Node {
   return {
@@ -1755,6 +2209,13 @@ function blog(): Node {
           'row',
           {
             name: '머리글 카드',
+            /*
+             * The **stored** destination, which is the other half of the pair: this one is written
+             * on the block, the rows below are answered by the data, and both publish the same
+             * `<a>`. Kept written this way deliberately — it is the shape every document already
+             * uses, and the export still has to read it.
+             */
+            goes: pageRef('post-schema'),
             gap: GAP.wide,
             alignItems: 'center',
             padding: px(24),
@@ -1807,19 +2268,88 @@ function blog(): Node {
          * thing and the line says *and then the others*.
          */
         rule(),
-        {
-          stype: 'collection',
-          attributes: {
-            name: '글 목록',
-            source: '글',
-            sortBy: '날짜',
-            sortDir: 'desc',
-            layoutMode: 'column',
-            gap: 0,
-            sizing: 'fill'
+        stack(
+          'row',
+          {
+            name: '목록과 옆',
+            gap: GAP.wide,
+            alignItems: 'start',
+            sizing: 'fill',
+            overrides: { mobile: { layoutMode: 'column', gap: px(28) } }
           },
-          content: [placed('post-row', { 제목: 'field:제목', 요약: 'field:요약', 날짜: 'field:날짜' })]
-        }
+          [
+            /**
+             * **비율**, and the first place in this document that says one.
+             *
+             * `fill` gives every child of a row the same width, and a list beside a sidebar is not
+             * two equal things — it is two thirds and one third. Without a ratio the only ways to
+             * say that were a fixed pixel width on the aside (wrong at every width but the one it
+             * was measured at) or a `maxWidth` on the list, which stops it growing rather than
+             * making it share.
+             *
+             * On the children rather than on the row, because a share is a claim on the space the
+             * **parent** is handing out — which is what makes 2:1 hold at every width instead of at
+             * one width.
+             */
+            stack('column', { name: '목록', gap: 0, sizing: 'share', share: 2 }, [
+              {
+                stype: 'collection',
+                attributes: {
+                  name: '글 목록',
+                  source: '글',
+                  sortBy: '날짜',
+                  sortDir: 'desc',
+                  layoutMode: 'column',
+                  gap: 0,
+                  sizing: 'fill'
+                },
+                content: [
+                  placed('post-row', {
+                    제목: 'field:제목',
+                    요약: 'field:요약',
+                    날짜: 'field:날짜',
+                    /*
+                     * The join that makes an index an index: a column of the data answers *where
+                     * this row goes*, so the rows go to different places — two of them nowhere,
+                     * because two of these posts are not written yet.
+                     */
+                    '가는 곳': 'field:페이지'
+                  })
+                ]
+              }
+            ]),
+            stack(
+              'column',
+              {
+                name: '옆',
+                gap: GAP.mid,
+                sizing: 'share',
+                share: 1,
+                padding: px(20),
+                fill: 'var:면',
+                cornerRadius: ROUND.box,
+                stroke: 'var:선',
+                strokeWidth: px(1)
+              },
+              [
+                stack('column', { name: '옆 소개', gap: GAP.hair }, [
+                  heading(3, '무엇을 적나요'),
+                  quiet('고친 것과, 고치다가 알게 된 것. 대부분은 이미 있던 것을 읽은 이야기입니다.')
+                ]),
+                rule(),
+                stack('column', { name: '옆 링크', gap: GAP.hair, alignItems: 'start' }, [
+                  quiet('제품이 궁금하다면'),
+                  /*
+                   * A **placed** button rather than a paragraph with a destination, because `goes` is
+                   * a container's attribute: it was on `heading` and `paragraph` too until the
+                   * harness counted how many of those the renderer read, which was none.
+                   */
+                  placed('ghost', { 문구: '제품 살펴보기' }, { goes: pageRef('products'), sizing: 'hug' })
+                ])
+              ]
+            )
+          ]
+        )
       ]),
       placed('site-footer')
     ]
@@ -2219,6 +2749,108 @@ function components(): Node {
           ])
         ]
       },
+      /**
+       * **대시보드 페이지** — a template whose chrome is *less* than a public page's, on purpose.
+       *
+       * The post template wraps the site's header and footer around a readable column, because a post
+       * is a page of the site. A dashboard is not: it is a page of the **tool**, read by the people
+       * who run the site, and every piece of marketing chrome on it is something between a reader and
+       * a number. So it has a title bar of its own, a wide band rather than a 720px measure, and no
+       * footer at all.
+       *
+       * Which is the argument for templates being a **page's** attribute rather than a blog feature:
+       * the second one is not a second blog, it is a different kind of page entirely, and the only
+       * thing the two have in common is that a reader should not have to build the frame twice.
+       */
+      {
+        stype: 'component',
+        attributes: { id: 'dashboard-page', name: '대시보드' },
+        content: [
+          stack('column', { gap: 0, sizing: 'fill', fill: 'var:종이', partId: 'd-root' }, [
+            /*
+             * A bar, not the site's header: a dashboard is not somewhere a visitor navigates from,
+             * and offering them 제품 · 가격 · 소개 above a chart is the tool pretending to be the site.
+             */
+            stack(
+              'row',
+              {
+                gap: GAP.tight,
+                alignItems: 'center',
+                paddingTop: px(20),
+                paddingBottom: px(20),
+                paddingLeft: px(40),
+                paddingRight: px(40),
+                sizing: 'fill',
+                stroke: 'var:선',
+                strokeWidth: px(1),
+                partId: 'd-bar'
+              },
+              [paragraph('Barocss · 지표', { partId: 'd-name' })]
+            ),
+            stack(
+              'column',
+              {
+                gap: GAP.wide,
+                paddingTop: px(40),
+                paddingBottom: px(64),
+                paddingLeft: px(40),
+                paddingRight: px(40),
+                sizing: 'fill',
+                partId: 'd-band',
+                overrides: { mobile: { paddingLeft: px(20), paddingRight: px(20) } }
+              },
+              [
+                /*
+                 * **The slot**, and wide — a dashboard is read across rather than down, which is the
+                 * one thing about its shape that is not a preference: two charts side by side is a
+                 * comparison, and two charts stacked is two facts.
+                 */
+                stack('column', { gap: GAP.wide, sizing: 'fill', partId: 'd-slot', slot: '본문' }, [])
+              ]
+            )
+          ])
+        ]
+      },
+      /**
+       * **지표 줄** — one month, as a row of a table.
+       *
+       * The second card in this document whose parts are all bound, and the first whose values are
+       * **numbers**: a table of figures wants its columns to line up, which is what `tabular-nums`
+       * is for and what a left-aligned number defeats. So the two number columns are fixed-width and
+       * right-aligned, and the month is what fills.
+       */
+      {
+        stype: 'component',
+        attributes: { id: 'metric-row', name: '지표 줄' },
+        content: [
+          { stype: 'componentVar', attributes: { name: '달', kind: 'text', value: '1월' } },
+          { stype: 'componentVar', attributes: { name: '가입', kind: 'number', value: '0' } },
+          { stype: 'componentVar', attributes: { name: '해지', kind: 'number', value: '0' } },
+          { stype: 'componentBind', attributes: { part: 'm-month', attr: 'text', var: '달' } },
+          { stype: 'componentBind', attributes: { part: 'm-in', attr: 'text', var: '가입' } },
+          { stype: 'componentBind', attributes: { part: 'm-out', attr: 'text', var: '해지' } },
+          stack(
+            'row',
+            {
+              gap: GAP.mid,
+              paddingTop: px(10),
+              paddingBottom: px(10),
+              alignItems: 'center',
+              partId: 'm-row',
+              sizing: 'fill'
+            },
+            [
+              stack('column', { gap: 0, sizing: 'fill', partId: 'm-when' }, [paragraph('1월', { partId: 'm-month' })]),
+              stack('column', { gap: 0, sizing: 'fixed', minWidth: px(80), partId: 'm-a' }, [
+                paragraph('0', { partId: 'm-in', align: 'end' })
+              ]),
+              stack('column', { gap: 0, sizing: 'fixed', minWidth: px(80), partId: 'm-b' }, [
+                paragraph('0', { partId: 'm-out', align: 'end' })
+              ])
+            ]
+          )
+        ]
+      },
       {
         stype: 'component',
         attributes: { id: 'post-row', name: '글 줄' },
@@ -2238,7 +2870,24 @@ function components(): Node {
            * reads as a card that is broken rather than one waiting for data.
            */
           { stype: 'componentVar', attributes: { name: '날짜', kind: 'date', format: 'yyyy년 M월 d일', value: '2026-01-01' } },
+          /**
+           * **어디로 가는지**, as a question the card asks — the fourth variable, and the one that is
+           * not words.
+           *
+           * A card's variables had all been *what it says*; this one is *what it does*. It is the
+           * same reference every link in this document is written as (`page:블로그`), so the answer
+           * is a page's durable id and renaming the page moves every row's link with it.
+           *
+           * Which is what a list of posts needs and could not have: `goes` was read at export time
+           * from the **stored** node, and a row of a list has no stored node of its own — it draws
+           * as `${collection}~${index}~${part}`, so the lookup landed on the definition's part and
+           * all four rows went to the same place. See `data-goes` in `renderers.ts`.
+           *
+           * Empty by default: a card placed by hand, with nothing said, is a box and not a link.
+           */
+          { stype: 'componentVar', attributes: { name: '가는 곳', kind: 'text', value: '' } },
           { stype: 'componentBind', attributes: { part: 'b-title', attr: 'text', var: '제목' } },
+          { stype: 'componentBind', attributes: { part: 'b-row', attr: 'goes', var: '가는 곳' } },
           { stype: 'componentBind', attributes: { part: 'b-body', attr: 'text', var: '요약' } },
           { stype: 'componentBind', attributes: { part: 'b-date', attr: 'text', var: '날짜' } },
           /*

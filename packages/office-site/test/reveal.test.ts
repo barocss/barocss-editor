@@ -183,8 +183,17 @@ describe('how a block arrives', () => {
     const map = sitemapFor(editor)!;
     expect(map).toContain('<?xml version="1.0" encoding="UTF-8"?>');
     expect(map).toContain('<loc>https://barocss.example/</loc>');
-    // One `<url>` per page of the site, which is what a sitemap is.
-    expect(map.match(/<loc>/g)?.length).toBe(pagesOf(doc).length);
+    /*
+     * One `<url>` per page a crawler is **meant to read** — which is not quite every page, and the
+     * difference arrived with the sample's dashboard. A page that says `noIndex` is telling a crawler
+     * not to read it, and listing it in the sitemap in the same publish teaches the crawler that the
+     * sitemap is unreliable. See `sitemapFor`.
+     */
+    const listed = pagesOf(doc).filter(
+      (page) => (store.getNode(page.sid) as never as { attributes?: Record<string, unknown> })?.attributes?.noIndex !== true
+    );
+    expect(map.match(/<loc>/g)?.length).toBe(listed.length);
+    expect(listed.length).toBeLessThan(pagesOf(doc).length);
 
     /*
      * And **no `<lastmod>`**, which is a decision rather than an omission: this model records no

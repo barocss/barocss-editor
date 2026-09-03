@@ -1,30 +1,59 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import { getGlobalRegistry } from '@barocss/dsl';
+import { EditorViewDOM } from '@barocss/editor-view-dom';
+import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import {
   Button,
   ChoiceSelect,
-  Dialog,
-  DialogButton,
   Field,
   Icon,
   IconButton,
   PropertyToggle,
-  TextField
+  TextField,
+  Drawer,
+  ColorField,
+  type ChoiceOption
 } from '@barocss/office-ui';
+import {
+  assetsOf,
+  richPlain,
+  richTextNamed,
+  DATA_FIELD_KINDS,
+  DATA_FIELD_KIND_ICONS,
+  DATA_FIELD_KIND_NAMES,
+  columnNames,
+  fieldsFrom,
+  pageIdOf,
+  pageRef,
+  pagesOf,
+  type DataField,
+  type DataFieldKind
+} from '@barocss/office-site';
 
 /**
- * The data itself, in a grid.
+ * The data itself, in a table — **in the main area**, where a page is.
  *
- * ## Why this is a dialog and not a panel
+ * ## It was a dialog, and the argument for that was wrong
  *
- * Every other thing a reader edits here is a *block*, and a block is edited beside the page it is
- * on — the rail on one side, the properties on the other, the drawing between them. A dataset is
- * not on the page. It is a resource the page refers to by name, and what it needs is the one shape
- * neither side of the shell can give: **width**. A catalogue is five columns by twenty rows, and a
- * 280px rail draws that as a column of unreadable slivers.
+ * What was written here was: a dataset is not on the page, it is a resource the page refers to by
+ * name, and what it needs is the one shape neither side of the shell can give — **width**; a
+ * catalogue is five columns by twenty rows, and a 280px rail draws that as a column of slivers. All
+ * of which is true, and the conclusion did not follow. A dialog is what you reach for when width is
+ * the only problem, and it is a shape that keeps having to grow: 56rem, then 76rem the day each
+ * column's header held two controls instead of one.
  *
- * So it opens over the page, and closes back to it. That also matches what the act *is*: editing
- * data is a stint, not an adjustment — a reader comes here to fill a table in and leaves.
+ * The premise that was actually wrong is the second one — *editing data is a stint, not an
+ * adjustment*. A dataset is a **place**. A reader goes back to it, it holds most of what a site
+ * says, and everything about it is the same kind of work as editing a page.
+ *
+ * ## And the mechanism was already here, twice
+ *
+ * A board takes a `rootId` and draws whatever node it names, which is how **editing a component
+ * definition** works: the main area shows something that is not a page, and the rail, the panel and
+ * the selection are untouched. A dataset is the third thing that area can show. Nothing about the
+ * shell changes, the width problem stops existing, and the two ways of editing data — a table and a
+ * row's form — sit beside each other instead of one being inside the other.
  *
  * ## What it is careful about
  *
@@ -33,22 +62,339 @@ import {
  * Enter** rather than on change, which is what `TextField` already does, and the grid holds no draft
  * state of its own: the document is the value, and one commit is one entry in the history.
  */
-export function DataEditor({
+/**
+ * **One cell, drawn as what its column says it holds.**
+ *
+ * Every cell here was a text box — a date, a price, a yes/no and a page reference alike — which is
+ * what made entering data feel like typing into a spreadsheet by hand rather than filling something
+ * in. A column knows its kind now (`dataset.fields`), and the browser has had a date picker, a
+ * number spinner and a select for a decade; the only thing that was missing was somewhere to say
+ * which one this is.
+ *
+ * ## Why `onKeys` is only on the typed ones
+ *
+ * Arrow keys move between cells, and that is a **text box's** gesture: in a select the arrows choose
+ * an option and in a checkbox there is nothing to move a caret through. Taking them there would break
+ * the control to make the grid consistent, which is the wrong way round.
+ */
+function Cell({
+  field,
+  value,
+  plain,
+  richAt,
+  pages,
+  assets,
+  onCommit,
+  onKeys,
+  ariaLabel,
+  data
+}: {
+  field: DataField;
+  value: unknown;
+  /** The **words** a rich value resolves to — a reference has none of its own to draw. */
+  plain?: string;
+  /**
+   * Where the rich value's nodes are, when this cell is somewhere they can be **edited**.
+   *
+   * Absent in the table, on purpose: a row is one line tall and a paragraph editor in it would be a
+   * cell that grows as somebody types. The form has the room, so the form gets the editor.
+   */
+  richAt?: { editor: Editor; sid: string };
+  /** The document's pages, for a column that holds a page reference. */
+  pages: ChoiceOption[];
+  /** And its pictures, for one that holds an `asset:`. */
+  assets: ChoiceOption[];
+  onCommit: (value: string) => void;
+  onKeys?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  ariaLabel: string;
+  data: Record<string, string>;
+}) {
+  const text = value === undefined || value === null ? '' : String(value);
+
+  switch (field.kind) {
+    case 'richText':
+      /**
+       * **서식 있는 글**, and the one cell whose value is not in the cell.
+       *
+       * It holds `text:요약-스택` and the words are `richText` nodes in `resources`, so a text box
+       * here would be a reader typing over a reference and losing a paragraph.
+       *
+       * Two drawings, and which one depends on **where there is room**. In the table it is the
+       * words, quiet and not typable: a row is one line tall and a paragraph editor in it would be
+       * a cell that grew as somebody typed. In the **form** it is the real thing — a second view
+       * over the same editor, pointed at the node, where every mark command works because it is the
+       * same document and the same selection. See `RichEdit`.
+       */
+      return richAt ? (
+        <RichEdit editor={richAt.editor} sid={richAt.sid} />
+      ) : (
+        <span className="st-cell-rich" title={text}>
+          {plain || <em>비어 있음</em>}
+        </span>
+      );
+
+    case 'colour':
+      /* The document's own colours beside a literal, which is what every other colour here offers. */
+      return <ColorField value={text || null} onChange={onCommit} ariaLabel={ariaLabel} />;
+
+    case 'choices':
+      /*
+       * **여러 선택**, kept as one string with newlines between — see `cellFor` for why a cell does
+       * not hold an array. Drawn as the chosen ones, and chosen from the same list a `choice` uses.
+       */
+      return (
+        <span className="st-cell-choices">
+          {(field.options ?? []).map((one) => {
+            const held = text.split('\n').filter(Boolean);
+            const on = held.includes(one);
+            return (
+              <button
+                key={one}
+                type="button"
+                data-on={on ? 'true' : undefined}
+                aria-pressed={on}
+                aria-label={`${ariaLabel} ${one}`}
+                onClick={() =>
+                  onCommit((on ? held.filter((each) => each !== one) : [...held, one]).join('\n'))
+                }
+              >
+                {one}
+              </button>
+            );
+          })}
+        </span>
+      );
+
+    case 'image':
+      /* A picture from the document's own asset box — `asset:로고`, the same reference a block uses. */
+      return (
+        <ChoiceSelect
+          value={text}
+          options={assets}
+          onChange={onCommit}
+          ariaLabel={ariaLabel}
+          className="w-full min-w-0"
+        />
+      );
+
+    case 'longText':
+      return (
+        <textarea
+          className="st-cell-long"
+          defaultValue={text}
+          onBlur={(event) => onCommit(event.target.value)}
+          aria-label={ariaLabel}
+          rows={3}
+        />
+      );
+
+    case 'boolean':
+      return (
+        <PropertyToggle
+          value={value === true}
+          onChange={(next) => onCommit(String(next))}
+          ariaLabel={ariaLabel}
+        />
+      );
+
+    case 'choice':
+      return (
+        <ChoiceSelect
+          value={text}
+          /*
+           * An empty row first, because a choice column is not a required field: a row that has not
+           * been categorised yet is an ordinary state, and a select with no way back to *nothing*
+           * makes the first option a value nobody chose.
+           */
+          options={[{ id: '', label: '—' }, ...(field.options ?? []).map((one) => ({ id: one, label: one }))]}
+          onChange={onCommit}
+          ariaLabel={ariaLabel}
+        />
+      );
+
+    case 'page':
+      /* The page's **durable id**, which is what every other reference in this document holds. */
+      return <ChoiceSelect value={pageIdOf(text)} options={pages} onChange={(id) => onCommit(id ? pageRef(id) : '')} ariaLabel={ariaLabel} />;
+
+    default:
+      return (
+        <TextField
+          value={text}
+          type={field.kind === 'number' ? 'number' : field.kind === 'date' ? 'date' : field.kind === 'url' ? 'url' : 'text'}
+          onCommit={onCommit}
+          onKeys={onKeys}
+          ariaLabel={ariaLabel}
+          data={data}
+        />
+      );
+  }
+}
+
+/**
+ * **서식 있는 글, 고칠 수 있게** — and there is no new editor here, which is the point.
+ *
+ * ## What a view already is
+ *
+ * `page-frame.tsx` wrote the contract this leans on: *a view that draws part of a document says so
+ * and asks for nothing — `rootId`. Then it takes the same path the main view takes — no caller tree,
+ * nothing sanitised, nothing written back — and it redraws itself on a content change with the caret
+ * where the reader left it.*
+ *
+ * A `richText` node is a node. So editing one is a second `EditorViewDOM` over **the same editor and
+ * the same store**, pointed at it. Which is the third time this mechanism answers a question: the
+ * boards draw a page, editing a definition points them at its part, and this points a small one at a
+ * paragraph living in `resources`.
+ *
+ * What comes for free, and is the whole argument for the shape:
+ *
+ * - **One selection**, because there is one document and one place the reader is.
+ * - **One history** — undo walks back through a cell and a summary in the order they happened.
+ * - **Every mark command**, unchanged. Which is exactly the hole the conformance harness reported
+ *   the day the sample put a link in one: `removeLink` found the run, said it could run, and changed
+ *   nothing, because nothing could put a caret there.
+ * - **The floating toolbar and the `/` menu**, which follow the selection and so follow this.
+ *
+ * ## The two things not to do, both already paid for once
+ *
+ * - **The host must not redraw it.** A view subscribes to `editor:content.change` and redraws
+ *   itself; a second render from outside replaces the DOM under a reader who is typing in it, which
+ *   is how the caret was lost here before.
+ * - **Do not hand it a tree.** `render(tree)` *mutates* what it is given — `_sanitizeTreeContent`
+ *   assigns to `content` — so a proxy over the store gets resolved nodes written back into the
+ *   document. `rootId` only.
+ */
+function RichEdit({ editor, sid }: { editor: Editor; sid: string }) {
+  const host = useRef<HTMLDivElement>(null);
+  const view = useRef<EditorViewDOM | null>(null);
+
+  useEffect(() => {
+    if (!host.current) return;
+
+    if (!view.current) {
+      const store = (editor as never as { dataStore: { getNode: (one: string) => unknown } }).dataStore;
+      const doc = {
+        rootId: (editor as never as { getRootId: () => string }).getRootId(),
+        getNode: (one: string) => store.getNode(one) as never
+      };
+      view.current = new EditorViewDOM(editor, {
+        container: host.current,
+        registry: getGlobalRegistry(),
+        rootId: sid,
+        /*
+         * The text environment, the same one every view of this document has: a summary's paragraphs
+         * are the document's paragraphs and resolve their formatting the same way. **No site env** —
+         * this is not drawn at a width, and a breakpoint here would be a question with no meaning.
+         */
+        env: { [WORD_ENV_KEY]: createTextEnv(doc as never) }
+      } as never);
+    }
+
+    view.current.setRootId(sid);
+    view.current.render(undefined, { sync: true });
+  }, [editor, sid]);
+
+  useEffect(
+    () => () => {
+      view.current?.destroy?.();
+      view.current = null;
+    },
+    []
+  );
+
+  return <div ref={host} className="st-rich-edit" data-rich-edit={sid} />;
+}
+
+/**
+ * **속성 추가** — a name and what it holds, in one gesture.
+ *
+ * It was a name alone, so every column a reader made was 글자 and setting it to a date was a second
+ * act on a control they had to find afterwards. Which is not how anybody thinks about adding a
+ * column: *발행일, 날짜* is one decision, and every table of this kind asks for both at once.
+ *
+ * The name **first and focused**, because that is what a reader came to type; the kinds under it,
+ * because there are fourteen and a reader picks by recognising a shape rather than by reading a
+ * word. `setDatasetField` already took both — the command could do this before any surface offered
+ * it, which is the ordinary way round here.
+ */
+function AddField({
+  onAdd,
+  onClose,
+  where
+}: {
+  onAdd: (name: string, kind: DataFieldKind) => void;
+  onClose: () => void;
+  /** What names the controls, so a form and a table do not both say *새 열 이름*. */
+  where: string;
+}) {
+  const [name, setName] = useState('');
+  const [kind, setKind] = useState<DataFieldKind>('text');
+
+  const add = () => {
+    const named = name.trim();
+    if (!named) return onClose();
+    onAdd(named, kind);
+    onClose();
+  };
+
+  return (
+    <div className="st-add-field" data-add-field={where}>
+      <TextField
+        value={name}
+        onChange={setName}
+        placeholder="속성 이름"
+        ariaLabel={`${where} 새 속성 이름`}
+        onKeys={(event) => {
+          if (event.key === 'Enter') add();
+          if (event.key === 'Escape') onClose();
+        }}
+        inputRef={(el) => el?.focus()}
+        data={{ 'add-field-name': where }}
+      />
+      <div className="st-add-kinds" role="listbox" aria-label="자료형">
+        {DATA_FIELD_KINDS.map((one) => (
+          <button
+            key={one}
+            type="button"
+            role="option"
+            aria-selected={one === kind}
+            data-on={one === kind ? 'true' : undefined}
+            data-add-kind={one}
+            onClick={() => setKind(one)}
+          >
+            <Icon name={DATA_FIELD_KIND_ICONS[one] as never} size={14} />
+            {DATA_FIELD_KIND_NAMES[one]}
+          </button>
+        ))}
+      </div>
+      <div className="st-add-do">
+        <Button onClick={add} data={{ 'add-field-do': where }}>
+          추가
+        </Button>
+        <Button onClick={onClose}>취소</Button>
+      </div>
+    </div>
+  );
+}
+
+export function DataTable({
   editor,
   run,
   can,
   revision,
   sid,
-  onClose
+  onClose,
+  onOpenRow
 }: {
   editor: Editor;
   run: (name: string, payload?: Record<string, unknown>) => void;
   can: (name: string, payload?: Record<string, unknown>) => boolean;
   /** The document's revision, so the grid redraws when a command lands. */
   revision: number;
-  /** Which dataset, or nothing when the editor is closed. */
+  /** Which dataset. Nothing means the main area is showing something else. */
   sid: string | null;
   onClose: () => void;
+  /** Open one row as a form. The grid compares rows; the form fills one in. */
+  onOpenRow?: (row: number) => void;
 }) {
   const store = editor.dataStore;
   const [adding, setAdding] = useState(false);
@@ -63,10 +409,45 @@ export function DataEditor({
       kind: attrs.kind === 'url' ? 'url' : 'inline',
       url: String(attrs.url ?? ''),
       live: attrs.live === true,
-      fields: ((attrs.fields ?? []) as unknown[]).filter((one): one is string => typeof one === 'string'),
+      /* What each column *holds*, not only what it is called — see `fieldsFrom` for both shapes. */
+      fields: fieldsFrom(attrs.fields),
       records: ((attrs.records ?? []) as unknown[]).map((row) => (row ?? {}) as Record<string, unknown>)
     };
   }, [store, sid, revision]);
+
+  /**
+   * The document's pages, for a column that holds a **page reference**.
+   *
+   * A picker rather than a text box, for the reason every other reference in this product is a
+   * picker: `page:post-stack` typed by hand is a typo that draws a link to nowhere, and the id is
+   * not what a reader knows the page by.
+   */
+  /** The document, for the readers that resolve a reference — `richPlain`, `pagesOf`, `assetsOf`. */
+  const doc = useMemo(
+    () => ({ rootId: editor.getRootId() ?? '', getNode: (one: string) => store?.getNode(one) }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editor, store, revision]
+  );
+
+  const pages = useMemo((): ChoiceOption[] => {
+    return [
+      { id: '', label: '없음' },
+      ...pagesOf(doc as never).map((one) => ({ id: one.id, label: `${one.name} · ${one.path}` }))
+    ];
+  }, [editor, store, revision]);
+
+  /**
+   * The document's **pictures**, for a column that holds one.
+   *
+   * `asset:로고`, which is the same reference a block's `src` holds — so a picture in a list is the
+   * same picture the page uses, and changing the file changes both.
+   */
+  const assets = useMemo((): ChoiceOption[] => {
+    return [
+      { id: '', label: '없음' },
+      ...assetsOf(doc as never).map((one) => ({ id: `asset:${one.name}`, label: one.label ?? one.name }))
+    ];
+  }, [editor, store, revision]);
 
   if (!sid || !data) return null;
 
@@ -97,7 +478,7 @@ export function DataEditor({
   const moveCell = (event: React.KeyboardEvent<HTMLInputElement>, row: number, field: string) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const box = event.currentTarget;
-    const column = data.fields.indexOf(field);
+    const column = columnNames(data.fields).indexOf(field);
 
     const atStart = box.selectionStart === 0 && box.selectionEnd === 0;
     const atEnd = box.selectionStart === box.value.length && box.selectionEnd === box.value.length;
@@ -114,7 +495,7 @@ export function DataEditor({
               : undefined;
     if (!step) return;
 
-    const wanted = `${row + step[0]}:${data.fields[column + step[1]] ?? ''}`;
+    const wanted = `${row + step[0]}:${data.fields[column + step[1]]?.name ?? ''}`;
     const next = document.querySelector<HTMLInputElement>(`input[data-cell="${wanted}"]`);
     if (!next) return;
 
@@ -131,45 +512,38 @@ export function DataEditor({
   const set = (payload: Record<string, unknown>) => run('setDatasetInfo', { nodeId: sid, ...payload });
 
   return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      /*
-        The label alone. It was `${label} 데이터`, which reads correctly for `상품 목록` and comes
-        out as **새 데이터 데이터** for a dataset a reader has just made — and "새 데이터" is the
-        name this product gives one, so the doubling is the common case rather than the odd one.
-        What kind of thing this is belongs in the line under the title, where it never doubles.
-      */
-      title={data.label}
-      description={`데이터 · ${data.fields.length}개 열 · ${data.records.length}행`}
-      className="st-data-dialog"
-      footer={
-        <>
-          {/*
-            Deleting the dataset lives here rather than in the rail's list, because this is the only
-            place a reader can see what they would be deleting. It refuses while a list draws it —
-            `removeDataset` counts the collections that name it — and the button says so by being
-            disabled with a title rather than by failing when pressed.
-          */}
-          <DialogButton
-            variant="secondary"
-            disabled={!can('removeDataset', { nodeId: sid })}
-            title={can('removeDataset', { nodeId: sid }) ? undefined : '이 데이터를 쓰는 목록이 있습니다'}
-            onClick={() => {
-              run('removeDataset', { nodeId: sid });
-              onClose();
-            }}
-          >
-            데이터 삭제
-          </DialogButton>
-          <DialogButton variant="primary" onClick={onClose}>
-            닫기
-          </DialogButton>
-        </>
-      }
-    >
+    <div className="st-data-page" data-dataset-page={data.name}>
+      {/*
+        The strip above the table: what this data is called, and the one act that is about the whole
+        of it. It was a dialog's title bar and footer, which is where those two things go when a
+        dialog is what you have — here they are a header, which is what they are.
+      */}
+      <header className="st-data-head">
+        <div className="st-data-title">
+          <h2>{data.label}</h2>
+          <p>
+            데이터 · {data.fields.length}개 열 · {data.records.length}행
+          </p>
+        </div>
+        {/*
+          Deleting the dataset lives here rather than in the rail's list, because this is the only
+          place a reader can see what they would be deleting. It refuses while a list draws it —
+          `removeDataset` counts the collections that name it — and says so by being disabled with a
+          title rather than by failing when pressed.
+        */}
+        <Button
+          disabled={!can('removeDataset', { nodeId: sid })}
+          title={can('removeDataset', { nodeId: sid }) ? undefined : '이 데이터를 쓰는 목록이 있습니다'}
+          onClick={() => {
+            run('removeDataset', { nodeId: sid });
+            onClose();
+          }}
+          data={{ 'dataset-remove': data.name }}
+        >
+          데이터 삭제
+        </Button>
+      </header>
+
       <div className="st-data-edit">
         <div className="st-data-about">
           <Field label="이름">
@@ -305,44 +679,74 @@ export function DataEditor({
               <tr>
                 <th scope="col" className="st-data-rownum" />
                 {data.fields.map((field) => (
-                  <th key={field} scope="col">
+                  <th key={field.name} scope="col">
                     <span className="st-data-col">
                       {/*
-                        The column's name **is** the control. A rename rewrites the key in every row
-                        (`setDatasetField`), which is the one thing about this grid that is not
-                        obvious — so it is done in the place a reader would try it.
+                        The column's **name**, and it is the control: a rename rewrites the key in
+                        every row (`setDatasetField`), which is the one thing about this grid that is
+                        not obvious — so it is done in the place a reader would try it.
                       */}
-                      <TextField
-                        value={field}
-                        onCommit={(value) => {
-                          if (value !== field) run('setDatasetField', { nodeId: sid, field, rename: value });
-                        }}
-                        ariaLabel={`${field} 열 이름`}
-                        data={{ 'column': field }}
+                      <span className="st-data-col-name">
+                        <TextField
+                          value={field.name}
+                          onCommit={(value) => {
+                            if (value !== field.name) {
+                              run('setDatasetField', { nodeId: sid, field: field.name, rename: value });
+                            }
+                          }}
+                          ariaLabel={`${field.name} 열 이름`}
+                          data={{ 'column': field.name }}
+                        />
+                        <IconButton
+                          label={`${field.name} 열 삭제`}
+                          size="sm"
+                          disabled={data.fields.length <= 1}
+                          onClick={() => run('setDatasetField', { nodeId: sid, field: field.name, remove: true })}
+                          data={{ 'column-remove': field.name }}
+                        >
+                          <Icon name="delete" size={12} />
+                        </IconButton>
+                      </span>
+                      {/*
+                        **What the column holds**, on its own line under the name.
+
+                        It is a fact about the column and this is the one place a column is looked at
+                        — it used to live on the *card* that drew it (`componentVar.kind`), so two
+                        cards drawing one column declared it twice and could disagree, and nothing
+                        could check a cell.
+
+                        Under rather than beside, and that is not taste: two controls side by side
+                        make a header whose width is the sum of two minimums **per column**, which at
+                        five columns is wider than any dialog. Side by side, the name field was the
+                        flexible half and the browser squeezed it to nothing.
+                      */}
+                      <ChoiceSelect
+                        value={field.kind}
+                        /*
+                          **A picture per kind**, because a reader setting a table up scans fourteen
+                          rows of a menu and fourteen Korean words at 12px are read one at a time. All
+                          fourteen were drawn for this — `math` (Σ) on a number would have said *this
+                          is computed*, which is a kind this product deliberately does not have.
+                        */
+                        options={DATA_FIELD_KINDS.map((one) => ({
+                          id: one,
+                          label: DATA_FIELD_KIND_NAMES[one],
+                          icon: DATA_FIELD_KIND_ICONS[one]
+                        }))}
+                        onChange={(kind) => run('setDatasetField', { nodeId: sid, field: field.name, kind })}
+                        ariaLabel={`${field.name} 자료형`}
+                        testClass="st-data-kind"
+                        className="w-full min-w-0"
                       />
-                      <IconButton
-                        label={`${field} 열 삭제`}
-                        size="sm"
-                        disabled={data.fields.length <= 1}
-                        onClick={() => run('setDatasetField', { nodeId: sid, field, remove: true })}
-                        data={{ 'column-remove': field }}
-                      >
-                        <Icon name="delete" size={12} />
-                      </IconButton>
                     </span>
                   </th>
                 ))}
                 <th scope="col" className="st-data-add">
                   {adding ? (
-                    <TextField
-                      value=""
-                      placeholder="열 이름"
-                      ariaLabel="새 열 이름"
-                      onCommit={(value) => {
-                        setAdding(false);
-                        const named = value.trim();
-                        if (named) run('setDatasetField', { nodeId: sid, field: named });
-                      }}
+                    <AddField
+                      where="표"
+                      onAdd={(named, kind) => run('setDatasetField', { nodeId: sid, field: named, kind })}
+                      onClose={() => setAdding(false)}
                     />
                   ) : (
                     <IconButton label="열 추가" size="sm" onClick={() => setAdding(true)} data={{ 'column-add': 'true' }}>
@@ -359,16 +763,35 @@ export function DataEditor({
                 // make React keep the wrong input focused after a delete.
                 <tr key={index} data-row={index}>
                   <th scope="row" className="st-data-rownum">
-                    {index + 1}
+                    {/*
+                      The row number **is** the way into the form, which is where every tool of this
+                      kind puts it: the one part of a row that is not a value, and the one a reader
+                      is already aiming at when they mean *this row* rather than *this cell*.
+                    */}
+                    <button
+                      type="button"
+                      className="st-data-open"
+                      aria-label={`${index + 1}행 펼치기`}
+                      onClick={() => onOpenRow?.(index)}
+                      data-row-open={String(index)}
+                    >
+                      {index + 1}
+                    </button>
                   </th>
                   {data.fields.map((field) => (
-                    <td key={field}>
-                      <TextField
-                        value={String(row[field] ?? '')}
-                        onCommit={(value) => run('setDatasetCell', { nodeId: sid, row: index, field, value })}
-                        onKeys={(event) => moveCell(event, index, field)}
-                        ariaLabel={`${index + 1}행 ${field}`}
-                        data={{ 'cell': `${index}:${field}` }}
+                    <td key={field.name} data-cell-kind={field.kind}>
+                      <Cell
+                        field={field}
+                        value={row[field.name]}
+                        plain={richPlain(doc, row[field.name])}
+                        pages={pages}
+                        assets={assets}
+                        onCommit={(value) =>
+                          run('setDatasetCell', { nodeId: sid, row: index, field: field.name, value })
+                        }
+                        onKeys={(event) => moveCell(event, index, field.name)}
+                        ariaLabel={`${index + 1}행 ${field.name}`}
+                        data={{ 'cell': `${index}:${field.name}` }}
                       />
                     </td>
                   ))}
@@ -392,6 +815,164 @@ export function DataEditor({
           행 추가
         </Button>
       </div>
-    </Dialog>
+    </div>
+  );
+}
+
+/**
+ * **한 행을, 폼으로** — the other half of a grid, and the half a blog needs.
+ *
+ * ## Why a grid is not enough, said as the measurement
+ *
+ * A grid is for **scanning**: twenty rows of five columns, where the shape of a column tells you
+ * something and a wrong cell stands out. It is the wrong shape for **entering** one row, and gets
+ * worse the more a row holds: five columns of a product is a comfortable line; a blog entry with a
+ * title, a summary, a date, a flag and a page is a row that has scrolled off the right edge before
+ * the reader has finished the summary, and every field is 8rem wide whatever it holds.
+ *
+ * So: both. The grid stays exactly as it was and is where rows are compared; the form is where one
+ * is filled in. That is the pair every tool of this kind arrives at, and each half is bad at the
+ * other's job rather than merely less good.
+ *
+ * ## Why it is a drawer and not a second dialog
+ *
+ * Because of where it is opened from. A row is opened from the grid *and* from the page — a reader
+ * who clicks the third card of a blog index is looking at row three — and in the second case the
+ * thing they are editing is **behind the drawer, drawn**. A dialog in the middle covers it. A drawer
+ * against the right edge leaves it visible, so a summary being typed is a summary the reader can
+ * watch land in the card.
+ *
+ * ## What it does not do
+ *
+ * It does not hold a draft. Every field commits on blur or Enter, exactly as the grid's do, and the
+ * document is the value — so there is no 저장 button, no unsaved state to lose, and one commit is one
+ * entry in the history. See `DataEditor` for why that rule is worth the cost.
+ */
+export function RowForm({
+  editor,
+  run,
+  revision,
+  at,
+  onClose
+}: {
+  editor: Editor;
+  run: (name: string, payload?: Record<string, unknown>) => void;
+  revision: number;
+  /** Which dataset and which row, or nothing when the drawer is closed. */
+  at: { sid: string; row: number } | null;
+  onClose: () => void;
+}) {
+  const store = editor.dataStore;
+  const [adding, setAdding] = useState(false);
+
+  const shown = useMemo(() => {
+    const node = at ? store?.getNode(at.sid) : undefined;
+    if (node?.stype !== 'dataset') return undefined;
+    const attrs = node.attributes ?? {};
+    const records = ((attrs.records ?? []) as unknown[]).map((one) => (one ?? {}) as Record<string, unknown>);
+    const record = records[at!.row];
+    if (!record) return undefined;
+    return {
+      label: String(attrs.label ?? attrs.name ?? '데이터'),
+      fields: fieldsFrom(attrs.fields),
+      record,
+      rows: records.length
+    };
+  }, [store, at, revision]);
+
+  /** The document, for the readers that resolve a reference — `richPlain`, `pagesOf`, `assetsOf`. */
+  const doc = useMemo(
+    () => ({ rootId: editor.getRootId() ?? '', getNode: (one: string) => store?.getNode(one) }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editor, store, revision]
+  );
+
+  const pages = useMemo((): ChoiceOption[] => {
+    return [
+      { id: '', label: '없음' },
+      ...pagesOf(doc as never).map((one) => ({ id: one.id, label: `${one.name} · ${one.path}` }))
+    ];
+  }, [editor, store, revision]);
+
+  /**
+   * The document's **pictures**, for a column that holds one.
+   *
+   * `asset:로고`, which is the same reference a block's `src` holds — so a picture in a list is the
+   * same picture the page uses, and changing the file changes both.
+   */
+  const assets = useMemo((): ChoiceOption[] => {
+    return [
+      { id: '', label: '없음' },
+      ...assetsOf(doc as never).map((one) => ({ id: `asset:${one.name}`, label: one.label ?? one.name }))
+    ];
+  }, [editor, store, revision]);
+
+  if (!at || !shown) return null;
+
+  return (
+    <Drawer
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      title={`${at.row + 1}행`}
+      description={`${shown.label} · ${shown.rows}행 중 ${at.row + 1}번째`}
+      width="24rem"
+      className="st-row-form"
+    >
+      <div className="st-row-fields" data-row-form={String(at.row)}>
+        {shown.fields.map((field) => (
+          <label key={field.name} className="st-row-field" data-field={field.name} data-kind={field.kind}>
+            <span className="st-row-label">
+              {field.label ?? field.name}
+              {/*
+                What the column holds, beside its name and quiet — the same fact the grid's header
+                shows, drawn here too because a reader filling a row in should not have to remember
+                which of five columns was the date.
+              */}
+              <em className="st-row-kind">{DATA_FIELD_KIND_NAMES[field.kind]}</em>
+            </span>
+            <Cell
+              field={field}
+              value={shown.record[field.name]}
+              plain={richPlain(doc, shown.record[field.name])}
+              /*
+               * And **where those words live**, so the form draws the editor rather than the words.
+               * A reference that resolves to nothing hands back nothing, and the cell falls back to
+               * saying so — which is what a `richText` that was deleted looks like.
+               */
+              richAt={(() => {
+                if (field.kind !== 'richText') return undefined;
+                const one = richTextNamed(doc as never, shown.record[field.name]);
+                return one?.sid ? { editor, sid: String(one.sid) } : undefined;
+              })()}
+              pages={pages}
+              assets={assets}
+              onCommit={(value) => run('setDatasetCell', { nodeId: at.sid, row: at.row, field: field.name, value })}
+              ariaLabel={`${field.name}`}
+              data={{ 'row-cell': field.name }}
+            />
+          </label>
+        ))}
+
+        {/*
+          **속성 추가**, in the form — which is where a reader is when they discover a field is
+          missing, and where every tool of this kind puts it. It adds a **column**, so the table gets
+          it too and every other row gets it empty: one act, and the two views are two views of one
+          thing rather than two places to keep in step.
+        */}
+        {adding ? (
+          <AddField
+            where="폼"
+            onAdd={(named, kind) => run('setDatasetField', { nodeId: at.sid, field: named, kind })}
+            onClose={() => setAdding(false)}
+          />
+        ) : (
+          <Button onClick={() => setAdding(true)} data={{ 'add-field': 'form' }}>
+            + 속성 추가
+          </Button>
+        )}
+      </div>
+    </Drawer>
   );
 }

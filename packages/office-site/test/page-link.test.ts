@@ -89,8 +89,8 @@ describe('a link to a page of this site', () => {
 
   it('finds the pages a link can name', () => {
     const pages = pagesIn(doc);
-    expect(pages.map((page) => page.id)).toEqual(['home', 'products', 'pricing', 'about', 'blog', 'post-stack']);
-    expect(pages.map((page) => page.path)).toEqual(['/', '/제품', '/가격', '/소개', '/블로그', '/블로그/스택']);
+    expect(pages.map((page) => page.id)).toEqual(['home', 'products', 'pricing', 'about', 'blog', 'post-stack', 'post-schema', 'dashboard']);
+    expect(pages.map((page) => page.path)).toEqual(['/', '/제품', '/가격', '/소개', '/블로그', '/블로그/스택', '/블로그/한-모델', '/대시보드']);
   });
 
   it('draws the sample’s navigation and footer as links, resolved to addresses', () => {

@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import { Button, Dialog, DialogButton, Icon, IconButton, useRevision, TextField } from '@barocss/office-ui';
-import { DataEditor } from './data-editor';
 import {
   blocksIn,
   definitionsOf,
+  templatesIn,
   documentFaults,
   publishSaid,
   publishState,
@@ -18,7 +18,9 @@ import {
   selectableAt,
   siteControlsIn,
   type Fault,
-  type SiteControl
+  type SiteControl,
+  columnNames,
+  fieldsFrom
 } from '@barocss/office-site';
 
 /**
@@ -69,6 +71,7 @@ export function Rail({
   onPage,
   editing,
   onEdit,
+  onOpenDataset,
   panel,
   onPanel
 }: {
@@ -89,6 +92,8 @@ export function Rail({
   /** The definition being edited, so its row can say so. */
   editing?: string;
   onEdit: (componentId: string | undefined) => void;
+  /** Open a dataset in the main area — the third thing that area can show. */
+  onOpenDataset?: (name: string) => void;
   /**
    * Which list is open — the **app's**, because something outside this component points at one.
    *
@@ -153,6 +158,13 @@ export function Rail({
               const rootId = editor.getRootId();
               return rootId ? linksTo({ rootId, getNode: doc.getNode } as never, id) : 0;
             }}
+            /*
+             * A **template** is a definition with a slot — somewhere a page's own blocks are drawn.
+             * A definition without one is a card, and starting a page from it would give the reader
+             * a page they cannot type in. Read from the document rather than declared, because it is
+             * a fact the document already holds.
+             */
+            templates={templatesIn({ rootId: editor.getRootId() ?? '', getNode: doc.getNode } as never)}
           />
         ) : null}
         {panel === 'components' ? (
@@ -166,7 +178,9 @@ export function Rail({
             onEdit={onEdit}
           />
         ) : null}
-        {panel === 'data' ? <DataPanel editor={editor} run={run} can={can} revision={revision} /> : null}
+        {panel === 'data' ? (
+          <DataPanel editor={editor} run={run} can={can} revision={revision} onOpenDataset={onOpenDataset} />
+        ) : null}
       </div>
 
       {/*
@@ -704,7 +718,8 @@ function PagesPanel({
   onPage,
   run,
   can,
-  linksInto
+  linksInto,
+  templates
 }: {
   pages: { sid: string; id: string; name: string; path: string }[];
   page?: string;
@@ -713,8 +728,12 @@ function PagesPanel({
   can: (name: string, payload?: Record<string, unknown>) => boolean;
   /** How many links point at a page — asked of the document, because only it knows. */
   linksInto: (id: string) => number;
+  /** The definitions a page can be **started from** — the ones with a slot. See the buttons. */
+  templates: { id: string; name: string }[];
 }) {
   const [removing, setRemoving] = useState<string | undefined>(undefined);
+  /** Whether the reader is choosing what to start from — see the button. */
+  const [starting, setStarting] = useState(false);
   const doomed = pages.find((one) => one.sid === removing);
   const breaks = doomed ? linksInto(doomed.id) : 0;
 
@@ -815,9 +834,62 @@ function PagesPanel({
         Above nothing and below everything: a site always has at least one page, so this list is
         never empty and the button never has to double as the empty case — unlike the datasets'.
       */}
-      <Button onClick={() => run('insertPage', { nodeId: page })} data={{ 'page-add': 'true' }}>
+      {/**
+        **새 페이지 하나**, and the templates are inside it.
+        
+        It was three buttons — 새 페이지 · 글 페이지로 · 대시보드로 — and that is the wrong shape said
+        out loud: *모든 것은 페이지야.* A template is not a **kind** of page, it is where one starts
+        from, so offering one button per template turns a starting point into a category and grows a
+        button every time somebody makes a definition.
+        
+        One button, and the choice is the first thing it asks — with **빈 페이지** as one of the
+        answers rather than as the button beside them. Which is also what makes the list honest: a
+        blank page is a starting point too, and it stops being the default nobody chose.
+      */}
+      <Button onClick={() => setStarting(true)} data={{ 'page-add': 'true' }}>
         새 페이지
       </Button>
+
+      <Dialog
+        open={starting}
+        onOpenChange={setStarting}
+        title="새 페이지"
+        description="무엇으로 시작할지 고르세요. 어느 쪽이든 페이지이고, 나중에 바꿀 수 있습니다."
+      >
+        <div className="st-starts">
+          {/*
+            빈 페이지 first, because it is the one that needs no explaining — and because a list whose
+            first row is a template reads as *you must choose a template*.
+          */}
+          <button
+            type="button"
+            className="st-start"
+            data-page-from="blank"
+            onClick={() => {
+              run('insertPage', { nodeId: page });
+              setStarting(false);
+            }}
+          >
+            <span className="st-start-name">빈 페이지</span>
+            <span className="st-start-note">머리말과 제목 하나. 나머지는 직접.</span>
+          </button>
+          {templates.map((one) => (
+            <button
+              key={one.id}
+              type="button"
+              className="st-start"
+              data-page-from={one.id}
+              onClick={() => {
+                run('insertEntry', { template: one.id });
+                setStarting(false);
+              }}
+            >
+              <span className="st-start-name">{one.name}</span>
+              <span className="st-start-note">이 틀이 페이지의 바깥을 그립니다.</span>
+            </button>
+          ))}
+        </div>
+      </Dialog>
     </>
   );
 }
@@ -975,17 +1047,23 @@ function DataPanel({
   editor,
   run,
   can,
-  revision
+  revision,
+  onOpenDataset
 }: {
   editor: Editor;
   run: (name: string, payload?: Record<string, unknown>) => void;
   can: (name: string, payload?: Record<string, unknown>) => boolean;
   revision: number;
+  /**
+   * **Open a dataset**, which the main area draws now rather than a dialog over it.
+   *
+   * By **name**, which is the same thing every reference in this document holds: a sid is this
+   * session's and goes stale after the first edit made in the table.
+   */
+  onOpenDataset?: (name: string) => void;
 }) {
   const store = editor.dataStore;
   const [design, setDesign] = useState<string>('');
-  /** Which dataset's grid is open, by **name** — a sid would be stale after any edit. */
-  const [editing, setEditing] = useState<string | null>(null);
 
   const { datasets, components } = useMemo(() => {
     const rootId = editor.getRootId();
@@ -1003,7 +1081,8 @@ function DataPanel({
           sid: String(one.sid),
           name: String(one.attributes.name),
           label: String(one.attributes.label ?? one.attributes.name),
-          fields: (one.attributes.fields ?? []) as string[],
+          /* The names, through `fieldsFrom` — a column is `{ name, kind }` now, not a string. */
+          fields: columnNames(fieldsFrom(one.attributes.fields)),
           rows: ((one.attributes.records ?? []) as unknown[]).length
         })),
       components: under('components')
@@ -1026,26 +1105,12 @@ function DataPanel({
     let name = '새 데이터';
     for (let n = 2; taken.has(name); n += 1) name = `새 데이터 ${n}`;
     run('insertDataset', { name });
-    // Straight into the grid: making one and then having to find it is two gestures for one act.
-    // Held by name, so this works before the panel has redrawn and found the new node.
-    setEditing(name);
+    // Straight into it: making one and then having to find it is two gestures for one act.
+    onOpenDataset?.(name);
   };
 
   return (
     <>
-      {/*
-        The grid opens over the page — see `data-editor.tsx`. Held by **name** rather than by sid so
-        it survives the redraw that follows every edit made inside it.
-      */}
-      <DataEditor
-        editor={editor}
-        run={run}
-        can={can}
-        revision={revision}
-        sid={datasets.find((one) => one.name === editing)?.sid ?? null}
-        onClose={() => setEditing(null)}
-      />
-
       <section className="st-rail-group">
         <h3>어떤 디자인으로</h3>
         <div className="st-rail-list">
@@ -1087,9 +1152,23 @@ function DataPanel({
                 {one.fields.length}열 · {one.rows}행
               </span>
             </button>
+            {/*
+              And the **fifth** act, which is the one a dashboard is made of: the same rows, as a
+              picture. Beside 고치기 rather than in the list above it, because a chart needs only a
+              dataset — a list needs a design chosen first, which is why that one is the *name* and
+              this one is a button.
+            */}
+            <IconButton
+              label={`${one.label} 차트`}
+              disabled={!can('insertChart', { source: one.name })}
+              onClick={() => run('insertChart', { source: one.name })}
+              data={{ 'dataset-chart': one.name }}
+            >
+              <Icon name="type-number" size={13} />
+            </IconButton>
             <IconButton
               label={`${one.label} 데이터 고치기`}
-              onClick={() => setEditing(one.name)}
+              onClick={() => onOpenDataset?.(one.name)}
               data={{ 'dataset-edit': one.name }}
             >
               <Icon name="edit" size={13} />

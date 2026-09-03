@@ -21,6 +21,8 @@ import {
 import {
   siteMenusFor,
   widthsOf,
+  datasetNamed,
+  datasetsOf,
   writerMayRun,
   drawnSidAtElement,
   outermostOf,
@@ -45,6 +47,8 @@ import { Inspector, addPicture } from './inspector';
 import { SlashSurface } from './slash-surface';
 import { TextSurface } from './text-surface';
 import { Rail, type Panel as RailPanel } from './rail';
+import { Admin, type AdminTab } from './admin';
+import { DataTable, RowForm } from './data-editor';
 import { CodeEditor, type CodeEdit } from './code-editor';
 import { PageFrame } from './page-frame';
 import { Ribbon } from './ribbon';
@@ -282,6 +286,23 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   const [wireframe, setWireframe] = useState(false);
   /**
+   * **Which row of which list the pointer last landed in**, and whether its form is open.
+   *
+   * Held here rather than derived, because the row number lives only in the drawing: a row's sid is
+   * `${collection}~${index}` and every other question in this app wants the document node, which is
+   * the collection. So the board says it once, on press, and this is where it waits.
+   */
+  const [rowAt, setRowAt] = useState<{ collection: string; index: number } | undefined>();
+  /**
+   * And the row the **drawer** is showing, which is a different thing from the one the pointer last
+   * saw and had to be separated after it was measured.
+   *
+   * Choosing *3행 편집* opened row 2: Radix closes its menu on the item's press, the click that
+   * follows lands on the board underneath — over some other card — and `rowAt` moved while the
+   * drawer was reading it. What is open must not follow the pointer.
+   */
+  const [rowOpen, setRowOpen] = useState<{ sid: string; row: number; label: string } | undefined>();
+  /**
    * **글 고치기** — the mode in which a reader may change the words and nothing else.
    *
    * A mode and **not a permission**, which this product has to be precise about: there are no
@@ -392,6 +413,37 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   const [editing, setEditing] = useState<string | undefined>(undefined);
 
   /**
+   * **The dataset being edited**, when a reader has opened one — and the third thing the main area
+   * can show.
+   *
+   * It was a dialog, and the argument for that was *a table needs width the shell cannot give*. True,
+   * and the conclusion did not follow: a dialog is what you reach for when width is the only problem,
+   * and it kept having to grow. What was actually wrong is the other half — *editing data is a stint*
+   * — because a dataset is a **place**: a reader goes back to it, it holds most of what the site
+   * says, and the work is the same kind of work as editing a page.
+   *
+   * So it is `editing`'s sibling, exactly. By **name**, for the same reason a definition is held by
+   * its id: a sid is this session's and goes stale after the first edit made in the table.
+   */
+  const [dataset, setDataset] = useState<string | undefined>(undefined);
+
+  /**
+   * **관리가 밖이고 편집이 안** — which of the two the window is showing.
+   *
+   * Six things this product draws are about the **site** rather than about a page — its pages, its
+   * data, its definitions, its publishes, its faults, its files — and they had ended up in three
+   * unrelated places: some as rail tabs, two in the rail's *footer*, one in the main area, and the
+   * files nowhere at all. All six want width, no canvas and no properties panel, which is a mode
+   * rather than a fifth view; moving the dataset table into the main area had already made half of
+   * one by accident.
+   *
+   * It **opens** here, and that is not habit: a document tool cannot decide what a page looks like
+   * without opening the page, so opening one is a step *in*. A builder that started in the canvas
+   * would have to answer *which page* before the reader had seen the list.
+   */
+  const [admin, setAdmin] = useState<AdminTab | undefined>('pages');
+
+  /**
    * Which row of which list the definition is being **designed against**.
    *
    * A card opened on its own draws its declared defaults — `상품`, `설명`, `0원` — and a card
@@ -415,9 +467,20 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     (componentId: string, from?: { collection: string; index: number }) => {
       setEditing(componentId);
       setRow(from);
+      /* One main area, one thing in it: opening a definition leaves the table. */
+      setDataset(undefined);
+      setAdmin(undefined);
     },
     []
   );
+
+  /** And the other door into it, which leaves whatever the boards were showing. */
+  const openDataset = useCallback((name: string) => {
+    setDataset(name);
+    setEditing(undefined);
+    /* Going in — the admin is what a reader opens *from*, and a dataset is one of the things in it. */
+    setAdmin(undefined);
+  }, []);
 
   const definition = useMemo(() => {
     const store = editor?.dataStore as { getNode: (sid: string) => any } | undefined;
@@ -456,6 +519,56 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     () => widths.filter((one) => !hidden.includes(one.id)),
     [widths, hidden]
   );
+
+  /**
+   * The row the panel offers to open, resolved into *which dataset and which row* — the two things a
+   * form needs and the board cannot know.
+   *
+   * The board hands back the **collection's** sid and an index; a dataset is what that collection
+   * names in `source`, which is the same indirection every other reference in this document makes.
+   * A row whose list has since been deleted, or whose index is past the end, resolves to nothing —
+   * so the panel simply does not offer the door rather than opening an empty form.
+   */
+  const rowIn = useCallback(
+    (one: { collection: string; index: number } | undefined) => {
+      const store = editor?.dataStore as { getNode: (sid: string) => any } | undefined;
+      const rootId = editor?.getRootId?.();
+      if (!store || !rootId || !one) return undefined;
+
+      const list = store.getNode(one.collection);
+      if (list?.stype !== 'collection') return undefined;
+      const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+      const data = datasetNamed(doc as never, list.attributes?.source);
+      if (!data?.sid || one.index >= data.records.length) return undefined;
+
+      return { sid: data.sid, row: one.index, label: data.label ?? data.name };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editor, revision]
+  );
+
+  /** What the **panel** offers a door to: the row the pointer last landed in. */
+  const rowShown = useMemo(() => rowIn(rowAt), [rowIn, rowAt]);
+
+  /** The dataset the main area is drawing, as a node — nothing when it is drawing boards. */
+  const datasetAt = useMemo(() => {
+    const store = editor?.dataStore as { getNode: (sid: string) => any } | undefined;
+    const rootId = editor?.getRootId?.();
+    if (!store || !rootId || !dataset) return undefined;
+    const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+    const one = datasetsOf(doc as never).find((each) => each.name === dataset);
+    return one ? { sid: one.sid!, label: one.label ?? one.name } : undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, revision, dataset]);
+  /**
+   * And what the **drawer** is showing, captured when it was opened.
+   *
+   * Already a dataset and a row rather than a list and a row, because there are two doors into it
+   * now and only one of them comes through a list: the table in the main area opens a row of the
+   * dataset it is *already* showing, and asking it to name a collection would be asking it to
+   * invent one.
+   */
+  const rowForm = rowOpen;
 
   /*
    * **The bar, built from the document's widths.** One entry per board, so a width a reader adds
@@ -749,10 +862,14 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
     const sheet = document.createElement('style');
     sheet.dataset.siteWireframe = 'true';
-    sheet.textContent = wireframeCss(store as never, root);
+    /*
+     * The document's own widths, because the note a block gets is *which of them it is on* — and a
+     * reader who added 와이드 would otherwise read 데스크톱·태블릿만 on a block that is on four.
+     */
+    sheet.textContent = wireframeCss(store as never, root, widths);
     document.head.append(sheet);
     return () => sheet.remove();
-  }, [editor, root, revision, wireframe]);
+  }, [editor, root, revision, wireframe, widths]);
 
   /**
    * And the **arrivals**, which are drawn only while previewing.
@@ -1208,9 +1325,49 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             changes five pages* — and it is why the count is read from the document rather than
             remembered.
           */}
-          {definition ? (
+          {/*
+            **관리로** — the way out, on all three things a reader can be *in*. The admin is the
+            outside, so leaving what you opened is one gesture rather than three different ones.
+          */}
+          {admin ? null : (
+            <button
+              type="button"
+              className="st-back st-to-admin"
+              onClick={() => setAdmin('pages')}
+              data-to-admin="true"
+            >
+              <Icon name="back" size={13} />
+              관리로
+            </button>
+          )}
+          {datasetAt ? (
+            <span className="st-where" data-where data-editing-dataset={dataset}>
+              <button
+                type="button"
+                className="st-back"
+                data-to-page="true"
+                onClick={() => setDataset(undefined)}
+              >
+                <Icon name="back" size={13} />
+                페이지로
+              </button>
+              <span className="st-where-name">{datasetAt.label}</span>
+              <span className="st-where-path">데이터</span>
+            </span>
+          ) : definition ? (
             <span className="st-where" data-where data-editing-component={definition.id}>
-              <button type="button" className="st-back" onClick={() => setEditing(undefined)}>
+              {/*
+                **페이지로**, which is not 관리로 — they are two different acts and were one class.
+                Leaving a definition puts a reader back on the page that placed it; leaving the
+                builder puts them back outside. A check pressing `.st-back` found two and refused,
+                correctly.
+              */}
+              <button
+                type="button"
+                className="st-back"
+                data-to-page="true"
+                onClick={() => setEditing(undefined)}
+              >
                 <Icon name="back" size={13} />
                 페이지로
               </button>
@@ -1308,7 +1465,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           It was a layer list and nothing else, and the question that found the gap was the plainest
           one a reader can ask: *where do I add a heading?* Nowhere.
         */}
-        {editor ? (
+        {editor && !admin ? (
           <Rail
             editor={given ?? editor}
             panel={panel}
@@ -1318,6 +1475,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             pages={pages}
             editing={editing}
             onEdit={setEditing}
+            onOpenDataset={openDataset}
             onPage={(sid) => {
               setCurrent(sid);
               setScope(undefined);
@@ -1328,6 +1486,54 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         ) : null}
 
         <AppMain className="st-main">
+          {/*
+            **관리** — the surface a reader opens into, filling the same regions with a different
+            answer: the left is the five things a site is made of, the middle is a table, and there
+            is no right, because a properties panel is about a block and there are no blocks here.
+          */}
+          {editor && admin ? (
+            <Admin
+              editor={editor}
+              revision={revision}
+              run={(name, payload) => void (editor as never as { executeCommand: (n: string, p?: unknown) => void }).executeCommand(name, payload)}
+              can={(name, payload) =>
+                (editor as never as { canExecuteCommand: (n: string, p?: unknown) => boolean }).canExecuteCommand(name, payload)
+              }
+              tab={admin}
+              onTab={setAdmin}
+              onOpenPage={(sid) => {
+                setCurrent(sid);
+                setScope(undefined);
+                setEditing(undefined);
+                setDataset(undefined);
+                setAdmin(undefined);
+              }}
+              onOpenDefinition={openDefinition}
+              onOpenDataset={openDataset}
+            />
+          ) : (
+          <>
+          {/*
+            **The third thing this area can show.** A page, a definition's part, or a dataset —
+            and the mechanism is the same one in all three cases: what the main area draws is what
+            the reader last asked for, and nothing else in the window changes.
+          */}
+          {datasetAt ? (
+            <DataTable
+              editor={editor!}
+              run={(name, payload) => void (editor as never as { executeCommand: (n: string, p?: unknown) => void }).executeCommand(name, payload)}
+              can={(name, payload) =>
+                (editor as never as { canExecuteCommand: (n: string, p?: unknown) => boolean }).canExecuteCommand(
+                  name,
+                  payload
+                )
+              }
+              revision={revision}
+              sid={datasetAt.sid}
+              onClose={() => setDataset(undefined)}
+              onOpenRow={(one) => setRowOpen({ sid: datasetAt.sid, row: one, label: datasetAt.label })}
+            />
+          ) : (
           <Canvas
             paneRef={pane}
             view={view}
@@ -1408,6 +1614,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                      * at all, which is what *더블클릭 해도 편집모드가 되지 않아* was.
                      */
                     onEditComponent={openDefinition}
+                    onRow={setRowAt}
+                    onEditRow={(one) => setRowOpen(rowIn(one))}
                     onEditCode={openCode}
                     preview={preview}
                     wireframe={wireframe}
@@ -1426,6 +1634,10 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                 ))
               : null}
           </Canvas>
+          )}
+
+          </>
+          )}
 
           {/*
             The first view, which is the one `mountSite` made.
@@ -1496,7 +1708,13 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         {/* And the `/` menu at the caret — the second one, and it is a list. */}
         {editor ? <SlashSurface editor={editor} mode={mode} /> : null}
 
-        {editor ? (
+        {/*
+          **No properties panel in the admin.** A panel is about a block, and the admin has none:
+          what it holds is pages, datasets, definitions, publishes and files, each of which is a row
+          in a table with its own columns. A panel drawn beside it would be six hundred pixels saying
+          *아무것도 선택되지 않았습니다*.
+        */}
+        {editor && !admin ? (
           <Inspector
             editor={given ?? editor}
             writing={writing}
@@ -1516,6 +1734,33 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               setEditing(undefined);
             }}
             onEditComponent={openDefinition}
+            /*
+             * **And the row of data this block is drawn from**, when it is drawn from one.
+             *
+             * Reported as *페이지에서 Drawer 를 어떻게 열어서 편집해야 할지 모르겠어* — the form existed
+             * and the only door was the grid's row number, which is behind a dialog opened from the
+             * rail. The panel is where a reader already goes to change what they have selected, so
+             * that is where the door belongs.
+             */
+            row={rowShown}
+            onEditRow={() => setRowOpen(rowShown)}
+          />
+        ) : null}
+
+        {/*
+          **한 행을, 폼으로** — opened from the page rather than only from the grid.
+
+          The drawer sits beside the board on purpose: the card being edited stays visible, so a
+          summary being typed is a summary the reader watches land in it. That is the whole reason it
+          is not a second dialog.
+        */}
+        {editor && rowForm ? (
+          <RowForm
+            editor={editor}
+            run={(name, payload) => void (editor as never as { executeCommand: (n: string, p?: unknown) => void }).executeCommand(name, payload)}
+            revision={revision}
+            at={{ sid: rowForm.sid, row: rowForm.row }}
+            onClose={() => setRowOpen(undefined)}
           />
         ) : null}
       </AppBody>

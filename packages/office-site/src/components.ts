@@ -236,3 +236,42 @@ export function definitionAt(doc: Access, sid: string | undefined): Definition |
   }
   return undefined;
 }
+
+/**
+ * **템플릿은 슬롯이 있는 정의다** — the one sentence that says which definitions a page can be
+ * started from.
+ *
+ * A definition with a slot has somewhere a page's **own** blocks are drawn; one without is a card,
+ * and starting a page from it would hand a reader a page they cannot type in. So this is not a
+ * second list to maintain beside the definitions — it is a question asked of the document, which is
+ * this schema's rule about every fact of this kind.
+ *
+ * Found needed the day the sample grew a **second** template. `insertEntry` — *a new page of a
+ * template* — has existed since the first one did, and the only surface offering it was a menubar
+ * entry that could not say *which*. With one template that reads as a missing argument; with two it
+ * is the gesture missing, and nothing could offer the choice because nothing could name the list.
+ */
+export function templatesIn(doc: Access | undefined): { sid: string; id: string; name: string }[] {
+  if (!doc) return [];
+  return definitionsOf(doc as never)
+    .filter((one: { sid: string }) => hasSlot(doc, one.sid, 0))
+    .map((one: { sid: string; id: string; name: string }) => ({ sid: one.sid, id: one.id, name: one.name }));
+}
+
+/**
+ * Whether anything **inside** this definition is a slot — at any depth.
+ *
+ * Depth, because the shape a template actually has is a header above the slot and a footer below it,
+ * and a search of the top level only is the exact bug `instanceParts` had: a post drew the site's
+ * header and footer and none of its own three blocks, and nothing said why.
+ */
+function hasSlot(doc: Access, sid: string, depth: number): boolean {
+  if (depth > 24) return false;
+  const node = doc.getNode(sid);
+  if (!node) return false;
+  if (depth > 0 && typeof node.attributes?.slot === 'string' && node.attributes.slot) return true;
+  for (const child of (node.content ?? []) as unknown[]) {
+    if (typeof child === 'string' && hasSlot(doc, child, depth + 1)) return true;
+  }
+  return false;
+}

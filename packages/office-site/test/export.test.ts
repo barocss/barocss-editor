@@ -169,7 +169,7 @@ describe('the page a visitor gets', () => {
 
   it('exports every page of the site, each at its own address', () => {
     const pages = exportSite(editor);
-    expect(pages.map((one) => one.path)).toEqual(['/', '/제품', '/가격', '/소개', '/블로그', '/블로그/스택']);
+    expect(pages.map((one) => one.path)).toEqual(['/', '/제품', '/가격', '/소개', '/블로그', '/블로그/스택', '/블로그/한-모델', '/대시보드']);
     // The header is a definition placed on every page, so every page carries its parts.
     for (const page of pages) expect(page.html).toContain('Barocss');
   });
@@ -181,11 +181,61 @@ describe('the page a visitor gets', () => {
      * the export draws through the same renderers the editor does rather than because two places
      * remembered to resolve the same thing.
      */
+    /**
+     * **Every page a visitor navigates to**, which is not every page — and the difference arrived
+     * with the dashboard.
+     *
+     * A page of the *site* places the header, so it carries the site's links. The dashboard is a page
+     * of the **tool**: it is read by the people who run the site, it says `noIndex`, and offering
+     * them 제품 · 가격 · 소개 above a chart would be the tool pretending to be the site. So it has no
+     * navigation, correctly, and a check that demanded one of every page was a check that would have
+     * argued against the page being right.
+     *
+     * Told apart by `noIndex` rather than by name: it is the page's own statement about who it is
+     * for, which is exactly the question being asked here.
+     */
     for (const page of exportSite(editor)) {
-      expect(page.html).toContain('href="/제품"');
-      expect(page.html).toContain('href="/블로그"');
-      expect(page.html).not.toContain('page:');
+      const held = pagesOf(doc as never).find((one) => one.path === page.path);
+      const inside = (store.getNode(held!.sid) as Node | undefined)?.attributes?.noIndex === true;
+      if (!inside) {
+        expect(page.html, page.path).toContain('href="/제품"');
+        expect(page.html, page.path).toContain('href="/블로그"');
+      }
+      /* And the reference never travels, on any page at all. */
+      expect(page.html, page.path).not.toContain('page:');
     }
+  });
+
+  it('sends each row of a list to the page that row is about', () => {
+    /**
+     * **The join that makes an index an index**, and the fault it was written to close.
+     *
+     * `goes` was read at export time from the **stored** node. A row of a list has no stored node of
+     * its own — it draws as `${collection}~${index}~${part}` — so the lookup landed on the *card
+     * definition's* part and every row of every list went to the same place. It drew correctly, it
+     * published an `<a>` on every row, and it pointed all of them at whatever the definition
+     * happened to say. A list of one row cannot tell that apart from working; the blog's four can.
+     *
+     * The destination now comes from a **column of the data**, through the card's `가는 곳`
+     * variable, so it is resolved per row before the export ever looks at it.
+     */
+    const html = exportSite(editor).find((one) => one.path === '/블로그')!.html;
+    const box = document.createElement('div');
+    box.innerHTML = html;
+
+    /* The last of the two things named 글 목록 — the section is the first, the list itself the second. */
+    const list = [...box.querySelectorAll('[data-name="글 목록"]')].pop() as HTMLElement;
+    const rows = [...list.children].map((row) => row.querySelector(':scope > a')?.getAttribute('href'));
+
+    /*
+     * Newest first, which is what the list sorts by. Two of these posts are written and two are not,
+     * and a row about an unwritten post is **not a link** — no `<a>` at all, rather than an `<a>`
+     * with no `href`, which is what a *broken* reference publishes.
+     */
+    expect(rows).toEqual(['/블로그/스택', '/블로그/한-모델', undefined, undefined]);
+
+    /* And the reference itself does not travel: `page:post-stack` means nothing outside this file. */
+    expect(html).not.toContain('data-goes');
   });
 
   it('writes nothing for a width a page says nothing different at', () => {

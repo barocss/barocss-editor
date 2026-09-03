@@ -31,6 +31,9 @@ import { test, expect, type Page } from '@playwright/test';
  */
 const ready = async (page: Page) => {
   await page.goto('/');
+  /* 관리가 밖이고 편집이 안 — the window opens into the admin, so this goes in. */
+  await page.waitForSelector('[data-admin-page]');
+  await page.locator('[data-admin-open]').first().click();
   await page.waitForSelector('[data-frame="desktop"] .st-page');
   await page.waitForTimeout(400);
 };

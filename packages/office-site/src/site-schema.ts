@@ -36,6 +36,7 @@ import {
   getStandardSchemaDefinition,
   type SchemaDefinition
 } from '@barocss/schema';
+import { CHART_AGGS, CHART_KINDS } from './chart';
 import { BLENDS } from './paint';
 import { POSITIONS } from './position';
 import { ASPECTS } from './aspect';
@@ -1098,6 +1099,52 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
         }
       },
 
+      /**
+       * **서식 있는 글**, kept as real nodes and pointed at from a cell.
+       *
+       * ## The rule this had to not break
+       *
+       * A cell is a **string**, always (`cellValue`), and saving, diffing, sorting, filtering and
+       * every card binding rest on that. Putting document content in a cell breaks all five at once,
+       * which is why the earlier decision — *a post's body is a page* — was the right one and stands.
+       *
+       * What was still missing is smaller and real: a 요약 with a link and an emphasised word in it.
+       * Plain characters could not say that, and a card drawing a summary drew it flat.
+       *
+       * ## So the cell holds a reference and the words live here
+       *
+       * `{ 요약: 'text:요약-3' }`, and this node holds the blocks. Which is not a new idea in this
+       * schema — it is the **tenth** use of the reference shape (`var:` `page:` `asset:` `field:`
+       * `componentId` …) and, more exactly, it is what a **footnote** already does: `footnoteRef` in
+       * the flow, `footnoteDef` in `resources`. Same problem, same answer, already checked.
+       *
+       * Three things it buys that a markdown string would not:
+       *
+       * - **No parser.** A string with syntax in it is a language — with a grammar, an error message
+       *   and a thing to learn — and this schema refused one once already, when a list's filter
+       *   became two attributes instead of an expression.
+       * - **Editing is free.** The caret, the marks, undo and every text command in this engine run
+       *   on nodes. Anything else would be a second text editor.
+       * - **One model.** A link in a summary is the same `link` mark a link in a paragraph is, so it
+       *   exports, validates and resolves through the code that already exists.
+       *
+       * ## What it costs, said out loud
+       *
+       * A row is an element of an array, so **nothing ties this node's lifetime to it**: deleting a
+       * row leaves the words behind. That is a sweep rather than a design flaw — `documentFaults`
+       * reports a `richText` nothing references — and it is written here so the next reader does not
+       * have to find it by wondering why a document grew.
+       */
+      richText: {
+        name: 'richText',
+        group: 'resource',
+        content: 'block+',
+        attrs: {
+          /** What a cell's `text:` names. Durable, like every other reference in this schema. */
+          id: { type: 'string' as const, required: true }
+        }
+      },
+
       dataset: {
         name: 'dataset',
         group: 'resource',
@@ -1144,6 +1191,98 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
        * a thing drawn forty times has to be **one definition**, or forty copies drift. It is the
        * same answer the deck gives for a card and Word gives for a style.
        */
+      /**
+       * A **chart**: the same data a list draws, drawn as a picture.
+       *
+       * ## Why this is a node and not a block with a script in it
+       *
+       * Because everything a chart needs, this document already has. A `collection` names a dataset
+       * and says which rows with `where`/`equals`/`sortBy`/`limit`; a chart names the same dataset
+       * and asks the same question, and then says which column is the label and which is the value.
+       * Two attributes on top of a query this schema already declares.
+       *
+       * The alternative — an embed pointing at a charting service — is the shape this product exists
+       * to avoid: the numbers would live somewhere else, the page would be a hole until a third
+       * party answered, and a reader could not change a colour.
+       *
+       * ## Atom, and that is the interesting part
+       *
+       * A collection holds one `instance` and draws it per row. A chart holds **nothing**: what it
+       * draws is arithmetic (`chart.ts`) turned into an `<svg>`, so there is no child a reader could
+       * select, style or put a caret in. Which also means the export gets it free — the same
+       * renderer draws the published page, and the page carries **no library**: `live.ts` settled
+       * that rule for lists and this is the same shape, an SVG drawn at export time whose points say
+       * which row they are.
+       */
+      chart: {
+        name: 'chart',
+        group: 'block',
+        atom: true,
+        attrs: {
+          ...everyBlockAttrs,
+          ...paintAttrs,
+          /** The dataset it draws — the same name a collection uses. */
+          source: { type: 'string' as const, required: true },
+          /** Which picture. Four, and each answers a different question a dashboard asks. */
+          kind: { type: 'string' as const, default: 'bar', options: [...CHART_KINDS] },
+          /**
+           * The column a point is **called**, drawn under the axis, and the column it is **worth**.
+           *
+           * `labelBy` and `valueBy` rather than `x` and `y`, and the conformance harness is why: a
+           * canvas node's `x` and `y` are **coordinates**, exempted with *a page has no coordinates;
+           * the browser lays a stack out* — and an exemption is keyed by the attribute's name, so a
+           * chart calling its columns `x` and `y` was excused by a sentence about geometry. A false
+           * pass, caught the first time the check ran.
+           *
+           * They read better anyway: `sortBy` is the word this schema already uses for *which column
+           * decides this*, and `x` asks a reader to know chart jargon before they can fill it in.
+           */
+          labelBy: { type: 'string' as const, required: false },
+          valueBy: { type: 'string' as const, required: false },
+          /**
+           * And which rows, which is a collection's question asked again — deliberately the same
+           * four attributes rather than a second vocabulary, so a chart and the list beside it can be
+           * given the same answer and be about the same thing.
+           */
+          limit: { type: 'number' as const, required: false },
+          sortBy: { type: 'string' as const, required: false },
+          sortDir: { type: 'string' as const, default: 'asc', options: ['asc', 'desc'] },
+          where: { type: 'string' as const, required: false },
+          equals: { type: 'string' as const, required: false },
+          /**
+           * **묶기** — which column makes the groups, and what arithmetic each group answers with.
+           *
+           * A dashboard's question is almost never *show me every row*: it is 분류별 합계, 월별 개수,
+           * 팀별 평균. Two attributes rather than an expression, which is this schema's own precedent
+           * from the same place — a list's filter is `where` and `equals` for the recorded reason
+           * that a grammar is a thing to learn and every builder that started with one arrived at a
+           * row of pickers anyway.
+           *
+           * Nothing said is not an error: the chart draws the rows themselves, which is what it did
+           * before this existed. `count` is the one aggregate that needs no `valueBy` at all, and it
+           * is the one that makes 월별 글 수 possible.
+           */
+          groupBy: { type: 'string' as const, required: false },
+          agg: { type: 'string' as const, default: 'sum', options: [...CHART_AGGS] },
+          /**
+           * **What the bars and slices are drawn in** — a document colour (`var:강조`) as often as a
+           * literal.
+           *
+           * `plotInk` and not `ink`, and the reason is the second name collision this node has
+           * produced: `ink` on a page block is **the colour of the words**, written by `paintCss` as
+           * the element's `color` and inherited by everything inside it. So a chart saying `ink` was
+           * a chart painting its own title in the accent — and the contrast check caught it at
+           * 3.42:1, which is what an accent at a fade over paper measures.
+           *
+           * The lesson is the same one `x`/`y` taught an hour earlier: a node joining a schema this
+           * size has to be read against the words already in it, and the checks are what say so.
+           */
+          plotInk: { type: 'string' as const, required: false },
+          /** What a reader is told it is, above it. */
+          title: { type: 'string' as const, required: false }
+        }
+      },
+
       collection: {
         name: 'collection',
         group: 'block',

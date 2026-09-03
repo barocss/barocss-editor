@@ -67,6 +67,8 @@ export function PageFrame({
   onAdd,
   onEnterText,
   onEditComponent,
+  onRow,
+  onEditRow,
   onEditCode,
   onFollow,
   redraw,
@@ -112,6 +114,10 @@ export function PageFrame({
   preview?: boolean;
   onEnterText: (sid: string) => void;
   onEditComponent?: (componentId: string, from?: { collection: string; index: number }) => void;
+  /** Which row of which list the last press landed in — see `Overlay`. */
+  onRow?: (at: { collection: string; index: number } | undefined) => void;
+  /** Open that row as a form, with the row the request was made about. */
+  onEditRow?: (at: { collection: string; index: number }) => void;
   /** A code block a reader asked to edit, and where it is on screen. */
   onEditCode?: (sid: string, box: { left: number; top: number; width: number; height: number }) => void;
   /** A link followed in preview: the page it names, by address, rather than the browser's own. */
@@ -280,6 +286,8 @@ export function PageFrame({
             mode={mode}
             onEnterText={onEnterText}
             onEditComponent={onEditComponent}
+            onRow={onRow}
+            onEditRow={onEditRow}
             onEditCode={onEditCode}
             onAdd={onAdd}
             scope={scope}

@@ -388,18 +388,18 @@ body {
   gap: 12px;
   padding: 5px 10px;
   border-bottom: 1px solid var(--st-line);
-  font-size: 11px;
+  font-size: var(--ou-text-small);
   color: var(--st-faint);
 }
 .st-code-layer-hint { color: var(--st-faint); }
 .st-code-layer-body { flex: 1; min-height: 0; overflow: auto; }
-.st-code-layer .cm-editor { height: 100%; font-size: 13px; }
+.st-code-layer .cm-editor { height: 100%; font-size: var(--ou-text); }
 .st-code-layer .cm-editor.cm-focused { outline: none; }
 
 .st-preview-toggle {
   height: var(--ou-control-h);
   padding: 0 10px;
-  font-size: 11px;
+  font-size: var(--ou-text-small);
   border: 1px solid var(--st-line);
   border-radius: 4px;
   background: var(--st-panel);
@@ -1085,7 +1085,7 @@ body {
   padding: 0 5px;
   background: var(--st-accent);
   color: var(--ou-accent-ink);
-  font-size: 10px;
+  font-size: var(--ou-text-label);
   line-height: 15px;
   white-space: nowrap;
   border-radius: 3px 3px 0 0;
@@ -1427,7 +1427,7 @@ body {
   border-radius: 8px;
   background: var(--ou-warn-soft);
   color: var(--ou-warn);
-  font-size: 10px;
+  font-size: var(--ou-text-label);
   line-height: 16px;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -1436,7 +1436,7 @@ body {
 /* Why it matters, once per group. On every row it would be noise; nowhere it is a list of riddles. */
 .st-faults-group > p {
   margin: 0 0 6px;
-  font-size: 11px;
+  font-size: var(--ou-text-small);
   line-height: 1.45;
   color: var(--st-faint);
 }
@@ -1466,7 +1466,7 @@ body {
 .st-faults-where {
   display: flex;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--ou-text-small);
   color: var(--st-faint);
 }
 
@@ -1491,7 +1491,7 @@ body {
  */
 .st-rail-group h3 {
   padding: 4px 12px 4px;
-  font-size: 10px;
+  font-size: var(--ou-text-label);
   font-weight: 600;
   letter-spacing: 0.08em;
   color: var(--ou-faint);
@@ -1694,7 +1694,7 @@ body {
   justify-content: center;
   width: 24px;
   height: 24px;
-  font-size: 11px;
+  font-size: var(--ou-text-small);
   border: 1px solid var(--st-line);
   border-radius: 3px;
   background: var(--st-panel);
@@ -1706,7 +1706,7 @@ body {
   color: var(--ou-accent-ink);
 }
 
-.st-at-note { font-size: 11px; color: var(--st-accent); }
+.st-at-note { font-size: var(--ou-text-small); color: var(--st-accent); }
 
 /*
  * One of a card's questions, and where its answer comes from.
@@ -1757,13 +1757,13 @@ body {
   margin-left: 8px;
   padding-left: 8px;
   border-left: 1px solid var(--st-line);
-  font-size: 11px;
+  font-size: var(--ou-text-small);
   color: var(--st-faint);
 }
 .st-where-row select {
   max-width: 12rem;
   padding: 1px 4px;
-  font-size: 11px;
+  font-size: var(--ou-text-small);
   border: 1px solid var(--st-line);
   border-radius: 3px;
   background: var(--st-panel);
@@ -1794,7 +1794,7 @@ body {
 .st-state-row button {
   flex: 1;
   padding: 3px 0;
-  font-size: 11px;
+  font-size: var(--ou-text-small);
   border: 0;
   border-radius: 3px;
   background: transparent;
@@ -1814,11 +1814,11 @@ body {
 }
 .st-state-said {
   margin: 0;
-  font-size: 10px;
+  font-size: var(--ou-text-label);
   line-height: 1.4;
   color: var(--st-faint);
 }
-.st-kind { font-size: 11px; color: var(--st-faint); font-family: ui-monospace, monospace; }
+.st-kind { font-size: var(--ou-text-small); color: var(--st-faint); font-family: ui-monospace, monospace; }
 
 /*
  * A stack, a page and a placement draw themselves from the document; these rules exist only so that
@@ -1838,8 +1838,51 @@ body {
  * that as slivers — see `data-editor.tsx`. Everything here is the room; every control in it is
  * `office-ui`'s, so a cell in this grid is the same field as a cell in the properties panel.
  */
-.st-data-dialog {
-  width: min(56rem, calc(100vw - 3rem));
+/*
+ * **The width the thing actually needs**, reported as *제목이 안 보임 / UI 가 뭔가 이상해*.
+ *
+ * 56rem was the width of a grid whose header held one control. It now holds two — the column's name
+ * and what it holds — and a 5-column table asked for about 95rem inside 56, so the browser took it
+ * out of the flexible half: the **name** field, squeezed to nothing while the kind picker kept its
+ * own minimum. The header looked like a row of empty boxes with a dropdown beside each.
+ *
+ * Two changes, and the second is the one that matters: wider, and the header cell stacked. A header
+ * that puts two controls side by side is a header whose width is the sum of two minimums per column,
+ * which no dialog is wide enough for at five columns — every table of this kind puts the type under
+ * the name for exactly that reason.
+ */
+/*
+ * **The dataset, in the main area** — where a page is, because a dataset is a place rather than a
+ * stint. It was a dialog whose width kept having to grow (56rem, then 76rem the day each column's
+ * header held two controls); here there is no width to decide.
+ */
+.st-data-page {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px 20px;
+  overflow: auto;
+  background: var(--ou-ground);
+}
+
+.st-data-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.st-data-title h2 {
+  font-size: var(--ou-text);
+  font-weight: 600;
+}
+
+.st-data-title p {
+  margin-top: 2px;
+  font-size: var(--ou-text-small);
+  color: var(--ou-muted);
 }
 
 .st-data-edit {
@@ -1953,7 +1996,10 @@ body {
 /* The one thing a table must never do to the page around it. */
 .st-data-scroll {
   overflow-x: auto;
-  max-height: 22rem;
+  /*
+   * No cap any more: the table is the main area's own scroll now, so a limit here would be a second
+   * scrollbar inside the first — which is what a dialog needed and a page does not.
+   */
   overflow-y: auto;
   border: 1px solid var(--ou-line);
   border-radius: var(--ou-radius);
@@ -1987,11 +2033,50 @@ body {
   border-bottom-width: 2px;
 }
 
+/*
+ * The name on one line and what the column holds under it — see `.st-data-dialog` for why side by
+ * side could not work, and the delete button on the name's line where it belongs.
+ */
 .st-data-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 9rem;
+}
+
+.st-data-col-name {
   display: flex;
   align-items: center;
   gap: 2px;
-  min-width: 8rem;
+}
+
+/*
+ * **자료형**, beside the column's name and quieter than it.
+ *
+ * A column's name is what a reader reads and what `field:제목` points at; its kind is a fact about
+ * it that is looked at once and then trusted. So it is small and muted — present when a reader is
+ * setting a column up, and out of the way when they are entering rows.
+ */
+.st-data-kind {
+  font-size: var(--ou-text-small);
+  color: var(--ou-muted);
+  /* Its own line, so it takes the column's width rather than a share of it. */
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
+}
+
+/*
+ * A number reads right-aligned and in tabular figures — the one place in this product where the
+ * *shape* of a column says what it holds, which is what a column of prices is for.
+ */
+.st-data-grid td[data-cell-kind='number'] input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.st-data-grid td[data-cell-kind='boolean'] {
+  text-align: center;
 }
 
 /* The row number is a label, not data: quiet, narrow, and never the thing a reader aims at. */
@@ -2230,7 +2315,7 @@ body {
 .st-uses-group h3 {
   margin: 0 0 4px;
   color: var(--ou-faint);
-  font-size: 10px;
+  font-size: var(--ou-text-label);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2304,7 +2389,7 @@ body {
 .st-emoji-sheet h3 {
   margin: 0 0 4px;
   color: var(--ou-faint);
-  font-size: 10px;
+  font-size: var(--ou-text-label);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2402,3 +2487,481 @@ body {
   `position: fixed` under a `transform` is fixed to that transform.
 */
 
+/*
+ * ── 한 행을, 폼으로 ─────────────────────────────────────────────
+ *
+ * The other half of the grid. A grid compares rows and a form fills one in, and each is bad at the
+ * other's job: five columns of a product is a comfortable line, and a blog entry with two sentences
+ * in it has scrolled off the right edge before the summary is finished.
+ */
+.st-row-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.st-row-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/*
+ * The label above the control rather than beside it — the one place in this product that does.
+ *
+ * A properties panel puts the label in a column so sixteen controls line up, and that is right for
+ * sixteen adjustments. A form is read down, its labels are words rather than tokens (요약, 발행일),
+ * and a fixed label column would give the value the narrower half of an already narrow drawer.
+ */
+.st-row-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--ou-text-small);
+  color: var(--ou-muted);
+}
+
+/* What the column holds, and quieter than what it is called. */
+.st-row-kind {
+  font-style: normal;
+  color: var(--ou-faint);
+  font-size: var(--ou-text-small);
+}
+
+/*
+ * The row number **is** the way into the form: the one part of a row that is not a value, and the
+ * one a reader is already aiming at when they mean *this row* rather than *this cell*.
+ */
+.st-data-open {
+  width: 100%;
+  padding: 0 2px;
+  text-align: right;
+  color: var(--ou-faint);
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--ou-radius);
+}
+
+.st-data-open:hover {
+  color: var(--ou-accent);
+  background: var(--ou-accent-soft);
+}
+
+/*
+ * ── 어디가 데이터인가 ───────────────────────────────────────────
+ *
+ * Asked as *전체 페이지 중에 어디가 데이타이고 어디가 아닌지 구분이 잘 안 된다*, and the reason is
+ * that resolution is total: `field:제목` is the post's title by the time the board draws it, and a
+ * value that came from a column looks exactly like one somebody typed.
+ *
+ * `data-from` is written on the drawing — never on the published page — and this is the whole of the
+ * notation.
+ *
+ * ## Why an underline and not a box
+ *
+ * A box says *this is a thing*, which the selection already says, and a page of boxes is a page a
+ * reader cannot see the design in. What is being said here is *these words are not typed here*, and
+ * the notation for that is the one every tool uses for a field in a document: a coloured underline,
+ * under the words, changing nothing about where they sit.
+ *
+ * It sits under `.st-frame` so it is the **editor's** mark: preview draws the page a visitor gets,
+ * and a visitor is not being told which words came from a spreadsheet.
+ */
+.st-frame:not([data-preview='true']) .st-page [data-from] {
+  /* An inset shadow rather than a border or an outline: it paints inside the box the block already
+     has, so nothing moves — the same rule the wireframe had to learn twice. */
+  box-shadow: inset 0 -2px 0 -1px var(--ou-accent);
+}
+
+/*
+ * And the **list** it came from, named once on the box that owns the rows rather than on every value
+ * inside them — which is what a reader is actually asking first.
+ */
+.st-frame:not([data-preview='true']) .st-page .st-collection[data-source] {
+  position: relative;
+  outline: 1px dashed color-mix(in srgb, var(--ou-accent) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.st-frame:not([data-preview='true']) .st-page .st-collection[data-source]::before {
+  content: attr(data-source);
+  position: absolute;
+  right: 0;
+  top: -1.25em;
+  z-index: 1;
+  padding: 0 4px;
+  border-radius: var(--ou-radius);
+  background: var(--ou-accent);
+  color: var(--ou-panel);
+  font-size: var(--ou-text-small);
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/*
+ * ── 자료형마다 다른 칸 ───────────────────────────────────────────
+ *
+ * A grid whose every cell is a text box is a grid a reader types a date into and a check finds later.
+ * Each of these is what the browser already had for the kind, and none of them is a control this
+ * product had to invent.
+ */
+
+/* 여러 줄: a real box, not a line — a summary is two sentences and a line hides the second. */
+.st-cell-long {
+  width: 100%;
+  min-width: 12rem;
+  resize: vertical;
+  padding: 2px 4px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--ou-radius);
+}
+
+.st-cell-long:hover { border-color: var(--ou-line); }
+.st-cell-long:focus { border-color: var(--ou-accent); outline: none; }
+
+/*
+ * 서식 있는 글: the **words**, and read-only.
+ *
+ * The cell holds `text:요약-스택` and the paragraphs live in `resources`, so a text box here would be
+ * a reader typing over a reference and losing them. Drawn quietly, because this is not yet where they
+ * are changed — nothing can put a caret in a `richText` until the drawer edits one.
+ */
+.st-cell-rich {
+  display: block;
+  padding: 2px 4px;
+  color: var(--ou-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 16rem;
+}
+
+.st-cell-rich em { color: var(--ou-faint); font-style: normal; }
+
+/* 여러 선택: the options, each a switch — which is what choosing several of a few looks like. */
+.st-cell-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 2px;
+}
+
+.st-cell-choices button {
+  padding: 0 6px;
+  border: 1px solid var(--ou-line);
+  border-radius: 999px;
+  color: var(--ou-muted);
+  font-size: var(--ou-text-small);
+  line-height: 1.6;
+}
+
+.st-cell-choices button[data-on='true'] {
+  border-color: var(--ou-accent);
+  background: var(--ou-accent-soft);
+  color: var(--ou-accent);
+}
+
+/*
+ * ── 속성 추가 ───────────────────────────────────────────────────
+ *
+ * A name and what it holds, in one gesture. It was a name alone, so every column a reader made was
+ * 글자 and setting it to a date was a second act on a control they had to find afterwards — which is
+ * not how anybody thinks about adding a column: *발행일, 날짜* is one decision.
+ *
+ * The name first because that is what a reader came to type; the kinds under it because there are
+ * fourteen and a reader picks by recognising a shape.
+ */
+.st-add-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 15rem;
+  padding: 8px;
+  border: 1px solid var(--ou-line);
+  border-radius: var(--ou-radius);
+  background: var(--ou-panel);
+}
+
+.st-add-kinds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.st-add-kinds button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: var(--ou-radius);
+  color: var(--ou-muted);
+  text-align: left;
+  font-size: var(--ou-text-small);
+}
+
+.st-add-kinds button:hover { background: var(--ou-ground); }
+
+.st-add-kinds button[data-on='true'] {
+  background: var(--ou-accent-soft);
+  color: var(--ou-accent);
+}
+
+.st-add-do { display: flex; gap: 6px; }
+
+/*
+ * ── 서식 있는 글, 고치는 자리 ─────────────────────────────────────
+ *
+ * A second `EditorViewDOM` over the same editor, pointed at the `richText` node — see `RichEdit` for
+ * why that is the whole implementation. What this file has to do is give it a box that reads as a
+ * field: the words are the document's, so they arrive with the document's own type, and the frame
+ * around them is what says *you may type here*.
+ */
+.st-rich-edit {
+  min-height: 4rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  padding: 4px 6px;
+  border: 1px solid var(--ou-field-line);
+  border-radius: var(--ou-radius);
+  background: var(--ou-panel);
+  font-size: var(--ou-text);
+  line-height: 1.5;
+}
+
+.st-rich-edit:hover { border-color: var(--ou-line); }
+.st-rich-edit:focus-within { border-color: var(--ou-accent); }
+
+/* The page's own margins are the page's; in a field they would be a paragraph adrift in a box. */
+.st-rich-edit p,
+.st-rich-edit h1,
+.st-rich-edit h2,
+.st-rich-edit h3 {
+  margin: 0;
+}
+
+.st-rich-edit p + p { margin-top: 6px; }
+
+/*
+ * ── 차트 ─────────────────────────────────────────────────────────
+ *
+ * An `<svg>` drawn from the arithmetic in `chart.ts`, and **no library** — in the editor or in the
+ * published page. `live.ts` settled that rule for lists: the export ships the drawing it already
+ * made, marked, and a script rewrites the marked parts.
+ *
+ * So what CSS has to do here is small: give the picture a box that scales with the page, and let the
+ * ink be the page's ink so a chart inside a dark band is legible without being told.
+ */
+.st-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.st-chart-title {
+  font-size: var(--ou-text-small);
+  color: var(--ou-muted);
+}
+
+/*
+ * `width: 100%` and `height: auto` with the viewBox doing the work: a chart drawn at 320×180 units
+ * keeps its proportions at any width, and its labels keep their size relative to it — which is the
+ * whole reason `font-size` is an SVG **attribute** here rather than a CSS declaration.
+ */
+.st-chart-plot {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+/*
+ * **무엇으로 시작할지** — the rows inside 새 페이지.
+ *
+ * It was three buttons in the rail, one per template, and that is the wrong shape said out loud:
+ * *모든 것은 페이지야.* A template is not a kind of page, it is where one starts from — so it belongs
+ * inside the one button rather than beside it, and the list grows without the rail growing.
+ *
+ * 빈 페이지 is a **row**, not the button next to the list: a blank page is a starting point too, and
+ * putting it in the list is what stops it being the default nobody chose.
+ */
+.st-starts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.st-start {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid var(--ou-line);
+  border-radius: var(--ou-radius);
+  background: var(--ou-panel);
+}
+
+.st-start:hover {
+  border-color: var(--ou-accent);
+  background: var(--ou-accent-soft);
+}
+
+.st-start-name {
+  font-size: var(--ou-text);
+  color: var(--ou-ink);
+}
+
+.st-start-note {
+  font-size: var(--ou-text-small);
+  color: var(--ou-muted);
+}
+
+/*
+ * ── 관리 ────────────────────────────────────────────────────────
+ *
+ * The surface a reader opens the file into. It fills the shell's own regions with a different
+ * answer: the left is the five things a **site** is made of, the middle is a table, and there is no
+ * right — a properties panel is about a block, and there are no blocks here.
+ *
+ * Which is the whole reason it is a mode rather than a fifth view of the main area: six things this
+ * product draws are about the site rather than about a page, and all six want width, no canvas and
+ * no properties panel.
+ */
+.st-admin {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  background: var(--ou-ground);
+}
+
+/* Its own nav, not the builder's rail: 추가 and 구성 are tools for editing a page. */
+.st-admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 11rem;
+  flex: none;
+  padding: 12px 8px;
+  border-right: 1px solid var(--ou-line);
+  background: var(--ou-panel);
+}
+
+.st-admin-nav button {
+  padding: 6px 10px;
+  text-align: left;
+  border-radius: var(--ou-radius);
+  color: var(--ou-muted);
+  font-size: var(--ou-text);
+}
+
+.st-admin-nav button:hover { background: var(--ou-ground); }
+
+.st-admin-nav button[aria-current='page'] {
+  background: var(--ou-accent-soft);
+  color: var(--ou-accent);
+}
+
+.st-admin-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding: 16px 20px 20px;
+  gap: 12px;
+}
+
+.st-admin-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.st-admin-head h2 {
+  font-size: var(--ou-text);
+  font-weight: 600;
+}
+
+.st-admin-head p {
+  font-size: var(--ou-text-small);
+  color: var(--ou-muted);
+}
+
+/* The acts push to the right, because a list is read from the left. */
+.st-admin-do {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.st-admin-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.st-admin-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--ou-text);
+}
+
+.st-admin-table th,
+.st-admin-table td {
+  border-bottom: 1px solid var(--ou-line);
+  padding: 4px 8px;
+  text-align: left;
+  font-weight: 400;
+  vertical-align: middle;
+}
+
+.st-admin-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--ou-ground);
+  font-size: var(--ou-text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ou-faint);
+}
+
+.st-admin-quiet { color: var(--ou-muted); }
+
+/* A count reads right-aligned and in tabular figures, which is the whole point of a column of them. */
+.st-admin-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.st-admin-row-do {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.st-admin-part { margin-bottom: 20px; }
+
+.st-admin-part h3 {
+  margin-bottom: 6px;
+  font-size: var(--ou-text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ou-faint);
+}
+
+.st-admin-faults {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--ou-text-small);
+  color: var(--ou-ink);
+}
+
+.st-to-admin { margin-right: 8px; }

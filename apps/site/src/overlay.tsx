@@ -85,6 +85,8 @@ export function Overlay({
   mode,
   onEnterText,
   onEditComponent,
+  onRow,
+  onEditRow,
   onEditCode,
   onAdd,
   scope,
@@ -106,6 +108,18 @@ export function Overlay({
    */
   /** Open a definition — and, when the reader came in through a list, against which of its rows. */
   onEditComponent?: (componentId: string, from?: { collection: string; index: number }) => void;
+  /** Which row of which list the last press landed in, or nothing — see the press handler. */
+  onRow?: (at: { collection: string; index: number } | undefined) => void;
+  /**
+   * Open that row as a form — **with the row the menu was built for**, not with whatever the layer
+   * last saw.
+   *
+   * Measured: choosing *3행 편집* opened row 2. Radix closes the menu on the item's press, and the
+   * click that follows lands on the board underneath — over a different card, which set the row
+   * again before the drawer read it. So the row travels with the request rather than being looked
+   * up when it arrives, which is the same rule the toolbar follows about the selection.
+   */
+  onEditRow?: (at: { collection: string; index: number }) => void;
   /**
    * Open the code editor over this block, at the rectangle it has **on screen**.
    *
@@ -319,7 +333,9 @@ export function Overlay({
    * On screen coordinates rather than board ones: the menu is drawn outside the zoomed plane, like
    * every other piece of chrome, so a menu at 40% zoom is the same size as one at 200%.
    */
-  const [context, setContext] = useState<{ x: number; y: number } | null>(null);
+  const [context, setContext] = useState<
+    { x: number; y: number; row?: { collection: string; index: number } } | null
+  >(null);
 
   const [sweep, setSweep] = useState<{
     from: { x: number; y: number };
@@ -921,9 +937,24 @@ export function Overlay({
       onContextMenu={(event) => {
         if (mode !== 'select') return;
         event.preventDefault();
+        /**
+         * The row under the pointer, read **before anything is selected** and read **once**.
+         *
+         * Both halves were wrong and the second one was the expensive one. `select` runs a command,
+         * which re-renders the boards; asking `drawnHit` again afterwards asks about a drawing that
+         * has been replaced, and the two calls came back with different rows — the menu offered
+         * *3행 편집* and the form opened row 2. One reading, used for both.
+         *
+         * The row travels with the menu because the menu is *about what is under the pointer*, which
+         * is the one question in this layer whose answer is a row number, and the one the selection
+         * cannot carry: a single click on a card selects the **section**, and drilling in to reach
+         * the list is two more gestures a reader has to already know about.
+         */
+        const row = rowOf(drawnHit(event));
         const outer = childOfScope(doc(), hit(event), page, scope);
         if (outer && !selected.includes(outer)) select([outer]);
-        setContext({ x: event.clientX, y: event.clientY });
+        onRow?.(row);
+        setContext({ x: event.clientX, y: event.clientY, row });
       }}
       onPointerDown={(event) => {
         if (mode !== 'select') return;
@@ -1027,6 +1058,20 @@ export function Overlay({
           return;
         }
         select([outer]);
+        /*
+         * **And which row of a list it was**, when it was one.
+         *
+         * The row number lives only in the **drawing** — a row's sid is `${collection}~${index}` and
+         * `sidAtElement` collapses it, which is right for everything else here and is exactly what
+         * throws it away. So it has to be read at the moment of the press; the selection carries
+         * document ids, and by the time the panel is drawing there is nothing left to ask.
+         *
+         * Reported as *페이지에서 Drawer 를 어떻게 열어서 편집해야 할지 모르겠어*: the form existed and
+         * the only way in was the grid's row number, which is behind a dialog a reader opens from
+         * the rail. A reader looking at the third card of a blog index is looking at row three, and
+         * this is the one place that knows it.
+         */
+        onRow?.(rowOf(drawnHit(event)));
       }}
       onDoubleClick={(event) => {
         if (mode !== 'select') return;
@@ -1162,22 +1207,53 @@ export function Overlay({
         <Menu
           at={context}
           label="블록"
-          blocks={SITE_CONTEXT.map((block) => ({
-            id: block.id,
-            items: block.items.map((one) => ({
-              id: one.command!,
-              label: one.label,
-              hint: one.hint,
-              disabled: !(
-                (editor as never as {
-                  canExecuteCommand?: (n: string, p?: unknown) => boolean;
-                }).canExecuteCommand?.(one.command!, {
-                  nodeIds: selected,
-                  ...(one.needs === 'page' ? { nodeId: page, pageId: page } : {})
-                }) ?? false
-              )
+          blocks={[
+            /**
+             * **이 행 편집**, first and only when there is one.
+             *
+             * Reported as *페이지에서 Drawer 를 어떻게 열어서 편집해야 할지 모르겠어*. The panel has the
+             * same door, on the **list** — and a single click on a card selects the *section* it is
+             * in, so reaching the list is two more gestures a reader has to already know about. A
+             * context menu is the one surface whose whole premise is *what is under the pointer*,
+             * which is also the only place the row number exists.
+             *
+             * Not a command, which is why it is built here rather than declared in `SITE_CONTEXT`:
+             * it changes nothing in the document, it opens something. Every other item on this menu
+             * is a command and is checked against the editor; this one is checked against whether
+             * the pointer was in a row at all.
+             */
+            ...(context?.row
+              ? [
+                  {
+                    id: 'row',
+                    items: [
+                      {
+                        id: 'openRow',
+                        label: `${context.row.index + 1}행 편집`,
+                        hint: '데이터',
+                        disabled: false
+                      }
+                    ]
+                  }
+                ]
+              : []),
+            ...SITE_CONTEXT.map((block) => ({
+              id: block.id,
+              items: block.items.map((one) => ({
+                id: one.command!,
+                label: one.label,
+                hint: one.hint,
+                disabled: !(
+                  (editor as never as {
+                    canExecuteCommand?: (n: string, p?: unknown) => boolean;
+                  }).canExecuteCommand?.(one.command!, {
+                    nodeIds: selected,
+                    ...(one.needs === 'page' ? { nodeId: page, pageId: page } : {})
+                  }) ?? false
+                )
+              }))
             }))
-          }))}
+          ]}
           onClose={() => setContext(null)}
           onPick={(command) => {
             const one = SITE_CONTEXT.flatMap((block) => block.items).find(
@@ -1190,6 +1266,11 @@ export function Overlay({
              * and owes the command nothing.
              */
             setContext(null);
+            /* The one item that is not a command — see the block above. */
+            if (command === 'openRow') {
+              if (context?.row) onEditRow?.(context.row);
+              return;
+            }
             void (editor as never as {
               executeCommand?: (n: string, p?: unknown) => void;
             }).executeCommand?.(command, {
@@ -1862,6 +1943,20 @@ function alongOf(doc: { getNode: (sid: string) => any }, sid: string): 'down' | 
  * the third product means the third *product*, and counting siblings gives the same answer only
  * until a list is sorted or filtered, which is most of them.
  */
+/**
+ * The list and the row a drawn sid is in, when it is in one.
+ *
+ * `${collection}~${index}` for the row itself and `${collection}~${index}~${part}` for anything in
+ * it, so the answer is the first two segments — and a reader who clicks the title inside a card
+ * means that card's row, which is why this looks at the whole prefix rather than at the last hop.
+ */
+function rowOf(sid: string | undefined): { collection: string; index: number } | undefined {
+  const parts = String(sid ?? '').split('~');
+  if (parts.length < 2) return undefined;
+  const index = Number(parts[1]);
+  return Number.isInteger(index) && index >= 0 ? { collection: parts[0], index } : undefined;
+}
+
 function rowIndexOf(sid: string | undefined): number | undefined {
   const index = Number(String(sid ?? '').split('~')[1]);
   return Number.isInteger(index) && index >= 0 ? index : undefined;

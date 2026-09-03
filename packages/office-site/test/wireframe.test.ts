@@ -5,9 +5,12 @@ import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
 import { pagesOf } from '../src/selection';
+import { BREAKPOINTS } from '../src/breakpoints';
 import {
   WIREFRAME_CSS,
   WIREFRAME_NAMES,
+  WIREFRAME_PALETTE,
+  shownOnlyAt,
   wireframeCss,
   wireframeName,
   wireframeRules
@@ -78,7 +81,27 @@ describe('a page with the finish taken off', () => {
       .filter((one) => one.length > 0);
     expect(selectors.length).toBeGreaterThan(6);
     for (const one of selectors) {
-      for (const each of one.split(',')) {
+      /*
+       * Split on the commas that separate **selectors**, not the ones inside `:is(…)`.
+       * `:is(p, h1, h2)` is one selector with commas in it, and a plain `split(',')` reads it as
+       * three — of which two do not start with the scope and the check failed on a rule that was
+       * correct. Depth, because that is the whole difference.
+       */
+      const parts: string[] = [];
+      let depth = 0;
+      let held = '';
+      for (const ch of one) {
+        if (ch === '(') depth += 1;
+        if (ch === ')') depth -= 1;
+        if (ch === ',' && depth === 0) {
+          parts.push(held);
+          held = '';
+          continue;
+        }
+        held += ch;
+      }
+      parts.push(held);
+      for (const each of parts) {
         expect(each.trim(), each).toMatch(/^\[data-wireframe='true'\]/);
       }
     }
@@ -129,6 +152,77 @@ describe('a page with the finish taken off', () => {
     expect(rules).toMatch(/::before \{ content: '폼'; position: absolute; right: 0; top: 0/);
   });
 
+  it('numbers the page’s own sections, and nothing inside them', () => {
+    /**
+     * **읽는 순서**, which is half the reason anybody shows a wireframe to somebody else — and which
+     * the drawing could not say, so the answer was *look at it and count*.
+     *
+     * The page's **direct children** only. A number on every box is a wireframe with a hundred
+     * numbers on it, and the sections are what a reader is being asked the order of.
+     */
+    const numbers = [...wireframeRules(store as never, pages[0].sid).matchAll(/::after \{ content: '(\d+)'/g)].map(
+      (one) => one[1]
+    );
+    const kids = (store.getNode(pages[0].sid) as any).content.length;
+    expect(numbers).toEqual([...Array(kids)].map((_, index) => String(index + 1)));
+
+    /* And it moves nothing: the badge is absolutely placed, outside the box, on a relative parent. */
+    expect(wireframeRules(store as never, pages[0].sid)).toContain('left: -26px');
+  });
+
+  it('says which widths a block is on, when it is not on all of them', () => {
+    /**
+     * A section that drops out on the tablet drew exactly like a section that does not exist, and
+     * the only way to find out was to put two boards side by side and notice an **absence**.
+     *
+     * Said on the block wherever it *is* drawn, rather than as a ghost where it is not: a hidden
+     * block has no box, so drawing one would add a box — the reviewer would be reading a page taller
+     * than the page. The sample carries the ordinary shape of this, a bar and a hamburger.
+     */
+    expect(shownOnlyAt({ visible: false, overrides: { mobile: { visible: true } } })).toBe('모바일만');
+    expect(shownOnlyAt({ overrides: { mobile: { visible: false } } })).toBe('데스크톱·태블릿만');
+
+    /* Silence for a block on every width, which is nearly every block — and for a draft. */
+    expect(shownOnlyAt({})).toBeUndefined();
+    expect(shownOnlyAt(undefined)).toBeUndefined();
+    expect(shownOnlyAt({ visible: false })).toBeUndefined();
+
+    /* The document's own widths, not three constants: a reader who adds one changes every answer. */
+    const four = [...BREAKPOINTS, { id: 'wide', label: '와이드', width: 1600, viewport: 900 }];
+    expect(shownOnlyAt({ overrides: { mobile: { visible: false } } }, four)).toBe('데스크톱·태블릿·와이드만');
+  });
+
+  it('says both facts in one label, because an element has two corners and one is spoken for', () => {
+    // The reading order owns `::after`, so what a box **is** and where it is live in the same
+    // `::before` — which is also how a person would say it: `폼 · 모바일만`.
+    const nav = wireframeRules(store as never, pages[0].sid);
+    expect(nav).toContain("content: '데스크톱·태블릿만'");
+    expect(nav).toContain("content: '모바일만'");
+  });
+
+  it('puts the pseudo-element on every selector of a pair, not on the last one', () => {
+    /**
+     * **The fault only a browser could see, written down as a string.**
+     *
+     * A part of a definition is named by two selectors — `[data-bc-sid$="~part"]` for every placement
+     * of it, and the bare sid for the board where the definition is being edited on its own. Written
+     * as `a, b::before`, the pseudo-element attaches to **`b` alone**: every drawn placement matched
+     * `a` and got a `content` declaration on the element itself, which does nothing at all.
+     *
+     * The sheet was generated, the rule was in it, the label was invisible, and every check here
+     * passed — because they all assert on the string, and the string contained the word. A browser
+     * said it. This is that lesson turned back into a string check: in a rule that draws a
+     * pseudo-element, **every** selector in the list carries it.
+     */
+    const rules = wireframeRules(store as never, pages[0].sid);
+    const drawing = rules.split('\n').filter((one) => one.includes('::'));
+    expect(drawing.length).toBeGreaterThan(0);
+    for (const rule of drawing) {
+      const selectors = rule.slice(0, rule.indexOf('{')).split(',');
+      for (const one of selectors) expect(one.trim(), rule).toMatch(/::(before|after)$/);
+    }
+  });
+
   it('is one sheet, and says nothing about a page with nothing to name', () => {
     const empty = wireframeCss(store as never, 'site:없는것');
     expect(empty).toContain(WIREFRAME_CSS);
@@ -151,5 +245,89 @@ describe('a page with the finish taken off', () => {
     };
     look(editor.getRootId(), 0);
     expect(Object.keys(WIREFRAME_NAMES).filter((one) => !seen.has(one))).toEqual([]);
+  });
+});
+
+/**
+ * **The palette, held to the numbers that chose it.**
+ *
+ * Asked as *회색톤이 나은가, 검은 선만 쓰는 게 나은가, 테마처럼 고르게 하는 게 나은가* — and the
+ * measurement said the first two were not the choice they looked like. The sheet's four values,
+ * against the white page, were 1.14, 1.19, 1.04 (the two greys against **each other**) and 1.68. It
+ * was not a grey wireframe; it was a white page with three invisible marks on it, and 25 boxes on
+ * the sample carry a fill and no corner and no border, every one of them lost.
+ *
+ * So this is not a taste check. It is the three claims the palette is now built on, as arithmetic:
+ * one ink that reads as text, one line dark enough to *be* the notation, and one grey that means
+ * exactly one thing and is visibly a filled box.
+ *
+ * WCAG's own relative luminance, written here rather than imported: the function that has it lives in
+ * `office-slides`, and a page package depending on a deck package to check its own colours would be
+ * the wrong layering for eight lines of arithmetic.
+ */
+describe('the wireframe’s own contrast', () => {
+  const luminance = (hex: string) => {
+    const channel = (value: number) => {
+      const unit = value / 255;
+      return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
+    };
+    const [r, g, b] = [1, 3, 5].map((at) => channel(parseInt(hex.slice(at, at + 2), 16)));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a: string, b: string) => {
+    const [one, two] = [luminance(a), luminance(b)];
+    return (Math.max(one, two) + 0.05) / (Math.min(one, two) + 0.05);
+  };
+
+  const { ink, line, media, page } = WIREFRAME_PALETTE;
+
+  it('draws the structure with a line that can be seen', () => {
+    /*
+     * 3:1 is the bar a **non-text** mark has to clear, and the line is the whole notation now: a
+     * filled box is drawn as an outlined box rather than as a second grey, so everything the page's
+     * structure consists of arrives through this one value. The old line was 1.68:1.
+     */
+    expect(ratio(line, page)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('keeps the words louder than the boxes they sit in', () => {
+    // The ink is text and reads as text; the line is a mark and must not compete with it.
+    expect(ratio(ink, page)).toBeGreaterThanOrEqual(7);
+    expect(ratio(ink, page)).toBeGreaterThan(ratio(line, page));
+  });
+
+  it('leaves grey exactly one meaning, and makes it visible', () => {
+    /*
+     * The fault this replaced: two greys meaning two different things — *a reader put a background
+     * here* and *there is a photograph here* — 1.04:1 apart. There is one grey now, so the question
+     * is only whether it reads as a filled box, and 1.14:1 did not.
+     */
+    expect(ratio(media, page)).toBeGreaterThanOrEqual(1.4);
+    // And it is a picture, not a control: the line has to stay readable against it.
+    expect(ratio(line, media)).toBeGreaterThanOrEqual(1.8);
+  });
+
+  it('washes a loaded photograph onto the same grey as an empty one', () => {
+    /*
+     * A picture with a file is `contrast(0)` plus a `brightness`; one with no file is the flat
+     * `MEDIA` behind it. Two shapes for one fact, so they have to land on the same grey — they did
+     * not, and the wash was two shades lighter than the fallback.
+     *
+     * `contrast(0)` puts every channel on 127.5, so the wash is that times the brightness.
+     */
+    const brightness = Number(/brightness\(([\d.]+)\)/.exec(WIREFRAME_CSS)?.[1]);
+    const washed = Math.round(127.5 * brightness);
+    const wanted = parseInt(media.slice(1, 3), 16);
+    expect(Math.abs(washed - wanted)).toBeLessThanOrEqual(6);
+  });
+
+  it('says every colour it draws through the palette, and no other', () => {
+    /*
+     * The check that keeps the numbers above meaningful: a hex written straight into the sheet is a
+     * value none of this measured. White is allowed — it is the ground, and it is in the palette.
+     */
+    const written = new Set([...WIREFRAME_CSS.matchAll(/#[0-9a-fA-F]{3,8}/g)].map((one) => one[0]));
+    const known = new Set<string>(Object.values(WIREFRAME_PALETTE));
+    expect([...written].filter((one) => !known.has(one))).toEqual([]);
   });
 });
