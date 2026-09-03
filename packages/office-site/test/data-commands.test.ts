@@ -4,7 +4,7 @@ import { createSchema } from '@barocss/schema';
 import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
-import { datasetNamed, datasetsOf, rowsOf } from '../src/data';
+import { columnNames, datasetNamed, datasetsOf, fieldsFrom, rowsOf } from '../src/data';
 import { registerSiteRenderers } from '../src/renderers';
 
 /**
@@ -27,6 +27,8 @@ describe('a dataset a reader can change', () => {
 
   /** The sample's product catalogue, freshly read — every command rewrites the node. */
   const products = () => datasetNamed(doc, '상품')!;
+  /* The names alone, which is what most of these are about — the kinds have their own checks. */
+  const columns = () => columnNames(products().fields);
   const sidOf = (name: string) => datasetsOf(doc).find((one) => one.name === name)!.sid!;
 
   beforeEach(() => {
@@ -65,7 +67,7 @@ describe('a dataset a reader can change', () => {
     await run('setDatasetField', { nodeId: sidOf('상품'), field: '재고' });
 
     const after = products();
-    expect(after.fields).toContain('재고');
+    expect(columnNames(after.fields)).toContain('재고');
     // Present and empty in every row, not absent: a card bound to the new column draws a blank
     // rather than the literal `field:재고`.
     expect(after.records.length).toBe(rows);
@@ -74,16 +76,16 @@ describe('a dataset a reader can change', () => {
 
   it('renames a column in the rows too, and keeps it where it was', async () => {
     const before = products();
-    const at = before.fields.indexOf('가격');
+    const at = columnNames(before.fields).indexOf('가격');
     const values = before.records.map((row) => row['가격']);
 
     await run('setDatasetField', { nodeId: sidOf('상품'), field: '가격', rename: '값' });
 
     const after = products();
-    expect(after.fields).not.toContain('가격');
+    expect(columnNames(after.fields)).not.toContain('가격');
     // In place. A rename that moved the column to the end reads to a reader as a delete and an add,
     // which is a different act with a different undo.
-    expect(after.fields[at]).toBe('값');
+    expect(after.fields[at].name).toBe('값');
     // And the values came with it — the whole point. `fields` alone would look right in the panel
     // and draw nothing on the page.
     expect(after.records.map((row) => row['값'])).toEqual(values);
@@ -103,7 +105,7 @@ describe('a dataset a reader can change', () => {
     await run('setDatasetField', { nodeId: sidOf('상품'), field: '가격', remove: true });
 
     const after = products();
-    expect(after.fields).not.toContain('가격');
+    expect(columnNames(after.fields)).not.toContain('가격');
     expect(after.records.every((row) => !('가격' in row))).toBe(true);
     // The other columns are untouched, which is the thing a whole-array rewrite is most likely to
     // get wrong.
@@ -116,7 +118,7 @@ describe('a dataset a reader can change', () => {
     let after = products();
     expect(after.records.length).toBe(before.records.length + 1);
     // Every column present and empty — a row with missing keys is a row the list draws holes for.
-    expect(Object.keys(after.records[after.records.length - 1]).sort()).toEqual([...after.fields].sort());
+    expect(Object.keys(after.records[after.records.length - 1]).sort()).toEqual(columnNames(after.fields).sort());
 
     await run('addDatasetRow', { nodeId: sidOf('상품'), at: 0 });
     after = products();
@@ -238,7 +240,7 @@ describe('rows from an address', () => {
      * empty field would otherwise drop a column for every row after the first, and the reader would
      * see a card with a blank slot and no way to find out why.
      */
-    expect(attrs().fields).toEqual(['이름', '가격', '비고']);
+    expect(columnNames(fieldsFrom(attrs().fields))).toEqual(['이름', '가격', '비고']);
   });
 
   it('never empties a dataset, whatever the service says', async () => {
@@ -284,6 +286,7 @@ describe('a block pasted into the grid', () => {
   let doc: any;
 
   const products = () => datasetNamed(doc, '상품')!;
+  const columns = () => columnNames(products().fields);
   const sidOf = () => datasetsOf(doc).find((one) => one.name === '상품')!.sid!;
 
   beforeEach(() => {
@@ -330,7 +333,7 @@ describe('a block pasted into the grid', () => {
     });
     expect(products().records.length).toBe(before + 3);
     // And the grown rows are whole: every column present, so nothing reads them as missing a field.
-    for (const field of products().fields) {
+    for (const field of columns()) {
       expect(Object.prototype.hasOwnProperty.call(products().records[before + 2], field)).toBe(true);
     }
   });
@@ -341,14 +344,14 @@ describe('a block pasted into the grid', () => {
    * carrying `엑셀 열 6`.
    */
   it('trims a paste wider than the table rather than inventing columns', async () => {
-    const fields = products().fields;
+    const fields = columns();
     await editor.executeCommand('setDatasetCells', {
       nodeId: sidOf(),
       row: 0,
       field: fields[fields.length - 1],
       values: [['끝', '넘침 하나', '넘침 둘']]
     });
-    expect(products().fields).toEqual(fields);
+    expect(columns()).toEqual(fields);
     expect(products().records[0][fields[fields.length - 1]]).toBe('끝');
   });
 

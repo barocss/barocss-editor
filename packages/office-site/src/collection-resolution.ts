@@ -32,7 +32,7 @@ import {
   type CanvasAccess,
   type CanvasNode
 } from '@barocss/office-canvas';
-import { datasetNamed, rowsOf, valuesForRow } from './data';
+import { bodiesForRow, datasetNamed, rowsOf, valuesForRow } from './data';
 
 /** The one placement a collection draws for each row. */
 export function templateOf(doc: CanvasAccess, node: CanvasNode | undefined): CanvasNode | undefined {
@@ -78,7 +78,12 @@ export function collectionRows(doc: CanvasAccess, node: CanvasNode | undefined):
      */
     attributes: { ...(template.attributes as Record<string, unknown>), rowIndex: index },
     content: instanceParts(doc, template, [], {
-      rewrite: (values) => valuesForRow(values, record),
+      rewrite: (values) => valuesForRow(values, record, doc as never),
+      /*
+       * And the **content** for a 서식 있는 글 column, which cannot be a string: a summary with a link
+       * in it is nodes, and `withText` would flatten them to characters. See `bodiesForRow`.
+       */
+      content: (values) => bodiesForRow(values, record, doc as never),
       owner: `${owner}~${index}`
     })
   })) as CanvasNode[];
@@ -147,7 +152,7 @@ export function previewForRow(
   const definition = componentsOf(doc).find((one) => one.id === componentId);
   if (!definition) return undefined;
 
-  const values = valuesForRow(instanceValues(doc, template, definition), record);
+  const values = valuesForRow(instanceValues(doc, template, definition), record, doc as never);
   return {
     componentId,
     collection,
@@ -168,9 +173,13 @@ export function rowLabelsOf(doc: CanvasAccess, collection: string): string[] {
   const node = doc.getNode(collection);
   const attrs = (node?.attributes ?? {}) as Record<string, unknown>;
   const dataset = datasetNamed(doc as never, attrs.source);
-  const first = dataset?.fields?.[0];
+  /*
+   * The first **text** column, not simply the first: a dataset whose first column is a date or a
+   * number labels every row with a number, which is what a row already has.
+   */
+  const first = (dataset?.fields ?? []).find((one) => one.kind === 'text') ?? dataset?.fields?.[0];
   return rowsOf(dataset, attrs).map((record, index) => {
-    const said = first ? record[first] : undefined;
+    const said = first ? record[first.name] : undefined;
     return typeof said === 'string' && said.length > 0 ? said : `${index + 1}번째`;
   });
 }

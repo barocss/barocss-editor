@@ -35,6 +35,184 @@
  * Anything larger is `kind: 'url'`, where the document holds the address and a handful of rows to
  * design against.
  */
+/**
+ * **A column knows what it holds** — the fact that was in the wrong place.
+ *
+ * A dataset's columns were bare names (`['제목', '요약', '날짜', '추천']`) and the *type* lived on the
+ * **card** that drew them, as `componentVar.kind`. Three things follow from that, and all three were
+ * visible in the sample before anybody looked for them:
+ *
+ * - a column drawn by two cards declares its kind **twice**, and the two can disagree;
+ * - nothing can check a cell, so `추천` is `'예'` / `'아니오'` — a boolean spelled as words, because
+ *   there was nowhere to say it was one;
+ * - the grid draws one control for everything. A date, a price and a page reference are all a text
+ *   box, which is what makes entering data in it feel like typing into a spreadsheet by hand.
+ *
+ * ## What stays on the card, and why the split is not arbitrary
+ *
+ * `format` stays. *What a value is* belongs to the data; *how this page reads it* belongs to the
+ * thing drawing it — one dataset feeding a price list that says `9,900원` and a summary that says
+ * `9.9천` is the whole argument for a format, and it was made when `format` was added.
+ *
+ * A card's `kind` stays too, and is now a **fallback**: where the data says a kind, the data wins.
+ * A definition is placed against more than one dataset over its life and the data is the thing that
+ * knows.
+ *
+ * ## A bare name still works, forever
+ *
+ * Every document written before this has `fields: ['제목', …]`, and a column with nothing said about
+ * it is **text** — which is what it was already being treated as. So this reads both shapes and
+ * writes the new one, and nothing has to be migrated.
+ */
+/**
+ * **`DataFieldKind` and not `FieldKind`**, because this schema already has a `FieldKind`: what a
+ * **form**'s field is, in `form.ts`. Two things called a field, and they are genuinely different —
+ * one is what a *visitor* fills in, the other is what a *column* holds — so the shorter name would
+ * be one word meaning two things in a package that exports both.
+ */
+export type DataFieldKind =
+  | 'text'
+  | 'longText'
+  | 'richText'
+  | 'number'
+  | 'boolean'
+  | 'date'
+  | 'choice'
+  | 'choices'
+  | 'colour'
+  | 'image'
+  | 'page'
+  | 'url'
+  | 'email'
+  | 'phone';
+
+/**
+ * The kinds a column may declare, in the order a picker offers them — **words first, then values,
+ * then references**, which is the order a reader thinks about a table in.
+ *
+ * ## What decided the list
+ *
+ * One question: *what can a page draw with it?* Every kind here is something a block on a page reads
+ * — a number sorts, a boolean filters, a colour paints, a picture is an `<img>`, a page reference is
+ * an `<a href>`. Notion's list is longer and the difference is the interesting part: 사람, 수식,
+ * 관계, 롤업, 만든 사람, 만든 시각, 버튼, ID are all facts about a **database**, and this product has
+ * no accounts (so 사람 and 만든 사람 would be values nothing can fill), no expression language (which
+ * `where`/`equals` refused once already, as two attributes rather than a grammar), and no second
+ * document model for a relation to point through.
+ *
+ * A kind that nothing on a page could draw is a column a reader can fill in and never see, which is
+ * the fault this whole schema's conformance harness exists to find.
+ */
+export const DATA_FIELD_KINDS: readonly DataFieldKind[] = [
+  'text',
+  'longText',
+  'richText',
+  'number',
+  'boolean',
+  'date',
+  'choice',
+  'choices',
+  'colour',
+  'image',
+  'page',
+  'url',
+  'email',
+  'phone'
+];
+
+/** What a reader calls each one. Plain terms — the product's rule about every word it shows. */
+export const DATA_FIELD_KIND_NAMES: Record<DataFieldKind, string> = {
+  text: '글자',
+  longText: '여러 줄',
+  richText: '서식 있는 글',
+  number: '숫자',
+  boolean: '예/아니오',
+  date: '날짜',
+  choice: '선택',
+  choices: '여러 선택',
+  colour: '색',
+  image: '그림',
+  page: '페이지',
+  url: '주소',
+  email: '메일',
+  phone: '전화'
+};
+
+/** The picture each one is drawn with — see `office-icons`, where all fourteen were drawn for this. */
+export const DATA_FIELD_KIND_ICONS: Record<DataFieldKind, string> = {
+  text: 'type-text',
+  longText: 'type-long-text',
+  richText: 'type-rich-text',
+  number: 'type-number',
+  boolean: 'type-check',
+  date: 'type-date',
+  choice: 'type-choice',
+  choices: 'type-choices',
+  colour: 'type-colour',
+  image: 'type-image',
+  page: 'type-page',
+  url: 'type-url',
+  email: 'type-email',
+  phone: 'type-phone'
+};
+
+export interface DataField {
+  /** What a `field:` reference names. Durable, like every other reference in this schema. */
+  name: string;
+  kind: DataFieldKind;
+  /** What a reader is shown instead of the name, when the name is not what they would say. */
+  label?: string;
+  /** The values a `choice` may take. Nothing else reads it. */
+  options?: string[];
+}
+
+/** One column, from either shape a document may have written. */
+export function fieldOf(one: unknown): DataField | undefined {
+  if (typeof one === 'string') return one.trim() ? { name: one, kind: 'text' } : undefined;
+  if (!one || typeof one !== 'object' || Array.isArray(one)) return undefined;
+
+  const said = one as Record<string, unknown>;
+  if (typeof said.name !== 'string' || !said.name.trim()) return undefined;
+
+  const kind = DATA_FIELD_KINDS.includes(said.kind as DataFieldKind) ? (said.kind as DataFieldKind) : 'text';
+  const options = Array.isArray(said.options)
+    ? said.options.filter((each): each is string => typeof each === 'string')
+    : undefined;
+
+  return {
+    name: said.name,
+    kind,
+    label: typeof said.label === 'string' && said.label ? said.label : undefined,
+    /* Only where it means something. A list of choices on a date is a value nothing reads. */
+    options: kind === 'choice' && options?.length ? options : undefined
+  };
+}
+
+/** Every column a dataset declares, in the order it declares them. */
+export function fieldsFrom(said: unknown): DataField[] {
+  if (!Array.isArray(said)) return [];
+  const found: DataField[] = [];
+  const seen = new Set<string>();
+  for (const one of said) {
+    const field = fieldOf(one);
+    /* One column per name: two `제목`s is a `field:제목` that means whichever came first. */
+    if (!field || seen.has(field.name)) continue;
+    seen.add(field.name);
+    found.push(field);
+  }
+  return found;
+}
+
+/** Just the names, for the many callers that only ever wanted those. */
+export function columnNames(fields: DataField[] | undefined): string[] {
+  return (fields ?? []).map((one) => one.name);
+}
+
+/** What a column declares, by name. */
+export function fieldNamed(fields: DataField[] | undefined, name: unknown): DataField | undefined {
+  return typeof name === 'string' ? (fields ?? []).find((one) => one.name === name) : undefined;
+}
+
 /** A reference where a value goes, naming a column of the row being drawn. */
 export const FIELD_PREFIX = 'field:';
 
@@ -61,7 +239,7 @@ export interface Dataset {
    * a dataset with no `가격` is a fault somebody can be told about instead of a card that silently
    * draws nothing.
    */
-  fields: string[];
+  fields: DataField[];
   records: Record<string, unknown>[];
 }
 
@@ -91,9 +269,7 @@ export function datasetsOf(doc: Access | undefined): Dataset[] {
         kind: attrs.kind === 'url' ? 'url' : 'inline',
         live: attrs.live === true,
         url: typeof attrs.url === 'string' ? attrs.url : undefined,
-        fields: Array.isArray(attrs.fields)
-          ? attrs.fields.filter((one): one is string => typeof one === 'string')
-          : [],
+        fields: fieldsFrom(attrs.fields),
         records: Array.isArray(attrs.records) ? attrs.records.filter(isRecord) : []
       });
     }
@@ -131,6 +307,132 @@ export function cellValue(record: Record<string, unknown> | undefined, field: st
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   return '';
+}
+
+/**
+ * **What a cell holds, once the column says what it is.**
+ *
+ * A cell was whatever arrived — always a string, because the only thing that could write one was a
+ * text box. Now a column declares a kind, and the kind decides what is *stored*: a price that is
+ * `9900` sorts as a number and a price that is `'9900'` sorts alphabetically, which is the fault
+ * this dataset already carried once and wrote down (`월 9,900원` put 문서 above 사이트 on the
+ * pricing page, and it looked exactly like a working sort).
+ *
+ * ## What is deliberately not converted
+ *
+ * A value that does not read as its kind is **kept as it was typed**, not thrown away or zeroed. A
+ * reader half way through typing `20` in a date column has typed something wrong, and a field that
+ * emptied itself would take the rest of what they were typing with it. The column knows what it
+ * wants; the document keeps what the person said; `datasetFaults` is where the two are compared.
+ *
+ * A date stays a **string**, deliberately: `2026-09-03` sorts correctly as text, is what
+ * `<input type="date">` reads and writes, and is the one date notation that means the same thing in
+ * every timezone. A `Date` in the document would be a value that cannot survive being saved.
+ */
+export function cellFor(said: unknown, kind: DataFieldKind | undefined): unknown {
+  const text = typeof said === 'string' ? said.trim() : said;
+
+  if (kind === 'number') {
+    if (typeof text === 'number') return text;
+    if (typeof text !== 'string' || text === '') return '';
+    const asNumber = Number(text);
+    return Number.isFinite(asNumber) ? asNumber : text;
+  }
+  if (kind === 'boolean') {
+    if (typeof text === 'boolean') return text;
+    /* The two shapes a control sends, and the two words the sample held before it could say so. */
+    if (text === 'true' || text === '예') return true;
+    if (text === 'false' || text === '아니오') return false;
+    return text === '' ? false : text;
+  }
+  /*
+   * **여러 선택** is the one kind whose value is a list, and it is kept as one string with a
+   * separator rather than as an array — the same decision `records` made about being an attribute,
+   * for a smaller version of the same reason: a cell is a string everywhere else in this file, and
+   * one kind holding an array would mean `cellValue`, every sort, every filter and every card
+   * binding needing a second path. `\n` is the separator because it is the one character a
+   * `choices` option cannot contain: options are typed into a single-line field.
+   */
+  return text ?? '';
+}
+
+/**
+ * **서식 있는 글**, and the one thing about it that had to be decided: where the words live.
+ *
+ * Not in the cell. A cell is a string — `cellValue`'s rule — and saving, diffing, sorting, filtering
+ * and every card binding rest on it. So the cell holds `text:요약-3` and the words are `richText`
+ * nodes in `resources`, which is what a **footnote** has always done here: `footnoteRef` in the flow,
+ * `footnoteDef` beside it. The tenth use of the reference shape, and the second one that is a body.
+ */
+export const RICH_PREFIX = 'text:';
+
+/** Whether a value points at rich text rather than being text. */
+export function isRichRef(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith(RICH_PREFIX);
+}
+
+/** Which `richText` a reference names. */
+export function richNameOf(value: unknown): string | undefined {
+  return isRichRef(value) ? value.slice(RICH_PREFIX.length).trim() || undefined : undefined;
+}
+
+/** How a reference to one is written. */
+export function richRef(id: string): string {
+  return `${RICH_PREFIX}${id}`;
+}
+
+/** The `richText` a reference names, as a node. */
+export function richTextNamed(doc: Access | undefined, value: unknown): any | undefined {
+  const id = richNameOf(value);
+  if (!doc || !id) return undefined;
+
+  const root = doc.getNode(doc.rootId);
+  for (const sid of (root?.content ?? []) as string[]) {
+    const box = doc.getNode(sid);
+    if (box?.stype !== 'resources') continue;
+    for (const each of (box.content ?? []) as string[]) {
+      const node = doc.getNode(each);
+      if (node?.stype === 'richText' && node.attributes?.id === id) return node;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The **plain words** of a rich value, for everything that is not the drawing.
+ *
+ * A sort, a filter, a search and a `title` attribute all want characters, and none of them wants
+ * marks. Which is also the fallback that keeps this honest: a card whose part cannot take content —
+ * a `title`, an `alt`, a button's label — draws the words rather than `text:요약-3`, so a rich column
+ * bound somewhere unexpected degrades to a text column instead of leaking a reference onto a page.
+ */
+export function richPlain(doc: Access | undefined, value: unknown): string {
+  const node = richTextNamed(doc, value);
+  if (!node) return '';
+
+  /*
+   * **Runs join with nothing and blocks join with a space**, which is the one thing this had to get
+   * right: a run is a *piece of a sentence* — `…문법은 `, `쌓임`, `이고…` — and joining those with a
+   * space puts one inside every emphasised word. A block is a sentence, and two of them run together
+   * without one.
+   */
+  const blocks: string[] = [];
+  const walk = (sid: string, into: string[], depth: number) => {
+    if (depth > 24) return;
+    const one = doc!.getNode(sid);
+    if (!one) return;
+    if (typeof (one as { text?: unknown }).text === 'string') into.push((one as { text: string }).text);
+    for (const child of (one.content ?? []) as unknown[]) {
+      if (typeof child === 'string') walk(child, into, depth + 1);
+    }
+  };
+  for (const child of (node.content ?? []) as unknown[]) {
+    if (typeof child !== 'string') continue;
+    const runs: string[] = [];
+    walk(child, runs, 0);
+    if (runs.length > 0) blocks.push(runs.join(''));
+  }
+  return blocks.join(' ').trim();
 }
 
 /** What a collection may say about which rows it draws, and in what order. */
@@ -191,16 +493,55 @@ export function rowsOf(dataset: Dataset | undefined, query: RowQuery = {}): Reco
  */
 export function valuesForRow(
   values: Map<string, string>,
-  record: Record<string, unknown>
+  record: Record<string, unknown>,
+  /**
+   * The document, for the one kind whose cell is a **reference**: 서식 있는 글 is `text:요약-3` and
+   * the words are nodes elsewhere. Optional, so every caller that has no rich column is unchanged —
+   * and without it a rich cell resolves to its reference, which is why `richPlain` is the fallback
+   * rather than the raw string.
+   */
+  doc?: Access
 ): Map<string, string> {
   let copy: Map<string, string> | undefined;
   for (const [name, value] of values) {
     const field = fieldNameOf(value);
     if (!field) continue;
     copy = copy ?? new Map(values);
+    const said = record[field];
+    if (isRichRef(said)) {
+      /* The words, not the reference — see `richPlain` for what a part that cannot take content gets. */
+      copy.set(name, richPlain(doc, said));
+      continue;
+    }
     copy.set(name, cellValue(record, field));
   }
   return copy ?? values;
+}
+
+/**
+ * The **content** a row answers with, for the variables whose column is 서식 있는 글.
+ *
+ * Beside `valuesForRow` rather than inside it, because the two answers are different shapes and the
+ * thing that takes them is different too: a string goes through `withText`, which collapses a part's
+ * runs to one, and content *replaces* what the part holds. One function returning both would be one
+ * function two callers each use half of.
+ */
+export function bodiesForRow(
+  values: Map<string, string>,
+  record: Record<string, unknown>,
+  doc: Access | undefined
+): Map<string, unknown[]> {
+  const found = new Map<string, unknown[]>();
+  for (const [name, value] of values) {
+    const field = fieldNameOf(value);
+    if (!field) continue;
+    const said = record[field];
+    if (!isRichRef(said)) continue;
+    const node = richTextNamed(doc, said);
+    const blocks = ((node?.content ?? []) as unknown[]).filter((one) => typeof one === 'string');
+    if (blocks.length > 0) found.set(name, blocks);
+  }
+  return found;
 }
 
 /**
@@ -227,12 +568,12 @@ export function collectionFaults(
   if (dataset && dataset.fields.length > 0) {
     for (const value of values) {
       const field = fieldNameOf(value);
-      if (field && !dataset.fields.includes(field)) {
+      if (field && !fieldNamed(dataset.fields, field)) {
         faults.push(`'${dataset.name}'에 '${field}' 칸이 없습니다`);
       }
     }
     const sortBy = node?.attributes?.sortBy;
-    if (typeof sortBy === 'string' && sortBy && !dataset.fields.includes(sortBy)) {
+    if (typeof sortBy === 'string' && sortBy && !fieldNamed(dataset.fields, sortBy)) {
       faults.push(`'${dataset.name}'에 정렬 기준으로 쓸 '${sortBy}' 칸이 없습니다`);
     }
   }

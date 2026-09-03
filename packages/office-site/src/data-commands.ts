@@ -32,8 +32,20 @@
  */
 import { Editor, Extension } from '@barocss/editor-core';
 import { addChild, node, removeChild, setAttrs, transaction } from '@barocss/model';
+import { copyOf } from '@barocss/office-canvas';
 import { assetsOf } from './assets';
 import { nfc } from './names';
+import { datasetsOf, isRichRef, richRef, richTextNamed } from './data';
+import {
+  cellFor,
+  columnNames,
+  fieldNamed,
+  fieldOf,
+  fieldsFrom,
+  DATA_FIELD_KINDS,
+  type DataField,
+  type DataFieldKind
+} from './data';
 
 type Node = Record<string, any>;
 
@@ -310,6 +322,7 @@ export class SiteDataExtension implements Extension {
 
     const attrs = (dataset.attributes ?? {}) as Record<string, unknown>;
     const name = this._freeName(editor, String(attrs.name ?? '데이터'));
+    const copied = this._copyRich(editor, this._records(dataset));
     const step = addChild(
       parentId,
       node(
@@ -326,13 +339,27 @@ export class SiteDataExtension implements Extension {
           // A fresh array either way: two datasets sharing one records array is one document with
           // two names for the same rows, which the next edit would prove.
           fields: [...this._fields(dataset)],
-          records: this._records(dataset).map((row) => ({ ...row }))
+          /*
+           * **And fresh words**, which the copied array alone did not give.
+           *
+           * A 서식 있는 글 cell holds `text:요약-스택`, and copying the *string* leaves two datasets'
+           * cells pointing at one node: editing the copy's summary edited the original's. The array
+           * was copied and the thing it referred to was not, which is the shallow-copy fault one
+           * level further down than the one the comment above was written about.
+           *
+           * It is also what makes deleting a row simple. A `richText` belongs to the cell that names
+           * it — when the row goes, the words go — and that rule is only safe once nothing shares
+           * one.
+           */
+          records: copied.records
         },
         []
       ) as never,
       ((store.getNode(parentId)?.content ?? []) as unknown[]).length
     );
-    return (await transaction(editor, [step] as never).commit()).success === true;
+    /* And the copied words beside it, in the same box and the same transaction. */
+    const words = copied.nodes.map((one) => addChild(parentId, one as never));
+    return (await transaction(editor, [step, ...words] as never).commit()).success === true;
   }
 
   // ── Reading ────────────────────────────────────────────────────────────────
@@ -351,16 +378,170 @@ export class SiteDataExtension implements Extension {
     return node?.stype === 'dataset' ? node : undefined;
   }
 
-  /** Its columns, as a plain list of names. */
-  private _fields(dataset: Node): string[] {
-    const declared = dataset.attributes?.fields;
-    return Array.isArray(declared) ? declared.filter((one): one is string => typeof one === 'string') : [];
+  /**
+   * Its columns, **as what they declare** rather than as names.
+   *
+   * This read the array and kept the strings, which was right when a column *was* a string. A column
+   * knows its own kind now, so a command that kept only the names would drop every one of them on
+   * the next write — a rename that silently turned a date column into a text column, once per
+   * rename, with nothing to see.
+   */
+  private _fields(dataset: Node): DataField[] {
+    return fieldsFrom(dataset.attributes?.fields);
+  }
+
+  /** And just their names, for the several questions that are only about those. */
+  private _names(dataset: Node): string[] {
+    return columnNames(this._fields(dataset));
   }
 
   /** Its rows, copied — every write here builds a new array (see the header). */
   private _records(dataset: Node): Record<string, unknown>[] {
     const rows = dataset.attributes?.records;
     return Array.isArray(rows) ? rows.map((row) => ({ ...(row as Record<string, unknown>) })) : [];
+  }
+
+/**
+   * **서식 있는 글은 그 행의 것이다** — every `richText` a set of rows points at, and where it lives.
+   *
+   * Asked as *행을 지우면 richText 도 그냥 필드니까 같이 지워야 하는 것 아닌가*, and the answer is yes.
+   * A `richText` is not a shared resource like an asset or a definition; it is one cell's **value**,
+   * kept as nodes because a cell is a string and a summary with a link in it is not. When the row
+   * goes, the value goes.
+   *
+   * What made that look risky was a different fault, one level up: `duplicateDataset` copied the
+   * records — the `text:요약-스택` strings with them — so two datasets' cells pointed at **one** node
+   * and editing the copy's summary edited the original's. Deleting a row would then have taken words
+   * out of a dataset nobody touched.
+   *
+   * So the order is the other way round. **Copying copies the words**, which makes sharing
+   * impossible; and then removing is unconditional and simple. This is what counts what is left, for
+   * both.
+   */
+  private _richIn(editor: Editor, rows: Record<string, unknown>[]): string[] {
+    const store = this._store(editor);
+    const doc = { rootId: this._rootId(editor), getNode: (sid: string) => store?.getNode(sid) };
+    const found: string[] = [];
+    for (const row of rows) {
+      for (const value of Object.values(row)) {
+        if (!isRichRef(value)) continue;
+        const node = richTextNamed(doc as never, value);
+        if (node?.sid && !found.includes(String(node.sid))) found.push(String(node.sid));
+      }
+    }
+    return found;
+  }
+
+  /**
+   * How many cells **anywhere in the document** point at each of them.
+   *
+   * Counted rather than assumed, and that is the difference between believing the rule above and
+   * checking it: a document arrives from a file, and a file can say anything. A node two cells share
+   * is kept — an orphan is a document that grew, a missing paragraph is a document that lost
+   * something. `documentFaults` is where the orphan is reported.
+   */
+  private _richUses(editor: Editor, ids: string[]): Map<string, number> {
+    const store = this._store(editor);
+    const doc = { rootId: this._rootId(editor), getNode: (sid: string) => store?.getNode(sid) };
+    const count = new Map<string, number>(ids.map((sid) => [sid, 0]));
+
+    for (const data of datasetsOf(doc as never)) {
+      for (const row of data.records) {
+        for (const value of Object.values(row)) {
+          if (!isRichRef(value)) continue;
+          const node = richTextNamed(doc as never, value);
+          const sid = node?.sid ? String(node.sid) : undefined;
+          if (sid && count.has(sid)) count.set(sid, (count.get(sid) ?? 0) + 1);
+        }
+      }
+    }
+    return count;
+  }
+
+  /** The steps that take the words of these rows with them — none for a node something else uses. */
+  private _dropRich(editor: Editor, rows: Record<string, unknown>[]): unknown[] {
+    const store = this._store(editor);
+    const ids = this._richIn(editor, rows);
+    const uses = this._richUses(editor, ids);
+    const steps: unknown[] = [];
+    for (const sid of ids) {
+      if ((uses.get(sid) ?? 0) > 1) continue;
+      const parent = store?.getNode(sid)?.parentId;
+      if (typeof parent === 'string' && parent) steps.push(removeChild(parent, sid));
+    }
+    return steps;
+  }
+
+/**
+   * Rows copied **with their words**, and the new `richText` nodes to add beside them.
+   *
+   * A 서식 있는 글 cell holds a reference, so copying the record copies the *string* and leaves two
+   * cells pointing at one node — the copy's summary and the original's became the same paragraph, and
+   * the next edit to either proved it.
+   *
+   * Which is the fault that made deleting a row look risky. Once a copy has its own words, nothing
+   * shares one, and a row taking its value with it is simply true.
+   */
+  private _copyRich(
+    editor: Editor,
+    rows: Record<string, unknown>[]
+  ): { records: Record<string, unknown>[]; nodes: unknown[] } {
+    const store = this._store(editor);
+    const doc = { rootId: this._rootId(editor), getNode: (sid: string) => store?.getNode(sid) };
+    const nodes: unknown[] = [];
+    /** One new node per **original**, so two cells that shared one before still share the copy. */
+    const made = new Map<string, string>();
+
+    const records = rows.map((row) => {
+      const next: Record<string, unknown> = { ...row };
+      for (const [field, value] of Object.entries(row)) {
+        if (!isRichRef(value)) continue;
+        const from = richTextNamed(doc as never, value);
+        if (!from) continue;
+
+        const was = String(from.attributes?.id ?? '');
+        let id = made.get(was);
+        if (!id) {
+          id = this._freeRichId(editor, was);
+          made.set(was, id);
+          /*
+           * `copyOf` — the same deep copy a page's duplicate makes, and for the same reason it
+           * exists: a tree with no sids in it, so the copy is a different node all the way down
+           * rather than a second thing claiming the original's identity.
+           */
+          const made2 = copyOf(doc as never, String(from.sid)) as Record<string, unknown> | undefined;
+          if (made2) {
+            made2.attributes = { ...((made2.attributes ?? {}) as Record<string, unknown>), id };
+            nodes.push(made2);
+          }
+        }
+        next[field] = richRef(id);
+      }
+      return next;
+    });
+
+    return { records, nodes };
+  }
+
+  /** An id no `richText` in this document has, from the one being copied. */
+  private _freeRichId(editor: Editor, from: string): string {
+    const store = this._store(editor);
+    const doc = { rootId: this._rootId(editor), getNode: (sid: string) => store?.getNode(sid) };
+    const taken = new Set<string>();
+    const root = store?.getNode(this._rootId(editor));
+    for (const sid of ((root?.content ?? []) as string[])) {
+      const box = store?.getNode(sid);
+      if (box?.stype !== 'resources') continue;
+      for (const each of ((box.content ?? []) as string[])) {
+        const one = store?.getNode(each);
+        if (one?.stype === 'richText' && typeof one.attributes?.id === 'string') taken.add(one.attributes.id);
+      }
+    }
+    void doc;
+    const stem = from || '글';
+    let id = `${stem} 사본`;
+    for (let n = 2; taken.has(id); n += 1) id = `${stem} 사본 ${n}`;
+    return id;
   }
 
   /** The row a payload names, when the number is one this dataset has. */
@@ -628,15 +809,30 @@ export class SiteDataExtension implements Extension {
     const dataset = this._dataset(editor, payload);
     const field = String(payload?.field ?? '').trim();
     if (!dataset || !field) return false;
-    const fields = this._fields(dataset);
+    const names = this._names(dataset);
     const rename = typeof payload?.rename === 'string' ? payload.rename.trim() : undefined;
 
-    if (payload?.remove === true) return fields.includes(field);
+    const kind = payload?.kind;
+    /**
+     * **A kind names two different acts**, and reading it as one refused half of them.
+     *
+     * On a column that exists it *changes* what that column holds. On one that does not it is the
+     * kind the column is **made** with — which is the ordinary way to add one, because *발행일,
+     * 날짜* is a single decision and every table of this kind asks for both at once.
+     *
+     * Written as one branch that required the column to exist, and the whole 속성 추가 surface came
+     * back `false` in silence: the form offered fourteen kinds and adding with any of them did
+     * nothing at all. Which is this repository's own recurring fault seen from the other side — a
+     * control that lights up and does not act, arriving as one that acts and was never allowed to.
+     */
+    if (kind !== undefined && !DATA_FIELD_KINDS.includes(kind as DataFieldKind)) return false;
+    if (kind !== undefined && names.includes(field)) return true;
+    if (payload?.remove === true) return names.includes(field);
     if (rename !== undefined) {
       // A rename to a name already taken would merge two columns into one, silently.
-      return fields.includes(field) && rename.length > 0 && !fields.includes(rename);
+      return names.includes(field) && rename.length > 0 && !names.includes(rename);
     }
-    return !fields.includes(field);
+    return !names.includes(field);
   }
 
   private async _setField(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
@@ -647,15 +843,41 @@ export class SiteDataExtension implements Extension {
     const fields = this._fields(dataset);
     const records = this._records(dataset);
 
-    let nextFields: string[];
+    let nextFields: DataField[];
     let nextRecords: Record<string, unknown>[];
+    /** Steps that take a rich value's nodes with it, when this act removes one. */
+    let dropped: unknown[] = [];
 
-    if (payload!.remove === true) {
-      nextFields = fields.filter((one) => one !== field);
+    if (payload!.kind !== undefined && fields.some((one) => one.name === field)) {
+      /*
+       * **What the column holds**, changed — and the records left exactly as they are.
+       *
+       * A kind says how a value is *entered and read*; it is not a conversion. Rewriting every cell
+       * to fit a new kind would be a second act hidden inside this one, and the one that loses data:
+       * a text column of `'예'` and `'아니오'` turned to boolean has to keep those words until a
+       * reader replaces them, or the undo of a mis-click is a column of nothing.
+       */
+      const chosen = payload!.kind as DataFieldKind;
+      const options = Array.isArray(payload!.options)
+        ? (payload!.options as unknown[]).filter((one): one is string => typeof one === 'string')
+        : undefined;
+      nextFields = fields.map((one) =>
+        one.name === field
+          ? { ...one, kind: chosen, options: chosen === 'choice' ? (options ?? one.options) : undefined }
+          : one
+      );
+      nextRecords = records;
+    } else if (payload!.remove === true) {
+      nextFields = fields.filter((one) => one.name !== field);
       nextRecords = records.map((row) => {
         const { [field]: _gone, ...rest } = row;
         return rest;
       });
+      /*
+       * And the words of a **서식 있는 글** column, which is the same rule one axis over: a column is
+       * a cell in every row, so taking it away takes every one of those values with it.
+       */
+      dropped = this._dropRich(editor, records.map((row) => ({ [field]: row[field] })));
     } else if (rename !== undefined) {
       /*
        * In place, not appended.
@@ -664,26 +886,31 @@ export class SiteDataExtension implements Extension {
        * the end would look to a reader like the column had been deleted and a new one made — which
        * is a different act with a different undo.
        */
-      nextFields = fields.map((one) => (one === field ? rename : one));
+      nextFields = fields.map((one) => (one.name === field ? { ...one, name: rename } : one));
       nextRecords = records.map((row) => {
         const { [field]: value, ...rest } = row;
         return { ...rest, [rename]: value ?? '' };
       });
     } else {
-      nextFields = [...fields, field];
+      /*
+       * A new column is **text** until somebody says otherwise, which is what a column with nothing
+       * said about it has always meant — and the kind is set from the same row it is named in, so
+       * making a date column is one gesture rather than two.
+       */
+      nextFields = [...fields, fieldOf({ name: field, kind: payload!.kind }) ?? { name: field, kind: 'text' }];
       // Present and empty, rather than absent: `cellValue` can then say "" instead of undefined,
       // and a card bound to the new column draws a blank rather than the literal `field:새 열`.
       nextRecords = records.map((row) => ({ ...row, [field]: '' }));
     }
 
     const step = setAttrs(String(dataset.sid), { fields: nextFields, records: nextRecords });
-    return (await transaction(editor, [step] as never).commit()).success === true;
+    return (await transaction(editor, [step, ...dropped] as never).commit()).success === true;
   }
 
   private _canSetCell(editor: Editor, payload?: Record<string, unknown>): boolean {
     const dataset = this._dataset(editor, payload);
     if (!dataset || this._rowAt(editor, payload) === undefined) return false;
-    return this._fields(dataset).includes(String(payload?.field ?? ''));
+    return this._names(dataset).includes(String(payload?.field ?? ''));
   }
 
   private async _setCell(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
@@ -692,7 +919,9 @@ export class SiteDataExtension implements Extension {
     const row = this._rowAt(editor, payload)!;
     const field = String(payload!.field);
     const records = this._records(dataset);
-    records[row] = { ...records[row], [field]: payload!.value ?? '' };
+    /* Stored as what the column says it holds — see `cellFor`, and what a price stored as words cost. */
+    const kind = fieldNamed(this._fields(dataset), field)?.kind;
+    records[row] = { ...records[row], [field]: cellFor(payload!.value, kind) };
 
     const step = setAttrs(String(dataset.sid), { records });
     return (await transaction(editor, [step] as never).commit()).success === true;
@@ -706,13 +935,14 @@ export class SiteDataExtension implements Extension {
     const values = payload?.values;
     if (!dataset || !Array.isArray(values) || values.length === 0) return false;
 
-    const fields = this._fields(dataset);
+    const fields = this._names(dataset);
     const at = Number(payload?.row);
     const from = fields.indexOf(String(payload?.field));
     if (!Number.isInteger(at) || at < 0 || from < 0) return false;
 
     const records = this._records(dataset);
     const blank = Object.fromEntries(fields.map((one) => [one, '']));
+    const kinds = new Map(this._fields(dataset).map((one) => [one.name, one.kind]));
 
     values.forEach((line, down) => {
       if (!Array.isArray(line)) return;
@@ -724,7 +954,12 @@ export class SiteDataExtension implements Extension {
         const field = fields[from + across];
         // Past the last column: trimmed, because a column has a name and a paste cannot invent one.
         if (field === undefined) return;
-        said[field] = typeof cell === 'string' ? cell : String(cell ?? '');
+        /*
+         * And a paste is typed too. A column of prices pasted from a spreadsheet arrives as text and
+         * has to be stored as numbers, or the list that sorts by it sorts alphabetically — which is
+         * the same fault, arriving through the other door.
+         */
+        said[field] = cellFor(typeof cell === 'string' ? cell : String(cell ?? ''), kinds.get(field));
       });
       records[row] = said;
     });
@@ -737,7 +972,7 @@ export class SiteDataExtension implements Extension {
     const dataset = this._dataset(editor, payload);
     if (!dataset) return false;
     const records = this._records(dataset);
-    const blank = Object.fromEntries(this._fields(dataset).map((one) => [one, '']));
+    const blank = Object.fromEntries(this._names(dataset).map((one) => [one, '']));
 
     const at = Number.isInteger(payload?.at) ? Math.max(0, Math.min(Number(payload!.at), records.length)) : records.length;
     records.splice(at, 0, blank);
@@ -752,8 +987,10 @@ export class SiteDataExtension implements Extension {
     const { box } = this._resources(editor);
     if (!box) return false;
 
+    /* Every row's words go with it — the dataset is the last thing that could have pointed at them. */
+    const rich = this._dropRich(editor, this._records(dataset));
     const step = removeChild(String(box.sid), String(dataset.sid));
-    return (await transaction(editor, [step] as never).commit()).success === true;
+    return (await transaction(editor, [step, ...rich] as never).commit()).success === true;
   }
 
   private async _removeRow(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
@@ -761,10 +998,15 @@ export class SiteDataExtension implements Extension {
     if (row === undefined) return false;
     const dataset = this._dataset(editor, payload)!;
     const records = this._records(dataset);
-    records.splice(row, 1);
+    const [gone] = records.splice(row, 1);
 
-    const step = setAttrs(String(dataset.sid), { records });
-    return (await transaction(editor, [step] as never).commit()).success === true;
+    /*
+     * **And its words**, in the same transaction — so it is one thing to undo, and so a document
+     * does not grow a paragraph every time a row is deleted. A `richText` is this cell's value, not
+     * a resource the document shares; see `_dropRich`.
+     */
+    const steps = [setAttrs(String(dataset.sid), { records }), ...this._dropRich(editor, [gone])];
+    return (await transaction(editor, steps as never).commit()).success === true;
   }
 }
 

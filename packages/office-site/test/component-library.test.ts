@@ -5,6 +5,7 @@ import { type Editor } from '@barocss/editor-core';
 import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
+import { columnNames, fieldsFrom } from '../src/data';
 import { definitionsOf } from '../src/components';
 
 /**
@@ -170,15 +171,20 @@ describe('copying a dataset', () => {
     await run('duplicateDataset', { nodeId: first.sid });
     const copy = datasets().find((one) => one.sid !== first.sid && one.name.startsWith(first.name))!;
 
-    await run('setDatasetCell', { nodeId: copy.sid, row: 0, field: first.fields[0], value: '바뀐 값' });
+    /*
+     * The first column **by name**. A column is a declaration now — `{ name, kind }` — so reading
+     * `fields[0]` as a name was passing an object where a key belonged, which lands as `undefined`
+     * and reads as *the copy did not change*: a check that would have gone on passing if the copy
+     * really had shared its rows.
+     */
+    const column = columnNames(fieldsFrom(first.fields))[0];
+    await run('setDatasetCell', { nodeId: copy.sid, row: 0, field: column, value: '바뀐 값' });
 
     // Two datasets sharing one records array is one document with two names for the same rows, which
     // the next edit proves — so the copy is a copy all the way down.
     const now = datasets();
-    expect(now.find((one) => one.sid === copy.sid)!.records[0][first.fields[0]]).toBe('바뀐 값');
-    expect(now.find((one) => one.sid === first.sid)!.records[0][first.fields[0]]).toBe(
-      first.records[0][first.fields[0]]
-    );
+    expect(now.find((one) => one.sid === copy.sid)!.records[0][column]).toBe('바뀐 값');
+    expect(now.find((one) => one.sid === first.sid)!.records[0][column]).toBe(first.records[0][column]);
   });
 
   it('refuses anything that is not a dataset', () => {
