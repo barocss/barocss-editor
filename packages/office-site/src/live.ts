@@ -194,6 +194,57 @@ export function markLive(doc: Access, host: HTMLElement): boolean {
 }
 
 /**
+ * **A chart that refetches** — the same rule as a list, one step further.
+ *
+ * A list's live update rewrites **words**: each drawn piece says which column it came from, and the
+ * script writes the new cell into it. A chart has no words to rewrite; what changes is **where its
+ * points are**, which means the geometry has to run again in the visitor's browser.
+ *
+ * ## Which is a second implementation, and it is the honest cost
+ *
+ * `liveScript` already carries one — `rows`, the filter-sort-limit the export ran — and the reason
+ * it is safe is not that it is small: it is `runs the same filter, sort and limit as the export
+ * does`, a test that lifts the function out of the shipped string and compares it to `rowsOf` over
+ * the same data. The chart's arithmetic gets the same treatment, held against `chartShape` and
+ * `groupRows`, or the two drift and a published dashboard quietly disagrees with the editor.
+ *
+ * ## What the drawing carries
+ *
+ * Everything the geometry needs and nothing it can work out: the plot box (which does not change),
+ * the columns (`data-label-by`, `data-value-by`, `data-group-by`, `data-agg` — already there), and
+ * the query. The **axis does not travel**: it is recomputed, because a value that grew past the
+ * published maximum drawn against the published axis is a bar out of its own chart.
+ */
+export function markLiveCharts(doc: Access, host: HTMLElement): boolean {
+  let any = false;
+
+  for (const el of [...host.querySelectorAll<HTMLElement>('[data-chart]')]) {
+    const node = doc.getNode(String(el.getAttribute('data-b')));
+    if (node?.stype !== 'chart') continue;
+
+    const attrs = (node.attributes ?? {}) as Record<string, unknown>;
+    const dataset = datasetNamed(doc as never, attrs.source);
+    const url = said(dataset?.url);
+    if (!dataset || dataset.kind !== 'url' || !url || dataset.live !== true) continue;
+    /* Nothing drawn is nothing to move — the same rule a list with no rows follows. */
+    if (el.querySelectorAll('[data-st-point]').length === 0) continue;
+
+    const query: LiveQuery = {};
+    if (said(attrs.sortBy)) query.sortBy = String(attrs.sortBy);
+    if (said(attrs.sortDir)) query.sortDir = String(attrs.sortDir);
+    if (said(attrs.where)) query.where = String(attrs.where);
+    if (attrs.equals !== undefined) query.equals = String(attrs.equals);
+    if (typeof attrs.limit === 'number' && Number.isFinite(attrs.limit)) query.limit = attrs.limit;
+
+    el.setAttribute('data-st-live', url);
+    if (Object.keys(query).length > 0) el.setAttribute('data-st-q', JSON.stringify(query));
+    any = true;
+  }
+
+  return any;
+}
+
+/**
  * The runtime, and it is only shipped on a page that has a live list.
  *
  * Written out rather than built from a bundler for the reason the closer script is: this is the
@@ -213,6 +264,35 @@ export function liveScript(): string {
     "return q.sortDir==='desc'?-c:c});",
     "if(typeof q.limit==='number')out=out.slice(0,Math.max(0,Math.trunc(q.limit)));",
     "return out}",
+    /*
+     * **Every function first, then the two loops** — which is not only tidier.
+     *
+     * `runs the same filter, sort and limit as the export does` lifts these out of the shipped
+     * string by cutting everything from the first `document.querySelectorAll`, so a helper written
+     * after a loop is a helper the check cannot reach: the chart's arithmetic was added below and the
+     * test that exists to stop it drifting could not see it. The layout is what keeps that check
+     * honest.
+     */
+    "function num(r,k){var v=r&&r[k];if(typeof v==='number')return isFinite(v)?v:undefined;",
+    "var s=cell(r,k).trim();if(!s)return undefined;var n=Number(s);return isFinite(n)?n:undefined}",
+    // `groupRows`, shipped: one row per group, in the order the groups were first seen.
+    "function group(data,q){if(!q.groupBy)return{rows:data,valueBy:q.valueBy||''};",
+    "var keys=[],by={};data.forEach(function(r){var k=cell(r,q.groupBy);",
+    "if(!by[k]){by[k]={n:0,v:[]};keys.push(k)}by[k].n++;var v=num(r,q.valueBy);if(v!==undefined)by[k].v.push(v)});",
+    "var agg=q.agg||'sum';var out=agg==='count'?'개수':(q.valueBy||'개수');",
+    "return{rows:keys.map(function(k){var h=by[k],a;",
+    "if(agg==='count')a=h.n;else if(!h.v.length)a=0;",
+    "else if(agg==='sum')a=h.v.reduce(function(t,x){return t+x},0);",
+    "else if(agg==='avg')a=h.v.reduce(function(t,x){return t+x},0)/h.v.length;",
+    "else a=agg==='min'?Math.min.apply(null,h.v):Math.max.apply(null,h.v);",
+    "var o={};o[q.groupBy]=k;o[out]=a;return o}),valueBy:out}}",
+    // `chartRows`: filter on the raw rows, then group, then sort and limit on the groups.
+    "function asked(data,q){var g=group(rows(data,{where:q.where,equals:q.equals}),q);",
+    "return{rows:rows(g.rows,{sortBy:q.sortBy,sortDir:q.sortDir,limit:q.limit}),valueBy:g.valueBy}}",
+    // `boundsOf`: zero is always in range — see `chart.ts` for why that is not a setting.
+    "function bounds(v){var r=v.filter(function(x){return isFinite(x)});if(!r.length)return{low:0,high:1};",
+    "var lo=Math.min.apply(null,[0].concat(r)),hi=Math.max.apply(null,[0].concat(r));",
+    "if(lo===hi)hi=lo+1;return{low:lo,high:hi}}",
     "document.querySelectorAll('[data-st-live]').forEach(function(list){",
     "var drawn=[].slice.call(list.querySelectorAll('[data-st-row]'));if(!drawn.length)return;",
     "var shape=drawn[0].cloneNode(true);",
@@ -226,6 +306,44 @@ export function liveScript(): string {
     "[].slice.call(row.querySelectorAll('[data-st-field]')).forEach(function(el){",
     "var k=el.getAttribute('data-st-field');if(k in record)el.textContent=cell(record,k)})});",
     "for(var i=want.length;i<drawn.length;i++)drawn[i].style.display='none';",
+    "}).catch(function(){});",
+    "});",
+    "document.querySelectorAll('[data-chart][data-st-live]').forEach(function(box){",
+    "var svg=box.querySelector('svg');var pts=[].slice.call(box.querySelectorAll('[data-st-point]'));",
+    "if(!svg||!pts.length)return;",
+    "var q={};try{q=JSON.parse(box.getAttribute('data-st-q')||'{}')}catch(e){}",
+    "q.labelBy=box.getAttribute('data-label-by')||'';q.valueBy=box.getAttribute('data-value-by')||'';",
+    "q.groupBy=box.getAttribute('data-group-by')||'';q.agg=box.getAttribute('data-agg')||'sum';",
+    "var kind=box.getAttribute('data-chart');",
+    /*
+     * The plot box, read back off the drawing rather than sent: the first and last point and the
+     * baseline are already in the SVG, and a number said twice is a number that can disagree.
+     */
+    "fetch(box.getAttribute('data-st-live'),{headers:{accept:'application/json'}}).then(function(r){return r.json()}).then(function(data){",
+    // Never empties, which is a list's rule and is the same rule here.
+    "if(!Array.isArray(data)||!data.length)return;",
+    "var got=asked(data,q);var want=got.rows.map(function(r){return num(r,got.valueBy)}).filter(function(v){return v!==undefined});",
+    "if(!want.length)return;",
+    /*
+     * **A bar keeps its place and changes its height**, which is the whole of a live chart: the
+     * published drawing already has the columns, the labels and the widths, and what a refetch
+     * changes is how tall each one is. More points than were drawn are ignored rather than invented —
+     * a column that was never published has no place on the axis and no label under it.
+     */
+    "var b=bounds(want);",
+    "var top=+svg.getAttribute('data-plot-top'),h=+svg.getAttribute('data-plot-height');",
+    "if(!isFinite(top)||!isFinite(h))return;",
+    "var zero=top+h-((0-b.low)/((b.high-b.low)||1))*h;",
+    "pts.forEach(function(p,i){if(i>=want.length){p.style.display='none';return}p.style.removeProperty('display');",
+    "var v=want[i];var y=top+h-((v-b.low)/((b.high-b.low)||1))*h;",
+    "p.setAttribute('data-st-value',String(v));",
+    "if(kind==='bar'){p.setAttribute('y',String(Math.min(y,zero)));p.setAttribute('height',String(Math.max(1,Math.abs(zero-y))))}",
+    "else if(p.tagName==='circle'){p.setAttribute('cy',String(y))}});",
+    /*
+     * A **donut** is left alone. Its slices are arcs whose path is a share of a turn, and rewriting
+     * one is drawing it again — which is a renderer, which is the thing this page does not ship.
+     * Stated rather than hidden: a live donut shows what it was published with.
+     */
     "}).catch(function(){});",
     "});",
     "})();"

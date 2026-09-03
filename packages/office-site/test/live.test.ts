@@ -8,6 +8,8 @@ import { createSampleSite } from '../src/sample-site';
 import { registerSiteRenderers } from '../src/renderers';
 import { exportPage } from '../src/export-html';
 import { liveScript } from '../src/live';
+import { boundsOf, chartRows, groupRows } from '../src/chart';
+import { pagesOf } from '../src/selection';
 import { datasetsOf, rowsOf } from '../src/data';
 import { pagesOf } from '../src/selection';
 
@@ -186,5 +188,111 @@ describe('a list fetched again in the browser', () => {
         rowsOf(dataset, query).map((row) => row['이름'])
       );
     }
+  });
+
+  it('runs the same grouping and the same axis as the export does', () => {
+    /**
+     * **The check that makes a second implementation safe**, and it is the reason this file already
+     * has one for `rows`: the page ships arithmetic written twice — once in TypeScript for the
+     * export, once as a string for the visitor — and what keeps them the same is not that they are
+     * short. It is this.
+     *
+     * A chart adds two more: the grouping, and the bounds. Both are lifted out of the shipped script
+     * and held against `groupRows` and `boundsOf` over the same rows, so a published dashboard cannot
+     * quietly disagree with the editor it was designed in.
+     */
+    const records = [
+      { 이름: '가', 분류: '제품', 가격: 1200 },
+      { 이름: '나', 분류: '서비스', 가격: 900 },
+      { 이름: '다', 분류: '제품', 가격: 900 },
+      { 이름: '라', 분류: '제품' }
+    ];
+
+    /** The runtime's own functions, lifted out of the script the page ships. */
+    const shipped = new Function(
+      'data',
+      'q',
+      `${liveScript()
+        .replace('(function(){', '')
+        .replace(/document\.querySelectorAll[\s\S]*$/, '')}return { group: group(data, q), asked: asked(data, q), bounds: bounds(data.map(function(r){return num(r,q.valueBy)}).filter(function(v){return v!==undefined})) }`
+    ) as (
+      data: unknown[],
+      query: Record<string, unknown>
+    ) => { group: { rows: Record<string, unknown>[]; valueBy: string }; asked: { rows: Record<string, unknown>[] }; bounds: { low: number; high: number } };
+
+    for (const query of [
+      { groupBy: '분류', agg: 'sum', valueBy: '가격' },
+      { groupBy: '분류', agg: 'avg', valueBy: '가격' },
+      { groupBy: '분류', agg: 'count', valueBy: '가격' },
+      { groupBy: '분류', agg: 'min', valueBy: '가격' },
+      { groupBy: '분류', agg: 'max', valueBy: '가격' },
+      /* And with nothing to group by, which is what most charts say. */
+      { valueBy: '가격' },
+      /* And the whole query, where the order of the steps is the thing that could differ. */
+      { groupBy: '분류', agg: 'sum', valueBy: '가격', where: '분류', equals: '제품', sortBy: '가격', sortDir: 'desc', limit: 1 }
+    ]) {
+      const ours = groupRows(records, query);
+      const theirs = shipped(records, query);
+      expect(theirs.group.valueBy, JSON.stringify(query)).toBe(ours.valueBy);
+      expect(theirs.group.rows, JSON.stringify(query)).toEqual(ours.rows);
+
+      const asked = chartRows({ records } as never, query);
+      expect(theirs.asked.rows, JSON.stringify(query)).toEqual(asked.rows);
+    }
+
+    /* And the axis, which is the one number that must **not** travel with the drawing. */
+    expect(shipped(records, { valueBy: '가격' }).bounds).toEqual(boundsOf([1200, 900, 900]));
+  });
+
+  /**
+   * And the same for a **chart**, which is the half a list's check cannot cover.
+   *
+   * A list's refetch rewrites **words**; a chart's rewrites **where its points are**, which means the
+   * geometry runs again in the visitor's browser. So this is the one that says the shipped arithmetic
+   * actually moves a bar — run against the real exported markup, with the fetch stubbed.
+   */
+  it('moves a chart’s bars to the numbers it fetched', async () => {
+    await live(true);
+    /* 가격 is where the sample's charts are — the bar and the grouped donut beside it. */
+    const pricing = pagesOf(doc as never).find((one) => one.path === '/가격')!;
+    const html = exportPage(editor, pricing.sid).html;
+
+    const page = document.implementation.createHTMLDocument('t');
+    page.documentElement.innerHTML = html.slice(html.indexOf('<body'));
+
+    const chart = page.querySelector('[data-chart="bar"][data-st-live]') as HTMLElement;
+    expect(chart).toBeTruthy();
+    const bars = [...chart.querySelectorAll<HTMLElement>('[data-st-point]')];
+    const was = bars.map((one) => one.getAttribute('height'));
+
+    const answered = [
+      { 이름: '문서', 분류: '제품', 가격: 100, 순서: 1 },
+      { 이름: '덱', 분류: '제품', 가격: 200, 순서: 2 },
+      { 이름: '사이트', 분류: '제품', 가격: 400, 순서: 3 },
+      { 이름: '스위트', 분류: '묶음', 가격: 800, 순서: 4 }
+    ];
+
+    const before = globalThis.fetch;
+    (globalThis as never as Record<string, unknown>).fetch = async () => ({ json: async () => answered });
+    try {
+      new Function('document', liveScript())(page);
+      await new Promise((done) => setTimeout(done, 0));
+    } finally {
+      (globalThis as never as Record<string, unknown>).fetch = before;
+    }
+
+    const now = bars.map((one) => Number(one.getAttribute('height')));
+    expect(now.map(String)).not.toEqual(was);
+    /* 800 is the tallest and 100 the shortest, in the order the query sorts them. */
+    expect(now[3]).toBeGreaterThan(now[0]);
+    expect(bars.map((one) => one.getAttribute('data-st-value'))).toEqual(['100', '200', '400', '800']);
+
+    /*
+     * **And the axis was recomputed**, not carried: the published maximum was 19,900 and the fetched
+     * one is 800, so a bar drawn against the published axis would be four pixels tall. The tallest
+     * touches the top of the plot, which is what an axis that ends at its own largest value means.
+     */
+    const svg = chart.querySelector('svg')!;
+    expect(now[3]).toBeCloseTo(Number(svg.getAttribute('data-plot-height')), 0);
   });
 });
