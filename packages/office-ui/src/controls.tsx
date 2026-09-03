@@ -760,6 +760,7 @@ export function TextField({
   testClass,
   inputRef,
   data,
+  type = 'text',
   padding = 'px-1'
 }: {
   /** `null` when the selection does not agree, drawn as empty. */
@@ -789,6 +790,18 @@ export function TextField({
   testClass?: string;
   inputRef?: React.Ref<HTMLInputElement>;
   data?: Record<string, string>;
+  /**
+   * **What the browser should know this is.**
+   *
+   * A text box for a date is a text box a reader types `2026-9-3` into and a check later finds. The
+   * browser has had a date picker, a number spinner and a URL keyboard for a decade, and each is
+   * better than anything a panel would draw for the same job — the only thing missing was somewhere
+   * to say which one.
+   *
+   * Four, and no more: a caller who wants a length wants `NumberField`, which knows about units and
+   * dragging and is a different control rather than this one with a flag.
+   */
+  type?: 'text' | 'number' | 'date' | 'url';
   padding?: string;
 }) {
   const shown = value ?? '';
@@ -804,7 +817,7 @@ export function TextField({
 
   return (
     <input
-      type="text"
+      type={type}
       /*
        * The key is **here**, not in the spread below.
        *

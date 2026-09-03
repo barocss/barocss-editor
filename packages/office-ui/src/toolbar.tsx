@@ -241,7 +241,7 @@ export function ToolbarToggle({
           }}
           className={cn(
             'inline-flex h-[var(--ou-control-h)] min-w-[var(--ou-control-h)] items-center justify-center rounded-[var(--ou-radius)] border border-transparent',
- 'text-sm hover:bg-[color:var(--ou-ground)]',
+ 'text-[length:var(--ou-text)] hover:bg-[color:var(--ou-ground)]',
  STATE,
  'disabled:pointer-events-none disabled:opacity-40',
             /*

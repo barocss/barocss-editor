@@ -77,6 +77,19 @@ export interface PlacementOptions {
    */
   rewrite?: (values: Map<string, string>) => Map<string, string>;
   /**
+   * **Content** for a variable whose answer is not characters — the site's 서식 있는 글.
+   *
+   * A bound part takes a **string** and `withText` collapses its runs to one, which is right for
+   * every value a card asks for and cannot carry a link or an emphasis. A value that *is* document
+   * content has to arrive as nodes, so it arrives beside the strings rather than encoded into one:
+   * a second map, filled by whoever resolved the row, keyed by the same variable name.
+   *
+   * Nodes rather than a reference, deliberately. This package knows nothing about a site's
+   * `resources` or its `text:` prefix — resolving is the caller's job, and what crosses the boundary
+   * is the thing every renderer already understands.
+   */
+  content?: (values: Map<string, string>) => Map<string, unknown[]>;
+  /**
    * What the drawn parts are named after, instead of the placement's own sid.
    *
    * One placement drawn twenty times would otherwise draw twenty elements claiming one sid, and
@@ -113,6 +126,22 @@ export function instanceParts(
    * for: measured as a price list drawing `7900`.
    */
   const values = readValues(options?.rewrite ? options.rewrite(resolved) : resolved, definition.vars);
+  /**
+   * **Where each answer came from**, kept before the rewrite replaces it.
+   *
+   * `resolved` still holds what the placement *wrote* — `field:제목` — and one line later that has
+   * become `스택이 페이지의 문법이다` and the origin is gone. Which is why a page could not say which
+   * of its blocks come from data: by the time anything drew, every value was a literal.
+   *
+   * Only references, and only the answer's own text. A part that took a value somebody typed says
+   * nothing, which is the point — the mark means *this is not typed here*.
+   */
+  const from = new Map<string, string>();
+  for (const [name, said] of resolved) {
+    if (typeof said === 'string' && said.includes(':')) from.set(name, said);
+  }
+  /** Which variables were answered with **content** rather than characters — see `content` above. */
+  const bodies = options?.content ? options.content(resolved) : undefined;
   const binds = definition.binds;
   const own = childrenOf(instance)
     .map((sid) => doc.getNode(sid) as CanvasNode)
@@ -152,6 +181,8 @@ export function instanceParts(
       {
         slotOf: slot,
         own,
+        from,
+        bodies,
         inside: [...inside, definition.id],
         /**
          * **This placement**, which is what makes a drawn part's identity its own.
@@ -182,6 +213,10 @@ function resolvePart(
   where: {
     slotOf?: string;
     own: CanvasNode[];
+    /** What each of the definition's variables was answered *with*, before it was resolved. */
+    from?: Map<string, string>;
+    /** And the ones answered with **content** — nodes, not characters. See `PlacementOptions`. */
+    bodies?: Map<string, unknown[]>;
     inside: readonly string[];
     owner: string;
     rewrite?: PlacementOptions['rewrite'];
@@ -204,10 +239,22 @@ function resolvePart(
   }
 
   let text: string | undefined;
+  /** And the **nodes** it was given, when its answer was content rather than characters. */
+  let body: unknown[] | undefined;
+  /** The references this part's value came from, so the drawing can say it is not typed here. */
+  const came: string[] = [];
   for (const bind of partId ? binds.filter((one) => one.part === partId) : []) {
     const value = values.get(bind.var);
     if (value === undefined) continue;
+    const source = where.from?.get(bind.var);
+    if (source && !came.includes(source)) came.push(source);
     if (bind.attr === 'text') {
+      /*
+       * **Content wins over characters**, and both are kept: the nodes are what this part draws, and
+       * the string is what `withText` would have written — which is the honest fallback for a part
+       * that has no content to replace (a `title`, an `alt`, a run inside a button).
+       */
+      body = where.bodies?.get(bind.var);
       text = value;
       continue;
     }
@@ -221,6 +268,12 @@ function resolvePart(
     const asNumber = Number(value);
     attrs[bind.attr] = value.trim() !== '' && Number.isFinite(asNumber) ? asNumber : value;
   }
+  /*
+   * On the drawn node, never on the document's: this is resolution, and the part in the definition
+   * still says exactly what it said. It is the same shape as `rowIndex` — a fact about *this
+   * drawing* that a click, a panel, a check or a stylesheet can ask about without counting siblings.
+   */
+  if (came.length > 0) attrs.boundFrom = came.join(' ');
 
   /**
    * The children: the part's own, plus the reader's own inside the **slot**.
@@ -274,6 +327,14 @@ function resolvePart(
     content: node?.stype === 'instance' ? nested : [...kids, ...mine]
   } as never;
 
+  /**
+   * **The nodes, in place of what the part holds** — a summary with a link in it, drawn as the link.
+   *
+   * The part keeps everything else it says: its arrangement, its paint, its width. What is replaced
+   * is only what is *inside* it, which is exactly what a bound value has always replaced — this is
+   * `withText` for a value that is more than characters.
+   */
+  if (body && body.length > 0) return { ...resolved, content: body } as never;
   if (text !== undefined) return { ...resolved, ...withText(resolved, text) } as never;
   return resolved as never;
 }

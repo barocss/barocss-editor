@@ -58,9 +58,9 @@ export function Dialog({
         >
           <div className="flex items-start justify-between gap-4 border-b border-[color:var(--ou-line)] px-4 py-3">
  <div>
-              <RadixDialog.Title className="text-sm font-semibold">{title}</RadixDialog.Title>
+              <RadixDialog.Title className="text-[length:var(--ou-text)] font-semibold">{title}</RadixDialog.Title>
  {description && (
-                <RadixDialog.Description className="mt-0.5 text-xs text-[color:var(--ou-muted)]">
+                <RadixDialog.Description className="mt-0.5 text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)]">
  {description}
                 </RadixDialog.Description>
               )}
@@ -80,6 +80,91 @@ export function Dialog({
  {footer}
             </div>
           )}
+        </RadixDialog.Content>
+      </RadixDialog.Portal>
+    </RadixDialog.Root>
+  );
+}
+
+/**
+ * A **drawer** — the same modal machinery, against the right edge and the full height.
+ *
+ * ## Why this is not `Dialog` with a class
+ *
+ * It is a different act. A dialog is a **question**: it takes the middle of the window, dims what is
+ * behind it, and is answered and dismissed. A drawer is a **place to work**: it sits beside what it
+ * is about, stays as long as the reader is doing that job, and the page behind it goes on being the
+ * thing they are looking at.
+ *
+ * That difference is what the props say. There is no `footer`, because a drawer has no two buttons
+ * at the bottom right — its edits land as they are made, the way the panel's do. And the scrim is
+ * lighter, because dimming the page to near-black while a reader edits a row *of that page* hides
+ * the thing they are checking their edit against.
+ *
+ * Radix's `Dialog` underneath all the same, for the parts that are tedious and invisible when wrong:
+ * the focus trap, restoring focus to whatever opened it, Escape, and the `aria-modal` bookkeeping.
+ *
+ * ## And it is modal, deliberately
+ *
+ * A non-modal drawer is the shape a reader can leave a half-typed field in and then not find again.
+ * The panel is already the non-modal place to change one thing; this is for the stint — filling a
+ * row in — and a stint has a beginning and an end.
+ */
+export function Drawer({
+  open,
+  onOpenChange,
+  title,
+  description,
+  children,
+  width = '22rem',
+  className
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  /** One line on what this is about. Announced with the title. */
+  description?: string;
+  children: React.ReactNode;
+  /** How wide, as a CSS length. Narrow enough that the page beside it is still readable. */
+  width?: string;
+  className?: string;
+}) {
+  return (
+    <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
+      <RadixDialog.Portal>
+        {/* Lighter than a dialog's: the page behind is what the reader is checking their edit against. */}
+        <RadixDialog.Overlay className="fixed inset-0 z-[var(--ou-z-overlay)] bg-[color:var(--ou-scrim)] opacity-50" />
+        <RadixDialog.Content
+          className={cn(
+            'fixed right-0 top-0 z-[var(--ou-z-dialog)] flex h-full flex-col border-l',
+            'shadow-[var(--ou-lift-3)] border-[color:var(--ou-line)]',
+            'bg-[color:var(--ou-panel)] text-[color:var(--ou-ink)]',
+            className
+          )}
+          style={{ width: `min(${width}, calc(100vw - 2rem))` }}
+        >
+          <div className="flex items-start justify-between gap-4 border-b border-[color:var(--ou-line)] px-4 py-3">
+            <div className="min-w-0">
+              <RadixDialog.Title className="truncate text-[length:var(--ou-text)] font-semibold">{title}</RadixDialog.Title>
+              {description && (
+                <RadixDialog.Description className="mt-0.5 truncate text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)]">
+                  {description}
+                </RadixDialog.Description>
+              )}
+            </div>
+            <RadixDialog.Close
+              aria-label="닫기"
+              className={cn(
+                'rounded-[var(--ou-radius)] p-1 text-[color:var(--ou-muted)] hover:bg-[color:var(--ou-ground)]',
+                STATE
+              )}
+            >
+              <Icon name="close" />
+            </RadixDialog.Close>
+          </div>
+
+          {/* The one part that scrolls: a row of twenty columns is taller than a window. */}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{children}</div>
         </RadixDialog.Content>
       </RadixDialog.Portal>
     </RadixDialog.Root>
@@ -129,7 +214,7 @@ export function DialogButton({
           .filter(([key]) => key.startsWith('data-'))
           .map(([key, value]) => [key.slice(5), value === true ? '' : String(value ?? '')])
       )}
-      className={cn('h-8 px-3 text-sm', rest.className)}
+      className={cn('h-8 px-3 text-[length:var(--ou-text)]', rest.className)}
     >
       {children}
     </Button>

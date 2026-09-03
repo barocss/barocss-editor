@@ -177,12 +177,12 @@ export function PropertyGroup({
             onClick={() => onFold(!folded)}
           >
             <Icon name={folded ? 'collapsed' : 'disclosed'} size={11} />
-            <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ou-faint)]">
+            <h3 className="text-[length:var(--ou-text-label)] font-semibold uppercase tracking-[0.08em] text-[color:var(--ou-faint)]">
               {label}
             </h3>
           </button>
         ) : (
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ou-faint)]">
+          <h3 className="text-[length:var(--ou-text-label)] font-semibold uppercase tracking-[0.08em] text-[color:var(--ou-faint)]">
             {label}
           </h3>
         )}
@@ -233,7 +233,7 @@ export function PropertyTabs({
           aria-selected={tab.id === active}
           onClick={() => onChange(tab.id)}
           className={cn(
-            'flex-1 border-b-2 px-2 py-1.5 text-[11px] font-medium',
+            'flex-1 border-b-2 px-2 py-1.5 text-[length:var(--ou-text-label)] font-medium',
  tab.id === active
               ? 'border-[color:var(--ou-accent)] text-[color:var(--ou-ink)]'
  : 'border-transparent text-[color:var(--ou-muted)] hover:text-[color:var(--ou-ink)]'

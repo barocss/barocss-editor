@@ -188,8 +188,18 @@ export function useViewport({
   );
 
   useEffect(() => {
-    const host = pane.current;
-    if (!host) return;
+    /**
+     * **The pane is read when the wheel happens, not when the listener is attached.**
+     *
+     * It was read here, with an early return — so a host that mounts *later* never got a listener at
+     * all: `pane` is a ref, stable, so this effect does not run again when its `current` changes.
+     * Which was invisible for as long as the canvas was always in the tree, and stopped being
+     * invisible the day the app grew a mode that mounts it conditionally: the plane could not be
+     * panned, and nothing anywhere said why.
+     *
+     * A ref's whole point is that its value is the one at the moment you ask. Asking at attach time
+     * is reading a ref as though it were a prop.
+     */
 
     /**
      * **A wheel over something that can scroll belongs to that thing.**
@@ -221,6 +231,9 @@ export function useViewport({
     };
 
     const onWheel = (event: WheelEvent) => {
+      const host = pane.current;
+      if (!host) return;
+
       // The rectangle, not the target: a canvas draws a layer over its pane, so the event's target
       // is that layer and a listener scoped to the pane would never run.
       const rect = host.getBoundingClientRect();
@@ -230,6 +243,25 @@ export function useViewport({
         event.clientX <= rect.right &&
         event.clientY <= rect.bottom;
       if (!inside) return;
+
+      /**
+       * **And the pointer has to be on the plane, not merely over it.**
+       *
+       * Reported as *다이얼로그 같은 게 뜨면 viewport가 스크롤되면 안 돼*, and the rectangle test above
+       * is exactly why it did: a dialog, a drawer, a menu or a select's list is drawn in a **portal**
+       * at the end of `document.body`, so it is over the pane's rectangle and is not in the pane. The
+       * test said *inside*, `scrollerUnder` walks only within the host and so answered no, and the
+       * plane took a gesture aimed at something sitting on top of it — the reader's list scrolled the
+       * page behind it instead of itself.
+       *
+       * One rule for every portal rather than a list of selectors: the plane answers a wheel that is
+       * **in** it. A dialog, a drawer, a menu, a popover and a tooltip are all not in it, and so is
+       * anything a product portals later without telling this file.
+       *
+       * The rectangle test stays — it is what scopes a window-level listener to this pane at all, and
+       * a canvas draws its overlay *inside* the host, so containment alone would still be true there.
+       */
+      if (!host.contains(event.target as Node)) return;
 
       /*
        * The zoom first, and it keeps the whole gesture: the browser's own page zoom is what ⌘ with a

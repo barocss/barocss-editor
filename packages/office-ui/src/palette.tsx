@@ -120,7 +120,7 @@ export function ColorPalette({
         className={cn(
           'inline-flex h-[var(--ou-control-h)] min-w-[var(--ou-control-h)] flex-col items-center justify-center',
           'rounded-[var(--ou-radius)] border border-transparent px-1',
-          'text-sm leading-none hover:bg-[color:var(--ou-ground)]',
+          'text-[length:var(--ou-text)] leading-none hover:bg-[color:var(--ou-ground)]',
           STATE,
           'disabled:pointer-events-none disabled:opacity-40',
           // The suite's accent, not Tailwind's sky — the same second accent the toolbar had.
@@ -199,7 +199,7 @@ export function ColorPalette({
                   setOpen(false);
                 }}
                 className={cn(
-                  'rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] px-2 py-0.5 text-[11px]',
+                  'rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] px-2 py-0.5 text-[length:var(--ou-text-small)]',
                   'hover:bg-[color:var(--ou-ground)]',
                   STATE
                 )}

@@ -387,6 +387,73 @@ const DRAWN: Record<string, Drawn> = {
   form: rows('M2.5 2.5h11v11h-11z', 'M5 6h6M5 9h6M5 12h3')
 };
 
+/**
+ * **자료형** — one picture per kind a column may hold.
+ *
+ * ## Why they are drawn here rather than borrowed
+ *
+ * Every table of this kind puts a picture beside a column's name, and for a good reason: a reader
+ * setting up a dataset scans thirteen rows of a menu, and thirteen Korean words at 12px are read one
+ * at a time. A shape is recognised.
+ *
+ * Two of the thirteen were *nearly* available and both would have been lies. `math` is Σ — a
+ * summation, drawn for a formula — and putting it on a number column says *this is computed*, which
+ * is precisely the kind this product refuses to have. `paragraph` is a block of prose, which is the
+ * **long text** kind and not the short one. Borrowing either would have been the icon check passing
+ * while the picture said something false.
+ *
+ * They are a family: `glyph` draws one or two runs at the same weight in the same 11px box, so the
+ * thirteen read as one set rather than as thirteen borrowed marks — which is the fault this package's
+ * own header describes about being keyed by the control instead of by the act.
+ */
+const glyph = (path: string, detail?: string): Drawn =>
+  function GlyphIcon({ size = 16 }: { size?: number }) {
+    return outline(
+      <>
+        <path d={path} strokeWidth={1.6} />
+        {detail ? <path d={detail} opacity={0.55} strokeWidth={1.4} /> : null}
+      </>,
+      size
+    );
+  };
+
+const TYPES: Record<string, Drawn> = {
+  /** One line of words: a full run and a short one under it. */
+  'type-text': glyph('M3 5.5h10', 'M3 9.5h6'),
+  /** Prose: three full runs and a short last one, which is what a paragraph looks like from away. */
+  'type-long-text': glyph('M3 4h10M3 7h10M3 10h10', 'M3 13h5'),
+  /** `#`, which every table in the world uses for a number and no other kind claims. */
+  'type-number': glyph('M6 3v10M10 3v10', 'M3 6h10M3 10h10'),
+  /** A box with a check in it — the control itself, which is how a boolean is entered. */
+  'type-check': glyph('M2.5 2.5h11v11h-11z', 'M5.5 8.2l1.8 1.8 3.2-3.6'),
+  /** A calendar: the sheet, its two hangers, and the rule under the month. */
+  'type-date': glyph('M2.5 4h11v9.5h-11z', 'M5 2.5v3M11 2.5v3M2.5 7h11'),
+  /** One of several: a list of options with the chosen one marked. */
+  'type-choice': glyph('M6 4.5h7M6 8h7M6 11.5h7', 'M3 8h1.2'),
+  /** Several of several, which is the same picture with every option marked. */
+  'type-choices': glyph('M6 4.5h7M6 8h7M6 11.5h7', 'M3 4.5h1.2M3 8h1.2M3 11.5h1.2'),
+  /** A colour: the swatch, drawn as a circle because a square here is every other icon's box. */
+  'type-colour': glyph('M8 2.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z', 'M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z'),
+  /** A picture: the frame, a horizon and a sun — the oldest notation there is for one. */
+  'type-image': glyph('M2.5 3.5h11v9h-11z', 'M2.5 10l3-2.5 3 2.5 2-1.5 3 2M10.5 6a.8.8 0 1 0 0 .01'),
+  /** A page of this site: a sheet with a corner turned, and the words on it. */
+  'type-page': glyph('M4 2.5h5l3 3v8H4z', 'M9 2.5v3h3M6 9h4M6 11h3'),
+  /** A link out: the two rings a chain is drawn as everywhere. */
+  'type-url': glyph('M6.6 9.4a2.6 2.6 0 0 1 0-3.7l1.5-1.5a2.6 2.6 0 0 1 3.7 3.7l-.8.8', 'M9.4 6.6a2.6 2.6 0 0 1 0 3.7l-1.5 1.5a2.6 2.6 0 0 1-3.7-3.7l.8-.8'),
+  /** Mail: the envelope and its flap. */
+  'type-email': glyph('M2.5 4h11v8h-11z', 'M2.5 4.5L8 8.5 13.5 4.5'),
+  /** A phone: the handset, which is still what a telephone means on a screen. */
+  'type-phone': glyph('M5.2 2.8l1.8 2-1.2 1.5a7 7 0 0 0 3.9 3.9l1.5-1.2 2 1.8-1.4 1.6c-3.4.6-8.4-4.4-7.8-7.8z'),
+  /**
+   * **서식 있는 글** — words with one of them emphasised, which is the whole difference from `text`.
+   *
+   * A cell holds a **reference** to real document nodes rather than the words themselves, so this is
+   * the one kind whose picture is about *what a reader gets* rather than about what is stored: a run
+   * with a bold word in it.
+   */
+  'type-rich-text': glyph('M3 4.5h10M3 11.5h6', 'M3 8h3.5M8.5 8h4.5')
+};
+
 const ICONS: Record<string, LucideIcon> = {
   undo: Undo2,
   redo: Redo2,
@@ -686,7 +753,7 @@ export function Icon({
    * The hand-drawn ones first, because they are the answer where a library has none — see `DRAWN`.
    * They take the same `size` and draw at the same stroke, so a row mixing the two reads as one set.
    */
-  const Made = DRAWN[name];
+  const Made = DRAWN[name] ?? TYPES[name];
   if (Made) return <Made size={size} />;
 
   const Glyph = ICONS[name];
@@ -707,4 +774,8 @@ export function Icon({
   * Exported as a list rather than the table itself, so nothing outside can reach
   * past `Icon` to a component and pin the library in place again.
   */
-export const iconNames = (): string[] => [...Object.keys(ICONS), ...Object.keys(DRAWN)];
+export const iconNames = (): string[] => [
+  ...Object.keys(ICONS),
+  ...Object.keys(DRAWN),
+  ...Object.keys(TYPES)
+];

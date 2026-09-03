@@ -331,6 +331,17 @@ export interface SVGAttributes extends BaseHTMLAttributes {
   'stroke-dasharray'?: string;
   'fill-opacity'?: number | string;
   'stroke-opacity'?: number | string;
+
+  // And what a <text> needs, which is the same omission one element over: an axis label is placed by
+  // its anchor and sized by an attribute rather than by CSS, so without these a chart's numbers are
+  // untypeable — and untypeable is unwritable. `font-size` in particular is an *attribute* on SVG
+  // text, not only a style: it scales with the viewBox, which is the whole reason a chart drawn at
+  // 320×180 stays readable at any size on the page.
+  'text-anchor'?: 'start' | 'middle' | 'end';
+  'dominant-baseline'?: string;
+  'font-size'?: number | string;
+  'font-weight'?: number | string;
+  'font-family'?: string;
 }
 
 // Union type for all possible HTML attributes

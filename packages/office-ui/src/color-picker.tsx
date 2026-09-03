@@ -173,7 +173,7 @@ export function ColorPicker({
         />
 
         <label className="flex flex-1 items-center rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] px-1">
- <span className="text-[11px] text-[color:var(--ou-faint)]">#</span>
+ <span className="text-[length:var(--ou-text-small)] text-[color:var(--ou-faint)]">#</span>
  <input
             aria-label="색상 코드"
  value={hexText}
@@ -186,7 +186,7 @@ export function ColorPicker({
                 emit(toCss({ ...parse(`#${next}`), a: parsed.a }));
               }
             }}
-            className="w-full bg-transparent px-1 py-1 text-[11px] uppercase tabular-nums outline-none"
+            className="w-full bg-transparent px-1 py-1 text-[length:var(--ou-text-small)] uppercase tabular-nums outline-none"
  />
         </label>
 
@@ -198,9 +198,9 @@ export function ColorPicker({
             max={100}
             value={Math.round(parsed.a * 100)}
             onChange={(event) => setChannel({ a: Math.min(100, Math.max(0, Number(event.target.value))) / 100 })}
-            className="w-full bg-transparent px-1 py-1 text-right text-[11px] tabular-nums outline-none"
+            className="w-full bg-transparent px-1 py-1 text-right text-[length:var(--ou-text-small)] tabular-nums outline-none"
  />
-          <span className="text-[11px] text-[color:var(--ou-faint)]">%</span>
+          <span className="text-[length:var(--ou-text-small)] text-[color:var(--ou-faint)]">%</span>
  </label>
 
         {hasDropper && (
@@ -209,7 +209,7 @@ export function ColorPicker({
  aria-label="화면에서 색 고르기"
  data-eyedropper
             onClick={pick}
-            className="h-[var(--ou-control-h)] w-[var(--ou-control-h)] shrink-0 rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] text-[11px]"
+            className="h-[var(--ou-control-h)] w-[var(--ou-control-h)] shrink-0 rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] text-[length:var(--ou-text-small)]"
  >
             ⌖
           </button>
@@ -218,7 +218,7 @@ export function ColorPicker({
 
       {themeSwatches.length > 0 && (
         <div>
-          <span className="mb-1 block text-[10px] uppercase tracking-wide text-[color:var(--ou-muted)]">
+          <span className="mb-1 block text-[length:var(--ou-text-label)] uppercase tracking-wide text-[color:var(--ou-muted)]">
  테마 색
           </span>
           <div className="grid grid-cols-6 gap-1">
@@ -253,7 +253,7 @@ export function ColorPicker({
         */}
       {varSwatches.length > 0 && (
         <div>
-          <span className="mb-1 block text-[10px] uppercase tracking-wide text-[color:var(--ou-muted)]">
+          <span className="mb-1 block text-[length:var(--ou-text-label)] uppercase tracking-wide text-[color:var(--ou-muted)]">
             문서 변수
           </span>
           <div className="grid grid-cols-6 gap-1">
@@ -280,7 +280,7 @@ export function ColorPicker({
 
       {recent.length > 0 && (
         <div>
-          <span className="mb-1 block text-[10px] uppercase tracking-wide text-[color:var(--ou-muted)]">
+          <span className="mb-1 block text-[length:var(--ou-text-label)] uppercase tracking-wide text-[color:var(--ou-muted)]">
  최근 사용
           </span>
           <div className="grid grid-cols-6 gap-1">

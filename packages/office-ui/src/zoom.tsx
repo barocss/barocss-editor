@@ -79,7 +79,7 @@ export function ZoomControl({
         }}
         className={cn(
           'h-[var(--ou-control-h)] w-14 rounded-[var(--ou-radius)] border border-transparent bg-transparent',
-          'text-center text-xs tabular-nums hover:border-[color:var(--ou-line)]',
+          'text-center text-[length:var(--ou-text-small)] tabular-nums hover:border-[color:var(--ou-line)]',
           /*
            * A **ring** as well as the accent border, which is the field's own rule everywhere else in
            * this library and is not enough here: this field's border is *transparent* until the

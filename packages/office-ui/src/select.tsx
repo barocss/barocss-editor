@@ -4,8 +4,16 @@ import { cn } from './cn';
 import { STATE } from './controls';
 
 export interface ChoiceOption {
- id: string;
+  id: string;
   label: string;
+  /**
+   * A picture beside the word, for a list a reader **scans** rather than reads.
+   *
+   * Fourteen 자료형 at 12px are read one at a time; a shape is recognised. Optional, because most
+   * lists here are three or four words and a picture on those is decoration — the font list, the
+   * paragraph style list and the sort direction all say more with the word alone.
+   */
+  icon?: string;
 }
 
 /**
@@ -53,7 +61,7 @@ export function ChoiceSelect({
         className={cn(
           testClass,
           'inline-flex h-[var(--ou-control-h)] items-center justify-between gap-2 rounded-[var(--ou-radius)]',
-          'border border-[color:var(--ou-line)] px-2 text-sm',
+          'border border-[color:var(--ou-line)] px-2 text-[length:var(--ou-text)]',
         STATE,
  'disabled:pointer-events-none disabled:opacity-40',
  mixed && 'text-[color:var(--ou-muted)]',
@@ -89,13 +97,14 @@ export function ChoiceSelect({
                 value={option.id}
                 data-style={option.id}
                 className={cn(
-                  'flex cursor-default items-center gap-2 rounded px-2 py-1 text-sm outline-none',
+                  'flex cursor-default items-center gap-2 rounded px-2 py-1 text-[length:var(--ou-text)] outline-none',
                   'data-[highlighted]:bg-[color:var(--ou-ground)]'
                 )}
               >
                 <Select.ItemIndicator>
                   <Icon name="chosen" size={14} />
                 </Select.ItemIndicator>
+                {option.icon ? <Icon name={option.icon as never} size={14} /> : null}
                 <Select.ItemText>{option.label}</Select.ItemText>
               </Select.Item>
             ))}

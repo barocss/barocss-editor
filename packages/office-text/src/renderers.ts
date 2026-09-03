@@ -230,6 +230,27 @@ export function registerTextRenderers(): void {
         'data-style': (d: Record<string, any>) => String(d.attributes?.styleId ?? ''),
         'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env),
         /**
+         * **Where these words came from**, when they were not typed here.
+         *
+         * A block inside a placed component may take its text from one of the component's variables,
+         * and that variable may be answered with a reference — a column of a dataset (`field:제목`)
+         * or the document's own named value (`var:이름`). By the time this draws, the reference has
+         * become the words, and the drawing had no way to know they had not been typed: which is why
+         * a page could not say which of it is data and which is not.
+         *
+         * `canvas-instance` keeps the reference beside the resolved value (`boundFrom`), and this is
+         * where it reaches the page. Editor-only — the site's export strips it in one place, since
+         * the renderers that draw it are in two packages.
+         *
+         * Here rather than only in the site's own renderers because **a heading is a heading**: this
+         * package draws every block that holds words, in all three products, and a deck's card bound
+         * to a variable has the same question about it as a page's.
+         */
+        'data-from': (d: Record<string, any>) =>
+          typeof d.attributes?.boundFrom === 'string' && d.attributes.boundFrom
+            ? String(d.attributes.boundFrom)
+            : undefined,
+        /**
          * The language the block is in.
          *
          * On the block as well as on its runs, because hyphenation is a block
@@ -276,6 +297,27 @@ export function registerTextRenderers(): void {
         className: 'w-heading',
         'data-style': (d: Record<string, any>) => String(d.attributes?.styleId ?? ''),
         'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env),
+        /**
+         * **Where these words came from**, when they were not typed here.
+         *
+         * A block inside a placed component may take its text from one of the component's variables,
+         * and that variable may be answered with a reference — a column of a dataset (`field:제목`)
+         * or the document's own named value (`var:이름`). By the time this draws, the reference has
+         * become the words, and the drawing had no way to know they had not been typed: which is why
+         * a page could not say which of it is data and which is not.
+         *
+         * `canvas-instance` keeps the reference beside the resolved value (`boundFrom`), and this is
+         * where it reaches the page. Editor-only — the site's export strips it in one place, since
+         * the renderers that draw it are in two packages.
+         *
+         * Here rather than only in the site's own renderers because **a heading is a heading**: this
+         * package draws every block that holds words, in all three products, and a deck's card bound
+         * to a variable has the same question about it as a page's.
+         */
+        'data-from': (d: Record<string, any>) =>
+          typeof d.attributes?.boundFrom === 'string' && d.attributes.boundFrom
+            ? String(d.attributes.boundFrom)
+            : undefined,
         /**
          * The language the block is in.
          *

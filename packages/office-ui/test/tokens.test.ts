@@ -224,3 +224,78 @@ describe('every component', () => {
     expect(reaching.length).toBeGreaterThanOrEqual(8);
   });
 });
+
+/**
+ * **The type scale is a scale**, and it took two goes to make it one.
+ *
+ * Reported once as *속성 패널 글자가 너무 작은 거 아니야?* and answered by raising the two tokens — and
+ * reported again, on the same surface, because the panel's **headings** were `text-[10px]` and its
+ * **tabs** `text-[11px]`, written straight into the components. The one surface being complained
+ * about was the one the change could not reach, and the two most structural pieces of text on it —
+ * *what this group is* and *which tab you are on* — were the smallest text in the product.
+ *
+ * A literal size is not a bug on its own; a literal size that is **smaller than the token** is, and
+ * that is what this measures. It is the same shape as the palette check above: a component naming a
+ * number instead of a token is a component the next change cannot reach.
+ */
+describe('the type scale', () => {
+  const sizeOf = (name: string): number => {
+    const said = /--ou-text(?:-small|-label)?:\s*(\d+)px/g;
+    const found = new Map<string, number>();
+    for (const one of css.slice(0, css.indexOf("[data-density='dense']")).matchAll(said)) {
+      found.set(one[0].slice(0, one[0].indexOf(':')), Number(one[1]));
+    }
+    return found.get(name) ?? 0;
+  };
+
+  it('is three sizes, in order, none of them tiny', () => {
+    const [body, small, label] = ['--ou-text', '--ou-text-small', '--ou-text-label'].map(sizeOf);
+    expect(body).toBeGreaterThan(small);
+    expect(small).toBeGreaterThan(label);
+    /*
+     * **12 is the floor.** Below it a Korean label stops being read and starts being recognised by
+     * shape, which is fine for a timeline's tick numbers and is not fine for the word that says what
+     * a group of controls is. The dense surface may go smaller — that is the distinction it exists
+     * for — and this is the default one.
+     */
+    expect(label).toBeGreaterThanOrEqual(12);
+  });
+
+  it('is what every component reaches for, rather than a number of its own', () => {
+    /*
+     * A literal *smaller* than the smallest token is a component that cannot be reached by any change
+     * to the scale — which is exactly how the panel stayed unreadable through a change that raised
+     * it. Tailwind's own words count too: `text-xs` is 12px written in a way no token can move.
+     */
+    const floor = sizeOf('--ou-text-label');
+    const offenders: string[] = [];
+    for (const { name, text } of components) {
+      for (const one of text.matchAll(/text-\[(\d+)px\]/g)) {
+        if (Number(one[1]) < floor) offenders.push(`${name}: ${one[0]}`);
+      }
+      for (const one of text.matchAll(/\btext-(xs|\[0\.\d+rem\])\b/g)) offenders.push(`${name}: ${one[0]}`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('keeps a control tall enough for the words in it', () => {
+    /*
+     * The pair is a ratio, not two numbers: a 14px label in a 28px control leaves 7px above and below
+     * and reads as text falling out of its box. Measured as *at least body size plus 14* — two lines
+     * of breathing room — which is what every control library this one is compared against does.
+     */
+    const height = Number(/--ou-control-h:\s*(\d+)px/.exec(css.slice(0, css.indexOf("[data-density='dense']")))?.[1]);
+    expect(height).toBeGreaterThanOrEqual(sizeOf('--ou-text') + 14);
+  });
+
+  it('gives the dense surface the same three, smaller', () => {
+    /*
+     * A surface that dropped one of them would be a surface where a heading is body text, which is
+     * the fault this scale exists to stop — one place to say it, every surface saying the same three.
+     */
+    const dense = css.slice(css.indexOf("[data-density='dense']"));
+    for (const one of ['--ou-text', '--ou-text-small', '--ou-text-label']) {
+      expect(dense, one).toContain(`${one}:`);
+    }
+  });
+});

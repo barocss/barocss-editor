@@ -207,7 +207,12 @@
    */
   --ou-field-line: var(--ou-line);
 
-  --ou-control-h: 28px;
+  /**
+   * **30**, up from 28, and it follows the type rather than leading it: a 14px label in a 28px
+   * control leaves 7px above and below, which is a control that looks like the text is falling out
+   * of it. The pair is a ratio, not two numbers.
+   */
+  --ou-control-h: 30px;
   /**
    * An icon button inside a **list row**.
    *
@@ -217,19 +222,31 @@
   --ou-icon-h: 18px;
   --ou-radius: 4px;
   /**
-   * **13 and 12**, up from 12 and 11 — reported as *속성 패널 글자가 너무 작은 거 아니야? 뭐가 뭔지
-   * 하나도 모르겠어*.
+   * **14, 13 and 12**, up from 13/12 and 12/11 before that — reported twice, the second time as
+   * *글자 크기를 높여줘, 특히 속성 패널 쪽은 글자가 너무 작음.*
    *
-   * The old pair came from wanting a panel that fits without scrolling, and that is the wrong thing
+   * The first pass raised the two tokens and did not fix it, which is the interesting part: the
+   * panel's **headings** were `text-[10px]` and its **tabs** `text-[11px]`, written straight into
+   * the components and so untouched by any token. So the surface a reader was complaining about was
+   * the one surface the change could not reach, and the two most structural pieces of text on it —
+   * *what this group is* and *which tab you are on* — were the smallest text in the product.
+   *
+   * Hence the **third** token. A label that is a heading in small caps needs to be smaller than body
+   * text and must not be an arbitrary number in a component: one place to say it, one place to
+   * change it, and a check that nothing else invents its own.
+   *
+   * The old sizes came from wanting a panel that fits without scrolling, and that is the wrong thing
    * to buy with type: a reader who cannot read a label has not been given a shorter panel, they have
    * been given one they have to lean into. Scrolling is a gesture; squinting is not.
    *
-   * The **dense** surface below keeps 11 and 10, and that is the distinction this pair exists for: an
+   * The **dense** surface below stays smaller, and that is the distinction these exist for: an
    * instrument a reader watches — a timeline, a status bar — is read at a glance and by shape, and a
    * panel is read a word at a time.
    */
-  --ou-text: 13px;
-  --ou-text-small: 12px;
+  --ou-text: 14px;
+  --ou-text-small: 13px;
+  /** A group heading, a tab, an eyebrow: small caps, and the one size below the body. */
+  --ou-text-label: 12px;
   /**
    * The label column of a labelled row.
    *
@@ -237,7 +254,7 @@
    * in a panel starts at the same x — and two panels with two widths is the same
    * fault one level up.
    */
-  --ou-label-w: 74px;
+  --ou-label-w: 82px;
 }
 
 /**
@@ -248,12 +265,13 @@
  * also a different grey would be the thing this file exists to stop.
  */
 [data-density='dense'] {
-  --ou-control-h: 22px;
+  --ou-control-h: 24px;
   --ou-icon-h: 16px;
   --ou-radius: 3px;
-  --ou-text: 11px;
-  --ou-text-small: 10px;
-  --ou-label-w: 62px;
+  --ou-text: 12px;
+  --ou-text-small: 11px;
+  --ou-text-label: 10px;
+  --ou-label-w: 66px;
 }
 
 /**
