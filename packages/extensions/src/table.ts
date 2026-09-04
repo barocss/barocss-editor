@@ -1,5 +1,5 @@
 import { hasRange } from './guards';
-import { Editor, Extension, selectedNodeIds, type ModelSelection } from '@barocss/editor-core';
+import { Editor, Extension, selectedNodeIds, type Keybinding, type ModelSelection } from '@barocss/editor-core';
 import {
   transaction,
   insertTable as insertTableOp,
@@ -14,6 +14,32 @@ import {
   findAncestorTable,
   findCellPosition
 } from '@barocss/model';
+
+/**
+ * **표에서의 `Tab` — 어느 도구에서나 같은 것.**
+ *
+ * `word-keymap.ts` 가 원칙을 적어 뒀다: *"키는 제품의 것이고 엔진의 것이 아니다 — `Mod+Alt+1` 은
+ * 워드프로세서에서 제목 1이고 FigJam 보드에서는 아무것도 아니다."* 맞다. 그런데 **표에서의 `Tab` 은
+ * 제품의 관례가 아니라 그 노드의 관례다** — Word · Google Docs · Notion · 스프레드시트가 전부 같고,
+ * 표를 가진 제품이 그것을 각자 정할 여지가 없다.
+ *
+ * 그래서 이 둘만 여기 있다. `Mod+Alt+i`(아래에 행) 같은 것은 Word 의 발명이고 Word 에 남는다.
+ *
+ * ## 이것이 없어서 무엇이 안 됐나
+ *
+ * `nextCell` 은 이 확장이 등록하므로 표를 가진 넷이 다 갖는데, **키를 묶는 곳이
+ * `word-keymap.ts` 뿐이었다.** 노트에서 표 안의 `Tab` 은 아무 일도 하지 않았다(브라우저에서 쟀다:
+ * 선택이 전후 동일, 표 크기 그대로, 두 번째 글자가 같은 칸에 들어갔다).
+ *
+ * `when` 이 `inTable` 인 것은 이 확장이 그 맥락을 세우기 때문이다(`onCreate` 의 `setContext`). 그리고
+ * 제품 바인딩이 엔진 기본을 **이기므로**(`word-kit.ts` 에 적혀 있다: *"the registry already resolves
+ * a conflict by source, and a product's bindings outrank the engine's"*), 기본의
+ * `Tab → indentText` 와 부딪히지 않는다 — 표 밖에서는 `inTable` 이 거짓이라 기본이 그대로 산다.
+ */
+export const TABLE_CELL_KEYBINDINGS: readonly Keybinding[] = [
+  { key: 'Tab', command: 'nextCell', when: 'editorFocus && inTable' },
+  { key: 'Shift+Tab', command: 'previousCell', when: 'editorFocus && inTable' }
+];
 
 export interface TableExtensionOptions {
   enabled?: boolean;

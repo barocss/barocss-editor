@@ -1,4 +1,5 @@
 import type { Keybinding } from '@barocss/editor-core';
+import { TABLE_CELL_KEYBINDINGS } from '@barocss/extensions';
 import type { KeyModel } from '@barocss/office-controls';
 
 /**
@@ -14,6 +15,16 @@ import type { KeyModel } from '@barocss/office-controls';
  * one.
  */
 export const WORD_KEYBINDINGS: Keybinding[] = [
+  /*
+   * **표에서의 `Tab`/`Shift+Tab` 은 여기서 선언하지 않는다.** 어느 도구에서나 같은 것이고, 그것을
+   * 만드는 `nextCell`·`previousCell` 을 등록하는 것이 공용 `TableExtension` 이므로 그 옆에 있다.
+   * 여기 두 줄로 적혀 있었고 그래서 **표를 가진 넷 중 Word 만 Tab 이 통했다** — 노트에서 표 안의
+   * Tab 은 아무 일도 하지 않았다.
+   *
+   * 아래의 `Mod+Alt+i` 류는 Word 의 발명이므로 Word 에 남는다.
+   */
+  ...TABLE_CELL_KEYBINDINGS,
+
   // ── Headings and paragraph styles ──────────────────────────────────────────
   { key: 'Mod+Alt+1', command: 'setHeading1', when: 'editorFocus' },
   { key: 'Mod+Alt+2', command: 'setHeading2', when: 'editorFocus' },
@@ -98,7 +109,6 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   // ── Tables ─────────────────────────────────────────────────────────────────
   // Tab is cell navigation only inside a table; elsewhere it indents, which is
   // why these are gated rather than registered globally.
-  { key: 'Tab', command: 'nextCell', when: 'editorFocus && inTable' },
   // Scoped to equations by context, not decided inside the command. The
   // dispatcher runs the first binding that matches and prevents the key either
   // way, so a binding that matched everywhere would swallow Tab in a table.
@@ -109,7 +119,6 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   { key: 'Space', command: 'buildUpMath', when: 'editorFocus && canBuildUpMath' },
   { key: 'Tab', command: 'nextMathSlot', when: 'editorFocus && inEquation' },
   { key: 'Shift+Tab', command: 'previousMathSlot', when: 'editorFocus && inEquation' },
-  { key: 'Shift+Tab', command: 'previousCell', when: 'editorFocus && inTable' },
   { key: 'Mod+Alt+i', command: 'insertRowBelow', when: 'editorFocus && inTable' },
   { key: 'Mod+Alt+Shift+i', command: 'insertRowAbove', when: 'editorFocus && inTable' },
   { key: 'Mod+Alt+j', command: 'insertColumnRight', when: 'editorFocus && inTable' },

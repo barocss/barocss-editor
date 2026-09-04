@@ -542,6 +542,89 @@ test.describe('a note on its own', () => {
     expect(spans, '합쳐진 셀이 두 열을 덮지 않습니다').toContain('2');
   });
 
+  /**
+   * **표에서 Tab 이 다음 칸으로 간다** — 그리고 이게 오래 안 됐다.
+   *
+   * `nextCell` 은 공용 `TableExtension` 이 등록하므로 표를 가진 넷이 다 갖는데, **키를 묶는 곳이
+   * `word-keymap.ts` 뿐이었다.** 브라우저에서 쟀다: 노트의 표에서 Tab 을 누르면 선택이 그대로이고,
+   * 표 크기도 그대로이고, 다음 글자가 **같은 칸**에 들어갔다.
+   *
+   * ## 그리고 그것만이 아니었다
+   *
+   * 같이 잰 것: **표를 넣는 순간 모델 선택이 `bTableHeader`(구조 노드)에 앉고** DOM 선택은 첫 칸의
+   * 런에 앉는다. `addChild` 의 `selectionAfter` 가 `content[0]` 을 한 칸만 보고 그것을
+   * `firstTextNodeId` 라 불렀기 때문이다 — 문단은 `content[0]` 이 곧 글자라 맞고 표는 헤더다.
+   *
+   * 그 둘이 겹쳐서, **키를 묶기만 해도 안 됐을 것이다**: `nextCell` 은 캐럿에서 셀을 찾고
+   * (`findAncestorCell`), 캐럿이 헤더에 있으면 `null` 을 받는다. 그리고 칸을 클릭해도 안 고쳐진다 —
+   * DOM 선택이 이미 그 자리라 `selectionchange` 가 뜨지 않는다(0회를 셌다).
+   *
+   * 노트의 툴바가 그것을 가려 왔다: 눌린 칸을 `cellId` 로 **명시적으로** 넘긴다
+   * (`note-view.tsx` 의 `const on = { nodeId: sid, cellId: cell }`). 그래서 행 추가 단추는 되고
+   * 키보드는 안 됐다. **단추가 있는 길과 키보드의 길이 다르면, 단추가 결함을 가린다.**
+   */
+  test('moves to the next cell on Tab, and grows the table past the last one', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 1400 });
+    await ready(page);
+    const held = page.locator('[data-case="post"]');
+    await held.locator('[data-note-body] p').first().click();
+    await page.keyboard.press('End');
+
+    await held.locator('[data-note-control="insertTableBlock"]').click();
+    await page.waitForTimeout(200);
+    await held.locator('[data-note-pick-cell="2:2"]').click();
+    await page.waitForTimeout(500);
+
+    const table = held.locator('table').first();
+    const cells = () => table.locator('th,td');
+    expect(await cells().count(), '2×2 는 네 칸입니다').toBe(4);
+
+    /**
+     * **표를 넣은 직후의 캐럿이 첫 칸의 글자에 있어야 한다.**
+     *
+     * 이것이 `addChild` 의 수정이 지키는 것이고, 아래의 Tab 이 성립하는 전제다. 클릭으로 고쳐지지
+     * 않으므로(위를 보라) 넣은 순간에 맞아야 한다.
+     */
+    const caretStype = () =>
+      page.evaluate(() => {
+        type Held = {
+          __notes: Record<string, { editor: { selection?: { startNodeId?: string }; dataStore: { getNode: (id: string) => { stype?: string; parentId?: string } | undefined } } }>;
+        };
+        const ed = (window as unknown as Held).__notes.post.editor;
+        const sid = ed.selection?.startNodeId;
+        if (!sid) return '(선택 없음)';
+        const node = ed.dataStore.getNode(sid);
+        const parent = node?.parentId ? ed.dataStore.getNode(node.parentId) : undefined;
+        return `${node?.stype}<${parent?.stype}`;
+      });
+
+    expect(await caretStype(), '넣은 직후 캐럿이 첫 칸의 글자에 없습니다').toBe('inline-text<bTableHeaderCell');
+
+    /* 첫 칸에 쓰고, Tab, 둘째 칸에 쓴다. 다른 칸에 들어가면 글자가 그것을 말한다. */
+    await page.keyboard.type('가');
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(300);
+    await page.keyboard.type('나');
+    await page.waitForTimeout(400);
+
+    const said = await cells().allInnerTexts();
+    expect(said[0].replace(/\uFEFF/g, ''), '첫 칸이 가 가 아닙니다').toBe('가');
+    expect(said[1].replace(/\uFEFF/g, ''), 'Tab 이 다음 칸으로 가지 않았습니다').toBe('나');
+
+    /*
+     * **마지막 칸을 지나면 표가 자란다** — Word·스프레드시트가 하는 것이고 `nextCell` 이 이미 그렇게
+     * 되어 있었다. 닿을 키가 없어서 확인된 적이 없었다.
+     */
+    await held.locator('table tr').nth(1).locator('td').last().click();
+    await page.waitForTimeout(300);
+    await page.keyboard.type('끝');
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(500);
+    expect(await cells().count(), '마지막 칸에서 Tab 이 표를 늘리지 않았습니다').toBe(6);
+  });
+
   test('offers every held block what it needs, and nothing it does not', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (one) => errors.push(String(one).slice(0, 140)));

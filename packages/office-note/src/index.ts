@@ -50,3 +50,8 @@ export { NOTE_TOOLBAR, noteControlsIn, type NoteControl } from './toolbar-model'
  *
  * The same line `office-ui` is on the other side of.
  */
+
+/**
+ * **노트의 키맵** — 둘이고, 그 짧음이 이 제품이 무엇인지 말한다. `note-keymap.ts` 를 보라.
+ */
+export { NOTE_KEYBINDINGS } from './note-keymap';

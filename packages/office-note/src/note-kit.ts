@@ -13,6 +13,7 @@ import {
   UnderlineExtension
 } from '@barocss/extensions';
 import { createNoteElementCommands } from './element-commands';
+import { NOTE_KEYBINDINGS } from './note-keymap';
 import { noteControlsIn } from './toolbar-model';
 
 /**
@@ -123,5 +124,18 @@ export function createNoteEditor(options: {
   kit?: Extension[];
 }): Editor {
   const { kit, ...rest } = options;
-  return new Editor({ ...rest, extensions: kit ?? createNoteExtensions() } as never);
+  const editor = new Editor({ ...rest, extensions: kit ?? createNoteExtensions() } as never);
+
+  /*
+   * **키맵을 얹는다.** 대체가 아니라 층이다 — `word-kit.ts` 에 그 이유가 적혀 있다: 레지스트리가
+   * 출처로 충돌을 풀고 **제품 바인딩이 엔진 것을 이긴다.** 그래서 표 밖에서는 기본의
+   * `Tab → indentText` 가 그대로 살고, 표 안에서는 `inTable` 이 참이 되어 `nextCell` 이 이긴다.
+   *
+   * 지우고 다시 넣지 않는 것도 그 파일이 겪은 것이다: 레지스트리를 비우면 Enter·Backspace·화살표까지
+   * 사라져서 문서가 브라우저가 하는 대로만 편집된다.
+   */
+  const registry = (editor as unknown as { keybindings?: { register?: (one: unknown) => void } }).keybindings;
+  for (const binding of NOTE_KEYBINDINGS) registry?.register?.(binding);
+
+  return editor;
 }
