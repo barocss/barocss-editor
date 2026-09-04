@@ -112,7 +112,7 @@ export class SlashCommandExtension implements Extension {
       execute: (payload?: { query?: string }) => boolean | Promise<boolean>,
       can: () => boolean
     ) =>
-      (editor as never as { registerCommand: (spec: unknown) => void }).registerCommand({
+      editor.registerCommand({
         name,
         execute: async (_ed: Editor, payload?: { query?: string }) => await execute(payload),
         canExecute: () => can()
@@ -227,10 +227,31 @@ export class SlashCommandExtension implements Extension {
    * cannot draw. A shared default list offering those would put rows in a reader's menu that light
    * up and do nothing, which is the fault this repository has spent a week finding elsewhere.
    */
+  /**
+   * The rows this editor can actually run, **here**.
+   *
+   * Two questions, and the second one was missing. *Does this editor have the command* keeps a shared
+   * default list from offering what a product never registered. *Can it run where the caret is* is
+   * the one a typed menu needs, because the caret is the whole context: a page holds every kind of
+   * block and a **body** holds writing, so 버튼 and 글 were offered inside a summary, said they could
+   * run, and did nothing.
+   *
+   * Asked of the command rather than decided here — the same contract the rail has, where a greyed
+   * row is greyed because the model said no. **Omitted rather than greyed**, which is the difference
+   * a typed menu makes: a reader narrowing a list by typing is choosing from what is left, and a row
+   * that cannot be chosen is noise in the middle of that.
+   *
+   * A command that cannot say (`canExecuteCommand` answering `undefined`) is kept, which is the safe
+   * direction: a menu that hides what would have worked is worse than one that shows what will not.
+   */
   private _offered(): SlashMenuItem[] {
     const items = this._options.items ?? DEFAULT_ITEMS;
-    const known = new Set(this._editor?.commandNames() ?? []);
-    return known.size === 0 ? items : items.filter((item) => known.has(item.command));
+    const editor = this._editor as never as
+      | { commandNames?: () => string[]; canExecuteCommand?: (name: string, payload?: unknown) => boolean | undefined }
+      | null;
+    const known = new Set(editor?.commandNames?.() ?? []);
+    const here = known.size === 0 ? items : items.filter((item) => known.has(item.command));
+    return here.filter((item) => editor?.canExecuteCommand?.(item.command, item.payload ?? {}) !== false);
   }
 }
 

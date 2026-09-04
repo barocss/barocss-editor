@@ -28,12 +28,11 @@
   "dependencies": {
     "@barocss/datastore": "workspace:*",
     "@barocss/model": "workspace:*",
-    "@barocss/extensions": "workspace:*",
-    "@barocss/renderer-dom": "workspace:*",
     "@barocss/shared": "workspace:*",
     "@barocss/schema": "workspace:*"
   },
   "devDependencies": {
+    "@barocss/extensions": "workspace:*",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vite-plugin-dts": "^3.9.1",

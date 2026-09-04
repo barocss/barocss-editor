@@ -585,12 +585,67 @@ export class RangeOperations {
       return;
     }
     // Fallback: apply/remove on start and end nodes only
+    /**
+     * **빈 조각은 건너뜁니다.**
+     *
+     * A range that begins at the very end of its first run — which `Shift+→` makes the moment it
+     * steps into the next block — asks for `[64, 64]`, a span of no characters. Marking one is a
+     * no-op at best, and here it was worse: the call went in and **nothing after it ran**, so the
+     * end run never got its mark and 굵게 over such a selection did nothing at all while the command
+     * reported success. The third recorded instance of *guard says yes, then does nothing*.
+     *
+     * Both ends are guarded, because the mirror case — a range ending at offset 0 of its last run —
+     * is what a backward drag makes.
+     */
     const startNode = this.dataStore.getNode(startNodeId);
-    if (startNode && typeof startNode.text === 'string') {
+    if (startNode && typeof startNode.text === 'string' && startOffset < (startNode.text as string).length) {
       this.dataStore.marks.toggleMark(startNodeId, markType, [startOffset, (startNode.text as string).length], attrs);
     }
+
+    /**
+     * **그리고 사이의 런들 전부** — 없던 절반입니다.
+     *
+     * The first run and the last were marked and **everything between them was skipped**. Measured
+     * with three paragraphs and a range from the first into the third: two runs carried the mark and
+     * the middle carried none, so 굵게 over a multi-paragraph selection left a hole in the middle of
+     * what a reader had highlighted.
+     *
+     * From outside it read as *the button does nothing* — the second paragraph is usually the one
+     * being looked at — which is how this stayed unseen: the ends **did** change.
+     *
+     * `deleteText`, six hundred lines up in this same file, walks exactly this iterator. One of the
+     * two range operations had the walk and the other did not.
+     */
+    try {
+      const between = this.dataStore.createRangeIterator(startNodeId, endNodeId, {
+        includeStart: false,
+        includeEnd: false
+      });
+      for (const one of between ?? []) {
+        const sid = typeof one === 'string' ? one : (one as { sid?: string })?.sid;
+        if (!sid) continue;
+        /**
+         * **Skipped by hand, because `includeEnd: false` is not honoured.**
+         *
+         * Measured: with the range's own end left in the walk, the end run is toggled here and again
+         * by the block below — **twice, so back off**. Bold over three paragraphs marked the first
+         * two and left the third bare, which reads as *the last paragraph did not take*.
+         *
+         * Invisible in `deleteText`, six hundred lines up, which uses the same iterator to set text
+         * to `''`: emptying twice is emptying once. A toggle is the operation that notices.
+         */
+        if (sid === startNodeId || sid === endNodeId) continue;
+        const node = this.dataStore.getNode(sid);
+        if (!node || typeof node.text !== 'string') continue;
+        /* Whole runs, because a run wholly inside a range is wholly inside it. */
+        this.dataStore.marks.toggleMark(sid, markType, [0, (node.text as string).length], attrs);
+      }
+    } catch {
+      /* An iterator that cannot walk this pair leaves the ends marked, which is what it did before. */
+    }
+
     const endNode = this.dataStore.getNode(endNodeId);
-    if (endNode && typeof endNode.text === 'string') {
+    if (endNode && typeof endNode.text === 'string' && endOffset > 0) {
       this.dataStore.marks.toggleMark(endNodeId, markType, [0, Math.min(endOffset, (endNode.text as string).length)], attrs);
     }
   }

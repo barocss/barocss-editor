@@ -3,7 +3,7 @@ import { Schema } from '@barocss/schema';
 import { TransactionOperation, OpFunction, OpResult } from './transaction-dsl';
 import { globalOperationRegistry } from './operations/define-operation';
 import { createTransactionContext, TransactionContext } from '.';
-import { Editor } from '@barocss/editor-core';
+import type { Editor } from '@barocss/editor-core';
 import type { TransactionOptions } from './transaction-dsl';
 
 export interface Transaction {

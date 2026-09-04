@@ -410,7 +410,21 @@ export class Editor implements ContextProvider {
    * the wrong default for a product that imports other people's documents, which
    * is most of them.
    */
-  loadDocument(treeDocument: any, sessionId: string = 'editor-session'): void {
+  /**
+   * `sessionId` is **what every sid in this document is prefixed with**, and giving one is a promise.
+   *
+   * It used to default to the fixed word `editor-session`, so two editors that did not name a
+   * session both minted `editor-session:1`, `editor-session:2` — identical strings, in two documents
+   * that a host may well hold at once. Measured: two site documents loaded side by side shared **760
+   * of 761 sids**.
+   *
+   * Omitted, the store's own name is kept, and that one is minted per instance (`mintSessionId`).
+   * Given, it is used as written — which is right for an app with one document (`'word'`, `'site'`)
+   * and for a host with a durable name for this one (a post's id, a row's key), because then the
+   * sids are the same every time it opens. It is **wrong** for a host mounting several under one
+   * name, and that is the promise: a session names an instance, not a kind.
+   */
+  loadDocument(treeDocument: any, sessionId?: string): void {
     const loader = new DataStoreLoader(this._dataStore, sessionId);
     const rootId = loader.loadDocument(treeDocument);
     this._rootId = rootId;
@@ -1229,7 +1243,15 @@ export class Editor implements ContextProvider {
 
   private _createEmptyDocument(): any {
     return {
-      id: `doc-${Date.now()}`,
+      /**
+       * **A millisecond is not a name.**
+       *
+       * `doc-${Date.now()}` gave twelve editors made in one tick **one id between them** — measured
+       * on a page mounting twelve notes: seven of them shared `doc-1788481667942`, and a host asking
+       * *which document is this node in* had seven answers. The store's own session is unique per
+       * instance, so the root borrows it and stops depending on the clock.
+       */
+      id: `doc-${(this._dataStore as never as { getSessionId?: () => string | number }).getSessionId?.() ?? Date.now()}`,
       type: 'document',
       content: [],
       metadata: {

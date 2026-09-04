@@ -31,11 +31,11 @@
     "@barocss/dom-observer": "workspace:*",
     "@barocss/editor-core": "workspace:*",
     "@barocss/renderer-dom": "workspace:*",
-    "@barocss/schema": "workspace:*",
     "@barocss/shared": "workspace:*",
     "@barocss/text-analyzer": "workspace:*"
   },
   "devDependencies": {
+    "@barocss/schema": "workspace:*",
     "jsdom": "^24.1.3",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",

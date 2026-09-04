@@ -244,7 +244,13 @@ describe('EditorViewDOM + renderer-dom Decorator Integration', () => {
       // Note: DecoratorRenderer handles separately, so actual structure may differ
       // Need to check actual result to write expectHTML
       const html = view.layers.content.innerHTML;
-      expect(html).toMatch(/data-bc-sid="(doc1|doc-\d+)"/);
+      /*
+       * **The root's sid is minted, not named.** `loadDocument` used to default its session to the
+       * fixed word `editor-session`, so two editors that named none minted the same sids — measured
+       * at **760 of 761 identical** on two documents side by side. With the default gone, a document
+       * that names no session keeps the store's own minted name, which is what this now matches.
+       */
+      expect(html).toMatch(/data-bc-sid="doc(1|-\d+|-s-[a-z0-9]+)"/);
       expect(html).toContain('data-bc-sid="p1"');
       expect(html).toContain('data-bc-sid="t1"');
       expect(html).toContain('data-decorator-sid="d1"');

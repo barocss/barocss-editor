@@ -1,5 +1,5 @@
 import { DataStore } from '@barocss/datastore';
-import { SelectionManager } from '@barocss/editor-core';
+import type { SelectionManager } from '@barocss/editor-core';
 import type { SelectionContext } from './selection-context';
 
 // SelectionContext is defined as a class, so only re-export as type

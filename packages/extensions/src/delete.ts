@@ -2,7 +2,8 @@ import { Editor, Extension } from '@barocss/editor-core';
 import { hasRange } from './guards';
 import type { ModelSelection } from '@barocss/editor-core';
 import { insideLockedRegion, selectedNodeIds } from '@barocss/editor-core';
-import { transaction, control, deleteRange, deleteOp, deleteTextRange } from '@barocss/model';
+import { deleteOp, transaction } from '@barocss/model';
+import { deleteRangeOperations } from './range-delete';
 
 /**
  * Delete Extension Options
@@ -216,13 +217,13 @@ export class DeleteExtension implements Extension {
    * @returns Success status
    */
   private async _executeDeleteCrossNode(editor: Editor, range: ModelSelection): Promise<boolean> {
-    const op = deleteRange({
-      startNodeId: range.startNodeId,
-      startOffset: range.startOffset,
-      endNodeId: range.endNodeId,
-      endOffset: range.endOffset
-    });
-    const result = await transaction(editor, [op]).commit();
+    /*
+     * **The third copy.** This built a bare `deleteRange` — the runs and nothing else — where the
+     * path a reader's Backspace takes now also joins the blocks. One of the three had the walk, one
+     * had a bare range, and one deleted inside the start run; all three were spelled *delete between
+     * two points*.
+     */
+    const result = await transaction(editor, deleteRangeOperations(range, editor) as never).commit();
     return result.success;
   }
 
@@ -234,7 +235,7 @@ export class DeleteExtension implements Extension {
    * @returns 성공 여부
    */
   private async _executeDeleteText(editor: Editor, range: ModelSelection): Promise<boolean> {
-    const operations = this._buildDeleteTextOperations(range);
+    const operations = this._buildDeleteTextOperations(range, editor);
     const result = await transaction(editor, operations).commit();
     return result.success;
   }
@@ -247,44 +248,14 @@ export class DeleteExtension implements Extension {
   }
 
   /**
-   * The operations that delete a range of text.
+   * Delete between two points — `range-delete.ts`, because this existed **twice**.
    *
-   * Two shapes, because a selection inside one run and a selection across
-   * several are different questions. Within a run it is a substring, and
-   * `deleteTextRange` says exactly that. Across runs it is a range with two
-   * ends, and `deleteRange` is the operation that knows how to walk one.
-   *
-   * This used to build the first shape for both: `control(startNodeId, [
-   * deleteTextRange(startOffset, endOffset) ])`, with **`endNodeId` never
-   * mentioned**. So a selection over three runs deleted one run deep, using an
-   * end offset that belonged to a different node.
-   *
-   * It did not look broken, and that is the part worth remembering. The browser
-   * had already removed the text natively, and the MutationObserver imported
-   * the difference afterwards — so the model was being finished by the DOM.
-   * Measured: three `deleteText` calls where the model had asked for one. It
-   * surfaced only when that import was blocked to stop a second overlapping
-   * mark from corrupting the text, and then the deletion stopped halfway and a
-   * comment kept its mark over text that was gone from the screen.
-   *
-   * Any selection that crosses a formatting boundary is this case, so it is
-   * most selections in a document anybody has formatted.
+   * `text.ts` had a function of the same name that always did `deleteTextRange` inside the start run,
+   * so typing over three paragraphs mangled the first and left the other two. Two spellings of one
+   * act, and the second was not a smaller version of the first — it was wrong.
    */
-  private _buildDeleteTextOperations(range: ModelSelection): any {
-    if (range.startNodeId !== range.endNodeId) {
-      return [
-        deleteRange({
-          startNodeId: range.startNodeId,
-          startOffset: range.startOffset,
-          endNodeId: range.endNodeId,
-          endOffset: range.endOffset
-        })
-      ];
-    }
-
-    return control(range.startNodeId, [
-      deleteTextRange(range.startOffset, range.endOffset)
-    ]);
+  private _buildDeleteTextOperations(range: ModelSelection, editor?: Editor): any {
+    return deleteRangeOperations(range, editor);
   }
 
   /**

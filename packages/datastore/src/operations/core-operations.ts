@@ -25,7 +25,7 @@ export class CoreOperations {
   setNode(node: INode, validate: boolean = true): void {
     // 1. Re-base globalCounter on the current node count (never lowers it, so
     //    ids handed out earlier in an uncommitted overlay are not reissued)
-    (this.dataStore.constructor as any).syncIdCounter(this.dataStore.getNodes().size);
+    (this.dataStore as any).syncIdCounter(this.dataStore.getNodes().size);
 
     // 2. Assign ID (if missing)
     if (!node.sid) {
@@ -234,7 +234,7 @@ export class CoreOperations {
     // syncIdCounter never lowers the counter, so ids handed out earlier in an uncommitted overlay
     // (where getNodes().size does not grow yet) cannot be reissued.
     if (node.parentId == null) {
-      (this.dataStore.constructor as any).syncIdCounter(this.dataStore.getNodes().size);
+      (this.dataStore as any).syncIdCounter(this.dataStore.getNodes().size);
     }
     
     // 2. Assign IDs to all nested objects (recursively)

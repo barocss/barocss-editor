@@ -88,7 +88,30 @@ export class DataStore {
   private _registeredSchemas: Map<string, Schema> = new Map();
   private _activeSchema: Schema | undefined;
   private _eventEmitter: EventEmitter = new EventEmitter();
-  private static _globalCounter: number = 0;
+  /**
+   * **The counter is the store's own, and it used to be everybody's.**
+   *
+   * It was `static`, so every `DataStore` on the page drew from one number. That looked like a way
+   * of *preventing* collisions and was the opposite: what it actually did was make one store's size
+   * decide another store's next id, and it hid the real problem — an id is only unique **within the
+   * page that minted it**. Two documents saved from two page loads both start near 1, so `note:207`
+   * from one and `note:207` from the other are the same string, and a host that holds both — a site
+   * with two bodies in `resources`, a CMS with a list of posts — has two different nodes with one
+   * name.
+   *
+   * Reported exactly that way: *sid 가 가장 큰 문제인데, instance 별로 달라야해.*
+   *
+   * So the counter belongs to the store, and what separates one store from another is the **session**
+   * — see `_sessionId`, which is now unique by default rather than a word the caller repeats.
+   */
+  private _counter: number = 0;
+  /**
+   * What every id this store mints is prefixed with.
+   *
+   * Given by the caller when the name means something (`'site'`, `'word'`, one document per app), and
+   * minted otherwise. It used to default to `0`, and three note sessions all passed `'note'` — so
+   * twelve stores on one page all said `note:` and only the shared counter kept them apart.
+   */
   private _sessionId: string | number = 0;
   // Operation collection state
   private _overlay: TransactionalOverlay | undefined;
@@ -167,7 +190,12 @@ export class DataStore {
 
   constructor(rootNodeId?: string, schema?: Schema, sessionId?: string | number) {
     this.rootNodeId = rootNodeId;
-    this._sessionId = sessionId ?? 0;
+    /*
+     * **A name of its own when the caller has none.** `0` was the default, so every store that did
+     * not say otherwise minted `0:1`, `0:2` — identical strings in every one of them.
+     */
+    this._sessionId = sessionId ?? DataStore.mintSessionId();
+    this._claimSession(this._sessionId);
     if (schema) {
       this.setActiveSchema(schema);
     }
@@ -206,10 +234,67 @@ export class DataStore {
     // parentId links and hangs every parent-walk in the editor.
     let candidate: string;
     do {
-      DataStore._globalCounter++;
-      candidate = `${this._sessionId}:${DataStore._globalCounter}`;
+      this._counter++;
+      candidate = `${this._sessionId}:${this._counter}`;
     } while (this.getNode(candidate));
     return candidate;
+  }
+
+  /**
+   * A name no other store will use, for a caller that has nothing meaningful to call this one.
+   *
+   * Random rather than a count of stores made, because a count is unique only **within one page** —
+   * which is the whole fault this replaces. Six base-36 characters is a collision every few million
+   * documents, against a certainty every time two pages each make their first store.
+   */
+  static mintSessionId(prefix = 's'): string {
+    return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  /**
+   * **Two stores under one session name, said out loud.**
+   *
+   * A session is a promise: *no other store alive right now uses this name*. A caller that names one
+   * is usually right to — an app with a single document (`'word'`, `'site'`), or a host with a
+   * durable name for this body — and when they are wrong the failure is silent and total. Measured:
+   * two site documents loaded under `'site'` share **760 of 761 sids**, so every lookup in one finds
+   * a node in the other and nothing anywhere says so.
+   *
+   * This is the only shared state in the class and it is deliberately **diagnostic**: nothing reads
+   * it to decide anything, and dropping it changes no behaviour. That is the line — a module-level
+   * counter that ids depend on is the fault this replaced; a module-level set that only complains is
+   * how the fault gets found next time.
+   */
+  private static readonly _claimed = new Map<string, number>();
+  /** Said once per name. A warning repeated forty times adds nothing to the first one. */
+  private static readonly _warned = new Set<string>();
+
+  /** Every session name a store has taken, and how many took it — what a check asks. */
+  static sessionsInUse(): Map<string, number> {
+    return new Map(DataStore._claimed);
+  }
+
+  private _claimSession(name: string | number): void {
+    const said = String(name);
+    const held = (DataStore._claimed.get(said) ?? 0) + 1;
+    DataStore._claimed.set(said, held);
+    if (held < 2 || DataStore._warned.has(said)) return;
+    DataStore._warned.add(said);
+
+    /*
+     * Not under a test runner. A suite makes hundreds of stores under one name on purpose and never
+     * lets go of them, so the count is meaningless there — and a warning that is always on is a
+     * warning nobody reads. `sessionsInUse()` is how a check asks the same question deliberately.
+     */
+    const testing =
+      (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') ||
+      (globalThis as { vitest?: unknown }).vitest !== undefined;
+    if (testing) return;
+
+    console.error(
+      `[DataStore] 세션 이름 '${said}'을(를) 두 개 이상의 스토어가 씁니다 — sid 가 겹칩니다. ` +
+        `인스턴스마다 다른 이름을 주거나, 이름을 주지 마세요(스토어가 하나 만듭니다).`
+    );
   }
 
   /**
@@ -219,9 +304,25 @@ export class DataStore {
    * already handed out (but not yet committed, e.g. inside an overlay
    * transaction) would be reissued.
    */
-  static syncIdCounter(nodeCount: number): void {
-    if (nodeCount > DataStore._globalCounter) {
-      DataStore._globalCounter = nodeCount;
+  static syncIdCounter(_nodeCount: number): void {
+    /*
+     * **Kept as a no-op**, and the name is why: it re-based a *shared* counter on one store's node
+     * count, which is meaningless now that each store counts its own — and actively wrong, because
+     * one store growing would have skipped another store's ids. The instance form below is what the
+     * operations call; this stays so a caller reaching for the old static name does nothing rather
+     * than reaching through `constructor as any` into a member that is gone.
+     */
+  }
+
+  /**
+   * Re-base **this store's** id counter on its own node count.
+   *
+   * Only ever raises it — it must never go backwards, otherwise ids already handed out but not yet
+   * committed (inside an overlay transaction) would be reissued.
+   */
+  syncIdCounter(nodeCount: number): void {
+    if (nodeCount > this._counter) {
+      this._counter = nodeCount;
     }
   }
 
@@ -509,7 +610,14 @@ export class DataStore {
    * ```
    */
   setSessionId(sessionId: string | number): void {
+    /* Letting go of the old name and claiming the new — see `_claimSession`. */
+    const was = String(this._sessionId);
+    const held = (DataStore._claimed.get(was) ?? 1) - 1;
+    if (held > 0) DataStore._claimed.set(was, held);
+    else DataStore._claimed.delete(was);
+
     this._sessionId = sessionId;
+    this._claimSession(sessionId);
   }
 
   /**
@@ -666,7 +774,7 @@ export class DataStore {
     // Prepare temporary alias set to enforce uniqueness within this creation
     this._tempAliasSet = new Set<string>();
     // 1. Re-base globalCounter on the current node count (never lowers it)
-    DataStore.syncIdCounter(this.nodes.size);
+    this.syncIdCounter(this.nodes.size);
     
     // 2. Assign IDs to all nested objects (recursively)
     this._assignIdsRecursively(node);

@@ -49,8 +49,25 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
    * Check if DOM element is a text container.
    * If it has data-text-container="true" attribute, it is a text container.
    */
+  /**
+   * **글자를 담은 것인가** — 모델에 묻습니다. DOM 속성에 묻던 것이고, 그 속성을 쓰는 곳이 없었습니다.
+   *
+   * `data-text-container="true"` 를 찾고 있었고, 저장소 전체에서 **그 속성을 쓰는 렌더러가 하나도
+   * 없습니다.** 그래서 이 함수는 한 번도 참이 아니었고, `findBestContainer` 의 잘 적힌 걷기 —
+   * *글자 그릇을 찾아 위로, 못 찾으면 …* — 는 언제나 마지막 갈래로 떨어졌다: 찾은 것을 그대로 돌려주기.
+   *
+   * 그 대가가 뒤집힌 범위였다. `Shift+→` 로 문단을 두 개 넘으면 브라우저의 끝 경계가 **문단 위**에
+   * 남는데(글자 노드 안이 아니라 자식 인덱스), 그것이 모델의 끝점이 되어 `11:paragraph:28 →
+   * 6:inline-text:25` 가 나온다 — 문서 순서가 거꾸로인 범위이고, DOM 선택은 비어 보인다.
+   *
+   * 모델이 답을 갖고 있다: 글자를 담은 노드는 `text` 가 문자열인 노드다. 그것을 물으면 걷기가 원래
+   * 의도대로 돈다.
+   */
   private isTextContainer(element: Element): boolean {
-    return element.getAttribute('data-text-container') === 'true';
+    const sid = element.getAttribute('data-bc-sid');
+    if (!sid) return false;
+    const node = this.editor.dataStore?.getNode?.(sid) as { text?: unknown } | undefined;
+    return typeof node?.text === 'string';
   }
 
   /**
@@ -166,7 +183,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
 
     const { startNodeId, startModelOffset, endNodeId, endModelOffset } = boundaries;
     const startNode = this.findBestContainer(range.startContainer);
-    const endNode = this.findBestContainer(range.endContainer);
+    const endNode = this.findBestContainer(range.endContainer, true);
     const direction = startNode && endNode
       ? this.determineSelectionDirection(selection, startNode, endNode, startModelOffset, endModelOffset)
       : 'forward';
@@ -204,7 +221,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     endOffset: number
   ): { startNodeId: string; startModelOffset: number; endNodeId: string; endModelOffset: number } | null {
     const startNode = this.findBestContainer(startContainer);
-    const endNode = this.findBestContainer(endContainer);
+    const endNode = this.findBestContainer(endContainer, true);
 
     if (!startNode || !endNode) return null;
 
@@ -244,7 +261,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     return null;
   }
 
-  private findBestContainer(node: Node): Element | null {
+  private findBestContainer(node: Node, forEnd = false): Element | null {
     // Top priority: node that is a text container
     let el = this.findClosestDataNode(node);
     if (!el) return null;
@@ -263,12 +280,40 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     }
     
     // Upper containers like document are inappropriate as selection container → ignore
+    /**
+     * **위로 못 찾으면 안으로 내려갑니다** — 블록을 그대로 돌려주지 않습니다.
+     *
+     * A `Shift+→` that steps past the end of a paragraph leaves the browser's boundary **on the
+     * paragraph**, at a child index rather than inside a text node. Walking up finds no text
+     * container — the parent is the document — and this used to hand the paragraph back as the
+     * selection's end.
+     *
+     * What followed was worse than an odd sid: the model's range came out **inverted**
+     * (`11:paragraph:28 → 6:inline-text:25`, with `direction: 'forward'`) and the DOM selection read
+     * as empty. Measured by pressing `Shift+→` sixty times across three paragraphs — one boundary is
+     * crossed correctly and the second flips it.
+     *
+     * So a boundary that lands on a block resolves to a run **inside** it, and which one depends on
+     * which end this is: a start goes to the first, an end to the last. That is what the browser
+     * itself means by a boundary at a child index — *everything from here* or *everything up to
+     * here*.
+     */
+    const inside = this.textContainerInside(el, forEnd);
+    if (inside) return inside;
+
     const sid = el.getAttribute('data-bc-sid');
     if (sid) {
       const model = this.editor.dataStore?.getNode?.(sid);
       if (model?.stype === 'document') return null;
     }
     return el;
+  }
+
+  /** The first or last text container inside a block — see `findBestContainer`. */
+  private textContainerInside(el: Element, last: boolean): Element | null {
+    const runs = [...el.querySelectorAll('[data-bc-sid]')].filter((one) => this.isTextContainer(one));
+    if (runs.length === 0) return null;
+    return (last ? runs[runs.length - 1] : runs[0]) as Element;
   }
 
   private ensureRuns(containerEl: Element, containerId: string): ContainerRuns {
@@ -484,13 +529,8 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       
       selection.addRange(range);
       
-      console.debug('[SelectionHandler] Converted range selection to DOM', {
-        startNodeId,
-        startOffset,
-        endNodeId,
-        endOffset
-      });
-      
+      /* Not logged, for the reason the one below it is not: every caret placement is one of these. */
+
     } catch (error) {
       console.error('[SelectionHandler] Error converting range selection to DOM:', error);
     }
@@ -518,10 +558,6 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       range.selectNodeContents(element);
       
       selection.addRange(range);
-      
-      console.debug('[SelectionHandler] Converted node selection to DOM', {
-        nodeId: nodeSelection.nodeId
-      });
       
     } catch (error) {
       console.error('[SelectionHandler] Error converting node selection to DOM:', error);
@@ -662,15 +698,13 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     const run = runs.runs[runIndex];
     const localOffset = modelOffset - run.start;
     
-    console.debug('[SelectionHandler] Found DOM range:', {
-      modelOffset,
-      runIndex,
-      runStart: run.start,
-      runEnd: run.end,
-      localOffset,
-      textNodeLength: run.domTextNode.textContent?.length
-    });
-    
+    /*
+     * **Not logged.** This fires on every caret placement — a line of console per click and per
+     * arrow key, in a product where a reader clicks into text constantly. The `console.warn` above
+     * stays: it says a run could not be found, which is a fault. This said one was, which is the
+     * ordinary case.
+     */
+
     return {
       node: run.domTextNode,
       // domStart skips a leading filler so the caret lands after it, not before

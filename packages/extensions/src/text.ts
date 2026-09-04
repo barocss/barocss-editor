@@ -1,6 +1,7 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
-import { transaction, control, insertText, deleteTextRange } from '@barocss/model';
+import { transaction, control, insertText } from '@barocss/model';
+import { deleteRangeOperations } from './range-delete';
 
 export interface TextExtensionOptions {
   enabled?: boolean;
@@ -61,7 +62,16 @@ export class TextExtension implements Extension {
     text: string
   ): Promise<boolean> {
     // Only insert case (start === end)
-    if (range.startOffset === range.endOffset) {
+    /**
+     * **비었는가는 두 가지를 다 물어야 합니다** — 같은 런인가, 그리고 같은 자리인가.
+     *
+     * This asked only the offsets. A range from the first paragraph's 2 to the third paragraph's 2 is
+     * two paragraphs of text and reads here as *nothing selected* — so a reader typing over three
+     * paragraphs got the character **inserted** and nothing removed. Measured with exactly that
+     * range, which is not a contrived one: dragging straight down a column of similar lines lands on
+     * the same offset constantly.
+     */
+    if (range.startNodeId === range.endNodeId && range.startOffset === range.endOffset) {
       const operations = this._buildInsertTextOperations(range, text);
       const result = await transaction(editor, operations).commit();
       return result.success;
@@ -70,11 +80,8 @@ export class TextExtension implements Extension {
     // Replace or delete case
     // Combine multiple operations and execute as single transaction
     const operations = [
-      ...this._buildDeleteTextOperations(range),
-      ...this._buildInsertTextOperations(
-        { ...range, endOffset: range.startOffset },
-        text
-      )
+      ...this._buildDeleteTextOperations(range, editor),
+      ...this._buildInsertTextOperations({ ...range, endOffset: range.startOffset }, text)
     ];
     
     const result = await transaction(editor, operations).commit();
@@ -96,10 +103,18 @@ export class TextExtension implements Extension {
   /**
    * Build delete operations (DSL: deleteTextRange(start, end) inside control)
    */
-  private _buildDeleteTextOperations(range: ModelSelection): ReturnType<typeof control> {
-    return control(range.startNodeId, [
-      deleteTextRange(range.startOffset, range.endOffset)
-    ]);
+  /**
+   * Delete between two points — `range-delete.ts`, because this was **the wrong half of two**.
+   *
+   * `delete.ts` had a function of the same name that branched on whether the range crossed runs; this
+   * one always cut inside the start run. So typing over three paragraphs mangled the first and left
+   * the other two untouched, while Backspace over the same three at least got the characters right.
+   *
+   * Two spellings of one act, and the second was not a smaller version of the first.
+   */
+  private _buildDeleteTextOperations(range: ModelSelection, editor?: Editor): any[] {
+    const ops = deleteRangeOperations(range, editor) as any;
+    return Array.isArray(ops) ? ops : [ops];
   }
 }
 

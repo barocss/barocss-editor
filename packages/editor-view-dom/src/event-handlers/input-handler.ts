@@ -1048,6 +1048,48 @@ export class InputHandlerImpl implements InputHandler {
         });
 
         // Toggle mark (remove if exists, add if not)
+        /**
+         * **이미 그렇게 되어 있으면 아무것도 하지 않습니다.**
+         *
+         * A MutationObserver reports a **state** — *this run is bold now* — and this was answering it
+         * with a **gesture**: `toggleMark` flips whatever the model says. When the model is already
+         * what the DOM shows, flipping is exactly wrong.
+         *
+         * Which is what happened whenever a command marked the selection: the command wrote the mark,
+         * the view redrew the caret's region, the observer read its own output as a markup gesture,
+         * and this **took the mark off again**. Measured in `apps/note` — select all over three
+         * blocks, press 굵게, and the last run comes back bare, with two calls to
+         * `RangeOperations.toggleMark` in the stack, one from the command and one from here.
+         *
+         * The observer's own guard skips a render's output only when there is **no caret region**,
+         * and by the time this runs `_modelDrivenRenders` has already been released on its
+         * `setTimeout(0)` — so neither of the existing defences reaches this path. Idempotence does,
+         * and it is the honest shape anyway: making the model say what the DOM says.
+         */
+        /**
+         * **그 마크를 이미 갖고 있으면 아무것도 하지 않습니다** — 범위가 어디든.
+         *
+         * Narrower first: *does an existing mark cover the range the observer is reporting*. That
+         * misses the case it exists for. A command marks `[0, 5]` of a run, the view redraws, and the
+         * observer reports the **whole run** — no existing mark covers `[0, len]`, so the guard let it
+         * through and the toggle took the mark straight back off. Measured: the model carried
+         * `bold [0,5]` immediately after the command and `[]` fifty milliseconds later.
+         *
+         * A render's output can only ever re-report what the model just wrote, so *this run already
+         * has this mark* is the whole of what needs asking. Marks in this editor are written by
+         * commands; a `contenteditable` gesture that invents one is not a thing this product has.
+         */
+        const already = (modelNode.marks ?? []).some(
+          (one: { stype?: string }) => one?.stype === markType
+        );
+        if (already) {
+          logger.debug(LogCategory.TEXT_INPUT, 'handleInlineMarkup: SKIP - the model already says so', {
+            nodeId,
+            markType
+          });
+          continue;
+        }
+
         dataStore.range.toggleMark(contentRange, markType);
 
         // Emit editor:content.change event (skipRender: true)

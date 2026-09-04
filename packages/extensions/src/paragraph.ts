@@ -1,7 +1,7 @@
 import { findAncestorNode } from '@barocss/datastore';
 import { hasRange } from './guards';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
-import { transaction, control, transformNode, insertParagraph as insertParagraphOp, splitListItem as splitListItemOp } from '@barocss/model';
+import { transaction, control, transformNode, insertParagraph as insertParagraphOp, splitListItem as splitListItemOp, moveChildren, removeChild } from '@barocss/model';
 
 export interface ParagraphExtensionOptions {
   enabled?: boolean;
@@ -272,7 +272,29 @@ export class ParagraphExtension implements Extension {
        * reported `insertParagraph → heading`, which is a command producing the one thing its name
        * says it does not.
        */
-      ops.push(insertParagraphOp(atEndOfHeading(dataStore, selection) ? 'paragraph' : 'same'));
+      /**
+       * **Enter on an empty block at the end of a container leaves it.**
+       *
+       * The rule every editor of this kind has, and the one this had not: pressing Enter inside a
+       * quotation added another paragraph *inside the quotation*, and then another, and there was no
+       * way out with the keyboard at all. Measured in `apps/note` — one blockquote, three paragraphs,
+       * and the caret still in it. Reported as *인용구에서 엔터로 벗어날 수 없음*, which is the whole
+       * of it.
+       *
+       * The reader's meaning is unambiguous and is why the rule is safe: an **empty** paragraph is
+       * not writing, it is a gesture. A reader who wanted a blank line inside a quote does not press
+       * Enter twice at the end of it — they press it once, in the middle.
+       *
+       * A list item has had this since it was written (`splitListItem` empties out one level), which
+       * is the same rule one container over.
+       */
+      const out = leavingAContainer(dataStore, selection);
+      if (out) {
+        ops.push(moveChildren(out.from, out.to, [out.block], out.at));
+        if (out.emptyNow) ops.push(removeChild(out.grand, out.from));
+      } else {
+        ops.push(insertParagraphOp(atEndOfHeading(dataStore, selection) ? 'paragraph' : 'same'));
+      }
     }
     return ops;
   }
@@ -319,4 +341,70 @@ function atEndOfHeading(dataStore: any, selection: ModelSelection): boolean {
   // And the last run in it — a heading of several runs ends at the end of the last one.
   const held = (block.content ?? []) as string[];
   return held[held.length - 1] === selection.startNodeId;
+}
+
+
+/**
+ * **The empty block at the end of a container that a reader is pressing Enter to leave.**
+ *
+ * Four things have to be true, and each one is a way a reader could mean something else:
+ *
+ * - the caret is **collapsed** — a selection is a replacement, not a gesture;
+ * - the block it is in is **empty** — anything written in it is writing, and Enter after writing
+ *   makes another block;
+ * - that block is the **last** child of what holds it — Enter in the middle is a split;
+ * - and what holds it is a **container inside a body**, not the body itself. A paragraph at the end
+ *   of a note has nowhere to go, and this must not lift it into nothing.
+ *
+ * `listItem` is left alone: `splitListItem` has answered for it since it was written, and two rules
+ * for one gesture is how they come to disagree.
+ */
+function leavingAContainer(
+  dataStore: any,
+  selection: ModelSelection
+): { from: string; to: string; grand: string; block: string; at: number; emptyNow: boolean } | undefined {
+  if (selection.type !== 'range' || !selection.collapsed) return undefined;
+
+  const run = dataStore?.getNode?.(selection.startNodeId);
+  if (!run) return undefined;
+
+  const at = (sid: string | undefined) =>
+    sid ? dataStore.getNode(dataStore.resolveAlias?.(sid) ?? sid) : undefined;
+
+  /* The block the caret is in — a run's parent, or the node itself when a block holds the caret. */
+  const block = typeof run.text === 'string' ? at(run.parentId) : run;
+  if (!block || typeof block.sid !== 'string') return undefined;
+
+  /* Empty: no children, or one run with nothing in it. */
+  const kids = (block.content ?? []) as string[];
+  const written = kids.some((one) => {
+    const child = at(one);
+    return typeof child?.text === 'string' ? child.text.length > 0 : !!child;
+  });
+  if (written) return undefined;
+
+  const holder = at(block.parentId);
+  if (!holder || typeof holder.sid !== 'string') return undefined;
+  /*
+   * A list item's own rule already answers Enter, and the containers a body has are the ones a
+   * writer can be *inside*: a quotation today, and whatever else holds blocks tomorrow.
+   */
+  if (holder.stype === 'listItem' || holder.stype === 'note' || holder.stype === 'surface') return undefined;
+
+  const siblings = (holder.content ?? []) as string[];
+  if (siblings[siblings.length - 1] !== block.sid) return undefined;
+
+  const grand = at(holder.parentId);
+  if (!grand || typeof grand.sid !== 'string') return undefined;
+
+  const where = ((grand.content ?? []) as string[]).indexOf(holder.sid);
+  return {
+    from: holder.sid,
+    to: grand.sid,
+    grand: grand.sid,
+    block: block.sid,
+    at: where >= 0 ? where + 1 : ((grand.content ?? []) as string[]).length,
+    /* A container whose only child just left is a container with nothing in it. */
+    emptyNow: siblings.length === 1
+  };
 }

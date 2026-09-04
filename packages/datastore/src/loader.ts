@@ -16,12 +16,15 @@ export class DataStoreLoader {
   private _nodeIdCounter: number = 0;
   private _sessionId: string;
 
-  constructor(dataStore: DataStore, sessionId: string) {
+  constructor(dataStore: DataStore, sessionId?: string) {
     this._dataStore = dataStore;
-    this._sessionId = sessionId;
-    // Everything this store mints from now on belongs to the same session as
-    // the document it is about to hold.
-    this._dataStore.setSessionId(sessionId);
+    /*
+     * **Only when one is given.** Everything this store mints belongs to the same session as the
+     * document it is about to hold — but a caller that names none is not asking for the fixed word
+     * this used to fall back to, it is asking for the store's own, which is minted per instance.
+     */
+    if (sessionId) this._dataStore.setSessionId(sessionId);
+    this._sessionId = String(this._dataStore.getSessionId());
   }
 
   loadDocument(treeDocument: Document): string {

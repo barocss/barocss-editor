@@ -1,5 +1,5 @@
 import { DataStore } from '@barocss/datastore';
-import { SelectionManager } from '@barocss/editor-core';
+import type { SelectionManager } from '@barocss/editor-core';
 import type { Schema } from '@barocss/schema';
 import type { TransactionContext } from './types';
 import { SelectionContext } from './selection-context';
