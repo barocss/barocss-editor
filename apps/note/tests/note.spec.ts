@@ -469,6 +469,79 @@ test.describe('a note on its own', () => {
     expect(await size()).toBe('4×3');
   });
 
+  /**
+   * **셀 두 개를 말할 수 있는가** — 표의 여덟 가지 중 둘이 이것을 필요로 한다.
+   *
+   * 여섯은 *캐럿이 있는 셀* 을 읽으면 되고, 합치기는 정의상 두 번째 셀이 있어야 한다. 그것을 말하는
+   * 유일한 방법이 셀을 가로질러 끄는 것인데, 그 제스처가 `office-word` 안에 있어서 표를 가진 제품
+   * 넷 중 Word 와 Slides 만 닿았다. `office-text` 로 옮기고 `note-view` 가 자기 컨테이너에 설치한다.
+   *
+   * 그리고 `extensions/table.ts` 가 `cell` 선택을 못 알아보고 있었다 — `cell` 은 이 명령 하나를
+   * 위해 있는 선택 종류인데 `_selectedCellRange` 가 `type !== 'range'` 로 버렸다. Word 에서 되던
+   * 것은 `office-word/table-commands.ts` 가 양 끝 셀 id 를 따로 넘겨 줬기 때문이다.
+   */
+  test('takes two cells by dragging across them, and merges them', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 1400 });
+    await ready(page);
+    const held = page.locator('[data-case="post"]');
+    await held.locator('[data-note-body] p').first().click();
+    await page.keyboard.press('End');
+
+    await held.locator('[data-note-control="insertTableBlock"]').click();
+    await page.waitForTimeout(200);
+    await held.locator('[data-note-pick-cell="2:2"]').click();
+    await page.waitForTimeout(500);
+
+    const table = held.locator('table').first();
+    const cells = () => table.locator('th,td');
+    const before = await cells().count();
+    expect(before, '2×2 는 네 칸입니다').toBe(4);
+
+    /*
+     * **먼저 한 번 눌러 잡는다.** 잡히지 않은 블록을 누르면 그 누름이 프레임을 만들고 레이아웃이
+     * 바뀐다 — 미리 잰 좌표가 그 순간부터 표가 아니라 본문 문단을 가리킨다. 재는 것과 끄는 것 사이에
+     * 레이아웃이 움직이면 안 되므로, 잡는 누름을 따로 쓴다.
+     */
+    await table.locator('th').first().click();
+    await page.waitForTimeout(300);
+
+    // 첫 행의 두 칸을 가로질러 끈다.
+    const one = await table.locator('th').first().boundingBox();
+    const two = await table.locator('th').nth(1).boundingBox();
+    expect(one && two, '표의 첫 행이 그려지지 않았습니다').toBeTruthy();
+
+    await page.mouse.move(one!.x + one!.width / 2, one!.y + one!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(two!.x + two!.width / 2, two!.y + two!.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+
+    // 둘 다 칠해진다 — 그 표시가 `office-text/text.css` 의 것이다.
+    await expect(table.locator('[data-cell-selected]')).toHaveCount(2);
+
+    /*
+     * **그리고 이 노트에서만.** `installCellSelection` 은 인스턴스마다 하나이고 `container.contains`
+     * 로 자기 것만 듣는다 — 그것이 이 구조의 주장이므로 여기서 묻는다. 셋이 떠 있고 칠해진 칸은 둘,
+     * 둘 다 이 노트 안이다.
+     */
+    await expect(page.locator('.w-table-handle'), '노트마다 표 핸들이 하나여야 합니다').toHaveCount(3);
+    await expect(page.locator('[data-cell-selected]')).toHaveCount(2);
+    await expect(
+      held.locator('[data-cell-selected]'),
+      '칠해진 칸이 이 노트 밖에 있습니다'
+    ).toHaveCount(2);
+
+    const merge = held.locator('[data-note-act="mergeCells"]');
+    await expect(merge).toBeEnabled();
+    await merge.click();
+    await page.waitForTimeout(400);
+
+    // 두 칸이 하나가 되고, 남은 것이 두 열을 덮는다.
+    await expect(cells()).toHaveCount(before - 1);
+    const spans = await cells().evaluateAll((els) => els.map((el) => el.getAttribute('colspan')));
+    expect(spans, '합쳐진 셀이 두 열을 덮지 않습니다').toContain('2');
+  });
+
   test('offers every held block what it needs, and nothing it does not', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (one) => errors.push(String(one).slice(0, 140)));
@@ -543,6 +616,13 @@ test.describe('a note on its own', () => {
       'insertColumnLeft',
       'insertColumnRight',
       'deleteColumn',
+      /*
+       * 여덟이지 여섯이 아니다. 이 둘은 *두 셀* 을 말할 수 있어야 하고, 그 말을 만드는 제스처
+       * (`installCellSelection`)가 `office-word` 안에 있어서 한동안 목록에 없었다 — 표를 가진 제품
+       * 넷 중 둘만 닿았다는 뜻이다.
+       */
+      'mergeCells',
+      'splitCell',
       ...moves
     ]);
 

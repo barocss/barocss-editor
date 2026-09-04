@@ -31,7 +31,7 @@
  */
 import type { Editor } from '@barocss/editor-core';
 import { createNodeSelection, selectedNodeIds } from '@barocss/editor-core';
-import type { DocumentAccess } from '@barocss/office-text';
+import type { DocumentAccess } from './document-access';
 import { cellContaining, cellsBetween } from './table-selection';
 
 /** The attribute the stylesheet paints. */

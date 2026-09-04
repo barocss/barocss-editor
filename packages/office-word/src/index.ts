@@ -59,6 +59,15 @@ export {
   type CellStyleLayers,
   type RowPlacement
 } from '@barocss/office-text';
+/**
+ * **셀 선택은 `office-text` 로 갔다.** 여기서 다시 내보내는 것은 이미 이 이름으로 가져다 쓰는
+ * `apps/word`·`apps/slide` 때문이고, 새로 쓰는 쪽은 `@barocss/office-text` 에서 가져간다.
+ *
+ * 옮긴 이유: 사이트의 표 메뉴에 **셀 합치기**가 있는데 그 선택을 만드는 제스처가 Word 안에 있었다.
+ * 그리고 그 제스처가 찾는 `.w-cell` 은 Word 것이 아니라 `office-text/renderers.ts` 가 쓰는
+ * 클래스이고, 그것을 칠하는 `[data-cell-selected]` 도 `office-text/text.css` 에 있다 — 셋 중 둘이
+ * 이미 저쪽에 있었다.
+ */
 export {
   cellRectangle,
   cellsInRectangle,
@@ -66,14 +75,12 @@ export {
   cellContaining,
   rowsCovered,
   columnsCovered,
-  type CellRectangle
-} from './table-selection';
-export {
   installCellSelection,
   isCellType,
   CELL_SELECTED_ATTRIBUTE,
+  type CellRectangle,
   type CellSelectionHandle
-} from './table-selection-view';
+} from '@barocss/office-text';
 export {
   borderCss,
   borderOf,

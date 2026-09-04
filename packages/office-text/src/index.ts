@@ -93,3 +93,26 @@ export {
   type FindOptions,
   type Match
 } from './find';
+
+/**
+ * **셀 선택** — 셀을 가로질러 끄는 것과, 그것이 만드는 `cell` 선택.
+ *
+ * `office-word` 에 있다가 여기로 왔다. 셋 중 둘이 이미 여기 있었기 때문이다: 제스처가 찾는
+ * `.w-cell` 은 `renderers.ts` 가 쓰는 클래스이고, 그것을 칠하는 `[data-cell-selected]` 는
+ * `text.css` 에 있다. 남은 하나만 Word 안에 있어서, 표를 가진 네 제품 중 둘만 셀을 고를 수 있었다.
+ */
+export {
+  cellRectangle,
+  cellsInRectangle,
+  cellsBetween,
+  cellContaining,
+  rowsCovered,
+  columnsCovered,
+  type CellRectangle
+} from './table-selection';
+export {
+  installCellSelection,
+  isCellType,
+  CELL_SELECTED_ATTRIBUTE,
+  type CellSelectionHandle
+} from './table-selection-view';

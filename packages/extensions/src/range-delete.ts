@@ -64,13 +64,11 @@ export function joinAcross(editor: Editor, range: ModelSelection): unknown[] {
    * A host that cannot be walked gets the text and nothing else, which is what happened before this
    * existed. Guarded rather than assumed: a test with a mock store and a renderer-less environment
    * both reach here, and neither has a reason to grow a `getNode`.
+   *
+   * (이 주석이 두 번 적혀 있었다 — 편집 사고이고, 두 판이 조금 달라서 어느 쪽이 지금 사실인지 읽는
+   * 사람이 알 수 없었다. 둘 다 사실이라 넓은 쪽을 남긴다.)
    */
   const store = editor.dataStore;
-  /*
-   * A host that cannot be walked gets the text and nothing else, which is what happened before this
-   * existed. Guarded rather than assumed: a test with a mock store reaches here and has no reason to
-   * grow a `getNode`.
-   */
   if (typeof store?.getNode !== 'function') return [];
 
   /**

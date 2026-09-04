@@ -5,7 +5,12 @@ import { Controls, SlashMenu, useEditorRevision } from '@barocss/office-editor-u
 import { noteRegistry } from './renderers';
 import { Icon } from '@barocss/office-icons';
 import { FilePick, Tip, TipProvider } from '@barocss/office-ui';
-import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
+import {
+  WORD_ENV_KEY,
+  createTextEnv,
+  installCellSelection,
+  type CellSelectionHandle
+} from '@barocss/office-text';
 import { cellAt, holdsWriting, pickedAt } from './selection';
 import { NOTE_MOVES, actsFor, fieldsFor, fileSrc } from './block-model';
 import { noteControlsIn } from './toolbar-model';
@@ -447,6 +452,7 @@ function NoteBody({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
+  const cells = useRef<CellSelectionHandle | null>(null);
   const box = useRef<HTMLDivElement>(null);
   /**
    * And a reason to write the mark again.
@@ -484,6 +490,21 @@ function NoteBody({
          */
         env: { [WORD_ENV_KEY]: createTextEnv(doc as never) }
       } as never);
+
+      /**
+       * **셀을 가로질러 끄는 것.**
+       *
+       * `office-text` 에 있고 이 컨테이너에 붙는다 — *이 독자가 어느 셀들을 말하는가* 는 포인터의
+       * 일이라서 킷이 아니라 뷰의 몫이고, Word 와 Slides 가 자기 앱에서 같은 자리에 설치하는 것과
+       * 같은 이유다. 노트는 뷰를 패키지에 갖고 있으니 그 자리가 여기다.
+       *
+       * **인스턴스마다 하나.** `installCellSelection` 은 `container.contains` 로 자기 것만 듣기
+       * 때문에 노트를 여럿 띄워도 서로의 셀을 고르지 않는다.
+       *
+       * 이것이 없으면 표에서 할 수 있는 것이 여섯이다 — 행·열 넣기와 지우기. 나머지 둘, 합치기와
+       * 나누기는 *두 셀* 을 말할 수 있어야 하고 그 말을 만드는 것이 이 제스처뿐이다.
+       */
+      cells.current = installCellSelection(editor, host.current, doc as never);
     }
 
     view.current.setRootId(rootId);
@@ -492,6 +513,8 @@ function NoteBody({
 
   useEffect(
     () => () => {
+      cells.current?.destroy();
+      cells.current = null;
       view.current?.destroy?.();
       view.current = null;
     },

@@ -70,16 +70,21 @@ const EXEMPT: Record<string, string> = {
   'office-word:insertPicture': '문서의 그림은 리본의 파일 대화상자가 넣습니다 — 다른 셋과 다른 제스처',
   'office-word:insertVideo': '재생할 수 없는 문서에는 영상이라는 말이 없습니다 — office 스키마의 결정',
   /*
-   * **본문은 셀을 두 개 고를 수 없습니다.** Merging needs a *range of cells*, and a note's click has
-   * two answers — a caret in a cell, or the table held as one block — with no third for *these two
-   * cells*. Splitting needs a merged cell, which follows.
+   * **여기 있던 면제 둘이 지워졌습니다 — 그리고 그것이 이 검사의 값입니다.**
    *
-   * The other three have a canvas or a page under the table and a marquee that can cross cells; a
-   * body has neither. Offering the command anyway would be a button that is never enabled, which is
-   * the failure this suite has recorded as *guard says yes, then does nothing* three times over.
+   * 적힌 이유는 *"본문은 셀을 두 개 고를 수 없다 — 나머지 셋은 표 아래에 캔버스나 페이지가 있고 셀을
+   * 가로지르는 마퀴가 있지만 본문에는 둘 다 없다"* 였습니다. 두 문장 다 틀렸습니다.
+   *
+   * 셀을 가로질러 끄는 제스처는 379줄로 쓰여 있었고 마퀴가 아니라 표 안의 드래그였습니다 —
+   * `installCellSelection`. 마퀴가 필요하다고 본 것이 착각이고, 그것 때문에 *캔버스가 없으니 못
+   * 한다* 는 결론이 나왔습니다. 진짜 이유는 그 제스처가 **`office-word` 안에 있었다**는 것뿐입니다.
+   *
+   * 그리고 그것을 옮기고 나서도 안 됐습니다: `extensions/table.ts` 의 `_selectedCellRange` 가
+   * `cell` 선택을 못 알아봤습니다 — `cell` 은 이 명령 하나를 위해 있는 선택 종류인데. Word 에서
+   * 되던 것은 `office-word/table-commands.ts` 가 양 끝 셀 id 를 따로 넘겨 준 덕이었습니다.
+   *
+   * 면제는 주장이고, 주장이 상하면 그날이 발견입니다 — 이 파일의 머리에 적힌 그대로입니다.
    */
-  'office-note:mergeCells': '본문에는 셀 두 개를 고르는 제스처가 없습니다 — 켜지지 않을 단추',
-  'office-note:splitCell': '합친 셀이 없으면 나눌 것도 없습니다 — mergeCells 와 한 쌍'
 };
 
 describe('셋이 선언하고 하나가 안 하는 명령', () => {

@@ -34,9 +34,9 @@
  * `selectedNodeIds` says so — and the order cells were dragged in is not a fact
  * any command here needs.
  */
-import { childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
-import { cellPlacementOf } from '@barocss/office-text';
-import { tableRowsOf } from './table-pagination';
+import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import { cellPlacementOf } from './table-style';
+import { tableRowsOf } from './table-format';
 
 /** The rectangle a pair of cells spans, in rows and columns of the table. */
 export interface CellRectangle {

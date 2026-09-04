@@ -127,7 +127,21 @@ export const NOTE_ACTS: Partial<Record<NoteBlock, NoteAct[]>> = {
     { command: 'deleteRow', label: '행 삭제', icon: 'row-delete', title: '이 행을 지웁니다' },
     { command: 'insertColumnLeft', label: '왼쪽에 열', icon: 'column-left', title: '왼쪽에 열을 넣습니다' },
     { command: 'insertColumnRight', label: '오른쪽에 열', icon: 'column-right', title: '오른쪽에 열을 넣습니다' },
-    { command: 'deleteColumn', label: '열 삭제', icon: 'column-delete', title: '이 열을 지웁니다' }
+    { command: 'deleteColumn', label: '열 삭제', icon: 'column-delete', title: '이 열을 지웁니다' },
+
+    /**
+     * **그리고 여섯이 아니라 여덟입니다** — 나머지 둘은 *한 셀* 로는 말할 수 없어서 빠져 있었습니다.
+     *
+     * 위의 여섯은 다 *캐럿이 있는 셀* 을 읽습니다. 합치기는 정의상 두 번째 셀이 있어야 하고, 그것을
+     * 말하는 유일한 방법이 셀을 가로질러 끄는 것입니다. 그 제스처(`installCellSelection`)가
+     * `office-word` 안에 있어서 표를 가진 넷 중 둘만 닿았고, `office-text` 로 옮기면서 노트도 닿게
+     * 됐습니다 — `note-view.tsx` 가 자기 컨테이너에 설치합니다.
+     *
+     * 나누기는 이미 합쳐진 셀만 받습니다. 그래서 보통은 회색이고, 그건 이 목록이 아니라 확장의
+     * `canExecute` 가 하는 말입니다.
+     */
+    { command: 'mergeCells', label: '셀 합치기', icon: 'merge-cells', title: '고른 셀들을 하나로 합칩니다' },
+    { command: 'splitCell', label: '셀 나누기', icon: 'split-cell', title: '합쳐진 셀을 되돌립니다' }
   ]
 };
 

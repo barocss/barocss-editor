@@ -20,7 +20,7 @@ import {
   tableOf,
   type TableLook
 } from '@barocss/office-text';
-import { cellContaining, columnsCovered, rowsCovered } from './table-selection';
+import { cellContaining, columnsCovered, rowsCovered } from '@barocss/office-text';
 
 /** The operations, and the names a caller reaches them by. */
 const COMMANDS: { name: string; op: string; payload?: Record<string, unknown> }[] = [

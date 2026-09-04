@@ -6,7 +6,7 @@ import {
   columnsCovered,
   rowsCovered
 } from '../src/table-selection';
-import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
+import type { DocumentAccess, DocumentNode } from '../src/document-access';
 
 /**
  * Which cells a drag selects.

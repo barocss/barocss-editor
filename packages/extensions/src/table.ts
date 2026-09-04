@@ -1,5 +1,5 @@
 import { hasRange } from './guards';
-import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
+import { Editor, Extension, selectedNodeIds, type ModelSelection } from '@barocss/editor-core';
 import {
   transaction,
   insertTable as insertTableOp,
@@ -180,8 +180,25 @@ export class TableExtension implements Extension {
   /**
    * The cell range a merge should cover.
    *
-   * An explicit pair wins; otherwise a selection spanning two cells defines the
-   * rectangle. A caret inside a single cell is not a merge.
+   * Three answers, and the third was missing.
+   *
+   * 1. An explicit pair wins.
+   * 2. A `cell` selection — the block a drag across cells makes.
+   * 3. A `range` whose two ends sit in different cells, which is what the browser
+   *    gives when nothing has taken the drag over.
+   *
+   * **2 was not here, and `cell` is the selection type that exists for this
+   * command.** Merging is the one table operation that cannot be said as "the
+   * cell the caret is in", so a set of cells was added to the model for it — and
+   * then this asked `type !== 'range'` and threw the set away. It worked in Word
+   * and Slides because `office-word/table-commands.ts` bridges: it reads the
+   * `cell` selection and hands the two corners in through 1. Site and Note have
+   * no such bridge, so the **셀 합치기** in the site's own table menu could not be
+   * pressed after a drag.
+   *
+   * The fix is here rather than a third bridge. `nodeIds` is in document order,
+   * so its first and last are opposite corners of the rectangle by construction —
+   * exactly what `mergeTableCells` wants, and exactly what the bridge computes.
    */
   private _selectedCellRange(
     editor: Editor,
@@ -192,7 +209,16 @@ export class TableExtension implements Extension {
     }
     const dataStore = (editor as any).dataStore;
     const sel = payload?.selection ?? (editor as any).selection;
-    if (!dataStore || !sel || sel.type !== 'range') return null;
+    if (!dataStore || !sel) return null;
+
+    if (sel.type === 'cell') {
+      const ids = selectedNodeIds(sel);
+      // One cell is a set of one, and a set of one is not a merge.
+      if (ids.length < 2) return null;
+      return { from: ids[0], to: ids[ids.length - 1] };
+    }
+
+    if (sel.type !== 'range') return null;
 
     const from = findAncestorCell(dataStore, sel.startNodeId);
     const to = findAncestorCell(dataStore, sel.endNodeId);
