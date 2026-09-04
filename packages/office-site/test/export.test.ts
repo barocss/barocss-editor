@@ -70,6 +70,58 @@ describe('the page a visitor gets', () => {
     expect(page.html).toContain('<title>홈</title>');
   });
 
+  it('says what language it is in, and what the site is about, when a page does not', async () => {
+    const { setAttrs, transaction } = await import('@barocss/model');
+
+    /**
+     * **`<html lang>` was the literal `ko`.**
+     *
+     * The first thing a screen reader reads and the last thing anybody remembers to set. Hard-coded,
+     * every site this product makes claims to be Korean — including the English one somebody builds
+     * with it, whose every word is then announced by a Korean voice.
+     */
+    expect(exportPage(editor, home).html).toContain('<html lang="ko">');
+
+    await transaction(editor, [
+      setAttrs(editor.getRootId()!, {
+        lang: 'en',
+        description: '한 문서 모델로 세 제품을 만듭니다',
+        image: 'asset:없는-그림'
+      } as never),
+      /* Every page of the sample has its own, which is what makes the fallback need arranging for. */
+      setAttrs(home, { description: '' } as never)
+    ] as never).commit();
+
+    const page = exportPage(editor, home);
+    expect(page.html).toContain('<html lang="en">');
+
+    /**
+     * And **the site's description, on a page that has none of its own.**
+     *
+     * Most pages of most sites never get one written, and a page with none publishes a head with no
+     * `<meta name="description">` and no `og:description` — so a shared link unfurls as an address
+     * and a title, and a search result shows whatever the engine scraped out of the first paragraph.
+     */
+    expect(page.html).toContain('한 문서 모델로 세 제품을 만듭니다');
+
+    /* And a page's own still wins, because what a search result shows for `/가격` is about pricing. */
+    const pricing = pagesOf(doc as never).find((one: { id: string }) => one.id === 'pricing');
+    if (pricing) {
+      await transaction(editor, [
+        setAttrs(pricing.sid, { description: '가격은 이렇습니다' } as never)
+      ] as never).commit();
+      const said = exportPage(editor, pricing.sid).html;
+      expect(said).toContain('가격은 이렇습니다');
+      expect(said).not.toContain('한 문서 모델로 세 제품을 만듭니다');
+    }
+
+    /* Put back, because every other check here reads the same document. */
+    await transaction(editor, [
+      setAttrs(editor.getRootId()!, { lang: '', description: '', image: '' } as never),
+      setAttrs(home, { description: '문서 한 벌로 세 가지를 만듭니다' } as never)
+    ] as never).commit();
+  });
+
   it('carries the words and the pictures, and none of the editing', () => {
     const page = exportPage(editor, home);
     expect(page.html).toContain('문서 한 벌로 세 가지를 만듭니다');
@@ -148,6 +200,19 @@ describe('the page a visitor gets', () => {
       const resolve = resolverFor(store as never, home);
       for (const [property, value] of Object.entries(cssFor(store.getNode(sid) as never, 'mobile', resolve))) {
         if (value === 'initial') continue;
+        /**
+         * **The one honest disagreement**, and it is worth naming rather than loosening the check.
+         *
+         * `minScreens` draws as `100dvh` on a published page — the browser knows how tall its own
+         * window is — and as a number of pixels on a **board**, because a board is a `div` on a plane
+         * rather than an iframe: `dvh` inside one means the height of the *editor's* window, so the
+         * same page would draw a different hero on three boards that differ only in width.
+         *
+         * So the board substitutes `SiteWidth.viewport`, the height declared for each width since
+         * preview mode. On the phone that is 844, and the export says `100dvh`, and both are right.
+         * Everything else on this list still has to agree exactly.
+         */
+        if (property === 'minHeight' && /dvh/.test(value)) continue;
         const kebab = property.replace(/[A-Z]/g, (one) => `-${one.toLowerCase()}`);
         // Everything the editor draws at this width, the export says at this width.
         if (declared.includes(`${kebab}:`)) {

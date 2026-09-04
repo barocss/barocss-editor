@@ -374,3 +374,41 @@ describe('a row per attribute', () => {
     expect(clashes).toEqual([]);
   });
 });
+
+/**
+ * **한 제목에 한 절.**
+ *
+ * Reported from the browser's console rather than by a check: *Encountered two children with the
+ * same key, `바탕`* — twice, and `그림자` twice. A panel drawing two sections under one heading is
+ * a panel React refuses to reconcile, and its own warning ends *the behavior is unsupported*.
+ *
+ * The cause was not in this file. `panelGroupsFor` merged **contiguous runs** — deliberately, with
+ * an argument written beside it — and a run is only contiguous *after filtering*: a group's rows are
+ * declared together and `panelRowsFor` drops the ones a node type has no place for, so a heading
+ * that is one section in the declaration becomes two on screen the moment a type sits out the middle
+ * of it. A page did it with 바탕 and 그림자; a collection with 데이터.
+ *
+ * Held here as well as there because this is the product that has the shapes: every node type this
+ * panel draws for, every pane it draws, and a count of zero.
+ */
+describe('every pane a reader can open', () => {
+  it('draws each heading once, for every kind of block', () => {
+    const kinds = [
+      'surface', 'frame', 'heading', 'paragraph', 'picture', 'richText', 'form', 'instance',
+      'collection', 'chart', 'list', 'bTable', 'bTableCell', 'mediaVideo', 'mediaEmbed',
+      'codeBlock', 'blockQuote', 'horizontalRule', 'textFrame', 'canvasBlock'
+    ];
+    const tabs = ['block', 'style', 'text', 'page', 'data', 'values'] as const;
+
+    const twice: string[] = [];
+    for (const stype of kinds) {
+      for (const tab of tabs) {
+        const names = sitePanelGroups(stype, tab, () => []).map((one) => one.label);
+        for (const one of new Set(names.filter((n, i) => names.indexOf(n) !== i))) {
+          twice.push(`${stype}/${tab}: ${one}`);
+        }
+      }
+    }
+    expect(twice).toEqual([]);
+  });
+});

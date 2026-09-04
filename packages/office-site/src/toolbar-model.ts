@@ -1,3 +1,5 @@
+import { type Control, controlsIn } from '@barocss/office-controls';
+
 /**
  * What the site builder's toolbar offers, as data.
  *
@@ -14,28 +16,14 @@
  * all for a day.
  */
 
-export interface SiteControl {
-  /** What the control runs. */
-  command: string;
-  /** What it is given, when the control is one case of a command. */
-  payload?: Record<string, unknown>;
-  /** What a reader reads on it. */
-  label: string;
-  /** What a reader reads *about* it, in a tooltip. */
-  title?: string;
-  /** The chord it is bound to, drawn beside the name — a toolbar is how a reader finds a key. */
-  shortcut?: string;
-  /** Which group it sits in, so the ribbon draws separators rather than deciding them. */
-  group: 'insert' | 'arrange' | 'text' | 'link';
+export interface SiteControl extends Control {
   /**
-   * The **mark** this control turns on and off, when it is a formatting one.
+   * Which group it sits in, so the ribbon draws separators rather than deciding them.
    *
-   * `stateOfMark` is `office-controls`', and it is what makes a pressed button honest: bold on a
-   * partly-bold selection is neither on nor off, and `mixed` is the third state a toolbar toggle has
-   * for exactly that. Written as the mark's name rather than a reader function so the harness can
-   * ask which marks this toolbar names.
+   * **Narrowed**, which is what a product's own interface is for: the shared shape says `string`
+   * because the words belong to whoever is grouping, and these four are this product's.
    */
-  mark?: string;
+  group: 'insert' | 'arrange' | 'text' | 'link';
   /**
    * What it makes, when a reader is choosing from a list of things to add.
    *
@@ -56,14 +44,6 @@ export interface SiteControl {
    * Said here instead, so the next insert appears where it belongs by saying what it is.
    */
   puts?: 'container' | 'block';
-  /**
-   * The picture beside the name, from the suite's own table.
-   *
-   * Declared here rather than chosen in the ribbon so that `every-icon-has-a-picture` can ask: a
-   * control asking for an icon the suite does not draw falls back to drawing its own name, which
-   * looks like a label and is a missing picture.
-   */
-  icon?: string;
 }
 
 /**
@@ -95,6 +75,24 @@ export const SITE_TOOLBAR: SiteControl[] = [
   { command: 'insertBulletList', puts: 'block', label: '글머리 목록', title: '글머리 목록을 넣습니다', group: 'insert', icon: 'bullet-list', makes: '목록' },
   { command: 'insertNumberList', puts: 'block', label: '번호 목록', title: '번호 목록을 넣습니다', group: 'insert', icon: 'ordered-list', makes: '번호 목록' },
   { command: 'insertQuote', puts: 'block', label: '인용', title: '인용문을 넣습니다', group: 'insert', icon: 'quote', makes: '인용' },
+  /**
+   * **글** — one block a reader writes a whole piece in.
+   *
+   * `puts: 'block'` although it holds blocks, and that is the distinction this list actually draws:
+   * 담는 것 is **arrangement** — a section, a row, a grid, a form — and 넣는 것 is what a page is
+   * made *of*. A body is content, and a reader looks for it beside 제목 and 본문 rather than beside
+   * 그리드. Put in the other group first and measured: it came out between 그리드 and 두 칸, which is
+   * where nobody would look for it.
+   *
+   * **글** rather than 본문 글, because 본문 is already this list's word for one paragraph and two
+   * labels one word apart is two rows a reader has to tell apart by reading the title. 글 is what the
+   * fault list has called it since the day it could be missing — *'요약-스택' 글이 없습니다*.
+   *
+   * It is the same node a 서식 있는 글 column's value is, placed here rather than named by a cell, so
+   * a blog post is one thing a reader points at instead of eleven paragraphs each with its own
+   * padding panel.
+   */
+  { command: 'insertRichText', puts: 'block', label: '글', title: '여러 문단을 쓰는 글을 넣습니다', group: 'insert', icon: 'paragraph', makes: '글' },
   { command: 'insertCode', puts: 'block', label: '코드', title: '코드 블록을 넣습니다 — 안에서 Enter는 줄바꿈입니다', group: 'insert', icon: 'code', makes: '코드' },
   { command: 'insertRule', puts: 'block', label: '구분선', title: '가로 구분선을 넣습니다', group: 'insert', icon: 'divider', makes: '구분선' },
   /*
@@ -127,7 +125,7 @@ export const SITE_TOOLBAR: SiteControl[] = [
    * standard schema and the site takes them. Neither ships a byte of script: a video is `<video>` and
    * an embed is an `<iframe>`, both of which a browser has had for fifteen years.
    */
-  { command: 'insertVideo', puts: 'block', label: '영상', title: '영상을 넣습니다', group: 'insert', icon: 'insert-image', makes: '영상' },
+  { command: 'insertVideo', puts: 'block', label: '영상', title: '영상을 넣습니다', group: 'insert', icon: 'insert-video', makes: '영상' },
   { command: 'insertEmbed', puts: 'block', label: '넣은 것', title: '영상·지도 등 다른 곳의 것을 넣습니다', group: 'insert', icon: 'frame-grid', makes: '넣은 것' },
   { command: 'insertSplit', puts: 'container', label: '두 칸', title: '나란한 두 칸 — 좁은 화면에서는 위아래로', group: 'insert', icon: 'frame-row', makes: '두 칸' },
   { command: 'insertCards', puts: 'container', label: '카드 셋', title: '제목과 설명이 있는 카드 세 장', group: 'insert', icon: 'frame-grid', makes: '카드 셋' },
@@ -399,5 +397,5 @@ export function siteSlashItems(): {
 }
 
 export function siteControlsIn(group: SiteControl['group']): SiteControl[] {
-  return SITE_TOOLBAR.filter((one) => one.group === group);
+  return controlsIn(SITE_TOOLBAR, group);
 }

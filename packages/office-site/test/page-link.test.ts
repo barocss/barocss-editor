@@ -9,12 +9,12 @@ import {
   addressLinkOf,
   hrefFor,
   isPageRef,
-  linkFaults,
   pageIdOf,
   pageLinkOf,
   pageRef,
   pagesIn
 } from '../src/page-link';
+import { documentFaults } from '../src/faults';
 
 /**
  * A link that goes to a page of this site.
@@ -140,7 +140,7 @@ describe('a link to a page of this site', () => {
     // Not the raw `page:없음`, which a browser would follow to a relative address that does not
     // exist — an `<a>` with no `href` is the one shape a browser draws as *not a link*.
     expect(hrefFor(doc, 'page:없음')).toBeUndefined();
-    expect(linkFaults(doc)).toEqual([]);
+    expect(documentFaults(doc as never, { declares: () => [] }).filter((one) => one.kind === 'link')).toEqual([]);
   });
 
   it('reports the links that name a page which is not there', () => {
@@ -164,7 +164,16 @@ describe('a link to a page of this site', () => {
     };
     const broken = { rootId: 'root', getNode: (sid: string) => nodes[sid] };
 
-    expect(linkFaults(broken)).toEqual([{ sid: 'two', href: 'page:pricing', missing: 'pricing' }]);
+    /*
+     * Through `documentFaults` rather than a walk of its own. `linkFaults` used to be that walk and
+     * is gone: it looked at marks, which is one of the three shapes that name a page, and a second
+     * implementation of *does this resolve* is the drift the reference index exists to stop. The
+     * kind stays `link`, because a broken link is the one of the three a reader cannot see.
+     */
+    const said = documentFaults(broken as never, { declares: () => [] });
+    expect(said.filter((one) => one.kind === 'link')).toEqual([
+      { sid: 'two', kind: 'link', said: "'pricing' 페이지가 없습니다" }
+    ]);
     expect(hrefFor(broken, 'page:home')).toBe('/');
     expect(hrefFor(broken, 'page:pricing')).toBeUndefined();
   });
@@ -212,7 +221,7 @@ describe('a link to a page of this site', () => {
     expect(addressLinkOf(store.getNode(sid) as never)).toBe('https://barocss.com');
     // And it is not mistaken for a page of this site, which is what would break the fault list.
     expect(pageLinkOf(store.getNode(sid) as never)).toBeUndefined();
-    expect(linkFaults(doc as never)).toEqual([]);
+    expect(documentFaults(doc as never, { declares: () => [] }).filter((one) => one.kind === 'link')).toEqual([]);
   });
 
   /**

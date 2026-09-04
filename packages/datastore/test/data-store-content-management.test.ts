@@ -93,7 +93,7 @@ describe('DataStore Content Management Functions', () => {
       const ops = dataStore.end();
 
       expect(childId).toBeDefined();
-      expect(childId).toMatch(/^\d+:\d+$/); // Figma-style ID
+      expect(childId).toMatch(/^[^:]+:\d+$/); // session:counter — the session is minted per store, see `mintSessionId`
 
       const updatedParent = dataStore.getNode('parent');
       expect(updatedParent!.content).toContain(childId);
@@ -213,7 +213,7 @@ describe('DataStore Content Management Functions', () => {
       const childId = dataStore.addChild('parent', validChild);
       
       expect(childId).toBeDefined();
-      expect(childId).toMatch(/^\d+:\d+$/);
+      expect(childId).toMatch(/^[^:]+:\d+$/);
       
       const addedChild = dataStore.getNode(childId);
       expect(addedChild!.stype).toBe('inline-text');

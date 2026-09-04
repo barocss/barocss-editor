@@ -51,6 +51,25 @@ export function iconForBlock(node: Node | undefined): string {
       return 'code';
     case 'horizontalRule':
       return 'divider';
+    /*
+     * And the four rows that were falling through to *a block*. The three the held check made
+     * selectable, plus a **chart** — which has been a row since charts arrived and has been drawing
+     * a frame's picture the whole time. The same shape as the naming fault one file over: a list
+     * grew a row and the table that draws it did not.
+     *
+     * Each is the picture 추가 offers for the same thing, for the reason `kindOfBlock` gives about
+     * words: one object, one drawing.
+     */
+    case 'mediaVideo':
+      return 'insert-video';
+    case 'mediaEmbed':
+      return 'frame-grid';
+    case 'form':
+      return 'form';
+    case 'richText':
+      return 'paragraph';
+    case 'chart':
+      return 'chart-bar';
     case 'surface':
       return 'insert-frame';
     default:
@@ -75,6 +94,10 @@ export function siteLayerIcons(): string[] {
     'ordered-list',
     'quote',
     'code',
-    'divider'
+    'divider',
+    /* And the four rows that were falling through to a frame's picture — see `iconForBlock`. */
+    'insert-video',
+    'form',
+    'chart-bar'
   ];
 }

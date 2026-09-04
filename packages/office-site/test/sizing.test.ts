@@ -109,3 +109,70 @@ describe('where in its stack a block is drawn', () => {
     expect(sizingCss(attrsThrough(said, scopesFor('mobile'))).order).toBe('-1');
   });
 });
+
+/**
+ * **화면 높이** — the one relative length this document can say, and the measurement that decided it
+ * would not be a union in the schema's type system.
+ *
+ * The debt was written down as *a length that is sometimes twips and sometimes a string with a unit
+ * cannot be declared*, with three bad ways to close it: every length becomes a string, a second
+ * attribute per length, or validation switched off. Measured against what a page actually wants,
+ * three of the four relative lengths were already sayable — a proportion is `share`, a per-width
+ * number is an `overrides` entry, a bound is `minWidth`/`maxHeight` — and what was left was **one**
+ * idea: a section as tall as the window.
+ *
+ * One idea is one attribute, and the move `share` already made: a number whose unit is in its name.
+ */
+describe('a block as tall as the window', () => {
+  it('is a count of screens, so half of one is sayable and a boolean would not be', () => {
+    expect(sizingCss({ minScreens: 1 }).minHeight).toBe('100dvh');
+    expect(sizingCss({ minScreens: 0.5 }).minHeight).toBe('50dvh');
+    expect(sizingCss({ minScreens: 2 }).minHeight).toBe('200dvh');
+  });
+
+  it('says nothing for silence, and nothing for a number that is not one', () => {
+    expect(sizingCss({}).minHeight).toBeUndefined();
+    expect(sizingCss({ minScreens: 0 }).minHeight).toBeUndefined();
+    expect(sizingCss({ minScreens: -1 }).minHeight).toBeUndefined();
+    expect(sizingCss({ minScreens: '한 화면' as never }).minHeight).toBeUndefined();
+  });
+
+  it('is `dvh` rather than `vh`, which is a phone and not a preference', () => {
+    /*
+     * `100vh` on a phone is the window with the address bar **gone**, so a section meant to fill the
+     * screen is taller than the screen and the page scrolls by the height of the browser chrome — on
+     * the first screenful, which is the one nobody can miss. `dvh` is the same number after the bar
+     * retracts.
+     */
+    expect(sizingCss({ minScreens: 1 }).minHeight).toContain('dvh');
+    expect(sizingCss({ minScreens: 1 }).minHeight).not.toMatch(/\d+vh/);
+  });
+
+  it('takes the larger when a block says both, rather than one quietly winning', () => {
+    /*
+     * *At least a screen tall, and never under 400* means both, and on a laptop in a short window
+     * the second is what stops it collapsing. CSS takes one `min-height`, so they are combined —
+     * which is also the only reading under which neither row in the panel is a lie.
+     */
+    expect(sizingCss({ minScreens: 1, minHeight: 6000 }).minHeight).toBe('max(400px, 100dvh)');
+    expect(sizingCss({ minHeight: 6000 }).minHeight).toBe('400px');
+  });
+
+  it('is the board’s own viewport in the editor, because a board is not a window', () => {
+    /**
+     * The half a stylesheet cannot supply.
+     *
+     * A board is a `div` on a plane rather than an iframe, so `dvh` inside one is the height of the
+     * **editor's** window — the same page would draw a different hero on three boards that differ
+     * only in width, and none of them would be the page. So the drawing substitutes the width's own
+     * declared viewport, which `breakpoints.ts` has carried since preview mode for exactly the reason
+     * this needs: a page has no height of its own, so a builder can only show a typical window.
+     *
+     * The published page still says `dvh`, and that divergence is the one thing `export.test.ts`
+     * lets through when it compares the two drawings.
+     */
+    expect(sizingCss({ minScreens: 1 }, false, 800).minHeight).toBe('800px');
+    expect(sizingCss({ minScreens: 0.5 }, false, 844).minHeight).toBe('422px');
+    expect(sizingCss({ minScreens: 1, minHeight: 6000 }, false, 800).minHeight).toBe('max(400px, 800px)');
+  });
+});

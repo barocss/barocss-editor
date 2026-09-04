@@ -26,10 +26,10 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
-    "@barocss/model": "workspace:*",
     "@barocss/schema": "workspace:*"
   },
   "devDependencies": {
+    "@barocss/editor-core": "workspace:*",
     "@vitest/ui": "^1.6.1",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",

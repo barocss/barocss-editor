@@ -1,4 +1,4 @@
-import { WORD_TEXT_COLOR, WORD_TEXT_HIGHLIGHT } from '@barocss/office-word';
+import { WORD_TEXT_COLOR, WORD_TEXT_HIGHLIGHT } from '@barocss/office-controls';
 import {
   commandsIn,
   iconsIn,

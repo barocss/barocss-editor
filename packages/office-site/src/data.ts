@@ -381,6 +381,30 @@ export function richRef(id: string): string {
   return `${RICH_PREFIX}${id}`;
 }
 
+/**
+ * Every 서식 있는 글 the document holds, whether or not a cell still names one.
+ *
+ * The second half is the point, and it is the only way to ask the mirror question: a `richText` is
+ * reached **only** through a cell that names it, so one no cell names is unreachable — not drawn,
+ * not listed, not searchable, and not deletable either. `refFaults` is what reports it.
+ */
+export function richTextsOf(doc: Access | undefined): { sid: string; id: string }[] {
+  const found: { sid: string; id: string }[] = [];
+  const root = doc?.getNode(doc.rootId);
+
+  for (const sid of (root?.content ?? []) as string[]) {
+    const box = doc!.getNode(sid);
+    if (box?.stype !== 'resources') continue;
+    for (const each of (box.content ?? []) as string[]) {
+      const node = doc!.getNode(each);
+      if (node?.stype !== 'richText') continue;
+      const id = String(node.attributes?.id ?? '').trim();
+      if (id) found.push({ sid: String(each), id });
+    }
+  }
+  return found;
+}
+
 /** The `richText` a reference names, as a node. */
 export function richTextNamed(doc: Access | undefined, value: unknown): any | undefined {
   const id = richNameOf(value);

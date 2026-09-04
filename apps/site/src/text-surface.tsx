@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { watchAnswers, type Editor } from '@barocss/editor-core';
-import { selectionRectIn } from '@barocss/editor-view-dom';
-import { FloatingSurface, Icon, useRevision } from '@barocss/office-ui';
+
+import type { Editor } from '@barocss/editor-core';
+import { useSelectionRect } from '@barocss/office-editor-ui';
+import { FloatingSurface, Icon } from '@barocss/office-ui';
 
 /**
  * The toolbar that **follows the words a reader has chosen**.
@@ -44,35 +44,19 @@ export function TextSurface({
    * only thing a caller can get wrong here is *which* events to subscribe to, and six hand-rolled
    * copies once listened to three different subsets of them.
    */
-  const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
-
   /*
-   * Measured after the selection has moved rather than on every render, and re-measured on scroll
-   * and resize: `selectionRect()` is viewport coordinates, so a page that scrolls under a surface
-   * leaves it behind. The listeners are passive and go with the effect.
+   * **Where the selection is, kept up to date** — `office-editor-ui`'s `useSelectionRect`.
+   *
+   * These fourteen lines were also the `/` menu's, in both this app and a note, including the `true`
+   * on the scroll listener: scroll does not bubble, so a listener without capture never hears the
+   * pane that actually moved. Easy to leave out, impossible to notice until a reader scrolls
+   * something other than the window.
    */
-  const [at, setAt] = useState<DOMRect | null>(null);
-  useEffect(() => {
-    const measure = () => {
-      const selection = editor.selection as { type?: string; collapsed?: boolean } | undefined;
-      const range = selection?.type === 'range' && selection.collapsed !== true;
-      /*
-       * `document` rather than one view's content layer: this product makes an `EditorViewDOM` per
-       * **board** and draws three of one page at once, so the reader is typing in exactly one of
-       * them and which one is not something this surface should have to know. A single-view product
-       * asks its view, which passes its own layer and answers only for words inside it.
-       */
-      setAt(range && mode === 'text' ? selectionRectIn(document) : null);
-    };
-    measure();
-
-    window.addEventListener('scroll', measure, true);
-    window.addEventListener('resize', measure);
-    return () => {
-      window.removeEventListener('scroll', measure, true);
-      window.removeEventListener('resize', measure);
-    };
-  }, [editor, mode, revision]);
+  const selection = editor.selection as { type?: string; collapsed?: boolean } | undefined;
+  const at = useSelectionRect(
+    editor,
+    mode === 'text' && selection?.type === 'range' && selection.collapsed !== true
+  );
 
   const run = (name: string, payload: Record<string, unknown> = {}) =>
     void editor.executeCommand(name, payload);

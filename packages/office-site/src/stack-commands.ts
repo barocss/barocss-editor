@@ -318,6 +318,8 @@ export class SiteStackExtension implements Extension {
      * pixels high. `sizing.ts` has the five blocks that turned out to need it.
      */
     'minHeight',
+    /* 화면 높이 — the one relative length this document can say; see `site-schema.ts`. */
+    'minScreens',
     'maxHeight',
     /*
      * And **where it is**, when it is not simply the next thing in the column: a header that follows

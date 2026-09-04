@@ -27,6 +27,19 @@ declare global {
 }
 
 registerSiteRenderers();
+/*
+ * **And nothing for the note**, which used to need a line here and no longer does.
+ *
+ * It was `registerNoteRenderers()` and **not** `registerNoteStandalone()`, because registering was a
+ * global write and the standalone one calls `registerTextRenderers()` — which, run after this
+ * product's, put back everything the site overrides on top of it. Measured, painfully: a page's list
+ * drew as a `div` instead of a `ul` and four code-block checks failed, from one line in the wrong
+ * order.
+ *
+ * A note now builds its renderers into a registry of its own and hands it to its own view, so the
+ * choice is gone along with the dilemma: the site keeps every renderer it registered, and a body
+ * inside it draws as a body rather than as whatever the page happens to draw.
+ */
 
 /**
  * Stand a site up.

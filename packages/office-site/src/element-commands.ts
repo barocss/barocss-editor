@@ -226,8 +226,24 @@ export class SiteElementExtension implements Extension {
     const register = (
       name: string,
       make: () => Node,
-      can: (payload?: Record<string, unknown>) => boolean = (payload) =>
-        !!this._where(editor, payload?.selection, payload?.pageId, payload)
+      can: (payload?: Record<string, unknown>) => boolean = (payload) => {
+        const where = this._where(editor, payload?.selection, payload?.pageId, payload);
+        /**
+         * **And whether what this makes may go there** — which the guard did not ask.
+         *
+         * `_where` answers *is there somewhere a block may land*, and that is one question short:
+         * every container in this schema takes *some* blocks and none takes all of them. On a page
+         * it never showed, because a page's content is the whole `block` group. It showed the hour a
+         * **body** could be typed into: 버튼 and 글 were offered in the slash menu inside one, said
+         * they could run, and did nothing — `insertButton` makes a `frame` and a body holds no
+         * frames.
+         *
+         * *Says it can run and then does nothing* is the fault this package has already written down
+         * twice about its own commands, and this is the third. The factory is right here and building
+         * a node is a pure call, so the guard asks it what it makes and the schema whether that fits.
+         */
+        return !!where && this._fits(editor, where.parentId, make());
+      }
     ) =>
       command({
         name,
@@ -313,6 +329,28 @@ export class SiteElementExtension implements Extension {
           node('paragraph', {}, [run('— 말한 사람')])
         ]) as Node
     );
+
+    /**
+     * **본문** — a body a reader writes in, placed like any other block.
+     *
+     * ## Why a block for this at all
+     *
+     * A page is stacks and blocks, and *a run of writing* was not one of them: a blog post built here
+     * was a stack with eleven paragraphs in it, each a block in the layer list, each with a padding
+     * panel. That is a page pretending to be a document. A body is **one** thing a reader points at
+     * and writes in, and its paragraphs are its own business.
+     *
+     * ## The same node a cell's value is
+     *
+     * `richText` is the value of a 서식 있는 글 column, kept in `resources` and pointed at from a
+     * cell. This is that node **placed**, holding its own words instead of being named by one — so
+     * one renderer draws both, one editing surface edits both (a view rooted at whichever holds the
+     * words), and one content model says what a body may contain. Two node types would have been two
+     * of each, drifting.
+     *
+     * Starts with one empty paragraph, which is where the caret goes.
+     */
+    register('insertRichText', () => node('richText', {}, [node('paragraph', {}, [run('')])]) as Node);
 
     /**
      * A **rule** between two things.
@@ -982,6 +1020,37 @@ export class SiteElementExtension implements Extension {
    * and it is there because a table cell is all three of the first ones and its parent holds cells:
    * without it every insert here put a block inside a table row and the validator threw it away.
    */
+  /**
+   * Whether a parent may hold this node, by the schema's own content expression.
+   *
+   * Asked rather than listed, for the reason `holdsABlock` gives: a list of what may go where is a
+   * second place to remember the schema and is wrong the first time a type is added. A name in an
+   * expression is a node type or a **group**, so both are checked — `block+` admits a heading by its
+   * group, and `(heading | paragraph | …)+` admits it by name.
+   *
+   * A parent the schema does not know, or one with no expression, answers **yes** — the old
+   * behaviour and the safe direction: a guard that refuses too much is a control a reader can see is
+   * grey, and one that allows too much is the dead row this exists to stop.
+   */
+  private _fits(editor: Editor, parentId: string, made: Node | undefined): boolean {
+    const store = this._store(editor) as never as {
+      getActiveSchema?: () => { getNodeType?: (name: string) => { content?: unknown; group?: unknown } | undefined } | undefined;
+      getNode?: (sid: string) => Node | undefined;
+    };
+    const stype = String((made as { stype?: unknown } | undefined)?.stype ?? '');
+    if (!stype) return true;
+
+    const schema = store.getActiveSchema?.();
+    const said = schema?.getNodeType?.(String(store.getNode?.(parentId)?.stype ?? ''))?.content;
+    if (typeof said !== 'string') return true;
+
+    const group = String(schema?.getNodeType?.(stype)?.group ?? '');
+    for (const name of said.match(/[A-Za-z][A-Za-z0-9_-]*/g) ?? []) {
+      if (name === stype || (group && name === group)) return true;
+    }
+    return false;
+  }
+
   private _atCaret(editor: Editor, given?: unknown): Where | null {
     const store = this._store(editor);
     const selection: any = given ?? (editor as never as { selection?: unknown }).selection;

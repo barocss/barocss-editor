@@ -17,11 +17,11 @@
  * neither knew the other needed. The site adds only the transaction.
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
-import { addChild, moveNode, node, removeChild, setAttrs, transaction, transformNode } from '@barocss/model';
+import { addChild, moveNode, node, removeChild, setAttrs, textNode, transaction, transformNode } from '@barocss/model';
 import { detachedCopyOf, instanceParts } from '@barocss/office-canvas';
 import { definitionsOf, freshPartId, scopeOf } from './components';
-import { pathFor, slugFor } from './slug';
-import { blocksIn, enclosing, pageOf, SELECTABLE, TEXTUAL } from './selection';
+import { freeAddressFor, latinSlugFor, pathFor } from './slug';
+import { blocksIn, enclosing, pageOf, pagesOf, SELECTABLE, TEXTUAL } from './selection';
 
 /**
  * The six a reader can line blocks up by, in the order a toolbar draws them.
@@ -398,6 +398,35 @@ export class SiteBlockExtension implements Extension {
         );
       },
       (payload) => !!editor.getRootId() && ['icon', 'noIndex'].some((one) => one in (payload ?? {}))
+    );
+
+    /**
+     * **사이트 전체 설정** — 이름, 주소, 설명, 언어, 그리고 색인 여부.
+     *
+     * ## Why one command and not five
+     *
+     * Because a settings screen writes them together and a reader means them together: *this site is
+     * called X, lives at Y, is about Z, in language W.* Five commands would be five transactions and
+     * five entries in the history for one Save.
+     *
+     * ## And why the name is not an attribute
+     *
+     * `docTitle` is a **node** — the shared schema's *what this document is called*, holding inline
+     * content — while the rest are attributes on `document`. So this writes two shapes, and that is
+     * the whole reason it exists rather than being another `setAttrs` caller: a screen that had to
+     * know the difference would be a screen knowing about the schema.
+     *
+     * Missing `docMeta` and `docTitle` are made, because a site that has never been named has
+     * neither and a settings field that cannot be filled the first time is not a settings field.
+     */
+    register(
+      'setSiteInfo',
+      async (payload) => await this._setSite(editor, payload),
+      (payload) =>
+        !!editor.getRootId() &&
+        ['name', 'address', 'description', 'lang', 'image', 'noIndex'].some(
+          (one) => one in (payload ?? {})
+        )
     );
 
     register(
@@ -1585,6 +1614,67 @@ export class SiteBlockExtension implements Extension {
     return true;
   }
 
+  /**
+   * The document's own facts — see `setSiteInfo`.
+   *
+   * The name goes through `docMeta > docTitle`, which may not exist yet; everything else is an
+   * attribute on `document`. Emptied means **not said**, which is a value here rather than a blank:
+   * a site with no address publishes no canonical link and no sitemap, and that is correct.
+   */
+  private async _setSite(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const store = this._store(editor);
+    const rootId = editor.getRootId();
+    if (!store || !rootId) return false;
+
+    const attrs: Record<string, unknown> = {};
+    const said = (key: string) => (typeof payload?.[key] === 'string' ? String(payload[key]).trim() : undefined);
+
+    if ('address' in (payload ?? {})) attrs.address = said('address') || undefined;
+    if ('description' in (payload ?? {})) attrs.description = said('description') || undefined;
+    if ('lang' in (payload ?? {})) attrs.lang = said('lang') || undefined;
+    if ('image' in (payload ?? {})) attrs.image = said('image') || undefined;
+    if ('noIndex' in (payload ?? {})) attrs.noIndex = payload!.noIndex === true || undefined;
+
+    const ops: unknown[] = [];
+    if (Object.keys(attrs).length > 0) ops.push(setAttrs(rootId, attrs));
+
+    if (typeof payload?.name === 'string') {
+      const name = String(payload.name);
+      const root = store.getNode(rootId);
+      const kids = (root?.content ?? []) as string[];
+      const metaId = kids.find((sid) => store.getNode(sid)?.stype === 'docMeta');
+      const titleId = metaId
+        ? ((store.getNode(metaId)?.content ?? []) as string[]).find(
+            (sid) => store.getNode(sid)?.stype === 'docTitle'
+          )
+        : undefined;
+
+      if (titleId) {
+        /* Replacing the title's words wholesale: a name is one string, not a run to be edited. */
+        const words = ((store.getNode(titleId)?.content ?? []) as string[]).map((sid) =>
+          removeChild(titleId, sid)
+        );
+        ops.push(...words, addChild(titleId, textNode('inline-text', name) as never));
+      } else if (metaId) {
+        ops.push(
+          addChild(metaId, node('docTitle', {}, [textNode('inline-text', name) as never]) as never, 0)
+        );
+      } else {
+        /* Neither — a site nobody has named. `docMeta` is first in `document`'s content expression. */
+        ops.push(
+          addChild(
+            rootId,
+            node('docMeta', {}, [node('docTitle', {}, [textNode('inline-text', name) as never])]) as never,
+            0
+          )
+        );
+      }
+    }
+
+    if (ops.length === 0) return false;
+    return (await transaction(editor, ops as never).commit()).success === true;
+  }
+
   private async _setPage(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
     const store = this._store(editor);
     const node = store?.getNode(String(payload?.nodeId ?? ''));
@@ -1605,10 +1695,29 @@ export class SiteBlockExtension implements Extension {
     if (typeof payload?.path === 'string') attrs.path = pathFor(payload.path);
 
     /**
-     * And **a name gives a page its address**, once — while the address is still the minted one.
+     * And **a name gives a page its address**, once — while the address is still the minted one, and
+     * **in Latin letters**.
      *
-     * A reader who makes a page and calls it 제품 means it to be at `/제품`, and typing the same word
-     * twice is the kind of thing a tool should do for them. Every builder of this kind does it.
+     * A reader who makes a page and calls it 제품 means it to be somewhere that says 제품, and typing
+     * the same word twice is the kind of thing a tool should do for them.
+     *
+     * ## 왜 로마자인가 — 이 파일과 `slug.ts`가 함께 뒤집는 결정입니다
+     *
+     * It used to be `pathFor(payload.name)`, which keeps Hangul: 제품 → `/제품`. Stored exactly as
+     * typed, and **shown as `/%EC%A0%9C%ED%92%88`** — in the address bar, in a copied link, in an
+     * analytics report. A reader who copies the URL of their own page gets 27 characters of hex to
+     * paste into a chat. Reported as *페이지에 적는 주소는 기본적으로 영문 slug 를 등록할 수 있도록
+     * 하자. 그래야 안헷갈림*, and settled as *영문 slug 가 우선이고 한글은 후자야*.
+     *
+     * So what the product **generates** is Latin, and what a reader **types** is still theirs:
+     * `pathFor` on the field is unchanged, so `/제품` typed in the address box goes in as written.
+     *
+     * ## 그리고 겹치지 않게
+     *
+     * `freeAddressFor` rather than `latinSlugFor`, because two pages named 소개 would otherwise both
+     * land on `/sogae` — two files with one name in the published folder, every link resolving to
+     * whichever the walk found first, and the loser still in the panel and unreachable. That is the
+     * one fault `pathFaults` exists to report, and generating it deliberately would be perverse.
      *
      * **Once**, and that is the important half: a page's address is what has been shared, linked and
      * indexed, so renaming a page must never move it. So this fires only while the address is still
@@ -1621,9 +1730,14 @@ export class SiteBlockExtension implements Extension {
       typeof payload?.name === 'string' &&
       payload.path === undefined &&
       untouched &&
-      slugFor(payload.name)
+      latinSlugFor(payload.name)
     ) {
-      attrs.path = pathFor(payload.name);
+      attrs.path = freeAddressFor(
+        payload.name,
+        pagesOf({ rootId: editor.getRootId() ?? '', getNode: (sid: string) => store?.getNode(sid) } as never)
+          .filter((one) => one.sid !== node.sid)
+          .map((one) => one.path)
+      );
     }
     // …and what it is **about**, which is what a search result shows and a chat unfurls.
     if (typeof payload?.description === 'string') attrs.description = payload.description;

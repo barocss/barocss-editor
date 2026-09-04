@@ -117,6 +117,8 @@ describe('what the menubar offers', () => {
       'insertBulletList',
       'insertNumberList',
       'insertQuote',
+      /* **본문 글** — the same node a 서식 있는 글 cell's value is, placed rather than named. */
+      'insertRichText',
       'insertCode',
       'insertRule',
       'insertTableBlock',
@@ -276,3 +278,51 @@ describe('publishing', () => {
     expect(editor.canExecuteCommand('exportPage', { pageId: '없는페이지' })).toBe(false);
   });
 });
+
+/**
+ * **자리에 맞는 메뉴바.**
+ *
+ * This product has two places and half the bar means nothing on one of them. Reported as *최상위
+ * 메뉴바도 상황에 맞게 달라져야할 듯 , 데이타 관리하는데 추가요소 같은건 필요없으니깐* — and the
+ * measurement agrees: opened on 관리, 삽입 offered twelve entries that could never be enabled, 표
+ * offered eight, and 보기 offered a zoom for a plane that is not drawn.
+ *
+ * Greying is the right answer for one entry among several and the wrong one for a whole menu: a bar
+ * whose middle three are permanently grey has stopped saying anything.
+ */
+describe('메뉴바는 서 있는 자리를 따른다', () => {
+  it('drops the canvas menus in 관리 and keeps the document’s own', async () => {
+    const { siteMenusIn } = await import('../src/menu-model');
+
+    const admin = siteMenusIn('admin').map((one) => one.label);
+    const page = siteMenusIn('page').map((one) => one.label);
+
+    /* 파일 is a document's and belongs on both sides of the door; 편집 keeps its history. */
+    expect(admin).toEqual(['파일', '편집']);
+    /* And the page loses nothing — a filter that quietly trimmed the builder would be worse. */
+    expect(page).toEqual(SITE_MENUS.map((one) => one.label));
+  });
+
+  it('leaves no trigger that opens nothing, and no group that acts on nothing', async () => {
+    const { siteMenusIn } = await import('../src/menu-model');
+
+    for (const menu of siteMenusIn('admin')) {
+      expect(menu.blocks.length).toBeGreaterThan(0);
+      for (const block of menu.blocks) expect(block.items.length).toBeGreaterThan(0);
+    }
+
+    /*
+     * And what survives is only what a screen with no canvas can run. `pasteBlocks`,
+     * `duplicateBlocks`, `insertRowAbove` and every `zoom.*` are the things that must not.
+     */
+    const said = siteMenusIn('admin').flatMap((menu) =>
+      menu.blocks.flatMap((block) => block.items.map((one) => one.command ?? one.view ?? ''))
+    );
+    for (const one of ['pasteBlocks', 'duplicateBlocks', 'insertRowAbove', 'selectAllBlocks', 'zoom.in']) {
+      expect(said).not.toContain(one);
+    }
+    /* 실행 취소 survives, because a page deleted in 관리 comes back the same way a card does. */
+    expect(said).toContain('undo');
+    expect(said).toContain('publishSite');
+  });
+})

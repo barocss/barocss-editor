@@ -205,6 +205,54 @@ export class SiteDataExtension implements Extension {
       (payload) => this._canSetField(editor, payload)
     );
 
+    /**
+     * **본문을 되쓴다** — the host's half of a note session.
+     *
+     * ## Why the words come back rather than staying where they were written
+     *
+     * A body is edited in `office-note`'s own store: its own schema, its own selection, its own
+     * history. That is the fix for a real bug — one editor means one selection, and the site's boards
+     * were being told the caret is in a node they do not draw — and its price is that the session
+     * edits a **copy**.
+     *
+     * The site keeps a body as nodes in its own document, which is what lets a card draw one, the
+     * reference index see it and the orphan check work. So the copy is written home, and this is that
+     * transaction.
+     *
+     * ## Whole, and on a pause
+     *
+     * The children are replaced rather than diffed. A diff of two trees is a machine this product
+     * does not have and would have to be right about marks, and the thing being replaced is one
+     * paragraph to a few — while `openNote` only calls this when the writer stops, so it is a
+     * transaction per pause rather than per keystroke.
+     *
+     * One transaction, so **one undo**: a reader who takes back a sentence in a card's summary takes
+     * back what they wrote since they last paused, not a character.
+     */
+    register(
+      'setRichText',
+      async (payload) => {
+        const store = this._store(editor);
+        const sid = String(payload?.nodeId ?? '');
+        const blocks = Array.isArray(payload?.blocks) ? (payload!.blocks as unknown[]) : undefined;
+        const held = sid ? store?.getNode(sid) : undefined;
+        if (!store || !held || !blocks) return false;
+
+        const gone = ((held.content ?? []) as unknown[])
+          .filter((one): one is string => typeof one === 'string')
+          .map((one) => removeChild(sid, one));
+        const put = blocks.map((one, at) => addChild(sid, one as never, gone.length + at));
+
+        const done = await transaction(editor, [...gone, ...put] as never).commit();
+        return done.success === true;
+      },
+      (payload) => {
+        const store = this._store(editor);
+        const sid = String(payload?.nodeId ?? '');
+        return !!sid && !!store?.getNode(sid) && Array.isArray(payload?.blocks);
+      }
+    );
+
     /** One cell. The gesture a reader makes fifty times and the reason any of this exists. */
     register(
       'setDatasetCell',

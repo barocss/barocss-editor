@@ -8,6 +8,7 @@ import { everyPropertyCanBeEdited } from './checks/every-property-can-be-edited'
 import { everyIconHasAPicture } from './checks/every-icon-has-a-picture';
 import { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
 import { everyCommandMakesSomethingReal } from './checks/every-command-makes-something-real';
+import { everyInsertCanBeHeld } from './checks/every-insert-can-be-held';
 import { everyInsertIsAccountedFor } from './checks/every-insert-is-accounted-for';
 import { everyCommandCanBeReached } from './checks/every-command-can-be-reached';
 import { everyCommandDoesSomething } from './checks/every-command-does-something';
@@ -206,7 +207,16 @@ export function conformance(input: ConformanceInput): Report {
     // The schema question first: a command whose node the schema does not know
     // cannot work at all, while one whose node is undrawn works invisibly.
     ...(input.produces
-      ? [everyCommandMakesSomethingReal(input.produces), everyCommandCanBeSeen(input.produces)]
+      ? [
+          everyCommandMakesSomethingReal(input.produces),
+          everyCommandCanBeSeen(input.produces),
+          /*
+           * And the third question about the same list, which is the one nothing here was asking:
+           * whether a reader can **hold** what the insert put there. Six recorded instances of a
+           * node drawn perfectly and unselectable, every one found by somebody using the product.
+           */
+          everyInsertCanBeHeld(input.produces)
+        ]
       : []),
     ...(input.commands ? [everyInsertIsAccountedFor(input.commands, input.produces ?? [])] : []),
     // Asked last and answered first in practice: a command nothing surfaces is

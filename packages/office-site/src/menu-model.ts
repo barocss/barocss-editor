@@ -33,6 +33,7 @@ import {
   menuCommands,
   menuEntry,
   menuId,
+  menusIn,
   type MenuBlockModel,
   type MenuEntryModel,
   type MenuModel
@@ -108,6 +109,11 @@ const DECLARED: SiteMenu[] = [
     label: '편집',
     blocks: [
       {
+        /*
+         * **Anywhere**, and it is the one group in 편집 that is: a reader who deletes a page in 관리
+         * wants it back the same way a reader who deletes a card does. The document's history is the
+         * document's, wherever they are standing.
+         */
         id: 'history',
         items: [
           { command: 'undo', label: '실행 취소' },
@@ -122,6 +128,8 @@ const DECLARED: SiteMenu[] = [
          * and a reader on a laptop they borrowed has no first way.
          */
         id: 'clipboard',
+        /* Blocks, and a block is on a canvas — `pasteBlocks` and `selectAllBlocks` say so already. */
+        where: 'canvas',
         items: [
           /*
            * **The block ones**, which is what this menu is for: a menubar acts on what a reader has
@@ -156,6 +164,7 @@ const DECLARED: SiteMenu[] = [
       },
       {
         id: 'blocks',
+        where: 'canvas',
         items: [
           { command: 'duplicateBlocks', label: '복제' },
           { command: 'groupBlocks', label: '묶기' },
@@ -199,7 +208,9 @@ const DECLARED: SiteMenu[] = [
        * is the deck's and Word's problem too, and Word's ⌘F runs it right now.
        */
       {
+        /* Made **from** a selection, so there has to be one — which means a canvas. */
         id: 'components',
+        where: 'canvas',
         items: [
           { command: 'createComponentFrom', label: '컴포넌트로 만들기' },
           { command: 'detachComponent', label: '컴포넌트 해제' }
@@ -222,6 +233,11 @@ const DECLARED: SiteMenu[] = [
   {
     id: 'insert',
     label: '삽입',
+    /*
+     * **Canvas only.** Every entry here puts a block on a page, and in 관리 there is no page — so
+     * the menu opened with twelve permanently-greyed rows over a table of pages.
+     */
+    where: 'canvas',
     blocks: [
       /*
        * **`needs: 'page'` on every one of them**, and without it the whole menu was dead.
@@ -293,6 +309,8 @@ const DECLARED: SiteMenu[] = [
   {
     id: 'table',
     label: '표',
+    /* Same, and more obviously so: these act on the cell a caret is in. */
+    where: 'canvas',
     blocks: [
       {
         id: 'rows',
@@ -327,6 +345,12 @@ const DECLARED: SiteMenu[] = [
   {
     id: 'view',
     label: '보기',
+    /*
+     * **How the reader is looking at a canvas** — which boards, how far away, and whether they are
+     * previewing. A management screen has none of those: no boards, no zoom, and nothing to preview
+     * until a page is opened.
+     */
+    where: 'canvas',
     blocks: [
       {
         /*
@@ -496,6 +520,25 @@ export function siteMenuCommands(menus: SiteMenu[] = SITE_MENUS): string[] {
  * Everything else is identical, and deliberately so: a menubar that reshuffled itself as a document
  * changed would be a menubar nobody could learn.
  */
+/**
+ * **어디에 서 있느냐** — the two places this product has.
+ *
+ * `관리` is a list of pages, datasets, components, publishes and files, with no canvas anywhere in
+ * it; `편집` is a page with blocks on it. Half the menubar means nothing on the first, and greying
+ * it is not the answer — a bar whose middle three are permanently grey has stopped saying anything.
+ */
+export type SitePlace = 'admin' | 'page';
+
+/**
+ * The menubar for a place, and for a document's own widths.
+ *
+ * The two questions are asked together because they are asked together: the app knows both, and a
+ * bar assembled from one and then filtered by the other is a bar built in two places.
+ */
+export function siteMenusIn(place: SitePlace, widths: SiteWidth[] = BREAKPOINTS): SiteMenu[] {
+  return menusIn(siteMenusFor(widths), place === 'page' ? 'canvas' : 'anywhere');
+}
+
 export function siteMenusFor(widths: SiteWidth[] = BREAKPOINTS): SiteMenu[] {
   return SITE_MENUS.map((menu) =>
     menu.label !== '보기'

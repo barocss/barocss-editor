@@ -10,6 +10,7 @@ import { registerSlidesRenderers } from '../src/renderers';
 import { createSlidesEditor, createSlidesOwnExtensions } from '../src/slides-kit';
 import { createSampleDeck } from '../src/sample-deck';
 import { kindOfBox } from '../src/layers';
+import { SCENE_TYPES } from '../src/selection';
 import { slidesToolbarCommands, slidesToolbarIcons } from '../src/toolbar-model';
 import { slidesKeyCommands } from '../src/keymap';
 import { slidesPanelAttrs, slidesPanelCommands } from '../src/panel-model';
@@ -211,6 +212,19 @@ describe('Slides draws what its schema declares', () => {
        */
       nameOf: (type: string) => kindOfBox(type) ?? null,
       /**
+       * And **what a reader can select**, which is the other direction of the same fact.
+       *
+       * `every-insert-can-be-held` compares it against `produces`: a node type an insert puts on a
+       * slide has to be one a click can land on. It arrived in the shared harness because the fault
+       * it looks for had been recorded **six times** in the page builder's one selection list —
+       * three fixed by hand, and three still live the hour the check was written.
+       *
+       * `SCENE_TYPES` rather than a list made here, because that *is* this product's selection rule
+       * — `isSceneType` is what the overlay asks — and `selection.test.ts` already holds it to the
+       * schema's `scene` group. Two lists would drift; one cannot.
+       */
+      nameable: [...SCENE_TYPES],
+      /**
        * Whether drawing a node changes when an attribute is set.
        *
        * Which replaces a list a person had to re-measure — see the check. The shapes
@@ -304,6 +318,51 @@ describe('Slides draws what its schema declares', () => {
         Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
         Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
       exempt: {
+        /**
+         * ── **What a reader holds is the box**, which is `every-insert-can-be-held`'s answer here ──
+         *
+         * That check arrived in the shared harness from the page builder, where the same fault — a
+         * node drawn perfectly and unselectable — had been recorded **six times in one list**. It
+         * reported seven here and every one is the same sentence, which is the sentence a *plane*
+         * gives and a page does not: on a slide, everything a reader points at is a placed box, and
+         * what is inside one is reached by the caret.
+         *
+         * Worth writing down because the two products answer differently about the **same schema
+         * nodes** and both are right. In the site a table is a block in a page's flow and its cells
+         * are selectable — that was the second of the six. Here a table is inside a `textFrame`
+         * (`sample-deck.ts` builds Word's own table that way, and the schema requires it: a surface
+         * holds `scene*`), so the box is the thing with edges and the thing a reader drags.
+         *
+         * Each is a claim. The day a table sits directly on a slide, this fails on the exemption.
+         */
+        surface: {
+          reason: 'a slide is the board a reader is looking at, not a box on it — reached from the slide list, which is where every deck of this kind puts it',
+          covers: ['every-insert-can-be-held']
+        },
+        paragraph: {
+          reason: 'a line of words inside a placed box — the box is what a reader points at and the caret is how they reach the words',
+          covers: ['every-insert-can-be-held']
+        },
+        hardBreak: {
+          reason: 'a break between two lines of one paragraph, put there by a key and reached by the caret — there is no edge to point at',
+          covers: ['every-insert-can-be-held']
+        },
+        'inline-image': {
+          reason: 'a picture in a line of words, which is why it is inline: the box holding the words is what a reader drags, and a placed picture is a `picture` instead',
+          covers: ['every-insert-can-be-held']
+        },
+        bTable: {
+          reason: 'a table on a slide is inside a `textFrame` — a surface holds `scene*`, so it cannot be otherwise — and the box is what a reader points at and drags',
+          covers: ['every-insert-can-be-held']
+        },
+        bTableRow: {
+          reason: 'a row inside a table inside a placed box, reached through the cell the caret is in — every row command asks which cell that is',
+          covers: ['every-insert-can-be-held']
+        },
+        bTableCell: {
+          reason: 'a cell inside a table inside a placed box, reached by the caret — unlike the page builder, where a table is a block in the flow and its cells are what a reader points at',
+          covers: ['every-insert-can-be-held']
+        },
         /*
          * ── Commands that change the **application** rather than the document ──
          *

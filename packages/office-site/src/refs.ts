@@ -32,6 +32,7 @@
  */
 import { isAssetRef, assetNameOf } from './assets';
 import { fieldNameOf, isRichRef, richNameOf } from './data';
+import { iGa } from './korean';
 import { isPageRef, pageIdOf } from './page-link';
 import { isVarRef, varNameOf } from '@barocss/office-canvas';
 
@@ -41,6 +42,18 @@ type Access = { rootId: string; getNode: (sid: string) => Node | undefined };
 /** What a reference points at. One word per kind, and every kind this schema has. */
 export type RefKind = 'page' | 'component' | 'dataset' | 'field' | 'asset' | 'variable' | 'service' | 'richText';
 
+/**
+ * **어떻게 가리키나** — the three shapes a reference has in this schema, which is not the same
+ * question as what it points at.
+ *
+ * It earns a field because it is what a reader has to *go and fix*. Told that deleting 가격 breaks
+ * eleven things, the useful sentence is which eleven: a link inside a sentence is found by reading
+ * the words, a `goes` is found by selecting the card and opening its panel, and a cell is found in
+ * the data editor. Three different places, and a single total sends the reader to look in the wrong
+ * one.
+ */
+export type RefVia = 'mark' | 'attr' | 'cell';
+
 export interface Ref {
   /** The node that holds the reference — what a reader would click to fix it. */
   from: string;
@@ -49,6 +62,7 @@ export interface Ref {
   kind: RefKind;
   /** The name it points at: a page's id, a column's name, a definition's id. */
   to: string;
+  via: RefVia;
 }
 
 /**
@@ -78,19 +92,19 @@ export function refsIn(doc: Access): Ref[] {
 
     /* A placement names a definition. */
     if (stype === 'instance' && typeof attrs.componentId === 'string' && attrs.componentId) {
-      found.push({ from: sid, in: mine, kind: 'component', to: attrs.componentId });
+      found.push({ from: sid, in: mine, kind: 'component', to: attrs.componentId, via: 'attr' });
     }
     /* A page a template draws is one too — the same reference, said by a page rather than a block. */
     if (stype === 'surface' && typeof attrs.template === 'string' && attrs.template) {
-      found.push({ from: sid, in: mine, kind: 'component', to: attrs.template });
+      found.push({ from: sid, in: mine, kind: 'component', to: attrs.template, via: 'attr' });
     }
     /* A list and a chart both name a dataset. */
     if ((stype === 'collection' || stype === 'chart') && typeof attrs.source === 'string' && attrs.source) {
-      found.push({ from: sid, in: mine, kind: 'dataset', to: attrs.source });
+      found.push({ from: sid, in: mine, kind: 'dataset', to: attrs.source, via: 'attr' });
     }
     /* A form names a service. */
     if (stype === 'form' && typeof attrs.sends === 'string' && attrs.sends) {
-      found.push({ from: sid, in: mine, kind: 'service', to: attrs.sends });
+      found.push({ from: sid, in: mine, kind: 'service', to: attrs.sends, via: 'attr' });
     }
 
     /*
@@ -100,19 +114,19 @@ export function refsIn(doc: Access): Ref[] {
      */
     for (const [key, value] of Object.entries(attrs)) {
       if (typeof value !== 'string' || !value) continue;
-      if (isPageRef(value)) found.push({ from: sid, in: mine, kind: 'page', to: pageIdOf(value) });
+      if (isPageRef(value)) found.push({ from: sid, in: mine, kind: 'page', to: pageIdOf(value), via: 'attr' });
       else if (isAssetRef(value)) {
         const name = assetNameOf(value);
-        if (name) found.push({ from: sid, in: mine, kind: 'asset', to: name });
+        if (name) found.push({ from: sid, in: mine, kind: 'asset', to: name, via: 'attr' });
       } else if (isRichRef(value)) {
         const name = richNameOf(value);
-        if (name) found.push({ from: sid, in: mine, kind: 'richText', to: name });
+        if (name) found.push({ from: sid, in: mine, kind: 'richText', to: name, via: 'attr' });
       } else if (isVarRef(value)) {
         const name = varNameOf(value);
-        if (name) found.push({ from: sid, in: mine, kind: 'variable', to: name });
+        if (name) found.push({ from: sid, in: mine, kind: 'variable', to: name, via: 'attr' });
       } else {
         const field = fieldNameOf(value);
-        if (field) found.push({ from: sid, in: mine, kind: 'field', to: field });
+        if (field) found.push({ from: sid, in: mine, kind: 'field', to: field, via: 'attr' });
       }
       void key;
     }
@@ -135,28 +149,33 @@ export function refsIn(doc: Access): Ref[] {
         if (!row || typeof row !== 'object') continue;
         for (const value of Object.values(row as Record<string, unknown>)) {
           if (typeof value !== 'string' || !value) continue;
-          if (isPageRef(value)) found.push({ from: sid, in: mine, kind: 'page', to: pageIdOf(value) });
+          if (isPageRef(value)) found.push({ from: sid, in: mine, kind: 'page', to: pageIdOf(value), via: 'cell' });
           else if (isRichRef(value)) {
             const name = richNameOf(value);
-            if (name) found.push({ from: sid, in: mine, kind: 'richText', to: name });
+            if (name) found.push({ from: sid, in: mine, kind: 'richText', to: name, via: 'cell' });
           } else if (isAssetRef(value)) {
             const name = assetNameOf(value);
-            if (name) found.push({ from: sid, in: mine, kind: 'asset', to: name });
+            if (name) found.push({ from: sid, in: mine, kind: 'asset', to: name, via: 'cell' });
           }
         }
       }
     }
 
-    /*
+    /**
      * A **link mark**, which is the one reference that is not an attribute: it lives on a run, over a
-     * range of characters. `linksTo` counts these and nothing else, deliberately — one link drawn on
-     * six pages through a definition is *one* link, and a reader deleting a page wants to know how
-     * many links break, not how many drawings of them there are.
+     * range of characters.
+     *
+     * The old `linksTo` counted these **and nothing else**, and its comment called that deliberate.
+     * Measured against this index across the sample, the claim did not survive: of the 23 things
+     * naming a page, 11 are marks, 9 are a card's `goes`, 2 are a row's cell and 1 is a form's
+     * 감사 페이지. Six of the eight pages were being under-reported, and the two blog posts were
+     * reported as **0** — *아무것도 가리키지 않습니다* said about a page the blog list points at from
+     * a data row. Wrong in the direction that loses work.
      */
     for (const mark of (node.marks ?? []) as Node[]) {
       const href = mark?.attributes?.href ?? mark?.attrs?.href;
       if (typeof href === 'string' && isPageRef(href)) {
-        found.push({ from: sid, in: mine, kind: 'page', to: pageIdOf(href) });
+        found.push({ from: sid, in: mine, kind: 'page', to: pageIdOf(href), via: 'mark' });
       }
     }
 
@@ -169,7 +188,61 @@ export function refsIn(doc: Access): Ref[] {
   return found;
 }
 
-/** How many references of a kind point at each name — `usesOf` and `linksTo`, from one walk. */
+/**
+ * **이걸 지우면 무엇이 끊어지나** — everything naming one thing, split by where a reader would find it.
+ *
+ * The number alone was the old answer and it was both wrong and unactionable. This is the sentence
+ * the delete dialog can say: *링크 3개, 이동 5개, 데이터 2칸*. Three counts because they are three
+ * different repairs — retype a sentence, open a card's panel, edit a row — and a reader who is told
+ * *8개* looks in the words for all eight and finds three.
+ *
+ * `total` is here so that the one place that only needs *is it safe* does not have to add three
+ * numbers and get it wrong.
+ */
+export interface Breakage {
+  /** A link over words. */
+  links: number;
+  /** A block that goes there when it is clicked, or a form's 감사 페이지. */
+  moves: number;
+  /** A cell in a dataset's row. */
+  cells: number;
+  total: number;
+}
+
+export function breaksIfGone(refs: Ref[], kind: RefKind, to: string): Breakage {
+  const mine = refs.filter((one) => one.kind === kind && one.to === to);
+  return {
+    links: mine.filter((one) => one.via === 'mark').length,
+    moves: mine.filter((one) => one.via === 'attr').length,
+    cells: mine.filter((one) => one.via === 'cell').length,
+    total: mine.length
+  };
+}
+
+/**
+ * That breakage as the sentence a dialog says, which is where the three counts have to earn
+ * themselves or go back to being one.
+ *
+ * Only the parts that are not zero, because *링크 3개, 이동 0개, 데이터 0칸* is three facts to read
+ * and one of them true. And the last sentence is per-kind for the same reason: a broken link draws
+ * as ordinary words and a reader would never find it, which is worth saying; a card that does
+ * nothing when clicked is its own report.
+ */
+export function breakageSaid(breaks: Breakage): string {
+  if (breaks.total === 0) return '이 페이지를 가리키는 것이 없습니다.';
+
+  const parts: string[] = [];
+  if (breaks.links > 0) parts.push(`링크 ${breaks.links}개`);
+  if (breaks.moves > 0) parts.push(`이동 ${breaks.moves}개`);
+  if (breaks.cells > 0) parts.push(`데이터 ${breaks.cells}칸`);
+
+  const said = parts.join(', ');
+  const tail = breaks.links > 0 ? ' 끊어진 링크는 그냥 글자로 보입니다.' : '';
+  return `이 페이지를 가리키는 ${said}${iGa(said)} 끊어집니다.${tail}`;
+}
+
+
+/** How many references of a kind point at each name — `usesOf` and the page counts, from one walk. */
 export function refCounts(refs: Ref[], kind: RefKind): Map<string, number> {
   const count = new Map<string, number>();
   for (const one of refs) {

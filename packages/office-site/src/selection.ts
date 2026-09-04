@@ -90,7 +90,30 @@ export const SELECTABLE = new Set([
    * whether a renderer exists; nothing asks whether a reader can hold what it drew. That check is
    * owed, and it is on the record.
    */
-  'chart'
+  'chart',
+  /**
+   * And the **fourth, fifth and sixth**, which the owed check found the hour it was written.
+   *
+   * `every-insert-can-be-held` asks the product's own `produces` list — what an insert puts in the
+   * document — against this set, and reported three live faults: 동영상, 임베드 and 폼 could all be
+   * inserted and then not selected, not moved, not deleted, not restyled, and were not in the layer
+   * list either. Exactly the shape of the three above, shipped and unnoticed.
+   *
+   * A **form** is the one node type this product genuinely added — the one thing here that is not a
+   * frame wearing a name — and a reader could put one on a page and never get hold of it again.
+   *
+   * That is the whole argument for the check rather than for more care: six times, in one list,
+   * every one found by a person using the product. A list nothing forces is a list that will be
+   * wrong again, and now something forces it.
+   */
+  'mediaVideo',
+  'mediaEmbed',
+  'form',
+  /*
+   * And **본문 글**, which arrived already checked — the day it was added, the check written for the
+   * six above reported it before a browser ever drew one. Which is what it is for.
+   */
+  'richText'
 ]);
 
 /**
@@ -410,6 +433,25 @@ export function kindOfBlock(type: string): string | null {
     case 'bTable':
       return '표';
     /*
+     * And the three the *held* check made rows in this list. A row needs a word the moment a reader
+     * can select the thing, which is `every-drawing-can-be-named` firing the second those three
+     * became selectable — the two checks catching each other's consequence, which is what a set of
+     * them is for.
+     *
+     * And the words are **the toolbar's**, not better ones chosen here. 추가 offers 영상, 넣은 것
+     * and 폼; a layer row saying 동영상 for the thing a reader added as 영상 is the same object with
+     * two names, which is the failure this repository keeps writing down about itself. If any of
+     * these words is wrong it is wrong in `toolbar-model.ts` and both places change together.
+     */
+    case 'mediaVideo':
+      return '영상';
+    case 'mediaEmbed':
+      return '넣은 것';
+    case 'form':
+      return '폼';
+    case 'richText':
+      return '글';
+    /*
      * And the two a reader can now select, because a table whose cells cannot be pointed at is a
      * picture of a table. Named apart: a header cell is the one a screen reader reads out beside
      * every cell under it, which is the whole reason the row above is a header row.
@@ -487,6 +529,25 @@ export function labelOfBlock(doc: Access, sid: string): string {
       return '목록';
     case 'bTable':
       return '표';
+    /*
+     * And the three the *held* check made rows in this list. A row needs a word the moment a reader
+     * can select the thing, which is `every-drawing-can-be-named` firing the second those three
+     * became selectable — the two checks catching each other's consequence, which is what a set of
+     * them is for.
+     *
+     * And the words are **the toolbar's**, not better ones chosen here. 추가 offers 영상, 넣은 것
+     * and 폼; a layer row saying 동영상 for the thing a reader added as 영상 is the same object with
+     * two names, which is the failure this repository keeps writing down about itself. If any of
+     * these words is wrong it is wrong in `toolbar-model.ts` and both places change together.
+     */
+    case 'mediaVideo':
+      return '영상';
+    case 'mediaEmbed':
+      return '넣은 것';
+    case 'form':
+      return '폼';
+    case 'richText':
+      return '글';
     /*
      * The rest, from `kindOfBlock`, which is the one list of words this product has.
      *
@@ -612,10 +673,33 @@ export function pagesOf(
  * refused insert a reader can see, and one that stops too late is a block somewhere nobody put it.
  */
 export function holdsABlock(
-  store: { getActiveSchema?: () => { getNodeType?: (stype: string) => { content?: unknown } | undefined } | undefined },
+  store: {
+    getActiveSchema?: () =>
+      | { getNodeType?: (stype: string) => { content?: unknown; group?: unknown } | undefined }
+      | undefined;
+  },
   stype: unknown
 ): boolean {
-  const said = store.getActiveSchema?.()?.getNodeType?.(String(stype))?.content;
+  const schema = store.getActiveSchema?.();
+  const said = schema?.getNodeType?.(String(stype))?.content;
   if (typeof said !== 'string') return true;
-  return /\bblock\b/.test(said);
+  if (/\bblock\b/.test(said)) return true;
+
+  /**
+   * **And an expression that names its types instead of the group**, which the word test cannot see.
+   *
+   * Found the hour `richText` narrowed what a body may hold: `'(heading | paragraph | list | …)+'`
+   * has no `block` in it, so this said no, `_atCaret` refused, and **every insert died inside a
+   * body** — a reader could write in one and could not put a heading, a list or an image in it. The
+   * same shape as the table-cell fault above, from the other direction: that one stopped too early
+   * because of what the schema said, this one because of how it said it.
+   *
+   * So the question is asked properly. A name in an expression is a node type or a group, and the
+   * schema knows which group each type is in — one lookup per name, on a string with ten of them, and
+   * only when the cheap test has already said no.
+   */
+  for (const name of said.match(/[A-Za-z][A-Za-z0-9_-]*/g) ?? []) {
+    if (schema?.getNodeType?.(name)?.group === 'block') return true;
+  }
+  return false;
 }

@@ -166,61 +166,26 @@ export function pagesIn(doc: Access): { sid: string; id: string; name: string; p
   return pagesOf(doc as never).filter((page) => page.id !== '');
 }
 
-/**
- * How many links point at a page — the number a reader needs *before* they delete it.
+/*
+ * **`linksTo` was here**, and what replaced it is `breaksIfGone` in `refs.ts`.
  *
- * `linkFaults` is the report afterwards, and afterwards is too late to be a decision: a link into a
- * page that is gone draws as ordinary words, so the cost of removing a page is the one thing about
- * it that is not on screen.
- */
-export function linksTo(doc: Access, id: string): number {
-  let count = 0;
-
-  const walk = (sid: string, depth = 0) => {
-    if (depth > 64) return;
-    const node = doc.getNode(sid);
-    if (!node) return;
-
-    for (const mark of (node.marks ?? []) as Node[]) {
-      const href = mark?.attributes?.href ?? mark?.attrs?.href;
-      if (isPageRef(href) && pageIdOf(href) === id) count += 1;
-    }
-    for (const child of (node.content ?? []) as unknown[]) {
-      if (typeof child === 'string') walk(child, depth + 1);
-    }
-  };
-  walk(doc.rootId);
-
-  return count;
-}
-
-/**
- * The links in this document that name a page which is not there.
+ * It answered *이 페이지를 지우면 링크 몇 개가 끊어지나* by walking the document for link marks, and
+ * its own comment called counting marks and nothing else deliberate. Measured against the reference
+ * index, that was wrong for **six of the sample's eight pages** — `/가격` said 3 and the answer was
+ * 8 — and wrong at zero for the two blog posts, which the blog list points at from a data row. A
+ * dialog saying *가리키는 것이 없습니다* about a page something points at is worse than no dialog.
  *
- * The sibling of `collectionFaults` and `overrideFaults`, and worth having for the same reason: a
- * reference that resolves to nothing is invisible in the drawing — an `<a>` with no `href` reads as
- * ordinary words — so the product has to be able to *say* it rather than leave a reader to click.
+ * It was also a walk per page: the admin screen called it once for each row.
  */
-export function linkFaults(doc: Access): { sid: string; href: string; missing: string }[] {
-  const pages = new Set(pagesIn(doc).map((page) => page.id));
-  const faults: { sid: string; href: string; missing: string }[] = [];
 
-  const walk = (sid: string, depth = 0) => {
-    if (depth > 64) return;
-    const node = doc.getNode(sid);
-    if (!node) return;
-
-    for (const mark of (node.marks ?? []) as Node[]) {
-      const href = mark?.attributes?.href ?? mark?.attrs?.href;
-      if (isPageRef(href) && !pages.has(pageIdOf(href))) {
-        faults.push({ sid, href, missing: pageIdOf(href) });
-      }
-    }
-    for (const child of (node.content ?? []) as unknown[]) {
-      if (typeof child === 'string') walk(child, depth + 1);
-    }
-  };
-  walk(doc.rootId);
-
-  return faults;
-}
+/*
+ * **`linkFaults` was here too**, and `refFaults` in `faults.ts` is what reports these now.
+ *
+ * It walked for link marks, which is one of the three shapes that name a page, so a `이동` and a
+ * data row's cell pointing at a deleted page were nobody's job — deleting two of the sample's pages
+ * left two dangling references and the whole report said nothing. Keeping it beside the index would
+ * have been two implementations of *does this resolve*, which is the drift the index exists to stop.
+ *
+ * The `link` **kind** survives, and deliberately: an `<a>` with no href draws as ordinary words, so
+ * it is the one of the three a reader cannot find by looking.
+ */

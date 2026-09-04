@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
-import { markState, watchAnswers } from '@barocss/editor-core';
+import { watchAnswers } from '@barocss/editor-core';
+import { useControls } from '@barocss/office-editor-ui';
 import {
   Icon,
   IconButton,
@@ -16,7 +17,6 @@ import {
   onApple,
   useRevision
 } from '@barocss/office-ui';
-import { chordFor, keyLabel } from '@barocss/office-controls';
 import {
   SITE_KEYS,
   addressLinkOf,
@@ -94,6 +94,16 @@ const EMOJI: { label: string; items: { shortcode: string; unicode: string }[] }[
     ]
   }
 ];
+
+/**
+ * The two slices this ribbon draws, hoisted out of the render.
+ *
+ * `siteControlsIn` filters a constant list, so calling it in the body made a new array on every
+ * render — and `useControls` memoises on the array it is given. A stable reference is the difference
+ * between recomputing when the selection moves and recomputing on every keystroke.
+ */
+const ARRANGE = siteControlsIn('arrange');
+const TEXT = siteControlsIn('text');
 
 export function Ribbon({
   editor,
@@ -186,9 +196,6 @@ export function Ribbon({
    * italic, underline — falls back to what the model says, which is the honest half of a product
    * that does not own the engine's key map.
    */
-  const chordOf = (control: { command: string; shortcut?: string }) =>
-    keyLabel(chordFor(SITE_KEYS, { command: control.command }) ?? control.shortcut, apple);
-
   /**
    * What the selection has to say about itself, re-read whenever it moves.
    *
@@ -196,7 +203,6 @@ export function Ribbon({
    * products re-read this rather than holding it in state — and the reason it is read here at all is
    * that a formatting toggle has three states, not two.
    */
-  const summary = useMemo(() => editor.getSelectionSummary(), [editor, revision]);
   /*
    * `canExecuteCommand`, which is the editor's own name for it — asked on every render rather than
    * cached, because a control that remembers being available is wrong the moment something is
@@ -216,6 +222,38 @@ export function Ribbon({
     (
       editor as never as { executeCommand?: (n: string, p?: Record<string, unknown>) => void }
     ).executeCommand?.(name, { pageId, ...payload });
+
+  /**
+   * **툴바가 하는 다섯 가지 중 넷은 `office-editor-ui`의 것입니다.**
+   *
+   * Subscribe to the editor, read each control's state out of the selection, ask whether it may run,
+   * work out its chord, and run it. Every one of those was written here — and again in Word's ribbon,
+   * and again in the deck's, and again in a note's bar. Four copies of four steps, and the only thing
+   * that differed was *which list*.
+   *
+   * `can` and `onRun` are passed because this product knows something the shared layer must not: the
+   * page goes with every command, and 이모지 asks which one before it runs anything. That is what
+   * those options are for — a product's own answer, not a case in a shared surface.
+   */
+  const arrange = useControls(editor, ARRANGE, {
+    keys: SITE_KEYS,
+    apple,
+    can: (one) => can(one.command, one.payload),
+    onRun: (one) => run(one.command, one.payload)
+  });
+
+  const text = useControls(editor, TEXT, {
+    keys: SITE_KEYS,
+    apple,
+    /*
+     * 이모지 is the one control here that has to **ask which** before it can run: every other text
+     * gesture is a mark a reader already means by pressing it, and an emoji is a choice out of a set.
+     * So it opens the picker and the picker runs the command.
+     */
+    can: (one) =>
+      one.command === 'insertEmoji' ? can('insertEmoji', { unicode: '🙂' }) : can(one.command),
+    onRun: (one) => (one.command === 'insertEmoji' ? setPicking(true) : run(one.command))
+  });
 
   // Read so the enabled state is recomputed when the selection or the document moves.
   void revision;
@@ -341,23 +379,26 @@ export function Ribbon({
         the check that is supposed to hold it.
       */}
       <ToolbarGroup id="arrange">
-        {siteControlsIn('arrange').map((control) => (
+        {arrange.map((control) => (
           <ToolbarToggle
             /**
-             * **Keyed by the command and what it says**, not by the command alone.
+             * **Keyed by the command and what it carries**, not by the command alone.
              *
              * Eight controls run `alignBlocks` and differ only in the `how` they carry, so keying by
              * the command gave React eight children with one key: it drew the first and dropped the
              * other seven, and the toolbar had a 왼쪽 button and nothing else. Found the moment the
              * align controls were declared, by counting them in a browser and getting zero.
+             *
+             * Written out here once; `controlId` is that rule for all four products now, and a check
+             * in `office-controls` holds it.
              */
-            key={`${control.command}:${JSON.stringify(control.payload ?? {})}`}
-            id={control.command}
-            label={control.title ?? control.label}
-            shortcut={chordOf(control)}
+            key={control.key}
+            id={control.control.command}
+            label={control.says}
+            shortcut={control.shortcut}
             state="off"
-            disabled={!can(control.command, control.payload)}
-            onActivate={() => run(control.command, control.payload)}
+            disabled={control.disabled}
+            onActivate={control.run}
           >
             {/*
               The picture, not the word — and all four already declared one that nothing drew.
@@ -367,7 +408,7 @@ export function Ribbon({
               buttons and nothing among them was primary. The label is still the accessible name and
               still the tooltip; what changed is what a reader's eye lands on.
             */}
-            <Icon name={control.icon ?? 'add'} />
+            <Icon name={control.control.icon ?? 'add'} />
           </ToolbarToggle>
         ))}
       </ToolbarGroup>
@@ -386,31 +427,20 @@ export function Ribbon({
         `state` rather than a plain toggle because bold on a partly-bold selection is neither on nor
         off — `mixed` is the third state this control has for exactly that.
       */}
-      {siteControlsIn('text').some((control) => can(control.command)) && (
+      {text.some((control) => !control.disabled) && (
         <>
           <ToolbarGroup id="text">
-            {siteControlsIn('text').map((control) => (
+            {text.map((control) => (
               <ToolbarToggle
-                key={control.command}
-                id={control.command}
-                label={control.title ?? control.label}
-                shortcut={chordOf(control)}
-                state={control.mark ? markState(summary, control.mark) : 'off'}
-                /*
-                 * The one control here that has to **ask which** before it can run: every other text
-                 * gesture is a mark a reader already means by pressing it, and an emoji is a choice
-                 * out of a set. So it opens the picker and the picker runs the command.
-                 */
-                disabled={
-                  control.command === 'insertEmoji'
-                    ? !can('insertEmoji', { unicode: '🙂' })
-                    : !can(control.command)
-                }
-                onActivate={() =>
-                  control.command === 'insertEmoji' ? setPicking(true) : run(control.command)
-                }
+                key={control.key}
+                id={control.control.command}
+                label={control.says}
+                shortcut={control.shortcut}
+                state={control.state}
+                disabled={control.disabled}
+                onActivate={control.run}
               >
-                <Icon name={control.icon ?? 'bold'} />
+                <Icon name={control.control.icon ?? 'bold'} />
               </ToolbarToggle>
             ))}
           </ToolbarGroup>

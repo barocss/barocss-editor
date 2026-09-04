@@ -11,7 +11,7 @@ import {
   replaceOperations,
   type FindOptions,
   type Match
-} from '@barocss/office-word';
+} from '@barocss/office-text';
 import { CANVAS_NAMES } from '@barocss/office-controls';
 import { childrenOf, deckSlides, noteFor, type DeckAccess, type DeckNode } from './deck';
 

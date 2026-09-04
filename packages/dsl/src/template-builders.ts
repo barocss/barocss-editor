@@ -432,12 +432,74 @@ export function renderer(nodeType: TNodeType, template: RenderTemplate | Context
    * a product says it means it. Recording rather than refusing: this runs while a product is being
    * built, and a registry that threw would take the app down for something a test should report.
    */
-  if (!inOverride && globalRegistry.has(nodeType)) silentOverrides.add(nodeType);
+  const into = target ?? globalRegistry;
+  if (!inOverride && into.has(nodeType)) silentOverrides.add(nodeType);
 
   // Auto-register so element('name') can resolve to a registered renderer
-  globalRegistry.register(definition);
+  into.register(definition);
 
   return definition;
+}
+
+/**
+ * **어느 레지스트리에 등록할 것인가** — the registry `define` writes into, while `fn` runs.
+ *
+ * ## Why this exists
+ *
+ * Renderers register **globally by stype**, which is what makes a package like `office-note` cheap:
+ * `office-text` already draws the prose vocabulary, so a note is drawable before it exists. It is
+ * also what stops two *products* sharing a screen. Measured, by registering both and diffing:
+ * `office-word` replaces **117 of `office-site`'s 125** renderers — `paragraph`, `heading`,
+ * `inline-text`, `surface`, `frame`, `picture` and every mark. A page holding a site editor and a
+ * Word editor draws both with Word's, and which one wins is decided by import order.
+ *
+ * Asked as *한 화면에 word 랑 slide 를 다 띄운다던가, word 를 4개로 띄운다던가.*
+ *
+ * ## Why it is a scope and not an argument
+ *
+ * Everything downstream was already built for this. `EditorViewDOM` takes a `registry`; it hands the
+ * same one to all four `DOMRenderer`s; each hands it to its `VNodeBuilder`; and a registry made with
+ * `{ global: false }` **looks locally first and falls back to the global one**. The only thing with
+ * no way through was the writing end: `define` had the global registry named in it.
+ *
+ * A scope rather than a parameter because `define` is reached through a dozen helpers — `defineMark`,
+ * `defineDecorator`, and every product's `register*Renderers()`, which is hundreds of call sites
+ * across four packages. Threading a registry through all of them to change *where* they land would
+ * be a rewrite; wrapping the call is one line at the host:
+ *
+ * ```ts
+ * const mine = new RendererRegistry({ global: false });
+ * intoRegistry(mine, () => registerWordRenderers());
+ * new EditorViewDOM({ registry: mine, … });
+ * ```
+ *
+ * ## What the shared mutable is, and why it is allowed
+ *
+ * `target` is module-level and mutable, which is the shape this repository has just spent a round
+ * removing from `DataStore`. The difference is worth stating rather than assuming: that one was
+ * **state a result depended on across time** — an id counter, read long after it was written, by
+ * code that had no idea another instance had moved it. This is a **dynamic binding**: set, used, and
+ * restored inside one synchronous call, with `finally` so a throwing product cannot leak it. Nothing
+ * reads it after `fn` returns.
+ *
+ * Not re-entrant across an `await`, and deliberately not made so: a product that registered
+ * asynchronously would be a product whose renderers arrive after its first paint.
+ */
+let target: RendererRegistry | null = null;
+
+export function intoRegistry<T>(registry: RendererRegistry, fn: () => T): T {
+  const was = target;
+  target = registry;
+  try {
+    return fn();
+  } finally {
+    target = was;
+  }
+}
+
+/** Where `define` is writing right now — the global registry unless a scope says otherwise. */
+export function registryInScope(): RendererRegistry {
+  return target ?? globalRegistry;
 }
 
 /**

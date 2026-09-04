@@ -192,6 +192,19 @@ export interface SiteEnv {
    * list of widths, and the env is the only per-view channel there is.
    */
   scopes?: BreakpointId[];
+  /**
+   * **How tall a window onto this width is**, in CSS pixels — the number `minScreens` draws with on
+   * a board.
+   *
+   * Here for the reason `scopes` is: it is a fact about the *document's* list of widths, and a
+   * renderer is handed a node and an env. A reader who adds a 1920 board and gives it a 1080 window
+   * has said something no constant knows, and reading `BREAKPOINTS` instead would draw their hero at
+   * a laptop's height on it.
+   *
+   * Absent on a published page, which is the drawing saying *let the browser answer* — see
+   * `screenOf`.
+   */
+  viewport?: number;
   /** How wide it is, in CSS pixels — what the reader sees along the top of the frame. */
   width: number;
   /**
@@ -238,7 +251,35 @@ export function createSiteEnv(
    * a fact about the *document's* list — which a renderer cannot reach. So it is computed once, here,
    * by the host that knows both.
    */
-  return { breakpoint: found.id, width: found.width, published, scopes: scopesFor(found.id, widths) };
+  return {
+    breakpoint: found.id,
+    width: found.width,
+    published,
+    scopes: scopesFor(found.id, widths),
+    /* The board's own window height, from the document's list — see `SiteEnv.viewport`. */
+    viewport: found.viewport
+  };
+}
+
+/**
+ * **How tall one screenful is, here** — a number of CSS pixels on a board, and nothing published.
+ *
+ * The half of `minScreens` that a builder has to answer and a browser does not. On a published page
+ * a screen is `100dvh` and the browser knows it; in the editor a board is a **`div` on a plane**, not
+ * an iframe, so `dvh` inside one means the height of the *editor's* window — a hero drawn as tall as
+ * the app, at every board width, which is a drawing that lies about the page.
+ *
+ * `SiteWidth.viewport` is the honest number and it was already there, declared for preview mode with
+ * the argument this needs: a page has no height of its own, so what a visitor sees is decided by the
+ * window they open it in, and a builder can only show a *typical* one. A laptop, a tablet on its
+ * side, a phone.
+ *
+ * `undefined` when published, which is the drawing saying *let the browser answer*.
+ */
+export function screenOf(env: Record<string, unknown> | undefined): number | undefined {
+  const site = env?.[SITE_ENV_KEY] as SiteEnv | undefined;
+  if (!site || site.published) return undefined;
+  return site.viewport;
 }
 
 /** Whether the drawing being made is the page a visitor gets — see `SiteEnv.published`. */

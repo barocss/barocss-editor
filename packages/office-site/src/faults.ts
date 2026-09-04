@@ -4,7 +4,7 @@
  * ## Why this exists at the third check rather than the first
  *
  * Three functions in this package answer "what is wrong with this": `overrideFaults` for a width
- * that says something the node cannot hold, `linkFaults` for a link naming a page that is not there,
+ * that says something the node cannot hold, `refFaults` for a name that resolves nowhere,
  * and now `stateFaults` for a state that would move the block out from under the pointer. Each was
  * written with a unit test beside it, and **nothing ran any of them over a real document**.
  *
@@ -19,13 +19,16 @@
  * open it has turned a wrong colour into a lost afternoon. It **reports**, in the words a reader
  * would use, against the node they would click.
  */
-import { componentsOf, documentVars, isVarRef, varNameOf } from '@barocss/office-canvas';
-import { collectionFaults } from './data';
+import { documentVars } from '@barocss/office-canvas';
+import { collectionFaults, datasetsOf, richTextsOf } from './data';
 import { embedFaults } from './embed';
-import { linkFaults, linkOf } from './page-link';
+import { linkOf } from './page-link';
 import { attrsAt, overrideFaults } from './responsive';
 import { BREAKPOINTS, type SiteWidth } from './breakpoints';
 import { definitionsOf } from './components';
+import { assetsOf } from './assets';
+import { iGa } from './korean';
+import { refsIn, type Ref } from './refs';
 import { pagesOf } from './selection';
 import { SITE_SURFACE_KIND } from './site-schema';
 
@@ -46,7 +49,7 @@ const ONE_EACH = ['header', 'main', 'footer'];
 const NAME_OF: Record<string, string> = { header: '머리말', main: '본문', footer: '꼬리말' };
 import { opensOf, stateFaults, statesOf } from './states';
 import { formFaults, serviceNamed } from './form';
-import { assetFaults, assetNameOf, assetNamed, isAssetRef } from './assets';
+import { assetFaults } from './assets';
 import { pathFaults } from './slug';
 
 /** What a walk needs of a document: where it starts, and how to get a node. */
@@ -66,6 +69,7 @@ export interface Fault {
     | 'asset'
     | 'address'
     | 'reference'
+    | 'orphan'
     | 'found'
     | 'press';
   /** What is wrong, in the words a reader would use. */
@@ -152,6 +156,20 @@ export const FAULT_KINDS: { id: Fault['kind']; label: string; why: string }[] = 
      * argued with all nine to catch the one is a fault list nobody reads to the end.
      */
     why: '포인터가 올라올 때만이 아니라 키보드가 들어올 때도 달라진다고 적어놓고, 정작 키보드가 갈 수 없는 블록입니다. `:focus-visible`은 초점을 받는 것에만 걸리므로 그 규칙은 영영 그려지지 않고, 방문자는 마우스 없이 이 블록에 닿을 수 없습니다.'
+  },
+  {
+    id: 'orphan',
+    label: '쓰지 않는 글',
+    /*
+     * The only group here about something that is **not wrong with the page**, and it earns its
+     * place for the same reason every other group does: the reader cannot see it.
+     *
+     * A 서식 있는 글 is reached only through the cell that names it, so one no cell names is not
+     * drawn, not listed, not selectable and not deletable — it is in the file and nowhere else. No
+     * gesture in this product makes one (both candidates were measured; see `refFaults`), which
+     * means every one of these arrived in a document from somewhere else and nobody was watching.
+     */
+    why: '어느 칸도 가리키지 않는 서식 있는 글이 문서에 남아 있습니다. 그려지지도 발행되지도 않지만 글은 그대로 있으니, 다시 쓸 곳을 정하거나 지우면 됩니다.'
   },
   {
     id: 'found',
@@ -346,6 +364,164 @@ function hasSlot(doc: Access, sid: string, depth = 0): boolean {
   );
 }
 
+/**
+ * **이름이 가리키는 것이 있는가** — every reference in the document, asked once, from the index.
+ *
+ * ## What this replaced, and what it found
+ *
+ * Five checks, written one per node type as each kind of reference was added, and they were the
+ * five kinds somebody had happened to think of. Measured against the reference index, two of the
+ * ten shapes this schema uses were **not checked at all** — and both are the shape a reader loses
+ * work to. Deleting two pages of the sample left two references pointing at nothing (a card's
+ * `이동`, a data row's cell) and `documentFaults` reported **zero**.
+ *
+ * The reason is structural rather than an oversight: a check written inside a walk sees the node
+ * type it was written for. `linkFaults` looks at marks, so a page named by an attribute was
+ * nobody's job; nothing looked inside `records`, so a row's cell was nobody's job either. The index
+ * is the list of *what a reference is* in this schema, so asking it means the answer cannot be
+ * missing a kind — a new kind is a row in `RefKind`, and it arrives here already checked.
+ *
+ * ## It also stopped being a walk per reference
+ *
+ * `componentsOf(doc)` inside the loop, once for every placement. `documentVars(doc)` once for every
+ * attribute holding a `var:`. Both walk the document, and the sample has dozens of each. Here the
+ * sets are built once.
+ *
+ * ## Where the sentence sends the reader
+ *
+ * The name leads, always — six broken references read as six copies of one sentence when they lead
+ * with *이 링크가*, and the part that differs lands at the end of a wrapped line. What follows is
+ * **where to go**, which is what `via` is for: the words of a sentence, a block's panel, or the data
+ * editor are three different places, and a reader told only *페이지가 없습니다* looks in the first.
+ */
+export function refFaults(doc: Access, refs: Ref[]): Fault[] {
+  const found: Fault[] = [];
+
+  /* Built once, not once per reference — see above. */
+  const pages = new Set(pagesOf(doc as never).map((one) => one.id));
+  const definitions = new Set(definitionsOf(doc as never).map((one) => one.id));
+  const datasets = new Set(datasetsOf(doc as never).map((one) => one.name));
+  const assets = new Set(assetsOf(doc as never).map((one) => one.name));
+  const variables = new Set(documentVars(doc as never).map((one) => one.name));
+  /* One list, read from both directions — a reference that resolves, and a 글 nothing names. */
+  const written = richTextsOf(doc as never);
+  const texts = new Set(written.map((one) => one.id));
+
+  for (const ref of refs) {
+    const node = doc.getNode(ref.from) as { stype?: unknown } | undefined;
+    /*
+     * The one tail that is about **where**, and it is the cell: a reference in a row is not on a
+     * page at all, so a reader sent to the block would find a list that draws perfectly. The other
+     * two are already at the node the fault names — a mark is in the words, an attribute is in the
+     * panel — so they say nothing extra and let the sentence be short.
+     */
+    const at = ref.via === 'cell' ? ' — 데이터의 한 칸이 가리킵니다' : '';
+
+    if (ref.kind === 'page') {
+      if (pages.has(ref.to)) continue;
+      /*
+       * A **mark** keeps its own kind and its own sentence. 끊어진 링크 is not a synonym for *a name
+       * that resolves nowhere*: it is the one of these a reader cannot find by looking, because an
+       * `<a>` with no href draws as ordinary words. The other two report themselves when clicked.
+       */
+      if (ref.via === 'mark') found.push({ sid: ref.from, kind: 'link', said: `'${ref.to}' 페이지가 없습니다` });
+      /*
+       * And an attribute naming a page keeps a tail, because *what it costs* is the thing that is
+       * not on screen: the card still draws, still lifts under the pointer, and goes nowhere.
+       */
+      else if (ref.via === 'attr')
+        found.push({ sid: ref.from, kind: 'reference', said: `'${ref.to}' 페이지가 없습니다 — 눌러도 아무 일도 일어나지 않습니다` });
+      else found.push({ sid: ref.from, kind: 'reference', said: `'${ref.to}' 페이지가 없습니다${at}` });
+      continue;
+    }
+
+    if (ref.kind === 'component') {
+      if (definitions.has(ref.to)) continue;
+      /*
+       * The same reference said by two different nodes, and the word has to follow the node: a page
+       * names a **틀**, a block names a **컴포넌트**. Both are `component` refs and telling a reader
+       * their page's 컴포넌트 is missing sends them to the wrong panel.
+       */
+      const what = node?.stype === 'surface' ? '템플릿' : '컴포넌트';
+      found.push({ sid: ref.from, kind: 'reference', said: `'${ref.to}' ${what}${iGa(what)} 없습니다` });
+      continue;
+    }
+
+    if (ref.kind === 'dataset' && !datasets.has(ref.to)) {
+      found.push({ sid: ref.from, kind: 'data', said: `'${ref.to}' 데이터가 없습니다` });
+      continue;
+    }
+
+    if (ref.kind === 'asset' && !assets.has(ref.to)) {
+      /* 그림 when a picture is asking, because that is the panel the reader would open. */
+      const what = node?.stype === 'picture' ? '그림 파일' : '파일';
+      found.push({ sid: ref.from, kind: 'asset', said: `'${ref.to}' ${what}${iGa(what)} 없습니다${at}` });
+      continue;
+    }
+
+    if (ref.kind === 'variable' && !variables.has(ref.to)) {
+      found.push({ sid: ref.from, kind: 'reference', said: `'${ref.to}' 변수가 없습니다` });
+      continue;
+    }
+
+    /**
+     * And a **rich summary whose글 was deleted** — the kind that had no check anywhere, because it
+     * only ever lives in a cell and no walk of attributes reaches one.
+     *
+     * A row whose 요약 says `text:요약-스택` and no such `richText` remains draws an **empty card**:
+     * the list still repeats, the title is still there, and the body is blank. Indistinguishable from
+     * a row somebody has not written yet.
+     */
+    if (ref.kind === 'richText' && !texts.has(ref.to)) {
+      found.push({ sid: ref.from, kind: 'reference', said: `'${ref.to}' 글이 없습니다${at}` });
+    }
+  }
+
+  /**
+   * **And the mirror**: a 서식 있는 글 that no cell names any more, which is unreachable writing.
+   *
+   * `data-commands.ts` states the rule this rests on — *a `richText` is not a shared resource like
+   * an asset or a definition; it is one cell's value* — and, in the paragraph that counts what is
+   * left, says *`documentFaults` is where the orphan is reported*. It was not. This is that
+   * sentence kept.
+   *
+   * ## Where one comes from, measured rather than assumed
+   *
+   * Not from a reader's gesture, and the check is worth having *because* of how that was found. Two
+   * ways of producing one were tried and neither does:
+   *
+   * - **Retyping the cell as plain characters** — the obvious one, and `data-editor.tsx` already
+   *   refuses it in the table with the reason written down: *a text box here would be a reader
+   *   typing over a reference and losing a paragraph*. The rich cell is not typable; the drawer
+   *   edits the node itself.
+   * - **Changing the column's kind** away from 서식 있는 글 and back — the records are deliberately
+   *   left exactly as they are, so the reference survives the round trip intact.
+   *
+   * So this is the case the rule's own comment named: *a document arrives from a file, and a file
+   * can say anything*. An import, a paste, an older save, a merge. Which is precisely when nobody
+   * is watching — and a `richText` is reached **only** through a cell that names it, so an orphan is
+   * not drawn, not listed, not selectable, and not deletable. This group is the only place it can be
+   * seen at all.
+   *
+   * ## Why report rather than delete
+   *
+   * Because the words might be wanted. An orphan is somebody's writing that lost its cell, and the
+   * two repairs — point a cell at it, or delete it — are the reader's to choose. Nothing here is
+   * drawn wrong, so there is nothing to silently fix.
+   */
+  const named = new Set(refs.filter((one) => one.kind === 'richText').map((one) => one.to));
+  for (const one of written) {
+    if (named.has(one.id)) continue;
+    found.push({
+      sid: one.sid,
+      kind: 'orphan',
+      said: `'${one.id}' 글을 아무 칸도 가리키지 않습니다 — 글은 파일에 그대로 있습니다`
+    });
+  }
+
+  return found;
+}
+
 export function documentFaults(
   doc: Access,
   options?: {
@@ -372,23 +548,6 @@ export function documentFaults(
     const attrs = node.attributes ?? {};
     const declared = declares(node);
 
-    /*
-     * A placement naming a definition this document has not got, and a `var:이름` naming a variable
-     * it has not got. Both are what a paste from another site leaves behind, and both draw as
-     * *something* — which is why neither was ever noticed.
-     */
-    if (node.stype === 'instance' && typeof attrs.componentId === 'string' && attrs.componentId) {
-      if (!componentsOf(doc as never).some((one) => one.id === attrs.componentId)) {
-        found.push({ sid, kind: 'reference', said: `'${attrs.componentId}' 컴포넌트가 없습니다` });
-      }
-    }
-    for (const value of Object.values(attrs)) {
-      if (!isVarRef(value)) continue;
-      const name = varNameOf(value);
-      if (!documentVars(doc as never).some((one) => one.name === name)) {
-        found.push({ sid, kind: 'reference', said: `'${name}' 변수가 없습니다` });
-      }
-    }
     /*
      * **An embed naming nothing it can draw**, which is the one fault this node has and is invisible:
      * a frame with no source is a box, and a box is what an embed looks like before it loads. A
@@ -440,10 +599,14 @@ export function documentFaults(
      * (`내용 자리`) and did not when this was first possible.
      */
     if (node.stype === 'surface' && typeof attrs.template === 'string' && attrs.template) {
+      /*
+       * Whether the template **exists** is `refFaults`' question — it is the same question asked of
+       * a placement, and asking it twice in two wordings is how they drift. What stays here is the
+       * half that is not about resolution: a definition that is there and has nowhere to put the
+       * page's own blocks.
+       */
       const definition = definitionsOf(doc as never).find((one) => one.id === attrs.template);
-      if (!definition) {
-        found.push({ sid, kind: 'reference', said: `'${attrs.template}' 템플릿이 없습니다` });
-      } else if (!hasSlot(doc, definition.sid)) {
+      if (definition && !hasSlot(doc, definition.sid)) {
         found.push({
           sid,
           kind: 'reference',
@@ -484,16 +647,6 @@ export function documentFaults(
         found.push({ sid, kind: 'form', said });
     }
 
-    /*
-     * And a picture naming a file the document does not hold — the same shape as a link to a page
-     * that was deleted, and just as invisible: the image breaks on the one page that draws it.
-     */
-    if (node.stype === 'picture' && isAssetRef(attrs.src)) {
-      const name = assetNameOf(attrs.src);
-      if (!assetNamed(doc as never, name)) {
-        found.push({ sid, kind: 'asset', said: `'${name}' 그림 파일이 없습니다` });
-      }
-    }
 
     if (node.stype === 'collection') {
       /*
@@ -664,15 +817,15 @@ export function documentFaults(
     }
   }
 
-  for (const fault of linkFaults(doc)) {
-    /*
-     * The **missing page first**, which is a fact about reading a list rather than about links.
-     * Six broken links read as six copies of one sentence when the sentence leads with *이 링크가*,
-     * and the only part that differs — which page is gone — lands at the end of a wrapped line. The
-     * other checks already lead with the name for the same reason.
-     */
-    found.push({ sid: fault.sid, kind: 'link', said: `'${fault.missing}' 페이지가 없습니다` });
-  }
+  /**
+   * **Every reference in the document, resolved** — see `refFaults`.
+   *
+   * This was `linkFaults`, which walked for link marks. It reported three of the ten shapes that
+   * name something, so deleting two of the sample's pages left two dangling references and this
+   * function returned an empty list. The walk above no longer asks any resolution question either:
+   * five of them were written one per node type, each seeing only the type it was written for.
+   */
+  found.push(...refFaults(doc, refsIn(doc as never)));
 
   return found;
 }

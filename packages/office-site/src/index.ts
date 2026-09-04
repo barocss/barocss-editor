@@ -50,8 +50,6 @@ export {
   hrefFor,
   linkOf,
   isPageRef,
-  linkFaults,
-  linksTo,
   pageIdOf,
   pageLinkOf,
   pageRef,
@@ -126,6 +124,7 @@ export {
   richRef,
   richNameOf,
   richTextNamed,
+  richTextsOf,
   isRichRef,
   RICH_PREFIX,
   DATA_FIELD_KIND_ICONS,
@@ -174,6 +173,9 @@ export {
   SITE_MENUS,
   /* The same bar, with one entry per width the **document** declares — see `siteMenusFor`. */
   siteMenusFor,
+  /* And the same bar again, for the **place** the reader is standing in — 관리 or a page. */
+  siteMenusIn,
+  type SitePlace,
   siteMenuCommands,
   siteMenuEntry,
   siteMenuId,
@@ -195,8 +197,9 @@ export {
   type Carried,
   type CarrySource
 } from './carried';
-export { documentFaults, FAULT_KINDS, holderOf, type Declares, type Fault } from './faults';
-export { refCounts, refsFrom, refsIn, type Ref, type RefKind } from './refs';
+export { documentFaults, refFaults, FAULT_KINDS, holderOf, type Declares, type Fault } from './faults';
+export { iGa } from './korean';
+export { breakageSaid, breaksIfGone, refCounts, refsFrom, refsIn, type Breakage, type Ref, type RefKind, type RefVia } from './refs';
 
 /**
  * **Whether a block is on the page, and at which widths** — and this file exported none of it.
@@ -223,7 +226,7 @@ export { FACES, SCALES, baseSizeOf, typeCss, typeRule, type TypeSetting } from '
 export { nfc, sameName } from './names';
 /** An address that is actually an address — see the table of what a free string was doing instead. */
 export { holdsABlock } from './selection';
-export { isCleanPath, pathFaults, pathFor, slugFor } from './slug';
+export { freeAddressFor, isCleanPath, latinSlugFor, pathFaults, pathFor, romanise, slugFor } from './slug';
 export { liveScript, markLive, type LiveQuery } from './live';
 export { POSITIONS, positionCss, type Placed } from './position';
 /** A site as one file, because a folder is the only shape a published site has. */
@@ -378,6 +381,7 @@ export {
   breakpointOf,
   createSiteEnv,
   viewportOf,
+  screenOf,
   scopesFor,
   type BreakpointId,
   type SiteEnv

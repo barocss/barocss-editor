@@ -969,7 +969,30 @@ export const SITE_PANEL: SitePanelRow[] = [
       { attr: 'maxHeight', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대', ariaLabel: '최대 높이', control: 'number', unit: 'px', min: 0 }
     ]
   },
-
+  /**
+   * **화면 높이** — the one relative length this document can say, and a row of its own.
+   *
+   * Tried as a third control on 높이 범위 first and **measured**: three number fields with units do
+   * not fit 240 pixels, the row wrapped to 54px where every other row is 24, and the panel came out
+   * *taller* than with a row of its own. A pair that does not fit is not a pair.
+   *
+   * `unit: '화면'` rather than `vh`: the number is screenfuls, `0.5` is half of one, and a reader
+   * typing 1 is saying *this section fills the first screen*. See `site-schema.ts` for why a count
+   * of screens rather than a unit on a length.
+   */
+  {
+    attr: 'minScreens',
+    command: 'setBlockFormat',
+    group: '크기',
+    tab: 'block',
+    label: '화면 높이',
+    ariaLabel: '화면 높이',
+    control: 'number',
+    unit: '화면',
+    min: 0,
+    step: 0.5,
+    when: { attr: 'position', is: [undefined, '', 'sticky'] }
+  },
   // ── 폼 — where what a visitor typed goes ──────────────────────────────────
   /**
    * **Where the answers go**, which is the only thing about a form that is not about drawing it.
@@ -1197,6 +1220,10 @@ export const SITE_PANEL: SitePanelRow[] = [
   /*
    * And what is **over** what. Offered with no position chosen as well, because a block in the flow
    * needs it too: a header that scrolls under a hero picture is this one number.
+   *
+   * Tried beside 방식 as a pair and **measured**: a `choice` and a number do not fit 240 pixels, the
+   * row wrapped to 54 where every other row is 24, and the panel came out no shorter. At this width a
+   * row holds two numbers or two checkboxes; a select takes the row.
    */
   { attr: 'zOrder', command: 'setBlockFormat', group: '위치', tab: 'block', label: '순서', ariaLabel: '겹침 순서', control: 'number', on: PLACED },
   /**
@@ -1211,6 +1238,10 @@ export const SITE_PANEL: SitePanelRow[] = [
    *
    * Beside 칸 수 because both are about where a block sits rather than how big it is, and a reader
    * who has just capped a column is one row away from the question this answers.
+   *
+   * Tried **on** the 폭 범위 row, since that is the half this is of, and measured: three controls
+   * wrap it to 54px where every other row is 24. At 240 pixels a row holds **two**, whatever they
+   * are — which is why the pairs that exist are pairs and there is no third one to make.
    */
   {
     attr: 'centred',

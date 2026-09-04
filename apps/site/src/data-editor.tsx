@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
-import { getGlobalRegistry } from '@barocss/dsl';
-import { EditorViewDOM } from '@barocss/editor-view-dom';
-import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import {
   Button,
   ChoiceSelect,
@@ -15,6 +12,8 @@ import {
   ColorField,
   type ChoiceOption
 } from '@barocss/office-ui';
+import { openNote, type NoteSession } from '@barocss/office-note';
+import { NoteEditor } from '@barocss/office-note/view';
 import {
   assetsOf,
   richPlain,
@@ -99,7 +98,14 @@ function Cell({
    * Absent in the table, on purpose: a row is one line tall and a paragraph editor in it would be a
    * cell that grows as somebody types. The form has the room, so the form gets the editor.
    */
-  richAt?: { editor: Editor; sid: string };
+  /**
+   * Where a 서식 있는 글 column's words live, and what the bar over them needs.
+   *
+   * `run` and `revision` come along because the bar's rows say whether they can run **here** — a
+   * body holds no 버튼 — and that answer changes as the caret moves.
+   */
+  /** Where a 서식 있는 글 column's words live in the **host's** document — see `NoteField`. */
+  richAt?: { host: Editor; sid: string; onBlocks: (blocks: unknown[]) => void };
   /** The document's pages, for a column that holds a page reference. */
   pages: ChoiceOption[];
   /** And its pictures, for one that holds an `asset:`. */
@@ -126,7 +132,8 @@ function Cell({
        * same document and the same selection. See `RichEdit`.
        */
       return richAt ? (
-        <RichEdit editor={richAt.editor} sid={richAt.sid} />
+        /* One per rich cell, because a row may declare two — 요약 for a card, 본문 for the post. */
+        <NoteField host={richAt.host} sid={richAt.sid} onBlocks={richAt.onBlocks} />
       ) : (
         <span className="st-cell-rich" title={text}>
           {plain || <em>비어 있음</em>}
@@ -263,46 +270,67 @@ function Cell({
  *   assigns to `content` — so a proxy over the store gets resolved nodes written back into the
  *   document. `rootId` only.
  */
-function RichEdit({ editor, sid }: { editor: Editor; sid: string }) {
-  const host = useRef<HTMLDivElement>(null);
-  const view = useRef<EditorViewDOM | null>(null);
+/**
+ * **A body, in a session of its own** — the host's side of `openNote`.
+ *
+ * ## Why this component exists at all
+ *
+ * Because the session has a lifetime and React has to own it. `openNote` makes a store, loads a copy
+ * of the body into it and starts listening; `close` lets go. A mount and an unmount is exactly that
+ * shape, and doing it any other way is a store per render.
+ *
+ * ## And what it fixes
+ *
+ * `[EditorViewDOM] selection retry exceeded`, on every click into a body. The bar and the view were
+ * the note's, and the **editor** was still the site's — one editor means one selection, and a
+ * selection is applied by *every* view, so the boards were told the caret is at a `site:` node they
+ * do not draw and searched their own DOM for it until they gave up. Read exactly right from the
+ * outside: *난 분명 office-note 를 드래그 했는데 office-site 의 editor 가 selection 을 넣는 느낌이야.*
+ */
+function NoteField({
+  host,
+  sid,
+  onBlocks
+}: {
+  host: Editor;
+  sid: string;
+  onBlocks: (blocks: unknown[]) => void;
+}) {
+  const [held, setHeld] = useState<NoteSession | undefined>(undefined);
+  /*
+   * The callback, kept in a ref: `openNote` takes it once and the session outlives every render, so
+   * closing over the first one would write home with a stale `run`.
+   */
+  const told = useRef(onBlocks);
+  told.current = onBlocks;
 
   useEffect(() => {
-    if (!host.current) return;
+    const store = (host as never as { dataStore: { getNode: (one: string) => never } }).dataStore;
+    const one = openNote({ getNode: (at: string) => store.getNode(at) } as never, sid, {
+      onChange: (blocks) => told.current(blocks)
+    });
+    setHeld(one);
+    return () => {
+      one.close();
+      setHeld(undefined);
+    };
+  }, [host, sid]);
 
-    if (!view.current) {
-      const store = (editor as never as { dataStore: { getNode: (one: string) => unknown } }).dataStore;
-      const doc = {
-        rootId: (editor as never as { getRootId: () => string }).getRootId(),
-        getNode: (one: string) => store.getNode(one) as never
-      };
-      view.current = new EditorViewDOM(editor, {
-        container: host.current,
-        registry: getGlobalRegistry(),
-        rootId: sid,
-        /*
-         * The text environment, the same one every view of this document has: a summary's paragraphs
-         * are the document's paragraphs and resolve their formatting the same way. **No site env** —
-         * this is not drawn at a width, and a breakpoint here would be a question with no meaning.
-         */
-        env: { [WORD_ENV_KEY]: createTextEnv(doc as never) }
-      } as never);
-    }
-
-    view.current.setRootId(sid);
-    view.current.render(undefined, { sync: true });
-  }, [editor, sid]);
-
-  useEffect(
-    () => () => {
-      view.current?.destroy?.();
-      view.current = null;
-    },
-    []
-  );
-
-  return <div ref={host} className="st-rich-edit" data-rich-edit={sid} />;
+  if (!held) return <div className="on-note" data-note-loading={sid} />;
+  return <NoteEditor editor={held.editor} rootId={held.rootId} />;
 }
+
+/*
+ * **미니 에디터는 `@barocss/office-note`의 것입니다.**
+ *
+ * `MiniText` and `RichEdit` were here: a bar assembled out of `siteControlsIn('text')` and
+ * `siteSlashItems()` — the **page's** declarations — over a view this file mounted. So what a writer
+ * could do to a post was decided by what a designer could do to a page, which is the coupling
+ * reported as *이 툴바가 기존 페이지 빌더 툴바랑 연동되고 있음. 그러면 안돼.*
+ *
+ * A body is its own thing with its own schema, kit, toolbar and chrome. What this file does now is
+ * hand `NoteEditor` the two things only a host knows: which editor, and which node.
+ */
 
 /**
  * **속성 추가** — a name and what it holds, in one gesture.
@@ -761,7 +789,26 @@ export function DataTable({
                 // Keyed by position, which is honest: a row here has no identity of its own — it is
                 // the nth entry of an array — and pretending otherwise with a synthesised key would
                 // make React keep the wrong input focused after a delete.
-                <tr key={index} data-row={index}>
+                <tr
+                  key={index}
+                  data-row={index}
+                  /**
+                   * **행 전체로도 열린다** — asked for after the number turned out to be the only way
+                   * in, and it has to be careful about one thing: a cell **is** a field, so a plain
+                   * click has to keep landing in it.
+                   *
+                   * So two gestures rather than one. A single click opens the row only where it did
+                   * not land on something interactive — the gaps, the paddings, a quiet cell — and a
+                   * **double click anywhere** opens it, which is the gesture that cannot collide
+                   * because a field's own double click selects a word and this one is on the row.
+                   */
+                  onClick={(event) => {
+                    const at = event.target as HTMLElement;
+                    if (at.closest('input, select, button, textarea, [contenteditable="true"], label')) return;
+                    onOpenRow?.(index);
+                  }}
+                  onDoubleClick={() => onOpenRow?.(index)}
+                >
                   <th scope="row" className="st-data-rownum">
                     {/*
                       The row number **is** the way into the form, which is where every tool of this
@@ -772,10 +819,26 @@ export function DataTable({
                       type="button"
                       className="st-data-open"
                       aria-label={`${index + 1}행 펼치기`}
+                      title="이 행을 폼으로 엽니다"
                       onClick={() => onOpenRow?.(index)}
                       data-row-open={String(index)}
                     >
-                      {index + 1}
+                      {/**
+                       * **The number, and then the way in.**
+                       *
+                       * Reported as *Drawer 가 어디서 열리는지 모르겠어* — and the reading was exact:
+                       * the row number **is** the button, drawn in the faintest ink the palette has,
+                       * with no icon, no word and nothing but a hover colour to say it does anything.
+                       * A reader who does not already know cannot find out by looking, which is the
+                       * definition of undiscoverable.
+                       *
+                       * So the number stays where a reader is already aiming, and an icon takes its
+                       * place while the pointer is on the row — the pattern every tool of this kind
+                       * uses, because a control on all five hundred rows at once is a column of
+                       * clutter and one on the row under the pointer is an answer.
+                       */}
+                      <span className="st-data-rownum-n">{index + 1}</span>
+                      <Icon name="expand" size={12} />
                     </button>
                   </th>
                   {data.fields.map((field) => (
@@ -917,7 +980,12 @@ export function RowForm({
       }}
       title={`${at.row + 1}행`}
       description={`${shown.label} · ${shown.rows}행 중 ${at.row + 1}번째`}
-      width="24rem"
+      /*
+       * **Wider**, because what is in it stopped being a column of fields: a 서식 있는 글 column
+       * draws a whole editor, and a body written at 24rem is a body written down a gutter. Two of
+       * them — which a row may have — is two gutters side by side.
+       */
+      width="40rem"
       className="st-row-form"
     >
       <div className="st-row-fields" data-row-form={String(at.row)}>
@@ -944,7 +1012,19 @@ export function RowForm({
               richAt={(() => {
                 if (field.kind !== 'richText') return undefined;
                 const one = richTextNamed(doc as never, shown.record[field.name]);
-                return one?.sid ? { editor, sid: String(one.sid) } : undefined;
+                return one?.sid
+                  ? {
+                      host: editor,
+                      sid: String(one.sid),
+                      /*
+                       * And **home again**: the session edits a copy in a store of its own, so what
+                       * it changes has to be written back into the document the card draws from.
+                       * `setRichText` is the host's transaction — see `data-commands.ts`.
+                       */
+                      onBlocks: (blocks: unknown[]) =>
+                        run('setRichText', { nodeId: String(one.sid), blocks })
+                    }
+                  : undefined;
               })()}
               pages={pages}
               assets={assets}

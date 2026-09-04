@@ -17,6 +17,8 @@ export {
   each,
   component,
   define,
+  intoRegistry,
+  registryInScope,
   renderer,
   external,
   getGlobalRegistry,

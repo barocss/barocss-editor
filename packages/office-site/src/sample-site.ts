@@ -532,6 +532,14 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
       address: 'https://barocss.example'
     },
     content: [
+      /**
+       * **사이트의 이름**, which the file has room for and this fixture was not using.
+       *
+       * `docMeta` is the shared schema's *what this document is called*, and 관리's nav draws it as
+       * the first line — which site is open. With none, the screen opened saying *이름 없는 사이트*
+       * over a real eight-page site, which is a fixture not wearing what it tests.
+       */
+      { stype: 'docMeta', content: [{ stype: 'docTitle', content: [{ stype: 'inline-text', text: '바로 사이트' }] }] },
       home(),
       products(),
       pricing(),
@@ -747,6 +755,39 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
               ])
             ]
           },
+          /**
+           * **본문**, and the reason there are two rich columns rather than one.
+           *
+           * 요약 is what a card shows in a list; this is the post itself. A row having *two* bodies is
+           * the case a single editor in the drawer would have got wrong — asked as *속성에 rich text
+           * 가 여러개면 에디터가 여러개 나와야할 듯 한데*, and it does, because the editor is drawn per
+           * **cell** rather than per row. The fixture wears it so that stays true.
+           */
+          {
+            stype: 'richText',
+            attributes: { id: '본문-스택' },
+            content: [
+              heading(2, '좌표를 먼저 만들고 나서'),
+              paragraph([
+                text('자유 배치가 페이지에 필요하다고 믿었고, 세 폭에 같은 카드를 세 번 놓아본 뒤에 '),
+                emphasised('그게 약속이라는 것'),
+                text('을 알았습니다.')
+              ]),
+              paragraph([text('쌓임은 브라우저가 이미 아는 문법이고, 좌표는 우리가 폭마다 다시 말해야 하는 것입니다.')])
+            ]
+          },
+          {
+            stype: 'richText',
+            attributes: { id: '본문-모델' },
+            content: [
+              heading(2, '노드 하나가 세 곳에서'),
+              paragraph([
+                text('워드의 문단이 덱의 상자와 사이트의 블록으로 같이 쓰이는 이유는 '),
+                emphasised('surface'),
+                text('가 공유 스키마의 이음매라서입니다.')
+              ])
+            ]
+          },
           {
             stype: 'dataset',
             attributes: {
@@ -777,6 +818,12 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
                  */
                 { name: '요약', kind: 'richText' },
                 /*
+                 * **본문**, the second rich column — a card shows the summary and the post is this.
+                 * Two of them in one row is what makes *one editor per cell* a claim rather than an
+                 * implementation detail; see the `richText` nodes above.
+                 */
+                { name: '본문', kind: 'richText' },
+                /*
                  * **A date, and the card no longer has to be told.** `post-row` declares 날짜 as a
                  * date so it can be read as *2026년 9월 3일*; that is the card's `format`. That it
                  * *is* a date is this column's fact, and a second card drawing the same column no
@@ -796,6 +843,7 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
                 {
                   제목: '스택이 페이지의 문법이다',
                   요약: 'text:요약-스택',
+                  본문: 'text:본문-스택',
                   날짜: '2026-09-03',
                   추천: true,
                   페이지: 'page:post-stack'
@@ -803,6 +851,7 @@ export function createSampleSite(): SchemaDefinition extends never ? never : Nod
                 {
                   제목: '한 문서 모델로 세 제품',
                   요약: 'text:요약-모델',
+                  본문: 'text:본문-모델',
                   날짜: '2026-08-02',
                   추천: true,
                   페이지: 'page:post-schema'
@@ -963,6 +1012,23 @@ function home(): Node {
            * cause was a value that is correct at one width and wrong at the two nobody checked.
            */
           alignItems: 'stretch',
+          /**
+           * **한 화면** — the hero fills the first screenful, which is the one relative length this
+           * document can say and the reason `minScreens` exists.
+           *
+           * A landing page's first screen is the whole of what most visitors ever see, and designing
+           * it as *whatever the content adds up to* is designing the most important part of the site
+           * by accident. One screen guarantees the fold: the claim, the two sentences under it and
+           * the picture are what is there when the page opens, and everything else is a scroll the
+           * visitor chose.
+           *
+           * `justifyContent: center` with it, because the two are one decision. A column that is
+           * taller than its content puts the extra space at the **end** by default, so a screen-tall
+           * hero with top-aligned content is the old hero with a gap under it — which looks like a
+           * mistake and is one.
+           */
+          minScreens: 1,
+          justifyContent: 'center',
           /*
            * **Taller.** The paper showing is a decision: the composition asks for a quarter to a half
            * of the page to be ground, and a hero that fills to its edges has nothing to be loud
@@ -2929,7 +2995,27 @@ function components(): Node {
               ]),
               stack('column', { gap: GAP.hair, sizing: 'fill', partId: 'b-what' }, [
                 heading(3, '제목', { partId: 'b-title' }),
-                paragraph('요약', { partId: 'b-body' })
+                /**
+                 * **본문 자리, 문단이 아니라 본문** — and the difference was visible in the published
+                 * file.
+                 *
+                 * It was `paragraph('요약')`, so the card declared this slot as *characters*: the
+                 * variable said `kind: 'text'`, the bind wrote `attr: 'text'`, and the part was a
+                 * `<p>`. What arrives is a **body** — blocks — so the drawing put a `<p>` inside a
+                 * `<p>`, which is not valid HTML. The browser split them: the published blog page
+                 * shipped **four empty paragraphs**, one per row, and the outer paragraph — the one
+                 * carrying whatever the card said about this slot — was orphaned and dropped.
+                 *
+                 * Nothing looked wrong yet because that paragraph carried only `margin: 0`. The
+                 * moment a designer gave this slot a colour or a size, the parser would have thrown
+                 * it away, which is the rule *칠·여백·크기는 카드의 것* failing silently.
+                 *
+                 * A `richText` part instead: it draws `<div class="st-rich">`, the body's blocks go
+                 * inside it legally, and the card's own rules apply to the div. The same node a
+                 * reader places from 추가 — one shape for *write a body here*, wherever the words
+                 * are kept.
+                 */
+                { stype: 'richText', attributes: { partId: 'b-body' }, content: [paragraph('요약')] }
               ])
             ]
           )

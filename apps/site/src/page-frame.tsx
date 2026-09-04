@@ -11,7 +11,6 @@ import {
   type SiteWidth
 } from '@barocss/office-site';
 import { viewportOf, deviceNamed, deviceMatches } from '@barocss/office-site';
-import { Overlay, type PointerMode } from './overlay';
 
 /**
  * One page, at one width, editable.
@@ -65,28 +64,17 @@ export function PageFrame({
   label,
   width,
   page,
-  scopeRoot,
-  mode,
   preview,
   wireframe,
   widths,
-  onAdd,
-  onEnterText,
-  onEditComponent,
-  onRow,
-  onEditRow,
-  onEditCode,
   onFollow,
   redraw,
-  scope,
-  onScope
+  overlay
 }: {
   editor: Editor;
   breakpoint: BreakpointId;
   /** Whether this board is drawing the page with its finish taken off — see `wireframe.ts`. */
   wireframe?: boolean;
-  /** A plus at the end of a block's flow was pressed — the app opens the one dialog. */
-  onAdd?: (place: { parentId: string; at: number }) => void;
   /**
    * The widths this **document** is designed at, so this view resolves overrides through its own list.
    *
@@ -98,17 +86,6 @@ export function PageFrame({
   width: number;
   page?: string;
   /**
-   * What the **pointer** treats as the outermost thing, when that is not what is drawn.
-   *
-   * They are the same on a page. Inside a definition they are not: the board draws the definition's
-   * *part*, and a board's root is never selectable — it plays the page's role — so the part's own
-   * padding, direction and colour were unreachable. Walking from the `component` one level above it
-   * makes the part an ordinary child, and costs nothing: this is only ever the walk's stopping
-   * point, never the thing rendered.
-   */
-  scopeRoot?: string;
-  mode: PointerMode;
-  /**
    * Whether the board is being **looked at** rather than built.
    *
    * The one thing a builder cannot otherwise show: a page has no height of its own, so what a
@@ -118,14 +95,6 @@ export function PageFrame({
    * *what the page does*, and until now there was nowhere for the page to do anything.
    */
   preview?: boolean;
-  onEnterText: (sid: string) => void;
-  onEditComponent?: (componentId: string, from?: { collection: string; index: number }) => void;
-  /** Which row of which list the last press landed in — see `Overlay`. */
-  onRow?: (at: { collection: string; index: number } | undefined) => void;
-  /** Open that row as a form, with the row the request was made about. */
-  onEditRow?: (at: { collection: string; index: number }) => void;
-  /** A code block a reader asked to edit, and where it is on screen. */
-  onEditCode?: (sid: string, box: { left: number; top: number; width: number; height: number }) => void;
   /** A link followed in preview: the page it names, by address, rather than the browser's own. */
   onFollow?: (path: string) => void;
   /**
@@ -137,8 +106,14 @@ export function PageFrame({
    * store, hears nothing.
    */
   redraw?: number;
-  scope: string;
-  onScope: (scope: string) => void;
+  /**
+   * What draws over the board — the pointer's owner, or nothing.
+   *
+   * A function of the host element because the frame owns that ref and an overlay has to be
+   * positioned against it. Absent, this is a board that draws and cannot be pointed at, which is a
+   * real thing: a preview pane, a thumbnail, a published page being checked at three widths.
+   */
+  overlay?: (host: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
@@ -311,23 +286,21 @@ export function PageFrame({
           One per board, because the outline has to be drawn where the node is drawn, and the same
           node is drawn three times.
         */}
-        {page && !preview ? (
-          <Overlay
-            editor={editor}
-            host={host}
-            page={scopeRoot ?? page}
-            breakpoint={breakpoint}
-            mode={mode}
-            onEnterText={onEnterText}
-            onEditComponent={onEditComponent}
-            onRow={onRow}
-            onEditRow={onEditRow}
-            onEditCode={onEditCode}
-            onAdd={onAdd}
-            scope={scope}
-            onScope={onScope}
-          />
-        ) : null}
+        {/**
+          * **그리기와 가리키기를 가릅니다.**
+          *
+          * A board draws a page at a width; an overlay is what makes it pointable. They were one
+          * component, and that was the **only backward edge** in the whole app — the editing surface
+          * importing a piece of the chrome, where everything else points the other way.
+          *
+          * It matters because the two belong to different tiers. A board with no overlay is a real
+          * thing somebody wants: a preview pane, a thumbnail, a CMS's read view, a published page
+          * being checked at three widths. A board with one is an editor.
+          *
+          * So the overlay arrives as a function of the host element rather than being reached for —
+          * the frame owns that ref, and the overlay has to be positioned against it.
+          */}
+        {page && !preview ? overlay?.(host) : null}
       </div>
     </section>
   );

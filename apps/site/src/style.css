@@ -32,6 +32,13 @@
 @import "@barocss/office-ui/tokens.css";
 
 /*
+ * And **the note editor's own**, which is the point of it being a package: a body's chrome is styled
+ * where a body is defined, not here. What was in this file — `.st-rich-edit`, `.st-mini`,
+ * `.st-rich-body` and the prose rules — is now `office-note/note.css`.
+ */
+@import "@barocss/office-note/note.css";
+
+/*
  * The site builder's own surface.
  *
  * Deliberately quiet. Everything a *page* looks like comes from the document — a stack's background,
@@ -2510,6 +2517,15 @@ body {
  * other's job: five columns of a product is a comfortable line, and a blog entry with two sentences
  * in it has scrolled off the right edge before the summary is finished.
  */
+/*
+ * **No scroll of its own.** `Drawer` already puts its children in a `min-h-0 flex-1 overflow-y-auto`
+ * region — which is right, and where a drawer's scroll belongs, because the header stays put. A
+ * second one here was a nested scroller: a wheel over the form scrolls the inner box to its end and
+ * then stops, and the reader has to find the outer one.
+ *
+ * What was actually not scrolling was the **body**, whose cap and overflow had landed on the wrong
+ * element — see `.st-rich-body`.
+ */
 .st-row-fields {
   display: flex;
   flex-direction: column;
@@ -2549,13 +2565,39 @@ body {
  * The row number **is** the way into the form: the one part of a row that is not a value, and the
  * one a reader is already aiming at when they mean *this row* rather than *this cell*.
  */
+/*
+ * **행을 여는 것** — the number, and the picture that says it opens.
+ *
+ * Reported as *Drawer 가 어디서 열리는지 모르겠어*: the number **was** the button, in the faintest
+ * ink there is, with nothing on it. So the icon is drawn on the row under the pointer — a control on
+ * five hundred rows at once is a column of clutter, and one on the row being pointed at is an
+ * answer — and the number moves aside to make room rather than being replaced, because it is what a
+ * reader is aiming at.
+ */
 .st-data-open {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
   width: 100%;
   padding: 0 2px;
-  text-align: right;
   color: var(--ou-faint);
   font-variant-numeric: tabular-nums;
   border-radius: var(--ou-radius);
+}
+
+.st-data-open svg {
+  /* Room kept whether or not it is drawn, so the number does not jump as the pointer crosses. */
+  opacity: 0;
+  transition: opacity var(--ou-quick);
+}
+
+.st-data-grid tbody tr:hover .st-data-open {
+  color: var(--ou-ink);
+}
+
+.st-data-grid tbody tr:hover .st-data-open svg {
+  opacity: 1;
 }
 
 .st-data-open:hover {
@@ -2731,38 +2773,13 @@ body {
 .st-add-do { display: flex; gap: 6px; }
 
 /*
- * ── 서식 있는 글, 고치는 자리 ─────────────────────────────────────
+ * **The rules for a body moved to `office-note/note.css`.**
  *
- * A second `EditorViewDOM` over the same editor, pointed at the `richText` node — see `RichEdit` for
- * why that is the whole implementation. What this file has to do is give it a box that reads as a
- * field: the words are the document's, so they arrive with the document's own type, and the frame
- * around them is what says *you may type here*.
+ * They were here — a box that reads as a field, and the prose type inside it — which made what a
+ * writing surface looks like the site builder's decision. A body is its own thing now: `.on-note`,
+ * `.on-bar` and `.on-body`, styled where they are defined, in `office-ui`'s tokens with fallbacks
+ * so the package draws a bar in a host that never heard of a site.
  */
-.st-rich-edit {
-  min-height: 4rem;
-  max-height: 14rem;
-  overflow-y: auto;
-  padding: 4px 6px;
-  border: 1px solid var(--ou-field-line);
-  border-radius: var(--ou-radius);
-  background: var(--ou-panel);
-  font-size: var(--ou-text);
-  line-height: 1.5;
-}
-
-.st-rich-edit:hover { border-color: var(--ou-line); }
-.st-rich-edit:focus-within { border-color: var(--ou-accent); }
-
-/* The page's own margins are the page's; in a field they would be a paragraph adrift in a box. */
-.st-rich-edit p,
-.st-rich-edit h1,
-.st-rich-edit h2,
-.st-rich-edit h3 {
-  margin: 0;
-}
-
-.st-rich-edit p + p { margin-top: 6px; }
-
 /*
  * ── 차트 ─────────────────────────────────────────────────────────
  *
@@ -2855,33 +2872,168 @@ body {
   flex: 1;
   min-width: 0;
   background: var(--ou-ground);
+  /*
+   * **A rule inside a surface is not the border around one.** `--ou-line` is what separates two
+   * regions of the shell; between forty rows of a table it is a fence — which is the same argument
+   * `--ou-field-line` makes about a field's edge, one level out.
+   */
+  --st-rule: color-mix(in srgb, var(--ou-line) 45%, var(--ou-panel));
+  --st-hover: color-mix(in srgb, var(--ou-ground) 55%, var(--ou-panel));
 }
 
-/* Its own nav, not the builder's rail: 추가 and 구성 are tools for editing a page. */
+/*
+ * Its own nav, not the builder's rail: 추가 and 구성 are tools for editing a page.
+ *
+ * **On the ground rather than on a panel**, which is the inversion the whole screen turns on. The
+ * content is the thing being worked on, so the content is the lifted white surface and everything
+ * around it is the ground it sits on — which is what every settings screen of this kind does, and
+ * what makes a selected tab able to read as *the sheet you are looking at* rather than as a
+ * highlight.
+ */
 .st-admin-nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  width: 11rem;
+  width: 14rem;
   flex: none;
-  padding: 12px 8px;
+  padding: 10px;
   border-right: 1px solid var(--ou-line);
-  background: var(--ou-panel);
 }
 
-.st-admin-nav button {
-  padding: 6px 10px;
+/**
+ * **무엇을 열어 두었는가.**
+ *
+ * The word `사이트` was a label over five nouns, which says what the list is *of* and nothing about
+ * which site is open or where it goes. The titlebar says `Barocss Site`, and that is the product's
+ * name. On a screen whose whole job is managing one site, the first line should be that site.
+ */
+.st-admin-who {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px 12px;
+  min-width: 0;
+}
+
+.st-admin-who strong {
+  font-size: var(--ou-text);
+  font-weight: 600;
+  color: var(--ou-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-admin-who span {
+  font-size: var(--ou-text-small);
+  color: var(--ou-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-admin-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.st-admin-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--ou-control-h);
+  padding: 0 10px;
   text-align: left;
   border-radius: var(--ou-radius);
   color: var(--ou-muted);
   font-size: var(--ou-text);
+  transition: background var(--ou-quick), color var(--ou-quick);
 }
 
-.st-admin-nav button:hover { background: var(--ou-ground); }
+.st-admin-tabs button > span { flex: 1; min-width: 0; }
 
+/**
+ * **몇 개인지, 이름 옆에.**
+ *
+ * Five bare words say what a site is made of and nothing about what is in it, so a reader had to
+ * open all five to learn whether this one has three datasets or thirty. Tabular figures because a
+ * column of counts that jitters is a column that reads as decoration.
+ */
+.st-admin-tabs em {
+  font-style: normal;
+  font-size: var(--ou-text-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--ou-faint);
+}
+
+.st-admin-tabs button:hover {
+  background: var(--st-hover);
+  color: var(--ou-ink);
+}
+
+.st-admin-tabs button:hover em { color: var(--ou-muted); }
+
+/**
+ * **나갈 준비가 되었는가**, at the foot of the list.
+ *
+ * The question a management screen is opened to answer, and it was three clicks in — a reader had to
+ * choose 발행 to find out whether anything had changed since the last one. A status line goes at the
+ * bottom of a nav in every tool of this shape, and here it doubles as the way to that tab.
+ */
+.st-admin-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: auto;
+  padding: 9px 10px;
+  border-radius: var(--ou-radius);
+  text-align: left;
+  color: var(--ou-muted);
+  font-size: var(--ou-text-small);
+  line-height: 1.45;
+  transition: background var(--ou-quick), color var(--ou-quick);
+}
+
+.st-admin-state:hover { background: var(--st-hover); color: var(--ou-ink); }
+
+/**
+ * The dot is the state; the sentence is the detail. A reader scanning reads the dot.
+ *
+ * **And only one of the three is coloured**, which is the token file's own argument taken rather
+ * than repeated: `--ou-warn` is *look at this when you have a moment*, and there is no `--ou-good`
+ * because this suite has never needed one. A site that matches what was published has nothing to
+ * look at, so it is drawn as nothing to look at; a site nobody has published yet is drawn hollow,
+ * because that is a state rather than a problem. Only *바뀐 것 있음* asks for anything.
+ */
+.st-admin-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  border: 1px solid var(--ou-faint);
+}
+
+.st-admin-state[data-admin-state='current'] .st-admin-dot {
+  background: var(--ou-muted);
+  border-color: var(--ou-muted);
+}
+
+.st-admin-state[data-admin-state='behind'] .st-admin-dot {
+  background: var(--ou-warn);
+  border-color: var(--ou-warn);
+}
+
+/*
+ * **The sheet, not a highlight.** It was `--ou-accent-soft` with accent text — a blue chip in a
+ * column of five grey words, which is a lot of colour for *where you are*. The white pill says the
+ * same thing in the vocabulary the screen already uses: this tab is the surface on the right.
+ */
 .st-admin-nav button[aria-current='page'] {
-  background: var(--ou-accent-soft);
-  color: var(--ou-accent);
+  background: var(--ou-panel);
+  color: var(--ou-ink);
+  font-weight: 600;
+  box-shadow: var(--ou-lift-1);
 }
 
 .st-admin-body {
@@ -2889,24 +3041,66 @@ body {
   flex-direction: column;
   flex: 1;
   min-width: 0;
-  padding: 16px 20px 20px;
-  gap: 12px;
+  padding: 20px 24px 24px;
+  gap: 14px;
 }
 
 .st-admin-head {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 16px;
 }
 
+.st-admin-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/*
+ * A **title**, which it was not: at `--ou-text` it was the same size as the body of the table under
+ * it, so the screen opened with no line saying what it was.
+ */
 .st-admin-head h2 {
-  font-size: var(--ou-text);
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 19px;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  color: var(--ou-ink);
 }
 
+/**
+ * **The count is a chip inside the title, not a caption beside it.**
+ *
+ * It was `8개` set as body text next to a heading — a caption to a picture that is not there. A
+ * reader scanning for *how many* is scanning the title line, so it belongs on it, and drawn as a
+ * count rather than as a word.
+ */
+.st-admin-count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--st-hover);
+  color: var(--ou-muted);
+  font-size: var(--ou-text-small);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/**
+ * **무엇을 하는 화면인지 한 줄.**
+ *
+ * The screen opened by repeating the tab that was pressed — 페이지 under 페이지 — and said nothing
+ * about what a reader manages here. The five sentences are declared once, in `TABS`, and drawn in
+ * both the nav's tooltip position and here.
+ */
 .st-admin-head p {
   font-size: var(--ou-text-small);
-  color: var(--ou-muted);
+  color: var(--ou-faint);
+  line-height: 1.5;
 }
 
 /* The acts push to the right, because a list is read from the left. */
@@ -2914,37 +3108,219 @@ body {
   margin-left: auto;
   display: flex;
   gap: 6px;
+  flex: none;
 }
 
-.st-admin-scroll {
+/**
+ * ── 찾기 ────────────────────────────────────────────────────────
+ *
+ * Every table here grows: a site of eight pages is a sample and a site of eighty is a Tuesday, and a
+ * table with no way to narrow it is a table a reader scrolls past the row they came for.
+ */
+.st-admin-find {
+  position: relative;
+  display: flex;
+  max-width: 20rem;
+}
+
+.st-admin-find input {
   flex: 1;
+  height: var(--ou-control-h);
+  padding: 0 26px 0 10px;
+  border: 1px solid var(--ou-line);
+  border-radius: var(--ou-radius);
+  background: var(--ou-panel);
+  color: var(--ou-ink);
+  font-size: var(--ou-text);
+}
+
+.st-admin-find input::placeholder { color: var(--ou-faint); }
+
+.st-admin-find input:focus-visible {
+  outline: none;
+  border-color: var(--ou-accent);
+  box-shadow: 0 0 0 3px var(--ou-accent-soft);
+}
+
+/* The browser draws its own clear button on a `search` input, in its own metrics. Ours, or none. */
+.st-admin-find input::-webkit-search-cancel-button { display: none; }
+
+.st-admin-find button {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--ou-radius);
+  color: var(--ou-faint);
+}
+
+.st-admin-find button:hover { background: var(--st-hover); color: var(--ou-ink); }
+
+/**
+ * ── 발행 상태 ───────────────────────────────────────────────────
+ *
+ * The tab opened as a white box with two small labels in it, and a reader had to read both to answer
+ * the one question they came with: *can I press the button*. Three facts answer it — the state, what
+ * would go out, and what is wrong with it — so they are one row, read at a glance.
+ */
+.st-admin-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 10px;
+}
+
+.st-admin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--ou-line);
+  border-radius: 8px;
+  background: var(--ou-panel);
+  box-shadow: var(--ou-lift-1);
+}
+
+.st-admin-card-what {
+  font-size: var(--ou-text-label);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ou-faint);
+}
+
+.st-admin-card strong {
+  font-size: 17px;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+  color: var(--ou-ink);
+}
+
+.st-admin-card-said {
+  font-size: var(--ou-text-small);
+  color: var(--ou-faint);
+  line-height: 1.45;
+}
+
+/* Only the one that asks for something is coloured — see `.st-admin-dot` for the argument. */
+.st-admin-card[data-admin-state='behind'],
+.st-admin-card[data-admin-faults='some'] {
+  border-color: color-mix(in srgb, var(--ou-warn) 40%, var(--ou-line));
+  background: var(--ou-warn-soft);
+}
+
+.st-admin-card[data-admin-state='behind'] strong,
+.st-admin-card[data-admin-faults='some'] strong {
+  color: var(--ou-warn);
+}
+
+/**
+ * ── 상태를 낱말이 아니라 칩으로 ─────────────────────────────────
+ *
+ * 색인 said `예` and `아니오` in the same grey as the address beside it, so *which pages a crawler
+ * may not read* — the one thing on that row worth scanning a column for — was invisible in it.
+ */
+.st-admin-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 19px;
+  padding: 0 8px;
+  border: 1px solid var(--ou-line);
+  border-radius: 999px;
+  background: var(--st-hover);
+  color: var(--ou-faint);
+  font-size: var(--ou-text-small);
+  white-space: nowrap;
+}
+
+.st-admin-chip[data-on] {
+  border-color: transparent;
+  background: var(--ou-accent-soft);
+  color: color-mix(in srgb, var(--ou-accent) 80%, var(--ou-ink));
+}
+
+/* And when a table has run out of rows, said rather than drawn as an empty grid. */
+.st-admin-none {
+  padding: 28px 14px;
+  text-align: center;
+  color: var(--ou-faint);
+  font-size: var(--ou-text-small);
+}
+
+/**
+ * **The card.** The content was floating on bare grey — no edge, no ground of its own, and row
+ * hairlines that stopped where the table's columns did, so the screen read as an unfinished page
+ * rather than as a sheet of settings.
+ *
+ * `overflow: hidden` with the radius, so the sticky header clips to the corner instead of squaring
+ * it off the moment anything scrolls.
+ */
+.st-admin-scroll {
+  /*
+   * **As tall as what is in it**, up to the room there is. `flex: 1` stretched the card to the
+   * bottom of the window, so eight rows sat in a 700px white box with 400 pixels of nothing under
+   * them — a sheet that has run out of content, drawn as a sheet that is missing some.
+   */
+  flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
+  background: var(--ou-panel);
+  border: 1px solid var(--ou-line);
+  border-radius: 8px;
+  box-shadow: var(--ou-lift-1);
 }
 
 .st-admin-table {
   border-collapse: collapse;
   width: 100%;
   font-size: var(--ou-text);
+  /*
+   * **The fields lose their edge**, which is the single loudest thing on this screen: sixteen
+   * bordered boxes down two columns. `--ou-field-line` exists for exactly this and the rail has set
+   * it since it was written — *twenty edges down a column is a fence*. A cell is a field the moment
+   * a pointer is on it, and quiet until then.
+   */
+  --ou-field-line: transparent;
 }
 
 .st-admin-table th,
 .st-admin-table td {
-  border-bottom: 1px solid var(--ou-line);
-  padding: 4px 8px;
+  border-bottom: 1px solid var(--st-rule);
+  padding: 5px 14px;
+  height: 42px;
   text-align: left;
   font-weight: 400;
   vertical-align: middle;
+}
+
+/* The last row's rule is the card's own edge, drawn twice otherwise. */
+.st-admin-table tbody tr:last-child th,
+.st-admin-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.st-admin-table tbody tr {
+  transition: background var(--ou-quick);
+}
+
+.st-admin-table tbody tr:hover {
+  background: var(--st-hover);
 }
 
 .st-admin-table thead th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--ou-ground);
+  background: var(--ou-panel);
+  /* Solid where the rows are soft: the head is a boundary, the rows are a rhythm. */
+  border-bottom: 1px solid var(--ou-line);
+  height: 34px;
   font-size: var(--ou-text-label);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   color: var(--ou-faint);
 }
 
@@ -2960,6 +3336,35 @@ body {
   display: flex;
   gap: 4px;
   justify-content: flex-end;
+}
+
+/**
+ * **네 개의 단추가 여덟 줄이면 서른두 개다.**
+ *
+ * Every row carried 편집, 위로, 복제 and 삭제 drawn at full strength, so the right third of the
+ * table was a field of glyphs and the row a reader was actually looking at had no way to stand out.
+ * They belong to the row under the pointer, which is what a table of this kind does everywhere.
+ *
+ * **Opacity, not `display`**: the row must not change height when the pointer arrives, and a keyboard
+ * reader must still find them — `:focus-within` brings them back, so tabbing through the table works
+ * exactly as it did.
+ */
+.st-admin-table tbody .st-admin-row-do {
+  opacity: 0;
+  transition: opacity var(--ou-quick);
+}
+
+.st-admin-table tbody tr:hover .st-admin-row-do,
+.st-admin-table tbody tr:focus-within .st-admin-row-do {
+  opacity: 1;
+}
+
+/*
+ * Except on a touch screen, where there is no pointer to hover with and *reveal on hover* means
+ * *never*. The same media query every tool of this shape ends up writing.
+ */
+@media (hover: none) {
+  .st-admin-table tbody .st-admin-row-do { opacity: 1; }
 }
 
 .st-admin-part { margin-bottom: 20px; }
@@ -3014,4 +3419,113 @@ body {
   color: var(--ou-accent);
   font-size: var(--ou-text-small);
   white-space: nowrap;
+}
+
+
+/*
+ * ── The edge a reader drags ──────────────────────────────────────
+ *
+ * Four pixels wide and sixteen to hit: a 4px target is a target a pointer misses, and every tool of
+ * this kind widens the hit area past the line it draws. The line itself only appears under the
+ * pointer — an always-drawn handle is a second border down the side of the window.
+ */
+.st-boundary {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* Nine to hit, sitting *past* the boundary so it covers the canvas's empty edge and not a row. */
+  width: 9px;
+  margin-left: -1px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+/*
+ * `left` comes from the region's width — see `Grip`. It sat inside the rail at `right: -5px` first,
+ * where `overflow: hidden` clipped half of it and the rest covered the rows' controls.
+ */
+
+.st-boundary::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 3px;
+  width: 2px;
+  background: var(--ou-accent);
+  opacity: 0;
+  transition: opacity var(--ou-quick);
+}
+
+.st-boundary:hover::after,
+.st-boundary:active::after { opacity: 1; }
+
+/* The body is the grip's containing block, because the grip is between its two children. */
+.st-body { position: relative; }
+
+/*
+ * ── 설정 ────────────────────────────────────────────────────────
+ *
+ * A form, and the one place in this product that is one. Narrow on purpose: a settings field is read
+ * as a sentence and a full-width input is a line nobody's eye can return from.
+ */
+.st-admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 46rem;
+  padding: 18px 20px 20px;
+  background: var(--ou-panel);
+  border: 1px solid var(--ou-line);
+  border-radius: 8px;
+  box-shadow: var(--ou-lift-1);
+}
+
+.st-admin-form .st-admin-part { margin-bottom: 0; }
+
+.st-admin-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  align-items: start;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--st-rule);
+}
+
+.st-admin-field-what {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.st-admin-field-what strong {
+  font-size: var(--ou-text);
+  font-weight: 600;
+  color: var(--ou-ink);
+}
+
+/*
+ * **무엇을 하는 것인지 한 줄.** A settings screen without these is one a reader guesses at, and the
+ * guesses are expensive here: 주소 looks optional and three things in the published head go missing
+ * without it.
+ */
+.st-admin-field-what span {
+  font-size: var(--ou-text-small);
+  color: var(--ou-faint);
+  line-height: 1.5;
+}
+
+.st-admin-field-do { min-width: 0; }
+
+/* The fields keep their edge here, unlike in a table — see `--ou-field-line`. */
+.st-admin-form .st-admin-field-do { --ou-field-line: var(--ou-line); }
+
+.st-admin-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--ou-control-h);
+  color: var(--ou-muted);
+  font-size: var(--ou-text-small);
+  cursor: pointer;
 }

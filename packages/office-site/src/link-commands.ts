@@ -67,7 +67,7 @@ export class SiteLinkExtension implements Extension {
        * **With one** — that too, and the page has to *be there*. A reader cannot type this one, but
        * a keybinding, a macro or a test can, and a reference to a page that never existed is
        * indistinguishable in the document from one whose page was deleted. The second is a fault
-       * `linkFaults` reports; the first is a bug this refuses to write.
+       * the fault list reports; the first is a bug this refuses to write.
        */
       canExecute: (_ed: Editor, payload?: { id?: string }) => {
         if (!linkable()) return false;

@@ -14,6 +14,7 @@ export { everyDrawingCanHoldWhatItContains } from './checks/every-drawing-can-ho
 export { everyDrawingKeepsItsChildren } from './checks/every-drawing-keeps-its-children';
 export { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
 export { everyCommandMakesSomethingReal } from './checks/every-command-makes-something-real';
+export { everyInsertCanBeHeld } from './checks/every-insert-can-be-held';
 export { everyInsertIsAccountedFor } from './checks/every-insert-is-accounted-for';
 export { everyCommandCanBeReached } from './checks/every-command-can-be-reached';
 export { everyCommandDoesSomething } from './checks/every-command-does-something';

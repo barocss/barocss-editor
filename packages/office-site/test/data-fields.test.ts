@@ -256,10 +256,17 @@ describe('what a column holds', () => {
         .filter((one) => one?.stype === 'richText').length;
 
     const before = richCount();
-    expect(before).toBe(2);
+    /* Four: two summaries and two bodies, because a post has both and a row may hold two. */
+    expect(before).toBe(4);
 
     await editor.executeCommand('removeDatasetRow', { nodeId: sid, row: 0 });
-    expect(richCount()).toBe(before - 1);
+    /*
+     * **Two**, not one — which is the whole point of the second rich column being in the fixture: a
+     * row's words are *every* rich cell it holds, so deleting the first post takes its summary and
+     * its body together. A rule written for one column and never run against two would have taken
+     * one of them and left the other unreachable.
+     */
+    expect(richCount()).toBe(before - 2);
 
     /* One thing to undo, which is what putting both in one transaction is for. */
     await editor.undo();

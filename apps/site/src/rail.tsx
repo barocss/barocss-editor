@@ -17,7 +17,10 @@ import {
   holderOf,
   iconForBlock,
   labelOfBlock,
-  linksTo,
+  breaksIfGone,
+  breakageSaid,
+  refsIn,
+  type Breakage,
   selectableAt,
   siteControlsIn,
   type Fault,
@@ -67,6 +70,7 @@ const PANELS: { id: Panel; label: string }[] = [
 ];
 
 export function Rail({
+  width,
   editor,
   page,
   insertRoot,
@@ -106,11 +110,29 @@ export function Rail({
    */
   panel: Panel;
   onPanel: (panel: Panel) => void;
+  /**
+   * How wide the reader has made it. The **handle is not in here** — see `Grip`: it sits between the
+   * rail and the canvas rather than inside either, because inside the rail it covered the last nine
+   * pixels of every row, and a row's 삭제 ends one pixel from that edge.
+   */
+  width?: number;
 }) {
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
 
   const store = editor.dataStore;
   const doc = useMemo(() => ({ getNode: (sid: string) => store?.getNode(sid) }), [store]);
+
+  /**
+   * The reference index, built once per redraw and read by the page list.
+   *
+   * `revision` is in the deps because a reference is a fact about the document: a link typed into a
+   * sentence, a card given a 이동, a row given a page — all three change what deleting a page costs,
+   * and the dialog is only worth having if its number is current.
+   */
+  const refs = useMemo(() => {
+    const rootId = editor.getRootId();
+    return rootId ? refsIn({ rootId, getNode: doc.getNode } as never) : [];
+  }, [editor, doc, revision]);
 
   /*
    * Every command is told which page is on screen.
@@ -132,7 +154,7 @@ export function Rail({
     ) ?? false;
 
   return (
-    <aside className="st-rail" aria-label="도구">
+    <aside className="st-rail" aria-label="도구" style={width ? { width } : undefined}>
       <nav className="st-rail-tabs" data-rail>
         {PANELS.map((one) => (
           <button
@@ -157,10 +179,12 @@ export function Rail({
             onPage={onPage}
             run={run}
             can={can}
-            linksInto={(id) => {
-              const rootId = editor.getRootId();
-              return rootId ? linksTo({ rootId, getNode: doc.getNode } as never, id) : 0;
-            }}
+            /*
+             * One walk for the whole panel rather than one per row: `refsIn` is the index, and what
+             * the dialog needs from it is a lookup. The old shape took a callback that walked the
+             * document again for every page the reader might delete.
+             */
+            breaksInto={(id) => breaksIfGone(refs, 'page', id)}
             /*
              * A **template** is a definition with a slot — somewhere a page's own blocks are drawn.
              * A definition without one is a card, and starting a page from it would give the reader
@@ -768,7 +792,7 @@ function LayersPanel({
  * ## And why removing one asks first
  *
  * Because it breaks links, and silently: a link into a page that is gone draws as ordinary words.
- * `linkFaults` is the report; this is the moment before, where the number is still preventable.
+ * The fault list is the report; this is the moment before, where the number is still preventable.
  */
 function PagesPanel({
   pages,
@@ -776,7 +800,7 @@ function PagesPanel({
   onPage,
   run,
   can,
-  linksInto,
+  breaksInto,
   templates
 }: {
   pages: { sid: string; id: string; name: string; path: string }[];
@@ -784,8 +808,8 @@ function PagesPanel({
   onPage: (sid: string) => void;
   run: (name: string, payload?: Record<string, unknown>) => void;
   can: (name: string, payload?: Record<string, unknown>) => boolean;
-  /** How many links point at a page — asked of the document, because only it knows. */
-  linksInto: (id: string) => number;
+  /** What breaks if a page goes — asked of the document, because only it knows. */
+  breaksInto: (id: string) => Breakage;
   /** The definitions a page can be **started from** — the ones with a slot. See the buttons. */
   templates: { id: string; name: string }[];
 }) {
@@ -793,7 +817,7 @@ function PagesPanel({
   /** Whether the reader is choosing what to start from — see the button. */
   const [starting, setStarting] = useState(false);
   const doomed = pages.find((one) => one.sid === removing);
-  const breaks = doomed ? linksInto(doomed.id) : 0;
+  const breaks = doomed ? breaksInto(doomed.id) : undefined;
 
   return (
     <>
@@ -808,12 +832,12 @@ function PagesPanel({
             The number is the whole point of asking. "링크가 끊어집니다" is a warning a reader learns
             to click through; "링크 4개가 끊어집니다" is a fact they can weigh, and when it is zero
             the dialog says so and the decision is easy.
+
+            Split three ways since it was measured: this dialog used to count link marks only, so it
+            said 3 where the answer was 8 and said *가리키는 것이 없습니다* about two pages the blog
+            list points at. The three counts are three different repairs — see `breakageSaid`.
           */
-          description={
-            breaks > 0
-              ? `이 페이지를 가리키는 링크 ${breaks}개가 끊어집니다. 끊어진 링크는 그냥 글자로 보입니다.`
-              : '이 페이지를 가리키는 링크는 없습니다.'
-          }
+          description={breaks ? breakageSaid(breaks) : undefined}
           footer={
             <>
               <DialogButton variant="secondary" onClick={() => setRemoving(undefined)}>
@@ -1222,7 +1246,7 @@ function DataPanel({
               onClick={() => run('insertChart', { source: one.name })}
               data={{ 'dataset-chart': one.name }}
             >
-              <Icon name="type-number" size={13} />
+              <Icon name="chart-bar" size={13} />
             </IconButton>
             <IconButton
               label={`${one.label} 데이터 고치기`}
@@ -1268,7 +1292,7 @@ function DataPanel({
  *
  * The gesture it exists for is exact: removing a page says *"이 페이지로 가는 링크 3개가
  * 끊어집니다"*, the reader accepts, and then there are three links in the site that go nowhere. A
- * broken link's honest drawing is **ordinary words** — that is the whole reason `linkFaults` was
+ * broken link's honest drawing is **ordinary words** — that is the whole reason the fault list was
  * written — so the canvas cannot show it and a list is the only way to find one.
  *
  * ## Why it says something when there is nothing wrong

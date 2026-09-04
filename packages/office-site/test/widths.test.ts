@@ -4,7 +4,17 @@ import { createSchema } from '@barocss/schema';
 import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
-import { BREAKPOINTS, baseOf, overridableIn, scopesFor, widthsOf } from '../src/breakpoints';
+import {
+  BREAKPOINTS,
+  SITE_ENV_KEY,
+  baseOf,
+  createSiteEnv,
+  overridableIn,
+  screenOf,
+  scopesFor,
+  widthsOf,
+  type SiteWidth
+} from '../src/breakpoints';
 import { attrsAt, attrsThrough, overridesOf } from '../src/responsive';
 import { neverShown, shownAt, shownSomewhere } from '../src/presence';
 import { DEVICES, deviceMatches, deviceNamed } from '../src/devices';
@@ -510,5 +520,44 @@ describe('which widths a block is on', () => {
     ]);
     /* And **neither is a draft**, which is what the list was calling them. */
     expect(found.every((one) => one.on.length > 0)).toBe(true);
+  });
+});
+
+/**
+ * **화면 높이 follows the document's own list**, which is the half a constant would get wrong.
+ *
+ * `minScreens` draws as the board's window height in the editor, because a board is a `div` on a
+ * plane rather than an iframe. *Which* window height is a fact about the document: a reader who adds
+ * a 1920 board and gives it a 1080 window has said something `BREAKPOINTS` does not know, and reading
+ * the constant would draw their hero at a laptop's height on it.
+ *
+ * So it rides on the env beside `scopes`, for the reason `scopes` is there — a renderer is handed a
+ * node and an env, and the list of widths is neither.
+ */
+describe('the window a board is a view onto', () => {
+  /** An env as a host hands one to a renderer — the site's answers under the key they travel on. */
+  const createSiteEnvFor = (at: never | 'desktop' | 'mobile', published: boolean, widths?: SiteWidth[]) => ({
+    [SITE_ENV_KEY]: createSiteEnv(at as never, published, widths)
+  });
+
+  it('is the width’s own, including one the document added', () => {
+    const mine: SiteWidth[] = [
+      { id: 'width-4' as never, label: '와이드', width: 1920, viewport: 1080, icon: 'screen-desktop', device: 'laptop' },
+      ...BREAKPOINTS
+    ];
+
+    expect(screenOf(createSiteEnvFor('width-4' as never, false, mine))).toBe(1080);
+    expect(screenOf(createSiteEnvFor('mobile', false, mine))).toBe(844);
+  });
+
+  it('is nothing on a published page, which is the browser answering', () => {
+    /* `100dvh` there, and the board's substitution nowhere in the file a visitor gets. */
+    expect(screenOf(createSiteEnvFor('desktop', true))).toBeUndefined();
+  });
+
+  it('is nothing for a host that says no width at all', () => {
+    // A drawing with no site env is every other product's drawing, and it says nothing about screens.
+    expect(screenOf(undefined)).toBeUndefined();
+    expect(screenOf({})).toBeUndefined();
   });
 });

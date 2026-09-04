@@ -3,7 +3,7 @@
  *
  * ## What was missing, and how it was found
  *
- * Writing the test for `linkFaults` — the report that names links pointing at a page which is not
+ * Writing the test for the broken-link report — the one that names links pointing at a page which is not
  * there. The fault could not be *made*: `removeBlocks` refuses a surface by name ("the page itself
  * is not a thing a reader can remove"), and there was nothing that made one either. The sample's
  * five pages exist because `sample-site.ts` wrote them in TypeScript.
@@ -81,7 +81,7 @@ export class SitePageExtension implements Extension {
      *
      * It does *not* refuse a page that links point at. Removing a page breaks them either way, and a
      * command that refused would leave a reader hunting for links to delete before they could delete
-     * a page — so the answer is to **say** what breaks, which is `linkFaults`, and let them decide.
+     * a page — so the answer is to **say** what breaks, which is the fault list, and let them decide.
      */
     register(
       'removePage',

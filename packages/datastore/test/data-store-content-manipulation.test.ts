@@ -81,8 +81,8 @@ describe('DataStore Content Manipulation Functions', () => {
       const addedIds = dataStore.addChildren('parent', newChildren);
 
       expect(addedIds).toHaveLength(2);
-      expect(addedIds[0]).toMatch(/^\d+:\d+$/); // Figma-style ID
-      expect(addedIds[1]).toMatch(/^\d+:\d+$/);
+      expect(addedIds[0]).toMatch(/^[^:]+:\d+$/); // session:counter — the session is minted per store, see `mintSessionId`
+      expect(addedIds[1]).toMatch(/^[^:]+:\d+$/);
 
       const updatedParent = dataStore.getNode('parent');
       expect(updatedParent!.content).toHaveLength(4); // Existing 2 + newly added 2
@@ -115,7 +115,7 @@ describe('DataStore Content Manipulation Functions', () => {
       const addedIds = dataStore.addChildren('parent', mixedChildren);
 
       expect(addedIds).toHaveLength(2);
-      expect(addedIds[0]).toMatch(/^\d+:\d+$/); // Newly created node
+      expect(addedIds[0]).toMatch(/^[^:]+:\d+$/); // session:counter — newly created node
       expect(addedIds[1]).toBe('existing-child'); // Existing node ID
 
       const updatedParent = dataStore.getNode('parent');
@@ -133,8 +133,8 @@ describe('DataStore Content Manipulation Functions', () => {
       const updatedParent = dataStore.getNode('parent');
       expect(updatedParent!.content).toHaveLength(4);
       expect(updatedParent!.content[0]).toBe('child-1'); // Existing first
-      expect(updatedParent!.content[1]).toMatch(/^\d+:\d+$/); // Newly inserted first
-      expect(updatedParent!.content[2]).toMatch(/^\d+:\d+$/); // Newly inserted second
+      expect(updatedParent!.content[1]).toMatch(/^[^:]+:\d+$/); // Newly inserted first
+      expect(updatedParent!.content[2]).toMatch(/^[^:]+:\d+$/); // Newly inserted second
       expect(updatedParent!.content[3]).toBe('child-2'); // Existing second
     });
 
@@ -150,8 +150,8 @@ describe('DataStore Content Manipulation Functions', () => {
       expect(updatedParent!.content).toHaveLength(4);
       expect(updatedParent!.content[0]).toBe('child-1');
       expect(updatedParent!.content[1]).toBe('child-2');
-      expect(updatedParent!.content[2]).toMatch(/^\d+:\d+$/);
-      expect(updatedParent!.content[3]).toMatch(/^\d+:\d+$/);
+      expect(updatedParent!.content[2]).toMatch(/^[^:]+:\d+$/);
+      expect(updatedParent!.content[3]).toMatch(/^[^:]+:\d+$/);
     });
 
     it('should throw error if parent not found', () => {

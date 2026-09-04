@@ -50,7 +50,7 @@ import {
   serviceNamed,
   type Service
 } from './form';
-import { breakpointOf, published, scopesOf } from './breakpoints';
+import { breakpointOf, published, screenOf, scopesOf } from './breakpoints';
 import { codeComponent } from './code-render';
 import { attrsThrough } from './responsive';
 
@@ -369,7 +369,7 @@ export function registerSiteRenderers(): void {
          * **Absent**, not empty, for a page that is gone. An `<a>` with no `href` is the one shape a
          * browser draws as *not a link* — no underline, no pointer, no announcement — which is the
          * honest drawing of a link with nowhere to go, and one a reader sees rather than discovers
-         * by clicking. `linkFaults` is how the product can name them.
+         * by clicking. `refFaults` is how the product can name them.
          */
         href,
         title: typeof attrs.title === 'string' && attrs.title ? attrs.title : undefined,
@@ -410,7 +410,7 @@ export function registerSiteRenderers(): void {
       {
         className: 'st-list',
         'data-type': ordered ? 'ordered' : 'bullet',
-        style: { ...sizingCss(attrs as never, inScrollingRow(ctx, node)), ...presenceCss(attrs) }
+        style: { ...sizingCss(attrs as never, inScrollingRow(ctx, node), screenOf(ctx?.env)), ...presenceCss(attrs) }
       },
       [slot('content')]
     );
@@ -566,7 +566,7 @@ export function registerSiteRenderers(): void {
         'data-at': ctx?.env ? breakpointOf(ctx.env as RenderEnv) : undefined,
         style: {
           ...stackCss(attrs),
-          ...sizingCss(attrs, inScrollingRow(ctx, node)),
+          ...sizingCss(attrs, inScrollingRow(ctx, node), screenOf(ctx?.env)),
           ...presenceCss(attrs)
         }
       },
@@ -652,7 +652,7 @@ export function registerSiteRenderers(): void {
         style: {
           display: 'flex',
           flexDirection: 'column',
-          ...sizingCss(attrs, inScrollingRow(ctx, node)),
+          ...sizingCss(attrs, inScrollingRow(ctx, node), screenOf(ctx?.env)),
           ...positionCss(attrs),
           ...opacityCss(attrs),
           ...presenceCss(attrs)
@@ -686,7 +686,27 @@ export function registerSiteRenderers(): void {
    * (`display: none`, because a style definition is read and never drawn). This one is read *and*
    * drawn: it is the only resource in this schema whose content is words a person writes.
    */
-  define('richText', element('div', { className: 'st-rich' }, [slot('content')]));
+  define('richText', (_props: NodeData, node: NodeData, ctx: any) => {
+    const attrs = drawnAttrs(node, ctx);
+    return element(
+      'div',
+      {
+        className: 'st-rich',
+        /**
+         * **어디가 데이터인가**, on a body as on every other bound part.
+         *
+         * Found by the check that counts the marks on the blog board: it went 16 → 12 the moment a
+         * card's summary stopped being a paragraph, because every renderer draws this and the one
+         * written for a resource nobody placed did not. Four summaries came from a column and said
+         * nothing about it.
+         *
+         * Editor only — `clean` strips it on the way out, in the one place that does.
+         */
+        'data-from': typeof attrs.boundFrom === 'string' ? attrs.boundFrom : undefined
+      },
+      [slot('content')]
+    );
+  });
 
   /**
    * A **chart**, drawn as an `<svg>` from the arithmetic in `chart.ts`.
@@ -836,7 +856,7 @@ export function registerSiteRenderers(): void {
         'data-group-by': typeof attrs.groupBy === 'string' && attrs.groupBy ? attrs.groupBy : undefined,
         'data-agg': typeof attrs.groupBy === 'string' && attrs.groupBy ? String(attrs.agg ?? 'sum') : undefined,
         style: {
-          ...sizingCss(attrs, inScrollingRow(ctx, node)),
+          ...sizingCss(attrs, inScrollingRow(ctx, node), screenOf(ctx?.env)),
           ...paintCss(attrs, asColour),
           ...positionCss(attrs),
           ...presenceCss(attrs)
@@ -990,7 +1010,7 @@ export function registerSiteRenderers(): void {
         'data-at': ctx?.env ? breakpointOf(ctx.env as RenderEnv) : undefined,
         style: {
           ...stackCss(attrs),
-          ...sizingCss(attrs, inScrollingRow(ctx, node)),
+          ...sizingCss(attrs, inScrollingRow(ctx, node), screenOf(ctx?.env)),
           ...presenceCss(attrs)
         }
       },
@@ -1047,7 +1067,7 @@ export function registerSiteRenderers(): void {
         enctype: uploadsIn(ctx, node) ? 'multipart/form-data' : undefined,
         style: {
           ...stackCss(attrs),
-          ...sizingCss(attrs, inScrollingRow(ctx, node)),
+          ...sizingCss(attrs, inScrollingRow(ctx, node), screenOf(ctx?.env)),
           ...presenceCss(attrs)
         }
       },
@@ -1105,7 +1125,7 @@ export function registerSiteRenderers(): void {
           disabled: live ? undefined : true,
           style: {
             ...controlPaint(attrs),
-            ...sizingCss(attrs, inScrollingRow(ctx, node)),
+            ...sizingCss(attrs, inScrollingRow(ctx, node), screenOf(ctx?.env)),
             ...positionCss(attrs),
             ...presenceCss(attrs)
           }
@@ -1137,7 +1157,7 @@ export function registerSiteRenderers(): void {
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            ...sizingCss(attrs, inScrollingRow(ctx, node)),
+            ...sizingCss(attrs, inScrollingRow(ctx, node), screenOf(ctx?.env)),
             ...positionCss(attrs),
             ...presenceCss(attrs)
           }
@@ -1221,7 +1241,7 @@ export function registerSiteRenderers(): void {
           display: 'flex',
           flexDirection: 'column',
           gap: '6px',
-          ...sizingCss(attrs, inScrollingRow(ctx, node)),
+          ...sizingCss(attrs, inScrollingRow(ctx, node), screenOf(ctx?.env)),
           ...positionCss(attrs),
           ...presenceCss(attrs)
         }
@@ -1327,7 +1347,7 @@ export function registerSiteRenderers(): void {
          * different ideas of what a block can say.
          */
         ...aspectCss(attrs as never),
-        ...sizingCss(attrs as never, inScrollingRow(ctx, node)),
+        ...sizingCss(attrs as never, inScrollingRow(ctx, node), screenOf(ctx?.env)),
         ...positionCss(attrs as never),
         /*
          * `frameCss` before `paintCss`, which is the order a stack uses and for its reason: the first
@@ -1380,7 +1400,7 @@ export function registerSiteRenderers(): void {
           display: 'block',
           maxWidth: '100%',
           ...aspectCss(attrs as never),
-          ...sizingCss(attrs as never, inScrollingRow(ctx, node)),
+          ...sizingCss(attrs as never, inScrollingRow(ctx, node), screenOf(ctx?.env)),
           ...positionCss(attrs as never),
           ...paintCss(attrs as never, asColour),
           ...opacityCss(attrs as never),
@@ -1412,7 +1432,7 @@ export function registerSiteRenderers(): void {
          * different ideas of what a block can say.
          */
         ...aspectCss(attrs as never),
-        ...sizingCss(attrs as never, inScrollingRow(ctx, node)),
+        ...sizingCss(attrs as never, inScrollingRow(ctx, node), screenOf(ctx?.env)),
         ...positionCss(attrs as never),
         /*
          * `frameCss` before `paintCss`, which is the order a stack uses and for its reason: the first
@@ -1530,7 +1550,7 @@ export function registerSiteRenderers(): void {
               border: `${Math.round(((typeof attrs.strokeWidth === 'number' ? attrs.strokeWidth : 15) * 96) / 1440)}px solid ${attrs.stroke}`
             }
           : {}),
-        ...sizingCss(attrs, inScrollingRow(ctx, node)),
+        ...sizingCss(attrs, inScrollingRow(ctx, node), screenOf(ctx?.env)),
         ...positionCss(attrs),
         /*
          * And **how much of it comes through**, which is the case opacity exists for: a photograph

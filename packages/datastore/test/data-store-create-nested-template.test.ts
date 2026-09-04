@@ -214,7 +214,7 @@ describe('DataStore createNodeWithChildren - nested template', () => {
     expect(all.find(n => n.stype === 'docFooter')).toBeDefined();
   });
 
-  it('should set root document once and enforce single root; first root id should be 0:1 or 0:0 depending on counter baseline', () => {
+  it('should set root document once and enforce single root; the first id is this store’s session and its own first count', () => {
     const ds = new DataStore();
     ds.registerSchema(schema);
 
@@ -222,9 +222,19 @@ describe('DataStore createNodeWithChildren - nested template', () => {
     const doc1 = ds.createNodeWithChildren({ stype: 'document', content: [] } as any);
     const root1 = ds.getRootNode();
     expect(root1?.sid).toBe(doc1.sid);
-    // ID baseline check: must start with current session and first counter
+    /*
+     * The session is the **store's**, not the number `0` every store used to share. It was `0:` for
+     * anyone who did not name one, so twelve stores on a page all minted `0:1`, `0:2` — and only a
+     * static counter kept them apart, which works within one page and not between two.
+     */
     expect(typeof root1?.sid).toBe('string');
-    expect(root1?.sid?.startsWith('0:')).toBe(true);
+    expect(root1?.sid).toBe(`${ds.getSessionId()}:1`);
+
+    /* And no two stores agree about it, which is the whole point of minting one. */
+    const other = new DataStore();
+    other.registerSchema(schema);
+    const elsewhere = other.createNodeWithChildren({ stype: 'document', content: [] } as any);
+    expect(elsewhere.sid).not.toBe(root1?.sid);
 
     // second document create should not change root; either error or leaves root intact
     const doc2 = ds.createNodeWithChildren({ stype: 'document', content: [] } as any);

@@ -116,6 +116,26 @@ export function dataNamesWritten(files: Array<{ path: string; text: string }>): 
     for (const match of text.matchAll(/\.dataset\.([a-zA-Z][a-zA-Z0-9]*)/g)) {
       written.add(`data-${match[1].replace(/[A-Z]/g, (upper) => `-${upper.toLowerCase()}`)}`);
     }
+
+    /**
+     * **`data-${…}` — 이름이 실행할 때 조립되는 경우.**
+     *
+     * `office-editor-ui`'s `Controls` writes `{...{ [`data-${mark}`]: id }}`, so what actually lands
+     * on the button is decided by whichever product passed `mark`. A sweep that only reads literals
+     * sees the template and nothing else, and a note's `[data-note-act]` rules came back as **rules
+     * that can never match** — which they very much can.
+     *
+     * So the callers are read too — and the two ends are in **different packages**: the template is
+     * in `office-editor-ui`, the `mark="note-act"` is in `office-note`. Tied to the component's name
+     * rather than to the template, which is the coupling this check is willing to take: it knows
+     * exactly one indirection, by name, and says so. Without a condition, any `mark=` prop would be
+     * read as a `data-` name, and half this repository's props are called `mark`.
+     */
+    if (/\bControls\b|\bControlRows\b/.test(text)) {
+      for (const match of text.matchAll(/\bmark=["']([a-z][a-z0-9-]*)["']/g)) {
+        written.add(`data-${match[1].toLowerCase()}`);
+      }
+    }
   }
 
   return written;

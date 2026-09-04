@@ -15,6 +15,7 @@
     "@barocss/editor-core": "workspace:*",
     "@barocss/editor-view-dom": "workspace:*",
     "@barocss/office-canvas": "workspace:*",
+    "@barocss/office-editor-ui": "workspace:*",
     "@barocss/office-controls": "workspace:*",
     "@barocss/office-slides": "workspace:*",
     "@barocss/office-text": "workspace:*",

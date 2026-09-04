@@ -23,6 +23,7 @@ import {
   toDisplay,
   type LengthUnit
 } from '@barocss/office-ui';
+import { panelRowShown } from '@barocss/office-controls';
 import { slidesPanelGroups, type SlidesPanelRow } from '@barocss/office-slides';
 import { useEditorRevision } from './revision';
 
@@ -2432,13 +2433,14 @@ function DeckSheet({
 }) {
   const attrs = (box?.attributes ?? {}) as Record<string, unknown>;
 
-  /** Whether a conditional row's condition holds — see `PanelRow.when`. */
-  const shown = (row: SlidesPanelRow): boolean => {
-    if (!row.when) return true;
-    const held = attrs[row.when.attr];
-    if (row.when.is) return row.when.is.includes(held);
-    return Array.isArray(held) ? held.length > 0 : held !== undefined && held !== null && held !== '';
-  };
+  /**
+   * Whether a conditional row's condition holds — `office-controls`', because it was written twice.
+   *
+   * The site's inspector had the same five lines and **a different answer**: on an empty string or an
+   * empty array it said *shown* where this said *hidden*. This one was right — `when` without `is`
+   * means *when that attribute is set*, and empty is not set — so it moved and the site follows it.
+   */
+  const shown = (row: SlidesPanelRow): boolean => panelRowShown(row, attrs);
 
   /** What a row shows: the reader's unit for a length, points for a label, the value otherwise. */
   const read = (row: SlidesPanelRow): unknown => {

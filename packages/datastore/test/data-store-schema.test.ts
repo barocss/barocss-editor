@@ -90,8 +90,8 @@ describe('DataStore Schema Integration', () => {
       const id2 = dataStore.generateId();
       
       expect(id1).not.toBe(id2);
-      expect(id1).toMatch(/^\d+:\d+$/); // Figma-style: sessionId:counter
-      expect(id2).toMatch(/^\d+:\d+$/);
+      expect(id1).toMatch(/^[^:]+:\d+$/); // session:counter, and the session is the store's own
+      expect(id2).toMatch(/^[^:]+:\d+$/);
     });
 
     it('should generate IDs with different sessions', () => {
@@ -117,7 +117,7 @@ describe('DataStore Schema Integration', () => {
       const result = dataStore.createNodeWithChildren(nodeWithoutId);
       
       expect(result.sid).toBeDefined();
-      expect(result.sid).toMatch(/^\d+:\d+$/); // Figma-style: sessionId:counter
+      expect(result.sid).toMatch(/^[^:]+:\d+$/); // session:counter, and the session is the store's own
     });
   });
 

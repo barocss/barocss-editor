@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { isVarRef, varNameOf, varRef, varRefAt, varWeightOf } from '@barocss/office-canvas';
-import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
+import { selectedNodeIds } from '@barocss/editor-core';
 import {
   Icon,
   Button,
@@ -17,7 +17,6 @@ import {
   TextField,
   Dialog,
   DialogButton,
-  useRevision,
   type ThemeSwatch
 } from '@barocss/office-ui';
 import {
@@ -70,7 +69,8 @@ import {
   columnNames,
   fieldsFrom
 } from '@barocss/office-site';
-import { chordFor, keyLabel } from '@barocss/office-controls';
+import { chordFor, keyLabel, panelRowShown } from '@barocss/office-controls';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 
 /** 15 twips to the CSS pixel: the document keeps twips and a reader is shown pixels. */
 const PX = 15;
@@ -272,7 +272,7 @@ export function Inspector({
   /** Open that row as a form — see `RowForm`. */
   onEditRow?: () => void;
 }) {
-  const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
+  const revision = useEditorRevision(editor);
   const [tab, setTab] = useState<SitePanelTab>('block');
   /**
    * **Which sections of the panel are put away.**
@@ -998,7 +998,7 @@ function Uses({
   onPage?: (sid: string) => void;
   onEdit?: (componentId: string) => void;
 }) {
-  const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
+  const revision = useEditorRevision(editor);
   const store = editor.dataStore;
   const rootId = (editor as never as { getRootId?: () => string }).getRootId?.();
 
@@ -2329,16 +2329,14 @@ function own(
   }
 }
 
-/** Whether a row applies to what is selected, from what the row itself declares. */
-function visible(row: SitePanelRow, attrs: Record<string, any>, count: number): boolean {
-  if (row.single && count > 1) return false;
-  /*
-   * With `is`, the value has to be one of them; without it, there just has to be one — see `when`.
-   * A page has only the first kind today; the deck needed both within a day of each other.
-   */
-  if (row.when) {
-    const held = attrs[row.when.attr];
-    if (row.when.is ? !row.when.is.includes(held) : held === undefined || held === null) return false;
-  }
-  return true;
-}
+/**
+ * Whether a row is drawn — `office-controls`', because it was two answers to one question.
+ *
+ * Written here and again in the deck's properties, and the two **disagreed**: on `when: { attr: 'x' }`
+ * with `x` an empty string or an empty array, this said *shown* and the deck said *hidden*. A
+ * 처음부터 row offered for a block whose `opens` a reader has just cleared is a row about nothing, and
+ * `when` without `is` means *when that attribute is set* — which an empty string is not.
+ *
+ * The deck was right, and this one moved.
+ */
+const visible = panelRowShown;

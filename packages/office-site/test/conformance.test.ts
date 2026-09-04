@@ -92,6 +92,11 @@ describe('the site builder draws what it declares', () => {
     { command: 'insertBulletList', produces: 'list' },
     { command: 'insertNumberList', produces: 'list' },
     { command: 'insertQuote', produces: 'blockQuote' },
+    /*
+     * **본문** — the same node a 서식 있는 글 cell's value is, placed instead of named. Which is why
+     * it is here rather than being a new node type: one renderer, one content model, one editor.
+     */
+    { command: 'insertRichText', produces: 'richText' },
     { command: 'insertRule', produces: 'horizontalRule' },
     /*
      * The one insert here that makes something **inside a line** rather than a block on the page: an
@@ -1546,6 +1551,114 @@ describe('the site builder draws what it declares', () => {
          * and the **sending** is the app's, which is the division this package has stated since
          * `publish-commands.ts` was written.
          */
+        /**
+         * ── **The five nothing can point at**, which is `every-insert-can-be-held`'s exemption set ──
+         *
+         * That check compares what an insert *makes* against the product's selection rule, and it
+         * reported eight the hour it was written. Three were real and are fixed — 동영상, 임베드 and
+         * 폼, the fourth, fifth and sixth recorded instances of a node drawn perfectly and
+         * unselectable. These five are the honest other answer: a reader cannot select one because
+         * there is nothing on screen to select.
+         *
+         * Each is a claim. The day one of them appears on a page, this fails on the exemption.
+         */
+        emoji: {
+          /*
+           * **In a line, not on the page.** An emoji takes its place beside the words, so what a
+           * reader points at is the run of text and what moves it is the caret — the same answer
+           * `TEXTUAL` gives about every other thing inside a paragraph. A selectable emoji would be
+           * a character with a padding panel.
+           */
+          reason: 'a character in a line of words — the caret is how a reader reaches one, not a selection, which is why it is offered from the text toolbar and not from 넣는 것',
+          covers: ['every-insert-can-be-held']
+        },
+        asset: {
+          /*
+           * A **file the document holds**, named by a picture. The picture is the block on the page
+           * and is selectable; the file itself is in `resources`, which is a region no click reaches
+           * by design.
+           */
+          reason: 'a file the document holds, reached by name from a picture — it is in `resources`, so there is nothing on a page to point at',
+          covers: ['every-insert-can-be-held']
+        },
+        dataset: {
+          reason: 'rows the site draws lists and charts from, reached by name — a resource, edited in its own screen rather than pointed at on a page',
+          covers: ['every-insert-can-be-held']
+        },
+        surface: {
+          /**
+           * **A page is the board, not a block on it** — the one exemption here that is about what a
+           * page *is* rather than about where a node lives.
+           *
+           * It is stated in `block-commands.ts`, in the command that names a page: *a page is not a
+           * block: it is the board, `SELECTABLE` leaves it out on purpose, and every other command
+           * here acts on a selection*. A selectable page would mean a click on empty space selecting
+           * the whole thing, and a properties panel offering a page's padding beside a block's.
+           *
+           * A reader reaches a page from the rail, from 관리, and from the panel with nothing
+           * selected — three surfaces, which is more than any block gets.
+           */
+          reason: 'a page is the board a reader is looking at rather than a block on it — reached from the page list, from 관리 and from the panel with nothing selected, and left out of `SELECTABLE` on purpose so a click on empty space does not select everything',
+          covers: ['every-insert-can-be-held']
+        },
+        bTableRow: {
+          /*
+           * The one exemption here that is a **judgement about tables** rather than about regions,
+           * and it is the judgement every table editor has made: a reader points at a **cell**, and
+           * a row is reached through the cell that is in it. Both cell types are selectable — that
+           * was the second recorded instance of this fault — and the row is what the eight
+           * structural commands act on once a cell says which one.
+           */
+          reason: 'a row is reached through a cell in it, which is what a reader points at — both cell types are selectable and every row command asks which cell the caret is in',
+          covers: ['every-insert-can-be-held']
+        },
+        'richText.id': {
+          /**
+           * **A name, not a drawing.** It is what a cell points at — `text:요약-스택` — so it is read
+           * by `richTextNamed` and by the reference index, and a body draws exactly the same whatever
+           * it is called. Setting it changes which cell can reach it, which is not a pixel.
+           *
+           * Probed at all only since a body became placeable: while it lived in `resources` alone the
+           * region was `stopAt` and no attribute of one was ever asked about. A page can hold one now,
+           * and a placed body has **no** id — its words are its own children and nothing points at it,
+           * which is why the attribute stopped being required.
+           */
+          reason: 'the name a cell points at (`text:<id>`), read by `richTextNamed` and by the reference index — a body draws the same whatever it is called, and one placed on a page has none',
+          covers: ['every-attribute-is-read']
+        },
+        setRichText: {
+          /**
+           * **A session's way home**, not a control.
+           *
+           * A 서식 있는 글 column's value is edited in `office-note`'s own store — its own schema,
+           * selection and history, which is the fix for the site's boards being told the caret is in
+           * a node they do not draw. The price is that the session edits a **copy**, and this is the
+           * transaction that writes it back so the card, the reference index and the orphan check go
+           * on seeing the words.
+           *
+           * A reader reaches it by **writing**: it fires when they stop typing. A button labelled
+           * 되쓰기 would be a reader asked to do the product's bookkeeping.
+           */
+          reason: 'the transaction a note session writes its words home with, run when the writer pauses — a reader reaches it by writing, and a control for it would be asking them to do the bookkeeping',
+          covers: ['every-command-can-be-reached']
+        },
+        /**
+         * **관리 > 설정에서 닿습니다** — a screen, not a declared surface.
+         *
+         * The document's own facts — its name, its address, what it is about, what language it is in
+         * — are not about a block, so there is nothing to select in order to reach them. They lived
+         * in the properties panel, findable only by *selecting nothing on a page*, which is a
+         * site-level fact reached through a block's inspector: nobody finds it.
+         *
+         * A settings screen is where every tool of this shape puts them, and 관리's tabs are the
+         * app's rather than a declaration — which is the same gap `setDatasetCells` has and is worth
+         * naming rather than papering over. `site.spec.ts` presses the fields.
+         */
+        setSiteInfo: {
+          reason:
+            'the site’s own name, address, description and language — reached in 관리 > 설정, which is a screen rather than a declared surface; pressed in `site.spec.ts`',
+          covers: ['every-command-can-be-reached', 'every-command-can-be-seen']
+        },
         publishes: {
           reason: 'what a publish left behind, read where a reader asks whether the live site is theirs — never drawn, because a history is not on the page',
           covers: ['every-node-is-drawn']
@@ -1570,8 +1683,18 @@ describe('the site builder draws what it declares', () => {
           covers: ['every-command-can-be-seen']
         },
         width: {
+          /*
+           * And it answers the *held* question too, for the same reason it answers the drawn one: a
+           * width is not on a page, so there is nothing on screen to point at. The harness noticed
+           * the exemption doing a fourth job without saying so, which is the notice working.
+           */
           reason: 'a width a site is designed at, read where it is referenced (`overrides`, the boards) and never drawn; the panel row that makes one writes a child node rather than an attribute',
-          covers: ['every-node-is-drawn', 'every-drawing-can-be-named', 'every-row-writes-what-it-names']
+          covers: [
+            'every-node-is-drawn',
+            'every-drawing-can-be-named',
+            'every-row-writes-what-it-names',
+            'every-insert-can-be-held'
+          ]
         },
         height: {
           reason: 'a page is as tall as it turns out, which is the whole difference from a sheet',
@@ -1777,6 +1900,15 @@ describe('the site builder draws what it declares', () => {
             'the picture in a browser tab: written into the head by `exportPage` — held in `site-files.test.ts`',
           covers: ['every-attribute-is-read']
         },
+        /**
+         * **`<html lang>`**, which the export had as the literal `ko` until a site could say.
+         *
+         * The first thing a screen reader reads and the last thing anybody remembers to set — and
+         * hard-coded, every site this product makes claims to be Korean, including the English one
+         * somebody builds with it. Read at publish, so drawing a `document` cannot change with it,
+         * which is what this check measures.
+         */
+        lang: 'what language the site is written in: read by `exportPage` into `<html lang>` — held in `export.test.ts`',
         noIndex: 'what a crawler is told: read by `robotsFor` and written into the head — held in `site-files.test.ts`',
         notFound: 'which page a host serves for an address it cannot match: read by the publish as `404.html` — held in `site-files.test.ts`',
         reveal: 'published as a rule, not folded into a drawing: read by `revealRules` — held in `reveal.test.ts`',

@@ -295,6 +295,721 @@ test.describe('a site at several widths', () => {
   });
 });
 
+/**
+ * **한 화면** — the one relative length this document can say, and the only place a board and the
+ * published page deliberately disagree.
+ *
+ * The document keeps twips, which is Word's unit and absolute; the web's lengths are relative. That
+ * gap was carried as a debt with three bad ways to close it, and measuring what a page actually wants
+ * closed three quarters of it without any of them: a proportion is `share`, a per-width number is an
+ * `overrides` entry, a bound is `minWidth`/`maxHeight`. What was left is one idea — a section as tall
+ * as the window — so it is one attribute, a **count of screens**, the same move `share` made.
+ */
+/**
+ * **글** — a body a reader writes in, which is the same node a 서식 있는 글 column's value is.
+ *
+ * Two ways to the one thing, which is the whole design: **placed** from 추가, holding its own words;
+ * or **named** by a cell and drawn in a card. One renderer, one content model, and one editing
+ * surface rooted at whichever node holds the words. Two node types would have been two of each.
+ */
+test.describe('a body on a page', () => {
+  test('is added from 추가, drawn, listed and held', async ({ page }) => {
+    await ready(page);
+    await page.locator('[data-panel="add"]').click();
+    await page.waitForTimeout(300);
+
+    /*
+     * In 넣는 것 rather than 담는 것, although it holds blocks: that list divides **arrangement** from
+     * what a page is made *of*, and a reader looks for a body beside 제목 and 본문. Put in the other
+     * group first and measured — it came out between 그리드 and 두 칸.
+     */
+    const row = page.locator('[data-insert="insertRichText"]');
+    await expect(row).toHaveText('글');
+    await row.click();
+    await page.waitForTimeout(800);
+
+    /* A `<div>`, not a paragraph — which is what lets it hold blocks legally. See the check below. */
+    const made = page.locator('[data-frame="desktop"] .st-rich').last();
+    await expect(made).toHaveCount(1);
+
+    /*
+     * And a reader can **hold** it — which arrived checked rather than reported. The conformance check
+     * written for the six nodes that shipped unselectable caught this one the day it was added, before
+     * a browser had drawn one.
+     */
+    await page.locator('[data-panel="layers"]').click();
+    await page.waitForTimeout(400);
+    await expect(page.locator('.st-rail-body')).toContainText('글');
+
+    await made.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(200);
+    const box = (await made.boundingBox())!;
+    await page.mouse.click(box.x + 20, box.y + 8);
+    await page.waitForTimeout(500);
+    await expect(page.locator('.office-properties').getByRole('tab', { name: '모양' })).toHaveCount(1);
+  });
+
+  test('publishes as a container, where it used to publish a paragraph inside a paragraph', async ({ page }) => {
+    await ready(page);
+
+    /**
+     * **The fault this fixed, measured in the file a visitor gets.**
+     *
+     * The card's slot for a summary was declared as *characters* — a `text` variable, a bind writing
+     * `attr: 'text'`, and a `<p>` for a part — and what arrives is a **body**. So the drawing put a
+     * `<p>` inside a `<p>`, which is not valid HTML, and the browser split them: the blog page shipped
+     * **four empty paragraphs**, one per row, with the outer paragraph orphaned.
+     *
+     * Nothing looked wrong, because that paragraph carried only `margin: 0`. The moment a designer
+     * gave the slot a colour or a size the parser would have thrown it away — which is the rule
+     * *칠·여백·크기는 카드의 것* failing silently, on the one page a blog is read on.
+     */
+    const html = await page.evaluate(async () => {
+      const editor = (window as never as { editor: any }).editor;
+      let got: any;
+      await editor.executeCommand('exportSite', { write: (one: unknown) => (got = one) });
+      return got.pages.find((one: any) => one.path === '/블로그').html as string;
+    });
+
+    const said = await page.evaluate((src) => {
+      const doc = new DOMParser().parseFromString(src, 'text/html');
+      const body = [...doc.querySelectorAll('p')].find((p) => (p.textContent ?? '').startsWith('자유 배치를'));
+      return {
+        nested: [...doc.querySelectorAll('p')].filter((p) => p.querySelector('p')).length,
+        empty: [...doc.querySelectorAll('p')].filter((p) => (p.textContent ?? '').trim() === '').length,
+        parent: body?.parentElement?.className ?? ''
+      };
+    }, html);
+
+    expect(said.nested).toBe(0);
+    /* Four, one per row, and now none. */
+    expect(said.empty).toBe(0);
+    /* And the card's own slot is what holds it, so what the card says about it applies. */
+    expect(said.parent).toContain('st-rich');
+  });
+});
+
+/**
+ * **행을 Drawer 에서 쓴다** — and what it took for that to mean *write*, not *type*.
+ *
+ * The drawer was there and the body was editable, and a reader could put nothing in one: no heading,
+ * no list, no image. Three things were in the way, each invisible in a different manner.
+ */
+/**
+ * **The two sides move**, which a builder needs and a document tool does not.
+ *
+ * The rail's rows are the reader's own words — a page called 블로그 beside one called *스택이 페이지의
+ * 문법이다* — and 240px cuts the second. Every tool of this kind lets the sides move for that reason,
+ * and none of them makes it a setting.
+ */
+test.describe('the edge a reader drags', () => {
+  test('widens the rail, clamps it, and puts it back on a double click', async ({ page }) => {
+    await ready(page);
+    const rail = page.locator('.st-rail');
+    await expect(rail).toHaveCSS('width', '240px');
+
+    const grip = page.locator('.st-boundary');
+    const box = (await grip.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 120, box.y + 200, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    await expect(rail).toHaveCSS('width', '360px');
+
+    /*
+     * **Clamped**, because a 40px rail and one that eats the canvas are both a reader having to drag
+     * it back. Pulled past the far end and it stops at 560.
+     */
+    await page.mouse.move(box.x + 122, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 1200, box.y + 200, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    await expect(rail).toHaveCSS('width', '560px');
+
+    /* And back, which is what every tool of this kind does with a dragged edge. */
+    await page.locator('.st-boundary').dblclick();
+    await page.waitForTimeout(200);
+    await expect(rail).toHaveCSS('width', '240px');
+  });
+});
+
+/**
+ * **관리 is not the builder**, and the chrome has to say so.
+ *
+ * Reported as *설정 화면 배경이 회색이라서 너무 어색해*, and the grey was the smaller half: the screen
+ * opened under a **full editing toolbar** — 선택/텍스트, eight arrange glyphs, the insert plus, the
+ * text group, the zoom — every one of them about a block on a canvas, and 관리 has neither.
+ */
+test.describe('관리 chrome', () => {
+  test('carries no tool that acts on a canvas, because there is none', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-admin-page]');
+
+    /* The tools, the view controls and *which page you are in* — all of them the builder's. */
+    await expect(page.locator('.st-ribbon')).toHaveCount(0);
+    await expect(page.locator('[data-where]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '미리보기' })).toHaveCount(0);
+
+    /* The menubar stays: 파일 is a document's and belongs on both sides of the door. */
+    await expect(page.locator('.st-menubar')).toHaveCount(1);
+
+    /* And they all come back on the inside. */
+    await page.locator('[data-admin-open]').first().click();
+    await page.waitForSelector('[data-frame="desktop"] .st-page');
+    await expect(page.locator('.st-ribbon')).toHaveCount(1);
+    await expect(page.locator('[data-where]')).toHaveCount(1);
+  });
+
+  test('drops the menus a screen with no canvas cannot use', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-admin-page]');
+
+    /**
+     * **최상위 메뉴바도 상황에 맞게 달라져야할 듯 , 데이타 관리하는데 추가요소 같은건 필요없으니깐.**
+     *
+     * Measured before the change: 삽입 offered twelve entries over a table of pages, 표 offered
+     * eight and 보기 offered a zoom for a plane that is not drawn — twenty-nine rows that could
+     * never be enabled. `needs` greys one entry among several correctly; a bar whose middle three
+     * are permanently grey has stopped saying anything.
+     */
+    const bar = page.locator('.st-menubar');
+    await expect(bar).toContainText('파일');
+    await expect(bar).toContainText('편집');
+    await expect(bar).not.toContainText('삽입');
+    await expect(bar).not.toContainText('표');
+    await expect(bar).not.toContainText('보기');
+
+    /* And what survives in 편집 is the document's history, which a page deleted in 관리 also needs. */
+    await bar.getByText('편집').click();
+    const menu = page.locator('[role="menu"]');
+    await expect(menu).toContainText('실행 취소');
+    await expect(menu).not.toContainText('붙여넣기');
+    await page.keyboard.press('Escape');
+
+    /* Going **in** brings all five back, because a page is what they act on. */
+    await page.locator('[data-admin-open="home"]').click();
+    await page.waitForTimeout(600);
+    for (const one of ['파일', '편집', '삽입', '표', '보기']) await expect(bar).toContainText(one);
+  });
+
+  test('writes a new page an English address, and keeps a typed Korean one', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-admin-page]');
+
+    /**
+     * **영문 slug 가 우선이고 한글은 후자야.**
+     *
+     * `/제품` is stored as typed and shown as `/%EC%A0%9C%ED%92%88` — in the address bar, in a copied
+     * link, in an analytics report. A reader who copies the URL of their own page gets 27 characters
+     * of hex to paste into a chat. That is the confusion, and it reverses a decision `slug.ts` had
+     * recorded; both files say so.
+     */
+    await page.locator('[data-admin-add="page"]').click();
+    await page.locator('[data-admin-from="blank"]').click();
+    await page.waitForTimeout(500);
+
+    const made = page.locator('[data-admin-page]').last();
+    const id = await made.getAttribute('data-admin-page');
+    /* Minted and untouched, so the name is still allowed to give it one. */
+    await expect(made.locator('input[aria-label$="주소"]')).toHaveValue(`/${id}`);
+
+    /* The address it *would* get, offered before it happens. */
+    await made.locator('input[aria-label$="이름"]').fill('문의하기');
+    await made.locator('input[aria-label$="이름"]').press('Enter');
+    await page.waitForTimeout(500);
+    await expect(page.locator(`[data-admin-page="${id}"] input[aria-label$="주소"]`)).toHaveValue('/munuihagi');
+
+    /* And what a reader types is still theirs, script and all. */
+    const address = page.locator(`[data-admin-page="${id}"] input[aria-label$="주소"]`);
+    await address.fill('/새 소식');
+    await address.press('Enter');
+    await page.waitForTimeout(500);
+    await expect(page.locator(`[data-admin-page="${id}"] input[aria-label$="주소"]`)).toHaveValue('/새-소식');
+  });
+
+  test('설정: the facts about the site itself, on a screen instead of in a block’s inspector', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-admin-page]');
+    await page.locator('[data-admin-tab="settings"]').click();
+
+    /**
+     * **서비스 전체 설정하는 화면도 필요해 … wordpress 같은게 될 수도 있잖아?**
+     *
+     * The document had carried an `address`, an `icon` and a `noIndex` for some time and the only way
+     * to reach any of them was **to select nothing on a page** and find them in the properties panel.
+     * A site-level fact reached through a block's inspector is a fact nobody finds.
+     *
+     * Two of these did not exist at all, and their absence was invisible in the same way: `lang` was
+     * the literal `ko` in the export, so every site this product makes claimed to be Korean; and a
+     * site-level `description` meant every page without one of its own published a head with **no
+     * `<meta name="description">` at all**.
+     */
+    const form = page.locator('[data-admin-settings]');
+    await expect(form).toBeVisible();
+    for (const one of ['사이트 이름', '사이트 주소', '사이트 설명', '사이트 언어'])
+      await expect(page.locator(`input[aria-label="${one}"]`)).toBeVisible();
+
+    /* It reads what the document already says. */
+    await expect(page.locator('input[aria-label="사이트 이름"]')).toHaveValue('바로 사이트');
+    await expect(page.locator('input[aria-label="사이트 주소"]')).toHaveValue('https://barocss.example');
+
+    /* And writing the name reaches the nav, because both read the same `docTitle`. */
+    const name = page.locator('input[aria-label="사이트 이름"]');
+    await name.fill('바로 스위트');
+    await name.press('Enter');
+    await expect(page.locator('[data-admin-who] strong')).toHaveText('바로 스위트');
+
+    /* No Save: every field commits on blur, and the document has undo. */
+    await expect(page.getByRole('button', { name: '저장' })).toHaveCount(0);
+
+    const noindex = page.locator('[data-admin-noindex]');
+    await expect(noindex).not.toBeChecked();
+    await noindex.check();
+    await expect(page.locator('.st-admin-switch')).toContainText('제외합니다');
+  });
+
+  test('says which site is open, how many of each, and whether it is out', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-admin-page]');
+
+    /**
+     * **A management screen has to say what it is managing.**
+     *
+     * The nav was the word `사이트` over five bare nouns. The titlebar said `Barocss Site`, which is
+     * the *product's* name, and nothing anywhere said which site was open, where it goes when it is
+     * published, or how many of anything was in it — so a reader had to open all five tabs to learn
+     * whether this site has three datasets or thirty.
+     */
+    const who = page.locator('[data-admin-who]');
+    await expect(who).toContainText('바로 사이트');
+    await expect(who).toContainText('barocss.example');
+
+    /* The counts, beside the names — and they are the tabs' own, not five guesses. */
+    await expect(page.locator('[data-admin-count="pages"]')).toHaveText('8');
+    await expect(page.locator('[data-admin-count="data"]')).toHaveText('3');
+    await expect(page.locator('[data-admin-count="files"]')).toHaveText('2');
+
+    /**
+     * And the question the screen is opened to answer, at the foot of the list rather than three
+     * clicks in: *is what I am looking at what is published*.
+     */
+    const state = page.locator('[data-admin-state]').first();
+    await expect(state).toHaveAttribute('data-admin-state', 'never');
+    await expect(state).toContainText('아직 발행하지 않았습니다');
+    /* And it is the way to that tab, because a status line a reader cannot act on is a decoration. */
+    await state.click();
+    await expect(page.locator('[data-admin-tab="publish"]')).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('narrows a table rather than making a reader scroll it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-admin-page]');
+
+    /*
+     * A site of eight pages is a sample and a site of eighty is a Tuesday. It filters on what is
+     * **drawn** rather than on a chosen column: a reader typing 블로그 does not know or care whether
+     * that word is in the name, the address or the template.
+     */
+    await page.locator('[data-admin-find]').fill('블로그');
+    await expect(page.locator('[data-admin-page]')).toHaveCount(3);
+
+    await page.locator('[data-admin-find]').fill('post-page');
+    await expect(page.locator('[data-admin-page]')).toHaveCount(2);
+
+    /* And *none of them match* is not *there are none*, which is what an empty grid would say. */
+    await page.locator('[data-admin-find]').fill('있을 리 없는 것');
+    await expect(page.locator('[data-admin-page]')).toHaveCount(0);
+    await expect(page.locator('[data-admin-none]')).toHaveAttribute('data-admin-none', 'found');
+
+    await page.locator('[data-admin-find-clear]').click();
+    await expect(page.locator('[data-admin-page]')).toHaveCount(8);
+  });
+
+  test('keeps 위로 pointing at the document’s order, not the filtered one', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-admin-page]');
+
+    /**
+     * The row above **on screen** is not the row above **in the document** once a filter is on, and
+     * 위로 moves a page to `index - 1`. Without this the search would have moved a page somewhere
+     * nobody asked for — a fault that only exists because the filter was added.
+     */
+    const order = () => page.locator('[data-admin-page]').evaluateAll((all) => all.map((one) => one.getAttribute('data-admin-page')).join(' '));
+    const before = await order();
+
+    await page.locator('[data-admin-find]').fill('블로그');
+    await expect(page.locator('[data-admin-page]')).toHaveCount(3);
+    /* 스택 is the second of the three shown and the sixth of the eight there are. */
+    await page.locator('[data-admin-page="post-stack"] button[aria-label*="위로"]').click();
+    await page.locator('[data-admin-find-clear]').click();
+    await expect(page.locator('[data-admin-page]')).toHaveCount(8);
+
+    const after = await order();
+    expect(after).not.toBe(before);
+    /* It moved by exactly one, past the page that was above it in the document. */
+    expect(after.split(' ').indexOf('post-stack')).toBe(before.split(' ').indexOf('post-stack') - 1);
+  });
+
+  test('answers “can I press publish” in one row', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-admin-page]');
+    await page.locator('[data-admin-tab="publish"]').click();
+
+    /*
+     * The tab opened as a white box with two small labels in it, and a reader had to read both to
+     * answer the one question they came with. Three facts answer it — the state, what would go out,
+     * and what is wrong with it.
+     */
+    const cards = page.locator('.st-admin-card');
+    await expect(cards).toHaveCount(3);
+    await expect(cards.nth(0)).toContainText('발행 전');
+    await expect(cards.nth(1)).toContainText('8');
+    await expect(cards.nth(2)).toContainText('고칠 것 없음');
+
+    /* And with nothing wrong there is no fault list under it repeating the card in another voice. */
+    await expect(page.locator('.st-admin-faults')).toHaveCount(0);
+  });
+
+  test('puts the list on a sheet rather than on bare grey', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-admin-page]');
+
+    /*
+     * The content was floating on `--ou-ground` with no edge of its own, and the row hairlines
+     * stopped where the columns did — a screen that reads as an unfinished page rather than as a
+     * sheet of settings. Inverted: the content is the lifted white surface and the nav is the ground
+     * it sits on, which is what lets a chosen tab read as *the sheet you are looking at*.
+     */
+    const sheet = page.locator('.st-admin-scroll');
+    await expect(sheet).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(page.locator('.st-admin')).toHaveCSS('background-color', 'rgb(245, 245, 245)');
+
+    /* And the sixteen bordered boxes are gone — `--ou-field-line` exists for exactly this. */
+    await expect(page.locator('.st-admin-table')).toHaveCSS('--ou-field-line', 'transparent');
+  });
+});
+
+test.describe('writing a row in the drawer', () => {
+  const openRow = async (page: Page) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-admin-page]');
+    await page.locator('[data-admin-tab="data"]').click();
+    await page.waitForTimeout(400);
+    const rows = page.locator('[data-admin-open]');
+    await rows.nth((await rows.count()) - 1).click();
+    await page.waitForTimeout(700);
+    await page.locator('[data-row-open]').first().click();
+    await page.waitForTimeout(700);
+  };
+
+  test('opens the slash menu in the body, offering only what a body may hold', async ({ page }) => {
+    await openRow(page);
+    await expect(page.locator('.st-row-form')).toHaveCount(1);
+
+    /*
+     * Named, not `.last()`: a row has two rich columns now. And a **paragraph** inside it rather
+     * than the editor's box — 본문 holds a heading and two paragraphs, and a click on the box's
+     * padding places no caret, which is the difference from 요약's single line.
+     */
+    const body = page.locator('[data-row-form] [data-field="본문"] [data-note-body] p').last();
+    await body.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' /');
+    await page.waitForTimeout(600);
+
+    /**
+     * **It did not open at all**, and the reason is that the guard was the canvas's: `mode` is the
+     * overlay's pointer mode, and a drawer has no overlay, so a caret in a body left the app in
+     * `select`. With the rail behind the drawer's scrim — deliberately, because a drawer is modal —
+     * there was no other way in.
+     */
+    const rows = page.locator('[data-slash-item]');
+
+    /**
+     * **Eleven, and they are `office-note`'s.**
+     *
+     * The menu was the site's surface reading the site's editor, and it stopped opening the day the
+     * body got a session of its own: the caret it watches and the caret a writer has became two
+     * different things. So the package draws its own — which is what *자체 툴바/ui 까지 다 가지고
+     * 있어야해* means for the second surface as well as the first.
+     *
+     * Eleven ways in for ten blocks: 목록 and 번호 목록 are one node type and two doors. 버튼 and 글
+     * are not on it because a body holds neither — not filtered off, never on.
+     */
+    await expect(rows).toHaveCount(11);
+    await expect(page.locator('[data-slash-item="insertButton"]')).toHaveCount(0);
+    await expect(page.locator('[data-slash-item="insertRichText"]')).toHaveCount(0);
+    await expect(page.locator('[data-slash-item="insertHeading"]')).toHaveCount(1);
+  });
+
+  test('opens from the row itself, not only from the number', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-admin-page]');
+    await page.locator('[data-admin-tab="data"]').click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-admin-open]').first().click();
+    await page.waitForTimeout(700);
+
+    /*
+     * Reported as *Drawer 가 어디서 열리는지 모르겠어*: the row **number** was the button, in the
+     * faintest ink there is, with no icon and no word on it. A reader who does not already know
+     * cannot find that out by looking.
+     *
+     * So a double click on the row opens it too — the gesture that cannot collide with a cell's own
+     * single click, because a cell **is** a field and a plain click has to keep landing in it.
+     */
+    await page.locator('.st-data-grid [data-row="1"]').dblclick();
+    await page.waitForTimeout(700);
+    await expect(page.locator('[data-row-form="1"]')).toHaveCount(1);
+  });
+
+  test('draws an editor and a bar for every 서식 있는 글 column the row has', async ({ page }) => {
+    await openRow(page);
+
+    /**
+     * Asked as *속성에 rich text 가 여러개면 에디터가 여러개 나와야할 듯 한데* — and it does, because
+     * the editor is drawn per **cell**. A row of the sample has two: 요약, which a card shows in a
+     * list, and 본문, which is the post.
+     *
+     * A bar each, over the body it is about. One bar at the top of the drawer would be a control
+     * whose target is *whichever body was last clicked*, which is a thing a reader has to keep in
+     * their head.
+     */
+    await expect(page.locator('[data-row-form] [data-note-editor]')).toHaveCount(2);
+    await expect(page.locator('[data-row-form] [data-field="요약"] [data-note-bar]')).toHaveCount(1);
+    await expect(page.locator('[data-row-form] [data-field="본문"] [data-note-bar]')).toHaveCount(1);
+  });
+
+  test('offers the marks and the blocks, because a body always has an end', async ({ page }) => {
+    await openRow(page);
+    const bar = page.locator('[data-row-form] [data-field="본문"] [data-note-bar]');
+
+    /**
+     * **This asserted the opposite**, and the opposite was true of the *page builder's* editor: an
+     * insert there needs to know which page, so with nothing selected every one of them refused and
+     * the bar came up marks-only until a caret arrived.
+     *
+     * A note has no pages. `_where` walks up from the caret to the child of the note it is in, and
+     * with no caret at all the answer is **the end** — which is what a writer pressing 제목 on a
+     * fresh body means, and a better answer than a dead button.
+     */
+    await expect(bar.locator('[data-note-control="toggleBold"]')).toHaveCount(1);
+    await expect(bar.locator('[data-note-control="insertHeading"]')).toHaveCount(1);
+
+    await page.locator('[data-row-form] [data-field="본문"] [data-note-body] p').first().click();
+    await page.waitForTimeout(500);
+
+    /**
+     * **Eleven ways in for ten blocks**, which is `NOTE_TOOLBAR` — the note's own list, not the
+     * page's thirteen. 목록 and 번호 목록 are one node type and two doors; 버튼 and 글 are not on a
+     * body's bar at all, rather than being filtered off it.
+     */
+    await expect(bar.locator('[data-note-control^="insert"]')).toHaveCount(11);
+    await expect(bar.locator('[data-note-control="insertNumberList"]')).toHaveCount(1);
+    await expect(bar.locator('[data-note-control="insertButton"]')).toHaveCount(0);
+    await expect(bar.locator('[data-note-control="insertRichText"]')).toHaveCount(0);
+  });
+
+  test('the bar acts, and says what it did — which it did not until it was told the caret moved', async ({ page }) => {
+    await openRow(page);
+    const field = page.locator('[data-row-form] [data-field="본문"]');
+
+    await field.locator('[data-note-body] p').first().click();
+    await page.keyboard.press('Home');
+    for (let step = 0; step < 4; step += 1) await page.keyboard.press('Shift+ArrowRight');
+    await page.waitForTimeout(400);
+
+    /**
+     * **It rendered once and never again.** Every answer on this bar is about *now* — whether 굵게
+     * is on, whether a block can land where the reader is — and both were read at mount. So a press
+     * changed the document and the button went on saying what it said before. Reported as *여전히
+     * note 툴바가 동작 안함*, which is what a toolbar that never redraws looks like from outside:
+     * nothing happens.
+     *
+     * `watchAnswers` is the subscription the site's ribbon has had since it was written; it was the
+     * one thing that did not come along when the bar moved into its own package.
+     */
+    const bold = field.locator('[data-note-control="toggleBold"]');
+    await expect(bold).toHaveAttribute('data-state', 'off');
+    await bold.click();
+    await page.waitForTimeout(600);
+    await expect(bold).toHaveAttribute('data-state', 'on');
+    await expect(field.locator('.mark-bold, strong')).toHaveCount(1);
+
+    /* And a block lands **after the one the caret is in**, which is what `_where` walks up to find. */
+    const kinds = () =>
+      page.evaluate(() => {
+        const held = document.querySelector('[data-row-form] [data-field="본문"] [data-note-body] .on-doc');
+        return held ? [...held.children].map((one) => one.tagName).join(' ') : '';
+      });
+    expect(await kinds()).toBe('H2 P P');
+
+    await field.locator('[data-note-control="insertHeading"]').click();
+    await page.waitForTimeout(700);
+    expect(await kinds()).toBe('H2 P H2 P');
+  });
+
+  test('is a session of its own, and writes its words home', async ({ page }) => {
+    /**
+     * **The bug this is the fix for**, and it was reported from the console.
+     *
+     * The bar and the view were `office-note`'s and the **editor** was still the site's. One editor
+     * means one selection, and a selection is applied by *every* view — so the boards were told the
+     * caret is at a `site:` node they do not draw, searched their own DOM for it, and gave up out
+     * loud: `[EditorViewDOM] selection retry exceeded`, on every click into a body. Read exactly
+     * right from the outside: *난 분명 office-note 를 드래그 했는데 office-site 의 editor 가
+     * selection 을 넣는 느낌이야.*
+     *
+     * Two editors over one store is not the answer and was measured: `Editor`'s constructor makes an
+     * empty document and **writes it into the store it was given**, so the second erases the first.
+     * So a store of its own, loaded with a copy — and then the copy has to go home, which is what
+     * `setRichText` is.
+     */
+    const noise: string[] = [];
+    page.on('console', (one) => {
+      const said = one.text();
+      /*
+       * `[SelectionHandler] Found DOM range` was a `console.debug` on **every caret placement** — a
+       * line per click and per arrow key in a product where a reader clicks into text constantly.
+       * The `console.warn` beside it stays: it says a run could *not* be found, which is a fault.
+       */
+      if (/retry exceeded|same key|SelectionHandler/.test(said)) noise.push(said.slice(0, 90));
+    });
+
+    await openRow(page);
+    const body = page.locator('[data-field="본문"] [data-note-body] p').first();
+    await body.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' 새 낱말');
+    await page.waitForTimeout(900);
+
+    /* Not one, on a click and eight keystrokes into a body — which used to be one per click. */
+    expect(noise).toEqual([]);
+
+    /**
+     * And **home again**: the session edits a copy, so what makes it real is the transaction back.
+     * On a pause rather than per keystroke — a subtree replaced per character is a transaction per
+     * character in the host's history, and one undo should take back a phrase.
+     */
+    const words = await page.evaluate(() => {
+      const editor = (window as never as { editor: any }).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      for (const one of root.content ?? []) {
+        const box = store.getNode(one);
+        if (box?.stype !== 'resources') continue;
+        for (const each of box.content ?? []) {
+          const held = store.getNode(each);
+          if (held?.stype !== 'richText' || held.attributes?.id !== '본문-스택') continue;
+          const out: string[] = [];
+          const dig = (sid: string) => {
+            const node = store.getNode(sid);
+            if (!node) return;
+            if (node.text) out.push(String(node.text));
+            for (const child of node.content ?? []) if (typeof child === 'string') dig(child);
+          };
+          dig(String(held.sid));
+          return out.join('');
+        }
+      }
+      return '';
+    });
+    expect(words).toContain('새 낱말');
+  });
+
+  test('puts the block in the body, which every insert had been refusing', async ({ page }) => {
+    await openRow(page);
+    const body = page.locator('[data-row-form] [data-field="요약"] [data-note-body] p').first();
+    await body.click();
+    await page.keyboard.press('End');
+
+    const kids = () =>
+      page.evaluate(() => {
+        const store = (window as never as { editor: any }).editor.dataStore;
+        const root = store.getNode((window as never as { editor: any }).editor.getRootId());
+        for (const s of root.content ?? []) {
+          const box = store.getNode(s);
+          if (box?.stype !== 'resources') continue;
+          for (const e of box.content ?? []) {
+            const n = store.getNode(e);
+            if (n?.stype === 'richText') return (n.content ?? []).map((c: string) => String(store.getNode(c)?.stype));
+          }
+        }
+        return [];
+      });
+
+    expect(await kids()).toEqual(['paragraph']);
+
+    /**
+     * **Every insert had been dead inside a body**, and the cause was a string test: `holdsABlock`
+     * asked whether the parent's content expression contains the word `block`, and a body's says
+     * `(heading | paragraph | list | …)+` — it names its types instead of the group. So the walk from
+     * the caret found nowhere to land and all twelve inserts refused.
+     *
+     * The same shape as the table-cell fault that check was written for, from the other direction:
+     * that one stopped too early because of *what* the schema said, this one because of *how*.
+     */
+    await page.keyboard.type(' /제목');
+    await page.waitForTimeout(500);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(700);
+
+    expect(await kids()).toContain('heading');
+  });
+});
+
+test.describe('a section as tall as the window', () => {
+  test('fills the board it is drawn on, at each width’s own window height', async ({ page }) => {
+    await ready(page);
+
+    /**
+     * A board is a `div` on a plane, not an iframe, so `100dvh` inside one is the height of the
+     * **editor's** window — the same hero would draw one height on all three boards and none of them
+     * would be the page. So the drawing substitutes the width's own declared viewport, which
+     * `breakpoints.ts` has carried since preview mode: a laptop, a tablet on its side, a phone.
+     *
+     * Read as **CSS rather than as a box**, because the plane is drawn at a zoom and a measured box
+     * is the height times whatever that is. The claim is what the page says, not what the studio is
+     * scaled to.
+     */
+    const tall = (width: string) =>
+      page.locator(`[data-frame="${width}"] .st-stack[data-name="히어로"]`);
+
+    await expect(tall('desktop')).toHaveCSS('min-height', '800px');
+    await expect(tall('tablet')).toHaveCSS('min-height', '1112px');
+    await expect(tall('mobile')).toHaveCSS('min-height', '844px');
+
+    /* And the content is **centred** in it, because a taller column puts its slack at the end. */
+    await expect(tall('desktop')).toHaveCSS('justify-content', 'center');
+  });
+
+  test('publishes as dvh, which is the browser answering instead of the board', async ({ page }) => {
+    await ready(page);
+
+    /**
+     * The one place a board and the published page deliberately say different things, and the only
+     * one: everywhere else the export is a render through the same renderers, and `export.test.ts`
+     * compares them declaration by declaration at 390.
+     *
+     * `dvh` and not `vh`. `100vh` on a phone is the window with the address bar **gone**, so a
+     * section meant to fill the screen is taller than the screen and the page scrolls by the height
+     * of the browser chrome — on the first screenful, which is the one nobody can miss.
+     */
+    const html = await page.evaluate(async () => {
+      const editor = (window as never as { editor: any }).editor;
+      let got: any;
+      await editor.executeCommand('exportSite', { write: (one: unknown) => (got = one) });
+      return got.pages.find((one: any) => one.path === '/').html as string;
+    });
+
+    expect(html).toContain('100dvh');
+    /* And the board's substitution is nowhere in the file a visitor gets. */
+    expect(html).not.toContain('min-height: 800px');
+  });
+});
+
 test.describe('a narrower width', () => {
   test('draws the same row as a row and as a column, at the same instant', async ({ page }) => {
     await ready(page);
@@ -1533,6 +2248,15 @@ test.describe('the exported page', () => {
      * for. Asked of the **tablet** deliberately: on the desktop board the fault is invisible.
      */
     const block = page.locator('[data-frame="tablet"] [data-name="문제"]').first();
+    /*
+     * Brought into view first, and it has to be: the plane is taller than the window, so where a
+     * block lands depends on what is above it — the hero became a **screenful** and this block went
+     * past the bottom edge, where a click reaches nothing and the failure reads as *no menu*. What
+     * this test is about is where the menu appears relative to the pointer, which is true at any
+     * scroll position.
+     */
+    await block.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    await page.waitForTimeout(300);
     const box = (await block.boundingBox())!;
     const at = { x: box.x + 24, y: box.y + 24 };
     await page.mouse.move(at.x, at.y);
@@ -2773,13 +3497,38 @@ test.describe('the exported page', () => {
       const rows = [...panel.querySelectorAll('label')] as HTMLElement[];
       return {
         paired: rows.filter((one) => one.querySelectorAll('input, select, button').length > 1).length,
-        tall: panel.scrollHeight
+        tall: panel.scrollHeight,
+        /* Every row that is more than one line — the density fault, rather than a proxy for it. */
+        wrapped: rows
+          .filter((one) => one.offsetHeight > 30)
+          .map((one) => (one.textContent ?? '').trim().replace(/px.*$/, '').trim())
       };
     });
 
     // The pairs: padding's four sides, X·Y, W·H, 폭 범위, 높이 범위, 보임·잠금, and the marks.
     expect(said.paired).toBeGreaterThanOrEqual(6);
-    expect(said.tall).toBeLessThan(900);
+
+    /**
+     * **A row holds two controls**, and that is the guard rather than the total.
+     *
+     * The number here was 900 against a panel measured at 868, and the panel is 925 now — two real
+     * capabilities later (`order`, and 화면 높이). Before moving it, three pairings were tried to pay
+     * for the row and **every one was rejected by measurement**:
+     *
+     * - 최소 · 최대 · **화면** — three number fields wrapped the row to 54px
+     * - 방식 · **앞뒤** — a `choice` beside a number, same 54px
+     * - 폭 범위 · **가운데**, which `centred`'s own note calls *the other half of a maximum width* —
+     *   still 54px
+     *
+     * So there is no waste to reclaim: at 240 pixels a row holds **two** controls whatever they are,
+     * every pair that fits is already made, and a third capability costs a row. Raising a number to
+     * fit is how a guard stops guarding, so the number moves **and** the thing it was standing for
+     * becomes the check: no row wraps. That is what rejected all three attempts, and it is what
+     * actually goes wrong — a wrapped row costs 30px and looks like a mistake.
+     */
+    expect(said.tall).toBeLessThan(930);
+    // 안쪽 여백 is four sides on purpose and is the one row allowed to be taller than a line.
+    expect(said.wrapped).toEqual(['안쪽 여백']);
 
     // And each half still writes its own attribute rather than the pair sharing one.
     await expect(page.getByLabel('최소 폭')).toHaveCount(1);
@@ -5161,6 +5910,13 @@ test.describe('the rail', () => {
       '목록',
       '번호 목록',
       '인용',
+      /*
+       * **글** — one block a reader writes a whole piece in, beside 인용 rather than up among the
+       * containers. It holds blocks, but this list divides *arrangement* from what a page is made
+       * **of**, and a body is content. Put in the other group first and measured: it landed between
+       * 그리드 and 두 칸, where nobody would look.
+       */
+      '글',
       // Back on the rail: a code block can be typed into now that Enter inside one is a newline.
       '코드',
       '구분선',
@@ -5178,7 +5934,7 @@ test.describe('the rail', () => {
       '영상',
       '넣은 것'
     ]);
-    await expect(page.locator('[data-insert]:not([disabled])')).toHaveCount(21);
+    await expect(page.locator('[data-insert]:not([disabled])')).toHaveCount(22);
   });
 
   test('adds a block, puts it where a reader can predict, and selects it', async ({ page }) => {
@@ -5332,7 +6088,8 @@ test.describe('the data', () => {
   test('opens one row as a form, with a control for what each column holds', async ({ page }) => {
     await openData(page);
     await page.locator('[data-dataset-edit="글"]').click();
-    await expect(grid(page).locator('[data-column]')).toHaveCount(5);
+    /* Six since the sample grew a **본문** column: a card shows 요약 and the post is 본문. */
+    await expect(grid(page).locator('[data-column]')).toHaveCount(6);
 
     /*
      * **자료형**, beside each column's name. It used to live on the *card* that drew the column —
@@ -5341,11 +6098,10 @@ test.describe('the data', () => {
      * nowhere to say it was one.
      */
     const kinds = grid(page).locator('.st-data-kind');
-    await expect(kinds).toHaveCount(5);
+    await expect(kinds).toHaveCount(6);
     // Asked as the **word a reader reads** rather than as the id, because a picker's job is to say
-    // what the column is in the same terms the form beside it does.
-    await expect(kinds.nth(2)).toHaveText('날짜');
-    await expect(kinds.nth(3)).toHaveText('예/아니오');
+    await expect(kinds.nth(3)).toHaveText('날짜');
+    await expect(kinds.nth(4)).toHaveText('예/아니오');
 
     // And the grid draws each cell as its kind: a real date field, a checkbox, a page picker.
     await expect(grid(page).locator('td[data-cell-kind="date"] input').first()).toHaveAttribute('type', 'date');
@@ -5357,7 +6113,7 @@ test.describe('the data', () => {
 
     const form = page.locator('[data-row-form]');
     await expect(form).toBeVisible();
-    await expect(form.locator('[data-field]')).toHaveCount(5);
+    await expect(form.locator('[data-field]')).toHaveCount(6);
 
     /*
      * **서식 있는 글 is the one field that is not a box.** 요약 holds a reference and its paragraphs
@@ -5365,7 +6121,7 @@ test.describe('the data', () => {
      * pointed at them. A text box here would be a reader typing over a reference. `edits a rich
      * value in place` drives that; this only says which control it is.
      */
-    await expect(form.locator('[data-field="요약"] [data-rich-edit]')).toHaveCount(1);
+    await expect(form.locator('[data-field="요약"] [data-note-editor]')).toHaveCount(1);
     await expect(form.locator('[data-field="요약"] input')).toHaveCount(0);
 
     const title = form.locator('[data-field="제목"] input');
@@ -5452,7 +6208,8 @@ test.describe('the data', () => {
 
     const form = page.locator('[data-row-form="2"]');
     await expect(form).toBeVisible();
-    await expect(form.locator('[data-field]')).toHaveCount(5);
+    /* Six columns since the sample grew 본문 — a card shows 요약 and the post is 본문. */
+    await expect(form.locator('[data-field]')).toHaveCount(6);
     // The third post, newest first — not the first row, which is what a lookup by node would give.
     await expect(form.locator('[data-field="제목"] input')).toHaveValue('커서는 누구의 것인가');
   });
@@ -5517,7 +6274,9 @@ test.describe('the data', () => {
     await page.locator('[data-row-open="0"]').click();
     await page.waitForTimeout(500);
 
-    const rich = page.locator('[data-rich-edit]');
+    /* The **요약** one: a row has two rich columns now — 요약 for a card, 본문 for the post. */
+    /* `office-note`'s own — the editor is that package's now, and so is the name it answers to. */
+    const rich = page.locator('[data-field="요약"] [data-note-editor]');
     await expect(rich).toBeVisible();
     /* The document's own words, with the document's own mark on one of them. */
     await expect(rich).toContainText('페이지의 문법은');
@@ -5525,7 +6284,12 @@ test.describe('the data', () => {
     /* And typable, because it is the editor — not a box drawn to look like one. */
     await expect(rich.locator('[contenteditable]')).toHaveCount(1);
 
-    await rich.click();
+    /*
+     * Into the **body's** paragraph. `rich` is the whole editor now — bar and body — so a `p` under
+     * it is unambiguous but the box around it is not: a click on the padding of a scrolling body
+     * places no caret, and a click on the bar places one nowhere at all.
+     */
+    await rich.locator('[data-note-body] p').first().click();
     await page.keyboard.press('End');
     await page.keyboard.type(' 그리고 더.');
     await page.waitForTimeout(400);
@@ -5894,24 +6658,30 @@ test.describe('the pages of a site', () => {
     await expect(page.locator('[data-page-up]').nth(0)).toBeDisabled();
   });
 
-  test('asks before removing one, and says how many links it breaks', async ({ page }) => {
+  test('asks before removing one, and says what points at it — in the three shapes that do', async ({ page }) => {
     await pages(page);
     await page.locator('[data-page-remove]').nth(1).click();
 
-    /*
-     * The number is the whole reason this asks, and it is **two** — which is worth pausing on,
-     * because five pages draw those links. The bar and the footer both name 제품, and both live in a
-     * definition every page places: two links in the document, drawn ten times. Counting marks is
-     * the number that can be checked; counting the places they are drawn would be counting
-     * placements, and this dialog would then disagree with `linkFaults`, which reports the marks.
+    /**
+     * The number is the whole reason this asks, and it used to be **one third of itself**.
+     *
+     * It counted link marks: three, from the bar and the footer of a definition every page places —
+     * references in the document, drawn ten times, and counting the drawings would be counting
+     * placements. That distinction was right and it hid a second one. Two other shapes name a page
+     * and neither is a mark: a block's `이동`, and a cell in a dataset's row. Measured across the
+     * sample, six of the eight pages under-reported and the two blog posts said **0** while the blog
+     * list pointed at them from a data row.
+     *
+     * So 제품 is 링크 3개 **and 이동 1개** — the 시작하기 card on the home page goes there. Three
+     * counts rather than a total because they are three different repairs: retype a sentence, open a
+     * card's panel, edit a row.
      *
      * That a single link can be the whole site's navigation is a fact worth telling a reader too —
      * see `BACKLOG.md`.
      */
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('제품 삭제');
-    // Two: the bar and the footer both name it, and both live in a definition every page places.
-    await expect(dialog).toContainText('링크 3개가 끊어집니다');
+    await expect(dialog).toContainText('링크 3개, 이동 1개가 끊어집니다');
 
     await dialog.getByRole('button', { name: '취소' }).click();
     await page.waitForTimeout(300);
@@ -5943,8 +6713,13 @@ test.describe('the pages of a site', () => {
     /*
      * …and this is where the fault list earns its place. Everything above is correct and **invisible**
      * — see the block below.
+     *
+     * Four rather than three, and the fourth is the one this whole change is for: the 시작하기 card
+     * on the home page named this page in its `이동`, so it now goes nowhere — and it still draws, it
+     * still lifts under the pointer, and until the report started asking about the other two shapes
+     * nothing anywhere could say so.
      */
-    await expect(page.locator('[data-faults]')).toContainText('문제 3개');
+    await expect(page.locator('[data-faults]')).toContainText('문제 4개');
   });
 });
 
@@ -7124,7 +7899,15 @@ test.describe('what is wrong with the site', () => {
     await page.locator('[data-page-remove-confirm]').click();
     await page.waitForTimeout(700);
 
-    await expect(footer(page)).toContainText('문제 3개');
+    /**
+     * **넷**, and it was three until the report stopped asking only about link marks.
+     *
+     * Three links break — the bar and the footer of the 머리말 and 꼬리말 definitions — and so does
+     * the 시작하기 card on the home page, whose `이동` named this page. That fourth one was in the
+     * document, drawn on screen, and **nothing anywhere could say it**: `linkFaults` walked for
+     * marks, so a page named by an attribute was nobody's job.
+     */
+    await expect(footer(page)).toContainText('문제 4개');
     await expect(footer(page)).not.toHaveAttribute('data-clear', 'true');
 
     // Shut until asked. A drawer that opened itself would cover the panel a reader is working in.
@@ -7137,13 +7920,22 @@ test.describe('what is wrong with the site', () => {
     await expect(list).toContainText('화면만 봐서는 찾을 수 없습니다');
 
     const found = list.locator('[data-fault]');
-    await expect(found).toHaveCount(3);
+    await expect(found).toHaveCount(4);
+
+    /*
+     * And they stay **two groups**, which is the judgement in this change rather than a consequence
+     * of it. 끊어진 링크 is not a synonym for *a name that resolves nowhere*: an `<a>` with no href
+     * draws as ordinary words, so it is the one of the three a reader cannot find by looking. The
+     * card reports itself the moment somebody clicks it, and it is filed under 이름이 가리키는 것.
+     */
+    await expect(list).toContainText('이름이 가리키는 것');
+    await expect(list).toContainText('눌러도 아무 일도 일어나지 않습니다');
 
     /*
      * And **where**, which is the half that makes a row somewhere to go rather than a complaint. All
-     * three of these links live in the 머리말 and 꼬리말 *definitions* — twice in the header, since
-     * the bar and the menu a phone opens each carry one — which is why the dialog said three and the
-     * page draws eleven. A reader told only 링크 would look through five pages and find it on none of
+     * three of the links live in the 머리말 and 꼬리말 *definitions* — twice in the header, since the
+     * bar and the menu a phone opens each carry one — which is why the dialog said three and the page
+     * draws eleven. A reader told only 링크 would look through five pages and find it on none of
      * them, because a definition is not a page.
      */
     await expect(found.first()).toContainText('컴포넌트');
@@ -7517,11 +8309,13 @@ test.describe('a link to another page', () => {
 
     const rows = page.locator('[data-slash-item]');
     /*
-     * Twelve, and the two that arrived are a video and an embed — the same list the rail and the
-     * menubar offer, because all three read `siteControlsIn('insert')`. A number here that had to be
-     * bumped separately would be a fourth place that decides what a page can hold.
+     * Thirteen, and the newest is **글** — a body a reader writes a whole piece in. The same list the
+     * rail and the menubar offer, because all three read `siteControlsIn('insert')`. A number here
+     * that had to be bumped separately would be a fourth place deciding what a page can hold; this
+     * one moves because that single declaration moved.
      */
-    await expect(rows).toHaveCount(12);
+    await expect(rows).toHaveCount(13);
+    await expect(page.locator('[data-slash-item="insertRichText"]')).toHaveText(/글/);
     // This product's own inserts, not the shared kit's: a page's blocks have a page's names.
     await expect(page.locator('[data-slash-item="insertQuote"]')).toHaveText(/인용/);
 
@@ -9763,10 +10557,11 @@ test.describe('a chart', () => {
  * check in this file is about the builder.
  */
 test.describe('관리', () => {
-  test('is what the window opens into, with the five things a site is made of', async ({ page }) => {
+  test('is what the window opens into, with the six things a site is made of', async ({ page }) => {
     await admin(page);
 
-    await expect(page.locator('[data-admin-tab]')).toHaveCount(5);
+    /* 페이지 · 데이터 · 컴포넌트 · 발행 · 파일 · 설정 — the last one added when the document's own facts got a screen. */
+    await expect(page.locator('[data-admin-tab]')).toHaveCount(6);
     /* Its own nav, not the builder's rail: 추가 and 구성 are tools for editing a page. */
     await expect(page.locator('.st-rail')).toHaveCount(0);
     /*
@@ -9782,18 +10577,38 @@ test.describe('관리', () => {
     await admin(page);
 
     /*
-     * The rail listed a name and an address and had room for nothing else. **링크** is the column
-     * that earns the table: removing a page breaks every link into it, and a broken link draws as
-     * ordinary words — the number here is the moment before that is still preventable.
+     * The rail listed a name and an address and had room for nothing else. **가리킴** is the column
+     * that earns the table: removing a page breaks everything that names it, and a broken link draws
+     * as ordinary words — the number here is the moment before that is still preventable.
+     *
+     * It was 링크 and counted marks; three shapes name a page and only one of them is a mark, so the
+     * column is named for the question and its tooltip says which three.
      */
     await expect(page.locator('[data-admin-page]')).toHaveCount(8);
     const head = page.locator('.st-admin-table thead');
-    for (const one of ['이름', '주소', '틀', '블록', '링크', '색인']) await expect(head).toContainText(one);
+    for (const one of ['이름', '주소', '틀', '블록', '가리킴', '색인']) await expect(head).toContainText(one);
 
-    /* The dashboard is the one page that says both of the last two things. */
+    /*
+     * The dashboard is the one page that says both of the last two things.
+     *
+     * 색인 said `예` on seven rows and `아니오` on one, in the same grey as the address beside it —
+     * so the column a reader would scan for *which page a crawler may not read* was the one thing on
+     * the row they had to read to find. Only the exception is drawn now: colour is for *look at
+     * this*, which is what the token file itself argues.
+     */
     const dash = page.locator('[data-admin-page="dashboard"]');
     await expect(dash).toContainText('dashboard-page');
-    await expect(dash).toContainText('아니오');
+    await expect(dash).toContainText('색인 안 함');
+    await expect(page.locator('[data-admin-page="home"]')).not.toContainText('색인 안 함');
+
+    /**
+     * And the row this whole change is for: a blog post **nothing links to**, which the old column
+     * read as `0` — *지워도 안전합니다*, said about a page the blog list points at from a data row.
+     * The number is 1 and the tooltip says where to go and fix it.
+     */
+    const post = page.locator('[data-admin-page="post-stack"] .st-admin-number').last();
+    await expect(post).toHaveText('1');
+    await expect(post).toHaveAttribute('title', /데이터 1칸/);
   });
 
   test('goes in, and comes back out', async ({ page }) => {

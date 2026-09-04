@@ -31,6 +31,7 @@
  * a CSS one-liner apiece and it is not derivable from silence, because silence already means two
  * different things depending on the axis and the container.
  */
+import { NOTE_CONTENT } from '@barocss/office-note';
 import {
   getOfficeSchemaDefinition,
   getStandardSchemaDefinition,
@@ -145,6 +146,39 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
      */
     minHeight: { type: 'number' as const, required: false },
     maxHeight: { type: 'number' as const, required: false },
+    /**
+     * **화면 높이** — how many screens tall this block is at least, which is the one relative length
+     * this document could not say and the reason it is a number rather than a unit.
+     *
+     * ## The four relative lengths, and why only this one is here
+     *
+     * The document keeps **twips** — Word's unit, absolute — and the web's lengths are relative. That
+     * gap was written down as a debt with three bad ways to close it: every length becomes a string, a
+     * second attribute per length, or `type: 'custom'` and no validation. Measured against what a page
+     * actually wants, three of the four had already been closed by something else:
+     *
+     * - **proportion** (`40% / 60%`) — `sizing: 'share'`, and better than a percentage, because
+     *   40% + 60% is the whole row and the gap between them is not;
+     * - **per-width** (`clamp`, `min()`) — `overrides`, which say a real number at each width rather
+     *   than one expression that has to be right at all of them;
+     * - **bounds** — `minWidth`/`maxWidth`/`minHeight`/`maxHeight`, in twips, already there.
+     *
+     * What was left is one idea: **a section as tall as the window**, which is the commonest layout
+     * on the web and which nothing here could express, because the window's height is not a number of
+     * twips.
+     *
+     * ## So a named number, which is the move `share` already made
+     *
+     * `share: 2` means *twice as wide* and carries its unit in its name. `minScreens: 1` means *at
+     * least one screenful*, and `0.5` means half of one — which a boolean could not say and a unit
+     * dropdown would say worse. One attribute, no union in the type system, no migration, and the
+     * word a reader is actually thinking.
+     *
+     * Drawn as `dvh` rather than `vh`: on a phone `100vh` is the window with the address bar *gone*,
+     * so a section that should exactly fill the screen is taller than it and the page scrolls by the
+     * height of the browser chrome. `dvh` is the same number after the bar retracts.
+     */
+    minScreens: { type: 'number' as const, required: false },
     /**
      * **Where this block is**, when it is not simply the next thing in the column.
      *
@@ -302,7 +336,7 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
      * what it was doing until somebody exported the page and looked.
      *
      * A `page:` pointing at a page that is gone publishes an `<a>` with **no** `href`, which is the
-     * one shape a browser draws as *not a link* — and `linkFaults` reports it, because a reference
+     * one shape a browser draws as *not a link* — and `refFaults` reports it, because a reference
      * that resolves to nothing is the fault this document model already has five other kinds of.
      */
     goes: { type: 'string' as const, required: false },
@@ -771,7 +805,41 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
            * Silence is *hand me the files*, which is what publishing has always done here and stays
            * the honest default: a site with nowhere to go is still a site somebody can put somewhere.
            */
-          publishTo: { type: 'string' as const, required: false }
+          publishTo: { type: 'string' as const, required: false },
+          /**
+           * **이 사이트가 무엇에 대한 것인가** — the description a page falls back to.
+           *
+           * A page carries its own `description`, which is right: what a search result shows for
+           * `/가격` should be about pricing. But most pages of most sites never get one written, and
+           * a page with none publishes a head with **no `<meta name="description">` and no
+           * `og:description`** — so a shared link unfurls as an address and a title, and a search
+           * result shows whatever the engine scraped out of the first paragraph.
+           *
+           * One sentence at the site level is the difference between that and every page saying
+           * something. Written once, and a page that has its own still wins.
+           */
+          description: { type: 'string' as const, required: false },
+          /**
+           * **무슨 말로 쓰였는가**, which the export had as the literal `ko`.
+           *
+           * `<html lang>` is the first thing a screen reader reads and the last thing anybody
+           * remembers to set. Hard-coded, every site this product makes claims to be Korean —
+           * including the English one somebody builds with it, whose every word is then announced by
+           * a Korean voice.
+           *
+           * A string rather than a list, because BCP 47 is a grammar (`ko`, `en`, `en-GB`,
+           * `zh-Hant`) and a product that offered eight options would be a product that cannot make
+           * a site in the ninth language.
+           */
+          lang: { type: 'string' as const, required: false },
+          /**
+           * **링크를 공유했을 때 보이는 그림**, as `asset:이름`, for pages that have none of their own.
+           *
+           * Same argument as `description` one field up, and the same fallback: a page's own `image`
+           * wins, and a site with neither publishes an `og:` block that a chat app draws as a grey
+           * rectangle.
+           */
+          image: { type: 'string' as const, required: false }
         }
       },
 
@@ -785,7 +853,7 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
       surface: {
         ...nodes.surface,
         /** A page holds all of it too, and for the same reason — see `frame`. */
-        content: 'variable* (block | scene | frame | collection)*',
+        content: 'variable* (block | scene | frame | collection | richText)*',
         attrs: {
           ...nodes.surface.attrs,
           /**
@@ -948,7 +1016,7 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
          * honest statement for this product: a page has one kind of child, and the group a node
          * carries is about where else it can go.
          */
-        content: '(block | scene | frame | collection)*',
+        content: '(block | scene | frame | collection | richText)*',
         attrs: {
           ...(withPaint('frame') as { attrs?: Record<string, unknown> }).attrs,
           /**
@@ -1190,13 +1258,68 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
        * reports a `richText` nothing references — and it is written here so the next reader does not
        * have to find it by wondering why a document grew.
        */
+      /**
+       * **본문** — and it is two things with one shape, which is the whole of this declaration.
+       *
+       * ## Where one lives
+       *
+       * In `resources`, named by an `id`, pointed at from a cell (`text:요약-스택`) — the value of a
+       * 서식 있는 글 column. **Or on a page**, placed from 추가 like any other block, holding its own
+       * words. The group stays `resource` because the first is what a group is for; the second is a
+       * `richText` written into a container's content expression by name.
+       *
+       * ## Why the same node for both
+       *
+       * Because the reader's question is the same one — *write a body here* — and the difference is
+       * only where the words are kept. One node means one renderer, one editing surface (a view
+       * rooted at whichever node holds the words) and one content model. Two nodes would be two of
+       * each, drifting.
+       *
+       * ## What it may hold, and what it may not
+       *
+       * `block+` was the page's own vocabulary, so this permitted a **폼, a 차트, a 목록 and a
+       * canvasBlock inside a blog post** — and did not permit a `picture`, which is `group: 'scene'`.
+       * Exactly backwards. Written out rather than given a new group, which is what `form` one node
+       * over already does and which avoids a three-product migration: `block` is declared in the
+       * shared schema and Word and Slides both walk it.
+       *
+       * Out: `frame`, `collection`, `chart`, `form`, `field`, `canvasBlock` — every one of them the
+       * **page's** vocabulary. A body is written; a page is arranged. `listItem` is a list's child and
+       * `pageBreak` is a Word idea a scrolling page has no use for.
+       *
+       * That argument now lives in `office-note`, which is the package a body belongs to, and this
+       * reads `NOTE_CONTENT` from it. A `richText` in a site's `resources` and a `note` on its own
+       * are the same blocks in two documents — which is what lets a card draw one.
+       *
+       * ## And **no `source`**, which was tried
+       *
+       * A `source: 'field:본문'` looked like the way to connect one to data, by the shape `collection`
+       * and `picture` use. It is not needed: a card's body is a **part** of a definition, and the
+       * binding machinery already replaces a part's children with the row's body — keyed by the
+       * variable's name, not by an attribute. Declared and nothing read it, which the harness said
+       * within a minute. If pointing a *placed* body at a named one ever has a use, it arrives then.
+       */
       richText: {
         name: 'richText',
         group: 'resource',
-        content: 'block+',
+        /**
+         * **`office-note`'s own declaration, read** — not a second spelling of it.
+         *
+         * The list was written out here first, with the argument for narrowing it. Then a body
+         * became a package of its own, and *what a body may hold* is that package's sentence: two
+         * spellings is how a model and an editor come to disagree, which this repository has on
+         * record more than once.
+         */
+        content: NOTE_CONTENT,
         attrs: {
-          /** What a cell's `text:` names. Durable, like every other reference in this schema. */
-          id: { type: 'string' as const, required: true }
+          /**
+           * What a cell's `text:` names. Durable, like every other reference in this schema.
+           *
+           * **Optional**, because a body placed on a page is not named by anything: its words are its
+           * own children and nothing points at it. Required would have meant asking a reader to name
+           * every paragraph they write.
+           */
+          id: { type: 'string' as const, required: false },
         }
       },
 

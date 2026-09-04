@@ -35,6 +35,9 @@ const PX_PER_TWIP = 96 / 1440;
 
 const px = (twips: number): string => `${Math.round(twips * PX_PER_TWIP * 100) / 100}px`;
 
+/** A length already in CSS pixels — `minScreens` counts screens, not twips. */
+const px2 = (pixels: number): string => `${Math.round(pixels * 100) / 100}px`;
+
 export interface Sized {
   sizing?: unknown;
   /** Where in its stack it is drawn, when it is not where it is in the tree — see `sizingCss`. */
@@ -45,6 +48,7 @@ export interface Sized {
   maxWidth?: unknown;
   minHeight?: unknown;
   maxHeight?: unknown;
+  minScreens?: unknown;
   /**
    * **How many columns of a grid this one takes** — the attribute a grid had no way to say.
    *
@@ -81,7 +85,17 @@ export function sizingCss(
    * reader cannot restyle with their own CSS is not theirs. And an ordinary rule cannot win, because
    * this is written inline.
    */
-  inScrollingRow = false
+  inScrollingRow = false,
+  /**
+   * **How tall one screenful is here**, in CSS pixels — or nothing, meaning *let the browser say*.
+   *
+   * The one thing `minScreens` needs that a stylesheet cannot supply. On a published page a screen is
+   * `100dvh` and the browser knows it; a board in the editor is a `div` on a plane, so `dvh` inside
+   * one is the height of the **editor's window** and the same page would draw a different height on
+   * three boards that differ only in width. `screenOf` reads the board's own viewport — see
+   * `breakpoints.ts`, where that number has been declared since preview mode.
+   */
+  screenPx?: number
 ): Record<string, string> {
   const css: Record<string, string> = {};
 
@@ -222,7 +236,30 @@ export function sizingCss(
    */
   const minTall = number(attrs?.minHeight);
   const maxTall = number(attrs?.maxHeight);
-  if (minTall !== undefined) css.minHeight = px(minTall);
+  /**
+   * And **화면 높이**, the one relative length the document can say — see `site-schema.ts` for why it
+   * is a number of screens rather than a unit on a length.
+   *
+   * `dvh` rather than `vh`: `100vh` on a phone is the window with the address bar *gone*, so a
+   * section meant to fill the screen is taller than the screen and the page scrolls by the height of
+   * the browser chrome, on the first screenful, which is the one nobody can miss.
+   *
+   * **`max()` when a block says both**, rather than one silently winning. A hero that is at least a
+   * screen tall *and* at least 400 tall means both — on a laptop in a short window the second one is
+   * what keeps it from collapsing. CSS takes one `min-height`, so the two are combined rather than
+   * ordered, which is also the only reading under which neither row in the panel is a lie.
+   */
+  const screens = number(attrs?.minScreens);
+  const tallest =
+    screens === undefined || screens <= 0
+      ? undefined
+      : screenPx !== undefined
+        ? px2(screens * screenPx)
+        : `${screens * 100}dvh`;
+
+  if (tallest !== undefined && minTall !== undefined) css.minHeight = `max(${px(minTall)}, ${tallest})`;
+  else if (tallest !== undefined) css.minHeight = tallest;
+  else if (minTall !== undefined) css.minHeight = px(minTall);
   if (maxTall !== undefined) css.maxHeight = px(maxTall);
 
   return css;

@@ -131,7 +131,7 @@ export function shownSomewhere(
  *
  * One hidden block inside a definition placed on six pages is **one** block. A reader looking at a
  * board wants to know how much of their design this width does not show, and *six* would be counting
- * placements — the same distinction `linksTo` draws about marks.
+ * placements — the same distinction `breaksIfGone` draws about a page's links.
  */
 export function hiddenAt(
   doc: { rootId: string; getNode: (sid: string) => Record<string, any> | undefined },

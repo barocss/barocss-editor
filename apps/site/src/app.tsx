@@ -1,6 +1,7 @@
+import { SlashMenu, useDocumentRevision, useEditorRevision } from '@barocss/office-editor-ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
-import { selectedNodeIds, watchAnswers, watchContent } from '@barocss/editor-core';
+import { selectedNodeIds } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import {
   Icon,
@@ -12,14 +13,13 @@ import {
   IconButton,
   fieldKeeps,
   ZoomControl,
-  useRevision,
   useViewport,
   zoomIn,
   zoomOut,
   type Viewport
 } from '@barocss/office-ui';
 import {
-  siteMenusFor,
+  siteMenusIn,
   widthsOf,
   datasetNamed,
   datasetsOf,
@@ -44,7 +44,6 @@ import {
 } from '@barocss/office-site';
 import { Canvas } from './canvas';
 import { Inspector, addPicture } from './inspector';
-import { SlashSurface } from './slash-surface';
 import { TextSurface } from './text-surface';
 import { Rail, type Panel as RailPanel } from './rail';
 import { Admin, type AdminTab } from './admin';
@@ -52,7 +51,8 @@ import { DataTable, RowForm } from './data-editor';
 import { CodeEditor, type CodeEdit } from './code-editor';
 import { PageFrame } from './page-frame';
 import { Ribbon } from './ribbon';
-import type { PointerMode } from './overlay';
+import { Overlay, type PointerMode } from './overlay';
+import { Grip } from './grip';
 
 /**
  * One exported page, handed to the browser as a file.
@@ -313,6 +313,20 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   const [writing, setWriting] = useState(false);
   /**
+   * How wide the two sides are, which a reader drags — see `Grip`.
+   *
+   * State rather than a stored setting: it is a *posture*, like the zoom, and this product has not
+   * decided where a reader's preferences live. The day it does, this moves there.
+   *
+   * **The rail and not the panel.** The rail's rows are the reader's own words — a page called
+   * 블로그 beside one called *스택이 페이지의 문법이다* — and 240px cuts the second one. The
+   * properties panel's width is an argued number with a measurement behind it (`properties.tsx`:
+   * every serious tool of this kind is between 232 and 248, and it is about how far the eye travels
+   * between a label and its value), so a drag handle there would be a second answer to a question
+   * that has one. It is one more `Grip` the day that argument stops holding.
+   */
+  const [railW, setRailW] = useState(240);
+  /**
    * **What a reader may add, and where** — one dialog with two ways in.
    *
    * The ribbon's 넣을 것 고르기 opens it, and so does the plus at either end of a selected block. The
@@ -380,12 +394,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     },
     [editor]
   );
-  const revision = useRevision((reread) => watchContent(editor, reread), [editor]);
+  const revision = useDocumentRevision(editor);
   /*
    * The selection, as a value an effect can depend on. `watchContent` does not fire when only the
    * selection moves, and what the boards preview is *what is selected*.
    */
-  const answers = useRevision((reread) => watchAnswers(editor, reread), [editor]);
+  const answers = useEditorRevision(editor);
   const chosen = useMemo(
     () => (selectedNodeIds(editor?.selection) ?? []).join(','),
     [editor, answers]
@@ -575,7 +589,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * arrives with its own entry rather than needing one written into the model — and the same list is
    * what `siteMenuEntry` resolves an id against, so the two cannot disagree about what exists.
    */
-  const menus = useMemo(() => siteMenusFor(widths), [widths]);
+  /*
+   * **The bar for the place the reader is standing in.** 관리 has no canvas, and 삽입, 표 and 보기
+   * are about one from their first entry to their last — twelve, eight and nine entries that could
+   * never be enabled over a table of pages. See `siteMenusIn`.
+   */
+  const menus = useMemo(() => siteMenusIn(admin ? 'admin' : 'page', widths), [admin, widths]);
 
   /**
    * **What the surfaces are handed** — the editor, or the one a writer gets.
@@ -636,7 +655,10 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     // The selection as well as the content: 복제 is possible or not depending on what is chosen, and
     // `watchContent` does not fire when only the selection moves.
     // `given` rather than `editor`: in 글 고치기 the bar greys what the mode refuses.
-    [given, editor, revision, answers, page, preview, shown, writing]
+    // And **`menus` itself**, which was missing: the model changes when the reader moves between
+    // 관리 and a page, and a memo that does not list it went on drawing the bar for the place they
+    // left. Measured — going in from 관리 kept the two-menu bar.
+    [menus, given, editor, revision, answers, page, preview, shown, writing]
   );
 
   /**
@@ -1296,7 +1318,20 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             42 pixels of canvas back, and the row that is left says what every design tool's top row
             says: who you are, what the document can do, what the pointer is, and how you are looking.
           */}
-          {editor ? (
+          {/**
+            * **Not in 관리**, which is a correctness fault and not only a busy one.
+            *
+            * The strip is 선택/텍스트, eight arrange glyphs, the insert plus, the text group and the
+            * zoom — every one of them about a **block on a canvas**, and 관리 has neither. So a
+            * management screen opened under a full editing toolbar whose controls acted on nothing:
+            * a mode switch for a pointer with no board to point at, and a zoom for a plane that is
+            * not drawn.
+            *
+            * The menubar stays, because 파일 is a document's and belongs on both sides of the door.
+            * 관리 carries its own acts on its own header, which is where a screen of this kind puts
+            * them.
+            */}
+          {editor && !admin ? (
             <Ribbon
               editor={given ?? editor}
               mode={mode}
@@ -1398,14 +1433,21 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                 </label>
               ) : null}
             </span>
-          ) : (
+          ) : admin ? null : (
+            /* Which page the reader is **in** — which, in 관리, they are not: they are outside it. */
             <span className="st-where" data-where>
               {pages.find((one) => one.sid === page)?.name ?? ''}
               <span className="st-where-path">{pages.find((one) => one.sid === page)?.path ?? ''}</span>
             </span>
           )}
 
-          <div className="st-titlebar-end">
+          {/**
+            * **Nor the view controls in 관리**, for the reason the tools are gone: 폭 보기, 미리보기
+            * and the zoom are all about the **plane** — how far away a reader is standing from boards
+            * that are not drawn. A management screen under a zoom that scales nothing is the same
+            * fault as one under an alignment glyph that aligns nothing.
+            */}
+          <div className="st-titlebar-end">{admin ? null : (<>
             {/*
               The one control that changes what the boards *are* rather than what they show. Beside
               the zoom because both are about how the reader is looking, not about the document.
@@ -1453,7 +1495,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               {preview ? '편집' : '미리보기'}
             </button>
             {/* Typed or pressed, the middle of the view is what stays still — see `viewport.ts`. */}
-            <ZoomControl zoom={zoom} onChange={(next) => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" />
+            <ZoomControl zoom={zoom} onChange={(next) => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" /></>)}
           </div>
         </div>
       </AppChrome>
@@ -1465,8 +1507,17 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           It was a layer list and nothing else, and the question that found the gap was the plainest
           one a reader can ask: *where do I add a heading?* Nowhere.
         */}
+        {/**
+          * **The handle, between the two regions.**
+          *
+          * It was inside the rail and covered the last nine pixels of every row — measured: a row's
+          * 삭제 ends **one** pixel from that edge, so the grip ate the click on every one of them.
+          * A boundary belongs to neither side, so it is a sibling of both, sitting where they meet.
+          */}
+        {editor && !admin ? <Grip at={railW} onWidth={setRailW} /> : null}
         {editor && !admin ? (
           <Rail
+            width={railW}
             editor={given ?? editor}
             panel={panel}
             onPanel={setPanel}
@@ -1589,47 +1640,67 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                     label={definition ? `${definition.name} · ${one.label}` : one.label}
                     width={one.width}
                     page={root}
-                    scopeRoot={scopeRoot}
                     redraw={redraw}
-                    /**
-                     * **A writer is in text**, always — which is the mode rather than a default.
-                     *
-                     * `select` is the mode the board's own gestures live in: the handles, the
-                     * padding bands, the marquee, the plus. A writer has none of them, so putting
-                     * them in `select` and then hiding each one would be four places to forget. The
-                     * mode they are already in is the one where a press puts a caret.
-                     */
-                    mode={writing ? 'text' : mode}
-                    onEnterText={(sid) => {
-                      setEntered(sid);
-                      setMode('text');
-                    }}
-                    /*
-                     * Double-clicking a placement opens what it draws — and a **list's row** opens
-                     * the card the list draws, against that row.
-                     *
-                     * Which is the gesture every tool of this kind uses, and it costs nothing here:
-                     * a placement has no children a reader can select — its parts are resolved — so
-                     * the drill has nowhere else to go. A list had the same nowhere and did nothing
-                     * at all, which is what *더블클릭 해도 편집모드가 되지 않아* was.
-                     */
-                    onEditComponent={openDefinition}
-                    onRow={setRowAt}
-                    onEditRow={(one) => setRowOpen(rowIn(one))}
-                    onEditCode={openCode}
                     preview={preview}
                     wireframe={wireframe}
                     widths={widths}
-                    onAdd={(place) => {
-                      setAddAt(place);
-                      setAdding(true);
-                    }}
                     onFollow={(path) => {
                       const found = pages.find((one) => one.path === path);
                       if (found) setCurrent(found.sid);
                     }}
-                    scope={inside ?? ''}
-                    onScope={setScope}
+                    /**
+                     * **가리키는 것은 이 층이 붙입니다.**
+                     *
+                     * A board draws a page at a width; an overlay is what makes it pointable. They
+                     * were one component, and it was the only place the editing surface reached into
+                     * the chrome — everything else in this app points the other way.
+                     *
+                     * Ten of the frame's twenty props were the overlay's and moved here with it.
+                     * What is left is a board: a document, a width, and whether it is being looked at.
+                     */
+                    overlay={(host) =>
+                      editor ? (
+                      <Overlay
+                        editor={editor}
+                        host={host}
+                        page={scopeRoot ?? root}
+                        breakpoint={one.id}
+                        /**
+                         * **A writer is in text**, always — which is the mode rather than a default.
+                         *
+                         * `select` is the mode the board's own gestures live in: the handles, the
+                         * padding bands, the marquee, the plus. A writer has none of them, so putting
+                         * them in `select` and then hiding each one would be four places to forget.
+                         * The mode they are already in is the one where a press puts a caret.
+                         */
+                        mode={writing ? 'text' : mode}
+                        onEnterText={(sid) => {
+                          setEntered(sid);
+                          setMode('text');
+                        }}
+                        /*
+                         * Double-clicking a placement opens what it draws — and a **list's row**
+                         * opens the card the list draws, against that row.
+                         *
+                         * Which is the gesture every tool of this kind uses, and it costs nothing
+                         * here: a placement has no children a reader can select — its parts are
+                         * resolved — so the drill has nowhere else to go. A list had the same
+                         * nowhere and did nothing at all, which is what *더블클릭 해도 편집모드가
+                         * 되지 않아* was.
+                         */
+                        onEditComponent={openDefinition}
+                        onRow={setRowAt}
+                        onEditRow={(each) => setRowOpen(rowIn(each))}
+                        onEditCode={openCode}
+                        onAdd={(place) => {
+                          setAddAt(place);
+                          setAdding(true);
+                        }}
+                        scope={inside ?? ''}
+                        onScope={setScope}
+                      />
+                      ) : null
+                    }
                   />
                 ))
               : null}
@@ -1705,8 +1776,27 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         */}
         {editor ? <TextSurface editor={editor} mode={mode} /> : null}
 
-        {/* And the `/` menu at the caret — the second one, and it is a list. */}
-        {editor ? <SlashSurface editor={editor} mode={mode} /> : null}
+        {/**
+          * And the `/` menu at the caret — the second one, and it is a list.
+          *
+          * **`mode` is the canvas's**, and the row drawer has no canvas: it draws a second view over
+          * the same editor, so a caret in a body there left the app in `select` and the menu never
+          * opened. Measured — a reader could write in a summary and could not put a heading, a list
+          * or an image in it, with the rail behind the drawer's scrim and no other way in.
+          *
+          * `writing` already does exactly this for the canvas one level up. The condition stays
+          * narrow: the surface itself needs a **collapsed range in a text run**, which a plain field
+          * in the drawer is not, so the only caret this opens for is the one in the body.
+          */}
+        {/*
+          **`/` 메뉴는 `office-editor-ui` 의 것입니다.**
+
+          `slash-surface.tsx` was 195 lines and a note's was 182, and with comments and blank lines
+          removed **129 of them were identical**. What differed was eight lines, all of them this
+          product's `mode` guard — a page builder's pointer has a select mode where `/` is a
+          character, and a body has no such mode. That is now the `active` prop.
+        */}
+        {editor ? <SlashMenu editor={editor} active={writing || rowForm ? true : mode === 'text'} /> : null}
 
         {/*
           **No properties panel in the admin.** A panel is about a block, and the admin has none:

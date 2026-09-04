@@ -51,10 +51,38 @@ describe('the picture at the head of a layer row', () => {
       { stype: 'collection' },
       { stype: 'list' },
       { stype: 'surface' },
+      /* The four that were falling through, so this list holds them to the same promise. */
+      { stype: 'mediaVideo' },
+      { stype: 'mediaEmbed' },
+      { stype: 'form' },
+      { stype: 'chart' },
       { stype: 'nothing' }
     ];
     // The declared list is what the conformance run checks against the suite's icons, so a picture
     // this function can return and the list does not name is a picture nothing checks.
     for (const one of cases) expect(asked).toContain(iconForBlock(one));
+  });
+});
+
+/**
+ * **The four rows that were falling through to *a block*.**
+ *
+ * The fallback here is deliberate — a picture that says "a block" beats a blank column — and it is
+ * also what makes a missing entry invisible, which is the same shape as the missing *name* one file
+ * over. Three of these arrived the day `every-insert-can-be-held` made them selectable; the fourth,
+ * a chart, had been a row since charts arrived and had been drawing a frame's picture the whole time.
+ */
+describe('a row for something that is not a stack', () => {
+  it('draws what 추가 draws for the same thing, which is the point of both lists', () => {
+    expect(iconForBlock({ stype: 'mediaVideo', attributes: {} })).toBe('insert-video');
+    expect(iconForBlock({ stype: 'mediaEmbed', attributes: {} })).toBe('frame-grid');
+    expect(iconForBlock({ stype: 'form', attributes: {} })).toBe('form');
+    /* And a chart, whose two surfaces were drawing two different wrong pictures until there was one. */
+    expect(iconForBlock({ stype: 'chart', attributes: {} })).toBe('chart-bar');
+  });
+
+  it('still falls back for a block this product has not met', () => {
+    // The fallback is not the fault; a fallback nothing checks is.
+    expect(iconForBlock({ stype: '아직 없는 것', attributes: {} })).toBe('insert-frame');
   });
 });

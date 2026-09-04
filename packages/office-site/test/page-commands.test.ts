@@ -5,7 +5,7 @@ import { createSiteEditor } from '../src/site-kit';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
 import { pagesOf } from '../src/selection';
-import { linkFaults } from '../src/page-link';
+import { documentFaults } from '../src/faults';
 
 /**
  * The four things a reader could not do to a page.
@@ -145,14 +145,19 @@ describe('the commands a page has', () => {
        * Removing a page breaks the links into it either way, and a command that refused would leave
        * a reader hunting for links to delete before they could delete a page. So the answer is a
        * report: every page of the sample links to 제품, and after it is gone every one of those says
-       * so — which is the whole reason `linkFaults` exists.
+       * so — which is the whole reason the fault list exists.
+       *
+       * Read through `documentFaults` rather than a walk of its own: `linkFaults` was that walk and
+       * is gone, because it saw one of the three shapes that name a page. Removing 제품 now also
+       * reports the 시작하기 card whose `이동` named it, under 이름이 가리키는 것 — so this narrows to
+       * the links, which is the claim it was making.
        */
-      expect(linkFaults(doc() as never)).toEqual([]);
+      expect(documentFaults(doc() as never, { declares: () => [] }).filter((one) => one.kind === 'link')).toEqual([]);
       await run('removePage', { nodeId: pages()[1].sid });
 
-      const faults = linkFaults(doc() as never);
+      const faults = documentFaults(doc() as never, { declares: () => [] }).filter((one) => one.kind === 'link');
       expect(faults.length).toBeGreaterThan(0);
-      expect(new Set(faults.map((one) => one.missing))).toEqual(new Set(['products']));
+      expect(new Set(faults.map((one) => one.said))).toEqual(new Set(["'products' 페이지가 없습니다"]));
     });
 
     it('refuses the last page, which is a document this product cannot draw', async () => {

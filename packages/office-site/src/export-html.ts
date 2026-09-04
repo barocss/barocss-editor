@@ -322,9 +322,19 @@ export function exportPage(editor: Editor, pageSid: string): ExportedPage {
         noIndex: page?.attributes?.noIndex === true,
         /** What the site is set in — see `type-scale.ts` for why it is the document's. */
         type: typeRule(store.getNode(editor.getRootId?.() ?? '')?.attributes),
-        description: page?.attributes?.description as string | undefined,
+        /*
+         * **The page's own, then the site's.** Most pages of most sites never get a description
+         * written, and a page with none publishes a head with no `<meta name="description">` and no
+         * `og:description` — so a shared link unfurls as an address and a title. One sentence at the
+         * site level is the difference between that and every page saying something.
+         */
+        description: (page?.attributes?.description ||
+          store.getNode(editor.getRootId?.() ?? '')?.attributes?.description) as string | undefined,
         /** And the picture an unfurl shows, which is most of what anybody sees of a shared link. */
-        image: page?.attributes?.image as string | undefined,
+        image: (page?.attributes?.image ||
+          store.getNode(editor.getRootId?.() ?? '')?.attributes?.image) as string | undefined,
+        /** What language the whole site is in — a document's answer, never a page's. */
+        lang: store.getNode(editor.getRootId?.() ?? '')?.attributes?.lang as string | undefined,
         main,
         // Where the site lives, which only the document knows and only publishing needs.
         at: addressOf(store, editor.getRootId?.(), path)
@@ -723,7 +733,7 @@ function clean(
  *
  * `hrefFor`'s rule, unchanged: a `page:` naming a page that is gone comes back undefined, and an
  * `<a>` with no `href` is the one shape a browser draws as *not a link*. Honest, visible, and
- * already reported by `linkFaults` — rather than a link that looks fine until somebody follows it.
+ * already reported by the fault list — rather than a link that looks fine until somebody follows it.
  */
 function goesLinks(
   doc: { rootId: string; getNode: (sid: string) => Node | undefined },
@@ -1657,6 +1667,14 @@ function document_(
   /** What the page is about, and where its body begins — see below. Both may be absent. */
   said?: {
     description?: string;
+    /**
+     * **무슨 말로 쓰였는가** — `<html lang>`, which was the literal `ko`.
+     *
+     * The first thing a screen reader reads and the last thing anybody remembers to set. Hard-coded,
+     * every site this product makes claims to be Korean — including the English one somebody builds
+     * with it, whose every word is then announced by a Korean voice.
+     */
+    lang?: string;
     main?: string;
     at?: string;
     image?: string;
@@ -1777,7 +1795,7 @@ function document_(
     : '';
 
   return `<!doctype html>
-<html lang="ko">
+<html lang="${escape(said?.lang || 'ko')}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

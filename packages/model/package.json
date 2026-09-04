@@ -28,10 +28,10 @@
   },
   "dependencies": {
     "@barocss/datastore": "workspace:*",
-    "@barocss/editor-core": "workspace:*",
     "@barocss/schema": "workspace:*"
   },
   "devDependencies": {
+    "@barocss/editor-core": "workspace:*",
     "@vitest/coverage-v8": "^1.6.1",
     "@vitest/ui": "^1.6.1",
     "typescript": "^5.9.3",
