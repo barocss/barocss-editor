@@ -6915,20 +6915,33 @@ text-shaped.
   여덟이 같이 돌아왔다.
 
 
-- [ ] **브라우저 스위트가 여섯인데 넷만 돌고 있었다.** 2026-09-04 에 세었다:
+- [ ] **`apps/` 는 세 층이고, 회차에서 기능성 테스트 층이 빠져 있었다.** 2026-09-05 에 세었다.
 
-  | 앱 | 스펙 | 돌리고 있었나 |
-  |---|---:|---|
-  | `word` | 46 | 예 |
-  | `slide` | 43 | 예 |
-  | `site` | 3 | 예 |
-  | `note` | 2 | 예 |
-  | **`editor-react`** | **7 (검사 14)** | **아니오** |
-  | **`editor-test`** | **1** | **아니오** |
+  가르는 기준은 측정 가능하다 — **제품 앱만 `office-*` 제품 패키지에 기댄다:**
 
-  루트에 `test:e2e:react` 와 `test:e2e` 스크립트가 있는데도 회차에서 빠졌다. 그리고 이번 회차에
-  **`editor-view-react` 를 고쳤다** — 즉 확인 없이 고치고 있었던 것이다. `apps/editor-react` 가
-  React 경로의 유일한 브라우저 증거이고, 그 경로에 `Shift+→` 뒤집힘이 살아 있었다.
+  | 층 | 앱 | 소스 | 스펙 | 제품 의존 |
+  |---|---|---:|---:|---|
+  | **제품** | `word` | 5,507 | 46 | `office-word` |
+  | | `slide` | 18,854 | 43 | `office-slides`, `office-word` |
+  | | `site` | 11,366 | 3 | `office-site`, `office-note` |
+  | | `note` | **257** | 2 | `office-note` |
+  | **기능성 테스트** | `editor-test` | 1,966 | 1 | 없음 |
+  | | `editor-react` | 666 | 7 | 없음 |
+  | | `editor-decorator-test` | 1,636 | **0** | 없음 |
+  | **전시** | `gallery` | 507 | 0 | 없음 |
+  | | `docs-site` | 716 | 0 | 없음 |
+
+  **기능성 테스트 앱은 제품이 아니다** — 그리고 그래서 엔진에 대한 **더 순수한 증거**다. 제품 크롬이
+  없으므로 거기서 실패하는 것은 엔진의 것이다. 제품 스위트가 다 초록인데 이 둘이 빨간 것은 *제품이
+  괜찮다* 는 말이면서 동시에 *엔진의 어떤 길은 제품이 안 지나간다* 는 말이다.
+
+  **한동안 제품 넷만 돌고 기능성 둘은 빠져 있었다.** 루트에 `test:e2e:react` 와 `test:e2e` 가
+  있는데도 그랬다. 그리고 그 사이에 **`editor-view-react` 를 고쳤다** — 확인 없이 고친 것이다.
+  `apps/editor-react` 가 React 경로의 유일한 브라우저 증거이고, 그 경로에 `Shift+→` 뒤집힘이 살아
+  있었다.
+
+  `editor-decorator-test` 는 기능성 테스트 층에 있으면서 **스펙이 0개**다 — 시험하려고 만든 앱에
+  시험이 없다.
 
   적어 두는 이유: *"검사를 하나씩 돌린다"* 는 규칙을 지켰는데도 **목록이 틀려서** 못 잡았다. 규칙이
   아니라 목록이 문제였고, 목록은 세어야 한다.
@@ -6961,6 +6974,33 @@ text-shaped.
   **갈랐다: 넷 다 원래 실패다.** 커밋된 상태(`git stash`)에서 같은 두 스위트를 돌렸고 **같은 셋과
   같은 하나**가 실패했다. 이번 수정과 무관하다.
 
+  **그리고 넷 중 하나는 하네스가 거짓말을 하고 있었다 — 고쳤다.**
+
+  `editor-test` 와 `editor-react` 의 `webServer.command` 가 맨 `pnpm dev`(= `vite`)였다. 포트를 안
+  못 박으므로 지정 포트가 막히면 vite 는 **다음 빈 포트**를 잡는데 playwright 는 지정 포트를
+  기다리고 `reuseExistingServer: true` 다. 그러면 **그 포트에 있는 아무 앱이나 시험한다.**
+
+  실제로 그랬다: `editor-test` 가 *콘텐츠 층이 안 보인다* 로 실패했고, 그 콘텐츠 층의 글자를 재보니
+  `Barocss제품가격소개블로그…` 이고 클래스에 `st-main` 이 있었다 — **사이트 빌더**다. 5173 에
+  `apps/site` 의 개발 서버가 남아 있었다. 제품 넷은 다 `--port N --strictPort` 로 자기 포트를 못
+  박는데(5180 word · 5181 slide · 5182 site · 5183 note) 기능성 둘만 안 하고 있었다. 둘 다 못 박았고
+  `editor-test` 에 **5184** 를 줬다 — 5173 은 vite 의 기본값이라 아무나 잡는 자리다.
+
+  **그 다음 진짜 앱을 시험하자 `editor-test` 는 다른 이유로 실패했다: `data-bc-stype` 으로 세고
+  있었다.** 엔진은 그 속성을 **일부러 안 쓴다** —
+  `renderer-dom/reconcile/utils/portal-handler.ts` 가 *"no longer exposed in DOM (sid is sufficient
+  for model lookup)"*, `dsl/template-builders.ts` 가 *"No schema type attribute injection at DSL
+  layer; model carries stype"*. `src` 의 어느 곳도 그것을 세우지 않는다.
+
+  그래서 그 파일에서 문단 개수 단정은 **0을 세고 빨갛고**, *document 래퍼가 직계 자식이면 안 된다*
+  는 단정은 **0을 세고 초록**이었다 — 실제로는 `div.document` 가 직계 자식이다. **같은 원인이 하나는
+  실패로, 하나는 통과로 나타났다는 것이 이 모양의 위험이다.** 모델에 닿는 길(`data-bc-sid` 와 이 앱
+  렌더러의 클래스)로 다시 썼고 통과한다.
+
+  `apps/editor-react` 의 스펙 일곱은 `data-bc-stype` 을 쓰고 열하나가 지나간다 — **그 앱의 렌더러가
+  자기 손으로 붙이기 때문**이다(`register-renderers.tsx`). 그쪽 검사는 그만큼 그 앱의 관례를
+  시험하고 있고, 알고 있으면 문제가 아니다.
+
   `editor-test` 의 경우는 더 정확히 말할 수 있다: 추적되고 있던 `test-results/.last-run.json` 의
   **커밋된 내용이 `{"status": "passed"}`** 다. 즉 **한때 통과했고 그 뒤로 썩었다** — 그 사이 아무도
   돌리지 않았으니 언제 썩었는지는 알 수 없다. 그게 목록이 틀렸던 값이다.
@@ -6972,7 +7012,8 @@ text-shaped.
     `stype === 'inline-text'` 를 **이름으로** 묻는다 — 위의 *이름으로 묻는 열여덟 곳* 항목과 같은
     자리일 수 있다. 아직 인과는 확인 안 했다.
   - `editor-react` `insertParagraph` 하나 — heading 끝에서 Enter 가 새 블록을 안 만든다.
-  - `editor-test` 하나 — 콘텐츠 층이 그려지는데 `hidden`.
+  - ~~`editor-test` 하나~~ — **끝.** 포트 충돌로 사이트 빌더를 시험하고 있었고, 진짜 앱을 시험하자
+    엔진이 안 쓰는 속성으로 세고 있었다. 위를 보라.
 
   **가르는 절차를 적어 둔다** (`scratchpad/baseline.sh`): 브라우저 회차가 하나도 안 돌 때
   `git stash push -u` → 두 스위트 → `git stash pop`. 그리고 그 pop 이 **막혔다** — 추적되고 있던

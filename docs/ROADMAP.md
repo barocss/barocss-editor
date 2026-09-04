@@ -27,6 +27,29 @@ product taught. This holds the reason there is a next thing.
                      [ 서비스 ]  거의 비어 있다
 ```
 
+### 공통 스키마 — 사슬을 재봤다 (2026-09-05)
+
+*"우리는 공통 스키마를 기반으로 word, slide, note, site 를 만들고 있는 중"* — 그게 실제로 하나인지
+읽어서 확인했다. **넷 다 `getOfficeSchemaDefinition()` 위에 선다:**
+
+```
+standard-schema                      ← document · paragraph · inline-text · marks. group 을 선언하는 곳
+      ↓  getStandardSchemaDefinition()
+office-schema                        ← surface 로 뿌리를 바꾸고, 표준 노드를 하나하나 taken/leaves-behind 로 정산
+      ↓  getOfficeSchemaDefinition()
+   ┌──┴───────────┬──────────────┬───────────────┐
+word-schema   slides-schema   site-schema   note-schema
+  +문서          +캔버스         +페이지·데이터    +NOTE_CONTENT (노드 3개)
+```
+
+그리고 `office-schema` 가 표준 노드를 **하나도 빠뜨리지 않게 강제한다**: 어느 목록에도 없는 이름이
+있으면 `getOfficeSchemaDefinition()` 이 던진다 — *"office schema neither takes nor explains a
+standard node"*. 표준 스키마에 노드를 더하면 **office 가 그것을 취하는지 아닌지 말할 때까지 실패**
+한다. 조용히 사라지던 것을 그 검사가 막았다.
+
+**그래서 §2 의 답이 근거를 갖는다.** 스키마가 담는다는 것은 추론이 아니라, 넷이 같은 함수 위에 서
+있고 그 함수가 정산을 강제한다는 사실이다.
+
 | 질문 | 답 | 근거 |
 |---|---|---|
 | 코어를 라이브러리로 열 수 있나 | **예** | 순환 0, DAG, 층 0~8. 그리고 **넷이 같은 코어 위에 섰다** |
