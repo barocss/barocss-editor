@@ -33,6 +33,11 @@ is in this model, what it reuses, what is genuinely its own, and what it deliber
   than a wish.
 - **`docs/specs/site-builder.md`** — the site builder. Written *before* it was built, because a
   boundary recorded after the fact is a rationalisation.
+- **`docs/specs/note.md`** — the note. A third kind again: **written to record what a small product
+  cost and what it found**, because note was built to test the claim the other two make — *one
+  document engine, several products*. Its numbers are held by
+  `office-note/test/spec-numbers.test.ts`, and the smallest of them are held hardest: three declared
+  nodes, two keybindings, a 257-line app. If those grow quietly the document stops being evidence.
 - **`docs/specs/canvas-model.md`** — the canvas the deck and Word share, and the rules the suite's
   chrome follows.
 - **`docs/specs/motion-model.md`** — what a deck means by time.
