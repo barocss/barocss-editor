@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+/**
+ * Where the components this app draws actually live.
+ *
+ * Tailwind generates a class only if it finds it **written somewhere it scans**, and it scans the
+ * app. `office-note`'s tooltip is `office-ui`'s `Tip`, whose classes are in that package — so
+ * without this the tooltip came out with every class attribute intact and no rule behind any of
+ * them: transparent, no padding, no radius, no shadow, in the page's own ink.
+ *
+ * Silent, which is the point of writing it down. The site's stylesheet has the same line with the
+ * same warning, from the day the deck's ribbon did it first — and this app was written without it
+ * because a copy of three imports looked like enough.
+ */
+@source "../../../packages/office-ui/src";
+@source "../../../packages/office-note/src";
+
+/*
+ * **What a host has to bring**, and this app brings the least of it on purpose: it is the proof that
+ * `office-note` stands without a site builder behind it.
+ *
+ * Three imports and no stylesheet of its own beyond a page frame. If a body needs a rule that is not
+ * in `note.css`, that is a rule the package is missing rather than a rule this app should write.
+ */
+@import "@barocss/office-ui/tokens.css";
+@import "@barocss/office-text/text.css";
+@import "@barocss/office-note/note.css";
+
+body {
+  margin: 0;
+  background: var(--ou-ground);
+  color: var(--ou-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-size: var(--ou-text);
+}
+
+.an-shell { max-width: 68rem; margin: 0 auto; padding: 32px 24px 64px; }
+
+.an-head { margin-bottom: 6px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.an-why { margin-bottom: 28px; color: var(--ou-muted); line-height: 1.6; max-width: 46rem; }
+
+.an-case { margin-bottom: 28px; }
+
+.an-case > h2 {
+  margin: 0 0 4px;
+  font-size: var(--ou-text);
+  font-weight: 600;
+}
+
+.an-case > p {
+  margin: 0 0 10px;
+  color: var(--ou-muted);
+  font-size: var(--ou-text-small);
+  line-height: 1.5;
+}
+
+/* Two side by side, which is the case a single mount cannot show — see `main.tsx`. */
+.an-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+@media (max-width: 900px) { .an-pair { grid-template-columns: 1fr; } }
+
+.an-out {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--ou-line);
+  border-radius: var(--ou-radius);
+  background: var(--ou-panel);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--ou-text-small);
+  color: var(--ou-muted);
+  white-space: pre-wrap;
+  max-height: 9rem;
+  overflow: auto;
+}
+
+/*
+ * ── 여럿을 한꺼번에 ─────────────────────────────────────────────
+ *
+ * Small on purpose: what is being measured is the session, not the prose. A grid so that twelve fit
+ * on a screen — a case a reader has to scroll to see all of is a case they check the top of.
+ */
+.an-many-do {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 12px;
+}
+
+.an-many-do button {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: var(--ou-radius, 4px);
+  background: var(--ou-panel, #fff);
+  color: var(--ou-ink, #171717);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.an-many-do button:hover { border-color: var(--ou-accent, #2563eb); color: var(--ou-accent, #2563eb); }
+
+.an-many-do [data-many-count] {
+  margin-left: 4px;
+  color: var(--ou-muted, #737373);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.an-many {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+  gap: 10px;
+}
+
+.an-case[data-small] { margin: 0; }
+
+/* Short, so twelve of them are twelve and not a page each. */
+.an-case[data-small] .on-body { max-height: 8rem; }
+
+.an-many-none { color: var(--ou-faint, #a3a3a3); font-size: 13px; }

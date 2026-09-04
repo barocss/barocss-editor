@@ -1,0 +1,407 @@
+/*
+ * ── 한 편의 글을 쓰는 화면 ────────────────────────────────────────
+ *
+ * **The package's own stylesheet**, for the reason its toolbar model is its own: a body's chrome was
+ * styled in the site builder's `style.css`, so what a writing surface looks like was a page
+ * builder's decision. Reported as *이 툴바가 기존 페이지 빌더 툴바랑 연동되고 있음.*
+ *
+ * Written in `office-ui`'s tokens with fallbacks. A host that has them gets a bar that matches its
+ * chrome; a host that does not still gets a bar — which is what makes this mountable in a CMS that
+ * never heard of a site builder.
+ */
+.on-note {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--ou-panel, #fff);
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: var(--ou-radius, 4px);
+  transition: border-color var(--ou-quick, 120ms), box-shadow var(--ou-quick, 120ms);
+}
+
+/*
+ * **The ring goes on the box, not on the words.**
+ *
+ * A `contenteditable` takes the browser's own focus ring — a 1px auto outline in its own blue, drawn
+ * *inside* the editable, one pixel from the border of the box it is already in. Two rings, one of
+ * them nobody chose. Removed **and replaced**, which is the only honest way to remove one.
+ */
+.on-note:focus-within {
+  border-color: var(--ou-accent, #2563eb);
+  box-shadow: 0 0 0 2px var(--ou-accent-soft, #dbeafe);
+}
+
+.on-note [contenteditable]:focus,
+.on-note [contenteditable]:focus-visible {
+  outline: none;
+}
+
+/*
+ * **It wraps rather than squeezing.** Fourteen buttons at 24px is 336 pixels, and a body in a 24rem
+ * field is narrower than that — so with `flex-shrink` at its default every icon came out ten pixels
+ * wide and the bar read as a smudge. A bar that cannot fit its controls should be two rows of them.
+ */
+.on-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1px;
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--ou-line, #e5e5e5);
+  background: var(--ou-ground, #fafafa);
+}
+
+.on-bar button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--ou-radius, 4px);
+  color: var(--ou-muted, #6b6b6b);
+  transition: background var(--ou-quick, 120ms), color var(--ou-quick, 120ms);
+}
+
+.on-bar button:hover:not(:disabled) {
+  background: var(--ou-panel, #fff);
+  color: var(--ou-ink, #171717);
+}
+
+.on-bar button:disabled { opacity: 0.35; cursor: default; }
+
+/* On, said on the button rather than left to the words. */
+.on-bar button[data-state='on'] {
+  background: var(--ou-accent-soft, #dbeafe);
+  color: var(--ou-accent, #2563eb);
+}
+
+/* Marks on one side, blocks on the other — two vocabularies, and the eye should not merge them. */
+.on-bar-split {
+  width: 1px;
+  height: 14px;
+  margin: 0 4px;
+  background: var(--ou-line, #d4d4d4);
+}
+
+/*
+ * The body, and **it is the thing that scrolls** — see `NoteBody`: the view puts `overflow: clip` on
+ * the container it is handed, inline, so the scroll has to live above it.
+ *
+ * `flex: none`, or the column squeezes it below its own minimum and the cap never applies.
+ */
+.on-body {
+  flex: none;
+  min-height: 7rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  padding: 8px 10px;
+}
+
+/*
+ * ── What a body looks like while it is being written ─────────────
+ *
+ * A note is drawn with the **text** environment and no site env — deliberately: it is not drawn at a
+ * width. What comes with that is that no page's typography is here either, so a heading arrived the
+ * same size as a paragraph and three paragraphs arrived with no air between them: correct, and
+ * unreadable as prose.
+ *
+ * So this says what a body looks like *while it is written*. Not the page's type — the page decides
+ * that when it draws the value — but enough hierarchy that a writer can see the shape of what they
+ * are writing, which is the whole job of an editor.
+ */
+.on-body :is(h1, h2, h3, h4, h5, h6) {
+  margin: 0.6em 0 0.25em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.on-body h1 { font-size: 1.5em; }
+.on-body h2 { font-size: 1.3em; }
+.on-body h3 { font-size: 1.13em; }
+.on-body :is(h1, h2, h3):first-child { margin-top: 0; }
+
+.on-body p { margin: 0 0 0.7em; line-height: 1.65; }
+.on-body p:last-child { margin-bottom: 0; }
+
+.on-body :is(ul, ol) { margin: 0 0 0.7em 1.2em; }
+.on-body li { line-height: 1.6; }
+
+.on-body blockquote {
+  margin: 0 0 0.7em;
+  padding-left: 12px;
+  border-left: 2px solid var(--ou-line, #d4d4d4);
+  color: var(--ou-muted, #6b6b6b);
+}
+
+.on-body img { max-width: 100%; height: auto; border-radius: var(--ou-radius, 4px); }
+
+/**
+ * **A rule is one pixel and a target is not.**
+ *
+ * A block a reader is meant to be able to hold has to be reachable by a pointer, and a 1px line is a
+ * thing nobody hits — measured: a click at its centre landed on the body behind it, so the rule could
+ * be inserted and never selected, moved or deleted.
+ *
+ * So the element is a **row** with the line drawn inside it: eleven pixels to aim at, one pixel of
+ * ink. The same trade every editor makes, and the same one `.st-boundary` makes about a dragged edge
+ * one product over.
+ */
+.on-body hr {
+  height: 11px;
+  margin: 0.6em 0;
+  border: 0;
+  background: none;
+}
+
+.on-body hr::before {
+  content: '';
+  display: block;
+  height: 1px;
+  margin-top: 5px;
+  background: var(--ou-line, #d4d4d4);
+}
+
+/*
+ * The three a note draws itself — see `renderers.ts` for why they are the package's and not a
+ * product's. Plain on purpose: a site's picture answers to a crop, a hover, a link and five widths,
+ * and none of that is a body's business.
+ */
+.on-body :is(.on-picture, .on-video, .on-embed) {
+  display: block;
+  max-width: 100%;
+  margin: 0 0 0.7em;
+  border-radius: var(--ou-radius, 4px);
+}
+
+.on-body :is(.on-video, .on-embed) {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  background: var(--ou-ground, #f5f5f5);
+}
+
+/*
+ * **A holder around a player, because a player swallows a click.**
+ *
+ * An `<iframe>` is a document of its own and a `<video controls>` has its own control bar, so
+ * neither hands a `mousedown` to the page around it — a reader who clicked an embedded video held
+ * nothing, and the strip went on describing the picture above. The holder is what carries the sid;
+ * the player inside is drawn and not pressed. Lifted for a published body, where pressing play is
+ * the point.
+ */
+.on-body :is(.on-video-holder, .on-embed-holder) {
+  display: block;
+  position: relative;
+  margin: 0 0 0.7em;
+}
+
+.on-body :is(.on-video-holder, .on-embed-holder) > :is(video, iframe) {
+  pointer-events: none;
+  margin: 0;
+}
+
+/*
+ * ── 표 크기를 끌어서 고르는 격자 ───────────────────────────────────
+ */
+.on-pick { position: relative; display: inline-flex; }
+
+.on-pick-grid {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(8, 16px);
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: var(--ou-radius, 4px);
+  background: var(--ou-panel, #fff);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 12%);
+}
+
+.on-pick-grid > button {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: 2px;
+  background: var(--ou-panel, #fff);
+  cursor: pointer;
+}
+
+/* The cells the drag has crossed — the only feedback the gesture has. */
+.on-pick-grid > button[data-on] {
+  border-color: var(--ou-accent, #2563eb);
+  background: var(--ou-accent-soft, #dbeafe);
+}
+
+/* Said in numbers too, because a reader counting 6 columns of 16px squares is doing the work. */
+.on-pick-said {
+  grid-column: 1 / -1;
+  padding-top: 4px;
+  color: var(--ou-muted, #737373);
+  font-size: var(--ou-text-small, 12px);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * ── 고른 블록에 물어보는 줄 ───────────────────────────────────────
+ *
+ * The second row, and only while a block is held: a strip that was always there would be a row of
+ * nothing for the ninety per cent of a body that is words.
+ */
+.on-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--ou-line, #e5e5e5);
+  background: var(--ou-accent-soft, #dbeafe);
+  font-size: var(--ou-text-small, 13px);
+}
+
+/* What is held, said in a word — a strip of fields with no subject is a strip about nothing. */
+.on-block-what {
+  font-weight: 600;
+  color: var(--ou-accent, #2563eb);
+}
+
+.on-block :is(input, select) {
+  min-width: 6rem;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: var(--ou-radius, 4px);
+  background: var(--ou-panel, #fff);
+  color: var(--ou-ink, #171717);
+  font-size: var(--ou-text-small, 13px);
+}
+
+.on-block input { flex: 1 1 8rem; min-width: 0; }
+
+/* The one act pushes to the end, because a strip is read from the left and this is not read. */
+/*
+ * The told-to-do buttons, drawn as the bar's are — same square, same size of picture.
+ *
+ * Selected by `[data-note-act]` rather than a class: they are drawn by `office-editor-ui`'s `Controls`
+ * now, which puts the control's name in a `data-` attribute and leaves the styling to whoever is
+ * assembling. That is the shared layer's rule — props in, commands out, and no opinion about looks.
+ */
+.on-block [data-note-act] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--ou-radius, 4px);
+  background: transparent;
+  color: var(--ou-ink, #171717);
+  cursor: pointer;
+}
+
+.on-block [data-note-act]:hover:not(:disabled) {
+  border-color: var(--ou-line, #d4d4d4);
+  background: var(--ou-panel, #fff);
+}
+
+.on-block [data-note-act]:disabled { opacity: 0.4; cursor: default; }
+
+.on-block-go {
+  margin-left: auto;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: var(--ou-radius, 4px);
+  background: var(--ou-panel, #fff);
+  color: var(--ou-ink, #171717);
+  cursor: pointer;
+  font-size: var(--ou-text-small, 13px);
+}
+
+.on-block-go:hover { border-color: var(--ou-warn, #b45309); color: var(--ou-warn, #b45309); }
+
+/*
+ * ── 표 ───────────────────────────────────────────────────────────
+ *
+ * **A table with nothing in it has no size**, and this had no rules for one at all: a fresh 2×2 drew
+ * as a `<table>` of empty cells, which is a box of zero height. Reported as *테이블 추가가 안됨* —
+ * and it *was* added, every time. It was invisible.
+ *
+ * So the cells have an edge and a floor. `border-collapse` because two adjacent cells with their own
+ * borders is a double line, which is the first thing anybody notices about a hand-styled table.
+ */
+.on-body table {
+  width: 100%;
+  margin: 0 0 0.7em;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.on-body :is(td, th) {
+  min-width: 3rem;
+  height: 2rem;
+  padding: 6px 8px;
+  border: 1px solid var(--ou-line, #d4d4d4);
+  vertical-align: top;
+  text-align: left;
+}
+
+/**
+ * **The cell's words fill the cell**, which is a hit-testing rule and not a decorative one.
+ *
+ * A cell holds one `inline-text`, drawn as an inline `<span>`, and an empty one is zero pixels wide
+ * at the left of a 3rem box. So a click anywhere else in the cell put the DOM caret on the **row**,
+ * and the model selection came back as `bTableHeader` — above every cell. Measured that way: the
+ * four row/column buttons were permanently disabled because the caret was never *in* a cell, only
+ * near one.
+ *
+ * A block-level span the height of a line makes the whole cell the text's own box, so a press
+ * anywhere in it lands in the words. Which is also what a reader expects a table cell to be.
+ */
+.on-body :is(td, th) > span {
+  display: block;
+  min-height: 1.2em;
+}
+
+/* A header row is what a comparison is read against, so it says so rather than being the first row. */
+.on-body thead :is(td, th) {
+  background: var(--ou-ground, #f5f5f5);
+  font-weight: 600;
+}
+
+/*
+ * ── 고른 블록 ─────────────────────────────────────────────────────
+ *
+ * A press on a picture, a video, an embed, a rule, a table or a code block **holds** it — the second
+ * answer a click needs in a body, and the one it had none of. So it has to be visible: a held block
+ * a reader cannot see is a Delete key that takes something they did not mean.
+ *
+ * An `outline` rather than a `border`: a border moves what is inside it, so a picture would jump a
+ * pixel on being pressed. An outline is drawn outside the box and changes no layout at all.
+ */
+.on-body [data-note-picked] {
+  outline: 2px solid var(--ou-accent, #2563eb);
+  outline-offset: 1px;
+  border-radius: var(--ou-radius, 4px);
+}
+
+/* A held rule colours its line rather than growing an outline around eleven pixels of nothing. */
+.on-body hr[data-note-picked] {
+  outline: none;
+}
+
+.on-body hr[data-note-picked]::before {
+  height: 2px;
+  margin-top: 4px;
+  background: var(--ou-accent, #2563eb);
+}

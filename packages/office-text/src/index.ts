@@ -76,3 +76,20 @@ export { registerTextRenderers } from './renderers';
 export { blockLanguage, blockRevision, blockStyle, formatFor, listMarker, listTypeOf, revisionDrawing } from './renderers/block-style';
 export { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
 export { registerMathRenderers } from './math-renderers';
+
+/**
+ * **Finding text in a document** — moved here from `office-word`, which it never knew about.
+ *
+ * It walks paragraphs and runs looking for characters, which is text behaviour and nothing else. The
+ * deck was depending on `office-word` for it: four of the nine product-to-product edges this
+ * repository had were this one file.
+ */
+export {
+  findMatches,
+  replaceMatches,
+  replaceOperations,
+  shiftAfter,
+  step,
+  type FindOptions,
+  type Match
+} from './find';

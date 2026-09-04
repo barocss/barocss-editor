@@ -1,0 +1,34 @@
+{
+  "name": "@barocss/app-note",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@barocss/datastore": "workspace:*",
+    "@barocss/dsl": "workspace:*",
+    "@barocss/editor-core": "workspace:*",
+    "@barocss/editor-view-dom": "workspace:*",
+    "@barocss/office-note": "workspace:*",
+    "@barocss/office-text": "workspace:*",
+    "@barocss/office-ui": "workspace:*",
+    "@barocss/schema": "workspace:*",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
+  }
+}
