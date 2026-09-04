@@ -264,15 +264,23 @@ export function isCursor(selection: Selection): selection is ModelSelection {
   return isRangeSelection(selection) && selection.collapsed === true;
 }
 
-export interface ModelNodeSelection {
-  nodeId: string;
-  selectAll: boolean;
-}
-
-export interface ModelAbsoluteSelection {
-  anchor: number;
-  head: number;
-}
+/*
+ * **여기 있던 `ModelNodeSelection` 과 `ModelAbsoluteSelection` 을 지웠다 — 그리고 앞의 것이 이
+ * 저장소가 오래 갖고 있던 결함의 출처였다.**
+ *
+ * `ModelNodeSelection` 은 `{ nodeId: string; selectAll: boolean }` 이었고 **아무 데서도 쓰이지
+ * 않았다.** 그런데 두 뷰 층의 `convertNodeSelectionToDOM` 이 `nodeSelection.nodeId` 를 읽고 있었다 —
+ * 이 타입이 말하는 모양대로다. 구현은 다른 쪽으로 갔다: `createNodeSelection` 은 `nodeIds`(복수)를
+ * 세우고 `selectNode` 는 아예 `range` 를 만든다. **의도를 적은 타입이 배선되지 않은 채 남고, 읽는
+ * 쪽이 그 의도를 향해 읽고 있었다.** 그래서 그 분기는 한 번도 아무 일을 한 적이 없다.
+ *
+ * 검사도 그 모양을 세웠다 — `{ type: 'node', nodeId: 'text-1' }` — 그래서 통과했고 제품에 대해
+ * 아무것도 증명하지 않았다.
+ *
+ * 노드의 집합인 선택은 `ModelSelection` 의 `nodeIds` 로 적고 `selectedNodeIds()` 로 읽는다.
+ * `ModelAbsoluteSelection`(`{ anchor, head }`)도 쓰이지 않았고, 절대 오프셋은 이 문서 모델의
+ * 좌표계가 아니다 — 노드와 오프셋이다.
+ */
 
 export class SelectionError extends Error {
   constructor(message: string, public code: string, public context?: any) {

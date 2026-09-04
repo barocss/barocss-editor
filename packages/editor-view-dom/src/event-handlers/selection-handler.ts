@@ -461,7 +461,33 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   }
 
   /**
-   * Convert model selection to DOM selection.
+   * **모델 선택을 DOM 선택으로** — 그리고 네 종류 중 하나만 DOM 이 말할 수 있다.
+   *
+   * DOM 선택이 표현할 수 있는 것은 *여기서 저기까지* 하나뿐이다. 그래서:
+   *
+   * | 모델 | DOM |
+   * |---|---|
+   * | `range` | 그 범위를 세운다 |
+   * | `node` · `cell` · `table` | **지운다** — 집합이고, 집합에는 두 끝이 없다 |
+   * | 없음 | 지운다 |
+   *
+   * ## 전에는 셋이 다 틀렸다
+   *
+   * `node` 는 `convertNodeSelectionToDOM` 으로 갔고 그 함수는 `nodeSelection.nodeId` 를 읽었다 —
+   * **아무것도 세우지 않는 필드다.** `createNodeSelection` 은 `nodeIds`(복수)를 세우고
+   * `selectNode` 는 아예 `range` 를 만든다. 그래서 그 분기는 한 번도 아무 일을 한 적이 없고, 하던
+   * 일은 *이전 DOM 선택을 그대로 두는 것* 이었다 — 도형을 고르면 직전의 글자 강조가 화면에 남는다.
+   * `data-text-container` 를 아무도 안 써서 `isTextContainer` 가 한 번도 참이 아니었던 것과 같은
+   * 모양이고, 같은 파일에서 두 번째다.
+   *
+   * `cell` 과 `table` 은 `console.warn('Unsupported selection type')` 으로 갔다. **셀을 끌 때마다**
+   * 났다(브라우저에서 셌다: 드래그 한 번에 경고 한 번). 그런데 그 둘은 지원되지 않는 것이 아니라
+   * *DOM 이 말할 수 없는 것* 이고, `installCellSelection` 은 이미 손으로 DOM 선택을 지우고 있었다 —
+   * 답이 그 파일에 있는데 이 파일은 경고를 찍고 있었다.
+   *
+   * 지우는 것이 아무것도 안 하는 것보다 나은 이유: 지우지 않으면 브라우저의 강조가 남아 **두 가지가
+   * 동시에 골라진 것처럼 보인다.** 그리고 `selection-handler` 가 앵커 없는 DOM 선택에서 일찍
+   * 돌아오므로, 빈 DOM 선택이 한 박자 뒤에 모델 선택으로 되돌아와 이것을 덮는 일도 없다.
    */
   convertModelSelectionToDOM(modelSelection: any): void {
     // Mark as programmatic change
@@ -477,11 +503,30 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       // Support unified ModelSelection format (startNodeId/startOffset/endNodeId/endOffset)
       if (modelSelection.type === 'range') {
         this.convertRangeSelectionToDOM(modelSelection);
-      } else if (modelSelection.type === 'node') {
-        this.convertNodeSelectionToDOM(modelSelection);
-      } else {
-        console.warn('[SelectionHandler] Unsupported selection type:', modelSelection.type);
+      } else if (modelSelection.type === 'cell' || modelSelection.type === 'table') {
+        /*
+         * **셀과 표는 지운다.** 그 선택을 만드는 것은 `installCellSelection` 하나이고, 그것이 이미
+         * 손으로 DOM 선택을 지운다 — 그 파일에 이유가 적혀 있다: *빈 DOM 선택이 두 가지가 서로
+         * 싸우는 것을 막는다.* 여기서 지우는 것은 그 유일한 생산자가 하는 일과 같아지는 것이다.
+         */
+        window.getSelection()?.removeAllRanges();
       }
+      /*
+       * **`node` 는 DOM 선택을 건드리지 않는다 — 재보고 정한 것이다.**
+       *
+       * 처음엔 셋을 다 지웠다. *집합에는 두 끝이 없으니 DOM 은 아무것도 말하지 않는다* 는 논거였고,
+       * 브라우저가 그것을 반박했다: 슬라이드 검사 **여덟 개**가 `range` 를 기대하고 `node` 를 받았다.
+       * 텍스트 상자를 더블클릭하면 첫 누름이 도형을 고르고(→ `node`) 둘째 누름이 안으로 들어가
+       * 캐럿을 놓는데, 첫 누름에서 DOM 선택을 지우면 그 길이 끊긴다.
+       *
+       * 그래서 구별은 *집합인가* 가 아니라 **그 선택을 만든 제스처가 글자 선택을 대신하려는
+       * 것인가** 다. 셀 드래그는 그렇다 — 글자 선택을 일부러 걷어내고 셀 집합으로 바꾼다. 도형 선택은
+       * 아니다 — 글자 선택으로 **가는 중** 일 수 있다. `node` 는 *이 도형이 골라졌다* 를 말할 뿐
+       * *아무것도 타이핑되지 않는다* 를 말하지 않는다.
+       *
+       * 남는 값: 도형을 고른 뒤 직전의 글자 강조가 화면에 남을 수 있다. 그건 아직 잰 적 없는
+       * 불편이고, 재서 나오면 그때 제품 쪽 제스처가 답할 일이다 — 여기서 추측으로 지우지 않는다.
+       */
     } finally {
       // Release flag in next event loop (after selectionchange event is processed)
       setTimeout(() => {
@@ -573,34 +618,6 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
 
     } catch (error) {
       console.error('[SelectionHandler] Error converting range selection to DOM:', error);
-    }
-  }
-
-  /**
-   * Convert node selection to DOM selection.
-   */
-  private convertNodeSelectionToDOM(nodeSelection: any): void {
-    const scopeRoot = this._getScopeRoot();
-    const element = scopeRoot.querySelector(`[data-bc-sid="${nodeSelection.nodeId}"]`);
-    
-    if (!element) {
-      console.warn('[SelectionHandler] Could not find element for node selection');
-      return;
-    }
-
-    try {
-      const selection = window.getSelection();
-      if (!selection) return;
-
-      selection.removeAllRanges();
-      
-      const range = document.createRange();
-      range.selectNodeContents(element);
-      
-      selection.addRange(range);
-      
-    } catch (error) {
-      console.error('[SelectionHandler] Error converting node selection to DOM:', error);
     }
   }
 

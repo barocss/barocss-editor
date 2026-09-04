@@ -138,33 +138,92 @@ describe('convertModelSelectionToDOM', () => {
     });
   });
 
-  describe('Node selection conversion', () => {
-    it('should select entire text container', () => {
-      const modelSelection = {
+  /**
+   * **집합인 선택은 DOM 이 말할 수 없다** — 그래서 지운다.
+   *
+   * ## 여기 있던 두 검사가 제품이 만들지 않는 모양을 세우고 있었다
+   *
+   * `{ type: 'node', nodeId: 'text-1' }` 이었다. **저장소의 어떤 생산자도 `nodeId`(단수)를 세우지
+   * 않는다** — `createNodeSelection` 은 `nodeIds`(복수)를 세우고 `selectNode` 는 아예 `range` 를
+   * 만든다. 그래서 두 검사는 통과했고 제품에 대해 아무것도 증명하지 않았다. 읽던 코드도 같은
+   * 필드를 읽었으니 **둘이 사이좋게 틀려 있었다.**
+   *
+   * 그 사이 실제 동작은 이랬다: `node` 는 일찍 돌아가서 **이전 DOM 선택을 그대로 뒀고**(도형을
+   * 고르면 직전의 글자 강조가 남는다), `cell` 과 `table` 은 `console.warn('Unsupported selection
+   * type')` 으로 갔다 — 브라우저에서 셀 드래그 한 번에 경고 한 번을 셌다.
+   *
+   * `cell` 은 지원되지 않는 것이 아니라 **DOM 이 말할 수 없는 것**이다. DOM 선택은 *여기서
+   * 저기까지* 하나만 표현하고, 집합에는 두 끝이 없다. `installCellSelection` 은 이미 손으로 DOM
+   * 선택을 지우고 있었다 — 답이 그 파일에 있는데 이 파일은 경고를 찍고 있었다.
+   */
+  describe('집합인 선택 — node · cell · table', () => {
+    /** 미리 글자를 골라 둔다. 지워지는지 보려면 지울 것이 있어야 한다. */
+    const selectSomethingFirst = () => {
+      selectionHandler.convertModelSelectionToDOM({
+        type: 'range',
+        startNodeId: 'text-1',
+        startOffset: 0,
+        endNodeId: 'text-1',
+        endOffset: 5
+      });
+      expect(window.getSelection()!.toString(), '먼저 고른 것이 없으면 이 검사는 아무것도 안 묻는다')
+        .not.toBe('');
+    };
+
+    /**
+     * **`node` 는 여기 없다 — 그리고 그게 재보고 정한 것이다.**
+     *
+     * 처음엔 셋을 다 지우게 했다. *집합에는 두 끝이 없으니 DOM 은 아무것도 말하지 않는다* 는
+     * 논거였고 이 검사도 셋을 다 물었다. **브라우저가 반박했다:** 슬라이드 검사 여덟 개가 `range` 를
+     * 기대하고 `node` 를 받았다. 텍스트 상자를 더블클릭하면 첫 누름이 도형을 고르고(→ `node`) 둘째
+     * 누름이 안으로 들어가 캐럿을 놓는데, 첫 누름에서 DOM 선택을 지우면 그 길이 끊긴다.
+     *
+     * 구별은 *집합인가* 가 아니라 **그 선택을 만든 제스처가 글자 선택을 대신하려는 것인가** 다.
+     * 셀 드래그는 그렇다(`installCellSelection` 이 이미 손으로 지운다). 도형 선택은 아니다 — 글자
+     * 선택으로 **가는 중** 일 수 있다.
+     *
+     * 논거가 단정보다 앞서 있었다. 그래서 이 검사는 두 종류만 묻는다.
+     */
+    for (const type of ['cell', 'table'] as const) {
+      it(`${type} 선택은 DOM 선택을 지운다 — 그 제스처가 글자 선택을 대신한다`, () => {
+        selectSomethingFirst();
+
+        /*
+         * **생산자가 만드는 그대로.** `createNodeSelection` 의 결과를 손으로 적는다 —
+         * `nodeIds` 가 있고 `startNodeId`/`endNodeId` 는 그 첫과 끝이다. 이 파일이 전에 세우던
+         * `nodeId` 단수는 여기 없다.
+         */
+        selectionHandler.convertModelSelectionToDOM({
+          type,
+          nodeIds: ['text-1', 'text-bold'],
+          startNodeId: 'text-1',
+          startOffset: 0,
+          endNodeId: 'text-bold',
+          endOffset: 0,
+          collapsed: false,
+          direction: 'none'
+        });
+
+        expect(window.getSelection()!.rangeCount, `${type} 뒤에 DOM 선택이 남았습니다`).toBe(0);
+      });
+    }
+
+    it('node 선택은 DOM 선택을 건드리지 않는다 — 글자 선택으로 가는 중일 수 있다', () => {
+      selectSomethingFirst();
+      const was = window.getSelection()!.toString();
+
+      selectionHandler.convertModelSelectionToDOM({
         type: 'node',
-        nodeId: 'text-1'
-      };
+        nodeIds: ['text-1', 'text-bold'],
+        startNodeId: 'text-1',
+        startOffset: 0,
+        endNodeId: 'text-bold',
+        endOffset: 0,
+        collapsed: false,
+        direction: 'none'
+      });
 
-      selectionHandler.convertModelSelectionToDOM(modelSelection);
-
-      const selection = window.getSelection();
-      expect(selection).not.toBeNull();
-      expect(selection!.rangeCount).toBe(1);
-      expect(selection!.toString()).toBe('Hello world');
-    });
-
-    it('should select entire text container with marks', () => {
-      const modelSelection = {
-        type: 'node',
-        nodeId: 'text-bold'
-      };
-
-      selectionHandler.convertModelSelectionToDOM(modelSelection);
-
-      const selection = window.getSelection();
-      expect(selection).not.toBeNull();
-      expect(selection!.rangeCount).toBe(1);
-      expect(selection!.toString()).toBe('bold text');
+      expect(window.getSelection()!.toString(), 'node 가 DOM 선택을 지웠습니다').toBe(was);
     });
   });
 
