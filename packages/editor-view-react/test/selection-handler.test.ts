@@ -250,35 +250,78 @@ describe('ReactSelectionHandler', () => {
     window.getSelection()?.removeAllRanges();
   });
 
-  it('convertModelSelectionToDOM는 node 선택일 때 해당 data-bc-sid 컨테이너 전체를 선택해야 함', () => {
-    const root = document.createElement('div');
-    root.setAttribute('contenteditable', 'true');
-    const nodeElement = document.createElement('span');
-    nodeElement.setAttribute('data-bc-sid', 'node-1');
-    nodeElement.setAttribute('data-text-container', 'true');
-    nodeElement.textContent = 'node selection';
-    root.appendChild(nodeElement);
-    document.body.appendChild(root);
+  /**
+   * **집합인 선택은 DOM 선택을 지운다** — 그리고 여기 있던 검사가 이 저장소에서 가장 날카로운 예다.
+   *
+   * 있던 것은 `{ type: 'node', nodeId: 'node-1' }` 이었고, *컨테이너 전체를 선택해야 함* 을 단정했다.
+   * **저장소의 어떤 생산자도 `nodeId`(단수)를 세우지 않는다** — `createNodeSelection` 은 `nodeIds`
+   * 복수를 세우고 `selectNode` 는 아예 `range` 를 만든다. 읽는 코드도 같은 필드를 읽었으니 둘이
+   * 사이좋게 틀려 있었다.
+   *
+   * ## 그리고 좁은 사본이 이 검사를 실제로부터 **밀어냈다**
+   *
+   * 지운 판에 이런 주석이 있었다: *"A node selection is a node and nothing else — the four range
+   * fields were here as well, which `convertNodeSelectionToDOM` never looks at. **The compiler said
+   * so** the first time it was allowed to read this file."*
+   *
+   * 그 컴파일러가 읽고 있던 것은 이 패키지가 자기 손으로 선언한 `{ type: 'node'; nodeId: string }`
+   * 이었다. 모델의 노드 선택은 `startNodeId`·`endNodeId` 를 **채워서** 준다 — 이 검사를 다시 쓰는
+   * 사람이 그걸 적었는데, 사본이 *그런 필드는 없다* 고 말해서 지웠다. **사본은 어긋남을 못 잡은
+   * 것이 아니라 어긋남을 강제했다.**
+   *
+   * 그래서 이 자리의 교훈은 두 번째다. 하나는 *같은 개념을 두 번 선언하지 않는다*. 둘은 *타입 오류를
+   * 없애는 방향으로 검사를 고치기 전에, 그 타입이 실제를 적은 것인지 묻는다.*
+   */
+  /**
+   * **`node` 는 여기 없다 — 브라우저가 반박했다.**
+   *
+   * 처음엔 셋을 다 지우게 했다. 논거는 *집합에는 두 끝이 없다* 였고, 슬라이드 검사 여덟 개가 `range`
+   * 를 기대하고 `node` 를 받았다. 텍스트 상자를 더블클릭하면 첫 누름이 도형을 고르고 둘째 누름이
+   * 안으로 들어가 캐럿을 놓는데, 첫 누름에서 DOM 선택을 지우면 그 길이 끊긴다.
+   *
+   * 구별은 *집합인가* 가 아니라 **그 제스처가 글자 선택을 대신하려는 것인가** 다.
+   */
+  for (const type of ['cell', 'table'] as const) {
+    it(`convertModelSelectionToDOM은 ${type} 선택에서 DOM 선택을 지운다`, () => {
+      const root = document.createElement('div');
+      root.setAttribute('contenteditable', 'true');
+      const nodeElement = document.createElement('span');
+      nodeElement.setAttribute('data-bc-sid', 'node-1');
+      nodeElement.textContent = 'node selection';
+      root.appendChild(nodeElement);
+      document.body.appendChild(root);
 
-    const editor = createMockEditor((id) => {
-      if (id === 'node-1') {
-        return { stype: 'inline-text', text: 'node selection' };
-      }
-      return null;
+      const editor = createMockEditor((id) =>
+        id === 'node-1' ? { stype: 'inline-text', text: 'node selection' } : null
+      );
+      const handler = new ReactSelectionHandler(editor, () => root);
+
+      /* 지울 것이 있어야 지워지는지 물을 수 있다. */
+      handler.convertModelSelectionToDOM({
+        type: 'range',
+        startNodeId: 'node-1',
+        startOffset: 0,
+        endNodeId: 'node-1',
+        endOffset: 4
+      });
+      expect(window.getSelection()!.rangeCount, '먼저 고른 것이 없으면 이 검사는 아무것도 안 묻는다').toBe(1);
+
+      /* 생산자가 만드는 그대로: `nodeIds` 가 있고 두 끝은 그 첫과 끝이다. */
+      handler.convertModelSelectionToDOM({
+        type,
+        nodeIds: ['node-1'],
+        startNodeId: 'node-1',
+        startOffset: 0,
+        endNodeId: 'node-1',
+        endOffset: 0,
+        collapsed: false,
+        direction: 'none'
+      });
+
+      expect(window.getSelection()!.rangeCount, `${type} 뒤에 DOM 선택이 남았습니다`).toBe(0);
+
+      document.body.removeChild(root);
+      window.getSelection()?.removeAllRanges();
     });
-    const handler = new ReactSelectionHandler(editor, () => root);
-
-    // A node selection is a node and nothing else — the four range fields were here
-    // as well, which `convertNodeSelectionToDOM` never looks at. The compiler said so
-    // the first time it was allowed to read this file.
-    handler.convertModelSelectionToDOM({ type: 'node', nodeId: 'node-1' });
-
-    const selection = window.getSelection();
-    expect(selection).not.toBeNull();
-    expect(selection!.rangeCount).toBe(1);
-    expect(selection!.toString()).toBe('node selection');
-
-    document.body.removeChild(root);
-    selection?.removeAllRanges();
-  });
+  }
 });

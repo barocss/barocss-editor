@@ -1,5 +1,5 @@
 import type { MutableRefObject } from 'react';
-import type { Editor } from '@barocss/editor-core';
+import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { getKeyString } from '@barocss/shared';
 import { analyzeTextChanges } from '@barocss/text-analyzer';
 import type { ReactSelectionHandler } from './selection-handler';
@@ -7,14 +7,13 @@ import { classifyDomChangeC1, type ClassifiedChangeC1, type InputHint } from './
 import { findClosestInlineTextNode, reconstructModelTextFromDOM } from './dom-sync/edit-position';
 import type { EditorViewViewState } from './EditorViewContext';
 
-type ModelSelectionRange = {
-  type: 'range';
-  startNodeId: string;
-  startOffset: number;
-  endNodeId: string;
-  endOffset: number;
-  collapsed?: boolean;
-};
+/**
+ * **범위인 선택** — `ModelSelection` 을 `range` 로 좁힌 것.
+ *
+ * 세 번째 사본이 여기 `ModelSelectionRange` 라는 이름으로 있었다. 이름이 달라서 앞의 둘과 어긋난
+ * 것이 안 보였고, 실제로 `direction` 이 없었다. 지금은 좁히기만 한다 — 좁힌 것은 사본이 아니다.
+ */
+type ModelSelectionRange = ModelSelection & { type: 'range' };
 
 type ContentRange = ModelSelectionRange & { _deleteNode?: boolean; nodeId?: string };
 

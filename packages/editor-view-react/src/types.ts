@@ -16,17 +16,36 @@ import type {
 export type { DecoratorExportData, LoadDecoratorsPatternFunctions, DecoratorQueryOptions, DecoratorTypeSchema };
 
 /** Model selection type for convert* APIs. */
-export type ModelSelection =
-  | { type: 'none' }
-  | {
-      type: 'range';
-      startNodeId: string;
-      startOffset: number;
-      endNodeId: string;
-      endOffset: number;
-      direction?: 'forward' | 'backward' | 'none';
-    }
-  | { type: 'node'; nodeId: string };
+/**
+ * **선택은 `editor-core` 가 선언한다** — 여기 자기 판이 있었고, 좁았다.
+ *
+ * 있던 것은 `none | range | node` 의 유니온이고 `node` 의 필드가 `nodeId` **단수**였다. 그래서 이
+ * 층은 `cell` 과 `table` 을 **표현할 수 없었다** — 표의 셀 블록도, 표 전체도. 모델은 그 둘을 오래
+ * 전부터 갖고 있다(`SelectionType = 'range' | 'node' | 'cell' | 'table'`).
+ *
+ * 그리고 같은 것이 이 패키지 안에 **세 번** 적혀 있었다: 여기, `selection-handler.ts`, 그리고
+ * `input-handler.ts` 의 `ModelSelectionRange`. 게다가 `editor-core` 에는 `NoSelection` 과
+ * `Selection = ModelSelection | NoSelection` 이 **이미 있고 아무도 쓰지 않았다** — 세 판이 그것을
+ * 각자 다시 발명한 것이다.
+ *
+ * 사본이 어긋난다는 것은 짐작이 아니라 이 저장소가 이미 여러 번 잰 것이다. 여기서는 그 대가가
+ * *React 경로로는 셀을 고를 수 없다* 였다.
+ */
+import type { ModelSelection, NoSelection, SelectionType } from '@barocss/editor-core';
+export type { ModelSelection, NoSelection, SelectionType };
+
+/**
+ * **`Selection` 이라는 이름은 쓰지 않는다** — DOM lib 이 이미 갖고 있다.
+ *
+ * `editor-core` 는 `Selection = ModelSelection | NoSelection` 을 내보내는데, 이 층은 `window
+ * .getSelection()` 의 결과도 다룬다. 그 이름을 들이면 `convertDOMSelectionToModel(selection:
+ * Selection)` 이 **어느 쪽인지 모호해지고**, 실제로 그렇게 해보니 타입 검사가 다섯 자리에서
+ * *ModelSelection 에 anchorNode 가 없다* 고 말했다.
+ *
+ * 그게 `editor-core` 의 `Selection` 이 선언된 채 아무도 쓰지 않은 이유일 것이다 — 쓰려고 하면
+ * 이렇게 된다. 여기서는 유니온을 그대로 적는다.
+ */
+export type MaybeSelection = ModelSelection | NoSelection;
 
 /** Imperative handle for EditorView: decorator management and selection/convenience APIs. */
 export interface EditorViewHandle {
@@ -121,3 +140,4 @@ export interface EditorViewOverlayLayerProps {
   style?: React.CSSProperties;
   children?: React.ReactNode;
 }
+
