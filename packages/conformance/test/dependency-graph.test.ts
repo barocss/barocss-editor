@@ -166,4 +166,103 @@ describe('검사 파일', () => {
 
     expect([...new Set(missing)], [...new Set(missing)].join('\n')).toEqual([]);
   });
+
+  /**
+   * **디스크에 있는데 실행기가 열지 않는 검사 파일** — 위의 검사가 못 묻는 질문.
+   *
+   * 위의 것은 각 패키지의 `test/` 안을 훑으며 *이 파일이 import 하는 것이 선언돼 있나* 를 묻는다. 두
+   * 가지를 못 본다: `test/` 가 아닌 곳(`tests/`, `src/`)에 있는 파일, 그리고 **vitest 의 `include`
+   * 가 그 파일을 아예 안 집는 경우.**
+   *
+   * 재고 나온 것: `packages/dsl` 에 `test/` 와 `tests/` 가 **둘 다** 있었고 설정은 `tests/**` 만
+   * 열었다. `test/` 의 두 파일은 이름까지 같은 사본이었고 한 번도 실행되지 않았다 — 유일한 it 이
+   * 하나도 없어서 잃은 것은 없었지만, 잃었는지 아닌지를 아무도 모르고 있었다는 것이 결함이다.
+   *
+   * 이건 이 저장소가 이미 한 번 크게 물린 모양이다. 유령 의존을 걷다가 검사 여든 개를 **실패가 아니라
+   * 수의 감소로** 잃었고(`Test Files 4 failed` 위에 `Tests 458 passed`, 실패 개수 0), 그래서 위의
+   * 검사가 생겼다. 이건 그 짝이다 — 열리지 않는 것과 **집히지 않는 것**.
+   */
+  it('are all inside what the runner is told to open', async () => {
+    const { readdirSync, existsSync, readFileSync } = await import('node:fs');
+    const { join, relative, sep } = await import('node:path');
+    const root = join(__dirname, '..', '..');
+
+    /** 아주 작은 glob → 정규식. `**`, `*`, 그리고 `{a,b}` 만 안다 — 설정에 쓰이는 것이 그뿐이다. */
+    const asRegExp = (glob: string): RegExp => {
+      let out = '';
+      for (let i = 0; i < glob.length; i += 1) {
+        const c = glob[i];
+        if (c === '*' && glob[i + 1] === '*') {
+          // `**/` 는 아무 깊이(없는 것 포함)
+          if (glob[i + 2] === '/') {
+            out += '(?:[^/]+/)*';
+            i += 2;
+          } else {
+            out += '.*';
+            i += 1;
+          }
+        } else if (c === '*') out += '[^/]*';
+        else if (c === '{') {
+          const close = glob.indexOf('}', i);
+          out += `(?:${glob.slice(i + 1, close).split(',').join('|')})`;
+          i = close;
+        } else if (c === '?') out += '[^/]';
+        else out += c.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+      }
+      return new RegExp(`^${out}$`);
+    };
+
+    const unopened: string[] = [];
+
+    for (const name of readdirSync(root)) {
+      const at = join(root, name);
+      if (!existsSync(join(at, 'package.json'))) continue;
+
+      /* vitest 는 `vitest.config.*` 를 먼저 본다. 없으면 `vite.config.*` 의 `test` 블록. */
+      const config = ['vitest.config.ts', 'vitest.config.mts', 'vite.config.ts', 'vite.config.mts']
+        .map((one) => join(at, one))
+        .find((one) => existsSync(one));
+      if (!config) continue;
+
+      const text = readFileSync(config, 'utf8');
+
+      /*
+       * **`include` 는 파일에 여러 개 있다.** `devtool` 의 첫 번째는 `coverage` 의 `['src/**\/*']`
+       * 이고, 그것을 test 의 것으로 읽으면 실제로 실행되는 파일을 *열리지 않는다* 고 신고한다 —
+       * 처음 쓴 대로 돌렸을 때 실제로 그랬다.
+       *
+       * 가려내는 방법은 내용이다: 검사 파일을 집는 include 는 `*.test.*` 나 `*.spec.*` 를 이름에
+       * 갖는다. 커버리지의 것은 갖지 않는다. 설정 파서를 쓰지 않는 이유는 이 검사가 설정을
+       * *실행하지 않고* 읽어야 하기 때문이다.
+       */
+      const spoken = [...text.matchAll(/include:\s*\[([^\]]*)\]/g)]
+        .map((hit) => [...hit[1].matchAll(/'([^']+)'|"([^"]+)"/g)].map((one) => one[1] ?? one[2]))
+        .find((list) => list.some((one) => /\.(test|spec)\.|\{test,spec\}|\{spec,test\}/.test(one)));
+
+      /* 검사용 `include` 가 없으면 기본값이 전부를 집는다 — 빠질 파일이 없다. */
+      if (!spoken) continue;
+
+      const globs = spoken.map(asRegExp);
+
+      const walk = (dir: string) => {
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          if (entry.name === 'node_modules' || entry.name === 'dist') continue;
+          const path = join(dir, entry.name);
+          if (entry.isDirectory()) {
+            walk(path);
+            continue;
+          }
+          if (!/\.(test|spec)\.tsx?$/.test(entry.name)) continue;
+          const held = relative(at, path).split(sep).join('/');
+          if (!globs.some((one) => one.test(held))) unopened.push(`${name}/${held}`);
+        }
+      };
+      walk(at);
+    }
+
+    expect(
+      unopened,
+      `실행기가 열지 않는 검사 파일:\n${unopened.join('\n')}`
+    ).toEqual([]);
+  });
 });

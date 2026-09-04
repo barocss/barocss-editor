@@ -1,7 +1,6 @@
 export * from './types';
 export { Editor, CommandChain } from './editor';
 export { CommandManager, InsertTextCommand, InsertNodeCommand, DeleteNodeCommand, SetSelectionCommand } from './commands';
-export { PluginManager, AutoSavePlugin } from './plugins';
 export * from './keybinding';
 export { evaluateWhenExpression } from './when-expression';
 export { insideLockedRegion, type Lock } from './locked-region';

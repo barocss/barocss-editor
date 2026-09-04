@@ -6,6 +6,7 @@
  * the same controls with its own component kit and get the same behaviour.
  */
 import type { Editor } from '@barocss/editor-core';
+import { controlId } from '@barocss/office-controls';
 import {
   currentStyle,
   WORD_STYLES,
@@ -67,8 +68,16 @@ export function createWordToolbar(editor: Editor, host: HTMLElement): WordToolba
       const button = host.ownerDocument.createElement('button');
       button.type = 'button';
       button.className = 'w-toolbar-button';
-      button.dataset.control = control.id;
-      button.textContent = control.icon;
+      /*
+       * `controlId` 로 묻는다. `Control.id` 가 선택적이 된 뒤로 여기가 `string | undefined` 를
+       * `dataset` 과 `Map` 에 넣고 있었고, 그러면 id 를 안 적은 컨트롤이 전부 `undefined` 라는 한
+       * 칸을 나눠 쓴다 — 마지막 것만 남고 나머지는 refresh 가 못 찾는다.
+       */
+      const id = controlId(control);
+      button.dataset.control = id;
+      // 아이콘 이름이 아이콘이 아니다: 글자로 그리면 이름이 그대로 보인다. 여기는 그림 없는 DOM
+      // 툴바이므로 라벨을 쓰고, 이름은 `data-control` 이 갖는다.
+      button.textContent = control.label;
       button.title = control.label;
       button.setAttribute('aria-label', control.label);
 
@@ -80,7 +89,7 @@ export function createWordToolbar(editor: Editor, host: HTMLElement): WordToolba
       });
 
       groupEl.appendChild(button);
-      buttons.set(control.id, { control, el: button });
+      buttons.set(id, { control, el: button });
     }
 
     element.appendChild(groupEl);
