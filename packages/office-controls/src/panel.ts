@@ -255,23 +255,85 @@ export function panelRowsFor<Row extends PanelRow>(
 /**
  * The groups a pane has, in order, with their rows — which is how a panel is drawn.
  *
- * Contiguous runs rather than a map, because **order is meaning**: a panel draws these top to
- * bottom, so moving a row in the declaration moves it on screen, and two runs of one heading would
- * draw the heading twice rather than silently merging.
+ * **Order is meaning**: a panel draws these top to bottom, so moving a row in the declaration moves
+ * it on screen, and a group takes its place from where its *first* row is.
+ *
+ * ## By label, and it used to be by contiguous run
+ *
+ * The old rule was that two runs of one heading draw the heading twice *rather than silently
+ * merging*, which reads well and is wrong for a reason nothing in a declaration can prevent: a run
+ * is only contiguous **after filtering**. A group's rows are written together and then
+ * `panelRowsFor` drops the ones this node type has no place for, so a heading that is one section in
+ * the file becomes two on screen the moment a type sits out the middle of it.
+ *
+ * Measured: a **page** draws `바탕 | 그림자 | 바탕 | 그림자` — two headings each, twice — and React
+ * says so out loud, because a list keyed by label then has two children with one key. A `collection`
+ * does the same with 데이터.
+ *
+ * Two sections under one heading is never a design. So the label is the group, wherever its rows
+ * turn up.
  */
 export function panelGroupsFor<Row extends PanelRow>(
   rows: Row[]
 ): { label: string; rows: Row[] }[] {
   const groups: { label: string; rows: Row[] }[] = [];
+  const at = new Map<string, { label: string; rows: Row[] }>();
   for (const row of rows) {
-    const last = groups[groups.length - 1];
-    if (last && last.label === row.group) last.rows.push(row);
-    else groups.push({ label: row.group, rows: [row] });
+    const held = at.get(row.group);
+    if (held) held.rows.push(row);
+    else {
+      const made = { label: row.group, rows: [row] };
+      at.set(row.group, made);
+      groups.push(made);
+    }
   }
   return groups;
 }
 
 /** Every command the panel can run — a product's third answer to "what can a reader reach". */
+/**
+ * **조건이 붙은 행이 보이는가** — `PanelRow.when`, 한 곳에서.
+ *
+ * ## 두 답이 있었고 서로 달랐습니다
+ *
+ * Written twice, in `apps/site/src/inspector.tsx` and `apps/slide/src/properties.tsx`, and they
+ * disagreed on two values:
+ *
+ * | `when: { attr: 'x' }`, `x` 가 | 사이트 | 데크 |
+ * |---|---|---|
+ * | `undefined` · `null` | 숨김 | 숨김 |
+ * | `''` | **보임** | 숨김 |
+ * | `[]` | **보임** | 숨김 |
+ *
+ * Which is exactly the category `docs/SHARED-LAYER.md` opens with: *share what two implementations
+ * disagreeing about would be a bug*. A row that appears because an attribute is an empty string is
+ * a row about nothing — 처음부터 offered for a block whose `opens` a reader has just cleared.
+ *
+ * **데크가 맞습니다**, and the declaration says why: `when` without `is` means *when that attribute
+ * is set*, and an empty string is not set. So is an empty array — a `binds` row with nothing bound
+ * has nothing to configure.
+ *
+ * ## `single` 도 같이 옵니다
+ *
+ * `PanelRow.single` — *only when one thing is selected* — was the site's alone and the deck will want
+ * it the first time it has a row that cannot answer for two shapes. Same question, same place.
+ */
+export function panelRowShown(
+  row: PanelRow,
+  attrs: Record<string, unknown>,
+  count = 1
+): boolean {
+  if (row.single && count > 1) return false;
+  if (!row.when) return true;
+
+  const held = attrs[row.when.attr];
+  /* With `is`, the value has to be one of them. */
+  if (row.when.is) return row.when.is.includes(held);
+  /* Without it, there just has to be one — and empty is not one. */
+  if (Array.isArray(held)) return held.length > 0;
+  return held !== undefined && held !== null && held !== '';
+}
+
 export function panelCommands(rows: PanelRow[]): string[] {
   return [...new Set(flatten(rows).map((row) => row.command).filter((one): one is string => !!one))];
 }

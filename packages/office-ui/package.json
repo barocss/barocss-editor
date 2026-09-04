@@ -26,9 +26,13 @@
       },
       "./tokens.css": "./dist/tokens.css"
     },
-    "files": ["dist"]
+    "files": [
+      "dist"
+    ]
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "vite build",
     "type-check": "tsc --noEmit",

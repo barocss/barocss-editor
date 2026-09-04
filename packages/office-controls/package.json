@@ -24,7 +24,9 @@
         "default": "./dist/index.js"
       }
     },
-    "files": ["dist"]
+    "files": [
+      "dist"
+    ]
   },
   "scripts": {
     "type-check": "tsc --noEmit",
@@ -35,6 +37,10 @@
     "@barocss/editor-core": "workspace:*"
   },
   "devDependencies": {
+    "@barocss/office-note": "workspace:*",
+    "@barocss/office-site": "workspace:*",
+    "@barocss/office-slides": "workspace:*",
+    "@barocss/office-word": "workspace:*",
     "typescript": "^5.9.3",
     "vitest": "^1.6.1"
   }

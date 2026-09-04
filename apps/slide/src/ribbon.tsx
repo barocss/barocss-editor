@@ -46,6 +46,7 @@ import {
   type Slide,
   type SlidesToolbarControl
 } from '@barocss/office-slides';
+import { ControlRows } from '@barocss/office-editor-ui';
 
 /**
  * The deck's ribbon.
@@ -402,28 +403,35 @@ export function Ribbon({
         <span key={group.id} className="contents">
           {index > 0 && <ToolbarSeparator />}
           <ToolbarGroup id={group.id}>
-            {group.controls.map((control) => (
-              <ToolbarToggle
-                key={control.id}
-                id={control.id}
-                label={control.label}
-                /**
-                 * The chord, from the keymap rather than from a second list.
-                 *
-                 * A toolbar is how a reader finds a command and the keyboard is
-                 * how they use it the next time — a tool that never shows the
-                 * chord teaches nobody the chord. Which symbols to draw is the
-                 * reader's platform's business, which is why `apple` comes from
-                 * here and not from inside the model.
-                 */
-                shortcut={keyLabel(shortcutOf(control.command), apple)}
-                state={stateOf(control) as never}
-                disabled={!enabled(control)}
-                onActivate={() => {
+            {/*
+              **`useControls` is the shared chrome** — subscribing to the editor, keying each
+              control, working out whether it may run and running it. All four of those were written
+              here, and again in Word's ribbon, and again in the site's.
+
+              What stays is what is the deck's own: a slide's commands take a `slideId`, a few of
+              them need a file before they can run at all, and the state comes from `stateOf` rather
+              than from a mark.
+            */}
+            {/*
+              **`ControlRows` is the shared chrome** — subscribing, keying, chord, may-it-run, run.
+              A render prop because a hook cannot be called inside a `.map`.
+
+              What stays is the deck's own: a slide's commands take a `slideId`, a few need a file
+              before they can run at all, and the state comes from `stateOf` rather than a mark.
+            */}
+            <ControlRows
+              editor={editor}
+              controls={group.controls}
+              options={{
+                apple,
+                can: (control) => enabled(control),
+                state: (control) => stateOf(control) as never,
+                onRun: (control) => {
                   if (control.needsFile) {
-                    // What the picker will accept, from what the command makes:
-                    // a video button that offered every image is a button that
-                    // produces a film with a picture in it.
+                    /*
+                     * What the picker will accept, from what the command makes: a video button that
+                     * offered every image is a button that produces a film with a picture in it.
+                     */
                     const accept =
                       control.command === 'insertVideo'
                         ? 'video/*'
@@ -441,11 +449,33 @@ export function Ribbon({
                     return;
                   }
                   void editor?.executeCommand(control.command, payloadFor(control));
-                }}
-              >
-                <Icon name={control.icon} />
-              </ToolbarToggle>
-            ))}
+                }
+              }}
+            >
+              {(rows) =>
+                rows.map((one) => (
+                  <ToolbarToggle
+                    key={one.key}
+                    id={one.key}
+                    label={one.label}
+                    /**
+                     * The chord, from the keymap rather than from a second list.
+                     *
+                     * A toolbar is how a reader finds a command and the keyboard is how they use it
+                     * the next time — a tool that never shows the chord teaches nobody the chord.
+                     * Which symbols to draw is the reader's platform's business, which is why
+                     * `apple` goes in rather than being decided inside the model.
+                     */
+                    shortcut={keyLabel(shortcutOf(one.control.command), apple)}
+                    state={one.state as never}
+                    disabled={one.disabled}
+                    onActivate={one.run}
+                  >
+                    {one.control.icon ? <Icon name={one.control.icon} /> : one.label}
+                  </ToolbarToggle>
+                ))
+              }
+            </ControlRows>
           </ToolbarGroup>
         </span>
       ))}

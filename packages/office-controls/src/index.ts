@@ -71,7 +71,15 @@ import {
  * product adds only what is genuinely its own.
  */
 export interface Control {
-  id: string;
+  /**
+   * Distinct only when **two rows run one command** with different payloads — 왼쪽 정렬 and 오른쪽
+   * 정렬 are both `setAlign`. Word and the deck have three such rows each; the site and a note have
+   * none, and writing `id: 'toggleBold'` beside `command: 'toggleBold'` on fifty rows would be noise
+   * that says nothing.
+   *
+   * **Optional**, and read through `controlId` so the absent case has one answer rather than four.
+   */
+  id?: string;
   label: string;
   /**
    * Which **act** this control performs, as a name in the shared icon table.
@@ -81,9 +89,46 @@ export interface Control {
    * say `duplicate` and the chrome holds one drawing. It is also what keeps the
    * shared chrome from having to learn a product's vocabulary — see
    * `@barocss/office-icons`.
+   *
+   * **Optional**, and it was not. Required, this shape could not hold a control whose face is its
+   * own content: the site's 페이지 링크 opens a picker showing the page it would link to, and there
+   * is nowhere on one for a glyph. That was a deliberate omission with a reason written beside it,
+   * and a required field made the reason unstateable — so the site copied this interface instead of
+   * extending it, which is the fault this file's own header warns about.
    */
-  icon: string;
+  icon?: string;
   command: string;
+  /**
+   * The longer sentence — a tooltip, or the line under a name.
+   *
+   * `label` is what fits on the control; this is what a reader needs when the label is a word and
+   * the act is a sentence. The site and a note have carried it since they were written and had
+   * nowhere to put it here, which is half of why they did not extend this.
+   */
+  title?: string;
+  /**
+   * **Where it belongs**, in this product's own words — `'mark'`, `'insert'`, `'arrange'`.
+   *
+   * A `string` rather than a union, because the words are the product's: a note groups by 마크 and
+   * 블록, the site by 넣기 and 배치. A product narrows it in its own interface, which is what a
+   * product's own type is for.
+   *
+   * Two shapes of toolbar use it and both are right: Word and the deck nest their controls inside a
+   * `ControlGroup` because their toolbars are drawn as groups with separators; the site and a note
+   * keep one flat list and ask it for a slice. See `controlsIn`.
+   */
+  group?: string;
+  /**
+   * The mark this control toggles, if it toggles one — `'bold'`, `'strikethrough'`.
+   *
+   * Data rather than the `state` function below, and that is the point: **a check can read a string
+   * and cannot read a closure.** Measured the hard way — a note's 취소선 asked the selection about
+   * `strikeThrough` while the command wrote `strikethrough`, so the mark applied and the button
+   * never lit, and nothing could see it because the name was wrong in only one place.
+   */
+  mark?: string;
+  /** The chord, drawn beside the name — this is where a reader learns one. */
+  shortcut?: string;
   /** Fixed arguments, because the control's own label says which case it is. */
   payload?: Record<string, unknown>;
   /**
@@ -110,6 +155,47 @@ export interface Control {
    * ask which marks a toolbar claims to know without calling it.
    */
   state?: ((summary: SelectionSummary) => MarkState) & { markType?: string };
+}
+
+/**
+ * The id a control is drawn and keyed by — its own, or the command it runs.
+ *
+ * One place, so *what is this control called in a `key=` and in a `data-` attribute* has one answer
+ * across four products. Two of them declared an `id` and two keyed by `command`, which is two
+ * answers to a question that has one.
+ */
+export function controlId(control: Control): string {
+  if (control.id) return control.id;
+  /**
+   * **The payload is part of the name**, and leaving it out cost a toolbar once.
+   *
+   * Eight of the site's controls run `alignBlocks` and differ only in what they carry, so keying by
+   * the command alone gave React eight children with one key: it drew the first and dropped the
+   * other seven, and the ribbon had a 왼쪽 button and nothing else. Found by counting them in a
+   * browser and getting zero.
+   *
+   * Word and the deck avoid it by declaring an `id`; the site and a note declare none, and a
+   * generated row — one per alignment, from a list — has nothing to declare. So the fallback has to
+   * be the whole of what makes the control different, which is the command **and** its arguments.
+   */
+  const payload = control.payload;
+  if (!payload || Object.keys(payload).length === 0) return control.command;
+  /* Sorted, so two controls carrying the same arguments in a different order are one name. */
+  const said = Object.keys(payload)
+    .sort()
+    .map((key) => `${key}=${JSON.stringify(payload[key])}`)
+    .join(',');
+  return `${control.command}:${said}`;
+}
+
+/**
+ * The controls in a group, for a product whose toolbar is **one flat list**.
+ *
+ * The other shape — `ControlGroup[]` — nests them, and both are right for the toolbars they draw.
+ * This is the flat one written once instead of twice.
+ */
+export function controlsIn<C extends Control>(controls: readonly C[], group: string): C[] {
+  return controls.filter((one) => one.group === group);
 }
 
 /** A run of controls, drawn together with a separator before the next. */
@@ -450,9 +536,11 @@ export {
   menuEntry,
   menuFaults,
   menuId,
+  menusIn,
   type MenuBlockModel,
   type MenuEntryModel,
-  type MenuModel
+  type MenuModel,
+  type MenuWhere
 } from './menu';
 export {
   chordFor,
@@ -464,3 +552,91 @@ export {
   withHints,
   type KeyModel
 } from './keys';
+
+/**
+ * **글자색과 형광펜** — `office-word` 에 있었고 Word 의 것이 아니었습니다.
+ *
+ * `PaletteControl` 은 이 파일의 타입이고 이 둘은 그 타입의 값입니다: 스위트의 글자색 컨트롤. 데크가
+ * 자기 툴바에 같은 두 개를 놓으려고 `office-word` 를 의존하고 있었고, 제품이 제품을 의존하는 아홉 개의
+ * 변 중 둘이 이것이었습니다.
+ *
+ * 이름의 `WORD_` 는 남겨 둡니다 — 두 제품의 import 를 다 고치는 값보다, 이름 하나가 자기 출신을 말하는
+ * 값이 작습니다. 세 번째 제품이 이것을 쓰는 날이 이름을 바꿀 날입니다.
+ */
+/**
+ * The colours offered, and why these.
+ *
+ * Word's own theme colours and its standard row, which is what a reader
+ * recognises — and a small set on purpose: a palette of forty is a colour picker
+ * with extra steps, and the point of the swatches is that the common answer is
+ * one press away. Anything else is the free field beside them.
+ */
+/**
+ * **Exported**, because a cell shading control stayed in Word and needs the same colours.
+ *
+ * A palette that two controls disagree about is a reader picking 'Red' twice and getting two reds.
+ */
+export const THEME_SWATCHES: { value: string; label: string }[] = [
+  { value: '000000', label: 'Black' },
+  { value: '404040', label: 'Dark grey' },
+  { value: '808080', label: 'Grey' },
+  { value: 'D9D9D9', label: 'Light grey' },
+  { value: 'FFFFFF', label: 'White' },
+  { value: 'C00000', label: 'Dark red' },
+  { value: 'FF0000', label: 'Red' },
+  { value: 'ED7D31', label: 'Orange' },
+  { value: 'FFC000', label: 'Yellow' },
+  { value: '70AD47', label: 'Green' },
+  { value: '2F5496', label: 'Dark blue' },
+  { value: '4472C4', label: 'Blue' },
+  { value: '9DC3E6', label: 'Light blue' },
+  { value: 'D9E2F3', label: 'Pale blue' },
+  { value: '7030A0', label: 'Purple' }
+];
+
+/** The colour of the text itself. */
+export const WORD_TEXT_COLOR: PaletteControl = {
+  id: 'font-color',
+  label: 'Text colour',
+  icon: 'font-color',
+  command: 'setFontColor',
+  key: 'color',
+  clearCommand: 'removeFontColor',
+  markType: 'fontColor',
+  attr: 'color',
+  swatches: THEME_SWATCHES
+};
+
+/**
+ * The colour behind the text — the highlighter.
+ *
+ * Its own swatches: a highlighter's colours are the pen colours, and offering
+ * the theme's dark blues as a highlight gives a reader a way to make their own
+ * text unreadable in one press. The last is white, which is what a highlighter
+ * has instead of nothing when the text sits on a coloured shape.
+ *
+ * `setHighlight`, not `toggleHighlight`: the toggle takes a colour but toggles,
+ * so pressing yellow on green text would take the highlight off rather than
+ * turning it yellow. The toggle stays on the toolbar as the one-press
+ * highlighter; this is the choice of colour, the same pair as bold and a font.
+ */
+export const WORD_TEXT_HIGHLIGHT: PaletteControl = {
+  id: 'highlight-color',
+  label: 'Highlight colour',
+  icon: 'highlight',
+  command: 'setHighlight',
+  key: 'color',
+  clearCommand: 'removeHighlight',
+  markType: 'highlight',
+  attr: 'color',
+  swatches: [
+    { value: 'FFFF00', label: 'Yellow' },
+    { value: 'A5F3A0', label: 'Green' },
+    { value: '7FDBFF', label: 'Turquoise' },
+    { value: 'FF9AD5', label: 'Pink' },
+    { value: 'FFC08A', label: 'Orange' },
+    { value: 'D9D9D9', label: 'Grey' },
+    { value: 'C7B9FF', label: 'Violet' },
+    { value: 'FFFFFF', label: 'White' }
+  ]
+};

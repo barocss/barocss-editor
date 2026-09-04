@@ -49,9 +49,34 @@ export interface MenuEntryModel {
   needs?: string;
 }
 
+/**
+ * **Where a group of entries means anything** — the second thing a menubar has to declare.
+ *
+ * A product of this size has more than one place a reader can be. The site builder has two: the
+ * canvas, where there is a page with blocks on it, and 관리, where there is a list of pages and no
+ * canvas at all. 삽입 and 표 are about a block on a canvas, and in 관리 they are five menus of
+ * entries that can never be enabled.
+ *
+ * `needs` already says *this entry acts on something the app knows*, and greys it. That is the right
+ * answer for one entry among several; it is the wrong answer for a whole menu, because a menubar
+ * whose middle three are permanently grey is a menubar that has stopped saying anything. Reported
+ * exactly that way — *데이타 관리하는데 추가요소 같은건 필요없으니깐*.
+ *
+ * So a block says where it belongs and the app asks for the place it is in. Declared rather than
+ * filtered in the app for the usual reason: a menubar assembled by a `filter` in one component is a
+ * menubar no check can read, and this repository has paid for that lesson in three other surfaces.
+ */
+export type MenuWhere =
+  /** Everywhere the product goes — a document's own acts, its history, its file. */
+  | 'anywhere'
+  /** Only where there is something being drawn — a page, a slide, a canvas. */
+  | 'canvas';
+
 export interface MenuBlockModel {
   id: string;
   items: MenuEntryModel[];
+  /** Where this group belongs. Absent means `anywhere`. */
+  where?: MenuWhere;
 }
 
 export interface MenuModel {
@@ -59,6 +84,26 @@ export interface MenuModel {
   /** What the trigger says — 파일, 편집, 보기. */
   label: string;
   blocks: MenuBlockModel[];
+  /**
+   * Where the whole menu belongs — a shorthand for every block carrying the same answer, and the
+   * honest shape for 삽입 and 표, which are about a canvas from their first entry to their last.
+   */
+  where?: MenuWhere;
+}
+
+/**
+ * The menus that mean something in a place — **and no empty triggers left behind**.
+ *
+ * A menu whose blocks all belong somewhere else is dropped rather than drawn with nothing in it: a
+ * trigger that opens an empty panel is worse than a trigger that is not there, which is the same
+ * argument `needs` makes one level down.
+ */
+export function menusIn(menus: MenuModel[], where: MenuWhere): MenuModel[] {
+  const fits = (said: MenuWhere | undefined) => said === undefined || said === 'anywhere' || said === where;
+  return menus
+    .filter((menu) => fits(menu.where))
+    .map((menu) => ({ ...menu, blocks: menu.blocks.filter((block) => fits(block.where)) }))
+    .filter((menu) => menu.blocks.length > 0);
 }
 
 /** Every command a menubar can run — the harness's question, answered by the model. */

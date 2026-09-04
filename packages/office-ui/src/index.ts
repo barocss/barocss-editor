@@ -169,6 +169,7 @@ export { MenuBar, type MenuBarMenu } from './menubar';
  * fires once.
  */
 export { FilePick } from './file-pick';
+export { placeNear, type PlaceBox, type PlaceOptions } from './place-near';
 
 /**
  * A stack a reader arranges — fills, effects, layers. One control drawn three

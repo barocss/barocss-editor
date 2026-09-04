@@ -20,6 +20,7 @@ import {
   momentAt,
   timeStep,
   trimWindow,
+  placeNear,
   useAudioPeaks
 } from '@barocss/office-ui';
 import { useEditorRevision } from './revision';
@@ -2126,20 +2127,16 @@ function CurveEditor({
     const box = panel.current?.getBoundingClientRect();
     if (!from || !box) return;
 
-    const gap = 4;
-    const edge = 8;
-    // Above by preference — this control lives at the bottom of the window, which
-    // is where the upward panel came from in the first place.
-    const above = from.top - edge;
-    const wanted =
-      box.height <= above ? from.top - gap - box.height : from.bottom + gap;
-    // Clamped both ways, and not only downward: an anchor at either edge of the
-    // window leaves one direction that does not fit, and a panel half off the
-    // screen is a panel whose buttons cannot be pressed.
-    setAt({
-      top: Math.min(Math.max(edge, wanted), Math.max(edge, window.innerHeight - edge - box.height)),
-      left: Math.max(edge, Math.min(from.right - box.width, window.innerWidth - edge - box.width))
-    });
+    /*
+     * **위를 먼저, 오른쪽 끝에 맞춰** — this control lives at the bottom of the window, which is where
+     * the upward panel came from in the first place.
+     *
+     * The flip and the clamp are `office-ui` 's `placeNear`. They were written out here, and again in
+     * `color-field`, and again in `floating`, with three slightly different answers to *what happens
+     * when it does not fit* — the part that is easy to get subtly wrong and hard to notice, because
+     * it only shows up near an edge of the window.
+     */
+    setAt(placeNear(from, box, { prefer: 'above', align: 'end' }));
   }, []);
 
   useLayoutEffect(() => {

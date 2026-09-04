@@ -1,3 +1,4 @@
+import { ControlRows } from '@barocss/office-editor-ui';
 import { useMemo } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
@@ -338,12 +339,36 @@ export function Ribbon({
         <span key={group.id} className="contents">
           <ToolbarSeparator />
           <ToolbarGroup id={group.id}>
-            {group.controls.map((control) => (
-              <ToolbarToggle
-                key={control.id}
-                id={control.id}
-                label={control.label}
-                state={
+            {/*
+              **`useControls` is the shared chrome**, and what stays here is what is Word's own.
+
+              Subscribing to the editor, working out each control's key and chord, asking whether it
+              may run and running it — all four of those were written here, and again in the site's
+              ribbon, and again in the deck's. What is not shared is the state: Word answers four
+              ways, and a list, a table look and a cell attribute are none of them marks.
+            */}
+            {/*
+              **`ControlRows` is the shared chrome** — subscribing to the editor, keying each
+              control, working out its chord and whether it may run, and running it. All four of
+              those were written here, and again in the site's ribbon, and again in the deck's.
+
+              A render prop because a hook cannot be called inside a `.map`, and because holding that
+              call in a component of Word's own is what made this file *longer* the first time the
+              logic moved out.
+            */}
+            <ControlRows
+              editor={editor}
+              controls={group.controls}
+              options={{
+                can: (control) => editor.canRun(control.command, control.payload),
+                onRun: (control) => void editor.run(control.command, control.payload),
+                /*
+                 * **Word's four answers.** A list button resolves a numbering definition, a
+                 * table-look button reads a flag off the table the caret is in, a cell button reads
+                 * an attribute, and everything else asks the control's own function. None of them is
+                 * a mark, which is why the shared layer takes this rather than guessing.
+                 */
+                state: (control) =>
                   control.listKind
                     ? listState(control.listKind, summary, currentListKind)
                     : control.lookFlag
@@ -351,13 +376,24 @@ export function Ribbon({
                       : control.cellAttribute
                         ? cellAttributeState(control.cellAttribute, cell)
                         : (control.state?.(summary) ?? 'off')
-                }
-                disabled={!editor.canRun(control.command, control.payload)}
-                onActivate={() => void editor.run(control.command, control.payload)}
-              >
-                <Icon name={control.icon} />
-              </ToolbarToggle>
-            ))}
+              }}
+            >
+              {(rows) =>
+                rows.map((one) => (
+                  <ToolbarToggle
+                    key={one.key}
+                    id={one.key}
+                    label={one.says}
+                    shortcut={one.shortcut}
+                    state={one.state}
+                    disabled={one.disabled}
+                    onActivate={one.run}
+                  >
+                    {one.control.icon ? <Icon name={one.control.icon} /> : one.label}
+                  </ToolbarToggle>
+                ))
+              }
+            </ControlRows>
           </ToolbarGroup>
         </span>
       ))}

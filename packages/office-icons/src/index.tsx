@@ -106,6 +106,8 @@ import {
   Component,
   PaintBucket,
   Table2,
+  BarChart3,
+  PanelRightOpen,
   Rows4,
   Columns3 as ColumnsBanded,
   MoveUp,
@@ -584,6 +586,22 @@ const ICONS: Record<string, LucideIcon> = {
   hide: EyeOff,
   delete: Trash2,
   'insert-table': Table,
+  /*
+   * A **chart**, and the two places that needed it were both drawing something else: the button
+   * that makes one used `type-number` — which is the picture for a *number column* in the data
+   * editor — and the layer row fell through to a frame's. Two surfaces naming one thing with two
+   * wrong pictures, which is a shorter way of saying the name was missing.
+   */
+  'chart-bar': BarChart3,
+  /*
+   * **행을 연다** — the two arrows every table of this kind uses for *open this row on its own*.
+   *
+   * Added because the gesture had no picture at all: the row number was the button, in the faintest
+   * ink the palette has, and a reader reported that they could not find where the drawer opens. A
+   * number is not a control, and a character in place of an icon is what this repository has already
+   * written down about three times.
+   */
+  expand: PanelRightOpen,
   'insert-image': Image,
   // A film and a sound. `Film` rather than a play triangle, which every product
   // uses for *starting* something — a button that inserts is not a button that

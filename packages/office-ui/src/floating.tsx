@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
+import { placeNear } from './place-near';
 import { createPortal } from 'react-dom';
 import { cn } from './cn';
 
@@ -67,26 +68,15 @@ export function FloatingSurface({
     }
 
     const box = host.current.getBoundingClientRect();
-    const margin = 8;
-
-    // Above the words, or below them when there is no room — the reader's next line is below.
-    const above = at.top - box.height - gap;
-    const top = above >= margin ? above : at.bottom + gap;
-
-    // Centred on the selection, and inside the window.
-    const wanted = at.left + at.width / 2 - box.width / 2;
-    const left = Math.min(Math.max(wanted, margin), window.innerWidth - box.width - margin);
 
     /*
-     * **Only when it moved**, and the guard is not a nicety.
-     *
-     * This runs after every layout and sets state, so an unconditional `setPlaced` is a render that
-     * schedules a layout that schedules a render. The first version had `children` in the dependency
-     * list as well — a new array on every render — and React stopped it with *"Maximum update depth
-     * exceeded"*: the surface rendered, threw, and unmounted, so the menu was **built correctly and
-     * never appeared**. Everything measured right and nothing was on the page, which is the shape of
-     * fault a screenshot finds and a state dump does not.
+     * **위를 먼저, 가운데로** — a menu about the caret belongs above it, where the words being typed
+     * are not covered. The flip and the clamp are `placeNear`'s: they were written out here, and
+     * again in `color-field`, and again in the deck's timeline, with three slightly different
+     * answers to *what happens when it does not fit*.
      */
+    const { top, left } = placeNear(at, box, { prefer: 'above', align: 'center', gap, margin: 8 });
+
     setPlaced((held) =>
       held && Math.abs(held.top - top) < 0.5 && Math.abs(held.left - left) < 0.5 ? held : { top, left }
     );

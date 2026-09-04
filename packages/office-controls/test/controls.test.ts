@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import type { SelectionSummary } from '@barocss/editor-core';
+/**
+ * The four products are **devDependencies** of this package and not dependencies, which is the
+ * shape a cross-product check has to take: the products depend on `office-controls`, so a runtime
+ * import back would be a cycle. A test may look the other way, and this one has to — whether four
+ * declarations are one shape is a question only something that sees all four can ask.
+ */
 import {
+  controlId,
+  controlsIn,
+  type Control,
   choiceOptions,
   commandsIn,
   iconsIn,
@@ -263,5 +272,124 @@ describe('what a toolbar names', () => {
       { id: 'b', controls: [{ id: 'y', label: 'Y', icon: 'add', command: 'same' }] as Control[] }
     ];
     expect(commandsIn(twice)).toEqual(['same']);
+  });
+});
+
+/**
+ * **네 제품이 한 모양의 컨트롤을 쓴다.**
+ *
+ * This file's own header says it: *a product extends it rather than copying it, so the fields that
+ * mean the same thing in every product are declared once*. Two of four extended it and two copied
+ * it — the site and a note each declared their own interface with the same seven fields under the
+ * same names, plus `title`, `group` and `mark`, which this shape did not have.
+ *
+ * Copying is not a style problem. It is what makes a **shared chrome impossible**: three ribbons
+ * exist (634 + 366 + 454 lines) doing the same five things — subscribe to the editor, read a
+ * declaration, ask about each control, draw with `office-ui`, run the command — and the only reason
+ * one of them cannot draw all four products is that the four declarations are four types.
+ *
+ * So this asks the thing that matters: **can one function take any product's controls?**
+ */
+describe('컨트롤은 네 제품이 같은 모양이다', () => {
+  /**
+   * A stand-in for the chrome that does not exist yet: it takes `Control`, and nothing more.
+   *
+   * If every product's toolbar can be handed to this, the shared ribbon is possible. If one cannot,
+   * this fails at compile time, which is the point — the check is the type, and the body is only
+   * here to prove the fields are readable.
+   */
+  const draw = (controls: readonly Control[]) =>
+    controls.map((one) => ({
+      key: controlId(one),
+      label: one.label,
+      says: one.title ?? one.label,
+      runs: one.command,
+      picture: one.icon,
+      toggles: one.mark
+    }));
+
+  /*
+   * Four products loaded in one file — `office-slides` alone is 27,000 lines of declarations — so the
+   * default 5s is spent transforming them, not checking anything. A limit that fails on the size of
+   * an import is a limit measuring the wrong thing.
+   */
+  it('takes any of the four, through one type', { timeout: 30_000 }, async () => {
+    const { SITE_TOOLBAR } = await import('@barocss/office-site');
+    const { NOTE_TOOLBAR } = await import('@barocss/office-note');
+    const { WORD_TOOLBAR } = await import('@barocss/office-word');
+    const { SLIDES_TOOLBAR } = await import('@barocss/office-slides');
+
+    /* Two are flat lists and two are groups — both shapes, one control type underneath. */
+    const flat = [...draw(SITE_TOOLBAR), ...draw(NOTE_TOOLBAR)];
+    const nested = [...WORD_TOOLBAR, ...SLIDES_TOOLBAR].flatMap((group) => draw(group.controls));
+
+    expect(flat.length).toBeGreaterThan(40);
+    expect(nested.length).toBeGreaterThan(40);
+
+    /* Every one of them can be keyed and run, which is all a ribbon needs to draw one. */
+    for (const one of [...flat, ...nested]) {
+      expect(one.key, JSON.stringify(one)).toBeTruthy();
+      expect(one.runs, JSON.stringify(one)).toBeTruthy();
+      expect(one.label, JSON.stringify(one)).toBeTruthy();
+    }
+  });
+
+  it('gives a control one id, whether it declared one or not', { timeout: 30_000 }, async () => {
+    const { SITE_TOOLBAR } = await import('@barocss/office-site');
+    const { WORD_TOOLBAR } = await import('@barocss/office-word');
+
+    /* With nothing to distinguish, the command is the name. */
+    expect(controlId(SITE_TOOLBAR[0])).toBe(SITE_TOOLBAR[0].command);
+
+    /**
+     * And with something — **the payload is part of it**. Eight of the site's controls run
+     * `alignBlocks` and differ only in what they carry; keying by the command alone gave React eight
+     * children with one key, so it drew the first and dropped seven, and the ribbon had a 왼쪽 button
+     * and nothing else. The app had worked around it by hand; this is that fix, once.
+     */
+    const siteKeys = SITE_TOOLBAR.map(controlId);
+    expect(new Set(siteKeys).size).toBe(siteKeys.length);
+    expect(siteKeys.filter((one) => one.startsWith('alignBlocks')).length).toBeGreaterThan(1);
+
+    /*
+     * Word declares them, because it has rows that run one command with different payloads — 왼쪽
+     * 정렬 and 오른쪽 정렬 are both the same command, and a key of `command` would collide.
+     */
+    const all = WORD_TOOLBAR.flatMap((group) => group.controls);
+    const commands = all.map((one) => one.command);
+    const repeated = commands.filter((one, at) => commands.indexOf(one) !== at);
+    expect(repeated.length).toBeGreaterThan(0);
+    /* And with ids, no two controls in a product share a key. */
+    const keys = all.map(controlId);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('gives every control of every product a key no sibling shares', { timeout: 30_000 }, async () => {
+    const { SITE_TOOLBAR } = await import('@barocss/office-site');
+    const { NOTE_TOOLBAR } = await import('@barocss/office-note');
+    const { WORD_TOOLBAR } = await import('@barocss/office-word');
+    const { SLIDES_TOOLBAR } = await import('@barocss/office-slides');
+
+    /* The invariant a shared ribbon rests on: within one product, `controlId` is unique. */
+    for (const [what, controls] of [
+      ['site', SITE_TOOLBAR],
+      ['note', NOTE_TOOLBAR],
+      ['word', WORD_TOOLBAR.flatMap((one) => one.controls)],
+      ['slides', SLIDES_TOOLBAR.flatMap((one) => one.controls)]
+    ] as const) {
+      const keys = controls.map(controlId);
+      const repeated = [...new Set(keys.filter((one, at) => keys.indexOf(one) !== at))];
+      expect(repeated, `${what}: ${repeated.join(' ')}`).toEqual([]);
+    }
+  });
+
+  it('slices a flat toolbar the same way for both products that have one', { timeout: 30_000 }, async () => {
+    const { SITE_TOOLBAR, siteControlsIn } = await import('@barocss/office-site');
+    const { NOTE_TOOLBAR, noteControlsIn } = await import('@barocss/office-note');
+
+    /* Written twice as `.filter(one => one.group === group)`; one function now. */
+    expect(siteControlsIn('insert')).toEqual(controlsIn(SITE_TOOLBAR, 'insert'));
+    expect(noteControlsIn('mark')).toEqual(controlsIn(NOTE_TOOLBAR, 'mark'));
+    expect(controlsIn(NOTE_TOOLBAR, 'mark').length).toBe(4);
   });
 });

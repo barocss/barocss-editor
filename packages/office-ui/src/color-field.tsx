@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { placeNear } from './place-near';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
 import { CONTROL, STATE } from './controls';
@@ -125,23 +126,12 @@ export function ColorField({
     const box = panel.current?.getBoundingClientRect();
     if (!anchor || !box) return;
 
-    const gap = 4;
-    const edge = 8;
-    const below = window.innerHeight - anchor.bottom - edge;
-    const above = anchor.top - edge;
-    // Below unless it does not fit there and does fit above — which is the rule
-    // a reader never notices, because the panel is simply where they looked.
-    const wanted =
-      box.height <= below || above < box.height
-        ? anchor.bottom + gap
-        : anchor.top - gap - box.height;
-    setAt({
-      // Clamped both ways: an anchor at either edge of the window leaves one
-      // direction that does not fit, and half a picker is no picker.
-      top: Math.min(Math.max(edge, wanted), Math.max(edge, window.innerHeight - edge - box.height)),
-      // Right-aligned with the field, as it was, until the window says otherwise.
-      left: Math.max(edge, Math.min(anchor.right - box.width, window.innerWidth - edge - box.width))
-    });
+    /*
+     * **아래를 먼저, 안 맞으면 위로** — a picker belongs under the swatch it is about, and hangs off
+     * its right edge. The flip and the clamp were written out here and twice more; `placeNear` is
+     * that arithmetic once, and it is the part that is easy to get subtly wrong.
+     */
+    setAt(placeNear(anchor, box, { prefer: 'below', align: 'end' }));
   }, []);
 
   useLayoutEffect(() => {
