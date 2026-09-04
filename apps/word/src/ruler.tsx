@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { dragGesture } from '@barocss/shared';
 import type { Editor } from '@barocss/editor-core';
 import {
   tabStopsOf,
@@ -261,69 +262,94 @@ export function Ruler({ editor, zoom = 1 }: { editor: Editor; zoom?: number }) {
     [editor]
   );
 
-  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!geometry || !paragraph) return;
-    const at = positionOf(event);
-    const target = (event.target as HTMLElement).dataset.rulerMarker as Dragging extends null
-      ? never
-      : 'firstLine' | 'left' | 'right' | undefined;
+  /**
+   * 자를 누르는 것 — 마커를 잡거나, 탭 스톱을 잡거나, 빈 자리를 눌러 새로 놓거나.
+   *
+   * **`dragGesture` 로 옮긴 이유는 취소다.** 전에는 React 의 `onPointerMove`/`onPointerUp` 을
+   * 요소에 달고 있었는데, `onPointerMove` 는 **버튼을 누르지 않아도** 온다. 그래서 포인터가
+   * 취소되면(터치가 끊기거나 시스템 제스처가 가로채면) `dragging.current` 가 그대로 남고, 그 뒤로는
+   * 그냥 마우스를 올리기만 해도 마커가 따라다닌다. 놓지 않은 드래그가 화면에 남는 것이다.
+   *
+   * 문턱이 0인 것은 자의 몫이다: 누른 자리가 곧 값이고, 3px 을 기다리면 첫 3px 이 안 움직인다.
+   */
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) =>
+    void dragGesture(
+      event,
+      {
+        start: (pointer) => {
+          if (!geometry || !paragraph) return null;
+          const at = positionOf(pointer);
+          const target = (pointer.target as HTMLElement).dataset.rulerMarker as Dragging extends null
+            ? never
+            : 'firstLine' | 'left' | 'right' | undefined;
 
-    if (target) {
-      dragging.current = { kind: 'marker', marker: target, at, moved: false };
-    } else {
-      const hit = stopAt(stops, at, scale);
-      if (hit) dragging.current = { kind: 'stop', from: hit.pos, at: hit.pos, moved: false };
-      else return; // an empty click adds on release, not on press
-    }
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-  };
+          if (target) {
+            dragging.current = { kind: 'marker', marker: target, at, moved: false };
+          } else {
+            const hit = stopAt(stops, at, scale);
+            /*
+             * 빈 자리를 누른 것도 제스처다 — 잡은 것이 없을 뿐이다. 여기서 `null` 을 주면 제스처가
+             * 아예 안 열리고, *놓을 때 새 스톱을 놓는다* 가 사라진다.
+             */
+            dragging.current = hit ? { kind: 'stop', from: hit.pos, at: hit.pos, moved: false } : null;
+          }
+          return { box: (pointer.currentTarget as HTMLElement).getBoundingClientRect() };
+        },
 
-  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const held = dragging.current;
-    if (!held || !paragraph) return;
+        move: (_at, moved) => {
+          const held = dragging.current;
+          if (!held || !paragraph) return;
 
-    // Followed, not written: the document hears about this once, when the
-    // reader lets go. See `Dragging`.
-    const at = positionOf(event);
-    dragging.current = { ...held, at, moved: held.moved || snap(at) !== snap(held.at) };
-    force((count) => count + 1);
-  };
+          // Followed, not written: the document hears about this once, when the
+          // reader lets go. See `Dragging`.
+          const at = positionOf({ clientX: moved.x });
+          dragging.current = { ...held, at, moved: held.moved || snap(at) !== snap(held.at) };
+          force((count) => count + 1);
+        },
 
-  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    const held = dragging.current;
-    dragging.current = null;
-    if (!geometry || !paragraph) return;
-    if (held) force((count) => count + 1);
+        done: (at, moved) => {
+          const held = dragging.current;
+          dragging.current = null;
+          if (!geometry || !paragraph) return;
+          if (held) force((count) => count + 1);
 
-    const at = positionOf(event);
+          const where = positionOf({ clientX: moved.x });
 
-    if (held?.kind === 'marker') {
-      if (held.moved) write('setParagraphIndents', { indents: draggedTo(held.marker, at, markers) });
-      return;
-    }
+          if (held?.kind === 'marker') {
+            if (held.moved) write('setParagraphIndents', { indents: draggedTo(held.marker, where, markers) });
+            return;
+          }
 
-    if (held) {
-      // Dragged clear of the ruler: Word takes the stop off, which is the only
-      // way to get rid of one without a dialog.
-      const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
-      const escaped = event.clientY < box.top - 12 || event.clientY > box.bottom + 12;
-      if (escaped) {
-        write('setTabStops', { tabs: withStop(stops, held.from, null) });
-        return;
-      }
-      // Held and let go where it was: what the stop *does*, rather than where.
-      const stop = stops.find((each) => each.pos === held.from);
-      write('setTabStops', {
-        tabs: held.moved
-          ? withStop(stops, held.from, at)
-          : withStop(stops, held.from, held.from, { align: nextAlign(stop?.align) })
-      });
-      return;
-    }
+          if (held) {
+            // Dragged clear of the ruler: Word takes the stop off, which is the only
+            // way to get rid of one without a dialog.
+            const escaped = moved.y < at.box.top - 12 || moved.y > at.box.bottom + 12;
+            if (escaped) {
+              write('setTabStops', { tabs: withStop(stops, held.from, null) });
+              return;
+            }
+            // Held and let go where it was: what the stop *does*, rather than where.
+            const stop = stops.find((each) => each.pos === held.from);
+            write('setTabStops', {
+              tabs: held.moved
+                ? withStop(stops, held.from, where)
+                : withStop(stops, held.from, held.from, { align: nextAlign(stop?.align) })
+            });
+            return;
+          }
 
-    // An empty stretch of ruler: a new stop, left-aligned, as Word makes them.
-    write('setTabStops', { tabs: withStop(stops, null, at) });
-  };
+          // An empty stretch of ruler: a new stop, left-aligned, as Word makes them.
+          write('setTabStops', { tabs: withStop(stops, null, where) });
+        },
+
+        /* 물러서면 문서는 아무 말도 못 듣고, 따라오던 마커만 제자리로 돌아온다. */
+        abort: () => {
+          dragging.current = null;
+          force((count) => count + 1);
+        }
+      },
+      { threshold: 0 }
+    );
 
   /**
    * Where a thing is drawn while it is being dragged.
@@ -371,8 +397,6 @@ export function Ruler({ editor, zoom = 1 }: { editor: Editor; zoom?: number }) {
       className="w-ruler"
       ref={host}
       onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
       onContextMenu={onContextMenu}
       role="slider"
       aria-label="눈금자 — 탭 정지와 들여쓰기"

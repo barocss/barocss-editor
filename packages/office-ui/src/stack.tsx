@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { dragGesture } from '@barocss/shared';
 import { cn } from './cn';
 import { Icon } from '@barocss/office-icons';
 import { Button } from './controls';
@@ -104,43 +105,47 @@ export function useDismiss<T extends HTMLElement = HTMLDivElement>(
 export function useStackOrder<T>(items: T[], onChange: (items: T[]) => void) {
  const [dragging, setDragging] = useState<number | null>(null);
 
-  const grab = (index: number) => (event: React.PointerEvent) => {
-    event.preventDefault();
-    const row = (event.currentTarget as HTMLElement).closest<HTMLElement>('[data-stack-row]');
- const list = row?.parentElement;
-    if (!row || !list) return;
+  const grab = (index: number) => (event: React.PointerEvent) =>
+    void dragGesture(event, {
+      /*
+       * 잡은 것: 이 목록의 기하. 행 높이와 목록의 top 은 **잡는 순간** 재고 그 뒤로 다시 재지
+       * 않습니다 — 끄는 동안 목록이 스크롤되면 다시 재야 맞지만, 그러면 미리 보기가 손가락 아래에서
+       * 따로 움직입니다. 세 줄짜리 목록이 스크롤되는 일은 없습니다.
+       */
+      start: (pointer) => {
+        const row = (pointer.currentTarget as HTMLElement).closest<HTMLElement>('[data-stack-row]');
+        const list = row?.parentElement;
+        if (!row || !list) return null;
+        setDragging(index);
+        return {
+          height: row.getBoundingClientRect().height,
+          top: list.getBoundingClientRect().top,
+          at: index
+        };
+      },
 
-    setDragging(index);
-    const height = row.getBoundingClientRect().height;
-    const top = list.getBoundingClientRect().top;
-    let at = index;
-
-    const move = (pointer: PointerEvent) => {
-      const next = Math.min(
-        items.length - 1,
-        Math.max(0, Math.floor((pointer.clientY - top) / Math.max(1, height)))
-      );
-      if (next !== at) {
-        at = next;
+      move: (held, moved) => {
+        const next = Math.min(
+          items.length - 1,
+          Math.max(0, Math.floor((moved.y - held.top) / Math.max(1, held.height)))
+        );
+        if (next === held.at) return;
+        held.at = next;
         setDragging(next);
-      }
-    };
+      },
 
-    const up = () => {
-      window.removeEventListener('pointermove', move);
- window.removeEventListener('pointerup', up);
- setDragging(null);
-      if (at === index) return;
+      done: (held) => {
+        setDragging(null);
+        if (held.at === index) return;
+        const next = [...items];
+        const [moved] = next.splice(index, 1);
+        next.splice(held.at, 0, moved);
+        onChange(next);
+      },
 
-      const next = [...items];
-      const [moved] = next.splice(index, 1);
-      next.splice(at, 0, moved);
-      onChange(next);
-    };
-
-    window.addEventListener('pointermove', move);
- window.addEventListener('pointerup', up);
- };
+      /* 물러서면 목록은 그대로이고 흐리게 그린 행만 돌아옵니다. */
+      abort: () => setDragging(null)
+    });
 
   return { dragging, grab };
 }

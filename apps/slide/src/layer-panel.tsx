@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { dragGesture } from '@barocss/shared';
 import type { Editor } from '@barocss/editor-core';
 import { Icon, IconButton } from '@barocss/office-ui';
 import {
@@ -117,39 +118,39 @@ export function LayerPanel({
    */
   const dragRow = (index: number, row: LayerRow) => (event: React.PointerEvent) => {
     if (row.depth > 0) return;
-    event.preventDefault();
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    setDrag({ from: index, over: index });
 
-    const list = (event.currentTarget as HTMLElement).closest('.sl-layers-list');
-    const move = (pointer: PointerEvent) => {
-      const rowsOnScreen = [...(list?.querySelectorAll<HTMLElement>('[data-layer]') ?? [])];
-      // Which row the pointer is over, by its box: the rows are one height and a
-      // division would be the same answer with a magic number in it.
-      const over = rowsOnScreen.findIndex((element) => {
-        const box = element.getBoundingClientRect();
-        return pointer.clientY >= box.top && pointer.clientY <= box.bottom;
-      });
-      if (over >= 0) setDrag((was) => (was ? { ...was, over } : was));
-    };
+    void dragGesture(event, {
+      start: (pointer) => {
+        setDrag({ from: index, over: index });
+        return { list: (pointer.currentTarget as HTMLElement).closest('.sl-layers-list') };
+      },
 
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      setDrag((was) => {
-        if (was && was.over !== was.from) {
-          const top = rows.filter((entry) => entry.depth === 0);
-          run('moveBoxTo', {
-            nodeId: row.sid,
-            position: positionFromRow(was.over, top.length)
-          });
-        }
-        return null;
-      });
-    };
+      move: (held, moved) => {
+        const rowsOnScreen = [...(held.list?.querySelectorAll<HTMLElement>('[data-layer]') ?? [])];
+        // Which row the pointer is over, by its box: the rows are one height and a
+        // division would be the same answer with a magic number in it.
+        const over = rowsOnScreen.findIndex((element) => {
+          const box = element.getBoundingClientRect();
+          return moved.y >= box.top && moved.y <= box.bottom;
+        });
+        if (over >= 0) setDrag((was) => (was ? { ...was, over } : was));
+      },
 
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+      done: () =>
+        setDrag((was) => {
+          if (was && was.over !== was.from) {
+            const top = rows.filter((entry) => entry.depth === 0);
+            run('moveBoxTo', {
+              nodeId: row.sid,
+              position: positionFromRow(was.over, top.length)
+            });
+          }
+          return null;
+        }),
+
+      /* 물러서면 순서는 그대로이고, 끌려 보이던 행만 제자리로 돌아옵니다. */
+      abort: () => setDrag(null)
+    });
   };
 
   return (

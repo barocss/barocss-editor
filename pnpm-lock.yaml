@@ -484,6 +484,9 @@ importers:
       '@barocss/schema':
         specifier: workspace:*
         version: link:../../packages/schema
+      '@barocss/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -554,6 +557,9 @@ importers:
       '@barocss/schema':
         specifier: workspace:*
         version: link:../../packages/schema
+      '@barocss/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@radix-ui/react-select':
         specifier: ^2.3.7
         version: 2.3.7(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)
@@ -1339,6 +1345,9 @@ importers:
       '@barocss/office-icons':
         specifier: workspace:*
         version: link:../office-icons
+      '@barocss/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.23(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)

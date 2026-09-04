@@ -7,6 +7,12 @@
 export { IS_MAC, IS_LINUX, IS_WINDOWS } from './platform';
 export { getKeyString, isTypingKey } from './key-string';
 export { normalizeKeyString, expandModKey } from './key-binding';
+export {
+  dragGesture,
+  type GestureMoved,
+  type GestureHandlers,
+  type GestureOptions
+} from './gesture';
 export { replacePlaceholders, normalizeLocale } from './i18n';
 
 export * from './decorator';

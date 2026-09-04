@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { dragGesture } from '@barocss/shared';
 import {
   Icon,
   Button,
@@ -504,31 +505,43 @@ function GradientBar({
   const setStops = (next: typeof stops) =>
     onChange({ ...paint, stops: [...next].sort((a, b) => a.offset - b.offset) });
 
-  const drag = (event: React.PointerEvent, stopIndex: number) => {
-    event.preventDefault();
-    event.stopPropagation();
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    setChosen(stopIndex);
+  const drag = (event: React.PointerEvent, stopIndex: number) =>
+    void dragGesture(event, {
+      start: (pointer) => {
+        pointer.stopPropagation();
+        setChosen(stopIndex);
+        return { stopIndex };
+      },
 
-    const move = (pointer: PointerEvent) => {
-      const offset = at(pointer);
-      onChange({
-        ...paint,
-        // Not re-sorted mid-drag: a stop that overtook its neighbour would
-        // change index under the pointer and the drag would jump to the other
-        // one. The sort happens when the pointer is let go.
-        stops: stops.map((stop, index) => (index === stopIndex ? { ...stop, offset } : stop))
-      });
-    };
-    const up = (pointer: PointerEvent) => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      const offset = at(pointer);
-      setStops(stops.map((stop, index) => (index === stopIndex ? { ...stop, offset } : stop)));
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  };
+      move: (held, _moved, pointer) => {
+        const offset = at(pointer);
+        onChange({
+          ...paint,
+          // Not re-sorted mid-drag: a stop that overtook its neighbour would
+          // change index under the pointer and the drag would jump to the other
+          // one. The sort happens when the pointer is let go.
+          stops: stops.map((entry, index) => (index === held.stopIndex ? { ...entry, offset } : entry))
+        });
+      },
+
+      /*
+       * 끈 것만 씁니다. 잡았다 그대로 뗀 것은 이 멈춤을 **고른** 것이고, 그건 `start` 에서 이미
+       * 끝났습니다 — 같은 값을 다시 쓰면 히스토리에 아무 일도 아닌 항목이 하나 생깁니다.
+       */
+      done: (held, moved, pointer) => {
+        if (!moved.dragged || !pointer) return;
+        const offset = at(pointer);
+        setStops(stops.map((entry, index) => (index === held.stopIndex ? { ...entry, offset } : entry)));
+      },
+
+      /*
+       * 물러서면 끌던 미리 보기를 걷습니다 — 쓰기 전의 `stops` 가 진짜입니다. 그린 적이 없으면
+       * 걷을 것도 없고, 그때 쓰면 같은 값이 히스토리에 아무 일도 아닌 항목으로 남습니다.
+       */
+      abort: (_held, moved) => {
+        if (moved.dragged) onChange({ ...paint, stops });
+      }
+    });
 
   const stop = stops[chosen] ?? stops[0];
 
