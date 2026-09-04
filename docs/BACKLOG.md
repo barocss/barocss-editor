@@ -6855,6 +6855,221 @@ text-shaped.
 
 ### Known and unfixed
 
+- [ ] **엔진이 *글자인가* 를 이름으로 묻고, 그 이름이 그룹의 여덟 중 하나뿐이다.**
+
+  `'inline-text'` 라는 문자열이 `packages/*/src` 에 **132번** 나오고, 그 중 **비교 연산(=결정
+  자리)이 36곳**이다. 제품 층의 것(office-word 10 · office-site 3)은 정당하다 — 제품은 자기 노드
+  이름을 알아도 된다. 문제는 **엔진 층의 18곳**이다:
+
+  | 패키지 | 결정 자리 |
+  |---|---:|
+  | `editor-view-dom` | 10 |
+  | `editor-view-react` | 5 |
+  | `editor-core` · `model` · `renderer-dom` | 각 1 |
+
+  **그리고 스키마가 이미 답을 갖고 있다.** 런타임으로 확인했다 — office 스키마에서
+  `inline-text` 는 `{ name: 'inline-text', group: 'inline' }` 이고(표준 스키마에서 상속된다),
+  **`inline` 그룹에 여덟이 있다**:
+
+  `hardBreak` · `inline-text` · `inline-image` · `emoji` · `bookmarkAnchor` · `fieldDateTime` ·
+  `fieldDocTitle` · `fieldAuthor`
+
+  그래서 `stype === 'inline-text'` 는 **나머지 일곱에 아니라고 답한다.** 예를 들어
+  `editor-view-react` 의 `isSelectionInsideEditableText` 는 IME 처리를 **게이트** 하는데, 캐럿이
+  이모지나 북마크 앵커나 날짜 필드 옆에 있으면 거짓을 돌려준다.
+
+  원칙은 이미 이 저장소에 적혀 있다 — `extensions/src/range-delete.ts` 의 `isInline`:
+
+  > *"Guessed by name first (`inline-text`, `link`, anything starting `inline`) and that is the shape
+  > of a rule that works until a product names something else: the site's `richText`, a deck's
+  > connector label. **The schema declares a `group` for exactly this.**"*
+
+  한 파일이 그렇게 하고 열여덟 곳이 안 한다. 그리고 이건 로드맵의 *"스키마 하나가 여러 제품을
+  담나"* 에 바로 걸린다: 텍스트 런을 다른 이름으로 부르는 제품은 뷰 층에서 깨진다.
+
+  **재는 방법이 싸다** — 이모지나 필드 옆에 캐럿을 두고 `isSelectionInsideEditableText` 를 묻는
+  단위 검사 하나면 지금 거짓인 것이 보인다. 브라우저가 필요 없다.
+
+
+- [x] **집합인 선택을 DOM 에 어떻게 반영하나 — 첫 판이 틀렸고 브라우저가 반박했다.**
+
+  `node`·`cell`·`table` 셋을 다 *DOM 선택을 지운다* 로 만들었다. 논거는 **DOM 선택은 *여기서
+  저기까지* 하나만 표현하고 집합에는 두 끝이 없다** 였고, 그 절반은 사실이다. 슬라이드 검사 **여덟
+  개**가 `range` 를 기대하고 `node` 를 받았다 — 텍스트 상자를 더블클릭하면 첫 누름이 도형을
+  고르고(→ `node`) 둘째 누름이 안으로 들어가 캐럿을 놓는데, 첫 누름에서 DOM 선택을 지우면 그 길이
+  끊긴다. *"그대로 두기"* 가 짐을 지고 있었다.
+
+  구별은 *집합인가* 가 아니라 **그 선택을 만든 제스처가 글자 선택을 대신하려는 것인가** 다. 셀
+  드래그는 대신한다(`installCellSelection` 이 이미 손으로 지운다). 도형 선택은 **가는 중일 수
+  있다** — 더블클릭의 첫 절반이다.
+
+  **적어 두는 이유는 논거의 모양이다.** *DOM 선택은 두 끝만 표현한다* 는 사실이고, *그러므로 집합일
+  때는 지워야 한다* 는 그 사실에서 따라오지 않는다. 사실과 결론 사이에 브라우저가 한 번 들어와야
+  했다. 그리고 검사도 내 논거를 담고 있었으므로 검사가 나를 막아 주지 못했다 — **단정을 쓰기 전에
+  그 단정이 어디서 온 것인지 물어야 한다.**
+
+  남는 값: 도형을 고른 뒤 직전의 글자 강조가 화면에 남을 수 있다. **아직 잰 적 없는 불편**이므로
+  추측으로 지우지 않는다.
+
+  되돌린 뒤 슬라이드 스위트는 **407/407** 이다 — 여덟 실패가 다 그 하나에서 왔고, 하나를 되돌리자
+  여덟이 같이 돌아왔다.
+
+
+- [ ] **브라우저 스위트가 여섯인데 넷만 돌고 있었다.** 2026-09-04 에 세었다:
+
+  | 앱 | 스펙 | 돌리고 있었나 |
+  |---|---:|---|
+  | `word` | 46 | 예 |
+  | `slide` | 43 | 예 |
+  | `site` | 3 | 예 |
+  | `note` | 2 | 예 |
+  | **`editor-react`** | **7 (검사 14)** | **아니오** |
+  | **`editor-test`** | **1** | **아니오** |
+
+  루트에 `test:e2e:react` 와 `test:e2e` 스크립트가 있는데도 회차에서 빠졌다. 그리고 이번 회차에
+  **`editor-view-react` 를 고쳤다** — 즉 확인 없이 고치고 있었던 것이다. `apps/editor-react` 가
+  React 경로의 유일한 브라우저 증거이고, 그 경로에 `Shift+→` 뒤집힘이 살아 있었다.
+
+  적어 두는 이유: *"검사를 하나씩 돌린다"* 는 규칙을 지켰는데도 **목록이 틀려서** 못 잡았다. 규칙이
+  아니라 목록이 문제였고, 목록은 세어야 한다.
+
+  **항구적 답은 목록을 기계로 만드는 것이다.** 지금 상태를 재보니:
+
+  | 스위트 | 패키지 이름 | 루트 스크립트 |
+  |---|---|---|
+  | `editor-react` | `@barocss/editor-react` | `test:e2e:react` |
+  | `editor-test` | `@barocss/editor-test` | `test:e2e` |
+  | `site` | `@barocss/site-app` | `test:e2e:site` |
+  | `slide` | `@barocss/slide-app` | `test:e2e:slide` |
+  | `word` | `@barocss/word-app` | `test:e2e:word` |
+  | **`note`** | `@barocss/app-note` | **없음** |
+
+  여섯 중 다섯만 루트에서 부를 수 있고, **여섯을 한 번에 돌리는 스크립트가 아예 없다.** 그래서
+  *"전부 돌렸다"* 는 문장이 사람의 기억에 기대게 된다.
+
+  할 것 둘: (1) `note` 의 스크립트를 더하고 여섯을 순서대로 돌리는 `test:e2e:all` 을 만든다.
+  (2) **검사 하나** — `apps/*/playwright.config.ts` 가 있는 앱마다 루트 스크립트가 있는지 세는 것.
+  단위 검사가 브라우저 회차를 돌릴 수는 없지만, *목록이 빠짐없나* 는 셀 수 있다.
+
+  **그리고 돌려 보니 둘 다 실패한다** (2026-09-04 첫 회차):
+
+  | 스위트 | 결과 | 무엇 |
+  |---|---|---|
+  | `editor-react` | **3 실패 / 11 통과** | IME 조합 흐름 둘(`compositionend` 에서 `replaceText` 1회, 229 윈도우), `insertParagraph` 하나 |
+  | `editor-test` | **1 실패** | 콘텐츠 층이 그려지는데 `hidden` — 마운트/CSS |
+
+  **갈랐다: 넷 다 원래 실패다.** 커밋된 상태(`git stash`)에서 같은 두 스위트를 돌렸고 **같은 셋과
+  같은 하나**가 실패했다. 이번 수정과 무관하다.
+
+  `editor-test` 의 경우는 더 정확히 말할 수 있다: 추적되고 있던 `test-results/.last-run.json` 의
+  **커밋된 내용이 `{"status": "passed"}`** 다. 즉 **한때 통과했고 그 뒤로 썩었다** — 그 사이 아무도
+  돌리지 않았으니 언제 썩었는지는 알 수 없다. 그게 목록이 틀렸던 값이다.
+
+  남은 넷의 내용:
+
+  - `editor-react` IME 둘 — 조합 중에 `replaceText` 가 0회여야 하는데 2회, 그리고 229 윈도우
+    뒤의 동기화가 0회. 조합 흐름이 `isSelectionInsideEditableText` 로 게이트되고, 그 함수가
+    `stype === 'inline-text'` 를 **이름으로** 묻는다 — 위의 *이름으로 묻는 열여덟 곳* 항목과 같은
+    자리일 수 있다. 아직 인과는 확인 안 했다.
+  - `editor-react` `insertParagraph` 하나 — heading 끝에서 Enter 가 새 블록을 안 만든다.
+  - `editor-test` 하나 — 콘텐츠 층이 그려지는데 `hidden`.
+
+  **가르는 절차를 적어 둔다** (`scratchpad/baseline.sh`): 브라우저 회차가 하나도 안 돌 때
+  `git stash push -u` → 두 스위트 → `git stash pop`. 그리고 그 pop 이 **막혔다** — 추적되고 있던
+  playwright 산출물이 회차 중에 바뀌어서다. 그 둘을 추적에서 뺐다(`.gitignore` 에 `test-results/`
+  가 이미 있는데도 추적 중이었다). 기준선을 재는 절차가 자기 산출물에 막히는 것은 절차의 결함이다.
+
+
+- [x] **`ModelSelection` 이 다섯 번 선언되어 있었고, 그 중 죽은 하나가 결함의 출처였다.**
+  See Done, and `docs/specs/selection.md` 의 *선언은 하나다*. 여기 남길 것은 발견의 순서다.
+
+  로드맵의 Phase 1 첫 단계가 *"`ModelSelection` 을 아래로 내린다"* 였고 하지 않았다 — 순환이 다른
+  방법으로 풀렸으니 **그래프를 위해서는** 필요 없었다. 미룬 값이 이렇게 나왔다: 셋이 아니라 다섯이고,
+  `editor-view-react` 의 두 판은 `cell` 과 `table` 을 **표현할 수 없다.**
+
+  그리고 `editor-core` 에 죽은 `ModelNodeSelection = { nodeId, selectAll }` 이 있었다. **두 뷰 층이
+  그 모양을 향해 읽고 있었다** — `convertNodeSelectionToDOM(nodeSelection.nodeId)`. 생산자는
+  `nodeIds` 복수를 세운다. *의도를 적은 타입이 배선되지 않은 채 남고, 읽는 쪽이 그 의도를 향해
+  읽는다* 는 것이 이 저장소가 반복해서 찾는 **있는데 못 닿는** 결함의 새로운 변형이다.
+
+  **가장 값있는 부분:** 사본을 걷자 타입 검사가 두 결함을 *바로* 말했다. 그리고 사본이 검사를
+  실제로부터 **밀어낸** 자리도 나왔다 — React 검사에 *"The compiler said so"* 라며 범위 필드 넷을
+  지운 주석이 있고, 그 컴파일러가 읽던 것이 좁은 사본이었다. **타입 오류를 없애는 방향으로 검사를
+  고치기 전에, 그 타입이 실제를 적은 것인지 물어야 한다.**
+
+  검사를 쓸 때 이름과 의미를 겹쳐야 했다: **이름으로 세면 열아홉**(`SelectionSummary`,
+  `SelectionState`, `CellSelectionHandle` … 다 다른 것), **의미로 세면 열셋**(연산의 payload 는 범위를
+  *받는다*). 둘을 겹쳐야 개념 자신만 남는다.
+
+- [ ] **뷰 층이 두 벌이고, 선택 고치기가 두 번씩 필요하다.**
+  `editor-view-dom/event-handlers/selection-handler.ts`(751줄)와
+  `editor-view-react/selection-handler.ts`(485줄)에 **같은 이름의 private 메서드가 열한 개**:
+  `convertOffsetWithRuns` · `convertRangeSelectionToDOM` · `determineSelectionDirection` ·
+  `ensureRuns` · `findBestContainer` · `findClosestDataNode` · `findDOMRangeFromModelOffset` ·
+  `getTextRunsForContainer` · `isDecoratorElement` · `isTextContainer` · `nodeExistsInModel`.
+
+  **증거:** 이번 회차에 고친 선택 결함 둘이 React 판에 그대로 남아 있었다 —
+  `data-text-container`(아무도 안 쓰는 속성)와 요소 경계의 `isEnd`/비교 방향. `Shift+→` 뒤집힘이
+  React 경로에는 살아 있었다. 같이 고쳤지만 **두 번 고쳐야 한다는 것이 결함이다.**
+
+  **그리고 사본이 아니라 갈라진 것이다.** 열한 개의 몸통을 대보니 글자까지 같은 것은
+  `convertOffsetWithRuns` **하나뿐**이고 나머지는 다 다르다. 그런데 읽어 보면 대부분 *같은 논리를
+  다르게 적은 것* 이다 — `nodeExistsInModel` 은 `node !== null && node !== undefined` 대 `node != null`,
+  `determineSelectionDirection` 은 줄바꿈과 순서만 다르다.
+
+  **그게 이 상태의 진짜 비용이다.** 열한 개가 전부 다르므로, 어느 것이 표기 차이이고 어느 것이 논리
+  차이인지 **열한 개를 다 읽지 않고는 알 수 없다.** 그래서 한쪽을 고칠 때 다른 쪽도 고쳐야 하는지를
+  판단할 수 없고, 이번에 실제로 판단하지 못했다.
+
+  **옮길 자리는 `shared` 이고, 그건 재고 나온 것이다.** 두 핸들러가 쓰는 런 색인
+  (`buildTextRunIndex`·`binarySearchRun`·`ContainerRuns`)이 **이미
+  `shared/src/text-run-index/`(242줄, 층 0)에 있다.** DOM 판은 그것을 `@barocss/renderer-dom` 에서
+  가져오고 React 판은 `@barocss/shared` 에서 가져와서 서로 다른 것처럼 보였는데,
+  `renderer-dom/src/utils/text-run-index.ts` 는 **순수 재내보내기 15줄**이다. 같은 구현이다.
+
+  **그리고 그것이 Phase 1 첫 단계의 새 근거다.** 로드맵에 *"`ModelSelection` 을 `schema` 나 `shared`
+  로 내린다"* 가 적혀 있었고 근거는 *"그래프가 순환처럼 읽힌다"* 였다. 그 근거는 사라졌다(DAG). 지금의
+  근거: **DOM↔모델 변환을 두 뷰 층 아래에 두려면 선택 타입도 그 아래에 있어야 한다.**
+  `ModelSelection` 은 문자열과 숫자뿐이라 `shared` 로 내려도 새 의존이 0이다.
+
+  순서: (1) `ModelSelection`·`SelectionType`·`NoSelection` 을 `shared` 로 (2) 열한 개를
+  `shared/selection-dom.ts` 로 런 색인 옆에 (3) 두 뷰 층에는 *스코프 루트를 어디서 얻나* 만 남는다.
+  React 판의 주석이 *"Does not depend on editor-view-dom"* 을 일부러 적어 뒀으니, 뽑아낼 자리가 둘 중
+  하나가 아니어야 한다는 것은 그 파일도 알고 있었다.
+
+  **1단계의 크기를 재봤다: `ModelSelection` 을 참조하는 파일이 119개다**(extensions 63 · editor-core
+  11 · editor-view-react 10 · model 9 · editor-view-dom 9 · datastore 5 …). 119군데를 고칠 일은
+  아니다 — 선언만 `shared` 로 옮기고 **`editor-core/types.ts` 가 그것을 다시 내보내면** 나머지
+  118개는 그대로다. 두 파일 변경에 재내보내기 한 줄이다.
+
+  그리고 그 재내보내기는 남겨 둘 값이 있다: 제품과 확장이 *편집기의 어휘* 로 선택을 배우는 것이
+  맞고, `shared` 에서 직접 가져가야 하는 것은 **뷰 층 둘** 뿐이다.
+
+  **옮길 목록 (전부 `editor-core/src/types.ts`, 전부 의존 0):**
+
+  | 이름 | 줄 | 무엇 |
+  |---|---:|---|
+  | `SelectionType` | 47 | `range \| node \| cell \| table` |
+  | `ModelSelection` | 53 | 개념 |
+  | `selectedNodeIds` | 84 | 집합을 읽는 하나뿐인 길 |
+  | `createNodeSelection` | 102 | 집합을 만드는 길 |
+  | `withLiveNodes` | 134 | 사라진 노드를 걷는다 — **getter 를 인자로 받아서** 순수하다 |
+  | `NoSelection` | 166 | 골라진 것이 없음 |
+  | `fromDOMSelection` | 176 | anchor/focus → start/end |
+  | `isRangeSelection` · `isNodeSelection` · `isCursor` | 249·256·263 | 타입 가드 |
+
+  `types.ts` 가 밖에서 가져오는 것은 `Transaction`·`Schema`·`Editor` 셋이고 **위의 열 개는 그 셋을
+  하나도 쓰지 않는다.** 문자열과 숫자와, 인자로 받은 함수뿐이다. `Selection = ModelSelection |
+  NoSelection` 은 **가져가지 않는다** — DOM lib 이 그 이름을 갖고 있어서 뷰 층에서 쓸 수 없다.
+
+- [ ] **편집기의 문에서도 선택의 답이 둘이다.**
+  `Editor.updateSelection(selection: SelectionState | any)` 이고
+  `EditorState.modelSelection: SelectionState | ModelSelection | null` 이다. `SelectionState` 는
+  **DOM 스냅샷**(`anchorNode`·`focusNode`·`textContent`)이고 `ModelSelection` 은 모델의 것인데, 둘 다
+  *선택* 이라는 이름으로 같은 문을 지난다. `| any` 가 그 문에 붙어 있는 동안은 어느 쪽이 오는지
+  타입이 말하지 않는다.
+
+
 - [ ] **`toModel` 이 셋이고, 같은 이름으로 서로 다른 질문 둘에 답한다.**
 
   | 어디 | 무엇을 묻나 |

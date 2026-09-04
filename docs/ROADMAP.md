@@ -8,6 +8,44 @@ something is a guess it says so.
 Kept beside [BACKLOG.md](./BACKLOG.md), which holds the next thing to do, and
 [RETROSPECTIVE.md](./RETROSPECTIVE.md), which holds what building the first
 product taught. This holds the reason there is a next thing.
+[TECHNICAL-ROADMAP.md](./TECHNICAL-ROADMAP.md) holds the layer-by-layer version of the same thing.
+
+---
+
+## 한 눈에 — 어디로 가고, 무엇이 남았나 (2026-09-04)
+
+**하나의 문서 엔진 위에 여러 제품.** 그게 계획인지 소원인지를 판단하는 근거는 지금 **다섯이 서 있다**는
+것이다. 처음 이 문서가 적힐 때는 하나였다.
+
+```
+                     [ 어휘·부품 ]  office-text · office-canvas · office-controls · office-ui · office-icons
+                            ↑
+[ 바탕 ]  shared · dsl · schema  →  [ 문서 ]  datastore · model  →  [ 편집 ]  editor-core · editor-view-* · extensions
+                            ↓
+                     [ 제품 ]  word · slides · site · note        →  [ 앱 ]  각자의 셸
+                            ↓
+                     [ 서비스 ]  거의 비어 있다
+```
+
+| 질문 | 답 | 근거 |
+|---|---|---|
+| 코어를 라이브러리로 열 수 있나 | **예** | 순환 0, DAG, 층 0~8. 그리고 **넷이 같은 코어 위에 섰다** |
+| 스키마 하나가 여러 제품을 담나 | **예, 스키마는** | 노트가 **노드 3개**로 선다. 렌더러와 입력은 담지 않는다 |
+| 각자 프로그램으로 낼 수 있나 | **예, 아직 셸이 앱에 있다** | 노트만 통과(앱 257줄). 나머지 셋은 35,727줄 |
+
+**남은 큰 것 넷, 값이 다르다:**
+
+1. **셸을 제품으로** — 35,727줄이 앱에 있다. 노트가 이미 통과했으니 방법은 증명됐고 크기가 남았다.
+2. **서비스 층** — 문서 목록·저장소·계정·권한이 거의 0이다. **B2B 는 대부분 이 층이다.**
+3. **Excel** — 다음 진짜 시험. 선택 종류 `cell` 이 표에서만이 아니라 그리드에서도 성립하는지, 그리고
+   연산 하네스가 그리드를 가진 스키마에서 버티는지.
+4. **캔버스(Figma)** — 벽은 렌더러가 아니라 **글자 셰이핑**이다. 글자를 DOM 오버레이로 올리는 시제품이
+   며칠, 셰이핑 엔진은 달. **시제품으로 먼저 결정한다.**
+
+**그리고 매 회차 반복해서 찾는 결함의 모양이 하나다 — *있는데 못 닿는다.*** 이번 회차만 해도:
+`installCellSelection` 379줄이 Word 안에 갇혀 넷 중 둘만 닿았고, `editor-core` 의 `NoSelection` 이
+선언된 채 두 파일이 그것을 다시 발명했고, 죽은 `ModelNodeSelection` 을 향해 두 뷰 층이 읽고 있었다.
+**그래서 새 기능보다 먼저 묻는 질문이 늘 같다: 이미 있는데 닿지 못하는 것은 무엇인가.**
 
 ---
 
@@ -15,7 +53,7 @@ product taught. This holds the reason there is a next thing.
 
 *Re-measured 2026-09-04. The table below was written when there was one product; there are four.*
 
-**29개 패키지, 소스 174,710줄, 앱 9개.** 크기가 아니라 모양이 중요하다:
+**29개 패키지, 소스 175,315줄, 앱 9개** (2026-09-04 재측정). 크기가 아니라 모양이 중요하다:
 
 | 층 | 패키지 | 무엇을 아나 |
 |---|---|---|
@@ -32,13 +70,28 @@ product taught. This holds the reason there is a next thing.
 에디터를 알고 제품을 모름) 사이의 구분이 이 저장소에서 가장 늦게 생긴 것이고, 그것이 없는 동안 세 개의
 리본이 같은 다섯 단계를 각자 썼다. `docs/SHARED-LAYER.md` 가 그 층에 대한 문서다.
 
-**아직 표대로가 아닌 것이 둘 있다:**
+**아직 표대로가 아닌 것 (2026-09-04 재측정):**
 
-- **편집 층에 순환이 셋.** `datastore ↔ model`, `editor-core ↔ extensions`, `editor-core ↔ model`.
-  그래서 `datastore` 의 층 깊이를 물으면 답이 100을 넘는다. Phase 1 이 이것이다.
-- **제품이 제품을 의존하는 변이 셋.** 아홉이었다가 여섯을 옮겼다(`find.ts` 는 Word 를 하나도 모르는
-  파일이었고, 글자색 두 개는 `PaletteControl` 의 값이었다). 남은 셋 중 `office-site → office-note` 의
-  `NOTE_CONTENT` 는 의도한 것이다.
+- ~~**편집 층에 순환이 셋.**~~ **끝. 순환 0개, DAG, 층 0~8.** 검사가 지킨다
+  (`conformance/test/dependency-graph.test.ts`). Phase 1 의 그 절을 보라 — 셋 중 둘이 유령이었다.
+- **제품이 제품을 의존하는 변이 셋.** 아홉이었다가 여섯을 옮겼다. 남은 셋:
+
+  | 변 | 무엇 | 판단 |
+  |---|---|---|
+  | `office-slides → office-word` | `createWordTables`(508줄) | 옮겨야 한다 |
+  | `office-site → office-word` | `frameCss` | 옮겨야 한다 |
+  | `office-site → office-note` | `NOTE_CONTENT` | **의도한 것** — *무엇을 담을 수 있나* 를 두 번 적지 않으려고 |
+
+- **그리고 앱 층에도 교차가 있다** — 표에 없던 것이다. `apps/slide` 가 `@barocss/office-word` 에서
+  `WORD_FONTS`·`WORD_FONT_SIZES`·`step`·`installCellSelection` 을 가져가고, `apps/site` 가
+  `@barocss/office-note` 를 가져간다. `installCellSelection` 은 이번에 `office-text` 로 갔고 나머지는
+  글꼴 목록과 찾기 도우미 — **Word 것이 아닌 것에 Word 이름이 붙어 있는 쪽**이다.
+- **`ModelSelection` 이 셋 선언되어 있고 둘이 서로 다르다.** Phase 1 의 첫 단계가 *"`ModelSelection`
+  을 아래로 내린다"* 였고 **하지 않았다** — 순환은 다른 방법으로 풀렸다. 그 미룬 값이 지금 보인다:
+  `editor-view-react` 가 자기 것을 **두 번** 선언하고(`types.ts:19`, `selection-handler.ts:9`) 그 둘은
+  `cell` 도 `table` 도 표현할 수 없으며 `node` 의 필드 이름도 다르다(`nodeId` 단수 vs `nodeIds`).
+  게다가 `editor-core` 에는 `NoSelection` 과 `Selection = ModelSelection | NoSelection` 이 **이미
+  있고 아무도 쓰지 않는다** — 두 파일이 그것을 각자 다시 발명했다.
 
 Every package already declares `exports` and types, carries a version, and none
 is `private`. Nothing structural stops them being published today.
@@ -76,20 +129,27 @@ The part that is *not* React-like is that `editor-core` assumes a text editor:
 a caret, a selection, contenteditable. A page builder or a spreadsheet wants the
 document layer and the renderer and none of that.
 
-### Steps
+### Steps — 2026-09-04 대조
 
-1. **Move `ModelSelection` down** into `schema` or `shared`, add the three
-   missing `type` keywords, drop the two unused manifest dependencies. The
-   graph becomes acyclic and each package can be reasoned about alone.
-2. **Split `editor-core`** into what any product needs (commands, transactions,
-   history, context, keybindings) and what a *text* product needs (selection as
-   a caret, contenteditable coordination). The second depends on the first.
-3. **One published example that is not Word.** A library nobody has built a
-   second thing with is a library with one user's assumptions baked in — and
-   this repository has exactly one product in it. This is the real test, not
-   the packaging.
-4. **A stability promise per package.** `dsl` and `schema` are the ones others
-   would build against; they need to say what will not change.
+1. **`ModelSelection` 을 아래로.** ⬜ **안 했다, 그리고 그 값이 이제 보인다.** 순환은 다른 방법으로
+   풀렸으므로(`import type` 과 devDependency) *그래프를 위해서는* 필요 없었다. 필요한 이유는 다른
+   것이었다: 그 타입이 편집 층에 살아서 **다른 층이 자기 것을 다시 선언한다.** 지금 셋이고 둘이 서로
+   다르다 — `editor-view-react` 의 두 판은 `cell` 도 `table` 도 표현할 수 없다. 게다가
+   `editor-core` 에 `NoSelection` 과 `Selection` 이 이미 있고 **아무도 쓰지 않는다.**
+   *끝났음의 기준:* 선언이 하나이고, 검사가 그것을 지킨다.
+2. **`editor-core` 를 둘로** — *어떤 제품이든*(명령·트랜잭션·역사·맥락·키바인딩)과 *글자 제품*(캐럿인
+   선택, contenteditable 조율). ⬜ **안 했고, 막고 있던 것도 아니었다.** 사이트가 이 분리 없이
+   만들어졌다. 그러면 지금의 근거는 무엇인가: **Excel 과 Figma 는 캐럿이 없고 문서 층은 필요하다.**
+   사이트는 캐럿을 *안 쓰는* 것으로 됐지만, 그리드와 캔버스는 캐럿의 가정이 틀린 자리다.
+   *끝났음의 기준:* 캐럿에 대해 아무것도 import 하지 않고 명령과 역사를 쓰는 패키지가 하나 있다.
+3. ~~**Word 가 아닌 예제 하나.**~~ ✅ **넷이다.** 이 단계가 적힐 때 제품이 하나였다. 지금
+   `office-slides`·`office-site`·`office-note` 가 같은 코어 위에 서 있고, 노트는 **노드 3개**로 선다.
+   *그리고 그것이 이 로드맵의 가장 큰 검증이다* — 한 사용자의 가정이 박혀 있었다면 셋이 못 섰다.
+4. **패키지별 안정성 약속.** ⬜ `dsl` 과 `schema` 가 남이 기대는 것이고, 무엇이 바뀌지 않는지를
+   말해야 한다. Phase 4.
+
+**그래서 §1 의 답은 여전히 예이고, 근거가 추론에서 증거로 바뀌었다.** 처음 이 절이 적힐 때 근거는
+*"그래프가 순환처럼 보이지만 대부분 아니다"* 였다. 지금 근거는 **넷이 서 있다**는 것이다.
 
 ---
 
@@ -107,36 +167,62 @@ thing that resists.
 
 What resists is different per product, and it is worth being exact:
 
-| product | schema | renderer | input | layout |
-|---|---|---|---|---|
-| **Word** | done | done | done | done |
-| **Summernote-like** (HTML WYSIWYG) | `standard-schema` | done | done | none needed |
-| **ProseMirror-like** (schema WYSIWYG) | done — this *is* that | done | done | none needed |
-| **Notion-like** (blocks, pages) | small additions | done | done | none needed |
-| **builder.io-like** (page builder) | small additions | done | **new**: drag-to-place, not a caret | none needed |
-| **Excel-like** | grid nodes | virtualised rows | **new**: 2D range selection, formula bar | column/row sizing |
-| **Figma-like** | reference schema exists | **new: canvas** | **new**: direct manipulation | **new: text shaping** |
-| **FigJam-like** | as Figma | as Figma | as Figma, plus presence | as Figma |
+**2026-09-04 재측정 — 이 표는 제품이 하나일 때 적혔고, 그 뒤로 넷이 됐다.** 여덟 목표 중 **넷이
+이미 서 있고**, 표에 없던 다섯째(Slides)가 생겼다. 무엇이 남았는지가 이 표의 값이다.
 
-Three of these are near-term and four are not, for one reason each.
+| 목표 | 지금 | schema | renderer | input | layout |
+|---|---|---|---|---|---|
+| **Word** | ✅ `office-word` (12,823줄) | done | done | done | done |
+| **ProseMirror-like** (스키마 WYSIWYG) | ✅ **이 저장소가 그것이다** | done | done | done | 필요 없음 |
+| **Notion-like** (블록·페이지) | ✅ `office-note` (2,027줄, **노드 3개**) | done | done | done | 필요 없음 |
+| **builder.io-like** (페이지 빌더) | ✅ `office-site` (28,293줄) | done | done | done — 캐럿이 아닌 배치 | 필요 없음 |
+| **PowerPoint/Canva-like** | ✅ `office-slides` (27,097줄) — *표에 없던 것* | done | done | done | done |
+| **Summernote-like** (HTML WYSIWYG) | ⬜ 미착수 | `standard-schema` 있음 | done | done | 필요 없음 |
+| **Excel-like** | ⬜ 미착수 | 그리드 노드 | 가상 스크롤 행 | **새로**: 2D 범위 선택, 수식 바 | 열·행 크기 |
+| **Figma-like** | ⬜ 참고 스키마만 | `figma-like-schema` (reference only) | **새로: 캔버스** | **새로**: 직접 조작 | **새로: 글자 셰이핑** |
+| **FigJam-like** | ⬜ 미착수 | Figma 와 같음 | Figma 와 같음 | Figma + 프레즌스 | Figma 와 같음 |
 
-### The three that are near
+**노트가 노드 3개로 서는 것이 이 구조의 증거다.** 본문의 어휘는 `office-text` 가 이미 그리고 있고,
+노트가 선언한 것은 *무엇을 담을 수 있나* 와 `note` 노드 하나다. 반대쪽 끝에 사이트가 28,293줄로 있다 —
+같은 엔진 위에서 제품의 크기가 그만큼 벌어진다는 뜻이다.
 
-**Summernote-, ProseMirror- and Notion-like products need no new layer.** They
-are the same document, the same DOM renderer, the same input path, with a
-different schema and a different set of extensions. The distance is measured in
-schemas and commands, not in architecture.
+### 그래서 확장은 세 갈래이고, 값이 다르다
 
-### The four that are not
+1. **새 층이 필요 없는 것** — Summernote-like. 스키마 하나와 확장 몇 개. 새 층이 아니라 **어휘**의
+   문제이고, 지금 구조가 그걸 위해 만들어졌다. *이미 넷이 그 길로 만들어졌다는 것이 근거다.*
+2. **입력과 뷰포트가 새로운 것** — Excel-like. 문서 층은 그대로 쓴다. 선택이 문자 범위가 아니라 셀의
+   사각형이어야 하고(그 종류는 `SelectionType` 에 **이미 있다** — `cell`), 백만 행 중 백 행을 그리는
+   뷰포트가 필요하다. 둘 다 이상하지 않고 둘 다 새로 만든다.
+3. **벽이 하나 있는 것** — Figma/FigJam. 렌더러는 하루짜리다(`dsl` 이 템플릿과 호스트를 이미 가른다).
+   벽은 **글자 셰이핑**이다 — 아래의 절을 보라.
 
-**A page builder** replaces the caret with direct manipulation. The document
-layer serves it unchanged; `editor-core`'s selection does not. This is the
-cheapest of the four and is the natural second product — it proves the split in
-step 2 above without needing a new renderer.
+남은 셋 중 하나(Summernote-like)는 값이 낮다: 그 제품이 증명할 것을 이미 넷이 증명했다. **Excel 이
+다음 진짜 시험이다** — 선택 종류 `cell` 이 표에서만이 아니라 그리드에서도 성립하는지, 그리고 연산
+하네스가 그리드를 가진 스키마에서도 버티는지.
 
-**A spreadsheet** needs a selection that is a rectangle of cells rather than a
-range of characters, and a viewport that draws a hundred rows out of a million.
-Neither is exotic; both are new.
+### 예측 둘이 맞았고 하나가 틀렸다 — 적어 두는 값이 여기 있다
+
+전에 이 자리에 *"셋은 가깝고 넷은 아니다"* 가 적혀 있었다. 그 뒤로 셋이 만들어졌으니 대조할 수 있다.
+
+**맞은 것:** *"Summernote-, ProseMirror-, Notion-like 는 새 층이 필요 없다 — 거리는 스키마와 명령으로
+재고 아키텍처로 재지 않는다."* 노트가 그것을 증명했다. **노드 3개, 2,027줄.**
+
+**맞은 것:** *"페이지 빌더는 캐럿을 직접 조작으로 바꾼다. 문서 층은 그대로 쓰이고 `editor-core` 의
+선택은 아니다. 넷 중 가장 싸고 자연스러운 두 번째 제품이며, 새 렌더러 없이 2단계의 분리를 증명한다."*
+사이트가 그것이다. 다만 **싸지 않았다** — 28,293줄이다. 새 *층* 이 필요 없다는 것과 새 *제품* 이
+작다는 것은 다른 말이었다.
+
+**틀린 것:** *"`editor-core` 의 선택은 페이지 빌더를 서지 못한다"* 는 이유로 2단계(편집 층 분리)가
+먼저라고 봤다. **사이트는 그 분리 없이 만들어졌다.** `editor-core` 를 그대로 쓰면서 캐럿을 안 쓰는
+것이 가능했고, 그래서 2단계는 *막고 있던 것* 이 아니라 *정돈* 이다. 순서가 그만큼 자유로워졌다는
+뜻이고, 동시에 2단계의 근거를 다시 세워야 한다는 뜻이다 — 지금의 근거는 아래에 다시 적었다.
+
+### 남은 셋
+
+**스프레드시트**는 문자 범위가 아니라 셀의 사각형인 선택과, 백만 행 중 백 행을 그리는 뷰포트가
+필요하다. 둘 다 이상하지 않고 둘 다 새로 만든다. **그리고 선택 쪽 절반은 이미 있다** —
+`SelectionType` 의 `cell` 이 그것이고, 표에서 이미 쓰인다(`installCellSelection`). 그리드에서도
+성립하는지가 그 타입의 진짜 시험이다.
 
 **Canvas is the hard one, and not for the reason it looks.** The renderer is a
 day's work — `dsl` already separates template from host. The problem is
@@ -169,16 +255,38 @@ in it is privileged.
 
 What is missing is not packaging but **the seam a product plugs into**. Today a
 product is: a schema, a renderer registration, an extension set, a keymap, a
-toolbar model, and a React shell. Five of those six are already data
-(`WORD_TOOLBAR`, `WORD_KEYBINDINGS`, `registerWordRenderers`, the schema, the
-extension list) and the sixth is hand-written per app.
+toolbar model, and a React shell.
+
+**2026-09-04 — 넷을 대조했다.** 여섯 조각 중 넷은 네 제품이 다 같은 모양으로 갖고 있고, 하나는 하나만
+갖고 있고, 하나는 앱마다 손으로 쓴다:
+
+| 조각 | word | slides | site | note |
+|---|---|---|---|---|
+| 스키마 | `createSchema` | `createSchema` | `createSchema` | 상속 |
+| 렌더러 등록 | `register*Renderers` | ✓ | ✓ | ✓ |
+| 확장 집합 | `create*Extensions` | ✓ | ✓ | ✓ |
+| 툴바 모델 | `WORD_TOOLBAR` | `SLIDES_TOOLBAR` | `SITE_TOOLBAR` | `NOTE_TOOLBAR` |
+| **키맵** | `word-keymap.ts` **71개** | **없음** | **없음** | **없음** |
+| React 셸 | 앱(5,507줄) | 앱(18,854줄) | 앱(11,366줄) | **패키지** |
+
+**그리고 네 kit 이 같은 모양인데 그 모양을 선언한 타입이 없다.** 넷 다
+`create<X>Extensions()` + `create<X>Editor(options)` 다 — 넷이 합의했고 아무것도 그걸 적어 두지
+않았다. 이 저장소가 이미 검사를 가진 모양이다(`three-agree.test.ts`): **셋이 합의하고 하나가
+어긋나는 것.** 다음 제품이 어긋날 자리다.
+
+**키맵 쪽은 재보니 처음 본 것보다 작다.** 앱의 손으로 쓴 키 처리를 셌더니 slide 17 · site 10 ·
+word 5 인데, **대부분은 정당하게 UI-지역이다** — 팝오버의 Escape, 목록의 화살표, 찾기 바의 Enter.
+*제품의 키보드* 인 것은 여섯쯤이고 그게 진짜 어긋남이다: 예를 들어 **고른 도형을 `Delete` 로 지우는
+것이 앱에 손으로 적혀 있고**, Word 는 같은 것을 `when:` 가드를 가진 데이터로 선언한다.
 
 ### Steps
 
-1. **Name the product interface.** What `office-word` exports as a bundle is
-   nearly it already — `word-kit.ts` is the shape. Make that the contract.
-2. **A second app that shares the shell** — the page builder, most likely — so
-   the shell stops being Word's and becomes the kit's.
+1. **제품 계약을 이름 붙인다.** 넷이 이미 같은 모양이므로 **추론이 아니라 기록**이다.
+   *끝났음의 기준:* `ProductKit` 같은 타입이 하나 있고, 네 kit 이 그것을 만족하는지 검사가 세고,
+   다섯째 제품이 조각을 빠뜨리면 검사가 신고한다.
+2. **셸이 제품의 것이 아니게 된다.** 노트가 이미 통과했다 — 뷰와 툴바를 패키지에 갖고 있어서
+   `apps/note` 가 257줄이다. 나머지 셋은 35,727줄이 앱에 있다.
+   *끝났음의 기준:* 남의 앱에 제품을 넣는 데 앱 코드를 베끼지 않아도 된다.
 3. **Desktop and server.** The layout pass needs a browser for measurement and
    nothing else does; a server-side renderer is possible for every product whose
    pagination is not needed, and for Word only if text shaping arrives (which is
@@ -222,8 +330,15 @@ feature added to the kit appears in both.
 
 > **2026-09-04 — 제품은 넷이고, 셸은 아직 앱에 있습니다.** `office-word`·`office-slides`·`office-site`·
 > `office-note`. 마지막 하나가 이 조건을 통과한 유일한 제품이다: 자기 뷰와 툴바를 패키지에 갖고 있어서
-> `apps/note` 는 `<NoteEditor editor rootId />` 한 줄로 마운트한다. 나머지 셋은 크롬 **33,595줄**이 앱에
-> 있다(inspector 2,343 · overlay 1,997 · rail 1,483 · app 1,832 …).
+> `apps/note` 는 **257줄**이다. 나머지 셋은 **35,727줄**이 앱에 있다(2026-09-04 재측정: slide 18,854 ·
+> site 11,366 · word 5,507). 가장 큰 조각들: `slide/overlay` 3,765 · `slide/properties` 2,586 ·
+> `slide/timeline` 2,443 · `slide/app` 2,350 · `site/inspector` 2,342 · `site/overlay` 1,997.
+>
+> **그리고 이 단계의 두 번째 조건 — *"kit 에 더한 기능이 둘 다에 나타난다"* — 은 아직 검증되지
+> 않았다.** 넷이 서 있는 것은 첫 조건의 증거이고, 두 번째는 *같은 것을 한 번 적어 둘이 얻는가* 를
+> 묻는다. 이번 회차에 그 예가 하나 나왔다: 셀 선택을 `office-text` 로 옮기자 노트가 두 명령을 얻었다.
+> 반대 예도 하나 나왔다: 네 kit 이 같은 모양인데 **그 모양을 선언한 타입이 없어서**, 다섯째 제품이
+> 조각을 빠뜨려도 아무것도 신고하지 않는다.
 >
 > **재보고 방향을 정한 것:** 옮길 것을 *중복이라서* 고르면 안 된다. 이름으로도 내용으로도 훑었고, 리본
 > 셋과 `/` 메뉴와 팝오버 자리잡기 말고는 앱을 가로지르는 중복이 **없다**. 기준은 하나여야 한다 — *남의
@@ -269,6 +384,59 @@ appetite.
       `apps/note/tests/selection.spec.ts`. **배운 것:** 원인을 찾았다고 적은 것과 고쳐졌다고 적은 것은
       다른 문장이고, 그 사이를 잇는 것은 단정하는 검사뿐이다. 앞 회차의 프로브 둘(`zz-sh`, `zz-tc`)은
       콘솔에 찍기만 해서 `every-test-asserts` 가 잡았고, 그 잡힘이 이걸 다시 열게 했다.
+- [x] ~~**`ModelSelection` 이 셋 선언되어 있고 둘이 서로 다르다.**~~ **끝 — 다섯이었고, 그 중 하나가
+      오래된 결함의 출처였다.** `editor-core` 의 죽은 `ModelNodeSelection = { nodeId, selectAll }` 이
+      아무도 안 쓰인 채 남아 있었고, **두 뷰 층이 그 모양을 향해 `nodeSelection.nodeId` 를 읽고
+      있었다** — 생산자는 `nodeIds` 복수를 세우므로 그 분기는 한 번도 아무 일을 한 적이 없다. 그리고
+      `cell`·`table` 은 `console.warn('Unsupported selection type')` 으로 갔다(셀 드래그 한 번에 한
+      번, 브라우저에서 셌다).
+
+      **사본을 걷자 타입 검사가 그 둘을 바로 찾았다** — `'none'` 은 `SelectionType` 이 아니고,
+      `ModelSelection` 에 `nodeId` 가 없다. 그리고 사본이 검사를 실제로부터 **밀어낸** 자리도 나왔다:
+      React 검사에 *"컴파일러가 그렇게 말했다"* 며 범위 필드 넷을 지운 주석이 있었고, 그 컴파일러가
+      읽던 것이 좁은 사본이었다. `docs/specs/selection.md` 에 다 적었다.
+- [ ] **엔진이 *글자인가* 를 이름으로 묻는다 — 그리고 그 이름은 그룹의 여덟 중 하나뿐이다.**
+      `'inline-text'` 문자열이 `packages/*/src` 에 132번, **결정 자리가 36곳**이고 그 중 **엔진 층이
+      18곳**(editor-view-dom 10 · editor-view-react 5 · editor-core·model·renderer-dom 각 1).
+      런타임으로 확인했다: office 스키마의 `inline` 그룹에 **여덟**이 있다 — `hardBreak` ·
+      `inline-text` · `inline-image` · `emoji` · `bookmarkAnchor` · `fieldDateTime` ·
+      `fieldDocTitle` · `fieldAuthor`. 그래서 이름으로 묻는 곳은 **나머지 일곱에 아니라고 답한다.**
+      `editor-view-react` 의 `isSelectionInsideEditableText` 는 IME 를 게이트하므로, 이모지나 날짜
+      필드 옆에서는 IME 가 꺼진다.
+
+      원칙은 `extensions/range-delete.ts` 의 `isInline` 에 이미 적혀 있다 — *"이름으로 짐작하는 것은
+      제품이 다른 이름을 쓰는 순간까지만 통한다. 스키마가 바로 그것을 위해 `group` 을 선언한다."*
+      **한 파일이 그렇게 하고 열여덟 곳이 안 한다.** 그리고 이건 §2 의 *"스키마 하나가 여러 제품을
+      담나"* 에 바로 걸린다: 텍스트 런을 다른 이름으로 부르는 제품은 뷰 층에서 깨진다.
+      **재는 것이 싸다** — 이모지 옆에 캐럿을 두고 묻는 단위 검사 하나. 브라우저가 필요 없다.
+- [ ] **뷰 층이 두 벌이라 선택 고치기는 두 번씩 필요하다 — 그리고 옮길 자리와 순서가 정해졌다.**
+      두 selection-handler(751줄 / 485줄)에 **같은 이름의 private 메서드가 열한 개.** 이번 회차의 두
+      결함이 React 판에 그대로 남아 있었다. 몸통을 대보니 글자까지 같은 것은 하나뿐이고 나머지는 다
+      다른데, 대부분 *같은 논리를 다르게 적은 것* 이다 — **그래서 어느 것이 표기 차이이고 어느 것이
+      논리 차이인지 열한 개를 다 읽지 않고는 알 수 없다.** 그게 진짜 비용이다.
+
+      **옮길 자리는 `shared` 다.** 근거: 두 핸들러가 쓰는 런 색인(`buildTextRunIndex`,
+      `binarySearchRun`, `ContainerRuns`)이 **이미 `shared`(층 0)에 있고**
+      `renderer-dom/utils/text-run-index.ts` 는 그것의 순수 재내보내기다. DOM 판이 `renderer-dom`
+      에서, React 판이 `shared` 에서 가져오고 있어서 다른 것처럼 보였을 뿐 같은 구현이다.
+
+      **그래서 Phase 1 의 첫 단계가 여기서 되살아난다.** *"`ModelSelection` 을 `schema` 나 `shared`
+      로 내린다"* 는 적혀 있었고, 근거는 *"그래프가 순환처럼 읽힌다"* 였다. 그 근거는 이제 없다(DAG).
+      **새 근거가 이것이다: DOM↔모델 변환을 두 뷰 층 아래에 두려면 선택 타입도 그 아래에 있어야
+      한다.** `ModelSelection` 은 문자열과 숫자뿐이라 `shared` 로 내려도 새 의존이 0이다.
+
+      순서: (1) `ModelSelection`·`SelectionType`·`NoSelection` 을 `shared` 로 (2) 열한 개를
+      `shared/selection-dom.ts` 로, 런 색인 옆에 (3) 두 뷰 층은 *스코프 루트를 어디서 얻나* 만 남는다.
+- [ ] **편집기의 문에서도 선택의 답이 둘이다.** `Editor.updateSelection(selection: SelectionState |
+      any)`, `EditorState.modelSelection: SelectionState | ModelSelection | null`. `SelectionState`
+      는 DOM 스냅샷이고 `ModelSelection` 은 모델의 것인데 둘 다 *선택* 이라는 이름으로 같은 문을
+      지난다. 모델 쪽 사본은 걷었고 이 문이 다음이다.
+- [ ] **제품 계약에 이름이 없다.** 네 kit 이 `create*Extensions` + `create*Editor` 로 같은 모양인데
+      그 모양을 선언한 타입이 없다. 추론이 아니라 **기록**이고, `three-agree.test.ts` 가 이미 그
+      모양의 검사를 갖고 있다.
+- [ ] **키맵이 Word 에만 있다** (71개). 나머지 셋은 앱에서 손으로 쓴다. 재보니 대부분은 정당하게
+      UI-지역이고(팝오버 Escape, 목록 화살표) *제품의 키보드* 인 것은 여섯쯤이다 — 예: **고른 도형을
+      `Delete` 로 지우는 것이 앱에 손으로 적혀 있다.** 제스처 층의 키보드 쪽 짝이다.
 - [ ] **두 끝이 형제가 아닌 범위** — 인용문 안에서 바깥으로. **결정은 끝났다**(`specs/selection.md`):
       시작을 담은 블록이 살아남는다 — 추측이 아니라 *삭제 뒤 캐럿이 시작 자리에 있다* 에서 도출된다.
       남은 일은 **문서 순서 훑기** 하나이고, 이번 회차에 같은 것이 한 번 더 필요했다

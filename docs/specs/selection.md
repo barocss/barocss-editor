@@ -202,6 +202,115 @@ DOM 선택은 비어 있음). 2026-09-04 에 고쳤고, 원인이 둘이었으�
 `apps/note/tests/selection.spec.ts` 가 지금 그 자리를 지킨다 — 예순 번을 누르며 매번 두 가지를 묻는다:
 문서 순서로 시작이 끝보다 앞인가, 그리고 골랐다면 DOM 에 표시가 남는가.
 
+## 선언은 하나다 — 그리고 사본은 어긋남을 **강제한다**
+
+`ModelSelection` 이 **다섯 번, 두 패키지, 세 이름**으로 적혀 있었다.
+
+| 어디 | 이름 | 무엇이 달랐나 |
+|---|---|---|
+| `editor-core/types.ts:53` | `ModelSelection` | 진짜 — `range \| node \| cell \| table`, `nodeIds?` |
+| `editor-core/types.ts` | `NoSelection` · `Selection` | **아무도 안 썼다** |
+| `editor-core/types.ts` | `ModelNodeSelection` | `{ nodeId, selectAll }` — **아무도 안 썼다** |
+| `editor-view-react/types.ts` | `ModelSelection` | `none \| range \| node`, **`cell`·`table` 없음**, `nodeId` 단수 |
+| `editor-view-react/selection-handler.ts` | `ModelSelection` | 위와 글자까지 같음 |
+| `editor-view-react/input-handler.ts` | `ModelSelectionRange` | `range` 만, `direction` 없음 |
+
+대가는 **React 경로로는 셀을 고를 수 없다** 였다. 모델은 `cell` 과 `table` 을 오래 전부터 갖고 있다.
+
+### `nodeId` 의 출처
+
+`ModelNodeSelection = { nodeId: string; selectAll: boolean }` 이 쓰이지 않은 채 남아 있었고, **두 뷰
+층의 `convertNodeSelectionToDOM` 이 `nodeSelection.nodeId` 를 읽고 있었다** — 그 타입이 말하는 모양
+그대로다. 구현은 다른 쪽으로 갔다: `createNodeSelection` 은 `nodeIds`(복수)를 세우고 `selectNode` 는
+아예 `range` 를 만든다.
+
+**의도를 적은 타입이 배선되지 않은 채 남고, 읽는 쪽이 그 의도를 향해 읽었다.** 그래서 그 분기는 한
+번도 아무 일을 한 적이 없고, 하던 일은 *이전 DOM 선택을 그대로 두는 것* 이었다 — 도형을 고르면
+직전의 글자 강조가 화면에 남는다. 그리고 `editor-view-dom` 쪽에서 `cell`·`table` 은
+`console.warn('Unsupported selection type')` 으로 갔다. 브라우저에서 셌다: **셀 드래그 한 번에
+경고 한 번.**
+
+### 사본이 검사를 실제로부터 밀어냈다
+
+`editor-view-react/test/selection-handler.test.ts` 에 이런 주석이 있었다:
+
+> *"A node selection is a node and nothing else — the four range fields were here as well, which
+> `convertNodeSelectionToDOM` never looks at. **The compiler said so** the first time it was allowed
+> to read this file."*
+
+그 컴파일러가 읽던 것은 이 패키지가 자기 손으로 선언한 좁은 사본이었다. 모델의 노드 선택은 두 끝을
+**채워서** 준다 — 검사를 고치던 사람이 그걸 적었는데 사본이 *그런 필드는 없다* 고 해서 지웠다.
+**사본은 어긋남을 못 잡은 것이 아니라 어긋남을 강제했다.**
+
+교훈이 둘이다. 하나는 *같은 개념을 두 번 선언하지 않는다*. 둘은 **타입 오류를 없애는 방향으로 검사를
+고치기 전에, 그 타입이 실제를 적은 것인지 묻는다.**
+
+### 걷고 나서 타입 검사가 두 결함을 바로 찾았다
+
+- `'none'` 은 `SelectionType` 이 아니다 — `convertDOMSelectionToModel` 이 `ModelSelection` 을
+  돌려준다고 적고 `{ type: 'none' }` 을 돌려주고 있었다. 지금은 `MaybeSelection` 이다.
+- `ModelSelection` 에 `nodeId` 가 없다 — 위의 죽은 분기를 컴파일러가 가리켰다.
+
+### 그래서 DOM 으로 나가는 규칙 — 그리고 첫 판이 틀렸다
+
+| 모델 | DOM |
+|---|---|
+| `range` | 그 범위를 세운다 |
+| `cell` · `table` | **지운다** |
+| `node` | **건드리지 않는다** |
+| 없음 | 지운다 |
+
+`cell` 은 *지원되지 않는* 것이 아니라 **DOM 이 말할 수 없는** 것이다. DOM 선택은 *여기서 저기까지*
+하나만 표현한다. `installCellSelection` 은 이미 손으로 DOM 선택을 지우고 있었다 — 답이 그 파일에
+있는데 뷰 층은 경고를 찍고 있었다.
+
+**첫 판은 셋을 다 지웠고 브라우저가 반박했다.** 논거는 *집합에는 두 끝이 없으니 DOM 은 아무것도
+말하지 않는다* 였고 그럴듯했다. 슬라이드 검사 **여덟 개**가 `range` 를 기대하고 `node` 를 받았다:
+텍스트 상자를 더블클릭하면 첫 누름이 도형을 고르고(→ `node`) 둘째 누름이 안으로 들어가 캐럿을
+놓는데, 첫 누름에서 DOM 선택을 지우면 그 길이 끊긴다.
+
+그래서 구별은 *집합인가* 가 아니라 **그 선택을 만든 제스처가 글자 선택을 대신하려는 것인가** 다.
+
+| 제스처 | 글자 선택을 | 그래서 |
+|---|---|---|
+| 셀을 가로질러 끌기 | **대신한다** — 일부러 걷어내고 셀 집합으로 바꾼다 | 지운다 |
+| 도형을 고르기 | **가는 중일 수 있다** — 더블클릭의 첫 절반이다 | 건드리지 않는다 |
+
+`node` 는 *이 도형이 골라졌다* 를 말할 뿐 *아무것도 타이핑되지 않는다* 를 말하지 않는다.
+
+**남는 값:** 도형을 고른 뒤 직전의 글자 강조가 화면에 남을 수 있다. 그건 아직 잰 적 없는 불편이고,
+재서 나오면 제품 쪽 제스처가 답할 일이다 — 추측으로 지우지 않는다.
+
+**교훈:** 논거가 단정보다 앞서 있었다. *DOM 선택은 두 끝만 표현한다* 는 사실이고, *그러므로 집합일
+때는 지워야 한다* 는 그 사실에서 따라오지 않는다. 사실과 결론 사이에 브라우저가 한 번 들어와야 했다.
+그리고 내가 쓴 단위 검사도 같은 논거를 담고 있었으므로 **검사가 나를 막아 주지 못했다.**
+
+되돌린 뒤 슬라이드 스위트는 **407/407** 이다 — 여덟 실패가 다 그 하나에서 왔다.
+
+`conformance/test/one-selection-type.test.ts` 가 이제 하나임을 지킨다. **이름으로 세면 열아홉**이
+나오고(`SelectionSummary`, `SelectionState`, `CellSelectionHandle` … 다 다른 것이다) **의미로 세면
+열셋**이 나온다(연산의 payload 는 범위를 *받는다*). 둘을 겹쳐야 개념 자신만 남는다.
+
+### 아직 남은 것 — 편집기의 문에서도 답이 둘이다
+
+`Editor.updateSelection(selection: SelectionState | any)` 이고 `EditorState.modelSelection` 은
+`SelectionState | ModelSelection | null` 이다. `SelectionState` 는 **DOM 스냅샷**(`anchorNode`,
+`focusNode`, `textContent`)이고 `ModelSelection` 은 모델의 것인데, 둘 다 *선택* 이라는 이름으로 같은
+문을 지난다. 이번에 걷은 것은 모델 쪽 사본이고, 이 문은 다음 차례다.
+
+### 그리고 뷰 층이 두 벌이라 선택 고치기는 두 번씩 필요하다
+
+`editor-view-dom/event-handlers/selection-handler.ts`(751줄)와
+`editor-view-react/selection-handler.ts`(485줄)에 **같은 이름의 private 메서드가 열한 개** 있다:
+`convertOffsetWithRuns` · `convertRangeSelectionToDOM` · `determineSelectionDirection` · `ensureRuns`
+· `findBestContainer` · `findClosestDataNode` · `findDOMRangeFromModelOffset` ·
+`getTextRunsForContainer` · `isDecoratorElement` · `isTextContainer` · `nodeExistsInModel`.
+
+**그래서 이번 회차에 고친 두 결함이 React 판에 그대로 남아 있었다** — `data-text-container`(아무도
+안 쓰는 속성)와 요소 경계의 `isEnd`/비교 방향. 즉 `Shift+→` 뒤집힘이 React 경로에는 살아 있었다.
+이번에 같이 고쳤지만, **두 번 고쳐야 한다는 것이 결함이다.** 다음: 그 열한 개를 뽑아낼 것. 둘의
+차이는 DOM 에 닿는 길(`_getScopeRoot`)과 런 색인의 출처뿐이다.
+
 ## 두 끝이 형제가 아닌 범위 — 어느 컨테이너가 살아남나
 
 인용문 **안**에서 바깥 본문으로 걸친 범위는 지금 글자만 맞고 블록은 떨어진 채 둔다. `joinAcross` 가
