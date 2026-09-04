@@ -2601,3 +2601,277 @@ who wants a block first says `-1`, which is what the hero's picture now says on 
 **Different text per width** — one block, one set of words. **A different parent per width** — a
 block cannot be inside A on a desktop and inside B on a phone. If the tree differs per width, those
 are two pages, and this model says so.
+
+## 가리키는 것 — 한 번 걷고, 세 가지를 묻는다
+
+The reference index was built to stop three walks of every page. Making the last two callers actually
+read it was filed as a tidy-up, and neither number it replaced was right.
+
+### 삭제 대화상자가 셋 중 하나만 세고 있었다
+
+A page is named in **three shapes**, and only one is a link:
+
+| 모양 | 어디서 고치나 | 샘플에서 |
+|---|---|---|
+| 링크 마크 | 문장의 글자 | 11 |
+| `goes` / `thanks` 속성 | 블록의 패널 | 9 + 1 |
+| 데이터 행의 칸 | 데이터 편집기 | 2 |
+
+The dialog counted the first column. Six of eight pages under-reported; `/가격` said 3 for 8; the two
+blog posts said **0** — *가리키는 것이 없습니다*, about pages the blog list points at from a row.
+
+So the answer is three counts, not one total, because they are **three different repairs**. A reader
+told *8개* looks in the words for all eight and finds three.
+
+The check that should have caught this compared the index against the walk and *accepted the
+difference*, with a comment explaining the slack. That is the general lesson: a comparison whose
+tolerance is explained in prose has stopped being a comparison.
+
+### 그리고 결함 보고는 열 가지 중 다섯만 물었다
+
+Five resolution questions, each written inside the walk beside the node type it was about — which is
+the structural reason, not carelessness: a check written in a walk sees the type it was written for.
+`linkFaults` looked at marks, so a page named by an attribute was nobody's job; nothing looked inside
+`records`, so a row's cell was nobody's either.
+
+Delete two of the sample's pages and two references dangle. The report said **zero**.
+
+`refFaults` asks the index, so *what a reference is* has one definition and a new kind arrives already
+checked. And the mirror comes with it: a `richText` no cell names is unreachable writing — not drawn,
+not listed, not selectable, not deletable — which `data-commands.ts` had promised to report and never
+did.
+
+## 그린 것을 잡을 수 있는가 — 여섯 번째에 검사가 되었다
+
+`SELECTABLE` is a second place a node type must be registered and **nothing forced it**. The sequence
+is always the same: add the node, write the renderer, check that it *appears*, ship. The drawing is
+perfect, which is what makes it invisible.
+
+- 인용·구분선·코드 블록 — put on a page and not selectable
+- 표의 칸 — a real `<table>` where no caret could go in and all eight structural commands greyed
+- 차트 — *차트를 더블클릭해서 선택할 수가 없어*
+- **동영상·임베드·폼** — found by the check, live, the day it was written
+
+`every-insert-can-be-held` compares the product's own `produces` list against its own selection rule.
+Both already existed for other reasons; the check is the sentence between them.
+
+**Why `produces` and not the schema.** Measured: asking about every type a document can place gives 42
+that are not selectable. Forty-two exemptions is forty-two notes, which is the hand-kept list the
+harness replaced. The right set is the one every instance came through — *a reader put it there*.
+
+And it holds across products without pretending they are the same. The deck's seven findings are one
+sentence: on a **plane**, everything a reader points at is a placed box, so a table inside a
+`textFrame` is held by the box — where in a page's **flow** the table is a block and its cells are what
+a reader points at. Same schema nodes, two right answers, both written down. Word has no click that
+selects a block at all, and defers the check with `notYet`, which fails the day its canvas half
+answers.
+
+## 상대 길이 — 빚의 4분의 3은 이미 갚혀 있었다
+
+The document keeps twips. The web's lengths are relative. That was carried as a debt needing a union
+in the schema's type system, and asked again with the list written out, four things are wanted and
+three were already sayable:
+
+| 원하는 것 | 이미 있는 답 |
+|---|---|
+| 비율 (`40% / 60%`) | `share` — and better, because 40%+60% is the row and the gap is not |
+| 폭마다 다른 값 (`clamp`, `min()`) | `overrides` — a real number at each width |
+| 상·하한 | `minWidth` / `maxHeight`, twips |
+| **창 높이만큼** | 없었음 |
+
+One idea left, so one attribute: **`minScreens`**, a count of screens. The same move `share` made — a
+number whose unit is in its name. `0.5` is half a screen, which a boolean cannot say and a unit
+dropdown says worse. No migration, no parallel vocabulary, no `type: 'custom'`.
+
+**And the half a stylesheet cannot supply.** A board is a `div` on a plane, not an iframe, so `dvh`
+inside one is the height of the *editor's window* — one hero, one height, on three boards that differ
+only in width. So a board substitutes `SiteWidth.viewport`, declared since preview mode with exactly
+this argument: a page has no height of its own, so a builder can only show a typical window.
+
+This is the **one** place a board and the published page deliberately disagree, and `export.test.ts`
+names it as the single exception to *the two drawings agree about everything a reader designed*.
+
+
+## 글 — 자료형이면서 블록, 하나의 노드로
+
+`richText` was a **resource**: the value of a 서식 있는 글 column, kept in `resources` and pointed at
+from a cell. Asked whether a reader could also just *put one on a page*, and the answer turned out to
+close a fault that was already shipping.
+
+### 무엇이 잘못 나가고 있었나
+
+The card's slot for a summary was declared as **characters**, three times over:
+
+```
+componentVar  { name: '요약', kind: 'text' }     ← 자료형이 글자
+componentBind { part: 'b-body', attr: 'text' }   ← text 속성에 씀
+part b-body = paragraph('요약')                   ← 담는 것이 문단
+```
+
+What arrives is a **body** — blocks. So the drawing put a `<p>` inside a `<p>`, which is not valid
+HTML, and the browser split them. Measured in the published file: **four empty paragraphs** on the
+blog page, one per row, and the outer paragraph — the one carrying whatever the card says about that
+slot — orphaned and dropped.
+
+Nothing looked wrong, because that paragraph carried only `margin: 0`. The rule the design rests on —
+**칠·여백·크기는 카드의 것** — was therefore *unimplementable*: the moment a designer gave the slot a
+colour, the parser threw it away.
+
+### 하나의 노드, 두 자리
+
+| | 어디에 | 내용은 | 이름이 |
+|---|---|---|---|
+| 값 | `resources` | 셀이 `text:요약-스택`으로 가리킴 | `id` 있음 |
+| 블록 | 페이지·스택 | 자기 자식 | `id` 없음 |
+
+One node because the reader's question is the same one — *write a body here* — and the difference is
+only where the words are kept. One renderer (`<div class="st-rich">`), one content model, and one
+editing surface: a view rooted at whichever node holds the words. Two node types would have been two
+of each, drifting.
+
+`group` stays `resource`, because that is what a group is for; a page holds one by naming `richText`
+in its content expression. `id` became **optional** — a placed body is named by nothing.
+
+### 담을 수 있는 것을 적어 내렸다
+
+`content: 'block+'` was the page's own vocabulary, so a blog post could hold a **폼, a 차트, a 목록**
+and could **not** hold a `picture` — which is `group: 'scene'`. Exactly backwards.
+
+```
+'(heading | paragraph | list | blockQuote | codeBlock | bTable | horizontalRule | picture | mediaVideo | mediaEmbed)+'
+```
+
+Written out rather than given a new group. `form` one node over already does exactly this, and the
+alternative was a **three-product migration**: `block` is declared in the shared schema and Word and
+Slides both walk it, and a node carries one group, not two.
+
+Out is the page's vocabulary — `frame`, `collection`, `chart`, `form`, `field`, `canvasBlock`. **A
+body is written; a page is arranged.**
+
+### `source` 는 없다
+
+A `source: 'field:본문'` looked like the way to connect one to data, by the shape `collection` and
+`picture` use. It is not needed: a card's body is a **part** of a definition, and the binding
+machinery already replaces a part's children with the row's body, keyed by the variable's name. It was
+declared, and the harness said nothing read it within a minute of the declaration existing.
+
+### 그리고 검사가 먼저 잡았다
+
+`every-insert-can-be-held` — written the same day for the six nodes that had shipped unselectable —
+reported `richText` before a browser had drawn one. Which is what it is for: a node type has to be in
+four places to be alive, and now something asks.
+
+
+## 행을 Drawer 에서 쓴다
+
+The row form was already a `Drawer` — modal on purpose, because *a non-modal drawer is the shape a
+reader can leave a half-typed field in and then not find again*. What it could not do was be **written
+in**, and that took three fixes stacked behind each other.
+
+| | 무엇이 | 왜 안 보였나 |
+|---|---|---|
+| 1 | 슬래시 메뉴가 안 열림 | `mode` 는 **캔버스 오버레이**의 것이고 Drawer 엔 오버레이가 없다 |
+| 2 | 삽입 열둘이 전부 거절 | `holdsABlock` 이 표현에 `block` 이라는 **단어**가 있는지 본다 |
+| 3 | 버튼·글이 되는 척만 함 | 가드가 *블록이 갈 자리가 있나*만 묻는다 |
+
+The third is the general one and it was true everywhere: **every container takes some blocks and none
+takes all of them.** It never showed on a page, because a page's content is the whole `block` group,
+so *is there somewhere a block may land* and *may this block land there* had the same answer. A body
+is the first container in this product where they differ.
+
+The rail is behind the scrim by design, so the body's own affordance is the **slash menu** — and it
+now offers what the caret's container can hold rather than what the page can. Eleven rows inside a
+body where a page has thirteen, and the two that are gone are the two that would have done nothing.
+Omitted rather than greyed: a reader narrowing a list by typing is choosing from what is left.
+
+## office-note — 한 편의 글은 자기 패키지다
+
+`richText` was a corner of this builder: a body edited by a second **view** over the same editor.
+That bought one selection, one history and every mark command for free — and it also meant a body's
+toolbar *was* the page builder's toolbar. Asked as *이걸 페이지 빌더랑 같이 쓰게 되면 상당히
+복잡해질 것 같아*, which is the correct reading: **writing a post and arranging a page are two jobs.**
+
+### 무엇을 가져오고 무엇을 새로 만들었나
+
+Measured before a line was written, and it is why the package was cheap: renderers register
+**globally by stype**, and `office-text` already draws every block a body holds. So a note was
+drawable before it existed. What was missing was a declaration of *which* of them a body may contain,
+and a kit to edit one with.
+
+| | 어디서 |
+|---|---|
+| 문단·제목·목록·인용·코드·표·구분선·마크 | `office-text` — 이미 있던 것 |
+| 무엇을 담을 수 있나 (`NOTE_CONTENT`) | `office-note` — `office-site`가 **읽어서** `richText.content`에 씁니다 |
+| kit · 툴바 모델 · UI · CSS · 슬래시 · 세션 | `office-note` |
+| 그림·영상·임베드 렌더러 | `office-note` — 제품들 것을 빌려 쓰고 있었습니다 |
+
+`office-page`가 아니라 **`office-note`**: 사이트에는 페이지가 있고(`surface`), 그 말이 두 뜻이 되면
+안 됩니다. 같은 날 `.st-grip` 충돌로 검사 여덟 개가 깨진 뒤였습니다.
+
+### 세션은 버그의 수정이었지 정리가 아니었다
+
+```
+[EditorViewDOM] selection retry exceeded { sel: { startNodeId: 'site:597', … } }
+```
+
+*난 분명 office-note 를 드래그 했는데 office-site 의 editor 가 selection 을 넣는 느낌이야* — 정확한
+읽기입니다. 에디터 하나면 선택도 하나고, 선택은 **모든 뷰**가 적용합니다.
+
+한 스토어에 에디터 둘은 재보고 접었습니다: `Editor`의 생성자가 빈 문서를 만들어 **받은 스토어에
+씁니다.** 그래서 자기 스토어에 사본을 싣고(`openNote`/`openNoteTree`), 멈출 때 되씁니다
+(`setRichText`) — 되쓰기 한 번이 트랜잭션 하나라 undo가 낱자가 아니라 한 구절을 되돌립니다.
+
+값은 **사본**이라는 것이고, 그래서 노드 모양이 교환 형식으로 남습니다: 카드가 사이트의 렌더러로
+본문을 그릴 수 있는 이유입니다. **노트는 다른 문서지 다른 어휘가 아닙니다.**
+
+### 그리고 빌린 것은 빼봐야 보인다
+
+호스트가 자기 에디터를 넘겨주는 동안 넷이 다 작동했습니다 — 잘못된 이유로. 삽입 명령 열 개가
+사이트의 것이었고, `note` 노드에 렌더러가 없었고, `/` 메뉴가 호스트의 표면이었고, 번호 목록이 아예
+없었습니다. `apps/note`가 사이트를 치우자 다섯 개의 버튼이 더 드러났고, 원인이 다섯 다 달랐습니다.
+
+**그게 그 앱의 값어치입니다**: 독립을 주장하는 패키지는, 독립적으로 쓰이는 것 하나가 있어야
+주장이 검사됩니다.
+
+### 클릭의 두 번째 대답 — 잡기, 그리고 잡은 다음
+
+문서에서는 클릭이 캐럿 하나를 놓고 끝납니다. 본문은 글만이 아니라서, 그림·영상·임베드·구분선·표·
+코드는 **가리키는** 것이고 캐럿이 들어갈 자리가 없습니다. 두 번째 대답이 없는 동안 노트는 여섯 종류의
+블록을 넣을 수는 있고 다시는 건드릴 수 없는 편집기였습니다 — *아직 완전히 note 를 구현하지 않은 것
+같아*.
+
+잡은 다음에 무엇을 하느냐는 **두 선언**으로 갈라 적습니다. 하나로 묶으면 절반의 행에서 `attr`가
+거짓말이 되기 때문입니다.
+
+| | 무엇 | 예 |
+|---|---|---|
+| `NOTE_FIELDS` | **묻는다** — 값이 속성으로 들어감 | 그림의 파일과 설명, 임베드의 제공자와 id, 코드의 언어 |
+| `NOTE_ACTS` | **시킨다** — 명령이 실행됨 | 표의 행·열 넣기와 지우기 |
+| `NOTE_MOVES` | 잡힌 모든 블록이 갖는 둘 | 위로, 아래로 |
+
+검사가 둘을 맞대봅니다: 잡을 수 있는데 물을 것도 시킬 것도 없는 종류는 — 구분선을 빼고 — 고를 수만
+있고 아무것도 못 하는 블록입니다.
+
+### 표만 캐럿을 지킨다
+
+`bTable`은 잡히면서 **동시에** 안에서 씁니다. 나머지 다섯과 다르고, 그 차이는 재서 알았습니다: 표를
+넣고 셀을 눌러 이름을 치고 Backspace를 누르면 **표 전체가 사라졌습니다.** 잡혔다는 것과 글이 없다는
+것은 다른 사실인데 하나로 다뤘던 겁니다.
+
+그래서 표를 누르면 preventDefault 하지 않고 캐럿이 셀로 들어가며, 지우기는 줄의 단추가 맡습니다.
+
+그리고 행·열 명령 넷은 **누른 셀**을 받습니다. 캐럿이 아니라: 갓 넣은 표의 모델 캐럿은 `bTableHeader`
+— 모든 셀의 위 — 에 있고 화면의 캐럿은 첫 칸에 있어서, *어느 셀이냐*에 답이 둘이었고 단추 넷은
+아무도 볼 수 없는 쪽의 답으로 죽어 있었습니다.
+
+캐럿을 삽입 뒤에 고쳐 쓰는 것도 시도했고 **되돌렸습니다.** 뷰가 자기 선택을 적용한 다음부터 DOM
+캐럿을 따라오지 않게 되어서, 인용문 끝에서 Enter를 누르면 새 줄이 쓴 것 **위에** 생겼습니다. 코드에
+이유를 남겨뒀습니다.
+
+### 재생기는 클릭을 삼킨다
+
+`<iframe>`은 자기 문서고 `<video controls>`는 자기 제어 막대를 갖습니다. 둘 다 바깥 페이지에
+`mousedown`을 넘기지 않아서, 손볼 일이 가장 많은 두 블록이 고를 수 없는 두 블록이었습니다.
+
+sid를 홀더에 얹고 안의 재생기는 `pointer-events: none`으로 둡니다 — **편집면은 클릭을 가져가고,
+펴낸 페이지는 내어줍니다.** 그래서 이 규칙은 `.on-body` 안에서만 걸립니다.

@@ -46,6 +46,1155 @@ entries are that.
 
 ## Open
 
+### 패키지가 잘 갈려 있나 — 순환 0개가 됐고, 유령이 열넷이었다 — 2026-09-04 *(Phase 1 끝)*
+
+물음: *우리가 지금 패키지를 잘 구분해서 진행하고 있는거 맞지?* 주장 대신 의존 그래프로 답했다.
+
+**제품 층은 맞다.** `office-editor-ui` 는 제품을 하나도 의존하지 않고 넷이 그것을 의존한다 — 방향이
+한쪽이고 검사가 그것을 지킨다.
+
+**엔진 층에 순환이 셋 있다**, 그리고 이번 작업이 만든 것이 아니다:
+
+```
+datastore ↔ model
+editor-core ↔ extensions
+editor-core ↔ model
+```
+
+이것 때문에 `datastore` 의 층 깊이를 물을 수가 없다 — 그래프를 걸으면 100 을 넘는다.
+
+**큰 일이라고 봤고, 틀렸다.** `ROADMAP.md` 의 Phase 1 이 *"작고 뒤의 모든 것을 푼다"* 고 적어뒀고 그
+말이 맞았다:
+
+| 순환 | 무엇이었나 |
+|---|---|
+| `datastore → model` | **유령.** `package.json` 에 있고 import 가 **하나도 없다** |
+| `editor-core → extensions` | **유령.** 주석 한 줄뿐 — *"Extension implementations are provided by @barocss/extensions"* |
+| `editor-core ↔ model` | 한쪽만 진짜. `editor-core` 는 `new TransactionManager` 를 쓰고, `model` 은 `Editor`·`SelectionManager` 를 **타입 자리에서만** 쓴다 |
+
+앞의 둘은 지우면 끝이고, 세 번째는 `import type` 셋과 devDependency 한 줄로 풀렸다. **셋이 다 몇 분이었다.**
+
+### 그리고 검사를 붙이자 유령이 열넷 나왔다
+
+`conformance/test/dependency-graph.test.ts` 는 두 가지를 묻는다 — 순환이 있나, 그리고 **선언했는데
+import 하지 않는 것이 있나.** 두 번째가 처음 돌 때:
+
+```
+6개 → 걷으니 3개 더 → 걷으니 4개 더 → 0
+conformance→dsl  conformance→schema  converter→editor-core  dom-observer→text-analyzer
+editor-core→renderer-dom  editor-view-dom→schema  office-note→shared
+office-site→editor-view-dom  office-slides→office-icons  office-slides→shared  office-word→office-icons
+```
+
+**유령은 빌드가 된다.** 그래서 보이지 않고, 무언가를 쓰려다 만 커밋 하나로 다시 생긴다. 이 저장소가
+반복해서 찾는 *있는데 못 닿는* 결함의 거울상이다 — 이쪽은 **없는데 있다고 적혀 있는** 것.
+
+### 그리고 지우다가 검사 여든 개를 잃었다 — 요약의 마지막 줄을 읽어서
+
+훑기가 `src/` 만 봤다. 걷은 열넷 중 **다섯이 유령이 아니었다**: `test/` 가 쓰고 있었다.
+
+그런데 그것이 **실패로 나오지 않았다.** 파일이 열리지 않으면 vitest 는 *수집 실패* 라고 하고, 그 줄은
+`Test Files 4 failed` 이며 그 **아래** 줄이 `Tests 458 passed` 다. 실패 개수를 세면 0 이고, 검사 개수가
+조용히 줄어든다:
+
+```
+editor-view-dom  475 → 458
+office-site      619 → 558
+office-slides   1034 → 1033
+office-word      491 → 490
+```
+
+**이번 회차에 같은 종류로 두 번 속았다.** 한 번은 Word 브라우저 스위트를 세 번 *통과* 라고 보고했고 —
+`364 passed` 위에 `10 failed` 가 있었다 — 한 번은 이것이다. 둘 다 요약의 마지막 줄만 읽은 결과다.
+
+그래서 검사를 하나 더 붙였다: **모든 검사 파일이 수집되는가.** 숫자가 아니라 *파일이 열리는가* 를
+묻는다. 그것이 다시 넷을 찾았다 — `datastore/test` 와 `renderer-dom/test` 가 `editor-core` 를 선언 없이
+import 하고 호이스팅에 기대고 있었다.
+
+**되살린 자리는 `devDependencies` 다.** 검사가 쓰는 것은 실행 그래프가 아니다 — `office-controls` 가 네
+제품을 그렇게 갖고 있는 것과 같은 이유이고, 순환 검사는 `dependencies` 만 본다.
+
+층이 0~8 로 정렬된다:
+
+```
+0  dsl schema shared office-icons text-analyzer
+1  datastore conformance office-ui renderer-dom …
+2  model
+3  editor-core
+4  office-text office-controls office-canvas editor-view-dom converter …
+5  extensions
+6  office-editor-ui office-word
+7  office-note office-slides
+8  office-site
+```
+
+**제품이 제품을 의존하는 변이 아홉 있었고, 여섯이 자리를 잘못 잡은 것이었다.**
+
+| 무엇 | 어디로 | 왜 |
+|---|---|---|
+| `findMatches` `replaceMatches` `replaceOperations` `shiftAfter` `step` `FindOptions` `Match` | `office-word` → **`office-text`** | 파일 전체가 Word 를 하나도 모른다. 문단과 런을 걸으며 글자를 찾을 뿐이고, 데크가 그것 하나 때문에 `office-word` 를 의존하고 있었다 |
+| `WORD_TEXT_COLOR` `WORD_TEXT_HIGHLIGHT` | `office-word` → **`office-controls`** | `PaletteControl` 이 그 패키지의 타입이고 이 둘은 그 타입의 값이다 — 스위트의 글자색 컨트롤이지 Word 의 것이 아니다 |
+
+**검사 17개도 코드와 함께 옮겼다.** 안 옮기면 재수출을 재는 검사가 된다 — 원본이 사라져도 통과한다.
+
+**이름의 `WORD_` 는 남겼다.** 두 제품의 import 를 다 고치는 값보다 이름 하나가 자기 출신을 말하는 값이
+작다. 세 번째 제품이 그것을 쓰는 날이 이름을 바꿀 날이다.
+
+**남은 셋:**
+
+```
+office-slides → office-word   createWordTables   508줄, 따로 옮길 일
+office-site   → office-word   frameCss           shapes.ts 안, office-canvas 쪽 일
+office-site   → office-note   NOTE_CONTENT       ← 의도한 것, 문서에 있다
+```
+
+마지막 것은 결정이다: 사이트가 `richText.content` 를 노트의 선언에서 읽는다 — *무엇을 담을 수 있나* 를
+두 번 적지 않으려고.
+
+---
+
+### Word 브라우저 스위트가 열 개 실패하고 있었다 — 2026-09-04 *(열 개 다 고침)*
+
+Reported by nobody. Found by reading a log properly for the first time.
+
+`--reporter=line` 의 마지막 줄은 **통과 수**입니다. `364 passed (4.8m)` 를 세 번 보고 세 번 통과라고
+말했고, 그 위에 `10 failed` 가 있었습니다. **요약의 끝만 읽으면 실패는 안 보입니다.**
+
+세 번의 전체 실행을 이름으로 대보면 **같은 열 개가 세 번 다** 실패합니다 — 이번 회차에만 실패한 것도,
+이번에 나아진 것도 없습니다. 이 작업과 무관하고 그 전부터 있던 것입니다.
+
+| | 무엇 |
+|---|---|
+| `float-paragraph-overflow` | 감싸는 문단의 줄이 **인쇄 영역 밖으로** 나감 |
+| `frame-layout` | 문서 흐름 속 프레임에 양쪽에서 타이핑 |
+| `drawing-select` | 그림에서 키보드로 빠져나오기 |
+| `word-math` ×2 | 빈 슬롯이 **보이지 않음**(`.w-math-deg` hidden), 빈 슬롯의 캐럿 자리 |
+| `word-pagination` ×5 | 페이지가 자기 장 맨 위에서 시작, 줄이 페이지 안에 머무름, 표가 행 사이에서 끊김, 그림을 감싼 페이지 경계 ×2 |
+
+일곱이 **레이아웃과 페이지 나눔**이고 둘이 **수식**입니다.
+
+### 재봤습니다 — 다섯은 한 원인이고, 상수 16px 입니다
+
+**모든 페이지의 첫 블록이 내용 영역보다 정확히 16px 위에서 시작합니다.** 쌓이지 않고 페이지마다 같은
+16 이라, 블록별 결함이 아니라 한 자리의 어긋남입니다.
+
+```
+페이지 1  −16px    2  −16px    3  −16px  …     (경계를 넘는 블록 7개, 전부 위로 16)
+6페이지 첫 텍스트가 34px 아래   ← 그 위의 H1 이 여백 안으로 16 들어가 있어서
+```
+
+여백 자체는 맞습니다: `marginTop: 1440` twips = **정확히 96px**, 용지는 816×1056(Letter, 96dpi).
+`layout.ts` 는 페이지 첫 블록을 `push = contentTop − consumed` 로 내리고, 이건 `margin-top` 으로
+그려집니다(`office-text/renderers/block-style.ts:169`).
+
+**상쇄는 아닙니다** — 재봤습니다. `push: 231.615`, 앞 블록의 `margin-bottom: 10.667`, 실제 간격
+`242.27` = 둘의 합. 상쇄되지 않고 더해집니다.
+
+그러면 남는 것은 `consumed = contentTop + page.height` 가 DOM 의 실제 흐름보다 **16px 큰 것**입니다.
+`pagination.ts` 의 산수는 단위검사 59개가 통과하므로(`leadingSpace` 는 페이지 top 에서 0을 맞게
+돌려줍니다), 어긋남은 **잰 줄 높이와 브라우저가 그리는 줄 높이 사이**에 있습니다 — `measurement.ts` 의
+영역입니다.
+
+### 16px 은 **`contentControl` 두 개**였습니다 — 그리고 여덟이 고쳐졌습니다
+
+레이아웃의 조각 목록과 DOM 을 sid 로 하나씩 대봤습니다. 페이지 0의 열다섯 조각 중 **열셋이 픽셀까지
+일치**하고 둘만 어긋납니다:
+
+```
+word:22  DIV  layout 42.7  dom 34.7  차이 8
+word:24  DIV  layout 57.7  dom 49.7  차이 8      →  8 + 8 = 16
+```
+
+둘 다 `contentControl` — **문단이 아니라 감싸개**입니다. `measureBlocks` 는 어떤 블록이든
+`resolveNode(node, 'paragraph')` 로 서식을 묻고 `spacingAfter` 를 세는데, `contentControl` 의 렌더러는
+아래 여백을 그리지 않습니다(안의 문단이 자기 것을 갖고 있으니 맞습니다). 그래서 레이아웃의
+`consumed` 가 흐름보다 16 앞서고, 다음 페이지 첫 블록을 내리는 `push` 가 16 모자라고, 블록 일곱이 위쪽
+여백 안으로 그려졌습니다.
+
+**고침: 아래 여백은 그려진 것을 읽습니다.** 이 파일의 머리말은 *간격은 일부러 재지 않는다* 고 하는데,
+그건 **위쪽**에만 참입니다 — 레이아웃이 `margin-top` 을 push 로 쓰니까요. `margin-bottom` 은 아무도
+쓰지 않으므로 읽는 것이 곧 그려진 것을 읽는 것입니다.
+
+페이지 나눔 검사 **27개 전부 통과**, `float-paragraph-overflow` 도 같이 고쳐졌습니다.
+
+### 그리고 수식 둘은 한 결함의 양쪽이었습니다
+
+두 검사가 서로 다른 것을 요구했고 **둘 다 혼자서는 틀렸습니다**:
+
+| | 무엇을 요구했나 |
+|---|---|
+| *shows an empty slot* | 근호의 차수가 **보여야** 한다 |
+| *makes a place for the caret* | Tab 으로 그 칸에 들어가 **3** 을 치면 거기 있어야 한다 |
+
+제곱근은 `√` 로 쓰지 `²√` 로 쓰지 않으므로 차수는 기본이 숨김이고, 렌더러가 그렇게 그립니다. 그런데
+**Tab 은 계속 거기 섰습니다** — `display: none` 인 칸에 캐럿이 들어가고, 친 글자가 문서에는 들어가는데
+어느 페이지에도 없습니다.
+
+두 번째 검사가 첫 번째의 주석으로 스스로를 반박합니다: *캐럿이 들어갈 수 있는데 글쓴이가 볼 수 없는
+칸은 글을 잃는 자리다.* 그러니 **들어갈 수 있는 자리이기를 그만두는 것**이 답입니다 — `slotsOf` 가
+숨은 차수를 빼고, `hideDegree: false` 면 그리기와 걷기가 함께 되돌립니다.
+
+### 남은 둘은 **제품이 옳고 검사가 잘못 짚은 것**이었습니다 — 그리고 같은 `contentControl` 입니다
+
+`frame-layout` 과 `drawing-select` 는 둘 다 이렇게 시작합니다:
+
+```ts
+await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
+```
+
+샘플의 **네 번째 문단이 `ctl-terms` 안**이고, 그 컨트롤은 `lockContent` 를 선언합니다. 그래서 프레임과
+그림이 **잠긴 영역에** 들어가고, 그 안의 문단은 `contenteditable="false"` 입니다. 타이핑이 안 되는 것이
+맞고, 검사는 그것을 *프레임에 타이핑이 안 된다* 로 읽었습니다.
+
+조상 사슬을 찍어야 갈렸습니다:
+
+```
+P.w-paragraph < DIV.w-frame < DIV.w-content-control[ce=false] < SECTION.w-surface < …
+```
+
+선택자에 `:not(.w-content-control p)` 를 더해 둘 다 통과합니다.
+
+**그리고 이 회차의 세 결함이 전부 `contentControl` 이었습니다** — 16px 은 그 감싸개의 `spaceAfter` 를
+레이아웃만 세서, 이 둘은 그 안이 잠겨 있어서. 한 노드 종류가 세 자리에서 다르게 이해되고 있었고, 각각
+다른 증상으로 나왔습니다.
+
+**교훈은 읽는 방법에 대한 것입니다.** 검사 결과를 요약의 마지막 줄로 읽으면, 검사가 있는데 못 읽는
+상태가 됩니다 — 이 세션이 계속 찾은 *있는데 못 닿는* 결함의, 도구가 아니라 사람 쪽 판본입니다.
+
+---
+
+### 셋이 선언하고 하나가 안 하는 명령 — 검사가 됐고, 첫 발견이 그날 내가 만든 것이었다 — 2026-09-04 *(built)*
+
+Asked after an article on why LLMs hallucinate — *빈 선반이 아니라 잃어버린 열쇠*, 지식은 95~98% 들어
+있는데 25~33%를 꺼내지 못한다 — and the question was whether the same shape shows up here. It does,
+and it is this repository's dominant failure: **없어서가 아니라 있는데 못 닿아서.**
+
+| | 있었는데 못 닿던 것 |
+|---|---|
+| `intoRegistry` | `EditorViewDOM → DOMRenderer → VNodeBuilder` 가 이미 다 엮여 있었고 쓰는 쪽 한 줄만 전역을 이름으로 갖고 있었습니다 |
+| `Control` | 파일 헤더에 *"a product extends it rather than copying it"* 이라 적혀 있는데 넷 중 둘이 복사했습니다 |
+| `useEditorRevision` | 주석이 꺼낼 조건까지 적어뒀고, 손으로 쓴 같은 줄이 여섯 곳 더 있었습니다 |
+| `toggleMark` | 같은 파일 600줄 위의 `deleteText` 가 도는 이터레이터를 안 돌았습니다 |
+
+**그래서 가장 싼 형태로 검사를 만들었습니다:** 세 제품이 선언한 명령을 네 번째가 선언하지 않으면
+말한다. 둘은 우연이고 넷은 만장일치이며, **셋은 *이 스위트의 제품이 내주는 것* 이 한 제품의 의견이기를
+그만둔 수**입니다.
+
+**그리고 첫 발견이 그날 내가 만든 중복이었습니다.** `office-note` 에 `addNoteRow` ·`removeNoteRow` ·
+`addNoteColumn` ·`removeNoteColumn` 을 등록했습니다 — *"모델에 있는데 아무도 안 부르는 연산"* 위에.
+그 절반은 사실이고 중요한 절반은 아니었습니다: `@barocss/extensions` 의 `TableExtension` 이 —
+**이미 note 의 kit 안에** — 그 연산들 위에 `insertRowAbove`·`insertRowBelow`·`deleteRow`·
+`insertColumnLeft`·`insertColumnRight`·`deleteColumn`·`splitCell` 을 같은 `cellId` payload 로
+등록하고 있고, **나머지 세 제품이 전부 그것을 선언하고 있었습니다.** 있던 여섯 위에 새것 넷.
+
+손으로 찾은 게 아니라 **검사를 쓰자마자 두 시간 전 내 작업이 걸린 것**이고, 그게 이 검사가 있어야 하는
+이유입니다.
+
+**8개에서 4개로, 그리고 0으로.** 남은 넷 중 둘은 진짜 빠진 것이었고(`insertRowAbove`·
+`insertColumnLeft` — 첫 행 **위에** 행을 넣고 싶은 독자에게 *아래에 넣고 옮기기* 는 두 제스처와 잘못된
+머리글입니다) 둘은 이유가 있어 면제했습니다: 본문에는 **셀 두 개를 고르는 제스처가 없어서**
+`mergeCells` 는 켜지지 않을 단추입니다.
+
+**면제는 양쪽에서 검사합니다** — 제품이 나중에 그것을 선언하면 면제가 낡은 것이므로 그것도 실패입니다.
+목록이 *주장이 읽히기를 멈추는 곳* 이 되지 않게.
+
+**그리고 이 검사가 다른 검사 하나를 깨뜨렸고, 그게 또 같은 모양이었습니다.** `dead-selectors` 가 note 의
+`[data-note-act]` 규칙을 *영원히 안 맞는 규칙* 으로 신고했습니다 — 실제로는 맞습니다. `office-editor-ui`
+의 `Controls` 가 ``{...{ [`data-${mark}`]: id }}`` 로 **실행할 때 이름을 조립**하고, 글자만 읽는 훑기는
+템플릿만 보고 끝납니다.
+
+두 끝이 **다른 패키지에** 있습니다: 템플릿은 `office-editor-ui`, `mark="note-act"` 는 `office-note`.
+그래서 검사가 **정확히 한 단계의 간접**을 컴포넌트 이름으로 알게 했습니다 — 조건 없이 `mark=` 를 다
+읽으면 이 저장소의 절반이 걸립니다.
+
+**다음 형태:** 지금은 명령 이름만 봅니다. *엔진이 하는 일 중 이 제품의 스키마가 노드를 선언했는데 닿을
+명령이 없는 것* 이 더 날카롭고, 그건 명령→연산 지도가 있어야 합니다. `mergeTableCells` 는 지금 세
+제품이 `mergeCells` 로 닿고 `splitTableCell` 도 `splitCell` 로 닿으니, 앞서 *"아무도 안 읽는다"* 고 적은
+것은 틀렸습니다 — 연산 이름으로만 훑은 결과였습니다.
+
+---
+
+### 에디터를 아는 UI 라는 빈 칸 — `office-editor-ui` — 2026-09-04 *(started)*
+
+Asked as *에디팅 영역만 다른 곳에 제공해서 다른 UI 랑도 결합할 수 있을 것 같은데 구조적으로 가능할까?*
+— and the measurement said the suite was one layer short, not one package short.
+
+| | 무엇 | 있었나 |
+|---|---|---|
+| `office-ui` | 원시 부품 — 에디터를 **모름** | 있음, 10,530줄 |
+| **`office-editor-ui`** | 선언을 읽어 표면으로 — 에디터를 **앎** | **비어 있었음** |
+| `office-controls` | 선언의 모양 — `Control`, `MenuModel`, `PanelRow` | 있음 |
+
+With nothing in the middle, every app wrote its own wiring. **세 개의 리본, 634 + 366 + 454줄**, doing
+the same five things:
+
+```
+1. 에디터를 구독한다     useRevision(watchAnswers(editor))    제품 무관
+2. 선언을 읽는다         SITE_TOOLBAR / NOTE_TOOLBAR / …       제품마다 다름
+3. 상태와 가능 여부       markState, canExecuteCommand          제품 무관
+4. 원시 부품으로 그린다   office-ui                             제품 무관
+5. 실행한다              preventDefault → executeCommand       제품 무관
+```
+
+**두 가지를 먼저 고쳐야 했습니다.**
+
+**첫째, 네 제품의 컨트롤이 네 타입이었습니다.** `office-controls`의 header says it in as many words —
+*a product extends it rather than copying it* — and two of four extended it while the site and a note
+each declared their own interface with the same seven fields under the same names. Copying is not a
+style problem: it is what made a shared ribbon impossible, because the shared function had nothing to
+take.
+
+`Control` had to give ground in two places, and both were the copiers being right:
+
+- **`icon` is optional now.** Required, the shape could not hold a control whose face is its own
+  content — the site's 페이지 링크 opens a picker showing the page it would link to, and there is
+  nowhere on one for a glyph. A deliberate omission with a reason written beside it, and a required
+  field made the reason unstateable.
+- **`title`, `group`, `mark`, `shortcut` moved in.** All four products had them; two had nowhere to
+  put them.
+
+**둘째, `controlId` 는 payload 까지 봐야 했습니다.** Eight of the site's controls run `alignBlocks` and
+differ only in what they carry. Keying by the command alone gave React eight children with one key: it
+drew the first and dropped seven, and the ribbon had a 왼쪽 button and nothing else. The app had
+worked around it by hand with `${command}:${JSON.stringify(payload)}`; that is the rule for all four
+now, and a check holds it.
+
+**들어간 것:** `useControls` (구독 + 네 단계), `controlRows` (같은 답, React 없이 — 밀리초에 검사할 수
+있어야 하니), `ControlRows` (렌더 프롭 — 훅을 `.map` 안에서 못 부르니), `Controls` (평범한 단추 한 줄).
+네 제품의 리본이 다 이것을 씁니다.
+
+**그리고 줄 수는 줄지 않았습니다 — 늘었습니다.** 주석을 빼고 코드만 세면:
+
+```
+site   394 → 400      chrome  0 → 126
+word   245 → 267
+slide  248 → 270
+```
+
+The shared part was about six lines per ribbon; the `options={{ … }}` that carries a product's own
+`can`, `onRun` and `state` is about fifteen. **툴바에 한해서는, 공유층이 아끼는 것보다 더 듭니다.**
+
+Worth writing down rather than hiding, because it is the honest measure of what was bought:
+
+- **네 단계가 한 구현이 됐습니다.** A bug in the subscription, the chord lookup or the state read is
+  now fixed once instead of found three more times.
+- **`controlId` 가 React 키 결함을 넷 다 고쳤습니다.** The site had worked around it by hand; Word and
+  the deck declare `id`s; a note had neither and no duplicates yet.
+- **밀리초에 검사할 수 있게 됐습니다.** `controlRows` is the same answer without React, so *does a
+  product's toolbar resolve* is a unit test where it used to be a browser one.
+
+The first attempt made it **worse** and that is on record too: the hook cannot be called inside a
+`.map`, so each app grew a `GroupControls` of its own — the shared layer removing one duplication and
+creating a smaller one. `ControlRows` is the wrapper living here instead.
+
+**이름:** `office-chrome` 으로 시작했다가 바꿨습니다. *Chrome* 은 UI 용어이지만 브라우저와 겹쳐서 문서를
+읽지 않은 사람에게는 브라우저 지원 패키지로 읽힙니다 — **이름이 설명을 필요로 하면 이름이 진 것입니다.**
+`surface` 와 `panel` 은 이미 스키마의 낱말이고(11회, 12회) 쓰면 한 낱말이 두 뜻이 됩니다 — `office-page`
+가 아니라 `office-note` 로 정했던 것과 같은 이유. `office-editor-ui` 는 이 패키지를 `office-ui` 와 가르는
+사실 하나를 그대로 말합니다: **저쪽은 에디터를 모르고, 이쪽은 압니다.**
+
+### 그리고 패널은 중복이 아니었습니다 — 예측이 틀렸습니다
+
+I said the panels were the real payoff: *inspector (2,344) 와 slide 의 properties (2,584) 는 둘 다
+`panel-model` 을 읽고 같은 일을 합니다 — 거기선 줄이 실제로 줄어들 겁니다.* Measured, and **wrong**.
+
+`office-ui` 의 `PropertySheet` 가 이미 그리기를 다 하고 있었고, `office-controls` 의 `panelRowsFor` 와
+`panelGroupsFor` 가 이미 거르기와 묶기를 하고 있었습니다. 두 앱이 남겨둔 것은 배선 네 함수뿐이고, 그
+중 **셋은 진짜로 다릅니다** — `read`/`commit` 은 단위 변환(데크는 `toDisplay`/`fromDisplay`, 사이트는
+없음)이고 `write` 는 payload 모양입니다.
+
+두 파일이 큰 이유는 중복이 아니라 **각 제품이 자기 컨트롤을 많이 가졌기 때문**입니다:
+
+```
+site inspector 2,343    Inspector 760 · own 535 · Groups 333 · Widths 228
+slide properties 2,587  Properties 1,374 · MotionTab 280 · DeckSheet 176 · PartGroup 166
+```
+
+이름이 하나도 겹치지 않습니다. `own` 535줄이 사이트의 자기 컨트롤 15종이고, 그건 탈출구가 있어야 할
+바로 그 자리입니다.
+
+### 대신 찾은 것 — 한 선언에 두 답
+
+`when` 판정이 두 곳에 있었고 **서로 달랐습니다**:
+
+| `when: { attr: 'x' }`, `x` 가 | 사이트 | 데크 |
+|---|---|---|
+| `undefined` · `null` | 숨김 | 숨김 |
+| `''` | **보임** | 숨김 |
+| `[]` | **보임** | 숨김 |
+
+`docs/SHARED-LAYER.md` 가 여는 문장 그대로입니다 — *두 구현이 서로 다르면 그건 취향이 아니라 한쪽이
+틀린 것*. 데크가 맞습니다: `is` 없는 `when` 은 *그 속성이 설정되었을 때*를 뜻하고 빈 문자열은 설정된
+것이 아닙니다. 사이트에서 `opens` 를 비운 블록에 처음부터 행이 남아 있었습니다.
+
+`panelRowShown` 으로 합쳤고, `single`(하나만 골랐을 때만) 도 같이 옮겼습니다 — 사이트만 갖고 있던
+것이고 데크도 첫 번째 그런 행이 생기면 원할 것입니다.
+
+### 그리고 앱 사이에 이름이 겹치는 것은 이제 거의 없습니다
+
+```
+세 앱 모두   App 4,109 (앱마다 진짜 다름) · Ribbon 1,309 (했음)
+두 앱만     Ruler 361 (word 272 + slide 89) · useEditorRevision 15 · useDocumentRevision 6
+```
+
+`useEditorRevision` 은 두 앱에 같은 파일로 있었고 **주석이 조건을 미리 적어뒀습니다** — *세 번째 제품이
+이 줄을 원하면 그때가 `office-react` 패키지가 추측 대신 데이터 두 개를 갖는 지점*. 노트가 원했고,
+사이트의 inspector 가 원했고, 이 패키지의 `useControls` 가 원했습니다. `office-editor-ui` 로 옮겼습니다.
+
+그리고 옮기고 나서 세어 보니 **같은 줄이 여섯 곳 더 있었습니다** — 두 앱의 `revision.ts` 바깥에,
+`useRevision((reread) => watchAnswers(editor, reread), [editor])` 로 손으로 쓰인 채. 노트에 셋, 사이트의
+`app.tsx` 에 하나, `inspector.tsx` 에 둘. 파일이 있는 앱은 그 파일을 쓰고 없는 곳은 다시 썼다는 뜻이고,
+공유할 자리가 없으면 공유물이 있어도 안 쓰인다는 것을 보여줍니다.
+
+`Ruler` 361줄도 중복이 아니었습니다 — 이름만 같습니다. Word 것은 **문서 눈금자**(들여쓰기·탭·여백)이고
+데크 것은 `timeline.tsx` 안의 **시간 눈금자**(구간·재생헤드)입니다. 이름이 겹치는 것을 중복으로 세면
+안 된다는 것을, 이 표를 만든 방법 자체가 보여줍니다.
+
+**그래서 리본과 구독 훅을 옮기고 나면, 앱 사이에 남은 이름 단위 중복은 없습니다.** 세 개의 리본이
+진짜였고 그것은 끝났습니다. 커 보이던 나머지는 각 제품이 자기 것을 많이 가진 것이었습니다.
+
+### `/` 메뉴 — 129줄 중 8줄만 달랐습니다
+
+The one thing the name-level sweep found and I nearly missed, because the two files had **different
+names**: `apps/site/src/slash-surface.tsx` (195줄) 와 `packages/office-note/src/note-slash.tsx`
+(182줄). 주석과 빈 줄을 빼고 대보면 **129줄 중 다른 것이 여덟 줄**이고, 그 여덟이 전부 한 가지입니다 —
+사이트에만 있는 `mode` 가드.
+
+같았던 것: 캐럿 앞 글자에서 `/질의` 를 읽는 정규식, 열려 있을 때의 Escape · 화살표 · Enter, 캐럿을 재는
+`selectionRectIn`, 스크롤과 리사이즈에 다시 재기, `FloatingSurface` 로 목록 그리기.
+
+`office-editor-ui` 의 `SlashMenu` 로 갔고, 사이트의 가드는 `active` 옵션이 됐습니다 — 페이지 빌더의
+포인터에는 `/` 가 글자인 선택 모드가 있고 본문에는 없습니다. 제품의 답을 인자로 받지 분기로 갖지
+않는다는 규칙 그대로.
+
+**교훈은 방법에 대한 것입니다:** 이름으로 세는 사전은 이걸 못 찾습니다. `SlashSurface` 와 `NoteSlash`
+는 다른 이름이니까요.
+
+### 그리기와 가리키기를 갈랐습니다
+
+`page-frame.tsx → overlay` 가 앱 전체에서 **유일한 역방향**이었습니다 — 편집면이 크롬의 한 조각을
+불러오는 것이고, 나머지는 전부 반대 방향입니다.
+
+둘은 서로 다른 층에 속합니다. **오버레이 없는 보드는 실제로 누군가 원하는 것**입니다: 미리보기 창,
+썸네일, CMS 의 읽기 화면, 세 폭에서 확인하는 발행된 페이지. 오버레이가 붙으면 편집기입니다.
+
+그래서 오버레이는 host 원소를 받는 함수로 들어옵니다 — 프레임이 그 ref 를 갖고 있고 오버레이는 그것에
+대고 자리를 잡아야 하니까. **프레임의 props 스무 개 중 열 개가 오버레이의 것이었고 같이 나갔습니다.**
+남은 것은 보드입니다: 문서, 폭, 그리고 보는 중인지 여부.
+
+### 이름이 아니라 내용으로 훑으니 하나 더 나왔습니다 — 팝오버 자리잡기
+
+이름 단위 사전은 `SlashSurface` 와 `NoteSlash` 를 못 찾습니다. 그래서 주석과 빈 줄을 뺀 **함수 본문을
+줄 집합으로 대보는** 훑기를 돌렸고(블록 634개, 10줄 이상), 앱 사이에 남은 것은 딱 하나였습니다:
+
+**어떤 것 옆에 상자를 놓는 산수**가 세 곳에 있고 서로 달랐습니다.
+
+| | 어느 쪽을 먼저 | 가로 맞춤 |
+|---|---|---|
+| `office-ui/floating` | 위 | 가운데 |
+| `office-ui/color-field` | 아래 | 오른쪽 끝 |
+| 데크의 `timeline` | 위 | 오른쪽 끝 |
+
+선호는 진짜로 다르고 남아야 합니다 — `/` 메뉴는 캐럿 위에, 색 고르개는 견본 아래에. 하지만 **그 밑의
+산수는 하나**이고, 그게 틀리기 쉬운 쪽입니다: 선호하는 쪽이 안 맞을 때의 뒤집기, 둘 다 안 맞을 때의
+가두기, 창 가장자리와의 여백. 창 가장자리 근처에서만 드러나서 알아채기도 어렵습니다.
+
+`office-ui` 의 `placeNear` 로 갔습니다 — 순수 기하라 에디터도 제품도 DOM 도 모르고, 그래서 밀리초에
+검사합니다. 팝오버를 창 아래쪽에서 열어 보는 대신에.
+
+**그리고 합치면서 두 번 틀렸고, 브라우저 검사가 둘 다 잡았습니다.** 이게 이 항목의 실제 값어치입니다 —
+세 벌이 "거의 같다"는 것은 재보기 전에는 모릅니다.
+
+1. **높이가 맞는지 vs 놓인 자리가 여백을 지키는지.** 처음엔 *높이가 여유에 들어가는가*를 물었습니다.
+   그러면 결과 `top` 이 `margin - gap` 과 `margin` 사이인 상자가 통과하고, 그 다음 가두기가 여백까지
+   끌어올립니다. 4픽셀짜리 차이고, 사이트의 `/` 메뉴 검사가 **8** 을 받아서 드러났습니다.
+2. **둘 다 안 맞을 때 어디로 가는가, 그리고 세로로 가둘 것인가.** `floating.tsx` 에는 **세로 가두기가
+   아예 없었고**, 그것이 빠뜨린 게 아니라 규칙이었습니다: 411픽셀 메뉴가 720픽셀 창의 380 지점 캐럿에
+   붙으면, 가두는 순간 301~712 를 차지하며 **캐럿을 삼킵니다.** 아래로 넘쳐야 첫 줄들이 캐럿 바로
+   밑에 보입니다.
+
+규칙으로 적으면: **창 안으로 가두되 앵커를 넘지 않는다.** 아래에 놓인 상자는 아무리 자리가 없어도
+`anchor.bottom + gap` 위로 올라가지 않습니다 — 대신 아래로 넘칩니다.
+
+**그리고 그 훑기의 결론:** `/` 메뉴와 이것 말고는, 25줄 이상 블록 중 앱을 가로질러 절반 넘게 닮은 것이
+**하나도 없습니다.** 이름으로도 내용으로도 훑었고 둘 다 비었습니다.
+
+다음에 무엇을 옮길지는 **중복이 아니라 다른 이유**로 골라야 합니다 — *남의 앱에 이 편집기를 넣으려면
+무엇이 같이 가야 하는가*. 그 기준으로는 inspector·rail·overlay 가 다 가야 하고, 하나도 공유되지 않아도
+갑니다. 그건 크기의 문제지 중복의 문제가 아닙니다.
+
+**안 들어가는 것, 그리고 왜:** overlay. It draws handles where a block is on a canvas, at a scale, in a
+view — coordinates, not a declaration. 5,762줄이 둘로 나뉘어 있고, *위치를 가진 것*의 공통 모양이 무엇인지
+아무도 아직 말하지 않았습니다.
+
+**남은 것:** inspector (2,344) 와 slide 의 properties (2,584) 가 같은 일을 하고 둘 다 `panel-model` 을
+읽습니다 — 다음 차례입니다. rail (1,483) 은 문서 트리라 그다음. Word 와 deck 의 리본은 아직 자기 것을
+씁니다.
+
+---
+
+### 주소는 영문으로 만든다 — 2026-09-04 *(built)*
+
+`slug.ts` recorded a decision and this reverses it. The old one said *a reader who names a page 제품
+gets `/제품`, not `/jepum`* — romanisation reads as neither language, and two people transliterate the
+same word differently.
+
+What it did not weigh is the address bar. `/제품` is stored as typed and **shown as
+`/%EC%A0%9C%ED%92%88`**: in a browser's address bar, in a copied link, in an analytics report, in a
+`curl` line. A reader who copies the URL of their own page gets 27 characters of hex to paste into a
+chat. Reported as *페이지에 적는 주소는 기본적으로 영문 slug 를 등록할 수 있도록 하자. 그래야
+안헷갈림*, settled as *영문 slug 가 우선이고 한글은 후자야*.
+
+Both halves kept, and they are different questions that had been one function:
+
+| | |
+|---|---|
+| **생성** — what the product makes | `latinSlugFor` / `freeAddressFor`. `제품` → `/jepum` |
+| **입력** — what a reader types | `slugFor` / `pathFor`, unchanged. `/제품` goes in as `/제품` |
+
+The old objection is exactly why it is a **table** — 국어의 로마자 표기법's letter tables, syllable by
+syllable, so the product does it one way always and a reader who dislikes the result types over it.
+자음 동화 is **one rule only**: 받침 ㄹ + 초성 ㄹ → `ll` (`블로그` → `beullogeu`), because that one is
+visible in ordinary words and a full pass with its exceptions would stop the result being the same
+every time.
+
+`freeAddressFor` rather than the bare slug, because two pages named 소개 would both land on `/sogae` —
+two files with one name in the published folder, every link resolving to whichever the walk found
+first, and the loser still in the panel and unreachable. That is the one fault `pathFaults` reports,
+and generating it deliberately would be perverse.
+
+**Written and removed:** a 제안 chip beside each address. It drew on every untouched row including the
+ones still called 페이지 9, so it offered `/peiji-9` — a control firing in a case that barely exists,
+adding a second address to read on every row. The automatic take on first naming is the feature.
+
+---
+
+### 제품 둘이 한 화면에 — 쓰는 쪽이 한 줄이었다 — 2026-09-04 *(built)*
+
+The answer to the entry below, which had measured the problem and stopped. Asked again three ways —
+*note 를 word 안에서도 쓸 수 있잖아? word 랑 slide 를 동시에? word 를 4개로?* — and they are one
+question with one answer.
+
+**Everything downstream was already built for it.** `EditorViewDOM` takes `options.registry`; it hands
+the same one to all four `DOMRenderer`s; each hands it to its `VNodeBuilder`; and a registry made with
+`{ global: false }` **looks locally first and falls back to the global one**. Four layers, already
+threaded, already tested.
+
+The only thing with no way through was the **writing** end: `define` had `globalRegistry` named in it,
+in one expression. So `intoRegistry(registry, fn)` — a scope that says where `define` lands while
+`fn` runs — and nothing in any product changes:
+
+```
+site 레지스트리 125 | word 레지스트리 129 | 전역 0
+둘 다 이름을 가진 stype 117 | 그 중 같은 렌더러 0
+```
+
+117 names in common and **not one shared renderer**. Both products complete, neither global.
+
+**Why a scope and not an argument:** `define` is reached through a dozen helpers and every product's
+`register*Renderers()` — hundreds of call sites across four packages. Threading a registry through
+them to change *where* they land is a rewrite; wrapping the call is one line at the host.
+
+**And the shared mutable, which this repository had just spent a round removing.** The difference is
+worth stating rather than assuming: `DataStore._globalCounter` was **state a result depended on across
+time** — an id counter, read long after it was written, by code with no idea another instance had
+moved it. `intoRegistry`'s target is a **dynamic binding**: set, used and restored inside one
+synchronous call, `finally` so a throwing product cannot leak it, and nothing reads it after `fn`
+returns.
+
+**`office-note` took it, and the split it existed to work around is gone.** `registerNoteRenderers`
+vs `registerNoteStandalone` was that dilemma written down as two functions — register the prose
+vocabulary and revert five of the site's own renderers, or register only `note` and borrow the host's
+`picture`. A note now builds into `noteRegistry()` once and hands it to every view: it draws as a note
+wherever it is mounted, and takes nothing from the host. `apps/site` and `apps/note` both dropped
+their registration line.
+
+**Not done:** the products still register globally when nobody wraps them, which is right for an app
+holding one. Two products on one screen is now possible and not demonstrated — no app mounts two. The
+env (`WORD_ENV_KEY`) is still a single key and is the next thing to check if one does.
+
+---
+
+### 멀티 인스턴스는 어디까지 되는가 — 2026-09-04 *(measured)*
+
+Asked as *에디터가 멀티 인스턴스가 된다는건 note 뿐만 아니라 다른 에디터들도 되는거 맞지? 한 화면에
+word 랑 slide 를 다 띄운다던가, word 를 4개로 띄운다던가.* Measured rather than answered.
+
+**같은 제품 여럿 — 이제 됩니다, 이름을 주지 않으면.**
+
+`loadDocument`'s session id defaulted to the fixed word `editor-session`, so two editors that named
+none both minted `editor-session:1`, `editor-session:2`. Measured on two site documents side by side:
+**760 of 761 sids identical.** With the default removed — omitted means *keep the store's own minted
+name* — the same measurement is **0 of 761**.
+
+Naming one is still right, and still a promise: an app with a single document (`'word'`, `'site'`) is
+unique by construction, and a host with a durable name for a body (a post's id) gets the same sids
+every time it opens, which is what lets a comment or a diff point into one. **A session names an
+instance, not a kind** — and two stores under one name now say so, once, through `console.error`, with
+`DataStore.sessionsInUse()` for a check to ask deliberately.
+
+Note is the only package mounting several today and it mints. Word, slide and site each name one and
+mount one, so nothing is broken now; what changed is that the next host to mount two is told.
+
+**서로 다른 제품을 한 화면에 — 안 됩니다.**
+
+Renderers register **globally by stype**, which is what made `office-note` cheap and is exactly what
+stops this. Measured by registering both and diffing the registry:
+
+```
+site 가 등록한 stype                125
+word 가 덮어쓴 site 렌더러          117
+word 만 더한 것                      12
+```
+
+The 117 are not an edge: `paragraph`, `heading`, `list`, `listItem`, `blockQuote`, `codeBlock`,
+`inline-text`, `bTable*`, `surface`, `frame`, `picture`, **and every mark** — `mark:bold`,
+`mark:link`, `mark:fontSize`, all of them. A page holding a site editor and a Word editor draws both
+with Word's, and which product wins is decided by import order.
+
+So `apps/site` mounting a note is *not* the general case — it works because note's renderers were
+deliberately split (`registerNoteRenderers` vs `registerNoteStandalone`) after this exact fault was
+hit once. Two full products cannot be split that way; they disagree about `paragraph` on purpose.
+
+**What it would take:** a registry per view rather than one global — a view resolves through its own
+and falls back to the shared vocabulary. `dsl`'s `RendererRegistry` already takes `{ global: true }`,
+so the shape exists; what does not is a way for `EditorViewDOM` to be handed one. Not attempted here.
+
+**Also still open, from the same question:** `WORD_ENV_KEY = 'word'` and the env a text view reads —
+unmeasured, and the next thing to check if two products ever do share a screen.
+
+---
+
+### sid 는 인스턴스마다 달라야 했다 — 2026-09-04 *(fixed)*
+
+Reported as *sid 가 가장 큰 문제인데, instance 별로 달라야해 … `instanceId:xxxx` 형태로 되어야 할 수
+있음*, and the measurement was worse than the wording: **it was already colliding.**
+
+Twelve notes mounted on one page, and seven of them shared the root id `doc-1788481667942` — because
+that id was `doc-${Date.now()}` and the seven were made in the same millisecond. A host asking *which
+document is this node in* had seven answers.
+
+Underneath it, two things:
+
+| 무엇 | 왜 틀렸나 |
+| --- | --- |
+| `DataStore._globalCounter` | **`static`** — every store on the page drew from one number. It looked like collision *prevention* and was the opposite: it made one store's size decide another's next id, and it hid the real problem |
+| `_sessionId` | every note session passed the word `note`, so twelve stores all said `note:` and only the shared counter kept them apart |
+
+The shared counter works **within one page and not between two**. A body saved from one page load and
+a body saved from another both start near `note:1`, so `note:207` from one and `note:207` from the
+other are the same string — and a host holding both (a site with two bodies in `resources`, a CMS with
+a list of posts) has two different nodes under one name.
+
+**Fixed**: the counter is the store's own; the session is minted per store (`mintSessionId`) unless
+the caller names one; the root id borrows the store's session instead of the clock. `openNote` takes
+a `session` option, and **giving one is better than minting** — a host with a durable name for a body
+(a post's id, a row's key) gets the same sids every time it opens, which is what lets a comment, a
+bookmark or a diff point into one.
+
+`static syncIdCounter` is kept as a no-op and an instance method replaces it: re-basing a *shared*
+counter on one store's node count was meaningless and would have skipped another store's ids.
+
+**Found on the way, not fixed:** every store keeps one **orphan** — `Editor`'s constructor writes an
+empty document into the store it is handed, `loadDocument` then replaces the root, and that first node
+stays, unreachable. One per session. It is now uniquely named, which is the collision fix arriving
+where it was not aimed.
+
+**And the sweep the same report asked for** (*static 으로 객체를 생성한다던가 하는게 있을 수도 있음*):
+one live find, `renderer-dom/src/state-bus.ts` — a single module-level `rerenderCallback`, so twelve
+views would have left one winner. **Dead code, imported by nothing**; deleted rather than fixed. The
+rest of what a grep turns up is deliberate and keyed: the renderer registry is global *by stype* on
+purpose (which is why `office-note` was cheap), the content-match cache is keyed by expression, the
+audio-peaks cache by url.
+
+---
+
+### editor as never — 이 체크는 이미 깨져 있었다 — 2026-09-04 *(raised, with the number)*
+
+`every-cast-counted` (`editor-core/test/editor-is-typed.test.ts`) allowed 338 and the tree measured
+389. Before assuming it was this round's, it was measured on a clean checkout of `6dd3c7a`: **359.**
+So 21 of the 25 predate the work that found it, and the check had been failing for some time with the
+failure read as noise. A ratchet nobody can pass has stopped being a ratchet — the same fault as a
+tolerance explained in a comment.
+
+Of the 30 `office-note` arrived with, **26 came off** and none of them changed behaviour: they were
+`(editor as never as { executeCommand… }).executeCommand`, `.canExecuteCommand`, `.getRootId`,
+`.dataStore`, `.selection`, `.getSelectionSummary` — six members `Editor` declares **publicly**, cast
+away by a package written against the interface it imagined rather than the one it imports.
+
+Raised to 363. The 21 are the work of finding which public member each of them is standing on.
+
+---
+
+### 선택은 한 블록 안에서만 산다 — 2026-09-04 *(fixed — 증상 셋, 원인 넷)*
+
+Reported as *지금 selection 도구가 제대로 없는데*, and the measurement is worse than the wording: a
+selection that spans two blocks is **made correctly and then acted on wrongly by everything**.
+
+Measured in `apps/note`, dragging from the 1st paragraph to the 3rd (`note:69:1 → note:73:12`, DOM
+71자 — the range itself is right):
+
+| 무엇 | 무엇이 일어나나 |
+| --- | --- |
+| 굵게 | the button is enabled and **nothing happens** — 0 `<strong>`. The third recorded instance of *guard says yes, then does nothing* |
+| Backspace | 21 blocks stay 21, and the contents go `28,28,28` → **`1,1,16`** — fragments left behind instead of two blocks merging into one |
+| 글자 치기 | the selection is not replaced: the third block keeps all 28 characters |
+
+What works, so the fault is narrow: a drag **inside one block**, `Ctrl+A` (615자, `mixedMarks:
+['bold']` — the summary is right), and `Shift+→` walking across a block boundary. So the selection
+model spans blocks; the operations that consume one do not.
+
+The path is not missing — `extensions/src/delete.ts:274` branches on `startNodeId !== endNodeId` and
+builds a range delete. It runs and leaves fragments, which is the harder kind of wrong: a missing
+branch is found by the first press, a wrong one is found by counting characters.
+
+One more thing measured and **not** a bug: a drag that *starts inside an existing selection*
+collapses it. That is the browser beginning a text drag-and-drop, which every editor gets from
+`contenteditable`. Worth knowing because it looks identical to the bugs above from the outside.
+
+**Where to start:** unit tests in `packages/extensions` over a two-paragraph and a
+paragraph-into-heading range, before any browser round — the arithmetic is the thing to get right and
+a browser check of it costs 30s where a unit test costs 4ms.
+
+### 고쳤습니다 — 그리고 원인이 넷이었습니다
+
+증상은 셋인데 원인은 넷이고, **한 파일에 두 개도 없습니다.**
+
+| # | 어디 | 무엇이 틀렸나 |
+|---|---|---|
+| 1 | `extensions/src/delete.ts` + `text.ts` | *두 지점 사이를 지운다* 가 **세 벌** 있었고 하는 일이 달랐습니다 — 하나는 `deleteRange`(글자는 맞고 블록은 안 합쳐짐), 하나는 맨 `deleteRange`, 하나는 **시작 런 안에서만** 잘라냄. `range-delete.ts` 로 합쳤고, 블록 합치기가 들어갔습니다 |
+| 2 | `text.ts` | *선택이 비었나* 를 **오프셋만 비교**해서 판단 — 다른 블록의 같은 오프셋을 빈 선택으로 봤습니다. 비슷한 줄을 세로로 훑어 내리면 늘 같은 오프셋에 떨어집니다 |
+| 3 | `datastore/range-operations.ts` | `toggleMark` 이 **시작과 끝만** 칠하고 사이를 도는 코드가 없었습니다. 같은 파일 600줄 위의 `deleteText` 는 그 이터레이터를 돕니다 |
+| 4 | `editor-view-dom/input-handler.ts` | 명령이 마크를 쓰면 뷰가 다시 그리고, **MutationObserver 가 그 출력을 서식 제스처로 읽어 되돌렸습니다** |
+
+**4번이 가장 깊고, 이 저장소가 이미 아는 결함의 모양입니다** — *beforeinput 이 타이핑을 쓰고
+MutationObserver 가 IME 를 쓴다, 둘 다는 안 된다*. 여기서는 관찰자가 **모델 자신이 만든 변화**를
+읽었습니다.
+
+두 방어가 이미 있는데 둘 다 이 길을 못 덮습니다: 관찰자의 가드는 **캐럿 영역이 없을 때만** 렌더 출력을
+건너뛰고(있으면 통과), `_modelDrivenRenders` 는 `setTimeout(0)` 으로 풀려서 `handleInlineMarkup` 이
+돌 때는 이미 0 입니다.
+
+그래서 고침은 **멱등성**입니다: MutationObserver 는 *상태*를 보고하지 *제스처*를 보고하지 않습니다.
+모델이 이미 그렇게 되어 있으면 아무것도 하지 않습니다. 뒤집기로 답하던 것이 문제였습니다.
+
+**측정 방법에 대한 것 하나:** 드래그는 이 하네스에서 **한 문단 안에서도** 선택을 못 만듭니다(0자).
+`Ctrl+A` 는 129자로 됩니다. 제품이 아니라 드라이버 쪽이고, 이걸 모르면 고친 것을 못 고쳤다고 읽게
+됩니다.
+
+**남은 것:** 두 끝이 형제가 아닌 범위 — 인용문 안에서 바깥으로 — 는 글자만 맞고 블록은 떨어진 채
+둡니다. *어느 컨테이너가 살아남아야 하는가* 는 이 층이 답할 질문이 아니라, 추측 대신 적어뒀습니다.
+그리고 `Shift+→` 로 블록을 넘으면 모델 범위가 **뒤집혀** 나옵니다(`:10` → `:6`) — 별개 결함.
+
+**It is not a multi-instance fault**, which was the first hypothesis and is worth recording as ruled
+out. Measured with twelve notes on a page: `document.activeElement !== contentEditableElement` holds,
+only the focused body's model has a selection at all, and every other instance's is `null`. The model
+follows the DOM exactly, at one instance and at twelve.
+
+**And `Home`/`End` are their own fault, underneath it.** In this editor, `Home` moves the caret once
+after a click and then stops; `End` never moves it; `ArrowRight`, `ArrowLeft` and `Shift+Arrow*` all
+work. The same browser, on a plain `contenteditable`, gives `Home` → 0 and `End` → 14 — so it is not
+the platform. `keydown` is **not** `preventDefault`ed, and no handler for either key exists anywhere
+in the packages, so the browser is being handed the key and declining to move: the caret sits inside
+nested spans with a `data-bc-filler` ZWNBSP, and the line box it would move to the end of is being
+computed over that. Two checks in `apps/note` had to stop using `Home`; both say why.
+
+---
+
+### office-note — 잡을 수 있는데 할 수 있는 게 없었다 — 2026-09-04 *(built)*
+
+Reported as *아직 완전히 note 를 구현하지 않은 것 같아*, and the reading was right. A body could hold
+a picture, a video, an embed, a rule, a table and a code block — and do **nothing** with any of them.
+Six kinds of block a reader could select and then only delete.
+
+What went in, and what each one cost to find:
+
+| 무엇 | 왜 없으면 안 되는가 |
+| --- | --- |
+| 고른 블록 줄 | a picture arrives as a placeholder and a video with a blank `src`, because both are *required* by the schema and no file has been chosen. Without somewhere to give it one, 이미지 is a button that puts a grey rectangle in a post forever |
+| 파일 넣기 | *이미지나 동영상은 파일을 넣을 수 있어야하고*. What a reader picks becomes the `src` itself — a body has no asset store to name one out of |
+| 표 크기 고르기 | *테이블은 셀 선택으로 몇칸인지 드래그 해서 선택해야한느거 아니니?* A fixed 2×2 makes a reader's first act after inserting a table be adding rows to it |
+| 행·열 편집 | over four operations `@barocss/model` has had all along — a grid walk that handles spans, **called by nothing** |
+| 블록 이동 | a picture put in the wrong place could only be deleted and made again, losing the file it was given |
+
+**Five faults found by pressing the buttons**, and each one is a different shape:
+
+1. **A player swallows a click.** An `<iframe>` is a document of its own and a `<video controls>` has
+   its own control bar; neither hands a `mousedown` to the page around it. So the two blocks most
+   likely to need configuring were the two that could not be selected — the strip went on describing
+   whatever was held before. The sid is on a holder now and the player inside is drawn rather than
+   pressed: an editing surface takes the clicks, a published page gives them away.
+2. **Held and having no text are two different facts.** Insert a table, click a cell, type 이름, press
+   Backspace — **the whole table went**, because the table was held from the moment the cell was
+   clicked and the held-block key handler answered for it. `bTable` is now the one held block that
+   keeps its caret.
+3. **`setAttrs` is an operation, not a command.** A panel that ran `executeCommand('setAttrs')` ran
+   nothing at all, which is how a picture stayed a placeholder after a reader chose a file for it.
+4. **A cell's words are zero pixels wide.** An empty `inline-text` draws as an inline span at the
+   left of a 3rem box, so a click anywhere else in the cell put the caret on the **row**. Measured as
+   four permanently-disabled buttons.
+5. **The caret cannot be written after an insert.** Tried, as the fix for (4): `addChild` leaves the
+   caret on a table's `bTableHeader`, so `_put` set it into the first cell. That made the view apply
+   its own selection and then **stop following the DOM caret** — a reader clicked the end of a
+   quotation, pressed Enter, and the new line appeared *above* what they had written. Reverted, with
+   the reason left in the code; the row and column acts read **the cell the reader pressed** instead,
+   which is unambiguous where a caret is not.
+
+Two declarations came out of it, `NOTE_FIELDS` (what a kind is asked) and `NOTE_ACTS` (what it is
+told to do), kept apart because a field writes an attribute and an act runs a command. A check reads
+both: a held kind with neither, other than 구분선, is a block a reader can hold and do nothing with.
+
+**Left undone:** merging and splitting cells (`mergeTableCells`, `splitTableCell` are in the model
+and unread by this too); dragging a held block rather than pressing 위로; a caret that walks out of a
+table's last cell.
+
+---
+
+### apps/note — 사이트를 치우자 빌린 것이 다 드러났다 — 2026-09-04 *(built)*
+
+Asked as *apps/note 만들어서 office-note 를 멀티로 띄워서 다양하게 테스트 해봐야하지 않을까?* — and
+it earned itself on the first run.
+
+A package is only independent if something independent uses it. Every claim about `office-note` was
+true **inside** the site builder, which is the one place the claims are hardest to check: a borrowed
+part goes on working, for the wrong reason, and nothing says so. So: an app that imports the package
+and nothing else of the products — three stylesheets, `registerNoteRenderers()`, and a body as a
+literal.
+
+**The first run drew nothing.** `openNote` reads a body out of a host's *store* and walks it by sid;
+a host without one has the tree already, and every child was filtered out as *not a string*. Silently.
+`openNoteTree` is the other door.
+
+**Then five of the eleven toolbar buttons did nothing, and every cause was different:**
+
+| | |
+|---|---|
+| 목록 | wrote `type: 'unordered'`; the schema says **`bullet`** — 번호 목록 worked, which made it look like a list problem rather than a value one |
+| 이미지 | wrote an empty `src`, which is **required and may not be empty** |
+| 영상 · 넣은 것 | named node types the note schema **did not declare** — office leaves them behind and the site takes them, so the toolbar, the content expression and the bar all agreed about a node that did not exist |
+| 표 | put a `bTableRow` inside `bTableHeader`, which holds **`bTableHeaderCell+` directly** |
+
+**And then three landed in the model and drew nothing.** `picture`, `mediaVideo` and `mediaEmbed`
+were the products' renderers — three copies between the site, the deck and Word, none shared — and a
+note embedded in a site had been borrowing the site's. It draws its own now, deliberately plain: a
+site's picture answers to a crop, a hover, a link and five widths, and none of that is a body's
+business.
+
+Also **툴팁**: the bar had `title` and no `Tip`, and a host that never mounted a toolbar has no
+`TipProvider` — so the package brings its own. *toolbar 에 툴팁이 안나오니깐 어떤 기능인지 모르겠어.*
+
+### 빈 줄에서 엔터는 나가는 것이다 — 2026-09-04 *(built, shared)*
+
+*인용구에서 엔터로 벗어날 수 없음.* Measured: one blockquote, Enter, Enter — **three paragraphs, all
+inside it**, and no way out with the keyboard at all.
+
+`paragraph.ts` had a rule for a heading (Enter at the end of one gives a paragraph, because a heading
+is a title and what follows a title is prose) and none for a container. A list item has had one since
+it was written — `splitListItem` empties out a level — which is the same rule one container over.
+
+So: **an empty block at the end of a container leaves it.** Four conditions, each of them a way a
+reader could mean something else — collapsed caret, empty block, last child, and a container that is
+not the body itself. An empty paragraph is not writing, it is a gesture; a reader who wants a blank
+line inside a quote presses Enter in the middle of it.
+
+In the shared kit, because all three products have quotations and all three had this.
+
+### office-note — 세션까지 자기 것이 되고 나서 — 2026-09-04 *(built)*
+
+The second slice, and it was a **bug fix** rather than a tidy-up. Reported from the console:
+
+```
+[EditorViewDOM] selection retry exceeded { sel: { startNodeId: 'site:597', … } }
+```
+
+and read exactly right from the outside — *난 분명 office-note 를 드래그 했는데 office-site 의
+editor 가 selection 을 넣는 느낌이야.* The bar and the view were the note's and the **editor** was
+still the site's: one editor means one selection, and a selection is applied by *every* view, so the
+boards were told the caret is at a node they do not draw, searched their own DOM for it and gave up —
+on every click into a body.
+
+**Two editors over one store is not the answer**, and it was measured before it was tried: `Editor`'s
+constructor makes an empty document and *writes it into the store it was given*, so the second erases
+the first. So a store of its own, loaded with a copy (`openNote`), and the copy written home on a
+pause (`setRichText`) — a transaction per pause, so one undo takes back a phrase rather than a
+character.
+
+**And then the borrowed parts stopped working, visibly**, which is the useful thing about a store of
+one's own:
+
+- **the ten insert commands were `office-site`'s.** The bar declared them and `note-kit` registered
+  none — 93 commands, every one of the bar's ten missing. It had worked for as long as a host handed
+  its own editor in, which is to say a body's bar had been pressing a page builder's buttons in the
+  one place nobody had looked.
+- **`note` had no renderer.** A body loaded into its own store drew nothing: the blocks were there
+  and the root that holds them was not a thing anything knew how to put on screen.
+- **the `/` menu was the host's surface**, listening to the host's editor, so typing `/` in a post
+  raised nothing — in the one place the rail is behind a scrim. `NoteSlash` now.
+- **번호 목록 did not exist.** The toolbar was a row per block, and 목록 and 번호 목록 are one node
+  type and **two doors**. Found by the browser: eleven rows in the site's menu, ten here.
+
+Two checks changed their claim because the product got better, not worse: the bar offers its blocks
+**before** a caret arrives (a note has no pages, so `_where` with no caret is *the end*, which is what
+a writer pressing 제목 on a fresh body means), and a heading gets one section wherever its rows turn
+up — see below.
+
+### 한 제목에 한 절 — 2026-09-04 *(built)*
+
+From the browser's console, not from a check: *Encountered two children with the same key, `바탕`* —
+twice, and `그림자` twice. React's own warning ends *the behavior is unsupported*.
+
+`panelGroupsFor` merged **contiguous runs**, deliberately, with an argument beside it: *two runs of
+one heading draw the heading twice rather than silently merging — the declaration is what decides.*
+It reads well and is wrong for a reason no declaration can prevent: **a run is only contiguous after
+filtering.** A group's rows are written together and `panelRowsFor` drops the ones a node type has no
+place for, so one section in the file becomes two on screen the moment a type sits out the middle of
+it. A page did it with 바탕 and 그림자; a `collection` with 데이터.
+
+The label is the group now, wherever its rows turn up; its **place** is still where its first row is,
+so order is still meaning. Held by a check over every node type and every pane, count zero.
+
+### office-note — 한 편의 글은 자기 패키지다 — 2026-09-04 *(built, first slice)*
+
+Asked as *office-note 는 자체 툴바/ui 까지 다 가지고 있어야해*, after the shorter version of the same
+point: *이 툴바가 기존 페이지 빌더 툴바랑 연동되고 있음. 그러면 안돼.*
+
+Correct, and the coupling was in four places at once. A body's **content model** was the page's
+`block` group; its **toolbar** was assembled in the app out of `siteControlsIn('text')` and
+`siteSlashItems()`; its **chrome** was styled in the site builder's stylesheet; and its **editing
+session** was the page builder's editor. Four decisions about writing, all made by a page.
+
+**Measured before writing a line, and it made the package cheap.** Renderers register globally by
+stype, and `office-text` already draws every block a body holds — `paragraph`, `heading`, `list`,
+`listItem`, `codeBlock`, `blockQuote`, `bTable*`, `horizontalRule`, `inline-image`, `emoji`,
+`hardBreak`, `inline-text`. So what was missing was never the drawing: it was a **declaration of
+which of them a body may contain**, and a kit to edit one with.
+
+What shipped: `note-schema.ts` (top node `note`, `NOTE_BLOCKS`, `NOTE_CONTENT`), `note-kit.ts`
+(short by design — no font colour, size or family, because *칠·여백·크기는 카드의 것*, enforced by
+not registering the command), `toolbar-model.ts` (marks + blocks, the blocks **keyed by
+`NOTE_BLOCKS`** so a row for a refused block cannot be written), `note-view.tsx` and `note.css`.
+`office-site` reads `NOTE_CONTENT` for `richText.content` — one sentence, two documents.
+
+**The name.** `office-page` was offered and is wrong: a site *has* pages (`surface`), so the word
+would mean two things, and `.st-grip` colliding with the board's resize handle had broken eight
+checks the same afternoon. `office-note` says what it is.
+
+**And a layering fault the split found.** The root export carried the React component, so
+`office-site`'s *schema* dragged `editor-view-dom` into every Node process that imported it — the
+browser suite stopped collecting, because that build is CommonJS. The component is
+`@barocss/office-note/view` now: the same line `office-ui` is on the other side of.
+
+Still ahead: the **session**. `NoteEditor` is handed the host's editor, so selection and history are
+still shared. `createNoteEditor` is written and unused — the next slice is a store of its own with a
+live mirror back, which is what *독립된 에디팅 상태* finally means.
+
+### 설정 화면과 사이드바 — 2026-09-04 *(built)*
+
+Reported as three things, and the first one turned out to be the smallest half of itself.
+
+**설정 화면 배경이 회색이라서 너무 어색해.** The grey was true and it was not the fault: the screen
+opened under a **full page-editing toolbar** — 선택/텍스트, eight arrange glyphs, the insert plus, the
+text group, the zoom, *which page you are in* — every one of them about a block on a canvas, and 관리
+has neither. A management screen under a zoom that scales nothing.
+
+The grey itself was that the content **floated on the ground** with no surface of its own and row
+hairlines that stopped where the columns did. Inverted, which is what every settings screen of this
+kind does: the content is the lifted white sheet and the nav is the ground it sits on — and then a
+chosen tab can read as *the sheet you are looking at* rather than as a blue chip. Plus a real title
+(it was `--ou-text`, the same size as the table's body), 42px rows, a hover, and
+`--ou-field-line: transparent` — **sixteen bordered boxes** down two columns, in a token that has
+existed for exactly this since the rail was written.
+
+**Drawer 가 어디서 열리는지 모르겠어.** The row **number** was the button — `--ou-faint`, no icon, no
+word, nothing but a hover colour. A reader who does not already know cannot find that out by looking.
+Now the number keeps its place and a `expand` icon (`PanelRightOpen`, added — `zoom-fit` already held
+`Maximize2`, and one glyph meaning two things is how a reader learns an icon means nothing) appears on
+the row under the pointer, and a **double click on the row** opens it too — the gesture that cannot
+collide with a cell's own single click.
+
+**Sidebar resize.** A `Grip` on the rail's edge, pointer-captured, clamped 200–560, double-click to
+put it back. The **rail and not the panel**: the panel's 240px is an argued number with a measurement
+behind it (`properties.tsx` — every serious tool of this kind is between 232 and 248, and it is about
+how far the eye travels between a label and its value), and a drag handle there would be a second
+answer to a question that has one.
+
+Two faults found while building it. The grip sat at `right: -5px` inside a rail with
+`overflow: hidden`, so **half of it was clipped** and a drag mostly missed — measured, the width never
+moved. And the slash surface asked `selection.collapsed !== true` and returned: a press that puts a
+caret does not always set that flag, and clicking a paragraph in the drawer's body left it
+`undefined` with both ends on one node. So the `/` did nothing in the one place a reader has no other
+way in. **A caret is a range whose ends are the same**, and that is what it asks now.
+
+### Drawer 에 미니 에디터가 하나가 아니다 — 2026-09-04 *(built)*
+
+Asked as *속성에 rich text 가 여러개면 에디터가 여러개 나와야할 듯 한데*, and it already was — the
+editor is drawn per **cell**. What the fixture could not prove is that it stays that way, so the
+sample's 글 dataset grew a second rich column: 요약 is what a card shows in a list, **본문** is the
+post.
+
+Wearing it produced a claim the one-column fixture could not make: deleting a row takes **both** of
+its bodies. `_dropRich` reads every rich value in the row, and a rule written for one column and
+never run against two would have taken one and left the other unreachable — which is exactly the
+orphan the fault list now reports.
+
+And the bar is **per body**, over the one it is about. A single bar at the top of the drawer would be
+a control whose target is *whichever body was last clicked*, which is a thing a reader has to keep in
+their head. Marks from `siteControlsIn('text')` and blocks from `siteSlashItems()` filtered by
+`canExecuteCommand` — neither list written here, because two lists is how a toolbar and a menu come
+apart.
+
+### Drawer 에서 쓴다는 것이 세 겹이었다 — 2026-09-03 *(built)*
+
+The row form was **already a Drawer**. What it could not do was be written in: a reader could type
+into a body and could put nothing in it — no heading, no list, no image. Three faults, each hidden
+behind the one in front of it.
+
+**1. 슬래시 메뉴가 안 열렸다.** `SlashSurface` gates on `mode`, which is the *canvas overlay's*
+pointer mode — and a drawer has no overlay, so a caret in a body left the app in `select`. The rail
+is behind the drawer's scrim on purpose (a drawer is modal, and `dialog.tsx` argues why), so there
+was no other way in. `writing` already forced text mode for the canvas one level up; the drawer gets
+the same.
+
+**2. 모든 삽입이 거절하고 있었다.** `holdsABlock` asks whether the parent's content expression
+contains the word `block` — a string test. Narrowing `richText.content` to
+`(heading | paragraph | list | …)+` removed that word, so the walk from the caret found nowhere to
+land and **all twelve inserts refused**. The same shape as the table-cell fault that function was
+written for, from the other side: that one stopped too early because of *what* the schema said, this
+one because of *how* it said it. Now it expands the names and asks the schema for each group.
+
+**3. 될 거라 해놓고 아무 일도 안 하는 줄이 둘.** With the first two fixed, 버튼 and 글 appeared in the
+menu, said they could run, and did nothing — `insertButton` makes a `frame` and a body holds none.
+The guard asked *is there somewhere a block may land*, which is one question short: **every container
+takes some blocks and none takes all of them.** On a page it never showed, because a page's content
+is the whole `block` group. The factory is right there in `register`, so the guard asks it what it
+makes and the schema whether it fits — and the slash menu now filters by `canExecuteCommand` rather
+than by *does this editor have the command*, **omitting** rather than greying, because a reader
+narrowing a list by typing is choosing from what is left.
+
+*Says it can run and then does nothing* is now the **third** recorded instance in this package.
+
+### 글은 자료형이면서 블록이다 — 2026-09-03 *(built)*
+
+Asked as *사이드바에서 추가할 수 있는 요소로 RichText 가 있고, 아니면 데이타 연결해서 넣을 수 있게* —
+two ways to one thing. Building it closed a fault that was already in the published file.
+
+**The card declared its body slot as characters.** A `text` variable, a bind writing `attr: 'text'`,
+and a `<p>` for the part — and what arrives is a body. `<p>` inside `<p>` is not valid HTML, so the
+browser split them: **four empty paragraphs** published on the blog page and the card's own slot
+orphaned. Invisible only because that paragraph carried nothing but `margin: 0`; the rule
+*칠·여백·크기는 카드의 것* was therefore impossible to actually use.
+
+One node, two positions — in `resources` named by an `id` and pointed at from a cell, or placed on a
+page holding its own words. `id` became optional. Content written out rather than given a new group
+(`block` is in the shared schema; a node carries one group), which also **added `picture`** — a blog
+post could hold a 폼 and a 차트 and could not hold an image.
+
+`source` was declared for the data-connected case and removed: the binding machinery already replaces
+a part's children by variable name, and the harness said nothing read the attribute.
+
+And `every-insert-can-be-held`, written hours earlier, reported the new node before a browser drew one.
+
+### 자료형 어휘가 둘로 갈라져 있다 — 2026-09-03 *(measured, not built)*
+
+`DocumentVar.kind` has **five** — `text · color · number · boolean · choice` — and `DataFieldKind`
+has **fourteen**. They mean the same thing (*what does this value hold*) about the same values, and
+the sample already writes two the first one does not know:
+
+- `componentVar { name: '날짜', kind: 'date' }` — **falls back to `text`**, silently, because `date`
+  is not in `VAR_KINDS`. A declaration nothing reads.
+- `componentVar { name: '요약', kind: 'text' }` where the column says `richText`.
+
+Harmless today only because `data.ts` settled the precedence — *where the data says a kind, the data
+wins* — so the card's kind is a fallback for a definition drawn on its own. But a fallback that
+cannot spell what the data spells is a fallback that is wrong exactly when it is used.
+
+Not built because nothing needs it yet: the body binding works through the part's node type, not
+through the variable's kind. The day a card wants to preview a date as a date, this is the item.
+
+### 패널은 한 행에 컨트롤 둘이 최대다 — 2026-09-03 *(measured)*
+
+A check holds the properties panel under 900px, set when an audit took it 946 → 868. Adding 화면 높이
+put it at 921, and **three pairings were tried to pay for the row; measurement rejected every one**:
+
+- 최소 · 최대 · **화면** — three number fields, row wraps to 54px
+- 방식 · **앞뒤** — a `choice` beside a number, same 54px
+- 폭 범위 · **가운데**, which `centred`'s own note calls *the other half of a maximum width* — 54px
+
+At 240 pixels a row holds **two** controls whatever they are. Every pair that fits is already made, so
+a third capability costs a row and there is no waste to reclaim. The number moved to 930, and the
+thing it stood for became the check: **no row wraps** — which is what rejected all three attempts and
+is the fault that actually shows.
+
+### 가리키는 것을 한 번만 걷는다 — 2026-09-03 *(built)*
+
+The index was built and then only did half a job: `usesOf` moved onto it, and `linksTo` and
+`documentFaults` kept their own walks. Making both read the index was supposed to be a tidy-up and
+was not — **both numbers were wrong**, and wrong in the direction that loses work.
+
+**삭제 대화상자가 세는 숫자.** It counted **link marks and nothing else**, and its own comment called
+that deliberate. Measured across the sample: 23 things name a page — 11 marks, 9 a card's `goes`, 2 a
+row's cell, 1 a form's 감사 페이지 — so **six of the eight pages under-reported**. `/가격` said 3 where
+the answer is 8. The two blog posts said **0**: *가리키는 것이 없습니다*, about pages the blog list
+points at from a data row.
+
+The test that should have caught it was the one that compared the index against the walk and accepted
+the difference with a `toBeGreaterThanOrEqual` and a comment explaining the slack. The slack **was**
+the fault.
+
+Now three counts rather than one total, because they are three different repairs: a link is found by
+reading the words, a `이동` by opening a card's panel, a cell in the data editor. And `iGa` in
+`korean.ts` — *5개이 끊어집니다* is wrong the way *a apple* is wrong, and the sentence ends in 개 or 칸
+depending on which count lands last.
+
+**그리고 아무도 보고하지 않던 참조들.** `documentFaults` asked five resolution questions, each written
+inside the walk beside the node type it was about. Five of the ten shapes this schema uses. Delete two
+of the sample's pages — the two nothing *links* to — and two references now point at nothing and the
+report said **zero**. `refFaults` asks the index instead, so a new kind arrives already checked.
+
+Also: the admin's page table called the counting walk **once per row**.
+
+### 참조되지 않는 글은 못 찾는 글 — 2026-09-03 *(built)*
+
+`data-commands.ts` states the rule — *a `richText` is one cell's value; when the row goes, the value
+goes* — and, counting what is left, says *`documentFaults` is where the orphan is reported*. It was
+not: written as a promise and never kept.
+
+Worth recording is what the measurement **changed**. Two ways of making an orphan were tried and
+neither does: retyping the cell (the table refuses it, with the reason already written in
+`data-editor.tsx` — *a text box here would be a reader typing over a reference and losing a
+paragraph*) and changing the column's kind and back (the records are deliberately untouched). So the
+first draft of the check's comment, which called it *the ordinary gesture*, was wrong and is now the
+case `_richUses` originally named: **a document arrives from a file, and a file can say anything.**
+
+A `richText` is reached only through a cell that names it, so an orphan is not drawn, not listed, not
+selectable and not deletable. `쓰지 않는 글` is the only place it can be seen.
+
+### 그린 것을 독자가 잡을 수 있는가 — 2026-09-03 *(built; three live faults)*
+
+The check that was owed, and the least comfortable entry here: the same fault had been recorded
+**six times in one list** and every one was found by a person using the product.
+
+`SELECTABLE` is a second place a node type has to be registered and nothing forced it. So: a round
+adds a node, writes its renderer, checks that it **appears**, ships — and the drawing is perfect. A
+quotation, a rule and a code block; then a table's cells; then a chart. And the hour
+`every-insert-can-be-held` was pointed at the product, **three more, live**: 동영상, 임베드 and **폼**,
+the one node type this product genuinely added. Insertable, and then not selectable, not movable, not
+in the layer list.
+
+The candidate set was measured rather than guessed. Every type a document can place gives **42** that
+are not selectable — inline pieces, canvas shapes, declarations, the page itself. Forty-two exemptions
+is forty-two notes. The right set is the one every instance came through: **a reader put it there**,
+which is the `produces` list two other checks already read.
+
+Two consequences worth noting. Making the three selectable immediately failed
+`every-drawing-can-be-named` — a row needs a word the moment a reader can select the thing, which is
+two checks catching each other's consequence. And the deck's seven findings are all one sentence a
+*plane* gives and a page does not: on a slide everything a reader points at is a placed box, so a
+table inside a `textFrame` is held by the box. The same schema nodes, two right answers.
+
+Word defers it. A word processor has no click that selects a block, and `notYet` fails the day its
+canvas half answers.
+
 ### 상대 길이는 몫까지가 정직한 범위 — 2026-09-03 *(built, and the rest is on the record)*
 
 The fourth thing work needs. The document keeps **twips**, which is Word's unit and an absolute one,
@@ -73,6 +1222,28 @@ mean one of:
 
 None is worth doing before something needs it. What is owed and named: a section that is **as tall as
 the window** (`100vh`), and lengths that follow the document's own base size (`rem`).
+
+**2026-09-03 — and the answer was that three quarters of the debt was already paid.** Asked again
+with the list in front of it, what a page wants from a relative length is four things, and three were
+sayable: a **proportion** is `share` (and better than a percentage, per the arithmetic above), a
+**per-width number** is an `overrides` entry (a real number at each width rather than one expression
+that has to be right at all of them), and a **bound** is `minWidth`/`maxHeight` in twips.
+
+What was left is **one** idea — a section as tall as the window — and one idea is one attribute, not a
+union in the type system. `minScreens` is a count of screens, the same move `share` made: a number
+whose unit is in its name. `1` is a screenful, `0.5` is half of one, which a boolean could not say and
+a unit dropdown would say worse. No migration, no parallel vocabulary, no validation switched off.
+
+And the half that a stylesheet cannot supply, found while building it: **a board is a `div` on a
+plane, not an iframe**, so `dvh` inside one is the height of the *editor's* window — the same hero
+would draw one height on three boards that differ only in width. So a board substitutes
+`SiteWidth.viewport`, which has been declared since preview mode for exactly this reason. It is the
+one place a board and the published page deliberately disagree, and `export.test.ts` names it as the
+single exception to *the two drawings agree about everything a reader designed*.
+
+`rem` stays unbuilt and is no longer owed as *a relative length*: what it was wanted for — smaller
+text on a phone — is an `overrides` entry, which says the number rather than a ratio to a base nobody
+has set.
 
 **And the sample wears it now.** The hero was the wrong home for it — words beside a picture at 3:2,
 where changing anything moves a measured width several browser checks hold as a number. The blog's

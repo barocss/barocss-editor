@@ -28,6 +28,100 @@ had to ask which product it was rendering for, which is worse than two
 renderers — a shared thing that knows about its callers is not shared, it is
 coupled in both directions.
 
+## The layers, and the one that was missing
+
+Asked four ways in one session — *note 를 word 안에서도 쓸 수 있잖아? word 랑 slide 를 동시에? word 를
+4개로? 에디팅 영역만 다른 곳에 제공해서 다른 UI 랑도 결합할 수 있을까?* — and measuring the answer
+found the suite one **layer** short, not one package short.
+
+```
+datastore · model · schema · dsl · editor-core · editor-view-dom   엔진 (제품 모름)
+office-controls   선언의 모양 — Control, MenuModel, PanelRow
+office-ui         원시 부품 — 에디터를 모름
+office-editor-ui  선언을 읽어 표면으로 그리는 것 — 에디터를 아는 UI  ← 비어 있던 칸
+office-site / word / slides / note   스키마·명령·선언·렌더러·내보내기
+apps/*            무엇을 열지, 어디에 놓을지 — 그리고 마운트
+```
+
+### 세로가 아니라 가로였다
+
+The obvious reading of *make the editing area a library* is a vertical cut, one per product. The
+measurement says the duplication runs the other way:
+
+| 파일 | site | word | slide | note |
+|---|---:|---:|---:|---:|
+| ribbon | 634 | 366 | 454 | (패키지 안) |
+| overlay | 1,997 | — | 3,765 | — |
+| app | 1,832 | 281 | 2,350 | — |
+
+Three ribbons, and all three already used `office-ui`'s `Toolbar`. What differed was the wiring —
+and four of the five things a toolbar does are the same in every product:
+
+```
+1. 에디터를 구독한다     useRevision(watchAnswers(editor))    제품 무관
+2. 선언을 읽는다         SITE_TOOLBAR / WORD_TOOLBAR / …       제품마다 다름
+3. 상태와 가능 여부       markState, canExecuteCommand          제품 무관
+4. 원시 부품으로 그린다   office-ui                             제품 무관
+5. 실행한다              preventDefault → executeCommand       제품 무관
+```
+
+### 세 가지 탈출구, 그리고 그것이 경계다
+
+`useControls` takes `can`, `onRun` and `state` as options, and each one earned itself by a product
+knowing something the shared layer must not:
+
+| 옵션 | 누가 왜 필요했나 |
+|---|---|
+| `can` / `onRun` | 사이트는 **열린 페이지**를 모든 명령에 실어 보냅니다. 데크의 몇 컨트롤은 **파일**을 먼저 받아야 실행됩니다 |
+| `state` | Word 는 상태를 네 갈래로 읽습니다 — 목록 정의, 표 룩 플래그, 셀 속성, 그리고 컨트롤 자신의 함수. 어느 것도 마크가 아닙니다 |
+
+That is the boundary, stated as a rule: **a shared surface takes a product's answer as a parameter,
+never as a branch.** A `if (product === 'word')` in `office-editor-ui` would be the coupled-in-both-
+directions failure this document opens with.
+
+### 중복을 어떻게 찾았나 — 이름으로는 절반만 나옵니다
+
+The sweep that found the three ribbons counted **top-level names shared between apps**. It is cheap
+and it works, and it has a blind spot that cost a real finding:
+
+```
+세 앱 모두   App 4,109 (앱마다 진짜 다름) · Ribbon 1,309
+두 앱만     Ruler 361 · useEditorRevision 15 · useDocumentRevision 6
+```
+
+`Ruler` 361줄은 **중복이 아닙니다** — Word 것은 문서 눈금자(들여쓰기·탭·여백)이고 데크 것은
+`timeline.tsx` 안의 시간 눈금자(구간·재생헤드)입니다. 이름만 같습니다.
+
+그리고 반대쪽 실수가 더 비쌌습니다: `SlashSurface` 와 `NoteSlash` 는 **이름이 다르고 내용이 같습니다.**
+주석과 빈 줄을 뺀 129줄 중 여덟 줄만 달랐고, 이름 사전에는 잡히지 않았습니다.
+
+그래서 두 번째 훑기를 돌립니다 — **함수 본문을 줄 집합으로 대보기**:
+
+```python
+# 최상위 함수/const 마다, 주석과 빈 줄을 뺀 본문을 줄 집합으로
+# 앱이 다른 두 블록의 교집합 / 큰 쪽 크기 > 0.55 이면 후보
+```
+
+634개 블록(10줄 이상)에서 앱을 가로지르는 후보는 **딱 하나** 나왔고, 그것이 팝오버 자리잡기였습니다 —
+`floating`, `color-field`, 데크의 `timeline` 이 같은 산수를 세 벌 갖고 선호만 달랐던 것.
+
+**둘 다 돌려야 합니다.** 이름은 같은 이름의 다른 것을 잡아 오고, 내용은 다른 이름의 같은 것을 잡아
+옵니다.
+
+### 무엇이 안 들어가는가
+
+**Overlay.** It draws handles where a block is on a canvas, at a scale, in a view — coordinates, not
+a declaration. 5,762 lines across two products doing the same job, and it stays out until something
+has said what the shared shape of *a thing with a position* is. Sharing it now would be guessing.
+
+### 그리고 렌더러 레지스트리가 짝입니다
+
+Moving the chrome into a package is half; the other half is that renderers registered **globally by
+stype**, last write wins, so two products could not both be right about `paragraph` — measured at
+**117 of 125** replaced. `intoRegistry` is the scope that fixes the writing end, and everything
+downstream (`EditorViewDOM` → `DOMRenderer` → `VNodeBuilder`, with `{ global: false }` falling back)
+was already built for it. See `BACKLOG.md`.
+
 ## The zoom control, as a worked example
 
 The clearest case so far, because the two products' zooms *feel* different and

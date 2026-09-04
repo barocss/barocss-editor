@@ -13,17 +13,32 @@ product taught. This holds the reason there is a next thing.
 
 ## Where this actually stands
 
-Nineteen packages, ~85,000 lines of source, five apps. What matters is not the
-size but the shape:
+*Re-measured 2026-09-04. The table below was written when there was one product; there are four.*
 
-| layer | packages | knows about |
+**29개 패키지, 소스 174,710줄, 앱 9개.** 크기가 아니라 모양이 중요하다:
+
+| 층 | 패키지 | 무엇을 아나 |
 |---|---|---|
-| **substrate** | `shared`, `dsl`, `schema` | nothing above it |
-| **document** | `datastore`, `model` | the schema |
-| **rendering** | `renderer-dom`, `renderer-react` | the DSL |
-| **editing** | `editor-core`, `editor-view-dom`, `editor-view-react`, `extensions`, `dom-observer`, `text-analyzer` | the document and a renderer |
-| **product** | `office-word` | all of it |
-| **services** | `collaboration` (+`-yjs`, `-liveblocks`), `converter`, `devtool` | the document |
+| **바탕** | `shared`, `dsl`, `schema` | 위의 아무것도 |
+| **문서** | `datastore`, `model` | 스키마 |
+| **그리기** | `renderer-dom`, `renderer-react` | DSL |
+| **편집** | `editor-core`, `editor-view-dom`, `editor-view-react`, `extensions`, `dom-observer`, `text-analyzer` | 문서와 렌더러 |
+| **어휘·부품** | `office-canvas`, `office-text`, `office-icons`, `office-controls`, `office-ui` | 제품을 모른다 |
+| **에디터를 아는 UI** | `office-editor-ui` | 에디터를 알고, 제품을 모른다 |
+| **제품** | `office-word`, `office-slides`, `office-site`, `office-note` | 전부 |
+| **서비스** | `collaboration` (+`-yjs`, `-liveblocks`), `converter`, `devtool`, `conformance` | 문서 |
+
+두 층이 이 표에 없었다. `office-ui`(원시 부품, 에디터를 모름)와 `office-editor-ui`(선언을 읽어 표면으로,
+에디터를 알고 제품을 모름) 사이의 구분이 이 저장소에서 가장 늦게 생긴 것이고, 그것이 없는 동안 세 개의
+리본이 같은 다섯 단계를 각자 썼다. `docs/SHARED-LAYER.md` 가 그 층에 대한 문서다.
+
+**아직 표대로가 아닌 것이 둘 있다:**
+
+- **편집 층에 순환이 셋.** `datastore ↔ model`, `editor-core ↔ extensions`, `editor-core ↔ model`.
+  그래서 `datastore` 의 층 깊이를 물으면 답이 100을 넘는다. Phase 1 이 이것이다.
+- **제품이 제품을 의존하는 변이 셋.** 아홉이었다가 여섯을 옮겼다(`find.ts` 는 Word 를 하나도 모르는
+  파일이었고, 글자색 두 개는 `PaletteControl` 의 값이었다). 남은 셋 중 `office-site → office-note` 의
+  `NOTE_CONTENT` 는 의도한 것이다.
 
 Every package already declares `exports` and types, carries a version, and none
 is `private`. Nothing structural stops them being published today.
@@ -180,6 +195,23 @@ worked.
 `type` keywords, drop the two phantom dependencies. *Done when* every package
 builds against only the packages below it and the dependency graph is a DAG.
 
+> **2026-09-04 — 끝났습니다. 순환 0개, DAG 입니다.** 그리고 이 단계가 *"작다"* 고 적혀 있었던 것이
+> 맞았다 — 재보니 순환 셋 중 **둘이 유령**이었다. `datastore → model` 과 `editor-core → extensions` 가
+> `package.json` 에 적혀 있고 import 는 **하나도 없었다.** 세 번째(`editor-core ↔ model`)는 한쪽만 진짜였다:
+> `editor-core` 는 `new TransactionManager` 를 쓰지만 `model` 은 `Editor` 와 `SelectionManager` 를 타입
+> 자리에서만 쓴다 — `import type` 으로 바꾸고 devDependency 로 내려서 풀렸다.
+>
+> **검사를 붙이자 유령이 열넷 나왔다.** 처음 여섯을 걷으면 셋이 더 나오고, 그것을 걷으면 넷이 더 나온다 —
+> 유령은 빌드가 되기 때문에 보이지 않고, 무언가를 쓰려다 만 커밋 하나로 다시 생긴다.
+> `conformance/test/dependency-graph.test.ts` 가 두 가지를 묻는다: 순환이 있나, 그리고 **선언했는데
+> import 하지 않는 것이 있나.**
+>
+> 층이 0~8 로 정렬된다: `dsl schema shared` → `datastore` → `model` → `editor-core` → `office-text`
+> `office-controls` → `extensions` → `office-editor-ui` `office-word` → `office-note` `office-slides`
+> → `office-site`.
+>
+> **제품끼리의 변은 아홉에서 셋으로** 줄었고 남은 셋 중 하나는 의도한 것.
+
 **Phase 2 — split the editing layer.** Separate "any product" from "a text
 product" inside `editor-core`. *Done when* a package can use commands, history
 and transactions without importing anything about a caret.
@@ -187,6 +219,21 @@ and transactions without importing anything about a caret.
 **Phase 3 — a second product.** A page builder, on the DOM renderer, sharing the
 shell. *Done when* the shell in `apps/` belongs to no product, and when a
 feature added to the kit appears in both.
+
+> **2026-09-04 — 제품은 넷이고, 셸은 아직 앱에 있습니다.** `office-word`·`office-slides`·`office-site`·
+> `office-note`. 마지막 하나가 이 조건을 통과한 유일한 제품이다: 자기 뷰와 툴바를 패키지에 갖고 있어서
+> `apps/note` 는 `<NoteEditor editor rootId />` 한 줄로 마운트한다. 나머지 셋은 크롬 **33,595줄**이 앱에
+> 있다(inspector 2,343 · overlay 1,997 · rail 1,483 · app 1,832 …).
+>
+> **재보고 방향을 정한 것:** 옮길 것을 *중복이라서* 고르면 안 된다. 이름으로도 내용으로도 훑었고, 리본
+> 셋과 `/` 메뉴와 팝오버 자리잡기 말고는 앱을 가로지르는 중복이 **없다**. 기준은 하나여야 한다 — *남의
+> 앱에 이 편집기를 넣으려면 무엇이 같이 가야 하나.* 그 기준으로는 하나도 안 겹쳐도 다 가야 하고, 그건
+> 크기의 문제지 중복의 문제가 아니다.
+>
+> **렌더러 레지스트리가 짝이다.** 크롬을 옮겨도 렌더러가 전역이면 두 제품이 한 화면에 못 선다 — Word 가
+> 사이트의 렌더러 **125개 중 117개**를 덮는 것을 쟀다. `intoRegistry` 가 쓰는 쪽에 범위를 주는 한 줄이고,
+> 나머지(`EditorViewDOM → DOMRenderer → VNodeBuilder`, `{global:false}` 의 전역 대체)는 이미 다 엮여
+> 있었다.
 
 **Phase 4 — publish.** Versioning, a stability promise for `dsl` and `schema`,
 and documentation aimed at somebody who has not read this repository. *Done
@@ -197,6 +244,44 @@ document should have answered.
 is days rather than months, and let that decide whether the shaping engine is
 worth building. *Done when* the decision is made on evidence rather than on
 appetite.
+
+### 지금 손에 잡히는 순서 — 2026-09-04
+
+로드맵의 단계는 몇 달짜리다. 이건 그 안에서 **다음에 손댈 것**이고, 하나씩 지워 가며 쓴다. 각 줄은
+`BACKLOG.md` 의 항목 하나를 가리키고, *왜* 는 거기 있다.
+
+- [ ] **`Shift+→` 가 블록을 넘으면 모델 범위가 뒤집힌다** (`:10` → `:6`, `direction: 'forward'` 인 채로).
+      DOM 선택은 비어 있다. 이번에 고친 넷과 같은 자리이고 다섯 번째다 — `docs/specs/selection.md`.
+- [ ] **두 끝이 형제가 아닌 범위** — 인용문 안에서 바깥으로 — 는 글자만 맞고 블록은 떨어진 채 둔다.
+      *어느 컨테이너가 살아남아야 하는가* 를 정해야 한다.
+- [ ] **관리 화면 둘:** 컴포넌트 탭이 이름 목록이라 썸네일 카드여야 하고, 데이터 탭의 행 편집 Drawer 가
+      다른 도구와 겹친다.
+- [ ] **크롬 이주의 다음 조각.** 되돌리기 쉬운 것부터: `page-frame`(307, 오버레이와 이미 갈랐다) →
+      `rail`(1,483) → `inspector`(2,343) → `overlay`(1,997, 좌표를 읽으니 마지막).
+      `office-site` 가 React 를 갖게 되는 첫 걸음이다.
+- [ ] **`createWordTables`(508줄)와 `frameCss`** 를 제자리로. 제품끼리의 마지막 두 변.
+- [x] ~~**엔진의 순환 셋** — Phase 1.~~ **끝.** 둘이 유령이었고 하나는 타입만이었다. 유령 열넷을 걷고
+      `dependency-graph.test.ts` 로 못 박았다. 큰 일이라고 본 것이 틀렸다 — 로드맵이 맞았다.
+- [ ] **셀 병합·분할.** `mergeTableCells`·`splitTableCell` 이 모델에 있고 세 제품이 `mergeCells` 로 닿는데
+      본문에는 셀 두 개를 고르는 제스처가 없다(`three-agree.test.ts` 에 면제로 적혀 있다).
+
+**끝난 것을 지우지 말고 `BACKLOG.md` 의 Done 으로 옮긴다** — 놀란 것과 함께. 그게 다음 사람이 다시
+발견하지 않을 유일한 방법이다.
+
+### 그리고 검사 결과를 읽는 법
+
+이번 회차에 **같은 종류로 두 번** 속았다. 둘 다 요약의 마지막 줄을 읽은 결과다.
+
+| 도구 | 마지막 줄 | 그 위에 있는 것 |
+|---|---|---|
+| `playwright --reporter=line` | `364 passed` | `10 failed` |
+| `vitest run` | `Tests 458 passed` | `Test Files 4 failed` — 파일이 **열리지 않은** 것 |
+
+두 번째가 더 나쁘다: 실패 개수가 **0** 이고 검사 개수만 조용히 줄어든다. `conformance` 의
+`dependency-graph.test.ts` 가 이제 그것을 묻지만, 사람이 읽을 때도 규칙은 하나다 — **실패 줄을 먼저 세고,
+통과 줄은 그다음에 읽는다.**
+
+---
 
 Phases 1 and 2 are small and unblock everything after them. Phase 5 should not
 start before phase 3 finishes: a second product is what proves the core is a
