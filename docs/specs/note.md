@@ -52,7 +52,7 @@ Measured at runtime:
 | of those, **added by note** | **2** — `Tab`, `Shift+Tab` |
 | toolbar rows | 15 |
 | block kinds a body admits | 10 |
-| browser tests | **21** |
+| browser tests | **22** |
 
 **Three nodes and two keys is the whole of what this product is.** Word declares
 108 node types and 71 keybindings. The distance between those two numbers is the
@@ -128,7 +128,7 @@ keyboard's route differ, the button hides the defect**, and the defect was in
 
 ## What the seam actually cost
 
-`office-note` is **2,079 lines** and `apps/note` is **257**. For comparison, the chrome
+`office-note` is **2,373 lines** and `apps/note` is **257**. For comparison, the chrome
 still living in the other three apps is **35,727 lines**.
 
 Note is the only product that passes the roadmap's Phase 3 condition — *the shell
@@ -147,8 +147,22 @@ survives it.
 
 In the order the measurements put it:
 
-1. **Dragging a held block to move it.** Up and down are buttons; there is no
-   drag. `shared/gesture.ts` now exists, so this is small.
+1. ~~**Dragging a block to move it.**~~ **Done, and the first design was wrong.** The grip went in
+   the held-block strip, beside the up and down buttons, which looked consistent. Measured: **a
+   paragraph is never held** — clicking one places the caret (`holdsWriting`), and the strip appears
+   only for blocks that hold no caret, like a picture or a table. The block a reader most wants to
+   move is a paragraph. So the strip cannot be this gesture's home; the grip sits **on the block**,
+   for the block that is held *or* has the caret.
+
+   The second thing measured: the grip was first placed 18px **left of** the body, and the topmost
+   element at that point was the **host app's shell**. It drew and the pointer never reached it. An
+   editor that mounts inside somebody else's app cannot know what is outside its own box, so it makes
+   its own left margin and stands inside it.
+
+   **That margin is a coupling worth naming.** `apps/site` mounts this very view inside its row
+   drawer (`data-editor.tsx`), so 20px of left padding here is 20px less content width *there*. The
+   site's 283 browser tests pass with it, so nothing measurable broke — but it is a change this
+   package makes to a host's layout, and a host that cannot afford it has no way to say so today.
 2. **The service layer, which is most of what *standalone CMS* means.** A list of
    posts, storage, publishing, an author. Measured at roughly zero across the
    repository, not just here — `TECHNICAL-ROADMAP.md` §2.4.

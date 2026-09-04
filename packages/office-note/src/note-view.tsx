@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { dragGesture } from '@barocss/shared';
+import { reorderIndexAt } from '@barocss/office-canvas';
 import type { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Controls, SlashMenu, useEditorRevision } from '@barocss/office-editor-ui';
@@ -71,6 +73,78 @@ export function NoteEditor({
    */
   const [cell, setCell] = useState<string | undefined>(undefined);
 
+  /**
+   * **끌어 옮기는 중에 어디로 갈지** — 블록 사이의 자리, 아니면 `undefined`.
+   *
+   * 위(`NoteEditor`)에 있는 이유는 `picked` 와 같다: 둘이 봐야 한다. 스트립이 손잡이를 그리고 본문이
+   * 선을 그리므로, 둘 사이에 상태가 있으면 *어디로 가나* 에 답이 둘이 된다.
+   *
+   * 자리이지 `y` 가 아니다. `y` 를 들고 있으면 본문이 스크롤되거나 다시 그려질 때 선이 손가락에서
+   * 떨어지고, 그때 화면과 놓일 자리가 어긋난다. 자리에서 `y` 는 다시 셀 수 있고 그 반대는 안 된다.
+   */
+  const [landing, setLanding] = useState<number | undefined>(undefined);
+  /**
+   * **캐럿이 든 블록** — 손잡이가 문단에도 뜨게 하는 것.
+   *
+   * `picked` 와 따로 있는 이유는 둘이 다른 상태이기 때문이다: 문단은 잡히지 않고 캐럿만 들어가고,
+   * 그림은 캐럿을 담지 않고 잡히기만 한다. 하나로 합치면 *무엇이 선택됐나* 에 답이 둘이 된다 —
+   * 이 파일이 `picked` 와 `cell` 을 따로 둔 것과 같은 이유다.
+   */
+  const [writing, setWriting] = useState<string | undefined>(undefined);
+  const body = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * **본문의 블록들과 그 상자** — 제스처가 자리를 세는 데 필요한 것.
+   *
+   * `data-bc-sid` 가 붙은 **직계** 자식만 센다: 본문의 블록은 note 의 자식이고, 그 안의 런과 셀도
+   * sid 를 갖기 때문에 `querySelectorAll` 로 전부 걷으면 문단 안의 글자가 자리 후보가 된다.
+   */
+  const blocksNow = (): { sid: string; box: { x: number; y: number; width: number; height: number } }[] => {
+    const rows = blockRowsIn(body.current, rootId);
+    return rows.map((one) => {
+      const box = one.getBoundingClientRect();
+      return { sid: one.getAttribute('data-bc-sid')!, box: { x: box.x, y: box.y, width: box.width, height: box.height } };
+    });
+  };
+
+  /**
+   * 손잡이를 잡은 것 — 그리고 이 제스처가 답하는 세 가지.
+   *
+   * 자리는 `reorderIndexAt` 이 센다(`office-canvas`, `column`). 그 함수는 **옮기는 것을 빼고** 세고,
+   * 그게 `moveNode` 가 하는 일과 같아서 두 번 보정하지 않는다.
+   *
+   * `abort` 가 있으므로 Escape 로 물러설 수 있고, 취소돼도 표시선이 남지 않는다 — 그것이
+   * `dragGesture` 를 쓰는 이유다.
+   */
+  const grab = (event: React.PointerEvent) =>
+    void dragGesture(event, {
+      start: (pointer) => {
+        pointer.stopPropagation();
+        /*
+         * 손잡이가 그려진 그 블록. `picked ?? writing` 을 여기서 다시 읽지 않고 요소에서 읽는 것은,
+         * 손잡이가 보이는 것과 끌리는 것이 같아야 하기 때문이다 — 둘을 각자 계산하면 다시 그려지는
+         * 사이에 어긋날 수 있다.
+         */
+        const sid = (pointer.currentTarget as HTMLElement)?.getAttribute?.('data-note-grip') ?? undefined;
+        if (!sid) return null;
+        return { sid, items: blocksNow() };
+      },
+      move: (held, moved) => {
+        const at = reorderIndexAt(held.items, { x: moved.x, y: moved.y }, 'column', held.sid);
+        setLanding(at < 0 ? undefined : at);
+      },
+      done: (held, moved) => {
+        setLanding(undefined);
+        if (!moved.dragged) return;
+        const at = reorderIndexAt(held.items, { x: moved.x, y: moved.y }, 'column', held.sid);
+        if (at < 0) return;
+        /* 같은 자리면 명령이 거부한다 — 히스토리에 아무 일도 아닌 항목을 만들지 않는다. */
+        void editor.executeCommand('moveNoteBlockTo', { nodeId: held.sid, at });
+      },
+      /* 물러서면 문서는 아무 말도 못 듣고 선만 걷힌다. */
+      abort: () => setLanding(undefined)
+    });
+
   return (
     <div className={['on-note', className].filter(Boolean).join(' ')} data-note-editor={rootId}>
       {/*
@@ -85,17 +159,33 @@ export function NoteEditor({
           And **what the held block is asked**, which appears only when one is held. A second row that
           was always there would be a row of nothing for the ninety per cent of a body that is words.
         */}
-        {picked ? <NoteBlockBar editor={editor} sid={picked} cell={cell} onFile={onFile} /> : null}
+        {picked ? (
+          <NoteBlockBar editor={editor} sid={picked} cell={cell} onFile={onFile} />
+        ) : null}
       </TipProvider>
-      <NoteBody
-        editor={editor}
-        rootId={rootId}
-        picked={picked}
-        onPicked={(sid, at) => {
-          setPicked(sid);
-          setCell(at);
-        }}
-      />
+      <div className="on-body-hold" ref={body}>
+        <NoteBody
+          editor={editor}
+          rootId={rootId}
+          picked={picked}
+          onPicked={(sid, at) => {
+            setPicked(sid);
+            setCell(at);
+          }}
+          onWriting={setWriting}
+        />
+        {/*
+          **손잡이** — 잡힌 블록이 있으면 그것, 없으면 캐럿이 든 블록. 둘 다 없으면 아무것도 없다.
+          잡힘을 먼저 보는 것은 그것이 더 좁은 답이기 때문이다: 표의 셀에 캐럿이 있으면서 표가
+          잡혀 있을 수 있고, 그때 옮기려는 것은 표다.
+        */}
+        <NoteGrip sid={picked ?? writing} rootId={rootId} hold={body} onGrab={grab} />
+        {/*
+          **어디로 갈지 그리는 선.** 자리에서 `y` 를 다시 세므로, 본문이 다시 그려져도 선이 블록
+          사이에 남는다 — 자리를 들고 있는 것의 값이 이것이다.
+        */}
+        <NoteLanding at={landing} rootId={rootId} hold={body} />
+      </div>
       {/*
         And the `/` menu, which is this package's for the reason the bar is: the host's surface
         listens to the host's editor, and a body's caret is no longer that one. Typing `/` in a post
@@ -277,6 +367,112 @@ function TablePick({
  * The rows come from `NOTE_FIELDS`, keyed by the kind of block. A kind with no row is a block a
  * reader can hold and do nothing with, which a check can now count.
  */
+/**
+ * **끌어 옮기는 손잡이** — 블록의 왼쪽에, 지금 그 블록에 있을 때만.
+ *
+ * ## 스트립에 두려다 재보고 옮겼다
+ *
+ * 첫 판은 손잡이를 잡은 블록의 스트립에 뒀다 — 위/아래 단추가 이미 거기 있으므로 일관돼 보였다.
+ * **문단은 잡히지 않는다는 것을 재고 알았다**: 클릭하면 캐럿이 들어가고(`holdsWriting`), 스트립은
+ * 그림·표·규칙선처럼 캐럿을 담지 않는 블록에만 뜬다. 그런데 독자가 가장 옮기고 싶은 것은 문단이다.
+ * 그래서 스트립은 이 제스처의 집이 될 수 없다.
+ *
+ * ## 그러면 *지금 그 블록* 은 무엇인가
+ *
+ * 둘 중 하나다 — **잡힌 블록**(그림·표)이거나 **캐럿이 든 블록**(문단·제목). 호버로 정하는 것이
+ * 노션의 방식이고 더 부드럽지만, 그건 본문 전체의 포인터를 듣는 일이고 검사가 결정적이지 않다.
+ * 캐럿과 잡힘은 둘 다 이미 있는 상태이고 둘 다 시험할 수 있다 — 호버는 나중에 얹을 수 있는 편의다.
+ *
+ * 위치는 그릴 때 센다. 자리를 상태로 들고 `y` 를 다시 세는 것과 같은 이유다: 본문이 다시 그려지거나
+ * 스크롤되면 들고 있던 좌표가 블록에서 떨어진다.
+ */
+function NoteGrip({
+  sid,
+  rootId,
+  hold,
+  onGrab
+}: {
+  sid?: string;
+  rootId: string;
+  hold: React.RefObject<HTMLDivElement | null>;
+  onGrab: (event: React.PointerEvent) => void;
+}) {
+  if (!sid) return null;
+
+  const row = blockRowsIn(hold.current, rootId).find((one) => one.getAttribute('data-bc-sid') === sid);
+  if (!row) return null;
+
+  const box = row.getBoundingClientRect();
+  const around = hold.current?.getBoundingClientRect();
+
+  return (
+    <span
+      className="on-grip"
+      role="button"
+      tabIndex={-1}
+      aria-label="끌어 옮기기"
+      data-note-grip={sid}
+      /*
+       * **안쪽에 선다.** 첫 판은 `left: -18` 로 본문 왼쪽 **바깥**에 뒀고, 재보니 그 자리의 최상위
+       * 요소가 호스트 앱의 껍데기(`DIV.an-shell`)였다 — 손잡이는 그려지는데 포인터가 닿지 않는다.
+       * 남의 앱에 얹히는 편집기가 자기 상자 밖에 무엇이 있는지 알 수 없으므로, **자기 안**에 서는
+       * 것이 이 패키지가 지킬 수 있는 유일한 답이다. `.on-body-hold` 의 왼쪽 여백이 그 자리다.
+       */
+      style={{ top: box.top - (around?.top ?? 0) + 2, left: 2 }}
+      onPointerDown={onGrab}
+    />
+  );
+}
+
+/**
+ * **본문의 블록들, 그려진 순서로.**
+ *
+ * 길이 두 층 깊다: `[data-note-body]` 안에 뷰의 층들이 있고(`content`·`decorators`·`selection`…),
+ * 글이 든 것은 `content` 이며, 그 안의 **`on-doc` 이 note 노드**다. 블록은 그 자식이다.
+ *
+ * 처음엔 `firstElementChild` 를 두 번 타지 않고 한 번만 타서 `on-doc` 하나를 블록으로 셌다 — 그래서
+ * 자리가 언제나 0이었다. 검사가 *본문에 블록이 셋 이상 있어야 한다* 로 먼저 막았고, 그게 이 함수가
+ * 생긴 이유다: 같은 걷기를 두 곳(제스처와 선)이 필요로 하고, 한쪽만 고치면 선과 놓일 자리가 어긋난다.
+ *
+ * `data-bc-sid` 로 거르는 것은 그리기용 상자를 빼기 위해서다 — 모델의 노드만 자리가 될 수 있다.
+ */
+function blockRowsIn(hold: HTMLElement | null, rootId: string): Element[] {
+  const body = hold?.querySelector(`[data-note-body="${rootId}"]`);
+  const doc = body?.querySelector('.on-doc');
+  return [...(doc?.children ?? [])].filter((one) => one.hasAttribute('data-bc-sid'));
+}
+
+/**
+ * **블록 사이에 그어지는 선** — 놓으면 여기다.
+ *
+ * 자리(`at`)를 받아 `y` 를 **그릴 때** 센다. `y` 를 받아 두면 본문이 다시 그려지거나 스크롤될 때 선이
+ * 제자리에 남지 못하고, 그러면 화면이 말하는 자리와 놓일 자리가 달라진다 — 드래그가 낼 수 있는 결함
+ * 중 독자가 가장 설명하기 어려운 것이다.
+ *
+ * `at === blocks.length` 는 *마지막 뒤* 이고 그때는 마지막 블록의 아래를 쓴다. 그 자리가 없으면
+ * 아무것도 그리지 않는다 — 빈 본문에는 옮길 것도 없다.
+ */
+function NoteLanding({
+  at,
+  rootId,
+  hold
+}: {
+  at?: number;
+  rootId: string;
+  hold: React.RefObject<HTMLDivElement | null>;
+}) {
+  if (at === undefined) return null;
+
+  const rows = blockRowsIn(hold.current, rootId);
+  if (rows.length === 0) return null;
+
+  const box = hold.current?.getBoundingClientRect();
+  const edge = at >= rows.length ? rows[rows.length - 1].getBoundingClientRect().bottom : rows[at].getBoundingClientRect().top;
+  const top = edge - (box?.top ?? 0);
+
+  return <div className="on-landing" data-note-landing={at} style={{ top }} />;
+}
+
 function NoteBlockBar({
   editor,
   sid,
@@ -443,12 +639,22 @@ function NoteBody({
   editor,
   rootId,
   picked,
-  onPicked
+  onPicked,
+  onWriting
 }: {
   editor: Editor;
   rootId: string;
   picked: string | undefined;
   onPicked: (sid: string | undefined, cell?: string) => void;
+  /**
+   * **캐럿이 든 블록** — 손잡이가 문단에도 뜨게 하는 것.
+   *
+   * 모델의 선택에서 세지 않고 **그려진 것에서** 센다: 캐럿이 든 런의 sid 를 받아 위로 걸어 `on-doc`
+   * 의 자식까지 가는 것이 모델을 걷는 것과 같은 답을 주고, 여기에는 이미 그 DOM 이 있다. 그리고 이
+   * 회차에 배운 것 하나 — 모델의 선택은 클릭 때 안 따라올 수 있다(`selectionchange` 가 안 뜨는
+   * 자리가 있다). 그려진 것은 늘 지금이다.
+   */
+  onWriting?: (sid: string | undefined) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
@@ -637,6 +843,24 @@ function NoteBody({
     for (const one of held.querySelectorAll('[data-note-picked]')) one.removeAttribute('data-note-picked');
     if (picked) held.querySelector(`[data-bc-sid="${picked}"]`)?.setAttribute('data-note-picked', 'true');
   }, [picked, revision]);
+
+  /**
+   * **캐럿이 어느 블록에 있나** — 그려진 것에서 걸어 올라가 센다.
+   *
+   * `revision` 에 매달려 있으므로 캐럿이 움직이거나 본문이 다시 그려질 때마다 다시 센다. 문서의
+   * 선택이 아니라 **DOM 의 선택**을 읽는 것은 위의 주석대로다.
+   */
+  useEffect(() => {
+    if (!onWriting) return;
+    const held = box.current;
+    const doc = held?.querySelector('.on-doc');
+    const anchor = doc?.ownerDocument?.getSelection?.()?.anchorNode ?? null;
+    if (!doc || !anchor || !doc.contains(anchor)) return void onWriting(undefined);
+
+    let at: Element | null = anchor.nodeType === Node.ELEMENT_NODE ? (anchor as Element) : anchor.parentElement;
+    while (at && at.parentElement !== doc) at = at.parentElement;
+    onWriting(at?.getAttribute('data-bc-sid') ?? undefined);
+  }, [onWriting, revision, picked]);
 
   return (
     <div className="on-body" ref={box}>

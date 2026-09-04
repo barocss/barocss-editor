@@ -58,12 +58,14 @@
     "@barocss/editor-view-dom": "workspace:*",
     "@barocss/extensions": "workspace:*",
     "@barocss/model": "workspace:*",
-    "@barocss/office-editor-ui": "workspace:*",
+    "@barocss/office-canvas": "workspace:*",
     "@barocss/office-controls": "workspace:*",
+    "@barocss/office-editor-ui": "workspace:*",
     "@barocss/office-icons": "workspace:*",
     "@barocss/office-text": "workspace:*",
     "@barocss/office-ui": "workspace:*",
-    "@barocss/schema": "workspace:*"
+    "@barocss/schema": "workspace:*",
+    "@barocss/shared": "workspace:*"
   },
   "devDependencies": {
     "@barocss/office-site": "workspace:*",

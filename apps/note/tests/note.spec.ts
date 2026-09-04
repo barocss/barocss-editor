@@ -625,6 +625,95 @@ test.describe('a note on its own', () => {
     expect(await cells().count(), '마지막 칸에서 Tab 이 표를 늘리지 않았습니다').toBe(6);
   });
 
+  /**
+   * **잡은 블록을 끌어서 옮긴다** — 위/아래 단추가 한 칸씩 하던 것을 한 번에.
+   *
+   * **손잡이는 블록의 왼쪽에 있고, 스트립이 아니다.** 첫 판은 스트립에 뒀다 — 위/아래 단추가 거기
+   * 있으므로 일관돼 보였다. 재보고 알았다: **문단은 잡히지 않는다.** 클릭하면 캐럿이 들어가고
+   * (`holdsWriting`), 스트립은 그림·표처럼 캐럿을 담지 않는 블록에만 뜬다. 그런데 독자가 가장
+   * 옮기고 싶은 것은 문단이다. 이 검사가 *손잡이가 없습니다* 로 그것을 먼저 말했다.
+   *
+   * 자리는 `reorderIndexAt`(`office-canvas`, `column`)이 센다. 그 함수는 **옮기는 것을 빼고** 세고,
+   * 그게 `moveNode` 가 하는 일과 같아서 두 번 보정하지 않는다.
+   */
+  test('drags a held block to a new place, and Escape puts it back', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 1400 });
+    await ready(page);
+    const held = page.locator('[data-case="post"]');
+    const body = held.locator('[data-note-body]');
+
+    /** 본문의 블록들을 글자로 — 순서가 바뀌었는지 읽는 유일한 정직한 방법. */
+    const order = async () =>
+      (await body.evaluate((el) => {
+        /* 블록은 뷰의 콘텐츠 층 안, `on-doc`(= note 노드)의 자식이다 — 두 층 깊다. */
+        const doc = el.querySelector('.on-doc');
+        return [...(doc?.children ?? [])]
+          .filter((one) => one.hasAttribute('data-bc-sid'))
+          .map((one) => (one.textContent ?? '').replace(/\uFEFF/g, '').slice(0, 12));
+      })) as string[];
+
+    const before = await order();
+    expect(before.length, '본문에 블록이 셋 이상 있어야 이 검사가 뜻을 갖습니다').toBeGreaterThan(2);
+
+    /* 첫 블록에 캐럿을 넣는다 — 그러면 그 블록 옆에 손잡이가 선다. */
+    await body.locator('.on-doc > [data-bc-sid]').first().click();
+    await page.waitForTimeout(350);
+    const grip = held.locator('[data-note-grip]');
+    await expect(grip, '캐럿이 든 블록에 손잡이가 없습니다').toHaveCount(1);
+    expect(
+      await grip.getAttribute('data-note-grip'),
+      '손잡이가 캐럿이 든 블록의 것이 아닙니다'
+    ).toBe(await body.locator('.on-doc > [data-bc-sid]').first().getAttribute('data-bc-sid'));
+
+    const from = await grip.boundingBox();
+    const third = await body.locator('.on-doc > [data-bc-sid]').nth(2).boundingBox();
+    expect(from && third, '손잡이와 셋째 블록이 그려지지 않았습니다').toBeTruthy();
+
+    /* 셋째 블록의 아래쪽 절반으로 끈다 — 그 아래가 놓일 자리다. */
+    await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(third!.x + third!.width / 2, third!.y + third!.height * 0.75, { steps: 10 });
+    await page.waitForTimeout(150);
+
+    /* 끄는 동안 놓일 자리에 선이 있어야 한다 — 없으면 독자는 어디로 가는지 모른다. */
+    await expect(held.locator('[data-note-landing]'), '놓일 자리를 그리는 선이 없습니다').toHaveCount(1);
+
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    await expect(held.locator('[data-note-landing]'), '놓은 뒤에 선이 남았습니다').toHaveCount(0);
+
+    const after = await order();
+    expect(after.length, '블록이 사라지거나 늘었습니다').toBe(before.length);
+    expect(after, '순서가 바뀌지 않았습니다').not.toEqual(before);
+    expect(after[0], '첫 블록이 그대로 첫 자리에 있습니다').not.toBe(before[0]);
+    expect(after.includes(before[0]), '끌던 블록이 사라졌습니다').toBe(true);
+
+    /**
+     * **Escape 로 물러선다.** `dragGesture` 의 `abort` 가 그것이고, 그게 없으면 되돌릴 방법 없이
+     * 미리 보기만 끊겨 화면이 거짓말을 한다.
+     */
+    const now = await order();
+    await body.locator('.on-doc > [data-bc-sid]').first().click();
+    await page.waitForTimeout(350);
+    const again = await held.locator('[data-note-grip]').boundingBox();
+    const last = await body.locator('.on-doc > [data-bc-sid]').last().boundingBox();
+
+    await page.mouse.move(again!.x + again!.width / 2, again!.y + again!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(last!.x + last!.width / 2, last!.y + last!.height * 0.75, { steps: 10 });
+    await page.waitForTimeout(150);
+    await expect(held.locator('[data-note-landing]')).toHaveCount(1);
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    await expect(held.locator('[data-note-landing]'), 'Escape 뒤에 선이 남았습니다').toHaveCount(0);
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+
+    expect(await order(), 'Escape 로 물러섰는데 순서가 바뀌었습니다').toEqual(now);
+  });
+
   test('offers every held block what it needs, and nothing it does not', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (one) => errors.push(String(one).slice(0, 140)));
