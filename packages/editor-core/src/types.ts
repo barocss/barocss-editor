@@ -197,8 +197,27 @@ export function fromDOMSelection(
     };
   }
   
-  // Multiple nodes case
-  const compare = compareNodeOrder ?? ((a, b) => a.localeCompare(b));
+  /**
+   * **두 노드에 걸친 경우 — 어느 쪽이 문서에서 앞인가.**
+   *
+   * 예전 기본값은 `(a, b) => a.localeCompare(b)` 였다. sid 를 **문자열로** 비교한 것이고, 그건 문서
+   * 순서가 아니다. sid 는 `note-c0huyw:9` 처럼 접두어와 숫자로 되어 있어서 자리수가 넘어가는 순간
+   * 사전순이 뒤집힌다 — `"9"` 가 `"11"` 보다 크다. 그리고 그 결과가 `startNodeId` 와 `endNodeId` 를
+   * **맞바꾼다.**
+   *
+   * 그게 `Shift+→` 로 문단을 넘을 때 범위가 뒤집히던 원인의 절반이었다. 서른세 번째 누름에서 모델이
+   * `3:0 → 1:25` 이 됐고, `direction` 은 여전히 `forward` 이고, DOM 쪽은 `setEnd` 가 시작보다 앞인
+   * 끝을 받아 **접혔다** — 화면에 표시가 없고 그 상태의 굵게는 아무 일도 안 한다. 자리수를 넘지 않는
+   * 동안은 우연히 맞아서, 짧은 문서에서는 재현되지 않는다.
+   *
+   * **기본값은 이제 *준 순서를 믿는 것*이다.** 이 함수의 실제 호출자 셋은 모두 `range.startContainer`
+   * 와 `range.endContainer` 를 넘기고, DOM `Range` 의 두 끝은 **정의상 문서 순서**다. 그러니 정렬할
+   * 것이 없다. anchor/focus 를 넘기는 호출자(뒤로 고른 선택을 구분해야 하는 쪽)는 `compareNodeOrder`
+   * 를 주면 되고, 그것이 이 인자가 있는 이유다.
+   *
+   * 문자열 비교로 돌아가지 않는다: 모르는 채로 틀리게 정렬하는 것보다 준 대로 두는 것이 낫다.
+   */
+  const compare = compareNodeOrder ?? (() => -1);
   const order = compare(anchorId, focusId);
   const isForward = order <= 0;
   const startNodeId = isForward ? anchorId : focusId;

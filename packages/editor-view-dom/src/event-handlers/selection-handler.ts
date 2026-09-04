@@ -341,39 +341,79 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       if (idx >= 0) return isEnd ? runs.runs[idx].end : runs.runs[idx].start;
       return 0;
     }
-    // If Element node: search for text node closest to boundary based on child index
+    // 요소 경계: 자식 색인이 가리키는 자리가 어느 런의 앞인지 뒤인지로 정한다.
     const el = container as Element;
-    const boundaryText = this.findTextAtElementBoundary(containerEl, el, offset, isEnd);
-    if (boundaryText) {
-      const entry = runs.byNode?.get(boundaryText);
-      if (entry) return isEnd ? entry.end : entry.start;
-    }
-    // If no text, snap to container start/end
-    return isEnd ? runs.total : 0;
+    return this.modelOffsetAtElementBoundary(containerEl, el, offset, runs, isEnd);
   }
 
-  private findTextAtElementBoundary(containerEl: Element, el: Element, offset: number, isEnd: boolean): Text | null {
-    const walker = document.createTreeWalker(containerEl, NodeFilter.SHOW_TEXT);
+  /**
+   * **경계가 요소일 때의 모델 오프셋** — `Shift+→` 가 블록을 넘으면 범위가 뒤집히던 그 자리.
+   *
+   * 브라우저는 문단 경계를 넘을 때 focus 를 텍스트 노드가 아니라 **요소**에 둔다: `focusNode` 가
+   * 다음 문단이고 `focusOffset` 이 `0` — *첫 자식 앞* 이라는 뜻이다. 여기서 나와야 하는 답은 그
+   * 문단의 글자 오프셋 `0` 이다.
+   *
+   * ## 두 겹의 같은 실수
+   *
+   * 전에는 답을 `isEnd` 가 골랐다 — `isEnd ? 런의 끝 : 런의 시작`, 그리고 `isEnd ? 마지막앞 :
+   * 첫뒤`. **`isEnd` 는 *범위의 어느 쪽* 인가이고 *요소 안의 어디* 인가가 아니다.** 요소 안의 어디는
+   * `offset` 이 이미 말한다. 그래서 다음 문단의 맨 앞이 그 문단 **끝**(28)으로 옮겨졌고, 범위는
+   * `1:25 → 2:28` 이 됐다. 다음 누름에서 같은 규칙이 시작 쪽에도 걸려 `3:28 → 1:25` — 문서 순서로
+   * 뒤집혔고, `direction` 은 여전히 `forward` 이고, DOM 범위는 `setEnd` 가 시작보다 앞인 끝을 받아
+   * **접혔다**. 화면에 아무 표시가 없고, 그 상태의 굵게는 아무 일도 안 한다.
+   *
+   * 그리고 비교 자체도 틀렸다. `t.compareDocumentPosition(child)` 로 *`t` 가 경계 앞인가* 를
+   * 물었는데, `child` 가 `t` 를 **포함**하는 흔한 경우(요소 오프셋 0의 자식이 런의 `<span>` 이고
+   * 텍스트 노드가 그 안에 있다)에 `FOLLOWING` 이 서지 않는다. 그래서 안에 있는 텍스트가 *앞* 으로
+   * 세어졌고 `firstAtOrAfter` 는 한 번도 정해지지 않았다. 방향을 뒤집어 `child` 쪽에서 물으면
+   * 포함은 `CONTAINED_BY | FOLLOWING` 이라 한 번에 답이 된다.
+   *
+   * ## 규칙
+   *
+   * 경계가 어떤 런의 **앞**이면 그 런의 시작, 모든 런의 **뒤**면 마지막 런의 끝. `isEnd` 는 글자가
+   * 하나도 없는 그릇에서만 쓰인다 — 그때는 요소 안의 어디라는 말 자체가 성립하지 않는다.
+   */
+  private modelOffsetAtElementBoundary(
+    containerEl: Element,
+    el: Element,
+    offset: number,
+    runs: ContainerRuns,
+    isEnd: boolean
+  ): number {
+    /* `null` 이면 마지막 자식보다 뒤 — 요소의 끝을 가리키는 오프셋이다. */
     const child = el.childNodes.item(offset) || null;
+
+    const walker = document.createTreeWalker(containerEl, NodeFilter.SHOW_TEXT);
     let lastBefore: Text | null = null;
     let firstAtOrAfter: Text | null = null;
-    let t = walker.nextNode() as Text | null;
-    while (t) {
-      if (child) {
-        const pos = (t as any).compareDocumentPosition(child);
-        if (pos & Node.DOCUMENT_POSITION_FOLLOWING) {
-          firstAtOrAfter = t;
-          break;
-        } else {
-          lastBefore = t;
-        }
-      } else {
-        // If no child, offset means end boundary
+
+    for (let t = walker.nextNode() as Text | null; t; t = walker.nextNode() as Text | null) {
+      if (!child) {
         lastBefore = t;
+        continue;
       }
-      t = walker.nextNode() as Text | null;
+      /*
+       * `child` 에서 묻는다. `t` 가 `child` 안이면 `CONTAINED_BY | FOLLOWING`, 뒤면 `FOLLOWING`,
+       * 앞이면 `PRECEDING` — 그래서 `FOLLOWING` 하나로 *경계의 뒤인가* 가 답이 된다.
+       */
+      if (child.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING) {
+        firstAtOrAfter = t;
+        break;
+      }
+      lastBefore = t;
     }
-    return isEnd ? (lastBefore || firstAtOrAfter) : (firstAtOrAfter || lastBefore);
+
+    if (firstAtOrAfter) {
+      const entry = runs.byNode?.get(firstAtOrAfter);
+      if (entry) return entry.start;
+    }
+    if (lastBefore) {
+      const entry = runs.byNode?.get(lastBefore);
+      if (entry) return entry.end;
+    }
+
+    // 글자가 없는 그릇. 여기서만 *범위의 어느 쪽* 인가가 답을 정한다.
+    return isEnd ? runs.total : 0;
   }
 
   private determineSelectionDirection(
