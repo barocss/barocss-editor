@@ -85,18 +85,39 @@ describe('finding where you are', () => {
     expect(slotOf(doc, 'r0-t')).toBeUndefined();
   });
 
-  it('reads the slots in the order they are met', () => {
-    // Numerator before denominator, and the radical's degree before its body —
-    // which is the order OMML stores them in, so a walk gives Word's order with
-    // no table of exceptions.
+  it('reads the slots in the order they are met, and leaves out one nobody can see', () => {
+    /**
+     * Numerator before denominator, and the radical's degree before its body — which is the order
+     * OMML stores them in, so a walk gives Word's order with no table of exceptions.
+     *
+     * **`deg` is not in it**, and that is the radical's `hideDegree`. A square root is written `√`
+     * and not `²√`, so the degree is hidden by default — the renderer says exactly that, and this
+     * walk now says it too. It did not, and the two disagreeing cost a reader their keystroke: Tab
+     * stopped in a slot with `display: none`, a **3** typed into it went nowhere anybody could see,
+     * and two browser checks caught the two halves without either being right alone.
+     *
+     * The slot stays in the **document** either way, so an author who sets `hideDegree: false` gets
+     * it back — in the drawing and in this walk together.
+     */
     expect(slotsOf(doc0(), undefined)).toEqual([]);
     const doc = fractionDoc();
     expect(slotsOf(doc, doc.getNode('m')).map((each) => each.sid)).toEqual([
       'num',
-      'deg',
       'body',
       'den'
     ]);
+  });
+
+  it('puts the degree back when a radical says to show it', () => {
+    /*
+     * The other half, and the reason the slot is never removed from the document: `hideDegree: false`
+     * is a cube root, and its degree is drawn and reachable. One attribute, read the same way by the
+     * renderer and by this walk.
+     */
+    const doc = fractionDoc();
+    const rad = doc.getNode('rad') as { attributes?: Record<string, unknown> };
+    rad.attributes = { ...(rad.attributes ?? {}), hideDegree: false };
+    expect(slotsOf(doc, doc.getNode('m')).map((each) => each.sid)).toEqual(['num', 'deg', 'body', 'den']);
   });
 });
 

@@ -330,6 +330,22 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * until somebody closes it.
        */
       ratchet: { 'every-attribute-is-read': 16, 'every-property-can-be-edited': 184 },
+      /**
+       * **A word processor has no click that selects a block**, which is what this check needs.
+       *
+       * `every-insert-can-be-held` compares what an insert makes against the product's selection
+       * rule — the set of stypes a click may land on — because the same fault had been recorded six
+       * times in the page builder's one such set: a node drawn perfectly and unreachable. Word has
+       * no set to hand over. A reader puts a **caret** somewhere; a paragraph has no edges to drag
+       * and no row in a layer list, and the nineteen types this check names as unanswered are
+       * nineteen things reached by the caret or by a pane of their own.
+       *
+       * `notYet` rather than nineteen exemptions, and rather than silence. It is a deferral that
+       * fails the day Word answers: the canvas half of this product — `frame`, `canvasBlock`,
+       * `rectangle`, `ellipse`, `line` — *does* have boxes a reader points at, so the day that
+       * selection rule is handed over, the deferral is stale and this says so.
+       */
+      notYet: ['every-insert-can-be-held'],
 
       /**
        * Every attribute a reader can **set**, out of Word's two writing surfaces.

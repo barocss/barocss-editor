@@ -44,13 +44,29 @@ export function enclosingMath(doc: DocumentAccess, sid: string | undefined): Doc
 export function slotsOf(doc: DocumentAccess, math: DocumentNode | undefined): DocumentNode[] {
   const out: DocumentNode[] = [];
 
-  const visit = (node: DocumentNode | undefined, depth: number): void => {
+  const visit = (node: DocumentNode | undefined, depth: number, insideHidden: boolean): void => {
     if (!node || depth > 64) return;
-    if (node.sid && MATH_SLOTS.has(String(node.stype))) out.push(node);
-    for (const child of childrenOf(doc, node)) visit(child, depth + 1);
+    if (node.sid && MATH_SLOTS.has(String(node.stype)) && !insideHidden) out.push(node);
+    /**
+     * **숨은 칸은 캐럿이 가는 자리가 아닙니다.**
+     *
+     * A radical with `m:degHide` is written `√` and its degree slot is not drawn — Word's own
+     * behaviour, and this product draws it that way since `hideDegree` started being read. Tab went
+     * on stopping there anyway, so a reader pressed Tab, typed **3**, and the character went into a
+     * slot with `display: none`. Two checks caught the two halves and neither could be right alone:
+     * one asked for the slot to be visible, the other typed into it and found nothing.
+     *
+     * The honest reading is the second one's own words — *a slot the caret can enter and the author
+     * cannot see is a place to lose text in*. So it stops being a place the caret can enter.
+     */
+    const hidden =
+      String(node.stype) === 'mathRadical' && (node as { attributes?: { hideDegree?: unknown } }).attributes?.hideDegree !== false;
+    for (const child of childrenOf(doc, node)) {
+      visit(child, depth + 1, insideHidden || (hidden && String(child.stype) === 'mathDeg'));
+    }
   };
 
-  visit(math, 0);
+  visit(math, 0, false);
   return out;
 }
 

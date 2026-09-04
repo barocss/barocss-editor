@@ -31,7 +31,10 @@ import {
   type ChoiceControl,
   type Control,
   type ControlGroup,
-  type PaletteControl
+  THEME_SWATCHES,
+  type PaletteControl,
+  WORD_TEXT_COLOR,
+  WORD_TEXT_HIGHLIGHT
 } from '@barocss/office-controls';
 import type { StyleResolver } from '@barocss/office-text';
 import type { DocumentNode } from '@barocss/office-text';
@@ -559,78 +562,16 @@ export const WORD_FONT_SIZES: ChoiceControl = {
  * word processor could not change the colour of its text.
  */
 
-/**
- * The colours offered, and why these.
+/*
+ * **글자색과 형광펜은 `office-controls` 로 갔습니다.**
  *
- * Word's own theme colours and its standard row, which is what a reader
- * recognises — and a small set on purpose: a palette of forty is a colour picker
- * with extra steps, and the point of the swatches is that the common answer is
- * one press away. Anything else is the free field beside them.
+ * `PaletteControl` 이 그 패키지의 타입이고, 이 둘은 그 타입의 값입니다 — 스위트의 글자색 컨트롤이지
+ * Word 의 것이 아니고, 데크가 그 둘 때문에 `office-word` 를 의존하고 있었습니다.
+ *
+ * 다시 내보내는 이유는 이 제품의 호출부가 짧은 import 를 유지하기 위해서입니다.
  */
-const THEME_SWATCHES: { value: string; label: string }[] = [
-  { value: '000000', label: 'Black' },
-  { value: '404040', label: 'Dark grey' },
-  { value: '808080', label: 'Grey' },
-  { value: 'D9D9D9', label: 'Light grey' },
-  { value: 'FFFFFF', label: 'White' },
-  { value: 'C00000', label: 'Dark red' },
-  { value: 'FF0000', label: 'Red' },
-  { value: 'ED7D31', label: 'Orange' },
-  { value: 'FFC000', label: 'Yellow' },
-  { value: '70AD47', label: 'Green' },
-  { value: '2F5496', label: 'Dark blue' },
-  { value: '4472C4', label: 'Blue' },
-  { value: '9DC3E6', label: 'Light blue' },
-  { value: 'D9E2F3', label: 'Pale blue' },
-  { value: '7030A0', label: 'Purple' }
-];
+export { WORD_TEXT_COLOR, WORD_TEXT_HIGHLIGHT };
 
-/** The colour of the text itself. */
-export const WORD_TEXT_COLOR: PaletteControl = {
-  id: 'font-color',
-  label: 'Text colour',
-  icon: 'font-color',
-  command: 'setFontColor',
-  key: 'color',
-  clearCommand: 'removeFontColor',
-  markType: 'fontColor',
-  attr: 'color',
-  swatches: THEME_SWATCHES
-};
-
-/**
- * The colour behind the text — the highlighter.
- *
- * Its own swatches: a highlighter's colours are the pen colours, and offering
- * the theme's dark blues as a highlight gives a reader a way to make their own
- * text unreadable in one press. The last is white, which is what a highlighter
- * has instead of nothing when the text sits on a coloured shape.
- *
- * `setHighlight`, not `toggleHighlight`: the toggle takes a colour but toggles,
- * so pressing yellow on green text would take the highlight off rather than
- * turning it yellow. The toggle stays on the toolbar as the one-press
- * highlighter; this is the choice of colour, the same pair as bold and a font.
- */
-export const WORD_TEXT_HIGHLIGHT: PaletteControl = {
-  id: 'highlight-color',
-  label: 'Highlight colour',
-  icon: 'highlight',
-  command: 'setHighlight',
-  key: 'color',
-  clearCommand: 'removeHighlight',
-  markType: 'highlight',
-  attr: 'color',
-  swatches: [
-    { value: 'FFFF00', label: 'Yellow' },
-    { value: 'A5F3A0', label: 'Green' },
-    { value: '7FDBFF', label: 'Turquoise' },
-    { value: 'FF9AD5', label: 'Pink' },
-    { value: 'FFC08A', label: 'Orange' },
-    { value: 'D9D9D9', label: 'Grey' },
-    { value: 'C7B9FF', label: 'Violet' },
-    { value: 'FFFFFF', label: 'White' }
-  ]
-};
 
 /** The colour behind a block of cells. */
 export const WORD_CELL_SHADING: PaletteControl = {

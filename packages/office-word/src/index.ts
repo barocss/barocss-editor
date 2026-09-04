@@ -198,6 +198,11 @@ export {
 export { formatDateField } from '@barocss/office-text';
 export { printCss } from './print';
 export { imageCss, isInFlow, polygonCss, type ImageAttributes, type WrapMode, type WrapSide } from '@barocss/office-text';
+/*
+ * **찾기는 `office-text` 로 갔습니다** — Word 를 하나도 모르는 파일이었고, 데크가 그것 하나 때문에
+ * `office-word` 를 의존하고 있었습니다. 다시 내보내는 이유는 이 제품의 호출부가 짧은 import 를
+ * 유지하기 위해서입니다.
+ */
 export {
   findMatches,
   replaceMatches,
@@ -206,7 +211,7 @@ export {
   step,
   type FindOptions,
   type Match
-} from './find';
+} from '@barocss/office-text';
 export {
   DEFAULT_TAB_INTERVAL,
   leaderStyle,

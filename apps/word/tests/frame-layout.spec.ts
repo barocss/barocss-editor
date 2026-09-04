@@ -21,9 +21,20 @@ import { placeCaret, settled } from './helpers';
  *   flex item is as wide as its contents.
  */
 test.describe('a frame in the document flow', () => {
-  /** Put the caret somewhere ordinary, then insert a frame from the toolbar. */
+  /**
+   * Put the caret somewhere ordinary, then insert a frame from the toolbar.
+   *
+   * **Ordinary means outside a content control**, and it had to be said. The fourth paragraph of the
+   * sample sits inside `ctl-terms`, which declares `lockContent` — so the frame was inserted into a
+   * locked region and its halves came out `contenteditable="false"`. The check then failed on
+   * *cannot type into it*, which was the product being right: a locked control is locked.
+   *
+   * Measured through the ancestor chain — `P.w-paragraph < DIV.w-frame <
+   * DIV.w-content-control[ce=false]` — which is the only way to tell this apart from a frame that
+   * cannot be typed into at all.
+   */
   const insert = async (page: any, label: string) => {
-    await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
+    await placeCaret(page, '.barocss-editor-content p:not(.w-frame p):not(.w-content-control p)', 3);
     await page.getByRole('button', { name: label }).click();
     await expect(page.locator('.w-frame')).toHaveCount(1);
   };

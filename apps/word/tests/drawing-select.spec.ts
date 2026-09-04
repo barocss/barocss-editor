@@ -16,7 +16,14 @@ import { placeCaret, settled } from './helpers';
 const drawTwo = async (page: Page) => {
   await page.goto('/');
   await settled(page);
-  await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
+  /*
+   * **Outside a content control.** The fourth paragraph of the sample sits inside `ctl-terms`, which
+   * declares `lockContent`, so a drawing put there lands in a locked region: Enter makes the line and
+   * the letters after it go nowhere, because nothing in there is editable. The product being right,
+   * read as the product being wrong — `frame-layout.spec.ts` had the same fixture and the same
+   * failure.
+   */
+  await placeCaret(page, '.barocss-editor-content p:not(.w-frame p):not(.w-content-control p)', 3);
 
   await page.locator('[data-control="insert-rectangle"]').click();
   await settled(page);

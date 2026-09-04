@@ -375,6 +375,19 @@ function scaleOf(el: Element): number {
  * is not a page-level block — the table is — and descending into it would
  * paginate the same content twice.
  */
+/**
+ * The bottom space the browser is actually drawing under this block.
+ *
+ * Falls back to the resolved format when the element cannot be asked — a measurement that runs
+ * without a live style, which the tests do.
+ */
+function drawnSpaceAfter(el: HTMLElement, fromFormat: number): number {
+  const view = el.ownerDocument?.defaultView;
+  if (!view?.getComputedStyle) return fromFormat;
+  const said = parseFloat(view.getComputedStyle(el).marginBottom);
+  return Number.isFinite(said) ? said : fromFormat;
+}
+
 export function measureBlocks(
   surfaceEl: HTMLElement,
   doc: DocumentAccess,
@@ -422,7 +435,28 @@ export function measureBlocks(
       lines,
       reserve: reserveFor(refs, options.footnoteHeights ?? new Map(), options.footnoteSeparator ?? 0),
       spaceBefore: suppressed.before ? 0 : px(format.spacingBefore),
-      spaceAfter: suppressed.after ? 0 : px(format.spacingAfter),
+      /**
+       * **아래 여백은 그려진 것을 읽습니다** — 해석된 서식이 아니라.
+       *
+       * The header of this file says spacing is deliberately *not* measured, because the layout
+       * writes `margin-top` as its push and reading it back would feed one pass's output into the
+       * next as input. That is true of the **top** and only of the top: nothing in the layout writes
+       * `margin-bottom`, so reading it is reading what the browser actually drew.
+       *
+       * And the two disagreed. `resolveNode(node, 'paragraph')` answers for **any** block, so a
+       * `contentControl` — a wrapper whose own renderer draws no spacing, because the paragraph
+       * inside it carries its own — was given 8px of `spaceAfter` that the DOM never drew. Two of
+       * them on the sample's first page, **8 + 8 = 16**, and every page after it began exactly 16px
+       * above its own margin: `consumed` ran ahead of the flow by that much, the push that drops the
+       * next page's first block came out 16 short, and seven blocks were drawn into the top margin.
+       *
+       * Measured: `word:22` and `word:24`, `layout 42.7 / dom 34.7` and `57.7 / 49.7`. Every other
+       * block on the page agreed to the pixel, which is what made two of fifteen findable at all.
+       *
+       * `suppressed.after` stays as the guard rather than trusting the DOM alone: it is a fact about
+       * *this* block's neighbours, and a renderer that forgets it would then be invisible here too.
+       */
+      spaceAfter: suppressed.after ? 0 : drawnSpaceAfter(child as HTMLElement, px(format.spacingAfter)),
       breakBefore: format.pageBreakBefore === true || node.stype === 'pageBreak',
       keepNext: format.keepNext === true,
       // A table splits between its rows, which is what its lines are. It used to

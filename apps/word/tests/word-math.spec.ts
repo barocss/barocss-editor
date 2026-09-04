@@ -62,17 +62,29 @@ test.describe('an equation', () => {
     expect(after.numerator).toContain('Z');
   });
 
-  test('shows an empty slot rather than hiding it', async ({ page }) => {
+  test('draws an empty slot the caret can reach, and hides only the one it cannot', async ({ page }) => {
     await page.goto('/');
     await settled(page);
 
-    // The radical's degree is empty — a square root — and Word draws the slot
-    // anyway. A slot the caret can enter and the author cannot see is a place to
-    // lose text in.
+    /**
+     * **A slot the caret can enter and the author cannot see is a place to lose text in** — which is
+     * what this said, and it asked for the wrong half of it.
+     *
+     * A square root is written `√` and not `²√`, so a radical's degree is hidden unless it says
+     * otherwise, and this product draws it that way. The check went on asking for the degree to be
+     * **visible**, and while it failed, Tab still stopped in that hidden slot: a **3** typed there
+     * went into the document and onto no page. Two halves of one bug, and neither check was right
+     * alone.
+     *
+     * So the rule is stated the way it is now true: a hidden degree is not drawn **and** not a stop.
+     * Every other empty slot — a numerator, a denominator — is drawn as a dotted box.
+     */
     const degree = page.locator('.w-math-deg').first();
-    await expect(degree).toBeVisible();
-    const box = await degree.boundingBox();
-    expect(box!.width).toBeGreaterThan(0);
+    await expect(degree).toBeHidden();
+
+    const num = page.locator('.w-math-num').first();
+    await expect(num).toBeVisible();
+    expect((await num.boundingBox())!.width).toBeGreaterThan(0);
   });
 });
 
@@ -106,14 +118,18 @@ test.describe('moving between slots', () => {
     await page.locator('.w-math-num > .w-math-run').first().click();
     await expect.poll(() => slotOfCaret(page)).toBe('mathNum');
 
+    /*
+     * **Past the degree**, which this radical hides — a hidden slot is not a stop. It was one, and
+     * the keystroke a reader spent there went nowhere they could see.
+     */
     await page.keyboard.press('Tab');
-    await expect.poll(() => slotOfCaret(page)).toBe('mathDeg');
+    await expect.poll(() => slotOfCaret(page)).toBe('mathElement');
 
     await page.keyboard.press('Shift+Tab');
     await expect.poll(() => slotOfCaret(page)).toBe('mathNum');
   });
 
-  test('makes a place for the caret in an empty slot', async ({ page }) => {
+  test('makes a place for the caret in an empty slot a reader can see', async ({ page }) => {
     await page.goto('/');
     await settled(page);
 
@@ -133,7 +149,11 @@ test.describe('moving between slots', () => {
       return { caretIn: run?.stype, slot: slot?.stype };
     });
 
-    expect(landed).toEqual({ caretIn: 'inline-text', slot: 'mathDeg' });
+    /*
+     * `mathElement`, not `mathDeg`: this radical hides its degree, and a hidden slot is not a stop.
+     * The empty slot that **is** drawn gets a run made for the caret, which is what this is about.
+     */
+    expect(landed).toEqual({ caretIn: 'inline-text', slot: 'mathElement' });
 
     // And typing there goes there. The caret has to sit *after* the slot's
     // zero-width filler: a position in front of it is not one the browser will
@@ -141,7 +161,7 @@ test.describe('moving between slots', () => {
     await page.keyboard.type('3');
     await page.waitForTimeout(700);
 
-    expect(await page.locator('.w-math-deg').first().textContent()).toContain('3');
+    expect(await page.locator('.w-math-rad .w-math-e').first().textContent()).toContain('3');
   });
 
   test('leaves Tab alone outside an equation', async ({ page }) => {
