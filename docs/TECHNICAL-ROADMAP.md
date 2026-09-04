@@ -14,9 +14,17 @@
 | | 값 | 어떻게 셌나 |
 |---|---|---|
 | 패키지 | 28 (+검사 없는 `office-icons`) | `packages/` |
-| 소스 | 174,710줄 | `packages/*/src/**/*.ts{,x}` |
-| 검사 | 파일 626 · **7,404개, 실패 0** | 패키지별 `vitest run` |
-| 브라우저 검사 | site 283 · word 375 · slide 407 · note 17 | 앱별 Playwright |
+| 소스 | 175,270줄 | `packages/*/src/**/*.ts{,x}` |
+| 단위 검사 | 파일 **607** · **7,473개, 실패 0** | 패키지마다 `vitest run`, 실패+통과 합 |
+| 브라우저 검사 | note 20 · word 374(+1 skip) · slide 407 · site 283 | 앱별 Playwright, **하나씩** 돌린 회차 |
+
+**검사 파일 수를 세는 방법을 적어 두는 이유:** 디스크의 `*.test.ts` 가 607이고 vitest 가 여는 것도
+607이다 — **같아야 하고, 이제 검사가 그것을 지킨다**(`dependency-graph.test.ts`). 전에 적혀 있던
+626은 방법이 달랐고(디스크에서 `.spec.ts` 까지 셌을 가능성) 지금 숫자와 비교할 수 없다. 숫자 옆에
+세는 방법이 없으면 다음 회차에 늘었는지 줄었는지 알 수 없다.
+
+**그리고 브라우저 회차는 하나씩 돌려야 한다.** 세 스위트를 겹쳐 돌리면 회차마다 ~1%가 흔들리고
+흔들리는 시험이 매번 다르다 — `BACKLOG.md` 에 두 회차의 일곱 개가 하나도 겹치지 않은 기록이 있다.
 | 의존 그래프 | **순환 0, DAG**, 층 0~8 | `conformance/test/dependency-graph.test.ts` |
 | 제품 | 4 — Word · Slides · Site · Note | |
 
@@ -54,16 +62,126 @@ MS Office 를 *따라잡는* 것과 *넘어서는* 것은 다른 일이다. 따�
 
 ## 2. 층별로 무엇이 남았나
 
+### 2.0 편집의 기본 구조 — 재고표 (2026-09-04 잰 것)
+
+*"공통으로 쓸 것들을 마련했지만 여전히 되지 않은 것도 있음"* 에 대한 답. 편집기가 있으려면 있어야
+하는 구조를 세어 보고, 있는 것과 **각자 하는 것**과 아예 없는 것으로 갈랐다.
+
+| 구조 | 상태 | 어디 |
+|---|---|---|
+| 키 바인딩 | **공통** | `shared/key-binding.ts`, `key-string.ts` |
+| 포인터 제스처 | **공통** ← 이번에 생김 | `shared/gesture.ts` |
+| 명령 | **공통** | `editor-core/editor.ts` |
+| 히스토리 | **공통** | `editor-core/history-manager.ts` |
+| 트랜잭션 | **공통** | `datastore/transactional-overlay.ts` |
+| IME·조합 | **공통** | `editor-view-dom` — MutationObserver 쪽 |
+| 클립보드 | **공통** | `editor-view-dom`, `extensions/copy-paste.ts` |
+| 선택 | **공통** + 문서 | `editor-core`, `docs/specs/selection.md` |
+| 팝오버 자리잡기 | **공통** | `office-ui/place-near.ts` |
+| 확장점 | **공통** | `extensions/` 56개 |
+| **좌표 변환**(client → 모델) | **각자 셋** | `editor-view-dom/utils/edit-position-converter.ts` 와 `apps/slide/overlay.tsx`·`apps/word/drawing-overlay.tsx` 의 손으로 쓴 `toModel` |
+| **히트 테스트** | **각자** | `apps/slide/overlay.tsx` 하나에만 그 이름이 있고 나머지는 각자 다른 이름 |
+| **스냅·가이드** | **각자** | 슬라이드에 있고 사이트에 없다 |
+| **포커스 소유** | **없다** | 어느 인스턴스가 지금 것인가를 아무도 안 쓴다 |
+| **알림(aria-live)** | **거의 없다** | 발표 화면 둘뿐. 편집 중에는 아무 말도 안 한다 |
+| 외부 드롭(파일) | 셋 | `editor-view-dom`, `editor-view-react`, `apps/site/canvas.tsx` |
+
+#### 제스처 — 스물을 여덟 질문에 대조한 것
+
+`pointerdown` 뒤에 move/up 을 붙이는 자리가 **스물**이고, 같은 질문 여덟 개에 각자 답하고 있었다.
+셋은 답이 하나뿐인데 그 하나를 **한 파일만** 썼다:
+
+| 질문 | 답한 곳 |
+|---|---|
+| `pointercancel` 로 끝날 수 있다 | **스물 중 하나** (`apps/site/grip.tsx`) |
+| 리스너는 요소에 붙는다(`window` 아님) | **스물 중 하나** |
+| Escape 로 되돌린다 | 스물 중 넷 |
+| 오른쪽 버튼은 드래그가 아니다 | 스물 중 둘 |
+
+그리고 이건 정돈이 아니라 **살아 있는 결함**이다. `window` 에 `pointermove` 를 붙이고 `pointerup`
+에서만 걷으면, 브라우저가 `pointercancel` 을 주는 순간 — 터치가 끊기거나, 잡고 있던 요소가 드래그
+도중 DOM 에서 사라지면 — 그 리스너가 window 에 영원히 남는다. 그 뒤로 상관없는 포인터 움직임이 드래그
+계산을 계속 돈다. 화면은 멀쩡하고, 리로드하면 사라지고, 재현 절차를 적을 수 없다.
+
+`shared/gesture.ts` 의 `dragGesture` 가 **`done` 과 `abort` 를 합쳐 정확히 한 번**을 보장하고 어느
+쪽으로 끝나든 리스너를 다 걷는다. 검사가 리스너 수를 직접 센다 — 그 결함은 화면에 안 보이므로 세는
+것 말고 잡을 방법이 없다.
+
+- [x] `office-ui/stack.tsx`, `apps/slide/layer-panel.tsx`, `apps/slide/paint-panel.tsx`
+- [x] `apps/word/ruler.tsx` — **눈에 보이는 결함이 하나 있었다.** React 의 `onPointerMove` 는 버튼을
+      누르지 않아도 오므로, 취소된 드래그 뒤에 `dragging.current` 가 남아 그냥 마우스를 올리기만 해도
+      마커가 따라다녔다. 놓지 않은 드래그가 화면에 남는 것이다.
+- [ ] 남은 열여섯. 위험한 순서로: `slide/overlay`(3) → `slide/timeline`(4) → `word/drawing-overlay`(3)
+      → `site/overlay`(3) → `slide/stage`(2) → `office-text/table-selection-view`
+
+#### 표의 셀 선택 — 있었는데 둘만 닿았다
+
+`installCellSelection` 이 379줄로 있고 `apps/word`·`apps/slide` 가 부른다. 로드맵에는 *"셀 두 개를
+고르는 제스처가 없다"* 고 적혀 있었고, `three-agree.test.ts` 의 면제에는 *"나머지 셋은 표 아래에
+캔버스가 있고 셀을 가로지르는 마퀴가 있지만 본문에는 없다"* 고 적혀 있었다. **둘 다 틀렸다** — 그
+제스처는 마퀴가 아니라 표 안의 드래그이고, 유일한 문제는 그것이 `office-word` 안에 있었다는 것이다.
+찾는 `.w-cell` 도, 칠하는 `[data-cell-selected]` 도 이미 `office-text` 에 있었다 — 셋 중 둘이 저쪽.
+
+그리고 옮기고 나서도 안 됐다: `extensions/table.ts` 의 `_selectedCellRange` 가 **`cell` 선택을 못
+알아봤다.** `cell` 은 이 명령 하나를 위해 모델에 들어간 선택 종류인데 `type !== 'range'` 로 버려졌다.
+Word 에서 되던 것은 `office-word/table-commands.ts` 가 양 끝 셀 id 를 따로 넘겨 준 덕이다.
+
+- [x] `office-text` 로 옮김, `extensions` 가 `cell` 을 알아봄, 노트가 자기 뷰에서 설치(인스턴스마다
+      하나), 노트의 표 도구가 여섯에서 여덟
+- [ ] 사이트가 캔버스에서 설치할지 — **답은 예이고, 방법은 슬라이드의 것이다.** 사이트의 표 검사
+      (`site.spec.ts:4919`)가 `pressTwice(cell)` 로 블록에 들어가 캐럿을 놓는다. 즉 오버레이가 **들어간
+      텍스트 프레임 안에서는 물러선다** — 슬라이드가 *"들어간 상자 안의 드래그가 셀이 포인터의 주제가
+      되는 유일한 상태"* 라고 적어 둔 것과 같은 구조다. 그러면 설치 자리도 같다: 앱의 마운트.
+
+#### 없는 것 셋
+
+- [ ] **포커스 소유 — 그리고 처음 잰 숫자가 틀렸다.** *"`document` 에 keydown 을 거는 자리가 스물둘,
+      인스턴스가 둘이면 둘 다 듣는다"* 고 적었다가 다시 셌다. 스물둘 중 열다섯은 `apps/*` 이고 그
+      제품들은 창마다 편집기가 하나다. 패키지 안, 즉 여러 인스턴스가 가능한 코드에는 **여섯**이고
+      **여섯 다 인스턴스별 상태로 가드한다** — `office-ui` 의 넷은 `if (!open) return`, 노트는
+      `pickedRef.current`, `/` 메뉴는 그 편집기 확장의 `menu?.open`.
+
+      그래서 **살아 있는 결함은 없다.** 없는 것은 *공유된 답* 이다: 여섯이 각자 가드를 쓰고, *가드는
+      이 인스턴스 자신의 상태여야 한다* 는 규칙은 아무 데도 적혀 있지 않으며 아무것도 지키지 않는다.
+      새로 쓰는 전역 리스너가 가드 없이 들어오는 것이 실패 방식이고, 그것을 잡는 검사가 없다.
+      **다음:** 규칙을 적고, `office-ui`/`office-note`/`office-editor-ui` 의 전역 리스너가 다
+      가드를 갖는지 세는 검사를 하나.
+- [ ] **좌표 변환 — 같은 이름으로 서로 다른 질문 둘에 답한다.** 재보니 중복이 문제가 아니었다.
+
+      | 어디 | 무엇을 묻나 | 어떻게 |
+      |---|---|---|
+      | `apps/slide/overlay.tsx` | **이 점**이 모델 좌표로 어디인가 | `(client − rect.origin) / scale` 뒤 px→twips |
+      | `apps/word/drawing-overlay.tsx:269` | **얼마나 움직였나** | `(dx / drawn.width) × size.width` |
+      | `apps/word/drawing-overlay.tsx:352` | **이 점**이 어디인가 | `((client − drawn.left) / drawn.width) × size.width` |
+
+      한 파일 안에 같은 이름의 두 변환이 80줄 떨어져 있고 하나는 점, 하나는 거리다. 셋 다 3줄이라
+      **중복은 값이 아니다** — 값은 두 질문에 다른 이름을 주는 것이다. 그리고 셋 다 결국 *CSS 픽셀당
+      모델 단위* 하나로 줄어든다.
+
+      제스처가 `moved.x/y` 와 `moved.dx/dy` 를 주므로 짝은 이렇게 된다: `pointIn(view, moved)` 와
+      `deltaIn(view, moved)`. 그래서 자리는 제스처 옆이다. (`editor-view-dom/utils/
+      edit-position-converter.ts` 는 캐럿 위치라 다른 주제이고 여기 들어오지 않는다.)
+- [ ] **알림.** 편집 중 aria-live 가 없다. 표에 행이 하나 늘어난 것을 화면 낭독기가 모른다.
+
+**지운 것:** `editor-core/plugins.ts` 105줄. `PluginManager`·`AutoSavePlugin`·`KeyboardShortcutsPlugin`
+이 **자기 파일 밖에서 한 번도 안 쓰인다.** 진짜 확장점은 `extensions/` 의 56개인데, 이름이 저래서
+*에디터에 동작을 어떻게 붙이나* 를 찾는 사람이 먼저 만나는 게 이쪽이었다. 게다가
+`KeyboardShortcutsPlugin` 은 `document` 에 리스너를 걸고 `uninstall` 이 없으며 Ctrl+B/I/U 를
+`preventDefault` 만 하고 아무것도 안 한다 — 설치했으면 굵게가 안 됐을 것이다.
+
 ### 2.1 엔진 — 거의 다 됐다
 
 - [x] **의존 그래프가 DAG.** 순환 셋 중 둘이 유령이었다. 검사가 지킨다.
 - [ ] **`editor-core` 를 둘로.** *어떤 제품이든*(명령·역사·트랜잭션)과 *글자 제품*(캐럿)을 가른다.
       `ROADMAP.md` Phase 2. **끝났음의 기준:** 캐럿에 대해 아무것도 import 하지 않고 명령과 역사를 쓰는
       패키지가 하나 있다.
-- [ ] **선택의 나머지.** `docs/specs/selection.md` 에 다섯 결함이 적혀 있고 넷이 고쳐졌다.
-      남은 것: `Shift+→` 가 두 블록을 넘으면 범위가 뒤집힌다(원인까지 찾았다 —
-      `data-text-container` 를 **아무도 쓰지 않아** `isTextContainer` 가 한 번도 참이 아니었다),
-      그리고 형제가 아닌 범위.
+- [x] **`Shift+→` 가 블록을 넘으면 범위가 뒤집힌다 — 끝.** 원인이 둘이었고 **적어 뒀던 원인은 그
+      둘이 아니었다.** `isTextContainer` 가 아무도 안 쓰는 속성을 물었던 것도 진짜 결함이지만 이것의
+      원인은 아니었고, 그것을 고친 뒤에도 다섯 번째 누름에서 그대로 뒤집혔다. 진짜 원인 둘 다
+      *어느 쪽인가* 를 잘못된 것에게 물은 것이다 — 요소 경계의 오프셋을 `isEnd` 가 정한 것, 그리고
+      문서 순서를 **sid 문자열 비교**로 정한 것. `docs/specs/selection.md` 에 그 셋을 다 적었다.
+- [ ] **선택의 나머지.** 두 끝이 형제가 아닌 범위 — 인용문 안에서 바깥으로 — 는 글자만 맞고 블록은
+      떨어진 채 둔다. *어느 컨테이너가 살아남아야 하는가* 를 정해야 한다.
 
 ### 2.2 크롬 — 방향은 정해졌고 크기가 남았다
 

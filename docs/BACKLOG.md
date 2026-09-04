@@ -6855,6 +6855,128 @@ text-shaped.
 
 ### Known and unfixed
 
+- [ ] **`toModel` 이 셋이고, 같은 이름으로 서로 다른 질문 둘에 답한다.**
+
+  | 어디 | 무엇을 묻나 |
+  |---|---|
+  | `apps/slide/overlay.tsx:669` | **이 점**이 모델 좌표로 어디인가 |
+  | `apps/word/drawing-overlay.tsx:269` | **얼마나 움직였나** (거리) |
+  | `apps/word/drawing-overlay.tsx:352` | **이 점**이 어디인가 |
+
+  뒤의 둘은 **한 파일 안에 80줄 떨어져 있고 같은 이름이다.** 하나는 점이고 하나는 거리다.
+
+  셋 다 세 줄이라 **중복은 값이 아니다** — 이 저장소가 이미 정한 기준(*"기준은 중복이 아니다"*)대로,
+  값은 부르는 쪽이 몰라도 될 것을 알아야 하는지다. 그리고 여기서는 그렇다: 같은 이름의 두 함수 중
+  어느 것이 점이고 어느 것이 거리인지 이름이 말하지 않는다.
+
+  셋 다 결국 *CSS 픽셀당 모델 단위* 하나로 줄어들고, 제스처가 `moved.x/y` 와 `moved.dx/dy` 를 주므로
+  짝은 `pointIn(view, moved)` 와 `deltaIn(view, moved)` 다. 자리는 제스처 옆.
+  (`editor-view-dom/utils/edit-position-converter.ts` 는 캐럿 위치라 다른 주제다.)
+
+
+- [ ] **`dsl` 안에 파일 순환이 있고, `registry.ts` 를 먼저 import 하면 죽는다.**
+  `registry.ts:2` 가 `template-builders.ts` 의 `getGlobalRegistry` 를 가져오고,
+  `template-builders.ts:36` 이 `registry.ts` 의 `RendererRegistry` 를 가져온다. `registry.ts` 를 먼저
+  가져오면 `template-builders.ts:45` 의 `new RendererRegistry({ global: true })` 가 그 클래스가 아직
+  평가되지 않은 시점에 불려서 **`RendererRegistry is not a constructor`** 로 죽는다. `intoRegistry`
+  검사를 쓰면서 그렇게 만났다.
+
+  제품 코드가 안 죽는 이유는 전부 `src/index.ts` 를 통해 가져가기 때문이다 — 즉 **입구를 통하는
+  관습이 이 순환을 가리고 있다.** `dependency-graph.test.ts` 는 **패키지** 순환을 보고 파일 순환은
+  보지 않는다.
+
+  고치는 방법은 작다: `globalRegistry` 를 자기 모듈로 내보내고 둘이 그것을 가져가게 한다. 로드맵
+  Phase 1 의 순환 셋이 *"큰 일이라고 봤고 틀렸다"* 였던 것과 같은 크기로 보인다 — 그래서 다음에 한다.
+
+- [x] **`intoRegistry` 에 자기 패키지의 검사가 없었다.** 두 제품을 한 화면에 세운 그 장치를 시험하는
+  파일이 저장소에 하나 있었고 `packages/office-note/test/note.test.ts` 였다 — **쓰는 쪽에서만**
+  지켜지고 있었다. 노트가 그 검사를 지우거나 다르게 마운트하면 이 장치는 아무도 안 보는 것이 된다.
+  `packages/dsl/tests/into-registry.test.ts` 가 다섯을 묻는다.
+
+  **쓰면서 하나 배웠다:** `renderer()` 는 `{ type: 'element' }` 템플릿을 **컴포넌트로 감싸** 등록한다
+  (`define()` 이 언제나 컴포넌트를 만들게 해서 빌드를 단순하게 하려고). 그래서
+  `get(stype)?.template.tag` 는 언제나 `undefined` 다 — 원래 템플릿에 닿으려면 감싼 것을 불러야 한다.
+  단정을 그렇게 쓰기 전에는 검사가 *덮였다* 고 말했고, 실제로 덮인 것은 없었다.
+
+
+- [x] **디스크에 있는데 실행기가 열지 않는 검사 파일** — `packages/dsl` 에 `test/` 와 `tests/` 가
+  **둘 다** 있었고 `vitest.config.ts` 는 `include: ['tests/**/*.test.ts']` 였다. `test/registry.test.ts`
+  와 `test/template-builders.test.ts` 는 `tests/` 의 같은 이름 파일의 사본이었고 **한 번도 실행되지
+  않았다.** 두 파일에만 있는 `it` 은 하나도 없어서 잃은 것은 없었지만, **잃었는지 아닌지를 아무도 모르고
+  있었다**는 것이 결함이다.
+
+  이건 이 저장소가 이미 한 번 크게 물린 모양의 짝이다. 유령 의존을 걷다가 검사 여든 개를 *실패가 아니라
+  수의 감소로* 잃었고(`Test Files 4 failed` 위에 `Tests 458 passed`, 실패 개수 0), 그래서 *모든 검사
+  파일이 열리나* 검사가 생겼다. 그 검사는 각 패키지의 `test/` 안만 훑고 **`include` 가 그 파일을 집는지는
+  묻지 않았다.** 이제 묻는다 — `dependency-graph.test.ts` 의 네 번째.
+
+  **쓰면서 오탐이 하나 나왔고 그것도 기록할 값이 있다.** 첫 판은 설정에서 첫 번째 `include:` 를 집었고,
+  `devtool` 의 첫 번째는 `coverage` 의 `['src/**/*']` 이다 — 그래서 **실제로 실행되는 파일**을 열리지
+  않는다고 신고했다. 가려내는 방법은 내용이다: 검사용 include 는 이름에 `*.test.*` 를 갖고 커버리지의
+  것은 갖지 않는다. 그리고 검사를 쓴 뒤 `packages/dsl/test/probe.test.ts` 를 일부러 만들어 잡히는지
+  확인했다 — 잡히지 않는 검사는 검사가 아니다.
+
+  **아직 남은 것:** `packages/dsl/tests/dsl-functions.test.ts` 와 `tests/dsl/dsl-functions.test.ts` 가
+  둘 다 실행되고 32개·36개인데 얕은 쪽에만 있는 `it` 이 하나다. 사본이 넷이 아니라 셋인 셈이고, 어느
+  쪽으로 합칠지는 그 파일을 다른 이유로 건드릴 때 정한다.
+
+
+- [x] **`Shift+→` 가 블록을 넘으면 범위가 뒤집힌다 — 원인 둘, 그리고 첫 시도는 틀린 원인이었다.**
+  See Done, and `docs/specs/selection.md` 의 *경계가 요소일 때*. 여기 남길 것은 절차 쪽 교훈이다:
+  앞 회차에 원인을 찾아 고쳤다고 로드맵에 적고 브라우저 확인을 남겼는데, 확인해 보니 **다섯 번째
+  누름에서 그대로** 뒤집혔다. 고친 것(`isTextContainer`)은 진짜 결함이었지만 이 결함의 원인이
+  아니었다. *원인을 찾았다* 와 *고쳐졌다* 사이를 잇는 것은 단정하는 검사뿐이다.
+
+
+- [ ] **열아홉 개의 드래그가 `pointercancel` 을 안 듣는다.** `pointerdown` 뒤에 move/up 을 붙이는
+  자리가 스물이고, 그 중 하나(`apps/site/grip.tsx`)만 취소를 듣는다. 나머지는 `window` 에
+  `pointermove` 를 걸고 `pointerup` 에서만 걷는다 — 브라우저가 취소를 주는 순간(터치가 끊기거나,
+  잡은 요소가 드래그 중 DOM 에서 사라지면) **그 리스너가 창에 영원히 남는다.** 그 뒤로 상관없는
+  포인터 움직임이 드래그 계산을 계속 돈다. 화면에 안 보이고 리로드하면 사라져서 재현 절차를 적을 수
+  없다. `shared/gesture.ts` 의 `dragGesture` 가 답이고 셋이 옮겨졌다. 남은 열일곱은
+  `TECHNICAL-ROADMAP.md` §2.0 에 위험한 순서로 적혀 있다.
+
+- [ ] **전역 키 리스너의 가드가 규칙이 아니라 관습이다 — 그리고 처음 잰 숫자는 틀렸다.**
+
+  처음 적은 것: *"`document`/`window` 에 keydown 을 거는 자리가 스물둘, 편집기가 둘이면 둘 다 듣는다."*
+  **다시 세니 틀렸다.** 스물둘 중 열다섯은 `apps/*` 이고 word·slide·site 는 창마다 편집기가 하나다.
+  패키지 안, 즉 여러 인스턴스가 가능한 코드에는 여섯이고(하나는 주석 예제라 일곱 중 여섯),
+  **여섯 다 인스턴스별 상태로 가드한다** — `office-ui` 의 `palette`·`menubar`·`menu`·`stack` 은
+  `if (!open) return`, `office-note/note-view` 는 `pickedRef.current`, `office-editor-ui/slash-menu`
+  는 그 편집기 확장의 `menu?.open`.
+
+  그래서 **살아 있는 결함이 아니다.** 남은 것은 좁다: *전역에 듣되 가드는 이 인스턴스 자신의 상태로*
+  라는 규칙이 여섯 군데에 각자 쓰여 있고 아무 데도 적혀 있지 않으며 **아무것도 지키지 않는다.** 새
+  리스너가 가드 없이 들어오는 것이 실패 방식이다.
+
+  적어 두는 이유는 숫자 자체다. *스물둘* 은 grep 의 답이고 *여섯* 은 질문의 답이다 — 어느 코드가 여러
+  인스턴스로 뜰 수 있나를 먼저 물어야 했다. 재기 전에 세면 이렇게 된다.
+
+- [ ] **`toModel` 이 셋이다.** `editor-view-dom/utils/edit-position-converter.ts` 와
+  `apps/slide/overlay.tsx`·`apps/word/drawing-overlay.tsx` 가 각자 client 좌표를 모델 좌표로
+  바꾸고, 줌·스크롤·회전을 각자 푼다. 제스처가 `clientX` 를 주는 다음 줄이 늘 이것이므로 자리는
+  제스처 옆이다.
+
+- [ ] **편집 중에 aria-live 가 없다.** `aria-live` 를 쓰는 곳은 슬라이드의 발표 화면 둘뿐이다.
+  표에 행이 하나 늘어난 것도, 굵게가 켜진 것도, 화면 낭독기는 모른다.
+
+- [ ] **슬라이드 검사가 부하에서 회차마다 ~1% 흔들리고, 흔들리는 시험이 매번 다르다** (2026-09-04,
+  407개 / `workers: 3` / 재시도 없음). 두 회차를 연달아 돌린 결과:
+
+  | 회차 | 실패 | 어느 것 |
+  |---|---|---|
+  | s7 | 4 | `shape-style:330`, `slide-chrome:286`, `timeline:1328`, `timeline:1534` |
+  | s8 | 3 (+2 미실행) | `builds:1557`, `connector:1478`, `panel-model:158` |
+
+  **일곱 개가 하나도 겹치지 않고, 일곱 다 단독으로는 통과한다.** 그래서 이건 특정 시험의 결함이 아니라
+  **부하 자체**다. 증상도 그 모양이다 — `getComputedStyle` 인자가 null, 읽은 것이 null, 클릭 30초
+  타임아웃. 셋 다 *아직 안 생긴 것을 읽었다* 이고, 위의 318개 `waitForTimeout` 항목과 같은 뿌리다.
+  `s8` 의 *2 did not run* 은 `maxFailures` 도 재시도도 없는 설정이라 워커 하나가 죽었다는 뜻이다.
+
+  **읽는 법:** 이 스위트의 한 회차 결과로 초록/빨강을 말할 수 없다. 실패한 것을 단독으로 다시 돌려
+  가르는 것이 지금의 규칙이고, 그건 규칙이 아니라 갚아야 할 빚이다.
+
+
 - [ ] **Outdenting a top-level list item lifts it out of the list.** The parent's
   parent of a top-level item is the document, and the engine has no rule against
   it — `indentParentTypes` constrains what a node may nest *under* and has no
