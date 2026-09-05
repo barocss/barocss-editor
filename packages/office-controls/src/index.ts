@@ -641,3 +641,20 @@ export const WORD_TEXT_HIGHLIGHT: PaletteControl = {
     { value: 'FFFFFF', label: 'White' }
   ]
 };
+
+/**
+ * **읽는 사람에게 내놓는 선택지** — 글꼴 목록과 크기. `office-word` 에서 왔다.
+ *
+ * `WORD_TEXT_COLOR`·`WORD_TEXT_HIGHLIGHT` 가 이미 이 패키지의 것이었고 `office-word` 는 되팔
+ * 뿐이었다. 글꼴도 같은 종류다 — 두 제품이 *글자색 단추가 무엇을 내놓는가* 에 다른 답을 내면
+ * 하나가 틀린 것이다. `fonts.ts` 에 왜 여기인지와 왜 갈라 왔는지가 적혀 있다.
+ */
+export {
+  WORD_FONTS,
+  WORD_FONT_CATALOGUE,
+  WORD_FONT_SIZES,
+  fontFaceSpecs,
+  googleFontUrl,
+  isWebFont,
+  type FontFamily
+} from './fonts';

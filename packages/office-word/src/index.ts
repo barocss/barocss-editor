@@ -248,13 +248,19 @@ export {
   type IndentMarkers
 } from './ruler';
 export {
+  documentFontFamilies,
+} from './fonts';
+/* 카탈로그는 `office-controls` 의 것이다 — 여기서 다시 내보낸다. `fonts.ts` 에 이유가 있다. */
+export {
+  WORD_FONTS,
+  WORD_FONT_SIZES,
   WORD_FONT_CATALOGUE,
   isWebFont,
   googleFontUrl,
-  documentFontFamilies,
   fontFaceSpecs,
-  type FontFamily
-} from './fonts';
+  type FontFamily,
+} from '@barocss/office-controls';
+
 
 export {
   choiceOptions,
@@ -268,8 +274,6 @@ export {
   toolbarCommands,
   toolbarIcons,
   currentPaletteColor,
-  WORD_FONTS,
-  WORD_FONT_SIZES,
   WORD_TOOLBAR,
   WORD_STYLES,
   WORD_TEXT_COLOR,

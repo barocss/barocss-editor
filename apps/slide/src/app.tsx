@@ -91,7 +91,7 @@ import { DeckMapView } from './deck-map-view';
 import { LibraryDialog } from './library-dialog';
 import { libraryDeck, libraryRows } from './library';
 import { useDeck, useRevision } from './deck-model';
-import { useEditorRevision } from './revision';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 
 /**
  * The deck app.

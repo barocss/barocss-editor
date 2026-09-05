@@ -12,6 +12,11 @@
       "import": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./ui": {
+      "types": "./src/ui.ts",
+      "import": "./src/ui.ts",
+      "default": "./src/ui.ts"
+    },
     "./slides.css": "./src/slides.css"
   },
   "publishConfig": {
@@ -41,6 +46,10 @@
     "test": "vitest",
     "test:run": "vitest run"
   },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
   "dependencies": {
     "@barocss/shared": "workspace:*",
     "@barocss/datastore": "workspace:*",
@@ -54,6 +63,10 @@
     "@barocss/schema": "workspace:*"
   },
   "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "@barocss/conformance": "workspace:*",
     "@barocss/editor-view-dom": "workspace:*",
     "@barocss/office-icons": "workspace:*",

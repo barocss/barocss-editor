@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { Button, Field, Icon, TextField } from '@barocss/office-ui';
-import { step } from '@barocss/office-word';
+/* `step` 은 `office-text` 의 것이다 — `office-word` 는 되팔 뿐이었다(제품→제품 가짜 변). */
+import { step } from '@barocss/office-text';
 import {
   boxOfMatch,
   deckMatches,
@@ -11,7 +12,7 @@ import {
   replaceInDeck,
   type DeckMatch
 } from '@barocss/office-slides';
-import { useEditorRevision } from './revision';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 
 /**
  * Finding and replacing across the deck.

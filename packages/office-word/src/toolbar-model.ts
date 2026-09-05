@@ -38,7 +38,7 @@ import {
 } from '@barocss/office-controls';
 import type { StyleResolver } from '@barocss/office-text';
 import type { DocumentNode } from '@barocss/office-text';
-import { WORD_FONT_CATALOGUE } from './fonts';
+
 import type { ListKind } from './list-commands';
 import { parseTableLook, type TableLook } from '@barocss/office-text';
 
@@ -508,43 +508,13 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
  * command takes the chosen value in its payload under `key`.
  */
 
-/** The fonts offered, drawn from the catalogue; see fonts.ts for what is in it. */
-export const WORD_FONTS: ChoiceControl = {
-  id: 'font-family',
-  label: 'Font',
-  command: 'setFontFamily',
-  key: 'family',
-  markType: 'fontFamily',
-  attr: 'family',
-  options: WORD_FONT_CATALOGUE.map((entry) => ({ value: entry.family, label: entry.family }))
-};
-
-/**
- * The sizes offered, in Word's unit.
+/*
+ * **글꼴과 크기 선택은 `@barocss/office-controls` 로 갔다** — 아래 `index.ts` 가 다시 내보낸다.
  *
- * Half-points, because that is what a .docx stores and what the renderer reads a
- * number as — 22 is eleven point. The labels are points, because that is what a
- * writer means by "eleven".
+ * 덱도 같은 목록을 쓴다(`apps/slide/src/ribbon.tsx`). 제품이 제품에서 가져오면 안 되므로
+ * (`docs/specs/architecture.md`) 자매인 `WORD_TEXT_COLOR`·`WORD_TEXT_HIGHLIGHT` 가 이미 있는
+ * 곳으로 내렸다.
  */
-export const WORD_FONT_SIZES: ChoiceControl = {
-  id: 'font-size',
-  label: 'Size',
-  command: 'setFontSize',
-  key: 'size',
-  markType: 'fontSize',
-  attr: 'size',
-  options: [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72].map((points) => ({
-    value: points * 2,
-    label: String(points)
-  })),
-  /**
-   * The document stores half-points and a reader reads points, so a size that is
-   * not one of the presets has to be turned back before it is shown. Named on
-   * the model because the model is what knows the unit — an app that divided by
-   * two would be an app that knew a `.docx` detail.
-   */
-  labelOf: (value) => String(Number(value) / 2)
-};
 
 
 /**

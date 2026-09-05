@@ -43,7 +43,7 @@ import {
   ToolbarSeparator,
   ToolbarToggle
 } from '@barocss/office-ui';
-import { useEditorRevision } from './revision';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 import { ZoomControl } from './zoom';
 import type { FontLoader } from './font-loader';
 

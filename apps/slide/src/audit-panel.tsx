@@ -8,7 +8,7 @@ import {
   labelOfBox,
   type AuditHit
 } from '@barocss/office-slides';
-import { useEditorRevision } from './revision';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 
 /**
  * What the deck's own check found.

@@ -86,7 +86,7 @@ import {
   unitSuffix,
   type LengthUnit
 } from '@barocss/office-ui';
-import { useEditorRevision } from './revision';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 
 /**
  * Selecting and dragging what is on a slide.

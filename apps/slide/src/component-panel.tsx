@@ -19,7 +19,7 @@ import {
   type ComponentDef,
   type DocumentVar
 } from '@barocss/office-slides';
-import { useEditorRevision } from './revision';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 
 /**
  * The **document's** own variables: one value the whole deck can name.

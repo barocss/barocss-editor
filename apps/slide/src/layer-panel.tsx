@@ -8,7 +8,7 @@ import {
   slideTimeline,
   type LayerRow
 } from '@barocss/office-slides';
-import { useEditorRevision } from './revision';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 
 /**
  * What is on this slide, in the order it is stacked.

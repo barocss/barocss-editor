@@ -9,7 +9,7 @@ import {
   ToolbarSeparator,
   ToolbarToggle
 } from '@barocss/office-ui';
-import { useEditorRevision } from './revision';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 /**
  * The vocabulary from the shared layer, the *content* from the text model.
  *
@@ -18,12 +18,12 @@ import { useEditorRevision } from './revision';
  * the readers are nobody's product now (`office-controls`), which is what lets
  * this ribbon be declared without Word in it.
  *
- * The four constants below are a different thing and still Word's import: a font
- * catalogue and a set of text colours are shared *content*, and their home is
- * wherever the shared text model ends up (`office-text`, in the backlog). Two
- * products disagreeing about what a text-colour button offers would be one of
- * them wrong, so sharing them is right; the package they are shared from is the
- * open question.
+ * The four constants below are shared *content* — a font catalogue and a set of text colours.
+ * Two products disagreeing about what a text-colour button offers would be one of them wrong.
+ *
+ * **That open question is closed.** They live in `office-controls`, which already held the two
+ * palettes while `office-word` merely re-sold them. A product importing from another product is
+ * what `docs/specs/architecture.md` forbids, and this line was the last one doing it here.
  */
 import {
   choiceOptions,
@@ -32,12 +32,7 @@ import {
   type ChoiceControl,
   type PaletteControl
 } from '@barocss/office-controls';
-import {
-  WORD_FONTS,
-  WORD_FONT_SIZES,
-  WORD_TEXT_COLOR,
-  WORD_TEXT_HIGHLIGHT
-} from '@barocss/office-word';
+import { WORD_FONTS, WORD_FONT_SIZES, WORD_TEXT_COLOR, WORD_TEXT_HIGHLIGHT } from '@barocss/office-controls';
 import {
   SLIDES_TOOLBAR,
   keyLabel,

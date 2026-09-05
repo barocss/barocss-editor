@@ -1,3 +1,4 @@
+import { WORD_FONTS, WORD_FONT_SIZES } from '@barocss/office-controls';
 import { describe, it, expect } from 'vitest';
 import { Schema } from '@barocss/schema';
 import { getWordSchemaDefinition } from '../src/word-schema';
@@ -9,8 +10,6 @@ import {
   tableLookState,
   toolbarCommands,
   toolbarMarkTypes,
-  WORD_FONTS,
-  WORD_FONT_SIZES,
   WORD_STYLES,
   WORD_TOOLBAR,
   WORD_TEXT_COLOR,

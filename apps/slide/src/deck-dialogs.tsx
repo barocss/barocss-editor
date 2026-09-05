@@ -9,7 +9,8 @@ import {
   PropertyRow
 } from '@barocss/office-ui';
 /** The suite's font list — shared content, see the ribbon's note about it. */
-import { WORD_FONTS } from '@barocss/office-word';
+/* 글꼴 목록은 공유 콘텐츠다 — 제품이 아니라 부품에서 온다. */
+import { WORD_FONTS } from '@barocss/office-controls';
 import {
   CUSTOM_THEME,
   DECK_TEMPLATES,

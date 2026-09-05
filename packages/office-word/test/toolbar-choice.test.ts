@@ -1,9 +1,8 @@
+import { WORD_FONTS, WORD_FONT_SIZES } from '@barocss/office-controls';
 import { describe, it, expect } from 'vitest';
 import {
   currentChoice,
   inheritedChoice,
-  WORD_FONTS,
-  WORD_FONT_SIZES
 } from '../src/toolbar-model';
 import type { SelectionSummary } from '@barocss/editor-core';
 

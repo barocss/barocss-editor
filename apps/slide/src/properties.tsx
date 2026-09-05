@@ -25,7 +25,7 @@ import {
 } from '@barocss/office-ui';
 import { panelRowShown } from '@barocss/office-controls';
 import { slidesPanelGroups, type SlidesPanelRow } from '@barocss/office-slides';
-import { useEditorRevision } from './revision';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 
 /**
  * The attributes a **length** — a number in the reader's chosen unit, rather than a bare count.

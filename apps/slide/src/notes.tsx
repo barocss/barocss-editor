@@ -7,7 +7,7 @@ import { SLIDES_ENV_KEY, noteFor,
   createDeckEnv
 } from '@barocss/office-slides';
 import { Button } from '@barocss/office-ui';
-import { useDocumentRevision } from './revision';
+import { useDocumentRevision } from '@barocss/office-editor-ui';
 
 /**
  * The note the presenter reads and the audience does not.

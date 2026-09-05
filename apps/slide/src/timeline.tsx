@@ -24,7 +24,7 @@ import {
   placeNear,
   useAudioPeaks
 } from '@barocss/office-ui';
-import { useEditorRevision } from './revision';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 import {
   DEFAULT_AMOUNT,
   DEFAULT_DIRECTION,

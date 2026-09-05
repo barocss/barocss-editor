@@ -15,7 +15,7 @@ import {
   type Guide,
   type Handle
 } from '@barocss/office-canvas';
-import { useEditorRevision } from './revision';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 
 /**
  * Pointing at what is **on** a drawing.
