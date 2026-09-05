@@ -170,7 +170,8 @@ function blockOf(store: DataStore, sid: string): { sid: string; stype: string; a
 
   while (current && depth++ < 64) {
     // A text node is not a block; its parent paragraph is
-    if (current.stype && current.stype !== 'inline-text' && typeof current.text !== 'string') {
+    /* 이름 조건은 중복이었다 — `typeof text !== 'string'` 이 이미 글자 노드를 뺀다. */
+    if (current.stype && typeof current.text !== 'string') {
       return {
         sid: current.sid,
         stype: current.stype,

@@ -12,7 +12,7 @@
 import { Editor } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
 import { reconstructModelTextFromDOM, extractModelTextFromRange } from '../utils/edit-position-converter';
-import { stripFiller } from '@barocss/shared';
+import { holdsText, stripFiller } from '@barocss/shared';
 import { logger, LogCategory } from '@barocss/renderer-dom';
 
 const BLOCK_TYPES = new Set(['paragraph', 'heading', 'list', 'list-item', 'blockquote', 'code-block']);
@@ -237,7 +237,7 @@ function classifyTextInOneRun(
 
     // Check model node
     const modelNode = options.editor.dataStore?.getNode?.(nodeId);
-    if (!modelNode || modelNode.stype !== 'inline-text') {
+    if (!holdsText(modelNode)) {
       logger.debug(LogCategory.TEXT_INPUT, 'classifyTextInOneRun: SKIP - not inline-text node', { nodeId, stype: modelNode?.stype });
       continue;
     }
@@ -383,7 +383,7 @@ function classifyTextAcrossRuns(
   const endModelNode = options.editor.dataStore?.getNode?.(endNodeId);
 
   if (!startModelNode || !endModelNode || 
-      startModelNode.stype !== 'inline-text' || endModelNode.stype !== 'inline-text') {
+      !holdsText(startModelNode) || !holdsText(endModelNode)) {
     logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: SKIP - not inline-text nodes', {
       startStype: startModelNode?.stype,
       endStype: endModelNode?.stype

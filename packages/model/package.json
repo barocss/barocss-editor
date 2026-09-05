@@ -27,6 +27,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@barocss/shared": "workspace:*",
     "@barocss/datastore": "workspace:*",
     "@barocss/schema": "workspace:*"
   },

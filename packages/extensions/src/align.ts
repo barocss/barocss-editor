@@ -67,7 +67,8 @@ export class AlignExtension implements Extension {
       let current: any = dataStore.getNode(sid);
       let depth = 0;
       while (current && depth++ < 64) {
-        if (current.stype && typeof current.text !== 'string' && current.stype !== 'inline-text') {
+        /* 이름 조건은 중복이었다 — `typeof text !== 'string'` 이 이미 글자 노드를 뺀다. */
+        if (current.stype && typeof current.text !== 'string') {
           return current.sid ?? null;
         }
         current = current.parentId ? dataStore.getNode(current.parentId) : null;

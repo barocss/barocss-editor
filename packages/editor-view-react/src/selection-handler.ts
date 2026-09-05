@@ -1,6 +1,7 @@
 import type { Editor } from '@barocss/editor-core';
 import { fromDOMSelection } from '@barocss/editor-core';
 import {
+  holdsText,
   bestContainer,
   buildTextRunIndex,
   closestDataNode,
@@ -89,9 +90,7 @@ export class ReactSelectionHandler {
       const sid = found.getAttribute('data-bc-sid');
       if (!sid) return false;
       const modelNode = dataStore.getNode(sid);
-      if (!modelNode) return false;
-      const stype = (modelNode as { stype?: string }).stype ?? (modelNode as { type?: string }).type;
-      return stype === 'inline-text';
+      return holdsText(modelNode);
     };
 
     return checkNode(sel.anchorNode) && checkNode(sel.focusNode ?? sel.anchorNode);

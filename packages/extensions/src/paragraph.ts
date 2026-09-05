@@ -1,3 +1,4 @@
+import { holdsText } from '@barocss/shared';
 import { findAncestorNode } from '@barocss/datastore';
 import { hasRange } from './guards';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
@@ -303,7 +304,7 @@ export class ParagraphExtension implements Extension {
     if (selection.type !== 'range') return false;
     let node = dataStore.getNode(selection.startNodeId);
     if (!node) return false;
-    if ((node as { stype?: string }).stype === 'inline-text') {
+    if (holdsText(node)) {
       const parentId = (node as { parentId?: string }).parentId;
       if (!parentId) return false;
       node = dataStore.getNode(dataStore.resolveAlias?.(parentId) ?? parentId);

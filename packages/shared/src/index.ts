@@ -21,6 +21,7 @@ export {
   collapseBoundaries,
   domPointFromModelOffset,
   firstTextNodeIn,
+  holdsText,
   isTextContainer,
   offsetAtElementBoundary,
   offsetWithRuns,

@@ -17,6 +17,7 @@
  * means a row's cell count is not the table's column count, so every operation
  * here walks the grid rather than indexing the children directly.
  */
+import { holdsText } from '@barocss/shared';
 import { defineOperation } from './define-operation';
 import { defineOperationDSL } from './define-operation-dsl';
 import type { TransactionContext } from '../types';
@@ -527,7 +528,7 @@ defineOperation('mergeTableCells', async (operation: any, context: TransactionCo
     const cell = dataStore.getNode(sid);
     for (const childId of ((cell?.content as string[]) ?? []).slice()) {
       const child = dataStore.getNode(childId);
-      const isEmptyText = child?.stype === 'inline-text' && !child?.text;
+      const isEmptyText = holdsText(child) && !child?.text;
       if (isEmptyText) continue;
       const wasAt = ((cell?.content as string[]) ?? []).indexOf(childId);
       undo.push({

@@ -1,3 +1,4 @@
+import { holdsText } from '@barocss/shared';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, addChild, splitTextNode } from '@barocss/model';
 
@@ -16,7 +17,7 @@ export class HardBreakExtension implements Extension {
         if (!dataStore) return false;
 
         const node = dataStore.getNode(selection.startNodeId);
-        if (!node || node.stype !== 'inline-text') return false;
+        if (!holdsText(node)) return false;
 
         const parentId = node.parentId;
         if (!parentId) return false;

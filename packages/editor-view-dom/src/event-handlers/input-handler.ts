@@ -1,3 +1,4 @@
+import { holdsText } from '@barocss/shared';
 import { InputHandler, IEditorViewDOM } from '../types';
 import { Editor, insideLockedRegion, type ModelSelection } from '@barocss/editor-core';
 import { handleEfficientEdit } from '../utils/efficient-edit-handler';
@@ -422,7 +423,7 @@ export class InputHandlerImpl implements InputHandler {
     if (!classified.nodeId || classified.newText == null) return false;
 
     const modelNode = this.editor.dataStore?.getNode(classified.nodeId);
-    if (!modelNode || modelNode.stype !== 'inline-text') return false;
+    if (!holdsText(modelNode)) return false;
 
     return (modelNode.text ?? '') === classified.newText;
   }
@@ -1009,7 +1010,7 @@ export class InputHandlerImpl implements InputHandler {
         
         // Check model node
         const modelNode = dataStore.getNode(nodeId);
-        if (!modelNode || modelNode.stype !== 'inline-text') {
+        if (!holdsText(modelNode)) {
           logger.debug(LogCategory.TEXT_INPUT, 'handleInlineMarkup: SKIP - not inline-text node', { nodeId });
           continue;
         }
@@ -1193,7 +1194,7 @@ export class InputHandlerImpl implements InputHandler {
     // the text node was created at a boundary (e.g. directly under a block). Do not update model.
     // See docs/input-and-composition-review.md §5.4.
     const nodeType = (modelNode as { stype?: string }).stype ?? (modelNode as { type?: string }).type;
-    if (nodeType !== 'inline-text') {
+    if (!holdsText(modelNode)) {
       logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: SKIP - boundary text (closest sid is not inline-text)', { textNodeId, nodeType });
       this.editor.emit('editor:input.boundary_text', { target, textNodeId, nodeType, oldValue, newValue });
       return;
@@ -1522,8 +1523,8 @@ export class InputHandlerImpl implements InputHandler {
      * See `locked-region.ts` for why the model is asked rather than the DOM.
      */
     const isEditable =
-      startNode?.stype === 'inline-text' &&
-      endNode?.stype === 'inline-text' &&
+      holdsText(startNode) &&
+      holdsText(endNode) &&
       !insideLockedRegion(dataStore as never, modelRange?.startNodeId) &&
       !insideLockedRegion(dataStore as never, modelRange?.endNodeId);
 

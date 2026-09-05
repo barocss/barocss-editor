@@ -5,7 +5,7 @@ import { IEditorViewDOM, EditorViewDOMOptions, LayerConfiguration, LayoutPass } 
 import { InputHandlerImpl } from './event-handlers/input-handler';
 import { DOMSelectionHandlerImpl } from './event-handlers/selection-handler';
 import { MutationObserverManagerImpl } from './mutation-observer/mutation-observer-manager';
-import { DecoratorManager, RemoteDecoratorManager, PatternDecoratorConfigManager, DecoratorGeneratorManager, stripChromeElements, stripFiller } from '@barocss/shared';
+import { holdsText, DecoratorManager, RemoteDecoratorManager, PatternDecoratorConfigManager, DecoratorGeneratorManager, stripChromeElements, stripFiller } from '@barocss/shared';
 import type { PatternDecoratorConfig, DecoratorGenerator } from '@barocss/shared';
 import { DecoratorRegistry, DecoratorPrebuilder, type Decorator, type DecoratorQueryOptions, type DecoratorModel } from './decorator';
 import { DOMRenderer, logger, LogCategory } from '@barocss/renderer-dom';
@@ -644,8 +644,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       if (!sid) return false;
       const modelNode = dataStore.getNode(sid);
       if (!modelNode) return false;
-      const stype = (modelNode as { stype?: string }).stype ?? (modelNode as { type?: string }).type;
-      return stype === 'inline-text';
+      return holdsText(modelNode);
     };
 
     return checkNode(sel.anchorNode) && checkNode(sel.focusNode ?? sel.anchorNode);
@@ -689,8 +688,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       if (!sid) return false;
       const node = dataStore.getNode(sid);
       if (!node) return false;
-      const stype = (node as { stype?: string }).stype ?? (node as { type?: string }).type;
-      if (stype !== 'inline-text') return false;
+      if (!holdsText(node)) return false;
       return !insideLockedRegion(dataStore, sid);
     };
 

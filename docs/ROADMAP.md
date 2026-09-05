@@ -418,26 +418,27 @@ appetite.
       `ModelSelection` 에 `nodeId` 가 없다. 그리고 사본이 검사를 실제로부터 **밀어낸** 자리도 나왔다:
       React 검사에 *"컴파일러가 그렇게 말했다"* 며 범위 필드 넷을 지운 주석이 있었고, 그 컴파일러가
       읽던 것이 좁은 사본이었다. `docs/specs/selection.md` 에 다 적었다.
-- [ ] **엔진이 *글자인가* 를 이름으로 묻는다 — 준비 작업이지 수정이 아니다 (2026-09-05 정정).**
-      전에 여기 *"이모지 옆에서 IME 가 꺼진다"* 고 적었고 **틀렸다**: 그 함수는
-      `closest('[contenteditable="false"]')` 를 먼저 보고, 캐럿이 이모지 옆이면 그 문단의 런을 찾는다.
-      *글자를 담는 노드가 여럿* 도 아니었다 — `textNode('paragraph')` 열아홉 개가 **다 검사 파일**이다.
-      남는 값은 질문의 이름이고(묻는 것은 *타이핑할 수 있나* → `typeof node.text === 'string'`,
-      그룹도 이름도 아니다 — `inline` 여덟 중 일곱이 원자다), 그건 진짜지만 **살아 있는 결함들보다
-      뒤**다. `BACKLOG.md` 에 그 정정을 다 적었다.
-      `'inline-text'` 문자열이 `packages/*/src` 에 132번, **결정 자리가 36곳**이고 그 중 **엔진 층이
-      18곳**(editor-view-dom 10 · editor-view-react 5 · editor-core·model·renderer-dom 각 1).
-      런타임으로 확인했다: office 스키마의 `inline` 그룹에 **여덟**이 있다 — `hardBreak` ·
-      `inline-text` · `inline-image` · `emoji` · `bookmarkAnchor` · `fieldDateTime` ·
-      `fieldDocTitle` · `fieldAuthor`. 그래서 이름으로 묻는 곳은 **나머지 일곱에 아니라고 답한다.**
-      `editor-view-react` 의 `isSelectionInsideEditableText` 는 IME 를 게이트하므로, 이모지나 날짜
-      필드 옆에서는 IME 가 꺼진다.
+- [x] ~~**엔진이 *글자인가* 를 이름으로 묻는다.**~~ **끝 — 그리고 스키마를 바꿀 필요가 없었다.**
+      `stype === 'inline-text'` 가 엔진 층 **열여섯 자리**에 있었다(`editor-view-dom` 열,
+      `editor-core` 하나, `model` 하나, `renderer-dom` 하나, `extensions` 셋). 원칙은
+      `extensions/range-delete.ts` 의 `isInline` 에 이미 적혀 있었고 **한 파일이 그렇게 하고 열여섯이
+      안 했다.**
 
-      원칙은 `extensions/range-delete.ts` 의 `isInline` 에 이미 적혀 있다 — *"이름으로 짐작하는 것은
-      제품이 다른 이름을 쓰는 순간까지만 통한다. 스키마가 바로 그것을 위해 `group` 을 선언한다."*
-      **한 파일이 그렇게 하고 열여덟 곳이 안 한다.** 그리고 이건 §2 의 *"스키마 하나가 여러 제품을
-      담나"* 에 바로 걸린다: 텍스트 런을 다른 이름으로 부르는 제품은 뷰 층에서 깨진다.
-      **재는 것이 싸다** — 이모지 옆에 캐럿을 두고 묻는 단위 검사 하나. 브라우저가 필요 없다.
+      **먼저 재본 것이 답을 바꿨다.** *"스키마에 `text: true` 를 더해야 한다"* 고 볼 뻔했는데,
+      런타임으로 세니 **스키마는 이미 답할 수 있었다**: office 의 `inline` 그룹 여덟 중 일곱이
+      `atom: true` 라서 `group === 'inline' && !atom` 이 정확히 `inline-text` 하나다. 그리고 그
+      열여섯은 **전부 인스턴스를 손에 쥐고 있었다**(`dataStore.getNode(id)` 를 부른 뒤였다) — 그러면
+      `typeof node.text === 'string'` 이 더 짧고 더 옳다.
+
+      `@barocss/shared` 의 `holdsText` 로 갔다(타입 술어라 `!modelNode ||` 가드도 같이 걷혔다).
+      두 자리(`selection-summary` · `align`)는 *글자가 **아닌** 것* 을 찾는 걷기였고, 거기서는
+      이름 조건이 **중복**이었다 — `typeof text !== 'string'` 이 이미 그것을 뺀다.
+
+      **그리고 규칙은 세어야 규칙이다:** `conformance/text-is-asked-by-text.test.ts` 가 엔진 층의
+      이름 결정을 센다(0이어야 한다). 처음 돌리자 내가 못 찾은 **여섯**을 바로 찾았다 — React 뷰
+      다섯과 렌더러의 로그 하나. `model` 과 `extensions` 는 `shared` 의존이 없어서 새로 더했다
+      (`shared` 는 의존이 0이므로 순환이 안 생긴다).
+
 - [x] ~~**뷰 층이 두 벌.**~~ **끝 — 그리고 합칠 것은 열셋이 아니라 둘이었다.**
       1단계(선택 어휘를 `shared` 로)를 하고 2단계로 열셋을 대봤더니: **표기만 다른 것 여덟**(변수명,
       `??` vs `||`, 로그), 같은 것 둘, React 에 없는 것 둘, **논리가 다른 것 둘.** 326줄을 옮기는 것이

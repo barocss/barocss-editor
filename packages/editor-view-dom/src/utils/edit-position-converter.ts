@@ -5,6 +5,7 @@
  * and adjusts mark/decorator ranges according to text edits.
  */
 
+import { holdsText } from '@barocss/shared';
 import { buildTextRunIndex, type ContainerRuns } from '@barocss/renderer-dom';
 import type { ModelSelection } from '@barocss/editor-core';
 
@@ -343,7 +344,8 @@ export function extractModelTextFromRange(
     return Math.max(0, Math.min(offset, node.text.length));
   };
 
-  const isInlineText = (node: any): boolean => node?.stype === 'inline-text' && typeof node.text === 'string';
+  /* 이름 조건은 `holdsText` 가 이미 답하는 것을 한 번 더 물은 것이었다. */
+  const isInlineText = (node: any): boolean => holdsText(node);
 
   const getParentId = (nodeId: string): string | null => {
     const parent = dataStore.getParent?.(nodeId);

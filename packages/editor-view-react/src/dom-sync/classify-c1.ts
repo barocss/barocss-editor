@@ -2,6 +2,7 @@
  * C1 classification: pure text change within a single inline-text.
  * Ported from editor-view-dom dom-change-classifier (C1 only).
  */
+import { holdsText } from '@barocss/shared';
 import type { Editor } from '@barocss/editor-core';
 import { findClosestInlineTextNode, reconstructModelTextFromDOM } from './edit-position';
 
@@ -45,7 +46,7 @@ export function classifyDomChangeC1(
     if (!nodeId) continue;
 
     const modelNode = options.editor.dataStore?.getNode?.(nodeId) as { stype?: string; text?: string } | undefined;
-    if (!modelNode || modelNode.stype !== 'inline-text') continue;
+    if (!holdsText(modelNode)) continue;
 
     if (mutation.type === 'childList') {
       const addedOrRemoved = [

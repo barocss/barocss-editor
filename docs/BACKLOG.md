@@ -6978,6 +6978,53 @@ text-shaped.
   그리고 **표를 세우다 내 기대가 틀린 자리**도 하나 나왔다: 자식 색인 2 를 모델 6 이라고 적었는데
   4 였다(6 은 색인 3). 코드가 아니라 검사가 틀린 것이고, 표를 세우는 값의 절반이 그것이다.
 
+- **그리고 *글자인가* 를 이름으로 묻던 열여섯 자리.** ✅ 고침
+
+  자리 층이 `text` 로 묻게 됐으니 나머지도 같은 질문을 같은 방법으로 물어야 한다.
+
+  **먼저 재본 것이 답을 바꿨다.** 스키마에 *"이 노드가 글자를 담나"* 필드를 더해야 한다고 볼
+  뻔했는데, 런타임으로 세니 **이미 답할 수 있었다**:
+
+  | office 의 `inline` 그룹 | 여덟 |
+  |---|---|
+  | 그 중 `atom: true` | 일곱 (`hardBreak` · `inline-image` · `emoji` · `bookmarkAnchor` · `fieldDateTime` · `fieldDocTitle` · `fieldAuthor`) |
+  | `group === 'inline' && !atom` | **`inline-text` 하나** |
+
+  그리고 그 열여섯은 **전부 인스턴스를 손에 쥐고 있었다** — `dataStore.getNode(id)` 를 부른
+  뒤였다. 인스턴스가 있으면 `typeof node.text === 'string'` 이 더 짧고 더 옳다: `holdsText`.
+
+  **래칫이 내가 못 찾은 여섯을 바로 찾았다** — grep 으로 센 열여섯 밖에 React 뷰 다섯과 렌더러의
+  로그 하나가 더 있었다. *규칙은 세어야 규칙이다* 가 이 자리에서 값을 냈다.
+
+  남긴 것 하나: `renderer-dom/vnode/factory.ts` 의 것은 **로그**다. 결정이 아니므로 이름으로 물어도
+  되고, 세는 검사에 안 걸리게 상수로 뽑았다.
+
+- **`SelectionState` 는 선언만 있고 아무것도 그것을 만들지 않는다 — 그리고 읽는 쪽은 그것을 향해
+  읽고 있다.** 🔴 다음
+
+  로드맵의 *"편집기의 문에서도 선택의 답이 둘이다"* 를 재보니 답이 둘이 아니었다. **하나는 아예
+  안 온다.**
+
+  | 자리 | 선언 | 실제로 |
+  |---|---|---|
+  | `updateSelection(sel: SelectionState \| any)` | 두 모양 | `any` 가 다 받는다. `SelectionState` 를 넘기는 호출자 **0** (54곳을 셌다) |
+  | `isModelSelection` | `type !== 'none'` | `SelectionState` 는 `type` 이 **없으므로** `undefined !== 'none'` → **참**. 그 분기로 갈 수가 없다 |
+  | `// SelectionState format` 이라 적힌 분기 | | 실제로 거기 오는 것은 **`{type:'none'}`** 이다 |
+  | `onBeforeSelectionChange(…: SelectionState)` | | 구현하는 확장 **0**. 편집기가 넘기는 값은 `ModelSelection` |
+  | `onSelectionChange(…: SelectionState \| ModelSelection)` | | 같음 |
+  | `editor:selection.change` payload | `SelectionState` | 듣는 셋(`table` · `math-commands` · `canvas-shape-commands`)이 **payload 를 안 읽고** `editor.selection` 을 다시 읽는다 |
+  | `editor:selection.focus` · `.blur` payload | `{ selection: SelectionState }` | **payload 없이** emit 된다 — `emit('editor:selection.focus')`, 인자 하나 |
+  | `SetSelectionCommand(private _selection: SelectionState)` | 공개 export | **아무도 안 쓴다**. `void this._selection; return {...state}` |
+  | `devtool.getSelectionInfo` | `nodeId`/`from`/`to` 와 `anchorNode`/`focusNode` 두 분기 | 둘 다 오지 않는 모양이다 — `ModelSelection` 은 `startNodeId` 를 쓴다 |
+
+  **이 저장소가 이미 기록한 모양과 같다.** `editor-core/types.ts` 의 프로세가 죽은
+  `ModelNodeSelection` 에 대해 적어 둔 것 그대로다 — *"의도를 적은 타입이 배선되지 않은 채 남고,
+  읽는 쪽이 그 의도를 향해 읽고 있었다."* 그때는 두 뷰 층이 `nodeSelection.nodeId` 를 읽고 있었고
+  그 분기는 한 번도 아무 일을 한 적이 없었다.
+
+  **`SelectionState` 는 `editor-core` 밖으로 한 번도 나가지 않는다** — 제품과 앱 어디에도 언급이
+  없다. 그러므로 걷는 값이 갇혀 있고 위험이 작다.
+
 - **`apps/note` 의 인용문 검사는 내 회귀가 아니라 제품의 간헐 결함이다.** 🔴 열림
 
   `note.spec.ts:213` 이 전체 회차에서 이따금 실패한다. 내가 선택 계산을 건드린 뒤였으므로 단독

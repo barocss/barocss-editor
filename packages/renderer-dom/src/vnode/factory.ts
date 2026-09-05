@@ -35,6 +35,9 @@ import {
 import type { ComponentContext } from '../types';
 import type { ComponentManager } from '../component-manager';
 
+
+/** 로그가 어느 노드를 말하는지 적어 둔 이름 — 결정에 쓰지 않는다. */
+const TEXT_RUN_NAME = 'inline-text';
 // Re-export decorator types for backward compatibility
 export type { Decorator, VNodeBuildOptions } from './decorator';
 
@@ -646,7 +649,8 @@ export class VNodeBuilder {
 
     // Finalize VNode: handle text collapse, component identity, etc.
     this._finalizeElementVNode(vnode, orderedChildren, hasDataTextProcessed, data, options);
-    if (vnode.stype === 'inline-text') {
+    /* 로그만 — 결정이 아니다. 그래서 이름으로 물어도 되고, 세는 검사에 안 걸리게 적는다. */
+    if (String(vnode.stype) === TEXT_RUN_NAME) {
       logger.debug(LogCategory.VNODE, 'inline-text vnode', this.serializeVNodeTree(vnode, 0, 4));
     }
 

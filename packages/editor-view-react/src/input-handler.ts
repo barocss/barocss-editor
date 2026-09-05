@@ -1,6 +1,7 @@
 import type { MutableRefObject } from 'react';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
-import { getKeyString } from '@barocss/shared';
+import {
+  holdsText, getKeyString } from '@barocss/shared';
 import { analyzeTextChanges } from '@barocss/text-analyzer';
 import type { ReactSelectionHandler } from './selection-handler';
 import { classifyDomChangeC1, type ClassifiedChangeC1, type InputHint } from './dom-sync/classify-c1';
@@ -223,7 +224,7 @@ export class ReactInputHandler {
 
     const dataStore = this.editor.dataStore;
     const modelNode = dataStore?.getNode?.(nodeId) as { stype?: string; text?: string } | undefined;
-    if (!modelNode || modelNode.stype !== 'inline-text') {
+    if (!holdsText(modelNode)) {
       completeSync();
       return;
     }
@@ -625,9 +626,7 @@ export class ReactInputHandler {
 
     const startNode = dataStore.getNode(modelRange.startNodeId);
     const endNode = dataStore.getNode(modelRange.endNodeId);
-    const isEditable =
-      (startNode as { stype?: string })?.stype === 'inline-text' &&
-      (endNode as { stype?: string })?.stype === 'inline-text';
+    const isEditable = holdsText(startNode) && holdsText(endNode);
 
     if (!isEditable) {
       event.preventDefault();

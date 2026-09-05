@@ -36,6 +36,24 @@ export interface DOMPoint {
 }
 
 /**
+ * **이 노드가 글자를 담나** — 이름이 아니라 `text` 로 묻는다.
+ *
+ * 엔진의 열여섯 자리가 `stype === 'inline-text'` 로 물었고, 그건 **제품이 다른 이름을 쓰는 순간까지만
+ * 통한다.** office 스키마의 `inline` 그룹에 여덟이 있고 그 중 **일곱이 원자** 라서, 이름으로 묻는
+ * 자리는 그 일곱에 아니라고 답한다 — 우연히 맞는 답이지만 이유가 틀렸다.
+ *
+ * **타입에 물어야 할 때** 는 스키마가 답한다: `group === 'inline' && !atom` 이 office 스키마에서
+ * 정확히 `inline-text` 하나다(런타임으로 셌다). **인스턴스를 손에 쥐고 있을 때** 는 이것이 더 짧고
+ * 더 옳다 — 그리고 그 열여섯 자리는 전부 인스턴스를 쥐고 있었다.
+ *
+ * 원칙은 `extensions/range-delete.ts` 의 `isInline` 에 이미 적혀 있었다 — *"이름으로 짐작하는 것은
+ * 제품이 다른 이름을 쓰는 순간까지만 통한다."*
+ */
+export function holdsText<T>(node: T): node is T & { text: string } {
+  return typeof (node as { text?: unknown } | null | undefined)?.text === 'string';
+}
+
+/**
  * **그릇인지는 `text` 로 묻는다** — 이름도 그룹도 아니다.
  *
  * 이름으로 짐작하는 것은 제품이 다른 이름을 쓰는 순간까지만 통한다. office 스키마의 `inline` 그룹
@@ -44,7 +62,7 @@ export interface DOMPoint {
 export function isTextContainer(el: Element, ctx: PositionContext): boolean {
   const sid = el.getAttribute('data-bc-sid');
   if (!sid) return false;
-  return typeof ctx.getNode(sid)?.text === 'string';
+  return holdsText(ctx.getNode(sid));
 }
 
 /** `data-bc-sid` 를 가진 가장 가까운 요소 — 자신을 포함해서. */
