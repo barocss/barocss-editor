@@ -81,8 +81,26 @@
   --sl-accent: #2563eb;
 }
 
+/*
+ * **다크를 두 번 말한다 — 시스템이 다크일 때, 그리고 덱이 다크라고 말할 때.**
+ *
+ * 미디어 블록의 `:not([data-theme='light'])` 는 장식이 아니다. 그것이 없던 동안 이 블록은
+ * 다크 기계에서 `data-theme="light"` 를 찍어도 그대로 맞았고 — 즉 이 덱의 *밝게* 가 아무 일도
+ * 안 했다 — 그러면서 `--ou-*` 매핑은 아래에서 `--sl-*` 를 읽으므로 크롬까지 같이 어두웠다.
+ *
+ * 그리고 `[data-theme='dark']` 블록이 그 거울상이다. 그것이 없던 동안 라이트 기계에서 다크를
+ * **명시하면** 미디어 블록이 안 맞으니 `--sl-*` 는 라이트로 남고, 아래 매핑의
+ * `:root:not([data-theme='light'])` **(0,2,0)** 이 `tokens.css` 의 `[data-theme='dark']`
+ * **(0,1,0)** 을 이겨서 그 라이트 값을 `--ou-*` 에 밀어 넣었다 — **덱의 명시적 다크 스위치가
+ * 죽는다.** 명시도를 올린 것이 옳았고, 올린 쪽이 다크를 모르는 것이 틀렸다.
+ *
+ * 규칙은 이것이다: **팔레트가 라이트와 다크를 둘 다 가지면 둘을 같은 방식으로 말한다.**
+ * `packages/conformance/test/dark-is-actually-read.test.ts` 가 네 상태에서 이 파일의 팔레트를
+ * 실제로 계산해 붙잡는다 — 명시적 다크는 시스템 다크와, 명시적 라이트는 시스템 라이트와 같아야
+ * 한다.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --sl-ground: #14171d;
     --sl-panel: #1b1f27;
     --sl-line: #2b313c;
@@ -90,6 +108,28 @@
     --sl-muted: #98a1b0;
     --sl-accent: #6f9bff;
   }
+}
+
+/*
+ * 뿌리가 아닌 곳에서도 — 발표자 화면, 다른 테마의 미리보기, 자기 헤더에 스위치를 단 패널.
+ * 커스텀 프로퍼티는 상속되므로 이 둘은 `<html>` 이 아니라 **어떤 요소** 에도 걸린다.
+ */
+[data-theme='dark'] {
+  --sl-ground: #14171d;
+  --sl-panel: #1b1f27;
+  --sl-line: #2b313c;
+  --sl-ink: #e6e9ef;
+  --sl-muted: #98a1b0;
+  --sl-accent: #6f9bff;
+}
+
+[data-theme='light'] {
+  --sl-ground: #eef0f4;
+  --sl-panel: #ffffff;
+  --sl-line: #d8dce4;
+  --sl-ink: #1e2430;
+  --sl-muted: #6b7480;
+  --sl-accent: #2563eb;
 }
 
 /*
@@ -109,9 +149,17 @@
  *
  * Matched rather than escalated: the same specificity as the declaration it has to beat, and later
  * in the cascade because this file's own rules come after everything it imports.
+ *
+ * **네 갈래인 이유.** 위의 두 `[data-theme]` 블록이 `--sl-*` 를 어느 요소에서든 뒤집으므로,
+ * 매핑도 같은 요소에 있어야 한다: 서브트리에 `data-theme` 를 찍으면 `tokens.css` 의
+ * `[data-theme='dark']` 가 그 요소에 `--ou-*` 를 **직접** 선언하는데, 이 매핑이 그 요소에 없으면
+ * 그 서브트리만 패키지 팔레트로 칠해진다 — 뿌리에서 고친 "팔레트 두 벌" 이 한 층 아래에서
+ * 그대로 반복된다. 갈래마다 명시도는 `tokens.css` 의 짝과 같고, 순서로 이긴다.
  */
 :root,
-:root:not([data-theme='light']) {
+:root:not([data-theme='light']),
+[data-theme='dark'],
+[data-theme='light'] {
   --ou-panel: var(--sl-panel);
   --ou-ground: var(--sl-ground);
   --ou-line: var(--sl-line);
@@ -266,22 +314,15 @@ body {
 }
 
 /*
- * The visually-hidden helper, which is **`office-ui`'s and not the deck's**.
+ * **`.sr-only` 사본이 여기 있었다 — 이제 `office-ui/tokens.css` 에 있다.**
  *
- * `FilePick` puts `sr-only` on its `<input type="file">` — hidden rather than `display: none`,
- * because a hidden input is not focusable and a keyboard cannot reach it. The name is Tailwind's
- * and every app here gets it from `@import "tailwindcss"` scanning the packages, so a host that does
- * not build with Tailwind gets a bare file input in the middle of the ribbon. That is `office-ui`'s
- * gap rather than this deck's, so it is stated here and left where it is.
+ * `FilePick` 이 `<input type="file">` 에 붙이는 이름이고, 그 규칙이 없으면 Tailwind 없는 호스트는
+ * 리본 한가운데에 맨 파일 입력을 본다. 그것은 이 덱의 구멍이 아니라 `office-ui` 의 구멍이라고
+ * 여기 적혀 있었고, 그 판단이 맞아서 규칙이 그쪽으로 갔다 — `:32` 가 그 파일을 `import` 한다.
+ *
+ * 지우기 전에 대조한 것: 패키지의 것은 이 사본의 아홉 선언을 **같은 값으로** 다 갖고, 거기에
+ * `clip-path: inset(50%)` 이 하나 더 있다. 그러니 지우는 쪽이 값이 같고 하나 더 낫다 — 이
+ * 사본은 순서로 이기면서 그 `clip-path` 를 덮고 있었다.
+ *
+ * 두 벌이 있는 동안은 해로울 것이 없었고, 값이 갈라지는 날 해로워진다. 그날이 오지 않도록 지운다.
  */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}

@@ -1,4 +1,4 @@
-import { Editor } from '@barocss/editor-core';
+import { Editor, type ModelSelection } from '@barocss/editor-core';
 import type { RendererRegistry, ModelData, RenderEnv } from '@barocss/dsl';
 import type {
   DecoratorExportData,
@@ -152,7 +152,18 @@ export interface IEditorViewDOM {
   
   // Selection conversion
   convertDOMSelectionToModel?(sel: Selection): any;
-  convertStaticRangeToModel?(staticRange: StaticRange): { type: 'range'; startNodeId: string; startOffset: number; endNodeId: string; endOffset: number; direction?: 'forward' | 'backward' | 'none' } | null;
+  /**
+   * **좁게 다시 적은 사본이 여기 있었고, 그것이 어긋남을 강제했다.**
+   *
+   * 여섯 필드를 손으로 적었는데 그 목록에 `collapsed` 가 없었다. 구현은 `fromDOMSelection` 을
+   * 지나므로 접힌 `StaticRange` 에 대해 **깃발을 붙여 돌려주고 있었고**, 그것을 받는
+   * `input-handler` 가 *그런 필드는 없다* 는 타입을 보고 네 개만 옮겨 담았다. 그 자리가
+   * `site.spec.ts:8298` 의 15% 다.
+   *
+   * `docs/specs/selection.md` 가 이 모양을 이미 적어 두었다 — *"사본은 어긋남을 못 잡은 것이
+   * 아니라 어긋남을 강제했다."* `editor-view-react` 는 같은 문에 `ModelSelection` 을 적고 있다.
+   */
+  convertStaticRangeToModel?(staticRange: StaticRange): ModelSelection | null;
   convertModelSelectionToDOM?(sel: any): void;
   
   // Browser native commands (delegated to Model-first Commands)

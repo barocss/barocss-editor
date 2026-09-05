@@ -61,7 +61,8 @@ describe('SelectionManager Advanced Features', () => {
         startNodeId: 'text-1',
         startOffset: 0,
         endNodeId: 'text-1',
-        endOffset: 11 // "Hello World".length
+        endOffset: 11, // "Hello World".length
+        collapsed: false
       });
     });
 
@@ -76,6 +77,11 @@ describe('SelectionManager Advanced Features', () => {
     it('should select all text from first to last node', () => {
       selectionManager.selectAll();
       const selection = selectionManager.getCurrentSelection();
+      // No `collapsed` here, and that is the point: the two ends are in
+      // different nodes, so `withDerivedCollapsed` deliberately declines to
+      // answer. `t1:2 → t2:0` can be the same point on screen when the runs are
+      // adjacent, and knowing that means reading the document. Every other
+      // assertion in this file states the flag because its ends share a node.
       expect(selection).toEqual({
         type: 'range',
         startNodeId: 'text-1',
@@ -97,7 +103,8 @@ describe('SelectionManager Advanced Features', () => {
         startNodeId: 'text-1',
         startOffset: 0,
         endNodeId: 'text-1',
-        endOffset: 5
+        endOffset: 5,
+        collapsed: false
       });
     });
 
@@ -111,7 +118,8 @@ describe('SelectionManager Advanced Features', () => {
         startNodeId: 'text-1',
         startOffset: 5,
         endNodeId: 'text-1',
-        endOffset: 11 // "Hello World".length
+        endOffset: 11, // "Hello World".length
+        collapsed: false
       });
     });
   });
@@ -127,7 +135,8 @@ describe('SelectionManager Advanced Features', () => {
         startNodeId: 'text-1',
         startOffset: 0,
         endNodeId: 'text-1',
-        endOffset: 0
+        endOffset: 0,
+        collapsed: true
       });
     });
 
@@ -141,7 +150,8 @@ describe('SelectionManager Advanced Features', () => {
         startNodeId: 'text-1',
         startOffset: 11, // "Hello World".length
         endNodeId: 'text-1',
-        endOffset: 11
+        endOffset: 11,
+        collapsed: true
       });
     });
   });
@@ -157,7 +167,8 @@ describe('SelectionManager Advanced Features', () => {
         startNodeId: 'text-1',
         startOffset: 8,
         endNodeId: 'text-1',
-        endOffset: 8
+        endOffset: 8,
+        collapsed: true
       });
     });
 
@@ -171,7 +182,8 @@ describe('SelectionManager Advanced Features', () => {
         startNodeId: 'text-1',
         startOffset: 5,
         endNodeId: 'text-1',
-        endOffset: 8
+        endOffset: 8,
+        collapsed: false
       });
     });
   });
@@ -186,7 +198,8 @@ describe('SelectionManager Advanced Features', () => {
         startNodeId: 'text-1',
         startOffset: 0,
         endNodeId: 'text-1',
-        endOffset: 5 // "Hello".length
+        endOffset: 5, // "Hello".length
+        collapsed: false
       });
     });
 
@@ -199,7 +212,8 @@ describe('SelectionManager Advanced Features', () => {
         startNodeId: 'text-1',
         startOffset: 0,
         endNodeId: 'text-1',
-        endOffset: 5 // "Hello".length
+        endOffset: 5, // "Hello".length
+        collapsed: false
       });
     });
 
@@ -214,7 +228,8 @@ describe('SelectionManager Advanced Features', () => {
         startNodeId: 'text-1',
         startOffset: 5,
         endNodeId: 'text-1',
-        endOffset: 5
+        endOffset: 5,
+        collapsed: true
       });
     });
   });
@@ -232,7 +247,8 @@ describe('SelectionManager Advanced Features', () => {
         startNodeId: 'text-3',
         startOffset: 7, // Start of "Line 2"
         endNodeId: 'text-3',
-        endOffset: 13 // End of "Line 2"
+        endOffset: 13, // End of "Line 2"
+        collapsed: false
       });
     });
   });
@@ -290,7 +306,8 @@ describe('SelectionManager Advanced Features', () => {
         startNodeId: 'text-1',
         startOffset: 2,
         endNodeId: 'text-1',
-        endOffset: 8
+        endOffset: 8,
+        collapsed: false
       });
     });
 

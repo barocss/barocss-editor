@@ -341,6 +341,88 @@ Seven hundred lines, three renderers (`surface`, `frame`, `instance`, plus a pic
 the arrangement, components, the selection, the history, the commands — is what the first two
 products already had.
 
+## 그리고 지금은 이만큼이다 — 재는 절
+
+That table is **history**: it is what the first slice cost, and it has read like a statement about
+the product ever since. It is not one. `packages/office-site/test/spec-numbers.test.ts` measures the
+figures below out of the running product, so a sentence here cannot outlive what it describes — the
+reason `agents.md` gives is that the difference between a document that rots and one that does not
+is never the prose, it is whether a test reads it.
+
+**A number is in this section because somebody has to be told it changed**, not because it can be
+counted. A vocabulary that grew, a surface that lost a control, the product's own share of what it
+registers, a shell that moved out of the app. Not: how many files there are, how many bytes
+`PAGE_CSS` is, how many tests this package runs.
+
+### 문서 — 무엇으로 만들어져 있나
+
+| | count |
+| --- | ---: |
+| node types reachable | **71** |
+| of those, **declared by the site** | **14** — `dataset`, `collection`, `chart`, `form`, `field`, `service`, `asset`, `richText`, `publish`, `publishes`, `width`, `widths`, `mediaVideo`, `mediaEmbed` |
+| attribute slots | **841** |
+| marks | 25 |
+| widths a page answers at | **3** — base, tablet, mobile |
+
+Word holds 108 node types and 1,033 attribute slots; the deck holds 64 and 515. The site builder
+sits between them and the reason is in the fourteen: everything about **data, publishing and a
+visitor** is this product's own, and everything about text and arrangement is not.
+
+### 손 — 독자가 닿을 수 있는 것
+
+| | count |
+| --- | ---: |
+| commands registered | **186** (84 the site's own) |
+| toolbar controls · commands · icons | **44** · 37 · 34 |
+| `/` menu rows | 13 |
+| keys · the commands they run | **25** · 12 |
+| panel rows, over 6 tabs | **126** |
+| attributes a reader can **set**, from the panel | **124** |
+| menus · context blocks · menu commands | 5 · 4 · **53** |
+
+**The panel is the largest surface in the suite and it is a declaration**, which is what made it the
+answer to `every-property-can-be-edited` while Word had no panel at all and the deck's was still
+JSX. The deck's `panel-model.ts` is this file's shape, taken up second.
+
+### 두 톱니 — 둘 다 0이고, 0이 값이다
+
+| | |
+| --- | ---: |
+| commands the probe could not put itself in a state to try | **0** *(ratchet)* |
+| panel rows the probe could not put itself in a state to try | **0** *(ratchet)* |
+
+Both started high — 25 of 62 commands, and 38 rows — and every step down was the probe learning a
+state a reader is already in rather than the product losing anything. Two of those steps found real
+faults. A ratchet rather than a target: the day a command or a row arrives whose state this cannot
+build, it fails, and somebody decides whether to teach the probe or to name the gap.
+
+### 크기 — 그리고 셸이 어디 있나
+
+| | |
+| --- | ---: |
+| `apps/site/src` | **4,221 lines** |
+| components behind `@barocss/office-site/ui` | **5** |
+| browser tests behind it | **283** |
+
+`apps/site` was 11,410 lines before `PageFrame`, `Rail`, `Inspector`, `Overlay` and `Admin` — those
+five — moved into this package. That is the move `note.md` uses as its gauge, and the 283 above is
+the number that spec quotes when it says nothing measurable broke.
+
+**There is no line count of this package here on purpose.** It was in the first draft of this
+section and failed within the hour, on a comment added three files away. A figure that moves for
+every commit is red for everybody every day and gets deleted, which lands where having no check
+lands. The two above move only when a component moves, which is the thing anybody actually needs to
+be told about.
+
+### 발행물은 규칙을 하나만 싣는다
+
+A visitor gets `PAGE_CSS` and nothing else. `ui.css`, `text.css`, `tokens.css` and
+`apps/site/src/style.css` are all loaded by the **editor**, so a rule that belongs to the page and
+lives in one of them makes the board right and the published page wrong — and the two look identical
+to anybody who only opens the editor. That has happened three times: `.st-chart` and its two parts,
+`.st-sticker`, and `.w-emoji`. `page-css-covers-what-a-page-draws.test.ts` counts the class rather
+than the instance, so the fourth is caught by a machine.
+
 ## What the schema holds now
 
 Everything a site draws is the office schema's, plus this. It is the whole list:

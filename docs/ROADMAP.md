@@ -433,7 +433,7 @@ appetite.
 로드맵의 단계는 몇 달짜리다. 이건 그 안에서 **다음에 손댈 것**이고, 하나씩 지워 가며 쓴다. 각 줄은
 `BACKLOG.md` 의 항목 하나를 가리키고, *왜* 는 거기 있다.
 
-- [x] ~~**`Shift+→` 가 블록을 넘으면 모델 범위가 뒤집힌다.**~~ **끝 — 그리고 적어 둔 원인이 틀렸다.**
+- [x] ~~**`Shift+→` 가 블록을 넘으면 모델 범위가 뒤집힌다.**~~ **끝 — 그리고 적어 둔 원인이 틀렸다.** — 근거: `packages/editor-core/test/from-dom-selection.test.ts:19` · `packages/shared/src/text-position/collapse-boundaries.test.ts:25`
       *"`isTextContainer` 가 아무도 안 쓰는 속성을 물어서"* 라고 적혀 있었고, 그것도 사실이었지만 이
       결함의 원인은 아니었다. 그 수정 뒤에도 **다섯 번째 누름에서 그대로 뒤집혔다** — 검사를 쓰고 나서
       알았다. 원인은 둘이었고 둘 다 *"어느 쪽인가"* 를 잘못된 것에게 물은 것이다:
@@ -452,8 +452,8 @@ appetite.
       `apps/note/tests/selection.spec.ts`. **배운 것:** 원인을 찾았다고 적은 것과 고쳐졌다고 적은 것은
       다른 문장이고, 그 사이를 잇는 것은 단정하는 검사뿐이다. 앞 회차의 프로브 둘(`zz-sh`, `zz-tc`)은
       콘솔에 찍기만 해서 `every-test-asserts` 가 잡았고, 그 잡힘이 이걸 다시 열게 했다.
-- [x] ~~**`ModelSelection` 이 셋 선언되어 있고 둘이 서로 다르다.**~~ **끝 — 다섯이었고, 그 중 하나가
-      오래된 결함의 출처였다.** `editor-core` 의 죽은 `ModelNodeSelection = { nodeId, selectAll }` 이
+- [x] ~~**`ModelSelection` 이 셋 선언되어 있고 둘이 서로 다르다.**~~ **끝 — 다섯이었다.** — 근거: `packages/conformance/test/one-selection-type.test.ts:83`
+      **그 중 하나가 오래된 결함의 출처였다.** `editor-core` 의 죽은 `ModelNodeSelection = { nodeId, selectAll }` 이
       아무도 안 쓰인 채 남아 있었고, **두 뷰 층이 그 모양을 향해 `nodeSelection.nodeId` 를 읽고
       있었다** — 생산자는 `nodeIds` 복수를 세우므로 그 분기는 한 번도 아무 일을 한 적이 없다. 그리고
       `cell`·`table` 은 `console.warn('Unsupported selection type')` 으로 갔다(셀 드래그 한 번에 한
@@ -463,7 +463,7 @@ appetite.
       `ModelSelection` 에 `nodeId` 가 없다. 그리고 사본이 검사를 실제로부터 **밀어낸** 자리도 나왔다:
       React 검사에 *"컴파일러가 그렇게 말했다"* 며 범위 필드 넷을 지운 주석이 있었고, 그 컴파일러가
       읽던 것이 좁은 사본이었다. `docs/specs/selection.md` 에 다 적었다.
-- [x] ~~**엔진이 *글자인가* 를 이름으로 묻는다.**~~ **끝 — 그리고 스키마를 바꿀 필요가 없었다.**
+- [x] ~~**엔진이 *글자인가* 를 이름으로 묻는다.**~~ **끝 — 그리고 스키마를 바꿀 필요가 없었다.** — 근거: `packages/conformance/test/text-is-asked-by-text.test.ts:58`
       `stype === 'inline-text'` 가 엔진 층 **열여섯 자리**에 있었다(`editor-view-dom` 열,
       `editor-core` 하나, `model` 하나, `renderer-dom` 하나, `extensions` 셋). 원칙은
       `extensions/range-delete.ts` 의 `isInline` 에 이미 적혀 있었고 **한 파일이 그렇게 하고 열여섯이
@@ -484,7 +484,7 @@ appetite.
       다섯과 렌더러의 로그 하나. `model` 과 `extensions` 는 `shared` 의존이 없어서 새로 더했다
       (`shared` 는 의존이 0이므로 순환이 안 생긴다).
 
-- [x] ~~**뷰 층이 두 벌.**~~ **끝 — 그리고 합칠 것은 열셋이 아니라 둘이었다.**
+- [ ] **뷰 층이 두 벌.** ~~끝 — 그리고 합칠 것은 열셋이 아니라 둘이었다.~~ **재보니 두 벌이 그대로다** — `editor-view-dom/.../selection-handler.ts` 505줄과 `editor-view-react/src/selection-handler.ts` 424줄에 같은 이름의 private 메서드 **14개**(문서는 751/485줄에 11개라고 적었다). 끝난 것은 그 안의 결함 둘뿐이고 `packages/shared/src/text-position/collapse-boundaries.test.ts:25` 가 그것을 붙잡는다.
       1단계(선택 어휘를 `shared` 로)를 하고 2단계로 열셋을 대봤더니: **표기만 다른 것 여덟**(변수명,
       `??` vs `||`, 로그), 같은 것 둘, React 에 없는 것 둘, **논리가 다른 것 둘.** 326줄을 옮기는 것이
       답이 아니었고 — 여덟을 옮겼으면 순수한 churn 이다 — **그 둘이 다 살아 있는 결함이었다.**
@@ -515,13 +515,13 @@ appetite.
       `(p, 0)` 에만 두었는데, 거기는 **접는 방향이 결과를 안 바꾸는 유일한 자리** 다. 내가 고른
       자리가 내 결정을 시험하지 않았다. **끝났다고 적은 문장과 끝난 것 사이를 잇는 것은 여전히
       단정하는 검사뿐이고, 그 검사가 결정을 실제로 시험하는지까지 봐야 한다.**
-- [x] ~~**편집기의 문에서도 선택의 답이 둘이다.**~~ **끝 — 답은 둘이 아니라 하나였다.** 재보니
-      `SelectionState` 를 **만드는 곳이 하나도 없었다**: 넘기는 호출자 0, 구현하는 확장 0, 그것을
+- [x] ~~**편집기의 문에서도 선택의 답이 둘이다.**~~ **끝 — 답은 둘이 아니라 하나였다.** — 근거: `packages/conformance/test/one-selection-type.test.ts:83`
+      재보니 `SelectionState` 를 **만드는 곳이 하나도 없었다**: 넘기는 호출자 0, 구현하는 확장 0, 그것을
       싣는 이벤트 0. 문을 좁히는 대신 그 타입을 지웠다. `updateSelection` 은
       `EditorSelectionModelPayload | null`, 확장 훅 둘은 `ModelSelection`/`MaybeSelection`,
       `editor:selection.change` 는 `MaybeSelection` 이고 `.focus`·`.blur` 는 payload 가 없다.
       읽고 있던 쪽(`devtool.getSelectionInfo` 의 죽은 분기 둘)도 같이 걷었다 — `BACKLOG.md`.
-- [x] ~~**제품 계약에 이름이 없다.**~~ **끝 — 그리고 넷째가 이미 벗어나 있었다.**
+- [x] ~~**제품 계약에 이름이 없다.**~~ **끝 — 그리고 넷째가 이미 벗어나 있었다.** — 근거: `packages/conformance/test/every-product-is-built-the-same-way.test.ts:70`. 다만 아래 본문의 *"Word 의 71개"* 는 재보니 **52개**다(`WORD_KEYBINDINGS`).
       `word`·`slides`·`site` 의 옵션 타입이 **글자까지 같았다**(`extends EditorOptions` +
       `kit?` + `keybindings?`; word 만 `author` 를 더 받는다). 그런데 **가장 최근 제품인 `note` 가
       그것을 안 따랐다** — `EditorOptions` 를 안 물려받고, `keybindings` 를 아예 못 받고,
@@ -538,7 +538,7 @@ appetite.
 
       `conformance/every-product-is-built-the-same-way.test.ts` 가 넷을 센다: 계약을 받는가, `kit` 이
       기본을 갈아끼우는가, `keybindings` 가 **층**인가.
-- [ ] **키를 어느 층이 갖는가 — 기준을 적었다**(`docs/specs/keybindings.md`), **이주가 남았다.**
+- [ ] **키를 어느 층이 갖는가 — 기준을 적었다**(`docs/specs/keybindings.md`), **이주가 남았다.** — 재보니 아래 본문의 *"`WORD_KEYBINDINGS` 70개"* 도 틀렸다: 오늘 세면 **52개**(+`WORD_VIEW_KEYS` 1)이고, 엔진 기본 **40개**는 맞다. 아무 검사도 이 둘을 세지 않는다.
 
       *"키맵이 Word 에만 있다"* 고 적혀 있었고 **틀렸다.** 재보니 `editor-core` 의
       `DEFAULT_KEYBINDINGS` 가 **마흔**을 묶고 **모든 제품이 그것을 받는다** — Enter·Backspace·
@@ -557,38 +557,38 @@ appetite.
       `keydown` 이 `window` 가 아니라 **`contentEditableElement` 에 붙기 때문에 성립하지 않는다.
 
       *남은 일:*
-      - [x] note 에 `MoveBlockExtension` — 셋은 싣고 노트만 안 실어서 `Alt+↑` 가 죽어 있었다.
+      - [x] note 에 `MoveBlockExtension` — 셋은 싣고 노트만 안 실어서 `Alt+↑` 가 죽어 있었다. — 근거: `packages/office-controls/test/every-engine-key-reaches-a-command.test.ts:42`
             기능은 손잡이로 있었다. `office-controls/every-engine-key-reaches-a-command.test.ts`
-      - [ ] **slides 의 문서 키 23개를 레지스트리로.** `SLIDES_KEYS` 는 이미 `office-controls` 의
+      - [ ] **slides 의 문서 키 20개를 레지스트리로** — 23이 아니다: 재보니 `SLIDES_KEYS` 는 **24개**(명령 22 · `view` 2)이고 문서 키는 엔진 재진술 2·크롬 2 를 뺀 **20**이다. `SLIDES_KEYS` 는 이미 `office-controls` 의
             `KeyModel` 이므로 모양은 같다. 실제 일은 **맥락을 세우는 것** 이다 — slides/site 는
             `setContext` 를 하나도 안 부른다(`when` 을 쓰는 것은 word 뿐이다)
-      - [ ] site 도 같게 (문서 키 0, 앱의 손 keydown 셋은 전부 크롬)
-      - [ ] 읽기 전용을 낼 때 `editorEditable` 을 걸 명령 목록 — 지금 Word 54 중 0, note 2 중 0.
+      - [ ] site 도 같게 — **재보니 "문서 키 0" 이 틀렸다:** `SITE_KEYS` 가 **18개**이고 그 중 **14개가 명령**(`removeBlocks`·`groupBlocks`·`selectParent` …)이다. 크롬은 `view` 5뿐이다
+      - [ ] 읽기 전용을 낼 때 `editorEditable` 을 걸 명령 목록 — **재보니 Word 는 54 중 0이 아니라 52 중 2다**(`packages/office-word/src/word-keymap.ts:106`·`:107`, `no-product-restates-an-engine-key.test.ts:89` 가 찾아서 더한 것이다). note 2 중 0은 맞다.
             일괄로 걸면 안 된다: `copy`·`selectAll` 은 읽기 전용에서 되어야 한다
-- [ ] **두 끝이 형제가 아닌 범위** — 인용문 안에서 바깥으로. **결정은 끝났다**(`specs/selection.md`):
+- [ ] **두 끝이 형제가 아닌 범위** — 재보니 남은 일이 그대로다: `fromDOMSelection` 호출자 넷 중 `compareNodeOrder` 를 주는 곳이 **0**이고 기본이 `() => -1` 이다(`packages/shared/src/selection.ts:207`). 인용문 안에서 바깥으로. **결정은 끝났다**(`specs/selection.md`):
       시작을 담은 블록이 살아남는다 — 추측이 아니라 *삭제 뒤 캐럿이 시작 자리에 있다* 에서 도출된다.
       남은 일은 **문서 순서 훑기** 하나이고, 이번 회차에 같은 것이 한 번 더 필요했다
       (`fromDOMSelection` 이 문서 순서를 sid 문자열로 정하고 있었다). 두 자리가 같은 것을 필요로 하면
       그 자리는 모델 쪽이다.
-- [ ] **관리 화면 둘:** 컴포넌트 탭이 이름 목록이라 썸네일 카드여야 하고, 데이터 탭의 행 편집 Drawer 가
+- [ ] **관리 화면 둘:** 재보니 컴포넌트 탭은 여전히 표다(`packages/office-site/src/admin.tsx:646` — 이름·쓰임·변수·틀 열의 `<table>`), 썸네일 카드가 아니다. Drawer 겹침은 **못 쟀다**(브라우저가 필요하다). 컴포넌트 탭이 이름 목록이라 썸네일 카드여야 하고, 데이터 탭의 행 편집 Drawer 가
       다른 도구와 겹친다.
-- [ ] **크롬 이주의 다음 조각.** 되돌리기 쉬운 것부터: `page-frame`(307, 오버레이와 이미 갈랐다) →
-      `rail`(1,483) → `inspector`(2,343) → `overlay`(1,997, 좌표를 읽으니 마지막).
+- [x] ~~**크롬 이주의 다음 조각.** 되돌리기 쉬운 것부터: `page-frame`(307) → `rail`(1,483) → `inspector`(2,343) → `overlay`(1,997).~~ **넷 다 옮겼다** — 근거: `packages/conformance/test/every-app-scans-the-chrome-it-draws.test.ts:59`
+      재보니 넷이 다 `packages/office-site/src/` 에 있고 크기는 314 · 1,467 · 2,310 · 2,028 이다 — `apps/site/src` 에 남은 것은 app·canvas·ribbon·data-editor·code-editor·grip·text-surface 다.
       `office-site` 가 React 를 갖게 되는 첫 걸음이다.
-- [x] ~~**드래그 열셋을 `dragGesture` 로.**~~ **끝.** 그 수를 두 번 잘못 셌다(20 → 5 → **13**) —
+- [x] ~~**드래그 열셋을 `dragGesture` 로.**~~ **끝.** — 근거: `packages/shared/src/gesture.test.ts:98`(pointercancel 로 끝나도 리스너가 남지 않는다); 재보니 저장소에 남은 `window` `pointermove` 는 **하나**다(`packages/office-slides/src/stage.tsx:766`). 그 수를 두 번 잘못 셌다(20 → 5 → **13**) —
       **세는 방법이 답을 바꾼다.** 남은 `window` `pointermove` 하나는 상시 리스너다. `abort` 가
       자리마다 다른 것이 이 이주의 값이고, `TECHNICAL-ROADMAP.md` §2.0 에 그 갈래를 적었다.
-- [ ] **전역 키 리스너의 가드가 규칙이 아니라 관습이다.** *"스물둘, 인스턴스가 둘이면 둘 다 듣는다"*
+- [ ] **전역 키 리스너의 가드가 규칙이 아니라 관습이다.** — 재보니 그 검사는 아직 없다: `packages/conformance/test/` 22개 중 리스너를 세는 것이 **0**이다. *"스물둘, 인스턴스가 둘이면 둘 다 듣는다"*
       고 적었다가 다시 셌고 틀렸다 — 열다섯은 `apps/*` 이고 그 제품들은 창마다 편집기가 하나다.
       패키지 안에는 여섯이고 **여섯 다 인스턴스별 상태로 가드한다.** 살아 있는 결함이 아니다. 남은
       것은 그 규칙을 적고 새 리스너가 가드 없이 들어오는 것을 세는 검사 하나.
-- [ ] **`toModel` 이 셋이고 같은 이름으로 서로 다른 질문 둘에 답한다** — 한 파일 안에 80줄 떨어져
+- [ ] **`toModel` 이 셋이고 같은 이름으로 서로 다른 질문 둘에 답한다** — 재보니 셋 그대로이고 자리만 바뀌었다: `packages/office-word/src/drawing-overlay.tsx:293`(거리) · `:389`(점) · `packages/office-slides/src/overlay.tsx:688`(점). 한 파일 안에 80줄이 아니라 **96줄** 떨어져
       하나는 점, 하나는 거리다. 셋 다 세 줄이라 중복은 값이 아니고, 값은 두 질문에 다른 이름을 주는
       것이다: `pointIn` 과 `deltaIn`. 제스처가 `moved.x/y` 와 `moved.dx/dy` 를 주므로 자리는 그 옆.
-- [ ] **`createWordTables`(508줄)와 `frameCss`** 를 제자리로. 제품끼리의 마지막 두 변.
-- [x] ~~**엔진의 순환 셋** — Phase 1.~~ **끝.** 둘이 유령이었고 하나는 타입만이었다. 유령 열넷을 걷고
+- [x] ~~**`createWordTables`(508줄)와 `frameCss`** 를 제자리로. 제품끼리의 마지막 두 변.~~ **끝** — 근거: `packages/conformance/test/no-product-depends-on-a-product.test.ts:86`; 재보니 `createWordTables` 는 `packages/office-text/src/table-commands.ts:506`, `frameCss` 는 `packages/office-site/src/wireframe.ts:593`(`wireframeCss`) 에 있다.
+- [x] ~~**엔진의 순환 셋** — Phase 1.~~ **끝.** — 근거: `packages/conformance/test/dependency-graph.test.ts:44`. 둘이 유령이었고 하나는 타입만이었다. 유령 열넷을 걷고
       `dependency-graph.test.ts` 로 못 박았다. 큰 일이라고 본 것이 틀렸다 — 로드맵이 맞았다.
-- [x] ~~**셀 병합·분할.**~~ **끝 — 그리고 적어 둔 이유가 틀렸다.** *"제스처가 없다"* 고 적었는데
+- [x] ~~**셀 병합·분할.**~~ **끝 — 그리고 적어 둔 이유가 틀렸다.** — 근거: `packages/office-note/test/spec-numbers.test.ts:87`(노트의 표 명령 여덟) · `packages/office-text/src/table-selection-view.ts:76`(제스처가 부품에 있다). *"제스처가 없다"* 고 적었는데
       `installCellSelection` 이 379줄로 있었고 `apps/word`·`apps/slide` 가 부르고 있었다. 진짜 결함은
       둘이었다: (1) 그 제스처가 **`office-word` 안**에 있어서 표를 가진 넷 중 둘만 닿았고, (2)
       `extensions/table.ts` 의 `_selectedCellRange` 가 **`cell` 선택을 못 알아봤다** — `cell` 은 이

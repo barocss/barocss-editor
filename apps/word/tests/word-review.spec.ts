@@ -146,18 +146,43 @@ test.describe('comments', () => {
     await page.getByLabel('Add comment').click();
   };
 
+  /**
+   * **The sample carries a comment of its own now, so nothing here counts from zero.**
+   *
+   * It was added because a check could not run without one — `word-outline.spec.ts:173`
+   * skipped itself with *"the sample has no commented text to mark"*, and a skip is green.
+   * Eighteen checks in this app broke the moment the fixture wore what they test, because
+   * they had written *"the sample has no comments"* down as an absolute number.
+   *
+   * So there are two questions here and they need different tools:
+   *
+   * - *"the comment I just made"* → `mine(page, text)`, which finds it by what it says.
+   *   That is what most of these tests actually mean, and it does not care what else the
+   *   document holds.
+   * - *"how many are on the page"* → `countOf` for the baseline, then baseline + n. Only
+   *   for the tests whose subject really is the total.
+   *
+   * Writing the new absolute number back would work today and break again the next time
+   * the fixture grows.
+   */
+  const mine = (page: import('@playwright/test').Page, text: string) =>
+    page.locator('.w-comment').filter({ hasText: text });
+
+  const countOf = (page: import('@playwright/test').Page, selector: string) =>
+    page.locator(selector).count();
+
   test('anchors to the selected text and shows who said it', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.w-sheet');
+    const hits = await countOf(page, '.w-comment-hit');
     await selectSome(page);
     await comment(page, 'Is this clear?');
 
-    await expect(page.locator('.w-comment')).toHaveCount(1);
-    await expect(page.locator('.w-comment')).toContainText('Is this clear?');
+    await expect(mine(page, 'Is this clear?')).toHaveCount(1);
     // The author is the host's to supply, so it is the host's name that shows.
-    await expect(page.locator('.w-comment')).toContainText('Jinho');
-    // And the text it is about is marked on the page.
-    await expect(page.locator('.w-comment-hit')).toHaveCount(1);
+    await expect(mine(page, 'Is this clear?')).toContainText('Jinho');
+    // And the text it is about is marked on the page — one more mark than before.
+    await expect(page.locator('.w-comment-hit')).toHaveCount(hits + 1);
   });
 
   test('can be corrected without changing who said it', async ({ page }) => {
@@ -166,16 +191,19 @@ test.describe('comments', () => {
     await selectSome(page);
     await comment(page, 'Is this clera?');
 
-    await page.getByLabel('Edit comment').click();
+    // The one this test made, not the one the sample carries.
+    const made = mine(page, 'Is this clera?');
+    await made.getByLabel('Edit comment').click();
     await page.getByLabel('Edit comment text').fill('Is this clear?');
     await page.getByLabel('Edit comment text').press('Enter');
 
-    await expect(page.locator('.w-comment-text')).toHaveText('Is this clear?');
+    const fixed = mine(page, 'Is this clear?');
+    await expect(fixed.locator('.w-comment-text')).toHaveText('Is this clear?');
     // The words change; the name and the date do not. They record who said it
     // and when, and a comment that quietly reattributes itself is worse than
     // one nobody can fix.
-    await expect(page.locator('.w-comment')).toContainText('Jinho');
-    await expect(page.locator('.w-comment')).toContainText('2026-08-10');
+    await expect(fixed).toContainText('Jinho');
+    await expect(fixed).toContainText('2026-08-10');
   });
 
   test('collects replies under the comment they answer', async ({ page }) => {
@@ -184,18 +212,22 @@ test.describe('comments', () => {
     await selectSome(page);
     await comment(page, 'Is this clear?');
 
-    await page.locator('.w-comment-reply').fill('It is now');
-    await page.getByLabel('Send reply').click();
+    const thread = mine(page, 'Is this clear?');
+    await thread.locator('.w-comment-reply').fill('It is now');
+    await thread.getByLabel('Send reply').click();
 
-    // One thread, two entries, in the order they were written.
-    await expect(page.locator('.w-comment')).toHaveCount(1);
-    await expect(page.locator('.w-comment-text')).toHaveCount(2);
-    await expect(page.locator('.w-comment-text').nth(1)).toHaveText('It is now');
+    // One thread, two entries, in the order they were written — asked of that
+    // thread, so what else the document holds does not enter into it.
+    await expect(mine(page, 'Is this clear?')).toHaveCount(1);
+    await expect(thread.locator('.w-comment-text')).toHaveCount(2);
+    await expect(thread.locator('.w-comment-text').nth(1)).toHaveText('It is now');
   });
 
   test('lets several comments cover the same words', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.w-sheet');
+    // This one's subject really is the total, so it starts from what is there.
+    const before = await countOf(page, '.w-comment');
 
     // Two people commenting on the same phrase is the ordinary case in review,
     // not an edge one: each is anchored separately and neither disturbs the
@@ -232,7 +264,7 @@ test.describe('comments', () => {
       await editor.run('insertComment', { selection: at(5, 15), text: 'Third, same words' });
     });
 
-    await expect(page.locator('.w-comment')).toHaveCount(3);
+    await expect(page.locator('.w-comment')).toHaveCount(before + 3);
     await expect(page.locator('.w-comments-pane')).toContainText('Third, same words');
   });
 
@@ -249,28 +281,33 @@ test.describe('comments', () => {
   test('resolving settles it and takes the mark off the page', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.w-sheet');
+    const hits = await countOf(page, '.w-comment-hit');
     await selectSome(page);
     await comment(page, 'Settled?');
 
-    await page.getByLabel('Resolve comment').click();
-    await expect(page.locator('.w-comment[data-resolved="true"]')).toHaveCount(1);
+    await mine(page, 'Settled?').getByLabel('Resolve comment').click();
+    await expect(mine(page, 'Settled?')).toHaveAttribute('data-resolved', 'true');
     // Still there to read, but no longer marked on the text: a settled comment
-    // is not something the reader is being asked about.
-    await expect(page.locator('.w-comment-hit')).toHaveCount(0);
-    await expect(page.locator('.w-comment')).toContainText('Settled?');
+    // is not something the reader is being asked about. The sample's own mark
+    // is untouched, so the page is back to the count it started at.
+    await expect(page.locator('.w-comment-hit')).toHaveCount(hits);
+    await expect(mine(page, 'Settled?')).toContainText('Settled?');
   });
 
   test('deleting takes the thread and the mark together', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.w-sheet');
+    const before = await countOf(page, '.w-comment');
+    const hits = await countOf(page, '.w-comment-hit');
     await selectSome(page);
     await comment(page, 'Never mind');
 
-    await page.getByLabel('Delete comment').click();
-    await expect(page.locator('.w-comment')).toHaveCount(0);
+    await mine(page, 'Never mind').getByLabel('Delete comment').click();
+    await expect(page.locator('.w-comment')).toHaveCount(before);
+    await expect(mine(page, 'Never mind')).toHaveCount(0);
     // Leaving the mark would leave text highlighted as commented with nothing
-    // to show when it is clicked.
-    await expect(page.locator('.w-comment-hit')).toHaveCount(0);
+    // to show when it is clicked — so the page is back to the marks it had.
+    await expect(page.locator('.w-comment-hit')).toHaveCount(hits);
   });
 
   test('keeps what somebody wrote when the text it was about goes', async ({ page }) => {
@@ -285,8 +322,9 @@ test.describe('comments', () => {
 
     // The comment stays and says it has lost its place. Dropping it would
     // silently delete something a person wrote.
-    await expect(page.locator('.w-comment')).toHaveCount(1);
-    await expect(page.locator('.w-comment-orphan')).toBeVisible();
+    const orphaned = mine(page, 'About text that will not last');
+    await expect(orphaned).toHaveCount(1);
+    await expect(orphaned.locator('.w-comment-orphan')).toBeVisible();
   });
 });
 

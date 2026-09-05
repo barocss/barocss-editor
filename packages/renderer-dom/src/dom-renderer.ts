@@ -12,7 +12,7 @@ import { RendererRegistry, ModelData, RenderEnv } from '@barocss/dsl';
 import { Reconciler } from './reconcile/reconciler';
 import { DOMOperations } from './dom-operations';
 import { ComponentManager } from './component-manager';
-import { ComponentInstance } from './types';
+import type { ComponentInstance } from './types';
 import { logger, LogCategory } from './utils/logger';
 import type { BaseComponentState } from './state/base-component-state';
 import type { DataStore } from './types';

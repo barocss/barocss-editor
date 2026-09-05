@@ -120,7 +120,20 @@ body {
 }
 .doc-title-field::placeholder { color: var(--ou-muted); }
 .doc-title-field:hover { border-color: var(--ou-line); }
-.doc-title-field:focus { outline: none; border-color: var(--ou-accent); background: #fff; }
+/*
+ * **`--ou-panel`, not `#fff`** — the focused field was white paper with white ink on it.
+ *
+ * The element's `color` is `inherit`, which is the window's `--ou-ink` = `#fafafa` in the dark, and
+ * the literal here did not follow. So clicking into the document's own title in dark mode made the
+ * text you were about to edit invisible: measured at 1.05:1.
+ *
+ * Nothing could see it. `word-theme.spec.ts` reads the colour of `.w-document *` and the background
+ * of `.w-chrome`, and the title bar is neither — it is the strip between them.
+ *
+ * A field that lifts off the chrome wants the *panel* colour, which is exactly the token for "the
+ * surface a control sits on", and it flips with the theme because that is what a token is for.
+ */
+.doc-title-field:focus { outline: none; border-color: var(--ou-accent); background: var(--ou-panel); }
 .doc-title-docTitle { font-size: 18px; font-weight: 650; flex: 0 0 auto; min-width: 18ch; }
 .doc-title-docAuthor { color: var(--ou-muted); font-size: 13px; flex: 0 0 auto; min-width: 12ch; }
 /* Takes what is left: it is the longest of the three and the one that gets cut. */
@@ -822,16 +835,39 @@ body {
   box-shadow: 0 2px 8px rgb(16 24 40 / 0.12);
 }
 
+/*
+ * **`:not([data-theme='light'])` on every line of it**, which is the shape a dark media block has to
+ * have in this repository.
+ *
+ * `@media (prefers-color-scheme: dark)` asks what the *machine* prefers, and a product's own switch
+ * is a different question. Without the guard this block still matched on a dark machine after a
+ * reader stamped `data-theme="light"` — so the app's *밝게* would have left the recorder panel dark,
+ * a strip of the other theme inside a light window, with no rule anywhere to explain it.
+ *
+ * The deck had the same fault in its palette block and it was the one everybody looked at, because a
+ * palette is obviously a theme. This is the reason the check
+ * (`packages/conformance/test/dark-is-actually-read.test.ts`) asks the question of **every** dark
+ * media block rather than only the ones that declare tokens: the guard is about which question the
+ * block is answering, not about what it paints.
+ *
+ * Nothing in this app stamps `data-theme` today, so this is latent — the same kind of latency the
+ * backlog recorded for `apps/slide`, and the same day it stops being latent for both.
+ */
 @media (prefers-color-scheme: dark) {
-  .lab { background: #171a1f; border-color: #2a2f37; color: #e6eaee; }
-  .lab-card { background: #1c2026; border-color: #2a2f37; }
-  .lab-card-active { background: #2a1a18; border-color: #b8402f; }
-  .lab-head { border-bottom-color: #2a2f37; }
-  .lab-head p, .lab-why, .lab-verdict span, .lab-saved, .lab h4, .lab-card dt { color: #9aa4b2; }
-  .lab button { background: #22262d; border-color: #39404a; color: #e6eaee; }
-  .lab-stop { background: #b8402f; border-color: #b8402f; color: #fff; }
-  .lab-recording { background: #2a1a18; color: #f0b5ab; }
-  .lab-reopen { background: #22262d; border-color: #39404a; color: #e6eaee; }
+  :root:not([data-theme='light']) .lab { background: #171a1f; border-color: #2a2f37; color: #e6eaee; }
+  :root:not([data-theme='light']) .lab-card { background: #1c2026; border-color: #2a2f37; }
+  :root:not([data-theme='light']) .lab-card-active { background: #2a1a18; border-color: #b8402f; }
+  :root:not([data-theme='light']) .lab-head { border-bottom-color: #2a2f37; }
+  :root:not([data-theme='light']) .lab-head p,
+  :root:not([data-theme='light']) .lab-why,
+  :root:not([data-theme='light']) .lab-verdict span,
+  :root:not([data-theme='light']) .lab-saved,
+  :root:not([data-theme='light']) .lab h4,
+  :root:not([data-theme='light']) .lab-card dt { color: #9aa4b2; }
+  :root:not([data-theme='light']) .lab button { background: #22262d; border-color: #39404a; color: #e6eaee; }
+  :root:not([data-theme='light']) .lab-stop { background: #b8402f; border-color: #b8402f; color: #fff; }
+  :root:not([data-theme='light']) .lab-recording { background: #2a1a18; color: #f0b5ab; }
+  :root:not([data-theme='light']) .lab-reopen { background: #22262d; border-color: #39404a; color: #e6eaee; }
 }
 
 /*

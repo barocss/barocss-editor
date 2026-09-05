@@ -481,4 +481,27 @@ export const PAGE_CSS =
   width: auto;
   vertical-align: -0.28em;
 }
+
+/*
+ * ── 이모지 — 세 번째로 같은 칸에서 나온 것 ─────────────────────
+ *
+ * The same fault as the four above, found a second time and by hand: a site can insert an emoji
+ * (toolbar-model.ts), office-text's renderer draws it as span class w-emoji, and every rule behind
+ * that class lived in office-text/text.css - which the app imports and the export does not. So the
+ * glyph was boxed correctly on the board and stretched the line in the published page, which is the
+ * one thing a colour glyph reliably gets wrong.
+ *
+ * Three declarations, not five: inline-block so the glyph does not stretch the line box, line-height
+ * so it is measured by its own height, and the nudge that sits it on the text's baseline. The
+ * user-select pair stays behind, because it exists to stop a caret sweeping through half an atom and
+ * a visitor has no caret.
+ *
+ * Held by page-css-covers-what-a-page-draws.test.ts, which counts this whole class of defect rather
+ * than this one instance of it.
+ */
+.w-emoji {
+  display: inline-block;
+  line-height: 1;
+  vertical-align: -0.1em;
+}
 `;

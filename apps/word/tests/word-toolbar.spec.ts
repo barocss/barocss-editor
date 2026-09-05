@@ -519,7 +519,14 @@ test.describe('the toolbar’s icons', () => {
      * delete, which is where most of the comment icons are. Made through the
      * command rather than by selecting and pressing, because what is being tested
      * here is the drawing and not the making — `word-review.spec.ts` owns that.
+     *
+     * Counted from what the pane already holds. The sample carries a comment of
+     * its own now — it was given one because a check could not run without one,
+     * and eighteen checks in this app broke that day for having written *"the
+     * sample has no comments"* down as an absolute number. What this test needs
+     * is *a thread to draw*, not a document with exactly one.
      */
+    const threads = await page.locator('.w-comments-pane [data-comment]').count();
     await page.evaluate(async () => {
       const editor = (window as any).editor;
       const store = editor.dataStore;
@@ -546,7 +553,7 @@ test.describe('the toolbar’s icons', () => {
         text: '아이콘을 그릴 만한 댓글'
       });
     });
-    await expect(page.locator('.w-comments-pane [data-comment]')).toHaveCount(1);
+    await expect(page.locator('.w-comments-pane [data-comment]')).toHaveCount(threads + 1);
 
     /**
      * A button whose whole content is text, in any of the three.

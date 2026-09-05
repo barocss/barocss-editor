@@ -57,34 +57,6 @@ entries are that.
 
 ## Open
 
-### 패키지가 잘 갈려 있나 — 순환 0개가 됐고, 유령이 열넷이었다 — 2026-09-04 *(Phase 1 끝)*
-
-물음: *우리가 지금 패키지를 잘 구분해서 진행하고 있는거 맞지?* 주장 대신 의존 그래프로 답했다.
-
-**제품 층은 맞다.** `office-editor-ui` 는 제품을 하나도 의존하지 않고 넷이 그것을 의존한다 — 방향이
-한쪽이고 검사가 그것을 지킨다.
-
-**엔진 층에 순환이 셋 있다**, 그리고 이번 작업이 만든 것이 아니다:
-
-```
-datastore ↔ model
-editor-core ↔ extensions
-editor-core ↔ model
-```
-
-이것 때문에 `datastore` 의 층 깊이를 물을 수가 없다 — 그래프를 걸으면 100 을 넘는다.
-
-**큰 일이라고 봤고, 틀렸다.** `ROADMAP.md` 의 Phase 1 이 *"작고 뒤의 모든 것을 푼다"* 고 적어뒀고 그
-말이 맞았다:
-
-| 순환 | 무엇이었나 |
-|---|---|
-| `datastore → model` | **유령.** `package.json` 에 있고 import 가 **하나도 없다** |
-| `editor-core → extensions` | **유령.** 주석 한 줄뿐 — *"Extension implementations are provided by @barocss/extensions"* |
-| `editor-core ↔ model` | 한쪽만 진짜. `editor-core` 는 `new TransactionManager` 를 쓰고, `model` 은 `Editor`·`SelectionManager` 를 **타입 자리에서만** 쓴다 |
-
-앞의 둘은 지우면 끝이고, 세 번째는 `import type` 셋과 devDependency 한 줄로 풀렸다. **셋이 다 몇 분이었다.**
-
 ### 그리고 검사를 붙이자 유령이 열넷 나왔다
 
 `conformance/test/dependency-graph.test.ts` 는 두 가지를 묻는다 — 순환이 있나, 그리고 **선언했는데
@@ -163,26 +135,6 @@ office-site   → office-note   NOTE_CONTENT       ← 의도한 것, 문서에 
 두 번 적지 않으려고.
 
 ---
-
-### Word 브라우저 스위트가 열 개 실패하고 있었다 — 2026-09-04 *(열 개 다 고침)*
-
-Reported by nobody. Found by reading a log properly for the first time.
-
-`--reporter=line` 의 마지막 줄은 **통과 수**입니다. `364 passed (4.8m)` 를 세 번 보고 세 번 통과라고
-말했고, 그 위에 `10 failed` 가 있었습니다. **요약의 끝만 읽으면 실패는 안 보입니다.**
-
-세 번의 전체 실행을 이름으로 대보면 **같은 열 개가 세 번 다** 실패합니다 — 이번 회차에만 실패한 것도,
-이번에 나아진 것도 없습니다. 이 작업과 무관하고 그 전부터 있던 것입니다.
-
-| | 무엇 |
-|---|---|
-| `float-paragraph-overflow` | 감싸는 문단의 줄이 **인쇄 영역 밖으로** 나감 |
-| `frame-layout` | 문서 흐름 속 프레임에 양쪽에서 타이핑 |
-| `drawing-select` | 그림에서 키보드로 빠져나오기 |
-| `word-math` ×2 | 빈 슬롯이 **보이지 않음**(`.w-math-deg` hidden), 빈 슬롯의 캐럿 자리 |
-| `word-pagination` ×5 | 페이지가 자기 장 맨 위에서 시작, 줄이 페이지 안에 머무름, 표가 행 사이에서 끊김, 그림을 감싼 페이지 경계 ×2 |
-
-일곱이 **레이아웃과 페이지 나눔**이고 둘이 **수식**입니다.
 
 ### 재봤습니다 — 다섯은 한 원인이고, 상수 16px 입니다
 
@@ -271,57 +223,6 @@ P.w-paragraph < DIV.w-frame < DIV.w-content-control[ce=false] < SECTION.w-surfac
 
 **교훈은 읽는 방법에 대한 것입니다.** 검사 결과를 요약의 마지막 줄로 읽으면, 검사가 있는데 못 읽는
 상태가 됩니다 — 이 세션이 계속 찾은 *있는데 못 닿는* 결함의, 도구가 아니라 사람 쪽 판본입니다.
-
----
-
-### 셋이 선언하고 하나가 안 하는 명령 — 검사가 됐고, 첫 발견이 그날 내가 만든 것이었다 — 2026-09-04 *(built)*
-
-Asked after an article on why LLMs hallucinate — *빈 선반이 아니라 잃어버린 열쇠*, 지식은 95~98% 들어
-있는데 25~33%를 꺼내지 못한다 — and the question was whether the same shape shows up here. It does,
-and it is this repository's dominant failure: **없어서가 아니라 있는데 못 닿아서.**
-
-| | 있었는데 못 닿던 것 |
-|---|---|
-| `intoRegistry` | `EditorViewDOM → DOMRenderer → VNodeBuilder` 가 이미 다 엮여 있었고 쓰는 쪽 한 줄만 전역을 이름으로 갖고 있었습니다 |
-| `Control` | 파일 헤더에 *"a product extends it rather than copying it"* 이라 적혀 있는데 넷 중 둘이 복사했습니다 |
-| `useEditorRevision` | 주석이 꺼낼 조건까지 적어뒀고, 손으로 쓴 같은 줄이 여섯 곳 더 있었습니다 |
-| `toggleMark` | 같은 파일 600줄 위의 `deleteText` 가 도는 이터레이터를 안 돌았습니다 |
-
-**그래서 가장 싼 형태로 검사를 만들었습니다:** 세 제품이 선언한 명령을 네 번째가 선언하지 않으면
-말한다. 둘은 우연이고 넷은 만장일치이며, **셋은 *이 스위트의 제품이 내주는 것* 이 한 제품의 의견이기를
-그만둔 수**입니다.
-
-**그리고 첫 발견이 그날 내가 만든 중복이었습니다.** `office-note` 에 `addNoteRow` ·`removeNoteRow` ·
-`addNoteColumn` ·`removeNoteColumn` 을 등록했습니다 — *"모델에 있는데 아무도 안 부르는 연산"* 위에.
-그 절반은 사실이고 중요한 절반은 아니었습니다: `@barocss/extensions` 의 `TableExtension` 이 —
-**이미 note 의 kit 안에** — 그 연산들 위에 `insertRowAbove`·`insertRowBelow`·`deleteRow`·
-`insertColumnLeft`·`insertColumnRight`·`deleteColumn`·`splitCell` 을 같은 `cellId` payload 로
-등록하고 있고, **나머지 세 제품이 전부 그것을 선언하고 있었습니다.** 있던 여섯 위에 새것 넷.
-
-손으로 찾은 게 아니라 **검사를 쓰자마자 두 시간 전 내 작업이 걸린 것**이고, 그게 이 검사가 있어야 하는
-이유입니다.
-
-**8개에서 4개로, 그리고 0으로.** 남은 넷 중 둘은 진짜 빠진 것이었고(`insertRowAbove`·
-`insertColumnLeft` — 첫 행 **위에** 행을 넣고 싶은 독자에게 *아래에 넣고 옮기기* 는 두 제스처와 잘못된
-머리글입니다) 둘은 이유가 있어 면제했습니다: 본문에는 **셀 두 개를 고르는 제스처가 없어서**
-`mergeCells` 는 켜지지 않을 단추입니다.
-
-**면제는 양쪽에서 검사합니다** — 제품이 나중에 그것을 선언하면 면제가 낡은 것이므로 그것도 실패입니다.
-목록이 *주장이 읽히기를 멈추는 곳* 이 되지 않게.
-
-**그리고 이 검사가 다른 검사 하나를 깨뜨렸고, 그게 또 같은 모양이었습니다.** `dead-selectors` 가 note 의
-`[data-note-act]` 규칙을 *영원히 안 맞는 규칙* 으로 신고했습니다 — 실제로는 맞습니다. `office-editor-ui`
-의 `Controls` 가 ``{...{ [`data-${mark}`]: id }}`` 로 **실행할 때 이름을 조립**하고, 글자만 읽는 훑기는
-템플릿만 보고 끝납니다.
-
-두 끝이 **다른 패키지에** 있습니다: 템플릿은 `office-editor-ui`, `mark="note-act"` 는 `office-note`.
-그래서 검사가 **정확히 한 단계의 간접**을 컴포넌트 이름으로 알게 했습니다 — 조건 없이 `mark=` 를 다
-읽으면 이 저장소의 절반이 걸립니다.
-
-**다음 형태:** 지금은 명령 이름만 봅니다. *엔진이 하는 일 중 이 제품의 스키마가 노드를 선언했는데 닿을
-명령이 없는 것* 이 더 날카롭고, 그건 명령→연산 지도가 있어야 합니다. `mergeTableCells` 는 지금 세
-제품이 `mergeCells` 로 닿고 `splitTableCell` 도 `splitCell` 로 닿으니, 앞서 *"아무도 안 읽는다"* 고 적은
-것은 틀렸습니다 — 연산 이름으로만 훑은 결과였습니다.
 
 ---
 
@@ -467,9 +368,9 @@ slide properties 2,587  Properties 1,374 · MotionTab 280 · DeckSheet 176 · Pa
 ### `/` 메뉴 — 129줄 중 8줄만 달랐습니다
 
 The one thing the name-level sweep found and I nearly missed, because the two files had **different
-names**: `apps/site/src/slash-surface.tsx` (195줄) 와 `packages/office-note/src/note-slash.tsx`
-(182줄). 주석과 빈 줄을 빼고 대보면 **129줄 중 다른 것이 여덟 줄**이고, 그 여덟이 전부 한 가지입니다 —
-사이트에만 있는 `mode` 가드.
+names**: 사이트의 SlashSurface (195줄) 와 노트의 NoteSlash (182줄) — 둘 다 아래 적은 대로
+`packages/office-editor-ui/src/slash-menu.tsx` 로 합쳐졌고 그래서 지금은 없습니다. 주석과 빈 줄을 빼고
+대보면 **129줄 중 다른 것이 여덟 줄**이고, 그 여덟이 전부 한 가지입니다 — 사이트에만 있는 `mode` 가드.
 
 같았던 것: 캐럿 앞 글자에서 `/질의` 를 읽는 정규식, 열려 있을 때의 Escape · 화살표 · Enter, 캐럿을 재는
 `selectionRectIn`, 스크롤과 리사이즈에 다시 재기, `FloatingSurface` 로 목록 그리기.
@@ -544,88 +445,6 @@ view — coordinates, not a declaration. 5,762줄이 둘로 나뉘어 있고, *�
 
 ---
 
-### 주소는 영문으로 만든다 — 2026-09-04 *(built)*
-
-`slug.ts` recorded a decision and this reverses it. The old one said *a reader who names a page 제품
-gets `/제품`, not `/jepum`* — romanisation reads as neither language, and two people transliterate the
-same word differently.
-
-What it did not weigh is the address bar. `/제품` is stored as typed and **shown as
-`/%EC%A0%9C%ED%92%88`**: in a browser's address bar, in a copied link, in an analytics report, in a
-`curl` line. A reader who copies the URL of their own page gets 27 characters of hex to paste into a
-chat. Reported as *페이지에 적는 주소는 기본적으로 영문 slug 를 등록할 수 있도록 하자. 그래야
-안헷갈림*, settled as *영문 slug 가 우선이고 한글은 후자야*.
-
-Both halves kept, and they are different questions that had been one function:
-
-| | |
-|---|---|
-| **생성** — what the product makes | `latinSlugFor` / `freeAddressFor`. `제품` → `/jepum` |
-| **입력** — what a reader types | `slugFor` / `pathFor`, unchanged. `/제품` goes in as `/제품` |
-
-The old objection is exactly why it is a **table** — 국어의 로마자 표기법's letter tables, syllable by
-syllable, so the product does it one way always and a reader who dislikes the result types over it.
-자음 동화 is **one rule only**: 받침 ㄹ + 초성 ㄹ → `ll` (`블로그` → `beullogeu`), because that one is
-visible in ordinary words and a full pass with its exceptions would stop the result being the same
-every time.
-
-`freeAddressFor` rather than the bare slug, because two pages named 소개 would both land on `/sogae` —
-two files with one name in the published folder, every link resolving to whichever the walk found
-first, and the loser still in the panel and unreachable. That is the one fault `pathFaults` reports,
-and generating it deliberately would be perverse.
-
-**Written and removed:** a 제안 chip beside each address. It drew on every untouched row including the
-ones still called 페이지 9, so it offered `/peiji-9` — a control firing in a case that barely exists,
-adding a second address to read on every row. The automatic take on first naming is the feature.
-
----
-
-### 제품 둘이 한 화면에 — 쓰는 쪽이 한 줄이었다 — 2026-09-04 *(built)*
-
-The answer to the entry below, which had measured the problem and stopped. Asked again three ways —
-*note 를 word 안에서도 쓸 수 있잖아? word 랑 slide 를 동시에? word 를 4개로?* — and they are one
-question with one answer.
-
-**Everything downstream was already built for it.** `EditorViewDOM` takes `options.registry`; it hands
-the same one to all four `DOMRenderer`s; each hands it to its `VNodeBuilder`; and a registry made with
-`{ global: false }` **looks locally first and falls back to the global one**. Four layers, already
-threaded, already tested.
-
-The only thing with no way through was the **writing** end: `define` had `globalRegistry` named in it,
-in one expression. So `intoRegistry(registry, fn)` — a scope that says where `define` lands while
-`fn` runs — and nothing in any product changes:
-
-```
-site 레지스트리 125 | word 레지스트리 129 | 전역 0
-둘 다 이름을 가진 stype 117 | 그 중 같은 렌더러 0
-```
-
-117 names in common and **not one shared renderer**. Both products complete, neither global.
-
-**Why a scope and not an argument:** `define` is reached through a dozen helpers and every product's
-`register*Renderers()` — hundreds of call sites across four packages. Threading a registry through
-them to change *where* they land is a rewrite; wrapping the call is one line at the host.
-
-**And the shared mutable, which this repository had just spent a round removing.** The difference is
-worth stating rather than assuming: `DataStore._globalCounter` was **state a result depended on across
-time** — an id counter, read long after it was written, by code with no idea another instance had
-moved it. `intoRegistry`'s target is a **dynamic binding**: set, used and restored inside one
-synchronous call, `finally` so a throwing product cannot leak it, and nothing reads it after `fn`
-returns.
-
-**`office-note` took it, and the split it existed to work around is gone.** `registerNoteRenderers`
-vs `registerNoteStandalone` was that dilemma written down as two functions — register the prose
-vocabulary and revert five of the site's own renderers, or register only `note` and borrow the host's
-`picture`. A note now builds into `noteRegistry()` once and hands it to every view: it draws as a note
-wherever it is mounted, and takes nothing from the host. `apps/site` and `apps/note` both dropped
-their registration line.
-
-**Not done:** the products still register globally when nobody wraps them, which is right for an app
-holding one. Two products on one screen is now possible and not demonstrated — no app mounts two. The
-env (`WORD_ENV_KEY`) is still a single key and is the next thing to check if one does.
-
----
-
 ### 멀티 인스턴스는 어디까지 되는가 — 2026-09-04 *(measured)*
 
 Asked as *에디터가 멀티 인스턴스가 된다는건 note 뿐만 아니라 다른 에디터들도 되는거 맞지? 한 화면에
@@ -676,50 +495,6 @@ unmeasured, and the next thing to check if two products ever do share a screen.
 
 ---
 
-### sid 는 인스턴스마다 달라야 했다 — 2026-09-04 *(fixed)*
-
-Reported as *sid 가 가장 큰 문제인데, instance 별로 달라야해 … `instanceId:xxxx` 형태로 되어야 할 수
-있음*, and the measurement was worse than the wording: **it was already colliding.**
-
-Twelve notes mounted on one page, and seven of them shared the root id `doc-1788481667942` — because
-that id was `doc-${Date.now()}` and the seven were made in the same millisecond. A host asking *which
-document is this node in* had seven answers.
-
-Underneath it, two things:
-
-| 무엇 | 왜 틀렸나 |
-| --- | --- |
-| `DataStore._globalCounter` | **`static`** — every store on the page drew from one number. It looked like collision *prevention* and was the opposite: it made one store's size decide another's next id, and it hid the real problem |
-| `_sessionId` | every note session passed the word `note`, so twelve stores all said `note:` and only the shared counter kept them apart |
-
-The shared counter works **within one page and not between two**. A body saved from one page load and
-a body saved from another both start near `note:1`, so `note:207` from one and `note:207` from the
-other are the same string — and a host holding both (a site with two bodies in `resources`, a CMS with
-a list of posts) has two different nodes under one name.
-
-**Fixed**: the counter is the store's own; the session is minted per store (`mintSessionId`) unless
-the caller names one; the root id borrows the store's session instead of the clock. `openNote` takes
-a `session` option, and **giving one is better than minting** — a host with a durable name for a body
-(a post's id, a row's key) gets the same sids every time it opens, which is what lets a comment, a
-bookmark or a diff point into one.
-
-`static syncIdCounter` is kept as a no-op and an instance method replaces it: re-basing a *shared*
-counter on one store's node count was meaningless and would have skipped another store's ids.
-
-**Found on the way, not fixed:** every store keeps one **orphan** — `Editor`'s constructor writes an
-empty document into the store it is handed, `loadDocument` then replaces the root, and that first node
-stays, unreachable. One per session. It is now uniquely named, which is the collision fix arriving
-where it was not aimed.
-
-**And the sweep the same report asked for** (*static 으로 객체를 생성한다던가 하는게 있을 수도 있음*):
-one live find, `renderer-dom/src/state-bus.ts` — a single module-level `rerenderCallback`, so twelve
-views would have left one winner. **Dead code, imported by nothing**; deleted rather than fixed. The
-rest of what a grep turns up is deliberate and keyed: the renderer registry is global *by stype* on
-purpose (which is why `office-note` was cheap), the content-match cache is keyed by expression, the
-audio-peaks cache by url.
-
----
-
 ### editor as never — 이 체크는 이미 깨져 있었다 — 2026-09-04 *(raised, with the number)*
 
 `every-cast-counted` (`editor-core/test/editor-is-typed.test.ts`) allowed 338 and the tree measured
@@ -736,36 +511,6 @@ away by a package written against the interface it imagined rather than the one 
 Raised to 363. The 21 are the work of finding which public member each of them is standing on.
 
 ---
-
-### 선택은 한 블록 안에서만 산다 — 2026-09-04 *(fixed — 증상 셋, 원인 넷)*
-
-Reported as *지금 selection 도구가 제대로 없는데*, and the measurement is worse than the wording: a
-selection that spans two blocks is **made correctly and then acted on wrongly by everything**.
-
-Measured in `apps/note`, dragging from the 1st paragraph to the 3rd (`note:69:1 → note:73:12`, DOM
-71자 — the range itself is right):
-
-| 무엇 | 무엇이 일어나나 |
-| --- | --- |
-| 굵게 | the button is enabled and **nothing happens** — 0 `<strong>`. The third recorded instance of *guard says yes, then does nothing* |
-| Backspace | 21 blocks stay 21, and the contents go `28,28,28` → **`1,1,16`** — fragments left behind instead of two blocks merging into one |
-| 글자 치기 | the selection is not replaced: the third block keeps all 28 characters |
-
-What works, so the fault is narrow: a drag **inside one block**, `Ctrl+A` (615자, `mixedMarks:
-['bold']` — the summary is right), and `Shift+→` walking across a block boundary. So the selection
-model spans blocks; the operations that consume one do not.
-
-The path is not missing — `extensions/src/delete.ts:274` branches on `startNodeId !== endNodeId` and
-builds a range delete. It runs and leaves fragments, which is the harder kind of wrong: a missing
-branch is found by the first press, a wrong one is found by counting characters.
-
-One more thing measured and **not** a bug: a drag that *starts inside an existing selection*
-collapses it. That is the browser beginning a text drag-and-drop, which every editor gets from
-`contenteditable`. Worth knowing because it looks identical to the bugs above from the outside.
-
-**Where to start:** unit tests in `packages/extensions` over a two-paragraph and a
-paragraph-into-heading range, before any browser round — the arithmetic is the thing to get right and
-a browser check of it costs 30s where a unit test costs 4ms.
 
 ### 고쳤습니다 — 그리고 원인이 넷이었습니다
 
@@ -812,299 +557,6 @@ computed over that. Two checks in `apps/note` had to stop using `Home`; both say
 
 ---
 
-### office-note — 잡을 수 있는데 할 수 있는 게 없었다 — 2026-09-04 *(built)*
-
-Reported as *아직 완전히 note 를 구현하지 않은 것 같아*, and the reading was right. A body could hold
-a picture, a video, an embed, a rule, a table and a code block — and do **nothing** with any of them.
-Six kinds of block a reader could select and then only delete.
-
-What went in, and what each one cost to find:
-
-| 무엇 | 왜 없으면 안 되는가 |
-| --- | --- |
-| 고른 블록 줄 | a picture arrives as a placeholder and a video with a blank `src`, because both are *required* by the schema and no file has been chosen. Without somewhere to give it one, 이미지 is a button that puts a grey rectangle in a post forever |
-| 파일 넣기 | *이미지나 동영상은 파일을 넣을 수 있어야하고*. What a reader picks becomes the `src` itself — a body has no asset store to name one out of |
-| 표 크기 고르기 | *테이블은 셀 선택으로 몇칸인지 드래그 해서 선택해야한느거 아니니?* A fixed 2×2 makes a reader's first act after inserting a table be adding rows to it |
-| 행·열 편집 | over four operations `@barocss/model` has had all along — a grid walk that handles spans, **called by nothing** |
-| 블록 이동 | a picture put in the wrong place could only be deleted and made again, losing the file it was given |
-
-**Five faults found by pressing the buttons**, and each one is a different shape:
-
-1. **A player swallows a click.** An `<iframe>` is a document of its own and a `<video controls>` has
-   its own control bar; neither hands a `mousedown` to the page around it. So the two blocks most
-   likely to need configuring were the two that could not be selected — the strip went on describing
-   whatever was held before. The sid is on a holder now and the player inside is drawn rather than
-   pressed: an editing surface takes the clicks, a published page gives them away.
-2. **Held and having no text are two different facts.** Insert a table, click a cell, type 이름, press
-   Backspace — **the whole table went**, because the table was held from the moment the cell was
-   clicked and the held-block key handler answered for it. `bTable` is now the one held block that
-   keeps its caret.
-3. **`setAttrs` is an operation, not a command.** A panel that ran `executeCommand('setAttrs')` ran
-   nothing at all, which is how a picture stayed a placeholder after a reader chose a file for it.
-4. **A cell's words are zero pixels wide.** An empty `inline-text` draws as an inline span at the
-   left of a 3rem box, so a click anywhere else in the cell put the caret on the **row**. Measured as
-   four permanently-disabled buttons.
-5. **The caret cannot be written after an insert.** Tried, as the fix for (4): `addChild` leaves the
-   caret on a table's `bTableHeader`, so `_put` set it into the first cell. That made the view apply
-   its own selection and then **stop following the DOM caret** — a reader clicked the end of a
-   quotation, pressed Enter, and the new line appeared *above* what they had written. Reverted, with
-   the reason left in the code; the row and column acts read **the cell the reader pressed** instead,
-   which is unambiguous where a caret is not.
-
-Two declarations came out of it, `NOTE_FIELDS` (what a kind is asked) and `NOTE_ACTS` (what it is
-told to do), kept apart because a field writes an attribute and an act runs a command. A check reads
-both: a held kind with neither, other than 구분선, is a block a reader can hold and do nothing with.
-
-**Left undone:** merging and splitting cells (`mergeTableCells`, `splitTableCell` are in the model
-and unread by this too); dragging a held block rather than pressing 위로; a caret that walks out of a
-table's last cell.
-
----
-
-### apps/note — 사이트를 치우자 빌린 것이 다 드러났다 — 2026-09-04 *(built)*
-
-Asked as *apps/note 만들어서 office-note 를 멀티로 띄워서 다양하게 테스트 해봐야하지 않을까?* — and
-it earned itself on the first run.
-
-A package is only independent if something independent uses it. Every claim about `office-note` was
-true **inside** the site builder, which is the one place the claims are hardest to check: a borrowed
-part goes on working, for the wrong reason, and nothing says so. So: an app that imports the package
-and nothing else of the products — three stylesheets, `registerNoteRenderers()`, and a body as a
-literal.
-
-**The first run drew nothing.** `openNote` reads a body out of a host's *store* and walks it by sid;
-a host without one has the tree already, and every child was filtered out as *not a string*. Silently.
-`openNoteTree` is the other door.
-
-**Then five of the eleven toolbar buttons did nothing, and every cause was different:**
-
-| | |
-|---|---|
-| 목록 | wrote `type: 'unordered'`; the schema says **`bullet`** — 번호 목록 worked, which made it look like a list problem rather than a value one |
-| 이미지 | wrote an empty `src`, which is **required and may not be empty** |
-| 영상 · 넣은 것 | named node types the note schema **did not declare** — office leaves them behind and the site takes them, so the toolbar, the content expression and the bar all agreed about a node that did not exist |
-| 표 | put a `bTableRow` inside `bTableHeader`, which holds **`bTableHeaderCell+` directly** |
-
-**And then three landed in the model and drew nothing.** `picture`, `mediaVideo` and `mediaEmbed`
-were the products' renderers — three copies between the site, the deck and Word, none shared — and a
-note embedded in a site had been borrowing the site's. It draws its own now, deliberately plain: a
-site's picture answers to a crop, a hover, a link and five widths, and none of that is a body's
-business.
-
-Also **툴팁**: the bar had `title` and no `Tip`, and a host that never mounted a toolbar has no
-`TipProvider` — so the package brings its own. *toolbar 에 툴팁이 안나오니깐 어떤 기능인지 모르겠어.*
-
-### 빈 줄에서 엔터는 나가는 것이다 — 2026-09-04 *(built, shared)*
-
-*인용구에서 엔터로 벗어날 수 없음.* Measured: one blockquote, Enter, Enter — **three paragraphs, all
-inside it**, and no way out with the keyboard at all.
-
-`paragraph.ts` had a rule for a heading (Enter at the end of one gives a paragraph, because a heading
-is a title and what follows a title is prose) and none for a container. A list item has had one since
-it was written — `splitListItem` empties out a level — which is the same rule one container over.
-
-So: **an empty block at the end of a container leaves it.** Four conditions, each of them a way a
-reader could mean something else — collapsed caret, empty block, last child, and a container that is
-not the body itself. An empty paragraph is not writing, it is a gesture; a reader who wants a blank
-line inside a quote presses Enter in the middle of it.
-
-In the shared kit, because all three products have quotations and all three had this.
-
-### office-note — 세션까지 자기 것이 되고 나서 — 2026-09-04 *(built)*
-
-The second slice, and it was a **bug fix** rather than a tidy-up. Reported from the console:
-
-```
-[EditorViewDOM] selection retry exceeded { sel: { startNodeId: 'site:597', … } }
-```
-
-and read exactly right from the outside — *난 분명 office-note 를 드래그 했는데 office-site 의
-editor 가 selection 을 넣는 느낌이야.* The bar and the view were the note's and the **editor** was
-still the site's: one editor means one selection, and a selection is applied by *every* view, so the
-boards were told the caret is at a node they do not draw, searched their own DOM for it and gave up —
-on every click into a body.
-
-**Two editors over one store is not the answer**, and it was measured before it was tried: `Editor`'s
-constructor makes an empty document and *writes it into the store it was given*, so the second erases
-the first. So a store of its own, loaded with a copy (`openNote`), and the copy written home on a
-pause (`setRichText`) — a transaction per pause, so one undo takes back a phrase rather than a
-character.
-
-**And then the borrowed parts stopped working, visibly**, which is the useful thing about a store of
-one's own:
-
-- **the ten insert commands were `office-site`'s.** The bar declared them and `note-kit` registered
-  none — 93 commands, every one of the bar's ten missing. It had worked for as long as a host handed
-  its own editor in, which is to say a body's bar had been pressing a page builder's buttons in the
-  one place nobody had looked.
-- **`note` had no renderer.** A body loaded into its own store drew nothing: the blocks were there
-  and the root that holds them was not a thing anything knew how to put on screen.
-- **the `/` menu was the host's surface**, listening to the host's editor, so typing `/` in a post
-  raised nothing — in the one place the rail is behind a scrim. `NoteSlash` now.
-- **번호 목록 did not exist.** The toolbar was a row per block, and 목록 and 번호 목록 are one node
-  type and **two doors**. Found by the browser: eleven rows in the site's menu, ten here.
-
-Two checks changed their claim because the product got better, not worse: the bar offers its blocks
-**before** a caret arrives (a note has no pages, so `_where` with no caret is *the end*, which is what
-a writer pressing 제목 on a fresh body means), and a heading gets one section wherever its rows turn
-up — see below.
-
-### 한 제목에 한 절 — 2026-09-04 *(built)*
-
-From the browser's console, not from a check: *Encountered two children with the same key, `바탕`* —
-twice, and `그림자` twice. React's own warning ends *the behavior is unsupported*.
-
-`panelGroupsFor` merged **contiguous runs**, deliberately, with an argument beside it: *two runs of
-one heading draw the heading twice rather than silently merging — the declaration is what decides.*
-It reads well and is wrong for a reason no declaration can prevent: **a run is only contiguous after
-filtering.** A group's rows are written together and `panelRowsFor` drops the ones a node type has no
-place for, so one section in the file becomes two on screen the moment a type sits out the middle of
-it. A page did it with 바탕 and 그림자; a `collection` with 데이터.
-
-The label is the group now, wherever its rows turn up; its **place** is still where its first row is,
-so order is still meaning. Held by a check over every node type and every pane, count zero.
-
-### office-note — 한 편의 글은 자기 패키지다 — 2026-09-04 *(built, first slice)*
-
-Asked as *office-note 는 자체 툴바/ui 까지 다 가지고 있어야해*, after the shorter version of the same
-point: *이 툴바가 기존 페이지 빌더 툴바랑 연동되고 있음. 그러면 안돼.*
-
-Correct, and the coupling was in four places at once. A body's **content model** was the page's
-`block` group; its **toolbar** was assembled in the app out of `siteControlsIn('text')` and
-`siteSlashItems()`; its **chrome** was styled in the site builder's stylesheet; and its **editing
-session** was the page builder's editor. Four decisions about writing, all made by a page.
-
-**Measured before writing a line, and it made the package cheap.** Renderers register globally by
-stype, and `office-text` already draws every block a body holds — `paragraph`, `heading`, `list`,
-`listItem`, `codeBlock`, `blockQuote`, `bTable*`, `horizontalRule`, `inline-image`, `emoji`,
-`hardBreak`, `inline-text`. So what was missing was never the drawing: it was a **declaration of
-which of them a body may contain**, and a kit to edit one with.
-
-What shipped: `note-schema.ts` (top node `note`, `NOTE_BLOCKS`, `NOTE_CONTENT`), `note-kit.ts`
-(short by design — no font colour, size or family, because *칠·여백·크기는 카드의 것*, enforced by
-not registering the command), `toolbar-model.ts` (marks + blocks, the blocks **keyed by
-`NOTE_BLOCKS`** so a row for a refused block cannot be written), `note-view.tsx` and `note.css`.
-`office-site` reads `NOTE_CONTENT` for `richText.content` — one sentence, two documents.
-
-**The name.** `office-page` was offered and is wrong: a site *has* pages (`surface`), so the word
-would mean two things, and `.st-grip` colliding with the board's resize handle had broken eight
-checks the same afternoon. `office-note` says what it is.
-
-**And a layering fault the split found.** The root export carried the React component, so
-`office-site`'s *schema* dragged `editor-view-dom` into every Node process that imported it — the
-browser suite stopped collecting, because that build is CommonJS. The component is
-`@barocss/office-note/view` now: the same line `office-ui` is on the other side of.
-
-Still ahead: the **session**. `NoteEditor` is handed the host's editor, so selection and history are
-still shared. `createNoteEditor` is written and unused — the next slice is a store of its own with a
-live mirror back, which is what *독립된 에디팅 상태* finally means.
-
-### 설정 화면과 사이드바 — 2026-09-04 *(built)*
-
-Reported as three things, and the first one turned out to be the smallest half of itself.
-
-**설정 화면 배경이 회색이라서 너무 어색해.** The grey was true and it was not the fault: the screen
-opened under a **full page-editing toolbar** — 선택/텍스트, eight arrange glyphs, the insert plus, the
-text group, the zoom, *which page you are in* — every one of them about a block on a canvas, and 관리
-has neither. A management screen under a zoom that scales nothing.
-
-The grey itself was that the content **floated on the ground** with no surface of its own and row
-hairlines that stopped where the columns did. Inverted, which is what every settings screen of this
-kind does: the content is the lifted white sheet and the nav is the ground it sits on — and then a
-chosen tab can read as *the sheet you are looking at* rather than as a blue chip. Plus a real title
-(it was `--ou-text`, the same size as the table's body), 42px rows, a hover, and
-`--ou-field-line: transparent` — **sixteen bordered boxes** down two columns, in a token that has
-existed for exactly this since the rail was written.
-
-**Drawer 가 어디서 열리는지 모르겠어.** The row **number** was the button — `--ou-faint`, no icon, no
-word, nothing but a hover colour. A reader who does not already know cannot find that out by looking.
-Now the number keeps its place and a `expand` icon (`PanelRightOpen`, added — `zoom-fit` already held
-`Maximize2`, and one glyph meaning two things is how a reader learns an icon means nothing) appears on
-the row under the pointer, and a **double click on the row** opens it too — the gesture that cannot
-collide with a cell's own single click.
-
-**Sidebar resize.** A `Grip` on the rail's edge, pointer-captured, clamped 200–560, double-click to
-put it back. The **rail and not the panel**: the panel's 240px is an argued number with a measurement
-behind it (`properties.tsx` — every serious tool of this kind is between 232 and 248, and it is about
-how far the eye travels between a label and its value), and a drag handle there would be a second
-answer to a question that has one.
-
-Two faults found while building it. The grip sat at `right: -5px` inside a rail with
-`overflow: hidden`, so **half of it was clipped** and a drag mostly missed — measured, the width never
-moved. And the slash surface asked `selection.collapsed !== true` and returned: a press that puts a
-caret does not always set that flag, and clicking a paragraph in the drawer's body left it
-`undefined` with both ends on one node. So the `/` did nothing in the one place a reader has no other
-way in. **A caret is a range whose ends are the same**, and that is what it asks now.
-
-### Drawer 에 미니 에디터가 하나가 아니다 — 2026-09-04 *(built)*
-
-Asked as *속성에 rich text 가 여러개면 에디터가 여러개 나와야할 듯 한데*, and it already was — the
-editor is drawn per **cell**. What the fixture could not prove is that it stays that way, so the
-sample's 글 dataset grew a second rich column: 요약 is what a card shows in a list, **본문** is the
-post.
-
-Wearing it produced a claim the one-column fixture could not make: deleting a row takes **both** of
-its bodies. `_dropRich` reads every rich value in the row, and a rule written for one column and
-never run against two would have taken one and left the other unreachable — which is exactly the
-orphan the fault list now reports.
-
-And the bar is **per body**, over the one it is about. A single bar at the top of the drawer would be
-a control whose target is *whichever body was last clicked*, which is a thing a reader has to keep in
-their head. Marks from `siteControlsIn('text')` and blocks from `siteSlashItems()` filtered by
-`canExecuteCommand` — neither list written here, because two lists is how a toolbar and a menu come
-apart.
-
-### Drawer 에서 쓴다는 것이 세 겹이었다 — 2026-09-03 *(built)*
-
-The row form was **already a Drawer**. What it could not do was be written in: a reader could type
-into a body and could put nothing in it — no heading, no list, no image. Three faults, each hidden
-behind the one in front of it.
-
-**1. 슬래시 메뉴가 안 열렸다.** `SlashSurface` gates on `mode`, which is the *canvas overlay's*
-pointer mode — and a drawer has no overlay, so a caret in a body left the app in `select`. The rail
-is behind the drawer's scrim on purpose (a drawer is modal, and `dialog.tsx` argues why), so there
-was no other way in. `writing` already forced text mode for the canvas one level up; the drawer gets
-the same.
-
-**2. 모든 삽입이 거절하고 있었다.** `holdsABlock` asks whether the parent's content expression
-contains the word `block` — a string test. Narrowing `richText.content` to
-`(heading | paragraph | list | …)+` removed that word, so the walk from the caret found nowhere to
-land and **all twelve inserts refused**. The same shape as the table-cell fault that function was
-written for, from the other side: that one stopped too early because of *what* the schema said, this
-one because of *how* it said it. Now it expands the names and asks the schema for each group.
-
-**3. 될 거라 해놓고 아무 일도 안 하는 줄이 둘.** With the first two fixed, 버튼 and 글 appeared in the
-menu, said they could run, and did nothing — `insertButton` makes a `frame` and a body holds none.
-The guard asked *is there somewhere a block may land*, which is one question short: **every container
-takes some blocks and none takes all of them.** On a page it never showed, because a page's content
-is the whole `block` group. The factory is right there in `register`, so the guard asks it what it
-makes and the schema whether it fits — and the slash menu now filters by `canExecuteCommand` rather
-than by *does this editor have the command*, **omitting** rather than greying, because a reader
-narrowing a list by typing is choosing from what is left.
-
-*Says it can run and then does nothing* is now the **third** recorded instance in this package.
-
-### 글은 자료형이면서 블록이다 — 2026-09-03 *(built)*
-
-Asked as *사이드바에서 추가할 수 있는 요소로 RichText 가 있고, 아니면 데이타 연결해서 넣을 수 있게* —
-two ways to one thing. Building it closed a fault that was already in the published file.
-
-**The card declared its body slot as characters.** A `text` variable, a bind writing `attr: 'text'`,
-and a `<p>` for the part — and what arrives is a body. `<p>` inside `<p>` is not valid HTML, so the
-browser split them: **four empty paragraphs** published on the blog page and the card's own slot
-orphaned. Invisible only because that paragraph carried nothing but `margin: 0`; the rule
-*칠·여백·크기는 카드의 것* was therefore impossible to actually use.
-
-One node, two positions — in `resources` named by an `id` and pointed at from a cell, or placed on a
-page holding its own words. `id` became optional. Content written out rather than given a new group
-(`block` is in the shared schema; a node carries one group), which also **added `picture`** — a blog
-post could hold a 폼 and a 차트 and could not hold an image.
-
-`source` was declared for the data-connected case and removed: the binding machinery already replaces
-a part's children by variable name, and the harness said nothing read the attribute.
-
-And `every-insert-can-be-held`, written hours earlier, reported the new node before a browser drew one.
-
 ### 자료형 어휘가 둘로 갈라져 있다 — 2026-09-03 *(measured, not built)*
 
 `DocumentVar.kind` has **five** — `text · color · number · boolean · choice` — and `DataFieldKind`
@@ -1135,485 +587,6 @@ At 240 pixels a row holds **two** controls whatever they are. Every pair that fi
 a third capability costs a row and there is no waste to reclaim. The number moved to 930, and the
 thing it stood for became the check: **no row wraps** — which is what rejected all three attempts and
 is the fault that actually shows.
-
-### 가리키는 것을 한 번만 걷는다 — 2026-09-03 *(built)*
-
-The index was built and then only did half a job: `usesOf` moved onto it, and `linksTo` and
-`documentFaults` kept their own walks. Making both read the index was supposed to be a tidy-up and
-was not — **both numbers were wrong**, and wrong in the direction that loses work.
-
-**삭제 대화상자가 세는 숫자.** It counted **link marks and nothing else**, and its own comment called
-that deliberate. Measured across the sample: 23 things name a page — 11 marks, 9 a card's `goes`, 2 a
-row's cell, 1 a form's 감사 페이지 — so **six of the eight pages under-reported**. `/가격` said 3 where
-the answer is 8. The two blog posts said **0**: *가리키는 것이 없습니다*, about pages the blog list
-points at from a data row.
-
-The test that should have caught it was the one that compared the index against the walk and accepted
-the difference with a `toBeGreaterThanOrEqual` and a comment explaining the slack. The slack **was**
-the fault.
-
-Now three counts rather than one total, because they are three different repairs: a link is found by
-reading the words, a `이동` by opening a card's panel, a cell in the data editor. And `iGa` in
-`korean.ts` — *5개이 끊어집니다* is wrong the way *a apple* is wrong, and the sentence ends in 개 or 칸
-depending on which count lands last.
-
-**그리고 아무도 보고하지 않던 참조들.** `documentFaults` asked five resolution questions, each written
-inside the walk beside the node type it was about. Five of the ten shapes this schema uses. Delete two
-of the sample's pages — the two nothing *links* to — and two references now point at nothing and the
-report said **zero**. `refFaults` asks the index instead, so a new kind arrives already checked.
-
-Also: the admin's page table called the counting walk **once per row**.
-
-### 참조되지 않는 글은 못 찾는 글 — 2026-09-03 *(built)*
-
-`data-commands.ts` states the rule — *a `richText` is one cell's value; when the row goes, the value
-goes* — and, counting what is left, says *`documentFaults` is where the orphan is reported*. It was
-not: written as a promise and never kept.
-
-Worth recording is what the measurement **changed**. Two ways of making an orphan were tried and
-neither does: retyping the cell (the table refuses it, with the reason already written in
-`data-editor.tsx` — *a text box here would be a reader typing over a reference and losing a
-paragraph*) and changing the column's kind and back (the records are deliberately untouched). So the
-first draft of the check's comment, which called it *the ordinary gesture*, was wrong and is now the
-case `_richUses` originally named: **a document arrives from a file, and a file can say anything.**
-
-A `richText` is reached only through a cell that names it, so an orphan is not drawn, not listed, not
-selectable and not deletable. `쓰지 않는 글` is the only place it can be seen.
-
-### 그린 것을 독자가 잡을 수 있는가 — 2026-09-03 *(built; three live faults)*
-
-The check that was owed, and the least comfortable entry here: the same fault had been recorded
-**six times in one list** and every one was found by a person using the product.
-
-`SELECTABLE` is a second place a node type has to be registered and nothing forced it. So: a round
-adds a node, writes its renderer, checks that it **appears**, ships — and the drawing is perfect. A
-quotation, a rule and a code block; then a table's cells; then a chart. And the hour
-`every-insert-can-be-held` was pointed at the product, **three more, live**: 동영상, 임베드 and **폼**,
-the one node type this product genuinely added. Insertable, and then not selectable, not movable, not
-in the layer list.
-
-The candidate set was measured rather than guessed. Every type a document can place gives **42** that
-are not selectable — inline pieces, canvas shapes, declarations, the page itself. Forty-two exemptions
-is forty-two notes. The right set is the one every instance came through: **a reader put it there**,
-which is the `produces` list two other checks already read.
-
-Two consequences worth noting. Making the three selectable immediately failed
-`every-drawing-can-be-named` — a row needs a word the moment a reader can select the thing, which is
-two checks catching each other's consequence. And the deck's seven findings are all one sentence a
-*plane* gives and a page does not: on a slide everything a reader points at is a placed box, so a
-table inside a `textFrame` is held by the box. The same schema nodes, two right answers.
-
-Word defers it. A word processor has no click that selects a block, and `notYet` fails the day its
-canvas half answers.
-
-### 상대 길이는 몫까지가 정직한 범위 — 2026-09-03 *(built, and the rest is on the record)*
-
-The fourth thing work needs. The document keeps **twips**, which is Word's unit and an absolute one,
-and the web's lengths are relative: `%`, `rem`, `vw`, `min()`, `clamp()`.
-
-What could be added without lying was a **share**. Two columns at 40 and 60 is an ordinary layout and
-there was no way to write it — `fill` on both makes them equal, `fixed` in twips breaks at every other
-width — so `sizing` has a fourth answer and a `share` number beside it.
-
-A share rather than a percentage, and the arithmetic is the reason: **40% + 60% is the whole row and
-the gap between them is not**, so a percentage row overflows by exactly the gap. Shares divide what is
-left after the gaps and the padding, which is how the web actually divides a row and how a reader
-means it when they say *twice as wide*.
-
-**What stays unsayable, and why it is not laziness.** The schema's attribute types are
-`'string' | 'number' | 'boolean' | 'array' | 'object' | 'custom'` with **no union**, so a length that
-is sometimes a number of twips and sometimes a string with a unit cannot be declared. Saying it would
-mean one of:
-
-- every length becomes a string (`'1200px'`, `'40%'`) — a migration of every document and every check;
-- a second attribute per length (`maxWidthPercent`) — a parallel vocabulary, which is how a model
-  starts having two words for one idea;
-- or `type: 'custom'` on the lengths, which is the validation being switched off to avoid the
-  question.
-
-None is worth doing before something needs it. What is owed and named: a section that is **as tall as
-the window** (`100vh`), and lengths that follow the document's own base size (`rem`).
-
-**2026-09-03 — and the answer was that three quarters of the debt was already paid.** Asked again
-with the list in front of it, what a page wants from a relative length is four things, and three were
-sayable: a **proportion** is `share` (and better than a percentage, per the arithmetic above), a
-**per-width number** is an `overrides` entry (a real number at each width rather than one expression
-that has to be right at all of them), and a **bound** is `minWidth`/`maxHeight` in twips.
-
-What was left is **one** idea — a section as tall as the window — and one idea is one attribute, not a
-union in the type system. `minScreens` is a count of screens, the same move `share` made: a number
-whose unit is in its name. `1` is a screenful, `0.5` is half of one, which a boolean could not say and
-a unit dropdown would say worse. No migration, no parallel vocabulary, no validation switched off.
-
-And the half that a stylesheet cannot supply, found while building it: **a board is a `div` on a
-plane, not an iframe**, so `dvh` inside one is the height of the *editor's* window — the same hero
-would draw one height on three boards that differ only in width. So a board substitutes
-`SiteWidth.viewport`, which has been declared since preview mode for exactly this reason. It is the
-one place a board and the published page deliberately disagree, and `export.test.ts` names it as the
-single exception to *the two drawings agree about everything a reader designed*.
-
-`rem` stays unbuilt and is no longer owed as *a relative length*: what it was wanted for — smaller
-text on a phone — is an `overrides` entry, which says the number rather than a ratio to a base nobody
-has set.
-
-**And the sample wears it now.** The hero was the wrong home for it — words beside a picture at 3:2,
-where changing anything moves a measured width several browser checks hold as a number. The blog's
-index is the right one: a list of posts beside a sidebar is 2:1, which is the ordinary case for a
-share and not a case anything else on the site had. `site.test.ts` reads the two `flex` values off the
-drawn row, so the claim is that the *browser* divides it rather than that the attribute is stored.
-
-### 모든 것이 문서는 아니다 — 2026-09-03 *(decided; the index is built)*
-
-Asked as a correction — *왜 문서가 하나야? 페이지마다 별도의 문서가 아니었어?* — and the reason it is
-one was written **nowhere**: `surface` is the shared schema's seam, so a site being one document is
-the same fact as a deck being one. Now in `site-builder.md`.
-
-The proposed decomposition — site is service info, pages are service info, only the per-device
-rendering is a document — is **two-thirds right**, and measuring it was better than arguing:
-
-- `pagesOf` already returns four fields, and **18 of its 19 callers use only those**. The one that
-  goes inside a page is `exportSite`. The product already treats the page list as a query and answers
-  it by walking 740 nodes.
-- The site's own facts (`address`, `publishTo`, `publishes`) were flagged as *about publishing rather
-  than about the document* in the schema the day they were added, and kept anyway for a reason that
-  only holds while a file is the only store.
-- **Splitting by device is the part to refuse**, and this repository refused it on day one: a width is
-  not another version of a page, it is the same blocks saying something different — split it and a
-  heading typed at desktop does not appear at mobile.
-- And the part the proposal did not name: `resources` is **not one kind of thing**. `dataset`, `asset`
-  and `service` are records; `component` and `richText` are documents. The library that must stay a
-  document is two node types, not five.
-
-**The price is three questions that cross every page** — `usesOf`, `linksTo`, `documentFaults` — which
-are what the admin screen is made of. Split the pages and none can be a walk: they become an index
-written when a page is saved.
-
-### 참조 색인: 한 번 걷고, 세 질문에 답한다 — 2026-09-03 *(built)*
-
-`refsIn` — every reference in the document with **where it was written**, which is the field a split
-store would key by. The three walks become filters over one result.
-
-It found two real faults the first time it was compared to what it replaces:
-
-1. **A page drawn through a template did not count as using it.** `usesOf` counts `instance` nodes,
-   and a template is named in `surface.template`. So 글 페이지 said *0곳에서 사용 중* while two pages
-   were drawn through it — and a reader about to edit it was told they were changing nothing.
-2. **References inside a dataset's `records` were invisible to every walk this product had.** `records`
-   is an array of objects on one attribute — the shape `data.ts` chose deliberately, and whose cost it
-   wrote down. This cost it did not: a cell holding `text:요약-스택` or `page:post-stack` is a
-   reference, and a broken one there could be reported by nothing.
-
-### 데이터셋은 다이얼로그가 아니라 장소다 — 2026-09-03 *(built)*
-
-Shown as a screenshot of Notion's full-page database, and it goes straight against what this file's
-own view argued: *the grid is a dialog because a table needs width the shell cannot give.* True, and
-the conclusion did not follow — a dialog is what you reach for when width is the only problem, and
-its width kept having to grow (56rem → 76rem the day each header held two controls).
-
-The half that was wrong is *editing data is a stint*. A dataset is a **place**. And the mechanism was
-already here twice: a board takes a `rootId` and draws whatever node it names, which is how editing a
-component definition works. A dataset is the third thing the main area can show — one `useState`
-beside `editing`, and the width problem stops existing.
-
-Cost, stated: a reader editing data is not looking at the page, exactly as a reader editing a
-definition already accepts.
-
-### 자료형 열넷, 그리고 목록을 정한 질문 — 2026-09-03 *(built)*
-
-*What can a page draw with it?* — which is what keeps 사람, 수식, 관계, 롤업, 만든 사람, 버튼, ID out:
-this product has no accounts (so two of them are values nothing can fill), no expression language
-(refused once already, when a filter became `where`/`equals` instead of a grammar), and no second
-document model for a relation to point through.
-
-All fourteen pictures **drawn**, because two of the available borrowings would have lied: `math` is Σ
-and says *computed* on a number column; `paragraph` is prose and is the long-text kind.
-
-**And a kind names two acts.** `setDatasetField` required the column to exist, because the first
-thing it was asked for was *change this column's type*. Adding one with a kind is the same word
-meaning the other thing — so 속성 추가 offered fourteen kinds and added nothing, in silence. `발행일,
-날짜` is one decision.
-
-### 서식 있는 글: 셀은 문자열인 채로 — 2026-09-03 *(built)*
-
-Asked for directly, and the only real question is where the words live. **Not in the cell**:
-`cellValue` returns a string, always, and saving, diffing, sorting, filtering and every card binding
-rest on it. So the cell holds `text:요약-스택` and the words are `richText` nodes in `resources` —
-what a **footnote** has always done here, and the tenth use of the reference shape.
-
-Four things it turned up:
-
-- **The marks have to reach the card**, or the kind is text with a redirection. A bound part takes a
-  string and `withText` collapses its runs to one, so content arrives *beside* the strings and
-  replaces what the part holds.
-- **`richPlain` joins runs with nothing and blocks with a space.** A run is a piece of a sentence;
-  joining those with a space put one inside every emphasised word.
-- **Editing one is a second view, not a second editor** — `EditorViewDOM` over the same editor and
-  store, pointed at the node. One selection, one history, every mark command.
-- **A view can only draw a node type something defined.** Nothing on a page ever draws a `richText`
-  (a card gets its *blocks*), so there had never been a renderer — and the editor mounted and drew an
-  empty box until there was one.
-
-**Owed:** a row is an array element, so nothing ties a `richText`'s lifetime to it. Deleting a row
-leaves the words behind. `documentFaults` should report a `richText` nothing references.
-
-### 와이어프레임의 데이터 자리에는 값이 아니라 변수 이름 — 2026-09-03 *(built)*
-
-Asked as *실제 데이터 말고 데이터 변수만 보이면 더 명확하지 않을까*, and it sits against what the view
-already argues: *the words stay the words; lorem ipsum is how a layout gets approved for a paragraph
-nobody has written yet.*
-
-Both hold, and the line is sharp. **Words a person wrote** are the content. **A value from a column**
-is one of forty, and the thing being reviewed is the shape that holds all forty — which real data
-hides, because every row is a different length and so every row looks different.
-
-Drawn without moving anything, which this view has had to learn twice: the words go **transparent**
-rather than away, so a title that runs to three lines still runs to three lines, and `field:제목` is
-painted over the box it names. And only on the elements that hold **text** — `data-from` is on the
-row's frame too, and a rule that reached it would blank the whole row and write `field:페이지` across
-it.
-
-The reference form rather than the bare name, because `var:강조` is the other thing a value can come
-from and one word for two origins would be the notation lying.
-
-### 열의 자료형이 데이터가 아니라 카드에 있었다 — 2026-09-03 *(fixed)*
-
-Asked as *노션은 row를 폼처럼 입력하게 해주고 필드마다 자료형이 있는데, 우리는 단순한 row/cell 표라서
-블로그 같은 큰 글에 안 맞는 것 아닌가?* Measured first, and the measurement named the actual fault —
-which was not the grid.
-
-`dataset.fields` was `string[]`: bare column names. The **type** lived on the *card*, as
-`componentVar.kind`. Three consequences, all of them visible in the sample before anybody went
-looking:
-
-- a column drawn by two cards declares its kind **twice**, and the two can disagree;
-- nothing can check a cell — `추천` held `'예'` and `'아니오'`, a boolean spelled as words, because
-  there was nowhere to say it was one. It was also read by **nothing**, which is the other half: a
-  column that cannot say what it is, is a column nothing can do anything with;
-- the grid drew one `TextField` for every column. A date, a price and a page reference were all a
-  text box, which is what made entering data feel like typing into a spreadsheet by hand.
-
-**`format` stays on the card**, and the split is the interesting part: *what a value is* belongs to
-the data; *how this page reads it* belongs to the thing drawing it. One dataset feeding a price list
-that says `9,900원` and a summary that says `9.9천` is the whole argument for a format, and it does
-not apply to the kind.
-
-A **bare name still works, forever** — a column with nothing said about it is text, which is what it
-was already being treated as. Nothing had to be migrated.
-
-Seven kinds, five of them worn by the sample the day they were added: 글자 · 숫자 · 예/아니오 · 날짜 ·
-선택 · 페이지 · 주소. The command that renames a column would have silently dropped every one of them
-— it read the array and kept the strings — which is a date column quietly becoming a text column,
-once per rename.
-
-### 표는 훑는 것이고, 폼은 채우는 것이다 — 2026-09-03 *(built)*
-
-A grid is for **scanning**: twenty rows where a wrong cell stands out. It is the wrong shape for
-entering one row and gets worse the more a row holds — a blog entry is five fields of which two are
-sentences, and at 8rem a column the summary has scrolled off the right edge before it is finished.
-
-So: both, and each is bad at the other's job rather than merely less good. The grid is unchanged; a
-row opens as a form beside it.
-
-A **drawer**, not a second dialog, and the reason is where it is opened from: a row is opened from
-the grid *and* from the page, and in the second case the thing being edited is behind it, drawn. A
-dialog in the middle covers the card whose summary is being typed. `Drawer` went into office-ui as
-its own component rather than `Dialog` with a class — a dialog is a **question** (answered and
-dismissed, two buttons at the bottom right), a drawer is a **place to work** (edits land as they are
-made, no footer, a lighter scrim because the page behind is what the edit is checked against).
-
-### 해석이 원본을 지워서 어디가 데이터인지 알 수 없었다 — 2026-09-03 *(fixed)*
-
-Asked as *전체 페이지 중에 어디가 데이타이고 어디가 아닌지 구분이 잘 안 된다*, and the reason is worth
-writing down because it is a property of the design rather than an oversight: **resolution is total.**
-`field:제목` has become the post's title by the time anything draws, so a value that came from a
-column is indistinguishable from one somebody typed. There was nothing left to mark.
-
-`canvas-instance` keeps the reference beside the resolved value (`boundFrom`) and the renderers write
-it as `data-from`. Three things it settled:
-
-- **It has to be in office-text too.** The values that matter are a card's *words* — 제목, 요약 —
-  and a heading is drawn by the shared text renderers, not the site's. So only `field:페이지`, which
-  lands on a frame, was marked at first. It belongs there anyway: a deck's card bound to a variable
-  has the same question about it.
-- **Which means the guard cannot be per-renderer.** `data-from` is the editor's and must not ship, so
-  `clean` strips it in **one** place — the same rule `data-goes` needed, learned once and applied
-  before it had to be learned again.
-- **An empty attribute marks everything.** `String(x ?? '')` put `data-from=""` on all 27 paragraphs
-  of the page, and `[data-from]` in CSS would have marked the whole thing.
-
-The notation is an inset underline in the accent colour (nothing moves — the rule the wireframe had
-to learn twice) plus the **list's name** on the box that owns the rows, because *어디가 데이터인가* is
-asked coarsely first.
-
-### 와이어프레임은 회색인 척하는 흰 페이지였다 — 2026-09-03 *(fixed)*
-
-Asked as three options — *회색톤이냐, 검은 선만이냐, 테마로 고르게 하느냐* — and the sheet's own values
-answered it before any of the three could be argued.
-
-| | contrast |
-|---|---|
-| the band grey vs the **photo grey** | **1.04:1** |
-| the band grey vs the page | **1.14:1** |
-| the line vs the page | 1.68:1 |
-
-Two greys meant two different things and were the same grey. And the band grey had been kept *so the
-page's rhythm would survive* — at 1.14:1, with 25 boxes on the sample carrying a fill and no corner
-and no border, there was no rhythm to survive. The comment defending it had been in the file since the
-view was written.
-
-So: the line carries the structure (3.27:1); a fill is translated into the line's vocabulary — white
-with a hairline, which is what makes those 25 boxes appear at all; grey keeps one meaning, 사진, and
-the wash's `brightness` moved 1.78 → 1.63 so a loaded photograph lands on the same grey as an empty
-one. **Not a theme**: a wireframe is handed to somebody else, and a notation each reader configures is
-one where 그 회색 박스 means two things. The one case that would justify a second mode is **print**,
-and nobody has asked.
-
-The palette is exported and five checks hold the numbers, so the next person to change a colour here
-changes an argument rather than a taste.
-
-### `a, b::before` 는 `b` 에만 붙는다 — 2026-09-03 *(fixed)*
-
-A definition's part is named by two selectors — every placement (`[data-bc-sid$="~part"]`) and the
-bare sid. Written as one list with the pseudo on the end, `::before` attaches to the **second** only,
-so every drawn placement got a `content` declaration on the element itself and drew nothing.
-
-What makes it worth an entry: the sheet was generated, the rule was in it, the word was in the rule,
-and **eighteen unit tests passed** — every one of them asserts on the string, and the string was
-right. Only a browser could say that the right string draws nothing. It is a string check now, phrased
-as the rule: in a rule that draws a pseudo-element, every selector in the list carries it.
-
-### 목록의 모든 줄이 같은 곳으로 가고 있었다 — 2026-09-03 *(fixed)*
-
-Found by building a blog whose index links to its posts, which is the shape that could not work.
-
-`goes` — *where pressing this block goes* — was read at export time from the **stored** node. A row of
-a list has no stored node: it draws as `${collection}~${index}~${part}`, so the lookup landed on the
-**card definition's** part and every row of every list went wherever that one part said. It is the
-worst class of fault this product produces: it drew correctly, it published an `<a>` on every row, and
-every link worked. Only *which page* was wrong.
-
-A list of one row cannot tell that apart from working, and the sample had one post. So the fix and the
-fixture arrived together: the renderer writes the **resolved** `data-goes` (so `field:` and `var:`
-have already become what they mean), the export prefers it and keeps the stored lookup as the fallback
-for every document written before it, and the blog now has four rows going to four different places —
-two of them nowhere, because two of those posts are unwritten.
-
-**The reference does not travel.** `page:post-stack` means nothing outside this document, so the `<a>`
-drops `data-goes` on the way out; `export.test.ts` was already asserting no `page:` appears in a
-published page, and it caught the leak the same afternoon it was made.
-
-**What made it possible at all** is that a destination is a *column of the data*. The card asks 가는
-곳 the way it asks 제목, the list answers it with `field:페이지`, and the join that makes an index an
-index is a thing a reader sets in a dropdown.
-
-### 컴포넌트 편집 중의 삽입은 페이지 뒤에 놓이고 있었다 — 2026-09-03 *(fixed)*
-
-Reported as *컴포넌트 편집 화면에서 아무것도 추가 할 수 없음*, and it was **worse than nothing
-happening**: 삽입 and every insert chord were putting blocks on the page *behind* the component. The
-command ran, the document changed, and the reader watched a screen where nothing appeared — with no
-reason to go looking on another page for what they had just made.
-
-The rail and the ribbon already took the boards' subject (`root` — a page, or the part of a component
-being edited); the menubar and the key map took the **page**. One word, three call sites. The
-exception worth stating is a command that is genuinely *about a page* — publishing it, copying it,
-deleting it — and those are told apart by name rather than by hoping.
-
-### 순서 이동이 안 됐던 이유는 픽스처가 그 상태를 안 입었기 때문 — 2026-09-03 *(fixed)*
-
-Reported in five words — *순서 이동 눌러도 동작을 안해* — and the cause is the thing this repository's
-own rule warns about: **a fixture must wear what it tests.**
-
-A document that has said nothing about widths draws at three, and those three are a **default rather
-than nodes**. So the panel listed them, a reader pressed ↑, and the command looked for a node with
-that name, found none, and refused — correctly, and uselessly. Twelve unit tests covered the commands
-and every one of them ran `insertWidth` first, so not one of them wore the state **every document
-opens in**.
-
-The fix is the one `insertWidth` already made: the first change of any kind **materialises the list**.
-A document that never touches its widths never grows a `widths` box, and the first reader who moves
-one gets a list that says exactly what they were already looking at. Five tests now wear that state
-and nothing else.
-
-### 페이지도 폭마다 다르게 꾸밀 수 있어야 한다 — 2026-09-03 *(built)*
-
-Asked as *개별 크기별 페이지도 속성 설정할 수 있어야 하는 거 아니야? 여기도 배경색이랑 꾸밀 수 있는 걸
-따로 둘 수 있잖아* — and two things were missing, which turned out to be one feature.
-
-- **The panel had no paint rows for a page at all.** Its pane held an address, a name and a type
-  scale, and nothing about how it looks — while `paintCss` has read a page's own fill, gradient and
-  overlay in the renderer since the day one could hold them. The rows are the same rows a block gets,
-  **declared once** and mapped onto the page's pane, because two declarations of one thing is how a
-  panel and a product drift apart.
-- **The page's renderer read its raw attributes**, so a page could hold an override and no board would
-  ever draw it. A page that is white on a desktop and dark on a phone is one page with an override,
-  not two pages.
-
-The mapped rows get a name of their own — `페이지 배경` — which `calls no two rows the same thing` is
-right to insist on, and which is true anyway: a block's 배경 is that band's, and this is the paper the
-whole page is printed on.
-
-### 같은 그룹이 두 번 열리던 것 — 선언이 정한다 — 2026-09-03 *(fixed)*
-
-Reported as *사이트 패널, 페이지 패널, 이 2개씩 있는데 이거 다 합쳐야 하는 거 아니니?* — and the page
-pane had **two 사이트 and three 페이지**, interleaved.
-
-`panelGroupsFor` splits by *run* rather than by name, and that is deliberate: its own test says a map
-keyed by label would silently merge two runs and move a row up the panel, so **the declaration is
-what decides** and a repeated heading is a fault in the declaration. So the declaration was fixed —
-and the rule turned into a check, which is the part worth keeping: no pane may open the same group
-twice, asked of every node type in every pane. It was *visible and therefore fixable*; it is
-checkable now.
-
-### 오른쪽 버튼 메뉴의 세 가지 — 원인은 둘이었다 — 2026-09-02 *(fixed)*
-
-Reported as three: *항상 데스크탑에서만 뜨고 있어* / *마우스 커서 위치에 애초에 안 뜨는구만* / *멀티 선택
-한 다음에는 context menu 를 띄우지 못해, 선택이 풀려버림*.
-
-**The first two are one fault, and the comment above the code claimed the opposite.** The menu was
-written inside the overlay; the overlay is inside the plane; the plane carries a `transform` — which
-makes it the containing block for a `position: fixed` descendant **and** scales it. So client
-coordinates were read against the plane's box, at the plane's zoom, from the plane's origin, which is
-the leftmost board's corner. The comment said *"drawn outside the zoomed plane"*, and it was not.
-
-Fixed by **deleting it**: `office-ui`'s `Menu` is a menu at a point, portals into the body, flips at
-the window's edge and walks with the arrow keys, and its own header explains the portal with a
-measurement from the deck. Two answers to one question, and this one had drifted into being the wrong
-answer. The board's copy is gone along with 34 lines of its stylesheet.
-
-**The third is one missing condition.** A press of the right button is a `pointerdown` like any other,
-so the overlay's press handler ran first and did what a press does — resolved the block under the
-pointer and made it the whole selection. `onContextMenu` is careful to *keep* a selection the pointer
-is already inside, and arrived to find a selection of one. `event.button !== 0` now returns early; the
-middle button is the plane's and belongs to the canvas.
-
-### 캔버스의 휠이 미리보기의 스크롤을 먹고 있었다 — 2026-09-02 *(fixed)*
-
-Reported as *미리 보기는 스크롤이 되어야 하는데, 마우스로 스크롤을 할 수가 없어, 뭔가 편집 상태에서
-누군가 이벤트를 가로막고 있는 것 같아* — and that is exactly what it was, one layer further out than
-the editor: `useViewport` listens for the wheel on **`window`, in the capture phase**, and called
-`preventDefault` on every tick whose point fell inside the pane. Nothing downstream ever saw one, in
-any mode, for any reason. A preview was a page a reader could look at the top of and nothing else.
-
-**Measured before writing the rule**, because a rule that took the plane's pan away would have been
-worse than the fault:
-
-| | 편집 | 미리보기 |
-| --- | --- | --- |
-| `.st-frame` | `visible`, 5085/5085 | `visible`, 823/823 |
-| `.st-frame-body` | `visible`, 5063/5063 | **`auto`, 5063/800** |
-| `.st-page` | `visible`, 5063/5063 | `visible`, 5063/5063 |
-
-Nothing inside the plane scrolls while editing. So the rule gives the gesture away in exactly the
-case where the plane is not what the reader is pointing at, and in no other: **a wheel over something
-that can scroll belongs to that thing** — no `preventDefault`, so the browser scrolls it as it would
-anywhere else. Whether the scroller is *at its end* is deliberately not asked; a page scrolled to the
-bottom does nothing more when you keep scrolling, which is what a browser does and what a reader in
-preview is looking at.
-
-⌘ with the wheel keeps the whole gesture regardless, because the browser's own page zoom is what that
-means to a browser and a reader zooming the plane does not want the application to grow around it.
-
-In `office-ui`, so all three products have it. The deck's 407 browser checks pass unchanged.
 
 ### 와이어프레임은 회색이 아니다 — 회색은 덜어내는 쪽이고, 그 자리에 정보가 들어가야 한다 — 2026-09-02 *(two of the four built; the other two are not what this said)*
 
@@ -1662,53 +635,6 @@ so putting it in the document makes it publishable — and the moment it is, "on
 The moment annotations are genuinely needed is the moment a **화면 흐름도** is needed, which is a
 different product and is the other half of *선언하고, 검사한다*.
 
-### 와이어프레임은 다른 문서가 아니다 — 필터도, 별도 에디터도 아니라 세 번째 보기 — 2026-09-02 *(built)*
-
-Asked as a choice between two: *와이어프레임처럼 보이도록 필터를 입히는 게 좋을까, 아니면 와이어프레임
-에디터를 따로 만드는 게 좋을까?* Measured before answering, and the measurement says neither.
-
-**A separate editor is a second document.** The two would have to be kept in step, and keeping them in
-step is exactly the work that makes a plan and a design drift apart — the thing *선언하고, 검사한다*
-was chosen to avoid. This repository's premise is one schema and one renderer across three products; a
-wireframe is not a different document but the same page **read at a lower fidelity**.
-
-**A filter alone cannot say what a thing is.** `grayscale()` and hidden images produce a page with the
-colour taken out, which is not a wireframe: a wireframe's job is to show structure and intent, so a
-grey box has to be able to say 영상, 폼, 데이터 목록. Measured in the board's own DOM — it carries
-`data-name`, `data-kind`, `data-layout` and `data-sizing` and **not the node's type**, so as things
-stand a stylesheet has nothing to write in the box.
-
-So: a third `view`, beside 미리보기 — which is already declared as a view rather than a command, and
-already answered by one `switch` in the app. `view: 'wireframe'` in `menu-model.ts`, and a stylesheet
-generated from the document the way `editorStateCss` and `revealRules` already generate one.
-
-**Two of the three parts this entry first listed were wrong, and building it is what said so.**
-
-- *"The renderer writes the node's type onto every drawn block"* — **not needed at all.** The
-  generated half keys its selectors on `data-bc-sid`, exactly as the two sheets it sits beside do, so
-  the name in the box comes from the model and the DOM learns nothing new. A renderer change that
-  would have shipped in every published page, avoided by using the path that was already there.
-- *"pictures to a hatched box"* — it worked, it looked right, and **it moved them.** `content:
-  url(<a 1×1 svg>)` empties a replaced element and replaces the intrinsic size every `width: auto`
-  image is laid out from: the browser check compared picture boxes before and after and found 266×199
-  become 225×225 and four 61×20 logos become 2×2. A wireframe whose boxes are the wrong size is a
-  layout the reader does not have, which is worse than a photograph with no caption on it. The media
-  is **washed** instead — `contrast(0)` makes one flat grey — with an `outline` rather than a border,
-  because a border made every picture a pixel wider.
-
-Two more things a browser settled: a replaced element paints no `::before` (probed on an `img`, a
-`video`, an `iframe` and a `div` — only the `div` drew one), and a button on this page is a *frame
-with a fill*, so the rule that lays fills down to grey made the page's one call to action disappear.
-What tells a band from a control in the drawing is the rounded corner, so anything with a radius keeps
-a hairline — which draws the buttons back and every card as a box.
-
-The text stays the text. A wireframe with real copy in it is the one that produces real decisions, and
-lorem ipsum is how a layout gets approved for a paragraph nobody has written yet.
-
-**And the one case that genuinely is a separate product**: when it has to *differ* from the real page —
-annotations, arrows between screens, a screen that does not exist yet. That is not a wireframe, it is a
-화면 흐름도, and it is the other half of *선언하고, 검사한다*.
-
 ### Six of Word's browser checks fail, and none of them is this branch's — 2026-09-02
 
 Found while running the browser suites for a change in `office-ui`, and **proved not to be it**: the
@@ -1722,667 +648,6 @@ They fail in isolation as well as in the suite, so this is not the load-sensitiv
 against the Enter sweep further down. Recorded rather than fixed here because this branch is the site
 builder's, and a pagination fault deserves its own measurement rather than being tidied on the way
 past.
-
-### An extension called `dragDrop` that listens for no drop — 2026-09-02 *(fixed)*
-
-Asked in three words — *드래그 드롭도 돼?* — and measured by dropping a real file on the boards:
-nothing happened. `ReorderExtension` registers one command, `moveBlockToPosition`, about reordering
-blocks in a stack. It listens for no `drop`, reads no `dataTransfer`, and has never had anything to do
-with a file. The name is the whole of the misunderstanding.
-
-So a file dropped on the editor was the browser navigating away from it — the default a page gets when
-nobody cancels `dragover`.
-
-The canvas takes one now, and where it lands is what it was dropped **on**: a picture takes the file,
-anything else gets a new picture after it. Both go through the panel's own `addPicture`, so a dropped
-file is read, sized, named and put in the assets box exactly the way a chosen one is.
-
-**Still open**, and worth naming while it is fresh: a drop is only pictures. A `.csv` onto a
-collection, a font, an SVG meant as a sticker rather than as a block — each is a different errand and
-none is wired. And the extension keeps its misleading name.
-
-
-### A decision that only prose was keeping — 2026-09-02 *(fixed)*
-
-`emoji` and `mathInline` are declared in `standard-schema`, have an extension each
-(`extensions/emoji.ts`, `extensions/math-inline.ts`) and are handled by the PDF exporter — and no
-office schema inherits either, so no product can hold one and nothing draws one.
-
-Asked as *why is there a schema for this if nothing uses it*, and the answer turned out to be that
-**it was deliberate**: office takes what it offers from the standard schema by name, and the prose
-above that list has named all twenty-three exclusions since the day they were made, with reasons.
-Word draws equations from OMML, its page numbers are furniture the layout paints, its contents page
-is computed from headings — a second way to say one thing is a second thing to keep working.
-
-The fault was that prose was the only place it was said. A name in **neither** list disappeared in
-silence, and no check here could see it: every check asks about the nodes a product *declares*, so a
-node no product declares is a node nothing asks about — a fourth kind of blind spot next to the three
-`operation-harness` names.
-
-Fixed by making the exclusions data with a reason each, and refusing to build a schema when a
-standard node is in neither list. Adding one to the standard schema now forces the question *does
-office offer this?* at the moment somebody can answer it.
-
-**One of the twenty-three is a decision rather than a difference**, and it is written apart for that
-reason: `emoji` is out because nothing offered a picker, not because anything could not hold one. See
-`docs/specs/inline-content.md`.
-
-
-### The type check had been passing because the grep was wrong — 2026-08-31 *(fixed)*
-
-`npx tsc --noEmit` run **from inside a package** prints `src/renderers.ts(...)`;
-run from the repository root it prints `packages/office-site/src/...`. The check
-was being filtered with `grep "office-site/src"` from inside the package, which
-matched nothing — so every run reported clean and eight real errors accumulated
-behind it.
-
-What was hiding there, and it is the interesting part: **`ask()` became an
-accordion row and four other call sites went with it.** The FAQ helper used to be
-"a heading and a sentence" and was used twice — once for the questions and once
-for four feature blurbs on the pricing page. Turning it into a row that opens
-turned those four into accordions with no answers, and *the tests kept passing*:
-`vitest` transpiles without type checking, so the only thing that could have said
-so was the check that was being grepped away.
-
-Fixed both: the four are `blurb()` now, and the pattern for reading `tsc` output
-is `grep "^src/"` from inside a package.
-
-### A form asks what a browser already knows how to ask — 2026-08-31 *(built)*
-
-**A**, from `docs/specs/site-forms.md`. `choice` (every lead form has a 문의
-유형), `checkbox` (**required in Korea** — consent has to be given rather than
-assumed), `number`, `date`, and `min`/`max`/`maxLength`. All of it is the
-browser's own validation: it runs with scripts off, in the visitor's language,
-and it is what makes insisting on a real `<form>` worth the trouble.
-
-- **A tick's label goes after its box and wraps it.** Every other field is a
-  question with a box under it; a tick is a statement with a box in front. And it
-  is the one field whose label a visitor *clicks* — a 14-pixel target becomes the
-  whole sentence.
-- **A `choice` gets an empty first option.** Without it a browser reports the
-  first entry as the answer and every message arrives saying whatever happened to
-  be at the top — a `required` list that is never actually unanswered.
-- **The consent line needed nothing new.** A field's `label` is a string and
-  cannot hold the policy link; a form holds **blocks**, so the link is an ordinary
-  paragraph above the box. A rich label would be a second text model in an
-  attribute.
-- **`pattern` is refused.** A regular expression is a language a reader has to
-  learn and cannot debug — the same call this schema made when a list's filter
-  became `where` + `equals`.
-
-### A visitor comes back to the site they were on — 2026-08-31 *(built)*
-
-**B**. The worst thing about a form as it stood: pressing 보내기 took the visitor
-to the **service's** page, and the site's design, header and footer were replaced
-by a stranger's.
-
-Every service solves it with a hidden field and every one spells it differently —
-`_next`, `_redirect`, `_returnUrl` — which is exactly what a connection is for:
-it is a fact about the service, so a site with five forms says it once.
-`service.returnField` + `form.thanks` (a `page:id`, the fifth use of that shape),
-and `service.trapField` for spam, which ships **empty** because a bot filling
-every input is the whole mechanism.
-
-Absolute or nothing: a service redirecting a browser has no page to resolve a
-relative address against, so a site that has not said where it lives publishes no
-return rather than one that sends somebody nowhere — the rule `og:url` already
-follows.
-
-Still zero script on the page.
-
-### A picture keeps its shape, and comes at the size it is needed — 2026-08-31 *(built)*
-
-The two things the asset work made possible, and neither was reachable before it
-because both need the file itself.
-
-**`aspect`** — the shape a picture keeps at every width. `minHeight` answered a
-divider and a banner and cannot answer this: a picture in a column is 1200 wide
-on a laptop and 350 on a phone, and what a designer means by "this is a banner"
-is a ratio. Stating a height instead is how a hero ends up letterboxed at one
-width and cropped at the other. Six named shapes rather than a free `w/h` field,
-which every builder that offers one fills with `1.7778`.
-
-`height: auto` goes with it, and it is the half everyone forgets: an `<img>`
-carrying a `height` **attribute** is sized from it, so a ratio without releasing
-the height is a box the browser ignores.
-
-**`srcset`** — the single largest cost of a page built with a tool like this is a
-photograph taken at 4000 pixels sent, whole, to a phone that is 390 wide. It is
-most of what such a page weighs and no CSS shortens the download. The renditions
-are made when the file arrives (640 / 1280 / 1920, in a canvas, which is the
-app's for the same reason reading the file is), each is published as its own
-file, and **which one to fetch is the browser's decision** — it knows the screen
-and the connection and this product does not.
-
-Three things it settled:
-
-- **A rendition must be meaningfully smaller.** A 2000-wide file was producing a
-  1920 rendition: four per cent narrower, another file, another `srcset` entry,
-  a download nobody notices. Found in a browser on the first picture tried. The
-  line is four fifths.
-- **An SVG is left alone** — already every size at once, and a canvas would turn
-  a few kilobytes of vector into a large picture of it.
-- **The format is kept.** Re-encoding a PNG as JPEG is smaller and is also this
-  product deciding, silently, that a reader's transparent background is gone.
-
-**`defer`** is beside them and is the reader's rather than a rule: `lazy` on a
-picture above the fold delays the one image a visitor is waiting for, and nothing
-but the design knows which picture that is.
-
-### A page's address was a free string, and two pages could share one — 2026-08-31 *(fixed)*
-
-Asked whether to add a slug feature and prefer English URLs. Measured first, and
-the valuable half turned out not to be the language: **`path` had no validation
-at all.**
-
-| typed | what a browser does |
-|---|---|
-| `My Page` | no leading slash — a **relative** link; from `/가격` it means `/가격/My%20Page` |
-| `/제품?a=1` | `?` starts a query; that file can never be requested |
-| `/제품#어디` | `#` is never sent to a server |
-| `//x` | protocol-relative — a link to the host `x`, off the site |
-| `/A/` | a trailing slash is a second address for one page |
-| `/소개` twice | one page unreachable, every link lands on the other. **Zero faults** |
-
-`pathFor` repairs on the way in — the one place this product changes what a
-reader typed without asking, and the right one: every tool of this kind repairs a
-slug as you type, the result is visible immediately, and the alternative is an
-address the panel accepts and the site cannot serve. `pathFaults` reports the
-duplicate, which is the one nothing could see.
-
-**A name gives a page its address once** — while it is still the minted
-`/page-3`, and never again, because an address is what has been shared and
-indexed and a rename must not move a page.
-
-**Hangul is not romanised.** `제품` stays `제품`, never `jepum`: romanisation
-reads as neither language, and two people transliterate the same word
-differently. A reader who wants an English address types one — theirs to decide,
-which is what this schema already says about a component's name and a dataset's.
-ASCII is lowercased, because a case-sensitive host makes `/Products` and
-`/products` two pages and a case-insensitive one makes them one.
-
-### `제품` and `제품` are the same word and different strings — 2026-08-31 *(fixed)*
-
-Asked whether a Korean URL is all right. It is — every browser and static host
-has served UTF-8 paths for a decade — with one hazard that nothing warns about
-and that this product was standing in.
-
-A Hangul syllable has two correct Unicode spellings: composed (NFC, 6 bytes for
-`제품`) and decomposed (NFD, 9). They render identically and compare unequal. A
-keyboard produces NFC and a browser requests NFC; **a macOS file picker has
-handed over NFD for twenty years**, and an asset is named after the file that
-arrived.
-
-Two faults, both invisible:
-
-- two pictures both showing `로고` are two different names, so the duplicate
-  check passes and one of them is permanently unreachable — the exact thing that
-  check exists to prevent;
-- a page address that arrived decomposed publishes a folder no browser ever asks
-  for: a 404 that looks right in the address bar *and* in the folder.
-
-`names.ts` composes on the way in and compares composed on the way out. The test
-for it fails with the finding written out: *expected '로고' to be '로고'*.
-
-Measured while checking: modern macOS `ditto` preserves NFC — APFS does not force
-decomposition the way HFS+ did — so the archive round-trips cleanly. The hazard
-is the file picker, not the zip.
-
-### Every link in a published site was broken — 2026-08-31 *(fixed)*
-
-Found by asking what the asset work had made necessary. A link resolves to a
-page's **address** — `/제품` — and publishing wrote **`제품.html`**. On any host
-that does not quietly try `.html` for you, every link on every published page is
-a 404.
-
-It looked completely fine in the editor, and that is the interesting part: the
-editor follows the *reference* (`page:products` → the page), never the file. The
-mismatch is structurally invisible from inside the product, which is why nothing
-had caught it in the weeks the export has existed.
-
-`fileFor` is the model's now — `/` → `index.html`, `/제품` → `제품/index.html`.
-The mapping from an address to a file is a fact about how a site is *served*,
-not about how a browser saves a download. The sitemap had been naming its own
-file since the day it existed, by accident, for the same reason.
-
-Held by asking the published home page for every `href` that starts with `/` and
-checking each one is a page the publish actually wrote.
-
-### Publishing is one archive, because a site is a folder — 2026-08-31 *(built)*
-
-Loose downloads were the shape until two things ended it on the same day: an
-asset is written to `assets/로고.png`, and a browser cannot be handed a folder;
-and `제품/index.html` above is a tree.
-
-`zipOf` is in `office-site` rather than the app, and the line moved deliberately:
-`publish` still says what a site *is* and the app still says what a file is —
-turning a list of files into one array of bytes is arithmetic with no browser in
-it, and belongs where it can be tested by asking what the bytes are.
-
-- **Stored, not deflated.** A site's bytes are mostly pictures, which are already
-  compressed; the HTML is tens of kilobytes that compress again on the wire. The
-  alternative is a few hundred lines of bit-packing whose bugs are silent.
-- **UTF-8 names with the flag bit set.** A zip's default name encoding is a code
-  page from 1989; without bit 11 a Korean folder name is mojibake on somebody
-  else's machine.
-- **A fixed timestamp**, so two publishes of an unchanged document are two
-  identical files. The same argument `formatDateField` makes about a renderer
-  that reads the clock.
-
-**And a finding about the test, not the code**: macOS's Info-ZIP `unzip` refuses
-to *create* a UTF-8 directory name — `Illegal byte sequence` — whatever the
-locale. The archive is correct: Python's `zipfile` lists the names and validates
-every CRC, `ditto` extracts them, the Finder opens it. The first version of this
-test failed and the bug was in the reader. The suite uses `ditto`.
-
-### A reader could not put a picture in a page — 2026-08-31 *(built)*
-
-Measured while asking whether the form work was the right next thing, and it was
-not: a `picture` carried a `src` string and **nothing anywhere could put a file
-in one.** The sample got away with it by drawing its art as SVG data URIs — a
-thing a product's author can do and a reader cannot. Adding a photograph was not
-possible at all, which is the second most common thing anybody does on a page
-after writing on it.
-
-`asset` is a resource with a name, a type and base64 bytes; a picture names one
-as `asset:로고`. The sixth reference of the shape this schema uses everywhere.
-
-The half worth writing down is that **one `src` has two right answers**:
-
-- a **board** draws the bytes, because there is no server to ask;
-- a **published page** points at `assets/로고.png`, because inlining a logo used
-  on five pages writes its bytes five times, and a photograph in the middle of
-  the HTML delays the first paint by exactly as long as it takes to download — a
-  browser cannot start drawing a page it has not finished reading.
-
-That is the second deliberate difference between the two drawings after a form's
-`action`, and it uses the same one flag.
-
-Four things it turned up:
-
-- **`Published.files` could only carry words.** `{ file, text, type }` was enough
-  until a site had a photograph in it. A PNG written through the text path is
-  base64 in a file called `.png`, with a charset on it — a file no viewer opens,
-  failing as a broken image rather than as a bad write. `bytes` is a separate
-  field, not a union, because a caller that has to guess which it got will guess
-  wrong on the file that matters.
-- **The file's own width and height are stored.** An `<img>` with no intrinsic
-  size is a hole of zero height until it loads, so every word under it jumps down
-  when it arrives. A builder that keeps only a URL cannot fix that because it has
-  never seen the file; this one has.
-- **A name is deduped, never overwritten.** Two files called 로고 is one of them
-  unreachable. Overwriting is the more helpful-looking answer and the wrong one.
-- **The size is reported, not refused.** Base64 is a third larger than the file.
-  `assetFaults` says so past 8MB, against the document itself — there is no block
-  to click on for "this is 12MB".
-
-**Still open, and connected**: publishing is still a browser download of loose
-files, so a folder with `assets/` in it cannot actually be produced — a zip is
-the missing half. Also open: a picture that must keep an aspect ratio, and
-responsive images (`srcset`), which is what the stored size makes possible.
-
-### Where a form's answers go — a connection with a name on it — 2026-08-31 *(built)*
-
-The question was framed three ways and only one of them is possible: **a
-published page is a static file.** It cannot write into the `.baro` document, so
-`resources` cannot be a destination and neither can a "answers as rows" store —
-both need something running. What already existed was the third: a real
-`<form action method="post">` posting straight to a service the reader chose,
-with nothing of ours in between.
-
-So the open question was never *where*. It was **how much the product helps you
-connect one**, and the answer the address-on-the-form shape got wrong: a site
-with five forms carried five copies of one address. Changing services meant
-finding all five, and the one that was missed goes on posting to an endpoint
-nobody reads — silently, because a form that posts somewhere wrong looks exactly
-like one that works.
-
-`service` is a resource with a name, an endpoint and a method; `form.sends`
-names one. The fourth reference of the shape this schema uses everywhere —
-`var:이름`, `componentId`, a dataset's `name` — and the same argument won it.
-
-Decisions worth the record:
-
-- **No default address and none of this product's own.** A builder that quietly
-  posted a stranger's message to its own server would be doing something nobody
-  asked for with somebody else's data. A new form arrives with a connection and
-  the connection arrives **empty**, reported by `documentFaults`.
-- **Two nodes, one transaction, one undo.** `insertForm` mints the connection
-  only when the document has none; otherwise it points at the one that is there.
-- **A connection with no address publishes no `action` at all** — not `action=""`,
-  which a browser resolves to *this page*, so 보내기 would reload and look for all
-  the world like the message went somewhere.
-- **The count is on the row.** Editing the address from one form's panel changes
-  every form that names it, so the row says 폼 2개가 함께 씁니다. A named
-  reference is worth having *because* one edit reaches every use, which is
-  exactly why a reader has to be told before making one.
-- **Three faults, told apart**: nothing chosen (a reader who has not finished), a
-  name pointing at nothing (somebody removed the connection out from under a
-  form that still names it), and a connection with no address.
-
-**A first-party inbox is still open** and is a product decision rather than a
-schema one: it needs a server, storage, spam handling and a retention policy.
-The schema is ready for it — `sends: 'barocss'` is a connection like any other.
-
-### The panel has two kinds of picker, and the control sweep reaches one — 2026-08-31 *(fixed)*
-
-`PropertyChoice` is a native `<select>`; `ChoiceSelect` is a Radix listbox with a
-`<button>` trigger. Nine custom rows used the second, so they looked different
-from the rows above them in the same column **and** were outside the sweep that
-presses every control and checks the document moved.
-
-One picker now — the sheet's. Which turned the sweep on nine rows it had never
-reached, and then turned up two things about the *sweep* rather than the panel:
-
-- **It swept one selection.** A stack. Every row that belongs to a picture, a
-  form, a field or a list — the ones added most recently and therefore least
-  looked at — was never pressed. It sweeps five node types and both panes now.
-- **It compared one node.** Two rows deliberately write somewhere else: a form's
-  주소 and 방식 write the *connection* it names, which is the whole reason a
-  connection has a name. Against one node they read as controls that do nothing.
-  It compares the whole document now.
-- **It wrote the value already there.** 37 into 투명도, whose bounds are 0 and 1,
-  clamps to 1 — which is what it already said. A sweep that writes the value
-  already present is measuring itself.
-
-**And one thing I got wrong on the way, kept here because the shape of the
-mistake is the useful part**: a field's 보낼 이름 looked as though it collided
-with the generic 이름 row, and I added a narrowing to exclude it. It did not
-collide — `field` is not in `SELECTABLE`, so that row was never offered for one.
-The narrowing was reverted. What stayed is a **model-level check** that no two
-rows write one attribute for one node type, which is a guard with nothing to
-catch today and is worth having because the browser sweep structurally cannot see
-that fault: it asks *did this control write something*, and the second row does
-write something — over the first.
-
-
-### The sample's pricing page had been sorting wrong, in a browser, since it was written — 2026-08-31 *(fixed)*
-
-A card's question was answered with a string and drawn exactly as stored, so
-the only way to make a price read as `월 9,900원` was to **store those words**.
-
-Which is a value nothing can compare. `요금제` says
-`sortBy: '가격', sortDir: 'desc', limit: 3`, so it was comparing
-`'월 9,900원'` against `'월 19,900원'` as text — `9` comes after `1` — and the
-page showed **문서 · 사이트 · 스위트** where it claims to show the three most
-expensive plans in order. It looked completely fine. Nothing but asking the
-document what order it was in could have found it.
-
-The blog had the quiet version of the same fault: the feed sorts by an ISO date,
-correctly, and then showed the reader `2026-08-02`.
-
-**The data stores the value; the card says how it reads.** `componentVar` gains
-`kind: 'date'` and a `format` picture string (`'월 #,##0원'`, `'yyyy년 M월 d일'`),
-read by `readValue`. Two panel rows — 값 종류 and 표시 형식 — on the part a
-variable is bound to.
-
-Three things it turned up on the way:
-
-- **Order matters and got it wrong first.** A data list replaces a placement's
-  answers *after* they are resolved, so formatting inside `instanceValues` reached
-  every card except the ones with data in them — which are exactly the cards a
-  format is for. `readValues` runs last, and is idempotent so that running last is
-  survivable.
-- **The preview needs it too.** A designer editing the post card against a row
-  must see what the page will show, or the preview is showing them something else.
-- **A card's default was the empty string**, so opening the post card showed a
-  blank where the date goes. A default is what a card draws when nobody has
-  answered; blank reads as broken.
-
-`format` is on the **card**, not the data — which is the point of it: one dataset
-can feed a price list that says `9,900원` and a summary that says `9.9천`.
-
-### A narrower width could change a value and could not un-say one — 2026-08-31 *(fixed)*
-
-`attrsAt` merged the base and then the override, so `{ mobile: { maxWidth: … } }`
-could say *this much instead* and had no way to say *none at all here*. The
-workaround is a number chosen to mean nothing — and **the sample was already
-writing it, in three places**: `minWidth: 0`.
-
-Found by drawing the sample's contact form rather than by reading the file. It
-wants to be 340 wide beside the words and the whole column under them, and the
-second half was unsayable.
-
-`null` in an override now un-says the key. Which forced the second half of it:
-**`null` and `undefined` are different sentences**, and the panel had one gesture
-for both.
-
-- *nothing at this width* — an emptied field while a narrower width is being
-  edited. Writes `null`.
-- *the same as the page* — **the mark beside the label**, which is a button now.
-  Writes `undefined`, which `withOverride` and `withState` already understood.
-
-The mark had been a `·` saying *this width owns this value* with no way to stop
-it owning one. Typing the page's number back in looks identical and is a
-different document: the width still states a value, it now happens to match, and
-it stops following the day the page's changes. `onUnmark` is in `office-ui`, so
-the deck and Word get it the day either grows something to take back.
-
-One thing the fix found on the way: the button was named from `row.label` and was
-unfindable — two rows in different panes can each be called 최대, which is
-exactly why a row carries `ariaLabel` as well.
-
-### Seven things a site builder needed, measured and closed — 2026-08-31 *(built)*
-
-Asked "is the site builder done", re-measured, and found the answer was no in
-seven specific ways. All seven are built; `docs/specs/site-builder.md` has the
-reasoning. The findings worth keeping here are the ones that were surprises:
-
-- **A schema gap shows up as artwork.** The product's own hamburger had to be an
-  SVG because a box with nothing in it was a box of no height. `minHeight` made
-  it three boxes and deleted a function from `sample-art.ts`.
-- **`position: sticky` inside a component silently cannot work.** A block in a
-  definition has the placement's box as its parent, and that box is exactly that
-  block's height — 82 pixels, measured. `display: contents` on the wrapper fixes
-  it and breaks selection: an element with no box cannot be pressed or measured,
-  and thirteen browser tests said so at once. A position belongs on the
-  **placement**, which is also where it belongs conceptually.
-- **A form is the one place the board may differ from the page**, rather than the
-  page being the board minus removals. A designer arranging a form must not be
-  able to send a stranger a message. One flag, `SiteEnv.published`, read in one
-  place.
-- **A `url` dataset is fetched in the editor, not in the page.** The other way
-  ships a script everywhere, hands a crawler an empty list, and shows a visitor
-  whose request failed an empty section. The cost is stated on the button.
-- **The one line of script.** Closing a menu when a visitor taps a same-page
-  anchor has no CSS answer — three were tried on paper and all three fail. So
-  the product ships one listener, only on a page that has both an opener and a
-  `#` link. The sample still exports with no `<script>`.
-
-### `visible: false` meant a draft and a closed menu, and both were deleted — 2026-08-31 *(fixed)*
-
-A hidden block is cut from the published page, on purpose: a section a reader hid
-is a section they did not mean to publish, and `display: none` still ships the
-words to a crawler.
-
-Two designs write the same attribute and mean the opposite:
-
-- a block shown **only on a phone** — a hamburger is `visible: false` with
-  `{ mobile: { visible: true } }`, which is how a page has two navigations;
-- a block a visitor **opens**.
-
-Both were being removed. Measured in the exported sample: the hamburger was gone
-from the markup, its `<label>` published empty, and the menu's media query and
-state rule stayed in the stylesheet naming an element that was not there.
-
-`neverShown` is the question that was meant — hidden at *every* width and in
-every state — and it is now asked in the three places that have to agree: the
-markup (`clean`), the media and state rules (`styledNodes`), and the scroll
-reveals. **The width half of this predates states**: a block shown only at 390
-had been losing its rules for as long as media queries have existed here, and
-nothing noticed because the sample had no such block until now.
-
-### The third state: a visitor opens a menu, and the page ships no script — 2026-08-31 *(built)*
-
-`hover` and `focus` are states a visitor happens into. 열림 is the one they
-decide, and it is what stands between "this model can express two navigations"
-and "the phone menu works". Details in `docs/specs/site-builder.md`; the four
-decisions in short:
-
-- **remembered, not held, so it may move things** — `OPENABLE` = `STATEABLE` +
-  `visible`, `layoutMode`, `gap`; `stateableIn(state)` is now asked by the
-  schema check, the command and the panel, which had a copy of one list each;
-- **published as a checkbox** — `openSwitches` writes an `<input>` and a
-  `<label for>`, the rule is `.st-open-switch:checked + [data-b="…"]`, and the
-  exported page still contains no `<script>`;
-- **the switch sits outside the block it opens** — inside, it is inside that
-  block's `display: none`, and an unrendered control is not in the focus order:
-  열림 would have been pointer-only. `openerRules` puts the ring on the block
-  being looked at, named per switch;
-- **`opens` holds a `partId`** — a sid is given out at load, so nothing written
-  down can hold one. `setOpens` mints the name, which is why the row has its own
-  command: it writes two blocks.
-
-Held in `states.test.ts` (arithmetic, rules, markup) and in `site.spec.ts` at
-390 with nothing but the file — pressed by pointer and by keyboard.
-
-### 아코디언과 탭 are one mechanism and one attribute apart — 2026-08-31 *(built)*
-
-An accordion's answer and a tab's panel are the identical node. What separates
-them is `opensOne` on the container: the switches under it become **radios
-sharing a name**, so choosing the second tab unchecks the first and every other
-panel falls back to `visible: false`. Nothing keeps them in step because a radio
-group already does. Plus `openAtRest` on an opener, which a tab strip needs
-exactly one of.
-
-Both are inserts (추가 › 아코디언, 탭). The knowledge they carry is that the body
-must be a **sibling** of the header, that it needs a `partId`, and that the name
-must be unused — the last of which is a *silent* fault: two accordions both
-calling their body 내용 means the second header opens the first body, in the
-published page only. `freshPartId` mints against the page and against the names
-the same insert is about to make.
-
-One rule could not be written as `switch:checked + block`: **which tab is
-chosen**. The tab is not beside its switch, so an opener's `states.open` is
-published as `body:has(#id:checked) [for="id"] > *`. A block's `states.open` now
-has one meaning in two shapes — what it becomes if it is opened, what it looks
-like having opened something if it opens.
-
-Held in `states.test.ts` and in the browser: two tabs pressed at 1280 and a
-third at 390 (a radio genuinely closing the other), and an accordion with two
-answers open at once (a checkbox genuinely not).
-
-**Still open in the same mechanism**: a menu that closes when a link inside it
-is followed needs `:target` or one line of script, and has not been decided. A
-`opensOne` accordion cannot be fully closed, because a radio cannot be
-unpressed — correct for tabs, and an author choosing 하나만 should probably be
-told.
-
-### A hamburger cannot be three boxes, because a page cannot say how tall a block is — 2026-08-31 *(fixed)*
-
-The site schema has `sizing`, `minWidth` and `maxWidth` and **no height at
-all**. Every other builder's hamburger is three empty divs of a fixed height;
-here the honest way to draw a 2px rule was to draw it, so `sample-art.ts` has
-one as an SVG.
-
-That is fine for a mark and wrong as a general answer: a divider, a spacer, a
-banner of a fixed height and a card with a picture at a set aspect are all the
-same missing pair. Once `minHeight`/`maxHeight` exist the hamburger can be three
-boxes and the lines can *move* when it opens, which is the animation everyone
-expects and this cannot currently express.
-
-### Every border in the product was an invalid CSS declaration — 2026-08-30 *(fixed)*
-
-Word writes a colour as six hex digits and no `#` — `2C5282`. Every other colour
-in `css.ts` went through `normalizeColor`, which puts the `#` back. **The borders
-did not.** `1pt solid 2C5282` is an invalid shorthand and a browser drops the
-*entire* declaration, so a bordered paragraph got no line at all — not a black
-one, none — and so did every table drawing its rules from a style. The sample's
-own `GridTable` states its inside borders exactly that way.
-
-The unit test for it **asserted the broken string**: `expect(css.borderTop).toBe(
-'1pt solid 000000')`. The same shape as the deck's sample writing `listType` to
-match a renderer rather than the schema — a test that agrees with the bug.
-
-Found the first time a bordered paragraph was put in the sample document and the
-*computed* width came back `0px`. A unit test compares the string the function
-returns; only a browser knows whether a browser accepts it.
-
-### Word's fifth border, and a schema that described a document this model cannot hold — 2026-08-30 *(fixed)*
-
-Two piles off the unread list, and they wanted opposite answers.
-
-**`borderBetween` — write the drawing.** A run of consecutive paragraphs asking
-for the same borders is one bordered *box* in Word: the top above the first, the
-bottom below the last, and a single rule between each pair. Drawn as each
-paragraph's own edges it is two solid lines between every pair with the margin
-showing through. `sharedBorders` answers it beside `suppressedSpacing`, for the
-same reason that one is there — it is a question about the block's **neighbours**,
-and the paginator has to reach the same answer. 12 findings.
-
-**A cell's `borderInsideH` / `borderInsideV` — take the declaration away.** An
-inside border is a line *between* cells, and a cell has no interior in this
-model: merging leaves the surviving cell carrying a span and the cells it
-swallowed are gone. So there was nothing for it to draw, ever, and `cellBorders`
-correctly reads the pair off the **table**. OOXML has `tcBorders/insideH`, which
-is why it was copied, and it means something there only for a merged region with
-the covered cells still present. Eight attributes on two node types describing a
-document this model cannot hold. 16 findings.
-
-**And 12 more that were read all along**: a table's `borderInside*` and
-`cellMargin*` are applied when a **cell** is drawn (`cellBorders`, `cellMargins`),
-and rendering a bare `bTable` draws no cells. Exemptions, like the header ids.
-
-**The sample document had no bordered paragraph at all**, which is why no test
-could have seen the doubled line — or the invalid colour. It has a three-paragraph
-box now, and `word-rendering.spec.ts` measures the *computed* border of each.
-
-### Two locks, and a fraction that was never linear — 2026-08-30 *(fixed)*
-
-**`lockDelete`.** Word's content control has two locks and keeps them apart on
-purpose: a form's instructions may be read and not edited *and* not thrown away,
-while a field a reader fills in is the first without the second. `lockContent`
-got its guard on the typing path; without this one a reader could not type in a
-protected region and could **delete the whole of it**. `insideLockedRegion` moved
-to `editor-core` and takes which lock to ask about — both layers need it and
-neither can reach the other: the typing gates are in `editor-view-dom` and the
-delete command is in `extensions`.
-
-**A linear fraction has never been drawn as one.** `style.css` has had
-`.w-math-frac[data-type='lin']` rules since it was written — the solidus, the
-missing bar — and **no renderer ever emitted `data-type`**. Two rules matching an
-attribute nothing wrote. Found while giving the fraction its other three values:
-`skw` sets the slots on a diagonal and `noBar` stacks them with no rule, which is
-how a binomial coefficient is written, and the style function looked only at
-`lin` — the one value whose CSS could not match anyway.
-
-The same shape as the deck's `listType` and Word's `borderTopColor`: a name
-written on one side of a seam and not the other, with nothing in between to
-notice. Three of those in one session is the argument for a check that reads
-`data-*` out of a renderer and out of a stylesheet and compares them.
-
-And two more of the maths pile: a **radical**'s `hideDegree` (a square root is
-`√` and a cube root `³√`, and the two were the same drawing) and a **group
-character**'s `verticalAlign` — where the *label* sits, which is not where the
-brace does. One was read and the other was not, so the label always followed the
-brace.
-
-**185 → 16.**
-
-### Three faults in one command, found by its first test — 2026-08-30 *(fixed)*
-
-`toggleLink` and `removeLink` are two commands and one gesture, and they had no
-test of their own. The conformance probe asked whether each moves the document
-and got yes, which is true of both and says nothing about what a reader ends up
-with. Writing that test found three:
-
-1. **A new address took the link off.** `toggleLink` asked *"do these words carry
-   a link at all"* and, if so, removed it — the `href` in the payload was read
-   only on the branch that adds one. So pressing 링크 on linked words with a
-   different address was silently a removal. It asks whether they point at *this*
-   address now: a toggle takes off what it would have put on, and a link is a
-   **value**, so the same gesture with a different value is a change.
-2. **Then two links stacked.** `applyMark` appends, so laying a second address
-   over the first left both marks on the run — two links over the same
-   characters, and which one a reader followed depended on which the drawing
-   read first. Off, then on.
-3. **`removeLink` laid `href: ''` on the words.** It took a link off by toggling
-   an *empty* address, which worked only while the first fault existed. It calls
-   `removeMark` now, which is what its name says — saying it through a toggle was
-   borrowing a gesture to do the opposite of what the gesture means.
-
-`find-replace` got its first test the same afternoon and had **none** — eight
-assertions about what a reader gets, all green.
 
 ### Can the extensions be used properly in all three products — 2026-08-30 *(measured)*
 
@@ -2406,26 +671,6 @@ So: **yes.** Every insert each product installs makes something that product can
 draw, and Word's kit is why — it lists its extensions one at a time rather than
 taking `createRichExtensions()`, which registers inserts for ten node types Word
 has no renderer for.
-
-### Word's `produces` list was believed by two checks and compared to nothing — 2026-08-30 *(fixed)*
-
-`conformance.test.ts` carries 23 hand-written pairs of a command and the node it
-makes. Two checks read that list — is the type in the schema, is every `insert…`
-on the list at all — and **neither asks whether it is true.** A hand-kept list
-that nothing compares to the document is the hand-kept list this whole harness
-replaced.
-
-The probe already knew: `made` is what it watched appear, counted before and
-after, with the payloads Word's own test gives each command. Comparing them costs
-nothing.
-
-It found one disagreement and the disagreement was the **check's** limit, not the
-product's: `insertParagraph` is declared `paragraph` and was watched making a
-`heading`. Both are right — Enter in the middle of a heading splits the heading,
-Enter at the end of one starts a paragraph — and the probe stops at the first
-state a command can run in, which is the sample's first heading. Reporting it
-would have been reporting where the fixture's first block is, so it is out of the
-comparison with the reason written down.
 
 ### When is `packages/extensions` finished — 2026-08-30
 
@@ -2531,112 +776,6 @@ which is exactly the shape the check's exemptions are for. Turning it on is a
 pass of its own: ~74 findings, each of which is either a surface Word is missing
 or a reason nobody has written down.
 
-### A check for `data-*` written on one side of a seam — 2026-08-30 *(built)*
-
-Three faults this session were one name on two sides that did not match: the
-deck's renderer wrote `listType` where the schema said `type`; `style.css` drew
-`.w-math-frac[data-type='lin']` where **no renderer wrote `data-type`**; and the
-site's `insertBulletList` wrote `kind` where the schema said `type`. Each cost
-months and each is mechanical to find.
-
-`deadSelectors` asks one direction only: **does anything a product draws with
-write the names its stylesheets select on?** The other direction is noise — half
-of this repository's `data-*` are for a test to find an element by or an event
-handler to read, and a check reporting thirty of those beside one fault is a
-check nobody reads.
-
-Building it was four wrong answers, and each is in the code:
-
-1. **The whole repository on both sides** did not catch the fraction:
-   `data-type` is written by the *site's* list renderer, so Word's dead rule
-   looked answered by a product Word shares no stylesheet with. The scope is a
-   product's dependency graph now — **read from `package.json`**, because a
-   hand-kept list of what a product draws with put `office-word` in Word's tree
-   only, and `apps/slide` imports `installCellSelection` out of it.
-2. **Only `data-x` literals** reported nine of the deck's names dead when eight
-   were written as `data={{ presenting: 'true' }}` — `office-ui`'s convention.
-3. **Every object key in the source** reported none of them, and would have
-   missed `data-type`: `type:` appears in a thousand places.
-4. **Comments and tests counted as writes.** Taking the fraction's fix back out
-   left the check quiet twice — once on the sentence in the comment explaining
-   that nothing wrote `data-type`, and once on two converter fixtures carrying
-   whole pages of HTML.
-
-Verified by taking the fix out and watching it fail, which is the only way to
-know a check is one.
-
-### The maths pile wanted code, not a decision — 2026-08-30 *(fixed)*
-
-Twenty-five attributes, the largest thing on Word's unread list, and this
-repository had described them twice as *"the maths model this schema follows,
-drawn by nothing"* — with the note that they wanted a decision about maths before
-they wanted code. **Reading the list turned them into twenty lines.**
-
-Every one is a setting Word's own constructs carry, and every one is drawable:
-
-- A **matrix** says how its columns line up and how far apart they sit
-  (`m:mcJc`, `m:cGp`, `m:rSp`) and whether an empty cell shows its placeholder.
-  The stylesheet drew a fixed `gap: 0.15em 0.5em` and a fixed centring.
-- An **n-ary operator** says whether its limits are shown (`m:subHide`) — a sum
-  with no lower limit is written `∑`, not `∑` with an empty box under it, and
-  Word says so with a switch rather than by removing the slot so an author can
-  put it back. It came out as an empty box.
-- A **phantom** says which of its dimensions it gives up. All three were
-  declared, none read, so every phantom took all of its room.
-- A **border box** says whether a rule is drawn *through* it — which is how a
-  cancelled factor is written. The four `hide*` were read and the two `strike*`
-  were not: the half of a border box that is not a border.
-- A **run** says which **alphabet** its letters are in. In maths these are
-  meanings and not fonts: ℝ is the real numbers and R is a variable called R,
-  and a reader must be able to tell them apart. Every one came out as an
-  ordinary italic letter.
-
-The number had been hiding the work rather than describing it, which is the same
-finding this whole sweep keeps producing.
-
-The stylesheet's half is the product's: which face carries a fraktur letter, how
-a strike is painted. The renderer says only which one, which is the split the
-list markers and the table of contents both arrived at.
-
-**185 → 20.**
-
-### A locked shape was not locked either — 2026-08-30 *(fixed)*
-
-`locked` is on every scene node the office schema declares and it means one
-thing: *I have decided where this goes.* The deck has read it since its arrange
-commands were written — `box-commands.ts` skips locked boxes when it moves,
-duplicates or deletes them, and the tidy pass treats one as a pin. **Word read it
-nowhere**, so a shape a reader locked could still be dragged, nudged, resized,
-aligned, spread and deleted.
-
-One line, in `_movable`, because every one of those commands comes through it:
-`resizeShapes` calls it, `deleteShapes` calls it with a distance of one, and the
-align and spread commands read the same list. It **filters** rather than refusing
-the set, so a drag holding a locked shape and a loose one moves the loose one —
-which is what a reader pulling a marquee across a diagram means.
-
-Distinct from `lockContent`, which is a region of *text* that may not be edited.
-A locked shape's text is still text.
-
-### The probe's filler was setting the one attribute that made the rest impossible — 2026-08-30 *(fixed)*
-
-`attributeReadFrom` fills every *other* attribute before asking about one, so an
-attribute that only matters in combination is still visible. It built that filler
-from the schema's own values and **deliberately not** from what a product taught,
-for a good reason recorded when a deck was taught what a `fills` is: an array
-value is usually a whole sub-system that *supersedes* the flat attributes it
-replaces, and teaching the harness one thing made it wrong about fourteen others.
-
-That reasoning is about **arrays**. A string does not supersede anything — it is
-usually the switch that turns the others on. A frame reads `alignItems`,
-`justifyContent`, `gap` and `columns` only when `layoutMode` says `row`, `column`
-or `grid`, and the schema's first option is `none`; a text box reads
-`horizontalAlign` only for a `wrapType` that floats. In both cases the filler was
-setting the one attribute that made the rest impossible to see.
-
-A taught **array or object** still stays out of everybody else's question; a
-taught **scalar** joins the filler. Six findings came off that were never faults.
-
 ### Values the probe could not guess, told by the product
 
 Four more of the same class, all of them attributes a product plainly reads whose
@@ -2652,58 +791,6 @@ the values are is the **product's** to say, which is what the `probes` hook is
 for.
 
 **185 → 44.**
-
-### A locked region was not locked — 2026-08-30 *(fixed)*
-
-Word's content control is how a form or a template says *this part is yours to
-fill in and that part is not*. The renderer read **one of its eight attributes**,
-so a locked control could be typed over, one with a placeholder showed an empty
-box, and one with a title was announced to a screen reader as an unlabelled
-group. The sample document had no content control at all, which is why nothing
-could have seen any of it.
-
-The lock took three goes and each one is worth keeping:
-
-1. `contenteditable="false"` on the element. It went on and **the text still
-   went in.**
-2. The keydown gate already refuses a caret the DOM puts inside one — and a
-   browser will not put a caret inside `contenteditable="false"`, so it leaves
-   the DOM selection *outside* while the model's still points *in*, and
-   `beforeinput` writes at the model's. The second gate then let the key through
-   because *either* selection naming somewhere is enough, which is a rule written
-   for a real problem: the DOM selection is momentarily wrong while a render is
-   in flight, and a character refused then is refused for good. So the model has
-   to be able to answer the same question, which is `insideLockedRegion`.
-3. It still went in, through `tryHandleInsertViaGetTargetRanges` — the path that
-   writes the model straight from a `beforeinput`'s target range, and asked only
-   whether the ends were inline text. **A lock that only holds against the
-   keyboard is not a lock**: a paste, a replacement and an IME's committed text
-   all arrive there.
-
-`lockContent` is read as a convention rather than a node name — the engine does
-not know what a content control is and must not. Deliberately not `locked`, which
-the canvas nodes carry and means something else: a locked *shape* cannot be moved
-or resized, and its text is still text.
-
-`lockDelete` and `dataBinding` are still unread and stay in the count: one wants
-a guard on the delete path and the other wants a custom XML part to resolve
-against, and neither is a drawing.
-
-### A frame could not be hidden, faded or turned — 2026-08-30 *(fixed)*
-
-`visible`, `opacity` and `rotation` are on the shared geometry, so a rectangle,
-an ellipse, a line, a path and a picture all honour them: `isVisible` and
-`shapeTransform` are applied to each by name. A frame took neither, because it is
-a `<div>` and both helpers answer in SVG — `display: none` happens to be the same
-in both, and a `rotate(deg cx cy)` about a point in the canvas's coordinates is
-not a CSS `transform` at all. So a reader could hide, fade or turn any box on the
-canvas **except a frame**, which is the one they are most likely to want to turn.
-
-And the first fix was wrong in a way worth recording: `display: none` was set
-before the layout switch, and every branch of that switch writes its own
-`display`. The unit test agreed, because it asked with no `layoutMode` — a frame
-nobody arranges, which is not the frame a reader hides. **The fixture was not
-wearing the thing the fault needed**, one more time.
 
 ### A frame's arrangement is read, and the probe cannot build the combination
 
@@ -2729,96 +816,6 @@ It drags and resizes a box. Hiding one, fading one and turning one are three
 things the model now draws and no reader can ask for — on a frame or on any other
 shape.
 
-### A picture on a canvas had no name, and a contents page ignored how it was set — 2026-08-30 *(fixed)*
-
-**`picture.alt`.** It has been in the schema for as long as `picture` has, and
-`inline-image` — the same idea in the flow — has drawn it since it was written.
-The canvas version drew nothing. So a picture a reader *dragged onto the page*
-was invisible to a screen reader and one they *typed into a paragraph* was not:
-one node, two drawings, one of them nameless. `aria-label` and `role` now, not
-`alt`, because this is an SVG `<image>` and `alt` means nothing on one.
-
-**`picture.fit` was reported unread and was not**, which is worth keeping. It
-draws as `preserveAspectRatio`, but the schema does not declare which values it
-takes — a page and a deck pass it straight through as CSS `object-fit` and take
-everything that property takes. So the probe invented strings, all of them fell
-to the same default, and a working attribute looked dead. Told through the
-product's `probes` hook rather than narrowed in the schema, because the schema
-is right and it was the probe that could not guess.
-
-**A table of contents had three switches and read none of them.** `leader` — the
-character filling the gap to the page number, Word's tab leader — lost to a
-stylesheet that drew a dotted rule and called the leader *"a viewer concern"*.
-That folded two decisions into one: **which** leader is the document's, and how
-it is painted is the viewer's. `rightAlignPageNumbers` was always on.
-`useHyperlinks` was always on, because the click handler matched every
-`.w-toc-entry` there was.
-
-### A text box read none of the seven things it says about itself — 2026-08-30 *(fixed)*
-
-A `textBox` is Word's anchored box: a size, something to be anchored to, a way
-the text around it behaves, an order in the stack. The renderer drew a plain
-`<aside>`, so a box a reader gave a width and a wrap to came out **the width of
-the column, in the flow, pushing everything below it down**.
-
-The rules were already written and one node over. A floating box of text and a
-floating picture do the same thing to the lines around them — that is what
-`wrapType` means, and Word spells it the same way for both. What differed was the
-vocabulary: a picture says `wrap` and `side`, a text box says `wrapType` and
-`horizontalAlign`, and `inFront` against `front` is the one place the two
-disagree on a value rather than a name. `textBoxCss` is that translation, plus
-the one thing a text box says that a picture has no word for — `zOrder`, and only
-where the box is out of the flow, because two floats in the flow are ordered by
-where they are.
-
-`anchorTo` and `verticalAlign` are deliberately not drawn: they say *what the
-offsets are measured from* — the paragraph, the page, the margin — and answering
-that needs the laid-out position of the anchor, which is the paginator's.
-
-**185 → 70.**
-
-### A page border nothing ever drew — 2026-08-30 *(fixed)*
-
-`pageSetupAttrs` has carried the four edges and their `*Space` since the schema
-was written. `pageCss` has known how to turn them into CSS for just as long.
-**Nothing ever called `pageCss`** — it was exported from `index.ts` and reachable
-from a console, and that was the whole of its life. Twelve of Word's unread
-attributes were this one feature.
-
-Drawn on the **sheet** now, which is where a page border is: inside the paper's
-edge, once per page. `pageBorderCss` rather than `pageCss`, because that one also
-answers how wide the page is and what room it leaves — a sheet already knows both
-from the layout, and handing it those measured as a sheet the wrong size.
-
-The browser test loads a document that asks for one rather than running a
-command, because **Word has no page-setup dialog yet** — page size, margins,
-columns and these four edges are one of the four dialogs its own conformance file
-lists as owed. It measures seven sheets with the rule and one without, because
-the sample has two sections and only the first asked: putting the border on the
-surface instead of the sheet would give eight or none.
-
-### A paragraph's `verticalAlign` was a property Word does not have — 2026-08-30 *(fixed)*
-
-Declared on paragraphs, headings and list items as *"baseline | superscript |
-subscript (for the run default)"*, and there is no such thing. Raising and
-lowering text is `w:vertAlign` on a **run**, and in this model it is a pair of
-marks — `subscript` and `superscript`, drawn by `mark-format.ts` with the size
-change Word applies too. Three node types carrying a property that meant nothing.
-
-A section keeps its own `verticalAlign` — Word's `w:vAlign`, where the text block
-sits between the top and bottom margins — and so does a cell. Three attributes,
-three different questions, and only one of them was fictional.
-
-The second finding on the unread list whose answer is to take the declaration
-away rather than write a drawing for it; the first was a cell's `borderInside*`.
-
-**185 → 79.** Well over half, and what came off divides in three: features
-finished at one layer with nothing above reaching down (block revisions, the page
-border, `borderBetween`), attributes read in a context the probe cannot build
-(header ids, a table's interior, the between border), and declarations describing
-a document this model cannot hold (a cell's interior, a paragraph's vertical
-alignment).
-
 ### A text box has no overlay, so it can only be dragged on a canvas
 
 Word sets a box's anchor and its wrap from Format Shape → Layout, and its size by
@@ -2837,69 +834,6 @@ produces"*), so this cannot be drawn as CSS on the flow without fighting the
 layout's absolute positioning. It belongs in the pass that computes each page's
 block positions, beside the rule that pushes the first block down to meet its
 sheet. Left in the count, unexempted, because it is genuinely unread.
-
-### A whole feature was written down and invisible — 2026-08-30 *(fixed)*
-
-`every-attribute-is-read` reported **185** attributes Word declares and nothing
-draws. Reading the list rather than the number, the largest pile was one thing:
-**44 of them were block-level tracked changes.** `revisionId`, `revisionType`,
-`revisionAuthor` and `revisionDate`, on eleven node types, written by
-`revision-record.ts` — and the only code that read any of them was
-`recordParagraphMerge`, checking whether it had already proposed one.
-
-So with 변경 내용 추적 on, pressing Backspace at the start of a paragraph
-proposed the merge, recorded who and when, and **the screen showed nothing at
-all**. The paragraphs stayed apart with no mark on them and a reviewer had
-nothing to accept or reject. Tracked changes to *text* had been drawn since the
-feature was written, because those are marks; a block's revision is not a mark —
-what it proposes is not about a range of characters — and nobody had drawn the
-other half.
-
-`blockRevision` draws it now: a change bar in the margin in the author's colour,
-from the same `authorColor` the marks use, so one reviewer is one colour whether
-they changed a word or a boundary; and a struck-through ¶ where a paragraph mark
-is the thing being deleted. Nine node types carry it, through one
-`revisionDrawing` helper — *the repetition is how six of them would be
-forgotten, which is what happened to all nine.*
-
-**The browser test for this already existed and passed the whole time.** It
-asserted `blockAttrs` and never looked at the page. Asserting the model and not
-the drawing is exactly how a feature stays written down and invisible.
-
-**185 → 134**, and six of the fifty came off without a line of product code:
-`headerId`, `footerId` and the four first-page and even-page names are read by
-`renderers/page.ts` through `furnitureFor`, which picks a header per page in
-Word's order. The check cannot see it because the whole branch is behind
-`if (doc && layout)` — choosing a header needs a **paginated layout**, and
-rendering a `surface` on its own has no pages to choose between. They had been
-sitting in the pile described as *"five names nothing looks up"*, which was
-wrong. Reading the list is what found it; counting it is what hid it.
-
-### A numbered list drew nothing at all, off Word — 2026-08-30 *(fixed)*
-
-A marker comes from the numbering definition in `resources`: `listItem` draws
-`data-marker` from `numberFor(sid)`. That is Word's model and the right one. But
-the shared `toggleBulletList` / `toggleOrderedList` write `type` on the list and
-**no `numId` on anything**, so the resolver had nothing to resolve, the marker
-was the empty string, and a list on a page drew no bullet and no number.
-
-**All three products had already fixed it, each in its own way, and the shared
-default stayed wrong.** Word numbers from a `numId` definition in `resources`.
-The deck draws CSS counters from a `data-list-type` its own renderer writes —
-added when `every-attribute-is-read` reported a numbered list wearing bullets.
-The site overrides the node entirely and emits real `ul` / `ol` — added when
-`insertBulletList` turned out to be writing `kind: 'bullet'`, an attribute
-nothing reads.
-
-Three products, three separate discoveries of one fault, three separate repairs,
-and `office-text` went on drawing a plain `div` through all of them. Nobody was
-wrong in any one file, which is the shape this whole harness is for.
-
-It is shared now (`listTypeOf`), the deck's override keeps only what is really
-the deck's, and `text.css` draws the fallback **only where `data-marker` is
-empty** so a resolved number always wins. No product needs it today — Word
-suppresses it, the deck and the site override the node — and the fourth product
-gets a list that draws like a list without finding this out for itself.
 
 ### A caret has no pending format, so the font controls go grey on one
 
@@ -2965,106 +899,6 @@ The bar is drawn and the ¶ says what is proposed; 적용 and 되돌리기 still
 marks only. A rejected paragraph-mark deletion has to put the `revision*`
 attributes back and nothing else; an accepted one has to actually merge the two
 blocks, which is `mergeBlockNodes` plus taking the attributes off.
-
-### A key that names a command nobody registers — 2026-08-30 *(fixed, and now asked)*
-
-Nothing had ever asked the question *does every chord this product prints name a
-command it registers?* Word printed **72** and answered **68**. The four are
-worth reading one at a time, because they are four different failures:
-
-- **⌘H → `replace`.** The command is `replaceText`. A misspelling, and 바꾸기 had
-  never worked from the keyboard.
-- **Shift+Enter → `insertLineBreak`.** No such command — and the key works
-  anyway, because it arrives as a `beforeinput` of that type and the input
-  handler answers it. Two mechanisms on one key, one of them a name. The binding
-  is gone; see the open item below about which document a line break should make.
-- **⌘Space → `clearFormatting`.** 서식 지우기, and **nothing had ever built it**.
-  Eleven `remove…` commands each take off one mark; the gesture takes off all of
-  them. `DataStore.range.clearFormatting` had existed as long as the range API
-  with nothing above it able to reach it — no operation, no command, one binding
-  naming a command that did not exist. Now an operation with an inverse, a
-  command, and the fixture grew a bold run so the check can run it.
-- **⌥⌘D → `insertEndnote`.** Not missing — *unfinished*, which took longer to
-  see. The name was registered in `doc-structure.ts`, a shared extension **no
-  product installs**, and what it did was put an *empty* `endnoteDef` into the
-  flow with **no reference pointing at it**. A body nothing refers to is not a
-  note, and the mark that refers to one, `endnoteRef`, was never declared at all
-  — `office-text` had been drawing it in superscript for months with nothing able
-  to write one. Under the office schema it is worse: `endnoteDef` is a resource
-  there and cannot sit in the flow, so every insert built a tree the validator
-  refused. It is one command now, beside the footnote, and `doc-structure.ts`
-  no longer claims the name.
-
-`keyFaults(keys, knows?)` asks it now, and all three products' tests pass their
-editor's command names. The two questions it already asked — a binding runs a
-command or changes a view and says exactly one, no chord bound twice in a mode —
-did not need an editor, which is why the third had been missing.
-
-### Replace all, then undo, and the formatting came back wrong — 2026-08-30 *(fixed)*
-
-`replaceText` has two payload forms. The **range** form captured the run's marks
-so its inverse could put them back — with the reason written above it, that
-`range.replaceText` re-derives marks by the store's rules for an *edit*, which
-are right for a reader making one and are not reversible. The **single-node**
-form, which is the one `replaceAll` builds, did not.
-
-So 모두 바꾸기 followed by ⌘Z returned the words and not the emphasis: a bold
-span over `[4, 7]` came back as `[4, 5]`. Silently, in every product.
-
-Invisible until the extensions' conformance fixture grew a bold run and a link —
-which it grew for an unrelated reason. **A document with no formatted text in it
-cannot notice a fault about formatting**, and this fixture had none for as long
-as it has existed. Worth remembering when the next fixture is written.
-
-### Four more controls that lit up over a caret and did nothing — 2026-08-30 *(fixed)*
-
-Found by sweeping every `toggle…`/`set…`/`remove…` command over a **collapsed
-caret** and asking whether the document moved — the state the probe reaches only
-after a range state has already succeeded, so it stops there.
-
-- **`setHighlight`, `setFontFamily`** — hand-written guards asking only for a
-  range, three lines different from `font-size.ts` and `font-color.ts`, which had
-  been given `'something'` for exactly this.
-- **`removeLink`** — its own comment named the tighter answer, *"and there is a
-  link here"*, and left it for *"the day a reader complains that it is offered on
-  unlinked words"*. The day arrived as a measurement. `wears(editor, selection,
-  kind?)` in `guards.ts` is that question now, shared with 서식 지우기.
-- **`setParagraph`** — the run answers *"no-op if already paragraph"* with
-  `return true`. Success, and the document untouched, on every paragraph in the
-  document. Worse than a refusal: a caller that trusts the answer believes the
-  conversion happened.
-
-### The guard against marking a caret read a field nothing sets — 2026-08-30 *(fixed)*
-
-`hasRange(editor, payload, 'something')` is the argument that separates *a
-command needing text between two points* from *one needing a caret*, and it is
-asked in **seventeen** places — every colour, size, family, link and note. It
-answered by reading `selection.collapsed`.
-
-**Nothing sets that field.** `SelectionManager` stores what it is handed and the
-view builds a range from two points; neither computes it. So it is `undefined`
-essentially always, `!undefined` is `true`, and the argument written to stop a
-mark being applied over zero characters permitted exactly that, everywhere.
-
-It reads the offsets now, and honours `collapsed` where a caller sets it — the
-probe does, which is why the harness never saw this. Found writing a test for
-미주's guard by hand: it lit up over a caret.
-
-### No footnote had ever been inserted, in any product — 2026-08-30 *(fixed)*
-
-Found by the other half of the probe, *does it move the document*, with a caret
-in a run where the guard says yes. Two faults stacked:
-
-1. The body went to the **document root**. Office says `document` holds
-   `docMeta? surface+ resources?` and re-declares `footnoteDef` as a *resource*
-   precisely so a body cannot sit between two paragraphs. Every insert built a
-   tree the validator refused and rolled back.
-2. Under that, `footnoteDef` held `block+` in office and `inline*` in the
-   standard schema, and the command wrote the inline one. **One node meant two
-   things.** The schema says `block+` in both places now — which is what Word's
-   own sample document had been writing all along.
-
-The endnote inherits the fixed path rather than a copy of it.
 
 ### Word's two probe questions are answered — 2026-08-30 *(measured)*
 
@@ -3313,130 +1147,6 @@ document, and the menu opens *because the document now ends with one*. Binding i
 would mean a reader could never type a slash. So the app watches what was typed —
 its own business — and everything after that is a command the key map can bind.
 
-### A floating surface needed four layers and the repository had three — 2026-08-29 *(fixed)*
-
-Asked: *how do you build a floating toolbar or a `/` menu properly in an app?*
-Measured rather than answered, and the answer is that almost all of it was
-already built:
-
-| layer | what it is | state |
-| --- | --- | --- |
-| what it offers | a declaration, `toolbar-model.ts`'s shape | ✅ `SlashMenuItem[]` |
-| when it is open, where the reader is | a command and a piece of state | ✅ today's rewrite |
-| what it looks like | `office-ui` — tokens, theme, portal | ✅ `Toolbar`, `Menu`, `Tip` |
-| **where it goes** | the selection's rectangle on screen | ❌ reachable by nobody |
-
-`DOMQuery.calculateTextPosition` has answered the fourth since the decorator
-system was written, and lives inside it. So a surface needing all four could not
-be built by a product at all — **which is why the two that existed were built
-inside a model package, drawing their own DOM, installed by nobody.** The same
-sentence as `find`: the mechanism exists, in one place, unpublished.
-
-`selectionRectIn` publishes it, `FloatingSurface` draws it in the suite's
-tokens, and the site's selection toolbar is a list of two buttons. That is the
-test of the split: a **second** floating surface is now a list, not a mechanism.
-
-Four things it took measuring to get right:
-
-- **A product may hold several views of one document.** The site makes an
-  `EditorViewDOM` per board and draws three at once, so a view's own
-  contains-check answers `null` for two of them. `EditorViewDOM.selectionRect()`
-  passes its content layer, which is right for Word; a multi-view product passes
-  a root holding them all. Asking each view in turn would be three answers to a
-  question with one.
-- **`getClientRects()[0]`, not the range's bounding box.** A selection wrapping
-  across lines has a box covering the whole paragraph, and a toolbar centred on
-  that sits in the middle of the text.
-- **Measured in `useLayoutEffect` with the element's own size.** In an effect it
-  paints at 0,0 for a frame first, which reads as a flicker in the corner; from
-  a constant it is wrong the first time a product puts a longer label in it.
-- **`office-ui`'s own guard caught a hardcoded `z-50`** — the check written the
-  day a select opened underneath a dialog. It is `--ou-z-popover` now.
-
-Corrected on the way: *"three apps each call `window.getSelection()` for this"*
-was wrong. All four calls **set** the selection; nothing had ever asked where it
-is.
-
-### The layer is three, not two — 2026-08-29 *(the last two UI extensions resolved)*
-
-Asked directly: *if an extension draws its own DOM, does every application have
-to build its own copy?* Half right, and the missing half is the one that makes
-this engine worth having. The split is **three**, not two:
-
-| layer | what it holds | shared? |
-| --- | --- | --- |
-| `extensions` | commands, state, no DOM | yes, by every product |
-| `office-ui` | the drawing — tokens, themes, `Toolbar`, `PropertyPanel`, `Tip` | **yes, by every product** |
-| the app | which command, which panel, where | no, and that is the point |
-
-So UI *is* shared. What cannot be shared is UI **in the model package**, because
-a product cannot theme it, place it or style it — which is exactly why three
-extensions sat in no kit.
-
-`SlashCommandExtension` was the last one with a model half worth keeping, and it
-had three faults in one file:
-
-- **It drew its own menu** — the reason nothing installed it.
-- **Its icons were unicode characters**: `¶ • ☑ — ⊞ ℹ ⚠ ∑ 💬`. This repository
-  has one absolute rule there and a character is not an icon. The defaults name
-  none now: `office-icons` has no heading, quotation, code block or divider yet,
-  and inventing eight for a menu nobody renders is the same mistake in a new
-  package. A product that draws this menu names icons from its own vocabulary.
-- **It listed commands a product may not have.** `insertComment` is Word's;
-  `insertCallout` and `insertMathBlock` are ones Word deliberately leaves out.
-  A shared default list offering rows that decline is
-  `every-command-does-something`'s fault waiting to happen — so the menu answers
-  with **what this editor actually registers** and cannot show a dead row.
-
-`FloatingToolbarExtension` was **deleted**, not rewritten. It registered *no
-commands at all* — a selection toolbar, entirely UI, in the model layer, and no
-product had ever built the equivalent. Writing it into `office-ui` instead would
-be a component nobody renders at a new address; the day a product wants one, it
-belongs there, where it can take the tokens all three theme by.
-
-Two more faults fell out of the rewrite:
-
-- **`runSlashMenuItem` reported success before the work happened** — it fired the
-  row's command without awaiting and returned `true`, so it would have said yes
-  even for a row whose command declined. The same fault as *says it can run and
-  then does nothing*, one moment earlier.
-- The cast count went **331 → 330**, and the exemption list on
-  `every-extension-is-in-a-kit` is now **empty**: every extension this package
-  exports is one a product can install.
-
-### Four extensions were in no kit, and three of them drew their own UI — 2026-08-29 *(fixed)*
-
-`FindReplaceExtension` was called a stub in three places for months and was
-complete all along — nothing installed it. The obvious next question is whether
-anything else is in that position, and the answer is a check this package can
-run on itself: **every extension it exports is in a kit a product can take.**
-
-Four were not: `FindReplaceExtension`, `EmojiExtension`, `SlashCommandExtension`,
-`FloatingToolbarExtension`.
-
-**Three of the four build their own DOM**, and that is not a coincidence. A
-shared model package drawing UI is a package a product cannot use, in a
-repository whose whole shape is that `office-ui` draws and the packages below it
-do not. It is the same fault that kept `find` unused, seen from the other end —
-and the measurement that names it is *"which of these is in no kit"*, not
-*"which of these looks wrong"*.
-
-`FindReplaceExtension` had its panel removed earlier today, so it is installable
-now and is in `createRichExtensions()`. `EmojiExtension` was a plain wiring gap
-and went in with it. The other two are exemptions naming what would have to
-change first — 14 lines of `document.createElement` in one, `background: white`
-in the other — and the day either stops drawing, the check fails and it goes in
-a kit.
-
-**Word names its extensions one at a time and that is not a counter-example.**
-Its kit takes core and basic and then lists twenty-two by hand, with the reason
-written down: `createRichExtensions()` registers an insert for every node in it,
-including ten Word cannot draw, so `insertCallout` reported success and left the
-reader's text invisible. That is the right decision, and it is one **only a
-reader of these exports can make**. A product that reads the list can choose; a
-product that takes a kit gets what the kit has; an extension in neither is one
-nobody chooses *or* inherits. The next application starts from a kit.
-
 ### The six questions are a shared probe now, and Word answers them — 2026-08-29
 
 The probe that found eleven faults in `packages/extensions` was answering six
@@ -3479,215 +1189,6 @@ Three things the move itself taught:
   measurement rather than working around: a count that can be argued with is
   cheaper than a count nobody keeps.
 
-### Enter at the end of a heading made another heading — 2026-08-29 *(fixed)*
-
-Two more questions on the extensions' probe. The first found nothing and is not
-shipped; the second found the everyday gesture producing the wrong block.
-
-**The negative direction is structurally true, and that is worth knowing.** Every
-fault this harness has found is a `canExecute` *looser* than its `execute`. The
-opposite was measured — run each command where its guard says no, see whether the
-document moves — and came back **0**, and always will: `Editor.executeCommand`
-consults `canExecute` before running anything. The check is not shipped, because
-it cannot fail through the path every caller uses; the reason is kept, because it
-explains why every guard fault here points the same way.
-
-**What an `insert…` actually puts in the document, observed rather than
-declared.** `every-command-makes-something-real` asks this of a written list a
-product maintains; the probe already runs every command over a real document, so
-the answer can be *what appeared* — which cannot go stale and cannot name a type
-the schema does not have. 40 inserts, and the table is now asserted.
-
-The first version compared the **set** of node types and reported thirteen
-inserts as adding nothing. All thirteen were fine: the fixture holds a `columns`,
-a `descList`, a `bFigure` and a table on purpose, so an insert that added one
-*more* of something already present looked like an insert that added nothing. A
-fixture rich enough to let a command run is rich enough to hide what it did, and
-counting is the difference.
-
-Counted, one entry was wrong: **`insertParagraph → heading`.** Pressing Enter at
-the end of a heading gives you **another heading**, in all three products. Every
-editor of this kind gives a paragraph, for a reason a reader could state: a
-heading is a title, and the thing after a title is prose.
-
-The operation has taken `blockType: 'paragraph'` since it was written and nothing
-ever asked for it. **At the end and nowhere else** — Enter in the middle of a
-heading splits a title into two titles, which is what a reader means by a break
-inside one; only the split that leaves the second half empty is *this heading is
-finished*.
-
-And fixing it surfaced the same stray-attribute fault `transformNode` had, in the
-other operation that changes a block's type: the new paragraph came out carrying
-`level: 2`. Filtered by what the schema declares, the same way, found the same
-afternoon.
-
-### Backspace across two paragraphs could not be undone — 2026-08-29 *(fixed)*
-
-Closing the probe's last *unanswered* commands, 8 → **2**. Every one of the six
-turned out to be a fault rather than a blank, and the last of them is the worst
-thing this repository has found:
-
-**Select across two paragraphs, press Backspace, press ⌘Z — the words are gone
-for good.** The everyday gesture, in all three products, losing text in silence.
-
-`deleteRange` offered **no inverse at all** for a range spanning more than one
-run, and said why: *"a deletion spanning several nodes removes structure as well
-as characters, and re-inserting a string would not rebuild it — so rather than
-offer an inverse that half-works, it offers none."*
-
-Careful reasoning from a **wrong premise**. `range.deleteText` removes no
-structure: it truncates the run the range starts in, empties the runs between,
-and trims the run it ends in. Nothing is added, nothing is taken away, and every
-node involved survives — so the deletion is exactly reversible, and declining to
-try is what cost the text. `restoreRuns` is the way back, and its argument is
-`restoreTextNodes`': an operation that cannot be undone can usually be **told**
-what it would need to know. That precedent is in this file, about
-`autoMergeTextNodes`, recorded as a decision and then reversed for the same
-reason.
-
-The other five, all the same class — a guard looser than its run:
-
-- **`insertEmoji`** asked only whether an emoji had been named; the run refuses
-  without a range. A picker with nothing selected lit up and did nothing.
-- **`moveBlockUp`/`moveBlockDown`** said yes on the **first** block of a page.
-  Their guards also demanded `payload.selection` while their runs read the
-  editor's — the same asymmetry as the ten heading commands.
-- **`splitCell`** needed a merged cell to be exercised at all; the probe was
-  handing it the one case the operation declines.
-- **`hideSlashMenu`** needed a menu open first.
-
-And **two** left, which are not a probe gap: `indentNode` and `outdentNode` act
-only on a node type the schema marks `indentable`, and **no schema here marks
-one** — not the standard schema, not the office schema. Word found this and
-worked around it (`word-keymap.ts` binds `indentText` instead, with the reason
-written down); the commands are still registered, still reachable, and still
-impossible to run. Recorded as a claim rather than a blank: the day something
-declares `indentable`, the ceiling in the test fails.
-
-### `find` was never a stub — 2026-08-29 *(record corrected; extension rewritten)*
-
-The last four *unanswered* commands were blocked on `find`, which three places in
-this repository called a stub:
-
-- `word-keymap.ts`, explaining why ⌘F was taken out;
-- `every-command-does-something.ts`, opening with it as the fault that check
-  exists for;
-- `BACKLOG.md`, as an open item.
-
-**None of it was true.** `editor-core` registers no `find` at all, and
-`FindReplaceExtension` has been a complete implementation since the day it was
-written — measured: three matches found in a two-paragraph document, all three
-replaced correctly, undone correctly. What was true is smaller and stranger:
-**nothing installed it.** Not Word's kit, not the deck's, not the site's, not
-`createDefaultExtensions` — which from a keyboard is indistinguishable from
-reaching a stub.
-
-The symptom was recorded honestly (편집 › 찾기 lit up, ran, drew nothing); the
-**cause was guessed, written down, and then quoted for months**. Word removed a
-key binding over it and the site deleted a menu entry over it. The BACKLOG entry
-even had the right answer in its own last paragraph — *"the real
-`FindReplaceExtension` exists and is in nobody's kit"* — under a headline that
-contradicted it.
-
-**Why nothing installed it** was in that paragraph too: it drew its own panel.
-`document.createElement`, `position: fixed`, `background: white`, `#e2e8f0`
-borders, appended to `document.body` — a shared model package building UI, in a
-repository whose whole shape is that `office-ui` draws and the packages below it
-do not. It could not be themed, placed or styled by a product, and would have
-been white-on-white in the dark theme all three now honour.
-
-The highlighting told the same story from the other end: `_highlightMatches` was
-an **empty method** under a comment saying the drawing was *"deferred to the DOM
-layer"*. A search found twelve matches and showed the reader none of them.
-
-It is a search and a place in it now, with no DOM. `findNext` and `findPrev` move
-through the results by **moving the editor's selection onto the match** — what
-every editor of this kind does, needing no injected layer, and making the match
-a thing a reader can act on rather than look at. A product draws the panel it
-wants and reads `state`.
-
-The `editor as any` count fell **337 → 332** with it. Five at once is what a
-*layer* being wrong looks like from the outside: a model package building UI
-reaches for the escape hatch at every line, and the count is the symptom.
-
-Unanswered went 14 → **8**, and `replaceOne`/`replaceAll` are now exercised by
-all six questions rather than skipped.
-
-### A heading's level could not be changed — 2026-08-29 *(fixed)*
-
-Closing the probe's *unanswered* column is the work of exercising the commands
-nothing had exercised, and it went 23 → **14** with one change and found two
-faults on the way.
-
-**Ten guards demanded `payload.selection` while their `execute` read the
-editor's.** `setHeading`, `setHeading1`–`6`, `setParagraph` and
-`insertParagraph` all answered *no* to any caller that asks "can this run right
-now" without threading a selection — which is what a toolbar does on every
-render. `Editor.canRun` fills it in and hides the asymmetry; `canExecuteCommand`
-does not, and both are used side by side. Ten commands sat in the unaskable
-column reading exactly like ten nobody had got round to.
-
-Asking them properly then found the real one:
-
-**`transformNode` treated *same type* as *nothing to do*, whatever the
-attributes said.** `node.stype === newType` was the whole test, so turning a
-heading 1 into a heading 2 returned success and wrote nothing. **A heading's
-level could not be changed** — in Word, whose toolbar offers all six. Measured
-by putting a caret in a heading and asking `setHeading2` whether it had done
-anything.
-
-And fixing that surfaced the one underneath it: **a transform merged the old
-node's attributes into the new one's.** Right for a heading becoming a heading,
-wrong for a heading becoming a paragraph — `level` is a heading's. Nothing drew
-it and nothing complained, so it sat there; what made it visible is **undo**.
-Turning a paragraph into a heading 1 and pressing ⌘Z produced
-`paragraph { level: 1 }`, because the inverse is a transform back and the stray
-attribute rode home with it. The attributes are filtered by what the new type
-declares now, and a type that declares nothing is left alone.
-
-The same-type path updates **in place** rather than recreating: a heading whose
-level changed is the same heading, and every selection, comment anchor and link
-pointing at it should survive.
-
-### A list could not be turned back into paragraphs — 2026-08-29 *(fixed)*
-
-Two more questions on the extensions' probe, both free — it already has the
-document before and after:
-
-- **Does the selection still name nodes that exist?** 0 findings. A command that
-  takes away what the caret was in has to leave the caret somewhere, and a
-  selection pointing at a deleted sid is the state the site builder records
-  having had once: *"a panel describing something nobody can see."*
-- **Is a toggle its own inverse?** **3 findings**, and they are the three block
-  toggles: `toggleBulletList`, `toggleOrderedList`, `toggleBlockquote`.
-
-Every **mark** toggle was self-inverse. The three that change the *shape* of the
-document each called a `wrapIn…` operation **and nothing else**. A paragraph
-became a bullet the first time and stayed one for ever: pressing the control
-again ran the command, wrapped nothing, reported success and changed nothing.
-
-So **there was no way to turn a list or a quotation back into paragraphs** in
-any of the three products. The only route out was undo, and only if it was the
-last thing you did. Three toolbar buttons, in three shipping products, that a
-reader can press twice and only the first press means anything.
-
-The way out is composed rather than a new operation (`lift.ts`): move the blocks
-up to where the wrapper sits, then take the wrapper away — two operations this
-package already has, so the inverse comes for nothing and the pair undoes as one
-gesture. Two things it took measuring to get right:
-
-- **The wrapper goes with its children.** `removeChild` takes the list's
-  reference out of its parent and leaves the `listItem`s in the store, by then
-  empty. The transaction validates what it touched at commit and refused the
-  whole thing: *"Content of 'listItem' ended early; 'block+' requires more
-  children."* `deleteOp` takes the descendants with it.
-- **A list holds items which hold blocks; a quotation holds blocks.** The level
-  between is named rather than guessed — a walk that guessed would lift a
-  `listItem` onto the page, and nothing accepts one there.
-
-`toggleBlockquote`'s guard was `() => true` besides, on an operation that reads
-the selection and refuses without one.
-
 ### Three more questions, asked in the same run — 2026-08-29
 
 The extensions' probe already had the document before and after every command,
@@ -3723,275 +1224,6 @@ validate what they *write*, one node as it goes in, and nothing had asked whethe
 the tree they add up to is still a tree the schema describes. It has a companion
 test proving it **can** fail, because an empty result is the same shape whether
 nothing is wrong or nothing is being asked.
-
-### Undo gave a paragraph back without its words — 2026-08-29 *(fixed)*
-
-The extensions' conformance run asks whether a command changes the document.
-**Undo is the other half of the same run and costs one line** — the probe has
-the document before and after already, so putting it back and comparing is free.
-`every-command-does-something`'s own documentation says so: *"two answers for
-the price of one, because a command that cannot be undone is its own fault and a
-worse one."* Nothing had ever collected the second answer.
-
-**`deleteNode` returned the node empty.** `delete`'s inverse carried the node
-from `getNode`, whose `content` is a list of **sids**, and the next lines delete
-every one of those descendants — so undo put an empty paragraph back. Delete a
-paragraph, press ⌘Z, and the words are gone for good. `removeChild` and
-`removeChildren` had the same fault and were mended with it (`subtree.ts`).
-
-Everything about it looked right, which is why it lasted: the delete works, the
-undo runs, the node reappears, the paragraph count is correct, and no test had
-ever looked *inside* one. `delete`'s inverse had even been mended once before —
-the comment above it records adding the parent and the index because a `create`
-left the node unattached — and the contents were not looked at then either.
-
-Three smaller things the same run turned up:
-
-- **The fix took two goes, and the second is the lesson.** Written beside the
-  inverse it ran *after* the descendant loop and captured a node whose children
-  were already gone. A record of a deletion has to be taken before the deletion.
-- **`outdentText` said yes over text with no indent** — and the *operation* had
-  already fixed exactly this in its range branch, with the reason written down.
-  Its single-node branch never learned it, and handed back an `indentText`
-  inverse, so undoing an outdent that had done nothing **added an indent the
-  text had never had**. One body now, two ways of naming the same stretch.
-- **The comparison is `meaning`, not `JSON.stringify`.** Undo a `toggleBold` and
-  the run comes back carrying `marks: []` where it had no `marks` key: the same
-  document, a different string. Before that was allowed for, **45** commands
-  looked un-undoable — a finding so large it can only be the probe.
-
-### The extensions had no self-test — measured 2026-08-29 *(harness written; 11 findings, all closed)*
-
-Asked after a reader's question: *"shouldn't the extensions test themselves,
-independent of Word, Slides and the site? Why didn't they?"* Both halves are
-right, and the answer is worth keeping.
-
-**They have tests. The tests are the wrong shape.** 97 commands, 22 test files:
-
-| | |
-| --- | ---: |
-| commands registered in `packages/extensions` | 97 |
-| never named in any test | 36 |
-| test files that mock `commit` | 18 of 22 |
-
-`setFontSize`'s is representative. It builds a **fake** editor, mocks
-`transaction().commit()`, hands the command a good range, and asserts the
-*operation it would have built*. It never loads a document, never applies
-anything, never asks `canExecute`. So when its guard turned out to accept a
-collapsed range — where `applyMark` commits and changes nothing — every one of
-its tests passed, and **the passing tests are what made it invisible**.
-
-**And the mechanism that catches this already existed.** `every-command-does-
-something` runs a command over a real document and asks whether the document
-moved. It had only ever been wired **per product**, so whether a command was
-checked at all depended on whether Word's, the deck's or the site's probe
-happened to reach it. The deck caught `setFontColor` doing exactly this months
-ago; `setFontSize`, three lines away in a neighbouring file, survived because no
-product had put a size control on a surface.
-
-`packages/extensions/test/conformance.test.ts` is that check, wired where the
-commands live: a real editor with all 50 extensions, the standard schema, a
-document with one of most things in it. **136 commands — 113 examined, 0 findings, 23
-cannot be asked**, and the third number is asserted as a ceiling so a probe that
-stops setting things up fails rather than looking greener.
-
-**Nine findings on the first run. Six fixed the same afternoon:**
-
-- **`TextFormattingExtension`: `canExecute: () => true` on six commands** whose
-  execute refuses without a range *and* without a value. Alive because they are
-  registered through a private helper, so a sweep reading `canExecute:` at each
-  command's own declaration never saw them.
-- **`DocStructureExtension`: four inserts that drew nothing.** `hasContent: true`
-  gave every node a **paragraph** as its empty content, and `docHeader`,
-  `docFooter` and `endnoteDef` hold `inline*` — the schema refused the child,
-  while the three beside them in the same table and through the same code worked.
-  `chart` was the fourth: it *requires* a `values` attribute and nothing checked.
-  Its seven guards were `() => true` as well.
-- **`removeHeading`: `return true`** under a comment reading *"conservative
-  default"*. 제목 해제 lit up with the caret in an ordinary paragraph.
-- **`splitListItem`: asked for a range and not for a list item.** There is
-  nothing to split outside one, and the operation knows that and quietly produces
-  nothing.
-
-**And then the last three, so the ratchet is gone rather than set to zero:**
-
-- **`setFigcaption` only ever *added* a caption.** A `bFigure` holds at most one,
-  so on a figure that already had one — which is every figure `insertFigure`
-  makes — the schema refused the second and the command reported success. It
-  works exactly once per figure and then silently stops, which is the subtlest
-  of the nine.
-- **`splitCell` over a cell that is not merged.** `splitTableCell` refuses one
-  with the reason written into the operation: there is nothing to split. 셀 나누기
-  lit up over every cell in every table.
-- **`removeColumn` needed two ids and its guard asked for neither**, and would
-  take the **last** column out of a `column+` besides.
-
-Eight of the nine were a `canExecute` looser than its `execute` — the class
-`guards.ts` names and the reason it exists.
-
-Fixing them turned four into *unanswered*, because the probe's single caret was
-in a paragraph. So the probe walks **every run in the document** now: 28
-unanswered → 23, examined 108 → 113, and two more findings fell out of the five
-it unlocked (`nextCell`/`previousCell`, now exempt with the reason — moving the
-caret is what they are for, and only Tab past the last cell grows a table).
-
-What is still unanswered is a **probe** gap rather than a product one, and it is
-written down in the test: a find that has not been run, a menu that is not open,
-history that has not moved forward, and six commands wanting a payload in a
-shape nobody has written down yet.
-
-Two things the probe itself taught:
-
-- **A payload table is not cheating, and guessing at one is.** Six commands came
-  back broken because the keys were guessed from the registration call
-  (`spacing`, `height`, `shadow`) when the helper always uses `value`. A table
-  that had kept guessing would have reported six working commands as faults.
-- **A caret in a table cell was the wrong idea.** Nine table commands were added
-  a selection state and nothing changed, because their guards take a `cellId` and
-  never look at the selection at all.
-
-### A panel with one row, and no way back up — measured 2026-08-29 *(fixed)*
-
-Started by asking what the site builder's panel offers per block kind, in the
-declaration and then in a browser. Select a paragraph and the whole 240px panel
-holds **one** row — `종류 · 본문` — restating what the reader just clicked, over
-six hundred pixels of nothing.
-
-That is **not** a fault in the panel. The schema deliberately keeps width off
-text blocks, and the recorded reason is right: the renderer that would read it
-is `office-text`'s and a site does not own it, so "a schema that offers a reader
-something nothing draws is worse than one that offers less." Two other readings
-were tried on the way and both were wrong, which is worth keeping:
-
-- *"138 frames for 137 flow blocks — the page is one wrapper per block."* No: 62
-  of the 66 frames holding flow blocks set a `gap`. Stacking with a gap is a
-  container's job, not a workaround.
-- *"Give the flow blocks spacing and colour attributes."* That would have undone
-  a narrowing the schema already made on purpose.
-
-What was actually missing is the **second half of the schema's own sentence**.
-It says where the decision does live — "text sizing is the stack's question,
-asked one level up" — and nothing in the product said so or could get you there:
-
-- **There is no *select what holds this*.** `Escape` was a `keydown` handler in
-  the app, declared in no key map, so it was in no menu, printable beside
-  nothing, and invisible to the harness. It climbed only while the reader was
-  inside a **drill**; a selection made by a click, the layer list, ⌘A or a paste
-  carried no scope. Measured: a paragraph seven levels deep, `Escape` → nothing
-  selected, four times running.
-- **`labelOfBlock` printed the stype for six selectable kinds** — `listItem`,
-  `blockQuote`, `codeBlock`, `horizontalRule`, `textFrame`, `canvasBlock`. In
-  the layer list and now in a panel row: English stypes in a reader's panel.
-- **`every-drawing-can-be-named` could not see any of them.** It derives its
-  list from the `scene` group, which is a canvas's answer written on the deck.
-  Half a page is flow, so the check passed over four rows it exists to catch.
-- **`PropertyPanel` had no data attribute at all.** A probe written to read the
-  panel's rows matched the left rail's `aside` instead and reported two groups
-  the panel has never had.
-
-Fixed as a command (`selectParent`), declared in the key map and the menu, a
-shared `PropertyLink` in `office-ui`, a `담는 곳` row that names the holder and
-presses through to it, and `nameable` on the conformance input so a product can
-say what a reader may select. Also `onApple()` moved into `office-ui` — the
-sniff `keys.ts` refuses to do was about to exist twice in one app.
-
-Two faults of my own found by a browser, both the same shape:
-
-- **`return` one indent from where I meant it.** The refusal check went inside
-  the `if (bound)` block, so it returned from the whole handler and `Escape` at
-  the top of a page did nothing rather than falling through. It belongs in the
-  condition — whether the binding *applies*, not a branch inside it.
-- **Two mechanisms on one key.** After the command climbed out, the scope left
-  over from a drill made the next press re-select the scope instead of clearing,
-  so `Escape` stuck one level short of nothing. The app's half is now only *let
-  go of everything*, which is all it still has to do.
-
-### White on white, in all three products — measured 2026-08-28 *(fixed)*
-
-The suite ships a dark theme. Nothing in the repository asked a single question
-about it: across three apps, **zero** tests mentioned `colorScheme`. What that
-cost, found by opening each product in a dark browser and comparing:
-
-| Product | In the dark | Why |
-| --- | --- | --- |
-| Word | the whole document unreadable | the flow inherited `--ou-ink` over a `#fff` sheet |
-| Site builder | **every heading** unreadable, 57 elements at 1.04:1 | boards are `--ou-board`, and nothing said what was written on them |
-| Deck | every bullet and table cell, 23 runs | `body { color: var(--sl-ink) }`, inherited past a comment saying this file stops at the slide's edge |
-
-One fault, three times, and the same shape each time: a **background** that
-correctly stays paper-coloured in both themes, and **nothing at all** saying what
-colour the words on it are. Each product got the first half right, which is why
-it survived — a rule half-written looks like a rule.
-
-The missing half is now a token, `--ou-board-written`, deliberately absent from
-every dark block. **The chrome follows the theme; the paper does not — and
-neither does the ink on it.**
-
-Three things this turned up that were not the fault itself:
-
-- **The obvious probe is wrong on a canvas.** Walking up from a word to its first
-  painted ancestor and comparing luminance reported 75 unreadable elements in a
-  Word document that reads perfectly and 3 in a deck card that is white-on-green.
-  Word's sheet is drawn *behind* the flow and a deck's card is a rectangle with
-  its text placed *over* it — on a canvas, what is behind a word is not among its
-  parents. The check that works asks whether a colour **moved between the two
-  themes**, which needs no ancestry and is exactly the rule.
-- **The same mistake put the first fix on the wrong selector.** `color` went
-  beside `background` on `.w-sheet`, which changed nothing, because the sheet is
-  not an ancestor of the text either. A CSS rule written from the intent rather
-  than from the tree.
-- **"The deck is the good one" was a claim about the chrome.** It was written
-  down in these notes as a claim about the product, and the check added to
-  confirm it failed on its first run.
-
-And one product gap, found in the same pass and from the other direction: the
-sample's closing band paints itself near-black and its heading was near-black
-too, 1.06:1, in **both** themes. Not a theming fault — the band had no way to say
-what was written on it, because the panel offered a 배경 row and no 글자 row. A
-builder could paint a section dark and had no control that made the words light;
-the only way was to select each run. That is `ink` on a box now, inherited, so
-one statement reaches everything added to the band afterwards — which is what the
-sample's own author had done run by run, and missed one.
-
-Guarded by `word-theme.spec.ts`, `site-theme.spec.ts` and `slide-theme.spec.ts`.
-Each was checked against the un-fixed source: Word's fails on 25 words.
-
-### The chrome, measured — 2026-08-30 *(fixed, and now a check)*
-
-Four things separate a tool from a mock-up that a **measurement** can answer, and
-every one of them found something the eye had walked past for weeks. Asked of
-every control in the app's own chrome — 108 of them — with the boards left out,
-because a reader's page is not this product's design.
-
-| | |
-|---|---|
-| a target a pointer can hit | **3**: the width switches were 22×20 |
-| a name a screen reader can read | 0 |
-| ink a reader can see | **5**: the rail's tabs at 4.3:1 |
-| a ring the keyboard can follow | **8**: six swatches, a clear, the zoom field |
-
-**`--ou-muted` was chosen against the wrong surface.** `#737373` is 4.74:1 on
-white — over the 4.5 a reader needs — and 4.35:1 on `--ou-ground`, which is where
-most of it is actually drawn: a rail's unselected tabs, a panel's row labels, a
-chip's caption. It is `#6b6b6b` now, which answers both. The dark theme's was
-already 7.11:1.
-
-**A swatch takes `CONTROL`, which answers focus by drawing the border in the
-accent** — a field's rule, and the right one for a field: one pixel of accent
-where the caret is. A swatch is a *button* whose border is a hairline around a
-filled square, so the accent landed on the part of the control a reader is least
-likely to be looking at. `STATE` as well, which every other button has.
-
-**Two ways the measurement itself was wrong first**, both worth keeping:
-
-- It read the whole document and reported eleven faint controls, **six of them
-  the reader's own page** drawn on the boards. A check that reports somebody
-  else's design is a check nobody can act on.
-- It called `el.focus()`, which does not raise `:focus-visible` — so it reported
-  nine controls with no ring that all have one. **Tabbing is the only honest way
-  to ask**, because tabbing is what a reader does.
-
-`chrome-is-a-tool.spec.ts` asks all four now.
 
 ### Found walking the site builder in a browser
 
@@ -4173,33 +1405,6 @@ are views of the document rather than lists of things a reader makes.
   need what the toolbar, the panel, the menubar and the key map all needed — a declaration of what
   each list offers — which is a fifth surface model. Worth it the day a fourth list appears;
   recorded now so the shape of the question is not lost.
-
-### The sidebar, measured — 2026-08-28 *(worked through)*
-
-Five tabs, and what each can do:
-
-| tab | what it offers | what it does not |
-| --- | --- | --- |
-| **추가** | 15 inserts, each with a picture | — |
-| **구성** | a tree: open/close, select, hide, lock, drag to reorder or reparent, **rename in place** | — |
-| **페이지** | list · 위로 · 복제 · 삭제(asks first) | 아래로; reorder by drag |
-| **컴포넌트** | list · 놓기 · 편집 · **이름** · **삭제**(refused while placed, and says why) | where-used |
-| **데이터** | list · 만들기 · **복제**; rename and delete in the data editor | — |
-
-The **구성** list is the one that was a selector where every other builder's is a manipulator, and
-the first half of that is fixed (see Done). What is left, in the order a reader would miss it:
-
-- [x] ~~**2 · 3. Hide and lock a block.**~~ Built — see Done.
-
-- [x] ~~**1. Reorder by dragging a row.**~~ Built — see Done.
-
-
-
-
-- [x] ~~**5. The three lists that only add.**~~ The component library can be renamed and cleaned out
-  now — see Done. 데이터's rename and delete were already there, **inside the data editor** rather
-  than on the rail row, which is where a dataset is edited and is defensible.
-
 
 ### The chrome, looked at as a professional tool would be — measured 2026-08-27
 
@@ -5837,7 +3042,7 @@ shipped features marked undone.
     carries is not a taste — a negative extent is what dragging a handle past the opposite edge
     means, and a reader that forgot it would draw nothing where a shape is.
 
-  - [x] **The pointer**, and it is *thin* on purpose. `apps/word/src/drawing-overlay.tsx` is a few
+  - [x] **The pointer**, and it is *thin* on purpose. `packages/office-word/src/drawing-overlay.tsx` is a few
     hundred lines against the deck's 3,754, because it does **not** swallow the pointer: it is
     `pointer-events: none` and listens on the document, so the **browser** hit-tests the shapes —
     including a rotated one, where an SVG transform is exactly the sum the deck's `unrotate` has to
@@ -6521,7 +3726,7 @@ it could from Word, and **rewrote** what it could not.
 
 Measured before the move:
 
-- `apps/slide/src/ribbon.tsx` took `ToolbarChoice`, `ToolbarPalette`,
+- `packages/office-slides/src/ribbon.tsx` took `ToolbarChoice`, `ToolbarPalette`,
   `choiceOptions`, `currentChoice` and `currentPaletteColor` from
   `@barocss/office-word`. A deck's font box was typed as a Word type.
 - `SlidesToolbarControl` was `ToolbarControl` with three fields added, and
@@ -6575,9 +3780,9 @@ Counted instead: **this repository already draws three axes.**
 
 | | Where | Tick step |
 |---|---|---|
-| Word's ruler | `apps/word/src/ruler.tsx` + `ticksFor` | inches, eighths, loops in twips |
-| A slide's ruler | `apps/slide/src/stage.tsx` + `slideTicks` | the reader's unit, counted in the unit |
-| The timeline | `apps/slide/src/timeline.tsx`, inline | **`ceil(span / 500)`, hard-coded, no test** |
+| Word's ruler | `packages/office-word/src/ruler-view.tsx` + `ticksFor` | inches, eighths, loops in twips |
+| A slide's ruler | `packages/office-slides/src/stage.tsx` + `slideTicks` | the reader's unit, counted in the unit |
+| The timeline | `packages/office-slides/src/timeline-pane.tsx`, inline | **`ceil(span / 500)`, hard-coded, no test** |
 
 *(The first two are one function now — `axisTicks` in `office-ui`. Word's is not;
 see the list below.)*
@@ -6606,7 +3811,7 @@ So the split is not "the timeline is Slides' or the suite's". It is:
   editor. These are about *motion*, not about time, and they are what a second
   product would not want.
 
-Boundary check, measured: `slideTicks` is called from `apps/slide/src/stage.tsx`
+Boundary check, measured: `slideTicks` is called from `packages/office-slides/src/stage.tsx`
 and nowhere inside `office-slides`, so moving the tick arithmetic to `office-ui`
 costs the model→chrome boundary nothing. The unit *table* (`rulerStep`) is already
 there for the same reason.
@@ -6618,7 +3823,7 @@ there for the same reason.
   along and gained the clock's, which had none: **22 tests in `office-ui`**.
 - [ ] **Word's ruler is still the third answer.** `ticksFor(contentWidth)` returns
   `{major: [{at, inch}], minor: [at]}` — a different shape from `AxisTick[]`, and
-  converting it means changing what `apps/word/src/ruler.tsx` draws from. Its
+  converting it means changing what `packages/office-word/src/ruler-view.tsx` draws from. Its
   arithmetic is not wrong (eighths divide inches evenly, so there is no float
   problem to have), which is why it is last rather than first.
 - [ ] **`Axis` and `Lanes` components**, after the arithmetic — the drawing is the
@@ -6966,7 +4171,7 @@ text-shaped.
   word 뿐이다.
 
   앱이 손으로 듣는 keydown 열셋을 읽어 보니 **제품의 키보드인 것은 셋**이고(모두
-  `apps/slide/app.tsx`: `SLIDES_KEYS` 디스패처 · ⌘Z · PageUp/PageDown) 나머지 열은 UI-지역이거나
+  `apps/slide/src/app.tsx`: `SLIDES_KEYS` 디스패처 · ⌘Z · PageUp/PageDown) 나머지 열은 UI-지역이거나
   모드-지역이다. 그 셋 중 디스패처 하나가 **바인딩 23개**를 덮는다.
 
   **답을 적었다: `docs/specs/keybindings.md`.** 기준은 *이 키가 하는 일이 문서에 남는가* 이고,
@@ -7411,9 +4616,9 @@ text-shaped.
 
   | 어디 | 무엇을 묻나 |
   |---|---|
-  | `apps/slide/overlay.tsx:669` | **이 점**이 모델 좌표로 어디인가 |
-  | `apps/word/drawing-overlay.tsx:269` | **얼마나 움직였나** (거리) |
-  | `apps/word/drawing-overlay.tsx:352` | **이 점**이 어디인가 |
+  | `packages/office-slides/src/overlay.tsx:669` | **이 점**이 모델 좌표로 어디인가 |
+  | `packages/office-word/src/drawing-overlay.tsx:269` | **얼마나 움직였나** (거리) |
+  | `packages/office-word/src/drawing-overlay.tsx:352` | **이 점**이 어디인가 |
 
   뒤의 둘은 **한 파일 안에 80줄 떨어져 있고 같은 이름이다.** 하나는 점이고 하나는 거리다.
 
@@ -7481,7 +4686,7 @@ text-shaped.
 
 
 - [ ] **열아홉 개의 드래그가 `pointercancel` 을 안 듣는다.** `pointerdown` 뒤에 move/up 을 붙이는
-  자리가 스물이고, 그 중 하나(`apps/site/grip.tsx`)만 취소를 듣는다. 나머지는 `window` 에
+  자리가 스물이고, 그 중 하나(`apps/site/src/grip.tsx`)만 취소를 듣는다. 나머지는 `window` 에
   `pointermove` 를 걸고 `pointerup` 에서만 걷는다 — 브라우저가 취소를 주는 순간(터치가 끊기거나,
   잡은 요소가 드래그 중 DOM 에서 사라지면) **그 리스너가 창에 영원히 남는다.** 그 뒤로 상관없는
   포인터 움직임이 드래그 계산을 계속 돈다. 화면에 안 보이고 리로드하면 사라져서 재현 절차를 적을 수
@@ -7505,7 +4710,7 @@ text-shaped.
   인스턴스로 뜰 수 있나를 먼저 물어야 했다. 재기 전에 세면 이렇게 된다.
 
 - [ ] **`toModel` 이 셋이다.** `editor-view-dom/utils/edit-position-converter.ts` 와
-  `apps/slide/overlay.tsx`·`apps/word/drawing-overlay.tsx` 가 각자 client 좌표를 모델 좌표로
+  `packages/office-slides/src/overlay.tsx`·`packages/office-word/src/drawing-overlay.tsx` 가 각자 client 좌표를 모델 좌표로
   바꾸고, 줌·스크롤·회전을 각자 푼다. 제스처가 `clientX` 를 주는 다음 줄이 늘 이것이므로 자리는
   제스처 옆이다.
 
@@ -7816,7 +5021,7 @@ text-shaped.
 
   `apps/slide/src/style.css:277`. 이제 `office-ui/tokens.css` 가 그 규칙을 갖고 apps/slide 는
   `:32` 에서 그 파일을 `import` 하므로 이 사본은 필요 없다. 이번 회차의 범위가
-  `apps/site/style.css` 까지였어서 안 지웠다 — 지금은 같은 값 두 벌이라 해로울 것은 없고, 값이
+  `apps/site/src/style.css` 까지였어서 안 지웠다 — 지금은 같은 값 두 벌이라 해로울 것은 없고, 값이
   갈라지는 날 해로워진다.
 
 - **`@barocss/office-ui/tokens.css` 를 `import` 하지 않는 호스트를 세는 검사가 없다.** 🔴 열림
@@ -7837,7 +5042,7 @@ text-shaped.
   `apps/site/src/style.css:24`) **발행물에서만** 글리프가 줄 상자를 늘린다. `.st-chart` 넷이
   꼭 같은 이유로 이 파일에 옮겨져 있다(`page-css.ts:439`) — *앱의 스타일시트는 발행되지 않는다*.
 
-  이번 회차의 범위가 `office-text/text.css` · `office-ui` · `apps/site/style.css` · 빌드 설정
+  이번 회차의 범위가 `office-text/text.css` · `office-ui` · `apps/site/src/style.css` · 빌드 설정
   까지여서 `page-css.ts` 는 안 건드렸다. 옮길 것은 세 선언이다:
   `display:inline-block; line-height:1; vertical-align:-0.1em`. `user-select` 는 편집기의 것이라
   발행물에 필요 없다.
@@ -8034,6 +5239,525 @@ text-shaped.
   같은 결함이 두 자리에서 나왔는데, 저장소 어디에도 "`type: 'range'` 리터럴을 쓰면서
   `startNodeId === endNodeId && startOffset === endOffset` 인데 `collapsed` 를 안 적은 곳" 을
   세는 것이 없다. 고칠 때 검사부터 — 지금 두 자리를 고쳐도 세 번째가 온다.
+
+- **선택의 문서 순서 훑기.** 🔴 열림 — `fromDOMSelection` 호출자 넷 중 `compareNodeOrder` 를 주는 곳이
+  0이고 기본이 `() => -1` 이다(`packages/shared/src/selection.ts:207`). `Shift+→` 결함의 두 번째 원인이
+  바로 이 기본값이었으므로, 이건 고쳐진 결함의 **뿌리가 그대로 남아 있는** 자리다.
+
+- **전역 리스너 가드를 세는 검사.** 🔴 열림 — `packages/conformance/test/` 22개 중 리스너를 세는 것이 0.
+
+- **편집 중 `aria-live`.** 🔴 열림 — 저장소의 `aria-live` 는 `office-slides` 의 발표 모드 둘뿐이다.
+
+- **`editor-core` 를 둘로.** 🔴 열림 — 기준(*캐럿을 import 하지 않고 명령과 역사를 쓰는 패키지*)을
+  만족하는 패키지가 0이다.
+
+- **사이트의 셀 선택 설치.** 🔴 열림 — `installCellSelection` 호출자 셋에 site 가 없다.
+
+- **발행 대상.** 🔴 열림 — `publishTo` 는 스키마 문자열이고 `publish-commands.ts:140` 이 *기록만* 한다.
+  보내는 코드는 0.
+
+
+- **서비스 층이 한 제품에서만 자랐다.** 🔴 열림 — `TECHNICAL-ROADMAP` §2.4 는 *"앱마다 문서 하나를
+  이름으로 짓는다"* 고 적어 두었는데, 슬라이드는 `packages/office-slides/src/deck-library.ts`(90줄) ·
+  `deck-storage.ts`(124줄, IndexedDB) · `library-dialog.tsx` 로 목록·열기·저장을 이미 갖는다. word·site·
+  note 에는 없고 넷이 공유하는 층도 없다. §2.4 가 *없다* 고 말하는 동안 한 제품이 자기 판을 만든 것이고,
+  이건 이 저장소가 반복해서 찾는 *아래로 안 내려간 것은 셋째 제품에서 다시 발명된다* 의 다음 회차다.
+  (같은 절의 *"지금 있는 것: `office-slides` 의 `library.ts` 하나"* 도 낡았다 — 그 파일 이름은
+  `deck-library.ts` 로 바뀌었다.)
+
+- **관리 화면의 컴포넌트 탭은 여전히 표다.** 🔴 열림 — `packages/office-site/src/admin.tsx:646` 이
+  이름·쓰임·변수·틀 열의 `<table>` 을 그린다. 썸네일 카드가 아니다. 데이터 탭 Drawer 의 겹침은
+  **못 쟀다** — 브라우저가 필요하고 이 회차는 playwright 금지였다.
+
+- **`agents.md` 의 conformance 숫자가 어긋난다.** 🔴 열림 — *"22 파일 · 119 검사"* 라고 적혀 있는데
+  오늘 돌리면 22 파일 · **117** 검사였고, 그 뒤 다른 에이전트가 `dark-is-actually-read.test.ts` 를
+  더해 24 파일이 됐다. 이 문서에도 `spec-numbers` 같은 것이 필요하다는 뜻이다.
+
+
+- `docs/specs/keybindings.md` 의 키 숫자 셋(Word 54 → 52, `SITE_KEYS` 5 → 18, 앱의 손 keydown 열셋)이
+  다 낡았다. 🔴 열림 — 그 문서는 조율자 소유라 못 고쳤다.
+- `packages/office-note/src/note-keymap.ts` 와 `office-note/test/spec-numbers.test.ts` 주석의 *"Word 71개"*.
+  🔴 열림 — 내 파일이 아니다. `spec-numbers` 가 잡는 값이 아니라 **주석**이라 검사도 안 잡는다.
+
+- **`office-word/test/toolbar.test.ts:133` 도 상대 경로로 읽는다.** 🔴 열림 — **작은 것**
+
+  `fs.readFileSync('src/toolbar-model.ts', 'utf8')` — slides 에서 고친 것과 글자까지 같은 모양이고,
+  같은 이유로 `--root` 로 돌리면 `ENOENT` 다. `packages/office-word` 는 다른 에이전트 것이라
+  손대지 않았다. 고칠 것은 한 줄: `join(__dirname, '..', 'src', 'toolbar-model.ts')`.
+
+- **`docs/specs/agents.md` 의 소유 지도가 낡았다.** 🔴 열림 — **작은 것**
+
+  `slides.md`·`site-builder.md` 줄이 아직 *(작업 중)* 이고, 표 상단은 spec-numbers 를 **넷 중 둘**
+  이라고 적는다. 이제 넷 중 넷이다. `docs/` 는 조율자 것이라 안 고쳤다.
+
+- **패키지 전체 줄 수는 명세에 넣을 수 없는 숫자다.** 🔴 열림 — **적어 두는 값**
+
+  `site-builder.md` 의 첫 초안이 `packages/office-site/src` 35,553 을 적었고 **한 시간 안에**
+  틀렸다 — 세 파일 건너 주석 하나로 35,570 이 되었다. 매 커밋마다 울리는 숫자는 모두에게 매일
+  빨갛고 일주일이면 지워지므로, 검사가 없는 것과 같은 자리에 떨어진다. 그래서 두 명세 다 앱의
+  줄 수(`apps/site` 4,221 · `apps/slide` 2,520)와 `./ui` 뒤의 컴포넌트 수(5 · 27)만 붙잡는다 —
+  **컴포넌트가 움직일 때만 움직이는 숫자**. `note.md` 가 `office-note` 2,392 를 붙잡을 수 있는
+  것은 제품 전체가 그 크기여서 어떤 움직임이든 뜻이 있기 때문이고, 43,724 에는 그 성질이 없다.
+
+- **`ROADMAP.md` 의 slides 절이 세 군데 틀렸다.** 🔴 열림 — **이번 회차의 진짜 값**
+
+  `docs/ROADMAP.md:630` 이 *"Measured rather than guessed: 139 commands, fifteen canvas node types
+  declared, ten toolbar groups"* 라고 적는데, 재 보니:
+
+  | 적힌 것 | 잰 것 |
+  |---|---|
+  | 139 commands | **190** (그중 덱 자기 것 97) |
+  | fifteen canvas node types | **13** — 스키마의 `scene` 군 12 + `frame` |
+  | ten toolbar groups | 10 ✔ |
+
+  그리고 셋 중 가장 비싼 것은 `:643` 의 Canva 문단이다: *"A shape's whole style is `fill`,
+  `stroke` and `strokeWidth` today. No gradient, no shadow, no blur, no dashes, no per-corner
+  radius, no image crop."* — **여섯 다 있다.** `fills`, `effects`, `gradientKind`/`gradientAngle`/
+  `gradientFrom`/`gradientTo`, `shadowBlur`/`shadowAngle`/`shadowDistance`/`shadowColor`,
+  `strokeDash`, `cornerTopLeft`…`cornerBottomLeft`, `cropTop`…`cropLeft` — 전부
+  `slidesPanelAttrs()` 의 63개 안에 있다. **Deck 1 은 끝났는데 안 끝났다고 적은 문단이 아직
+  독자가 처음 만나는 자리에 있다.** 끝난 일을 안 끝났다고 적은 로드맵은 같은 일을 두 번 시킨다.
+  `docs/ROADMAP.md` 는 로드맵 담당 것이라 안 고쳤다.
+
+- **`site-builder.md` 의 *What the first slice cost* 는 역사인데 현재처럼 읽힌다.** 🔴 열림
+
+  `packages/office-site` **793줄**·렌더러 셋·삽입 명령 셋. 첫 조각의 값으로는 지금도 참이고,
+  절 제목이 과거형이 아니라 그렇게 안 읽힌다. 바로 뒤에 *재는 절* 을 붙이면서 첫 문장에 *"그
+  표는 **역사**다"* 라고 적어 두었지만, 문서 전체가 시간순 기록이라 같은 모양이 더 있을 수 있다.
+  같은 절의 *"Two nodes, five attributes and a prefix"* 도 지금은 **14 노드**다.
+
+- **그 이동이 `office-editor-ui/test/controls.test.ts:191` 을 빨갛게 만든다.** 🔴 열림
+
+  그 검사가 `dependencies` 목록을 글자로 대조하고 `'@barocss/extensions'` 를 그 안에 적어 뒀다.
+  이번 회차에 쓸 수 있는 파일이 아니어서 손대지 않았다. **한 줄 지우면 끝난다** — 그리고 그 위의
+  주석(*"Two were argued for and added when `SlashMenu` moved in"*)이 왜 그 자리였는지 적어 두었으니
+  타입 전용이라는 사실을 한 문장 더 붙이는 편이 낫다.
+
+- **Word 는 표 칸 안에서 도형·프레임을 넣지 못한다.** 🔴 열림
+
+  `office-word/frame-commands.ts:133` 과 `canvas-insert-commands.ts:117` 이 캐럿에서 올라가며
+  `parent.stype !== 'paragraph' && parent.stype !== 'heading'` 이라는 **목록** 으로 멈출 자리를 정한다.
+  `bTableCell` 의 content 는 `'inline*'` 이므로 걷기가 칸에서 멈추고 `{parentId: <bTableRow>}` 를
+  돌려주며, `bTableRow` 는 `'bTableCell*'` 이라 검증기가 트랜잭션을 거부한다 — 단추는 켜진 채.
+  `office-site` 가 같은 결함을 **두 번** 고쳤고 답이 `holdsABlock`(스키마에게 묻기)이다.
+  읽어서 세운 결론이고 아직 안 돌려 봤다. 단위 검사가 먼저.
+
+- **덱과 페이지의 줌 ± 단추가 사다리를 안 쓴다.** 🔴 열림
+
+  `office-slides/geometry.ts:229` 의 `stepZoom` 은 단위 검사 9개를 달고 **그 검사 말고는 아무도 안
+  부른다.** `apps/slide` 와 `apps/site` 는 `office-ui` 의 `ZoomControl` 을 쓰고, 그 ±는
+  `zoomIn = zoom * 1.25` 다. 100%→125%→156%→195% 로 가고, `stepZoom` 의 주석이 막으려던 것이
+  정확히 그것이다. `stepZoom` 을 `office-ui` 로 내리고 사다리를 인자로 받게 한다.
+
+- **`office-slides` 가 `onApple()` 을 두 번 다시 적었다.** 🔴 열림
+
+  `ribbon.tsx:74` 와 `overlay.tsx:891`. 그 패키지는 `office-ui` 를 이미 의존하고
+  `office-ui/platform.ts` 에 그 네 줄이 있다. 그리고 `shared/platform.ts` 의 `IS_MAC` 은 **판정식이
+  다르고**(`platform`+`userAgent` 대문자 비교, 모듈 로드 시점 상수) `editor-core` 가 `when: 'isMac'`
+  을 푸는 데 쓴다 — 화음을 *인쇄* 하는 쪽과 *발동* 하는 쪽이 서로 다른 함수에 물어본다.
+
+- **`keyLabel(chord, apple = true)` 의 기본값이 플랫폼을 조용히 고른다.** 🔴 열림
+
+  `office-controls/keys.ts:109`. 넘기지 않은 호출이 컴파일되고 애플 표기가 나온다.
+  `office-site/keymap.ts:237·242`(`hintFor`/`hintOf`)가 그렇게 부르고 있다 — 지금은 그 둘을 검사
+  말고 아무도 안 읽어서 화면에 안 나온다. `office-slides` 는 자기 `keyLabel` 을 감싸 `apple` 을
+  **필수** 로 만들어 피했다. 기본값을 없애는 쪽이 맞다.
+
+- **Word 의 크롬 CSS 1,248줄이 앱에 남아 있다 — 그중 수식 31개가 `office-text` 의 것이다.** 🔴 열림
+
+  `apps/word/src/style.css` 가 선언하는 클래스 121개 중 **87개를 패키지만** 쓴다
+  (`office-word` 56 · `office-text` 36, 겹치는 이름 있음). `office-text/math-renderers.ts` 가 그리는
+  `w-math-*` **31개** 의 규칙이 전부 앱에만 있으므로 **`apps/word` 밖에서 수식을 그리면 분수·근호·행렬이 평범한 span** 이다.
+  `.w-table { width: 100% }` 과 `.w-cell { border: 1px solid #ccc }` 도 같은 자리에 있다.
+  넷 중 `office-word` 만 `.css` 문이 없다.
+
+- **목록 마커 CSS 가 `office-text` 와 `office-slides` 에 두 벌 있다.** 🔴 열림
+
+  `office-text/text.css:44–82` 와 `office-slides/slides.css:31–63`. **주석 문장까지 같다.**
+  다른 것은 선택자 접두사(`.w-list`/`.sl-list`)와 counter 이름뿐이고, `office-text` 쪽만
+  `[data-marker='']` 로 좁혀 Word 의 번호가 이기게 해 두었다.
+
+- **각도→방향 벡터가 네 곳에 있다.** 🔴 열림 — 작은 것
+
+  `{x: sin θ, y: −cos θ}`(위에서 시계 방향). `slides/svg-paint.ts:76` · `slides/gradient-axis.ts:60` ·
+  `slides/paints.ts:543` · `site/paint.ts:179`. 넷 중 셋이 `-0` 을 따로 막는다.
+  `site/paint.ts:166` 의 그림자 산술은 스스로 *"Copied rather than reinvented"* 라고 적혀 있다.
+  `office-canvas` 로.
+
+- **슬래시 항목을 컨트롤 목록에서 뽑는 코드가 두 벌이다.** 🔴 열림 — 작은 것
+
+  `office-site/toolbar-model.ts:381` 과 `office-note/note-kit.ts:107`. 반환 타입이 글자까지 같고
+  설명 칸만 다르다(`makes` vs `title`). **Word 와 Slides 에는 슬래시 메뉴가 아직 없다** — 세 번째가
+  쓰기 전에 `office-controls` 로 내리는 것이 요점이다.
+
+- **`office-site/toolbar-model.ts:351` 이 `iconsIn`/`commandsIn` 을 다시 적었다.** 🔴 열림 — 가장 작은 것
+
+  `SITE_TOOLBAR` 가 `ControlGroup[]` 이 아니라 평평한 `SiteControl[]` 이라서다.
+  `office-controls` 에 평평한 목록 오버로드를 하나 얹으면 9줄이 사라진다.
+
+- **넛지가 세 이름 두 모양이다.** 🔴 열림
+
+  `moveShapes {dx,dy}`(word, `args`) · `nudgeBoxes {dx,dy}`(slides, `payload`) ·
+  `nudgeBlock {axis,by}`(site, `payload`). 커맨드 이름은 제품의 것이 맞지만 **payload 모양이 셋인 것은
+  아니다** — 메뉴와 키맵이 하나의 문장으로 그 제스처를 말할 수 없다.
+
+- **`office-canvas` 가 내주는 이름의 82%를 한 제품만 부른다.** 🔴 열림 — 결정이 필요한 것
+
+  제품이 부르는 126개 중 103개가 단일 독자이고, `canvas-connector.ts` **2,058줄** 을
+  `office-slides` 만 읽는다. `office-word/index.ts:539` 에 근거가 적혀 있고 그 근거는 **스키마** 다 —
+  연결선이 scene 노드이므로 두 제품이 두 답을 가지면 한 문서가 두 그림이 된다. 맞는 말이지만
+  **독자가 하나인 동안 그 주장은 아무것도 검사하지 않는다.** `office-text` 도 2,695줄이 단일 독자다.
+
+- **`export` 되어 있고 자기 검사만 읽는 심볼이 41개다.** 🔴 열림 — 렌즈 하나
+
+  24개는 그러라고 만든 것이다(하네스가 *선언* 에게 묻는 문 — `toolbarCommands`·`sitePanelIcons` 등).
+  나머지 17개는 아무도 안 도는 코드이고 `stepZoom`·`hintFor`/`hintOf` 가 거기서 나왔다.
+  `matchesSiteKey` · `isCleanPath` · `wrapsText` · `drawnHtml` 을 손으로 확인했다 — 전부 검사만 읽는다.
+
+- **`office-note` 의 문이 `./view` 이고 나머지 셋은 `./ui` 다.** 🔴 열림 — 작은 것
+
+  `architecture.md` 가 경계는 *조각* 이 아니라 *React 가 필요한가* 라고 정했다. 노트는 조각이 하나라
+  아직 값이 안 들지만, 읽는 쪽이 *이건 어느 문인가* 를 묻게 된다.
+
+- **다크를 도는 playwright 검사가 1,092개 중 셋이고, 그 셋은 값을 안 본다.** 🔴 열림
+
+  원인 쪽(명시도·캐스케이드 산수)은 위의 단위 검사로 내려갔다. **브라우저 쪽 셋은 그대로다** —
+  `word-theme` · `slide-theme` · `site-theme` 이 아직 `not.toEqual` 로만 단정하고,
+  `playwright.config.ts` 여섯 중 `colorScheme` 을 정한 것이 아직 0이다. 남은 일: 그 셋의 단정을
+  값으로 바꾸고(세 줄), 크롬·토큰 스펙만 다크 프로젝트로 한 번 더 돌린다(좌표 345개·IME 121개는
+  라이트로). 나는 playwright 를 못 돌려서 손대지 않았다.
+
+- **`office-site/ui.css` 에 `[data-theme='light']` 가 없다 — 이제 그것이 결함이다.** 🔴 열림 —
+  **여섯 줄, 그리고 지금 conformance 를 빨갛게 하는 유일한 것**
+
+  `packages/office-site/src/ui.css:171` 의 주석이 왜 안 썼는지 정확히 적어 뒀다: *"`tokens.css` 에
+  그런 블록이 없어서 — 다크 문서 안의 라이트 섬은 스위트가 아직 말할 수 없는 것이고, 여기서 말하면
+  이 파일이 팔레트가 답하지 않은 질문에 답하는 것이다. BACKLOG 에 있어야 할 것이다."*
+
+  **그 전제가 이번에 없어졌다.** `tokens.css` 가 이제 `[data-theme='light']` 를 말한다. 그래서 지금
+  상태는 `--st-*` 여섯이 서브트리에서 다크로는 밀리는데 라이트로는 안 돌아온다 — 다크 문서 안의
+  라이트 섬은 `office-ui` 의 라이트 컨트롤이 `office-site` 의 **다크 스튜디오 바닥** 위에 앉는다.
+  `dark-is-actually-read` 의 마지막 검사가 여섯을 이름으로 부른다.
+
+  `packages/office-site/**` 는 이번 회차에 내 것이 아니라 안 고쳤다. `:175` 의 다크 블록을 그대로
+  거울에 비춘 여섯 줄이다:
+
+  ```css
+  [data-theme='light'] {
+    --st-ground: var(--ou-studio, #e8e9ea);
+    --st-line: var(--ou-line, #d4d4d4);
+    --st-ink: var(--ou-ink, #171717);
+    --st-faint: var(--ou-muted, #6b6b6b);
+    --st-accent: var(--ou-accent, #2563eb);
+    --st-panel: var(--ou-panel, #ffffff);
+  }
+  ```
+
+- **버블 툴바의 조건을 `guards.ts` 로 — 못 옮겼다.** 🔴 열림
+
+  고칠 두 자리가 **이 회차의 쓸 수 있는 파일 밖**이다: `packages/extensions/src/guards.ts` 와
+  `apps/site/src/text-surface.tsx`. 무엇을 해야 하는지는 재 두었다.
+
+  `text-surface.tsx:55-58` 이 아직 `selection.collapsed !== true` 를 직접 묻는다. 이번 회차 뒤로는
+  그 값이 늘 채워지므로 **증상은 사라졌지만 술어는 여전히 세 번째 사본**이다.
+
+  `hasRange(ed, payload, 'something')` 은 이미 두 끝을 비교한다(`guards.ts:50-65`). 없는 것은
+  마지막 한 칸 하나다 — **두 sid 사이에 글자가 있는가.** `t1:2 → t2:0` 은 sid 가 둘인데 화면의 같은
+  점이다. 도구는 있다(`extractModelTextFromRange`, `editor-view-dom/src/utils/edit-position-converter.ts:332`).
+
+  `editor-core` 는 `isCollapsedSelection` 을 **내보내 두었다** — 두 끝이 같은 노드일 때까지가 그것이
+  답할 수 있는 전부이고, 그 사실이 함수 주석에 적혀 있다. 나머지 한 칸이 `guards.ts` 의 몫이다.
+
+- **인접한 두 런 사이의 0글자 범위 (#8).** 🔴 열림
+
+  `shared/src/selection.ts` 의 `fromDOMSelection` 이 sid 가 다르면 `collapsed: false` 를
+  **하드코딩** 한다. 두 끝만으로는 옳은 답이라 그 파일에서 고칠 것이 아니다 — 문서를 읽어야 한다.
+  `boundary-inside-a-block.test.ts` 의 `it.fails` 가 붙잡고 있고, 답은 위 항목의 `guards.ts` 다.
+
+- **`shared/text-position` 의 되돌아갈 곳이 DOM 오프셋을 모델 오프셋으로 센다 (#4).** 🔴 열림
+
+  ```ts
+  const idx = binarySearchRun(runs.runs, Math.max(0, Math.min(offset, runs.total - 1)));
+  ```
+
+  `offset` 은 **그 글자 노드 안의 DOM 오프셋**이고 `binarySearchRun` 이 받는 것은 **그릇 전체의
+  모델 오프셋**이다. 두 수가 같은 자를 쓰지 않는다. 색인에 없는 노드(데코레이터의 제 글자, 길이 0
+  노드) 안에서 캐럿이 오른쪽으로 갈수록 답이 **뒤쪽 런으로 미끄러진다.**
+
+  접힌 캐럿은 이제 접힌 채로 나오므로 *범위로 읽히지는* 않는다. 남은 것은 **자리가 틀린 것**이다.
+  `boundary-inside-a-block.test.ts` 의 `it.fails` 가 잡고 있다. `packages/shared` 는 이 회차의
+  소유 밖.
+
+- **`editor-view-react` 에 같은 자리 셋이 그대로 있다.** 🔴 열림
+
+  `editor-view-react/src/input-handler.ts:597, :650, :841` — 새 검사가 이름으로 적어 두었다. DOM
+  뷰에서 이번에 고친 것과 **같은 자리**이고, 거기는 무조건 쓴다. 사이트는 DOM 뷰라 안 걸리지만
+  **노트·워드가 그 경로다.**
+
+  `docs/specs/selection.md` 가 이유를 적어 두었다: 뷰 층이 두 벌이라 **선택 고치기는 두 번씩
+  필요하고, 그것 자체가 결함이다.** 사용자가 react 를 뒤로 미뤄서 이번엔 안 건드렸다.
+
+- **`datastore` 둘과 `model` 하나의 캐럿 리터럴.** 🔴 열림 — **작은 것**
+
+  `datastore/src/operations/range-operations.ts:422, :505`(`replaceText`·`duplicateText` 가 세우는
+  삽입 자리)와 `model/src/operations/insertText.ts:74`. 셋 다 `DataStore.range.insertText` 에
+  바로 넘기는 자리이고 그 함수는 두 끝만 읽으므로 지금 해가 없다. 새 검사가 이름으로 잡고 있다.
+
+- **검사 픽스처 44개가 캐럿을 네 필드로 가르친다.** 🔴 열림
+
+  파일별 개수가 새 검사에 적혀 있다. 다섯은 `editor-view-dom` 것이라 이 회차의 소유 안이었지만
+  안 고쳤다 — 픽스처를 고치는 것은 그 픽스처가 무엇을 재고 있는지 한 번씩 읽어야 하는 일이고, 이
+  회차는 제품 코드와 아홉 자리의 단위 검사에 썼다. 숫자를 적어 둔 것이 그 결정을 넘기는 방법이다.
+
+- **`editor-is-typed` 톱니가 358 인데 허용은 357 — 늘어난 하나는 이 회차의 것이 아니다.** 🔴 열림
+
+  `packages/editor-core/test/editor-is-typed.test.ts` 가 저장소 전체에서 *편집기를 캐스트로
+  걷어낸 자리* 를 센다. 이 회차 시작 때 357(초록)이었고 지금 358이다. 늘어난 하나는
+  `packages/office-word/test/editor-focus-is-about-the-content-layer.test.ts`(HEAD 0 → 지금 1)이고,
+  이 회차가 만지거나 만든 파일 열둘의 합은 **0** 이다.
+
+  기록해 둘 값이 있는 것: 첫 판에서 그 톱니가 **내 주석**을 세었다. 그 모양을 글자로 적은 주석이
+  캐스트로 세어진다 — 그 검사가 빼는 것은 자기 자신뿐이다. 주석을 바꿔 0으로 되돌렸다.
+
+- **`office-site` 의 코드 블록이 `element` 가 널일 수 있다는 것을 모른다.** 🔴 열림 — **내 변경이 드러낸 것**
+
+  `packages/office-site/src/renderers.ts:437` 이 `tsc` 에서 하나 뜬다. 원인은
+  `code-render.ts` 의 `update(instance: { element?: HTMLElement }, …)` 이고, `ComponentInstance.element`
+  가 `Element | null` 이 되면서 그 좁힌 주석형이 더는 맞지 않는다.
+
+  **내 탓이 맞는지 따로 확인했다.** 옛 모양(`element: HTMLElement`)·`Element | null`·`HTMLElement | null`
+  셋을 최소 재현으로 컴파일해 봤고, 옛 모양에서만 통과한다. 즉 **널을 인정한 것이 원인**이지
+  `HTMLElement` → `Element` 로 넓힌 것이 아니다.
+
+  **그리고 이건 진짜 결함의 보고다** — 런타임은 이미 `if (instance?.element)` 로 막고 있으니 동작은
+  맞고, **주석형만 틀렸다.** 고치는 것은 한 단어(`element?: HTMLElement | null`)이지만
+  `packages/office-site` 는 다른 에이전트의 것이라 손대지 않았다. `office-site` 자기 소스의 오류는
+  이것 **하나뿐**이고(나머지 103은 `editor-view-dom` 의 미사용 지역변수 등 남의 것), 검사는
+  영향받지 않는다 — `test/code.test.ts` 6개 그대로 통과한다.
+
+- **`TNodeType` 의 세 번째 사본이 `schema` 에 있고, 읽는 곳이 0이다.** 🔴 열림
+
+  합친 뒤 저장소 전체를 다시 훑었더니 DSL 어휘의 재선언은 하나만 남았다 —
+  `packages/schema/src/types.ts:297` 의 `export type TNodeType = string`. `dsl` 것은 독자가 둘
+  (`registry.ts`·`template-builders.ts`)이고 **`schema` 것은 저장소 어디서도 import 되지 않는다.**
+  `packages/schema` 는 내 것이 아니라 지우지 않았다.
+
+- **백로그에 이 항목이 없었고, "5단계 계획" 도 없었다.** 🔴 열림 — **계획을 재보니 존재하지 않았다**
+
+  작업 지시는 *`docs/BACKLOG.md` 에서 그 항목을 찾아 읽으라, 5단계 계획이 이미 적혀 있다* 였다.
+  14,851줄과 `/tmp/backlog-backup.md` 사본까지 훑었고 **그런 항목이 없다.** `dsl` 과 `renderer-dom`
+  을 함께 말하는 줄도, 열여섯을 세는 줄도, 다섯 단계를 적은 줄도 없다. 백로그에서 `dsl` 이 나오는
+  자리는 층 목록 둘, 연산 DSL 이야기 여섯, `intoRegistry` 검사 하나, **파일 순환 하나**뿐이다.
+
+  **다만 숫자는 맞았다** — 16개, 그리고 8/8. 어디선가 실제로 잰 값인데 백로그에 안 적힌 것이고,
+  그건 `docs/specs/agents.md` 가 이 저장소의 결함으로 적어 둔 바로 그 모양이다:
+  *붙잡히지 않은 주장은 주장일 뿐이다.* 계획 없이 재서 세운 순서는 이랬다 —
+  (1) 이름 교집합을 다시 센다 (2) 각 사본의 **독자를 센다** (3) 바깥 소비자를 센다(0이면 안전하다)
+  (4) 갈라진 것마다 생산자를 찾아 그쪽으로 고친다 (5) 재내보내기로 바꾸고 열일곱 번째를 막는
+  검사를 둔다.
+
+- **어휘가 거짓인 것을 아무도 못 본 이유는 검사가 타입 검사 밖에 있었기 때문이다.** 🔴 열림
+
+  `packages/editor-view-dom/tsconfig.json` 은 `"exclude": ["**/*.test.ts"]` 이고, 거기 통합 검사
+  넷이 `@barocss/dsl` 의 `ComponentContext` 를 `import type` 해서 `ctx.instance?.get('count')` 를
+  쓴다. `instance?: unknown` 으로는 **쓸 수 없는 코드**였고(위 항목 3), 검사가 컴파일러를 지나지
+  않으니 아무도 몰랐다.
+
+  **이 회차 도중에 다른 에이전트가 `tsconfig.typecheck.json` 을 넣어 검사 파일을 열었다** — 그
+  주석이 *"77개 검사 파일이 include 에 이름만 올라 있고 하나도 컴파일된 적 없다"* 고 적어 뒀다.
+  열어 보니 `dsl` 검사 77 · `renderer-dom` 검사 123 · `editor-view-dom` 176 개의 타입 오류가 있다.
+  **그 중 내 변경이 만든 것은 하나도 없고**(전부 `TreeDocument` 미정의, `MockInstance` 시그니처,
+  `VNode.model` 같은 다른 이야기다), 반대로 위 항목 3이 고쳐 준 자리는 이제 조용하다 —
+  `component-state-integration.test.ts:54` 의 `ctx.instance?.get` 에 오류가 없다. 남은 376개는
+  세 패키지 중 둘이 내 것이 아니라 손대지 않았다.
+
+- **`TreeDocument` 는 지워졌다고 주석까지 적혀 있는데, 통합 검사 여섯 파일이 픽스처 63개를 아직 그 이름으로 적고 있다.** 🔴 열림
+
+  `packages/editor-view-dom/src/types.ts:11` — `// TreeDocument is removed - use
+  ModelData (sid, stype) directly`. 그런데 `test/integration/` 의 여섯 파일이
+  `const tree1: TreeDocument = { … }` 를 63번 쓴다. import 도 없다. vitest 는 타입을
+  지우고 돌리니 전부 초록이고, 컴파일러는 `Cannot find name 'TreeDocument'` 를 62번
+  말한다. **삭제를 주석으로 기록한 사람이 그 이름을 향해 적힌 픽스처를 볼 수 없었다** —
+  그 파일들이 컴파일에 안 들어갔기 때문이다. 이 저장소가 반복해서 찾는 *있는데 못 닿는*
+  결함의, 반대 방향 변형이다. 픽스처가 어떤 모양을 주장하는데 그 모양이 없다.
+
+- **`dsl` 의 같은 스펙 파일이 두 벌 있고, 한 벌은 과거에 멈춰 있다.** 🔴 열림
+
+  `tests/dsl-functions.test.ts`(419줄)와 `tests/dsl/dsl-functions.test.ts`(481줄).
+  둘 다 vitest 가 돌린다. 새 쪽은 `@barocss/dsl` 과 `../../src/types` 에서 가져오고
+  검사 케이스가 더 있고, 옛 쪽은 `../src/index` 하나에서 다 가져온다 — 갈라진 포크다.
+  오류 지문이 거의 같은 비율로 겹친다(`attributes` 없음 10 대 6, 인수 개수 9 대 6).
+  `dsl` 의 검사 설정이 `test/` 를 부르고 디렉터리가 `tests/` 인 것이 이 사본을 가린
+  이유다: **둘 다 컴파일된 적이 없으니 둘이라는 것도 보이지 않았다.**
+
+- **없는 필드를 주석으로 정당화한 자리.** 🔴 열림
+
+  `editor-view-dom/test/decorator-system/decorator-prebuilder-2.test.ts:100` —
+  `Decorator` 에 `generate` 라는 속성은 없는데 픽스처가 그것을 세우고, 바로 위에
+  *"generate is not used in Prebuilder stage"* 라고 적어 두었다. 값에 `as any` 를 걸어
+  두었지만 초과 속성 검사는 키에서 난다. **왜 두는지 적은 주석이 그 필드가 존재하지
+  않는다는 사실을 덮었다.**
+
+- **`office-controls` 의 패널 검사가 스키마 대역에 함수를 넘긴다 — 패널은 그 위의 `.declares` 를 읽는다.** 🔴 열림
+
+  `test/panel.test.ts` 가 `(one) => boolean` 을 넘기는데 받는 쪽 타입은
+  `{ declares?, anything? }` 다(TS2559, "공통 속성이 하나도 없다"). 즉 패널이 묻는
+  `declares` 는 늘 `undefined` 이고, **그런데도 그 검사들이 통과한다** — 단언이 대역의
+  답에 전혀 기대고 있지 않다는 뜻이다. 지금 다른 에이전트가 이 파일을 고치는 중이라
+  인과는 확인하지 않았다.
+
+- **`converter` 의 픽스처가 `INode[]` 가 아니다.** 🔴 열림
+
+  `test/html-converter.test.ts` — `{ stype, content: [{ stype, text, marks }] }[]` 를
+  `INode[]` 자리에 넘기고, 돌려받은 `string | INode` 에서 `.stype` 을 읽는다(TS2339 둘,
+  TS2345 셋). 21개 중 대부분이 이 한 파일이다.
+
+- **테스트가 있는데 검사 설정이 없는 곳 셋이 아직 남았다.** 🔴 열림
+
+  `apps/editor-react`(7) · `apps/editor-test`(1) · `apps/note`(2), 10개.
+  `scripts/typecheck-tests.mjs` 의 `KNOWN_UNGUARDED` 에 이름으로 적혀 있어서 **새로
+  생기는 것은 실패** 이고, 이 셋은 이름이 지워질 때까지 남는 빚이다. 설정이 생기면
+  스크립트가 그 줄을 지우라고 실패한다.
+
+- **표 안의 `Tab` 이 읽기 전용 문서에서 행을 만든다.** 🔴 열림
+
+  위 항목을 분류하다 나왔다. `nextCell` 은 마지막 칸에서 `insertRowBelow` 를 부른다
+  (`packages/extensions/src/table.ts:291`). 그런데 `TABLE_CELL_KEYBINDINGS` 의 `when` 은
+  `editorFocus && inTable` 뿐이다 — **`editorEditable` 이 없다.**
+
+  표를 가진 **네 제품이 다 받는다.** 고칠 자리는 `packages/extensions` 라서 이 회차에서는 세기만
+  했고, `document-keys-gate-on-editable.test.ts` 의 면제 목록에 *왜 면제인지* 와 함께 적혀 있다.
+  거기서 고치면 그 두 줄은 지워져야 하고, 같은 파일의 반대쪽 검사가 지우라고 말한다.
+
+---
+
+- **제품의 키가 어디서 도는지가 둘로 갈려 있다.** 🔴 열림 — 선택지를 재서 적었다
+
+  **결정하지 않았다.** 두 갈래를 재서 `docs/specs/keybindings.md` 의 *"결정이 필요하다 — 두 갈래"*
+  절에 적었다. 요약:
+
+  | | 갈래 A — 레지스트리가 유일한 디스패처 | 갈래 B — 데이터 유지, 디스패처를 하나로 |
+  |---|---|---|
+  | 지우는 줄 | slides 182 · site 143 | 같음 |
+  | 더하는 것 | 무대 감싸는 요소 · site 의 `mode` 맥락 · 덱의 `parentId` 맥락 | `office-controls` 에 공용 디스패처 하나 |
+  | 브라우저 검사 | **407개가 걸린다**(레이아웃 변경) | **0** |
+  | `needsSelection` 31 | 공짜(`selectionType == 'node'`) | 한 곳으로 모임 |
+  | 크롬 입력칸 질문 | **사라진다** | 셋 → 하나, 사라지지는 않음 |
+  | `when`·`editorEditable` 검사 | 걸린다 | **영원히 안 걸린다** |
+  | 선언의 종류 | 하나 | **둘 영구화** |
+
+  **이번에 잰 것 중 처음 나온 것 셋:**
+
+  1. **엔진 쪽은 이미 열려 있다.** `keySurface` 옵션이 구현·검사까지 되어 있는데
+     **`EditorViewDOM` 을 만드는 넷 중 넘기는 곳이 0** 이다. 남은 것은 결정이지 엔진이 아니다.
+  2. **slides 의 디스패처는 하나가 아니라 둘이다.** `view` 절반은 `apps/slide/src/app.tsx:987-1012`
+     (window, 버블), `command` 절반은 `packages/office-slides/src/overlay.tsx:2259-2414`
+     (window, **캡처**). 한 목록을 두 곳에서 돌리고, *크롬 입력칸인가* 를 한쪽은
+     `document.activeElement` 로 다른 쪽은 `event.target.closest(…)` 로 묻는다.
+  3. **무대와 오버레이만 감싸는 요소가 없다.** `<Stage>`(2018)와 `<SelectionOverlay>`(2085)는
+     형제이고 공통 조상 `.sl-main`(1883-2121) 안에 **`NotesPane`(2118) — 두 번째
+     `EditorViewDOM`** 이 있다. 다만 둘이 `frame={stage}`/`host={stage}` 로 **같은 ref 를 이미
+     공유** 하므로 그 요소가 답일 여지가 있다(재보지 않았다).
+
+---
+
+- **`editorFocus` 는 *문서를 만지고 있다* 를 뜻하지 않는다.** 🔴 열림 — 재서 못 박았다
+
+  고칠 자리(`editor-view-dom`)가 이 회차의 소유가 아니라 **열려 있다.** 대신 밀리초에 답하는
+  검사로 못 박았다: `packages/office-word/test/editor-focus-is-about-the-content-layer.test.ts`.
+
+  | 무엇을 했나 | `editorFocus` |
+  |---|---|
+  | 콘텐츠 층에 `focus` | **`true`** |
+  | **문서 표면**(콘텐츠 층을 담은 바깥 요소)에 `focus` | **`false`** |
+
+  그리고 그 자리에서 **`evaluateWhenExpression` 을 Word 의 쉰넷에 돌리면 0이 산다.** `keySurface`
+  가 넓으면 keydown 은 도착하고 `when` 이 전부 거짓이다 — **키가 안 잡히는 것과 잡히고 죽는 것은
+  화면에서 구분이 안 된다.**
+
+  고치는 방법의 크기도 같은 검사가 못 박는다: `focus` 는 버블 안 하고 `focusin` 은 한다(0회 대
+  1회). 그러므로 `focusin`/`focusout` 을 `keySurface` 에 붙이면 된다.
+
+---
+
+- **Word 샘플에 주석 달린 글자가 없어서 검사 하나가 안 돈다.** 🔴 열림 — 픽스처는 고쳤고 검사가 못 돈다
+
+  샘플에 주석을 넣었다(`sample-document.ts`: "Direct formatting" 위의 `commentRef` +
+  `resources` 의 `commentThread`). **그런데 그 검사는 여전히 안 돈다** — 스킵의 조건이 픽스처가
+  아니라 **선택자**였다:
+
+  | `word-outline.spec.ts:178` 이 세는 것 | 실제 |
+  |---|---|
+  | `.w-comment-anchor` | 그것은 **데코레이터의 stype** 이지 클래스가 아니다 |
+  | `[data-bc-decorator*="comment"]` | 그 속성의 값은 `'layer'`·`'inline'`·`'block'` 셋뿐이다 |
+  | | 실제 클래스는 **`w-comment-hit`** (`apps/word/src/main.tsx`) |
+
+  **옆 파일이 맞는 이름을 알고 있었다** — `apps/word/tests/word-review.spec.ts:160` 이
+  `.w-comment-hit` 를 쓴다. 스킵 메시지가 픽스처를 탓하는 동안 아무도 선택자를 안 봤고, 볼 이유도
+  없었다: **스킵은 초록색이다.**
+
+  고칠 곳(내 소유 아님): `apps/word/tests/word-outline.spec.ts:178` 의 선택자를
+  `.w-comment-hit, [data-bc-decorator-stype="w-comment-anchor"]` 로. 그러면 `test.skip` 줄은
+  지워도 된다.
+
+  그동안 그 검사가 물으려던 것은 밀리초에 답해 뒀다:
+  `packages/office-word/test/sample-wears-a-comment.test.ts` — 칸을 닫아도 닻 데코레이터가 그대로
+  남는지를 실제로 `CommentsPane` 을 렌더해서 잰다.
+
+---
+
+- **`apps/word` 의 주석 개수 검사 열 개가 *샘플에 주석이 없다* 를 전제한다.** 🔴 열림
+
+  위에서 픽스처를 두껍게 하니 나온 것이고, 이것이 이 회차의 가장 큰 발견이다. **얇은 픽스처가
+  하중을 받고 있었다.**
+
+  | 파일:줄 | 지금 | 샘플의 주석 하나가 더해지면 |
+  |---|---|---|
+  | `word-review.spec.ts:155` | `.w-comment` = 1 | 2 |
+  | `word-review.spec.ts:160` | `.w-comment-hit` = 1 | 2 |
+  | `word-review.spec.ts:191` | `.w-comment` = 1 | 2 |
+  | `word-review.spec.ts:192` | `.w-comment-text` = 2 | 3 |
+  | `word-review.spec.ts:235` | `.w-comment` = 3 | 4 |
+  | `word-review.spec.ts:259` | `.w-comment-hit` = 0 | 1 |
+  | `word-review.spec.ts:270` | `.w-comment` = 0 | 1 |
+  | `word-review.spec.ts:273` | `.w-comment-hit` = 0 | 1 |
+  | `word-review.spec.ts:288` | `.w-comment` = 1 | 2 |
+  | `word-toolbar.spec.ts:549` | `[data-comment]` = 1 | 2 |
+
+  (`word-review.spec.ts:256` 은 안 걸린다 — 샘플의 것이 `resolved: false` 다.)
+
+  **고치는 방법은 숫자를 하나씩 올리는 것이 아니다.** 열 개 전부 *문서에 주석이 없다* 를 절대
+  개수로 적고 있다. 상대 개수로 바꾸면(`before` 를 세고 `before + 1`) 픽스처가 어떻게 바뀌어도
+  견딘다 — **그리고 그렇게 쓴 검사가 이 파일들에 딱 하나 있었는데, 그 하나가 스킵되던 그것이다.**
+
+  playwright 금지라 이 회차에서 돌려보지 못했다. `apps/word/**` 는 내 소유가 아니다.
+
+---
+
+- **`office-word` 는 자기 주석 닻을 그릴 수 없다.** 🔴 열림
+
+  위 검사를 쓰다 나왔다. `CommentsPane` 이 `ANCHOR_STYPE` 데코레이터를 세우는데 **그것을 그리는
+  템플릿은 `apps/word/src/main.tsx` 에 있다.** 그래서 패키지 안에서 뷰를 만들면
+  *"Component not found for decorator type 'w-comment-anchor', using fallback div"* 가 뜨고,
+  `w-comment-hit` 클래스 없는 `div` 가 그려진다.
+
+  주석의 *모양* 이 앱의 것인가는 결정할 수 있는 문제지만, 지금은 결정된 것이 아니라 **패키지가
+  자기 것을 반만 갖고 있는 상태** 다 — 그리고 그 반쪽이 위 항목의 죽은 선택자가 태어난 자리이기도
+  하다.
+
+---
+
+- **`office-note` 의 `spec-numbers` 가 줄 수를 못 박아서 주석 한 줄도 못 더한다.** 🔴 열림 — 판단 필요
+
+  `note-keymap.ts` 에 *왜 note 는 `editorEditable` 을 걸 것이 없는가* 를 열 줄로 적었더니
+  `spec-numbers` 가 빨개졌다: `docs/specs/note.md` 가 `office-note` 를 **2,392줄**이라고 적고
+  있고 2,402가 됐다. 되돌렸다(`docs/specs/note.md` 는 내 소유가 아니다).
+
+  **검사가 제 일을 한 것이다** — 문서의 숫자가 낡지 않았다. 다만 결과로 **그 패키지에는 설명을 더
+  적을 수 없다**: 주석 한 줄이 명세 문서 수정을 요구한다. 줄 수를 재는 것이 그 문서가 말하려는
+  것(*"이 제품은 작다"*)의 좋은 대리인지 다시 볼 만하다.
+
+---
 
 ## Done
 
@@ -14848,4 +12572,3221 @@ Newest first. The surprise each one produced is the part worth keeping.
   **두 갈래가 따로 찾아 같은 곳에 닿았다.** `site.spec.ts:8298` 의 15% 실패를 좇던 갈래와
   입력 층을 재던 갈래가 서로 모르고 같은 필드를 짚었다. 이 자리는 대비용 경로이고, 앞선
   갈래가 짚은 것은 그 위 SelectionManager → 트랜잭션 스냅숏 경로다. **그쪽은 아직 열려 있다.**
+
+
+- **로드맵 둘을 아무 검사도 붙잡지 않았다.** ✅ 고침 — `packages/conformance/test/roadmap-claims-name-their-proof.test.ts`
+  가 두 문서의 `- [x]` 를 세고, `— 근거:` 도 `— 근거 없음(주장)` 도 없는 줄이 0이라고 단정한다.
+  검사 다섯: 체크박스가 있는가(빈 통과 방지) · 완료 주장마다 근거를 대는가 · 근거를 실제로 댄 줄이
+  하나라도 있는가 · 한 줄이 둘을 함께 달지 않는가 · **`- [ ]` 가 근거를 대고 있지 않은가**(대고 있으면
+  그 사이에 끝난 것이고 상자를 안 바꾼 것이다 — `BACKLOG.md` 에서 열넷이 `## Done` 에 앉아 있던 것과
+  같은 모양). 실패 메시지가 어느 줄인지와 무엇을 적어야 하는지를 한국어로 말한다.
+
+
+- **`WORD_KEYBINDINGS` 가 71개도 70개도 아니라 52개다.** ✅ 고침 — `ROADMAP.md` 두 자리에
+  *"Word 의 71개"* · *"70개 중 18개"* 로 적혀 있었다. 오늘 세면 52(+`WORD_VIEW_KEYS` 1 = `WORD_KEYS` 53).
+  같은 숫자가 `docs/specs/keybindings.md:73`·`:150` 에 **54**, `packages/office-note/src/note-keymap.ts:7`
+  과 `packages/office-note/test/spec-numbers.test.ts:97` 주석에 **71** 로 또 적혀 있다 — 이 셋은 내
+  파일이 아니라 못 고쳤다. 🔴 남은 일: 그 세 자리의 숫자를 맞추고, `word` 에도 키 수를 세는
+  `spec-numbers` 항목을 하나 더한다(지금 `office-word/test/spec-numbers.test.ts` 는 키를 안 센다).
+
+- **읽기 전용 가드가 "Word 54 중 0" 이 아니라 "52 중 2" 다.** ✅ 고침 —
+  `packages/office-word/src/word-keymap.ts:106`·`:107` 의 `indentText`·`outdentText` 가 `editorEditable`
+  을 건다. 그 주석이 *"검사가 찾아서 더했다"* 고 적어 두었다
+  (`packages/office-controls/test/no-product-restates-an-engine-key.test.ts:89`). note 2 중 0은 맞다.
+
+- **site 의 "문서 키 0" 이 틀렸다.** ✅ 고침 — `SITE_KEYS` 가 18개이고 그 중 **14개가 명령**이다
+  (`removeBlocks`·`groupBlocks`·`selectParent` …). 크롬은 `view` 5뿐. `keybindings.md:153` 은 아직
+  `SITE_KEYS` 5라고 적고 있다(내 파일 아님). slides 도 23이 아니라 24(명령 22 · `view` 2, 문서 키 20).
+
+- **`뷰 층이 두 벌` 이 `ROADMAP` 에서 `[x]`, `TECHNICAL` 에서 `[ ]` 로 서로 어긋나 있었다.** ✅ 고침 —
+  재보니 두 벌이 그대로다: 505줄 / 424줄에 같은 이름의 private 메서드 **14개**(문서는 751/485줄에
+  11개라고 적었다 — 줄 수도 개수도 틀렸다). `ROADMAP` 을 `- [ ]` 로 되돌렸다. 이 회차에 끝난 것은 그
+  안의 결함 둘뿐이고 `packages/shared/src/text-position/collapse-boundaries.test.ts:25` 가 붙잡는다.
+
+- **`셀 두 개를 고르는 제스처가 없다` 가 틀렸다.** ✅ 고침 — `installCellSelection` 이
+  `packages/office-text/src/table-selection-view.ts:76` 에 379줄로 있고 word·slide·note 셋이 설치한다.
+  `TECHNICAL-ROADMAP` §2.3 의 그 줄만 `[ ]` 로 남아 `ROADMAP`·§2.0 과 모순이었다.
+
+
+- **사이트 크롬 넷의 이주.** ✅ 고침 — `page-frame`·`rail`·`inspector`·`overlay` 가 다
+  `packages/office-site/src/` 에 있다(314 · 1,467 · 2,310 · 2,028). 문서의 307 · 1,483 · 2,343 · 1,997 은
+  이주 전 숫자다. 근거: `packages/conformance/test/every-app-scans-the-chrome-it-draws.test.ts:59`.
+
+- **슬라이드 타임라인의 이주.** ✅ 고침 — `packages/office-slides/src/timeline-pane.tsx` 2,522줄이고
+  `ui.ts:32` 로 나가 `apps/slide/src/app.tsx:2161` 이 쓴다. *"2,446줄로 앱에 있다"* 는 낡았다.
+
+- **`createWordTables` 와 `frameCss` 의 제자리.** ✅ 고침 — `packages/office-text/src/table-commands.ts:506`
+  과 `packages/office-site/src/wireframe.ts:593`(`wireframeCss`). 제품끼리의 변 셋이 다 없어졌고
+  `packages/conformance/test/no-product-depends-on-a-product.test.ts:86` 이 지킨다.
+
+- **노트의 잡은 블록 끌어 옮기기.** ✅ 고침 — `packages/office-note/src/note-view.tsx:119` 의 `grab` 이
+  `dragGesture` + `reorderIndexAt` 으로 자리를 정하고 `abort` 로 물러선다. 근거:
+  `packages/office-canvas/test/canvas-layout.test.ts:273`·`:279`.
+
+- **표 스타일 — "스키마에 있고 아무도 안 읽는" 훑기의 다음 항목.** ✅ 고침 —
+  `packages/office-text/src/table-style.ts` 가 읽고 `test/table-style.test.ts:38` 이 붙잡고
+  `packages/office-word/src/ribbon.tsx:246` 이 낸다. 🔴 남은 일: 그 훑기를 다시 돌려 *다음* 이 무엇인지
+  찾는다 — 이 회차에는 못 했다.
+
+
+- **발행된 페이지의 이모지에는 상자가 없다 — 차트와 같은 칸의 결함이 하나 더.** ✅ 고침
+
+  `packages/office-site/src/page-css.ts` 에 `.w-emoji` 세 선언을 넣었다 —
+  `display:inline-block; line-height:1; vertical-align:-0.1em`. `user-select` 짝은 캐럿이 원자
+  절반을 훑는 것을 막는 것이라 방문자에게는 필요 없어서 `office-text/text.css` 에 남겼다.
+  붙잡는 것: `packages/office-site/test/page-css-covers-what-a-page-draws.test.ts` — 고치기 전 1건
+  (`.w-emoji — drawn by emoji, styled by packages/office-text/src/text.css, absent from PAGE_CSS`),
+  고친 뒤 0건. 돌연변이로 확인했다: 규칙 이름을 바꿔 두면 그 한 줄로 빨개진다.
+
+- **`.st-chart` 넷과 이모지가 같은 칸의 결함인데, 세는 것이 없다.** ✅ 고침
+
+  `page-css-covers-what-a-page-draws.test.ts`. `dead-selectors.test.ts` 의 **반대 방향**이다 —
+  저쪽은 *아무도 안 쓰는 규칙*, 이쪽은 *아무도 안 그려 주는 클래스*. 렌더러 소스를 grep 하지 않고
+  **레지스트리에서** 읽는다(`registerSiteRenderers()` 뒤 스키마의 노드·마크마다 템플릿을 부르고,
+  컴포넌트는 `toString()` 까지 읽어 빈 노드가 못 닿는 가지도 센다). 사이트가 `list`/`listItem` 을
+  `override` 하므로 `.w-list` 는 애초에 후보가 아니다 — grep 판은 그걸 몰라서 76개 대신 85개를
+  세고 그중 둘이 거짓이었다.
+
+  판정은 **맨 클래스 규칙** 하나다: 발행되지 않는 스타일시트가 그 클래스 *하나만으로* 칠하는데
+  `PAGE_CSS` 에 없으면 결함. `:empty` 어포던스·선택 표시·placeholder 처럼 조건이 붙은 여섯은
+  편집기만 들어가는 상태라 발행물에 없는 것이 옳다. 지금 **0건**. 사각지대는 이름을 붙여 적었다 —
+  *조건이 붙었으면서 동시에 페이지의 생김새인 규칙*은 놓친다(지금까지 셋 다 그 모양이 아니었다).
+
+- **`office-site/ui.css` 가 테마 토큰을 별칭한다.** ✅ 고침
+
+  이 파일의 **79개 declaration** 이 `var(--st-*)` 를 읽던 것을 전부 `var(--ou-*, 폴백)` 으로
+  바꿨다 — 갤러리가 정한 규칙(*별칭은 스냅샷이니 쓰는 자리에서 토큰을 부른다*) 그대로. `:root` 의
+  여섯은 남겼는데, `apps/site/src/style.css` 가 **27개 declaration** 에서 읽고 그 파일은 이번 회차에
+  내 것이 아니기 때문이다. 대신 `tokens.css` 가 팔레트를 다시 말하는 자리마다 여섯을 다시 찍도록
+  `[data-theme='dark']` 와 `[data-theme='light']` 블록을 뒀다 — `tokens.test.ts:97` 이 파생 토큰에
+  대해 말하는 규칙을, 그 검사가 넘지 못하는 패키지 경계 너머에 적용한 것이다.
+  붙잡는 것: `packages/office-site/test/ui-css-names-the-token.test.ts` — *이 파일이 자기 별칭을
+  읽지 않는다* 와 *살아남은 별칭은 두 테마 블록에 똑같이 있다*.
+
+- **`office-site/ui.css` 에 `[data-theme='light']` 가 없다.** ✅ 고침
+
+  다크 담당이 `/tmp/dark-backlog.md` 에 적어 둔 여섯 줄 거울상을 그대로 넣었고, `:171` 의 주석 —
+  *"`tokens.css` 에 그런 블록이 없어서"* — 은 전제가 사라졌으므로 다시 썼다.
+  `npx vitest run --root packages/conformance dark-is-actually-read` 8/8 초록(고치기 전 6건이
+  전부 이 여섯이었다).
+
+- **`office-slides/test/toolbar.test.ts` 가 서 있는 자리에 따라 답이 달라졌다.** ✅ 고침
+
+  `fs.readFileSync('src/toolbar-model.ts')` 는 패키지 안에서 돌 때만 맞다. `--root` 는 vitest 의
+  프로젝트 뿌리만 옮기고 프로세스 cwd 는 저장소 뿌리에 두므로 같은 코드가 `ENOENT` 로 죽었고,
+  그것이 **제품이 깨진 것처럼** 보였다. `join(__dirname, '..', 'src', 'toolbar-model.ts')` 로
+  고쳤다. `import.meta.url` 은 안 된다 — vitest 가 자기 변환을 통해 모듈을 주므로 `file:` URL 이
+  아니고 `readFileSync` 가 거부한다. 두 자리에서 다 6/6 초록.
+
+- **`code-render.ts` 의 `update(instance)` 주석형이 생산자와 안 맞았다.** ✅ 고침
+
+  `ComponentInstance.element` 는 `Element | null` 인데 여기는 `HTMLElement` 라고 적혀 있었다 —
+  `renderers.ts:437` 의 `tsc` 오류가 전부 이것이다. `Element | null` 로 넓히고 `paintInto` 도
+  `Element` 로 받게 했다(쓰는 것은 `setAttribute`·`textContent`·`innerHTML` 뿐이라 `HTMLElement`
+  일 이유가 없다). 런타임은 이미 `if (instance?.element)` 로 막고 있어 바뀐 것이 없다.
+  `(cd packages/office-site && npx tsc --noEmit)` — 자기 소스 오류 0.
+
+- **slides 와 site 에 `spec-numbers` 가 없다.** ✅ 고침
+
+  `docs/specs/slides.md` 를 새로 쓰고(`word.md` 의 구조·문체), `docs/specs/site-builder.md` 에
+  *재는 절* 을 더했다. 붙잡는 것은 `packages/office-slides/test/spec-numbers.test.ts` (8) 과
+  `packages/office-site/test/spec-numbers.test.ts` (6). 넷 다 붙잡힌다.
+
+
+- **`office-editor-ui` 가 `extensions` 를 타입으로만 쓴다.** ✅ 고침
+
+  `slash-menu.tsx:3` 의 `import type { SlashCommandExtension }` 하나뿐이라
+  `dependencies` → `devDependencies` 로 옮겼다. `conformance/dependency-graph.test.ts` 4개 통과.
+  깊이는 안 바뀐다 — `office-controls`(4) 때문에 어차피 5다.
+
+- **내가 승인한 다크 수정이 거울상 버그를 만들었다.** ✅ 고침
+
+  `apps/slide/src/style.css` 의 팔레트가 이제 다크를 **두 번** 말한다. 미디어 블록의 `:root` 는
+  `:root:not([data-theme='light'])` 가 되었고(다크 기계에서 `data-theme="light"` 를 찍으면 이제
+  라이트가 나온다), `[data-theme='dark']` 와 `[data-theme='light']` 블록이 `--sl-*` 여섯을 어느
+  요소에서든 뒤집는다. `--ou-*` 매핑은 네 갈래(`:root`, `:root:not([data-theme='light'])`,
+  `[data-theme='dark']`, `[data-theme='light']`)라 서브트리에서도 덱의 팔레트가 패키지 기본을
+  대신한다. 붙잡는 것: `packages/conformance/test/dark-is-actually-read.test.ts` — 고치기 전
+  `명시적 다크는 시스템 다크와 같은 팔레트를 낸다` 16건, `명시적 라이트…` 16건, `…명시도로 지지
+  않는다` 7건, `…방패를 갖는다` 1건.
+
+- **`[data-theme='light']` 는 뿌리가 아닌 곳에서 아무 일도 안 한다.** ✅ 고침
+
+  `packages/office-ui/src/tokens.css` 에 `[data-theme='light']` 블록이 생겼다 — `[data-theme='dark']`
+  가 말하는 19개 이름을 같은 값으로, 리터럴로(별칭은 스냅샷이라). 이제 다크 문서 안의 한 조각을
+  라이트로 되돌릴 수 있다. `apps/gallery/src/gallery.tsx:65` 의 *밝게* 가 다크 머신에서 처음으로
+  일을 한다. 붙잡는 것: `dark-is-actually-read` 의 `[data-theme='dark'] 가 말하는 이름은
+  [data-theme='light'] 도 말한다` — 고치기 전 101건.
+
+- **`.doc-title-field:focus` 가 다크에서 흰 바탕에 흰 글자다.** ✅ 고침
+
+  `apps/word/src/style.css` 의 `background: #fff` → `var(--ou-panel)`. 요소의 `color` 가 `inherit`
+  (= `--ou-ink`) 이므로 바탕도 같은 팔레트에서 와야 했다. 단위로 붙잡을 것이 없다 — 이건 값 하나고,
+  `word-theme.spec.ts` 가 `.w-document *` 와 `.w-chrome` 만 읽어서 못 봤다. 브라우저 회차를 도는
+  사람이 `.doc-title-field:focus` 를 그 스펙에 한 줄 넣어 주면 좋겠다.
+
+- **`apps/slide` 의 `.sr-only` 사본이 남아 있다.** ✅ 고침
+
+  지웠다. 지우기 전 대조한 것: `office-ui/tokens.css` 의 것은 이 사본의 아홉 선언을 **같은 값으로**
+  다 갖고 거기에 `clip-path: inset(50%)` 이 하나 더 있다. 즉 사본이 순서로 이기면서 그 `clip-path`
+  를 덮고 있었으므로, 지우는 쪽이 값이 같고 하나 더 낫다.
+
+- **`@barocss/office-ui/tokens.css` 를 `import` 하지 않는 호스트를 세는 검사가 없다.** ✅ 고침
+
+  `packages/office-ui/test/every-host-imports-the-style-door.test.ts`. 토큰 하나가 아니라 **문
+  전부** 를 센다: 앱이 `dependencies` 에 적은 워크스페이스 패키지가 `exports` 로 여는 모든 `.css`
+  문을, 그 앱의 스타일시트가 `@import` 를 따라 실제로 싣는지. 지금 다섯 패키지가 여섯 문을 열고
+  아홉 앱 중 다섯이 빚을 지며, **미납 0**. 아무 데도 안 보고 초록인 실패를 막으려고 문 여는
+  패키지 목록과 빚진 호스트 목록을 같이 단정한다. 돌연변이로 확인: `apps/word` 의 tokens.css
+  import 를 지우면 `apps/word: @barocss/office-ui/tokens.css` 로 빨개진다.
+
+  conformance 에 사는 게 맞지만 이번 회차에 그 디렉터리에 새 파일이 하나(다크)뿐이라 `office-ui`
+  아래에 적었다. 주인이 파일을 열면 옮기면 된다.
+
+- **다크의 *원인* 쪽을 단위로 내려 적었다.** ✅ 고침
+
+  `packages/conformance/test/dark-is-actually-read.test.ts`, 검사 여덟. 앱 다섯의 스타일시트를
+  `@import` 를 따라 순서대로 펼쳐 읽고 명시도·캐스케이드·`var()` 치환을 그대로 돌려 **네 상태에서
+  팔레트를 실제로 계산한다** — 시스템 라이트/다크, 명시적 다크/라이트. 정리는 둘이다: *명시적
+  다크는 시스템 다크와 같아야 하고, 명시적 라이트는 시스템 라이트와 같아야 한다.* postcss 를
+  안 쓴다(파서가 의존성이 되면 실패를 두 곳에서 읽어야 한다). 고치기 전 여덟 중 **여섯이
+  빨갛고 161건**, 고친 뒤 일곱이 초록 — 남은 하나는 아래 🔴.
+
+
+- **`apps/word` 의 `.lab` 다크 블록에 방패가 없었다.** ✅ 고침 — **작은 것**
+
+  `apps/word/src/style.css` 의 `@media (prefers-color-scheme: dark)` 열네 선택자에
+  `:root:not([data-theme='light'])` 를 붙였다. 팔레트 블록이 아니라 규칙 블록이라 백로그가
+  이름을 안 붙였는데, 거울상은 똑같다 — 다크 기계에서 `data-theme="light"` 를 찍으면 라이트 창
+  안에 다크 패널 하나가 남는다. 이 앱은 아직 `data-theme` 를 안 찍으므로 잠재고, `apps/slide` 가
+  잠재였던 것과 같은 날 함께 깨진다. 검사는 **모든** 다크 미디어 블록에 이 질문을 한다 — 방패는
+  그 블록이 *무엇을 칠하는가* 가 아니라 *어느 질문에 답하는가* 의 문제라서.
+
+- **`site.spec.ts:8298` 의 15% — 타이핑 경로가 깃발을 안 쓰던 자리를 찾아 막았다.** ✅ 고침
+
+  백로그가 짚은 여섯 단계 중 **첫 단계가 원인이었고, 그것을 강제한 것은 타입이었다.**
+
+  `input-handler.ts` 의 `rangeForReplace` 가 `convertStaticRangeToModel` 의 답에서 **네 필드만**
+  골라 새 리터럴로 옮겨 담았다 — 두 끝과 두 오프셋. `collapsed` 는 그 목록에 없었다. 그 함수는
+  `fromDOMSelection` 을 지나므로 접힌 `StaticRange` 에 **깃발을 붙여 돌려주고 있었다.**
+
+  왜 옮기지 않았나: `editor-view-dom/src/types.ts:155` 와 `selection-handler.ts:220` 이 그 함수의
+  답을 **여섯 필드짜리 좁은 사본**으로 손으로 적어 두었고 거기에 `collapsed` 가 없었다. 옮겨 적는
+  쪽은 그런 필드가 있는 줄 몰랐다. `docs/specs/selection.md` 가 이 모양을 이미 적어 두었다 —
+  *"사본은 어긋남을 못 잡은 것이 아니라 어긋남을 **강제했다**."* `editor-view-react` 는 같은 문에
+  `ModelSelection` 을 적고 있다. 둘 다 `ModelSelection` 으로 넓혔다.
+
+  고친 것 넷:
+
+  | 어디 | 무엇 |
+  |---|---|
+  | `editor-core/src/collapsed.ts` (새) | `isCollapsedSelection` · `withDerivedCollapsed` — *캐럿인가* 를 묻는 한 벌 |
+  | `editor-core/src/selection-manager.ts` | 담기는 문 하나에서 계산한다(private 접근자). 열다섯 자리를 고쳐 쓰는 대신 |
+  | `editor-core/src/editor.ts` | `updateSelection` 이 **저장 전·알림 전**에 계산. `deleteSelection`·`selectionEmpty` 가 필드 대신 술어를 읽는다 |
+  | `editor-view-dom/src/event-handlers/input-handler.ts` | `rangeForReplace`(주 경로) + burst 대비 캐럿 둘 |
+
+  `SelectionManager` 에서 계산하는 것이 **모델 트랜잭션 경로까지 덮는다**:
+  `create-transaction-context` 의 `{...before}` 가 이미 깃발을 실은 스냅숏을 뜨고, `insertText` 가
+  오프셋만 옮기며, `transaction.ts` 가 돌려주는 것을 `updateSelection` 이 한 번 더 센다.
+  `packages/model` 을 안 건드리고 그 여섯 단계가 닫혔다.
+
+  단위로 내려 적었다: `editor-view-dom/test/event-handlers/typing-says-where-the-caret-is.test.ts`.
+  고침을 되돌려 확인했다 — `expected undefined to be true`. **브라우저 4분이 밀리초가 된다.**
+
+- **`collapsed` 를 안 쓴 캐럿 리터럴을 세는 검사가 생겼다 — 제품 코드 13 → 6.** ✅ 고침
+
+  `packages/conformance/test/every-caret-says-it-is-collapsed.test.ts`. `type: 'range'` 리터럴 중
+  두 끝의 **식이 글자로 같은** 것에서 `collapsed: true` 가 없는 것을 센다. 빠뜨린 것과
+  `collapsed: false` 라고 적은 것을 **같이** 센다 — 두 끝이 같은 자리인데 `false` 는 빠뜨림이 아니라
+  모순이다.
+
+  | | 고치기 전 | 고친 뒤 |
+  |---|---|---|
+  | 제품 코드 | **13** | **6** (전부 이 회차의 소유 밖) |
+  | 검사 픽스처 | **44** | **44** |
+
+  검사 픽스처도 센다(파일별 개수로 — 줄 번호로 세면 위쪽 한 줄 고침에 빨개진다). 빼면 슬랙이고,
+  그리고 이 결함이 **처음 들어온 길**이 픽스처다: 캐럿을 네 필드로 적는 픽스처를 마흔넷 읽고 나면
+  제품 코드도 네 필드로 적게 된다. 실제로 `input-handler` 의 그 자리가 그렇게 적혀 있었다.
+
+  **이 검사가 못 보는 것을 자기 프로세에 적어 두었다.** `selectRange(nodeId, 3, 3)` 은 글자로는
+  범위이고 실행하면 캐럿이다. 필드를 골라 옮겨 담는 것(= 15% 의 원인)도 두 끝의 식이 달라서 안
+  잡힌다. 그래서 고침이 두 층이다 — 글자로 캐럿인 것은 글자로 말하게 하고, 실행해 봐야 아는 것은
+  담기는 문에서 계산한다. **검사 하나로 다 잡히는 척하지 않는다.**
+
+- **아홉 개의 DOM 입력을 jsdom 으로 내려 적었다 — 아홉 중 아홉, 그중 둘은 열린 채로.** ✅ 고침
+
+  `editor-view-dom/test/boundary-inside-a-block.test.ts` 에 여섯(#2~#8), 타이핑 경로(#9)는 새 파일.
+  #1 은 이미 있었다. **묻는 것은 하나다: 접힌 DOM 자리는 접힌 모델 선택인가.** 그리고 **두 경로에
+  다 묻는다** — `convertDOMSelectionToModel`(선택)과 `convertStaticRangeToModel`(타이핑). 이 회차
+  전까지 2·3·5 는 *선택 경로만* 막혀 있었다.
+
+  | # | 무엇 | 지금 |
+  |---|---|---|
+  | 1 | 블록 경계, 그릇 ≥2 | 있던 검사 셋 |
+  | 2 | 데코레이터가 제 글자를 그린 것 안 | ✅ 두 경로 다 |
+  | 3 | 길이 0 글자 노드 | ✅ 두 경로 다 |
+  | 4 | 색인 미스에서 DOM 오프셋을 모델 오프셋처럼 씀 | `it.fails` — 아래 |
+  | 5 | 그릇 없는 블록 | ✅ 두 경로 다 |
+  | 6 | 채움(ZWNBSP) 옆 | ✅ 맞은 채로 남아 있음을 적어 둠 |
+  | 7 | 빈 그릇 | ✅ |
+  | 8 | 인접 런 사이의 0글자 범위 | `it.fails` — 아래 |
+  | 9 | 타이핑이 쓴 깃발 없는 캐럿 | ✅ 고쳤고, 되돌려 확인 |
+
+  #4 를 적으면서 **픽스처가 처음엔 통과했다**. 런이 하나뿐이면 어느 오프셋도 그 하나로 붙기
+  때문이다. 런 둘로 바꾸자 결함이 보였다 — *픽스처가 제품보다 좁은 모양을 세우면 결함이 안 보인다.*
+
+- **`dsl` 과 `renderer-dom` 이 열여섯 이름을 각자 선언하고 있었다 — 여덟은 글자까지 같고, 여덟은 갈라져 있었다.** ✅ 고침
+
+  다시 세었고 **열여섯이 맞았다**(선언 수로는 열일곱 — `ClassNameType` 은 세 벌이었다).
+  `renderer-dom` 은 이미 `@barocss/dsl` 을 `dependencies` 로 갖고 있었고, `src/types.ts` 는 이미
+  열세 이름을 `@barocss/dsl` 에서 **재내보내고** 있었다. 즉 문은 열려 있는데 그 옆에 같은 이름을
+  다시 적은 것이다.
+
+  | 같은 것 여덟 | 갈라진 것 여덟 | 무엇이 달랐나 |
+  |---|---|---|
+  | `ClassNameType` | `ElementAttributes` | dsl 은 `<T extends AllTagNames>` + `key?` + `DynamicElementAttributes<T>`; rdom 은 `<T = string>`, 태그별 속성도 `key` 도 없음 |
+  | `DataValue` | `ElementChild` | dsl 은 열한 갈래 유니온; rdom 은 **`any`** |
+  | `ComponentProps` | `ElementTag` | dsl `AllTagNames`; rdom `string` |
+  | `ComponentState` | `ElementTagGetter` | 위와 같음 |
+  | `AttrBinding` | `ExternalComponent` | dsl 에만 `type?: 'external'`(레지스트리가 이걸로 가른다)과 `reactComponent?` |
+  | `SimpleComponent` | `ContextualComponent` | dsl 은 형인자 셋, rdom 은 그 기본 인스턴스화 |
+  | `RenderTemplate` | `ComponentInstance` | **아래 항목** |
+  | `TNodeType` | `ComponentContext` | **아래 항목** |
+
+  **어느 쪽이 옳은지는 읽는 곳을 세어서 정했다.** 갈라진 여덟 중 여섯은 `renderer-dom` 의 사본을
+  **아무도 읽지 않고 있었다** — `ElementAttributes`·`ElementTag`·`ElementTagGetter`·`ElementChild`
+  는 이 패키지 안에서 참조가 0이고, `ExternalComponent` 의 진짜 독자
+  (`vnode/utils/template-guards.ts`)와 `ComponentProps` 의 독자 둘
+  (`vnode/factory.ts`·`vnode/props-resolution.ts`)은 **이미 `@barocss/dsl` 에서 가져오고 있었다.**
+  한 패키지가 같은 이름을 두 출처에서 섞어 쓰고 있었고 그게 정확히 위험한 자리다.
+
+  **바깥으로 새 나간 곳은 0이다.** 저장소 전체에서 `@barocss/renderer-dom` 이 내보내는 이름을
+  가져가는 것은 여덟 개(`DOMRenderer`·`logger`·`LogCategory`·`buildTextRunIndex`·`defineState`·
+  `BaseComponentState`·`ContainerRuns`·`binarySearchRun`)뿐이고, **열여섯 중 하나도 없다.** 그래서
+  합치는 것이 다른 패키지의 import 를 하나도 안 건드린다.
+
+  합친 뒤: `renderer-dom/src/types.ts` 에 남은 선언은 **`DataStore` · `ReconcileContext` ·
+  `ReconcileError` · `ThreeElement`** 넷 — 전부 *DOM 으로 재조정한다* 는 이 패키지만의 개념이다.
+  나머지는 전부 `export type { … } from '@barocss/dsl'` 한 블록이다. 두 패키지의 이름 교집합은
+  **16 → 0**, `renderer-dom` 의 선언 수는 **80 → 64**.
+
+  **검사보다 구조가 세지만, 검사도 뒀다** —
+  `packages/renderer-dom/test/one-name-one-declaration.test.ts` 3개. 재내보내기는 되돌릴 수 없으니
+  이 검사가 지키는 것은 **열일곱 번째**다: 다음 사람이 `ElementChild` 가 필요해서 파일 맨 위에
+  `export type ElementChild = …` 를 적는 순간 파일과 줄을 대고 실패한다. 그것이 이 열여섯이
+  하나씩 생긴 방식이다. 검사가 진짜 잡는지 확인했다 — `src/__probe-collision.ts` 를 만들어
+  실패시키고 지웠다.
+
+  `dsl` 147통과·6파일 유지, `renderer-dom` **807 → 810**통과(검사 3 추가)·4건너뜀·**107 → 108**파일.
+  `tsc` 는 `dsl` 0, `renderer-dom` 0.
+
+- **`ComponentInstance` 이 있지도 않은 메서드 셋을 *필수로* 선언하고 있었다.** ✅ 고침 — **살아 있는 거짓말**
+
+  갈라진 여덟 중 유일하게 **`renderer-dom` 쪽이 옳았던 것**이다. 이건 그 패키지의 사본이 독자를
+  둘 가졌고(`component-manager.ts`·`dom-renderer.ts`) **생산자가 거기 있기 때문**이다 —
+  `ComponentManager` 가 인스턴스를 만드는 자리는 `component-manager.ts` 두 곳뿐이고, 거기서
+  넣는 것은 `{id, component, props, state, element, mounted, getModel}` 이다.
+
+  `dsl` 쪽은 `setState`·`getState`·`toggleState` 를 **필수**로, `element` 를 `HTMLElement`(널 없음)로
+  적고 있었다. 셋 다 생산자가 한 번도 넣지 않는다. `ExternalComponent.unmount(instance)` 의 인자
+  타입이 이것이므로, 그 문을 통해 들어온 컴포넌트 작성자가 `instance.getState(…)` 를 부르면
+  컴파일러는 통과시키고 런타임이 `undefined is not a function` 을 낸다.
+
+  **이미 알고 있었다는 영수증이 코드에 있다:** `office-site/src/code-render.ts` 는 자기 `update` 를
+  `(instance: { element?: HTMLElement }, …)` 로 **직접 좁혀서** 적었다. 공유 이름을 안 쓴 것이 아니라
+  못 쓴 것이다.
+
+  고친 뒤 `element: Element | null`. 처음에 `HTMLElement | null` 로 좁혔다가
+  `component-manager.ts:350` 에서 컴파일러가 아니라고 했다 — `mountComponent(vnode, container: Element, …)`
+  가 그 `container` 를 그대로 넣는다. **생산자를 재는 것과 짐작하는 것의 차이가 그 한 줄이다.**
+
+- **`ComponentContext.registry` 는 어느 렌더러도 준 적 없는 모양이었다.** ✅ 고침
+
+  이건 갈라진 여덟 중 **양쪽 다 독자가 있는 유일한 것**이라 제일 오래 걸렸다. `renderer-dom` 의
+  사본은 **생산자**(`vnode/factory.ts:262` 가 실제로 만든다)이고 `dsl` 의 사본은 **템플릿 작성자가
+  읽는 것**(`editor-view-dom` 통합 검사 넷, `renderer-react/build-to-react.ts`)이다. 같은 객체이므로
+  개념은 하나이고, 그러면 옳은 모양은 **생산자가 만드는 것**이다.
+
+  세 가지가 거짓이었다:
+
+  1. **`model` 이 없었다.** `factory` 는 모든 컨텍스트에 `model` 을 넣고 `renderer-dom` 의 사본은
+     그것을 선언한다. `@barocss/dsl` 로 `ComponentContext` 를 배운 작성자가 `ctx.model` 을 읽으면
+     **언제나 거기 있는 필드**에 대해 타입 오류를 받았다.
+  2. **`registry` 가 `setState`·`getState`·`toggleState` 를 필수로 적었다.** `renderer-dom` 이 넘기는
+     것은 `RendererRegistry` 자신이고 **그 클래스에는 셋 다 없다.** `renderer-react` 의 스텁만 여섯을
+     다 갖는다. 그래서 셋을 선택적으로 바꿨다 — 그것이 두 생산자가 실제로 주는 것의 합집합이다.
+     (`renderer-dom` 사본은 `registry: any` 라 거짓은 아니었지만 아무것도 말하지 않았다.)
+  3. **`instance?: unknown` 이었다.** `editor-view-dom` 통합 검사 넷이 전부
+     `ctx.instance?.get('count')` 로 쓰는데 `unknown` 에는 쓸 수 없다. `BaseComponentState` 는
+     `renderer-dom` 의 클래스라 `dsl` 이 이름 부를 수 없으므로, 템플릿이 물어도 되는 넷만 적은
+     `ComponentStateHandle`(`get`·`set`·`init`·`snapshot`)을 뒀다. `BaseComponentState` 가 구조적으로
+     이것을 만족한다.
+
+- **`tsconfig.typecheck.json` 이 부른 테스트를 상속받은 `exclude` 가 도로 지우고 있었다.** ✅ 고침
+
+  `exclude` 는 자식의 `include` 와 합쳐지지 않는다 — 부모 것을 통째로 가져와서
+  `include` 가 고른 것을 거른다. 열 패키지의 build 용 `tsconfig.json` 이
+  `vite build` 가 테스트를 `dist` 에 넣지 않게 `.test.ts` 글롭을 빼 두었고, 그 한 줄이
+  `extends` 를 타고 들어와 바로 윗줄이 부른 파일을 전부 지웠다. `dsl` 은 같은 것의 다른
+  철자였다: 검사는 `test/` 를 불렀고 디렉터리는 `tests/` 다. **이름은 77개, 컴파일된 것은
+  0개.** `editor-view-dom` 43개가 그중 절반이고 그 패키지 스위트의 전부다.
+  스물아홉 개 설정 전부에 `exclude` 를 직접 적었고, 두 철자를 다 부른다.
+
+- **예산이 0인데 프로그램이 비어 있으면 그 0은 아무것도 세지 않은 것이다.** ✅ 고침
+
+  `editor-view-dom  0 / 0` 은 43개가 안 읽히는 채로 초록이었다. 예산은 오류를 세는데 빈
+  프로그램에는 오류가 없다. `scripts/typecheck-tests.mjs` 가 이제 `--listFiles` 로 파일도
+  세고, 디스크에 있는 테스트가 프로그램에 없으면 `blind` 로 실패한다. 되돌려서 확인했다 —
+  `text-analyzer` 의 `exclude` 에 글롭을 다시 넣으니 `? 0 / 0  2 test files not compiled`.
+
+- **검사 대상 목록 자체가 검사받지 않고 있었다.** ✅ 고침
+
+  `packages/office-note` 는 `tsconfig.typecheck.json` 이 있는데
+  `typecheck-budgets.json` 에 줄이 없어서 회차가 그냥 지나쳤다(오류 9개).
+  `packages/shared` 는 설정 자체가 없었고 — 테스트 11개가 소스 옆에 붙어 있어서 배치가
+  "테스트가 딴 데 있다"고 말해 주지도 않았다. 이 저장소의 맨 아래층이고 모든 제품이
+  import 한다. 셋 다 예산에 넣었다(shared 0, office-editor-ui 2, office-note 9).
+  스크립트가 이제 *설정은 있는데 예산이 없는 것* 과 *테스트는 있는데 설정이 없는 것* 을
+  둘 다 실패로 만든다.
+
+- **제품 키맵이 `editorEditable` 을 하나도 안 건다.** ✅ 고침
+
+  Word **54 중 51**을 걸었다(전에는 2). 안 건 셋에 각각 이유가 있다:
+
+  | 키 | 명령 | 왜 |
+  |---|---|---|
+  | `Escape` | `leaveDrawing` | **읽는 키다** — `_leave` 가 `updateSelection` 하나다. 읽기 전용에서도 그림에서 나올 수 있어야 한다 |
+  | `Tab`·`Shift+Tab` | `nextCell`·`previousCell` | **제품의 것이 아니다** — `TABLE_CELL_KEYBINDINGS`(공용 `TableExtension`) |
+
+  **note 의 0은 결함이 아니다.** note 가 가진 둘이 바로 그 공용 둘이라 자기 이름으로 적은 키가
+  없다. *걸 것이 없어서 0* 이고, 이 구분이 없는 동안 백로그는 그것을 Word 와 같은 결함으로 세고
+  있었다.
+
+  **재보고 분류가 바뀐 것 하나:** `nextMathSlot` 을 읽는 키로 분류했다가 되돌렸다. 빈 칸을 만나면
+  `_fillEmptySlot` 이 `addChild` 를 커밋한다(`math-commands.ts:234`). **한 갈래에서만 쓰는 명령도
+  쓰는 명령이다.**
+
+  검사: `packages/office-controls/test/document-keys-gate-on-editable.test.ts` — *전부 걸어라* 가
+  아니라 **전부 분류되어 있어라**. 면제 목록이 키맵보다 오래 살지 않는지도 반대쪽에서 센다.
+
+---
+
+- **`docs/specs/keybindings.md` 가 site 를 5라고 적고 있었다.** ✅ 고침
+
+  실제로는 **25이고 그중 명령이 20**이다. 5는 `view` 항목의 수다. 그 숫자 위에 *"site 는 문서 키
+  0이므로 slides 보다 작은 이주"* 라는 **순서 결정이 얹혀 있었다** — 실제로는 site 가 slides 보다
+  크다.
+
+  `docs/ROADMAP.md` 의 *"키맵이 Word 에만 있다(71개)"* 와 같은 자리다. 그래서 숫자에 검사를
+  달았다: `packages/office-controls/test/keybindings-spec-numbers.test.ts` 가 네 제품의 키 목록
+  숫자를 코드에서 다시 센다.
+
+---
+
+- **`editor-is-typed` 톱니가 내 새 검사 하나에 걸렸고, 캐스트가 아예 필요 없었다.** ✅ 고침
+
+  `editor-focus-is-about-the-content-layer.test.ts` 가 `new EditorViewDOM(editor as never, …)`
+  로 쓰여 있었다. 재보니 **캐스트가 필요한 자리가 아니었다** — `createWordEditor` 는 `Editor` 를
+  돌려주고 `EditorViewDOM` 의 생성자는 `Editor` 를 받는다. 캐스트를 지우니 타입이 그대로 통했고
+  톱니는 357(2/2 초록)로 돌아왔다. 숫자는 안 올렸다.
+
+  그 파일이 말하는 것과 **정확히 같은 모양**이다: *"caller 가 import 한 인터페이스가 아니라
+  상상한 인터페이스에 대고 쓴 캐스트."* 새 검사를 쓰면서 같은 것을 했다.
+
+
+### 패키지가 잘 갈려 있나 — 순환 0개가 됐고, 유령이 열넷이었다 — 2026-09-04 *(Phase 1 끝)*
+
+물음: *우리가 지금 패키지를 잘 구분해서 진행하고 있는거 맞지?* 주장 대신 의존 그래프로 답했다.
+
+**제품 층은 맞다.** `office-editor-ui` 는 제품을 하나도 의존하지 않고 넷이 그것을 의존한다 — 방향이
+한쪽이고 검사가 그것을 지킨다.
+
+**엔진 층에 순환이 셋 있다**, 그리고 이번 작업이 만든 것이 아니다:
+
+```
+datastore ↔ model
+editor-core ↔ extensions
+editor-core ↔ model
+```
+
+이것 때문에 `datastore` 의 층 깊이를 물을 수가 없다 — 그래프를 걸으면 100 을 넘는다.
+
+**큰 일이라고 봤고, 틀렸다.** `ROADMAP.md` 의 Phase 1 이 *"작고 뒤의 모든 것을 푼다"* 고 적어뒀고 그
+말이 맞았다:
+
+| 순환 | 무엇이었나 |
+|---|---|
+| `datastore → model` | **유령.** `package.json` 에 있고 import 가 **하나도 없다** |
+| `editor-core → extensions` | **유령.** 주석 한 줄뿐 — *"Extension implementations are provided by @barocss/extensions"* |
+| `editor-core ↔ model` | 한쪽만 진짜. `editor-core` 는 `new TransactionManager` 를 쓰고, `model` 은 `Editor`·`SelectionManager` 를 **타입 자리에서만** 쓴다 |
+
+앞의 둘은 지우면 끝이고, 세 번째는 `import type` 셋과 devDependency 한 줄로 풀렸다. **셋이 다 몇 분이었다.**
+
+### Word 브라우저 스위트가 열 개 실패하고 있었다 — 2026-09-04 *(열 개 다 고침)*
+
+Reported by nobody. Found by reading a log properly for the first time.
+
+`--reporter=line` 의 마지막 줄은 **통과 수**입니다. `364 passed (4.8m)` 를 세 번 보고 세 번 통과라고
+말했고, 그 위에 `10 failed` 가 있었습니다. **요약의 끝만 읽으면 실패는 안 보입니다.**
+
+세 번의 전체 실행을 이름으로 대보면 **같은 열 개가 세 번 다** 실패합니다 — 이번 회차에만 실패한 것도,
+이번에 나아진 것도 없습니다. 이 작업과 무관하고 그 전부터 있던 것입니다.
+
+| | 무엇 |
+|---|---|
+| `float-paragraph-overflow` | 감싸는 문단의 줄이 **인쇄 영역 밖으로** 나감 |
+| `frame-layout` | 문서 흐름 속 프레임에 양쪽에서 타이핑 |
+| `drawing-select` | 그림에서 키보드로 빠져나오기 |
+| `word-math` ×2 | 빈 슬롯이 **보이지 않음**(`.w-math-deg` hidden), 빈 슬롯의 캐럿 자리 |
+| `word-pagination` ×5 | 페이지가 자기 장 맨 위에서 시작, 줄이 페이지 안에 머무름, 표가 행 사이에서 끊김, 그림을 감싼 페이지 경계 ×2 |
+
+일곱이 **레이아웃과 페이지 나눔**이고 둘이 **수식**입니다.
+
+### 셋이 선언하고 하나가 안 하는 명령 — 검사가 됐고, 첫 발견이 그날 내가 만든 것이었다 — 2026-09-04 *(built)*
+
+Asked after an article on why LLMs hallucinate — *빈 선반이 아니라 잃어버린 열쇠*, 지식은 95~98% 들어
+있는데 25~33%를 꺼내지 못한다 — and the question was whether the same shape shows up here. It does,
+and it is this repository's dominant failure: **없어서가 아니라 있는데 못 닿아서.**
+
+| | 있었는데 못 닿던 것 |
+|---|---|
+| `intoRegistry` | `EditorViewDOM → DOMRenderer → VNodeBuilder` 가 이미 다 엮여 있었고 쓰는 쪽 한 줄만 전역을 이름으로 갖고 있었습니다 |
+| `Control` | 파일 헤더에 *"a product extends it rather than copying it"* 이라 적혀 있는데 넷 중 둘이 복사했습니다 |
+| `useEditorRevision` | 주석이 꺼낼 조건까지 적어뒀고, 손으로 쓴 같은 줄이 여섯 곳 더 있었습니다 |
+| `toggleMark` | 같은 파일 600줄 위의 `deleteText` 가 도는 이터레이터를 안 돌았습니다 |
+
+**그래서 가장 싼 형태로 검사를 만들었습니다:** 세 제품이 선언한 명령을 네 번째가 선언하지 않으면
+말한다. 둘은 우연이고 넷은 만장일치이며, **셋은 *이 스위트의 제품이 내주는 것* 이 한 제품의 의견이기를
+그만둔 수**입니다.
+
+**그리고 첫 발견이 그날 내가 만든 중복이었습니다.** `office-note` 에 `addNoteRow` ·`removeNoteRow` ·
+`addNoteColumn` ·`removeNoteColumn` 을 등록했습니다 — *"모델에 있는데 아무도 안 부르는 연산"* 위에.
+그 절반은 사실이고 중요한 절반은 아니었습니다: `@barocss/extensions` 의 `TableExtension` 이 —
+**이미 note 의 kit 안에** — 그 연산들 위에 `insertRowAbove`·`insertRowBelow`·`deleteRow`·
+`insertColumnLeft`·`insertColumnRight`·`deleteColumn`·`splitCell` 을 같은 `cellId` payload 로
+등록하고 있고, **나머지 세 제품이 전부 그것을 선언하고 있었습니다.** 있던 여섯 위에 새것 넷.
+
+손으로 찾은 게 아니라 **검사를 쓰자마자 두 시간 전 내 작업이 걸린 것**이고, 그게 이 검사가 있어야 하는
+이유입니다.
+
+**8개에서 4개로, 그리고 0으로.** 남은 넷 중 둘은 진짜 빠진 것이었고(`insertRowAbove`·
+`insertColumnLeft` — 첫 행 **위에** 행을 넣고 싶은 독자에게 *아래에 넣고 옮기기* 는 두 제스처와 잘못된
+머리글입니다) 둘은 이유가 있어 면제했습니다: 본문에는 **셀 두 개를 고르는 제스처가 없어서**
+`mergeCells` 는 켜지지 않을 단추입니다.
+
+**면제는 양쪽에서 검사합니다** — 제품이 나중에 그것을 선언하면 면제가 낡은 것이므로 그것도 실패입니다.
+목록이 *주장이 읽히기를 멈추는 곳* 이 되지 않게.
+
+**그리고 이 검사가 다른 검사 하나를 깨뜨렸고, 그게 또 같은 모양이었습니다.** `dead-selectors` 가 note 의
+`[data-note-act]` 규칙을 *영원히 안 맞는 규칙* 으로 신고했습니다 — 실제로는 맞습니다. `office-editor-ui`
+의 `Controls` 가 ``{...{ [`data-${mark}`]: id }}`` 로 **실행할 때 이름을 조립**하고, 글자만 읽는 훑기는
+템플릿만 보고 끝납니다.
+
+두 끝이 **다른 패키지에** 있습니다: 템플릿은 `office-editor-ui`, `mark="note-act"` 는 `office-note`.
+그래서 검사가 **정확히 한 단계의 간접**을 컴포넌트 이름으로 알게 했습니다 — 조건 없이 `mark=` 를 다
+읽으면 이 저장소의 절반이 걸립니다.
+
+**다음 형태:** 지금은 명령 이름만 봅니다. *엔진이 하는 일 중 이 제품의 스키마가 노드를 선언했는데 닿을
+명령이 없는 것* 이 더 날카롭고, 그건 명령→연산 지도가 있어야 합니다. `mergeTableCells` 는 지금 세
+제품이 `mergeCells` 로 닿고 `splitTableCell` 도 `splitCell` 로 닿으니, 앞서 *"아무도 안 읽는다"* 고 적은
+것은 틀렸습니다 — 연산 이름으로만 훑은 결과였습니다.
+
+---
+
+### 주소는 영문으로 만든다 — 2026-09-04 *(built)*
+
+`slug.ts` recorded a decision and this reverses it. The old one said *a reader who names a page 제품
+gets `/제품`, not `/jepum`* — romanisation reads as neither language, and two people transliterate the
+same word differently.
+
+What it did not weigh is the address bar. `/제품` is stored as typed and **shown as
+`/%EC%A0%9C%ED%92%88`**: in a browser's address bar, in a copied link, in an analytics report, in a
+`curl` line. A reader who copies the URL of their own page gets 27 characters of hex to paste into a
+chat. Reported as *페이지에 적는 주소는 기본적으로 영문 slug 를 등록할 수 있도록 하자. 그래야
+안헷갈림*, settled as *영문 slug 가 우선이고 한글은 후자야*.
+
+Both halves kept, and they are different questions that had been one function:
+
+| | |
+|---|---|
+| **생성** — what the product makes | `latinSlugFor` / `freeAddressFor`. `제품` → `/jepum` |
+| **입력** — what a reader types | `slugFor` / `pathFor`, unchanged. `/제품` goes in as `/제품` |
+
+The old objection is exactly why it is a **table** — 국어의 로마자 표기법's letter tables, syllable by
+syllable, so the product does it one way always and a reader who dislikes the result types over it.
+자음 동화 is **one rule only**: 받침 ㄹ + 초성 ㄹ → `ll` (`블로그` → `beullogeu`), because that one is
+visible in ordinary words and a full pass with its exceptions would stop the result being the same
+every time.
+
+`freeAddressFor` rather than the bare slug, because two pages named 소개 would both land on `/sogae` —
+two files with one name in the published folder, every link resolving to whichever the walk found
+first, and the loser still in the panel and unreachable. That is the one fault `pathFaults` reports,
+and generating it deliberately would be perverse.
+
+**Written and removed:** a 제안 chip beside each address. It drew on every untouched row including the
+ones still called 페이지 9, so it offered `/peiji-9` — a control firing in a case that barely exists,
+adding a second address to read on every row. The automatic take on first naming is the feature.
+
+---
+
+### 제품 둘이 한 화면에 — 쓰는 쪽이 한 줄이었다 — 2026-09-04 *(built)*
+
+The answer to the entry below, which had measured the problem and stopped. Asked again three ways —
+*note 를 word 안에서도 쓸 수 있잖아? word 랑 slide 를 동시에? word 를 4개로?* — and they are one
+question with one answer.
+
+**Everything downstream was already built for it.** `EditorViewDOM` takes `options.registry`; it hands
+the same one to all four `DOMRenderer`s; each hands it to its `VNodeBuilder`; and a registry made with
+`{ global: false }` **looks locally first and falls back to the global one**. Four layers, already
+threaded, already tested.
+
+The only thing with no way through was the **writing** end: `define` had `globalRegistry` named in it,
+in one expression. So `intoRegistry(registry, fn)` — a scope that says where `define` lands while
+`fn` runs — and nothing in any product changes:
+
+```
+site 레지스트리 125 | word 레지스트리 129 | 전역 0
+둘 다 이름을 가진 stype 117 | 그 중 같은 렌더러 0
+```
+
+117 names in common and **not one shared renderer**. Both products complete, neither global.
+
+**Why a scope and not an argument:** `define` is reached through a dozen helpers and every product's
+`register*Renderers()` — hundreds of call sites across four packages. Threading a registry through
+them to change *where* they land is a rewrite; wrapping the call is one line at the host.
+
+**And the shared mutable, which this repository had just spent a round removing.** The difference is
+worth stating rather than assuming: `DataStore._globalCounter` was **state a result depended on across
+time** — an id counter, read long after it was written, by code with no idea another instance had
+moved it. `intoRegistry`'s target is a **dynamic binding**: set, used and restored inside one
+synchronous call, `finally` so a throwing product cannot leak it, and nothing reads it after `fn`
+returns.
+
+**`office-note` took it, and the split it existed to work around is gone.** `registerNoteRenderers`
+vs `registerNoteStandalone` was that dilemma written down as two functions — register the prose
+vocabulary and revert five of the site's own renderers, or register only `note` and borrow the host's
+`picture`. A note now builds into `noteRegistry()` once and hands it to every view: it draws as a note
+wherever it is mounted, and takes nothing from the host. `apps/site` and `apps/note` both dropped
+their registration line.
+
+**Not done:** the products still register globally when nobody wraps them, which is right for an app
+holding one. Two products on one screen is now possible and not demonstrated — no app mounts two. The
+env (`WORD_ENV_KEY`) is still a single key and is the next thing to check if one does.
+
+---
+
+### sid 는 인스턴스마다 달라야 했다 — 2026-09-04 *(fixed)*
+
+Reported as *sid 가 가장 큰 문제인데, instance 별로 달라야해 … `instanceId:xxxx` 형태로 되어야 할 수
+있음*, and the measurement was worse than the wording: **it was already colliding.**
+
+Twelve notes mounted on one page, and seven of them shared the root id `doc-1788481667942` — because
+that id was `doc-${Date.now()}` and the seven were made in the same millisecond. A host asking *which
+document is this node in* had seven answers.
+
+Underneath it, two things:
+
+| 무엇 | 왜 틀렸나 |
+| --- | --- |
+| `DataStore._globalCounter` | **`static`** — every store on the page drew from one number. It looked like collision *prevention* and was the opposite: it made one store's size decide another's next id, and it hid the real problem |
+| `_sessionId` | every note session passed the word `note`, so twelve stores all said `note:` and only the shared counter kept them apart |
+
+The shared counter works **within one page and not between two**. A body saved from one page load and
+a body saved from another both start near `note:1`, so `note:207` from one and `note:207` from the
+other are the same string — and a host holding both (a site with two bodies in `resources`, a CMS with
+a list of posts) has two different nodes under one name.
+
+**Fixed**: the counter is the store's own; the session is minted per store (`mintSessionId`) unless
+the caller names one; the root id borrows the store's session instead of the clock. `openNote` takes
+a `session` option, and **giving one is better than minting** — a host with a durable name for a body
+(a post's id, a row's key) gets the same sids every time it opens, which is what lets a comment, a
+bookmark or a diff point into one.
+
+`static syncIdCounter` is kept as a no-op and an instance method replaces it: re-basing a *shared*
+counter on one store's node count was meaningless and would have skipped another store's ids.
+
+**Found on the way, not fixed:** every store keeps one **orphan** — `Editor`'s constructor writes an
+empty document into the store it is handed, `loadDocument` then replaces the root, and that first node
+stays, unreachable. One per session. It is now uniquely named, which is the collision fix arriving
+where it was not aimed.
+
+**And the sweep the same report asked for** (*static 으로 객체를 생성한다던가 하는게 있을 수도 있음*):
+one live find, `renderer-dom/src/state-bus.ts` — a single module-level `rerenderCallback`, so twelve
+views would have left one winner. **Dead code, imported by nothing**; deleted rather than fixed. The
+rest of what a grep turns up is deliberate and keyed: the renderer registry is global *by stype* on
+purpose (which is why `office-note` was cheap), the content-match cache is keyed by expression, the
+audio-peaks cache by url.
+
+---
+
+### 선택은 한 블록 안에서만 산다 — 2026-09-04 *(fixed — 증상 셋, 원인 넷)*
+
+Reported as *지금 selection 도구가 제대로 없는데*, and the measurement is worse than the wording: a
+selection that spans two blocks is **made correctly and then acted on wrongly by everything**.
+
+Measured in `apps/note`, dragging from the 1st paragraph to the 3rd (`note:69:1 → note:73:12`, DOM
+71자 — the range itself is right):
+
+| 무엇 | 무엇이 일어나나 |
+| --- | --- |
+| 굵게 | the button is enabled and **nothing happens** — 0 `<strong>`. The third recorded instance of *guard says yes, then does nothing* |
+| Backspace | 21 blocks stay 21, and the contents go `28,28,28` → **`1,1,16`** — fragments left behind instead of two blocks merging into one |
+| 글자 치기 | the selection is not replaced: the third block keeps all 28 characters |
+
+What works, so the fault is narrow: a drag **inside one block**, `Ctrl+A` (615자, `mixedMarks:
+['bold']` — the summary is right), and `Shift+→` walking across a block boundary. So the selection
+model spans blocks; the operations that consume one do not.
+
+The path is not missing — `extensions/src/delete.ts:274` branches on `startNodeId !== endNodeId` and
+builds a range delete. It runs and leaves fragments, which is the harder kind of wrong: a missing
+branch is found by the first press, a wrong one is found by counting characters.
+
+One more thing measured and **not** a bug: a drag that *starts inside an existing selection*
+collapses it. That is the browser beginning a text drag-and-drop, which every editor gets from
+`contenteditable`. Worth knowing because it looks identical to the bugs above from the outside.
+
+**Where to start:** unit tests in `packages/extensions` over a two-paragraph and a
+paragraph-into-heading range, before any browser round — the arithmetic is the thing to get right and
+a browser check of it costs 30s where a unit test costs 4ms.
+
+### office-note — 잡을 수 있는데 할 수 있는 게 없었다 — 2026-09-04 *(built)*
+
+Reported as *아직 완전히 note 를 구현하지 않은 것 같아*, and the reading was right. A body could hold
+a picture, a video, an embed, a rule, a table and a code block — and do **nothing** with any of them.
+Six kinds of block a reader could select and then only delete.
+
+What went in, and what each one cost to find:
+
+| 무엇 | 왜 없으면 안 되는가 |
+| --- | --- |
+| 고른 블록 줄 | a picture arrives as a placeholder and a video with a blank `src`, because both are *required* by the schema and no file has been chosen. Without somewhere to give it one, 이미지 is a button that puts a grey rectangle in a post forever |
+| 파일 넣기 | *이미지나 동영상은 파일을 넣을 수 있어야하고*. What a reader picks becomes the `src` itself — a body has no asset store to name one out of |
+| 표 크기 고르기 | *테이블은 셀 선택으로 몇칸인지 드래그 해서 선택해야한느거 아니니?* A fixed 2×2 makes a reader's first act after inserting a table be adding rows to it |
+| 행·열 편집 | over four operations `@barocss/model` has had all along — a grid walk that handles spans, **called by nothing** |
+| 블록 이동 | a picture put in the wrong place could only be deleted and made again, losing the file it was given |
+
+**Five faults found by pressing the buttons**, and each one is a different shape:
+
+1. **A player swallows a click.** An `<iframe>` is a document of its own and a `<video controls>` has
+   its own control bar; neither hands a `mousedown` to the page around it. So the two blocks most
+   likely to need configuring were the two that could not be selected — the strip went on describing
+   whatever was held before. The sid is on a holder now and the player inside is drawn rather than
+   pressed: an editing surface takes the clicks, a published page gives them away.
+2. **Held and having no text are two different facts.** Insert a table, click a cell, type 이름, press
+   Backspace — **the whole table went**, because the table was held from the moment the cell was
+   clicked and the held-block key handler answered for it. `bTable` is now the one held block that
+   keeps its caret.
+3. **`setAttrs` is an operation, not a command.** A panel that ran `executeCommand('setAttrs')` ran
+   nothing at all, which is how a picture stayed a placeholder after a reader chose a file for it.
+4. **A cell's words are zero pixels wide.** An empty `inline-text` draws as an inline span at the
+   left of a 3rem box, so a click anywhere else in the cell put the caret on the **row**. Measured as
+   four permanently-disabled buttons.
+5. **The caret cannot be written after an insert.** Tried, as the fix for (4): `addChild` leaves the
+   caret on a table's `bTableHeader`, so `_put` set it into the first cell. That made the view apply
+   its own selection and then **stop following the DOM caret** — a reader clicked the end of a
+   quotation, pressed Enter, and the new line appeared *above* what they had written. Reverted, with
+   the reason left in the code; the row and column acts read **the cell the reader pressed** instead,
+   which is unambiguous where a caret is not.
+
+Two declarations came out of it, `NOTE_FIELDS` (what a kind is asked) and `NOTE_ACTS` (what it is
+told to do), kept apart because a field writes an attribute and an act runs a command. A check reads
+both: a held kind with neither, other than 구분선, is a block a reader can hold and do nothing with.
+
+**Left undone:** merging and splitting cells (`mergeTableCells`, `splitTableCell` are in the model
+and unread by this too); dragging a held block rather than pressing 위로; a caret that walks out of a
+table's last cell.
+
+---
+
+### apps/note — 사이트를 치우자 빌린 것이 다 드러났다 — 2026-09-04 *(built)*
+
+Asked as *apps/note 만들어서 office-note 를 멀티로 띄워서 다양하게 테스트 해봐야하지 않을까?* — and
+it earned itself on the first run.
+
+A package is only independent if something independent uses it. Every claim about `office-note` was
+true **inside** the site builder, which is the one place the claims are hardest to check: a borrowed
+part goes on working, for the wrong reason, and nothing says so. So: an app that imports the package
+and nothing else of the products — three stylesheets, `registerNoteRenderers()`, and a body as a
+literal.
+
+**The first run drew nothing.** `openNote` reads a body out of a host's *store* and walks it by sid;
+a host without one has the tree already, and every child was filtered out as *not a string*. Silently.
+`openNoteTree` is the other door.
+
+**Then five of the eleven toolbar buttons did nothing, and every cause was different:**
+
+| | |
+|---|---|
+| 목록 | wrote `type: 'unordered'`; the schema says **`bullet`** — 번호 목록 worked, which made it look like a list problem rather than a value one |
+| 이미지 | wrote an empty `src`, which is **required and may not be empty** |
+| 영상 · 넣은 것 | named node types the note schema **did not declare** — office leaves them behind and the site takes them, so the toolbar, the content expression and the bar all agreed about a node that did not exist |
+| 표 | put a `bTableRow` inside `bTableHeader`, which holds **`bTableHeaderCell+` directly** |
+
+**And then three landed in the model and drew nothing.** `picture`, `mediaVideo` and `mediaEmbed`
+were the products' renderers — three copies between the site, the deck and Word, none shared — and a
+note embedded in a site had been borrowing the site's. It draws its own now, deliberately plain: a
+site's picture answers to a crop, a hover, a link and five widths, and none of that is a body's
+business.
+
+Also **툴팁**: the bar had `title` and no `Tip`, and a host that never mounted a toolbar has no
+`TipProvider` — so the package brings its own. *toolbar 에 툴팁이 안나오니깐 어떤 기능인지 모르겠어.*
+
+### 빈 줄에서 엔터는 나가는 것이다 — 2026-09-04 *(built, shared)*
+
+*인용구에서 엔터로 벗어날 수 없음.* Measured: one blockquote, Enter, Enter — **three paragraphs, all
+inside it**, and no way out with the keyboard at all.
+
+`paragraph.ts` had a rule for a heading (Enter at the end of one gives a paragraph, because a heading
+is a title and what follows a title is prose) and none for a container. A list item has had one since
+it was written — `splitListItem` empties out a level — which is the same rule one container over.
+
+So: **an empty block at the end of a container leaves it.** Four conditions, each of them a way a
+reader could mean something else — collapsed caret, empty block, last child, and a container that is
+not the body itself. An empty paragraph is not writing, it is a gesture; a reader who wants a blank
+line inside a quote presses Enter in the middle of it.
+
+In the shared kit, because all three products have quotations and all three had this.
+
+### office-note — 세션까지 자기 것이 되고 나서 — 2026-09-04 *(built)*
+
+The second slice, and it was a **bug fix** rather than a tidy-up. Reported from the console:
+
+```
+[EditorViewDOM] selection retry exceeded { sel: { startNodeId: 'site:597', … } }
+```
+
+and read exactly right from the outside — *난 분명 office-note 를 드래그 했는데 office-site 의
+editor 가 selection 을 넣는 느낌이야.* The bar and the view were the note's and the **editor** was
+still the site's: one editor means one selection, and a selection is applied by *every* view, so the
+boards were told the caret is at a node they do not draw, searched their own DOM for it and gave up —
+on every click into a body.
+
+**Two editors over one store is not the answer**, and it was measured before it was tried: `Editor`'s
+constructor makes an empty document and *writes it into the store it was given*, so the second erases
+the first. So a store of its own, loaded with a copy (`openNote`), and the copy written home on a
+pause (`setRichText`) — a transaction per pause, so one undo takes back a phrase rather than a
+character.
+
+**And then the borrowed parts stopped working, visibly**, which is the useful thing about a store of
+one's own:
+
+- **the ten insert commands were `office-site`'s.** The bar declared them and `note-kit` registered
+  none — 93 commands, every one of the bar's ten missing. It had worked for as long as a host handed
+  its own editor in, which is to say a body's bar had been pressing a page builder's buttons in the
+  one place nobody had looked.
+- **`note` had no renderer.** A body loaded into its own store drew nothing: the blocks were there
+  and the root that holds them was not a thing anything knew how to put on screen.
+- **the `/` menu was the host's surface**, listening to the host's editor, so typing `/` in a post
+  raised nothing — in the one place the rail is behind a scrim. `NoteSlash` now.
+- **번호 목록 did not exist.** The toolbar was a row per block, and 목록 and 번호 목록 are one node
+  type and **two doors**. Found by the browser: eleven rows in the site's menu, ten here.
+
+Two checks changed their claim because the product got better, not worse: the bar offers its blocks
+**before** a caret arrives (a note has no pages, so `_where` with no caret is *the end*, which is what
+a writer pressing 제목 on a fresh body means), and a heading gets one section wherever its rows turn
+up — see below.
+
+### 한 제목에 한 절 — 2026-09-04 *(built)*
+
+From the browser's console, not from a check: *Encountered two children with the same key, `바탕`* —
+twice, and `그림자` twice. React's own warning ends *the behavior is unsupported*.
+
+`panelGroupsFor` merged **contiguous runs**, deliberately, with an argument beside it: *two runs of
+one heading draw the heading twice rather than silently merging — the declaration is what decides.*
+It reads well and is wrong for a reason no declaration can prevent: **a run is only contiguous after
+filtering.** A group's rows are written together and `panelRowsFor` drops the ones a node type has no
+place for, so one section in the file becomes two on screen the moment a type sits out the middle of
+it. A page did it with 바탕 and 그림자; a `collection` with 데이터.
+
+The label is the group now, wherever its rows turn up; its **place** is still where its first row is,
+so order is still meaning. Held by a check over every node type and every pane, count zero.
+
+### office-note — 한 편의 글은 자기 패키지다 — 2026-09-04 *(built, first slice)*
+
+Asked as *office-note 는 자체 툴바/ui 까지 다 가지고 있어야해*, after the shorter version of the same
+point: *이 툴바가 기존 페이지 빌더 툴바랑 연동되고 있음. 그러면 안돼.*
+
+Correct, and the coupling was in four places at once. A body's **content model** was the page's
+`block` group; its **toolbar** was assembled in the app out of `siteControlsIn('text')` and
+`siteSlashItems()`; its **chrome** was styled in the site builder's stylesheet; and its **editing
+session** was the page builder's editor. Four decisions about writing, all made by a page.
+
+**Measured before writing a line, and it made the package cheap.** Renderers register globally by
+stype, and `office-text` already draws every block a body holds — `paragraph`, `heading`, `list`,
+`listItem`, `codeBlock`, `blockQuote`, `bTable*`, `horizontalRule`, `inline-image`, `emoji`,
+`hardBreak`, `inline-text`. So what was missing was never the drawing: it was a **declaration of
+which of them a body may contain**, and a kit to edit one with.
+
+What shipped: `note-schema.ts` (top node `note`, `NOTE_BLOCKS`, `NOTE_CONTENT`), `note-kit.ts`
+(short by design — no font colour, size or family, because *칠·여백·크기는 카드의 것*, enforced by
+not registering the command), `toolbar-model.ts` (marks + blocks, the blocks **keyed by
+`NOTE_BLOCKS`** so a row for a refused block cannot be written), `note-view.tsx` and `note.css`.
+`office-site` reads `NOTE_CONTENT` for `richText.content` — one sentence, two documents.
+
+**The name.** `office-page` was offered and is wrong: a site *has* pages (`surface`), so the word
+would mean two things, and `.st-grip` colliding with the board's resize handle had broken eight
+checks the same afternoon. `office-note` says what it is.
+
+**And a layering fault the split found.** The root export carried the React component, so
+`office-site`'s *schema* dragged `editor-view-dom` into every Node process that imported it — the
+browser suite stopped collecting, because that build is CommonJS. The component is
+`@barocss/office-note/view` now: the same line `office-ui` is on the other side of.
+
+Still ahead: the **session**. `NoteEditor` is handed the host's editor, so selection and history are
+still shared. `createNoteEditor` is written and unused — the next slice is a store of its own with a
+live mirror back, which is what *독립된 에디팅 상태* finally means.
+
+### 설정 화면과 사이드바 — 2026-09-04 *(built)*
+
+Reported as three things, and the first one turned out to be the smallest half of itself.
+
+**설정 화면 배경이 회색이라서 너무 어색해.** The grey was true and it was not the fault: the screen
+opened under a **full page-editing toolbar** — 선택/텍스트, eight arrange glyphs, the insert plus, the
+text group, the zoom, *which page you are in* — every one of them about a block on a canvas, and 관리
+has neither. A management screen under a zoom that scales nothing.
+
+The grey itself was that the content **floated on the ground** with no surface of its own and row
+hairlines that stopped where the columns did. Inverted, which is what every settings screen of this
+kind does: the content is the lifted white sheet and the nav is the ground it sits on — and then a
+chosen tab can read as *the sheet you are looking at* rather than as a blue chip. Plus a real title
+(it was `--ou-text`, the same size as the table's body), 42px rows, a hover, and
+`--ou-field-line: transparent` — **sixteen bordered boxes** down two columns, in a token that has
+existed for exactly this since the rail was written.
+
+**Drawer 가 어디서 열리는지 모르겠어.** The row **number** was the button — `--ou-faint`, no icon, no
+word, nothing but a hover colour. A reader who does not already know cannot find that out by looking.
+Now the number keeps its place and a `expand` icon (`PanelRightOpen`, added — `zoom-fit` already held
+`Maximize2`, and one glyph meaning two things is how a reader learns an icon means nothing) appears on
+the row under the pointer, and a **double click on the row** opens it too — the gesture that cannot
+collide with a cell's own single click.
+
+**Sidebar resize.** A `Grip` on the rail's edge, pointer-captured, clamped 200–560, double-click to
+put it back. The **rail and not the panel**: the panel's 240px is an argued number with a measurement
+behind it (`properties.tsx` — every serious tool of this kind is between 232 and 248, and it is about
+how far the eye travels between a label and its value), and a drag handle there would be a second
+answer to a question that has one.
+
+Two faults found while building it. The grip sat at `right: -5px` inside a rail with
+`overflow: hidden`, so **half of it was clipped** and a drag mostly missed — measured, the width never
+moved. And the slash surface asked `selection.collapsed !== true` and returned: a press that puts a
+caret does not always set that flag, and clicking a paragraph in the drawer's body left it
+`undefined` with both ends on one node. So the `/` did nothing in the one place a reader has no other
+way in. **A caret is a range whose ends are the same**, and that is what it asks now.
+
+### Drawer 에 미니 에디터가 하나가 아니다 — 2026-09-04 *(built)*
+
+Asked as *속성에 rich text 가 여러개면 에디터가 여러개 나와야할 듯 한데*, and it already was — the
+editor is drawn per **cell**. What the fixture could not prove is that it stays that way, so the
+sample's 글 dataset grew a second rich column: 요약 is what a card shows in a list, **본문** is the
+post.
+
+Wearing it produced a claim the one-column fixture could not make: deleting a row takes **both** of
+its bodies. `_dropRich` reads every rich value in the row, and a rule written for one column and
+never run against two would have taken one and left the other unreachable — which is exactly the
+orphan the fault list now reports.
+
+And the bar is **per body**, over the one it is about. A single bar at the top of the drawer would be
+a control whose target is *whichever body was last clicked*, which is a thing a reader has to keep in
+their head. Marks from `siteControlsIn('text')` and blocks from `siteSlashItems()` filtered by
+`canExecuteCommand` — neither list written here, because two lists is how a toolbar and a menu come
+apart.
+
+### Drawer 에서 쓴다는 것이 세 겹이었다 — 2026-09-03 *(built)*
+
+The row form was **already a Drawer**. What it could not do was be written in: a reader could type
+into a body and could put nothing in it — no heading, no list, no image. Three faults, each hidden
+behind the one in front of it.
+
+**1. 슬래시 메뉴가 안 열렸다.** `SlashSurface` gates on `mode`, which is the *canvas overlay's*
+pointer mode — and a drawer has no overlay, so a caret in a body left the app in `select`. The rail
+is behind the drawer's scrim on purpose (a drawer is modal, and `dialog.tsx` argues why), so there
+was no other way in. `writing` already forced text mode for the canvas one level up; the drawer gets
+the same.
+
+**2. 모든 삽입이 거절하고 있었다.** `holdsABlock` asks whether the parent's content expression
+contains the word `block` — a string test. Narrowing `richText.content` to
+`(heading | paragraph | list | …)+` removed that word, so the walk from the caret found nowhere to
+land and **all twelve inserts refused**. The same shape as the table-cell fault that function was
+written for, from the other side: that one stopped too early because of *what* the schema said, this
+one because of *how* it said it. Now it expands the names and asks the schema for each group.
+
+**3. 될 거라 해놓고 아무 일도 안 하는 줄이 둘.** With the first two fixed, 버튼 and 글 appeared in the
+menu, said they could run, and did nothing — `insertButton` makes a `frame` and a body holds none.
+The guard asked *is there somewhere a block may land*, which is one question short: **every container
+takes some blocks and none takes all of them.** On a page it never showed, because a page's content
+is the whole `block` group. The factory is right there in `register`, so the guard asks it what it
+makes and the schema whether it fits — and the slash menu now filters by `canExecuteCommand` rather
+than by *does this editor have the command*, **omitting** rather than greying, because a reader
+narrowing a list by typing is choosing from what is left.
+
+*Says it can run and then does nothing* is now the **third** recorded instance in this package.
+
+### 글은 자료형이면서 블록이다 — 2026-09-03 *(built)*
+
+Asked as *사이드바에서 추가할 수 있는 요소로 RichText 가 있고, 아니면 데이타 연결해서 넣을 수 있게* —
+two ways to one thing. Building it closed a fault that was already in the published file.
+
+**The card declared its body slot as characters.** A `text` variable, a bind writing `attr: 'text'`,
+and a `<p>` for the part — and what arrives is a body. `<p>` inside `<p>` is not valid HTML, so the
+browser split them: **four empty paragraphs** published on the blog page and the card's own slot
+orphaned. Invisible only because that paragraph carried nothing but `margin: 0`; the rule
+*칠·여백·크기는 카드의 것* was therefore impossible to actually use.
+
+One node, two positions — in `resources` named by an `id` and pointed at from a cell, or placed on a
+page holding its own words. `id` became optional. Content written out rather than given a new group
+(`block` is in the shared schema; a node carries one group), which also **added `picture`** — a blog
+post could hold a 폼 and a 차트 and could not hold an image.
+
+`source` was declared for the data-connected case and removed: the binding machinery already replaces
+a part's children by variable name, and the harness said nothing read the attribute.
+
+And `every-insert-can-be-held`, written hours earlier, reported the new node before a browser drew one.
+
+### 가리키는 것을 한 번만 걷는다 — 2026-09-03 *(built)*
+
+The index was built and then only did half a job: `usesOf` moved onto it, and `linksTo` and
+`documentFaults` kept their own walks. Making both read the index was supposed to be a tidy-up and
+was not — **both numbers were wrong**, and wrong in the direction that loses work.
+
+**삭제 대화상자가 세는 숫자.** It counted **link marks and nothing else**, and its own comment called
+that deliberate. Measured across the sample: 23 things name a page — 11 marks, 9 a card's `goes`, 2 a
+row's cell, 1 a form's 감사 페이지 — so **six of the eight pages under-reported**. `/가격` said 3 where
+the answer is 8. The two blog posts said **0**: *가리키는 것이 없습니다*, about pages the blog list
+points at from a data row.
+
+The test that should have caught it was the one that compared the index against the walk and accepted
+the difference with a `toBeGreaterThanOrEqual` and a comment explaining the slack. The slack **was**
+the fault.
+
+Now three counts rather than one total, because they are three different repairs: a link is found by
+reading the words, a `이동` by opening a card's panel, a cell in the data editor. And `iGa` in
+`korean.ts` — *5개이 끊어집니다* is wrong the way *a apple* is wrong, and the sentence ends in 개 or 칸
+depending on which count lands last.
+
+**그리고 아무도 보고하지 않던 참조들.** `documentFaults` asked five resolution questions, each written
+inside the walk beside the node type it was about. Five of the ten shapes this schema uses. Delete two
+of the sample's pages — the two nothing *links* to — and two references now point at nothing and the
+report said **zero**. `refFaults` asks the index instead, so a new kind arrives already checked.
+
+Also: the admin's page table called the counting walk **once per row**.
+
+### 참조되지 않는 글은 못 찾는 글 — 2026-09-03 *(built)*
+
+`data-commands.ts` states the rule — *a `richText` is one cell's value; when the row goes, the value
+goes* — and, counting what is left, says *`documentFaults` is where the orphan is reported*. It was
+not: written as a promise and never kept.
+
+Worth recording is what the measurement **changed**. Two ways of making an orphan were tried and
+neither does: retyping the cell (the table refuses it, with the reason already written in
+`data-editor.tsx` — *a text box here would be a reader typing over a reference and losing a
+paragraph*) and changing the column's kind and back (the records are deliberately untouched). So the
+first draft of the check's comment, which called it *the ordinary gesture*, was wrong and is now the
+case `_richUses` originally named: **a document arrives from a file, and a file can say anything.**
+
+A `richText` is reached only through a cell that names it, so an orphan is not drawn, not listed, not
+selectable and not deletable. `쓰지 않는 글` is the only place it can be seen.
+
+### 그린 것을 독자가 잡을 수 있는가 — 2026-09-03 *(built; three live faults)*
+
+The check that was owed, and the least comfortable entry here: the same fault had been recorded
+**six times in one list** and every one was found by a person using the product.
+
+`SELECTABLE` is a second place a node type has to be registered and nothing forced it. So: a round
+adds a node, writes its renderer, checks that it **appears**, ships — and the drawing is perfect. A
+quotation, a rule and a code block; then a table's cells; then a chart. And the hour
+`every-insert-can-be-held` was pointed at the product, **three more, live**: 동영상, 임베드 and **폼**,
+the one node type this product genuinely added. Insertable, and then not selectable, not movable, not
+in the layer list.
+
+The candidate set was measured rather than guessed. Every type a document can place gives **42** that
+are not selectable — inline pieces, canvas shapes, declarations, the page itself. Forty-two exemptions
+is forty-two notes. The right set is the one every instance came through: **a reader put it there**,
+which is the `produces` list two other checks already read.
+
+Two consequences worth noting. Making the three selectable immediately failed
+`every-drawing-can-be-named` — a row needs a word the moment a reader can select the thing, which is
+two checks catching each other's consequence. And the deck's seven findings are all one sentence a
+*plane* gives and a page does not: on a slide everything a reader points at is a placed box, so a
+table inside a `textFrame` is held by the box. The same schema nodes, two right answers.
+
+Word defers it. A word processor has no click that selects a block, and `notYet` fails the day its
+canvas half answers.
+
+### 상대 길이는 몫까지가 정직한 범위 — 2026-09-03 *(built, and the rest is on the record)*
+
+The fourth thing work needs. The document keeps **twips**, which is Word's unit and an absolute one,
+and the web's lengths are relative: `%`, `rem`, `vw`, `min()`, `clamp()`.
+
+What could be added without lying was a **share**. Two columns at 40 and 60 is an ordinary layout and
+there was no way to write it — `fill` on both makes them equal, `fixed` in twips breaks at every other
+width — so `sizing` has a fourth answer and a `share` number beside it.
+
+A share rather than a percentage, and the arithmetic is the reason: **40% + 60% is the whole row and
+the gap between them is not**, so a percentage row overflows by exactly the gap. Shares divide what is
+left after the gaps and the padding, which is how the web actually divides a row and how a reader
+means it when they say *twice as wide*.
+
+**What stays unsayable, and why it is not laziness.** The schema's attribute types are
+`'string' | 'number' | 'boolean' | 'array' | 'object' | 'custom'` with **no union**, so a length that
+is sometimes a number of twips and sometimes a string with a unit cannot be declared. Saying it would
+mean one of:
+
+- every length becomes a string (`'1200px'`, `'40%'`) — a migration of every document and every check;
+- a second attribute per length (`maxWidthPercent`) — a parallel vocabulary, which is how a model
+  starts having two words for one idea;
+- or `type: 'custom'` on the lengths, which is the validation being switched off to avoid the
+  question.
+
+None is worth doing before something needs it. What is owed and named: a section that is **as tall as
+the window** (`100vh`), and lengths that follow the document's own base size (`rem`).
+
+**2026-09-03 — and the answer was that three quarters of the debt was already paid.** Asked again
+with the list in front of it, what a page wants from a relative length is four things, and three were
+sayable: a **proportion** is `share` (and better than a percentage, per the arithmetic above), a
+**per-width number** is an `overrides` entry (a real number at each width rather than one expression
+that has to be right at all of them), and a **bound** is `minWidth`/`maxHeight` in twips.
+
+What was left is **one** idea — a section as tall as the window — and one idea is one attribute, not a
+union in the type system. `minScreens` is a count of screens, the same move `share` made: a number
+whose unit is in its name. `1` is a screenful, `0.5` is half of one, which a boolean could not say and
+a unit dropdown would say worse. No migration, no parallel vocabulary, no validation switched off.
+
+And the half that a stylesheet cannot supply, found while building it: **a board is a `div` on a
+plane, not an iframe**, so `dvh` inside one is the height of the *editor's* window — the same hero
+would draw one height on three boards that differ only in width. So a board substitutes
+`SiteWidth.viewport`, which has been declared since preview mode for exactly this reason. It is the
+one place a board and the published page deliberately disagree, and `export.test.ts` names it as the
+single exception to *the two drawings agree about everything a reader designed*.
+
+`rem` stays unbuilt and is no longer owed as *a relative length*: what it was wanted for — smaller
+text on a phone — is an `overrides` entry, which says the number rather than a ratio to a base nobody
+has set.
+
+**And the sample wears it now.** The hero was the wrong home for it — words beside a picture at 3:2,
+where changing anything moves a measured width several browser checks hold as a number. The blog's
+index is the right one: a list of posts beside a sidebar is 2:1, which is the ordinary case for a
+share and not a case anything else on the site had. `site.test.ts` reads the two `flex` values off the
+drawn row, so the claim is that the *browser* divides it rather than that the attribute is stored.
+
+### 모든 것이 문서는 아니다 — 2026-09-03 *(decided; the index is built)*
+
+Asked as a correction — *왜 문서가 하나야? 페이지마다 별도의 문서가 아니었어?* — and the reason it is
+one was written **nowhere**: `surface` is the shared schema's seam, so a site being one document is
+the same fact as a deck being one. Now in `site-builder.md`.
+
+The proposed decomposition — site is service info, pages are service info, only the per-device
+rendering is a document — is **two-thirds right**, and measuring it was better than arguing:
+
+- `pagesOf` already returns four fields, and **18 of its 19 callers use only those**. The one that
+  goes inside a page is `exportSite`. The product already treats the page list as a query and answers
+  it by walking 740 nodes.
+- The site's own facts (`address`, `publishTo`, `publishes`) were flagged as *about publishing rather
+  than about the document* in the schema the day they were added, and kept anyway for a reason that
+  only holds while a file is the only store.
+- **Splitting by device is the part to refuse**, and this repository refused it on day one: a width is
+  not another version of a page, it is the same blocks saying something different — split it and a
+  heading typed at desktop does not appear at mobile.
+- And the part the proposal did not name: `resources` is **not one kind of thing**. `dataset`, `asset`
+  and `service` are records; `component` and `richText` are documents. The library that must stay a
+  document is two node types, not five.
+
+**The price is three questions that cross every page** — `usesOf`, `linksTo`, `documentFaults` — which
+are what the admin screen is made of. Split the pages and none can be a walk: they become an index
+written when a page is saved.
+
+### 참조 색인: 한 번 걷고, 세 질문에 답한다 — 2026-09-03 *(built)*
+
+`refsIn` — every reference in the document with **where it was written**, which is the field a split
+store would key by. The three walks become filters over one result.
+
+It found two real faults the first time it was compared to what it replaces:
+
+1. **A page drawn through a template did not count as using it.** `usesOf` counts `instance` nodes,
+   and a template is named in `surface.template`. So 글 페이지 said *0곳에서 사용 중* while two pages
+   were drawn through it — and a reader about to edit it was told they were changing nothing.
+2. **References inside a dataset's `records` were invisible to every walk this product had.** `records`
+   is an array of objects on one attribute — the shape `data.ts` chose deliberately, and whose cost it
+   wrote down. This cost it did not: a cell holding `text:요약-스택` or `page:post-stack` is a
+   reference, and a broken one there could be reported by nothing.
+
+### 데이터셋은 다이얼로그가 아니라 장소다 — 2026-09-03 *(built)*
+
+Shown as a screenshot of Notion's full-page database, and it goes straight against what this file's
+own view argued: *the grid is a dialog because a table needs width the shell cannot give.* True, and
+the conclusion did not follow — a dialog is what you reach for when width is the only problem, and
+its width kept having to grow (56rem → 76rem the day each header held two controls).
+
+The half that was wrong is *editing data is a stint*. A dataset is a **place**. And the mechanism was
+already here twice: a board takes a `rootId` and draws whatever node it names, which is how editing a
+component definition works. A dataset is the third thing the main area can show — one `useState`
+beside `editing`, and the width problem stops existing.
+
+Cost, stated: a reader editing data is not looking at the page, exactly as a reader editing a
+definition already accepts.
+
+### 자료형 열넷, 그리고 목록을 정한 질문 — 2026-09-03 *(built)*
+
+*What can a page draw with it?* — which is what keeps 사람, 수식, 관계, 롤업, 만든 사람, 버튼, ID out:
+this product has no accounts (so two of them are values nothing can fill), no expression language
+(refused once already, when a filter became `where`/`equals` instead of a grammar), and no second
+document model for a relation to point through.
+
+All fourteen pictures **drawn**, because two of the available borrowings would have lied: `math` is Σ
+and says *computed* on a number column; `paragraph` is prose and is the long-text kind.
+
+**And a kind names two acts.** `setDatasetField` required the column to exist, because the first
+thing it was asked for was *change this column's type*. Adding one with a kind is the same word
+meaning the other thing — so 속성 추가 offered fourteen kinds and added nothing, in silence. `발행일,
+날짜` is one decision.
+
+### 서식 있는 글: 셀은 문자열인 채로 — 2026-09-03 *(built)*
+
+Asked for directly, and the only real question is where the words live. **Not in the cell**:
+`cellValue` returns a string, always, and saving, diffing, sorting, filtering and every card binding
+rest on it. So the cell holds `text:요약-스택` and the words are `richText` nodes in `resources` —
+what a **footnote** has always done here, and the tenth use of the reference shape.
+
+Four things it turned up:
+
+- **The marks have to reach the card**, or the kind is text with a redirection. A bound part takes a
+  string and `withText` collapses its runs to one, so content arrives *beside* the strings and
+  replaces what the part holds.
+- **`richPlain` joins runs with nothing and blocks with a space.** A run is a piece of a sentence;
+  joining those with a space put one inside every emphasised word.
+- **Editing one is a second view, not a second editor** — `EditorViewDOM` over the same editor and
+  store, pointed at the node. One selection, one history, every mark command.
+- **A view can only draw a node type something defined.** Nothing on a page ever draws a `richText`
+  (a card gets its *blocks*), so there had never been a renderer — and the editor mounted and drew an
+  empty box until there was one.
+
+**Owed:** a row is an array element, so nothing ties a `richText`'s lifetime to it. Deleting a row
+leaves the words behind. `documentFaults` should report a `richText` nothing references.
+
+### 와이어프레임의 데이터 자리에는 값이 아니라 변수 이름 — 2026-09-03 *(built)*
+
+Asked as *실제 데이터 말고 데이터 변수만 보이면 더 명확하지 않을까*, and it sits against what the view
+already argues: *the words stay the words; lorem ipsum is how a layout gets approved for a paragraph
+nobody has written yet.*
+
+Both hold, and the line is sharp. **Words a person wrote** are the content. **A value from a column**
+is one of forty, and the thing being reviewed is the shape that holds all forty — which real data
+hides, because every row is a different length and so every row looks different.
+
+Drawn without moving anything, which this view has had to learn twice: the words go **transparent**
+rather than away, so a title that runs to three lines still runs to three lines, and `field:제목` is
+painted over the box it names. And only on the elements that hold **text** — `data-from` is on the
+row's frame too, and a rule that reached it would blank the whole row and write `field:페이지` across
+it.
+
+The reference form rather than the bare name, because `var:강조` is the other thing a value can come
+from and one word for two origins would be the notation lying.
+
+### 열의 자료형이 데이터가 아니라 카드에 있었다 — 2026-09-03 *(fixed)*
+
+Asked as *노션은 row를 폼처럼 입력하게 해주고 필드마다 자료형이 있는데, 우리는 단순한 row/cell 표라서
+블로그 같은 큰 글에 안 맞는 것 아닌가?* Measured first, and the measurement named the actual fault —
+which was not the grid.
+
+`dataset.fields` was `string[]`: bare column names. The **type** lived on the *card*, as
+`componentVar.kind`. Three consequences, all of them visible in the sample before anybody went
+looking:
+
+- a column drawn by two cards declares its kind **twice**, and the two can disagree;
+- nothing can check a cell — `추천` held `'예'` and `'아니오'`, a boolean spelled as words, because
+  there was nowhere to say it was one. It was also read by **nothing**, which is the other half: a
+  column that cannot say what it is, is a column nothing can do anything with;
+- the grid drew one `TextField` for every column. A date, a price and a page reference were all a
+  text box, which is what made entering data feel like typing into a spreadsheet by hand.
+
+**`format` stays on the card**, and the split is the interesting part: *what a value is* belongs to
+the data; *how this page reads it* belongs to the thing drawing it. One dataset feeding a price list
+that says `9,900원` and a summary that says `9.9천` is the whole argument for a format, and it does
+not apply to the kind.
+
+A **bare name still works, forever** — a column with nothing said about it is text, which is what it
+was already being treated as. Nothing had to be migrated.
+
+Seven kinds, five of them worn by the sample the day they were added: 글자 · 숫자 · 예/아니오 · 날짜 ·
+선택 · 페이지 · 주소. The command that renames a column would have silently dropped every one of them
+— it read the array and kept the strings — which is a date column quietly becoming a text column,
+once per rename.
+
+### 표는 훑는 것이고, 폼은 채우는 것이다 — 2026-09-03 *(built)*
+
+A grid is for **scanning**: twenty rows where a wrong cell stands out. It is the wrong shape for
+entering one row and gets worse the more a row holds — a blog entry is five fields of which two are
+sentences, and at 8rem a column the summary has scrolled off the right edge before it is finished.
+
+So: both, and each is bad at the other's job rather than merely less good. The grid is unchanged; a
+row opens as a form beside it.
+
+A **drawer**, not a second dialog, and the reason is where it is opened from: a row is opened from
+the grid *and* from the page, and in the second case the thing being edited is behind it, drawn. A
+dialog in the middle covers the card whose summary is being typed. `Drawer` went into office-ui as
+its own component rather than `Dialog` with a class — a dialog is a **question** (answered and
+dismissed, two buttons at the bottom right), a drawer is a **place to work** (edits land as they are
+made, no footer, a lighter scrim because the page behind is what the edit is checked against).
+
+### 해석이 원본을 지워서 어디가 데이터인지 알 수 없었다 — 2026-09-03 *(fixed)*
+
+Asked as *전체 페이지 중에 어디가 데이타이고 어디가 아닌지 구분이 잘 안 된다*, and the reason is worth
+writing down because it is a property of the design rather than an oversight: **resolution is total.**
+`field:제목` has become the post's title by the time anything draws, so a value that came from a
+column is indistinguishable from one somebody typed. There was nothing left to mark.
+
+`canvas-instance` keeps the reference beside the resolved value (`boundFrom`) and the renderers write
+it as `data-from`. Three things it settled:
+
+- **It has to be in office-text too.** The values that matter are a card's *words* — 제목, 요약 —
+  and a heading is drawn by the shared text renderers, not the site's. So only `field:페이지`, which
+  lands on a frame, was marked at first. It belongs there anyway: a deck's card bound to a variable
+  has the same question about it.
+- **Which means the guard cannot be per-renderer.** `data-from` is the editor's and must not ship, so
+  `clean` strips it in **one** place — the same rule `data-goes` needed, learned once and applied
+  before it had to be learned again.
+- **An empty attribute marks everything.** `String(x ?? '')` put `data-from=""` on all 27 paragraphs
+  of the page, and `[data-from]` in CSS would have marked the whole thing.
+
+The notation is an inset underline in the accent colour (nothing moves — the rule the wireframe had
+to learn twice) plus the **list's name** on the box that owns the rows, because *어디가 데이터인가* is
+asked coarsely first.
+
+### 와이어프레임은 회색인 척하는 흰 페이지였다 — 2026-09-03 *(fixed)*
+
+Asked as three options — *회색톤이냐, 검은 선만이냐, 테마로 고르게 하느냐* — and the sheet's own values
+answered it before any of the three could be argued.
+
+| | contrast |
+|---|---|
+| the band grey vs the **photo grey** | **1.04:1** |
+| the band grey vs the page | **1.14:1** |
+| the line vs the page | 1.68:1 |
+
+Two greys meant two different things and were the same grey. And the band grey had been kept *so the
+page's rhythm would survive* — at 1.14:1, with 25 boxes on the sample carrying a fill and no corner
+and no border, there was no rhythm to survive. The comment defending it had been in the file since the
+view was written.
+
+So: the line carries the structure (3.27:1); a fill is translated into the line's vocabulary — white
+with a hairline, which is what makes those 25 boxes appear at all; grey keeps one meaning, 사진, and
+the wash's `brightness` moved 1.78 → 1.63 so a loaded photograph lands on the same grey as an empty
+one. **Not a theme**: a wireframe is handed to somebody else, and a notation each reader configures is
+one where 그 회색 박스 means two things. The one case that would justify a second mode is **print**,
+and nobody has asked.
+
+The palette is exported and five checks hold the numbers, so the next person to change a colour here
+changes an argument rather than a taste.
+
+### `a, b::before` 는 `b` 에만 붙는다 — 2026-09-03 *(fixed)*
+
+A definition's part is named by two selectors — every placement (`[data-bc-sid$="~part"]`) and the
+bare sid. Written as one list with the pseudo on the end, `::before` attaches to the **second** only,
+so every drawn placement got a `content` declaration on the element itself and drew nothing.
+
+What makes it worth an entry: the sheet was generated, the rule was in it, the word was in the rule,
+and **eighteen unit tests passed** — every one of them asserts on the string, and the string was
+right. Only a browser could say that the right string draws nothing. It is a string check now, phrased
+as the rule: in a rule that draws a pseudo-element, every selector in the list carries it.
+
+### 목록의 모든 줄이 같은 곳으로 가고 있었다 — 2026-09-03 *(fixed)*
+
+Found by building a blog whose index links to its posts, which is the shape that could not work.
+
+`goes` — *where pressing this block goes* — was read at export time from the **stored** node. A row of
+a list has no stored node: it draws as `${collection}~${index}~${part}`, so the lookup landed on the
+**card definition's** part and every row of every list went wherever that one part said. It is the
+worst class of fault this product produces: it drew correctly, it published an `<a>` on every row, and
+every link worked. Only *which page* was wrong.
+
+A list of one row cannot tell that apart from working, and the sample had one post. So the fix and the
+fixture arrived together: the renderer writes the **resolved** `data-goes` (so `field:` and `var:`
+have already become what they mean), the export prefers it and keeps the stored lookup as the fallback
+for every document written before it, and the blog now has four rows going to four different places —
+two of them nowhere, because two of those posts are unwritten.
+
+**The reference does not travel.** `page:post-stack` means nothing outside this document, so the `<a>`
+drops `data-goes` on the way out; `export.test.ts` was already asserting no `page:` appears in a
+published page, and it caught the leak the same afternoon it was made.
+
+**What made it possible at all** is that a destination is a *column of the data*. The card asks 가는
+곳 the way it asks 제목, the list answers it with `field:페이지`, and the join that makes an index an
+index is a thing a reader sets in a dropdown.
+
+### 컴포넌트 편집 중의 삽입은 페이지 뒤에 놓이고 있었다 — 2026-09-03 *(fixed)*
+
+Reported as *컴포넌트 편집 화면에서 아무것도 추가 할 수 없음*, and it was **worse than nothing
+happening**: 삽입 and every insert chord were putting blocks on the page *behind* the component. The
+command ran, the document changed, and the reader watched a screen where nothing appeared — with no
+reason to go looking on another page for what they had just made.
+
+The rail and the ribbon already took the boards' subject (`root` — a page, or the part of a component
+being edited); the menubar and the key map took the **page**. One word, three call sites. The
+exception worth stating is a command that is genuinely *about a page* — publishing it, copying it,
+deleting it — and those are told apart by name rather than by hoping.
+
+### 순서 이동이 안 됐던 이유는 픽스처가 그 상태를 안 입었기 때문 — 2026-09-03 *(fixed)*
+
+Reported in five words — *순서 이동 눌러도 동작을 안해* — and the cause is the thing this repository's
+own rule warns about: **a fixture must wear what it tests.**
+
+A document that has said nothing about widths draws at three, and those three are a **default rather
+than nodes**. So the panel listed them, a reader pressed ↑, and the command looked for a node with
+that name, found none, and refused — correctly, and uselessly. Twelve unit tests covered the commands
+and every one of them ran `insertWidth` first, so not one of them wore the state **every document
+opens in**.
+
+The fix is the one `insertWidth` already made: the first change of any kind **materialises the list**.
+A document that never touches its widths never grows a `widths` box, and the first reader who moves
+one gets a list that says exactly what they were already looking at. Five tests now wear that state
+and nothing else.
+
+### 페이지도 폭마다 다르게 꾸밀 수 있어야 한다 — 2026-09-03 *(built)*
+
+Asked as *개별 크기별 페이지도 속성 설정할 수 있어야 하는 거 아니야? 여기도 배경색이랑 꾸밀 수 있는 걸
+따로 둘 수 있잖아* — and two things were missing, which turned out to be one feature.
+
+- **The panel had no paint rows for a page at all.** Its pane held an address, a name and a type
+  scale, and nothing about how it looks — while `paintCss` has read a page's own fill, gradient and
+  overlay in the renderer since the day one could hold them. The rows are the same rows a block gets,
+  **declared once** and mapped onto the page's pane, because two declarations of one thing is how a
+  panel and a product drift apart.
+- **The page's renderer read its raw attributes**, so a page could hold an override and no board would
+  ever draw it. A page that is white on a desktop and dark on a phone is one page with an override,
+  not two pages.
+
+The mapped rows get a name of their own — `페이지 배경` — which `calls no two rows the same thing` is
+right to insist on, and which is true anyway: a block's 배경 is that band's, and this is the paper the
+whole page is printed on.
+
+### 같은 그룹이 두 번 열리던 것 — 선언이 정한다 — 2026-09-03 *(fixed)*
+
+Reported as *사이트 패널, 페이지 패널, 이 2개씩 있는데 이거 다 합쳐야 하는 거 아니니?* — and the page
+pane had **two 사이트 and three 페이지**, interleaved.
+
+`panelGroupsFor` splits by *run* rather than by name, and that is deliberate: its own test says a map
+keyed by label would silently merge two runs and move a row up the panel, so **the declaration is
+what decides** and a repeated heading is a fault in the declaration. So the declaration was fixed —
+and the rule turned into a check, which is the part worth keeping: no pane may open the same group
+twice, asked of every node type in every pane. It was *visible and therefore fixable*; it is
+checkable now.
+
+### 오른쪽 버튼 메뉴의 세 가지 — 원인은 둘이었다 — 2026-09-02 *(fixed)*
+
+Reported as three: *항상 데스크탑에서만 뜨고 있어* / *마우스 커서 위치에 애초에 안 뜨는구만* / *멀티 선택
+한 다음에는 context menu 를 띄우지 못해, 선택이 풀려버림*.
+
+**The first two are one fault, and the comment above the code claimed the opposite.** The menu was
+written inside the overlay; the overlay is inside the plane; the plane carries a `transform` — which
+makes it the containing block for a `position: fixed` descendant **and** scales it. So client
+coordinates were read against the plane's box, at the plane's zoom, from the plane's origin, which is
+the leftmost board's corner. The comment said *"drawn outside the zoomed plane"*, and it was not.
+
+Fixed by **deleting it**: `office-ui`'s `Menu` is a menu at a point, portals into the body, flips at
+the window's edge and walks with the arrow keys, and its own header explains the portal with a
+measurement from the deck. Two answers to one question, and this one had drifted into being the wrong
+answer. The board's copy is gone along with 34 lines of its stylesheet.
+
+**The third is one missing condition.** A press of the right button is a `pointerdown` like any other,
+so the overlay's press handler ran first and did what a press does — resolved the block under the
+pointer and made it the whole selection. `onContextMenu` is careful to *keep* a selection the pointer
+is already inside, and arrived to find a selection of one. `event.button !== 0` now returns early; the
+middle button is the plane's and belongs to the canvas.
+
+### 캔버스의 휠이 미리보기의 스크롤을 먹고 있었다 — 2026-09-02 *(fixed)*
+
+Reported as *미리 보기는 스크롤이 되어야 하는데, 마우스로 스크롤을 할 수가 없어, 뭔가 편집 상태에서
+누군가 이벤트를 가로막고 있는 것 같아* — and that is exactly what it was, one layer further out than
+the editor: `useViewport` listens for the wheel on **`window`, in the capture phase**, and called
+`preventDefault` on every tick whose point fell inside the pane. Nothing downstream ever saw one, in
+any mode, for any reason. A preview was a page a reader could look at the top of and nothing else.
+
+**Measured before writing the rule**, because a rule that took the plane's pan away would have been
+worse than the fault:
+
+| | 편집 | 미리보기 |
+| --- | --- | --- |
+| `.st-frame` | `visible`, 5085/5085 | `visible`, 823/823 |
+| `.st-frame-body` | `visible`, 5063/5063 | **`auto`, 5063/800** |
+| `.st-page` | `visible`, 5063/5063 | `visible`, 5063/5063 |
+
+Nothing inside the plane scrolls while editing. So the rule gives the gesture away in exactly the
+case where the plane is not what the reader is pointing at, and in no other: **a wheel over something
+that can scroll belongs to that thing** — no `preventDefault`, so the browser scrolls it as it would
+anywhere else. Whether the scroller is *at its end* is deliberately not asked; a page scrolled to the
+bottom does nothing more when you keep scrolling, which is what a browser does and what a reader in
+preview is looking at.
+
+⌘ with the wheel keeps the whole gesture regardless, because the browser's own page zoom is what that
+means to a browser and a reader zooming the plane does not want the application to grow around it.
+
+In `office-ui`, so all three products have it. The deck's 407 browser checks pass unchanged.
+
+### 와이어프레임은 다른 문서가 아니다 — 필터도, 별도 에디터도 아니라 세 번째 보기 — 2026-09-02 *(built)*
+
+Asked as a choice between two: *와이어프레임처럼 보이도록 필터를 입히는 게 좋을까, 아니면 와이어프레임
+에디터를 따로 만드는 게 좋을까?* Measured before answering, and the measurement says neither.
+
+**A separate editor is a second document.** The two would have to be kept in step, and keeping them in
+step is exactly the work that makes a plan and a design drift apart — the thing *선언하고, 검사한다*
+was chosen to avoid. This repository's premise is one schema and one renderer across three products; a
+wireframe is not a different document but the same page **read at a lower fidelity**.
+
+**A filter alone cannot say what a thing is.** `grayscale()` and hidden images produce a page with the
+colour taken out, which is not a wireframe: a wireframe's job is to show structure and intent, so a
+grey box has to be able to say 영상, 폼, 데이터 목록. Measured in the board's own DOM — it carries
+`data-name`, `data-kind`, `data-layout` and `data-sizing` and **not the node's type**, so as things
+stand a stylesheet has nothing to write in the box.
+
+So: a third `view`, beside 미리보기 — which is already declared as a view rather than a command, and
+already answered by one `switch` in the app. `view: 'wireframe'` in `menu-model.ts`, and a stylesheet
+generated from the document the way `editorStateCss` and `revealRules` already generate one.
+
+**Two of the three parts this entry first listed were wrong, and building it is what said so.**
+
+- *"The renderer writes the node's type onto every drawn block"* — **not needed at all.** The
+  generated half keys its selectors on `data-bc-sid`, exactly as the two sheets it sits beside do, so
+  the name in the box comes from the model and the DOM learns nothing new. A renderer change that
+  would have shipped in every published page, avoided by using the path that was already there.
+- *"pictures to a hatched box"* — it worked, it looked right, and **it moved them.** `content:
+  url(<a 1×1 svg>)` empties a replaced element and replaces the intrinsic size every `width: auto`
+  image is laid out from: the browser check compared picture boxes before and after and found 266×199
+  become 225×225 and four 61×20 logos become 2×2. A wireframe whose boxes are the wrong size is a
+  layout the reader does not have, which is worse than a photograph with no caption on it. The media
+  is **washed** instead — `contrast(0)` makes one flat grey — with an `outline` rather than a border,
+  because a border made every picture a pixel wider.
+
+Two more things a browser settled: a replaced element paints no `::before` (probed on an `img`, a
+`video`, an `iframe` and a `div` — only the `div` drew one), and a button on this page is a *frame
+with a fill*, so the rule that lays fills down to grey made the page's one call to action disappear.
+What tells a band from a control in the drawing is the rounded corner, so anything with a radius keeps
+a hairline — which draws the buttons back and every card as a box.
+
+The text stays the text. A wireframe with real copy in it is the one that produces real decisions, and
+lorem ipsum is how a layout gets approved for a paragraph nobody has written yet.
+
+**And the one case that genuinely is a separate product**: when it has to *differ* from the real page —
+annotations, arrows between screens, a screen that does not exist yet. That is not a wireframe, it is a
+화면 흐름도, and it is the other half of *선언하고, 검사한다*.
+
+### An extension called `dragDrop` that listens for no drop — 2026-09-02 *(fixed)*
+
+Asked in three words — *드래그 드롭도 돼?* — and measured by dropping a real file on the boards:
+nothing happened. `ReorderExtension` registers one command, `moveBlockToPosition`, about reordering
+blocks in a stack. It listens for no `drop`, reads no `dataTransfer`, and has never had anything to do
+with a file. The name is the whole of the misunderstanding.
+
+So a file dropped on the editor was the browser navigating away from it — the default a page gets when
+nobody cancels `dragover`.
+
+The canvas takes one now, and where it lands is what it was dropped **on**: a picture takes the file,
+anything else gets a new picture after it. Both go through the panel's own `addPicture`, so a dropped
+file is read, sized, named and put in the assets box exactly the way a chosen one is.
+
+**Still open**, and worth naming while it is fresh: a drop is only pictures. A `.csv` onto a
+collection, a font, an SVG meant as a sticker rather than as a block — each is a different errand and
+none is wired. And the extension keeps its misleading name.
+
+
+### A decision that only prose was keeping — 2026-09-02 *(fixed)*
+
+`emoji` and `mathInline` are declared in `standard-schema`, have an extension each
+(`extensions/emoji.ts`, `extensions/math-inline.ts`) and are handled by the PDF exporter — and no
+office schema inherits either, so no product can hold one and nothing draws one.
+
+Asked as *why is there a schema for this if nothing uses it*, and the answer turned out to be that
+**it was deliberate**: office takes what it offers from the standard schema by name, and the prose
+above that list has named all twenty-three exclusions since the day they were made, with reasons.
+Word draws equations from OMML, its page numbers are furniture the layout paints, its contents page
+is computed from headings — a second way to say one thing is a second thing to keep working.
+
+The fault was that prose was the only place it was said. A name in **neither** list disappeared in
+silence, and no check here could see it: every check asks about the nodes a product *declares*, so a
+node no product declares is a node nothing asks about — a fourth kind of blind spot next to the three
+`operation-harness` names.
+
+Fixed by making the exclusions data with a reason each, and refusing to build a schema when a
+standard node is in neither list. Adding one to the standard schema now forces the question *does
+office offer this?* at the moment somebody can answer it.
+
+**One of the twenty-three is a decision rather than a difference**, and it is written apart for that
+reason: `emoji` is out because nothing offered a picker, not because anything could not hold one. See
+`docs/specs/inline-content.md`.
+
+
+### The type check had been passing because the grep was wrong — 2026-08-31 *(fixed)*
+
+`npx tsc --noEmit` run **from inside a package** prints `src/renderers.ts(...)`;
+run from the repository root it prints `packages/office-site/src/...`. The check
+was being filtered with `grep "office-site/src"` from inside the package, which
+matched nothing — so every run reported clean and eight real errors accumulated
+behind it.
+
+What was hiding there, and it is the interesting part: **`ask()` became an
+accordion row and four other call sites went with it.** The FAQ helper used to be
+"a heading and a sentence" and was used twice — once for the questions and once
+for four feature blurbs on the pricing page. Turning it into a row that opens
+turned those four into accordions with no answers, and *the tests kept passing*:
+`vitest` transpiles without type checking, so the only thing that could have said
+so was the check that was being grepped away.
+
+Fixed both: the four are `blurb()` now, and the pattern for reading `tsc` output
+is `grep "^src/"` from inside a package.
+
+### A form asks what a browser already knows how to ask — 2026-08-31 *(built)*
+
+**A**, from `docs/specs/site-forms.md`. `choice` (every lead form has a 문의
+유형), `checkbox` (**required in Korea** — consent has to be given rather than
+assumed), `number`, `date`, and `min`/`max`/`maxLength`. All of it is the
+browser's own validation: it runs with scripts off, in the visitor's language,
+and it is what makes insisting on a real `<form>` worth the trouble.
+
+- **A tick's label goes after its box and wraps it.** Every other field is a
+  question with a box under it; a tick is a statement with a box in front. And it
+  is the one field whose label a visitor *clicks* — a 14-pixel target becomes the
+  whole sentence.
+- **A `choice` gets an empty first option.** Without it a browser reports the
+  first entry as the answer and every message arrives saying whatever happened to
+  be at the top — a `required` list that is never actually unanswered.
+- **The consent line needed nothing new.** A field's `label` is a string and
+  cannot hold the policy link; a form holds **blocks**, so the link is an ordinary
+  paragraph above the box. A rich label would be a second text model in an
+  attribute.
+- **`pattern` is refused.** A regular expression is a language a reader has to
+  learn and cannot debug — the same call this schema made when a list's filter
+  became `where` + `equals`.
+
+### A visitor comes back to the site they were on — 2026-08-31 *(built)*
+
+**B**. The worst thing about a form as it stood: pressing 보내기 took the visitor
+to the **service's** page, and the site's design, header and footer were replaced
+by a stranger's.
+
+Every service solves it with a hidden field and every one spells it differently —
+`_next`, `_redirect`, `_returnUrl` — which is exactly what a connection is for:
+it is a fact about the service, so a site with five forms says it once.
+`service.returnField` + `form.thanks` (a `page:id`, the fifth use of that shape),
+and `service.trapField` for spam, which ships **empty** because a bot filling
+every input is the whole mechanism.
+
+Absolute or nothing: a service redirecting a browser has no page to resolve a
+relative address against, so a site that has not said where it lives publishes no
+return rather than one that sends somebody nowhere — the rule `og:url` already
+follows.
+
+Still zero script on the page.
+
+### A picture keeps its shape, and comes at the size it is needed — 2026-08-31 *(built)*
+
+The two things the asset work made possible, and neither was reachable before it
+because both need the file itself.
+
+**`aspect`** — the shape a picture keeps at every width. `minHeight` answered a
+divider and a banner and cannot answer this: a picture in a column is 1200 wide
+on a laptop and 350 on a phone, and what a designer means by "this is a banner"
+is a ratio. Stating a height instead is how a hero ends up letterboxed at one
+width and cropped at the other. Six named shapes rather than a free `w/h` field,
+which every builder that offers one fills with `1.7778`.
+
+`height: auto` goes with it, and it is the half everyone forgets: an `<img>`
+carrying a `height` **attribute** is sized from it, so a ratio without releasing
+the height is a box the browser ignores.
+
+**`srcset`** — the single largest cost of a page built with a tool like this is a
+photograph taken at 4000 pixels sent, whole, to a phone that is 390 wide. It is
+most of what such a page weighs and no CSS shortens the download. The renditions
+are made when the file arrives (640 / 1280 / 1920, in a canvas, which is the
+app's for the same reason reading the file is), each is published as its own
+file, and **which one to fetch is the browser's decision** — it knows the screen
+and the connection and this product does not.
+
+Three things it settled:
+
+- **A rendition must be meaningfully smaller.** A 2000-wide file was producing a
+  1920 rendition: four per cent narrower, another file, another `srcset` entry,
+  a download nobody notices. Found in a browser on the first picture tried. The
+  line is four fifths.
+- **An SVG is left alone** — already every size at once, and a canvas would turn
+  a few kilobytes of vector into a large picture of it.
+- **The format is kept.** Re-encoding a PNG as JPEG is smaller and is also this
+  product deciding, silently, that a reader's transparent background is gone.
+
+**`defer`** is beside them and is the reader's rather than a rule: `lazy` on a
+picture above the fold delays the one image a visitor is waiting for, and nothing
+but the design knows which picture that is.
+
+### A page's address was a free string, and two pages could share one — 2026-08-31 *(fixed)*
+
+Asked whether to add a slug feature and prefer English URLs. Measured first, and
+the valuable half turned out not to be the language: **`path` had no validation
+at all.**
+
+| typed | what a browser does |
+|---|---|
+| `My Page` | no leading slash — a **relative** link; from `/가격` it means `/가격/My%20Page` |
+| `/제품?a=1` | `?` starts a query; that file can never be requested |
+| `/제품#어디` | `#` is never sent to a server |
+| `//x` | protocol-relative — a link to the host `x`, off the site |
+| `/A/` | a trailing slash is a second address for one page |
+| `/소개` twice | one page unreachable, every link lands on the other. **Zero faults** |
+
+`pathFor` repairs on the way in — the one place this product changes what a
+reader typed without asking, and the right one: every tool of this kind repairs a
+slug as you type, the result is visible immediately, and the alternative is an
+address the panel accepts and the site cannot serve. `pathFaults` reports the
+duplicate, which is the one nothing could see.
+
+**A name gives a page its address once** — while it is still the minted
+`/page-3`, and never again, because an address is what has been shared and
+indexed and a rename must not move a page.
+
+**Hangul is not romanised.** `제품` stays `제품`, never `jepum`: romanisation
+reads as neither language, and two people transliterate the same word
+differently. A reader who wants an English address types one — theirs to decide,
+which is what this schema already says about a component's name and a dataset's.
+ASCII is lowercased, because a case-sensitive host makes `/Products` and
+`/products` two pages and a case-insensitive one makes them one.
+
+### `제품` and `제품` are the same word and different strings — 2026-08-31 *(fixed)*
+
+Asked whether a Korean URL is all right. It is — every browser and static host
+has served UTF-8 paths for a decade — with one hazard that nothing warns about
+and that this product was standing in.
+
+A Hangul syllable has two correct Unicode spellings: composed (NFC, 6 bytes for
+`제품`) and decomposed (NFD, 9). They render identically and compare unequal. A
+keyboard produces NFC and a browser requests NFC; **a macOS file picker has
+handed over NFD for twenty years**, and an asset is named after the file that
+arrived.
+
+Two faults, both invisible:
+
+- two pictures both showing `로고` are two different names, so the duplicate
+  check passes and one of them is permanently unreachable — the exact thing that
+  check exists to prevent;
+- a page address that arrived decomposed publishes a folder no browser ever asks
+  for: a 404 that looks right in the address bar *and* in the folder.
+
+`names.ts` composes on the way in and compares composed on the way out. The test
+for it fails with the finding written out: *expected '로고' to be '로고'*.
+
+Measured while checking: modern macOS `ditto` preserves NFC — APFS does not force
+decomposition the way HFS+ did — so the archive round-trips cleanly. The hazard
+is the file picker, not the zip.
+
+### Every link in a published site was broken — 2026-08-31 *(fixed)*
+
+Found by asking what the asset work had made necessary. A link resolves to a
+page's **address** — `/제품` — and publishing wrote **`제품.html`**. On any host
+that does not quietly try `.html` for you, every link on every published page is
+a 404.
+
+It looked completely fine in the editor, and that is the interesting part: the
+editor follows the *reference* (`page:products` → the page), never the file. The
+mismatch is structurally invisible from inside the product, which is why nothing
+had caught it in the weeks the export has existed.
+
+`fileFor` is the model's now — `/` → `index.html`, `/제품` → `제품/index.html`.
+The mapping from an address to a file is a fact about how a site is *served*,
+not about how a browser saves a download. The sitemap had been naming its own
+file since the day it existed, by accident, for the same reason.
+
+Held by asking the published home page for every `href` that starts with `/` and
+checking each one is a page the publish actually wrote.
+
+### Publishing is one archive, because a site is a folder — 2026-08-31 *(built)*
+
+Loose downloads were the shape until two things ended it on the same day: an
+asset is written to `assets/로고.png`, and a browser cannot be handed a folder;
+and `제품/index.html` above is a tree.
+
+`zipOf` is in `office-site` rather than the app, and the line moved deliberately:
+`publish` still says what a site *is* and the app still says what a file is —
+turning a list of files into one array of bytes is arithmetic with no browser in
+it, and belongs where it can be tested by asking what the bytes are.
+
+- **Stored, not deflated.** A site's bytes are mostly pictures, which are already
+  compressed; the HTML is tens of kilobytes that compress again on the wire. The
+  alternative is a few hundred lines of bit-packing whose bugs are silent.
+- **UTF-8 names with the flag bit set.** A zip's default name encoding is a code
+  page from 1989; without bit 11 a Korean folder name is mojibake on somebody
+  else's machine.
+- **A fixed timestamp**, so two publishes of an unchanged document are two
+  identical files. The same argument `formatDateField` makes about a renderer
+  that reads the clock.
+
+**And a finding about the test, not the code**: macOS's Info-ZIP `unzip` refuses
+to *create* a UTF-8 directory name — `Illegal byte sequence` — whatever the
+locale. The archive is correct: Python's `zipfile` lists the names and validates
+every CRC, `ditto` extracts them, the Finder opens it. The first version of this
+test failed and the bug was in the reader. The suite uses `ditto`.
+
+### A reader could not put a picture in a page — 2026-08-31 *(built)*
+
+Measured while asking whether the form work was the right next thing, and it was
+not: a `picture` carried a `src` string and **nothing anywhere could put a file
+in one.** The sample got away with it by drawing its art as SVG data URIs — a
+thing a product's author can do and a reader cannot. Adding a photograph was not
+possible at all, which is the second most common thing anybody does on a page
+after writing on it.
+
+`asset` is a resource with a name, a type and base64 bytes; a picture names one
+as `asset:로고`. The sixth reference of the shape this schema uses everywhere.
+
+The half worth writing down is that **one `src` has two right answers**:
+
+- a **board** draws the bytes, because there is no server to ask;
+- a **published page** points at `assets/로고.png`, because inlining a logo used
+  on five pages writes its bytes five times, and a photograph in the middle of
+  the HTML delays the first paint by exactly as long as it takes to download — a
+  browser cannot start drawing a page it has not finished reading.
+
+That is the second deliberate difference between the two drawings after a form's
+`action`, and it uses the same one flag.
+
+Four things it turned up:
+
+- **`Published.files` could only carry words.** `{ file, text, type }` was enough
+  until a site had a photograph in it. A PNG written through the text path is
+  base64 in a file called `.png`, with a charset on it — a file no viewer opens,
+  failing as a broken image rather than as a bad write. `bytes` is a separate
+  field, not a union, because a caller that has to guess which it got will guess
+  wrong on the file that matters.
+- **The file's own width and height are stored.** An `<img>` with no intrinsic
+  size is a hole of zero height until it loads, so every word under it jumps down
+  when it arrives. A builder that keeps only a URL cannot fix that because it has
+  never seen the file; this one has.
+- **A name is deduped, never overwritten.** Two files called 로고 is one of them
+  unreachable. Overwriting is the more helpful-looking answer and the wrong one.
+- **The size is reported, not refused.** Base64 is a third larger than the file.
+  `assetFaults` says so past 8MB, against the document itself — there is no block
+  to click on for "this is 12MB".
+
+**Still open, and connected**: publishing is still a browser download of loose
+files, so a folder with `assets/` in it cannot actually be produced — a zip is
+the missing half. Also open: a picture that must keep an aspect ratio, and
+responsive images (`srcset`), which is what the stored size makes possible.
+
+### Where a form's answers go — a connection with a name on it — 2026-08-31 *(built)*
+
+The question was framed three ways and only one of them is possible: **a
+published page is a static file.** It cannot write into the `.baro` document, so
+`resources` cannot be a destination and neither can a "answers as rows" store —
+both need something running. What already existed was the third: a real
+`<form action method="post">` posting straight to a service the reader chose,
+with nothing of ours in between.
+
+So the open question was never *where*. It was **how much the product helps you
+connect one**, and the answer the address-on-the-form shape got wrong: a site
+with five forms carried five copies of one address. Changing services meant
+finding all five, and the one that was missed goes on posting to an endpoint
+nobody reads — silently, because a form that posts somewhere wrong looks exactly
+like one that works.
+
+`service` is a resource with a name, an endpoint and a method; `form.sends`
+names one. The fourth reference of the shape this schema uses everywhere —
+`var:이름`, `componentId`, a dataset's `name` — and the same argument won it.
+
+Decisions worth the record:
+
+- **No default address and none of this product's own.** A builder that quietly
+  posted a stranger's message to its own server would be doing something nobody
+  asked for with somebody else's data. A new form arrives with a connection and
+  the connection arrives **empty**, reported by `documentFaults`.
+- **Two nodes, one transaction, one undo.** `insertForm` mints the connection
+  only when the document has none; otherwise it points at the one that is there.
+- **A connection with no address publishes no `action` at all** — not `action=""`,
+  which a browser resolves to *this page*, so 보내기 would reload and look for all
+  the world like the message went somewhere.
+- **The count is on the row.** Editing the address from one form's panel changes
+  every form that names it, so the row says 폼 2개가 함께 씁니다. A named
+  reference is worth having *because* one edit reaches every use, which is
+  exactly why a reader has to be told before making one.
+- **Three faults, told apart**: nothing chosen (a reader who has not finished), a
+  name pointing at nothing (somebody removed the connection out from under a
+  form that still names it), and a connection with no address.
+
+**A first-party inbox is still open** and is a product decision rather than a
+schema one: it needs a server, storage, spam handling and a retention policy.
+The schema is ready for it — `sends: 'barocss'` is a connection like any other.
+
+### The panel has two kinds of picker, and the control sweep reaches one — 2026-08-31 *(fixed)*
+
+`PropertyChoice` is a native `<select>`; `ChoiceSelect` is a Radix listbox with a
+`<button>` trigger. Nine custom rows used the second, so they looked different
+from the rows above them in the same column **and** were outside the sweep that
+presses every control and checks the document moved.
+
+One picker now — the sheet's. Which turned the sweep on nine rows it had never
+reached, and then turned up two things about the *sweep* rather than the panel:
+
+- **It swept one selection.** A stack. Every row that belongs to a picture, a
+  form, a field or a list — the ones added most recently and therefore least
+  looked at — was never pressed. It sweeps five node types and both panes now.
+- **It compared one node.** Two rows deliberately write somewhere else: a form's
+  주소 and 방식 write the *connection* it names, which is the whole reason a
+  connection has a name. Against one node they read as controls that do nothing.
+  It compares the whole document now.
+- **It wrote the value already there.** 37 into 투명도, whose bounds are 0 and 1,
+  clamps to 1 — which is what it already said. A sweep that writes the value
+  already present is measuring itself.
+
+**And one thing I got wrong on the way, kept here because the shape of the
+mistake is the useful part**: a field's 보낼 이름 looked as though it collided
+with the generic 이름 row, and I added a narrowing to exclude it. It did not
+collide — `field` is not in `SELECTABLE`, so that row was never offered for one.
+The narrowing was reverted. What stayed is a **model-level check** that no two
+rows write one attribute for one node type, which is a guard with nothing to
+catch today and is worth having because the browser sweep structurally cannot see
+that fault: it asks *did this control write something*, and the second row does
+write something — over the first.
+
+
+### The sample's pricing page had been sorting wrong, in a browser, since it was written — 2026-08-31 *(fixed)*
+
+A card's question was answered with a string and drawn exactly as stored, so
+the only way to make a price read as `월 9,900원` was to **store those words**.
+
+Which is a value nothing can compare. `요금제` says
+`sortBy: '가격', sortDir: 'desc', limit: 3`, so it was comparing
+`'월 9,900원'` against `'월 19,900원'` as text — `9` comes after `1` — and the
+page showed **문서 · 사이트 · 스위트** where it claims to show the three most
+expensive plans in order. It looked completely fine. Nothing but asking the
+document what order it was in could have found it.
+
+The blog had the quiet version of the same fault: the feed sorts by an ISO date,
+correctly, and then showed the reader `2026-08-02`.
+
+**The data stores the value; the card says how it reads.** `componentVar` gains
+`kind: 'date'` and a `format` picture string (`'월 #,##0원'`, `'yyyy년 M월 d일'`),
+read by `readValue`. Two panel rows — 값 종류 and 표시 형식 — on the part a
+variable is bound to.
+
+Three things it turned up on the way:
+
+- **Order matters and got it wrong first.** A data list replaces a placement's
+  answers *after* they are resolved, so formatting inside `instanceValues` reached
+  every card except the ones with data in them — which are exactly the cards a
+  format is for. `readValues` runs last, and is idempotent so that running last is
+  survivable.
+- **The preview needs it too.** A designer editing the post card against a row
+  must see what the page will show, or the preview is showing them something else.
+- **A card's default was the empty string**, so opening the post card showed a
+  blank where the date goes. A default is what a card draws when nobody has
+  answered; blank reads as broken.
+
+`format` is on the **card**, not the data — which is the point of it: one dataset
+can feed a price list that says `9,900원` and a summary that says `9.9천`.
+
+### A narrower width could change a value and could not un-say one — 2026-08-31 *(fixed)*
+
+`attrsAt` merged the base and then the override, so `{ mobile: { maxWidth: … } }`
+could say *this much instead* and had no way to say *none at all here*. The
+workaround is a number chosen to mean nothing — and **the sample was already
+writing it, in three places**: `minWidth: 0`.
+
+Found by drawing the sample's contact form rather than by reading the file. It
+wants to be 340 wide beside the words and the whole column under them, and the
+second half was unsayable.
+
+`null` in an override now un-says the key. Which forced the second half of it:
+**`null` and `undefined` are different sentences**, and the panel had one gesture
+for both.
+
+- *nothing at this width* — an emptied field while a narrower width is being
+  edited. Writes `null`.
+- *the same as the page* — **the mark beside the label**, which is a button now.
+  Writes `undefined`, which `withOverride` and `withState` already understood.
+
+The mark had been a `·` saying *this width owns this value* with no way to stop
+it owning one. Typing the page's number back in looks identical and is a
+different document: the width still states a value, it now happens to match, and
+it stops following the day the page's changes. `onUnmark` is in `office-ui`, so
+the deck and Word get it the day either grows something to take back.
+
+One thing the fix found on the way: the button was named from `row.label` and was
+unfindable — two rows in different panes can each be called 최대, which is
+exactly why a row carries `ariaLabel` as well.
+
+### Seven things a site builder needed, measured and closed — 2026-08-31 *(built)*
+
+Asked "is the site builder done", re-measured, and found the answer was no in
+seven specific ways. All seven are built; `docs/specs/site-builder.md` has the
+reasoning. The findings worth keeping here are the ones that were surprises:
+
+- **A schema gap shows up as artwork.** The product's own hamburger had to be an
+  SVG because a box with nothing in it was a box of no height. `minHeight` made
+  it three boxes and deleted a function from `sample-art.ts`.
+- **`position: sticky` inside a component silently cannot work.** A block in a
+  definition has the placement's box as its parent, and that box is exactly that
+  block's height — 82 pixels, measured. `display: contents` on the wrapper fixes
+  it and breaks selection: an element with no box cannot be pressed or measured,
+  and thirteen browser tests said so at once. A position belongs on the
+  **placement**, which is also where it belongs conceptually.
+- **A form is the one place the board may differ from the page**, rather than the
+  page being the board minus removals. A designer arranging a form must not be
+  able to send a stranger a message. One flag, `SiteEnv.published`, read in one
+  place.
+- **A `url` dataset is fetched in the editor, not in the page.** The other way
+  ships a script everywhere, hands a crawler an empty list, and shows a visitor
+  whose request failed an empty section. The cost is stated on the button.
+- **The one line of script.** Closing a menu when a visitor taps a same-page
+  anchor has no CSS answer — three were tried on paper and all three fail. So
+  the product ships one listener, only on a page that has both an opener and a
+  `#` link. The sample still exports with no `<script>`.
+
+### `visible: false` meant a draft and a closed menu, and both were deleted — 2026-08-31 *(fixed)*
+
+A hidden block is cut from the published page, on purpose: a section a reader hid
+is a section they did not mean to publish, and `display: none` still ships the
+words to a crawler.
+
+Two designs write the same attribute and mean the opposite:
+
+- a block shown **only on a phone** — a hamburger is `visible: false` with
+  `{ mobile: { visible: true } }`, which is how a page has two navigations;
+- a block a visitor **opens**.
+
+Both were being removed. Measured in the exported sample: the hamburger was gone
+from the markup, its `<label>` published empty, and the menu's media query and
+state rule stayed in the stylesheet naming an element that was not there.
+
+`neverShown` is the question that was meant — hidden at *every* width and in
+every state — and it is now asked in the three places that have to agree: the
+markup (`clean`), the media and state rules (`styledNodes`), and the scroll
+reveals. **The width half of this predates states**: a block shown only at 390
+had been losing its rules for as long as media queries have existed here, and
+nothing noticed because the sample had no such block until now.
+
+### The third state: a visitor opens a menu, and the page ships no script — 2026-08-31 *(built)*
+
+`hover` and `focus` are states a visitor happens into. 열림 is the one they
+decide, and it is what stands between "this model can express two navigations"
+and "the phone menu works". Details in `docs/specs/site-builder.md`; the four
+decisions in short:
+
+- **remembered, not held, so it may move things** — `OPENABLE` = `STATEABLE` +
+  `visible`, `layoutMode`, `gap`; `stateableIn(state)` is now asked by the
+  schema check, the command and the panel, which had a copy of one list each;
+- **published as a checkbox** — `openSwitches` writes an `<input>` and a
+  `<label for>`, the rule is `.st-open-switch:checked + [data-b="…"]`, and the
+  exported page still contains no `<script>`;
+- **the switch sits outside the block it opens** — inside, it is inside that
+  block's `display: none`, and an unrendered control is not in the focus order:
+  열림 would have been pointer-only. `openerRules` puts the ring on the block
+  being looked at, named per switch;
+- **`opens` holds a `partId`** — a sid is given out at load, so nothing written
+  down can hold one. `setOpens` mints the name, which is why the row has its own
+  command: it writes two blocks.
+
+Held in `states.test.ts` (arithmetic, rules, markup) and in `site.spec.ts` at
+390 with nothing but the file — pressed by pointer and by keyboard.
+
+### 아코디언과 탭 are one mechanism and one attribute apart — 2026-08-31 *(built)*
+
+An accordion's answer and a tab's panel are the identical node. What separates
+them is `opensOne` on the container: the switches under it become **radios
+sharing a name**, so choosing the second tab unchecks the first and every other
+panel falls back to `visible: false`. Nothing keeps them in step because a radio
+group already does. Plus `openAtRest` on an opener, which a tab strip needs
+exactly one of.
+
+Both are inserts (추가 › 아코디언, 탭). The knowledge they carry is that the body
+must be a **sibling** of the header, that it needs a `partId`, and that the name
+must be unused — the last of which is a *silent* fault: two accordions both
+calling their body 내용 means the second header opens the first body, in the
+published page only. `freshPartId` mints against the page and against the names
+the same insert is about to make.
+
+One rule could not be written as `switch:checked + block`: **which tab is
+chosen**. The tab is not beside its switch, so an opener's `states.open` is
+published as `body:has(#id:checked) [for="id"] > *`. A block's `states.open` now
+has one meaning in two shapes — what it becomes if it is opened, what it looks
+like having opened something if it opens.
+
+Held in `states.test.ts` and in the browser: two tabs pressed at 1280 and a
+third at 390 (a radio genuinely closing the other), and an accordion with two
+answers open at once (a checkbox genuinely not).
+
+**Still open in the same mechanism**: a menu that closes when a link inside it
+is followed needs `:target` or one line of script, and has not been decided. A
+`opensOne` accordion cannot be fully closed, because a radio cannot be
+unpressed — correct for tabs, and an author choosing 하나만 should probably be
+told.
+
+### A hamburger cannot be three boxes, because a page cannot say how tall a block is — 2026-08-31 *(fixed)*
+
+The site schema has `sizing`, `minWidth` and `maxWidth` and **no height at
+all**. Every other builder's hamburger is three empty divs of a fixed height;
+here the honest way to draw a 2px rule was to draw it, so `sample-art.ts` has
+one as an SVG.
+
+That is fine for a mark and wrong as a general answer: a divider, a spacer, a
+banner of a fixed height and a card with a picture at a set aspect are all the
+same missing pair. Once `minHeight`/`maxHeight` exist the hamburger can be three
+boxes and the lines can *move* when it opens, which is the animation everyone
+expects and this cannot currently express.
+
+### Every border in the product was an invalid CSS declaration — 2026-08-30 *(fixed)*
+
+Word writes a colour as six hex digits and no `#` — `2C5282`. Every other colour
+in `css.ts` went through `normalizeColor`, which puts the `#` back. **The borders
+did not.** `1pt solid 2C5282` is an invalid shorthand and a browser drops the
+*entire* declaration, so a bordered paragraph got no line at all — not a black
+one, none — and so did every table drawing its rules from a style. The sample's
+own `GridTable` states its inside borders exactly that way.
+
+The unit test for it **asserted the broken string**: `expect(css.borderTop).toBe(
+'1pt solid 000000')`. The same shape as the deck's sample writing `listType` to
+match a renderer rather than the schema — a test that agrees with the bug.
+
+Found the first time a bordered paragraph was put in the sample document and the
+*computed* width came back `0px`. A unit test compares the string the function
+returns; only a browser knows whether a browser accepts it.
+
+### Word's fifth border, and a schema that described a document this model cannot hold — 2026-08-30 *(fixed)*
+
+Two piles off the unread list, and they wanted opposite answers.
+
+**`borderBetween` — write the drawing.** A run of consecutive paragraphs asking
+for the same borders is one bordered *box* in Word: the top above the first, the
+bottom below the last, and a single rule between each pair. Drawn as each
+paragraph's own edges it is two solid lines between every pair with the margin
+showing through. `sharedBorders` answers it beside `suppressedSpacing`, for the
+same reason that one is there — it is a question about the block's **neighbours**,
+and the paginator has to reach the same answer. 12 findings.
+
+**A cell's `borderInsideH` / `borderInsideV` — take the declaration away.** An
+inside border is a line *between* cells, and a cell has no interior in this
+model: merging leaves the surviving cell carrying a span and the cells it
+swallowed are gone. So there was nothing for it to draw, ever, and `cellBorders`
+correctly reads the pair off the **table**. OOXML has `tcBorders/insideH`, which
+is why it was copied, and it means something there only for a merged region with
+the covered cells still present. Eight attributes on two node types describing a
+document this model cannot hold. 16 findings.
+
+**And 12 more that were read all along**: a table's `borderInside*` and
+`cellMargin*` are applied when a **cell** is drawn (`cellBorders`, `cellMargins`),
+and rendering a bare `bTable` draws no cells. Exemptions, like the header ids.
+
+**The sample document had no bordered paragraph at all**, which is why no test
+could have seen the doubled line — or the invalid colour. It has a three-paragraph
+box now, and `word-rendering.spec.ts` measures the *computed* border of each.
+
+### Two locks, and a fraction that was never linear — 2026-08-30 *(fixed)*
+
+**`lockDelete`.** Word's content control has two locks and keeps them apart on
+purpose: a form's instructions may be read and not edited *and* not thrown away,
+while a field a reader fills in is the first without the second. `lockContent`
+got its guard on the typing path; without this one a reader could not type in a
+protected region and could **delete the whole of it**. `insideLockedRegion` moved
+to `editor-core` and takes which lock to ask about — both layers need it and
+neither can reach the other: the typing gates are in `editor-view-dom` and the
+delete command is in `extensions`.
+
+**A linear fraction has never been drawn as one.** `style.css` has had
+`.w-math-frac[data-type='lin']` rules since it was written — the solidus, the
+missing bar — and **no renderer ever emitted `data-type`**. Two rules matching an
+attribute nothing wrote. Found while giving the fraction its other three values:
+`skw` sets the slots on a diagonal and `noBar` stacks them with no rule, which is
+how a binomial coefficient is written, and the style function looked only at
+`lin` — the one value whose CSS could not match anyway.
+
+The same shape as the deck's `listType` and Word's `borderTopColor`: a name
+written on one side of a seam and not the other, with nothing in between to
+notice. Three of those in one session is the argument for a check that reads
+`data-*` out of a renderer and out of a stylesheet and compares them.
+
+And two more of the maths pile: a **radical**'s `hideDegree` (a square root is
+`√` and a cube root `³√`, and the two were the same drawing) and a **group
+character**'s `verticalAlign` — where the *label* sits, which is not where the
+brace does. One was read and the other was not, so the label always followed the
+brace.
+
+**185 → 16.**
+
+### Three faults in one command, found by its first test — 2026-08-30 *(fixed)*
+
+`toggleLink` and `removeLink` are two commands and one gesture, and they had no
+test of their own. The conformance probe asked whether each moves the document
+and got yes, which is true of both and says nothing about what a reader ends up
+with. Writing that test found three:
+
+1. **A new address took the link off.** `toggleLink` asked *"do these words carry
+   a link at all"* and, if so, removed it — the `href` in the payload was read
+   only on the branch that adds one. So pressing 링크 on linked words with a
+   different address was silently a removal. It asks whether they point at *this*
+   address now: a toggle takes off what it would have put on, and a link is a
+   **value**, so the same gesture with a different value is a change.
+2. **Then two links stacked.** `applyMark` appends, so laying a second address
+   over the first left both marks on the run — two links over the same
+   characters, and which one a reader followed depended on which the drawing
+   read first. Off, then on.
+3. **`removeLink` laid `href: ''` on the words.** It took a link off by toggling
+   an *empty* address, which worked only while the first fault existed. It calls
+   `removeMark` now, which is what its name says — saying it through a toggle was
+   borrowing a gesture to do the opposite of what the gesture means.
+
+`find-replace` got its first test the same afternoon and had **none** — eight
+assertions about what a reader gets, all green.
+
+### Word's `produces` list was believed by two checks and compared to nothing — 2026-08-30 *(fixed)*
+
+`conformance.test.ts` carries 23 hand-written pairs of a command and the node it
+makes. Two checks read that list — is the type in the schema, is every `insert…`
+on the list at all — and **neither asks whether it is true.** A hand-kept list
+that nothing compares to the document is the hand-kept list this whole harness
+replaced.
+
+The probe already knew: `made` is what it watched appear, counted before and
+after, with the payloads Word's own test gives each command. Comparing them costs
+nothing.
+
+It found one disagreement and the disagreement was the **check's** limit, not the
+product's: `insertParagraph` is declared `paragraph` and was watched making a
+`heading`. Both are right — Enter in the middle of a heading splits the heading,
+Enter at the end of one starts a paragraph — and the probe stops at the first
+state a command can run in, which is the sample's first heading. Reporting it
+would have been reporting where the fixture's first block is, so it is out of the
+comparison with the reason written down.
+
+### A check for `data-*` written on one side of a seam — 2026-08-30 *(built)*
+
+Three faults this session were one name on two sides that did not match: the
+deck's renderer wrote `listType` where the schema said `type`; `style.css` drew
+`.w-math-frac[data-type='lin']` where **no renderer wrote `data-type`**; and the
+site's `insertBulletList` wrote `kind` where the schema said `type`. Each cost
+months and each is mechanical to find.
+
+`deadSelectors` asks one direction only: **does anything a product draws with
+write the names its stylesheets select on?** The other direction is noise — half
+of this repository's `data-*` are for a test to find an element by or an event
+handler to read, and a check reporting thirty of those beside one fault is a
+check nobody reads.
+
+Building it was four wrong answers, and each is in the code:
+
+1. **The whole repository on both sides** did not catch the fraction:
+   `data-type` is written by the *site's* list renderer, so Word's dead rule
+   looked answered by a product Word shares no stylesheet with. The scope is a
+   product's dependency graph now — **read from `package.json`**, because a
+   hand-kept list of what a product draws with put `office-word` in Word's tree
+   only, and `apps/slide` imports `installCellSelection` out of it.
+2. **Only `data-x` literals** reported nine of the deck's names dead when eight
+   were written as `data={{ presenting: 'true' }}` — `office-ui`'s convention.
+3. **Every object key in the source** reported none of them, and would have
+   missed `data-type`: `type:` appears in a thousand places.
+4. **Comments and tests counted as writes.** Taking the fraction's fix back out
+   left the check quiet twice — once on the sentence in the comment explaining
+   that nothing wrote `data-type`, and once on two converter fixtures carrying
+   whole pages of HTML.
+
+Verified by taking the fix out and watching it fail, which is the only way to
+know a check is one.
+
+### The maths pile wanted code, not a decision — 2026-08-30 *(fixed)*
+
+Twenty-five attributes, the largest thing on Word's unread list, and this
+repository had described them twice as *"the maths model this schema follows,
+drawn by nothing"* — with the note that they wanted a decision about maths before
+they wanted code. **Reading the list turned them into twenty lines.**
+
+Every one is a setting Word's own constructs carry, and every one is drawable:
+
+- A **matrix** says how its columns line up and how far apart they sit
+  (`m:mcJc`, `m:cGp`, `m:rSp`) and whether an empty cell shows its placeholder.
+  The stylesheet drew a fixed `gap: 0.15em 0.5em` and a fixed centring.
+- An **n-ary operator** says whether its limits are shown (`m:subHide`) — a sum
+  with no lower limit is written `∑`, not `∑` with an empty box under it, and
+  Word says so with a switch rather than by removing the slot so an author can
+  put it back. It came out as an empty box.
+- A **phantom** says which of its dimensions it gives up. All three were
+  declared, none read, so every phantom took all of its room.
+- A **border box** says whether a rule is drawn *through* it — which is how a
+  cancelled factor is written. The four `hide*` were read and the two `strike*`
+  were not: the half of a border box that is not a border.
+- A **run** says which **alphabet** its letters are in. In maths these are
+  meanings and not fonts: ℝ is the real numbers and R is a variable called R,
+  and a reader must be able to tell them apart. Every one came out as an
+  ordinary italic letter.
+
+The number had been hiding the work rather than describing it, which is the same
+finding this whole sweep keeps producing.
+
+The stylesheet's half is the product's: which face carries a fraktur letter, how
+a strike is painted. The renderer says only which one, which is the split the
+list markers and the table of contents both arrived at.
+
+**185 → 20.**
+
+### A locked shape was not locked either — 2026-08-30 *(fixed)*
+
+`locked` is on every scene node the office schema declares and it means one
+thing: *I have decided where this goes.* The deck has read it since its arrange
+commands were written — `box-commands.ts` skips locked boxes when it moves,
+duplicates or deletes them, and the tidy pass treats one as a pin. **Word read it
+nowhere**, so a shape a reader locked could still be dragged, nudged, resized,
+aligned, spread and deleted.
+
+One line, in `_movable`, because every one of those commands comes through it:
+`resizeShapes` calls it, `deleteShapes` calls it with a distance of one, and the
+align and spread commands read the same list. It **filters** rather than refusing
+the set, so a drag holding a locked shape and a loose one moves the loose one —
+which is what a reader pulling a marquee across a diagram means.
+
+Distinct from `lockContent`, which is a region of *text* that may not be edited.
+A locked shape's text is still text.
+
+### The probe's filler was setting the one attribute that made the rest impossible — 2026-08-30 *(fixed)*
+
+`attributeReadFrom` fills every *other* attribute before asking about one, so an
+attribute that only matters in combination is still visible. It built that filler
+from the schema's own values and **deliberately not** from what a product taught,
+for a good reason recorded when a deck was taught what a `fills` is: an array
+value is usually a whole sub-system that *supersedes* the flat attributes it
+replaces, and teaching the harness one thing made it wrong about fourteen others.
+
+That reasoning is about **arrays**. A string does not supersede anything — it is
+usually the switch that turns the others on. A frame reads `alignItems`,
+`justifyContent`, `gap` and `columns` only when `layoutMode` says `row`, `column`
+or `grid`, and the schema's first option is `none`; a text box reads
+`horizontalAlign` only for a `wrapType` that floats. In both cases the filler was
+setting the one attribute that made the rest impossible to see.
+
+A taught **array or object** still stays out of everybody else's question; a
+taught **scalar** joins the filler. Six findings came off that were never faults.
+
+### A locked region was not locked — 2026-08-30 *(fixed)*
+
+Word's content control is how a form or a template says *this part is yours to
+fill in and that part is not*. The renderer read **one of its eight attributes**,
+so a locked control could be typed over, one with a placeholder showed an empty
+box, and one with a title was announced to a screen reader as an unlabelled
+group. The sample document had no content control at all, which is why nothing
+could have seen any of it.
+
+The lock took three goes and each one is worth keeping:
+
+1. `contenteditable="false"` on the element. It went on and **the text still
+   went in.**
+2. The keydown gate already refuses a caret the DOM puts inside one — and a
+   browser will not put a caret inside `contenteditable="false"`, so it leaves
+   the DOM selection *outside* while the model's still points *in*, and
+   `beforeinput` writes at the model's. The second gate then let the key through
+   because *either* selection naming somewhere is enough, which is a rule written
+   for a real problem: the DOM selection is momentarily wrong while a render is
+   in flight, and a character refused then is refused for good. So the model has
+   to be able to answer the same question, which is `insideLockedRegion`.
+3. It still went in, through `tryHandleInsertViaGetTargetRanges` — the path that
+   writes the model straight from a `beforeinput`'s target range, and asked only
+   whether the ends were inline text. **A lock that only holds against the
+   keyboard is not a lock**: a paste, a replacement and an IME's committed text
+   all arrive there.
+
+`lockContent` is read as a convention rather than a node name — the engine does
+not know what a content control is and must not. Deliberately not `locked`, which
+the canvas nodes carry and means something else: a locked *shape* cannot be moved
+or resized, and its text is still text.
+
+`lockDelete` and `dataBinding` are still unread and stay in the count: one wants
+a guard on the delete path and the other wants a custom XML part to resolve
+against, and neither is a drawing.
+
+### A frame could not be hidden, faded or turned — 2026-08-30 *(fixed)*
+
+`visible`, `opacity` and `rotation` are on the shared geometry, so a rectangle,
+an ellipse, a line, a path and a picture all honour them: `isVisible` and
+`shapeTransform` are applied to each by name. A frame took neither, because it is
+a `<div>` and both helpers answer in SVG — `display: none` happens to be the same
+in both, and a `rotate(deg cx cy)` about a point in the canvas's coordinates is
+not a CSS `transform` at all. So a reader could hide, fade or turn any box on the
+canvas **except a frame**, which is the one they are most likely to want to turn.
+
+And the first fix was wrong in a way worth recording: `display: none` was set
+before the layout switch, and every branch of that switch writes its own
+`display`. The unit test agreed, because it asked with no `layoutMode` — a frame
+nobody arranges, which is not the frame a reader hides. **The fixture was not
+wearing the thing the fault needed**, one more time.
+
+### A picture on a canvas had no name, and a contents page ignored how it was set — 2026-08-30 *(fixed)*
+
+**`picture.alt`.** It has been in the schema for as long as `picture` has, and
+`inline-image` — the same idea in the flow — has drawn it since it was written.
+The canvas version drew nothing. So a picture a reader *dragged onto the page*
+was invisible to a screen reader and one they *typed into a paragraph* was not:
+one node, two drawings, one of them nameless. `aria-label` and `role` now, not
+`alt`, because this is an SVG `<image>` and `alt` means nothing on one.
+
+**`picture.fit` was reported unread and was not**, which is worth keeping. It
+draws as `preserveAspectRatio`, but the schema does not declare which values it
+takes — a page and a deck pass it straight through as CSS `object-fit` and take
+everything that property takes. So the probe invented strings, all of them fell
+to the same default, and a working attribute looked dead. Told through the
+product's `probes` hook rather than narrowed in the schema, because the schema
+is right and it was the probe that could not guess.
+
+**A table of contents had three switches and read none of them.** `leader` — the
+character filling the gap to the page number, Word's tab leader — lost to a
+stylesheet that drew a dotted rule and called the leader *"a viewer concern"*.
+That folded two decisions into one: **which** leader is the document's, and how
+it is painted is the viewer's. `rightAlignPageNumbers` was always on.
+`useHyperlinks` was always on, because the click handler matched every
+`.w-toc-entry` there was.
+
+### A text box read none of the seven things it says about itself — 2026-08-30 *(fixed)*
+
+A `textBox` is Word's anchored box: a size, something to be anchored to, a way
+the text around it behaves, an order in the stack. The renderer drew a plain
+`<aside>`, so a box a reader gave a width and a wrap to came out **the width of
+the column, in the flow, pushing everything below it down**.
+
+The rules were already written and one node over. A floating box of text and a
+floating picture do the same thing to the lines around them — that is what
+`wrapType` means, and Word spells it the same way for both. What differed was the
+vocabulary: a picture says `wrap` and `side`, a text box says `wrapType` and
+`horizontalAlign`, and `inFront` against `front` is the one place the two
+disagree on a value rather than a name. `textBoxCss` is that translation, plus
+the one thing a text box says that a picture has no word for — `zOrder`, and only
+where the box is out of the flow, because two floats in the flow are ordered by
+where they are.
+
+`anchorTo` and `verticalAlign` are deliberately not drawn: they say *what the
+offsets are measured from* — the paragraph, the page, the margin — and answering
+that needs the laid-out position of the anchor, which is the paginator's.
+
+**185 → 70.**
+
+### A page border nothing ever drew — 2026-08-30 *(fixed)*
+
+`pageSetupAttrs` has carried the four edges and their `*Space` since the schema
+was written. `pageCss` has known how to turn them into CSS for just as long.
+**Nothing ever called `pageCss`** — it was exported from `index.ts` and reachable
+from a console, and that was the whole of its life. Twelve of Word's unread
+attributes were this one feature.
+
+Drawn on the **sheet** now, which is where a page border is: inside the paper's
+edge, once per page. `pageBorderCss` rather than `pageCss`, because that one also
+answers how wide the page is and what room it leaves — a sheet already knows both
+from the layout, and handing it those measured as a sheet the wrong size.
+
+The browser test loads a document that asks for one rather than running a
+command, because **Word has no page-setup dialog yet** — page size, margins,
+columns and these four edges are one of the four dialogs its own conformance file
+lists as owed. It measures seven sheets with the rule and one without, because
+the sample has two sections and only the first asked: putting the border on the
+surface instead of the sheet would give eight or none.
+
+### A paragraph's `verticalAlign` was a property Word does not have — 2026-08-30 *(fixed)*
+
+Declared on paragraphs, headings and list items as *"baseline | superscript |
+subscript (for the run default)"*, and there is no such thing. Raising and
+lowering text is `w:vertAlign` on a **run**, and in this model it is a pair of
+marks — `subscript` and `superscript`, drawn by `mark-format.ts` with the size
+change Word applies too. Three node types carrying a property that meant nothing.
+
+A section keeps its own `verticalAlign` — Word's `w:vAlign`, where the text block
+sits between the top and bottom margins — and so does a cell. Three attributes,
+three different questions, and only one of them was fictional.
+
+The second finding on the unread list whose answer is to take the declaration
+away rather than write a drawing for it; the first was a cell's `borderInside*`.
+
+**185 → 79.** Well over half, and what came off divides in three: features
+finished at one layer with nothing above reaching down (block revisions, the page
+border, `borderBetween`), attributes read in a context the probe cannot build
+(header ids, a table's interior, the between border), and declarations describing
+a document this model cannot hold (a cell's interior, a paragraph's vertical
+alignment).
+
+### A whole feature was written down and invisible — 2026-08-30 *(fixed)*
+
+`every-attribute-is-read` reported **185** attributes Word declares and nothing
+draws. Reading the list rather than the number, the largest pile was one thing:
+**44 of them were block-level tracked changes.** `revisionId`, `revisionType`,
+`revisionAuthor` and `revisionDate`, on eleven node types, written by
+`revision-record.ts` — and the only code that read any of them was
+`recordParagraphMerge`, checking whether it had already proposed one.
+
+So with 변경 내용 추적 on, pressing Backspace at the start of a paragraph
+proposed the merge, recorded who and when, and **the screen showed nothing at
+all**. The paragraphs stayed apart with no mark on them and a reviewer had
+nothing to accept or reject. Tracked changes to *text* had been drawn since the
+feature was written, because those are marks; a block's revision is not a mark —
+what it proposes is not about a range of characters — and nobody had drawn the
+other half.
+
+`blockRevision` draws it now: a change bar in the margin in the author's colour,
+from the same `authorColor` the marks use, so one reviewer is one colour whether
+they changed a word or a boundary; and a struck-through ¶ where a paragraph mark
+is the thing being deleted. Nine node types carry it, through one
+`revisionDrawing` helper — *the repetition is how six of them would be
+forgotten, which is what happened to all nine.*
+
+**The browser test for this already existed and passed the whole time.** It
+asserted `blockAttrs` and never looked at the page. Asserting the model and not
+the drawing is exactly how a feature stays written down and invisible.
+
+**185 → 134**, and six of the fifty came off without a line of product code:
+`headerId`, `footerId` and the four first-page and even-page names are read by
+`renderers/page.ts` through `furnitureFor`, which picks a header per page in
+Word's order. The check cannot see it because the whole branch is behind
+`if (doc && layout)` — choosing a header needs a **paginated layout**, and
+rendering a `surface` on its own has no pages to choose between. They had been
+sitting in the pile described as *"five names nothing looks up"*, which was
+wrong. Reading the list is what found it; counting it is what hid it.
+
+### A numbered list drew nothing at all, off Word — 2026-08-30 *(fixed)*
+
+A marker comes from the numbering definition in `resources`: `listItem` draws
+`data-marker` from `numberFor(sid)`. That is Word's model and the right one. But
+the shared `toggleBulletList` / `toggleOrderedList` write `type` on the list and
+**no `numId` on anything**, so the resolver had nothing to resolve, the marker
+was the empty string, and a list on a page drew no bullet and no number.
+
+**All three products had already fixed it, each in its own way, and the shared
+default stayed wrong.** Word numbers from a `numId` definition in `resources`.
+The deck draws CSS counters from a `data-list-type` its own renderer writes —
+added when `every-attribute-is-read` reported a numbered list wearing bullets.
+The site overrides the node entirely and emits real `ul` / `ol` — added when
+`insertBulletList` turned out to be writing `kind: 'bullet'`, an attribute
+nothing reads.
+
+Three products, three separate discoveries of one fault, three separate repairs,
+and `office-text` went on drawing a plain `div` through all of them. Nobody was
+wrong in any one file, which is the shape this whole harness is for.
+
+It is shared now (`listTypeOf`), the deck's override keeps only what is really
+the deck's, and `text.css` draws the fallback **only where `data-marker` is
+empty** so a resolved number always wins. No product needs it today — Word
+suppresses it, the deck and the site override the node — and the fourth product
+gets a list that draws like a list without finding this out for itself.
+
+### A key that names a command nobody registers — 2026-08-30 *(fixed, and now asked)*
+
+Nothing had ever asked the question *does every chord this product prints name a
+command it registers?* Word printed **72** and answered **68**. The four are
+worth reading one at a time, because they are four different failures:
+
+- **⌘H → `replace`.** The command is `replaceText`. A misspelling, and 바꾸기 had
+  never worked from the keyboard.
+- **Shift+Enter → `insertLineBreak`.** No such command — and the key works
+  anyway, because it arrives as a `beforeinput` of that type and the input
+  handler answers it. Two mechanisms on one key, one of them a name. The binding
+  is gone; see the open item below about which document a line break should make.
+- **⌘Space → `clearFormatting`.** 서식 지우기, and **nothing had ever built it**.
+  Eleven `remove…` commands each take off one mark; the gesture takes off all of
+  them. `DataStore.range.clearFormatting` had existed as long as the range API
+  with nothing above it able to reach it — no operation, no command, one binding
+  naming a command that did not exist. Now an operation with an inverse, a
+  command, and the fixture grew a bold run so the check can run it.
+- **⌥⌘D → `insertEndnote`.** Not missing — *unfinished*, which took longer to
+  see. The name was registered in `doc-structure.ts`, a shared extension **no
+  product installs**, and what it did was put an *empty* `endnoteDef` into the
+  flow with **no reference pointing at it**. A body nothing refers to is not a
+  note, and the mark that refers to one, `endnoteRef`, was never declared at all
+  — `office-text` had been drawing it in superscript for months with nothing able
+  to write one. Under the office schema it is worse: `endnoteDef` is a resource
+  there and cannot sit in the flow, so every insert built a tree the validator
+  refused. It is one command now, beside the footnote, and `doc-structure.ts`
+  no longer claims the name.
+
+`keyFaults(keys, knows?)` asks it now, and all three products' tests pass their
+editor's command names. The two questions it already asked — a binding runs a
+command or changes a view and says exactly one, no chord bound twice in a mode —
+did not need an editor, which is why the third had been missing.
+
+### Replace all, then undo, and the formatting came back wrong — 2026-08-30 *(fixed)*
+
+`replaceText` has two payload forms. The **range** form captured the run's marks
+so its inverse could put them back — with the reason written above it, that
+`range.replaceText` re-derives marks by the store's rules for an *edit*, which
+are right for a reader making one and are not reversible. The **single-node**
+form, which is the one `replaceAll` builds, did not.
+
+So 모두 바꾸기 followed by ⌘Z returned the words and not the emphasis: a bold
+span over `[4, 7]` came back as `[4, 5]`. Silently, in every product.
+
+Invisible until the extensions' conformance fixture grew a bold run and a link —
+which it grew for an unrelated reason. **A document with no formatted text in it
+cannot notice a fault about formatting**, and this fixture had none for as long
+as it has existed. Worth remembering when the next fixture is written.
+
+### Four more controls that lit up over a caret and did nothing — 2026-08-30 *(fixed)*
+
+Found by sweeping every `toggle…`/`set…`/`remove…` command over a **collapsed
+caret** and asking whether the document moved — the state the probe reaches only
+after a range state has already succeeded, so it stops there.
+
+- **`setHighlight`, `setFontFamily`** — hand-written guards asking only for a
+  range, three lines different from `font-size.ts` and `font-color.ts`, which had
+  been given `'something'` for exactly this.
+- **`removeLink`** — its own comment named the tighter answer, *"and there is a
+  link here"*, and left it for *"the day a reader complains that it is offered on
+  unlinked words"*. The day arrived as a measurement. `wears(editor, selection,
+  kind?)` in `guards.ts` is that question now, shared with 서식 지우기.
+- **`setParagraph`** — the run answers *"no-op if already paragraph"* with
+  `return true`. Success, and the document untouched, on every paragraph in the
+  document. Worse than a refusal: a caller that trusts the answer believes the
+  conversion happened.
+
+### The guard against marking a caret read a field nothing sets — 2026-08-30 *(fixed)*
+
+`hasRange(editor, payload, 'something')` is the argument that separates *a
+command needing text between two points* from *one needing a caret*, and it is
+asked in **seventeen** places — every colour, size, family, link and note. It
+answered by reading `selection.collapsed`.
+
+**Nothing sets that field.** `SelectionManager` stores what it is handed and the
+view builds a range from two points; neither computes it. So it is `undefined`
+essentially always, `!undefined` is `true`, and the argument written to stop a
+mark being applied over zero characters permitted exactly that, everywhere.
+
+It reads the offsets now, and honours `collapsed` where a caller sets it — the
+probe does, which is why the harness never saw this. Found writing a test for
+미주's guard by hand: it lit up over a caret.
+
+### No footnote had ever been inserted, in any product — 2026-08-30 *(fixed)*
+
+Found by the other half of the probe, *does it move the document*, with a caret
+in a run where the guard says yes. Two faults stacked:
+
+1. The body went to the **document root**. Office says `document` holds
+   `docMeta? surface+ resources?` and re-declares `footnoteDef` as a *resource*
+   precisely so a body cannot sit between two paragraphs. Every insert built a
+   tree the validator refused and rolled back.
+2. Under that, `footnoteDef` held `block+` in office and `inline*` in the
+   standard schema, and the command wrote the inline one. **One node meant two
+   things.** The schema says `block+` in both places now — which is what Word's
+   own sample document had been writing all along.
+
+The endnote inherits the fixed path rather than a copy of it.
+
+### A floating surface needed four layers and the repository had three — 2026-08-29 *(fixed)*
+
+Asked: *how do you build a floating toolbar or a `/` menu properly in an app?*
+Measured rather than answered, and the answer is that almost all of it was
+already built:
+
+| layer | what it is | state |
+| --- | --- | --- |
+| what it offers | a declaration, `toolbar-model.ts`'s shape | ✅ `SlashMenuItem[]` |
+| when it is open, where the reader is | a command and a piece of state | ✅ today's rewrite |
+| what it looks like | `office-ui` — tokens, theme, portal | ✅ `Toolbar`, `Menu`, `Tip` |
+| **where it goes** | the selection's rectangle on screen | ❌ reachable by nobody |
+
+`DOMQuery.calculateTextPosition` has answered the fourth since the decorator
+system was written, and lives inside it. So a surface needing all four could not
+be built by a product at all — **which is why the two that existed were built
+inside a model package, drawing their own DOM, installed by nobody.** The same
+sentence as `find`: the mechanism exists, in one place, unpublished.
+
+`selectionRectIn` publishes it, `FloatingSurface` draws it in the suite's
+tokens, and the site's selection toolbar is a list of two buttons. That is the
+test of the split: a **second** floating surface is now a list, not a mechanism.
+
+Four things it took measuring to get right:
+
+- **A product may hold several views of one document.** The site makes an
+  `EditorViewDOM` per board and draws three at once, so a view's own
+  contains-check answers `null` for two of them. `EditorViewDOM.selectionRect()`
+  passes its content layer, which is right for Word; a multi-view product passes
+  a root holding them all. Asking each view in turn would be three answers to a
+  question with one.
+- **`getClientRects()[0]`, not the range's bounding box.** A selection wrapping
+  across lines has a box covering the whole paragraph, and a toolbar centred on
+  that sits in the middle of the text.
+- **Measured in `useLayoutEffect` with the element's own size.** In an effect it
+  paints at 0,0 for a frame first, which reads as a flicker in the corner; from
+  a constant it is wrong the first time a product puts a longer label in it.
+- **`office-ui`'s own guard caught a hardcoded `z-50`** — the check written the
+  day a select opened underneath a dialog. It is `--ou-z-popover` now.
+
+Corrected on the way: *"three apps each call `window.getSelection()` for this"*
+was wrong. All four calls **set** the selection; nothing had ever asked where it
+is.
+
+### The layer is three, not two — 2026-08-29 *(the last two UI extensions resolved)*
+
+Asked directly: *if an extension draws its own DOM, does every application have
+to build its own copy?* Half right, and the missing half is the one that makes
+this engine worth having. The split is **three**, not two:
+
+| layer | what it holds | shared? |
+| --- | --- | --- |
+| `extensions` | commands, state, no DOM | yes, by every product |
+| `office-ui` | the drawing — tokens, themes, `Toolbar`, `PropertyPanel`, `Tip` | **yes, by every product** |
+| the app | which command, which panel, where | no, and that is the point |
+
+So UI *is* shared. What cannot be shared is UI **in the model package**, because
+a product cannot theme it, place it or style it — which is exactly why three
+extensions sat in no kit.
+
+`SlashCommandExtension` was the last one with a model half worth keeping, and it
+had three faults in one file:
+
+- **It drew its own menu** — the reason nothing installed it.
+- **Its icons were unicode characters**: `¶ • ☑ — ⊞ ℹ ⚠ ∑ 💬`. This repository
+  has one absolute rule there and a character is not an icon. The defaults name
+  none now: `office-icons` has no heading, quotation, code block or divider yet,
+  and inventing eight for a menu nobody renders is the same mistake in a new
+  package. A product that draws this menu names icons from its own vocabulary.
+- **It listed commands a product may not have.** `insertComment` is Word's;
+  `insertCallout` and `insertMathBlock` are ones Word deliberately leaves out.
+  A shared default list offering rows that decline is
+  `every-command-does-something`'s fault waiting to happen — so the menu answers
+  with **what this editor actually registers** and cannot show a dead row.
+
+`FloatingToolbarExtension` was **deleted**, not rewritten. It registered *no
+commands at all* — a selection toolbar, entirely UI, in the model layer, and no
+product had ever built the equivalent. Writing it into `office-ui` instead would
+be a component nobody renders at a new address; the day a product wants one, it
+belongs there, where it can take the tokens all three theme by.
+
+Two more faults fell out of the rewrite:
+
+- **`runSlashMenuItem` reported success before the work happened** — it fired the
+  row's command without awaiting and returned `true`, so it would have said yes
+  even for a row whose command declined. The same fault as *says it can run and
+  then does nothing*, one moment earlier.
+- The cast count went **331 → 330**, and the exemption list on
+  `every-extension-is-in-a-kit` is now **empty**: every extension this package
+  exports is one a product can install.
+
+### Four extensions were in no kit, and three of them drew their own UI — 2026-08-29 *(fixed)*
+
+`FindReplaceExtension` was called a stub in three places for months and was
+complete all along — nothing installed it. The obvious next question is whether
+anything else is in that position, and the answer is a check this package can
+run on itself: **every extension it exports is in a kit a product can take.**
+
+Four were not: `FindReplaceExtension`, `EmojiExtension`, `SlashCommandExtension`,
+`FloatingToolbarExtension`.
+
+**Three of the four build their own DOM**, and that is not a coincidence. A
+shared model package drawing UI is a package a product cannot use, in a
+repository whose whole shape is that `office-ui` draws and the packages below it
+do not. It is the same fault that kept `find` unused, seen from the other end —
+and the measurement that names it is *"which of these is in no kit"*, not
+*"which of these looks wrong"*.
+
+`FindReplaceExtension` had its panel removed earlier today, so it is installable
+now and is in `createRichExtensions()`. `EmojiExtension` was a plain wiring gap
+and went in with it. The other two are exemptions naming what would have to
+change first — 14 lines of `document.createElement` in one, `background: white`
+in the other — and the day either stops drawing, the check fails and it goes in
+a kit.
+
+**Word names its extensions one at a time and that is not a counter-example.**
+Its kit takes core and basic and then lists twenty-two by hand, with the reason
+written down: `createRichExtensions()` registers an insert for every node in it,
+including ten Word cannot draw, so `insertCallout` reported success and left the
+reader's text invisible. That is the right decision, and it is one **only a
+reader of these exports can make**. A product that reads the list can choose; a
+product that takes a kit gets what the kit has; an extension in neither is one
+nobody chooses *or* inherits. The next application starts from a kit.
+
+### Enter at the end of a heading made another heading — 2026-08-29 *(fixed)*
+
+Two more questions on the extensions' probe. The first found nothing and is not
+shipped; the second found the everyday gesture producing the wrong block.
+
+**The negative direction is structurally true, and that is worth knowing.** Every
+fault this harness has found is a `canExecute` *looser* than its `execute`. The
+opposite was measured — run each command where its guard says no, see whether the
+document moves — and came back **0**, and always will: `Editor.executeCommand`
+consults `canExecute` before running anything. The check is not shipped, because
+it cannot fail through the path every caller uses; the reason is kept, because it
+explains why every guard fault here points the same way.
+
+**What an `insert…` actually puts in the document, observed rather than
+declared.** `every-command-makes-something-real` asks this of a written list a
+product maintains; the probe already runs every command over a real document, so
+the answer can be *what appeared* — which cannot go stale and cannot name a type
+the schema does not have. 40 inserts, and the table is now asserted.
+
+The first version compared the **set** of node types and reported thirteen
+inserts as adding nothing. All thirteen were fine: the fixture holds a `columns`,
+a `descList`, a `bFigure` and a table on purpose, so an insert that added one
+*more* of something already present looked like an insert that added nothing. A
+fixture rich enough to let a command run is rich enough to hide what it did, and
+counting is the difference.
+
+Counted, one entry was wrong: **`insertParagraph → heading`.** Pressing Enter at
+the end of a heading gives you **another heading**, in all three products. Every
+editor of this kind gives a paragraph, for a reason a reader could state: a
+heading is a title, and the thing after a title is prose.
+
+The operation has taken `blockType: 'paragraph'` since it was written and nothing
+ever asked for it. **At the end and nowhere else** — Enter in the middle of a
+heading splits a title into two titles, which is what a reader means by a break
+inside one; only the split that leaves the second half empty is *this heading is
+finished*.
+
+And fixing it surfaced the same stray-attribute fault `transformNode` had, in the
+other operation that changes a block's type: the new paragraph came out carrying
+`level: 2`. Filtered by what the schema declares, the same way, found the same
+afternoon.
+
+### Backspace across two paragraphs could not be undone — 2026-08-29 *(fixed)*
+
+Closing the probe's last *unanswered* commands, 8 → **2**. Every one of the six
+turned out to be a fault rather than a blank, and the last of them is the worst
+thing this repository has found:
+
+**Select across two paragraphs, press Backspace, press ⌘Z — the words are gone
+for good.** The everyday gesture, in all three products, losing text in silence.
+
+`deleteRange` offered **no inverse at all** for a range spanning more than one
+run, and said why: *"a deletion spanning several nodes removes structure as well
+as characters, and re-inserting a string would not rebuild it — so rather than
+offer an inverse that half-works, it offers none."*
+
+Careful reasoning from a **wrong premise**. `range.deleteText` removes no
+structure: it truncates the run the range starts in, empties the runs between,
+and trims the run it ends in. Nothing is added, nothing is taken away, and every
+node involved survives — so the deletion is exactly reversible, and declining to
+try is what cost the text. `restoreRuns` is the way back, and its argument is
+`restoreTextNodes`': an operation that cannot be undone can usually be **told**
+what it would need to know. That precedent is in this file, about
+`autoMergeTextNodes`, recorded as a decision and then reversed for the same
+reason.
+
+The other five, all the same class — a guard looser than its run:
+
+- **`insertEmoji`** asked only whether an emoji had been named; the run refuses
+  without a range. A picker with nothing selected lit up and did nothing.
+- **`moveBlockUp`/`moveBlockDown`** said yes on the **first** block of a page.
+  Their guards also demanded `payload.selection` while their runs read the
+  editor's — the same asymmetry as the ten heading commands.
+- **`splitCell`** needed a merged cell to be exercised at all; the probe was
+  handing it the one case the operation declines.
+- **`hideSlashMenu`** needed a menu open first.
+
+And **two** left, which are not a probe gap: `indentNode` and `outdentNode` act
+only on a node type the schema marks `indentable`, and **no schema here marks
+one** — not the standard schema, not the office schema. Word found this and
+worked around it (`word-keymap.ts` binds `indentText` instead, with the reason
+written down); the commands are still registered, still reachable, and still
+impossible to run. Recorded as a claim rather than a blank: the day something
+declares `indentable`, the ceiling in the test fails.
+
+### `find` was never a stub — 2026-08-29 *(record corrected; extension rewritten)*
+
+The last four *unanswered* commands were blocked on `find`, which three places in
+this repository called a stub:
+
+- `word-keymap.ts`, explaining why ⌘F was taken out;
+- `every-command-does-something.ts`, opening with it as the fault that check
+  exists for;
+- `BACKLOG.md`, as an open item.
+
+**None of it was true.** `editor-core` registers no `find` at all, and
+`FindReplaceExtension` has been a complete implementation since the day it was
+written — measured: three matches found in a two-paragraph document, all three
+replaced correctly, undone correctly. What was true is smaller and stranger:
+**nothing installed it.** Not Word's kit, not the deck's, not the site's, not
+`createDefaultExtensions` — which from a keyboard is indistinguishable from
+reaching a stub.
+
+The symptom was recorded honestly (편집 › 찾기 lit up, ran, drew nothing); the
+**cause was guessed, written down, and then quoted for months**. Word removed a
+key binding over it and the site deleted a menu entry over it. The BACKLOG entry
+even had the right answer in its own last paragraph — *"the real
+`FindReplaceExtension` exists and is in nobody's kit"* — under a headline that
+contradicted it.
+
+**Why nothing installed it** was in that paragraph too: it drew its own panel.
+`document.createElement`, `position: fixed`, `background: white`, `#e2e8f0`
+borders, appended to `document.body` — a shared model package building UI, in a
+repository whose whole shape is that `office-ui` draws and the packages below it
+do not. It could not be themed, placed or styled by a product, and would have
+been white-on-white in the dark theme all three now honour.
+
+The highlighting told the same story from the other end: `_highlightMatches` was
+an **empty method** under a comment saying the drawing was *"deferred to the DOM
+layer"*. A search found twelve matches and showed the reader none of them.
+
+It is a search and a place in it now, with no DOM. `findNext` and `findPrev` move
+through the results by **moving the editor's selection onto the match** — what
+every editor of this kind does, needing no injected layer, and making the match
+a thing a reader can act on rather than look at. A product draws the panel it
+wants and reads `state`.
+
+The `editor as any` count fell **337 → 332** with it. Five at once is what a
+*layer* being wrong looks like from the outside: a model package building UI
+reaches for the escape hatch at every line, and the count is the symptom.
+
+Unanswered went 14 → **8**, and `replaceOne`/`replaceAll` are now exercised by
+all six questions rather than skipped.
+
+### A heading's level could not be changed — 2026-08-29 *(fixed)*
+
+Closing the probe's *unanswered* column is the work of exercising the commands
+nothing had exercised, and it went 23 → **14** with one change and found two
+faults on the way.
+
+**Ten guards demanded `payload.selection` while their `execute` read the
+editor's.** `setHeading`, `setHeading1`–`6`, `setParagraph` and
+`insertParagraph` all answered *no* to any caller that asks "can this run right
+now" without threading a selection — which is what a toolbar does on every
+render. `Editor.canRun` fills it in and hides the asymmetry; `canExecuteCommand`
+does not, and both are used side by side. Ten commands sat in the unaskable
+column reading exactly like ten nobody had got round to.
+
+Asking them properly then found the real one:
+
+**`transformNode` treated *same type* as *nothing to do*, whatever the
+attributes said.** `node.stype === newType` was the whole test, so turning a
+heading 1 into a heading 2 returned success and wrote nothing. **A heading's
+level could not be changed** — in Word, whose toolbar offers all six. Measured
+by putting a caret in a heading and asking `setHeading2` whether it had done
+anything.
+
+And fixing that surfaced the one underneath it: **a transform merged the old
+node's attributes into the new one's.** Right for a heading becoming a heading,
+wrong for a heading becoming a paragraph — `level` is a heading's. Nothing drew
+it and nothing complained, so it sat there; what made it visible is **undo**.
+Turning a paragraph into a heading 1 and pressing ⌘Z produced
+`paragraph { level: 1 }`, because the inverse is a transform back and the stray
+attribute rode home with it. The attributes are filtered by what the new type
+declares now, and a type that declares nothing is left alone.
+
+The same-type path updates **in place** rather than recreating: a heading whose
+level changed is the same heading, and every selection, comment anchor and link
+pointing at it should survive.
+
+### A list could not be turned back into paragraphs — 2026-08-29 *(fixed)*
+
+Two more questions on the extensions' probe, both free — it already has the
+document before and after:
+
+- **Does the selection still name nodes that exist?** 0 findings. A command that
+  takes away what the caret was in has to leave the caret somewhere, and a
+  selection pointing at a deleted sid is the state the site builder records
+  having had once: *"a panel describing something nobody can see."*
+- **Is a toggle its own inverse?** **3 findings**, and they are the three block
+  toggles: `toggleBulletList`, `toggleOrderedList`, `toggleBlockquote`.
+
+Every **mark** toggle was self-inverse. The three that change the *shape* of the
+document each called a `wrapIn…` operation **and nothing else**. A paragraph
+became a bullet the first time and stayed one for ever: pressing the control
+again ran the command, wrapped nothing, reported success and changed nothing.
+
+So **there was no way to turn a list or a quotation back into paragraphs** in
+any of the three products. The only route out was undo, and only if it was the
+last thing you did. Three toolbar buttons, in three shipping products, that a
+reader can press twice and only the first press means anything.
+
+The way out is composed rather than a new operation (`lift.ts`): move the blocks
+up to where the wrapper sits, then take the wrapper away — two operations this
+package already has, so the inverse comes for nothing and the pair undoes as one
+gesture. Two things it took measuring to get right:
+
+- **The wrapper goes with its children.** `removeChild` takes the list's
+  reference out of its parent and leaves the `listItem`s in the store, by then
+  empty. The transaction validates what it touched at commit and refused the
+  whole thing: *"Content of 'listItem' ended early; 'block+' requires more
+  children."* `deleteOp` takes the descendants with it.
+- **A list holds items which hold blocks; a quotation holds blocks.** The level
+  between is named rather than guessed — a walk that guessed would lift a
+  `listItem` onto the page, and nothing accepts one there.
+
+`toggleBlockquote`'s guard was `() => true` besides, on an operation that reads
+the selection and refuses without one.
+
+### Undo gave a paragraph back without its words — 2026-08-29 *(fixed)*
+
+The extensions' conformance run asks whether a command changes the document.
+**Undo is the other half of the same run and costs one line** — the probe has
+the document before and after already, so putting it back and comparing is free.
+`every-command-does-something`'s own documentation says so: *"two answers for
+the price of one, because a command that cannot be undone is its own fault and a
+worse one."* Nothing had ever collected the second answer.
+
+**`deleteNode` returned the node empty.** `delete`'s inverse carried the node
+from `getNode`, whose `content` is a list of **sids**, and the next lines delete
+every one of those descendants — so undo put an empty paragraph back. Delete a
+paragraph, press ⌘Z, and the words are gone for good. `removeChild` and
+`removeChildren` had the same fault and were mended with it (`subtree.ts`).
+
+Everything about it looked right, which is why it lasted: the delete works, the
+undo runs, the node reappears, the paragraph count is correct, and no test had
+ever looked *inside* one. `delete`'s inverse had even been mended once before —
+the comment above it records adding the parent and the index because a `create`
+left the node unattached — and the contents were not looked at then either.
+
+Three smaller things the same run turned up:
+
+- **The fix took two goes, and the second is the lesson.** Written beside the
+  inverse it ran *after* the descendant loop and captured a node whose children
+  were already gone. A record of a deletion has to be taken before the deletion.
+- **`outdentText` said yes over text with no indent** — and the *operation* had
+  already fixed exactly this in its range branch, with the reason written down.
+  Its single-node branch never learned it, and handed back an `indentText`
+  inverse, so undoing an outdent that had done nothing **added an indent the
+  text had never had**. One body now, two ways of naming the same stretch.
+- **The comparison is `meaning`, not `JSON.stringify`.** Undo a `toggleBold` and
+  the run comes back carrying `marks: []` where it had no `marks` key: the same
+  document, a different string. Before that was allowed for, **45** commands
+  looked un-undoable — a finding so large it can only be the probe.
+
+### The extensions had no self-test — measured 2026-08-29 *(harness written; 11 findings, all closed)*
+
+Asked after a reader's question: *"shouldn't the extensions test themselves,
+independent of Word, Slides and the site? Why didn't they?"* Both halves are
+right, and the answer is worth keeping.
+
+**They have tests. The tests are the wrong shape.** 97 commands, 22 test files:
+
+| | |
+| --- | ---: |
+| commands registered in `packages/extensions` | 97 |
+| never named in any test | 36 |
+| test files that mock `commit` | 18 of 22 |
+
+`setFontSize`'s is representative. It builds a **fake** editor, mocks
+`transaction().commit()`, hands the command a good range, and asserts the
+*operation it would have built*. It never loads a document, never applies
+anything, never asks `canExecute`. So when its guard turned out to accept a
+collapsed range — where `applyMark` commits and changes nothing — every one of
+its tests passed, and **the passing tests are what made it invisible**.
+
+**And the mechanism that catches this already existed.** `every-command-does-
+something` runs a command over a real document and asks whether the document
+moved. It had only ever been wired **per product**, so whether a command was
+checked at all depended on whether Word's, the deck's or the site's probe
+happened to reach it. The deck caught `setFontColor` doing exactly this months
+ago; `setFontSize`, three lines away in a neighbouring file, survived because no
+product had put a size control on a surface.
+
+`packages/extensions/test/conformance.test.ts` is that check, wired where the
+commands live: a real editor with all 50 extensions, the standard schema, a
+document with one of most things in it. **136 commands — 113 examined, 0 findings, 23
+cannot be asked**, and the third number is asserted as a ceiling so a probe that
+stops setting things up fails rather than looking greener.
+
+**Nine findings on the first run. Six fixed the same afternoon:**
+
+- **`TextFormattingExtension`: `canExecute: () => true` on six commands** whose
+  execute refuses without a range *and* without a value. Alive because they are
+  registered through a private helper, so a sweep reading `canExecute:` at each
+  command's own declaration never saw them.
+- **`DocStructureExtension`: four inserts that drew nothing.** `hasContent: true`
+  gave every node a **paragraph** as its empty content, and `docHeader`,
+  `docFooter` and `endnoteDef` hold `inline*` — the schema refused the child,
+  while the three beside them in the same table and through the same code worked.
+  `chart` was the fourth: it *requires* a `values` attribute and nothing checked.
+  Its seven guards were `() => true` as well.
+- **`removeHeading`: `return true`** under a comment reading *"conservative
+  default"*. 제목 해제 lit up with the caret in an ordinary paragraph.
+- **`splitListItem`: asked for a range and not for a list item.** There is
+  nothing to split outside one, and the operation knows that and quietly produces
+  nothing.
+
+**And then the last three, so the ratchet is gone rather than set to zero:**
+
+- **`setFigcaption` only ever *added* a caption.** A `bFigure` holds at most one,
+  so on a figure that already had one — which is every figure `insertFigure`
+  makes — the schema refused the second and the command reported success. It
+  works exactly once per figure and then silently stops, which is the subtlest
+  of the nine.
+- **`splitCell` over a cell that is not merged.** `splitTableCell` refuses one
+  with the reason written into the operation: there is nothing to split. 셀 나누기
+  lit up over every cell in every table.
+- **`removeColumn` needed two ids and its guard asked for neither**, and would
+  take the **last** column out of a `column+` besides.
+
+Eight of the nine were a `canExecute` looser than its `execute` — the class
+`guards.ts` names and the reason it exists.
+
+Fixing them turned four into *unanswered*, because the probe's single caret was
+in a paragraph. So the probe walks **every run in the document** now: 28
+unanswered → 23, examined 108 → 113, and two more findings fell out of the five
+it unlocked (`nextCell`/`previousCell`, now exempt with the reason — moving the
+caret is what they are for, and only Tab past the last cell grows a table).
+
+What is still unanswered is a **probe** gap rather than a product one, and it is
+written down in the test: a find that has not been run, a menu that is not open,
+history that has not moved forward, and six commands wanting a payload in a
+shape nobody has written down yet.
+
+Two things the probe itself taught:
+
+- **A payload table is not cheating, and guessing at one is.** Six commands came
+  back broken because the keys were guessed from the registration call
+  (`spacing`, `height`, `shadow`) when the helper always uses `value`. A table
+  that had kept guessing would have reported six working commands as faults.
+- **A caret in a table cell was the wrong idea.** Nine table commands were added
+  a selection state and nothing changed, because their guards take a `cellId` and
+  never look at the selection at all.
+
+### A panel with one row, and no way back up — measured 2026-08-29 *(fixed)*
+
+Started by asking what the site builder's panel offers per block kind, in the
+declaration and then in a browser. Select a paragraph and the whole 240px panel
+holds **one** row — `종류 · 본문` — restating what the reader just clicked, over
+six hundred pixels of nothing.
+
+That is **not** a fault in the panel. The schema deliberately keeps width off
+text blocks, and the recorded reason is right: the renderer that would read it
+is `office-text`'s and a site does not own it, so "a schema that offers a reader
+something nothing draws is worse than one that offers less." Two other readings
+were tried on the way and both were wrong, which is worth keeping:
+
+- *"138 frames for 137 flow blocks — the page is one wrapper per block."* No: 62
+  of the 66 frames holding flow blocks set a `gap`. Stacking with a gap is a
+  container's job, not a workaround.
+- *"Give the flow blocks spacing and colour attributes."* That would have undone
+  a narrowing the schema already made on purpose.
+
+What was actually missing is the **second half of the schema's own sentence**.
+It says where the decision does live — "text sizing is the stack's question,
+asked one level up" — and nothing in the product said so or could get you there:
+
+- **There is no *select what holds this*.** `Escape` was a `keydown` handler in
+  the app, declared in no key map, so it was in no menu, printable beside
+  nothing, and invisible to the harness. It climbed only while the reader was
+  inside a **drill**; a selection made by a click, the layer list, ⌘A or a paste
+  carried no scope. Measured: a paragraph seven levels deep, `Escape` → nothing
+  selected, four times running.
+- **`labelOfBlock` printed the stype for six selectable kinds** — `listItem`,
+  `blockQuote`, `codeBlock`, `horizontalRule`, `textFrame`, `canvasBlock`. In
+  the layer list and now in a panel row: English stypes in a reader's panel.
+- **`every-drawing-can-be-named` could not see any of them.** It derives its
+  list from the `scene` group, which is a canvas's answer written on the deck.
+  Half a page is flow, so the check passed over four rows it exists to catch.
+- **`PropertyPanel` had no data attribute at all.** A probe written to read the
+  panel's rows matched the left rail's `aside` instead and reported two groups
+  the panel has never had.
+
+Fixed as a command (`selectParent`), declared in the key map and the menu, a
+shared `PropertyLink` in `office-ui`, a `담는 곳` row that names the holder and
+presses through to it, and `nameable` on the conformance input so a product can
+say what a reader may select. Also `onApple()` moved into `office-ui` — the
+sniff `keys.ts` refuses to do was about to exist twice in one app.
+
+Two faults of my own found by a browser, both the same shape:
+
+- **`return` one indent from where I meant it.** The refusal check went inside
+  the `if (bound)` block, so it returned from the whole handler and `Escape` at
+  the top of a page did nothing rather than falling through. It belongs in the
+  condition — whether the binding *applies*, not a branch inside it.
+- **Two mechanisms on one key.** After the command climbed out, the scope left
+  over from a drill made the next press re-select the scope instead of clearing,
+  so `Escape` stuck one level short of nothing. The app's half is now only *let
+  go of everything*, which is all it still has to do.
+
+### White on white, in all three products — measured 2026-08-28 *(fixed)*
+
+The suite ships a dark theme. Nothing in the repository asked a single question
+about it: across three apps, **zero** tests mentioned `colorScheme`. What that
+cost, found by opening each product in a dark browser and comparing:
+
+| Product | In the dark | Why |
+| --- | --- | --- |
+| Word | the whole document unreadable | the flow inherited `--ou-ink` over a `#fff` sheet |
+| Site builder | **every heading** unreadable, 57 elements at 1.04:1 | boards are `--ou-board`, and nothing said what was written on them |
+| Deck | every bullet and table cell, 23 runs | `body { color: var(--sl-ink) }`, inherited past a comment saying this file stops at the slide's edge |
+
+One fault, three times, and the same shape each time: a **background** that
+correctly stays paper-coloured in both themes, and **nothing at all** saying what
+colour the words on it are. Each product got the first half right, which is why
+it survived — a rule half-written looks like a rule.
+
+The missing half is now a token, `--ou-board-written`, deliberately absent from
+every dark block. **The chrome follows the theme; the paper does not — and
+neither does the ink on it.**
+
+Three things this turned up that were not the fault itself:
+
+- **The obvious probe is wrong on a canvas.** Walking up from a word to its first
+  painted ancestor and comparing luminance reported 75 unreadable elements in a
+  Word document that reads perfectly and 3 in a deck card that is white-on-green.
+  Word's sheet is drawn *behind* the flow and a deck's card is a rectangle with
+  its text placed *over* it — on a canvas, what is behind a word is not among its
+  parents. The check that works asks whether a colour **moved between the two
+  themes**, which needs no ancestry and is exactly the rule.
+- **The same mistake put the first fix on the wrong selector.** `color` went
+  beside `background` on `.w-sheet`, which changed nothing, because the sheet is
+  not an ancestor of the text either. A CSS rule written from the intent rather
+  than from the tree.
+- **"The deck is the good one" was a claim about the chrome.** It was written
+  down in these notes as a claim about the product, and the check added to
+  confirm it failed on its first run.
+
+And one product gap, found in the same pass and from the other direction: the
+sample's closing band paints itself near-black and its heading was near-black
+too, 1.06:1, in **both** themes. Not a theming fault — the band had no way to say
+what was written on it, because the panel offered a 배경 row and no 글자 row. A
+builder could paint a section dark and had no control that made the words light;
+the only way was to select each run. That is `ink` on a box now, inherited, so
+one statement reaches everything added to the band afterwards — which is what the
+sample's own author had done run by run, and missed one.
+
+Guarded by `word-theme.spec.ts`, `site-theme.spec.ts` and `slide-theme.spec.ts`.
+Each was checked against the un-fixed source: Word's fails on 25 words.
+
+### The chrome, measured — 2026-08-30 *(fixed, and now a check)*
+
+Four things separate a tool from a mock-up that a **measurement** can answer, and
+every one of them found something the eye had walked past for weeks. Asked of
+every control in the app's own chrome — 108 of them — with the boards left out,
+because a reader's page is not this product's design.
+
+| | |
+|---|---|
+| a target a pointer can hit | **3**: the width switches were 22×20 |
+| a name a screen reader can read | 0 |
+| ink a reader can see | **5**: the rail's tabs at 4.3:1 |
+| a ring the keyboard can follow | **8**: six swatches, a clear, the zoom field |
+
+**`--ou-muted` was chosen against the wrong surface.** `#737373` is 4.74:1 on
+white — over the 4.5 a reader needs — and 4.35:1 on `--ou-ground`, which is where
+most of it is actually drawn: a rail's unselected tabs, a panel's row labels, a
+chip's caption. It is `#6b6b6b` now, which answers both. The dark theme's was
+already 7.11:1.
+
+**A swatch takes `CONTROL`, which answers focus by drawing the border in the
+accent** — a field's rule, and the right one for a field: one pixel of accent
+where the caret is. A swatch is a *button* whose border is a hairline around a
+filled square, so the accent landed on the part of the control a reader is least
+likely to be looking at. `STATE` as well, which every other button has.
+
+**Two ways the measurement itself was wrong first**, both worth keeping:
+
+- It read the whole document and reported eleven faint controls, **six of them
+  the reader's own page** drawn on the boards. A check that reports somebody
+  else's design is a check nobody can act on.
+- It called `el.focus()`, which does not raise `:focus-visible` — so it reported
+  nine controls with no ring that all have one. **Tabbing is the only honest way
+  to ask**, because tabbing is what a reader does.
+
+`chrome-is-a-tool.spec.ts` asks all four now.
+
+### The sidebar, measured — 2026-08-28 *(worked through)*
+
+Five tabs, and what each can do:
+
+| tab | what it offers | what it does not |
+| --- | --- | --- |
+| **추가** | 15 inserts, each with a picture | — |
+| **구성** | a tree: open/close, select, hide, lock, drag to reorder or reparent, **rename in place** | — |
+| **페이지** | list · 위로 · 복제 · 삭제(asks first) | 아래로; reorder by drag |
+| **컴포넌트** | list · 놓기 · 편집 · **이름** · **삭제**(refused while placed, and says why) | where-used |
+| **데이터** | list · 만들기 · **복제**; rename and delete in the data editor | — |
+
+The **구성** list is the one that was a selector where every other builder's is a manipulator, and
+the first half of that is fixed (see Done). What is left, in the order a reader would miss it:
+
+- [x] ~~**2 · 3. Hide and lock a block.**~~ Built — see Done.
+
+- [x] ~~**1. Reorder by dragging a row.**~~ Built — see Done.
+
+
+
+
+- [x] ~~**5. The three lists that only add.**~~ The component library can be renamed and cleaned out
+  now — see Done. 데이터's rename and delete were already there, **inside the data editor** rather
+  than on the rail row, which is where a dataset is edited and is defensible.
+
 

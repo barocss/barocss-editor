@@ -284,7 +284,9 @@
  * - the bare `:root` above is the whole light palette;
  * - the media query redefines the tokens for a dark **system**, guarded so an explicit light choice
  *   still wins;
- * - `[data-theme='dark']` redefines them again, so a product's own switch wins in both directions.
+ * - `[data-theme='dark']` redefines them again, so a product's own switch wins in both directions —
+ *   and `[data-theme='light']` below it, so the switch turns **back**, on a subtree the guard on the
+ *   media query cannot reach. See that block.
  *
  * The third was missing, and nothing could see it: every product follows the system, so the tokens
  * answered every question anybody asked. Measured the first time a page put a switch on them —
@@ -349,6 +351,52 @@
   --ou-studio: #1c1c1e;
   --ou-board-lift: 0 0 0 1px rgb(0 0 0 / 0.6), 0 8px 24px rgb(0 0 0 / 0.45);
   --ou-board-ink: #8b9096;
+}
+
+/*
+ * **And light on any element too** — the half of the switch that did nothing.
+ *
+ * The `:not([data-theme='light'])` guard on the media block above protects the **root** and only the
+ * root: it is a way of *declining* to go dark, not a way of going light. So a subtree stamped
+ * `data-theme="light"` inside a dark document had nothing to read — this file carried **no
+ * `[data-theme='light']` rule at all** — and every `--ou-*` on it stayed whatever the root said.
+ *
+ * `apps/gallery/src/gallery.tsx:65` puts exactly that switch on `.ga-shell`, which is not the root.
+ * On a dark machine that gallery's *밝게* was a button that changed a React state and nothing else,
+ * and there is no playwright config in this repository that opens a dark context, so nothing could
+ * have seen it.
+ *
+ * The rule is symmetry, and the check `dark-is-actually-read.test.ts` states it: **every name
+ * `[data-theme='dark']` says, `[data-theme='light']` says too.** A palette that can only be pushed
+ * one way is a palette with a one-way switch.
+ *
+ * The values are the root's, repeated rather than referenced — for the reason `--ou-accent-soft`
+ * gives at length: substitution happens where the property is declared, so `var(--ou-panel)` here
+ * would resolve against whatever the *dark* ancestor already computed and paint the light theme in
+ * dark colours. Repeating literals is what a theme block is.
+ *
+ * `--ou-board-written` is absent from both blocks on purpose: paper does not follow the theme.
+ */
+[data-theme='light'] {
+  --ou-panel: #ffffff;
+  --ou-ground: #f5f5f5;
+  --ou-line: #d4d4d4;
+  --ou-field-line: var(--ou-line);
+  --ou-ink: #171717;
+  --ou-muted: #6b6b6b;
+  --ou-faint: #a3a3a3;
+  --ou-accent: #2563eb;
+  --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 22%, var(--ou-panel));
+  --ou-warn: #B45309;
+  --ou-warn-soft: color-mix(in srgb, var(--ou-warn) 14%, var(--ou-panel));
+  --ou-shadow: rgb(15 23 42 / 0.12);
+  --ou-lift-1: 0 1px 2px var(--ou-shadow);
+  --ou-lift-2: 0 4px 12px var(--ou-shadow);
+  --ou-lift-3: 0 12px 32px var(--ou-shadow);
+  --ou-scrim: rgb(0 0 0 / 0.25);
+  --ou-studio: #e8e9ea;
+  --ou-board-lift: 0 0 0 1px rgb(15 23 42 / 0.06), 0 6px 20px rgb(15 23 42 / 0.08);
+  --ou-board-ink: #6b7280;
 }
 
 /**

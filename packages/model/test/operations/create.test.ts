@@ -268,7 +268,7 @@ describe('create operation', () => {
          describe('Selection mapping', () => {
            it('should preserve selection when creating a node', async () => {
              // Set existing Selection
-             const initialSelection = { type: 'range' as const, startNodeId: 'existing-text', startOffset: 5, endNodeId: 'existing-text', endOffset: 10 };
+             const initialSelection = { type: 'range' as const, startNodeId: 'existing-text', startOffset: 5, endNodeId: 'existing-text', endOffset: 10, collapsed: false };
              selectionManager.setSelection(initialSelection);
 
             const operation = {
@@ -292,7 +292,7 @@ describe('create operation', () => {
 
            it('should preserve selection when creating nested nodes', async () => {
              // Set existing selection
-             const initialSelection = { type: 'range' as const, startNodeId: 'existing-text', startOffset: 3, endNodeId: 'existing-text', endOffset: 7 };
+             const initialSelection = { type: 'range' as const, startNodeId: 'existing-text', startOffset: 3, endNodeId: 'existing-text', endOffset: 7, collapsed: false };
              selectionManager.setSelection(initialSelection);
 
             const operation = {

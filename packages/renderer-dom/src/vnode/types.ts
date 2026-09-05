@@ -40,8 +40,14 @@ export const DOMAttribute = {
   DECORATOR: 'data-decorator',
 } as const;
 
-// Type for className values used in VNode attributes
-export type ClassNameType = string | string[] | Record<string, boolean> | Array<string | Record<string, boolean> | Array<string | Record<string, boolean>>>;
+/**
+ * What a `className` may be, in a VNode's attributes.
+ *
+ * The third copy of this exact text — `@barocss/dsl` declares it, `src/types.ts` declared it again,
+ * and so did this file — which is why `vnode/index.ts` had a comment about not re-exporting it "to
+ * prevent name conflicts". A name only conflicts with itself when it has been written twice.
+ */
+export type { ClassNameType } from '@barocss/dsl';
 
 // VNode interface - the core type for virtual DOM nodes
 export interface VNode {

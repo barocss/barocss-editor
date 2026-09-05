@@ -72,7 +72,7 @@ describe('setAttrs operation (exec)', () => {
     selectionManager.setSelection({ type: 'range' as const, startNodeId: 't1', startOffset: 2, endNodeId: 't1', endOffset: 4 });
     const op = globalOperationRegistry.get('setAttrs');
     await op!.execute({ type: 'setAttrs', payload: { nodeId: 't1', attrs: { class: 'new' } } } as any, context);
-    expect(selectionManager.getCurrentSelection()).toEqual({ type: 'range' as const, startNodeId: 't1', startOffset: 2, endNodeId: 't1', endOffset: 4 });
+    expect(selectionManager.getCurrentSelection()).toEqual({ type: 'range' as const, startNodeId: 't1', startOffset: 2, endNodeId: 't1', endOffset: 4, collapsed: false });
   });
 
   /**

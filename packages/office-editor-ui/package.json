@@ -26,7 +26,6 @@
   "dependencies": {
     "@barocss/editor-core": "workspace:*",
     "@barocss/editor-view-dom": "workspace:*",
-    "@barocss/extensions": "workspace:*",
     "@barocss/office-controls": "workspace:*",
     "@barocss/office-icons": "workspace:*",
     "@barocss/office-ui": "workspace:*"
@@ -37,6 +36,7 @@
   },
   "devDependencies": {
     "@barocss/datastore": "workspace:*",
+    "@barocss/extensions": "workspace:*",
     "@barocss/office-note": "workspace:*",
     "@barocss/office-site": "workspace:*",
     "@barocss/office-slides": "workspace:*",
