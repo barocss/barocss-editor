@@ -7,6 +7,7 @@ export {
   invalidateRunsByElement,
   invalidateRunsById,
   binarySearchRun,
+  skipsInIndex,
   stripFiller,
   FILLER_CHAR,
   FILLER_ATTR,

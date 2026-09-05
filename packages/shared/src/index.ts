@@ -12,6 +12,29 @@ export { normalizeKeyString, expandModKey } from './key-binding';
  * **선택** — `selection.ts` 에 왜 여기인지가 적혀 있다. 요약하면: 두 뷰 층의 DOM↔모델 변환을 그 둘
  * 아래에 두려면 타입도 그 아래여야 하고, 그 변환이 쓰는 런 색인은 이미 이 패키지에 있다.
  */
+/**
+ * **자리** — DOM 의 한 점과 모델의 한 점을 맞바꾸는 규칙 한 벌. `docs/specs/text-position.md`.
+ */
+export {
+  bestContainer,
+  closestDataNode,
+  collapseBoundaries,
+  domPointFromModelOffset,
+  firstTextNodeIn,
+  isTextContainer,
+  offsetAtElementBoundary,
+  offsetWithRuns,
+  resolveBoundaries,
+  runsIn,
+  runsOf,
+  selectionDirection,
+  textContainerInside,
+  type DOMPoint,
+  type ModelPoint,
+  type ResolvedBoundaries,
+  type PositionContext
+} from './text-position';
+
 export {
   createNodeSelection,
   fromDOMSelection,

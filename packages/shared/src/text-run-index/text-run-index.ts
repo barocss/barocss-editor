@@ -70,6 +70,30 @@ export function stripChromeElements(root: Element | DocumentFragment): void {
 /**
  * Check if element is a decorator
  */
+/**
+ * **데코레이터가 그린 것인가 — 색인이 건너뛸 것인가.**
+ *
+ * `isDecoratorElement` 와 `isDecoratorOwnText` 를 합친 하나의 질문이고, **답이 하나여야 하는
+ * 질문이라 내보낸다.** 이 저장소에서 그 답이 네 군데에 각자 적혀 있었다:
+ *
+ * | 어디 | 무엇이 달랐나 |
+ * |---|---|
+ * | 여기 (`buildTextRunIndex`) | **맞다** — 종류를 묻고 인라인은 걷지 않는다 |
+ * | `editor-view-dom`/`ensureRuns` | `data-bc-decorator` 만 — 종류를 안 물었다 |
+ * | `editor-view-dom`/`getTextRunsForContainer` | 종류를 물었다 |
+ * | `editor-view-react` 양쪽 | 종류를 안 물었다 |
+ *
+ * 앞의 셋은 `excludePredicate` 로 이 판단을 **덧걸렀고**, 그래서 인라인 데코레이터가 감싼 *문서
+ * 자신의 글자* 가 색인에서 빠졌다. 세 자리를 다 지웠고, 남은 하나(`findFirstTextNode`)를 위해
+ * 이것을 내보낸다 — 네 번째 사본을 쓰지 않게.
+ *
+ * **탈출구를 두지 않는 것이 이 함수의 요점이다.** `excludePredicate` 가 없었으면 그 결함이 애초에
+ * 불가능했다. 모듈이 옳은데 부르는 쪽이 덮어쓸 수 있으면 그 모듈은 규칙이 아니라 제안이다.
+ */
+export function skipsInIndex(el: Element): boolean {
+  return isDecoratorElement(el) && isDecoratorOwnText(el);
+}
+
 function isDecoratorElement(el: Element): boolean {
   /*
    * **`data-bc-decorator-sid` 도 안다.** 이름이 넷인 것은 그리는 경로가 둘이고 각자 접두어가 다르기

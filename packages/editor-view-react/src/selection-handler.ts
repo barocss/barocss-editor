@@ -1,9 +1,21 @@
 import type { Editor } from '@barocss/editor-core';
 import { fromDOMSelection } from '@barocss/editor-core';
 import {
+  bestContainer,
   buildTextRunIndex,
-  binarySearchRun,
+  closestDataNode,
+  resolveBoundaries,
+  selectionDirection,
+  type ResolvedBoundaries,
+  collapseBoundaries,
+  domPointFromModelOffset,
+  isTextContainer,
+  offsetAtElementBoundary,
+  offsetWithRuns,
+  runsOf,
+  textContainerInside,
   type ContainerRuns,
+  type PositionContext,
 } from '@barocss/shared';
 
 /** `types.ts` 를 통해 `editor-core` 의 것을 쓴다 — 여기 글자까지 같은 사본이 있었다. */
@@ -18,6 +30,20 @@ export class ReactSelectionHandler {
   private editor: Editor;
   private getContentEditableElement: () => HTMLElement | null;
   private _isProgrammaticChange = false;
+
+  /**
+   * **자리 계산이 문서에 묻는 것 전부** — `@barocss/shared` 의 규칙 한 벌이 이것만 받는다.
+   *
+   * DOM 판과 **같은 것을 부른다.** 그 전에는 열아홉 개의 같은 이름 메서드가 각자 있었고, 기계로
+   * 대보니 표기만 다른 것 여섯에 논리가 다른 것 하나였다 — 빈 그릇에서 이 판은 캐럿을 요소 경계에
+   * 두었고 DOM 판은 채움 글자 안에 두었다. `docs/specs/text-position.md`.
+   */
+  private readonly _positions: PositionContext = {
+    getNode: (sid: string) =>
+      (this.editor as { dataStore?: { getNode?: (id: string) => unknown } }).dataStore?.getNode?.(sid) as
+        | { text?: unknown; stype?: unknown }
+        | null
+  };
   private _getScopeRoot(): ParentNode {
     const contentEditableElement = this.getContentEditableElement();
     if (contentEditableElement) {
@@ -110,7 +136,7 @@ export class ReactSelectionHandler {
     if (selection.rangeCount === 0) return { type: 'none' };
 
     const range = selection.getRangeAt(0);
-    const boundaries = this.convertRangeBoundariesToModel(
+    const boundaries = this._convertRangeBoundariesToModel(
       range.startContainer,
       range.startOffset,
       range.endContainer,
@@ -119,8 +145,26 @@ export class ReactSelectionHandler {
     if (!boundaries) return { type: 'none' };
 
     const { startNodeId, startModelOffset, endNodeId, endModelOffset } = boundaries;
+
+    /**
+     * **접힌 DOM 선택은 접힌 모델 선택이다** — `editor-view-dom` 의 같은 자리와 같은 이유.
+     *
+     * 경계가 블록 요소일 때 시작은 그 안의 첫 런, 끝은 마지막 런으로 내려간다. 두 경계가 같은
+     * 자리였어도 서로 다른 런으로 갈라지므로, `range.collapsed` 를 묻지 않으면 캐럿이 선택으로
+     * 읽힌다. 브라우저가 이미 답한 것을 잃지 않는다.
+     */
+    if (range.collapsed) {
+      /* 어느 쪽으로 접는지, 왜 그런지는 `collapseBoundaries` 에 재본 표와 함께 적혀 있다. */
+      const { nodeId, offset } = collapseBoundaries(range.startContainer, range.startOffset, boundaries);
+      return {
+        ...fromDOMSelection(nodeId, offset, nodeId, offset, 'range'),
+        direction: 'none' as const
+      };
+    }
+
     const startNode = this.findBestContainer(range.startContainer);
-    const endNode = this.findBestContainer(range.endContainer);
+    /* 끝 경계는 그 안의 **마지막** 런이다 — `editor-view-dom` 의 같은 자리와 같게. */
+    const endNode = this.findBestContainer(range.endContainer, true);
     const direction =
       startNode && endNode
         ? this.determineSelectionDirection(
@@ -145,7 +189,7 @@ export class ReactSelectionHandler {
   convertStaticRangeToModel(
     staticRange: StaticRange
   ): { type: 'range'; startNodeId: string; startOffset: number; endNodeId: string; endOffset: number; direction?: 'forward' } | null {
-    const boundaries = this.convertRangeBoundariesToModel(
+    const boundaries = this._convertRangeBoundariesToModel(
       staticRange.startContainer,
       staticRange.startOffset,
       staticRange.endContainer,
@@ -153,82 +197,48 @@ export class ReactSelectionHandler {
     );
     if (!boundaries) return null;
 
+    /**
+     * **타이핑도 같은 경계를 지난다.** `getTargetRanges()` 가 캐럿에 대해 주는 것은 접힌 범위이고,
+     * 그 경계가 블록이면 여기서도 `t1:2 → t2:2` — *둘째 런 전체* 로 읽힌다. 그 자리에서 글자를 치면
+     * 고른 것을 지우고 쓴다. 선택을 읽는 쪽만 고치고 여기를 두면 결함은 조용한 쪽으로 옮겨간다.
+     */
+    if (staticRange.collapsed) {
+      const { nodeId, offset } = collapseBoundaries(
+        staticRange.startContainer,
+        staticRange.startOffset,
+        boundaries
+      );
+      const one = fromDOMSelection(nodeId, offset, nodeId, offset, 'range');
+      return { ...one, type: 'range' as const, direction: 'forward' as const };
+    }
+
     const { startNodeId, startModelOffset, endNodeId, endModelOffset } = boundaries;
-    return {
-      type: 'range',
-      startNodeId,
-      startOffset: startModelOffset,
-      endNodeId,
-      endOffset: endModelOffset,
-      direction: 'forward',
-    };
+    /*
+     * `fromDOMSelection` 을 지나야 `collapsed` 가 서고 문서 순서가 정규화된다. 손으로 세운 리터럴은
+     * 그 둘을 안 하므로, 같은 함수의 두 판이 서로 다른 모양을 내보내고 있었다.
+     */
+    const modelSelection = fromDOMSelection(startNodeId, startModelOffset, endNodeId, endModelOffset, 'range');
+    return { ...modelSelection, type: 'range' as const, direction: 'forward' as const };
   }
 
-  private convertRangeBoundariesToModel(
+  private _convertRangeBoundariesToModel(
     startContainer: Node,
     startOffset: number,
     endContainer: Node,
     endOffset: number
-  ): { startNodeId: string; startModelOffset: number; endNodeId: string; endModelOffset: number } | null {
-    const startNode = this.findBestContainer(startContainer);
-    const endNode = this.findBestContainer(endContainer);
-
-    if (!startNode || !endNode) return null;
-
-    const startNodeId = startNode.getAttribute('data-bc-sid');
-    const endNodeId = endNode.getAttribute('data-bc-sid');
-
-    if (!startNodeId || !endNodeId) return null;
-    if (!this.nodeExistsInModel(startNodeId) || !this.nodeExistsInModel(endNodeId)) return null;
-
-    const startRuns = this.ensureRuns(startNode, startNodeId);
-    const endRuns = startNode === endNode ? startRuns : this.ensureRuns(endNode, endNodeId);
-
-    const startModelOffset = this.convertOffsetWithRuns(
-      startNode,
-      startContainer,
-      startOffset,
-      startRuns,
-      false
-    );
-    const endModelOffset = this.convertOffsetWithRuns(
-      endNode,
-      endContainer,
-      endOffset,
-      endRuns,
-      true
-    );
-
-    return { startNodeId, startModelOffset, endNodeId, endModelOffset };
+  ): ResolvedBoundaries | null {
+    return resolveBoundaries(startContainer, startOffset, endContainer, endOffset, this._positions);
   }
 
-  /**
-   * **글자를 담은 그릇인가 — 모델에 묻는다.**
-   *
-   * 전에는 `data-text-container === 'true'` 였고 **어떤 렌더러도 그 속성을 쓰지 않는다.** 그래서 이
-   * 함수는 한 번도 참이 아니었고, 범위의 두 끝을 담을 그릇을 찾는 `findBestContainer` 의 잘 적힌
-   * 걷기가 늘 실패했다.
-   *
-   * `editor-view-dom` 에 글자까지 같은 결함이 있었고 그쪽은 고쳐졌다. **이쪽은 남아 있었다** —
-   * 두 뷰 층이 선택 변환을 두 벌 갖고 있어서, 고칠 때마다 두 번 고쳐야 하는데 한 번만 고쳐진 것이다.
-   * 같은 이름의 private 메서드가 **열한 개** 겹친다.
-   */
   private isTextContainer(element: Element): boolean {
-    const sid = element.getAttribute('data-bc-sid');
-    if (!sid) return false;
-    const node = (this.editor as { dataStore?: { getNode?: (id: string) => unknown } }).dataStore?.getNode?.(
-      sid
-    ) as { text?: unknown } | undefined;
-    return typeof node?.text === 'string';
+    return isTextContainer(element, this._positions);
   }
 
   private nodeExistsInModel(nodeId: string): boolean {
     try {
       const ds = this.editor.dataStore;
-      if (ds) {
-        const node = ds.getNode(nodeId);
-        return node != null;
-      }
+      if (ds) return ds.getNode(nodeId) != null;
+      /* dataStore 가 없는 뷰는 모델을 못 물으므로, 있는 것으로 본다. */
       return true;
     } catch {
       return false;
@@ -236,36 +246,15 @@ export class ReactSelectionHandler {
   }
 
   private findClosestDataNode(node: Node): Element | null {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as Element;
-      if (el.hasAttribute('data-bc-sid')) return el;
-    }
-    let current: Element | null = node.parentElement;
-    while (current) {
-      if (current.hasAttribute('data-bc-sid')) return current;
-      current = current.parentElement;
-    }
-    return null;
+    return closestDataNode(node);
   }
 
-  private findBestContainer(node: Node): Element | null {
-    let el = this.findClosestDataNode(node);
-    if (!el) return null;
+  private textContainerInside(el: Element, last: boolean): Element | null {
+    return textContainerInside(el, this._positions, last);
+  }
 
-    if (this.isTextContainer(el)) return el;
-
-    let cur: Element | null = el;
-    while (cur) {
-      if (this.isTextContainer(cur)) return cur;
-      cur = cur.parentElement?.closest?.('[data-bc-sid]') ?? null;
-    }
-
-    const sid = el.getAttribute('data-bc-sid');
-    if (sid) {
-      const model = this.editor.dataStore?.getNode?.(sid);
-      if ((model as { stype?: string })?.stype === 'document') return null;
-    }
-    return el;
+  private findBestContainer(node: Node, forEnd = false): Element | null {
+    return bestContainer(node, this._positions, forEnd);
   }
 
   /**
@@ -293,43 +282,9 @@ export class ReactSelectionHandler {
     runs: ContainerRuns,
     isEnd: boolean
   ): number {
-    if (runs.total === 0) return 0;
-    if (container.nodeType === Node.TEXT_NODE) {
-      const textNode = container as Text;
-      const entry = runs.byNode?.get(textNode);
-      if (entry) {
-        // `offset` is a DOM offset. domStart skips a leading filler, so the
-        // position just after the zero-width character is model offset 0.
-        const localLen = entry.end - entry.start;
-        const clamped = Math.max(0, Math.min(offset - entry.domStart, localLen));
-        return entry.start + clamped;
-      }
-      const idx = binarySearchRun(runs.runs, Math.max(0, Math.min(offset, runs.total - 1)));
-      if (idx >= 0) return isEnd ? runs.runs[idx].end : runs.runs[idx].start;
-      return 0;
-    }
-    // 요소 경계: 자식 색인이 가리키는 자리가 어느 런의 앞인지 뒤인지로 정한다.
-    const el = container as Element;
-    return this.modelOffsetAtElementBoundary(containerEl, el, offset, runs, isEnd);
+    return offsetWithRuns(containerEl, container, offset, runs, isEnd);
   }
 
-  /**
-   * **경계가 요소일 때의 모델 오프셋** — `Shift+→` 가 블록을 넘으면 범위가 뒤집히던 그 자리.
-   *
-   * `editor-view-dom` 의 같은 이름 함수에 있던 결함 둘이 여기에도 글자까지 같이 있었다. 저쪽은
-   * 고쳐졌고 이쪽은 남아 있었다.
-   *
-   * 하나: 답을 `isEnd` 가 골랐다 — `isEnd ? 런의 끝 : 런의 시작`. **`isEnd` 는 *범위의 어느 쪽*
-   * 인가이고 *요소 안의 어디* 인가가 아니다** — 그건 `offset` 이 말한다. 그래서 다음 문단의 맨
-   * 앞(`offset: 0`)이 그 문단의 **끝**이 됐다.
-   *
-   * 둘: `t.compareDocumentPosition(child)` 로 물어서, `child` 가 `t` 를 **포함**하는 흔한 경우(요소
-   * 오프셋 0의 자식이 런의 `<span>` 이고 텍스트 노드가 그 안에 있다)에 `FOLLOWING` 이 서지 않았다.
-   * `child` 쪽에서 물으면 포함이 `CONTAINED_BY | FOLLOWING` 이라 한 번에 답이 된다.
-   *
-   * **규칙:** 경계가 어떤 런의 앞이면 그 런의 시작, 모든 런의 뒤면 마지막 런의 끝. `isEnd` 는 글자가
-   * 하나도 없는 그릇에서만 쓰인다.
-   */
   private modelOffsetAtElementBoundary(
     containerEl: Element,
     el: Element,
@@ -337,34 +292,7 @@ export class ReactSelectionHandler {
     runs: ContainerRuns,
     isEnd: boolean
   ): number {
-    const child = el.childNodes.item(offset) ?? null;
-
-    const walker = document.createTreeWalker(containerEl, NodeFilter.SHOW_TEXT);
-    let lastBefore: Text | null = null;
-    let firstAtOrAfter: Text | null = null;
-
-    for (let t = walker.nextNode() as Text | null; t; t = walker.nextNode() as Text | null) {
-      if (!child) {
-        lastBefore = t;
-        continue;
-      }
-      if (child.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING) {
-        firstAtOrAfter = t;
-        break;
-      }
-      lastBefore = t;
-    }
-
-    if (firstAtOrAfter) {
-      const entry = runs.byNode?.get(firstAtOrAfter);
-      if (entry) return entry.start;
-    }
-    if (lastBefore) {
-      const entry = runs.byNode?.get(lastBefore);
-      if (entry) return entry.end;
-    }
-
-    return isEnd ? runs.total : 0;
+    return offsetAtElementBoundary(containerEl, el, offset, runs, isEnd);
   }
 
   private determineSelectionDirection(
@@ -374,28 +302,7 @@ export class ReactSelectionHandler {
     startOffset: number,
     endOffset: number
   ): 'forward' | 'backward' {
-    if (startNode === endNode) return startOffset <= endOffset ? 'forward' : 'backward';
-
-    const anchorNode = selection.anchorNode;
-    const focusNode = selection.focusNode;
-    if (!anchorNode || !focusNode) {
-      const position = startNode.compareDocumentPosition(endNode);
-      return position & Node.DOCUMENT_POSITION_FOLLOWING ? 'forward' : 'backward';
-    }
-
-    const anchorContainer = this.findBestContainer(anchorNode);
-    const focusContainer = this.findBestContainer(focusNode);
-    if (anchorContainer && focusContainer) {
-      const startNodeId = startNode.getAttribute('data-bc-sid');
-      const endNodeId = endNode.getAttribute('data-bc-sid');
-      const anchorId = anchorContainer.getAttribute('data-bc-sid');
-      const focusId = focusContainer.getAttribute('data-bc-sid');
-      if (anchorId === startNodeId && focusId === endNodeId) return 'forward';
-      if (anchorId === endNodeId && focusId === startNodeId) return 'backward';
-    }
-
-    const position = startNode.compareDocumentPosition(endNode);
-    return position & Node.DOCUMENT_POSITION_FOLLOWING ? 'forward' : 'backward';
+    return selectionDirection(selection, startNode, endNode, startOffset, endOffset, this._positions);
   }
 
   /**
@@ -503,65 +410,16 @@ export class ReactSelectionHandler {
   }
 
   private getTextRunsForContainer(container: Element): ContainerRuns | null {
-    try {
-      const containerId = container.getAttribute('data-bc-sid');
-      /* 위와 같다 — 거르는 규칙은 `buildTextRunIndex` 의 것이다. */
-      return buildTextRunIndex(container, containerId ?? undefined, { buildReverseMap: true });
-    } catch {
-      return null;
-    }
+    return runsOf(container);
   }
 
-  private isDecoratorElement(el: Element): boolean {
-    return (
-      el.hasAttribute('data-decorator-sid') ||
-      el.hasAttribute('data-bc-decorator-sid') ||
-      el.hasAttribute('data-bc-decorator') ||
-      el.hasAttribute('data-decorator-category')
-    );
-  }
+
 
   private findDOMRangeFromModelOffset(
     runs: ContainerRuns,
-    modelOffset: number
+    modelOffset: number,
+    container?: Element
   ): { node: Node; offset: number } | null {
-    if (modelOffset < 0 || modelOffset > runs.total) return null;
-
-    if (modelOffset === runs.total) {
-      const lastRun = runs.runs[runs.runs.length - 1];
-      return {
-        node: lastRun.domTextNode,
-        offset: lastRun.domStart + lastRun.text.length,
-      };
-    }
-
-    const totalRuns = runs.runs.length;
-    if (totalRuns === 0) return null;
-
-    let runIndex = binarySearchRun(runs.runs, modelOffset);
-    if (runIndex === -1) {
-      let fallbackIndex = -1;
-      for (let i = 0; i < totalRuns; i += 1) {
-        const run = runs.runs[i];
-        if (modelOffset < run.start) {
-          fallbackIndex = i;
-          break;
-        }
-        if (modelOffset === run.end && i + 1 < totalRuns) {
-          fallbackIndex = i + 1;
-          break;
-        }
-      }
-      if (fallbackIndex === -1) return null;
-      runIndex = fallbackIndex;
-    }
-
-    const run = runs.runs[runIndex];
-    const localOffset = modelOffset - run.start;
-    return {
-      node: run.domTextNode,
-      // domStart skips a leading filler so the caret lands after it, not before
-      offset: run.domStart + Math.min(localOffset, run.text.length),
-    };
+    return domPointFromModelOffset(runs, modelOffset, container);
   }
 }

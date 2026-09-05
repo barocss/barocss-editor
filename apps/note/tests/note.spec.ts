@@ -105,9 +105,20 @@ const crossRangeIn = (page: Page, id: string) =>
  * last character — and a click is not instant. Without this the Enter that follows lands wherever
  * the caret happened to be, which splits a paragraph in the middle and fails a check about
  * something else entirely.
+ *
+ * **A node with no text has no end, and this used to say it did.** `startOffset === text.length` is
+ * `0 === 0` on an empty one, so the wait returned true immediately with the caret still wherever it
+ * started. The note this is used on is `[data-case="empty"]` — its body *is* an empty paragraph —
+ * so a click that missed the quotation left the caret there and the check went on regardless. What
+ * failed then was the count sixty lines later, which is a check failing for something it is not
+ * about. Measured: `note.spec.ts:213` failed in 1 of 3 clean runs and 2 of 3 with an unrelated
+ * change, always at the count and never here.
+ *
+ * So it asks for a `wants` — the text the caret is supposed to be at the end of. Then the wait is
+ * about the place, not about an arithmetic that an empty node satisfies for free.
  */
-const atEndOf = (page: Page, id: string) =>
-  page.waitForFunction((one) => {
+const atEndOf = (page: Page, id: string, wants: string) =>
+  page.waitForFunction(([one, said]) => {
     const held = (window as never as {
       __notes?: Record<
         string,
@@ -117,8 +128,8 @@ const atEndOf = (page: Page, id: string) =>
     const sel = held?.editor.selection;
     if (!sel?.startNodeId) return false;
     const text = held?.editor.dataStore.getNode(sel.startNodeId)?.text;
-    return typeof text === 'string' && sel.startOffset === text.length;
-  }, id);
+    return text === said && sel.startOffset === said.length;
+  }, [id, wants] as const);
 
 /**
  * Wait until the caret is in an **empty** text node — the line Enter has just made.
@@ -249,7 +260,8 @@ test.describe('a note on its own', () => {
     await line.scrollIntoViewIfNeeded();
     const box = (await line.boundingBox())!;
     await page.mouse.click(box.x + box.width - 8, box.y + box.height / 2);
-    await atEndOf(page, 'empty');
+    /* 그 줄이 무슨 글자인지는 제품이 정한다 — 여기서 베끼면 둘이 조용히 어긋난다. */
+    await atEndOf(page, 'empty', (await line.textContent()) ?? '');
     await page.keyboard.press('Enter');
     /*
      * **The line, not a pause.** A fixed wait after Enter is a check that passes on an idle machine
