@@ -460,12 +460,6 @@ importers:
       '@barocss/editor-view-dom':
         specifier: workspace:*
         version: link:../../packages/editor-view-dom
-      '@barocss/office-canvas':
-        specifier: workspace:*
-        version: link:../../packages/office-canvas
-      '@barocss/office-controls':
-        specifier: workspace:*
-        version: link:../../packages/office-controls
       '@barocss/office-editor-ui':
         specifier: workspace:*
         version: link:../../packages/office-editor-ui
@@ -478,18 +472,9 @@ importers:
       '@barocss/office-ui':
         specifier: workspace:*
         version: link:../../packages/office-ui
-      '@barocss/office-word':
-        specifier: workspace:*
-        version: link:../../packages/office-word
-      '@barocss/renderer-dom':
-        specifier: workspace:*
-        version: link:../../packages/renderer-dom
       '@barocss/schema':
         specifier: workspace:*
         version: link:../../packages/schema
-      '@barocss/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -536,18 +521,9 @@ importers:
       '@barocss/editor-view-dom':
         specifier: workspace:*
         version: link:../../packages/editor-view-dom
-      '@barocss/office-canvas':
-        specifier: workspace:*
-        version: link:../../packages/office-canvas
       '@barocss/office-controls':
         specifier: workspace:*
         version: link:../../packages/office-controls
-      '@barocss/office-editor-ui':
-        specifier: workspace:*
-        version: link:../../packages/office-editor-ui
-      '@barocss/office-icons':
-        specifier: workspace:*
-        version: link:../../packages/office-icons
       '@barocss/office-text':
         specifier: workspace:*
         version: link:../../packages/office-text
@@ -560,9 +536,6 @@ importers:
       '@barocss/schema':
         specifier: workspace:*
         version: link:../../packages/schema
-      '@barocss/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@radix-ui/react-select':
         specifier: ^2.3.7
         version: 2.3.7(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)
@@ -1295,6 +1268,9 @@ importers:
       '@barocss/editor-core':
         specifier: workspace:*
         version: link:../editor-core
+      '@barocss/editor-view-dom':
+        specifier: workspace:*
+        version: link:../editor-view-dom
       '@barocss/extensions':
         specifier: workspace:*
         version: link:../extensions
@@ -1307,9 +1283,18 @@ importers:
       '@barocss/office-controls':
         specifier: workspace:*
         version: link:../office-controls
+      '@barocss/office-editor-ui':
+        specifier: workspace:*
+        version: link:../office-editor-ui
       '@barocss/office-text':
         specifier: workspace:*
         version: link:../office-text
+      '@barocss/office-ui':
+        specifier: workspace:*
+        version: link:../office-ui
+      '@barocss/renderer-dom':
+        specifier: workspace:*
+        version: link:../renderer-dom
       '@barocss/schema':
         specifier: workspace:*
         version: link:../schema
@@ -1320,9 +1305,6 @@ importers:
       '@barocss/conformance':
         specifier: workspace:*
         version: link:../conformance
-      '@barocss/editor-view-dom':
-        specifier: workspace:*
-        version: link:../editor-view-dom
       '@barocss/office-icons':
         specifier: workspace:*
         version: link:../office-icons
@@ -1439,6 +1421,9 @@ importers:
 
   packages/office-word:
     dependencies:
+      '@barocss/datastore':
+        specifier: workspace:*
+        version: link:../datastore
       '@barocss/dsl':
         specifier: workspace:*
         version: link:../dsl
@@ -1457,9 +1442,18 @@ importers:
       '@barocss/office-controls':
         specifier: workspace:*
         version: link:../office-controls
+      '@barocss/office-editor-ui':
+        specifier: workspace:*
+        version: link:../office-editor-ui
+      '@barocss/office-icons':
+        specifier: workspace:*
+        version: link:../office-icons
       '@barocss/office-text':
         specifier: workspace:*
         version: link:../office-text
+      '@barocss/office-ui':
+        specifier: workspace:*
+        version: link:../office-ui
       '@barocss/schema':
         specifier: workspace:*
         version: link:../schema
@@ -1470,9 +1464,9 @@ importers:
       '@barocss/conformance':
         specifier: workspace:*
         version: link:../conformance
-      '@barocss/office-icons':
+      '@barocss/editor-view-dom':
         specifier: workspace:*
-        version: link:../office-icons
+        version: link:../editor-view-dom
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.10

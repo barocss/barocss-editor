@@ -3,15 +3,14 @@ import { createRoot } from 'react-dom/client';
 import { DataStore } from '@barocss/datastore';
 import { data, defineDecorator, element, getGlobalRegistry } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
-import { createFontLoader, type FontLoader } from './font-loader';
-import { createPrintPages } from './print-pages';
-import { MATCH_STYPE } from './find-panel';
-import { ANCHOR_STYPE } from './comments-pane';
 import { createSchema } from '@barocss/schema';
 import {
   WORD_ENV_KEY
 } from '@barocss/office-text';
 import {
+  createFontLoader,
+  createPrintPages,
+  createSampleDocument,
   createWordEditor,
   createWordEnv,
   documentFontFamilies,
@@ -28,11 +27,12 @@ import {
   getWordSchemaDefinition,
   registerWordRenderers,
   installCellSelection,
+  type FontLoader,
   type SurfaceLayout
 } from '@barocss/office-word';
 import type { Editor } from '@barocss/editor-core';
+import { ANCHOR_STYPE, MATCH_STYPE } from '@barocss/office-word/ui';
 import { App } from './app';
-import { createSampleDocument } from './sample-document';
 import './style.css';
 
 declare global {

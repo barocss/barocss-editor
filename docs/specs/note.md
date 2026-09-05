@@ -129,7 +129,7 @@ keyboard's route differ, the button hides the defect**, and the defect was in
 ## What the seam actually cost
 
 `office-note` is **2,392 lines** and `apps/note` is **257**. For comparison, the chrome
-still living in the other three apps is **28,715 lines**.
+still living in the other three apps is **8,503 lines**.
 
 That number is a **gauge, not a fact about note** — it is what the other three have not moved yet,
 and it goes down as they do. It was 35,927 when this was written, and the site builder has moved

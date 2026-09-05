@@ -10,7 +10,20 @@
  * 경계는 *React 가 필요한가* 이지 *어느 조각인가* 가 아니다.
  *
  * React 는 **peerDependency** 다 — 어느 React 를 쓸지는 호스트가 정한다.
- *
- * 아직 비어 있다. 셸 이주가 여기를 채운다.
  */
-export {};
+export { CommentsPane, ANCHOR_STYPE, type CommentsPaneProps } from './comments-pane';
+export { DocumentTitle, type DocumentTitleProps } from './document-title';
+export { DrawingOverlay, type DrawingOverlayProps } from './drawing-overlay';
+export { FindPanel, MATCH_STYPE, type FindPanelProps } from './find-panel';
+export { OutlinePane, type OutlinePaneProps } from './outline-pane';
+export { Ribbon, type RibbonPanes, type RibbonProps } from './ribbon';
+export { Ruler, type RulerProps } from './ruler-view';
+export { ZoomFrame, type ZoomFrameProps } from './zoom-frame';
+export {
+  ZoomControl,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  ZOOM_STEPS,
+  fitToWidth,
+  type ZoomControlProps
+} from './zoom';

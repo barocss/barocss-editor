@@ -2,11 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
-import { FileActions, type DeckFileActions } from './file-actions';
-import { Filmstrip } from './filmstrip';
-import { SelectionOverlay } from './overlay';
-import { NotesPane } from './notes';
-import { TimelinePane } from './timeline';
+import { FileActions, type DeckFileActions } from '@barocss/office-slides/ui';
+import { AuditPanel, Filmstrip } from '@barocss/office-slides/ui';
+import { NotesPane, Presenter } from '@barocss/office-slides/ui';
 import {
   AppBody,
   AppChrome,
@@ -68,16 +66,13 @@ import {
   SlideSizeDialog,
   TemplateDialog,
   ThemeDialog
-} from './deck-dialogs';
-import { LayerPanel } from './layer-panel';
-import { ComponentPanel } from './component-panel';
-import { FindBar } from './find-bar';
-import { AuditPanel } from './audit-panel';
-import { Present } from './present';
-import { Presenter } from './presenter';
-import { PresenterWindow } from './presenter-window';
-import { Properties } from './properties';
-import { Ribbon } from './ribbon';
+} from '@barocss/office-slides/ui';
+import { DeckMapView, LayerPanel } from '@barocss/office-slides/ui';
+import { ComponentPanel } from '@barocss/office-slides/ui';
+import { FindBar } from '@barocss/office-slides/ui';
+import { PresenterWindow } from '@barocss/office-slides/ui';
+import { Properties } from '@barocss/office-slides/ui';
+import { Ribbon } from '@barocss/office-slides/ui';
 import {
   SLIDES_KEYS,
   SLIDES_MENUS,
@@ -86,11 +81,10 @@ import {
   slidesMenuId
 } from '@barocss/office-slides';
 
-import { Stage } from './stage';
-import { DeckMapView } from './deck-map-view';
-import { LibraryDialog } from './library-dialog';
-import { libraryDeck, libraryRows } from './library';
-import { useDeck, useRevision } from './deck-model';
+import { Present, SelectionOverlay, Stage, TimelinePane } from '@barocss/office-slides/ui';
+import { LibraryDialog } from '@barocss/office-slides/ui';
+import { libraryDeck, libraryRows } from '@barocss/office-slides';
+import { useDeck, useRevision } from '@barocss/office-slides/ui';
 import { useEditorRevision } from '@barocss/office-editor-ui';
 
 /**
@@ -109,6 +103,14 @@ export function App({
   mount: (host: HTMLElement) => { editor: Editor; view: EditorViewDOM };
 }) {
   const host = useRef<HTMLDivElement>(null);
+  /**
+   * 무대의 요소 자체 — 조립의 일이다.
+   *
+   * 오버레이·발표·타임라인이 `.sl-stage` 를 재고 거기에 듣는다. 셋 다 `document.querySelector`
+   * 로 집었는데, 그건 형제의 서브트리를 밖에서 잡는 것이었다. 이제 `Stage` 가 `frame` 으로
+   * 내주고 **앱이 셋에게 건넨다** — 무엇이 무엇에 연결되는가는 앱이 아는 일이다.
+   */
+  const stage = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
   const [instance, setInstance] = useState<{ editor: Editor; view: EditorViewDOM } | null>(null);
 
@@ -2015,6 +2017,8 @@ export function App({
 
           <Stage
             host={host}
+            /** 무대의 요소를 앱이 받아 형제들에게 건넨다 — `stage` 위의 설명. */
+            frame={stage}
             /** One page, one definition, or the deck as a strip — see `stageFocus`. */
             focus={stageFocus}
             /*
@@ -2099,6 +2103,8 @@ export function App({
               stepEdit={stepEdit[0]}
               pathDrawing={pathDrawing}
               onPathDrawing={setPathDrawing}
+              /** 잴 무대이자 sid 를 찾을 범위 — 조회가 아니라 건네받는다. */
+              host={stage}
             />
           )}
 
@@ -2199,6 +2205,8 @@ export function App({
           onHeight={setTimelineHeight}
           open={timelineChoice ?? built.steps.length > 0}
           onOpen={setTimelineChoice}
+          /** 필름의 길이를 물어볼 무대 — 조회가 아니라 건네받는다. */
+          host={stage}
         />
       )}
 
@@ -2297,6 +2305,8 @@ export function App({
            */
           jumps={jumps}
           onJump={takeJump}
+          /** 클릭을 들을 무대 — 조회가 아니라 건네받는다. */
+          host={stage}
         />
       )}
 

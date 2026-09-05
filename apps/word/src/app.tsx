@@ -3,18 +3,19 @@ import type { Editor } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { AppBody, AppChrome, AppMain, AppShell, MenuBar, useRevision } from '@barocss/office-ui';
-import { WORD_MENUS, WORD_VIEW_KEYS, wordMenuEntry, wordMenuId } from '@barocss/office-word';
+import { WORD_MENUS, WORD_VIEW_KEYS, wordMenuEntry, wordMenuId, type FontLoader } from '@barocss/office-word';
+import {
+  CommentsPane,
+  DocumentTitle,
+  DrawingOverlay,
+  FindPanel,
+  OutlinePane,
+  Ribbon,
+  Ruler,
+  ZoomFrame
+} from '@barocss/office-word/ui';
 import { matchesKey } from '@barocss/office-controls';
-import type { FontLoader } from './font-loader';
-import { Ribbon } from './ribbon';
-import { FindPanel } from './find-panel';
-import { CommentsPane } from './comments-pane';
 import { InputLab } from './input-lab/panel';
-import { DocumentTitle } from './document-title';
-import { Ruler } from './ruler';
-import { OutlinePane } from './outline-pane';
-import { ZoomFrame } from './zoom-frame';
-import { DrawingOverlay } from './drawing-overlay';
 
 /**
  * The app shell.
@@ -28,6 +29,15 @@ import { DrawingOverlay } from './drawing-overlay';
 export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor; view: EditorViewDOM; fonts: FontLoader } }) {
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
+  /**
+   * 페이지가 스크롤되는 칸 — **조립하는 쪽이 알고 있는 것**.
+   *
+   * `.w-shell-document` 는 이 파일이 `AppMain` 에 붙이는 이름이다. 자(`Ruler`)가 그것을
+   * `document.querySelector` 로 찾고 있었는데, 그러면 그 부품은 이 앱의 마크업을 아는 부품이 되고
+   * 다른 호스트에서는 조용히 아무것도 안 듣는다. 이름을 아는 쪽에서 찾아서 건넨다 — 그리고 전역이
+   * 아니라 `closest` 로 찾는다: 자기 서브트리에서 위로 올라가는 것은 자기 것이다.
+   */
+  const [pane, setPane] = useState<HTMLElement | null>(null);
   const [instance, setInstance] = useState<{ editor: Editor; view: EditorViewDOM; fonts: FontLoader } | null>(null);
 
   useEffect(() => {
@@ -40,6 +50,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     // life of the page, and tearing it down and rebuilding it would throw away
     // the layout, the caret and the history for a re-render the user cannot see.
     mounted.current = true;
+    setPane(host.current.closest('.w-shell-document') as HTMLElement | null);
     setInstance(mount(host.current));
   }, [mount]);
 
@@ -59,7 +70,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * has only a scrollbar to say where they are.
    */
   const [outlining, setOutlining] = useState(true);
-  /** How large the page is drawn. See `zoom.tsx` for why it is a transform. */
+  /** How large the page is drawn. See `office-word/src/zoom.tsx` for why it is a transform. */
   const [zoom, setZoom] = useState(1);
   /**
    * The input lab is opened by asking for it — `?lab` in the address bar.
@@ -225,11 +236,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             }}
             zoom={zoom}
             onZoom={setZoom}
+            pane={pane}
           />
         ) : null}
         {/* Above the page and as wide as it, because every position on it is a
             position in the text below. */}
-        {instance ? <Ruler editor={instance.editor} zoom={zoom} /> : null}
+        {instance ? <Ruler editor={instance.editor} zoom={zoom} pane={pane} /> : null}
       </AppChrome>
 
       <AppBody className="w-shell-body">
@@ -237,6 +249,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             editor={instance.editor}
             open={outlining}
             onToggle={() => setOutlining((shown) => !shown)}
+            /* 어느 요소에 문서가 그려졌는지는 조립하는 쪽이 안다 — `#editor` 는 이 파일의 id 다. */
+            host={host.current}
           /> : null}
 
         <AppMain className="w-shell-document relative">

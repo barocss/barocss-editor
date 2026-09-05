@@ -11,6 +11,68 @@
  *
  * React 는 **peerDependency** 다 — 어느 React 를 쓸지는 호스트가 정한다.
  *
- * 아직 비어 있다. 셸 이주가 여기를 채운다.
+ * ## 무엇이 여기에 없나
+ *
+ * `app.tsx` 와 `main.tsx` — **조립과 부트스트랩**. 어느 판을 어느 순서로 세우고 무엇을 무엇에
+ * 연결하는가는 앱의 일이고, 그것이 앱이 하는 유일한 일이다.
  */
-export {};
+/* 무대 — 덱이 그려지는 곳, 그 위의 포인터, 그리고 보여주기. */
+export { Stage, type StageProps } from './stage';
+export { SelectionOverlay, type SelectionOverlayProps } from './overlay';
+export { Present, type PresentProps } from './present';
+export { Presenter, type PresenterProps } from './presenter';
+export { PresenterWindow, type PresenterWindowProps } from './presenter-window';
+
+/* 주변의 판들 — 무엇이 있고, 어디에 있고, 언제 움직이나. */
+export { Ribbon, type RibbonProps } from './ribbon';
+export { Filmstrip, type FilmstripProps } from './filmstrip';
+export { Thumbnail, type ThumbnailProps } from './thumbnail';
+export { LayerPanel, type LayerPanelProps } from './layer-panel';
+export { Properties, type PropertiesProps } from './properties';
+export { TimelinePane, type TimelinePaneProps } from './timeline-pane';
+export { NotesPane, type NotesPaneProps } from './notes';
+export { ComponentPanel, type ComponentPanelProps } from './component-panel';
+export { AuditPanel, type AuditPanelProps } from './audit-panel';
+export { FindBar, type FindBarProps } from './find-bar';
+export { DeckMapView, type DeckMapViewProps } from './deck-map-view';
+
+/* 판 안의 부품 — 스택과 갤러리. */
+export {
+  EffectList,
+  PaintList,
+  type EffectListProps,
+  type PaintListProps
+} from './paint-panel';
+export {
+  ComboGallery,
+  PathGallery,
+  PresetGallery,
+  type ComboGalleryProps,
+  type PathGalleryProps,
+  type PresetGalleryProps
+} from './preset-gallery';
+
+/* 대화 상자와 파일. */
+export {
+  SlideLayoutDialog,
+  SlideSizeDialog,
+  TemplateDialog,
+  ThemeDialog,
+  type SlideLayoutDialogProps,
+  type SlideSizeDialogProps,
+  type TemplateDialogProps,
+  type ThemeDialogProps
+} from './deck-dialogs';
+export { LibraryDialog, type LibraryDialogProps } from './library-dialog';
+export {
+  FileActions,
+  type DeckFileActions,
+  type FileActionsProps
+} from './file-actions';
+
+/**
+ * 문서를 구독하는 훅 — React 의 것이므로 여기다.
+ *
+ * 읽기 자체는 `deck.ts` 에 있고(`.` 로 나간다), 이 셋은 *언제 다시 읽나* 뿐이다.
+ */
+export { useDeck, useNote, useRevision } from './deck-model';

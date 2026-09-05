@@ -9,6 +9,16 @@
  * group on its own line, no padding, no background, and no error anywhere.
  */
 @source "../../../packages/office-ui/src";
+/*
+ * **그리고 이 제품의 셸.**
+ *
+ * 리본·찾기 상자·개요 칸·주석 칸·눈금자는 이제 `@barocss/office-word/ui` 에 산다. Tailwind 는
+ * 앱을 훑기 때문에, 이 줄이 없으면 그 조각들은 `class` 는 그대로 달고 **뒤에 규칙이 하나도 없는**
+ * 채로 그려진다 — 바로 위 주석이 적어 둔 그 실패 모양이고, 에러는 어디에도 안 난다.
+ *
+ * 셸을 패키지로 옮기면 반드시 따라오는 줄이다. `apps/note` 가 같은 줄을 갖고 있다.
+ */
+@source "../../../packages/office-word/src";
 
 
 /*

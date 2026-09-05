@@ -212,21 +212,31 @@ export {
  */
 export { deckMap, type DeckMap, type MapPage, type MapLink } from './deck-map';
 /**
- * A reader's own decks, **by name** — the naming half, which is the only half that is a question
- * about documents. Where they are kept is the app's: a browser has IndexedDB, another host would
- * have a directory. See `canvas-model.md` §11i.
- */
-/**
  * A deck read straight out of a file, answered like a loaded one — which is how anything can be
  * asked about *another* deck without replacing the one on screen.
  */
 export { accessOfTree } from './tree-access';
+/**
+ * A reader's own decks: **by name** (`deck-library`) and **where the bytes are** (`deck-storage`).
+ *
+ * Two halves, one place. The naming half is a question about documents and was always here; the
+ * keeping half was in the app because it needs a browser. It is here now because *needs a browser*
+ * is not the same as *belongs to one app* — and nothing in `deck-storage` touches the DOM at
+ * import time, so this entry point is still readable from Node. See `canvas-model.md` §11i.
+ */
 export {
   libraryName,
   libraryEntry,
   isLibraryName,
   type LibraryEntry
 } from './deck-library';
+export {
+  libraryRows,
+  libraryDeck,
+  keepInLibrary,
+  dropFromLibrary,
+  type LibraryRow
+} from './deck-storage';
 export { SLIDES_ENV_KEY, showsNotes, type SlidesEnv } from './render-context';
 /**
  * Where every connector goes, worked out once per render.

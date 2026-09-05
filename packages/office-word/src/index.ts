@@ -709,3 +709,31 @@ export {
   type WordMenuBlock,
   type WordMenuEntry
 } from './menu-model';
+
+/**
+ * 글꼴을 **가져오는** 쪽 — 목록(`office-controls`)이 아니라 그것을 실제로 싣는 일.
+ *
+ * 문서는 "Merriweather" 라고만 말하고 바이트가 어디서 오는지는 말하지 않는다. 그것을 정하는 것은
+ * 호스트지만, *언제 기다려야 하는가* 는 제품의 것이다 — 쪽 나눔이 글자를 **재기** 때문이다.
+ */
+export { createFontLoader, type FontLoader } from './font-loader';
+
+/**
+ * 종이를 **만든다** — 브라우저에게 설명하지 않는다.
+ *
+ * React 가 필요 없으므로 루트(`.`)에서 나간다: 경계는 *React 가 필요한가* 이지 *DOM 을 만지는가*
+ * 가 아니다. 그리고 `printCss` 가 이미 여기 있으니, 종이의 규칙과 종이를 만드는 것이 한 자리에 산다.
+ */
+export {
+  createPrintPages,
+  type PrintPages,
+  type PrintPagesOptions
+} from './print-pages';
+
+/**
+ * 이 제품이 자기를 보이는 문서 — 스키마가 약속한 것을 실제로 담은 한 벌.
+ *
+ * 앱의 픽스처가 아니라 **제품의 것**이다: 무엇이 문서에 들어갈 수 있는지는 `word-schema` 가 말하고,
+ * 그것이 실제로 담기는 모양을 이 파일이 말한다. 앱에 두면 다음 호스트가 자기 것을 다시 쓴다.
+ */
+export { createSampleDocument } from './sample-document';

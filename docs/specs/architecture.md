@@ -4,7 +4,7 @@
 계산했고(`@barocss/*` 만), 숫자는 세었다. 그리는 것과 재는 것이 다르면 재는 쪽이 맞다 —
 `conformance/dependency-graph.test.ts` 가 그 사실을 지킨다.
 
-마지막 측정: **2026-09-05 · 패키지 29 · 층 8 · 순환 0**
+마지막 측정: **2026-09-05 · 패키지 29 · 층 7 · 순환 0 · 제품→제품 0**
 
 ## 두 축으로 읽는다 — **깊이**와 **종류**
 
@@ -19,15 +19,19 @@
 | **2** | `model` `converter` `collaboration` | | |
 | **3** | `editor-core` `collaboration-*` | | |
 | **4** | `editor-view-dom` `editor-view-react` `extensions` `devtool` | `office-controls` `office-text` `office-canvas` | |
-| **5** | | `office-editor-ui` | `office-word` · `office-slides` · `office-site` |
-| **6** | | | `office-note` |
+| **5** | | `office-editor-ui` | `office-word` |
+| **6** | | | `office-note` · `office-site` · `office-slides` |
 
 `office-editor-ui`(270줄: `use-controls`·`use-selection-rect`·`revision`)가 `office-word` 와 같은
 깊이인 것은 **둘 다 층 4 위에 서기 때문**이지 둘이 같은 종류라서가 아니다. 부품이 뷰를 쓰면 제품과
 깊이가 같아진다 — 그건 피할 수 없고, 그래서 종류를 따로 적는다.
 
-그리고 그 부품을 **패키지에서** 쓰는 제품은 6이 된다. 지금은 `office-note` 하나이고, 그것이 이
-표에서 넷이 나란하지 않은 유일한 이유다 — **아래여서가 아니라 셸을 먼저 옮겼기 때문이다.**
+그리고 그 부품을 **패키지에서** 쓰는 제품은 6이 된다. **이제 셋이다.** `office-note` 가 먼저였고,
+`office-site` 와 `office-slides` 가 셸을 옮기면서 따라왔다 — 셋 다 `Controls`·`SlashMenu`·
+`useEditorRevision` 을 앱이 아니라 **패키지에서** 쓴다. 넷째(`office-word`)가 5에 남아 있는 이유는
+하나뿐이다: 그 셸이 아직 `apps/word` 에 있다.
+
+**그러니 깊이 6은 뒤처짐이 아니라 영수증이다** — 아래로 한 겹 더 재사용했다는.
 
 ## 규칙: **제품은 제품에 의존하지 않는다**
 
@@ -76,18 +80,18 @@ office-note    6 → 6
 
 ### 그런데 **깊이는 제품의 서열이 아니다**
 
-넷을 5·5·5·6 으로 적으면 note 가 밑에 있는 것처럼 읽힌다. 아니다. **깊이는 *내 아래에 패키지가
+넷을 5·6·6·6 으로 적으면 word 가 위에 있는 것처럼 읽힌다. 아니다. **깊이는 *내 아래에 패키지가
 몇 겹인가* 이고, 그건 재사용의 양이지 제품의 지위가 아니다.**
 
-note 가 6인 이유는 하나다: `office-editor-ui`(부품, 5)를 **패키지에서** 쓴다 —
-`Controls` · `SlashMenu` · `useEditorRevision`. 나머지 셋은 **같은 것을 앱에서** 쓴다:
+셋이 6인 이유는 하나다: `office-editor-ui`(부품, 5)를 **패키지에서** 쓴다 —
+`Controls` · `SlashMenu` · `useEditorRevision`. 남은 하나는 **같은 것을 앱에서** 쓴다:
 
 ```
-apps/word · apps/slide · apps/site  →  @barocss/office-editor-ui
+apps/word  →  @barocss/office-editor-ui
 ```
 
-**즉 note 의 6은 아래가 아니라 앞서 있다는 영수증이다** — 자기 셸을 패키지로 옮겼고(앱 257줄),
-그래서 부품을 한 겹 더 재사용한다. 셋이 셸을 옮기면 **그들도 6이 된다.**
+**즉 6은 아래가 아니라 앞서 있다는 영수증이다** — 자기 셸을 패키지로 옮겼고, 그래서 부품을 한 겹 더
+재사용한다. word 가 셸을 옮기면 **그것도 6이 된다.**
 
 그 깊이를 심볼을 옮겨서 줄일 수는 없다. 재본 사슬이 전부 값 의존이다:
 
@@ -210,7 +214,7 @@ overlay?: (host: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
 | 스키마 하나가 넷을 담나 | **예** | 넷이 `getOfficeSchemaDefinition()` 위에 서고, 정산이 강제된다 |
 | 제품 계약이 있나 | **예, 이제** | `ProductEditorOptions`. 없던 동안 넷째가 벗어나 있었다 |
 | 기본 키가 공유되나 | **예** | 엔진 마흔, 모든 제품 |
-| 셸이 제품에 있나 | **아니오** | **35,927줄이 아직 앱에 있다.** 노트만 257줄로 통과했다 |
+| 셸이 제품에 있나 | **셋은 예, 워드는 아니오** | 앱에 남은 `.ts`/`.tsx`: note 257 · slide **2,520**(조립 2,360 + 부트 160) · site 4,221 · **word 5,535**. slide 의 셸 **스물세 조각 16,449줄**이 `office-slides` 로 갔다 |
 | 서비스 층이 있나 | **거의 없다** | 문서 목록·저장소·계정·권한이 0에 가깝다 |
 
 ## 아직 나뉘어 있는 것 — 2026-09-05 측정
