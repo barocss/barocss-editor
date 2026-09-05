@@ -29,11 +29,17 @@
 
 import { flipCss } from './flip';
 
-/** Pixels per twip at 96dpi: exact, which is why placement never drifts. */
-const PX_PER_TWIP = 96 / 1440;
-
-export const twipToPx = (twip: number): number => twip * PX_PER_TWIP;
-export const pxToTwip = (px: number): number => px / PX_PER_TWIP;
+/**
+ * **단위는 `@barocss/shared` 의 것이다** — 여기서 그대로 다시 내보낸다.
+ *
+ * 여기와 `office-text/css.ts` 에 각각 있었고 **두 판이 다른 답을 냈다**: `twip*(96/1440)` 대
+ * `(twip/1440)*96`. 20만 중 58,306개가 다른 CSS 문자열이었고 — `9 twip → 0.6px` 대
+ * `0.6000000000000001px` — **두 곳 다 자기가 exact 라고 적어 뒀다.** `shared/units/units.ts`.
+ *
+ * 다시 내보내는 것은 값이 있다: 덱의 마흔 곳이 계속 `from './geometry'` 라고 적는다.
+ */
+export { PX_PER_TWIP, pxToTwip, twipToPx } from '@barocss/shared';
+import { twipToPx } from '@barocss/shared';
 
 /*
  * The box vocabulary is the **canvas layer's** (`office-canvas/canvas-box.ts`).
@@ -49,7 +55,9 @@ import { boxOf, isVisible, type Placement } from '@barocss/office-canvas';
 const finite = (value: unknown, fallback: number): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
-export type CssStyle = Record<string, string>;
+/* `CssStyle` 도 한 벌이다 — 짧을수록 다시 적기 쉽고, 이름이 둘이면 *같은 것인가* 를 매번 묻는다. */
+export type { CssStyle } from '@barocss/shared';
+import type { CssStyle } from '@barocss/shared';
 
 /**
  * The CSS that puts a scene node where the model says it is.

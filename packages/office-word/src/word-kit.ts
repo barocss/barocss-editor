@@ -33,7 +33,7 @@ import { createWordComments, type CommentAuthor } from './comment-commands';
 import { createWordRevisions } from './revision-commands';
 import { createWordTracking } from './tracking-commands';
 import { createWordMath } from './math-commands';
-import { createWordTables } from './table-commands';
+import { createWordTables } from '@barocss/office-text';
 import { createSchema } from '@barocss/schema';
 import { getWordSchemaDefinition } from './word-schema';
 import { WORD_KEYBINDINGS } from './word-keymap';

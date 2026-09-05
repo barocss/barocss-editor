@@ -47,9 +47,7 @@
     "@barocss/model": "workspace:*",
     "@barocss/office-canvas": "workspace:*",
     "@barocss/office-controls": "workspace:*",
-    "@barocss/office-note": "workspace:*",
     "@barocss/office-text": "workspace:*",
-    "@barocss/office-word": "workspace:*",
     "@barocss/renderer-dom": "workspace:*",
     "@barocss/schema": "workspace:*",
     "prismjs": "^1.30.0"

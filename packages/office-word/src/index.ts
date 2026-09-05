@@ -337,7 +337,16 @@ export {
  * claim about two packages agreeing has to be testable from a place that can
  * see both.
  */
-export { canvasCss, canvasViewBox, frameCss } from './shapes';
+/*
+ * **도형의 기하는 `office-canvas` 의 것이다** — 여기서 다시 내보낸다.
+ *
+ * `shapes.ts` 가 이 패키지에 있었고, 그래서 `office-site` 가 `frameCss` 하나 때문에 `office-word`
+ * 를 의존했다. 제품은 제품에 의존하지 않는다(`docs/specs/architecture.md`). 그 파일이 쓰는 것은
+ * `twipToPx`·`CssStyle` 뿐이었으니 워드의 것이 아니라 **그림의 낱말** 이었다.
+ *
+ * 다시 내보내는 것은 값이 있다: 워드의 도형을 찾는 사람이 여기서 찾는다.
+ */
+export { canvasCss, canvasViewBox, frameCss } from '@barocss/office-canvas';
 
 /**
  * A frame that arranges what is in it.
@@ -610,16 +619,18 @@ export {
   type GraphPlacement
 } from '@barocss/office-canvas';
 /**
- * Word's table commands, which a deck needs for the same reason Word does: the
- * shared kit's were written for a schema without the header/body group between a
- * table and its rows, and both products store tables with it.
+ * **표 명령은 `office-text` 의 것이다** — 여기서 다시 내보낸다.
+ *
+ * 위 프로세가 *"a deck needs for the same reason Word does"* 라고 적어 뒀고, 그게 바로 이것이
+ * 워드의 것이 아니라는 근거였다. `office-slides` 가 그 하나 때문에 `office-word` 를 의존했고,
+ * **제품은 제품에 의존하지 않는다**(`docs/specs/architecture.md`). 표는 **글의 낱말** 이다.
  */
 export {
   createWordTables,
   WordTableExtension,
-  nextTextDirection,
   type WordTableOptions
-} from './table-commands';
+} from '@barocss/office-text';
+export { nextTextDirection } from '@barocss/office-text';
 export {
   createWordFrames,
   WordFrameExtension,

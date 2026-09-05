@@ -14051,3 +14051,61 @@ Newest first. The surprise each one produced is the part worth keeping.
   the container and it never fired: `TextField` stops the event on purpose so a
   committing Enter cannot reach the paragraph behind it, and `onKeys` is the
   door it declares for this.
+
+- **제품이 제품에 의존하고 있었다 — 변 셋, 각각 심볼 하나.** ✅ 고침
+
+  사용자 규칙: *"제품이 제품에 의존하면 안 돼, 기능은 같을 수 있지만."*
+
+  | 변 | 무엇 | 내려간 곳 |
+  |---|---|---|
+  | `office-slides` → `office-word` | `createWordTables` | `office-text` |
+  | `office-site` → `office-word` | `frameCss` | `office-canvas` |
+  | `office-site` → `office-note` | `NOTE_CONTENT` | `office-text` (`BODY_CONTENT`) |
+
+  깊이가 **7 → 6** 이 되고 word·slides·site 가 5로 나란해졌다.
+  `conformance/no-product-depends-on-a-product.test.ts` 가 `package.json` 과 import 둘 다 센다.
+
+  **두 프로세가 스스로 근거를 적어 뒀다.** `office-word/index.ts` 는 표 명령에 대해
+  *"a deck needs for the same reason Word does"* 라고, `office-note/note-schema.ts` 는
+  *"one declaration, read by everything"* 이라고. 둘 다 맞는 말이었고 **집이 틀렸다** —
+  읽는 쪽이 둘이 되면 그 선언은 둘 중 하나의 것이 아니라 아래층의 것이다.
+
+- **`twipToPx` 가 두 벌이었고 두 판이 다른 답을 냈다.** ✅ 고침 — **살아 있는 결함**
+
+  `frameCss` 를 옮기려고 그 파일의 의존을 보다가 나왔다.
+
+  ```
+  office-slides:  twip * (96 / 1440)
+  office-text:    (twip / 1440) * 96
+  ```
+
+  수학으로는 같고 부동소수로는 다르다. 재본 것: `-100000..100000` 중 **58,310개**가 다른 값이고,
+  CSS 문자열로는 20만 중 **58,306개**가 갈린다 — `9 twip → 0.6px` 대 `0.6000000000000001px`.
+  화면에는 안 보이지만 **내보낸 HTML/CSS 이 제품마다 달라진다.**
+
+  그리고 **두 곳 다 자기가 `exact` 라고 적어 뒀다.** `shared/units` 로 한 벌을 두고, 계산 순서가
+  답을 바꾼다는 사실 자체를 검사로 세웠다 — 다음 사람이 *어차피 같은 값 아닌가* 라고 물을 때
+  답이 있게.
+
+  **`office-slides/test/one-unit.test.ts` 가 이것을 못 잡았다.** 그 검사는 `twipToPx(1440) === 96`
+  을 물었고 **두 판 다 그것을 만족한다.** *단위* 는 물었고 *구현이 하나인가* 는 안 물었다.
+
+- **`isVisible` 이 두 벌이었고 로직이 글자까지 같았다.** ✅ 고침
+
+  `x?.visible !== false`. 매개변수 이름만 달랐다(`Placement` / `ShapeAttributes`). `shapes.ts` 가
+  `office-canvas` 로 오면서 합쳤고, **묻는 것으로 타입을 적었다**: `{ visible?: boolean }`.
+
+- **모듈을 옮기면서 검사를 두고 왔다 — 20개가 조용히 사라졌다.** ✅ 고침
+
+  `shapes.test.ts` 가 `../src/shapes` 를 import 하는데 그 파일이 옮겨갔다. 결과는 실패가 아니라
+  **침묵** 이었다: `483 passed` → `463 passed`, 둘 다 초록.
+
+  **`Tests` 줄만 읽으면 그것을 못 본다.** 불러오지 못한 스펙은 `Tests  no tests` 를 찍고, 실패는
+  `Test Files  1 failed` 에만 나온다. 회차 스크립트가 이제 두 줄을 다 읽는다 —
+  *결과를 읽는 도구가 못 보면 그 초록은 아무것도 뜻하지 않는다* 의 **다섯 번째**다.
+
+- **`office-editor-ui` 가 `extensions` 를 타입으로만 쓴다.** 🔴 열림 — 작은 것
+
+  `SlashCommandExtension` 하나. 이 저장소 규칙상 타입 전용 의존은 devDependency 자리이고
+  (`dependency-graph.test.ts` 의 프로세), 순환이 없으니 급하지는 않다. 깊이도 안 바뀐다 —
+  `office-controls`(4) 때문에 어차피 5다.

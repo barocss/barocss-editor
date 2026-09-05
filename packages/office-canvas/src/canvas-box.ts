@@ -65,7 +65,13 @@ export function boxOf(placement: Placement | undefined): Box {
   };
 }
 
-/** Whether anything should be drawn for this node at all. */
-export function isVisible(placement: Placement | undefined): boolean {
-  return placement?.visible !== false;
+/**
+ * **이것이 그려지는가.**
+ *
+ * `Placement` 로만 물었고, `canvas-shapes.ts` 에 도형용 한 벌이 더 있었다 — 로직이 글자까지 같고
+ * 매개변수 이름만 달랐다. 같은 질문이므로 **묻는 것으로 타입을 적는다**: `visible` 을 가질 수도
+ * 있는 무엇이든.
+ */
+export function isVisible(what: { visible?: boolean } | undefined): boolean {
+  return what?.visible !== false;
 }

@@ -1007,6 +1007,9 @@ importers:
       '@barocss/model':
         specifier: workspace:*
         version: link:../model
+      '@barocss/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       typescript:
         specifier: ^5.9.3
@@ -1222,15 +1225,9 @@ importers:
       '@barocss/office-controls':
         specifier: workspace:*
         version: link:../office-controls
-      '@barocss/office-note':
-        specifier: workspace:*
-        version: link:../office-note
       '@barocss/office-text':
         specifier: workspace:*
         version: link:../office-text
-      '@barocss/office-word':
-        specifier: workspace:*
-        version: link:../office-word
       '@barocss/renderer-dom':
         specifier: workspace:*
         version: link:../renderer-dom
@@ -1292,12 +1289,12 @@ importers:
       '@barocss/office-text':
         specifier: workspace:*
         version: link:../office-text
-      '@barocss/office-word':
-        specifier: workspace:*
-        version: link:../office-word
       '@barocss/schema':
         specifier: workspace:*
         version: link:../schema
+      '@barocss/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@barocss/conformance':
         specifier: workspace:*

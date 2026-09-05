@@ -53,30 +53,22 @@ import { getOfficeSchemaDefinition, getStandardSchemaDefinition, type SchemaDefi
  * `pageBreak` is out too — a Word idea, and a note has no pages. `listItem` is a list's child and
  * never a body's.
  */
-export const NOTE_BLOCKS = [
-  'heading',
-  'paragraph',
-  'list',
-  'blockQuote',
-  'codeBlock',
-  'bTable',
-  'horizontalRule',
-  'picture',
-  'mediaVideo',
-  'mediaEmbed'
-] as const;
-
-export type NoteBlock = (typeof NOTE_BLOCKS)[number];
-
 /**
- * The content expression a body's children satisfy — **one declaration, read by everything**.
+ * **몸의 블록은 `@barocss/office-text` 의 것이다** — 여기서 노트의 이름으로 다시 내보낸다.
  *
- * `office-site` reads this for `richText.content` rather than repeating it. Two spellings of *what a
- * body may hold* is how a model and an editor come to disagree, and this repository has the failure
- * on record more than once: a fixed set written in prose above a declaration and again in every
- * toolbar that offers it.
+ * 여기 있었고 프로세가 *"one declaration, read by everything"* 이라 적었다. 그 결정은 맞았고 집이
+ * 틀렸다: `office-site` 가 이것을 읽으면서 **제품이 제품을 의존하게** 됐다. 읽는 쪽이 둘이 되면
+ * 그 선언은 아래층의 것이다(`docs/specs/architecture.md`).
+ *
+ * 노트 안에서 `NOTE_BLOCKS` 라고 계속 부르는 것은 이 패키지를 읽는 사람이 그 이름으로 찾기
+ * 때문이고, 이름이 옮기는 값을 막지 않는다.
  */
-export const NOTE_CONTENT = `(${NOTE_BLOCKS.join(' | ')})+`;
+export {
+  BODY_BLOCKS as NOTE_BLOCKS,
+  BODY_CONTENT as NOTE_CONTENT,
+  type BodyBlock as NoteBlock
+} from '@barocss/office-text';
+import { BODY_CONTENT as NOTE_CONTENT } from '@barocss/office-text';
 
 /**
  * A note as a document of its own: one `note` node holding blocks, plus the `resources` region the

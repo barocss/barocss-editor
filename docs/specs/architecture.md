@@ -19,13 +19,15 @@
 | **2** | `model` `converter` `collaboration` | | |
 | **3** | `editor-core` `collaboration-*` | | |
 | **4** | `editor-view-dom` `editor-view-react` `extensions` `devtool` | `office-controls` `office-text` `office-canvas` | |
-| **5** | | `office-editor-ui` | `office-word` |
-| **6** | | | `office-note` · `office-slides` |
-| **7** | | | `office-site` |
+| **5** | | `office-editor-ui` | `office-word` · `office-slides` · `office-site` |
+| **6** | | | `office-note` |
 
 `office-editor-ui`(270줄: `use-controls`·`use-selection-rect`·`revision`)가 `office-word` 와 같은
 깊이인 것은 **둘 다 층 4 위에 서기 때문**이지 둘이 같은 종류라서가 아니다. 부품이 뷰를 쓰면 제품과
 깊이가 같아진다 — 그건 피할 수 없고, 그래서 종류를 따로 적는다.
+
+그리고 그 부품을 **패키지에서** 쓰는 제품은 6이 된다. 지금은 `office-note` 하나이고, 그것이 이
+표에서 넷이 나란하지 않은 유일한 이유다 — **아래여서가 아니라 셸을 먼저 옮겼기 때문이다.**
 
 ## 규칙: **제품은 제품에 의존하지 않는다**
 
@@ -72,14 +74,33 @@ office-note    6 → 6
 최대 깊이       7 → 6
 ```
 
-### note 의 6은 결함이 아니라 **영수증**이다
+### 그런데 **깊이는 제품의 서열이 아니다**
 
-note 만 `office-editor-ui`(부품, 5)를 **패키지에서** 의존한다. 나머지 셋은 그것을 **앱에서** 쓴다.
-즉 note 의 깊이는 **자기 셸을 패키지로 옮긴 대가** 다 — 앱이 257줄인 이유와 같은 사실의 뒷면이다.
+넷을 5·5·5·6 으로 적으면 note 가 밑에 있는 것처럼 읽힌다. 아니다. **깊이는 *내 아래에 패키지가
+몇 겹인가* 이고, 그건 재사용의 양이지 제품의 지위가 아니다.**
 
-word·slides·site 가 셸을 옮기면 그들도 `office-editor-ui` 를 의존해 **6이 된다.**
+note 가 6인 이유는 하나다: `office-editor-ui`(부품, 5)를 **패키지에서** 쓴다 —
+`Controls` · `SlashMenu` · `useEditorRevision`. 나머지 셋은 **같은 것을 앱에서** 쓴다:
 
-**목표 상태: 바탕·부품 0–5, 제품 6, 넷이 형제.**
+```
+apps/word · apps/slide · apps/site  →  @barocss/office-editor-ui
+```
+
+**즉 note 의 6은 아래가 아니라 앞서 있다는 영수증이다** — 자기 셸을 패키지로 옮겼고(앱 257줄),
+그래서 부품을 한 겹 더 재사용한다. 셋이 셸을 옮기면 **그들도 6이 된다.**
+
+그 깊이를 심볼을 옮겨서 줄일 수는 없다. 재본 사슬이 전부 값 의존이다:
+
+```
+shared(0) → datastore(1) → model(2) → editor-core(3) → office-controls(4)
+          → office-editor-ui(5) → office-note(6)
+```
+
+`office-controls` 는 `markAttribute`·`markState` 를 값으로 쓰고, `office-editor-ui` 는
+`office-controls` 를 값으로 쓴다. **부품이 부품 위에 서면 제품과 깊이가 겹치거나 넘어선다** — 그건
+그래프의 성질이지 결함이 아니다.
+
+**목표 상태: 바탕·부품 0–5, 제품 **넷 다 6**, 형제.**
 
 ## 층은 선언이 아니라 결과다
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canvasCss } from '@barocss/office-word';
+import { canvasCss } from '@barocss/office-canvas';
 import { twipToPx, SLIDE_16_9 } from '../src/geometry';
 
 /**
@@ -20,6 +20,15 @@ import { twipToPx, SLIDE_16_9 } from '../src/geometry';
  * Lives here rather than in `office-word` because this package is the one that
  * can see both. That is also the honest shape of the claim — it is about the
  * two agreeing, so it belongs where the disagreement would be visible.
+ *
+ * **2026-09-05 정정 — 이 검사는 진짜 어긋남을 못 잡았다.** `twipToPx` 가 두 벌이었고
+ * (`twip*(96/1440)` 대 `(twip/1440)*96`) 20만 중 58,306개가 **다른 CSS 문자열** 을 냈다. 이
+ * 검사는 `twipToPx(1440) === 96` 을 물었고 **두 판 다 그것을 만족한다.** 즉 *단위* 는 물었고
+ * *구현이 하나인가* 는 안 물었다. 그건 이제 `shared/units/units.test.ts` 가 묻는다.
+ *
+ * `canvasCss` 는 `office-canvas` 로 갔다 — 제품은 제품에 의존하지 않는다
+ * (`docs/specs/architecture.md`). 이 검사가 여기 남는 이유는 여전히 같다: 덱의 기하와 그림의
+ * 기하가 같은 자를 쓰는지를 **덱 쪽에서** 묻는다.
  */
 describe('both products measure the model in twips', () => {
   /** An inch, in the unit everything the engine measures is kept in. */

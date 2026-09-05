@@ -42,6 +42,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@barocss/shared": "workspace:*",
     "@barocss/datastore": "workspace:*",
     "@barocss/dsl": "workspace:*",
     "@barocss/editor-core": "workspace:*",
@@ -50,7 +51,6 @@
     "@barocss/office-canvas": "workspace:*",
     "@barocss/office-controls": "workspace:*",
     "@barocss/office-text": "workspace:*",
-    "@barocss/office-word": "workspace:*",
     "@barocss/schema": "workspace:*"
   },
   "devDependencies": {

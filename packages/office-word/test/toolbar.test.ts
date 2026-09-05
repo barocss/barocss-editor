@@ -16,7 +16,6 @@ import {
   WORD_TEXT_COLOR,
   WORD_CELL_SHADING
 } from '../src/toolbar-model';
-import { nextTextDirection } from '../src/table-commands';
 import { WORD_KEYBINDINGS } from '../src/word-keymap';
 import type { SelectionSummary } from '@barocss/editor-core';
 
@@ -188,19 +187,11 @@ describe('what a control reads off the cell it is in', () => {
   });
 });
 
-describe('the direction a cell’s text is turned to next', () => {
-  it('moves through the three in a cycle, as Word’s button does', () => {
-    expect(nextTextDirection('lrTb')).toBe('tbRl');
-    expect(nextTextDirection('tbRl')).toBe('btLr');
-    expect(nextTextDirection('btLr')).toBe('lrTb');
-  });
-
-  it('turns a cell that says nothing, rather than doing nothing', () => {
-    // Unset is the ordinary direction, so the first press has to move off it
-    expect(nextTextDirection('')).toBe('tbRl');
-    expect(nextTextDirection('something else')).toBe('tbRl');
-  });
-});
+/*
+ * **칸 글자 방향의 순환은 `office-text` 에서 묻는다** — `table-commands.ts` 가 그리로 갔다.
+ * 기능은 그것이 사는 층에서 묻고, 여기서는 툴바가 그것을 부르는지만 남는다
+ * (`docs/specs/testing.md`).
+ */
 
 /**
  * The colour controls, and where each reads its current value.

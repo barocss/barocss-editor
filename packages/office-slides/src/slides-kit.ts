@@ -33,7 +33,8 @@ import { resolveVarAttrs } from './named-values';
 import { createConnectorCommands } from './connector-commands';
 import { createClipboardCommands } from './clipboard-commands';
 import { createLayoutCommands } from '@barocss/office-canvas';
-import { createWordTables } from '@barocss/office-word';
+/* 표는 글의 낱말이다 — 전에는 `@barocss/office-word` 였고, 제품이 제품을 의존했다. */
+import { createWordTables } from '@barocss/office-text';
 
 
 /**

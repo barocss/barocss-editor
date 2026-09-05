@@ -22,7 +22,7 @@ import {
   rectangleAttrs,
   shapePaint,
   shapeTransform
-} from '../shapes';
+} from '@barocss/office-canvas';
 
 /** The shape renderers, registered by whichever kit wants Word's drawing. */
 export function registerShapeRenderers(): void {

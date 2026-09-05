@@ -24,7 +24,7 @@
  * Word stores these in EMU and an importer converts, the same way it converts
  * everything else.
  */
-import { twipToPx, type CssStyle } from '@barocss/office-text';
+import { twipToPx, type CssStyle } from '@barocss/shared';
 
 export interface ShapeGeometry {
   x?: number;
@@ -85,10 +85,13 @@ export function shapePaint(attrs: ShapeAttributes | undefined): Record<string, s
   return paint;
 }
 
-/** Whether a shape is drawn at all. */
-export function isVisible(attrs: ShapeAttributes | undefined): boolean {
-  return attrs?.visible !== false;
-}
+/*
+ * **`isVisible` 은 여기 없다** — `canvas-box.ts` 에 있다.
+ *
+ * 두 벌이었고 **로직이 글자까지 같았다**(`x?.visible !== false`). 매개변수 이름만 달랐다:
+ * 하나는 `Placement`, 하나는 `ShapeAttributes`. 같은 질문 — *이것이 그려지는가* — 이고, 그
+ * 질문에 두 답이 있을 이유가 없다. 이 파일이 `office-word` 에서 여기로 오면서 합쳤다.
+ */
 
 /** A rectangle's own attributes, corner radius included. */
 export function rectangleAttrs(attrs: ShapeAttributes | undefined): Record<string, string> {

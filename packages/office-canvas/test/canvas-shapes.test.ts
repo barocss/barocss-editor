@@ -4,12 +4,12 @@ import {
   canvasViewBox,
   ellipseAttrs,
   frameCss,
-  isVisible,
   lineAttrs,
   rectangleAttrs,
   shapePaint,
   shapeTransform
-} from '../src/shapes';
+} from '../src/canvas-shapes';
+import { isVisible } from '../src/canvas-box';
 
 /**
  * Turning shapes into SVG.

@@ -14,22 +14,20 @@
  */
 import type { EffectiveFormat } from './style-resolver';
 
-export type CssStyle = Record<string, string>;
-
-/** Twips → points. */
-export const twipToPt = (twip: number): number => twip / 20;
+/**
+ * **단위는 `@barocss/shared` 의 것이다** — 여기서 그대로 다시 내보낸다.
+ *
+ * `twipToPx` 가 여기와 `office-slides/geometry.ts` 에 각각 있었고 **두 판이 다른 답을 냈다**:
+ * `(twip/1440)*96` 대 `twip*(96/1440)`. 20만 중 58,306개가 다른 CSS 문자열이었고, 두 곳 다 자기가
+ * *exact* 라고 적어 뒀다. `shared/units/units.ts` 에 잰 표가 있다.
+ *
+ * 다시 내보내는 것은 값이 있다: 이 패키지를 읽는 사람이 *워드의 단위* 를 여기서 찾는다.
+ */
+export { twipToPt, twipToPx, type CssStyle } from '@barocss/shared';
+import { twipToPt, type CssStyle } from '@barocss/shared';
 
 /** Twips → CSS length. */
 export const twipToCss = (twip: number): string => `${round(twipToPt(twip))}pt`;
-
-/**
- * Twips → CSS pixels.
- *
- * Layout arithmetic has to happen in one unit, and the browser reports geometry
- * in px. The ratio is fixed — CSS defines 1in as 96px regardless of the display
- * or the zoom level — so this is exact, not an approximation of the rendering.
- */
-export const twipToPx = (twip: number): number => (twip / 1440) * 96;
 
 /** Half-points → CSS length. */
 export const halfPointToCss = (halfPoint: number): string => `${round(halfPoint / 2)}pt`;

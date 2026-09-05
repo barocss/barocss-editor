@@ -12,15 +12,15 @@
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
+import type { DocumentAccess, DocumentNode } from './document-access';
 import {
   cellPlacementOf,
   formatTableLook,
   parseTableLook,
   tableOf,
   type TableLook
-} from '@barocss/office-text';
-import { cellContaining, columnsCovered, rowsCovered } from '@barocss/office-text';
+} from './table-style';
+import { cellContaining, columnsCovered, rowsCovered } from './table-selection';
 
 /** The operations, and the names a caller reaches them by. */
 const COMMANDS: { name: string; op: string; payload?: Record<string, unknown> }[] = [

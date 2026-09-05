@@ -84,6 +84,27 @@ export {
   type ResizeOptions
 } from './canvas-manipulate';
 
+/**
+ * **도형의 기하를 CSS·SVG 로** — `office-word` 에서 왔다.
+ *
+ * 제품이 제품에 의존하지 않는다(`docs/specs/architecture.md`). `office-site` 가 `frameCss` 하나
+ * 때문에 `office-word` 를 의존하고 있었고, 그 파일이 쓰는 것은 `twipToPx`·`CssStyle` 뿐이었다 —
+ * 즉 워드의 것이 아니라 **그림의 낱말** 이었다. 옮기면서 `isVisible` 두 벌도 합쳤다.
+ */
+export {
+  canvasCss,
+  canvasViewBox,
+  ellipseAttrs,
+  frameCss,
+  lineAttrs,
+  rectangleAttrs,
+  shapePaint,
+  shapeTransform,
+  type ShapeAttributes,
+  type ShapeGeometry,
+  type ShapeStyle
+} from './canvas-shapes';
+
 /** Making something to place: a drawing, and the shapes that go on it. */
 export {
   SHAPE_PAINT,

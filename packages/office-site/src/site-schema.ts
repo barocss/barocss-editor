@@ -31,7 +31,8 @@
  * a CSS one-liner apiece and it is not derivable from silence, because silence already means two
  * different things depending on the axis and the container.
  */
-import { NOTE_CONTENT } from '@barocss/office-note';
+/* 쓰인 몸의 어휘는 글의 낱말이다 — 전에는 `@barocss/office-note` 였고, 제품이 제품을 의존했다. */
+import { BODY_CONTENT as NOTE_CONTENT } from '@barocss/office-text';
 import {
   getOfficeSchemaDefinition,
   getStandardSchemaDefinition,

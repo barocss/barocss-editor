@@ -13,6 +13,12 @@ export { normalizeKeyString, expandModKey } from './key-binding';
  * 아래에 두려면 타입도 그 아래여야 하고, 그 변환이 쓰는 런 색인은 이미 이 패키지에 있다.
  */
 /**
+ * **문서의 길이 단위** — `twipToPx` 가 두 패키지에 있었고 **두 판이 다른 답을 냈다**(20만 중
+ * 58,306개가 다른 CSS 문자열). `units.ts` 에 잰 표가 있다.
+ */
+export { PX_PER_TWIP, pxToTwip, twipToPt, twipToPx, type CssStyle } from './units';
+
+/**
  * **자리** — DOM 의 한 점과 모델의 한 점을 맞바꾸는 규칙 한 벌. `docs/specs/text-position.md`.
  */
 export {

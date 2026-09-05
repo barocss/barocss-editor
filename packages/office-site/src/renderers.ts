@@ -25,7 +25,8 @@ import { data, define, element, external, override, slot } from '@barocss/dsl';
 import type { RenderEnv } from '@barocss/dsl';
 import { getWordDocument, registerTextRenderers } from '@barocss/office-text';
 import { isVarRef, resolveVarValue } from '@barocss/office-canvas';
-import { frameCss } from '@barocss/office-word';
+/* 그림의 낱말이므로 캔버스에서 온다 — 전에는 `@barocss/office-word` 였고, 제품이 제품을 의존했다. */
+import { frameCss } from '@barocss/office-canvas';
 import { hrefFor } from './page-link';
 import { opacityCss, paintCss } from './paint';
 import { presenceCss } from './presence';

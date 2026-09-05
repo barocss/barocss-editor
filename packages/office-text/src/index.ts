@@ -116,3 +116,22 @@ export {
   CELL_SELECTED_ATTRIBUTE,
   type CellSelectionHandle
 } from './table-selection-view';
+
+/**
+ * **표를 다루는 명령** — `office-word` 에서 왔다.
+ *
+ * `office-slides` 가 `createWordTables` 하나 때문에 `office-word` 를 의존하고 있었고, 제품은
+ * 제품에 의존하지 않는다(`docs/specs/architecture.md`). 그 파일이 쓰는 것은 `editor-core`·`model`
+ * 과 **이 패키지** 뿐이었다 — 표는 워드의 것이 아니라 **글의 낱말** 이다.
+ *
+ * 이름에 `Word` 가 남은 것은 호출처 둘이 그렇게 부르기 때문이고, 이름이 옮기는 값을 막지 않는다.
+ */
+export {
+  WordTableExtension,
+  createWordTables,
+  nextTextDirection,
+  type WordTableOptions
+} from './table-commands';
+
+/** 쓰인 몸이 무엇으로 이루어지나 — `office-note` 에서 왔다. 왜 여기인지는 그 파일에 있다. */
+export { BODY_BLOCKS, BODY_CONTENT, type BodyBlock } from './body-blocks';
