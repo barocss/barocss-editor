@@ -7845,6 +7845,195 @@ text-shaped.
   **더 큰 질문은 이것이 세 번째라는 것이다** — 차트 넷, 스티커 하나, 그리고 이모지. *렌더러가
   그리는 클래스인데 `PAGE_CSS` 에 규칙이 없는 것* 을 세는 검사가 없다. `dead-selectors.test.ts`
   는 반대 방향(규칙은 있는데 아무도 안 쓰는 것)만 센다.
+### 입력 층의 열여섯을 대봤더니, 하나도 같지 않았고 결함이 셋이었다 — 2026-09-05
+
+선택 층을 `@barocss/shared` 의 자리 층으로 합친 뒤, 같은 일을 **입력 층**에 했다.
+결론부터: **입력 층은 선택 층처럼 합쳐지지 않는다.** 그리고 그 사실 자체가 이번 산출물이다.
+
+#### 잰 것
+
+주석·공백을 지우고 **본문만** 대봤다(서명 줄은 빼고, `private foo()` 와 `function foo()` 가
+같은 일을 하면 같다고 세도록).
+
+| | 선택 층 (앞 회차) | 입력 층 (이번) |
+|---|---|---|
+| 이름이 겹치는 것 | 19 | **16** |
+| 그중 글자까지 같음 | 2 | **0** |
+| 표기만 다름 | 6 | **9** |
+| 논리가 다름 | 1 | **7** |
+
+**선택 층에서는 6/17 이 표기만 달랐고 옮기면 12가 같아졌다. 입력 층에서는 0/16 이 같았다.**
+표기만 다른 아홉도 로깅이 논리 사이에 끼어 있어서 기계가 갈라 주지 못했다 — 손으로 읽어야 했다.
+
+#### 세 갈래
+
+`editor-view-dom/src/event-handlers/input-handler.ts` (2,088줄) ·
+`editor-view-react/src/input-handler.ts` (925줄).
+
+**표기만 다름 — 아홉**
+
+| 이름 | 무엇이 다른가 |
+|---|---|
+| `shouldPreventDefault` / `shouldPreventDefaultStructural` | 이름만. 목록 2+2 가 같다 |
+| `shouldHandleFormat` | 목록 넷이 같다 |
+| `shouldHandleDelete` | 목록 여섯이 같다 |
+| `executeFormatCommand` | 매핑 넷이 같다. dom 이 로그를 더 찍는다 |
+| `_buildDebugTransaction` | sid 앞자리(`tx-viewdom-` / `tx-viewreact-`)만 |
+| `getValidInsertHint` | 500ms 창까지 같다. react 가 줄여 썼다 |
+| `calculateCrossNodeDeleteRange` | 가드·순서·결과가 같다. dom 은 `dataStore` 를 인자로 받고 react 는 `this` 에서 읽는다 |
+| `handleDelete` | 흐름이 같다. dom 이 커맨드마다 try/catch 를 두른다 |
+| `tryHandleInsertViaGetTargetRanges` | 흐름이 같다. dom 이 `editor:input.boundary_text` 를 더 쏜다 |
+
+**논리가 다름 — 일곱**
+
+| 이름 | 어느 쪽이 맞나 | 살아 있는 결함인가 |
+|---|---|---|
+| `handleC1` 의 진입 가드 | **둘 다 틀렸다** | **그렇다 — 제품 경로** |
+| `calculateDeleteRange` 의 `collapsed` | dom 은 필드를 읽고 react 는 다시 센다 | 아니다 (아래) |
+| `calculateDeleteRange` 의 낱말 삭제 | **dom** — react 는 한 글자만 지운다 | 잠재 (react 는 제품이 아님) |
+| `updateInsertHintFromBeforeInput` | 어느 쪽도 아니다 — 삽입 검사를 안에 두느냐 부르는 쪽에 두느냐 | 아니다 |
+| `handleBeforeInput` | 어느 쪽도 아니다 — react 는 `insertText` 를 일부러 막지 않는다 | 아니다 |
+| `executeStructuralCommand` | **dom** — react 의 `insertLineBreak` 는 `'\n'` 을 글자로 넣는다 | 잠재 |
+| `handleDomMutations` / `handleInput` | 뷰의 것 — 다만 `handleInput` 은 **같은 이름 다른 질문** | 아니다 |
+
+**한쪽에만 있음 — dom 14, react 17**
+
+- dom: 데코레이터 동기화 넷, `handleC2`·`handleC3`·`handleC4`, `handleTextContentChange`(257줄),
+  `resolveModelTextNodeId`, `calculateWordDeleteRange`, `getCurrentSelection`, `getTextNodes`, `handleKeyDown`
+- react: IME 창 관리 일곱(`markPostCompositionWindow` 외), `handlePaste`·`handleDrop`,
+  `syncFocusedTextNodeAfterComposition`(117줄), `handleDomMutationsInner`,
+  `insertTextAtSelection`·`insertParagraph`·`insertText`, `applyModelSelectionAfterRender`, `handleKeydown`
+
+`handleKeyDown` / `handleKeydown` 은 **대문자 하나 때문에** 겹치지 않는 것으로 세어졌다.
+기계로 대볼 때 이런 것이 나온다.
+
+#### 살아 있는 결함 셋 — 다 고쳤다
+
+1. **`handleC1` 이 빈 문자열을 "없는 값" 으로 셌다.** 🟢 고침
+
+   dom: `!prevText || !newText`, react: `!prevText || newText === undefined`. `''` 는 둘 다
+   **정당한 값**이다 — `prevText === ''` 는 빈 inline-text 에 친 첫 글자이고,
+   `newText === ''` 는 마지막 글자를 지워 빈 것이다. 그런데 이 경로는 **IME·MutationObserver
+   되돌림 경로**라서, 여기서 빠지면 DOM 은 앞서가고 모델은 안 따라간다.
+
+   dom 이 둘 다 틀렸고 react 는 반만 맞았다. 둘 다 `=== undefined` 로 바꿨다.
+   *"참인가" 가 아니라 "왔는가" 를 물어야 한다.*
+
+2. **글자를 치고 난 캐럿에 `collapsed: true` 가 없었다.** 🟢 고침 — **제품 경로**
+
+   `tryHandleInsertViaGetTargetRanges` 가 쓰는 `newCaret` 하나만 그 필드가 없었다.
+   같은 파일의 나머지 여섯 자리는 전부 적고 있었다.
+
+   그냥 장식이 아니다. `editor-core` 는 **필드**를 읽는다 — `_updateBuiltinContext` 의
+   `selection.collapsed === true`, `deleteSelection` 의 `!selection.collapsed`. `SelectionManager`
+   의 `isCollapsed()` 만 `start === end` 로 다시 센다. **한 질문에 답이 둘이고**, 필드가 없으면
+   editor-core 는 "범위가 잡혀 있다" 고 답한다. 즉 글자를 하나 칠 때마다 `selectionEmpty` 가
+   거짓이 된다 — 슬래시 메뉴와 버블 툴바가 같이 떴던 것과 같은 모양이다.
+
+3. **원자 노드를 지운 뒤의 선택이 `undefined` 였다.** 🟢 고침 — **제품 경로**
+
+   `calculateCrossNodeDeleteRange` 가 `.text` 없는 이웃(inline-image 같은 것)을 만나면
+   `{_deleteNode: true, nodeId}` 를 준다 — **범위가 없다.** 그런데 `handleDelete` 는 거기서
+   `contentRange.startNodeId` 를 읽어 새 선택을 만든다. dom 은 `undefined`, react 는 `''`.
+   그 값이 `editor:selection.change` 로 나가고 `convertModelSelectionToDOM` 에 들어간다.
+
+   맞는 답: **이웃을 지웠다고 캐럿이 움직이지는 않는다.** 지우기 전 모델 선택 자리에 그대로 둔다.
+
+   office 스키마의 `inline` 그룹 여덟 중 일곱이 원자이므로 잠재가 아니다.
+
+셋에 검사 일곱을 붙였고(dom 다섯, react 둘), **고치기 전에 일곱이 다 실패하는 것을 확인한 다음**
+고쳤다. 어휘를 옮긴 자리에 여섯을 더 붙여 새 검사는 모두 열셋이다.
+
+#### 합친 것 — 하나뿐이다
+
+**`@barocss/shared/input-type`** — `beforeinput` 의 inputType 어휘.
+
+겹치는 열여섯 중 **뷰의 것이 아닌 유일한 것**이다. 이 낱말들은 브라우저의 것이고, 두 뷰가 각자
+손으로 적어 두면 새 inputType 을 다룰 때 한쪽만 고치게 된다. 지금은 다섯 목록이 글자까지 같으니
+**옮기는 시점에는 churn 이다** — 값은 다음 목록이 한 곳에서 늘어난다는 것이다.
+
+**분류만 옮겼다.** "그래서 preventDefault 를 하는가" 는 뷰의 정책이므로 뷰에 남겼다 —
+같은 이름으로 두 질문을 묻지 않으려고. 두 뷰의 `shouldHandleFormat`·`shouldHandleDelete` 는
+이제 본문이 글자까지 같다(0 → 2).
+
+#### 안 합친 것과 그 이유
+
+- **`InputHint`·`ClassifyOptions`** — 질문은 같은데 `contentRange`·`modelSelection` 이
+  `ModelSelection` 이고 `ClassifyOptions.editor` 가 `Editor` 다. **`shared` 는 `editor-core` 를
+  의존할 수 없다**(반대 방향이다). 구조만 베낀 사본을 `shared` 에 두면 *같은 것을 두 번 선언* 하는
+  결함을 피하려다 그것을 만드는 셈이다. 그리고 이 값들은 **패키지 경계를 넘지 않는다** — 각
+  패키지 안에서 beforeinput 핸들러와 분류기 사이에서만 오간다. 옮겨도 쓸 사람이 없다.
+
+- **`ClassifiedChange`** — 뜻이 다르므로 이름을 갈랐다. dom 의 것은 "아홉 갈래 중 어느 것인가",
+  react 가 답할 수 있는 것은 C1 하나뿐이다. **react 쪽 유니온은 선언만 되고 아무도 안 썼다** —
+  지웠다. 남은 이름은 `ClassifiedChange`(dom) 과 `ClassifiedChangeC1`(react) 이고, 서로 다른
+  이름으로 서로 다른 질문을 묻는다.
+
+#### 남은 것 — 재보고 안 고친 것
+
+- **dom `InputHint.inputType`·`text` 를 읽는 곳이 `console.log` 셋뿐이다.** 🔴 작은 것
+
+  `dom-change-classifier.ts:272`·`:451`, `input-handler.ts:1468`. 두 뷰의 `InputHint` 가 갈린
+  이유가 이 두 필드인데, 로그를 빼면 아무도 안 읽는다.
+
+- **react 가 키 입력마다 안 쓰는 값을 만든다.** 🔴 작은 것
+
+  `handleDomMutationsInner` 가 `convertDOMSelectionToModel` 을 돌려 `ClassifyOptions.modelSelection`
+  에 넣는데, `classifyDomChangeC1` 은 `editor` 와 `inputHint` 말고는 아무것도 안 읽는다.
+  `selection`·`isComposing` 도 같다. 필드를 지우면 부르는 쪽 리터럴이 타입에서 걸리므로 둘을 같이
+  고쳐야 한다.
+
+- **react 의 낱말 삭제가 한 글자 삭제다.** 🔴 열림
+
+  `calculateWordDeleteRange`(dom, 76줄)가 react 에 없어서 `deleteWordBackward` 를
+  `deleteContentBackward` 로 떨어뜨린다. react 뷰는 제품이 아니라 잠재다.
+
+- **react 의 `insertLineBreak` 가 `'\n'` 을 글자로 넣는다.** 🔴 열림
+
+  dom 은 뷰의 `insertLineBreak()` 를 부른다. 줄바꿈은 글자가 아니라 노드여야 한다.
+
+- **react 가 구조·서식·삭제 갈래에서 `_pendingInsertHint` 를 안 지운다.** 🔴 작은 것
+
+  dom 은 셋 다 지운다. 500ms 창이 있어 창 안에서만 문제지만, 지우고 난 직후의 입력이 지운 자리를
+  가리키는 힌트를 집을 수 있다.
+
+- **`calculateCrossNodeDeleteRange` 의 `targetNode.type` 은 죽은 가지다.**
+
+  dom 은 `type || stype`, react 는 `stype ?? type` 로 **우선순위가 반대**인데, `INode` 에는
+  `type` 필드가 없다(`packages/datastore/src/types.ts:10`). 그래서 둘 다 늘 `stype` 에 닿는다.
+  *대보고 나서 결함이 아니라고 판정한 자리* 로 적어 둔다 — 다음 사람이 또 놀라지 않도록.
+
+- **`handleInput` 이 같은 이름으로 다른 질문을 묻는다.** 🔴 열림
+
+  dom 은 `editor:input.detected` 를 쏘고(디버그), react 는 IME 조합 상태를 따라간다. 둘 다
+  `input` 이벤트 핸들러라 이름을 갈라 두기도 어렵다. 제품 경로의 공개 메서드라 안 건드렸다.
+
+#### 다시 잰 것
+
+| | 전 | 후 |
+|---|---|---|
+| 본문이 글자까지 같음 | 0 | **2** |
+| dom 줄 수 | 2,101 | 2,088 |
+| react 줄 수 | 922 | 925 |
+
+**줄 수가 값이 아니다.** 값은 (1) 결함 셋이 사라졌고 검사 다섯이 그것을 잡고 있다는 것,
+(2) 다음에 이 두 파일을 다시 대보는 사람이 **열여섯 중 아홉은 볼 필요가 없다** 는 것이다.
+
+- **worktree 의 바탕을 정하는 규칙이 없다 — 이번에 셋 중 둘이 `main` 에서 갈라졌다.** 🔴 열림
+
+  에이전트 셋을 worktree 로 띄웠는데 전부 `main`(`beef84f`)에서 갈라졌다. 하나는 스스로
+  알아채고 작업 가지로 옮겼고, 하나는 오늘 만든 `docs/BACKLOG.md`·`packages/conformance` 가
+  없는 트리에서 일했으며, 하나는 스무 커밋 낡은 파일을 고쳤다. **낡은 바탕에서는 이미 내린
+  결정을 되돌리는 수리가 나온다** — 그 결정을 적어 둔 주석을 볼 수 없기 때문이다.
+
+  고칠 것은 프롬프트가 아니라 **띄우는 자리**다: worktree 는 현재 HEAD 에서 갈라져야 하고,
+  그렇지 않으면 에이전트가 첫 손으로 그것을 확인해야 한다.
+
+- **`collapsed` 를 안 쓴 캐럿 리터럴을 세는 검사가 없다.** 🔴 열림 — **이번 라운드에서 두 번**
+
+  같은 결함이 두 자리에서 나왔는데, 저장소 어디에도 "`type: 'range'` 리터럴을 쓰면서
+  `startNodeId === endNodeId && startOffset === endOffset` 인데 `collapsed` 를 안 적은 곳" 을
+  세는 것이 없다. 고칠 때 검사부터 — 지금 두 자리를 고쳐도 세 번째가 온다.
 
 ## Done
 
@@ -14630,3 +14819,33 @@ Newest first. The surprise each one produced is the part worth keeping.
   **`clip` 과 `clip-path` 를 둘 다 적었다** — 손으로 베낀 판에는 `clip` 만 있었다. Tailwind 를
   쓰는 앱에서는 이 규칙이 시트의 *두 번째* `.sr-only` 라 순서로 이기므로, `clip` 만 썼으면
   Tailwind 의 `clip-path: inset(50%)` 를 **조용히 옛 기법으로 되돌렸을** 것이다.
+- **그 회차의 나머지는 받지 않았다 — 낡은 바탕 위의 수리였다.** ✅ 가려 받음
+
+  worktree 가 `main`(`beef84f`)에서 갈라져 나갔고, 그 사이 `input-handler.ts` 는 이 가지에서
+  **커밋 스무 개**를 더 받았다. 3-way 병합을 걸었더니 충돌 다섯 중 **다섯이 전부** 오늘 지운
+  코드 위에서 났다. 가장 큰 것은 `handleDelete` 였다: 이 가지에서는 한 줄
+  (`executeCommand(command, { selection })`)인데, worktree 는 그 자리에 있던 **450 줄짜리
+  `calculateDeleteRange` 나무**를 고치고 있었다. 그 나무는 오늘 `DeleteExtension` 으로
+  내려갔다.
+
+  **더 나쁜 것은 둘째 충돌이다.** worktree 는 `handleTextInOneRun` 의 falsy 검사를
+  "빈 문자열도 값이다" 로 풀었다 — 원칙적으로 맞다. 그런데 이 가지의 같은 자리에는 **왜 그대로
+  두는지 적어 둔 주석 열 줄**이 있다: 그것을 풀면 IME 로 빈 블록에 조합할 때 렌더러가 우리 span
+  옆에 브라우저가 만든 맨 텍스트 노드를 남기고(재조정기는 `data-bc-sid` 를 단 *요소*만 지운다),
+  sync 마다 둘을 함께 읽어 **조합 중인 음절이 불어난다.** worktree 는 그 주석을 본 적이 없다.
+
+  받은 것은 셋이다: `packages/shared/src/input-type.ts`(+ 검사 6개) — 두 뷰가 각자 손으로 적어
+  두던 inputType 목록의 한 벌짜리 자리; DOM 쪽 네 목록과 서식 표를 그 모듈로 배선; 그리고
+  아래의 `collapsed` 하나.
+
+- **캐럿 리터럴에 `collapsed` 가 없었다 — 슬래시 메뉴와 버블 툴바가 함께 열리던 이유.** ✅ 고침
+
+  `input-handler.ts` 의 `tryHandleInsertViaGetTargetRanges` 가 만드는 대비용 캐럿에
+  `collapsed` 필드가 없었다. editor-core 는 `start === end` 를 세지 않고 **필드를 읽는다**
+  (`_updateBuiltinContext`, `deleteSelection`). 그래서 하나는 끝을 비교해 "캐럿" 이라 하고
+  다른 하나는 필드를 물어 "범위" 라 했다 — 둘 다 열렸다.
+
+  **두 갈래가 따로 찾아 같은 곳에 닿았다.** `site.spec.ts:8298` 의 15% 실패를 좇던 갈래와
+  입력 층을 재던 갈래가 서로 모르고 같은 필드를 짚었다. 이 자리는 대비용 경로이고, 앞선
+  갈래가 짚은 것은 그 위 SelectionManager → 트랜잭션 스냅숏 경로다. **그쪽은 아직 열려 있다.**
+

@@ -6,6 +6,14 @@ import { type MarkRange, type DecoratorRange } from '../utils/edit-position-conv
 import { classifyDomChange, type ClassifiedChange, type InputHint } from '../dom-sync/dom-change-classifier';
 import { analyzeTextChanges } from '@barocss/text-analyzer';
 import { type Decorator, getKeyString, isTypingKey, FILLER_ATTR, stripFiller } from '@barocss/shared';
+import {
+  type DeleteInputType,
+  getFormatCommand,
+  isFormatInputType,
+  isHistoryInputType,
+  isInsertInputType,
+  isStructuralInputType
+} from '@barocss/shared';
 import { logger, LogCategory } from '@barocss/renderer-dom';
 
 /**
@@ -13,8 +21,12 @@ import { logger, LogCategory } from '@barocss/renderer-dom';
  *
  * Cut and drag always carry a selection, so they are an ordinary range delete —
  * which is what `backspace` does when the selection is not collapsed.
+ *
+ * The key type is `DeleteInputType`, not `string`: the vocabulary lives in
+ * `@barocss/shared/input-type` and this table must cover all of it. Add a
+ * delete inputType there and the compiler stops here until it has a command.
  */
-const DELETE_COMMANDS: Record<string, string> = {
+const DELETE_COMMANDS: Record<DeleteInputType, string> = {
   deleteContentBackward: 'backspace',
   deleteContentForward: 'deleteForward',
   deleteWordBackward: 'deleteWordBackward',
@@ -1492,8 +1504,7 @@ export class InputHandlerImpl implements InputHandler {
    */
   private tryHandleInsertViaGetTargetRanges(event: InputEvent): boolean {
     const inputType = event.inputType;
-    const insertTypes = new Set<string>(['insertText', 'insertFromPaste', 'insertReplacementText']);
-    if (!insertTypes.has(inputType)) return false;
+    if (!isInsertInputType(inputType)) return false;
 
     // During IME composition use existing path (MutationObserver + hint)
     if (event.isComposing) return false;
@@ -1653,6 +1664,13 @@ export class InputHandlerImpl implements InputHandler {
       // DOM-to-model conversion gives — the recomputed caret is one behind too,
       // and it lands *after* the correct one and wins. Every character then goes
       // to the same offset and a word arrives backwards.
+      //
+      // `collapsed: true` is not decoration. editor-core reads the *field* —
+      // `_updateBuiltinContext` and `deleteSelection` both ask `selection.collapsed`,
+      // not `start === end` — so a caret written without it is read back as a
+      // non-empty selection. That is how the slash menu and the bubble toolbar
+      // could both be open at once: one compared the ends and said caret, the
+      // other asked the field and said range.
       const newCaret =
         this.editor.selection ??
         ({
@@ -1660,7 +1678,8 @@ export class InputHandlerImpl implements InputHandler {
           startNodeId: range.startNodeId,
           startOffset: (range.startOffset ?? 0) + text.length,
           endNodeId: range.startNodeId,
-          endOffset: (range.startOffset ?? 0) + text.length
+          endOffset: (range.startOffset ?? 0) + text.length,
+          collapsed: true
         } as ModelSelection);
       // No content.change is emitted here. `replaceText` is a command: its
       // transaction has already announced itself and already rendered, ~60ms
@@ -1730,15 +1749,7 @@ export class InputHandlerImpl implements InputHandler {
     const inputType = event.inputType;
 
     // Do not generate hint for non-target inputTypes
-    const insertTypes = new Set<string>([
-      'insertText',
-      'insertFromPaste',
-      'insertReplacementText',
-      // 'insertCompositionText', // IME support will be safely introduced in a later stage
-      // 'insertFromComposition'
-    ]);
-
-    if (!insertTypes.has(inputType)) {
+    if (!isInsertInputType(inputType)) {
       this._pendingInsertHint = null;
       return;
     }
@@ -1814,17 +1825,7 @@ export class InputHandlerImpl implements InputHandler {
    * According to design document, only handle structural changes (insertParagraph, insertLineBreak) and history (historyUndo, historyRedo)
    */
   private shouldPreventDefault(inputType: string): boolean {
-    const structuralTypes = [
-      'insertParagraph',  // Enter key
-      'insertLineBreak'  // Shift+Enter
-    ];
-    
-    const historyTypes = [
-      'historyUndo',  // Ctrl+Z / Cmd+Z
-      'historyRedo'  // Ctrl+Y / Cmd+Y / Ctrl+Shift+Z / Cmd+Shift+Z
-    ];
-    
-    return structuralTypes.includes(inputType) || historyTypes.includes(inputType);
+    return isStructuralInputType(inputType) || isHistoryInputType(inputType);
   }
 
   /**
@@ -1832,13 +1833,7 @@ export class InputHandlerImpl implements InputHandler {
    * beforeInput에서 preventDefault() 후 커맨드를 실행해야 하는 포맷 타입들
    */
   private shouldHandleFormat(inputType: string): boolean {
-    const formatTypes = [
-      'formatBold',        // Ctrl+B / Cmd+B
-      'formatItalic',      // Ctrl+I / Cmd+I
-      'formatUnderline',   // Ctrl+U / Cmd+U
-      'formatStrikeThrough' // Ctrl+Shift+S / Cmd+Shift+S
-    ];
-    return formatTypes.includes(inputType);
+    return isFormatInputType(inputType);
   }
 
   /**
@@ -1928,14 +1923,7 @@ export class InputHandlerImpl implements InputHandler {
     logger.debug(LogCategory.TEXT_INPUT, 'executeFormatCommand: CALLED', { inputType });
     
     // Map inputType to command name
-    const commandMap: Record<string, string> = {
-      'formatBold': 'toggleBold',
-      'formatItalic': 'toggleItalic',
-      'formatUnderline': 'toggleUnderline',
-      'formatStrikeThrough': 'toggleStrikeThrough'
-    };
-    
-    const command = commandMap[inputType];
+    const command = getFormatCommand(inputType);
     if (command) {
       logger.debug(LogCategory.TEXT_INPUT, 'executeFormatCommand: executing command', { inputType, command });
       // Emit editor:command.execute event (form expected in tests)

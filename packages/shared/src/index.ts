@@ -81,3 +81,6 @@ export {
   type LogCategoryType
 } from './logger';
 export { __DEV__, __TEST__ } from './dev';
+
+// `beforeinput` 의 inputType 어휘. 두 뷰가 각자 손으로 적어 두던 목록이다.
+export * from './input-type';
