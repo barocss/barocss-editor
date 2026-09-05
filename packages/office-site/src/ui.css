@@ -1,0 +1,2732 @@
+/*
+ * ── `./ui` 가 내보내는 것들의 생김새 ────────────────────────────
+ *
+ * **What `@barocss/office-site/ui` looks like** — one concept, one name: the code door is `./ui`, so
+ * the style door is `./ui.css`, and a reader who has imported one knows what the other is for.
+ *
+ * It exists because five React parts — `PageFrame`, `Rail`, `Inspector`, `Overlay`, `Admin` — moved
+ * into this package and **their looks stayed in `apps/site/src/style.css`**, so `./ui` only drew
+ * correctly inside the one app that happened to carry a 3,537-line sheet. A package whose components
+ * are unstyled outside its own host is not a package; it is a folder that app imports from.
+ *
+ * Measured before moving, by counting who actually writes each name: **113 of the 171 live class
+ * names are the package's** and 5 more are drawn by both. What stayed behind is the window itself —
+ * the title bar, the ribbon's own frame, the canvas pane, the code layer, and the data editor,
+ * which is the one product surface whose component has not moved yet. The CSS follows the
+ * component; nothing here is decided by which file a rule happened to be typed into.
+ *
+ * ## 두 종류가 섞여 있었다 — 그리고 하나는 발행되어야 한다
+ *
+ * A site builder's stylesheet holds two kinds of rule and they have opposite destinations:
+ *
+ * | | 어디에 | 발행물에 |
+ * |---|---|---|
+ * | **편집기 UI** — rail, inspector, overlay, admin, the marks over a board | **이 파일** | 실리면 안 된다 |
+ * | **페이지 자체** — what a visitor sees | `PAGE_CSS` (`page-css.ts`) | 실려야 한다 |
+ *
+ * `PAGE_CSS` is a string rather than a file for a reason written at length there: the app injects it
+ * so a board draws with it and `export-html.ts` inlines it so a visitor gets it — **the same bytes
+ * in both places**, which is what makes export-as-a-render true.
+ *
+ * Measured while splitting, by taking every class the page renderers write and asking where its rule
+ * is. **Four of them were in the app's stylesheet**, which is not published: `.st-chart`,
+ * `.st-chart-title`, `.st-chart-plot` and `.st-sticker`. Every published page this product has ever
+ * made carried a chart with no box and an inline sticker at whatever size its file happened to be.
+ * They are in `PAGE_CSS` now. The other direction is clean — the export's `<style>` is `PAGE_CSS`,
+ * the document's own lifted rules and the type scale, and **no editor CSS reaches a visitor**.
+ *
+ * The names that look like both are not: `.st-stack`, `.st-placement`, `.st-collection` and
+ * `.st-page` appear below only inside `:empty` affordances and `.st-frame …` marks, which is chrome
+ * drawn *over* a page and never on one.
+ *
+ * ## Written in `office-ui`'s tokens, **with fallbacks**
+ *
+ * Every `var(--ou-…)` below carries the value `office-ui` would have given it. A host that imports
+ * `tokens.css` gets a shell that matches everything else it draws; a host that never heard of this
+ * suite still gets a shell. That is the actual content of *this can be mounted in another CMS* —
+ * `office-note/note.css` settled the rule and this file follows it.
+ *
+ * The one variable this file does **not** define is `--st-zoom`: the host's plane sets it, because
+ * only the host knows how far the reader has zoomed. Every use says `var(--st-zoom, 1)`, so a host
+ * that does not zoom gets a plane at 1 rather than a marker with no width. Four more —
+ * `--st-viewport`, `--st-bezel`, `--st-bezel-radius`, `--st-grip` — are written inline by this
+ * package's own components, so they need no declaration here.
+ *
+ * Writing the fallbacks out is what found the two defects a missing fallback hides, and both were
+ * silent in every check this repository has:
+ *
+ * - `.st-rail-icon` asked for `--st-muted`, **which is declared nowhere.** A custom property that
+ *   resolves to nothing makes the declaration invalid at computed-value time, so `color` fell back
+ *   to `inherit` and every insert row's icon was drawn in the row's own ink — the one thing the
+ *   rule existed to prevent. It is `--st-faint` now, which is the name that exists.
+ * - Two `calc(1px / var(--st-zoom))` in the guide marker had no `, 1`, where the nineteen others
+ *   did. In this app the plane always sets it; in a host that does not, those two are a division by
+ *   nothing and the border disappears.
+ *
+ * ## Nothing here styles a page
+ *
+ * Deliberately quiet. Everything a *page* looks like comes from the document — a stack's
+ * background, a heading's size, a card's padding are all things the reader set — so what this file
+ * draws is the furniture around the page and nothing that could be mistaken for the page itself.
+ * The page's own rules are generated, in `page-css.ts` and `type-scale.ts`.
+ *
+ * ## What was wrong with it, measured against the tools it is competing with
+ *
+ * Opened beside Figma, four things read as unfinished, and none of them was a matter of taste:
+ *
+ * - **The board wore a bar.** Its name sat in a grey strip *inside* the white, so every page was
+ *   drawn with a piece of chrome across the top of it. Every design tool puts the name **above** the
+ *   board, in small muted type, outside the artwork. A reader judging a page cannot unsee a strip
+ *   that is not part of it.
+ * - **The ground was blue.** `#eef1f5` is a blue grey, and it was the surface a designer's own blues
+ *   were being judged against. The studio is neutral now, and it is a shared token, because a deck
+ *   and a page builder are looking at the same kind of room.
+ * - **Every surface had a border.** Chrome, rail, panel, tabs, groups and boards were each fenced,
+ *   which makes a window read as six windows. Hairlines survive only where two scrolling regions
+ *   meet; everything else is separated by ground and space.
+ * - **Selection shouted.** A 2px outline and a solid-accent row for anything current. Both are 1px
+ *   and a wash now, which is what a tool that expects to be looked at all day does.
+ *
+ * And one that was a defect rather than a decision: a comment had been pasted **into the middle of a
+ * selector**, so `.st-mark-hover` merged with the rule after it and the name chip was painted the
+ * hover blue unconditionally — the selected block's name never used the accent at all.
+ */
+/*
+ * **The site builder's names, taken from the suite's** rather than chosen beside them — and declared
+ * here rather than in the app, because the rules that read them are here.
+ *
+ * Two palettes in one window is how a product ends up with a panel that is one grey and a canvas
+ * that is another, and nobody can say which is right. The only one this product decides for itself
+ * is the canvas ground, because a studio behind the page has to be darker than a page and the suite
+ * has no opinion about that.
+ *
+ * Each one falls back to what `office-ui` would have said, so the whole palette resolves in a host
+ * that imports nothing else.
+ */
+:root {
+  /*
+   * The studio is the suite's now. It used to be `#eef1f5` — a *blue* grey, which is the surface a
+   * designer's own blues were being judged against, and a colour no other product could reuse.
+   */
+  --st-ground: var(--ou-studio, #e8e9ea);
+  --st-line: var(--ou-line, #d4d4d4);
+  --st-ink: var(--ou-ink, #171717);
+  --st-faint: var(--ou-muted, #6b6b6b);
+  --st-accent: var(--ou-accent, #2563eb);
+  /*
+   * **A placement of a component is a different kind of thing**, and the board said so with the same
+   * blue as everything else. Asked for directly — *컴포넌트를 좀 더 강조하면 좋을 듯, 색을 다르게
+   * 한다던가* — and violet is what every tool of this kind uses for it, which is worth more here than
+   * originality: a reader who has used one already knows what the colour means.
+   *
+   * One colour, used for the outline and the chip together, so the two never disagree about whether
+   * what is held is a placement.
+   */
+  --st-component: #8b5cf6;
+  /*
+   * The one colour on this chrome that is neither the accent nor the ink — for the tool *answering*
+   * rather than marking: words that came from the data, where a reader asked to type them.
+   */
+  --st-second: #C9762A;
+  --st-panel: var(--ou-panel, #ffffff);
+}
+
+/*
+ * A board: the page as it will be published.
+ *
+ * White, and **not** a suite token — this is the page's own ground rather than the tool's, and a
+ * board that followed the editor's theme would be showing the reader a page that does not exist.
+ * Everything around it is the suite's; everything inside it is the document's.
+ */
+.st-frame {
+  flex: none;
+  /* Transparent: the board's white is on the body below, so the name can sit outside the artwork. */
+  background: none;
+  /* Not `hidden`: the selection outline is drawn inside the board and a selected block flush with
+     the edge would lose half its outline to the clip. */
+  overflow: visible;
+}
+
+/*
+ * The board's **name, above the board** — where every tool of this kind puts it.
+ *
+ * It was a grey bar inside the white, so each page was drawn with a strip of chrome across the top
+ * of it, and a reader judging a design cannot unsee a strip that is not part of it. Outside, small
+ * and muted, it is a label on the board rather than a part of the page.
+ */
+.st-frame-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 0 2px 6px;
+  font-size: var(--ou-text-small, 13px);
+  color: var(--ou-board-ink, #6b7280);
+}
+
+.st-frame-width { font-variant-numeric: tabular-nums; opacity: 0.75; }
+
+/*
+ * The board and the layer over it share one box, so the overlay can be measured against it.
+ *
+ * `color` beside `background`, because the two are one decision: what a reader sees on a page is
+ * the pair, and stating only the ground is what left every heading here white on white in the dark.
+ * A block that sets its own 글자 wins over this; this is what everything that sets nothing gets.
+ */
+.st-frame-body {
+  position: relative;
+  background: var(--ou-board, #ffffff);
+  color: var(--ou-board-written, #1a1a1a);
+  border-radius: 4px;
+  /* A hairline and a soft shadow rather than a border: the board is lifted off the studio, which is
+     what makes a page read as a sheet rather than as a pane in the window. */
+  box-shadow: var(--ou-board-lift, 0 0 0 1px rgb(15 23 42 / 0.06), 0 6px 20px rgb(15 23 42 / 0.08));
+}
+
+/* The page itself. No padding here: a page's own margins are the reader's, set on the stacks. */
+.st-frame-host { min-height: 200px; }
+
+/*
+ * ── Preview: the board stops being a drawing and becomes a **window** ───────
+ *
+ * A page has no height of its own — it is as tall as its content — so what a visitor sees is decided
+ * by the window they open it in. While a reader is building, drawing the whole page at full height
+ * is right: three of them side by side is a comparison of *pages*. It is also why a sticky header, a
+ * scroll reveal and a real `:hover` could never be judged here — none of them is a property of a
+ * page, they are all answers to *what the page does*, and there was nowhere for it to do anything.
+ *
+ * The height is a typical one for this width, set as `--st-viewport` where the frame is drawn.
+ */
+.st-frame[data-preview='true'] .st-frame-body {
+  height: var(--st-viewport, 800px);
+  overflow: auto;
+  /* The page underneath is what scrolls; the lift stays on the window, as a window has a frame. */
+  overscroll-behavior: contain;
+}
+
+/* And the studio recedes, so what is left on screen is the page. */
+.st-frame[data-preview='true'] .st-frame-label { opacity: 0.5; }
+
+/**
+ * **The device**, drawn around the window while previewing.
+ *
+ * Asked for as *실제 장치 이미지가 외곽선에 있으면 좀 더 실감 날 듯* — and it is a **shape**, not a
+ * photograph: a picture of a phone is a licensing question, 200KB per device, and a thing that is
+ * wrong the year the phone changes. A bezel of the right thickness with the right corner radius reads
+ * as the device at a glance, and every tool that draws these draws them this way.
+ *
+ * Only in preview, and only where a width says which device it is a window onto — a laptop declares
+ * no bezel, because what a reader designing for a desktop wants to look at is the page.
+ *
+ * The numbers come from the document by way of two custom properties, so this rule knows nothing
+ * about which devices exist: `--st-bezel` and `--st-bezel-radius` are set on the frame.
+ */
+.st-frame[data-preview='true'][data-device] .st-frame-body {
+  padding: var(--st-bezel, 0px);
+  border-radius: calc(var(--st-bezel-radius, 0px) + var(--st-bezel, 0px));
+  background: #1c1e22;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 8%) inset,
+    var(--ou-board-lift, 0 0 0 1px rgb(15 23 42 / 0.06), 0 6px 20px rgb(15 23 42 / 0.08));
+  /* The page's own corners follow the bezel's, which is what makes it read as one object. */
+  overflow: hidden;
+}
+
+/*
+ * The window inside it, which is the part that scrolls. `overflow` moves here from the body: a body
+ * that scrolled would scroll the bezel with it.
+ */
+.st-frame[data-preview='true'][data-device] .st-frame-host {
+  height: 100%;
+  border-radius: var(--st-bezel-radius, 0px);
+  background: var(--ou-board, #ffffff);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* ── What the pointer is over, and what is selected ───────────────────────── */
+
+.st-overlay {
+  position: absolute;
+  inset: 0;
+  /* Above the page it describes, below the app's own chrome. */
+  z-index: 2;
+}
+
+/* In text mode the board is an ordinary editor again — the marks still draw, and take nothing. */
+.st-overlay[data-mode='text'] { cursor: text; }
+
+.st-mark {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+/*
+ * Outlines rather than borders, and drawn *outside* the box: a border would be inside the block's
+ * own rectangle and would look like a change to the design, which is the one thing a selection
+ * marker must never look like.
+ */
+/*
+ * One pixel, in the accent, for both — hover at half strength.
+ *
+ * It was two pixels of solid accent for a selection, which is a marker that competes with the design
+ * it is marking, and a hand-picked `#93c5fd` for hover, which is a second blue nobody declared. A
+ * tool that expects to be looked at all day draws the thinnest line that can be seen.
+ */
+/*
+ * **Divided by the zoom, all of it.**
+ *
+ * The overlay is inside the scaled plane, so a 1px outline is 0.4px at 40% and 2px at 200% — the
+ * marker gets harder to see exactly when a reader has stood back to see more. Every rule below
+ * measures in *screen* pixels by dividing by `--st-zoom`, which the overlay puts on itself.
+ */
+.st-mark-hover {
+  outline: calc(1px / var(--st-zoom, 1)) solid color-mix(in srgb, var(--st-accent) 45%, transparent);
+  outline-offset: 0;
+}
+
+.st-mark-selected { outline: calc(1px / var(--st-zoom, 1)) solid var(--st-accent); }
+
+/* A placement of a component, told apart by colour rather than by reading its name. */
+.st-mark-selected[data-component='true'] { outline-color: var(--st-component); }
+
+.st-mark-selected[data-component='true'] .st-mark-name { background: var(--st-component); }
+
+.st-mark-hover[data-component='true'] .st-mark-name {
+  background: color-mix(in srgb, var(--st-component) 45%, transparent);
+}
+
+/*
+ * **The space inside a block**, which is the thing a reader asked for a ruler to see.
+ *
+ * A page has no coordinates, so a ruler along the top would measure numbers nobody can type. The two
+ * numbers a reader *can* type are the padding and the gap, and neither is visible: a section is 112
+ * above and 48 below and nothing on the page says so.
+ *
+ * A **wash** rather than lines, because the question is *how much* and not *where the edge is* — the
+ * edge is the outline they are already looking at. The accent at a tenth is enough to read as "this
+ * is the tool talking" and not enough to change what the colours underneath look like, which matters
+ * on a surface whose whole job is judging colour.
+ */
+/*
+ * The space inside a block, and — for the four sides — **a thing a reader can pull.**
+ *
+ * It was a readout, and the number beside it in the panel was where a padding was changed: a reader
+ * looking at the band had to look away to change the thing they were looking at. The whole argument
+ * for drawing the band is that *how much* is the question, and answering it and then sending them
+ * elsewhere to act is half a tool.
+ */
+/**
+ * **The space inside a block, drawn** — and padding and gap are drawn *differently*, which they were
+ * not.
+ *
+ * Both were one wash of the accent at ten percent, so a section's bottom padding and the gap under
+ * its last child were the same colour touching each other, and a reader pulling one could not tell
+ * which they had. Reported as 헷갈림.
+ *
+ * **Two inks and two textures**, because either alone is half an answer. Colour separates them at a
+ * glance and fails for a reader who cannot tell these two hues apart — and a hatch separates them
+ * for everybody, including at the zoom where a four-pixel band is one colour smear. Every tool that
+ * draws both uses the pair for exactly this reason.
+ *
+ *   padding — warm, hatched leaning **right**: the room a block keeps inside itself
+ *   gap     — cool, hatched leaning **left**: the room between two of its children
+ *
+ * (No slash-star pair in this comment: one of them closed it early and took the whole rule
+ * with it, so every padding band drew with no background at all.)
+ *
+ * The stripes are in **screen** pixels — `--st-zoom` divides them the way it divides every other
+ * piece of tool furniture here — so the texture reads the same at 40% and at 200% rather than
+ * turning into a flat wash at one end and a ladder at the other.
+ */
+.st-inset {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+
+  /* The padding ink: the accent, warm, leaning right. */
+  --st-inset-ink: var(--st-accent);
+  background:
+    repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--st-inset-ink) 26%, transparent) 0,
+      color-mix(in srgb, var(--st-inset-ink) 26%, transparent) calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(5px / var(--st-zoom, 1))
+    ),
+    color-mix(in srgb, var(--st-inset-ink) 9%, transparent);
+}
+
+/**
+ * The gap's own ink and its own lean.
+ *
+ * A **teal** against the accent's red rather than a lighter accent: two tints of one hue read as
+ * *more* and *less* of the same thing, which is the opposite of what these two are. And the hatch
+ * leans the other way, so the two never merge into one texture where they meet.
+ */
+.st-inset[data-inset='gap'] {
+  --st-inset-ink: #0F7A5A;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--st-inset-ink) 30%, transparent) 0,
+      color-mix(in srgb, var(--st-inset-ink) 30%, transparent) calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(5px / var(--st-zoom, 1))
+    ),
+    color-mix(in srgb, var(--st-inset-ink) 11%, transparent);
+}
+
+/*
+ * **The two handles a flow block has**, and why there are two rather than eight.
+ *
+ * A page has no coordinates: where a block sits is a parent and a place in that parent's content, so
+ * a top or a left handle would be a control that cannot do what its shape promises. What is
+ * genuinely draggable is how wide it may be and how tall it must be — the right edge and the bottom.
+ *
+ * Drawn **on** the outline rather than beside it, and counter-scaled by nothing: at 40% zoom a
+ * handle sized in page pixels is two pixels of screen, so the bar is given a screen-sized thickness
+ * through a fixed length and the hit area is wider than the paint, which is what every resize edge
+ * on a desktop does.
+ */
+/**
+ * **The plus at each end of the flow.**
+ *
+ * Outside the block rather than on it, in the space between it and its neighbour, which is where the
+ * thing it makes will go — a button that said *add below* and sat inside the block would be pointing
+ * at itself. Counter-scaled like every other piece of furniture here, so it is the same size to
+ * press at 40% as at 200%.
+ *
+ * Faint until the pointer is near, because a selected block already carries an outline, a name, four
+ * padding bands and three handles, and two more permanent circles is a block nobody can see.
+ */
+.st-add {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  width: calc(18px / var(--st-zoom, 1));
+  height: calc(18px / var(--st-zoom, 1));
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: calc(1px / var(--st-zoom, 1)) solid var(--st-accent);
+  border-radius: 999px;
+  background: var(--st-panel);
+  color: var(--st-accent);
+  cursor: pointer;
+  opacity: 0.35;
+  pointer-events: auto;
+  transition: opacity 120ms ease-out;
+}
+
+.st-add:hover,
+.st-add:focus-visible {
+  opacity: 1;
+  background: var(--st-accent);
+  color: var(--ou-accent-ink, #ffffff);
+}
+
+/**
+ * **At the start of the edge, and clear of the block** — which the browser suite settled, twice.
+ *
+ * Centred on the edge is where it looks right and where **everything else already is**: the resize
+ * handle owns the middle 72% of each edge (`14%` to `86%`), and the padding strip owns the inside of
+ * it. Centred, the plus swallowed both — a padding drag and an edge drag that had worked for weeks
+ * stopped working, in the two checks that press exactly there.
+ *
+ * So it sits at the **start** of the edge, outside the handle's span, and fully outside the block, so
+ * nothing it covers is anything a reader can press. Which is also where every tool of this kind puts
+ * an insert affordance: at the beginning of the edge rather than the middle of it.
+ */
+.st-add[data-add-way='down'] { left: calc(8px / var(--st-zoom, 1)); }
+
+.st-add[data-add-way='down'][data-add='before'] { top: calc(-21px / var(--st-zoom, 1)); }
+
+.st-add[data-add-way='down'][data-add='after'] { bottom: calc(-21px / var(--st-zoom, 1)); }
+
+.st-add[data-add-way='across'] { top: calc(8px / var(--st-zoom, 1)); }
+
+.st-add[data-add-way='across'][data-add='before'] { left: calc(-21px / var(--st-zoom, 1)); }
+
+.st-add[data-add-way='across'][data-add='after'] { right: calc(-21px / var(--st-zoom, 1)); }
+
+.st-grip {
+  position: absolute;
+  z-index: 2;
+  background: transparent;
+  /*
+   * The mark itself does not take the pointer — it is a drawing over a page a reader is still
+   * clicking through — so each handle turns it back on for its own ten pixels. The same thing the
+   * padding strips do one rule down, for the same reason.
+   */
+  pointer-events: auto;
+  touch-action: none;
+}
+
+/*
+ * **Counter-scaled**, like the outline one rule up and the name chip beside it.
+ *
+ * The overlay lives inside the plane the boards are zoomed in, so a handle sized in page pixels is
+ * whatever fraction of that the reader happens to be standing at: measured at 74%, a 3px bar drew as
+ * two screen pixels at half opacity, which is a handle nobody can see and nobody would try to grab.
+ * Everything here is divided by the zoom so it is the same size on screen at 40% and at 200% — the
+ * rule this file already follows for every other piece of tool furniture.
+ */
+/*
+ * **Entirely outside the box**, and that is not a nicety: the ten pixels *inside* an edge already
+ * belong to the padding band, which is pulled to change the space within the block. Sharing them
+ * gave one strip of screen two meanings, and the resize handle won — measured as a padding drag that
+ * silently stopped writing, on a gesture that had worked for weeks.
+ *
+ * So the rule is a sentence a reader can hold: **inside the edge is the space in it, outside the
+ * edge is how big it is.**
+ */
+.st-grip[data-grip-edge='right'] {
+  top: 14%;
+  bottom: 14%;
+  right: calc(-11px / var(--st-zoom, 1));
+  width: calc(11px / var(--st-zoom, 1));
+  cursor: ew-resize;
+}
+
+.st-grip[data-grip-edge='bottom'] {
+  left: 14%;
+  right: 14%;
+  bottom: calc(-11px / var(--st-zoom, 1));
+  height: calc(11px / var(--st-zoom, 1));
+  cursor: ns-resize;
+}
+
+/**
+ * **The corner**, which is the handle a reader looks for first and this did not have.
+ *
+ * Two edges is enough to change either dimension and it is not enough to *find*: every tool of this
+ * kind puts a square in the corner, so a reader who has used one aims there, finds nothing, and
+ * concludes the box cannot be resized. Reported exactly that way.
+ *
+ * A square rather than a bar, because a corner does both directions and a bar would say one.
+ */
+.st-grip[data-grip-edge='corner'] {
+  right: calc(-11px / var(--st-zoom, 1));
+  bottom: calc(-11px / var(--st-zoom, 1));
+  width: calc(16px / var(--st-zoom, 1));
+  height: calc(16px / var(--st-zoom, 1));
+  cursor: nwse-resize;
+}
+
+.st-grip[data-grip-edge='corner']::after {
+  right: calc(4px / var(--st-zoom, 1));
+  bottom: calc(4px / var(--st-zoom, 1));
+  width: calc(7px / var(--st-zoom, 1));
+  height: calc(7px / var(--st-zoom, 1));
+  border-radius: calc(2px / var(--st-zoom, 1));
+}
+
+/**
+ * **The other five**, which only a block that places itself gets.
+ *
+ * A stacked block's left edge is not its to decide — the stack put it there — so offering a handle
+ * would be a control that writes nothing. A block at coordinates owns all four, and pulling its left
+ * edge moves it *and* narrows it, which is what the same handle does everywhere else.
+ */
+.st-grip[data-grip-edge='left'] {
+  top: 14%;
+  bottom: 14%;
+  left: calc(-11px / var(--st-zoom, 1));
+  width: calc(11px / var(--st-zoom, 1));
+  cursor: ew-resize;
+}
+
+.st-grip[data-grip-edge='top'] {
+  left: 14%;
+  right: 14%;
+  top: calc(-11px / var(--st-zoom, 1));
+  height: calc(11px / var(--st-zoom, 1));
+  cursor: ns-resize;
+}
+
+.st-grip[data-grip-edge='left']::after {
+  top: 50%;
+  left: calc(4px / var(--st-zoom, 1));
+  width: calc(4px / var(--st-zoom, 1));
+  height: calc(30px / var(--st-zoom, 1));
+  transform: translateY(-50%);
+}
+
+.st-grip[data-grip-edge='top']::after {
+  left: 50%;
+  top: calc(4px / var(--st-zoom, 1));
+  height: calc(4px / var(--st-zoom, 1));
+  width: calc(30px / var(--st-zoom, 1));
+  transform: translateX(-50%);
+}
+
+.st-grip[data-grip-edge='corner-tl'],
+.st-grip[data-grip-edge='corner-tr'],
+.st-grip[data-grip-edge='corner-bl'] {
+  width: calc(16px / var(--st-zoom, 1));
+  height: calc(16px / var(--st-zoom, 1));
+}
+
+.st-grip[data-grip-edge='corner-tl'] {
+  left: calc(-11px / var(--st-zoom, 1));
+  top: calc(-11px / var(--st-zoom, 1));
+  cursor: nwse-resize;
+}
+
+.st-grip[data-grip-edge='corner-tr'] {
+  right: calc(-11px / var(--st-zoom, 1));
+  top: calc(-11px / var(--st-zoom, 1));
+  cursor: nesw-resize;
+}
+
+.st-grip[data-grip-edge='corner-bl'] {
+  left: calc(-11px / var(--st-zoom, 1));
+  bottom: calc(-11px / var(--st-zoom, 1));
+  cursor: nesw-resize;
+}
+
+.st-grip[data-grip-edge='corner-tl']::after,
+.st-grip[data-grip-edge='corner-tr']::after,
+.st-grip[data-grip-edge='corner-bl']::after {
+  width: calc(7px / var(--st-zoom, 1));
+  height: calc(7px / var(--st-zoom, 1));
+  border-radius: calc(2px / var(--st-zoom, 1));
+}
+
+.st-grip[data-grip-edge='corner-tl']::after { left: calc(4px / var(--st-zoom, 1)); top: calc(4px / var(--st-zoom, 1)); }
+
+.st-grip[data-grip-edge='corner-tr']::after { right: calc(4px / var(--st-zoom, 1)); top: calc(4px / var(--st-zoom, 1)); }
+
+.st-grip[data-grip-edge='corner-bl']::after { left: calc(4px / var(--st-zoom, 1)); bottom: calc(4px / var(--st-zoom, 1)); }
+
+/**
+ * **What a resize is writing, while it is writing it.**
+ *
+ * A handle that moves a box and says nothing leaves a reader to let go and go and read the panel to
+ * find out what happened — which is the other half of *resize 가 어떻게 동작하는지 모르겠어*. The
+ * padding bands have said their number since they were built; this says the same kind of thing, at
+ * the corner the hand is at.
+ */
+.st-mark-size {
+  position: absolute;
+  right: 0;
+  bottom: calc(-24px / var(--st-zoom, 1));
+  padding: calc(2px / var(--st-zoom, 1)) calc(6px / var(--st-zoom, 1));
+  border-radius: calc(3px / var(--st-zoom, 1));
+  background: var(--st-accent);
+  color: #ffffff;
+  font-size: calc(11px / var(--st-zoom, 1));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/*
+  The **settled** size, which is drawn the whole time a block is held rather than only while it is
+  being pulled. Under the block and centred, where every design tool puts it, and quieter than the
+  live one: a number that is always there must not read as something happening.
+*/
+/* Why this number is what it is, when it is the block's own maximum rather than its parent. */
+.st-mark-size em {
+  font-style: normal;
+  opacity: 0.72;
+}
+
+.st-mark-size[data-settled='true'] {
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--st-accent) 88%, #000000);
+  opacity: 0.92;
+}
+
+/* The paint: a short bar in the accent, drawn inside the wider area that takes the pointer. */
+.st-grip::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  background: var(--st-accent);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.st-grip[data-grip-edge='right']::after {
+  top: 50%;
+  right: calc(4px / var(--st-zoom, 1));
+  width: calc(4px / var(--st-zoom, 1));
+  height: calc(30px / var(--st-zoom, 1));
+  transform: translateY(-50%);
+}
+
+.st-grip[data-grip-edge='bottom']::after {
+  left: 50%;
+  bottom: calc(4px / var(--st-zoom, 1));
+  height: calc(4px / var(--st-zoom, 1));
+  width: calc(30px / var(--st-zoom, 1));
+  transform: translateX(-50%);
+}
+
+/*
+ * Shown on the selected block rather than on hover alone: the block is already outlined, so the
+ * handles are part of *what is selected* and not a thing a reader has to go hunting for with the
+ * pointer. They stay quiet until the pointer is near, which is the difference between a tool and a
+ * page covered in furniture.
+ */
+.st-mark-selected .st-grip::after {
+  opacity: 1;
+  /* A hairline of the page's own ground around it, so the bar reads on a dark band as well. */
+  box-shadow: 0 0 0 calc(1px / var(--st-zoom, 1)) var(--ou-panel, #ffffff);
+}
+
+.st-mark-selected .st-grip:hover::after {
+  opacity: 1;
+}
+
+/*
+ * **A strip along the edge takes the pointer**, not the whole band.
+ *
+ * A gap takes it **whole**, and the reason this used to say it could not is worth keeping: pulling
+ * one looked like it would have to decide which of the two children moves. It does not. `gap` is the
+ * *stack's* single number, so pulling any gap sets the space between every pair at once and nothing
+ * moves relative to anything — the stack simply re-lays out. The band is the whole space rather than
+ * a strip at its edge because a gap is usually a handful of pixels: an edge of an edge is nothing.
+ *
+ * And the four sides take it only at their outer edge. A section's top padding is often 96, and a
+ * band that deep swallows every press in the top quarter of the block — measured as a card that
+ * could no longer be dragged out of its row, because the drag started inside the row's own padding.
+ * Ten pixels is what a window's resize edge is, and for the same reason.
+ */
+.st-inset[data-inset='top']::after,
+.st-inset[data-inset='bottom']::after,
+.st-inset[data-inset='left']::after,
+.st-inset[data-inset='right']::after {
+  content: '';
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.st-inset[data-inset='top']::after {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--st-grip, 3px);
+  cursor: ns-resize;
+}
+
+.st-inset[data-inset='bottom']::after {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--st-grip, 3px);
+  cursor: ns-resize;
+}
+
+.st-inset[data-inset='left']::after {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--st-grip, 3px);
+  cursor: ew-resize;
+}
+
+.st-inset[data-inset='right']::after {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: var(--st-grip, 3px);
+  cursor: ew-resize;
+}
+
+/* The whole gap, both ways, because a gap is thin and has no edge worth aiming at. */
+.st-inset[data-inset='gap'] {
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.st-inset[data-inset='gap'][data-gap-way='down'] { cursor: ns-resize; }
+
+.st-inset[data-inset='gap'][data-gap-way='across'] { cursor: ew-resize; }
+
+/**
+ * **What a reader can pull, shown before they pull it.**
+ *
+ * Every grip here was a transparent strip with a cursor on it: correct, invisible, and reported as
+ * *패딩 영역에서 어디를 눌러야할지 제대로 표현되지 않고 있음* — which is the honest reading. A tool
+ * whose handles are found by sweeping the pointer is a tool with no handles.
+ *
+ * So the strip paints when the pointer is over the band it belongs to, and the whole set of gaps
+ * paints while any one of them is held — because they are one number and a reader is entitled to
+ * know that before the release proves it.
+ */
+.st-inset[data-inset='top']:hover::after,
+.st-inset[data-inset='bottom']:hover::after,
+.st-inset[data-inset='left']:hover::after,
+.st-inset[data-inset='right']:hover::after {
+  background: var(--st-accent);
+  box-shadow: 0 0 0 calc(1px / var(--st-zoom, 1)) var(--ou-panel, #ffffff);
+  border-radius: 999px;
+}
+
+/*
+ * Held, or under the pointer: the same texture, turned up — rather than a flat wash, which would
+ * take away the one thing that says which kind of space this is at the moment a reader is aiming
+ * at it.
+ */
+.st-inset[data-inset='gap']:hover,
+.st-inset[data-inset='gap'][data-grip='held'] {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--st-inset-ink) 52%, transparent) 0,
+      color-mix(in srgb, var(--st-inset-ink) 52%, transparent) calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(5px / var(--st-zoom, 1))
+    ),
+    color-mix(in srgb, var(--st-inset-ink) 20%, transparent);
+  outline: calc(1px / var(--st-zoom, 1)) solid var(--st-inset-ink);
+}
+
+/*
+ * A side with **no** padding is still there to be pulled, drawn as a hairline: a band with nothing
+ * in it is the one a reader most wants to pull, and an area of no height is invisible however it is
+ * painted. Fainter than a real measurement, because it is an offer rather than a fact.
+ */
+/*
+ * A side with **no** padding is still a hairline: a band with nothing in it is the one a reader most
+ * wants to pull, and three pixels of hatch is not a hatch — so this is the one place a flat wash is
+ * right, and it keeps the band's own ink so it still says which kind of space it is offering.
+ */
+.st-inset[data-empty='true'] {
+  background: color-mix(in srgb, var(--st-inset-ink) 34%, transparent);
+}
+
+/*
+ * Under the pointer: the same texture, turned up — see the gap's rule for why this is not a flat
+ * wash. A band that loses its hatch at the moment a reader aims at it loses it exactly when they are
+ * deciding which one they have.
+ */
+.st-inset[data-inset='top']:hover,
+.st-inset[data-inset='bottom']:hover,
+.st-inset[data-inset='left']:hover,
+.st-inset[data-inset='right']:hover {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--st-inset-ink) 48%, transparent) 0,
+      color-mix(in srgb, var(--st-inset-ink) 48%, transparent) calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(1.5px / var(--st-zoom, 1)),
+      transparent calc(5px / var(--st-zoom, 1))
+    ),
+    color-mix(in srgb, var(--st-inset-ink) 18%, transparent);
+}
+
+/*
+ * The number, counter-scaled so it is the same size at 40% and at 400% — the same rule the name chip
+ * follows and for the same reason: a measurement drawn at the reader's zoom is unreadable exactly
+ * when they have stood back to see the whole page.
+ */
+.st-inset em {
+  /*
+   * The number is read, never grabbed. Without this it sits in the middle of the band it measures
+   * and takes the press meant for the band — measured as a drag that started on `<em>48</em>` and
+   * did nothing at all.
+   */
+  pointer-events: none;
+  font-size: calc(10px / var(--st-zoom, 1));
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  /*
+   * The band's own ink, so the number says which kind of space it measures as well as how much — and
+   * a plate of the page's ground behind it, because a numeral on a hatch is a numeral nobody reads.
+   */
+  color: var(--st-inset-ink, var(--st-accent));
+  background: var(--ou-panel, #ffffff);
+  padding: 0 calc(2px / var(--st-zoom, 1));
+  border-radius: calc(2px / var(--st-zoom, 1));
+  white-space: nowrap;
+}
+
+/*
+ * The block whose words are being typed in.
+ *
+ * Dashed, because nothing is *selected* — the caret is the selection now — and a solid edge would be
+ * the reader's one signal for two different states. Before this the board showed **nothing** in text
+ * mode: the marks draw from the node selection, and entering the words empties it.
+ */
+.st-mark-editing {
+  outline: calc(1.5px / var(--st-zoom, 1)) dashed var(--st-accent);
+  background: color-mix(in srgb, var(--st-accent) 6%, transparent);
+}
+
+.st-mark-editing .st-mark-name {
+  background: var(--st-accent);
+  letter-spacing: 0.01em;
+}
+
+.st-mark-selected[data-editing='true'] {
+  outline-style: dashed;
+}
+
+/*
+ * Where a dragged block would land.
+ *
+ * Bright and thin: it has to be seen against a card, a photograph and a dark footer, and it must not
+ * be mistaken for something the page contains.
+ */
+/**
+ * The line a free drag is lined up with.
+ *
+ * One hairline, a constant width on screen whatever the board's zoom — `--st-zoom` is the plane's,
+ * so `calc(1px / var(--st-zoom, 1))` is how a constant is said inside something scaled. The accent
+ * rather than the selection's colour, because this is the tool talking rather than the document.
+ */
+.st-mark-guide {
+  border-left: calc(1px / var(--st-zoom, 1)) solid var(--ou-accent, #2563eb);
+  border-top: calc(1px / var(--st-zoom, 1)) solid var(--ou-accent, #2563eb);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.st-mark-landing {
+  background: var(--st-accent);
+  border-radius: 2px;
+  /* The keyline that keeps it visible on a photograph, at one screen pixel however far out. */
+  box-shadow: 0 0 0 calc(1px / var(--st-zoom, 1)) #ffffff;
+}
+
+/*
+ * The name of the thing that is marked, above its top-left corner.
+ *
+ * **This is where a comment had been pasted into the middle of a selector.** `.st-mark-hover` ran
+ * straight into the rule after it, so the two became one descendant selector that matches nothing,
+ * and a second `.st-mark-name` below it painted every chip the hover blue — the selected block's
+ * name never used the accent at all, in either product that copied this file.
+ */
+/*
+ * The chip is drawn at its own size and **counter-scaled**: a label that shrinks with the page is a
+ * label nobody can read at the zoom where they most need it. The origin is the corner it hangs from,
+ * so it stays pinned to the block's top-left however far out the reader is standing.
+ */
+.st-mark-name {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  /*
+   * **Across, not stacked.** The chip carries a picture and a name, and with no rule about direction
+   * the two wrapped onto separate lines the moment the name was more than a few characters — a two
+   * line chip on top of the block it names. Asked as *아이콘, 텍스트를 가로로 나열하는 게 낫지 않을까?*
+   */
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 5px;
+  background: var(--st-accent);
+  color: var(--ou-accent-ink, #ffffff);
+  font-size: var(--ou-text-label, 12px);
+  line-height: 15px;
+  white-space: nowrap;
+  border-radius: 3px 3px 0 0;
+  transform: scale(calc(1 / var(--st-zoom, 1)));
+  transform-origin: 0 100%;
+}
+
+/* Hovering is not selecting, and the chip says so by being the same colour as its outline. */
+.st-mark-hover .st-mark-name {
+  background: color-mix(in srgb, var(--st-accent) 45%, transparent);
+}
+
+/**
+ * **The widths a site is designed at**, in the panel.
+ *
+ * A row each, and each row is a name, a number and three small acts. Dense on purpose — this sits in
+ * a 240px column beside forty other rows — so the acts are 18px glyphs that only carry colour when
+ * the pointer is on them, and the width a reader is editing at is marked by its ground rather than by
+ * a fourth control saying so.
+ */
+.st-widths {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.st-width {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px;
+  border-radius: var(--ou-radius, 4px);
+}
+
+/* What it is called, and the three acts. */
+.st-width-top {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* What it measures. Indented under the name, so the two lines read as one row. */
+.st-width-size {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding-left: 22px;
+}
+
+.st-width-size .office-number-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.st-width-go {
+  display: flex;
+  width: 20px;
+  height: var(--ou-control-h, 30px);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ou-muted, #6b6b6b);
+  cursor: pointer;
+}
+
+.st-width[data-current='true'] .st-width-go { color: var(--ou-accent, #2563eb); }
+
+.st-width-go:hover { background: var(--ou-ground, #f5f5f5); color: var(--ou-ink, #171717); }
+
+.st-width-label {
+  min-width: 0;
+  flex: 1;
+}
+
+.st-width[data-current='true'] {
+  background: var(--ou-accent-soft, #dbeafe);
+}
+
+/*
+ * **22 tall, everything in the row** — which the chrome check settled, by failing: a name button 15
+ * high and three glyphs 18 square are targets a pointer is *aimed at* rather than moved to, and this
+ * suite holds one minimum for every control it draws. Dense is not the same as small.
+ */
+/*
+ * **기준 폭**, on each line and quiet until it is the one.
+ *
+ * A radio rather than a switch, because exactly one of them is it — and the chosen one is the only
+ * thing on this list drawn in the accent, because it is the fact that decides what every unqualified
+ * attribute in the document means.
+ */
+.st-width-base {
+  color: var(--ou-faint, #a3a3a3);
+}
+
+.st-width-base[aria-checked='true'] {
+  color: var(--ou-accent, #2563eb);
+}
+
+.st-width-base,
+.st-width-move,
+.st-width-remove {
+  display: flex;
+  width: 20px;
+  height: var(--ou-control-h, 30px);
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ou-faint, #a3a3a3);
+  cursor: pointer;
+}
+
+.st-width-move:hover:not(:disabled),
+.st-width-remove:hover:not(:disabled) {
+  background: var(--ou-ground, #f5f5f5);
+  color: var(--ou-ink, #171717);
+}
+
+/* A width that cannot move, and the last one that cannot go — greyed rather than gone, so the
+   list does not change shape as a reader works down it. */
+.st-width-move:disabled,
+.st-width-remove:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* A door onto the sizes, rather than a dropdown of them — see the control. */
+.st-widths-plus {
+  display: flex;
+  height: var(--ou-control-h, 30px);
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 3px;
+  padding: 0 8px;
+  border: 1px dashed var(--ou-line, #d4d4d4);
+  border-radius: var(--ou-radius, 4px);
+  background: transparent;
+  color: var(--ou-muted, #6b6b6b);
+  font-size: var(--ou-text-small, 13px);
+  cursor: pointer;
+}
+
+.st-widths-plus:hover {
+  background: var(--ou-ground, #f5f5f5);
+}
+
+/* The size beside a device's name in the picker, quieter than the name itself. */
+.st-add-item em {
+  display: block;
+  color: var(--ou-faint, #a3a3a3);
+  font-size: var(--ou-text-small, 13px);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+/**
+ * **Whether what is live is what the reader has** — one line, above the faults.
+ *
+ * Quieter than a fault when it is *current* or *never*, and the fault colour when it is **behind**:
+ * a live site that no longer matches is not an error in the document, and it is the one thing a
+ * reader wants to know before they close the tab.
+ */
+.st-published {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--st-line);
+  margin: 0;
+  color: var(--ou-muted, #6b6b6b);
+  font-size: var(--ou-text-small, 13px);
+}
+
+.st-published[data-published='behind'] { color: var(--ou-warn, #b45309); }
+
+/* ── The rail: one column, several panels ─────────────────────────────────── */
+
+.st-rail {
+  display: flex;
+  width: 240px;
+  /* Fields inside the rail are the panel's kind, not a toolbar's — see `--ou-field-line`. */
+  --ou-field-line: transparent;
+  flex-shrink: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--st-line);
+  background: var(--st-panel);
+}
+
+/*
+ * Which question the reader is asking. Five, which is what fits before the words start truncating —
+ * and the moment there is a sixth this becomes an icon rail, which is what every tool of this kind
+ * does at that point.
+ */
+/*
+ * A **segmented strip**, not a row of underlines.
+ *
+ * Five words across 240px cannot each carry an underline and stay legible, and the underline was
+ * doing two jobs at once — saying which panel is open, and drawing the rule under the strip. The
+ * current one is a raised chip on the panel's ground, which is what every tool of this kind uses for
+ * a switch between *views of the same thing*.
+ */
+.st-rail-tabs {
+  display: flex;
+  gap: 2px;
+  margin: 8px 8px 6px;
+  padding: 2px;
+  border-radius: 6px;
+  background: var(--ou-ground, #f5f5f5);
+}
+
+.st-rail-tabs button {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  font-size: var(--ou-text-small, 13px);
+  color: var(--st-faint);
+  transition: background var(--ou-quick, 120ms), color var(--ou-quick, 120ms);
+}
+
+.st-rail-tabs button:hover { color: var(--st-ink); }
+
+.st-rail-tabs button[data-current='true'] {
+  background: var(--st-panel);
+  color: var(--st-ink);
+  font-weight: 600;
+  box-shadow: var(--ou-lift-1, 0 1px 2px rgb(15 23 42 / 0.12));
+}
+
+/*
+ * The field that finds a block in a hundred-row list.
+ *
+ * Pinned above the list rather than scrolling with it: a search a reader has to scroll back to is a
+ * search they retype instead. Every tool of this kind puts it exactly here.
+ */
+.st-rail-find {
+  padding: 2px 8px 6px;
+  border-bottom: 1px solid var(--st-line);
+  /* A field in the rail is the panel's kind — no resting edge until the pointer arrives. */
+  --ou-field-line: transparent;
+}
+
+/*
+ * What the search actually **found**, against what is kept to show where it lives.
+ *
+ * A filtered tree has two kinds of row and a reader has to be able to tell them apart: 요금 미리보기
+ * is the answer and 히어로 is the branch it hangs off. Without this the list reads as ten matches
+ * when there is one.
+ */
+.st-layers-list[data-finding='true'] .st-layer:not([data-hit='true']) .st-layer-name {
+  color: var(--st-faint);
+}
+
+.st-rail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+/*
+ * **What is wrong with the site**, along the bottom of the rail.
+ *
+ * `column-reverse` so the list opens *upward*, over the panel rather than off the end of it. A
+ * drawer at the bottom of a window that grew downward would push its own trigger out of the rail —
+ * and the trigger has to stay put, because the reader presses it again to close. DOM order is still
+ * button then region, which is the order a keyboard and a screen reader want.
+ */
+.st-faults {
+  display: flex;
+  flex-direction: column-reverse;
+  flex-shrink: 0;
+  border-top: 1px solid var(--st-line);
+  background: var(--st-panel);
+}
+
+/*
+ * Nothing wrong, said out loud.
+ *
+ * Not a button, because there is nothing to open — a disabled control here would read as *you may
+ * not look at the problems*. Faint and 28 pixels tall: it is the quietest row in the window, and it
+ * is still there, which is the point of it.
+ */
+.st-faults[data-clear='true'] {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  margin: 0;
+  font-size: var(--ou-text-small, 13px);
+  color: var(--st-faint);
+}
+
+.st-faults-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  font-size: var(--ou-text-small, 13px);
+  font-weight: 600;
+  color: var(--ou-warn, #b45309);
+  text-align: left;
+  transition: background var(--ou-quick, 120ms);
+}
+
+.st-faults-head:hover { background: var(--ou-warn-soft, #f4e7dd); }
+
+/* The chevron points at the list: down when it is shut, up while it is open. */
+.st-faults-chevron {
+  display: flex;
+  margin-left: auto;
+  transition: transform var(--ou-quick, 120ms);
+}
+
+.st-faults[data-open='true'] .st-faults-chevron { transform: rotate(180deg); }
+
+.st-faults-list {
+  max-height: 40vh;
+  overflow-y: auto;
+  border-top: 1px solid var(--st-line);
+}
+
+.st-faults-group { padding: 8px 10px 6px; }
+
+.st-faults-group + .st-faults-group { border-top: 1px solid var(--st-line); }
+
+.st-faults-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px;
+  font-size: var(--ou-text-small, 13px);
+  font-weight: 600;
+  color: var(--st-ink);
+}
+
+/* The count as a chip rather than a bracketed number, so the heading stays a heading. */
+.st-faults-group h3 span {
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--ou-warn-soft, #f4e7dd);
+  color: var(--ou-warn, #b45309);
+  font-size: var(--ou-text-label, 12px);
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Why it matters, once per group. On every row it would be noise; nowhere it is a list of riddles. */
+.st-faults-group > p {
+  margin: 0 0 6px;
+  font-size: var(--ou-text-small, 13px);
+  line-height: 1.45;
+  color: var(--st-faint);
+}
+
+.st-faults-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  text-align: left;
+  transition: background var(--ou-quick, 120ms);
+}
+
+.st-faults-row:hover { background: var(--ou-ground, #f5f5f5); }
+
+.st-faults-what {
+  font-size: var(--ou-text-small, 13px);
+  line-height: 1.4;
+  color: var(--st-ink);
+}
+
+/* Which block, and which page or definition holds it — the half that makes the row somewhere to go. */
+.st-faults-where {
+  display: flex;
+  gap: 4px;
+  font-size: var(--ou-text-small, 13px);
+  color: var(--st-faint);
+}
+
+.st-faults-where em {
+  font-style: normal;
+  color: var(--st-faint);
+  opacity: 0.75;
+}
+
+.st-faults-where em::before { content: '·'; margin-right: 4px; }
+
+.st-rail-group {
+  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--st-line);
+}
+
+.st-rail-group:last-child { border-bottom: 0; }
+
+/*
+ * A group's name is a label, not a heading: 10px, tracked, and the quietest ink on the panel. It is
+ * there to be found when a reader is looking for it and to disappear when they are not.
+ */
+.st-rail-group h3 {
+  padding: 4px 12px 4px;
+  font-size: var(--ou-text-label, 12px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--ou-faint, #a3a3a3);
+}
+
+.st-rail-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* A row is a thing, so it reads as a thing: its name on the left, what a reader needs to know about
+   it on the right, and the whole row is the target. */
+/*
+ * A row is 28px and the whole of it is the target — the height every tool of this kind uses for a
+ * list a reader runs their eye down, and the one thing that stops a column of mixed rows rippling.
+ */
+.st-rail-item {
+  display: flex;
+  width: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  text-align: left;
+  font-size: var(--ou-text, 14px);
+  color: var(--st-ink);
+  transition: background var(--ou-quick, 120ms);
+}
+
+.st-rail-item:hover:not(:disabled) { background: var(--ou-ground, #f5f5f5); }
+
+.st-rail-item:disabled { opacity: 0.4; }
+
+/*
+ * A **wash** of the accent for the current row, not the accent itself.
+ *
+ * Solid accent with white on it is what a button looks like, and a list where the current row is a
+ * button is a list a reader keeps trying to press. The wash says "this one" and leaves the row's own
+ * words in the panel's ink, where they stay readable.
+ */
+.st-rail-item[data-current='true'],
+.st-rail-item[data-page-current='true'] {
+  background: var(--ou-accent-soft, #dbeafe);
+  color: var(--st-ink);
+  box-shadow: inset 2px 0 0 var(--st-accent);
+}
+
+.st-rail-hint {
+  font-size: var(--ou-text-small, 13px);
+  color: var(--st-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.st-rail-item[data-current='true'] .st-rail-hint,
+.st-rail-item[data-page-current='true'] .st-rail-hint { color: var(--st-faint); }
+
+.st-rail-note {
+  padding: 8px 12px 10px;
+  font-size: var(--ou-text-small, 13px);
+  line-height: 1.55;
+  color: var(--st-faint);
+  text-wrap: pretty;
+}
+
+/* A row that does two things: the common one is the row, the one with consequences is beside it. */
+.st-rail-pair { padding: 0; gap: 0; }
+
+.st-rail-pair[data-current='true'] {
+  background: var(--ou-accent-soft, #dbeafe);
+  color: var(--st-ink);
+  box-shadow: inset 2px 0 0 var(--st-accent);
+}
+
+.st-rail-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px 5px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  font-size: inherit;
+}
+
+.st-rail-main:hover:not(:disabled) { background: var(--ou-ground, #f5f5f5); }
+
+.st-rail-main:disabled { opacity: 0.4; }
+
+.st-rail-side {
+  flex: none;
+  padding: 5px 10px;
+  border: 0;
+  border-left: 1px solid var(--st-line);
+  background: none;
+  color: var(--st-faint);
+  font-size: var(--ou-text-small, 13px);
+}
+
+.st-rail-side:hover { background: var(--ou-accent-soft, #dbeafe); color: var(--st-accent); }
+
+.st-rail-pair[data-current='true'] .st-rail-side { color: var(--st-accent); }
+
+/* ── What this page holds ─────────────────────────────────────────────────── */
+
+.st-layers-list { padding: 4px 0; }
+
+.st-layer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 26px;
+  padding: 5px 8px;
+  text-align: left;
+  font-size: var(--ou-text-small, 13px);
+  color: var(--st-ink);
+  background: none;
+  border: 0;
+  cursor: default;
+  transition: background var(--ou-quick, 120ms);
+}
+
+/* The picture is quieter than the name: it is there to be recognised, not read. */
+.st-layer svg { flex: none; color: var(--ou-faint, #a3a3a3); }
+
+.st-layer[data-selected='true'] svg { color: var(--st-accent); }
+
+.st-layer-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.st-layer:hover { background: var(--ou-ground, #f5f5f5); }
+
+/* The same wash the rail's rows use: one way of saying "this one" in the whole window. */
+.st-layer[data-selected='true'] {
+  background: var(--ou-accent-soft, #dbeafe);
+  color: var(--st-ink);
+  box-shadow: inset 2px 0 0 var(--st-accent);
+}
+
+/* Which width the panel is writing to. Three letters, because the panel header has room for three. */
+/*
+ * **24 square**, which is the smallest a control in this suite gets.
+ *
+ * They were 22×20, which is what a 14px picture and 2px of padding come to when nobody states a
+ * size — and every other button on this panel is `--ou-control-h`. Found by a sweep that measured
+ * every control in the chrome: three, and all three of them these.
+ *
+ * It is not a rounding error. These three switch which width a reader is editing at, they sit in a
+ * panel header beside nothing else, and a target under 24 is one a pointer has to be aimed at rather
+ * than moved to — which is the difference a reader feels as *this tool is fiddly*.
+ */
+.st-at { display: flex; gap: 2px; }
+
+.st-at button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: var(--ou-text-small, 13px);
+  border: 1px solid var(--st-line);
+  border-radius: 3px;
+  background: var(--st-panel);
+  color: var(--st-faint);
+}
+
+.st-at button[data-current='true'] {
+  background: var(--st-accent);
+  border-color: var(--st-accent);
+  color: var(--ou-accent-ink, #ffffff);
+}
+
+.st-at-note { font-size: var(--ou-text-small, 13px); color: var(--st-accent); }
+
+/*
+ * One of a card's questions, and where its answer comes from.
+ *
+ * A label on the left because the question is the card's word — `이름`, `가격` — and a reader has to
+ * see which slot they are filling. The rest of the panel labels rows from the declaration; these
+ * come from the definition, so they are drawn here.
+ */
+.st-card-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--ou-control-h, 30px);
+}
+
+.st-card-value > span {
+  width: var(--ou-label-w, 82px);
+  flex: none;
+  font-size: var(--ou-text-small, 13px);
+  color: var(--ou-muted, #6b6b6b);
+}
+
+.st-card-value > :last-child { flex: 1; min-width: 0; }
+
+/*
+ * Words that came from the data, marked where a reader asked to type them.
+ *
+ * The one colour on this chrome that is neither the accent nor the ink: this is not a selection and
+ * not an error, it is the tool answering a question, and it disappears at the next press.
+ */
+.st-mark-bound {
+  outline: calc(1px / var(--st-zoom, 1)) dashed var(--st-second);
+  outline-offset: calc(1px / var(--st-zoom, 1));
+}
+
+.st-mark-bound .st-mark-name {
+  background: var(--st-second);
+  color: #fff;
+}
+
+/*
+ * The state switch, at the head of 모양.
+ *
+ * Full width and segmented rather than the width switch's three initials, because these are words
+ * rather than letters and because it changes what every row under it *means* — a switch that small
+ * would be a reader editing a hover without noticing they had.
+ */
+.st-state {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--st-line);
+}
+
+.st-state-row {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 5px;
+  background: var(--st-ground);
+}
+
+.st-state-row button {
+  flex: 1;
+  padding: 3px 0;
+  font-size: var(--ou-text-small, 13px);
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--st-faint);
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.st-state-row button:hover { color: var(--st-ink); }
+
+.st-state-row button[data-current='true'] {
+  background: var(--st-panel);
+  color: var(--st-ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+/* The one that is not the resting state reads as the tool speaking, so it takes the accent. */
+.st-state-row button[data-state][data-current='true'] {
+  background: var(--st-accent);
+  color: var(--ou-accent-ink, #ffffff);
+}
+
+.st-state-said {
+  margin: 0;
+  font-size: var(--ou-text-label, 12px);
+  line-height: 1.4;
+  color: var(--st-faint);
+}
+
+.st-kind { font-size: var(--ou-text-small, 13px); color: var(--st-faint); font-family: ui-monospace, monospace; }
+
+/*
+ * A stack, a page and a placement draw themselves from the document; these rules exist only so that
+ * an empty one is visible to a reader who has just made it.
+ */
+.st-stack:empty,
+.st-placement:empty,
+.st-collection:empty {
+  min-height: 24px;
+  outline: 1px dashed var(--st-line);
+}
+
+/*
+ * The picture row: which file, and a way to add one — one row, because a reader choosing a picture is
+ * doing one thing. The file input is a `<label>` wrapping a hidden `<input type=file>`, which is the
+ * only way to make one look like the rest of the panel and still be a real file picker.
+ */
+.st-picture-row {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.st-file {
+  position: relative;
+  display: inline-flex;
+  height: var(--ou-control-h, 30px);
+  cursor: pointer;
+  align-items: center;
+  border-radius: var(--ou-radius, 4px);
+  border: 1px solid var(--ou-line, #d4d4d4);
+  padding: 0 8px;
+  font-size: var(--ou-text-small, 13px);
+  color: var(--ou-ink, #171717);
+}
+
+.st-file:hover {
+  background: var(--ou-accent-soft, #dbeafe);
+}
+
+/*
+ * The input **covers** the label rather than hiding in a corner of it.
+ *
+ * A visually-hidden file input is the usual pattern and it leaves a 1×1 control: the thing a pointer
+ * aims at and a focus ring is drawn on is one pixel across, in a corner, invisible. Measured by the
+ * chrome sweep, which asks how big every control is. Covering the label makes the target the button
+ * a reader can see, which is what it looked like all along.
+ */
+.st-file input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  opacity: 0;
+}
+
+/*
+ * The address a form's answers go to, and how many forms share it — the count under the field rather
+ * than beside it, because it is a *consequence* of typing there rather than another thing to type.
+ */
+.st-endpoint {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.st-uses {
+  font-size: var(--ou-text-small, 13px);
+  font-style: normal;
+  color: var(--ou-muted, #6b6b6b);
+}
+
+.st-rail-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.st-rail-row .st-rail-item {
+  flex: 1;
+  min-width: 0;
+}
+
+/* A placement's answers, one field per question its definition asks. */
+.st-values {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+/*
+ * ── The insert palette's pictures ──────────────────────────────────────────
+ *
+ * A fixed column for the icon so the words line up whether or not an entry has one — a palette
+ * whose labels shift left and right by an icon's width reads as two lists.
+ */
+/*
+ * An **insert** row is icon-then-word, where every other rail row is name-then-hint.
+ *
+ * `.st-rail-item` is `space-between` because a page's row puts its address on the right and a
+ * component's puts its use count there. An insert row has no right-hand fact, so the same rule threw
+ * the label to the far edge with the icon alone on the left — two columns of unrelated things.
+ */
+.st-rail-item[data-insert] { justify-content: flex-start; }
+
+.st-rail-icon {
+  display: inline-flex;
+  width: 16px;
+  flex: 0 0 16px;
+  justify-content: center;
+  color: var(--st-faint);
+}
+
+.st-rail-item[data-current='true'] .st-rail-icon { color: var(--st-accent); }
+
+/*
+ * ── The layer list's disclosures ───────────────────────────────────────────
+ *
+ * A fixed column whether or not there is a triangle in it, so a container's icon and a block's icon
+ * sit at the same distance from the indent — without it a list four deep reads as two lists
+ * interleaved.
+ */
+.st-layer-twist {
+  display: inline-flex;
+  width: 14px;
+  flex: 0 0 14px;
+  align-items: center;
+  justify-content: center;
+  color: var(--st-faint);
+  border-radius: 3px;
+}
+
+.st-layer-twist[data-twist] { cursor: pointer; }
+
+.st-layer-twist[data-twist]:hover {
+  background: var(--st-line);
+  color: var(--st-ink);
+}
+
+/*
+ * ── A layer row's eye and padlock ──────────────────────────────────────────
+ *
+ * Shown when they **say something** — this row is hidden, this one is locked — and under the pointer
+ * otherwise. Twelve rows each carrying two grey glyphs is a column of noise a reader reads past, and
+ * the state worth seeing at a glance is the unusual one.
+ */
+.st-layer-acts {
+  display: inline-flex;
+  margin-left: auto;
+  flex: 0 0 auto;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity var(--ou-quick, 120ms);
+}
+
+.st-layer:hover .st-layer-acts,
+.st-layer:focus-within .st-layer-acts,
+.st-layer-acts[data-state='said'] { opacity: 1; }
+
+/* A hidden row says so in the name as well: the glyph is at the far end and the name is what is read. */
+.st-layer[data-hidden='true'] .st-layer-name { opacity: 0.45; }
+
+.st-layer[data-locked='true'] .st-layer-name { font-style: italic; }
+
+/*
+ * ── Dragging a layer row ───────────────────────────────────────────────────
+ *
+ * Three things a reader can mean, and each says which with a different mark: a **line** between two
+ * rows is a place in a list, and a **filled row** is a container to go inside. A single highlight
+ * for both would make "after the card row" and "into the card row" the same picture.
+ */
+.st-layer[data-dragging='true'] { opacity: 0.4; }
+
+.st-layer[data-drop] { position: relative; }
+
+.st-layer[data-drop='before']::before,
+.st-layer[data-drop='after']::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: var(--st-accent);
+  border-radius: 1px;
+}
+
+.st-layer[data-drop='before']::before { top: -1px; }
+
+.st-layer[data-drop='after']::after { bottom: -1px; }
+
+.st-layer[data-drop='into'] {
+  background: var(--ou-accent-soft, #dbeafe);
+  box-shadow: inset 0 0 0 1px var(--st-accent);
+}
+
+/*
+ * **The sheet behind the +**, which is the rail's own two groups plus the reader's definitions.
+ *
+ * A grid rather than the rail's single column, because a dialog has width and a rail does not — and
+ * the whole reason this door exists is that a reader's pointer is here rather than over there. Three
+ * across at the dialog's width, so a group of six is two rows a reader takes in at once.
+ */
+.st-add-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 420px;
+}
+
+.st-add-sheet h3 {
+  margin: 0 0 8px;
+  font-size: var(--ou-text-small, 13px);
+  font-weight: 600;
+  color: var(--ou-muted, #6b6b6b);
+}
+
+.st-add-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+/*
+  The sheet a plus opens is the **ribbon's dialog**, in the middle of the window — it was drawn at the
+  pointer for a while and reported straight back: a sheet anchored to a point is a sheet that is
+  somewhere else the moment the plane moves under it. So there is nothing here for it; the rules it
+  needs are `st-add-sheet` and `st-add-grid`, which the dialog already had.
+*/
+.st-add-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: var(--ou-radius, 4px);
+  background: var(--ou-panel, #ffffff);
+  color: var(--ou-ink, #171717);
+  font-size: var(--ou-text, 14px);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.st-add-item:hover:not(:disabled) {
+  border-color: var(--ou-accent, #2563eb);
+  background: var(--ou-ground, #f5f5f5);
+}
+
+.st-add-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ou-accent-soft, #dbeafe);
+}
+
+/*
+ * Greyed rather than hidden: a reader who cannot put a component on this page needs to know the
+ * component exists, which is the same argument the menubar makes about a disabled entry.
+ */
+.st-add-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.st-add-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/**
+ * **쓰임** — what a block leans on and what leans on it.
+ *
+ * The one tab with no property rows in it, so it does not borrow the row rhythm: a list of names,
+ * each one a place to go. Quieter than the panel's own headings, because this is a fact about the
+ * document rather than a control.
+ */
+.st-uses {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px;
+}
+
+.st-uses-none {
+  margin: 0;
+  color: var(--ou-muted, #6b6b6b);
+  font-size: var(--ou-text-small, 13px);
+}
+
+.st-uses-group h3 {
+  margin: 0 0 4px;
+  color: var(--ou-faint, #a3a3a3);
+  font-size: var(--ou-text-label, 12px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.st-uses-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.st-uses-group li > button,
+.st-uses-group li > span {
+  display: block;
+  width: 100%;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--ou-radius, 4px);
+  background: transparent;
+  color: var(--ou-ink, #171717);
+  font-size: var(--ou-text, 14px);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-uses-group li > button {
+  cursor: pointer;
+}
+
+.st-uses-group li > button:hover {
+  background: var(--ou-accent-soft, #dbeafe);
+  color: var(--ou-accent, #2563eb);
+}
+
+.st-uses-group li > span {
+  color: var(--ou-muted, #6b6b6b);
+}
+
+/**
+ * The rectangle a reader sweeps to choose several blocks.
+ *
+ * A faint wash with a hairline, in the tool's accent — the tool talking, like the guides and the
+ * landing line. Counter-scaled so the edge is one screen pixel at every zoom.
+ */
+.st-mark-sweep {
+  background: color-mix(in srgb, var(--st-accent) 12%, transparent);
+  border: calc(1px / var(--st-zoom, 1)) solid var(--st-accent);
+  pointer-events: none;
+}
+
+/*
+ * A sticker **in the page** used to be styled here, and it is `PAGE_CSS` now — a picture in a
+ * paragraph is drawn for the visitor too, and nothing in this file reaches one.
+ */
+
+/*
+ * ── 어디가 데이터인가 ───────────────────────────────────────────
+ *
+ * Asked as *전체 페이지 중에 어디가 데이타이고 어디가 아닌지 구분이 잘 안 된다*, and the reason is
+ * that resolution is total: `field:제목` is the post's title by the time the board draws it, and a
+ * value that came from a column looks exactly like one somebody typed.
+ *
+ * `data-from` is written on the drawing — never on the published page — and this is the whole of the
+ * notation.
+ *
+ * ## Why an underline and not a box
+ *
+ * A box says *this is a thing*, which the selection already says, and a page of boxes is a page a
+ * reader cannot see the design in. What is being said here is *these words are not typed here*, and
+ * the notation for that is the one every tool uses for a field in a document: a coloured underline,
+ * under the words, changing nothing about where they sit.
+ *
+ * It sits under `.st-frame` so it is the **editor's** mark: preview draws the page a visitor gets,
+ * and a visitor is not being told which words came from a spreadsheet.
+ */
+.st-frame:not([data-preview='true']) .st-page [data-from] {
+  /* An inset shadow rather than a border or an outline: it paints inside the box the block already
+     has, so nothing moves — the same rule the wireframe had to learn twice. */
+  box-shadow: inset 0 -2px 0 -1px var(--ou-accent, #2563eb);
+}
+
+/*
+ * And the **list** it came from, named once on the box that owns the rows rather than on every value
+ * inside them — which is what a reader is actually asking first.
+ */
+.st-frame:not([data-preview='true']) .st-page .st-collection[data-source] {
+  position: relative;
+  outline: 1px dashed color-mix(in srgb, var(--ou-accent, #2563eb) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.st-frame:not([data-preview='true']) .st-page .st-collection[data-source]::before {
+  content: attr(data-source);
+  position: absolute;
+  right: 0;
+  top: -1.25em;
+  z-index: 1;
+  padding: 0 4px;
+  border-radius: var(--ou-radius, 4px);
+  background: var(--ou-accent, #2563eb);
+  color: var(--ou-panel, #ffffff);
+  font-size: var(--ou-text-small, 13px);
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/*
+ * **The rules for a body moved to `office-note/note.css`.**
+ *
+ * They were here — a box that reads as a field, and the prose type inside it — which made what a
+ * writing surface looks like the site builder's decision. A body is its own thing now: `.on-note`,
+ * `.on-bar` and `.on-body`, styled where they are defined, in `office-ui`'s tokens with fallbacks
+ * so the package draws a bar in a host that never heard of a site.
+ */
+/*
+ * ── 차트 ─────────────────────────────────────────────────────────
+ *
+ * The three chart rules used to be here and are `PAGE_CSS` now. A chart is a thing on the page — an
+ * `<svg>` drawn from the arithmetic in `chart.ts`, shipped as-is to the visitor — so the box it sits
+ * in and the size of its title are the visitor's business as much as the editor's, and this file
+ * never reaches a visitor.
+ */
+
+/*
+ * **무엇으로 시작할지** — the rows inside 새 페이지.
+ *
+ * It was three buttons in the rail, one per template, and that is the wrong shape said out loud:
+ * *모든 것은 페이지야.* A template is not a kind of page, it is where one starts from — so it belongs
+ * inside the one button rather than beside it, and the list grows without the rail growing.
+ *
+ * 빈 페이지 is a **row**, not the button next to the list: a blank page is a starting point too, and
+ * putting it in the list is what stops it being the default nobody chose.
+ */
+.st-starts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.st-start {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: var(--ou-radius, 4px);
+  background: var(--ou-panel, #ffffff);
+}
+
+.st-start:hover {
+  border-color: var(--ou-accent, #2563eb);
+  background: var(--ou-accent-soft, #dbeafe);
+}
+
+.st-start-name {
+  font-size: var(--ou-text, 14px);
+  color: var(--ou-ink, #171717);
+}
+
+.st-start-note {
+  font-size: var(--ou-text-small, 13px);
+  color: var(--ou-muted, #6b6b6b);
+}
+
+/*
+ * ── 관리 ────────────────────────────────────────────────────────
+ *
+ * The surface a reader opens the file into. It fills the shell's own regions with a different
+ * answer: the left is the five things a **site** is made of, the middle is a table, and there is no
+ * right — a properties panel is about a block, and there are no blocks here.
+ *
+ * Which is the whole reason it is a mode rather than a fifth view of the main area: six things this
+ * product draws are about the site rather than about a page, and all six want width, no canvas and
+ * no properties panel.
+ */
+.st-admin {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  background: var(--ou-ground, #f5f5f5);
+  /*
+   * **A rule inside a surface is not the border around one.** `--ou-line` is what separates two
+   * regions of the shell; between forty rows of a table it is a fence — which is the same argument
+   * `--ou-field-line` makes about a field's edge, one level out.
+   */
+  --st-rule: color-mix(in srgb, var(--ou-line, #d4d4d4) 45%, var(--ou-panel, #ffffff));
+  --st-hover: color-mix(in srgb, var(--ou-ground, #f5f5f5) 55%, var(--ou-panel, #ffffff));
+}
+
+/*
+ * Its own nav, not the builder's rail: 추가 and 구성 are tools for editing a page.
+ *
+ * **On the ground rather than on a panel**, which is the inversion the whole screen turns on. The
+ * content is the thing being worked on, so the content is the lifted white surface and everything
+ * around it is the ground it sits on — which is what every settings screen of this kind does, and
+ * what makes a selected tab able to read as *the sheet you are looking at* rather than as a
+ * highlight.
+ */
+.st-admin-nav {
+  display: flex;
+  flex-direction: column;
+  width: 14rem;
+  flex: none;
+  padding: 10px;
+  border-right: 1px solid var(--ou-line, #d4d4d4);
+}
+
+/**
+ * **무엇을 열어 두었는가.**
+ *
+ * The word `사이트` was a label over five nouns, which says what the list is *of* and nothing about
+ * which site is open or where it goes. The titlebar says `Barocss Site`, and that is the product's
+ * name. On a screen whose whole job is managing one site, the first line should be that site.
+ */
+.st-admin-who {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px 12px;
+  min-width: 0;
+}
+
+.st-admin-who strong {
+  font-size: var(--ou-text, 14px);
+  font-weight: 600;
+  color: var(--ou-ink, #171717);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-admin-who span {
+  font-size: var(--ou-text-small, 13px);
+  color: var(--ou-faint, #a3a3a3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-admin-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.st-admin-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--ou-control-h, 30px);
+  padding: 0 10px;
+  text-align: left;
+  border-radius: var(--ou-radius, 4px);
+  color: var(--ou-muted, #6b6b6b);
+  font-size: var(--ou-text, 14px);
+  transition: background var(--ou-quick, 120ms), color var(--ou-quick, 120ms);
+}
+
+.st-admin-tabs button > span { flex: 1; min-width: 0; }
+
+/**
+ * **몇 개인지, 이름 옆에.**
+ *
+ * Five bare words say what a site is made of and nothing about what is in it, so a reader had to
+ * open all five to learn whether this one has three datasets or thirty. Tabular figures because a
+ * column of counts that jitters is a column that reads as decoration.
+ */
+.st-admin-tabs em {
+  font-style: normal;
+  font-size: var(--ou-text-small, 13px);
+  font-variant-numeric: tabular-nums;
+  color: var(--ou-faint, #a3a3a3);
+}
+
+.st-admin-tabs button:hover {
+  background: var(--st-hover);
+  color: var(--ou-ink, #171717);
+}
+
+.st-admin-tabs button:hover em { color: var(--ou-muted, #6b6b6b); }
+
+/**
+ * **나갈 준비가 되었는가**, at the foot of the list.
+ *
+ * The question a management screen is opened to answer, and it was three clicks in — a reader had to
+ * choose 발행 to find out whether anything had changed since the last one. A status line goes at the
+ * bottom of a nav in every tool of this shape, and here it doubles as the way to that tab.
+ */
+.st-admin-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: auto;
+  padding: 9px 10px;
+  border-radius: var(--ou-radius, 4px);
+  text-align: left;
+  color: var(--ou-muted, #6b6b6b);
+  font-size: var(--ou-text-small, 13px);
+  line-height: 1.45;
+  transition: background var(--ou-quick, 120ms), color var(--ou-quick, 120ms);
+}
+
+.st-admin-state:hover { background: var(--st-hover); color: var(--ou-ink, #171717); }
+
+/**
+ * The dot is the state; the sentence is the detail. A reader scanning reads the dot.
+ *
+ * **And only one of the three is coloured**, which is the token file's own argument taken rather
+ * than repeated: `--ou-warn` is *look at this when you have a moment*, and there is no `--ou-good`
+ * because this suite has never needed one. A site that matches what was published has nothing to
+ * look at, so it is drawn as nothing to look at; a site nobody has published yet is drawn hollow,
+ * because that is a state rather than a problem. Only *바뀐 것 있음* asks for anything.
+ */
+.st-admin-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  border: 1px solid var(--ou-faint, #a3a3a3);
+}
+
+.st-admin-state[data-admin-state='current'] .st-admin-dot {
+  background: var(--ou-muted, #6b6b6b);
+  border-color: var(--ou-muted, #6b6b6b);
+}
+
+.st-admin-state[data-admin-state='behind'] .st-admin-dot {
+  background: var(--ou-warn, #b45309);
+  border-color: var(--ou-warn, #b45309);
+}
+
+/*
+ * **The sheet, not a highlight.** It was `--ou-accent-soft` with accent text — a blue chip in a
+ * column of five grey words, which is a lot of colour for *where you are*. The white pill says the
+ * same thing in the vocabulary the screen already uses: this tab is the surface on the right.
+ */
+.st-admin-nav button[aria-current='page'] {
+  background: var(--ou-panel, #ffffff);
+  color: var(--ou-ink, #171717);
+  font-weight: 600;
+  box-shadow: var(--ou-lift-1, 0 1px 2px rgb(15 23 42 / 0.12));
+}
+
+.st-admin-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding: 20px 24px 24px;
+  gap: 14px;
+}
+
+.st-admin-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.st-admin-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/*
+ * A **title**, which it was not: at `--ou-text` it was the same size as the body of the table under
+ * it, so the screen opened with no line saying what it was.
+ */
+.st-admin-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 19px;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  color: var(--ou-ink, #171717);
+}
+
+/**
+ * **The count is a chip inside the title, not a caption beside it.**
+ *
+ * It was `8개` set as body text next to a heading — a caption to a picture that is not there. A
+ * reader scanning for *how many* is scanning the title line, so it belongs on it, and drawn as a
+ * count rather than as a word.
+ */
+.st-admin-count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--st-hover);
+  color: var(--ou-muted, #6b6b6b);
+  font-size: var(--ou-text-small, 13px);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/**
+ * **무엇을 하는 화면인지 한 줄.**
+ *
+ * The screen opened by repeating the tab that was pressed — 페이지 under 페이지 — and said nothing
+ * about what a reader manages here. The five sentences are declared once, in `TABS`, and drawn in
+ * both the nav's tooltip position and here.
+ */
+.st-admin-head p {
+  font-size: var(--ou-text-small, 13px);
+  color: var(--ou-faint, #a3a3a3);
+  line-height: 1.5;
+}
+
+/* The acts push to the right, because a list is read from the left. */
+.st-admin-do {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+/**
+ * ── 찾기 ────────────────────────────────────────────────────────
+ *
+ * Every table here grows: a site of eight pages is a sample and a site of eighty is a Tuesday, and a
+ * table with no way to narrow it is a table a reader scrolls past the row they came for.
+ */
+.st-admin-find {
+  position: relative;
+  display: flex;
+  max-width: 20rem;
+}
+
+.st-admin-find input {
+  flex: 1;
+  height: var(--ou-control-h, 30px);
+  padding: 0 26px 0 10px;
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: var(--ou-radius, 4px);
+  background: var(--ou-panel, #ffffff);
+  color: var(--ou-ink, #171717);
+  font-size: var(--ou-text, 14px);
+}
+
+.st-admin-find input::placeholder { color: var(--ou-faint, #a3a3a3); }
+
+.st-admin-find input:focus-visible {
+  outline: none;
+  border-color: var(--ou-accent, #2563eb);
+  box-shadow: 0 0 0 3px var(--ou-accent-soft, #dbeafe);
+}
+
+/* The browser draws its own clear button on a `search` input, in its own metrics. Ours, or none. */
+.st-admin-find input::-webkit-search-cancel-button { display: none; }
+
+.st-admin-find button {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--ou-radius, 4px);
+  color: var(--ou-faint, #a3a3a3);
+}
+
+.st-admin-find button:hover { background: var(--st-hover); color: var(--ou-ink, #171717); }
+
+/**
+ * ── 발행 상태 ───────────────────────────────────────────────────
+ *
+ * The tab opened as a white box with two small labels in it, and a reader had to read both to answer
+ * the one question they came with: *can I press the button*. Three facts answer it — the state, what
+ * would go out, and what is wrong with it — so they are one row, read at a glance.
+ */
+.st-admin-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 10px;
+}
+
+.st-admin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: 8px;
+  background: var(--ou-panel, #ffffff);
+  box-shadow: var(--ou-lift-1, 0 1px 2px rgb(15 23 42 / 0.12));
+}
+
+.st-admin-card-what {
+  font-size: var(--ou-text-label, 12px);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ou-faint, #a3a3a3);
+}
+
+.st-admin-card strong {
+  font-size: 17px;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+  color: var(--ou-ink, #171717);
+}
+
+.st-admin-card-said {
+  font-size: var(--ou-text-small, 13px);
+  color: var(--ou-faint, #a3a3a3);
+  line-height: 1.45;
+}
+
+/* Only the one that asks for something is coloured — see `.st-admin-dot` for the argument. */
+.st-admin-card[data-admin-state='behind'],
+.st-admin-card[data-admin-faults='some'] {
+  border-color: color-mix(in srgb, var(--ou-warn, #b45309) 40%, var(--ou-line, #d4d4d4));
+  background: var(--ou-warn-soft, #f4e7dd);
+}
+
+.st-admin-card[data-admin-state='behind'] strong,
+.st-admin-card[data-admin-faults='some'] strong {
+  color: var(--ou-warn, #b45309);
+}
+
+/**
+ * ── 상태를 낱말이 아니라 칩으로 ─────────────────────────────────
+ *
+ * 색인 said `예` and `아니오` in the same grey as the address beside it, so *which pages a crawler
+ * may not read* — the one thing on that row worth scanning a column for — was invisible in it.
+ */
+.st-admin-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 19px;
+  padding: 0 8px;
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: 999px;
+  background: var(--st-hover);
+  color: var(--ou-faint, #a3a3a3);
+  font-size: var(--ou-text-small, 13px);
+  white-space: nowrap;
+}
+
+.st-admin-chip[data-on] {
+  border-color: transparent;
+  background: var(--ou-accent-soft, #dbeafe);
+  color: color-mix(in srgb, var(--ou-accent, #2563eb) 80%, var(--ou-ink, #171717));
+}
+
+/* And when a table has run out of rows, said rather than drawn as an empty grid. */
+.st-admin-none {
+  padding: 28px 14px;
+  text-align: center;
+  color: var(--ou-faint, #a3a3a3);
+  font-size: var(--ou-text-small, 13px);
+}
+
+/**
+ * **The card.** The content was floating on bare grey — no edge, no ground of its own, and row
+ * hairlines that stopped where the table's columns did, so the screen read as an unfinished page
+ * rather than as a sheet of settings.
+ *
+ * `overflow: hidden` with the radius, so the sticky header clips to the corner instead of squaring
+ * it off the moment anything scrolls.
+ */
+.st-admin-scroll {
+  /*
+   * **As tall as what is in it**, up to the room there is. `flex: 1` stretched the card to the
+   * bottom of the window, so eight rows sat in a 700px white box with 400 pixels of nothing under
+   * them — a sheet that has run out of content, drawn as a sheet that is missing some.
+   */
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--ou-panel, #ffffff);
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: 8px;
+  box-shadow: var(--ou-lift-1, 0 1px 2px rgb(15 23 42 / 0.12));
+}
+
+.st-admin-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--ou-text, 14px);
+  /*
+   * **The fields lose their edge**, which is the single loudest thing on this screen: sixteen
+   * bordered boxes down two columns. `--ou-field-line` exists for exactly this and the rail has set
+   * it since it was written — *twenty edges down a column is a fence*. A cell is a field the moment
+   * a pointer is on it, and quiet until then.
+   */
+  --ou-field-line: transparent;
+}
+
+.st-admin-table th,
+.st-admin-table td {
+  border-bottom: 1px solid var(--st-rule);
+  padding: 5px 14px;
+  height: 42px;
+  text-align: left;
+  font-weight: 400;
+  vertical-align: middle;
+}
+
+/* The last row's rule is the card's own edge, drawn twice otherwise. */
+.st-admin-table tbody tr:last-child th,
+.st-admin-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.st-admin-table tbody tr {
+  transition: background var(--ou-quick, 120ms);
+}
+
+.st-admin-table tbody tr:hover {
+  background: var(--st-hover);
+}
+
+.st-admin-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--ou-panel, #ffffff);
+  /* Solid where the rows are soft: the head is a boundary, the rows are a rhythm. */
+  border-bottom: 1px solid var(--ou-line, #d4d4d4);
+  height: 34px;
+  font-size: var(--ou-text-label, 12px);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ou-faint, #a3a3a3);
+}
+
+.st-admin-quiet { color: var(--ou-muted, #6b6b6b); }
+
+/* A count reads right-aligned and in tabular figures, which is the whole point of a column of them. */
+.st-admin-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.st-admin-row-do {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+/**
+ * **네 개의 단추가 여덟 줄이면 서른두 개다.**
+ *
+ * Every row carried 편집, 위로, 복제 and 삭제 drawn at full strength, so the right third of the
+ * table was a field of glyphs and the row a reader was actually looking at had no way to stand out.
+ * They belong to the row under the pointer, which is what a table of this kind does everywhere.
+ *
+ * **Opacity, not `display`**: the row must not change height when the pointer arrives, and a keyboard
+ * reader must still find them — `:focus-within` brings them back, so tabbing through the table works
+ * exactly as it did.
+ */
+.st-admin-table tbody .st-admin-row-do {
+  opacity: 0;
+  transition: opacity var(--ou-quick, 120ms);
+}
+
+.st-admin-table tbody tr:hover .st-admin-row-do,
+.st-admin-table tbody tr:focus-within .st-admin-row-do {
+  opacity: 1;
+}
+
+/*
+ * Except on a touch screen, where there is no pointer to hover with and *reveal on hover* means
+ * *never*. The same media query every tool of this shape ends up writing.
+ */
+@media (hover: none) {
+  .st-admin-table tbody .st-admin-row-do { opacity: 1; }
+}
+
+.st-admin-part { margin-bottom: 20px; }
+
+.st-admin-part h3 {
+  margin-bottom: 6px;
+  font-size: var(--ou-text-label, 12px);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ou-faint, #a3a3a3);
+}
+
+.st-admin-faults {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--ou-text-small, 13px);
+  color: var(--ou-ink, #171717);
+}
+
+/*
+ * **이 폭에서만**, on a layer row.
+ *
+ * A block shown only on the phone is not on the desktop board at all, so this is the only place a
+ * reader can find out it exists. Quiet, because most rows do not have one — and a mark on every row
+ * is a mark nobody reads by the third.
+ */
+.st-layer-only {
+  flex: none;
+  padding: 0 4px;
+  border-radius: var(--ou-radius, 4px);
+  background: var(--ou-accent-soft, #dbeafe);
+  color: var(--ou-accent, #2563eb);
+  font-size: var(--ou-text-label, 12px);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/*
+ * **이 폭에서 몇 개가 안 보이는지**, on a board's own label.
+ *
+ * A block shown only on the phone is simply absent from the desktop board, so a reader looking at
+ * one has no way to know how much is missing — and that is where a design that diverges per width
+ * starts drifting. Quiet, and only when there is something to say.
+ */
+.st-frame-missing {
+  padding: 0 5px;
+  border-radius: var(--ou-radius, 4px);
+  background: var(--ou-accent-soft, #dbeafe);
+  color: var(--ou-accent, #2563eb);
+  font-size: var(--ou-text-small, 13px);
+  white-space: nowrap;
+}
+
+/*
+ * ── 설정 ────────────────────────────────────────────────────────
+ *
+ * A form, and the one place in this product that is one. Narrow on purpose: a settings field is read
+ * as a sentence and a full-width input is a line nobody's eye can return from.
+ */
+.st-admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 46rem;
+  padding: 18px 20px 20px;
+  background: var(--ou-panel, #ffffff);
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: 8px;
+  box-shadow: var(--ou-lift-1, 0 1px 2px rgb(15 23 42 / 0.12));
+}
+
+.st-admin-form .st-admin-part { margin-bottom: 0; }
+
+.st-admin-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  align-items: start;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--st-rule);
+}
+
+.st-admin-field-what {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.st-admin-field-what strong {
+  font-size: var(--ou-text, 14px);
+  font-weight: 600;
+  color: var(--ou-ink, #171717);
+}
+
+/*
+ * **무엇을 하는 것인지 한 줄.** A settings screen without these is one a reader guesses at, and the
+ * guesses are expensive here: 주소 looks optional and three things in the published head go missing
+ * without it.
+ */
+.st-admin-field-what span {
+  font-size: var(--ou-text-small, 13px);
+  color: var(--ou-faint, #a3a3a3);
+  line-height: 1.5;
+}
+
+.st-admin-field-do { min-width: 0; }
+
+/* The fields keep their edge here, unlike in a table — see `--ou-field-line`. */
+.st-admin-form .st-admin-field-do { --ou-field-line: var(--ou-line, #d4d4d4); }
+
+.st-admin-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--ou-control-h, 30px);
+  color: var(--ou-muted, #6b6b6b);
+  font-size: var(--ou-text-small, 13px);
+  cursor: pointer;
+}

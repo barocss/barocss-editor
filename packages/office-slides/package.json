@@ -17,7 +17,8 @@
       "import": "./src/ui.ts",
       "default": "./src/ui.ts"
     },
-    "./slides.css": "./src/slides.css"
+    "./slides.css": "./src/slides.css",
+    "./ui.css": "./src/ui.css"
   },
   "publishConfig": {
     "main": "./dist/index.js",
@@ -34,7 +35,8 @@
         "import": "./dist/ui.js",
         "default": "./dist/ui.js"
       },
-      "./slides.css": "./dist/slides.css"
+      "./slides.css": "./dist/slides.css",
+      "./ui.css": "./dist/ui.css"
     },
     "files": [
       "dist"

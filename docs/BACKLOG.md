@@ -14160,3 +14160,136 @@ Newest first. The surprise each one produced is the part worth keeping.
   것은 *블록 경계* 하나뿐이고, 15% 는 그것 말고 다른 자리가 남았다는 뜻이다.
 
   후보(아직 안 쟀다): 데코레이터 경계 · 채움 글자 옆 · `pressTwice` 뒤의 더블클릭 선택.
+
+- **발행된 모든 페이지가 상자 없는 차트를 실어 왔다.** ✅ 고침 — **살아 있는 제품 결함**
+
+  크롬 CSS 를 제품으로 옮기다 나왔다. `.st-chart` · `.st-chart-title` · `.st-chart-plot` ·
+  `.st-sticker` 의 규칙이 `apps/site/src/style.css` 에 있었는데, 페이지 렌더러가 그 클래스를
+  그린다(`renderers.ts:839` 가 `className: 'st-chart'`). **앱의 스타일시트는 발행되지 않는다.**
+
+  즉 편집기 안에서는 멀쩡했고 **발행물에서만** 깨졌다 — 차트는 상자가 없고 스티커는 제 파일
+  크기대로 그려졌다. 브라우저 회차도 못 봤다: 회차는 편집기를 본다.
+
+  `PAGE_CSS` 로 옮겼다. 반대 방향은 깨끗했다 — 내보낸 `<style>` 에 편집기 CSS 는 없다.
+
+- **크롬 CSS 를 제품으로 — `./ui.css`.** ✅ 끝
+
+  | | 앱 | 패키지 |
+  |---|---|---|
+  | slide | 2,878 → **287** | `office-slides/ui.css` **2,672** |
+  | site | 3,537 → **893** | `office-site/ui.css` **2,732** |
+
+  이름은 코드 문을 따라간다 — `./ui` 가 내보내는 것들의 생김새이므로 `./ui.css`. 처음에
+  `chrome.css` 라고 했다가 사용자가 지적했다: **이 저장소 안에서만 통하는 은어이고 패키지 밖에서는
+  브라우저 이름으로 읽힌다.**
+
+  `slides.css`/`PAGE_CSS` 에 안 붙인 이유는 **발행물이 편집기 CSS 를 실으면 안 되기** 때문이다.
+  폴백을 371곳에 달았고 두 `ui.css` 에 값 없는 `var(--ou-…)` 는 0이다.
+
+- **다크에서 팔레트 둘이 동시에 돌고 있었다.** ✅ 고침
+
+  `office-ui/tokens.css` 는 다크를 `:root:not([data-theme='light'])` — **(0,2,0)** 에 선언한다.
+  앱의 매핑은 평범한 `:root` — **(0,1,0)**. 그래서 다크에서는 앱이 매핑한 `--ou-*` 가 전부
+  패키지 기본값에 졌고, 덱이 두 팔레트로 그려졌다: `#1b1f27` 패널 옆에 `#171717`,
+  `#2b313c` 선 옆에 `#404040`.
+
+  **아무도 못 봤다.** `shared-controls.spec.ts` 가 `--ou-line` 을 단정하는데 **라이트에서** 돈다.
+  크롬이 패키지로 오면서 `--ou-*` 를 읽기 시작해서야 드러났다.
+
+  같은 특정성으로 맞췄다(`:root, :root:not([data-theme='light'])`). **다크를 도는 검사가 하나도
+  없다** 는 것이 남은 구멍이다.
+
+- **`--st-muted` 가 어디에도 선언돼 있지 않았다.** ✅ 고침
+
+  `.st-rail-icon` 이 `var(--st-muted)` 를 물었는데 그 이름이 없다. 해석 안 되는 커스텀 속성은
+  computed-value time 에 무효라 **선언 전체가 사라지고** `color` 가 `inherit` 로 떨어진다 —
+  삽입 행의 아이콘이 전부 행의 잉크로 그려지고 있었고, 그 규칙이 막으려던 것이 정확히 그것이었다.
+
+- **아무도 `dist/*.css` 를 안 낸다 — 그리고 내가 쓴 검사가 그것을 스스로 빼고 있었다.** 🔴 열림
+
+  `publishConfig.exports` 가 `"./ui.css": "./dist/ui.css"` 를 적는데 `vite.config.ts` 는 `.ts`
+  진입점만 빌드한다. `office-note` 의 `./note.css` 가 오래 그 상태였다 — 즉 그 패키지가 독립이라는
+  주장이 **발행 시점에는 CSS 까지 거짓** 이었다.
+
+  그리고 그것을 세려고 쓴 `every-door-a-package-opens-is-built` 의 첫 판에
+  `!one.endsWith('.css')` 가 있었다. **가드가 자기가 막을 것을 못 보는** 여섯 번째이고, 이번에는
+  **내가 쓴 가드** 다. `it.fails` 로 그 사실을 붙잡아 뒀다.
+
+- **`.w-emoji` 규칙이 앱에 남아 있다.** 🔴 작은 것
+
+  `office-text/src/renderers.ts` 가 그 클래스를 그리는데 규칙(`display:inline-block` 등)이
+  `apps/site` 에 있다. `text.css` 로 가야 한다. 에이전트가 다른 패키지를 안 건드리는 규칙을
+  지키느라 보고만 했다.
+
+- **`.sr-only` 가 `office-ui` 밖에 있다.** 🔴 작은 것
+
+  `office-ui` 의 `FilePick` 이 `<input type="file">` 에 붙이는데, 그 규칙은 Tailwind 가
+  `office-ui` 를 훑어서 나온다. **Tailwind 없는 호스트는 리본에 맨 파일 입력을 본다.**
+
+- **다크를 도는 검사가 1,092개 중 셋이고, 그 셋은 값을 안 본다.** 🔴 열림
+
+  다크에서 팔레트 둘이 돌던 것을 고치고 나서, *그게 왜 안 잡혔나* 를 재봤다.
+
+  | | |
+  |---|---|
+  | playwright 검사 전체 | 1,092 |
+  | 다크 컨텍스트를 여는 것 | **3** — `word-theme` · `slide-theme` · `site-theme` |
+  | `playwright.config.ts` 여섯 중 `colorScheme` 을 정한 것 | **0** |
+
+  그리고 그 셋이 단정하는 것이 이것이다:
+
+  ```
+  expect(dark.words).toEqual(light.words);        // 문서는 안 움직였다
+  expect(dark.chrome).not.toEqual(light.chrome);  // 크롬은 움직였다
+  ```
+
+  **무엇으로 움직였는지는 안 묻는다.** 그러니 *틀린 다크 팔레트* 로 칠해져도 통과한다 — 실제로
+  그 결함이 있는 채로 통과하고 있었다. `shared-controls.spec.ts:218` 만이 `--ou-*` 값을 앱의
+  팔레트와 대조하는데 **라이트에서만** 돈다.
+
+  고칠 것은 셋이다: 값을 단정하게 바꾸고(세 줄), 크롬·토큰 스펙만 다크 프로젝트로 한 번 더 돌리고
+  (좌표 345개·IME 121개는 라이트로 두고), **원인 쪽은 단위로** — 특정성 산수는 우리 소스가 정한다.
+
+- **내가 승인한 다크 수정이 거울상 버그를 만들었다.** 🔴 열림
+
+  `apps/slide/src/style.css:114` 를 `:root:not([data-theme='light'])` **(0,2,0)** 으로 올려
+  `tokens.css` 의 다크를 이기게 했다. 그런데 그 선택자는 `<html data-theme="dark">` **에도**
+  맞고, `tokens.css:331` 의 `[data-theme='dark']` 는 **(0,1,0)** 이다.
+
+  라이트 시스템에서 다크를 명시하면: 앱의 미디어 쿼리는 안 맞으니 **라이트** `--sl-*` 를 쓰고,
+  그것이 패키지의 다크 팔레트를 이긴다. **덱의 명시적 다크 스위치가 죽는다.** `--sl-*` 에는
+  `[data-theme='dark']` 블록이 없다.
+
+  반대쪽도 반쪽이다: `:84` 의 `@media (prefers-color-scheme: dark) { :root { … } }` 에 `:not()`
+  가드가 없어서, 다크 머신에서 `data-theme="light"` 를 찍으면 **어두운 덱** 이 나온다.
+
+  지금은 잠재다 — `dead-selectors.test.ts:139` 가 slide 는 아직 `data-theme` 를 안 찍는다고
+  기록한다. 그날 둘 다 깨진다.
+
+  **팔레트가 라이트와 다크를 둘 다 가지면 둘을 같은 방식으로 말해야 한다** — 미디어 블록에
+  `:not([data-theme='light'])`, 그리고 같은 이름을 선언하는 `[data-theme='dark']` 블록. 지금
+  `apps/slide/src/style.css` 는 둘 다 없다.
+
+- **`[data-theme='light']` 는 뿌리가 아닌 곳에서 아무 일도 안 한다.** 🔴 열림
+
+  `tokens.css` 에 `[data-theme='light']` 규칙이 **하나도 없다.** `:not()` 가드는 *뿌리* 만
+  보호한다. 그래서 다크 문서 안의 한 조각을 라이트로 되돌릴 방법이 없다.
+
+  `apps/gallery/src/gallery.tsx:61,65` 가 정확히 그 스위치를 `.ga-shell` 에 붙인다 — **다크
+  머신에서 그 앱의 *밝게* 는 아무 일도 안 한다.** 그리고 `apps/gallery` 에는
+  `playwright.config.ts` 도 `tests/` 도 없다.
+
+- **`office-site/ui.css` 가 테마 토큰을 별칭한다.** 🔴 열림
+
+  `:root` 에서 `--st-ground: var(--ou-studio, …)` 처럼 여섯을 별칭하고, 그 파일의 **106개
+  declaration** 이 `--st-*` 를 읽는다. 뿌리에서는 맞다. 그런데 별칭은 **스냅샷** 이라, 어떤
+  서브트리에 `[data-theme='dark']` 를 찍으면 `--ou-*` 는 뒤집히고 106개는 뿌리의 팔레트에 남는다.
+
+  `apps/gallery/src/style.css:33–41` 이 **그 일이 이미 한 번 일어났고 거기서 걷어냈다** 고 적어
+  뒀다. `tokens.test.ts:97` 도 같은 것을 `tokens.css` 안에서만 센다.
+
+- **`.doc-title-field:focus` 가 다크에서 흰 바탕에 흰 글자다.** 🔴 작은 것
+
+  `apps/word/src/style.css:123` 이 `background: #fff` 를 쓰는데 그 요소의 `color` 는 `inherit`
+  (= `--ou-ink` = 다크에서 `#fafafa`). `word-theme.spec.ts` 는 `.w-document *` 의 색과
+  `.w-chrome` 의 배경을 읽으므로 제목 줄은 둘 다 아니다.

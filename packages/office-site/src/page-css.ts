@@ -421,4 +421,64 @@ export const PAGE_CSS =
 .st-page [data-scrolls='x-snap'] > * {
   scroll-snap-align: start;
 }
+
+/*
+ * ── 차트와 스티커 — 페이지 위의 것이고, 편집기의 것이 아니다 ────
+ *
+ * These four rules lived in the app's stylesheet until the shell's CSS was measured and split, and
+ * that is where the defect was: an app's stylesheet is not published. A chart and an inline sticker
+ * are drawn by the same renderers on the board and in the export, so the visitor got the markup and
+ * none of the rules - a chart with no box and a sticker at whatever size its file happens to be, in
+ * the middle of a line.
+ *
+ * Nothing about them is an editing affordance, which is the test for whether a rule belongs here or
+ * in ui.css: if a visitor sees the element, the rule is the page's.
+ *
+ * (No back-ticks in this comment. Everything here is inside a template literal - see the header.)
+ */
+.st-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/*
+ * The title keeps the suite's small type where the suite is loaded and states the same value where
+ * it is not, so the board and the published page agree. That is new: on the page --ou-text-small
+ * resolved to nothing and the declaration was dropped, so a chart's title was drawn at the page's
+ * full body size.
+ */
+.st-chart-title {
+  font-size: var(--ou-text-small, 13px);
+  color: var(--ou-muted, #6b6b6b);
+}
+
+/*
+ * Full width and automatic height with the viewBox doing the work: a chart drawn at 320x180 units
+ * keeps its proportions at any width, and its labels keep their size relative to it - which is the
+ * whole reason font-size is an SVG attribute there rather than a CSS declaration.
+ */
+.st-chart-plot {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+/*
+ * A sticker in the page - the height of the line it sits in.
+ *
+ * A picture that decides its own height in the middle of a paragraph is a paragraph whose lines are
+ * different heights. A reader who wants a big one wants a block, and the page has one.
+ *
+ * (No colon after the word page in here, and that is not pedantry: this stylesheet is inlined into
+ * every exported document, and export.test.ts asserts that no page link's sid ever reaches a
+ * visitor by looking for that exact pair of characters. A comment tripped it.)
+ */
+.st-sticker {
+  height: 1.35em;
+  width: auto;
+  vertical-align: -0.28em;
+}
 `;

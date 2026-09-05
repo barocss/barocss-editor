@@ -46,9 +46,15 @@ const packages = (): { name: string; json: Json; vite: string | null }[] =>
         : null
     }));
 
-/** `.` 과 `*.css` 말고 열린 문 — 코드가 나가는 문만 센다. */
-const codeDoors = (json: Json): string[] =>
-  Object.keys((json.exports ?? {}) as Json).filter((one) => one !== '.' && !one.endsWith('.css'));
+/** `.` 말고 열린 문 전부 — 코드든 스타일이든 발행되면 닿아야 한다. */
+const doors = (json: Json): string[] =>
+  Object.keys((json.exports ?? {}) as Json).filter((one) => one !== '.');
+
+/** 코드 문 — `vite.config.ts` 의 `lib.entry` 에 있어야 한다. */
+const codeDoors = (json: Json): string[] => doors(json).filter((one) => !one.endsWith('.css'));
+
+/** 스타일 문 — 빌드가 그 파일을 `dist` 로 내보내야 한다. */
+const cssDoors = (json: Json): string[] => doors(json).filter((one) => one.endsWith('.css'));
 
 describe('패키지가 여는 문', () => {
   it('발행 설정에도 있다', () => {
@@ -56,7 +62,7 @@ describe('패키지가 여는 문', () => {
     for (const { name, json } of packages()) {
       const publish = ((json.publishConfig ?? {}) as Json).exports as Json | undefined;
       if (!publish) continue;
-      for (const door of codeDoors(json)) {
+      for (const door of doors(json)) {
         if (!(door in publish)) found.push(`${name}: ${door}`);
       }
     }
@@ -83,5 +89,28 @@ describe('패키지가 여는 문', () => {
       found,
       `문은 열려 있는데 빌드가 그 파일을 안 냅니다. 워크스페이스에서는 \`src/*.ts\` 를 직접 가리키므로 보이지 않고, **발행된 뒤에만** 깨집니다:\n${found.join('\n')}`
     ).toEqual([]);
+  });
+  /**
+   * **스타일 문도 닿아야 한다** — 그리고 이 검사의 첫 판은 그것을 **안 셌다.**
+   *
+   * `publishConfig.exports` 가 `"./ui.css": "./dist/ui.css"` 를 적는데 빌드는 `.ts` 진입점만
+   * 낸다. 그래서 발행된 패키지에는 **그 CSS 파일이 없다** — 코드 문에 대해 §2가 말한 것과
+   * 정확히 같은 결함이고, 첫 판이 `!one.endsWith('.css')` 로 **스스로 그것을 빼고 있었다.**
+   *
+   * `office-note` 의 `./note.css` 가 오래 그 상태였다. 셸 CSS 이주를 병렬로 돌린 에이전트가
+   * 보고했다 — *가드가 자기가 막을 것을 못 본다* 의 또 한 번이고, 이번에는 **내가 쓴 가드** 였다.
+   *
+   * `vite` 는 `.ts` 진입점이 `import` 하지 않는 `.css` 를 복사하지 않는다. 답은 빌드가 그것을
+   * 복사하게 하는 것이고, 그때까지 이 검사가 빨갛다.
+   */
+  it.fails('스타일 문의 파일을 빌드가 낸다 — 아직 아무도 안 낸다', () => {
+    const found: string[] = [];
+    for (const { name, json } of packages()) {
+      for (const door of cssDoors(json)) {
+        const out = join(PACKAGES, name, 'dist', door.replace(/^\.\//, ''));
+        if (!existsSync(out)) found.push(`${name}: ${door} — ${out} 이 없습니다`);
+      }
+    }
+    expect(found, found.join('\n')).toEqual([]);
   });
 });

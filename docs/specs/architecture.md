@@ -213,21 +213,67 @@ overlay?: (host: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
 
 `conformance/every-door-a-package-opens-is-built.test.ts` 가 센다.
 
-#### 3. 크롬 CSS — **아직 답이 없다** 🔴
+#### 3. 크롬 CSS — **답은 `./ui.css`**
 
-`apps/slide/src/style.css` 는 **2,871줄, `.sl-` 규칙 335개** 이고, 그것이 방금 옮긴 스물세 조각의
-*생김새* 다. 지금 `@barocss/office-slides/ui` 는 **`apps/slide` 의 스타일시트가 있어야만 맞게
-보인다.**
+`apps/slide/src/style.css` 는 **2,878줄** 이었고, 그것이 방금 옮긴 스물세 조각의 *생김새* 였다.
+누가 쓰는지 세어 보니 그 안의 `.sl-` 이름 **184개 중 173개를 패키지만** 쓰고 있었다 — 앱만 쓰는
+것은 여덟, 아무도 안 쓰는 죽은 것이 둘. 즉 `@barocss/office-slides/ui` 는 **`apps/slide` 의
+스타일시트가 있어야만 맞게 보였다.**
 
-`office-slides/slides.css` 는 그것이 아니다 — 자기 머리에 *"Nothing here styles a document's
-content"* 라고 적혀 있고 21줄이다. 그건 **문서** 의 CSS 이고, 이건 **셸** 의 CSS 다.
+**문 이름은 코드 문을 따라간다: `./ui` 가 내보내는 것들의 생김새이므로 `./ui.css` 다.** `chrome`
+은 이 저장소 안에서만 통하는 은어이고 패키지 밖에서는 브라우저 이름으로 읽힌다.
 
-**이 문서의 문 규칙(*React 가 필요한가*)은 CSS 에 답을 못 준다.** 그리고 `office-slides` 는 이미
-문이 셋이다(`.` · `./ui` · `./slides.css`) — 두 문 규칙이 이미 전부가 아니다. 결정이 필요하다:
-`slides.css` 에 붙일지, `./chrome.css` 를 낼지, 아니면 부품마다 자기 CSS 를 갖게 할지.
+그리고 **`slides.css` 에 붙이지 않는다.** 둘은 서로 다른 질문에 답한다:
 
-**결정 전까지 `office-slides`·`office-site` 는 독립 패키지가 아니다** — 이 저장소의 규칙대로
-*독립된 무언가가 쓰기 전에는 독립이 아니다*.
+| 누가 | 무엇이 필요한가 |
+|---|---|
+| 발행된 덱 · 뷰어 · 썸네일 · 내보낸 HTML | `slides.css` **만** — 툴바가 없다 |
+| 편집기를 띄우는 호스트 | 둘 다 |
+
+하나로 합치면 **발행된 페이지가 편집기 툴바 CSS 를 싣는다** — 그 페이지가 절대 그릴 수 없는
+2,600줄이다.
+
+패키지의 CSS 는 `office-ui` 토큰을 **반드시 폴백과 함께** 쓴다 — `var(--ou-line, #d4d4d4)`. 값 없는
+`var(--ou-…)` 는 computed-value time 에 무효라 **선언 전체를 가져가므로**, 토큰 없는 호스트는
+*잘못된 회색* 이 아니라 *테두리 없음* 을 받는다. 그게 *다른 CMS 에 마운트할 수 있다* 의 실제 내용이다.
+
+`office-slides` 와 `office-site` 가 이제 각자 자기 크롬을 갖는다. 폴백을 **371곳**에 달았고
+(slide 130 · site 241), 두 `ui.css` 에 값 없는 `var(--ou-…)` 는 **0** 이다.
+
+##### 그리고 site 쪽에서 갈래가 하나 더 나왔다 — **발행되는 CSS**
+
+사이트 빌더는 slide 보다 한 겹 어렵다. 발행된 페이지가 필요한 CSS 가 따로 있고, 그건
+`page-css.ts` 의 `PAGE_CSS` 다 — `main.tsx` 가 주입하고 `export-html.ts` 가 인라인하므로
+**같은 바이트가 두 곳으로 간다.**
+
+가르다 보니 **네 규칙이 앱의 스타일시트에 있었다**: `.st-chart` · `.st-chart-title` ·
+`.st-chart-plot` · `.st-sticker`. 페이지 렌더러가 그 클래스를 그리는데
+(`renderers.ts:839` 가 `className: 'st-chart'`), **앱의 스타일시트는 발행되지 않는다.**
+
+> **이 제품이 발행한 모든 페이지가 상자 없는 차트와 제 파일 크기대로 그려진 스티커를 실어 왔다.**
+
+반대 방향은 깨끗했다 — 내보낸 `<style>` 에 편집기 CSS 는 한 줄도 안 실린다.
+
+**그러므로 CSS 는 셋으로 갈린다:**
+
+| | 어디 | 누가 싣나 |
+|---|---|---|
+| **발행되는 것** | `page-css.ts` 의 `PAGE_CSS`(site) · `slides.css`(deck) | 발행물과 편집기 **둘 다** |
+| **편집기 UI** | `ui.css` | 편집기만 |
+| **셸의 셸** | 앱의 `style.css` | 그 앱만 |
+
+`slides.css` 와 `PAGE_CSS` 는 이름이 다르지만 같은 칸이다 — 하나는 파일, 하나는 문자열이고,
+문자열인 이유는 **내보낸 HTML 에 인라인되어야** 하기 때문이다.
+
+##### 남은 것: 아무도 `dist/*.css` 를 안 낸다 🔴
+
+`publishConfig.exports` 가 `"./ui.css": "./dist/ui.css"` 를 적는데 `vite.config.ts` 는 `.ts`
+진입점만 빌드한다. `office-note` 의 `./note.css` 가 **오래 그 상태였다.**
+
+그리고 그것을 세려고 쓴 검사가 **스스로 그 문을 빼고 있었다** — 첫 판에
+`!one.endsWith('.css')` 가 있었다. 이 회차에 여섯 번째로 만난 *가드가 자기가 막을 것을 못 본다*
+이고, 이번에는 **내가 쓴 가드** 였다.
+`every-door-a-package-opens-is-built.test.ts` 의 세 번째 검사가 `it.fails` 로 그 사실을 붙잡는다.
 
 #### 4. 픽스처는 **루트로** 나간다
 
