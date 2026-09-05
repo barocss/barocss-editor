@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { dragGesture } from '@barocss/shared';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import {
@@ -271,18 +272,22 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
         dy: (dy / drawn.height) * size.height
       });
 
-      const from = { x: event.clientX, y: event.clientY };
-      let moved = false;
       let landed = { dx: 0, dy: 0 };
 
-      const move = (at: PointerEvent) => {
-        const dx = at.clientX - from.x;
-        const dy = at.clientY - from.y;
-        // A press that has not travelled is a click. Two pixels of slack, because a pointer moves
-        // a little while a finger presses and a shape that jumped on every click would be unusable.
-        if (!moved && Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
-        moved = true;
-
+      /**
+       * **미리 보기는 `transform` 으로, 쓰기는 놓을 때 한 번.**
+       *
+       * 문턱은 `dragGesture` 가 잡는다 — 전에는 `moved` 깃발과 2px 을 손으로 셌고, 그 주석의 이유가
+       * 그대로 맞다: *누르는 동안 포인터가 조금 움직이고, 클릭마다 도형이 뛰면 못 쓴다.* 이제 그
+       * 판단이 제스처의 것이고 `moved.dragged` 가 같은 답을 준다.
+       *
+       * 그리고 없던 것이 둘 생긴다. **`pointercancel`** 로 끝나도 `transform` 이 걷히고 창에
+       * 리스너가 안 남는다 — 전에는 남아서, 그 뒤로 아무 포인터 움직임이나 스냅 계산을 계속 돌았다.
+       * 그리고 **Escape 로 물러서면** 도형이 제자리로 돌아간다.
+       */
+      const move = (at: { clientX: number; clientY: number; metaKey?: boolean; ctrlKey?: boolean }) => {
+        const dx = at.clientX - (event as PointerEvent).clientX;
+        const dy = at.clientY - (event as PointerEvent).clientY;
         const asked = toModel(dx, dy);
         landed = asked;
         let hit: Guide[] = [];
@@ -313,24 +318,33 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
         setGuides(hit);
       };
 
-      const up = () => {
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
+      /** 그리던 것을 걷는다 — 놓든 물러서든 화면은 문서가 말하는 대로 돌아가야 한다. */
+      const clear = () => {
         for (const element of elements) element.style.transform = '';
         setDragged(null);
         setGuides([]);
-        if (!moved) return;
-
-        // What was drawn is what is written: the snapped delta, not the pointer's own.
-        void (editor as any).executeCommand?.('moveShapes', {
-          nodeIds: moving,
-          dx: landed.dx,
-          dy: landed.dy
-        });
       };
 
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
+      dragGesture(
+        event,
+        {
+          start: () => ({}),
+          move: (_held, at) => move({ clientX: at.x, clientY: at.y, metaKey: at.meta, ctrlKey: at.ctrl }),
+          done: (_held, at) => {
+            clear();
+            if (!at.dragged) return;
+            // What was drawn is what is written: the snapped delta, not the pointer's own.
+            void (editor as any).executeCommand?.('moveShapes', {
+              nodeIds: moving,
+              dx: landed.dx,
+              dy: landed.dy
+            });
+          },
+          abort: () => clear()
+        },
+        /* 2px — 이 자리가 원래 세던 문턱 그대로다. */
+        { threshold: 2 }
+      );
     };
 
     /**
@@ -354,22 +368,27 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
         y: ((clientY - drawn.top) / drawn.height) * size.height
       });
 
-      const from = { x: event.clientX, y: event.clientY };
-      const move = (moved: PointerEvent) => {
+      /**
+       * **밴드는 화면의 것이고, 무엇을 잡았나는 모델의 것이다.**
+       *
+       * 문턱이 0인 이유: 밴드는 첫 픽셀부터 보여야 한다. *끌지 않은 누름은 배경 클릭* 이라는 판단은
+       * 아래에서 모델 좌표로 2 미만인지 물어서 하고, 그건 화면 픽셀이 아니라 문서의 단위다 — 확대해
+       * 놓고 조금 끈 것과 축소해 놓고 많이 끈 것을 같게 다루면 안 된다.
+       */
+      const move = (at: { x: number; y: number }) => {
         setBand({
-          left: Math.min(from.x, moved.clientX) - origin.left,
-          top: Math.min(from.y, moved.clientY) - origin.top,
-          width: Math.abs(moved.clientX - from.x),
-          height: Math.abs(moved.clientY - from.y)
+          left: Math.min(event.clientX, at.x) - origin.left,
+          top: Math.min(event.clientY, at.y) - origin.top,
+          width: Math.abs(at.x - event.clientX),
+          height: Math.abs(at.y - event.clientY)
         });
       };
-      const up = (ended: PointerEvent) => {
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
+
+      const land = (at: { x: number; y: number }) => {
         setBand(null);
 
-        const a = toModel(from.x, from.y);
-        const b = toModel(ended.clientX, ended.clientY);
+        const a = toModel(event.clientX, event.clientY);
+        const b = toModel(at.x, at.y);
         const band: Box = {
           x: Math.min(a.x, b.x),
           y: Math.min(a.y, b.y),
@@ -394,8 +413,17 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
         (editor as any).setNode?.(caught.length > 0 ? { nodeIds: caught } : null);
       };
 
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
+      dragGesture(
+        event,
+        {
+          start: () => ({}),
+          move: (_held, at) => move(at),
+          done: (_held, at) => land(at),
+          /* 물러서면 밴드만 걷고 선택은 건드리지 않는다 — 고르던 것을 취소한 것이지 지운 것이 아니다. */
+          abort: () => setBand(null)
+        },
+        { threshold: 0 }
+      );
     };
 
     host.addEventListener('pointerdown', onDown);
@@ -429,30 +457,42 @@ export function DrawingOverlay({ editor, host }: { editor: Editor | null; host: 
 
     const drawn = canvasEl.getBoundingClientRect();
     const size = boxOf((doc.getNode(canvasSid) as any)?.attributes);
-    const from = { x: event.clientX, y: event.clientY };
+    dragGesture(
+      event,
+      {
+        start: () => ({}),
+        /* 미리 보기는 화면 픽셀의 델타 — 그리는 것은 화면의 일이다. */
+        move: (_held, at) => setPulled({ handle, dx: at.dx, dy: at.dy }),
 
-    const move = (at: PointerEvent) => setPulled({ handle, dx: at.clientX - from.x, dy: at.clientY - from.y });
-    const up = (at: PointerEvent) => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      setPulled(null);
+        done: (_held, at) => {
+          setPulled(null);
 
-      const dx = ((at.clientX - from.x) / drawn.width) * size.width;
-      const dy = ((at.clientY - from.y) / drawn.height) * size.height;
-      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+          const dx = (at.dx / drawn.width) * size.width;
+          const dy = (at.dy / drawn.height) * size.height;
+          if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
 
-      void (editor as any).executeCommand?.('resizeShapes', {
-        nodeIds: moving,
-        handle,
-        dx,
-        dy,
-        keepAspect: at.shiftKey,
-        fromCentre: at.altKey
-      });
-    };
+          /**
+           * **Shift 와 Alt 는 놓을 때의 것이다** — 그리고 그게 `moved` 가 주는 것이다.
+           *
+           * 전에는 `pointerup` 이벤트의 `shiftKey`/`altKey` 를 읽었고 답은 같다. 다른 것은 이제
+           * *언제 읽는가* 가 한 곳에 적혀 있다는 것이다: 비율 고정과 가운데 기준은 **끄는 중에**
+           * 누르고 뗄 때의 상태가 답이다.
+           */
+          void (editor as any).executeCommand?.('resizeShapes', {
+            nodeIds: moving,
+            handle,
+            dx,
+            dy,
+            keepAspect: at.shift,
+            fromCentre: at.alt
+          });
+        },
 
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+        /* 물러서면 미리 보기만 걷고 크기는 그대로다. */
+        abort: () => setPulled(null)
+      },
+      { threshold: 0 }
+    );
   };
 
   return (

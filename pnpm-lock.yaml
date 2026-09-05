@@ -384,6 +384,9 @@ importers:
       '@barocss/schema':
         specifier: workspace:*
         version: link:../../packages/schema
+      '@barocss/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@codemirror/commands':
         specifier: ^6.11.0
         version: 6.11.0

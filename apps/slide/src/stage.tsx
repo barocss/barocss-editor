@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { dragGesture } from '@barocss/shared';
 import { axisTicks, rulerStep, useWheelZoom, type LengthUnit } from '@barocss/office-ui';
 import {
   SLIDE_16_9,
@@ -417,33 +418,43 @@ function SlideRuler({
    * gesture, and the preview a reader watches is the app's for exactly that
    * reason — see `draftGuide`.
    */
-  const pull = (event: React.PointerEvent) => {
-    if (!onPlace) return;
-    event.preventDefault();
+  const pull = (event: React.PointerEvent) =>
+    void dragGesture(
+      event,
+      {
+        start: (pointer) => {
+          if (!onPlace) return null;
+          const box = host.current?.getBoundingClientRect();
+          if (!box) return null;
 
-    const box = host.current?.getBoundingClientRect();
-    if (!box) return;
+          const along = (at: { clientX: number; clientY: number }) =>
+            Math.round(
+              pxToTwip((axis === 'x' ? at.clientX - box.left : at.clientY - box.top) / scale)
+            );
 
-    const along = (pointer: { clientX: number; clientY: number }) =>
-      Math.round(
-        pxToTwip(
-          (axis === 'x' ? pointer.clientX - box.left : pointer.clientY - box.top) / scale
-        )
-      );
+          onDraft?.(along(pointer));
+          return { along };
+        },
 
-    onDraft?.(along(event));
+        move: (held, moved) => onDraft?.(held.along({ clientX: moved.x, clientY: moved.y })),
 
-    const move = (moved: PointerEvent) => onDraft?.(along(moved));
-    const up = (ended: PointerEvent) => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      onDraft?.(undefined);
-      onPlace(along(ended));
-    };
+        done: (held, moved) => {
+          onDraft?.(undefined);
+          onPlace?.(held.along({ clientX: moved.x, clientY: moved.y }));
+        },
 
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  };
+        /**
+         * **물러서면 가이드를 놓지 않는다** — 그리고 이건 이 자리에 없던 것이다.
+         *
+         * 전에는 `pointerup` 에서만 걷었으므로 Escape 로 물러설 방법이 없었고, `pointercancel` 이
+         * 오면(터치가 끊기거나 자가 다시 그려지면) `pointermove` 가 **창에 영원히 남아** 그 뒤로
+         * 아무 포인터 움직임이나 미리 보기를 계속 그렸다. `dragGesture` 가 그 둘을 같이 준다.
+         */
+        abort: () => onDraft?.(undefined)
+      },
+      /* 누른 자리가 곧 값이다 — 3px 을 기다리면 자에서 끌어낸 첫 3px 이 안 움직인다. */
+      { threshold: 0 }
+    );
 
   return (
     <div

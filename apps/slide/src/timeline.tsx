@@ -6,6 +6,7 @@ import {
   useRef,
   useState
 } from 'react';
+import { dragGesture } from '@barocss/shared';
 import type { Editor } from '@barocss/editor-core';
 import {
   Button,
@@ -496,14 +497,28 @@ export function TimelinePane({
       onSelected?.(caught);
     };
 
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
+    const land = () => {
       setBand(undefined);
       if (!moved) onSelected?.([]);
     };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+    /*
+     * 미리 보기는 앱의 것이고 쓰기는 놓을 때 한 번. `dragGesture` 로 옮기면서 둘이 생긴다 —
+     * `pointercancel` 로 끝나도 리스너가 창에 안 남고, Escape 로 물러설 수 있다.
+     */
+    dragGesture(
+      event as unknown as PointerEvent,
+      {
+        start: () => ({}),
+        move: (_held, at) => move({ clientX: at.x, clientY: at.y } as PointerEvent),
+        done: () => land(),
+        /*
+         * 물러서기와 놓기가 같은 일을 한다 — 이 드래그는 미리 보기를 화면에만 그리고 놓을 때 쓸
+         * 것이 없으므로, 걷는 것이 곧 끝이다.
+         */
+        abort: () => land()
+      },
+      { threshold: 0 }
+    );
   };
 
   /**
@@ -545,12 +560,26 @@ export function TimelinePane({
       // written.
       onHeight(Math.min(window.innerHeight * 0.7, Math.max(120, start - (pointer.clientY - from))));
     };
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
+    const land = () => {
     };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+    /*
+     * 미리 보기는 앱의 것이고 쓰기는 놓을 때 한 번. `dragGesture` 로 옮기면서 둘이 생긴다 —
+     * `pointercancel` 로 끝나도 리스너가 창에 안 남고, Escape 로 물러설 수 있다.
+     */
+    dragGesture(
+      event as unknown as PointerEvent,
+      {
+        start: () => ({}),
+        move: (_held, at) => move({ clientX: at.x, clientY: at.y } as PointerEvent),
+        done: () => land(),
+        /*
+         * 물러서기와 놓기가 같은 일을 한다 — 이 드래그는 미리 보기를 화면에만 그리고 놓을 때 쓸
+         * 것이 없으므로, 걷는 것이 곧 끝이다.
+         */
+        abort: () => land()
+      },
+      { threshold: 0 }
+    );
   };
 
   return (
@@ -1157,9 +1186,7 @@ function Track({
       }
     };
 
-    const onUp = (up: PointerEvent) => {
-      window.removeEventListener('pointermove', onMoveEvent);
-      window.removeEventListener('pointerup', onUp);
+    const land = (up: PointerEvent) => {
       if (host.current) host.current.dataset.snapped = '';
 
       const delta = (up.clientX - from) * perPixel;
@@ -1194,8 +1221,27 @@ function Track({
       onResize(step.sid, length);
     };
 
-    window.addEventListener('pointermove', onMoveEvent);
-    window.addEventListener('pointerup', onUp);
+    /*
+     * 미리 보기는 앱의 것이고 쓰기는 놓을 때 한 번. `dragGesture` 로 옮기면서 둘이 생긴다 —
+     * `pointercancel` 로 끝나도 리스너가 창에 안 남고, Escape 로 물러설 수 있다.
+     */
+    dragGesture(
+      event as unknown as PointerEvent,
+      {
+        start: () => ({}),
+        move: (_held, at) => onMoveEvent({ clientX: at.x, clientY: at.y } as PointerEvent),
+        done: (_held, at) => land({ clientX: at.x, clientY: at.y } as PointerEvent),
+        /**
+         * **물러서면 시작 자리로 놓는다.**
+         *
+         * `land` 는 움직인 거리가 문턱(`perPixel * 3`)보다 작으면 아무것도 쓰지 않는다 —
+         * *누르기만 한 것은 선택이지 편집이 아니다* 라는 그 판단이 이미 거기 있다. 그러니 시작
+         * 자리를 주면 **쓰지 않고 걷기** 가 되고, 되돌리기를 따로 부를 필요가 없다.
+         */
+        abort: () => land(event as unknown as PointerEvent)
+      },
+      { threshold: 0 }
+    );
   };
 
   return (
@@ -2220,12 +2266,26 @@ function CurveEditor({
       onChange(bezierCss(next));
     };
 
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
+    const land = () => {
     };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+    /*
+     * 미리 보기는 앱의 것이고 쓰기는 놓을 때 한 번. `dragGesture` 로 옮기면서 둘이 생긴다 —
+     * `pointercancel` 로 끝나도 리스너가 창에 안 남고, Escape 로 물러설 수 있다.
+     */
+    dragGesture(
+      event as unknown as PointerEvent,
+      {
+        start: () => ({}),
+        move: (_held, at) => move({ clientX: at.x, clientY: at.y } as PointerEvent),
+        done: () => land(),
+        /*
+         * 물러서기와 놓기가 같은 일을 한다 — 이 드래그는 미리 보기를 화면에만 그리고 놓을 때 쓸
+         * 것이 없으므로, 걷는 것이 곧 끝이다.
+         */
+        abort: () => land()
+      },
+      { threshold: 0 }
+    );
   };
 
   return (

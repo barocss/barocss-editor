@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { dragGesture } from '@barocss/shared';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import {
@@ -721,9 +722,7 @@ export function SelectionOverlay({
         });
       };
 
-      const up = (pointer: PointerEvent) => {
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
+      const land = (pointer: PointerEvent) => {
 
         const at = toModel(pointer);
         const dropped: Guide = {
@@ -740,8 +739,24 @@ export function SelectionOverlay({
         );
       };
 
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
+      /**
+       * 미리 보기는 앱의 것이고 쓰기는 놓을 때 한 번 — 이 파일의 드래그가 다 그렇다.
+       *
+       * `dragGesture` 로 옮기면서 둘이 생긴다: **`pointercancel`** 로 끝나도 리스너가 창에 안 남고
+       * (전에는 남아서 그 뒤 아무 포인터 움직임이나 이 계산을 계속 돌았다), **Escape 로 물러서면**
+       * 문서가 아무 말도 못 듣는다.
+       */
+      dragGesture(
+        event as unknown as PointerEvent,
+        {
+          start: () => ({}),
+          move: (_held, at) => move({ clientX: at.x, clientY: at.y } as PointerEvent),
+          done: (_held, at) => land({ clientX: at.x, clientY: at.y } as PointerEvent),
+          /* 물러서면 잡고 있던 가이드를 놓아 준다 — 문서는 아무 말도 못 듣는다. */
+          abort: () => setHeldGuide(null)
+        },
+        { threshold: 0 }
+      );
     },
     [placed, toModel, size, writeGuides]
   );
@@ -958,12 +973,29 @@ export function SelectionOverlay({
       void editor?.executeCommand('setMotionStep', { stepId: stepSid, path: next });
     };
 
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
+    const land = () => {
     };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+    /**
+     * 미리 보기는 앱의 것이고 쓰기는 놓을 때 한 번 — 이 파일의 드래그가 다 그렇다.
+     *
+     * `dragGesture` 로 옮기면서 둘이 생긴다: **`pointercancel`** 로 끝나도 리스너가 창에 안 남고
+     * (전에는 남아서 그 뒤 아무 포인터 움직임이나 이 계산을 계속 돌았다), **Escape 로 물러서면**
+     * 문서가 아무 말도 못 듣는다.
+     */
+    dragGesture(
+      event as unknown as PointerEvent,
+      {
+        start: () => ({}),
+        move: (_held, at) => move({ clientX: at.x, clientY: at.y } as PointerEvent),
+        done: () => land(),
+        /*
+         * 되돌릴 미리 보기가 없다 — 이 드래그는 움직임마다 문서에 쓴다. 물러서기의 뜻은 *더 쓰지
+         * 않는다* 이고, 지금까지 쓴 것은 되돌리기가 되돌린다.
+         */
+        abort: () => undefined
+      },
+      { threshold: 0 }
+    );
   };
 
   /**
@@ -1216,14 +1248,28 @@ export function SelectionOverlay({
       });
     };
 
-    const up = (pointer: PointerEvent) => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
+    const land = (pointer: PointerEvent) => {
       move(pointer);
     };
 
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+    /**
+     * 미리 보기는 앱의 것이고 쓰기는 놓을 때 한 번 — 이 파일의 드래그가 다 그렇다.
+     *
+     * `dragGesture` 로 옮기면서 둘이 생긴다: **`pointercancel`** 로 끝나도 리스너가 창에 안 남고
+     * (전에는 남아서 그 뒤 아무 포인터 움직임이나 이 계산을 계속 돌았다), **Escape 로 물러서면**
+     * 문서가 아무 말도 못 듣는다.
+     */
+    dragGesture(
+      event as unknown as PointerEvent,
+      {
+        start: () => ({}),
+        move: (_held, at) => move({ clientX: at.x, clientY: at.y } as PointerEvent),
+        done: (_held, at) => land({ clientX: at.x, clientY: at.y } as PointerEvent),
+        /* 위와 같다: 움직임마다 쓰므로 걷을 미리 보기가 없다. */
+        abort: () => undefined
+      },
+      { threshold: 0 }
+    );
   };
 
   // ── Dragging ───────────────────────────────────────────────────────────────

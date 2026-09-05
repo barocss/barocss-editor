@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { dragGesture } from '@barocss/shared';
 import type { Editor } from '@barocss/editor-core';
 import { Icon, Menu } from '@barocss/office-ui';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
@@ -1502,9 +1503,7 @@ export function Overlay({
                         el.style.setProperty(`padding-${side}`, `${now}px`);
                       };
 
-                      const onUp = () => {
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
+                      const land = () => {
         /*
                          * Back to what the renderer had before the command runs, so the document's own
                          * value is what draws: leaving the dragged number on would paint the block at
@@ -1536,8 +1535,24 @@ export function Overlay({
                         });
                       };
 
-                      window.addEventListener('pointermove', onMove);
-                      window.addEventListener('pointerup', onUp);
+                      /**
+                       * 미리 보기는 인라인 스타일이고 쓰기는 놓을 때 한 번 — 이 파일의 드래그가 다
+                       * 그렇다. `restore()` 가 그리던 것을 걷으므로 **물러섰을 때 할 일이 이미
+                       * 있었다**: `pointercancel` 로 끝나도, Escape 를 눌러도 문서가 그리던 값으로
+                       * 돌아간다. 전에는 `pointerup` 에서만 걷었으므로 취소되면 인라인 스타일이 남고
+                       * `pointermove` 가 **창에 영원히** 남았다.
+                       */
+                      dragGesture(
+                        event,
+                        {
+                          start: () => ({}),
+                          move: (_held, at) =>
+                            onMove({ clientX: at.x, clientY: at.y } as PointerEvent),
+                          done: () => land(),
+                          abort: () => restore()
+                        },
+                        { threshold: 0 }
+                      );
                     }}
                   >
                     {inside.pad[side] >= 24 ? <em>{inside.pad[side]}</em> : null}
@@ -1793,9 +1808,7 @@ export function Overlay({
                       setSizing(across && down ? `${wide} × ${tall}` : across ? `${wide}` : `${tall}`);
                     };
 
-                    const onUp = () => {
-                      window.removeEventListener('pointermove', onMove);
-                      window.removeEventListener('pointerup', onUp);
+                    const land = () => {
                       // Back to what the renderer had — see `holdStyle`.
                       restore();
                       setSizing(undefined);
@@ -1827,8 +1840,24 @@ export function Overlay({
                       });
                     };
 
-                    window.addEventListener('pointermove', onMove);
-                    window.addEventListener('pointerup', onUp);
+                      /**
+                       * 미리 보기는 인라인 스타일이고 쓰기는 놓을 때 한 번 — 이 파일의 드래그가 다
+                       * 그렇다. `restore()` 가 그리던 것을 걷으므로 **물러섰을 때 할 일이 이미
+                       * 있었다**: `pointercancel` 로 끝나도, Escape 를 눌러도 문서가 그리던 값으로
+                       * 돌아간다. 전에는 `pointerup` 에서만 걷었으므로 취소되면 인라인 스타일이 남고
+                       * `pointermove` 가 **창에 영원히** 남았다.
+                       */
+                      dragGesture(
+                        event,
+                        {
+                          start: () => ({}),
+                          move: (_held, at) =>
+                            onMove({ clientX: at.x, clientY: at.y } as PointerEvent),
+                          done: () => land(),
+                          abort: () => restore()
+                        },
+                        { threshold: 0 }
+                      );
                   }}
                 />
               ))
@@ -1891,9 +1920,7 @@ export function Overlay({
                   now = Math.max(0, Math.round(was + travelled));
                   el.style.setProperty(paints, `${now}px`);
                 };
-                const onUp = () => {
-                  window.removeEventListener('pointermove', onMove);
-                  window.removeEventListener('pointerup', onUp);
+                const land = () => {
                   setPulling(undefined);
                   // Back to what the renderer had, so the document's own value is what draws.
                   restore();
@@ -1905,8 +1932,24 @@ export function Overlay({
                     [writes]: Math.round(now * 15)
                   });
                 };
-                window.addEventListener('pointermove', onMove);
-                window.addEventListener('pointerup', onUp);
+                      /**
+                       * 미리 보기는 인라인 스타일이고 쓰기는 놓을 때 한 번 — 이 파일의 드래그가 다
+                       * 그렇다. `restore()` 가 그리던 것을 걷으므로 **물러섰을 때 할 일이 이미
+                       * 있었다**: `pointercancel` 로 끝나도, Escape 를 눌러도 문서가 그리던 값으로
+                       * 돌아간다. 전에는 `pointerup` 에서만 걷었으므로 취소되면 인라인 스타일이 남고
+                       * `pointermove` 가 **창에 영원히** 남았다.
+                       */
+                      dragGesture(
+                        event,
+                        {
+                          start: () => ({}),
+                          move: (_held, at) =>
+                            onMove({ clientX: at.x, clientY: at.y } as PointerEvent),
+                          done: () => land(),
+                          abort: () => restore()
+                        },
+                        { threshold: 0 }
+                      );
               }}
             >
               {gap.said >= 24 ? <em>{gap.said}</em> : null}
