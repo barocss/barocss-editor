@@ -71,9 +71,20 @@ export function stripChromeElements(root: Element | DocumentFragment): void {
  * Check if element is a decorator
  */
 function isDecoratorElement(el: Element): boolean {
+  /*
+   * **`data-bc-decorator-sid` 도 안다.** 이름이 넷인 것은 그리는 경로가 둘이고 각자 접두어가 다르기
+   * 때문이다 — `editor-view-dom/decorator/decorator-renderer` 는 `data-bc-*`, `renderer-dom` 과
+   * `renderer-react` 는 `data-decorator-*`. 여기 셋만 적혀 있어서 `data-bc-decorator-sid` 만 붙은
+   * 요소가 데코레이터로 안 세어졌다.
+   *
+   * 실제로는 그 렌더러가 같은 요소에 `data-bc-decorator` 도 쓰므로 제품에서는 걸렸다. 걸리지 않는
+   * 것은 그 하나만 세우는 **검사의 픽스처**였고, 그래서 이 결함은 검사에서만 보였다 — 픽스처가
+   * 제품보다 좁은 모양을 세우면 그 좁음이 결함으로 보인다.
+   */
   return !!(
     el.hasAttribute('data-decorator-sid') ||
     el.hasAttribute('data-bc-decorator') ||
+    el.hasAttribute('data-bc-decorator-sid') ||
     el.hasAttribute('data-decorator-category')
   );
 }
@@ -100,7 +111,23 @@ function isDecoratorElement(el: Element): boolean {
  * wrong. It surfaces the moment the model is trusted to finish its own edits.
  */
 function isDecoratorOwnText(el: Element): boolean {
-  return el.getAttribute('data-decorator-category') !== 'inline';
+  /**
+   * **종류를 적는 이름이 둘이다** — 그리기 경로가 둘이기 때문이다.
+   *
+   * | 누가 그리나 | 종류를 어디에 적나 |
+   * |---|---|
+   * | `renderer-dom` · `renderer-react` | `data-decorator-category` (`decorator.category` 그대로) |
+   * | `editor-view-dom/decorator/decorator-renderer` | **`data-bc-decorator`** (`'layer'`·`'inline'`·`'block'`) |
+   *
+   * 여기서는 앞의 것만 보고 있었다. 그래서 `editor-view-dom` 의 데코레이터 렌더러가 그린 **인라인**
+   * 데코레이터는 `data-bc-decorator="inline"` 인데 종류를 못 읽어 *자기 것을 그리는 것* 으로 세어졌고,
+   * 그것이 감싼 **문서 자신의 글자가 색인에서 빠졌다.**
+   *
+   * 두 이름을 다 읽는다. 이름을 하나로 합치는 것이 옳지만 그건 렌더러 두 곳과 그 검사들의 일이고,
+   * 여기서 한 이름만 아는 채로 두면 그 통합이 끝날 때까지 색인이 조용히 틀린다.
+   */
+  const said = el.getAttribute('data-decorator-category') ?? el.getAttribute('data-bc-decorator');
+  return said !== 'inline';
 }
 
 export function buildTextRunIndex(

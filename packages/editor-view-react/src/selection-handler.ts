@@ -268,11 +268,22 @@ export class ReactSelectionHandler {
     return el;
   }
 
+  /**
+   * **데코레이터를 거르는 규칙을 여기서 다시 쓰지 않는다** — `editor-view-dom` 의 같은 함수와 같은
+   * 이유이고, 이쪽은 더 조용히 틀려 있었다.
+   *
+   * `buildTextRunIndex` 안에 이미 더 정확한 답이 있다(`isDecoratorOwnText`): **인라인** 데코레이터는
+   * 이미 있는 글자의 한 구간을 감싸므로 그 안의 글자는 노드 자신의 것이고 색인되어야 한다.
+   *
+   * 여기서는 **양쪽 방향이 다 그것을 덧걸렀다.** 그래서 왕복은 맞고 오프셋이 늘 틀렸다 —
+   * `가나[다라]마바` 에서 대괄호가 인라인 데코레이터일 때 `마` 뒤가 모델에서 5인데 **3** 으로
+   * 읽힌다. 두 방향이 같은 만큼 틀리므로 화면에서는 아무 일도 안 일어난 것처럼 보이고, 그 오프셋이
+   * 명령으로 넘어가는 순간 엉뚱한 글자가 지워진다.
+   *
+   * `editor-view-dom` 은 한쪽만 덧걸러서 **왕복이 어긋났다**. 같은 원인, 다른 증상.
+   */
   private ensureRuns(containerEl: Element, containerId: string): ContainerRuns {
-    return buildTextRunIndex(containerEl, containerId, {
-      buildReverseMap: true,
-      excludePredicate: (el) => this.isDecoratorElement(el),
-    });
+    return buildTextRunIndex(containerEl, containerId, { buildReverseMap: true });
   }
 
   private convertOffsetWithRuns(
@@ -494,11 +505,8 @@ export class ReactSelectionHandler {
   private getTextRunsForContainer(container: Element): ContainerRuns | null {
     try {
       const containerId = container.getAttribute('data-bc-sid');
-      return buildTextRunIndex(container, containerId ?? undefined, {
-        buildReverseMap: true,
-        excludePredicate: (el) =>
-          this.isDecoratorElement(el),
-      });
+      /* 위와 같다 — 거르는 규칙은 `buildTextRunIndex` 의 것이다. */
+      return buildTextRunIndex(container, containerId ?? undefined, { buildReverseMap: true });
     } catch {
       return null;
     }

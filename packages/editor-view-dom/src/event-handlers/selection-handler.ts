@@ -316,12 +316,33 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     return (last ? runs[runs.length - 1] : runs[0]) as Element;
   }
 
+  /**
+   * **데코레이터를 거르는 규칙을 여기서 다시 쓰지 않는다.**
+   *
+   * `excludePredicate: (el) => el.hasAttribute('data-bc-decorator')` 였고, 그것이 `buildTextRunIndex`
+   * 자신의 판단을 **덧걸렀다.** 그 안에는 이미 더 정확한 답이 있다 — `isDecoratorOwnText`:
+   *
+   * > *인라인 데코레이터는 이미 있는 글자의 한 구간을 감싼다 — 검색 히트, 주석 달린 구절 — 그러니 그
+   * > 안의 글자는 노드 자신의 것이고 다른 글자처럼 색인되어야 한다. 나머지 종류는 자기 것을 그린다.*
+   *
+   * 그 프로세는 이 결함을 이미 서술해 뒀다: *"전부를 건너뛴 것은 조용히 누적되는 결함이었다."*
+   *
+   * ## 재보니 한 파일 안에서 두 방향이 서로 다른 답을 쓰고 있었다
+   *
+   * | | 거르는 규칙 |
+   * |---|---|
+   * | `ensureRuns` (DOM→모델) | `data-bc-decorator` 만 — **category 를 안 본다** |
+   * | `getTextRunsForContainer` (모델→DOM) | `isDecoratorElement` — category 를 본다 |
+   *
+   * 그래서 왕복이 어긋난다. `가나[다라]마바` 에서 대괄호가 인라인 데코레이터일 때, 캐럿을 `마` 뒤에
+   * 두고 읽으면 **3**(데코레이터의 두 글자를 안 셈), 그 3을 되돌려 놓으면 **데코레이터 안의 `다라`**
+   * 로 간다. `category` 가 `block` 이거나 없으면 왕복이 맞는다 — **인라인일 때만** 어긋난다.
+   *
+   * 지우는 것이 고치는 것이다: 아무것도 넘기지 않으면 `buildTextRunIndex` 의 답이 그대로 쓰인다.
+   */
   private ensureRuns(containerEl: Element, containerId: string): ContainerRuns {
     // Operate independently without DOMRenderer: build index directly
-    return buildTextRunIndex(containerEl, containerId, {
-      buildReverseMap: true,
-      excludePredicate: (el) => el.hasAttribute('data-bc-decorator')
-    });
+    return buildTextRunIndex(containerEl, containerId, { buildReverseMap: true });
   }
 
   private convertOffsetWithRuns(containerEl: Element, container: Node, offset: number, runs: ContainerRuns, isEnd: boolean): number {
@@ -641,12 +662,17 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       // Create new each time (no cache)
       // When DOM changes, Text Run Index must be invalidated,
       // so creating new each time is safer than complex cache invalidation logic.
+      /*
+       * **거르는 규칙을 넘기지 않는다.** 여기 있던 주석이 *"buildTextRunIndex 안에서도 검사하지만
+       * 명시적으로 넘긴다"* 였다 — 덧거른다는 것을 알고 적은 것이고, **넘긴 것이 덜 정확했다**:
+       * `isDecoratorElement` 는 종류를 안 묻고, 인라인 데코레이터가 감싼 글자는 노드 자신의 것이라
+       * 색인되어야 한다. `isDecoratorOwnText` 가 그것을 묻는다.
+       *
+       * 같은 파일의 `ensureRuns` 와 이곳이 서로 다르게 걸러서 **왕복이 어긋났다** —
+       * `inline-decorator-offsets.test.ts` 를 보라.
+       */
       const runs = buildTextRunIndex(container, containerId || undefined, {
-        buildReverseMap: true, // Generate reverse map (for O(1) lookup)
-        excludePredicate: (el) => {
-          // Exclude decorators (also checked inside buildTextRunIndex but explicitly passed)
-          return this.isDecoratorElement(el);
-        }
+        buildReverseMap: true // Generate reverse map (for O(1) lookup)
       });
       
       return runs;

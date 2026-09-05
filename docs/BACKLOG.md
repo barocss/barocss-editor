@@ -6855,6 +6855,55 @@ text-shaped.
 
 ### Known and unfixed
 
+- [x] **인라인 데코레이터가 낀 런에서 오프셋이 틀렸다 — 그리고 내가 예측한 곳이 아니었다.**
+
+  뷰 층 두 벌을 합치려고 `isDecoratorElement` 두 판을 대보니 DOM 판만 `category !== 'inline'` 을
+  물었다. **DOM 판이 맞다** 고 적고, React 에 잠재 결함이 있다고 예측했다. **재보니 둘 다 3을
+  답했다** — 예측이 틀렸다.
+
+  파고들어 보니 결함은 한 층 아래에 있었다. `shared/text-run-index` 가 **이미 올바른 답**을 갖고
+  있다(`isDecoratorOwnText`), 그리고 그 프로세가 이 결함을 정확히 서술해 뒀다:
+
+  > *"전부를 건너뛴 것은 조용히 누적되는 결함이었다. 주석 달린 구절이 색인에서 빠져서 68자 문단이
+  > 58자로 색인됐고, 모델의 `[35..45]` 가 DOM 에서 **다음 런**의 `[0..10]` 에 떨어졌다."*
+
+  **그런데 세 자리가 `excludePredicate` 로 그 판단을 덧걸렀다:**
+
+  | | `ensureRuns` (DOM→모델) | `getTextRunsForContainer` (모델→DOM) | 증상 |
+  |---|---|---|---|
+  | `editor-view-dom` | `data-bc-decorator` 만 | `isDecoratorElement` | **왕복이 어긋난다** |
+  | `editor-view-react` | `isDecoratorElement` | `isDecoratorElement` | **오프셋이 늘 틀리다** |
+
+  두 번째가 더 조용하다: 두 방향이 같은 만큼 틀리므로 화면에서는 아무 일도 안 일어난 것처럼 보이고,
+  그 오프셋이 명령으로 넘어가는 순간 엉뚱한 글자가 지워진다.
+
+  `editor-view-dom` 의 그 주석은 알고도 적은 것이었다 — *"buildTextRunIndex 안에서도 검사하지만
+  명시적으로 넘긴다."* **넘긴 것이 덜 정확했다.** 고친 것은 셋 다 지운 것이다.
+
+  ## 그리고 지우자 두 가지가 더 나왔다
+
+  **하나 — 종류를 적는 이름이 둘이다.** 그리는 경로가 둘이기 때문이다:
+
+  | 누가 그리나 | 종류를 어디에 |
+  |---|---|
+  | `renderer-dom` · `renderer-react` | `data-decorator-category` |
+  | `editor-view-dom/decorator/decorator-renderer` | **`data-bc-decorator`** (`'layer'`·`'inline'`·`'block'`) |
+
+  `isDecoratorOwnText` 는 앞의 것만 봤다. 그래서 그 렌더러가 그린 인라인 데코레이터는 종류를 못 읽어
+  *자기 것을 그리는 것* 으로 세어졌고, 감싼 **문서 자신의 글자가 색인에서 빠졌다.**
+
+  **둘 — `data-bc-decorator-sid` 를 `isDecoratorElement` 가 몰랐다.** 렌더러가 실제로 쓰는 이름인데
+  목록에 없었다. 제품에서는 같은 요소에 `data-bc-decorator` 도 있어서 걸렸고, **걸리지 않은 것은 그
+  하나만 세우는 검사의 픽스처**였다 — 픽스처가 제품보다 좁으면 그 좁음이 결함으로 보인다.
+
+  ## 남은 것
+
+  - [ ] **이름을 하나로 합치는 것**은 렌더러 두 곳과 그 검사들의 일이다. 지금은 `shared` 가 네 이름을
+    다 읽는다 — 통합이 끝날 때까지 색인이 조용히 틀리지 않게.
+  - [ ] 검사 픽스처가 제품보다 좁은 자리를 훑는 것. 이 회차에만 세 번 나왔다: 선택의
+    `{ type: 'node', nodeId }`, `textNode('paragraph')` 열아홉, 그리고 이 데코레이터 속성.
+
+
 - [ ] **`NoteEditor` 가 호스트의 폭을 20px 줄인다.** 끌기 손잡이가 설 자리로
   `.on-body-hold` 에 `padding-left: 20px` 를 줬다. **`apps/site` 가 이 뷰를 행 Drawer 안에 그대로
   마운트하므로**(`data-editor.tsx:320`) 그 20px 이 사이트의 본문 폭에서 나간다.
