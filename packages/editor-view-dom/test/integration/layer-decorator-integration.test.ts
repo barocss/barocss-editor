@@ -494,7 +494,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
           <div class="document" data-bc-sid="doc1">
             <p class="paragraph" data-bc-sid="p1">
               <span class="text" data-bc-sid="t1">
-                <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="inline1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"><span>Hello</span></span>
+                <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="inline1" data-decorator-stype="highlight" data-decorator-type="target" data-skip-reconcile="true" style="background-color: yellow;"><span>Hello</span></span>
                 <span>World</span>
               </span>
             </p>
@@ -560,7 +560,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
           <div class="document" data-bc-sid="doc1">
-            <div class="quote-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="before" data-decorator-sid="block1" data-decorator-stype="quote" data-skip-reconcile="true"></div>
+            <div class="quote-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="before" data-decorator-sid="block1" data-decorator-stype="quote" data-decorator-type="target" data-skip-reconcile="true"></div>
             <p class="paragraph" data-bc-sid="p1">
               <span class="text" data-bc-sid="t1"><span>Hello World</span></span>
             </p>

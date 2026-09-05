@@ -88,9 +88,8 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
    * threads either way — and is what a reader needs: closing the pane should put
    * the discussion away, not hide the fact that there is one.
    */
-  useEffect(() => {
-    view.setDecorators(
-      ANCHOR_STYPE,
+  const anchors = useMemo(
+    () =>
       threads
         .filter((thread) => thread.anchor && !thread.resolved)
         .map((thread) => ({
@@ -103,10 +102,43 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
             endOffset: thread.anchor!.end
           },
           data: { selected: thread.id === selected }
-        })) as never
-    );
+        })),
+    [threads, selected]
+  );
+
+  /**
+   * **What the marks are, not which array they arrived in.**
+   *
+   * `threads` is rebuilt on every `editor:content.change`, so it is a new array after every
+   * keystroke even when the comments have not moved. With it in the deps this effect ran on every
+   * keystroke, and each run was *two* calls into the view — the cleanup clearing the marks and the
+   * body setting them back — so a document holding one comment re-rendered **twice per character**.
+   * Measured at six renders for one key where the budget is three
+   * (`apps/word/tests/input-pipeline.spec.ts:122`).
+   *
+   * Invisible until the sample was given a comment of its own: with none, clearing nothing and
+   * setting nothing are both no-ops.
+   *
+   * The cleanup stays on this effect. Taking it off and giving it one of its own looked tidier and
+   * emptied the pane — under StrictMode the lone cleanup fires once on mount and this effect,
+   * keyed on an unchanged string, never puts the marks back.
+   */
+  const anchorKey = JSON.stringify(
+    anchors.map((one) => [
+      one.sid,
+      one.target.sid,
+      one.target.startOffset,
+      one.target.endOffset,
+      one.data.selected
+    ])
+  );
+
+  useEffect(() => {
+    view.setDecorators(ANCHOR_STYPE, anchors as never);
     return () => view.setDecorators(ANCHOR_STYPE, []);
-  }, [view, threads, selected]);
+    // `anchors` is rebuilt with `threads`; `anchorKey` is what actually changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, anchorKey]);
 
   const add = useCallback(async () => {
     if (!anchorTo) return;

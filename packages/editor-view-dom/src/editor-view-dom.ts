@@ -34,6 +34,31 @@ function holdsAgainstTheCaret(type: string | undefined): boolean {
   return type === 'node' || type === 'cell' || type === 'table';
 }
 
+/**
+ * **Would this decorator draw the same thing as that one?**
+ *
+ * Only what the drawing depends on: where it sits, what it is, and the data the template reads.
+ * The caller builds these objects fresh on every render, so identity answers "different" every
+ * time and is no use for deciding whether anything moved.
+ *
+ * `JSON.stringify` for the data because it is a small bag the template reads by key — deep
+ * equality without a dependency, and the same order both sides because both are built by the
+ * same code path. A false "different" costs one render, which is what we had; a false "same"
+ * would leave the screen behind the model, so the comparison stays over-eager on purpose.
+ */
+function sameDecorator(before: Decorator, after: Decorator): boolean {
+  const beforeTarget = (before as { target?: Record<string, unknown> }).target;
+  const afterTarget = (after as { target?: Record<string, unknown> }).target;
+  return (
+    before.stype === after.stype &&
+    before.sid === after.sid &&
+    (before as { category?: string }).category === (after as { category?: string }).category &&
+    JSON.stringify(beforeTarget ?? null) === JSON.stringify(afterTarget ?? null) &&
+    JSON.stringify((before as { data?: unknown }).data ?? null) ===
+      JSON.stringify((after as { data?: unknown }).data ?? null)
+  );
+}
+
 export class EditorViewDOM implements IEditorViewDOM {
   // Unique ID for instance tracking
   private readonly __instanceId: string;
@@ -2468,8 +2493,31 @@ export class EditorViewDOM implements IEditorViewDOM {
       this.decoratorManager.remove(decorator.sid);
       changed = true;
     }
+    /*
+     * **`changed` used to mean "this method was called", which is not what the name says.**
+     *
+     * It was set for every decorator put in, so handing back the *same* set redrew the whole
+     * document. That is not a hypothetical: a React pane that draws marks rebuilds its list on
+     * every `editor:content.change`, and an effect keyed on that list clears and re-sets on every
+     * keystroke. Two renders, both arriving at the picture already on screen.
+     *
+     * Measured in Word: one keystroke in a document holding a single comment cost **six renders
+     * where the budget is three** (`apps/word/tests/input-pipeline.spec.ts:122`), and the eight
+     * input specs that failed with it looked like IME and load flakiness — different tests failed
+     * on each run — until the doubling was taken out and all eight came back at once.
+     *
+     * It stayed invisible because a document with no comments hands over an empty list, and
+     * clearing nothing next to setting nothing is two no-ops. The fixture had to wear a comment
+     * before anything could see it.
+     *
+     * Compared by value, not by identity: the caller builds these objects fresh every time, so
+     * `===` would answer "different" for every one of them and we would be back where we started.
+     */
     for (const decorator of decorators) {
-      this.decoratorManager.add({ ...decorator, decoratorType: 'target' } as Decorator);
+      const before = this.decoratorManager.get(decorator.sid);
+      const after = { ...decorator, decoratorType: 'target' } as Decorator;
+      if (before && sameDecorator(before, after)) continue;
+      this.decoratorManager.add(after);
       changed = true;
     }
 

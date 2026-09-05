@@ -128,6 +128,32 @@ function lineBands(el: Element): {
       if (child.nodeType !== Node.ELEMENT_NODE) continue;
       const element = child as Element;
 
+      /*
+       * **A highlight around the document's words is chrome; the words are not.**
+       *
+       * A `target` decorator covers a range of a model node — a search hit, a commented phrase —
+       * and renders the text it covers inside itself. Treating it as chrome subtracted its height
+       * and never walked into it, so the line it sat on went uncounted: measured on Word's sample,
+       * one `commentRef` on one run left a paragraph hanging **5px past the bottom of its sheet**,
+       * because the paginator had been told the page still had room for it.
+       *
+       * It was invisible while no fixture wore a comment, and search hits only draw once somebody
+       * is searching.
+       */
+      /*
+       * And **holding text** is the second half of the question, not a nicety. The spacer that
+       * carries a page break through a paragraph is a `target` decorator too — it covers an offset
+       * in a run — and it is a full-width empty box. Walking into it on the strength of its type
+       * alone counted it as a line and put pages 433px away from their sheets.
+       */
+      if (
+        element.getAttribute('data-decorator-type') === 'target' &&
+        (element.textContent ?? '') !== ''
+      ) {
+        visit(element);
+        continue;
+      }
+
       // Whatever the layout drew is not a line of the text. The spacer that
       // carries a page break through a paragraph is a full-width empty box, and
       // counting it makes the block a line taller every time it breaks.

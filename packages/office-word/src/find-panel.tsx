@@ -68,19 +68,46 @@ export function FindPanel({ editor, view, open, onClose }: FindPanelProps) {
    * per match, which for forty matches is eighty renders to show and hide them
    * and a page that stops answering.
    */
-  useEffect(() => {
-    view.setDecorators(
-      MATCH_STYPE,
+  const hits = useMemo(
+    () =>
       matches.map((match, index) => ({
         sid: `find-${index}`,
         stype: MATCH_STYPE,
         category: 'inline',
         target: { sid: match.sid, startOffset: match.start, endOffset: match.end },
         data: { current: index === current }
-      })) as never
-    );
+      })),
+    [matches, current]
+  );
+
+  /**
+   * **What the marks are, not which array they arrived in.**
+   *
+   * `matches` is rebuilt on every `editor:content.change` — it has `revision` in its own deps — so
+   * it is a new array after every keystroke even when the same words still match in the same
+   * places. With it in this effect's deps, typing with the find bar open cleared the marks and drew
+   * them again on every character: two renders of the whole document to arrive back at the picture
+   * already on screen.
+   *
+   * The comments pane had the identical shape and it cost Word **six renders for one keystroke**
+   * against a budget of three (`apps/word/tests/input-pipeline.spec.ts:122`), which read as IME and
+   * pagination flakiness for a whole round. This one has never shown up because **nothing types
+   * with the find bar open** — the same silence, waiting.
+   *
+   * The cleanup stays on this effect. Giving it one of its own looked tidier and emptied the marks:
+   * under StrictMode a lone cleanup fires once on mount, and an effect keyed on an unchanged string
+   * never puts them back.
+   */
+  const hitKey = JSON.stringify(
+    hits.map((one) => [one.sid, one.target.sid, one.target.startOffset, one.target.endOffset, one.data.current])
+  );
+
+  useEffect(() => {
+    view.setDecorators(MATCH_STYPE, hits as never);
     return () => view.setDecorators(MATCH_STYPE, []);
-  }, [view, matches, current]);
+    // `hits` is rebuilt with `matches`; `hitKey` is what actually changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, hitKey]);
 
   // A new search starts from the top rather than wherever the last one ended.
   useEffect(() => setCurrent(matches.length > 0 ? 0 : -1), [query, caseSensitive, wholeWord]);
