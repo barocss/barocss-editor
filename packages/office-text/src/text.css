@@ -236,13 +236,28 @@
 
 
 /**
- * An emoji is **one thing**.
+ * An emoji is **one thing**, and it keeps the line's rhythm.
  *
- * The element is `contenteditable="false"`, which is what stops a caret going inside it; this is the
- * other half — without it a reader can sweep a selection through the character itself and copy half
- * an atom. `pointer-events` stays on, because a press on it should still put the caret *beside* it.
+ * The element is `contenteditable="false"`, which is what stops a caret going inside it;
+ * `user-select` is the other half — without it a reader can sweep a selection through the character
+ * itself and copy half an atom. `pointer-events` stays on, because a press on it should still put
+ * the caret *beside* it.
+ *
+ * The three box properties were in `apps/site/src/style.css` and are here now, for the reason this
+ * file exists: `renderers.ts` draws the class, so the rules behind it belong beside the renderer
+ * rather than in whichever app happened to draw an emoji first. Word and the deck use the same
+ * renderer and got none of them — a colour glyph in a run of text pushes the line around, and that
+ * is the one thing it reliably gets wrong.
+ *
+ * **No font of its own.** Every platform draws these from its own set and asking for a different one
+ * is how a page ends up with two different smiles on two machines. What this does say is the box:
+ * `inline-block` so the glyph does not stretch the line box, `line-height: 1` so it is measured by
+ * its own height, and the nudge that sits it on the text's baseline rather than above it.
  */
 .w-emoji {
   user-select: none;
   -webkit-user-select: none;
+  display: inline-block;
+  line-height: 1;
+  vertical-align: -0.1em;
 }

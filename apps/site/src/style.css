@@ -583,19 +583,12 @@ body {
   background: var(--ou-accent-soft);
 }
 
-/**
- * And the emoji **in the page**: no font of its own.
- *
- * Every platform draws these from its own set, and asking for a different one is how a page ends up
- * with two different smiles on two machines. What this does say is that the glyph keeps the line's
- * rhythm rather than pushing it around, which is the one thing a colour glyph in a run of text
- * reliably gets wrong.
+/*
+ * The emoji's own rules are **`office-text`'s**, not this app's — `@barocss/office-text/text.css`,
+ * imported at the top of this file. `renderers.ts` draws `.w-emoji`, so a product that draws an
+ * emoji with those renderers and not with this stylesheet was getting the class and no box: the
+ * glyph stretched the line box. Moved rather than copied, for the reason the list markers were.
  */
-.w-emoji {
-  display: inline-block;
-  line-height: 1;
-  vertical-align: -0.1em;
-}
 
 /**
  * A sticker in the picker: the file itself, at the size the grid draws everything else.

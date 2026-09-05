@@ -1415,6 +1415,9 @@ importers:
       vite:
         specifier: ^5.4.21
         version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^3.9.1
+        version: 3.9.1(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)

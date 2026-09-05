@@ -7812,6 +7812,40 @@ text-shaped.
   게 아니라 **덜 된 것** 이라서다. 그리고 devtool 트리 칠하기에는 검사가 없다 — 고칠 때 검사부터.
 
 
+- **`apps/slide` 의 `.sr-only` 사본이 남아 있다.** 🔴 열림 — **작은 것**
+
+  `apps/slide/src/style.css:277`. 이제 `office-ui/tokens.css` 가 그 규칙을 갖고 apps/slide 는
+  `:32` 에서 그 파일을 `import` 하므로 이 사본은 필요 없다. 이번 회차의 범위가
+  `apps/site/style.css` 까지였어서 안 지웠다 — 지금은 같은 값 두 벌이라 해로울 것은 없고, 값이
+  갈라지는 날 해로워진다.
+
+- **`@barocss/office-ui/tokens.css` 를 `import` 하지 않는 호스트를 세는 검사가 없다.** 🔴 열림
+
+  `every-app-scans-the-chrome-it-draws` 는 Tailwind `@source` 를 세고,
+  `every-door-a-package-opens-is-built` 는 빌드가 문을 내는지 센다. **앱이 자기가 쓰는 패키지의
+  스타일 문을 실제로 `import` 하는지는 아무도 안 센다** — `.sr-only` 를 `tokens.css` 에 둔
+  두 번째 이유가 바로 그 구멍이었다. 문을 새로 열 때마다 커진다.
+
+- **발행된 페이지의 이모지에는 상자가 없다 — 차트와 같은 칸의 결함이 하나 더.** 🔴 열림 — **살아 있는 제품 결함**
+
+  `.w-emoji` 를 앱에서 `office-text` 로 옮기다 나왔다. 사이트 빌더는 이모지를 **넣을 수 있고**
+  (`office-site/src/toolbar-model.ts:290`, `site-kit.ts:138`), 그리는 것은 office-text 의
+  렌더러다(`office-text/src/renderers.ts:862` 가 `className: 'w-emoji'`). 그런데
+  **`PAGE_CSS` 에 `.w-emoji` 가 0번 나온다** — `packages/office-site/src/page-css.ts`, 484줄.
+
+  즉 편집기 안에서는 맞게 보이고(앱이 `@barocss/office-text/text.css` 를 `import` 한다,
+  `apps/site/src/style.css:24`) **발행물에서만** 글리프가 줄 상자를 늘린다. `.st-chart` 넷이
+  꼭 같은 이유로 이 파일에 옮겨져 있다(`page-css.ts:439`) — *앱의 스타일시트는 발행되지 않는다*.
+
+  이번 회차의 범위가 `office-text/text.css` · `office-ui` · `apps/site/style.css` · 빌드 설정
+  까지여서 `page-css.ts` 는 안 건드렸다. 옮길 것은 세 선언이다:
+  `display:inline-block; line-height:1; vertical-align:-0.1em`. `user-select` 는 편집기의 것이라
+  발행물에 필요 없다.
+
+  **더 큰 질문은 이것이 세 번째라는 것이다** — 차트 넷, 스티커 하나, 그리고 이모지. *렌더러가
+  그리는 클래스인데 `PAGE_CSS` 에 규칙이 없는 것* 을 세는 검사가 없다. `dead-selectors.test.ts`
+  는 반대 방향(규칙은 있는데 아무도 안 쓰는 것)만 센다.
+
 ## Done
 
 - **A site knows where it lives, and three things wanted it.** Found writing the Open Graph tags:
@@ -14494,3 +14528,105 @@ Newest first. The surprise each one produced is the part worth keeping.
 
   `docs/ROADMAP.md` 와 `docs/TECHNICAL-ROADMAP.md` 는 셋째 종류다 — **앞으로 할 일** 을 적는
   문서라 기록이 아니고, 끝난 일을 `- [ ]` 로 두면 거짓이 된다. 둘 다 이번에 `- [x]` 로 닫았다.
+
+- **아무도 `dist/*.css` 를 안 냈다 — 답은 복사가 아니라 `lib.entry` 였다.** ✅ 고침
+
+  `publishConfig.exports` 가 `"./ui.css": "./dist/ui.css"` 를 적는데 `vite` 는 `.ts` 진입점이
+  `import` 하지 않는 `.css` 를 복사하지 않는다. 여섯 문 전부가 그 상태였다 —
+  `office-note/note.css` · `office-site/ui.css` · `office-slides/slides.css` 와 `ui.css` ·
+  `office-text/text.css` · `office-ui/tokens.css`. 워크스페이스에서는 `exports` 가 `src/*.css` 를
+  직접 가리키므로 안 보이고, **발행된 뒤에만** 깨진다.
+
+  플러그인도 복사 스크립트도 필요 없었다. **`lib.entry` 의 키가 곧 나오는 파일 이름이다** —
+  `'text.css': 'src/text.css'` 한 줄이면 `dist/text.css` 가 그대로 나오고, CSS 만 든 진입점은
+  **빈 JS 청크도 안 남긴다.** 라이브러리 빌드의 기본값 `cssCodeSplit: false` 만 켜 주면 된다(그
+  상태에서는 rollup 이 *"input should not include CSS files"* 로 거부한다). 이 다섯 패키지에서
+  JS 출력은 한 바이트도 안 바뀐다 — `.ts` 진입점 중 CSS 를 `import` 하는 것이 하나도 없다.
+
+  **이것을 고른 이유는 문이 한 목록에 모이기 때문이다.** 복사 스크립트나 플러그인이었다면 코드
+  문은 `lib.entry` 에, 스타일 문은 다른 데에 적혔을 것이고 — 검사도 두 곳을 봐야 한다. 지금은
+  `./ui` 와 `./ui.css` 가 나란히 한 줄씩이다.
+
+  `packages/office-note/vite.config.ts:27` · `office-site/vite.config.ts:27` ·
+  `office-slides/vite.config.ts:28,29` · `office-text/vite.config.ts:32` ·
+  `office-ui/vite.config.ts:45`.
+
+  실제로 빌드해서 눈으로 확인했다: `note.css` 5,697B · `site/ui.css` 35,117B ·
+  `slides.css` 1,840B · `slides/ui.css` 30,131B · `text.css` 2,510B · `tokens.css` 2,640B.
+
+- **`office-ui` 는 `vite.config.ts` 가 없어서 *아무것도* 발행하지 않았다.** ✅ 고침 — **위보다 큰 것**
+
+  `dist/*.css` 를 찾다 나왔다. `package.json` 은 `"build": "vite build"` 를 적고 `publishConfig`
+  는 `./dist/index.js` · `./dist/index.d.ts` · `./dist/tokens.css` 를 발행한다고 말하는데,
+  **설정 파일이 없었다.** 설정 없는 `vite build` 는 앱 빌드로 떨어져 죽는다:
+
+  ```
+  error during build:
+  Could not resolve entry module "index.html".
+  ```
+
+  즉 `@barocss/office-ui` 는 발행되면 `dist` 가 통째로 없다 — 토큰만이 아니라 **코드도 타입도.**
+  `pnpm -r build` 가 이 패키지에서 빨간 줄을 내면서도 나머지가 초록이라 묻혀 있었다. 형제 넷과
+  같은 모양으로 `packages/office-ui/vite.config.ts` 를 썼고(`vite-plugin-dts` 를 devDependency 에
+  더했다 — 넷 다 갖고 있는 것이다), 이제 `dist/index.js` · `dist/index.d.ts` · `dist/tokens.css`
+  가 나온다.
+
+- **`every-door-a-package-opens-is-built` 의 셋째 검사가 `dist` 를 봤다 — 그 모양으로는 초록이 될 수 없었다.** ✅ 고침
+
+  `it.fails` 를 `it` 으로 바꾸면서, 무엇을 보는지도 바꿨다. 첫 판은
+  `packages/<이름>/dist/<문>` 이 디스크에 있는지 봤는데, 그러면 **빌드를 돌린 사람에게만
+  초록이다**: `dist/` 는 `.gitignore:6` 에 있고 CI 는 `pnpm test` 만 돌리며 그 앞에 빌드 단계가
+  없다(`.github/workflows/ci.yml`). `it` 으로 만들었으면 CI 에서 영원히 빨갛거나, 누군가 마침
+  빌드해 둔 덕에 초록이거나 — 둘 다 검사가 아니다.
+
+  §2 가 코드 문에 대해 `dist/ui.js` 를 안 보고 `lib.entry` 를 보는 이유가 정확히 그것이고,
+  스타일 문도 같은 자리에서 센다. `packages/conformance/test/every-door-a-package-opens-is-built.test.ts:148`.
+
+- **그리고 그 검사를 고치는 도중, 검사가 자기 주석에 속았다.** ✅ 고침 — **가드가 자기가 막을 것을 못 본다, 이 파일에서만 세 번째**
+
+  진입점을 일부러 지우고 돌렸는데 **초록이었다.** §2 가 쓰던 정규식이 `vite.config.ts` **전체**
+  에 걸려 있었고, 방금 내가 그 파일 위에 쓴 설명문에 `` `"./text.css": "./dist/text.css"` `` 라는
+  문장이 있었기 때문이다 — `text.css` 뒤에 콜론이 오는 문자열은 설명문에도 있다.
+
+  세는 곳을 `entry: { … }` 덩어리 안쪽으로 좁혔다(`…test.ts:70`). 값은 전부 따옴표 안의
+  경로라 중괄호가 없으므로 첫 `}` 까지가 정확히 그 목록이다. 좁힌 뒤 다시 지워 보니 빨갛다 —
+  `office-text: ./text.css — vite.config.ts 의 lib.entry 에 'text.css' 가 없습니다`. **§2 도 같은
+  구멍이 있었고 같이 막혔다.**
+
+- **`.w-emoji` 의 상자가 앱에 있었다.** ✅ 고침
+
+  `office-text/src/renderers.ts:862` 가 `className: 'w-emoji'` 를 그리는데,
+  `display:inline-block; line-height:1; vertical-align:-0.1em` 은 `apps/site/src/style.css` 에만
+  있었다. **같은 렌더러를 쓰는 Word 와 덱은 클래스만 받고 상자를 못 받았다** — 컬러 글리프가
+  줄 상자를 늘리는, 리스트 마커와 정확히 같은 모양의 결함이다.
+
+  `text.css` 에 이미 있던 `.w-emoji` 의 `user-select` 선언과 합쳐 하나로 만들었다
+  (`packages/office-text/src/text.css:257`). 앱 쪽은 규칙을 지우고 어디로 갔는지만 남겼다
+  (`apps/site/src/style.css:587`). `apps/site` 를 빌드해 나온 CSS 에서 다섯 선언이 한 규칙으로
+  들어간 것을 확인했다.
+
+- **`.sr-only` 를 `office-ui/tokens.css` 로 — `./ui.css` 를 새로 열지 않고.** ✅ 고침
+
+  `office-ui/src/file-pick.tsx:106` 이 `<input type="file">` 에 붙이는데, 그 규칙은 Tailwind 가
+  `office-ui` 를 훑어서 나왔다. **Tailwind 없는 호스트는 리본에 맨 파일 입력을 본다.**
+  `apps/slide/src/style.css:269` 가 이것이 `office-ui` 의 gap 이라고 적어 두고 손으로 베껴 놨었다.
+
+  `architecture.md` §"셸을 옮길 때 3" 의 이름 규칙은 `./ui.css` 인데, **이번엔 그 칸이 아니다.**
+  둘이 갈랐다:
+
+  1. **생김새가 아니다.** `office-ui` 부품 뒤의 다른 규칙은 전부 Tailwind 유틸리티이고, 그것이
+     없는 호스트는 *수수한* 크롬을 받는다. 이건 *숨겨졌지만 키보드가 닿는 컨트롤* 과 *화면에
+     보이는 맨 파일 입력* 의 차이다 — `text.css` 의 리스트 마커와 같은 종류, 즉 **렌더링에서
+     CSS 가 끝내야 하는 부분**이다.
+  2. **`tokens.css` 는 이미 모두가 `import` 하는 파일이다.** 앱 다섯(word·slide·site·note·
+     gallery)이 `@barocss/office-ui/tokens.css` 를 가져가고 이 패키지의 다른 CSS 는 안 가져간다.
+     그 파일 머리말이 길게 주장하는 것이 **선택적인 스타일시트는 모든 앱이 잊는다** 이다. 문을
+     하나 더 열었으면 잊을 것이 하나 더 늘고, 오늘 안 건드리는 앱 넷은 계속 Tailwind 로
+     *우연히* 받았을 것이다.
+
+  `packages/office-ui/src/tokens.css:395`. 토큰은 안 쓴다 — 기하이고, 아무것도 매핑 안 한
+  호스트도 정확히 이 값이어야 한다.
+
+  **`clip` 과 `clip-path` 를 둘 다 적었다** — 손으로 베낀 판에는 `clip` 만 있었다. Tailwind 를
+  쓰는 앱에서는 이 규칙이 시트의 *두 번째* `.sr-only` 라 순서로 이기므로, `clip` 만 썼으면
+  Tailwind 의 `clip-path: inset(50%)` 를 **조용히 옛 기법으로 되돌렸을** 것이다.
