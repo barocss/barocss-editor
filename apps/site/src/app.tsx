@@ -18,6 +18,7 @@ import {
   zoomOut,
   type Viewport
 } from '@barocss/office-ui';
+import { PageFrame } from '@barocss/office-site/view';
 import {
   siteMenusIn,
   widthsOf,
@@ -45,11 +46,11 @@ import {
 import { Canvas } from './canvas';
 import { Inspector, addPicture } from './inspector';
 import { TextSurface } from './text-surface';
-import { Rail, type Panel as RailPanel } from './rail';
+import { Rail, type Panel as RailPanel } from '@barocss/office-site/rail';
 import { Admin, type AdminTab } from './admin';
 import { DataTable, RowForm } from './data-editor';
 import { CodeEditor, type CodeEdit } from './code-editor';
-import { PageFrame } from './page-frame';
+
 import { Ribbon } from './ribbon';
 import { Overlay, type PointerMode } from './overlay';
 import { Grip } from './grip';

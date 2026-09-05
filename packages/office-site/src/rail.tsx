@@ -2,32 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import { Button, Dialog, DialogButton, Icon, IconButton, useRevision, TextField } from '@barocss/office-ui';
-import {
-  blocksIn,
-  definitionsOf,
-  templatesIn,
-  neverShown,
-  shownAt,
-  shownSomewhere,
-  documentFaults,
-  publishSaid,
-  publishState,
-  widthsOf,
-  FAULT_KINDS,
-  holderOf,
-  iconForBlock,
-  labelOfBlock,
-  breaksIfGone,
-  breakageSaid,
-  refsIn,
-  type Breakage,
-  selectableAt,
-  siteControlsIn,
-  type Fault,
-  type SiteControl,
-  columnNames,
-  fieldsFrom
-} from '@barocss/office-site';
+import { widthsOf } from './breakpoints';
+import { definitionsOf, templatesIn } from './components';
+import { columnNames, fieldsFrom } from './data';
+import { FAULT_KINDS, type Fault, documentFaults, holderOf } from './faults';
+import { iconForBlock } from './layer-icons';
+import { neverShown, shownAt, shownSomewhere } from './presence';
+import { publishSaid, publishState } from './publishes';
+import { type Breakage, breakageSaid, breaksIfGone, refsIn } from './refs';
+import { blocksIn, labelOfBlock, selectableAt } from './selection';
+import { type SiteControl, siteControlsIn } from './toolbar-model';
 
 /**
  * The left side of the window: **one rail, several panels**.

@@ -133,6 +133,60 @@ Editor  ←  ProductEditorOptions { kit?, keybindings?, …EditorOptions }
 `DEFAULT_KEYBINDINGS` **마흔**이 그 문을 지나는 모든 편집기에 실린다 — ⌘B·⌘Z·Enter·화살표.
 제품은 그 위에 자기 것을 얹는다(`docs/specs/keybindings.md`).
 
+## 셸을 제품으로 옮길 때 — **뷰는 별도 진입점**
+
+`office-note` 가 그 모양을 이미 갖고 있고, `office-site` 가 첫 조각(`PageFrame`)을 옮기면서 왜
+그런지를 값을 치르고 배웠다.
+
+```json
+"exports": {
+  ".":      "./src/index.ts",        // 모델 — 어디서나 읽힌다
+  "./view": "./src/page-frame.tsx"   // React 뷰 — React 가 있는 곳에서만
+}
+```
+
+**루트에 React 뷰를 두면 모델만 원하는 쪽이 DOM 까지 끌고 온다.** 재본 것:
+`apps/site/tests/site.spec.ts` 가 Node 에서 `siteControlsIn` 하나를 가져오는데, 루트가
+`page-frame` 을 지나면 `editor-view-dom` 이 딸려 오고 Node 가 *Named export 'EditorViewDOM' not
+found* 로 죽는다. **283개짜리 브라우저 회차 전체가 그것 하나로 안 돌았다.**
+
+### 진입점은 **조각마다가 아니라 경계마다** 둔다
+
+첫 두 조각은 `./view`(판)와 `./rail`(왼쪽 레일)로 하나씩 뒀다. 그건 조각이 둘일 때의 답이고,
+셸 이주가 끝나면 사이트 빌더의 React 조각은 열 개쯤 된다 — 진입점 열 개는 경계가 아니라 목록이다.
+
+**경계는 *React 가 필요한가* 이지 *어느 조각인가* 가 아니다.** 그래서 둘이면 된다:
+
+```json
+".":    "./src/index.ts"     // 모델 — Node 에서도 읽힌다
+"./ui": "./src/ui.ts"        // React 부품 전부
+```
+
+조각이 늘어도 진입점이 안 늘고, 읽는 쪽이 *이건 어느 문인가* 를 안 물어도 된다.
+
+그리고 그 사실을 **회차 스크립트가 잡았다** — 결과 줄이 없는 앱을 *(결과 줄 없음)* 으로 적고
+요약에 세운다. 앞 판이었으면 `site` 줄이 통째로 없는 채 초록으로 읽혔을 것이다.
+
+**React 는 peerDependency 다.** 어느 React 를 쓸지는 호스트가 정한다.
+
+### 그리고 **제품끼리의 조립은 슬롯으로** 한다
+
+셸을 옮기다 보면 *두 제품을 함께 쓰는 조각* 이 나온다. `apps/site/src/data-editor.tsx` 가 그렇다 —
+사이트의 데이터 행이 서식 있는 본문을 갖고, 그것을 `office-note` 의 `NoteEditor` 로 편집한다.
+
+그대로 옮기면 **`office-site` 가 `office-note` 를 의존하게 된다** — 방금 걷어낸 그 변이다.
+
+**답은 이미 옮긴 코드 안에 있다.** `PageFrameProps` 가 그 모양을 쓴다:
+
+```ts
+/** 판 위에 무엇이 그려지나 — 포인터의 주인이거나, 아무것도 아니거나. */
+overlay?: (host: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
+```
+
+**제품은 슬롯을 선언하고, 앱이 채운다.** 사이트는 *행의 본문을 그릴 무언가* 가 필요하다고 말하고,
+그것이 노트인지 텍스트 상자인지는 **앱이 정한다.** 그러면 조각은 제품으로 가고 조립은 앱에 남는다 —
+그리고 그게 앱이 하는 일이다.
+
 ## 어디에 무엇이 사는가 — 찾는 사람을 위해
 
 | 질문 | 어디 |

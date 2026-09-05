@@ -1213,6 +1213,9 @@ importers:
       '@barocss/editor-core':
         specifier: workspace:*
         version: link:../editor-core
+      '@barocss/editor-view-dom':
+        specifier: workspace:*
+        version: link:../editor-view-dom
       '@barocss/extensions':
         specifier: workspace:*
         version: link:../extensions
@@ -1228,6 +1231,9 @@ importers:
       '@barocss/office-text':
         specifier: workspace:*
         version: link:../office-text
+      '@barocss/office-ui':
+        specifier: workspace:*
+        version: link:../office-ui
       '@barocss/renderer-dom':
         specifier: workspace:*
         version: link:../renderer-dom
@@ -1241,15 +1247,24 @@ importers:
       '@barocss/conformance':
         specifier: workspace:*
         version: link:../conformance
-      '@barocss/editor-view-dom':
-        specifier: workspace:*
-        version: link:../editor-view-dom
       '@barocss/office-icons':
         specifier: workspace:*
         version: link:../office-icons
       '@types/prismjs':
         specifier: ^1.26.6
         version: 1.26.6
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.10
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.10)
+      react:
+        specifier: ^19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.2.8
+        version: 19.2.8(react@19.2.8)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

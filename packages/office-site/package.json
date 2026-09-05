@@ -11,6 +11,16 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./view": {
+      "types": "./src/page-frame.tsx",
+      "import": "./src/page-frame.tsx",
+      "default": "./src/page-frame.tsx"
+    },
+    "./rail": {
+      "types": "./src/rail.tsx",
+      "import": "./src/rail.tsx",
+      "default": "./src/rail.tsx"
     }
   },
   "publishConfig": {
@@ -39,7 +49,13 @@
     "test": "vitest",
     "test:run": "vitest run"
   },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
   "dependencies": {
+    "@barocss/office-ui": "workspace:*",
+    "@barocss/editor-view-dom": "workspace:*",
     "@barocss/datastore": "workspace:*",
     "@barocss/dsl": "workspace:*",
     "@barocss/editor-core": "workspace:*",
@@ -53,6 +69,10 @@
     "prismjs": "^1.30.0"
   },
   "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "@barocss/conformance": "workspace:*",
     "@barocss/editor-view-dom": "workspace:*",
     "@barocss/office-icons": "workspace:*",

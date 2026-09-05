@@ -14109,3 +14109,28 @@ Newest first. The surprise each one produced is the part worth keeping.
   `SlashCommandExtension` 하나. 이 저장소 규칙상 타입 전용 의존은 devDependency 자리이고
   (`dependency-graph.test.ts` 의 프로세), 순환이 없으니 급하지는 않다. 깊이도 안 바뀐다 —
   `office-controls`(4) 때문에 어차피 5다.
+
+- **셸을 제품으로 — 첫 조각 `PageFrame`(307줄).** ✅ 옮김
+
+  로드맵이 *"office-site 가 React 를 갖게 되는 첫 걸음"* 이라 적은 그것. `apps/site` 11,410 →
+  11,103줄. `office-site` 의 첫 `.tsx` 이고 React 는 peerDependency 다.
+
+  인라인 props 를 `PageFrameProps` 로 꺼냈다 — 앱 안에서는 인라인이어도 됐지만 **패키지가
+  내보내는 것은 읽을 이름이 있어야 한다.**
+
+  **계기판이 스스로 잡았다:** `office-note/spec-numbers` 가 *다른 셋의 셸 크기* 를 붙잡고 있어서
+  옮기자마자 실패했다(35,927 → 35,621). 그 숫자는 note 에 대한 사실이 아니라 **남은 양**이고,
+  옮기고 말 안 하면 거기서 실패한다.
+
+- **그리고 뷰를 루트에서 내보내면 안 된다.** ✅ 고침 — **283개 회차가 통째로 안 돌았다**
+
+  `apps/site/tests/site.spec.ts` 는 Node 에서 `siteControlsIn` 하나를 가져온다. 루트 index 가
+  `page-frame` 을 지나자 `editor-view-dom` 이 딸려 왔고, Node 가 *Named export 'EditorViewDOM'
+  not found* 로 죽었다. **사이트 회차가 한 개도 안 돌았다.**
+
+  `office-note` 가 이미 답을 갖고 있었다 — `"./view"` 진입점. 모델은 어디서나 읽히고, React 뷰는
+  React 가 있는 곳에서만 읽힌다. `office-site` 도 그렇게 했다.
+
+  **그리고 회차 스크립트가 그것을 잡았다:** 결과 줄이 없는 앱을 *(결과 줄 없음)* 으로 적고 요약에
+  센다. 앞 판이었으면 `site` 줄이 통째로 빠진 채 *word 374 · slide 407 · note 22* 만 보고 초록으로
+  읽었을 것이다 — 실제로 그 모양으로 한 번 속았던 적이 있다.

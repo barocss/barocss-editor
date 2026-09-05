@@ -6,11 +6,12 @@ import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import {
   SITE_ENV_KEY,
   createSiteEnv,
-  hiddenAt,
+  viewportOf,
   type BreakpointId,
   type SiteWidth
-} from '@barocss/office-site';
-import { viewportOf, deviceNamed, deviceMatches } from '@barocss/office-site';
+} from './breakpoints';
+import { hiddenAt } from './presence';
+import { deviceNamed, deviceMatches } from './devices';
 
 /**
  * One page, at one width, editable.
@@ -58,19 +59,11 @@ import { viewportOf, deviceNamed, deviceMatches } from '@barocss/office-site';
  * header drew as an empty box, and a data list drew its `componentValue` declarations, which is a
  * node no product has a renderer for.
  */
-export function PageFrame({
-  editor,
-  breakpoint,
-  label,
-  width,
-  page,
-  preview,
-  wireframe,
-  widths,
-  onFollow,
-  redraw,
-  overlay
-}: {
+/**
+ * **한 판이 받는 것.** 이름을 준 이유는 제품의 계약이기 때문이다 — 앱에 있을 때는 인라인이어도
+ * 됐지만, 패키지가 내보내는 것은 읽을 이름이 있어야 한다.
+ */
+export interface PageFrameProps {
   editor: Editor;
   breakpoint: BreakpointId;
   /** Whether this board is drawing the page with its finish taken off — see `wireframe.ts`. */
@@ -114,7 +107,21 @@ export function PageFrame({
    * real thing: a preview pane, a thumbnail, a published page being checked at three widths.
    */
   overlay?: (host: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
-}) {
+}
+
+export function PageFrame({
+  editor,
+  breakpoint,
+  label,
+  width,
+  page,
+  preview,
+  wireframe,
+  widths,
+  onFollow,
+  redraw,
+  overlay
+}: PageFrameProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
 

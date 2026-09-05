@@ -386,3 +386,19 @@ export {
   type BreakpointId,
   type SiteEnv
 } from './breakpoints';
+
+/*
+ * **`PageFrame` 은 여기서 내보내지 않는다** — `@barocss/office-site/view` 가 그 문이다.
+ *
+ * 셸을 앱이 아니라 제품이 갖는다(`docs/specs/architecture.md`). 그 첫 조각이 `page-frame.tsx`
+ * 이고, `office-site` 의 **첫 React 부품** 이다. React 는 peerDependency 로 둔다 — 호스트의
+ * 것이지 이 패키지가 정할 것이 아니다.
+ *
+ * **루트에 두면 모델만 원하는 쪽이 DOM 까지 끌고 온다.** 재본 것: `apps/site/tests/site.spec.ts`
+ * 가 Node 에서 `siteControlsIn` 하나를 가져오는데, 루트가 `page-frame` 을 지나면
+ * `editor-view-dom` 이 딸려 오고 Node 가 *Named export 'EditorViewDOM' not found* 로 죽는다.
+ * 브라우저 회차 전체가 그것 하나로 안 돌았다.
+ *
+ * `office-note` 가 이미 같은 답을 갖고 있다 — `./view`. 모델은 어디서나 읽히고, 뷰는 React 가
+ * 있는 곳에서만 읽힌다.
+ */
