@@ -1228,6 +1228,9 @@ importers:
       '@barocss/office-controls':
         specifier: workspace:*
         version: link:../office-controls
+      '@barocss/office-editor-ui':
+        specifier: workspace:*
+        version: link:../office-editor-ui
       '@barocss/office-text':
         specifier: workspace:*
         version: link:../office-text
@@ -1240,6 +1243,9 @@ importers:
       '@barocss/schema':
         specifier: workspace:*
         version: link:../schema
+      '@barocss/shared':
+        specifier: workspace:*
+        version: link:../shared
       prismjs:
         specifier: ^1.30.0
         version: 1.30.0

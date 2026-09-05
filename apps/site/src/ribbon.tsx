@@ -26,7 +26,7 @@ import {
   siteControlsIn,
   assetsOf
 } from '@barocss/office-site';
-import type { PointerMode } from './overlay';
+import type { PointerMode } from '@barocss/office-site/ui';
 
 /**
  * What a reader can do to the page, along the top.

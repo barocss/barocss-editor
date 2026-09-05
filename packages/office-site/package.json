@@ -12,15 +12,10 @@
       "import": "./src/index.ts",
       "default": "./src/index.ts"
     },
-    "./view": {
-      "types": "./src/page-frame.tsx",
-      "import": "./src/page-frame.tsx",
-      "default": "./src/page-frame.tsx"
-    },
-    "./rail": {
-      "types": "./src/rail.tsx",
-      "import": "./src/rail.tsx",
-      "default": "./src/rail.tsx"
+    "./ui": {
+      "types": "./src/ui.ts",
+      "import": "./src/ui.ts",
+      "default": "./src/ui.ts"
     }
   },
   "publishConfig": {
@@ -54,6 +49,8 @@
     "react-dom": ">=18"
   },
   "dependencies": {
+    "@barocss/office-editor-ui": "workspace:*",
+    "@barocss/shared": "workspace:*",
     "@barocss/office-ui": "workspace:*",
     "@barocss/editor-view-dom": "workspace:*",
     "@barocss/datastore": "workspace:*",

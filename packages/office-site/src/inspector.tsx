@@ -19,56 +19,24 @@ import {
   DialogButton,
   type ThemeSwatch
 } from '@barocss/office-ui';
-import {
-  ASSET_PREFIX,
-  assetsOf,
-  RENDITIONS,
-  BASE_BREAKPOINT,
-  BREAKPOINTS,
-  baseOf,
-  widthsOf,
-  DEVICES,
-  deviceMatches,
-  iconForWidth,
-  writerMaySet,
-  type SiteWidth,
-  FIELD_PREFIX,
-  fieldNameOf,
-  stateableIn,
-  STATES,
-  attrsInState,
-  blocksIn,
-  boundVarOf,
-  definitionAt,
-  definitionOf,
-  definitionsOf,
-  holderOf,
-  kindOfBlock,
-  SITE_KEYS,
-  VALUE_FORMATS,
-  enclosing,
-  isAssetRef,
-  labelOfBlock,
-  overriddenAt,
-  pageOf,
-  pagesOf,
-  servicesOf,
-  SITE_PANEL,
-  sitePanelGroups,
-  statedIn,
-  namesIn,
-  statesOf,
-  templateOf,
-  whereUsed,
-  PAGE_PREFIX,
-  addressFor,
-  type BreakpointId,
-  type SitePanelRow,
-  type SitePanelTab,
-  type StateId,
-  columnNames,
-  fieldsFrom
-} from '@barocss/office-site';
+import { ASSET_PREFIX, RENDITIONS, assetsOf, isAssetRef } from './assets';
+import { BREAKPOINTS, baseOf, type BreakpointId, type SiteWidth, widthsOf } from './breakpoints';
+import { namesIn, whereUsed } from './carried';
+import { templateOf } from './collection-resolution';
+import { boundVarOf, definitionAt, definitionOf, definitionsOf } from './components';
+import { FIELD_PREFIX, columnNames, fieldNameOf, fieldsFrom } from './data';
+import { DEVICES, deviceMatches, iconForWidth } from './devices';
+import { holderOf } from './faults';
+import { servicesOf } from './form';
+import { SITE_KEYS } from './keymap';
+import { PAGE_PREFIX, addressFor } from './page-link';
+import { SITE_PANEL, sitePanelGroups, type SitePanelRow, type SitePanelTab } from './panel-model';
+import { BASE_BREAKPOINT, overriddenAt } from './responsive';
+import { blocksIn, enclosing, kindOfBlock, labelOfBlock, pageOf, pagesOf } from './selection';
+import { STATES, attrsInState, stateableIn, statedIn, statesOf, type StateId } from './states';
+import { writerMaySet } from './writing';
+/* `office-canvas` 의 것을 `index.ts` 가 재내보낸 것 — 안에서는 원래 자리에서 가져온다. */
+import { VALUE_FORMATS } from '@barocss/office-canvas';
 import { chordFor, keyLabel, panelRowShown } from '@barocss/office-controls';
 import { useEditorRevision } from '@barocss/office-editor-ui';
 

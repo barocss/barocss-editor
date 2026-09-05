@@ -4,24 +4,12 @@ import type { Editor } from '@barocss/editor-core';
 import { Icon, Menu } from '@barocss/office-ui';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import { useRevision } from '@barocss/office-ui';
-import {
-  childOfScope,
-  enclosing,
-  firstRunIn,
-  landingFor,
-  innermostOf,
-  isInside,
-  SITE_CONTEXT,
-  isTextual,
-  boundVarOf,
-  drawnSidAtElement,
-  isCode,
-  labelOfBlock,
-  sidAtElement,
-  templateOf,
-  type BreakpointId,
-  type Landing
-} from '@barocss/office-site';
+import { type BreakpointId } from './breakpoints';
+import { templateOf } from './collection-resolution';
+import { boundVarOf } from './components';
+import { landingFor, type Landing } from './landing';
+import { SITE_CONTEXT } from './menu-model';
+import { childOfScope, drawnSidAtElement, enclosing, firstRunIn, innermostOf, isCode, isInside, isTextual, labelOfBlock, sidAtElement } from './selection';
 
 
 /**

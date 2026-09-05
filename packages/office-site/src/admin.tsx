@@ -1,26 +1,14 @@
 import { useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { Button, Icon, IconButton, TextField } from '@barocss/office-ui';
-import {
-  columnNames,
-  datasetsOf,
-  definitionsOf,
-  assetsOf,
-  documentFaults,
-  widthsOf,
-  type Declares,
-  lastPublish,
-  breakageSaid,
-  breaksIfGone,
-  pagesOf,
-  publishSaid,
-  publishState,
-  publishesOf,
-  templatesIn,
-  refCounts,
-  refsIn,
-  type Ref
-} from '@barocss/office-site';
+import { assetsOf } from './assets';
+import { widthsOf } from './breakpoints';
+import { definitionsOf, templatesIn } from './components';
+import { columnNames, datasetsOf } from './data';
+import { documentFaults, type Declares } from './faults';
+import { lastPublish, publishSaid, publishState, publishesOf } from './publishes';
+import { breakageSaid, breaksIfGone, refCounts, refsIn, type Ref } from './refs';
+import { pagesOf } from './selection';
 
 /**
  * **관리** — the surface a reader opens the file into, and the builder is what they go *in* to.

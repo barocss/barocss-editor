@@ -129,13 +129,16 @@ keyboard's route differ, the button hides the defect**, and the defect was in
 ## What the seam actually cost
 
 `office-note` is **2,392 lines** and `apps/note` is **257**. For comparison, the chrome
-still living in the other three apps is **34,138 lines**.
+still living in the other three apps is **28,739 lines**.
 
 That number is a **gauge, not a fact about note** — it is what the other three have not moved yet,
 and it goes down as they do. It was 35,927 when this was written, and the site builder has moved
-two pieces since: `PageFrame`(307) and `Rail`(1,483), which is the roadmap's *"office-site 가
-React 를 갖게 되는 첫 걸음"*. The check holding this number is the reason the gauge cannot drift:
-moving chrome and forgetting to say so fails here.
+five pieces since — `PageFrame`(307) · `Rail`(1,483) · `Inspector`(2,342) · `Overlay`(2,040) ·
+`Admin`(1,027) — which is the roadmap's *"office-site 가 React 를 갖게 되는 첫 걸음"*.
+`apps/site` went 11,410 → 4,221 lines.
+
+The check holding this number is the reason the gauge cannot drift: moving chrome and forgetting to
+say so fails here. It has caught every move so far.
 
 Note is the only product that passes the roadmap's Phase 3 condition — *the shell
 in `apps/` belongs to no product* — and it passes it by holding its own view and
