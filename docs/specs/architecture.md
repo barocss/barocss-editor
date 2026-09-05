@@ -4,7 +4,7 @@
 계산했고(`@barocss/*` 만), 숫자는 세었다. 그리는 것과 재는 것이 다르면 재는 쪽이 맞다 —
 `conformance/dependency-graph.test.ts` 가 그 사실을 지킨다.
 
-마지막 측정: **2026-09-05 · 패키지 29 · 층 7 · 순환 0 · 제품→제품 0**
+마지막 측정: **2026-09-05 · 패키지 29 · 깊이 0–6 · 순환 0 · 제품→제품 변 0**
 
 ## 두 축으로 읽는다 — **깊이**와 **종류**
 
@@ -19,8 +19,8 @@
 | **2** | `model` `converter` `collaboration` | | |
 | **3** | `editor-core` `collaboration-*` | | |
 | **4** | `editor-view-dom` `editor-view-react` `extensions` `devtool` | `office-controls` `office-text` `office-canvas` | |
-| **5** | | `office-editor-ui` | `office-word` |
-| **6** | | | `office-note` · `office-site` · `office-slides` |
+| **5** | | `office-editor-ui` | |
+| **6** | | | `office-word` · `office-slides` · `office-site` · `office-note` |
 
 `office-editor-ui`(270줄: `use-controls`·`use-selection-rect`·`revision`)가 `office-word` 와 같은
 깊이인 것은 **둘 다 층 4 위에 서기 때문**이지 둘이 같은 종류라서가 아니다. 부품이 뷰를 쓰면 제품과
@@ -53,58 +53,50 @@
 
 `conformance` 가 이것을 센다: 제품 → 제품 변은 **0** 이어야 한다.
 
-## 넷이 형제가 아니다 — 그리고 원인은 변 셋이다
+### 규칙: **타입으로만 쓰는 의존은 `devDependencies` 로**
 
-제품 넷이 **5·6·6·7** 에 흩어져 있다. 제품이 제품을 의존하기 때문이고, 재보니 그 변이 **셋뿐이며
-각각 심볼 하나**다:
+`dependency-graph.test.ts` 가 `dependencies` 만 보고 층을 계산하므로, 타입 자리에서만 쓰는 것을
+거기 적으면 **실행 그래프에 없는 변이 층을 밀어 올린다.**
 
-| 변 | 무엇 | 어디로 가야 하나 |
+이 규칙이 `dependency-graph.test.ts` 의 프로세 안에 *순환을 푼 방법* 으로 적혀 있었고, 그래서
+**기법처럼 읽혔다** — 셸 이주 에이전트가 그것을 지적했다. 규칙이다:
+
+- 값으로 쓰면 `dependencies` (`office-note` 가 `editor-view-dom` 을 그렇게 갖는다 — 실제로 만든다)
+- 타입으로만 쓰면 `devDependencies` (`office-word` 가 그렇다 — 셋 다 `import type`)
+
+그리고 **선언은 import 할 때 함께 한다.** 미리 넣어 두면 `dependency-graph` 가 유령으로 잡는다.
+
+## 넷이 형제다 — 그리고 그렇게 된 경위
+
+제품 넷이 한때 **5·6·6·7** 에 흩어져 있었다. 원인이 둘이었고 둘 다 걷었다.
+
+**하나 — 제품이 제품을 의존했다.** 변이 셋이었고 각각 심볼 하나였다:
+
+| 변 | 무엇 | 내려간 곳 |
 |---|---|---|
-| `office-slides` → `office-word` | `createWordTables` | **`office-text`** — 표는 글의 낱말이다 |
-| `office-site` → `office-word` | `frameCss` | **`office-canvas`** — 프레임은 캔버스의 것이다 |
-| `office-site` → `office-note` | `NOTE_CONTENT` | **`office-text`** — *쓰인 몸이 무엇으로 이루어지나* 는 note 의 것이 아니라 **글** 의 것이다 |
+| `office-slides` → `office-word` | `createWordTables` | `office-text` |
+| `office-site` → `office-word` | `frameCss` | `office-canvas` |
+| `office-site` → `office-note` | `NOTE_CONTENT` | `office-text` (`BODY_CONTENT`) |
 
-셋째는 `site-schema.ts` 가 스스로 적어 뒀다 — *"그 논증은 이제 `office-note` 에 산다"*. 그때는
-맞는 이동이었다: 두 번째 철자를 만들지 않으려는 것이었다. 그런데 **읽는 쪽이 둘이 되면 그 선언은
-둘 중 하나의 것이 아니라 아래층의 것**이다.
+두 프로세가 스스로 근거를 적어 뒀다 — *"a deck needs for the same reason Word does"*,
+*"one declaration, read by everything"*. 둘 다 맞는 말이었고 **집이 틀렸다**: 읽는 쪽이 둘이 되면
+그 선언은 둘 중 하나의 것이 아니라 아래층의 것이다.
 
-걷어내면 계산이 이렇게 바뀐다:
-
-```
-office-word    5 → 5
-office-slides  6 → 5     ← 형제가 된다
-office-site    7 → 5     ← 형제가 된다
-office-note    6 → 6
-최대 깊이       7 → 6
-```
-
-### 그런데 **깊이는 제품의 서열이 아니다**
-
-넷을 5·6·6·6 으로 적으면 word 가 위에 있는 것처럼 읽힌다. 아니다. **깊이는 *내 아래에 패키지가
-몇 겹인가* 이고, 그건 재사용의 양이지 제품의 지위가 아니다.**
-
-셋이 6인 이유는 하나다: `office-editor-ui`(부품, 5)를 **패키지에서** 쓴다 —
-`Controls` · `SlashMenu` · `useEditorRevision`. 남은 하나는 **같은 것을 앱에서** 쓴다:
+**둘 — 셸이 앱에 남아 있었다.** 그것을 옮긴 제품만 `office-editor-ui`(부품, 5)를 의존해 6이 됐다.
+한동안 `office-note` 혼자 6이었고, 그건 **아래여서가 아니라 앞서 있다는 영수증** 이었다. 나머지
+셋이 셸을 옮기자 넷이 6에서 만났다.
 
 ```
-apps/word  →  @barocss/office-editor-ui
+apps/slide  18,971 → 2,520   (−87%)
+apps/site   11,410 → 4,221   (−63%)
+apps/word    5,535 → 1,762   (−68%)
+셋 합계      35,927 → 8,503
 ```
 
-**즉 6은 아래가 아니라 앞서 있다는 영수증이다** — 자기 셸을 패키지로 옮겼고, 그래서 부품을 한 겹 더
-재사용한다. word 가 셸을 옮기면 **그것도 6이 된다.**
+남은 것은 조립(`app.tsx`)과 부트스트랩(`main.tsx`), 그리고 `apps/word/input-lab/`(966, 입력
+계측기 — 셸이 아니다). **그리고 `style.css` 들** — 그건 아직 답이 없다(§셸을 옮길 때 3).
 
-그 깊이를 심볼을 옮겨서 줄일 수는 없다. 재본 사슬이 전부 값 의존이다:
-
-```
-shared(0) → datastore(1) → model(2) → editor-core(3) → office-controls(4)
-          → office-editor-ui(5) → office-note(6)
-```
-
-`office-controls` 는 `markAttribute`·`markState` 를 값으로 쓰고, `office-editor-ui` 는
-`office-controls` 를 값으로 쓴다. **부품이 부품 위에 서면 제품과 깊이가 겹치거나 넘어선다** — 그건
-그래프의 성질이지 결함이 아니다.
-
-**목표 상태: 바탕·부품 0–5, 제품 **넷 다 6**, 형제.**
+`conformance/no-product-depends-on-a-product.test.ts` 가 `package.json` 과 import 둘 다 센다.
 
 ## 층은 선언이 아니라 결과다
 
@@ -191,6 +183,58 @@ overlay?: (host: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
 그것이 노트인지 텍스트 상자인지는 **앱이 정한다.** 그러면 조각은 제품으로 가고 조립은 앱에 남는다 —
 그리고 그게 앱이 하는 일이다.
 
+### 셸을 옮길 때 **코드만 옮기면 안 된다** — 셋이 더 있다
+
+셸 이주를 에이전트 둘에게 병렬로 시켰더니, 문서가 답을 안 주는 자리 넷이 나왔다. 그것이 병렬로
+돌린 값이다 — 사람 하나면 *알아서* 처리하고 넘어갔을 것들이 **문서의 구멍으로** 드러났다.
+
+#### 1. Tailwind `@source` — **유일하게 빌드 시점이고 가장 조용하다**
+
+앱의 `style.css` 가 `@source ".../packages/<제품>/src"` 를 안 적으면, 옮긴 부품들은
+**클래스 속성은 그대로 붙은 채 뒤에 규칙이 하나도 없다.**
+
+| | |
+|---|---|
+| `tsc` | 초록 |
+| 단위 검사 | 초록 |
+| **앱의 브라우저 회차** | **초록** — 앱은 자기 `style.css` 를 갖고 있다 |
+| 독립된 호스트가 그 패키지를 그릴 때 | **깨진다** |
+
+`conformance/every-app-scans-the-chrome-it-draws.test.ts` 가 센다.
+
+#### 2. `publishConfig.exports` 와 **빌드 진입점**
+
+`exports` 가 문을 둘 여는데 `vite.config.ts` 가 `index.ts` 하나만 빌드하면, **발행된 패키지에서
+그 문은 아무 데도 안 닿는다.** 워크스페이스에서는 `exports` 가 `src/*.ts` 를 직접 가리키므로
+보이지 않는다.
+
+재보니 `office-note` 의 `./view` 가 **오래 그 상태였다** — 즉 *`office-note` 는 독립 패키지다* 라는
+주장이 **발행 시점에는 거짓이었다.** 워크스페이스에서만 쓰였으므로 아무도 몰랐다.
+
+`conformance/every-door-a-package-opens-is-built.test.ts` 가 센다.
+
+#### 3. 크롬 CSS — **아직 답이 없다** 🔴
+
+`apps/slide/src/style.css` 는 **2,871줄, `.sl-` 규칙 335개** 이고, 그것이 방금 옮긴 스물세 조각의
+*생김새* 다. 지금 `@barocss/office-slides/ui` 는 **`apps/slide` 의 스타일시트가 있어야만 맞게
+보인다.**
+
+`office-slides/slides.css` 는 그것이 아니다 — 자기 머리에 *"Nothing here styles a document's
+content"* 라고 적혀 있고 21줄이다. 그건 **문서** 의 CSS 이고, 이건 **셸** 의 CSS 다.
+
+**이 문서의 문 규칙(*React 가 필요한가*)은 CSS 에 답을 못 준다.** 그리고 `office-slides` 는 이미
+문이 셋이다(`.` · `./ui` · `./slides.css`) — 두 문 규칙이 이미 전부가 아니다. 결정이 필요하다:
+`slides.css` 에 붙일지, `./chrome.css` 를 낼지, 아니면 부품마다 자기 CSS 를 갖게 할지.
+
+**결정 전까지 `office-slides`·`office-site` 는 독립 패키지가 아니다** — 이 저장소의 규칙대로
+*독립된 무언가가 쓰기 전에는 독립이 아니다*.
+
+#### 4. 픽스처는 **루트로** 나간다
+
+`sample-document.ts`(991줄)는 제품이 *자기 스키마가 진짜 내용을 담는다* 를 증명하는 것이다. React
+가 필요 없으므로 `.` 으로 나가고, 그래야 Node 에서 읽을 수 있다 — 하네스가 그것을 묻는다.
+`office-site` 의 `createSampleSite` 가 선례다.
+
 ## 어디에 무엇이 사는가 — 찾는 사람을 위해
 
 | 질문 | 어디 |
@@ -214,7 +258,7 @@ overlay?: (host: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
 | 스키마 하나가 넷을 담나 | **예** | 넷이 `getOfficeSchemaDefinition()` 위에 서고, 정산이 강제된다 |
 | 제품 계약이 있나 | **예, 이제** | `ProductEditorOptions`. 없던 동안 넷째가 벗어나 있었다 |
 | 기본 키가 공유되나 | **예** | 엔진 마흔, 모든 제품 |
-| 셸이 제품에 있나 | **셋은 예, 워드는 아니오** | 앱에 남은 `.ts`/`.tsx`: note 257 · slide **2,520**(조립 2,360 + 부트 160) · site 4,221 · **word 5,535**. slide 의 셸 **스물세 조각 16,449줄**이 `office-slides` 로 갔다 |
+| 셸이 제품에 있나 | **거의** | 셋이 옮겨 **35,927 → 8,503줄**. 남은 것은 조립·부트스트랩·계측기, 그리고 `style.css` |
 | 서비스 층이 있나 | **거의 없다** | 문서 목록·저장소·계정·권한이 0에 가깝다 |
 
 ## 아직 나뉘어 있는 것 — 2026-09-05 측정
@@ -238,5 +282,5 @@ overlay?: (host: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
 
 ## 이 구조를 틀리게 만들 것
 
-- **셸이 앱에 남는 것.** 35,927줄이 제품이 아니라 앱에 있으면, 새 제품은 그것을 다시 쓴다.
+- **셸의 CSS 가 앱에 남는 것.** 코드는 옮겼는데 생김새가 안 옮겨지면, 그 패키지는 자기 호스트 밖에서 맞게 그려지지 않는다 — 그리고 **브라우저 회차는 초록이다**(§셸을 옮길 때 3).
 - **서비스 층이 비어 있는 것.** B2B 는 대부분 그 층이다.

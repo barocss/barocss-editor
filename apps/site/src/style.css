@@ -9,6 +9,12 @@
  * first time, and it is silent.
  */
 @source "../../../packages/office-ui/src";
+/*
+ * **옮긴 셸의 클래스도 훑어야 한다.** 셸이 `office-site` 로 가면 그 파일들의 Tailwind 유틸리티가
+ * 이 목록 밖이 되고, 그러면 **클래스는 붙고 규칙이 하나도 없다** — tsc 초록, 단위 초록,
+ * 브라우저에서만 보인다. `apps/note` 가 이 짝을 먼저 갖고 있었다.
+ */
+@source "../../../packages/office-site/src";
 
 /*
  * The parts of rendering that CSS has to finish — the list marker and the caret filler. Shared

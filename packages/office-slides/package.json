@@ -29,6 +29,11 @@
         "import": "./dist/index.js",
         "default": "./dist/index.js"
       },
+      "./ui": {
+        "types": "./dist/ui.d.ts",
+        "import": "./dist/ui.js",
+        "default": "./dist/ui.js"
+      },
       "./slides.css": "./dist/slides.css"
     },
     "files": [
