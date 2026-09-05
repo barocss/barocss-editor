@@ -224,7 +224,7 @@ class NoteElementExtension implements Extension {
      * 홀로 선 노트는 `resources` 를 만들지 않는다 — *하나의 쓰인 것* 이다. 그래서 오늘은 두 수가
      * 같고, 스키마가 허용하는 동안 맞게 세는 것이 공짜다.
      */
-    (editor as unknown as { registerCommand: (one: unknown) => void }).registerCommand({
+    editor.registerCommand({
       name: 'moveNoteBlockTo',
       execute: async (_ed: Editor, payload?: Record<string, unknown>) => {
         const sid = String(payload?.nodeId ?? '');

@@ -7,6 +7,25 @@
 export { IS_MAC, IS_LINUX, IS_WINDOWS } from './platform';
 export { getKeyString, isTypingKey } from './key-string';
 export { normalizeKeyString, expandModKey } from './key-binding';
+
+/**
+ * **선택** — `selection.ts` 에 왜 여기인지가 적혀 있다. 요약하면: 두 뷰 층의 DOM↔모델 변환을 그 둘
+ * 아래에 두려면 타입도 그 아래여야 하고, 그 변환이 쓰는 런 색인은 이미 이 패키지에 있다.
+ */
+export {
+  createNodeSelection,
+  fromDOMSelection,
+  isCursor,
+  isModelSelection,
+  isNodeSelection,
+  isRangeSelection,
+  selectedNodeIds,
+  withLiveNodes,
+  type ModelSelection,
+  type NoSelection,
+  type Selection,
+  type SelectionType
+} from './selection';
 export {
   dragGesture,
   type GestureMoved,

@@ -2,6 +2,32 @@ import { Transaction } from '@barocss/model';
 import { Schema } from '@barocss/schema';
 import type { Editor } from './editor';
 
+/**
+ * **선택은 `@barocss/shared` 가 선언한다** — 그리고 여기서 그대로 다시 내보낸다.
+ *
+ * 옮긴 이유는 `shared/src/selection.ts` 에 있다. 요약: 두 뷰 층의 DOM↔모델 변환을 그 둘 **아래**에
+ * 두려면 그것이 다루는 타입도 아래에 있어야 하고, 그 변환이 쓰는 런 색인은 이미 `shared` 에 있다.
+ *
+ * **다시 내보내는 것은 남겨 둘 값이 있다.** 이 타입을 참조하는 파일이 118개이고, 그 대부분은 제품과
+ * 확장이다 — 그들이 *편집기의 어휘* 로 선택을 배우는 것이 맞다. `shared` 에서 직접 가져가야 하는
+ * 것은 뷰 층 둘뿐이고, 그 둘은 편집기를 만드는 쪽이 아니라 그리는 쪽이다.
+ */
+export {
+  createNodeSelection,
+  fromDOMSelection,
+  isCursor,
+  isModelSelection,
+  isNodeSelection,
+  isRangeSelection,
+  selectedNodeIds,
+  withLiveNodes,
+  type ModelSelection,
+  type NoSelection,
+  type Selection,
+  type SelectionType
+} from '@barocss/shared';
+import type { ModelSelection } from '@barocss/shared';
+
 export interface DocumentState {
   type: 'document';
   content: Node[];
@@ -44,116 +70,6 @@ export interface SelectionState {
   length: number;
 }
 
-export type SelectionType = 'range' | 'node' | 'cell' | 'table';
-
-/**
- * Model Selection type - represents selection/range within the editor
- * Always guarantees start ≤ end (normalized)
- */
-export interface ModelSelection {
-  type: SelectionType;
-  startNodeId: string;
-  startOffset: number;
-  endNodeId: string;
-  endOffset: number;
-  collapsed?: boolean;  // Cursor is represented as a range with collapsed: true
-  direction?: 'forward' | 'backward' | 'none';
-  /**
-   * Every node in the selection, when what is selected is nodes rather than a
-   * span of text.
-   *
-   * A range says "from here to there", which is the right shape for text and the
-   * wrong one for three shapes on a board or two cells in different rows: those
-   * are a set, and a set with holes in it cannot be described by its endpoints.
-   *
-   * `startNodeId`/`endNodeId` stay populated with the first and last of them, so
-   * that code written before this existed keeps working on one of the selected
-   * nodes rather than on nothing. Anything that means "all of them" should ask
-   * `selectedNodeIds()`.
-   */
-  nodeIds?: string[];
-}
-
-/**
- * The nodes a selection covers, for the kinds that select whole nodes.
- *
- * Returns an empty array for a text range: a range covers *parts* of nodes, and
- * treating its endpoints as a node set is how a caret in a paragraph turns into
- * "the paragraph is selected".
- */
-export function selectedNodeIds(selection: ModelSelection | null | undefined): string[] {
-  if (!selection) return [];
-  if (selection.type === 'range') return [];
-  if (selection.nodeIds && selection.nodeIds.length > 0) return [...selection.nodeIds];
-
-  // A selection made before this field existed, or one that covers a single node
-  return selection.startNodeId === selection.endNodeId
-    ? [selection.startNodeId]
-    : [selection.startNodeId, selection.endNodeId];
-}
-
-/**
- * A selection of whole nodes.
- *
- * Order is the caller's: it is the order the nodes were selected in, which is
- * not always document order and is what a user expects when a command reports
- * on them.
- */
-export function createNodeSelection(
-  nodeIds: string[],
-  type: SelectionType = 'node'
-): ModelSelection | null {
-  if (nodeIds.length === 0) return null;
-  return {
-    type,
-    nodeIds: [...nodeIds],
-    startNodeId: nodeIds[0],
-    startOffset: 0,
-    endNodeId: nodeIds[nodeIds.length - 1],
-    endOffset: 0,
-    collapsed: false,
-    direction: 'none'
-  };
-}
-
-/**
- * The same selection with the nodes that are **gone** taken out of it.
- *
- * Measured: selecting three shapes and deleting the middle one left all three selected. The check
- * that guards a selection against a deleted node asks only about `startNodeId` and `endNodeId` —
- * right for a range, which is what it was written for, and blind to a set, where the deleted node
- * is usually neither end. The next command then acted on a node the store no longer has.
- *
- * Pruned rather than cleared, because that is what a reader means: two of my three shapes are still
- * here and still selected. Cleared only when *nothing* survives, which is the same "no nodes and no
- * selection are one state" rule `createNodeSelection` follows.
- *
- * A **range** is handed back untouched: it covers parts of nodes rather than a set of them, and its
- * endpoints are what the alive check is for.
- */
-export function withLiveNodes(
-  getNode: (id: string) => unknown,
-  selection: ModelSelection | null | undefined
-): ModelSelection | null {
-  if (!selection) return null;
-  if (selection.type === 'range') return selection;
-
-  const nodes = selectedNodeIds(selection);
-  if (nodes.length === 0) return selection;
-
-  const alive = nodes.filter((id) => !!getNode(id));
-  if (alive.length === nodes.length) return selection;
-  if (alive.length === 0) return null;
-
-  // The endpoints follow the survivors, or they would keep naming what has gone.
-  return {
-    ...selection,
-    nodeIds: alive,
-    startNodeId: alive[0],
-    endNodeId: alive[alive.length - 1]
-  };
-}
-
 export interface EditorSelectionModelEventPayload {
   selection: ModelSelection | null;
   applySelectionToView?: boolean;
@@ -162,107 +78,6 @@ export interface EditorSelectionModelEventPayload {
 }
 
 export type EditorSelectionModelPayload = ModelSelection | EditorSelectionModelEventPayload;
-
-export interface NoSelection {
-  type: 'none';
-}
-
-export type Selection = ModelSelection | NoSelection;
-
-/**
- * Convert DOM Selection (anchor/focus) to ModelSelection
- * Normalizes anchor/focus to start/end and preserves direction information
- */
-export function fromDOMSelection(
-  anchorId: string,
-  anchorOffset: number,
-  focusId: string,
-  focusOffset: number,
-  selectionType: SelectionType = 'range',
-  compareNodeOrder?: (a: string, b: string) => number
-): ModelSelection {
-  // Single node case
-  if (anchorId === focusId) {
-    const isForward = anchorOffset <= focusOffset;
-    const start = Math.min(anchorOffset, focusOffset);
-    const end = Math.max(anchorOffset, focusOffset);
-    return {
-      type: selectionType,
-      startNodeId: anchorId,
-      startOffset: start,
-      endNodeId: focusId,
-      endOffset: end,
-      collapsed: start === end,
-      direction: start === end ? 'none' : (isForward ? 'forward' : 'backward')
-    };
-  }
-  
-  /**
-   * **두 노드에 걸친 경우 — 어느 쪽이 문서에서 앞인가.**
-   *
-   * 예전 기본값은 `(a, b) => a.localeCompare(b)` 였다. sid 를 **문자열로** 비교한 것이고, 그건 문서
-   * 순서가 아니다. sid 는 `note-c0huyw:9` 처럼 접두어와 숫자로 되어 있어서 자리수가 넘어가는 순간
-   * 사전순이 뒤집힌다 — `"9"` 가 `"11"` 보다 크다. 그리고 그 결과가 `startNodeId` 와 `endNodeId` 를
-   * **맞바꾼다.**
-   *
-   * 그게 `Shift+→` 로 문단을 넘을 때 범위가 뒤집히던 원인의 절반이었다. 서른세 번째 누름에서 모델이
-   * `3:0 → 1:25` 이 됐고, `direction` 은 여전히 `forward` 이고, DOM 쪽은 `setEnd` 가 시작보다 앞인
-   * 끝을 받아 **접혔다** — 화면에 표시가 없고 그 상태의 굵게는 아무 일도 안 한다. 자리수를 넘지 않는
-   * 동안은 우연히 맞아서, 짧은 문서에서는 재현되지 않는다.
-   *
-   * **기본값은 이제 *준 순서를 믿는 것*이다.** 이 함수의 실제 호출자 셋은 모두 `range.startContainer`
-   * 와 `range.endContainer` 를 넘기고, DOM `Range` 의 두 끝은 **정의상 문서 순서**다. 그러니 정렬할
-   * 것이 없다. anchor/focus 를 넘기는 호출자(뒤로 고른 선택을 구분해야 하는 쪽)는 `compareNodeOrder`
-   * 를 주면 되고, 그것이 이 인자가 있는 이유다.
-   *
-   * 문자열 비교로 돌아가지 않는다: 모르는 채로 틀리게 정렬하는 것보다 준 대로 두는 것이 낫다.
-   */
-  const compare = compareNodeOrder ?? (() => -1);
-  const order = compare(anchorId, focusId);
-  const isForward = order <= 0;
-  const startNodeId = isForward ? anchorId : focusId;
-  const startOffset = isForward ? anchorOffset : focusOffset;
-  const endNodeId = isForward ? focusId : anchorId;
-  const endOffset = isForward ? focusOffset : anchorOffset;
-
-  return {
-    type: selectionType,
-    startNodeId,
-    startOffset,
-    endNodeId,
-    endOffset,
-    collapsed: false,
-    direction: isForward ? 'forward' : 'backward'
-  };
-}
-
-/**
- * Type guard: Check if selection is ModelSelection
- */
-export function isModelSelection(selection: Selection): selection is ModelSelection {
-  return selection.type !== 'none';
-}
-
-/**
- * Type guard: Check if selection is Range Selection
- */
-export function isRangeSelection(selection: Selection): selection is ModelSelection {
-  return selection.type === 'range';
-}
-
-/**
- * Type guard: Check if selection is Node Selection
- */
-export function isNodeSelection(selection: Selection): selection is ModelSelection {
-  return selection.type === 'node';
-}
-
-/**
- * Type guard: Check if selection is Cursor (collapsed range)
- */
-export function isCursor(selection: Selection): selection is ModelSelection {
-  return isRangeSelection(selection) && selection.collapsed === true;
-}
 
 /*
  * **여기 있던 `ModelNodeSelection` 과 `ModelAbsoluteSelection` 을 지웠다 — 그리고 앞의 것이 이

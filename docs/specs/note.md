@@ -128,8 +128,8 @@ keyboard's route differ, the button hides the defect**, and the defect was in
 
 ## What the seam actually cost
 
-`office-note` is **2,373 lines** and `apps/note` is **257**. For comparison, the chrome
-still living in the other three apps is **35,727 lines**.
+`office-note` is **2,372 lines** and `apps/note` is **257**. For comparison, the chrome
+still living in the other three apps is **35,927 lines**.
 
 Note is the only product that passes the roadmap's Phase 3 condition — *the shell
 in `apps/` belongs to no product* — and it passes it by holding its own view and

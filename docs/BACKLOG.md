@@ -6943,65 +6943,34 @@ text-shaped.
   필요한 것을 거의 다 주고, 노트는 본문이다. `note-keymap.ts` 에 *이 파일이 자라는 조건* 을 적어 뒀다.
 
 
-- [ ] **엔진이 *글자인가* 를 이름으로 묻고, 그 이름이 그룹의 여덟 중 하나뿐이다.**
+- [ ] **엔진이 *글자인가* 를 이름으로 묻는다 — 그런데 살아 있는 결함은 아니다 (2026-09-05 정정).**
 
-  `'inline-text'` 라는 문자열이 `packages/*/src` 에 **132번** 나오고, 그 중 **비교 연산(=결정
-  자리)이 36곳**이다. 제품 층의 것(office-word 10 · office-site 3)은 정당하다 — 제품은 자기 노드
-  이름을 알아도 된다. 문제는 **엔진 층의 18곳**이다:
+  **먼저 내가 이 항목에 적은 것을 고친다.** *"`isSelectionInsideEditableText` 는 IME 를 게이트하는데,
+  캐럿이 이모지나 북마크 앵커나 날짜 필드 옆에 있으면 거짓을 돌려준다"* 고 썼다. **틀렸다.**
 
-  | 패키지 | 결정 자리 |
-  |---|---:|
-  | `editor-view-dom` | 10 |
-  | `editor-view-react` | 5 |
-  | `editor-core` · `model` · `renderer-dom` | 각 1 |
+  - 그 함수는 `el.closest('[contenteditable="false"]')` 를 **먼저** 본다. 원자들은 거기서 걸린다.
+  - 캐럿이 이모지 *옆* 에 있으면 `closest('[data-bc-sid]')` 가 **그 문단의 런**을 찾는다 →
+    `inline-text` → 참이다.
 
-  **그리고 스키마가 이미 답을 갖고 있다.** 런타임으로 확인했다 — office 스키마에서
-  `inline-text` 는 `{ name: 'inline-text', group: 'inline' }` 이고(표준 스키마에서 상속된다),
-  **`inline` 그룹에 여덟이 있다**:
+  그리고 *글자를 담는 노드가 여럿* 이라는 것도 재보니 아니었다. `textNode('paragraph', …)` 가 15번,
+  `textNode('codeBlock', …)` 가 4번 나오는데 **열아홉 다 검사 파일**이다. `src` 에서는
+  `textNode('inline-text')` 뿐이다. 그러니 두 판정이 **오늘 같은 답**을 낸다.
 
-  `hardBreak` · `inline-text` · `inline-image` · `emoji` · `bookmarkAnchor` · `fieldDateTime` ·
-  `fieldDocTitle` · `fieldAuthor`
+  (그 열아홉도 그 자체로 한 항목이다: 제품이 만들지 않는 모양을 검사가 세우고 있다 — 이 회차에
+  `convertNodeSelectionToDOM` 의 `nodeId` 에서 본 것과 같은 모양이다.)
 
-  그래서 `stype === 'inline-text'` 는 **나머지 일곱에 아니라고 답한다.** 예를 들어
-  `editor-view-react` 의 `isSelectionInsideEditableText` 는 IME 처리를 **게이트** 하는데, 캐럿이
-  이모지나 북마크 앵커나 날짜 필드 옆에 있으면 거짓을 돌려준다.
+  **그래서 이건 준비 작업이지 수정이 아니다.** 남는 값은 둘이고, 둘 다 진짜다:
 
-  원칙은 이미 이 저장소에 적혀 있다 — `extensions/src/range-delete.ts` 의 `isInline`:
+  1. **질문의 이름이 틀렸다.** 스물한 자리가 묻는 것은 *여기 타이핑할 수 있나* 이고, 그 답은 그룹도
+     이름도 아니라 **`typeof node.text === 'string'`** 이다. `inline` 그룹 여덟 중 **일곱이 원자**라
+     그룹으로 물으면 이모지에 예라고 답한다 — 내가 처음 쓴 *"스키마에 물어라"* 도 그래서 틀렸다.
+  2. **스키마는 *글자를 담는다* 를 아예 선언하지 않는다.** `group` 과 `atom` 만 있다. 모델의
+     `node.text` 만 안다. 그러니 물을 곳은 스키마가 아니라 노드다.
 
-  > *"Guessed by name first (`inline-text`, `link`, anything starting `inline`) and that is the shape
-  > of a rule that works until a product names something else: the site's `richText`, a deck's
-  > connector label. **The schema declares a `group` for exactly this.**"*
+  `extensions/align.ts:70` 과 `editor-core/selection-summary.ts:173` 은 **이미 둘 다** 묻는다
+  (`typeof text !== 'string' && stype !== 'inline-text'`) — 이름 검사가 남은 찌꺼기라는 표시다.
 
-  한 파일이 그렇게 하고 열여덟 곳이 안 한다. 그리고 이건 로드맵의 *"스키마 하나가 여러 제품을
-  담나"* 에 바로 걸린다: 텍스트 런을 다른 이름으로 부르는 제품은 뷰 층에서 깨진다.
-
-  **재는 방법이 싸다** — 이모지나 필드 옆에 캐럿을 두고 `isSelectionInsideEditableText` 를 묻는
-  단위 검사 하나면 지금 거짓인 것이 보인다. 브라우저가 필요 없다.
-
-
-- [x] **집합인 선택을 DOM 에 어떻게 반영하나 — 첫 판이 틀렸고 브라우저가 반박했다.**
-
-  `node`·`cell`·`table` 셋을 다 *DOM 선택을 지운다* 로 만들었다. 논거는 **DOM 선택은 *여기서
-  저기까지* 하나만 표현하고 집합에는 두 끝이 없다** 였고, 그 절반은 사실이다. 슬라이드 검사 **여덟
-  개**가 `range` 를 기대하고 `node` 를 받았다 — 텍스트 상자를 더블클릭하면 첫 누름이 도형을
-  고르고(→ `node`) 둘째 누름이 안으로 들어가 캐럿을 놓는데, 첫 누름에서 DOM 선택을 지우면 그 길이
-  끊긴다. *"그대로 두기"* 가 짐을 지고 있었다.
-
-  구별은 *집합인가* 가 아니라 **그 선택을 만든 제스처가 글자 선택을 대신하려는 것인가** 다. 셀
-  드래그는 대신한다(`installCellSelection` 이 이미 손으로 지운다). 도형 선택은 **가는 중일 수
-  있다** — 더블클릭의 첫 절반이다.
-
-  **적어 두는 이유는 논거의 모양이다.** *DOM 선택은 두 끝만 표현한다* 는 사실이고, *그러므로 집합일
-  때는 지워야 한다* 는 그 사실에서 따라오지 않는다. 사실과 결론 사이에 브라우저가 한 번 들어와야
-  했다. 그리고 검사도 내 논거를 담고 있었으므로 검사가 나를 막아 주지 못했다 — **단정을 쓰기 전에
-  그 단정이 어디서 온 것인지 물어야 한다.**
-
-  남는 값: 도형을 고른 뒤 직전의 글자 강조가 화면에 남을 수 있다. **아직 잰 적 없는 불편**이므로
-  추측으로 지우지 않는다.
-
-  되돌린 뒤 슬라이드 스위트는 **407/407** 이다 — 여덟 실패가 다 그 하나에서 왔고, 하나를 되돌리자
-  여덟이 같이 돌아왔다.
-
+  값이 준비 작업뿐이므로 **살아 있는 결함들보다 뒤로** 옮긴다.
 
 - [ ] **`apps/` 는 세 층이고, 회차에서 기능성 테스트 층이 빠져 있었다.** 2026-09-05 에 세었다.
 
@@ -7140,6 +7109,31 @@ text-shaped.
   **증거:** 이번 회차에 고친 선택 결함 둘이 React 판에 그대로 남아 있었다 —
   `data-text-container`(아무도 안 쓰는 속성)와 요소 경계의 `isEnd`/비교 방향. `Shift+→` 뒤집힘이
   React 경로에는 살아 있었다. 같이 고쳤지만 **두 번 고쳐야 한다는 것이 결함이다.**
+
+  **2026-09-05 — 1단계가 끝났고, 2단계를 재다가 진짜 논리 차이를 하나 찾았다.**
+
+  1단계(선택 어휘를 `shared` 로)는 끝났다. 2단계(열한 메서드)를 재보니 **모든 의존이 `getNode`
+  하나**다 — `this.editor` 를 쓰는 것은 `isTextContainer` 와 `nodeExistsInModel` 둘뿐이고 둘 다
+  `dataStore.getNode` 만 부른다. 나머지 아홉은 순수 DOM 이다. 열셋(사이의 `textContainerInside` ·
+  `findFirstTextNode` 포함)을 합쳐 **326줄**이고, `editor-view-dom` 의 selection-handler 는 771줄이다.
+
+  **그런데 어느 판을 진짜로 삼을지가 공짜가 아니다.** 여섯을 대보니 **여섯 다 몸통이 다르고**, 그
+  중 `isDecoratorElement` 는 표기가 아니라 **논리**가 다르다:
+
+  | | 무엇을 묻나 |
+  |---|---|
+  | `editor-view-dom` | 네 속성 중 하나 + **`data-decorator-category !== 'inline'`** |
+  | `editor-view-react` | 네 속성 중 하나 (+`data-bc-decorator-sid`), **category 는 안 묻는다** |
+
+  **DOM 판이 맞다.** 인라인 데코레이터는 *런의 일부인 글자* 를 감싸므로, 그것을 데코레이터로 빼면
+  런 색인에서 그 글자가 빠지고 오프셋이 어긋난다. 그러니 **React 경로에는 인라인 데코레이터가 걸린
+  선택에서 오프셋이 밀리는 잠재 결함이 있다** — 아직 검사로 재지 않았다.
+
+  React 만 아는 `data-bc-decorator-sid` 는 무해하다: `editor-view-dom/decorator/decorator-renderer.ts`
+  가 실제로 그것을 쓰지만 같은 요소에 `data-bc-decorator: 'layer'` 도 쓰므로 DOM 판이 그걸로 잡는다.
+
+  **뽑아낼 때 취할 판:** DOM 판의 논리 + React 의 속성 하나. 그리고 그 결정을 프로세에 적어야 한다 —
+  여섯 쌍마다 이런 판단이 필요하고, 그것이 이 작업이 기계적이지 않은 이유다.
 
   **그리고 사본이 아니라 갈라진 것이다.** 열한 개의 몸통을 대보니 글자까지 같은 것은
   `convertOffsetWithRuns` **하나뿐**이고 나머지는 다 다르다. 그런데 읽어 보면 대부분 *같은 논리를

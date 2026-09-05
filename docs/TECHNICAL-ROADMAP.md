@@ -127,8 +127,19 @@ MS Office 를 *따라잡는* 것과 *넘어서는* 것은 다른 일이다. 따�
 - [x] `apps/word/ruler.tsx` — **눈에 보이는 결함이 하나 있었다.** React 의 `onPointerMove` 는 버튼을
       누르지 않아도 오므로, 취소된 드래그 뒤에 `dragging.current` 가 남아 그냥 마우스를 올리기만 해도
       마커가 따라다녔다. 놓지 않은 드래그가 화면에 남는 것이다.
-- [ ] 남은 열여섯. 위험한 순서로: `slide/overlay`(3) → `slide/timeline`(4) → `word/drawing-overlay`(3)
-      → `site/overlay`(3) → `slide/stage`(2) → `office-text/table-selection-view`
+- [x] **남은 것을 다 옮겼다 — 그리고 그 수는 열여섯이 아니라 열셋이었다.**
+      `slide/timeline`(4) · `slide/overlay`(3) · `word/drawing-overlay`(3) · `site/overlay`(3).
+      저장소에 남은 `window` `pointermove` 는 **하나**이고 그건 자 눈금을 따라가는 **상시 리스너**다.
+
+      **세는 방법이 답을 바꿨다:** *`pointermove` 를 듣는 파일* 로 세면 20(상시와 드래그를 섞는다),
+      *`pointerdown` 안 60줄 훑기* 로 세면 5(창이 좁다), ***`window` 에 붙고 같은 함수가 걷는 자리***
+      로 세야 13이다. `office-text/table-selection-view` 는 앞의 두 세기에 걸렸는데 리스너를 설치할
+      때 한 번 붙이고 `destroy()` 에서 걷는다 — 누수가 아니다.
+
+      **`abort` 가 자리마다 다른 것이 이 이주의 값이다.** 물러서기의 뜻은 그 드래그가 미리 보기를
+      *어디에* 그리느냐로 갈린다 — 화면에만 그리는 것은 걷고, 움직임마다 문서에 쓰는 것은 걷을 것이
+      없으며(*더 쓰지 않는다* 가 뜻이고 되돌리기가 나머지를 한다), 타임라인의 하나는 `land` 가 이미
+      가진 판단(*문턱보다 작게 움직였으면 안 쓴다*)에 시작 자리를 주어 **쓰지 않고 걷기** 가 된다.
 
 #### 표의 셀 선택 — 있었는데 둘만 닿았다
 

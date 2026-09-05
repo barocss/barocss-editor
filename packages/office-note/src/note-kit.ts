@@ -134,8 +134,7 @@ export function createNoteEditor(options: {
    * 지우고 다시 넣지 않는 것도 그 파일이 겪은 것이다: 레지스트리를 비우면 Enter·Backspace·화살표까지
    * 사라져서 문서가 브라우저가 하는 대로만 편집된다.
    */
-  const registry = (editor as unknown as { keybindings?: { register?: (one: unknown) => void } }).keybindings;
-  for (const binding of NOTE_KEYBINDINGS) registry?.register?.(binding);
+  for (const binding of NOTE_KEYBINDINGS) editor.keybindings.register(binding);
 
   return editor;
 }

@@ -117,8 +117,14 @@ describe('선택 타입', () => {
      * **`editor-core` 의 셋만 남는다.** `ModelSelection` 이 개념이고, `NoSelection` 은 *골라진 것이
      * 없음* 이고, `SelectionType` 은 종류의 목록이다. 셋이 한 파일에 있고 그것이 이 개념의 집이다.
      */
+    /**
+     * **`shared` 로 내려갔다** (2026-09-05). 이유는 `shared/src/selection.ts` 에 있다: 두 뷰 층의
+     * DOM↔모델 변환을 그 둘 **아래**에 두려면 그것이 다루는 타입도 아래여야 하고, 그 변환이 쓰는
+     * 런 색인은 이미 `shared` 에 있다. `editor-core` 는 그대로 다시 내보내므로 이 타입을 참조하는
+     * 118개 파일이 한 줄도 안 바뀌었다.
+     */
     expect(found.sort(), `문서의 범위를 적은 선언:\n${found.sort().join('\n')}`).toEqual([
-      'packages/editor-core/src/types.ts:53 ModelSelection'
+      'packages/shared/src/selection.ts:42 ModelSelection'
     ]);
   });
 });
