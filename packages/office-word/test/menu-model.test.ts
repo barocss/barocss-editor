@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { chordFor, keyFaults, keyLabel, menuFaults } from '@barocss/office-controls';
+import {
+  taughtKeys, chordFor, keyFaults, keyLabel, menuFaults } from '@barocss/office-controls';
 import { WORD_KEYS, WORD_VIEW_KEYS } from '../src/word-keymap';
 import { WORD_MENUS, wordMenuCommands, wordMenuEntry, wordMenuId } from '../src/menu-model';
 import { createWordEditor } from '../src/word-kit';
@@ -55,11 +56,19 @@ describe('what the menubar offers', () => {
    * labels in 보기 and **none of them did anything**, while pressing the entries worked. The chords
    * were typed here rather than read from a binding, so nothing could tell that no binding existed.
    */
-  it('prints a chord only where Word binds one', () => {
+  /**
+   * **묶은 것 = `taughtKeys(WORD_KEYS)`**, 제품의 목록이 아니다.
+   *
+   * 전에는 `WORD_KEYS` 만 봤고, 그게 맞아 보였던 것은 `WORD_KEYBINDINGS` 가 엔진 것을 **다시 적고
+   * 있었기** 때문이다. 재진술 열여섯을 걷어내자 이 검사가 *메뉴가 ⌘Z 를 인쇄하는데 Word 는 그걸
+   * 안 묶는다* 고 말했다 — 맞는 말이지만 묻는 것이 틀렸다. **엔진이 묶는다.**
+   */
+  it('prints a chord only where the editor binds one', () => {
+    const bindings = taughtKeys(WORD_KEYS);
     for (const menu of WORD_MENUS) {
       for (const block of menu.blocks) {
         for (const item of block.items) {
-          const bound = chordFor(WORD_KEYS, item);
+          const bound = chordFor(bindings, item);
           if (bound) expect(item.hint, item.label).toBe(keyLabel(bound));
           /*
            * ⌘P is the one typed chord, and it is a claim: printing is the **browser's**, hooked at

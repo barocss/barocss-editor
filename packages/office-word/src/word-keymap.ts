@@ -16,6 +16,28 @@ import type { KeyModel } from '@barocss/office-controls';
  */
 export const WORD_KEYBINDINGS: Keybinding[] = [
   /*
+   * **엔진이 이미 묶은 것은 여기서 다시 적지 않는다 — 열여섯을 걷었다.**
+   *
+   * `editor-core` 의 `DEFAULT_KEYBINDINGS` 가 마흔을 묶고 **모든 제품이 그것을 받는다**:
+   * Enter·Backspace·화살표·⌘B/I/U·⌘⇧S·목록·들여쓰기·제목·인용·undo/redo·복사/잘라내기/붙여넣기·
+   * 전체선택. 그런데 이 파일이 그 중 **열여덟을 다시 적고 있었고, 가드가 더 약했다**:
+   *
+   * | | 엔진 | 여기 |
+   * |---|---|---|
+   * | ⌘B·⌘I·⌘U·제목·목록·붙여넣기 | `editorFocus && editorEditable` | `editorFocus` |
+   * | ⌘C·⌘X | `editorFocus && editorEditable && !selectionEmpty` | `editorFocus` |
+   *
+   * 레지스트리는 **출처로 충돌을 풀고 제품 바인딩이 이긴다.** 그러므로 다시 적는 순간 그 자리의
+   * 규칙이 제품 것으로 갈리고, 여기서는 그것이 `editorEditable` 을 **떨어뜨리는** 것이었다.
+   * `executeCommand` 도 `canExecute` 도 편집 가능 여부를 안 묻는다(재봤다) — 그 키들의 유일한
+   * 편집 가드가 `when` 이다.
+   *
+   * **살아 있는 결함은 아니다:** 이 저장소의 어느 제품도 `editable: false` 를 쓰지 않는다. 읽기
+   * 전용을 처음 내는 날의 결함이었다.
+   *
+   * 걷은 열여섯 중 둘(`Tab`/`Shift+Tab` → `indentText`/`outdentText`)은 **되돌렸다** — 아래에 그
+   * 이유가 있다.
+   *
    * **표에서의 `Tab`/`Shift+Tab` 은 여기서 선언하지 않는다.** 어느 도구에서나 같은 것이고, 그것을
    * 만드는 `nextCell`·`previousCell` 을 등록하는 것이 공용 `TableExtension` 이므로 그 옆에 있다.
    * 여기 두 줄로 적혀 있었고 그래서 **표를 가진 넷 중 Word 만 Tab 이 통했다** — 노트에서 표 안의
@@ -26,19 +48,11 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   ...TABLE_CELL_KEYBINDINGS,
 
   // ── Headings and paragraph styles ──────────────────────────────────────────
-  { key: 'Mod+Alt+1', command: 'setHeading1', when: 'editorFocus' },
-  { key: 'Mod+Alt+2', command: 'setHeading2', when: 'editorFocus' },
-  { key: 'Mod+Alt+3', command: 'setHeading3', when: 'editorFocus' },
   { key: 'Mod+Alt+4', command: 'setHeading4', when: 'editorFocus' },
   { key: 'Mod+Alt+5', command: 'setHeading5', when: 'editorFocus' },
   { key: 'Mod+Alt+6', command: 'setHeading6', when: 'editorFocus' },
-  { key: 'Mod+Alt+0', command: 'setParagraph', when: 'editorFocus' },
 
   // ── Character formatting ───────────────────────────────────────────────────
-  { key: 'Mod+b', command: 'toggleBold', when: 'editorFocus' },
-  { key: 'Mod+i', command: 'toggleItalic', when: 'editorFocus' },
-  { key: 'Mod+u', command: 'toggleUnderline', when: 'editorFocus' },
-  { key: 'Mod+Shift+s', command: 'toggleStrikeThrough', when: 'editorFocus' },
   { key: 'Mod+Shift+h', command: 'toggleHighlight', when: 'editorFocus' },
   { key: 'Mod+=', command: 'toggleSubscript', when: 'editorFocus' },
   { key: 'Mod+Shift+=', command: 'toggleSuperscript', when: 'editorFocus' },
@@ -80,15 +94,24 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
    * against the table and equation bindings below, where Tab means moving to
    * the next cell or the next slot and nothing else.
    */
-  { key: 'Tab', command: 'indentText', when: 'editorFocus && inList && !inTable && !inEquation' },
-  { key: 'Shift+Tab', command: 'outdentText', when: 'editorFocus && inList && !inTable && !inEquation' },
+  /*
+   * **이 둘은 엔진 기본과 키도 명령도 같지만 재진술이 아니다.** 엔진은 `canIndentText` 로 묻고
+   * Word 는 `inList && !inTable && !inEquation` 으로 묻는다 — 아래의 `Tab` 갈래 넷(`indentFirstLine`
+   * · `insertTab` · `nextCell` · `nextMathSlot`)이 서로를 배제하도록 짜여 있고, 그 갈래의 첫 칸이
+   * 이것이다. 엔진 것에 맡기면 갈래가 반쪽이 된다.
+   *
+   * `editorEditable` 은 **검사가 찾아서 더했다** — 엔진의 것은 걸고 이쪽은 안 걸고 있었고, 제품
+   * 바인딩이 이기므로 그건 조건이 사라진다는 뜻이었다. 들여쓰기는 편집이다.
+   */
+  { key: 'Tab', command: 'indentText', when: 'editorFocus && editorEditable && inList && !inTable && !inEquation' },
+  { key: 'Shift+Tab', command: 'outdentText', when: 'editorFocus && editorEditable && inList && !inTable && !inEquation' },
+
   { key: 'Tab', command: 'indentFirstLine', when: 'editorFocus && !inList && atBlockStart && !inTable && !inEquation' },
   { key: 'Shift+Tab', command: 'outdentFirstLine', when: 'editorFocus && !inList && atBlockStart && !inTable && !inEquation' },
   { key: 'Tab', command: 'insertTab', when: 'editorFocus && !inList && !atBlockStart && !inTable && !inEquation' },
 
   // ── Lists ──────────────────────────────────────────────────────────────────
   { key: 'Mod+Shift+l', command: 'toggleBulletList', when: 'editorFocus' },
-  { key: 'Mod+Shift+7', command: 'toggleOrderedList', when: 'editorFocus' },
 
   // ── Insertion ──────────────────────────────────────────────────────────────
   { key: 'Mod+k', command: 'toggleLink', when: 'editorFocus' },
@@ -185,13 +208,6 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   // ── History and clipboard ──────────────────────────────────────────────────
   // Not gated on historyCanUndo: the key must always be consumed, or the browser
   // runs its own undo over DOM the editor never told it about.
-  { key: 'Mod+z', command: 'historyUndo', when: 'editorFocus' },
-  { key: 'Mod+Shift+z', command: 'historyRedo', when: 'editorFocus' },
-  { key: 'Mod+y', command: 'historyRedo', when: 'editorFocus' },
-  { key: 'Mod+c', command: 'copy', when: 'editorFocus' },
-  { key: 'Mod+x', command: 'cut', when: 'editorFocus' },
-  { key: 'Mod+v', command: 'paste', when: 'editorFocus' },
-  { key: 'Mod+a', command: 'selectAll', when: 'editorFocus' },
 
   // ── Search ─────────────────────────────────────────────────────────────────
   //
@@ -243,9 +259,12 @@ export const WORD_VIEW_KEYS: KeyModel[] = [{ key: 'Mod+f', view: 'find', label: 
  */
 
 /**
- * Everything Word binds, for the one question a menu asks of a key map: *is this chord real?*
+ * **Word 가 선언하는 것** — 크롬 키(⌘F 처럼 화면을 여는 것)와 제품 바인딩.
  *
- * Both lists, because a reader does not care which layer answers a press. `WORD_KEYBINDINGS` is the
- * engine's — resolved against a caret, gated on `editorFocus` — and `WORD_VIEW_KEYS` is the app's.
+ * **엔진이 묶은 마흔은 여기 없다** — 모든 제품이 그것을 받으므로 제품이 적을 것이 아니다(규칙 1).
+ * 메뉴가 가르칠 목록은 `taughtKeys(WORD_KEYS)` 가 만든다: 이것에 엔진 것을 더한 것이다.
+ *
+ * 그 구분이 없던 동안 메뉴가 ⌘Z 를 가르친 것은 `WORD_KEYBINDINGS` 가 엔진 것을 **다시 적고
+ * 있었기** 때문이고, 재진술 열여섯을 걷어내자 **메뉴에서 ⌘Z 가 사라졌다.** `docs/specs/keybindings.md`.
  */
 export const WORD_KEYS: KeyModel[] = [...WORD_VIEW_KEYS, ...WORD_KEYBINDINGS];

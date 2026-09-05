@@ -47,7 +47,7 @@ export {
   withLiveNodes,
   type ModelSelection,
   type NoSelection,
-  type Selection,
+  type MaybeSelection,
   type SelectionType
 } from './selection';
 export {

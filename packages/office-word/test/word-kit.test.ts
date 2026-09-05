@@ -1,3 +1,4 @@
+import { DEFAULT_KEYBINDINGS, type Keybinding } from '@barocss/editor-core';
 import { describe, it, expect } from 'vitest';
 import { createWordEditor, createWordExtensions } from '../src/word-kit';
 import { WORD_KEYBINDINGS } from '../src/word-keymap';
@@ -125,10 +126,19 @@ describe('Word key map', () => {
     }
   });
 
+  /**
+   * **묻는 것은 *편집기가 그 키를 먹는가* 이지 *어느 목록에 있나* 가 아니다.**
+   *
+   * 전에는 `WORD_KEYBINDINGS` 안에서 찾았고, 그래서 이 셋을 엔진 기본에 맡기자 빨개졌다 — 동작은
+   * 한 글자도 안 바뀌었는데도. 엔진의 것과 **`when` 까지 같았기 때문이다**(`editorFocus`). 검사가
+   * 제품의 목록을 본 것이 그 자체로 이 라운드가 찾은 결함의 모양이다: 같은 규칙이 두 곳에 적혀
+   * 있으면, 한 곳을 지우는 것이 회귀처럼 보인다.
+   */
   it('always consumes undo/redo so the browser never runs its own', () => {
+    const all = [...DEFAULT_KEYBINDINGS, ...WORD_KEYBINDINGS] as Keybinding[];
     for (const key of ['Mod+z', 'Mod+Shift+z', 'Mod+y']) {
-      const binding = WORD_KEYBINDINGS.find((b) => b.key === key);
-      expect(binding).toBeDefined();
+      const binding = all.find((b) => b.key === key);
+      expect(binding, `${key} 를 아무도 안 묶습니다`).toBeDefined();
       expect(binding!.when).toBe('editorFocus');
       expect(binding!.when).not.toContain('historyCan');
     }

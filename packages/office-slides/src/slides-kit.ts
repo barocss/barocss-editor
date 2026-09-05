@@ -15,7 +15,7 @@ import {
   createCoreExtensions,
   createTableExtension
 } from '@barocss/extensions';
-import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
+import { Editor, type Extension, type ProductEditorOptions } from '@barocss/editor-core';
 import { createSchema } from '@barocss/schema';
 import { getSlidesSchemaDefinition } from './slides-schema';
 import { createSlideCommands } from './slide-commands';
@@ -179,12 +179,7 @@ export function createSlidesExtensions(): Extension[] {
   ];
 }
 
-export interface SlidesEditorOptions extends EditorOptions {
-  /** Replace the kit entirely; pass `[]` for a deck with no editing commands. */
-  kit?: Extension[];
-  /** Layer bindings over the engine default, as Word's key map does. */
-  keybindings?: Keybinding[];
-}
+export type SlidesEditorOptions = ProductEditorOptions;
 
 /**
  * Create an editor configured as a presentation editor.
@@ -201,7 +196,7 @@ export function createSlidesEditor(options: SlidesEditorOptions = {}): Editor {
     ...rest,
     schema: rest.schema ?? createSchema('slides', getSlidesSchemaDefinition()),
     extensions: [...(kit ?? createSlidesExtensions()), ...extensions]
-  } as EditorOptions);
+  } as ProductEditorOptions);
 
   const registry = (editor as any).keybindings;
   for (const binding of keybindings ?? []) registry?.register?.(binding);

@@ -1,6 +1,7 @@
 import { Transaction } from '@barocss/model';
 import { Schema } from '@barocss/schema';
 import type { Editor } from './editor';
+import type { Keybinding } from './keybinding';
 
 /**
  * **선택은 `@barocss/shared` 가 선언한다** — 그리고 여기서 그대로 다시 내보낸다.
@@ -23,10 +24,10 @@ export {
   withLiveNodes,
   type ModelSelection,
   type NoSelection,
-  type Selection,
+  type MaybeSelection,
   type SelectionType
 } from '@barocss/shared';
-import type { ModelSelection } from '@barocss/shared';
+import type { MaybeSelection, ModelSelection } from '@barocss/shared';
 
 export interface DocumentState {
   type: 'document';
@@ -51,24 +52,30 @@ export interface Mark {
   range?: [number, number];
 }
 
-export interface SelectionState {
-  // DOM Selection information (original)
-  anchorNode: globalThis.Node | null;
-  anchorOffset: number;
-  focusNode: globalThis.Node | null;
-  focusOffset: number;
-  empty: boolean;
-  textContent: string;
-  
-  // Model information (ID found via closest() + type queried from Model)
-  nodeId: string;
-  nodeType: string;
-  
-  // Computed information for convenience
-  from: number;
-  to: number;
-  length: number;
-}
+/*
+ * **여기 있던 `SelectionState` 를 지웠다 — 그리고 그것은 `ModelNodeSelection` 과 같은 모양이었다.**
+ *
+ * DOM 스냅샷(`anchorNode`·`focusNode`·`from`·`to`)이었고, **아무것도 그것을 만들지 않았다.**
+ * 2026-09-05 에 재본 것:
+ *
+ * | 자리 | 선언 | 실제로 |
+ * |---|---|---|
+ * | `updateSelection(sel: SelectionState \| any)` | 두 모양 | 넘기는 호출자 **0** (54곳을 셌다) |
+ * | `isModelSelection` | `type !== 'none'` | `SelectionState` 는 `type` 이 **없으므로** 참이 된다 — 그 분기로 갈 수가 없다 |
+ * | `// SelectionState format` 이라 적힌 분기 | | 실제로 거기 오는 것은 **`{type:'none'}`** 이다 |
+ * | 확장 훅 둘 | `SelectionState` | 구현하는 확장 **0**. 넘기는 값은 `ModelSelection` |
+ * | `editor:selection.change` payload | `SelectionState` | 듣는 셋이 payload 를 **안 읽고** `editor.selection` 을 다시 읽는다 |
+ * | `editor:selection.focus`·`.blur` payload | `{ selection: SelectionState }` | **payload 없이** emit 된다 — 인자가 하나다 |
+ * | `SetSelectionCommand` | 공개 export | 아무도 안 쓴다. `void this._selection` |
+ * | `devtool.getSelectionInfo` | `nodeId`/`from`/`to` 분기 | 오지 않는 모양이다 |
+ *
+ * 아래 `ModelNodeSelection` 에 대해 적힌 문장이 그대로 다시 성립한다 — *"의도를 적은 타입이
+ * 배선되지 않은 채 남고, 읽는 쪽이 그 의도를 향해 읽고 있었다."* 그때는 두 뷰 층이
+ * `nodeSelection.nodeId` 를 읽고 있었고, 이번에는 devtool 이 `from`/`to` 를 읽고 있었다.
+ *
+ * DOM 선택은 뷰 층이 읽어서 **바로 모델 자리로 옮긴다**(`@barocss/shared` 의 `text-position`).
+ * 그 사이의 스냅샷을 편집기의 어휘로 들일 이유가 없다.
+ */
 
 export interface EditorSelectionModelEventPayload {
   selection: ModelSelection | null;
@@ -77,7 +84,16 @@ export interface EditorSelectionModelEventPayload {
   metadata?: Record<string, any>;
 }
 
-export type EditorSelectionModelPayload = ModelSelection | EditorSelectionModelEventPayload;
+/**
+ * 선택의 문을 지나는 것 전부.
+ *
+ * **`NoSelection` 이 여기 있는 이유:** `{type:'none'}` 은 뷰 층이 *고른 것이 없다* 를 말하는 방법이고
+ * (`convertDOMSelectionToModel` 이 범위가 없을 때 그것을 돌려준다) 그것도 이 문을 지난다. 타입을
+ * 좁히자 컴파일러가 바로 찾았다 — 그 전에는 `SelectionState | any` 여서 무엇이든 지났다.
+ */
+export type EditorSelectionModelPayload =
+  | MaybeSelection
+  | EditorSelectionModelEventPayload;
 
 /*
  * **여기 있던 `ModelNodeSelection` 과 `ModelAbsoluteSelection` 을 지웠다 — 그리고 앞의 것이 이
@@ -126,6 +142,47 @@ export class DOMAccessError extends SelectionError {
   constructor(operation: string, reason: string) {
     super(`DOM access failed during ${operation}: ${reason}`, 'DOM_ACCESS_ERROR', { operation, reason });
   }
+}
+
+/**
+ * **이 모음의 제품이 편집기를 만들 때 받는 것.**
+ *
+ * ## 왜 선언하나 — 계약은 이미 있었고 넷째가 벗어났다
+ *
+ * `word` · `slides` · `site` 의 옵션 타입이 **글자까지 같았다**: `extends EditorOptions` 에
+ * `kit?: Extension[]` 과 `keybindings?: Keybinding[]`(word 만 `author` 를 더 받는다). 세 벌이 같으면
+ * 그건 한 제품의 의견이 아니라 *이 모음의 제품은 이렇게 만들어진다* 이다.
+ *
+ * 그런데 **가장 최근 제품인 `note` 가 그것을 안 따랐다** — `EditorOptions` 를 안 물려받고,
+ * `keybindings` 를 아예 못 받고, `dataStore`·`schema` 를 `unknown` 으로 받는다. 아무도 그것을
+ * 막지 않았다. 선언이 없었기 때문이다.
+ *
+ * **다섯째 제품이 걸릴 자리가 정확히 여기다.** 그래서 추론이 아니라 **기록**이다.
+ *
+ * ## `keybindings` 는 **더하는 것**이지 **대체**가 아니다
+ *
+ * 재보니 이 필드를 넘기는 호출자가 **0** 이다 — 세 제품이 선언하고 아무도 안 쓴다. 그래서 그
+ * 의미가 한 번도 시험된 적이 없고, 셋의 구현은 **대체** 였다: `keybindings ?? WORD_KEYBINDINGS`
+ * 는 하나라도 주면 제품의 71개가 통째로 사라진다는 뜻이다.
+ *
+ * 그게 원하는 것일 리 없고, 이 저장소는 같은 논증을 이미 적어 뒀다 — `note-kit.ts`: *"대체가 아니라
+ * 층이다 … 레지스트리를 비우면 Enter·Backspace·화살표까지 사라져서 문서가 브라우저가 하는 대로만
+ * 편집된다."* 제품의 키에 대해서도 같다.
+ *
+ * 그러므로 **제품의 키는 늘 실리고, 이것은 그 위에 얹힌다.** 넘기는 호출자가 0이므로 이 결정은
+ * 오늘 아무것도 바꾸지 않는다 — 바꾸는 것은 다음에 넘기는 사람이 얻는 답이다.
+ */
+export interface ProductEditorOptions extends EditorOptions {
+  /**
+   * 이 제품의 기본 확장 **대신** 실을 것. 안 주면 제품이 자기 것을 싣는다.
+   *
+   * `extensions` 와 다르다: `extensions` 는 그 위에 *더* 얹히고, `kit` 은 기본을 *갈아낀다*.
+   * 호스트가 자기 제스처를 가진 드문 경우를 위한 것이고, 들어오는 문이 아니다.
+   */
+  kit?: Extension[];
+
+  /** 제품의 키 **위에** 얹을 키. 제품의 것을 지우지 않는다 — 출처로 충돌을 푼다. */
+  keybindings?: Keybinding[];
 }
 
 export interface EditorOptions {
@@ -194,7 +251,7 @@ export interface Extension {
   // - null 반환: transaction 취소
   // - void: 그대로 진행
   
-  onBeforeSelectionChange?(editor: Editor, selection: SelectionState): SelectionState | null | void;
+  onBeforeSelectionChange?(editor: Editor, selection: ModelSelection): ModelSelection | null | void;
   // - Selection 반환: 다른 selection으로 교체
   // - null 반환: selection 변경 취소
   // - void: 그대로 진행
@@ -207,7 +264,7 @@ export interface Extension {
   // After hooks (notification for core model changes)
   // For type safety. Alternatively, you can use editor.on() events for more flexibility.
   onTransaction?(editor: Editor, transaction: Transaction): void;
-  onSelectionChange?(editor: Editor, selection: SelectionState | ModelSelection): void;
+  onSelectionChange?(editor: Editor, selection: MaybeSelection): void;
   onContentChange?(editor: Editor, content: DocumentState): void;
   
   // State extension
@@ -258,10 +315,15 @@ export interface EditorEvents {
   'editor:node.create': { node: Node; position: number };
   'editor:node.update': { node: Node; oldNode: Node };
   'editor:node.delete': { node: Node; position: number };
-  'editor:selection.change': { selection: SelectionState; oldSelection: SelectionState };
+  /* `{type:'none'}` 도 여기로 온다 — 선택이 없어진 것도 선택이 바뀐 것이다. */
+  'editor:selection.change': {
+    selection: MaybeSelection | null;
+    oldSelection: MaybeSelection | null;
+  };
   'editor:selection.model': EditorSelectionModelPayload;
-  'editor:selection.focus': { selection: SelectionState };
-  'editor:selection.blur': { selection: SelectionState };
+  /* 둘 다 **인자 없이** emit 된다 — 초점이 어디로 갔는지는 듣는 쪽이 편집기에 다시 묻는다. */
+  'editor:selection.focus': void;
+  'editor:selection.blur': void;
   'editor:command.execute': { command: string; payload?: any; success: boolean };
   'editor:command.before': { command: string; payload?: any };
   'editor:command.after': { command: string; payload?: any; success: boolean };

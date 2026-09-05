@@ -23,7 +23,7 @@ import {
   createCoreExtensions,
   createTableExtension
 } from '@barocss/extensions';
-import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
+import { Editor, type Extension, type ProductEditorOptions } from '@barocss/editor-core';
 import { createWordCommands } from './word-commands';
 import { createWordFrames } from './frame-commands';
 import { createWordCanvasInsert } from './canvas-insert-commands';
@@ -137,11 +137,7 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
   ];
 }
 
-export interface WordEditorOptions extends EditorOptions {
-  /** Replace the kit entirely; pass `[]` for a document with no editing commands. */
-  kit?: Extension[];
-  /** Replace Word's key map. */
-  keybindings?: Keybinding[];
+export interface WordEditorOptions extends ProductEditorOptions {
   /**
    * Who is reading, for anything the document records a name against.
    *
@@ -165,7 +161,7 @@ export function createWordEditor(options: WordEditorOptions = {}): Editor {
     ...rest,
     schema: rest.schema ?? createSchema('word', getWordSchemaDefinition()),
     extensions: [...(kit ?? createWordExtensions(author)), ...extensions]
-  } as EditorOptions);
+  } as ProductEditorOptions);
 
   // Word's key map layers *over* the engine default rather than replacing it.
   //
@@ -179,10 +175,16 @@ export function createWordEditor(options: WordEditorOptions = {}): Editor {
   //
   // Nothing needs clearing: the registry already resolves a conflict by source,
   // and a product's bindings outrank the engine's. Tab goes to Word.
+  //
+  // **그리고 `keybindings` 옵션도 층이다** — 전에는 `keybindings ?? WORD_KEYBINDINGS` 였고, 그건
+  // 하나라도 주면 Word 의 71개가 통째로 사라진다는 뜻이었다. 바로 위의 문단이 *레지스트리를 비우면
+  // 무슨 일이 나는지* 를 적어 뒀는데, 이 한 줄이 부르는 쪽에게 정확히 그 문을 열어 두고 있었다.
+  //
+  // 재보니 이 옵션을 넘기는 호출자가 **0** 이다 — 그래서 이 결정은 오늘 아무것도 바꾸지 않는다.
+  // 바꾸는 것은 다음에 넘기는 사람이 얻는 답이다. `ProductEditorOptions` 에 그렇게 적었다.
   const registry = (editor as any).keybindings;
-  for (const binding of keybindings ?? WORD_KEYBINDINGS) {
-    registry?.register?.(binding);
-  }
+  for (const binding of WORD_KEYBINDINGS) registry?.register?.(binding);
+  for (const binding of keybindings ?? []) registry?.register?.(binding);
 
   return editor;
 }

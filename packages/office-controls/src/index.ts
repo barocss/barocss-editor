@@ -549,6 +549,7 @@ export {
   keyFor,
   keyLabel,
   matchesKey,
+  taughtKeys,
   withHints,
   type KeyModel
 } from './keys';

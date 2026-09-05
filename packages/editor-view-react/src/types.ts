@@ -45,7 +45,8 @@ export type { ModelSelection, NoSelection, SelectionType };
  * 그게 `editor-core` 의 `Selection` 이 선언된 채 아무도 쓰지 않은 이유일 것이다 — 쓰려고 하면
  * 이렇게 된다. 여기서는 유니온을 그대로 적는다.
  */
-export type MaybeSelection = ModelSelection | NoSelection;
+/* `@barocss/shared` 가 이 유니온을 같은 이름으로 갖는다 — 여기 있던 것이 그쪽으로 갔다. */
+export type { MaybeSelection } from '@barocss/shared';
 
 /** Imperative handle for EditorView: decorator management and selection/convenience APIs. */
 export interface EditorViewHandle {

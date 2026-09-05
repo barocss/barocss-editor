@@ -8,11 +8,11 @@ import {
 } from '@barocss/schema';
 import {
   DocumentState,
-  SelectionState,
   EditorOptions,
   Extension,
   Command,
   EditorEventType,
+  MaybeSelection,
   ModelSelection,
   EditorSelectionModelPayload,
   withLiveNodes
@@ -52,7 +52,7 @@ function isSelectionTargetAlive(dataStore: DataStore, selection: ModelSelection)
 }
 
 function parseModelSelectionPayload(selection: unknown): {
-  modelSelection: SelectionState | ModelSelection | null;
+  modelSelection: MaybeSelection | null;
   applySelectionToView: boolean;
   source?: string;
 } {
@@ -715,7 +715,7 @@ export class Editor implements ContextProvider {
     });
   }
 
-  updateSelection(selection: SelectionState | any): void {
+  updateSelection(selection: EditorSelectionModelPayload | null): void {
     const parsedSelection = parseModelSelectionPayload(selection);
     let finalSelection: any = parsedSelection.modelSelection;
     const applySelectionToView = parsedSelection.applySelectionToView;
@@ -803,7 +803,11 @@ export class Editor implements ContextProvider {
       return;
     }
     
-    // SelectionState format (range/caret fallback)
+    /*
+     * **선택이 없어졌다.** 여기 *"SelectionState format (range/caret fallback)"* 이라고 적혀 있었고
+     * 틀렸다: `isModelSelection` 은 `type !== 'none'` 이므로 `SelectionState`(그 필드가 아예 없다)는
+     * 위에서 참이 된다. 실제로 여기 오는 것은 **`{type:'none'}`** 뿐이다.
+     */
     this._updateBuiltinContext();
     this._selectionManager.clearSelection();
     this.emit('editor:selection.change', { selection: nextSelection, oldSelection });

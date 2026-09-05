@@ -18,6 +18,20 @@ This directory and the linked package specs define **what the editor and each pa
 
 ## 2. Where to find what
 
+### 이 저장소가 어떻게 서 있고 어떻게 물어보나
+
+세 문서가 *무엇을 만드나* 가 아니라 **어떻게 결정하나** 를 적는다. 새 제품·새 모듈·새 검사를
+놓기 전에 이 셋을 본다.
+
+- **`docs/specs/architecture.md`** — 무엇이 무엇 위에 서 있나. **그림은 그린 것이 아니라 잰
+  것이다**(`package.json` 의 의존에서 층을 계산했다). 지금 어디가 아직 나뉘어 있는지도 세어서
+  적혀 있다.
+- **`docs/specs/keybindings.md`** — 키를 어느 층이 갖나. *이 키가 하는 일이 문서에 남는가* 로
+  갈린다. 표면이 둘(글자 표면 · 문서 표면)이라는 것과, 그것을 반만 읽었을 때 무슨 일이 났는지.
+- **`docs/specs/testing.md`** — 무엇을 단위로 묻고 무엇을 브라우저로 묻나. *답을 누가 정하는가*
+  로 갈린다. 그리고 **e2e 가 잡은 것은 단위로 내려 적는다.**
+- **`docs/specs/text-position.md`** — DOM 의 한 점과 모델의 한 점을 맞바꾸는 규칙 여섯.
+
 ### Editor-wide
 
 - **`docs/specs/editor.md`** — Document model (tree, block, text, marks), selection (resolution, `selectionAfter`), operation semantics (e.g. insertParagraph, insertText guarantees), and references to architecture/flow docs.

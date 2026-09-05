@@ -73,7 +73,14 @@ describe('the gate a typed character passes', () => {
     // What an IME leaves behind: the DOM selection is not somewhere the check
     // recognises, while the document knows exactly where the reader is.
     domSelectionOutsideText();
-    store.set('run-1', { stype: 'inline-text' });
+    /*
+     * **`text` 를 세운다 — 실제 `inline-text` 는 언제나 글자를 갖는다.**
+     *
+     * 이 픽스처는 이름만 세우고 내용을 뺐었다. 문이 *글자를 담나* 를 이름이 아니라 `text` 로 묻게
+     * 바뀌자(`holdsText`) 이 셋이 빨개졌고, 그건 문이 틀린 것이 아니라 **픽스처가 시험하는 것을 안
+     * 입고 있던 것**이다: `run(text)` 는 늘 `text` 를 세우고, 빈 런도 `''` 를 갖는다.
+     */
+    store.set('run-1', { stype: 'inline-text', text: '' });
     selection = { startNodeId: 'run-1', endNodeId: 'run-1' };
 
     const event = press(' ', 32);
@@ -82,7 +89,7 @@ describe('the gate a typed character passes', () => {
 
   it('lets an ordinary letter through on the same evidence', () => {
     domSelectionOutsideText();
-    store.set('run-1', { stype: 'inline-text' });
+    store.set('run-1', { stype: 'inline-text', text: '' });
     selection = { startNodeId: 'run-1' };
 
     expect(press('a', 65).defaultPrevented).toBe(false);
@@ -106,7 +113,7 @@ describe('the gate a typed character passes', () => {
 
   it('refuses when a selection ends outside text, even if it starts inside', () => {
     domSelectionOutsideText();
-    store.set('run-1', { stype: 'inline-text' });
+    store.set('run-1', { stype: 'inline-text', text: '' });
     store.set('table-1', { stype: 'table' });
     selection = { startNodeId: 'run-1', endNodeId: 'table-1' };
 

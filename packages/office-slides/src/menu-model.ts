@@ -25,6 +25,7 @@
  * history.
  */
 import {
+  taughtKeys,
   menuCommands,
   menuEntry,
   menuId,
@@ -157,7 +158,7 @@ const DECLARED: SlidesMenu[] = [
  * derived from `Mod+z` now, and `⇧⌘Z` from `Mod+Shift+z` — macOS's modifier order, which the shared
  * label applies whatever order the binding was written in.
  */
-export const SLIDES_MENUS: SlidesMenu[] = withHints(DECLARED, SLIDES_KEYS);
+export const SLIDES_MENUS: SlidesMenu[] = withHints(DECLARED, taughtKeys(SLIDES_KEYS));
 
 /** Every command the menubar can run — the harness's question, answered by the model. */
 export function slidesMenuCommands(menus: SlidesMenu[] = SLIDES_MENUS): string[] {

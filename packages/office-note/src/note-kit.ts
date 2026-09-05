@@ -1,10 +1,11 @@
-import { Editor, type Extension } from '@barocss/editor-core';
+import { Editor, type EditorOptions, type Extension, type ProductEditorOptions } from '@barocss/editor-core';
 import {
   createBasicExtensions,
   createCoreExtensions,
   EmojiExtension,
   ImageExtension,
   LinkExtension,
+  MoveBlockExtension,
   SlashCommandExtension,
   StrikeThroughExtension,
   SubSuperExtension,
@@ -52,6 +53,22 @@ export function createNoteExtensions(): Extension[] {
 
     // Headings, paragraphs, lists, quotes — the blocks a written thing is made of.
     ...createBasicExtensions(),
+
+    /**
+     * **블록을 한 칸 위/아래로** — `Alt+↑`/`Alt+↓`.
+     *
+     * 이 확장을 안 싣고 있었고, 그 동안 노트는 그 기능을 **자기 이름으로** 갖고 있었다
+     * (`moveNoteBlockUp`/`Down`, 손잡이 옆의 두 단추). 엔진은 `Alt+↑` 를 `moveBlockUp` 에 묶으므로
+     * **키를 먹고 아무 일도 안 했다** — `console.warn('Command moveBlockUp not found')`.
+     *
+     * 재본 것: 엔진 키가 부르는 명령 서른다섯 중 word·slides·site 는 없는 것이 0이고 노트만 둘이
+     * 없었으며, 그 둘이 정확히 이것이다. 셋은 이 확장을 싣고 노트만 안 실었다.
+     *
+     * 기준은 `docs/specs/keybindings.md` 에 있다 — **기능이 있으면 엔진이 부르는 그 이름으로
+     * 등록한다.** 노트의 두 단추는 그대로 두었다: 그건 이름이 다른 것이 아니라 *한 칸* 과
+     * *여기로* 라는 다른 몸짓이다.
+     */
+    new MoveBlockExtension(),
 
     new UnderlineExtension(),
     new StrikeThroughExtension(),
@@ -116,15 +133,23 @@ export function noteSlashItems(): {
  * hands one loaded from a cell's value, and a standalone note hands one loaded from a file. What
  * this decides is the schema and the kit.
  */
-export function createNoteEditor(options: {
-  dataStore: unknown;
-  schema: unknown;
-  editable?: boolean;
-  /** Extra extensions, for a host with a gesture of its own. Rare, and it is not the way in. */
-  kit?: Extension[];
-}): Editor {
-  const { kit, ...rest } = options;
-  const editor = new Editor({ ...rest, extensions: kit ?? createNoteExtensions() } as never);
+export interface NoteEditorOptions extends ProductEditorOptions {
+  /**
+   * **저장소는 부르는 쪽의 것이다** — 그래서 다른 셋과 달리 필수다.
+   *
+   * 노트의 저장을 누가 갖는가는 부르는 쪽의 질문이다: 사이트는 칸의 값에서 불러온 것을 건네고,
+   * 홀로 선 노트는 파일에서 불러온 것을 건넨다. 그래서 기본이 있을 수 없다.
+   */
+  dataStore: EditorOptions['dataStore'];
+  schema: EditorOptions['schema'];
+}
+
+export function createNoteEditor(options: NoteEditorOptions): Editor {
+  const { kit, keybindings, extensions = [], ...rest } = options;
+  const editor = new Editor({
+    ...rest,
+    extensions: [...(kit ?? createNoteExtensions()), ...extensions]
+  } as never);
 
   /*
    * **키맵을 얹는다.** 대체가 아니라 층이다 — `word-kit.ts` 에 그 이유가 적혀 있다: 레지스트리가
@@ -135,6 +160,9 @@ export function createNoteEditor(options: {
    * 사라져서 문서가 브라우저가 하는 대로만 편집된다.
    */
   for (const binding of NOTE_KEYBINDINGS) editor.keybindings.register(binding);
+
+  /* 그리고 부른 쪽의 키가 그 위에 얹힌다 — 대체가 아니라 층인 것은 여기서도 같다. */
+  for (const binding of keybindings ?? []) editor.keybindings.register(binding);
 
   return editor;
 }

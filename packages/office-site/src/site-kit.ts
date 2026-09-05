@@ -43,7 +43,7 @@ import {
   createBasicExtensions,
   createCoreExtensions
 } from '@barocss/extensions';
-import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
+import { Editor, type Extension, type Keybinding, type ProductEditorOptions } from '@barocss/editor-core';
 import { SiteClipboardExtension } from './clipboard-commands';
 import { createSchema } from '@barocss/schema';
 import { installSiteResolution } from './collection-resolution';
@@ -180,12 +180,7 @@ export function createSiteExtensions(): Extension[] {
   ];
 }
 
-export interface SiteEditorOptions extends EditorOptions {
-  /** Replace the kit entirely; pass `[]` for a viewer. */
-  kit?: Extension[];
-  /** Layer bindings over the engine default. */
-  keybindings?: Keybinding[];
-}
+export type SiteEditorOptions = ProductEditorOptions;
 
 /**
  * Create an editor configured as a site builder.
@@ -201,7 +196,7 @@ export function createSiteEditor(options: SiteEditorOptions = {}): Editor {
     ...rest,
     schema: rest.schema ?? createSchema('site', getSiteSchemaDefinition()),
     extensions: [...(kit ?? createSiteExtensions()), ...extensions]
-  } as EditorOptions);
+  } as ProductEditorOptions);
 
   const registry = (editor as never as { keybindings?: { register?: (b: Keybinding) => void } })
     .keybindings;

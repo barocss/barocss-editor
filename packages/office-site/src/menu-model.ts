@@ -25,7 +25,8 @@
  * *is* — that is the panel's, and the toolbar's.
  */
 
-import { withHints } from '@barocss/office-controls';
+import {
+  taughtKeys, withHints } from '@barocss/office-controls';
 import { SITE_KEYS } from './keymap';
 import { BREAKPOINTS, type SiteWidth } from './breakpoints';
 import { SITE_TOOLBAR } from './toolbar-model';
@@ -444,7 +445,7 @@ const DECLARED: SiteMenu[] = [
  * describe a key that does not work — and a typed `hint` still wins, for the one entry that is a
  * note rather than a chord (미리보기's *Esc로 나가기*).
  */
-export const SITE_MENUS: SiteMenu[] = withHints(DECLARED, SITE_KEYS);
+export const SITE_MENUS: SiteMenu[] = withHints(DECLARED, taughtKeys(SITE_KEYS));
 
 /**
  * **What a press of the right button offers**, which is the gesture every builder has and this had

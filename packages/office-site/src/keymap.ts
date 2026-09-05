@@ -21,7 +21,8 @@
  * measurement that forced it — seventeen chords taught across the suite, six answered.
  */
 
-import { keyFor, keyLabel, chordFor, keyCommands, type KeyModel } from '@barocss/office-controls';
+import { keyFor, keyLabel, chordFor, keyCommands, type KeyModel ,
+  taughtKeys} from '@barocss/office-controls';
 
 export interface SiteKey extends KeyModel {
   /**
@@ -233,7 +234,7 @@ export function siteKeyCommands(): string[] {
  * is the honest thing for a menu to say about a key that does not work.
  */
 export function hintFor(what: { command?: string; view?: string }): string | undefined {
-  return keyLabel(chordFor(SITE_KEYS, what));
+  return keyLabel(chordFor(taughtKeys(SITE_KEYS), what));
 }
 
 /** A chord in the symbols a menu prints — `office-controls`', so all three products write one alike. */

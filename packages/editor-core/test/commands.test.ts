@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { INode } from '@barocss/datastore';
-import type { SelectionState } from '../src/types';
-import { CommandManager, InsertTextCommand, InsertNodeCommand, DeleteNodeCommand, SetSelectionCommand } from '../src/commands';
+import { CommandManager, InsertTextCommand, InsertNodeCommand, DeleteNodeCommand } from '../src/commands';
 import { DocumentState } from '../src/types';
 
 describe('Command classes', () => {
@@ -77,30 +76,17 @@ describe('Command classes', () => {
     expect((next.content[0] as any).id).toBe('p-2');
   });
 
-  it('SetSelectionCommand는 state를 보존해야 한다', () => {
-    const state: DocumentState = {
-      type: 'document',
-      version: 1,
-      createdAt: new Date('2025-01-01T00:00:00.000Z'),
-      updatedAt: new Date('2025-01-01T00:00:00.000Z'),
-      content: []
-    };
-
-    // Same story as above: a `SelectionState` is a DOM selection — anchor node,
-    // focus node, offsets — and this is the model-side shape the command was written
-    // against. It stores what it is given, which is what the assertion is about.
-    const command = new SetSelectionCommand({
-      type: 'range',
-      startNodeId: 'a',
-      startOffset: 0,
-      endNodeId: 'a',
-      endOffset: 1,
-      collapsed: false
-    } as unknown as SelectionState);
-    const next = command.execute(state);
-
-    expect(next).toEqual(state);
-  });
+  /*
+   * **여기 있던 `SetSelectionCommand` 검사를 지웠다 — 그 클래스와 함께.**
+   *
+   * 그 클래스는 `void this._selection; return { ...state }` 였고 아무도 부르지 않았다. 그리고 이
+   * 검사가 그것이 죽었다는 가장 좋은 증거였다: `ModelSelection` 을 세워서 **`as unknown as
+   * SelectionState`** 로 캐스팅해 넣었고, 주석에 *"a `SelectionState` is a DOM selection … and this
+   * is the model-side shape the command was written against"* 라고 적어 뒀다. **타입을 속여야
+   * 컴파일되는 검사** 는 그 타입이 아무것도 안 지키고 있다는 뜻이다.
+   *
+   * 선택은 `Editor.updateSelection` 이 다룬다.
+   */
 
   it('CommandManager는 undo/redo를 지원해야 한다', () => {
     const manager = new CommandManager();

@@ -1,6 +1,13 @@
 export * from './types';
+/**
+ * **엔진이 이미 묶은 것.** 제품이 그것을 볼 수 있어야 다시 적지 않는다.
+ *
+ * 안 내보내고 있었고, 그래서 `office-word` 가 그 중 **열여덟을 다시 적었다** — 그리고 가드가 더
+ * 약했다(`editorFocus && editorEditable` 대신 `editorFocus`). 아무도 비교할 수 없었기 때문이다.
+ */
+export { DEFAULT_KEYBINDINGS } from './keybinding/default-keybindings';
 export { Editor, CommandChain } from './editor';
-export { CommandManager, InsertTextCommand, InsertNodeCommand, DeleteNodeCommand, SetSelectionCommand } from './commands';
+export { CommandManager, InsertTextCommand, InsertNodeCommand, DeleteNodeCommand } from './commands';
 export * from './keybinding';
 export { evaluateWhenExpression } from './when-expression';
 export { insideLockedRegion, type Lock } from './locked-region';

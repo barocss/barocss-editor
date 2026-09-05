@@ -46,6 +46,31 @@ export type LayoutPass = (view: any) => RenderEnv | void;
 
 export interface EditorViewDOMOptions {
   container: HTMLElement;
+
+  /**
+   * **키를 듣는 요소** — 기본값은 콘텐츠 층이다.
+   *
+   * 표면이 둘이다. **글자 표면**(콘텐츠 층)은 캐럿이 사는 곳이고 타이핑·IME·`beforeinput` 이
+   * 거기서 일어난다. **문서 표면**은 *읽는 사람이 이 문서를 만지고 있는 가장 바깥 요소* 이고,
+   * **키 해석이 거기서 일어난다.**
+   *
+   * 둘은 같지 않다. `Delete` 로 도형을 지울 때 캐럿은 **없다** — 슬라이드를 골라 놓고 `Delete`,
+   * ⌘S, F5 도 마찬가지다. 그러므로 키를 글자 표면에서만 들으면 **문서에 남는 키의 절반을 못
+   * 듣는다.**
+   *
+   * | 제품 | 문서 표면 | 글자 표면과 |
+   * |---|---|---|
+   * | word · note | 콘텐츠 층 | **같다** — `.w-canvas` 가 그 안이라 도형 키가 그냥 됐다 |
+   * | slides | 무대 (`.sl-stage-frame`) | 다르다 — `.sl-host` 가 그 안이고 오버레이는 밖이다 |
+   * | site | 캔버스 | 다르다 |
+   *
+   * 이것이 없던 동안 slides·site 는 **레지스트리로 갈 길이 없었고**, 그래서 `window` 에 자기
+   * 디스패처를 붙였다. 그러면 사이드바 입력칸의 키도 들리므로 `activeElement` 를 물어야 했다 —
+   * 붙이는 자리를 잘못 고른 대가다. 문서 표면에 붙이면 그 질문이 사라진다: 크롬은 그 밖이다.
+   *
+   * 기준은 `docs/specs/keybindings.md`.
+   */
+  keySurface?: HTMLElement;
   layers?: LayerConfiguration;
   keymaps?: KeymapConfig[];
   inputHandlers?: InputHandlerConfig[];

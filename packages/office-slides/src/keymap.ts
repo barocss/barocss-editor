@@ -24,7 +24,8 @@ import {
   keyLabel as labelOfChord,
   matchesKey as matchesChord,
   type KeyModel
-} from '@barocss/office-controls';
+,
+  taughtKeys} from '@barocss/office-controls';
 
 /**
  * A deck's binding is `office-controls`' shape.
@@ -148,7 +149,7 @@ export function matchesKey(
  * what a button wants to say is one chord rather than eight.
  */
 export function shortcutOf(what: string | { command?: string; view?: string }): string | undefined {
-  return chordFor(SLIDES_KEYS, typeof what === 'string' ? { command: what } : what);
+  return chordFor(taughtKeys(SLIDES_KEYS), typeof what === 'string' ? { command: what } : what);
 }
 
 /** A chord as a reader reads it — see `office-controls`, where the two conventions are written out. */

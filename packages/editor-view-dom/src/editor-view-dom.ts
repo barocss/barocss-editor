@@ -41,6 +41,14 @@ export class EditorViewDOM implements IEditorViewDOM {
   public readonly editor: Editor;
   public readonly container: HTMLElement;
   public readonly contentEditableElement: HTMLElement;
+
+  /**
+   * **키를 듣는 요소.** 기본값은 콘텐츠 층 — 그러면 지금까지와 한 글자도 안 다르다.
+   *
+   * 왜 콘텐츠 층이 답이 아닌지는 `EditorViewDOMOptions.keySurface` 에 표와 함께 적혀 있다. 요약:
+   * `Delete` 로 도형을 지울 때 캐럿은 없고, 그 키는 콘텐츠 층에 도달하지 않는다.
+   */
+  public readonly keySurface: HTMLElement;
   public readonly decoratorRegistry: DecoratorRegistry;
   public readonly decoratorManager: DecoratorManager;
   public readonly remoteDecoratorManager: RemoteDecoratorManager;
@@ -167,6 +175,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     // contentEditableElement always references layers.content
     this.contentEditableElement = this.layers.content;
+    this.keySurface = options.keySurface ?? this.layers.content;
     
     // Initialize Decorator system
     // decorators are managed independently from schema
@@ -364,7 +373,8 @@ export class EditorViewDOM implements IEditorViewDOM {
     this._boundHandleKeydown = this.handleKeydown.bind(this);
     this.contentEditableElement.addEventListener('input', this._boundHandleInput as EventListener);
     this.contentEditableElement.addEventListener('beforeinput', this._boundHandleBeforeInput);
-    this.contentEditableElement.addEventListener('keydown', this._boundHandleKeydown);
+    /* 키는 문서 표면에서 듣는다 — 글자 표면과 같을 수도, 더 넓을 수도 있다. */
+    this.keySurface.addEventListener('keydown', this._boundHandleKeydown);
 
     /**
      * A node selection survives until the reader touches the text.
@@ -1393,7 +1403,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       this._boundHandleBeforeInput = null;
     }
     if (this._boundHandleKeydown) {
-      this.contentEditableElement.removeEventListener('keydown', this._boundHandleKeydown);
+      this.keySurface.removeEventListener('keydown', this._boundHandleKeydown);
       this._boundHandleKeydown = null;
     }
     if (this._boundHandlePaste) {

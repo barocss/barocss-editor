@@ -25,10 +25,10 @@
  * 참조하는 **118개 파일이 한 줄도 안 바뀐다** — 제품과 확장이 *편집기의 어휘* 로 선택을 배우는 것이
  * 맞고, 여기서 직접 가져가야 하는 것은 **뷰 층 둘** 뿐이다.
  *
- * ## `Selection` 이라는 이름의 함정
+ * ## `Selection` 이라는 이름의 함정 — 그래서 `MaybeSelection` 이다
  *
  * DOM lib 이 이미 갖고 있다. `Selection = ModelSelection | NoSelection` 을 DOM 선택도 다루는 층에
- * 들이면 `convertDOMSelectionToModel(selection: Selection)` 이 어느 쪽인지 모호해진다 — 실제로
+ * 들이면 `convertDOMSelectionToModel(selection: MaybeSelection)` 이 어느 쪽인지 모호해진다 — 실제로
  * 해보니 다섯 자리에서 *ModelSelection 에 anchorNode 가 없다* 고 했다. 그게 이 타입이 선언된 채
  * 오래 아무도 안 쓴 이유일 것이다. 뷰 층은 유니온을 자기 이름으로 적는다(`MaybeSelection`).
  */
@@ -147,7 +147,14 @@ export interface NoSelection {
   type: 'none';
 }
 
-export type Selection = ModelSelection | NoSelection;
+/**
+ * **모델 선택이거나, 없거나.** 이름이 `Selection` 이 아닌 이유가 아래 §함정에 있다.
+ *
+ * `editor-view-react/types.ts` 가 같은 유니온을 이 이름으로 이미 갖고 있었다 — 즉 이 저장소는 두
+ * 번 다 같은 이름에 도달했고, 그 사이에 `Selection` 이라는 이름은 **내보내기 두 줄에만 있고
+ * 아무도 안 썼다.** 반면 실제로 쓰이는 `Selection` 여덟 자리는 **전부 DOM 의 것**이다.
+ */
+export type MaybeSelection = ModelSelection | NoSelection;
 
 /**
  * Convert DOM Selection (anchor/focus) to ModelSelection
@@ -219,27 +226,27 @@ export function fromDOMSelection(
 /**
  * Type guard: Check if selection is ModelSelection
  */
-export function isModelSelection(selection: Selection): selection is ModelSelection {
+export function isModelSelection(selection: MaybeSelection): selection is ModelSelection {
   return selection.type !== 'none';
 }
 
 /**
  * Type guard: Check if selection is Range Selection
  */
-export function isRangeSelection(selection: Selection): selection is ModelSelection {
+export function isRangeSelection(selection: MaybeSelection): selection is ModelSelection {
   return selection.type === 'range';
 }
 
 /**
  * Type guard: Check if selection is Node Selection
  */
-export function isNodeSelection(selection: Selection): selection is ModelSelection {
+export function isNodeSelection(selection: MaybeSelection): selection is ModelSelection {
   return selection.type === 'node';
 }
 
 /**
  * Type guard: Check if selection is Cursor (collapsed range)
  */
-export function isCursor(selection: Selection): selection is ModelSelection {
+export function isCursor(selection: MaybeSelection): selection is ModelSelection {
   return isRangeSelection(selection) && selection.collapsed === true;
 }

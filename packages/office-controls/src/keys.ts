@@ -33,6 +33,7 @@
  * thing every product then worked around.
  */
 
+import { DEFAULT_KEYBINDINGS } from '@barocss/editor-core';
 import type { MenuModel } from './menu';
 
 export interface KeyModel {
@@ -288,4 +289,26 @@ export function keyFaults(keys: KeyModel[], knows?: (command: string) => boolean
     }
   }
   return faults;
+}
+
+/**
+ * **읽는 사람에게 가르치는 키** — 제품이 선언한 것 **더하기 엔진이 묶은 것.**
+ *
+ * 규칙 5(`docs/specs/keybindings.md`)는 *인쇄되는 것은 도는 것에서 나온다* 이고, **도는 것**은
+ * 제품의 목록이 아니라 **편집기가 묶은 것 전부** 다: `DEFAULT_KEYBINDINGS` 마흔이 모든 제품에서
+ * 돌고 있다.
+ *
+ * 그것을 반만 읽었을 때 무슨 일이 났나: Word 의 메뉴가 ⌘Z 를 가르치고 있었던 것은
+ * `WORD_KEYBINDINGS` 가 엔진 것을 **다시 적고 있었기** 때문이다. 그 재진술을 걷어내자(규칙 1)
+ * **메뉴에서 ⌘Z 가 사라졌다** — 즉 *규칙 1을 어겨야 규칙 5가 성립하는* 상태였고, 틀린 것은
+ * **도는 것의 정의** 였다.
+ *
+ * 브라우저 회차가 그것을 4분 걸려 잡았다(`apps/word/tests/menubar.spec.ts:34`).
+ * `office-controls/test/every-menu-teaches-what-is-bound.test.ts` 가 밀리초에 답한다.
+ *
+ * 순서: 제품이 **앞**이다. `chordFor` 는 처음 만난 것을 주므로, 제품이 좁히거나 다른 뜻을 준 키는
+ * 제품이 가르치는 화음이 이긴다.
+ */
+export function taughtKeys(own: readonly KeyModel[]): KeyModel[] {
+  return [...own, ...(DEFAULT_KEYBINDINGS as unknown as KeyModel[])];
 }

@@ -72,6 +72,51 @@ standard node"*. 표준 스키마에 노드를 더하면 **office 가 그것을 
 
 ---
 
+### React 갈래는 얼려 둔다 — 재고 정한 것 (2026-09-05)
+
+*"editor-react 를 계속 개선하는 게 맞나, 아니면 제품 넷을 먼저 맞추는 게 맞나"* 를 재서 답했다.
+
+**React 갈래는 끝에 제품이 없는 닫힌 고리다:**
+
+```
+renderer-react → editor-view-react → apps/editor-react
+```
+
+이 셋이 서로만 쓴다(그리고 `apps/docs-site` 하나). **제품 넷은 전부 `editor-view-dom`** 이다.
+
+| | src | test() | 상태 |
+|---|---|---|---|
+| slide | 18,971줄 | 397 | 초록 |
+| site | 11,409줄 | 283 | 초록 |
+| word | 5,547줄 | 354 | 초록 |
+| note | 257줄 | 22 | 초록 |
+| **editor-react** | 666줄 | 14 | **3 실패 / 11** |
+
+그 3 실패는 한 회차에만 그런 것이 아니라 **다섯 회차 전부 같은 셋**이었다 — IME 조합 둘과
+`insertParagraph` 하나. **가장 기본적인 글자 동작 둘이 계속 빨갛고 아무 제품도 거기 안 걸려 있다.**
+그리고 React 입력 층은 얇다: 931줄 대 DOM 2,015줄이고, 특히 **`insideLockedRegion` 이 없다** —
+그 파일 자신이 *"키보드에만 버티는 잠금은 잠금이 아니다"* 라고 적어 둔 바로 그것이다.
+
+**그래도 공짜였던 것은 아니다.** 이번 회차에 두 판을 대본 것이 결함 **다섯**을 찾았고 그 중 **넷이
+제품 경로에 있었다.** 즉 React 의 값은 *제품* 이 아니라 **거울** 이었다. 그런데 자리 층을 `shared`
+로 합쳤으므로 **그 거울은 이제 쓴 것**이다 — 그 층에서는 갈라질 수가 없다.
+
+**정한 것 (사용자 결정):** *"일단 react 쪽은 보지 말고, 제품을 먼저 계속 진행하자. 제품을 더
+만들어야 할 수도 있으니 제품이 안정화 되어야 해."*
+
+그래서 이 절의 기준은 *React 를 어떻게 할까* 가 아니라 **제품 다섯째가 수술 없이 설 수 있나** 다.
+
+1. `editor-view-react` 는 **컴파일과 단위 검사만 유지**하고 기능 동등성은 쫓지 않는다. 남은 값은
+   *엔진이 DOM 에 묶이지 않았다* 는 컴파일 타임 증거뿐이고, 그건 싸게 유지되지만 키우면 비싸다.
+2. **제품 넷이 먼저다.** 셸 **35,927줄이 아직 앱에 있고** 서비스 층이 거의 0이다.
+3. `apps/editor-react` 의 3 실패는 **고치지 말고 기록한다** — 초록/빨강을 읽을 때의 잡음이다.
+
+**접지 않고 얼려 두는 이유:** 접으면 `renderer-react` 도 같이 죽고, §1 의 *host 가 여럿* 이라는
+주장이 근거를 잃는다. 캔버스(Figma) 시제품이 세 번째 host 후보이고, 그때 두 번째 host 가 있었던
+자리가 값을 낸다.
+
+---
+
 ## Where this actually stands
 
 *Re-measured 2026-09-04. The table below was written when there was one product; there are four.*
@@ -474,12 +519,50 @@ appetite.
       any)`, `EditorState.modelSelection: SelectionState | ModelSelection | null`. `SelectionState`
       는 DOM 스냅샷이고 `ModelSelection` 은 모델의 것인데 둘 다 *선택* 이라는 이름으로 같은 문을
       지난다. 모델 쪽 사본은 걷었고 이 문이 다음이다.
-- [ ] **제품 계약에 이름이 없다.** 네 kit 이 `create*Extensions` + `create*Editor` 로 같은 모양인데
-      그 모양을 선언한 타입이 없다. 추론이 아니라 **기록**이고, `three-agree.test.ts` 가 이미 그
-      모양의 검사를 갖고 있다.
-- [ ] **키맵이 Word 에만 있다** (71개). 나머지 셋은 앱에서 손으로 쓴다. 재보니 대부분은 정당하게
-      UI-지역이고(팝오버 Escape, 목록 화살표) *제품의 키보드* 인 것은 여섯쯤이다 — 예: **고른 도형을
-      `Delete` 로 지우는 것이 앱에 손으로 적혀 있다.** 제스처 층의 키보드 쪽 짝이다.
+- [x] ~~**제품 계약에 이름이 없다.**~~ **끝 — 그리고 넷째가 이미 벗어나 있었다.**
+      `word`·`slides`·`site` 의 옵션 타입이 **글자까지 같았다**(`extends EditorOptions` +
+      `kit?` + `keybindings?`; word 만 `author` 를 더 받는다). 그런데 **가장 최근 제품인 `note` 가
+      그것을 안 따랐다** — `EditorOptions` 를 안 물려받고, `keybindings` 를 아예 못 받고,
+      `dataStore`·`schema` 를 `unknown` 으로 받았다. 아무도 막지 않았다: 선언이 없었기 때문이다.
+      **다섯째가 걸릴 자리가 정확히 거기다.**
+
+      `editor-core` 에 `ProductEditorOptions` 를 두고 넷이 그 위에 섰다. 그리고 재다가 하나가 더
+      나왔다: **`keybindings` 를 넘기는 호출자가 0** 이고, 그래서 그 의미가 한 번도 시험된 적이
+      없었다. 셋의 구현은 **대체** 였다 — `keybindings ?? WORD_KEYBINDINGS` 는 하나라도 주면 Word 의
+      71개가 통째로 사라진다는 뜻이다. `word-kit.ts` 자신이 바로 윗 문단에 *레지스트리를 비우면
+      Enter·Backspace·화살표까지 사라진다* 고 적어 두고, **한 줄 아래에서 부르는 쪽에게 그 문을 열어
+      두고 있었다.** 이제 제품의 키가 먼저 실리고 이것이 그 위에 얹힌다. 넘기는 호출자가 0이므로
+      오늘은 아무것도 안 바뀐다 — 바뀌는 것은 다음에 넘기는 사람이 얻는 답이다.
+
+      `conformance/every-product-is-built-the-same-way.test.ts` 가 넷을 센다: 계약을 받는가, `kit` 이
+      기본을 갈아끼우는가, `keybindings` 가 **층**인가.
+- [ ] **키를 어느 층이 갖는가 — 기준을 적었다**(`docs/specs/keybindings.md`), **이주가 남았다.**
+
+      *"키맵이 Word 에만 있다"* 고 적혀 있었고 **틀렸다.** 재보니 `editor-core` 의
+      `DEFAULT_KEYBINDINGS` 가 **마흔**을 묶고 **모든 제품이 그것을 받는다** — Enter·Backspace·
+      화살표·⌘B/I/U·목록·들여쓰기·제목·인용·undo/redo·복사/붙여넣기·전체선택. **note 에서 ⌘B 는
+      된다.** 기본은 이미 공유되고 있었다.
+
+      **문제는 반대쪽이었다:** `WORD_KEYBINDINGS` 70개 중 **18개가 엔진 것을 다시 적고 있었고**
+      다시 적힌 것이 더 약했다(`editorFocus && editorEditable` → `editorFocus`). 레지스트리가
+      출처로 충돌을 풀고 제품이 이기므로, 다시 적는 순간 편집 가드가 사라진다. 열여섯을 걷었다.
+      못 본 이유는 **`DEFAULT_KEYBINDINGS` 가 안 나가고 있었기** 때문이다 — 볼 수 없는 것과 다시
+      적는 것은 같은 결함의 앞뒤다.
+
+      **기준(`specs/keybindings.md`):** *이 키가 하는 일이 문서에 남는가* 로 층이 갈린다. 남으면
+      레지스트리(엔진/제품), 화면에만 남으면 앱. 그리고 **레지스트리가 유일한 디스패처다** —
+      `slides`/`site` 가 호스트 디스패처를 쓰는 근거(*"호스트만 상자 안 타이핑을 안다"*)는 엔진의
+      `keydown` 이 `window` 가 아니라 **`contentEditableElement` 에 붙기 때문에 성립하지 않는다.
+
+      *남은 일:*
+      - [x] note 에 `MoveBlockExtension` — 셋은 싣고 노트만 안 실어서 `Alt+↑` 가 죽어 있었다.
+            기능은 손잡이로 있었다. `office-controls/every-engine-key-reaches-a-command.test.ts`
+      - [ ] **slides 의 문서 키 23개를 레지스트리로.** `SLIDES_KEYS` 는 이미 `office-controls` 의
+            `KeyModel` 이므로 모양은 같다. 실제 일은 **맥락을 세우는 것** 이다 — slides/site 는
+            `setContext` 를 하나도 안 부른다(`when` 을 쓰는 것은 word 뿐이다)
+      - [ ] site 도 같게 (문서 키 0, 앱의 손 keydown 셋은 전부 크롬)
+      - [ ] 읽기 전용을 낼 때 `editorEditable` 을 걸 명령 목록 — 지금 Word 54 중 0, note 2 중 0.
+            일괄로 걸면 안 된다: `copy`·`selectAll` 은 읽기 전용에서 되어야 한다
 - [ ] **두 끝이 형제가 아닌 범위** — 인용문 안에서 바깥으로. **결정은 끝났다**(`specs/selection.md`):
       시작을 담은 블록이 살아남는다 — 추측이 아니라 *삭제 뒤 캐럿이 시작 자리에 있다* 에서 도출된다.
       남은 일은 **문서 순서 훑기** 하나이고, 이번 회차에 같은 것이 한 번 더 필요했다

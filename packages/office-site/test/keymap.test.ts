@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { SITE_KEYS, hintFor, hintOf, matchesSiteKey, siteKeyFor } from '../src/keymap';
 import { SITE_MENUS } from '../src/menu-model';
-import { keyFaults } from '@barocss/office-controls';
+import { keyFaults ,
+  taughtKeys} from '@barocss/office-controls';
 import { createSiteEditor } from '../src/site-kit';
 
 /**
@@ -32,7 +33,12 @@ describe('what a key means, and what the menu says it means', () => {
 
   it('prints a chord only where there is one', () => {
     for (const entry of entries) {
-      const bound = SITE_KEYS.find(
+      /*
+       * **묶은 것 = 제품 + 엔진.** `SITE_KEYS` 만 보면 메뉴가 인쇄하는 엔진 화음(⌥↑ 같은 것)이
+       * *근거 없는 인쇄* 로 읽힌다. 이 회차에 같은 반쪽 읽기를 다섯 자리에서 고쳤다 —
+       * `taughtKeys` 의 프로세.
+       */
+      const bound = taughtKeys(SITE_KEYS).find(
         (key) =>
           (entry.command !== undefined && key.command === entry.command) ||
           (entry.view !== undefined && key.view === entry.view)

@@ -46,7 +46,7 @@ Measured at runtime:
 | of those, **declared by note** | **3** — `note`, `mediaVideo`, `mediaEmbed` |
 | attribute slots | 304 |
 | marks | 25 |
-| commands registered | **107** |
+| commands registered | **110** |
 | of those, table commands | 12 |
 | keybindings | 42 |
 | of those, **added by note** | **2** — `Tab`, `Shift+Tab` |
@@ -128,7 +128,7 @@ keyboard's route differ, the button hides the defect**, and the defect was in
 
 ## What the seam actually cost
 
-`office-note` is **2,372 lines** and `apps/note` is **257**. For comparison, the chrome
+`office-note` is **2,400 lines** and `apps/note` is **257**. For comparison, the chrome
 still living in the other three apps is **35,927 lines**.
 
 Note is the only product that passes the roadmap's Phase 3 condition — *the shell

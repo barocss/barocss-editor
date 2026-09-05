@@ -36,7 +36,8 @@ describe('ReactSelectionHandler', () => {
     document.body.appendChild(root);
 
     const getEl = () => root;
-    const editor = createMockEditor((id) => (id === 't1' ? { stype: 'inline-text' } : null));
+    /* DOM 은 `hello` 를 입고 있는데 모델은 안 입고 있었다 — `inline-text` 는 늘 `text` 를 갖는다. */
+    const editor = createMockEditor((id) => (id === 't1' ? { stype: 'inline-text', text: 'hello' } : null));
     const handler = new ReactSelectionHandler(editor, getEl);
 
     const range = document.createRange();

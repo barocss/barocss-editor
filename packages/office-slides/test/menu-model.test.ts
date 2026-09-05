@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { chordFor, keyFaults, keyLabel, menuFaults } from '@barocss/office-controls';
+import { chordFor, keyFaults, keyLabel, menuFaults ,
+  taughtKeys} from '@barocss/office-controls';
 import { SLIDES_KEYS } from '../src/keymap';
 import { SLIDES_MENUS, slidesMenuCommands, slidesMenuEntry, slidesMenuId } from '../src/menu-model';
 import { createSlidesEditor } from '../src/slides-kit';
@@ -60,7 +61,8 @@ describe('what the menubar offers', () => {
     for (const menu of SLIDES_MENUS) {
       for (const block of menu.blocks) {
         for (const item of block.items) {
-          const bound = chordFor(SLIDES_KEYS, item);
+          /* 묶은 것 = 제품 + 엔진. Word 에서 같은 반쪽 읽기를 고쳤다 — `taughtKeys` 의 프로세. */
+          const bound = chordFor(taughtKeys(SLIDES_KEYS), item);
           if (bound) expect(item.hint, item.label).toBe(keyLabel(bound, true));
           // Nothing where nothing is bound, which is the honest thing to say about a dead key.
           else expect(item.hint, item.label).toBeUndefined();

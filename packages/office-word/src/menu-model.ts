@@ -23,6 +23,7 @@
  * already know the chord could not find it at all.
  */
 import {
+  taughtKeys,
   menuCommands,
   menuEntry,
   menuId,
@@ -121,7 +122,7 @@ const DECLARED: WordMenu[] = [
  * ⌘P stays typed above, and it is the only one: printing is the browser's, so that chord is a fact
  * about the platform rather than a binding Word could derive.
  */
-export const WORD_MENUS: WordMenu[] = withHints(DECLARED, WORD_KEYS);
+export const WORD_MENUS: WordMenu[] = withHints(DECLARED, taughtKeys(WORD_KEYS));
 
 /** Every command the menubar can run — the harness's question, answered by the model. */
 export function wordMenuCommands(menus: WordMenu[] = WORD_MENUS): string[] {
