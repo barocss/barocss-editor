@@ -404,8 +404,8 @@ export class SelectionNormalizeExtension implements Extension {
   
   onBeforeSelectionChange(
     editor: Editor,
-    selection: SelectionState
-  ): SelectionState | null {
+    selection: ModelSelection
+  ): ModelSelection | null {
     // Normalize selection to block boundaries
     const normalized = this._normalizeToBlock(editor, selection);
     
@@ -418,8 +418,8 @@ export class SelectionNormalizeExtension implements Extension {
   
   private _normalizeToBlock(
     editor: Editor,
-    selection: SelectionState
-  ): SelectionState {
+    selection: ModelSelection
+  ): ModelSelection {
     // Normalization logic
     // ...
     return selection;
@@ -600,7 +600,7 @@ export class LoggingExtension implements Extension {
   }
   
   // Called after selection changes
-  onSelectionChange(editor: Editor, selection: SelectionState): void {
+  onSelectionChange(editor: Editor, selection: MaybeSelection): void {
     console.log('Selection changed:', selection);
   }
   

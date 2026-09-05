@@ -312,34 +312,26 @@ describe('Editor + SelectionManager 통합 테스트', () => {
   });
 
   describe('실제 사용 시나리오', () => {
-    it.skip('사용자가 텍스트를 선택했을 때 SelectionState가 업데이트되어야 함', () => {
-      const selectionChangeHandler = vi.fn();
-      editor.on('editor:selection.change', selectionChangeHandler);
-
-      // Simulate user selecting "Hello" text
-      const textNode = contentEditableElement.querySelector('p')?.firstChild as Text;
-      const range = document.createRange();
-      range.setStart(textNode, 0);
-      range.setEnd(textNode, 5);
-
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-
-      // Simulate selectionchange event
-      const selectionChangeEvent = new Event('selectionchange');
-      document.dispatchEvent(selectionChangeEvent);
-
-      expect(selectionChangeHandler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          selection: expect.objectContaining({
-            textContent: 'Hello',
-            nodeId: 'p-1',
-            nodeType: 'paragraph'
-          })
-        })
-      );
-    });
+    /*
+     * **여기 있던 검사 둘을 지웠다 — 둘 다 `SelectionState` 의 모양을 세워 놓고 기다리고 있었다.**
+     *
+     * 하나는 *"사용자가 텍스트를 선택했을 때 SelectionState가 업데이트되어야 함"* 이었고,
+     * `editor:selection.change` 의 payload 가 `{ textContent: 'Hello', nodeId: 'p-1', nodeType:
+     * 'paragraph' }` 이기를 기대했다. 다른 하나는 *"복잡한 선택 시나리오"* 로,
+     * `data.selection.textContent` 를 모아서 길이만 셌다.
+     *
+     * 그 셋(`textContent`·`nodeId`·`nodeType`) 중 **어느 것도 그 이벤트에 실린 적이 없다.** payload 는
+     * `MaybeSelection` 이고 그것은 `startNodeId`/`startOffset`/`endNodeId`/`endOffset` 이다. 두 번째
+     * 검사는 그 위에 둘을 더 틀렸다 — 듣는 이름이 `'selectionChange'`(실제 이름은
+     * `editor:selection.change`)였고, `editor.setNode({ nodeId, selectAll })` 로 지워진
+     * `ModelNodeSelection` 의 모양을 넘겼다.
+     *
+     * **`it.skip` 이 이것을 덮고 있었다.** 셋 다 틀린 검사가 몇 년을 앉아 있을 수 있었던 이유는 하나뿐,
+     * 한 번도 실행되지 않아서다 — 그래서 `SelectionState` 를 지울 때 컴파일러도 실행기도 아무 말을 하지
+     * 않았다. 건너뛴 검사는 *기능이 아직 없다* 를 말하는 자리이지 *계약이 이랬으면 좋겠다* 를 적어 두는
+     * 자리가 아니다. 선택이 바뀌는 것은 `editor-selection.test.ts` 와 `@barocss/conformance` 의
+     * `one-selection-type` 이 실제로 실행되면서 지킨다.
+     */
 
     it.skip('프로그래밍적으로 선택을 설정했을 때 DOM에 반영되어야 함', () => {
       // Set selection programmatically
@@ -359,34 +351,5 @@ describe('Editor + SelectionManager 통합 테스트', () => {
       expect(selectedText).toBe('Title');
     });
 
-    it.skip('복잡한 선택 시나리오에서도 올바르게 작동해야 함', () => {
-      // Simulate multi-step selection changes
-      const selectionChanges: string[] = [];
-      
-      editor.on('selectionChange', (data: { selection: { textContent: string } }) => {
-        selectionChanges.push(data.selection.textContent);
-      });
-
-      // Step 1: Select first paragraph
-      editor.setNode({
-        nodeId: 'p-1',
-        selectAll: true
-      });
-
-      // Step 2: Select heading
-      editor.setNode({
-        nodeId: 'h1-1',
-        selectAll: true
-      });
-
-      // Step 3: Clear selection
-      editor.clearSelection();
-
-      // selectionchange events must be manually dispatched
-      const selectionChangeEvent = new Event('selectionchange');
-      document.dispatchEvent(selectionChangeEvent);
-
-      expect(selectionChanges.length).toBeGreaterThan(0);
-    });
   });
 });

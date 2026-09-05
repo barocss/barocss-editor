@@ -231,7 +231,7 @@ new Editor(options?: EditorOptions)
 
 #### Properties
 - `document: DocumentState` - Current document state
-- `selection: SelectionState` - Current selection state
+- `selection: ModelSelection | null` - Current selection, in model coordinates
 - `isFocused: boolean` - Whether editor is focused
 - `isEditable: boolean` - Whether editor is editable
 
@@ -275,17 +275,37 @@ interface DocumentState {
 }
 ```
 
-#### SelectionState
+#### ModelSelection / MaybeSelection
+
+Declared in `@barocss/shared` and re-exported here, so extensions learn selection in the
+editor's vocabulary. There is one selection type, and it is in **model** coordinates —
+node id plus offset, never a DOM node.
+
 ```typescript
-interface SelectionState {
-  anchor: number;
-  head: number;
-  empty: boolean;
-  from: number;
-  to: number;
-  ranges: SelectionRange[];
+type SelectionType = 'range' | 'node' | 'cell' | 'table';
+
+interface ModelSelection {
+  type: SelectionType;
+  startNodeId: string;
+  startOffset: number;
+  endNodeId: string;
+  endOffset: number;
+  collapsed?: boolean;      // a cursor is a range with collapsed: true
+  direction?: 'forward' | 'backward' | 'none';
+  nodeIds?: string[];       // every node, when the selection is a set rather than a span
 }
+
+interface NoSelection { type: 'none'; }
+
+type MaybeSelection = ModelSelection | NoSelection;
 ```
+
+> **A `SelectionState` used to be documented here** — `{ anchor, head, empty, from, to,
+> ranges }` — and it never existed in that shape. The type in `types.ts` was a DOM snapshot
+> (`anchorNode`/`focusNode`/`from`/`to`), the README described a third shape, and **nothing
+> anywhere constructed either one.** It is gone; `packages/editor-core/src/types.ts` carries
+> the measurement. Converting a DOM selection is the view layer's job (`fromDOMSelection` in
+> `@barocss/shared`), and what crosses into the editor is already a `MaybeSelection`.
 
 #### Extension
 ```typescript
@@ -297,7 +317,8 @@ interface Extension {
   onDestroy?(editor: Editor): void;
   commands?: Command[];
   onTransaction?(editor: Editor, transaction: Transaction): void;
-  onSelectionChange?(editor: Editor, selection: SelectionState): void;
+  onBeforeSelectionChange?(editor: Editor, selection: ModelSelection): ModelSelection | null | void;
+  onSelectionChange?(editor: Editor, selection: MaybeSelection): void;
   onContentChange?(editor: Editor, content: DocumentState): void;
 }
 ```

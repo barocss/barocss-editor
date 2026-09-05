@@ -215,8 +215,9 @@ Word 에서 되던 것은 `office-word/table-commands.ts` 가 양 끝 셀 id 를
 - [ ] **뷰 층이 두 벌이다** — 두 selection-handler(751줄 / 485줄)에 같은 이름의 private 메서드가
       **열한 개.** 증거: 이번 회차의 선택 결함 둘이 React 판에 그대로 남아 있었다. 두 번 고쳐야 하는
       것이 결함이고, 뽑아낼 자리는 둘 다의 **아래**여야 한다.
-- [ ] **편집기의 문도 답이 둘이다** — `updateSelection(selection: SelectionState | any)`.
-      `SelectionState` 는 DOM 스냅샷이고 `ModelSelection` 은 모델의 것인데 같은 문을 지난다.
+- [x] ~~**편집기의 문도 답이 둘이다**~~ — **끝.** `SelectionState` 는 아무것도 만들지 않는
+      타입이었고(호출자 0 · 확장 0 · 이벤트 0), 문을 좁히는 대신 지웠다. 지나는 것은
+      `MaybeSelection` 하나다. `BACKLOG.md` 에 표가 있다.
 - [ ] **선택의 나머지.** 두 끝이 형제가 아닌 범위 — 인용문 안에서 바깥으로. **결정은 끝났다**
       (`specs/selection.md`): 시작을 담은 블록이 살아남는다 — *삭제 뒤 캐럿이 시작 자리에 있다* 에서
       도출된다. 남은 일은 **문서 순서 훑기** 하나다.

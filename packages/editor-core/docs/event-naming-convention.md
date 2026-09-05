@@ -127,9 +127,10 @@ editor.on('user:customAction', (data) => {
 ```typescript
 // Type safety in TypeScript
 editor.on('editor:selection.change', (data) => {
-  // data is automatically typed as { selection: SelectionState; oldSelection: SelectionState }
-  console.log(data.selection.textContent);
-  console.log(data.oldSelection.textContent);
+  // data is automatically typed as
+  //   { selection: MaybeSelection | null; oldSelection: MaybeSelection | null }
+  console.log(data.selection?.type);
+  console.log(data.oldSelection?.type);
 });
 
 editor.on('error:selection', (data) => {

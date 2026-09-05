@@ -291,12 +291,26 @@ DOM 선택은 비어 있음). 2026-09-04 에 고쳤고, 원인이 둘이었으�
 나오고(`SelectionSummary`, `SelectionState`, `CellSelectionHandle` … 다 다른 것이다) **의미로 세면
 열셋**이 나온다(연산의 payload 는 범위를 *받는다*). 둘을 겹쳐야 개념 자신만 남는다.
 
-### 아직 남은 것 — 편집기의 문에서도 답이 둘이다
+### 편집기의 문에서도 답이 둘이었다 — 걷었다
 
-`Editor.updateSelection(selection: SelectionState | any)` 이고 `EditorState.modelSelection` 은
-`SelectionState | ModelSelection | null` 이다. `SelectionState` 는 **DOM 스냅샷**(`anchorNode`,
+`Editor.updateSelection(selection: SelectionState | any)` 이었고 `EditorState.modelSelection` 은
+`SelectionState | ModelSelection | null` 이었다. `SelectionState` 는 **DOM 스냅샷**(`anchorNode`,
 `focusNode`, `textContent`)이고 `ModelSelection` 은 모델의 것인데, 둘 다 *선택* 이라는 이름으로 같은
-문을 지난다. 이번에 걷은 것은 모델 쪽 사본이고, 이 문은 다음 차례다.
+문을 지났다.
+
+**`SelectionState` 는 이제 없다.** 재보니 그 타입을 **만드는 곳이 하나도 없었다** — 넘기는 호출자 0,
+구현하는 확장 0, 그것을 싣는 이벤트 0. `updateSelection` 은
+`EditorSelectionModelPayload | null` 로, 확장 훅 둘은 `ModelSelection`/`MaybeSelection` 로,
+`editor:selection.change` 는 `MaybeSelection` 로 좁혔고, `editor:selection.focus`·`.blur` 는 payload
+자체가 없다(인자 없이 emit 된다). `SetSelectionCommand` 는 클래스째 지웠다.
+
+지운 이유의 전문은 `packages/editor-core/src/types.ts` 에 있다. 요약하면 이 저장소가 되풀이하는
+결함 — *의도를 적은 타입이 배선되지 않은 채 남고, 읽는 쪽이 그 의도를 향해 읽는다.* 읽고 있던 쪽은
+`devtool.getSelectionInfo` 였고, 오지 않는 모양 둘(`nodeId`/`from`/`to` 와
+`anchorNode`/`focusNode`)에 분기를 갖고 있었다. 그것도 같이 걷었다.
+
+**문은 이제 하나다:** DOM 선택은 뷰 층이 `fromDOMSelection` 으로 모델 자리로 옮기고, 편집기의 문을
+지나는 것은 `MaybeSelection` 뿐이다.
 
 ### 그리고 뷰 층이 두 벌이라 선택 고치기는 두 번씩 필요하다
 

@@ -1,4 +1,4 @@
-import { Editor } from '@barocss/editor-core';
+import { Editor, isModelSelection, type MaybeSelection } from '@barocss/editor-core';
 import { DevtoolOptions, EventLog, ModelTreeNode, ExecutionFlow, TraceStartEvent, TraceEndEvent, TraceErrorEvent } from './types';
 import { DevtoolUI } from './ui';
 import { AutoTracer } from './auto-tracer';
@@ -14,7 +14,12 @@ export class Devtool {
   private eventLogs: EventLog[] = [];
   private maxEvents: number;
   private debug: boolean;
-  private lastSelection: any = null; // Store last selection information
+  /*
+   * `editor:selection.change` 가 싣고 오는 것 — 그 payload 는 `MaybeSelection | null` 이다. `any` 였을
+   * 때 `getSelectionInfo` 가 오지 않는 모양 둘을 읽고 있었고, 그 둘을 지운 뒤에도 `any` 로 두면 다음에
+   * 같은 것이 다시 쓰인다.
+   */
+  private lastSelection: MaybeSelection | null = null;
   private autoTracer: AutoTracer;
   private traces: Map<string, ExecutionFlow> = new Map();
   private maxFlows: number = 100;
@@ -416,154 +421,61 @@ export class Devtool {
   }
 
   /**
-   * Get selection information for tree rendering
+   * 트리에 칠할 선택을 노드별 구간으로 편다.
+   *
+   * **여기 있던 분기 다섯 중 넷을 지웠다 — 둘은 오지 않는 모양이었고, 둘은 남은 하나의 사본이었다.**
+   *
+   * 이 함수에 들어오는 값의 출처는 `buildModelTree` 안에 네 곳뿐이고, 넷 다 `MaybeSelection` 이다:
+   *
+   * | 출처 | 무엇을 준다 |
+   * |---|---|
+   * | `editor.selection` | `ModelSelection \| null` (게터의 선언 그대로) |
+   * | `lastSelection` ← `editor:selection.change` | payload 가 `MaybeSelection \| null` 로 좁혀져 있다 |
+   * | `selectionManager.getCurrentSelection()` | `ModelSelection \| null` |
+   * | `convertDOMSelectionToModel(domSelection)` | `MaybeSelection` — 게다가 `type === 'range'` 일 때만 쓴다 |
+   *
+   * 지운 넷:
+   *
+   * | 분기 | 적혀 있던 것 | 실제로 |
+   * |---|---|---|
+   * | `nodeId` + `from` + `to` | *"Handle SelectionState type"* | `SelectionState` 는 이제 없고, **있을 때도 아무것도 그것을 만들지 않았다** |
+   * | `anchorNode` / `focusNode` | *"selection object from `editor:selection.change`"* | 그 이벤트는 DOM 노드를 실은 적이 없다. `MaybeSelection` 을 싣는다 |
+   * | `type === 'range' && startNodeId && endNodeId` | | 아래 분기와 **같은 계산** |
+   * | `startNodeId && endNodeId && typeof startOffset === 'number'` | | 같음 |
+   *
+   * 앞의 둘이 이 저장소가 되풀이해 만드는 결함이다 — **의도를 적은 타입이 배선되지 않은 채 남고,
+   * 읽는 쪽이 그 의도를 향해 읽는다.** `packages/editor-core/src/types.ts` 의 `SelectionState`·
+   * `ModelNodeSelection` 프로세가 같은 문장을 두 번 적어 두었고, 이것이 세 번째다. 특히
+   * `anchorNode` 분기는 devtool 이 **뷰 층이 이미 한 일을 다시 했다**: `closest('[data-bc-sid]')` 로
+   * DOM 에서 노드 id 를 찾는 것은 `fromDOMSelection` 이 하는 일이고, 그것을 지나 온 값이 여기 온다.
+   *
+   * 뒤의 둘은 사본이었다. 셋 다 `startNodeId`/`startOffset`/`endNodeId`/`endOffset` 을 같은 식으로
+   * 폈고, 다른 것은 마지막 사본이 `Math.min`/`Math.max` 를 한 번 더 걸었다는 것뿐이다 —
+   * `ModelSelection` 은 *"Always guarantees start ≤ end (normalized)"* 이므로 그 min/max 는 아무
+   * 일도 하지 않거나, 하는 날엔 규약이 깨진 것을 **감춘다.** 그래서 남기지 않았다.
+   *
+   * **남긴 것 하나:** `nodeIds` 가 있는 선택(칸 여럿, 도형 여럿)은 여기서 첫·끝 노드만 칠해진다.
+   * 구멍 있는 집합을 양 끝으로 그리는 것은 틀렸지만 그것은 이 함수가 죽어 있어서가 아니라 devtool 이
+   * 아직 `selectedNodeIds()` 를 안 읽어서다 — `docs/BACKLOG.md` 에 열어 두었다.
    */
-  private getSelectionInfo(selection: any): Map<string, { start: number; end: number }> {
+  private getSelectionInfo(selection: MaybeSelection | null | undefined): Map<string, { start: number; end: number }> {
     const selectionMap = new Map<string, { start: number; end: number }>();
-    
-    if (!selection) {
+
+    if (!selection || !isModelSelection(selection)) {
       return selectionMap;
     }
 
-    // Handle SelectionState type (using nodeId, from, to)
-    if (selection.nodeId && typeof selection.from === 'number' && typeof selection.to === 'number') {
-      selectionMap.set(selection.nodeId, {
-        start: selection.from,
-        end: selection.to
-      });
-      return selectionMap;
-    }
+    const { startNodeId, endNodeId } = selection;
+    const startOffset = selection.startOffset || 0;
+    const endOffset = selection.endOffset || 0;
 
-    // Handle selection object from editor:selection.change event
-    // Find nodeId using anchorNode, focusNode
-    if (selection.anchorNode || selection.focusNode) {
-      const anchorNode = selection.anchorNode;
-      const focusNode = selection.focusNode;
-      const anchorOffset = selection.anchorOffset || 0;
-      const focusOffset = selection.focusOffset || 0;
-      
-      // Find nodeId from anchorNode
-      let anchorNodeId: string | null = null;
-      if (anchorNode) {
-        const anchorEl = anchorNode.nodeType === Node.ELEMENT_NODE 
-          ? (anchorNode as Element) 
-          : anchorNode.parentElement;
-        anchorNodeId = anchorEl?.closest?.('[data-bc-sid]')?.getAttribute('data-bc-sid') || null;
-      }
-      
-      // Find nodeId from focusNode
-      let focusNodeId: string | null = null;
-      if (focusNode) {
-        const focusEl = focusNode.nodeType === Node.ELEMENT_NODE 
-          ? (focusNode as Element) 
-          : focusNode.parentElement;
-        focusNodeId = focusEl?.closest?.('[data-bc-sid]')?.getAttribute('data-bc-sid') || null;
-      }
-      
-      if (anchorNodeId && focusNodeId) {
-        if (anchorNodeId === focusNodeId) {
-          // Selection within same node
-          const start = Math.min(anchorOffset, focusOffset);
-          const end = Math.max(anchorOffset, focusOffset);
-          selectionMap.set(anchorNodeId, {
-            start,
-            end
-          });
-        } else {
-          // Selection spanning different nodes
-          selectionMap.set(anchorNodeId, {
-            start: anchorOffset,
-            end: Infinity
-          });
-          selectionMap.set(focusNodeId, {
-            start: 0,
-            end: focusOffset
-          });
-        }
-        return selectionMap;
-      }
-    }
-
-    // Handle ModelRangeSelection type (type === 'range')
-    // Or result from convertDOMSelectionToModel (startNodeId, startOffset, endNodeId, endOffset)
-    if (selection.type === 'range' && selection.startNodeId && selection.endNodeId) {
-      const startNodeId = selection.startNodeId;
-      const startOffset = selection.startOffset || 0;
-      const endNodeId = selection.endNodeId;
-      const endOffset = selection.endOffset || 0;
-
-      if (startNodeId === endNodeId) {
-        // 같은 노드 내 selection
-        selectionMap.set(startNodeId, {
-          start: startOffset,
-          end: endOffset
-        });
-      } else {
-        // 다른 노드에 걸친 selection
-        selectionMap.set(startNodeId, {
-          start: startOffset,
-          end: Infinity // To end of node
-        });
-        selectionMap.set(endNodeId, {
-          start: 0,
-          end: endOffset
-        });
-      }
-      return selectionMap;
-    }
-
-    // When only startNodeId/endNodeId exist (process even without type)
-    if (selection.startNodeId && selection.endNodeId && typeof selection.startOffset === 'number') {
-      const startNodeId = selection.startNodeId;
-      const startOffset = selection.startOffset || 0;
-      const endNodeId = selection.endNodeId;
-      const endOffset = selection.endOffset || 0;
-
-      if (startNodeId === endNodeId) {
-        selectionMap.set(startNodeId, {
-          start: startOffset,
-          end: endOffset
-        });
-      } else {
-        selectionMap.set(startNodeId, {
-          start: startOffset,
-          end: Infinity
-        });
-        selectionMap.set(endNodeId, {
-          start: 0,
-          end: endOffset
-        });
-      }
-      return selectionMap;
-    }
-
-    // Handle ModelSelection type (startNodeId, startOffset, endNodeId, endOffset)
-    if (selection.startNodeId && selection.endNodeId) {
-      const startNodeId = selection.startNodeId;
-      const startOffset = selection.startOffset || 0;
-      const endNodeId = selection.endNodeId;
-      const endOffset = selection.endOffset || 0;
-
-      if (startNodeId === endNodeId) {
-        // 같은 노드 내 selection
-        const start = Math.min(startOffset, endOffset);
-        const end = Math.max(startOffset, endOffset);
-        selectionMap.set(startNodeId, {
-          start,
-          end
-        });
-      } else {
-        // 다른 노드에 걸친 selection
-        selectionMap.set(startNodeId, {
-          start: startOffset,
-          end: Infinity // To end of node
-        });
-        selectionMap.set(endNodeId, {
-          start: 0,
-          end: endOffset
-        });
-      }
-      return selectionMap;
+    if (startNodeId === endNodeId) {
+      // 같은 노드 내 selection
+      selectionMap.set(startNodeId, { start: startOffset, end: endOffset });
+    } else {
+      // 다른 노드에 걸친 selection
+      selectionMap.set(startNodeId, { start: startOffset, end: Infinity }); // To end of node
+      selectionMap.set(endNodeId, { start: 0, end: endOffset });
     }
 
     return selectionMap;

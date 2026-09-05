@@ -226,8 +226,8 @@ class CollaborativeProtectionExtension implements Extension {
 class SelectionNormalizeExtension implements Extension {
   onBeforeSelectionChange(
     editor: Editor, 
-    selection: SelectionState
-  ): SelectionState | null {
+    selection: ModelSelection
+  ): ModelSelection | null {
     // Selection이 블록 노드 경계를 넘지 않도록 정규화
     const normalized = this.normalizeSelection(editor, selection);
     
@@ -242,8 +242,8 @@ class SelectionNormalizeExtension implements Extension {
 
   private normalizeSelection(
     editor: Editor, 
-    selection: SelectionState
-  ): SelectionState {
+    selection: ModelSelection
+  ): ModelSelection {
     // 블록 노드 경계 확인 및 조정 로직
     // ...
     return selection;
@@ -451,8 +451,8 @@ interface Extension {
   // Selection 가로채기
   onBeforeSelectionChange?(
     editor: Editor, 
-    selection: SelectionState
-  ): SelectionState | null | void;
+    selection: ModelSelection
+  ): ModelSelection | null | void;
   // - Selection 반환: 다른 selection으로 교체
   // - null 반환: selection 변경 취소
   // - void: 그대로 진행

@@ -129,12 +129,17 @@ editor.setContent({
 });
 ```
 
-#### `updateSelection(selection: SelectionState | ModelSelection): void`
+#### `updateSelection(selection: EditorSelectionModelPayload | null): void`
 
 Updates the current selection.
 
 **Parameters:**
-- `selection: SelectionState | ModelSelection` - New selection
+- `selection` - a `ModelSelection`, a `NoSelection` (`{ type: 'none' }`), an
+  `EditorSelectionModelEventPayload` wrapping either, or `null` to clear.
+
+Selection is always in **model** coordinates — node id plus offset. A DOM selection is
+converted by the view layer (`fromDOMSelection`) before it reaches this method; there is no
+DOM-shaped overload.
 
 **Behavior:**
 - Triggers `onBeforeSelectionChange` hooks (extensions can intercept/modify)
@@ -144,7 +149,6 @@ Updates the current selection.
 
 **Example:**
 ```typescript
-// ModelSelection format
 editor.updateSelection({
   type: 'range',
   startNodeId: 'text-1',
@@ -153,15 +157,15 @@ editor.updateSelection({
   endOffset: 5
 });
 
-// SelectionState format (legacy)
-editor.updateSelection({
-  anchorNode: domNode,
-  anchorOffset: 0,
-  focusNode: domNode,
-  focusOffset: 5,
-  // ...
-});
+// Clear the selection
+editor.updateSelection(null);
 ```
+
+> A second, DOM-shaped overload used to be documented here as *"SelectionState format
+> (legacy)"* — `{ anchorNode, anchorOffset, focusNode, focusOffset }`. It never worked.
+> `SelectionState` had no `type` field, so the `isModelSelection` guard (`type !== 'none'`)
+> answered *true* for it and the DOM branch was unreachable; nothing in the repository ever
+> called `updateSelection` with that shape. The type is gone.
 
 #### `executeCommand(command: string, payload?: any): Promise<boolean>`
 
@@ -556,12 +560,12 @@ interface Extension {
   
   // Before hooks (intercept and modify core model changes)
   onBeforeTransaction?(editor: Editor, transaction: Transaction): Transaction | null | void;
-  onBeforeSelectionChange?(editor: Editor, selection: SelectionState): SelectionState | null | void;
+  onBeforeSelectionChange?(editor: Editor, selection: ModelSelection): ModelSelection | null | void;
   onBeforeContentChange?(editor: Editor, content: DocumentState): DocumentState | null | void;
   
   // After hooks (notification for core model changes)
   onTransaction?(editor: Editor, transaction: Transaction): void;
-  onSelectionChange?(editor: Editor, selection: SelectionState): void;
+  onSelectionChange?(editor: Editor, selection: MaybeSelection): void;
   onContentChange?(editor: Editor, content: DocumentState): void;
 }
 ```
@@ -634,12 +638,12 @@ onBeforeTransaction(editor: Editor, transaction: Transaction) {
 }
 ```
 
-#### `onBeforeSelectionChange(editor: Editor, selection: SelectionState): SelectionState | null | void`
+#### `onBeforeSelectionChange(editor: Editor, selection: ModelSelection): ModelSelection | null | void`
 
 Intercepts selection changes.
 
 **Returns:**
-- `SelectionState` - Modified selection (use this instead)
+- `ModelSelection` - Modified selection (use this instead)
 - `null` - Cancel selection change
 - `void` - Continue with original selection
 
@@ -660,9 +664,10 @@ After hooks provide notifications for core model changes.
 
 Called after transaction is executed.
 
-#### `onSelectionChange(editor: Editor, selection: SelectionState): void`
+#### `onSelectionChange(editor: Editor, selection: MaybeSelection): void`
 
-Called after selection changes.
+Called after selection changes. `MaybeSelection` is `ModelSelection | NoSelection` — the
+selection going away is also a selection change, and it arrives as `{ type: 'none' }`.
 
 #### `onContentChange(editor: Editor, content: DocumentState): void`
 

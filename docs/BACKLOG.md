@@ -21,6 +21,17 @@ for, and in what order. This holds the next thing itself.
   rediscover.
 - **Add to it while working.** Anything found and not fixed goes in Open before
   the commit that found it.
+- **표식은 자리와 맞아야 한다** — `🔴` 는 Open 에, `✅` 는 Done 에.
+
+  **파일 *끝* 에 덧붙이면 그 끝은 `## Done` 이다.** 열린 항목은 `## Open` 구간의 끝에 넣는다.
+  실제로 그 실수가 났다: 2026-09-05 에 세어 보니 🔴 열넷이 Done 에, ✅ 열여섯이 Open 에 있었다 —
+  *"맨 끝에 덧붙이세요"* 라고 적어 두고 그대로 한 결과와, 고친 뒤 안 옮긴 것.
+
+  **둘 다 조용하다**: 파일은 커지고 무엇이 남았는지는 아무도 모른다. 지금 이 파일은 14,000줄이
+  넘고 일을 고르는 사람이 이것을 읽고 고른다 — 표식이 자리와 어긋나면 고르는 근거가 없다.
+
+  `packages/conformance/test/backlog-says-what-is-done.test.ts` 가 센다. 표식이 **없는** 항목은
+  안 센다: 앞선 관례가 자리로만 말했고 그런 항목이 365개다.
 
 Find what the schema declares and nothing reads — the sweep that keeps producing
 these — from `packages/office-word`:
@@ -6895,110 +6906,6 @@ text-shaped.
   쪽에서도 원래 성립하던 것을 이번에 처음 잰 것이다. **그럴듯한 인과는 측정이 아니다** — 이 세션에서
   세 번째로 같은 실수를 했고, 세 번 다 *내 최근 변경과 시간이 가깝다* 는 것 말고 근거가 없었다.
 
-- **접힌 선택을 *어느 쪽으로* 접느냐가 남아 있었다 — 그리고 검사가 그것을 안 시험했다.** ✅ 고침
-
-  가드는 늘 **시작** 으로 접었다. 그런데 경계가 블록이면 두 해석은 서로 다른 그릇 안을 걷는다:
-  시작은 *첫 런* 안을, 끝은 *마지막 런* 안을. 그래서 시작 해석은 첫 런을 넘어갈 수 없다.
-
-  런 둘(`가나`,`다라`)을 가진 문단에서 잰 것:
-
-  | 캐럿 | 시작 해석 | 끝 해석 | 맞는 답 |
-  |---|---|---|---|
-  | `(p,0)` | `t1:0` | t2:0 | **시작** |
-  | `(p,1)` | `t1:2` | t2:0 | **시작** |
-  | `(p,2)` | t1:2 | `t2:2` | **끝** |
-
-  즉 **문단 끝의 캐럿이 첫 런 끝으로** 갔다 — 런이 둘 이상인 문단에서는 글자 한복판이다. 짧은
-  줄의 오른쪽 빈 곳을 누르는 흔한 몸짓이 거기로 간다.
-
-  자식 색인이 자식 수와 같다는 것은 브라우저가 *전부 뒤* 라고 말한 것이고, 첫 런 안을 걷는 해석은
-  그것을 표현할 방법이 없다. **그때만 끝으로 접는다.**
-
-  **검사가 못 잡은 이유가 이 세션에서 세 번째 같은 모양이다:** 캐럿을 `(p, 0)` 에만 두었는데,
-  거기는 시작으로 접든 끝으로 접든 답이 같은 **유일한 자리** 다. 내가 고른 자리가 내 결정을
-  시험하지 않는 자리였다. 반대쪽 끝을 더하니 두 뷰 모두에서 즉시 실패했고, 규칙을 끄면 다시
-  실패하는 것도 확인했다.
-
-  규칙은 `@barocss/shared` 의 `collapseBoundaries` 에 **한 벌만** 뒀다. 뷰 층 둘이 각자 판단하면
-  갈라지고, 이번 회차에만 그 모양이 세 번 나왔다.
-
-- **그리고 타이핑 경로는 접힌 것을 아예 묻지 않고 있었다.** ✅ 고침
-
-  `convertStaticRangeToModel` — `beforeinput` 의 `getTargetRanges()` 가 주는 범위를 모델로 옮기는
-  곳 — 은 `collapsed` 를 묻는 자리가 없었다. 캐럿에 대해 그 함수가 주는 것은 접힌 범위이고, 그
-  경계가 블록이면 여기서도 `t1:2 → t2:2` 가 나온다. **둘째 런 전체를 고른 것**이고, 그 자리에서
-  글자를 치면 고른 것을 지우고 쓴다.
-
-  `editor-view-dom/event-handlers/input-handler.ts:1507` 이 그 값을 그대로 받아 모델에 직접 쓴다.
-  `isEditable` 은 두 끝이 `inline-text` 이기만 하면 되므로 — 두 런 다 그렇다 — 막히지도 않는다.
-
-  선택을 읽는 쪽만 고치고 여기를 두면 결함이 **더 조용한 쪽으로 옮겨간다**: 선택은 안 보이는데
-  글자만 사라진다.
-
-- **`atEndOf` 는 빈 노드에서 공허하게 참이었다.** ✅ 고침
-
-  `sel.startOffset === text.length` 는 빈 노드에서 `0 === 0` 이다. 그 검사가 쓰이는 노트가
-  `[data-case="empty"]` — 본문이 **빈 문단** 이다. 그래서 인용문을 겨눈 클릭이 빗나가면 캐럿이 빈
-  문단에 남은 채로 대기가 곧장 통과했고, 실패는 60줄 뒤의 개수에서 났다. *자기가 묻는 것이 아닌
-  것 때문에 실패하는 검사* 다.
-
-  이제 **어느 글자의 끝인지** 를 받는다. 그 글자는 제품이 정하므로 검사에 베끼지 않고 그 순간
-  화면의 줄에서 읽어 넘긴다 — 베끼면 둘이 조용히 어긋난다.
-
-- **그리고 순서를 바꿨다: 앱 회차를 돌기 전에 자리 층을 닫는다.** ✅ 한 라운드 끝
-
-  위의 셋을 **세 번 따로** 기웠고 세 번 다 브라우저 회차가 찾아 줬다. 30분짜리 도구로 ms 짜리
-  결정을 재고 있었다. 그래서 회차를 멈추고 자리 층을 먼저 닫았다:
-
-  1. `docs/specs/text-position.md` — DOM 의 한 점과 모델의 한 점을 맞바꾸는 규칙 여섯
-  2. `@barocss/shared` 의 `text-position/` — 그 규칙 한 벌 (381줄)
-  3. 표로 된 단위 검사 29개 — 양방향과 **왕복**
-  4. 두 뷰가 그것을 부른다
-
-  **기계로 대본 결과가 근거다.** 두 뷰의 같은 이름 메서드 열아홉 중:
-
-  | | 옮기기 전 | 옮긴 뒤 |
-  |---|---|---|
-  | 글자 하나까지 같음 | **2** | **12** |
-  | 다름 | 17 | 7 |
-
-  줄 수: `editor-view-dom` 811 → 513, `editor-view-react` 614 → 428, 공통 381.
-
-  **옮기면서 결함 셋이 더 나왔고, 셋 다 브라우저로는 못 잡을 자리다:**
-
-  1. **`compareDocumentPosition` 의 같은-노드.** 자식 색인이 가리키는 것이 글자 노드이면
-     `child.compareDocumentPosition(child)` 가 0 이라 *앞* 으로 분류된다. `가나[다라]마바` 에서
-     `(t1, 0)` 이 모델 **2** 를 줬다 — 맞는 답은 0. 앞서 이 비교의 *방향* 을 한 번 고쳤고, 같은
-     노드인 경우는 그때도 남아 있었다.
-  2. **React 의 `convertStaticRangeToModel` 이 `collapsed` 를 안 세웠다.** 손으로 세운 리터럴이라
-     `fromDOMSelection` 을 안 지났다 — 같은 함수의 두 판이 서로 다른 모양을 내보내고 있었다.
-  3. **`ResolvedBoundaries` 를 내가 두 곳에 선언했다.** 이 저장소가 반복해서 찾는 결함의 모양을
-     그것을 고치는 중에 다시 만들었다.
-
-  그리고 **표를 세우다 내 기대가 틀린 자리**도 하나 나왔다: 자식 색인 2 를 모델 6 이라고 적었는데
-  4 였다(6 은 색인 3). 코드가 아니라 검사가 틀린 것이고, 표를 세우는 값의 절반이 그것이다.
-
-- **그리고 *글자인가* 를 이름으로 묻던 열여섯 자리.** ✅ 고침
-
-  자리 층이 `text` 로 묻게 됐으니 나머지도 같은 질문을 같은 방법으로 물어야 한다.
-
-  **먼저 재본 것이 답을 바꿨다.** 스키마에 *"이 노드가 글자를 담나"* 필드를 더해야 한다고 볼
-  뻔했는데, 런타임으로 세니 **이미 답할 수 있었다**:
-
-  | office 의 `inline` 그룹 | 여덟 |
-  |---|---|
-  | 그 중 `atom: true` | 일곱 (`hardBreak` · `inline-image` · `emoji` · `bookmarkAnchor` · `fieldDateTime` · `fieldDocTitle` · `fieldAuthor`) |
-  | `group === 'inline' && !atom` | **`inline-text` 하나** |
-
-  그리고 그 열여섯은 **전부 인스턴스를 손에 쥐고 있었다** — `dataStore.getNode(id)` 를 부른
-  뒤였다. 인스턴스가 있으면 `typeof node.text === 'string'` 이 더 짧고 더 옳다: `holdsText`.
-
-  **래칫이 내가 못 찾은 여섯을 바로 찾았다** — grep 으로 센 열여섯 밖에 React 뷰 다섯과 렌더러의
-  로그 하나가 더 있었다. *규칙은 세어야 규칙이다* 가 이 자리에서 값을 냈다.
-
-  남긴 것 하나: `renderer-dom/vnode/factory.ts` 의 것은 **로그**다. 결정이 아니므로 이름으로 물어도
-  되고, 세는 검사에 안 걸리게 상수로 뽑았다.
-
 - **`SelectionState` 는 선언만 있고 아무것도 그것을 만들지 않는다 — 그리고 읽는 쪽은 그것을 향해
   읽고 있다.** 🔴 다음
 
@@ -7025,111 +6932,12 @@ text-shaped.
   **`SelectionState` 는 `editor-core` 밖으로 한 번도 나가지 않는다** — 제품과 앱 어디에도 언급이
   없다. 그러므로 걷는 값이 갇혀 있고 위험이 작다.
 
-- **제품 계약이 사실로는 있는데 선언이 없었고, 넷째가 이미 벗어났다.** ✅ 고침
-
-  *"제품을 더 만들어야 할 수도 있으니 제품이 안정화 되어야 해"* 를 재서 답한 것 중 첫째.
-
-  | 제품 | 옵션 타입 | `keybindings` 를 받나 | `dataStore`/`schema` |
-  |---|---|---|---|
-  | word | `extends EditorOptions` + `kit?` + `keybindings?` + `author?` | 예 | `EditorOptions` 의 것 |
-  | slides | **글자까지 같음** | 예 | 같음 |
-  | site | **글자까지 같음** | 예 | 같음 |
-  | **note** | 물려받지 않음, 인라인 객체 | **아니오** | **`unknown`, 그리고 필수** |
-
-  셋이 같으면 그건 한 제품의 의견이 아니다. 그런데 **가장 최근 제품이 그것을 안 따랐고 아무도
-  막지 않았다** — 읽을 선언이 없었기 때문이다. `editor-core` 의 `ProductEditorOptions` 로 갔다.
-
-  note 의 `dataStore` 가 **필수**인 것은 남겼다. 그건 벗어난 것이 아니라 옳은 것이다: 노트의 저장을
-  누가 갖는가는 부르는 쪽의 질문이고(사이트는 칸의 값에서, 홀로 선 노트는 파일에서), 그래서 기본이
-  있을 수 없다. 계약을 **좁힌** 것이므로 계약 위에 선다.
-
-- **그리고 재다가 나온 것: `keybindings` 는 *대체* 였다.** ✅ 고침
-
-  넘기는 호출자가 **0** 이다 — 세 제품이 선언하고 아무도 안 쓴다. 그래서 그 의미가 한 번도 시험된
-  적이 없었고, 구현은 `keybindings ?? WORD_KEYBINDINGS` — **하나라도 주면 Word 의 71개가 통째로
-  사라진다.**
-
-  그리고 `word-kit.ts` 자신이 **바로 윗 문단에** 그러면 안 되는 이유를 적어 뒀다: *"레지스트리를
-  비우면 Enter·Backspace·화살표까지 사라져서 문서가 브라우저가 하는 대로만 편집된다."* 그 문단은
-  *엔진* 기본에 대한 것이었고, 한 줄 아래에서 **제품** 기본에 대해 정확히 같은 문을 부르는 쪽에게
-  열어 두고 있었다.
-
-  이제 제품의 키가 먼저 실리고 옵션이 그 위에 얹힌다. 호출자가 0이므로 오늘은 아무것도 안 바뀐다 —
-  바뀌는 것은 다음에 넘기는 사람이 얻는 답이다.
-
 - **Word 샘플에 주석 달린 글자가 없어서 검사 하나가 안 돈다.** 🔴 열림
 
   네 앱 1,056개 중 **딱 하나**가 조건부로 스킵된다: `word-outline.spec.ts:173` —
   `test.skip(before === 0, 'the sample has no commented text to mark')`. 조건부 스킵이 저장소에
   스물하나 있고 나머지 스물은 발동하지 않으니 픽스처가 대체로 입고 있다는 뜻이지만, 이 하나는
   **픽스처가 시험하는 것을 안 입고 있다.** 샘플 문서에 주석 하나를 달면 검사가 돈다.
-
-- **내 확인 명령이 실패를 걸러내고 있었다.** ✅ 고침 — **그리고 이것이 이 세션에서 가장 나쁜 것이다**
-
-  전 패키지 회차 결과를 이렇게 읽고 있었다:
-
-  ```
-  grep -vE "passed \(|passed \| [0-9]+ skipped" /tmp/af-unit.log
-  ```
-
-  그런데 실패한 패키지의 줄이 **`Tests  2 failed | 479 passed | 3 skipped (484)`** 이다 —
-  `passed \| [0-9]+ skipped` 에 걸려서 **사라진다.** 그래서 나는 *"실패 0 · 28개 패키지"* 라고
-  두 라운드에 걸쳐 말했고, 그 동안 `editor-view-dom` 둘과 `editor-view-react` 하나가 빨갰다.
-  **그 상태로 커밋했다.**
-
-  같이 쓰던 `awk '{n+=$0~/passed/}'` 도 그 줄을 통과로 셌다.
-
-  이 세션이 반복해서 찾은 모양이 *가드가 자기가 막아야 할 것을 못 본다* 인데, **결과를 읽는 내
-  명령이 정확히 그것이었다.** 실패를 숨길 수 있는 필터로 초록을 선언하면 그 초록은 아무것도
-  뜻하지 않는다.
-
-  이제 스크립트가 스스로 센다: `grep -c failed` 가 0이 아니면 실패한 패키지를 열거하고, 0이면
-  통과 수를 적는다. 요약 줄이 파일 안에 있으므로 읽는 쪽이 필터를 새로 지어낼 일이 없다.
-
-- **그리고 그 아래에 있던 것: 픽스처 셋이 `inline-text` 를 `text` 없이 세웠다.** ✅ 고침
-
-  숨어 있던 세 실패가 전부 같은 원인이었다. *글자를 담나* 를 이름이 아니라 `text` 로 묻게 바뀌자
-  (`holdsText`) 이 픽스처들이 빨개졌고, **문이 틀린 것이 아니라 픽스처가 시험하는 것을 안 입고
-  있던 것**이다: `run(text)` 는 늘 `text` 를 세우고 빈 런도 `''` 를 갖는다.
-
-  React 쪽 하나는 특히 분명했다 — DOM 에는 `hello` 를 넣어 두고 모델에는 안 넣었다.
-
-- **제품 키맵이 엔진 기본을 다시 적고 있었고, 다시 적힌 것이 더 약했다.** ✅ 고침
-
-  *"note 도 word 와 비슷하게 keybinding 부터 다 되어야 하는 것 아니냐"* 를 재서 답한 것.
-
-  **먼저: 기본은 이미 공유되고 있다.** `DEFAULT_KEYBINDINGS` 가 40개를 묶고 모든 제품이 받는다 —
-  Enter·Backspace·화살표·⌘B/I/U·목록·들여쓰기·제목·인용·undo/redo·복사/붙여넣기·전체선택.
-  **note 에서 ⌘B 는 된다.** note 의 2개는 표 셀 `Tab`/`Shift+Tab` 이고, 그건 *더해지는* 것이다.
-
-  **문제는 반대쪽이었다:**
-
-  | | 수 |
-  |---|---|
-  | 엔진 기본 | 40 |
-  | Word | 70 |
-  | **키·명령·조건까지 같음 (재진술)** | **18** |
-  | 같은 키, 다른 명령 (`when` 으로 갈림 — 정당) | 13 |
-  | Word 만의 것 | 39 |
-
-  그리고 재진술이 더 약했다: 엔진은 `editorFocus && editorEditable`, Word 는 `editorFocus`.
-  ⌘C·⌘X 는 엔진이 `!selectionEmpty` 까지 건다. 레지스트리는 **출처로 충돌을 풀고 제품이 이기므로**,
-  다시 적는 순간 `editorEditable` 이 사라진다. 그 키들의 **유일한** 편집 가드가 `when` 이다 —
-  `executeCommand` 도 `canExecute` 도 편집 가능 여부를 안 묻는다(재봤다).
-
-  **살아 있는 결함은 아니다:** 어느 제품도 `editable: false` 를 안 쓴다.
-
-  **왜 아무도 못 봤나:** `DEFAULT_KEYBINDINGS` 가 **안 나가고 있었다.** 제품이 엔진이 이미 무엇을
-  묶는지 볼 방법이 없었다. **볼 수 없는 것과 다시 적는 것은 같은 결함의 앞뒤다.**
-
-  16개를 걷었다. `Tab`/`Shift+Tab` → `indentText`/`outdentText` 둘은 **남겼다** — 엔진은
-  `canIndentText` 로 묻고 Word 는 `inList && !inTable && !inEquation` 으로 묻는데, Word 의 `Tab`
-  갈래 다섯(`indentText`·`indentFirstLine`·`insertTab`·`nextCell`·`nextMathSlot`)이 서로를
-  배제하도록 짜여 있고 그 첫 칸이다. 그 둘에 빠져 있던 `editorEditable` 은 **검사가 찾아서** 더했다.
-
-  그리고 검사 하나가 제품의 목록을 보고 있어서, 동작이 한 글자도 안 바뀌었는데 빨개졌다
-  (`always consumes undo/redo`). **같은 규칙이 두 곳에 적혀 있으면 한 곳을 지우는 것이 회귀처럼
-  보인다** — 그 검사가 물어야 할 것은 *편집기가 그 키를 먹는가* 였다.
 
 - **제품 키맵이 `editorEditable` 을 하나도 안 건다.** 🔴 열림
 
@@ -7165,70 +6973,6 @@ text-shaped.
   갈림길은 규칙 4가 끝낸다 — **레지스트리가 유일한 디스패처다.** slides 의 논증(*"호스트만 상자 안
   타이핑을 안다"*)은 엔진의 `keydown` 이 `window` 가 아니라 **`contentEditableElement` 에 붙기
   때문에 성립하지 않는다. 그 문제는 slides 가 `window` 에 붙였기 때문에 생긴 것이다.
-
-- **엔진이 묶은 키가 노트에서 죽어 있었다.** ✅ 고침
-
-  엔진 키가 부르는 명령 서른다섯 중 word·slides·site 는 없는 것이 **0**, **노트만 둘**이었다:
-  `moveBlockUp`·`moveBlockDown`. 그래서 노트에서 `Alt+↑` 는 **키를 먹고 아무 일도 안 했다** —
-  `handleKeydown` 이 `preventDefault()` 를 하고 `executeCommand` 가 *not found* 를 찍는다. 브라우저
-  기본 동작까지 막히므로 죽은 키다.
-
-  **그런데 노트는 블록을 옮길 수 있다** — 손잡이를 끌면 되고 단추도 있다(`moveNoteBlockUp`/`Down`).
-  기능이 없는 것이 아니라 **그 이름의 명령이 없어서 키가 안 닿는** 것이었다. 그리고 그 기능은 공용
-  `MoveBlockExtension` 에 이미 있었고 **셋은 싣고 노트만 안 싣고 있었다.**
-
-  *있는데 못 닿는다* 가 이 회차에 또 나왔고, 이번에는 **기준이 먼저 적혀 있어서** 답이 하나였다:
-  기능이 있으면 엔진이 부르는 그 이름으로 등록한다. `every-engine-key-reaches-a-command.test.ts`
-
-- **회차 스크립트 둘이 같은 로그를 겹쳐 썼다.** ✅ 고침
-
-  `e2e2.sh` 가 늘 `/tmp/ah-e2e.log` 를 잘라 쓰고 시작해서, 두 회차가 겹치면 서로를 지웠다. 실제로
-  그랬고 **`site` 줄이 통째로 사라진 결과**가 나왔다 — 하마터면 세 앱만 보고 초록이라 할 뻔했다.
-  그리고 앞 회차가 도는 동안 소스를 고쳤으므로 그 회차는 어차피 아무것도 뜻하지 않았다.
-
-  이제 회차마다 자기 파일을 갖고, **앱 넷이 다 돌았는지 스스로 센다.**
-  같은 날 단위 스크립트의 요약 필터가 실패를 숨긴 것과 **같은 결함이다** — 결과를 읽는 도구가
-  못 보면 그 초록은 아무것도 뜻하지 않는다.
-
-  **그리고 첫 판의 잠금은 잠금이 아니었다 — 내가 지웠다.** 디렉터리 하나(`mkdir /tmp/e2e.lock`)로
-  막았는데, 다음 회차를 띄우면서 *혹시 남아 있을까 봐* `rm -rf /tmp/e2e.lock` 를 먼저 했다. 그러자
-  회차 둘이 다시 겹쳤고, 이번에는 **사이트 개발 서버 둘이 5182 를 다투어 `ERR_CONNECTION_REFUSED`**
-  가 났다.
-
-  **사람이 지울 수 있는 잠금은 잠금이 아니다.** 이제 상태가 아니라 **사실**로 판단한다:
-  `pgrep -f "playwright test"` 가 있으면 거절하고, 앱들의 포트가 이미 쓰이고 있으면 거절한다.
-  둘 다 지울 수 있는 것이 아니다.
-
-  이 세션에서 *가드가 자기가 막을 것을 못 본다* 가 **세 번째**다 — 단위 요약 필터, 로그 겹쳐쓰기,
-  그리고 내가 지운 잠금. 셋 다 검사가 아니라 **검사를 돌리는 도구** 쪽이었다.
-
-- **엔진이 키를 캐럿이 사는 곳에서만 들었다.** ✅ 고침 — 그리고 **내가 적은 규칙이 반쪽이었다**
-
-  `docs/specs/keybindings.md` 첫 판에 *"레지스트리가 유일한 디스패처이고, 엔진의 keydown 은
-  `contentEditableElement` 에 붙으므로 크롬 입력칸 문제는 성립하지 않는다"* 고 적었다. **반만
-  맞았다.** 사용자가 물었다 — *"단축키가 꼭 contentEditableElement 에서만 일어나는 건 아니지
-  않아?"* — 그리고 그게 맞다: `Delete` 로 도형을 지울 때 캐럿은 **없다.**
-
-  **표면이 둘이다:**
-
-  | 표면 | 무엇 | 무엇이 일어나나 |
-  |---|---|---|
-  | 글자 표면 | 콘텐츠 층 | 타이핑 · IME · `beforeinput` · 캐럿 |
-  | 문서 표면 | 읽는 사람이 이 문서를 만지는 가장 바깥 요소 | **키 해석** |
-
-  | 제품 | 문서 표면 | 글자 표면과 |
-  |---|---|---|
-  | word · note | 콘텐츠 층 | **같다** — `.w-canvas` 가 그 안이라 도형 키가 그냥 됐다 |
-  | slides | 무대 `.sl-stage-frame` | 다르다 — `.sl-host` 가 그 안이고 오버레이·눈금자는 **밖** |
-  | site | 캔버스 | 다르다 |
-
-  `EditorViewDOM` 이 `contentEditableElement = layers.content` 로 박아 두었으므로 **slides 는
-  레지스트리로 갈 길이 애초에 없었다.** `window` 에 붙인 것은 게으름이 아니라 고를 자리가 없어서였고,
-  그 대가로 `activeElement` 를 물어야 했다.
-
-  `keySurface` 옵션을 더했다(기본값 = 콘텐츠 층). word·note 는 한 글자도 안 바뀐다.
-  `editor-view-dom/test/core/key-surface.test.ts` 셋이 그것을 못 박는다 — 기본값 / 표면 안의 키가
-  닿는가 / **표면 밖(크롬 입력칸)은 안 닿는가.**
 
 - **`editorFocus` 는 *문서를 만지고 있다* 를 뜻하지 않는다.** 🔴 열림
 
@@ -7843,6 +7587,230 @@ text-shaped.
   one line long. Kept in the history because the accident is instructive: a backlog
   item with no reason in it is indistinguishable from a note somebody left
   themselves.)*
+- **`office-editor-ui` 가 `extensions` 를 타입으로만 쓴다.** 🔴 열림 — 작은 것
+
+  `SlashCommandExtension` 하나. 이 저장소 규칙상 타입 전용 의존은 devDependency 자리이고
+  (`dependency-graph.test.ts` 의 프로세), 순환이 없으니 급하지는 않다. 깊이도 안 바뀐다 —
+  `office-controls`(4) 때문에 어차피 5다.
+
+- **`site.spec.ts:8298` 은 27회 중 4회 실패한다 — 15%.** 🔴 열림
+
+  *"슬래시 메뉴가 캐럿에서 열린다"* 가 `strict mode violation: '[data-floating-surface]' resolved
+  to 2 elements` 로 실패한다 — **떠 있는 표면이 둘**이다(슬래시 메뉴와 버블 툴바).
+
+  회차 27개를 다 세어 갈랐다:
+
+  | | |
+  |---|---|
+  | 실패 | `site-full5` · `aa` · `e2e-152817` · `e2e-181655` — **4회** |
+  | 통과 | 23회 |
+
+  **셸 이주(2026-09-05 오후)보다 훨씬 전부터 있었고**, 접힌 캐럿을 고친 뒤에도 남았다. 그때 그
+  수정이 *증상 하나* 를 줄인 것은 맞다(수정 직전 두 회차 연속 실패 → 이후 여러 회차 통과) 그러나
+  **원인이 하나가 아니었다.**
+
+  `[data-floating-surface]` 는 `office-ui/floating.tsx` 가 붙인다 — 슬래시 메뉴와 버블 툴바가
+  같은 부품을 쓴다. 버블 툴바는 `collapsed !== true` 면 뜨므로, 캐럿이 여전히 이따금 범위로
+  읽힌다는 뜻이다.
+
+  **`docs/specs/testing.md` 의 규칙대로 단위로 내려 적어야 한다:** *어떤 DOM 자리가 접히지 않은
+  모델 선택을 만드는가* 는 jsdom 으로 물을 수 있다. 지금 `boundary-inside-a-block.test.ts` 가 묻는
+  것은 *블록 경계* 하나뿐이고, 15% 는 그것 말고 다른 자리가 남았다는 뜻이다.
+
+  후보(아직 안 쟀다): 데코레이터 경계 · 채움 글자 옆 · `pressTwice` 뒤의 더블클릭 선택.
+
+- **아무도 `dist/*.css` 를 안 낸다 — 그리고 내가 쓴 검사가 그것을 스스로 빼고 있었다.** 🔴 열림
+
+  `publishConfig.exports` 가 `"./ui.css": "./dist/ui.css"` 를 적는데 `vite.config.ts` 는 `.ts`
+  진입점만 빌드한다. `office-note` 의 `./note.css` 가 오래 그 상태였다 — 즉 그 패키지가 독립이라는
+  주장이 **발행 시점에는 CSS 까지 거짓** 이었다.
+
+  그리고 그것을 세려고 쓴 `every-door-a-package-opens-is-built` 의 첫 판에
+  `!one.endsWith('.css')` 가 있었다. **가드가 자기가 막을 것을 못 보는** 여섯 번째이고, 이번에는
+  **내가 쓴 가드** 다. `it.fails` 로 그 사실을 붙잡아 뒀다.
+
+- **`.w-emoji` 규칙이 앱에 남아 있다.** 🔴 작은 것
+
+  `office-text/src/renderers.ts` 가 그 클래스를 그리는데 규칙(`display:inline-block` 등)이
+  `apps/site` 에 있다. `text.css` 로 가야 한다. 에이전트가 다른 패키지를 안 건드리는 규칙을
+  지키느라 보고만 했다.
+
+- **`.sr-only` 가 `office-ui` 밖에 있다.** 🔴 작은 것
+
+  `office-ui` 의 `FilePick` 이 `<input type="file">` 에 붙이는데, 그 규칙은 Tailwind 가
+  `office-ui` 를 훑어서 나온다. **Tailwind 없는 호스트는 리본에 맨 파일 입력을 본다.**
+
+- **다크를 도는 검사가 1,092개 중 셋이고, 그 셋은 값을 안 본다.** 🔴 열림
+
+  다크에서 팔레트 둘이 돌던 것을 고치고 나서, *그게 왜 안 잡혔나* 를 재봤다.
+
+  | | |
+  |---|---|
+  | playwright 검사 전체 | 1,092 |
+  | 다크 컨텍스트를 여는 것 | **3** — `word-theme` · `slide-theme` · `site-theme` |
+  | `playwright.config.ts` 여섯 중 `colorScheme` 을 정한 것 | **0** |
+
+  그리고 그 셋이 단정하는 것이 이것이다:
+
+  ```
+  expect(dark.words).toEqual(light.words);        // 문서는 안 움직였다
+  expect(dark.chrome).not.toEqual(light.chrome);  // 크롬은 움직였다
+  ```
+
+  **무엇으로 움직였는지는 안 묻는다.** 그러니 *틀린 다크 팔레트* 로 칠해져도 통과한다 — 실제로
+  그 결함이 있는 채로 통과하고 있었다. `shared-controls.spec.ts:218` 만이 `--ou-*` 값을 앱의
+  팔레트와 대조하는데 **라이트에서만** 돈다.
+
+  고칠 것은 셋이다: 값을 단정하게 바꾸고(세 줄), 크롬·토큰 스펙만 다크 프로젝트로 한 번 더 돌리고
+  (좌표 345개·IME 121개는 라이트로 두고), **원인 쪽은 단위로** — 특정성 산수는 우리 소스가 정한다.
+
+- **내가 승인한 다크 수정이 거울상 버그를 만들었다.** 🔴 열림
+
+  `apps/slide/src/style.css:114` 를 `:root:not([data-theme='light'])` **(0,2,0)** 으로 올려
+  `tokens.css` 의 다크를 이기게 했다. 그런데 그 선택자는 `<html data-theme="dark">` **에도**
+  맞고, `tokens.css:331` 의 `[data-theme='dark']` 는 **(0,1,0)** 이다.
+
+  라이트 시스템에서 다크를 명시하면: 앱의 미디어 쿼리는 안 맞으니 **라이트** `--sl-*` 를 쓰고,
+  그것이 패키지의 다크 팔레트를 이긴다. **덱의 명시적 다크 스위치가 죽는다.** `--sl-*` 에는
+  `[data-theme='dark']` 블록이 없다.
+
+  반대쪽도 반쪽이다: `:84` 의 `@media (prefers-color-scheme: dark) { :root { … } }` 에 `:not()`
+  가드가 없어서, 다크 머신에서 `data-theme="light"` 를 찍으면 **어두운 덱** 이 나온다.
+
+  지금은 잠재다 — `dead-selectors.test.ts:139` 가 slide 는 아직 `data-theme` 를 안 찍는다고
+  기록한다. 그날 둘 다 깨진다.
+
+  **팔레트가 라이트와 다크를 둘 다 가지면 둘을 같은 방식으로 말해야 한다** — 미디어 블록에
+  `:not([data-theme='light'])`, 그리고 같은 이름을 선언하는 `[data-theme='dark']` 블록. 지금
+  `apps/slide/src/style.css` 는 둘 다 없다.
+
+- **`[data-theme='light']` 는 뿌리가 아닌 곳에서 아무 일도 안 한다.** 🔴 열림
+
+  `tokens.css` 에 `[data-theme='light']` 규칙이 **하나도 없다.** `:not()` 가드는 *뿌리* 만
+  보호한다. 그래서 다크 문서 안의 한 조각을 라이트로 되돌릴 방법이 없다.
+
+  `apps/gallery/src/gallery.tsx:61,65` 가 정확히 그 스위치를 `.ga-shell` 에 붙인다 — **다크
+  머신에서 그 앱의 *밝게* 는 아무 일도 안 한다.** 그리고 `apps/gallery` 에는
+  `playwright.config.ts` 도 `tests/` 도 없다.
+
+- **`office-site/ui.css` 가 테마 토큰을 별칭한다.** 🔴 열림
+
+  `:root` 에서 `--st-ground: var(--ou-studio, …)` 처럼 여섯을 별칭하고, 그 파일의 **106개
+  declaration** 이 `--st-*` 를 읽는다. 뿌리에서는 맞다. 그런데 별칭은 **스냅샷** 이라, 어떤
+  서브트리에 `[data-theme='dark']` 를 찍으면 `--ou-*` 는 뒤집히고 106개는 뿌리의 팔레트에 남는다.
+
+  `apps/gallery/src/style.css:33–41` 이 **그 일이 이미 한 번 일어났고 거기서 걷어냈다** 고 적어
+  뒀다. `tokens.test.ts:97` 도 같은 것을 `tokens.css` 안에서만 센다.
+
+- **`.doc-title-field:focus` 가 다크에서 흰 바탕에 흰 글자다.** 🔴 작은 것
+
+  `apps/word/src/style.css:123` 이 `background: #fff` 를 쓰는데 그 요소의 `color` 는 `inherit`
+  (= `--ou-ink` = 다크에서 `#fafafa`). `word-theme.spec.ts` 는 `.w-document *` 의 색과
+  `.w-chrome` 의 배경을 읽으므로 제목 줄은 둘 다 아니다.
+
+- **`site.spec.ts:8298` 의 15% — 접힘 계산이 아니라 타이핑 경로가 깃발을 안 쓴다.** 🔴 열림
+
+  27회 중 4~5회, 늘 같은 자리(`:8326`)에서 `[data-floating-surface]` 가 둘. 실패 회차와 통과
+  회차의 로그 차이는 **실패 블록뿐** — 같은 283개, 같은 3워커, `8298` 은 늘 `[214/283]`. 실패
+  시점에도 슬래시 행은 13개 다 있었다. 즉 **슬래시 메뉴는 정상이고 툴바가 더 떠 있었다.**
+
+  `range.collapsed` 수정 뒤 선택을 *읽는* 경로로는 접히지 않은 캐럿이 나올 수 없다
+  (`selection-handler.ts:190-204`, `:229-240`). 남은 것은 **그 문을 안 지나는 쓰기** 하나다:
+
+  | 단계 | 파일:행 | `collapsed` |
+  |---|---|---|
+  | `rangeForReplace` · burst 대체 리터럴 | `editor-view-dom/src/event-handlers/input-handler.ts:1558-1572`, `:1592-1599` | **없음** |
+  | `updateSelection(range)` — `!modelAgrees` 일 때만 | 같은 파일 `:1626-1641` | undefined |
+  | `SelectionManager` 저장 — 정규화 없음 | `editor-core/src/editor.ts:718-786` | undefined |
+  | 트랜잭션 스냅숏 `{...before}` | `model/src/create-transaction-context.ts:24` | undefined |
+  | `insertText` 연산 — 주석이 *"Collapsed state does not change"* | `model/src/operations/insertText.ts:106-121` | undefined |
+  | `updateSelection(selectionAfter)` | `model/src/transaction.ts:197, 292-296` | **undefined** |
+
+  `!modelAgrees` 는 `selectionchange` 가 아직 안 왔을 때만 참이다. 검사가 `End` 와 `type(' /')`
+  **사이에 안 기다리므로**(`site.spec.ts:8306-8307`) 세 워커가 같이 도는 부하에서 그 경합이
+  15%로 난다. 한 번 `undefined` 가 들어가면 스스로 낫지 않는다 — `:1574` 가 `preventDefault`
+  하고, 뒤늦은 복구는 `_isProgrammaticChange`(`selection-handler.ts:88-90`)라 삼켜진다.
+
+  **두 표면이 같은 선택에 다른 질문을 한다:**
+
+  | 표면 | 파일:행 | 묻는 것 | `collapsed:undefined, t1:2→t1:2` |
+  |---|---|---|---|
+  | 슬래시 메뉴 | `office-editor-ui/src/slash-menu.tsx:132-137` | `true` 거나, `undefined` 면 **두 끝 비교** | 캐럿 → 연다 |
+  | 버블 툴바 | `apps/site/src/text-surface.tsx:55-58` | `collapsed !== true` | 범위 → **연다** |
+
+  같은 결함을 슬래시 메뉴가 한 번(`slash-menu.tsx:121-131` 의 프로세), `hasRange` 가 한 번
+  (`extensions/src/guards.ts:50-65`, *"a field nothing sets … 열일곱 곳에서"*) 이미 맞았다.
+  **`text-surface.tsx` 가 셋째 자리이고 아직 안 고쳐졌다.**
+
+  React 뷰에 같은 자리가 둘 더 있고 거기는 **무조건** 쓴다 —
+  `editor-view-react/src/input-handler.ts:596-604`, `:650-657`. 사이트는 DOM 뷰라 안 걸리지만
+  노트·워드가 걸린다.
+
+  고칠 자리가 세 층에 걸쳐 있다: `insertText` 연산(모델) · `input-handler` 의 리터럴 둘(뷰 ×2) ·
+  `text-surface` 의 술어(제품). **한 층만 고치면 이 저장소가 이미 세 번 겪은 모양이 된다.**
+
+- **접히지 않은 모델 선택을 만들 수 있는 DOM 입력 — 아홉을 열거했다.** 🔴 열림
+
+  `offsetWithRuns(…, isEnd=false)` 와 `isEnd=true` 가 **같은 DOM 자리에 다른 답**을 주는 전부:
+
+  | # | 입력 | 나오는 것 | 지금 막히나 |
+  |---|---|---|---|
+  | 1 | 블록 경계, 안에 그릇 ≥2 (`text-position.ts:107-129`) | `t1:0 → t2:2` | 막힘. 검사 있음 |
+  | 2 | **데코레이터가 제 글자를 그린 것 안** — `skipsInIndex`(`text-run-index.ts:93`)로 색인에서 빠져 `byNode` 미스 | `t1:0 → t1:2` (런 통째) | 선택 경로만. **검사 없음** |
+  | 3 | **길이 0 글자 노드** 섞인 그릇 (`text-run-index.ts:203`) | 같음 | **검사 없음** |
+  | 4 | 그 미스에서 **DOM 오프셋을 모델 오프셋처럼** 씀 (`text-position.ts:212`) | 엉뚱한 런 | 잠복. **검사 없음** |
+  | 5 | 그릇 없는 블록 → `bestContainer` 가 블록 자신을 줌 (`:128`) | `text` 없는 노드에 오프셋 | 잠복. **검사 없음** |
+  | 6 | 채움(ZWNBSP) 앞 (`:207-210`) | 두 해석 같음 ✔ | 맞음 |
+  | 7 | 빈 그릇 (`:201`) | 둘 다 0 ✔ | 맞음 |
+  | 8 | **인접 런 사이를 걸친 범위** `("가나",2)→("다라",0)` — `shared/src/selection.ts:210` 이 sid 가 다르면 **`collapsed:false` 하드코딩** | 글자 0개를 고른 "범위" | **안 막힘** |
+  | 9 | 타이핑이 쓴 깃발 없는 캐럿 | `collapsed: undefined` | **안 막힘** |
+
+  이 검사의 몸짓(⌘클릭 · 더블클릭 · `End` · `type(' /')`)이 실제로 만드는 것은 **9번 하나뿐이다** —
+  `End` 뒤의 캐럿은 글자 노드 안이라 2·3·5는 안 걸린다. 나머지는 다른 몸짓이 만들 수 있고,
+  지금은 `range.collapsed` 가 **우연히 가려 주고** 있을 뿐이다.
+
+- **버블 툴바의 조건은 `collapsed` 하나로 답할 수 없다 — 답은 `guards.ts` 에 있다.** 🔴 열림
+
+  | 질문 | 놓치는 것 |
+  |---|---|
+  | `collapsed !== true` | `undefined` 를 범위로 읽는다 (지금) |
+  | `+ startNodeId === endNodeId` | 같은 런 안의 진짜 범위를 캐럿으로 읽는다 |
+  | `+ startOffset === endOffset` | #8 — `t1:2 → t2:0` 은 sid 가 둘인데 **화면의 같은 점** |
+  | `+ 두 점 사이에 글자가 있는가` | 없음 — 이것이 최종형 |
+
+  마지막 단계를 낼 도구는 이미 있다(`extractModelTextFromRange`). 그런데 **`hasRange` 자신에게도
+  그 단계가 없다.** 그러므로 고칠 자리는 `text-surface.tsx` 가 아니라 `guards.ts` 이고 툴바는
+  부르기만 해야 한다 — `text-position.md` §규칙 6 *"판단은 한 벌이다"*.
+
+- **위를 jsdom 으로 내려 적는 법 — 픽스처와 기대값.** 🔴 열림
+
+  넷 다 답을 **우리 코드가** 정하므로 단위다(`testing.md` §*"e2e 가 잡은 것은 단위로 내려 적는다"*).
+
+  **(가) `packages/model/test/`** — `SelectionContext` 를 `{t1:2→t1:2}` 로 세우되 **`collapsed` 를
+  일부러 빼고**, `insertText` 를 `{nodeId:'t1', pos:2, text:'/'}` 로. 단정: `collapsed === true`
+  (**지금 `undefined`, 실패한다**), 두 오프셋 3. 반대로 진짜 범위는 `false` 로 **남아야** 한다.
+
+  **(나) `packages/editor-view-dom/test/`** (react 쌍둥이도) — `boundary-inside-a-block.test.ts`
+  의 픽스처에, 편집기 `selection` 을 **일부러 낡게**(`t1:0→t1:2, collapsed:false`) 두어
+  `modelAgrees === false` 를 만든다. `getTargetRanges` 가 접힌 `StaticRange` 를 주는
+  `beforeinput` 을 던진다. 단정: `updateSelection` 페이로드의 `collapsed === true`.
+
+  **(다) `packages/office-editor-ui/test/`** — DOM 없음. 두 술어를 **이름 붙은 하나로 꺼내야**
+  쓸 수 있고, **그것이 이 검사가 강제하는 것**이다. 선택 여섯 줄에서 `캐럿인가 === !툴바가떠야하나`.
+  두 줄이 지금 깨진다(`collapsed:undefined` 캐럿, `t1:2→t2:0` 글자 0개).
+
+  **(라) `boundary-inside-a-block.test.ts` 에 덧붙일 넷** — #2 데코레이터 안, #3 길이 0 노드,
+  #8 인접 런 경계(`hasRange === false`), #5 그릇 없는 블록.
+- **devtool 트리는 `nodeIds` 있는 선택을 양 끝으로만 칠한다.** 🔴 열림
+
+  위의 `getSelectionInfo` 를 접으면서 드러난 것. `ModelSelection.nodeIds` 는 *"a set with holes
+  in it cannot be described by its endpoints"* 라고 스스로 적어 두었는데, devtool 은
+  `startNodeId`/`endNodeId` 둘만 칠한다. 표 칸 셋을 고르면 **가운데 칸이 안 칠해진다.**
+
+  `selectedNodeIds()` 가 `@barocss/editor-core` 에서 이미 나가 있고 저장소의 25곳이 그것을 읽는다.
+  devtool 만 안 읽는다. 이번에 안 고친 이유는 이 라운드가 *죽은 것을 걷는* 라운드이고 이건 죽은
+  게 아니라 **덜 된 것** 이라서다. 그리고 devtool 트리 칠하기에는 검사가 없다 — 고칠 때 검사부터.
+
 
 ## Done
 
@@ -14104,12 +14072,6 @@ Newest first. The surprise each one produced is the part worth keeping.
   `Test Files  1 failed` 에만 나온다. 회차 스크립트가 이제 두 줄을 다 읽는다 —
   *결과를 읽는 도구가 못 보면 그 초록은 아무것도 뜻하지 않는다* 의 **다섯 번째**다.
 
-- **`office-editor-ui` 가 `extensions` 를 타입으로만 쓴다.** 🔴 열림 — 작은 것
-
-  `SlashCommandExtension` 하나. 이 저장소 규칙상 타입 전용 의존은 devDependency 자리이고
-  (`dependency-graph.test.ts` 의 프로세), 순환이 없으니 급하지는 않다. 깊이도 안 바뀐다 —
-  `office-controls`(4) 때문에 어차피 5다.
-
 - **셸을 제품으로 — 첫 조각 `PageFrame`(307줄).** ✅ 옮김
 
   로드맵이 *"office-site 가 React 를 갖게 되는 첫 걸음"* 이라 적은 그것. `apps/site` 11,410 →
@@ -14134,32 +14096,6 @@ Newest first. The surprise each one produced is the part worth keeping.
   **그리고 회차 스크립트가 그것을 잡았다:** 결과 줄이 없는 앱을 *(결과 줄 없음)* 으로 적고 요약에
   센다. 앞 판이었으면 `site` 줄이 통째로 빠진 채 *word 374 · slide 407 · note 22* 만 보고 초록으로
   읽었을 것이다 — 실제로 그 모양으로 한 번 속았던 적이 있다.
-
-- **`site.spec.ts:8298` 은 27회 중 4회 실패한다 — 15%.** 🔴 열림
-
-  *"슬래시 메뉴가 캐럿에서 열린다"* 가 `strict mode violation: '[data-floating-surface]' resolved
-  to 2 elements` 로 실패한다 — **떠 있는 표면이 둘**이다(슬래시 메뉴와 버블 툴바).
-
-  회차 27개를 다 세어 갈랐다:
-
-  | | |
-  |---|---|
-  | 실패 | `site-full5` · `aa` · `e2e-152817` · `e2e-181655` — **4회** |
-  | 통과 | 23회 |
-
-  **셸 이주(2026-09-05 오후)보다 훨씬 전부터 있었고**, 접힌 캐럿을 고친 뒤에도 남았다. 그때 그
-  수정이 *증상 하나* 를 줄인 것은 맞다(수정 직전 두 회차 연속 실패 → 이후 여러 회차 통과) 그러나
-  **원인이 하나가 아니었다.**
-
-  `[data-floating-surface]` 는 `office-ui/floating.tsx` 가 붙인다 — 슬래시 메뉴와 버블 툴바가
-  같은 부품을 쓴다. 버블 툴바는 `collapsed !== true` 면 뜨므로, 캐럿이 여전히 이따금 범위로
-  읽힌다는 뜻이다.
-
-  **`docs/specs/testing.md` 의 규칙대로 단위로 내려 적어야 한다:** *어떤 DOM 자리가 접히지 않은
-  모델 선택을 만드는가* 는 jsdom 으로 물을 수 있다. 지금 `boundary-inside-a-block.test.ts` 가 묻는
-  것은 *블록 경계* 하나뿐이고, 15% 는 그것 말고 다른 자리가 남았다는 뜻이다.
-
-  후보(아직 안 쟀다): 데코레이터 경계 · 채움 글자 옆 · `pressTwice` 뒤의 더블클릭 선택.
 
 - **발행된 모든 페이지가 상자 없는 차트를 실어 왔다.** ✅ 고침 — **살아 있는 제품 결함**
 
@@ -14205,91 +14141,356 @@ Newest first. The surprise each one produced is the part worth keeping.
   computed-value time 에 무효라 **선언 전체가 사라지고** `color` 가 `inherit` 로 떨어진다 —
   삽입 행의 아이콘이 전부 행의 잉크로 그려지고 있었고, 그 규칙이 막으려던 것이 정확히 그것이었다.
 
-- **아무도 `dist/*.css` 를 안 낸다 — 그리고 내가 쓴 검사가 그것을 스스로 빼고 있었다.** 🔴 열림
+- **접힌 선택을 *어느 쪽으로* 접느냐가 남아 있었다 — 그리고 검사가 그것을 안 시험했다.** ✅ 고침
 
-  `publishConfig.exports` 가 `"./ui.css": "./dist/ui.css"` 를 적는데 `vite.config.ts` 는 `.ts`
-  진입점만 빌드한다. `office-note` 의 `./note.css` 가 오래 그 상태였다 — 즉 그 패키지가 독립이라는
-  주장이 **발행 시점에는 CSS 까지 거짓** 이었다.
+  가드는 늘 **시작** 으로 접었다. 그런데 경계가 블록이면 두 해석은 서로 다른 그릇 안을 걷는다:
+  시작은 *첫 런* 안을, 끝은 *마지막 런* 안을. 그래서 시작 해석은 첫 런을 넘어갈 수 없다.
 
-  그리고 그것을 세려고 쓴 `every-door-a-package-opens-is-built` 의 첫 판에
-  `!one.endsWith('.css')` 가 있었다. **가드가 자기가 막을 것을 못 보는** 여섯 번째이고, 이번에는
-  **내가 쓴 가드** 다. `it.fails` 로 그 사실을 붙잡아 뒀다.
+  런 둘(`가나`,`다라`)을 가진 문단에서 잰 것:
 
-- **`.w-emoji` 규칙이 앱에 남아 있다.** 🔴 작은 것
+  | 캐럿 | 시작 해석 | 끝 해석 | 맞는 답 |
+  |---|---|---|---|
+  | `(p,0)` | `t1:0` | t2:0 | **시작** |
+  | `(p,1)` | `t1:2` | t2:0 | **시작** |
+  | `(p,2)` | t1:2 | `t2:2` | **끝** |
 
-  `office-text/src/renderers.ts` 가 그 클래스를 그리는데 규칙(`display:inline-block` 등)이
-  `apps/site` 에 있다. `text.css` 로 가야 한다. 에이전트가 다른 패키지를 안 건드리는 규칙을
-  지키느라 보고만 했다.
+  즉 **문단 끝의 캐럿이 첫 런 끝으로** 갔다 — 런이 둘 이상인 문단에서는 글자 한복판이다. 짧은
+  줄의 오른쪽 빈 곳을 누르는 흔한 몸짓이 거기로 간다.
 
-- **`.sr-only` 가 `office-ui` 밖에 있다.** 🔴 작은 것
+  자식 색인이 자식 수와 같다는 것은 브라우저가 *전부 뒤* 라고 말한 것이고, 첫 런 안을 걷는 해석은
+  그것을 표현할 방법이 없다. **그때만 끝으로 접는다.**
 
-  `office-ui` 의 `FilePick` 이 `<input type="file">` 에 붙이는데, 그 규칙은 Tailwind 가
-  `office-ui` 를 훑어서 나온다. **Tailwind 없는 호스트는 리본에 맨 파일 입력을 본다.**
+  **검사가 못 잡은 이유가 이 세션에서 세 번째 같은 모양이다:** 캐럿을 `(p, 0)` 에만 두었는데,
+  거기는 시작으로 접든 끝으로 접든 답이 같은 **유일한 자리** 다. 내가 고른 자리가 내 결정을
+  시험하지 않는 자리였다. 반대쪽 끝을 더하니 두 뷰 모두에서 즉시 실패했고, 규칙을 끄면 다시
+  실패하는 것도 확인했다.
 
-- **다크를 도는 검사가 1,092개 중 셋이고, 그 셋은 값을 안 본다.** 🔴 열림
+  규칙은 `@barocss/shared` 의 `collapseBoundaries` 에 **한 벌만** 뒀다. 뷰 층 둘이 각자 판단하면
+  갈라지고, 이번 회차에만 그 모양이 세 번 나왔다.
 
-  다크에서 팔레트 둘이 돌던 것을 고치고 나서, *그게 왜 안 잡혔나* 를 재봤다.
+- **그리고 타이핑 경로는 접힌 것을 아예 묻지 않고 있었다.** ✅ 고침
 
-  | | |
+  `convertStaticRangeToModel` — `beforeinput` 의 `getTargetRanges()` 가 주는 범위를 모델로 옮기는
+  곳 — 은 `collapsed` 를 묻는 자리가 없었다. 캐럿에 대해 그 함수가 주는 것은 접힌 범위이고, 그
+  경계가 블록이면 여기서도 `t1:2 → t2:2` 가 나온다. **둘째 런 전체를 고른 것**이고, 그 자리에서
+  글자를 치면 고른 것을 지우고 쓴다.
+
+  `editor-view-dom/event-handlers/input-handler.ts:1507` 이 그 값을 그대로 받아 모델에 직접 쓴다.
+  `isEditable` 은 두 끝이 `inline-text` 이기만 하면 되므로 — 두 런 다 그렇다 — 막히지도 않는다.
+
+  선택을 읽는 쪽만 고치고 여기를 두면 결함이 **더 조용한 쪽으로 옮겨간다**: 선택은 안 보이는데
+  글자만 사라진다.
+
+- **`atEndOf` 는 빈 노드에서 공허하게 참이었다.** ✅ 고침
+
+  `sel.startOffset === text.length` 는 빈 노드에서 `0 === 0` 이다. 그 검사가 쓰이는 노트가
+  `[data-case="empty"]` — 본문이 **빈 문단** 이다. 그래서 인용문을 겨눈 클릭이 빗나가면 캐럿이 빈
+  문단에 남은 채로 대기가 곧장 통과했고, 실패는 60줄 뒤의 개수에서 났다. *자기가 묻는 것이 아닌
+  것 때문에 실패하는 검사* 다.
+
+  이제 **어느 글자의 끝인지** 를 받는다. 그 글자는 제품이 정하므로 검사에 베끼지 않고 그 순간
+  화면의 줄에서 읽어 넘긴다 — 베끼면 둘이 조용히 어긋난다.
+
+- **그리고 순서를 바꿨다: 앱 회차를 돌기 전에 자리 층을 닫는다.** ✅ 한 라운드 끝
+
+  위의 셋을 **세 번 따로** 기웠고 세 번 다 브라우저 회차가 찾아 줬다. 30분짜리 도구로 ms 짜리
+  결정을 재고 있었다. 그래서 회차를 멈추고 자리 층을 먼저 닫았다:
+
+  1. `docs/specs/text-position.md` — DOM 의 한 점과 모델의 한 점을 맞바꾸는 규칙 여섯
+  2. `@barocss/shared` 의 `text-position/` — 그 규칙 한 벌 (381줄)
+  3. 표로 된 단위 검사 29개 — 양방향과 **왕복**
+  4. 두 뷰가 그것을 부른다
+
+  **기계로 대본 결과가 근거다.** 두 뷰의 같은 이름 메서드 열아홉 중:
+
+  | | 옮기기 전 | 옮긴 뒤 |
+  |---|---|---|
+  | 글자 하나까지 같음 | **2** | **12** |
+  | 다름 | 17 | 7 |
+
+  줄 수: `editor-view-dom` 811 → 513, `editor-view-react` 614 → 428, 공통 381.
+
+  **옮기면서 결함 셋이 더 나왔고, 셋 다 브라우저로는 못 잡을 자리다:**
+
+  1. **`compareDocumentPosition` 의 같은-노드.** 자식 색인이 가리키는 것이 글자 노드이면
+     `child.compareDocumentPosition(child)` 가 0 이라 *앞* 으로 분류된다. `가나[다라]마바` 에서
+     `(t1, 0)` 이 모델 **2** 를 줬다 — 맞는 답은 0. 앞서 이 비교의 *방향* 을 한 번 고쳤고, 같은
+     노드인 경우는 그때도 남아 있었다.
+  2. **React 의 `convertStaticRangeToModel` 이 `collapsed` 를 안 세웠다.** 손으로 세운 리터럴이라
+     `fromDOMSelection` 을 안 지났다 — 같은 함수의 두 판이 서로 다른 모양을 내보내고 있었다.
+  3. **`ResolvedBoundaries` 를 내가 두 곳에 선언했다.** 이 저장소가 반복해서 찾는 결함의 모양을
+     그것을 고치는 중에 다시 만들었다.
+
+  그리고 **표를 세우다 내 기대가 틀린 자리**도 하나 나왔다: 자식 색인 2 를 모델 6 이라고 적었는데
+  4 였다(6 은 색인 3). 코드가 아니라 검사가 틀린 것이고, 표를 세우는 값의 절반이 그것이다.
+
+- **그리고 *글자인가* 를 이름으로 묻던 열여섯 자리.** ✅ 고침
+
+  자리 층이 `text` 로 묻게 됐으니 나머지도 같은 질문을 같은 방법으로 물어야 한다.
+
+  **먼저 재본 것이 답을 바꿨다.** 스키마에 *"이 노드가 글자를 담나"* 필드를 더해야 한다고 볼
+  뻔했는데, 런타임으로 세니 **이미 답할 수 있었다**:
+
+  | office 의 `inline` 그룹 | 여덟 |
   |---|---|
-  | playwright 검사 전체 | 1,092 |
-  | 다크 컨텍스트를 여는 것 | **3** — `word-theme` · `slide-theme` · `site-theme` |
-  | `playwright.config.ts` 여섯 중 `colorScheme` 을 정한 것 | **0** |
+  | 그 중 `atom: true` | 일곱 (`hardBreak` · `inline-image` · `emoji` · `bookmarkAnchor` · `fieldDateTime` · `fieldDocTitle` · `fieldAuthor`) |
+  | `group === 'inline' && !atom` | **`inline-text` 하나** |
 
-  그리고 그 셋이 단정하는 것이 이것이다:
+  그리고 그 열여섯은 **전부 인스턴스를 손에 쥐고 있었다** — `dataStore.getNode(id)` 를 부른
+  뒤였다. 인스턴스가 있으면 `typeof node.text === 'string'` 이 더 짧고 더 옳다: `holdsText`.
+
+  **래칫이 내가 못 찾은 여섯을 바로 찾았다** — grep 으로 센 열여섯 밖에 React 뷰 다섯과 렌더러의
+  로그 하나가 더 있었다. *규칙은 세어야 규칙이다* 가 이 자리에서 값을 냈다.
+
+  남긴 것 하나: `renderer-dom/vnode/factory.ts` 의 것은 **로그**다. 결정이 아니므로 이름으로 물어도
+  되고, 세는 검사에 안 걸리게 상수로 뽑았다.
+
+- **제품 계약이 사실로는 있는데 선언이 없었고, 넷째가 이미 벗어났다.** ✅ 고침
+
+  *"제품을 더 만들어야 할 수도 있으니 제품이 안정화 되어야 해"* 를 재서 답한 것 중 첫째.
+
+  | 제품 | 옵션 타입 | `keybindings` 를 받나 | `dataStore`/`schema` |
+  |---|---|---|---|
+  | word | `extends EditorOptions` + `kit?` + `keybindings?` + `author?` | 예 | `EditorOptions` 의 것 |
+  | slides | **글자까지 같음** | 예 | 같음 |
+  | site | **글자까지 같음** | 예 | 같음 |
+  | **note** | 물려받지 않음, 인라인 객체 | **아니오** | **`unknown`, 그리고 필수** |
+
+  셋이 같으면 그건 한 제품의 의견이 아니다. 그런데 **가장 최근 제품이 그것을 안 따랐고 아무도
+  막지 않았다** — 읽을 선언이 없었기 때문이다. `editor-core` 의 `ProductEditorOptions` 로 갔다.
+
+  note 의 `dataStore` 가 **필수**인 것은 남겼다. 그건 벗어난 것이 아니라 옳은 것이다: 노트의 저장을
+  누가 갖는가는 부르는 쪽의 질문이고(사이트는 칸의 값에서, 홀로 선 노트는 파일에서), 그래서 기본이
+  있을 수 없다. 계약을 **좁힌** 것이므로 계약 위에 선다.
+
+- **그리고 재다가 나온 것: `keybindings` 는 *대체* 였다.** ✅ 고침
+
+  넘기는 호출자가 **0** 이다 — 세 제품이 선언하고 아무도 안 쓴다. 그래서 그 의미가 한 번도 시험된
+  적이 없었고, 구현은 `keybindings ?? WORD_KEYBINDINGS` — **하나라도 주면 Word 의 71개가 통째로
+  사라진다.**
+
+  그리고 `word-kit.ts` 자신이 **바로 윗 문단에** 그러면 안 되는 이유를 적어 뒀다: *"레지스트리를
+  비우면 Enter·Backspace·화살표까지 사라져서 문서가 브라우저가 하는 대로만 편집된다."* 그 문단은
+  *엔진* 기본에 대한 것이었고, 한 줄 아래에서 **제품** 기본에 대해 정확히 같은 문을 부르는 쪽에게
+  열어 두고 있었다.
+
+  이제 제품의 키가 먼저 실리고 옵션이 그 위에 얹힌다. 호출자가 0이므로 오늘은 아무것도 안 바뀐다 —
+  바뀌는 것은 다음에 넘기는 사람이 얻는 답이다.
+
+- **내 확인 명령이 실패를 걸러내고 있었다.** ✅ 고침 — **그리고 이것이 이 세션에서 가장 나쁜 것이다**
+
+  전 패키지 회차 결과를 이렇게 읽고 있었다:
 
   ```
-  expect(dark.words).toEqual(light.words);        // 문서는 안 움직였다
-  expect(dark.chrome).not.toEqual(light.chrome);  // 크롬은 움직였다
+  grep -vE "passed \(|passed \| [0-9]+ skipped" /tmp/af-unit.log
   ```
 
-  **무엇으로 움직였는지는 안 묻는다.** 그러니 *틀린 다크 팔레트* 로 칠해져도 통과한다 — 실제로
-  그 결함이 있는 채로 통과하고 있었다. `shared-controls.spec.ts:218` 만이 `--ou-*` 값을 앱의
-  팔레트와 대조하는데 **라이트에서만** 돈다.
+  그런데 실패한 패키지의 줄이 **`Tests  2 failed | 479 passed | 3 skipped (484)`** 이다 —
+  `passed \| [0-9]+ skipped` 에 걸려서 **사라진다.** 그래서 나는 *"실패 0 · 28개 패키지"* 라고
+  두 라운드에 걸쳐 말했고, 그 동안 `editor-view-dom` 둘과 `editor-view-react` 하나가 빨갰다.
+  **그 상태로 커밋했다.**
 
-  고칠 것은 셋이다: 값을 단정하게 바꾸고(세 줄), 크롬·토큰 스펙만 다크 프로젝트로 한 번 더 돌리고
-  (좌표 345개·IME 121개는 라이트로 두고), **원인 쪽은 단위로** — 특정성 산수는 우리 소스가 정한다.
+  같이 쓰던 `awk '{n+=$0~/passed/}'` 도 그 줄을 통과로 셌다.
 
-- **내가 승인한 다크 수정이 거울상 버그를 만들었다.** 🔴 열림
+  이 세션이 반복해서 찾은 모양이 *가드가 자기가 막아야 할 것을 못 본다* 인데, **결과를 읽는 내
+  명령이 정확히 그것이었다.** 실패를 숨길 수 있는 필터로 초록을 선언하면 그 초록은 아무것도
+  뜻하지 않는다.
 
-  `apps/slide/src/style.css:114` 를 `:root:not([data-theme='light'])` **(0,2,0)** 으로 올려
-  `tokens.css` 의 다크를 이기게 했다. 그런데 그 선택자는 `<html data-theme="dark">` **에도**
-  맞고, `tokens.css:331` 의 `[data-theme='dark']` 는 **(0,1,0)** 이다.
+  이제 스크립트가 스스로 센다: `grep -c failed` 가 0이 아니면 실패한 패키지를 열거하고, 0이면
+  통과 수를 적는다. 요약 줄이 파일 안에 있으므로 읽는 쪽이 필터를 새로 지어낼 일이 없다.
 
-  라이트 시스템에서 다크를 명시하면: 앱의 미디어 쿼리는 안 맞으니 **라이트** `--sl-*` 를 쓰고,
-  그것이 패키지의 다크 팔레트를 이긴다. **덱의 명시적 다크 스위치가 죽는다.** `--sl-*` 에는
-  `[data-theme='dark']` 블록이 없다.
+- **그리고 그 아래에 있던 것: 픽스처 셋이 `inline-text` 를 `text` 없이 세웠다.** ✅ 고침
 
-  반대쪽도 반쪽이다: `:84` 의 `@media (prefers-color-scheme: dark) { :root { … } }` 에 `:not()`
-  가드가 없어서, 다크 머신에서 `data-theme="light"` 를 찍으면 **어두운 덱** 이 나온다.
+  숨어 있던 세 실패가 전부 같은 원인이었다. *글자를 담나* 를 이름이 아니라 `text` 로 묻게 바뀌자
+  (`holdsText`) 이 픽스처들이 빨개졌고, **문이 틀린 것이 아니라 픽스처가 시험하는 것을 안 입고
+  있던 것**이다: `run(text)` 는 늘 `text` 를 세우고 빈 런도 `''` 를 갖는다.
 
-  지금은 잠재다 — `dead-selectors.test.ts:139` 가 slide 는 아직 `data-theme` 를 안 찍는다고
-  기록한다. 그날 둘 다 깨진다.
+  React 쪽 하나는 특히 분명했다 — DOM 에는 `hello` 를 넣어 두고 모델에는 안 넣었다.
 
-  **팔레트가 라이트와 다크를 둘 다 가지면 둘을 같은 방식으로 말해야 한다** — 미디어 블록에
-  `:not([data-theme='light'])`, 그리고 같은 이름을 선언하는 `[data-theme='dark']` 블록. 지금
-  `apps/slide/src/style.css` 는 둘 다 없다.
+- **제품 키맵이 엔진 기본을 다시 적고 있었고, 다시 적힌 것이 더 약했다.** ✅ 고침
 
-- **`[data-theme='light']` 는 뿌리가 아닌 곳에서 아무 일도 안 한다.** 🔴 열림
+  *"note 도 word 와 비슷하게 keybinding 부터 다 되어야 하는 것 아니냐"* 를 재서 답한 것.
 
-  `tokens.css` 에 `[data-theme='light']` 규칙이 **하나도 없다.** `:not()` 가드는 *뿌리* 만
-  보호한다. 그래서 다크 문서 안의 한 조각을 라이트로 되돌릴 방법이 없다.
+  **먼저: 기본은 이미 공유되고 있다.** `DEFAULT_KEYBINDINGS` 가 40개를 묶고 모든 제품이 받는다 —
+  Enter·Backspace·화살표·⌘B/I/U·목록·들여쓰기·제목·인용·undo/redo·복사/붙여넣기·전체선택.
+  **note 에서 ⌘B 는 된다.** note 의 2개는 표 셀 `Tab`/`Shift+Tab` 이고, 그건 *더해지는* 것이다.
 
-  `apps/gallery/src/gallery.tsx:61,65` 가 정확히 그 스위치를 `.ga-shell` 에 붙인다 — **다크
-  머신에서 그 앱의 *밝게* 는 아무 일도 안 한다.** 그리고 `apps/gallery` 에는
-  `playwright.config.ts` 도 `tests/` 도 없다.
+  **문제는 반대쪽이었다:**
 
-- **`office-site/ui.css` 가 테마 토큰을 별칭한다.** 🔴 열림
+  | | 수 |
+  |---|---|
+  | 엔진 기본 | 40 |
+  | Word | 70 |
+  | **키·명령·조건까지 같음 (재진술)** | **18** |
+  | 같은 키, 다른 명령 (`when` 으로 갈림 — 정당) | 13 |
+  | Word 만의 것 | 39 |
 
-  `:root` 에서 `--st-ground: var(--ou-studio, …)` 처럼 여섯을 별칭하고, 그 파일의 **106개
-  declaration** 이 `--st-*` 를 읽는다. 뿌리에서는 맞다. 그런데 별칭은 **스냅샷** 이라, 어떤
-  서브트리에 `[data-theme='dark']` 를 찍으면 `--ou-*` 는 뒤집히고 106개는 뿌리의 팔레트에 남는다.
+  그리고 재진술이 더 약했다: 엔진은 `editorFocus && editorEditable`, Word 는 `editorFocus`.
+  ⌘C·⌘X 는 엔진이 `!selectionEmpty` 까지 건다. 레지스트리는 **출처로 충돌을 풀고 제품이 이기므로**,
+  다시 적는 순간 `editorEditable` 이 사라진다. 그 키들의 **유일한** 편집 가드가 `when` 이다 —
+  `executeCommand` 도 `canExecute` 도 편집 가능 여부를 안 묻는다(재봤다).
 
-  `apps/gallery/src/style.css:33–41` 이 **그 일이 이미 한 번 일어났고 거기서 걷어냈다** 고 적어
-  뒀다. `tokens.test.ts:97` 도 같은 것을 `tokens.css` 안에서만 센다.
+  **살아 있는 결함은 아니다:** 어느 제품도 `editable: false` 를 안 쓴다.
 
-- **`.doc-title-field:focus` 가 다크에서 흰 바탕에 흰 글자다.** 🔴 작은 것
+  **왜 아무도 못 봤나:** `DEFAULT_KEYBINDINGS` 가 **안 나가고 있었다.** 제품이 엔진이 이미 무엇을
+  묶는지 볼 방법이 없었다. **볼 수 없는 것과 다시 적는 것은 같은 결함의 앞뒤다.**
 
-  `apps/word/src/style.css:123` 이 `background: #fff` 를 쓰는데 그 요소의 `color` 는 `inherit`
-  (= `--ou-ink` = 다크에서 `#fafafa`). `word-theme.spec.ts` 는 `.w-document *` 의 색과
-  `.w-chrome` 의 배경을 읽으므로 제목 줄은 둘 다 아니다.
+  16개를 걷었다. `Tab`/`Shift+Tab` → `indentText`/`outdentText` 둘은 **남겼다** — 엔진은
+  `canIndentText` 로 묻고 Word 는 `inList && !inTable && !inEquation` 으로 묻는데, Word 의 `Tab`
+  갈래 다섯(`indentText`·`indentFirstLine`·`insertTab`·`nextCell`·`nextMathSlot`)이 서로를
+  배제하도록 짜여 있고 그 첫 칸이다. 그 둘에 빠져 있던 `editorEditable` 은 **검사가 찾아서** 더했다.
+
+  그리고 검사 하나가 제품의 목록을 보고 있어서, 동작이 한 글자도 안 바뀌었는데 빨개졌다
+  (`always consumes undo/redo`). **같은 규칙이 두 곳에 적혀 있으면 한 곳을 지우는 것이 회귀처럼
+  보인다** — 그 검사가 물어야 할 것은 *편집기가 그 키를 먹는가* 였다.
+
+- **엔진이 묶은 키가 노트에서 죽어 있었다.** ✅ 고침
+
+  엔진 키가 부르는 명령 서른다섯 중 word·slides·site 는 없는 것이 **0**, **노트만 둘**이었다:
+  `moveBlockUp`·`moveBlockDown`. 그래서 노트에서 `Alt+↑` 는 **키를 먹고 아무 일도 안 했다** —
+  `handleKeydown` 이 `preventDefault()` 를 하고 `executeCommand` 가 *not found* 를 찍는다. 브라우저
+  기본 동작까지 막히므로 죽은 키다.
+
+  **그런데 노트는 블록을 옮길 수 있다** — 손잡이를 끌면 되고 단추도 있다(`moveNoteBlockUp`/`Down`).
+  기능이 없는 것이 아니라 **그 이름의 명령이 없어서 키가 안 닿는** 것이었다. 그리고 그 기능은 공용
+  `MoveBlockExtension` 에 이미 있었고 **셋은 싣고 노트만 안 싣고 있었다.**
+
+  *있는데 못 닿는다* 가 이 회차에 또 나왔고, 이번에는 **기준이 먼저 적혀 있어서** 답이 하나였다:
+  기능이 있으면 엔진이 부르는 그 이름으로 등록한다. `every-engine-key-reaches-a-command.test.ts`
+
+- **회차 스크립트 둘이 같은 로그를 겹쳐 썼다.** ✅ 고침
+
+  `e2e2.sh` 가 늘 `/tmp/ah-e2e.log` 를 잘라 쓰고 시작해서, 두 회차가 겹치면 서로를 지웠다. 실제로
+  그랬고 **`site` 줄이 통째로 사라진 결과**가 나왔다 — 하마터면 세 앱만 보고 초록이라 할 뻔했다.
+  그리고 앞 회차가 도는 동안 소스를 고쳤으므로 그 회차는 어차피 아무것도 뜻하지 않았다.
+
+  이제 회차마다 자기 파일을 갖고, **앱 넷이 다 돌았는지 스스로 센다.**
+  같은 날 단위 스크립트의 요약 필터가 실패를 숨긴 것과 **같은 결함이다** — 결과를 읽는 도구가
+  못 보면 그 초록은 아무것도 뜻하지 않는다.
+
+  **그리고 첫 판의 잠금은 잠금이 아니었다 — 내가 지웠다.** 디렉터리 하나(`mkdir /tmp/e2e.lock`)로
+  막았는데, 다음 회차를 띄우면서 *혹시 남아 있을까 봐* `rm -rf /tmp/e2e.lock` 를 먼저 했다. 그러자
+  회차 둘이 다시 겹쳤고, 이번에는 **사이트 개발 서버 둘이 5182 를 다투어 `ERR_CONNECTION_REFUSED`**
+  가 났다.
+
+  **사람이 지울 수 있는 잠금은 잠금이 아니다.** 이제 상태가 아니라 **사실**로 판단한다:
+  `pgrep -f "playwright test"` 가 있으면 거절하고, 앱들의 포트가 이미 쓰이고 있으면 거절한다.
+  둘 다 지울 수 있는 것이 아니다.
+
+  이 세션에서 *가드가 자기가 막을 것을 못 본다* 가 **세 번째**다 — 단위 요약 필터, 로그 겹쳐쓰기,
+  그리고 내가 지운 잠금. 셋 다 검사가 아니라 **검사를 돌리는 도구** 쪽이었다.
+
+- **엔진이 키를 캐럿이 사는 곳에서만 들었다.** ✅ 고침 — 그리고 **내가 적은 규칙이 반쪽이었다**
+
+  `docs/specs/keybindings.md` 첫 판에 *"레지스트리가 유일한 디스패처이고, 엔진의 keydown 은
+  `contentEditableElement` 에 붙으므로 크롬 입력칸 문제는 성립하지 않는다"* 고 적었다. **반만
+  맞았다.** 사용자가 물었다 — *"단축키가 꼭 contentEditableElement 에서만 일어나는 건 아니지
+  않아?"* — 그리고 그게 맞다: `Delete` 로 도형을 지울 때 캐럿은 **없다.**
+
+  **표면이 둘이다:**
+
+  | 표면 | 무엇 | 무엇이 일어나나 |
+  |---|---|---|
+  | 글자 표면 | 콘텐츠 층 | 타이핑 · IME · `beforeinput` · 캐럿 |
+  | 문서 표면 | 읽는 사람이 이 문서를 만지는 가장 바깥 요소 | **키 해석** |
+
+  | 제품 | 문서 표면 | 글자 표면과 |
+  |---|---|---|
+  | word · note | 콘텐츠 층 | **같다** — `.w-canvas` 가 그 안이라 도형 키가 그냥 됐다 |
+  | slides | 무대 `.sl-stage-frame` | 다르다 — `.sl-host` 가 그 안이고 오버레이·눈금자는 **밖** |
+  | site | 캔버스 | 다르다 |
+
+  `EditorViewDOM` 이 `contentEditableElement = layers.content` 로 박아 두었으므로 **slides 는
+  레지스트리로 갈 길이 애초에 없었다.** `window` 에 붙인 것은 게으름이 아니라 고를 자리가 없어서였고,
+  그 대가로 `activeElement` 를 물어야 했다.
+
+  `keySurface` 옵션을 더했다(기본값 = 콘텐츠 층). word·note 는 한 글자도 안 바뀐다.
+  `editor-view-dom/test/core/key-surface.test.ts` 셋이 그것을 못 박는다 — 기본값 / 표면 안의 키가
+  닿는가 / **표면 밖(크롬 입력칸)은 안 닿는가.**
+- **`SelectionState` 를 마저 걷었다 — 남아 있던 것은 코드가 아니라 *읽는 쪽* 이었다.** ✅ 고침
+
+  위의 *"`SelectionState` 는 선언만 있고 아무것도 그것을 만들지 않는다"* 의 마무리. 앞선 라운드가
+  타입과 배선을 걷었고, 이번에 남은 것을 세어 보니 **코드는 0이고 그것을 향해 읽는 자리가 넷**
+  남아 있었다. 이것이 이 항목의 발견이다 — 죽은 타입을 지우는 일은 타입을 지우면 끝나지 않는다.
+
+  ### 잰 것
+
+  `SelectionState` 를 `packages/*/src` · `apps/*/src` · `packages/*/test` · `apps/*/tests` 에서
+  전부 세었다. **18곳, 그리고 18곳 전부 프로세다** — 왜 지웠는지를 적어 둔 주석이고, 컴파일되는
+  코드는 하나도 없다. 그밖에 걷은 곳:
+
+  | 자리 | 무엇이었나 | 어떻게 했나 |
+  |---|---|---|
+  | `devtool.getSelectionInfo` 의 `nodeId`+`from`+`to` 분기 | *"Handle SelectionState type"* | **지웠다.** 그 타입이 없어졌고, 있을 때도 아무것도 그것을 만들지 않았다 |
+  | 같은 함수의 `anchorNode`/`focusNode` 분기 | *"selection object from `editor:selection.change`"* | **지웠다.** 그 이벤트는 DOM 노드를 실은 적이 없다 |
+  | 같은 함수의 `ModelSelection` 분기 **셋** | 같은 계산의 사본 셋 | **하나로 접었다.** 5분기 → 1분기, 150줄 → 22줄 |
+  | `devtool.lastSelection: any` | | `MaybeSelection \| null` 로 좁혔다 |
+  | `editor-selection-integration.test.ts` 의 `it.skip` 둘 | payload 가 `{textContent, nodeId, nodeType}` 이기를 기대 | **지웠다** (아래) |
+  | `editor-core/README.md` 의 `#### SelectionState` | **세 번째 모양** (아래) | `ModelSelection`/`MaybeSelection` 로 다시 썼다 |
+  | `editor-core/docs/event-naming-convention.md` | payload 를 `SelectionState` 라고 적음 | 고쳤다 |
+  | `apps/docs-site` 의 21곳 (파일 넷) | 훅 서명과 *"legacy"* 오버로드 | 고쳤다 — `SelectionState` 0곳 |
+  | `docs/specs/selection.md` 의 *"아직 남은 것"* | *"이 문은 다음 차례다"* | 그 문은 걷었다. 절을 닫았다 |
+
+  ### 죽은 것이 왜 죽었는지, 셋
+
+  **1. devtool 이 뷰 층이 이미 한 일을 다시 하고 있었다.** `anchorNode` 분기는
+  `closest('[data-bc-sid]')` 로 DOM 에서 노드 id 를 찾는데, 그것은 `fromDOMSelection` 이 하는
+  일이고 **그것을 지나온 값이** `getSelectionInfo` 에 온다. 들어오는 값의 출처는 넷뿐이고
+  (`editor.selection` · `editor:selection.change` 의 payload · `selectionManager.getCurrentSelection()`
+  · `convertDOMSelectionToModel`) **넷 다 `MaybeSelection` 이다.** 그래서 그 분기는 한 번도
+  실행된 적이 없다.
+
+  **2. 사본 셋 중 하나만 달랐고, 다른 점이 결함이었다.** 마지막 사본만 `Math.min`/`Math.max` 를
+  한 번 더 걸었다. `ModelSelection` 은 *"Always guarantees start ≤ end (normalized)"* 이므로 그
+  min/max 는 아무 일도 하지 않거나, **하는 날엔 규약이 깨진 것을 감춘다.** 주석으로 설명된 여유가
+  결함이라는 이 저장소의 규칙이 그대로 적용된다. 남기지 않았다.
+
+  **3. `it.skip` 이 틀린 계약을 몇 년 덮고 있었다.** 지운 검사 둘은
+  `editor:selection.change` 의 payload 가 `{ textContent: 'Hello', nodeId: 'p-1', nodeType:
+  'paragraph' }` 이기를 기대했다. **그 셋 중 어느 것도 그 이벤트에 실린 적이 없다.** 둘째 검사는
+  그 위에 둘을 더 틀렸다 — 듣는 이름이 `'selectionChange'`(실제 이름은 `editor:selection.change`)
+  였고, `editor.setNode({ nodeId, selectAll })` 로 이미 지워진 `ModelNodeSelection` 의 모양을
+  넘겼다. **셋 다 틀린 검사가 앉아 있을 수 있었던 이유는 하나뿐, 한 번도 실행되지 않아서다.**
+  그래서 `SelectionState` 를 지울 때 컴파일러도 실행기도 아무 말을 하지 않았다.
+
+  ### 문서가 네 번째 모양을 갖고 있었다
+
+  이건 예상 못 한 것이다. `packages/editor-core/README.md` 가 `SelectionState` 를 이렇게 적어
+  뒀다:
+
+  ```typescript
+  interface SelectionState {
+    anchor: number; head: number; empty: boolean;
+    from: number; to: number; ranges: SelectionRange[];
+  }
+  ```
+
+  **`types.ts` 에 있던 것과 다른 모양이다.** 진짜 것은 DOM 스냅샷(`anchorNode`·`focusNode`·
+  `nodeId`·`nodeType`·`textContent`)이었고, README 의 것은 `anchor`/`head`/`ranges` 다. 그리고
+  `SelectionRange` 라는 타입은 **이 저장소 어디에도 없다.** 즉 아무것도 만들지 않는 타입 하나를
+  두고 **README 가 또 다른, 역시 존재하지 않는 모양을 가르치고 있었다.** 죽은 타입은 하나가
+  아니라 사본을 낳는다.
+
+  ### 걷은 뒤 확인한 것 — 밖에서 가져다 쓰는 곳
+
+  저장소 전체에서 `@barocss/editor-core` 의 **이름 있는 import 23종** 을 뽑아 하나씩 대조했다.
+  23종 다 지금도 존재하고, `SelectionState` · `SetSelectionCommand` · `ModelNodeSelection` ·
+  `ModelAbsoluteSelection` 은 **0곳** 에서 import 된다. 걷은 것이 공개 표면 밖으로 새지 않았다.
+
+  ### 검사
+
+  `editor-core` 23파일 332통과(건너뜀 12 → **10**, 지운 둘) · `conformance` 21파일 113통과 ·
+  `devtool` 9통과 · `tsc --noEmit` 둘 다 깨끗. `editor-is-typed` 의 캐스팅 래칫은 **357 그대로**
+  — 이번 라운드는 캐스팅을 하나도 쓰지도 지우지도 않았다.
+
+- **설계 기록 문서 넷은 아직 `SelectionState` 를 이름으로 부른다 — 일부러 남겼다.** ✅ 판단
+
+  `docs/extension-hooks-final-design.md`(6) · `docs/extension-hooks-architecture-analysis.md`(5) ·
+  `docs/editor-hooks-comparison.md`(2) · `packages/editor-core/CHANGELOG.md`(1).
+
+  이 넷은 *그때 무엇을 결정했나* 를 적은 **기록** 이고, 기록을 고치면 결정이 없었던 것이 된다.
+  반대로 `apps/docs-site` 와 `packages/editor-core/README.md` 는 **읽는 사람이 지금의 사실로
+  믿는 참조 문서** 라 고쳤다. 이 둘을 가르는 기준을 여기 적어 둔다 — 다음에 또 필요하다.
+
+  `docs/ROADMAP.md` 와 `docs/TECHNICAL-ROADMAP.md` 는 셋째 종류다 — **앞으로 할 일** 을 적는
+  문서라 기록이 아니고, 끝난 일을 `- [ ]` 로 두면 거짓이 된다. 둘 다 이번에 `- [x]` 로 닫았다.

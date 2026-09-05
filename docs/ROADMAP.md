@@ -515,10 +515,12 @@ appetite.
       `(p, 0)` 에만 두었는데, 거기는 **접는 방향이 결과를 안 바꾸는 유일한 자리** 다. 내가 고른
       자리가 내 결정을 시험하지 않았다. **끝났다고 적은 문장과 끝난 것 사이를 잇는 것은 여전히
       단정하는 검사뿐이고, 그 검사가 결정을 실제로 시험하는지까지 봐야 한다.**
-- [ ] **편집기의 문에서도 선택의 답이 둘이다.** `Editor.updateSelection(selection: SelectionState |
-      any)`, `EditorState.modelSelection: SelectionState | ModelSelection | null`. `SelectionState`
-      는 DOM 스냅샷이고 `ModelSelection` 은 모델의 것인데 둘 다 *선택* 이라는 이름으로 같은 문을
-      지난다. 모델 쪽 사본은 걷었고 이 문이 다음이다.
+- [x] ~~**편집기의 문에서도 선택의 답이 둘이다.**~~ **끝 — 답은 둘이 아니라 하나였다.** 재보니
+      `SelectionState` 를 **만드는 곳이 하나도 없었다**: 넘기는 호출자 0, 구현하는 확장 0, 그것을
+      싣는 이벤트 0. 문을 좁히는 대신 그 타입을 지웠다. `updateSelection` 은
+      `EditorSelectionModelPayload | null`, 확장 훅 둘은 `ModelSelection`/`MaybeSelection`,
+      `editor:selection.change` 는 `MaybeSelection` 이고 `.focus`·`.blur` 는 payload 가 없다.
+      읽고 있던 쪽(`devtool.getSelectionInfo` 의 죽은 분기 둘)도 같이 걷었다 — `BACKLOG.md`.
 - [x] ~~**제품 계약에 이름이 없다.**~~ **끝 — 그리고 넷째가 이미 벗어나 있었다.**
       `word`·`slides`·`site` 의 옵션 타입이 **글자까지 같았다**(`extends EditorOptions` +
       `kit?` + `keybindings?`; word 만 `author` 를 더 받는다). 그런데 **가장 최근 제품인 `note` 가

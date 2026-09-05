@@ -42,13 +42,13 @@ interface Extension {
   // Only core model changes (Transaction, Selection, Content) are provided as hooks.
   // Other changes should use editor.on() events.
   onBeforeTransaction?(editor: Editor, transaction: Transaction): Transaction | null | void;
-  onBeforeSelectionChange?(editor: Editor, selection: SelectionState): SelectionState | null | void;
+  onBeforeSelectionChange?(editor: Editor, selection: ModelSelection): ModelSelection | null | void;
   onBeforeContentChange?(editor: Editor, content: DocumentState): DocumentState | null | void;
   
   // After hooks (notification for core model changes)
   // For type safety. Alternatively, you can use editor.on() events.
   onTransaction?(editor: Editor, transaction: Transaction): void;
-  onSelectionChange?(editor: Editor, selection: SelectionState): void;
+  onSelectionChange?(editor: Editor, selection: MaybeSelection): void;
   onContentChange?(editor: Editor, content: DocumentState): void;
 }
 ```
