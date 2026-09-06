@@ -93,3 +93,9 @@ export { __DEV__, __TEST__ } from './dev';
 
 // `beforeinput` 의 inputType 어휘. 두 뷰가 각자 손으로 적어 두던 목록이다.
 export * from './input-type';
+
+// 문서를 파일로 — 봉투, 세션 이름 걷어내기, 넷 중 어느 것인지 말하는 거절.
+export * from './document-file/document-file';
+
+// 문서를 어디에 두는가 — IndexedDB 한 벌과 이름 짓기. 브라우저는 함수 안에서만 부른다.
+export * from './document-library/document-library';

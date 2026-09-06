@@ -49,6 +49,25 @@ const DECLARED: WordMenu[] = [
     id: 'file',
     label: '파일',
     blocks: [
+      /**
+       * **새로 만들기 · 열기 · 저장** — 이 메뉴가 인쇄 하나뿐이던 자리.
+       *
+       * Word 는 오늘까지 문서를 지킬 수 없었다. 앱이 부팅에 샘플을 싣고, 독자가 쓴 것은
+       * 새로고침에 사라졌고, 갖고 있는 파일을 열 방법이 없었다. 덱은 셋 다 할 수 있었다 —
+       * 덱이 그 전부를 혼자 만들었기 때문이다.
+       *
+       * 셋 다 **`view`** 이지 명령이 아니다. 파일을 고르는 것도, 브라우저에게 내려받기를
+       * 시키는 것도, 문서를 통째로 바꾸는 것도 문서가 할 줄 아는 일이 아니다 — 인쇄가 그런
+       * 것과 같은 이유다.
+       */
+      {
+        id: 'document',
+        items: [
+          { view: 'file.new', label: '새 문서' },
+          { view: 'file.open', label: '열기…' },
+          { view: 'file.save', label: '저장' }
+        ]
+      },
       {
         /*
          * A **view** rather than a command, and that is the honest shape: printing is the browser's,

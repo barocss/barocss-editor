@@ -524,6 +524,9 @@ importers:
       '@barocss/office-controls':
         specifier: workspace:*
         version: link:../../packages/office-controls
+      '@barocss/office-editor-ui':
+        specifier: workspace:*
+        version: link:../../packages/office-editor-ui
       '@barocss/office-text':
         specifier: workspace:*
         version: link:../../packages/office-text

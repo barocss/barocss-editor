@@ -52,3 +52,6 @@ export { useSelectionRect } from './use-selection-rect';
 export { Controls, type ControlsProps } from './controls';
 export { SlashMenu } from './slash-menu';
 export { controlRows, useControls, type ControlRow, type UseControlsOptions } from './use-controls';
+
+// 문서를 파일로 여닫는 세 몸짓 — 제품은 자기 넷만 댄다.
+export * from './file-actions';

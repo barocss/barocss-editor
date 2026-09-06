@@ -3,7 +3,19 @@ import type { Editor } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { AppBody, AppChrome, AppMain, AppShell, MenuBar, onApple, useRevision } from '@barocss/office-ui';
-import { wordMenus, WORD_VIEW_KEYS, wordMenuEntry, wordMenuId, type FontLoader } from '@barocss/office-word';
+import {
+  createStarterDocument,
+  readWordFile,
+  wordFileName,
+  wordFileText,
+  wordMenus,
+  wordTitle,
+  WORD_VIEW_KEYS,
+  wordMenuEntry,
+  wordMenuId,
+  type FontLoader
+} from '@barocss/office-word';
+import { FileActions, type DocumentFileActions } from '@barocss/office-editor-ui';
 import {
   CommentsPane,
   DocumentTitle,
@@ -129,9 +141,40 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * document because it is the *browser's*: `print-pages.ts` hooks `beforeprint`, so ⌘P and this
    * entry get the same paginated document, and neither is something the editor knows how to do.
    */
+  /**
+   * **문서를 파일로 여닫는 세 몸짓** — 이 앱이 오늘까지 못 하던 것.
+   *
+   * 부팅에 샘플을 싣고 그것이 전부였다. 독자가 쓴 것은 새로고침에 사라졌고, 갖고 있는 파일을
+   * 열 방법이 없었다. 하는 일은 `office-editor-ui` 의 것이고 — 블롭, 앵커, 사파리의 revoke,
+   * 잃을 작업이 있을 때만 묻기 — 여기서 대는 것은 Word 의 넷뿐이다.
+   */
+  const files = useRef<DocumentFileActions>(null);
+  const fileKind = useMemo(
+    () => ({
+      session: 'word',
+      text: wordFileText,
+      read: readWordFile,
+      /*
+       * `editor.dataStore` 는 접근자로 있으므로 캐스트로 걷어내지 않는다 —
+       * `editor-is-typed` 톱니가 그것을 세고, 이 줄이 처음 쓰였을 때 357 을 358 로 만들었다.
+       */
+      fileName: (editor: Editor) => wordFileName(wordTitle(editor.dataStore as never)),
+      starter: createStarterDocument,
+      ariaLabel: '문서 파일',
+      prefix: 'w'
+    }),
+    []
+  );
+
   const runEntry = useCallback(
     (entry: { command?: string; view?: string; payload?: Record<string, unknown> }) => {
       switch (entry.view) {
+        case 'file.new':
+          return files.current?.create();
+        case 'file.open':
+          return files.current?.open();
+        case 'file.save':
+          return files.current?.save();
         case 'print':
           return window.print();
         case 'find':
@@ -221,6 +264,14 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         */}
         {instance ? (
           <MenuBar className="w-menubar" label="문서 메뉴" menus={menus} onPick={onMenu} />
+        ) : null}
+        {/*
+          그려지는 것은 숨은 입력 하나와 (있다면) 거절 문구뿐이다. 파일은 아무리 단추를 눌러도
+          브라우저에 건넬 수 없으므로 입력이 DOM 에 있어야 하고, *독자가 어디서 청하는가* 는
+          메뉴바다.
+        */}
+        {instance ? (
+          <FileActions ref={files} editor={instance.editor} kind={fileKind} />
         ) : null}
         {instance ? <DocumentTitle editor={instance.editor} /> : null}
         {instance ? (

@@ -744,3 +744,12 @@ export {
  * 그것이 실제로 담기는 모양을 이 파일이 말한다. 앱에 두면 다음 호스트가 자기 것을 다시 쓴다.
  */
 export { createSampleDocument } from './sample-document';
+
+// 문서를 파일로 — 형식은 `@barocss/shared` 의 것이고 여기 있는 것은 Word 의 넷뿐이다.
+export * from './word-file';
+
+// 문서를 어디에 두는가 — 보관은 `@barocss/shared` 의 것이고 여기 있는 것은 Word 의 것뿐이다.
+export * from './word-library';
+
+// 새 문서가 무엇인가 — 크롬이 아니라 문서에 대한 사실이다.
+export * from './starter-document';
