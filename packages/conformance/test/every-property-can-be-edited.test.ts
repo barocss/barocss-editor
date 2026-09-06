@@ -42,6 +42,50 @@ describe('every property can be edited', () => {
     expect(report.examined['every-property-can-be-edited']).toBe(0);
   });
 
+  /**
+   * **한 노드에서 답한 것이 모든 노드를 덮지 않는다.**
+   *
+   * 앞의 판은 맨이름만 봤다. Word 가 문단 테두리 대화상자를 만들자 이 검사의 수가 184에서 88로
+   * 떨어졌다 — 96개. 대화상자는 문단에만 쓰는데 같은 이름이 표와 셀과 페이지에도 선언돼 있었고,
+   * 그중에는 정말로 설정할 곳이 없는 셀 테두리가 있었다. 하네스를 쓰다가 하네스에서 찾은 결함이다.
+   */
+  describe('노드까지 말할 수 있다', () => {
+    /** 같은 이름을 가진 두 노드 — 이것이 있어야 물을 수 있는 질문이다. */
+    const twoNodes = {
+      topNode: 'document',
+      nodes: new Map<string, { name: string; content?: string; attrs?: Record<string, unknown> }>([
+        ['document', { name: 'document', content: 'para cell' }],
+        ['para', { name: 'para', attrs: { borderTopStyle: { type: 'string' } } }],
+        ['cell', { name: 'cell', attrs: { borderTopStyle: { type: 'string' } } }]
+      ])
+    };
+
+    const runTwo = (editable: string[]) =>
+      conformance({
+        schema: twoNodes as never,
+        hasRenderer: () => true,
+        attributeRead: () => true,
+        editable,
+        only: ['every-property-can-be-edited']
+      });
+
+    it('`node.attr` 는 그 노드에서만 답한다', () => {
+      const report = runTwo(['para.borderTopStyle']);
+      expect(report.findings.map((one) => one.subject)).toEqual(['cell.borderTopStyle']);
+    });
+
+    it('맨이름은 여전히 어디서든 답한다 — 글꼴 크기가 그렇다', () => {
+      expect(runTwo(['borderTopStyle']).findings).toEqual([]);
+    });
+
+    it('둘 다 없으면 둘 다 남는다', () => {
+      expect(runTwo([]).findings.map((one) => one.subject)).toEqual([
+        'para.borderTopStyle',
+        'cell.borderTopStyle'
+      ]);
+    });
+  });
+
   it('finds an attribute the product draws and nothing sets', () => {
     const report = run({ gap: { type: 'number' }, corner: { type: 'number' } }, () => true, ['gap']);
     expect(report.findings.map((one) => one.subject)).toEqual(['shape.corner']);

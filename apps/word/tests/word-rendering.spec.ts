@@ -991,8 +991,15 @@ test.describe('a run of paragraphs inside one bordered box', () => {
         return {
           top: `${drawn.borderTopStyle} ${drawn.borderTopWidth}`,
           bottom: `${drawn.borderBottomStyle} ${drawn.borderBottomWidth}`,
-          left: drawn.borderLeftStyle,
-          right: drawn.borderRightStyle
+          /*
+           * **두께까지.** 옆면은 오랫동안 `borderLeftStyle` 하나만 읽었고, 그 단언은 문단이 아니라
+           * 리셋 CSS 를 확인하고 있었다 — Tailwind preflight 가 `*{ border: 0 solid }` 를 깔기
+           * 때문에 이 문서의 **모든 요소**에서 `border-*-style` 은 `solid` 다. 위/아래는 처음부터
+           * 두께를 함께 읽었고, 옆면만 빠져 있었다. 테두리 대화상자를 만들다 같은 결함을 세 번
+           * 겪고 나서 쓸어보다 찾았다.
+           */
+          left: `${drawn.borderLeftStyle} ${drawn.borderLeftWidth}`,
+          right: `${drawn.borderRightStyle} ${drawn.borderRightWidth}`
         };
       });
     });
@@ -1012,8 +1019,8 @@ test.describe('a run of paragraphs inside one bordered box', () => {
 
     // The sides belong to every paragraph in the box: they are not shared with anybody.
     for (const one of box) {
-      expect(one.left).toBe('solid');
-      expect(one.right).toBe('solid');
+      expect(one.left).toBe('solid 1px');
+      expect(one.right).toBe('solid 1px');
     }
   });
 

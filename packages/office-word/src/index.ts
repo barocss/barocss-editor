@@ -303,6 +303,28 @@ export {
   type CommentEntry,
   type CommentThread
 } from './comments';
+export {
+  createWordBorders,
+  currentBorders,
+  WordBorderExtension,
+  type SetBordersPayload
+} from './border-commands';
+export {
+  applyPreset,
+  bordersOf,
+  borderPatch,
+  presetOf,
+  prefixOf,
+  BORDER_EDGES,
+  BORDER_STYLES,
+  BORDER_WIDTHS,
+  NO_BORDERS,
+  type BorderEdge,
+  type BorderPreset,
+  type BorderState,
+  type BorderStyle
+} from './border-model';
+export { selectedBlocks } from './selected-blocks';
 export { createWordComments, WordCommentExtension, type CommentAuthor } from './comment-commands';
 export { createWordRevisions, WordRevisionExtension } from './revision-commands';
 export { createWordTracking, WordTrackingExtension } from './tracking-commands';

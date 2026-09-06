@@ -77,13 +77,20 @@ styled only by the app). What is left in the app is its own frame — `.w-shell`
 `.w-chrome`, `.w-shell-document`, `.w-menubar` — and the input lab, which is an
 instrument rather than chrome.
 
-There is **no property panel**, and no dialogs at all. That is the single fact
-that shapes everything below, and it is not a style choice — it is where the
-product stopped. A ribbon is a good home for a command that applies to a
-selection (bold, a list, an alignment) and a bad one for a *value a reader types*,
-which is why every word processor that has ever shipped has a paragraph dialog, a
-page-setup dialog, a borders dialog and a table-properties dialog. Word has none
-of the four.
+There is **no property panel**, and until 2026-09-06 there were no dialogs
+either. That absence is the single fact that shapes everything below, and it was
+not a style choice — it is where the product stopped. A ribbon is a good home for
+a command that applies to a selection (bold, a list, an alignment) and a bad one
+for a *value a reader types*, which is why every word processor that has ever
+shipped has a paragraph dialog, a page-setup dialog, a borders dialog and a
+table-properties dialog.
+
+**The first of the four now exists**: 「테두리 및 음영」, on `office-ui`'s `Dialog`
+— which the deck and the site builder had been drawing and Word had not. So the
+sentence this section used to carry, *the first of them is also the decision about
+what a dialog is in this suite*, was already stale when it was written: the
+decision had been made, in shared code, by two other products. Word's borders
+dialog cost a model, a command and a menu.
 
 ## What the harness measures, and what it is measuring against
 
@@ -91,10 +98,10 @@ Four numbers, all produced by `packages/office-word/test/conformance.test.ts`:
 
 | | |
 | --- | ---: |
-| commands registered | 167 (155 Word's own) |
+| commands registered | 168 (156 Word's own) |
 | attributes the product **draws** | 611 |
 | of those, **unread** — declared and reaching nothing | 16 *(ratchet)* |
-| of those, **unsettable** — drawn and reachable by nothing | 184 *(ratchet)* |
+| of those, **unsettable** — drawn and reachable by nothing | 136 *(ratchet)* |
 | attributes a reader can set, from the two declared surfaces | 21 |
 
 Both counts are ratchets rather than exemption lists, and for the same reason:
@@ -111,18 +118,42 @@ attribute names it draws.
 
 ## What is owed, in the order the harness puts it
 
-The 60 names left group themselves, and the grouping *is* the work list:
+The names left group themselves, and the grouping *is* the work list:
 
 | owed | names | what it is |
 | ---: | ---: | --- |
-| 1 | 16 | **a borders dialog** — `borderTop*` … `borderLeft*`, colour, style, width, spacing |
-| 2 | 12 | **a field's own settings** — `tag`, `literal`, `sequence`, `limitLocation`, `showContents` |
-| 3 | 8 | **page setup** — page size, margins, gutter, columns and their spacing and separator |
-| 4 | 7 | **table properties** — `cellSpacing`, `hide*`, `noWrap`, `heightRule` |
-| 5 | 5 | **paragraph spacing** — `spacingBefore`, `spacingAfter`, `spacingLine`, `spacingLineRule` |
+| ~~1~~ | ~~16~~ | ~~**a borders dialog**~~ — **done**, and it took 48 off the ratchet rather than 16; see below |
+| 1 | 12 | **a field's own settings** — `tag`, `literal`, `sequence`, `limitLocation`, `showContents` |
+| 2 | 8 | **page setup** — page size, margins, gutter, columns and their spacing and separator |
+| 3 | 7 | **table properties** — `cellSpacing`, `hide*`, `noWrap`, `heightRule` |
+| 4 | 5 | **paragraph spacing** — `spacingBefore`, `spacingAfter`, `spacingLine`, `spacingLineRule` |
 
 plus a handful a **drag** writes on a drawing, which are exemptions rather than
 work.
+
+### The borders dialog took 48, and the first measurement said 96
+
+Sixteen names were owed and **forty-eight** came off, because the sixteen are
+declared on `paragraph`, `heading` and `listItem` alike and one dialog answers all
+three.
+
+The first measurement said **ninety-six**, and that number was wrong in a way
+worth recording. `every-property-can-be-edited` asked `settable.has(attr)` — the
+attribute **name**, with no node attached. Word's dialog writes a paragraph's
+borders; a table cell and a page declare the same names; so answering for the
+paragraph silenced the check on all three, and a table cell's borders — which
+still have nowhere to be set — stopped being counted.
+
+The check now accepts `node.attr` beside a bare name (bare still means *settable
+wherever it appears*, which is what a font size is), and Word declares only the
+pairs it really writes — `borderEditable()`, whose nodes come from the command and
+whose attributes come from asking `borderPatch` what it writes. Table, cell and
+page borders stay owed, which is the truth.
+
+That is the harness finding a fault in the harness, and it is the second time:
+`every-attribute-is-read` walks the schema, so a drawn-but-undeclared attribute is
+not even a subject. **A guard that enumerates from one side can only find gaps in
+that direction.**
 
 Both ratchets went **up by four and one** when the shared frame learned where its
 children sit along the axis and what its four sides are worth: `justifyContent`
@@ -131,11 +162,11 @@ and Word has nowhere to set them because Word has no panel. A number going up is
 the harness working — the attributes are real, the drawing is real, and the gap
 is the sixth dialog rather than a regression.
 
-Read the other way, that table says: *Word can draw a bordered, multi-column,
-precisely-spaced document and can only make one by opening a file that already
-is one.* Every one of the five is a dialog, and Word has no dialogs — so the
-first of them is also the decision about **what a dialog is in this suite**, and
-that decision is shared work rather than Word's.
+Read the other way, that table used to say: *Word can draw a bordered,
+multi-column, precisely-spaced document and can only make one by opening a file
+that already is one.* The **bordered** half of that sentence is no longer true.
+Multi-column and precisely-spaced still are, and each is a dialog — the shape is
+settled now, so what is left is the four of them.
 
 ## What is deliberately not here
 

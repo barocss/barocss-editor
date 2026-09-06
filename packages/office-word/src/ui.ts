@@ -11,6 +11,7 @@
  *
  * React 는 **peerDependency** 다 — 어느 React 를 쓸지는 호스트가 정한다.
  */
+export { BordersDialog, type BordersDialogProps } from './borders-dialog';
 export { CommentsPane, ANCHOR_STYPE, type CommentsPaneProps } from './comments-pane';
 export { DocumentTitle, type DocumentTitleProps } from './document-title';
 export { DrawingOverlay, type DrawingOverlayProps } from './drawing-overlay';

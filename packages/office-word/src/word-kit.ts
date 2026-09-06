@@ -29,6 +29,7 @@ import { createWordFrames } from './frame-commands';
 import { createWordCanvasInsert } from './canvas-insert-commands';
 import { createWordCanvasShapes } from './canvas-shape-commands';
 import { createWordListCommands } from './list-commands';
+import { createWordBorders } from './border-commands';
 import { createWordComments, type CommentAuthor } from './comment-commands';
 import { createWordRevisions } from './revision-commands';
 import { createWordTracking } from './tracking-commands';
@@ -106,6 +107,11 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
     // paragraphs, so the kit's list and indent commands have nothing here to
     // wrap or shift. They reported success and did nothing; these replace them.
     createWordListCommands(),
+    /*
+     * 문단 테두리. 스키마(`boxBorderAttrs()`)와 그리는 쪽(`paragraphCss`)은 처음부터 있었고 **쓰는
+     * 쪽만 없었다** — `every-property-can-be-edited` 가 열여섯 개로 세어 두었던 그것이다.
+     */
+    createWordBorders(),
     // Who is commenting is the host's to say, the same way the instant a date
     // field shows is — an editor that invented a name would be guessing.
     createWordComments(author),

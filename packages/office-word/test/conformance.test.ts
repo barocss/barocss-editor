@@ -9,6 +9,7 @@ import { getWordSchemaDefinition } from '../src/word-schema';
 import { createWordEditor } from '../src/word-kit';
 import { toolbarAttrs, toolbarIcons } from '../src/toolbar-model';
 import { wordRulerAttrs } from '../src/ruler-model';
+import { borderEditable } from '../src/border-commands';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { registerWordRenderers } from '../src/renderers/word';
 
@@ -329,7 +330,23 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * has an emoji it cannot insert, which is a gap and not a fault, and the number records it
        * until somebody closes it.
        */
-      ratchet: { 'every-attribute-is-read': 16, 'every-property-can-be-edited': 184 },
+      /*
+       * **184 → 136**, 그리고 그 사이에 하네스가 한 번 거짓말할 뻔했다.
+       *
+       * Word 가 첫 대화상자를 얻었다 — 「테두리 및 음영」. `word.md` 가 갚아야 할 것 다섯 묶음 중
+       * 첫째로 적어 둔 열여섯 개다. 스키마(`boxBorderAttrs()`)도 그리는 쪽(`paragraphCss`)도 처음부터
+       * 있었고 쓰는 쪽만 없었다.
+       *
+       * 처음 잰 값은 **88** 이었다. 96개가 한 번에 떨어진 것이 수상해서 검사를 읽었더니
+       * `settable.has(attr)` — **이름만** 보고 있었다. 대화상자는 문단에만 쓰는데 같은 이름이 표와
+       * 셀과 페이지에도 선언돼 있어서 셋이 함께 조용해졌고, 그중에는 정말로 설정할 곳이 없는 셀
+       * 테두리가 있었다. 검사가 `node.attr` 을 받게 고치고, 이 제품은 자기가 정말 쓰는 짝만 내놓는다
+       * (`borderEditable()` — 노드는 명령에서, 속성은 `borderPatch` 에게 물어서).
+       *
+       * 그래서 48이 줄었다: 문단·제목·목록 항목 셋. 표와 셀과 페이지의 테두리는 그대로 빚이고,
+       * 그것이 정확한 상태다.
+       */
+      ratchet: { 'every-attribute-is-read': 16, 'every-property-can-be-edited': 136 },
       /**
        * **A word processor has no click that selects a block**, which is what this check needs.
        *
@@ -355,7 +372,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * `ruler-model.ts`, which is the only place a paragraph's indents and its tab stops can be
        * changed at all. `notYet: ['every-property-can-be-edited']` was here until both existed.
        */
-      editable: [...toolbarAttrs(), ...wordRulerAttrs()],
+      editable: [...toolbarAttrs(), ...wordRulerAttrs(), ...borderEditable()],
       /**
        * Whether the product draws anything for a mark — a vocabulary no check could see.
        *

@@ -22,6 +22,21 @@ import type { Check, Finding } from '../types';
  *
  * ## What counts as somewhere
  *
+ * Either **`attr`** — settable wherever it appears — or **`node.attr`**, settable on that node type
+ * alone. Which one to use is not a preference; it follows from **what kind of surface answers**:
+ *
+ * | the surface | what it answers for | the form |
+ * | --- | --- | --- |
+ * | a panel, a ribbon | whatever is selected, whatever that is | `attr` |
+ * | a dialog | the one thing it opens on | `node.attr` |
+ *
+ * The site builder's panel rows are conditioned on **attribute values** (`when: { attr, is }`) and
+ * never on node type, so a bare name is the truth there. Word's borders dialog opens on a paragraph,
+ * so `paragraph.borderTopStyle` is — and a table cell declaring the same name stays owed.
+ *
+ * Getting this wrong is expensive and quiet: the first version of Word's answer used bare names and
+ * **96 findings went silent at once**, table, cell and page borders among them.
+ *
  * A **declaration**, never a claim. The product hands over the attributes its panel, its toolbar and
  * its commands can set — read out of the same data the panel is drawn from — so this cannot be
  * satisfied by a sentence about a row that used to exist. That is the whole reason a product's panel
@@ -82,7 +97,21 @@ export const everyPropertyCanBeEdited: Check = {
         if (read !== true) continue;
 
         examined += 1;
-        if (settable.has(attr)) continue;
+        /**
+         * **`node.attr` 로도 답할 수 있다** — 이름만 보던 판이 놓치던 것.
+         *
+         * Word 가 문단 테두리 대화상자를 만들고 `borderTopStyle` 을 설정 가능으로 내놓자 이 검사의
+         * 수가 **184에서 88로** 떨어졌다. 96개다. 대화상자는 문단에만 쓰는데, 같은 이름이 표와 셀과
+         * 페이지에도 선언돼 있어서 셋이 함께 조용해졌다 — *한 노드에서 답한 것이 모든 노드를 덮는*
+         * 모양이고, 그렇게 덮인 것 중에는 정말로 설정할 곳이 없는 셀 테두리가 있었다.
+         *
+         * 이 검사가 스스로 적어 둔 문장이 그 반대편에 있다: 발견은 이름 하나로 묶는다(끌기가 쓰는
+         * 것은 열한 줄이 아니라 한 줄이어야 하므로). 묶는 쪽은 그것이 맞고, **답하는 쪽은 아니다.**
+         *
+         * 그래서 둘 다 받는다. 맨이름은 *어디서든 설정할 수 있다*(글꼴 크기가 그렇다), 점 찍은
+         * 이름은 *이 노드에서 설정할 수 있다*. 앞의 판이 쓴 것은 다 맨이름이므로 그대로 통한다.
+         */
+        if (settable.has(attr) || settable.has(`${name}.${attr}`)) continue;
 
         findings.push({
           check: 'every-property-can-be-edited',

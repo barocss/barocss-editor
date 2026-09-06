@@ -129,13 +129,20 @@ keyboard's route differ, the button hides the defect**, and the defect was in
 ## What the seam actually cost
 
 `office-note` is **2,392 lines** and `apps/note` is **257**. For comparison, the chrome
-still living in the other three apps is **8,591 lines**.
+still living in the other three apps is **8,605 lines**.
 
 That number is a **gauge, not a fact about note** — it is what the other three have not moved yet,
 and it goes down as they do. It was 35,927 when this was written, and the site builder has moved
 five pieces since — `PageFrame`(307) · `Rail`(1,483) · `Inspector`(2,342) · `Overlay`(2,040) ·
 `Admin`(1,027) — which is the roadmap's *"office-site 가 React 를 갖게 되는 첫 걸음"*.
 `apps/site` went 11,410 → 4,221 lines.
+
+**8,591 → 8,605 the day Word got its first dialog**, and up is the direction this gauge is supposed
+to make you look at. Fourteen lines in `apps/word/src/app.tsx`: a piece of state, a `case` in the
+menu switch, and the mount. The dialog itself — 240 lines — went into `office-word`, so the seam
+held; what an app grows when a package gains a surface is the **wiring**, and wiring is what an app
+is for. The gauge cannot tell those two apart, which is exactly why it says *go and look* rather
+than *this is wrong*.
 
 The check holding this number is the reason the gauge cannot drift: moving chrome and forgetting to
 say so fails here. It has caught every move so far.

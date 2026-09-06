@@ -20,6 +20,7 @@ import {
   CommentsPane,
   DocumentTitle,
   DrawingOverlay,
+  BordersDialog,
   FindPanel,
   OutlinePane,
   Ribbon,
@@ -73,6 +74,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * their document. Bound here rather than through the key map because opening
    * a window is the host's business — the editor has no idea one exists.
    */
+  /** 테두리 및 음영 — 서식 메뉴가 여는 것. */
+  const [bordering, setBordering] = useState(false);
   const [finding, setFinding] = useState(false);
   const [commenting, setCommenting] = useState(true);
   /**
@@ -177,6 +180,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           return files.current?.save();
         case 'print':
           return window.print();
+        case 'dialog.borders':
+          return setBordering(true);
         case 'find':
           return setFinding((was) => !was);
         case 'outline':
@@ -313,6 +318,15 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               onClose={() => setFinding(false)}
             />
           ) : null}
+          {/*
+            테두리 및 음영. 대화상자이므로 문서 위가 아니라 문서 **밖**에 떠야 하고, `Dialog` 가
+            포털로 그것을 한다 — 여기 두는 것은 편집기를 아는 자리이기 때문이다.
+          */}
+          <BordersDialog
+            editor={instance?.editor ?? null}
+            open={bordering}
+            onClose={() => setBordering(false)}
+          />
           {/*
             The zoom is on a frame around the page, not on the page itself: a
             scaled element still takes up its unscaled room, so the frame is
