@@ -345,6 +345,28 @@ export {
   type LineRule,
   type SpacingState
 } from './spacing-model';
+export {
+  createWordPageSetup,
+  currentPageSetup,
+  pageSetupEditable,
+  WordPageSetupExtension,
+  type SetPageSetupPayload
+} from './page-setup-commands';
+export {
+  drawnSize,
+  isUsable,
+  orientationOf,
+  pageSetupOf,
+  pageSetupPatch,
+  pageSetupProperties,
+  paperOf,
+  roomFor,
+  withOrientation,
+  withPaper,
+  PAPERS,
+  type Orientation,
+  type PageSetup
+} from './page-setup-model';
 export { selectedBlocks } from './selected-blocks';
 export { createWordComments, WordCommentExtension, type CommentAuthor } from './comment-commands';
 export { createWordRevisions, WordRevisionExtension } from './revision-commands';

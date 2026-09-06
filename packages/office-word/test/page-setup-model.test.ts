@@ -7,6 +7,7 @@ import {
   pageSetupOf,
   pageSetupPatch,
   pageSetupProperties,
+  drawnSize,
   paperOf,
   roomFor,
   withOrientation,
@@ -24,6 +25,7 @@ import {
 const letter: PageSetup = {
   width: 12240,
   height: 15840,
+  orientation: 'portrait',
   marginTop: 1440,
   marginBottom: 1440,
   marginLeft: 1440,
@@ -42,7 +44,29 @@ describe('지금 무엇이 정해져 있는가', () => {
     ]);
     expect(state.width).toBe(11906);
     expect(state.columns).toBe(2);
-    expect(state.marginRight).toBe(null);
+  });
+
+  /**
+   * **적히지 않은 값은 혼합이 아니라 스키마의 것이다.**
+   *
+   * 첫 판은 원시 속성만 읽었고, 그래서 시작 문서(여백 넷만 적는다)에서 폭을 *혼합*으로 답했다.
+   * 방향은 두 변의 관계인데 두 변을 모르니 가로로 바꿔도 아무 일이 없었다 — 브라우저의
+   * `changes()` 가 *"종이의 모양이 바뀌지 않았습니다"* 로 잡았다.
+   */
+  it('적히지 않은 값은 스키마가 말하는 값이다', () => {
+    const state = pageSetupOf([{ marginLeft: 1440 }]);
+    expect(state.width).toBe(12240);
+    expect(state.height).toBe(15840);
+    expect(state.marginRight).toBe(1440);
+    expect(state.columns).toBe(1);
+  });
+
+  it('아무것도 안 적은 구역에서도 방향을 안다 — 이것이 없으면 가로 단추가 죽는다', () => {
+    expect(orientationOf(pageSetupOf([{}]))).toBe('portrait');
+  });
+
+  it('하나는 적고 하나는 안 적었는데 값이 같으면 혼합이 아니다', () => {
+    expect(pageSetupOf([{ pageWidth: 12240 }, {}]).width).toBe(12240);
   });
 
   it('서로 다르게 답하면 혼합이다', () => {
@@ -50,34 +74,61 @@ describe('지금 무엇이 정해져 있는가', () => {
   });
 
   it('빈 선택은 모두 혼합이다', () => {
-    expect(Object.values(pageSetupOf([]))).toEqual(Array(11).fill(null));
+    expect(Object.values(pageSetupOf([]))).toEqual(Array(12).fill(null));
   });
 });
 
 describe('방향', () => {
   /**
-   * **적힌 것이 아니라 두 변에서 읽는다.** `layout.ts` 는 `orientation` 을 보지 않고 폭과 높이만
-   * 본다. 저장된 이름이 화면과 어긋나 있으면 어긋난 쪽이 틀린 것이고, 대화상자는 화면과 같은
-   * 말을 해야 한다.
+   * **저장값은 세운 상태의 두 변이고, `orientation` 이 눕히라는 지시다.**
+   *
+   * 첫 판은 반대로 알았다 — `layout.ts` 를 105줄부터 읽어 96줄의 `landscape` 를 놓쳤고, 방향을
+   * 바꿀 때 두 수를 맞바꿨다. 그리는 쪽이 한 번 더 뒤집어 세로가 나왔고, 브라우저의 `changes()`
+   * 가 *"종이의 모양이 바뀌지 않았습니다"* 로 잡았다.
    */
-  it('폭이 높이보다 크면 가로다 — 무엇이라고 적혀 있든', () => {
-    expect(orientationOf(letter)).toBe('portrait');
-    expect(orientationOf({ ...letter, width: 15840, height: 12240 })).toBe('landscape');
-  });
-
-  it('바꾸면 두 수가 맞바뀐다', () => {
+  it('바꾸면 이름만 바뀌고 두 변은 그대로다', () => {
     const wide = withOrientation(letter, 'landscape');
-    expect(wide.width).toBe(15840);
-    expect(wide.height).toBe(12240);
+    expect(wide.orientation).toBe('landscape');
+    expect(wide.width).toBe(12240);
+    expect(wide.height).toBe(15840);
   });
 
-  it('이미 그 방향이면 아무것도 안 한다 — 두 번 눌러도 돌아오지 않는다', () => {
-    const wide = withOrientation(letter, 'landscape');
-    expect(withOrientation(wide, 'landscape')).toEqual(wide);
+  it('눕은 뒤의 두 변은 맞바뀐 것이다 — 독자가 보는 종이', () => {
+    expect(drawnSize(letter)).toEqual({ width: 12240, height: 15840 });
+    expect(drawnSize(withOrientation(letter, 'landscape'))).toEqual({
+      width: 15840,
+      height: 12240
+    });
   });
 
-  it('크기를 모르면 방향도 모른다', () => {
-    expect(orientationOf({ ...letter, width: null })).toBe(null);
+  it('두 번 눌러도 돌아오지 않는다', () => {
+    const wide = withOrientation(withOrientation(letter, 'landscape'), 'landscape');
+    expect(drawnSize(wide)).toEqual({ width: 15840, height: 12240 });
+  });
+
+  it('크기를 모르면 눕은 크기도 모른다', () => {
+    expect(drawnSize({ ...letter, width: null })).toBe(null);
+  });
+
+  /**
+   * **그리는 쪽과 같은 두 줄인지 세운다.** 넷이 이 규약을 쓴다 — `layout.ts:96`, `css.ts:381`,
+   * `css.ts:421`, `canvas-insert.ts:141`. 이 검사는 그 넷 중 하나가 되어 본다: 규약이 바뀌면
+   * 여기가 먼저 빨개져야, 대화상자가 두 번 뒤집는 판으로 돌아가지 않는다.
+   */
+  it('그리는 쪽의 규약과 같다', () => {
+    const like = (format: { pageWidth: number; pageHeight: number; orientation?: string }) => {
+      const landscape = format.orientation === 'landscape';
+      return {
+        width: landscape ? format.pageHeight : format.pageWidth,
+        height: landscape ? format.pageWidth : format.pageHeight
+      };
+    };
+    for (const facing of ['portrait', 'landscape'] as const) {
+      const setup = withOrientation(letter, facing);
+      expect(drawnSize(setup)).toEqual(
+        like({ pageWidth: 12240, pageHeight: 15840, orientation: facing })
+      );
+    }
   });
 });
 
@@ -86,12 +137,11 @@ describe('용지', () => {
     expect(withPaper(letter, 'a4').width).toBe(11906);
   });
 
-  /** 가로로 쓰던 사람이 A4 를 고르면 **가로 A4** 를 받아야 한다. */
-  it('고를 때 지금 방향을 지킨다', () => {
-    const wide = withOrientation(letter, 'landscape');
-    const a4 = withPaper(wide, 'a4');
+  /** 가로로 쓰던 사람이 A4 를 고르면 **가로 A4** 를 받는다 — 방향은 건드리지 않으므로. */
+  it('고를 때 방향은 그대로다', () => {
+    const a4 = withPaper(withOrientation(letter, 'landscape'), 'a4');
     expect(orientationOf(a4)).toBe('landscape');
-    expect(a4.width).toBe(16838);
+    expect(drawnSize(a4)).toEqual({ width: 16838, height: 11906 });
   });
 
   it('지금 크기가 어느 용지인지 되읽는다 — 방향과 무관하게', () => {
@@ -154,10 +204,12 @@ describe('구역에 쓰는 것', () => {
     expect(patch.columnCount).toBe(1);
   });
 
-  /** 셋을 따로 두면 *가로*라고 적혀 있으면서 세로인 페이지가 생긴다. */
-  it('방향은 폭과 높이에서 계산해서 쓴다', () => {
-    expect(pageSetupPatch(letter).orientation).toBe('portrait');
-    expect(pageSetupPatch(withOrientation(letter, 'landscape')).orientation).toBe('landscape');
+  /** 셋을 **적힌 그대로** 쓴다 — 여기서 한 번 더 계산하면 그리는 쪽과 합쳐 두 번 뒤집힌다. */
+  it('방향과 두 변을 그대로 쓴다', () => {
+    const wide = pageSetupPatch(withOrientation(letter, 'landscape'));
+    expect(wide.orientation).toBe('landscape');
+    expect(wide.pageWidth).toBe(12240);
+    expect(wide.pageHeight).toBe(15840);
   });
 
   it('혼합인 값은 아예 넣지 않는다', () => {
@@ -166,8 +218,16 @@ describe('구역에 쓰는 것', () => {
     expect(patch.marginRight).toBe(1440);
   });
 
-  it('크기를 모르면 방향도 안 쓴다', () => {
-    expect('orientation' in pageSetupPatch({ ...letter, width: null })).toBe(false);
+  it('방향이 혼합이면 안 쓴다', () => {
+    expect('orientation' in pageSetupPatch({ ...letter, orientation: null })).toBe(false);
+  });
+
+  /** 가로 A4 의 좌우 여백은 11906 이 아니라 **16838** 안에 들어가야 한다. */
+  it('자리는 눕은 뒤의 두 변으로 잰다', () => {
+    const wide = withOrientation(letter, 'landscape');
+    expect(roomFor(wide)?.across).toBe(15840 - 2880);
+    expect(isUsable({ ...wide, marginLeft: 11000 })).toBe(true);
+    expect(isUsable({ ...letter, marginLeft: 11000 })).toBe(false);
   });
 
   it('쓴 것을 되읽으면 같은 상태가 나온다', () => {

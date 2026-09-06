@@ -99,10 +99,10 @@ Four numbers, all produced by `packages/office-word/test/conformance.test.ts`:
 
 | | |
 | --- | ---: |
-| commands registered | 169 (157 Word's own) |
+| commands registered | 170 (158 Word's own) |
 | attributes the product **draws** | 611 |
 | of those, **unread** — declared and reaching nothing | 16 *(ratchet)* |
-| of those, **unsettable** — drawn and reachable by nothing | 124 *(ratchet)* |
+| of those, **unsettable** — drawn and reachable by nothing | 116 *(ratchet)* |
 | attributes a reader can set, from the two declared surfaces | 21 |
 
 Both counts are ratchets rather than exemption lists, and for the same reason:
@@ -125,9 +125,9 @@ The names left group themselves, and the grouping *is* the work list:
 | ---: | ---: | --- |
 | ~~1~~ | ~~16~~ | ~~**a borders dialog**~~ — **done**, and it took 48 off the ratchet rather than 16; see below |
 | ~~2~~ | ~~5~~ | ~~**paragraph spacing**~~ — **done**, and it took 12: five names on three block types |
+| ~~3~~ | ~~8~~ | ~~**page setup**~~ — **done**, and it took exactly 8: one node, not three |
 | 1 | 12 | **a field's own settings** — `tag`, `literal`, `sequence`, `limitLocation`, `showContents` |
-| 2 | 8 | **page setup** — page size, margins, gutter, columns and their spacing and separator |
-| 3 | 7 | **table properties** — `cellSpacing`, `hide*`, `noWrap`, `heightRule` |
+| 2 | 7 | **table properties** — `cellSpacing`, `hide*`, `noWrap`, `heightRule` |
 
 plus a handful a **drag** writes on a drawing, which are exemptions rather than
 work.
@@ -138,10 +138,33 @@ work.
 | --- | ---: | ---: | ---: | ---: |
 | 테두리 및 음영 | 243 | 104 | 248 | 184 → 136 |
 | 문단 간격 | 168 | 86 | 154 | 136 → 124 |
+| 페이지 설정 | 198 | 99 | 200 | 124 → 116 |
 
 The second was cheaper in every column and needed no new decision: the shape was
 settled, `selected-blocks.ts` already existed (extracted for the first), and the
 menu already had a 서식 to hang from.
+
+### The page-setup dialog got the convention backwards, and four readers already agreed on it
+
+`pageWidth` and `pageHeight` are the **upright** dimensions; `orientation` is the
+instruction to lay the sheet on its side. Four places read it that way and all
+four are the same two lines — `layout.ts:96`, `css.ts:381`, `css.ts:421`,
+`canvas-insert.ts:141`.
+
+The first version of the dialog had it inverted. Reading `layout.ts` from its
+margin arithmetic downward missed the `landscape` line six lines above it, and
+the model was built on *orientation is the relation between the two sides*. So
+choosing 가로 swapped the stored numbers **and** wrote the name, the drawing
+swapped them again, and the sheet came back upright.
+
+Three things caught it, in the order that mattered: `changes()` said *the shape
+did not change*; a probe printed the document and showed the **document was right
+and the drawing was wrong**, halving where to look; and `grep orientation`
+returned four agreeing readers and one disagreeing sentence, which was mine.
+
+The A4 test stayed **green** throughout — the width was stale and only the height
+moved, so the ratio changed anyway. A free green hiding a real defect, which is
+the fifth of them this pair of dialogs produced and the first that cost anything.
 
 **The spacing dialog offers two line rules and Word has three.** `atLeast` and
 `exact` reach `paragraphCss` and leave by the same line — `twipToCss(line)`, whose

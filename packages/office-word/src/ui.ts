@@ -13,6 +13,7 @@
  */
 export { BordersDialog, type BordersDialogProps } from './borders-dialog';
 export { SpacingDialog, type SpacingDialogProps } from './spacing-dialog';
+export { PageSetupDialog, type PageSetupDialogProps } from './page-setup-dialog';
 export { CommentsPane, ANCHOR_STYPE, type CommentsPaneProps } from './comments-pane';
 export { DocumentTitle, type DocumentTitleProps } from './document-title';
 export { DrawingOverlay, type DrawingOverlayProps } from './drawing-overlay';

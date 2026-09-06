@@ -31,6 +31,7 @@ import { createWordCanvasShapes } from './canvas-shape-commands';
 import { createWordListCommands } from './list-commands';
 import { createWordBorders } from './border-commands';
 import { createWordSpacing } from './spacing-commands';
+import { createWordPageSetup } from './page-setup-commands';
 import { createWordComments, type CommentAuthor } from './comment-commands';
 import { createWordRevisions } from './revision-commands';
 import { createWordTracking } from './tracking-commands';
@@ -115,6 +116,8 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
     createWordBorders(),
     // 그리고 자리 — `paragraphCss` 와 `spacing.ts` 가 다섯을 다 그렸고 정할 곳이 없었다.
     createWordSpacing(),
+    // 그리고 종이 — 이것은 문단이 아니라 구역에 쓴다.
+    createWordPageSetup(),
     // Who is commenting is the host's to say, the same way the instant a date
     // field shows is — an editor that invented a name would be guessing.
     createWordComments(author),

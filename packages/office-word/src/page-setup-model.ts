@@ -11,16 +11,36 @@
  *
  * ## 이 파일이 세우는 하나
  *
- * **방향은 저장되는 값이 아니라 두 변의 관계다.**
+ * **`pageWidth`·`pageHeight` 는 세운 상태의 두 변이고, `orientation` 이 눕히라는 지시다.**
  *
- * 스키마에 `orientation` 이 있고 `pageWidth`·`pageHeight` 도 있다. 셋을 따로 쓰면 *가로*라고 적혀
- * 있으면서 세로인 페이지를 만들 수 있고, 그때 무엇이 이기는지는 읽는 쪽마다 다르다. 재보니
- * `layout.ts` 는 `orientation` 을 보지 않는다 — **폭과 높이만 본다.** 그러니 방향을 바꾸는 것은
- * 두 수를 맞바꾸는 일이고, `orientation` 은 그 결과를 적어 두는 이름일 뿐이다.
+ * 그리는 쪽 넷이 모두 그렇게 읽는다 — `layout.ts:96`, `css.ts:381`(인쇄용 페이지 상자),
+ * `css.ts:421`(`pageCss`), `canvas-insert.ts:141`. 넷 다 같은 두 줄이다:
+ *
+ * ```ts
+ * const landscape = format.orientation === 'landscape';
+ * const width = landscape ? rawHeight : rawWidth;
+ * ```
+ *
+ * **첫 판은 반대로 알았다.** `layout.ts` 를 105줄부터 읽어 96줄의 `landscape` 를 놓쳤고, *방향은
+ * 두 변의 관계이고 `orientation` 은 적어 두는 이름일 뿐*이라고 이 자리에 적었다. 그래서 가로를
+ * 고르면 저장값을 맞바꾸고 이름도 적었고 — 그리는 쪽이 **한 번 더** 뒤집어 세로가 나왔다.
+ * 브라우저의 `changes()` 가 *"종이의 모양이 바뀌지 않았습니다"* 로 잡았다.
+ *
+ * 그러니 방향을 바꾸는 것은 `orientation` 한 글자를 쓰는 일이고, 두 변은 건드리지 않는다.
+ * 대신 **자리를 잴 때는 눕은 뒤의 두 변**으로 재야 한다 — 독자가 보는 것이 그것이므로.
  */
 
-/** 트윕. 1인치 = 1440. */
-export const TWIPS_PER_INCH = 1440;
+import { pageSetupAttrs } from '@barocss/office-text';
+
+/**
+ * 1인치 = 1440트윕.
+ *
+ * **`ruler.ts` 것을 쓴다.** 여기 자기 판을 선언했다가 배럴에서 이름이 겹쳤고, 그것이 이 저장소가
+ * 반복해서 찾는 결함의 예고편이다 — `twipToPx` 가 두 패키지에 있었고 두 판이 다른 답을 냈다.
+ * 같은 상수가 둘이면 언젠가 하나만 고쳐진다.
+ */
+export { TWIPS_PER_INCH } from './ruler';
+import { TWIPS_PER_INCH } from './ruler';
 
 export type Orientation = 'portrait' | 'landscape';
 
@@ -39,9 +59,11 @@ export const PAPERS: readonly { id: string; label: string; width: number; height
 ];
 
 export interface PageSetup {
-  /** 트윕. `null` 은 혼합 — 고른 구역들이 서로 다르게 답한다. */
+  /** **세운 상태의** 폭, 트윕. `null` 은 혼합 — 고른 구역들이 서로 다르게 답한다. */
   width: number | null;
+  /** 세운 상태의 높이. */
   height: number | null;
+  orientation: Orientation | null;
   marginTop: number | null;
   marginBottom: number | null;
   marginLeft: number | null;
@@ -56,20 +78,39 @@ export interface PageSetup {
 
 type Attrs = Readonly<Record<string, unknown>>;
 
+/**
+ * **적히지 않은 값은 스키마의 기본값이다** — 그리고 그 기본값은 **스키마에게 물어서** 안다.
+ *
+ * 시작 문서의 구역은 여백 넷만 적는다. 폭도 높이도 없다 — 스키마가 `pageWidth: num(12240)` 이라고
+ * 선언했으므로 적을 필요가 없기 때문이다. 첫 판은 원시 속성만 읽어서 폭을 *혼합*으로 답했고,
+ * 그러자 방향을 바꿔도 아무 일이 없었다(방향은 두 변의 관계인데 두 변을 몰랐으므로). 브라우저
+ * 검사의 `changes()` 가 *"종이의 모양이 바뀌지 않았습니다 — 0.77 그대로입니다"* 로 잡았다.
+ *
+ * `layout.ts` 도 같은 답을 한다 — `num(format.marginTop, 1440)`. 다른 것은 저기는 숫자를 손으로
+ * 적었고 여기는 **선언에서 읽는다**는 점이고, 그래서 스키마의 기본값이 바뀌는 날 저쪽만 낡는다.
+ * 이 파일은 안 낡는다.
+ */
+const PAGE_DEFAULTS: Readonly<Record<string, unknown>> = Object.fromEntries(
+  Object.entries(pageSetupAttrs())
+    .map(([name, shape]) => [name, (shape as { default?: unknown }).default])
+    .filter(([, value]) => value !== undefined)
+);
+
 function agreed<T>(values: readonly (T | undefined)[]): T | null {
   if (values.length === 0) return null;
   const first = values[0];
   return values.every((one) => one === first) && first !== undefined ? first : null;
 }
 
-/** 고른 구역들이 지금 말하는 페이지. */
+/** 고른 구역들이 지금 말하는 페이지 — 적힌 것이 없으면 스키마가 말하는 것. */
 export function pageSetupOf(surfaces: readonly Attrs[]): PageSetup {
   const read = <T>(name: string): T | null =>
-    agreed(surfaces.map((attrs) => attrs[name] as T | undefined));
+    agreed(surfaces.map((attrs) => (attrs[name] ?? PAGE_DEFAULTS[name]) as T | undefined));
 
   return {
     width: read<number>('pageWidth'),
     height: read<number>('pageHeight'),
+    orientation: read<Orientation>('orientation'),
     marginTop: read<number>('marginTop'),
     marginBottom: read<number>('marginBottom'),
     marginLeft: read<number>('marginLeft'),
@@ -82,39 +123,39 @@ export function pageSetupOf(surfaces: readonly Attrs[]): PageSetup {
   };
 }
 
-/**
- * 지금 방향 — **적힌 것이 아니라 두 변에서 읽는다.**
- *
- * `layout.ts` 가 폭과 높이만 보므로, 화면이 가로면 가로다. 저장된 `orientation` 이 그것과 어긋나
- * 있으면 어긋난 쪽이 틀린 것이고, 대화상자는 **화면과 같은 말을 해야 한다.**
- */
-export function orientationOf(setup: PageSetup): Orientation | null {
-  if (setup.width === null || setup.height === null) return null;
-  return setup.width > setup.height ? 'landscape' : 'portrait';
-}
+/** 지금 방향 — 적힌 것 그대로. 스키마의 기본값이 `portrait` 이므로 보통 그것이 온다. */
+export const orientationOf = (setup: PageSetup): Orientation | null => setup.orientation;
 
-/** 방향을 바꾼다 — 두 수를 맞바꾸는 것으로. 이미 그 방향이면 아무것도 안 한다. */
-export function withOrientation(setup: PageSetup, want: Orientation): PageSetup {
-  if (setup.width === null || setup.height === null) return setup;
-  if (orientationOf(setup) === want) return setup;
-  return { ...setup, width: setup.height, height: setup.width };
-}
+/** 방향을 바꾼다 — **한 글자를 쓴다.** 두 변은 세운 상태 그대로 둔다. */
+export const withOrientation = (setup: PageSetup, want: Orientation): PageSetup => ({
+  ...setup,
+  orientation: want
+});
 
-/** 이름 있는 용지를 고른다 — 지금 방향을 지키면서. */
+/** 이름 있는 용지를 고른다 — 두 변은 세운 상태이므로 방향과 상관이 없다. */
 export function withPaper(setup: PageSetup, paperId: string): PageSetup {
   const paper = PAPERS.find((one) => one.id === paperId);
-  if (!paper) return setup;
-  const upright = { ...setup, width: paper.width, height: paper.height };
-  const want = orientationOf(setup);
-  return want ? withOrientation(upright, want) : upright;
+  return paper ? { ...setup, width: paper.width, height: paper.height } : setup;
 }
 
-/** 지금 크기가 어느 용지인가 — 방향과 무관하게. 어느 것도 아니면 사용자 지정. */
+/** 지금 크기가 어느 용지인가. 어느 것도 아니면 사용자 지정. */
 export function paperOf(setup: PageSetup): string | undefined {
   const { width, height } = setup;
   if (width === null || height === null) return undefined;
-  const [short, long] = width < height ? [width, height] : [height, width];
-  return PAPERS.find((one) => one.width === short && one.height === long)?.id;
+  return PAPERS.find((one) => one.width === width && one.height === height)?.id;
+}
+
+/**
+ * **눕은 뒤의 두 변** — 독자가 실제로 보는 종이.
+ *
+ * 그리는 쪽 넷이 하는 그 두 줄이고, 여기서도 해야 하는 이유는 자리를 재는 데 쓰이기 때문이다:
+ * 가로 A4 의 좌우 여백은 11906 이 아니라 16838 안에 들어가야 한다.
+ */
+export function drawnSize(setup: PageSetup): { width: number; height: number } | null {
+  if (setup.width === null || setup.height === null) return null;
+  return setup.orientation === 'landscape'
+    ? { width: setup.height, height: setup.width }
+    : { width: setup.width, height: setup.height };
 }
 
 /**
@@ -125,13 +166,15 @@ export function paperOf(setup: PageSetup): string | undefined {
  * 방어하고 있다는 것은 정할 때 막아야 한다는 뜻이다.**
  */
 export function roomFor(setup: PageSetup): { across: number; down: number } | null {
-  const { width, height, marginLeft, marginRight, marginTop, marginBottom, gutter, gutterAtTop } =
-    setup;
-  if (width === null || height === null) return null;
+  const paper = drawnSize(setup);
+  if (!paper) return null;
+  const { marginLeft, marginRight, marginTop, marginBottom, gutter, gutterAtTop } = setup;
 
   const bind = gutter ?? 0;
-  const across = width - (marginLeft ?? 0) - (marginRight ?? 0) - (gutterAtTop === true ? 0 : bind);
-  const down = height - (marginTop ?? 0) - (marginBottom ?? 0) - (gutterAtTop === true ? bind : 0);
+  const across =
+    paper.width - (marginLeft ?? 0) - (marginRight ?? 0) - (gutterAtTop === true ? 0 : bind);
+  const down =
+    paper.height - (marginTop ?? 0) - (marginBottom ?? 0) - (gutterAtTop === true ? bind : 0);
   return { across, down };
 }
 
@@ -144,8 +187,9 @@ export function isUsable(setup: PageSetup): boolean {
 /**
  * 구역에 쓸 속성.
  *
- * 혼합(`null`)은 쓰지 않는다 — 문단 간격과 같은 이유다. 그리고 **`orientation` 은 폭과 높이에서
- * 계산해서 쓴다**: 셋을 따로 두면 *가로*라고 적혀 있으면서 세로인 페이지가 생긴다.
+ * 혼합(`null`)은 쓰지 않는다 — 문단 간격과 같은 이유다. 셋(`pageWidth`·`pageHeight`·
+ * `orientation`)은 **적힌 그대로** 쓴다: 그리는 쪽이 눕히는 일을 맡고 있으므로, 여기서 한 번 더
+ * 계산하면 두 번 뒤집힌다. 그것이 첫 판의 결함이었다.
  */
 export function pageSetupPatch(setup: PageSetup): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
@@ -164,9 +208,7 @@ export function pageSetupPatch(setup: PageSetup): Record<string, unknown> {
   put('columnCount', setup.columns);
   put('columnSpacing', setup.columnSpacing);
   put('columnSeparator', setup.columnSeparator);
-
-  const facing = orientationOf(setup);
-  if (facing) patch.orientation = facing;
+  if (setup.orientation !== null) patch.orientation = setup.orientation;
 
   return patch;
 }
@@ -177,6 +219,7 @@ export function pageSetupProperties(): string[] {
     pageSetupPatch({
       width: TWIPS_PER_INCH,
       height: TWIPS_PER_INCH * 2,
+      orientation: 'portrait',
       marginTop: 0,
       marginBottom: 0,
       marginLeft: 0,

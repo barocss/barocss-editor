@@ -11,6 +11,7 @@ import { toolbarAttrs, toolbarIcons } from '../src/toolbar-model';
 import { wordRulerAttrs } from '../src/ruler-model';
 import { borderEditable } from '../src/border-commands';
 import { spacingEditable } from '../src/spacing-commands';
+import { pageSetupEditable } from '../src/page-setup-commands';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { registerWordRenderers } from '../src/renderers/word';
 
@@ -353,7 +354,16 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * `paragraphCss` 가 `spacingBefore`·`spacingAfter`·`spacingLine`·`spacingLineRule` 을,
        * `spacing.ts` 가 `contextualSpacing` 을 처음부터 그렸다. 정할 곳만 없었다.
        */
-      ratchet: { 'every-attribute-is-read': 16, 'every-property-can-be-edited': 124 },
+      /*
+       * **124 → 116** — 세 번째 대화상자, 「페이지 설정」. **정확히 여덟**이고, `word.md` 가
+       * 예고한 수 그대로다: `pageWidth`·`pageHeight`·`marginLeft`·`marginRight`·`marginGutter`
+       * ·`gutterAtTop`·`columnCount`·`columnSpacing`·`columnSeparator` 중 아직 안 세어진 여덟.
+       *
+       * 앞의 둘과 달리 노드가 하나다 — 페이지 설정은 문단이 아니라 `surface` 의 것이므로
+       * `pageSetupEditable()` 이 `surface.` 하나만 붙인다. 세 노드에 걸쳐 48이 떨어지던 테두리와
+       * 다른 모양이고, 검사가 `node.attr` 을 받게 된 덕에 이 차이가 숫자에 그대로 나온다.
+       */
+      ratchet: { 'every-attribute-is-read': 16, 'every-property-can-be-edited': 116 },
       /**
        * **A word processor has no click that selects a block**, which is what this check needs.
        *
@@ -379,7 +389,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * `ruler-model.ts`, which is the only place a paragraph's indents and its tab stops can be
        * changed at all. `notYet: ['every-property-can-be-edited']` was here until both existed.
        */
-      editable: [...toolbarAttrs(), ...wordRulerAttrs(), ...borderEditable(), ...spacingEditable()],
+      editable: [...toolbarAttrs(), ...wordRulerAttrs(), ...borderEditable(), ...spacingEditable(), ...pageSetupEditable()],
       /**
        * Whether the product draws anything for a mark — a vocabulary no check could see.
        *

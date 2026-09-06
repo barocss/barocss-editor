@@ -122,6 +122,15 @@ const DECLARED: WordMenu[] = [
           { view: 'dialog.spacing', label: '문단 간격…' },
           { view: 'dialog.borders', label: '테두리 및 음영…' }
         ]
+      },
+      {
+        /*
+         * **자기 묶음이다.** 앞의 둘은 문단에 쓰고 이것은 **구역**에 쓴다 — 커서가 어느 문단에
+         * 있든 바뀌는 것은 그 문단이 든 페이지 전체다. 메뉴에서 줄 하나 띄우는 것이 그 차이를
+         * 말하는 가장 싼 방법이고, Word 도 그렇게 나눈다.
+         */
+        id: 'page',
+        items: [{ view: 'dialog.page', label: '페이지 설정…' }]
       }
     ]
   },
