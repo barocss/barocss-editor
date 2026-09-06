@@ -121,8 +121,29 @@ const DECLARED: WordMenu[] = [
  *
  * ⌘P stays typed above, and it is the only one: printing is the browser's, so that chord is a fact
  * about the platform rather than a binding Word could derive.
+ *
+ * **In which alphabet is the caller's to say, and that is why this takes an argument.**
+ *
+ * It used to be a `const` that called `withHints(DECLARED, taughtKeys(WORD_KEYS))`, and `withHints`
+ * defaulted `apple` to `true`. So every menubar in all three products printed `⌘` on every platform —
+ * and `apps/site` printed the *toolbar* right and the *menubar* wrong on the same screen, because the
+ * ribbon asks `onApple()` and the menubar read this constant. Being a `const` made it worse than a
+ * wrong default: the platform was decided once, at import.
+ *
+ * The toolbar already had the shape this now follows — `controlRows(editor, TOOLBAR, { keys, apple })`.
+ * The model declares what the menus offer; the **surface** writes the chord in the reader's alphabet.
  */
-export const WORD_MENUS: WordMenu[] = withHints(DECLARED, taughtKeys(WORD_KEYS));
+export function wordMenus(apple: boolean): WordMenu[] {
+  return withHints(DECLARED, taughtKeys(WORD_KEYS), apple);
+}
+
+/**
+ * The menus with no chords written on them.
+ *
+ * What the model can state without knowing who is reading. Everything that asks *what does this
+ * menubar offer* — the command sweep, the spec numbers, the harness — wants this one.
+ */
+export const WORD_MENUS: WordMenu[] = DECLARED;
 
 /** Every command the menubar can run — the harness's question, answered by the model. */
 export function wordMenuCommands(menus: WordMenu[] = WORD_MENUS): string[] {

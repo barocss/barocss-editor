@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { findMatches, replaceMatches, step, type Match } from '@barocss/office-text';
+/* Importing the type also registers how it is drawn — see `highlight-decorators.ts`. */
+import { MATCH_STYPE } from './highlight-decorators';
 import { Icon } from '@barocss/office-icons';
 import { Button, cn, IconButton } from '@barocss/office-ui';
 
@@ -20,7 +22,6 @@ import { Button, cn, IconButton } from '@barocss/office-ui';
  * belongs in no undo step, and two people reading the same document are not
  * searching for the same thing.
  */
-const MATCH_STYPE = 'w-find-match';
 
 /** 찾기 상자에게 필요한 것 — 문서, 그 문서를 그리는 뷰, 그리고 열려 있는가. */
 export interface FindPanelProps {

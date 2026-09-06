@@ -28,8 +28,12 @@ import type { MaybeSelection, ModelSelection } from './types';
  *
  * `t1:2 → t2:0` 은 sid 가 둘이지만 **화면의 같은 점**일 수 있다 — 두 런이 인접하면 그 사이에 글자가
  * 없다. 그것을 알려면 문서를 읽어야 하고, 이 함수는 문서를 모른다. 그래서 준 값을 그대로 둔다.
- * 그 마지막 한 칸은 `extensions/src/guards.ts` 의 `hasRange` 가 `extractModelTextFromRange` 로
- * 답할 자리이고(백로그 *"버블 툴바의 조건은 `collapsed` 하나로 답할 수 없다"*), **아직 열려 있다.**
+ *
+ * **그 마지막 한 칸은 이제 닫혔고, 여기가 아니다.** `extensions/src/guards.ts` 의 `hasRange` 가
+ * 편집기를 손에 쥐고 있으므로 문서를 읽을 수 있고, `@barocss/shared` 의 `selectsCharacters` 로
+ * *두 자리 사이에 글자가 있는가* 를 묻는다. 이 함수는 그 앞까지만 답하고 — 그것이 선택 하나만
+ * 보는 함수가 답할 수 있는 전부다 — 술어의 나머지는 그 층에 있다.
+ * 검사: `extensions/test/guards.test.ts`, `shared/src/selection-text.test.ts`.
  *
  * ## `range` 에만 뜻이 있다
  *

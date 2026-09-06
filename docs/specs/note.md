@@ -129,7 +129,7 @@ keyboard's route differ, the button hides the defect**, and the defect was in
 ## What the seam actually cost
 
 `office-note` is **2,392 lines** and `apps/note` is **257**. For comparison, the chrome
-still living in the other three apps is **8,503 lines**.
+still living in the other three apps is **8,493 lines**.
 
 That number is a **gauge, not a fact about note** — it is what the other three have not moved yet,
 and it goes down as they do. It was 35,927 when this was written, and the site builder has moved
@@ -170,7 +170,7 @@ In the order the measurements put it:
 
    **That margin is a coupling worth naming.** `apps/site` mounts this very view inside its row
    drawer (`data-editor.tsx`), so 20px of left padding here is 20px less content width *there*. The
-   site's 283 browser tests pass with it, so nothing measurable broke — but it is a change this
+   site's 291 browser tests pass with it, so nothing measurable broke — but it is a change this
    package makes to a host's layout, and a host that cannot afford it has no way to say so today.
 2. **The service layer, which is most of what *standalone CMS* means.** A list of
    posts, storage, publishing, an author. Measured at roughly zero across the

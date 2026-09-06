@@ -108,7 +108,22 @@ export { useWheelZoom, anchorOf, anchorShift, type WheelZoom } from './wheel-zoo
  * which one a product wants and why the scrolling one cannot anchor a zoom outward from a fitted
  * view.
  */
-export { useViewport, zoomIn, zoomOut, ZOOM_STEP, type Viewport, type ViewportControls } from './viewport';
+export {
+  useViewport,
+  zoomIn,
+  zoomOut,
+  ZOOM_STEP,
+  /*
+   * The **button's** answer to the same question, which is a ladder rather than a multiplier — see
+   * `viewport.ts` for the split by gesture, and for the two comments that contradicted each other
+   * across a package boundary while the check on each one passed.
+   */
+  stepZoom,
+  clampZoom,
+  type ZoomLadder,
+  type Viewport,
+  type ViewportControls
+} from './viewport';
 
 export {
   LENGTH_UNITS,

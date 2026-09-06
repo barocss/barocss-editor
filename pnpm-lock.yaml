@@ -1030,9 +1030,6 @@ importers:
       '@barocss/editor-view-dom':
         specifier: workspace:*
         version: link:../editor-view-dom
-      '@barocss/extensions':
-        specifier: workspace:*
-        version: link:../extensions
       '@barocss/office-controls':
         specifier: workspace:*
         version: link:../office-controls
@@ -1046,6 +1043,9 @@ importers:
       '@barocss/datastore':
         specifier: workspace:*
         version: link:../datastore
+      '@barocss/extensions':
+        specifier: workspace:*
+        version: link:../extensions
       '@barocss/office-note':
         specifier: workspace:*
         version: link:../office-note

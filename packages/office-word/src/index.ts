@@ -196,6 +196,12 @@ export { createFieldResolver, type FieldResolver } from '@barocss/office-text';
 
 export { lineStartOffsets, type LineAnchor } from './line-offsets';
 export { registerPageBreakWidget, PAGE_BREAK_STYPE } from './page-break-widget';
+/*
+ * The two highlights that wrap the document's own words. Registered on import rather than by the
+ * host — the templates used to live in `apps/word/src/main.tsx`, so a comment drawn anywhere else
+ * came out as a fallback `<div>`. Exported for a host that would rather say so out loud.
+ */
+export { registerHighlightDecorators, ANCHOR_STYPE, MATCH_STYPE } from './highlight-decorators';
 export {
   registerTableBreakWidget,
   registerTableHeaderRepeat,
@@ -702,6 +708,7 @@ export {
 } from '@barocss/office-canvas';
 export {
   WORD_MENUS,
+  wordMenus,
   wordMenuCommands,
   wordMenuEntry,
   wordMenuId,

@@ -42,6 +42,15 @@ export {
   type PositionContext
 } from './text-position';
 
+/**
+ * **범위가 덮는 글자** — `collapsed` 가 답하지 못하는 마지막 한 칸(`selection-text.ts` 머리 주석).
+ */
+export {
+  extractModelTextFromRange,
+  selectsCharacters,
+  type ModelTextReader
+} from './selection-text';
+
 export {
   createNodeSelection,
   fromDOMSelection,

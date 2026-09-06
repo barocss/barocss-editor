@@ -16,7 +16,13 @@
  *
  * Import it beside the product's own chrome:
  *
- *     import '@barocss/office-word/text.css';
+ *     import '@barocss/office-text/text.css';
+ *
+ * The package name was wrong here — `@barocss/office-word/text.css`, a door that package does not
+ * open — for as long as the line has existed. Nothing read it, which is the whole hazard of an
+ * instruction in a comment: the four hosts that load this file were each written from a working
+ * example rather than from here, so the one place a **new** host would have looked was the one
+ * place that was wrong.
  */
 
 /*
@@ -169,6 +175,29 @@
 }
 
 /*
+ * **`.w-table`, `.w-cell` and `.w-cell-clip` are not here, and that is measured rather than
+ * forgotten.**
+ *
+ * They are `renderers.ts`'s — a table's width, a cell's four borders and the clip box's padding,
+ * the fallback for a document that resolves none of them — so by every argument above they belong
+ * beside the selection rules under them. They were moved here and put back the same hour, because
+ * `office-site/test/page-css-covers-what-a-page-draws.test.ts` answered:
+ *
+ *     .w-cell      — drawn by bTableCell, bTableHeaderCell, absent from PAGE_CSS
+ *     .w-cell-clip — drawn by bTableCell, bTableHeaderCell, absent from PAGE_CSS
+ *     .w-table     — drawn by bTable,                       absent from PAGE_CSS
+ *
+ * `bTable` is in the **office** schema, so a page has tables; and this file is loaded by the
+ * *editor* and by nothing else, so a rule that lives only here makes the board right and the
+ * published page wrong. `.w-emoji` above is the shape that works: stated here **and** in
+ * `PAGE_CSS`, the same bytes reaching the visitor.
+ *
+ * So the move is one change to two files and `page-css.ts` is another owner's. Until then these
+ * three stay in `apps/word/src/style.css`, where the deck and the note already get none of them —
+ * which is the same defect as the unmarked bullets, still open. `/tmp/css-backlog.md`.
+ */
+
+/*
  * A selected block of cells, and a selected table.
  *
  * Written by `installCellSelection` rather than by a renderer, because being
@@ -260,4 +289,376 @@
   display: inline-block;
   line-height: 1;
   vertical-align: -0.1em;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Equations — thirty-one classes `math-renderers.ts` draws and nothing styled.
+ *
+ * These rules were in `apps/word/src/style.css` from the day they were written, and the renderer
+ * that draws them has been in **this** package the whole time (`registerTextRenderers()` calls
+ * `registerMathRenderers()` unconditionally, so every product registers them). So the same split
+ * that left the deck's bullets unmarked was here in a larger form: outside `apps/word` a fraction
+ * was two spans in a row, a radical was its contents with no hook, and a matrix was a run of text —
+ * **drawn wrongly rather than plainly**, which is the line this file is on the other side of.
+ *
+ * The maths *schema* is still Word's (`office-word/src/math-schema.ts`), so today only Word has
+ * nodes for these rules to match. That is an argument about where the schema lives and not about
+ * where the drawing does: a product that took the nodes would otherwise inherit the same silence,
+ * and the renderer it inherits is already here.
+ *
+ * ## Why here and not a `./math.css` of its own
+ *
+ * A second door is a second thing to forget, which is the reason `office-ui` gave for putting
+ * `.sr-only` in `tokens.css` rather than opening `./ui.css`. And it would buy nothing:
+ * `office-ui/test/every-host-imports-the-style-door.test.ts` makes **every host that depends on a
+ * package take every style door it opens**, so `note`, `site` and `slide` would import the maths
+ * either way. One door, and the same door as the renderer's package.
+ *
+ * ## What is still the product's
+ *
+ * Which *face* carries a fraktur or a script letter is taste and a question about the fonts a
+ * product ships — `math-drawn.test.ts` says so where it declines to assert on it. It is stated here
+ * because a rule that is missing draws nothing at all, and a product's own stylesheet loads after
+ * this one and can say a different face in one line. A default is not a decision taken away.
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+/*
+ * Equations.
+ *
+ * Boxes stacked and shifted, which is what mathematical typesetting is on the
+ * web — KaTeX produces the same kind of thing. What a browser cannot do alone is
+ * the part that depends on a font's MATH table: the glyph-assembly recipes that
+ * grow a bracket to fit what it holds. Those are approximated here, and the
+ * approximation is visible in the delimiters.
+ */
+.w-math {
+  font-family: 'Cambria Math', 'Latin Modern Math', 'STIX Two Math', serif;
+  white-space: nowrap;
+}
+
+/*
+ * A slot is a place the caret can go, so it has to be a place the author can
+ * see. An empty one draws as a dotted box — the same answer Word gives.
+ */
+.w-math-slot {
+  display: inline-block;
+  min-width: 0.35em;
+  min-height: 1em;
+}
+.w-math-slot:empty,
+.w-math-slot:has(> :only-child:empty) {
+  min-width: 0.7em;
+  border: 1px dotted currentColor;
+  opacity: 0.55;
+}
+
+.w-math-frac > .w-math-num {
+  padding: 0 0.2em;
+}
+.w-math-frac > .w-math-den {
+  padding: 0 0.2em;
+  border-top: 1px solid currentColor;
+}
+/*
+ * A linear fraction is the same two slots with a solidus between them, and a **skewed** one is those
+ * two on a diagonal — Word's `m:type` has four values and this file had rules for one of them.
+ *
+ * Which is worse than it sounds: the rules were written against `data-type` and **no renderer ever
+ * emitted it**, so even the one they covered never matched. A linear fraction has never been drawn
+ * as one in this product.
+ */
+.w-math-frac[data-type='lin'] > .w-math-den,
+.w-math-frac[data-type='skw'] > .w-math-den {
+  border-top: none;
+}
+.w-math-frac[data-type='lin'] > .w-math-num::after {
+  content: '/';
+}
+/*
+ * A skewed fraction is the same solidus set at an angle, with the two slots raised and lowered
+ * against it — which is what separates it from the linear one a reader would otherwise not notice.
+ */
+.w-math-frac[data-type='skw'] > .w-math-num {
+  vertical-align: super;
+}
+.w-math-frac[data-type='skw'] > .w-math-num::after {
+  content: '\2044';
+  padding: 0 0.1em;
+}
+.w-math-frac[data-type='skw'] > .w-math-den {
+  vertical-align: sub;
+}
+/* No rule at all, which is how a binomial coefficient is written. */
+.w-math-frac[data-type='noBar'] > .w-math-den {
+  border-top: none;
+}
+
+/*
+ * A square root is written `√` and a cube root `³√`. Word keeps the degree slot either way so an
+ * author can put one back, and says which with `m:degHide` — declared, and read nowhere, so the two
+ * were the same drawing.
+ */
+.w-math-rad[data-hide-degree='true'] > .w-math-deg {
+  display: none;
+}
+
+/*
+ * Where the **label** sits, which is not where the brace does: Word keeps `m:pos` for the brace and
+ * `m:vertJc` for the text under or over it, so an author can put a brace beneath a term and its
+ * label above.
+ */
+.w-math-groupchar[data-label-position='top'] {
+  flex-direction: column-reverse;
+}
+
+.w-math-sup-box > .w-math-sup,
+.w-math-subsup > .w-math-sup {
+  font-size: 0.72em;
+  vertical-align: super;
+}
+.w-math-sub-box > .w-math-sub,
+.w-math-subsup > .w-math-sub {
+  font-size: 0.72em;
+  vertical-align: sub;
+}
+
+/* The hook is a glyph; the bar over the body is a border, so it is as wide as
+ * whatever it covers. */
+.w-math-rad::before {
+  content: '√';
+  font-size: 1.1em;
+}
+.w-math-rad > .w-math-e {
+  border-top: 1px solid currentColor;
+  padding: 0 0.15em;
+}
+.w-math-rad > .w-math-deg {
+  font-size: 0.6em;
+  vertical-align: super;
+}
+
+.w-math-nary::before {
+  content: attr(data-char);
+  font-size: 1.6em;
+  vertical-align: middle;
+}
+.w-math-nary[data-limits='undOvr'] {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: middle;
+}
+.w-math-nary[data-limits='undOvr'] > .w-math-sub,
+.w-math-nary[data-limits='undOvr'] > .w-math-sup {
+  font-size: 0.7em;
+}
+
+/*
+ * Delimiters that grow to fit.
+ *
+ * A flex row whose brackets stretch to the height of what they hold. Word grows
+ * its brackets by assembling glyph pieces from the font's MATH table; there is
+ * none to read here, so these are drawn as borders with a radius — exact at
+ * every height, needing no measurement, and only an approximation of the shape
+ * of a real bracket. A brace is beyond what borders can draw and keeps its
+ * glyph.
+ */
+.w-math-delim {
+  display: inline-flex;
+  align-items: stretch;
+  vertical-align: middle;
+}
+.w-math-fence {
+  flex: 0 0 auto;
+  width: 0.3em;
+  align-self: stretch;
+  border: 1px solid currentColor;
+}
+.w-math-fence-open {
+  border-right: 0;
+  border-radius: 0.6em 0 0 0.6em / 50% 0 0 50%;
+  margin-right: 0.12em;
+}
+.w-math-fence-close {
+  border-left: 0;
+  border-radius: 0 0.6em 0.6em 0 / 0 50% 50% 0;
+  margin-left: 0.12em;
+}
+/* Square brackets are square, which borders draw exactly. */
+.w-math-fence[data-char='['],
+.w-math-fence[data-char=']'] {
+  border-radius: 0;
+}
+/* A vertical bar is one stroke and nothing else. */
+.w-math-fence[data-char='|'] {
+  width: 0;
+  border-radius: 0;
+  border-right: 0;
+  border-top: 0;
+  border-bottom: 0;
+}
+/*
+ * Anything a border cannot draw keeps its glyph, centred rather than stretched.
+ * Better an honest fixed brace than a curve pretending to be one.
+ */
+.w-math-fence[data-char='{']::before,
+.w-math-fence[data-char='}']::before,
+.w-math-fence[data-char='⟨']::before,
+.w-math-fence[data-char='⟩']::before {
+  content: attr(data-char);
+}
+.w-math-fence[data-char='{'],
+.w-math-fence[data-char='}'],
+.w-math-fence[data-char='⟨'],
+.w-math-fence[data-char='⟩'] {
+  border: 0;
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+}
+/* An empty delimiter character means no bracket on that side. */
+.w-math-fence[data-char=''] {
+  display: none;
+}
+
+.w-math-func > .w-math-fname {
+  font-style: normal;
+  padding-right: 0.15em;
+}
+
+.w-math-matrix {
+  display: inline-grid;
+  vertical-align: middle;
+  gap: 0.15em 0.5em;
+}
+/*
+ * How the columns line up — Word's `m:mcJc`. The gaps come from the document as an inline style;
+ * this is the half a stylesheet decides, which is what "left" and "right" mean in a grid cell.
+ */
+.w-math-matrix[data-align='left'] > .w-math-row > * {
+  text-align: left;
+}
+.w-math-matrix[data-align='right'] > .w-math-row > * {
+  text-align: right;
+}
+/* An empty cell's placeholder box, which a matrix can ask to do without. */
+.w-math-matrix[data-placeholders='hidden'] .w-math-e:empty {
+  visibility: hidden;
+}
+.w-math-row {
+  display: contents;
+}
+.w-math-array {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+}
+/*
+ * How a stack of equations is spaced — Word's `m:eqArrPr`. `max` spaces every row to the tallest so
+ * the gaps match down the stack; `object` spaces each row to its own height, which is the default a
+ * flex column already gives.
+ */
+.w-math-array[data-spacing='max'] > * {
+  align-self: stretch;
+}
+
+/*
+ * A rule **through** a boxed term — Word's `m:strikeH` and `m:strikeV`, which is how a cancelled
+ * factor is written. Drawn as a gradient rather than a pseudo-element because a border box already
+ * uses `::before` for nothing and its contents are editable text: a line has to sit behind the ink
+ * without taking a place in the box.
+ */
+.w-math-borderbox[data-strike='horizontal'],
+.w-math-borderbox[data-strike='both'] {
+  background-image: linear-gradient(to bottom, transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px));
+}
+.w-math-borderbox[data-strike='vertical'],
+.w-math-borderbox[data-strike='both'] {
+  background-image: linear-gradient(to right, transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px));
+}
+.w-math-borderbox[data-strike='both'] {
+  background-image:
+    linear-gradient(to bottom, transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(to right, transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px));
+}
+
+/*
+ * A limit an n-ary operator asks not to show — Word's `m:subHide` and `m:supHide`. The slot stays in
+ * the document so an author can put the limit back; what goes is the box under or over the sign.
+ */
+.w-math-nary[data-hide-sub='true'] > .w-math-sub,
+.w-math-nary[data-hide-sub='true'] > .w-math-limlow {
+  display: none;
+}
+.w-math-nary[data-hide-sup='true'] > .w-math-sup,
+.w-math-nary[data-hide-sup='true'] > .w-math-limupp {
+  display: none;
+}
+/* A sign that does not grow stays at its own size whatever it is summing over. */
+.w-math-nary[data-grow='false']::before {
+  font-size: 1em;
+}
+
+/*
+ * The character between the parts of one delimiter — Word's `m:sepChr`. Between each pair, never
+ * before the first or after the last, which is what a separator is.
+ */
+.w-math-delim[data-separator]:not([data-separator='']) > .w-math-e + .w-math-e::before {
+  content: attr(data-separator);
+  padding: 0 0.25em;
+  user-select: none;
+}
+/* Fences that follow the contents' outline rather than being one stretched glyph. */
+.w-math-delim[data-shape='match'] > .w-math-fence {
+  transform: scaleY(1);
+  align-self: stretch;
+}
+
+/*
+ * **Which alphabet a letter is in.** In maths these are meanings and not fonts: ℝ is the real
+ * numbers and R is a variable called R, and a reader must be able to tell them apart. Which face
+ * carries a given alphabet is this file's decision, which is why the renderer says only which one.
+ */
+.w-math-run[data-script='roman'] {
+  font-style: normal;
+}
+.w-math-run[data-script='script'] {
+  font-family: 'Apple Chancery', 'URW Chancery L', cursive;
+}
+.w-math-run[data-script='fraktur'] {
+  font-family: 'UnifrakturMaguntia', 'Blackletter', serif;
+}
+.w-math-run[data-script='double-struck'] {
+  /* Outlined, which is what a double-struck letter is where the font has no such face. */
+  font-style: normal;
+  -webkit-text-stroke: 0.4px currentColor;
+}
+.w-math-run[data-script='sans-serif'] {
+  font-family: system-ui, sans-serif;
+}
+.w-math-run[data-script='monospace'] {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+/* A box that must not be broken across a line — the whole reason `m:box` exists. */
+.w-math-box[data-no-break='true'] {
+  white-space: nowrap;
+}
+/*
+ * A differential (`dx`) and an operator emulator are spacing hints: both ask for the room an
+ * operator's argument gets, which is a thin space before.
+ */
+.w-math-box[data-differential='true'],
+.w-math-box[data-operator='true'] {
+  margin-left: 0.17em;
+}
+
+.w-math-accent::after {
+  content: attr(data-char);
+}
+.w-math-bar[data-position='top'] > .w-math-e {
+  border-top: 1px solid currentColor;
+}
+.w-math-bar[data-position='bot'] > .w-math-e {
+  border-bottom: 1px solid currentColor;
 }

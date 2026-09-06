@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { commentThreads, type CommentThread } from './comments';
+/*
+ * Importing the type also registers how it is drawn — see `highlight-decorators.ts`. It used to be
+ * drawn by `apps/word/src/main.tsx`, so a pane built anywhere else marked its comments with a
+ * fallback `<div>` carrying none of the four attributes a highlight needs.
+ */
+import { ANCHOR_STYPE } from './highlight-decorators';
 import { Icon } from '@barocss/office-icons';
 import { cn } from '@barocss/office-ui';
 
@@ -17,7 +23,6 @@ import { cn } from '@barocss/office-ui';
  * part of what was written and survives a reload, unlike a search, which is not
  * and does not.
  */
-const ANCHOR_STYPE = 'w-comment-anchor';
 
 /** 주석 칸에게 필요한 것 — 문서, 그 문서를 그리는 뷰, 그리고 열려 있는가. */
 export interface CommentsPaneProps {

@@ -239,10 +239,21 @@ describe('캐럿 리터럴', () => {
      * 검사가 빨개진다 — 그건 결함을 알리는 것이 아니라 소음이다. 파일과 개수는 그 파일에서
      * *무엇을 고쳐야 하는가* 를 그대로 말한다.
      *
-     * 지금 마흔넷이고, **줄지 않은 채로 이 회차를 지난다.** 다섯은 `editor-view-dom` 것이라 이
-     * 회차의 소유 안이지만, 픽스처를 고치는 것은 그 픽스처가 무엇을 재고 있는지 한 번씩 읽어야
-     * 하는 일이고 이 회차는 제품 코드와 아홉 자리의 단위 검사에 썼다. 숫자를 여기 적어 두는 것이
-     * 그 결정을 다음 사람에게 넘기는 방법이다.
+     * ## 44 → 40 → **20**
+     *
+     * 스물이 한 번에 걷혔다. 걷은 것은 선택 층을 도는 회차가 쓸 수 있던 파일 전부다:
+     * `editor-core` 열둘(`editor` 2 · `selection-manager` 1 · `undo-redo-history` 9),
+     * `editor-view-dom` 다섯, `extensions` 셋. 스무 자리 다 같은 한 줄이었다 — 두 끝이 같은
+     * 자리인 리터럴에 `collapsed: true` 한 줄.
+     *
+     * **그중 넷은 단정이기도 했다** — `toMatchObject`·`objectContaining` 안의 리터럴. 거기에
+     * 한 줄을 더한다는 것은 *편집기가 이제 그 깃발을 붙여서 낸다* 를 단정하는 것이고, 그
+     * 단정은 `editor-core/src/collapsed.ts` 의 `withDerivedCollapsed` 가 문에서 지킨다. 픽스처를
+     * 고치는 값이 그것이다: 모양을 베끼는 자리가 **묻는 자리**가 된다.
+     *
+     * 남은 스물은 이 회차가 쓸 수 있는 파일 밖이다 — `datastore` 3, `editor-view-react` 9,
+     * `model` 3, `office-word` 5. 사용자가 react 를 뒤로 미뤄서 아홉이 그대로 남았고, 그 아홉이
+     * 가장 값이 큰 쪽이다(노트·워드가 그 경로다).
      */
     const perFile = new Map<string, number>();
     for (const one of sweep()) {
@@ -254,18 +265,12 @@ describe('캐럿 리터럴', () => {
     const counted = [...perFile.entries()].map(([file, n]) => `${file} ${n}`).sort();
     const total = [...perFile.values()].reduce((a, b) => a + b, 0);
 
-    expect(total, `검사 픽스처의 깃발 없는 캐럿:\n${counted.join('\n')}`).toBe(40);
+    expect(total, `검사 픽스처의 깃발 없는 캐럿:\n${counted.join('\n')}`).toBe(20);
     expect(counted).toEqual([
       'packages/datastore/test/data-store-replace-text-range.test.ts 3',
-      'packages/editor-core/test/editor.test.ts 2',
-      'packages/editor-core/test/selection-manager.test.ts 1',
-      'packages/editor-core/test/undo-redo-history.test.ts 9',
-      'packages/editor-view-dom/test/core/editor-view-dom.test.ts 5',
       'packages/editor-view-react/test/EditorView.test.tsx 4',
       'packages/editor-view-react/test/input-handler-ims.test.ts 2',
       'packages/editor-view-react/test/selection-handler.test.ts 3',
-      'packages/extensions/test/emoji-extension.test.ts 2',
-      'packages/extensions/test/slash-menu.test.ts 1',
       'packages/model/test/operations/insertImage.exec.test.ts 3',
       'packages/office-word/test/canvas-insert-commands.test.ts 3',
       'packages/office-word/test/frame-commands.test.ts 1',

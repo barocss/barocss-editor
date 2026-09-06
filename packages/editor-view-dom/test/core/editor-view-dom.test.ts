@@ -357,6 +357,7 @@ describe('EditorViewDOM', () => {
           startOffset: 0,
           endNodeId: 't1',
           endOffset: 0,
+          collapsed: true,
         },
         applySelectionToView: false,
       });
@@ -378,6 +379,7 @@ describe('EditorViewDOM', () => {
           startOffset: 0,
           endNodeId: 't2',
           endOffset: 0,
+          collapsed: true,
         },
         applySelectionToView: true,
       });
@@ -390,6 +392,7 @@ describe('EditorViewDOM', () => {
           startOffset: 0,
           endNodeId: 't2',
           endOffset: 0,
+          collapsed: true,
         })
       );
     });
@@ -408,6 +411,7 @@ describe('EditorViewDOM', () => {
           startOffset: 0,
           endNodeId: 't3',
           endOffset: 0,
+          collapsed: true,
         },
         source: 'remote',
       });
@@ -458,6 +462,7 @@ describe('EditorViewDOM', () => {
         startOffset: 0,
         endNodeId: 't4',
         endOffset: 0,
+        collapsed: true,
         source: 'remote',
       });
 

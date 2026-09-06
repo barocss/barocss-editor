@@ -12,6 +12,7 @@ import {
   AppMain,
   AppShell,
   Button,
+  onApple,
   ZoomControl,
   type LengthUnit
 } from '@barocss/office-ui';
@@ -75,7 +76,8 @@ import { Properties } from '@barocss/office-slides/ui';
 import { Ribbon } from '@barocss/office-slides/ui';
 import {
   SLIDES_KEYS,
-  SLIDES_MENUS,
+  slidesMenus,
+  SLIDES_ZOOM_LADDER,
   matchesKey,
   slidesMenuEntry,
   slidesMenuId
@@ -876,7 +878,7 @@ export function App({
    */
   const menus = useMemo(
     () =>
-      SLIDES_MENUS.map((menu) => ({
+      slidesMenus(onApple()).map((menu) => ({
         id: menu.id,
         label: menu.label,
         blocks: menu.blocks.map((block) => ({
@@ -1763,6 +1765,7 @@ export function App({
         <div className="sl-topbar-actions">
           <ZoomControl
             zoom={zoom ?? fitted}
+            ladder={SLIDES_ZOOM_LADDER}
             onChange={(next) => setZoom(clampZoom(next))}
             onFit={() => setZoom(undefined)}
             fitLabel="화면에 맞춤"

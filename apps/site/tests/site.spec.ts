@@ -162,6 +162,28 @@ const selection = (page: Page) =>
     );
   });
 
+
+/**
+ * **The modifier this browser will print, asked of the browser rather than assumed.**
+ *
+ * These assertions hard-coded `⌘`, and they passed because `withHints` defaulted its `apple`
+ * argument to `true` — every menubar in every product printed Mac symbols to everybody. The default
+ * is gone and the product now asks `onApple()`, so a hard-coded `⌘` asserts the machine the test was
+ * written on.
+ *
+ * And the machine lies. Measured here, Playwright's default Chromium on macOS reports
+ * `userAgentData.platform === 'Windows'` while `navigator.platform` is still `'MacIntel'` — the two
+ * disagree, and `onApple()` believes the first because the second is deprecated and frozen. So the
+ * browser under test is a Windows one on a Mac, correctly prints `Ctrl`, and the assertion follows
+ * it there. On a Linux runner this would have been red from the day it was written.
+ */
+const mod = async (page: import('@playwright/test').Page): Promise<string> =>
+  page.evaluate(() => {
+    const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+    const name = nav.userAgentData?.platform ?? nav.platform ?? '';
+    return /mac|iphone|ipad/i.test(name) ? '\u2318' : 'Ctrl+';
+  });
+
 test.describe('a site at several widths', () => {
   test('draws the page once per width, each at its own size', async ({ page }) => {
     await ready(page);
@@ -7228,8 +7250,9 @@ test.describe('a block on the clipboard', () => {
     await page.locator('.st-menubar [data-menu="edit"]').click();
     await page.waitForTimeout(250);
 
-    await expect(page.locator('[data-menu-item="edit.clipboard.0"]')).toContainText('⌘X');
-    await expect(page.locator('[data-menu-item="edit.clipboard.1"]')).toContainText('⌘C');
+    const key = await mod(page);
+    await expect(page.locator('[data-menu-item="edit.clipboard.0"]')).toContainText(`${key}X`);
+    await expect(page.locator('[data-menu-item="edit.clipboard.1"]')).toContainText(`${key}C`);
     /*
      * **Enabled**, and it used to say greyed — which was the bug the cross-document test found.
      *
@@ -7855,8 +7878,9 @@ test.describe('the keys', () => {
     await page.waitForTimeout(200);
 
     // Derived from the key map, so what is printed is what is bound.
-    await expect(page.locator('[data-menu-item="edit.history.0"]')).toContainText('⌘Z');
-    await expect(page.locator('[data-menu-item="edit.blocks.0"]')).toContainText('⌘D');
+    const key = await mod(page);
+    await expect(page.locator('[data-menu-item="edit.history.0"]')).toContainText(`${key}Z`);
+    await expect(page.locator('[data-menu-item="edit.blocks.0"]')).toContainText(`${key}D`);
 
     /*
      * And 찾기 is **gone**. `editor-core` registers `find` as `execute: () => true` — a stub — so the
@@ -9413,8 +9437,9 @@ test.describe('the menubar', () => {
 
     // A tooltip teaches a shortcut to a reader who has already found the button, which is the reader
     // who needs it least. 99 bindings across three products had only that.
-    await expect(page.locator('[data-menu-item="edit.history.0"]')).toContainText('⌘Z');
-    await expect(page.locator('[data-menu-item="edit.blocks.0"]')).toContainText('⌘D');
+    const key = await mod(page);
+    await expect(page.locator('[data-menu-item="edit.history.0"]')).toContainText(`${key}Z`);
+    await expect(page.locator('[data-menu-item="edit.blocks.0"]')).toContainText(`${key}D`);
   });
 
   test('greys what the document cannot do right now', async ({ page }) => {

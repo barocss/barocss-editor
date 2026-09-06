@@ -74,11 +74,21 @@ if (only && targets.length === 0) {
 
 /**
  * Directories that have tests and no `tsconfig.typecheck.json`, named so that a *new*
- * one is a failure rather than a silence. Three demonstration apps, ten Playwright
- * specs between them; delete a line when it gets a config, and the check will tell you
- * if you delete one that still has none.
+ * one is a failure rather than a silence. Delete a line when it gets a config, and the
+ * check will tell you if you delete one that still has none.
+ *
+ * **Empty since 2026-09-06.** The three demonstration apps that were the whole list —
+ * `apps/editor-react` (7 specs), `apps/editor-test` (1), `apps/note` (2) — were given
+ * configs and measured: 0, 12, 0. Eleven of the twelve are `apps/editor-test`'s own
+ * `src/main.ts`, which had never been compiled by anything either, so the debt the
+ * list was holding open turned out to be a tenth of what a reader would have guessed
+ * from "ten unguarded specs".
+ *
+ * The set stays, empty, because the check on it is the point: a new directory with
+ * tests and no config now fails immediately, and there is no longer any line here for
+ * a new one to hide behind.
  */
-const KNOWN_UNGUARDED = new Set(['apps/editor-react', 'apps/editor-test', 'apps/note']);
+const KNOWN_UNGUARDED = new Set([]);
 
 const isTest = (name) => /\.(test|spec)\.tsx?$/.test(name);
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'test-results', 'playwright-report', '.git']);

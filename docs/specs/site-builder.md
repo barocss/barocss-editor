@@ -400,13 +400,36 @@ build, it fails, and somebody decides whether to teach the probe or to name the 
 
 | | |
 | --- | ---: |
-| `apps/site/src` | **4,221 lines** |
+| `apps/site/src` | **4,233 lines** |
 | components behind `@barocss/office-site/ui` | **5** |
-| browser tests behind it | **283** |
+| browser tests behind it | **291** |
 
 `apps/site` was 11,410 lines before `PageFrame`, `Rail`, `Inspector`, `Overlay` and `Admin` — those
-five — moved into this package. That is the move `note.md` uses as its gauge, and the 283 above is
+five — moved into this package. That is the move `note.md` uses as its gauge, and the 291 above is
 the number that spec quotes when it says nothing measurable broke.
+
+**283 of those 291 until `site-theme-values.spec.ts`**, and the eight it adds are worth naming
+because of what the suite could not previously say. Of 1,092 browser tests across the repository,
+**three** opened a dark context — one per product — and all three asserted the same two lines: the
+document did not move (`toEqual`) and the chrome did (`not.toEqual`). *What* the chrome moved to was
+never asked, so a palette that was wrong in **both** themes passed, and one that was wrong in only a
+subtree passed twice over — first when `office-ui/tokens.css` carried no `[data-theme='light']` rule
+at all, then when `office-site/ui.css` mirrored only the dark half of it and left `--st-*` stranded
+under a light island.
+
+`packages/conformance/test/dark-is-actually-read.test.ts` closed the half of this that our own source
+decides — it flattens each app's `@import` graph and *computes* the palette in the four states a
+viewer can be in, which took 161 violations to 0. It cannot say whether a browser paints those
+values. The eight here do, in the same four states: eighteen tokens read off the root, nine painted
+surfaces compared against the token each one names, the explicit themes required to reproduce their
+system twins **pixel for pixel** rather than merely to differ, a light island stamped inside a dark
+document and a dark island inside a light one, and seven ink-on-ground pairs held at 4.5:1.
+
+Two pairs are deliberately **not** in that seven, both measured and both under the line:
+`--ou-accent-ink` on `--ou-accent` is 5.17:1 in the light and **3.68:1** in the dark — the dark block
+lifts the accent and leaves the ink on it white — and `--ou-board-ink` on `--ou-studio` is **3.98:1**
+in the light. Neither is this document's to fix; asserting them would have made a new file fail on
+its first run, which reads as a broken check rather than as a finding.
 
 **There is no line count of this package here on purpose.** It was in the first draft of this
 section and failed within the hour, on a comment added three files away. A figure that moves for

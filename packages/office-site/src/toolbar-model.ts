@@ -1,4 +1,10 @@
-import { type Control, controlsIn } from '@barocss/office-controls';
+import {
+  type Control,
+  type ControlGroup,
+  commandsIn,
+  controlsIn,
+  iconsIn
+} from '@barocss/office-controls';
 
 /**
  * What the site builder's toolbar offers, as data.
@@ -347,14 +353,40 @@ export const SITE_TOOLBAR: SiteControl[] = [
   }
 ];
 
+/**
+ * This flat list, said as **one group**, so the two readers below can be the shared ones.
+ *
+ * ## Why the wrapper rather than a second pair of collectors
+ *
+ * `office-controls` already answers *what icons does this toolbar ask for* and *what commands does
+ * it run* — `iconsIn` and `commandsIn` — and both were written here again, dedup and
+ * drop-the-empty-name and all. Two copies of a collector is two places a rule can be stated
+ * differently, and this pair had already drifted: the shared `iconsIn` refuses `''` as well as
+ * absent, and the copy here took `!!name`, which happens to agree today and is not the same
+ * sentence.
+ *
+ * The shared pair takes `ControlGroup[]` because Word and the deck draw their strips as groups with
+ * separators. This product keeps **one flat list** and slices it with `controlsIn` — the shape
+ * `office-controls` documents on `Control.group` as the other right answer. A group is a run of
+ * controls with a name, and this list is one run, so saying so is not a workaround: `flatMap` over
+ * a single group is the identity on it.
+ *
+ * The honest fix is a flat overload on `iconsIn`/`commandsIn` themselves, which is what the backlog
+ * item asks for and what a third flat-listed product will want. `packages/office-controls` is not
+ * this round's to write, so the duplication is removed here and the overload stays on the list.
+ */
+const SITE_TOOLBAR_GROUPS: ControlGroup<SiteControl>[] = [
+  { id: 'site', controls: SITE_TOOLBAR }
+];
+
 /** Every icon the site's controls ask for, for the check that asks whether the suite draws it. */
 export function siteToolbarIcons(): string[] {
-  return [...new Set(SITE_TOOLBAR.map((one) => one.icon).filter((name): name is string => !!name))];
+  return iconsIn(SITE_TOOLBAR_GROUPS);
 }
 
 /** Every command the toolbar offers, for the check that asks what a reader can run. */
 export function siteToolbarCommands(): string[] {
-  return [...new Set(SITE_TOOLBAR.map((one) => one.command))];
+  return commandsIn(SITE_TOOLBAR_GROUPS);
 }
 
 /** The controls in one group, in the order the ribbon draws them. */

@@ -82,6 +82,7 @@ import { slideMenu } from './context-menu';
 import {
   Menu,
   TextField,
+  onApple,
   toDisplay,
   unitSuffix,
   type LengthUnit
@@ -888,10 +889,12 @@ export function SelectionOverlay({
     [selected, inside, doc]
   );
 
-  const apple = useMemo(() => {
-    const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
-    return /mac|iphone|ipad/i.test(nav.userAgentData?.platform ?? nav.platform ?? '');
-  }, []);
+  /*
+   * The same question the ribbon asks, and now the same answer — see the note there. This was the
+   * second of two hand-rolled sniffs in this package; the context menu's hints came from this one
+   * and the toolbar's from the other.
+   */
+  const apple = useMemo(() => onApple(), []);
 
   const onContextMenu = (event: React.MouseEvent) => {
     if (!editor || !rect) return;

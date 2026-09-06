@@ -13,6 +13,7 @@ import {
   IconButton,
   fieldKeeps,
   ZoomControl,
+  onApple,
   useViewport,
   zoomIn,
   zoomOut,
@@ -40,6 +41,7 @@ import {
   setRowPreview,
   typeRule,
   zipOf,
+  SITE_ZOOM_LADDER,
   type BreakpointId,
   type StateId
 } from '@barocss/office-site';
@@ -605,7 +607,11 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * are about one from their first entry to their last — twelve, eight and nine entries that could
    * never be enabled over a table of pages. See `siteMenusIn`.
    */
-  const menus = useMemo(() => siteMenusIn(admin ? 'admin' : 'page', widths), [admin, widths]);
+  // 화음은 독자의 알파벳으로 — `onApple()` 이 그 하나뿐인 사실을 답한다.
+  const menus = useMemo(
+    () => siteMenusIn(admin ? 'admin' : 'page', widths, onApple()),
+    [admin, widths]
+  );
 
   /**
    * **What the surfaces are handed** — the editor, or the one a writer gets.
@@ -1506,7 +1512,13 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               {preview ? '편집' : '미리보기'}
             </button>
             {/* Typed or pressed, the middle of the view is what stays still — see `viewport.ts`. */}
-            <ZoomControl zoom={zoom} onChange={(next) => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" /></>)}
+            <ZoomControl
+              zoom={zoom}
+              ladder={SITE_ZOOM_LADDER}
+              onChange={(next) => controls.zoomAt(next)}
+              onFit={onFit}
+              fitLabel="맞춤"
+            /></>)}
           </div>
         </div>
       </AppChrome>

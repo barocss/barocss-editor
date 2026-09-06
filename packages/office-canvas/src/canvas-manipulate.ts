@@ -35,6 +35,72 @@ export interface Delta {
   dy: number;
 }
 
+/**
+ * **A nudge is a `Delta` that came from a key rather than from a hand** — and the three products
+ * spelled it three ways.
+ *
+ * | product | command | where the payload sits | shape |
+ * |---|---|---|---|
+ * | `office-word` | `moveShapes` | `args` | `{ dx, dy }` |
+ * | `office-slides` | `nudgeBoxes` | `payload` | `{ dx, dy }` |
+ * | `office-site` | `nudgeBlock` | `payload` | `{ axis: 'x' \| 'y', by }` |
+ *
+ * **The command names stay where they are.** `docs/specs/shared-layer.md` table 2 is right about
+ * that: a product's commands are its own vocabulary, and `nudgeBoxes` in a deck and `nudgeBlock` on
+ * a page act on different things. What is not the product's is *the shape of "move it this far"* —
+ * with two of them, a menu, a key map and a harness cannot say the gesture in one sentence, and a
+ * caller reading one product's key map cannot tell what the other's would do.
+ *
+ * `{ axis, by }` is the odd one, and it is not wrong so much as narrower: it can only say what a
+ * single arrow key means, so a diagonal nudge — which a page will want the moment it grows a
+ * second modifier — has no spelling at all. `nudgeDelta` reads both and answers in `Delta`, so a
+ * product can keep the payload it declares while everything downstream reads one shape.
+ *
+ * ## The step sizes are **not** the same either, which the three names hid
+ *
+ * A fine nudge is 15 twips (1px) in all three. A coarse one is **144** in Word and the deck (a tenth
+ * of an inch) and **150** on a page (ten pixels), and both write a comment saying it is what every
+ * tool of this kind offers. So Shift+→ moves a shape 9.6px in two products and 10px in the third.
+ * `NUDGE_FINE` is here because all three already agree on it; the coarse one is left to the products
+ * deliberately, because picking one here would be this file settling a question neither product has
+ * been asked yet. It is written down in `/tmp/parts-backlog.md` instead.
+ */
+export const NUDGE_FINE = 15;
+
+/** What a nudge payload says, in whichever of the two shapes a product declared. */
+export type NudgePayload = Partial<Delta> | { axis: 'x' | 'y'; by: number };
+
+/**
+ * A nudge payload as a `Delta` — the one shape everything downstream reads.
+ *
+ * Anything unreadable is zero rather than an error, which matches what each of the three commands
+ * already does with a missing number: `Number(payload?.dx) || 0`. A nudge of nothing is refused by
+ * `canExecute` in two of the three products already, and `isNudge` is that question asked once.
+ */
+export function nudgeDelta(payload: NudgePayload | undefined): Delta {
+  const number = (value: unknown): number =>
+    typeof value === 'number' && Number.isFinite(value) ? value : 0;
+
+  if (payload && 'axis' in payload && (payload.axis === 'x' || payload.axis === 'y')) {
+    const by = number((payload as { by?: unknown }).by);
+    return payload.axis === 'x' ? { dx: by, dy: 0 } : { dx: 0, dy: by };
+  }
+  const both = (payload ?? {}) as Partial<Delta>;
+  return { dx: number(both.dx), dy: number(both.dy) };
+}
+
+/**
+ * Whether a nudge would move anything.
+ *
+ * `office-slides/box-commands.ts` grew this guard after `every-command-does-something` offered
+ * `nudgeBoxes` with no payload the way a menubar would: a transaction that commits and changes
+ * nothing. The other two products can ask the same question here rather than growing their own.
+ */
+export function isNudge(payload: NudgePayload | undefined): boolean {
+  const delta = nudgeDelta(payload);
+  return delta.dx !== 0 || delta.dy !== 0;
+}
+
 export interface ResizeOptions {
   /**
    * Keep the box's proportions.

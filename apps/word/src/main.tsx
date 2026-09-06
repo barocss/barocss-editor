@@ -1,7 +1,7 @@
 import { StrictMode, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DataStore } from '@barocss/datastore';
-import { data, defineDecorator, element, getGlobalRegistry } from '@barocss/dsl';
+import { getGlobalRegistry } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { createSchema } from '@barocss/schema';
 import {
@@ -31,7 +31,6 @@ import {
   type SurfaceLayout
 } from '@barocss/office-word';
 import type { Editor } from '@barocss/editor-core';
-import { ANCHOR_STYPE, MATCH_STYPE } from '@barocss/office-word/ui';
 import { App } from './app';
 import './style.css';
 
@@ -52,39 +51,15 @@ registerPageBreakWidget();
 registerTableBreakWidget();
 registerTableHeaderRepeat();
 
-/**
- * How a search result is drawn.
+/*
+ * **주석 하이라이트와 찾기 하이라이트는 이제 패키지가 그린다.**
  *
- * A decorator rather than a mark: which words a reader is looking for is not
- * part of the document, and writing it in would put a search in the undo stack
- * and in anything the document was saved to.
+ * 두 템플릿이 여기 있어서 `office-word` 는 자기 주석 닻을 그릴 수 없었다 — 이 앱 밖에서 뷰를
+ * 세우면 *"Component not found for decorator type 'w-comment-anchor', using fallback div"* 가 뜨고
+ * `w-comment-hit` 없는 `div` 가 그려졌다. `packages/office-word/src/highlight-decorators.ts` 로
+ * 옮겼고, 그 파일이 import 될 때 등록된다 — `CommentsPane` 과 `FindPanel` 이 그 파일에서
+ * 자기 stype 을 가져오므로, 둘 중 하나를 쓰면 그리는 법도 함께 온다.
  */
-/**
- * How commented text is marked.
- *
- * A decorator, not a mark: the `commentRef` mark is what the *document* records,
- * and this is the highlight a reader sees while the pane is open. Writing the
- * highlight into the document would put "somebody has this pane open" into
- * everything the document is saved to.
- */
-defineDecorator(
-  ANCHOR_STYPE,
-  element('span', {
-    className: (d: Record<string, any>) =>
-      d?.selected ? 'w-comment-hit is-selected' : 'w-comment-hit',
-    'data-bc-chrome': 'true'
-  }, [data('text')])
-);
-
-defineDecorator(
-  MATCH_STYPE,
-  element('span', {
-    // The decorator's own data arrives flattened, the same way the page break
-    // widget reads its height.
-    className: (d: Record<string, any>) => (d?.current ? 'w-find-hit is-current' : 'w-find-hit'),
-    'data-bc-chrome': 'true'
-  }, [data('text')])
-);
 
 /**
  * Build the editor into a host element.

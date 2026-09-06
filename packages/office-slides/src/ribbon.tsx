@@ -7,7 +7,8 @@ import {
   Toolbar,
   ToolbarGroup,
   ToolbarSeparator,
-  ToolbarToggle
+  ToolbarToggle,
+  onApple
 } from '@barocss/office-ui';
 import { useEditorRevision } from '@barocss/office-editor-ui';
 /**
@@ -64,18 +65,19 @@ export interface RibbonProps {
 
 export function Ribbon({ editor, slides, current }: RibbonProps) {
   /**
-   * Which way to draw a chord, asked once.
+   * Which way to draw a chord, asked once — and asked of `office-ui`.
    *
-   * Apple writes `⌘⇧G` and everyone else writes `Ctrl+Shift+G`; a tool that shows
-   * the wrong one looks ported. `userAgentData` where it exists and the old
-   * `platform` where it does not, which is the only pair that covers every
-   * browser this runs in today.
+   * Apple writes `⌘⇧G` and everyone else writes `Ctrl+Shift+G`; a tool that shows the wrong one
+   * looks ported. The sniff itself was four lines here and four more in `overlay.tsx`, and this
+   * deck printed its chords from one copy and its context menu from the other — two answers to a
+   * question with one, in the same product, on the same screen.
+   *
+   * `office-ui/platform.ts` is where those four lines live for the suite, and it says why they are
+   * there rather than in `office-controls`: `keyLabel` takes `apple` as an argument on purpose,
+   * because a pure function of the platform is testable and `navigator` is not, which leaves the
+   * sniff homeless in a package that must not assume a DOM. This one assumes a DOM already.
    */
-  const apple = useMemo(() => {
-    const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
-    const name = nav.userAgentData?.platform ?? nav.platform ?? '';
-    return /mac|iphone|ipad/i.test(name);
-  }, []);
+  const apple = useMemo(() => onApple(), []);
 
   /**
    * A count of the events that can change an answer here, not the answers

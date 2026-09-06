@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
-import { AppBody, AppChrome, AppMain, AppShell, MenuBar, useRevision } from '@barocss/office-ui';
-import { WORD_MENUS, WORD_VIEW_KEYS, wordMenuEntry, wordMenuId, type FontLoader } from '@barocss/office-word';
+import { AppBody, AppChrome, AppMain, AppShell, MenuBar, onApple, useRevision } from '@barocss/office-ui';
+import { wordMenus, WORD_VIEW_KEYS, wordMenuEntry, wordMenuId, type FontLoader } from '@barocss/office-word';
 import {
   CommentsPane,
   DocumentTitle,
@@ -98,7 +98,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   const menus = useMemo(
     () =>
-      WORD_MENUS.map((menu) => ({
+      wordMenus(onApple()).map((menu) => ({
         id: menu.id,
         label: menu.label,
         blocks: menu.blocks.map((block) => ({

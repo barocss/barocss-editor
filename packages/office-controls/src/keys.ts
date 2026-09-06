@@ -104,9 +104,26 @@ const SIGNS: Record<string, string> = {
  * Mac looks like it was ported, which is the whole thing this is for.
  *
  * `apple` comes in rather than being sniffed here, because a pure function of the platform is
- * testable and `navigator` is not — and the caller knows anyway.
+ * testable and `navigator` is not — and the caller knows anyway. `@barocss/office-ui`'s `onApple()`
+ * is the sniff; this package deliberately has no DOM, which is why it cannot be the one asking.
+ *
+ * ## And it has **no default**, which is the repair
+ *
+ * It defaulted to `true`. A default made the argument forgettable and it was duly forgotten — not in
+ * a corner, but in the one line each of the three products builds its whole menubar with:
+ *
+ *     export const WORD_MENUS = withHints(DECLARED, taughtKeys(WORD_KEYS));
+ *
+ * `withHints` had the same default and passed it straight here, so **every chord in every menubar of
+ * all three products was drawn in Apple symbols on every platform** — ⌘Z on Windows, ⌥ where a
+ * reader looks for Alt — and, because those are module-level constants, decided once at import
+ * rather than at render. Nothing was wrong on the machines this was built on, which is precisely
+ * what a silent default buys.
+ *
+ * A parameter with no default is a compiler error at every site that has not thought about it. That
+ * is the difference between the two, and the whole of it.
  */
-export function keyLabel(chord: string | undefined, apple = true): string | undefined {
+export function keyLabel(chord: string | undefined, apple: boolean): string | undefined {
   if (!chord) return undefined;
 
   const parts = chord.split('+');
@@ -230,8 +247,19 @@ export function keyCommands(keys: KeyModel[]): string[] {
  * belongs to the **platform** rather than to this product (⌘X, ⌘C, ⌘V inside text; ⌘P for print), or
  * the line is a note about a key rather than a chord to press (*Esc로 나가기*). Both are claims, and
  * a product's own test is where the list of them belongs.
+ *
+ * ## `apple` has no default here either — and this is where the default actually bit
+ *
+ * See `keyLabel`. All three products call this in one line at module scope and none of them passed
+ * `apple`, so three menubars printed Mac symbols everywhere. A caller now has to say, and the two
+ * honest things to say are `onApple()` (a menubar being drawn for a reader) and a literal (a test
+ * asserting one platform's spelling).
+ *
+ * A product that wants the answer to follow the *machine* has one more thing to change: these are
+ * `const` at module scope, so the platform is read once at import. `withHints` is a function of its
+ * three arguments; making the menus one too is the product's call.
  */
-export function withHints<M extends MenuModel>(menus: M[], keys: KeyModel[], apple = true): M[] {
+export function withHints<M extends MenuModel>(menus: M[], keys: KeyModel[], apple: boolean): M[] {
   return menus.map((menu) => ({
     ...menu,
     blocks: menu.blocks.map((block) => ({

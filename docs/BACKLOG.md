@@ -4673,9 +4673,13 @@ text-shaped.
   것은 갖지 않는다. 그리고 검사를 쓴 뒤 `packages/dsl/test/probe.test.ts` 를 일부러 만들어 잡히는지
   확인했다 — 잡히지 않는 검사는 검사가 아니다.
 
-  **아직 남은 것:** `packages/dsl/tests/dsl-functions.test.ts` 와 `tests/dsl/dsl-functions.test.ts` 가
-  둘 다 실행되고 32개·36개인데 얕은 쪽에만 있는 `it` 이 하나다. 사본이 넷이 아니라 셋인 셈이고, 어느
-  쪽으로 합칠지는 그 파일을 다른 이유로 건드릴 때 정한다.
+  **그 뒤 닫혔다(2026-09-06):** 두 벌 중 얕은 쪽은 `../src/index` 에서 가져오는 옛 판이었고, 두
+  파일이 다 컴파일된 적이 없어서 **둘이라는 것조차 보이지 않았다.** 얕은 쪽에만 있던 `it` 을 옮기고
+  지웠다 — `dsl` 147·6 → 115·5, 타입 오류 77 → 52.
+
+  그리고 이 문단 자체가 검사를 물었다: `open-items-name-things-that-exist` 가 위에 적힌 경로를
+  찾을 수 없다고 실패했고, 서로 모르는 두 에이전트가 같은 회차에 그것을 각각 보고했다. **열린
+  항목의 경로가 사실이어야 한다는 검사가, 그 항목이 해결된 순간을 잡은 것이다.**
 
 
 - [x] **`Shift+→` 가 블록을 넘으면 범위가 뒤집힌다 — 원인 둘, 그리고 첫 시도는 틀린 원인이었다.**
@@ -5758,6 +5762,407 @@ text-shaped.
   것(*"이 제품은 작다"*)의 좋은 대리인지 다시 볼 만하다.
 
 ---
+
+- **`office-note` 의 `spec-numbers` 가 줄 수를 못 박아서 주석 한 줄도 못 더한다.** 🔴 열림 — 오늘 또 울렸다
+
+  `packages/office-word/test/spec-numbers.test.ts` 에는 **같은 모양이 없다.** 그 파일이 붙잡는 여섯은
+  노드 타입 수, 속성 칸 수, 명령 수와 Word 고유 명령 수, 툴바 묶음·컨트롤·명령 수, 설정 가능한 속성
+  수, conformance 래칫 둘 — 전부 **제품이 바뀔 때만 바뀌는 수** 다. 고칠 것이 없다.
+
+  그런데 `office-note` 쪽은 오늘 내 손으로 울렸다. 위 2번이 `apps/word/src/main.tsx` 에서 25줄을
+  덜어냈고, `office-note/test/spec-numbers.test.ts:132` 가 재는 *"다른 세 앱의 크롬"* 이
+  **8,503 → 8,478** 이 되어 `docs/specs/note.md:132` 와 어긋났다. 그 문서도 그 검사도 내 소유가 아니라
+  손대지 않았다.
+
+  판단: **한 제품의 명세가 다른 세 제품의 줄 수를 붙잡고 있는 것이 문제다.** 그 수가 말하려는 것은
+  *"note 는 작다"* 인데, 실제로 재는 것은 *"다른 셋이 얼마나 큰가"* 이고, 그래서 다른 팀이 자기 앱을
+  줄일 때마다 — 즉 그 문장이 **더 맞아지는** 순간마다 — 검사가 빨개진다. 매 커밋마다 우는 숫자는
+  검사가 없는 것과 같다. `office-note` 자기 것(`packages/office-note/src`, `apps/note/src`)만 붙잡고,
+  비교 대상은 문서에 *"2026-09-06 에 잰 값"* 으로 날짜와 함께 두는 편이 맞다.
+
+- **줌 사다리가 `office-ui` 로 내려왔고, 네 자리가 아직 사다리를 안 건넨다.** 🔴 열림
+
+  `stepZoom`·`clampZoom`·`ZoomLadder` 가 `office-ui/viewport.ts` 에 있고 `ZoomControl` 의 ±가
+  그것을 돈다. `ladder` 는 **필수 prop** 이라 안 건넨 네 곳이 지금 타입 에러다 —
+  `office-word/zoom.tsx:135` · `apps/slide/src/app.tsx:1764` · `apps/site/src/app.tsx:1509` ·
+  `apps/gallery/src/gallery.tsx:408`. 앞의 셋은 제품이 이미 `ZOOM_STEPS`/`ZOOM_MIN`/`ZOOM_MAX` 를
+  선언하므로 `ladder={{ steps: ZOOM_STEPS, min: ZOOM_MIN, max: ZOOM_MAX }}` 한 줄이다.
+  **`apps/site` 만 표가 없다** — 사이트 빌더는 `useViewport` 의 0.05–8 만 갖고 있고 stop 목록을
+  선언한 적이 없다. 그것은 제품의 결정이라 여기서 고르지 않았다.
+
+- **`apps/site` 의 ⌘+ 와 ＋ 단추가 이제 서로 다른 답을 낸다.** 🔴 열림 — 위 항목의 뒤끝
+
+  `apps/site/src/app.tsx:725–735` 가 ⌘+/⌘− 를 `zoomIn`/`zoomOut`(×1.25)에 묶어 두고
+  *"One ladder, shared with the zoom control's own buttons"* 라고 적어 두었다. 단추가 사다리로
+  옮겨 갔으므로 그 문장이 이제 거짓이다. 키도 `stepZoom(zoom, ±1, ladder)` 로 바꿔야 한다.
+
+- **`keyLabel`/`withHints` 의 `apple` 기본값을 없앴고, 여섯 자리가 플랫폼을 안 말한다.** 🔴 열림
+
+  타입 에러 여섯: `office-word/menu-model.ts:125` · `office-slides/menu-model.ts:161` ·
+  `office-site/menu-model.ts:448` (셋 다 `withHints(DECLARED, taughtKeys(KEYS))`) ·
+  `office-site/keymap.ts:237·242` (`hintFor`/`hintOf`) · `office-editor-ui/use-controls.ts:119`
+  (`UseControlsOptions.apple` 이 `boolean | undefined`).
+  단위 검사도 셋이 빨갛다 — `office-word/menu-teaches-every-key` · `office-slides/menu-model` ·
+  `office-site/keymap`, **각 1개씩**. 셋 다 *지금 화면에 나오는 값이 바뀌었다* 를 정확히 잡은
+  것이라 검사가 옳다.
+  고치는 법은 `withHints(DECLARED, taughtKeys(KEYS), onApple())` 인데, **그러면 모듈 로드 시점에
+  플랫폼이 한 번 굳는다.** `*_MENUS` 를 상수에서 함수로 바꿀지는 제품의 결정이다.
+
+- **넛지의 payload 모양이 `office-canvas` 에 있다 — 그리고 거친 눈금이 144 대 150이다.** 🔴 열림
+
+  `nudgeDelta`·`isNudge`·`NUDGE_FINE`(15) 이 `canvas-manipulate.ts` 에 있고 `{dx,dy}` 와
+  `{axis,by}` 를 둘 다 읽는다. 커맨드 이름 셋(`moveShapes`·`nudgeBoxes`·`nudgeBlock`)은 제품의
+  것이 맞으니 그대로 두고 payload 만 통과시키면 된다.
+  **재면서 나온 것:** 거친 눈금이 word·slides 는 **144**(1/10인치)이고 site 는 **150**(10px)인데
+  둘 다 주석에 *"every tool of this kind offers"* 라고 적혀 있다. Shift+→ 가 두 제품에서 9.6px,
+  한 제품에서 10px 다. 어느 쪽이 맞는지는 여기서 안 골랐다 — `NUDGE_COARSE` 는 일부러 안 만들었다.
+
+- **각도→방향 벡터가 `office-canvas` 에 있다 — 제품 쪽 네 자리가 남았다.** 🔴 열림
+
+  `directionOf`·`offsetAt`·`notMinusZero` 가 `canvas-angle.ts` 에 있고, `-0` 막기가 함수 안에
+  들어 있다(넷 중 셋만 막고 있었다). 바꿀 곳 넷 — 전부 제품이라 손대지 않았다:
+  `office-slides/svg-paint.ts:76` · `office-slides/gradient-axis.ts:60` ·
+  `office-slides/paints.ts:543` · `office-site/paint.ts:179`.
+  넷 중 `svg-paint.ts` 만 `-0` 을 안 막는다. 옮기면서 각 호출부의 반올림을 `offsetAt` 의 세 번째
+  인자로 넘겨야 한다(트윕은 `Math.round`, px 는 소수 둘째 자리).
+
+- **`office-canvas/value-format.ts` 는 캔버스의 것이 아니다 — `office-site` 로 돌려보낸다.** 🔴 열림
+
+  115줄, 이름 둘(`VALUE_FORMATS`·`readValue`), 독자 하나(`office-site`). 파일 머리말이 전부
+  데이터셋과 카드 이야기다 — 가격표가 `월 9,900원` 을 `월 19,900원` 위로 정렬하던 것, 블로그
+  피드가 `2026-08-02` 를 보여 주던 것. 상자도 좌표도 배치도 안 나온다. 서식이 붙는 대상은
+  `collection` 의 열이고 그 노드는 `site-schema` 만 선언한다.
+  **두 번째 제품이 숫자 서식을 원하면 갈 곳은 `office-canvas` 가 아니라 `@barocss/shared`(`units`
+  옆)다** — 숫자 서식은 캔버스에 대한 사실이 아니다.
+
+- **`office-canvas/canvas-shapes.ts` 의 SVG 절반은 `office-word` 의 것이다.** 🔴 열림
+
+  제품이 부르는 여덟 중 일곱(`canvasCss`·`canvasViewBox`·`rectangleAttrs`·`ellipseAttrs`·
+  `lineAttrs`·`shapePaint`·`shapeTransform`)을 `office-word` 만 부르고, 전부 **SVG 속성** 을 낸다.
+  그런데 `office-canvas/index.ts` 머리말이 스스로 *"What is not here: Drawing"* 이라고 적고
+  워드의 SVG 와 덱의 HTML 상자를 그 예로 든다. 이 일곱이 바로 그 예의 앞쪽이다.
+  이 파일이 내려온 이유도 한 줄로 적혀 있다 — `office-site` 가 **`frameCss`** 하나 때문에
+  `office-word` 를 의존하고 있었다. 이름 하나가 내려올 때 일곱이 딸려 왔다.
+  `frameCss` 는 남기고 일곱은 돌려보낸다. 트윕/픽셀 결정은 같이 안 간다 — 그건 `twipToPx` 가 사는
+  `@barocss/shared` 의 것이다.
+
+- **`canvasNode`·`PageWidth` 도 `office-word` 의 것이다.** 🔴 열림 — 가장 작은 것
+
+  `canvasNode` 는 `canvasBlock` 을 만드는데 그 노드는 워드의 것이다 — 덱은 `surface` 자체가
+  캔버스라 만들 것이 없다. `PageWidth` 는 페이지의 글 단이다. 같은 파일의
+  `defaultShapeBox`·`shapeNode` 는 머리말의 논증(*"파란 사각형, 담은 것의 1/4, 가운데"* 는 제품을
+  안 부른다)이 정확히 맞는 자리라 남는다. 40줄쯤.
+
+- **`export *` 가 `office-canvas` 의 문을 여든 개 넓혔다.** 🔴 열림
+
+  문 213개 중 **어떤 제품도 import 하지 않는 것이 80개**, 그중 **54개는 제품의 `index.ts` 가
+  다시 내보내기만 한다.** `office-word/src/index.ts` 하나가 `office-canvas` 이름 **171개** 를
+  다시 내보내고 **그중 142개를 office-word 의 나머지 파일이 한 번도 안 쓴다.**
+  `index.ts` 의 다섯 `export *`(connector·graph-layout·component·instance·variable)가 그 넓이의
+  출처다. 이름을 적는 `export {…}` 로 바꾸면 문이 실제 계약과 같아진다.
+
+- **자기 검사만 문을 쓰는 심볼: 네 부품에서 15개, 그리고 죽은 것은 0개다.** 🔴 열림 — 렌즈 하나
+
+  `office-canvas` 7 · `office-ui` 8 · `office-controls` 0 · `office-icons` 0.
+  **전부 자기 모듈 안에서 돌고 있다** — 즉 지울 것이 아니라 문이 넓은 것이다. 가장 큰 덩어리는
+  `canvas-connector.ts:1202–1562` 의 장애물 회피(`ROUTE_GAP`·`crossesBox`·`crossCount`·
+  `clusterBoxes`·`avoidObstacles`·`avoidStraight`·`avoidCurve`·`flattenCurve`, ≈330줄)이고
+  같은 파일 `:505–556` 의 `routedPoints` 가 여덟을 다 부른다.
+  `docs/specs/shared-layer.md` 의 **41개** 는 이 렌즈이고, 그 문장의 *"아무도 안 도는 코드"* 는
+  `stepZoom` 하나에만 맞았다(그건 자기 모듈도 안 불렀다). 나머지는 **도는 코드, 넓은 문** 이다.
+  둘은 다른 결함이고 고치는 법도 다르다 — 하나는 부르는 것, 하나는 문을 좁히는 것.
+
+- **`office-icons` 에 검사가 없다.** 🔴 열림 — 작은 것
+
+  `packages/office-icons/` 에 `test/` 가 없고 `package.json` 에 `test` 스크립트도 없다(나머지 셋은
+  다 있다). 내주는 이름은 둘(`Icon`·`iconNames`)이고 아이콘은 103개다. 이름 하나가 사라져도
+  `Icon name="…"` 이 조용히 아무것도 안 그리는지 무엇도 안 묻는다.
+
+- **`office-slides/geometry.ts` 의 `stepZoom`·`clampZoom`·`ZOOM_STEPS` 가 이제 두 벌이다.** 🔴 열림
+
+  `office-ui` 로 내려간 판이 도는 판이다. 덱 쪽 판과 `test/geometry.test.ts` 의 검사 아홉은
+  `office-ui/test/zoom-ladder.test.ts` 가 **덱의 사다리를 인자로 건네** 같은 단정을 다시 하므로,
+  덱 쪽을 지워도 잃는 단정이 없다. `ZOOM_STEPS`·`ZOOM_MIN`·`ZOOM_MAX` 는 제품에 남는다.
+
+- **`connector` 는 넷의 스키마에 있고 하나만 그린다.** 🔴 열림 — 검사가 없는 주장
+
+  `packages/schema/src/office-schema.ts:530` 이 `connector` 를 선언하고 `slides-schema.ts:231` 은
+  대시 속성만 **넓힌다.** `word-schema.ts:474`(`group` 이 `scene+`)와
+  `site-schema.ts:857·1020`(프레임이 `scene` 을 담는다)이 scene 노드를 허용하므로 **워드 문서와
+  사이트 문서에 지금 연결선이 합법적으로 들어갈 수 있고, 그릴 수 있는 제품은 하나다.**
+  `office-word/index.ts:539` 의 논증(*연결선은 scene 노드이므로 두 제품이 두 답을 가지면 한
+  문서가 두 그림이 된다*)은 옳고, 검사할 수 있는 형태는 *"독자가 몇인가"* 가 아니라
+  **"그 노드를 허용하는 스키마를 가진 제품이 그것을 그리는가"** 다. 지금은 셋 중 하나다.
+
+- **단일 독자 수를 셀 때 제품 안의 배럴을 풀지 않으면 틀린다.** 🔴 열림 — 방법의 것
+
+  `office-slides/src/manipulate.ts` 는 `office-canvas` 이름 스무 개를 다시 내보내는 32줄이고,
+  덱의 나머지 파일은 `from './manipulate'` 로 부른다. 직접 import 만 세면 그 스무 개가 전부
+  *아무도 안 부른다* 로 나온다. 배럴을 풀고 다시 재니 **82% → 74%**(단일 독자 103 → 98,
+  제품이 부르는 이름 125 → 133)였다. `shared-layer.md` 의 82% 는 이 보정 전 숫자다.
+
+- **`iconsIn`/`commandsIn` 에 평평한 목록 오버로드가 아직 없다.** 🔴 열림 — 가장 작은 것
+
+  `office-controls/index.ts:431·462` 가 `ControlGroup[]` 만 받는다. `controlsIn`(`:197`)은 평평한
+  목록을 이미 받고, `Control.group` 의 주석이 *두 모양 다 옳다* 고 적어 두었다 — 그런데 수집기
+  둘만 한쪽 모양이다. 지금 `office-site/toolbar-model.ts` 가 한 줄짜리 래퍼로 우회하고 있고,
+  `office-note` 도 평평한 제품이라 같은 래퍼를 원하게 된다. 오버로드 둘이면 래퍼가 없어진다.
+
+- **슬래시 항목을 컨트롤 목록에서 뽑는 코드가 두 벌이다.** 🔴 열림 — 재봤고, 옮길 곳이 남의 것이다
+
+  **재본 결과 두 벌 그대로이고 줄만 움직였다:**
+
+  | | |
+  |---|---|
+  | `packages/office-site/src/toolbar-model.ts` | `siteSlashItems()` — **381 → 413** |
+  | `packages/office-note/src/note-kit.ts` | `noteSlashItems()` — **107**, 그대로 |
+
+  반환 타입이 글자까지 같고 설명 칸만 다르다(`makes` vs `title`). 필터도 다르다 —
+  site 는 `group === 'insert' && puts === 'block'`, note 는 `noteControlsIn('block')`. Word 와 Slides
+  에는 슬래시 메뉴가 아직 없다(저장소 전체에서 `SlashCommandExtension({items})` 를 넘기는 곳은
+  `site-kit.ts:166` 과 `note-kit.ts:95` 둘뿐).
+
+  **합치지 않았다.** 한쪽이 `packages/office-note` 이고 옮길 곳은 `packages/office-controls` 인데
+  둘 다 이번 회차에 내 것이 아니다. 조건이 *둘 다 내 패키지 안이면 합친다* 였고 아니었다.
+
+  **그리고 재면서 세 번째 사본이 나왔다.** 그 반환 타입은 이미 이름이 있다 —
+  `packages/extensions/src/slash-command.ts:29` 의 `SlashMenuItem` 이고, 그것이 두 함수의 결과를
+  **소비하는** 타입이다(`SlashCommandExtensionOptions.items`). 두 제품이 그 모양을 각자 인라인으로
+  다시 적었고, 둘 다 `payload` 를 빠뜨렸다.
+
+  **오늘은 아무것도 안 깨진다** — 재봤다: `SITE_TOOLBAR` 의 `puts: 'block'` 행과 `NOTE_BLOCKS` 에서
+  나오는 행 중 `payload` 를 가진 것이 **0** 이다. 깨지는 것은 하나 생기는 날이고, `Control.payload`
+  는 있는 필드다: `controlId`(`office-controls/index.ts:167`)의 주석이 *사이트의 컨트롤 여덟이
+  `alignBlocks` 를 돌고 payload 로만 다르다* 고 적어 두었고, 기본 슬래시 목록에도 그런 행이
+  **6개**(`setHeading` 셋 · `insertTable` · `insertCallout` 둘) 있다. 그때 이 두 함수는 그 값을
+  **조용히 떨어뜨린다** — `/제목2` 가 `setHeading` 을 인자 없이 돌린다.
+  `office-controls` 로 내릴 때 반환 타입은 새로 적지 말고 `SlashMenuItem` 이어야 한다.
+
+- **다크를 도는 playwright 검사가 1,092개 중 셋이고, 그 셋은 값을 안 본다.** 🔴 열림 — 사이트 쪽 하나는 썼고, 안 돌렸다
+
+  `apps/site/tests/site-theme-values.spec.ts` — **검사 8개, 안 돌린 채.** 무엇을 어떻게 묻는지는
+  파일 머리에 다 적혀 있다. 요약: 네 상태(시스템 라이트/다크 × 명시적 라이트/다크)에서 뿌리의
+  토큰 **18개**를 값으로, 화면 **9면**을 자기가 부르는 토큰의 rgb 로, 명시적 테마를 시스템
+  쌍둥이와 픽셀까지, 그리고 **다크 문서 안의 라이트 섬과 그 거울상**을 `.st-rail` 에 찍어서.
+
+  `docs/specs/site-builder.md` §크기 를 같이 고쳤다(283 → 291, 무엇이 늘었는지 함께). 그 숫자를
+  `docs/specs/note.md:173` 이 인용하고 있어서 **거기 한 줄도 고쳤다** — 그 파일은 내 것이 아니다.
+  `office-site/test/spec-numbers.test.ts:182` 가 두 문서가 같은 숫자를 적는지 본다.
+
+  **남은 셋 중 둘:** `apps/word/tests/word-theme.spec.ts` 와 `apps/slide/tests/slide-theme.spec.ts`
+  가 아직 `not.toEqual` 이다. 같은 모양이 그대로 옮겨진다 — 바뀌는 것은 `PAINTED` 표(제품의
+  선택자)와 `ST` 표(제품의 접두 토큰)뿐이고, `OU` 표와 네 상태와 섬 검사와 대비 일곱은 그대로다.
+  `playwright.config.ts` 여섯 중 `colorScheme` 을 정한 것은 여전히 0 — 이 스펙은 컨텍스트마다
+  스스로 정하므로 설정을 안 건드린다.
+
+- **`--ou-accent-ink` 가 다크 악센트 위에서 3.68:1 이다.** 🔴 열림 — **잰 것, 안 고쳤다**
+
+  `tokens.css` 의 다크 블록이 악센트를 밝히고(`#2563eb` → `#3b82f6`) 그 위의 잉크는 `#ffffff` 로
+  둔다 — 그 이름을 다크 블록 셋 중 어느 것도 다시 말하지 않는다. 라이트는 5.17:1 이고 다크가
+  **3.68:1** 로, 보통 글자의 4.5 아래다. 눌린 툴바 단추와 `.st-back:hover` 의 글자가 그 쌍이다.
+
+  같은 재기에서 하나 더: **`--ou-board-ink` on `--ou-studio` 가 라이트에서 3.98:1** (다크는 5.29).
+  보드 위의 이름표다.
+
+  둘 다 새 스펙의 대비 검사에서 **일부러 뺐다** — 넣으면 그 파일이 처음 도는 순간 빨개지고,
+  그러면 읽는 사람이 제품보다 스펙을 먼저 의심한다. `packages/office-ui` 가 내 것이 아니라
+  값도 안 고쳤다.
+
+- **앱 다섯 중 `color-scheme` 을 선언한 것이 0이다.** 🔴 열림 — 작은 것
+
+  `apps/site/src/style.css` · `packages/office-site/src/ui.css` 어디에도 `color-scheme` 이 없고,
+  저장소 전체로도 마찬가지다. 그래서 다크에서 스크롤바·`<select>`·`<input>` 의 기본 렌더는
+  라이트로 남는다 — 팔레트가 아니라 브라우저가 그리는 부분이고, `--ou-*` 는 거기 닿지 못한다.
+  `:root { color-scheme: light dark }` 한 줄과 `[data-theme]` 블록의 짝이 답이다.
+
+- **`dark-is-actually-read` 의 CSS 파서가 `@layer` 를 순서 없이 통과시킨다.** 🔴 열림 — 렌즈 하나
+
+  `packages/conformance/test/dark-is-actually-read.test.ts` 의 `parseInto` 가
+  `@supports|@layer|@scope|@container` 를 같은 미디어로 재귀만 하고 넘어간다. 레이어는 명시도
+  **앞** 에서 걸리는 것이라, 레이어 안의 규칙이 밖의 규칙을 이길 수 없다는 사실을 그 계산은
+  모른다. 앱 다섯이 전부 `@import "tailwindcss"` 로 Tailwind v4 의 레이어를 들여오므로 이건
+  가정이 아니다. 지금은 팔레트가 전부 레이어 밖이라 답이 우연히 맞다. 새 브라우저 스펙의
+  §토큰 검사가 이 우연이 깨지는 날 두 검사의 답을 갈라 보여 준다.
+
+---
+
+### 이번 회차 것이 아닌데 지금 빨간 것
+
+- **버블 툴바의 조건을 `guards.ts` 로 — 절반 옮겼다. `apps/site` 쪽이 남았다.** 🔴 열림
+
+  `hasRange` 는 이제 **마지막 한 칸까지** 답한다. 셋을 층으로 갈랐다:
+
+  | 누가 | 무엇을 아나 | 어디까지 답하나 |
+  |---|---|---|
+  | `shared/fromDOMSelection` | DOM 의 두 끝 | sid 가 같을 때까지. 다르면 `collapsed: false` — **모른다** 의 표기 |
+  | `editor-core/isCollapsedSelection` | 선택 하나 | 두 끝이 같은 노드일 때까지 |
+  | `extensions/guards.ts` `hasRange` | 선택 **과 편집기** | 문서를 읽는다 |
+
+  `hasRange(ed, p, 'something')` 은 이제 `isCollapsedSelection` 으로 같은 노드를 처리하고, sid 가
+  둘이면 `@barocss/shared` 의 `selectsCharacters` 로 **두 자리 사이에 글자가 있는지** 를 묻는다.
+  `wants: 'caret'` 은 그 걸음을 걷지 않는다 — 캐럿에서 도는 명령은 그것을 안 묻고, 거기 문서 훑기를
+  넣으면 값만 치른다. 문서를 못 읽는 저장소에는 **예** 라고 답한다(모르는 채로 명령을 끄지 않는다).
+
+  걸리는 자리 **22개** — `font-family` 2 · `font-size` 2 · `font-color` 4 · `highlight` 3 ·
+  `text-formatting` 4 · `link` 2 · `footnote` 4. 전부 글자에 마크를 걸거나 떼는 명령이다.
+
+  **남은 것:** `apps/site/src/text-surface.tsx:55-58` 이 아직 `selection.collapsed !== true` 를 직접
+  묻는다 — 술어의 **세 번째 사본**. `apps/**` 는 이 회차의 소유 밖이라 못 옮겼다. 옮길 것은 한 줄이고
+  (`hasRange(editor, { selection }, 'something')`), 옮기지 않으면 사이트에서 인접 런 사이의 0글자
+  범위에 버블 툴바가 **계속 뜬다** — 엔진은 이제 아니라고 답하는데.
+
+- **`datastore` 둘과 `model` 하나의 캐럿 리터럴.** 🔴 열림 — **그대로 6**
+
+  `every-caret-says-it-is-collapsed` 의 제품 코드 목록이 **6에서 안 움직였다.** 여섯 다 이 회차의
+  소유 밖이다:
+
+  | 어디 | 몇 | 이 회차의 것인가 |
+  |---|---|---|
+  | `datastore/src/operations/range-operations.ts` :422 :505 | 2 | 아니다 |
+  | `model/src/operations/insertText.ts` :74 | 1 | 아니다 |
+  | `editor-view-react/src/input-handler.ts` :597 :650 :841 | 3 | 아니다 (react 를 뒤로 미뤘다) |
+
+  앞의 셋은 `DataStore.range.insertText` 에 바로 넘기는 자리라 지금 해가 없다. **react 쪽 셋이
+  값이다** — DOM 뷰에서 고친 것과 같은 자리이고 노트·워드가 그 경로다.
+
+- **검사 픽스처가 캐럿을 네 필드로 가르친다.** 🔴 열림 — **40 → 20**
+
+  쓸 수 있는 파일의 스물을 다 걷었다. `every-caret-says-it-is-collapsed.test.ts` 의 숫자와 목록을
+  같이 내려 적었다(올려 적지 않았다).
+
+  | 걷은 곳 | 몇 |
+  |---|---|
+  | `editor-core/test/editor.test.ts` | 2 |
+  | `editor-core/test/selection-manager.test.ts` | 1 |
+  | `editor-core/test/undo-redo-history.test.ts` | 9 |
+  | `editor-view-dom/test/core/editor-view-dom.test.ts` | 5 |
+  | `extensions/test/emoji-extension.test.ts` | 2 |
+  | `extensions/test/slash-menu.test.ts` | 1 |
+
+  **넷은 단정이기도 했다**(`toMatchObject` · `objectContaining` 안의 리터럴). 거기 한 줄을 더한다는
+  것은 *편집기가 이제 그 깃발을 붙여서 낸다* 를 단정하는 것이고, `withDerivedCollapsed` 가 문에서
+  그것을 지킨다. 픽스처를 고치는 값이 이것이다 — 모양을 **베끼는** 자리가 **묻는** 자리가 된다.
+
+  남은 스물: `datastore` 3 · `editor-view-react` 9 · `model` 3 · `office-word` 5. 전부 소유 밖.
+
+- **`editor-view-react` 도 이제 `selectsCharacters` 를 쓸 수 있다.** 🔴 열림 — 그 패키지의 `input-handler`
+  세 자리와 `selection-handler` 가 같은 질문을 각자 하고 있고, 답은 이제 두 패키지가 다 의존하는
+  `@barocss/shared` 에 있다. react 를 다시 켤 때 첫 줄.
+
+- **`hasRange` 가 답하지 못하는 경계 하나.** 🔴 열림 — 두 런 사이에 **원자**(그림·구분선)만 있으면 *아니다* 라고
+  답한다. 글자를 다루는 명령들에는 맞는 답이고, 원자를 고르는 것은 `node` 선택의 일이다
+  (`docs/specs/selection.md`). 재서 반박이 나오면 그때 고칠 자리다 — 추측으로 넓히지 않았다.
+
+---
+
+### 내 것이 아닌 빨강 둘 (구별해서 적었고, 둘 다 그 회차 안에 닫혔다)
+
+같은 트리에 여섯이 있으므로 확인해서 나눈다. **둘 다 내 변경과 무관하다.**
+
+- ✅ `conformance/test/open-items-name-things-that-exist.test.ts` — 열린 항목이 가리키던 dsl 사본
+  파일이 같은 회차에 지워졌다. **서로 모르는 두 덩이가 각각 이것을 보고했고, 검사는 그 항목이
+  해결된 순간을 잡은 것이다.** 조율자가 그 항목을 사실로 고쳤다.
+
+- ✅ `office-word/test/menu-teaches-every-key.test.ts` — *메뉴 어디에도 ⌘Z 가 없습니다*.
+  `WORD_MENUS`·`WORD_KEYS`·`@barocss/office-controls` 를 읽는 검사이고, 그 셋 중 `office-controls/src`
+  세 파일과 `office-word/src` 다섯 파일이 작업 트리에서 다른 에이전트에게 고쳐지는 중이다. 나는
+  `office-*` 를 한 줄도 안 만졌고, 이 검사는 키 힌트 문자열만 본다 — 선택·자리 층과 닿는 곳이 없다.
+
+### 잰 것 (내 소유 넷 + 이웃)
+
+| 패키지 | 시작 | 지금 |
+|---|---|---|
+| `shared` | 102 · 12파일 | **124 · 13파일** |
+| `editor-core` | 332 · 23파일 | **332 · 23파일** |
+| `editor-view-dom` | 493 · 44파일 | **493 · 44파일** (`it.fails` 둘이 진짜 `it` 이 됐다) |
+| `extensions` | 256 · 33파일 | **267 · 34파일** |
+| `conformance` | — | 138 통과 · 1 실패(위, 내 것 아님) |
+| `editor-view-react` · `renderer-dom` · `datastore` · `model` · `office-text` · `office-note` | — | 전부 초록 |
+
+`tsc --noEmit`: `shared` · `editor-core` · `editor-view-dom` · `extensions` 넷 다 깨끗하다.
+
+- **`TreeDocument` 는 지워졌다고 주석까지 적혀 있는데, 통합 검사 여섯 파일이 픽스처 63개를 아직 그 이름으로 적고 있다.** 🔴 열림 — **고치지 않고 정확히 쟀다**(패키지가 내 것이 아니다)
+
+  숫자는 아래 "재는 값" 절에 그대로 따라 할 수 있게 적었다. 요약 셋:
+  **63 = 타입 표기 62 + 주석 1.** 이름을 없애면 `editor-view-dom` 의 타입 오류가
+  **175 → 113 (−62, 새로 생기는 것 0)**. 그리고 `ModelData` 든 `INode` 든 **둘 다 0** 이다 —
+  픽스처는 이미 엄격한 쪽에 맞는다.
+
+- **없는 필드를 주석으로 정당화한 자리.** 🔴 열림 — **`editor-view-dom` 이라 재기만 했다**
+
+  자리: `packages/editor-view-dom/test/decorator-system/decorator-prebuilder-2.test.ts:100`.
+  지금 나는 오류는 **하나**: `TS2353: 'generate' does not exist in type 'Decorator'`.
+
+  **왜 없는지까지 쟀다.** `generate` 는 `Decorator` 의 것이 아니라 **다른 인터페이스의 것**이다 —
+  `packages/shared/src/decorator/decorator-generator.ts:11` 의 `DecoratorGenerator` 가 그것을
+  가지고, `packages/shared/src/decorator/types.ts:17` 의 `Decorator` 는 32줄 어디에도 없다.
+  둘은 상속 관계가 아니다. 그리고 `buildAll(decorators: Decorator[], …)` 이므로 —
+  **`generate` 를 단 값은 그 함수에 도달할 수 없다.**
+
+  그러니 이 검사의 이름(`custom decorator는 generate를 무시하고…`)은 *일어날 수 없는 입력을
+  무시하는지* 를 묻고 있다. 고칠 사람의 선택지 둘:
+  1. 세 줄(주석 2 + 필드 1)을 지운다 → 175 → 174. 검사가 주장하던 것이 사라지므로 `it()` 이름도
+     같이 고쳐야 한다.
+  2. `it()` 통째로 지운다 → 같은 파일의 나머지 일곱은 그대로다.
+
+  저장소 전체에서 `generate:` 를 세우는 자리는 15곳인데 **나머지 14곳은 전부
+  `DecoratorGenerator` 로서 옳다.** 잘못된 것은 이 하나뿐이다.
+
+- **`packages/conformance` 의 예산을 2 → 4 로 올렸다.** 🔴 열림 — **내려야 할 빚이다**
+
+  올리는 것은 원래 하면 안 되는 일이라 이유를 적는다. 이 넷은 **내 회차가 만든 것이 아니고**
+  22:34:04Z 의 첫 측정에도 이미 있었다(파일 mtime 22:54·02:12, `git status` 로는 깨끗 =
+  커밋된 상태). 즉 **예산 줄이 진실보다 낮은 채 방치돼 있었다** — 누군가 검사 둘을 더하고
+  가드를 돌리지 않았다. 4가 오늘의 진실이라 4로 적었다. 넷은 이렇다:
+
+  | 자리 | 오류 |
+  |---|---|
+  | `test/attribute-probe.test.ts:44` | TS2352 — `Record<string, never>` 로의 변환 |
+  | `test/drawing-the-same-thing-twice-is-not-a-change.test.ts:4` | TS2305 — `node:fs` 에 `globSync` 가 없다 |
+  | `test/drawing-the-same-thing-twice-is-not-a-change.test.ts:73` | TS7006 — `one` 이 암묵적 `any` |
+  | `test/every-insert-can-be-held.test.ts:68` | TS2339 — `detail` 이 없다 |
+
+  둘째 것은 코드가 아니라 **의존성**이다: 저장소가 쓰는 `@types/node` 가 **20.19.30** 이고
+  `fs.globSync` 는 Node 22 부터다. `pnpm install` 이 금지라 이 회차에서는 손댈 수 없었다.
+  나머지 셋은 `packages/conformance/test/` 라 내 쓰기 목록 밖이다. **주인이 넷을 0으로 만들고
+  예산을 다시 내릴 것.**
+
+- **`converter` 에 값을 계산해 놓고 아무것도 주장하지 않는 자리가 여섯 있다.** 🔴 열림
+
+  남은 10개 중 9개가 `TS6133 … is declared but its value is never read` 인데, 이것은
+  *안 쓰는 변수* 가 아니라 **검사가 하다 만 자리**다. 예:
+  `markdown-converter.test.ts:892` 가 `const blockquotes = nodes.filter(n => n.stype === 'blockquote')`
+  를 만들고, 다음 줄에서 묻는 것은 `expect(nodes.length).toBeGreaterThan(0)` 뿐이다.
+  주석은 *"only if parsing succeeded"* 라고 적혀 있다 — **파서가 그것을 아직 못 한다는 사실이
+  주석으로만 남고 검사로는 남지 않았다.**
+
+  자리: `markdown-converter.test.ts` 892 · 931 · 964 · 983 · 1060 · 1061,
+  `office-html-converter.test.ts` 208 · 710, `latex-converter.test.ts:8`(안 쓰는 import).
+  지우면 증거가 사라지고, 주장으로 바꾸면 몇은 빨개진다 — **어느 쪽인지가 결정이라 이 회차에서는
+  세기만 했다.** 열째는 `markdown-converter.test.ts:2` 의 TS7016(`markdown-it` 타입 없음)이고,
+  `@types/markdown-it` 이 없어서 나는 것이라 위와 같은 이유로 이번엔 못 고쳤다.
+
+---
+
+### 이 회차가 고친 파일
+
+```
+apps/editor-react/tsconfig.typecheck.json          (새로)
+apps/editor-test/tsconfig.typecheck.json           (새로)
+apps/note/tsconfig.typecheck.json                  (새로)
+scripts/typecheck-tests.mjs                        KNOWN_UNGUARDED → 빈 집합
+typecheck-budgets.json                             앱 셋 추가 · converter 21→10 · dsl 77→52 · conformance 2→4
+packages/converter/test/html-converter.test.ts     INode 표기 25 · nodeAt() · 죽은 가드 둘 제거
+packages/converter/test/markdown-converter.test.ts INode 표기 8 · markedTextIn() · 죽은 가드 둘 제거
+packages/dsl/tests/dsl-functions.test.ts           지움 (사본)
+packages/schema/src/types.ts                       TNodeType 세 번째 사본 지움
+```
+
+`node scripts/typecheck-tests.mjs` — **2026-09-06 07:47:07~07:48:38 KST 회차에서 초록,
+exit 0, "Every package is where it says it is."** 그 뒤 다른 에이전트의 `ZoomLadder`
+리팩터가 일곱을 빨갛게 만들었고(위 "흔들림" 표), 그 일곱은 내 쓰기 목록 밖이라 손대지
+않았다. **내 일곱 대상은 07:47·07:51·07:55 세 회차 모두 예산과 정확히 같다.**
+
 
 ## Done
 
@@ -15789,4 +16194,308 @@ the first half of that is fixed (see Done). What is left, in the order a reader 
   now — see Done. 데이터's rename and delete were already there, **inside the data editor** rather
   than on the rail row, which is where a dataset is edited and is defensible.
 
+
+
+- **Word 는 표 칸 안에서 도형·프레임을 넣지 못한다.** ✅ 고침
+
+  검사를 먼저 썼다(`packages/office-word/test/insert-inside-a-table-cell.test.ts`, 5개). 고치기 전
+  **2 실패 · 3 통과** — 캐럿이 `bTableCell` 안일 때 `insertFrame` 도 `insertRectangle` 도 `false` 를
+  돌려주고 문서가 그대로였다. 통과한 셋 중 하나가 *"단추는 켜져 있다"* 여서, 결함의 모양이
+  백로그가 적어 둔 그대로임이 검사로 확인됐다: `canExecute` 는 true, 명령은 실패.
+
+  손 목록(`parent.stype !== 'paragraph' && !== 'heading'`)을 지우고 스키마에게 물었다 —
+  `packages/office-word/src/block-placement.ts` 의 `holdsABlock`. 걷기 자체도 한 벌로 합쳤다:
+  `frame-commands.ts` 와 `canvas-insert-commands.ts` 가 같은 32줄을 각자 갖고 있었고 이제 `blockAt`
+  하나를 부른다. 캐럿이 칸에 있으면 `bTableRow`→`bTableBody`→`bTable` 을 지나 **표 바로 뒤**,
+  섹션 안에 놓인다.
+
+  고친 뒤 5/5 통과. 검사의 최종 형태를 옛 규칙(손 목록)에 다시 돌려 2 실패를 재확인했다 —
+  트리 모양 오타로 빨간 것이 아니라 규칙 때문에 빨갰다는 증거.
+
+  **이 저장소의 `holdsABlock` 두 번째 사본이다.** 첫 번째는 `office-site/selection.ts`. 제품이 제품을
+  의존할 수 없어 복사했고, 있어야 할 자리는 둘 아래 한 층(`office-canvas` 나 `shared`)이다. 세 번째
+  제품이 쓰기 전에 내리는 것이 요점이다.
+
+- **`office-word` 는 자기 주석 닻을 그릴 수 없다.** ✅ 고침
+
+  `apps/word/src/main.tsx` 의 두 템플릿을 `packages/office-word/src/highlight-decorators.ts` 로
+  옮겼다. 주석 닻만이 아니라 **찾기 하이라이트도 같은 결함** 이라 함께 옮겼다(`w-find-match`,
+  `find-panel.tsx`). import 시점에 등록되므로 호스트가 부를 것이 없다 — 잊을 수 있는 등록이 바로 이
+  항목이 고치는 것이다. `registerHighlightDecorators()` 는 명시하고 싶은 호스트를 위해 내보낸다.
+
+  네 속성이 그대로인지: `packages/office-word/test/highlight-decorators.test.ts` (6개).
+  `class`(선택/현재 두 갈래) · `data-bc-chrome` · `data-decorator` · `data-skip-reconcile` 는 등록된
+  템플릿에서 읽어 대조하고, `data-decorator-type="target"` 은 뷰가 붙이는 것이라 템플릿에 없으므로
+  **복사 경로를 걸어서** 확인한다 — 있으면 `"Revisions"` 가 남고, 없으면 `" are drawn."` 가 되는
+  대조군을 같은 검사 안에 넣었다.
+
+  가드가 자기가 막을 것을 보는지 손으로 확인했다(둘 다 되돌림): 등록 호출을 지우면 6개 중 5개가
+  *"fallback div 가 그려집니다"* 로 빨갛고, 닻 템플릿에서 `data-bc-chrome` 만 빼면 그 검사 하나가
+  빨갛다.
+
+  **playwright 금지라 브라우저에서는 못 봤다.** `apps/word/tests/word-review.spec.ts` 가 세는
+  `.w-comment-hit`/`.w-find-hit` 는 글자가 그대로라 영향이 없어야 하지만, 확인된 것은 아니다.
+
+- **`office-site/toolbar-model.ts:351` 이 `iconsIn`/`commandsIn` 을 다시 적었다.** ✅ 고침
+
+  `siteToolbarIcons()`/`siteToolbarCommands()` 가 `office-controls` 의 두 수집기를 부른다.
+  `SITE_TOOLBAR` 를 `ControlGroup` **하나** 로 감싸서 넘긴다 — 평평한 목록은 이름 있는 한 줄기이고,
+  `flatMap` 은 한 줄기 위에서 항등이라 감싸는 것이 우회가 아니다.
+
+  **백로그가 적어 둔 답과는 다르다.** 그쪽은 *`office-controls` 에 평평한 목록 오버로드를 얹으면
+  9줄이 사라진다* 였고 그것이 맞는 답이다 — 세 번째 평평한 제품이 오면 그 오버로드를 원한다.
+  `packages/office-controls` 가 이번 회차에 내 것이 아니라 못 얹었다. **오버로드는 아래 Open 에
+  남겨 뒀다.**
+
+  드리프트가 실제로 있었다: 공유 `iconsIn` 은 `''` 도 거절하고 여기 사본은 `!!name` 이었다.
+  오늘은 같은 답이 나오고 같은 문장은 아니다.
+
+- **`office-slides` 가 `onApple()` 을 두 번 다시 적었다.** ✅ 고침
+
+  `ribbon.tsx:74` 와 `overlay.tsx:891` 이 `@barocss/office-ui` 의 `onApple()` 을 부른다. 그 패키지는
+  이미 `office-ui` 를 의존한다. **덱이 툴바의 화음은 한 사본에서, 컨텍스트 메뉴의 화음은 다른
+  사본에서 뽑고 있었다** — 한 답을 갖는 질문에 한 화면 안에서 두 답.
+
+  `office-slides` 1042 통과 · 64 파일 그대로, `tsc` 소스 오류 0.
+
+- **`office-site/ui.css` 에 `[data-theme='light']` 가 없다.** ✅ 확인 — 이미 고쳐져 있었다
+
+  `packages/office-site/src/ui.css:194` 에 여섯 줄이 있고 왜 늦게 왔는지도 `:170` 에 적혀 있다.
+  `packages/conformance/test/dark-is-actually-read.test.ts` **8/8 통과**. 내가 한 것은 없다.
+
+- **`office-site` 의 코드 블록이 `element` 가 널일 수 있다는 것을 모른다.** ✅ 확인 — 이미 고쳐져 있었다
+
+  `code-render.ts:135` 가 `instance: { element?: Element | null }` 이고 `:121` 에 이유가 적혀 있다.
+  백로그가 예상한 `HTMLElement | null` 이 아니라 `Element | null` 인 것이 맞다 —
+  `paintInto` 는 속성과 텍스트만 쓰고 둘 다 `HTMLElement` 의 것이 아니다.
+  `(cd packages/office-site && npx tsc --noEmit -p tsconfig.json)` 에서 `src/` 오류 **0**.
+
+---
+
+### Open 에 남길 것
+
+- **다른 덩이의 변경이 백로그 경로를 낡게 만들었다.** ✅ 고침 — `conformance/test/open-items-name-things-that-exist` 가 `packages/dsl/tests/dsl-functions.test.ts`
+  를 못 찾는다.**
+
+  `docs/BACKLOG.md` 의 열린 항목 하나가 그 경로를 이름으로 부르는데 파일이 없다. `dsl` 쪽을 만진
+  에이전트의 것이다 — 옮겼으면 항목의 경로를, 파일과 함께 죽었으면 항목을 `## Done` 으로.
+  나머지 **27 파일 · 138 검사 통과**, `dark-is-actually-read` 8/8 포함.
+
+- **`office-note` 의 게이지가 움직였다.** ✅ 고침 —  "다른 세 앱의 크롬" 8,503 → 8,478.**
+
+  회차 중간에 빨갰다가 Word 크롬을 옮기는 쪽이 `docs/specs/note.md:132` 를 같이 고쳐 초록이 됐다.
+  적어 두는 이유는 하나다 — 그 파일 `:173` 은 **내가** 고쳤다(283 → 291). 한 파일을 두 회차가
+  같은 시간에 만졌고 서로 다른 줄이라 붙었다.
+
+- **인접한 두 런 사이의 0글자 범위 (#8).** ✅ 고침
+
+  `it.fails` 를 걷었다. **처음 이 검사가 기대하던 것이 틀렸다** — `convertDOMSelectionToModel` 이
+  `collapsed: true` 를 주기를 기다렸는데, sid 가 둘일 때 그것은 두 끝을 보는 함수가 답할 수 있는 것이
+  아니다. 그래서 검사가 묻는 것을 둘로 갈랐다: (1) 변환이 두 끝을 정확히 준다(`t1:2 → t2:0`),
+  (2) *고른 글자가 있나* 는 문서를 읽어 답한다(`extractModelTextFromRange` → `''`).
+  술어로서의 검사는 그것이 사는 층에 있다 — `packages/extensions/test/guards.test.ts` (새 파일, 11개).
+
+- **`shared/text-position` 의 되돌아갈 곳이 DOM 오프셋을 모델 오프셋으로 센다 (#4).** ✅ 고침
+
+  `binarySearchRun(runs.runs, Math.min(offset, runs.total - 1))` 을 걷어냈다. **산수를 고친 것이
+  아니라 질문을 바꿨다**: 색인에 없는 글자 노드는 *오프셋* 을 말할 수 없고 *자리* 만 말할 수 있으므로,
+  요소 경계와 **똑같이** 문서 순서로 이웃한 런에 붙인다. 두 경우가 이제 한 함수(`offsetNearNode`)다.
+
+  잰 것 — 배지 `[각주1]`(6글자)이 런 둘(`가나` 0..2, `다라` 2..4) 앞에 있을 때:
+
+  | 배지 안 DOM 오프셋 | 고치기 전 | 지금 |
+  |---|---|---|
+  | 0 · 1 | 0 | 0 |
+  | 2 · 3 | 2 ← 미끄러짐 | 0 |
+  | 4 · 5 · 6 | 2 ← 미끄러짐 | 0 |
+
+  단위 검사 아홉을 `shared/src/text-position/text-position.test.ts` 에 내려 적었다(24 → 33).
+
+### 옮길 것 — 세기만
+
+- **`editor-is-typed` 톱니.** ✅ 닫힘 — **358 → 357, 초록**
+
+  **내가 걷은 것이 아니다.** 백로그가 지목한 `office-word/test/editor-focus-is-about-the-content-layer.test.ts`
+  는 지금 HEAD 와 같고(작업 트리 변경 없음) 캐스트가 **0** 이다 — 그 회차를 돌던 다른 에이전트가
+  치웠다. 지금 저장소 전체가 정확히 **357**, `ALLOWED` 와 같고 검사가 통과한다. 숫자를 올리지 않았고
+  내려 적을 것도 없다(이 회차가 없앤 캐스트는 0이다).
+
+---
+
+### 이 회차가 새로 만든 것
+
+- **`@barocss/shared/selection-text.ts` 를 새로 두었다.** ✅ 고침 — `extractModelTextFromRange` 가 `editor-view-dom` 에서
+  여기로 내려왔다. 그것을 불러야 하는 두 번째 자리가 `extensions/guards.ts` 인데 확장은 뷰를 import
+  하지 않는다. 답이 두 벌이 되는 대신 아래로 내렸고, `editor-view-dom/src/utils/edit-position-converter.ts`
+  는 같은 이름으로 다시 내보내므로 그쪽 호출자(`dom-change-classifier` 3자리)는 한 줄도 안 바뀌었다.
+
+  같이 나온 것이 `selectsCharacters` — **첫 글자에서 멈춘다.** 가드는 그릴 때마다 도는데
+  `extract(...).length > 0` 은 문서 절반을 고른 채로 매번 그 절반을 이어 붙인다. 세었다: 같은 범위에
+  `getNode` 가 **다섯 대 둘**. (처음 넷이라고 적었고 틀렸다 — 훑기는 그릇만이 아니라 문서 순서로
+  만나는 노드를 다 읽는다.)
+
+- **새 검사 셋을 두었다.** ✅ 고침 — `extensions/test/guards.test.ts` (11) · **`shared/src/selection-text.test.ts`** (13) ·
+  `text-position.test.ts` +9.
+
+### 다음 사람에게
+
+- **`dsl` 의 같은 스펙 파일이 두 벌 있고, 한 벌은 과거에 멈춰 있다.** ✅ 고침
+
+  **`tests/dsl/dsl-functions.test.ts`(481줄)를 남기고 `tests/dsl-functions.test.ts`(419줄)를 지웠다.**
+  옮길 것은 없었다 — 공백을 지우고 두 파일을 통째로 대조하니 **옛 쪽에만 있는 것은 주석 한 줄**
+  (`// Create a mock target element for testing`)뿐이고, `it()` 제목 46 대 50 의 차이는 옛 쪽의
+  `should create renderer definition` 하나가 새 쪽에서 다섯으로 갈라진 것이다.
+
+  남길 쪽을 *무엇을 더 많이 검사하는가* 가 아니라 *무엇이 지금의 코드를 검사하는가* 로
+  골랐고, 그 답은 갈라진 다섯이었다: 새 쪽만 `define()` 에 **함수 컴포넌트·재정의·
+  `element()` 가 정의된 렌더러를 쓰는 것·`ExternalComponent`** 를 묻는다. 지금 `define()` 의
+  서명이 `RenderTemplate | ContextualComponent | ExternalComponent | ExternalDescriptor` 인데
+  옛 쪽은 그중 하나(ElementTemplate)만 묻는다.
+
+  | | 앞 | 뒤 |
+  |---|---|---|
+  | vitest | **147 · 6파일** | **115 · 5파일** (−32, 지운 사본의 몫) |
+  | 타입 오류 | 77 | **52** (−25) |
+
+  줄어든 32는 깨진 것이 아니라 **두 번 물어보던 것을 한 번 묻게 된 것**이다. 남은 파일의
+  36개가 지운 파일의 32개를 전부 덮는다(제목 대조로 확인).
+
+- **`converter` 의 픽스처가 `INode[]` 가 아니다.** ✅ 고침
+
+  | | 앞 | 뒤 |
+  |---|---|---|
+  | 타입 오류 | 21 | **10** (−11) |
+  | vitest | 112 · 6파일 | **112 · 6파일** (그대로) |
+
+  `test/html-converter.test.ts` 는 **0** 이 되었고 `test/markdown-converter.test.ts` 의
+  INode 관련 6개도 사라졌다. 한 것:
+  - 픽스처 33개에 `: INode[]` 를 붙였다(html 25 · markdown 8). `IMark.range` 가
+    `[number, number]` 튜플이라 표기가 없으면 `[0, 9]` 가 `number[]` 로 추론되어 TS2345 가 났다.
+  - `INode.content` 는 `(INode | string)[]` 다. **단언 대신 좁히는 것**을 두 개 넣었다 —
+    `nodeAt(parent, i)`(html)와 `markedTextIn(parent)`(markdown). 둘 다 아니면 **던진다**.
+    `as INode` 를 쓰지 않은 이유: 캐스트는 주장을 지우고, 이 자리들은 원래 주장하던 곳이다.
+  - 지운 것: `if (nodes[0].content && Array.isArray(nodes[0].content))` 네 겹. 그 가드는
+    **아무것도 좁히지 않았고**(`Array.isArray` 는 `(INode|string)[]` 를 그대로 둔다), 안이
+    비면 검사가 조용히 통과하는 자리였다.
+
+  **남은 10개는 다른 이야기다**(아래 "덤으로 나온 것" 참조).
+
+- **테스트가 있는데 검사 설정이 없는 곳 셋이 아직 남았다.** ✅ 고침
+
+  `tsconfig.typecheck.json` 셋을 넣고 `scripts/typecheck-tests.mjs` 의 `KNOWN_UNGUARDED` 를
+  **빈 집합으로** 만들었다(집합 자체는 남겼다 — 새로 생기는 것을 즉시 실패시키는 것이 그것의 일이다).
+
+  | 대상 | 검사 파일 | 잰 오류 | 어디 |
+  |---|---|---|---|
+  | `apps/editor-react` | 7 (전부 컴파일됨) | **0** | — |
+  | `apps/editor-test` | 1 (컴파일됨) | **12** | `src/main.ts` 11 · `tests/editor-view.spec.ts` 1 |
+  | `apps/note` | 2 (전부 컴파일됨) | **0** | — |
+
+  **셋의 빚은 10이 아니라 12였고, 그중 11은 검사가 아니라 `src/main.ts` 였다** —
+  `apps/editor-test` 는 `type-check` 스크립트가 아예 없어서 **소스도 한 번도 컴파일된 적이 없다.**
+  11개는 `window.__editor`/`window.__editorViewDOM`(선언 없는 전역) 셋과 TS2769 다섯이다.
+
+  `apps/note` 는 처음 쟀을 때 54가 나왔는데 **내 tsconfig 주석의 결함**이었다: 주석 안에
+  `` `**/*.test.ts` `` 를 적었더니 그 안의 `*/` 가 블록 주석을 먼저 닫아 JSON 이 깨졌고,
+  `extends` 가 통째로 무시되어 `jsx` 도 `paths` 도 사라진 채 컴파일됐다. 고친 뒤 0.
+  *(다음 사람에게: `tsconfig` 주석에 glob 을 그대로 쓰지 말 것.)*
+
+- **어휘가 거짓인 것을 아무도 못 본 이유는 검사가 타입 검사 밖에 있었기 때문이다.** ✅ 판단 — **원인은 닫혔고, 기술 하나가 지금은 틀리다**
+
+  다시 재서 확인한 것:
+  1. **`ctx.instance` 는 고쳐졌고 지금도 조용하다.** `packages/dsl/src/types.ts:178` 에
+     `ComponentStateHandle`(`get`/`set`/`init`/`snapshot`)이 있고 `instance?: ComponentStateHandle`
+     이다. `ctx.instance?.get(…)` 을 쓰는 자리는 세 파일 **11곳**인데 오류 목록에 하나도 없다.
+  2. **구멍 자체가 닫혔다.** 오늘 셋을 채우면서 **검사 파일을 가진 패키지·앱 중 설정이 없는 곳이 0**
+     이 되었고, `KNOWN_UNGUARDED` 도 비었다. 그리고 검사 파일은 `packages/*`·`apps/*` 밖에
+     **하나도 없다**(전 저장소 검색으로 확인) — 훑는 범위가 곧 전부다.
+  3. 도구가 `blind`(설정은 있는데 컴파일 안 된 파일)·`unbudgeted`·`unguarded` 셋을 스스로
+     세므로, 같은 결함이 조용히 다시 생길 자리가 없다.
+
+  **다만 그 항목의 숫자 한 줄은 이제 틀렸다.** *"dsl 검사 77 · renderer-dom 123 ·
+  editor-view-dom 176"* 중 `dsl` 은 **52**(사본을 지워서), `editor-view-dom` 은 **175** 다.
+  `renderer-dom` 123 만 그대로다. 옮길 때 이 세 숫자를 고쳐 적을 것.
+
+  그리고 그 항목이 남긴 **마지막 조각을 닫았다** — 바로 위 항목의 `TNodeType` 세 번째 사본
+  (`packages/schema/src/types.ts:297`). 읽는 곳이 저장소에 **0** 이었고(`schema/src/index.ts` 가
+  재내보내지도 않는다), `schema` 는 내 것이라 지웠다. `renderer-dom` 의
+  `one-name-one-declaration` 3개 초록, `schema` 170·11파일 그대로.
+
+---
+
+### 1번을 그대로 따라 할 사람에게 — 재는 값
+
+잰 시각 **2026-09-06 07:41:23 KST (22:41:23Z)**, `npx tsc --noEmit -p tsconfig.typecheck.json`
+을 `packages/editor-view-dom` 안에서. 세는 규칙은 스크립트와 같다(`..` 로 시작하는 남의
+패키지 줄은 뺀다).
+
+### 얼마나 있나
+
+| | 값 |
+|---|---|
+| `TreeDocument` 글자가 나오는 자리 | **63** |
+| 그중 타입 표기 (`const x: TreeDocument = {`) | **62** |
+| 그중 주석 | **1** (`error-handling-integration.test.ts:244`) |
+| 지금 나는 `TS2304 Cannot find name 'TreeDocument'` | **62** |
+| `editor-view-dom` 타입 오류 전체 | **175** (62 는 그중 **35%**) |
+
+### 파일별 — 이 줄들만 고치면 된다
+
+| 파일 (`test/integration/` 아래) | 개수 | 줄 |
+|---|---|---|
+| `renderer-dom-detailed-integration.test.ts` | 19 | 48 80 107 148 179 191 211 224 240 253 291 310 334 353 398 458 518 531 547 |
+| `complex-scenarios-integration.test.ts` | 13 | 55 81 116 149 177 212 252 306 326 362 384 418 441 |
+| `renderer-dom-integration.test.ts` | 10 | 61 88 121 154 185 206 229 249 272 285 |
+| `component-state-integration.test.ts` | 8 | 62 102 144 199 245 281 298 341 |
+| `performance-integration.test.ts` | 7 | 63 99 133 156 180 236 295 |
+| `error-handling-integration.test.ts` | 5 + 주석 1 | 60 80 113 290 335 · **주석 244** |
+| | **62 + 1** | |
+
+### 어떤 모양으로 바꾸나 — 둘 다 재 봤다
+
+바꿀 이름을 전역에 세워 놓고(`declare type TreeDocument = …`) 컴파일해 델타만 봤다.
+`tsconfig.typecheck.json` 은 재고 나서 **바이트 단위로 원상 복구**했다(`diff` 로 확인).
+
+| 후보 | 어디서 | 전체 오류 | 없어짐 | **새로 생김** |
+|---|---|---|---|---|
+| `ModelData` | `@barocss/dsl` | 175 → **113** | 62 | **0** |
+| `INode` | `@barocss/datastore` | 175 → **113** | 62 | **0** |
+
+**둘 다 0이다.** 그러니 고르는 기준은 비용이 아니라 *무엇을 주장하고 싶은가* 다:
+
+- `ModelData` 는 `packages/dsl/src/types.ts:30` 에서 **`Record<string, any>`** 다.
+  `src/types.ts:11` 의 주석(*"use ModelData (sid, stype) directly"*)이 가리키는 이름이지만,
+  이것으로 바꾸면 **오류만 사라지고 픽스처는 아무 검사도 받지 않는다.** 62개를 조용하게
+  만들 뿐이다.
+- `INode` 는 `packages/datastore/src/types.ts:10` 의 진짜 모양이다
+  (`sid?`, `stype`, `attributes?`, `content?: (INode|string)[]`, `text?`, `marks?`).
+  **픽스처 62개가 이미 여기에 전부 맞는다** — 재 봤고 0이다. 즉 엄격한 쪽을 골라도 공짜다.
+
+**권함: `INode`.** 공짜인데 실제로 묻는다. 그리고 `EditorViewDOM.render` 의 서명이
+`render(tree?: ModelData | any, …)`(`src/editor-view-dom.ts:1835`)라 어느 쪽이든 통과하므로,
+호출부는 손댈 것이 없다.
+
+### 손 순서
+
+1. 여섯 파일 각각 맨 위에 한 줄:
+   `import type { INode } from '@barocss/datastore';`
+   — 여섯 파일 **전부 이미 `@barocss/datastore` 에서 `DataStore` 를 value import 하고 있으니**
+   그 줄 옆에 붙이면 된다. (`ModelData` 를 고르면 `complex-scenarios`·`component-state` 둘은
+   `import type { … ModelData } from '@barocss/dsl'` 가 **이미 있어** 새 줄이 필요 없다.)
+2. 그 파일 안에서 `: TreeDocument` → `: INode` (62곳, 위 표의 줄).
+3. `error-handling-integration.test.ts:244` 의 주석에서 이름을 고친다
+   (`// Circular references are difficult to occur in TreeDocument structure`).
+4. `packages/editor-view-dom/src/types.ts:11` 의 *"TreeDocument is removed"* 주석은 그때
+   할 일이 끝난다 — 지우거나, 무엇으로 갈음했는지 적을 것.
+   같은 이름이 `src/utils/model-proxy.ts` 의 7·57·114 줄 주석에도 남아 있다(코드는 아니다).
+5. `typecheck-budgets.json` 의 `packages/editor-view-dom` 을 **175 → 113**.
+   `node scripts/typecheck-tests.mjs --adopt` 가 그 줄을 대신 써 준다.
+
+vitest 는 타입을 지우고 돌리므로 **이 변경으로 검사 결과가 달라질 일은 없다.**
+남는 113개는 다른 이야기다 — 큰 덩어리는 `pattern-custom-decorator-render`(42)와
+`pattern-custom-decorator-edge-cases`(32) 둘이고, 이 항목과 무관하다.
+
+---
+
+### 덤으로 나온 것
 

@@ -183,7 +183,8 @@ describe('SelectionManager', () => {
         startNodeId: 'p-1',
         startOffset: 3,
         endNodeId: 'p-1',
-        endOffset: 3
+        endOffset: 3,
+        collapsed: true
       });
       expect(selectionManager.isAtPosition('p-1', 3)).toBe(true);
       expect(selectionManager.isAtPosition('p-1', 0)).toBe(false);

@@ -62,7 +62,7 @@ describe('슬래시 메뉴', () => {
     };
     walk(editor.getRootId());
     editor.selectionManager?.setSelection({
-      type: 'range', startNodeId: run, startOffset: 3, endNodeId: run, endOffset: 3
+      type: 'range', startNodeId: run, startOffset: 3, endNodeId: run, endOffset: 3, collapsed: true
     } as never);
 
     told = [];

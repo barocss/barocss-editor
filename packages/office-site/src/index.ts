@@ -89,6 +89,7 @@ export {
  */
 export {
   SITE_KEYS,
+  SITE_ZOOM_LADDER,
   matchesSiteKey,
   siteKeyCommands,
   siteKeyFor,
@@ -171,6 +172,7 @@ export {
 } from './export-html';
 export {
   SITE_MENUS,
+  siteMenus,
   /* The same bar, with one entry per width the **document** declares — see `siteMenusFor`. */
   siteMenusFor,
   /* And the same bar again, for the **place** the reader is standing in — 관리 or a page. */

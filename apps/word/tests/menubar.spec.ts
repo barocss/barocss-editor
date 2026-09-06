@@ -21,6 +21,28 @@ const openWord = async (page: Page) => {
   await page.waitForTimeout(600);
 };
 
+
+/**
+ * **The modifier this browser will print, asked of the browser rather than assumed.**
+ *
+ * These lines said `⌘Z` and `⌘F`, and they passed for a while because `withHints` defaulted its
+ * `apple` argument to `true` — every menubar in every product printed Mac symbols to everybody. The
+ * default is gone and the product now asks `onApple()`, so a test that hard-codes `⌘` is asserting
+ * the machine it was written on.
+ *
+ * And the machine lies. Measured here, Playwright's default Chromium on macOS reports
+ * `userAgentData.platform === 'Windows'` while `navigator.platform` is still `'MacIntel'` — the two
+ * signals disagree, and `onApple()` believes the first because the second is deprecated and frozen.
+ * So the browser under test is a Windows one on a Mac, correctly prints `Ctrl`, and the assertion
+ * has to follow it there. On a Linux runner this would have been red from the day it was written.
+ */
+const mod = async (page: import('@playwright/test').Page): Promise<string> =>
+  page.evaluate(() => {
+    const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+    const name = nav.userAgentData?.platform ?? nav.platform ?? '';
+    return /mac|iphone|ipad/i.test(name) ? '\u2318' : 'Ctrl+';
+  });
+
 test.describe('the menubar', () => {
   test('stands beside the ribbon rather than instead of it', async ({ page }) => {
     await openWord(page);
@@ -35,8 +57,9 @@ test.describe('the menubar', () => {
     await openWord(page);
     await bar(page).locator('[data-menu="edit"]').click();
 
-    await expect(page.locator('[data-menu-item="edit.history.0"]')).toContainText('⌘Z');
-    await expect(page.locator('[data-menu-item="edit.find.0"]')).toContainText('⌘F');
+    const key = await mod(page);
+    await expect(page.locator('[data-menu-item="edit.history.0"]')).toContainText(`${key}Z`);
+    await expect(page.locator('[data-menu-item="edit.find.0"]')).toContainText(`${key}F`);
   });
 
   test('opens the search box, which was reachable only by a chord', async ({ page }) => {

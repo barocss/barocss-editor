@@ -47,6 +47,16 @@ export const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 export const ZOOM_MIN = 0.25;
 export const ZOOM_MAX = 4;
 
+/**
+ * The three of them as the shared control takes them.
+ *
+ * `ZoomControl` asks for the ladder rather than holding one because the range is the **product's**:
+ * a document stops at 4× and a deck goes to 8×, and there is no third table for the shared layer to
+ * pick. Its ± buttons multiplied by 1.25 while this table sat here unread — 100% → 125% → 156% →
+ * 195%, which is the exact behaviour `stepZoom`'s own comment said it existed to prevent.
+ */
+export const WORD_ZOOM_LADDER = { steps: ZOOM_STEPS, min: ZOOM_MIN, max: ZOOM_MAX };
+
 const clamp = (value: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
 
 /**
@@ -135,6 +145,7 @@ export function ZoomControl({ zoom, onChange, pane: given = null }: ZoomControlP
     <SuiteZoomControl
       className="w-zoom-control"
       zoom={zoom}
+      ladder={WORD_ZOOM_LADDER}
       onChange={(next) => onChange(clamp(next))}
       onFit={() => onChange(fitToWidth(given))}
       fitLabel="너비에 맞춤"

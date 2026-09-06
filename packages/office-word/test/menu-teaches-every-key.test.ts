@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { DEFAULT_KEYBINDINGS, type Keybinding } from '@barocss/editor-core';
 import { chordFor, keyLabel, taughtKeys } from '@barocss/office-controls';
 import { WORD_KEYS } from '../src/word-keymap';
-import { WORD_MENUS } from '../src/menu-model';
+import { wordMenus } from '../src/menu-model';
 
 /**
  * **메뉴가 가르치는 단축키는 편집기가 *실제로 묶은 것* 에서 나온다.**
@@ -56,7 +56,8 @@ describe('메뉴가 가르치는 단축키', () => {
 
   /** 메뉴 안에 그 힌트가 실제로 들어 있는지까지. */
   it('편집 메뉴가 되돌리기의 단축키를 담는다', () => {
-    const hints = WORD_MENUS.flatMap((menu) =>
+    // 힌트를 묻는 검사이므로 알파벳을 스스로 고른다 — `WORD_MENUS` 는 화음을 싣지 않는다.
+    const hints = wordMenus(true).flatMap((menu) =>
       menu.blocks.flatMap((block) => block.items.map((item) => item.hint))
     ).filter(Boolean);
     expect(hints, '메뉴 어디에도 ⌘Z 가 없습니다').toContain('⌘Z');

@@ -69,12 +69,22 @@ test('the page is drawn smaller, and takes up the room it is drawn in', async ({
   await page.waitForTimeout(700);
   const smaller = await frameOf(page);
 
-  // Drawn at four fifths
-  expect(smaller.surfaceWidth / whole.surfaceWidth).toBeCloseTo(0.8, 1);
+  /*
+   * **Drawn at three quarters, which is a stop and not a quotient.**
+   *
+   * This said four fifths, because the − button divided by 1.25 — and that is exactly the behaviour
+   * `stepZoom` was written to prevent: its comment asks for "a ladder rather than a multiplier, so
+   * the steppers land on the round numbers a reader recognises". The ladder existed, carried nine
+   * unit tests, and **nothing called it**; the button multiplied, and this line had written the
+   * multiplier down as correct. 100% → 80% → 64% → 51% is not a scale anybody reads.
+   *
+   * `ZOOM_STEPS` for Word is `[0.5, 0.75, 1, 1.25, 1.5, 2]`, so one press out of 100% is 75%.
+   */
+  expect(smaller.surfaceWidth / whole.surfaceWidth).toBeCloseTo(0.75, 2);
   // And the frame with it: a scaled element still occupies its unscaled room,
   // so without this half the pane is blank below the page — and at double size
   // the bottom of the document cannot be scrolled to at all.
-  expect(smaller.frameHeight / whole.frameHeight).toBeCloseTo(0.8, 1);
+  expect(smaller.frameHeight / whole.frameHeight).toBeCloseTo(0.75, 2);
 });
 
 test('the ruler stays against the page it measures', async ({ page }) => {

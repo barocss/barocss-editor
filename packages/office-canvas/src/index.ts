@@ -77,12 +77,30 @@ export {
   guidesFor,
   snapBox,
   snapResize,
+  /*
+   * …and nudging one, which is the same `Delta` arriving from a key. Three products spell the
+   * payload three ways and two of the spellings are the same shape; see `canvas-manipulate.ts` for
+   * which, and for the coarse step that is 144 in two products and 150 in the third.
+   */
+  NUDGE_FINE,
+  nudgeDelta,
+  isNudge,
   type Align,
   type Delta,
   type Guide,
   type Handle,
+  type NudgePayload,
   type ResizeOptions
 } from './canvas-manipulate';
+
+/**
+ * A turn read as a direction — `{ x: sin θ, y: −cos θ }`, and the `-0` that comes with it.
+ *
+ * Written out in four places across two products before this, three of which guard the negative zero
+ * separately. The site builder's copy says why it was copied rather than reinvented, and that
+ * reasoning is the argument for one function.
+ */
+export { directionOf, offsetAt, notMinusZero, type Direction } from './canvas-angle';
 
 /**
  * **도형의 기하를 CSS·SVG 로** — `office-word` 에서 왔다.

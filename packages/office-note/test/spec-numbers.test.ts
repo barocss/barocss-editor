@@ -128,8 +128,24 @@ describe('the numbers in the Note spec', () => {
     /*
      * The other three apps' chrome. Held here because `note.md` uses it as the comparison that makes
      * 257 mean something, and a comparison nobody checks is the hand-kept list this harness replaced.
+     *
+     * **This one number is not note's to control, and that is worth saying out loud.** It falls
+     * whenever another product moves chrome into its package — which is the roadmap working — so
+     * note's own check goes red at the moment somebody else does the right thing. It has happened:
+     * `apps/word` lost 25 lines when Word's comment and find highlights moved into `office-word`,
+     * and 8,503 became 8,478 with nothing about note having changed.
+     *
+     * Kept as an exact number anyway, because the alternatives are worse: a ceiling drifts silently,
+     * and a tolerance is an exemption written down. The cost is a one-line edit to `note.md` by
+     * whoever moved the chrome — so the message below says exactly that, rather than
+     * `expected false to be true`.
      */
-    expect(states(others), `chrome still in the other three apps: ${others}`).toBe(true);
+    expect(
+      states(others),
+      `\`docs/specs/note.md\` 의 "다른 세 앱의 크롬" 이 실제와 다릅니다. 지금 **${others.toLocaleString('en-US')}** 줄입니다.\n` +
+        `이 숫자는 note 의 것이 아니라 **게이지** 입니다 — 다른 제품이 크롬을 자기 패키지로 옮기면 내려갑니다.\n` +
+        `내려간 것이면 그 문장의 숫자를 ${others.toLocaleString('en-US')} 로 고치세요. 올라갔다면 크롬이 앱으로 돌아간 것이니 그쪽을 보세요.`
+    ).toBe(true);
   });
 
   it('says how many browser tests stand behind it', () => {

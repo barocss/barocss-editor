@@ -116,7 +116,7 @@ a slide is a plane and a reader is thinking about the box they are pointing at.
 | deck templates · themes | 4 · 4 |
 | theme slots — colour, font | 12 · 2 |
 | components · hooks behind `./ui` | 27 · 3 |
-| `apps/slide/src` | **2,520 lines** — `app.tsx` 2,360, `main.tsx` 160 |
+| `apps/slide/src` | **2,523 lines** — `app.tsx` 2,363, `main.tsx` 160 |
 | browser tests | 406 |
 
 There is deliberately **no line count of this package** in that table, and finding
