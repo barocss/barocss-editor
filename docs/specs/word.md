@@ -127,7 +127,8 @@ The names left group themselves, and the grouping *is* the work list:
 | ~~2~~ | ~~5~~ | ~~**paragraph spacing**~~ — **done**, and it took 12: five names on three block types |
 | ~~3~~ | ~~8~~ | ~~**page setup**~~ — **done**, and it took exactly 8: one node, not three |
 | 1 | 12 | **a field's own settings** — `tag`, `literal`, `sequence`, `limitLocation`, `showContents` |
-| 2 | 7 | **table properties** — `cellSpacing`, `hide*`, `noWrap`, `heightRule` |
+| 2 | 3 | **table properties** — `cellSpacing` (table and row), `noWrap` (cell), `heightRule` (row) |
+| 3 | 4 | **an equation's box** — `hideTop`…`hideRight` on `mathBorderBox`, **not** a table thing |
 
 plus a handful a **drag** writes on a drawing, which are exemptions rather than
 work.
@@ -143,6 +144,21 @@ work.
 The second was cheaper in every column and needed no new decision: the shape was
 settled, `selected-blocks.ts` already existed (extracted for the first), and the
 menu already had a 서식 to hang from.
+
+### The fourth group was two groups, and one of them is not a table
+
+This list said **table properties — `cellSpacing`, `hide*`, `noWrap`,
+`heightRule`**, seven names. Measured before building it: the four `hide*` are on
+`mathBorderBox` — which sides of the box drawn round an equation are painted —
+and `math-renderers.ts:424` draws them. They have nothing to do with a table; they
+were grouped by their names looking like border switches.
+
+So the fourth dialog is **three** attributes, and a fifth thing appears that is
+not a dialog at all: the equation box already has a schema, a drawing and no
+control, and it belongs with the equation ribbon rather than in a modal.
+
+A grouping made by reading names is a claim like any other. This one held for as
+long as nobody built from it.
 
 ### The page-setup dialog got the convention backwards, and four readers already agreed on it
 

@@ -31,6 +31,7 @@
  */
 
 import { pageSetupAttrs } from '@barocss/office-text';
+import { sideways } from '@barocss/shared';
 
 /**
  * 1인치 = 1440트윕.
@@ -153,9 +154,12 @@ export function paperOf(setup: PageSetup): string | undefined {
  */
 export function drawnSize(setup: PageSetup): { width: number; height: number } | null {
   if (setup.width === null || setup.height === null) return null;
-  return setup.orientation === 'landscape'
-    ? { width: setup.height, height: setup.width }
-    : { width: setup.width, height: setup.height };
+  /* `@barocss/shared` 의 `sideways` — 이 대화상자가 그 다섯 번째 독자이고, 다섯 번째가 되면서
+   * 규약이 이름을 갖게 됐다. 앞의 넷도 이제 이것을 부른다. */
+  return sideways(setup.orientation === 'landscape', {
+    width: setup.width,
+    height: setup.height
+  });
 }
 
 /**
