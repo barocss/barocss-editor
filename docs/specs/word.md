@@ -85,12 +85,13 @@ for a *value a reader types*, which is why every word processor that has ever
 shipped has a paragraph dialog, a page-setup dialog, a borders dialog and a
 table-properties dialog.
 
-**The first of the four now exists**: 「테두리 및 음영」, on `office-ui`'s `Dialog`
-— which the deck and the site builder had been drawing and Word had not. So the
-sentence this section used to carry, *the first of them is also the decision about
-what a dialog is in this suite*, was already stale when it was written: the
-decision had been made, in shared code, by two other products. Word's borders
-dialog cost a model, a command and a menu.
+**Two of the four now exist**: 「테두리 및 음영」 and 「문단 간격」, both on
+`office-ui`'s `Dialog` — which the deck and the site builder had been drawing and
+Word had not. So the sentence this section used to carry, *the first of them is
+also the decision about what a dialog is in this suite*, was already stale when it
+was written: the decision had been made, in shared code, by two other products.
+The first dialog cost a model, a command and a menu; **the second cost the same
+three and no new decisions**, which is the measurement worth keeping.
 
 ## What the harness measures, and what it is measuring against
 
@@ -98,10 +99,10 @@ Four numbers, all produced by `packages/office-word/test/conformance.test.ts`:
 
 | | |
 | --- | ---: |
-| commands registered | 168 (156 Word's own) |
+| commands registered | 169 (157 Word's own) |
 | attributes the product **draws** | 611 |
 | of those, **unread** — declared and reaching nothing | 16 *(ratchet)* |
-| of those, **unsettable** — drawn and reachable by nothing | 136 *(ratchet)* |
+| of those, **unsettable** — drawn and reachable by nothing | 124 *(ratchet)* |
 | attributes a reader can set, from the two declared surfaces | 21 |
 
 Both counts are ratchets rather than exemption lists, and for the same reason:
@@ -123,13 +124,32 @@ The names left group themselves, and the grouping *is* the work list:
 | owed | names | what it is |
 | ---: | ---: | --- |
 | ~~1~~ | ~~16~~ | ~~**a borders dialog**~~ — **done**, and it took 48 off the ratchet rather than 16; see below |
+| ~~2~~ | ~~5~~ | ~~**paragraph spacing**~~ — **done**, and it took 12: five names on three block types |
 | 1 | 12 | **a field's own settings** — `tag`, `literal`, `sequence`, `limitLocation`, `showContents` |
 | 2 | 8 | **page setup** — page size, margins, gutter, columns and their spacing and separator |
 | 3 | 7 | **table properties** — `cellSpacing`, `hide*`, `noWrap`, `heightRule` |
-| 4 | 5 | **paragraph spacing** — `spacingBefore`, `spacingAfter`, `spacingLine`, `spacingLineRule` |
 
 plus a handful a **drag** writes on a drawing, which are exemptions rather than
 work.
+
+### What each dialog costs, and what it takes off
+
+| | model | command | dialog | ratchet |
+| --- | ---: | ---: | ---: | ---: |
+| 테두리 및 음영 | 243 | 104 | 248 | 184 → 136 |
+| 문단 간격 | 168 | 86 | 154 | 136 → 124 |
+
+The second was cheaper in every column and needed no new decision: the shape was
+settled, `selected-blocks.ts` already existed (extracted for the first), and the
+menu already had a 서식 to hang from.
+
+**The spacing dialog offers two line rules and Word has three.** `atLeast` and
+`exact` reach `paragraphCss` and leave by the same line — `twipToCss(line)`, whose
+CSS `line-height` grows for a tall glyph, which is what *atLeast* means. An
+「고정」 that produces 최소 is a control whose name is a lie, so it is not offered;
+`exact` stays in the type because a file may carry it. Same judgement as the
+borders dialog's `thick` and `wave`, and the condition for its return is the same
+one sentence: the day something clips a line box.
 
 ### The borders dialog took 48, and the first measurement said 96
 

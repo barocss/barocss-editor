@@ -10,6 +10,7 @@ import { createWordEditor } from '../src/word-kit';
 import { toolbarAttrs, toolbarIcons } from '../src/toolbar-model';
 import { wordRulerAttrs } from '../src/ruler-model';
 import { borderEditable } from '../src/border-commands';
+import { spacingEditable } from '../src/spacing-commands';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { registerWordRenderers } from '../src/renderers/word';
 
@@ -346,7 +347,13 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * 그래서 48이 줄었다: 문단·제목·목록 항목 셋. 표와 셀과 페이지의 테두리는 그대로 빚이고,
        * 그것이 정확한 상태다.
        */
-      ratchet: { 'every-attribute-is-read': 16, 'every-property-can-be-edited': 136 },
+      /*
+       * **136 → 124** — 두 번째 대화상자, 「문단 간격」. 다섯 이름 × 문단·제목·목록 항목.
+       *
+       * `paragraphCss` 가 `spacingBefore`·`spacingAfter`·`spacingLine`·`spacingLineRule` 을,
+       * `spacing.ts` 가 `contextualSpacing` 을 처음부터 그렸다. 정할 곳만 없었다.
+       */
+      ratchet: { 'every-attribute-is-read': 16, 'every-property-can-be-edited': 124 },
       /**
        * **A word processor has no click that selects a block**, which is what this check needs.
        *
@@ -372,7 +379,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * `ruler-model.ts`, which is the only place a paragraph's indents and its tab stops can be
        * changed at all. `notYet: ['every-property-can-be-edited']` was here until both existed.
        */
-      editable: [...toolbarAttrs(), ...wordRulerAttrs(), ...borderEditable()],
+      editable: [...toolbarAttrs(), ...wordRulerAttrs(), ...borderEditable(), ...spacingEditable()],
       /**
        * Whether the product draws anything for a mark — a vocabulary no check could see.
        *

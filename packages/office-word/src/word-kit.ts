@@ -30,6 +30,7 @@ import { createWordCanvasInsert } from './canvas-insert-commands';
 import { createWordCanvasShapes } from './canvas-shape-commands';
 import { createWordListCommands } from './list-commands';
 import { createWordBorders } from './border-commands';
+import { createWordSpacing } from './spacing-commands';
 import { createWordComments, type CommentAuthor } from './comment-commands';
 import { createWordRevisions } from './revision-commands';
 import { createWordTracking } from './tracking-commands';
@@ -112,6 +113,8 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
      * 쪽만 없었다** — `every-property-can-be-edited` 가 열여섯 개로 세어 두었던 그것이다.
      */
     createWordBorders(),
+    // 그리고 자리 — `paragraphCss` 와 `spacing.ts` 가 다섯을 다 그렸고 정할 곳이 없었다.
+    createWordSpacing(),
     // Who is commenting is the host's to say, the same way the instant a date
     // field shows is — an editor that invented a name would be guessing.
     createWordComments(author),

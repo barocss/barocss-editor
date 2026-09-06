@@ -324,6 +324,27 @@ export {
   type BorderState,
   type BorderStyle
 } from './border-model';
+export {
+  createWordSpacing,
+  currentSpacing,
+  spacingEditable,
+  WordSpacingExtension,
+  type SetSpacingPayload
+} from './spacing-commands';
+export {
+  linesOf,
+  spacingOf,
+  spacingPatch,
+  spacingProperties,
+  withRule,
+  LINE_PRESETS,
+  LINE_RULES,
+  LINE_UNIT,
+  NO_SPACING,
+  TWIPS_PER_POINT,
+  type LineRule,
+  type SpacingState
+} from './spacing-model';
 export { selectedBlocks } from './selected-blocks';
 export { createWordComments, WordCommentExtension, type CommentAuthor } from './comment-commands';
 export { createWordRevisions, WordRevisionExtension } from './revision-commands';

@@ -21,6 +21,7 @@ import {
   DocumentTitle,
   DrawingOverlay,
   BordersDialog,
+  SpacingDialog,
   FindPanel,
   OutlinePane,
   Ribbon,
@@ -76,6 +77,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   /** 테두리 및 음영 — 서식 메뉴가 여는 것. */
   const [bordering, setBordering] = useState(false);
+  /** 문단 간격 — 서식 메뉴의 다른 하나. */
+  const [spacing, setSpacing] = useState(false);
   const [finding, setFinding] = useState(false);
   const [commenting, setCommenting] = useState(true);
   /**
@@ -182,6 +185,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           return window.print();
         case 'dialog.borders':
           return setBordering(true);
+        case 'dialog.spacing':
+          return setSpacing(true);
         case 'find':
           return setFinding((was) => !was);
         case 'outline':
@@ -326,6 +331,11 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             editor={instance?.editor ?? null}
             open={bordering}
             onClose={() => setBordering(false)}
+          />
+          <SpacingDialog
+            editor={instance?.editor ?? null}
+            open={spacing}
+            onClose={() => setSpacing(false)}
           />
           {/*
             The zoom is on a frame around the page, not on the page itself: a

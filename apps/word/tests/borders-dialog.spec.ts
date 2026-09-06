@@ -22,7 +22,12 @@ const openWord = async (page: Page) => {
 /** 서식 › 테두리 및 음영. */
 const openDialog = async (page: Page) => {
   await bar(page).locator('[data-menu="format"]').click();
-  await page.locator('[data-menu-item="format.paragraph.0"]').click();
+  /*
+   * **번호가 아니라 이름으로.** 첫 판은 `format.paragraph.0` 을 눌렀고, 서식 메뉴에 항목이 하나
+   * 더 붙자 그 번호가 다른 대화상자를 가리켰다 — 두 파일에서 다섯 개가 한꺼번에 빨개졌다.
+   * 메뉴에서 위치는 바뀌라고 있는 것이고, 이름은 바뀌면 알아야 하는 것이다.
+   */
+  await page.getByRole('menuitem', { name: '테두리 및 음영…' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
 };
 

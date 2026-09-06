@@ -118,7 +118,10 @@ const DECLARED: WordMenu[] = [
     blocks: [
       {
         id: 'paragraph',
-        items: [{ view: 'dialog.borders', label: '테두리 및 음영…' }]
+        items: [
+          { view: 'dialog.spacing', label: '문단 간격…' },
+          { view: 'dialog.borders', label: '테두리 및 음영…' }
+        ]
       }
     ]
   },
