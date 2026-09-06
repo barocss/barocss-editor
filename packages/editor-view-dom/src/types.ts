@@ -8,7 +8,11 @@ import type {
   Decorator,
   DecoratorGenerator,
 } from '@barocss/shared';
-// TreeDocument is removed - use ModelData (sid, stype) directly
+// `TreeDocument` is removed. What replaced it depends on which side you are on:
+// `render()` takes `ModelData` (`Record<string, any>`) because it is handed proxies
+// and partial trees, while the tree literals the tests hand it are `INode`
+// (`@barocss/datastore`) — the same shape, but one that actually says so. The test
+// fixtures are annotated `INode` for that reason; see `test/integration/`.
 
 export type { DecoratorExportData, LoadDecoratorsPatternFunctions };
 

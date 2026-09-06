@@ -364,7 +364,7 @@ registers, a shell that moved out of the app. Not: how many files there are, how
 | marks | 25 |
 | widths a page answers at | **3** — base, tablet, mobile |
 
-Word holds 108 node types and 1,033 attribute slots; the deck holds 64 and 515. The site builder
+Word holds 108 node types and 1,033 attribute slots; the deck holds 64 and 526. The site builder
 sits between them and the reason is in the fourteen: everything about **data, publishing and a
 visitor** is this product's own, and everything about text and arrangement is not.
 

@@ -39,6 +39,38 @@
  * same thing again — a page always has a line available after a block and a slide has nowhere for a
  * caret to fall out to. A command in here would have had to ask which product it was serving, which
  * is coupling in both directions wearing a shared package's name.
+ *
+ * ## Why every name below is written out — **214 → 198**
+ *
+ * Five of these blocks were `export *` (connector · graph-layout · component · instance ·
+ * variable). A star exports whatever the module happens to declare, so the door was **214 names**
+ * while what anything outside this package ever *calls* is **134**. The widest single stretch of
+ * the difference was the obstacle avoidance in `canvas-connector.ts` (`ROUTE_GAP` · `crossesBox` ·
+ * `crossCount` · `clusterBoxes` · `avoidObstacles` · `avoidStraight` · `avoidCurve` ·
+ * `flattenCurve`, ≈330 lines) — which is **not dead**: `routedPoints` in the same file calls all
+ * eight on every route. It had no reason to be *reachable from outside*, and a star cannot say
+ * that where a list can. Sixteen names left the door that way, all of them still exported by the
+ * module that declares them.
+ *
+ * So the rule for this file: **a name is written here when something outside this package names
+ * it.** Adding one is a line; it is the deciding that is meant to be visible.
+ *
+ * ### The 56 that are here because a product's barrel re-exports them
+ *
+ * The narrowing was run twice: once at 134 names, and then the four products were typechecked.
+ * `office-word/src/index.ts` reported **56** and `office-slides/src/index.ts` **23** (a subset of
+ * the same 56; `office-site` and `office-note` reported none). None of the 56 is called by product
+ * code — a product barrel re-exports the name, and nothing asks the barrel for it. Two wide doors
+ * in series, and only the outer one is closable from in here. The list is in `docs/BACKLOG.md`; the
+ * fix is one `export {…}` in each product and belongs to whoever owns that file.
+ *
+ * ### The 8 held open for a caller that is agreed but not yet written
+ *
+ * `canvas-angle`'s four and the nudge payload's four came down from the products in the round
+ * before this one, and the products have not switched over yet — the four angle sites and the three
+ * nudge commands are named in `docs/BACKLOG.md`. Those are doors held open for a caller that is
+ * already decided, which is a different thing from a door nobody asked for. Both are marked where
+ * they sit, so that when the callers land nobody has to rediscover why they were open.
  */
 
 /**
@@ -81,6 +113,10 @@ export {
    * …and nudging one, which is the same `Delta` arriving from a key. Three products spell the
    * payload three ways and two of the spellings are the same shape; see `canvas-manipulate.ts` for
    * which, and for the coarse step that is 144 in two products and 150 in the third.
+   *
+   * **Nothing outside this package calls these four yet** — the three products still each own the
+   * arithmetic. They are on the door because the callers are named in `docs/BACKLOG.md`, not
+   * because a caller exists.
    */
   NUDGE_FINE,
   nudgeDelta,
@@ -99,6 +135,9 @@ export {
  * Written out in four places across two products before this, three of which guard the negative zero
  * separately. The site builder's copy says why it was copied rather than reinvented, and that
  * reasoning is the argument for one function.
+ *
+ * **The four places are still the four places** — this door is open for them and nothing outside
+ * this package walks through it yet (`docs/BACKLOG.md`, 각도→방향 벡터).
  */
 export { directionOf, offsetAt, notMinusZero, type Direction } from './canvas-angle';
 
@@ -108,6 +147,10 @@ export { directionOf, offsetAt, notMinusZero, type Direction } from './canvas-an
  * 제품이 제품에 의존하지 않는다(`docs/specs/architecture.md`). `office-site` 가 `frameCss` 하나
  * 때문에 `office-word` 를 의존하고 있었고, 그 파일이 쓰는 것은 `twipToPx`·`CssStyle` 뿐이었다 —
  * 즉 워드의 것이 아니라 **그림의 낱말** 이었다. 옮기면서 `isVisible` 두 벌도 합쳤다.
+ *
+ * 여기의 여덟 중 일곱은 `office-word` 만 부른다 — 그 사실과 무엇을 해야 하는지는
+ * `docs/BACKLOG.md` 에 있다. `ShapeAttributes`·`ShapeGeometry`·`ShapeStyle` 은 그 함수들의
+ * 인자·반환 모양이고 밖에서 이름으로 부르는 곳이 없어 문에서 뺐다.
  */
 export {
   canvasCss,
@@ -117,10 +160,7 @@ export {
   lineAttrs,
   rectangleAttrs,
   shapePaint,
-  shapeTransform,
-  type ShapeAttributes,
-  type ShapeGeometry,
-  type ShapeStyle
+  shapeTransform
 } from './canvas-shapes';
 
 /** Making something to place: a drawing, and the shapes that go on it. */
@@ -143,25 +183,168 @@ export {
   fillsChildren,
   fillChildren,
   childrenToLayOut,
-  type FrameLayout,
   type LaidOutChild,
   type LaidOutPlace,
   type LayoutMode
 } from './canvas-layout';
 export { createLayoutCommands, CanvasLayoutExtension } from './canvas-layout-commands';
 
-/** A line between two shapes that follows them, and the graph a board is. */
-export * from './canvas-connector';
-export * from './canvas-graph-layout';
+/**
+ * A line between two shapes that follows them.
+ *
+ * The geometry a deck reads by name. What is **not** here is the obstacle avoidance —
+ * `ROUTE_GAP` · `crossesBox` · `crossCount` · `clusterBoxes` · `avoidObstacles` · `avoidStraight` ·
+ * `avoidCurve` · `flattenCurve` — which `routedPoints` in the same file calls on every route. It
+ * runs; it is simply not something a product asks for by name, and `export *` said otherwise.
+ */
+export {
+  type Point,
+  type ConnectorBox,
+  type ConnectorSide,
+  type ConnectorKind,
+  type ConnectorSpec,
+  type ConnectorEnd,
+  type ConnectorCap,
+  type CapDrawing,
+  type ResolvedEnds,
+  rotateAround,
+  centreOf,
+  normalOf,
+  sidePoint,
+  nearestSides,
+  sideTowards,
+  borderPoint,
+  resolveEnds,
+  connectorPoints,
+  elbowPoints,
+  curvePoints,
+  arcPoints,
+  avoidArc,
+  throughWaypoints,
+  CORNER,
+  JUMP,
+  segmentCrossings,
+  connectorPath,
+  connectorBounds,
+  withoutMissing,
+  withEndPlaces,
+  CAP_MIN,
+  capDrawing,
+  capAngle,
+  capSizeOf,
+  capInset,
+  pulledBack,
+  connectorSpecOf,
+  connectorCapsOf,
+  connectorBoxOf,
+  connectorChanges,
+  MAGNET_SNAP,
+  magnetPoints,
+  nearestMagnet,
+  connectorTrack,
+  pointOnPath,
+  nearestOnPath,
+  LABEL_SIZE,
+  LABEL_MAX,
+  LABEL_INSET,
+  labelBox,
+  labelOf,
+  labelAt,
+  labelNear,
+  endLabelOf,
+  SEPARATION,
+  separationBend,
+  hasOwnBend,
+  pairKeyOf,
+  midHandleOf,
+  canBendByDrag,
+  bendFromDrag,
+  readWaypoints
+} from './canvas-connector';
+
+/** The graph a board is. */
+export {
+  type GraphNode,
+  type GraphEdge,
+  type GraphDirection,
+  type GraphLayoutOptions,
+  type GraphPlacement,
+  RANK_GAP,
+  NODE_GAP,
+  rankGapFor,
+  layoutGraph
+} from './canvas-graph-layout';
 
 /**
  * One definition, many placements — the values a placement answers, and the one line that makes a
  * placement draw its definition on whatever store a product hands over.
  */
-export * from './canvas-component';
+export {
+  type ComponentDef,
+  type ComponentVar,
+  type ComponentBind,
+  type ComponentSource,
+  type ImportPlan,
+  instanceVars,
+  componentsOf,
+  definitionOf,
+  definitionAt,
+  componentOf,
+  partIdOf,
+  slotNameOf,
+  partSignature,
+  definitionSignature,
+  componentSignature,
+  importComponentPlan,
+  componentSourceOf,
+  componentBehindSource,
+  instanceValues,
+  instanceResizable
+} from './canvas-component';
 /** How a value reads, which is not the same question as what it is. */
 export { readValue, VALUE_FORMATS } from './value-format';
-export * from './canvas-instance';
+export {
+  type NestingCut,
+  instanceParts,
+  contentWithWords,
+  detachedCopyOf,
+  NEST_LIMIT,
+  nestingOf,
+  installInstanceResolution
+} from './canvas-instance';
 
 /** A name the document declares and a shape takes its value from. */
-export * from './canvas-variable';
+export {
+  type DocumentVar,
+  type VarSite,
+  type VarRename,
+  type VarBind,
+  type VariableSource,
+  type VariableImport,
+  isVarRef,
+  varNameOf,
+  varWeightOf,
+  varRefAt,
+  varRef,
+  documentVars,
+  documentVar,
+  surfaceOf,
+  surfaceVars,
+  varInScope,
+  resolveVarValue,
+  varUses,
+  varSites,
+  renameVarPlan,
+  DRAWN_BY_WRITE,
+  UNBINDABLE,
+  varBindsOf,
+  boundAttrs,
+  boundText,
+  boundGeometry,
+  sizeIsBound,
+  placeIsBound,
+  turnIsBound,
+  variableSourceOf,
+  variableBehindSource,
+  importVariablePlan
+} from './canvas-variable';

@@ -15,7 +15,7 @@
   "packages/dom-observer": 0,
   "packages/dsl": 52,
   "packages/editor-core": 2,
-  "packages/editor-view-dom": 175,
+  "packages/editor-view-dom": 104,
   "packages/editor-view-react": 2,
   "packages/extensions": 19,
   "packages/model": 511,

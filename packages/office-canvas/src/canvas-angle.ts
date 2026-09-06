@@ -76,3 +76,37 @@ export function offsetAt(
     y: notMinusZero(round(distance * along.y))
   };
 }
+
+/**
+ * **A point turned about a centre** — degrees, clockwise, with the screen's y growing down.
+ *
+ * The other angle this package reads. It was written twice *inside* this package while the door
+ * was being narrowed: `canvas-connector.ts`'s `rotateAround` and `canvas-manipulate.ts`'s
+ * `unrotate`, which is this same matrix with the sign flipped and the centre taken from a box. The
+ * two are the same arithmetic asked from opposite ends — a connector asks *where is the magnet on
+ * a shape that has been turned*, and a hit test asks *where is the pointer in the shape's own
+ * frame* — and `unrotate(box, r, p)` is exactly `rotatePoint(p, centre(box), −r)`.
+ *
+ * Not on the package's door: nothing outside asks for it by name, and both callers are exported
+ * under the names their own readers already use.
+ *
+ * `!degrees` returns the point untouched rather than passing it through `cos 0 = 1`, which keeps a
+ * shape that was never turned bit-identical instead of merely equal — the same reason the `-0`
+ * above is arithmetic rather than presentation.
+ */
+export function rotatePoint(
+  point: { x: number; y: number },
+  centre: { x: number; y: number },
+  degrees: number
+): { x: number; y: number } {
+  if (!degrees) return point;
+  const radians = (degrees * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const dx = point.x - centre.x;
+  const dy = point.y - centre.y;
+  return {
+    x: centre.x + dx * cos - dy * sin,
+    y: centre.y + dx * sin + dy * cos
+  };
+}

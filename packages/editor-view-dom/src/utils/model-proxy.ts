@@ -4,7 +4,8 @@
  * INode를 ModelData 인터페이스로 접근할 수 있도록 하는 Proxy
  * 변환 오버헤드 없이 직접 접근하여 메모리와 성능을 최적화
  * 
- * 참고: TreeDocument (id/type)는 제거되었고, ModelData (sid/stype)를 직접 사용합니다.
+ * 참고: 옛 `TreeDocument` (id/type)는 제거되었고, ModelData (sid/stype)를 직접 사용합니다.
+ * 아래 프록시가 아직 `id`/`type` 을 읽어 주는 것은 그때의 호환 껍질이다.
  */
 
 import type { INode } from '@barocss/datastore';
@@ -54,7 +55,7 @@ export function createModelProxy(
 }
 
 /**
- * @deprecated TreeDocument has been removed. Use createModelDataFromNode instead.
+ * @deprecated The `TreeDocument` shape this wrapped has been removed. Use createModelDataFromNode instead.
  * This function is kept for backward compatibility, but is actually the same as createModelDataFromNode.
  */
 export function createModelProxyLegacy(
@@ -111,7 +112,7 @@ export function createModelProxyLegacy(
     
     ownKeys(target: INode): (string | symbol)[] {
       const keys = Object.keys(target);
-      // Add id, type for TreeDocument interface
+      // Add id, type — the legacy aliases of sid/stype the old `TreeDocument` used
       if (target.sid && !keys.includes('id')) keys.push('id');
       if (target.stype && !keys.includes('type')) keys.push('type');
       return keys;

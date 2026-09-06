@@ -29,11 +29,18 @@ So a slide is not a new document; it is the half of `surface` a word processor
 never asked for. A slide is **19200 × 10800 twips** — 16:9 in the unit every
 length in this engine is in — and 14400 × 10800 for a deck that wants 4:3.
 
-What it holds, measured: **64 node types, 515 attribute slots, 25 marks**. Word
+What it holds, measured: **64 node types, 526 attribute slots, 25 marks**. Word
 holds 108 and 1,033, the site builder 71 and 841. The deck is the *smallest*
 vocabulary of the three products that have one, which is the right answer: a deck
 says less about text than a word processor and less about layout than a page
 builder, and it says one thing neither of them can say at all.
+
+Eleven of those slots arrived on one node, late, and the reason is the subject of
+`what-a-save-carries.test.ts`: a `picture` had **drawn** a gradient, a shadow and a
+dashed border since the day `paintCss` was written and the schema declared none of
+them. Nothing was red, because the two checks either side of the gap both walk the
+*schema* first — an attribute a product draws and no schema declares is not a
+finding, it is not a subject, it is nowhere. See "What writing this down found".
 
 ## What is the deck's, and what only looks like it
 
@@ -117,7 +124,7 @@ a slide is a plane and a reader is thinking about the box they are pointing at.
 | theme slots — colour, font | 12 · 2 |
 | components · hooks behind `./ui` | 27 · 3 |
 | `apps/slide/src` | **2,523 lines** — `app.tsx` 2,363, `main.tsx` 160 |
-| browser tests | 406 |
+| browser tests | 415 |
 
 There is deliberately **no line count of this package** in that table, and finding
 out why was worth the round. A package's total moves when somebody adds a
@@ -184,6 +191,28 @@ The third is the expensive kind. A roadmap that under-reports a finished item is
 a roadmap that gets the same work done twice, and the only reason it survived is
 that a sentence about a product is checked by nobody unless somebody writes the
 check.
+
+### And what correcting the third one found underneath it
+
+Fixing that sentence raised a narrower question — *on which node types* is each of
+the six declared — and the answer was **not all of them**. A `picture`'s renderer
+calls `paintCss` and `fillElements`, the same two the rectangle's does, so a
+photograph on a slide has always drawn a gradient wash, a drop shadow and a dashed
+border. `slides-schema.ts` had widened the picture with the corners, the crop and
+the flip, and stopped there.
+
+Measured by `what-a-save-carries.test.ts`, which asks three questions of every pair
+of a box and a settable attribute: **11 drawn and undeclared, 12 with no control
+that reaches them, 11 that a save did not carry.** All on `picture`. A reader could
+see the product draw something the panel would not offer, `setBoxStyle` would drop —
+it filters its payload through `_declaredAttrs` — and no validator would object to.
+
+Nothing was red, and the reason is structural rather than an oversight:
+`every-attribute-is-read` and `every-property-can-be-edited` both walk the **schema**
+and ask the product about each slot. An attribute the product draws and the schema
+does not declare is not a finding in either — it is not a subject. The new check
+starts from the **drawing** instead, which is the one direction neither of them can
+face.
 
 ## What this document is not
 

@@ -83,29 +83,37 @@ describe('DecoratorPrebuilder (set 2)', () => {
     expect(models).toEqual(expected);
   });
   
-  it('custom decorator는 generate를 무시하고 주어진 데이터로만 변환해야 함', () => {
+  /**
+   * 이 검사의 이름은 원래 *"generate 를 무시하고"* 였는데, `generate` 는 `Decorator` 에 없다 —
+   * `DecoratorGenerator`(`@barocss/shared/decorator/decorator-generator.ts:11`)의 것이고,
+   * 저장소에서 그것을 부르는 곳은 그 파일 92줄 하나뿐이며 prebuilder 경로에는 `generate` 라는
+   * 글자가 **아예 없다**. 즉 무시할 기계가 없었으므로 그 이름은 아무것도 주장하지 않았다.
+   * 실제로 붙잡을 수 있는 것은 그 옆의 성질이다: **입력에 붙은 여분의 필드는 모델로 새지 않는다.**
+   * 그것을 이름으로 세운다.
+   */
+  it('custom decorator는 주어진 데이터로만 변환하고, 입력의 여분 필드는 모델로 새지 않아야 함', () => {
     const modelData: ModelData = {
       sid: 'doc1',
       stype: 'document'
     };
-    
-    const decorator: Decorator = {
+
+    const decorator = {
       sid: 'c1',
       stype: 'ai-status',
       category: 'layer',
       layerTarget: 'decorator',
       decoratorType: 'custom',
-      // generate is not used in Prebuilder stage (only processes already generated results)
+      // `Decorator` 에 없는 필드. 그래서 캐스트가 필요하고, 그 캐스트가 곧 이 검사가 묻는 것이다.
       // eslint-disable-next-line @typescript-eslint/no-empty-function
-      generate: (() => []) as any,
+      generate: () => [],
       data: {
         position: { top: 1, left: 2, width: 3, height: 4 },
         status: 'processing'
       }
     };
-    
-    const models = prebuilder.buildAll([decorator], modelData);
-    
+
+    const models = prebuilder.buildAll([decorator as unknown as Decorator], modelData);
+
     const expected: DecoratorModel[] = [
       {
         sid: 'c1',

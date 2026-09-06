@@ -646,12 +646,11 @@ follows is not a rewrite of any of it.
 - **Canva** — *design depth*. This page used to list gradient, shadow, blur,
   dashes, per-corner radius and image crop as things a shape could not have. **Measured 2026-09-06, all six are in the panel** — `slidesPanelAttrs()`
   names `gradientKind/From/To/Angle`, `shadowColor/Blur/Angle/Distance`, `strokeDash`,
-  `cornerRadius` and the four corners, `cropTop/Right/Bottom/Left`. What is uneven is
-  the layer *under* the panel: `cornerRadius` and `strokeDash` are declared in a schema
-  and drawn, and `shadowColor`, `shadowBlur`, `gradientFrom` and `cropTop` reach a
-  renderer without a schema declaring them. So the gap is not *design depth* any more —
-  it is **which of the six a document can carry across a save**, which is a narrower
-  and more answerable question. See the backlog entry of the same date.
+  `cornerRadius` and the four corners, `cropTop/Right/Bottom/Left`. The narrower
+  question that replaced it — *which of the six can a document carry across a save*
+  — was asked properly on 2026-09-06 and answered: all of them, on every box the
+  deck draws. It took eleven declarations on `picture` to make that true; see Deck 1.
+  So *design depth* is closed as a gap against Canva.
 - **CapCut** — *time as a first-class dimension*. Video and audio on a slide, a
   timeline, keyframes, and an export that is a file rather than a screen.
 
@@ -661,20 +660,35 @@ follows is not a rewrite of any of it.
 opacity, dashes, per-corner radii; crop and fit for a picture. Cheapest, most
 visible, and the foundation for everything after it: a theme has nothing to
 resolve until a shape has colour *slots*, and an animation has nothing worth
-watching until the thing it moves looks designed. *Done when* the properties
-panel can produce a slide a reader would show someone.
+watching until the thing it moves looks designed. *Done when* every one of them is
+declared where it is drawn, reachable from the panel on every box that draws it,
+and still there after a save and a load — proved by
+`packages/office-slides/test/what-a-save-carries.test.ts`. **Done, 2026-09-06.**
 
-> **This is mostly built and the paragraph above did not say so** — the panel
-> offers all six and this page went on describing them as absent. Written before
-> they existed and never re-read, which is the failure `roadmap-claims-name-their-proof`
-> was built for and cannot catch: that check holds `- [x]` lines to naming a proof,
-> and this was **prose**. A lie has somewhere to hide as long as only the checkboxes
-> are held.
+> **This page described all six as absent while all six were on the panel.**
+> Written before they existed and never re-read, which is the failure
+> `roadmap-claims-name-their-proof` was built for and cannot catch: that check
+> holds `- [x]` lines to naming a proof, and this was **prose**. A lie has
+> somewhere to hide as long as only the checkboxes are held. That is what
+> `roadmap-prose-does-not-deny-what-exists` now closes.
 >
-> What is actually left of Deck 1 is the layer under the panel: four of the six
-> (`shadow*`, `gradientFrom/To`, `crop*`) reach a renderer with **no schema
-> declaring them**, so a reader can set them and a save may not carry them. That is
-> the honest *done when* — not "the panel can produce a slide", which it can.
+> Correcting the sentence is what found the real fault, which was one layer down
+> and on one node. `what-a-save-carries.test.ts` asks three questions of every pair
+> of a box and a settable attribute — is it declared here, is it drawn here, does a
+> value a reader sets survive a save — and opened at **11 undeclared, 12 with no
+> control that reaches them, 11 that a save did not carry.** Every finding was
+> `picture`: its renderer calls `paintCss` and `fillElements` like every other box,
+> so a photograph drew a gradient, a shadow and a dashed border, and
+> `slides-schema.ts` had widened it with the corners, the crop and the flip and
+> stopped. The panel's rows ask the schema before they draw, so 채우기 and 효과 were
+> missing from a picture; `setBoxStyle` filters its payload through
+> `_declaredAttrs`, so a shadow asked for any other way was dropped in silence.
+>
+> Eleven declarations closed all three, and the count is now **0 / 0 / 0**. The
+> lesson is about the harness rather than about paint: `every-attribute-is-read`
+> and `every-property-can-be-edited` both walk the **schema** and ask the product,
+> so an attribute the product *draws* and no schema declares is not a finding in
+> either — it is not a subject. Both were green throughout.
 
 **Deck 2 — transitions, then builds.** A transition is one slide replacing
 another, which needs no per-object timing and is the smallest possible first use

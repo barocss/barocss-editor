@@ -31,8 +31,9 @@ describe('EditorViewDOM', () => {
 
   beforeEach(() => {
     // Create a container element for testing
+    // (`container.sid = …` used to stand here. `HTMLElement` has no `sid`, and every
+    // read in `src/` is `getAttribute('data-bc-sid')` — it set an expando nobody read.)
     container = document.createElement('div');
-    container.sid = 'test-container';
     document.body.appendChild(container);
     mock = createMockEditor();
 

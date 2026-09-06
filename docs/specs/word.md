@@ -65,6 +65,18 @@ Word's chrome is a **ribbon, a ruler, an overlay for shapes, and three read-only
 panes** (comments, find, outline). Measured: **9 toolbar groups, 60 controls, 59
 commands**.
 
+All of it now lives in the package, its looks included: `@barocss/office-word/ui`
+and `@barocss/office-word/ui.css`. Until this round the second door did not exist
+— `office-word` was the only one of the four products with no `.css` door — so
+every class that chrome draws was styled by `apps/word/src/style.css` and by
+nothing else, and `@barocss/office-word/ui` drew correctly only inside that one
+app. Two checks hold it: `office-ui/test/every-host-imports-the-style-door` (a host
+loads the doors its dependencies open) and
+`office-word/test/the-chrome-is-in-the-package` (no class this package draws is
+styled only by the app). What is left in the app is its own frame — `.w-shell`,
+`.w-chrome`, `.w-shell-document`, `.w-menubar` — and the input lab, which is an
+instrument rather than chrome.
+
 There is **no property panel**, and no dialogs at all. That is the single fact
 that shapes everything below, and it is not a style choice — it is where the
 product stopped. A ribbon is a good home for a command that applies to a

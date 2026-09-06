@@ -87,6 +87,40 @@
 }
 
 /*
+ * And the **resolved** marker's half of the same pair, which had none — the mirror of the narrowing
+ * above, and the fault it left open.
+ *
+ * Every fallback rule here is narrowed with `[data-marker='']`, so a marker the numbering resolved
+ * matches none of them. That is the narrowing doing its job, and it left a hole: on a resolved
+ * marker this file said nothing except the unscoped rule at the top of the section, at `(0,2,1)` —
+ * *the lowest specificity any rule about a marker has*. `office-slides/slides.css` keeps a copy of
+ * these nine declarations that is **not** narrowed, at `(0,3,1)`, so on a deck it won:
+ *
+ *     .sl-list[data-list-type='ordered'] > .w-list-item::before { content: counter(sl-item) '.' }
+ *
+ * The deck's list draws `class="w-list sl-list"`, so both sheets look at the same element, and a
+ * deck showing a Word-numbered list drew *a running count of the items* over every number the
+ * resolver had worked out. Word's numbering is not a running count — a definition restarts, starts
+ * at something other than one, and two lists can share a sequence — so 0, 3, 1 came out 1, 2, 3.
+ *
+ * So the resolved marker is said here, scoped to the list and at `(0,4,1)`: **no product's copy of
+ * the fallback can outvote the answer a product actually resolved.** The `[data-marker]` before the
+ * `:not()` is this file's own idiom for *present and not empty* — the rule at the top of the section
+ * and every `[data-revision]` rule below are written the same way — and it is what makes this one
+ * compound more specific than a copy that only knows the list and the item.
+ *
+ * **Content only, and the layout deliberately left alone.** A resolved marker brings its own
+ * separator: `listMarker` appends the definition's `suffix`, and `white-space: pre` above keeps it.
+ * A `gap` here would be a second space beside a space the document asked for, and a `min-width`
+ * column would outvote the indent Word's `ilvl` sets — which is the thing the header of this file
+ * says a rule here must never do. The fallback needs a column because CSS is inventing the marker;
+ * a resolved one does not, because the document already said.
+ */
+.w-list > .w-list-item[data-marker]:not([data-marker=''])::before {
+  content: attr(data-marker);
+}
+
+/*
  * A block somebody has proposed a change to — the **change bar**, in the margin.
  *
  * Tracked changes to *text* are marks and are drawn on the text: underlined for an insertion,
@@ -420,6 +454,63 @@
 .w-math-subsup > .w-math-sub {
   font-size: 0.72em;
   vertical-align: sub;
+}
+
+/*
+ * A subscript and a superscript written **in front of** the base — Word's `m:sPreSubSup`, which is
+ * how an isotope (`{}_92^238 U`) and a tensor index are written.
+ *
+ * The renderer has drawn it since it was written and this file styled it nowhere, so the two
+ * pre-scripts came out at **full size, on the baseline, in a row in front of the base**: not
+ * smaller, not raised, not lowered, and — the part that makes it unreadable — not stacked. `{}_a^b`
+ * drew as `ab`, which is a product of two variables and is what a reader would take it for.
+ *
+ * The two rules above cannot answer for it. `vertical-align` moves a box within a line; it cannot
+ * put two boxes in one column, and a superscript that is not *above* its subscript is not a
+ * pre-script, it is a pair of neighbours. And the order is against us: the schema is
+ * `mathSub mathSup mathElement` (`office-word/math-schema.ts`), so the two scripts arrive **before**
+ * the base and the one that must be drawn on top arrives second.
+ *
+ * A grid says both things without a wrapper element — which matters, because a slot is where the
+ * caret goes and an extra span between the construct and its slots is a place the caret would have
+ * to learn about. The scripts share column 1, taking a row each in the order Word draws them rather
+ * than the order the document stores them; the base spans both rows in column 2.
+ *
+ * `vertical-align: middle` on the box for the reason the fraction and the grown delimiter give: a
+ * grid's own baseline comes from its first row, which here is the superscript, so leaving it to the
+ * line would hang the whole construct off the wrong box.
+ */
+.w-math-presubsup {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  vertical-align: middle;
+}
+.w-math-presubsup > .w-math-sup {
+  grid-column: 1;
+  grid-row: 1;
+}
+.w-math-presubsup > .w-math-sub {
+  grid-column: 1;
+  grid-row: 2;
+}
+/*
+ * The same 0.72em the other two carriers use — written here rather than added to their compound,
+ * because those two also say `vertical-align`, which does nothing to a grid item and would read as
+ * if it did. A script stacked over another needs its leading taken off as well, or the two rows
+ * carry a line's worth of space the inline carriers never pay for; and the pair sits flush against
+ * the base, which is what makes it a *pre*-script rather than something written to its left.
+ */
+.w-math-presubsup > .w-math-sup,
+.w-math-presubsup > .w-math-sub {
+  font-size: 0.72em;
+  line-height: 1;
+  justify-self: end;
+}
+.w-math-presubsup > .w-math-e {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
 }
 
 /* The hook is a glyph; the bar over the body is a border, so it is as wide as

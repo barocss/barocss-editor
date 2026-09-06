@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '../../src/editor-view-dom';
 import { DataStore } from '@barocss/datastore';
+import type { INode } from '@barocss/datastore';
 import { normalizeHTML, expectHTML } from '../utils/html';
 import { define, element, slot, data, getGlobalRegistry } from '@barocss/dsl';
 
@@ -57,7 +58,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
     });
 
     it('handles unregistered stype gracefully', () => {
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -77,7 +78,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
 
   describe('Missing sid Handling', () => {
     it('handles missing sid with warning', () => {
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -110,7 +111,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
 
   describe('Empty Content', () => {
     it('handles empty content array', () => {
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: []  // Empty array
@@ -241,7 +242,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
         ]
       };
       
-      // Circular references are difficult to occur in TreeDocument structure
+      // Circular references are difficult to occur in an INode tree
       // (because it's id-based reference, not direct reference)
       // Instead, test invalid structure
       view.render(tree);
@@ -287,7 +288,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
 
   describe('Duplicate sid Handling', () => {
     it('handles duplicate sid in same level', () => {
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -332,7 +333,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
 
   describe('Missing Required Properties', () => {
     it('handles missing text property for text node', () => {
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [

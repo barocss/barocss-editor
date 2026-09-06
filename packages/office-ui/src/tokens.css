@@ -37,6 +37,33 @@
  */
 
 :root {
+  /**
+   * **What the browser draws when we are not drawing** — the scrollbar, the `<select>` drop-down,
+   * the checkbox, the date picker, the text field's own inner shadow, the caret.
+   *
+   * Not one of the twelve tokens reaches any of those. They are the user agent's, and the only way
+   * to tell it which theme it is painting into is this property. Measured across the five apps: two
+   * declared it (`apps/word/src/style.css:51`, `apps/slide/src/style.css:74`) and three did not, so
+   * `note`, `site` and `gallery` drew a **white scrollbar down the side of a black window** with no
+   * rule anywhere to explain it.
+   *
+   * ## Why it belongs in this file rather than in each app
+   *
+   * All five import this and nothing else of this package's CSS — the argument the `.sr-only` rule
+   * at the foot of this file makes at length: *a stylesheet a host has to remember is a stylesheet a
+   * host will forget*, and three of five had already forgotten this one.
+   *
+   * ## And why it is stated three times, which is the part `light dark` alone cannot do
+   *
+   * `color-scheme: light dark` says *follow the machine*, and a theme has three states rather than
+   * two. The two apps that had this had **only** that: stamp `data-theme="dark"` on a light machine
+   * and every `--ou-*` flips while the scrollbars, the selects and the caret stay light — the same
+   * shape of fault as the missing `[data-theme='light']` block below, one layer further out, where
+   * no token can reach. So the two theme blocks say it too, and because `color-scheme` inherits,
+   * a **subtree** stamped dark gets dark form controls inside a light document.
+   */
+  color-scheme: light dark;
+
   /* Surfaces. */
   --ou-panel: #ffffff;
   --ou-ground: #f5f5f5;
@@ -63,6 +90,38 @@
 
   /* The one colour that means "this one". */
   --ou-accent: #2563eb;
+  /**
+   * **The ink *on* the accent — and it has to flip, because the accent does.**
+   *
+   * White, and white was the whole of it: this token was declared here and in **neither** dark
+   * block, so all four states drew white on whatever the accent had become. Measured:
+   *
+   * ```
+   *  light   #ffffff on #2563eb   5.17:1   ok
+   *  dark    #ffffff on #3b82f6   3.68:1   under AA
+   *  deck    #ffffff on #6f9bff   2.69:1   under AA, and by a long way
+   * ```
+   *
+   * The deck's row is the one that matters: `apps/slide` maps `--ou-accent` to its own `#6f9bff`,
+   * which is a *lighter* blue than this file's dark accent — a perfectly reasonable choice for a
+   * product that has to read against `#14171d` — and the token that says what to write on it did not
+   * know. Every pressed toolbar toggle and every primary button in that deck's dark theme was white
+   * on pale blue. A product cannot fix this from outside: it maps the accent, and the ink is a
+   * second token it has no reason to know exists.
+   *
+   * ## Why the ink darkens rather than the accent
+   *
+   * The obvious repair is to darken the dark accent until white reads on it, and it is not
+   * available: in the dark this same colour is *also* drawn as text on the panel — a selected
+   * outline row, a link, a caption — where it is 4.87:1 and has nothing to give. One colour cannot
+   * be both dark enough for white ink and light enough to read on `#171717`. So the ink moves, which
+   * is what every dark theme that has thought about this does.
+   *
+   * `#171717` rather than pure black, and not by coincidence: it is this file's own `--ou-ink` in
+   * the light and `--ou-panel` in the dark. The rule a reader can hold is **the accent's ink is the
+   * surface the accent is lifted off** — `#ffffff` on a white panel, `#171717` on a dark one — and
+   * it lands at 4.87:1 here and 6.67:1 on the deck's lighter blue.
+   */
   --ou-accent-ink: #ffffff;
   /**
    * The accent at the weight a **background** wants.
@@ -176,8 +235,21 @@
   --ou-studio: #e8e9ea;
   --ou-board: #ffffff;
   --ou-board-lift: 0 0 0 1px rgb(15 23 42 / 0.06), 0 6px 20px rgb(15 23 42 / 0.08);
-  /** What a board's name is drawn in, above the board. */
-  --ou-board-ink: #6b7280;
+  /**
+   * What a board's name is drawn in, above the board.
+   *
+   * **`#5b6371` and not `#6b7280`**, which is the same repair `--ou-muted` got above and for the
+   * same reason: the colour was picked against the wrong ground. `#6b7280` is 4.83:1 on white paper
+   * and 3.98:1 on `--ou-studio`, and the studio is the *only* surface this token is ever drawn on —
+   * a board's name sits outside the board, on the room the board is in. It was chosen against a
+   * surface it never touches.
+   *
+   * The half step between Tailwind's gray-500 and gray-600, the way `--ou-muted` took the half step
+   * between neutral-500 and neutral-600: 4.98:1 on the studio, and still plainly quieter than
+   * `--ou-ink`, which is the whole job of a label colour. The dark theme's `#8b9096` is left alone —
+   * 5.29:1 on the dark studio, with room to spare.
+   */
+  --ou-board-ink: #5b6371;
 
   /**
    * **What is written on the board** — and the half of the rule that was missing.
@@ -298,6 +370,8 @@
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
+    /* The scrollbars, the selects and the caret, which no `--ou-*` can reach. See the root block. */
+    color-scheme: dark;
     --ou-panel: #171717;
     --ou-ground: #0a0a0a;
     --ou-line: #404040;
@@ -306,6 +380,8 @@
     --ou-muted: #a3a3a3;
     --ou-faint: #737373;
     --ou-accent: #3b82f6;
+    /* The ink darkens because the accent lightened — see the root block for why it cannot be white. */
+    --ou-accent-ink: #171717;
     --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 22%, var(--ou-panel));
     /* Lifted rather than deepened — see the other dark block. */
     --ou-warn: #FBBF24;
@@ -331,6 +407,14 @@
  * which is a smaller claim than the tokens can actually support.
  */
 [data-theme='dark'] {
+  /*
+   * **And on a subtree, which is the half `color-scheme: light dark` cannot do.**
+   *
+   * `color-scheme` inherits, so a panel stamped dark inside a light document gets dark scrollbars
+   * and a dark `<select>` — and a product's own switch reaches the user agent's widgets, not only
+   * the twelve tokens.
+   */
+  color-scheme: dark;
   --ou-panel: #171717;
   --ou-ground: #0a0a0a;
   --ou-line: #404040;
@@ -339,6 +423,7 @@
   --ou-muted: #a3a3a3;
   --ou-faint: #737373;
   --ou-accent: #3b82f6;
+  --ou-accent-ink: #171717;
   --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 22%, var(--ou-panel));
   /* Lifted rather than deepened: `#B45309` on `#171717` is a brown nobody reads as a warning. */
   --ou-warn: #FBBF24;
@@ -378,6 +463,7 @@
  * `--ou-board-written` is absent from both blocks on purpose: paper does not follow the theme.
  */
 [data-theme='light'] {
+  color-scheme: light;
   --ou-panel: #ffffff;
   --ou-ground: #f5f5f5;
   --ou-line: #d4d4d4;
@@ -386,6 +472,7 @@
   --ou-muted: #6b6b6b;
   --ou-faint: #a3a3a3;
   --ou-accent: #2563eb;
+  --ou-accent-ink: #ffffff;
   --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 22%, var(--ou-panel));
   --ou-warn: #B45309;
   --ou-warn-soft: color-mix(in srgb, var(--ou-warn) 14%, var(--ou-panel));
@@ -396,7 +483,32 @@
   --ou-scrim: rgb(0 0 0 / 0.25);
   --ou-studio: #e8e9ea;
   --ou-board-lift: 0 0 0 1px rgb(15 23 42 / 0.06), 0 6px 20px rgb(15 23 42 / 0.08);
-  --ou-board-ink: #6b7280;
+  --ou-board-ink: #5b6371;
+}
+
+/*
+ * **명시적 선택은 `light dark` 를 이겨야 한다** — 그리고 그러려면 명시도를 올려야 한다.
+ *
+ * 두 앱이 자기 `:root` 에 `color-scheme: light dark` 를 적어 두었고(`apps/word/src/style.css`,
+ * `apps/slide/src/style.css`), 두 줄 다 **이 파일을 `@import` 한 뒤** 에 온다. `:root` 는 (0,1,0)
+ * 이고 위의 `[data-theme='dark']` 도 (0,1,0) 이므로 순서로 앱이 이긴다 — 라이트 기계에서 다크를
+ * 명시하면 토큰 열둘은 다 뒤집히는데 `color-scheme` 만 `light dark` 로 남아 스크롤바와 셀렉트와
+ * 캐럿이 라이트로 그려진다. 위의 두 선언이 조용히 죽는 자리다.
+ *
+ * `:root[data-theme='dark']` 는 (0,2,0) 이라 그 `:root` 를 이긴다. 뿌리가 아닌 곳은 두 번째
+ * 선택자가 받고, 거기서는 앱의 `:root` 가 애초에 안 맞으므로 (0,1,0) 으로 충분하다.
+ *
+ * 커스텀 프로퍼티가 한 줄도 없는 것이 의도다. `dark-is-actually-read` 의 정리들은 팔레트에 대한
+ * 것이고 이 두 규칙은 팔레트가 아니다 — 그래서 그 검사의 눈에는 빈 규칙이고, 실제로 안 센다.
+ */
+:root[data-theme='dark'],
+[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+:root[data-theme='light'],
+[data-theme='light'] {
+  color-scheme: light;
 }
 
 /**

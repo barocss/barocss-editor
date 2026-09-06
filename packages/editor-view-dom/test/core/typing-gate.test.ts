@@ -20,7 +20,13 @@ import { EditorViewDOM } from '../../src/editor-view-dom';
 describe('the gate a typed character passes', () => {
   let view: EditorViewDOM;
   let container: HTMLElement;
-  let store: Map<string, { stype: string }>;
+  /**
+   * `text` belongs here. The three fixtures below set it deliberately — the gate asks
+   * whether a node *holds text*, not what it is called — and this declaration said
+   * `{ stype: string }`, so every one of them was an excess property. Nothing said so,
+   * because the compiler had never read this file.
+   */
+  let store: Map<string, { stype: string; text?: string }>;
   let selection: { startNodeId?: string; endNodeId?: string } | null;
 
   const press = (key: string, keyCode = key.charCodeAt(0)) => {

@@ -153,37 +153,95 @@ describe('an equation is styled where it is drawn', () => {
   });
 
   /**
-   * **Every class is answered — and one is not.**
+   * **Every class is answered.**
    *
-   * `it.fails` rather than an exemption by name, which is this repository's form for a fault it has
-   * found and not yet fixed: the assertion below is the one that should hold, it does not, and the
-   * day somebody makes it hold **this line goes red** and is changed to `it`. An exemption list
-   * would go quiet instead, and a tolerance explained in a comment is the bug written down.
+   * This was `it.fails` for one round — this repository's form for a fault it has found and not yet
+   * fixed, so that the day somebody makes it hold the line goes red and has to be changed. An
+   * exemption list would have gone quiet instead, and a tolerance explained in a comment is the bug
+   * written down.
    *
-   * ## What is open
-   *
-   * `.w-math-presubsup` — Word's `m:sPreSubSup`, a subscript and a superscript **before** the base
-   * (`{}_a^b X`, which is how an isotope and a tensor are written). `math-renderers.ts:167` draws it
-   * as a bare `<span>` with no style of its own, and the rules that shrink and shift a script are
-   * written for the other two carriers:
+   * The one it held open was `.w-math-presubsup` — Word's `m:sPreSubSup`, a subscript and a
+   * superscript **before** the base (`{}_a^b X`, which is how an isotope and a tensor are written).
+   * `math-renderers.ts:167` drew it as a bare `<span>` with no style of its own, and the rules that
+   * shrink and shift a script are written for the other two carriers:
    *
    *     .w-math-sup-box > .w-math-sup, .w-math-subsup > .w-math-sup { font-size: .72em; … }
    *     .w-math-sub-box > .w-math-sub, .w-math-subsup > .w-math-sub { font-size: .72em; … }
    *
-   * Neither compound matches inside `.w-math-presubsup`. So a pre-script draws at **full size on
-   * the baseline, in front of the base** — not smaller, not raised, not lowered, and not stacked.
-   * A pre-sub-superscript has never been drawn as one in this product, which is the same sentence
-   * `text.css` already carries about the linear fraction and `data-type`.
-   *
-   * Not fixed in the round that found it because it is not a move: it is two new declarations plus
-   * the stacking Word does, and it wants a browser to be sure of. `/tmp/css-backlog.md`.
+   * Neither compound matched inside `.w-math-presubsup`, so a pre-script drew at full size on the
+   * baseline in front of the base. It is drawn now, and the check below says *how* — because this
+   * one only asks whether the class is named, and a class named by an empty rule would satisfy it.
    */
-  it.fails('rules on every element the renderers draw and do not style themselves', () => {
+  it('rules on every element the renderers draw and do not style themselves', () => {
     const unanswered = [...drawn()]
       .filter(([, { classes, inline }]) => !inline && !classes.some(styled))
       .map(([type, { classes }]) => `${type} — .${classes.join(' .')}`)
       .sort();
 
     expect(unanswered).toEqual([]);
+  });
+
+  /**
+   * **And the pre-scripts are stacked, in Word's order and not the document's.**
+   *
+   * The check above is satisfied by the class appearing in *any* selector — which is the right
+   * question for thirty-one classes at once, and much too weak for the one that was wrong. So this
+   * one reads the declarations.
+   *
+   * What makes a pre-sub-superscript that drawing and not another: the two scripts share a column
+   * so they are above one another rather than beside; the **superscript is the upper row** although
+   * the schema stores it second (`mathSub mathSup mathElement`), so the drawing order is the
+   * reverse of the document order and a rule has to say so; and the base is the other column,
+   * spanning both. Take any one of the three away and it is still styled, and still not a
+   * pre-script.
+   *
+   * The size is read from `.w-math-subsup > .w-math-sup` rather than written here, because a script
+   * in front of a base and a script behind one are the same script — if somebody retunes one of the
+   * three carriers this goes red rather than letting them drift.
+   */
+  it('stacks the pre-scripts, superscript above, base beside', () => {
+    const decls = (selector: string): Map<string, string> => {
+      const found = new Map<string, string>();
+      const re = /([^{}]+)\{([^{}]*)\}/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(textCss))) {
+        const listed = m[1].split(',').map((one) => one.trim().replace(/\s+/g, ' '));
+        if (!listed.includes(selector)) continue;
+        for (const decl of m[2].split(';')) {
+          const colon = decl.indexOf(':');
+          if (colon < 0) continue;
+          found.set(decl.slice(0, colon).trim(), decl.slice(colon + 1).trim());
+        }
+      }
+      return found;
+    };
+
+    const box = decls('.w-math-presubsup');
+    const sup = decls('.w-math-presubsup > .w-math-sup');
+    const sub = decls('.w-math-presubsup > .w-math-sub');
+    const base = decls('.w-math-presubsup > .w-math-e');
+
+    // A stack needs a formatter that can make one: two inline boxes in a row are two columns.
+    expect(box.get('display'), 'the construct lays its children out in two dimensions').toBe(
+      'inline-grid'
+    );
+
+    // One column for the pair, and the superscript in the row above the subscript.
+    expect(sup.get('grid-column'), 'superscript column').toBe('1');
+    expect(sub.get('grid-column'), 'subscript column').toBe('1');
+    expect(
+      Number(sup.get('grid-row')),
+      'the superscript is drawn above the subscript, though it is stored after it'
+    ).toBeLessThan(Number(sub.get('grid-row')));
+
+    // And the base is the other column, tall enough to stand beside both.
+    expect(base.get('grid-column'), 'the base is beside the pair, not under it').toBe('2');
+    expect(base.get('grid-row'), 'and as tall as the two rows').toBe('1 / span 2');
+
+    // The same script size the other two carriers use — read, not restated.
+    const carried = decls('.w-math-subsup > .w-math-sup').get('font-size');
+    expect(carried, 'the carrier this is copying is still there').toBeTruthy();
+    expect(sup.get('font-size'), 'a pre-script is a script').toBe(carried);
+    expect(sub.get('font-size'), 'a pre-script is a script').toBe(carried);
   });
 });

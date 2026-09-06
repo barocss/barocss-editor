@@ -22,6 +22,10 @@ import { listTypeOf } from '../src/renderers/block-style';
  *
  * This is the shared half: the renderer says which kind of list it is, and `text.css` draws a marker
  * from that **only where `data-marker` is empty**, so a resolved number always wins.
+ *
+ * That last clause was prose with nothing under it, and on a deck it was false — the deck kept an
+ * un-narrowed copy of the fallback rules and its CSS counter beat the resolved number. It is checked
+ * now, on the sheets themselves, in `a-resolved-marker-is-what-is-drawn.test.ts`.
  */
 describe('a list says which kind it is', () => {
   it('draws the type the schema declares and `wrapInList` writes', () => {

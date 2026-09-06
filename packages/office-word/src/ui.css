@@ -1,0 +1,767 @@
+/*
+ * ── 문서를 만드는 화면 ──────────────────────────────────────────────
+ *
+ * **What `./ui` looks like** — one concept, one name. The ribbon, the title row, the ruler, the
+ * outline pane, the comments pane, the zoom control and the drawing overlay moved into
+ * `office-word`; their *looks* stayed behind in `apps/word/src/style.css`. Measured on the way in:
+ * of the 87 `w-`/`doc-title-` class names that stylesheet declared, **56 were written by this
+ * package and by nothing else**, 36 by `office-text` (moved to `text.css` a round earlier, the
+ * thirty-one maths classes among them), and the rest by the app.
+ *
+ * So `@barocss/office-word/ui` drew correctly only inside `apps/word`, and only because that app
+ * happened to carry the stylesheet — `tsc` green, unit checks green, the app's own browser round
+ * green, and a package that is not a package. `office-word` was the last of the four products with
+ * **no `.css` door at all**.
+ *
+ *     import '@barocss/office-word/ui.css';
+ *
+ * ## The split, and why Word's is two files rather than three
+ *
+ * `docs/specs/architecture.md` divides a product's CSS three ways: what a *published* artefact
+ * needs, what the *editor* needs, and the app's own shell of a shell. The deck has all three
+ * (`slides.css` · `ui.css` · the app), the site builder too (`PAGE_CSS` · `ui.css` · the app).
+ *
+ * **Word has no third file and that is not an omission.** What leaves this product is paper, and the
+ * bytes that go on it are already inside the package: `print.ts`'s `printCss()` is Word's `PAGE_CSS`
+ * — a string, for the same reason the site's is a string, because it is injected rather than linked.
+ * It also happens to be the reason a rule here is safe to state on the paper: `printCss` overrides
+ * `.w-sheet`'s background and shadow with `!important`, so nothing below depends on which of the two
+ * a host loads first.
+ *
+ * So a rule belongs here if it is part of *reading and editing a document on a screen* — the paper's
+ * look, the furniture drawn on it, the panes and controls around it. Nothing here styles the inside
+ * of a paragraph: what a heading is is the document's, resolved from the model by the renderers, and
+ * a rule here that set one would silently win over the style cascade and make it untestable.
+ *
+ * ## `office-ui`'s tokens, never without a fallback
+ *
+ * `var(--ou-line, #d4d4d4)` and never `var(--ou-line)`. A `var(--ou-…)` with no value is **invalid
+ * at computed-value time** and takes the whole declaration with it, so a host that mounts these
+ * components without `tokens.css` gets an outline pane with no border rather than one with the wrong
+ * grey — silent and total, which is the failure this shape is chosen against. **39 declarations**
+ * here carry one; the count of `var(--ou-…)` with no fallback is **0**. Both numbers are held by
+ * `test/the-chrome-is-in-the-package.test.ts` rather than by this sentence.
+ *
+ * ## The rule the palette follows — **the chrome follows the theme; the paper does not**
+ *
+ * The deck reached this first and Word pays it back here. `.w-sheet` stays `#fff` in the dark and so
+ * do the line numbers, the page breaks, the find highlights, the drawing handles and the ruler's
+ * depiction of the paper — every one of those is drawn *on the page*, and a page is white in both
+ * themes because a page is paper. What flips is the window: the panes, the ruler's own ink, the
+ * zoom, the title fields, the tab-stop menu.
+ *
+ * Word once carried **123** colour literals and mapped none of the suite's tokens. A screenshot is
+ * what settled it: in the dark the brand was white on white and the toolbar was a black band inside
+ * a white window — because the toolbar is `office-ui`'s and takes the tokens, and everything around
+ * it was the app's. The literals that remain below are on paper, and each one is stated as such.
+ *
+ * ## What a host has to bring
+ *
+ * `tokens.css`, and the frame. `AppShell`/`AppChrome`/`AppBody`/`AppMain` are `office-ui`'s and the
+ * classes a host hangs on them — `.w-shell`, `.w-chrome`, `.w-shell-document` — are the *host's*
+ * names, not this package's: `zoom.tsx` and `ruler-view.tsx` both used to reach for
+ * `.w-shell-document` by selector and both were changed to take the pane as a prop, with the reason
+ * written where the prop is. So those four rules stay in `apps/word/src/style.css`, which is the one
+ * file that knows what it called its own frame.
+ */
+
+/* ── 종이 ────────────────────────────────────────────────────────────────── */
+
+/*
+ * How the pages stack.
+ *
+ * Word's answer and not the document's: `office-text/renderers.ts` draws the `.w-document` element
+ * for **every** product, and what a product does with the box is the product's. The deck already
+ * writes its own — `office-slides/src/ui.css` has `.sl-host .w-document { display: flex;
+ * flex-direction: column; gap: 24px }`, the same three declarations **without** `align-items:
+ * center`, because a filmstrip's slides hang off the left edge and a word processor's pages sit in
+ * the middle of the pane. Two products, two answers, one element: that is the definition of a rule
+ * that does not belong in `text.css`.
+ */
+.w-document { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+
+/*
+ * **The ink, stated — because the paper's colour was only half the rule.**
+ *
+ * `.w-sheet` sets `background: #fff` and that was already right: a page is white in both themes,
+ * which the deck's slide and the site's boards agree about. What no rule said was the colour of what
+ * is **on** the page. The text took its colour by inheritance from the window, and the window takes
+ * `--ou-ink` — so in the dark the document was **white on white**. Every word of the sample was on
+ * screen and none of it could be read; the screenshot that found it looked, at a glance, like a page
+ * that had not finished loading.
+ *
+ * ## And it belongs here rather than on `.w-sheet`, which is the mistake this was fixed twice for
+ *
+ * The obvious place is beside the background — and putting it there changed nothing, because the
+ * sheets are **behind** the text rather than around it. `.w-sheet` is a drawn rectangle; the flow is
+ * `.w-document › .w-surface › .w-paragraph`, and the sheet is in none of their ancestries. Measured
+ * by walking the paragraph's parents: twelve boxes from `<p>` to `<body>`, every one of them white,
+ * and no `.w-sheet` among them. The comment on the rule was true and the selector was wrong, which
+ * is the exact shape a CSS fix takes when a rule is written from the intent rather than from the
+ * tree.
+ *
+ * A stated colour rather than a token, and that is the whole point: paper does not follow the theme,
+ * so neither does the ink on it. `#1a1a1a` rather than pure black for the reason a printed book uses
+ * one — pure black on pure white is the pairing that reads as glare.
+ */
+.w-document {
+  color: #1a1a1a;
+}
+
+/*
+ * A section renders as the page it describes; its box comes from page setup.
+ *
+ * The section is transparent: it is where the text flows, not what the reader sees as paper. The
+ * sheets behind it are what look like pages.
+ */
+.w-surface {
+  outline: none;
+}
+
+.w-sheet {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+}
+
+/* ── 쪽의 가구 ───────────────────────────────────────────────────────────── */
+
+/*
+ * Page furniture is drawn, not part of the flow, so its appearance is a viewer concern rather than
+ * the document's — the same reason the sheets are styled here. It borrows the document's font so a
+ * header does not look pasted on.
+ */
+.w-furniture {
+  font: inherit;
+  font-size: .85em;
+  color: #495057;
+}
+
+/*
+ * A header or footer being edited.
+ *
+ * The mode has to be visible or it is not a mode: the drawn copies vanish, the real node takes their
+ * place, and without a mark on it nothing on the page says that typing now goes into a header rather
+ * than into the body — or how to get out. So the region is outlined where it sits, and labelled with
+ * the way back.
+ *
+ * The label is drawn above the region and takes no space in it: it is a note about the state, not
+ * part of the document, and a header that grew by a line while being edited would move the text
+ * under it.
+ *
+ * **These two were counted as the app's and they are this package's.** `renderers/page.ts:90` builds
+ * the class as `` `w-${placementKind}-source` ``, so a scan for the literal `w-header-source` finds
+ * only `apps/word/src/main.tsx`, which merely *queries* it. `docs/specs/shared-layer.md` records the
+ * same false negative from the other side — sixteen classes reported dead that were built the same
+ * way — and this is it caught in the direction that costs something: left in the app, a host that
+ * put a caret in a header would be in a mode with nothing on screen to say so.
+ */
+.w-header-source.is-editing,
+.w-footer-source.is-editing {
+  outline: 1px solid #4c6ef5;
+  outline-offset: 6px;
+  border-radius: 2px;
+  background: rgba(76, 110, 245, .04);
+}
+
+.w-header-source.is-editing::before,
+.w-footer-source.is-editing::before {
+  content: 'Header — Esc or click away to finish';
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: 10px;
+  font-size: 10px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #4c6ef5;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.w-footer-source.is-editing::before {
+  content: 'Footer — Esc or click away to finish';
+  bottom: auto;
+  top: 100%;
+  margin: 10px 0 0;
+}
+
+/*
+ * The rule above the notes is part of what they cost the page, so its height has to match
+ * FOOTNOTE_SEPARATOR — the layout reserved room for it.
+ */
+.w-footnotes {
+  font: inherit;
+  font-size: .8em;
+  color: #495057;
+  border-top: 1px solid #ced4da;
+  padding-top: 11px;
+}
+
+.w-footnote-number {
+  margin-right: .4em;
+}
+
+/* Numbers down the margin, drawn beside the text and no part of it. Smaller and greyer than the
+   body, the way Word draws them. On the paper, so a literal rather than a token. */
+.w-line-number { font-size: 9pt; color: #868e96; font-family: inherit; }
+
+/*
+ * Where the paginator put a break.
+ *
+ * `office-text/renderers.ts:446` draws this class too, for every product, and only Word has ever had
+ * a rule behind it — the same shape as `.w-table`/`.w-cell` two files over, and the same unfinished
+ * fix. Moving it *down* to `text.css` is the change that cannot be made alone, because `text.css`
+ * is the editor's and a published site page would still get nothing. Moving it *here* costs the deck
+ * and the note nothing they had: they got no rule before and they get no rule now, and Word's other
+ * hosts gain one. `/tmp/r3-wordcss-backlog.md`.
+ */
+.w-page-break { border-top: 1px dashed #adb5bd; margin: 12px 0; }
+
+/* ── 틀 ──────────────────────────────────────────────────────────────────── */
+
+/* A frame: the layout box. `frameCss` writes what the frame itself does —
+   display, gap, padding — and these three rules say what its *children* do,
+   which inline styles on the frame cannot reach.
+
+   Without them a row of two empty paragraphs is two zero-width boxes: a flex
+   item is as wide as its contents, and an empty paragraph has none. So the
+   frame a reader just inserted would look like nothing happened, and there
+   would be no way to click into either half. `flex: 1 1 0` divides the width
+   evenly regardless of what is typed later, which is what "side by side"
+   means; `min-width: 0` lets a long word wrap instead of forcing the column
+   wider than its share. */
+.w-frame[data-layout='row'] > * { flex: 1 1 0; min-width: 0; }
+/* A stack fills the width — the cross axis of a column is horizontal, and a
+   paragraph that shrank to its text would be a ragged left edge. */
+.w-frame[data-layout='column'] > * { width: 100%; }
+/* Somewhere to aim at while it is still empty. One line, so the box is the
+   size it will be once there is a line in it. */
+.w-frame { min-height: 1.2em; }
+
+/* ── 목차 ────────────────────────────────────────────────────────────────── */
+
+/*
+ * **Which** leader is the document's; how it is painted is the viewer's.
+ *
+ * This drew a dotted rule and said the leader was a viewer concern, which was a rationalisation of
+ * an unread attribute: the field carries `leader` — Word's tab leader, one of `dot`, `hyphen`,
+ * `underscore`, `middleDot` or `none` — and nothing looked at it. Two decisions were being folded
+ * into one, and only the second was being made. The colour and the weight below are still this
+ * file's; the character is the document's.
+ */
+.w-toc-entry {
+  display: flex;
+  align-items: baseline;
+  gap: .5em;
+}
+
+.w-toc-text::after {
+  content: '';
+  display: inline-block;
+  width: 100%;
+  margin-left: .5em;
+  transform: translateY(-.25em);
+}
+
+/* A run of dots — Word's default, and the one a reader pictures when they hear "table of contents". */
+.w-toc-entry[data-leader='dot'] .w-toc-text::after,
+.w-toc-entry[data-leader='middleDot'] .w-toc-text::after {
+  border-bottom: 1px dotted #adb5bd;
+}
+
+.w-toc-entry[data-leader='hyphen'] .w-toc-text::after {
+  border-bottom: 1px dashed #adb5bd;
+}
+
+.w-toc-entry[data-leader='underscore'] .w-toc-text::after {
+  border-bottom: 1px solid #adb5bd;
+}
+
+/*
+ * `leader: none`, and the same rule for a list whose numbers are not right-aligned: the number
+ * follows the text, so there is no gap for a leader to cross.
+ */
+.w-toc-entry[data-leader='none'] .w-toc-text::after {
+  content: none;
+}
+
+.w-toc-text { display: flex; flex: 1; white-space: nowrap; }
+
+/* Numbers that follow the text rather than lining up down the right edge. */
+.w-toc-entry[data-align='left'] .w-toc-text {
+  flex: none;
+}
+
+.w-toc-page { font-variant-numeric: tabular-nums; }
+
+/*
+ * An entry that takes a reader to its heading looks like one it can be pressed. `data-linked` is
+ * the field's `useHyperlinks`, which the app's click handler reads too — being a link is a fact
+ * about what a press does, not only about how the line is drawn.
+ */
+.w-toc-entry[data-linked='true'] {
+  cursor: pointer;
+}
+
+.w-toc-entry[data-linked='true']:hover .w-toc-text {
+  text-decoration: underline;
+}
+
+/* ── 찾기와 주석의 자국 ──────────────────────────────────────────────────── */
+
+/*
+ * A search result. Drawn, not written: which words a reader is looking for is not part of the
+ * document, so this is a decorator and leaves no trace in it.
+ *
+ * `highlight-decorators.ts` writes both of these classes and it is in this package — it was moved
+ * out of `apps/word/src/main.tsx` for exactly the reason this file exists, and the *rules* were left
+ * behind. A host that opened the comments pane outside `apps/word` got the anchor drawn and nothing
+ * painted. On the paper, so literals: a highlight is ink on a page.
+ */
+.w-find-hit { background: #fde68a; }
+.w-find-hit.is-current { background: #fb923c; }
+
+/*
+ * Commented text. Drawn while the pane is open, so that "somebody is reading the comments" leaves no
+ * mark on the document.
+ */
+.w-comment-hit { background: #fef08a80; border-bottom: 2px solid #eab308; }
+.w-comment-hit.is-selected { background: #fde047; }
+
+/* ── 제목 줄 ─────────────────────────────────────────────────────────────── */
+
+/*
+ * The document's name, above the ribbon.
+ *
+ * Not in the page: the title and author are a definition that fields read, and drawing a copy of
+ * them above the first sheet put editable-looking text outside the document. Renaming a document is
+ * a thing done to it, not in it, so it lives in the chrome — which is where a word processor keeps a
+ * file's name, and where a reader looks for it.
+ */
+.doc-title-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 16px 0;
+  flex-wrap: wrap;
+}
+.doc-title-field {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 3px 8px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  min-width: 6ch;
+}
+.doc-title-field::placeholder { color: var(--ou-muted, #6b6b6b); }
+.doc-title-field:hover { border-color: var(--ou-line, #d4d4d4); }
+/*
+ * **`--ou-panel`, not `#fff`** — the focused field was white paper with white ink on it.
+ *
+ * The element's `color` is `inherit`, which is the window's `--ou-ink` = `#fafafa` in the dark, and
+ * the literal here did not follow. So clicking into the document's own title in dark mode made the
+ * text you were about to edit invisible: measured at 1.05:1.
+ *
+ * Nothing could see it. `word-theme.spec.ts` reads the colour of `.w-document *` and the background
+ * of `.w-chrome`, and the title bar is neither — it is the strip between them.
+ *
+ * A field that lifts off the chrome wants the *panel* colour, which is exactly the token for "the
+ * surface a control sits on", and it flips with the theme because that is what a token is for.
+ */
+.doc-title-field:focus { outline: none; border-color: var(--ou-accent, #2563eb); background: var(--ou-panel, #ffffff); }
+.doc-title-docTitle { font-size: 18px; font-weight: 650; flex: 0 0 auto; min-width: 18ch; }
+.doc-title-docAuthor { color: var(--ou-muted, #6b6b6b); font-size: 13px; flex: 0 0 auto; min-width: 12ch; }
+/* Takes what is left: it is the longest of the three and the one that gets cut. */
+.doc-title-docSubtitle { color: var(--ou-muted, #6b6b6b); font-size: 13px; flex: 1 1 24ch; min-width: 20ch; }
+
+/* ── 눈금자 ──────────────────────────────────────────────────────────────── */
+
+/*
+ * The ruler.
+ *
+ * Drawn against the page rather than against the window: every position on it is a position in the
+ * text, so it has to start where the text starts and be as wide as the text area is. Which of those
+ * pixels is which is measured — see `ruler-view.tsx` — and only the appearance is here.
+ */
+.w-ruler {
+  position: relative;
+  height: 26px;
+  margin: 0 0 4px;
+  user-select: none;
+  touch-action: none;
+  font-size: 9px;
+  color: var(--ou-muted, #6b6b6b);
+  cursor: default;
+}
+
+/* The paper, and the part of it that holds text. `#fff` on `.w-ruler-text` is a *depiction of
+   paper* and so it stays white in both themes, exactly as the sheet does. */
+.w-ruler-margin {
+  position: absolute;
+  top: 7px;
+  height: 12px;
+  background: var(--ou-line, #d4d4d4);
+  border-radius: 2px;
+}
+.w-ruler-text {
+  position: absolute;
+  top: 7px;
+  height: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px var(--ou-line, #d4d4d4);
+}
+
+.w-ruler-tick {
+  position: absolute;
+  top: 11px;
+  width: 1px;
+  height: 4px;
+  background: var(--ou-faint, #a3a3a3);
+}
+.w-ruler-inch {
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Where a tab would land with nothing asked for. Drawn below the line and faintly, because it is not
+ * the reader's to move — naming a stop is what replaces these.
+ */
+.w-ruler-default {
+  position: absolute;
+  top: 20px;
+  width: 1px;
+  height: 3px;
+  background: var(--ou-line, #d4d4d4);
+}
+
+.w-ruler-stop {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--ou-ink, #171717);
+  cursor: pointer;
+}
+
+/*
+ * The three markers. Word's shapes: the first line points down from the top, the other two point up
+ * from the bottom, so a reader can tell at a glance which one they are about to take hold of.
+ */
+.w-ruler-marker {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  cursor: ew-resize;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+}
+.w-ruler-marker.is-first {
+  top: 2px;
+  border-top: 7px solid var(--ou-ink, #171717);
+}
+.w-ruler-marker.is-left,
+.w-ruler-marker.is-right {
+  top: 17px;
+  border-bottom: 7px solid var(--ou-ink, #171717);
+}
+
+/*
+ * A leader is what runs along the space the tab crosses — the dots to a page number, the underscore
+ * across a form. Shown under the stop's mark so a reader can tell two stops apart without opening
+ * anything.
+ */
+.w-ruler-stop.leader-dot { border-bottom: 1px dotted currentColor; }
+.w-ruler-stop.leader-hyphen { border-bottom: 1px dashed currentColor; }
+.w-ruler-stop.leader-underscore { border-bottom: 1px solid currentColor; }
+
+/*
+ * **`--ou-panel` and not `#fff`, and it is the `.doc-title-field:focus` fault again.**
+ *
+ * This popup stated `background: #fff` beside `color: var(--ou-ink)`. In the dark the token becomes
+ * `#fafafa` and the literal did not follow, so the tab-stop menu was near-white text on white — the
+ * same pairing, in the same file, found the same way. Nothing on the paper is being changed: this is
+ * a menu, which is chrome, and in the light `--ou-panel` *is* `#ffffff`, so the light rendering is
+ * byte for byte what it was.
+ */
+.w-ruler-menu {
+  z-index: 40;
+  min-width: 148px;
+  padding: 4px;
+  background: var(--ou-panel, #ffffff);
+  border: 1px solid var(--ou-line, #d4d4d4);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .16);
+  font-size: 12px;
+  color: var(--ou-ink, #171717);
+}
+.w-ruler-menu-title {
+  padding: 4px 8px 6px;
+  color: var(--ou-muted, #6b6b6b);
+  font-size: 11px;
+}
+.w-ruler-menu button {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.w-ruler-menu button:hover,
+.w-ruler-menu button:focus-visible {
+  background: var(--ou-ground, #f5f5f5);
+}
+/* Which one this stop already is. */
+.w-ruler-menu button[aria-checked='true'] {
+  background: var(--ou-accent-soft, #dbeafe);
+  font-weight: 600;
+}
+.w-ruler-menu hr {
+  margin: 4px 2px;
+  border: 0;
+  border-top: 1px solid var(--ou-ground, #f5f5f5);
+}
+
+/* ── 개요 칸 ─────────────────────────────────────────────────────────────── */
+
+/*
+ * The outline, which Word calls the navigation pane.
+ *
+ * A scrollbar says how far through a document the reader is; this says *where* — which part, under
+ * which heading. It scrolls on its own, because a map that moves with the thing it maps is not a map.
+ */
+.w-outline {
+  flex: 0 0 236px;
+  min-width: 0;
+  overflow: auto;
+  padding: 12px 8px 24px;
+  border-right: 1px solid var(--ou-line, #d4d4d4);
+  background: var(--ou-panel, #ffffff);
+  font-size: 13px;
+}
+.w-outline-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 8px;
+  color: var(--ou-muted, #6b6b6b);
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.w-outline-title button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.w-outline ul { margin: 0; padding: 0; list-style: none; }
+.w-outline li button {
+  display: block;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: var(--ou-ink, #171717);
+  cursor: pointer;
+  /* One line each: a heading is a landmark here, not something to read */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.w-outline li button:hover { background: var(--ou-ground, #f5f5f5); }
+/* Where the caret is, which is what makes this a map rather than a list. */
+.w-outline li button.is-here {
+  background: var(--ou-accent-soft, #dbeafe);
+  color: var(--ou-accent, #2563eb);
+  font-weight: 600;
+}
+.w-outline-empty { padding: 8px; color: var(--ou-faint, #a3a3a3); }
+
+.w-outline-closed {
+  flex: 0 0 32px;
+  border: 0;
+  border-right: 1px solid var(--ou-line, #d4d4d4);
+  background: var(--ou-panel, #ffffff);
+  color: var(--ou-muted, #6b6b6b);
+  cursor: pointer;
+}
+
+/* ── 주석 칸 ─────────────────────────────────────────────────────────────── */
+
+/*
+ * The comments pane, closed.
+ *
+ * It used to hold its whole width whether or not the document had a comment — a fifth of the window
+ * given to an empty box on every document that has none. The count is on the strip because how many
+ * there are is what a reader wants before deciding to look.
+ */
+.w-comments-closed {
+  position: relative;
+  flex: 0 0 32px;
+  border: 0;
+  border-left: 1px solid var(--ou-line, #d4d4d4);
+  background: var(--ou-panel, #ffffff);
+  color: var(--ou-muted, #6b6b6b);
+  cursor: pointer;
+}
+/* A count badge, and the one place in this file an amber literal is right: it is a *state* colour
+   rather than a surface, and the suite has no token for one yet. */
+.w-comments-count {
+  position: absolute;
+  top: 6px;
+  right: 2px;
+  min-width: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: #f59f00;
+  color: #fff;
+  font-size: 10px;
+  line-height: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 줌 ──────────────────────────────────────────────────────────────────── */
+
+/*
+ * A scaled page still takes up its unscaled room, so the frame is given the drawn size and the page
+ * is drawn inside it. See `zoom-frame.tsx`.
+ */
+.w-zoom-page { transform-origin: top center; }
+
+.w-zoom-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  /* One thing, never broken across two rows of the ribbon. */
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+.w-zoom-control button {
+  width: 22px;
+  height: 24px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.w-zoom-control button:hover { background: var(--ou-ground, #f5f5f5); }
+.w-zoom-control input {
+  width: 48px;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+}
+/* `--ou-panel` rather than `#fff` for the third time in this file, and the same reason: the field's
+   `color` is `inherit` off the chrome, so a stated white is white ink on white paper in the dark. */
+.w-zoom-control input:hover,
+.w-zoom-control input:focus { border-color: var(--ou-line, #d4d4d4); background: var(--ou-panel, #ffffff); }
+
+/* ── 도형 오버레이 ───────────────────────────────────────────────────────── */
+
+/*
+ * What is selected **on a drawing**, and the band that catches several.
+ *
+ * Drawn over the page rather than in it: the overlay is outside the zoom frame, so these are screen
+ * pixels — an outline stays a hairline at 400% and at 25%, which is what a control has to do while
+ * the document scales.
+ *
+ * `pointer-events: none` is the whole design of this overlay. The shapes are real elements, so the
+ * browser hit-tests them — including a rotated one, where an SVG transform is exactly the sum an
+ * arithmetic hit test would have to do — and the layer only ever draws.
+ *
+ * Every colour here is a literal and stays one. These marks are drawn *on the paper*, and the blue
+ * a drawing tool uses for a selection is not the suite's accent — it is the same blue whichever
+ * theme the window is in, because the thing under it is white in both.
+ */
+.w-drawing-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.w-drawing-selected {
+  position: absolute;
+  outline: 1px solid #2563eb;
+  outline-offset: 1px;
+}
+
+/* A band a reader is dragging: the fill says what it has caught, the edge says where it is. */
+.w-drawing-band {
+  position: absolute;
+  border: 1px solid #2563eb;
+  background: rgb(37 99 235 / 0.08);
+}
+
+/*
+ * The frame around what is selected, and the eight handles on it.
+ *
+ * One frame for the whole set, upright: a set of shapes has no single angle to turn by, which is
+ * what every drawing tool does with a multiple selection.
+ *
+ * The handles carry `pointer-events: auto` against the layer's `none` — they are the one part of
+ * this overlay that takes the pointer, and everything else stays clickable underneath. Their size
+ * is in screen pixels and does not scale with the zoom: a handle that shrank with the page would be
+ * unusable at the sizes a document is read at.
+ */
+.w-drawing-frame {
+  position: absolute;
+  outline: 1px solid #2563eb;
+}
+
+.w-drawing-handle {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -5px 0 0 -5px;
+  background: #ffffff;
+  border: 1px solid #2563eb;
+  pointer-events: auto;
+}
+
+.w-drawing-handle-nw { left: 0; top: 0; cursor: nwse-resize; }
+.w-drawing-handle-n { left: 50%; top: 0; cursor: ns-resize; }
+.w-drawing-handle-ne { left: 100%; top: 0; cursor: nesw-resize; }
+.w-drawing-handle-e { left: 100%; top: 50%; cursor: ew-resize; }
+.w-drawing-handle-se { left: 100%; top: 100%; cursor: nwse-resize; }
+.w-drawing-handle-s { left: 50%; top: 100%; cursor: ns-resize; }
+.w-drawing-handle-sw { left: 0; top: 100%; cursor: nesw-resize; }
+.w-drawing-handle-w { left: 0; top: 50%; cursor: ew-resize; }
+
+/*
+ * A line a drag has landed on.
+ *
+ * The colour every drawing tool uses for this, and one screen pixel whatever the zoom: a guide is
+ * an alignment claim, and a claim two pixels thick is a claim about which pixel.
+ */
+.w-drawing-guide {
+  position: absolute;
+  background: #ec4899;
+}
