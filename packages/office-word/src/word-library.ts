@@ -1,4 +1,5 @@
 import { documentLibrary, freeLibraryName } from '@barocss/shared';
+import type { MetaAccess } from '@barocss/office-text';
 import { wordTitle } from './word-file';
 
 /**
@@ -21,11 +22,6 @@ import { wordTitle } from './word-file';
  * A list showing *"3 sections"* where a reader expects *"12 pages"* would be worse than showing
  * nothing, so this counts the thing the document actually holds and the surface names it.
  */
-interface DocumentAccess {
-  getNode(sid: string): { stype?: string; text?: string; content?: unknown } | undefined;
-  getRootNodeId?(): string | undefined;
-  rootId?: string;
-}
 
 const LIBRARY = documentLibrary({ db: 'barocss-word', store: 'documents' });
 
@@ -38,7 +34,7 @@ export interface WordLibraryRow {
 }
 
 /** How many flow surfaces the document holds, which is what a list can honestly say. */
-export function surfaceCount(doc: DocumentAccess): number {
+export function surfaceCount(doc: MetaAccess): number {
   const rootId = doc.getRootNodeId?.() ?? doc.rootId;
   if (!rootId) return 0;
   const children = (doc.getNode(rootId)?.content ?? []) as string[];
@@ -68,7 +64,7 @@ export const wordLibraryDocument = (name: string): Promise<string | undefined> =
  * copy — which is the one thing a durable reference must not do.
  */
 export async function keepWordDocument(
-  doc: DocumentAccess,
+  doc: MetaAccess,
   text: string,
   /** The name to overwrite, when a reader is saving one they already have. */
   under?: string

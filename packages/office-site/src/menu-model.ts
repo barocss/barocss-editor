@@ -63,6 +63,24 @@ const DECLARED: SiteMenu[] = [
     id: 'file',
     label: '파일',
     blocks: [
+      /**
+       * **새로 만들기 · 열기 · 저장** — 이 메뉴가 내보내기와 발행뿐이던 자리.
+       *
+       * 내보내기는 방문자가 볼 것을 만드는 일이고, 저장은 **만들던 것을 지키는** 일이다. 둘은
+       * 다른 몸짓인데 이 제품에는 뒤의 것이 없었다 — `apps/site/src/main.tsx:63` 이 새로고침마다
+       * 샘플을 다시 실었으므로 독자가 만든 것은 돌아오면 없었다.
+       *
+       * 셋 다 `view` 이지 명령이 아니다: 파일을 고르는 것도, 브라우저에게 내려받기를 시키는
+       * 것도, 문서를 통째로 바꾸는 것도 문서가 할 줄 아는 일이 아니다.
+       */
+      {
+        id: 'document',
+        items: [
+          { view: 'file.new', label: '새 사이트' },
+          { view: 'file.open', label: '열기…' },
+          { view: 'file.save', label: '저장' }
+        ]
+      },
       {
         id: 'publish',
         items: [

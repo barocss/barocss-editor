@@ -1,4 +1,5 @@
 import { documentFileFormat } from '@barocss/shared';
+import { documentTitle, type MetaAccess } from '@barocss/office-text';
 
 /**
  * **A document as a file** — Word's four sentences, and nothing else.
@@ -38,44 +39,17 @@ export const WORD_FORMAT = 'barocss-word';
  */
 export const WORD_FILE_VERSION = 1;
 
-/** Enough of the store to read a title out of, and no more. */
-interface DocumentAccess {
-  getNode(sid: string): { stype?: string; text?: string; content?: unknown } | undefined;
-  getRootNodeId?(): string | undefined;
-  rootId?: string;
-}
 
 /**
  * What the document is *about*: the words in `docTitle`.
  *
- * Word keeps its title in `docMeta`, out of the flow, which is the schema decision this reads —
- * a title is a fact about the document rather than the first thing printed on it. A deck has to
- * go and look at the first slide because a deck's title *is* a slide.
+ * Word keeps its title in `docMeta`, out of the flow — a title is a fact about the document rather
+ * than the first thing printed on it. The site builder keeps it in the same place, so **reading it
+ * is `office-text`'s**; what is left here is the name Word calls it by.
  *
- * Not the first heading: a document may open with 목차 or with nothing, and a reader who typed a
- * title into the title bar has already said what this is called.
+ * The deck is the exception and stays one: a deck's title *is* a slide.
  */
-export function wordTitle(doc: DocumentAccess): string | undefined {
-  const rootId = doc.getRootNodeId?.() ?? doc.rootId;
-  if (!rootId) return undefined;
-
-  const textUnder = (sid: string): string => {
-    const node = doc.getNode(sid);
-    if (!node) return '';
-    if (typeof node.text === 'string') return node.text;
-    return ((node.content ?? []) as string[]).map(textUnder).join('');
-  };
-
-  const under = (sid: string, stype: string): string | undefined =>
-    ((doc.getNode(sid)?.content ?? []) as string[]).find(
-      (child) => doc.getNode(child)?.stype === stype
-    );
-
-  const meta = under(rootId, 'docMeta');
-  const title = meta ? under(meta, 'docTitle') : undefined;
-  const words = title ? textUnder(title).trim() : '';
-  return words || undefined;
-}
+export const wordTitle = (doc: MetaAccess): string | undefined => documentTitle(doc);
 
 const FORMAT = documentFileFormat({
   format: WORD_FORMAT,

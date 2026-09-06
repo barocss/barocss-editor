@@ -135,3 +135,6 @@ export {
 
 /** 쓰인 몸이 무엇으로 이루어지나 — `office-note` 에서 왔다. 왜 여기인지는 그 파일에 있다. */
 export { BODY_BLOCKS, BODY_CONTENT, type BodyBlock } from './body-blocks';
+
+// 문서가 무엇이라 불리는가 — `docMeta` 를 읽는 한 벌. 덱은 예외이고 그 이유는 파일에 있다.
+export * from './document-meta';

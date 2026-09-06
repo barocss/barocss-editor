@@ -1,4 +1,10 @@
-import { SlashMenu, useDocumentRevision, useEditorRevision } from '@barocss/office-editor-ui';
+import {
+  FileActions,
+  SlashMenu,
+  useDocumentRevision,
+  useEditorRevision,
+  type DocumentFileActions
+} from '@barocss/office-editor-ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
@@ -29,7 +35,12 @@ import {
   drawnSidAtElement,
   outermostOf,
   siteKeyFor,
+  createSampleSite,
+  readSiteFile,
+  siteFileName,
+  siteFileText,
   siteMenuEntry,
+  siteTitle,
   siteMenuId,
   definitionOf,
   editorStateCss,
@@ -685,6 +696,29 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * command has to mean something to *somebody*, and the app is the only layer that knows how many
    * boards are on screen.
    */
+  /**
+   * **문서를 파일로 여닫는 세 몸짓** — 이 앱이 오늘까지 못 하던 것.
+   *
+   * 부팅에 샘플을 싣고 그것이 전부였다. 내보내기는 *방문자가 볼 것을 달라* 였고, *만들던 것을
+   * 지켜라* 는 없었다. 하는 일은 `office-editor-ui` 의 것이고 여기서 대는 것은 사이트의 넷이다.
+   *
+   * `starter` 가 샘플인 것은 임시다 — 빈 사이트가 무엇인지는 문서에 대한 사실이라
+   * `office-site` 가 답해야 하고, Word 는 그 답(`createStarterDocument`)을 이미 갖고 있다.
+   */
+  const files = useRef<DocumentFileActions>(null);
+  const fileKind = useMemo(
+    () => ({
+      session: 'site',
+      text: siteFileText,
+      read: readSiteFile,
+      fileName: (ed: Editor) => siteFileName(siteTitle(ed.dataStore as never)),
+      starter: () => createSampleSite(),
+      ariaLabel: '사이트 파일',
+      prefix: 'st'
+    }),
+    []
+  );
+
   const runEntry = useCallback(
     (entry: { command?: string; view?: string; payload?: Record<string, unknown>; needs?: string }) => {
       /*
@@ -710,6 +744,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         return setHidden([...hidden, which]);
       }
       switch (entry.view) {
+        case 'file.new':
+          return files.current?.create();
+        case 'file.open':
+          return files.current?.open();
+        case 'file.save':
+          return files.current?.save();
         case 'frames.all':
           return setHidden([]);
         case 'preview':
@@ -1323,6 +1363,13 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             menus={bar}
             onPick={onMenu}
           />
+
+          {/*
+            그려지는 것은 숨은 입력 하나와 (있다면) 거절 문구뿐이다. 파일은 아무리 단추를
+            눌러도 브라우저에 건넬 수 없으므로 입력이 DOM 에 있어야 하고, *독자가 어디서
+            청하는가* 는 메뉴바다.
+          */}
+          {editor ? <FileActions ref={files} editor={editor} kind={fileKind} /> : null}
 
           {/*
             **The tools, on the same row as the menu.**
