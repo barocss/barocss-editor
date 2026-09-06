@@ -3,6 +3,7 @@ import { DataStore } from '@barocss/datastore';
 import { createSchema } from '@barocss/schema';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSampleSite } from '../src/sample-site';
+import { createStarterSite } from '../src/starter-site';
 import { createSiteEditor } from '../src/site-kit';
 import { pageCount, readSiteFile, siteFileName, siteFileText, siteTitle, SITE_FORMAT } from '../src/site-file';
 
@@ -73,5 +74,57 @@ describe('사이트가 무엇에 대한 것인가', () => {
     expect(pageCount(store as never)).toBe(0);
     expect(siteTitle(store as never)).toBeUndefined();
     expect(siteFileName(undefined)).toBe('사이트.site.json');
+  });
+});
+
+describe('새 사이트가 무엇인가', () => {
+  const start = () => {
+    const schema = createSchema('site', getSiteSchemaDefinition());
+    const store = new DataStore(undefined as never, schema as never);
+    const editor = createSiteEditor({ editable: true, schema, dataStore: store } as never);
+    editor.loadDocument(createStarterSite() as never, 'site');
+    return { store, editor };
+  };
+
+  /**
+   * *새 사이트* 는 여덟 쪽짜리 픽스처를 실었다. 시작한다는 것이 **남의 페이지를 지우는 일**이었고,
+   * 마지막에 지워지는 것이 하필 그 픽스처가 시험하려고 만든 것들이었다.
+   */
+  it('한 페이지, 그리고 지울 것이 없다', () => {
+    const { store, editor } = start();
+    expect(pageCount(store as never)).toBe(1);
+
+    const text = JSON.stringify(editor.exportDocument());
+    expect(text).not.toContain('바로 사이트');
+    expect(text).not.toContain('가격');
+  });
+
+  /**
+   * **변수를 안 빌린다.** 샘플의 모든 페이지는 샘플이 선언한 변수로 자기를 칠한다. 그 이름을
+   * 빌리면 갖고 있지 않은 것이 칠하는 사이트가 되고, 값 없는 `var()` 는 **선언 전체**를 죽인다 —
+   * 이 저장소가 이미 한 번 치른 값이다.
+   */
+  it('없는 변수를 부르지 않는다', () => {
+    const { editor } = start();
+    expect(JSON.stringify(editor.exportDocument())).not.toContain('var:');
+  });
+
+  it('제목이 비어 있고, 그래서 저장이 사이트라고 부른다', () => {
+    const { store, editor } = start();
+    /* 없는 것이 아니라 **빈** 것이다: 관리의 nav 는 찾은 노드를 고친다. */
+    expect(JSON.stringify(editor.exportDocument())).toContain('docTitle');
+    expect(siteTitle(store as never)).toBeUndefined();
+    expect(siteFileName(siteTitle(store as never))).toBe('사이트.site.json');
+  });
+
+  it('주소를 지어내지 않는다 — 짐작한 canonical 은 남의 도메인을 가리킨다', () => {
+    const { editor } = start();
+    expect(JSON.stringify(editor.exportDocument())).not.toContain('address');
+  });
+
+  it('파일을 왕복한다', () => {
+    const { editor } = start();
+    const read = readSiteFile(siteFileText(editor.exportDocument()));
+    expect('error' in read, 'error' in read ? read.error : '').toBe(false);
   });
 });

@@ -35,7 +35,7 @@ import {
   drawnSidAtElement,
   outermostOf,
   siteKeyFor,
-  createSampleSite,
+  createStarterSite,
   readSiteFile,
   siteFileName,
   siteFileText,
@@ -702,8 +702,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * 부팅에 샘플을 싣고 그것이 전부였다. 내보내기는 *방문자가 볼 것을 달라* 였고, *만들던 것을
    * 지켜라* 는 없었다. 하는 일은 `office-editor-ui` 의 것이고 여기서 대는 것은 사이트의 넷이다.
    *
-   * `starter` 가 샘플인 것은 임시다 — 빈 사이트가 무엇인지는 문서에 대한 사실이라
-   * `office-site` 가 답해야 하고, Word 는 그 답(`createStarterDocument`)을 이미 갖고 있다.
+   * `starter` 는 `office-site` 의 `createStarterSite` 다. 빈 사이트가 무엇인지는 크롬이 아니라
+   * **문서에 대한 사실**이라 패키지가 답한다 — Word 가 `createStarterDocument` 로 답한 것과 같다.
    */
   const files = useRef<DocumentFileActions>(null);
   const fileKind = useMemo(
@@ -712,7 +712,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       text: siteFileText,
       read: readSiteFile,
       fileName: (ed: Editor) => siteFileName(siteTitle(ed.dataStore as never)),
-      starter: () => createSampleSite(),
+      starter: createStarterSite,
       ariaLabel: '사이트 파일',
       prefix: 'st'
     }),

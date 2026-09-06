@@ -407,3 +407,6 @@ export {
 
 // 사이트를 파일로, 그리고 라이브러리에. 형식과 보관은 `@barocss/shared` 의 것이다.
 export * from './site-file';
+
+// 빈 사이트가 무엇인가 — 크롬이 아니라 문서에 대한 사실이다.
+export * from './starter-site';

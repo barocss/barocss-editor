@@ -631,6 +631,58 @@ core, and building a canvas first would prove only that a canvas can be drawn on
 
 ---
 
+## Word, to the level of Word — 2026-09-06 에 잰 것
+
+덱에는 *"PowerPoint·Keynote·Canva·CapCut 과 무엇이 다른가"* 가 적혀 있고 여섯 단계로 쪼개져
+있다. **Word 와 사이트에는 그 문단이 없었다.** 그래서 다음에 무엇을 할지가 제품의 순서가 아니라
+**백로그에서 고른 결함의 순서**로 정해졌다. 이 절은 그 빈 칸이다.
+
+스키마에 실행 시점에 물어서 잰 것 — grep 이 아니라 `createSchema` 가 답한 것이다.
+
+**노드 타입 108, 마크 40.** 그 안에 이미 있는 것:
+
+- **수식 29종** — `mathFraction`·`mathRadical`·`mathNary`·`mathMatrix`·`mathPreSubSup` …
+  `oMath`·`oMathPara` 까지. 그림이 아니라 **구조**로 그린다.
+- **검토 전부** — `insertion`·`deletion`·`formatChange`·`moveFrom`/`moveTo` 가 마크로,
+  `commentThread` 가 리소스로. 변경 추적과 주석이 둘 다 산다.
+- **필드 여덟** — `fieldPageNumber`·`fieldPageCount`·`fieldDateTime`·`fieldRef`·`fieldSeq`·
+  `fieldStyleRef`·`fieldDocTitle`·`fieldAuthor`.
+- **각주·미주** — `footnoteDef`/`endnoteDef` 가 리소스에, `footnoteRef`/`endnoteRef` 가 마크로.
+- **목차·색인·참고문헌** — `tableOfContents`·`indexBlock`·`bibliography`.
+- **콘텐츠 컨트롤**(잠금·자리표시자 포함), **텍스트 상자**, **캔버스와 도형**,
+  **스타일 정의와 조건부 스타일**, **번호 매기기 정의**.
+
+### 그래서 Word 에 없는 것은 무엇인가
+
+| | 있나 | 무엇이 없나 |
+|---|---|---|
+| **상호 참조** | ⬜ | `bookmarkAnchor` 노드와 `bookmark` 마크는 **있다**. 없는 것은 *"그림 3 을 보시오"* 를 쓰고 번호가 바뀌면 따라 바뀌는 필드다 — `fieldRef` 가 있으므로 이것은 스키마가 아니라 **UI 와 해석**의 일이다. |
+| **메일 병합** | ⬜ | 자료원이 없다. 사이트에는 `collection` 이 있고 그것이 같은 질문의 절반이다 — *한 문서를 여러 자료로 여러 번 찍는다*. |
+| **캡션과 그림 번호** | ⬜ | `fieldSeq` 가 있어 번호는 셀 수 있다. 없는 것은 그림·표에 캡션을 **붙이는 노드**와 목록을 만드는 쪽. |
+| **매크로·확장** | ⬜ | 그리고 이것은 **의도된 거절일 수 있다** — 이 엔진의 확장은 코드이지 문서 안의 스크립트가 아니다. |
+| **협업** | ⬜ | 주석과 변경 추적이 있으므로 *한 사람이 시간을 두고 하는 검토* 는 된다. 없는 것은 **동시에 둘**이고, 그것은 제품이 아니라 **서비스 층**의 일이다(아래 §서비스). |
+
+**한 대의 브라우저 안이라는 것도 사실이다** — 다른 기기에서 같은 문서를 열 수 없고, 링크로
+건넬 수 없고, 둘이 함께 볼 수 없다. 그러나 그것은 **계정·공유·협업**이고 셋 다 서비스 층이다.
+
+**순서는 정해져 있다 (2026-09-06):** 제품 에디터 기능을 다 한 다음에 서비스를 공통으로 본다.
+계정과 공유와 협업은 서로 얽혀 있어서 **한 제품에서 풀면 나머지 셋에서 다시 풀게 된다** — 그것이
+이 저장소가 매 회차 찾는 모양이고, 지금 그것을 시작하면 제품 넷이 각자 자기 계정 개념을 갖는다.
+그래서 그 층은 뒤로 두고, 위 표의 문서 기능부터 닫는다.
+
+## 사이트, 무엇과 겨루나 — 2026-09-06 에 잰 것
+
+노드 71 · 속성 841 · 자기 것 14. 이미 있는 것: 페이지와 반응형 폭 셋, 컴포넌트와 인스턴스,
+변수와 바인딩, 자료 모음(`collection`)과 카드, 폼과 연결, 발행과 SEO(`og:*`·canonical·sitemap),
+그리고 오늘 붙은 **파일과 라이브러리**.
+
+없는 것 중 큰 셋:
+
+1. **자기 도메인으로 나가는 발행.** 지금은 아카이브를 만든다. *이것이 이제 그 사이트다* 를
+   답하려면 어딘가에 올라가야 하고, 그것은 서비스 층이다.
+2. **웹폰트.** 브랜드는 색과 글꼴인데 글꼴 쪽이 비어 있다.
+3. **방문자가 남긴 것.** 폼은 보낼 곳(`연결`)을 알지만 받은 것을 볼 곳이 없다.
+
 ## Slides, to the level of PowerPoint, Keynote, Canva and CapCut
 
 Named as the target on 2026-08-19. Those four are not one product, and the
@@ -650,8 +702,13 @@ follows is not a rewrite of any of it.
 ### What separates the deck from each of them
 
 - **PowerPoint and Keynote** — *animation*. Transitions between slides, builds on
-  the objects, a presenter view. Without them this is a drawing tool that happens
-  to be slide-shaped, and it is the largest single gap.
+  the objects, a presenter view. This said *"without them this is a drawing tool that happens to
+  be slide-shaped, and it is the largest single gap."* **재보니 셋 다 있다 (2026-09-06).**
+  모션 코드 **7,369줄**(`motion-effects` 1,393 · `timeline` 1,184 · `motion-presets` 823 ·
+  `motion-tracks` 420 · `motion-path` 347 · `motion` 312 · `motion-cost` 176 · `scroll-show` 192 ·
+  `timeline-pane.tsx` 2,522), 스키마의 `motionTrack`·`motionStep`, `playback.ts` 의
+  `advanceShow`, `present.tsx` 의 발표자 화면. 브라우저 검사도 있다 — 빌드 **35**, 발표자 **11**,
+  전환 **4**. 이 문장은 그것들이 쓰이기 전에 적혔고 지워지지 않았다.
 - **Canva** — *design depth*. This page used to list gradient, shadow, blur,
   dashes, per-corner radius and image crop as things a shape could not have. **Measured 2026-09-06, all six are in the panel** — `slidesPanelAttrs()`
   names `gradientKind/From/To/Angle`, `shadowColor/Blur/Angle/Distance`, `strokeDash`,
@@ -699,21 +756,22 @@ and still there after a save and a load — proved by
 > so an attribute the product *draws* and no schema declares is not a finding in
 > either — it is not a subject. Both were green throughout.
 
-**Deck 2 — transitions, then builds.** A transition is one slide replacing
-another, which needs no per-object timing and is the smallest possible first use
-of time. Builds — entrance, emphasis, exit, in an order, with delays — come after
-it and reuse the same track. Both live **beside** the document, per §4 of
-`canvas-model.md`: a track naming shapes by sid, so a node that knows nothing
-about animation can still be animated and a deck with no timeline pays nothing.
-*Done when* a deck presents with motion and the document holding it has no time
-field on any node.
+**Deck 2 — transitions, then builds. Done (2026-09-06 에 확인).** 전환은 한 슬라이드가 다른
+슬라이드를 대신하는 것이라 개체별 시간이 필요 없고 시간의 가장 작은 첫 쓰임이다. 빌드 — 등장·강조·
+퇴장을, 순서대로, 지연과 함께 — 가 그 뒤에 같은 트랙을 쓴다.
 
-**Deck 3 — masters and themes.** `slideLayout` exists; a master is the layer
-above it, and a theme is the colour and font set the whole deck resolves through.
-The resolver seam is already built — `withLayouts` puts a layer into
-`resolveNodeWith` — so this is another layer rather than another mechanism.
-*Done when* changing a theme changes every slide, and a slide that overrode
-something keeps it.
+*Done when* 이 이랬다: **덱이 모션과 함께 발표되고, 그것을 담은 문서의 어느 노드에도 시간 필드가
+없을 때.** 둘 다 참이다. `duration` 과 `delay` 는 `motionStep` 에만 있고 `motionStep` 은 문서
+**옆의** 트랙에 산다(`canvas-model.md` §4) — 모션을 모르는 노드도 움직일 수 있고, 타임라인이 없는
+덱은 아무 대가도 치르지 않는다. 확인한 방법은 스키마에 직접 물은 것이다: 시간을 뜻하는 이름이
+`motionStep` 밖의 어느 노드에도 없다.
+
+**Deck 3 — masters and themes. 대부분 되어 있다 (2026-09-06 에 확인).** 스키마가 `slideMaster`·
+`slideLayout`·`theme`·`themeId` 를 선언하고 `theme.ts` 가 그것을 푼다. 브라우저 검사도 있다 —
+마스터 **3**, 디자인 **5**, 그리고 오늘 붙은 테마 값 검사 **9**.
+
+*Done when* 은 *"테마를 바꾸면 모든 슬라이드가 바뀌고, 덮어쓴 슬라이드는 안 바뀔 때"* 이고, 그
+둘째 절이 아직 검사로 없다. **덮어쓰기가 테마를 이기는지 묻는 검사 하나가 이 단계의 남은 전부다.**
 
 **Deck 4 — media, and then the timeline. Done.** `mediaVideo` and `mediaAudio`
 were taken out of the office schema the day it stopped declaring what nothing

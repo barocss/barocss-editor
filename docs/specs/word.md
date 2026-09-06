@@ -167,3 +167,43 @@ written *after* the fact can offer that one written before cannot:
    vocabulary.** `cornerRadius` did not exist on a frame, so nothing was absent —
    a schema that declares less passes more easily. That gap is what this document
    is for, and it is the only part of it a person has to keep honest.
+
+## 문서를 지킨다 — 2026-09-06
+
+이 제품은 오늘까지 **독자의 작업을 지킬 수 없었다.** `apps/word/src/main.tsx:83` 이 새로고침마다
+`createSampleDocument()` 를 실었으므로 쓴 것은 돌아오면 없었고, 갖고 있는 파일을 열 방법도 없었고,
+새 문서를 만들려면 각주·콘텐츠 컨트롤·변경 추적·병합된 셀을 시험하려고 만든 **픽스처에서 남의 쪽을
+지워야** 했다. 파일 메뉴에는 인쇄뿐이었다.
+
+덱만 할 수 있었고 덱은 그 전부를 혼자 만들었다(818줄). 읽어 보니 **덱의 것은 넷뿐**이었다.
+
+| | 어디 | 줄 |
+|---|---|---:|
+| 봉투 · 세션 sid 걷기 · 네 가지 거절 · 안전한 파일 이름 | `@barocss/shared` | 192 |
+| IndexedDB · 이름 짓기 | `@barocss/shared` | 158 |
+| 블롭 · 앵커 · 사파리 revoke · 잃을 게 있을 때만 묻기 | `@barocss/office-editor-ui` | 179 |
+| **Word 가 자기에 대해 말하는 것** | `word-file.ts` + `word-library.ts` | **149** |
+
+Word 가 대는 것은 넷이다: `barocss-word`, 독자가 부르는 낱말 **문서**, 판 번호 1, `.word.json`.
+
+### 목록이 세는 것은 흐름 표면이지 쪽 수가 아니다
+
+덱은 슬라이드를 세고 사이트는 페이지를 센다. 둘 다 **문서가 담은 것**이라 브라우저가 무엇을 하든
+맞다. Word 는 다르다 — 쪽 수는 조판의 답이고 조판에는 브라우저와 폭이 필요하다. 목록이 *"12쪽"* 이라
+적었다가 열어 보니 아니면 **안 적은 것만 못하므로**, 문서가 실제로 담은 것을 세고 이름도 그렇게
+붙인다(`surfaceCount`).
+
+### 새 문서는 비어 있다
+
+`createStarterDocument()` — 제목·표면·빈 문단, 그뿐이다. 지워야 시작할 수 있는 예시 글은 픽스처
+문제의 축소판이고, 이 제품이 바로 그것 때문에 새 문서를 못 만들었다.
+
+`docTitle` 은 **없는 것이 아니라 빈** 것이다: 제목 줄은 찾은 노드를 고치므로 `docTitle` 이 없는
+문서는 독자가 이름 붙일 수 없는 문서다. `wordTitle` 은 빈 것에 `undefined` 로 답하므로, 채우기 전에
+저장하면 **문서** 라고 불린다.
+
+### 제목을 읽는 것은 이 패키지의 것이 아니다
+
+`docMeta → docTitle` 은 사이트가 자기 `<title>`·canonical·Open Graph 를 뽑는 바로 그 자리다. 셋이
+같은 모양을 읽으므로 읽기는 `office-text` 의 `documentTitle` 이고, 여기 남은 것은 Word 가 그것을
+부르는 이름뿐이다. 덱은 예외로 남는다 — **덱의 제목은 슬라이드다.**
