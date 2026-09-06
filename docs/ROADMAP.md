@@ -643,9 +643,15 @@ follows is not a rewrite of any of it.
 - **PowerPoint and Keynote** — *animation*. Transitions between slides, builds on
   the objects, a presenter view. Without them this is a drawing tool that happens
   to be slide-shaped, and it is the largest single gap.
-- **Canva** — *design depth*. A shape's whole style is `fill`, `stroke` and
-  `strokeWidth` today. No gradient, no shadow, no blur, no dashes, no per-corner
-  radius, no image crop. These are what a reader thinks of as "designing".
+- **Canva** — *design depth*. This page used to list gradient, shadow, blur,
+  dashes, per-corner radius and image crop as things a shape could not have. **Measured 2026-09-06, all six are in the panel** — `slidesPanelAttrs()`
+  names `gradientKind/From/To/Angle`, `shadowColor/Blur/Angle/Distance`, `strokeDash`,
+  `cornerRadius` and the four corners, `cropTop/Right/Bottom/Left`. What is uneven is
+  the layer *under* the panel: `cornerRadius` and `strokeDash` are declared in a schema
+  and drawn, and `shadowColor`, `shadowBlur`, `gradientFrom` and `cropTop` reach a
+  renderer without a schema declaring them. So the gap is not *design depth* any more —
+  it is **which of the six a document can carry across a save**, which is a narrower
+  and more answerable question. See the backlog entry of the same date.
 - **CapCut** — *time as a first-class dimension*. Video and audio on a slide, a
   timeline, keyframes, and an export that is a file rather than a screen.
 
@@ -657,6 +663,18 @@ visible, and the foundation for everything after it: a theme has nothing to
 resolve until a shape has colour *slots*, and an animation has nothing worth
 watching until the thing it moves looks designed. *Done when* the properties
 panel can produce a slide a reader would show someone.
+
+> **This is mostly built and the paragraph above did not say so** — the panel
+> offers all six and this page went on describing them as absent. Written before
+> they existed and never re-read, which is the failure `roadmap-claims-name-their-proof`
+> was built for and cannot catch: that check holds `- [x]` lines to naming a proof,
+> and this was **prose**. A lie has somewhere to hide as long as only the checkboxes
+> are held.
+>
+> What is actually left of Deck 1 is the layer under the panel: four of the six
+> (`shadow*`, `gradientFrom/To`, `crop*`) reach a renderer with **no schema
+> declaring them**, so a reader can set them and a save may not carry them. That is
+> the honest *done when* — not "the panel can produce a slide", which it can.
 
 **Deck 2 — transitions, then builds.** A transition is one slide replacing
 another, which needs no per-object timing and is the smallest possible first use
@@ -709,6 +727,7 @@ everything that already reads a deck reads a template.
 The claim this entry used to make — that `component` and `instance` "are what a
 template is made of" — **conflated two features**, and it is worth correcting
 rather than quietly dropping. A template is a whole document to *start from*, and
+<!-- 없는 것이 설계다 -->
 it needs no components at all. `component`/`instance` are about **reuse with
 identity**: one definition, many placements, and the placements follow the
 definition. Where the two meet is a template *library* — the card, the quote
