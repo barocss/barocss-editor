@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@toss/tds-mobile";
 import { Formula } from "./Formula";
+import { MathText } from "./MathText";
 import { AnswerEditor } from "./AnswerEditor";
 import {
   isCorrect,
@@ -107,6 +108,7 @@ export default function App({ initial }: { initial: LearningState }) {
     window.scrollTo(0, 0);
   }, [screen, index]);
   const question = round[index];
+  const questionSymbols = question?.formula.variables.map((v) => v.symbol);
   const score = attempts.filter((attempt) => attempt.correct).length;
   const correct = checked && attempts[attempts.length - 1]?.correct;
   function start(next: readonly Question[], isReview = false) {
@@ -295,7 +297,9 @@ export default function App({ initial }: { initial: LearningState }) {
             <div className="eyebrow">
               {String(index + 1).padStart(2, "0")} · {question.title}
             </div>
-            <h1>{question.condition}</h1>
+            <h1>
+              <MathText symbols={questionSymbols}>{question.condition}</MathText>
+            </h1>
             <p className="question-instruction">
               빈칸에 들어갈 식을 입력해 주세요.
             </p>
@@ -333,7 +337,11 @@ export default function App({ initial }: { initial: LearningState }) {
                 <span aria-hidden="true">✧</span>{" "}
                 {hinted ? "힌트 닫기" : "힌트 보기"}
               </button>
-              {hinted && <p className="hint enter">{question.hint}</p>}
+              {hinted && (
+                <p className="hint enter">
+                  <MathText symbols={questionSymbols}>{question.hint}</MathText>
+                </p>
+              )}
               <AnswerEditor
                 key={question.id}
                 profile={question.inputProfile}
@@ -361,7 +369,11 @@ export default function App({ initial }: { initial: LearningState }) {
                   빈칸의 정답 <Formula value={question.grading.answer} />
                 </div>
               )}
-              <p>{question.explanation}</p>
+              <p>
+                <MathText symbols={questionSymbols}>
+                  {question.explanation}
+                </MathText>
+              </p>
               <details className="feedback-lesson">
                 <summary>공식 원리와 배경 읽기</summary>
                 <FormulaLesson formula={question.formula} />

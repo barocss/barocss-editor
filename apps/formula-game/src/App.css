@@ -179,6 +179,13 @@ h1 {
   display: inline-block;
   max-width: 100%;
 }
+.math-text .formula {
+  margin: 0 0.08em;
+  white-space: nowrap;
+}
+.math-text .katex {
+  font-size: 1.04em;
+}
 .answer-slot {
   border: 1.5px dashed #7db1fa;
   border-radius: 12px;

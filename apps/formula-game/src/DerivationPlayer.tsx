@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@toss/tds-mobile";
 import { database } from "./database";
 import { Formula } from "./Formula";
+import { MathText } from "./MathText";
 import { FormulaLesson } from "./FormulaLesson";
 import { AnswerEditor } from "./AnswerEditor";
 import { isCorrect } from "./game";
 import { advanceDerivation } from "./derivations";
 const definition = database.getDerivation("pythagorean-area")!;
 const questions = database.getDerivationQuestions(definition.id);
+const symbols = questions[0].formula.variables.map((v) => v.symbol);
 export function DerivationPlayer({
   answers,
   onChange,
@@ -37,7 +39,9 @@ export function DerivationPlayer({
     <section className="derivation-screen enter">
       <div className="eyebrow">한 줄씩 유도하기 · 넓이로 알아보기</div>
       <h1>{definition.title}</h1>
-      <p className="description">{definition.introduction}</p>
+      <p className="description">
+        <MathText symbols={symbols}>{definition.introduction}</MathText>
+      </p>
       <figure className="proof-diagram">
         <svg
           viewBox="-24 -24 255 250"
@@ -82,8 +86,9 @@ export function DerivationPlayer({
           />
         </svg>
         <figcaption>
-          a, b는 양수예요. 가운데 도형의 네 변은 모두 c예요. 이웃한 두 삼각형의
-          예각 합이 90°이므로 가운데 각도 모두 90°예요.
+          <MathText symbols={symbols}>
+            {"a, b는 양수예요. 가운데 도형의 네 변은 모두 c예요. 이웃한 두 삼각형의 예각 합이 90°이므로 가운데 각도 모두 90°예요."}
+          </MathText>
         </figcaption>
       </figure>
       <div className="progress-meta">
@@ -147,7 +152,11 @@ export function DerivationPlayer({
               >
                 {hint ? "힌트 닫기" : "힌트 보기"}
               </button>
-              {hint && <p className="hint">{question.hint}</p>}
+              {hint && (
+                <p className="hint">
+                  <MathText symbols={symbols}>{question.hint}</MathText>
+                </p>
+              )}
               <AnswerEditor
                 key={question.id}
                 profile={question.inputProfile}
@@ -165,7 +174,9 @@ export function DerivationPlayer({
             {feedback === "correct" && (
               <div className="proof-success">
                 <strong>이 줄을 완성했어요.</strong>
-                <p>{question.explanation}</p>
+                <p>
+                  <MathText symbols={symbols}>{question.explanation}</MathText>
+                </p>
               </div>
             )}
           </div>

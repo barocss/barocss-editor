@@ -45,7 +45,7 @@ export const foundationsPhysicsPack = {
       topicIds: ["physics.circuits.ohm-topic"],
       schoolLevels: ["high", "university"],
       conditions: [
-        "전압 V, 전류 I, 저항 R(단위: 옴 Ω)을 사용해요. 온도가 일정하고 저항 R > 0이 일정한 옴성 도체를 다뤄요.",
+        "전압 $V$, 전류 $I$, 저항 $R$(단위: 옴 $\\Omega$)을 사용해요. 온도가 일정하고 저항 $R > 0$이 일정한 옴성 도체를 다뤄요.",
       ],
       variables: [
         {
@@ -77,7 +77,7 @@ export const foundationsPhysicsPack = {
           "옴성 도체에서는 전압과 전류가 비례해요. 비례상수가 저항이에요.",
         steps: [
           {
-            text: "전류 I에 저항 R을 곱하면 전압 V예요.",
+            text: "전류 $I$에 저항 $R$을 곱하면 전압 $V$예요.",
             latex: "V=IR",
           },
           {
@@ -147,9 +147,9 @@ export const foundationsPhysicsPack = {
       before: "V=",
       after: "",
       condition:
-        "전압 V, 전류 I, 저항 R(단위: 옴 Ω)을 사용해요. 온도가 일정하고 저항 R > 0이 일정한 옴성 도체를 다뤄요.",
-      hint: "전류 I와 저항 R을 곱해요.",
-      explanation: "전류 I와 저항 R을 곱해요.",
+        "전압 $V$, 전류 $I$, 저항 $R$(단위: 옴 $\\Omega$)을 사용해요. 온도가 일정하고 저항 $R > 0$이 일정한 옴성 도체를 다뤄요.",
+      hint: "전류 $I$와 저항 $R$을 곱해요.",
+      explanation: "전류 $I$와 저항 $R$을 곱해요.",
       inputProfileId: "physics.circuits.ohm.input",
       grading: {
         type: "accepted-answers",
@@ -168,7 +168,7 @@ export const foundationsPhysicsPack = {
       before: "I=",
       after: "",
       condition:
-        "전압 V, 전류 I, 저항 R(단위: 옴 Ω)을 사용해요. 온도가 일정하고 저항 R > 0이 일정한 옴성 도체를 다뤄요.",
+        "전압 $V$, 전류 $I$, 저항 $R$(단위: 옴 $\\Omega$)을 사용해요. 온도가 일정하고 저항 $R > 0$이 일정한 옴성 도체를 다뤄요.",
       hint: "전압을 저항으로 나누면 전류가 돼요.",
       explanation: "전압을 저항으로 나누면 전류가 돼요.",
       inputProfileId: "physics.circuits.ohm.input",

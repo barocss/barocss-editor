@@ -3,6 +3,7 @@ import { Button } from "@toss/tds-mobile";
 import type { History } from "./history";
 import type { PlayQuestion } from "./content/types";
 import { Formula } from "./Formula";
+import { MathText } from "./MathText";
 import { FormulaLesson } from "./FormulaLesson";
 const date = (value: number) =>
   new Date(value).toLocaleDateString("ko-KR", {
@@ -36,7 +37,11 @@ export function HistoryLibrary({
         </button>
         <div className="eyebrow">{date(entry.firstSeen)} 처음 본 문제</div>
         <h1>{q.title}</h1>
-        <p className="question-instruction">{q.condition}</p>
+        <p className="question-instruction">
+          <MathText symbols={q.formula.variables.map((v) => v.symbol)}>
+            {q.condition}
+          </MathText>
+        </p>
         <div className="lesson-equation">
           <Formula value={q.before} />
           <span className="history-blank">?</span>
@@ -58,7 +63,11 @@ export function HistoryLibrary({
           <div className="lesson-equation">
             <Formula value={q.answer} />
           </div>
-          <p>{q.explanation}</p>
+          <p>
+            <MathText symbols={q.formula.variables.map((v) => v.symbol)}>
+              {q.explanation}
+            </MathText>
+          </p>
         </details>
         <FormulaLesson formula={q.formula} />
         {current ? (

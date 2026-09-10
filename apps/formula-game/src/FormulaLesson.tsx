@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormulaDefinition } from "./content/types";
 import { Formula } from "./Formula";
+import { MathText } from "./MathText";
 function PythagoreanArea() {
   const [a, setA] = useState(3),
     b = 10 - a;
@@ -73,6 +74,7 @@ function PythagoreanArea() {
 }
 export function FormulaLesson({ formula }: { formula: FormulaDefinition }) {
   const lesson = formula.lesson;
+  const symbols = formula.variables.map((v) => v.symbol);
   return (
     <article className="formula-lesson" aria-label={`${formula.title} 해설`}>
       <div className="eyebrow">공식 이해하기</div>
@@ -83,7 +85,9 @@ export function FormulaLesson({ formula }: { formula: FormulaDefinition }) {
       <h3>언제 성립하나요?</h3>
       <ul>
         {formula.conditions.map((c, i) => (
-          <li key={i}>{c}</li>
+          <li key={i}>
+            <MathText symbols={symbols}>{c}</MathText>
+          </li>
         ))}
       </ul>
       <dl className="variable-list">
@@ -93,8 +97,9 @@ export function FormulaLesson({ formula }: { formula: FormulaDefinition }) {
               <Formula value={v.symbol} />
             </dt>
             <dd>
-              {v.meaning}
-              {v.unit ? ` (${v.unit})` : ""}
+              <MathText symbols={symbols}>
+                {v.meaning + (v.unit ? ` (${v.unit})` : "")}
+              </MathText>
             </dd>
           </div>
         ))}
@@ -102,12 +107,16 @@ export function FormulaLesson({ formula }: { formula: FormulaDefinition }) {
       {lesson ? (
         <>
           <h3>{lesson.title}</h3>
-          <p>{lesson.introduction}</p>
+          <p>
+            <MathText symbols={symbols}>{lesson.introduction}</MathText>
+          </p>
           {lesson.diagram === "pythagorean-area" && <PythagoreanArea />}
           <ol className="lesson-steps">
             {lesson.steps.map((step, i) => (
               <li key={i}>
-                <p>{step.text}</p>
+                <p>
+                  <MathText symbols={symbols}>{step.text}</MathText>
+                </p>
                 {step.latex && (
                   <div className="lesson-equation">
                     <Formula value={step.latex} />
@@ -119,7 +128,9 @@ export function FormulaLesson({ formula }: { formula: FormulaDefinition }) {
           {lesson.history && (
             <aside className="formula-history">
               <h3>{lesson.history.title}</h3>
-              <p>{lesson.history.text}</p>
+              <p>
+                <MathText symbols={symbols}>{lesson.history.text}</MathText>
+              </p>
               <a
                 href={lesson.history.sourceUrl}
                 target="_blank"
