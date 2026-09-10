@@ -1,0 +1,50 @@
+{
+  "name": "@barocss/formula-game",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5186 --strictPort",
+    "build": "node --experimental-strip-types scripts/validate-content.mjs && tsc -b && vite build && ait build",
+    "deploy": "ait deploy",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "build:web": "node --experimental-strip-types scripts/validate-content.mjs && tsc -b && vite build",
+    "type-check": "tsc -b",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "validate:content": "node --experimental-strip-types scripts/validate-content.mjs",
+    "catalog:report": "node --experimental-strip-types scripts/catalog-report.mjs",
+    "db:validate": "node --experimental-strip-types scripts/validate-content.mjs",
+    "db:export": "node --experimental-strip-types scripts/export-database.mjs"
+  },
+  "dependencies": {
+    "@apps-in-toss/web-framework": "^3.4.0",
+    "@emotion/react": "^11.0.0",
+    "@toss/tds-colors": "latest",
+    "@toss/tds-mobile": "latest",
+    "@toss/tds-mobile-ait": "latest",
+    "@types/katex": "^0.16.8",
+    "@types/node": "^22.20.2",
+    "katex": "^0.16.28",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@apps-in-toss/devtools": "^3.2.0",
+    "@eslint/js": "^9.21.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.21.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^15.15.0",
+    "prettier": "^3.4.2",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.24.1",
+    "vite": "^6.2.0"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
