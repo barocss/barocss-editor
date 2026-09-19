@@ -504,6 +504,12 @@ export class DataStore {
         }
         case 'move': {
           const { nodeId, parentId, position } = op as any;
+          // ContentOperations already records the final parent lists and parentId as updates.
+          // Replaying its earlier position after those updates undoes later inserts/removals
+          // (and can resurrect an inline atom removed after a move in the same transaction).
+          // Keep replay only for a bare move record that has no corresponding overlay writes.
+          if (this._overlay.hasDeleted(nodeId) ||
+              (this._overlay.hasOverlayNode(nodeId) && this._overlay.hasOverlayNode(parentId))) break;
           const node = this.nodes.get(nodeId);
           if (!node) break;
           if (node.parentId) {

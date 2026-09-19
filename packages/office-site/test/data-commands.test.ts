@@ -27,8 +27,6 @@ describe('a dataset a reader can change', () => {
 
   /** The sample's product catalogue, freshly read — every command rewrites the node. */
   const products = () => datasetNamed(doc, '상품')!;
-  /* The names alone, which is what most of these are about — the kinds have their own checks. */
-  const columns = () => columnNames(products().fields);
   const sidOf = (name: string) => datasetsOf(doc).find((one) => one.name === name)!.sid!;
 
   beforeEach(() => {

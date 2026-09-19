@@ -27,7 +27,7 @@ import { test, expect, type Browser } from '@playwright/test';
 const read = async (browser: Browser, scheme: 'light' | 'dark') => {
   const ctx = await browser.newContext({ colorScheme: scheme, viewport: { width: 1400, height: 900 } });
   const page = await ctx.newPage();
-  await page.goto('/');
+  await page.goto('/?sample');
   await page.waitForSelector('.w-toolbar');
   await page.waitForTimeout(1200);
   const seen = await page.evaluate(() => ({

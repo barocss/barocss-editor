@@ -1,0 +1,109 @@
+.ondb { color: var(--ou-ink, #171717); font-size: 12px; line-height: 1.5; border: 0; border-radius: 0; background: var(--ou-panel, #fff); overflow: hidden; margin: 12px 0; }
+.ondb-header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 44px; padding: 6px 0; }
+.ondb-header > input { font-size: 16px; font-weight: 650; width: 200px; border-color: transparent; padding-left: 2px; background: transparent; }
+.ondb-header > input:hover { border-color: var(--ou-line); }
+.ondb-views { display: flex; align-items: center; gap: 4px; }
+.ondb-count { color: var(--ou-muted); margin-left: auto; white-space: nowrap; }
+.ondb-content { overflow-x: auto; }
+.ondb-table input:not([type='checkbox']) { width:100%; min-width:96px; }
+.ondb-field-button { display: flex; align-items: center; width: 100%; gap: 6px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; padding: 2px 0; }
+.ondb-field-type { font-size: 10px; color: var(--ou-faint); font-weight: 400; }
+.ondb-footer { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--ou-line); }
+.ondb-empty { padding: 24px 16px; color: var(--ou-muted); text-align: center; }
+.ondb-settings { padding: 12px 8px; border-bottom: 1px solid var(--ou-line); background: var(--ou-panel); display: grid; gap: 8px; }
+.ondb-settings-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.ondb-settings-row > label, .ondb-settings-label { color: var(--ou-muted); font-size: 11px; min-width: 55px; }
+.ondb-settings-row > input { width: 150px; }
+.ondb-board { display: flex; gap: 16px; padding: 16px 0; overflow-x: auto; align-items: flex-start; }
+.ondb-column { flex: 1 0 210px; max-width: 330px; padding: 0; background: transparent; border-radius: 0; }
+.ondb-column h4 { margin: 0 0 10px; display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: 600; }
+.ondb-column h4 span { font-weight: 400; color: var(--ou-muted); }
+.ondb-record { padding: 10px; margin-bottom: 8px; border: 1px solid var(--ou-line); border-radius: 4px; background: var(--ou-panel); display: grid; gap: 8px; }
+.ondb-record label { display: grid; gap: 4px; }
+.ondb-record label > span { font-size: 10px; color: var(--ou-muted); }
+.ondb-record input[type='checkbox'] { accent-color: var(--ou-accent); }
+.ondb-error { padding: 10px 12px; color: var(--ou-danger, #b91c1c); border-top: 1px solid var(--ou-line); }
+.ondb-field-editor { display: grid; gap: 10px; padding: 12px; background: var(--ou-ground); border-bottom: 1px solid var(--ou-line); }
+.ondb-field-editor-actions { display: flex; justify-content: space-between; gap: 8px; }
+.ondb .ondb-table { margin: 0; }
+.ondb .ondb-table input { font: inherit; }
+
+.w-note-database:has(.ondb) > .w-note-database-static { display: none; }
+
+/* Database records are pages: quiet properties above an ordinary writing area. */
+.ondb-item-page { max-width:736px; margin:0 auto; padding:44px 48px; color:var(--ou-ink); font-size:14px; line-height:1.5; }
+.ondb-page-title { display:block; width:100%; resize:none; overflow:hidden; border:0; outline:0; padding:0; margin:0 0 26px; min-height:46px; background:transparent; color:inherit; font-family:inherit; font-size:34px; font-weight:700; line-height:1.25; letter-spacing:-.025em; }
+.ondb-page-title::placeholder { color:var(--ou-faint); }
+.ondb-page-properties { display:grid; gap:0; margin-bottom:24px; }
+.ondb-page-property { display:grid; grid-template-columns:144px minmax(0,1fr); min-height:34px; gap:12px; align-items:start; }
+.ondb-property-name { display:flex; align-items:center; gap:8px; min-width:0; min-height:34px; padding:5px 6px; border:0; border-radius:4px; background:transparent; color:var(--ou-muted); text-align:left; cursor:pointer; font:inherit; }
+.ondb-property-name svg { flex:none; width:16px; height:16px; }
+.ondb-property-name span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ondb-property-name:hover, .ondb-property-value:hover, .ondb-add-property:hover { background:var(--ou-ground); }
+.ondb-property-value { display:flex; align-items:center; min-height:34px; width:100%; padding:5px 7px; border:0; border-radius:4px; background:transparent; text-align:left; font:inherit; color:inherit; cursor:pointer; overflow:hidden; }
+.ondb-property-input { min-width:0; display:flex; align-items:center; min-height:34px; }
+.ondb-property-input input { width:100%; font:inherit; }
+.ondb-value-text { overflow-wrap:anywhere; }
+.ondb-value-empty { color:var(--ou-faint); }
+.ondb-status { display:inline-flex; align-items:center; padding:0 7px; line-height:22px; border-radius:3px; background:#e8e8e6; color:#52524e; font-size:12px; white-space:nowrap; }
+.ondb-status[data-tone='1'] { background:#deebf7; color:#315e83; }
+.ondb-status[data-tone='2'] { background:#dfecdf; color:#406749; }
+.ondb-status[data-tone='3'] { background:#eee3f2; color:#735082; }
+.ondb-status[data-tone='4'] { background:#f7ebd2; color:#82622e; }
+.ondb-check { display:flex; align-items:center; color:var(--ou-muted); }
+.ondb-check[data-checked='true'] { color:var(--ou-accent); }
+.ondb-add-property { display:flex; align-items:center; gap:8px; justify-self:start; margin-top:5px; min-height:34px; padding:5px 6px; border:0; border-radius:4px; color:var(--ou-muted); background:transparent; font:inherit; cursor:pointer; }
+.ondb-add-property svg { width:16px; height:16px; }
+.ondb-page-content { border-top:1px solid var(--ou-line); padding-top:24px; min-height:200px; }
+.ondb-item-actions { display:flex; align-items:center; gap:2px; }
+.ondb-more { display:flex; align-items:center; justify-content:center; width:28px; height:28px; border:0; border-radius:4px; background:transparent; color:var(--ou-muted); cursor:pointer; }
+.ondb-more:hover { background:var(--ou-ground); }
+.ondb-choice-menu { min-width:200px; }
+.ondb-field-popup { width:280px; }
+.ondb-field-popup .ondb-field-editor { background:transparent; border:0; padding:8px; gap:14px; }
+.ondb-field-popup .ondb-field-editor-actions { margin-top:8px; padding-top:12px; border-top:1px solid var(--ou-line); }
+.ondb-title-link { display:block; min-height:30px; width:100%; border:0; background:transparent; padding:4px 2px; text-align:left; color:var(--ou-ink); font:inherit; font-weight:600; cursor:pointer; }
+.ondb-title-link:hover { text-decoration:underline; text-underline-offset:3px; }
+.ondb-card-property { display:grid; grid-template-columns:64px minmax(0,1fr); gap:6px; align-items:center; }
+.ondb-card-property > span { color:var(--ou-muted); font-size:11px; }
+.ondb-record { gap:3px; }
+.ondb-record .ondb-title-link { font-size:14px; margin-bottom:4px; }
+@media (max-width:600px) { .ondb-item-page { padding:32px 24px; } .ondb-page-property { grid-template-columns:112px minmax(0,1fr); gap:8px; } .ondb-page-title { font-size:30px; } }
+
+.ondb-computed { min-height:34px; padding:5px 7px; display:flex; flex-direction:column; justify-content:center; gap:3px; }
+.ondb-computed[data-error] { color:var(--ou-danger, #b91c1c); }
+.ondb-computed small, .ondb-inline-error { color:var(--ou-danger, #b91c1c); font-size:12px; line-height:1.5; white-space:normal; }
+.ondb-relation-value { display:flex; flex-wrap:wrap; align-items:center; gap:4px; min-height:34px; padding:3px; }
+.ondb-relation-chip { display:inline-flex; align-items:center; max-width:100%; border-radius:4px; background:var(--ou-ground); }
+.ondb-relation-chip button { display:inline-flex; align-items:center; gap:5px; border:0; padding:3px 5px; background:transparent; color:inherit; font:inherit; cursor:pointer; border-radius:4px; }
+.ondb-relation-chip button:hover { background:color-mix(in srgb, var(--ou-ink) 7%, transparent); }
+.ondb-relation-chip svg, .ondb-relation-add svg { width:14px; height:14px; flex:none; }
+.ondb-relation-chip[data-missing] { color:var(--ou-danger, #b91c1c); }
+.ondb-relation-add { display:flex; align-items:center; min-height:26px; padding:2px 5px; border:0; border-radius:4px; background:transparent; color:var(--ou-muted); font:inherit; cursor:pointer; }
+.ondb-relation-add:hover { background:var(--ou-ground); }
+.ondb-relation-picker { width:300px; padding:8px; }
+.ondb-relation-search { width:100%; padding:7px 9px; border:1px solid var(--ou-line); border-radius:3px; font:inherit; background:var(--ou-panel); color:var(--ou-ink); outline-color:var(--ou-accent); }
+.ondb-relation-options { max-height:240px; overflow-y:auto; padding-top:5px; }
+.ondb-relation-options p { padding:8px; margin:0; font-size:12px; }
+.ondb-advanced-settings, .ondb-formula-settings { display:grid; gap:12px; padding-top:4px; }
+.ondb-setting-check { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ou-muted); }
+.ondb-advanced-settings > button, .ondb-formula-settings > button { justify-self:end; }
+.ondb-formula-popup { width:400px; }
+.ondb-formula-settings textarea { min-height:96px; resize:vertical; border:1px solid var(--ou-line); border-radius:3px; padding:10px; font:13px/1.6 ui-monospace, monospace; background:var(--ou-ground); color:var(--ou-ink); outline-color:var(--ou-accent); width:100%; }
+.ondb-formula-references { display:flex; flex-wrap:wrap; gap:4px; }
+.ondb-formula-references button { border:0; padding:3px 6px; border-radius:4px; background:var(--ou-ground); color:var(--ou-muted); font-size:11px; cursor:pointer; }
+.ondb-formula-references button:hover { color:var(--ou-ink); }
+.ondb-formula-help, .ondb-formula-preview { font-size:12px; line-height:1.5; margin:0; color:var(--ou-muted); }
+.ondb-field-editor .ondb-inline-error { margin:0; }
+
+.ondb-bulk { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:8px 12px; border-bottom:1px solid var(--ou-line); background:var(--ou-ground); }
+
+.ondb-table th:not([data-row-control]), .ondb-table td:not([data-row-control]) { min-width:130px; }
+.ondb-table [data-row-control] { min-width:44px; }
+.ondb-table [data-office-cell] > button { border-radius:0; }
+.ondb-table [data-office-cell] > button:hover { background:transparent; }
+.ondb-table .ondb-property-input input { min-width:0; width:100%; }
+.ondb-table .ondb-field-button { align-items:center; min-height:24px; }
+.ondb-table .ondb-field-type { margin-left:auto; white-space:nowrap; }
+.ondb-bulk > select { width:180px; max-width:100%; flex:0 1 180px; }
+.ondb-bulk > .ondb-property-value { width:auto; min-width:120px; max-width:220px; }

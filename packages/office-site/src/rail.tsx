@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { PanelHeader, RibbonTabs, EmptyState, LayerActions } from '@barocss/office-ui';
+import { useEffect, useId, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import { Button, Dialog, DialogButton, Icon, IconButton, useRevision, TextField } from '@barocss/office-ui';
@@ -101,6 +102,7 @@ export function Rail({
    */
   width?: number;
 }) {
+  const panelId = useId();
   const revision = useRevision((reread) => watchAnswers(editor, reread), [editor]);
 
   const store = editor.dataStore;
@@ -139,21 +141,13 @@ export function Rail({
 
   return (
     <aside className="st-rail" aria-label="도구" style={width ? { width } : undefined}>
-      <nav className="st-rail-tabs" data-rail>
-        {PANELS.map((one) => (
-          <button
-            key={one.id}
-            type="button"
-            data-panel={one.id}
-            data-current={panel === one.id ? 'true' : undefined}
-            onClick={() => onPanel(one.id)}
-          >
-            {one.label}
-          </button>
-        ))}
-      </nav>
+      <PanelHeader title="탐색" />
+      <div className="st-rail-tabs" data-rail>
+        <RibbonTabs label="탐색 방식" value={panel} onChange={onPanel} panelId={panelId}
+          variant="panel" options={PANELS} itemData={id => ({ panel: id, current: panel === id ? 'true' : undefined })} />
+      </div>
 
-      <div className="st-rail-body">
+      <div className="st-rail-body" id={panelId} role="tabpanel" aria-labelledby={`${panelId}-${panel}`}>
         {panel === 'add' ? <AddPanel run={run} can={can} revision={revision} /> : null}
         {panel === 'layers' ? <LayersPanel editor={editor} doc={doc} page={page} revision={revision} run={run} /> : null}
         {panel === 'pages' ? (
@@ -536,13 +530,24 @@ function LayersPanel({
    */
   useEffect(() => {
     if (!drag) return;
-    const up = () => {
-      const where = landing();
+    const up = (event: PointerEvent) => {
+      const where = (event.target instanceof Element && event.target.closest('.st-layers-list')) ? landing() : undefined;
       setDrag(undefined);
       if (where) run('moveBlockInto', where);
     };
+    const cancel = () => setDrag(undefined);
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault(); event.stopPropagation(); cancel();
+    };
     window.addEventListener('pointerup', up);
-    return () => window.removeEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('keydown', escape, true);
+    return () => {
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('keydown', escape, true);
+    };
     // `drag` is the whole input: a new target means a new landing.
   }, [drag]);
 
@@ -574,9 +579,10 @@ function LayersPanel({
     return (
       <>
         {find}
-        <p className="st-rail-note">
-          {wanted ? `'${looking}'와(과) 맞는 블록이 없습니다.` : '이 페이지에는 아직 아무것도 없습니다.'}
-        </p>
+        <EmptyState title={wanted ? '검색 결과가 없습니다' : '이 페이지는 비어 있습니다'}
+          action={wanted ? <Button onClick={() => setLooking('')}>검색 지우기</Button> : undefined}>
+          {wanted ? `'${looking}'와(과) 맞는 블록이 없습니다. 검색어를 바꾸거나 검색을 지우세요.` : '추가 탭에서 블록을 골라 페이지를 구성하세요.'}
+        </EmptyState>
       </>
     );
 
@@ -609,10 +615,12 @@ function LayersPanel({
             />
           </span>
         ) : (
-        <button
+        <div
           key={row.sid}
-          type="button"
-          className="st-layer"
+          className="st-layer office-layer-row"
+          data-row-selected={selected.has(row.sid) || undefined}
+          data-row-hidden={row.hidden || undefined}
+          data-row-drop={drag?.over === row.sid && drag.sid !== row.sid ? drag.where : undefined}
           data-layer={row.sid}
           data-stype={row.stype}
           data-selected={selected.has(row.sid) ? 'true' : undefined}
@@ -622,26 +630,8 @@ function LayersPanel({
           data-hit={row.hit ? 'true' : undefined}
           data-dragging={drag?.sid === row.sid ? 'true' : undefined}
           data-drop={drag?.over === row.sid && drag.sid !== row.sid ? drag.where : undefined}
-          /*
-           * The whole row is the grip, which is what a list of names wants: a separate handle would
-           * be a sixth thing in a 27-pixel row, and a reader dragging a *name* is already pointing at
-           * the thing they mean. A press that does not move stays a click — `select` runs on `click`,
-           * which a drag never becomes.
-           */
           onPointerDown={(event) => {
-            /*
-             * The row **is** a `<button>`, so `closest('button')` finds itself and a naive guard
-             * refused every drag — measured as a drag that never started. What has to be excluded is
-             * only what is *inside* it: the eye, the padlock, the triangle.
-             */
-            const inner = (event.target as HTMLElement).closest('button, [data-twist]');
-            if (inner && inner !== event.currentTarget) return;
-            /*
-             * **No pointer capture.** It was the first shape and it is exactly wrong here: capture
-             * sends every later `pointermove` to the row that was grabbed, so no other row's handler
-             * ever fires and the drop marker never appeared. What ends the drag is a window listener
-             * instead — see the effect below — which also survives a pointer that leaves the list.
-             */
+            if (event.button !== 0 || (event.target as HTMLElement).closest('[data-layer-control]')) return;
             setDrag({ sid: row.sid });
           }}
           onPointerMove={(event) => {
@@ -655,41 +645,14 @@ function LayersPanel({
 
           // The indent is the structure, so it is what the row is measured by rather than decoration.
           style={{ paddingLeft: `${8 + row.depth * 12}px` }}
-          onClick={(event) => select(row.sid, event.shiftKey)}
-          onDoubleClick={() => setRenaming(row.sid)}
         >
-          {/*
-            The disclosure, and a **space where one would be** on a row that holds nothing.
-
-            Without the space the icons of a container and of a block sit at different distances from
-            the indent, and a list four deep reads as two lists interleaved. It is a `span` rather
-            than a nested `<button>` because a button inside a button is not valid HTML and the
-            browser's own recovery from it is to close the outer one early — the whole row after it
-            would stop being clickable.
-          */}
-          <span
-            className="st-layer-twist"
-            data-twist={row.holds ? (row.shown ? 'open' : 'closed') : undefined}
-            role={row.holds ? 'button' : undefined}
-            aria-label={row.holds ? `${row.label} ${row.shown ? '접기' : '펼치기'}` : undefined}
-            aria-expanded={row.holds ? row.shown : undefined}
-            onClick={
-              row.holds
-                ? (event) => {
-                    // The row underneath means *select me*, and this means *show what is in me*.
-                    event.stopPropagation();
-                    setOpen((was) => {
-                      const next = new Set(was);
-                      if (row.shown) next.delete(row.sid);
-                      else next.add(row.sid);
-                      return next;
-                    });
-                  }
-                : undefined
-            }
-          >
-            {row.holds && <Icon name={row.shown ? 'disclosed' : 'collapsed'} size={12} />}
-          </span>
+          {row.holds ? <button type="button" className="office-layer-disclosure" data-layer-control
+            data-twist={row.shown ? 'open' : 'closed'} aria-label={`${row.label} ${row.shown ? '접기' : '펼치기'}`} aria-expanded={row.shown}
+            onClick={() => setOpen(was => { const next = new Set(was); if (row.shown) next.delete(row.sid); else next.add(row.sid); return next; })}>
+            <Icon name={row.shown ? 'disclosed' : 'collapsed'} size={12} />
+          </button> : <span className="office-layer-disclosure-space" />}
+          <button type="button" className="office-layer-pick" title={row.label} aria-pressed={selected.has(row.sid)}
+            onClick={event => select(row.sid, event.shiftKey)} onDoubleClick={() => setRenaming(row.sid)}>
           {/*
             The shape before the word. A list of forty rows is scanned rather than read, and every
             tool of this kind heads the row with what the thing *is* — `iconForBlock` is the
@@ -721,39 +684,11 @@ function LayersPanel({
                 : row.onlyAt.map((id) => widths.find((one) => one.id === id)?.label ?? id).join('·')}
             </span>
           ) : null}
-          {/*
-            The eye and the padlock — **drawn only when they say something**, or on hover.
-
-            Twelve rows each carrying two grey glyphs is a column of noise a reader reads past, and
-            the state a reader needs to see at a glance is the *unusual* one: this block is hidden,
-            this one is locked. So a row that is neither shows them under the pointer and a row that
-            is either shows them always. Which is what the deck's layer panel already does, and it
-            records the same reason: *"drawing the act would put a crossed-out eye on all twelve,
-            which reads as twelve hidden layers"*.
-          */}
-          <span
-            className="st-layer-acts"
-            data-state={row.hidden || row.locked ? 'said' : undefined}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <IconButton
-              size="sm"
-              label={`${row.label} ${row.hidden ? '보이기' : '숨기기'}`}
-              pressed={row.hidden}
-              onClick={() => run('setBlockFormat', { nodeIds: [row.sid], visible: row.hidden })}
-            >
-              <Icon name={row.hidden ? 'hide' : 'shown'} size={13} />
-            </IconButton>
-            <IconButton
-              size="sm"
-              label={`${row.label} ${row.locked ? '잠금 풀기' : '잠그기'}`}
-              pressed={row.locked}
-              onClick={() => run('setBlockFormat', { nodeIds: [row.sid], locked: !row.locked })}
-            >
-              <Icon name={row.locked ? 'locked' : 'unlocked'} size={13} />
-            </IconButton>
-          </span>
-        </button>
+          </button>
+          <LayerActions label={row.label} hidden={row.hidden} locked={row.locked}
+            onHiddenChange={hidden => run('setBlockFormat', { nodeIds: [row.sid], visible: !hidden })}
+            onLockedChange={locked => run('setBlockFormat', { nodeIds: [row.sid], locked })} />
+        </div>
         )
       )}
     </div>

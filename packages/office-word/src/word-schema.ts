@@ -274,6 +274,7 @@ function wordBlockDefinitions(): Record<string, NodeTypeDefinition> {
       content: 'block*',
       attrs: {
         levels: { type: 'string', default: '1-3' },
+        scope: { type: 'string', default: 'section' },
         styleFilter: { type: 'string', required: false },
         useHyperlinks: { type: 'boolean', default: true },
         showPageNumbers: { type: 'boolean', default: true },
@@ -301,6 +302,7 @@ function wordInlineDefinitions(): Record<string, NodeTypeDefinition> {
       atom: true,
       attrs: {
         targetId: { type: 'string', required: true },
+        targetKind: { type: 'string', default: 'bookmark' },
         format: { type: 'string', default: 'text' }, // text | pageNumber | paragraphNumber | aboveBelow
         useHyperlink: { type: 'boolean', default: true }
       }
@@ -311,6 +313,7 @@ function wordInlineDefinitions(): Record<string, NodeTypeDefinition> {
       atom: true,
       attrs: {
         sequence: { type: 'string', required: true }, // 'Figure', 'Table', ...
+        id: { type: 'string', required: false },
         format: { type: 'string', default: 'decimal' },
         restartLevel: { type: 'number', required: false }
       }
@@ -507,6 +510,11 @@ export function getWordSchemaDefinition(): SchemaDefinition {
           width: { type: 'number', required: false },
           height: { type: 'number', required: false },
           // inline | square | tight | topAndBottom | behind | front
+          cropMode: { type: 'string', required: false },
+          cropPositionX: { type: 'number', required: false },
+          cropPositionY: { type: 'number', required: false },
+          cropOriginalWidth: { type: 'number', required: false },
+          cropOriginalHeight: { type: 'number', required: false },
           wrap: { type: 'string', default: 'inline' },
           side: { type: 'string', required: false },   // left | right
           distanceTop: { type: 'number', required: false },
@@ -583,10 +591,13 @@ export function getWordSchemaDefinition(): SchemaDefinition {
       },
       bTableCell: {
         ...office.nodes.bTableCell,
+        // Word cells contain paragraphs; retain direct inline content for older documents.
+        content: '(block|inline)*',
         attrs: { ...office.nodes.bTableCell.attrs, ...tableCellFormatAttrs(), ...revisionAttrs() }
       },
       bTableHeaderCell: {
         ...office.nodes.bTableHeaderCell,
+        content: '(block|inline)*',
         attrs: { ...office.nodes.bTableHeaderCell.attrs, ...tableCellFormatAttrs(), ...revisionAttrs() }
       },
 

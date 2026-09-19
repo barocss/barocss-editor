@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { isVarRef, varNameOf, varRef, varRefAt, varWeightOf } from '@barocss/office-canvas';
 import { selectedNodeIds } from '@barocss/editor-core';
@@ -17,6 +17,8 @@ import {
   TextField,
   Dialog,
   DialogButton,
+  StatusIndicator,
+  StatusNotice,
   type ThemeSwatch
 } from '@barocss/office-ui';
 import { ASSET_PREFIX, RENDITIONS, assetsOf, isAssetRef } from './assets';
@@ -39,6 +41,8 @@ import { writerMaySet } from './writing';
 import { VALUE_FORMATS } from '@barocss/office-canvas';
 import { chordFor, keyLabel, panelRowShown } from '@barocss/office-controls';
 import { useEditorRevision } from '@barocss/office-editor-ui';
+import { PictureProperty } from './picture-property';
+import { usePropertyCommand } from './use-property-command';
 
 /** 15 twips to the CSS pixel: the document keeps twips and a reader is shown pixels. */
 const PX = 15;
@@ -74,6 +78,7 @@ export async function addPicture(
   command = 'setBlockFormat',
   attr = 'src'
 ): Promise<void> {
+  const rootId = editor.getRootId();
   const data = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(reader.error);
@@ -82,7 +87,7 @@ export async function addPicture(
     reader.onload = () => resolve(String(reader.result ?? '').split(',')[1] ?? '');
     reader.readAsDataURL(file);
   });
-  if (!data) return;
+  if (!data) throw new Error('빈 그림 파일은 사용할 수 없습니다.');
 
   const decoded = await new Promise<HTMLImageElement | undefined>((resolve) => {
     const image = new Image();
@@ -137,31 +142,17 @@ export async function addPicture(
     }
   }
 
-  const before = new Set(
-    assetsOf({
-      rootId: editor.getRootId?.() ?? '',
-      getNode: (sid: string) => editor.dataStore?.getNode(sid)
-    } as never).map((one) => one.name)
-  );
-
-  await editor.executeCommand('insertAsset', {
+  if (editor.getRootId() !== rootId || !editor.isEditable) throw new Error('문서가 바뀌었거나 편집할 수 없습니다. 그림을 다시 선택하세요.');
+  const inserted = await editor.executeCommand('insertAsset', {
     label: file.name,
     type: file.type || 'image/png',
     data,
+    applyTo: { command, attr, nodeIds: [...ids] },
     ...size,
     ...(sizes.length > 0 ? { sizes } : {})
   });
+  if (inserted === false) throw new Error('그림 파일을 추가하지 못했습니다. 다시 시도하세요.');
 
-  const added = assetsOf({
-    rootId: editor.getRootId?.() ?? '',
-    getNode: (sid: string) => editor.dataStore?.getNode(sid)
-  } as never).find((one) => !before.has(one.name));
-  if (added) {
-    await editor.executeCommand(command, {
-      nodeIds: ids,
-      [attr]: `${ASSET_PREFIX}${added.name}`
-    });
-  }
 }
 
 /**
@@ -242,6 +233,7 @@ export function Inspector({
 }) {
   const revision = useEditorRevision(editor);
   const [tab, setTab] = useState<SitePanelTab>('block');
+  const tabPanelId = useId();
   /**
    * **Which sections of the panel are put away.**
    *
@@ -601,7 +593,9 @@ export function Inspector({
     };
   }, [editor, revision, store, shown?.attrs.source, shown?.ids]);
 
-  const run = (name: string, payload: Record<string, unknown>) => void editor.executeCommand(name, payload);
+  const propertyContext = `${editor.getRootId()}:${words ? JSON.stringify(editor.selection) : shown?.ids.join(',') ?? page}:${at}:${state ?? ''}`;
+  const commands = usePropertyCommand(editor, propertyContext);
+  const { run } = commands;
 
   /**
    * What a row does when it is changed.
@@ -760,6 +754,12 @@ export function Inspector({
         </div>
       }
     >
+      {commands.busy && <StatusIndicator busy>속성을 적용하고 있습니다.</StatusIndicator>}
+      {commands.failed && <StatusNotice tone="danger" title="속성을 적용하지 못했습니다"
+        actions={<Button disabled={commands.busy} onClick={commands.retry}>다시 시도</Button>}>
+        변경하려던 값은 다시 시도할 수 있습니다. 선택한 대상과 편집 상태를 확인하세요.
+      </StatusNotice>}
+      <fieldset key={propertyContext} className="st-property-fields" disabled={commands.busy}>
       {words ? (
         /*
          * **The words**, when a range is what is selected — and before the page, because a range is
@@ -815,7 +815,7 @@ export function Inspector({
         />
       ) : (
         <>
-          <PropertyTabs
+          <PropertyTabs panelId={tabPanelId}
             tabs={tabs}
             active={tab}
             onChange={(id) => {
@@ -825,6 +825,7 @@ export function Inspector({
               if (id !== 'style') onState(undefined);
             }}
           />
+          <div id={tabPanelId} role="tabpanel" aria-labelledby={`${tabPanelId}-${tab}`}>
           {tab === 'style' ? (
             <StateSwitch state={state} onState={onState} />
           ) : null}
@@ -886,8 +887,10 @@ export function Inspector({
               />
             </PropertyGroup>
           ) : null}
+          </div>
         </>
       )}
+      </fieldset>
     </PropertyPanel>
   );
 }
@@ -2063,35 +2066,22 @@ function own(
        */
       const said = String(attrs[row.attr] ?? '');
       return (
-        <span className="st-picture-row">
-          <PropertyChoice
+        <PictureProperty key={`${row.attr}:${row.command}:${shown?.ids.join(',') ?? 'document'}`}
+            disabled={!editor.isEditable}
             value={isAssetRef(said) ? said : ''}
             options={[
               ...(isAssetRef(said) ? [] : [{ id: '', label: said ? '주소로 넣은 그림' : '없음' }]),
               ...data.assets.map((one) => ({ id: `${ASSET_PREFIX}${one.name}`, label: one.name }))
             ]}
-            onChange={(next) =>
-              run(row.command ?? 'setBlockFormat', {
+            onSelect={(next) =>
+              editor.executeCommand(row.command ?? 'setBlockFormat', {
                 nodeIds: shown?.ids,
                 [row.attr]: next || undefined
               })
             }
             ariaLabel={row.ariaLabel}
+            onPick={file => addPicture(editor, file, shown?.ids ?? [], row.command, row.attr)}
           />
-          <label className="st-file">
-            파일 넣기
-            <input
-              type="file"
-              accept="image/*"
-              aria-label="그림 파일 넣기"
-              onChange={(event) => {
-                const file = event.currentTarget.files?.[0];
-                event.currentTarget.value = '';
-                if (file) void addPicture(editor, file, shown?.ids ?? [], row.command, row.attr);
-              }}
-            />
-          </label>
-        </span>
       );
     }
 

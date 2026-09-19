@@ -666,16 +666,14 @@ export class RangeOperations {
       if (nodeId === contentRange.startNodeId) startOffset = contentRange.startOffset;
       if (nodeId === contentRange.endNodeId) endOffset = contentRange.endOffset;
       if (startOffset >= endOffset) continue;
-      const updatedMarks = node.marks.filter((m: IMark) => {
-        if (m.stype !== markType) return true;
-        const [ms, me] = m.range || [0, text.length];
-        if (me <= startOffset || ms >= endOffset) return true;
-        return false;
-      });
-      removed += (node.marks.length - updatedMarks.length);
-      this.dataStore.updateNode(nodeId, { marks: coalesceMarks(updatedMarks) }, false);
+      removed += node.marks.filter(mark => {
+        const [from, to] = mark.range ?? [0, text.length];
+        return mark.stype === markType && to > startOffset && from < endOffset;
+      }).length;
+      const updatedMarks = coalesceMarks(clearMarkOverRange(node.marks, markType, [startOffset, endOffset], text.length));
+      this.dataStore.updateNode(nodeId, { marks: updatedMarks }, false);
       const local = this.dataStore.getNode(nodeId);
-      if (local) (local as any).marks = updatedMarks;
+      if (local) local.marks = updatedMarks;
     }
     return removed;
   }

@@ -79,7 +79,7 @@ async function rulerScale(page: Page) {
 }
 
 test('measures the text area, not the paper', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(500);
 
@@ -108,7 +108,7 @@ test('measures the text area, not the paper', async ({ page }) => {
 });
 
 test('a click puts a tab stop where the click was', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(500);
   const block = await caretInParagraph(page);
@@ -126,7 +126,7 @@ test('a click puts a tab stop where the click was', async ({ page }) => {
 });
 
 test('a second click on a stop changes what it does', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(500);
   const block = await caretInParagraph(page);
@@ -145,7 +145,7 @@ test('a second click on a stop changes what it does', async ({ page }) => {
 });
 
 test('dragging a stop moves it, and dragging it off the ruler removes it', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(500);
   const block = await caretInParagraph(page);
@@ -171,7 +171,7 @@ test('dragging a stop moves it, and dragging it off the ruler removes it', async
 });
 
 test('the first-line marker sets the indent no control could reach', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(500);
   const block = await caretInParagraph(page);
@@ -194,7 +194,7 @@ test('the first-line marker sets the indent no control could reach', async ({ pa
 });
 
 test('dragging the first line left of the rest makes it a hanging indent', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(500);
   const block = await caretInParagraph(page);
@@ -231,7 +231,7 @@ test('dragging the first line left of the rest makes it a hanging indent', async
  */
 test.describe('the tab menu', () => {
   test('gives a new stop a leader in one go', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await page.waitForTimeout(500);
     const block = await caretInParagraph(page);
@@ -255,7 +255,7 @@ test.describe('the tab menu', () => {
   });
 
   test('changes an existing stop without disturbing what else it says', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await page.waitForTimeout(500);
     const block = await caretInParagraph(page);
@@ -277,7 +277,7 @@ test.describe('the tab menu', () => {
   });
 
   test('clears every stop, which dragging them off one at a time is not', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await page.waitForTimeout(500);
     const block = await caretInParagraph(page);

@@ -1,11 +1,12 @@
 import * as Select from '@radix-ui/react-select';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
-import { STATE } from './controls';
+import { FIELD_CONTROL, STATE } from './controls';
 
 export interface ChoiceOption {
   id: string;
   label: string;
+  disabled?: boolean;
   /**
    * A picture beside the word, for a list a reader **scans** rather than reads.
    *
@@ -35,6 +36,8 @@ export function ChoiceSelect({
   disabled,
   onChange,
   ariaLabel,
+  invalid,
+  describedBy,
   className,
   testClass
 }: {
@@ -43,6 +46,8 @@ export function ChoiceSelect({
   disabled?: boolean;
   onChange: (id: string) => void;
   ariaLabel: string;
+  invalid?: boolean;
+  describedBy?: string;
   className?: string;
   /**
    * The product's hook class, for its own tests and styles.
@@ -59,7 +64,7 @@ export function ChoiceSelect({
     <Select.Root value={value ?? ''} onValueChange={onChange} disabled={disabled}>
  <Select.Trigger
         className={cn(
-          testClass,
+          testClass, FIELD_CONTROL, 'office-choice',
           'inline-flex h-[var(--ou-control-h)] items-center justify-between gap-2 rounded-[var(--ou-radius)]',
           'border border-[color:var(--ou-line)] px-2 text-[length:var(--ou-text)]',
         STATE,
@@ -67,6 +72,9 @@ export function ChoiceSelect({
  mixed && 'text-[color:var(--ou-muted)]',
  className ?? 'min-w-36'
  )}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
+        title={mixed ? undefined : options.find(option => option.id === value)?.label}
         data-mixed={mixed ? 'true' : 'false'}
  aria-label={ariaLabel}
       >
@@ -88,24 +96,25 @@ export function ChoiceSelect({
            * dim layer and no option could be clicked. The dialog is 40/50, and
            * a menu belongs above whatever opened it whatever that was.
            */
-          className="z-[var(--ou-z-popover)] overflow-hidden rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] shadow-[var(--ou-lift-2)]"
+          className="office-command-surface office-choice-popup z-[var(--ou-z-popover)] overflow-hidden rounded-[var(--ou-radius)] border border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] shadow-[var(--ou-lift-2)]"
         >
-          <Select.Viewport className="p-1">
+          <Select.Viewport className="office-choice-viewport p-1">
  {options.map((option) => (
               <Select.Item
                 key={option.id}
                 value={option.id}
+                disabled={option.disabled}
                 data-style={option.id}
                 className={cn(
-                  'flex cursor-default items-center gap-2 rounded px-2 py-1 text-[length:var(--ou-text)] outline-none',
-                  'data-[highlighted]:bg-[color:var(--ou-ground)]'
+                  'office-choice-option flex cursor-default items-center gap-2 rounded px-2 py-1 text-[length:var(--ou-text)] outline-none',
+                  'data-[highlighted]:bg-[color:var(--ou-ground)] data-[disabled]:opacity-40 data-[disabled]:pointer-events-none'
                 )}
               >
-                <Select.ItemIndicator>
-                  <Icon name="chosen" size={14} />
-                </Select.ItemIndicator>
+                <span className="office-menu-indicator" aria-hidden="true">
+                  <Select.ItemIndicator><Icon name="chosen" size={14} /></Select.ItemIndicator>
+                </span>
                 {option.icon ? <Icon name={option.icon as never} size={14} /> : null}
-                <Select.ItemText>{option.label}</Select.ItemText>
+                <Select.ItemText><span className="office-choice-label">{option.label}</span></Select.ItemText>
               </Select.Item>
             ))}
           </Select.Viewport>

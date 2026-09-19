@@ -166,6 +166,16 @@ export function blockStyle(node: Record<string, any>, env: RenderEnv | undefined
     style.marginLeft = twipToCss((numbered.level + 1) * LIST_INDENT_STEP);
   }
 
+  /**
+   * 페이지를 여는 블록을 시트에 닿도록 밀어 내린다.
+   *
+   * **더하지 않고 덮는다**, 그리고 그것이 맞다: 페이지 맨 위에서는 문단의 앞 간격이 사라져야
+   * 한다. Word 가 그렇게 한다 — 앞 간격은 *앞 문단과의 거리*이고, 앞 문단이 다른 페이지에 있으면
+   * 잴 거리가 없다. 더하면 페이지마다 위쪽 여백이 문단 사정에 따라 들쭉날쭉해진다.
+   *
+   * `+=` 로 고치고 싶어지는 자리다. `test/block-that-opens-a-page.test.ts` 가 그것을 세운다 —
+   * 이 줄은 부수 효과가 아니라 결정이다.
+   */
   const push = getBlockPush(env, String(node.sid ?? ''));
   if (push !== undefined) style.marginTop = `${push}px`;
 

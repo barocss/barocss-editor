@@ -14,6 +14,7 @@
     "@barocss/editor-core": "workspace:*",
     "@barocss/editor-view-dom": "workspace:*",
     "@barocss/office-controls": "workspace:*",
+    "@barocss/office-editor-ui": "workspace:*",
     "@barocss/office-text": "workspace:*",
     "@barocss/office-ui": "workspace:*",
     "@barocss/office-word": "workspace:*",
@@ -26,7 +27,8 @@
     "clsx": "^2.1.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "@barocss/shared": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

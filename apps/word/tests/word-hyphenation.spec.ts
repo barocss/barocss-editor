@@ -16,7 +16,7 @@ import { settled } from './helpers';
 test('the document switches it on, a paragraph opts out, and the run says the language', async ({
   page
 }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(600);
 

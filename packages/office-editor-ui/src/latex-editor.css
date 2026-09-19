@@ -1,0 +1,49 @@
+.oe-latex { font: inherit; color: inherit; border: 0; background: transparent; border-radius: 4px; padding: 2px 4px; cursor: pointer; max-width: 100%; text-align: left; }
+.oe-latex:hover { background: var(--ou-hover, #f1f1ef); }
+.oe-latex:focus-visible { outline: 2px solid var(--ou-accent); }
+/* Display math sizing inside an inline atom, matching the in-place editor's base size. */
+.oe-latex[data-inplace] .katex-display { display: inline; margin: 0; }
+.oe-latex[data-inplace] .katex { font-size: 1em; }
+/* Keep native range/copy semantics while painting a formula as one selection. */
+.oe-latex::selection, .oe-latex *::selection { background: transparent; color: inherit; }
+.oe-latex-range-selected .oe-latex { background: Highlight; color: HighlightText; }
+[data-latex-display="block"] { margin: 16px 0; overflow-x: auto; text-align: center; }
+.oe-latex-editor { display: grid; gap: 16px; min-width: 0; }
+.oe-latex-editor textarea { display: block; box-sizing: border-box; width: 100%; min-height: 110px; margin-top: 8px; padding: 12px; font-family: monospace; border: 1px solid var(--ou-line); border-radius: var(--ou-radius); background: var(--ou-ground); color: var(--ou-ink); resize: vertical; }
+.oe-latex-preview { font-size: 18px; max-height: 160px; min-height: 64px; padding: 12px 16px; overflow: auto; border: 1px solid var(--ou-line); border-radius: 6px; }
+.oe-latex-preview-label { font: 12px/1.4 system-ui, sans-serif; color: var(--ou-muted); margin-bottom: 8px; }
+.oe-latex-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* The formula draft stays inside the host modal, including suggestion portals. */
+.oe-math-dialog { width: min(760px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; overflow: hidden; }
+.oe-math-modes { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--ou-line); }
+.oe-math-modes .office-ribbon-tabs { border-bottom: 0; padding: 0; }
+.oe-math-modes > button { flex-shrink: 0; }
+.oe-math-surface { color: #202c3b; background: #fff; border: 1px solid var(--ou-line); border-radius: 6px; }
+.oe-math-surface .me-dom-editor { display: block; max-width: 100%; }
+.oe-math-surface details { padding: 10px 16px; font-size: 12px; }
+.oe-math-surface pre { overflow: auto; }
+.oe-math-source [role="alert"] { font-size: 13px; line-height: 1.6; }
+
+.oe-math-dialog > :first-child, .oe-math-dialog > :nth-child(3) { flex-shrink: 0; }
+.oe-math-dialog > :nth-child(2) { min-height: 0; overflow: auto; }
+.oe-math-surface .me-editor .me-surface { display: block; min-height: 104px; padding: 24px; }
+
+.oe-math-surface[hidden] { display: none; }
+.oe-math-surface > .me-editor { border: 0; border-radius: inherit; }
+
+/* A math draft occupies the formula's place in the prose, with controls in a portal. */
+.oe-math-inplace { display: inline-block; vertical-align: middle; max-width: 100%; border-radius: 4px; background: var(--ou-panel); color: var(--ou-ink); }
+.oe-math-inplace > .me-editor { display: inline-block; vertical-align: middle; max-width: 100%; font-size: inherit; }
+.oe-math-inplace .me-surface { display: inline-flex; min-height: 0; padding: 2px 6px; max-width: 100%; }
+.oe-math-inplace .me-document-line { min-height: 0; }
+.oe-math-inplace-tools { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; max-width: min(680px, calc(100vw - 32px)); }
+.oe-math-inplace-tools [role="alert"] { flex-basis: 100%; font-size: 12px; color: var(--ou-ink); }
+.oe-math-inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: normal 11px/1.5 system-ui, sans-serif;
+  color: var(--ou-muted);
+}
+.oe-math-inline-actions > span { margin-right: auto; }

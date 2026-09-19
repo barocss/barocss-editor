@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '../../src/editor-view-dom';
 import { DataStore } from '@barocss/datastore';
+import type { INode } from '@barocss/datastore';
 import { normalizeHTML } from '../utils/html';
 import { define, element, data, defineMark, getGlobalRegistry, slot } from '@barocss/dsl';
 
@@ -58,7 +59,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
   });
   
   it('renders simple paragraph', () => {
-    const tree: TreeDocument = {
+    const tree: INode = {
       sid: 'doc1',
       stype: 'document',
       content: [
@@ -85,7 +86,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
   });
   
   it('renders document with headings and paragraphs', () => {
-    const tree: TreeDocument = {
+    const tree: INode = {
       sid: 'doc1',
       stype: 'document',
       content: [
@@ -118,7 +119,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
   });
   
   it('renders nested structure correctly', () => {
-    const tree: TreeDocument = {
+    const tree: INode = {
       sid: 'doc1',
       stype: 'document',
       content: [
@@ -151,7 +152,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
   });
   
   it('renders text with marks', () => {
-    const tree: TreeDocument = {
+    const tree: INode = {
       sid: 'doc1',
       stype: 'document',
       content: [
@@ -164,7 +165,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
               stype: 'inline-text',
               text: 'Hello World',
               marks: [
-                { type: 'bold', range: [0, 5] }
+                { stype: 'bold', range: [0, 5] }
               ]
             }
           ]
@@ -177,12 +178,17 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
     const html = normalizeHTML(container.firstElementChild as Element);
     expect(html).toContain('data-bc-sid="doc1"');
     expect(html).toContain('data-bc-sid="p1"');
-    // Verify text with marks applied
-    expect(html).toContain('Hello');
+    // The mark must actually be applied. Asserting only `toContain('Hello')` said
+    // nothing: the fixture wrote `type: 'bold'` while the renderer reads `stype`
+    // (`renderer-dom/src/vnode/factory.ts`), so no `<strong>` was ever produced and
+    // the test passed anyway. Name the wrapper and the split it forces.
+    expect(html).toContain('<strong class="mark-bold">');
+    expect(html).toContain('<strong class="mark-bold"><span>Hello</span></strong>');
+    expect(html).toContain('World');
   });
   
   it('updates content correctly', () => {
-    const tree1: TreeDocument = {
+    const tree1: INode = {
       sid: 'doc1',
       stype: 'document',
       content: [
@@ -203,7 +209,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
     expect(html1).toContain('First');
     
     // Update
-    const tree2: TreeDocument = {
+    const tree2: INode = {
       sid: 'doc1',
       stype: 'document',
       content: [
@@ -226,7 +232,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
   });
   
   it('preserves DOM element identity when sid is unchanged', () => {
-    const tree1: TreeDocument = {
+    const tree1: INode = {
       sid: 'doc1',
       stype: 'document',
       content: [
@@ -246,7 +252,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
     expect(element1).toBeTruthy();
     
     // Update with same sid
-    const tree2: TreeDocument = {
+    const tree2: INode = {
       sid: 'doc1',
       stype: 'document',
       content: [
@@ -269,7 +275,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
   });
   
   it('handles empty document', () => {
-    const tree: TreeDocument = {
+    const tree: INode = {
       sid: 'doc1',
       stype: 'document',
       content: []
@@ -282,7 +288,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
   });
   
   it('handles document without content property', () => {
-    const tree: TreeDocument = {
+    const tree: INode = {
       sid: 'doc1',
       stype: 'document'
     };

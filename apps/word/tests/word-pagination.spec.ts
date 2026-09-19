@@ -26,7 +26,7 @@ test.describe('tabs', () => {
   }
 
   test('reaches the stops the paragraph names', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     // One inch, two and a half, four and a half — in pixels at 96dpi, which is
@@ -45,7 +45,7 @@ test.describe('tabs', () => {
   });
 
   test('falls back to half-inch stops when the paragraph names none', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     await expect
@@ -54,7 +54,7 @@ test.describe('tabs', () => {
   });
 
   test('draws a leader only where the stop asks for one', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     await expect
@@ -78,7 +78,7 @@ test.describe('tabs', () => {
 
 test.describe('pages', () => {
   test('draws a sheet per computed page', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     // The sample document is deliberately longer than a page, so that the
@@ -93,7 +93,7 @@ test.describe('pages', () => {
   });
 
   test('stacks sheets without overlapping', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     const boxes = await page.locator('.w-sheet').evaluateAll((els) =>
@@ -105,7 +105,7 @@ test.describe('pages', () => {
   });
 
   test('keeps the sheets out of the way of the text', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     // A page sheet must not be selectable, focusable, or editable. Every
@@ -121,7 +121,7 @@ test.describe('pages', () => {
   });
 
   test('draws the sheets behind the text rather than over it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     // The sheets are the paper, so nothing of the document may be painted under
@@ -160,7 +160,7 @@ test.describe('pages', () => {
   });
 
   test('starts each page at the top of its own sheet', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     // The first thing on a page, measured as text rather than as a block.
@@ -178,6 +178,14 @@ test.describe('pages', () => {
       const firstLineOn = (top: number, bottom: number): number | null => {
         const walker = document.createTreeWalker(surface, NodeFilter.SHOW_TEXT);
         let earliest: number | null = null;
+        // A tall formula starts above its text baseline. Include its atomic box,
+        // just as pagination does, instead of treating the leading as a gap.
+        for (const math of surface.querySelectorAll('.w-math-display')) {
+          const rect = math.getBoundingClientRect();
+          if (rect.height > 0 && rect.top >= top - 2 && rect.top < bottom) {
+            earliest = earliest === null ? rect.top : Math.min(earliest, rect.top);
+          }
+        }
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
           if (node.parentElement?.closest('.w-sheets')) continue;
           const range = document.createRange();
@@ -218,7 +226,7 @@ test.describe('pages', () => {
   // wrong side of the text it was cut from — and is pinned there, in
   // position-widget-placement.test.ts.
   test('keeps every line inside a page, however the block was split', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     const outside = await page.evaluate(() => {
@@ -249,7 +257,7 @@ test.describe('pages', () => {
 
 test.describe('pages follow the text', () => {
   test('repaginates as content grows past the last page', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     const before = await page.locator('.w-sheet').count();
@@ -271,7 +279,7 @@ test.describe('pages follow the text', () => {
   });
 
   test('gives back the pages when the content shrinks again', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     const before = await page.locator('.w-sheet').count();
@@ -308,7 +316,7 @@ test.describe('columns', () => {
     page.locator('.w-surface').nth(1);
 
   test('runs the text in two columns', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     const lefts = await secondSurface(page).evaluate((surface) => {
@@ -322,7 +330,7 @@ test.describe('columns', () => {
   });
 
   test('breaks lines at the column width, not the page width', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     const [width, textWidth] = await secondSurface(page).evaluate((surface) => {
@@ -341,7 +349,7 @@ test.describe('columns', () => {
   });
 
   test('fills the first column before starting the second', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     const blocks = await secondSurface(page).evaluate((surface) =>
@@ -365,7 +373,7 @@ test.describe('columns', () => {
   });
 
   test('leaves the single-column section stacking in normal flow', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     // Only sections that need it pay for absolute positioning
@@ -383,7 +391,7 @@ test.describe('a paragraph longer than a page', () => {
   const longParagraph = '.w-paragraph:has-text("A page break inside a paragraph cannot be a margin")';
 
   test('breaks inside itself', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-page-break');
 
     // Everything else the layout does moves whole blocks. This one puts space
@@ -393,7 +401,10 @@ test.describe('a paragraph longer than a page', () => {
   });
 
   test('settles rather than growing on every pass', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
+    await page.waitForSelector('.w-math-display');
+    await page.evaluate(() => document.fonts.ready);
+    await settled(page);
     await page.waitForSelector('.w-page-break');
 
     // The spacer is part of how tall the paragraph currently is and no part of
@@ -405,7 +416,7 @@ test.describe('a paragraph longer than a page', () => {
   });
 
   test('leaves the text the model holds untouched', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-page-break');
 
     // The spacer is an empty element: it contributes no text node, so nothing
@@ -424,7 +435,7 @@ test.describe('a paragraph longer than a page', () => {
   });
 
   test('types in order across the break', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-page-break');
 
     await placeCaret(page, longParagraph);
@@ -440,7 +451,7 @@ test.describe('a paragraph longer than a page', () => {
   });
 
   test('types in order when typed quickly', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-page-break');
 
     // Fast enough that a render is still settling when the next key arrives,
@@ -452,7 +463,7 @@ test.describe('a paragraph longer than a page', () => {
   });
 
   test('is not copied with the text', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-page-break');
 
     const copied = await page.evaluate(() => {
@@ -481,7 +492,7 @@ test.describe('a paragraph longer than a page', () => {
 
 test.describe('sheets under columns', () => {
   test('draws one sheet per page, not one per column', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     const perSurface = await page.evaluate(() =>
@@ -545,7 +556,7 @@ test.describe('a table longer than a page', () => {
   };
 
   test('breaks between rows instead of running over the edge of the paper', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await growTable(page, 30);
 
@@ -632,7 +643,7 @@ test.describe('the binding gutter', () => {
     });
 
   test('takes its room out of the bound edge, and the lines break there', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     const plain = await textBox(page);
 
@@ -644,7 +655,7 @@ test.describe('the binding gutter', () => {
   });
 
   test('goes to the top for a document bound along its head', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     const plain = await textBox(page);
     const pages = await page.locator('.w-sheet').count();
@@ -710,7 +721,7 @@ test.describe('a page boundary that lands on a wrapped picture', () => {
     });
 
   test('keeps every line on a page, and every page against its sheet', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await tighten(page);
     await page.waitForTimeout(1200);
@@ -745,7 +756,7 @@ test.describe('a page boundary that lands on a wrapped picture', () => {
   });
 
   test('breaks a paragraph the text wraps around only past the picture', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await tighten(page);
     await page.waitForTimeout(1200);

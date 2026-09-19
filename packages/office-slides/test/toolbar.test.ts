@@ -26,10 +26,23 @@ describe('the deck toolbar', () => {
     // The reason the model is a package away from the app: the engine renders
     // through a DOM or a React renderer, and a product that shipped its toolbar
     // as either would force that choice on every host.
-    // Read from the package root, which is where vitest runs — the same way
-    // Word's toolbar test reads its own model.
+    /*
+     * Read **relative to this file**, not to the process.
+     *
+     * It was `readFileSync('src/toolbar-model.ts')`, with a comment saying *"the package root, which
+     * is where vitest runs"*. That is true of `pnpm test` inside the package and false of
+     * `vitest run --root packages/office-slides` from the repository root: `--root` moves vitest's
+     * project root and leaves the process's cwd alone, so the same test on the same code passed or
+     * threw `ENOENT` depending on where the person stood. A check whose answer depends on the
+     * caller's cwd is not a check — and the failure it produced looked like a broken product.
+     *
+     * `__dirname` rather than `import.meta.url`: vitest serves this module over its own transform,
+     * so `import.meta.url` is not a `file:` URL and `readFileSync` refuses it. Every other test in
+     * this repository that reads a file resolves it this way.
+     */
+    const { join } = await import('node:path');
     const source = await import('node:fs').then((fs) =>
-      fs.readFileSync('src/toolbar-model.ts', 'utf8')
+      fs.readFileSync(join(__dirname, '..', 'src', 'toolbar-model.ts'), 'utf8')
     );
     expect(source).not.toMatch(/document\.|window\.|React|from 'react'/);
   });

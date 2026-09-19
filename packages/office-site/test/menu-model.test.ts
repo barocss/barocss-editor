@@ -141,19 +141,38 @@ describe('what the menubar offers', () => {
     const [menu] = SITE_MENUS;
     const [block] = menu.blocks;
     const id = siteMenuId(menu, block, 0);
-    expect(id).toBe('file.publish.0');
-    expect(siteMenuEntry(id)?.command).toBe('exportPage');
+    expect(id).toBe('file.document.0');
+    /* 첫 항목은 명령이 아니라 `view` 다 — 새 문서는 문서가 할 줄 아는 일이 아니다. */
+    expect(siteMenuEntry(id)?.view).toBe('file.new');
     expect(siteMenuEntry('nothing.at.all')).toBeUndefined();
   });
 
-  it('puts publishing first, where a reader looks for it', () => {
+  it('puts the document first and publishing under it', () => {
     expect(SITE_MENUS[0].label).toBe('파일');
+
+    /**
+     * **이 검사는 발행이 첫 블록이라고 적고 있었고, 그것은 저장이 없던 동안 참이었다.**
+     *
+     * 그때는 파일 메뉴에 내보내기와 발행뿐이었으므로 발행이 먼저인 것이 맞았다. 2026-09-06 에
+     * 이 제품이 문서를 지킬 수 있게 되면서 — `apps/site/src/main.tsx` 가 새로고침마다 샘플을
+     * 다시 싣던 것을 그만두면서 — 그 자리는 새로 만들기·열기·저장의 것이 됐다. 독자가 써 온
+     * 모든 프로그램에서 파일 메뉴는 그렇게 시작한다.
+     *
+     * **내보내기와 저장은 다른 몸짓이다.** 내보내기는 *방문자가 볼 것을 달라* 이고 저장은
+     * *만들던 것을 지켜라* 다. 하나가 다른 하나를 대신할 수 없고, 그래서 둘 다 있다.
+     */
+    expect(SITE_MENUS[0].blocks[0].items.map((one) => one.view)).toEqual([
+      'file.new',
+      'file.open',
+      'file.save'
+    ]);
+
     /*
      * And **발행하기** with them, which is a third gesture rather than a third name for one: 내보내기
      * is *give me the files*, and 발행 is *this is now the site* — only the second is worth
      * remembering, and only the second can answer whether what is live is what the reader has.
      */
-    expect(SITE_MENUS[0].blocks[0].items.map((one) => one.command)).toEqual([
+    expect(SITE_MENUS[0].blocks[1].items.map((one) => one.command)).toEqual([
       'exportPage',
       'exportSite',
       'publishSite'

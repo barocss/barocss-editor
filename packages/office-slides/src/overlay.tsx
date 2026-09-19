@@ -1,4 +1,6 @@
+import { SelectionReadout, selectionResizeHandles } from '@barocss/office-ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { dragGesture, pxToTwip, twipToPx } from '@barocss/shared';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
@@ -30,7 +32,6 @@ import {
  * 이름으로 붙잡아 두는 파일이고(그 파일의 설명), 배럴이 아니다.
  */
 import {
-  RESIZE_HANDLES,
   angleOf,
   contains,
   guidesFor,
@@ -46,7 +47,7 @@ import {
   type Handle
 } from './manipulate';
 import { SLIDES_KEYS, keyLabel, matchesKey } from './keymap';
-import { boxAt, fromSurface, isContainerType, isSceneType } from './selection';
+import { boxAt, fromSurface, isContainerType, isSceneType, slideAt } from './selection';
 import {
   addStop,
   angleTowards,
@@ -82,6 +83,7 @@ import { slideMenu } from './context-menu';
 import {
   Menu,
   TextField,
+  onApple,
   toDisplay,
   unitSuffix,
   type LengthUnit
@@ -142,6 +144,7 @@ interface Drag {
    */
   crop?: Crop;
   moved: boolean;
+  transfer?: { slideId: string; rect: DOMRect; copy: boolean; positions: Array<{ nodeId: string; x: number; y: number }> };
   /** The lines the drag was pulled onto, drawn so the jump explains itself. */
   guides?: Guide[];
 }
@@ -156,6 +159,7 @@ export interface SelectionOverlayProps {
   editor: Editor | null;
   view: { enteredText?: () => void } | null;
   slideSid?: string;
+  onTransfer?: (slideId: string) => void;
   revision: number;
   /** What the stage drew at — a notification, not a number to use. */
   drawnAt?: number;
@@ -200,6 +204,7 @@ export function SelectionOverlay({
    */
   view,
   slideSid,
+  onTransfer,
   /** Bumped by the app when the deck changes, so the overlay re-measures. */
   revision,
   /**
@@ -431,10 +436,12 @@ export function SelectionOverlay({
 
     const observer = new ResizeObserver(find);
     if (stage) observer.observe(stage);
+    stage?.addEventListener('slides:viewport-change', find);
     window.addEventListener('scroll', find, true);
     window.addEventListener('resize', find);
     return () => {
       observer.disconnect();
+      stage?.removeEventListener('slides:viewport-change', find);
       window.removeEventListener('scroll', find, true);
       window.removeEventListener('resize', find);
     };
@@ -460,13 +467,10 @@ export function SelectionOverlay({
   }, [slideSid]);
 
   const store = editor?.dataStore;
-  const doc = useMemo(
-    () =>
-      store && editor?.getRootId?.()
-        ? { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) }
-        : null,
-    [store, editor, tick, revision]
-  );
+  const doc = useMemo(() => {
+    const rootId = editor?.getRootId();
+    return store && rootId ? { rootId, getNode: (sid: string) => store.getNode(sid) } : null;
+  }, [store, editor, tick, revision]);
 
   /**
    * Where the entered container sits on the slide.
@@ -597,6 +601,19 @@ export function SelectionOverlay({
     const ids = new Set(selectedNodeIds(editor?.selection));
     return boxes.filter((entry) => ids.has(entry.sid));
   }, [editor, boxes, tick]);
+
+  const acrossSlides = useMemo(() => doc && new Set(
+    selectedNodeIds(editor?.selection).map(sid => slideAt(doc, sid))
+  ).size > 1, [doc, editor, tick, revision]);
+
+  const otherOutlines = useMemo(() => {
+    if (!doc || host?.current?.dataset.freeboard !== 'true') return [];
+    return selectedNodeIds(editor?.selection).flatMap(sid => {
+      if (slideAt(doc, sid) === slideSid) return [];
+      const element = elementFor(sid);
+      return element ? [{ sid, bounds: element.getBoundingClientRect() }] : [];
+    });
+  }, [doc, editor, host, elementFor, slideSid, tick, revision, rect]);
 
   /**
    * Whether the whole selection is one connector.
@@ -888,10 +905,12 @@ export function SelectionOverlay({
     [selected, inside, doc]
   );
 
-  const apple = useMemo(() => {
-    const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
-    return /mac|iphone|ipad/i.test(nav.userAgentData?.platform ?? nav.platform ?? '');
-  }, []);
+  /*
+   * The same question the ribbon asks, and now the same answer — see the note there. This was the
+   * second of two hand-rolled sniffs in this package; the context menu's hints came from this one
+   * and the toolbar's from the other.
+   */
+  const apple = useMemo(() => onApple(), []);
 
   const onContextMenu = (event: React.MouseEvent) => {
     if (!editor || !rect) return;
@@ -1444,7 +1463,7 @@ export function SelectionOverlay({
       ? current.includes(hit.sid)
         ? current.filter((sid) => sid !== hit.sid)
         : [...current, hit.sid]
-      : current.includes(hit.sid)
+      : current.includes(hit.sid) && !acrossSlides
         ? current
         : [hit.sid];
 
@@ -1465,6 +1484,9 @@ export function SelectionOverlay({
      * That is right for "I have decided where this goes" and wrong here, where the reader has to be
      * able to reach the shape to change their mind.
      */
+    // Shift-click changes membership only. Moving part of a multi-slide selection
+    // would give the gesture a different scope from the properties panel.
+    if (event.shiftKey) return;
     const dragging = boxes.filter(
       (entry) => next.includes(entry.sid) && !placeIsBound(doc?.getNode(entry.sid) as never)
     );
@@ -1574,7 +1596,13 @@ export function SelectionOverlay({
      * its own edge pulled to its own guide, and they would arrive at different
      * sizes — which is not what dragging one handle looks like it should do.
      */
-    const suppressed = event.metaKey || event.ctrlKey;
+    const target = drag.handle === 'move' && !inside && host?.current?.dataset.freeboard === 'true'
+      ? [...host.current.querySelectorAll<HTMLElement>('.sl-slide[data-bc-sid]')].reverse().find(element => {
+          if (element.dataset.bcSid === slideSid) return false;
+          const bounds = element.getBoundingClientRect();
+          return event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
+        }) : undefined;
+    const suppressed = event.metaKey || event.ctrlKey || !!target;
     const modified = event.shiftKey || event.altKey;
 
     let guides: Guide[] = [];
@@ -1617,7 +1645,16 @@ export function SelectionOverlay({
       guides = hit;
     }
 
-    setDrag({ ...drag, preview, moved, guides });
+    let transfer: Drag['transfer'];
+    if (target && rect) {
+      const bounds = target.getBoundingClientRect();
+      const candidate = { slideId: target.dataset.bcSid!, rect: bounds, copy: event.altKey,
+        positions: [...preview].map(([nodeId, box]) => ({ nodeId,
+          x: box.x + pxToTwip((rect.left - bounds.left) / scale),
+          y: box.y + pxToTwip((rect.top - bounds.top) / scale) })) };
+      if (editor?.canExecuteCommand(candidate.copy ? 'copyBoxesToSlide' : 'moveBoxesToSlide', candidate)) transfer = candidate;
+    }
+    setDrag({ ...drag, preview, moved, guides, transfer });
 
     /**
      * And move the actual shapes, which is what a reader is looking at.
@@ -1641,7 +1678,7 @@ export function SelectionOverlay({
          * and the shape trailed the pointer by exactly the zoom: 101 pixels for
          * a drag of 120 at 84%.
          */
-        element.style.translate = `${twipToPx(box.x - from.x)}px ${twipToPx(box.y - from.y)}px`;
+        element.style.translate = transfer?.copy ? '' : `${twipToPx(box.x - from.x)}px ${twipToPx(box.y - from.y)}px`;
         nudged.current.add(element);
       }
     }
@@ -1947,6 +1984,7 @@ export function SelectionOverlay({
      * the element would be added to a position that already includes the move.
      */
     settle();
+    if (event.type === 'pointercancel') { setDrag(null); setMarquee(null); setRouting(null); setConnecting(null); return; }
 
     if (routing) {
       finishRouting(toModel(event));
@@ -1979,7 +2017,12 @@ export function SelectionOverlay({
      * reader pressing undo would watch nothing happen.
      */
     if (drag.moved) {
-      if (drag.handle === 'rotate') {
+      if (drag.transfer) {
+        const target = drag.transfer;
+        void editor?.executeCommand(target.copy ? 'copyBoxesToSlide' : 'moveBoxesToSlide', target).then(ok => {
+          if (ok) onTransfer?.(target.slideId);
+        });
+      } else if (drag.handle === 'rotate') {
         const [sid] = [...drag.original.keys()];
         if (sid) {
           void editor?.executeCommand('setBoxGeometry', {
@@ -2277,6 +2320,11 @@ export function SelectionOverlay({
        * Escape comes out of a container before it clears the selection, one level
        * further in.
        */
+      if ((event.target as Element | null)?.closest?.('[role="dialog"], [role="alertdialog"]')) return;
+      // A compact workspace panel owns Escape before the canvas selection does.
+      if (event.key === 'Escape' && (event.target as Element | null)?.closest?.(
+        '.office-adaptive-workspace[data-compact] [data-workspace-panel], .office-adaptive-workspace[data-compact] [data-workspace-toggle]'
+      )) return;
       if (event.key === 'Escape' && pathDrawing) {
         event.preventDefault();
         event.stopPropagation();
@@ -2303,7 +2351,8 @@ export function SelectionOverlay({
        * Escape, and the Escape went nowhere.
        */
       const target = event.target as HTMLElement | null;
-      if (target?.closest?.('input, textarea, select, [data-timeline]')) return;
+      if (target?.closest?.('input, textarea, select, [data-timeline], [data-stack-editor]')) return;
+      if (target?.closest?.('[data-layer-control]') && !event.metaKey && !event.ctrlKey) return;
 
       /**
        * Delete, when what the reader is holding is a colour stop.
@@ -2380,6 +2429,7 @@ export function SelectionOverlay({
 
       if (event.key === 'Escape') {
         event.preventDefault();
+        if (drag) { settle(); setDrag(null); return; }
         /**
          * Out of the container first, and only then out of the selection.
          *
@@ -2426,6 +2476,8 @@ export function SelectionOverlay({
   }, [
     editor,
     editing,
+    drag,
+    settle,
     select,
     tick,
     inside,
@@ -2570,9 +2622,29 @@ export function SelectionOverlay({
   const outlineRotation = selected.length === 1 ? shown(selected[0]).rotation : 0;
   // Handles keep their size on screen whatever the slide is scaled to; a handle
   // that shrank with the slide would be unusable at the sizes a deck is edited.
-  const handleSize = 9;
+  const handleSize = 'var(--ou-selection-handle-size)';
 
-  return (
+  return (<>
+    {otherOutlines.length > 0 && viewport && createPortal(
+      <div aria-hidden style={{ position: 'fixed', pointerEvents: 'none', zIndex: 39,
+        left: viewport.left, top: viewport.top, width: viewport.width, height: viewport.height, overflow: 'hidden' }}>
+        {otherOutlines.map(({ sid, bounds }) => <div key={sid} data-cross-slide-selected={sid} style={{ position: 'absolute',
+          left: bounds.left - viewport.left, top: bounds.top - viewport.top, width: bounds.width, height: bounds.height,
+          outline: '1px solid var(--ou-accent, #2563eb)', outlineOffset: -1 }} />)}
+      </div>, host?.current?.ownerDocument.body ?? document.body)}
+    {drag?.moved && drag.transfer && viewport && createPortal(
+      <div data-slide-transfer={drag.transfer.slideId} style={{ position: 'fixed', pointerEvents: 'none', zIndex: 40,
+        left: viewport.left, top: viewport.top, width: viewport.width, height: viewport.height, overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', left: drag.transfer.rect.left - viewport.left, top: drag.transfer.rect.top - viewport.top,
+          width: drag.transfer.rect.width, height: drag.transfer.rect.height, outline: '2px solid var(--ou-accent, #2563eb)', outlineOffset: -2,
+          background: 'rgb(37 99 235 / 5%)' }}>
+          <span className="sl-transfer-label">{drag.transfer.copy ? '이 슬라이드에 복사' : '이 슬라이드로 이동 · Alt로 복사'}</span>
+        </div>
+        {[...drag.preview].map(([sid, box]) => <div key={sid} style={{ position: 'absolute',
+          left: rect.left + toScreen(box.x) - viewport.left, top: rect.top + toScreen(box.y) - viewport.top,
+          width: toScreen(box.width), height: toScreen(box.height), border: '1px solid var(--ou-accent, #2563eb)',
+          background: 'rgb(37 99 235 / 12%)' }} />)}
+      </div>, host?.current?.ownerDocument.body ?? document.body)}
     <div
       ref={layer}
       className="sl-overlay"
@@ -2876,7 +2948,7 @@ export function SelectionOverlay({
         return (
           <div
             key={entry.sid}
-            className="sl-selected"
+            className="sl-selected office-selection-frame"
             data-sid={entry.sid}
             style={{
               position: 'absolute',
@@ -2917,6 +2989,7 @@ export function SelectionOverlay({
         */}
       {!marquee &&
         !drag &&
+        !acrossSlides &&
         selected.length === 1 &&
         doc?.getNode(selected[0].sid)?.stype !== 'connector' &&
         magnetPoints({ ...selected[0].box, rotation: selected[0].rotation })
@@ -3286,7 +3359,7 @@ export function SelectionOverlay({
       )}
 
       {/* One set of handles for the selection, around all of it. */}
-      {outline && !marquee && !onlyConnector && (
+      {outline && !marquee && !onlyConnector && !acrossSlides && (
         <div
           className="sl-handles"
           style={{
@@ -3301,17 +3374,17 @@ export function SelectionOverlay({
         >
           {!onlyPlacement &&
             !sizedByVar &&
-            RESIZE_HANDLES.map((handle) => (
+            selectionResizeHandles(toScreen(outline.width), toScreen(outline.height), drag && drag.handle !== 'move' && drag.handle !== 'rotate' ? drag.handle : undefined).map((handle) => (
               <span
                 key={handle}
                 data-handle={handle}
-                className="sl-handle"
+                className="sl-handle office-selection-handle"
                 style={{
                   position: 'absolute',
                   width: handleSize,
                   height: handleSize,
-                  marginLeft: -handleSize / 2,
-                  marginTop: -handleSize / 2,
+                  marginLeft: `calc(${handleSize} / -2)`,
+                  marginTop: `calc(${handleSize} / -2)`,
                   left: handle.includes('w') ? 0 : handle.includes('e') ? '100%' : '50%',
                   top: handle.startsWith('n') ? 0 : handle.startsWith('s') ? '100%' : '50%',
                   cursor: `${handle}-resize`,
@@ -3327,14 +3400,14 @@ export function SelectionOverlay({
           {selected.length === 1 && !turnedByVar && (
             <span
               data-handle="rotate"
-              className="sl-handle sl-handle-rotate"
+              className="sl-handle sl-handle-rotate office-selection-handle"
               style={{
                 position: 'absolute',
                 left: '50%',
-                top: -22,
+                top: 'calc(-1 * var(--ou-selection-rotate-gap) - var(--ou-selection-handle-size) / 2)',
                 width: handleSize,
                 height: handleSize,
-                marginLeft: -handleSize / 2,
+                marginLeft: `calc(${handleSize} / -2)`,
                 cursor: 'grab',
                 pointerEvents: 'auto'
               }}
@@ -3430,20 +3503,11 @@ export function SelectionOverlay({
         * *how far round*. Drawn below the box rather than at the pointer, so it
         * does not sit under the cursor doing the dragging.
         */}
-      {drag?.moved && readout && (
-        <div
-          className="sl-readout"
-          data-drag-readout
-          style={{
-            position: 'absolute',
-            left: toScreen(readout.box.x + readout.box.width / 2),
-            top: toScreen(readout.box.y + readout.box.height) + 10,
-            transform: 'translateX(-50%)',
-            pointerEvents: 'none'
-          }}
-        >
-          {readout.says}
-        </div>
+      {drag?.moved && readout && layer.current && (
+        <SelectionReadout data-drag-readout at={{
+          x: layer.current.getBoundingClientRect().left + toScreen(readout.box.x + readout.box.width / 2),
+          y: layer.current.getBoundingClientRect().top + toScreen(readout.box.y + readout.box.height),
+        }}>{readout.says}</SelectionReadout>
       )}
 
       {marquee && (
@@ -3815,7 +3879,7 @@ export function SelectionOverlay({
         />
       )}
     </div>
-  );
+  </>);
 }
 
 /** A marquee is two corners; a box is a corner and a size. */

@@ -14,7 +14,7 @@ import { settled } from './helpers';
  * where the pages happen to break.
  */
 test('swaps a paragraph’s indents on a left-hand page and not on a right', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(600);
 

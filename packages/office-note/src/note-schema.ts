@@ -1,4 +1,4 @@
-import { getOfficeSchemaDefinition, getStandardSchemaDefinition, type SchemaDefinition } from '@barocss/schema';
+import { getOfficeSchemaDefinition, getProseNodeDefinitions, getNoteDatabaseNodeDefinitions, getStandardSchemaDefinition, type SchemaDefinition } from '@barocss/schema';
 
 /**
  * **한 편의 글** — the schema of a written body, on its own.
@@ -47,8 +47,7 @@ import { getOfficeSchemaDefinition, getStandardSchemaDefinition, type SchemaDefi
  * Exactly backwards, and invisible until somebody tried to put an image in a post.
  *
  * Out is everything that arranges rather than says: a frame, a collection, a chart, a form, a
- * placement. **A body is written; a page is arranged.** A writer who wants two columns is asking for
- * a page, and this model says so rather than half-answering.
+ * placement. **A body is written; a page is arranged.** Independent prose columns are supported as a writing layout, without page geometry.
  *
  * `pageBreak` is out too — a Word idea, and a note has no pages. `listItem` is a list's child and
  * never a body's.
@@ -63,12 +62,10 @@ import { getOfficeSchemaDefinition, getStandardSchemaDefinition, type SchemaDefi
  * 노트 안에서 `NOTE_BLOCKS` 라고 계속 부르는 것은 이 패키지를 읽는 사람이 그 이름으로 찾기
  * 때문이고, 이름이 옮기는 값을 막지 않는다.
  */
-export {
-  BODY_BLOCKS as NOTE_BLOCKS,
-  BODY_CONTENT as NOTE_CONTENT,
-  type BodyBlock as NoteBlock
-} from '@barocss/office-text';
-import { BODY_CONTENT as NOTE_CONTENT } from '@barocss/office-text';
+import { BODY_BLOCKS, proseColumnDefinitions } from '@barocss/office-text';
+export const NOTE_BLOCKS = [...BODY_BLOCKS, 'mathBlock', 'proseColumns'] as const;
+export type NoteBlock = (typeof NOTE_BLOCKS)[number];
+export const NOTE_CONTENT = `(${NOTE_BLOCKS.join(' | ')})+`;
 
 /**
  * A note as a document of its own: one `note` node holding blocks, plus the `resources` region the
@@ -79,6 +76,12 @@ import { BODY_CONTENT as NOTE_CONTENT } from '@barocss/office-text';
  * nothing paginates it and nothing lays it out beside its siblings. Giving it that name would make
  * the seam mean two things.
  */
+/** Durable workspace identity, independent of temporary editor node IDs. */
+export function isNotePageId(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)
+    && !['__proto__', 'prototype', 'constructor'].includes(value);
+}
+
 export function getNoteSchemaDefinition(): SchemaDefinition {
   const office = getOfficeSchemaDefinition();
   const nodes = office.nodes as Record<string, any>;
@@ -106,6 +109,13 @@ export function getNoteSchemaDefinition(): SchemaDefinition {
     topNode: 'note',
     nodes: {
       ...nodes,
+      ...getProseNodeDefinitions(NOTE_CONTENT),
+      ...getNoteDatabaseNodeDefinitions(),
+      ...proseColumnDefinitions([...BODY_BLOCKS, 'mathBlock'].join(' | ')),
+      ...Object.fromEntries(['paragraph', 'heading'].map(name => [name, { ...nodes[name], attrs: { ...nodes[name].attrs, alignment: { type: 'string', options: ['left', 'center', 'right', 'justify'] } } }])),
+      richText: { name: 'richText', group: 'resource', content: `${NOTE_CONTENT} resources?`, attrs: { id: { type: 'string', required: false } } },
+      mathInline: { ...standard.mathInline, attrs: { ...standard.mathInline.attrs, tex: { type: 'string', default: '' }, mathDocument: { type: 'string', validator: (value: unknown) => typeof value === 'string' && value.length <= 200000 }, fontSize: { type: 'number', validator: (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 12 && value <= 72 } } },
+      mathBlock: { ...standard.mathBlock, attrs: { ...standard.mathBlock.attrs, alignment: { type: 'string', options: ['left', 'center', 'right'] }, tex: { type: 'string', default: '' }, mathDocument: { type: 'string', validator: (value: unknown) => typeof value === 'string' && value.length <= 200000 }, fontSize: { type: 'number', validator: (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 12 && value <= 72 } } },
       mediaVideo: standard.mediaVideo,
       mediaEmbed: standard.mediaEmbed,
       note: {
@@ -118,7 +128,8 @@ export function getNoteSchemaDefinition(): SchemaDefinition {
            * Optional, because a body in a site's row is named by the cell that points at it and has
            * no title of its own — which is the same reason `richText.id` stopped being required.
            */
-          title: { type: 'string' as const, required: false }
+          title: { type: 'string' as const, required: false },
+          pageId: { type: 'string' as const, required: false, validator: isNotePageId }
         }
       }
     }

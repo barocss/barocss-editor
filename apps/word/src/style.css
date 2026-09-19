@@ -9,6 +9,7 @@
  * group on its own line, no padding, no background, and no error anywhere.
  */
 @source "../../../packages/office-ui/src";
+@source "../../../packages/office-editor-ui/src";
 /*
  * **그리고 이 제품의 셸.**
  *
@@ -26,6 +27,19 @@
  * draws this text. See the file for why they are not in here.
  */
 @import "@barocss/office-text/text.css";
+
+/*
+ * **그리고 이 제품의 크롬.**
+ *
+ * 눈금자·개요 칸·주석 칸·줌·제목 줄·도형 오버레이·목차·종이가 이제
+ * `@barocss/office-word/ui.css` 에 산다. 코드가 `./ui` 로 간 다음에도 *생김새* 는 이 파일에
+ * 남아 있었고, 그동안 `@barocss/office-word/ui` 는 **이 앱 안에서만** 맞게 그려졌다 —
+ * `tsc` 초록, 단위 초록, 이 앱의 브라우저 회차도 초록. 넷 중 `office-word` 만 `.css` 문이
+ * 없었던 것이 그 사실의 다른 이름이다.
+ *
+ * `office-ui/test/every-host-imports-the-style-door.test.ts` 가 이 줄을 센다.
+ */
+@import "@barocss/office-word/ui.css";
 
 /*
  * The suite's control tokens.
@@ -91,194 +105,24 @@ body {
   padding: 24px;
 }
 
-.w-document { display: flex; flex-direction: column; align-items: center; gap: 24px; }
-
 /*
- * The document's name, above the ribbon.
+ * **종이도, 제목 줄도, 쪽의 가구도 여기 없다** — `@barocss/office-word/ui.css` 로 갔다.
  *
- * Not in the page: the title and author are a definition that fields read, and
- * drawing a copy of them above the first sheet put editable-looking text
- * outside the document. Renaming a document is a thing done to it, not in it,
- * so it lives in the chrome — which is where a word processor keeps a file's
- * name, and where a reader looks for it.
+ * `.w-document`(둘) · `.w-surface` · `.w-sheet` · `.w-furniture` ·
+ * `.w-header-source`/`.w-footer-source`(+라벨) · `.w-footnotes` · `.w-footnote-number` ·
+ * `.w-frame` 셋 · `.doc-title-*` 다섯. 그리는 것이 전부 `office-word` 이므로 규칙도 거기다.
+ *
+ * `.w-document` 만 예외적인 모양인데, **그리는 것은 `office-text` 이고 규칙은 워드의 것** 이다 —
+ * 그 판단과 근거는 옮겨간 파일의 그 규칙 위에 적었다. 한 줄로: 덱이 이미 자기 것을
+ * (`office-slides/src/ui.css` 의 `.sl-host .w-document`) 따로 쓰고 있고, 두 제품이 한 요소에
+ * 두 답을 갖는다면 그 답은 아래층의 것이 아니다.
+ *
+ * `.w-header-source`/`.w-footer-source` 는 앞 회차가 *앱의 것* 으로 셌던 둘이다. 클래스를
+ * `` `w-${placementKind}-source` `` 로 만들기 때문에 글자로 찾으면 이 앱의 `main.tsx` 만 나오는데,
+ * 거기서는 **고르기만** 한다. `docs/specs/shared-layer.md` 가 적어 둔 그 오검출이다.
  */
-.doc-title-bar {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 8px 16px 0;
-  flex-wrap: wrap;
-}
-.doc-title-field {
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 3px 8px;
-  background: transparent;
-  font: inherit;
-  color: inherit;
-  min-width: 6ch;
-}
-.doc-title-field::placeholder { color: var(--ou-muted); }
-.doc-title-field:hover { border-color: var(--ou-line); }
-.doc-title-field:focus { outline: none; border-color: var(--ou-accent); background: #fff; }
-.doc-title-docTitle { font-size: 18px; font-weight: 650; flex: 0 0 auto; min-width: 18ch; }
-.doc-title-docAuthor { color: var(--ou-muted); font-size: 13px; flex: 0 0 auto; min-width: 12ch; }
-/* Takes what is left: it is the longest of the three and the one that gets cut. */
-.doc-title-docSubtitle { color: var(--ou-muted); font-size: 13px; flex: 1 1 24ch; min-width: 20ch; }
-
-/*
- * **The dark block that used to be here is gone**, and its absence is the record.
- *
- * Three rules restating in a second palette what the first said in literals — a hover border, a focus
- * background, a muted colour — which is the shape of every hand-written dark theme: two palettes and
- * one of them always behind. Written as tokens above, there is nothing to restate.
- *
- * Word carried **123** colour literals and mapped none of the suite's tokens, which the backlog had
- * recorded and nobody had looked at. A screenshot is what settled it: in dark mode the brand was
- * white on white, the menubar was near-invisible, and the toolbar was a black band inside a white
- * window — because the toolbar is `office-ui`'s and takes the tokens, and everything around it was
- * this file's.
- *
- * ## The rule, which is the deck's
- *
- * **The chrome follows the theme; the paper does not.** `.w-sheet` stays `#fff` in the dark and so do
- * the line numbers, the page breaks, the find highlights and the revision marks — every one of those
- * is drawn *on the page*, and a page is white in both themes because a page is paper. What flips is
- * the window: the chrome band, the panes, the ruler, the outline, the zoom, the title fields.
- */
-
-/* A section renders as the page it describes; its box comes from page setup. */
-/*
- * The section is transparent: it is where the text flows, not what the reader
- * sees as paper. The sheets behind it are what look like pages.
- */
-.w-surface {
-  outline: none;
-}
-
-/*
- * **The ink, stated — because the paper's colour was only half the rule.**
- *
- * `.w-sheet` sets `background: #fff` and that was already right: a page is white in both themes,
- * which the deck's slide and the site's boards agree about. What no rule said was the colour of what
- * is **on** the page. The text took its colour by inheritance from the window, and the window now
- * takes `--ou-ink` — so in the dark the document was **white on white**. Every word of the sample was
- * on screen and none of it could be read; the screenshot that found it looked, at a glance, like a
- * page that had not finished loading.
- *
- * ## And it belongs here rather than on `.w-sheet`, which is the mistake this was fixed twice for
- *
- * The obvious place is beside the background — and putting it there changed nothing, because the
- * sheets are **behind** the text rather than around it. `.w-sheet` is a drawn rectangle; the flow is
- * `.w-document › .w-surface › .w-paragraph`, and the sheet is in none of their ancestries. Measured
- * by walking the paragraph's parents: twelve boxes from `<p>` to `<body>`, every one of them white,
- * and no `.w-sheet` among them. The comment two rules up was true and the selector was wrong, which
- * is the exact shape a CSS fix takes when a rule is written from the intent rather than from the
- * tree.
- *
- * A stated colour rather than a token, and that is the whole point: paper does not follow the theme,
- * so neither does the ink on it. `#1a1a1a` rather than pure black for the reason a printed book uses
- * one — pure black on pure white is the pairing that reads as glare.
- */
-.w-document {
-  color: #1a1a1a;
-}
-
-.w-sheet {
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
-}
-
-/*
- * Page furniture is drawn, not part of the flow, so its appearance is a viewer
- * concern rather than the document's — the same reason the sheets are styled
- * here. It borrows the document's font so a header does not look pasted on.
- */
-.w-furniture {
-  font: inherit;
-  font-size: .85em;
-  color: #495057;
-}
-
-/*
- * A header or footer being edited.
- *
- * The mode has to be visible or it is not a mode: the drawn copies vanish, the
- * real node takes their place, and without a mark on it nothing on the page says
- * that typing now goes into a header rather than into the body — or how to get
- * out. So the region is outlined where it sits, and labelled with the way back.
- *
- * The label is drawn above the region and takes no space in it: it is a note
- * about the state, not part of the document, and a header that grew by a line
- * while being edited would move the text under it.
- */
-.w-header-source.is-editing,
-.w-footer-source.is-editing {
-  outline: 1px solid #4c6ef5;
-  outline-offset: 6px;
-  border-radius: 2px;
-  background: rgba(76, 110, 245, .04);
-}
-
-.w-header-source.is-editing::before,
-.w-footer-source.is-editing::before {
-  content: 'Header — Esc or click away to finish';
-  position: absolute;
-  left: 0;
-  bottom: 100%;
-  margin-bottom: 10px;
-  font-size: 10px;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  color: #4c6ef5;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.w-footer-source.is-editing::before {
-  content: 'Footer — Esc or click away to finish';
-  bottom: auto;
-  top: 100%;
-  margin: 10px 0 0;
-}
-
-/*
- * The rule above the notes is part of what they cost the page, so its height
- * has to match FOOTNOTE_SEPARATOR — the layout reserved room for it.
- */
-.w-footnotes {
-  font: inherit;
-  font-size: .8em;
-  color: #495057;
-  border-top: 1px solid #ced4da;
-  padding-top: 11px;
-}
-
-.w-footnote-number {
-  margin-right: .4em;
-}
-
 
 /* The list marker and the caret filler come from `office-text/text.css`. */
-
-/* A frame: the layout box. `frameCss` writes what the frame itself does —
-   display, gap, padding — and these three rules say what its *children* do,
-   which inline styles on the frame cannot reach.
-
-   Without them a row of two empty paragraphs is two zero-width boxes: a flex
-   item is as wide as its contents, and an empty paragraph has none. So the
-   frame a reader just inserted would look like nothing happened, and there
-   would be no way to click into either half. `flex: 1 1 0` divides the width
-   evenly regardless of what is typed later, which is what "side by side"
-   means; `min-width: 0` lets a long word wrap instead of forcing the column
-   wider than its share. */
-.w-frame[data-layout='row'] > * { flex: 1 1 0; min-width: 0; }
-/* A stack fills the width — the cross axis of a column is horizontal, and a
-   paragraph that shrank to its text would be a ragged left edge. */
-.w-frame[data-layout='column'] > * { width: 100%; }
-/* Somewhere to aim at while it is still empty. One line, so the box is the
-   size it will be once there is a line in it. */
-.w-frame { min-height: 1.2em; }
 
 /* The cell and table selection rules — the wash, the outline and the corner
    handle — come from `office-text/text.css`, beside the list marker and the
@@ -286,441 +130,48 @@ body {
    same renderers and got none of them: dragging across cells on a slide set the
    attribute on two of them, reported both as selected, and painted nothing. */
 
+/*
+ * These three are `office-text/renderers.ts`'s and they are **still here**, which
+ * `text.css` explains at the place they would go. Short version: this file is the
+ * editor's, `PAGE_CSS` is the visitor's, and a site page has tables — so moving
+ * them without adding them to `PAGE_CSS` makes the board right and every
+ * published page wrong. `office-site`'s own check said so by name. One change,
+ * two files, and the second is another owner's.
+ */
 .w-table { width: 100%; }
 .w-cell { border: 1px solid #ccc; padding: 4px 8px; }
 /* A cell in a row of an exact height gives its padding to the box that clips —
    see the cell renderer — so the same inset is stated here for the box. */
 .w-cell-clip { padding: 4px 8px; }
 
-/* Numbers down the margin, drawn beside the text and no part of it. Smaller and
-   greyer than the body, the way Word draws them. */
-.w-line-number { font-size: 9pt; color: #868e96; font-family: inherit; }
-
-.w-page-break { border-top: 1px dashed #adb5bd; margin: 12px 0; }
-
-
 /*
- * **Which** leader is the document's; how it is painted is the viewer's.
+ * **줄 번호 · 쪽 나눔 · 목차 · 찾기와 주석의 자국도 여기 없다** — 같은 문으로 갔다.
  *
- * This drew a dotted rule and said the leader was a viewer concern, which was a rationalisation of
- * an unread attribute: the field carries `leader` — Word's tab leader, one of `dot`, `hyphen`,
- * `underscore`, `middleDot` or `none` — and nothing looked at it. Two decisions were being folded
- * into one, and only the second was being made. The colour and the weight below are still this
- * file's; the character is the document's.
- */
-.w-toc-entry {
-  display: flex;
-  align-items: baseline;
-  gap: .5em;
-}
-
-.w-toc-text::after {
-  content: '';
-  display: inline-block;
-  width: 100%;
-  margin-left: .5em;
-  transform: translateY(-.25em);
-}
-
-/* A run of dots — Word's default, and the one a reader pictures when they hear "table of contents". */
-.w-toc-entry[data-leader='dot'] .w-toc-text::after,
-.w-toc-entry[data-leader='middleDot'] .w-toc-text::after {
-  border-bottom: 1px dotted #adb5bd;
-}
-
-.w-toc-entry[data-leader='hyphen'] .w-toc-text::after {
-  border-bottom: 1px dashed #adb5bd;
-}
-
-.w-toc-entry[data-leader='underscore'] .w-toc-text::after {
-  border-bottom: 1px solid #adb5bd;
-}
-
-/*
- * `leader: none`, and the same rule for a list whose numbers are not right-aligned: the number
- * follows the text, so there is no gap for a leader to cross.
- */
-.w-toc-entry[data-leader='none'] .w-toc-text::after {
-  content: none;
-}
-
-.w-toc-text { display: flex; flex: 1; white-space: nowrap; }
-
-/* Numbers that follow the text rather than lining up down the right edge. */
-.w-toc-entry[data-align='left'] .w-toc-text {
-  flex: none;
-}
-
-.w-toc-page { font-variant-numeric: tabular-nums; }
-
-/*
- * An entry that takes a reader to its heading looks like one it can be pressed. `data-linked` is
- * the field's `useHyperlinks`, which the app's click handler reads too — being a link is a fact
- * about what a press does, not only about how the line is drawn.
- */
-.w-toc-entry[data-linked='true'] {
-  cursor: pointer;
-}
-
-.w-toc-entry[data-linked='true']:hover .w-toc-text {
-  text-decoration: underline;
-}
-
-/*
- * A search result. Drawn, not written: which words a reader is looking for is
- * not part of the document, so this is a decorator and leaves no trace in it.
- */
-.w-find-hit { background: #fde68a; }
-.w-find-hit.is-current { background: #fb923c; }
-
-/*
- * Commented text. Drawn while the pane is open, so that "somebody is reading
- * the comments" leaves no mark on the document.
- */
-.w-comment-hit { background: #fef08a80; border-bottom: 2px solid #eab308; }
-.w-comment-hit.is-selected { background: #fde047; }
-
-/*
- * Equations.
+ * `.w-line-number` · `.w-page-break` · `.w-toc-*` 셋(+`data-leader` 넷, `data-align`,
+ * `data-linked`) · `.w-find-hit` · `.w-comment-hit`. 마지막 둘은 앞 회차가 *앱의 데코레이터* 로
+ * 셌던 것인데, 템플릿은 **위 주석이 적은 그대로** 이미 `office-word/src/highlight-decorators.ts`
+ * 로 옮겨져 있었다 — 코드만 가고 규칙이 남은 자리다.
  *
- * Boxes stacked and shifted, which is what mathematical typesetting is on the
- * web — KaTeX produces the same kind of thing. What a browser cannot do alone is
- * the part that depends on a font's MATH table: the glyph-assembly recipes that
- * grow a bracket to fit what it holds. Those are approximated here, and the
- * approximation is visible in the delimiters.
+ * `.w-page-break` 는 `office-text/renderers.ts:446` 도 그린다. 위의 `.w-table` 셋과 같은 모양이고
+ * 같은 미완의 수리인데, **`office-word/ui.css` 로 가는 것은 그 문제를 키우지 않는다** — 덱과
+ * 노트는 전에도 이 규칙을 못 받았고 지금도 못 받는다. 아래로 내리려면 `text.css` 와 `PAGE_CSS`
+ * 둘을 함께 고쳐야 하고 둘째는 다른 주인의 것이다. `/tmp/r3-wordcss-backlog.md`.
  */
-.w-math {
-  font-family: 'Cambria Math', 'Latin Modern Math', 'STIX Two Math', serif;
-  white-space: nowrap;
-}
 
 /*
- * A slot is a place the caret can go, so it has to be a place the author can
- * see. An empty one draws as a dotted box — the same answer Word gives.
- */
-.w-math-slot {
-  display: inline-block;
-  min-width: 0.35em;
-  min-height: 1em;
-}
-.w-math-slot:empty,
-.w-math-slot:has(> :only-child:empty) {
-  min-width: 0.7em;
-  border: 1px dotted currentColor;
-  opacity: 0.55;
-}
-
-.w-math-frac > .w-math-num {
-  padding: 0 0.2em;
-}
-.w-math-frac > .w-math-den {
-  padding: 0 0.2em;
-  border-top: 1px solid currentColor;
-}
-/*
- * A linear fraction is the same two slots with a solidus between them, and a **skewed** one is those
- * two on a diagonal — Word's `m:type` has four values and this file had rules for one of them.
+ * **The equations are gone from here** — all thirty-one classes, to
+ * `office-text/src/text.css`, beside the list marker and the cell selection.
  *
- * Which is worse than it sounds: the rules were written against `data-type` and **no renderer ever
- * emitted it**, so even the one they covered never matched. A linear fraction has never been drawn
- * as one in this product.
- */
-.w-math-frac[data-type='lin'] > .w-math-den,
-.w-math-frac[data-type='skw'] > .w-math-den {
-  border-top: none;
-}
-.w-math-frac[data-type='lin'] > .w-math-num::after {
-  content: '/';
-}
-/*
- * A skewed fraction is the same solidus set at an angle, with the two slots raised and lowered
- * against it — which is what separates it from the linear one a reader would otherwise not notice.
- */
-.w-math-frac[data-type='skw'] > .w-math-num {
-  vertical-align: super;
-}
-.w-math-frac[data-type='skw'] > .w-math-num::after {
-  content: '\2044';
-  padding: 0 0.1em;
-}
-.w-math-frac[data-type='skw'] > .w-math-den {
-  vertical-align: sub;
-}
-/* No rule at all, which is how a binomial coefficient is written. */
-.w-math-frac[data-type='noBar'] > .w-math-den {
-  border-top: none;
-}
-
-/*
- * A square root is written `√` and a cube root `³√`. Word keeps the degree slot either way so an
- * author can put one back, and says which with `m:degHide` — declared, and read nowhere, so the two
- * were the same drawing.
- */
-.w-math-rad[data-hide-degree='true'] > .w-math-deg {
-  display: none;
-}
-
-/*
- * Where the **label** sits, which is not where the brace does: Word keeps `m:pos` for the brace and
- * `m:vertJc` for the text under or over it, so an author can put a brace beneath a term and its
- * label above.
- */
-.w-math-groupchar[data-label-position='top'] {
-  flex-direction: column-reverse;
-}
-
-.w-math-sup-box > .w-math-sup,
-.w-math-subsup > .w-math-sup {
-  font-size: 0.72em;
-  vertical-align: super;
-}
-.w-math-sub-box > .w-math-sub,
-.w-math-subsup > .w-math-sub {
-  font-size: 0.72em;
-  vertical-align: sub;
-}
-
-/* The hook is a glyph; the bar over the body is a border, so it is as wide as
- * whatever it covers. */
-.w-math-rad::before {
-  content: '√';
-  font-size: 1.1em;
-}
-.w-math-rad > .w-math-e {
-  border-top: 1px solid currentColor;
-  padding: 0 0.15em;
-}
-.w-math-rad > .w-math-deg {
-  font-size: 0.6em;
-  vertical-align: super;
-}
-
-.w-math-nary::before {
-  content: attr(data-char);
-  font-size: 1.6em;
-  vertical-align: middle;
-}
-.w-math-nary[data-limits='undOvr'] {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  vertical-align: middle;
-}
-.w-math-nary[data-limits='undOvr'] > .w-math-sub,
-.w-math-nary[data-limits='undOvr'] > .w-math-sup {
-  font-size: 0.7em;
-}
-
-/*
- * Delimiters that grow to fit.
+ * `office-text/src/math-renderers.ts` draws every one of them and always has, and
+ * `registerTextRenderers()` registers it for **every** product. So a host that was
+ * not `apps/word` got the renderer and none of the rules: a fraction was two spans
+ * in a row, a radical was its contents with no hook, a growing bracket was nothing
+ * at all. Drawn wrongly rather than plainly, which is the line `text.css` is for.
  *
- * A flex row whose brackets stretch to the height of what they hold. Word grows
- * its brackets by assembling glyph pieces from the font's MATH table; there is
- * none to read here, so these are drawn as borders with a radius — exact at
- * every height, needing no measurement, and only an approximation of the shape
- * of a real bracket. A brace is beyond what borders can draw and keeps its
- * glyph.
+ * Nothing replaces them here. `@import "@barocss/office-text/text.css"` at the top
+ * of this file is how this app gets them now, which is how it already got the
+ * bullets and the caret filler.
  */
-.w-math-delim {
-  display: inline-flex;
-  align-items: stretch;
-  vertical-align: middle;
-}
-.w-math-fence {
-  flex: 0 0 auto;
-  width: 0.3em;
-  align-self: stretch;
-  border: 1px solid currentColor;
-}
-.w-math-fence-open {
-  border-right: 0;
-  border-radius: 0.6em 0 0 0.6em / 50% 0 0 50%;
-  margin-right: 0.12em;
-}
-.w-math-fence-close {
-  border-left: 0;
-  border-radius: 0 0.6em 0.6em 0 / 0 50% 50% 0;
-  margin-left: 0.12em;
-}
-/* Square brackets are square, which borders draw exactly. */
-.w-math-fence[data-char='['],
-.w-math-fence[data-char=']'] {
-  border-radius: 0;
-}
-/* A vertical bar is one stroke and nothing else. */
-.w-math-fence[data-char='|'] {
-  width: 0;
-  border-radius: 0;
-  border-right: 0;
-  border-top: 0;
-  border-bottom: 0;
-}
-/*
- * Anything a border cannot draw keeps its glyph, centred rather than stretched.
- * Better an honest fixed brace than a curve pretending to be one.
- */
-.w-math-fence[data-char='{']::before,
-.w-math-fence[data-char='}']::before,
-.w-math-fence[data-char='⟨']::before,
-.w-math-fence[data-char='⟩']::before {
-  content: attr(data-char);
-}
-.w-math-fence[data-char='{'],
-.w-math-fence[data-char='}'],
-.w-math-fence[data-char='⟨'],
-.w-math-fence[data-char='⟩'] {
-  border: 0;
-  width: auto;
-  display: inline-flex;
-  align-items: center;
-}
-/* An empty delimiter character means no bracket on that side. */
-.w-math-fence[data-char=''] {
-  display: none;
-}
-
-.w-math-func > .w-math-fname {
-  font-style: normal;
-  padding-right: 0.15em;
-}
-
-.w-math-matrix {
-  display: inline-grid;
-  vertical-align: middle;
-  gap: 0.15em 0.5em;
-}
-/*
- * How the columns line up — Word's `m:mcJc`. The gaps come from the document as an inline style;
- * this is the half a stylesheet decides, which is what "left" and "right" mean in a grid cell.
- */
-.w-math-matrix[data-align='left'] > .w-math-row > * {
-  text-align: left;
-}
-.w-math-matrix[data-align='right'] > .w-math-row > * {
-  text-align: right;
-}
-/* An empty cell's placeholder box, which a matrix can ask to do without. */
-.w-math-matrix[data-placeholders='hidden'] .w-math-e:empty {
-  visibility: hidden;
-}
-.w-math-row {
-  display: contents;
-}
-.w-math-array {
-  display: inline-flex;
-  flex-direction: column;
-  vertical-align: middle;
-}
-/*
- * How a stack of equations is spaced — Word's `m:eqArrPr`. `max` spaces every row to the tallest so
- * the gaps match down the stack; `object` spaces each row to its own height, which is the default a
- * flex column already gives.
- */
-.w-math-array[data-spacing='max'] > * {
-  align-self: stretch;
-}
-
-/*
- * A rule **through** a boxed term — Word's `m:strikeH` and `m:strikeV`, which is how a cancelled
- * factor is written. Drawn as a gradient rather than a pseudo-element because a border box already
- * uses `::before` for nothing and its contents are editable text: a line has to sit behind the ink
- * without taking a place in the box.
- */
-.w-math-borderbox[data-strike='horizontal'],
-.w-math-borderbox[data-strike='both'] {
-  background-image: linear-gradient(to bottom, transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px));
-}
-.w-math-borderbox[data-strike='vertical'],
-.w-math-borderbox[data-strike='both'] {
-  background-image: linear-gradient(to right, transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px));
-}
-.w-math-borderbox[data-strike='both'] {
-  background-image:
-    linear-gradient(to bottom, transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px)),
-    linear-gradient(to right, transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px));
-}
-
-/*
- * A limit an n-ary operator asks not to show — Word's `m:subHide` and `m:supHide`. The slot stays in
- * the document so an author can put the limit back; what goes is the box under or over the sign.
- */
-.w-math-nary[data-hide-sub='true'] > .w-math-sub,
-.w-math-nary[data-hide-sub='true'] > .w-math-limlow {
-  display: none;
-}
-.w-math-nary[data-hide-sup='true'] > .w-math-sup,
-.w-math-nary[data-hide-sup='true'] > .w-math-limupp {
-  display: none;
-}
-/* A sign that does not grow stays at its own size whatever it is summing over. */
-.w-math-nary[data-grow='false']::before {
-  font-size: 1em;
-}
-
-/*
- * The character between the parts of one delimiter — Word's `m:sepChr`. Between each pair, never
- * before the first or after the last, which is what a separator is.
- */
-.w-math-delim[data-separator]:not([data-separator='']) > .w-math-e + .w-math-e::before {
-  content: attr(data-separator);
-  padding: 0 0.25em;
-  user-select: none;
-}
-/* Fences that follow the contents' outline rather than being one stretched glyph. */
-.w-math-delim[data-shape='match'] > .w-math-fence {
-  transform: scaleY(1);
-  align-self: stretch;
-}
-
-/*
- * **Which alphabet a letter is in.** In maths these are meanings and not fonts: ℝ is the real
- * numbers and R is a variable called R, and a reader must be able to tell them apart. Which face
- * carries a given alphabet is this file's decision, which is why the renderer says only which one.
- */
-.w-math-run[data-script='roman'] {
-  font-style: normal;
-}
-.w-math-run[data-script='script'] {
-  font-family: 'Apple Chancery', 'URW Chancery L', cursive;
-}
-.w-math-run[data-script='fraktur'] {
-  font-family: 'UnifrakturMaguntia', 'Blackletter', serif;
-}
-.w-math-run[data-script='double-struck'] {
-  /* Outlined, which is what a double-struck letter is where the font has no such face. */
-  font-style: normal;
-  -webkit-text-stroke: 0.4px currentColor;
-}
-.w-math-run[data-script='sans-serif'] {
-  font-family: system-ui, sans-serif;
-}
-.w-math-run[data-script='monospace'] {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-}
-
-/* A box that must not be broken across a line — the whole reason `m:box` exists. */
-.w-math-box[data-no-break='true'] {
-  white-space: nowrap;
-}
-/*
- * A differential (`dx`) and an operator emulator are spacing hints: both ask for the room an
- * operator's argument gets, which is a thin space before.
- */
-.w-math-box[data-differential='true'],
-.w-math-box[data-operator='true'] {
-  margin-left: 0.17em;
-}
-
-.w-math-accent::after {
-  content: attr(data-char);
-}
-.w-math-bar[data-position='top'] > .w-math-e {
-  border-top: 1px solid currentColor;
-}
-.w-math-bar[data-position='bot'] > .w-math-e {
-  border-bottom: 1px solid currentColor;
-}
-
 /*
  * The input lab.
  *
@@ -822,385 +273,53 @@ body {
   box-shadow: 0 2px 8px rgb(16 24 40 / 0.12);
 }
 
+/*
+ * **`:not([data-theme='light'])` on every line of it**, which is the shape a dark media block has to
+ * have in this repository.
+ *
+ * `@media (prefers-color-scheme: dark)` asks what the *machine* prefers, and a product's own switch
+ * is a different question. Without the guard this block still matched on a dark machine after a
+ * reader stamped `data-theme="light"` — so the app's *밝게* would have left the recorder panel dark,
+ * a strip of the other theme inside a light window, with no rule anywhere to explain it.
+ *
+ * The deck had the same fault in its palette block and it was the one everybody looked at, because a
+ * palette is obviously a theme. This is the reason the check
+ * (`packages/conformance/test/dark-is-actually-read.test.ts`) asks the question of **every** dark
+ * media block rather than only the ones that declare tokens: the guard is about which question the
+ * block is answering, not about what it paints.
+ *
+ * Nothing in this app stamps `data-theme` today, so this is latent — the same kind of latency the
+ * backlog recorded for `apps/slide`, and the same day it stops being latent for both.
+ */
 @media (prefers-color-scheme: dark) {
-  .lab { background: #171a1f; border-color: #2a2f37; color: #e6eaee; }
-  .lab-card { background: #1c2026; border-color: #2a2f37; }
-  .lab-card-active { background: #2a1a18; border-color: #b8402f; }
-  .lab-head { border-bottom-color: #2a2f37; }
-  .lab-head p, .lab-why, .lab-verdict span, .lab-saved, .lab h4, .lab-card dt { color: #9aa4b2; }
-  .lab button { background: #22262d; border-color: #39404a; color: #e6eaee; }
-  .lab-stop { background: #b8402f; border-color: #b8402f; color: #fff; }
-  .lab-recording { background: #2a1a18; color: #f0b5ab; }
-  .lab-reopen { background: #22262d; border-color: #39404a; color: #e6eaee; }
+  :root:not([data-theme='light']) .lab { background: #171a1f; border-color: #2a2f37; color: #e6eaee; }
+  :root:not([data-theme='light']) .lab-card { background: #1c2026; border-color: #2a2f37; }
+  :root:not([data-theme='light']) .lab-card-active { background: #2a1a18; border-color: #b8402f; }
+  :root:not([data-theme='light']) .lab-head { border-bottom-color: #2a2f37; }
+  :root:not([data-theme='light']) .lab-head p,
+  :root:not([data-theme='light']) .lab-why,
+  :root:not([data-theme='light']) .lab-verdict span,
+  :root:not([data-theme='light']) .lab-saved,
+  :root:not([data-theme='light']) .lab h4,
+  :root:not([data-theme='light']) .lab-card dt { color: #9aa4b2; }
+  :root:not([data-theme='light']) .lab button { background: #22262d; border-color: #39404a; color: #e6eaee; }
+  :root:not([data-theme='light']) .lab-stop { background: #b8402f; border-color: #b8402f; color: #fff; }
+  :root:not([data-theme='light']) .lab-recording { background: #2a1a18; color: #f0b5ab; }
+  :root:not([data-theme='light']) .lab-reopen { background: #22262d; border-color: #39404a; color: #e6eaee; }
 }
 
 /*
- * The ruler.
+ * **눈금자·개요 칸·주석 칸·줌·도형 오버레이도 여기 없다** — 같은 문으로 갔다.
  *
- * Drawn against the page rather than against the window: every position on it is
- * a position in the text, so it has to start where the text starts and be as
- * wide as the text area is. Which of those pixels is which is measured — see
- * `ruler.tsx` — and only the appearance is here.
- */
-.w-ruler {
-  position: relative;
-  height: 26px;
-  margin: 0 0 4px;
-  user-select: none;
-  touch-action: none;
-  font-size: 9px;
-  color: var(--ou-muted);
-  cursor: default;
-}
-
-/* The paper, and the part of it that holds text. */
-.w-ruler-margin {
-  position: absolute;
-  top: 7px;
-  height: 12px;
-  background: var(--ou-line);
-  border-radius: 2px;
-}
-.w-ruler-text {
-  position: absolute;
-  top: 7px;
-  height: 12px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px var(--ou-line);
-}
-
-.w-ruler-tick {
-  position: absolute;
-  top: 11px;
-  width: 1px;
-  height: 4px;
-  background: var(--ou-faint);
-}
-.w-ruler-inch {
-  position: absolute;
-  top: 6px;
-  transform: translateX(-50%);
-  line-height: 14px;
-  font-variant-numeric: tabular-nums;
-}
-
-/*
- * Where a tab would land with nothing asked for. Drawn below the line and
- * faintly, because it is not the reader's to move — naming a stop is what
- * replaces these.
- */
-.w-ruler-default {
-  position: absolute;
-  top: 20px;
-  width: 1px;
-  height: 3px;
-  background: var(--ou-line);
-}
-
-.w-ruler-stop {
-  position: absolute;
-  top: 4px;
-  transform: translateX(-50%);
-  font-size: 11px;
-  line-height: 18px;
-  color: var(--ou-ink);
-  cursor: pointer;
-}
-
-/*
- * The three markers. Word's shapes: the first line points down from the top,
- * the other two point up from the bottom, so a reader can tell at a glance which
- * one they are about to take hold of.
- */
-.w-ruler-marker {
-  position: absolute;
-  width: 0;
-  height: 0;
-  transform: translateX(-50%);
-  cursor: ew-resize;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-}
-.w-ruler-marker.is-first {
-  top: 2px;
-  border-top: 7px solid var(--ou-ink);
-}
-.w-ruler-marker.is-left,
-.w-ruler-marker.is-right {
-  top: 17px;
-  border-bottom: 7px solid var(--ou-ink);
-}
-
-/*
- * A leader is what runs along the space the tab crosses — the dots to a page
- * number, the underscore across a form. Shown under the stop's mark so a reader
- * can tell two stops apart without opening anything.
- */
-.w-ruler-stop.leader-dot { border-bottom: 1px dotted currentColor; }
-.w-ruler-stop.leader-hyphen { border-bottom: 1px dashed currentColor; }
-.w-ruler-stop.leader-underscore { border-bottom: 1px solid currentColor; }
-
-.w-ruler-menu {
-  z-index: 40;
-  min-width: 148px;
-  padding: 4px;
-  background: #fff;
-  border: 1px solid var(--ou-line);
-  border-radius: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, .16);
-  font-size: 12px;
-  color: var(--ou-ink);
-}
-.w-ruler-menu-title {
-  padding: 4px 8px 6px;
-  color: var(--ou-muted);
-  font-size: 11px;
-}
-.w-ruler-menu button {
-  display: block;
-  width: 100%;
-  padding: 5px 8px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-.w-ruler-menu button:hover,
-.w-ruler-menu button:focus-visible {
-  background: var(--ou-ground);
-}
-/* Which one this stop already is. */
-.w-ruler-menu button[aria-checked='true'] {
-  background: var(--ou-accent-soft);
-  font-weight: 600;
-}
-.w-ruler-menu hr {
-  margin: 4px 2px;
-  border: 0;
-  border-top: 1px solid var(--ou-ground);
-}
-
-/*
- * The outline, which Word calls the navigation pane.
+ * `.w-ruler-*` 열둘(+`.is-first`/`.is-left`/`.is-right`, `.leader-*` 셋) · `.w-outline*` 넷
+ * (+`.is-here`) · `.w-comments-closed` · `.w-comments-count` · `.w-zoom-page` ·
+ * `.w-zoom-control` · `.w-drawing-*` 여섯(+여덟 방향).
  *
- * A scrollbar says how far through a document the reader is; this says *where* —
- * which part, under which heading. It scrolls on its own, because a map that
- * moves with the thing it maps is not a map.
+ * 남은 것은 이 창의 **틀** 뿐이다: `.w-shell` · `.w-chrome` · `.w-shell-document` · `.w-menubar`
+ * 는 이 앱이 `office-ui` 의 `AppShell`/`AppChrome`/`AppMain`/`MenuBar` 에 붙이는 이름이고,
+ * `zoom.tsx` 와 `ruler-view.tsx` 가 그 이름을 선택자로 찾다가 **칸을 건네받도록** 고쳐진 이유가
+ * 거기 적혀 있다. 그러니 그 넷은 이 파일의 것이 맞다.
  */
-.w-outline {
-  flex: 0 0 236px;
-  min-width: 0;
-  overflow: auto;
-  padding: 12px 8px 24px;
-  border-right: 1px solid var(--ou-line);
-  background: var(--ou-panel);
-  font-size: 13px;
-}
-.w-outline-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px 8px;
-  color: var(--ou-muted);
-  font-size: 11px;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-}
-.w-outline-title button {
-  border: 0;
-  background: none;
-  color: inherit;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-}
-.w-outline ul { margin: 0; padding: 0; list-style: none; }
-.w-outline li button {
-  display: block;
-  width: 100%;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  text-align: left;
-  font: inherit;
-  color: var(--ou-ink);
-  cursor: pointer;
-  /* One line each: a heading is a landmark here, not something to read */
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.w-outline li button:hover { background: var(--ou-ground); }
-/* Where the caret is, which is what makes this a map rather than a list. */
-.w-outline li button.is-here {
-  background: var(--ou-accent-soft);
-  color: var(--ou-accent);
-  font-weight: 600;
-}
-.w-outline-empty { padding: 8px; color: var(--ou-faint); }
-
-.w-outline-closed {
-  flex: 0 0 32px;
-  border: 0;
-  border-right: 1px solid var(--ou-line);
-  background: var(--ou-panel);
-  color: var(--ou-muted);
-  cursor: pointer;
-}
-
-/*
- * The comments pane, closed.
- *
- * It used to hold its whole width whether or not the document had a comment — a
- * fifth of the window given to an empty box on every document that has none. The
- * count is on the strip because how many there are is what a reader wants before
- * deciding to look.
- */
-.w-comments-closed {
-  position: relative;
-  flex: 0 0 32px;
-  border: 0;
-  border-left: 1px solid var(--ou-line);
-  background: var(--ou-panel);
-  color: var(--ou-muted);
-  cursor: pointer;
-}
-.w-comments-count {
-  position: absolute;
-  top: 6px;
-  right: 2px;
-  min-width: 15px;
-  padding: 0 3px;
-  border-radius: 8px;
-  background: #f59f00;
-  color: #fff;
-  font-size: 10px;
-  line-height: 15px;
-  font-variant-numeric: tabular-nums;
-}
-
-/*
- * A scaled page still takes up its unscaled room, so the frame is given the
- * drawn size and the page is drawn inside it. See `zoom-frame.tsx`.
- */
-.w-zoom-page { transform-origin: top center; }
-
-.w-zoom-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  /* One thing, never broken across two rows of the ribbon. */
-  flex-wrap: nowrap;
-  white-space: nowrap;
-}
-.w-zoom-control button {
-  width: 22px;
-  height: 24px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: inherit;
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-}
-.w-zoom-control button:hover { background: var(--ou-ground); }
-.w-zoom-control input {
-  width: 48px;
-  height: 24px;
-  padding: 0 4px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: none;
-  font: inherit;
-  font-size: 12px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  color: inherit;
-}
-.w-zoom-control input:hover,
-.w-zoom-control input:focus { border-color: var(--ou-line); background: #fff; }
-
-/*
- * What is selected **on a drawing**, and the band that catches several.
- *
- * Drawn over the page rather than in it: the overlay is outside the zoom frame, so these are screen
- * pixels — an outline stays a hairline at 400% and at 25%, which is what a control has to do while
- * the document scales.
- *
- * `pointer-events: none` is the whole design of this overlay. The shapes are real elements, so the
- * browser hit-tests them — including a rotated one, where an SVG transform is exactly the sum an
- * arithmetic hit test would have to do — and the layer only ever draws.
- */
-.w-drawing-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 5;
-}
-
-.w-drawing-selected {
-  position: absolute;
-  outline: 1px solid #2563eb;
-  outline-offset: 1px;
-}
-
-/* A band a reader is dragging: the fill says what it has caught, the edge says where it is. */
-.w-drawing-band {
-  position: absolute;
-  border: 1px solid #2563eb;
-  background: rgb(37 99 235 / 0.08);
-}
-
-/*
- * The frame around what is selected, and the eight handles on it.
- *
- * One frame for the whole set, upright: a set of shapes has no single angle to turn by, which is
- * what every drawing tool does with a multiple selection.
- *
- * The handles carry `pointer-events: auto` against the layer's `none` — they are the one part of
- * this overlay that takes the pointer, and everything else stays clickable underneath. Their size
- * is in screen pixels and does not scale with the zoom: a handle that shrank with the page would be
- * unusable at the sizes a document is read at.
- */
-.w-drawing-frame {
-  position: absolute;
-  outline: 1px solid #2563eb;
-}
-
-.w-drawing-handle {
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  margin: -5px 0 0 -5px;
-  background: #ffffff;
-  border: 1px solid #2563eb;
-  pointer-events: auto;
-}
-
-.w-drawing-handle-nw { left: 0; top: 0; cursor: nwse-resize; }
-.w-drawing-handle-n { left: 50%; top: 0; cursor: ns-resize; }
-.w-drawing-handle-ne { left: 100%; top: 0; cursor: nesw-resize; }
-.w-drawing-handle-e { left: 100%; top: 50%; cursor: ew-resize; }
-.w-drawing-handle-se { left: 100%; top: 100%; cursor: nwse-resize; }
-.w-drawing-handle-s { left: 50%; top: 100%; cursor: ns-resize; }
-.w-drawing-handle-sw { left: 0; top: 100%; cursor: nesw-resize; }
-.w-drawing-handle-w { left: 0; top: 50%; cursor: ew-resize; }
-
-/*
- * A line a drag has landed on.
- *
- * The colour every drawing tool uses for this, and one screen pixel whatever the zoom: a guide is
- * an alignment claim, and a claim two pixels thick is a claim about which pixel.
- */
-.w-drawing-guide {
-  position: absolute;
-  background: #ec4899;
-}
 
 /*
  * ── The title row: a name, and the menus ───────────────────────────────────
@@ -1209,4 +328,37 @@ body {
  * platforms put it — and the two are different surfaces on purpose: a menubar holds what acts on the
  * document and the application, a ribbon holds what acts on the selection.
  */
-.w-menubar { padding: 6px 16px 0; }
+
+.w-document-library { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 12px; border-bottom: 1px solid var(--ou-line); }
+.w-document-library > [role="status"] { font-size: 12px; color: var(--ou-muted); }
+.w-document-library [role="alert"] { color: #b42318; font-size: 12px; }
+.w-library-content { display: grid; gap: 12px; min-width: 0; }
+.w-library-list { display: grid; gap: 4px; min-width: 0; }
+.w-library-row { padding: 10px; }
+.w-library-row strong { display: block; font-size: 13px; font-weight: 500; }
+.w-library-row small { display: block; margin-top: 4px; color: var(--ou-muted); }
+
+/* Product chrome: file identity above commands, formatting above the paper. */
+.w-shell > .w-chrome { padding: 0; background: var(--ou-panel); }
+.w-document-header .doc-title-bar { width: 100%; min-width: 0; padding: 0; align-items: center; flex-wrap: nowrap; }
+.w-document-header .doc-title-docTitle { height: 30px; padding: 0; line-height: 28px; font-size: 13px; font-weight: 600; min-width: 8ch; max-width: 100%; flex: 1 1 auto; }
+.w-document-header .w-document-library { margin-left: auto; padding: 0; border: 0; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+.w-document-header .w-document-library > * { flex-shrink: 0; white-space: nowrap; }
+.w-document-library [data-word-save-status] { margin-left: 10px; }
+.w-menubar { padding-inline: var(--ou-command-inset); }
+.w-file-actions .w-file-picker { display: none; }
+.w-file-actions .w-file-problem { display: block; padding: 6px 20px; }
+.w-shell-document { background: var(--ou-studio); padding: 28px; }
+.w-file-action-list { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 4px 0; }
+.w-file-action-list > button { justify-content: flex-start; min-height: 36px; }
+@media(max-width: 760px) {
+  .w-document-header .doc-title-docTitle { max-width: none; }
+  .w-menubar { padding-inline: 12px; }
+  .w-shell-document { padding: 16px; }
+}
+
+.w-furniture-editing { display: flex; align-items: center; justify-content: space-between; padding: 6px 20px; background: #eef4ff; color: #244d87; border-bottom: 1px solid #ccd9ef; font-size: 13px; }
+
+.w-document-header .w-document-library [data-word-save-status] { order: -1; margin: 0 6px 0 0; }
+
+.w-shell-body > .office-workspace-side-panel > * { flex: 1; min-width: 0; }

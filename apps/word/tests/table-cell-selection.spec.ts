@@ -94,7 +94,7 @@ const selection = (page: Page) =>
 
 test.describe('a block of table cells', () => {
   test('is selected by dragging across them', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await dragBetweenCells(page, 'A1', 'A2');
@@ -114,7 +114,7 @@ test.describe('a block of table cells', () => {
    * spelled `=== 'node'`.
    */
   test('survives the caret the browser places when the button comes up', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await dragBetweenCells(page, 'A1', 'A2');
@@ -124,7 +124,7 @@ test.describe('a block of table cells', () => {
   });
 
   test('is visible, over whatever the cells are shaded with', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await dragBetweenCells(page, 'A1', 'A2');
@@ -139,7 +139,7 @@ test.describe('a block of table cells', () => {
   });
 
   test('is given up when the reader clicks somewhere else', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await dragBetweenCells(page, 'A1', 'A2');
@@ -158,7 +158,7 @@ test.describe('a block of table cells', () => {
    * cell the caret is in", because it needs two.
    */
   test('can be merged, which needed two cells and never had them', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const before = await page.locator('.w-cell').count();
@@ -182,7 +182,7 @@ test.describe('a block of table cells', () => {
    * block was selected, because "here" was defined as a caret and nothing else.
    */
   test('keeps the table toolbar available', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await dragBetweenCells(page, 'A1', 'A2');

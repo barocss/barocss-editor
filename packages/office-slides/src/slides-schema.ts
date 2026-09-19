@@ -104,6 +104,9 @@ export function getSlidesSchemaDefinition(): SchemaDefinition {
         ...office.nodes.surface,
         attrs: {
           ...office.nodes.surface.attrs,
+          /** Workspace placement in CSS pixels, independent of presentation order. */
+          canvasX: { type: 'number', required: false },
+          canvasY: { type: 'number', required: false },
           /** The layout this slide takes its placeholder formatting from. */
           layoutId: { type: 'string', required: false },
           /** Kept in the deck, skipped while presenting. */
@@ -253,6 +256,26 @@ export function getSlidesSchemaDefinition(): SchemaDefinition {
         attrs: {
           ...(office.nodes as Record<string, any>).picture?.attrs,
           ...CROP_ATTRS,
+          /**
+           * **And the design attributes, because the renderer already drew them.**
+           *
+           * The picture's renderer calls `paintCss` and `fillElements` — the same two the
+           * rectangle's does — so a photograph on a slide has always drawn a drop shadow, a
+           * gradient wash behind it and a dashed border. `paint.ts` says so in a comment about
+           * the corners: *"a text frame, a frame, a sticky and a picture — every other box a
+           * reader rounds"*. The corners came here; the eleven beside them did not.
+           *
+           * What that cost is the whole of `what-a-save-carries.test.ts`: the panel's rows ask
+           * the schema before they draw, so 채우기 and 효과 were missing from a picture's panel;
+           * `setBoxStyle` filters its payload through `_declaredAttrs`, so a shadow asked for
+           * some other way was dropped without a word; and nothing validated a document that
+           * carried one anyway. Drawn, unsettable, unsaveable, unchecked — measured at eleven
+           * attributes.
+           *
+           * A shadow on a photograph is the commonest single act in a deck, so the honest fix
+           * is the declaration rather than taking the drawing away.
+           */
+          ...DECK_STYLE_ATTRS,
           // A rounded photograph, which is one line of CSS here and a different
           // piece of work in a word processor — see `corners.ts`.
           ...CORNER_ATTRS,

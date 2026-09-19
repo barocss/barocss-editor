@@ -1,3 +1,4 @@
+import { registerNoteBlockActions } from './block-actions';
 import type { Editor, Extension } from '@barocss/editor-core';
 import { NOTE_BLOCKS } from './note-schema';
 import { addChild, moveBlockDown, moveBlockUp, moveNode, setAttrs, transaction } from '@barocss/model';
@@ -48,6 +49,7 @@ class NoteElementExtension implements Extension {
   name = 'noteElements';
 
   onCreate(editor: Editor): void {
+    registerNoteBlockActions(editor);
     /* `unknown` at the call sites, because each spec below is written inline with its own shape. */
     const command = (spec: unknown) => editor.registerCommand(spec as never);
 
@@ -266,8 +268,10 @@ class NoteElementExtension implements Extension {
       NOTE_BLOCKS.includes(String((store.getNode(one) as { stype?: string })?.stype) as never)
     );
 
-    /* 마지막 블록보다 뒤: content 의 끝. 블록이 아닌 마지막 자식 뒤로 가야 하기 때문이다. */
-    const spot = at >= blocks.length ? without.length : Math.max(0, without.indexOf(blocks[at]));
+    /* Prose ends before resources, which must remain the final child. */
+    const resourceAt = without.findIndex(id => store.getNode(id)?.stype === 'resources');
+    const end = resourceAt < 0 ? without.length : resourceAt;
+    const spot = at >= blocks.length ? end : Math.max(0, without.indexOf(blocks[at]));
     if (spot === was) return undefined;
     return { parentId: rootId, at: spot };
   }
@@ -289,6 +293,8 @@ class NoteElementExtension implements Extension {
     const root = store.getNode(rootId);
     if (!root) return undefined;
     const kids = (root.content ?? []) as string[];
+    const resourcesAt = kids.findIndex(id => store.getNode(id)?.stype === 'resources');
+    const end = resourcesAt < 0 ? kids.length : resourcesAt;
 
     const selection = editor.selection;
     let at: Node | undefined = selection?.startNodeId ? store.getNode(selection.startNodeId) : undefined;
@@ -297,13 +303,13 @@ class NoteElementExtension implements Extension {
       const above: string | undefined = typeof at.parentId === 'string' ? at.parentId : undefined;
       if (above === rootId) {
         const index = kids.indexOf(String(at.sid));
-        if (index >= 0) return { parentId: rootId, at: index + 1 };
+        if (index >= 0) return { parentId: rootId, at: Math.min(index + 1, end) };
         break;
       }
       at = above ? store.getNode(above) : undefined;
     }
 
-    return { parentId: rootId, at: kids.length };
+    return { parentId: rootId, at: end };
   }
 
   private async _put(editor: Editor, child: Node, payload?: Record<string, unknown>): Promise<boolean> {
@@ -336,7 +342,9 @@ class NoteElementExtension implements Extension {
     if (!node || !rootId || node.parentId !== rootId) return false;
     const kids = ((editor.dataStore.getNode(rootId) as Node | undefined)?.content ?? []) as string[];
     const at = kids.indexOf(sid);
-    return at >= 0 && at + step >= 0 && at + step < kids.length;
+    return at >= 0 && at + step >= 0 && at + step < kids.length &&
+      NOTE_BLOCKS.includes(node.stype as never) &&
+      NOTE_BLOCKS.includes(editor.dataStore.getNode(kids[at + step])?.stype as never);
   }
 
 }
@@ -354,6 +362,9 @@ export function createNoteElementCommands(): Extension {
  * every block has a way in — not that the two lists are the same length.
  */
 export const NOTE_INSERTS = [
+  'insertColumns2', 'insertColumns3', 'insertColumns4',
+  'insertMathBlock',
+  'insertMathInline',
   'insertHeading',
   'insertBodyText',
   'insertBulletList',
@@ -361,9 +372,12 @@ export const NOTE_INSERTS = [
   'insertQuote',
   'insertCode',
   'insertTableBlock',
+  'insertNoteDatabase',
   'insertRule',
   'insertPicture',
   'insertVideo',
-  'insertEmbed'
+  'insertEmbed',
+  'insertChecklist',
+  'insertDetails',
+  'insertCallout'
 ] as const;
-

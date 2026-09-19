@@ -1,3 +1,4 @@
+import { withTableThemeRead } from '../../office-text/test/helpers/table-theme-probe';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   assertConforms,
@@ -1210,7 +1211,7 @@ describe('the site builder draws what it declares', () => {
       iconsAsked: [...siteToolbarIcons(), ...siteLayerIcons(), ...sitePanelIcons()],
       iconDrawn: (name: string) => iconNames().includes(name),
       commandChanges: changes,
-      attributeRead: attributeReadFrom(
+      attributeRead: withTableThemeRead(registry, attributeReadFrom(
         registry as never,
         (type: string) => (schema.nodes.get(type) as { attrs?: Record<string, never> } | undefined)?.attrs,
         /**
@@ -1231,7 +1232,11 @@ describe('the site builder draws what it declares', () => {
          * it, four of them `overrides`.
          */
         (_type: string, attr: string) =>
-          attr === 'overrides'
+          _type === 'noteDatabase' && attr === 'filters' ? [{ mode: 'and', rules: [{ id: 'filter', field: 'Name', operator: 'contains', value: 'Visible' }] }]
+            : _type === 'noteDatabase' && attr === 'sorts' ? [[{ field: 'Name', direction: 'desc' }]]
+            : _type === 'noteDatabase' && attr === 'views'
+            ? [[{ id: 'saved', name: 'Published', view: 'table', where: 'Name', equals: 'Visible', hiddenFields: ['Hidden'] }]]
+            : attr === 'overrides'
             ? /*
                * `sizing`, and it had to be **something the node type actually draws**.
                *
@@ -1284,7 +1289,7 @@ describe('the site builder draws what it declares', () => {
                     attr === 'kind' && _type === 'field'
                     ? ['choice']
                     : undefined
-      ),
+      )),
       produces,
       commands,
       own,
@@ -1314,6 +1319,62 @@ describe('the site builder draws what it declares', () => {
         Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
         Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
       exempt: {
+        'pageReference.pageId': {
+          reason: 'authored by the Note workspace page picker through insertNotePageReference; Site preserves embedded references and exports their escaped fallback labels without assigning workspace navigation URLs, covered by page-reference-prose.test.ts',
+          covers: ['every-property-can-be-edited']
+        },
+        'noteDatabase.source': {
+          reason: 'resolved against the containing richText resources by office-text/database-renderer; the attribute probe has no document resources. database-prose.test.ts exports real queried rows and proves local dataset names shadow Site resources',
+          covers: ['every-attribute-is-read']
+        },
+        'noteDatabase.views': {
+          reason: 'named profiles select queries and visible fields against dataset resources, absent from the isolated renderer probe. database-advanced.test.ts exports a conflicting legacy profile and proves the saved filter and hidden-column settings win',
+          covers: ['every-attribute-is-read']
+        },
+        'noteDatabase.activeViewId': {
+          reason: 'selects a named view together with the views array; the isolated attribute probe has no saved profiles. database-advanced.test.ts exports an active profile whose filter differs from legacy scalar attributes and verifies hidden columns',
+          covers: ['every-attribute-is-read']
+        },
+        'noteDatabase.dateField': {
+          covers: ['every-property-can-be-edited', 'every-attribute-is-read'],
+          reason: 'Note view settings are edited by setNoteDatabaseView. Site deliberately exports all layouts as a readable table; query attributes require dataset resources absent from this isolated probe. database-advanced.test.ts verifies exported compound queries.'
+        },
+        'noteDatabase.cardPreview': {
+          covers: ['every-property-can-be-edited', 'every-attribute-is-read'],
+          reason: 'Note view settings are edited by setNoteDatabaseView. Site deliberately exports all layouts as a readable table; query attributes require dataset resources absent from this isolated probe. database-advanced.test.ts verifies exported compound queries.'
+        },
+        'noteDatabase.cardSize': {
+          covers: ['every-property-can-be-edited', 'every-attribute-is-read'],
+          reason: 'Note view settings are edited by setNoteDatabaseView. Site deliberately exports all layouts as a readable table; query attributes require dataset resources absent from this isolated probe. database-advanced.test.ts verifies exported compound queries.'
+        },
+        'noteDatabase.filters': {
+          covers: ['every-property-can-be-edited', 'every-attribute-is-read'],
+          reason: 'Note view settings are edited by setNoteDatabaseView. Site deliberately exports all layouts as a readable table; query attributes require dataset resources absent from this isolated probe. database-advanced.test.ts verifies exported compound queries.'
+        },
+        'noteDatabase.sorts': {
+          covers: ['every-property-can-be-edited', 'every-attribute-is-read'],
+          reason: 'Note view settings are edited by setNoteDatabaseView. Site deliberately exports all layouts as a readable table; query attributes require dataset resources absent from this isolated probe. database-advanced.test.ts verifies exported compound queries.'
+        },
+        'noteDatabase.view': {
+          reason: 'Note authors table/board interactive views; Site preserves the setting through setRichText and publishes an accessible static table, verified in database-prose.test.ts',
+          covers: ['every-attribute-is-read']
+        },
+        'noteDatabase.groupBy': {
+          reason: 'consumed by the Note board UI; Site embedded prose publishes the filtered/sorted table and preserves board grouping for re-editing, verified in database-prose.test.ts',
+          covers: ['every-attribute-is-read']
+        },
+        'bTable.theme': {
+          reason: 'authored by Note’s contextual table editor through the shared setTableTheme command; this product preserves and renders imported or embedded table themes without exposing that Note control',
+          covers: ['every-property-can-be-edited']
+        },
+        'taskItem.checked': {
+          reason: 'the embedded Note checkbox gesture calls toggleChecklistItem; Site receives the body through setRichText, not its canvas panel',
+          covers: ['every-property-can-be-edited']
+        },
+        'bDetails.open': {
+          reason: 'the embedded Note disclosure gesture calls toggleDetails; its saved body is returned through setRichText',
+          covers: ['every-property-can-be-edited']
+        },
         /*
          * ── Commands that change the **application** rather than the document ──
          *

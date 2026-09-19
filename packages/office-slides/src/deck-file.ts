@@ -32,6 +32,7 @@
  * can identify a year later.
  */
 
+import { documentFileFormat, forFile as stripSession } from '@barocss/shared';
 import { childrenOf, deckSlides, type DeckAccess } from './deck';
 
 
@@ -55,15 +56,6 @@ export interface DeckFile {
   document: unknown;
 }
 
-interface TreeNode {
-  stype?: string;
-  sid?: string;
-  parentId?: string;
-  text?: string;
-  attributes?: Record<string, unknown>;
-  content?: unknown;
-}
-
 /**
  * A tree with the session's own bookkeeping taken out.
  *
@@ -71,91 +63,44 @@ interface TreeNode {
  * how a file becomes unloadable in the session that wrote it: the loader would be
  * asked to mint ids that already exist.
  */
-export function forFile(node: unknown): unknown {
-  if (Array.isArray(node)) return node.map(forFile);
-  if (!node || typeof node !== 'object') return node;
-
-  const { sid, parentId, ...rest } = node as TreeNode;
-  void sid;
-  void parentId;
-
-  const out: Record<string, unknown> = { ...rest };
-  if (Array.isArray((node as TreeNode).content)) {
-    out.content = ((node as TreeNode).content as unknown[]).map(forFile);
-  }
-  return out;
-}
-
-/** The envelope for a document, ready to be written. */
-export function deckFile(document: unknown, savedAt?: string): DeckFile {
-  return {
-    format: DECK_FORMAT,
-    version: DECK_FILE_VERSION,
-    ...(savedAt ? { savedAt } : {}),
-    document: forFile(document)
-  };
-}
+/**
+ * **이제 `@barocss/shared` 의 것이다.** 이 이름은 덱의 것이 아니었다 — 세션이 빌려준 이름을
+ * 걷어내는 일은 이 엔진이 담는 모든 문서에 대해 참이고, Word 와 사이트가 저장을 갖게 되는 날
+ * 세 번째로 다시 쓰였을 것이다. 이름은 여기 남겨 부르던 곳이 안 바뀌게 한다.
+ */
+export const forFile = stripSession;
 
 /**
- * The text of the file.
+ * **덱이 자기에 대해 말하는 넷** — 그리고 나머지는 전부 공용 층의 것이다.
  *
- * Indented, because a deck file is a thing a person will open in an editor, diff
- * in a pull request and paste into a bug report. The bytes saved by one line are
- * worth less than any of those.
+ * `document-file.ts` 를 읽으면 왜 이것만 남는지 나온다: 봉투도, sid 를 걷어내는 것도, 넷 중
+ * 어느 것인지 말하는 거절도 이 엔진이 담는 모든 문서에 대해 참이다. 덱의 것은 자기 이름
+ * (`barocss-slides`), 자기 판 번호, 제목이 어디 있는가, 그리고 독자가 내려받기 폴더에서 보는 것.
  */
-export function deckFileText(document: unknown, savedAt?: string): string {
-  return `${JSON.stringify(deckFile(document, savedAt), null, 2)}\n`;
-}
+const FORMAT = documentFileFormat({
+  format: DECK_FORMAT,
+  noun: '슬라이드',
+  version: DECK_FILE_VERSION,
+  extension: '.slides.json'
+});
+
+/** The envelope for a deck, ready to be written. */
+export const deckFile = (document: unknown, savedAt?: string): DeckFile =>
+  FORMAT.file(document, savedAt) as DeckFile;
+
+/** The text of the file. */
+export const deckFileText = (document: unknown, savedAt?: string): string =>
+  FORMAT.text(document, savedAt);
+
+/** Reading a deck file, and saying which of the four things is wrong with it. */
+export const readDeckFile = (text: string): DeckFileRead => FORMAT.read(text) as DeckFileRead;
+
+
 
 export type DeckFileRead =
   | { document: unknown; version: number }
   | { error: string };
 
-/**
- * Reading a file, and saying why not.
- *
- * Four refusals, each with the sentence a reader needs rather than the one a
- * parser produces: it is not JSON, it is not this product's file, it is from a
- * newer version of this product, or it holds no document. A message that names
- * *which* is the difference between a reader trying another file and a reader
- * filing a bug.
- *
- * What it does **not** do is check the document against the schema. `loadDocument`
- * already does that and reports every fault with its path — and a deck that is
- * *nearly* right should open with a warning rather than be refused, because the
- * alternative is a reader with a file they cannot get their work out of.
- */
-export function readDeckFile(text: string): DeckFileRead {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return { error: '이 파일은 JSON이 아닙니다.' };
-  }
-
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { error: '이 파일은 슬라이드 파일이 아닙니다.' };
-  }
-
-  const file = parsed as Partial<DeckFile>;
-  if (file.format !== DECK_FORMAT) {
-    return { error: '이 파일은 Barocss 슬라이드 파일이 아닙니다.' };
-  }
-
-  const version = typeof file.version === 'number' ? file.version : 0;
-  if (version > DECK_FILE_VERSION) {
-    return {
-      error: `이 파일은 더 새로운 버전(${version})으로 저장되었습니다. 프로그램을 업데이트하세요.`
-    };
-  }
-
-  const document = file.document as TreeNode | undefined;
-  if (!document || typeof document !== 'object' || typeof document.stype !== 'string') {
-    return { error: '이 파일에는 문서가 없습니다.' };
-  }
-
-  return { document, version };
-}
 
 /**
  * What the deck is *about*: the words in the first slide's title.
@@ -206,14 +151,4 @@ export function deckTitle(doc: DeckAccess): string | undefined {
  * a filesystem: no separators, no leading dots, and short enough that the browser
  * does not truncate it into nonsense.
  */
-export function deckFileName(title: string | undefined): string {
-  const cleaned = (title ?? '')
-    .replace(/[\\/:*?"<>|\n\r\t]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/^\.+/, '')
-    .slice(0, 60)
-    .trim();
-
-  return `${cleaned || '슬라이드'}.slides.json`;
-}
+export const deckFileName = (title: string | undefined): string => FORMAT.fileName(title, '슬라이드');

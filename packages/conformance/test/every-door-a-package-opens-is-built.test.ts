@@ -44,7 +44,9 @@ const packages = (): { name: string; json: Json; vite: string | null }[] =>
       vite: existsSync(join(PACKAGES, name, 'vite.config.ts'))
         ? readFileSync(join(PACKAGES, name, 'vite.config.ts'), 'utf8')
         : null
-    }));
+    }))
+    // Private workspace sources are bundled by the consuming app, never published.
+    .filter(({ json }) => json.private !== true);
 
 /** `.` 말고 열린 문 전부 — 코드든 스타일이든 발행되면 닿아야 한다. */
 const doors = (json: Json): string[] =>
@@ -150,11 +152,21 @@ describe('패키지가 여는 문', () => {
     for (const { name, json, vite } of packages()) {
       const doors = cssDoors(json);
       if (doors.length === 0) continue;
+      const publish = ((json.publishConfig ?? {}) as Json).exports as Json | undefined;
+      const files = (json.files ?? []) as string[];
+      const builtDoors = doors.filter((door) => {
+        const target = publish?.[door];
+        // A source CSS export is valid when the published tarball includes it.
+        return !(typeof target === 'string' && target.startsWith('./src/')
+          && existsSync(join(PACKAGES, name, target))
+          && files.some((file) => file === target.slice(2) || target.slice(2).startsWith(file.replace(/\/$/, '') + '/')));
+      });
+      if (builtDoors.length === 0) continue;
       if (!vite) {
         found.push(`${name}: ${doors.join(', ')} — vite.config.ts 가 없습니다. 빌드가 아무것도 안 냅니다`);
         continue;
       }
-      for (const door of doors) {
+      for (const door of builtDoors) {
         const key = door.replace(/^\.\//, '');
         if (!isEntryKey(vite, key)) {
           found.push(`${name}: ${door} — vite.config.ts 의 lib.entry 에 \`${key}\` 가 없습니다`);

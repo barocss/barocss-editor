@@ -97,4 +97,23 @@ describe('a document replaced under a view', () => {
     editor.loadDocument(tree('second', 'After'), 'replace-test');
     expect(view.layers.content.innerHTML).toContain('After');
   });
+
+  it('refreshes a proxy when a transaction replaces the current root child list', () => {
+    const dataStore = new DataStore(undefined, schema);
+    editor = new Editor({ editable: true, schema, dataStore });
+    const document = tree('same', 'Keep');
+    document.content.push({ sid: 'removed-p', stype: 'paragraph', content: [{ sid: 'removed-t', stype: 'inline-text', text: 'Remove' }] });
+    editor.loadDocument(document, 'replace-test');
+    view = new EditorViewDOM(editor, { container, registry: getGlobalRegistry() });
+    view.render();
+    expect(view.layers.content.querySelectorAll('p')).toHaveLength(2);
+    const root = dataStore.getNode(editor.getRootId()!)!;
+    const removed = String(root.content![1]);
+    dataStore.begin(); dataStore.content.removeChild(String(root.sid), removed); dataStore.commit();
+    view.render();
+    expect(view.layers.content.querySelectorAll('p')).toHaveLength(1);
+    expect(view.layers.content.textContent).toContain('Keep');
+    expect(view.layers.content.textContent).not.toContain('Remove');
+  });
+
 });

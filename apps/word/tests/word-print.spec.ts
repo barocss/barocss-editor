@@ -9,7 +9,7 @@ import { settled } from './helpers';
 
 test.describe('print', () => {
   test('puts the same number of pages on paper as on screen', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     const sheets = await page.locator('.w-sheet').count();
 
@@ -23,7 +23,7 @@ test.describe('print', () => {
   });
 
   test('builds a page for each sheet when the browser asks to print', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     const sheets = await page.locator('.w-sheet').count();
 
@@ -37,7 +37,7 @@ test.describe('print', () => {
   });
 
   test('cuts a paragraph across two pages without cutting the text', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
     await page.emulateMedia({ media: 'print' });
@@ -82,7 +82,7 @@ test.describe('print', () => {
   });
 
   test('prints the document, not the pane the reader has open', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const headersPerPage = async () => {
@@ -113,7 +113,7 @@ test.describe('print', () => {
   });
 
   test('prints the paper the section describes', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const css = await page.evaluate(
@@ -126,7 +126,7 @@ test.describe('print', () => {
   });
 
   test('carries the page furniture onto the paper', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
 

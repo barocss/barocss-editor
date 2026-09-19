@@ -1,5 +1,5 @@
 import { RendererRegistry, define, element, intoRegistry, slot } from '@barocss/dsl';
-import { registerTextRenderers } from '@barocss/office-text';
+import { registerColumnRenderers, registerTextRenderers, registerLatexRenderers, TEXT_FLOW_STYLE } from '@barocss/office-text';
 
 /**
  * **What draws a note** — which is `office-text`, plus one node.
@@ -76,11 +76,13 @@ export function noteRegistry(): RendererRegistry {
 }
 
 export function registerNoteRenderers(): void {
+  registerLatexRenderers();
+  registerColumnRenderers();
   /*
    * A plain box with its blocks in it. Not `display: none` like the resources a document keeps —
    * this is the one node here whose content is words a person writes, and drawing it is the point.
    */
-  define('note', element('div', { className: 'on-doc' }, [slot('content')]));
+  define('note', element('div', { className: 'on-doc', style: TEXT_FLOW_STYLE }, [slot('content')]));
 }
 
 /**

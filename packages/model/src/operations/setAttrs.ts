@@ -79,7 +79,8 @@ defineOperation('setAttrs', async (operation: any, context: TransactionContext) 
     data: context.dataStore.getNode(nodeId),
     // Replaced, not merged: this operation adds attributes, and undoing it has
     // to be able to remove the ones it added.
-    inverse: { type: 'setAttrs', payload: { nodeId, attrs: previous, replace: true } }
+    // Aliases can expire after the creating transaction; history must name the durable node.
+    inverse: { type: 'setAttrs', payload: { nodeId: node.sid, attrs: previous, replace: true } }
   };
 });
 

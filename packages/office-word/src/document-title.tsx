@@ -1,3 +1,4 @@
+import { Button, Dialog } from '@barocss/office-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 
@@ -68,9 +69,11 @@ const LABELS: Record<string, string> = {
 /** 제목줄에게 필요한 것 — 이름을 가진 문서 하나. */
 export interface DocumentTitleProps {
   editor: Editor;
+  compact?: boolean;
 }
 
-export function DocumentTitle({ editor }: DocumentTitleProps) {
+export function DocumentTitle({ editor, compact = false }: DocumentTitleProps) {
+  const [details, setDetails] = useState(false);
   const [pieces, setPieces] = useState<Piece[]>(() => readMeta(editor).pieces);
   const editing = useRef<string | null>(null);
 
@@ -100,9 +103,7 @@ export function DocumentTitle({ editor }: DocumentTitleProps) {
 
   if (pieces.length === 0) return null;
 
-  return (
-    <div className="doc-title-bar">
-      {pieces.map((piece) => (
+  const fields = (items: Piece[]) => items.map((piece) => (
         <input
           key={piece.sid}
           className={`doc-title-field doc-title-${piece.stype}`}
@@ -124,7 +125,14 @@ export function DocumentTitle({ editor }: DocumentTitleProps) {
             write(piece.sid, text);
           }}
         />
-      ))}
-    </div>
-  );
+      ));
+  return <div className="doc-title-bar">
+    {fields(compact ? pieces.filter(piece => piece.stype === 'docTitle') : pieces)}
+    {compact && pieces.some(piece => piece.stype !== 'docTitle') && <>
+      <Button tone="quiet" onClick={() => setDetails(true)}>문서 정보</Button>
+      <Dialog open={details} onOpenChange={setDetails} title="문서 정보" description="문서의 부제와 작성자를 편집합니다.">
+        <div className="w-document-details">{fields(pieces.filter(piece => piece.stype !== 'docTitle'))}</div>
+      </Dialog>
+    </>}
+  </div>;
 }

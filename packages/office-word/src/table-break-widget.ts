@@ -1,10 +1,9 @@
 /**
  * The page break that falls inside a table.
  *
- * A table breaks between rows — nothing else in a table is a place a page can
- * end, because a break inside a cell leaves its borders on one page and its
- * words on another. So the break is a row: an empty one, spanning every column,
- * as tall as the gap to the next page, drawn before the row that starts it.
+ * Ordinary breaks use an empty row spanning every column. An oversized,
+ * full-width merged cell instead uses an internal paragraph decorator with a
+ * border/background mask. Adding a row inside that cell would alter rowspan.
  *
  * A row, rather than the margin every other block break uses, because a `tr` has
  * nowhere to put a margin and a positioned element inside a table is outside the
@@ -20,6 +19,7 @@ import { defineDecorator, each, element } from '@barocss/dsl';
 
 /** The decorator type a table's page break is registered under. */
 export const TABLE_BREAK_STYPE = 'wordTableBreak';
+export const TABLE_CELL_BREAK_STYPE = 'wordTableCellBreak';
 
 /**
  * The one cell of the gap row.
@@ -45,6 +45,30 @@ const gapCell = {
  * Idempotent, so a second editor on the page does not double register.
  */
 export function registerTableBreakWidget(): void {
+  defineDecorator(TABLE_CELL_BREAK_STYPE, element('span', {
+    className: 'w-table-cell-break', 'data-bc-chrome': 'true', contenteditable: 'false', 'aria-hidden': 'true',
+    style: (data: Record<string, any>) => ({
+      display: data.cell?.inline ? 'inline-block' : 'block', width: '100%', verticalAlign: 'top',
+      position: 'relative', height: `${data.cell?.spacerHeight ?? (Number(data.height) + (data.headerRowHeights ?? []).reduce((sum: number, h: number) => sum + h, 0))}px`,
+      margin: '0', padding: '0', border: 'none', userSelect: 'none', pointerEvents: 'none',
+    })
+  }, [element('div', {
+    className: 'w-table-cell-gap-mask', 'data-bc-chrome': 'true',
+    style: (data: Record<string, any>) => ({
+      display: data.cell?.spacerOnly ? 'none' : 'block',
+      transform: data.cell?.maskOffset ? `translateY(${data.cell.maskOffset}px)` : undefined,
+      position: 'absolute', inset: `0 -${data.cell?.right ?? 0}px 0 -${data.cell?.left ?? 0}px`,
+      zIndex: 1,
+      background: `linear-gradient(to bottom, white ${data.pageGapStart ?? 0}px, var(--ou-ground, #f5f5f5) ${data.pageGapStart ?? 0}px, var(--ou-ground, #f5f5f5) ${(data.pageGapStart ?? 0) + (data.pageGapHeight ?? 0)}px, white ${(data.pageGapStart ?? 0) + (data.pageGapHeight ?? 0)}px)`,
+    })
+  }, [element('table', {
+    className: 'w-cell-header-copy', style: { position: 'absolute', bottom: '0', width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', margin: '0' }
+  }, [element('tbody', {}, [each('headerRows', (cells: any[]) => element('tr', {}, cells.map(cell => element('th', {
+    className: 'w-cell w-repeat-cell', colSpan: cell.colspan, rowSpan: cell.rowspan, style: cell.style ?? {},
+    // Inline gaps must contain no text nodes: the model's text offsets exclude
+    // repeated headers. Generated content displays the copy without adding text.
+    'data-word-header-text': String(cell.text ?? ''),
+  })) ))])])]) ]));
   defineDecorator(
     TABLE_BREAK_STYPE,
     element(
@@ -83,11 +107,17 @@ export function registerTableHeaderRepeat(): void {
       'tr',
       {
         className: 'w-table-header-repeat',
+        style: (data: Record<string, any>) => ({ height: `${Number(data?.height) || 0}px` }),
         'data-bc-chrome': 'true',
         contenteditable: 'false',
         'aria-hidden': 'true'
       },
-      [each('cells', (cell: any) => element('th', repeatedCell, String(cell?.text ?? '')))]
+      [each('cells', (cell: any) => element('th', {
+        ...repeatedCell,
+        colSpan: Number(cell?.colspan) || 1,
+        rowSpan: Number(cell?.rowspan) || 1,
+        style: cell?.style ?? {},
+      }, String(cell?.text ?? '')))]
     )
   );
 }

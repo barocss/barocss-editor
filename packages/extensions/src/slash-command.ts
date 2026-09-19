@@ -109,12 +109,12 @@ export class SlashCommandExtension implements Extension {
 
     const register = (
       name: string,
-      execute: (payload?: { query?: string }) => boolean | Promise<boolean>,
+      execute: (payload?: { query?: string; itemId?: string }) => boolean | Promise<boolean>,
       can: () => boolean
     ) =>
       editor.registerCommand({
         name,
-        execute: async (_ed: Editor, payload?: { query?: string }) => await execute(payload),
+        execute: async (_ed: Editor, payload?: { query?: string; itemId?: string }) => await execute(payload),
         canExecute: () => can()
       });
 
@@ -154,8 +154,11 @@ export class SlashCommandExtension implements Extension {
      */
     register(
       'runSlashMenuItem',
-      async () => {
-        const item = this._state.items[this._state.currentIndex];
+      async (payload) => {
+        // A pointer names the row it pressed; Enter runs the keyboard highlight.
+        const item = payload?.itemId !== undefined
+          ? this._state.items.find((row) => row.id === payload.itemId)
+          : this._state.items[this._state.currentIndex];
         if (!item) return false;
         this._close();
         /*

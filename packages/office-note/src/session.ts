@@ -1,3 +1,4 @@
+import { normalizeProseTree } from '@barocss/office-text';
 import { DataStore } from '@barocss/datastore';
 import { createSchema } from '@barocss/schema';
 import type { Editor } from '@barocss/editor-core';
@@ -39,9 +40,11 @@ export interface NoteSession {
   editor: Editor;
   /** What every sid in this body is prefixed with — see `NoteOptions.session`. */
   session: string;
-  /** Where the body lives inside it. */
+  /** Current body root, including after the host loads a restored document. */
   rootId: string;
-  /** Stop mirroring and let go of the store. */
+  /** Deliver pending changes without closing the editor; the host awaits its own storage work. */
+  flush: () => void;
+  /** Deliver pending changes synchronously, then release the editor. Safe to call again. */
   close: () => void;
 }
 
@@ -122,7 +125,8 @@ interface NoteOptions {
    */
   session?: string;
     /**
-     * Write the body home. Called with the blocks as a tree, on a pause — see `after`.
+     * Write the body home on a pause, or synchronously on close if changes are pending.
+     * This delivers a snapshot; durable storage remains the host's responsibility.
      *
      * A callback rather than this package writing into the host's store: whose document that is, and
      * what a transaction there costs, is the host's business. `office-note` knows about a body.
@@ -139,20 +143,26 @@ function start(tree: unknown, options: NoteOptions): NoteSession {
 
   /* One name per body — see `NoteOptions.session` for what sharing one costs. */
   const session = options.session ?? DataStore.mintSessionId('note');
-  editor.loadDocument(tree, session);
+  editor.loadDocument(normalizeProseTree(tree), session);
 
   /* Always a string after `loadDocument` — the engine types it optional for a store with no root. */
   const rootId = editor.getRootId() ?? '';
 
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let closed = false;
+  const flush = () => {
+    if (timer === undefined) return;
+    clearTimeout(timer);
+    timer = undefined;
+    const doc = { getNode: (one: string) => store.getNode(one) as Node | undefined };
+    // A host history restore may have loaded a new root into this same editor.
+    const said = noteTreeOf(doc, editor.getRootId() ?? rootId);
+    options.onChange?.((said?.content as unknown[]) ?? []);
+  };
   const told = () => {
-    if (!options.onChange) return;
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      const doc = { getNode: (one: string) => store.getNode(one) as Node | undefined };
-      const said = noteTreeOf(doc, rootId);
-      options.onChange?.((said?.content as unknown[]) ?? []);
-    }, options.after ?? 350);
+    if (closed || !options.onChange) return;
+    if (timer !== undefined) clearTimeout(timer);
+    timer = setTimeout(flush, options.after ?? 350);
   };
 
   editor.on('editor:content.change' as never, told);
@@ -160,11 +170,17 @@ function start(tree: unknown, options: NoteOptions): NoteSession {
   return {
     editor,
     session,
-    rootId,
+    get rootId() { return editor.getRootId() ?? rootId; },
+    flush,
     close: () => {
-      if (timer) clearTimeout(timer);
+      if (closed) return;
+      closed = true;
       editor.off('editor:content.change' as never, told);
-      editor.destroy?.();
+      try {
+        flush();
+      } finally {
+        editor.destroy();
+      }
     }
   };
 }

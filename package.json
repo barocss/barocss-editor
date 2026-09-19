@@ -8,6 +8,9 @@
     "apps/*"
   ],
   "scripts": {
+    "dev:office": "pnpm --filter @barocss/office-app dev",
+    "build:office": "pnpm --filter @barocss/office-app build",
+    "test:e2e:office": "pnpm --filter @barocss/office-app test:e2e",
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",
     "dev:docs": "pnpm --filter @barocss/docs-site dev",
@@ -20,17 +23,18 @@
     "test:coverage": "pnpm --filter @barocss/schema test:coverage",
     "test:e2e": "pnpm --filter @barocss/editor-test test:e2e",
     "test:e2e:react": "pnpm --filter @barocss/editor-react test:e2e",
-    "lint": "pnpm -r lint",
+    "lint": "node scripts/lint.mjs",
     "type-check:each": "pnpm -r type-check",
     "clean": "pnpm -r clean",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "pnpm build && changeset publish",
     "test:e2e:word": "pnpm --filter @barocss/word-app test:e2e",
     "test:e2e:slide": "pnpm --filter @barocss/slide-app test:e2e",
     "test:e2e:site": "pnpm --filter @barocss/site-app test:e2e",
     "type-check:tests": "node scripts/typecheck-tests.mjs",
-    "type-check": "node scripts/typecheck-all.mjs"
+    "type-check": "node scripts/typecheck-all.mjs",
+    "test:checks": "node --test scripts/checks/*.test.mjs",
+    "preflight": "pnpm test:checks && pnpm lint && pnpm type-check && pnpm type-check:tests"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
@@ -45,7 +49,7 @@
     "vitest": "^4.0.7"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=22.22.0 <23",
     "pnpm": ">=8.0.0"
   },
   "packageManager": "pnpm@8.15.0",

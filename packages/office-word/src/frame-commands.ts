@@ -25,6 +25,7 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import type { DocumentNode } from '@barocss/office-text';
+import { blockAt } from './block-placement';
 
 /** The layouts a frame offers, and what a caller may ask for by name. */
 export const FRAME_LAYOUTS = ['row', 'column', 'grid'] as const;
@@ -115,40 +116,16 @@ export class WordFrameExtension implements Extension {
   /**
    * The block the caret is in, and the parent it is a child of.
    *
-   * Walks up from whatever the selection names — an inline node, a text node —
-   * until it reaches something with a parent that lists it, which is the block
-   * a new sibling goes next to. The same walk `_insertBreak` does, because
-   * "here" means the same thing for both.
+   * The walk itself is `block-placement.ts`, shared with the drawing inserts and
+   * asking the schema where a block may go rather than testing two type names by
+   * hand — which is what used to stop this in a table cell and hand the frame to
+   * a row that holds only cells.
    */
   private _blockAt(
     editor: Editor,
     given?: unknown
   ): { sid: string; parentId: string; at: number } | null {
-    const store = editor.dataStore;
-    const selection: any = given ?? editor.selection;
-    if (!store || !selection?.startNodeId) return null;
-
-    let node: any = store.getNode(selection.startNodeId);
-    let depth = 0;
-    while (node && depth++ < 64) {
-      const parent = node.parentId ? store.getNode(node.parentId) : null;
-      const at = parent?.content?.indexOf?.(node.sid) ?? -1;
-      // A block is a node the *flow* holds. Stopping at "has a parent" would
-      // stop at an inline-text inside a paragraph and insert the frame among
-      // the words, which is not a place a frame can be.
-      if (
-        parent &&
-        at >= 0 &&
-        typeof node.text !== 'string' &&
-        node.stype !== 'inline-text' &&
-        parent.stype !== 'paragraph' &&
-        parent.stype !== 'heading'
-      ) {
-        return { sid: String(node.sid), parentId: String(parent.sid), at };
-      }
-      node = parent;
-    }
-    return null;
+    return blockAt(editor.dataStore as never, given ?? editor.selection);
   }
 
   private async _insert(

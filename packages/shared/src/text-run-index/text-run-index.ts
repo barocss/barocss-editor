@@ -63,6 +63,24 @@ export const CHROME_ATTR = 'data-bc-chrome';
  */
 export function stripChromeElements(root: Element | DocumentFragment): void {
   for (const el of Array.from(root.querySelectorAll(`[${CHROME_ATTR}]`))) {
+    /*
+     * **A highlight around the document's words is chrome; the words are not.**
+     *
+     * A `target` decorator covers a range of a model node — a search hit, a commented phrase — and
+     * renders the text it covers inside itself. Removing the element took the words with it:
+     * measured on Word's sample, copying the paragraph that carries the comment gave back
+     * *" are drawn, not applied: …"* — `"Revisions"`, the commented word, was gone. Search
+     * highlights have always had the same shape, so copying a paragraph while a search was open
+     * dropped whatever matched.
+     *
+     * So this unwraps rather than removes: the highlight goes, what it highlighted stays. Chrome
+     * that stands in for nothing — a page-break spacer, a ruler, a sheet — has no document text in
+     * it and is still removed whole.
+     */
+    if (el.getAttribute('data-decorator-type') === 'target') {
+      el.replaceWith(...Array.from(el.childNodes));
+      continue;
+    }
     el.remove();
   }
 }

@@ -104,7 +104,8 @@ function cut(revision: Revision): RevisionOp[] {
 function restoreFormatting(doc: DocumentAccess, revision: Revision): RevisionOp[] {
   if (!revision.before) return [];
 
-  let before: { attributes?: Record<string, unknown>; marks?: unknown[] };
+  let before: { attributes?: Record<string, unknown>; marks?: unknown[];
+    paragraph?: { sid: string; attributes: Record<string, unknown> } };
   try {
     const parsed = JSON.parse(revision.before);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
@@ -115,6 +116,21 @@ function restoreFormatting(doc: DocumentAccess, revision: Revision): RevisionOp[
 
   const seen = new Set<string>();
   const ops: RevisionOp[] = [];
+  if (before.paragraph && typeof before.paragraph.sid === 'string'
+    && before.paragraph.attributes && typeof before.paragraph.attributes === 'object' && !Array.isArray(before.paragraph.attributes)) {
+    const target = doc.getNode(before.paragraph.sid);
+    const belongs = revision.spans.some(span => {
+      let node = doc.getNode(span.sid);
+      for (let depth = 0; node && depth < 64; depth++) {
+        if (node.sid === target?.sid) return true;
+        node = node.parentId ? doc.getNode(node.parentId) : undefined;
+      }
+      return false;
+    });
+    if (target && ['paragraph', 'heading'].includes(target.stype ?? '') && belongs) ops.push({
+      type: 'setAttrs', payload: { nodeId: target.sid, attrs: before.paragraph.attributes },
+    });
+  }
   for (const span of revision.spans) {
     if (seen.has(span.sid)) continue;
     seen.add(span.sid);

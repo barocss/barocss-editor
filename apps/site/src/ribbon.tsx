@@ -1,18 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import { useControls } from '@barocss/office-editor-ui';
 import {
   Icon,
+  MenuBar,
   IconButton,
   ChoiceSelect,
   Dialog,
   DialogButton,
   SegmentedControl,
   TextField,
-  Toolbar,
-  ToolbarGroup,
-  ToolbarSeparator,
+  RibbonToolbar,
+  RibbonGroup,
   ToolbarToggle,
   onApple,
   useRevision
@@ -112,9 +112,11 @@ export function Ribbon({
   pageId,
   place,
   adding: openAdding,
-  onAdding
+  onAdding,
+  children
 }: {
   editor: Editor;
+  children?: ReactNode;
   mode: PointerMode;
   onMode: (mode: PointerMode) => void;
   /**
@@ -315,8 +317,8 @@ export function Ribbon({
   }, [editor, revision]);
 
   return (
-    <Toolbar className="st-ribbon" label="사이트 도구">
-      <ToolbarGroup id="mode">
+    <RibbonToolbar compact className="st-ribbon" label="사이트 도구">
+      <RibbonGroup id="mode" label="편집 모드" layout="stack">
         {/*
           The pointer's owner, said out loud — and said as **one of these**.
 
@@ -366,54 +368,23 @@ export function Ribbon({
         <IconButton label="넣을 것 고르기" onClick={() => setAdding(true)}>
           <Icon name="add" />
         </IconButton>
-      </ToolbarGroup>
+      </RibbonGroup>
 
-      <ToolbarSeparator />
+
 
       {/*
         What a reader does **to what they have selected**, read from the product's own declaration.
-        
+
         It used to be written out here in JSX — which is a declaration nothing can read, and the
         whole reason `toolbar-model.ts` exists: `every-command-can-be-reached` asks the product what
         a reader can run, and a ribbon that answers only to itself is a ribbon that can drift from
         the check that is supposed to hold it.
       */}
-      <ToolbarGroup id="arrange">
-        {arrange.map((control) => (
-          <ToolbarToggle
-            /**
-             * **Keyed by the command and what it carries**, not by the command alone.
-             *
-             * Eight controls run `alignBlocks` and differ only in the `how` they carry, so keying by
-             * the command gave React eight children with one key: it drew the first and dropped the
-             * other seven, and the toolbar had a 왼쪽 button and nothing else. Found the moment the
-             * align controls were declared, by counting them in a browser and getting zero.
-             *
-             * Written out here once; `controlId` is that rule for all four products now, and a check
-             * in `office-controls` holds it.
-             */
-            key={control.key}
-            id={control.control.command}
-            label={control.says}
-            shortcut={control.shortcut}
-            state="off"
-            disabled={control.disabled}
-            onActivate={control.run}
-          >
-            {/*
-              The picture, not the word — and all four already declared one that nothing drew.
+      <RibbonGroup id="arrange" label="배치" layout="columns">
+        <MenuBar label="배치 도구" menus={[{ id: 'arrange', label: '배치', blocks: [{ id: 'arrange', items: arrange.map(control => ({ id: control.key, label: control.label, title: control.says, hint: control.shortcut, disabled: control.disabled })) }] }]} onPick={id => arrange.find(control => control.key === id)?.run()} />
+      </RibbonGroup>
 
-              복제 · 삭제 · 컴포넌트로 · 컴포넌트 해제 were plain text on a strip where everything
-              else in this suite is an icon with a tooltip, so they read as links rather than as
-              buttons and nothing among them was primary. The label is still the accessible name and
-              still the tooltip; what changed is what a reader's eye lands on.
-            */}
-            <Icon name={control.control.icon ?? 'add'} />
-          </ToolbarToggle>
-        ))}
-      </ToolbarGroup>
 
-      <ToolbarSeparator />
 
       {/*
         **What a word looks like** — drawn only when there are words selected.
@@ -429,7 +400,7 @@ export function Ribbon({
       */}
       {text.some((control) => !control.disabled) && (
         <>
-          <ToolbarGroup id="text">
+          <RibbonGroup id="text" label="글자" layout="columns">
             {text.map((control) => (
               <ToolbarToggle
                 key={control.key}
@@ -443,8 +414,8 @@ export function Ribbon({
                 <Icon name={control.control.icon ?? 'bold'} />
               </ToolbarToggle>
             ))}
-          </ToolbarGroup>
-          <ToolbarSeparator />
+          </RibbonGroup>
+
         </>
       )}
 
@@ -462,7 +433,7 @@ export function Ribbon({
         selection sync — it could not, in any state.
       */}
       {siteControlsIn('link').some((control) => can(control.command)) && (
-      <ToolbarGroup id="link">
+      <RibbonGroup id="link" label="링크" layout="stack">
         {siteControlsIn('link').map((control) =>
           control.command === 'linkToPage' ? (
             <ChoiceSelect
@@ -510,9 +481,10 @@ export function Ribbon({
             </ToolbarToggle>
           )
         )}
-      </ToolbarGroup>
+      </RibbonGroup>
       )}
 
+      {children}
       {/*
         The board toggles used to be here, and they are in **보기** now.
 
@@ -659,6 +631,6 @@ export function Ribbon({
           ))}
         </div>
       </Dialog>
-    </Toolbar>
+    </RibbonToolbar>
   );
 }

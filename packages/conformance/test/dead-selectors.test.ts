@@ -92,9 +92,9 @@ const treeOf = (app: 'word' | 'slide' | 'site'): string[] => {
       return;
     }
 
-    for (const name of Object.keys(manifest.dependencies ?? {})) {
+    for (const [name, version] of Object.entries(manifest.dependencies ?? {})) {
       // `workspace:*` is how this repository names its own packages; anything else is npm's.
-      if (!name.startsWith('@barocss/')) continue;
+      if (!name.startsWith('@barocss/') || !version.startsWith('workspace:')) continue;
       follow(`packages/${name.slice('@barocss/'.length)}`);
     }
   };
@@ -133,16 +133,19 @@ describe('a stylesheet rule that can never match', () => {
        * with a misspelt name: the day a product grows a theme switch they answer, and the day the
        * library stops offering them they come off. Named rather than counted for exactly that.
        */
+      // data-side is emitted by Radix. Other unused library states are exercised
+      // by the gallery: layers, data tables and selection frames. Keep these
+      // scoped to tokens.css; product-local misspellings must still fail.
       const offered: Record<typeof product, string[]> = {
-        word: ['data-theme', 'data-density'],
+        word: ['data-theme', 'data-density', 'data-side', 'data-row-hidden', 'data-row-drop', 'data-cell-editor', 'data-row-control', 'data-selection-state', 'data-handle'],
         // The deck's step inspector is drawn `data-density="dense"`, which is the offer taken up.
-        slide: ['data-theme'],
-        site: ['data-theme', 'data-density']
+        slide: ['data-theme', 'data-side', 'data-cell-editor', 'data-row-control', 'data-selection-state'],
+        site: ['data-density', 'data-side', 'data-selection-state', 'data-handle']
       };
       const open = new Set(offered[product]);
 
       const found = deadSelectors(styles, sources);
-      expect(found.filter((one) => !open.has(one.name)).map((one) => `${one.name} in ${one.sheet}`)).toEqual([]);
+      expect(found.filter((one) => !open.has(one.name) || (one.sheet !== 'packages/office-ui/src/tokens.css' && one.name !== 'data-theme')).map((one) => `${one.name} in ${one.sheet}`)).toEqual([]);
 
       // And the offer is still open — a claim that goes stale the day this product takes it up.
       const taken = [...open].filter((name) => !found.some((one) => one.name === name));

@@ -78,7 +78,7 @@ describe('setMarks operation (exec)', () => {
     selectionManager.setSelection({ type: 'range' as const, startNodeId: 't1', startOffset: 1, endNodeId: 't1', endOffset: 4 });
     const op = globalOperationRegistry.get('setMarks');
     await op!.execute({ type: 'setMarks', payload: { nodeId: 't1', marks: [{ stype: 'bold', range: [0, 2] } as any] } } as any, context);
-    expect(selectionManager.getCurrentSelection()).toEqual({ type: 'range' as const, startNodeId: 't1', startOffset: 1, endNodeId: 't1', endOffset: 4 });
+    expect(selectionManager.getCurrentSelection()).toEqual({ type: 'range' as const, startNodeId: 't1', startOffset: 1, endNodeId: 't1', endOffset: 4, collapsed: false });
   });
 
   it('fails with clear error when node does not exist', async () => {

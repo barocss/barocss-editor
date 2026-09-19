@@ -302,6 +302,7 @@ interface Copied extends DeckNode {
   __startRef?: number;
   __endRef?: number;
   text?: string;
+  marks?: unknown[];
 }
 
 /**
@@ -347,6 +348,8 @@ export function copyForPaste(doc: DeckAccess, sids: string[]): DeckNode[] {
     };
     const text = (node as { text?: unknown }).text;
     if (typeof text === 'string') made.text = text;
+    const marks = (node as { marks?: unknown }).marks;
+    if (Array.isArray(marks)) made.marks = JSON.parse(JSON.stringify(marks));
 
     const children = childrenOf(node)
       .map((child) => copy(child, depth + 1))

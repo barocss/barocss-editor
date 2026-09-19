@@ -38,6 +38,7 @@ export interface SiteKey extends KeyModel {
 }
 
 export const SITE_KEYS: SiteKey[] = [
+  { key: 'Mod+s', view: 'file.save', mode: 'any', label: '저장' },
   /**
    * **Out one level**, and the first thing this map says about `Escape`.
    *
@@ -233,13 +234,22 @@ export function siteKeyCommands(): string[] {
  * Derived, a hint cannot outlive its binding — and a chord nobody bound simply prints nothing, which
  * is the honest thing for a menu to say about a key that does not work.
  */
-export function hintFor(what: { command?: string; view?: string }): string | undefined {
-  return keyLabel(chordFor(taughtKeys(SITE_KEYS), what));
+export function hintFor(
+  what: { command?: string; view?: string },
+  apple: boolean
+): string | undefined {
+  return keyLabel(chordFor(taughtKeys(SITE_KEYS), what), apple);
 }
 
-/** A chord in the symbols a menu prints — `office-controls`', so all three products write one alike. */
-export function hintOf(chord: string): string {
-  return keyLabel(chord) ?? chord;
+/**
+ * A chord in the symbols a menu prints — `office-controls`', so all three products write one alike.
+ *
+ * `apple` is an argument and not a default for the reason `keyLabel` gives: a pure function of the
+ * platform is testable and `navigator` is not. Both of these took the default and printed `⌘` to
+ * everybody; the caller knows, and now has to say.
+ */
+export function hintOf(chord: string, apple: boolean): string {
+  return keyLabel(chord, apple) ?? chord;
 }
 
 /** Whether a press matches a chord. */
@@ -257,3 +267,23 @@ export function siteKeyFor(
 ): SiteKey | undefined {
   return keyFor(SITE_KEYS, event, mode);
 }
+
+/**
+ * **How far a page zooms, and the stops a reader reaches for.**
+ *
+ * The range is not new — `apps/site` has passed `min: 0.1, max: 4` to `useViewport` since the
+ * viewport existed, so the wheel has always been bounded. What was missing is the **ladder**: the
+ * ± buttons went through `office-ui`'s multiplier and landed on 156% and 195%, which is what
+ * `stepZoom` was written to prevent and what `apps/site` believed it was already using — a comment
+ * beside its ⌘+/⌘− said *"One ladder, shared with the zoom control's own buttons"* and neither of
+ * them had one.
+ *
+ * The stops are the deck's, minus the two the deck needs and a page does not: a page is read at the
+ * size it is published, so 3× and 4× are a magnifier rather than a view. The ends stay what the
+ * viewport already enforced, because a second opinion about the limits is how the two drift apart.
+ */
+export const SITE_ZOOM_LADDER = {
+  steps: [0.25, 0.5, 0.75, 1, 1.5, 2],
+  min: 0.1,
+  max: 4
+};

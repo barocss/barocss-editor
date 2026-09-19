@@ -4,7 +4,8 @@ import {
   headerRowsOf,
   scaledTo,
   tableBreaksOf,
-  tableRowsOf
+  tableRowsOf,
+  tableBreakLinesOf
 } from '../src/table-pagination';
 import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 
@@ -43,6 +44,26 @@ const row = (sid: string, texts: string[], attributes: Record<string, unknown> =
   stype: 'bTableRow',
   attributes,
   content: texts.map((text, at) => cell(`${sid}-c${at}`, text))
+});
+
+describe('merged row boundaries', () => {
+  it('keeps overlapping vertical merges together', () => {
+    const a = row('a', ['A', 'B']);
+    const b = row('b', ['C']);
+    (a.content![0] as DocumentNode).attributes = { rowspan: 3 };
+    (b.content![0] as DocumentNode).attributes = { rowspan: 3 };
+    const { doc, table } = docOf([{ sid: 'body', stype: 'bTableBody', content: [a, b, row('c', []), row('d', ['D']), row('e', ['E', 'F'])] }]);
+    expect(tableBreakLinesOf(doc, table)).toEqual([4, 5]);
+  });
+  it('ends a merge at its row group boundary', () => {
+    const a = row('a', ['A']);
+    (a.content![0] as DocumentNode).attributes = { rowspan: 99 };
+    const { doc, table } = docOf([
+      { sid: 'one', stype: 'bTableBody', content: [a, row('b', [])] },
+      { sid: 'two', stype: 'bTableBody', content: [row('c', ['C'])] },
+    ]);
+    expect(tableBreakLinesOf(doc, table)).toEqual([2, 3]);
+  });
 });
 
 /** A header group, which the schema has holding cells with no row between. */
@@ -176,6 +197,20 @@ describe('the breaks to draw', () => {
     // both in full pushed every row after it down by the height of a header.
     expect(drawn.height).toBe(80);
     expect(drawn.header.map((each) => each.text)).toEqual(['One', 'Two']);
+  });
+
+  it('preserves header rows and merged cells without spanning into the body', () => {
+    const first = row('h1', ['Group', 'Amounts'], { isHeader: true });
+    (first.content![0] as DocumentNode).attributes = { rowspan: 3 };
+    (first.content![1] as DocumentNode).attributes = { colspan: 2 };
+    const { doc, table } = docOf([body('b', [first, row('h2', ['Plan', 'Actual'], { isHeader: true }), row('r1', ['a', 'b', 'c']), row('r2', ['d', 'e', 'f'])])]);
+    const [drawn] = tableBreaksOf(doc, table, [{ line: 3, height: 100 }], [20, 25, 30, 30]);
+    expect(drawn.headerRows).toEqual([
+      [{ sourceSid: 'h1-c0', text: 'Group', colspan: 1, rowspan: 2 }, { sourceSid: 'h1-c1', text: 'Amounts', colspan: 2, rowspan: 1 }],
+      [{ sourceSid: 'h2-c0', text: 'Plan', colspan: 1, rowspan: 1 }, { sourceSid: 'h2-c1', text: 'Actual', colspan: 1, rowspan: 1 }],
+    ]);
+    expect(drawn.height).toBe(55);
+    expect(drawn.headerRowHeights).toEqual([20, 25]);
   });
 
   it('never asks for a negative gap', () => {

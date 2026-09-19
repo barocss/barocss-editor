@@ -24,6 +24,9 @@ export interface ImageAttributes {
   /** Width and height as the document stores them: twips. */
   width?: number;
   height?: number;
+  cropMode?: string;
+  cropPositionX?: number;
+  cropPositionY?: number;
   wrap?: WrapMode;
   /** Which side of the picture the text runs down. */
   side?: WrapSide;
@@ -92,6 +95,11 @@ export function imageCss(attrs: ImageAttributes | undefined): CssStyle {
   const height = px(a.height);
   if (width) size.width = width;
   if (height) size.height = height;
+  if (a.cropMode === 'cover') {
+    const position = (value: number | undefined) => typeof value === 'number' && Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 50;
+    size.objectFit = 'cover';
+    size.objectPosition = `${position(a.cropPositionX)}% ${position(a.cropPositionY)}%`;
+  }
 
   switch (a.wrap) {
     case 'square':

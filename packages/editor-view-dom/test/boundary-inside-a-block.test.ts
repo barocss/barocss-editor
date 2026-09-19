@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DOMSelectionHandlerImpl } from '../src/event-handlers/selection-handler';
+import { extractModelTextFromRange } from '../src/utils/edit-position-converter';
 
 /**
  * **경계가 블록 요소일 때 어느 노드가 답인가.**
@@ -132,4 +133,358 @@ describe('경계가 블록일 때', () => {
     expect(said.endOffset).toBe(2);
   });
 
+});
+
+/**
+ * **접히지 않은 모델 선택을 만들 수 있는 DOM 자리 — 아홉을 세고 여기 내려 적는다.**
+ *
+ * 브라우저가 잡은 것은 단위로 내려 적는다(`docs/specs/testing.md`). 잡은 것은
+ * `site.spec.ts:8298` 이고 증상은 *떠 있는 표면이 둘* 이었다 — 슬래시 메뉴가 두 끝을 비교해
+ * *캐럿* 이라 하고 버블 툴바가 필드를 물어 *범위* 라 했다. 27회 중 4회, 15%.
+ *
+ * 원인을 좇아 **`offsetWithRuns(…, isEnd=false)` 와 `isEnd=true` 가 같은 DOM 자리에 다른 답을
+ * 주는 경우를 전부** 열거했다. 그 표가 이 파일의 나머지다:
+ *
+ * | # | 입력 | 두 해석 | 여기서 |
+ * |---|---|---|---|
+ * | 1 | 블록 경계, 안에 그릇 ≥2 | `t1:0` vs `t2:2` | 위의 세 검사 |
+ * | 2 | 데코레이터가 **제 글자**를 그린 것 안 — 색인에서 빠져 `byNode` 미스 | `0` vs `총길이` | 아래 |
+ * | 3 | **길이 0 글자 노드** 섞인 그릇 | 같음 | 아래 |
+ * | 4 | 그 미스에서 **DOM 오프셋을 모델 오프셋처럼** 씀 | 엉뚱한 런 | 아래 — **고쳤다** |
+ * | 5 | 그릇 없는 블록 → `bestContainer` 가 **블록 자신**을 줌 | `text` 없는 노드 | 아래 |
+ * | 6 | 채움(ZWNBSP) 앞 | 같음 ✔ | 아래 |
+ * | 7 | 빈 그릇 | 둘 다 0 ✔ | 아래 |
+ * | 8 | **인접 런 사이를 걸친 범위** — sid 가 둘이라 두 끝만으로는 모른다 | 글자 0개 | 아래 + `extensions/test/guards.test.ts` |
+ * | 9 | 타이핑이 쓴 깃발 없는 캐럿 | `collapsed: undefined` | `typing-says-where-the-caret-is.test.ts` |
+ *
+ * **아홉이 다 닫혔다.** 4는 `shared/text-position` 의 되돌아갈 곳이 자를 바꿔 셌던 것이고, 8은
+ * *두 끝만으로 답할 수 없다* 가 답이어서 술어가 한 층 위로 갔다 — 그 둘이 `it.fails` 로 서 있던
+ * 마지막 둘이다.
+ *
+ * **묻는 것은 하나다: 접힌 DOM 자리는 접힌 모델 선택인가.** 그리고 **두 경로에 다 묻는다** —
+ * 선택을 읽는 `convertDOMSelectionToModel` 과 타이핑이 지나는 `convertStaticRangeToModel`.
+ * 앞의 것만 고쳐 두면 결함은 조용한 쪽으로 옮겨간다. 실제로 이 회차 전까지 2·3·5는 *선택
+ * 경로만* 막혀 있었다.
+ */
+function plant(
+  nodes: Record<string, unknown>,
+  draw: (root: HTMLElement) => void
+): { root: HTMLElement; handler: DOMSelectionHandlerImpl } {
+  const root = document.createElement('div');
+  root.setAttribute('contenteditable', 'true');
+  draw(root);
+  document.body.appendChild(root);
+
+  const editor = {
+    dataStore: { getNode: (id: string) => nodes[id] ?? null },
+    updateSelection: () => {}
+  } as never;
+  const handler = new DOMSelectionHandlerImpl(editor);
+  (handler as never as { view: unknown }).view = { contentEditableElement: root };
+  return { root, handler };
+}
+
+interface Said {
+  type?: string;
+  startNodeId?: string;
+  startOffset?: number;
+  endNodeId?: string;
+  endOffset?: number;
+  collapsed?: boolean;
+}
+
+/**
+ * 같은 DOM 자리를 **두 경로에** 묻는다.
+ *
+ * `StaticRange` 는 jsdom 에 없고 필요하지도 않다 — `convertStaticRangeToModel` 이 읽는 것은 네
+ * 자리와 `collapsed` 뿐이고, 브라우저가 캐럿에 대해 주는 것이 정확히 이 모양이다.
+ */
+function askBothWays(handler: DOMSelectionHandlerImpl, node: Node, offset: number): { read: Said; typed: Said } {
+  const caret = document.createRange();
+  caret.setStart(node, offset);
+  caret.collapse(true);
+  const sel = window.getSelection()!;
+  sel.removeAllRanges();
+  sel.addRange(caret);
+
+  return {
+    read: handler.convertDOMSelectionToModel(sel) as Said,
+    typed: handler.convertStaticRangeToModel({
+      startContainer: node,
+      startOffset: offset,
+      endContainer: node,
+      endOffset: offset,
+      collapsed: true
+    } as unknown as StaticRange) as Said
+  };
+}
+
+/** 캐럿 하나가 두 경로에서 다 캐럿으로 나오는가. */
+function expectOnePoint(said: Said, where: string): void {
+  expect(said.collapsed, `${where}: 캐럿이 선택으로 읽혔습니다`).toBe(true);
+  expect(said.startNodeId, `${where}: 두 끝이 다른 노드로 갈라졌습니다`).toBe(said.endNodeId);
+  expect(said.startOffset, `${where}: 두 끝이 다른 오프셋으로 갈라졌습니다`).toBe(said.endOffset);
+}
+
+describe('접히지 않은 선택을 만들 수 있는 DOM 자리', () => {
+  it('#2 데코레이터가 제 글자를 그린 것 안 — 색인에 없는 글자 노드', () => {
+    /*
+     * `data-bc-decorator="layer"` 는 **자기 것을 그리는** 데코레이터다. 문서에 그 글자가 없으므로
+     * `skipsInIndex` 가 색인에서 빼고, 그래서 그 안의 글자 노드는 `byNode` 에 없다. 캐럿이 거기
+     * 서면 `offsetWithRuns` 는 되돌아갈 곳이 없어 런 경계로 붙이는데, 그 붙이기가 **시작이면 런의
+     * 처음, 끝이면 런의 끝** 이다 — 같은 한 점에 대해 `t1:0` 과 `t1:4`.
+     *
+     * 문서가 그 글자를 갖고 있지 않은 이상 이 미스 자체는 옳다. 틀린 것은 *한 점을 두 번 해석해
+     * 범위를 만드는 것* 이고, 그것은 `range.collapsed` 하나로 답이 난다.
+     */
+    const { root, handler } = plant(
+      { p1: { stype: 'paragraph' }, t1: { stype: 'inline-text', text: '가나다라' } },
+      (host) => {
+        const p = document.createElement('p');
+        p.setAttribute('data-bc-sid', 'p1');
+        const run = document.createElement('span');
+        run.setAttribute('data-bc-sid', 't1');
+        const badge = document.createElement('span');
+        badge.setAttribute('data-bc-decorator', 'layer');
+        badge.appendChild(document.createTextNode('§'));
+        run.append(badge, document.createTextNode('가나다라'));
+        p.appendChild(run);
+        host.appendChild(p);
+      }
+    );
+
+    const inside = root.querySelector('[data-bc-decorator]')!.firstChild!;
+    const { read, typed } = askBothWays(handler, inside, 1);
+
+    expectOnePoint(read, '선택 경로');
+    expectOnePoint(typed, '타이핑 경로');
+    expect(read.startNodeId, '데코레이터가 아니라 그것을 담은 런이 답입니다').toBe('t1');
+
+    root.remove();
+  });
+
+  it('#3 길이 0 글자 노드가 섞인 그릇', () => {
+    /*
+     * 색인은 빈 글자 노드에 런을 만들지 않는다(`addRun` 의 `stripped.length === 0`). 그래서 그
+     * 노드도 `byNode` 에 없고 #2 와 같은 자리로 떨어진다.
+     *
+     * 이것은 지어낸 모양이 아니다 — 마크가 문단을 쪼개거나 조합이 끝난 자리에 빈 글자 노드가
+     * 남는다. 브라우저는 거기에 캐럿을 세울 수 있다.
+     */
+    const { root, handler } = plant(
+      { p1: { stype: 'paragraph' }, t1: { stype: 'inline-text', text: '가나다라' } },
+      (host) => {
+        const p = document.createElement('p');
+        p.setAttribute('data-bc-sid', 'p1');
+        const run = document.createElement('span');
+        run.setAttribute('data-bc-sid', 't1');
+        run.append(document.createTextNode(''), document.createTextNode('가나다라'));
+        p.appendChild(run);
+        host.appendChild(p);
+      }
+    );
+
+    const empty = root.querySelector('[data-bc-sid="t1"]')!.firstChild!;
+    const { read, typed } = askBothWays(handler, empty, 0);
+
+    expectOnePoint(read, '선택 경로');
+    expectOnePoint(typed, '타이핑 경로');
+    expect(read.startNodeId).toBe('t1');
+
+    root.remove();
+  });
+
+  it('#4 색인에 없는 글자 노드의 DOM 오프셋은 모델 오프셋이 아니다 — 자리로 붙는다', () => {
+    /*
+     * **`text-position.ts` 의 되돌아갈 곳이 자리를 잘못 셌다.** 고쳤다.
+     *
+     * ```ts
+     * const idx = binarySearchRun(runs.runs, Math.max(0, Math.min(offset, runs.total - 1)));
+     * ```
+     *
+     * `offset` 은 **그 글자 노드 안의 DOM 오프셋**이고 `binarySearchRun` 이 받는 것은 **그릇
+     * 전체의 모델 오프셋**이었다. 두 수가 같은 자를 쓰지 않는다. 그래서 색인에 없는 노드 안에서
+     * 캐럿이 오른쪽으로 갈수록 답이 **뒤쪽 런으로 미끄러졌다** — 데코레이터의 글자가 길수록 더.
+     *
+     * 아래는 배지가 여섯 글자이고 문서의 런은 `가나`(0..2)와 `다라`(2..4) 둘이다. 배지 안 5번
+     * 자리의 캐럿은 그 두 런 어느 쪽도 아니고, 답은 **배지가 놓인 자리**(0)다. 고치기 전에 나오던
+     * 것은 `2` — 뒤 런의 시작이다.
+     *
+     * 지금은 색인에 없는 글자 노드를 **요소 경계와 똑같이** 다룬다: 문서 순서로 뒤의 첫 런의 처음,
+     * 없으면 앞의 마지막 런의 끝. 산수를 고친 것이 아니라 **물을 수 있는 것만 묻게** 한 것이다 —
+     * 색인에 없는 노드는 오프셋을 말할 수 없고 자리만 말할 수 있다.
+     */
+    const { root, handler } = plant(
+      { p1: { stype: 'paragraph' }, t1: { stype: 'inline-text', text: '가나다라' } },
+      (host) => {
+        const p = document.createElement('p');
+        p.setAttribute('data-bc-sid', 'p1');
+        const run = document.createElement('span');
+        run.setAttribute('data-bc-sid', 't1');
+        const badge = document.createElement('span');
+        badge.setAttribute('data-bc-decorator', 'layer');
+        badge.appendChild(document.createTextNode('[각주1]'));
+        /* 런이 둘이어야 미끄러짐이 보인다 — 하나뿐이면 어느 오프셋도 그 하나로 붙는다. */
+        run.append(badge, document.createTextNode('가나'), document.createTextNode('다라'));
+        p.appendChild(run);
+        host.appendChild(p);
+      }
+    );
+
+    const inside = root.querySelector('[data-bc-decorator]')!.firstChild!;
+    const { read } = askBothWays(handler, inside, 5);
+
+    expect(read.startOffset, '데코레이터 안의 DOM 오프셋이 모델 오프셋으로 세어졌습니다').toBe(0);
+
+    root.remove();
+  });
+
+  it('#5 그릇이 하나도 없는 블록 — 답이 블록 자신이 된다', () => {
+    /*
+     * `bestContainer` 는 위로도 아래로도 그릇을 못 찾으면 **그 블록 자신**을 돌려준다. 문서가
+     * 아닌 이상 sid 는 있으니 부르는 쪽이 무엇을 할지 정하라는 뜻이고, 그 판단이 주석에 적혀
+     * 있다. 그릇이 아니므로 오프셋에 뜻이 없다 — 그래서 **적어도 두 끝이 갈라지지는 않아야**
+     * 한다. 갈라지면 *글자가 없는 노드에 그어진 범위* 가 되고, 버블 툴바가 그 위에 뜬다.
+     */
+    const { root, handler } = plant({ p1: { stype: 'paragraph' } }, (host) => {
+      const p = document.createElement('p');
+      p.setAttribute('data-bc-sid', 'p1');
+      host.appendChild(p);
+    });
+
+    const block = root.querySelector('[data-bc-sid="p1"]')!;
+    const { read, typed } = askBothWays(handler, block, 0);
+
+    expectOnePoint(read, '선택 경로');
+    expectOnePoint(typed, '타이핑 경로');
+    expect(read.startNodeId, '그릇이 없으면 블록 자신이 답입니다').toBe('p1');
+    expect(read.startOffset, '글자가 없는 노드의 오프셋은 0 말고 될 것이 없습니다').toBe(0);
+
+    root.remove();
+  });
+
+  it('#6 채움 글자(ZWNBSP) 옆 — 두 해석이 이미 같다', () => {
+    /*
+     * 채움은 렌더러가 놓은 글자이고 색인이 `domStart` 로 건너뛴다. 그래서 ZWNBSP **뒤**가 모델
+     * 오프셋 0 이고, 그 자리는 시작으로 읽으나 끝으로 읽으나 같다. 맞는 채로 남아 있는 것을
+     * 적어 두는 이유는, 이 표의 아홉 중 *맞는 것* 이 어느 것인지가 다음 사람에게 필요하기
+     * 때문이다 — 맞다고 적혀 있지 않으면 다시 재게 된다.
+     */
+    const { root, handler } = plant(
+      { p1: { stype: 'paragraph' }, t1: { stype: 'inline-text', text: '가나' } },
+      (host) => {
+        const p = document.createElement('p');
+        p.setAttribute('data-bc-sid', 'p1');
+        const run = document.createElement('span');
+        run.setAttribute('data-bc-sid', 't1');
+        run.appendChild(document.createTextNode('﻿가나'));
+        p.appendChild(run);
+        host.appendChild(p);
+      }
+    );
+
+    const text = root.querySelector('[data-bc-sid="t1"]')!.firstChild!;
+    const { read, typed } = askBothWays(handler, text, 1);
+
+    expectOnePoint(read, '선택 경로');
+    expectOnePoint(typed, '타이핑 경로');
+    expect(read.startOffset, '채움 글자가 오프셋으로 세어졌습니다').toBe(0);
+
+    root.remove();
+  });
+
+  it('#7 빈 그릇 — 둘 다 0', () => {
+    const { root, handler } = plant(
+      { p1: { stype: 'paragraph' }, t1: { stype: 'inline-text', text: '' } },
+      (host) => {
+        const p = document.createElement('p');
+        p.setAttribute('data-bc-sid', 'p1');
+        const run = document.createElement('span');
+        run.setAttribute('data-bc-sid', 't1');
+        p.appendChild(run);
+        host.appendChild(p);
+      }
+    );
+
+    const run = root.querySelector('[data-bc-sid="t1"]')!;
+    const { read, typed } = askBothWays(handler, run, 0);
+
+    expectOnePoint(read, '선택 경로');
+    expectOnePoint(typed, '타이핑 경로');
+    expect(read.startNodeId).toBe('t1');
+    expect(read.startOffset).toBe(0);
+
+    root.remove();
+  });
+
+  it('#8 인접한 두 런 사이의 범위는 글자를 하나도 안 고른다 — 그 답은 문서가 낸다', () => {
+    /*
+     * `("가나", 2) → ("다라", 0)` 은 **화면의 같은 점**이다. 사이에 글자가 없다. 그런데 DOM 은
+     * 두 컨테이너가 다르므로 `range.collapsed` 가 `false` 이고, `fromDOMSelection` 은 sid 가
+     * 다르면 `collapsed: false` 를 적는다(`shared/src/selection.ts`). 그래서 모델은
+     * `t1:2 → t2:0` — 글자 0개를 고른 "범위" 다. 버블 툴바가 거기 떴다.
+     *
+     * **처음 이 검사는 `collapsed === true` 를 기대하며 `it.fails` 로 서 있었다.** 그 기대가
+     * 틀렸다: sid 가 둘일 때 `collapsed` 는 두 끝만 보는 함수가 답할 수 있는 것이 아니고, 그
+     * 경계는 `editor-core/src/collapsed.ts` 와 `shared/src/selection.ts` 에 적혀 있다. 여기서
+     * 나오는 `false` 는 **거짓말이 아니라 *모른다*** 의 다른 표기다.
+     *
+     * 그러므로 이 검사가 묻는 것은 둘이다:
+     *
+     * 1. 변환은 두 끝을 **정확히** 준다 — `t1:2 → t2:0`.
+     * 2. *고른 글자가 있나* 는 **문서를 읽어** 답한다 — `extractModelTextFromRange` 가 빈
+     *    문자열을 준다.
+     *
+     * 2번을 실제로 술어로 쓰는 자리는 `extensions/src/guards.ts` 의 `hasRange(…, 'something')`
+     * 이고, 그 층의 검사는 `packages/extensions/test/guards.test.ts` 에 있다. 같은 것을 두 층에서
+     * 묻지 않는다(`docs/specs/testing.md`) — 여기서 묻는 것은 *이 DOM 자리가 그 모양을 만드는가*
+     * 이고, 거기서 묻는 것은 *그 모양에 가드가 뭐라 하는가* 다.
+     */
+    const nodes = {
+      p1: { stype: 'paragraph' },
+      t1: { stype: 'inline-text', text: '가나' },
+      t2: { stype: 'inline-text', text: '다라' }
+    };
+    const { root, handler } = plant(nodes, (host) => {
+      const p = document.createElement('p');
+      p.setAttribute('data-bc-sid', 'p1');
+      for (const [sid, word] of [['t1', '가나'], ['t2', '다라']] as const) {
+        const run = document.createElement('span');
+        run.setAttribute('data-bc-sid', sid);
+        run.appendChild(document.createTextNode(word));
+        p.appendChild(run);
+      }
+      host.appendChild(p);
+    });
+    const store = { getNode: (id: string) => (nodes as Record<string, unknown>)[id] ?? null };
+
+    const first = root.querySelector('[data-bc-sid="t1"]')!.firstChild!;
+    const second = root.querySelector('[data-bc-sid="t2"]')!.firstChild!;
+
+    const between = (fromOffset: number, toOffset: number): Said => {
+      const range = document.createRange();
+      range.setStart(first, fromOffset);
+      range.setEnd(second, toOffset);
+      const sel = window.getSelection()!;
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return handler.convertDOMSelectionToModel(sel) as Said;
+    };
+
+    const empty = between(2, 0);
+    expect(empty.startNodeId).toBe('t1');
+    expect(empty.startOffset).toBe(2);
+    expect(empty.endNodeId).toBe('t2');
+    expect(empty.endOffset).toBe(0);
+    expect(
+      extractModelTextFromRange(store, empty as never),
+      '인접한 두 런 사이가 글자를 고른 것으로 읽혔습니다'
+    ).toBe('');
+
+    /* 그리고 같은 두 런 사이에 글자가 **있으면** 같은 물음이 반대로 답한다 — 아니면 늘 빈 것이다. */
+    const real = between(1, 1);
+    expect(extractModelTextFromRange(store, real as never)).toBe('나다');
+
+    root.remove();
+  });
 });

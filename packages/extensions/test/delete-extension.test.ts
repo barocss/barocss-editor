@@ -128,7 +128,8 @@ describe('DeleteExtension - backspace / deleteForward', () => {
   });
 
   it('backspace: deletes one character to the left from current node with deleteText when offset > 0', async () => {
-    const fakeDataStore = {}; // _executeBackspace's offset>0 path does not use dataStore
+    // The command reads the text to find a grapheme boundary, rather than subtracting one UTF-16 unit.
+    const fakeDataStore = { getNode: () => ({ sid: 'text-1', stype: 'inline-text', text: 'abcd' }) };
     const editor = new FakeEditor(fakeDataStore) as any;
 
     const ext = new DeleteExtension();

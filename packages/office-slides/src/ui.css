@@ -129,7 +129,7 @@
 
 .sl-filmstrip button[data-current='true'] {
   background: color-mix(in srgb, var(--ou-accent, #2563eb) 16%, transparent);
-  box-shadow: inset 2px 0 0 var(--ou-accent, #2563eb);
+  box-shadow: inset 0 0 0 1px var(--ou-accent, #2563eb);
 }
 
 .sl-filmstrip-number {
@@ -181,38 +181,44 @@
 }
 
 /* ── The rulers ──────────────────────────────────────────────────────────── */
-/* Along the top and the left of the deck, in a two-by-two grid with it, so they
-   line up by construction rather than by measurement. `sticky` keeps them against
-   the edge of the scrolling pane, which is where a ruler has to stay to be one. */
-.sl-stage {
-  /* [corner ruler-x] / [ruler-y frame] — and the frame keeps centring itself. */
+.sl-stage-viewport {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.sl-stage-viewport[data-rulers='true'] {
   display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-rows: auto 1fr;
-  justify-items: center;
-  align-content: start;
+  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-rows: 24px minmax(0, 1fr);
+}
+.sl-stage-viewport[data-rulers='true'] > .sl-stage {
+  grid-area: 2 / 2;
+  min-width: 0;
+  justify-content: safe center;
 }
 
 .sl-ruler-corner {
   grid-area: 1 / 1;
-  position: sticky;
-  top: 0;
-  left: 0;
+  position: relative;
   z-index: 3;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   background: var(--ou-panel, #ffffff);
   border-right: 1px solid var(--ou-line, #d4d4d4);
   border-bottom: 1px solid var(--ou-line, #d4d4d4);
 }
 
 .sl-ruler {
-  position: sticky;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
   z-index: 2;
   flex: none;
   background: var(--ou-panel, #ffffff);
   color: var(--ou-muted, #6b6b6b);
-  font-size: 9px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
   overflow: hidden;
 }
@@ -220,25 +226,20 @@
 .sl-ruler[data-ruler='x'] {
   grid-area: 1 / 2;
   top: 0;
-  height: 18px;
+  height: 24px;
   border-bottom: 1px solid var(--ou-line, #d4d4d4);
 }
 
 .sl-ruler[data-ruler='y'] {
   grid-area: 2 / 1;
   left: 0;
-  width: 18px;
+  width: 24px;
   border-right: 1px solid var(--ou-line, #d4d4d4);
-  /*
-   * Centred the same way the frame is.
-   *
-   * The frame uses `margin: auto` — deliberately, because `align-items` clips
-   * anything taller than the pane instead of letting it scroll — so a ruler
-   * aligned to the *start* of the row sits above the slide by half the slack.
-   * Measured: 46 pixels of it, and every vertical tick wrong by that much.
-   */
-  align-self: center;
 }
+
+.sl-ruler-scale { position: absolute; background: var(--ou-ground); }
+.sl-ruler[data-ruler='x'] .sl-ruler-scale { top: 0; bottom: 0; }
+.sl-ruler[data-ruler='y'] .sl-ruler-scale { left: 0; right: 0; }
 
 .sl-ruler-tick {
   position: absolute;
@@ -274,13 +275,13 @@
 }
 
 .sl-ruler[data-ruler='x'] .sl-ruler-tick i {
-  top: 1px;
-  left: 2px;
+  bottom: 10px;
+  left: 3px;
 }
 
 .sl-ruler[data-ruler='y'] .sl-ruler-tick i {
-  left: 1px;
-  top: 2px;
+  right: 10px;
+  top: 3px;
   /* Turned, because a vertical ruler's numbers are read along it. */
   writing-mode: vertical-rl;
 }
@@ -393,16 +394,11 @@
 }
 
 .sl-selected {
-  outline: 1.5px solid var(--ou-accent, #2563eb);
+
   outline-offset: 0;
 }
 
-.sl-handle {
-  background: #ffffff;
-  border: 1.5px solid var(--ou-accent, #2563eb);
-  border-radius: 2px;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
-}
+
 
 /* Round, and above the box rather than on it, so it reads as a turn. */
 .sl-handle-rotate {
@@ -418,7 +414,7 @@
  * While a box is being typed in, the overlay is inert and the box says so —
  * otherwise the only thing telling the reader they are in text is the caret.
  */
-.sl-overlay[data-editing='true'] .sl-selected {
+.sl-overlay[data-editing='true'] .sl-selected::after {
   outline-style: dashed;
 }
 
@@ -501,19 +497,9 @@
 /* What a drag is doing, in numbers — the badge every drawing tool draws while a
    shape is held. Dark on light so it reads over a slide of any colour, and
    `pointer-events: none` because it is a label rather than a control. */
-.sl-readout {
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: #111827;
-  color: #f9fafb;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
-}
 
 .sl-guide {
-  background: #f43f5e;
+  background: var(--ou-selection-guide);
 }
 
 /*
@@ -1444,21 +1430,6 @@
   color: var(--ou-accent, #2563eb);
 }
 
-/* What was wrong with a file the reader tried to open — in the chrome, so it
-   stays until they try again, where an alert is gone before it can be read
-   twice. */
-.sl-file-problem {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 320px;
-  padding: 2px 6px;
-  border: 1px solid #dc2626;
-  border-radius: 4px;
-  color: #dc2626;
-  font-size: 11px;
-}
-
 /* ── Two motions at once, on one shape ───────────────────────────────────── */
 /* A lane per overlap. The row grows to fit them, which is what a video editor's
    track does and the only arrangement where a reader can grab the bar
@@ -1780,29 +1751,7 @@
   min-height: 0;
 }
 
-.sl-layers-list li {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  /* One height for every row, so the drag can find which one the pointer is over
-     by its box rather than by dividing by a magic number. */
-  height: 26px;
-  padding-right: 4px;
-  font-size: 11px;
-  color: var(--ou-ink, #171717);
-}
-
-.sl-layers-list li:hover {
-  background: var(--ou-ground, #f5f5f5);
-}
-
-.sl-layers-list li[data-layer-selected='true'] {
-  background: color-mix(in srgb, var(--ou-accent, #2563eb) 14%, transparent);
-}
-
-/* Hidden: the row stays legible but says it is not being drawn. */
-.sl-layers-list li[data-layer-hidden='true'] .sl-layer-name,
-.sl-layers-list li[data-layer-hidden='true'] .sl-layer-kind {
+.sl-layer-kind {
   opacity: 0.45;
 }
 
@@ -1847,30 +1796,6 @@
   height: 5px;
   border-radius: 999px;
   background: var(--ou-accent, #2563eb);
-}
-
-/*
-  On hover, or when it is *off*.
-
-  A lock that is on has to be visible without hunting for it; an open eye on every
-  visible row is a column of twelve identical marks. So the toggles are hidden
-  until the pointer is on the row, and a row that is hidden or locked shows its own
-  toggle always.
-*/
-/*
-  Only what is this app's: which toggles are *shown*. The size, the corner and the
-  hover are `IconButton`'s — and a descendant rule of this app's beating a shared
-  control's own classes is the fault this stylesheet has been caught at before.
-*/
-.sl-layer-toggle {
-  color: var(--ou-muted, #6b6b6b);
-  visibility: hidden;
-}
-
-.sl-layers-list li:hover .sl-layer-toggle,
-.sl-layers-list li[data-layer-hidden='true'] [data-layer-visible],
-.sl-layers-list li[data-layer-locked='true'] [data-layer-locked] {
-  visibility: visible;
 }
 
 /* Not in the show, like the rulers and the guides: an audience is looking. */
@@ -2670,3 +2595,55 @@
  * so only the button goes.
  */
 .sl-file-picker > button { display: none; }
+
+/* One navigation column: deck order or the current slide's object stack. */
+.sl-sidebar { display: flex; flex-direction: column; flex: 0 0 240px; min-height: 0; background: var(--ou-panel, #fff); border-right: 1px solid var(--ou-line, #ddd); }
+.sl-sidebar-context { display: flex; align-items: center; min-height: 48px; padding: 8px 12px; border-bottom: 1px solid var(--ou-line, #ddd); font-size: 11px; color: var(--ou-muted, #666); }
+.sl-sidebar-context > span { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.sl-sidebar-context strong { font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ou-ink, #171717); }
+.sl-sidebar-content, .sl-sidebar-page { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.sl-sidebar-page[hidden] { display: none; }
+.sl-sidebar .sl-filmstrip, .sl-sidebar .sl-layers { width: 100%; border: 0; flex: 1; min-height: 0; }
+.sl-sidebar .sl-filmstrip { padding: 12px 8px; }
+.sl-sidebar .sl-filmstrip ol { gap: 8px; }
+.sl-sidebar .sl-filmstrip button { gap: 6px; padding: 8px; }
+.sl-sidebar .sl-filmstrip button[data-current='true'] { background: var(--ou-accent-soft, #e8edff); }
+.sl-sidebar .sl-layers-list { padding: 8px; }
+.sl-shell[data-presenting='true'] .sl-sidebar { display: none; }
+
+.sl-sidebar .sl-layer-kind { display: inline-flex; align-items: center; justify-content: center; width: 20px; color: var(--ou-muted, #666); }
+
+/* A camera translates the workspace; slide placement never changes slide-local coordinates. */
+.sl-stage[data-freeboard='true'] { position: relative; overflow: hidden; display: block; padding: 0; touch-action: none; }
+.sl-stage[data-freeboard='true'] .sl-stage-frame { position: absolute; left: 0; top: 0; margin: 0; }
+.sl-stage[data-freeboard='true'] .sl-stage-scaled { width: 1px; }
+.sl-stage[data-freeboard='true'] .sl-host .w-document { position: relative; display: block; width: 1px; height: 1px; }
+.sl-board-labels { position: absolute; left: 0; top: 0; z-index: 4; }
+.sl-board-labels button { position: absolute; display: block; height: 26px; width: max-content; padding: 0 8px; border: 1px solid transparent; border-radius: 4px; color: var(--ou-muted); background: var(--ou-panel); font: inherit; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: grab; touch-action: none; }
+.sl-board-labels button[data-active='true'] { color: var(--ou-accent); border-color: var(--ou-accent); }
+.sl-board-labels button:active { cursor: grabbing; }
+
+.sl-stage[data-freeboard='true'] .sl-host { overflow: visible !important; }
+
+.sl-canvas-help { position: absolute; right: 14px; bottom: 10px; z-index: 4; padding: 5px 8px; border-radius: 4px; background: var(--ou-panel, #fff); color: var(--ou-muted, #737373); font-size: 11px; pointer-events: none; }
+
+.sl-transfer-label { position: absolute; top: 6px; left: 6px; padding: 4px 7px; border-radius: 4px; color: white; background: var(--ou-accent, #2563eb); font: 11px system-ui; }
+
+/* Folded timelines show transport only. Expanded tools keep their own width. */
+.sl-timeline-head { min-width:0; flex-shrink:0; }
+.sl-timeline-head > * { flex-shrink:0; }
+.sl-timeline-head h2 { white-space:nowrap; }
+.sl-timeline-transport { white-space:nowrap; }
+.sl-timeline[data-open='false'] .sl-timeline-magnify,
+.sl-timeline[data-open='false'] .sl-timeline-presses,
+.sl-timeline[data-open='false'] .sl-timeline-cost { display:none; }
+@media (max-width:700px) {
+  .sl-timeline { padding-inline:8px; }
+  .sl-timeline-head { gap:6px; overflow-x:auto; }
+  .sl-timeline-transport { margin-left:auto; }
+}
+.sl-property-fields{border:0;padding:0;margin:0;min-width:0;display:contents}
+.office-modal.sl-theme-dialog {
+  width: min(36rem, calc(100vw - 2rem));
+  --ou-label-w: 104px;
+}

@@ -18,8 +18,9 @@ describe('EditorViewDOM Container API', () => {
   beforeEach(() => {
     // Set up DOM environment
     document.body.innerHTML = '';
+    // (`container.sid = …` used to stand here. `HTMLElement` has no `sid`, and every
+    // read in `src/` is `getAttribute('data-bc-sid')` — it set an expando nobody read.)
     container = document.createElement('div');
-    container.sid = 'editor-container';
     document.body.appendChild(container);
   });
   

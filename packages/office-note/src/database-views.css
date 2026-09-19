@@ -1,0 +1,15 @@
+.ondb-view-strip { display:flex; align-items:center; gap:4px; padding:0; min-height:36px; border-bottom:1px solid var(--ou-line); position:relative; }
+.ondb-view-tabs { display:flex; align-self:stretch; align-items:stretch; gap:12px; overflow-x:auto; min-width:0; }
+.ondb-view-tabs [role=tab] { display:flex; align-items:center; gap:6px; flex:none; border:0; border-bottom:2px solid transparent; padding:8px 2px; background:transparent; color:var(--ou-muted); font:inherit; font-size:13px; cursor:pointer; white-space:nowrap; }
+.ondb-view-tabs [role=tab][aria-selected=true] { color:var(--ou-ink); border-bottom-color:var(--ou-ink); font-weight:600; }
+.ondb-view-manage { margin-left:auto; }
+.ondb-view-popup { width:320px; max-width:calc(100vw - 16px); overflow-y:auto; padding:12px; }
+.ondb-view-popup form, .ondb-view-popup > label { display:grid; gap:8px; font-size:12px; }
+.ondb-view-layout { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:6px 0; }
+.ondb-view-popup [role=alert], .ondb-view-error { color:var(--ou-danger,#b91c1c); font-size:12px; line-height:1.5; }
+.ondb-view-error { position:absolute; z-index:1; top:100%; background:var(--ou-panel); padding:6px 12px; }
+.ondb-properties-hint { margin:0 0 8px; font-size:12px; }
+.ondb-view-popup .ondb-property-check { display:flex; gap:9px; align-items:center; padding:7px 4px; font-size:13px; }
+.ondb-property-check small { margin-left:auto; color:var(--ou-muted); }
+ .ondb-view-layout .office-button { justify-content:flex-start; }
+.ondb-property-check .office-checkbox-label { flex:1; min-width:0; }

@@ -121,7 +121,7 @@ test.describe('applying a theme', () => {
     await shapesSlide(page);
     expect(await rectangleColour(page)).toBe('rgb(37, 99, 235)');
 
-    await page.locator('.sl-properties').getByLabel('테마').selectOption('Ember');
+    await page.locator('.sl-properties').getByRole('combobox', { name: '테마', exact: true }).selectOption('Ember');
 
     // The shape is repainted without being touched: the document still says
     // `theme:accent1`, and the theme says what that is now.
@@ -164,7 +164,7 @@ test.describe('applying a theme', () => {
     await page.waitForTimeout(200);
     await page.keyboard.press('Escape');
     await expect(page.locator('.sl-properties')).toContainText('테마');
-    await page.locator('.sl-properties').getByLabel('테마').selectOption('Forest');
+    await page.locator('.sl-properties').getByRole('combobox', { name: '테마', exact: true }).selectOption('Forest');
     await page.waitForTimeout(600);
 
     // Untouched, because it never followed the deck.
@@ -259,6 +259,7 @@ test.describe('the theme’s own colours', () => {
     expect(await rectangle(page)).toBe('rgb(37, 99, 235)');
 
     await openDialog(page);
+    await page.screenshot({ path: '../../.dev/artifacts/design-system/slides-theme-settings.png', animations: 'disabled' });
 
     /**
      * The colour is typed into the field's notation box, which is how a reader
@@ -312,9 +313,9 @@ test.describe('the theme’s own colours', () => {
     await shapesSlide(page);
 
     // Something to be a preset first, so the change is what makes the difference.
-    await page.locator('.sl-properties').getByLabel('테마').selectOption('Ember');
+    await page.locator('.sl-properties').getByRole('combobox', { name: '테마', exact: true }).selectOption('Ember');
     await expect
-      .poll(() => page.locator('.sl-properties').getByLabel('테마').inputValue())
+      .poll(() => page.locator('.sl-properties').getByRole('combobox', { name: '테마', exact: true }).inputValue())
       .toBe('Ember');
 
     await openDialog(page);
@@ -344,7 +345,7 @@ test.describe('the theme’s own colours', () => {
      * answer and gone once a preset is picked.
      */
     await expect
-      .poll(() => page.locator('.sl-properties').getByLabel('테마').inputValue())
+      .poll(() => page.locator('.sl-properties').getByRole('combobox', { name: '테마', exact: true }).inputValue())
       .toBe('사용자 지정');
   });
 

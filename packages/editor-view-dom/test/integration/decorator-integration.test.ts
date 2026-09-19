@@ -190,7 +190,7 @@ describe('EditorViewDOM + renderer-dom Decorator Integration', () => {
           <div class="document" data-bc-sid="doc1">
             <p class="paragraph" data-bc-sid="p1">
               <span class="text" data-bc-sid="t1">
-                <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"><span>Hello</span></span>
+                <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d1" data-decorator-stype="highlight" data-decorator-type="target" data-skip-reconcile="true" style="background-color: yellow;"><span>Hello</span></span>
             <span>World</span>
               </span>
             </p>

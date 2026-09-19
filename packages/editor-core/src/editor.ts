@@ -19,6 +19,7 @@ import {
 } from './types';
 import { DataStoreLoader, DataStoreExporter, DataStore, INode } from '@barocss/datastore';
 import { SelectionManager } from './selection-manager';
+import { isCollapsedSelection, withDerivedCollapsed } from './collapsed';
 import { HistoryManager } from './history-manager';
 import { KeybindingRegistryImpl, type KeybindingRegistry, type ContextProvider } from './keybinding';
 import { DEFAULT_KEYBINDINGS } from './keybinding/default-keybindings';
@@ -201,7 +202,12 @@ export class Editor implements ContextProvider {
       name: 'deleteSelection',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
         const selection = payload?.selection || editor.selection;
-        if (!selection || selection.type !== 'range' || selection.collapsed) {
+        /*
+         * **깃발이 아니라 `isCollapsedSelection` 에 묻는다.** payload 로 온 선택은 편집기의 문을
+         * 지나지 않았으므로 `collapsed` 가 비어 있을 수 있고, 그때 이 줄은 캐럿을 범위로 읽어
+         * 아무것도 안 고른 자리에서 Backspace 를 실행했다. 이유는 `collapsed.ts` 에 있다.
+         */
+        if (!selection || selection.type !== 'range' || isCollapsedSelection(selection)) {
           return false;
         }
 
@@ -215,7 +221,7 @@ export class Editor implements ContextProvider {
       },
       canExecute: (_editor: Editor, payload?: { selection?: ModelSelection }) => {
         const selection = payload?.selection || _editor.selection;
-        return !!selection && selection.type === 'range' && !selection.collapsed;
+        return !!selection && selection.type === 'range' && !isCollapsedSelection(selection);
       }
     });
 
@@ -738,6 +744,22 @@ export class Editor implements ContextProvider {
      * endpoints onto the survivors; it answers `null` when nothing is left, and the clear below
      * then does what it always did.
      */
+    /*
+     * **깃발을 여기서 계산한다 — 저장하기 전에, 그리고 알리기 전에.**
+     *
+     * `SelectionManager` 의 접근자도 같은 계산을 하지만 그것으로는 부족하다: 이 함수가 뒤에서
+     * `editor:selection.model` 과 `editor:selection.change` 로 **자기가 받은 객체**를 그대로
+     * 싣는다. 저장된 것만 고치면 듣는 쪽은 여전히 깃발 없는 캐럿을 받는다 — 사이트의 버블 툴바가
+     * 정확히 그 자리에서 `collapsed !== true` 를 물었다.
+     *
+     * 그리고 이 문을 지나는 것 중에 **모델 트랜잭션**이 있다: `transaction.ts` 가
+     * `context.selection.current` 를 그대로 넘기고, 그 객체는 `insertText` 가 오프셋만 옮긴
+     * 스냅숏이라 아무도 깃발을 다시 세지 않는다.
+     */
+    if (isModelSelection(finalSelection)) {
+      finalSelection = withDerivedCollapsed(finalSelection);
+    }
+
     if (isModelSelection(finalSelection)) {
       finalSelection = withLiveNodes((id: string) => this._dataStore.getNode(id), finalSelection);
       if (!finalSelection) {
@@ -925,7 +947,7 @@ export class Editor implements ContextProvider {
       this._context.canIndent = false;
       this._context.canIndentText = false;
     } else {
-      this._context.selectionEmpty = selection.collapsed === true;
+      this._context.selectionEmpty = isCollapsedSelection(selection);
       this._context.selectionType = selection.type;
       this._context.selectionDirection = selection.direction;
       

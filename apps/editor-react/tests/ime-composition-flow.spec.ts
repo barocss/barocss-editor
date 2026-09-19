@@ -75,8 +75,10 @@ async function setFirstInlineText(page: Page, text: string): Promise<void> {
 }
 
 async function getReplaceTextFlowCount(page: Page): Promise<number> {
-  const texts = await page.locator('#barocss-devtool .flow-span').allTextContents();
-  return texts.filter((text) => text.includes('"command":"replaceText"') || text.includes('replaceText')).length;
+  return page.locator('#barocss-devtool .flow-span').evaluateAll((spans) => spans.filter((span) =>
+    span.querySelector('.span-operation')?.textContent === 'executeCommand'
+    && span.textContent?.includes('replaceText')
+  ).length);
 }
 
 test.describe('React Editor – IME composition flow (editor-react)', () => {
@@ -86,6 +88,7 @@ test.describe('React Editor – IME composition flow (editor-react)', () => {
 
     const baseFlowCount = await getReplaceTextFlowCount(page);
     const markerText = 'IME_COMPOSITION_FLOW_OK';
+    const modelText = page.locator('#barocss-devtool [data-node-id^="text-1:run-"]').first();
 
     await dispatchCompositionEvent(page, 'compositionstart');
     await setFirstInlineText(page, markerText);
@@ -95,17 +98,19 @@ test.describe('React Editor – IME composition flow (editor-react)', () => {
 
     const whileComposingCount = await getReplaceTextFlowCount(page);
     expect(whileComposingCount).toBe(baseFlowCount);
+    await expect(modelText).not.toContainText(markerText);
 
     await dispatchCompositionEvent(page, 'compositionend');
     await page.waitForTimeout(500);
 
     const afterCompositionCount = await getReplaceTextFlowCount(page);
-    expect(afterCompositionCount).toBeGreaterThan(baseFlowCount);
+    expect(afterCompositionCount).toBe(baseFlowCount + 1);
     await expect(page.locator(editorContentSelector).first().locator('[data-bc-stype="paragraph"]').first())
       .toContainText(markerText);
+    await expect(modelText).toContainText(markerText);
   });
 
-  test('IME 후보입력 229 윈도우에서 최초 변경은 무시되고 창이 지난 뒤 한 번 동기화되어야 함', async ({ page }) => {
+  test('IME 229 입력은 시간 경과로 확정하지 않고 compositionend에서 동기화한다', async ({ page }) => {
     await waitForEditorReady(page);
     await focusFirstParagraph(page);
 
@@ -122,8 +127,18 @@ test.describe('React Editor – IME composition flow (editor-react)', () => {
     await setFirstInlineText(page, 'ime-window-second');
 
     await page.waitForTimeout(300);
+    expect(await getReplaceTextFlowCount(page)).toBe(baseFlowCount);
+    await dispatchCompositionEvent(page, 'compositionend');
+    await expect.poll(() => getReplaceTextFlowCount(page)).toBe(baseFlowCount + 1);
     const finalFlowCount = await getReplaceTextFlowCount(page);
-    expect(finalFlowCount).toBeGreaterThan(baseFlowCount);
+    // A browser may also emit a final input. It must not apply the text twice.
+    await page.locator(editorContentSelector).first().evaluate((element) => {
+      element.dispatchEvent(new InputEvent('input', {
+        bubbles: true, inputType: 'insertText', data: 'ime-window-second', isComposing: false,
+      }));
+    });
+    await page.waitForTimeout(200);
+    expect(await getReplaceTextFlowCount(page)).toBe(finalFlowCount);
 
     await expect(page.locator(editorContentSelector).first().locator('[data-bc-stype="paragraph"]').first())
       .toContainText('ime-window-second');

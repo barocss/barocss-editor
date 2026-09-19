@@ -138,7 +138,7 @@ function pageWidthOf(editor: Editor): number {
  * reader sees, its padding *is* the margins, and reading it needs no agreement
  * with the pass that placed it.
  */
-function measure(host: HTMLElement | null, pageWidth: number): Geometry | null {
+function measure(host: HTMLElement | null, pageWidth: number, pane: HTMLElement | null): Geometry | null {
   /**
    * The surface, not the sheet.
    *
@@ -149,7 +149,7 @@ function measure(host: HTMLElement | null, pageWidth: number): Geometry | null {
    * the sheet gave the whole page as the text area, and the ruler read eight and
    * a half inches wide where the text is six and a half.
    */
-  const surface = document.querySelector('.w-surface') as HTMLElement | null;
+  const surface = (pane ?? host?.ownerDocument)?.querySelector('.w-surface') as HTMLElement | null;
   if (!surface || !host) return null;
 
   const box = surface.getBoundingClientRect();
@@ -222,7 +222,7 @@ export function Ruler({ editor, zoom = 1, pane = null }: RulerProps) {
   useEffect(() => {
     const refresh = () => {
       setParagraph(caretParagraph(editor));
-      setGeometry(measure(host.current, pageWidthOf(editor)));
+      setGeometry(measure(host.current, pageWidthOf(editor), pane));
     };
     refresh();
     const timer = window.setTimeout(refresh, 400);
@@ -241,6 +241,10 @@ export function Ruler({ editor, zoom = 1, pane = null }: RulerProps) {
      * Handed in rather than looked up: see `RulerProps.pane`.
      */
     pane?.addEventListener('scroll', refresh, { passive: true });
+    const observer = new ResizeObserver(refresh);
+    if (pane) observer.observe(pane);
+    const surface = pane?.querySelector('.w-surface');
+    if (surface) observer.observe(surface);
 
     return () => {
       window.clearTimeout(timer);
@@ -248,6 +252,7 @@ export function Ruler({ editor, zoom = 1, pane = null }: RulerProps) {
       (editor as any).off?.('editor:content.change', refresh);
       window.removeEventListener('resize', refresh);
       pane?.removeEventListener('scroll', refresh);
+      observer.disconnect();
     };
     /**
      * `zoom` is in here to be *heard*, not used.

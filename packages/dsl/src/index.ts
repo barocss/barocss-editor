@@ -53,6 +53,7 @@ export type {
   ConditionalTemplate,
   ComponentTemplate,
   ComponentContext,
+  ComponentStateHandle,
   RenderEnv,
   ExternalComponent,
   ExternalDescriptor,

@@ -18,6 +18,7 @@ export {
   ZOOM_MAX,
   ZOOM_MIN,
   ZOOM_STEPS,
+  SLIDES_ZOOM_LADDER,
   boxOf,
   clampZoom,
   fitScale,
@@ -884,6 +885,7 @@ export {
 export { FLIP_ATTRS, flipCss, flipChange, flipped, type FlipAxis } from './flip';
 export {
   SLIDES_MENUS,
+  slidesMenus,
   slidesMenuCommands,
   slidesMenuEntry,
   slidesMenuId,
@@ -891,3 +893,5 @@ export {
   type SlidesMenuBlock,
   type SlidesMenuEntry
 } from './menu-model';
+
+export { slidesSearchCommands, slidesSearchPayload, type SlidesSearchCommand } from './command-search-model';

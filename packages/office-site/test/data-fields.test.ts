@@ -390,3 +390,9 @@ describe('which parts of a page came from data', () => {
     }
   });
 });
+
+it('preserves whitespace in long text without changing numeric conversion', () => {
+  expect(cellFor('  첫 줄  \n\n둘째 줄\n', 'longText')).toBe('  첫 줄  \n\n둘째 줄\n');
+  expect(cellFor('  ', 'longText')).toBe('  ');
+  expect(cellFor('  12  ', 'number')).toBe(12);
+});

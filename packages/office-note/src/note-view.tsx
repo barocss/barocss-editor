@@ -1,12 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { ColumnsEditor, LatexEditor } from '@barocss/office-editor-ui';
+import { MultiBlockControl } from './multi-block-control';
+import { installNoteInputRules } from './input-rules-view';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { dragGesture } from '@barocss/shared';
 import { reorderIndexAt } from '@barocss/office-canvas';
 import type { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
-import { Controls, SlashMenu, useEditorRevision } from '@barocss/office-editor-ui';
+import { Controls, SlashMenu, useEditorRevision, useNodeRect } from '@barocss/office-editor-ui';
 import { noteRegistry } from './renderers';
 import { Icon } from '@barocss/office-icons';
-import { FilePick, Tip, TipProvider } from '@barocss/office-ui';
+import { Button, FilePick, Tip, TipProvider, FloatingSurface, IconButton, TextField, Choice, MenuAction, Field, FloatingPanelHeader } from '@barocss/office-ui';
 import {
   WORD_ENV_KEY,
   createTextEnv,
@@ -16,6 +19,17 @@ import {
 import { cellAt, holdsWriting, pickedAt } from './selection';
 import { NOTE_MOVES, actsFor, fieldsFor, fileSrc } from './block-model';
 import { noteControlsIn } from './toolbar-model';
+import { NoteContextualToolbar } from './contextual-toolbar';
+import { TableContext } from './table-context';
+import { TableManipulation } from './table-manipulation';
+import { NoteBlockActions } from './block-action-menu';
+import { CodeBlockEditor } from './code-block-editor';
+import { NoteDatabases } from './database-view';
+import { DatabaseItemBody } from './database-item-body';
+import { PageReferenceUI, pageReferenceChildDestination, type NotePageReferences } from './page-reference-ui';
+import { getNoteDatabase, getNoteDatabaseItemId } from './database';
+import './table-ui.css';
+import { NoteDocumentNavigation, type NoteNavigationRequest } from './document-navigation';
 
 /**
  * **한 편의 글을 쓰는 화면** — the bar and the body, owned by the package the body belongs to.
@@ -40,7 +54,11 @@ export function NoteEditor({
   editor,
   rootId,
   className,
-  onFile
+  onFile,
+  toolbar = 'contextual',
+  registerBeforeSnapshot,
+  navigationRequest,
+  pageReferences
 }: {
   /**
    * The editing session. **Handed in**, because whose session it is is the host's decision — a site
@@ -51,6 +69,12 @@ export function NoteEditor({
   /** The node whose blocks are the body — a `note`, or a site's `richText`. */
   rootId: string;
   className?: string;
+  /** Contextual by default; always is available for embedded toolbars and the input lab. */
+  toolbar?: 'contextual' | 'always';
+  pageReferences?: NotePageReferences;
+  /** Register child-body delivery before a host exports or saves its document. Flush deepest first. */
+  registerBeforeSnapshot?: (flush: () => Promise<boolean>) => () => void;
+  navigationRequest?: NoteNavigationRequest;
   /**
    * What a picked file becomes, when the host has somewhere better to put one than the document.
    *
@@ -66,6 +90,12 @@ export function NoteEditor({
    * to *what is selected*, and the day they differ is the day a reader sets a file on a picture they
    * are not looking at.
    */
+  const registerBodyDelivery = useCallback((flush: () => Promise<boolean>) => {
+    const navigation = pageReferences?.registerBeforeNavigate?.(flush);
+    const snapshot = registerBeforeSnapshot?.(flush);
+    return () => { navigation?.(); snapshot?.(); };
+  }, [pageReferences?.registerBeforeNavigate, registerBeforeSnapshot]);
+  const [mathFocused, setMathFocused] = useState(false);
   const [picked, setPicked] = useState<string | undefined>(undefined);
   /*
    * And, for a table, **which cell** — the second answer a press in a body can have. Held here
@@ -91,7 +121,21 @@ export function NoteEditor({
    * 이 파일이 `picked` 와 `cell` 을 따로 둔 것과 같은 이유다.
    */
   const [writing, setWriting] = useState<string | undefined>(undefined);
+  const [formatting, setFormatting] = useState(false);
+  const [hovered, setHovered] = useState<string>();
+  const [blockMenu, setBlockMenu] = useState<{ sid: string; properties: boolean }>();
   const body = useRef<HTMLDivElement | null>(null);
+  const [blockSelection, setBlockSelection] = useState<string[]>([]);
+  const blockAnchor = useRef<string | undefined>(undefined);
+  const blockRevision = useEditorRevision(editor);
+  useEffect(() => {
+    const rows = blockRowsIn(body.current, rootId);
+    rows.forEach(row => row.toggleAttribute('data-note-batch-selected', blockSelection.includes(row.getAttribute('data-bc-sid')!)));
+    const current = editor.dataStore.getNode(rootId)?.content ?? [];
+    if (blockSelection.some(id => !current.includes(id))) setBlockSelection([]);
+  }, [blockSelection, blockRevision, editor, rootId]);
+  useEffect(() => { setBlockSelection([]); blockAnchor.current = undefined; }, [editor, rootId]);
+
 
   /**
    * **본문의 블록들과 그 상자** — 제스처가 자리를 세는 데 필요한 것.
@@ -116,7 +160,16 @@ export function NoteEditor({
    * `abort` 가 있으므로 Escape 로 물러설 수 있고, 취소돼도 표시선이 남지 않는다 — 그것이
    * `dragGesture` 를 쓰는 이유다.
    */
-  const grab = (event: React.PointerEvent) =>
+  const grab = (event: React.PointerEvent) => {
+    const sid = (event.currentTarget as HTMLElement).getAttribute('data-note-grip');
+    if (event.shiftKey && sid) {
+      event.preventDefault(); event.stopPropagation();
+      const ids = blocksNow().map(item => item.sid);
+      const a = ids.indexOf(blockAnchor.current ?? sid), b = ids.indexOf(sid);
+      if (a >= 0 && b >= 0) { setBlockSelection(ids.slice(Math.min(a, b), Math.max(a, b) + 1)); setBlockMenu(undefined); }
+      blockAnchor.current ??= sid;
+      return;
+    }
     void dragGesture(event, {
       start: (pointer) => {
         pointer.stopPropagation();
@@ -127,26 +180,41 @@ export function NoteEditor({
          */
         const sid = (pointer.currentTarget as HTMLElement)?.getAttribute?.('data-note-grip') ?? undefined;
         if (!sid) return null;
-        return { sid, items: blocksNow() };
+        (pointer.currentTarget as HTMLElement).focus({ preventScroll: true });
+        return { sid, ids: blockSelection.includes(sid) ? blockSelection : [sid], items: blocksNow() };
       },
       move: (held, moved) => {
-        const at = reorderIndexAt(held.items, { x: moved.x, y: moved.y }, 'column', held.sid);
+        const at = reorderIndexAt(held.items.filter(item => !held.ids.includes(item.sid)), { x: moved.x, y: moved.y }, 'column');
         setLanding(at < 0 ? undefined : at);
       },
       done: (held, moved) => {
         setLanding(undefined);
-        if (!moved.dragged) return;
-        const at = reorderIndexAt(held.items, { x: moved.x, y: moved.y }, 'column', held.sid);
+        if (!moved.dragged) {
+          blockAnchor.current = held.sid; setBlockSelection([held.sid]);
+          if (toolbar === 'contextual') setBlockMenu({ sid: held.sid, properties: false });
+          return;
+        }
+        const at = reorderIndexAt(held.items.filter(item => !held.ids.includes(item.sid)), { x: moved.x, y: moved.y }, 'column');
         if (at < 0) return;
         /* 같은 자리면 명령이 거부한다 — 히스토리에 아무 일도 아닌 항목을 만들지 않는다. */
-        void editor.executeCommand('moveNoteBlockTo', { nodeId: held.sid, at });
+        void editor.executeCommand(held.ids.length > 1 ? 'batchNoteBlocks:move' : 'moveNoteBlockTo', { nodeId: held.sid, nodeIds: held.ids, at });
       },
       /* 물러서면 문서는 아무 말도 못 듣고 선만 걷힌다. */
       abort: () => setLanding(undefined)
     });
+  };
 
   return (
-    <div className={['on-note', className].filter(Boolean).join(' ')} data-note-editor={rootId}>
+    <div className={['on-note', className].filter(Boolean).join(' ')} data-note-editor={rootId} data-note-toolbar={toolbar}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') { setPicked(undefined); setBlockMenu(undefined); setBlockSelection([]); }
+        const target = event.target as Element;
+        if (blockSelection.length > 1 && !target.closest('input,textarea,[contenteditable="true"]') && !event.nativeEvent.isComposing) {
+          if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+            event.preventDefault(); event.stopPropagation(); void (event.shiftKey ? editor.redo() : editor.undo());
+          }
+        }
+      }}>
       {/*
         **Its own `TipProvider`.** A tooltip needs one above it, and a host that has never mounted a
         toolbar has none — a CMS embedding this would get buttons with no words, which is the thing
@@ -154,23 +222,42 @@ export function NoteEditor({
         is allowed and the inner one wins, so a host that has its own loses nothing.
       */}
       <TipProvider>
-        <NoteBar editor={editor} />
+        {toolbar === 'always' && <NoteBar editor={editor} />}
         {/*
           And **what the held block is asked**, which appears only when one is held. A second row that
           was always there would be a row of nothing for the ninety per cent of a body that is words.
         */}
-        {picked ? (
-          <NoteBlockBar editor={editor} sid={picked} cell={cell} onFile={onFile} />
+        {picked && toolbar === 'always' ? (
+          <NoteBlockBar key={picked} editor={editor} sid={picked} cell={cell} onFile={onFile} />
         ) : null}
       </TipProvider>
-      <div className="on-body-hold" ref={body}>
+      <div className="on-body-hold" ref={body} onPointerLeave={() => setHovered(undefined)}
+        onPointerMove={event => {
+          if (mathFocused || toolbar !== 'contextual' || event.buttons || blockMenu) return;
+          const target = event.target instanceof Element ? event.target : null;
+          const doc = target?.closest('.on-doc');
+          if (!doc) return;
+          let block = target?.closest('[data-bc-sid]') ?? null;
+          while (block && block !== doc) {
+            const sid = block.getAttribute('data-bc-sid');
+            const type = sid && editor.dataStore.getNode(sid)?.stype;
+            if (type && ['paragraph', 'heading', 'taskItem', 'blockQuote', 'callout', 'bDetails',
+              'list', 'bTable', 'noteDatabase', 'codeBlock', 'picture', 'mediaVideo', 'mediaEmbed', 'horizontalRule'].includes(type)) break;
+            block = block.parentElement?.closest('[data-bc-sid]') ?? null;
+          }
+          setHovered(block?.getAttribute('data-bc-sid') ?? undefined);
+        }}>
+        <NoteDocumentNavigation editor={editor} rootId={rootId} scope={body} request={navigationRequest} />
         <NoteBody
           editor={editor}
           rootId={rootId}
+          chromeHost={body}
           picked={picked}
           onPicked={(sid, at) => {
+            setHovered(undefined);
             setPicked(sid);
             setCell(at);
+            setBlockMenu(undefined);
           }}
           onWriting={setWriting}
         />
@@ -179,12 +266,33 @@ export function NoteEditor({
           잡힘을 먼저 보는 것은 그것이 더 좁은 답이기 때문이다: 표의 셀에 캐럿이 있으면서 표가
           잡혀 있을 수 있고, 그때 옮기려는 것은 표다.
         */}
-        <NoteGrip sid={picked ?? writing} rootId={rootId} hold={body} onGrab={grab} />
+        {!mathFocused && blockMenu && toolbar === 'contextual' && <NoteBlockContext editor={editor} hold={body} sid={blockMenu.sid}
+          properties={blockMenu.properties} onProperties={() => setBlockMenu({ ...blockMenu, properties: true })}
+          hidden={formatting} onDismiss={() => setBlockMenu(undefined)}>
+          <NoteBlockBar key={blockMenu.sid} editor={editor} sid={blockMenu.sid} cell={cell} onFile={onFile} contextual />
+        </NoteBlockContext>}
+        {!mathFocused && blockSelection.length > 1 && <FloatingSurface open at={body.current?.querySelector('[data-note-batch-selected]')?.getBoundingClientRect() ?? null}
+          portalRoot={body.current} aria-label="선택한 블록" onDismiss={() => setBlockSelection([])} ownedElements={[body]}>
+          <MultiBlockControl editor={editor} selection={null} nodeIds={blockSelection} />
+        </FloatingSurface>}
+        <NoteGrip sid={mathFocused ? undefined : hovered ?? picked ?? writing} rootId={rootId} hold={body} onGrab={grab}
+          onOpen={toolbar === 'contextual' ? sid => setBlockMenu({ sid, properties: false }) : undefined} />
+        {toolbar === 'contextual' && <TableContext editor={editor} scope={body} active={!mathFocused && !formatting && !blockMenu} />}
+        {toolbar === 'contextual' && <TableManipulation editor={editor} scope={body} tableId={picked} active={!mathFocused && !formatting && !blockMenu} />}
+        <LatexEditor editor={editor} scope={body} structured inPlace onEditingFocusChange={setMathFocused} registerBeforeLeave={registerBodyDelivery} />
+        <ColumnsEditor editor={editor} scope={body} />
+        <CodeBlockEditor editor={editor} scope={body} sid={picked} active={!mathFocused && toolbar === 'contextual' && !formatting && !blockMenu} />
+        <NoteDatabases editor={editor} scope={body} revealItem={pageReferences?.revealItem} renderItemBody={(nodeId, row) =>
+          <DatabaseItemBody key={`${nodeId}:${row}`} editor={editor} nodeId={nodeId} row={row} registerBeforeNavigate={registerBodyDelivery}
+            renderEditor={(childEditor, childRoot, beforeNavigate) => <NoteEditor editor={childEditor} rootId={childRoot} className="ondb-body-note" registerBeforeSnapshot={registerBeforeSnapshot} pageReferences={pageReferences && { ...pageReferences, revealItem: pageReferenceChildDestination(pageReferences.revealItem, getNoteDatabase(editor, nodeId)?.source, getNoteDatabaseItemId(editor, nodeId, row)), onNavigate: async pageId => { if (!await beforeNavigate()) return false; return pageReferences.onNavigate(pageId); } }} />} />} />
+        {!mathFocused && toolbar === 'contextual' && <TipProvider><NoteContextualToolbar editor={editor} hold={body} sid={hovered ?? picked ?? writing}
+          onFormattingChange={setFormatting}
+          insertion={(close) => <NoteBar editor={editor} blocksOnly onInsert={close} />} /></TipProvider>}
         {/*
           **어디로 갈지 그리는 선.** 자리에서 `y` 를 다시 세므로, 본문이 다시 그려져도 선이 블록
           사이에 남는다 — 자리를 들고 있는 것의 값이 이것이다.
         */}
-        <NoteLanding at={landing} rootId={rootId} hold={body} />
+        <NoteLanding at={landing} rootId={rootId} hold={body} excluded={blockSelection.length > 1 ? blockSelection : []} />
       </div>
       {/*
         And the `/` menu, which is this package's for the reason the bar is: the host's surface
@@ -200,7 +308,8 @@ export function NoteEditor({
         * same re-measure on scroll. What differed was eight lines, all of them the site's `mode`
         * guard.
         */}
-      <SlashMenu editor={editor} />
+      <SlashMenu editor={editor} active={!mathFocused} />
+      {pageReferences && <PageReferenceUI editor={editor} scope={body} references={pageReferences} />}
     </div>
   );
 }
@@ -218,7 +327,7 @@ export function NoteEditor({
  * The marks stay whatever the caret is doing. A toggle that disappeared when nothing was selected
  * would be a bar that changes shape as a reader clicks around in their own writing.
  */
-function NoteBar({ editor }: { editor: Editor }) {
+function NoteBar({ editor, blocksOnly = false, onInsert }: { editor: Editor; blocksOnly?: boolean; onInsert?: () => void }) {
   const revision = useEditorRevision(editor);
   void revision;
 
@@ -226,7 +335,7 @@ function NoteBar({ editor }: { editor: Editor }) {
   const blocks = noteControlsIn('block').filter((one) => can(one.command));
 
   return (
-    <div className="on-bar" data-note-bar>
+    <div className={blocksOnly ? "flex w-56 flex-col items-stretch" : "on-bar"} data-note-bar>
       {/**
         * **The marks, drawn by the shared chrome.**
         *
@@ -239,9 +348,9 @@ function NoteBar({ editor }: { editor: Editor }) {
         * `data-note-control` rather than the default, because this package's own checks name the
         * buttons that way and a shared surface should not rename a product's tests.
         */}
-      <Controls editor={editor} controls={noteControlsIn('mark')} mark="note-control" />
+      {!blocksOnly && <Controls editor={editor} controls={noteControlsIn('mark')} mark="note-control" />}
 
-      {blocks.length > 0 ? <span className="on-bar-split" /> : null}
+      {!blocksOnly && blocks.length > 0 ? <span className="on-bar-split" /> : null}
 
       {/*
        * The blocks stay here, and the reason is the one that is not shared: 표 asks its size before
@@ -253,20 +362,25 @@ function NoteBar({ editor }: { editor: Editor }) {
           <TablePick
             key={one.command}
             control={one}
-            onPick={(rows, cols) => void editor.executeCommand(one.command, { rows, cols })}
+            menu={blocksOnly}
+            onPick={(rows, cols) => { void editor.executeCommand(one.command, { rows, cols }); onInsert?.(); }}
           />
         ) : (
-          <Tip key={one.command} label={one.title}>
+          blocksOnly ? <MenuAction key={one.command} aria-label={one.title} data-note-control={one.command}
+            onClick={() => { void editor.executeCommand(one.command); onInsert?.(); }}>
+            <Icon name={one.icon} size={14} /><span>{one.label}</span>
+          </MenuAction> : (          <Tip key={one.command} label={one.title}>
             <button
               type="button"
               aria-label={one.title}
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => void editor.executeCommand(one.command)}
+              onClick={() => { void editor.executeCommand(one.command); onInsert?.(); }}
               data-note-control={one.command}
             >
               <Icon name={one.icon} size={13} />
+              {blocksOnly && <span>{one.label}</span>}
             </button>
-          </Tip>
+          </Tip>)
         )
       )}
     </div>
@@ -292,10 +406,12 @@ const PICK_COLS = 8;
  */
 function TablePick({
   control,
-  onPick
+  onPick,
+  menu = false
 }: {
   control: { command: string; title: string; icon: string };
   onPick: (rows: number, cols: number) => void;
+  menu?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [over, setOver] = useState<{ rows: number; cols: number } | null>(null);
@@ -313,7 +429,8 @@ function TablePick({
 
   return (
     <span className="on-pick" onMouseDown={(event) => event.stopPropagation()}>
-      <Tip label={control.title}>
+      {menu ? <MenuAction aria-label={control.title} aria-expanded={open} data-note-control={control.command}
+        onClick={() => setOpen(value => !value)}><Icon name={control.icon} size={14} /><span>표</span></MenuAction> : <Tip label={control.title}>
         <button
           type="button"
           aria-label={control.title}
@@ -324,7 +441,7 @@ function TablePick({
         >
           <Icon name={control.icon} size={13} />
         </button>
-      </Tip>
+      </Tip>}
 
       {open ? (
         <div className="on-pick-grid" data-note-pick role="grid" aria-label="표 크기">
@@ -390,16 +507,20 @@ function NoteGrip({
   sid,
   rootId,
   hold,
-  onGrab
+  onGrab,
+  onOpen
 }: {
   sid?: string;
   rootId: string;
   hold: React.RefObject<HTMLDivElement | null>;
   onGrab: (event: React.PointerEvent) => void;
+  onOpen?: (sid: string) => void;
 }) {
   if (!sid) return null;
 
-  const row = blockRowsIn(hold.current, rootId).find((one) => one.getAttribute('data-bc-sid') === sid);
+  const row = onOpen
+    ? [...(hold.current?.querySelectorAll('.on-doc [data-bc-sid]') ?? [])].find(one => one.getAttribute('data-bc-sid') === sid)
+    : blockRowsIn(hold.current, rootId).find((one) => one.getAttribute('data-bc-sid') === sid);
   if (!row) return null;
 
   const box = row.getBoundingClientRect();
@@ -409,8 +530,9 @@ function NoteGrip({
     <span
       className="on-grip"
       role="button"
-      tabIndex={-1}
-      aria-label="끌어 옮기기"
+      tabIndex={onOpen ? 0 : -1}
+      aria-label={onOpen ? '블록 메뉴 열기 · 끌어 옮기기' : '끌어 옮기기'}
+      title="클릭: 블록 메뉴 · Shift+클릭: 범위 선택 · 드래그: 선택 블록 이동"
       data-note-grip={sid}
       /*
        * **안쪽에 선다.** 첫 판은 `left: -18` 로 본문 왼쪽 **바깥**에 뒀고, 재보니 그 자리의 최상위
@@ -420,6 +542,9 @@ function NoteGrip({
        */
       style={{ top: box.top - (around?.top ?? 0) + 2, left: 2 }}
       onPointerDown={onGrab}
+      onKeyDown={event => {
+        if (onOpen && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onOpen(sid); }
+      }}
     />
   );
 }
@@ -453,17 +578,19 @@ function blockRowsIn(hold: HTMLElement | null, rootId: string): Element[] {
  * 아무것도 그리지 않는다 — 빈 본문에는 옮길 것도 없다.
  */
 function NoteLanding({
+  excluded = [],
   at,
   rootId,
   hold
 }: {
   at?: number;
+  excluded?: string[];
   rootId: string;
   hold: React.RefObject<HTMLDivElement | null>;
 }) {
   if (at === undefined) return null;
 
-  const rows = blockRowsIn(hold.current, rootId);
+  const rows = blockRowsIn(hold.current, rootId).filter(row => !excluded.includes(row.getAttribute('data-bc-sid')!));
   if (rows.length === 0) return null;
 
   const box = hold.current?.getBoundingClientRect();
@@ -473,17 +600,54 @@ function NoteLanding({
   return <div className="on-landing" data-note-landing={at} style={{ top }} />;
 }
 
+function NoteBlockContext({ editor, hold, sid, children, onDismiss, hidden, properties, onProperties }: {
+  editor: Editor;
+  hold: React.RefObject<HTMLDivElement | null>;
+  sid: string;
+  children: React.ReactNode;
+  onDismiss: () => void;
+  hidden: boolean;
+  properties: boolean;
+  onProperties: () => void;
+}) {
+  const at = useNodeRect(editor, hold, sid);
+  useEditorRevision(editor);
+  if (!properties) return <FloatingSurface open={!hidden} at={at} variant="menu" align="start"
+    aria-label="블록 메뉴" data-note-block-menu className="w-56" portalRoot={hold.current} onDismiss={onDismiss} focusOnOpen>
+    {['paragraph', 'heading'].includes(String(editor.dataStore.getNode(sid)?.stype)) && <div role="group" aria-label="문단 정렬" className="flex items-center gap-1 p-1">
+      {([['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽'], ['justify', '양쪽']] as const).map(([alignment, label]) => <Button key={alignment} square tone="quiet" ariaLabel={`${label} 정렬`} title={`${label} 정렬`} pressed={(editor.dataStore.getNode(sid)?.attributes?.alignment ?? 'left') === alignment} disabled={!editor.isEditable} onClick={() => void editor.executeCommand('setAlignment', { alignment, selection: { type: 'range', startNodeId: sid, endNodeId: sid, startOffset: 0, endOffset: 0, collapsed: true } })}><Icon name={`align-${alignment}`} size={16} /></Button>)}
+    </div>}
+    {fieldsFor(editor.dataStore.getNode(sid)?.stype).length > 0 &&
+      <MenuAction onClick={onProperties}><Icon name="edit" size={14} /><span>블록 설정</span></MenuAction>}
+    <NoteBlockActions editor={editor} sid={sid} onDismiss={onDismiss} />
+    <Controls editor={editor} controls={NOTE_MOVES} appearance="menu"
+      can={control => editor.canExecuteCommand(control.command, { nodeId: sid, cellId: undefined }) === true}
+      onRun={control => { void editor.executeCommand(control.command, { nodeId: sid }); onDismiss(); }} />
+    <MenuAction onClick={() => { void editor.executeCommand('deleteNode', { nodeId: sid }); onDismiss(); }}>
+      <Icon name="delete" size={14} /><span>삭제</span>
+    </MenuAction>
+  </FloatingSurface>;
+  return <FloatingSurface open={!hidden} at={at} variant="panel" gap={6} align="start"
+    data-note-properties aria-label="블록 속성" className="w-72" portalRoot={hold.current}
+    onDismiss={onDismiss} ownedElements={[hold]}>
+    <FloatingPanelHeader title={labelOf(editor.dataStore.getNode(sid)?.stype)} closeLabel="속성 닫기" onClose={onDismiss} />
+    {children}
+  </FloatingSurface>;
+}
+
 function NoteBlockBar({
   editor,
   sid,
   cell,
-  onFile
+  onFile,
+  contextual = false
 }: {
   editor: Editor;
   sid: string;
   /** For a table, the cell the reader pressed — what the row and column acts are relative to. */
   cell?: string;
   onFile?: (file: File) => Promise<string>;
+  contextual?: boolean;
 }) {
   const revision = useEditorRevision(editor);
   void revision;
@@ -508,20 +672,17 @@ function NoteBlockBar({
     ) === true;
   const runOn = (name: string) =>
     void editor.executeCommand(name, on);
-  const said = (attr: string) => String(attrs[attr] ?? '');
+  const said = (attr: string) => String(attrs[attr] ?? (attr === 'alignment' ? 'left' : ''));
 
   const write = (attr: string, value: string) =>
-    void editor.executeCommand('setNoteAttrs', {
-      nodeId: sid,
-      attrs: { [attr]: value }
-    });
+    void editor.executeCommand(attr === 'alignment' ? 'setAlignment' : 'setNoteAttrs', attr === 'alignment' ? { alignment: value, selection: { type: 'range', startNodeId: sid, endNodeId: sid, startOffset: 0, endOffset: 0, collapsed: true } } : { nodeId: sid, attrs: { [attr]: value } });
 
   return (
-    <div className="on-block" data-note-block={String(node.stype ?? '')}>
-      <span className="on-block-what">{labelOf(node.stype)}</span>
+    <div className={contextual ? "flex min-w-0 flex-col gap-3" : "on-block"} data-note-block={String(node.stype ?? '')}>
+      {!contextual && <span className="on-block-what">{labelOf(node.stype)}</span>}
 
-      {fields.map((one) =>
-        one.kind === 'file' ? (
+      {fields.map((one) => {
+        const input = one.kind === 'file' ? (
           <FilePick
             key={one.attr}
             accept={one.accept}
@@ -534,39 +695,32 @@ function NoteBlockBar({
             {one.label}
           </FilePick>
         ) : one.kind === 'choice' ? (
-          <select
+          <Choice
             key={one.attr}
-            aria-label={one.label}
-            data-note-field={one.attr}
+            ariaLabel={one.label}
+            data={{ "note-field": one.attr }}
+            className={contextual ? "w-full" : "w-auto min-w-24"}
             value={said(one.attr)}
-            onChange={(event) => write(one.attr, event.target.value)}
+            onChange={value => write(one.attr, value)}
           >
             {(one.options ?? []).map((each) => (
               <option key={each.id} value={each.id}>
                 {each.label}
               </option>
             ))}
-          </select>
+          </Choice>
         ) : (
           /*
            * **Committed, not typed through.** A field that writes per keystroke puts `h`, `ht`,
            * `htt` into the history, and the first two are values the reader never meant — the same
            * rule the site's address field follows.
            */
-          <input
-            key={one.attr}
-            type="text"
-            aria-label={one.label}
-            data-note-field={one.attr}
-            placeholder={one.label}
-            defaultValue={said(one.attr)}
-            onBlur={(event) => write(one.attr, event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
-            }}
-          />
-        )
-      )}
+          <TextField key={one.attr} ariaLabel={one.label} data={{ 'note-field': one.attr }}
+            placeholder={one.label} value={said(one.attr)} onCommit={value => write(one.attr, value)}
+            className={contextual ? "w-full" : "w-40"} />
+        );
+        return contextual ? <Field key={one.attr} label={one.label} className="grid-cols-[3.5rem_minmax(0,1fr)]">{input}</Field> : input;
+      })}
 
       {/*
         * **무엇을 시킬 수 있나** — this kind's own acts, then the two every held block has.
@@ -578,16 +732,23 @@ function NoteBlockBar({
         * Quiet when the caret is not in a cell, because 행 추가 with nothing to be after has no
         * answer, and a button that guesses the last row is one a reader stops trusting.
         */}
+      <div className={contextual ? "flex items-center justify-between gap-2 border-t border-[color:var(--ou-line)] pt-2" : "contents"}>
+      <div className={contextual ? "flex flex-wrap items-center gap-0.5" : "contents"}>
       <Controls
         editor={editor}
+        appearance={contextual ? "contextual" : "host"}
         controls={[...acts, ...NOTE_MOVES]}
         mark="note-act"
         can={(one) => canOn(one.command)}
         onRun={(one) => runOn(one.command)}
       />
 
+      </div>
       {/* And the one act every held block has, which is the first thing a reader tries on one. */}
-      <button
+      {contextual ? <IconButton label="지우기" preserveFocus data={{ 'note-block-remove': 'true' }}
+        onClick={() => { void editor.executeCommand('deleteNode', { nodeId: sid }); }}>
+        <Icon name="delete" size={14} />
+      </IconButton> : (      <button
         type="button"
         className="on-block-go"
         aria-label="지우기"
@@ -600,7 +761,8 @@ function NoteBlockBar({
         data-note-block-remove
       >
         지우기
-      </button>
+      </button>)}
+      </div>
     </div>
   );
 }
@@ -620,6 +782,8 @@ function labelOf(stype: unknown): string {
       return '구분선';
     case 'codeBlock':
       return '코드';
+    case 'callout':
+      return '콜아웃';
     default:
       return '블록';
   }
@@ -638,12 +802,14 @@ function labelOf(stype: unknown): string {
 function NoteBody({
   editor,
   rootId,
+  chromeHost,
   picked,
   onPicked,
   onWriting
 }: {
   editor: Editor;
   rootId: string;
+  chromeHost: React.RefObject<HTMLDivElement | null>;
   picked: string | undefined;
   onPicked: (sid: string | undefined, cell?: string) => void;
   /**
@@ -670,6 +836,10 @@ function NoteBody({
    * time there is a new one.
    */
   const revision = useEditorRevision(editor);
+
+  useEffect(() => {
+    if (box.current) return installNoteInputRules(editor, box.current);
+  }, [editor, rootId]);
 
   useEffect(() => {
     if (!host.current) return;
@@ -710,7 +880,8 @@ function NoteBody({
        * 이것이 없으면 표에서 할 수 있는 것이 여섯이다 — 행·열 넣기와 지우기. 나머지 둘, 합치기와
        * 나누기는 *두 셀* 을 말할 수 있어야 하고 그 말을 만드는 것이 이 제스처뿐이다.
        */
-      cells.current = installCellSelection(editor, host.current, doc as never);
+      cells.current = installCellSelection(editor, host.current, doc as never,
+        { chromeContainer: chromeHost.current ?? undefined });
     }
 
     view.current.setRootId(rootId);
@@ -792,6 +963,7 @@ function NoteBody({
       }
       onPicked(sid);
       event.preventDefault();
+      held.querySelector<HTMLElement>('[contenteditable="true"]')?.focus({ preventScroll: true });
       void editor.executeCommand('setNode', {
         nodeIds: [sid]
       });
@@ -806,6 +978,8 @@ function NoteBody({
      */
     const typed = (event: KeyboardEvent) => {
       if (event.key !== 'Backspace' && event.key !== 'Delete') return;
+      if (!(event.target instanceof Element) || !held.contains(event.target)) return;
+      if (event.target.closest('input, textarea, select, [contenteditable="false"]')) return;
       const sid = pickedRef.current;
       if (!sid) return;
       /*
@@ -835,6 +1009,60 @@ function NoteBody({
    * view*, and a redraw is the view's own — so it is re-applied whenever either changes, the way
    * `rowIndex` and `boundFrom` are facts about a drawing in the site builder.
    */
+  // Interactive document controls write through transactions, just like typing.
+  useEffect(() => {
+    const held = box.current;
+    if (!held) return;
+    const activateDisclosure = (target: EventTarget | null, event: Event): boolean => {
+      // Summary text remains editable. Only its own marker/background (or focused
+      // keyboard activation) acts as the disclosure, without waiting for queued toggle.
+      if (!(target instanceof HTMLElement) || !target.matches('summary.w-summary')) return false;
+      const details = target.parentElement;
+      if (!(details instanceof HTMLDetailsElement) || !held.contains(details)) return false;
+      const nodeId = details.getAttribute('data-bc-sid');
+      if (!nodeId || !editor.isEditable) return false;
+      event.preventDefault();
+      if (details.dataset.noteNavigationOpen) {
+        details.open = false;
+        delete details.dataset.noteNavigationOpen;
+        return true;
+      }
+      void editor.executeCommand('toggleDetails', { nodeId });
+      return true;
+    };
+    const click = (event: MouseEvent) => {
+      if (activateDisclosure(event.target, event)) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const button = target?.closest('[data-checklist-toggle]');
+      if (!button || !held.contains(button)) return;
+      const nodeId = button.closest('[data-bc-sid]')?.getAttribute('data-bc-sid');
+      if (!nodeId) return;
+      event.preventDefault();
+      void editor.executeCommand('toggleChecklistItem', { nodeId });
+    };
+    const toggle = (event: Event) => {
+      const details = event.target;
+      if (!(details instanceof HTMLDetailsElement) || !held.contains(details) || !editor.isEditable) return;
+      if (details.dataset.noteNavigationOpen) return;
+      const nodeId = details.getAttribute('data-bc-sid');
+      if (!nodeId) return;
+      const node = editor.dataStore.getNode(nodeId);
+      if (node?.stype !== 'bDetails' || details.open === (node.attributes?.open ?? true)) return;
+      void editor.executeCommand('toggleDetails', { nodeId, open: details.open });
+    };
+    const disclosureKey = (event: KeyboardEvent) => {
+      if ((event.key === 'Enter' || event.key === ' ') && activateDisclosure(event.target, event)) event.stopPropagation();
+    };
+    held.addEventListener('click', click);
+    held.addEventListener('keydown', disclosureKey, true);
+    held.addEventListener('toggle', toggle, true);
+    return () => {
+      held.removeEventListener('click', click);
+      held.removeEventListener('keydown', disclosureKey, true);
+      held.removeEventListener('toggle', toggle, true);
+    };
+  }, [editor]);
+
   const pickedRef = useRef<string | undefined>(undefined);
   pickedRef.current = picked;
   useEffect(() => {

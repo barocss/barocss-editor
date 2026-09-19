@@ -30,12 +30,22 @@ test.describe('React Editor – insertParagraph (Enter)', () => {
     await page.keyboard.press('End');
     await page.keyboard.press('Enter');
 
-    // After pressing Enter at end of a heading, a new block is created
-    // The document now has: h-1, h-2, new-block, p-1, p-2
-    // The new block type depends on insertParagraph blockType config ('same' default means heading)
+    // The paragraph command finishes a heading with prose. Only a split
+    // inside the heading keeps the heading type (extensions/src/paragraph.ts).
     const headings = content.locator('[data-bc-stype="heading"]');
-    await expect(headings).toHaveCount(3, { timeout: 5000 });
+    await expect(headings).toHaveCount(2, { timeout: 5000 });
     const paragraphs = content.locator('[data-bc-stype="paragraph"]');
-    await expect(paragraphs).toHaveCount(2, { timeout: 5000 });
+    await expect(paragraphs).toHaveCount(3, { timeout: 5000 });
+    await expect(h2).toHaveText('Rich Text Features');
+    const followingBlock = h2.locator('xpath=following-sibling::*[1]');
+    await expect(followingBlock).toHaveAttribute('data-bc-stype', 'paragraph');
+    const blockId = await followingBlock.getAttribute('data-bc-sid');
+    await expect.poll(() => page.evaluate(() => {
+      const anchor = window.getSelection()?.anchorNode;
+      const element = anchor instanceof Element ? anchor : anchor?.parentElement;
+      return element?.closest('[data-bc-stype="paragraph"]')?.getAttribute('data-bc-sid');
+    })).toBe(blockId);
+    await page.keyboard.type('After heading');
+    await expect(followingBlock).toHaveText('After heading');
   });
 });

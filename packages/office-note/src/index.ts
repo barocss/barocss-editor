@@ -55,3 +55,11 @@ export { NOTE_TOOLBAR, noteControlsIn, type NoteControl } from './toolbar-model'
  * **노트의 키맵** — 둘이고, 그 짧음이 이 제품이 무엇인지 말한다. `note-keymap.ts` 를 보라.
  */
 export { NOTE_KEYBINDINGS } from './note-keymap';
+export { noteLibrary, noteFileText, noteFileName, readNoteFile, isNotePageId, type NoteDocument } from './note-file';
+
+export { getNoteDatabaseItemBody, getNoteDatabaseItemId } from './database';
+
+export { registerNotePageReferenceCommands, type InsertNotePageReferencePayload } from './page-reference';
+
+export type { NotePageReferences, NotePageReferenceDestination } from './page-reference-ui';
+export { importNoteExchange, exportNoteExchange, type NoteExchangeFormat } from './note-exchange';

@@ -115,8 +115,15 @@ export function controlRows<C extends Control>(
      * The binding first, the declaration second. A toolbar is where a reader *finds* a chord, and a
      * chord written on a control that the keymap has since moved is worse than none.
      */
+    /*
+     * `apple ?? false` and not `apple ?? true`. The option is optional because a surface that writes
+     * no chords has no platform to state; when it does write them and says nothing, the honest
+     * reading is the one that does not claim a Mac. `keyLabel` used to default to `true` and every
+     * caller that forgot printed `⌘` to everybody — that default is gone, and this is the one place
+     * left that has to answer for an absent value.
+     */
     shortcut: keys
-      ? keyLabel(chordFor(keys, { command: one.command }) ?? one.shortcut, apple)
+      ? keyLabel(chordFor(keys, { command: one.command }) ?? one.shortcut, apple ?? false)
       : one.shortcut,
     state: state
       ? state(one, summary)

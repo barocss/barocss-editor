@@ -5,6 +5,21 @@ import { insideLockedRegion, selectedNodeIds } from '@barocss/editor-core';
 import { deleteOp, transaction } from '@barocss/model';
 import { deleteRangeOperations } from './range-delete';
 
+/** Inline objects have no text range. Block/canvas selections keep their own commands. */
+function hasSelectedInlineObjects(editor: Editor, payload?: { selection?: ModelSelection }): boolean {
+  const selection = payload?.selection ?? editor.selection;
+  if (selection?.type !== 'node' || !editor.isEditable) return false;
+  const ids = selectedNodeIds(selection);
+  const schema = editor.dataStore?.getActiveSchema();
+  return ids.length > 0 && ids.every(id => {
+    const node = editor.dataStore.getNode(id);
+    return node && typeof node.text !== 'string' && !node.content?.length &&
+      schema?.getNodeType(node.stype)?.group === 'inline' &&
+      !insideLockedRegion(editor.dataStore as never, id, 'lockDelete') &&
+      !insideLockedRegion(editor.dataStore as never, id, 'lockContent');
+  });
+}
+
 /**
  * Delete Extension Options
  */
@@ -100,14 +115,7 @@ export class DeleteExtension implements Extension {
         }
         return await this._executeBackspace(editor, selection);
       },
-      /**
-       * A **range**, not any selection.
-       *
-       * `selection != null` lets a **node** selection through, and every one of these deletes text
-       * between two points — so with a box held on a deck or a card held on a page the control lit
-       * up, ran, and did nothing. The class `guards.ts` names, and the state a builder lives in.
-       */
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload) || hasSelectedInlineObjects(ed, payload)
     });
 
     // 5. Word deletion (Option/Ctrl + Backspace or Delete)
@@ -157,8 +165,7 @@ export class DeleteExtension implements Extension {
         }
         return await this._executeDeleteForward(editor, selection);
       },
-      // A range, for the reason `backspace` gives: a delete acts on text between two points.
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload) || hasSelectedInlineObjects(ed, payload)
     });
   }
 
@@ -349,11 +356,13 @@ export class DeleteExtension implements Extension {
       return await this._handleBackspaceAtOffsetZero(editor, selection);
     }
 
-    // 3. Normal Backspace handling (offset > 0)
+    // 3. Delete one grapheme, keeping UTF-16 pairs and combining sequences intact.
+    const text = editor.dataStore.getNode(selection.startNodeId)?.text;
+    if (typeof text !== 'string') return false;
     const deleteRange: ModelSelection = {
       type: 'range',
       startNodeId: selection.startNodeId,
-      startOffset: selection.startOffset - 1,
+      startOffset: characterBoundary(text, selection.startOffset, 'backward'),
       endNodeId: selection.startNodeId,
       endOffset: selection.startOffset,
       collapsed: false,
@@ -376,6 +385,8 @@ export class DeleteExtension implements Extension {
    * @returns Success status
    */
   private async _executeDeleteForward(editor: Editor, selection: ModelSelection): Promise<boolean> {
+    const selectedNodes = selectedNodeIds(selection);
+    if (selectedNodes.length) return await this._executeDeleteNodes(editor, selectedNodes);
     const dataStore = (editor as any).dataStore;
     if (!dataStore) {
       console.error('[DeleteExtension] dataStore not found');
@@ -403,7 +414,7 @@ export class DeleteExtension implements Extension {
         startNodeId: selection.startNodeId,
         startOffset: selection.startOffset,
         endNodeId: selection.startNodeId,
-        endOffset: selection.startOffset + 1,
+        endOffset: characterBoundary(currentNode.text, selection.startOffset, 'forward'),
         collapsed: false,
         direction: 'forward'
       };
@@ -461,7 +472,7 @@ export class DeleteExtension implements Extension {
           startNodeId: nextEditableNodeId,
           startOffset: 0,
           endNodeId: nextEditableNodeId,
-          endOffset: 1,
+          endOffset: characterBoundary(nextNode.text, 0, 'forward'),
           collapsed: false,
           direction: 'forward'
         };
@@ -531,6 +542,26 @@ export class DeleteExtension implements Extension {
     const prevParent = dataStore.getParent(prevEditableNodeId);
     const currentParent = dataStore.getParent(selection.startNodeId);
 
+    // A callout title is a structural header, not a paragraph to merge into its body.
+    const blockOf = (sid: string) => {
+      let node = dataStore.getNode(sid);
+      const schema = dataStore.getActiveSchema?.();
+      for (let depth = 0; node && depth < 64; depth += 1) {
+        if (schema?.getNodeType(node.stype)?.group === 'block') return node;
+        node = node.parentId ? dataStore.getNode(node.parentId) : undefined;
+      }
+      return undefined;
+    };
+    const previousBlock = blockOf(prevEditableNodeId);
+    const currentBlock = blockOf(selection.startNodeId);
+    if ((currentBlock?.stype === 'calloutTitle' && previousBlock?.parentId !== currentBlock.parentId) ||
+        (previousBlock?.stype === 'calloutTitle' && currentBlock?.parentId === previousBlock.parentId)) {
+      const offset = typeof prevNode.text === 'string' ? prevNode.text.length : 0;
+      editor.setRange({ type: 'range', startNodeId: prevEditableNodeId, endNodeId: prevEditableNodeId,
+        startOffset: offset, endOffset: offset, collapsed: true });
+      return true;
+    }
+
     // Case D: Different parent (block boundary) - merge blocks
     if (prevParent?.sid !== currentParent?.sid) {
       // Previous node's parent and current node's parent are different → merge blocks
@@ -566,7 +597,7 @@ export class DeleteExtension implements Extension {
         const deleteRange: ModelSelection = {
           type: 'range',
           startNodeId: prevEditableNodeId,
-          startOffset: prevTextLength - 1,
+          startOffset: characterBoundary(prevNode.text, prevTextLength, 'backward'),
           endNodeId: prevEditableNodeId,
           endOffset: prevTextLength,
           collapsed: false,
@@ -609,8 +640,25 @@ export class DeleteExtension implements Extension {
    * state no reader should be able to observe.
    */
   private async _executeDeleteNodes(editor: Editor, nodeIds: string[]): Promise<boolean> {
-    const operations = nodeIds.map((nodeId) => deleteOp(nodeId));
-    const result = await transaction(editor, operations).commit();
+    const operations: unknown[] = nodeIds.map((nodeId) => deleteOp(nodeId));
+    if (hasSelectedInlineObjects(editor)) {
+      const store = editor.dataStore;
+      const node = store.getNode(nodeIds[0]);
+      const parent = node?.parentId ? store.getNode(node.parentId) : undefined;
+      const siblings = (parent?.content ?? []).map(String);
+      const index = siblings.indexOf(nodeIds[0]);
+      const available = (id: string) => !nodeIds.includes(id) && typeof store.getNode(id)?.text === 'string';
+      const before = siblings.slice(0, index).reverse().find(available);
+      const after = siblings.slice(index + 1).find(available);
+      let caret = before ?? after;
+      const offset = before ? store.getNode(before)?.text?.length ?? 0 : 0;
+      if (!caret && parent?.sid) {
+        caret = store.generateId();
+        operations.push({ type: 'addChild', payload: { parentId: parent.sid, position: Math.max(0, index), children: [{ sid: caret, stype: 'inline-text', text: '' }] } });
+      }
+      if (caret) operations.push({ type: 'setSelection', payload: { anchor: { nodeId: caret, offset }, head: { nodeId: caret, offset } } });
+    }
+    const result = await transaction(editor, operations as never, { applySelectionToView: true }).commit();
     return result.success;
   }
 
@@ -658,3 +706,25 @@ export function createDeleteExtension(options?: DeleteExtensionOptions): DeleteE
   return new DeleteExtension(options);
 }
 
+
+/** Model offsets are UTF-16; a reader's character can occupy several code units. */
+function characterBoundary(text: string, offset: number, direction: 'backward' | 'forward'): number {
+  const Segmenter = (Intl as unknown as { Segmenter?: new (locale?: string, options?: { granularity: string }) => {
+    segment: (text: string) => Iterable<{ index: number; segment: string }>
+  } }).Segmenter;
+  if (Segmenter) {
+    const segments = new Segmenter(undefined, { granularity: 'grapheme' }).segment(text);
+    for (const item of segments) {
+      const end = item.index + item.segment.length;
+      if (direction === 'backward' && end >= offset) return item.index;
+      if (direction === 'forward' && end > offset) return end;
+    }
+  }
+  // Older runtimes still keep supplementary characters whole.
+  if (direction === 'backward') {
+    const before = text.charCodeAt(offset - 1);
+    const previous = text.charCodeAt(offset - 2);
+    return Math.max(0, offset - (before >= 0xdc00 && before <= 0xdfff && previous >= 0xd800 && previous <= 0xdbff ? 2 : 1));
+  }
+  return Math.min(text.length, offset + ((text.codePointAt(offset) ?? 0) > 0xffff ? 2 : 1));
+}

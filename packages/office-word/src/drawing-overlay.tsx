@@ -1,14 +1,15 @@
+import { selectionResizeHandles } from '@barocss/office-ui';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dragGesture } from '@barocss/shared';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import {
-  RESIZE_HANDLES,
   boxOf,
   canvasAt,
   guidesFor,
   intersects,
   moveBox,
+  resizeBox,
   snapBox,
   unionOf,
   type Box,
@@ -16,6 +17,7 @@ import {
   type Handle
 } from '@barocss/office-canvas';
 import { useEditorRevision } from '@barocss/office-editor-ui';
+import { selectedWordObject, TWIPS_PER_CM } from './object-layout';
 
 /**
  * Pointing at what is **on** a drawing.
@@ -101,14 +103,18 @@ export function DrawingOverlay({ editor, host }: DrawingOverlayProps) {
    * is one line where re-deriving it would be four chances to disagree with what is drawn.
    */
   const measure = useCallback(() => {
-    const container = layer.current?.parentElement;
+    const container = layer.current;
     if (!container || !editor) return setOutlines([]);
 
+    // The overlay moves with its scroll container. Its own rectangle is the
+    // coordinate origin; the viewport rectangle of its parent excludes scrolling.
     const origin = container.getBoundingClientRect();
     const found: { sid: string; rect: DOMRect }[] = [];
     for (const sid of selectedNodeIds((editor as any).selection)) {
       const element = drawnAt(host, sid);
-      if (!element) continue;
+      // Equations own their selection outline and inline editor. Drawing resize
+      // handles cannot resize an equation and must not cover its input surface.
+      if (!element || element.matches('.w-math')) continue;
       const rect = element.getBoundingClientRect();
       found.push({
         sid,
@@ -168,14 +174,27 @@ export function DrawingOverlay({ editor, host }: DrawingOverlayProps) {
    */
   const answers = useEditorRevision(editor);
   useEffect(() => {
-    const redraw = () => setTick((count) => count + 1);
+    let frame = 0;
+    const redraw = () => {
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; setTick((count) => count + 1); });
+    };
+    const changes = new MutationObserver(redraw);
+    for (let element = host; element; element = element.parentElement)
+      changes.observe(element, { attributes: true, attributeFilter: ['style', 'class'] });
+    const resize = new ResizeObserver(redraw);
+    if (host) resize.observe(host);
     window.addEventListener('scroll', redraw, true);
     window.addEventListener('resize', redraw);
+    window.visualViewport?.addEventListener('resize', redraw);
+    window.visualViewport?.addEventListener('scroll', redraw);
     return () => {
+      cancelAnimationFrame(frame); changes.disconnect(); resize.disconnect();
       window.removeEventListener('scroll', redraw, true);
       window.removeEventListener('resize', redraw);
+      window.visualViewport?.removeEventListener('resize', redraw);
+      window.visualViewport?.removeEventListener('scroll', redraw);
     };
-  }, []);
+  }, [host]);
 
   useLayoutEffect(() => {
     measure();
@@ -380,7 +399,7 @@ export function DrawingOverlay({ editor, host }: DrawingOverlayProps) {
      */
     const startBand = (event: PointerEvent, canvasSid: string) => {
       const canvasEl = drawnAt(host, canvasSid);
-      const container = layer.current?.parentElement;
+      const container = layer.current;
       if (!canvasEl || !container) return;
 
       const drawn = canvasEl.getBoundingClientRect();
@@ -467,7 +486,52 @@ export function DrawingOverlay({ editor, host }: DrawingOverlayProps) {
   const onHandle = (handle: Handle) => (event: React.PointerEvent) => {
     const doc = access();
     const moving = selectedNodeIds((editor as any)?.selection);
-    if (!doc || moving.length === 0) return;
+    if (!doc || !editor?.isEditable || moving.length === 0) return;
+
+    const imageTarget = selectedWordObject(editor);
+    if (moving.length === 1 && imageTarget?.kind === 'image' && !canvasAt(doc as never, moving[0])) {
+      const element = drawnAt(host, imageTarget.nodeId);
+      if (!element || !element.offsetWidth) return;
+      event.preventDefault(); event.stopPropagation();
+      const drawn = element.getBoundingClientRect();
+      const zoom = drawn.width / element.offsetWidth;
+      if (!Number.isFinite(zoom) || zoom <= 0) return;
+      const attributes = (doc.getNode(imageTarget.nodeId) as any)?.attributes;
+      const dimension = (key: 'width' | 'height', pixels: number) => {
+        const stored = Number(attributes?.[key]);
+        return stored > 0 && Math.abs(stored / 15 - pixels) < 1 ? stored : pixels * 15;
+      };
+      // Shared geometry rounds in document units (twips), not screen pixels.
+      const initial = { x: 0, y: 0, width: dimension('width', drawn.width / zoom), height: dimension('height', drawn.height / zoom) };
+      const stamp = JSON.stringify(doc.getNode(imageTarget.nodeId));
+      const sizeAt = (at: { dx: number; dy: number; shift: boolean }) => {
+        const next = resizeBox(initial, handle, { dx: at.dx / zoom * 15, dy: at.dy / zoom * 15 },
+          { keepAspect: !at.shift, minimum: TWIPS_PER_CM * 0.1 });
+        const maximum = 55 * TWIPS_PER_CM;
+        const factor = Math.min(1, maximum / next.width, maximum / next.height);
+        return { width: next.width * factor, height: next.height * factor };
+      };
+      dragGesture(event, {
+        start: () => ({}),
+        move: (_held, at) => {
+          const next = sizeAt(at);
+          // Inline pictures stay anchored in the text flow while their dimensions change.
+          setPulled({ handle: 'se', dx: (next.width - initial.width) / 15 * zoom, dy: (next.height - initial.height) / 15 * zoom });
+        },
+        done: (_held, at) => {
+          setPulled(null);
+          if (Math.abs(at.dx) < 1 && Math.abs(at.dy) < 1 || stamp !== JSON.stringify(doc.getNode(imageTarget.nodeId))) return;
+          if (Math.abs(element.getBoundingClientRect().width / element.offsetWidth - zoom) > 0.001) return;
+          const next = sizeAt(at);
+          const payload = { ...imageTarget, width: next.width / TWIPS_PER_CM, height: next.height / TWIPS_PER_CM };
+          if (!editor.canRun('setWordObjectLayout', payload)) return;
+          editor.historyManager.closeGroup();
+          void editor.run('setWordObjectLayout', payload).finally(() => editor.historyManager.closeGroup());
+        },
+        abort: () => setPulled(null)
+      }, { threshold: 0 });
+      return;
+    }
 
     const canvasSid = canvasAt(doc as never, moving[0]);
     const canvasEl = drawnAt(host, canvasSid);
@@ -521,7 +585,7 @@ export function DrawingOverlay({ editor, host }: DrawingOverlayProps) {
       {outlines.map((one) => (
         <div
           key={one.sid}
-          className="w-drawing-selected"
+          className="w-drawing-selected office-selection-frame"
           data-drawing-selected={one.sid}
           style={{
             left: `${one.rect.left + (dragged?.dx ?? 0)}px`,
@@ -533,7 +597,7 @@ export function DrawingOverlay({ editor, host }: DrawingOverlayProps) {
       ))}
       {frame && (
         <div
-          className="w-drawing-frame"
+          className="w-drawing-frame office-selection-frame"
           data-drawing-frame
           style={{
             left: `${frame.x + (pulled && pulled.handle.includes('w') ? pulled.dx : 0)}px`,
@@ -550,11 +614,12 @@ export function DrawingOverlay({ editor, host }: DrawingOverlayProps) {
             )}px`
           }}
         >
-          {RESIZE_HANDLES.map((handle) => (
+          {(editor?.isEditable && (canvasRect || (outlines.length === 1 && selectedWordObject(editor)?.kind === 'image')) ? selectionResizeHandles(Math.max(1, frame.width + (pulled ? pulled.handle.includes('e') ? pulled.dx : pulled.handle.includes('w') ? -pulled.dx : 0 : 0)), Math.max(1, frame.height + (pulled ? pulled.handle.includes('s') ? pulled.dy : pulled.handle.includes('n') ? -pulled.dy : 0 : 0)), pulled?.handle === 'move' ? undefined : pulled?.handle) : []).map((handle) => (
             <span
               key={handle}
-              className={`w-drawing-handle w-drawing-handle-${handle}`}
+              className={`office-selection-handle w-drawing-handle w-drawing-handle-${handle}`}
               data-drawing-handle={handle}
+              title={canvasRect ? '크기 조절 · Shift로 비율 유지 · Alt로 중심 기준' : '크기 조절 · 모서리는 비율 유지 · Shift로 자유 조절'}
               onPointerDown={onHandle(handle)}
             />
           ))}

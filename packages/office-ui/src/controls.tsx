@@ -1,7 +1,7 @@
 import { Icon } from '@barocss/office-icons';
 import { Tip } from './tip';
 import type React from 'react';
-import { useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { cn } from './cn';
 
 /**
@@ -72,6 +72,9 @@ export const CONTROL = [
   'disabled:pointer-events-none disabled:opacity-40'
 ].join(' ');
 
+/** Field paint is opt-in. Buttons and colour swatches share geometry, not field states. */
+export const FIELD_CONTROL = `office-field ${CONTROL}`;
+
 /**
  * How a control **answers** — the three things a reader does to it that are not a click.
  *
@@ -99,7 +102,7 @@ export const STATE = [
  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ou-accent)] focus-visible:ring-offset-0'
 ].join(' ');
 
-export type ButtonTone = 'plain' | 'accent';
+export type ButtonTone = 'plain' | 'accent' | 'quiet';
 
 /**
  * A hit target around one icon, and nothing else.
@@ -127,6 +130,7 @@ export function IconButton({
   children,
   onClick,
   pressed,
+  preserveFocus = false,
   disabled,
   size = 'md',
   className,
@@ -155,7 +159,9 @@ export function IconButton({
   children: React.ReactNode;
   onClick?: () => void;
   /** A toggle's state — the eye, the lock. Omitted for a button that only does something. */
-  pressed?: boolean;
+  pressed?: boolean | 'mixed';
+  /** Keep an existing text selection while the pointer presses a contextual control. */
+  preserveFocus?: boolean;
   disabled?: boolean;
   /**
    * `sm` for an icon inside a list row, `md` for one standing on its own.
@@ -198,25 +204,14 @@ export function IconButton({
         aria-pressed={pressed}
         disabled={disabled}
         onClick={onClick}
+        onMouseDown={preserveFocus ? event => event.preventDefault() : undefined}
         {...Object.fromEntries(
           Object.entries(data ?? {}).map(([key, value]) => [`data-${key}`, value])
         )}
-        className={cn(
-          'inline-flex shrink-0 cursor-pointer items-center justify-center',
-          'rounded-[var(--ou-radius)] border border-transparent text-[color:var(--ou-ink)]',
-          'disabled:pointer-events-none disabled:opacity-40',
-          size === 'sm'
-            ? 'h-[var(--ou-icon-h)] w-[var(--ou-icon-h)]'
-            : 'h-[var(--ou-control-h)] w-[var(--ou-control-h)]',
-          // No ground of its own: it sits on a pane, a row or a bar, and a button with a
-          // background in a list row draws a grid nobody asked for.
-          'bg-transparent hover:bg-[color:var(--ou-ground)]',
-          // A pressed toggle is the accent, whatever its size: "this one is on" is one idea
-          // and one colour — the same rule `Button` follows.
-          pressed && 'bg-[color:var(--ou-accent)] text-[color:var(--ou-accent-ink)]',
-          testClass,
-          className
-        )}
+        data-button-kind="icon"
+        data-button-tone="quiet"
+        data-button-size={size}
+        className={cn('office-button', testClass, className)}
       >
         {children}
       </button>
@@ -237,64 +232,30 @@ export function IconButton({
  * drawing it as a different component is how a toolbar ends up with two kinds of
  * on. It writes `aria-pressed`, which is also what a test asks about.
  */
-export function Button({
- children,
- onClick,
-  tone = 'plain',
- pressed,
-  disabled,
-  ariaLabel,
-  title,
-  square,
-  className,
-  testClass,
-  data
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
+export type ButtonProps = React.ComponentPropsWithRef<'button'> & {
   tone?: ButtonTone;
-  /** A toggle's state. Omitted for a button that only does something. */
   pressed?: boolean;
-  disabled?: boolean;
   ariaLabel?: string;
-  title?: string;
-  /** An icon button: as wide as it is tall, which is what a strip of them needs. */
   square?: boolean;
-  className?: string;
-  /** The product's own hook, for its tests and its styles. */
- testClass?: string;
-  /** `data-` attributes the product hangs its own behaviour on. */
+  testClass?: string;
   data?: Record<string, string | undefined>;
-}) {
+};
+
+export function Button({
+  children, tone = 'plain', pressed, ariaLabel, square, className, testClass,
+  data, type = 'button', ...attributes
+}: ButtonProps) {
   return (
     <button
-      type="button"
- aria-label={ariaLabel}
-      aria-pressed={pressed}
-      title={title}
-      disabled={disabled}
-      onClick={onClick}
-      {...Object.fromEntries(
-        Object.entries(data ?? {}).map(([key, value]) => [`data-${key}`, value])
-      )}
-      className={cn(
-        CONTROL,
-        STATE,
-        'inline-flex shrink-0 items-center justify-center gap-1 leading-none',
- square ? 'w-[var(--ou-control-h)] px-0' : 'px-2',
- tone === 'accent'
- ? 'border-transparent bg-[color:var(--ou-accent)] text-[color:var(--ou-accent-ink)]'
- : 'bg-transparent hover:bg-[color:var(--ou-ground)]',
- // A pressed toggle is the accent, whatever its tone: "this one is on" is
- // one idea and one colour.
-        pressed && 'border-transparent bg-[color:var(--ou-accent)] text-[color:var(--ou-accent-ink)]',
- 'cursor-pointer',
- testClass,
-        className
-      )}
-    >
-      {children}
-    </button>
+      {...attributes}
+      type={type}
+      aria-label={ariaLabel ?? attributes['aria-label']}
+      aria-pressed={pressed ?? attributes['aria-pressed']}
+      {...Object.fromEntries(Object.entries(data ?? {}).map(([key, value]) => [`data-${key}`, value]))}
+      data-button-kind={square ? 'icon' : 'text'}
+      data-button-tone={tone}
+      className={cn('office-button', testClass, className)}
+    >{children}</button>
   );
 }
 
@@ -309,6 +270,7 @@ export function Button({
  * `ChoiceSelect`, the panels a plain `<select>`); this is that rule with a name.
  */
 export function Choice({
+  id,
  value,
   onChange,
   children,
@@ -318,6 +280,7 @@ export function Choice({
   testClass,
   data
 }: {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   /** `<option>`s and `<optgroup>`s — a grouped list is most of the interesting ones. */
@@ -330,6 +293,7 @@ export function Choice({
 }) {
   return (
     <select
+      id={id}
       aria-label={ariaLabel}
       disabled={disabled}
       value={value}
@@ -337,7 +301,7 @@ export function Choice({
       {...Object.fromEntries(
         Object.entries(data ?? {}).map(([key, value]) => [`data-${key}`, value])
       )}
-      className={cn(CONTROL, STATE, 'w-full min-w-0 bg-transparent px-1', testClass, className)}
+      className={cn(FIELD_CONTROL, STATE, 'w-full min-w-0 bg-transparent px-1', testClass, className)}
  >
       {children}
     </select>
@@ -406,7 +370,7 @@ export type NumberFieldSaid =
   | { kind: 'nothing' };
 
 export function readNumberField(text: string, value: number | null): NumberFieldSaid {
-  const parsed = Number.parseFloat(text);
+  const parsed = text.trim() === '' ? Number.NaN : Number(text);
   if (Number.isFinite(parsed)) {
     // The commit runs on every blur, including the blur of a field nobody touched.
     return parsed === value ? { kind: 'nothing' } : { kind: 'value', value: parsed };
@@ -534,6 +498,7 @@ export function NumberField({
    * already do in every tool — a reader who knows one knows the other.
    */
   const box = useRef<HTMLInputElement | null>(null);
+  const composing = useRef(false);
   const drag = useRef<{ x: number; from: number; at: number } | null>(null);
   const [scrubbing, setScrubbing] = useState(false);
 
@@ -556,11 +521,21 @@ export function NumberField({
   };
 
   const commit = (text: string) => {
+    // The rounded display is not an edit to the stored precision.
+    if (text === shown) return;
     const said = readNumberField(text, value);
-    if (said.kind === 'value') onCommit(said.value);
-    // A caller with no meaning for "take it back" says nothing by leaving `onClear` off, and an
-    // emptied field there stays what it always was: leave it alone.
-    else if (said.kind === 'clear') onClear?.();
+    if (said.kind === 'value') {
+      let next = said.value;
+      if (min !== undefined) next = Math.max(min, next);
+      if (max !== undefined) next = Math.min(max, next);
+      if (box.current) box.current.value = String(Math.round(next * scale) / scale);
+      if (next !== value) onCommit(next);
+    } else if (said.kind === 'clear' && onClear) {
+      onClear();
+    } else if (box.current) {
+      // Empty or invalid input cannot leave the view out of sync with the model.
+      box.current.value = shown;
+    }
   };
 
   /*
@@ -584,6 +559,11 @@ export function NumberField({
         },
         onPointerMove: (event: React.PointerEvent<HTMLSpanElement>) => {
           if (drag.current) scrubTo(event);
+        },
+        onPointerCancel: () => {
+          drag.current = null;
+          setScrubbing(false);
+          if (box.current) box.current.value = shown;
         },
         onLostPointerCapture: () => {
           const held = drag.current;
@@ -667,7 +647,12 @@ export function NumberField({
         key={shown}
         defaultValue={shown}
         placeholder={value === null ? '—' : undefined}
- onBlur={(event) => commit(event.target.value)}
+        onCompositionStart={() => { composing.current = true; }}
+        onCompositionEnd={() => { composing.current = false; }}
+        onBlur={event => {
+          if (event.currentTarget.validity.badInput) event.currentTarget.value = shown;
+          else commit(event.currentTarget.value);
+        }}
         onKeyDown={(event) => {
           /**
            * A field's keys are the field's, not the document's.
@@ -690,6 +675,17 @@ export function NumberField({
            * all.
            */
           if (fieldKeeps(event)) event.stopPropagation();
+          if (composing.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+          if (!event.ctrlKey && !event.metaKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+            event.preventDefault();
+            const input = event.currentTarget;
+            const draft = input.value === '' ? NaN : Number(input.value);
+            input.value = String(scrubbedTo({
+              from: Number.isFinite(draft) ? draft : (value ?? 0),
+              dx: event.key === 'ArrowUp' ? 1 : -1,
+              step, shift: event.shiftKey, alt: event.altKey, min, max, decimals
+            }));
+          }
           if (event.key === 'Enter' || event.key === 'Escape') event.preventDefault();
  if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
  if (event.key === 'Escape') {
@@ -698,7 +694,7 @@ export function NumberField({
           }
         }}
         className={cn(
-          CONTROL,
+          FIELD_CONTROL,
           STATE,
           'w-full min-w-0 bg-transparent text-right tabular-nums',
           /*
@@ -755,7 +751,10 @@ export function TextField({
   placeholder,
   maxLength,
   disabled,
+  readOnly,
   ariaLabel,
+  invalid,
+  describedBy,
   className,
   testClass,
   inputRef,
@@ -785,7 +784,11 @@ export function TextField({
   placeholder?: string;
   maxLength?: number;
   disabled?: boolean;
+  readOnly?: boolean;
   ariaLabel: string;
+  /** Validation belongs to the caller; the field exposes its result. */
+  invalid?: boolean;
+  describedBy?: string;
   className?: string;
   testClass?: string;
   inputRef?: React.Ref<HTMLInputElement>;
@@ -801,11 +804,12 @@ export function TextField({
    * Four, and no more: a caller who wants a length wants `NumberField`, which knows about units and
    * dragging and is a different control rather than this one with a flag.
    */
-  type?: 'text' | 'number' | 'date' | 'url';
+  type?: 'text' | 'number' | 'date' | 'url' | 'search';
   padding?: string;
 }) {
   const shown = value ?? '';
   const live = !!onChange;
+  const composing = useRef(false);
 
   const commit = (text: string) => {
     const next = text.trim();
@@ -833,7 +837,11 @@ export function TextField({
       key={live ? undefined : shown}
       ref={inputRef}
       aria-label={ariaLabel}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
+      data-office-text-field=""
       disabled={disabled}
+      readOnly={readOnly}
       maxLength={maxLength}
       /**
        * A live field is drawn from the value it is given; a committed one keeps its own
@@ -844,7 +852,13 @@ export function TextField({
       {...(live ? { value: shown } : { defaultValue: shown })}
       placeholder={placeholder ?? (value === null ? '—' : undefined)}
       onChange={live ? (event) => onChange!(event.target.value) : undefined}
-      onBlur={live ? undefined : (event) => commit(event.target.value)}
+      onCompositionStart={() => { composing.current = true; }}
+      onCompositionEnd={() => { composing.current = false; }}
+      onBlur={live ? undefined : event => {
+        const next = event.currentTarget.value.trim();
+        commit(next);
+        event.currentTarget.value = next;
+      }}
       onKeyDown={(event) => {
         /**
          * A field's keys are the field's.
@@ -856,7 +870,11 @@ export function TextField({
          *
          * And **only the keys a field has a meaning for** — see `fieldKeeps`.
          */
-        if (fieldKeeps(event)) event.stopPropagation();
+        // A live field has no pending value to cancel. Let Escape close its
+        // enclosing panel unless the caller handles the key below.
+        if (fieldKeeps(event) && !(live && event.key === 'Escape' && !composing.current && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229)) event.stopPropagation();
+        // Enter confirms an IME candidate before it can confirm the field itself.
+        if (composing.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
         if (!live) {
           if (event.key === 'Enter' || event.key === 'Escape') event.preventDefault();
           if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
@@ -870,7 +888,7 @@ export function TextField({
       {...Object.fromEntries(
         Object.entries(data ?? {}).map(([key, value_]) => [`data-${key}`, value_])
       )}
-      className={cn(CONTROL, STATE, 'w-full min-w-0 bg-transparent', padding, testClass, className)}
+      className={cn(FIELD_CONTROL, STATE, 'w-full min-w-0 bg-transparent', padding, testClass, className)}
     />
   );
 }
@@ -965,4 +983,78 @@ export function FieldGroup({
       <div className="flex flex-col gap-[3px] pb-1">{children}</div>
     </details>
   );
+}
+
+/** Capture-phase dismiss handlers leave draft cancellation to the field. */
+export function keepsDraftTextAreaEscape(event: KeyboardEvent): boolean {
+  return event.key === 'Escape' && event.target instanceof Element && event.target.matches('textarea[data-office-textarea-draft]');
+}
+
+/** Live values use onChange. Draft values commit on blur or Ctrl/Command+Enter. */
+export function TextAreaField({ ariaLabel, value, onChange, onCommit, onCancel, placeholder, disabled, readOnly,
+  invalid, describedBy, rows = 4, className, data, inputRef
+}: {
+  ariaLabel: string; value: string; onChange?: (value: string) => void;
+  onCommit?: (value: string) => void | boolean | Promise<void | boolean>;
+  onCancel?: () => void; placeholder?: string; disabled?: boolean; readOnly?: boolean;
+  invalid?: boolean; describedBy?: string; rows?: number; className?: string;
+  data?: Record<string, string>; inputRef?: React.Ref<HTMLTextAreaElement>;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
+  const accepted = useRef(value);
+  const pending = useRef(false);
+  const composing = useRef(false);
+  const blurAfterComposition = useRef(false);
+  const skipBlur = useRef(false);
+  const generation = useRef(0);
+  const errorId = useId();
+  const live = !!onChange;
+  useEffect(() => {
+    generation.current++;
+    accepted.current = value; setDraft(value); setError(false);
+  }, [value]);
+  const commit = async (text: string) => {
+    if (live || !onCommit || disabled || readOnly || invalid || pending.current || text === accepted.current) return;
+    const version = generation.current;
+    pending.current = true; setSaving(true); setError(false);
+    try {
+      const result = await onCommit(text);
+      if (version !== generation.current) return;
+      if (result === false) setError(true);
+      else accepted.current = text;
+    } catch { if (version === generation.current) setError(true); }
+    finally { pending.current = false; setSaving(false); }
+  };
+  return <div className="office-textarea-wrap">
+    <textarea ref={inputRef} aria-label={ariaLabel} value={live ? value : draft} data-office-textarea-draft={!live && !!onCommit ? '' : undefined}
+      aria-invalid={invalid || error || undefined} aria-busy={saving || undefined}
+      aria-describedby={[describedBy, error ? errorId : ''].filter(Boolean).join(' ') || undefined}
+      onChange={event => { if (live) onChange!(event.target.value); else { setDraft(event.target.value); setError(false); } }}
+      onCompositionStart={() => { composing.current = true; }}
+      onCompositionEnd={event => { composing.current = false; if (blurAfterComposition.current) { blurAfterComposition.current = false; void commit(event.currentTarget.value); } }}
+      onBlur={event => {
+        if (skipBlur.current) { skipBlur.current = false; return; }
+        if (composing.current) { blurAfterComposition.current = true; return; }
+        void commit(event.currentTarget.value);
+      }}
+      onKeyDown={event => {
+        if (event.key !== 'Escape' || !live) event.stopPropagation();
+        if (composing.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+        if (!live && event.key === 'Escape' && !saving) {
+          event.preventDefault(); setDraft(accepted.current); setError(false); skipBlur.current = true;
+          event.currentTarget.blur(); onCancel?.();
+        }
+        if (!live && event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault(); void commit(event.currentTarget.value);
+        }
+      }}
+      {...Object.fromEntries(Object.entries(data ?? {}).map(([key, entry]) => [`data-${key}`, entry]))}
+      placeholder={placeholder} disabled={disabled} readOnly={readOnly || saving} rows={rows}
+      className={cn('office-field office-textarea', className)} />
+    {saving && <span role="status" className="office-textarea-feedback">적용 중…</span>}
+    {error && <div className="office-textarea-feedback"><span id={errorId} role="alert">내용을 적용하지 못했습니다. 입력은 유지됩니다.</span>
+      <Button disabled={disabled || readOnly || invalid} onClick={() => void commit(draft)}>다시 시도</Button></div>}
+  </div>;
 }

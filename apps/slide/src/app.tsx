@@ -1,17 +1,20 @@
+import { documentTitle } from '@barocss/office-text';
+import { EditorHeader, ProductMenu, CommandSearch, CommandSearchTrigger, TaskStatus, TaskStatusRegion } from '@barocss/office-ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Editor } from '@barocss/editor-core';
+import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { FileActions, type DeckFileActions } from '@barocss/office-slides/ui';
-import { AuditPanel, Filmstrip } from '@barocss/office-slides/ui';
+import { AuditPanel, SlideSidebar } from '@barocss/office-slides/ui';
 import { NotesPane, Presenter } from '@barocss/office-slides/ui';
 import {
-  AppBody,
-  AppChrome,
+  AdaptiveWorkspace,
+  WorkspaceSidePanel,
   MenuBar,
   AppMain,
   AppShell,
   Button,
+  onApple,
   ZoomControl,
   type LengthUnit
 } from '@barocss/office-ui';
@@ -23,6 +26,7 @@ import {
   deckAdvance,
   componentsOf,
   deckSlides,
+  isSceneType,
   isLibraryName,
   readDeckFile,
   slideById,
@@ -67,7 +71,7 @@ import {
   TemplateDialog,
   ThemeDialog
 } from '@barocss/office-slides/ui';
-import { DeckMapView, LayerPanel } from '@barocss/office-slides/ui';
+import { DeckMapView } from '@barocss/office-slides/ui';
 import { ComponentPanel } from '@barocss/office-slides/ui';
 import { FindBar } from '@barocss/office-slides/ui';
 import { PresenterWindow } from '@barocss/office-slides/ui';
@@ -75,17 +79,20 @@ import { Properties } from '@barocss/office-slides/ui';
 import { Ribbon } from '@barocss/office-slides/ui';
 import {
   SLIDES_KEYS,
-  SLIDES_MENUS,
+  slidesMenus,
+  slidesSearchCommands,
+  slidesSearchPayload,
+  SLIDES_ZOOM_LADDER,
   matchesKey,
   slidesMenuEntry,
   slidesMenuId
 } from '@barocss/office-slides';
 
-import { Present, SelectionOverlay, Stage, TimelinePane } from '@barocss/office-slides/ui';
+import { Present, SelectionOverlay, Stage, TimelinePane, createSlidePrint, SlidePrintDialog } from '@barocss/office-slides/ui';
 import { LibraryDialog } from '@barocss/office-slides/ui';
 import { libraryDeck, libraryRows } from '@barocss/office-slides';
-import { useDeck, useRevision } from '@barocss/office-slides/ui';
-import { useEditorRevision } from '@barocss/office-editor-ui';
+import { useDeck, useRevision, useSlidePersistence, SlideDocuments } from '@barocss/office-slides/ui';
+import { useEditorRevision, captureTextSelection } from '@barocss/office-editor-ui';
 
 /**
  * The deck app.
@@ -126,6 +133,9 @@ export function App({
 
   const editor = instance?.editor ?? null;
   const view = instance?.view ?? null;
+  const printer = useMemo(() => editor ? createSlidePrint(editor) : null, [editor]);
+  useEffect(() => printer?.attach(), [printer]);
+  const persistence = useSlidePersistence(editor);
   const slides = useDeck(editor);
   const revision = useRevision(editor);
   /**
@@ -344,7 +354,71 @@ export function App({
    * strip, so a reader who opened one in strip mode would be looking at a deck with nothing to
    * edit.
    */
-  const stageFocus = editingComponent ? current : presenting || focused ? current : undefined;
+  const stageFocus = editingComponent || editingDesign ? current : presenting || focused ? current : undefined;
+  useEffect(() => {
+    // Undo/redo can restore an object on another slide without a DOM pointer event.
+    if (presenting || editingComponent || editingDesign) return;
+    const selected = selectedNodeIds(editor?.selection);
+    let sid = selected[0];
+    const seen = new Set<string>();
+    while (sid && !seen.has(sid)) {
+      seen.add(sid);
+      if (slides.some(slide => slide.sid === sid)) {
+        const owner = sid;
+        // Preserve the active member of a multi-slide selection. Camera and
+        // presentation navigation alone must not re-activate an old selection.
+        setCurrent(previous => selected.length > 1 && selected.some(id => editor?.dataStore.getNode(id)?.parentId === previous) ? previous : owner);
+        break;
+      }
+      sid = editor?.dataStore.getNode(sid)?.parentId as string;
+    }
+  }, [editor, answers, revision, slides, presenting, editingComponent, editingDesign]);
+
+  const boards = useMemo(() => slides.map((slide, index) => {
+    const attrs = editor?.dataStore.getNode(slide.sid)?.attributes ?? {};
+    const dimensions = slideSize(attrs);
+    return { sid: slide.sid, label: `${slide.number} · ${slide.name || '제목 없음'}`,
+      x: typeof attrs.canvasX === 'number' ? attrs.canvasX : (index % 2) * 1440,
+      y: typeof attrs.canvasY === 'number' ? attrs.canvasY : Math.floor(index / 2) * 880,
+      width: Number(dimensions.width) / 15, height: Number(dimensions.height) / 15 };
+  }), [slides, editor, revision]);
+  useEffect(() => {
+    if (focused || presenting || editingComponent || editingDesign) return;
+    const pane = stage.current;
+    if (!pane) return;
+    const activate = (event: Event) => {
+      const target = event.target as HTMLElement;
+      const slide = target.closest?.('.sl-slide[data-bc-sid]');
+      const sid = slide?.getAttribute('data-bc-sid');
+      if (!sid || !slides.some(one => one.sid === sid)) return;
+      if (sid === current) return;
+      setCurrent(sid);
+      const box = target.closest('[data-bc-sid]');
+      let placed = box;
+      while (placed && placed !== slide && !isSceneType(editor?.dataStore.getNode(placed.getAttribute('data-bc-sid')!)?.stype)) placed = placed.parentElement?.closest('[data-bc-sid]') ?? null;
+      const node = placed?.getAttribute('data-bc-sid');
+      if (event.type === 'pointerdown') {
+        const adding = (event as PointerEvent).shiftKey && node && node !== sid;
+        const previous = adding ? selectedNodeIds(editor?.selection) : [];
+        const next = node && node !== sid
+          ? adding && previous.includes(node) ? previous.filter(id => id !== node) : [...previous, node]
+          : [];
+        if (adding) { event.preventDefault(); event.stopPropagation(); }
+        void editor?.executeCommand('setNode', { nodeIds: next });
+      }
+    };
+    const caretChanged = () => {
+      const anchor = pane.ownerDocument.getSelection()?.focusNode;
+      const element = anchor?.nodeType === Node.ELEMENT_NODE ? anchor as Element : anchor?.parentElement;
+      const sid = element?.closest('.sl-slide[data-bc-sid]')?.getAttribute('data-bc-sid');
+      if (sid && pane.contains(element!) && slides.some(one => one.sid === sid)) setCurrent(sid);
+    };
+    pane.ownerDocument.addEventListener('selectionchange', caretChanged);
+    pane.addEventListener('pointerdown', activate, true);
+    pane.addEventListener('focusin', activate, true);
+    return () => { pane.ownerDocument.removeEventListener('selectionchange', caretChanged); pane.removeEventListener('pointerdown', activate, true); pane.removeEventListener('focusin', activate, true); };
+  }, [focused, presenting, editingComponent, editingDesign, slides, current, editor]);
+
 
   /**
    * The box the stage has to fit, and the length its rulers measure.
@@ -410,7 +484,7 @@ export function App({
    * one reader's screen, and the editor has no idea one exists.
    */
   const [dialog, setDialog] = useState<
-    'size' | 'layout' | 'theme' | 'template' | 'library' | null
+    'size' | 'layout' | 'theme' | 'template' | 'library' | 'print' | null
   >(null);
 
   /**
@@ -769,14 +843,6 @@ export function App({
   );
 
   /**
-   * Whether the layer list is showing.
-   *
-   * Closed by default and remembered while the app is open, like the timeline's
-   * fold: a reader who wants it wants it for a session, and a panel that opens
-   * itself takes room from the slide every time the app starts.
-   */
-  const [layersOpen, setLayersOpen] = useState(false);
-  /**
    * Whether the components list is showing.
    *
    * Closed by default and remembered for the session, like the layer list: a deck with no
@@ -876,7 +942,7 @@ export function App({
    */
   const menus = useMemo(
     () =>
-      SLIDES_MENUS.map((menu) => ({
+      slidesMenus(onApple()).map((menu) => ({
         id: menu.id,
         label: menu.label,
         blocks: menu.blocks.map((block) => ({
@@ -933,6 +999,8 @@ export function App({
           return files.current?.open();
         case 'file.save':
           return files.current?.save();
+        case 'file.print':
+          return setDialog('print');
         case 'library':
           return setDialog((was) => (was === 'library' ? null : 'library'));
         case 'template':
@@ -974,6 +1042,45 @@ export function App({
     [editor, current, moveBy, stretches]
   );
 
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [recentCommands, setRecentCommands] = useState<string[]>([]);
+  const [commandError, setCommandError] = useState('');
+  const searchTarget = useRef<{ rootId: string; slideId?: string; selection?: ModelSelection } | undefined>(undefined);
+  const searchEntries = useMemo(() => slidesSearchCommands(onApple()), []);
+  const menuItems = menus.flatMap(menu => menu.blocks.flatMap(block => block.items));
+  const searchCommands = searchEntries.map(entry => {
+    const menu = menuItems.find(item => item.id === entry.id);
+    const disabled = !editor || (menu ? menu.disabled :
+      (!!entry.control?.needsSlide && !current) || !editor.canExecuteCommand(entry.command!, slidesSearchPayload(entry, current, here?.number) as never));
+    return { ...entry, disabled, disabledReason: menu?.title ?? '현재 슬라이드 또는 선택한 객체에서는 실행할 수 없습니다.' };
+  });
+  const openCommandSearch = () => {
+    const rootId = editor?.getRootId();
+    if (!editor || !view || !rootId) return;
+    searchTarget.current = { rootId, slideId: current, selection: structuredClone(captureTextSelection(editor, view, { allowBlurred: true }) ?? editor.selection ?? undefined) };
+    setCommandError(''); setCommandOpen(true);
+  };
+  const pickSearchCommand = async (id: string) => {
+    const target = searchTarget.current, entry = searchEntries.find(item => item.id === id);
+    if (!editor || !target || !entry) return;
+    if (editor.getRootId() !== target.rootId || current !== target.slideId) {
+      setCommandError('문서 또는 현재 슬라이드가 변경되었습니다. 명령을 다시 선택하세요.'); return;
+    }
+    try {
+      if (target.selection) editor.updateSelection({ selection: target.selection, applySelectionToView: true });
+      if (entry.command) {
+        const payload = slidesSearchPayload(entry, target.slideId, here?.number);
+        if (!editor.canExecuteCommand(entry.command, payload as never) || !await editor.executeCommand(entry.command, payload as never)) {
+          setCommandError('현재 선택에서 명령을 실행할 수 없습니다.'); return;
+        }
+      } else {
+        if (menuItems.find(item => item.id === entry.id)?.disabled) { setCommandError('현재 상태에서 명령을 실행할 수 없습니다.'); return; }
+        runEntry(entry);
+      }
+      setRecentCommands(previous => [id, ...previous.filter(value => value !== id)].slice(0, 5));
+    } catch { setCommandError('명령을 실행하지 못했습니다. 다시 시도하세요.'); }
+  };
+
   /** A pick in the menubar, which is `runEntry` with the entry looked up. */
   const onMenu = useCallback(
     (id: string) => {
@@ -986,6 +1093,7 @@ export function App({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
+      if ((event.target as Element | null)?.closest?.('[role="dialog"], [role="alertdialog"]')) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
         event.preventDefault();
         return setFinding(true);
@@ -1612,7 +1720,10 @@ export function App({
             const read = readDeckFile(text);
             if ('error' in read) return setAway(read.error);
 
+            if (!await persistence.beforeReplace()) { setAway('현재 자료를 저장하지 못했습니다. 다시 시도하세요.'); return; }
             editor?.loadDocument?.(read.document, 'slides');
+            // A fetched file has no local identity; a library jump now edits its destination row.
+            setLibraryName(kept !== undefined ? source : undefined);
             /*
              * And the page *in that deck*, by its durable id — resolved after the load, because
              * until then the page does not exist in this session.
@@ -1637,7 +1748,7 @@ export function App({
       const to = jumpTarget(doc as never, jump, { at: current, history: visited });
       if (to) setCurrent(to);
     },
-    [editor, jumps, current, visited]
+    [editor, jumps, current, visited, persistence.beforeReplace]
   );
 
   /** What went wrong following a button out of the deck, if anything. */
@@ -1692,7 +1803,7 @@ export function App({
       if (event.key.toLowerCase() !== 'z') return;
 
       const target = event.target as HTMLElement | null;
-      if (target?.closest?.('[contenteditable="true"]')) return;
+      if (target?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"]')) return;
 
       event.preventDefault();
       void (event.shiftKey ? editor?.redo?.() : editor?.undo?.());
@@ -1708,7 +1819,7 @@ export function App({
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
       // Inside the document, the arrows belong to the caret.
-      if (target?.closest?.('[contenteditable="true"]')) return;
+      if (target?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"]')) return;
       if (event.key !== 'PageDown' && event.key !== 'PageUp') return;
 
       const at = slides.findIndex((slide) => slide.sid === current);
@@ -1740,35 +1851,27 @@ export function App({
         ...(scrolling ? { scrolled: String(Math.round(scrolled)), 'scroll-span': String(scrollSpan) } : {})
       }}
     >
-      <AppChrome as="header" className="sl-topbar">
-        <h1>Barocss Slides</h1>
-        {/*
-          The **menubar**, beside the deck's name.
-
-          This product had already grown one without having one: twelve application-level commands as
-          equal-weight text buttons along this bar, because there was nowhere else for them. A row of
-          twelve buttons groups nothing (저장 sits beside 지도 with no sign one is a file operation
-          and the other a way of looking), prioritises nothing, and does not scale — the thirteenth
-          has to displace something, which is how a title bar becomes a toolbar.
-
-          The buttons are still here and the retirement is its own move: 78 checks name them by
-          `data-*`. What the menubar changes today is that there is somewhere for the thirteenth to
-          go, and somewhere the 21 shortcuts can be read.
-        */}
-        <MenuBar className="sl-menubar" label="덱 메뉴" menus={menus} onPick={onMenu} />
-        <span className="sl-count">
-          {slides.length > 0 && here ? `${here.number} / ${slides.length}` : '—'}
-        </span>
-
-        <div className="sl-topbar-actions">
+      <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPick={id => void pickSearchCommand(id)} />
+      {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={() => setCommandError('')} /></TaskStatusRegion>}
+      <EditorHeader product="Slides" className="sl-topbar"
+        fallbackNavigation={<ProductMenu product="Slides" blocks={menus.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
+        title={editor ? documentTitle({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }) || '제목 없는 발표 자료' : '불러오는 중'}
+        menus={<MenuBar className="sl-menubar" label="덱 메뉴" menus={menus} onPick={onMenu} />}
+        view={<><span className="sl-count">{slides.length > 0 && here ? `${here.number} / ${slides.length}` : '—'}</span>
           <ZoomControl
             zoom={zoom ?? fitted}
+            ladder={SLIDES_ZOOM_LADDER}
             onChange={(next) => setZoom(clampZoom(next))}
             onFit={() => setZoom(undefined)}
             fitLabel="화면에 맞춤"
           />
-
+          <Button title="한 장만 보기 / 전체 보기" onClick={() => setFocused(on => !on)} data={{ 'focus-toggle': '' }}>{focused ? '캔버스 보기' : '한 장 보기'}</Button>
+        </>}
+        actions={<><CommandSearchTrigger disabled={!editor || presenting} onClick={openCommandSearch} /><SlideDocuments persistence={persistence} onOpened={() => {
+            setLibraryName(undefined); setCurrent(undefined); setStepEdit([]); setPlayed(0); setPlayhead(0);
+          }} />
           <FileActions
+            beforeReplace={persistence.beforeReplace}
             ref={files}
             editor={editor}
             onOpened={() => {
@@ -1787,47 +1890,9 @@ export function App({
             }}
           />
 
-          {/*
-            * The suite's button, four times — and the stylesheet's
-            * `.sl-topbar-actions button` rules are gone with them.
-            *
-            * That descendant selector was more specific than anything the shared
-            * control could say about itself, so every button in this row was drawn
-            * in this app's border and this app's padding *including* the ones that
-            * came from `office-ui`. Which is the fault the ratchet exists for,
-            * arriving from the other side: not a hand-rolled control, but a
-            * hand-rolled control's leftover rules restyling a shared one.
-            */}
-          {/*
-            The two that stay, and which of them is **the** button.
-            
-            발표 is what a presentation tool is for, so it is the accent — the one thing on this bar
-            a reader can find without reading. It was plain while 전체 보기 beside it was blue,
-            because a *pressed toggle* and a *primary action* were the same colour: the blue meant
-            "this view is on" and read as "this is the main button".
-          */}
-          <Button
-            tone="accent"
-            title="처음부터 발표"
-            onClick={() => setPresenting(true)}
-            data={{ present: '' }}
-          >
-            발표
-          </Button>
-          <Button
-            title="한 장만 보기 / 전체 보기"
-            /*
-             * Not `pressed`, which draws the accent: a view toggle beside the app's headline action
-             * cannot wear the same colour as it. The label already says which state it is in — it
-             * reads 전체 보기 when a reader is on one slide and 한 장 보기 when they are not.
-             */
-            onClick={() => setFocused((on) => !on)}
-            data={{ 'focus-toggle': '' }}
-          >
-            {focused ? '전체 보기' : '한 장 보기'}
-          </Button>
-        </div>
-      </AppChrome>
+
+          <Button tone="accent" title="처음부터 발표" onClick={() => setPresenting(true)} data={{ present: '' }}>발표</Button>
+        </>} />
 
       {/*
        * The suite's toolbar, drawing the model `office-slides` declares with the
@@ -1837,50 +1902,44 @@ export function App({
        */}
       {editor && !presenting && <Ribbon editor={editor} slides={slides} current={current} />}
 
-      <AppBody className="sl-body">
-        <Filmstrip
-            editor={editor}
-            revision={revision}
-            slides={slides} current={current} onSelect={setCurrent}   onRename={(sid, name) => void editor?.executeCommand('setSlideInfo', { slideId: sid, name })}
+      <AdaptiveWorkspace className="sl-body" enabled={!!editor && !presenting}>
+        <WorkspaceSidePanel side="navigation" width={240 + (componentsOpen ? 200 : components.length ? 24 : 0)}>
+          <div className="sl-workspace-navigation">
+            <SlideSidebar
+              editor={editor}
+              revision={revision}
+              slides={slides}
+              current={current}
+              editingSlide={current}
+              onSelect={sid => { setCurrent(sid); leaveSelection(); }}
+              onRename={(sid, name) => void editor?.executeCommand('setSlideInfo', { slideId: sid, name })}
             />
 
-        {/*
-          * What is on the slide, beside the strip of slides.
-          *
-          * On the left, under the filmstrip, because both answer "which thing" —
-          * one across the deck and one within a slide — and a reader looking for
-          * something looks left. The properties panel on the right answers a
-          * different question: what the thing they found *is*.
-          */}
-        <LayerPanel
-          editor={editor}
-          slideSid={current}
-          open={layersOpen}
-          onToggle={() => setLayersOpen((was) => !was)}
-        />
+            {/*
+              * The components a deck defines, and the way in and out of one.
+              *
+              * Beside the layer list because both answer "which thing" — and a definition has to
+              * be opened from *somewhere*: it is a resource rather than a page, so there is no
+              * filmstrip row to click. See `component-panel.tsx` for why that is the right place
+              * for it rather than a page of the file you scroll to.
+              */}
+            <ComponentPanel
+              editor={editor}
+              open={componentsOpen}
+              editing={editingComponent}
+              onOpen={openDefinition}
+              onClose={() => setComponentsOpen((was) => !was)}
+              behindSource={behindSource}
+              canMake={canMakeComponent}
+              onMake={makeComponent}
+              onPlace={placeComponent}
+              slideId={current}
+            />
 
-        {/*
-          * The components a deck defines, and the way in and out of one.
-          *
-          * Beside the layer list because both answer "which thing" — and a definition has to
-          * be opened from *somewhere*: it is a resource rather than a page, so there is no
-          * filmstrip row to click. See `component-panel.tsx` for why that is the right place
-          * for it rather than a page of the file you scroll to.
-          */}
-        <ComponentPanel
-          editor={editor}
-          open={componentsOpen}
-          editing={editingComponent}
-          onOpen={openDefinition}
-          onClose={() => setComponentsOpen((was) => !was)}
-          behindSource={behindSource}
-          canMake={canMakeComponent}
-          onMake={makeComponent}
-          onPlace={placeComponent}
-          slideId={current}
-        />
+          </div>
+        </WorkspaceSidePanel>
 
-        <AppMain as="main" className="sl-main">
+        <AppMain as="main" className="sl-main" data={{ 'workspace-main': '' }}>
           {/*
             * Where the reader is, when it is not a slide — and the way back.
             *
@@ -2021,6 +2080,10 @@ export function App({
             frame={stage}
             /** One page, one definition, or the deck as a strip — see `stageFocus`. */
             focus={stageFocus}
+            boards={boards}
+            activeSlide={current}
+            onActivateSlide={sid => { setCurrent(sid); leaveSelection(); }}
+            onMoveSlide={(sid, canvasX, canvasY) => void editor?.executeCommand('setSlideInfo', { slideId: sid, canvasX, canvasY })}
             /*
              * The transition, while presenting and not while editing.
              *
@@ -2086,6 +2149,7 @@ export function App({
               editor={editor}
               view={view}
               slideSid={current}
+              onTransfer={setCurrent}
               revision={revision}
               /** The guide being pulled out of a ruler, drawn where it will land. */
               draftGuide={draftGuide}
@@ -2125,23 +2189,25 @@ export function App({
          * the suite's components; what is in it is a deck's — a box has a
          * position, which is the whole difference between a slide and a page.
          */}
-        <Properties
-          editor={editor}
-          slides={slides}
-          current={current}
-          paintEdit={paintEdit}
-          onPaintEdit={setPaintEdit}
-          stopEdit={stopEdit}
-          onStopEdit={setStopEdit}
-          /** The reader's unit, shared with the overlay's readout — see above. */
-          unit={unit}
-          onUnit={setUnit}
-          /** The theme's own slots, which the panel's 테마 row names. */
-          onEditTheme={() => setDialog('theme')}
-          /** The reader's own decks, for a button that points at one by name. */
-          libraryDecks={libraryDecks}
-        />
-      </AppBody>
+        <WorkspaceSidePanel side="inspector" width={280}>
+          <Properties
+            editor={editor}
+            slides={slides}
+            current={current}
+            paintEdit={paintEdit}
+            onPaintEdit={setPaintEdit}
+            stopEdit={stopEdit}
+            onStopEdit={setStopEdit}
+            /** The reader's unit, shared with the overlay's readout — see above. */
+            unit={unit}
+            onUnit={setUnit}
+            /** The theme's own slots, which the panel's 테마 row names. */
+            onEditTheme={() => setDialog('theme')}
+            /** The reader's own decks, for a button that points at one by name. */
+            libraryDecks={libraryDecks}
+          />
+        </WorkspaceSidePanel>
+      </AdaptiveWorkspace>
 
       {/*
         * The timeline, across the whole window.
@@ -2210,6 +2276,9 @@ export function App({
         />
       )}
 
+      <SlidePrintDialog editor={editor} slides={slides} revision={revision}
+        open={dialog === 'print'} onClose={() => setDialog(null)}
+        onPrint={async () => { await printer?.print(); }} />
       <SlideSizeDialog
         editor={editor}
         slides={slides}
@@ -2218,6 +2287,7 @@ export function App({
       />
       {/* The reader's own decks, by name — what a `goToDeck` points at. */}
       <LibraryDialog
+        beforeReplace={persistence.beforeReplace}
         editor={editor}
         open={dialog === 'library'}
         onClose={() => setDialog(null)}
@@ -2259,6 +2329,7 @@ export function App({
         * nobody types from memory.
         */}
       <TemplateDialog
+        beforeReplace={persistence.beforeReplace}
         editor={editor}
         open={dialog === 'template'}
         onClose={() => setDialog(null)}
@@ -2266,6 +2337,8 @@ export function App({
           // A new document is a new deck: the slide that was on screen is not in it, and
           // neither is the press the presenter was on. The same forgetting `FileActions`
           // does when a file is opened.
+          // Starting a template creates a new deck, never a replacement for the prior library row.
+          setLibraryName(undefined);
           setStepEdit([]);
           setCurrent(undefined);
           setPlayed(0);

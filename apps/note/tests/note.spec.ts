@@ -12,7 +12,7 @@ import { test, expect, type Page } from '@playwright/test';
  * button on it. Everything below was **found by running it**.
  */
 const ready = async (page: Page) => {
-  await page.goto('/');
+  await page.goto('/?lab=1');
   await page.waitForSelector('[data-note-editor]');
   /*
    * Three sessions mount here, each building a store and a view of its own, and a check that presses
@@ -1139,7 +1139,7 @@ test.describe('a note on its own', () => {
      * The counting is per mark, not a total — two marks on one span is one element, so a sum cannot
      * see the second one arrive.
      */
-    const shape = (one: string) => (one.startsWith('toggle') ? 'range' : 'caret');
+    const shape = (one: string) => (one.startsWith('toggle') || one === 'clearFormatting' ? 'range' : 'caret');
     const controls = await held
       .locator('[data-note-control]')
       .evaluateAll((all) => all.map((each) => each.getAttribute('data-note-control')!));
@@ -1147,7 +1147,7 @@ test.describe('a note on its own', () => {
 
     const marksIn = () =>
       held.locator('[data-note-body]').evaluate((el) =>
-        ['bold', 'italic', 'underline', 'strikethrough']
+        ['bold', 'italic', 'underline', 'strikethrough', 'code', 'superscript', 'subscript']
           .map((one) => el.querySelectorAll(`.mark-${one}`).length)
           .join(',')
       );
@@ -1161,6 +1161,7 @@ test.describe('a note on its own', () => {
         await page.waitForTimeout(200);
       }
       const wasBlocks = await blocksIn();
+      const wasMath = await held.locator('[data-latex-node]').count();
       const wasMarks = await marksIn();
 
       await held.locator(`[data-note-control="${one}"]`).click();
@@ -1171,7 +1172,7 @@ test.describe('a note on its own', () => {
       }
       await page.waitForTimeout(400);
 
-      if ((await blocksIn()) === wasBlocks && (await marksIn()) === wasMarks) dead.push(one);
+      if ((await blocksIn()) === wasBlocks && (await marksIn()) === wasMarks && (await held.locator('[data-latex-node]').count()) === wasMath) dead.push(one);
     }
 
     expect(dead, dead.join(' ')).toEqual([]);
@@ -1231,3 +1232,86 @@ test.describe('a note on its own', () => {
     await expect(long.locator('[data-note-control="toggleBold"]')).toHaveAttribute('data-state', 'off');
   });
 });
+
+// Refuse invalid nested content before creating a library entry.
+test('invalid note files preserve the current document and library', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByLabel('노트 제목')).toHaveValue('첫 회의록');
+  await page.getByLabel('노트 제목').fill('보존할 회의록');
+  await expect(page.locator('[data-save-status]')).toHaveText('저장됨');
+  const invalidBodies = [
+    [{ stype: 'unsupportedWidget', content: [] }],
+    [{ stype: 'paragraph', content: [{ stype: 'heading', attributes: { level: 2 }, content: [{ stype: 'inline-text', text: '잘못 놓인 제목' }] }] }],
+    [{ stype: 'paragraph', content: [null] }]
+  ];
+  for (const content of invalidBodies) {
+    await page.getByLabel('노트 파일').setInputFiles({ name: 'invalid.note.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ format: 'barocss-note', version: 1, document: { stype: 'note', attributes: { title: '불러오면 안 되는 노트' }, content } })) });
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByLabel('노트 제목')).toHaveValue('보존할 회의록');
+    await expect(page.getByRole('navigation', { name: '노트 목록' }).getByRole('button')).toHaveCount(1);
+  }
+  await page.reload();
+  await expect(page.getByLabel('노트 제목')).toHaveValue('보존할 회의록');
+});
+
+test('switching notes flushes pending body changes with the latest title', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByLabel('노트 제목')).toHaveValue('첫 회의록');
+  await page.getByLabel('노트 제목').fill('빠른 전환 회의록');
+  const body = page.locator('.nw-document .on-doc');
+  await body.getByText('담당자와 기한을 함께 기록하세요.', { exact: true }).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type('FAST-SWITCH-KEPT');
+  await page.getByRole('button', { name: '새 노트', exact: true }).click();
+  await expect(page.getByLabel('노트 제목')).toHaveValue('새 노트');
+  await page.getByRole('navigation', { name: '노트 목록' }).getByRole('button', { name: '빠른 전환 회의록' }).click();
+  await expect(body).toContainText('FAST-SWITCH-KEPT');
+  await expect(page.locator('[data-save-status]')).toHaveText('저장됨');
+  await page.reload();
+  await expect(page.getByLabel('노트 제목')).toHaveValue('빠른 전환 회의록');
+  await expect(body).toContainText('FAST-SWITCH-KEPT');
+});
+
+for (const onlyBroken of [false, true]) {
+  test(`an unreadable library item preserves originals and ${onlyBroken ? 'allows a new note' : 'keeps healthy notes accessible'}`, async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByLabel('노트 제목')).toHaveValue('첫 회의록');
+    const source = '{broken original JSON';
+    await page.evaluate(async ({ source, onlyBroken }) => {
+      await new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open('barocss-note');
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction('documents', 'readwrite');
+          const store = transaction.objectStore('documents');
+          if (onlyBroken) store.clear();
+          store.put({ name: 'broken-fixture', title: '복구할 노트', text: source, savedAt: Date.now() });
+          transaction.oncomplete = () => { db.close(); resolve(); };
+          transaction.onerror = () => reject(transaction.error);
+        };
+      });
+    }, { source, onlyBroken });
+    await page.reload();
+    await expect(page.getByRole('alert')).toContainText('원본은 보관함에 그대로');
+    await expect(page.locator('[data-unreadable-note]')).toContainText('복구할 노트');
+    const downloadEvent = page.waitForEvent('download');
+    await page.getByRole('button', { name: '복구할 노트 원본 내보내기', exact: true }).click();
+    const downloaded = await downloadEvent;
+    const { readFile } = await import('node:fs/promises');
+    expect(await readFile((await downloaded.path())!, 'utf8')).toBe(source);
+    if (onlyBroken) {
+      await expect(page.getByRole('button', { name: '내보내기', exact: true })).toBeDisabled();
+      await page.getByRole('button', { name: '새 노트', exact: true }).click();
+      await expect(page.getByLabel('노트 제목')).toHaveValue('새 노트');
+    } else {
+      await expect(page.getByLabel('노트 제목')).toHaveValue('첫 회의록');
+      await expect(page.getByRole('button', { name: '내보내기', exact: true })).toBeEnabled();
+      await page.getByLabel('노트 제목').fill('정상 문서는 계속 편집');
+    }
+    await expect(page.locator('[data-save-status]')).toHaveText('저장됨');
+    await page.reload();
+    await expect(page.getByLabel('노트 제목')).toHaveValue(onlyBroken ? '새 노트' : '정상 문서는 계속 편집');
+    await expect(page.locator('[data-unreadable-note]')).toContainText('복구할 노트');
+  });
+}

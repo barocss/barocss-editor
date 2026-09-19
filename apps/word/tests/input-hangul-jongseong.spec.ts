@@ -93,7 +93,7 @@ const run = async (cdp: any, steps: Step[], settle = 45) => {
 
 test.describe('a final consonant that moves to the next syllable', () => {
   test('ㅇㅣㅆㅇㅓ stays as 있어', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -115,7 +115,7 @@ test.describe('a final consonant that moves to the next syllable', () => {
   });
 
   test('ㅇㅣㅆㅓ becomes 이써, and 있 does not survive beside it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -141,7 +141,7 @@ test.describe('a final consonant that moves to the next syllable', () => {
   });
 
   test('a whole word carries its consonants across every boundary', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);

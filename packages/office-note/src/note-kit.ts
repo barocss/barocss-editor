@@ -1,5 +1,10 @@
 import { Editor, type EditorOptions, type Extension, type ProductEditorOptions } from '@barocss/editor-core';
 import {
+  CalloutExtension,
+  CodeMarkExtension,
+  FontColorExtension,
+  ChecklistExtension,
+  DetailsExtension,
   createBasicExtensions,
   createCoreExtensions,
   EmojiExtension,
@@ -16,6 +21,9 @@ import {
 import { createNoteElementCommands } from './element-commands';
 import { NOTE_KEYBINDINGS } from './note-keymap';
 import { noteControlsIn } from './toolbar-model';
+import { registerColumnCommands, registerLatexCommands, TableAppearanceExtension } from '@barocss/office-text';
+import { registerNoteDatabaseCommands } from './database';
+import { registerNotePageReferenceCommands } from './page-reference';
 
 /**
  * **What a writer can do to a note**, and deliberately not what a designer can do to a page.
@@ -30,9 +38,8 @@ import { noteControlsIn } from './toolbar-model';
  *
  * So this list is short, and every absence is a sentence:
  *
- * - **no `FontColorExtension`, `FontSizeExtension`, `FontFamilyExtension`** — the design's, not the
- *   writing's. This is the whole styling rule, enforced by not registering the command rather than
- *   by hiding a control.
+ * - **no `FontSizeExtension`, `FontFamilyExtension`** — the design's, not the
+ *   writing's. Inline text/background colors and code are writing emphasis and are registered below.
  * - **no `ReorderExtension`** — z-order is a plane's idea; a body is a sequence.
  * - **no clipboard extension of its own** — a note has no pages to move a block between.
  * - **no `insert*` for a frame, a collection, a chart or a form** — `note-schema.ts` argues it: a
@@ -74,6 +81,8 @@ export function createNoteExtensions(): Extension[] {
     new StrikeThroughExtension(),
     new SubSuperExtension(),
     new TextFormattingExtension(),
+    new CodeMarkExtension(),
+    new FontColorExtension(),
     /**
      * A **link**, which is half the reason a body is nodes rather than characters: a summary with a
      * link and an emphasised word in it is a summary plain text could not hold. The other half is
@@ -83,6 +92,10 @@ export function createNoteExtensions(): Extension[] {
     new ImageExtension(),
     new EmojiExtension(),
     new TableExtension(),
+    new TableAppearanceExtension(),
+    new ChecklistExtension(),
+    new DetailsExtension(),
+    new CalloutExtension(),
     /**
      * **This package's own inserts** — the ten blocks the bar offers.
      *
@@ -92,6 +105,10 @@ export function createNoteExtensions(): Extension[] {
      * one's own is for: the borrowed parts stop working *visibly*.
      */
     createNoteElementCommands(),
+    { name: 'latex', onCreate: registerLatexCommands },
+    { name: 'prose-columns', onCreate: registerColumnCommands },
+    { name: 'noteDatabase', onCreate: registerNoteDatabaseCommands },
+    { name: 'notePageReference', onCreate: registerNotePageReferenceCommands },
     new SlashCommandExtension({ items: noteSlashItems() })
   ];
 }
@@ -111,6 +128,7 @@ export function noteSlashItems(): {
   icon?: string;
   command: string;
   group?: string;
+  payload?: { stripSlash: boolean };
 }[] {
   return noteControlsIn('block').map((one) => ({
     id: one.command,
@@ -118,6 +136,7 @@ export function noteSlashItems(): {
     description: one.title,
     icon: one.icon,
     command: one.command,
+    ...(['insertMathBlock', 'insertMathInline', 'insertColumns2', 'insertColumns3', 'insertColumns4'].includes(one.command) ? { payload: { stripSlash: true } } : {}),
     group: 'insert'
   }));
 }

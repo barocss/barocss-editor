@@ -49,6 +49,25 @@ const DECLARED: WordMenu[] = [
     id: 'file',
     label: '파일',
     blocks: [
+      /**
+       * **새로 만들기 · 열기 · 저장** — 이 메뉴가 인쇄 하나뿐이던 자리.
+       *
+       * Word 는 오늘까지 문서를 지킬 수 없었다. 앱이 부팅에 샘플을 싣고, 독자가 쓴 것은
+       * 새로고침에 사라졌고, 갖고 있는 파일을 열 방법이 없었다. 덱은 셋 다 할 수 있었다 —
+       * 덱이 그 전부를 혼자 만들었기 때문이다.
+       *
+       * 셋 다 **`view`** 이지 명령이 아니다. 파일을 고르는 것도, 브라우저에게 내려받기를
+       * 시키는 것도, 문서를 통째로 바꾸는 것도 문서가 할 줄 아는 일이 아니다 — 인쇄가 그런
+       * 것과 같은 이유다.
+       */
+      {
+        id: 'document',
+        items: [
+          { view: 'file.new', label: '새 문서' },
+          { view: 'file.open', label: '열기…' },
+          { view: 'file.save', label: '저장' }
+        ]
+      },
       {
         /*
          * A **view** rather than a command, and that is the honest shape: printing is the browser's,
@@ -65,6 +84,11 @@ const DECLARED: WordMenu[] = [
     id: 'edit',
     label: '편집',
     blocks: [
+      { id: 'clipboard', items: [
+        { view: 'clipboard.copy', label: '복사' },
+        { view: 'clipboard.cut', label: '잘라내기' },
+        { view: 'clipboard.paste', label: '붙여넣기' }
+      ] },
       {
         id: 'history',
         items: [
@@ -79,8 +103,84 @@ const DECLARED: WordMenu[] = [
          * prevent — a shortcut is a *second* way to reach something, never the only one.
          */
         id: 'find',
-        items: [{ view: 'find', label: '찾기' }]
+        items: [{ view: 'find', label: '찾기' }, { view: 'replace', label: '바꾸기' }]
       }
+    ]
+  },
+  {
+    id: 'insert', label: '삽입', blocks: [
+      { id: 'content', items: [
+        { view: 'dialog.table', label: '표 삽입…' },
+        { view: 'furniture.header', label: '머리글…' },
+        { view: 'furniture.footer', label: '바닥글…' },
+        { view: 'furniture.number', label: '페이지 번호…' },
+        { view: 'authoring.image', label: '그림 삽입…' },
+        { view: 'authoring.link', label: '링크 편집…' },
+        { view: 'dialog.bookmark', label: '책갈피…' },
+        { view: 'dialog.reference', label: '상호 참조…' },
+        { view: 'dialog.caption', label: '캡션 삽입…' },
+        { view: 'dialog.figures', label: '그림 목차…' },
+        { view: 'authoring.footnote', label: '각주 삽입…' },
+        { view: 'authoring.endnote', label: '미주 삽입…' },
+        { command: 'insertPageBreak', label: '페이지 나누기' },
+        { command: 'insertColumnBreak', label: '단 나누기' },
+        { command: 'insertSectionBreak', label: '구역 나누기 (다음 페이지)' },
+        { view: 'dialog.toc', label: '목차…' }
+      ] },
+      { id: 'drawing', items: [
+        { command: 'insertRectangle', label: '사각형' },
+        { command: 'insertEllipse', label: '타원' },
+        { command: 'insertLine', label: '선' }
+      ] }
+    ]
+  },
+  {
+    /**
+     * **서식** — 메뉴바에 없던 메뉴.
+     *
+     * 파일·편집·보기 셋뿐이었다. 리본이 글꼴과 문단 정렬을 답하고 있었으므로 오랫동안 그것으로
+     * 되었지만, **대화상자를 여는 것은 리본이 하기 어려운 일**이다: 리본의 컨트롤은 한 번의
+     * 누름이 곧 한 번의 변경인 것들이고, 테두리는 네 변과 모양과 두께와 색을 함께 정한 뒤에야
+     * 한 번 바뀐다.
+     *
+     * 그래서 `view` 다. 대화상자를 여는 것은 문서가 할 줄 아는 일이 아니다 — 인쇄와 같다.
+     */
+    id: 'format',
+    label: '서식',
+    blocks: [
+      { id: 'painter', items: [{ view: 'format-painter', label: '서식 복사' }] },
+      {
+        id: 'paragraph',
+        items: [
+          { view: 'dialog.styles', label: '스타일 관리…' },
+          { view: 'dialog.spacing', label: '문단 간격…' },
+          { view: 'dialog.borders', label: '테두리 및 음영…' }
+        ]
+      },
+      {
+        /*
+         * **자기 묶음이다.** 앞의 둘은 문단에 쓰고 이것은 **구역**에 쓴다 — 커서가 어느 문단에
+         * 있든 바뀌는 것은 그 문단이 든 페이지 전체다. 메뉴에서 줄 하나 띄우는 것이 그 차이를
+         * 말하는 가장 싼 방법이고, Word 도 그렇게 나눈다.
+         */
+        id: 'page',
+        items: [{ view: 'dialog.page', label: '페이지 설정…' }]
+      }
+    ]
+  },
+  {
+    id: 'review', label: '검토', blocks: [
+      { id: 'tracking', items: [
+        { command: 'toggleTrackChanges', label: '변경 내용 추적' },
+        { view: 'authoring.comment', label: '새 댓글…' },
+        { view: 'comments', label: '댓글 보기' }
+      ] },
+      { id: 'changes', items: [
+        { command: 'previousRevision', label: '이전 변경 내용' },
+        { command: 'nextRevision', label: '다음 변경 내용' },
+        { command: 'acceptRevision', label: '변경 내용 적용' },
+        { command: 'rejectRevision', label: '변경 내용 거부' }
+      ] }
     ]
   },
   {
@@ -121,8 +221,29 @@ const DECLARED: WordMenu[] = [
  *
  * ⌘P stays typed above, and it is the only one: printing is the browser's, so that chord is a fact
  * about the platform rather than a binding Word could derive.
+ *
+ * **In which alphabet is the caller's to say, and that is why this takes an argument.**
+ *
+ * It used to be a `const` that called `withHints(DECLARED, taughtKeys(WORD_KEYS))`, and `withHints`
+ * defaulted `apple` to `true`. So every menubar in all three products printed `⌘` on every platform —
+ * and `apps/site` printed the *toolbar* right and the *menubar* wrong on the same screen, because the
+ * ribbon asks `onApple()` and the menubar read this constant. Being a `const` made it worse than a
+ * wrong default: the platform was decided once, at import.
+ *
+ * The toolbar already had the shape this now follows — `controlRows(editor, TOOLBAR, { keys, apple })`.
+ * The model declares what the menus offer; the **surface** writes the chord in the reader's alphabet.
  */
-export const WORD_MENUS: WordMenu[] = withHints(DECLARED, taughtKeys(WORD_KEYS));
+export function wordMenus(apple: boolean): WordMenu[] {
+  return withHints(DECLARED, taughtKeys(WORD_KEYS), apple);
+}
+
+/**
+ * The menus with no chords written on them.
+ *
+ * What the model can state without knowing who is reading. Everything that asks *what does this
+ * menubar offer* — the command sweep, the spec numbers, the harness — wants this one.
+ */
+export const WORD_MENUS: WordMenu[] = DECLARED;
 
 /** Every command the menubar can run — the harness's question, answered by the model. */
 export function wordMenuCommands(menus: WordMenu[] = WORD_MENUS): string[] {

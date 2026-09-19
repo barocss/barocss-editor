@@ -239,12 +239,23 @@ export class SlidesBoxExtension implements Extension {
     const ids = new Set(selectedNodeIds(editor.selection));
     if (ids.size === 0) return [];
 
-    const slide = this._containerOf(doc, [...ids][0]);
-    const surface: any = slide ? doc.getNode(slide) : undefined;
-    const children: string[] = Array.isArray(surface?.content) ? surface.content : [];
-
-    return children
+    const containers = [...new Set([...ids].map(sid => this._containerOf(doc, sid)))];
+    const children = containers.flatMap(parent => {
+      const content = parent ? doc.getNode(parent)?.content : undefined;
+      return Array.isArray(content) ? content as string[] : [];
+    });
+    return [...new Set(children)]
       .filter((sid) => ids.has(sid))
+      .filter(sid => {
+        // A selected group already owns its descendants; never edit them twice.
+        let parent = doc.getNode(sid)?.parentId;
+        const seen = new Set<string>();
+        while (parent && !seen.has(parent)) {
+          if (ids.has(parent)) return false;
+          seen.add(parent); parent = doc.getNode(parent)?.parentId;
+        }
+        return true;
+      })
       .map((sid) => ({ sid, node: doc.getNode(sid) as any }))
       .filter((entry) => entry.node && isSceneType(entry.node.stype))
       .filter((entry) => entry.node.attributes?.locked !== true);
@@ -274,7 +285,7 @@ export class SlidesBoxExtension implements Extension {
       ...connectorFreezeSteps(doc, chosen.map((entry) => entry.sid)),
       ...chosen.map((entry) => ({
         type: 'removeChild',
-        payload: { parentId: slide, childId: entry.sid }
+        payload: { parentId: this._containerOf(doc, entry.sid), childId: entry.sid }
       }))
     ];
 
@@ -310,10 +321,10 @@ export class SlidesBoxExtension implements Extension {
       copyForPaste(doc, chosen.map((entry) => entry.sid)),
       () => store.generateId()
     );
-    const steps = copies.map((copy) => {
+    const steps = copies.map((copy, index) => {
       const box = boxOf(copy.attributes as never);
       copy.attributes = { ...copy.attributes, x: box.x + OFFSET, y: box.y + OFFSET };
-      return { type: 'addChild', payload: { parentId: slide, child: copy } };
+      return { type: 'addChild', payload: { parentId: this._containerOf(doc, chosen[index].sid), child: copy } };
     });
 
     const result = await transaction(editor, steps as never).commit();
@@ -325,9 +336,7 @@ export class SlidesBoxExtension implements Extension {
      * A reader duplicates in order to move the copy, and they are the last N
      * children because that is where `addChild` put them.
      */
-    const surface: any = doc.getNode(slide);
-    const children: string[] = Array.isArray(surface?.content) ? surface.content : [];
-    const made = children.slice(-steps.length);
+    const made = copies.map(copy => copy.sid!);
     if (made.length > 0) editor?.setNode({ nodeIds: made });
 
     return true;

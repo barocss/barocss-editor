@@ -97,7 +97,7 @@ describe('Decorator Types Rendering', () => {
         container,
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
-            <span class="comment-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true">
+            <span class="comment-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="comment-1" data-decorator-stype="comment" data-decorator-type="target" data-skip-reconcile="true">
               <span>This is a</span>
             </span>
             <span>comment target</span>
@@ -154,11 +154,11 @@ describe('Decorator Types Rendering', () => {
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
             <span>This</span>
-            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="highlight-1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;">
+            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="highlight-1" data-decorator-stype="highlight" data-decorator-type="target" data-skip-reconcile="true" style="background-color: yellow;">
               <span>is highlig</span>
             </span>
             <span>hted</span>
-            <span class="comment-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true">
+            <span class="comment-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="comment-1" data-decorator-stype="comment" data-decorator-type="target" data-skip-reconcile="true">
               <span>and commen</span>
             </span>
             <span>ted text</span>
@@ -368,7 +368,7 @@ describe('Decorator Types Rendering', () => {
               <span>#FF0000</span>
             </span>
             <span>with c</span>
-            <span class="comment-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true">
+            <span class="comment-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="comment-1" data-decorator-stype="comment" data-decorator-type="target" data-skip-reconcile="true">
               <span>omment</span>
             </span>
           </span>
@@ -466,7 +466,7 @@ describe('Decorator Types Rendering', () => {
         container,
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
-            <span class="comment-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="decorator-with-sid" data-decorator-stype="comment" data-skip-reconcile="true">
+            <span class="comment-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="decorator-with-sid" data-decorator-stype="comment" data-decorator-type="target" data-skip-reconcile="true">
               <span>Test</span>
             </span>
           </span>
@@ -550,7 +550,7 @@ describe('Decorator Types Rendering', () => {
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
             <span>This is a test with URL </span>
-            <span class="link-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="custom-url-text-1-24-43" data-decorator-stype="link" data-skip-reconcile="true" style="color: blue; text-decoration: underline;">
+            <span class="link-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="custom-url-text-1-24-43" data-decorator-stype="link" data-decorator-type="custom" data-skip-reconcile="true" style="color: blue; text-decoration: underline;">
               <span>https://example.com</span>
             </span>
           </span>

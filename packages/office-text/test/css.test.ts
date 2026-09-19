@@ -125,13 +125,22 @@ describe('paragraph CSS', () => {
     expect(css.orphans).toBeUndefined();
   });
 
-  it('always states the vertical margins, so the UA stylesheet cannot add any', () => {
-    // A `<p>` has a 1em margin by default. Left unstated, every paragraph got
-    // spacing no style asked for — and the layout, which reads spacing from the
-    // model, measured a document taller than it believed it to be.
+  it('offers prose spacing defaults while retaining zero as the unconfigured Word fallback', () => {
     const css = paragraphCss({});
-    expect(css.marginTop).toBe('0pt');
-    expect(css.marginBottom).toBe('0pt');
+    expect(css.marginTop).toBe('var(--prose-space-before, 0pt)');
+    expect(css.marginBottom).toBe('var(--prose-space-after, 0pt)');
+  });
+
+  it('preserves authored spacing including zero and only defaults the missing side', () => {
+    expect(paragraphCss({ spacingBefore: 0, spacingAfter: 120 })).toMatchObject({
+      marginTop: '0pt', marginBottom: '6pt'
+    });
+    expect(paragraphCss({ spacingBefore: 240 })).toMatchObject({
+      marginTop: '12pt', marginBottom: 'var(--prose-space-after, 0pt)'
+    });
+    expect(paragraphCss({ spacingAfter: 0 })).toMatchObject({
+      marginTop: 'var(--prose-space-before, 0pt)', marginBottom: '0pt'
+    });
   });
 
   /**

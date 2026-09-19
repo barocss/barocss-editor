@@ -177,6 +177,8 @@ export {
 } from './page-furniture';
 
 export { tocEntries, tocPageNumber, parseLevels, type TocEntry } from './toc';
+export { installTocCompositionPreview } from './toc-composition';
+export { createWordObjectLayout, selectedWordObject, TWIPS_PER_CM, type WordObjectTarget, type WordObjectChange } from './object-layout';
 
 /**
  * Word's `1-1`: a page number carrying the number of the chapter it is in.
@@ -196,10 +198,17 @@ export { createFieldResolver, type FieldResolver } from '@barocss/office-text';
 
 export { lineStartOffsets, type LineAnchor } from './line-offsets';
 export { registerPageBreakWidget, PAGE_BREAK_STYPE } from './page-break-widget';
+/*
+ * The two highlights that wrap the document's own words. Registered on import rather than by the
+ * host — the templates used to live in `apps/word/src/main.tsx`, so a comment drawn anywhere else
+ * came out as a fallback `<div>`. Exported for a host that would rather say so out loud.
+ */
+export { registerHighlightDecorators, ANCHOR_STYPE, MATCH_STYPE } from './highlight-decorators';
 export {
   registerTableBreakWidget,
   registerTableHeaderRepeat,
   TABLE_BREAK_STYPE,
+  TABLE_CELL_BREAK_STYPE,
   TABLE_HEADER_REPEAT_STYPE
 } from './table-break-widget';
 export { formatDateField } from '@barocss/office-text';
@@ -297,6 +306,71 @@ export {
   type CommentEntry,
   type CommentThread
 } from './comments';
+export {
+  createWordBorders,
+  currentBorders,
+  WordBorderExtension,
+  type SetBordersPayload
+} from './border-commands';
+export {
+  applyPreset,
+  bordersOf,
+  borderPatch,
+  presetOf,
+  prefixOf,
+  BORDER_EDGES,
+  BORDER_STYLES,
+  BORDER_WIDTHS,
+  NO_BORDERS,
+  type BorderEdge,
+  type BorderPreset,
+  type BorderState,
+  type BorderStyle
+} from './border-model';
+export {
+  createWordSpacing,
+  currentSpacing,
+  spacingEditable,
+  WordSpacingExtension,
+  type SetSpacingPayload
+} from './spacing-commands';
+export {
+  linesOf,
+  spacingOf,
+  spacingPatch,
+  spacingProperties,
+  withRule,
+  LINE_PRESETS,
+  LINE_RULES,
+  LINE_UNIT,
+  NO_SPACING,
+  TWIPS_PER_POINT,
+  type LineRule,
+  type SpacingState
+} from './spacing-model';
+export {
+  createWordPageSetup,
+  currentPageSetup,
+  pageSetupEditable,
+  WordPageSetupExtension,
+  type SetPageSetupPayload
+} from './page-setup-commands';
+export {
+  drawnSize,
+  isUsable,
+  orientationOf,
+  pageSetupOf,
+  pageSetupPatch,
+  pageSetupProperties,
+  paperOf,
+  roomFor,
+  withOrientation,
+  withPaper,
+  PAPERS,
+  type Orientation,
+  type PageSetup
+} from './page-setup-model';
+export { selectedBlocks } from './selected-blocks';
 export { createWordComments, WordCommentExtension, type CommentAuthor } from './comment-commands';
 export { createWordRevisions, WordRevisionExtension } from './revision-commands';
 export { createWordTracking, WordTrackingExtension } from './tracking-commands';
@@ -702,6 +776,7 @@ export {
 } from '@barocss/office-canvas';
 export {
   WORD_MENUS,
+  wordMenus,
   wordMenuCommands,
   wordMenuEntry,
   wordMenuId,
@@ -737,3 +812,30 @@ export {
  * 그것이 실제로 담기는 모양을 이 파일이 말한다. 앱에 두면 다음 호스트가 자기 것을 다시 쓴다.
  */
 export { createSampleDocument } from './sample-document';
+
+// 문서를 파일로 — 형식은 `@barocss/shared` 의 것이고 여기 있는 것은 Word 의 넷뿐이다.
+export * from './word-file';
+
+// 문서를 어디에 두는가 — 보관은 `@barocss/shared` 의 것이고 여기 있는 것은 Word 의 것뿐이다.
+export * from './word-library';
+
+// 새 문서가 무엇인가 — 크롬이 아니라 문서에 대한 사실이다.
+export * from './starter-document';
+
+export { exportWordDocx, type WordDocx } from './word-docx';
+export { readWordDocx } from './word-docx-import';
+
+
+export { WORD_AUTHORING_ACTIONS, authoringKind, canAuthor, captureAuthoring, type WordAuthoringKind, type WordAuthoringSession } from './authoring-actions';
+
+export { createWordFurniture, captureFurnitureTarget, furnitureNode, furnitureKey, PAGE_NUMBER_FORMATS, type FurnitureTarget, type FurniturePayload, type FurnitureRole, type FurnitureVariant } from './furniture-commands';
+
+export { createWordStructure, captureTocSession, type TocSession, type TocSettings } from './structure-commands';
+export { installWordTableResize } from './table-resize';
+
+export { captureStyleSession, paragraphStylesOf, paragraphStyleFormat, canManageParagraphStyles, type StyleSession } from './paragraph-styles';
+
+export { captureBookmarkSession, wordBookmarks, bookmarkSelection, type BookmarkSession } from './bookmark-commands';
+export { captureCaptionSession, WORD_CAPTION_LABELS, type CaptionSession, type CaptionSettings } from './caption-commands';
+
+export { wordSearchCommands, type WordSearchCommand } from './command-search-model';

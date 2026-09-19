@@ -15,6 +15,13 @@ export * from './context/default-context';
 // Extension interface is exported from types.ts
 // Extension implementations are provided by @barocss/extensions package
 export { SelectionManager } from './selection-manager';
+/**
+ * **캐럿인가를 묻는 한 벌.** 필드가 비어 있을 수 있는 한, 그 질문은 자리마다 다시 답해서는 안 된다 —
+ * 슬래시 메뉴와 버블 툴바가 같은 선택에 다르게 답해 둘 다 뜬 것이 그 값이다. 내보내는 이유는
+ * 확장과 제품이 같은 것을 물어야 하기 때문이고, 남은 한 칸(두 sid 사이에 글자가 있는가)은
+ * `extensions/src/guards.ts` 가 문서를 읽어 답할 자리다.
+ */
+export { isCollapsedSelection, withDerivedCollapsed } from './collapsed';
 export { HistoryManager } from './history-manager';
 export {
   getLocalizedMessage,

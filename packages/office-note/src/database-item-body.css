@@ -1,0 +1,11 @@
+.ondb-item-body { position: relative; min-height: 240px; }
+.on-note.ondb-body-note, .on-note.ondb-body-note:focus-within { border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+.ondb-body-note .on-body { padding: 0; max-height: none; overflow: visible; min-height: 240px; }
+.ondb-body-note .on-doc { min-height: 240px; }
+.ondb-body-note .on-doc > :first-child { margin-top: 0; }
+.ondb-body-hint { position: absolute; top: 2px; left: 0; z-index: 1; color: var(--ou-faint, #a6a6a2); font-size: var(--on-content-size, 16px); line-height: var(--on-content-leading, 1.7); pointer-events: none; }
+.ondb-body-loading { margin: 0; color: var(--ou-muted); font-size: 14px; }
+@media (min-width: 601px) {
+  .on-note.ondb-body-note { margin-left: -42px; width: calc(100% + 42px); }
+}
+@media (max-width: 600px) { .ondb-body-hint { left: 42px; } }

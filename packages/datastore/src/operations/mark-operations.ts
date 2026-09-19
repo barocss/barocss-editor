@@ -1,3 +1,4 @@
+import { clearMarkOverRange } from './mark-range';
 import type { IMark } from '../types';
 import type { DataStore } from '../data-store';
 
@@ -369,12 +370,8 @@ export class MarkOperations {
       return { valid: false, errors: ['Invalid range'] };
     }
 
-    // Remove exact range match of markType
-    const next = (node.marks || []).filter((m: IMark) => {
-      if (m.stype !== markType) return true;
-      if (!m.range) return true;
-      return !(m.range[0] === start && m.range[1] === end);
-    });
+    // Remove only the selected interval, retaining both unselected tails and other marks.
+    const next = clearMarkOverRange(node.marks, markType, range, textLength);
 
     const result = this.dataStore.updateNode(nodeId, { marks: next }, false);
     const localNode = this.dataStore.getNode(nodeId);
