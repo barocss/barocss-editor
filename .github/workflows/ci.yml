@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Local verification tools
+        run: pnpm test:checks
+
       - name: Lint
         run: pnpm lint
 

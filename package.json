@@ -23,7 +23,7 @@
     "test:coverage": "pnpm --filter @barocss/schema test:coverage",
     "test:e2e": "pnpm --filter @barocss/editor-test test:e2e",
     "test:e2e:react": "pnpm --filter @barocss/editor-react test:e2e",
-    "lint": "pnpm -r lint",
+    "lint": "node scripts/lint.mjs",
     "type-check:each": "pnpm -r type-check",
     "clean": "pnpm -r clean",
     "changeset": "changeset",
@@ -32,7 +32,9 @@
     "test:e2e:slide": "pnpm --filter @barocss/slide-app test:e2e",
     "test:e2e:site": "pnpm --filter @barocss/site-app test:e2e",
     "type-check:tests": "node scripts/typecheck-tests.mjs",
-    "type-check": "node scripts/typecheck-all.mjs"
+    "type-check": "node scripts/typecheck-all.mjs",
+    "test:checks": "node --test scripts/checks/*.test.mjs",
+    "preflight": "pnpm test:checks && pnpm lint && pnpm type-check && pnpm type-check:tests"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
