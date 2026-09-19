@@ -150,7 +150,7 @@ describe('a shared floating surface', () => {
     render({ children: createElement(IconButton, { label: '굵게', pressed: 'mixed', preserveFocus: true, children: 'B' }) });
     const button = surface().querySelector('button')!;
     expect(button.getAttribute('aria-pressed')).toBe('mixed');
-    expect(button.className).not.toContain('bg-[color:var(--ou-accent-soft)]');
+    expect(button.matches('[aria-pressed="true"]')).toBe(false);
     const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
     act(() => button.dispatchEvent(press));
     expect(press.defaultPrevented).toBe(true);
@@ -158,7 +158,7 @@ describe('a shared floating surface', () => {
     const plainPress = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
     act(() => surface().querySelector('button')!.dispatchEvent(plainPress));
     expect(plainPress.defaultPrevented).toBe(false);
-    expect(surface().querySelector('button')!.className).toContain('bg-[color:var(--ou-accent-soft)]');
+    expect(surface().querySelector('button')!.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('shares menu row styling while forwarding native actions and preserving focus by default', () => {

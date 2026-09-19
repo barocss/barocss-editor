@@ -5,7 +5,7 @@ let view: EditorViewDOM, container: HTMLElement;
 let execute: ReturnType<typeof vi.fn>, resolve: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   container = document.createElement('div'); document.body.appendChild(container);
-  execute = vi.fn(); resolve = vi.fn(() => [{ command: 'editingCommand' }]);
+  execute = vi.fn(); resolve = vi.fn(); resolve.mockReturnValue([{ command: 'editingCommand' }]);
   view = new EditorViewDOM({ executeCommand: execute, executeTransaction: vi.fn(), on: vi.fn(), off: vi.fn(), emit: vi.fn(), destroy: vi.fn(),
     dataStore: { getNode: () => undefined }, selection: null, keybindings: { resolve } } as never, { container });
 });

@@ -70,7 +70,7 @@ Word 는 목록 안인지로 묻는다 — 갈래를 만들려면 그래야 한�
 
 읽는 키는 걸지 않는다: `copy` · `selectAll` · 화살표 이동은 읽기 전용 문서에서 **되어야 한다.**
 
-*현재 상태:* 엔진 40 중 23. **Word 54 중 51, note 2 중 0.**
+*현재 상태:* 엔진 40 중 23. **Word 49 중 46, note 2 중 0.**
 
 Word 가 걸지 않는 셋에는 각각 이유가 있고, 그 이유가 `word-keymap.ts` 에 적혀 있다:
 
@@ -191,10 +191,10 @@ Escape · Space 팬 · 발표 모드 · 발표자 창 · PageUp/PageDown).
 
 | 제품 | 제품 키 | 인쇄 목록 | 도는 방법 | 앱의 손 keydown |
 |---|---|---|---|---|
-| word | `WORD_KEYBINDINGS` 54 | `WORD_KEYS` 55(파생) | **레지스트리** | 8 (전부 크롬) |
+| word | `WORD_KEYBINDINGS` 49 | `WORD_KEYS` 55(파생) | **레지스트리** | 8 (전부 크롬) |
 | note | `NOTE_KEYBINDINGS` 2 | 없음 | **레지스트리** | **0** |
 | slides | 없음 | `SLIDES_KEYS` 24 (명령 22 · view 2) | **호스트 디스패처 둘** | 3 (app.tsx) |
-| site | 없음 | `SITE_KEYS` 25 (명령 20 · view 5) | **호스트 디스패처** | 3 |
+| site | 없음 | `SITE_KEYS` 26 (명령 20 · view 6) | **호스트 디스패처** | 3 |
 
 **둘 대 둘이다.** `office-controls/test/keybindings-spec-numbers.test.ts` 가 이 숫자들을 코드에서
 다시 센다.
@@ -241,7 +241,7 @@ slides·site 의 `KeyModel` 명령 항목을 `Keybinding[]` 으로 옮기고, �
 - **`needsSelection` 31개(slides 15 · site 16)가 공짜가 된다.** `selectionType == 'node'` 는 내장
   맥락이고 문법도 검사도 이미 있다. 지금은 그 규칙이 `keymap.ts` 와 앱 양쪽에 두 번 적혀 있다
   (`apps/site/src/app.tsx:1098`, `overlay.tsx:2366`).
-- **site 의 `mode` 는 공짜가 아니다.** `SiteKey` 는 `mode` 를 **필수 필드**로 만들고 25개 전부가
+- **site 의 `mode` 는 공짜가 아니다.** `SiteKey` 는 `mode` 를 **필수 필드**로 만들고 26개 전부가
   그것을 쓴다(`select` 18 · `any` 7). 엔진에 대응하는 내장 맥락이 없으므로 **새 맥락 하나**를
   세워야 하고, 그것이 이 갈래의 유일한 새 `setContext` 다. slides 는 `mode` 를 안 쓴다(0).
 - **`needs: 'page'` 둘**(site 의 `pasteBlocks` · `selectAllBlocks`)도 같은 자리에 온다.

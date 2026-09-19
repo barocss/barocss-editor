@@ -193,12 +193,16 @@ describe('이 패키지가 의존하는 것', () => {
      * shipping it as a runtime dependency made every consumer install a package none of them
      * ever loads. The argument above is unchanged; only which list it belongs on is.
      */
+    // Shared equation editing uses math-editor/KaTeX; anchor and file utilities use shared.
     expect(Object.keys(here.dependencies ?? {}).sort()).toEqual([
       '@barocss/editor-core',
       '@barocss/editor-view-dom',
+      '@barocss/math-editor',
       '@barocss/office-controls',
       '@barocss/office-icons',
-      '@barocss/office-ui'
+      '@barocss/office-ui',
+      '@barocss/shared',
+      'katex'
     ]);
     expect(Object.keys(here.devDependencies ?? {})).toContain('@barocss/extensions');
   });

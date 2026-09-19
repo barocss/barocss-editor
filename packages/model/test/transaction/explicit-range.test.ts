@@ -7,7 +7,7 @@ import { addChild } from '../../src/operations/addChild';
 import '../../src/operations/register-operations';
 
 it("keeps an explicit range after a created block's suggested caret", async () => {
-  const schema = new Schema('range-test', { nodes: { document: { content: 'block+' }, paragraph: { content: 'inline*', group: 'block' }, 'inline-text': { content: 'text*', group: 'inline' } }, topNode: 'document' });
+  const schema = new Schema('range-test', { nodes: { document: { name: 'document', content: 'block+' }, paragraph: { name: 'paragraph', content: 'inline*', group: 'block' }, 'inline-text': { name: 'inline-text', content: 'text*', group: 'inline' } }, topNode: 'document' });
   const dataStore = new DataStore(undefined, schema);
   dataStore.setNode({ sid: 'doc', stype: 'document', content: ['p'] } as any);
   dataStore.setNode({ sid: 'p', stype: 'paragraph', content: ['t'], parentId: 'doc' } as any);

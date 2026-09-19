@@ -129,7 +129,7 @@ test('does not open a trashed document by URL and refuses an invalid restore wit
   const result = await page.evaluate(async () => {
     const { OfficeWorkspace, workspaceIdentity } = await import('/@fs/Users/user/github/barocss/barocss-editor/packages/office-workspace/src/index.ts');
     const workspace = new OfficeWorkspace(workspaceIdentity()); const before = await workspace.backup();
-    const backup = structuredClone(before); backup.documents.push({ ...backup.documents[0], row: { name: 'invalid' }, text: '{"format":"barocss-note","version":1,"document":{"stype":"invalid"}}' });
+    const backup = structuredClone(before); backup.documents.push({ ...backup.documents[0], row: { ...backup.documents[0].row, name: 'invalid' }, text: '{"format":"barocss-note","version":1,"document":{"stype":"invalid"}}' });
     let rejected = false; try { await workspace.restore(backup); } catch { rejected = true; }
     return { rejected, same: JSON.stringify((await workspace.backup()).documents) === JSON.stringify(before.documents) };
   });

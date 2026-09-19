@@ -92,7 +92,7 @@ unselectable.
 A **ribbon, a filmstrip, a properties panel, a layer panel, a timeline pane, a
 notes pane, a components panel, an audit panel, a find bar and a deck map** —
 **30 components and 4 hooks** behind `@barocss/office-slides/ui`, which is why
-`apps/slide` is 2,355 lines of `app.tsx` and 160 of `main.tsx` and nothing else.
+`apps/slide` is 2,433 lines of `app.tsx` and 160 of `main.tsx` and nothing else.
 
 Measured: **10 toolbar groups, 60 controls, 61 commands, 59 icons**; **47 panel
 rows over two tabs** (style, motion) offering **63 settable attributes**; **24
@@ -122,9 +122,9 @@ a slide is a plane and a reader is thinking about the box they are pointing at.
 | slide transitions | 7 |
 | deck templates · themes | 4 · 4 |
 | theme slots — colour, font | 12 · 2 |
-| components · hooks behind `./ui` | 29 · 4 |
-| `apps/slide/src` | **2,594 lines** — `app.tsx` 2,434, `main.tsx` 160 |
-| browser test declarations | 436 |
+| components · hooks behind `./ui` | 30 · 4 |
+| `apps/slide/src` | **2,593 lines** — `app.tsx` 2,433, `main.tsx` 160 |
+| browser test declarations | 459 |
 
 There is deliberately **no line count of this package** in that table, and finding
 out why was worth the round. A package's total moves when somebody adds a

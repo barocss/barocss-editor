@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+type MenuSize = { height: number; size: string; weight: string };
+
 test('four product menus use the same trigger and keyboard interaction', async ({ page }) => {
   await page.goto('/design-system/index.html#workspace');
   const sample = page.getByLabel('제품 메뉴 비교');
-  const sizes = [];
+  const sizes: MenuSize[] = [];
   for (const name of ['Note', 'Word', 'Slides', 'Site']) {
     const trigger = sample.getByRole('menuitem', { name, exact: true });
     sizes.push(await trigger.evaluate(el => ({ height: el.getBoundingClientRect().height, size: getComputedStyle(el).fontSize, weight: getComputedStyle(el).fontWeight })));

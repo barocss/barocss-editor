@@ -497,7 +497,7 @@
 /*
  * **`--ou-panel` and not `#fff`, and it is the `.doc-title-field:focus` fault again.**
  *
- * This popup stated `background: #fff` beside `color: var(--ou-ink)`. In the dark the token becomes
+ * This popup stated `background: #fff` beside `color: var(--ou-ink, #171717)`. In the dark the token becomes
  * `#fafafa` and the literal did not follow, so the tab-stop menu was near-white text on white — the
  * same pairing, in the same file, found the same way. Nothing on the paper is being changed: this is
  * a menu, which is chrome, and in the light `--ou-panel` *is* `#ffffff`, so the light rendering is
@@ -766,7 +766,7 @@
  */
 .w-drawing-guide {
   position: absolute;
-  background: var(--ou-selection-guide);
+  background: var(--ou-selection-guide, #2563eb);
 }
 
 .w-math-editor-dialog { width: min(760px, calc(100vw - 32px)); }
@@ -883,7 +883,7 @@
 
 .w-outline > ul { padding: 8px; }
 
-.w-comments-pane { flex: 0 0 var(--ou-inspector-width, 280px); min-width: 0; overflow: auto; border-left: 1px solid var(--ou-line); background: var(--ou-panel); color: var(--ou-ink); }
+.w-comments-pane { flex: 0 0 var(--ou-inspector-width, 280px); min-width: 0; overflow: auto; border-left: 1px solid var(--ou-line, #d4d4d4); background: var(--ou-panel, #ffffff); color: var(--ou-ink, #171717); }
 .w-comments-pane > ul { padding: 0 12px 12px; }
 .w-comment-compose { display: flex; align-items: center; gap: 6px; padding: 12px; }
 
@@ -894,7 +894,7 @@
 .w-quick-toolbar .w-quick-size { width: 60px; min-width: 0; }
 .w-quick-toolbar .office-toolbar-expand { margin-left: auto; }
 
-.w-command-error { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 16px; background:var(--ou-panel); color:var(--ou-danger); border-bottom:1px solid var(--ou-line); font-size:13px; }
+.w-command-error { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 16px; background:var(--ou-panel, #ffffff); color:var(--ou-danger, #dc2626); border-bottom:1px solid var(--ou-line, #d4d4d4); font-size:13px; }
 
 
 .w-page-settings { display: grid; gap: 14px; min-width: 0; padding: 0; margin: 0; border: 0; }

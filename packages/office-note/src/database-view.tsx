@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'rea
 import { createPortal } from 'react-dom';
 import type { Editor } from '@barocss/editor-core';
 import { useEditorRevision } from '@barocss/office-editor-ui';
-import { DataTable, DataTableRow, DataTableCell, EmptyState, PropertyToggle, Icon, Button, ChoiceSelect, TextField, TipProvider, SidePeek } from '@barocss/office-ui';
+import { DataTable, DataTableRow, DataTableCell, EmptyState, PropertyToggle, Button, ChoiceSelect, TextField, TipProvider, SidePeek } from '@barocss/office-ui';
 import { type DataField } from '@barocss/schema';
 import { getNoteDatabase, getNoteDatabaseSourceOptions, getNoteDatabaseCommandError, noteDatabaseRows } from './database';
 import { DatabaseFieldEditor, DATABASE_FIELD_KINDS as FIELD_KINDS } from './database-field-editor';

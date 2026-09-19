@@ -132,13 +132,15 @@ describe('앱은 자기가 쓰는 패키지의 스타일 문을 가져간다', (
       'office-text',
       'office-ui',
       'office-word',
+      'office-workspace',
+      'query-editor',
     ]);
 
     const owingTokens = hosts
       .filter((h) => h.owed.includes('@barocss/office-ui/tokens.css'))
       .map((h) => h.app)
       .sort();
-    expect(owingTokens).toEqual(['gallery', 'note', 'site', 'slide', 'word']);
+    expect(owingTokens).toEqual(['gallery', 'note', 'office', 'site', 'slide', 'word']);
   });
 
   /**

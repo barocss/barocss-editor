@@ -260,10 +260,10 @@ export async function changes<T>(
   const after = await read();
 
   expect(
-    after,
+    JSON.stringify(after),
     `${what} 이 바뀌지 않았습니다 — ${JSON.stringify(before)} 그대로입니다.\n` +
       `바꾸려는 값이 이미 그 값이면 이 검사는 아무것도 묻지 않습니다. 다른 값으로 물으세요.`
-  ).not.toEqual(before);
+  ).not.toBe(JSON.stringify(before));
 
   return { before, after };
 }

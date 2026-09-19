@@ -31,11 +31,16 @@
         "default": "./dist/index.js"
       },
       "./view": {
-        "types": "./dist/note-view.d.ts",
-        "import": "./dist/note-view.js",
-        "default": "./dist/note-view.js"
+        "types": "./dist/view.d.ts",
+        "import": "./dist/view.js",
+        "default": "./dist/view.js"
       },
-      "./note.css": "./dist/note.css"
+      "./note.css": "./dist/note.css",
+      "./workspace": {
+        "types": "./dist/workspace.d.ts",
+        "import": "./dist/workspace.js",
+        "default": "./dist/workspace.js"
+      }
     },
     "files": [
       "dist"

@@ -14,7 +14,7 @@ test('bulk restore atomically compares revisions across independent connections 
       second.keepMany([{ entry: { name: 'a' }, text: 'a3', expectedRevision: 1 }, { entry: { name: 'd' }, text: 'new-d', expectedRevision: null }])
     ]);
     const snapshots = await first.snapshots();
-    return { initial, races: races.map(result => result.status), rows: snapshots.map(item => ({ name: item.row.name, revision: item.row.revision, text: item.text })), order: snapshots.map(item => item.row.savedAt) };
+    return { initial, races: races.map(result => result.status), rows: snapshots.map((item: { row: { name: string; revision?: number; savedAt: number }; text: string }) => ({ name: item.row.name, revision: item.row.revision, text: item.text })), order: snapshots.map((item: { row: { savedAt: number } }) => item.row.savedAt) };
   }, moduleUrl);
   expect(result.initial.map((row: any) => [row.name, row.revision])).toEqual([['a', 1], ['b', 1]]);
   expect(result.races.filter((value: string) => value === 'fulfilled')).toHaveLength(1);

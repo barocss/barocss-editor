@@ -970,7 +970,7 @@
 .office-selection-tag button:hover { background:var(--ou-accent-soft); color:var(--ou-accent); }
 .office-selection-tag[data-missing=true] { border-style:dashed; color:var(--ou-muted); }
 .office-selection-tag button:focus-visible, .office-search-select-trigger:focus-visible, .office-search-query:focus-visible { outline:2px solid var(--ou-accent); outline-offset:1px; }
-.office-choice > [data-radix-select-value], .office-choice > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.office-choice > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .office-choice > span:last-child { flex-shrink: 0; }
 .office-choice-popup { min-width: var(--radix-select-trigger-width); max-width: min(360px, calc(100vw - 16px)); max-height: var(--radix-select-content-available-height); }
 .office-menu-popup { padding: 4px; border-radius: 8px; }

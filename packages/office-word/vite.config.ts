@@ -23,6 +23,7 @@ export default defineConfig({
     lib: {
       entry: {
         index: 'src/index.ts',
+        workspace: 'src/workspace-adapter.ts',
         ui: 'src/ui.ts',
         'ui.css': 'src/ui.css',
       },

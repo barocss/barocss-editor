@@ -33,7 +33,9 @@ last_updated: 2026-09-19
 
 ## 이번 점검 결과
 
-Codex 흐름 연결: 기준점 이슈 [#248](https://github.com/barocss/barocss-editor/issues/248)와 WP-01 이슈 [#249](https://github.com/barocss/barocss-editor/issues/249)를 생성했다. 통합 Office 빌드는 통과했다. 전체 타입 검사는 office-note·office-slides·apps/site에서 실패했다. 기준점 PR은 draft로 검토하며 main 병합은 별도 검증 단계다.
+후속 검증은 [기준점 기록](../wonffice-baseline/brief.md)에 있다. 제품 소스 타입 오류를 수정했고 단위·브라우저 검사와 빌드를 복구했다. main 보호 규칙도 적용했다. 원격 CI와 병합 여부는 PR #250에서 확인한다.
+
+최초 점검 기록: 기준점 이슈 [#248](https://github.com/barocss/barocss-editor/issues/248)와 WP-01 이슈 [#249](https://github.com/barocss/barocss-editor/issues/249)를 생성했다. 통합 Office 빌드는 통과했다. 전체 타입 검사는 office-note·office-slides·apps/site에서 실패했다. 기준점 PR은 draft로 검토하며 main 병합은 별도 검증 단계다.
 
 편집기의 operation·transaction·제품별 codec은 재사용한다. 직접 Agent 도구로 공개하지 않는다. 실패 정리, 결과 상태, 버전·권한·중복 요청 처리부터 보강한다. 로컬 workspace는 서버 계정·저장·권한을 제공하지 않는다.
 

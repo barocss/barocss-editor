@@ -39,18 +39,18 @@ describe('keybindings.md 가 적은 숫자', () => {
     expect((DEFAULT_KEYBINDINGS as readonly Key[]).length).toBe(40);
   });
 
-  it('레지스트리로 도는 둘 — word 54 · note 2, 그리고 인쇄 목록은 파생이다', () => {
+  it('레지스트리로 도는 둘 — word 49 · note 2, 그리고 인쇄 목록은 파생이다', () => {
     expect(counts(WORD_KEYBINDINGS as readonly Key[])).toMatchObject({
-      total: 54,
-      command: 54,
+      total: 49,
+      command: 49,
       view: 0,
       // 전부 `when` 을 쓴다. 이것이 word 가 *레지스트리로 돈다* 의 구체적 내용이다.
-      when: 54
+      when: 49
     });
     expect(counts(NOTE_KEYBINDINGS as readonly Key[])).toMatchObject({ total: 2, command: 2, when: 2 });
 
     // 규칙 5: 인쇄되는 것은 도는 것에서 나온다. 손으로 두 번 적지 않는다.
-    expect(WORD_VIEW_KEYS.length).toBe(1);
+    expect(WORD_VIEW_KEYS.length).toBe(6);
     expect(WORD_KEYS.length).toBe(WORD_VIEW_KEYS.length + WORD_KEYBINDINGS.length);
   });
 
@@ -59,7 +59,7 @@ describe('keybindings.md 가 적은 숫자', () => {
    * 엔진의 내장 맥락으로 공짜인가(`needsSelection` → `selectionType == 'node'`), 그리고 몇이
    * 엔진에 대응이 없는가(`mode` · `needs`).
    */
-  it('데이터로 도는 둘 — slides 24 · site 25, 그리고 그중 무엇이 공짜인가', () => {
+  it('데이터로 도는 둘 — slides 24 · site 26, 그리고 그중 무엇이 공짜인가', () => {
     expect(counts(SLIDES_KEYS as readonly Key[])).toMatchObject({
       total: 24,
       command: 22,
@@ -72,14 +72,14 @@ describe('keybindings.md 가 적은 숫자', () => {
     });
 
     expect(counts(SITE_KEYS as readonly Key[])).toMatchObject({
-      total: 25,
+      total: 26,
       command: 20,
-      view: 5,
+      view: 6,
       needsSelection: 16,
       when: 0,
-      // **`mode` 가 스물다섯 전부다** — site 의 `SiteKey` 는 그것을 필수 필드로 만든다. 엔진에
+      // **`mode` 가 스물여섯 전부다** — site 의 `SiteKey` 는 그것을 필수 필드로 만든다. 엔진에
       // 대응하는 내장 맥락이 없으므로, 이주하면 여기가 유일한 새 맥락이다.
-      mode: 25,
+      mode: 26,
       needs: 2
     });
   });

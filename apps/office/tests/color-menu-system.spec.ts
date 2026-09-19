@@ -74,6 +74,18 @@ test('colour surfaces share the light and dark theme', async ({ page }) => {
   for (const theme of ['밝은 테마', '어두운 테마']) {
     await page.getByRole('combobox', { name: '시스템 테마' }).click();
     await page.getByRole('option', { name: theme, exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme === '밝은 테마' ? 'light' : 'dark');
+    const hex = page.locator('#colors [data-color-picker]').getByRole('textbox', { name: '색상 코드' });
+    await expect(hex).toBeVisible();
+    const ink = await hex.evaluate(el => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--ou-ink)';
+      el.parentElement!.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    });
+    await expect(hex).toHaveCSS('color', ink);
     await page.locator('#colors').screenshot({ path: `${output}/colors-${theme === '밝은 테마' ? 'light' : 'dark'}.png` });
   }
 });

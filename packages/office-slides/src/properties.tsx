@@ -451,7 +451,6 @@ export function Properties({
       group={group}
       box={box}
       targets={targets}
-      editor={editor}
       unit={unit}
       locked={locked}
       declares={declares}
@@ -2452,7 +2451,6 @@ function DeckSheet({
   group,
   box,
   targets,
-  editor,
   unit,
   locked,
   declares,
@@ -2463,7 +2461,6 @@ function DeckSheet({
   group: string;
   box: { sid?: string; stype?: string; attributes?: Record<string, unknown> } | null | undefined;
   targets: string[];
-  editor: Editor | null;
   unit: LengthUnit;
   locked: boolean;
   /** Whether the selected node type declares an attribute — which is what decides where a row goes. */

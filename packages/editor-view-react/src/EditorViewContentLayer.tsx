@@ -175,6 +175,10 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
     const onBeforeInput = (event: Event) => {
       inputHandler.handleBeforeInput(event as InputEvent);
     };
+    // Some IMEs finish without a final non-composing input event.
+    // Observe the native composition boundary as well as beforeinput/input.
+    const onCompositionStart = () => inputHandler.setComposing(true);
+    const onCompositionEnd = () => inputHandler.setComposing(false);
     // Strip the caret filler out of anything leaving the editor. The zero-width
     // character is renderer bookkeeping, not content, and a native copy reads the
     // DOM directly — without this it rides along into other applications.
@@ -193,10 +197,14 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
     };
 
     el.addEventListener('beforeinput', onBeforeInput);
+    el.addEventListener('compositionstart', onCompositionStart);
+    el.addEventListener('compositionend', onCompositionEnd);
     el.addEventListener('copy', onCopy);
     el.addEventListener('cut', onCopy);
     return () => {
       el.removeEventListener('beforeinput', onBeforeInput);
+      el.removeEventListener('compositionstart', onCompositionStart);
+      el.removeEventListener('compositionend', onCompositionEnd);
       el.removeEventListener('copy', onCopy);
       el.removeEventListener('cut', onCopy);
     };

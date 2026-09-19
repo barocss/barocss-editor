@@ -35,7 +35,12 @@
         "import": "./dist/ui.js",
         "default": "./dist/ui.js"
       },
-      "./ui.css": "./dist/ui.css"
+      "./ui.css": "./dist/ui.css",
+      "./workspace": {
+        "types": "./dist/workspace.d.ts",
+        "import": "./dist/workspace.js",
+        "default": "./dist/workspace.js"
+      }
     },
     "files": [
       "dist"

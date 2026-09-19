@@ -29,7 +29,7 @@ async function pointer(target: EventTarget, type: string, x: number, y: number) 
 }
 beforeEach(async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(() => [new DOMRect(0, 0, 1, 1)] as unknown as DOMRectList);
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
     if (this.tagName === 'TABLE') return new DOMRect(100, 100, 400, 80);
@@ -72,7 +72,7 @@ describe('direct table manipulation keeps gestures out of document history until
     const before = session.editor.exportDocument();
     await pointer(grow(), 'pointerdown', 200, 190);
     await pointer(window, 'pointermove', 200, 270);
-    expect(document.querySelector('[data-note-table-grow-preview]')?.textContent).toBe('2행 추가');
+    expect(document.querySelector('[data-note-table-readout]')?.textContent).toBe('2행 추가');
     expect(session.editor.exportDocument()).toEqual(before);
     await pointer(window, 'pointerup', 200, 270);
     expect(grid().rowIds).toHaveLength(4);
@@ -83,7 +83,7 @@ describe('direct table manipulation keeps gestures out of document history until
     const before = session.editor.exportDocument();
     await pointer(grow(), 'pointerdown', 200, 190);
     await pointer(window, 'pointermove', 200, 9000);
-    expect(document.querySelector('[data-note-table-grow-preview]')?.textContent).toBe('100행 추가');
+    expect(document.querySelector('[data-note-table-readout]')?.textContent).toBe('100행 추가');
     await pointer(window, 'pointercancel', 200, 9000);
     expect(document.querySelector('[data-note-table-grow-preview]')).toBeNull();
     expect(session.editor.exportDocument()).toEqual(before);
@@ -126,7 +126,7 @@ describe('direct table manipulation keeps gestures out of document history until
     const before = session.editor.exportDocument();
     await pointer(resize(), 'pointerdown', 300, 140);
     await pointer(window, 'pointermove', 360, 140);
-    expect(document.querySelector('[data-note-table-resize-preview]')?.textContent).toBe('260 px');
+    expect(document.querySelector('[data-note-table-readout]')?.textContent).toBe('260 px');
     expect(session.editor.exportDocument()).toEqual(before);
     await pointer(window, 'pointerup', 360, 140);
     expect(session.editor.dataStore.getNode(tableId)?.attributes?.grid).toBe('3900,3000');

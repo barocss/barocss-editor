@@ -182,6 +182,9 @@ importers:
       '@barocss/schema':
         specifier: workspace:*
         version: link:../../packages/schema
+      '@barocss/shared':
+        specifier: workspace:^
+        version: link:../../packages/shared
       katex:
         specifier: ^0.16.28
         version: 0.16.28

@@ -63,6 +63,8 @@ const document_ = () => ({
               text: '두 번째 문단입니다',
               marks: [
                 { stype: 'link', attrs: { href: 'https://example.com' }, range: [0, 3] },
+                { stype: 'fontColor', attrs: { color: '#0F7A5A' }, range: [0, 3] },
+                { stype: 'bgColor', attrs: { bgColor: '#FDE68A' }, range: [0, 3] },
                 { stype: 'bold', range: [4, 7] }
               ]
             }
@@ -294,8 +296,6 @@ describe('every command Word registers', () => {
     'focus', 'isTrackingChanges',
     'moveCursorLeft', 'moveCursorRight', 'moveCursorWordLeft', 'moveCursorWordRight',
     'nextCell', 'nextMathSlot', 'paste', 'previousCell', 'previousMathSlot',
-    // Clearing an absent color is intentionally idempotent in the uncolored fixture.
-    'removeBgColor', 'removeFontColor',
     'selectAll', 'setAbsolutePos', 'setContext', 'setNode', 'setRange'
   ];
 

@@ -101,8 +101,8 @@ describe('what a page draws, PAGE_CSS styles', () => {
       } catch {
         return;
       }
-      for (const name of Object.keys(manifest.dependencies ?? {})) {
-        if (!name.startsWith('@barocss/')) continue;
+      for (const [name, version] of Object.entries(manifest.dependencies ?? {})) {
+        if (!name.startsWith('@barocss/') || !version.startsWith('workspace:')) continue;
         follow(`packages/${name.slice('@barocss/'.length)}`);
       }
     };

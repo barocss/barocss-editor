@@ -113,14 +113,14 @@ describe('읽기 전용 문서에서 키가 하는 일', () => {
   });
 
   /**
-   * 제품 쪽 숫자도 같은 이유로 못 박는다. **51 · 0 이 아니라 51 · 0 인 이유**가 서로 다르다:
-   * Word 는 쉰넷 중 셋을 뺀 전부를 걸었고, note 는 **자기 이름으로 적은 키가 없다** — 둘 다
+   * 제품 쪽 숫자도 같은 이유로 못 박는다. **46 · 0 이 아니라 46 · 0 인 이유**가 서로 다르다:
+   * Word 는 마흔아홉 중 셋을 뺀 전부를 걸었고, note 는 **자기 이름으로 적은 키가 없다** — 둘 다
    * `TABLE_CELL_KEYBINDINGS` 를 펼친 것이라 note 가 걸 것이 애초에 없다.
    */
-  it('Word 는 쉰넷 중 쉰하나를 걸고, note 는 걸 것이 없다', () => {
+  it('Word 는 마흔아홉 중 마흔여섯를 걸고, note 는 걸 것이 없다', () => {
     const word = WORD_KEYBINDINGS as readonly Binding[];
-    expect(word.length).toBe(54);
-    expect(word.filter((one) => gates(one.when)).length).toBe(51);
+    expect(word.length).toBe(49);
+    expect(word.filter((one) => gates(one.when)).length).toBe(46);
 
     const note = NOTE_KEYBINDINGS as readonly Binding[];
     expect(note.length).toBe(2);

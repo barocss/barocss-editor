@@ -74,7 +74,7 @@ test('library recovers from a load failure and provides title search and an empt
   await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
   await page.evaluate(() => {
     const original = IDBObjectStore.prototype.getAll;
-    IDBObjectStore.prototype.getAll = function(...args: Parameters<typeof original>) {
+    IDBObjectStore.prototype.getAll = function(..._args: Parameters<typeof original>) {
       IDBObjectStore.prototype.getAll = original;
       throw new Error('Test: library read unavailable');
     };

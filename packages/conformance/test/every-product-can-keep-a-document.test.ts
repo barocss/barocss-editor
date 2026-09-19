@@ -40,14 +40,7 @@ const ROOT = join(__dirname, '..', '..', '..');
  *
  * 여기 적힌 제품이 저장을 **갖게 되면** 이 검사가 빨개진다. 목록이 낡는 것도 결함이므로.
  */
-const DECLINED: ReadonlyArray<readonly [string, string]> = [
-  [
-    'office-note',
-    '노트는 호스트 문서 안에 산다 — 사이트의 자료 행 하나가 노트 하나이고, 그것을 지키는 것은 ' +
-      '사이트의 파일이다. 자기 라이브러리를 갖는 노트는 두 곳에 있는 노트다. `session.ts` 가 ' +
-      '노트를 *여는* 쪽을 답하고, 그것은 저장이 아니다.'
-  ]
-];
+const DECLINED: ReadonlyArray<readonly [string, string]> = [];
 
 const PRODUCTS = ['office-word', 'office-slides', 'office-site', 'office-note'];
 

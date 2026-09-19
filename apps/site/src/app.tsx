@@ -1326,7 +1326,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
        * A press on the grey around the boards selects nothing, which is what pressing nothing has
        * always meant here.
        */
-      const block = hit ? outermostOf(doc as never, hit, scopeRoot) : undefined;
+      const block = hit && scopeRoot ? outermostOf(doc as never, hit, scopeRoot) : undefined;
       void editor.executeCommand('setNode', { nodeIds: block ? [block] : [] });
     };
 
@@ -1761,12 +1761,13 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                      * Ten of the frame's twenty props were the overlay's and moved here with it.
                      * What is left is a board: a document, a width, and whether it is being looked at.
                      */
-                    overlay={(host) =>
-                      editor ? (
+                    overlay={(host) => {
+                      const overlayRoot = scopeRoot ?? root;
+                      return editor && overlayRoot ? (
                       <Overlay
                         editor={editor}
                         host={host}
-                        page={scopeRoot ?? root}
+                        page={overlayRoot}
                         breakpoint={one.id}
                         /**
                          * **A writer is in text**, always — which is the mode rather than a default.
@@ -1802,8 +1803,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                         scope={inside ?? ''}
                         onScope={setScope}
                       />
-                      ) : null
-                    }
+                      ) : null;
+                    }}
                   />
                 ))
               : null}

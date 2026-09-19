@@ -12,7 +12,6 @@ import { VALUE_FORMATS } from '@barocss/office-canvas';
 import { SELECTABLE } from '../src/selection';
 import { getSiteSchemaDefinition } from '../src/site-schema';
 import { createSiteEditor } from '../src/site-kit';
-import { SELECTABLE } from '../src/selection';
 
 /**
  * The panel, held to the things a declaration can be wrong about.

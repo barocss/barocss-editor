@@ -62,7 +62,7 @@ async function press(command: string) {
 
 beforeEach(async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => new DOMRect(100, 100, 120, 30));
   vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(() => [new DOMRect(100, 100, 120, 30)] as unknown as DOMRectList);
   session = openNoteTree({ stype: 'note', content: [
