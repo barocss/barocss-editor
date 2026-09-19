@@ -17,6 +17,7 @@ last_updated: 2026-09-19
 - 다음 코어 작업: [#249](https://github.com/barocss/barocss-editor/issues/249), transaction 실패 복구.
 - 이 정책: [#251](https://github.com/barocss/barocss-editor/issues/251). 문서 작업은 기존 main에서 독립 진행한다.
 - main 필수 검사 이름은 `Lint, type-check, unit test`, `E2E (editor-react)`다. 필수 검사를 통과하지 않으면 병합하지 않는다.
+- 현재 `pnpm lint`는 각 패키지에 lint script가 없어 검사 없이 종료한다. CI step 이름만으로 정적 분석이 수행된다고 판단하지 않는다. 실제 lint 범위 연결도 후속 보강 대상이다.
 - 현재 CI는 서비스 출시 검사 전체를 포함하지 않는다. 네 제품의 전체 사용자 흐름, 서버 격리, 두 배포 환경, 업데이트·복원 검사는 추가 구현 대상이다.
 - 기존 Changesets 설정과 npm 버전 이력은 유지한다. 과거 npm release workflow와 Wonffice 서비스 릴리즈는 별개다. PR #250에서 과거 workflow를 제거하므로 자동 Version Packages PR·npm 게시가 작동한다고 가정하지 않는다. 후속 이슈에서 게시 권한과 검사를 포함해 다시 연결한다.
 
