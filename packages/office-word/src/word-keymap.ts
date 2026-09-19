@@ -47,23 +47,50 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
    */
   ...TABLE_CELL_KEYBINDINGS,
 
+  /*
+   * ## `editorEditable` — 문서를 바꾸는 키는 전부 이것을 건다
+   *
+   * 규칙 3(`docs/specs/keybindings.md`): **문서를 바꾸는 키는 `editorEditable` 을 걸고 읽는 키는
+   * 안 건다.** `executeCommand` 도 `canExecute` 도 편집 가능 여부를 안 묻는다 — 재봤다. 그러므로
+   * **`when` 이 이 키들의 유일한 편집 가드다.**
+   *
+   * 재본 것: 이 파일 54개 중 `editorEditable` 을 건 것이 **둘**이었다(`Tab`/`Shift+Tab` →
+   * `indentText`/`outdentText`, 앞선 회차에 검사가 찾아서 더한 것). 나머지 52 중 **50이 문서를
+   * 바꾸는 키**이고, 읽기 전용 문서에서 전부 통했을 것이다.
+   *
+   * **일괄로 걸지 않았다.** 걸지 않은 것이 셋이고 각각 이유가 있다:
+   *
+   * | 키 | 명령 | 왜 안 거나 |
+   * |---|---|---|
+   * | `Escape` | `leaveDrawing` | 캐럿만 옮긴다 — `_leave` 가 `updateSelection` 하나다. 그림에서 나오는 것은 읽는 일이다 |
+   * | `Tab`·`Shift+Tab` | `nextCell`·`previousCell` | **이 파일의 것이 아니다** — `TABLE_CELL_KEYBINDINGS`(공용 `TableExtension`)이고, 표를 가진 제품이 다 받는다 |
+   *
+   * 그 표의 둘째 줄은 **아직 열린 결함이다**: `nextCell` 은 마지막 칸에서 `insertRowBelow` 를
+   * 부른다(`extensions/src/table.ts:291`). 읽기 전용 문서에서 Tab 이 행을 만든다. 고칠 자리가
+   * 이 패키지가 아니라 `packages/extensions` 라서 여기서는 세기만 한다.
+   *
+   * 살아 있는 결함은 아니다 — 이 저장소의 어느 제품도 `editable: false` 를 쓰지 않는다. 읽기
+   * 전용을 처음 내는 날의 결함이고, 그날 이것이 없으면 아무도 못 찾는다.
+   * `office-controls/test/document-keys-gate-on-editable.test.ts` 가 센다.
+   */
+
   // ── Headings and paragraph styles ──────────────────────────────────────────
-  { key: 'Mod+Alt+4', command: 'setHeading4', when: 'editorFocus' },
-  { key: 'Mod+Alt+5', command: 'setHeading5', when: 'editorFocus' },
-  { key: 'Mod+Alt+6', command: 'setHeading6', when: 'editorFocus' },
+  { key: 'Mod+Alt+4', command: 'setHeading4', when: 'editorFocus && editorEditable' },
+  { key: 'Mod+Alt+5', command: 'setHeading5', when: 'editorFocus && editorEditable' },
+  { key: 'Mod+Alt+6', command: 'setHeading6', when: 'editorFocus && editorEditable' },
 
   // ── Character formatting ───────────────────────────────────────────────────
-  { key: 'Mod+Shift+h', command: 'toggleHighlight', when: 'editorFocus' },
-  { key: 'Mod+=', command: 'toggleSubscript', when: 'editorFocus' },
-  { key: 'Mod+Shift+=', command: 'toggleSuperscript', when: 'editorFocus' },
+  { key: 'Mod+Shift+h', command: 'toggleHighlight', when: 'editorFocus && editorEditable' },
+  { key: 'Mod+=', command: 'toggleSubscript', when: 'editorFocus && editorEditable' },
+  { key: 'Mod+Shift+=', command: 'toggleSuperscript', when: 'editorFocus && editorEditable' },
   // Word's "clear formatting"
-  { key: 'Mod+Space', command: 'clearFormatting', when: 'editorFocus' },
+  { key: 'Mod+Space', command: 'clearFormatting', when: 'editorFocus && editorEditable' },
 
   // ── Paragraph layout ───────────────────────────────────────────────────────
-  { key: 'Mod+l', command: 'alignLeft', when: 'editorFocus' },
-  { key: 'Mod+e', command: 'alignCenter', when: 'editorFocus' },
-  { key: 'Mod+r', command: 'alignRight', when: 'editorFocus' },
-  { key: 'Mod+j', command: 'alignJustify', when: 'editorFocus' },
+  { key: 'Mod+l', command: 'alignLeft', when: 'editorFocus && editorEditable' },
+  { key: 'Mod+e', command: 'alignCenter', when: 'editorFocus && editorEditable' },
+  { key: 'Mod+r', command: 'alignRight', when: 'editorFocus && editorEditable' },
+  { key: 'Mod+j', command: 'alignJustify', when: 'editorFocus && editorEditable' },
   /**
    * Word's increase and decrease indent.
    *
@@ -76,8 +103,8 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
    * `indentLeft` on a paragraph, and a numbering level on a list item, which is
    * what Word's Ctrl+M does in each case.
    */
-  { key: 'Mod+m', command: 'indentText', when: 'editorFocus' },
-  { key: 'Mod+Shift+m', command: 'outdentText', when: 'editorFocus' },
+  { key: 'Mod+m', command: 'indentText', when: 'editorFocus && editorEditable' },
+  { key: 'Mod+Shift+m', command: 'outdentText', when: 'editorFocus && editorEditable' },
 
   /**
    * Tab means three different things, and Word decides by where the caret is.
@@ -106,17 +133,16 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   { key: 'Tab', command: 'indentText', when: 'editorFocus && editorEditable && inList && !inTable && !inEquation' },
   { key: 'Shift+Tab', command: 'outdentText', when: 'editorFocus && editorEditable && inList && !inTable && !inEquation' },
 
-  { key: 'Tab', command: 'indentFirstLine', when: 'editorFocus && !inList && atBlockStart && !inTable && !inEquation' },
-  { key: 'Shift+Tab', command: 'outdentFirstLine', when: 'editorFocus && !inList && atBlockStart && !inTable && !inEquation' },
-  { key: 'Tab', command: 'insertTab', when: 'editorFocus && !inList && !atBlockStart && !inTable && !inEquation' },
+  { key: 'Tab', command: 'indentFirstLine', when: 'editorFocus && editorEditable && !inList && atBlockStart && !inTable && !inEquation' },
+  { key: 'Shift+Tab', command: 'outdentFirstLine', when: 'editorFocus && editorEditable && !inList && atBlockStart && !inTable && !inEquation' },
+  { key: 'Tab', command: 'insertTab', when: 'editorFocus && editorEditable && !inList && !atBlockStart && !inTable && !inEquation' },
 
   // ── Lists ──────────────────────────────────────────────────────────────────
-  { key: 'Mod+Shift+l', command: 'toggleBulletList', when: 'editorFocus' },
+  { key: 'Mod+Shift+l', command: 'toggleBulletList', when: 'editorFocus && editorEditable' },
 
   // ── Insertion ──────────────────────────────────────────────────────────────
-  { key: 'Mod+k', command: 'toggleLink', when: 'editorFocus' },
-  { key: 'Mod+Enter', command: 'insertPageBreak', when: 'editorFocus' },
-  { key: 'Mod+Shift+Enter', command: 'insertColumnBreak', when: 'editorFocus' },
+  { key: 'Mod+Enter', command: 'insertPageBreak', when: 'editorFocus && editorEditable' },
+  { key: 'Mod+Shift+Enter', command: 'insertColumnBreak', when: 'editorFocus && editorEditable' },
   /*
    * **Not bound here.** Shift+Enter arrives as a `beforeinput` of type `insertLineBreak` and the input
    * handler answers it, which is the rule this repository already settled: beforeinput writes typing.
@@ -125,9 +151,6 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
    * is) is the better document and is left for the day the input handler hands the key over rather
    * than both trying: see `docs/BACKLOG.md`.
    */
-  { key: 'Mod+Alt+f', command: 'insertFootnote', when: 'editorFocus' },
-  { key: 'Mod+Alt+d', command: 'insertEndnote', when: 'editorFocus' },
-  { key: 'Mod+Alt+m', command: 'insertComment', when: 'editorFocus' },
 
   // ── Tables ─────────────────────────────────────────────────────────────────
   // Tab is cell navigation only inside a table; elsewhere it indents, which is
@@ -139,17 +162,23 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   // waiting to be built. A Space bound any wider is a Space that never reaches
   // the document, because the dispatcher prevents the key whether the command
   // ran or not.
-  { key: 'Space', command: 'buildUpMath', when: 'editorFocus && canBuildUpMath' },
-  { key: 'Tab', command: 'nextMathSlot', when: 'editorFocus && inEquation' },
-  { key: 'Shift+Tab', command: 'previousMathSlot', when: 'editorFocus && inEquation' },
-  { key: 'Mod+Alt+i', command: 'insertRowBelow', when: 'editorFocus && inTable' },
-  { key: 'Mod+Alt+Shift+i', command: 'insertRowAbove', when: 'editorFocus && inTable' },
-  { key: 'Mod+Alt+j', command: 'insertColumnRight', when: 'editorFocus && inTable' },
-  { key: 'Mod+Alt+Shift+j', command: 'insertColumnLeft', when: 'editorFocus && inTable' },
-  { key: 'Mod+Alt+Backspace', command: 'deleteRow', when: 'editorFocus && inTable' },
-  { key: 'Mod+Alt+Shift+Backspace', command: 'deleteColumn', when: 'editorFocus && inTable' },
-  { key: 'Mod+Alt+u', command: 'mergeCells', when: 'editorFocus && inTable' },
-  { key: 'Mod+Alt+Shift+u', command: 'splitCell', when: 'editorFocus && inTable' },
+  { key: 'Space', command: 'buildUpMath', when: 'editorFocus && editorEditable && canBuildUpMath' },
+  /*
+   * **수식 칸 사이 이동은 읽는 키가 아니다.** 처음엔 그렇게 분류했다 — 캐럿을 다음 칸으로 옮기는
+   * 것이니까. 그런데 `_move` 를 읽어 보니 빈 칸을 만나면 `_fillEmptySlot` 이 `addChild` 트랜잭션을
+   * 커밋한다(`math-commands.ts:234`). 캐럿이 들어갈 `mathRun` 이 없으면 만드는 것이고, 그건 문서를
+   * 바꾸는 일이다. **한 갈래에서만 쓰는 명령도 쓰는 명령이다.**
+   */
+  { key: 'Tab', command: 'nextMathSlot', when: 'editorFocus && editorEditable && inEquation' },
+  { key: 'Shift+Tab', command: 'previousMathSlot', when: 'editorFocus && editorEditable && inEquation' },
+  { key: 'Mod+Alt+i', command: 'insertRowBelow', when: 'editorFocus && editorEditable && inTable' },
+  { key: 'Mod+Alt+Shift+i', command: 'insertRowAbove', when: 'editorFocus && editorEditable && inTable' },
+  { key: 'Mod+Alt+j', command: 'insertColumnRight', when: 'editorFocus && editorEditable && inTable' },
+  { key: 'Mod+Alt+Shift+j', command: 'insertColumnLeft', when: 'editorFocus && editorEditable && inTable' },
+  { key: 'Mod+Alt+Backspace', command: 'deleteRow', when: 'editorFocus && editorEditable && inTable' },
+  { key: 'Mod+Alt+Shift+Backspace', command: 'deleteColumn', when: 'editorFocus && editorEditable && inTable' },
+  { key: 'Mod+Alt+u', command: 'mergeCells', when: 'editorFocus && editorEditable && inTable' },
+  { key: 'Mod+Alt+Shift+u', command: 'splitCell', when: 'editorFocus && editorEditable && inTable' },
   /**
    * Delete takes the table away — but only when the *table* is what is selected.
    *
@@ -159,8 +188,8 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
    * the only way to get into this state, which is what makes the binding safe to
    * have at all.
    */
-  { key: 'Delete', command: 'deleteTable', when: 'editorFocus && tableSelected' },
-  { key: 'Backspace', command: 'deleteTable', when: 'editorFocus && tableSelected' },
+  { key: 'Delete', command: 'deleteTable', when: 'editorFocus && editorEditable && tableSelected' },
+  { key: 'Backspace', command: 'deleteTable', when: 'editorFocus && editorEditable && tableSelected' },
 
   // ── What is on a drawing ───────────────────────────────────────────────────
   /**
@@ -168,8 +197,8 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
    * drawing in this document". With a caret in a paragraph, Delete is a character — and a binding
    * that forgot the difference would be the most destructive key in the product.
    */
-  { key: 'Delete', command: 'deleteShapes', when: 'editorFocus && shapesSelected' },
-  { key: 'Backspace', command: 'deleteShapes', when: 'editorFocus && shapesSelected' },
+  { key: 'Delete', command: 'deleteShapes', when: 'editorFocus && editorEditable && shapesSelected' },
+  { key: 'Backspace', command: 'deleteShapes', when: 'editorFocus && editorEditable && shapesSelected' },
   /**
    * Getting back to writing, which measured as **nothing at all**: with a shape selected, a letter
    * went nowhere and Enter did nothing. Safe, because the engine refuses a character that has no
@@ -178,7 +207,12 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
    * Enter makes one after the drawing and puts the caret in it; Escape only moves the caret, because
    * a reader who has finished with a drawing does not want an empty paragraph to delete afterwards.
    */
-  { key: 'Enter', command: 'insertParagraphAfterDrawing', when: 'editorFocus && shapesSelected' },
+  { key: 'Enter', command: 'insertParagraphAfterDrawing', when: 'editorFocus && editorEditable && shapesSelected' },
+  /*
+   * **읽는 키다 — 그래서 `editorEditable` 을 안 건다.** `_leave` 는 `updateSelection` 하나이고
+   * 문서를 건드리지 않는다(`canvas-shape-commands.ts`). 읽기 전용 문서에서도 도형을 고른 사람은
+   * 거기서 나올 수 있어야 한다. 규칙 3의 *읽는 키는 안 건다* 가 이 줄이다.
+   */
   { key: 'Escape', command: 'leaveDrawing', when: 'editorFocus && shapesSelected' },
   /**
    * A nudge is one pixel, or a tenth of an inch with Shift held — the deck's own steps, because a
@@ -193,17 +227,22 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
    * is what the first version of these four did, silently, while the caret moved instead. The deck
    * spells them `ArrowUp` because it matches its own chords rather than going through the registry.
    */
-  { key: 'Left', command: 'moveShapes', args: { dx: -15, dy: 0 }, when: 'editorFocus && shapesSelected' },
-  { key: 'Right', command: 'moveShapes', args: { dx: 15, dy: 0 }, when: 'editorFocus && shapesSelected' },
-  { key: 'Up', command: 'moveShapes', args: { dx: 0, dy: -15 }, when: 'editorFocus && shapesSelected' },
-  { key: 'Down', command: 'moveShapes', args: { dx: 0, dy: 15 }, when: 'editorFocus && shapesSelected' },
-  { key: 'Shift+Left', command: 'moveShapes', args: { dx: -144, dy: 0 }, when: 'editorFocus && shapesSelected' },
-  { key: 'Shift+Right', command: 'moveShapes', args: { dx: 144, dy: 0 }, when: 'editorFocus && shapesSelected' },
-  { key: 'Shift+Up', command: 'moveShapes', args: { dx: 0, dy: -144 }, when: 'editorFocus && shapesSelected' },
-  { key: 'Shift+Down', command: 'moveShapes', args: { dx: 0, dy: 144 }, when: 'editorFocus && shapesSelected' },
+  { key: 'Left', command: 'moveShapes', args: { dx: -15, dy: 0 }, when: 'editorFocus && editorEditable && shapesSelected' },
+  { key: 'Right', command: 'moveShapes', args: { dx: 15, dy: 0 }, when: 'editorFocus && editorEditable && shapesSelected' },
+  { key: 'Up', command: 'moveShapes', args: { dx: 0, dy: -15 }, when: 'editorFocus && editorEditable && shapesSelected' },
+  { key: 'Down', command: 'moveShapes', args: { dx: 0, dy: 15 }, when: 'editorFocus && editorEditable && shapesSelected' },
+  { key: 'Shift+Left', command: 'moveShapes', args: { dx: -144, dy: 0 }, when: 'editorFocus && editorEditable && shapesSelected' },
+  { key: 'Shift+Right', command: 'moveShapes', args: { dx: 144, dy: 0 }, when: 'editorFocus && editorEditable && shapesSelected' },
+  { key: 'Shift+Up', command: 'moveShapes', args: { dx: 0, dy: -144 }, when: 'editorFocus && editorEditable && shapesSelected' },
+  { key: 'Shift+Down', command: 'moveShapes', args: { dx: 0, dy: 144 }, when: 'editorFocus && editorEditable && shapesSelected' },
 
   // ── Review ─────────────────────────────────────────────────────────────────
-  { key: 'Mod+Shift+e', command: 'toggleTrackChanges', when: 'editorFocus' },
+  /*
+   * 문서 설정이다 — `docSettings` 의 `trackRevisions` 를 쓴다(`word-commands.ts`). 화면 설정이었다면
+   * 읽는 키였겠지만, *두 사람이 같은 문서를 편집할 때 각자 정하는 것이 아니라는* 이유로 문서에
+   * 들어가 있다. 문서에 남으면 `editorEditable` 을 건다.
+   */
+  { key: 'Mod+Shift+e', command: 'toggleTrackChanges', when: 'editorFocus && editorEditable' },
 
   // ── History and clipboard ──────────────────────────────────────────────────
   // Not gated on historyCanUndo: the key must always be consumed, or the browser
@@ -221,7 +260,6 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   // the site's — which from a keyboard looks exactly like reaching a stub. Word has its own pane and
   // does not need the extension; the note mattered because the site deleted its 찾기 entry over it.
   /* `replaceText`, which is the command's name. `replace` was nobody's, so ⌘H did nothing. */
-  { key: 'Mod+h', command: 'replaceText', when: 'editorFocus' }
 ];
 
 /**
@@ -240,7 +278,14 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
  * document laid out in pages comes out whichever way it was asked for — so the menu prints that one
  * chord itself, marked, and Word's test holds the marking to a written list.
  */
-export const WORD_VIEW_KEYS: KeyModel[] = [{ key: 'Mod+f', view: 'find', label: '찾기' }];
+export const WORD_VIEW_KEYS: KeyModel[] = [
+  { key: 'Mod+f', view: 'find', label: '찾기' },
+  { key: 'Mod+h', view: 'replace', label: '바꾸기' },
+  { key: 'Mod+k', view: 'authoring.link', label: '링크 편집' },
+  { key: 'Mod+Alt+f', view: 'authoring.footnote', label: '각주 삽입' },
+  { key: 'Mod+Alt+d', view: 'authoring.endnote', label: '미주 삽입' },
+  { key: 'Mod+Alt+m', view: 'authoring.comment', label: '새 댓글' }
+];
 
 /*
  * ## And the zoom is deliberately **not** bound, which the check is what settled

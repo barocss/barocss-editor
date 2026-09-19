@@ -128,7 +128,7 @@ describe('deleteTextRange operation', () => {
       dataStore.setNode(textNode);
 
       // Set existing selection (overlaps with deletion range)
-           const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 8, endNodeId: 'text-1', endOffset: 12 };
+           const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 8, endNodeId: 'text-1', endOffset: 12, collapsed: false };
       selectionManager.setSelection(initialSelection);
 
       const operation = { type: 'deleteTextRange', payload: { nodeId: 'text-1', start: 6, end: 15 } } as any;
@@ -152,7 +152,7 @@ describe('deleteTextRange operation', () => {
       dataStore.setNode(textNode);
 
       // Set existing selection (after deletion range)
-           const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 16, endNodeId: 'text-1', endOffset: 21 };
+           const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 16, endNodeId: 'text-1', endOffset: 21, collapsed: false };
       selectionManager.setSelection(initialSelection);
 
       const operation = { type: 'deleteTextRange', payload: { nodeId: 'text-1', start: 6, end: 15 } } as any;
@@ -176,7 +176,7 @@ describe('deleteTextRange operation', () => {
       dataStore.setNode(textNode);
 
       // Set existing selection (before deletion range)
-           const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 0, endNodeId: 'text-1', endOffset: 5 };
+           const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 0, endNodeId: 'text-1', endOffset: 5, collapsed: false };
       selectionManager.setSelection(initialSelection);
 
       const operation = { type: 'deleteTextRange', payload: { nodeId: 'text-1', start: 6, end: 15 } } as any;
@@ -200,7 +200,7 @@ describe('deleteTextRange operation', () => {
       dataStore.setNode(textNode);
 
       // Set selection for different node
-           const initialSelection = { type: 'range' as const, startNodeId: 'text-2', startOffset: 3, endNodeId: 'text-2', endOffset: 7 };
+           const initialSelection = { type: 'range' as const, startNodeId: 'text-2', startOffset: 3, endNodeId: 'text-2', endOffset: 7, collapsed: false };
       selectionManager.setSelection(initialSelection);
 
       const operation = { type: 'deleteTextRange', payload: { nodeId: 'text-1', start: 6, end: 15 } } as any;

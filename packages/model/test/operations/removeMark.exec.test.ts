@@ -22,7 +22,7 @@ describe('removeMark operation (exec)', () => {
     context = createTransactionContext(dataStore, selectionManager, schema);
   });
 
-  it('removes mark only when type and exact range match', async () => {
+  it('removes a covered mark while preserving disjoint marks', async () => {
     dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'ABCDE' });
     const seed = dataStore.marks.setMarks('t1', [
       { stype: 'bold', range: [0, 2] },
@@ -35,13 +35,13 @@ describe('removeMark operation (exec)', () => {
     expect(result.data?.marks).toEqual([{ stype: 'bold', range: [3, 5] }]);
   });
 
-  it('no-op when no exact match (different range)', async () => {
+  it('trims partial overlap while preserving the unselected prefix', async () => {
     dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'ABCDE' });
     dataStore.marks.setMarks('t1', [{ stype: 'bold', range: [0, 2] }]);
 
     const op = globalOperationRegistry.get('removeMark');
     const result = await op!.execute({ type: 'removeMark', payload: { nodeId: 't1', markType: 'bold', range: [1, 3] } } as any, context);
-    expect(result.data?.marks).toEqual([{ stype: 'bold', range: [0, 2] }]);
+    expect(result.data?.marks).toEqual([{ stype: 'bold', range: [0, 1] }]);
   });
 
   it('throws on invalid range', async () => {

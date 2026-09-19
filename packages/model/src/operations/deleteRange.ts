@@ -159,6 +159,8 @@ defineOperation('deleteRange', async (operation: any, context: TransactionContex
   return {
     ok: true,
     data: deletedText,
+    // A deletion consumes the range, even when its endpoints remain as separate marked runs.
+    selectionAfter: { nodeId: startNodeId, offset: startOffset },
     ...(inverse ? { inverse } : {})
   };
 });

@@ -152,42 +152,72 @@ export function offsetAtElementBoundary(
   runs: ContainerRuns,
   isEnd: boolean
 ): number {
-  const child = el.childNodes.item(offset) ?? null;
+  return offsetNearNode(containerEl, el.childNodes.item(offset) ?? null, runs, isEnd);
+}
 
+/**
+ * **한 DOM 자리를 문서 순서로 색인에 붙인다** — 색인에 있는 것만 자리를 말할 수 있으므로.
+ *
+ * `reference` 는 *이 점이 어디인가* 이고, `null` 은 브라우저가 **전부 뒤** 라고 말한 것이다
+ * (자식 색인이 자식 수와 같은 경우).
+ *
+ * 규칙은 하나다: `reference` **뒤의 첫 런**이 있으면 그 런의 처음, 없으면 **앞의 마지막 런**의 끝.
+ * 그리고 *뒤* 에는 자기 자신이 포함된다 — `child.compareDocumentPosition(child)` 는 0 이라 비교만
+ * 으로는 앞으로 분류된다. 재본 것: `가나[다라]마바` 를 담은 그릇에 경계를 `(t1, 0)` 으로 두면 모델
+ * **2** 가 나왔다. 자식 0 은 `"가나"` 이고 그 자리는 모델 **0** 인데, 자기 자신이 앞으로 밀려서
+ * 다음 런의 처음이 답이 됐다.
+ *
+ * ## 색인에 **없는** 글자 노드는 건너뛴다 — 그리고 그것이 #4 였다
+ *
+ * 데코레이터가 제 글자를 그린 것과 길이 0 글자 노드는 색인에 없다. 그런 노드에서 멈추면
+ * `byNode` 미스가 나고, 예전에는 그 미스가 이렇게 처리됐다:
+ *
+ * ```ts
+ * const idx = binarySearchRun(runs.runs, Math.max(0, Math.min(offset, runs.total - 1)));
+ * ```
+ *
+ * `offset` 은 **그 글자 노드 안의 DOM 오프셋**이고 `binarySearchRun` 이 받는 것은 **그릇 전체의
+ * 모델 오프셋**이다. **두 수가 같은 자를 쓰지 않는다.** 그래서 데코레이터 안에서 캐럿이 오른쪽으로
+ * 갈수록 답이 뒤쪽 런으로 미끄러졌다 — 배지가 길수록 더. `[각주1]` 여섯 글자짜리 배지의 5번 자리가
+ * 모델 **2**(뒤 런의 시작)로 나왔고, 있어야 할 답은 배지가 놓인 자리인 **0** 이다.
+ *
+ * 고침은 산수가 아니라 **질문을 바꾼 것**이다: 색인에 없는 노드는 *오프셋* 을 말할 수 없고 *자리* 만
+ * 말할 수 있으므로, 요소 경계와 똑같이 문서 순서로 이웃한 런에 붙인다. 그래서 두 경우가 한 함수다.
+ */
+function offsetNearNode(
+  containerEl: Element,
+  reference: Node | null,
+  runs: ContainerRuns,
+  isEnd: boolean
+): number {
   const walker = document.createTreeWalker(containerEl, NodeFilter.SHOW_TEXT);
-  let lastBefore: Text | null = null;
-  let firstAtOrAfter: Text | null = null;
+  let lastBefore: { start: number; end: number } | null = null;
+  let passed = false;
 
   for (let t = walker.nextNode() as Text | null; t; t = walker.nextNode() as Text | null) {
-    if (!child) {
-      lastBefore = t;
-      continue;
+    if (!passed && reference) {
+      if (t === reference || followsOrIsInside(reference, t)) passed = true;
     }
-    /**
-     * **자기 자신도 *뒤* 다.** `child.compareDocumentPosition(child)` 는 0 이므로 비교만으로는
-     * *앞* 으로 분류된다 — 자식 색인이 가리키는 것이 글자 노드일 때 그 일이 난다.
-     *
-     * 재본 것: `가나[다라]마바` 를 담은 그릇에 경계를 `(t1, 0)` 으로 두면 모델 **2** 가 나왔다.
-     * 자식 0 은 `"가나"` 이고 그 자리는 모델 **0** 인데, 자기 자신이 앞으로 밀려서 다음 런의 처음이
-     * 답이 됐다. 앞서 이 비교의 *방향* 을 한 번 고쳤고(`t.compareDocumentPosition(child)` →
-     * 반대로), 같은 노드인 경우는 그때도 남아 있었다.
-     */
-    if (t === child || child.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING) {
-      firstAtOrAfter = t;
-      break;
-    }
-    lastBefore = t;
+    /* 색인에 없는 글자 노드는 자리를 말하지 않는다 — 넘어가서 다음 런에 묻는다. */
+    const entry = runs.byNode?.get(t);
+    if (!entry) continue;
+    if (passed) return entry.start;
+    lastBefore = entry;
   }
 
-  if (firstAtOrAfter) {
-    const entry = runs.byNode?.get(firstAtOrAfter);
-    if (entry) return entry.start;
-  }
-  if (lastBefore) {
-    const entry = runs.byNode?.get(lastBefore);
-    if (entry) return entry.end;
-  }
+  if (lastBefore) return lastBefore.end;
   return isEnd ? runs.total : 0;
+}
+
+/**
+ * `t` 가 `reference` 의 **뒤**이거나 **그 안**인가.
+ *
+ * 비교를 `reference` 쪽에서 물어야 포함이 한 번에 잡힌다 — 자식 색인 0 의 자식이 런의 `<span>` 이고
+ * 글자 노드가 그 **안**에 있는 흔한 경우에, 반대로 물으면 `FOLLOWING` 이 서지 않아 안에 있는 글자가
+ * *앞* 으로 세어진다. 그 방향은 한 번 값을 치르고 고쳤다(`docs/specs/selection.md`).
+ */
+function followsOrIsInside(reference: Node, t: Node): boolean {
+  return (reference.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 }
 
 /** DOM 오프셋 하나를 모델 오프셋으로 — 글자 노드든 요소든. */
@@ -209,9 +239,12 @@ export function offsetWithRuns(
       const clamped = Math.max(0, Math.min(offset - entry.domStart, localLen));
       return entry.start + clamped;
     }
-    const idx = binarySearchRun(runs.runs, Math.max(0, Math.min(offset, runs.total - 1)));
-    if (idx >= 0) return isEnd ? runs.runs[idx].end : runs.runs[idx].start;
-    return 0;
+    /*
+     * 색인에 없는 글자 노드다 — 데코레이터가 제 글자를 그린 것이거나 길이 0 노드. 그 안의 `offset`
+     * 은 **DOM 오프셋**이므로 모델 오프셋으로 쓸 수 없다. 자리만 말할 수 있고, 자리를 말하는 규칙은
+     * 요소 경계와 같다. `offsetNearNode` 의 주석에 잰 표가 있다.
+     */
+    return offsetNearNode(containerEl, textNode, runs, isEnd);
   }
 
   return offsetAtElementBoundary(containerEl, container as Element, offset, runs, isEnd);

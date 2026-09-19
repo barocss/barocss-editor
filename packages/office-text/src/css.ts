@@ -24,6 +24,7 @@ import type { EffectiveFormat } from './style-resolver';
  * 다시 내보내는 것은 값이 있다: 이 패키지를 읽는 사람이 *워드의 단위* 를 여기서 찾는다.
  */
 export { twipToPt, twipToPx, type CssStyle } from '@barocss/shared';
+import { sideways } from '@barocss/shared';
 import { twipToPt, type CssStyle } from '@barocss/shared';
 
 /** Twips → CSS length. */
@@ -251,13 +252,13 @@ export function paragraphCss(format: EffectiveFormat): CssStyle {
     out.textIndent = twipToCss(firstLine);
   }
 
-  // Emitted even when unset, because unset means zero here, not "whatever the
-  // browser thinks". A `<p>` carries a 1em margin from the UA stylesheet, so
-  // leaving the property off gave every paragraph spacing that no style asked
-  // for — invisible until the layout measured the document and found it taller
-  // than the model said it was.
-  out.marginTop = twipToCss(num(format.spacingBefore) ?? 0);
-  out.marginBottom = twipToCss(num(format.spacingAfter) ?? 0);
+  // Explicit document spacing always wins, including zero. An unformatted prose
+  // host can supply its reading rhythm; Word's absent variables still resolve
+  // to zero rather than the browser's default paragraph margins.
+  const before = num(format.spacingBefore);
+  const after = num(format.spacingAfter);
+  out.marginTop = before === undefined ? 'var(--prose-space-before, 0pt)' : twipToCss(before);
+  out.marginBottom = after === undefined ? 'var(--prose-space-after, 0pt)' : twipToCss(after);
 
   const line = num(format.spacingLine);
   if (line !== undefined) {
@@ -378,7 +379,6 @@ export function characterCss(format: EffectiveFormat): CssStyle {
  */
 export function flowCss(format: EffectiveFormat): CssStyle {
   const out: CssStyle = {};
-  const landscape = str(format.orientation) === 'landscape';
 
   const width = num(format.pageWidth);
   const height = num(format.pageHeight);
@@ -386,7 +386,10 @@ export function flowCss(format: EffectiveFormat): CssStyle {
     // The section is exactly one page wide including its side margins, so the
     // sheets drawn behind it line up with its edges rather than its text.
     out.boxSizing = 'border-box';
-    out.width = twipToCss(landscape ? height : width);
+    /* 눕히는 판단은 `sideways` 하나다 — 이 저장소 네 곳에 손으로 복사돼 있던 두 줄. */
+    out.width = twipToCss(
+      sideways(str(format.orientation) === 'landscape', { width, height }).width
+    );
   }
 
   // The binding takes its room out of the side it is on, on top of whatever
@@ -418,13 +421,13 @@ export function flowCss(format: EffectiveFormat): CssStyle {
 
 export function pageCss(format: EffectiveFormat): CssStyle {
   const out: CssStyle = {};
-  const landscape = str(format.orientation) === 'landscape';
 
   const width = num(format.pageWidth);
   const height = num(format.pageHeight);
   if (width !== undefined && height !== undefined) {
-    out.width = twipToCss(landscape ? height : width);
-    out.minHeight = twipToCss(landscape ? width : height);
+    const paper = sideways(str(format.orientation) === 'landscape', { width, height });
+    out.width = twipToCss(paper.width);
+    out.minHeight = twipToCss(paper.height);
   }
 
   const top = num(format.marginTop);

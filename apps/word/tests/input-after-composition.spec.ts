@@ -36,6 +36,7 @@ const compose = async (cdp: any, steps: string[], commit: string) => {
 };
 
 const clickIntoParagraph = async (page: import('@playwright/test').Page) => {
+  await page.locator('.w-paragraph').nth(1).scrollIntoViewIfNeeded();
   const point = await page.evaluate(() => {
     const el = [...document.querySelectorAll('.w-paragraph')][1];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -63,7 +64,7 @@ const paragraphCount = (page: import('@playwright/test').Page) =>
 
 test.describe('after a composition', () => {
   test('the flag it set is cleared', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -78,7 +79,7 @@ test.describe('after a composition', () => {
   });
 
   test('Backspace deletes the syllable that was just committed', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -98,7 +99,7 @@ test.describe('after a composition', () => {
   });
 
   test('Enter splits the paragraph', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -114,7 +115,7 @@ test.describe('after a composition', () => {
   });
 
   test('an arrow key moves the caret', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);

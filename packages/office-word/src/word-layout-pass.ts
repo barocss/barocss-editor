@@ -13,6 +13,7 @@
  * line breaks. Only the width can, and pagination never touches it.
  */
 import type { RenderEnv } from '@barocss/dsl';
+import { prepareWordDisplay } from './display-preparation';
 import type { DocumentAccess } from '@barocss/office-text';
 import { footnoteRefsIn } from './footnotes';
 import { layoutSurface, sheetMetrics, type SurfaceLayout } from './layout';
@@ -21,6 +22,7 @@ import { measureBlocks, type MeasureOptions } from './measurement';
 import { FOOTNOTE_SEPARATOR } from './page-furniture';
 import { childrenOf } from '@barocss/office-text';
 import { tableBreaksOf, type TableBreakWidget } from './table-pagination';
+import type { TableSegments } from './table-cell-pagination';
 import type { LineAnchor } from './line-offsets';
 import { createStyleResolver } from '@barocss/office-text';
 import { createWordEnv, WORD_ENV_KEY } from './render-context';
@@ -104,6 +106,7 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
     // The pages were already decided. Printing is that decision honoured, and a
     // pass that re-decides during it is the one thing that can stop it being.
     if (container.ownerDocument?.defaultView?.matchMedia?.('print')?.matches) return;
+    prepareWordDisplay(container);
 
     // Rebuilt per pass rather than cached: the resolvers memoise, so one held
     // across an edit would resolve against the document as it used to be.
@@ -129,10 +132,13 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
       const metrics = sheetMetrics(pageFormat);
       const lineNumbering = lineNumberingOf(pageFormat);
       const lineAnchors = new Map<string, LineAnchor[]>();
+      const tableSegments = new Map<string, TableSegments>();
       const blocks = measureBlocks(el as HTMLElement, doc, styles, {
         ...measureOptions,
         footnoteHeights,
         footnoteSeparator: FOOTNOTE_SEPARATOR,
+        tableContentHeight: metrics.columnCount === 1 ? metrics.contentHeight : undefined,
+        onTableSegments: (id, segments) => tableSegments.set(id, segments),
         onLineOffsets: (blockSid, anchors) => lineAnchors.set(blockSid, anchors)
       });
 
@@ -179,7 +185,16 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
         const block = doc.getNode(blockSid);
         if (block?.stype === 'bTable') {
           const measured = blocks.find((each) => each.sid === blockSid)?.lines ?? [];
-          tableBreaks.push(...tableBreaksOf(doc, block, splits, measured));
+          const segments = tableSegments.get(blockSid);
+          const mapped = segments ? splits.map(split => ({ ...split,
+            line: segments.boundaries.get(split.line)?.row ?? split.line,
+            cell: segments.boundaries.get(split.line)?.cell })) : splits;
+          const widgets = tableBreaksOf(doc, block, mapped, segments?.rowHeights ?? measured);
+          for (const widget of widgets) if (widget.cell) {
+            widget.pageGapStart = Math.max(0, widget.height - metrics.marginTop - metrics.gap);
+            widget.pageGapHeight = metrics.gap;
+          }
+          tableBreaks.push(...widgets);
           continue;
         }
 

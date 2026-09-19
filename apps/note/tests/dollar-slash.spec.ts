@@ -1,0 +1,21 @@
+import { test, expect } from '@playwright/test';
+test('dollar input converts math; slash opens only on typing and Escape stays closed', async ({ page }) => {
+  await page.goto('/'); await expect(page.getByLabel('노트 제목')).toBeVisible();
+  await page.getByRole('button', { name: '새 노트', exact: true }).click();
+  const paragraph = page.locator('.on-doc > p').first();
+  await paragraph.click(); await page.keyboard.type('/');
+  await expect(page.locator('[data-slash-item]').first()).toBeVisible();
+  await page.keyboard.press('Escape'); await page.keyboard.press('Backspace');
+  await page.keyboard.type('$x^2$');
+  await expect(page.getByRole('button', { name: '인라인 수식 편집' })).toBeVisible();
+  await page.keyboard.type(' /');
+  const menu = page.locator('[data-slash-item]'); await expect(menu.first()).toBeVisible();
+  await page.keyboard.press('Escape'); await expect(menu).toHaveCount(0);
+  await page.keyboard.press('ArrowLeft'); await page.keyboard.press('ArrowRight');
+  await expect(menu).toHaveCount(0);
+  await page.keyboard.type('query'); await expect(menu).toHaveCount(0);
+  await page.keyboard.type(' /'); await expect(menu.first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-save-status]')).toHaveText('저장됨'); await page.reload();
+  await paragraph.click(); await page.keyboard.press('End'); await expect(menu).toHaveCount(0);
+});

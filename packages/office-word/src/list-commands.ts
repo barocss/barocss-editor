@@ -15,6 +15,7 @@ import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { childOfType, childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
+import { selectedBlocks } from './selected-blocks';
 
 export type ListKind = 'bullet' | 'ordered';
 
@@ -300,44 +301,11 @@ export class WordListExtension implements Extension {
   /**
    * The blocks a selection would change.
    *
-   * Numbering is a block property, so a selection across three paragraphs makes
-   * all three list items — which is what selecting three paragraphs and pressing
-   * the list button means.
+   * **`selected-blocks.ts` 로 나갔다** — 테두리 명령이 두 번째로 같은 것을 물으면서. 문단을 뜻하는
+   * 함수가 둘이면 표 안의 문단이 오는 날 하나가 낡는다.
    */
   private _blocks(editor: Editor, selection: ModelSelection | null | undefined): DocumentNode[] {
-    const doc = this._doc(editor);
-    const store: any = editor.dataStore;
-    if (!store || !selection || !doc.rootId) return [];
-
-    const blockOf = (sid: string): DocumentNode | null => {
-      let current: DocumentNode | undefined = doc.getNode(sid);
-      for (let depth = 0; current && depth < 64; depth++) {
-        if (current.stype && typeof current.text !== 'string' && current.stype !== 'inline-text') {
-          return current;
-        }
-        current = current.parentId ? doc.getNode(current.parentId) : undefined;
-      }
-      return null;
-    };
-
-    // Both ends have to exist before a range can be walked; an undo leaves a
-    // selection pointing at nodes it removed.
-    if (!doc.getNode(selection.startNodeId)) return [];
-    let sids: string[] = [selection.startNodeId];
-    if (selection.endNodeId && doc.getNode(selection.endNodeId)) {
-      try {
-        sids = store.getNodesInRange?.(selection.startNodeId, selection.endNodeId) ?? sids;
-      } catch {
-        sids = [selection.startNodeId];
-      }
-    }
-
-    const blocks: DocumentNode[] = [];
-    for (const sid of sids) {
-      const block = blockOf(sid);
-      if (block?.sid && !blocks.some((other) => other.sid === block.sid)) blocks.push(block);
-    }
-    return blocks;
+    return selectedBlocks(editor, selection);
   }
 
   /**

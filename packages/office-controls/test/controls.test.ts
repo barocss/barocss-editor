@@ -19,7 +19,6 @@ import {
   stateOfAttribute,
   stateOfMark,
   type ChoiceControl,
-  type Control,
   type PaletteControl
 } from '../src/index';
 
@@ -390,6 +389,6 @@ describe('컨트롤은 네 제품이 같은 모양이다', () => {
     /* Written twice as `.filter(one => one.group === group)`; one function now. */
     expect(siteControlsIn('insert')).toEqual(controlsIn(SITE_TOOLBAR, 'insert'));
     expect(noteControlsIn('mark')).toEqual(controlsIn(NOTE_TOOLBAR, 'mark'));
-    expect(controlsIn(NOTE_TOOLBAR, 'mark').length).toBe(4);
+    expect(controlsIn(NOTE_TOOLBAR, 'mark').length).toBe(8);
   });
 });

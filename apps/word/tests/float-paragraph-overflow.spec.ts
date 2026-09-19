@@ -24,7 +24,7 @@ import { settled } from './helpers';
  * over-reported the picture's band by 19px of the 46 the cut was out by.
  */
 test('every line of a wrapped paragraph stays inside the page', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
 
   // The block holding a wrapped picture, whichever it is.

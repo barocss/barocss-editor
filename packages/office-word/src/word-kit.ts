@@ -15,6 +15,7 @@ import {
   MentionExtension,
   MoveBlockExtension,
   PageBreakExtension,
+  ParagraphExtension,
   StrikeThroughExtension,
   SubSuperExtension,
   TextFormattingExtension,
@@ -24,16 +25,29 @@ import {
   createTableExtension
 } from '@barocss/extensions';
 import { Editor, type Extension, type ProductEditorOptions } from '@barocss/editor-core';
+import { withWordDefaults } from './default-styles';
+import { createWordFormatPainter } from './format-painter';
+import { createWordStyleCommands } from './style-commands';
+import { createWordBookmarkCommands } from './bookmark-commands';
+import { createWordCaptionCommands } from './caption-commands';
+import { createParagraphStyleManagement } from './paragraph-styles';
 import { createWordCommands } from './word-commands';
 import { createWordFrames } from './frame-commands';
 import { createWordCanvasInsert } from './canvas-insert-commands';
 import { createWordCanvasShapes } from './canvas-shape-commands';
 import { createWordListCommands } from './list-commands';
+import { createWordBorders } from './border-commands';
+import { createWordSpacing } from './spacing-commands';
+import { createWordStructure } from './structure-commands';
+import { createWordObjectLayout } from './object-layout';
+import { createWordFurniture } from './furniture-commands';
+import { createWordPageSetup } from './page-setup-commands';
 import { createWordComments, type CommentAuthor } from './comment-commands';
 import { createWordRevisions } from './revision-commands';
 import { createWordTracking } from './tracking-commands';
 import { createWordMath } from './math-commands';
-import { createWordTables } from '@barocss/office-text';
+import { createWordTables, createStyleResolver } from '@barocss/office-text';
+import { selectedBlocks } from './selected-blocks';
 import { createSchema } from '@barocss/schema';
 import { getWordSchemaDefinition } from './word-schema';
 import { WORD_KEYBINDINGS } from './word-keymap';
@@ -53,7 +67,16 @@ const DEFAULT_AUTHOR: CommentAuthor = {
 
 export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Extension[] {
   return [
-    ...createCoreExtensions(),
+    ...createCoreExtensions().map((extension) => extension.name === 'paragraph'
+      ? new ParagraphExtension({
+          afterHeadingAttributes: (editor, selection) => {
+            const heading = selectedBlocks(editor, selection).find((node) => node.stype === 'heading');
+            const styles = createStyleResolver({ rootId: editor.getRootId()!, getNode: (id) => editor.dataStore.getNode(id) });
+            const styleId = heading?.attributes?.styleId;
+            return { styleId: typeof styleId === 'string' ? styles.nextStyleAfter(styleId) ?? 'Body' : 'Body' };
+          }
+        })
+      : extension),
 
     /**
      * Named one at a time rather than taken as `createRichExtensions()`.
@@ -102,10 +125,27 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
     // columns, and tracked changes is a word processor's idea of review — so
     // unlike bold or alignment, they do not belong in the shared kit.
     createWordCommands(),
+    createWordStyleCommands(),
+    createParagraphStyleManagement(),
+    createWordBookmarkCommands(),
+    createWordCaptionCommands(),
+    createWordFormatPainter(author),
     // After the shared kit on purpose: Word's lists are numbering properties on
     // paragraphs, so the kit's list and indent commands have nothing here to
     // wrap or shift. They reported success and did nothing; these replace them.
     createWordListCommands(),
+    /*
+     * 문단 테두리. 스키마(`boxBorderAttrs()`)와 그리는 쪽(`paragraphCss`)은 처음부터 있었고 **쓰는
+     * 쪽만 없었다** — `every-property-can-be-edited` 가 열여섯 개로 세어 두었던 그것이다.
+     */
+    createWordBorders(),
+    // 그리고 자리 — `paragraphCss` 와 `spacing.ts` 가 다섯을 다 그렸고 정할 곳이 없었다.
+    createWordSpacing(),
+    // 그리고 종이 — 이것은 문단이 아니라 구역에 쓴다.
+    createWordPageSetup(),
+    createWordFurniture(),
+    createWordStructure(),
+    createWordObjectLayout(),
     // Who is commenting is the host's to say, the same way the instant a date
     // field shows is — an editor that invented a name would be guessing.
     createWordComments(author),
@@ -157,7 +197,7 @@ export interface WordEditorOptions extends ProductEditorOptions {
 export function createWordEditor(options: WordEditorOptions = {}): Editor {
   const { kit, keybindings, author, extensions = [], ...rest } = options;
 
-  const editor = new Editor({
+  const editor = new WordEditor({
     ...rest,
     schema: rest.schema ?? createSchema('word', getWordSchemaDefinition()),
     extensions: [...(kit ?? createWordExtensions(author)), ...extensions]
@@ -187,4 +227,11 @@ export function createWordEditor(options: WordEditorOptions = {}): Editor {
   for (const binding of keybindings ?? []) registry?.register?.(binding);
 
   return editor;
+}
+
+/** Normalize at the product boundary, including restored and imported documents. */
+class WordEditor extends Editor {
+  override loadDocument(document: Parameters<Editor['loadDocument']>[0], sessionId?: string): void {
+    super.loadDocument(withWordDefaults(document), sessionId);
+  }
 }

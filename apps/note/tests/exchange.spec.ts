@@ -1,0 +1,33 @@
+import { readFile } from 'node:fs/promises';
+import { test, expect } from '@playwright/test';
+for (const [name, source, format] of [['문서.md', '# 제목\n\n**굵은 글자**\n\n```js\nlet a = 1;\n```', 'markdown'], ['표.csv', '이름,메모\r\n홍길동,"여러 줄\n내용"', 'csv'], ['문서.html', '<h2>제목</h2><p><strong>굵게</strong></p>', 'html']] as const) test(`${format} imports, exports and reopens`, async ({ page }) => {
+  await page.goto('/'); await expect(page.getByLabel('노트 제목')).toBeVisible();
+  await page.getByLabel('노트 파일', { exact: true }).setInputFiles({ name, mimeType: 'text/plain', buffer: Buffer.from(source) });
+  await expect(page.getByLabel('노트 제목')).toHaveValue(name.replace(/\.[^.]+$/, ''));
+  if (format === 'csv') await expect(page.locator('.on-doc table')).toContainText('홍길동');
+  else await expect(page.locator('.on-doc')).toContainText('제목');
+  await page.getByRole('button', { name: '내보내기', exact: true }).click();
+  await page.getByLabel('내보내기 형식').selectOption(format);
+  const download = page.waitForEvent('download'); await page.getByRole('button', { name: '파일 내려받기', exact: true }).click();
+  const file = await download; const path = (await file.path())!;
+  const prior = page.url();
+  await page.getByLabel('노트 파일', { exact: true }).setInputFiles({ name: file.suggestedFilename(), mimeType: 'text/plain', buffer: await readFile(path) });
+  await expect.poll(() => page.url()).not.toBe(prior);
+  await expect(page.getByLabel('노트 제목')).toHaveValue(file.suggestedFilename().replace(/\.[^.]+$/, ''));
+  await expect(page.locator('[role="alert"]')).toHaveCount(0);
+  await page.reload();
+  if (format === 'csv') await expect(page.locator('.on-doc table')).toContainText('홍길동');
+  else await expect(page.locator('.on-doc')).toContainText('제목');
+});
+test('Markdown equations retain LaTeX through download and reimport', async ({ page }) => {
+  await page.goto('/'); await expect(page.getByLabel('노트 제목')).toBeVisible();
+  await page.getByLabel('노트 파일', { exact: true }).setInputFiles({ name: 'math.md', mimeType: 'text/plain', buffer: Buffer.from('본문 $x^2$\n\n$$\n\\frac{a}{b}\n$$') });
+  await expect(page.locator('[data-latex-node] .katex')).toHaveCount(2);
+  await page.getByRole('button', { name: '내보내기', exact: true }).click();
+  await page.getByLabel('내보내기 형식').selectOption('markdown');
+  const pending = page.waitForEvent('download'); await page.getByRole('button', { name: '파일 내려받기', exact: true }).click();
+  const file = await pending, buffer = await readFile((await file.path())!);
+  expect(buffer.toString()).toContain('$x^2$'); expect(buffer.toString()).toContain('\\frac{a}{b}');
+  const prior = page.url(); await page.getByLabel('노트 파일', { exact: true }).setInputFiles({ name: 'roundtrip.md', mimeType: 'text/plain', buffer });
+  await expect.poll(() => page.url()).not.toBe(prior); await expect(page.locator('[data-latex-node] .katex')).toHaveCount(2);
+});

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { chordFor, keyFaults, keyLabel, menuFaults ,
   taughtKeys} from '@barocss/office-controls';
 import { SLIDES_KEYS } from '../src/keymap';
-import { SLIDES_MENUS, slidesMenuCommands, slidesMenuEntry, slidesMenuId } from '../src/menu-model';
+import { SLIDES_MENUS, slidesMenus, slidesMenuCommands, slidesMenuEntry, slidesMenuId } from '../src/menu-model';
 import { createSlidesEditor } from '../src/slides-kit';
 
 /**
@@ -58,7 +58,8 @@ describe('what the menubar offers', () => {
    * name only commands, and saving a file and starting a show are the app's.
    */
   it('prints a chord only where the deck binds one', () => {
-    for (const menu of SLIDES_MENUS) {
+    // 화음을 묻는 검사이므로 알파벳을 스스로 고른다 — `SLIDES_MENUS` 는 선언만이다.
+    for (const menu of slidesMenus(true)) {
       for (const block of menu.blocks) {
         for (const item of block.items) {
           /* 묶은 것 = 제품 + 엔진. Word 에서 같은 반쪽 읽기를 고쳤다 — `taughtKeys` 의 프로세. */

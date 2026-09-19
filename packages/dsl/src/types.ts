@@ -93,19 +93,49 @@ export interface ComponentTemplate {
   component?: ContextualComponent;
 }
 
+/**
+ * The object a renderer hands back to an external component's `update`/`unmount`.
+ *
+ * This is written from the producer, not from the wish: `ComponentManager` builds it in exactly
+ * two places (`component-manager.ts`, where an instance is created or re-created) and those are
+ * the fields it puts there. The previous declaration lived here and said something else —
+ * `element: HTMLElement` (never null), and `setState`/`getState`/`toggleState` **required** — none
+ * of which the producer sets. A component author writing `unmount(instance)` against it and
+ * calling `instance.getState(…)` would have been told by the compiler that it was there, and got
+ * `undefined is not a function`.
+ *
+ * The receipt that this was already known: `office-site/src/code-render.ts` types its own `update`
+ * as `(instance: { element?: HTMLElement }, …)` — a hand-written subset, because the shared name
+ * could not be trusted.
+ *
+ * `vnode` is `unknown` on purpose. It is the renderer's virtual node and the DSL has no word for
+ * one; `ComponentManager` only ever writes it.
+ */
 export interface ComponentInstance {
   id: string;
-  element: HTMLElement;
+  /**
+   * Where it was mounted. `null` when a mount was attempted and returned nothing.
+   *
+   * This file used to say `HTMLElement` — never absent, always an HTML element — and both halves
+   * were false. `ComponentManager.mountComponent(vnode, container: Element, …)` assigns that
+   * container, and assigns `null` when `mount()` throws or returns nothing. Narrowing this to
+   * `HTMLElement | null` was tried and the compiler said so at `component-manager.ts:350`, which is
+   * the difference between measuring the producer and guessing at it.
+   */
+  element: Element | null;
   component: ExternalComponent;
   state: ComponentState;
   props: ComponentProps;
-  vnode?: any;
-  template?: ContextualComponent; 
-  parentElement?: HTMLElement; 
+  vnode?: unknown;
+  template?: ContextualComponent;
+  parentElement?: HTMLElement;
   renderer?: any;
-  setState: (newState: Record<string, any>) => void;
-  getState: (key: string) => DataValue;
-  toggleState: (key: string) => void;
+  /** True once the element is in the document; false again after unmount. */
+  mounted?: boolean;
+  /** Set by the renderer only for the components it manages state for. */
+  setState?: (newState: Record<string, any>) => void;
+  /** The node this instance draws, read fresh from the store each time. */
+  getModel: () => ModelData | undefined;
 }
 
 export type SimpleComponent = (props: ComponentProps) => ElementTemplate;
@@ -136,22 +166,54 @@ export interface RenderEnv {
   [key: string]: unknown;
 }
 
+/**
+ * The state object a renderer puts on `context.instance`.
+ *
+ * The class is the renderer's — `renderer-dom` hands over a `BaseComponentState` — so the DSL
+ * names only what a template is allowed to ask of it. It used to be `unknown` here, which made the
+ * usage every integration test in `editor-view-dom` is written around, `ctx.instance?.get('count')`,
+ * impossible to write without a cast; those tests are outside `tsc`'s `include`, which is the only
+ * reason nobody met it.
+ */
+export interface ComponentStateHandle {
+  get<T = any>(key: string): T;
+  set(patch: Record<string, any>): void;
+  init(initial: Record<string, any>): void;
+  snapshot(): Record<string, any>;
+}
+
 export interface ComponentContext {
   id: string;
   /** Host-supplied environment for this render. */
   env?: RenderEnv;
   state: ComponentState;
   props: ComponentProps;
-  // Renderer-specific instance holder (renderer-dom uses BaseComponentState)
-  // Use a broad type to stay renderer-agnostic
-  instance?: unknown;
+  /**
+   * The node being drawn, whole — `stype` and `sid` included, where `props` has neither.
+   *
+   * It was missing here while `renderer-dom`'s copy of this type had it and its `VNodeBuilder` set
+   * it on every context. A template author reading `ctx.model` got a type error from the shared
+   * vocabulary for a field that was always there.
+   */
+  model: ModelData;
+  /** Renderer-supplied state object; see {@link ComponentStateHandle}. */
+  instance?: ComponentStateHandle;
+  /**
+   * The registry this render resolves names against.
+   *
+   * The three lookups are what both renderers supply. The three state methods are optional because
+   * only one of them does: `renderer-react`'s stub context declares all six, and what
+   * `renderer-dom` passes is the `RendererRegistry` itself, which **has no `setState`,
+   * `getState` or `toggleState`.** They were declared required here, so this type described an
+   * object neither renderer had ever handed to a template.
+   */
   registry: {
     get: (name: string) => any;
     getComponent: (name: string) => any;
     register: (definition: any) => void;
-    setState: (id: string, state: Record<string, any>) => boolean;
-    getState: (id: string) => ComponentState;
-    toggleState: (id: string, key: string) => boolean;
+    setState?: (id: string, state: Record<string, any>) => boolean;
+    getState?: (id: string) => ComponentState;
+    toggleState?: (id: string, key: string) => boolean;
   };
   // State management methods
   initState: (initial: Record<string, any>) => void;

@@ -4,7 +4,7 @@
  * - Removes falsy/duplicates and keeps a stable order
  */
 
-import { ClassNameType } from "../types";
+import type { ClassNameType } from "../types";
 
 /**
  * Normalize various `className` forms into a flat array of class tokens.

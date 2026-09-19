@@ -140,8 +140,9 @@ const meaning = (node: unknown, keepSids = true): unknown => {
   if (Array.isArray(node)) return node.map((one) => meaning(one, keepSids));
   if (!node || typeof node !== 'object') return node;
 
+  // Attribute insertion order can change during undo without changing the document.
   const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(node as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) {
     if (key === 'metadata') continue;
     if (!keepSids && (key === 'sid' || key === 'parentId')) continue;
     if (value === undefined || value === null) continue;

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import {
   askEveryCommand,
   everyNode,
@@ -63,6 +63,8 @@ const document_ = () => ({
               text: '두 번째 문단입니다',
               marks: [
                 { stype: 'link', attrs: { href: 'https://example.com' }, range: [0, 3] },
+                { stype: 'fontColor', attrs: { color: '#0F7A5A' }, range: [0, 3] },
+                { stype: 'bgColor', attrs: { bgColor: '#FDE68A' }, range: [0, 3] },
                 { stype: 'bold', range: [4, 7] }
               ]
             }
@@ -128,6 +130,8 @@ const document_ = () => ({
 });
 
 const SAYS: Record<string, Record<string, unknown>> = {
+  setPageFurniture: { role: 'footer', action: 'number', start: 2 },
+  applyCopiedFormat: { sample: { format: { fontSize: 36, bold: true }, marks: [] } },
   // Marks that carry a value — a swatch, a size box, a family picker.
   setFontColor: { color: '#0F7A5A' },
   setBgColor: { color: '#FDE68A' },
@@ -233,11 +237,13 @@ const fresh = () => {
 };
 
 describe('every command Word registers', () => {
+  afterAll(() => vi.unstubAllGlobals());
   const names = createWordEditor().commandNames().sort();
 
   let answers: CommandAnswers;
 
   beforeAll(async () => {
+    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
     answers = await askEveryCommand({
       fresh,
       names,
@@ -285,7 +291,7 @@ describe('every command Word registers', () => {
    * caret position, and narrowing it broke it. The two share a name and not a question.
    */
   const APPLICATION_ONLY = [
-    'clearSelection', 'copy', 'escape',
+    'clearSelection', 'copy', 'copyBlocks', 'escape',
     'extendSelectionLeft', 'extendSelectionRight', 'extendSelectionWordLeft', 'extendSelectionWordRight',
     'focus', 'isTrackingChanges',
     'moveCursorLeft', 'moveCursorRight', 'moveCursorWordLeft', 'moveCursorWordRight',

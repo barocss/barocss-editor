@@ -32,6 +32,7 @@ describe('Word kit', () => {
   it('uses the Word schema', () => {
     const editor = createWordEditor();
     const schema = editor.dataStore.getActiveSchema();
+    if (!schema) throw new Error('Word schema was not installed');
 
     expect(schema.getNodeType('contentControl')).toBeDefined();
     expect(schema.getNodeType('styleDef')).toBeDefined();

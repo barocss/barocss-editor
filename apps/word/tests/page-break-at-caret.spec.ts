@@ -76,7 +76,7 @@ const paginated = async (page: Page) => {
 
 test.describe('a page break at the caret', () => {
   test('splits the paragraph and takes the caret to the new page', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await caretInProse(page);
 
@@ -98,7 +98,7 @@ test.describe('a page break at the caret', () => {
   });
 
   test('leaves the text either side of it whole', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await caretInProse(page);
 
@@ -152,7 +152,7 @@ test.describe('a page break at the caret', () => {
   });
 
   test('undoes in one press', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await caretInProse(page);
 

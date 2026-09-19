@@ -208,6 +208,16 @@ export const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
 export const clampZoom = (zoom: number): number =>
   Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
 
+/**
+ * The three of them as the shared control takes them.
+ *
+ * `ZoomControl` asks for the ladder rather than holding one because the range is the **product's**:
+ * a deck goes to 8× and a document stops at 4×, and there is no third table for the shared layer to
+ * pick. Its ± buttons multiplied by 1.25 while this table sat here unread — 100% → 125% → 156% →
+ * 195%, which is the exact behaviour `stepZoom`'s own comment said it existed to prevent.
+ */
+export const SLIDES_ZOOM_LADDER = { steps: ZOOM_STEPS, min: ZOOM_MIN, max: ZOOM_MAX };
+
 /*
  * `anchorOf` and `anchorShift` were here — how to keep the point under the
  * pointer while zooming. They are `@barocss/office-ui`'s now, beside

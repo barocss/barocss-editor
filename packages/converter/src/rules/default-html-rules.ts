@@ -29,6 +29,8 @@ export function registerDefaultHTMLRules(): void {
     ]
   });
   
+  defineParser('blockQuote', 'html', { parseDOM: [{ tag: 'blockquote' }] });
+
   // Heading
   defineParser('heading', 'html', {
     parseDOM: [
@@ -260,6 +262,15 @@ export function registerDefaultHTMLRules(): void {
       const isHeader = node.attributes?.header === true;
       const tag = isHeader ? 'th' : 'td';
       return `<${tag}>PLACEHOLDER_CONTENT</${tag}>`;
+    }
+  });
+
+  // A workspace identity is metadata, never a URL. Other HTML readers still see its label.
+  defineConverter('pageReference', 'html', {
+    convert: node => {
+      const id = String(node.attributes?.pageId ?? '');
+      const title = String(node.attributes?.title ?? '제목 없음');
+      return `<span data-note-page-reference="true" data-page-id="${escapeHTML(id).replace(/"/g, '&quot;')}" data-page-title="${escapeHTML(title).replace(/"/g, '&quot;')}">${escapeHTML(title)}</span>`;
     }
   });
 

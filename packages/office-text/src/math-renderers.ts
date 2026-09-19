@@ -18,6 +18,7 @@
  * nothing would be a place the caret can go and the author cannot see.
  */
 import { define, element, slot } from '@barocss/dsl';
+import { mathFontScale } from './math-size';
 
 /** Two decimal places, which is as fine as an `em` is worth stating. */
 const round = (value: number): number => Math.round(value * 100) / 100;
@@ -44,7 +45,9 @@ export function registerMathRenderers(): void {
    */
   define(
     'oMath',
-    element('span', { className: 'w-math', style: { fontStyle: 'italic' } }, [slot('content')])
+    element('span', { className: 'w-math', style: (d: Record<string, any>) => ({
+      fontStyle: 'italic', fontSize: `${mathFontScale(d.attributes?.fontScale)}em`
+    }) }, [slot('content')])
   );
 
   define(

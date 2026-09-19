@@ -405,7 +405,15 @@ function OtherBits() {
   return (
     <>
       <Row>
-        <ZoomControl zoom={zoom} onChange={setZoom} onFit={() => setZoom(1)} fitLabel="맞춤" />
+        {/* A gallery draws a control to look at it, so the ladder is the plain one — the
+            products' own tables live with the products. */}
+        <ZoomControl
+          zoom={zoom}
+          ladder={{ steps: [0.5, 0.75, 1, 1.5, 2], min: 0.25, max: 4 }}
+          onChange={setZoom}
+          onFit={() => setZoom(1)}
+          fitLabel="맞춤"
+        />
         {/*
           `FilePick` and `Waveform` were the two controls this page did not draw, and a control a
           gallery does not draw is a control the gallery cannot find anything wrong with — which is

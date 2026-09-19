@@ -60,7 +60,7 @@ const compose = async (cdp: any, steps: string[], commit: string, settle: number
 
 test.describe('a composition inside the burst overhang', () => {
   test('lands when it starts with no pause after the last Latin key', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -80,7 +80,7 @@ test.describe('a composition inside the burst overhang', () => {
   });
 
   test('lands when Latin resumes with no pause after the commit', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -100,7 +100,7 @@ test.describe('a composition inside the burst overhang', () => {
   });
 
   test('alternates Latin and syllables without either losing a character', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -122,7 +122,7 @@ test.describe('a composition inside the burst overhang', () => {
   });
 
   test('keeps a syllable whose jamo were taken back before the commit', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -142,7 +142,7 @@ test.describe('a composition inside the burst overhang', () => {
   });
 
   test('holds a whole word of syllables typed as fast as CDP will send them', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);

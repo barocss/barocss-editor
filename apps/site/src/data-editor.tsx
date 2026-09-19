@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
   Button,
   ChoiceSelect,
+  SearchSelect,
+  MediaSelect,
+  type MediaOption,
   Field,
   Icon,
   IconButton,
   PropertyToggle,
   TextField,
+  TextAreaField,
   Drawer,
   ColorField,
   type ChoiceOption
@@ -16,6 +20,7 @@ import { openNote, type NoteSession } from '@barocss/office-note';
 import { NoteEditor } from '@barocss/office-note/view';
 import {
   assetsOf,
+  assetSrc,
   richPlain,
   richTextNamed,
   DATA_FIELD_KINDS,
@@ -29,6 +34,8 @@ import {
   type DataField,
   type DataFieldKind
 } from '@barocss/office-site';
+
+export type RegisterBodyFlush = (flush: () => Promise<void>) => () => void;
 
 /**
  * The data itself, in a table — **in the main area**, where a page is.
@@ -105,12 +112,12 @@ function Cell({
    * body holds no 버튼 — and that answer changes as the caret moves.
    */
   /** Where a 서식 있는 글 column's words live in the **host's** document — see `NoteField`. */
-  richAt?: { host: Editor; sid: string; onBlocks: (blocks: unknown[]) => void };
+  richAt?: { host: Editor; sid: string; onBlocks: (blocks: unknown[]) => Promise<boolean>; registerFlush?: RegisterBodyFlush };
   /** The document's pages, for a column that holds a page reference. */
   pages: ChoiceOption[];
   /** And its pictures, for one that holds an `asset:`. */
-  assets: ChoiceOption[];
-  onCommit: (value: string) => void;
+  assets: MediaOption[];
+  onCommit: (value: string) => void | boolean | Promise<void | boolean>;
   onKeys?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   ariaLabel: string;
   data: Record<string, string>;
@@ -118,6 +125,10 @@ function Cell({
   const text = value === undefined || value === null ? '' : String(value);
 
   switch (field.kind) {
+    case 'relation':
+    case 'formula':
+    case 'rollup':
+      return <span aria-label={ariaLabel} title="관계·계산 속성은 Note에서 설정합니다.">{text || '—'}</span>;
     case 'richText':
       /**
        * **서식 있는 글**, and the one cell whose value is not in the cell.
@@ -133,7 +144,7 @@ function Cell({
        */
       return richAt ? (
         /* One per rich cell, because a row may declare two — 요약 for a card, 본문 for the post. */
-        <NoteField host={richAt.host} sid={richAt.sid} onBlocks={richAt.onBlocks} />
+        <NoteField host={richAt.host} sid={richAt.sid} onBlocks={richAt.onBlocks} registerFlush={richAt.registerFlush} />
       ) : (
         <span className="st-cell-rich" title={text}>
           {plain || <em>비어 있음</em>}
@@ -145,54 +156,16 @@ function Cell({
       return <ColorField value={text || null} onChange={onCommit} ariaLabel={ariaLabel} />;
 
     case 'choices':
-      /*
-       * **여러 선택**, kept as one string with newlines between — see `cellFor` for why a cell does
-       * not hold an array. Drawn as the chosen ones, and chosen from the same list a `choice` uses.
-       */
-      return (
-        <span className="st-cell-choices">
-          {(field.options ?? []).map((one) => {
-            const held = text.split('\n').filter(Boolean);
-            const on = held.includes(one);
-            return (
-              <button
-                key={one}
-                type="button"
-                data-on={on ? 'true' : undefined}
-                aria-pressed={on}
-                aria-label={`${ariaLabel} ${one}`}
-                onClick={() =>
-                  onCommit((on ? held.filter((each) => each !== one) : [...held, one]).join('\n'))
-                }
-              >
-                {one}
-              </button>
-            );
-          })}
-        </span>
-      );
+      return <SearchSelect multiple ariaLabel={ariaLabel} value={text.split('\n').filter(Boolean)}
+        options={(field.options ?? []).map(value => ({ id: value, label: value }))}
+        onChange={values => onCommit(values.join('\n'))} />;
 
     case 'image':
-      /* A picture from the document's own asset box — `asset:로고`, the same reference a block uses. */
-      return (
-        <ChoiceSelect
-          value={text}
-          options={assets}
-          onChange={onCommit}
-          ariaLabel={ariaLabel}
-          className="w-full min-w-0"
-        />
-      );
+      return <MediaSelect value={text} options={assets} onChange={onCommit} ariaLabel={ariaLabel} />;
 
     case 'longText':
       return (
-        <textarea
-          className="st-cell-long"
-          defaultValue={text}
-          onBlur={(event) => onCommit(event.target.value)}
-          aria-label={ariaLabel}
-          rows={3}
-        />
+        <TextAreaField value={text} onCommit={onCommit} ariaLabel={ariaLabel} rows={3} data={data} />
       );
 
     case 'boolean':
@@ -290,34 +263,72 @@ function Cell({
 function NoteField({
   host,
   sid,
-  onBlocks
+  onBlocks,
+  registerFlush
 }: {
   host: Editor;
   sid: string;
-  onBlocks: (blocks: unknown[]) => void;
+  onBlocks: (blocks: unknown[]) => Promise<boolean>;
+  registerFlush?: RegisterBodyFlush;
 }) {
   const [held, setHeld] = useState<NoteSession | undefined>(undefined);
+  const [problem, setProblem] = useState<string>();
   /*
-   * The callback, kept in a ref: `openNote` takes it once and the session outlives every render, so
-   * closing over the first one would write home with a stale `run`.
+   * Keep the callback current within one session. A new host/body needs its own holder so the old
+   * session's closing flush cannot write its pending blocks into the newly selected body.
    */
-  const told = useRef(onBlocks);
+  const told = useMemo(() => ({ current: onBlocks }), [host, sid]);
   told.current = onBlocks;
+  const childFlushes = useMemo(() => new Set<() => Promise<boolean>>(), [host, sid]);
+  const registerChild = useMemo(() => (flush: () => Promise<boolean>) => {
+    childFlushes.add(flush);
+    return () => { childFlushes.delete(flush); };
+  }, [childFlushes]);
 
   useEffect(() => {
     const store = (host as never as { dataStore: { getNode: (one: string) => never } }).dataStore;
-    const one = openNote({ getNode: (at: string) => store.getNode(at) } as never, sid, {
-      onChange: (blocks) => told.current(blocks)
-    });
+    const sourceRoot = host.getRootId();
+    let latest: unknown[] | undefined;
+    let writing = Promise.resolve();
+    let disposed = false;
+    const deliver = (blocks: unknown[]) => {
+      latest = blocks;
+      writing = writing.catch(() => {}).then(async () => {
+        const snapshot = latest;
+        if (!snapshot) return;
+        // A replaced host document must never receive a delayed body from the old session.
+        if (host.getRootId() !== sourceRoot || !store.getNode(sid)) { latest = undefined; return; }
+        if (!await told.current(snapshot)) throw new Error('마지막 본문 입력을 반영하지 못했습니다. 다시 저장하거나 내보내세요.');
+        if (latest === snapshot) latest = undefined;
+        if (!disposed) setProblem(undefined);
+      });
+      // A failed idle write remains available for explicit save/export retry.
+      void writing.catch(() => { if (!disposed) setProblem('마지막 본문 입력을 반영하지 못했습니다. 다시 저장하거나 내보내세요.'); });
+    };
+    const one = openNote({ getNode: (at: string) => store.getNode(at) } as never, sid, { onChange: deliver });
+    const flush = async () => {
+      for (const child of [...childFlushes].reverse()) {
+        if (!await child()) throw new Error('중첩된 항목의 마지막 입력을 반영하지 못했습니다. 다시 저장하세요.');
+      }
+      one.flush();
+      if (latest) deliver(latest);
+      await writing;
+      if (disposed) unregister?.();
+    };
+    const unregister = registerFlush?.(flush);
     setHeld(one);
     return () => {
+      disposed = true;
       one.close();
+      // Keep an in-flight or failed delivery registered until it is safely in the host.
+      void writing.then(() => { if (!latest) unregister?.(); }, () => {});
       setHeld(undefined);
     };
-  }, [host, sid]);
+  }, [host, sid, told, registerFlush, childFlushes]);
 
   if (!held) return <div className="on-note" data-note-loading={sid} />;
-  return <NoteEditor editor={held.editor} rootId={held.rootId} />;
+  return <><NoteEditor key={held.session} editor={held.editor} rootId={held.rootId} registerBeforeSnapshot={registerChild} />
+    {problem && <p role="alert" data-note-delivery-problem>{problem}</p>}</>;
 }
 
 /*
@@ -379,7 +390,7 @@ function AddField({
         data={{ 'add-field-name': where }}
       />
       <div className="st-add-kinds" role="listbox" aria-label="자료형">
-        {DATA_FIELD_KINDS.map((one) => (
+        {DATA_FIELD_KINDS.filter(kind => !['relation', 'formula', 'rollup'].includes(kind)).map((one) => (
           <button
             key={one}
             type="button"
@@ -414,7 +425,7 @@ export function DataTable({
   onOpenRow
 }: {
   editor: Editor;
-  run: (name: string, payload?: Record<string, unknown>) => void;
+  run: (name: string, payload?: Record<string, unknown>) => void | boolean | Promise<void | boolean>;
   can: (name: string, payload?: Record<string, unknown>) => boolean;
   /** The document's revision, so the grid redraws when a command lands. */
   revision: number;
@@ -470,10 +481,9 @@ export function DataTable({
    * `asset:로고`, which is the same reference a block's `src` holds — so a picture in a list is the
    * same picture the page uses, and changing the file changes both.
    */
-  const assets = useMemo((): ChoiceOption[] => {
+  const assets = useMemo((): MediaOption[] => {
     return [
-      { id: '', label: '없음' },
-      ...assetsOf(doc as never).map((one) => ({ id: `asset:${one.name}`, label: one.label ?? one.name }))
+      ...assetsOf(doc as never).filter(one => one.type.startsWith('image/')).map(one => ({ id: `asset:${one.name}`, label: one.label ?? one.name, src: assetSrc(doc as never, `asset:${one.name}`), description: one.width && one.height ? `${one.width} × ${one.height}` : one.type }))
     ];
   }, [editor, store, revision]);
 
@@ -678,6 +688,7 @@ export function DataTable({
         <div
           className="st-data-scroll"
           onPaste={(event) => {
+            if ((event.target as HTMLElement).closest('textarea')) return;
             const at = (event.target as HTMLElement).closest?.('[data-cell]');
             const said = at?.getAttribute('data-cell');
             if (!said) return;
@@ -756,7 +767,7 @@ export function DataTable({
                           fourteen were drawn for this — `math` (Σ) on a number would have said *this
                           is computed*, which is a kind this product deliberately does not have.
                         */
-                        options={DATA_FIELD_KINDS.map((one) => ({
+                        options={DATA_FIELD_KINDS.filter(kind => !['relation', 'formula', 'rollup'].includes(kind)).map((one) => ({
                           id: one,
                           label: DATA_FIELD_KIND_NAMES[one],
                           icon: DATA_FIELD_KIND_ICONS[one]
@@ -913,14 +924,16 @@ export function DataTable({
  */
 export function RowForm({
   editor,
+  registerFlush,
   run,
   revision,
   at,
   onClose
 }: {
   editor: Editor;
-  run: (name: string, payload?: Record<string, unknown>) => void;
+  run: (name: string, payload?: Record<string, unknown>) => void | boolean | Promise<void | boolean>;
   revision: number;
+  registerFlush?: RegisterBodyFlush;
   /** Which dataset and which row, or nothing when the drawer is closed. */
   at: { sid: string; row: number } | null;
   onClose: () => void;
@@ -963,10 +976,9 @@ export function RowForm({
    * `asset:로고`, which is the same reference a block's `src` holds — so a picture in a list is the
    * same picture the page uses, and changing the file changes both.
    */
-  const assets = useMemo((): ChoiceOption[] => {
+  const assets = useMemo((): MediaOption[] => {
     return [
-      { id: '', label: '없음' },
-      ...assetsOf(doc as never).map((one) => ({ id: `asset:${one.name}`, label: one.label ?? one.name }))
+      ...assetsOf(doc as never).filter(one => one.type.startsWith('image/')).map(one => ({ id: `asset:${one.name}`, label: one.label ?? one.name, src: assetSrc(doc as never, `asset:${one.name}`), description: one.width && one.height ? `${one.width} × ${one.height}` : one.type }))
     ];
   }, [editor, store, revision]);
 
@@ -1000,7 +1012,7 @@ export function RowForm({
               */}
               <em className="st-row-kind">{DATA_FIELD_KIND_NAMES[field.kind]}</em>
             </span>
-            <Cell
+            <Cell key={`${at.sid}:${at.row}:${field.name}`}
               field={field}
               value={shown.record[field.name]}
               plain={richPlain(doc, shown.record[field.name])}
@@ -1021,8 +1033,9 @@ export function RowForm({
                        * it changes has to be written back into the document the card draws from.
                        * `setRichText` is the host's transaction — see `data-commands.ts`.
                        */
+                      registerFlush,
                       onBlocks: (blocks: unknown[]) =>
-                        run('setRichText', { nodeId: String(one.sid), blocks })
+                        editor.executeCommand('setRichText', { nodeId: String(one.sid), blocks })
                     }
                   : undefined;
               })()}

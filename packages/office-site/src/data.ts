@@ -1,3 +1,5 @@
+import { evaluateDatasetRecords, fieldsFrom, fieldNamed, type DataField, type DataFieldKind } from '@barocss/schema';
+export { DATA_FIELD_KINDS, fieldOf, fieldsFrom, columnNames, fieldNamed, type DataField, type DataFieldKind } from '@barocss/schema';
 /**
  * A **list that comes from data** — the product grid, the blog index, the team page.
  *
@@ -70,56 +72,6 @@
  * one is what a *visitor* fills in, the other is what a *column* holds — so the shorter name would
  * be one word meaning two things in a package that exports both.
  */
-export type DataFieldKind =
-  | 'text'
-  | 'longText'
-  | 'richText'
-  | 'number'
-  | 'boolean'
-  | 'date'
-  | 'choice'
-  | 'choices'
-  | 'colour'
-  | 'image'
-  | 'page'
-  | 'url'
-  | 'email'
-  | 'phone';
-
-/**
- * The kinds a column may declare, in the order a picker offers them — **words first, then values,
- * then references**, which is the order a reader thinks about a table in.
- *
- * ## What decided the list
- *
- * One question: *what can a page draw with it?* Every kind here is something a block on a page reads
- * — a number sorts, a boolean filters, a colour paints, a picture is an `<img>`, a page reference is
- * an `<a href>`. Notion's list is longer and the difference is the interesting part: 사람, 수식,
- * 관계, 롤업, 만든 사람, 만든 시각, 버튼, ID are all facts about a **database**, and this product has
- * no accounts (so 사람 and 만든 사람 would be values nothing can fill), no expression language (which
- * `where`/`equals` refused once already, as two attributes rather than a grammar), and no second
- * document model for a relation to point through.
- *
- * A kind that nothing on a page could draw is a column a reader can fill in and never see, which is
- * the fault this whole schema's conformance harness exists to find.
- */
-export const DATA_FIELD_KINDS: readonly DataFieldKind[] = [
-  'text',
-  'longText',
-  'richText',
-  'number',
-  'boolean',
-  'date',
-  'choice',
-  'choices',
-  'colour',
-  'image',
-  'page',
-  'url',
-  'email',
-  'phone'
-];
-
 /** What a reader calls each one. Plain terms — the product's rule about every word it shows. */
 export const DATA_FIELD_KIND_NAMES: Record<DataFieldKind, string> = {
   text: '글자',
@@ -135,7 +87,10 @@ export const DATA_FIELD_KIND_NAMES: Record<DataFieldKind, string> = {
   page: '페이지',
   url: '주소',
   email: '메일',
-  phone: '전화'
+  phone: '전화',
+  relation: '관계',
+  rollup: '롤업',
+  formula: '수식'
 };
 
 /** The picture each one is drawn with — see `office-icons`, where all fourteen were drawn for this. */
@@ -153,65 +108,11 @@ export const DATA_FIELD_KIND_ICONS: Record<DataFieldKind, string> = {
   page: 'type-page',
   url: 'type-url',
   email: 'type-email',
-  phone: 'type-phone'
+  phone: 'type-phone',
+  relation: 'type-url',
+  rollup: 'type-number',
+  formula: 'type-number'
 };
-
-export interface DataField {
-  /** What a `field:` reference names. Durable, like every other reference in this schema. */
-  name: string;
-  kind: DataFieldKind;
-  /** What a reader is shown instead of the name, when the name is not what they would say. */
-  label?: string;
-  /** The values a `choice` may take. Nothing else reads it. */
-  options?: string[];
-}
-
-/** One column, from either shape a document may have written. */
-export function fieldOf(one: unknown): DataField | undefined {
-  if (typeof one === 'string') return one.trim() ? { name: one, kind: 'text' } : undefined;
-  if (!one || typeof one !== 'object' || Array.isArray(one)) return undefined;
-
-  const said = one as Record<string, unknown>;
-  if (typeof said.name !== 'string' || !said.name.trim()) return undefined;
-
-  const kind = DATA_FIELD_KINDS.includes(said.kind as DataFieldKind) ? (said.kind as DataFieldKind) : 'text';
-  const options = Array.isArray(said.options)
-    ? said.options.filter((each): each is string => typeof each === 'string')
-    : undefined;
-
-  return {
-    name: said.name,
-    kind,
-    label: typeof said.label === 'string' && said.label ? said.label : undefined,
-    /* Only where it means something. A list of choices on a date is a value nothing reads. */
-    options: kind === 'choice' && options?.length ? options : undefined
-  };
-}
-
-/** Every column a dataset declares, in the order it declares them. */
-export function fieldsFrom(said: unknown): DataField[] {
-  if (!Array.isArray(said)) return [];
-  const found: DataField[] = [];
-  const seen = new Set<string>();
-  for (const one of said) {
-    const field = fieldOf(one);
-    /* One column per name: two `제목`s is a `field:제목` that means whichever came first. */
-    if (!field || seen.has(field.name)) continue;
-    seen.add(field.name);
-    found.push(field);
-  }
-  return found;
-}
-
-/** Just the names, for the many callers that only ever wanted those. */
-export function columnNames(fields: DataField[] | undefined): string[] {
-  return (fields ?? []).map((one) => one.name);
-}
-
-/** What a column declares, by name. */
-export function fieldNamed(fields: DataField[] | undefined, name: unknown): DataField | undefined {
-  return typeof name === 'string' ? (fields ?? []).find((one) => one.name === name) : undefined;
-}
 
 /** A reference where a value goes, naming a column of the row being drawn. */
 export const FIELD_PREFIX = 'field:';
@@ -274,7 +175,11 @@ export function datasetsOf(doc: Access | undefined): Dataset[] {
       });
     }
   }
-  return found;
+  const sources = found.map(dataset => ({ name: dataset.name, fields: dataset.fields, records: dataset.records,
+    rowIds: Array.isArray(doc?.getNode(dataset.sid!)?.attributes?.rowIds) ? doc!.getNode(dataset.sid!).attributes.rowIds : [] }));
+  return found.map(dataset => dataset.fields.some(field => ['relation', 'formula', 'rollup'].includes(field.kind))
+    ? { ...dataset, records: evaluateDatasetRecords(sources.find(source => source.name === dataset.name)!, sources).records }
+    : dataset);
 }
 
 export function datasetNamed(doc: Access | undefined, name: unknown): Dataset | undefined {
@@ -330,6 +235,8 @@ export function cellValue(record: Record<string, unknown> | undefined, field: st
  * every timezone. A `Date` in the document would be a value that cannot survive being saved.
  */
 export function cellFor(said: unknown, kind: DataFieldKind | undefined): unknown {
+  // Multiline content preserves indentation, blank lines and trailing spaces.
+  if (kind === 'longText') return said;
   const text = typeof said === 'string' ? said.trim() : said;
 
   if (kind === 'number') {

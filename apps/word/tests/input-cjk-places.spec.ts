@@ -72,7 +72,7 @@ const clickIntoParagraph = async (page: import('@playwright/test').Page) => {
 
 test.describe('an IME that never composes', () => {
   test('does not leave the view believing it is composing', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -100,7 +100,7 @@ test.describe('an IME that never composes', () => {
 
 test.describe('a composition that is abandoned', () => {
   test('leaves nothing of itself behind', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -122,7 +122,7 @@ test.describe('a composition that is abandoned', () => {
 
 test.describe('a composition in an empty paragraph', () => {
   test('replaces the filler rather than joining it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -147,7 +147,7 @@ test.describe('a composition in an empty paragraph', () => {
 
 test.describe('a composition over a selection', () => {
   test('replaces the selected text', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -170,7 +170,7 @@ test.describe('a composition over a selection', () => {
 
 test.describe('a long composing string with candidates', () => {
   test('keeps only the chosen candidate', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -193,7 +193,7 @@ test.describe('a long composing string with candidates', () => {
 
 test.describe('a composition in an equation', () => {
   test('lands in the run the caret is in', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await page.locator('.w-math .w-text').first().scrollIntoViewIfNeeded();
     await clickText(page, '.w-math .w-text', { nth: 0, at: 'middle' });

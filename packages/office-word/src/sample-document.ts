@@ -211,7 +211,29 @@ export function createSampleDocument(): INode {
             stype: 'paragraph',
             attributes: { styleId: 'Body' },
             content: [
-              { stype: 'inline-text', text: 'Revisions are drawn, not applied: ' },
+              {
+                stype: 'inline-text',
+                text: 'Revisions are drawn, not applied: ',
+                /**
+                 * **주석 달린 글자** — 닻은 마크이고 몸통은 `resources` 의 `commentThread` 다.
+                 *
+                 * 픽스처가 이것을 안 입고 있어서 검사 하나가 안 돌았다
+                 * (`apps/word/tests/word-outline.spec.ts:173`,
+                 * *"the sample has no commented text to mark"*). 사용자의 규칙: **픽스처는 자기가
+                 * 검사하는 것을 입고 있어야 한다.**
+                 *
+                 * `[0, 9]` 는 "Revisions" 만 덮는다 — 문장 전체가 아니라 **일부**여야 하는 이유는,
+                 * 닻이 런 전체와 같으면 *범위를 옮기는 것* 과 *런을 옮기는 것* 을 구분할 수 없기
+                 * 때문이다. 실제 결함이 거기 산다.
+                 *
+                 * **왜 이 문단인가.** 처음에는 위의 *"Direct formatting wins…"* 에 달았고, 그러자
+                 * Word 브라우저 검사 **마흔여덟 개**가 깨졌다. 그 문단은 `.w-paragraph[1]` 이고,
+                 * 입력 스펙 열두 개가 *"두 번째 문단의 첫 텍스트 노드"* 를 잡아 IME 를 친다. 부분
+                 * 범위를 표시하면 런이 둘로 쪼개지므로 그 첫 노드가 열일곱 자짜리 조각이 된다.
+                 * 이 문단은 이미 런이 넷이라 아무도 단일 런으로 기대하지 않는다.
+                 */
+                marks: [{ stype: 'commentRef', range: [0, 9], attrs: { id: 'comment-1' } }]
+              },
               {
                 stype: 'inline-text',
                 text: 'this was added',
@@ -963,6 +985,34 @@ export function createSampleDocument(): INode {
                   {
                     stype: 'inline-text',
                     text: 'ECMA-376, Office Open XML File Formats. Ecma International, 2016.'
+                  }
+                ]
+              }
+            ]
+          },
+          /**
+           * The comment the flow's `commentRef` points at.
+           *
+           * A thread is a resource for the same reason a footnote body is: a note *about* a
+           * paragraph is not part of it and must not print with it. The pair is what makes a
+           * comment readable — a mark pointing at nothing is a comment nobody can read, and a
+           * thread nothing points at is one nobody can find.
+           *
+           * The entry is a `paragraph` carrying `author` and `date`, which is the shape
+           * `insertComment` writes. Written the same way here on purpose: a fixture that stores
+           * comments differently from the command tests a document nobody can produce.
+           */
+          {
+            stype: 'commentThread',
+            attributes: { id: 'comment-1', resolved: false },
+            content: [
+              {
+                stype: 'paragraph',
+                attributes: { author: 'Jinho Park', date: '2026-08-10' },
+                content: [
+                  {
+                    stype: 'inline-text',
+                    text: '가운데 정렬이 직접 서식이라는 걸 여기서 말해 주는 게 좋겠습니다.'
                   }
                 ]
               }

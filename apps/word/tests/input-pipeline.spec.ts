@@ -76,7 +76,7 @@ const INSTRUMENT = () => {
 };
 
 const start = async (page: any) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await page.waitForSelector('.w-sheet');
   await page.waitForTimeout(1200);
   await page.locator('.w-paragraph').nth(1).click();

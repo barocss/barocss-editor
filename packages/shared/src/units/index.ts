@@ -1,1 +1,1 @@
-export { PX_PER_TWIP, pxToTwip, twipToPt, twipToPx, type CssStyle } from './units';
+export { PX_PER_TWIP, pxToTwip, sideways, twipToPt, twipToPx, type CssStyle } from './units';

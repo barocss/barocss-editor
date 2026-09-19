@@ -123,7 +123,7 @@ test.describe('the presenter’s screen', () => {
      * The label this shape has everywhere else in the product, read from the list that owns it —
      * `.sl-layer-name` and not the whole row, whose first line is the *kind* ("텍스트 상자").
      */
-    await page.locator('.sl-layers-closed').click();
+    await page.getByRole('tab', { name: '레이어', exact: true }).click();
     const boxes = await visibleBoxes(page, '.sl-text-frame');
     const listed = (
       await page.locator(`[data-layer="${boxes[0].sid}"] .sl-layer-name`).innerText()

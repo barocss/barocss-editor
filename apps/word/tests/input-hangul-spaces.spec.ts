@@ -31,6 +31,7 @@ const caret = (page: import('@playwright/test').Page) =>
   });
 
 const clickIntoParagraph = async (page: import('@playwright/test').Page) => {
+  await page.locator('.w-paragraph').nth(1).scrollIntoViewIfNeeded();
   const point = await page.evaluate(() => {
     const el = [...document.querySelectorAll('.w-paragraph')][1];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -62,7 +63,7 @@ const syllable = async (cdp: any, steps: string[], commit: string) => {
 
 test.describe('spaces around a composition', () => {
   test('one space between two composed words', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -79,7 +80,7 @@ test.describe('spaces around a composition', () => {
   });
 
   test('three spaces between two composed words', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -98,7 +99,7 @@ test.describe('spaces around a composition', () => {
   });
 
   test('a space typed while a syllable is still being composed', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -120,7 +121,7 @@ test.describe('spaces around a composition', () => {
   });
 
   test('a sentence of composed words keeps every space', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -143,7 +144,7 @@ test.describe('spaces around a composition', () => {
   });
 
   test('the spaces a reader typed are the width the reader sees', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);

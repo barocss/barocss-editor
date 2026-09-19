@@ -63,6 +63,7 @@ import { MoveSelectionExtension } from './move-selection';
 import { IndentExtension } from './indent';
 import { UnderlineExtension } from './underline';
 import { CopyPasteExtension } from './copy-paste';
+export { getClipboardText } from './copy-paste';
 import { EscapeExtension } from './escape';
 import { MoveBlockExtension } from './move-block';
 import { StrikeThroughExtension } from './strikethrough';

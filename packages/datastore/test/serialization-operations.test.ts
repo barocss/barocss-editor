@@ -63,7 +63,7 @@ describe('SerializationOperations', () => {
     expect(json.map(n => n.text)).toEqual(['AAA', 'BBB']);
   });
 
-  it('serializeRange: ignores non-text nodes in multi-node range for now', () => {
+  it('serializeRange: includes selected inline atoms in document order', () => {
     const ds = new DataStore();
 
     const rootId = ds.generateId();
@@ -91,8 +91,7 @@ describe('SerializationOperations', () => {
     } as any;
 
     const json = ds.serializeRange(selection);
-    // Current implementation only serializes nodes that have text.
-    expect(json.map(n => n.text)).toEqual(['AAA', 'BBB']);
+    expect(json.map(n => n.stype)).toEqual(['inline-text', 'inline-image', 'inline-text']);
   });
 
   it('deserializeNodes: inserts nodes under target parent', () => {
@@ -194,3 +193,32 @@ describe('SerializationOperations', () => {
 });
 
 
+
+describe('clipboard fragment boundaries', () => {
+  it('uses document child order after moves and clips the endpoints and overlapping marks', () => {
+    const ds = new DataStore();
+    ds.setNodeInternal({ sid: 'root', stype: 'paragraph', content: ['a', 'emoji', 'b'] } as INode);
+    // Creation order differs from the displayed order, as it does after moving blocks.
+    ds.setNodeInternal({ sid: 'b', parentId: 'root', stype: 'inline-text', text: 'WXYZ', marks: [{ stype: 'italic', range: [1, 4] }] } as INode);
+    ds.setNodeInternal({ sid: 'emoji', parentId: 'root', stype: 'emoji', attributes: { unicode: '🙂' } } as INode);
+    ds.setNodeInternal({ sid: 'a', parentId: 'root', stype: 'inline-text', text: 'ABCD', marks: [{ stype: 'bold', range: [1, 3] }] } as INode);
+    const range = { type: 'range' as const, startNodeId: 'a', startOffset: 2, endNodeId: 'b', endOffset: 2, collapsed: false };
+    const copied = ds.serializeRange(range);
+    expect(copied.map(node => node.text ?? node.attributes?.unicode)).toEqual(['CD', '🙂', 'WX']);
+    expect(copied[0].marks?.[0].range).toEqual([0, 1]);
+    expect(copied[2].marks?.[0].range).toEqual([1, 2]);
+    expect(copied.every(node => !node.sid && !node.parentId)).toBe(true);
+    expect(ds.getNode('a')?.marks?.[0].range).toEqual([1, 3]);
+  });
+  it('retains paragraph boundaries, including a selection containing only the break', () => {
+    const ds = new DataStore();
+    ds.setNodeInternal({ sid: 'root', stype: 'document', content: ['p1', 'p2'] } as INode);
+    ds.setNodeInternal({ sid: 'p1', parentId: 'root', stype: 'paragraph', content: ['a'] } as INode);
+    ds.setNodeInternal({ sid: 'p2', parentId: 'root', stype: 'paragraph', content: ['b'] } as INode);
+    ds.setNodeInternal({ sid: 'a', parentId: 'p1', stype: 'inline-text', text: 'AB' } as INode);
+    ds.setNodeInternal({ sid: 'b', parentId: 'p2', stype: 'inline-text', text: 'CD' } as INode);
+    const copied = ds.serializeRange({ type: 'range', startNodeId: 'a', startOffset: 2, endNodeId: 'b', endOffset: 0, collapsed: false });
+    expect(copied.map(node => node.stype)).toEqual(['paragraph', 'paragraph']);
+    expect(copied.map(node => (node.content![0] as INode).text)).toEqual(['', '']);
+  });
+});

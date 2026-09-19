@@ -362,7 +362,8 @@ describe('Editor', () => {
         startNodeId: textNodeId as string,
         startOffset: 1,
         endNodeId: textNodeId as string,
-        endOffset: 1
+        endOffset: 1,
+        collapsed: true
       });
       expect(setRangeResult).toBe(true);
       expect(editor.selection).toMatchObject({
@@ -370,7 +371,8 @@ describe('Editor', () => {
         startNodeId: textNodeId,
         startOffset: 1,
         endNodeId: textNodeId,
-        endOffset: 1
+        endOffset: 1,
+        collapsed: true
       });
 
       const setNodeResult = await editor.executeCommand('setNode', {

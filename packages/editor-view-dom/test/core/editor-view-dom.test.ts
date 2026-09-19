@@ -31,8 +31,9 @@ describe('EditorViewDOM', () => {
 
   beforeEach(() => {
     // Create a container element for testing
+    // (`container.sid = …` used to stand here. `HTMLElement` has no `sid`, and every
+    // read in `src/` is `getAttribute('data-bc-sid')` — it set an expando nobody read.)
     container = document.createElement('div');
-    container.sid = 'test-container';
     document.body.appendChild(container);
     mock = createMockEditor();
 
@@ -357,6 +358,7 @@ describe('EditorViewDOM', () => {
           startOffset: 0,
           endNodeId: 't1',
           endOffset: 0,
+          collapsed: true,
         },
         applySelectionToView: false,
       });
@@ -378,6 +380,7 @@ describe('EditorViewDOM', () => {
           startOffset: 0,
           endNodeId: 't2',
           endOffset: 0,
+          collapsed: true,
         },
         applySelectionToView: true,
       });
@@ -390,6 +393,7 @@ describe('EditorViewDOM', () => {
           startOffset: 0,
           endNodeId: 't2',
           endOffset: 0,
+          collapsed: true,
         })
       );
     });
@@ -408,6 +412,7 @@ describe('EditorViewDOM', () => {
           startOffset: 0,
           endNodeId: 't3',
           endOffset: 0,
+          collapsed: true,
         },
         source: 'remote',
       });
@@ -458,6 +463,7 @@ describe('EditorViewDOM', () => {
         startOffset: 0,
         endNodeId: 't4',
         endOffset: 0,
+        collapsed: true,
         source: 'remote',
       });
 

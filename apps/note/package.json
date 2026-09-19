@@ -18,6 +18,7 @@
     "@barocss/office-text": "workspace:*",
     "@barocss/office-ui": "workspace:*",
     "@barocss/schema": "workspace:*",
+    "@barocss/shared": "workspace:*",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

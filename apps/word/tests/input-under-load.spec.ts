@@ -40,7 +40,7 @@ test.describe('typing on a busy machine', () => {
     test(`writes what was typed with the CPU at a ${rate}th of its speed`, async ({
       page
     }) => {
-      await page.goto('/');
+      await page.goto('/?sample');
       await settled(page);
 
       const client = await page.context().newCDPSession(page);

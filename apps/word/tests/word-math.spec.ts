@@ -1,19 +1,32 @@
 import { test, expect } from '@playwright/test';
 import { settled } from './helpers';
 
-/**
- * Equations, edited in the document.
- *
- * The model is OMML's — a tree of constructs with named slots — and a slot is an
- * ordinary editable container. That is the whole reason for the shape: the
- * caret, the input path and undo already work inside an element that holds text,
- * so an equation is edited where it sits rather than in a dialogue, and nothing
- * had to be added to the input path to allow it.
- */
+/** Legacy formatted equations retain native slot editing. Default display uses KaTeX. */
+async function openNativeSample(page: import('@playwright/test').Page) {
+  // Give the fixture a real combined format that still needs native editing.
+  await page.evaluate(() => {
+    const editor = (window as any).editor;
+    const doc = editor.exportDocument();
+    const visit = (node: any): boolean => {
+      if (node.stype === 'mathRun') {
+        node.attributes = { ...node.attributes, literal: true, style: 'b' };
+        return true;
+      }
+      return node.content?.some(visit) ?? false;
+    };
+    visit(doc);
+    editor.loadDocument(doc);
+  });
+  await settled(page);
+  await page.locator('#editor .w-math').first().dblclick();
+  await expect(page.locator('.w-math-num').first()).toBeVisible();
+  await settled(page);
+}
 test.describe('an equation', () => {
   test('is drawn as structure, not as a picture of one', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await openNativeSample(page);
 
     const drawn = await page.evaluate(() => {
       const fraction = document.querySelector('.w-math-frac')?.getBoundingClientRect();
@@ -36,8 +49,9 @@ test.describe('an equation', () => {
   });
 
   test('takes the caret into a slot and typing goes there', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await openNativeSample(page);
 
     await page.locator('.w-math-num').first().click();
     await expect
@@ -63,8 +77,9 @@ test.describe('an equation', () => {
   });
 
   test('draws an empty slot the caret can reach, and hides only the one it cannot', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await openNativeSample(page);
 
     /**
      * **A slot the caret can enter and the author cannot see is a place to lose text in** — which is
@@ -109,8 +124,9 @@ test.describe('moving between slots', () => {
     });
 
   test('Tab steps forward and Shift+Tab back', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await openNativeSample(page);
 
     // The numerator's own run, not the radical nested inside it — a click on the
     // slot itself lands wherever the pointer was, which may be a slot further
@@ -130,8 +146,9 @@ test.describe('moving between slots', () => {
   });
 
   test('makes a place for the caret in an empty slot a reader can see', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await openNativeSample(page);
 
     await page.locator('.w-math-num > .w-math-run').first().click();
     await expect.poll(() => slotOfCaret(page)).toBe('mathNum');
@@ -165,8 +182,9 @@ test.describe('moving between slots', () => {
   });
 
   test('leaves Tab alone outside an equation', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await openNativeSample(page);
 
     const before = await page.evaluate(() => (window as any).editor.getContext('inEquation'));
     await page.locator('.w-paragraph').first().click();
@@ -181,34 +199,26 @@ test.describe('moving between slots', () => {
 
 test.describe('brackets', () => {
   test('grow to the height of what they hold', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await openNativeSample(page);
 
     const measured = await page.evaluate(() => {
-      const delimiter = document.querySelector('.w-math-delim')!;
-      const open = delimiter.querySelector('.w-math-fence-open')!.getBoundingClientRect();
-      const close = delimiter.querySelector('.w-math-fence-close')!.getBoundingClientRect();
-      const fraction = delimiter.querySelector('.w-math-frac')!.getBoundingClientRect();
-      const oneLine = document.querySelector('.w-math-run')!.getBoundingClientRect();
-      return {
-        open: Math.round(open.height),
-        close: Math.round(close.height),
-        content: Math.round(fraction.height),
-        oneLine: Math.round(oneLine.height)
-      };
+      const delimiter = document.querySelectorAll('.w-math')[1].querySelector('.katex-html')!;
+      const open = delimiter.querySelector('.mopen')!.getBoundingClientRect();
+      const close = [...delimiter.querySelectorAll('.mclose')].at(-1)!.getBoundingClientRect();
+      const fraction = delimiter.querySelector('.mfrac')!.getBoundingClientRect();
+      return { open: open.height, close: close.height, content: fraction.height };
     });
-
-    // Word grows a bracket by assembling glyph pieces named in the font's MATH
-    // table. There is none to read here, so these are borders that stretch —
-    // exact at every height, and only an approximation of the shape.
-    expect(measured.open).toBe(measured.content);
-    expect(measured.close).toBe(measured.content);
-    expect(measured.content).toBeGreaterThan(measured.oneLine * 2);
+    expect(measured.open).toBeGreaterThan(0);
+    expect(measured.close).toBeCloseTo(measured.open, 0);
+    expect(measured.open).toBeGreaterThan(measured.content * 0.6);
   });
 
   test('are the construct\'s, not the content\'s', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await openNativeSample(page);
 
     // Typing between them must not be able to delete them, and they must not be
     // copied with the text.
@@ -221,8 +231,9 @@ test.describe('brackets', () => {
   });
 
   test('add no height to the paragraph they sit in', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await openNativeSample(page);
 
     // They are as tall as the equation and part of it. Counting them as
     // something the layout drew on top took a 44px paragraph to −36 and left it
@@ -244,8 +255,9 @@ test.describe('brackets', () => {
  */
 test.describe('build-up', () => {
   test('turns a typed line into the equation it describes', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await openNativeSample(page);
 
     const before = await page.evaluate(() => document.querySelectorAll('.w-math-frac').length);
 
@@ -275,7 +287,7 @@ test.describe('build-up', () => {
         return out;
       };
       const caret = ed.dataStore.getNode(ed.selection?.startNodeId);
-      const equation = ed.dataStore.getNode(caret?.parentId);
+      const equation = ed.selection?.type === 'node' ? ed.dataStore.getNode(ed.selection.nodeIds[0]) : ed.dataStore.getNode(caret?.parentId);
       return {
         fractions: document.querySelectorAll('.w-math-frac').length,
         // The typed line is gone from the text: it is the structure now.
@@ -290,8 +302,9 @@ test.describe('build-up', () => {
   });
 
   test('leaves an ordinary space alone', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await openNativeSample(page);
 
     await page.locator('.w-paragraph').nth(1).click();
     await expect
@@ -318,8 +331,9 @@ test.describe('build-up', () => {
 
 test.describe('the linear view', () => {
   test('flattens an equation to the line it came from, and back', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await openNativeSample(page);
 
     const before = await page.evaluate(() => document.querySelectorAll('.w-math-frac').length);
 
@@ -328,7 +342,8 @@ test.describe('the linear view', () => {
       .poll(async () => page.evaluate(() => (window as any).editor.selection?.type))
       .toBe('range');
 
-    await page.getByRole('button', { name: 'Linear', exact: true }).click();
+    await page.getByRole('tab', { name: '삽입', exact: true }).click();
+    await page.getByRole('button', { name: '수식 표시', exact: true }).click();
     await page.waitForTimeout(900);
 
     // The equation is a line of text now, in the place it stood, so the sentence

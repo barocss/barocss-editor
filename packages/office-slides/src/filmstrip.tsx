@@ -23,6 +23,7 @@ import { Thumbnail } from './thumbnail';
 /** What the strip down the side is told. */
 export interface FilmstripProps {
   editor: Editor | null;
+  thumbnailWidth?: number;
   slides: Slide[];
   current?: string;
   onSelect: (sid: string) => void;
@@ -38,7 +39,8 @@ export function Filmstrip({
   current,
   onSelect,
   onRename,
-  revision
+  revision,
+  thumbnailWidth = 128
 }: FilmstripProps) {
   /**
    * The slide whose name a reader is typing, if any.
@@ -77,7 +79,7 @@ export function Filmstrip({
               onDoubleClick={() => setRenaming(slide.sid)}
             >
               <span className="sl-filmstrip-number">{slide.number}</span>
-              <Thumbnail editor={editor} slideSid={slide.sid} width={128} revision={revision} />
+              <Thumbnail editor={editor} slideSid={slide.sid} width={thumbnailWidth} revision={revision} />
               <span className="sl-filmstrip-name">
                 {/*
                  * A slide the author never named and whose title is empty gets

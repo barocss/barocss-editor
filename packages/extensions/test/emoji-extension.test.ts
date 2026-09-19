@@ -76,7 +76,7 @@ describe('EmojiExtension', () => {
     const cmd = editor.__getCommand('insertEmoji');
     const result = await cmd.execute(editor, {
       shortcode: ':smile:',
-      selection: { type: 'range', startNodeId: 'text-1', endNodeId: 'text-1', startOffset: 1, endOffset: 1 }
+      selection: { type: 'range', startNodeId: 'text-1', endNodeId: 'text-1', startOffset: 1, endOffset: 1, collapsed: true }
     });
     expect(result).toBe(false);
   });
@@ -99,7 +99,7 @@ describe('EmojiExtension', () => {
     const cmd = editor.__getCommand('insertEmoji');
     await cmd.execute(editor, {
       unicode: '😀',
-      selection: { type: 'range', startNodeId: 'text-1', endNodeId: 'text-1', startOffset: 2, endOffset: 2 }
+      selection: { type: 'range', startNodeId: 'text-1', endNodeId: 'text-1', startOffset: 2, endOffset: 2, collapsed: true }
     });
     expect(recordedTransactions.length).toBeGreaterThanOrEqual(1);
     const ops = recordedTransactions.flat();

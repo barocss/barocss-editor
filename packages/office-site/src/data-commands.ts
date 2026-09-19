@@ -30,10 +30,11 @@
  * dataset is for the tens of rows a person curates. It is also why none of these commands is a good
  * idea to hold a key down inside.
  */
+import { inspectFormula } from '@barocss/schema';
 import { Editor, Extension } from '@barocss/editor-core';
 import { addChild, node, removeChild, setAttrs, transaction } from '@barocss/model';
 import { copyOf } from '@barocss/office-canvas';
-import { assetsOf } from './assets';
+import { ASSET_PREFIX, assetsOf } from './assets';
 import { nfc } from './names';
 import { datasetsOf, isRichRef, richRef, richTextNamed } from './data';
 import {
@@ -48,6 +49,9 @@ import {
 } from './data';
 
 type Node = Record<string, any>;
+const advancedKind = (kind: unknown) => ['relation', 'formula', 'rollup'].includes(String(kind));
+let rowSequence = 0;
+const newStableRowId = () => `site-item-${globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${(++rowSequence).toString(36)}-${Math.random().toString(36).slice(2)}`}`;
 
 export class SiteDataExtension implements Extension {
   name = 'siteData';
@@ -282,12 +286,7 @@ export class SiteDataExtension implements Extension {
     register(
       'setDatasetCells',
       async (payload) => await this._setCells(editor, payload),
-      (payload) =>
-        !!this._dataset(editor, payload) &&
-        Array.isArray(payload?.values) &&
-        (payload!.values as unknown[]).length > 0 &&
-        Number.isInteger(payload?.row) &&
-        typeof payload?.field === 'string'
+      (payload) => this._canSetCells(editor, payload)
     );
 
     /**
@@ -343,7 +342,7 @@ export class SiteDataExtension implements Extension {
     register(
       'duplicateDataset',
       async (payload) => await this._duplicate(editor, payload),
-      (payload) => this._dataset(editor, payload) !== undefined
+      (payload) => { const dataset = this._dataset(editor, payload); return !!dataset && !Array.isArray(dataset.attributes?.rowIds); }
     );
   }
 
@@ -363,7 +362,7 @@ export class SiteDataExtension implements Extension {
   private async _duplicate(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
     const dataset = this._dataset(editor, payload);
     const store = this._store(editor);
-    if (!dataset || !store) return false;
+    if (!dataset || !store || Array.isArray(dataset.attributes?.rowIds)) return false;
 
     const parentId = String(dataset.parentId ?? '');
     if (!parentId) return false;
@@ -636,7 +635,8 @@ export class SiteDataExtension implements Extension {
       if (depth > 64) return;
       const one = store.getNode(sid);
       if (!one) return;
-      if (one.stype === 'collection' && one.attributes?.source === name) used += 1;
+      if ((one.stype === 'collection' || one.stype === 'noteDatabase') && one.attributes?.source === name) used += 1;
+      if (one.stype === 'dataset') used += this._fields(one).filter(field => field.relation?.source === name).length;
       for (const child of (one.content ?? []) as unknown[]) if (typeof child === 'string') walk(child, depth + 1);
     };
     walk(this._rootId(editor));
@@ -763,6 +763,10 @@ export class SiteDataExtension implements Extension {
     let name = said || '그림';
     for (let n = 2; taken.has(name); n += 1) name = `${said || '그림'} ${n}`;
 
+    // A file replacement owns both the new resource and its references in one history entry.
+    const attached = this._assetAttachment(editor, payload?.applyTo, `${ASSET_PREFIX}${name}`);
+    if (!attached) return false;
+
     const step = addChild(
       String(box.sid),
       node(
@@ -781,7 +785,40 @@ export class SiteDataExtension implements Extension {
       ) as never,
       ((box.content ?? []) as unknown[]).length
     );
-    return (await transaction(editor, [step] as never).commit()).success === true;
+    // Assets are resources, not a caret destination. Keep the active canvas selection.
+    return (await transaction(editor, [step, ...attached] as never, {
+      applySelectionToView: false,
+      preserveSelectionInHistory: false,
+    }).commit()).success === true;
+  }
+
+  private _assetAttachment(editor: Editor, value: unknown, reference: string): ReturnType<typeof setAttrs>[] | null {
+    if (value === undefined) return [];
+    if (!value || typeof value !== 'object') return null;
+    const target = value as Record<string, unknown>;
+    const root = editor.getRootId();
+    const store = this._store(editor);
+    if (!root || !store) return null;
+    if (target.command === 'setSiteFiles' && target.attr === 'icon') {
+      return editor.canExecuteCommand('setSiteFiles', { icon: reference }) ? [setAttrs(root, { icon: reference })] : null;
+    }
+    if (target.command !== 'setBlockFormat' || !['src', 'poster'].includes(String(target.attr)) ||
+      !Array.isArray(target.nodeIds) || !target.nodeIds.length || !target.nodeIds.every(id => typeof id === 'string')) return null;
+    const ids = [...new Set(target.nodeIds as string[])];
+    const attr = String(target.attr);
+    for (const id of ids) {
+      let node = store.getNode(id);
+      if (!node || (attr === 'poster' ? node.stype !== 'mediaVideo' : !['picture', 'mediaVideo'].includes(String(node.stype)))) return null;
+      const visited = new Set<string>();
+      while (node && node.sid !== root) {
+        if (visited.has(String(node.sid))) return null;
+        visited.add(String(node.sid));
+        node = node.parentId ? store.getNode(String(node.parentId)) : undefined;
+      }
+      if (!node) return null;
+    }
+    if (!editor.canExecuteCommand('setBlockFormat', { nodeIds: ids, [attr]: reference })) return null;
+    return ids.map(id => setAttrs(id, { [attr]: reference }));
   }
 
   /** The connection a payload names, by name — never by sid, which a document cannot carry. */
@@ -853,10 +890,25 @@ export class SiteDataExtension implements Extension {
     return (await transaction(editor, [step] as never).commit()).success === true;
   }
 
+  private _advancedDependency(editor: Editor, source: string, name: string): boolean {
+    for (const dataset of this._resources(editor).datasets) for (const field of this._fields(dataset)) {
+      if (dataset.attributes?.name === source && field.formula && inspectFormula(field.formula.expression).references.includes(name)) return true;
+      if (!field.rollup) continue;
+      if (dataset.attributes?.name === source && field.rollup.relationField === name) return true;
+      const relation = this._fields(dataset).find(one => one.name === field.rollup!.relationField);
+      if (relation?.relation?.source === source && field.rollup.field === name) return true;
+    }
+    return false;
+  }
+
   private _canSetField(editor: Editor, payload?: Record<string, unknown>): boolean {
     const dataset = this._dataset(editor, payload);
     const field = String(payload?.field ?? '').trim();
     if (!dataset || !field) return false;
+    const current = this._fields(dataset).find(one => one.name === field);
+    // The Site grid has no relation/formula configuration editor. Preserve imported metadata.
+    if (advancedKind(payload?.kind) || advancedKind(current?.kind)) return false;
+    if ((payload?.remove === true || payload?.rename !== undefined || payload?.kind !== undefined) && this._advancedDependency(editor, String(dataset.attributes?.name), field)) return false;
     const names = this._names(dataset);
     const rename = typeof payload?.rename === 'string' ? payload.rename.trim() : undefined;
 
@@ -911,7 +963,7 @@ export class SiteDataExtension implements Extension {
         : undefined;
       nextFields = fields.map((one) =>
         one.name === field
-          ? { ...one, kind: chosen, options: chosen === 'choice' ? (options ?? one.options) : undefined }
+          ? { ...one, kind: chosen, options: chosen === 'choice' || chosen === 'choices' ? (options ?? one.options) : undefined }
           : one
       );
       nextRecords = records;
@@ -958,7 +1010,8 @@ export class SiteDataExtension implements Extension {
   private _canSetCell(editor: Editor, payload?: Record<string, unknown>): boolean {
     const dataset = this._dataset(editor, payload);
     if (!dataset || this._rowAt(editor, payload) === undefined) return false;
-    return this._names(dataset).includes(String(payload?.field ?? ''));
+    const field = this._fields(dataset).find(one => one.name === String(payload?.field ?? ''));
+    return !!field && !advancedKind(field.kind);
   }
 
   private async _setCell(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
@@ -978,7 +1031,16 @@ export class SiteDataExtension implements Extension {
   /**
    * The block, written once. See the registration for why rows grow and columns do not.
    */
+  private _canSetCells(editor: Editor, payload?: Record<string, unknown>): boolean {
+    const dataset = this._dataset(editor, payload), values = payload?.values;
+    if (!dataset || !Array.isArray(values) || !values.length || !Number.isInteger(payload?.row) || Number(payload?.row) < 0) return false;
+    const fields = this._fields(dataset), from = fields.findIndex(field => field.name === payload?.field);
+    if (from < 0) return false;
+    return values.every(line => !Array.isArray(line) || line.every((_, offset) => !advancedKind(fields[from + offset]?.kind)));
+  }
+
   private async _setCells(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    if (!this._canSetCells(editor, payload)) return false;
     const dataset = this._dataset(editor, payload);
     const values = payload?.values;
     if (!dataset || !Array.isArray(values) || values.length === 0) return false;
@@ -989,7 +1051,7 @@ export class SiteDataExtension implements Extension {
     if (!Number.isInteger(at) || at < 0 || from < 0) return false;
 
     const records = this._records(dataset);
-    const blank = Object.fromEntries(fields.map((one) => [one, '']));
+    const blank = Object.fromEntries(this._fields(dataset).filter(field => !['formula', 'rollup'].includes(field.kind)).map(field => [field.name, field.kind === 'relation' ? [] : '']));
     const kinds = new Map(this._fields(dataset).map((one) => [one.name, one.kind]));
 
     values.forEach((line, down) => {
@@ -1012,7 +1074,9 @@ export class SiteDataExtension implements Extension {
       records[row] = said;
     });
 
-    const step = setAttrs(String(dataset.sid), { records });
+    const rowIds = Array.isArray(dataset.attributes?.rowIds) ? [...dataset.attributes.rowIds] : undefined;
+    if (rowIds) while (rowIds.length < records.length) rowIds.push(newStableRowId());
+    const step = setAttrs(String(dataset.sid), { records, ...(rowIds ? { rowIds } : {}) });
     return (await transaction(editor, [step] as never).commit()).success === true;
   }
 
@@ -1020,12 +1084,13 @@ export class SiteDataExtension implements Extension {
     const dataset = this._dataset(editor, payload);
     if (!dataset) return false;
     const records = this._records(dataset);
-    const blank = Object.fromEntries(this._names(dataset).map((one) => [one, '']));
+    const blank = Object.fromEntries(this._fields(dataset).filter(field => !['formula', 'rollup'].includes(field.kind)).map(field => [field.name, field.kind === 'relation' ? [] : '']));
 
     const at = Number.isInteger(payload?.at) ? Math.max(0, Math.min(Number(payload!.at), records.length)) : records.length;
     records.splice(at, 0, blank);
-
-    const step = setAttrs(String(dataset.sid), { records });
+    const rowIds = Array.isArray(dataset.attributes?.rowIds) ? [...dataset.attributes.rowIds] : undefined;
+    if (rowIds) rowIds.splice(at, 0, newStableRowId());
+    const step = setAttrs(String(dataset.sid), { records, ...(rowIds ? { rowIds } : {}) });
     return (await transaction(editor, [step] as never).commit()).success === true;
   }
 
@@ -1053,7 +1118,12 @@ export class SiteDataExtension implements Extension {
      * does not grow a paragraph every time a row is deleted. A `richText` is this cell's value, not
      * a resource the document shares; see `_dropRich`.
      */
-    const steps = [setAttrs(String(dataset.sid), { records }), ...this._dropRich(editor, [gone])];
+    const rowIds = Array.isArray(dataset.attributes?.rowIds) ? [...dataset.attributes.rowIds] : undefined;
+    const itemId = rowIds?.splice(row, 1)[0];
+    const { box } = this._resources(editor);
+    const body = itemId && (box?.content ?? []).map((sid: string) => this._store(editor)?.getNode(sid)).find((node: Node) => node?.stype === 'richText' && node.attributes?.id === itemId);
+    const steps = [setAttrs(String(dataset.sid), { records, ...(rowIds ? { rowIds } : {}) }), ...this._dropRich(editor, [gone]),
+      ...(body?.sid && box?.sid ? [removeChild(String(box.sid), String(body.sid))] : [])];
     return (await transaction(editor, steps as never).commit()).success === true;
   }
 }

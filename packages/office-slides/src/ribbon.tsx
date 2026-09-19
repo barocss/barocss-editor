@@ -4,10 +4,11 @@ import {
   ChoiceSelect,
   ColorPalette,
   Icon,
-  Toolbar,
-  ToolbarGroup,
-  ToolbarSeparator,
-  ToolbarToggle
+  MenuBar,
+  RibbonToolbar,
+  RibbonGroup,
+  ToolbarToggle,
+  onApple
 } from '@barocss/office-ui';
 import { useEditorRevision } from '@barocss/office-editor-ui';
 /**
@@ -35,7 +36,7 @@ import {
 import { WORD_FONTS, WORD_FONT_SIZES, WORD_TEXT_COLOR, WORD_TEXT_HIGHLIGHT } from '@barocss/office-controls';
 import { ControlRows } from '@barocss/office-editor-ui';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
-import { SLIDES_TOOLBAR, type SlidesToolbarControl } from './toolbar-model';
+import { SLIDES_TOOLBAR, slidesToolbarPayload, type SlidesToolbarControl } from './toolbar-model';
 import { keyLabel, shortcutOf } from './keymap';
 import { resolveDeckFormat } from './layout-format';
 import type { Slide } from './deck';
@@ -64,18 +65,19 @@ export interface RibbonProps {
 
 export function Ribbon({ editor, slides, current }: RibbonProps) {
   /**
-   * Which way to draw a chord, asked once.
+   * Which way to draw a chord, asked once — and asked of `office-ui`.
    *
-   * Apple writes `⌘⇧G` and everyone else writes `Ctrl+Shift+G`; a tool that shows
-   * the wrong one looks ported. `userAgentData` where it exists and the old
-   * `platform` where it does not, which is the only pair that covers every
-   * browser this runs in today.
+   * Apple writes `⌘⇧G` and everyone else writes `Ctrl+Shift+G`; a tool that shows the wrong one
+   * looks ported. The sniff itself was four lines here and four more in `overlay.tsx`, and this
+   * deck printed its chords from one copy and its context menu from the other — two answers to a
+   * question with one, in the same product, on the same screen.
+   *
+   * `office-ui/platform.ts` is where those four lines live for the suite, and it says why they are
+   * there rather than in `office-controls`: `keyLabel` takes `apple` as an argument on purpose,
+   * because a pure function of the platform is testable and `navigator` is not, which leaves the
+   * sniff homeless in a package that must not assume a DOM. This one assumes a DOM already.
    */
-  const apple = useMemo(() => {
-    const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
-    const name = nav.userAgentData?.platform ?? nav.platform ?? '';
-    return /mac|iphone|ipad/i.test(name);
-  }, []);
+  const apple = useMemo(() => onApple(), []);
 
   /**
    * A count of the events that can change an answer here, not the answers
@@ -236,24 +238,7 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
     input.click();
   };
 
-  const payloadFor = (control: SlidesToolbarControl): Record<string, unknown> | undefined => {
-    if (control.id === 'slide-new') return { after: current };
-    if (control.id === 'slide-up') return { slideId: current, to: (here?.number ?? 1) - 2 };
-    if (control.id === 'slide-down') return { slideId: current, to: here?.number ?? 0 };
-    /**
-     * **Where the reader is**, on every control, whether the model says it needs one or not.
-     *
-     * `needsSlide` gated this, which was right while "where" could only ever be a slide: an
-     * insert command with no `slideId` falls back to the deck's first slide, and that is the
-     * correct answer for a console or a test. It is the wrong answer for a *reader*, and
-     * measured: with a component's definition open, pressing 타원 put the ellipse on slide 1.
-     *
-     * The app is the only thing that knows where the reader is (canvas-model §10c), so it
-     * says so every time. A command that does not take a `slideId` reads the keys it wants and
-     * ignores this one.
-     */
-    return { ...(control.payload ?? {}), ...(current ? { slideId: current } : {}) };
-  };
+  const payloadFor = (control: SlidesToolbarControl) => slidesToolbarPayload(control, current, here?.number);
 
   /**
    * Whether a control can run.
@@ -353,9 +338,10 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
   );
 
   return (
-    <Toolbar className="sl-toolbar" label="슬라이드 서식">
-      {choice(WORD_FONTS, 'min-w-36')}
-      {choice(WORD_FONT_SIZES, 'min-w-16')}
+    <RibbonToolbar compact className="sl-toolbar" label="슬라이드 서식">
+      {summary && !summary.empty && <RibbonGroup id="font" label="글꼴" layout="stack">
+      <div className="sl-font-row">{choice(WORD_FONTS, 'min-w-36')}
+      {choice(WORD_FONT_SIZES, 'min-w-16')}</div>
       {/*
         * Word's palettes, because a colour means the same thing in both.
         *
@@ -371,9 +357,9 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
         * would be one of them wrong, and that is the rule for what belongs in one
         * place.
         */}
-      {palette(WORD_TEXT_COLOR)}
-      {palette(WORD_TEXT_HIGHLIGHT)}
-      <ToolbarSeparator />
+      <div className="sl-font-row">{palette(WORD_TEXT_COLOR)}
+      {palette(WORD_TEXT_HIGHLIGHT)}</div>
+      </RibbonGroup>}
       {/*
         A **contextual** group is drawn only when there is something for it to act on.
 
@@ -389,11 +375,10 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
       */}
       {SLIDES_TOOLBAR.filter(
         (group) =>
-          !group.when || group.controls.some((control) => editor.canRun(control.command, control.payload))
-      ).map((group, index) => (
-        <span key={group.id} className="contents">
-          {index > 0 && <ToolbarSeparator />}
-          <ToolbarGroup id={group.id}>
+          (!['character', 'paragraph', 'list'].includes(group.id) || (summary && !summary.empty)) &&
+          (!group.when || group.controls.some((control) => editor.canRun(control.command, control.payload)))
+      ).map((group) => (
+          <RibbonGroup key={group.id} id={group.id} layout="columns" label={({ history: '실행 기록', slide: '슬라이드', character: '글자', paragraph: '문단', list: '목록', insert: '삽입', order: '순서', align: '정렬', table: '표', group: '객체' } as Record<string, string>)[group.id]}>
             {/*
               **`useControls` is the shared chrome** — subscribing to the editor, keying each
               control, working out whether it may run and running it. All four of those were written
@@ -443,7 +428,10 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
                 }
               }}
             >
-              {(rows) =>
+              {(rows) => !['history', 'insert'].includes(group.id) ? <MenuBar label={`${group.id} 도구`} menus={[{
+                id: `tools-${group.id}`, label: ({ slide: '슬라이드', character: '글자', paragraph: '문단', list: '목록', order: '순서', align: '정렬', table: '표', group: '객체' } as Record<string, string>)[group.id] ?? group.id,
+                blocks: [{ id: group.id, items: rows.map(one => ({ id: one.key, label: one.label, hint: one.shortcut, disabled: one.disabled, checked: one.state === 'on' ? true : undefined })) }]
+              }]} onPick={id => rows.find(one => one.key === id)?.run()} /> :
                 rows.map((one) => (
                   <ToolbarToggle
                     key={one.key}
@@ -467,9 +455,8 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
                 ))
               }
             </ControlRows>
-          </ToolbarGroup>
-        </span>
+          </RibbonGroup>
       ))}
-    </Toolbar>
+    </RibbonToolbar>
   );
 }

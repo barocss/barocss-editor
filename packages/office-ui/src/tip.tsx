@@ -1,5 +1,19 @@
 import * as RadixTooltip from '@radix-ui/react-tooltip';
 import { cn } from './cn';
+import { createContext, useContext, useCallback, useRef, useState } from 'react';
+
+const visibleTips = new WeakMap<Document, Set<() => void>>();
+
+/** A tooltip closes before the contextual surface that contains its trigger. */
+export function dismissVisibleTooltip(event: KeyboardEvent): boolean {
+  const doc = event.target instanceof Document ? event.target : event.target instanceof Node ? event.target.ownerDocument : null;
+  const close = doc && [...(visibleTips.get(doc) ?? [])].at(-1);
+  if (!close) return false;
+  event.preventDefault(); event.stopPropagation(); close();
+  return true;
+}
+
+const HasTipProvider = createContext(false);
 
 /**
  * What a control is called, and the chord that reaches it — on hover and on focus.
@@ -31,7 +45,9 @@ import { cn } from './cn';
  * what lets `Toolbar` keep its own and lets a `Tip` outside any shell still work.
  */
 export function TipProvider({ children }: { children: React.ReactNode }) {
-  return <RadixTooltip.Provider delayDuration={400}>{children}</RadixTooltip.Provider>;
+  return <HasTipProvider.Provider value={true}>
+    <RadixTooltip.Provider delayDuration={400}>{children}</RadixTooltip.Provider>
+  </HasTipProvider.Provider>;
 }
 
 export function Tip({
@@ -50,14 +66,32 @@ export function Tip({
   shortcut?: string;
   children: React.ReactNode;
 }) {
+  const hasProvider = useContext(HasTipProvider);
+  const [open, setOpen] = useState(false);
+  const unregister = useRef<(() => void) | null>(null);
+  // Radix mounts portal content after the trigger renders. Register on attachment.
+  const content = useCallback((node: HTMLDivElement | null) => {
+    unregister.current?.(); unregister.current = null;
+    if (!node || !open) return;
+    const doc = node.ownerDocument;
+    const tips = visibleTips.get(doc) ?? new Set<() => void>();
+    const close = () => setOpen(false);
+    tips.add(close); visibleTips.set(doc, tips);
+    unregister.current = () => { tips.delete(close); };
+  }, [open]);
   if (!label) return <>{children}</>;
+  if (!hasProvider) return <TipProvider><Tip label={label} shortcut={shortcut}>{children}</Tip></TipProvider>;
 
   return (
-    <RadixTooltip.Root>
+    <RadixTooltip.Root open={open} onOpenChange={setOpen}>
       <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
       <RadixTooltip.Portal>
         <RadixTooltip.Content
+          ref={content}
           sideOffset={6}
+          collisionPadding={8}
+          hideWhenDetached
+          data-office-tooltip
           className={cn(
             /*
              * **Inverted**, and it was once white on white.
@@ -71,16 +105,16 @@ export function Tip({
              * `--ou-ink` on `--ou-panel` needs no variant: both flip with the theme, so it is
              * dark-on-light in one and light-on-dark in the other.
              */
-            'rounded bg-[color:var(--ou-ink)] px-2 py-1 text-[length:var(--ou-text-small)]',
+            'z-[var(--ou-z-tooltip)] rounded bg-[color:var(--ou-ink)] px-2 py-1 text-[length:var(--ou-text-small)]',
             'text-[color:var(--ou-panel)] shadow-[var(--ou-lift-2)]',
             // A tooltip must never be the thing under the pointer, or the hover it describes ends.
-            'pointer-events-none select-none whitespace-nowrap'
+            'office-tooltip pointer-events-none select-none'
           )}
         >
-          {label}
+          <span className="office-tooltip-label">{label}</span>
           {shortcut && (
             // Quieter than the name, which is the order a reader reads them in.
-            <span className="ml-1.5 opacity-60" data-shortcut>
+            <span className="office-tooltip-shortcut" data-shortcut>
               {shortcut}
             </span>
           )}

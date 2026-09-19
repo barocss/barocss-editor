@@ -314,7 +314,7 @@ export function PropertySheet<Row extends SheetRow>({
         return (
           <PropertyToggle
             key={key(one)}
-            value={current === true}
+            value={current === null ? null : current === true}
             onChange={(next) => onWrite(one, next)}
             /*
              * **The word once.** A toggle that is a row's own control sits beside that row's label,

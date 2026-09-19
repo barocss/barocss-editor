@@ -6,9 +6,7 @@ import type { DataStore } from '../data-store';
 /**
  * Utility for serializing/deserializing selected range to JSON format (INode[]).
  *
- * Phase 1 implementation scope:
- * - When start/end are same node: extracts only text portion of that node and returns as new node.
- * - For cross-node range: currently serializes only at block level (additional detailed splitting to be extended later).
+ * Range fragments follow document order, clip both endpoints and retain inline atoms and marks.
  * - On deserialize: assigns new sid and inserts matching only parent/content relationships.
  */
 export class SerializationOperations {
@@ -18,47 +16,59 @@ export class SerializationOperations {
    * Serializes selected range to JSON node array.
    */
   serializeRange(range: ModelSelection): INode[] {
-    const nodes: INode[] = [];
-
-    // Text range within single node
-    if (range.startNodeId === range.endNodeId) {
-      const node = this.dataStore.getNode(range.startNodeId);
-      if (!node) return [];
-
+    if (range.type !== 'range') return [];
+    const start = this.dataStore.getNode(range.startNodeId), end = this.dataStore.getNode(range.endNodeId);
+    if (!start || !end) return [];
+    if (typeof start.text === 'string' && (!Number.isInteger(range.startOffset) || range.startOffset < 0 || range.startOffset > start.text.length) ||
+        typeof end.text === 'string' && (!Number.isInteger(range.endOffset) || range.endOffset < 0 || range.endOffset > end.text.length)) return [];
+    if (start.sid === end.sid && typeof start.text === 'string' && range.startOffset >= range.endOffset) return [];
+    const ancestors = (node: INode): string[] => {
+      const result: string[] = [];
+      for (let current: INode | undefined = node; current?.sid && !result.includes(current.sid); current = current.parentId ? this.dataStore.getNode(current.parentId) : undefined) result.push(current.sid);
+      return result;
+    };
+    const endAncestors = new Set(ancestors(end));
+    let scopeId = ancestors(start).find(sid => endAncestors.has(sid));
+    if (!scopeId) return [];
+    let scope = this.dataStore.getNode(scopeId)!;
+    const schema = this.dataStore.getActiveSchema();
+    // Keep inline wrappers (including links) around a fragment selected inside them.
+    while (scope.parentId && (typeof scope.text === 'string' || schema?.getNodeType(scope.stype)?.group === 'inline')) {
+      scope = this.dataStore.getNode(scope.parentId)!;
+      scopeId = scope.sid!;
+    }
+    let active = false, finished = false;
+    const visit = (sid: string): INode | null => {
+      const node = this.dataStore.getNode(sid);
+      if (!node || finished) return null;
+      if (sid === start.sid) active = true;
+      const { sid: _sid, parentId: _parentId, metadata: _metadata, ...held } = node;
+      const copy: INode = JSON.parse(JSON.stringify(held));
       if (typeof node.text === 'string') {
-        const start = range.startOffset ?? 0;
-        const end = range.endOffset ?? node.text.length;
-        if (start >= end) return [];
-        const text = node.text.substring(start, end);
-        nodes.push({
-          stype: node.stype,
-          // Include only text-only fragment (content/children not included at current stage)
-          text,
-          marks: node.marks
-        } as INode);
-        return nodes;
+        if (!active) return null;
+        const from = sid === start.sid ? Math.max(0, range.startOffset) : 0;
+        const to = sid === end.sid ? Math.min(node.text.length, range.endOffset) : node.text.length;
+        if (sid === end.sid) finished = true;
+        return { ...copy, text: node.text.slice(from, to), marks: copy.marks?.flatMap(mark => {
+          const [a, b] = mark.range ?? [0, node.text!.length];
+          const low = Math.max(from, a), high = Math.min(to, b);
+          return low < high ? [{ ...mark, range: [low - from, high - from] as [number, number] }] : [];
+        }) };
       }
-
-      // Copy entire node as one node if node has no text
-      nodes.push({ ...node });
-      return nodes;
-    }
-
-    // multi-node range: at current stage, copy text nodes between start~end as-is
-    const allNodes = this.dataStore.getAllNodes();
-    const startIndex = allNodes.findIndex(n => n.sid === range.startNodeId);
-    const endIndex = allNodes.findIndex(n => n.sid === range.endNodeId);
-    if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
-      return [];
-    }
-
-    for (let i = startIndex; i <= endIndex; i++) {
-      const node = allNodes[i];
-      if (!node || typeof node.text !== 'string') continue;
-      nodes.push({ ...node });
-    }
-
-    return nodes;
+      const children = (node.content ?? []).flatMap(child => {
+        const childId = typeof child === 'string' ? child : child.sid;
+        const value = childId ? visit(childId) : null;
+        return value ? [value] : [];
+      });
+      if (sid === end.sid) finished = true;
+      if (children.length) return { ...copy, content: children };
+      // An inline atom between the endpoints is selected content too.
+      return active && (!node.content?.length || sid === start.sid) ? { ...copy } : null;
+    };
+    const fragment = visit(scopeId);
+    if (!fragment || !finished) return [];
+    if (start.sid === end.sid && typeof start.text !== 'string') return [fragment];
+    return (fragment.content as INode[] | undefined) ?? [fragment];
   }
 
   /**

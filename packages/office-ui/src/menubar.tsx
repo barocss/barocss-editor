@@ -103,7 +103,7 @@ export function MenuBar({
       ref={host}
       role="menubar"
       aria-label={label}
-      className={cn('flex items-center gap-0.5', className)}
+      className={cn('office-command-surface office-menubar', className)}
     >
       {menus.map((one) => (
         <button
@@ -118,6 +118,7 @@ export function MenuBar({
             event.preventDefault();
             setOpen(open === one.id ? undefined : one.id);
           }}
+          onClick={event => { if (event.detail === 0) setOpen(open === one.id ? undefined : one.id); }}
           /*
            * Once one is open, pointing at another opens it — a menubar behaviour that a reader
            * notices only by its absence, when they have to click twice to look in the next menu.

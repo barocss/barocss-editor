@@ -23,7 +23,7 @@ const groups = async (page: Page) =>
 
 test.describe('a toolbar that answers to the selection', () => {
   test('does not offer the shape and table groups to a caret in prose', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
 
@@ -33,11 +33,11 @@ test.describe('a toolbar that answers to the selection', () => {
 
     // And everything that *is* about prose is still there — the rule must not take the toolbar with
     // it, which is what the simpler version of it did.
-    expect(shown).toEqual(expect.arrayContaining(['character', 'list', 'paragraph', 'drawing']));
+    expect(shown).toEqual(expect.arrayContaining(['character', 'list', 'paragraph']));
   });
 
   test('offers the table group to a caret inside a table, and takes it back', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const cell = page.locator('.w-document table td, .w-document table th').first();
@@ -56,11 +56,12 @@ test.describe('a toolbar that answers to the selection', () => {
   });
 
   test('offers the arrange group once there is a shape to arrange', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
     expect(await groups(page)).not.toContain('arrange');
 
+    await page.getByRole('tablist', { name: '도구 모음 선택' }).getByRole('tab', { name: '삽입', exact: true }).click();
     await page.locator('[data-control="insert-rectangle"]').click();
     await settled(page);
 
@@ -82,7 +83,7 @@ test.describe('a toolbar that answers to the selection', () => {
   });
 
   test('is shorter for it, which is the whole point', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
 

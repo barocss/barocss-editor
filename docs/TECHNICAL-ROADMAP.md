@@ -123,11 +123,11 @@ MS Office 를 *따라잡는* 것과 *넘어서는* 것은 다른 일이다. 따�
 쪽으로 끝나든 리스너를 다 걷는다. 검사가 리스너 수를 직접 센다 — 그 결함은 화면에 안 보이므로 세는
 것 말고 잡을 방법이 없다.
 
-- [x] `office-ui/stack.tsx`, `apps/slide/layer-panel.tsx`, `apps/slide/paint-panel.tsx`
-- [x] `apps/word/ruler.tsx` — **눈에 보이는 결함이 하나 있었다.** React 의 `onPointerMove` 는 버튼을
+- [x] `office-ui/stack.tsx`, `apps/slide/layer-panel.tsx`, `apps/slide/paint-panel.tsx` — 근거: `packages/shared/src/gesture.test.ts:98`; 재보니 뒤의 둘은 셸 이주로 `packages/office-slides/src/layer-panel.tsx`·`paint-panel.tsx` 로 갔다
+- [x] `apps/word/ruler.tsx` — 근거: `packages/office-word/src/ruler-view.tsx:298`(그 파일이 지금 사는 곳) · `packages/shared/src/gesture.test.ts:113`. **눈에 보이는 결함이 하나 있었다.** React 의 `onPointerMove` 는 버튼을
       누르지 않아도 오므로, 취소된 드래그 뒤에 `dragging.current` 가 남아 그냥 마우스를 올리기만 해도
       마커가 따라다녔다. 놓지 않은 드래그가 화면에 남는 것이다.
-- [x] **남은 것을 다 옮겼다 — 그리고 그 수는 열여섯이 아니라 열셋이었다.**
+- [x] **남은 것을 다 옮겼다 — 그리고 그 수는 열여섯이 아니라 열셋이었다.** — 근거: `packages/shared/src/gesture.test.ts:98`; 재보니 저장소 전체에 `window.addEventListener('pointermove')` 는 **하나**다(`packages/office-slides/src/stage.tsx:766`, 자 눈금의 상시 리스너).
       `slide/timeline`(4) · `slide/overlay`(3) · `word/drawing-overlay`(3) · `site/overlay`(3).
       저장소에 남은 `window` `pointermove` 는 **하나**이고 그건 자 눈금을 따라가는 **상시 리스너**다.
 
@@ -153,16 +153,16 @@ MS Office 를 *따라잡는* 것과 *넘어서는* 것은 다른 일이다. 따�
 알아봤다.** `cell` 은 이 명령 하나를 위해 모델에 들어간 선택 종류인데 `type !== 'range'` 로 버려졌다.
 Word 에서 되던 것은 `office-word/table-commands.ts` 가 양 끝 셀 id 를 따로 넘겨 준 덕이다.
 
-- [x] `office-text` 로 옮김, `extensions` 가 `cell` 을 알아봄, 노트가 자기 뷰에서 설치(인스턴스마다
-      하나), 노트의 표 도구가 여섯에서 여덟
-- [ ] 사이트가 캔버스에서 설치할지 — **답은 예이고, 방법은 슬라이드의 것이다.** 사이트의 표 검사
+- [x] `office-text` 로 옮김, `extensions` 가 `cell` 을 알아봄, 노트가 자기 뷰에서 설치(인스턴스마다 하나), 노트의 표 도구가 여섯에서 여덟 — 근거: `packages/office-note/test/spec-numbers.test.ts:87`
+      재보니 제스처는 `packages/office-text/src/table-selection-view.ts:76` 이고 노트는 `packages/office-note/src/note-view.tsx:713` 에서 설치한다.
+- [ ] 사이트가 캔버스에서 설치할지 — 재보니 아직 아니다: `installCellSelection` 을 부르는 곳은 `apps/word`·`apps/slide`·`packages/office-note` 셋이고 `office-site`·`apps/site` 는 **0**이다. **답은 예이고, 방법은 슬라이드의 것이다.** 사이트의 표 검사
       (`site.spec.ts:4919`)가 `pressTwice(cell)` 로 블록에 들어가 캐럿을 놓는다. 즉 오버레이가 **들어간
       텍스트 프레임 안에서는 물러선다** — 슬라이드가 *"들어간 상자 안의 드래그가 셀이 포인터의 주제가
       되는 유일한 상태"* 라고 적어 둔 것과 같은 구조다. 그러면 설치 자리도 같다: 앱의 마운트.
 
 #### 없는 것 셋
 
-- [ ] **포커스 소유 — 그리고 처음 잰 숫자가 틀렸다.** *"`document` 에 keydown 을 거는 자리가 스물둘,
+- [ ] **포커스 소유 — 그리고 처음 잰 숫자가 틀렸다.** 재보니 그 검사는 아직 없다: `packages/conformance/test/` 22개 중 리스너를 세는 것이 **0**이다. *"`document` 에 keydown 을 거는 자리가 스물둘,
       인스턴스가 둘이면 둘 다 듣는다"* 고 적었다가 다시 셌다. 스물둘 중 열다섯은 `apps/*` 이고 그
       제품들은 창마다 편집기가 하나다. 패키지 안, 즉 여러 인스턴스가 가능한 코드에는 **여섯**이고
       **여섯 다 인스턴스별 상태로 가드한다** — `office-ui` 의 넷은 `if (!open) return`, 노트는
@@ -173,7 +173,7 @@ Word 에서 되던 것은 `office-word/table-commands.ts` 가 양 끝 셀 id 를
       새로 쓰는 전역 리스너가 가드 없이 들어오는 것이 실패 방식이고, 그것을 잡는 검사가 없다.
       **다음:** 규칙을 적고, `office-ui`/`office-note`/`office-editor-ui` 의 전역 리스너가 다
       가드를 갖는지 세는 검사를 하나.
-- [ ] **좌표 변환 — 같은 이름으로 서로 다른 질문 둘에 답한다.** 재보니 중복이 문제가 아니었다.
+- [ ] **좌표 변환 — 같은 이름으로 서로 다른 질문 둘에 답한다.** 재보니 중복이 문제가 아니었다. (아래 표의 자리가 셸 이주로 바뀌었다: `packages/office-slides/src/overlay.tsx:688` · `packages/office-word/src/drawing-overlay.tsx:293`(거리) · `:389`(점) — 80줄이 아니라 96줄 떨어져 있다.)
 
       | 어디 | 무엇을 묻나 | 어떻게 |
       |---|---|---|
@@ -188,7 +188,7 @@ Word 에서 되던 것은 `office-word/table-commands.ts` 가 양 끝 셀 id 를
       제스처가 `moved.x/y` 와 `moved.dx/dy` 를 주므로 짝은 이렇게 된다: `pointIn(view, moved)` 와
       `deltaIn(view, moved)`. 그래서 자리는 제스처 옆이다. (`editor-view-dom/utils/
       edit-position-converter.ts` 는 캐럿 위치라 다른 주제이고 여기 들어오지 않는다.)
-- [ ] **알림.** 편집 중 aria-live 가 없다. 표에 행이 하나 늘어난 것을 화면 낭독기가 모른다.
+- [ ] **알림.** 편집 중 aria-live 가 없다 — 재보니 저장소의 `aria-live` 는 `packages/office-slides/src/present.tsx`·`presenter.tsx` 둘뿐이고 둘 다 발표 모드다. 표에 행이 하나 늘어난 것을 화면 낭독기가 모른다.
 
 **지운 것:** `editor-core/plugins.ts` 105줄. `PluginManager`·`AutoSavePlugin`·`KeyboardShortcutsPlugin`
 이 **자기 파일 밖에서 한 번도 안 쓰인다.** 진짜 확장점은 `extensions/` 의 56개인데, 이름이 저래서
@@ -198,27 +198,27 @@ Word 에서 되던 것은 `office-word/table-commands.ts` 가 양 끝 셀 id 를
 
 ### 2.1 엔진 — 거의 다 됐다
 
-- [x] **의존 그래프가 DAG.** 순환 셋 중 둘이 유령이었다. 검사가 지킨다.
-- [ ] **`editor-core` 를 둘로.** *어떤 제품이든*(명령·역사·트랜잭션)과 *글자 제품*(캐럿)을 가른다.
+- [x] **의존 그래프가 DAG.** 순환 셋 중 둘이 유령이었다. 검사가 지킨다. — 근거: `packages/conformance/test/dependency-graph.test.ts:44`(순환) · `:62`(유령)
+- [ ] **`editor-core` 를 둘로.** 재보니 아직 하나다: `packages/editor-core/src` 에 `selection-manager.ts`·`selection-summary.ts` 가 그대로 있고, 아래 기준을 만족하는 패키지는 **0**이다. *어떤 제품이든*(명령·역사·트랜잭션)과 *글자 제품*(캐럿)을 가른다.
       `ROADMAP.md` Phase 2. **끝났음의 기준:** 캐럿에 대해 아무것도 import 하지 않고 명령과 역사를 쓰는
       패키지가 하나 있다.
-- [x] **`Shift+→` 가 블록을 넘으면 범위가 뒤집힌다 — 끝.** 원인이 둘이었고 **적어 뒀던 원인은 그
+- [x] **`Shift+→` 가 블록을 넘으면 범위가 뒤집힌다 — 끝.** — 근거: `packages/editor-core/test/from-dom-selection.test.ts:19`(문서 순서 콜백) · `packages/shared/src/text-position/collapse-boundaries.test.ts:25`(접는 방향). 원인이 둘이었고 **적어 뒀던 원인은 그
       둘이 아니었다.** `isTextContainer` 가 아무도 안 쓰는 속성을 물었던 것도 진짜 결함이지만 이것의
       원인은 아니었고, 그것을 고친 뒤에도 다섯 번째 누름에서 그대로 뒤집혔다. 진짜 원인 둘 다
       *어느 쪽인가* 를 잘못된 것에게 물은 것이다 — 요소 경계의 오프셋을 `isEnd` 가 정한 것, 그리고
       문서 순서를 **sid 문자열 비교**로 정한 것. `docs/specs/selection.md` 에 그 셋을 다 적었다.
-- [x] **`ModelSelection` 이 다섯 번 선언되어 있었다 — 끝.** 그 중 죽은 `ModelNodeSelection =
+- [x] **`ModelSelection` 이 다섯 번 선언되어 있었다 — 끝.** — 근거: `packages/conformance/test/one-selection-type.test.ts:83`. 그 중 죽은 `ModelNodeSelection =
       { nodeId, selectAll }` 을 **두 뷰 층이 향해 읽고 있었다**(생산자는 `nodeIds` 복수를 세운다).
       그래서 노드 선택의 DOM 반영은 한 번도 아무 일을 한 적이 없고, `cell`·`table` 은 경고를 찍었다 —
       셀 드래그 한 번에 한 번. 지금 규칙: **`range` 만 DOM 이 말할 수 있고, 집합은 지운다.**
       `conformance/test/one-selection-type.test.ts` 가 하나임을 지킨다.
-- [ ] **뷰 층이 두 벌이다** — 두 selection-handler(751줄 / 485줄)에 같은 이름의 private 메서드가
-      **열한 개.** 증거: 이번 회차의 선택 결함 둘이 React 판에 그대로 남아 있었다. 두 번 고쳐야 하는
+- [ ] **뷰 층이 두 벌이다** — **재보니 751/485줄에 열한 개가 아니라 505/424줄에 열넷이다**(`editor-view-dom/src/event-handlers/selection-handler.ts` · `editor-view-react/src/selection-handler.ts`). `ROADMAP.md` 는 이것을 한동안 `[x]` 로 그어 두었고 그것이 틀렸다.
+      증거: 이번 회차의 선택 결함 둘이 React 판에 그대로 남아 있었다. 두 번 고쳐야 하는
       것이 결함이고, 뽑아낼 자리는 둘 다의 **아래**여야 한다.
-- [x] ~~**편집기의 문도 답이 둘이다**~~ — **끝.** `SelectionState` 는 아무것도 만들지 않는
+- [x] ~~**편집기의 문도 답이 둘이다**~~ — **끝.** — 근거: `packages/conformance/test/one-selection-type.test.ts:83`. `SelectionState` 는 아무것도 만들지 않는
       타입이었고(호출자 0 · 확장 0 · 이벤트 0), 문을 좁히는 대신 지웠다. 지나는 것은
       `MaybeSelection` 하나다. `BACKLOG.md` 에 표가 있다.
-- [ ] **선택의 나머지.** 두 끝이 형제가 아닌 범위 — 인용문 안에서 바깥으로. **결정은 끝났다**
+- [ ] **선택의 나머지.** 재보니 그대로다: `fromDOMSelection` 호출자 넷 중 `compareNodeOrder` 를 주는 곳이 **0**이고 기본이 `() => -1` 이다(`packages/shared/src/selection.ts:207`). 두 끝이 형제가 아닌 범위 — 인용문 안에서 바깥으로. **결정은 끝났다**
       (`specs/selection.md`): 시작을 담은 블록이 살아남는다 — *삭제 뒤 캐럿이 시작 자리에 있다* 에서
       도출된다. 남은 일은 **문서 순서 훑기** 하나다.
 
@@ -227,25 +227,25 @@ Word 에서 되던 것은 `office-word/table-commands.ts` 가 양 끝 셀 id 를
 `office-editor-ui` 가 그 층이고 제품을 하나도 모른다. **노트만 통과했다** — 자기 뷰와 툴바를 패키지에
 갖고 있어서 `apps/note` 가 한 줄로 마운트한다. 나머지 셋은 크롬 33,595줄이 앱에 있다.
 
-- [ ] `page-frame`(307) → `rail`(1,483) → `inspector`(2,343) → `overlay`(1,997)
+- [x] ~~`page-frame`(307) → `rail`(1,483) → `inspector`(2,343) → `overlay`(1,997)~~ **넷 다 옮겼다** — 근거: `packages/conformance/test/every-app-scans-the-chrome-it-draws.test.ts:59`; 재보니 넷이 `packages/office-site/src/` 에 있고 크기는 314 · 1,467 · 2,310 · 2,028 이다(위의 *"크롬 33,595줄이 앱에 있다"* 는 그래서 낡았다).
 - **기준은 중복이 아니다.** 이름으로도 내용으로도 훑었고 리본 셋·`/` 메뉴·팝오버 자리잡기 말고는
       앱을 가로지르는 중복이 없다. 기준은 하나다 — ***남의 앱에 이 편집기를 넣으려면 무엇이 같이
       가야 하나.***
-- [x] **렌더러 레지스트리.** 크롬을 옮겨도 렌더러가 전역이면 두 제품이 한 화면에 못 선다(Word 가
+- [x] **렌더러 레지스트리.** — 근거: `packages/dsl/tests/into-registry.test.ts:55` · `packages/office-note/test/note.test.ts:333`. 크롬을 옮겨도 렌더러가 전역이면 두 제품이 한 화면에 못 선다(Word 가
       사이트의 125개 중 117개를 덮는다). `intoRegistry` 로 풀렸다.
 
 ### 2.3 제품 — 각자 무엇이 남았나
 
 **Word — 문서로서 Office 를 따라잡는 쪽.** 이미 노드 77개·명령 94개.
-- [ ] 셀 병합·분할이 모델에 있고 세 제품이 명령으로 닿는다. 본문에는 셀 두 개를 고르는 제스처가 없다.
-- [ ] `docs/BACKLOG.md` 의 *"스키마에 있고 아무도 안 읽는"* 훑기가 계속 답을 낸다 — 표 스타일이 다음이다.
+- [x] ~~셀 병합·분할이 모델에 있고 세 제품이 명령으로 닿는다. 본문에는 셀 두 개를 고르는 제스처가 없다.~~ **제스처는 있었다** — 근거: `packages/office-text/src/table-selection-view.ts:76`(379줄) · `packages/office-note/test/spec-numbers.test.ts:87`. 재보니 word·slide·note 셋이 설치하고 site 만 남았다(§2.0 의 열린 항목).
+- [ ] `docs/BACKLOG.md` 의 *"스키마에 있고 아무도 안 읽는"* 훑기가 계속 답을 낸다 — **재보니 "표 스타일이 다음" 은 이미 지났다:** `packages/office-text/src/table-style.ts` 가 읽고 `packages/office-text/test/table-style.test.ts:38` 이 붙잡고 `packages/office-word/src/ribbon.tsx:246` 이 낸다. 다음이 무엇인지는 다시 훑어야 한다.
 
 **Slides — PowerPoint·Keynote·Canva·CapCut 을 겨눈다.** `ROADMAP.md` 에 그 절이 이미 있다.
-- [ ] 타임라인이 2,446줄로 앱에 있다. 크롬 이주의 마지막 조각.
+- [x] ~~타임라인이 2,446줄로 앱에 있다. 크롬 이주의 마지막 조각.~~ **옮겼다** — 근거: `packages/office-slides/src/ui.ts:32`(내보내는 자리) · `packages/conformance/test/every-door-a-package-opens-is-built.test.ts`; 재보니 `packages/office-slides/src/timeline-pane.tsx` 2,522줄이고 `apps/slide/src/app.tsx:2161` 이 쓴다.
 
 **Site — 여기가 Office 에 없는 것이다.** 발행까지 하는 문서.
-- [ ] 서비스 층이 거의 없다: 문서 목록·저장소·계정·권한. `관리` 화면의 발행·파일·설정이 그 씨앗이다.
-- [ ] 영문 slug·언어·설명이 들어갔다. 도메인 연결과 발행 대상이 남았다.
+- [ ] 서비스 층이 거의 없다: 문서 목록·저장소·계정·권한 — 재보니 사이트에는 넷 다 **0**이다(`packages/office-site/src` 에 `indexedDB`·`localStorage` 를 쓰는 파일이 없다). `관리` 화면의 발행·파일·설정이 그 씨앗이다.
+- [ ] 영문 slug·언어·설명이 들어갔다 — 재보니 셋 다 스키마에 있다(`packages/office-site/src/site-schema.ts:822` 외). 도메인 연결과 발행 대상이 남았다.
 
 **Note — 독립 CMS 로 서는 쪽.** 3개 노드로 서는 것이 이 구조의 증거.
 
@@ -262,16 +262,16 @@ Word 에서 되던 것은 `office-word/table-commands.ts` 가 양 끝 셀 id 를
 | 스펙 문서 | **없다** (`word.md`·`site-builder.md` 는 있다) |
 | 키맵 | ~~없다~~ → **둘** (`note-keymap.ts`) |
 
-- [x] ~~**표에서 Tab 이 아무 일도 안 한다.**~~ 끝, 그리고 결함이 **둘**이었다.
+- [x] ~~**표에서 Tab 이 아무 일도 안 한다.**~~ 끝, 그리고 결함이 **둘**이었다. — 근거: `packages/office-note/test/spec-numbers.test.ts:95`(키맵이 `Tab`·`Shift+Tab` 둘이고 그 둘임을 이름으로 단정한다) · `packages/extensions/src/table.ts:39`
       (1) `nextCell` 은 공용 `TableExtension` 이 등록하는데 **키를 묶는 곳이 `word-keymap.ts` 뿐**이라
       표를 가진 넷 중 Word 만 통했다. (2) `addChild` 의 `selectionAfter` 가 `content[0]` 을 한 칸만
       보고 `firstTextNodeId` 라 불러서, **표를 넣으면 캐럿이 `bTableHeader`(구조 노드)에 앉았다.**
       둘이 겹쳐서 키만 묶어도 안 됐을 것이다 — `nextCell` 은 캐럿에서 셀을 찾는다.
       **그리고 칸을 클릭해도 안 고쳐진다**: DOM 선택이 이미 그 자리라 `selectionchange` 가 뜨지
       않는다(0회를 셌다). 노트의 툴바가 눌린 칸을 `cellId` 로 명시적으로 넘겨서 그것을 가려 왔다.
-- [ ] **잡은 블록 끌어 옮기기.** 위/아래 단추는 있고 드래그는 없다. `shared/gesture.ts` 가 생겼으니
-      이제 싸다.
-- [x] ~~**`docs/specs/note.md` 가 없다.**~~ **끝.** 그리고 세 번째 종류의 문서가 됐다: `site-builder.md`
+- [x] ~~**잡은 블록 끌어 옮기기.** 위/아래 단추는 있고 드래그는 없다.~~ **끝** — 근거: `packages/office-canvas/test/canvas-layout.test.ts:273`·`:279`(`reorderIndexAt` — 끄는 것을 빼고 센다)
+      재보니 `packages/office-note/src/note-view.tsx:119` 의 `grab` 이 `dragGesture` + `reorderIndexAt` 으로 자리를 정하고 `abort` 로 물러선다. 예상대로 `shared/gesture.ts` 덕에 쌌다.
+- [x] ~~**`docs/specs/note.md` 가 없다.**~~ **끝.** — 근거: `packages/office-note/test/spec-numbers.test.ts:64`(여섯 검사가 다 통과한다). 그리고 세 번째 종류의 문서가 됐다: `site-builder.md`
       는 짓기 **전에**(경계는 나중에 적으면 합리화가 된다), `word.md` 는 지은 **뒤에**(첫 제품이라 층이
       거기서 추출됐다), `note.md` 는 **작은 제품이 무엇을 치렀고 무엇을 찾았나**를 적는다 — 노트는
       *하나의 엔진, 여러 제품* 이라는 주장을 시험하려고 지은 것이기 때문이다.
@@ -289,9 +289,9 @@ Word 에서 되던 것은 `office-word/table-commands.ts` 가 양 끝 셀 id 를
 
 지금 있는 것: `office-slides` 의 `library.ts` 하나. 문서 목록도 계정도 권한도 없다.
 
-- [ ] **여러 문서.** 열기·닫기·목록. 지금은 앱마다 문서 하나를 이름으로 짓는다.
-- [ ] **저장소.** 어디에 살고 누구 것인가.
-- [ ] **발행 대상.** `publishTo` 가 이름 하나로 있고 보내는 쪽이 없다.
+- [ ] **여러 문서.** 열기·닫기·목록 — **재보니 *"앱마다 문서 하나"* 는 이제 틀렸다:** 슬라이드는 `packages/office-slides/src/deck-library.ts`(90줄)와 `library-dialog.tsx` 로 목록·열기·버리기를 갖는다. word·site·note 에는 없고, 넷이 공유하는 층도 없다.
+- [ ] **저장소.** 어디에 살고 누구 것인가 — 재보니 하나 생겼다: `packages/office-slides/src/deck-storage.ts`(124줄, IndexedDB). 슬라이드만이고 아래층이 아니다.
+- [ ] **발행 대상.** `publishTo` 가 이름 하나로 있고 보내는 쪽이 없다 — 재보니 그대로다: `packages/office-site/src/site-schema.ts:809` 에 문자열로 있고 `publish-commands.ts:140` 이 *기록만* 한다(전송 코드 0).
 - [ ] **협업.** `collaboration`(+`-yjs`, `-liveblocks`) 이 있고 **미뤄진 결정**이다 —
       `BACKLOG.md` 의 *"협업은 나중"* 항목에 그 순서가 적혀 있다.
 

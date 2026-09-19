@@ -19,7 +19,7 @@ import { openDeck, attr, visibleBoxes } from './helpers';
 const rows = (page: Page) => page.locator('.sl-layers-list li');
 
 const openPanel = async (page: Page) => {
-  await page.locator('.sl-layers-closed').click();
+  await page.getByRole('tab', { name: '레이어', exact: true }).click();
   await expect(page.locator('.sl-layers')).toHaveCount(1);
 };
 
@@ -175,4 +175,42 @@ test.describe('the layer list', () => {
     await page.locator('[data-present]').click();
     await expect(page.locator('.sl-layers')).toBeHidden();
   });
+});
+
+test('sidebar tabs preserve the viewport, selected object and slide list scroll', async ({ page }) => {
+  await openDeck(page);
+  const filmstrip = page.locator('.sl-filmstrip');
+  await filmstrip.evaluate(node => { node.scrollTop = 150; });
+  const scroll = await filmstrip.evaluate(node => node.scrollTop);
+  const before = await page.locator('.sl-stage').boundingBox();
+  await page.getByRole('tab', { name: '레이어', exact: true }).click();
+  await expect(filmstrip).toBeHidden();
+  expect(await page.locator('.sl-stage').boundingBox()).toEqual(before);
+  const picked = await rows(page).last().getAttribute('data-layer');
+  await rows(page).last().locator('.sl-layer-pick').click();
+  await page.getByRole('tab', { name: '슬라이드', exact: true }).click();
+  await expect(filmstrip).toBeVisible();
+  expect(await filmstrip.evaluate(node => node.scrollTop)).toBe(scroll);
+  await page.getByRole('tab', { name: '레이어', exact: true }).click();
+  await expect(page.locator(`[data-layer="${picked}"]`)).toHaveAttribute('data-layer-selected', 'true');
+  expect(await page.locator('.sl-stage').boundingBox()).toEqual(before);
+  await expect(page.locator('.sl-layers-closed')).toHaveCount(0);
+});
+
+test('the layers tab can navigate slides and supports keyboard tab switching', async ({ page }) => {
+  await openDeck(page);
+  const slideTab = page.getByRole('tab', { name: '슬라이드', exact: true });
+  await slideTab.focus();
+  await slideTab.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: '레이어', exact: true })).toHaveAttribute('aria-selected', 'true');
+  const select = page.getByLabel('레이어를 볼 슬라이드');
+  const next = await select.locator('option').nth(1).getAttribute('value');
+  await select.selectOption(next!);
+  await expect(page.locator('.sl-stage')).toHaveAttribute('data-focus', next!);
+  const listed = await order(page);
+  expect(listed.length).toBeGreaterThan(0);
+  await page.getByRole('tab', { name: '레이어', exact: true }).focus();
+  await page.getByRole('tab', { name: '레이어', exact: true }).press('Home');
+  await expect(slideTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.sl-filmstrip button[data-current="true"]')).toHaveAttribute('data-slide', next!);
 });

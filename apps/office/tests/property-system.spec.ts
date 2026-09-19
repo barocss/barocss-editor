@@ -1,0 +1,82 @@
+import { test, expect } from '@playwright/test';
+import { mkdir } from 'node:fs/promises';
+const output = `${process.cwd()}/../../.dev/artifacts/design-system`;
+
+test('mixed controls apply once, and a folded group resets only its declared properties', async ({ page }) => {
+  await page.goto('/design-system/index.html#properties');
+  const sample = page.locator('#properties');
+  const visible = sample.getByRole('checkbox', { name: '예시 표시', exact: true });
+  await expect(visible).toHaveAttribute('aria-checked', 'mixed');
+  expect(await visible.evaluate(el => (el as HTMLInputElement).indeterminate)).toBe(true);
+  const width = sample.getByRole('spinbutton', { name: '예시 너비', exact: true });
+  await expect(width).toHaveValue('');
+  await width.focus(); await page.keyboard.press('Tab');
+  await expect(sample.getByRole('status')).toHaveText('적용 횟수: 0');
+  await visible.press('Space');
+  await expect(visible).toBeChecked();
+  await expect(visible).toHaveAttribute('aria-checked', 'true');
+  await expect(sample.getByRole('status')).toHaveText('적용 횟수: 1');
+  const group = sample.getByRole('button', { name: '배치와 표시를 함께 조정하는 속성', exact: true });
+  await group.press('Enter'); await expect(group).toHaveAttribute('aria-expanded', 'false');
+  await expect(width).toBeHidden();
+  await sample.getByRole('button', { name: '예시 회전·불투명도 초기화', exact: true }).click();
+  await expect(group).toHaveAttribute('aria-expanded', 'false');
+  await expect(sample.getByRole('status')).toHaveText('적용 횟수: 2');
+  await expect(sample.locator('.ds-property-values')).toContainText('너비 240px · 회전 0° · 불투명도 100%');
+  await expect(sample.locator('.ds-property-values')).toContainText('너비 320px · 회전 0° · 불투명도 100%');
+  await expect(sample.getByRole('checkbox', { name: '예시 잠금', exact: true })).toHaveAttribute('aria-checked', 'mixed');
+  await expect(sample.getByRole('button', { name: '예시 회전·불투명도 초기화', exact: true })).toBeDisabled();
+  await group.press('Space'); await expect(width).toBeVisible();
+  await expect(sample.locator('label label')).toHaveCount(0);
+  const ids = await page.locator('[data-property-group-body]').evaluateAll(nodes => nodes.map(node => node.id));
+  expect(new Set(ids).size).toBe(ids.length);
+  await page.setViewportSize({ width: 390, height: 800 });
+  const panel = sample.locator('[data-property-panel]');
+  expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await mkdir(output, { recursive: true });
+  await panel.screenshot({ path: `${output}/properties-light.png` });
+  await page.getByRole('combobox', { name: '시스템 테마' }).click();
+  await page.getByRole('option', { name: '어두운 테마', exact: true }).click();
+  await panel.screenshot({ path: `${output}/properties-dark.png` });
+});
+
+test('Slides shows mixed opacity and lock, and resets rotation/opacity in one undo', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'S Slides 새 자료 만들기', exact: true }).click();
+  await page.getByRole('textbox', { name: '새 자료 이름' }).fill('속성 패널 검증');
+  await page.getByRole('button', { name: '만들기', exact: true }).click();
+  await page.getByRole('tab', { name: '레이어', exact: true }).click();
+  const rows = page.locator('.sl-layers-list [data-layer]');
+  await expect(rows).toHaveCount(2);
+  const ids = await rows.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-layer')!));
+  await rows.first().locator('.office-layer-pick').click();
+  const panel = page.locator('[data-property-panel]');
+  const opacity = panel.getByRole('spinbutton', { name: '불투명도', exact: true });
+  await opacity.fill('60'); await opacity.press('Enter');
+  const rotation = panel.getByRole('spinbutton', { name: '회전', exact: true });
+  await rotation.fill('15'); await rotation.press('Enter');
+  await panel.getByRole('checkbox', { name: '잠금', exact: true }).check();
+  // Establish a multi-selection including a locked object through the public selection API.
+  await page.evaluate(ids => (window as any).editor.executeCommand('setNode', { nodeIds: ids }), ids);
+  await expect(opacity).toHaveValue('');
+  await expect(rotation).toHaveValue('');
+  const lock = panel.getByRole('checkbox', { name: '잠금', exact: true });
+  await expect(lock).toHaveAttribute('aria-checked', 'mixed');
+  const reset = panel.getByRole('button', { name: '회전·불투명도 초기화', exact: true });
+  await expect(reset).toBeDisabled();
+  await lock.press('Space'); await expect(lock).toBeChecked();
+  await lock.press('Space'); await expect(lock).not.toBeChecked();
+  const values = () => page.evaluate(ids => ids.map(id => ({ ...(window as any).editor.dataStore.getNode(id).attributes })), ids);
+  const before = await values();
+  await reset.click();
+  await expect(opacity).toHaveValue('100'); await expect(rotation).toHaveValue('0');
+  const after = await values();
+  for (let i = 0; i < after.length; i++) {
+    expect(after[i]).toEqual({ ...before[i], rotation: 0, opacity: 1 });
+  }
+  await page.getByRole('button', { name: '실행 취소', exact: true }).click();
+  await expect.poll(values).toEqual(before);
+  await expect(opacity).toHaveValue('');
+  await mkdir(output, { recursive: true });
+  await panel.screenshot({ path: `${output}/properties-slides.png` });
+});

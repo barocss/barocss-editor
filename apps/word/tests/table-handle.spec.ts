@@ -57,7 +57,7 @@ const selectionType = (page: Page) =>
 
 test.describe('the handle at a table’s corner', () => {
   test('appears over a table and not otherwise', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await expect(page.locator('.w-table-handle')).toBeHidden();
@@ -66,7 +66,7 @@ test.describe('the handle at a table’s corner', () => {
   });
 
   test('sits outside the corner, where it covers no text', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const table = await hoverTable(page);
@@ -78,7 +78,7 @@ test.describe('the handle at a table’s corner', () => {
   });
 
   test('selects the whole table, as one thing', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await selectTable(page);
@@ -91,7 +91,7 @@ test.describe('the handle at a table’s corner', () => {
   });
 
   test('is given up when the reader clicks into the text', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await selectTable(page);
@@ -105,7 +105,7 @@ test.describe('the handle at a table’s corner', () => {
 
 test.describe('deleting a table', () => {
   test('takes it away when the table itself is selected', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const before = await page.locator('.w-table').count();
@@ -124,7 +124,7 @@ test.describe('deleting a table', () => {
    * a character.
    */
   test('leaves the table alone when the caret is merely inside it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const cell = page.locator('.w-cell').filter({ hasText: /^A1$/ });

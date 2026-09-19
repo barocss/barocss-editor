@@ -158,7 +158,7 @@ describe('the editor is a type, not an escape hatch', () => {
    * nobody can pass has stopped being a check, which is the same fault as a tolerance explained in
    * a comment.
    */
-  const ALLOWED = 357;
+  const ALLOWED = 356;
 
   it('declares everything the casts are casting away', () => {
     const source = readFileSync(join(__dirname, '..', 'src', 'editor.ts'), 'utf8');

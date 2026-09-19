@@ -62,6 +62,16 @@ export interface AxisTick {
   value?: number;
 }
 
+/** Increase readable spacing without changing the axis unit or its origin. */
+export function scaledAxisStep(step: AxisStep, pixelsPerModelUnit: number, labelGap = 42): AxisStep {
+  const spacing = step.major * step.per * pixelsPerModelUnit;
+  if (!Number.isFinite(spacing) || spacing <= 0 || !Number.isFinite(labelGap) || labelGap <= spacing) return step;
+  const ratio = labelGap / spacing;
+  const decade = 10 ** Math.floor(Math.log10(ratio));
+  const factor = [1, 2, 5, 10].find(value => value * decade >= ratio)! * decade;
+  return { ...step, major: step.major * factor, minor: step.minor * factor };
+}
+
 /**
  * Every tick along a span, marked where a reader would count.
  *

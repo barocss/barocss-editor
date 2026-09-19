@@ -12,7 +12,7 @@ import { placeCaret, settled } from './helpers';
  */
 test.describe('a drawing in the page', () => {
   test('arrives with a shape on it, between the paragraphs', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
 
@@ -38,7 +38,7 @@ test.describe('a drawing in the page', () => {
   });
 
   test('puts the next shape on the same drawing', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
 
@@ -76,7 +76,7 @@ test.describe('a drawing in the page', () => {
   });
 
   test('is taken back whole by one undo', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
 

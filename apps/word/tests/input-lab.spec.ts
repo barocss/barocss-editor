@@ -51,7 +51,7 @@ test.describe('the input lab', () => {
   });
 
   test('stays out of the way unless it is asked for', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await expect(page.locator('.lab')).toHaveCount(0);
     await expect(page.locator('.lab-reopen')).toHaveCount(0);

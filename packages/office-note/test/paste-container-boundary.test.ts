@@ -1,0 +1,56 @@
+import { afterEach, expect, it } from 'vitest';
+import { validateTree } from '@barocss/schema';
+import { openNoteTree, type NoteSession } from '../src/session';
+const sessions: NoteSession[] = [];
+afterEach(() => sessions.splice(0).forEach(session => session.close()));
+const text = (value: string) => ({ stype: 'inline-text', text: value, marks: [{ stype: 'bold', range: [0, value.length] }] });
+const p = (value: string) => ({ stype: 'paragraph', content: [text(value)] });
+const words = (node: any): string => node.text ?? (node.content ?? []).map(words).join('');
+it.each(['list', 'callout', 'details'])('replaces paragraph→%s text across parents while preserving suffix, marks, required roles and exact undo', async kind => {
+  const inside = kind === 'list' ? { stype: 'list', content: [{ stype: 'listItem', content: [p('Inside')] }] } : kind === 'callout' ? { stype: 'callout', content: [{ stype: 'calloutTitle', content: [text('Title')] }, p('Inside')] } : { stype: 'bDetails', content: [{ stype: 'bSummary', content: [text('Title')] }, p('Inside')] };
+  const held = openNoteTree({ stype: 'note', content: [p('Before'), inside, p('After')] }); sessions.push(held);
+  const editor = held.editor, nodes = editor.dataStore.getAllNodes();
+  const start = nodes.find(node => node.text === 'Before')!, end = nodes.find(node => node.text === 'Inside')!;
+  editor.setRange({ type: 'range', startNodeId: start.sid!, startOffset: 2, endNodeId: end.sid!, endOffset: 2, collapsed: false });
+  const before = editor.exportDocument();
+  expect(await editor.executeCommand('paste', { clipboardHtml: '<p><em>NEW</em></p>', clipboardText: 'NEW' })).toBe(true);
+  const after = editor.exportDocument();
+  expect(words(after)).toBe('BeNEWsideAfter');
+  expect(validateTree(editor.dataStore.getActiveSchema()!, after)).toEqual([]);
+  expect(editor.dataStore.getNode(end.sid!)?.marks?.[0].range).toEqual([0, 4]);
+  expect(editor.dataStore.getAllNodes().find(node => node.text === 'Be')?.marks?.[0].range).toEqual([0, 2]);
+  expect(editor.dataStore.getAllNodes().find(node => node.text === 'NEW')?.marks?.some(mark => mark.stype === 'italic')).toBe(true);
+  expect(editor.selection?.collapsed).toBe(true);
+  expect(await editor.undo()).toBe(true); expect(editor.exportDocument()).toEqual(before);
+  expect(await editor.redo()).toBe(true); expect(editor.exportDocument()).toEqual(after);
+});
+it('replaces nested list→outer prose, removes selected atoms, and rejects structural paste without changes', async () => {
+  const held = openNoteTree({ stype: 'note', content: [{ stype: 'list', content: [{ stype: 'listItem', content: [{ stype: 'paragraph', content: [text('Start'), { stype: 'emoji', attributes: { unicode: '🙂' } }] }] }] }, p('Finish')] }); sessions.push(held);
+  const editor = held.editor, nodes = editor.dataStore.getAllNodes(), start = nodes.find(node => node.text === 'Start')!, end = nodes.find(node => node.text === 'Finish')!;
+  editor.setRange({ type: 'range', startNodeId: start.sid!, startOffset: 2, endNodeId: end.sid!, endOffset: 2, collapsed: false });
+  const before = editor.exportDocument();
+  expect(await editor.executeCommand('paste', { clipboardText: 'one\ntwo' })).toBe(false);
+  expect(editor.exportDocument()).toEqual(before);
+  expect(await editor.executeCommand('paste', { clipboardText: 'X' })).toBe(true);
+  expect(words(editor.exportDocument())).toBe('StXnish');
+  expect(JSON.stringify(editor.exportDocument())).not.toContain('emoji');
+  expect(await editor.undo()).toBe(true); expect(editor.exportDocument()).toEqual(before);
+});
+
+it('applies the explicit paste caret even before a DOM selection has reached the model', async () => {
+  const held = openNoteTree({ stype: 'note', content: [p('Before'), { stype: 'callout', content: [{ stype: 'calloutTitle', content: [text('Title')] }, p('Inside')] }] }); sessions.push(held);
+  const editor = held.editor, nodes = editor.dataStore.getAllNodes();
+  const start = nodes.find(node => node.text === 'Before')!, end = nodes.find(node => node.text === 'Inside')!;
+  editor.selectionManager.clearSelection();
+  expect(editor.selection).toBeNull();
+  const before = editor.exportDocument();
+  const selection = { type: 'range', startNodeId: start.sid!, startOffset: 2, endNodeId: end.sid!, endOffset: 2, collapsed: false };
+  expect(await editor.executeCommand('paste', { clipboardText: 'NEW', selection })).toBe(true);
+  expect(words(editor.exportDocument())).toBe('BeNEWside');
+  expect(editor.selection).toMatchObject({ type: 'range', collapsed: true, startOffset: 3, endOffset: 3 });
+  expect(editor.dataStore.getNode(editor.selection!.startNodeId)?.text).toBe('NEW');
+  const after = editor.exportDocument();
+  expect(await editor.undo()).toBe(true); expect(editor.exportDocument()).toEqual(before);
+  expect(await editor.redo()).toBe(true); expect(editor.exportDocument()).toEqual(after);
+  expect(editor.selection?.collapsed).toBe(true);
+});

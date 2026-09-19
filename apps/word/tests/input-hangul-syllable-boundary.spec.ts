@@ -44,6 +44,7 @@ const caret = (page: import('@playwright/test').Page) =>
   });
 
 const clickIntoParagraph = async (page: import('@playwright/test').Page) => {
+  await page.locator('.w-paragraph').nth(1).scrollIntoViewIfNeeded();
   const point = await page.evaluate(() => {
     const el = [...document.querySelectorAll('.w-paragraph')][1];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -105,7 +106,7 @@ const boundary = async (cdp: any, commit: string, next: string, settle: number) 
 
 test.describe('typing across a syllable boundary', () => {
   test('writes 안녕하세요 with no jamo left at any boundary', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     await page.evaluate(WATCH_RENDERS);
@@ -155,7 +156,7 @@ test.describe('typing across a syllable boundary', () => {
   });
 
   test('keeps the composition flag set across a boundary', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
 
@@ -210,7 +211,7 @@ test.describe('typing across a syllable boundary', () => {
  * none while the IME is writing, and one after it stops.
  */
 test('a composition draws once when it is finished, and not before', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await clickIntoParagraph(page);
 

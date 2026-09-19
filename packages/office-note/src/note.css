@@ -102,6 +102,9 @@
   padding: 8px 10px;
 }
 
+/* Editor layers have their own z-order; they must not overtake menus in the host. */
+.on-body [data-note-body] { isolation: isolate; }
+
 /*
  * ── What a body looks like while it is being written ─────────────
  *
@@ -114,28 +117,70 @@
  * that when it draws the value — but enough hierarchy that a writer can see the shape of what they
  * are writing, which is the whole job of an editor.
  */
-.on-body :is(h1, h2, h3, h4, h5, h6) {
-  margin: 0.6em 0 0.25em;
-  font-weight: 600;
-  line-height: 1.3;
+.on-doc {
+  font-size: var(--on-content-size, 16px);
+  line-height: var(--on-content-leading, 1.7);
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
-.on-body h1 { font-size: 1.5em; }
-.on-body h2 { font-size: 1.3em; }
-.on-body h3 { font-size: 1.13em; }
-.on-body :is(h1, h2, h3):first-child { margin-top: 0; }
+/* The renderer uses these defaults only when the author supplied no paragraph spacing. */
+.on-doc :is(.w-paragraph, .w-heading, .w-list-item, .w-quote) {
+  --prose-space-before: 0;
+  --prose-space-after: 0;
+}
+.on-doc .w-paragraph { --prose-space-after: 0.75em; }
+.on-doc .w-heading {
+  --prose-space-before: 1.4em;
+  --prose-space-after: 0.5em;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+.on-doc h1.w-heading { font-size: 1.875em; }
+.on-doc h2.w-heading { font-size: 1.5em; }
+.on-doc h3.w-heading { font-size: 1.25em; }
+.on-doc :is(h4, h5, h6).w-heading { font-size: 1.0625em; }
+.on-doc .w-heading + .w-heading { --prose-space-before: 0.75em; }
+.on-doc > .w-heading:first-child,
+.on-doc :is(.w-quote, .w-callout) > .w-heading:first-child { --prose-space-before: 0; }
 
-.on-body p { margin: 0 0 0.7em; line-height: 1.65; }
-.on-body p:last-child { margin-bottom: 0; }
+/* Lists are div-based writing blocks, rather than native ul/li elements. */
+.on-doc .w-list { margin: 0.5em 0 1em; padding-left: 0.2em; }
+.on-doc .w-list-item { --prose-space-after: 0.3em; line-height: inherit; }
+.on-doc .w-list > .w-list-item[data-marker=''] {
+  display: grid;
+  grid-template-columns: 1.2em minmax(0, 1fr);
+  column-gap: 0.5em;
+  align-items: baseline;
+}
+.on-doc .w-list > .w-list-item[data-marker='']::before { grid-column: 1; grid-row: 1; text-align: center; }
+.on-doc .w-list > .w-list-item[data-marker=''] > * { grid-column: 2; }
+.on-doc .w-list-item > .w-paragraph { --prose-space-after: 0.3em; }
+.on-doc .w-list-item .w-list { margin: 0.35em 0 0; padding-left: 0; }
+.on-doc .w-paragraph:last-child,
+.on-doc .w-list-item:last-child { --prose-space-after: 0; }
+.on-doc :is(.w-task-item, .w-task-content, .w-summary, .w-callout-title) { line-height: inherit; }
+.on-doc .w-details > :not(.w-summary) { margin-left: 1.2em; }
 
-.on-body :is(ul, ol) { margin: 0 0 0.7em 1.2em; }
-.on-body li { line-height: 1.6; }
-
-.on-body blockquote {
-  margin: 0 0 0.7em;
-  padding-left: 12px;
+.on-doc .w-quote {
+  --prose-space-before: 1em;
+  --prose-space-after: 1em;
+  padding-left: 16px;
   border-left: 2px solid var(--ou-line, #d4d4d4);
   color: var(--ou-muted, #6b6b6b);
+}
+
+.on-doc pre.w-code {
+  margin: 1em 0;
+  padding: 16px 18px;
+  border-radius: 6px;
+  background: var(--ou-ground, #f5f5f4);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  line-height: 1.65;
+  tab-size: 2;
+  overflow-x: auto;
 }
 
 .on-body img { max-width: 100%; height: auto; border-radius: var(--ou-radius, 4px); }
@@ -387,11 +432,11 @@
  * a reader cannot see is a Delete key that takes something they did not mean.
  *
  * An `outline` rather than a `border`: a border moves what is inside it, so a picture would jump a
- * pixel on being pressed. An outline is drawn outside the box and changes no layout at all.
+ * pixel on being pressed. A negative offset keeps the outline inside the clipped document.
  */
 .on-body [data-note-picked] {
   outline: 2px solid var(--ou-accent, #2563eb);
-  outline-offset: 1px;
+  outline-offset: -2px;
   border-radius: var(--ou-radius, 4px);
 }
 
@@ -445,3 +490,29 @@
   background: var(--ou-accent, #2563eb);
   pointer-events: none;
 }
+
+/* Contextual mode keeps the document quiet until the writer selects something. */
+.on-note[data-note-toolbar='contextual'] { overflow: visible; }
+.on-note[data-note-toolbar='contextual'] .on-body-hold { padding-left: 42px; }
+.on-note[data-note-toolbar='contextual'] .on-grip { margin-left: 21px; }
+.on-add { position: absolute; width: 23px; height: 23px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 4px; background: transparent; color: var(--ou-muted, #777); cursor: pointer; }
+.on-add:hover, .on-add[aria-expanded='true'] { background: var(--ou-ground, #f4f4f4); color: var(--ou-ink, #222); }
+
+/* Titles share the document's editable runs, selection, marks and history. */
+.on-note .w-callout-title { min-height: 1.5em; position: relative; }
+.on-note .w-callout-title[data-empty='true']::before {
+  content: '제목 추가';
+  position: absolute;
+  pointer-events: none;
+  font-size: 0.85em;
+  font-weight: 400;
+  color: var(--ou-muted, #737373);
+}
+.on-note[data-note-toolbar='contextual'] .on-body :is(table, .w-callout)[data-note-picked] {
+  outline: 1px solid var(--ou-line, #d4d4d4);
+  outline-offset: -1px;
+}
+.on-body .w-callout > p:last-child { margin-bottom: 0; }
+.on-body .w-table[data-table-selected] { outline-offset: -2px; }
+
+.on-doc > [data-note-batch-selected] { background-color: color-mix(in srgb, var(--ou-accent) 10%, transparent); outline: 1px solid color-mix(in srgb, var(--ou-accent) 25%, transparent); }

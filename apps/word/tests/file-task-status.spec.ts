@@ -1,0 +1,36 @@
+import { expect, test } from '@playwright/test';
+import { placeCaret } from './helpers';
+
+test('file feedback preserves the document on failure and cancellation, then reopens the exported file', async ({ page }, testInfo) => {
+  await page.goto('/'); await placeCaret(page, '.w-paragraph');
+  await page.keyboard.type('File task verification');
+  await page.getByRole('menuitem', { name: '파일', exact: true }).click();
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: '저장', exact: true }).click();
+  const download = await downloading;
+  const file = testInfo.outputPath('task-document.json'); await download.saveAs(file);
+  const feedback = page.getByRole('complementary', { name: '파일 작업 상태' });
+  await expect(feedback).toContainText('다운로드 요청됨');
+  await expect(feedback).toContainText('브라우저 다운로드 목록');
+  await expect(feedback.getByRole('progressbar')).toHaveCount(0);
+  const input = page.getByLabel('문서 파일', { exact: true });
+  await input.setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('invalid') });
+  await expect(feedback.getByRole('alert')).toContainText('파일 작업 실패');
+  await expect(page.locator('.w-document')).toContainText('File task verification');
+  const choosing = page.waitForEvent('filechooser');
+  await feedback.getByRole('button', { name: '다른 파일 선택' }).click();
+  page.once('dialog', dialog => dialog.dismiss());
+  await (await choosing).setFiles(file);
+  await expect(feedback).toContainText('파일 열기 취소됨');
+  await expect(page.locator('.w-document')).toContainText('File task verification');
+  page.once('dialog', dialog => dialog.accept());
+  await input.setInputFiles(file);
+  await expect(feedback).toContainText('파일 열기 완료');
+  await expect(page.locator('.w-document')).toContainText('File task verification');
+  await page.setViewportSize({ width: 390, height: 840 });
+  await expect(feedback).toBeInViewport();
+  expect(await feedback.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.screenshot({ path: '../../.dev/artifacts/design-system/task-status-word.png' });
+  await feedback.getByRole('button', { name: /알림 닫기/ }).click();
+  await expect(feedback).toHaveCount(0);
+});

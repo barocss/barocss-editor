@@ -24,12 +24,14 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@barocss/shared": "workspace:*",
     "@barocss/editor-core": "workspace:*",
     "@barocss/editor-view-dom": "workspace:*",
-    "@barocss/extensions": "workspace:*",
+    "@barocss/math-editor": "^0.8.0",
     "@barocss/office-controls": "workspace:*",
     "@barocss/office-icons": "workspace:*",
-    "@barocss/office-ui": "workspace:*"
+    "@barocss/office-ui": "workspace:*",
+    "katex": "0.16.28"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -37,11 +39,13 @@
   },
   "devDependencies": {
     "@barocss/datastore": "workspace:*",
+    "@barocss/extensions": "workspace:*",
     "@barocss/office-note": "workspace:*",
     "@barocss/office-site": "workspace:*",
     "@barocss/office-slides": "workspace:*",
     "@barocss/office-word": "workspace:*",
     "@barocss/schema": "workspace:*",
+    "@types/katex": "0.16.8",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "react": "^19.2.8",

@@ -704,7 +704,7 @@ test.describe('a card in the layer list', () => {
     });
     await page.locator(`.sl-filmstrip button[data-slide="${slide}"]`).click();
     await page.waitForTimeout(400);
-    await page.locator('.sl-layers-closed').click();
+    await page.getByRole('tab', { name: '레이어', exact: true }).click();
     await expect(page.locator('.sl-layers')).toHaveCount(1);
     await page.waitForTimeout(400);
 

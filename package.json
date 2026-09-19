@@ -8,6 +8,9 @@
     "apps/*"
   ],
   "scripts": {
+    "dev:office": "pnpm --filter @barocss/office-app dev",
+    "build:office": "pnpm --filter @barocss/office-app build",
+    "test:e2e:office": "pnpm --filter @barocss/office-app test:e2e",
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",
     "dev:docs": "pnpm --filter @barocss/docs-site dev",
@@ -25,7 +28,6 @@
     "clean": "pnpm -r clean",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "pnpm build && changeset publish",
     "test:e2e:word": "pnpm --filter @barocss/word-app test:e2e",
     "test:e2e:slide": "pnpm --filter @barocss/slide-app test:e2e",
     "test:e2e:site": "pnpm --filter @barocss/site-app test:e2e",
@@ -45,7 +47,7 @@
     "vitest": "^4.0.7"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=22.22.0 <23",
     "pnpm": ">=8.0.0"
   },
   "packageManager": "pnpm@8.15.0",

@@ -64,7 +64,7 @@ const colouredRuns = (page: Page, rgb: string) =>
 
 test.describe('the colour of the text', () => {
   test('is set from the palette, which the ribbon never had', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await selectWords(page, 6);
@@ -82,7 +82,7 @@ test.describe('the colour of the text', () => {
    * the first one with something *inside* it that could take focus.
    */
   test('leaves the selection where it was while the panel is open', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await selectWords(page, 6);
@@ -95,7 +95,7 @@ test.describe('the colour of the text', () => {
   });
 
   test('shows the colour it would apply, and nothing when there is none', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const bar = page.locator('[data-control="font-color"] [data-current]');
@@ -118,7 +118,7 @@ test.describe('the colour of the text', () => {
    * arithmetic is in `datastore/test/mark-range.test.ts`.
    */
   test('replaces the colour that was already there', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await selectWords(page, 6);
 
@@ -134,7 +134,7 @@ test.describe('the colour of the text', () => {
   });
 
   test('closes on Escape, and on a press outside it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await selectWords(page, 6);
 
@@ -188,7 +188,7 @@ test.describe('the colour behind a block of cells', () => {
    * with no cell to shade is a button that cannot do anything.
    */
   test('is offered only where there is a cell to shade', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await expect(page.locator('[data-control="cell-shading"]')).toHaveCount(0);
@@ -198,7 +198,7 @@ test.describe('the colour behind a block of cells', () => {
   });
 
   test('shades every selected cell from one swatch', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await selectCells(page, 'A1', 'C2');
@@ -219,7 +219,7 @@ test.describe('the colour behind a block of cells', () => {
   });
 
   test('takes the shading off again', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await selectCells(page, 'A1', 'B1');
@@ -255,7 +255,7 @@ test.describe('the colour behind the text', () => {
     );
 
   test('is chosen from the palette, not fixed at yellow', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await selectWords(page, 6);
 
@@ -266,7 +266,7 @@ test.describe('the colour behind the text', () => {
   });
 
   test('changes colour rather than switching itself off', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await selectWords(page, 6);
 
@@ -282,7 +282,7 @@ test.describe('the colour behind the text', () => {
   });
 
   test('comes off again', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await selectWords(page, 6);
 

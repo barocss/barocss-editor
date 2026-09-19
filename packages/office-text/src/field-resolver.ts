@@ -11,10 +11,22 @@
  * would be quadratic, and a caption's number depends on how many captions came
  * before it — which is a question about the whole document, not about the field.
  */
+import { documentBookmarks } from './bookmarks';
 import { formatCounter, type NumberFormatValue } from '@barocss/shared';
 import { childrenOf, walkBlocks, type DocumentAccess, type DocumentNode } from './document-access';
 
+export interface CaptionEntry {
+  sid: string;
+  blockId: string;
+  targetId?: string;
+  sequence: string;
+  number: string;
+  labelNumber: string;
+  text: string;
+}
+
 export interface FieldResolver {
+  captions(): CaptionEntry[];
   /** The document's title, from its metadata rather than from the flow. */
   documentTitle(): string | undefined;
   /** The document's author. */
@@ -22,7 +34,7 @@ export interface FieldResolver {
   /** The number a caption field shows, e.g. the 3 in "Figure 3". */
   sequenceNumber(sid: string): string | undefined;
   /** What a reference to a bookmark shows, given what it asked for. */
-  reference(targetId: string, format: string, fromSid?: string): string | undefined;
+  reference(targetId: string, format: string, fromSid?: string, targetKind?: string): string | undefined;
   /** The nearest heading in a style, which is what a running header shows. */
   styleReference(styleId: string, fromSid: string | undefined, fromBottom: boolean): string | undefined;
 }
@@ -49,7 +61,7 @@ export function createFieldResolver(doc: DocumentAccess): FieldResolver {
   /** Caption numbers, per sequence name, in document order. */
   const sequenceNumbers = new Map<string, string>();
   /** Where each bookmark starts, and what its block says. */
-  const bookmarks = new Map<string, { blockSid: string; text: string; order: number }>();
+  const bookmarks = new Map(documentBookmarks(doc).map(entry => [entry.name, entry]));
   /** Blocks in document order, so "nearest above" can be answered. */
   const order: string[] = [];
   const blocks = new Map<string, DocumentNode>();
@@ -61,30 +73,6 @@ export function createFieldResolver(doc: DocumentAccess): FieldResolver {
     if (!block.sid) continue;
     order.push(block.sid);
     blocks.set(block.sid, block);
-
-    // A bookmark is a mark over a range; a reference to it shows the text of the
-    // block it starts in, which is what "see Figure 3" needs to say.
-    for (const mark of block.marks ?? []) {
-      if (mark.stype !== 'bookmark') continue;
-      const name = mark.attrs?.name;
-      if (typeof name !== 'string' || bookmarks.has(name)) continue;
-
-      // A bookmark covers a range, and a reference shows what is inside it —
-      // not the whole node it happens to live in. Taking the node would make
-      // "see X" quote the punctuation and the words around the bookmark too.
-      const whole = textOf(doc, block);
-      const range = mark.range;
-      const text =
-        typeof block.text === 'string' && range
-          ? whole.slice(range[0], range[1])
-          : whole;
-
-      bookmarks.set(name, {
-        blockSid: block.sid,
-        text: text.trim(),
-        order: order.length - 1
-      });
-    }
 
     // Caption numbers count per sequence: figures and tables are numbered apart
     for (const child of childrenOf(doc, block)) {
@@ -103,13 +91,41 @@ export function createFieldResolver(doc: DocumentAccess): FieldResolver {
   const positionOf = (sid: string | undefined): number =>
     sid === undefined ? order.length : order.indexOf(sid);
 
+  const captions: CaptionEntry[] = [];
+  for (const block of blocks.values()) {
+    if (!['paragraph', 'heading'].includes(block.stype ?? '')) continue;
+    const children = childrenOf(doc, block);
+    const fields = children.filter(child => child.stype === 'fieldSeq');
+    if (fields.length !== 1 || !fields[0].sid) continue;
+    const field = fields[0], index = children.indexOf(field);
+    const number = sequenceNumbers.get(field.sid!) ?? '';
+    const plain = (nodes: DocumentNode[]) => nodes.map(node => typeof node.text === 'string' ? node.text : '').join('');
+    const labelNumber = (plain(children.slice(0, index)) + number).trim();
+    captions.push({ sid: field.sid!, blockId: block.sid!, targetId: typeof field.attributes?.id === 'string' ? field.attributes.id : undefined,
+      sequence: String(field.attributes?.sequence ?? ''), number, labelNumber,
+      text: (labelNumber + plain(children.slice(index + 1))).trim() });
+  }
+  const captionsById = new Map<string, CaptionEntry | null>();
+  for (const caption of captions) if (caption.targetId) {
+    captionsById.set(caption.targetId, captionsById.has(caption.targetId) ? null : caption);
+  }
+
   return {
+    captions: () => captions,
     documentTitle: () => metaText('docTitle'),
     documentAuthor: () => metaText('docAuthor'),
 
     sequenceNumber: (sid) => sequenceNumbers.get(sid),
 
-    reference: (targetId, format, fromSid) => {
+    reference: (targetId, format, fromSid, targetKind = 'bookmark') => {
+      if (targetKind === 'caption') {
+        // A duplicated identity is ambiguous; never silently choose another caption.
+        const caption = captionsById.get(targetId);
+        if (!caption) return undefined;
+        return format === 'number' ? caption.number : format === 'labelNumber' ? caption.labelNumber
+          : format === 'text' ? caption.text : undefined;
+      }
+      if (targetKind !== 'bookmark') return undefined;
       const target = bookmarks.get(targetId);
       if (!target) return undefined;
 

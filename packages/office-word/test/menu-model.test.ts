@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   taughtKeys, chordFor, keyFaults, keyLabel, menuFaults } from '@barocss/office-controls';
 import { WORD_KEYS, WORD_VIEW_KEYS } from '../src/word-keymap';
-import { WORD_MENUS, wordMenuCommands, wordMenuEntry, wordMenuId } from '../src/menu-model';
+import { WORD_MENUS, wordMenus, wordMenuCommands, wordMenuEntry, wordMenuId } from '../src/menu-model';
 import { createWordEditor } from '../src/word-kit';
 
 /**
@@ -65,11 +65,19 @@ describe('what the menubar offers', () => {
    */
   it('prints a chord only where the editor binds one', () => {
     const bindings = taughtKeys(WORD_KEYS);
-    for (const menu of WORD_MENUS) {
+    /*
+     * **The alphabet is stated here, because it is now a question and not a default.**
+     *
+     * `WORD_MENUS` carries no chords: it is what the model can say without knowing who is reading.
+     * `wordMenus(apple)` is the same menus written for one reader. Both are asked for below — the
+     * chords with `true`, and the fact that the plain list has none, which is what stops a chord
+     * from creeping back into the declaration.
+     */
+    for (const menu of wordMenus(true)) {
       for (const block of menu.blocks) {
         for (const item of block.items) {
           const bound = chordFor(bindings, item);
-          if (bound) expect(item.hint, item.label).toBe(keyLabel(bound));
+          if (bound) expect(item.hint, item.label).toBe(keyLabel(bound, true));
           /*
            * ⌘P is the one typed chord, and it is a claim: printing is the **browser's**, hooked at
            * `beforeprint`, so it is a fact about the platform rather than something Word binds. The

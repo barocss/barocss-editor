@@ -771,7 +771,7 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
           <div class="document" data-bc-sid="doc1">
-            <div data-decorator-category="block" data-decorator-missing-renderer="highlight" data-decorator-position="before" data-decorator-sid="decorator1" data-decorator-stype="highlight"></div>
+            <div data-decorator-category="block" data-decorator-missing-renderer="highlight" data-decorator-position="before" data-decorator-sid="decorator1" data-decorator-stype="highlight" data-decorator-type="target"></div>
             <table class="barocss-table" data-bc-sid="table1">
               <tbody class="barocss-tbody" data-bc-sid="tbody1">
                 <tr class="barocss-tr" data-bc-sid="tr1">

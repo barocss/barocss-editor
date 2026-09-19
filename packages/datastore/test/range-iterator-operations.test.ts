@@ -582,13 +582,12 @@ describe('Range Iterator Operations', () => {
 
       const removedCount = dataStore.removeMark(contentRange, 'bold');
       
-      expect(removedCount).toBe(2); // 2 bold marks removed
+      expect(removedCount).toBe(2); // 2 bold marks intersect the removed interval
       
       // Verify node update
       const updatedNode = dataStore.getNode(textNode!.sid!);
-      expect(updatedNode!.marks).toHaveLength(1);
-      expect(updatedNode!.marks!.find(m => m.stype === 'italic')).toBeTruthy(); // Only italic remains
-      expect(updatedNode!.marks!.find(m => m.stype === 'bold')).toBeFalsy(); // All bold removed
+      expect(updatedNode!.marks!.filter(m => m.stype === 'bold').map(m => m.range)).toEqual([[0, 2], [7, 11]]);
+      expect(updatedNode!.marks!.find(m => m.stype === 'italic')).toEqual({ stype: 'italic', range: [2, 7] });
     });
   });
 

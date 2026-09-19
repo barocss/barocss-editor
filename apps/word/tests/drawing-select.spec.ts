@@ -14,7 +14,7 @@ import { placeCaret, settled } from './helpers';
  * page, so a click that was not stopped would put a caret in the paragraph behind it instead.
  */
 const drawTwo = async (page: Page) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   /*
    * **Outside a content control.** The fourth paragraph of the sample sits inside `ctl-terms`, which
@@ -25,6 +25,7 @@ const drawTwo = async (page: Page) => {
    */
   await placeCaret(page, '.barocss-editor-content p:not(.w-frame p):not(.w-content-control p)', 3);
 
+  await page.getByRole('tab', { name: '삽입', exact: true }).click();
   await page.locator('[data-control="insert-rectangle"]').click();
   await settled(page);
 
@@ -187,6 +188,8 @@ test.describe('dragging what is on a drawing', () => {
     await settled(page);
     expect(await selected(page)).toHaveLength(2);
 
+    await page.locator(".w-canvas rect").scrollIntoViewIfNeeded();
+    await settled(page);
     const rect = (await page.locator('.w-canvas rect').boundingBox())!;
     await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
     await page.mouse.down();
@@ -257,6 +260,8 @@ test.describe('acting on what is selected', () => {
     await settled(page);
 
     const before = await boxOf(page, 'rectangle');
+    await page.locator('[data-drawing-handle="se"]').scrollIntoViewIfNeeded();
+    await settled(page);
     const handle = (await page.locator('[data-drawing-handle="se"]').boundingBox())!;
 
     await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
@@ -520,12 +525,13 @@ test.describe('snapping while dragging', () => {
   test('lands on a neighbour’s edge, and says so with a line', async ({ page }) => {
     await drawTwo(page);
 
-    // The ellipse sits at x=300; the rectangle is dragged so its left edge arrives near it.
-    const rect = (await page.locator('.w-canvas rect').boundingBox())!;
-    const ellipse = (await page.locator('.w-canvas ellipse').boundingBox())!;
-
+    // Selection can change the ribbon height. Measure after that layout settles.
     await page.locator('.w-canvas rect').click();
     await settled(page);
+    await page.locator('.w-canvas rect').scrollIntoViewIfNeeded();
+    await settled(page);
+    const rect = (await page.locator('.w-canvas rect').boundingBox())!;
+    const ellipse = (await page.locator('.w-canvas ellipse').boundingBox())!;
 
     /*
      * The pointer is taken to where the rectangle's **left edge** would land four pixels short of
@@ -565,6 +571,8 @@ test.describe('snapping while dragging', () => {
   test('a modifier means exactly here', async ({ page }) => {
     await drawTwo(page);
     await page.locator('.w-canvas rect').click();
+    await settled(page);
+    await page.locator('.w-canvas rect').scrollIntoViewIfNeeded();
     await settled(page);
 
     const rect = (await page.locator('.w-canvas rect').boundingBox())!;

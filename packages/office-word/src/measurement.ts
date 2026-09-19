@@ -23,13 +23,16 @@ import type { StyleResolver } from '@barocss/office-text';
 import { childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 import { footnoteRefsIn, reserveFor } from './footnotes';
 import { lineStartOffsets, type LineAnchor } from './line-offsets';
-import { scaledTo } from './table-pagination';
+import { scaledTo, headerRowsOf, tableRowsOf, tableBreakLinesOf } from './table-pagination';
 import { suppressedSpacing } from '@barocss/office-text';
+import { withoutCellBreaks, measureTableSegments, type TableSegments } from './table-cell-pagination';
 
 /** The DOM attribute the renderer stamps each node's id onto. */
 const SID_ATTR = 'data-bc-sid';
 
 export interface MeasureOptions {
+  tableContentHeight?: number;
+  onTableSegments?: (sid: string, segments: TableSegments) => void;
   /**
    * Collects the text offset each line of a block starts at.
    *
@@ -127,6 +130,32 @@ function lineBands(el: Element): {
 
       if (child.nodeType !== Node.ELEMENT_NODE) continue;
       const element = child as Element;
+
+      /*
+       * **A highlight around the document's words is chrome; the words are not.**
+       *
+       * A `target` decorator covers a range of a model node — a search hit, a commented phrase —
+       * and renders the text it covers inside itself. Treating it as chrome subtracted its height
+       * and never walked into it, so the line it sat on went uncounted: measured on Word's sample,
+       * one `commentRef` on one run left a paragraph hanging **5px past the bottom of its sheet**,
+       * because the paginator had been told the page still had room for it.
+       *
+       * It was invisible while no fixture wore a comment, and search hits only draw once somebody
+       * is searching.
+       */
+      /*
+       * And **holding text** is the second half of the question, not a nicety. The spacer that
+       * carries a page break through a paragraph is a `target` decorator too — it covers an offset
+       * in a run — and it is a full-width empty box. Walking into it on the strength of its type
+       * alone counted it as a line and put pages 433px away from their sheets.
+       */
+      if (
+        element.getAttribute('data-decorator-type') === 'target' &&
+        (element.textContent ?? '') !== ''
+      ) {
+        visit(element);
+        continue;
+      }
 
       // Whatever the layout drew is not a line of the text. The spacer that
       // carries a page break through a paragraph is a full-width empty box, and
@@ -318,8 +347,11 @@ function rowsFor(el: HTMLElement): number[] {
   // Scaled so they sum to the table's own height, the way a paragraph's lines
   // are — less whatever the layout itself drew inside it.
   let height = el.getBoundingClientRect().height;
-  for (const chrome of Array.from(el.querySelectorAll(`[${CHROME_ATTR}]`))) {
-    height -= chrome.getBoundingClientRect().height;
+  for (const chrome of Array.from(el.querySelectorAll(`tr[${CHROME_ATTR}]`))) {
+    // Only our own gap/repeated-header rows add height. A colgroup also carries
+    // the chrome flag, but its box spans the table; subtracting it collapses
+    // a fixed-width table's measured height to approximately one pixel.
+    if (chrome.closest('table') === el) height -= chrome.getBoundingClientRect().height;
   }
 
   return scaledTo(heights, height).map((row) => row / scale);
@@ -413,14 +445,34 @@ export function measureBlocks(
     // properties whatever the block is. Resolving a table in the table context
     // instead answered with different spacing and moved every page after it.
     const format = styles.resolveNode(node, 'paragraph');
+    const tableSegments = node.stype === 'bTable' && splitBlocks && options.tableContentHeight
+      ? withoutCellBreaks(child as HTMLElement, () => measureTableSegments(child as HTMLElement, doc, node,
+        rowsFor(child as HTMLElement), options.tableContentHeight!, (paragraph, paragraphNode, availableHeight) => {
+          const paragraphFormat = styles.resolveNode(paragraphNode, 'paragraph');
+          // Keep short paragraphs whole, as before. Only an oversized paragraph
+          // needs text-position anchors inside a cell in this delivery.
+          if (paragraphFormat.keepLines === true || paragraph.getBoundingClientRect().height / scaleOf(paragraph)
+            <= availableHeight) return { cuts: [] };
+          const measured = linesFor(paragraph);
+          const anchors = lineStartOffsets(paragraph, measured.bandTops);
+          if (anchors.length !== measured.bandTops.length - 1) return { cuts: [] };
+          return { cuts: anchors.flatMap((anchor, index) => {
+            const line = index + 1;
+            if (line < (measured.splitFrom ?? 0)) return [];
+            if (paragraphFormat.widowControl !== false && (line < 2 || line > measured.lines.length - 2)) return [];
+            return [{ top: measured.bandTops[line], anchor }];
+          }) };
+        })) : undefined;
+    if (tableSegments) options.onTableSegments?.(sid, tableSegments);
     const measured: { lines: number[]; splitFrom?: number; bandTops?: number[] } =
       node.stype === 'bTable'
-        ? { lines: rowsFor(child as HTMLElement) }
+        ? { lines: tableSegments?.lines ?? rowsFor(child as HTMLElement) }
         : linesFor(child as HTMLElement);
     const lines = measured.lines;
+    const headerCount = node.stype === 'bTable' ? headerRowsOf(doc, tableRowsOf(doc, node)).length : 0;
     const refs = footnoteRefsIn(doc, node);
 
-    if (splitBlocks && options.onLineOffsets && lines.length > 1) {
+    if (node.stype !== 'bTable' && splitBlocks && options.onLineOffsets && lines.length > 1) {
       options.onLineOffsets(sid, lineStartOffsets(child, measured.bandTops));
     }
 
@@ -471,6 +523,11 @@ export function measureBlocks(
       // carries a floor on the cut now: see `splitFrom`.
       keepLines: !splitBlocks || format.keepLines === true,
       ...(measured.splitFrom !== undefined ? { splitFrom: measured.splitFrom } : {}),
+      ...(node.stype === 'bTable' ? { breakLines: tableSegments?.breakLines ?? tableBreakLinesOf(doc, node) } : {}),
+      ...(headerCount > 0 && headerCount < lines.length ? {
+        splitFrom: headerCount + 1,
+        repeatBefore: { fromLine: headerCount, height: lines.slice(0, headerCount).reduce((sum, height) => sum + height, 0) },
+      } : {}),
       widowControl: format.widowControl !== false
     });
   }

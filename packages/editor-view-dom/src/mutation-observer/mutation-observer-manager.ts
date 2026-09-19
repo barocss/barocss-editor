@@ -97,6 +97,12 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
     // `editor:node.change` and `editor:node.update` — so it is handed the
     // records instead of collecting its own.
     this.observer = new MutationObserver((records) => {
+      // A nested editor renders its own draft. Only its explicit transaction changes the host.
+      records = records.filter(record => {
+        const element = record.target instanceof Element ? record.target : record.target.parentElement;
+        return !element?.closest('[data-editor-input-owner]');
+      });
+      if (!records.length) return;
       const region = this.caretRegion(contentEditableElement);
 
       const view = (this.inputHandler as any).editorViewDOM;
@@ -158,6 +164,19 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
 
       // Collect mutations in batch
       this.pendingMutations.push(...mutations);
+
+      // Import IME text in this microtask, before compositionend's timer can
+      // render the model or the next keystroke can replace the input hint.
+      // Deferring it to another task can render an older syllable over the
+      // browser's committed text.
+      if (view?._isComposing === true) {
+        if (this.mutationTimer !== null) clearTimeout(this.mutationTimer);
+        this.mutationTimer = null;
+        const pending = this.pendingMutations;
+        this.pendingMutations = [];
+        void this.inputHandler.handleDomMutations(pending);
+        return;
+      }
 
       // Process in batch after short delay (collect all mutations in same event loop)
       if (this.mutationTimer) {

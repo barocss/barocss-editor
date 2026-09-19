@@ -203,6 +203,15 @@ export function fromDOMSelection(
    * 를 주면 되고, 그것이 이 인자가 있는 이유다.
    *
    * 문자열 비교로 돌아가지 않는다: 모르는 채로 틀리게 정렬하는 것보다 준 대로 두는 것이 낫다.
+   *
+   * ## 그리고 아래의 `collapsed: false` 는 *아니다* 가 아니라 **모른다** 다
+   *
+   * `t1:2 → t2:0` 은 두 런이 인접하면 화면의 같은 점이고 고른 글자는 0개다. 두 끝만 보는 이
+   * 함수는 그것을 말할 수 없다 — 사이에 글자가 있는지는 **문서를 읽어야** 안다. 그러므로 여기서
+   * 계산하지 않고, 그 답이 필요한 술어는 문서를 쥔 층에서 `selectsCharacters`(`selection-text.ts`)
+   * 로 묻는다. 지금 그 자리는 `extensions/src/guards.ts` 의 `hasRange(…, 'something')` 하나다.
+   *
+   * 반대로 `collapsed: true` 는 지식이다 — 위의 같은 노드 갈래가 오프셋으로 센 것.
    */
   const compare = compareNodeOrder ?? (() => -1);
   const order = compare(anchorId, focusId);

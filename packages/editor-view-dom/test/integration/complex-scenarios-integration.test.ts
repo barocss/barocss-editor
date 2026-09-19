@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '../../src/editor-view-dom';
 import { DataStore } from '@barocss/datastore';
+import type { INode } from '@barocss/datastore';
 import { normalizeHTML } from '../utils/html';
 import { define, element, slot, when, each, data, getGlobalRegistry } from '@barocss/dsl';
 import type { ComponentProps, ModelData } from '@barocss/dsl';
@@ -52,7 +53,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
 
   describe('List Operations', () => {
     it('dynamically adds list items', () => {
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -78,7 +79,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       expect(html1).toContain('Item 1');
 
       // Add item
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -113,7 +114,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
     });
 
     it('removes list items', () => {
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -146,7 +147,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       expect(html1).toContain('Item 2');
 
       // Remove item
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -174,7 +175,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
     });
 
     it('reorders list items', () => {
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -209,7 +210,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       expect(li2El).toBeTruthy();
 
       // Change order
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -249,7 +250,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
 
   describe('Nested Lists', () => {
     it('renders nested list structure', () => {
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -303,7 +304,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
         }, [m.text ?? '']);
       });
 
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -323,7 +324,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       const boxEl1 = container.querySelector('[data-bc-sid="box1"]') as HTMLElement;
       expect(boxEl1).toBeTruthy();
 
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -359,7 +360,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
         ]);
       });
 
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -381,7 +382,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       expect(html1).toContain('Content');
 
       // Hide Header
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -415,7 +416,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
         ]);
       });
 
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -438,7 +439,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       expect(html1).toContain('Item B');
 
       // Add item
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [

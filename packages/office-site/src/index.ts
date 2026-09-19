@@ -89,6 +89,7 @@ export {
  */
 export {
   SITE_KEYS,
+  SITE_ZOOM_LADDER,
   matchesSiteKey,
   siteKeyCommands,
   siteKeyFor,
@@ -171,6 +172,7 @@ export {
 } from './export-html';
 export {
   SITE_MENUS,
+  siteMenus,
   /* The same bar, with one entry per width the **document** declares — see `siteMenusFor`. */
   siteMenusFor,
   /* And the same bar again, for the **place** the reader is standing in — 관리 or a page. */
@@ -402,3 +404,10 @@ export {
  * `office-note` 가 이미 같은 답을 갖고 있다. 모델은 어디서나 읽히고, 뷰는 React 가 있는 곳에서만
  * 읽힌다. 문을 조각마다가 아니라 **경계마다** 둔 이유는 `ui.ts` 에 있다.
  */
+
+// 사이트를 파일로, 그리고 라이브러리에. 형식과 보관은 `@barocss/shared` 의 것이다.
+export * from './site-file';
+export { siteSessionOptions, siteDocuments, siteDrafts } from './site-autosave';
+
+// 빈 사이트가 무엇인가 — 크롬이 아니라 문서에 대한 사실이다.
+export * from './starter-site';

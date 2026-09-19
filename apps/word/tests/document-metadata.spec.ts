@@ -21,7 +21,7 @@ import { settled } from './helpers';
  */
 test.describe('the document metadata', () => {
   test('is not drawn in the document at all', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     // A definition, like a style or a numbering scheme: read by `{ TITLE }`,
@@ -34,7 +34,7 @@ test.describe('the document metadata', () => {
   });
 
   test('is edited above the ribbon, the way a file is renamed', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const title = page.locator('.doc-title-docTitle');
@@ -58,7 +58,7 @@ test.describe('the document metadata', () => {
   });
 
   test('a field quoting the title follows it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     // The field that quotes the *title*, not whichever field comes first —

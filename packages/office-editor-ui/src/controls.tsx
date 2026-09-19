@@ -1,7 +1,7 @@
 import type { Editor } from '@barocss/editor-core';
 import type { Control, KeyModel } from '@barocss/office-controls';
 import { Icon } from '@barocss/office-icons';
-import { Tip } from '@barocss/office-ui';
+import { IconButton, MenuAction } from '@barocss/office-ui';
 import { useControls } from './use-controls';
 
 /**
@@ -43,6 +43,7 @@ import { useControls } from './use-controls';
  * an insert, a delete — has no state to draw and drawing one would be a lie.
  */
 export interface ControlsProps<C extends Control = Control> {
+  appearance?: 'host' | 'contextual' | 'menu';
   editor: Editor;
   /** What to draw. A product's own list, or a slice of one. */
   controls: readonly C[];
@@ -73,29 +74,24 @@ export function Controls<C extends Control>({
   keys,
   apple,
   mark = 'chrome-control',
-  iconSize = 13
+  iconSize = 16,
+  appearance = 'host'
 }: ControlsProps<C>) {
   const rows = useControls(editor, controls, { can, onRun, keys, apple });
 
   return (
     <>
       {rows.map((one) => (
-        <Tip key={one.key} label={one.says} shortcut={one.shortcut}>
-          <button
-            type="button"
-            aria-label={one.says}
-            aria-keyshortcuts={one.shortcut}
-            disabled={one.disabled}
-            aria-pressed={one.control.mark ? one.state === 'on' : undefined}
-            data-state={one.control.mark ? one.state : undefined}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={one.run}
-            {...{ [`data-${mark}`]: one.key }}
-          >
-            {/* The picture, or the word for a control that has none — see `Control.icon`. */}
-            {one.control.icon ? <Icon name={one.control.icon} size={iconSize} /> : one.label}
-          </button>
-        </Tip>
+        appearance === 'menu' ? <MenuAction key={one.key} aria-label={one.says} disabled={one.disabled}
+          onClick={one.run} {...{ [`data-${mark}`]: one.key }}>
+          {one.control.icon && <Icon name={one.control.icon} size={iconSize} />}<span>{one.label}</span>
+        </MenuAction> :
+        <IconButton key={one.key} label={one.says}
+          shortcut={one.shortcut} disabled={one.disabled} preserveFocus onClick={one.run}
+          pressed={one.control.mark ? (one.state === 'mixed' ? 'mixed' : one.state === 'on') : undefined}
+          data={{ [mark]: one.key, state: one.control.mark ? one.state : undefined }}>
+          {one.control.icon ? <Icon name={one.control.icon} size={iconSize} /> : one.label}
+        </IconButton>
       ))}
     </>
   );

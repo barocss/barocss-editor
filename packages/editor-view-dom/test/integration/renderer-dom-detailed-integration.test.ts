@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '../../src/editor-view-dom';
 import { DataStore } from '@barocss/datastore';
+import type { INode } from '@barocss/datastore';
 import { normalizeHTML } from '../utils/html';
 import { define, element, slot, data, defineMark, getGlobalRegistry } from '@barocss/dsl';
 
@@ -45,7 +46,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
 
   describe('Complex Marks', () => {
     it('renders text with multiple overlapping marks', () => {
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -58,8 +59,8 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
                 stype: 'inline-text',
                 text: 'Hello World',
                 marks: [
-                  { type: 'bold', range: [0, 5] },
-                  { type: 'italic', range: [2, 8] }
+                  { stype: 'bold', range: [0, 5] },
+                  { stype: 'italic', range: [2, 8] }
                 ]
               }
             ]
@@ -71,13 +72,18 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       
       const html = normalizeHTML(container.firstElementChild as Element);
       expect(html).toContain('data-bc-sid="p1"');
-      // Verify text with marks applied (modified to match actual rendering result)
-      // Text may be partially rendered, so verify at least some text exists
-      expect(html).toContain('rld'); // Part of "World"
+      // Both marks must reach the DOM, and the overlap must split the run.
+      // This used to assert `toContain('rld')` with a note saying it was "modified to
+      // match actual rendering result" — the fixture wrote `type: 'bold'` while the
+      // renderer reads `stype`, so nothing was ever marked and the weakened assertion
+      // hid it.
+      expect(html).toContain('class="mark-bold"');
+      expect(html).toContain('class="mark-italic"');
+      expect(html).toContain('rld');
     });
 
     it('handles marks spanning multiple text nodes', () => {
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -104,7 +110,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
 
   describe('Deep Nesting', () => {
     it('renders deeply nested structure (5 levels)', () => {
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -145,7 +151,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
     });
 
     it('handles mixed content (text + elements)', () => {
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -176,7 +182,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
 
   describe('Content Updates', () => {
     it('adds new children while preserving existing DOM', () => {
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -188,7 +194,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       const element1 = container.querySelector('[data-bc-sid="p1"]');
       expect(element1).toBeTruthy();
       
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -208,7 +214,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
     });
 
     it('removes children while preserving remaining DOM', () => {
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -221,7 +227,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       const element2 = container.querySelector('[data-bc-sid="p2"]');
       expect(element2).toBeTruthy();
       
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -237,7 +243,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
     });
 
     it('reorders children while preserving DOM identity', () => {
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -250,7 +256,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       const element1 = container.querySelector('[data-bc-sid="p1"]');
       const element2 = container.querySelector('[data-bc-sid="p2"]');
       
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -288,7 +294,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
 
   describe('Attributes and Styles', () => {
     it('updates element attributes', () => {
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -307,7 +313,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       // Verify attributes are properly applied (need to check if base template uses attributes)
       expect(element1).toBeTruthy();
       
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -331,7 +337,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
     });
 
     it('removes attributes when not present in update', () => {
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -350,7 +356,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       // Need to check if base template uses attributes
       expect(element1).toBeTruthy();
       
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -395,7 +401,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
         });
       }
       
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: paragraphs
@@ -455,7 +461,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
 
   describe('Real-world Scenarios', () => {
     it('renders article-like structure', () => {
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -473,7 +479,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
                 sid: 't2',
                 stype: 'inline-text',
                 text: 'This is a paragraph with ',
-                marks: [{ type: 'bold', range: [0, 4] }]
+                marks: [{ stype: 'bold', range: [0, 4] }]
               },
               {
                 sid: 't3',
@@ -515,7 +521,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
 
     it('handles incremental content updates', () => {
       // Initial rendering
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -528,7 +534,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       expect(html1).toContain('Initial');
       
       // First update
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -544,7 +550,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       expect(html2).not.toContain('Initial');
       
       // Second update
-      const tree3: TreeDocument = {
+      const tree3: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [

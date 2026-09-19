@@ -40,7 +40,7 @@ test.describe('a frame in the document flow', () => {
   };
 
   test('puts two paragraphs beside each other, each half the width', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await insert(page, 'Side by side');
 
@@ -66,7 +66,7 @@ test.describe('a frame in the document flow', () => {
    * reader could only get out of with undo.
    */
   test('can be typed into on either side', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await insert(page, 'Side by side');
 
@@ -83,7 +83,7 @@ test.describe('a frame in the document flow', () => {
   });
 
   test('a grid divides the width into the columns it declares', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await insert(page, 'Grid');
 
@@ -106,7 +106,7 @@ test.describe('a frame in the document flow', () => {
    * reads and every save keeps.
    */
   test('writes no coordinates into the document', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await insert(page, 'Side by side');
     // Let the layout reaction run at least once.
@@ -183,7 +183,7 @@ test.describe('a frame that is hidden, faded or turned', () => {
   };
 
   test('goes away when the box says it is not visible', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await reframe(page, { visible: false });
 
@@ -191,7 +191,7 @@ test.describe('a frame that is hidden, faded or turned', () => {
   });
 
   test('fades to the opacity the box asks for, and turns about its middle', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await reframe(page, { opacity: 0.4, rotation: 15 });
 

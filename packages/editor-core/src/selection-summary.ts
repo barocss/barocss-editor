@@ -14,6 +14,7 @@
 import type { DataStore } from '@barocss/datastore';
 import type { ModelSelection } from './types';
 import { selectedNodeIds } from './types';
+import { isCollapsedSelection } from './collapsed';
 
 /** Whether something applies to all of the selection, some of it, or none. */
 export type MarkState = 'on' | 'mixed' | 'off';
@@ -78,11 +79,11 @@ function coveredText(store: DataStore, selection: ModelSelection): CoveredText[]
     return typeof node?.text === 'string' ? node.text : undefined;
   };
 
-  if (selection.collapsed || selection.startNodeId === selection.endNodeId) {
+  if (isCollapsedSelection(selection) || selection.startNodeId === selection.endNodeId) {
     const text = textOf(selection.startNodeId);
     if (text === undefined) return [];
 
-    if (!selection.collapsed) {
+    if (!isCollapsedSelection(selection)) {
       const from = Math.min(selection.startOffset, selection.endOffset);
       const to = Math.max(selection.startOffset, selection.endOffset);
       return from === to ? [] : [{ sid: selection.startNodeId, text, from, to }];
@@ -218,7 +219,7 @@ export function readSelectionSummary(
     return {
       ...EMPTY,
       empty: false,
-      collapsed: selection.collapsed !== false,
+      collapsed: isCollapsedSelection(selection),
       blocks: block ? [block] : [],
       ...(block ? sharedAttributes([block]) : {})
     };
@@ -277,7 +278,7 @@ export function readSelectionSummary(
     markAttributes,
     blocks,
     ...sharedAttributes(blocks),
-    collapsed: selection.collapsed !== false,
+    collapsed: isCollapsedSelection(selection),
     empty: false
   };
 }

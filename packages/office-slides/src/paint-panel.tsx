@@ -125,7 +125,7 @@ export function PaintList({
 }: PaintListProps) {
   const replace = (index: number, paint: Paint) =>
     onChange(paints.map((entry, at) => (at === index ? paint : entry)));
-  const order = useStackOrder(paints, onChange);
+  const order = useStackOrder(paints, next => { onEditing?.(null); onChange(next); });
 
   return (
     <PropertyGroup
@@ -156,6 +156,8 @@ export function PaintList({
               disabled={disabled}
               dragging={order.dragging === index}
               onGrab={order.grab(index)}
+              order={{ up: index > 0 ? () => order.move(index, index - 1) : undefined,
+                down: index < paints.length - 1 ? () => order.move(index, index + 1) : undefined }}
               open={editing === index}
               onOpen={(next) => onEditing?.(next ? index : null)}
               stopEditing={stopEditing ?? 0}
@@ -178,6 +180,7 @@ function PaintRow({
   disabled,
   dragging,
   onGrab,
+  order,
   open,
   onOpen,
   stopEditing,
@@ -193,6 +196,7 @@ function PaintRow({
   disabled?: boolean;
   dragging?: boolean;
   onGrab?: (event: React.PointerEvent) => void;
+  order?: { up?: () => void; down?: () => void };
   open?: boolean;
   onOpen?: (open: boolean) => void;
   /** The selected colour stop, which the canvas and this row share. */
@@ -202,6 +206,7 @@ function PaintRow({
   onRemove: () => void;
 }) {
   const setOpen = (next: boolean) => onOpen?.(next);
+  const trigger = useRef<HTMLButtonElement>(null);
   const editor = useDismiss(open === true, () => setOpen(false), ON_CANVAS);
   const preview = backgroundCss([{ ...paint, visible: true }]) ?? 'transparent';
 
@@ -237,29 +242,6 @@ function PaintRow({
           onChange={onChange}
         />
       )}
-
-      {/*
-        * How this layer mixes with the ones under it.
-        *
-        * In the editor rather than the row, because it is the setting a reader
-        * touches least and the row is already five controls wide — and because it
-        * only *means* anything when there is a layer beneath, which is the moment
-        * they are in here arranging them.
-        */}
-      <PropertyRow label="혼합">
-        <Choice
-          ariaLabel={`${index + 1}번 혼합 모드`}
-          value={paint.blend ?? 'normal'}
-          disabled={disabled}
-          onChange={(blend) => onChange({ ...paint, blend: blend as Paint['blend'] })}
-        >
-          {BLEND_MODES.map((mode) => (
-            <option key={mode} value={mode}>
-              {BLEND_LABELS[mode] ?? mode}
-            </option>
-          ))}
-        </Choice>
-      </PropertyRow>
     </>
   );
 
@@ -275,15 +257,38 @@ function PaintRow({
       disabled={disabled}
       dragging={dragging}
       onGrab={onGrab}
+      order={order}
       visible={paint.visible !== false}
       onVisible={(visible) => onChange({ ...paint, visible })}
       onRemove={onRemove}
       data={{ paint: String(index) }}
+      details={
+        <PropertyRow label="혼합 모드">
+          <Choice
+            ariaLabel={`${index + 1}번 혼합 모드`}
+            value={paint.blend ?? 'normal'}
+            disabled={disabled}
+            onChange={(blend) => onChange({ ...paint, blend: blend as Paint['blend'] })}
+          >
+            {BLEND_MODES.map((mode) => (
+              <option key={mode} value={mode}>
+                {BLEND_LABELS[mode] ?? mode}
+              </option>
+            ))}
+          </Choice>
+        </PropertyRow>
+      }
       editor={open ? paintEditor : undefined}
+      editorLabel={`${index + 1}번 채우기 편집`}
+      onEditorClose={() => setOpen(false)}
+      editorTriggerRef={trigger}
+      floatingEditor
     >
         <Button
           square
           ariaLabel={`${index + 1}번 채우기`}
+          ref={trigger}
+          aria-expanded={open === true}
           data={{ 'paint-swatch': String(index) }}
           disabled={disabled}
           className="p-0.5"
@@ -495,7 +500,8 @@ function GradientBar({
   onChosen?: (index: number) => void;
   onChange: (paint: Paint) => void;
 }) {
-  const stops = paint.stops ?? [];
+  const [previewStops, setPreviewStops] = useState<Paint['stops']>();
+  const stops = previewStops ?? paint.stops ?? [];
   const bar = useRef<HTMLDivElement>(null);
   const setChosen = (at: number) => onChosen?.(at);
 
@@ -505,26 +511,27 @@ function GradientBar({
     return Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
   };
 
-  const setStops = (next: typeof stops) =>
-    onChange({ ...paint, stops: [...next].sort((a, b) => a.offset - b.offset) });
+  const setStops = (next: typeof stops, selected = chosen) => {
+    const selectedStop = next[Math.min(selected, next.length - 1)];
+    const sorted = [...next].sort((a, b) => a.offset - b.offset);
+    setChosen(Math.max(0, sorted.indexOf(selectedStop)));
+    onChange({ ...paint, stops: sorted });
+  };
 
   const drag = (event: React.PointerEvent, stopIndex: number) =>
     void dragGesture(event, {
       start: (pointer) => {
         pointer.stopPropagation();
+        (pointer.currentTarget as HTMLElement).focus({ preventScroll: true });
         setChosen(stopIndex);
         return { stopIndex };
       },
 
       move: (held, _moved, pointer) => {
         const offset = at(pointer);
-        onChange({
-          ...paint,
-          // Not re-sorted mid-drag: a stop that overtook its neighbour would
-          // change index under the pointer and the drag would jump to the other
-          // one. The sort happens when the pointer is let go.
-          stops: stops.map((entry, index) => (index === held.stopIndex ? { ...entry, offset } : entry))
-        });
+        // Preview in the bar without adding a document history entry per move.
+        // Keep indices stable until release, including when stops cross.
+        setPreviewStops(stops.map((entry, index) => (index === held.stopIndex ? { ...entry, offset } : entry)));
       },
 
       /*
@@ -532,18 +539,18 @@ function GradientBar({
        * 끝났습니다 — 같은 값을 다시 쓰면 히스토리에 아무 일도 아닌 항목이 하나 생깁니다.
        */
       done: (held, moved, pointer) => {
+        setPreviewStops(undefined);
         if (!moved.dragged || !pointer) return;
         const offset = at(pointer);
-        setStops(stops.map((entry, index) => (index === held.stopIndex ? { ...entry, offset } : entry)));
+        if (offset === stops[held.stopIndex].offset) return;
+        setStops(stops.map((entry, index) => (index === held.stopIndex ? { ...entry, offset } : entry)), held.stopIndex);
       },
 
       /*
        * 물러서면 끌던 미리 보기를 걷습니다 — 쓰기 전의 `stops` 가 진짜입니다. 그린 적이 없으면
        * 걷을 것도 없고, 그때 쓰면 같은 값이 히스토리에 아무 일도 아닌 항목으로 남습니다.
        */
-      abort: (_held, moved) => {
-        if (moved.dragged) onChange({ ...paint, stops });
-      }
+      abort: () => setPreviewStops(undefined)
     });
 
   const stop = stops[chosen] ?? stops[0];
@@ -555,7 +562,7 @@ function GradientBar({
         data-gradient-bar={index}
         className="relative h-5 rounded-[var(--ou-radius)] border border-[color:var(--ou-line)]"
         style={{
-          background: `linear-gradient(90deg, ${stops
+          background: `linear-gradient(90deg, ${[...stops].sort((a, b) => a.offset - b.offset)
             .map((entry) => `${entry.color} ${Math.round(entry.offset * 100)}%`)
             .join(', ')})`
         }}
@@ -563,7 +570,8 @@ function GradientBar({
           if (disabled) return;
           // A double-click adds one where the pointer is — `addStop`, shared with
           // the axis on the canvas, because it is one gesture in two places.
-          setStops(addStop(stops, at(event)));
+          const next = addStop(stops, at(event));
+          setStops(next, next.findIndex(entry => !stops.includes(entry)));
         }}
       >
         {stops.map((entry, stopIndex) => (
@@ -572,7 +580,9 @@ function GradientBar({
             type="button"
             data-stop={stopIndex}
             aria-label={`${index + 1}번 색 지점 ${stopIndex + 1}`}
+            aria-pressed={stopIndex === chosen}
             disabled={disabled}
+            onClick={event => { if (event.detail === 0) setChosen(stopIndex); }}
             onPointerDown={(event) => drag(event, stopIndex)}
             className={cnStop(stopIndex === chosen)}
             style={{ left: `${entry.offset * 100}%`, background: entry.color }}
@@ -649,8 +659,8 @@ function GradientBar({
 
 const cnStop = (selected: boolean) =>
   [
-    'absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2',
-    selected ? 'border-sky-500 shadow' : 'border-white shadow-sm'
+    'absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ou-accent)]',
+    selected ? 'border-[color:var(--ou-accent)] shadow' : 'border-[color:var(--ou-panel)] shadow-sm'
   ].join(' ');
 
 /** What a stack of effects is told. */
@@ -714,6 +724,8 @@ export function EffectList({
               disabled={disabled}
               dragging={order.dragging === index}
               onGrab={order.grab(index)}
+              order={{ up: index > 0 ? () => order.move(index, index - 1) : undefined,
+                down: index < effects.length - 1 ? () => order.move(index, index + 1) : undefined }}
               onChange={(next) => replace(index, next)}
               onRemove={() => onChange(effects.filter((_, at) => at !== index))}
             />
@@ -732,6 +744,7 @@ function EffectRow({
   disabled,
   dragging,
   onGrab,
+  order,
   onChange,
   onRemove
 }: {
@@ -743,12 +756,14 @@ function EffectRow({
   disabled?: boolean;
   dragging?: boolean;
   onGrab?: (event: React.PointerEvent) => void;
+  order?: { up?: () => void; down?: () => void };
   onChange: (effect: ShapeEffect) => void;
   onRemove: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const editorHost = useDismiss(open, () => setOpen(false), ON_CANVAS);
   const isBlur = effect.kind === 'blur';
+  const trigger = useRef<HTMLButtonElement>(null);
 
   /** Twips in the document, points in the panel: 20 twips is a point. */
   const pt = (twips: number | undefined) => Math.round(((twips ?? 0) / 20) * 10) / 10;
@@ -762,11 +777,16 @@ function EffectRow({
       hostRef={editorHost}
       disabled={disabled}
       dragging={dragging}
-      onGrab={onGrab}
+      onGrab={event => { setOpen(false); onGrab?.(event); }}
+      order={order}
       visible={effect.visible !== false}
       onVisible={(visible) => onChange({ ...effect, visible })}
       onRemove={onRemove}
       data={{ effect: String(index) }}
+      editorLabel={`${index + 1}번 효과 색 편집`}
+      onEditorClose={() => setOpen(false)}
+      editorTriggerRef={trigger}
+      floatingEditor
       editor={
         open && !isBlur ? (
           <ColorPicker
@@ -795,6 +815,8 @@ function EffectRow({
           <Button
             square
             ariaLabel={`${index + 1}번 효과 색`}
+            ref={trigger}
+            aria-expanded={open && !isBlur}
             data={{ 'effect-swatch': String(index) }}
             disabled={disabled}
             className="p-0.5"
@@ -805,17 +827,19 @@ function EffectRow({
         )}
       </span>
 
-      <div className="flex items-center gap-1">
+      <div className="grid grid-cols-2 gap-1.5">
         {!isBlur && (
           <>
             <NumberBox
               label={`${index + 1}번 가로`}
+              caption="가로"
               value={pt(effect.x)}
               disabled={disabled}
               onChange={(value) => onChange({ ...effect, x: twips(value) })}
             />
             <NumberBox
               label={`${index + 1}번 세로`}
+              caption="세로"
               value={pt(effect.y)}
               disabled={disabled}
               onChange={(value) => onChange({ ...effect, y: twips(value) })}
@@ -824,6 +848,7 @@ function EffectRow({
         )}
         <NumberBox
           label={`${index + 1}번 흐림`}
+          caption="흐림"
           value={pt(effect.blur)}
           disabled={disabled}
           onChange={(value) => onChange({ ...effect, blur: twips(Math.max(0, value)) })}
@@ -831,6 +856,7 @@ function EffectRow({
         {!isBlur && (
           <NumberBox
             label={`${index + 1}번 확산`}
+            caption="확산"
             value={pt(effect.spread)}
             disabled={disabled}
             onChange={(value) => onChange({ ...effect, spread: twips(value) })}
@@ -845,23 +871,29 @@ function EffectRow({
 
 function NumberBox({
   label,
+  caption,
   value,
   disabled,
   onChange
 }: {
   label: string;
+  caption: string;
   value: number;
   disabled?: boolean;
   onChange: (value: number) => void;
 }) {
   return (
+    <label className="flex min-w-0 flex-col gap-1 text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)]">
+    <span>{caption}</span>
     <NumberField
       ariaLabel={label}
+      suffix="pt"
       step={0.5}
       value={value}
       disabled={disabled}
       onCommit={onChange}
       className="min-w-0"
     />
+    </label>
   );
 }

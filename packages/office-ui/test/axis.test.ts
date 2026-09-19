@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { axisTicks, timeStep, rulerStep, type AxisStep } from '../src/index';
+import { scaledAxisStep, axisTicks, timeStep, rulerStep, type AxisStep } from '../src/index';
 
 /**
  * An axis's ticks.
@@ -127,5 +127,22 @@ describe('the step a clock takes', () => {
     // length, where the model is twips and the reader is centimetres.
     expect(timeStep(2000).per).toBe(1);
     expect(axisTicks(2000, timeStep(2000))[1].at).toBe(250);
+  });
+});
+
+describe('scaledAxisStep', () => {
+  it('keeps readable units and origin while reducing labels at small zoom', () => {
+    const base = { per: 100, major: 1, minor: 0.5 };
+    const step = scaledAxisStep(base, 0.1);
+    expect(step).toEqual({ per: 100, major: 5, minor: 2.5 });
+    const labels = axisTicks(2000, step).filter(tick => tick.value !== undefined);
+    expect(labels.map(tick => tick.value)).toEqual([0, 5, 10, 15, 20]);
+    expect(labels[1].at * 0.1).toBeGreaterThanOrEqual(42);
+  });
+  it('retains fine ticks at readable zoom and rejects invalid scale', () => {
+    const base = { per: 100, major: 1, minor: 0.5 };
+    expect(scaledAxisStep(base, 1)).toBe(base);
+    expect(scaledAxisStep(base, 0)).toBe(base);
+    expect(scaledAxisStep(base, NaN)).toBe(base);
   });
 });

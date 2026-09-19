@@ -25,6 +25,8 @@
  * Twips throughout, like every other length in this model.
  */
 
+import { rotatePoint } from './canvas-angle';
+
 /** Where a shape is, as this needs it. `rotation` is degrees, clockwise. */
 export interface ConnectorBox {
   x: number;
@@ -88,18 +90,14 @@ const HANDLE_MAX = 2850;
 
 const finite = (value: number): number => (Number.isFinite(value) ? value : 0);
 
-/** Degrees, clockwise, about a centre — the same convention the shapes are drawn with. */
+/**
+ * Degrees, clockwise, about a centre — the same convention the shapes are drawn with.
+ *
+ * The matrix itself is `canvas-angle.ts`'s `rotatePoint`, which `canvas-manipulate.ts`'s `unrotate`
+ * also calls; this name stays because it is what a connector's readers already say.
+ */
 export function rotateAround(point: Point, centre: Point, degrees: number): Point {
-  if (!degrees) return point;
-  const radians = (degrees * Math.PI) / 180;
-  const cos = Math.cos(radians);
-  const sin = Math.sin(radians);
-  const dx = point.x - centre.x;
-  const dy = point.y - centre.y;
-  return {
-    x: centre.x + dx * cos - dy * sin,
-    y: centre.y + dx * sin + dy * cos
-  };
+  return rotatePoint(point, centre, degrees);
 }
 
 export function centreOf(box: ConnectorBox): Point {

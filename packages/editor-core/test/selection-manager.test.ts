@@ -54,7 +54,18 @@ describe('SelectionManager', () => {
         endOffset: 5
       };
       selectionManager.setSelection(range);
-      expect(selectionManager.getCurrentSelection()).toEqual(range);
+      /*
+       * **담아 둔 것에는 `collapsed` 가 붙어 나온다** — 그것이 이 클래스의 계약이 된 것이고, 이
+       * 세 검사가 그 계약이 바뀐 자리다.
+       *
+       * `collapsed` 는 선택적 필드였고, 두 끝이 같은 노드일 때 그 값은 오프셋이 이미 말하는 것을
+       * 되풀이하거나 거짓말하는 것 둘 중 하나였다. 그래서 저장소는 같은 선택을 두 벌로 읽었다:
+       * `editor-core` 는 필드를, 슬래시 메뉴는 두 끝을. 사이트에서 `/` 를 치면 슬래시 메뉴와
+       * 버블 툴바가 **같이** 떴다.
+       *
+       * 지금은 담기는 문에서 계산한다(`collapsed.ts`). 준 대로 돌려주지 않는 것이 요점이다.
+       */
+      expect(selectionManager.getCurrentSelection()).toEqual({ ...range, collapsed: false });
       expect(selectionManager.isEmpty()).toBe(false);
     });
 
@@ -82,7 +93,7 @@ describe('SelectionManager', () => {
         endOffset: 5
       };
       selectionManager.setRange(rangeSelection);
-      expect(selectionManager.getCurrentSelection()).toEqual(rangeSelection);
+      expect(selectionManager.getCurrentSelection()).toEqual({ ...rangeSelection, collapsed: false });
     });
   });
 
@@ -116,7 +127,7 @@ describe('SelectionManager', () => {
         endOffset: 5
       };
       selectionManager.setAbsolutePos(absoluteSelection);
-      expect(selectionManager.getCurrentSelection()).toEqual(absoluteSelection);
+      expect(selectionManager.getCurrentSelection()).toEqual({ ...absoluteSelection, collapsed: false });
     });
   });
 
@@ -172,7 +183,8 @@ describe('SelectionManager', () => {
         startNodeId: 'p-1',
         startOffset: 3,
         endNodeId: 'p-1',
-        endOffset: 3
+        endOffset: 3,
+        collapsed: true
       });
       expect(selectionManager.isAtPosition('p-1', 3)).toBe(true);
       expect(selectionManager.isAtPosition('p-1', 0)).toBe(false);

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '../../src/editor-view-dom';
 import { DataStore } from '@barocss/datastore';
+import type { INode } from '@barocss/datastore';
 import { normalizeHTML } from '../utils/html';
 import { define, element, slot, data, getGlobalRegistry } from '@barocss/dsl';
 
@@ -60,7 +61,7 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
         ]
       }));
 
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc-large',
         stype: 'document',
         content: paragraphs
@@ -96,7 +97,7 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
         ]
       }));
 
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc-very-large',
         stype: 'document',
         content: paragraphs
@@ -130,7 +131,7 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
         ]
       }));
 
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc-update',
         stype: 'document',
         content: initialParagraphs
@@ -153,7 +154,7 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
         ]
       }));
 
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc-update',
         stype: 'document',
         content: updatedParagraphs
@@ -177,7 +178,7 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
 
   describe('Memory Stability', () => {
     it('handles repeated full renders without memory leaks', () => {
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc-memory',
         stype: 'document',
         content: Array.from({ length: 100 }, (_, i) => ({
@@ -233,7 +234,7 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
         ]
       }));
 
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc-proxy',
         stype: 'document',
         content: paragraphs
@@ -276,7 +277,9 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
 
   describe('Mixed Decorators and Marks Performance', () => {
     it('handles large document with many decorators and marks efficiently', { timeout: 30000 }, () => {
-      const paragraphs = Array.from({ length: 200 }, (_, i) => ({
+      // Annotated: without it `range: [0, 5]` widens to `number[]` and will not fit
+      // `IMark['range']`, which is the tuple `[number, number]`.
+      const paragraphs: INode[] = Array.from({ length: 200 }, (_, i) => ({
         sid: `p${i}`,
         stype: 'paragraph',
         content: [
@@ -285,14 +288,14 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
             stype: 'inline-text',
             text: `Paragraph ${i} with marks`,
             marks: [
-              { type: 'bold', range: [0, 5] },
-              { type: 'italic', range: [10, 15] }
+              { stype: 'bold', range: [0, 5] },
+              { stype: 'italic', range: [10, 15] }
             ]
           }
         ]
       }));
 
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc-mixed',
         stype: 'document',
         content: paragraphs

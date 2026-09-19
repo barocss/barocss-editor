@@ -1,0 +1,40 @@
+{
+  /**
+   * Type-checking the app and its browser specs.
+   *
+   * This app had no `type-check` script at all, so neither its source nor its seven
+   * Playwright specs were ever compiled — and a spec is where the property that does
+   * not exist gets written: nineteen of Word's twenty-seven were in one spec file.
+   *
+   * An app imports its packages by `paths` (or, here, through the workspace link,
+   * whose `types` field points at the package's **source**), so it compiles their
+   * source as well — and ninety of an app's hundred-odd errors were other packages'
+   * unused locals, which is a guard reporting somebody else's decision. Those are
+   * filtered by `scripts/typecheck-tests.mjs`, which counts only this directory's own
+   * files, so nothing has to be switched off here.
+   *
+   * `rootDir` is the repository for the same reason as the packages': a sibling
+   * package's source is outside this directory.
+   */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    /** The runner's globals, for the specs that use them without importing. */
+    "types": ["vitest/globals", "node"]
+  },
+  "include": ["src/**/*", "test/**/*", "tests/**/*"],
+  /**
+   * Restated here, never inherited.
+   *
+   * `exclude` is not merged with a child's `include` — a config that extends another
+   * takes the parent's `exclude` whole, and it filters whatever `include` already
+   * matched. Ten package bases exclude a `.test.ts` glob so that `vite build` keeps
+   * tests out of `dist`, and two more inherit the repository root's. Read through
+   * `extends`, that one line deleted every test file the line above had just asked for.
+   *
+   * `dist` and `test-results` are named because both exist here on disk and neither
+   * is source.
+   */
+  "exclude": ["dist", "node_modules", "test-results", "playwright-report"]
+}

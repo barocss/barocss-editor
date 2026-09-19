@@ -43,6 +43,7 @@ export interface LibraryDialogProps {
   open: boolean;
   onClose: () => void;
   onOpened?: () => void;
+  beforeReplace?: () => Promise<boolean>;
   /** The name this deck is kept under, if the reader opened it from the library. */
   name?: string;
   onName?: (name: string | undefined) => void;
@@ -53,6 +54,7 @@ export function LibraryDialog({
   open,
   onClose,
   onOpened,
+  beforeReplace,
   name,
   onName
 }: LibraryDialogProps) {
@@ -127,7 +129,13 @@ export function LibraryDialog({
   };
 
   const load = async (row: LibraryRow) => {
-    const text = await libraryDeck(row.name);
+    let text: string | undefined;
+    try {
+      text = await libraryDeck(row.name);
+    } catch {
+      setProblem('이 덱을 읽을 수 없습니다. 다시 시도하세요. 현재 덱은 유지됩니다.');
+      return;
+    }
     if (!text) return setProblem('그 덱을 찾을 수 없습니다.');
     const read = readDeckFile(text);
     if ('error' in read) return setProblem(read.error);
@@ -139,7 +147,9 @@ export function LibraryDialog({
     if (editor?.canUndo() && !window.confirm('저장하지 않은 변경이 사라집니다. 계속할까요?')) {
       return;
     }
+    if (beforeReplace && !await beforeReplace()) { setProblem('현재 자료를 저장하지 못했습니다. 다시 시도하세요.'); return; }
     editor?.loadDocument?.(read.document, 'slides');
+    setProblem(undefined);
     onName?.(row.name);
     onClose();
     onOpened?.();

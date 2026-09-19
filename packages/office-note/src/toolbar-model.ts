@@ -37,14 +37,7 @@ export interface NoteControl extends Control {
   group: 'mark' | 'block';
 }
 
-/**
- * The marks a writer reaches for mid-sentence.
- *
- * Four, and **not** a colour, a size or a family — which is the styling rule stated as an absence
- * rather than as a hidden control: the look of a paragraph in a post is the card's answer when it
- * draws it, so a body that could set its own would stop following the design it is placed in. See
- * `note-kit.ts`, which does not register those commands at all.
- */
+/** Inline writing tools; color values are supplied by the shared selection color control. */
 const MARKS: NoteControl[] = [
   { command: 'toggleBold', label: '굵게', title: '굵게', icon: 'bold', group: 'mark', mark: 'bold' },
   { command: 'toggleItalic', label: '기울임', title: '기울임', icon: 'italic', group: 'mark', mark: 'italic' },
@@ -76,7 +69,11 @@ const MARKS: NoteControl[] = [
      * list rather than copied, which is how the two came apart. A check compares them now.
      */
     mark: 'strikethrough'
-  }
+  },
+  { command: 'toggleCode', label: '인라인 코드', title: '인라인 코드', icon: 'code', group: 'mark', mark: 'code' },
+  { command: 'toggleSuperscript', label: '위 첨자', title: '위 첨자', icon: 'superscript', group: 'mark', mark: 'superscript' },
+  { command: 'toggleSubscript', label: '아래 첨자', title: '아래 첨자', icon: 'subscript', group: 'mark', mark: 'subscript' },
+  { command: 'clearFormatting', label: '서식 지우기', title: '서식 지우기', icon: 'clear-formatting', group: 'mark' }
 ];
 
 /**
@@ -92,6 +89,8 @@ const MARKS: NoteControl[] = [
  * list — found by the browser, which counted eleven rows in the site's menu and ten here.
  */
 const BLOCKS: Record<NoteBlock, Omit<NoteControl, 'group'>[]> = {
+  proseColumns: [2, 3, 4].map(count => ({ command: `insertColumns${count}`, label: `${count}단`, title: `${count}개의 컬럼을 나란히 배치합니다`, icon: 'frame-grid' })),
+  mathBlock: [{ command: 'insertMathBlock', label: '수식 블록', title: 'LaTeX 수식을 독립된 블록으로 넣습니다', icon: 'code' }],
   heading: [{ command: 'insertHeading', label: '제목', title: '제목을 넣습니다', icon: 'heading' }],
   paragraph: [{ command: 'insertBodyText', label: '본문', title: '문단을 넣습니다', icon: 'paragraph' }],
   /*
@@ -103,9 +102,13 @@ const BLOCKS: Record<NoteBlock, Omit<NoteControl, 'group'>[]> = {
     { command: 'insertBulletList', label: '목록', title: '목록을 넣습니다', icon: 'bullet-list' },
     { command: 'insertNumberList', label: '번호 목록', title: '번호 목록을 넣습니다', icon: 'ordered-list' }
   ],
+  taskItem: [{ command: 'insertChecklist', label: '할 일 목록', title: '체크할 수 있는 항목을 넣습니다', icon: 'type-check' }],
+  bDetails: [{ command: 'insertDetails', label: '토글', title: '접고 펼치는 글을 넣습니다', icon: 'open' }],
+  callout: [{ command: 'insertCallout', label: '콜아웃', title: '강조할 글을 넣습니다', icon: 'quote' }],
   blockQuote: [{ command: 'insertQuote', label: '인용', title: '인용문을 넣습니다', icon: 'quote' }],
   codeBlock: [{ command: 'insertCode', label: '코드', title: '코드를 넣습니다', icon: 'code' }],
   bTable: [{ command: 'insertTableBlock', label: '표', title: '표를 넣습니다', icon: 'insert-table' }],
+  noteDatabase: [{ command: 'insertNoteDatabase', label: '데이터베이스', title: '속성과 표·보드 보기가 있는 데이터베이스를 넣습니다', icon: 'insert-table' }],
   horizontalRule: [{ command: 'insertRule', label: '구분선', title: '구분선을 넣습니다', icon: 'divider' }],
   picture: [{ command: 'insertPicture', label: '이미지', title: '이미지를 넣습니다', icon: 'insert-image' }],
   mediaVideo: [{ command: 'insertVideo', label: '영상', title: '영상을 넣습니다', icon: 'insert-video' }],
@@ -115,6 +118,7 @@ const BLOCKS: Record<NoteBlock, Omit<NoteControl, 'group'>[]> = {
 /** Every control a note's chrome has, marks first — which is the order a writer meets them in. */
 export const NOTE_TOOLBAR: NoteControl[] = [
   ...MARKS,
+  { command: 'insertMathInline', label: '인라인 수식', title: '문장 안에 LaTeX 수식을 넣습니다', icon: 'code', group: 'block' },
   ...NOTE_BLOCKS.flatMap((one) => BLOCKS[one].map((each) => ({ ...each, group: 'block' as const })))
 ];
 

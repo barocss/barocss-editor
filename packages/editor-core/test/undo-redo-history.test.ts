@@ -149,7 +149,8 @@ describe('Undo/Redo History Management', () => {
       startNodeId: firstTextId as string,
       startOffset: 1,
       endNodeId: firstTextId as string,
-      endOffset: 1
+      endOffset: 1,
+      collapsed: true
     });
     
     const selectionBefore = normalizeSelection(editor.selection);
@@ -208,7 +209,8 @@ describe('Undo/Redo History Management', () => {
       startNodeId: firstTextNodeId as string,
       startOffset: 0,
       endNodeId: firstTextNodeId as string,
-      endOffset: 0
+      endOffset: 0,
+      collapsed: true
     });
 
     await editor.transaction([
@@ -250,7 +252,8 @@ describe('Undo/Redo History Management', () => {
       startNodeId: textId as string,
       startOffset: 0,
       endNodeId: textId as string,
-      endOffset: 0
+      endOffset: 0,
+      collapsed: true
     });
 
     await editor.transaction([
@@ -298,7 +301,8 @@ describe('Undo/Redo History Management', () => {
       startNodeId: textId as string,
       startOffset: 0,
       endNodeId: textId as string,
-      endOffset: 0
+      endOffset: 0,
+      collapsed: true
     });
 
     const updateSelectionSpy = vi.spyOn(editor, 'updateSelection');
@@ -343,7 +347,8 @@ describe('Undo/Redo History Management', () => {
       startNodeId: textId as string,
       startOffset: 0,
       endNodeId: textId as string,
-      endOffset: 0
+      endOffset: 0,
+      collapsed: true
     });
 
     const beforeSelection = normalizeSelection(editor.selection);
@@ -450,7 +455,8 @@ describe('Undo/Redo History Management', () => {
       startNodeId: firstTextNodeId!,
       startOffset: 0,
       endNodeId: firstTextNodeId!,
-      endOffset: 0
+      endOffset: 0,
+      collapsed: true
     });
     const selectionBeforeLocalEdit = normalizeSelection(editor.selection);
 
@@ -551,7 +557,8 @@ describe('Undo/Redo History Management', () => {
       startNodeId: textId as string,
       startOffset: 0,
       endNodeId: textId as string,
-      endOffset: 0
+      endOffset: 0,
+      collapsed: true
     });
 
     const onSelectionModel = vi.fn();
@@ -629,7 +636,8 @@ describe('Undo/Redo History Management', () => {
       startNodeId: textId as string,
       startOffset: 0,
       endNodeId: textId as string,
-      endOffset: 0
+      endOffset: 0,
+      collapsed: true
     });
 
     const beforeSelection = normalizeSelection(editor.selection);
@@ -719,7 +727,8 @@ describe('Undo/Redo History Management', () => {
       startNodeId: textId as string,
       startOffset: 0,
       endNodeId: textId as string,
-      endOffset: 0
+      endOffset: 0,
+      collapsed: true
     };
 
     editor.updateSelection({

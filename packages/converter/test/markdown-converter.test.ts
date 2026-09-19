@@ -1,6 +1,21 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import MarkdownIt from 'markdown-it';
+import type { INode } from '@barocss/datastore';
 import { MarkdownConverter, registerDefaultMarkdownRules, GlobalConverterRegistry, defineDocumentParser, defineASTConverter } from '../src';
+
+/**
+ * The first child of `parent` that is a marked inline-text node.
+ *
+ * `INode.content` is `(INode | string)[]`, so the predicate has to say which it found
+ * — the old one took `(n: any)` and handed back `string | INode`, and every `.marks`
+ * read after it was a claim the compiler was never shown.
+ */
+function markedTextIn(parent: INode): INode | undefined {
+  return parent.content?.find(
+    (child): child is INode =>
+      typeof child !== 'string' && child.stype === 'inline-text' && Boolean(child.marks)
+  );
+}
 
 describe('MarkdownConverter', () => {
   let converter: MarkdownConverter;
@@ -50,13 +65,9 @@ describe('MarkdownConverter', () => {
       
       expect(nodes).toHaveLength(1);
       expect(nodes[0].stype).toBe('paragraph');
-      if (nodes[0].content && Array.isArray(nodes[0].content)) {
-        const textNode = nodes[0].content.find((n: any) => n.stype === 'inline-text' && n.marks);
-        expect(textNode).toBeDefined();
-        if (textNode && textNode.marks) {
-          expect(textNode.marks.some((m: any) => m.stype === 'bold')).toBe(true);
-        }
-      }
+      const textNode = markedTextIn(nodes[0]);
+      expect(textNode).toBeDefined();
+      expect(textNode?.marks?.some((m) => m.stype === 'bold')).toBe(true);
     });
     
     it('should parse italic text', () => {
@@ -64,12 +75,9 @@ describe('MarkdownConverter', () => {
       const nodes = converter.parse(markdown);
       
       expect(nodes).toHaveLength(1);
-      if (nodes[0].content && Array.isArray(nodes[0].content)) {
-        const textNode = nodes[0].content.find((n: any) => n.stype === 'inline-text' && n.marks);
-        if (textNode && textNode.marks) {
-          expect(textNode.marks.some((m: any) => m.stype === 'italic')).toBe(true);
-        }
-      }
+      const textNode = markedTextIn(nodes[0]);
+      expect(textNode).toBeDefined();
+      expect(textNode?.marks?.some((m) => m.stype === 'italic')).toBe(true);
     });
     
     it('should parse mixed bold and italic', () => {
@@ -128,7 +136,7 @@ describe('MarkdownConverter', () => {
   
   describe('convert', () => {
     it('should convert paragraph to markdown', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'paragraph',
           content: [
@@ -145,7 +153,7 @@ describe('MarkdownConverter', () => {
     });
     
     it('should convert heading to markdown', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'heading',
           attributes: { level: 1 },
@@ -163,7 +171,7 @@ describe('MarkdownConverter', () => {
     });
     
     it('should convert bold marks to markdown', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'paragraph',
           content: [
@@ -186,7 +194,7 @@ describe('MarkdownConverter', () => {
     });
     
     it('should convert italic marks to markdown', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'paragraph',
           content: [
@@ -209,7 +217,7 @@ describe('MarkdownConverter', () => {
     });
     
     it('should convert multiple nodes to markdown', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'heading',
           attributes: { level: 1 },
@@ -227,7 +235,7 @@ describe('MarkdownConverter', () => {
     });
 
     it('should convert list to markdown', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'list',
           attributes: { ordered: false },
@@ -250,7 +258,7 @@ describe('MarkdownConverter', () => {
     });
 
     it('should convert image to markdown', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'image',
           attributes: { src: 'image.png', alt: 'Alt' }
@@ -262,7 +270,7 @@ describe('MarkdownConverter', () => {
     });
 
     it('should convert task list items to markdown', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'list',
           attributes: { ordered: false },

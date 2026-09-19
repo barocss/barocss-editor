@@ -21,6 +21,7 @@
     "@barocss/extensions": "workspace:*",
     "@barocss/renderer-react": "workspace:*",
     "@barocss/schema": "workspace:*",
+    "@barocss/shared": "workspace:^",
     "katex": "^0.16.28",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

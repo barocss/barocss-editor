@@ -22,10 +22,35 @@ import { childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/off
  * only thing saying otherwise.
  */
 import { columnsOf, headerRowsOf, tableRowsOf } from '@barocss/office-text';
+import type { CellBreakTarget } from './table-cell-pagination';
 export { columnsOf, headerRowsOf, tableRowsOf };
+
+/** Row boundaries that do not cut through a vertically merged cell. */
+export function tableBreakLinesOf(doc: DocumentAccess, table: DocumentNode): number[] {
+  const rows = tableRowsOf(doc, table);
+  const blocked = new Set<number>();
+  let groupEnd = 0;
+  for (const [index, row] of rows.entries()) {
+    // HTML row spans stop at their row group, even if the stored span is larger.
+    if (index >= groupEnd) {
+      groupEnd = index + 1;
+      while (groupEnd < rows.length && rows[groupEnd].parentId === row.parentId) groupEnd++;
+    }
+    for (const cell of childrenOf(doc, row)) {
+      const span = Math.max(1, Math.floor(Number(cell.attributes?.rowspan) || 1));
+      for (let at = index + 1; at < Math.min(groupEnd, index + span); at++) blocked.add(at);
+    }
+  }
+  return rows.map((_row, index) => index + 1).filter(line => !blocked.has(line));
+}
+
+export interface RepeatedHeaderCell { sourceSid?: string; text: string; colspan: number; rowspan: number }
 
 /** A page break that falls inside a table, as something to draw. */
 export interface TableBreakWidget {
+  cell?: CellBreakTarget;
+  pageGapStart?: number;
+  pageGapHeight?: number;
   sid: string;
   /** The row the break is drawn before. */
   rowSid: string;
@@ -41,6 +66,10 @@ export interface TableBreakWidget {
    * cannot be in two places.
    */
   header: { text: string }[];
+  /** Row boundaries and merged cells for the repeated drawing. */
+  headerRows: RepeatedHeaderCell[][];
+  /** Measured heights keep copies aligned with the pagination reservation. */
+  headerRowHeights: number[];
 }
 
 
@@ -80,7 +109,7 @@ export function scaledTo(heights: number[], total: number): number[] {
 export function tableBreaksOf(
   doc: DocumentAccess,
   table: DocumentNode,
-  splits: { line: number; height: number }[],
+  splits: { line: number; height: number; cell?: CellBreakTarget }[],
   rowHeights: number[]
 ): TableBreakWidget[] {
   const rows = tableRowsOf(doc, table);
@@ -92,15 +121,18 @@ export function tableBreaksOf(
     // A split at row zero is a table that was moved to the next page, not one
     // that broke; a gap above its first row would push it a page further on
     // every round and the layout would never settle.
-    const row = split.line > 0 ? rows[split.line] : undefined;
+    const row = split.line > 0 || split.cell ? rows[split.line] : undefined;
     if (!row?.sid) continue;
 
     // Nothing to repeat when the break falls among the header rows themselves:
     // the reader has not passed them yet.
-    const header =
+    const repeatedRows =
       split.line >= headerRows.length
-        ? headerRows.flatMap((headerRow) =>
-            childrenOf(doc, headerRow).map((cell) => ({ text: textOf(doc, cell) }))
+        ? headerRows.map((headerRow, rowIndex) =>
+            childrenOf(doc, headerRow).map((cell) => ({ sourceSid: cell.sid, text: textOf(doc, cell),
+              colspan: Math.max(1, Math.floor(Number(cell.attributes?.colspan) || 1)),
+              // A repeated header must not merge into the following body rows.
+              rowspan: Math.min(headerRows.length - rowIndex, Math.max(1, Math.floor(Number(cell.attributes?.rowspan) || 1))) }))
           )
         : [];
 
@@ -112,19 +144,24 @@ export function tableBreaksOf(
     // after it down by the height of a header, which put the last row of each
     // page past the bottom margin.
     const headerHeight =
-      header.length > 0
+      repeatedRows.length > 0
         ? headerRows.reduce((total, _row, at) => total + (rowHeights[at] ?? 0), 0)
         : 0;
 
-    breaks.push({
+    const targets = split.cell ? [split.cell, ...(split.cell.peers ?? [])] : [undefined];
+    const rowSid = row.sid;
+    targets.forEach((target, cellIndex) => breaks.push({
       // By which break of this table it is, for the same reason a paragraph's
       // is: an identity that changes tears the widget down and rebuilds it.
-      sid: `table-break-${table.sid}-${index}`,
-      rowSid: row.sid,
+      sid: `table-break-${table.sid}-${index}${cellIndex ? `-cell-${cellIndex}` : ''}`,
+      rowSid,
+      ...(target ? { cell: target } : {}),
       columns,
       height: Math.max(0, split.height - headerHeight),
-      header
-    });
+      header: repeatedRows.flat().map(cell => ({ text: cell.text })),
+      headerRows: repeatedRows,
+      headerRowHeights: repeatedRows.map((_row, at) => rowHeights[at] ?? 0)
+    }));
   }
 
   return breaks;

@@ -1,7 +1,7 @@
 import { registerDetailsRenderers } from './default-renderers';
 import { hasRange } from './guards';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
-import { transaction, addChild } from '@barocss/model';
+import { transaction, addChild, setAttrs } from '@barocss/model';
 
 export class DetailsExtension implements Extension {
   name = 'details';
@@ -17,15 +17,32 @@ export class DetailsExtension implements Extension {
 
 
   onCreate(editor: Editor): void {
+    editor.registerCommand({
+      name: 'toggleDetails',
+      execute: async (ed: Editor, payload?: { nodeId?: string; open?: boolean }) => {
+        const node = payload?.nodeId ? ed.dataStore.getNode(payload.nodeId) : undefined;
+        if (!node || node.stype !== 'bDetails') return false;
+        const open = payload?.open ?? !(node.attributes?.open ?? true);
+        if (open === (node.attributes?.open ?? true)) return false;
+        // A disclosure is a focused control. Reapplying the old text caret after
+        // its redraw steals summary focus before the next Space/Enter activation.
+        return (await transaction(ed, [setAttrs(node.sid!, { open })], { applySelectionToView: false }).commit()).success;
+      },
+      canExecute: (ed: Editor, payload?: { nodeId?: string; open?: boolean }) => {
+        const node = payload?.nodeId ? ed.dataStore.getNode(payload.nodeId) : undefined;
+        return node?.stype === 'bDetails' && (payload?.open === undefined || payload.open !== (node.attributes?.open ?? true));
+      }
+    });
     (editor as any).registerCommand({
       name: 'insertDetails',
-      execute: async (ed: Editor, payload?: { summary?: string; selection?: ModelSelection }) => {
+      execute: async (ed: Editor, payload?: { summary?: string; open?: boolean; selection?: ModelSelection }) => {
         const insertInfo = this._getInsertInfo(ed, payload?.selection);
         if (!insertInfo) return false;
 
-        const summaryText = payload?.summary ?? 'Details';
+        const summaryText = payload?.summary ?? '토글 제목';
         const detailsNode = {
           stype: 'bDetails',
+          attributes: { open: payload?.open ?? true },
           content: [
             { stype: 'bSummary', content: [{ stype: 'inline-text', text: summaryText }] },
             { stype: 'paragraph', content: [{ stype: 'inline-text', text: '' }] }

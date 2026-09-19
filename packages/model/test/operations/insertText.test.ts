@@ -147,7 +147,7 @@ describe('insertText operation', () => {
       dataStore.setNode(textNode);
 
       // Set existing Selection
-           const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 5, endNodeId: 'text-1', endOffset: 10 };
+           const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 5, endNodeId: 'text-1', endOffset: 10, collapsed: false };
       selectionManager.setSelection(initialSelection);
 
       const operation = {
@@ -174,7 +174,7 @@ describe('insertText operation', () => {
       dataStore.setNode(textNode);
 
       // Set existing Selection
-           const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 5, endNodeId: 'text-1', endOffset: 10 };
+           const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 5, endNodeId: 'text-1', endOffset: 10, collapsed: false };
       selectionManager.setSelection(initialSelection);
 
       const operation = {
@@ -201,7 +201,7 @@ describe('insertText operation', () => {
       dataStore.setNode(textNode);
 
       // Set Selection for different node
-           const initialSelection = { type: 'range' as const, startNodeId: 'text-2', startOffset: 3, endNodeId: 'text-2', endOffset: 7 };
+           const initialSelection = { type: 'range' as const, startNodeId: 'text-2', startOffset: 3, endNodeId: 'text-2', endOffset: 7, collapsed: false };
       selectionManager.setSelection(initialSelection);
 
       const operation = {

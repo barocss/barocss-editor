@@ -587,6 +587,13 @@ function clean(
 ): HTMLElement {
   const store = doc;
   for (const filler of [...host.querySelectorAll('[data-bc-filler]')]) filler.remove();
+  // Published checklists show the author's saved state. Changing it belongs to the editor.
+  for (const checkbox of host.querySelectorAll<HTMLButtonElement>('[data-checklist-toggle]')) {
+    checkbox.disabled = true;
+    checkbox.setAttribute('aria-disabled', 'true');
+    checkbox.style.cursor = 'default';
+    checkbox.removeAttribute('data-checklist-toggle');
+  }
 
   for (const el of [host, ...host.querySelectorAll('*')] as HTMLElement[]) {
     el.removeAttribute('contenteditable');

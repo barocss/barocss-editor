@@ -76,8 +76,12 @@ export interface CellSelectionHandle {
 export function installCellSelection(
   editor: Editor,
   container: HTMLElement,
-  doc: DocumentAccess
+  doc: DocumentAccess,
+  options: { chromeContainer?: HTMLElement } = {}
 ): CellSelectionHandle {
+  // The editable host may clip its layers. Its host can place controls in a
+  // positioned ancestor outside that clip without changing the document DOM.
+  const chromeContainer = options.chromeContainer ?? container;
   /** The cell a drag started in, held for as long as the button is down. */
   let anchor: string | undefined;
   /** The cell a drag last extended to, so a move inside one cell does no work. */
@@ -128,7 +132,7 @@ export function installCellSelection(
   handle.className = 'w-table-handle';
   handle.setAttribute('aria-label', '표 선택');
   handle.hidden = true;
-  container.appendChild(handle);
+  chromeContainer.appendChild(handle);
 
   /** Which table the handle is currently offering, if any. */
   let offered: string | undefined;
@@ -152,11 +156,11 @@ export function installCellSelection(
     }
 
     const table = element.getBoundingClientRect();
-    const host = container.getBoundingClientRect();
+    const host = chromeContainer.getBoundingClientRect();
     offered = sid;
     handle.hidden = false;
-    handle.style.left = `${table.left - host.left - HANDLE_OFFSET}px`;
-    handle.style.top = `${table.top - host.top - HANDLE_OFFSET}px`;
+    handle.style.left = `${table.left - host.left - chromeContainer.clientLeft + chromeContainer.scrollLeft - HANDLE_OFFSET}px`;
+    handle.style.top = `${table.top - host.top - chromeContainer.clientTop + chromeContainer.scrollTop - HANDLE_OFFSET}px`;
   };
 
   /** Select the whole table the handle is offering. */
@@ -319,6 +323,12 @@ export function installCellSelection(
        * nothing because it had been taken away by the very move that reached it.
        */
       if (!(under === handle || handle.contains(under))) {
+        const current = offered ? container.querySelector<HTMLElement>(`[data-bc-sid="${CSS.escape(offered)}"]`) : null;
+        const box = current?.getBoundingClientRect();
+        // Keep the corner handle while crossing the small gap between it and
+        // the table, so moving towards it cannot make it disappear.
+        if (box && event.clientX >= box.left - HANDLE_OFFSET && event.clientX <= box.left + HANDLE_OFFSET
+          && event.clientY >= box.top - HANDLE_OFFSET && event.clientY <= box.top + HANDLE_OFFSET) return;
         offerHandle(
           under && container.contains(under)
             ? (under.closest('.w-table') as HTMLElement | null)
@@ -344,8 +354,8 @@ export function installCellSelection(
   };
 
   container.addEventListener('pointerdown', onPointerDown, true);
-  container.addEventListener('pointermove', onPointerMove, true);
-  container.addEventListener('pointerleave', hideHandle);
+  chromeContainer.addEventListener('pointermove', onPointerMove, true);
+  chromeContainer.addEventListener('pointerleave', hideHandle);
   window.addEventListener('pointerup', onPointerUp, true);
 
   /**
@@ -353,15 +363,23 @@ export function installCellSelection(
    * attribute goes with them. The selection itself survives — it is in the model
    * — so this is only the drawing catching up.
    */
-  const onChange = () => paint();
+  const reposition = () => {
+    if (offered) offerHandle(container.querySelector<HTMLElement>(`[data-bc-sid="${CSS.escape(offered)}"]`));
+  };
+  const onChange = () => { paint(); reposition(); };
+  const ownerWindow = container.ownerDocument.defaultView;
+  ownerWindow?.addEventListener('scroll', reposition, true);
+  ownerWindow?.addEventListener('resize', reposition);
   editor?.on('editor:content.change', onChange);
   editor?.on('editor:selection.model', onChange);
 
   return {
     destroy() {
       container.removeEventListener('pointerdown', onPointerDown, true);
-      container.removeEventListener('pointermove', onPointerMove, true);
-      container.removeEventListener('pointerleave', hideHandle);
+      chromeContainer.removeEventListener('pointermove', onPointerMove, true);
+      chromeContainer.removeEventListener('pointerleave', hideHandle);
+      ownerWindow?.removeEventListener('scroll', reposition, true);
+      ownerWindow?.removeEventListener('resize', reposition);
       window.removeEventListener('pointerup', onPointerUp, true);
       editor?.off('editor:content.change', onChange);
       editor?.off('editor:selection.model', onChange);

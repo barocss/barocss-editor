@@ -10,7 +10,7 @@ import { placeCaret } from './helpers';
 
 test.describe('page furniture', () => {
   test('repeats the header on every page', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     // Scoped to the section that defines them: another section with no header
@@ -22,7 +22,7 @@ test.describe('page furniture', () => {
   });
 
   test('gives the first page its own header', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
 
     // firstPageHeaderId exists precisely so a title page can differ
@@ -31,7 +31,7 @@ test.describe('page furniture', () => {
   });
 
   test('numbers each page, and counts them', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-footer');
 
     const footers = await page.locator('.w-footer').allInnerTexts();
@@ -42,7 +42,7 @@ test.describe('page furniture', () => {
   });
 
   test('splits a tabbed line to the page edges', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
 
     // A tab in a header means "to the next tab stop", which is what puts a title
@@ -57,7 +57,7 @@ test.describe('page furniture', () => {
   });
 
   test('sits inside the page margins, not the text', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
 
     const gap = await page.evaluate(() => {
@@ -75,7 +75,7 @@ test.describe('page furniture', () => {
   });
 
   test('is not copied with the document', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
 
     const copied = await page.evaluate(() => {
@@ -103,7 +103,7 @@ test.describe('page furniture', () => {
 
 test.describe('footnotes', () => {
   test('draws the body at the foot of the page holding the reference', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-footnote');
 
     // The body lives in resources and is *shown* at the foot of a page, so it
@@ -116,13 +116,13 @@ test.describe('footnotes', () => {
   });
 
   test('numbers it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-footnote');
     await expect(page.locator('.w-footnote-number').first()).toHaveText('1');
   });
 
   test('keeps the body text clear of it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-footnote');
 
     // This is what the reservation is for: without it the note would be drawn
@@ -155,7 +155,7 @@ test.describe('footnotes', () => {
   });
 
   test('takes the room it needs out of that page', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-footnote');
 
     const reserved = await page.evaluate(() => {
@@ -169,7 +169,7 @@ test.describe('footnotes', () => {
   });
 
   test('sits inside the bottom margin', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-footnote');
 
     const gap = await page.evaluate(() => {
@@ -189,7 +189,7 @@ test.describe('footnotes', () => {
   });
 
   test('is not copied with the document', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-footnote');
 
     const copied = await page.evaluate(() => {
@@ -216,7 +216,7 @@ test.describe('footnotes', () => {
 
 test.describe('table of contents', () => {
   test('lists the headings with the page each is on', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toc-entry');
 
     const entries = await page.locator('.w-toc-entry').allInnerTexts();
@@ -227,7 +227,7 @@ test.describe('table of contents', () => {
   });
 
   test('reads the page from the layout, not from the document', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toc-entry');
 
     // This heading asks for a page break, so it is the one whose number proves
@@ -247,7 +247,7 @@ test.describe('table of contents', () => {
   });
 
   test('indents by heading level', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toc-entry');
 
     // The text, not the row: the indent is padding, so the row's own box does
@@ -265,7 +265,7 @@ test.describe('table of contents', () => {
   });
 
   test('follows the levels the node asks for', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toc-entry');
 
     // The sample asks for 1-2, so nothing deeper is listed
@@ -278,7 +278,7 @@ test.describe('table of contents', () => {
 
 test.describe('editing a header', () => {
   test('shows the real node in place of the drawn copies', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
 
     const drawnBefore = await page.locator('.w-header').count();
@@ -295,7 +295,7 @@ test.describe('editing a header', () => {
   });
 
   test('lets the caret into it, because it is the document', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
 
     await page.evaluate(() => (window as any).setEditingFurniture('hdr-main'));
@@ -313,7 +313,7 @@ test.describe('editing a header', () => {
   });
 
   test('types into the one node, not into a copy of it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
 
     await page.evaluate(() => (window as any).setEditingFurniture('hdr-main'));
@@ -325,7 +325,7 @@ test.describe('editing a header', () => {
   });
 
   test('leaves the mode on Escape, and the copies come back', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
 
     const drawnBefore = await page.locator('.w-header').count();
@@ -338,7 +338,7 @@ test.describe('editing a header', () => {
   });
 
   test('keeps the definitions out of the way when nothing is being edited', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
 
     // The container is no longer display:none — a header being edited has to be
@@ -354,7 +354,7 @@ test.describe('editing a header', () => {
 
 test.describe('back matter', () => {
   test('collects at the end of the document, after the last page', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-back-matter');
 
     const [firstBack, lastSheetBottom] = await page.evaluate(() => {
@@ -369,7 +369,7 @@ test.describe('back matter', () => {
   });
 
   test('titles each region', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-endnotes');
 
     await expect(page.locator('.w-endnotes')).toContainText('Notes');
@@ -378,7 +378,7 @@ test.describe('back matter', () => {
   });
 
   test('is editable, unlike the furniture', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-endnotes');
 
     // Back matter is content that appears once; only its position is a layout
@@ -410,7 +410,7 @@ test.describe('line numbers', () => {
     }, over);
 
   test('are drawn beside the lines they count, in the margin', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
     await expect(page.locator('.w-line-number')).toHaveCount(0);
 
@@ -438,7 +438,7 @@ test.describe('line numbers', () => {
   });
 
   test('show every fifth when that is what the section asks for', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
     await number(page, { lineNumberingCountBy: 5, lineNumberingRestart: 'newSection' });
 
@@ -452,7 +452,7 @@ test.describe('line numbers', () => {
   });
 
   test('line up with the lines they belong to', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
     await number(page, { lineNumberingCountBy: 1 });
     await expect.poll(() => page.locator('.w-line-number').count()).toBeGreaterThan(5);
@@ -485,7 +485,7 @@ test.describe('which pages get a header of their own', () => {
     }, attrs);
 
   test('is the section’s switch, not whether the header exists', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
     await expect(page.locator('.w-header').first()).toContainText('Draft');
 
@@ -501,7 +501,7 @@ test.describe('which pages get a header of their own', () => {
   });
 
   test('draws no even-page header until the document asks for a spread', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
 
     await section(page, { evenPageHeaderId: 'hdr-first' });
@@ -530,7 +530,7 @@ test.describe('the header editing mode', () => {
   };
 
   test('says it is on, and how to leave', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
     await openHeader(page);
 
@@ -541,7 +541,7 @@ test.describe('the header editing mode', () => {
   });
 
   test('puts the caret in the header, so typing goes there', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
     await openHeader(page);
 
@@ -567,12 +567,13 @@ test.describe('the header editing mode', () => {
   });
 
   test('leaves when the reader clicks back into the document', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
     await openHeader(page);
 
-    const body = (await page.locator('.w-paragraph').first().boundingBox())!;
-    await page.mouse.click(body.x + 40, body.y + 8);
+    // The editing status line can push this paragraph below the viewport.
+    // Scroll it into view before clicking, as a reader must do.
+    await page.locator('.w-surface > .w-paragraph').first().click({ position: { x: 40, y: 8 } });
 
     await expect(page.locator('.w-header-source.is-editing')).toHaveCount(0);
     // The caret came with the click: what is typed next belongs to the body
@@ -588,7 +589,7 @@ test.describe('the header editing mode', () => {
   });
 
   test('leaves on Escape, which the label promises', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-header');
     await openHeader(page);
     await page.keyboard.press('Escape');

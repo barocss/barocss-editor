@@ -49,7 +49,7 @@ export function ZoomFrame({ zoom, children }: ZoomFrameProps) {
       className="w-zoom-frame"
       data-zoom={zoom.toFixed(2)}
       style={
-        size && zoom !== 1
+        size
           ? { width: size.width * zoom, height: size.height * zoom, margin: '0 auto' }
           : undefined
       }
@@ -72,11 +72,7 @@ export function ZoomFrame({ zoom, children }: ZoomFrameProps) {
       <div
         ref={inner}
         className="w-zoom-page"
-        style={
-          zoom === 1
-            ? undefined
-            : { width: size?.width, transform: `scale(${zoom})`, transformOrigin: 'top center' }
-        }
+        style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
       >
         {children}
       </div>

@@ -7,7 +7,7 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: 'http://localhost:5175',
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
   },
   /**
    * **`--strictPort`.** 전에는 `command: 'pnpm dev'` 였고 그 스크립트는 맨 `vite` 다 — 포트를 안 못
