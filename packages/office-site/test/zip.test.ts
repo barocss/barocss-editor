@@ -1,41 +1,33 @@
-import { describe, it, expect } from 'vitest';
-import { writeFileSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { afterEach, describe, it, expect } from 'vitest';
+import { writeFileSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { zipOf } from '../src/zip';
 
-/**
- * **An archive that a real unarchiver opens.**
- *
- * The whole point of writing a zip by hand is that it is a *format*, and a format is either right or
- * silently not: a wrong CRC or a missing flag bit produces a file that opens on the machine that made
- * it and is reported corrupt on somebody else's. So the test does not read the bytes back with the
- * code that wrote them — it hands the file to **the operating system's own `unzip`** and looks at
- * what comes out.
- */
+// Independent readers check ZIP encoding, paths, bytes, and checksums.
+// Python 3 is required on Linux CI. Keep macOS Finder's reader as an additional check.
 describe('a site as one file', () => {
-  /**
-   * Unpacked by **somebody else's implementation**, which is the whole point of the test.
-   *
-   * `ditto` is macOS's own unarchiver — the one the Finder uses — so a file it opens is a file a
-   * reader can open. It also checks every CRC on the way, which is the failure mode a hand-written
-   * zip actually has: a wrong checksum makes an archive that some tools accept and others call
-   * corrupt.
-   *
-   * **Not `unzip`**, and that is worth the sentence rather than a silent choice: Info-ZIP's `unzip`
-   * on macOS refuses to *create* a directory whose name is UTF-8 — `Illegal byte sequence` — whatever
-   * the locale is set to. The archive is fine (Python's `zipfile` lists the names and validates the
-   * CRCs; `ditto` extracts them; the Finder opens it); a 2003 command-line tool is not. Measured,
-   * because the first version of this test failed and the bug was in the reader.
-   */
-  const unpack = (bytes: Uint8Array): { dir: string; files: string[] } => {
+  const temporaryDirectories: string[] = [];
+  afterEach(() => {
+    for (const dir of temporaryDirectories.splice(0)) rmSync(dir, { recursive: true, force: true });
+  });
+  const readers = process.platform === 'darwin' ? ['python3', 'ditto'] as const : ['python3'] as const;
+  const unpack = (bytes: Uint8Array, reader: 'python3' | 'ditto'): { dir: string; files: string[] } => {
     const dir = mkdtempSync(join(tmpdir(), 'baro-zip-'));
+    temporaryDirectories.push(dir);
     const at = join(dir, 'site.zip');
     const out = join(dir, 'out');
     writeFileSync(at, bytes);
     // A non-zero exit throws, which is the assertion that matters.
-    execFileSync('ditto', ['-x', '-k', at, out]);
+    if (reader === 'ditto') {
+      execFileSync('ditto', ['-x', '-k', at, out], { stdio: 'pipe' });
+    } else {
+      // zipfile validates each entry's CRC while extracting. Arguments are not shell text.
+      execFileSync('python3', ['-c',
+        'import sys, zipfile\nwith zipfile.ZipFile(sys.argv[1]) as archive:\n    archive.extractall(sys.argv[2])',
+        at, out], { stdio: 'pipe' });
+    }
 
     const found: string[] = [];
     const walk = (path: string, prefix = '') => {
@@ -48,14 +40,14 @@ describe('a site as one file', () => {
     return { dir: out, files: found.sort() };
   };
 
-  it('is opened by the operating system, folders and Korean names and all', () => {
+  it.each(readers)('opens folders and Korean names with %s', (reader) => {
     const bytes = zipOf([
       { file: 'index.html', text: '<!doctype html><p>홈</p>' },
       { file: '제품/index.html', text: '<!doctype html><p>제품</p>' },
       { file: 'sitemap.xml', text: '<urlset/>' }
     ]);
 
-    const { dir, files } = unpack(bytes);
+    const { dir, files } = unpack(bytes, reader);
     /*
      * The folder is the point: `제품/index.html` is what makes a link to `/제품` resolve, and a
      * browser download cannot produce one at all. The Korean name surviving is the flag bit — a zip's
@@ -65,17 +57,25 @@ describe('a site as one file', () => {
     expect(readFileSync(join(dir, '제품', 'index.html'), 'utf8')).toContain('제품');
   });
 
-  it('carries bytes through as bytes', () => {
+  it.each(readers)('carries bytes through as bytes with %s', (reader) => {
     // A one-pixel PNG. base64 is how it travels through a document and is not what a folder holds.
     const DOT =
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-    const { dir, files } = unpack(zipOf([{ file: 'assets/로고.png', bytes: DOT }]));
+    const { dir, files } = unpack(zipOf([{ file: 'assets/로고.png', bytes: DOT }]), reader);
 
     expect(files).toEqual(['assets/로고.png']);
     const written = readFileSync(join(dir, 'assets', '로고.png'));
     expect(written).toEqual(Buffer.from(DOT, 'base64'));
     // The PNG signature, which is the one check that says this is a picture rather than a string.
     expect([...written.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  });
+
+  it('rejects damaged file content through the portable reader', () => {
+    const bytes = zipOf([{ file: 'index.html', text: 'original' }]);
+    const header = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const dataStart = 30 + header.getUint16(26, true) + header.getUint16(28, true);
+    bytes[dataStart] ^= 1;
+    expect(() => unpack(bytes, 'python3')).toThrow(/Bad CRC-32/);
   });
 
   it('writes the same archive twice for the same site', () => {

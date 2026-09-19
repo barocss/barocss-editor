@@ -101,6 +101,7 @@ view.render();
 
 - Node.js 22.22.0 (see `.nvmrc`; CI and docs builds read the same file)
 - pnpm >= 8.0.0
+- Python 3 for the Site ZIP interoperability tests (macOS also checks its built-in `ditto` reader)
 
 ### Installation
 

@@ -41,6 +41,8 @@ GitHub API로 적용하고 다시 조회했다.
 - 제품 4개의 publishConfig.exports가 가리키는 JS·타입·CSS 파일이 모두 실제 빌드 출력에 있는지 확인했다.
 - 첫 원격 실행은 Node 20에 없는 fs.globSync를 검사 코드가 사용해 실패했다. 호환되는 디렉터리 순회로 바꾸고 conformance 테스트 타입 한도를 4→2로 낮췄다. Node 20에서도 전체 단위 8,540개 통과(기존 17개 건너뛰기)를 확인했다.
 - 사용자 요청에 따라 프로젝트 Node는 검증한 22.22.0으로 통일했다. `.nvmrc`를 CI 두 작업과 문서 빌드가 읽고, root engines와 README의 로컬 설치 절차도 맞췄다. 기본 셸의 22.19.0은 전역 변경하지 않는다. 프로젝트에서는 `nvm use`를 실행한다.
+- Node 22 원격 실행에서 Site ZIP 검사가 macOS 전용 ditto를 호출해 실패했다. Python 3 zipfile 독립 검증을 추가하고 macOS ditto 검사도 유지했다. 한글 경로·바이너리 보존과 손상 CRC 거부를 검증했다. Site 패키지 54개 파일, 656개 검사 통과. Linux 결과는 후속 원격 실행으로 확인한다.
+- React Enter 후 DOM 생성 전에 selection 복원이 실행되는 경합을 수정했다. 최대 10프레임 동안 대상 DOM을 기다리고 최신 선택·remote·none·skip 상태·unmount에서 이전 요청을 취소한다. React 단위 88개, CI 모드 브라우저 14개, Enter 반복 20개를 통과했다. 공개 패키지 patch changeset을 추가했다. 재시도 없이 실패 trace를 보관하도록 CI 진단도 추가했다.
 - 새 head의 GitHub CI 결과는 PR #250에서 확인한다.
 
 ## 완료 경계

@@ -32,6 +32,9 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
   const [documentSnapshot, setDocumentSnapshot] = useState<unknown>(() => editor.getDocumentProxy?.() ?? null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const modelRenderGuardFrameRef = useRef<number | null>(null);
+  const pendingModelSelectionRef = useRef<unknown>(null);
+  const selectionRestoreFrameRef = useRef<number | null>(null);
+  const selectionRestoreAttemptRef = useRef(0);
 
   useEffect(() => {
     const onContentChange = (e: { content?: unknown; skipRender?: boolean }) => {
@@ -108,19 +111,108 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
         : true;
       const shouldApplySelectionToView = source === 'remote' ? false : applySelectionToView;
 
-      if (!shouldApplySelectionToView) return;
+      const cancelPendingSelectionRestore = () => {
+        pendingModelSelectionRef.current = null;
+        selectionRestoreAttemptRef.current = 0;
+        if (selectionRestoreFrameRef.current !== null) {
+          window.cancelAnimationFrame(selectionRestoreFrameRef.current);
+          selectionRestoreFrameRef.current = null;
+        }
+      };
 
-      if (viewStateRef?.current?.skipApplyModelSelectionToDOM) return;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
+      const hasRenderedNode = (root: ParentNode | null | undefined, sid: string) =>
+        Boolean(
+          root &&
+          Array.from(root.querySelectorAll('[data-bc-sid]')).some(
+            (node) => node.getAttribute('data-bc-sid') === sid
+          )
+        );
+
+      if (!shouldApplySelectionToView) {
+        cancelPendingSelectionRestore();
+        return;
+      }
+
+      if (viewStateRef?.current?.skipApplyModelSelectionToDOM) {
+        cancelPendingSelectionRestore();
+        return;
+      }
+
+      const selectionRecord = selectionFromEvent as { type?: string } | null | undefined;
+      if (!selectionRecord || selectionRecord.type === 'none') {
+        cancelPendingSelectionRestore();
+        selectionHandler.convertModelSelectionToDOM(
+          selectionFromEvent as Parameters<typeof selectionHandler.convertModelSelectionToDOM>[0]
+        );
+        return;
+      }
+
+      pendingModelSelectionRef.current = selectionFromEvent;
+      selectionRestoreAttemptRef.current = 0;
+
+      const applyPendingSelection = () => {
+        selectionRestoreFrameRef.current = null;
+        const pendingSelection = pendingModelSelectionRef.current as
+          | { type?: string; startNodeId?: string; endNodeId?: string }
+          | null
+          | undefined;
+
+        if (!pendingSelection || pendingSelection.type === 'none') {
+          cancelPendingSelectionRestore();
+          return;
+        }
+
+        if (viewStateRef?.current?.skipApplyModelSelectionToDOM) {
+          cancelPendingSelectionRestore();
+          return;
+        }
+
+        const root = contentRef.current;
+        const needsRenderedRange =
+          pendingSelection.type === 'range' &&
+          typeof pendingSelection.startNodeId === 'string' &&
+          typeof pendingSelection.endNodeId === 'string';
+        const hasRenderedRange =
+          !needsRenderedRange ||
+          (hasRenderedNode(root, pendingSelection.startNodeId as string) &&
+            hasRenderedNode(root, pendingSelection.endNodeId as string));
+
+        if (hasRenderedRange) {
+          const selectionToApply = pendingModelSelectionRef.current;
+          pendingModelSelectionRef.current = null;
+          selectionRestoreAttemptRef.current = 0;
           selectionHandler.convertModelSelectionToDOM(
-            selectionFromEvent as Parameters<typeof selectionHandler.convertModelSelectionToDOM>[0]
+            selectionToApply as Parameters<typeof selectionHandler.convertModelSelectionToDOM>[0]
           );
-        });
-      });
+          return;
+        }
+
+        // Give React up to ten animation frames to commit the content change that
+        // produced this selection. After that, drop the stale restore request.
+        if (selectionRestoreAttemptRef.current >= 10) {
+          cancelPendingSelectionRestore();
+          return;
+        }
+
+        selectionRestoreAttemptRef.current += 1;
+        selectionRestoreFrameRef.current = window.requestAnimationFrame(applyPendingSelection);
+      };
+
+      if (selectionRestoreFrameRef.current !== null) {
+        window.cancelAnimationFrame(selectionRestoreFrameRef.current);
+      }
+      selectionRestoreFrameRef.current = window.requestAnimationFrame(applyPendingSelection);
     };
     editor.on?.('editor:selection.model', onModelSelection);
-    return () => editor.off?.('editor:selection.model', onModelSelection);
+    return () => {
+      editor.off?.('editor:selection.model', onModelSelection);
+      if (selectionRestoreFrameRef.current !== null) {
+        window.cancelAnimationFrame(selectionRestoreFrameRef.current);
+        selectionRestoreFrameRef.current = null;
+      }
+      pendingModelSelectionRef.current = null;
+      selectionRestoreAttemptRef.current = 0;
+    };
   }, [editor, selectionHandler, viewStateRef]);
 
   const renderer = useMemo(
