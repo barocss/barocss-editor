@@ -514,27 +514,45 @@ const editor = new Editor({
       expect(markedNodes.length).toBeGreaterThan(5);
     });
 
-    it('성능 테스트 - 대용량 순회', () => {
-      const startTime = performance.now();
-      
-      let count = 0;
-      let currentId = dataStore.getRootNodeId() as string;
-      
-      while (currentId && count < 1000) { // Prevent infinite loop
-        currentId = dataStore.getNextNode(currentId) as string;
-        count++;
+    it('keeps steady-state document traversal within 10ms without missing nodes', () => {
+      const expectedIds = dataStore.getAllNodes().map(node => node.sid).sort();
+      const rootId = dataStore.getRootNodeId();
+      expect(rootId).toBeDefined();
+      expect(expectedIds.length).toBeGreaterThan(20);
+
+      const traverse = () => {
+        const ids: string[] = [];
+        let currentId: string | null = rootId ?? null;
+        // Stop a cycle deterministically; reaching the guard is an assertion failure.
+        while (currentId && ids.length <= expectedIds.length) {
+          ids.push(currentId);
+          currentId = dataStore.getNextNode(currentId);
+        }
+        return { ids, remaining: currentId };
+      };
+      const assertComplete = (result: ReturnType<typeof traverse>) => {
+        expect(result.remaining).toBeNull();
+        expect([...result.ids].sort()).toEqual(expectedIds);
+        expect(new Set(result.ids).size).toBe(expectedIds.length);
+      };
+
+      // A single cold wall-clock sample also measures JIT and runner scheduling.
+      // Use fixed warm-up and batches, not retries that stop once the test passes.
+      for (let warmup = 0; warmup < 3; warmup++) assertComplete(traverse());
+      const samples: number[] = [];
+      const batchSize = 25;
+      for (let sample = 0; sample < 7; sample++) {
+        const results: ReturnType<typeof traverse>[] = [];
+        const startTime = performance.now();
+        for (let run = 0; run < batchSize; run++) results.push(traverse());
+        samples.push((performance.now() - startTime) / batchSize);
+        // Assertions are outside the timed region and cover every traversal.
+        results.forEach(assertComplete);
       }
-      
-      const endTime = performance.now();
-      const duration = endTime - startTime;
-      
-      console.log(`\n=== 성능 테스트 결과 ===`);
-      console.log(`순회한 노드 수: ${count}`);
-      console.log(`소요 시간: ${duration.toFixed(2)}ms`);
-      console.log(`노드당 평균 시간: ${(duration / count).toFixed(4)}ms`);
-      
-      expect(duration).toBeLessThan(10); // Within 10ms
-      expect(count).toBeGreaterThan(20); // At least 20 nodes should be traversed
+
+      const medianDuration = [...samples].sort((a, b) => a - b)[3];
+      console.log(`Traversal samples (ms per document): ${samples.join(', ')}`);
+      expect(medianDuration).toBeLessThan(10);
     });
   });
 
