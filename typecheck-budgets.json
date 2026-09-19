@@ -9,7 +9,7 @@
   "packages/collaboration": 1,
   "packages/collaboration-liveblocks": 0,
   "packages/collaboration-yjs": 0,
-  "packages/conformance": 4,
+  "packages/conformance": 2,
   "packages/converter": 10,
   "packages/datastore": 340,
   "packages/devtool": 0,

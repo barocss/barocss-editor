@@ -99,12 +99,16 @@ view.render();
 
 ### Prerequisites
 
-- Node.js >= 18.0.0
+- Node.js 22.22.0 (see `.nvmrc`; CI and docs builds read the same file)
 - pnpm >= 8.0.0
 
 ### Installation
 
 ```bash
+# Use the project Node.js version
+nvm install
+nvm use
+
 # Install dependencies
 pnpm install
 

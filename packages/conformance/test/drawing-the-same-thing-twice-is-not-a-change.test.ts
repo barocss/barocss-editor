@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { globSync } from 'node:fs';
 
 /**
  * **같은 것을 다시 그리는 것은 바뀐 것이 아니다.**
@@ -41,6 +40,23 @@ const ROOT = join(__dirname, '..', '..', '..');
 
 const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8');
 
+// CI runs on Node 20, which does not provide node:fs.globSync.
+const sourceComponents = (): string[] => {
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.isFile() && entry.name.endsWith('.tsx')) files.push(path);
+    }
+  };
+  for (const entry of readdirSync(join(ROOT, 'packages'), { withFileTypes: true })) {
+    const src = join('packages', entry.name, 'src');
+    if (entry.isDirectory() && existsSync(join(ROOT, src))) walk(src);
+  }
+  return files;
+};
+
 describe('데코레이터를 다시 그리는 일', () => {
   it('`setDecorators` 가 바뀐 것이 있을 때만 그린다', () => {
     const source = read('packages/editor-view-dom/src/editor-view-dom.ts');
@@ -70,7 +86,7 @@ describe('데코레이터를 다시 그리는 일', () => {
   });
 
   it('정리 함수가 지우는 효과는 매번 새로 만들어지는 배열에 매달리지 않는다', () => {
-    const files = globSync('packages/*/src/**/*.tsx', { cwd: ROOT }).filter((one) =>
+    const files = sourceComponents().filter((one) =>
       read(one).includes('setDecorators')
     );
 
