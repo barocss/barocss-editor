@@ -69,6 +69,7 @@ function renderContentLayerForSelection() {
 function rangeSelection(id: string) {
   return {
     type: 'range',
+    collapsed: true,
     startNodeId: id,
     startOffset: 0,
     endNodeId: id,
@@ -343,6 +344,7 @@ describe('EditorViewContext', () => {
       editor.emit('editor:selection.model', {
         type: 'range',
         startNodeId: 'late-text',
+        collapsed: true,
         startOffset: 0,
         endNodeId: 'late-text',
         endOffset: 0,
