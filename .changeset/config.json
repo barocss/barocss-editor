@@ -12,6 +12,9 @@
     "@barocss/editor-decorator-test",
     "@barocss/editor-react",
     "@barocss/editor-test"
-  ]
+  ],
+  "privatePackages": {
+    "version": true,
+    "tag": false
+  }
 }
-

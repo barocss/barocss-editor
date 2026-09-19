@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Release metadata and versioning tests
+        run: pnpm test:release
+
       - name: Local verification tools
         run: pnpm test:checks
 

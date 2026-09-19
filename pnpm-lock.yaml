@@ -30,6 +30,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^6.21.0
         version: 6.21.0(eslint@8.57.1)(typescript@5.9.3)
+      ajv:
+        specifier: 8.17.1
+        version: 8.17.1
       eslint:
         specifier: ^8.57.1
         version: 8.57.1
@@ -1744,6 +1747,8 @@ importers:
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
+
+  packages/wonffice-release: {}
 
 packages:
 

@@ -1,0 +1,6 @@
+{
+  "name": "@barocss/wonffice-release",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Version and release identity for the complete Wonffice service"
+}
