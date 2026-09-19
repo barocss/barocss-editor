@@ -1,7 +1,7 @@
 {
   "name": "@barocss/office-note",
-  "version": "0.1.0",
-  "description": "One written thing: the schema, the kit and the editing session a body of prose needs \u2014 a CMS field, and a note on its own",
+  "version": "0.1.1",
+  "description": "One written thing: the schema, the kit and the editing session a body of prose needs — a CMS field, and a note on its own",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
