@@ -1,7 +1,7 @@
 ---
 work_id: wonffice-release-flow
 artifact_type: brief
-status: ready_for_build
+status: qa_ready
 owner_role: release-manager
 source_request: "개발 흐름, 이슈 병렬 처리, CI 실패와 출시·버전 관리 정리"
 last_updated: 2026-09-19
@@ -20,4 +20,12 @@ last_updated: 2026-09-19
 
 ## 검증과 제한
 
-문서 내용·링크·Git diff를 확인한다. 실행 코드 변경이 없으므로 새 단위 테스트는 만들지 않는다. 원격 CI는 PR에서 실행하며 기존 main의 실패도 우회하지 않는다. 첫 출시 날짜는 미정이다. 현재 서비스 릴리즈 manifest·두 환경 배포 자동화·전체 출시 검사는 구현 전이다. 문서 준비는 제품 release_ready가 아니다.
+문서 내용·링크·Git diff를 확인한다. 실행 코드 변경이 없으므로 새 단위 테스트는 만들지 않는다. 원격 CI는 PR에서 실행하며 기존 main의 실패도 우회하지 않는다. 첫 출시 날짜는 미정이다. 릴리즈 manifest 기반은 별도 PR #254에서 검토 중이다. 두 환경 배포 자동화·전체 출시 검사는 구현 전이다. 문서 준비는 제품 release_ready가 아니다.
+
+## 최신 main 반영
+
+PR #250과 #256이 병합된 main을 반영했다. 기존 lint 미구현 안내와 기준점 대기 문구, 작업 순서, 오래된 브랜치 링크를 수정했다. 실제 배포와 태그 불변성 검증을 manifest 메타데이터 검사와 구분했다. 푸시 전에 전체 로컬 사전 검사를 실행한다.
+
+## 최신 main 기준 로컬 결과
+
+Node 22.22.0에서 `pnpm preflight` 종료 0. 실제 lint에서 신규 오류 없음(기존 오류 540개, 경고 7,208개). 소스 40개 프로젝트와 테스트 타입 36개 대상을 검사했고 기존 예외·오류 한도를 유지했다. 검사 도구 4개 테스트 통과. 전체 원격 CI는 push 후 다시 실행한다.

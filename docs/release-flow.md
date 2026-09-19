@@ -1,7 +1,7 @@
 ---
 work_id: wonffice-release-flow
 artifact_type: delivery_policy
-status: ready_for_build
+status: qa_ready
 owner_role: release-manager
 source_request: "이슈 병렬 개발, 필수 CI, 출시 시점과 버전 관리 정리"
 last_updated: 2026-09-19
@@ -13,20 +13,20 @@ last_updated: 2026-09-19
 
 ## 현재 상태와 정책의 적용 범위
 
-- 기준점: [#248](https://github.com/barocss/barocss-editor/issues/248), [PR #250](https://github.com/barocss/barocss-editor/pull/250). 필수 CI가 통과하고 병합되어야 후속 코드의 기준이 된다.
+- 기준점: [#248](https://github.com/barocss/barocss-editor/issues/248), [PR #250](https://github.com/barocss/barocss-editor/pull/250). 필수 CI 통과 후 main에 병합했다. 후속 코드는 최신 main을 기준으로 한다.
 - 다음 코어 작업: [#249](https://github.com/barocss/barocss-editor/issues/249), transaction 실패 복구.
-- 이 정책: [#251](https://github.com/barocss/barocss-editor/issues/251). 문서 작업은 기존 main에서 독립 진행한다.
+- 이 정책: [#251](https://github.com/barocss/barocss-editor/issues/251). 문서 작업은 최신 main을 반영한 독립 worktree에서 진행한다.
 - main 필수 검사 이름은 `Lint, type-check, unit test`, `E2E (editor-react)`다. 필수 검사를 통과하지 않으면 병합하지 않는다.
-- 현재 `pnpm lint`는 각 패키지에 lint script가 없어 검사 없이 종료한다. CI step 이름만으로 정적 분석이 수행된다고 판단하지 않는다. 실제 lint 범위 연결도 후속 보강 대상이다.
+- [PR #256](https://github.com/barocss/barocss-editor/pull/256)에서 실제 ESLint와 `pnpm preflight`를 연결했다. push 전에 로컬 lint·소스 타입·테스트 타입 검사를 실행한다. 기존 lint·타입 부채는 기준으로 명시하고 증가시키지 않는다. 상세 범위는 [로컬 사전 검사](local-verification.md)를 따른다.
 - 현재 CI는 서비스 출시 검사 전체를 포함하지 않는다. 네 제품의 전체 사용자 흐름, 서버 격리, 두 배포 환경, 업데이트·복원 검사는 추가 구현 대상이다.
-- 기존 Changesets 설정과 npm 버전 이력은 유지한다. 과거 npm release workflow와 Wonffice 서비스 릴리즈는 별개다. PR #250에서 과거 workflow를 제거하므로 자동 Version Packages PR·npm 게시가 작동한다고 가정하지 않는다. 후속 이슈에서 게시 권한과 검사를 포함해 다시 연결한다.
+- 기존 Changesets 설정과 npm 버전 이력은 유지한다. 과거 npm release workflow와 Wonffice 서비스 릴리즈는 별개다. PR #250에서 과거 workflow를 제거했으므로 자동 Version Packages PR·npm 게시가 작동한다고 가정하지 않는다. 후속 이슈에서 게시 권한과 검사를 포함해 다시 연결한다.
 
 ## 이슈에서 main까지
 
 1. Codex 작업을 시작하거나 재개하면 열린 이슈, PR, 최신 댓글을 확인한다. 앱을 열기만 하면 작업이 시작되는 상주 실행기는 만들지 않는다.
 2. 승인된 이슈 중 선행 작업이 끝난 이슈를 선택한다. 목적, 제외 범위, 완료 기준, 검증 방법, 선행 이슈, 목표 milestone을 기록한다.
 3. 최신 `origin/main`에서 `codex/<issue>-<name>` 브랜치와 별도 worktree를 만든다. 선행 PR이 필요하면 병합을 기다린다. 오래된 main에서 선행 코드를 다시 만들지 않는다.
-4. 구현과 검증을 진행한다. 공유 코어 변경은 사용하는 제품의 영향을 확인한다. 모바일 화면 검사는 별도 요청 전까지 제외한다.
+4. 구현 후 `.nvmrc`의 Node로 `pnpm preflight`를 실행한다. lint와 타입 오류는 push 전에 수정한다. 변경에 맞는 단위·브라우저 검사도 실행한다. 공유 코어 변경은 사용하는 제품의 영향을 확인한다. 모바일 화면 검사는 별도 요청 전까지 제외한다.
 5. base가 main인 PR을 만든다. 변경 원인·행동·검사 결과·남은 위험을 쓴다. 미검증 작업은 draft로 둔다. 완료 기준을 충족할 때만 `Closes #N`을 쓴다.
 6. 병합 직전에 최신 요구와 PR head SHA를 확인한다. main 변경 후 필요한 재검사와 필수 CI를 통과해야 한다. 실패한 검사를 관리자 우회로 넘기지 않는다.
 7. 병합 후 이슈와 milestone을 갱신한다. main 병합 자체는 고객 배포나 npm 게시를 뜻하지 않는다.
@@ -63,7 +63,7 @@ last_updated: 2026-09-19
 | 출시 후보 RC | `1.0.0-rc.1` | 기능 범위 동결. 동시 편집 충돌·재접속, 권한 회수, 고객별 기능 차단, 이전 후보에서 업데이트, 실패 복구, 내부 설치 오프라인 기본 작업 검증 |
 | 첫 정식 출시 | `1.0.0` | RC의 두 환경 검증 통과, 출시 차단 결함 없음, 관측·복구 절차·설치 문서 준비, 제품 소유자의 출시 결정 |
 
-로드맵 기준 alpha는 WP-01·02·05·06의 핵심 경로, beta는 WP-07까지와 WP-08·09의 격리·충돌 기준을 포함한다. RC와 정식 출시는 WP-08·09·10·11의 출시 검사를 모두 요구한다. 일부 선행 기능을 통과했다고 해당 WP 전체를 완료 처리하지 않는다. WP 정의는 [기준점 PR의 전달 계획](https://github.com/barocss/barocss-editor/blob/codex/248-wonffice-baseline/docs/specs/wonffice-platform-delivery.md)을 따른다. 병합 후 main의 전달 계획을 기준으로 갱신한다.
+로드맵 기준 alpha는 WP-01·02·05·06의 핵심 경로, beta는 WP-07까지와 WP-08·09의 격리·충돌 기준을 포함한다. RC와 정식 출시는 WP-08·09·10·11의 출시 검사를 모두 요구한다. 일부 선행 기능을 통과했다고 해당 WP 전체를 완료 처리하지 않는다. WP 정의는 [전달 계획](specs/wonffice-platform-delivery.md)을 따른다.
 
 독립 상주 Agent 실행기(WP-03·04), 모든 회사 업무 자동화(WP-12 이후), 모바일 편집은 첫 출시의 선행 조건이 아니다. 첫 서비스 범위와 장기 비전을 구분한다. 준비되지 않은 기능은 UI와 API 모두에서 차단한다.
 
@@ -71,7 +71,7 @@ last_updated: 2026-09-19
 
 ## 제품 버전과 패키지 버전
 
-제품 버전은 Wonffice 서비스 전체의 배포 조합이다. Git tag는 `wonffice-v1.0.0-alpha.1`처럼 제품 이름을 포함한다. 루트 package.json의 기존 `1.0.0`은 첫 서비스가 출시되었다는 증거가 아니다. 제품 전체를 대표하는 비공개 workspace 패키지의 package.json을 제품 버전의 단일 기준으로 둔다. 이 패키지도 Changesets로 버전과 변경 내역을 관리하지만 npm에는 게시하지 않는다. 프런트엔드 office-app 하나의 버전을 전체 제품 버전으로 사용하지 않는다. 릴리즈 manifest는 이 제품 버전을 읽고 코드·이미지·DB 조합을 기록한다. 태그와 manifest 연결은 #252에서 구현한다.
+제품 버전은 Wonffice 서비스 전체의 배포 조합이다. Git tag는 `wonffice-v1.0.0-alpha.1`처럼 제품 이름을 포함한다. 루트 package.json의 기존 `1.0.0`은 첫 서비스가 출시되었다는 증거가 아니다. 제품 전체를 대표하는 비공개 workspace 패키지의 package.json을 제품 버전의 단일 기준으로 둔다. 이 패키지도 Changesets로 버전과 변경 내역을 관리하지만 npm에는 게시하지 않는다. 프런트엔드 office-app 하나의 버전을 전체 제품 버전으로 사용하지 않는다. 릴리즈 manifest는 이 제품 버전을 읽고 코드·이미지·DB 조합을 기록한다. 제품 버전과 manifest 검증 기반은 #252 / PR #254에서 검토 중이다. 게시된 태그의 불변성 검증과 실제 배포는 후속 구현 대상이다.
 
 | 변화 | 제품 버전 규칙 |
 | --- | --- |
@@ -106,9 +106,9 @@ main 병합은 배포 버튼이 아니다. 릴리즈 PR에 manifest, 변경 내�
 
 ## 다음 실행 순서
 
-1. #248 / PR #250: 필수 CI를 복구하고 기준점을 검증한다.
+1. #248 / PR #250 기준점과 #255 / PR #256 로컬 사전 검사: main 반영 완료.
 2. #251: 이 정책을 검토·병합한다. 코드 변경 없이 독립 진행할 수 있다.
-3. 기준점과 정책 병합 후 [#249](https://github.com/barocss/barocss-editor/issues/249)와 [릴리즈 manifest/검증 도구 #252](https://github.com/barocss/barocss-editor/issues/252)를 별도 worktree에서 병렬 진행한다.
+3. [릴리즈 manifest/검증 도구 #252](https://github.com/barocss/barocss-editor/issues/252)는 PR #254에서 최신 main 기준 검증 중이다. 정책 병합 후 [#249](https://github.com/barocss/barocss-editor/issues/249)의 코어 복구를 별도 worktree에서 진행한다.
 4. WP-05 서버·두 배포 환경의 최소 구조를 구축한다. 그다음 WP-02·06 저장 경로를 연결한다.
 5. alpha 검증으로 beta 일정과 범위를 구체화한다. 진행 상황은 [GitHub milestone](https://github.com/barocss/barocss-editor/milestones)과 이슈에 기록한다. alpha, beta, RC, 1.0 milestone은 생성했고 날짜는 비워 두었다.
 
