@@ -30,7 +30,9 @@
     "test:e2e:slide": "pnpm --filter @barocss/slide-app test:e2e",
     "test:e2e:site": "pnpm --filter @barocss/site-app test:e2e",
     "type-check:tests": "node scripts/typecheck-tests.mjs",
-    "type-check": "node scripts/typecheck-all.mjs"
+    "type-check": "node scripts/typecheck-all.mjs",
+    "release:manifest": "node scripts/release/cli.mjs",
+    "test:release": "node --test scripts/release/*.test.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
@@ -38,6 +40,7 @@
     "@types/node": "^20.19.24",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
+    "ajv": "8.17.1",
     "eslint": "^8.57.1",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
