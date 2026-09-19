@@ -36,7 +36,13 @@
     "release:manifest": "node scripts/release/cli.mjs",
     "test:release": "node --test scripts/release/*.test.mjs",
     "test:checks": "node --test scripts/checks/*.test.mjs",
-    "preflight": "pnpm test:checks && pnpm test:release && pnpm lint && pnpm type-check && pnpm type-check:tests"
+    "preflight": "pnpm test:checks && pnpm test:release && pnpm test:npm && pnpm lint && pnpm type-check && pnpm type-check:tests",
+    "test:npm": "node --test scripts/npm/*.test.mjs",
+    "release:npm:prepare": "node scripts/npm/prepare.mjs",
+    "release:npm:consumer": "node scripts/npm/consumer.mjs",
+    "release:npm:check": "pnpm release:npm:prepare && pnpm release:npm:consumer",
+    "release:npm:publish": "node scripts/npm/publish.mjs --publish",
+    "version-packages:npm": "pnpm version-packages && pnpm install --lockfile-only"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
@@ -49,7 +55,8 @@
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vite-plugin-dts": "^4.5.4",
-    "vitest": "^4.0.7"
+    "vitest": "^4.0.7",
+    "semver": "7.7.3"
   },
   "engines": {
     "node": ">=22.22.0 <23",

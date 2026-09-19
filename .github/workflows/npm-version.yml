@@ -1,0 +1,38 @@
+name: Npm version PR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: npm-version-pr
+  cancel-in-progress: false
+
+jobs:
+  version:
+    if: github.repository == 'barocss/barocss-editor' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Create or update the version PR without publishing
+        uses: changesets/action@v1
+        with:
+          version: pnpm version-packages:npm
+          title: 'chore: version npm packages'
+          commit: 'chore: version npm packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.VERSION_PR_TOKEN || github.token }}

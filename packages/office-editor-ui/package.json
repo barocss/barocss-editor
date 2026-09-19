@@ -31,7 +31,8 @@
     "@barocss/office-controls": "workspace:*",
     "@barocss/office-icons": "workspace:*",
     "@barocss/office-ui": "workspace:*",
-    "katex": "0.16.28"
+    "katex": "0.16.28",
+    "@barocss/extensions": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -39,7 +40,6 @@
   },
   "devDependencies": {
     "@barocss/datastore": "workspace:*",
-    "@barocss/extensions": "workspace:*",
     "@barocss/office-note": "workspace:*",
     "@barocss/office-site": "workspace:*",
     "@barocss/office-slides": "workspace:*",
@@ -52,6 +52,29 @@
     "react-dom": "^19.2.8",
     "typescript": "^5.6.3",
     "vite": "^6.0.1",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "vite-plugin-dts": "^4.5.4"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js",
+        "default": "./dist/index.js"
+      }
+    },
+    "files": [
+      "dist"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barocss/barocss-editor.git",
+    "directory": "packages/office-editor-ui"
   }
 }

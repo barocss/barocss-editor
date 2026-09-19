@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { LocalDocuments } from '@barocss/office-editor-ui';
 import { DeckAutosave, type SlideSaveStatus } from './deck-autosave';
 
-export function useSlidePersistence(editor: Editor | null) {
+export function useSlidePersistence(editor: Editor | null): {
+  session: RefObject<DeckAutosave | null>;
+  status: SlideSaveStatus;
+  beforeReplace: () => Promise<boolean>;
+} {
   const session = useRef<DeckAutosave | null>(null);
   const [status, setStatus] = useState<SlideSaveStatus>('불러오는 중');
   useEffect(() => {

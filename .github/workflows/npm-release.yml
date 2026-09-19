@@ -1,0 +1,71 @@
+name: Npm release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish validated packages to npm (false only prepares and tests)
+        type: boolean
+        default: false
+      authentication:
+        description: Trusted publishing normally; bootstrap only for packages not yet registered
+        type: choice
+        options: [trusted, bootstrap]
+        default: trusted
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'barocss/barocss-editor' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: npm
+    permissions:
+      contents: read
+      checks: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - name: Use npm with trusted publishing support
+        run: npm install --global npm@11.6.2
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:npm
+      - name: Build, pack, and install all public packages in an isolated consumer
+        run: pnpm release:npm:check
+      - name: Publish the validated tarballs
+        if: inputs.publish
+        run: |
+          if [ "$AUTH_MODE" = bootstrap ] && [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo 'Configure NPM_BOOTSTRAP_TOKEN in the npm environment for the initial package registration.'
+            exit 1
+          fi
+          pnpm release:npm:publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTH_MODE: ${{ inputs.authentication }}
+          NODE_AUTH_TOKEN: ${{ inputs.authentication == 'bootstrap' && secrets.NPM_BOOTSTRAP_TOKEN || '' }}
+          NPM_CONFIG_PROVENANCE: ${{ github.event.repository.private && 'false' || 'true' }}
+      - name: Keep package archives and verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-release-${{ github.sha }}
+          path: output/npm/
+          if-no-files-found: ignore
+          retention-days: 14

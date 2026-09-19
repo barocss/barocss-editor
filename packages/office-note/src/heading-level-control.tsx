@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import type { INode } from '@barocss/datastore';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { Button, FloatingSurface, Icon, MenuAction } from '@barocss/office-ui';
 import { NOTE_CONVERSIONS } from './block-actions';
 
 /** Only an entire single prose block changes type; table and callout headers retain their roles. */
-export function selectedProseBlock(editor: Editor, selection: ModelSelection | null) {
+export function selectedProseBlock(editor: Editor, selection: ModelSelection | null): INode | undefined {
   if (selection?.type !== 'range') return;
   const parent = (id: string) => {
     const run = editor.dataStore.getNode(id);
