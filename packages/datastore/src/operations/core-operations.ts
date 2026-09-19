@@ -144,13 +144,14 @@ export class CoreOperations {
     if (deleted) {
       // Remove deleted node ID from parent's content array
       if (node.parentId) {
-        const parent = this.dataStore.getNodes().get(node.parentId);
+        // The parent may have received moved children earlier in this transaction.
+        // Read the overlay and leave the committed array untouched for rollback.
+        const parent = this.dataStore.getNode(node.parentId);
         if (parent && parent.content) {
           const index = parent.content.indexOf(nodeId);
           if (index !== -1) {
-            parent.content.splice(index, 1);
-            // Update parent node (generates operation)
-            this.updateNode(node.parentId, { content: parent.content }, false);
+            const content = parent.content.filter(id => id !== nodeId);
+            this.updateNode(node.parentId, { content }, false);
           }
         }
       }

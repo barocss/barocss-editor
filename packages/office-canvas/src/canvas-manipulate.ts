@@ -1,4 +1,5 @@
 import { boxOf, type Box, type Placement } from './canvas-box';
+import { rotatePoint } from './canvas-angle';
 
 /**
  * Dragging a box, as arithmetic.
@@ -33,6 +34,80 @@ export const RESIZE_HANDLES: readonly Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's
 export interface Delta {
   dx: number;
   dy: number;
+}
+
+/**
+ * **A nudge is a `Delta` that came from a key rather than from a hand** — and the three products
+ * spelled it three ways.
+ *
+ * | product | command | where the payload sits | shape |
+ * |---|---|---|---|
+ * | `office-word` | `moveShapes` | `args` | `{ dx, dy }` |
+ * | `office-slides` | `nudgeBoxes` | `payload` | `{ dx, dy }` |
+ * | `office-site` | `nudgeBlock` | `payload` | `{ axis: 'x' \| 'y', by }` |
+ *
+ * **The command names stay where they are.** `docs/specs/shared-layer.md` table 2 is right about
+ * that: a product's commands are its own vocabulary, and `nudgeBoxes` in a deck and `nudgeBlock` on
+ * a page act on different things. What is not the product's is *the shape of "move it this far"* —
+ * with two of them, a menu, a key map and a harness cannot say the gesture in one sentence, and a
+ * caller reading one product's key map cannot tell what the other's would do.
+ *
+ * `{ axis, by }` is the odd one, and it is not wrong so much as narrower: it can only say what a
+ * single arrow key means, so a diagonal nudge — which a page will want the moment it grows a
+ * second modifier — has no spelling at all. `nudgeDelta` reads both and answers in `Delta`, so a
+ * product can keep the payload it declares while everything downstream reads one shape.
+ *
+ * ## The step sizes are **not** the same either, which the three names hid
+ *
+ * A fine nudge is 15 twips (1px) in all three. A coarse one is **144** in Word and the deck (a tenth
+ * of an inch) and **150** on a page (ten pixels). So Shift+→ moves a shape 9.6px in two products and
+ * 10px in the third.
+ *
+ * **Re-measured 2026-09-06, and the two are not two copies of one claim.** `office-word`'s key map
+ * says it took 144 from the deck on purpose — *"the deck's own steps, because a reader who has
+ * learned one has learned the other"* — so those two agree by decision, in the unit a document is
+ * measured in. `office-site` reached 150 separately and its comment is the one that says *"what
+ * every tool of this kind offers"*, in the unit a page is measured in. Two units, not two
+ * transcriptions, which is why it is still a question rather than a defect.
+ *
+ * `NUDGE_FINE` is here because all three already agree on it; the coarse one is left to the products
+ * deliberately, because picking one here would be this file settling a question neither product has
+ * been asked yet. `docs/BACKLOG.md` carries it.
+ */
+export const NUDGE_FINE = 15;
+
+/** What a nudge payload says, in whichever of the two shapes a product declared. */
+export type NudgePayload = Partial<Delta> | { axis: 'x' | 'y'; by: number };
+
+/**
+ * A nudge payload as a `Delta` — the one shape everything downstream reads.
+ *
+ * Anything unreadable is zero rather than an error, which matches what each of the three commands
+ * already does with a missing number: `Number(payload?.dx) || 0`. A nudge of nothing is refused by
+ * `canExecute` in two of the three products already, and `isNudge` is that question asked once.
+ */
+export function nudgeDelta(payload: NudgePayload | undefined): Delta {
+  const number = (value: unknown): number =>
+    typeof value === 'number' && Number.isFinite(value) ? value : 0;
+
+  if (payload && 'axis' in payload && (payload.axis === 'x' || payload.axis === 'y')) {
+    const by = number((payload as { by?: unknown }).by);
+    return payload.axis === 'x' ? { dx: by, dy: 0 } : { dx: 0, dy: by };
+  }
+  const both = (payload ?? {}) as Partial<Delta>;
+  return { dx: number(both.dx), dy: number(both.dy) };
+}
+
+/**
+ * Whether a nudge would move anything.
+ *
+ * `office-slides/box-commands.ts` grew this guard after `every-command-does-something` offered
+ * `nudgeBoxes` with no payload the way a menubar would: a transaction that commits and changes
+ * nothing. The other two products can ask the same question here rather than growing their own.
+ */
+export function isNudge(payload: NudgePayload | undefined): boolean {
+  const delta = nudgeDelta(payload);
+  return delta.dx !== 0 || delta.dy !== 0;
 }
 
 export interface ResizeOptions {
@@ -268,23 +343,22 @@ export function contains(box: Box, point: { x: number; y: number }): boolean {
  * testing the unrotated rectangle is exact, where testing the axis-aligned
  * bounding box would catch clicks on the corners of a diamond that are not on
  * the diamond.
+ *
+ * *Un*-rotate is the same matrix as `canvas-connector.ts`'s `rotateAround` with the sign flipped
+ * and the centre taken from the box, and it was written out separately here until the door was
+ * being narrowed and the two turned up next to each other. Both call
+ * `canvas-angle.ts`'s `rotatePoint` now.
  */
 export function unrotate(
   box: Box,
   rotation: number,
   point: { x: number; y: number }
 ): { x: number; y: number } {
-  if (!rotation) return point;
-
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  const radians = (-rotation * Math.PI) / 180;
-  const cos = Math.cos(radians);
-  const sin = Math.sin(radians);
-  const dx = point.x - cx;
-  const dy = point.y - cy;
-
-  return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
+  return rotatePoint(
+    point,
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    -rotation
+  );
 }
 
 /**

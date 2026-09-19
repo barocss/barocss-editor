@@ -49,6 +49,23 @@ export class DecoratorProcessor {
     if (!vnode.attrs['data-decorator-position'] && position) {
       vnode.attrs['data-decorator-position'] = position;
     }
+    /*
+     * **Whether this wraps the document's own text or draws something instead of it.**
+     *
+     * A `target` decorator covers a range of a model node — a search hit, a commented phrase — and
+     * the words inside it are the document's. Everything else a decorator draws (a page-break
+     * spacer, a ruler) stands in for nothing and holds no text of the document's.
+     *
+     * Both kinds carry `data-bc-chrome`, and until this attribute existed nothing downstream could
+     * tell them apart. Two things were reading that attribute and getting the wrong answer for the
+     * first kind: the copy path removed the element **and the words inside it**, so copying a
+     * paragraph containing a comment or a search hit silently dropped those words; and Word's
+     * paginator skipped the text it covered, so a page overflowed its sheet by the height of the
+     * line it did not count.
+     */
+    if (!vnode.attrs['data-decorator-type'] && decorator.decoratorType) {
+      vnode.attrs['data-decorator-type'] = decorator.decoratorType;
+    }
   }
 
   /**

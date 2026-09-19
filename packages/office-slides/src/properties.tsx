@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import {
@@ -8,6 +8,8 @@ import {
   NumberField,
   TextField,
   PropertyEmpty,
+  StatusIndicator,
+  StatusNotice,
   PropertyTabs,
   PropertyGroup,
   PropertyNumber,
@@ -24,7 +26,7 @@ import {
   type LengthUnit
 } from '@barocss/office-ui';
 import { panelRowShown } from '@barocss/office-controls';
-import { useEditorRevision } from '@barocss/office-editor-ui';
+import { useEditorRevision, usePropertyCommand } from '@barocss/office-editor-ui';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
 import { slidesPanelGroups, type SlidesPanelRow } from './panel-model';
 
@@ -433,15 +435,22 @@ export function Properties({
     return typeof value === 'number' ? toDisplay(value, unit) : null;
   };
 
+  const effective = <T extends boolean | number,>(key: string, fallback: T): T | null => {
+    const values = targets.map(sid => (editor?.dataStore.getNode(sid)?.attributes?.[key] ?? fallback) as T);
+    return values.every(value => value === values[0]) ? (values[0] ?? fallback) : null;
+  };
+  const lockState = effective<boolean>('locked', false);
+  const opacityState = effective<number>('opacity', 1);
+  const rotationState = effective<number>('rotation', 0);
   const locked = shared('locked') === true;
 
   /** One declared group, drawn by the suite's panel — see `DeckSheet`. */
   const sheet = (group: string) => (
     <DeckSheet
+      run={run}
       group={group}
       box={box}
       targets={targets}
-      editor={editor}
       unit={unit}
       locked={locked}
       declares={declares}
@@ -461,7 +470,7 @@ export function Properties({
     const parent = editor?.dataStore?.getNode(sid)?.parentId as string | undefined;
     return !!parent && laysOut(editor?.dataStore?.getNode(parent)?.attributes);
   });
-  const visible = shared('visible') !== false;
+  const visible = effective<boolean>('visible', true);
 
   /** A number the model keeps in twips, shown in whatever the reader chose. */
   /** A number the model keeps as itself — degrees, a ratio. */
@@ -500,19 +509,23 @@ export function Properties({
     return jump.toSid ? `page:${jump.toSid}` : '';
   }, [editor, box, tick]);
 
+  const propertyContext = `${editor?.getRootId()}:${current}:${targets.join(',')}:${unit}`;
+  const commands = usePropertyCommand(editor, propertyContext);
+  const { run } = commands;
+
   const setGeometry = (key: string, value: number) => {
-    void editor?.executeCommand?.('setBoxGeometry', {
+    run('setBoxGeometry', {
       nodeIds: targets,
       [key]: fromDisplay(value, unit)
     });
   };
 
   const setStyle = (patch: Record<string, unknown>) => {
-    void editor?.executeCommand?.('setBoxStyle', { nodeIds: targets, ...patch });
+    run('setBoxStyle', { nodeIds: targets, ...patch });
   };
 
   const setGeometryRaw = (patch: Record<string, unknown>) => {
-    void editor?.executeCommand?.('setBoxGeometry', { nodeIds: targets, ...patch });
+    run('setBoxGeometry', { nodeIds: targets, ...patch });
   };
 
   /**
@@ -554,7 +567,7 @@ export function Properties({
           }
         : {};
 
-    void editor?.executeCommand?.('cropPicture', {
+    run('cropPicture', {
       nodeId: box?.sid,
       ...whole,
       ...NO_CROP
@@ -697,7 +710,7 @@ export function Properties({
   }, [editor, here, tick]);
 
   const setTransition = (patch: { effect: string; duration?: number }) => {
-    void editor?.executeCommand?.('setSlideTransition', {
+    run('setSlideTransition', {
       slideId: current,
       duration: transition.duration,
       ...patch
@@ -705,7 +718,7 @@ export function Properties({
   };
 
   const setLocked = (value: boolean) => {
-    void editor?.executeCommand?.('setBoxLocked', { nodeIds: targets, locked: value });
+    run('setBoxLocked', { nodeIds: targets, locked: value });
   };
 
   /**
@@ -722,15 +735,18 @@ export function Properties({
    * each one.
    */
   const [tab, setTab] = useState<'style' | 'motion'>('style');
+  const tabPanelId = useId();
 
   return (
     <PropertyPanel
       title="속성"
       className="sl-properties"
+      density="inspector"
       action={
         <Choice
           ariaLabel="단위"
           testClass="sl-unit"
+          disabled={commands.busy}
           className="w-auto"
           value={unit}
           onChange={(picked) => onUnit(picked as LengthUnit)}
@@ -749,7 +765,13 @@ export function Properties({
         * for *this shape only* — the pane is the slide's list, and this is what
         * the selected box does in it.
         */}
-      <PropertyTabs
+      {commands.busy && <StatusIndicator busy>속성을 적용하고 있습니다.</StatusIndicator>}
+      {commands.failed && <StatusNotice tone="danger" title="속성을 적용하지 못했습니다"
+        actions={<Button disabled={commands.busy} onClick={commands.retry}>다시 시도</Button>}>
+        변경하려던 값은 다시 시도할 수 있습니다. 선택한 대상과 편집 상태를 확인하세요.
+      </StatusNotice>}
+      <fieldset key={propertyContext} className="sl-property-fields" disabled={commands.busy}>
+      <PropertyTabs panelId={tabPanelId}
         tabs={[
           { id: 'style', label: '속성' },
           { id: 'motion', label: '모션' }
@@ -758,9 +780,11 @@ export function Properties({
         onChange={(id) => setTab(id as 'style' | 'motion')}
       />
 
+      <div id={tabPanelId} role="tabpanel" aria-labelledby={`${tabPanelId}-${tab}`}>
       {tab === 'motion' ? (
         box ? (
           <MotionTab
+            run={run}
             editor={editor}
             box={box}
             chosen={chosen}
@@ -786,6 +810,11 @@ export function Properties({
              * was about.
              */
             label={many ? `${targets.length}개 선택` : labelFor(box.stype, box.role)}
+            resetLabel="회전·불투명도 초기화"
+            onReset={declares('rotation') || declares('opacity') ? () => setGeometryRaw({
+              ...(declares('rotation') ? { rotation: 0 } : {}), ...(declares('opacity') ? { opacity: 1 } : {})
+            }) : undefined}
+            resetDisabled={targets.some(sid => editor?.dataStore.getNode(sid)?.attributes?.locked === true) || (rotationState === 0 && opacityState === 1)}
           >
             {locked && (
               <PropertyEmpty>
@@ -890,7 +919,7 @@ export function Properties({
                   value={plainBool('layoutStretch')}
                   disabled={locked}
                   onChange={(on) =>
-                    void editor?.executeCommand?.('setBoxLayout', {
+                    run('setBoxLayout', {
                       nodeIds: targets,
                       stretch: on
                     })
@@ -906,7 +935,7 @@ export function Properties({
                   step={1}
                   disabled={locked}
                   onCommit={(value) =>
-                    void editor?.executeCommand?.('setBoxLayout', {
+                    run('setBoxLayout', {
                       nodeIds: targets,
                       grow: Math.max(0, value)
                     })
@@ -948,7 +977,7 @@ export function Properties({
                   ]}
                   disabled={locked}
                   onChange={(picked) => {
-                    if (!picked) return void editor?.executeCommand?.('setBoxJump', { nodeIds: targets, to: null });
+                    if (!picked) return run('setBoxJump', { nodeIds: targets, to: null });
                     if (picked === 'deck') {
                       /*
                        * Another document: the two fields below are what it needs, and the command
@@ -958,12 +987,12 @@ export function Properties({
                       return setNaming(true);
                     }
                     if (picked.startsWith('kind:')) {
-                      return void editor?.executeCommand?.('setBoxJump', {
+                      return run('setBoxJump', {
                         nodeIds: targets,
                         kind: picked.slice(5)
                       });
                     }
-                    void editor?.executeCommand?.('setBoxJump', {
+                    run('setBoxJump', {
                       nodeIds: targets,
                       to: picked.slice(5)
                     });
@@ -1002,7 +1031,7 @@ export function Properties({
                     disabled={locked}
                     onChange={(picked) => {
                       if (picked === 'typed') return setNaming(true);
-                      void editor?.executeCommand?.('setBoxJump', {
+                      run('setBoxJump', {
                         nodeIds: targets,
                         deck: picked,
                         to: jumpDeckPage ?? undefined
@@ -1016,7 +1045,7 @@ export function Properties({
                   value={jumpDeck ?? ''}
                   disabled={locked}
                   onCommit={(source) =>
-                    void editor?.executeCommand?.('setBoxJump', {
+                    run('setBoxJump', {
                       nodeIds: targets,
                       deck: source,
                       to: jumpDeckPage ?? undefined
@@ -1029,7 +1058,7 @@ export function Properties({
                   value={jumpDeckPage ?? ''}
                   disabled={locked || !jumpDeck}
                   onCommit={(pageId) =>
-                    void editor?.executeCommand?.('setBoxJump', {
+                    run('setBoxJump', {
                       nodeIds: targets,
                       deck: jumpDeck as string,
                       to: pageId
@@ -1044,7 +1073,7 @@ export function Properties({
                   ariaLabel="회전"
                   // Degrees, which is what the model keeps — no conversion, and
                   // no rounding for a reader to notice.
-                  value={plain('rotation', 0)}
+                  value={rotationState}
                   suffix="°"
                   disabled={locked}
                   onCommit={(value) => setGeometryRaw({ rotation: value })}
@@ -1052,12 +1081,12 @@ export function Properties({
               </PropertyRow>
             )}
             {declares('opacity') && (
-              <PropertyRow label="투명도">
+              <PropertyRow label="불투명도">
                 <PropertyNumber
                   ariaLabel="불투명도"
                   // Per cent, because that is what a reader of any other tool
                   // types. The model keeps 0–1.
-                  value={Math.round((plain('opacity', 1) ?? 1) * 100)}
+                  value={opacityState === null ? null : Math.round(opacityState * 100)}
                   suffix="%"
                   step={5}
                   disabled={locked}
@@ -1081,7 +1110,7 @@ export function Properties({
                 <PropertyToggle
                   ariaLabel="잠금"
                   label="잠금"
-                  value={locked}
+                  value={lockState}
                   // Not disabled by `locked`: this is the one control that has to
                   // work on a locked box, because it is what unlocks it.
                   onChange={setLocked}
@@ -1127,7 +1156,7 @@ export function Properties({
             * second place that has to know what a card is.
             */}
           {box?.stype === 'instance' && (
-            <ComponentGroup editor={editor} sid={box.sid as string} locked={locked} tick={tick} />
+            <ComponentGroup run={run} editor={editor} sid={box.sid as string} locked={locked} tick={tick} />
           )}
 
           {/*
@@ -1135,7 +1164,7 @@ export function Properties({
             * slot. Drawn only while the reader is inside one, because a binding on a box that
             * is on a slide is a claim about a card that does not exist.
             */}
-          {box?.sid && <PartGroup editor={editor} sid={box.sid as string} locked={locked} tick={tick} />}
+          {box?.sid && <PartGroup run={run} editor={editor} sid={box.sid as string} locked={locked} tick={tick} />}
 
           {/*
             * And what an **ordinary shape** takes from the document's variables.
@@ -1147,7 +1176,7 @@ export function Properties({
             * for a feature the deck is not using.
             */}
           {box?.sid && targets.length > 0 && (
-            <BindGroup editor={editor} sids={targets} locked={locked} tick={tick} />
+            <BindGroup run={run} editor={editor} sids={targets} locked={locked} tick={tick} />
           )}
 
           {sheet('연결선')}
@@ -1267,7 +1296,7 @@ export function Properties({
               ariaLabel="정의 이름"
               value={design.name}
               onCommit={(name) =>
-                void editor?.executeCommand?.('setDesign', { nodeId: design.sid, name })
+                run('setDesign', { nodeId: design.sid, name })
               }
             />
           </PropertyRow>
@@ -1283,10 +1312,10 @@ export function Properties({
               themeSwatches={themeSwatches}
                       varSwatches={varSwatches}
               onChange={(fill) =>
-                void editor?.executeCommand?.('setDesign', { nodeId: design.sid, fill })
+                run('setDesign', { nodeId: design.sid, fill })
               }
               onClear={() =>
-                void editor?.executeCommand?.('setDesign', { nodeId: design.sid, fill: null })
+                run('setDesign', { nodeId: design.sid, fill: null })
               }
             />
           </PropertyRow>
@@ -1309,7 +1338,7 @@ export function Properties({
                 title="이 레이아웃을 따르는 장들의 상자를 각자의 자리로 옮깁니다"
                 data={{ 'design-apply': design.id }}
                 onClick={() =>
-                  void editor?.executeCommand?.('applyDesign', { layoutId: design.id })
+                  run('applyDesign', { layoutId: design.id })
                 }
               >
                 따르는 장에 적용
@@ -1337,7 +1366,7 @@ export function Properties({
               suffix="W"
               step={stepFor(unit)}
               onCommit={(value) =>
-                void editor?.executeCommand?.('setComponentSize', {
+                run('setComponentSize', {
                   componentId: definition.id,
                   width: Math.round(fromDisplay(value, unit))
                 })
@@ -1349,7 +1378,7 @@ export function Properties({
               suffix="H"
               step={stepFor(unit)}
               onCommit={(value) =>
-                void editor?.executeCommand?.('setComponentSize', {
+                run('setComponentSize', {
                   componentId: definition.id,
                   height: Math.round(fromDisplay(value, unit))
                 })
@@ -1423,7 +1452,7 @@ export function Properties({
                     onChange={(name) => {
                       const chosen = DECK_THEMES.find((entry) => entry.name === name);
                       if (!chosen) return;
-                      void editor?.executeCommand?.(
+                      run(
                         'setDeckTheme',
                         themePayload(chosen)
                       );
@@ -1502,6 +1531,8 @@ export function Properties({
           </PropertyEmpty>
         </PropertyGroup>
       )}
+      </div>
+      </fieldset>
     </PropertyPanel>
   );
 }
@@ -1538,11 +1569,13 @@ export function Properties({
  * anything for it to carry.
  */
 function ComponentGroup({
+  run,
   editor,
   sid,
   locked,
   tick
 }: {
+  run: (name: string, payload: Record<string, unknown>) => void;
   editor: Editor | null;
   sid: string;
   locked: boolean;
@@ -1560,7 +1593,7 @@ function ComponentGroup({
   }, [editor, sid, tick]);
 
   const set = (name: string, value: string) =>
-    void editor?.executeCommand?.('setComponentValue', { nodeId: sid, name, value });
+    run('setComponentValue', { nodeId: sid, name, value });
 
   return (
     <PropertyGroup label={definition ? `컴포넌트 · ${definition.name || '이름 없음'}` : '컴포넌트'}>
@@ -1633,7 +1666,7 @@ function ComponentGroup({
           title="이 자리의 상자로 만듭니다 — 더 이상 정의를 따르지 않습니다"
           data={{ 'component-detach': '' }}
           disabled={locked}
-          onClick={() => void editor?.executeCommand?.('detachComponent', { nodeId: sid })}
+          onClick={() => run('detachComponent', { nodeId: sid })}
         >
           분리
         </Button>
@@ -1685,11 +1718,13 @@ function ComponentGroup({
  * that list, in the model, so the panel and the command cannot disagree about it.
  */
 function BindGroup({
+  run,
   editor,
   sids,
   locked,
   tick
 }: {
+  run: (name: string, payload: Record<string, unknown>) => void;
   editor: Editor | null;
   /** Every selected shape: one binding, written to all of them, or refused for all of them. */
   sids: string[];
@@ -1737,7 +1772,7 @@ function BindGroup({
   if (vars.length === 0 || inCard) return null;
 
   const bind = (attr: string, name: string | null) =>
-    void editor?.executeCommand?.('setVarBind', { nodeIds: sids, attr, var: name });
+    run('setVarBind', { nodeIds: sids, attr, var: name });
 
   const bound = (attr: string) => binds.find((one) => one.attr === attr)?.var ?? '';
 
@@ -1784,11 +1819,13 @@ function BindGroup({
 }
 
 function PartGroup({
+  run,
   editor,
   sid,
   locked,
   tick
 }: {
+  run: (name: string, payload: Record<string, unknown>) => void;
   editor: Editor | null;
   sid: string;
   locked: boolean;
@@ -1847,7 +1884,7 @@ function PartGroup({
   if (!definition) return null;
 
   const bind = (attr: string, name: string | null) =>
-    void editor?.executeCommand?.('setComponentBind', {
+    run('setComponentBind', {
       componentId: definition,
       part,
       attr,
@@ -1923,7 +1960,7 @@ function PartGroup({
             value={typeof attrs.slot === 'string' && attrs.slot.length > 0}
             disabled={locked}
             onChange={(on) =>
-              void editor?.executeCommand?.('setComponentSlot', {
+              run('setComponentSlot', {
                 nodeId: sid,
                 slot: on ? part ?? 'slot' : null
               })
@@ -2067,6 +2104,7 @@ function labelFor(stype: string, role?: string): string {
  * each happens is the axis's question, downstairs.
  */
 function MotionTab({
+  run,
   editor,
   box,
   /** Every selected box, for the one gesture that is about more than one. */
@@ -2075,6 +2113,7 @@ function MotionTab({
   locked,
   tick
 }: {
+  run: (name: string, payload: Record<string, unknown>) => void;
   editor: Editor | null;
   box: { sid: string; stype: string; attributes?: Record<string, unknown> };
   chosen: string[];
@@ -2093,8 +2132,6 @@ function MotionTab({
     ).filter((step) => step.target === name);
   }, [editor, current, box, tick]);
 
-  const run = (command: string, payload: Record<string, unknown>) =>
-    void editor?.executeCommand?.(command, payload);
 
   const [gallery, setGallery] = useState(false);
   /** How far apart the shapes of a group start — see `addBoxesMotion`. */
@@ -2410,20 +2447,20 @@ function SlideMotionTab({
  * variable binding, and a button that runs a command.
  */
 function DeckSheet({
+  run,
   group,
   box,
   targets,
-  editor,
   unit,
   locked,
   declares,
   varSwatches,
   uncrop
 }: {
+  run: (name: string, payload: Record<string, unknown>) => void;
   group: string;
   box: { sid?: string; stype?: string; attributes?: Record<string, unknown> } | null | undefined;
   targets: string[];
-  editor: Editor | null;
   unit: LengthUnit;
   locked: boolean;
   /** Whether the selected node type declares an attribute — which is what decides where a row goes. */
@@ -2431,6 +2468,7 @@ function DeckSheet({
   varSwatches: Parameters<typeof ColorField>[0]['varSwatches'];
   uncrop: () => void;
 }) {
+  const [folded, setFolded] = useState(false);
   const attrs = (box?.attributes ?? {}) as Record<string, unknown>;
 
   /**
@@ -2492,8 +2530,6 @@ function DeckSheet({
   /** Which command a row runs, and with what — the panel's own writers, by name. */
   const write = (row: SlidesPanelRow, next: unknown) => {
     const value = commit(row, next);
-    const run = (name: string, payload: Record<string, unknown>) =>
-      void editor?.executeCommand(name, payload);
     if (row.command === 'setFrameLayout') run('setFrameLayout', { nodeId: box?.sid, [row.attr]: value });
     else if (row.command) run(row.command, { nodeIds: targets, [row.attr]: value });
   };
@@ -2513,7 +2549,7 @@ function DeckSheet({
           title="시작과 끝을 바꿉니다"
           data={{ 'conn-reverse': '' }}
           disabled={locked}
-          onClick={() => void editor?.executeCommand('reverseConnector', { nodeIds: targets })}
+          onClick={() => run('reverseConnector', { nodeIds: targets })}
         >
           뒤집기
         </Button>
@@ -2555,7 +2591,7 @@ function DeckSheet({
              * "this line never had any" — the route reads them differently.
              */
             disabled={locked}
-            onClick={() => void editor?.executeCommand('setConnector', { nodeIds: targets, waypoints: [] })}
+            onClick={() => run('setConnector', { nodeIds: targets, waypoints: [] })}
           >
             지우기
           </Button>
@@ -2567,13 +2603,20 @@ function DeckSheet({
 
   const groups = slidesPanelGroups(box?.stype, 'style', (_stype: string, attr: string) => declares(attr))
     .filter((one) => one.label === group)
-    .map((one) => ({ ...one, rows: one.rows.filter((row) => shown(row)) }))
+    .map(one => {
+      const rows = one.rows.filter(row => shown(row));
+      const corners = rows.filter(row => row.attr.startsWith('corner') && row.attr !== 'cornerRadius');
+      return { ...one, rows: rows.filter(row => !corners.includes(row)).map(row =>
+        row.attr === 'cornerRadius' ? { ...row, with: corners } : row) };
+    })
     .filter((one) => one.rows.length > 0);
   if (groups.length === 0) return null;
 
   return (
     <PropertySheet
       groups={groups}
+      folded={() => folded}
+      onFold={(_, next) => setFolded(next)}
       value={(row) => read(row)}
       raw={(row) => attrs[row.attr]}
       /* The reader's chosen unit, which is a fact about the session rather than about the row. */

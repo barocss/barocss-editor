@@ -1,7 +1,7 @@
+import { ToolbarOverflow } from './toolbar-overflow';
 import * as RadixToolbar from '@radix-ui/react-toolbar';
-import * as RadixTooltip from '@radix-ui/react-tooltip';
-import { Tip } from './tip';
-import { createContext, useContext } from 'react';
+import { Tip, TipProvider } from './tip';
+import { createContext, useContext, useRef } from 'react';
 import { cn } from './cn';
 import { STATE } from './controls';
 
@@ -56,7 +56,9 @@ export function useInToolbar(): boolean {
 export function Toolbar({
  children,
   className,
-  label = 'Formatting'
+  label = 'Formatting',
+  variant = 'ribbon',
+  overflow = false
 }: {
  children: React.ReactNode;
   /**
@@ -68,21 +70,28 @@ export function Toolbar({
    */
   className?: string;
   label?: string;
+  /** Inline tools share controls but fit inside a document header. */
+  variant?: 'ribbon' | 'inline';
+  /** Keep a fixed navigation button when a single-line toolbar overflows. */
+  overflow?: boolean;
 }) {
-  return (
-    <RadixTooltip.Provider delayDuration={400}>
+  const host = useRef<HTMLDivElement>(null);
+  const content = (
+    <TipProvider>
       <RadixToolbar.Root
+        ref={host}
         aria-label={label}
+        data-toolbar-variant={variant}
         className={cn(
-          'sticky top-0 z-[var(--ou-z-toolbar)] flex flex-wrap items-center gap-x-1 gap-y-1',
-          'border-b border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] px-4 py-1.5',
+          'office-command-surface office-toolbar',
           className
         )}
       >
         <InToolbar.Provider value={true}>{children}</InToolbar.Provider>
       </RadixToolbar.Root>
-    </RadixTooltip.Provider>
+    </TipProvider>
   );
+  return overflow ? <ToolbarOverflow host={host} label={label}>{content}</ToolbarOverflow> : content;
 }
 
 /**
@@ -92,10 +101,18 @@ export function Toolbar({
  * buttons, and moving the whole group to the next line is what a reader can
  * still use.
  */
-export function ToolbarGroup({ id, children }: { id: string; children: React.ReactNode }) {
+export function ToolbarGroup({ id, children, separated = false, label }: {
+  id: string;
+  children: React.ReactNode;
+  /** A visible caption for a group of commands in a compact ribbon. */
+  label?: string;
+  /** Keep the leading divider with its controls when the toolbar wraps. */
+  separated?: boolean;
+}) {
   return (
-    <div data-group={id} className="office-toolbar-group flex shrink-0 items-center gap-0.5 px-1.5">
- {children}
+    <div data-group={id} data-caption={label ? '' : undefined} data-separated={separated || undefined} role={label ? 'group' : undefined} aria-label={label} className="office-toolbar-group">
+      {separated && !label && <ToolbarSeparator />}
+      {label ? <><div className="office-toolbar-group-controls">{children}</div><span className="office-toolbar-group-caption">{label}</span></> : children}
     </div>
   );
 }
@@ -103,7 +120,7 @@ export function ToolbarGroup({ id, children }: { id: string; children: React.Rea
 export function ToolbarSeparator() {
   return (
     <RadixToolbar.Separator
-      className="mx-1 h-5 w-px shrink-0 bg-[color:var(--ou-line)]"
+      className="office-toolbar-separator"
  />
   );
 }
@@ -202,7 +219,8 @@ export function ToolbarToggle({
   state,
   disabled,
   onActivate,
-  children
+  children,
+  className
 }: {
   id: string;
   label: string;
@@ -223,6 +241,7 @@ export function ToolbarToggle({
   disabled?: boolean;
   onActivate: () => void;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
     <Tip label={label} shortcut={shortcut}>
@@ -239,25 +258,13 @@ export function ToolbarToggle({
             event.preventDefault();
             onActivate();
           }}
-          className={cn(
-            'inline-flex h-[var(--ou-control-h)] min-w-[var(--ou-control-h)] items-center justify-center rounded-[var(--ou-radius)] border border-transparent',
- 'text-[length:var(--ou-text)] hover:bg-[color:var(--ou-ground)]',
- STATE,
- 'disabled:pointer-events-none disabled:opacity-40',
-            /*
-             * The **suite's** accent, not Tailwind's sky.
-             *
-             * These were `sky-100` / `sky-950` while `--ou-accent` is `blue-600`: two accents in one
-             * toolbar, and the one a product remapped was not the one it saw. Worse in the dark,
-             * where a `dark:` variant answers the *system* and a product's own theme switch cannot
-             * reach it — measured on a gallery page with a switch on it, where a pressed button kept
-             * its pale blue wash and the icon inside it disappeared.
-             *
-             * `--ou-accent-soft` is that wash, and it changes with the theme: one accent, two values.
-             */
- 'data-[state=on]:border-[color:var(--ou-accent)] data-[state=on]:bg-[color:var(--ou-accent-soft)]',
- 'data-[state=mixed]:border-[color:var(--ou-accent)] data-[state=mixed]:bg-[repeating-linear-gradient(135deg,var(--ou-accent-soft),var(--ou-accent-soft)_3px,transparent_3px,transparent_6px)]'
-          )}
+          onClick={event => {
+            // Keyboard and assistive activation have no pointer-down event.
+            if (event.detail === 0) onActivate();
+          }}
+          data-button-kind="tool"
+          data-button-tone="quiet"
+          className={cn('office-button', className)}
         >
           {children}
         </RadixToolbar.Button>

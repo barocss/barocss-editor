@@ -100,3 +100,6 @@ apps/word/.input-lab/
 
 # agent worktrees
 .claude/worktrees/
+
+output/
+.playwright-cli/

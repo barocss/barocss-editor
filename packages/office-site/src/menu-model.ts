@@ -63,6 +63,24 @@ const DECLARED: SiteMenu[] = [
     id: 'file',
     label: '파일',
     blocks: [
+      /**
+       * **새로 만들기 · 열기 · 저장** — 이 메뉴가 내보내기와 발행뿐이던 자리.
+       *
+       * 내보내기는 방문자가 볼 것을 만드는 일이고, 저장은 **만들던 것을 지키는** 일이다. 둘은
+       * 다른 몸짓인데 이 제품에는 뒤의 것이 없었다 — `apps/site/src/main.tsx:63` 이 새로고침마다
+       * 샘플을 다시 실었으므로 독자가 만든 것은 돌아오면 없었다.
+       *
+       * 셋 다 `view` 이지 명령이 아니다: 파일을 고르는 것도, 브라우저에게 내려받기를 시키는
+       * 것도, 문서를 통째로 바꾸는 것도 문서가 할 줄 아는 일이 아니다.
+       */
+      {
+        id: 'document',
+        items: [
+          { view: 'file.new', label: '새 사이트' },
+          { view: 'file.open', label: '열기…' },
+          { view: 'file.save', label: '저장' }
+        ]
+      },
       {
         id: 'publish',
         items: [
@@ -445,7 +463,29 @@ const DECLARED: SiteMenu[] = [
  * describe a key that does not work — and a typed `hint` still wins, for the one entry that is a
  * note rather than a chord (미리보기's *Esc로 나가기*).
  */
-export const SITE_MENUS: SiteMenu[] = withHints(DECLARED, taughtKeys(SITE_KEYS));
+/**
+ * **In which alphabet is the caller's to say, and that is why this takes an argument.**
+ *
+ * This was a `const` calling `withHints(DECLARED, taughtKeys(SITE_KEYS))`, and `withHints` defaulted
+ * `apple` to `true`. Every menubar in all three products printed `⌘` on every platform — and
+ * `apps/site` printed the *toolbar* right and the *menubar* wrong on the same screen, because the
+ * ribbon asks `onApple()` and the menubar read this constant. Being a `const` made it worse than a
+ * wrong default: the platform was decided once, at import.
+ *
+ * The toolbar already had the shape this now follows — `controlRows(editor, TOOLBAR, { keys, apple })`.
+ * The model declares what the menus offer; the **surface** writes the chord in the reader's alphabet.
+ */
+export function siteMenus(apple: boolean): SiteMenu[] {
+  return withHints(DECLARED, taughtKeys(SITE_KEYS), apple);
+}
+
+/**
+ * The menus with no chords written on them.
+ *
+ * What the model can state without knowing who is reading. Everything that asks *what does this
+ * menubar offer* — the command sweep, the spec numbers, the harness — wants this one.
+ */
+export const SITE_MENUS: SiteMenu[] = DECLARED;
 
 /**
  * **What a press of the right button offers**, which is the gesture every builder has and this had
@@ -536,12 +576,23 @@ export type SitePlace = 'admin' | 'page';
  * The two questions are asked together because they are asked together: the app knows both, and a
  * bar assembled from one and then filtered by the other is a bar built in two places.
  */
-export function siteMenusIn(place: SitePlace, widths: SiteWidth[] = BREAKPOINTS): SiteMenu[] {
-  return menusIn(siteMenusFor(widths), place === 'page' ? 'canvas' : 'anywhere');
+export function siteMenusIn(
+  place: SitePlace,
+  widths: SiteWidth[] = BREAKPOINTS,
+  apple = false
+): SiteMenu[] {
+  return menusIn(siteMenusFor(widths, apple), place === 'page' ? 'canvas' : 'anywhere');
 }
 
-export function siteMenusFor(widths: SiteWidth[] = BREAKPOINTS): SiteMenu[] {
-  return SITE_MENUS.map((menu) =>
+/**
+ * `apple` reaches all the way down here because the chords are written at the bottom.
+ *
+ * It defaults to `false` and not `true`: a caller that says nothing is not claiming a Mac. The
+ * previous default was `true` and it printed `⌘` to every reader on every platform — see
+ * `siteMenus` for the measurement.
+ */
+export function siteMenusFor(widths: SiteWidth[] = BREAKPOINTS, apple = false): SiteMenu[] {
+  return siteMenus(apple).map((menu) =>
     menu.label !== '보기'
       ? menu
       : {

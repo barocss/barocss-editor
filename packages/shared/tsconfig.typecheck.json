@@ -1,0 +1,33 @@
+{
+  /**
+   * Type-checking, including the tests.
+   *
+   * ## Why this is not `tsconfig.json`
+   *
+   * That one is the **build's**: `vite build` reads it to decide what to compile and
+   * what declarations to emit, so a test file left in its `include` ends up in `dist`.
+   *
+   * ## Why this package was the last one without this file
+   *
+   * Its tests are colocated — eleven `.test.ts` files living beside the source they
+   * check, not in a `test` directory — so nothing about the layout said "the tests are
+   * elsewhere and unchecked". The build config's `include` names `src` and therefore
+   * names them, and its `exclude` takes them straight back out again. This is the
+   * bottom layer of the repository; every product imports it.
+   *
+   * `rootDir` is the repository, not the package, for the same reason as everywhere
+   * else here: inert when nothing is emitted, and correct the moment an import crosses
+   * a package boundary.
+   */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    "types": ["vitest/globals", "node"]
+  },
+  "include": ["src/**/*", "test/**/*", "tests/**/*"],
+  /**
+   * Restated here, never inherited — see any sibling package's copy of this note.
+   */
+  "exclude": ["dist", "node_modules"]
+}

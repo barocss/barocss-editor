@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ModelSelection, Editor } from '@barocss/editor-core';
 import { CopyPasteExtension } from '../src/copy-paste';
 
@@ -15,7 +16,8 @@ vi.mock('@barocss/model', () => {
     },
     copy: (range: any) => ({ type: 'copy', payload: { range } }),
     paste: (nodes: any[], range: any) => ({ type: 'paste', payload: { data: { nodes }, range } }),
-    cut: (range: any) => ({ type: 'cut', payload: { range } })
+    control: (nodeId: string, ops: any[]) => ops.map(op => ({ ...op, payload: { ...op.payload, nodeId } })),
+    deleteTextRange: (start: number, end: number) => ({ type: 'deleteTextRange', payload: { start, end } })
   };
 });
 
@@ -26,6 +28,11 @@ interface RegisteredCommand {
 }
 
 class FakeEditor {
+  public dataStore = {
+    getActiveSchema: () => undefined,
+    serializeRange: () => [{ stype: 'inline-text', text: 'Hello' }],
+    getNode: (sid: string) => ({ sid, stype: 'inline-text', text: 'Hello' })
+  };
   public commands = new Map<string, RegisteredCommand>();
   public selection: ModelSelection | null = null;
 
@@ -40,12 +47,45 @@ class FakeEditor {
 
 describe('CopyPasteExtension', () => {
   beforeEach(() => {
+    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
     recordedTransactions.length = 0;
     commitMock.mockReset();
     commitMock.mockResolvedValue({ success: true });
   });
+  afterEach(() => vi.unstubAllGlobals());
 
-  it('copy: selection(range) 이 있으면 copy operation 으로 transaction 을 실행한다', async () => {
+  for (const action of ['copy', 'cut']) it(`${action} refuses clipboard rejection without a document transaction`, async () => {
+    const editor = new FakeEditor() as any;
+    editor.selection = { type: 'range', startNodeId: 't1', endNodeId: 't1', startOffset: 0, endOffset: 5, collapsed: false };
+    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
+    new CopyPasteExtension().onCreate(editor);
+    expect(await editor.__getCommand(action).execute(editor, {})).toBe(false);
+    expect(recordedTransactions).toHaveLength(0);
+  });
+
+  it('does not cut a target edited while the clipboard write is pending', async () => {
+    const editor = new FakeEditor() as any;
+    editor.selection = { type: 'range', startNodeId: 't1', endNodeId: 't1', startOffset: 0, endOffset: 5, collapsed: false };
+    let text = 'Hello';
+    editor.dataStore.getNode = (sid: string) => ({ sid, stype: 'inline-text', text });
+    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn(async () => { text = 'Changed'; }) } });
+    new CopyPasteExtension().onCreate(editor);
+    expect(await editor.__getCommand('cut').execute(editor, {})).toBe(false);
+    expect(recordedTransactions).toHaveLength(0);
+  });
+
+  it('does not paste into a target edited while clipboard permission is pending', async () => {
+    const editor = new FakeEditor() as any;
+    editor.selection = { type: 'range', startNodeId: 't1', endNodeId: 't1', startOffset: 0, endOffset: 0, collapsed: true };
+    let text = 'Hello';
+    editor.dataStore.getNode = (sid: string) => ({ sid, stype: 'inline-text', text });
+    vi.stubGlobal('navigator', { clipboard: { readText: vi.fn(async () => { text = 'Changed'; return 'paste'; }) } });
+    new CopyPasteExtension().onCreate(editor);
+    expect(await editor.__getCommand('paste').execute(editor, {})).toBe(false);
+    expect(recordedTransactions).toHaveLength(0);
+  });
+
+  it('copy writes the selected text without adding a document transaction', async () => {
     const editor = new FakeEditor() as any;
     const ext = new CopyPasteExtension();
     ext.onCreate(editor);
@@ -67,15 +107,8 @@ describe('CopyPasteExtension', () => {
 
     const result = await cmd!.execute(editor, {});
     expect(result).toBe(true);
-    expect(recordedTransactions).toHaveLength(1);
-    expect(commitMock).toHaveBeenCalledTimes(1);
-
-    const ops = recordedTransactions[0];
-    expect(ops).toHaveLength(1);
-    expect(ops[0]).toEqual({
-      type: 'copy',
-      payload: { range: selection }
-    });
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Hello');
+    expect(recordedTransactions).toHaveLength(0);
   });
 
   it('paste: nodes 와 selection 이 있으면 paste operation 으로 transaction 을 실행한다', async () => {
@@ -173,7 +206,7 @@ describe('CopyPasteExtension', () => {
     expect(cmd!.canExecute(editor, {})).toBe(false);
   });
 
-  it('cut: non-collapsed range selection 이 있으면 cut operation 으로 transaction 을 실행한다', async () => {
+  it('cut writes the clipboard before using reversible range deletion', async () => {
     const editor = new FakeEditor() as any;
     const ext = new CopyPasteExtension();
     ext.onCreate(editor);
@@ -201,8 +234,8 @@ describe('CopyPasteExtension', () => {
     const ops = recordedTransactions[0];
     expect(ops).toHaveLength(1);
     expect(ops[0]).toEqual({
-      type: 'cut',
-      payload: { range: selection }
+      type: 'deleteTextRange',
+      payload: { nodeId: 't1', start: 1, end: 4 }
     });
   });
 
@@ -240,4 +273,30 @@ describe('CopyPasteExtension', () => {
     // And `paste` still takes a collapsed one, because pasting *into* a caret is the ordinary case.
     expect(editor.__getCommand('paste')!.canExecute(editor, { selection: at(true, 0) })).toBe(true);
   });
+});
+it('pastes reference labels as text when the destination schema does not support workspace references', async () => {
+  recordedTransactions.length = 0;
+  commitMock.mockResolvedValue({ success: true });
+  const editor = new FakeEditor() as any;
+  editor.dataStore = { getActiveSchema: () => ({ getNodeType: () => undefined }) };
+  editor.selection = { type: 'range', startNodeId: 't1', startOffset: 0, endNodeId: 't1', endOffset: 0, collapsed: true };
+  new CopyPasteExtension().onCreate(editor);
+  const nodes = [{ stype: 'paragraph', content: [{ stype: 'pageReference', attributes: { pageId: 'target', title: 'Readable title' } }] }];
+  expect(await editor.__getCommand('paste').execute(editor, { nodes })).toBe(true);
+  expect(recordedTransactions[0][0].payload.data.nodes).toEqual([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Readable title' }] }]);
+  expect(nodes[0].content[0].stype).toBe('pageReference');
+});
+
+it('copyBlocks reports clipboard rejection without mutating the document', async () => {
+  const editor = new FakeEditor() as any;
+  const nodes: Record<string, any> = { root: { sid: 'root', stype: 'note', content: ['p'] }, p: { sid: 'p', stype: 'paragraph', parentId: 'root', content: ['t'] }, t: { sid: 't', stype: 'inline-text', parentId: 'p', text: 'hello' } };
+  editor.dataStore = { getNode: (id: string) => nodes[id], getActiveSchema: () => undefined };
+  const before = JSON.stringify(nodes);
+  vi.stubGlobal('navigator', { clipboard: { write: vi.fn().mockRejectedValue(new Error('denied')) } });
+  vi.stubGlobal('ClipboardItem', class { constructor(public items: unknown) {} });
+  try {
+    new CopyPasteExtension().onCreate(editor);
+    expect(await editor.__getCommand('copyBlocks').execute(editor, { nodeIds: ['p'] })).toBe(false);
+    expect(JSON.stringify(nodes)).toBe(before);
+  } finally { vi.unstubAllGlobals(); }
 });

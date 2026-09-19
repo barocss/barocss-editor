@@ -1,3 +1,4 @@
+import { sideways } from '@barocss/shared';
 /**
  * Turning computed breaks into positions on screen.
  *
@@ -93,12 +94,15 @@ const num = (value: unknown, fallback: number): number =>
 
 /** Sheet geometry in pixels, from a section's resolved page setup. */
 export function sheetMetrics(format: EffectiveFormat, gap = DEFAULT_SHEET_GAP): SheetMetrics {
-  const landscape = format.orientation === 'landscape';
-  const rawWidth = num(format.pageWidth, 12240);
-  const rawHeight = num(format.pageHeight, 15840);
+  /* 눕히는 판단은 `sideways` 하나다 — 네 곳에 복사돼 있던 두 줄이고, 다섯 번째로 온 대화상자가
+   * 그것을 반대로 알아 가로를 골라도 종이가 세로였다. */
+  const paper = sideways(format.orientation === 'landscape', {
+    width: num(format.pageWidth, 12240),
+    height: num(format.pageHeight, 15840)
+  });
 
-  const width = twipToPx(landscape ? rawHeight : rawWidth);
-  const height = twipToPx(landscape ? rawWidth : rawHeight);
+  const width = twipToPx(paper.width);
+  const height = twipToPx(paper.height);
 
   /**
    * The gutter is the margin a binding takes.
@@ -220,7 +224,9 @@ export function layoutSurface(
       if (last?.continues) {
         const nextTop = (page.index + 1) * (metrics.height + metrics.gap) + metrics.marginTop;
         const splits = splitBySid.get(last.sid) ?? [];
-        splits.push({ line: last.toLine, height: Math.max(0, nextTop - (contentTop + page.height)) });
+        const repeat = blocks.find(block => block.sid === last.sid)?.repeatBefore;
+        const repeatedHeight = repeat && last.toLine >= repeat.fromLine ? repeat.height : 0;
+        splits.push({ line: last.toLine, height: Math.max(0, nextTop - (contentTop + page.height)) + repeatedHeight });
         splitBySid.set(last.sid, splits);
       }
 

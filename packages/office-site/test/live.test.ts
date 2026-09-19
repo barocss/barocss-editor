@@ -11,7 +11,6 @@ import { liveScript } from '../src/live';
 import { boundsOf, chartRows, groupRows } from '../src/chart';
 import { pagesOf } from '../src/selection';
 import { datasetsOf, rowsOf } from '../src/data';
-import { pagesOf } from '../src/selection';
 
 /**
  * A list the **visitor's** browser goes and gets again.

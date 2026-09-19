@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SITE_KEYS, hintFor, hintOf, matchesSiteKey, siteKeyFor } from '../src/keymap';
-import { SITE_MENUS } from '../src/menu-model';
+import { siteMenus } from '../src/menu-model';
 import { keyFaults ,
   taughtKeys} from '@barocss/office-controls';
 import { createSiteEditor } from '../src/site-kit';
@@ -27,7 +27,8 @@ const PLATFORM: Record<string, string> = {
 };
 
 describe('what a key means, and what the menu says it means', () => {
-  const entries = SITE_MENUS.flatMap((menu) =>
+  // 화음을 묻는 검사이므로 알파벳을 스스로 고른다 — `SITE_MENUS` 는 선언만이다.
+  const entries = siteMenus(true).flatMap((menu) =>
     menu.blocks.flatMap((block) => block.items.map((item) => ({ menu: menu.label, ...item })))
   );
 
@@ -45,7 +46,7 @@ describe('what a key means, and what the menu says it means', () => {
       );
       if (bound) {
         // Bound: the chord is derived, so it cannot say anything but what the binding says.
-        expect(entry.hint).toBe(hintOf(bound.key));
+        expect(entry.hint).toBe(hintOf(bound.key, true));
       } else {
         /*
          * Unbound: nothing, unless it is one of the four this product deliberately does **not**
@@ -76,18 +77,18 @@ describe('what a key means, and what the menu says it means', () => {
   });
 
   it('writes a chord the way a menu prints it', () => {
-    expect(hintOf('Mod+z')).toBe('⌘Z');
-    expect(hintOf('Mod+Shift+z')).toBe('⇧⌘Z');
+    expect(hintOf('Mod+z', true)).toBe('⌘Z');
+    expect(hintOf('Mod+Shift+z', true)).toBe('⇧⌘Z');
     // `Del`, which is the deck's convention and now the suite's — one table of symbols, not three.
-    expect(hintOf('Delete')).toBe('Del');
+    expect(hintOf('Delete', true)).toBe('Del');
     // And the modifiers come out in macOS order whatever order the declaration wrote them in.
-    expect(hintOf('Shift+Mod+z')).toBe('⇧⌘Z');
-    expect(hintOf('Shift+1')).toBe('⇧1');
+    expect(hintOf('Shift+Mod+z', true)).toBe('⇧⌘Z');
+    expect(hintOf('Shift+1', true)).toBe('⇧1');
     // `=` and `+` are one key, and the menu names the one on the keycap.
-    expect(hintOf('Mod+=')).toBe('⌘+');
-    expect(hintFor({ command: 'undo' })).toBe('⌘Z');
-    expect(hintFor({ view: 'zoom.fit' })).toBe('⇧1');
-    expect(hintFor({ command: 'exportSite' })).toBeUndefined();
+    expect(hintOf('Mod+=', true)).toBe('⌘+');
+    expect(hintFor({ command: 'undo' }, true)).toBe('⌘Z');
+    expect(hintFor({ view: 'zoom.fit' }, true)).toBe('⇧1');
+    expect(hintFor({ command: 'exportSite' }, true)).toBeUndefined();
   });
 
   it('matches a digit by where the key is, not by what it types', () => {

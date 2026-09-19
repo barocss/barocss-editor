@@ -198,7 +198,6 @@ define('article', element('article',
 - [`architecture-design-principles.md`](./architecture-design-principles.md) - **Core Design Principles** ⭐
 - [`architecture-reconcile-algorithm.md`](./architecture-reconcile-algorithm.md) - **Reconcile Algorithm Details** ⭐
 - [`architecture-practical-examples.md`](./architecture-practical-examples.md) - Practical usage examples
-- [`architecture-mathematical-model.md`](./architecture-mathematical-model.md) - Mathematical model
+- [`math-repository.md`](./math-repository.md) - Math package repository boundary
 - [`architecture-flow-diagram.md`](./architecture-flow-diagram.md) - Flow diagram
 - [`architecture-reconcile-overview.md`](./architecture-reconcile-overview.md) - Complete overview
-

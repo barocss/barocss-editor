@@ -1,11 +1,18 @@
 import { useMemo, useState } from 'react';
 import { dragGesture } from '@barocss/shared';
 import type { Editor } from '@barocss/editor-core';
-import { Icon, IconButton } from '@barocss/office-ui';
+import { Icon, IconButton, EmptyState, LayerActions } from '@barocss/office-ui';
 import { useEditorRevision } from '@barocss/office-editor-ui';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
 import { layerRows, positionFromRow, type LayerRow } from './layers';
 import { slideTimeline } from './timeline';
+
+const LAYER_ICONS: Record<string, string> = {
+  textFrame: 'insert-textbox', rectangle: 'insert-rectangle', ellipse: 'insert-ellipse',
+  line: 'insert-line', picture: 'insert-image', frame: 'insert-frame', group: 'group',
+  connector: 'connect', component: 'component', instance: 'component',
+  video: 'insert-video', audio: 'insert-audio'
+};
 
 /**
  * What is on this slide, in the order it is stacked.
@@ -48,10 +55,12 @@ export interface LayerPanelProps {
   editor: Editor | null;
   slideSid?: string;
   open: boolean;
+  /** Hide the standalone header when hosted in a tabbed sidebar. */
+  embedded?: boolean;
   onToggle: () => void;
 }
 
-export function LayerPanel({ editor, slideSid, open, onToggle }: LayerPanelProps) {
+export function LayerPanel({ editor, slideSid, open, onToggle, embedded = false }: LayerPanelProps) {
   const revision = useEditorRevision(editor);
 
   const rows = useMemo<LayerRow[]>(() => {
@@ -117,31 +126,28 @@ export function LayerPanel({ editor, slideSid, open, onToggle }: LayerPanelProps
     void dragGesture(event, {
       start: (pointer) => {
         setDrag({ from: index, over: index });
-        return { list: (pointer.currentTarget as HTMLElement).closest('.sl-layers-list') };
+        return { list: (pointer.currentTarget as HTMLElement).closest('.sl-layers-list'), over: -1 };
       },
 
       move: (held, moved) => {
         const rowsOnScreen = [...(held.list?.querySelectorAll<HTMLElement>('[data-layer]') ?? [])];
-        // Which row the pointer is over, by its box: the rows are one height and a
-        // division would be the same answer with a magic number in it.
-        const over = rowsOnScreen.findIndex((element) => {
+        held.over = rowsOnScreen.findIndex(element => {
+          if (element.dataset.layerDepth !== '0') return false;
           const box = element.getBoundingClientRect();
-          return moved.y >= box.top && moved.y <= box.bottom;
+          return moved.x >= box.left && moved.x <= box.right && moved.y >= box.top && moved.y <= box.bottom;
         });
-        if (over >= 0) setDrag((was) => (was ? { ...was, over } : was));
+        setDrag({ from: index, over: held.over });
       },
 
-      done: () =>
-        setDrag((was) => {
-          if (was && was.over !== was.from) {
-            const top = rows.filter((entry) => entry.depth === 0);
-            run('moveBoxTo', {
-              nodeId: row.sid,
-              position: positionFromRow(was.over, top.length)
-            });
-          }
-          return null;
-        }),
+      done: (held, moved) => {
+        setDrag(null);
+        if (!moved.dragged || held.over < 0 || held.over === index) return;
+        const target = rows[held.over];
+        const top = rows.filter(entry => entry.depth === 0);
+        const position = top.findIndex(entry => entry.sid === target.sid);
+        // Commit outside a React state updater: rendering must never repeat a command.
+        run('moveBoxTo', { nodeId: row.sid, position: positionFromRow(position, top.length) });
+      },
 
       /* 물러서면 순서는 그대로이고, 끌려 보이던 행만 제자리로 돌아옵니다. */
       abort: () => setDrag(null)
@@ -150,20 +156,24 @@ export function LayerPanel({ editor, slideSid, open, onToggle }: LayerPanelProps
 
   return (
     <aside className="sl-layers" aria-label="레이어">
-      <div className="sl-layers-title">
+      {!embedded && <div className="sl-layers-title">
         레이어
         <IconButton label="레이어 닫기" onClick={onToggle}>
           <Icon name="close" size={14} />
         </IconButton>
-      </div>
+      </div>}
 
       {rows.length === 0 ? (
-        <p className="sl-layers-empty">빈 슬라이드입니다.</p>
+        <EmptyState title="빈 슬라이드입니다" icon={<Icon name="outline" size={20} />}>상단 삽입 도구에서 텍스트나 도형을 추가하세요.</EmptyState>
       ) : (
         <ol className="sl-layers-list">
           {rows.map((row, index) => (
             <li
               key={row.sid}
+              className="office-layer-row"
+              data-row-selected={row.selected || undefined}
+              data-row-hidden={!row.visible || undefined}
+              data-row-drop={drag?.over === index && drag.from !== index ? 'before' : undefined}
               data-layer={row.sid}
               data-layer-depth={row.depth}
               data-layer-selected={row.selected ? 'true' : undefined}
@@ -185,15 +195,21 @@ export function LayerPanel({ editor, slideSid, open, onToggle }: LayerPanelProps
               */}
               <button
                 type="button"
-                className="sl-layer-pick"
+                className="sl-layer-pick office-layer-pick"
+                aria-pressed={row.selected}
+                onClick={event => { if (event.detail === 0) run('setNode', { nodeIds: [row.sid] }); }}
                 data-layer-pick={row.sid}
                 title={row.label}
                 onPointerDown={(event) => {
+                  if (event.button !== 0) return;
                   run('setNode', { nodeIds: [row.sid] });
                   dragRow(index, row)(event);
                 }}
               >
-                <span className="sl-layer-kind">{row.kind ?? '?'}</span>
+                <span className="sl-layer-kind" title={row.kind}>
+                  <span className="sr-only">{row.kind ?? '객체'}</span>
+                  <Icon name={LAYER_ICONS[editor?.dataStore.getNode(row.sid)?.stype ?? ''] ?? 'insert-rectangle'} size={14} />
+                </span>
                 <span className="sl-layer-name">{row.label}</span>
                 {/* A dot rather than a word: the list is scanned, and 모션 on
                     every animated row would be read as part of the name. */}
@@ -207,35 +223,10 @@ export function LayerPanel({ editor, slideSid, open, onToggle }: LayerPanelProps
                 )}
               </button>
 
-              {/*
-                * The eye and the lock: `sm`, because the row is 26px and a form control's
-                * 28px in it is the wrong control rather than a shared one.
-                *
-                * `pressed` is the *off* state for visibility and the *on* state for the
-                * lock, which is not a slip: what the accent means here is "this row is not
-                * ordinary", and a hidden row and a locked row are both that.
-                */}
-              <IconButton
-                label={row.visible ? '숨기기' : '보이기'}
-                size="sm"
-                testClass="sl-layer-toggle"
-                pressed={!row.visible}
-                data={{ 'layer-visible': row.sid }}
-                onClick={() => run('setBoxVisible', { nodeIds: [row.sid], visible: !row.visible })}
-              >
-                <Icon name={row.visible ? 'shown' : 'hide'} size={13} />
-              </IconButton>
-
-              <IconButton
-                label={row.locked ? '잠금 해제' : '잠그기'}
-                size="sm"
-                testClass="sl-layer-toggle"
-                pressed={row.locked}
-                data={{ 'layer-locked': row.sid }}
-                onClick={() => run('setBoxLocked', { nodeIds: [row.sid], locked: !row.locked })}
-              >
-                <Icon name={row.locked ? 'locked' : 'unlocked'} size={13} />
-              </IconButton>
+              <LayerActions label={row.label} hidden={!row.visible} locked={row.locked}
+                visibilityData={{ 'layer-visible': row.sid }} lockData={{ 'layer-locked': row.sid }}
+                onHiddenChange={hidden => run('setBoxVisible', { nodeIds: [row.sid], visible: !hidden })}
+                onLockedChange={locked => run('setBoxLocked', { nodeIds: [row.sid], locked })} />
             </li>
           ))}
         </ol>

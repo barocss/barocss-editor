@@ -31,9 +31,9 @@ describe('a chord, and what a menu may say about it', () => {
      * a nicety: a reader finds a chord by its shape, and `⌘⇧Z` is one they read twice. Both products
      * that had a label function wrote this back to front.
      */
-    expect(keyLabel('Mod+Shift+z')).toBe('⇧⌘Z');
-    expect(keyLabel('Shift+Mod+z')).toBe('⇧⌘Z');
-    expect(keyLabel('Mod+Alt+Ctrl+k')).toBe('⌃⌥⌘K');
+    expect(keyLabel('Mod+Shift+z', true)).toBe('⇧⌘Z');
+    expect(keyLabel('Shift+Mod+z', true)).toBe('⇧⌘Z');
+    expect(keyLabel('Mod+Alt+Ctrl+k', true)).toBe('⌃⌥⌘K');
   });
 
   it('writes the other convention when the reader is not on a Mac', () => {
@@ -45,11 +45,11 @@ describe('a chord, and what a menu may say about it', () => {
 
   it('names the key on the keycap, not the one in the event', () => {
     // `=` and `+` are one key, and every application prints the one a reader looks for.
-    expect(keyLabel('Mod+=')).toBe('⌘+');
-    expect(keyLabel('Delete')).toBe('Del');
-    expect(keyLabel('Backspace')).toBe('⌫');
-    expect(keyLabel('ArrowUp')).toBe('↑');
-    expect(keyLabel(undefined)).toBeUndefined();
+    expect(keyLabel('Mod+=', true)).toBe('⌘+');
+    expect(keyLabel('Delete', true)).toBe('Del');
+    expect(keyLabel('Backspace', true)).toBe('⌫');
+    expect(keyLabel('ArrowUp', true)).toBe('↑');
+    expect(keyLabel(undefined, true)).toBeUndefined();
   });
 
   it('matches a digit by where the key is, not by what it types', () => {
@@ -102,7 +102,7 @@ describe('a chord, and what a menu may say about it', () => {
         ]
       }
     ];
-    const [filled] = withHints(menus, keys);
+    const [filled] = withHints(menus, keys, true);
     expect(filled.blocks[0].items.map((one) => one.hint)).toEqual([
       '⌘Z',
       '⇧⌘Z',

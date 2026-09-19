@@ -40,6 +40,50 @@ function createMockEditorWithEventBus() {
   } as any;
 }
 
+
+function renderContentLayerForSelection() {
+  const editor = createMockEditorWithEventBus();
+  let capturedCtx: any = null;
+
+  function Capture() {
+    const ctx = useEditorViewContext();
+    capturedCtx = ctx;
+    return <span data-testid="capture" />;
+  }
+
+  const result = render(
+    <EditorViewContextProvider editor={editor}>
+      <EditorViewContentLayer />
+      <Capture />
+    </EditorViewContextProvider>
+  );
+
+  return {
+    ...result,
+    editor,
+    capturedCtx,
+    convertSpy: vi.spyOn(capturedCtx.selectionHandler, 'convertModelSelectionToDOM'),
+  };
+}
+
+function rangeSelection(id: string) {
+  return {
+    type: 'range',
+    collapsed: true,
+    startNodeId: id,
+    startOffset: 0,
+    endNodeId: id,
+    endOffset: 0,
+  };
+}
+
+function appendRenderedSid(sid: string) {
+  const content = screen.getByTestId('editor-content');
+  const text = document.createElement('span');
+  text.setAttribute('data-bc-sid', sid);
+  content.appendChild(text);
+}
+
 describe('EditorView', () => {
   it('renders root div with data-editor-view="true" and position relative', () => {
     const editor = mockEditor();
@@ -254,6 +298,10 @@ describe('EditorViewContext', () => {
     );
 
     const convertSpy = vi.spyOn(capturedCtx.selectionHandler, 'convertModelSelectionToDOM');
+    const content = screen.getByTestId('editor-content');
+    const text = document.createElement('span');
+    text.setAttribute('data-bc-sid', 't1');
+    content.appendChild(text);
 
     vi.useFakeTimers();
     try {
@@ -267,6 +315,205 @@ describe('EditorViewContext', () => {
 
       vi.advanceTimersByTime(32);
       expect(convertSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer waits for range nodes before applying model selection', () => {
+    const editor = createMockEditorWithEventBus();
+    let capturedCtx: any = null;
+
+    function Capture() {
+      const ctx = useEditorViewContext();
+      capturedCtx = ctx;
+      return <span data-testid="capture" />;
+    }
+
+    render(
+      <EditorViewContextProvider editor={editor}>
+        <EditorViewContentLayer />
+        <Capture />
+      </EditorViewContextProvider>
+    );
+
+    const convertSpy = vi.spyOn(capturedCtx.selectionHandler, 'convertModelSelectionToDOM');
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', {
+        type: 'range',
+        startNodeId: 'late-text',
+        collapsed: true,
+        startOffset: 0,
+        endNodeId: 'late-text',
+        endOffset: 0,
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(32);
+      });
+      expect(convertSpy).toHaveBeenCalledTimes(0);
+
+      const content = screen.getByTestId('editor-content');
+      const text = document.createElement('span');
+      text.setAttribute('data-bc-sid', 'late-text');
+      content.appendChild(text);
+
+      act(() => {
+        vi.advanceTimersByTime(16);
+      });
+      expect(convertSpy).toHaveBeenCalledTimes(1);
+      expect(convertSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'range',
+          startNodeId: 'late-text',
+          endNodeId: 'late-text',
+        })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer uses attribute matching while waiting for range nodes', () => {
+    const { editor, convertSpy } = renderContentLayerForSelection();
+
+    vi.useFakeTimers();
+    try {
+      const sid = 'late:text[1]';
+      editor.emit('editor:selection.model', rangeSelection(sid));
+
+      act(() => {
+        vi.advanceTimersByTime(16);
+      });
+      expect(convertSpy).toHaveBeenCalledTimes(0);
+
+      appendRenderedSid(sid);
+      act(() => {
+        vi.advanceTimersByTime(16);
+      });
+
+      expect(convertSpy).toHaveBeenCalledTimes(1);
+      expect(convertSpy).toHaveBeenCalledWith(expect.objectContaining({ startNodeId: sid, endNodeId: sid }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer cancels pending restore when skip flag turns true before the frame runs', () => {
+    const { editor, capturedCtx, convertSpy } = renderContentLayerForSelection();
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', rangeSelection('late-skip'));
+      capturedCtx.viewStateRef.current.skipApplyModelSelectionToDOM = true;
+      appendRenderedSid('late-skip');
+
+      act(() => {
+        vi.advanceTimersByTime(32);
+      });
+      expect(convertSpy).toHaveBeenCalledTimes(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer lets the latest selection replace a pending restore', () => {
+    const { editor, convertSpy } = renderContentLayerForSelection();
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', rangeSelection('old-selection'));
+      editor.emit('editor:selection.model', rangeSelection('new-selection'));
+
+      appendRenderedSid('old-selection');
+      act(() => {
+        vi.advanceTimersByTime(16);
+      });
+      expect(convertSpy).toHaveBeenCalledTimes(0);
+
+      appendRenderedSid('new-selection');
+      act(() => {
+        vi.advanceTimersByTime(16);
+      });
+      expect(convertSpy).toHaveBeenCalledTimes(1);
+      expect(convertSpy).toHaveBeenCalledWith(expect.objectContaining({ startNodeId: 'new-selection' }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer cancels pending restore when a remote selection arrives', () => {
+    const { editor, convertSpy } = renderContentLayerForSelection();
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', rangeSelection('late-local'));
+      editor.emit('editor:selection.model', { selection: rangeSelection('remote-selection'), source: 'remote' });
+      appendRenderedSid('late-local');
+
+      act(() => {
+        vi.advanceTimersByTime(48);
+      });
+      expect(convertSpy).toHaveBeenCalledTimes(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer cancels pending restore when a none selection arrives', () => {
+    const { editor, convertSpy } = renderContentLayerForSelection();
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', rangeSelection('late-before-none'));
+      editor.emit('editor:selection.model', { type: 'none' });
+      appendRenderedSid('late-before-none');
+
+      act(() => {
+        vi.advanceTimersByTime(48);
+      });
+      expect(convertSpy).toHaveBeenCalledTimes(1);
+      expect(convertSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'none' }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer cancels pending restore on unmount', () => {
+    const { editor, convertSpy, unmount } = renderContentLayerForSelection();
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', rangeSelection('late-unmount'));
+      unmount();
+
+      act(() => {
+        vi.advanceTimersByTime(48);
+      });
+      expect(convertSpy).toHaveBeenCalledTimes(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer drops a pending restore after ten frames', () => {
+    const { editor, convertSpy } = renderContentLayerForSelection();
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', rangeSelection('too-late'));
+
+      act(() => {
+        vi.advanceTimersByTime(16 * 11);
+      });
+      appendRenderedSid('too-late');
+      act(() => {
+        vi.advanceTimersByTime(16);
+      });
+
+      expect(convertSpy).toHaveBeenCalledTimes(0);
     } finally {
       vi.useRealTimers();
     }

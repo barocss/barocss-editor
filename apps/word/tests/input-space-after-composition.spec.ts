@@ -40,6 +40,7 @@ const caret = (page: import('@playwright/test').Page) =>
   });
 
 const clickIntoParagraph = async (page: import('@playwright/test').Page) => {
+  await page.locator('.w-paragraph').nth(1).scrollIntoViewIfNeeded();
   const point = await page.evaluate(() => {
     const el = [...document.querySelectorAll('.w-paragraph')][1];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -79,7 +80,7 @@ const gate = (page: import('@playwright/test').Page) =>
 
 test.describe('a space after a composition', () => {
   test('is not refused at the door', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -109,7 +110,7 @@ test.describe('a space after a composition', () => {
   });
 
   test('the gate can see where the reader is', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);

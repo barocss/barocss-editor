@@ -47,7 +47,7 @@ export class AlignExtension implements Extension {
           ? await this._align(ed, payload.alignment, payload.selection ?? (ed as any).selection)
           : false,
       canExecute: (ed: Editor, payload?: { alignment?: Alignment; selection?: ModelSelection }) =>
-        !!payload?.alignment &&
+        !!payload?.alignment && ALIGNMENTS.some(item => item.value === payload.alignment) &&
         this._blocksOf(ed, payload.selection ?? (ed as any).selection).length > 0
     });
   }
@@ -61,7 +61,7 @@ export class AlignExtension implements Extension {
    */
   private _blocksOf(editor: Editor, selection: ModelSelection | null | undefined): string[] {
     const dataStore = (editor as any).dataStore;
-    if (!dataStore || !selection) return [];
+    if (editor.isEditable === false || !dataStore || !selection) return [];
 
     const blockOf = (sid: string): string | null => {
       let current: any = dataStore.getNode(sid);
@@ -128,6 +128,7 @@ export class AlignExtension implements Extension {
     alignment: Alignment,
     selection: ModelSelection | null | undefined
   ): Promise<boolean> {
+    if (!ALIGNMENTS.some(item => item.value === alignment)) return false;
     const blocks = this._blocksOf(editor, selection);
     if (blocks.length === 0) return false;
 

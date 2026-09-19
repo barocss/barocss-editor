@@ -36,7 +36,7 @@ describe('inserting a drawing and the shapes on it', () => {
   /** Every node in the document, as `stype` and its children — the shape of the tree. */
   const treeOf = (sid: string = editor.getRootId()): any => {
     const node = editor.dataStore.getNode(sid);
-    const kids = (node?.content ?? []).filter((one: unknown) => typeof one === 'string');
+    const kids = (node?.content ?? []).filter((one: unknown) => typeof one === 'string' && editor.dataStore.getNode(one as string)?.stype !== 'resources');
     return kids.length > 0 ? { [node.stype]: kids.map((one: string) => treeOf(one)) } : node.stype;
   };
 

@@ -196,7 +196,7 @@ describe('Layer별 렌더링', () => {
   <div class="document" data-bc-sid="doc1">
     <p class="paragraph" data-bc-sid="p1">
       <span class="inline-text" data-bc-sid="t1">
-        <span class="highlight" data-decorator="true" data-decorator-category="inline" data-decorator-sid="highlight-1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background: yellow;"><span>Hello</span></span>
+        <span class="highlight" data-decorator="true" data-decorator-category="inline" data-decorator-sid="highlight-1" data-decorator-stype="highlight" data-decorator-type="target" data-skip-reconcile="true" style="background: yellow;"><span>Hello</span></span>
     <span>World</span>
       </span>
     </p>
@@ -276,7 +276,7 @@ describe('Layer별 렌더링', () => {
   <div class="document" data-bc-sid="doc1">
     <p class="paragraph" data-bc-sid="p1">
       <span class="inline-text" data-bc-sid="t1">
-        <span class="highlight" data-decorator="true" data-decorator-category="inline" data-decorator-sid="highlight-1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background: yellow;"><span>Hello</span></span>
+        <span class="highlight" data-decorator="true" data-decorator-category="inline" data-decorator-sid="highlight-1" data-decorator-stype="highlight" data-decorator-type="target" data-skip-reconcile="true" style="background: yellow;"><span>Hello</span></span>
     <span>World</span>
       </span>
     </p>

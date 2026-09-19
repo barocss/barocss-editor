@@ -37,7 +37,9 @@ function textSpans(el: Element): TextSpan[] {
   let node = walker.nextNode() as Text | null;
   while (node) {
     const length = node.data.length;
-    if (length > 0) {
+    // Repeated headers inside an inline cell gap are display-only text.
+    // Range highlights can also be chrome, but their document text must count.
+    if (length > 0 && !node.parentElement?.closest('.w-table-cell-break, .w-page-break')) {
       // A widget anchors to a model node, so each run has to remember which one
       // it came from and how much of that node's text came before it — marks
       // split one node's text across several elements.

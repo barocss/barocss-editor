@@ -37,6 +37,15 @@ describe('setAttrs operation (exec)', () => {
     expect(updated?.attributes?.dataId).toBe('1');
   });
 
+  it('records the resolved node id so undo does not depend on a temporary alias', async () => {
+    dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'A', attributes: { class: 'old', $alias: 'newText' } } as any);
+    const op = globalOperationRegistry.get('setAttrs')!;
+    const result: any = await op.execute({ type: 'setAttrs', payload: { nodeId: 'newText', attrs: { class: 'new' } } } as any, context);
+    expect(result.inverse.payload.nodeId).toBe('t1');
+    await op.execute(result.inverse, context);
+    expect(dataStore.getNode('t1')?.attributes?.class).toBe('old');
+  });
+
   describe('setAttrs operation DSL', () => {
     it('should build a setAttrs descriptor from DSL', () => {
       const op = setAttrs({ class: 'intro', align: 'center' });
@@ -72,7 +81,7 @@ describe('setAttrs operation (exec)', () => {
     selectionManager.setSelection({ type: 'range' as const, startNodeId: 't1', startOffset: 2, endNodeId: 't1', endOffset: 4 });
     const op = globalOperationRegistry.get('setAttrs');
     await op!.execute({ type: 'setAttrs', payload: { nodeId: 't1', attrs: { class: 'new' } } } as any, context);
-    expect(selectionManager.getCurrentSelection()).toEqual({ type: 'range' as const, startNodeId: 't1', startOffset: 2, endNodeId: 't1', endOffset: 4 });
+    expect(selectionManager.getCurrentSelection()).toEqual({ type: 'range' as const, startNodeId: 't1', startOffset: 2, endNodeId: 't1', endOffset: 4, collapsed: false });
   });
 
   /**

@@ -118,7 +118,24 @@ export const codeComponent = {
     return pre;
   },
 
-  update(instance: { element?: HTMLElement }, _before: Record<string, any>, after: Record<string, any>): void {
+  /*
+   * `Element | null`, which is what the producer actually holds.
+   *
+   * This said `HTMLElement` — never absent, never null — and both halves were false:
+   * `ComponentManager` mounts into an `Element` and writes `null` when a mount returns nothing.
+   * `ComponentInstance` was corrected to `Element | null` after somebody measured the producer
+   * instead of guessing at it, and this annotation stayed behind, which is the whole of the `tsc`
+   * error at `renderers.ts:437`.
+   *
+   * The runtime was already right — `if (instance?.element)` refuses both — so nothing here changes
+   * what runs. `paintInto` takes an `Element` for the same reason: it sets attributes and text, and
+   * neither is an `HTMLElement`'s to give.
+   */
+  update(
+    instance: { element?: Element | null },
+    _before: Record<string, any>,
+    after: Record<string, any>
+  ): void {
     if (instance?.element) paintInto(instance.element, after);
   },
 
@@ -137,7 +154,7 @@ function wordsIn(props: Record<string, any>, depth = 0): string {
 }
 
 /** Fill an element with the code, coloured if the language is one Prism knows. */
-function paintInto(pre: HTMLElement, props: Record<string, any>): void {
+function paintInto(pre: Element, props: Record<string, any>): void {
   const language = String(props?.attributes?.language ?? '');
   const code = wordsIn(props);
   const found = grammarFor(language);

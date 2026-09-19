@@ -31,7 +31,9 @@ export interface HistoryManagerOptions {
 }
 
 /** Operation types that represent plain typing and may be merged together. */
-const TEXT_OP_TYPES = new Set(['replaceText', 'insertText', 'setText', 'deleteTextRange']);
+// Each explicit deletion is a separate action. Merging it with typing also
+// makes Undo remove the text that the user is trying to restore.
+const TEXT_OP_TYPES = new Set(['replaceText', 'insertText', 'setText']);
 
 function textOpNodeId(op: TransactionOperation): string | undefined {
   const payload = op?.payload as Record<string, any> | undefined;

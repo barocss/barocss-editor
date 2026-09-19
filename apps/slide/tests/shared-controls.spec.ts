@@ -187,7 +187,7 @@ test('every button with no words has a name', async ({ page }) => {
   // Open the panes, or their buttons are not in the DOM to be asked about.
   // The audit pane is opened from 보기 now — it was one of the twelve title-bar buttons.
   await pickMenu(page, 'view.panes.0');
-  const layers = page.locator('.sl-layers-closed').first();
+  const layers = page.getByRole('tab', { name: '레이어', exact: true }).first();
   if ((await layers.count()) > 0) await layers.click();
   await page.waitForTimeout(400);
 
@@ -201,7 +201,7 @@ test('every button with no words has a name', async ({ page }) => {
   expect(nameless, '아이콘만 있는 버튼에 이름이 없습니다').toEqual([]);
 });
 
-test('the suite’s control tokens are mapped to this deck’s palette', async ({ page }) => {
+test('the deck uses the shared suite control palette', async ({ page }) => {
   await page.goto('/');
   await page.waitForSelector('.sl-overlay');
 
@@ -214,6 +214,6 @@ test('the suite’s control tokens are mapped to this deck’s palette', async (
   for (const [name, value] of Object.entries(tokens)) {
     expect(value, `${name} has no value, so every control that reads it loses its whole rule`).not.toBe('');
   }
-  // And they are *this deck's*, not the package's defaults.
-  expect(tokens['--ou-line']).toBe('#d8dce4');
+  // Command chrome follows the same suite palette as Word, Site and Note.
+  expect(tokens['--ou-line']).toBe('#d4d4d4');
 });

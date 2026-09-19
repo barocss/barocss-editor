@@ -81,7 +81,7 @@ describe('Inline Position Decorator (before/after)', () => {
         <div class="document" data-bc-sid="doc1">
           <p class="paragraph" data-bc-sid="p1">
             <span class="text" data-bc-sid="t1">
-              <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-before" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
+              <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-before" data-decorator-stype="chip" data-decorator-type="target" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
               <span>Hello</span>
               <span>World</span>
             </span>
@@ -133,7 +133,7 @@ describe('Inline Position Decorator (before/after)', () => {
             <span class="text" data-bc-sid="t1">
               <span>Hello</span>
               <span>World</span>
-              <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="chip-after" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
+              <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="chip-after" data-decorator-stype="chip" data-decorator-type="target" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
             </span>
           </p>
         </div>
@@ -197,11 +197,11 @@ describe('Inline Position Decorator (before/after)', () => {
         <div class="document" data-bc-sid="doc1">
           <p class="paragraph" data-bc-sid="p1">
             <span class="text" data-bc-sid="t1">
-              <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-before" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
+              <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-before" data-decorator-stype="chip" data-decorator-type="target" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
               <span>Hello</span>
               <span> </span>
               <span>World</span>
-              <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="chip-after" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
+              <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="chip-after" data-decorator-stype="chip" data-decorator-type="target" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
             </span>
           </p>
         </div>

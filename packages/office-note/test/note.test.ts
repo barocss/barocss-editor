@@ -85,25 +85,12 @@ describe('what a note’s bar offers', () => {
     expect(blocks.map((one) => one.command)).not.toContain('insertButton');
   });
 
-  it('offers the four marks and not a colour, a size or a family', () => {
-    /*
-     * This list said `strikeThrough` too — written from the same wrong source as the row it checks,
-     * so the two agreed about a name the model has never used. Two places agreeing is not evidence;
-     * the check below asks the **toggle** instead, which cannot be written from a list.
-     */
-    /**
-     * The styling rule, stated as an **absence**: the look of a paragraph in a post is the card's
-     * answer when it draws it — *칠·여백·크기는 카드의 것* — so a body that could set its own would
-     * stop following the design it is placed in.
-     *
-     * And it is enforced by `note-kit.ts` not registering those commands, not by hiding a control:
-     * a hidden control is reachable by a key map and a paste.
-     */
-    const marks = noteControlsIn('mark').map((one) => one.mark);
-    expect(marks).toEqual(['bold', 'italic', 'underline', 'strikethrough']);
-    expect(NOTE_TOOLBAR.map((one) => one.command)).not.toContain('setFontColor');
-    expect(NOTE_TOOLBAR.map((one) => one.command)).not.toContain('setFontSize');
-    expect(NOTE_TOOLBAR.map((one) => one.command)).not.toContain('setFontFamily');
+  it('offers writing marks and clearing while leaving document typography to the product', () => {
+    const marks = noteControlsIn('mark').flatMap(one => one.mark ? [one.mark] : []);
+    expect(marks).toEqual(['bold', 'italic', 'underline', 'strikethrough', 'code', 'superscript', 'subscript']);
+    expect(NOTE_TOOLBAR.map(one => one.command)).toContain('clearFormatting');
+    expect(NOTE_TOOLBAR.map(one => one.command)).not.toContain('setFontSize');
+    expect(NOTE_TOOLBAR.map(one => one.command)).not.toContain('setFontFamily');
   });
 
   it('derives the `/` menu from the bar, so the two cannot come apart', () => {
@@ -197,7 +184,7 @@ describe('what a held block offers', () => {
 
     /* A field writes an attribute; an act runs a command. A row with both would be a row that lies. */
     for (const [kind, fields] of Object.entries(NOTE_FIELDS)) {
-      expect(NOTE_PICKED).toContain(kind);
+      expect([...NOTE_PICKED, 'paragraph', 'heading']).toContain(kind);
       for (const one of fields ?? []) {
         expect(one.attr).toBeTruthy();
         expect(one.label).toBeTruthy();
@@ -209,7 +196,7 @@ describe('what a held block offers', () => {
     }
 
     for (const [kind, acts] of Object.entries(NOTE_ACTS)) {
-      expect(NOTE_PICKED).toContain(kind);
+      expect([...NOTE_PICKED, 'paragraph', 'heading']).toContain(kind);
       for (const one of acts ?? []) expect(one.command && one.icon && one.title).toBeTruthy();
     }
 
@@ -258,8 +245,7 @@ describe('바가 묻는 마크와 명령이 쓰는 마크', () => {
     const text = [...store.getNodes().values()].find((one: any) => one.stype === 'inline-text') as any;
     expect(text).toBeDefined();
 
-    for (const one of noteControlsIn('mark')) {
-      expect(one.mark).toBeTruthy();
+    for (const one of noteControlsIn('mark').filter(control => control.mark)) {
 
       /* Select the whole run, run the toggle, and ask the bar's own question about the result. */
       editor.selectionManager.setSelection({

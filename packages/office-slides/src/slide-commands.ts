@@ -4,6 +4,10 @@ import { setAttrs, transaction } from '@barocss/model';
 import { laysOut, placeIsBound, sizeIsBound, turnIsBound } from '@barocss/office-canvas';
 import {
   copyOf,
+  copyForPaste,
+  pastable,
+  connectorFreezeSteps,
+  childrenOf,
   deckSlides,
   editableSurface,
   layoutPlaceholderSids,
@@ -261,6 +265,39 @@ export class SlidesExtension implements Extension {
      * it an answer.
      */
     register(
+      'moveBoxesToSlide',
+      async payload => {
+        const steps = this._slideMoveOf(editor, payload);
+        if (!steps) return false;
+        return (await transaction(editor, steps as never).commit()).success === true;
+      },
+      payload => this._slideMoveOf(editor, payload) !== null
+    );
+
+    register(
+      'copyBoxesToSlide',
+      async payload => {
+        // Validate before allocating IDs. A drag copy does not touch the user's clipboard.
+        if (!this._slideMoveOf(editor, payload)) return false;
+        const doc = this._access(editor)!;
+        const items = payload.positions as Array<{ nodeId: string; x: number; y: number }>;
+        const positions = new Map(items.map(item => [item.nodeId, item]));
+        const source = doc.getNode(items[0].nodeId)!.parentId!;
+        const ordered = childrenOf(doc.getNode(source)).filter(sid => positions.has(sid));
+        const copies = pastable(copyForPaste(doc, ordered), () => editor.dataStore.generateId());
+        const steps = copies.map((child, index) => {
+          const at = positions.get(ordered[index])!;
+          child.attributes = { ...child.attributes, x: at.x, y: at.y };
+          return { type: 'addChild', payload: { parentId: payload.slideId, child } };
+        });
+        const result = await transaction(editor, steps as never).commit();
+        if (result.success) editor.setNode({ nodeIds: copies.map(child => child.sid!) });
+        return result.success === true;
+      },
+      payload => this._slideMoveOf(editor, payload) !== null
+    );
+
+    register(
       'setBoxGeometry',
       (payload) =>
         this._setBoxAttrsAll(editor, this._boxesNamed(payload), (nodeId) =>
@@ -367,7 +404,7 @@ export class SlidesExtension implements Extension {
     register(
       'setSlideInfo',
       (payload) => this._setSlideInfo(editor, payload),
-      (payload) => !!this._slideAt(editor, payload?.slideId) && 'name' in (payload ?? {})
+      (payload) => !!this._slideAt(editor, payload?.slideId) && ['name', 'canvasX', 'canvasY'].some(key => key in (payload ?? {}))
     );
 
     register(
@@ -1235,20 +1272,69 @@ export class SlidesExtension implements Extension {
     );
   }
 
-  /** How the box is painted, including whatever this shape declares of its own. */
+  /** Transfer top-level objects as one edit; child coordinates and object IDs stay intact. */
+  private _slideMoveOf(editor: Editor, payload: any): Array<{ type: string; payload: any }> | null {
+    const doc = this._access(editor);
+    const target = this._slideAt(editor, payload?.slideId);
+    const items = payload?.positions as Array<{ nodeId: string; x: number; y: number }>;
+    if (!doc || !target || !Array.isArray(items) || !items.length) return null;
+    const surfaces = deckSlides(doc);
+    if (!surfaces.some(slide => slide.sid === target)) return null;
+    const ids = new Set(items.map(item => item?.nodeId));
+    if (ids.size !== items.length) return null;
+    let source: string | undefined;
+    for (const item of items) {
+      if (!item || !Number.isFinite(item.x) || !Number.isFinite(item.y)) return null;
+      const node = doc.getNode(item.nodeId);
+      const parent = node?.parentId;
+      if (!node || !isSceneType(node.stype) || node.attributes?.locked || placeIsBound(node as never)) return null;
+      if (!parent || !surfaces.some(slide => slide.sid === parent) || parent === target) return null;
+      if (source && source !== parent) return null;
+      source = parent;
+    }
+    const going = new Set<string>();
+    const collect = (sid: string) => {
+      if (going.has(sid)) return;
+      going.add(sid);
+      for (const child of childrenOf(doc.getNode(sid))) collect(child);
+    };
+    items.forEach(item => collect(item.nodeId));
+    // A line may travel with its connected objects, but cannot span two slides.
+    for (const sid of going) {
+      const node = doc.getNode(sid);
+      if (node?.stype !== 'connector') continue;
+      for (const key of ['startNodeId', 'endNodeId']) {
+        const held = node.attributes?.[key];
+        if (typeof held === 'string' && !going.has(held)) return null;
+      }
+    }
+    const steps = connectorFreezeSteps(doc, [...going]);
+    // Preserve source stacking order, independent of the order objects were selected.
+    const ordered = childrenOf(doc.getNode(source!)).filter(sid => ids.has(sid));
+    const start = childrenOf(doc.getNode(target)).length;
+    ordered.forEach((sid, index) => {
+      const item = items.find(one => one.nodeId === sid)!;
+      steps.push({ type: 'moveNode', payload: { nodeId: sid, newParentId: target, position: start + index } });
+      steps.push({ type: 'setAttrs', payload: { nodeId: sid, attrs: { x: item.x, y: item.y } } });
+    });
+    return steps;
+  }
+
   private async _setSlideInfo(editor: Editor, payload: any): Promise<boolean> {
     const slide = this._slideAt(editor, payload?.slideId);
     if (!slide) return false;
 
-    const given = payload?.name;
-    const name = typeof given === 'string' ? given.trim() : '';
-    /*
-     * Empty is **removal**, not an empty name: a slide called "" would sit in the filmstrip as a
-     * blank row that the title fallback can no longer fill, which is worse than the fallback.
-     */
-    const done = await transaction(editor, [
-      setAttrs(String(slide), { name: name || undefined })
-    ] as never).commit();
+    const attrs: Record<string, unknown> = {};
+    if ('name' in (payload ?? {})) {
+      attrs.name = typeof payload.name === 'string' ? payload.name.trim() || undefined : undefined;
+    }
+    for (const key of ['canvasX', 'canvasY']) {
+      if (!(key in (payload ?? {}))) continue;
+      if (typeof payload[key] !== 'number' || !Number.isFinite(payload[key])) return false;
+      attrs[key] = payload[key];
+    }
+    if (!Object.keys(attrs).length) return false;
+    const done = await transaction(editor, [setAttrs(String(slide), attrs)] as never).commit();
     return done.success === true;
   }
 

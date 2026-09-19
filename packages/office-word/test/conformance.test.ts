@@ -1,3 +1,4 @@
+import { withTableThemeRead } from '../../office-text/test/helpers/table-theme-probe';
 import { describe, it } from 'vitest';
 import { assertConforms, attributeReadFrom, contentTagFrom, drawnTagFrom } from '@barocss/conformance';
 import { createSchema } from '@barocss/schema';
@@ -9,6 +10,9 @@ import { getWordSchemaDefinition } from '../src/word-schema';
 import { createWordEditor } from '../src/word-kit';
 import { toolbarAttrs, toolbarIcons } from '../src/toolbar-model';
 import { wordRulerAttrs } from '../src/ruler-model';
+import { borderEditable } from '../src/border-commands';
+import { spacingEditable } from '../src/spacing-commands';
+import { pageSetupEditable } from '../src/page-setup-commands';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { registerWordRenderers } from '../src/renderers/word';
 
@@ -59,6 +63,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
     { command: 'insertHorizontalRule', produces: 'horizontalRule' },
     { command: 'insertPageBreak', produces: 'pageBreak' },
     { command: 'insertColumnBreak', produces: 'columnBreak' },
+    { command: 'insertSectionBreak', produces: 'surface' },
     { command: 'insertTab', produces: 'tab' },
     { command: 'insertTable', produces: 'bTable' },
     { command: 'insertFrame', produces: 'frame' },
@@ -83,6 +88,8 @@ const schema = createSchema('word', getWordSchemaDefinition());
     { command: 'insertColumnLeft', produces: 'bTableCell' },
     { command: 'insertColumnRight', produces: 'bTableCell' },
     { command: 'insertBookmark', produces: 'bookmarkAnchor' },
+    { command: 'insertWordReference', produces: 'fieldRef' },
+    { command: 'insertWordCaption', produces: 'fieldSeq' },
     { command: 'insertFootnote', produces: 'footnoteDef' },
     { command: 'insertEndnote', produces: 'endnoteDef' },
     { command: 'insertComment', produces: 'commentThread' }
@@ -125,7 +132,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * The shapes come from the same schema the check walks, so a probe value always
        * matches the type the attribute declares — see `attributeReadFrom`.
        */
-      attributeRead: attributeReadFrom(
+      attributeRead: withTableThemeRead(registry, attributeReadFrom(
         registry as never,
         (type: string) =>
           (schema.nodes.get(type) as { attrs?: Record<string, never> } | undefined)?.attrs,
@@ -155,6 +162,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
          */
         (_type: string, attr: string) => {
           switch (attr) {
+            case 'cropMode': return ['cover'];
             case 'tabs':
               // `[{ pos, align, leader }]` — `tabStopsOf`'s shape.
               return [[{ pos: 2880, align: 'right', leader: 'dot' }]];
@@ -218,7 +226,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
               return undefined;
           }
         }
-      ),
+      )),
       // Where a node's *children* land, which is not always the element the node
       // draws as: a table header draws a `<thead>` and holds its cells in a
       // `<tr>` inside it.
@@ -329,7 +337,38 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * has an emoji it cannot insert, which is a gap and not a fault, and the number records it
        * until somebody closes it.
        */
-      ratchet: { 'every-attribute-is-read': 16, 'every-property-can-be-edited': 184 },
+      /*
+       * **184 → 136**, 그리고 그 사이에 하네스가 한 번 거짓말할 뻔했다.
+       *
+       * Word 가 첫 대화상자를 얻었다 — 「테두리 및 음영」. `word.md` 가 갚아야 할 것 다섯 묶음 중
+       * 첫째로 적어 둔 열여섯 개다. 스키마(`boxBorderAttrs()`)도 그리는 쪽(`paragraphCss`)도 처음부터
+       * 있었고 쓰는 쪽만 없었다.
+       *
+       * 처음 잰 값은 **88** 이었다. 96개가 한 번에 떨어진 것이 수상해서 검사를 읽었더니
+       * `settable.has(attr)` — **이름만** 보고 있었다. 대화상자는 문단에만 쓰는데 같은 이름이 표와
+       * 셀과 페이지에도 선언돼 있어서 셋이 함께 조용해졌고, 그중에는 정말로 설정할 곳이 없는 셀
+       * 테두리가 있었다. 검사가 `node.attr` 을 받게 고치고, 이 제품은 자기가 정말 쓰는 짝만 내놓는다
+       * (`borderEditable()` — 노드는 명령에서, 속성은 `borderPatch` 에게 물어서).
+       *
+       * 그래서 48이 줄었다: 문단·제목·목록 항목 셋. 표와 셀과 페이지의 테두리는 그대로 빚이고,
+       * 그것이 정확한 상태다.
+       */
+      /*
+       * **136 → 124** — 두 번째 대화상자, 「문단 간격」. 다섯 이름 × 문단·제목·목록 항목.
+       *
+       * `paragraphCss` 가 `spacingBefore`·`spacingAfter`·`spacingLine`·`spacingLineRule` 을,
+       * `spacing.ts` 가 `contextualSpacing` 을 처음부터 그렸다. 정할 곳만 없었다.
+       */
+      /*
+       * **124 → 116** — 세 번째 대화상자, 「페이지 설정」. **정확히 여덟**이고, `word.md` 가
+       * 예고한 수 그대로다: `pageWidth`·`pageHeight`·`marginLeft`·`marginRight`·`marginGutter`
+       * ·`gutterAtTop`·`columnCount`·`columnSpacing`·`columnSeparator` 중 아직 안 세어진 여덟.
+       *
+       * 앞의 둘과 달리 노드가 하나다 — 페이지 설정은 문단이 아니라 `surface` 의 것이므로
+       * `pageSetupEditable()` 이 `surface.` 하나만 붙인다. 세 노드에 걸쳐 48이 떨어지던 테두리와
+       * 다른 모양이고, 검사가 `node.attr` 을 받게 된 덕에 이 차이가 숫자에 그대로 나온다.
+       */
+      ratchet: { 'every-attribute-is-read': 16, 'every-property-can-be-edited': 116 },
       /**
        * **A word processor has no click that selects a block**, which is what this check needs.
        *
@@ -355,7 +394,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * `ruler-model.ts`, which is the only place a paragraph's indents and its tab stops can be
        * changed at all. `notYet: ['every-property-can-be-edited']` was here until both existed.
        */
-      editable: [...toolbarAttrs(), ...wordRulerAttrs()],
+      editable: [...toolbarAttrs(), ...wordRulerAttrs(), ...borderEditable(), ...spacingEditable(), ...pageSetupEditable(), 'inline-image.cropMode', 'inline-image.cropPositionX', 'inline-image.cropPositionY', 'oMath.fontScale', 'fieldRef.targetKind'],
       /**
        * Whether the product draws anything for a mark — a vocabulary no check could see.
        *
@@ -369,6 +408,13 @@ const schema = createSchema('word', getWordSchemaDefinition());
         Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
         Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
       exempt: {
+        'fieldSeq.id': { reason: 'stable caption identity assigned by insertWordReference and read by the document field resolver; never a visible sequence property. Covered by caption-reference persistence tests.', covers: ['every-attribute-is-read', 'every-property-can-be-edited'] },
+        'inline-image.cropOriginalWidth': { reason: 'source frame size saved by the crop command for non-destructive reset; covered by object-layout tests', covers: ['every-attribute-is-read', 'every-property-can-be-edited'] },
+        'inline-image.cropOriginalHeight': { reason: 'source frame size saved by the crop command for non-destructive reset; covered by object-layout tests', covers: ['every-attribute-is-read', 'every-property-can-be-edited'] },
+        'bTable.theme': {
+          reason: 'authored by Note’s contextual table editor through the shared setTableTheme command; this product preserves and renders imported or embedded table themes without exposing that Note control',
+          covers: ['every-property-can-be-edited']
+        },
         /*
          * ── Written by the tracking commands, never typed by a reader ──────
          *
@@ -608,6 +654,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
         'frame.gapCross': 'read by `frameCss` inside its `row`, `column` and `grid` branches; the probe fills `layoutMode` with `none`',
         'frame.columns': 'read by `frameCss` in its `grid` branch; the probe fills `layoutMode` with `none`',
 
+        'tableOfContents.scope': 'selects headings across sections; a bare TOC has no document headings. Covered by structure-authoring.spec.ts',
         'tableOfContents.leader': 'drawn on each entry, and a bare table of contents has no entries — see `word-outline.spec.ts`',
         'tableOfContents.rightAlignPageNumbers': 'decides whether an entry’s leader grows; a bare table of contents has no entries',
         'tableOfContents.useHyperlinks': 'read by the entry’s drawing and by the app’s click handler; a bare table of contents has no entries',
@@ -856,7 +903,6 @@ const schema = createSchema('word', getWordSchemaDefinition());
           reason: 'the page the paginator measures — `layout.ts`',
           covers: ['every-attribute-is-read', 'every-property-can-be-edited']
         },
-        marginGutter: 'the page the paginator measures — `layout.ts`, the room for the binding',
         orientation: 'the page the paginator measures — `layout.ts`',
         'surface.width': 'the page the paginator measures — `layout.ts`; the surface draws its sheets from `layout.metrics`',
         'surface.height': 'the page the paginator measures — `layout.ts`',

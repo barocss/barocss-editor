@@ -11,8 +11,8 @@ import {
    * names. Building them out of a kit is how three of these had no test that mentioned them while
    * their commands were being exercised.
    */
-  type BlockquoteExtension,
-  type ListExtension
+  BlockquoteExtension,
+  ListExtension
 } from '../src';
 
 /**
@@ -49,6 +49,10 @@ const document_ = () => ({
 
 describe('a toggle that changes the shape of the document', () => {
   let editor: Editor;
+
+  it('names the block toggle extension classes it covers', () => {
+    expect([BlockquoteExtension.name, ListExtension.name]).toEqual(['BlockquoteExtension', 'ListExtension']);
+  });
 
   beforeEach(() => {
     editor = new Editor({

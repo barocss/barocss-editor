@@ -260,7 +260,8 @@ const WANTS_NODE: Record<string, { stype: string; keys: string[] }> = {
   insertColumnRight: { stype: 'bTableCell', keys: ['cellId'] },
   deleteColumn: { stype: 'bTableCell', keys: ['cellId'] },
   splitCell: { stype: 'bTableCell', keys: ['cellId'] },
-  mergeCells: { stype: 'bTableCell', keys: ['fromCellId'] }
+  mergeCells: { stype: 'bTableCell', keys: ['fromCellId'] },
+  toggleDetails: { stype: 'bDetails', keys: ['nodeId'] }
 };
 
 /**
@@ -298,6 +299,8 @@ const document_ = () => ({
           marks: [
             // The link first, because the probe's range states are the run's first three characters.
             { stype: 'link', attrs: { href: 'https://example.com' }, range: [0, 3] },
+            { stype: 'fontColor', attrs: { color: '#0F7A5A' }, range: [0, 3] },
+            { stype: 'bgColor', attrs: { bgColor: '#FDE68A' }, range: [0, 3] },
             { stype: 'bold', range: [4, 7] }
           ]
         }
@@ -340,6 +343,14 @@ const document_ = () => ({
       content: [
         { stype: 'inline-image', attributes: { src: 'https://example.com/a.png', alt: '그림' }, content: [] },
         { stype: 'bFigcaption', attributes: {}, content: [{ stype: 'inline-text', text: '그림 설명' }] }
+      ]
+    },
+    {
+      stype: 'bDetails',
+      attributes: { open: true },
+      content: [
+        { stype: 'bSummary', attributes: {}, content: [{ stype: 'inline-text', text: '자세히 보기' }] },
+        { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: '숨긴 설명' }] }
       ]
     },
     {

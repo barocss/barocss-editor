@@ -38,6 +38,7 @@ import {
   type CanvasNode,
   type PageWidth
 } from '@barocss/office-canvas';
+import { blockAt } from './block-placement';
 
 /** What a caller may say about a new shape; everything else is computed. */
 export interface InsertShapeOptions {
@@ -99,37 +100,20 @@ export class WordCanvasInsertExtension implements Extension {
   }
 
   /**
-   * The block a new sibling goes next to: the same walk `insertFrame` does.
+   * The block a new sibling goes next to: literally the same walk `insertFrame` does, now that
+   * both call `block-placement.ts` rather than each keeping a copy of it.
    *
    * Up from whatever the selection names — a run, an inline node — until it reaches something whose
-   * parent lists it and is not a paragraph, which is a *block*.
+   * parent lists it **and may hold a block**, which the schema answers. It used to be two type names
+   * tested by hand, and a table cell passed them: the walk stopped in the cell and the drawing was
+   * offered to a row that holds only cells.
    */
   private _blockAt(
     editor: Editor,
     given?: unknown
   ): { sid: string; parentId: string; at: number } | null {
     const store = (editor as never as { dataStore?: any }).dataStore;
-    const selection: any = given ?? (editor as never as { selection?: unknown }).selection;
-    if (!store || !selection?.startNodeId) return null;
-
-    let node: any = store.getNode(selection.startNodeId);
-    let depth = 0;
-    while (node && depth++ < 64) {
-      const parent: any = node.parentId ? store.getNode(node.parentId) : undefined;
-      const at = parent?.content?.indexOf?.(node.sid) ?? -1;
-      if (
-        parent &&
-        at >= 0 &&
-        typeof node.text !== 'string' &&
-        node.stype !== 'inline-text' &&
-        parent.stype !== 'paragraph' &&
-        parent.stype !== 'heading'
-      ) {
-        return { sid: node.sid, parentId: parent.sid, at };
-      }
-      node = parent;
-    }
-    return null;
+    return blockAt(store, given ?? (editor as never as { selection?: unknown }).selection);
   }
 
   /** The page setup a new drawing takes its width from — the section it lands in. */

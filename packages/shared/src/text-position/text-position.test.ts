@@ -16,7 +16,7 @@ import { FILLER_ATTR, FILLER_CHAR } from '../text-run-index';
  * 번 따로 기웠고 세 번 다 브라우저 회차가 찾아 줬다. **30분짜리 도구로 ms 짜리 결정을 재고 있었다.**
  */
 
-type Kind = 'tworuns' | 'decorated' | 'empty';
+type Kind = 'tworuns' | 'decorated' | 'empty' | 'badge' | 'zerolength';
 
 function build(kind: Kind) {
   document.body.innerHTML = '';
@@ -49,6 +49,29 @@ function build(kind: Kind) {
     one.append(document.createTextNode('가나'), deco, document.createTextNode('마바'));
     p.append(one);
     nodes.t1 = { stype: 'inline-text', text: '가나다라마바' };
+  } else if (kind === 'badge') {
+    /*
+     * 그릇 하나에 **색인에 없는 글자 노드**가 앞에 붙은 것: `[각주1]` 은 데코레이터가 *제 글자* 를
+     * 그린 것이라 문서에 없고 `skipsInIndex` 가 색인에서 뺀다. 뒤의 런 둘(`가나`·`다라`)만 색인에
+     * 있고, 둘이어야 미끄러짐이 보인다 — 하나뿐이면 어느 오프셋도 그 하나로 붙는다.
+     */
+    const one = runEl('t1');
+    const badge = document.createElement('span');
+    badge.setAttribute('data-bc-decorator', 'layer');
+    badge.appendChild(document.createTextNode('[각주1]'));
+    one.append(badge, document.createTextNode('가나'), document.createTextNode('다라'));
+    p.append(one);
+    nodes.t1 = { stype: 'inline-text', text: '가나다라' };
+  } else if (kind === 'zerolength') {
+    /* 길이 0 글자 노드도 색인에 없다(`addRun` 의 `stripped.length === 0`). 마크가 쪼갠 자리에 남는다. */
+    const one = runEl('t1');
+    one.append(
+      document.createTextNode('가나'),
+      document.createTextNode(''),
+      document.createTextNode('다라')
+    );
+    p.append(one);
+    nodes.t1 = { stype: 'inline-text', text: '가나다라' };
   } else {
     /* 빈 그릇: 캐럿을 받으려고 채움 글자를 그린다. */
     const one = runEl('t1');
@@ -152,6 +175,55 @@ describe('DOM → 모델', () => {
     const filler = el.firstChild as Text;
     expect(offsetWithRuns(el, filler, 1, runsOf(el)!, false)).toBe(0);
     expect(offsetWithRuns(el, filler, 0, runsOf(el)!, false)).toBe(0);
+  });
+
+  /**
+   * **색인에 없는 글자 노드 — 그 안의 오프셋은 모델 오프셋이 아니다.**
+   *
+   * 되돌아갈 곳이 이렇게 적혀 있었다:
+   *
+   * ```ts
+   * const idx = binarySearchRun(runs.runs, Math.max(0, Math.min(offset, runs.total - 1)));
+   * ```
+   *
+   * `offset` 은 **그 글자 노드 안의 DOM 오프셋**이고 `binarySearchRun` 이 받는 것은 **그릇 전체의
+   * 모델 오프셋**이다. 두 수가 같은 자를 쓰지 않는다. 배지가 여섯 글자이고 색인의 런이 `가나`(0..2)
+   * 와 `다라`(2..4) 둘일 때, 배지 안에서 캐럿이 오른쪽으로 갈수록 답이 **뒤쪽 런으로 미끄러졌다**:
+   * 0·1 은 0, 2 부터는 2. 배지는 문서에서 자리 하나(0)를 차지하므로 **여섯 자리가 다 0** 이어야
+   * 한다.
+   *
+   * 표를 세우는 값이 여기서도 나왔다. 브라우저 회차로는 이걸 못 잡는다 — 증상이 *캐럿이 한 칸
+   * 옆으로* 이고, 그건 배지가 짧으면 보이지도 않는다.
+   */
+  it.each([0, 1, 2, 3, 4, 5, 6])('색인에 없는 배지 안의 DOM 오프셋 %i 는 배지가 놓인 자리다', (offset) => {
+    const { at } = build('badge');
+    const el = at('t1');
+    const inside = el.querySelector('[data-bc-decorator]')!.firstChild!;
+    expect(offsetWithRuns(el, inside, offset, runsOf(el)!, false)).toBe(0);
+  });
+
+  it('배지가 두 런 **사이**에 있으면 그 사이의 자리다 — 시작 해석과 끝 해석이 같다', () => {
+    /*
+     * `가나` · `[각주1]` · `다라` 로 놓으면 배지의 자리는 모델 2 다. 뒤의 첫 런(`다라`)의 처음이
+     * 2 이고 앞의 마지막 런(`가나`)의 끝도 2 이므로, 어느 쪽으로 물어도 같은 답이 나와야 한다.
+     */
+    const { at } = build('badge');
+    const el = at('t1');
+    const badge = el.querySelector('[data-bc-decorator]')!;
+    el.insertBefore(badge, el.childNodes.item(2));
+
+    const runs = runsOf(el)!;
+    const inside = badge.firstChild!;
+    expect(offsetWithRuns(el, inside, 3, runs, false)).toBe(2);
+    expect(offsetWithRuns(el, inside, 3, runs, true)).toBe(2);
+  });
+
+  it('길이 0 글자 노드도 색인에 없다 — 같은 규칙으로 붙는다', () => {
+    const { at } = build('zerolength');
+    const el = at('t1');
+    const empty = el.childNodes.item(1);
+    expect(offsetWithRuns(el, empty, 0, runsOf(el)!, false)).toBe(2);
+    expect(offsetWithRuns(el, empty, 0, runsOf(el)!, true)).toBe(2);
   });
 });
 

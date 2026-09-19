@@ -1,0 +1,37 @@
+{
+  /**
+   * Type-checking the app and its browser specs.
+   *
+   * This app had no `type-check` script at all, so neither its source nor its two
+   * Playwright specs were ever compiled — and a spec is where the property that does
+   * not exist gets written: nineteen of Word's twenty-seven were in one spec file.
+   *
+   * An app imports its packages by `paths`, so it compiles their **source** as well —
+   * and ninety of an app's hundred-odd errors were other packages' unused locals,
+   * which is a guard reporting somebody else's decision. Those are filtered by
+   * `scripts/typecheck-tests.mjs`, which counts only this directory's own files, so
+   * nothing has to be switched off here.
+   *
+   * `rootDir` is the repository for the same reason as the packages': a sibling
+   * package's source is outside this directory.
+   */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    /** The runner's globals, for the specs that use them without importing. */
+    "types": ["vitest/globals", "node"]
+  },
+  "include": ["src/**/*", "test/**/*", "tests/**/*"],
+  /**
+   * Restated here, never inherited — and here the trap is live: this app's
+   * `tsconfig.json` extends the repository root, whose `exclude` names a `.test.ts`
+   * glob. Read through `extends`, that line filters whatever the `include` above
+   * matched.
+   *
+   * Measured 2026-09-05: 77 test files named by an `include` and none of them
+   * compiled — 43 in `editor-view-dom` alone, the whole of that package's suite. The
+   * config said the tests were checked; the compiler had never opened one.
+   */
+  "exclude": ["dist", "node_modules", "test-results", "playwright-report"]
+}

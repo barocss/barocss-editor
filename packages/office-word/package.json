@@ -16,7 +16,9 @@
       "types": "./src/ui.ts",
       "import": "./src/ui.ts",
       "default": "./src/ui.ts"
-    }
+    },
+    "./ui.css": "./src/ui.css",
+    "./workspace": "./src/workspace-adapter.ts"
   },
   "publishConfig": {
     "main": "./dist/index.js",
@@ -32,6 +34,12 @@
         "types": "./dist/ui.d.ts",
         "import": "./dist/ui.js",
         "default": "./dist/ui.js"
+      },
+      "./ui.css": "./dist/ui.css",
+      "./workspace": {
+        "types": "./dist/workspace.d.ts",
+        "import": "./dist/workspace.js",
+        "default": "./dist/workspace.js"
       }
     },
     "files": [
@@ -58,6 +66,7 @@
     "@barocss/dsl": "workspace:*",
     "@barocss/editor-core": "workspace:*",
     "@barocss/extensions": "workspace:*",
+    "@barocss/math-editor": "^0.8.0",
     "@barocss/model": "workspace:*",
     "@barocss/office-canvas": "workspace:*",
     "@barocss/office-controls": "workspace:*",
@@ -66,15 +75,16 @@
     "@barocss/office-text": "workspace:*",
     "@barocss/office-ui": "workspace:*",
     "@barocss/schema": "workspace:*",
-    "@barocss/shared": "workspace:*"
+    "@barocss/shared": "workspace:*",
+    "fflate": "0.8.2"
   },
   "devDependencies": {
+    "@barocss/conformance": "workspace:*",
+    "@barocss/editor-view-dom": "workspace:*",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "@barocss/conformance": "workspace:*",
-    "@barocss/editor-view-dom": "workspace:*",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vite-plugin-dts": "^3.9.1",

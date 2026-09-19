@@ -49,6 +49,8 @@ describe('what emptying a number field means', () => {
     expect(readNumberField('e', 16)).toEqual({ kind: 'nothing' });
     expect(readNumberField('--', 16)).toEqual({ kind: 'nothing' });
     expect(readNumberField('Infinity', 16)).toEqual({ kind: 'nothing' });
+    expect(readNumberField('12px', 16)).toEqual({ kind: 'nothing' });
+    expect(readNumberField('1e', 16)).toEqual({ kind: 'nothing' });
   });
 });
 

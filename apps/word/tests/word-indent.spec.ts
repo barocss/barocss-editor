@@ -90,7 +90,7 @@ async function shape(page: import('@playwright/test').Page, block: string) {
 }
 
 test('Tab at the start of a paragraph indents its first line', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   const { plain } = await paragraphs(page);
   expect(plain, 'the sample has no plain paragraph').not.toBeNull();
@@ -109,7 +109,7 @@ test('Tab at the start of a paragraph indents its first line', async ({ page }) 
 });
 
 test('Tab inside the text puts a tab there', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   const { plain } = await paragraphs(page);
 
@@ -126,7 +126,7 @@ test('Tab inside the text puts a tab there', async ({ page }) => {
 });
 
 test('deleting a tab lets the runs it split meet again', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   const { plain } = await paragraphs(page);
 
@@ -170,7 +170,7 @@ test('deleting a tab lets the runs it split meet again', async ({ page }) => {
 });
 
 test('Tab in a list moves it a level, as it always did', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   const { listed } = await paragraphs(page);
   expect(listed, 'the sample has no numbered paragraph').not.toBeNull();
@@ -183,7 +183,7 @@ test('Tab in a list moves it a level, as it always did', async ({ page }) => {
 });
 
 test('Ctrl+M indents the paragraph, and Ctrl+Shift+M takes it back', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   const { plain } = await paragraphs(page);
 

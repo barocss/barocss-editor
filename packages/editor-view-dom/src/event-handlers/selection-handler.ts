@@ -1,5 +1,5 @@
 import { DOMSelectionHandler } from '../types';
-import { Editor, fromDOMSelection } from '@barocss/editor-core';
+import { Editor, fromDOMSelection, type ModelSelection } from '@barocss/editor-core';
 import { 
   buildTextRunIndex, 
   binarySearchRun, 
@@ -217,7 +217,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
    * Convert StaticRange (e.g. from InputEvent.getTargetRanges()) to ModelSelection.
    * Used for beforeinput + getTargetRanges() path to get the DOM range that would be affected before the browser modifies it.
    */
-  convertStaticRangeToModel(staticRange: StaticRange): { type: 'range'; startNodeId: string; startOffset: number; endNodeId: string; endOffset: number; direction?: 'forward' | 'backward' | 'none' } | null {
+  convertStaticRangeToModel(staticRange: StaticRange): ModelSelection | null {
     const boundaries = this._convertRangeBoundariesToModel(
       staticRange.startContainer,
       staticRange.startOffset,

@@ -54,6 +54,10 @@ export interface MeasuredBlock {
    * requirement to cut there.
    */
   splitFrom?: number;
+  /** Allowed continuation boundaries, including the end of the block. */
+  breakLines?: number[];
+  /** Space occupied by repeated content at the start of a continuation. */
+  repeatBefore?: { fromLine: number; height: number };
   /** Word's `widowControl`: never leave a single line behind or ahead. */
   widowControl?: boolean;
   /**
@@ -117,6 +121,7 @@ const MIN_LINES_EITHER_SIDE = 2;
  * over the edge and split it, which is a visible defect for no gain.
  */
 function leadingSpace(block: MeasuredBlock, from: number, atPageTop: boolean): number {
+  if (from > 0 && block.repeatBefore && from >= block.repeatBefore.fromLine) return block.repeatBefore.height;
   if (from !== 0 || atPageTop) return 0;
   return block.spaceBefore ?? 0;
 }
@@ -228,6 +233,7 @@ function layout(blocks: MeasuredBlock[], forced: Set<number>, contentHeight: num
         // text runs around. Counted from `from`, since that is what `fit` is.
         const atLeast = Math.max(0, (block.splitFrom ?? 0) - from);
         let legal = splittable ? applyWidowControl(block, from, fit) : 0;
+        while (legal > 0 && block.breakLines && !block.breakLines.includes(from + legal)) legal--;
         if (legal > 0 && legal < atLeast) legal = 0;
 
         if (legal <= 0) {
@@ -242,7 +248,9 @@ function layout(blocks: MeasuredBlock[], forced: Set<number>, contentHeight: num
              * the picture have to overflow, and the rest belongs on the next
              * page rather than off the bottom of this one.
              */
-            const cut = atLeast > 0 && atLeast < remaining && fit < atLeast ? atLeast : remaining;
+            const nextBoundary = splittable ? block.breakLines?.find(line => line >= from + Math.max(1, atLeast)) : undefined;
+            const cut = nextBoundary !== undefined ? nextBoundary - from
+              : atLeast > 0 && atLeast < remaining && fit < atLeast ? atLeast : remaining;
             const height = fragmentHeight(block, from, from + cut, atPageTop);
             current.fragments.push({
               sid: block.sid,

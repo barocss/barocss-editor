@@ -48,6 +48,7 @@ export {
 
 // Standard schema presets (spec: docs/specs/standard-schema.md)
 export { getMinimalSchemaDefinition, getStandardSchemaDefinition } from './standard-schema';
+export { getProseNodeDefinitions } from './prose-schema';
 
 // Figma-like reference schema (spec: docs/specs/standard-schema.md §9.1)
 export { getFigmaLikeSchemaDefinition } from './figma-like-schema';
@@ -84,3 +85,13 @@ export {
   documentChildSpot,
   type SurfaceKindValue
 } from './office-schema';
+
+export * from './dataset-fields';
+export * from './database-schema';
+
+export * from './dataset-evaluation';
+
+export * from './dataset-views';
+
+export { datasetLocalDay, validDatasetFilters, normalizeDatasetFilters, repairDatasetFilters, DATASET_FILTER_OPERATORS } from './dataset-query';
+export type { DatasetFilterRule, DatasetFilterGroup, DatasetFilterOperator, DatasetSort } from './dataset-query';

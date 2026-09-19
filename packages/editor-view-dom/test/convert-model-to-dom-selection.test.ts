@@ -7,8 +7,9 @@ describe('convertModelSelectionToDOM', () => {
 
   beforeEach(() => {
     // Create test container
+    // (`container.sid = …` used to stand here. `HTMLElement` has no `sid`, and every
+    // read in `src/` is `getAttribute('data-bc-sid')` — it set an expando nobody read.)
     container = document.createElement('div');
-    container.sid = 'test-container';
     document.body.appendChild(container);
 
     // Create SelectionHandler (Editor is mocked)

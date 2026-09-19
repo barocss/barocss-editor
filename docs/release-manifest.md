@@ -49,6 +49,6 @@ OCI manifest digest는 OCI manifest JSON 바이트의 해시다. `docker save`�
 
 ## 자동 검사 범위
 
-`pnpm test:release`는 독립 임시 저장소와 파일을 사용한다. 실제 Changesets로 stable·alpha 버전을 계산하고, 제품 패키지의 changelog 생성 및 공개 패키지 버전 보존을 확인한다. 실제 workspace의 버전·태그나 npm registry를 변경하지 않는다.
+`pnpm test:release`는 로컬 `pnpm preflight`와 필수 CI에 모두 포함된다. 독립 임시 저장소와 파일을 사용한다. 실제 Changesets로 stable·alpha 버전을 계산하고, 제품 패키지의 changelog 생성 및 공개 패키지 버전 보존을 확인한다. 실제 workspace의 버전·태그나 npm registry를 변경하지 않는다.
 
 manifest 검사는 올바른 개발 기록, 잘못된 버전·코드·해시·경로·검사 증거, 두 배포 방식의 불일치와 CLI 실패 종료를 확인한다. 예시는 테스트 안에서 생성하므로 저장소에 출시된 것처럼 보이는 가짜 이미지 digest를 넣지 않는다.

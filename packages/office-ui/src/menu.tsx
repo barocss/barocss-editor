@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
@@ -96,7 +96,8 @@ export function Menu({
    * who needs 삭제. Its own size is not knowable until it exists, which is why
    * this is a layout effect and not arithmetic on a guess.
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const measure = () => {
     const box = host.current?.getBoundingClientRect();
     if (!box) return;
     const edge = 8;
@@ -104,7 +105,12 @@ export function Menu({
       left: Math.max(edge, Math.min(at.x, window.innerWidth - box.width - edge)),
       top: Math.max(edge, Math.min(at.y, window.innerHeight - box.height - edge))
     });
-    // The point is the input; the size is read from the DOM once per opening.
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (host.current) observer.observe(host.current);
+    window.addEventListener('resize', measure);
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure); };
   }, [at.x, at.y, host]);
 
   /**
@@ -116,30 +122,16 @@ export function Menu({
   const flat = blocks.flatMap((block) => block.items);
   const [hotIndex, setHot] = useState<number>(-1);
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Enter') return;
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (event.key === 'Enter') {
-        const chosen = flat[hotIndex];
-        if (chosen && !chosen.disabled) onPick(chosen.id);
-        return;
+    const previous = document.activeElement;
+    const menu = host.current;
+    menu?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true });
+    return () => {
+      if (previous instanceof HTMLElement && previous.isConnected &&
+          (menu?.contains(document.activeElement) || document.activeElement === document.body)) {
+        previous.focus({ preventScroll: true });
       }
-
-      const step = event.key === 'ArrowDown' ? 1 : -1;
-      // Past a disabled item rather than onto it: an entry that cannot run is
-      // there to say it exists, not to be landed on.
-      let next = hotIndex;
-      for (let tries = 0; tries < flat.length; tries += 1) {
-        next = (next + step + flat.length) % flat.length;
-        if (!flat[next]?.disabled) break;
-      }
-      setHot(next);
     };
-    document.addEventListener('keydown', onKey, true);
-    return () => document.removeEventListener('keydown', onKey, true);
-  }, [flat, hotIndex, onPick]);
+  }, [host]);
 
   return createPortal(
     <div
@@ -147,8 +139,22 @@ export function Menu({
       role="menu"
       aria-label={label}
       data-context-menu
+      onKeyDown={event => {
+        if (event.nativeEvent.isComposing) return;
+        if (event.key === 'Tab') { event.preventDefault(); onClose(); return; }
+        if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault(); event.stopPropagation();
+        const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+        if (!items.length) return;
+        const index = items.indexOf(document.activeElement as HTMLButtonElement);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+          : (index + (event.key === 'ArrowUp' ? -1 : 1) + items.length) % items.length;
+        items[next].focus({ preventScroll: true });
+        items[next].scrollIntoView({ block: 'nearest' });
+      }}
       style={{ position: 'fixed', left: place.left, top: place.top }}
       className={cn(
+        'office-command-surface office-menu-popup',
         'z-[var(--ou-z-popover)] min-w-44 rounded-lg border py-1 shadow-[var(--ou-lift-2)]',
         'border-[color:var(--ou-line)] bg-[color:var(--ou-panel)]',
         'text-[length:var(--ou-text)] text-[color:var(--ou-ink)]'
@@ -166,6 +172,7 @@ export function Menu({
                 role={entry.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
                 aria-checked={entry.checked}
                 data-menu-item={entry.id}
+                data-highlighted={hot && !entry.disabled ? "" : undefined}
                 data-checked={entry.checked ? 'true' : undefined}
                 disabled={entry.disabled}
                 title={entry.title}
@@ -175,35 +182,26 @@ export function Menu({
                  * underneath it.
                  */
                 onPointerDown={(event) => {
+                  if (event.button !== 0) return;
                   event.preventDefault();
                   if (!entry.disabled) onPick(entry.id);
                 }}
-                onPointerEnter={() => setHot(flat.findIndex((one) => one.id === entry.id))}
+                onClick={event => { if (event.detail === 0 && !entry.disabled) onPick(entry.id); }}
+                onFocus={() => setHot(flat.findIndex(one => one.id === entry.id))}
+                onPointerMove={event => {
+                  if (!entry.disabled && (event.movementX || event.movementY)) event.currentTarget.focus({ preventScroll: true });
+                }}
                 className={cn(
-                  'flex w-full items-center justify-between gap-6 px-3 py-1 text-left',
+                  'office-menu-option flex w-full items-center justify-between gap-6 px-3 py-1 text-left',
                   'transition-colors duration-[var(--ou-quick)]',
                   'disabled:opacity-40',
                   hot && !entry.disabled && 'bg-[color:var(--ou-ground)]'
                 )}
               >
-                <span className="flex items-center gap-1.5">
-                  {/*
-                    The mark keeps its room whether or not it is drawn, so a menu of toggles does not
-                    shift its labels sideways as a reader turns them on and off.
-                  */}
-                  {/*
-                    The icon set's tick, not a `✓`.
-                    A typed character is drawn by whatever font resolves it, at that font's weight
-                    and baseline, so it never matches the 16px lucide set beside it — the same
-                    lesson `stack.tsx` already carries about `␡`, and one this file had to learn
-                    again. The room is kept whether or not the mark is drawn, so a menu of toggles
-                    does not shift its labels sideways as a reader turns them on and off.
-                  */}
-                  {entry.checked !== undefined && (
-                    <span className="flex w-3.5 shrink-0 items-center text-[color:var(--ou-accent)]">
-                      {entry.checked && <Icon name="chosen" size={14} />}
-                    </span>
-                  )}
+                <span className="office-menu-label flex items-center gap-1.5">
+                  <span className="office-menu-indicator" aria-hidden="true">
+                    {entry.checked && <Icon name="chosen" size={14} />}
+                  </span>
                   {entry.label}
                 </span>
                 {entry.hint && (

@@ -18,6 +18,12 @@ This directory and the linked package specs define **what the editor and each pa
 
 ## 2. Where to find what
 
+### Wonffice 서비스와 자동 개발
+
+- [플랫폼 설계](wonffice-platform.md): 클라우드·내부 설치 동시 출시, 회사별 기능, 서버 저장·권한·공유.
+- [Agent 실행 계약](wonffice-agent-runtime.md): GitHub 개발 흐름, 로컬 감독, 중간 지시, 자동 병합 범위.
+- [구현 순서와 완료 기준](wonffice-platform-delivery.md): WP-01–WP-12. 설계와 구현 상태를 구분한다.
+
 ### 이 저장소가 어떻게 서 있고 어떻게 물어보나
 
 세 문서가 *무엇을 만드나* 가 아니라 **어떻게 결정하나** 를 적는다. 새 제품·새 모듈·새 검사를

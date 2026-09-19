@@ -9,14 +9,32 @@
 import { DataStore } from "@barocss/datastore";
 import type { ModelSelection, SelectionType } from './types';
 import { createNodeSelection, selectedNodeIds } from './types';
+import { withDerivedCollapsed } from './collapsed';
 
 export interface SelectionManagerOptions {
   dataStore?: DataStore;
 }
 
 export class SelectionManager {
-  private _currentSelection: ModelSelection | null = null;
+  private _selection: ModelSelection | null = null;
   private _dataStore: any | null = null;
+
+  /**
+   * **깃발은 여기서 계산된다** — 이 클래스가 선택을 담아 두는 유일한 자리이기 때문이다.
+   *
+   * 아래에 `this._currentSelection = { … }` 가 **열다섯 번** 있고 그 중 다섯이 캐럿이다. 다섯에
+   * 글자로 `collapsed: true` 를 적어도 나머지 열은 인자에 따라 접힌다 — `selectRange(n, 3, 3)` 은
+   * 리터럴로는 범위이고 실행하면 캐럿이다. 자리마다 묻는 대신 **담기는 문 하나**에서 계산한다.
+   *
+   * 필드 이름을 바꾸고 접근자를 놓은 이유가 이것이다: 열다섯 자리를 고쳐 쓰면 열여섯 번째가 온다.
+   */
+  private get _currentSelection(): ModelSelection | null {
+    return this._selection;
+  }
+
+  private set _currentSelection(value: ModelSelection | null) {
+    this._selection = value ? withDerivedCollapsed(value) : null;
+  }
 
   constructor(options: SelectionManagerOptions = {}) {
     if (options.dataStore) {
@@ -159,7 +177,8 @@ export class SelectionManager {
       startNodeId: nodeId,
       startOffset: position,
       endNodeId: nodeId,
-      endOffset: position
+      endOffset: position,
+      collapsed: true
     };
   }
 
@@ -218,7 +237,8 @@ export class SelectionManager {
       startNodeId: this._currentSelection.startNodeId,
       startOffset: this._currentSelection.startOffset,
       endNodeId: this._currentSelection.startNodeId,
-      endOffset: this._currentSelection.startOffset
+      endOffset: this._currentSelection.startOffset,
+      collapsed: true
     };
   }
 
@@ -233,7 +253,8 @@ export class SelectionManager {
       startNodeId: this._currentSelection.endNodeId,
       startOffset: this._currentSelection.endOffset,
       endNodeId: this._currentSelection.endNodeId,
-      endOffset: this._currentSelection.endOffset
+      endOffset: this._currentSelection.endOffset,
+      collapsed: true
     };
   }
 
@@ -408,11 +429,12 @@ export class SelectionManager {
     } else {
       // If no word, collapse to current position
       this._currentSelection = {
-      type: 'range',
+        type: 'range',
         startNodeId: nodeId,
         startOffset: position,
         endNodeId: nodeId,
-        endOffset: position
+        endOffset: position,
+        collapsed: true
       };
     }
   }
@@ -532,11 +554,12 @@ export class SelectionManager {
     // If anchor is in the node, move to split point
     if (this._currentSelection.startNodeId === nodeId) {
       this._currentSelection = {
-      type: 'range',
+        type: 'range',
         startNodeId: nodeId,
         startOffset: splitPosition,
         endNodeId: nodeId,
-        endOffset: splitPosition
+        endOffset: splitPosition,
+        collapsed: true
       };
     }
   }

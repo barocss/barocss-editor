@@ -18,6 +18,8 @@
  */
 /* 무대 — 덱이 그려지는 곳, 그 위의 포인터, 그리고 보여주기. */
 export { Stage, type StageProps } from './stage';
+export { createSlidePrint } from './print';
+export { SlidePrintDialog } from './print-dialog';
 export { SelectionOverlay, type SelectionOverlayProps } from './overlay';
 export { Present, type PresentProps } from './present';
 export { Presenter, type PresenterProps } from './presenter';
@@ -76,3 +78,6 @@ export {
  * 읽기 자체는 `deck.ts` 에 있고(`.` 로 나간다), 이 셋은 *언제 다시 읽나* 뿐이다.
  */
 export { useDeck, useNote, useRevision } from './deck-model';
+export { SlideDocuments, useSlidePersistence } from './document-library';
+
+export { SlideSidebar } from './slide-sidebar';

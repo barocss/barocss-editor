@@ -40,6 +40,7 @@ const caret = (page: import('@playwright/test').Page) =>
   });
 
 const clickIntoParagraph = async (page: import('@playwright/test').Page, at = 0.35) => {
+  await page.locator('.w-paragraph').nth(1).scrollIntoViewIfNeeded();
   const point = await page.evaluate((fraction) => {
     const el = [...document.querySelectorAll('.w-paragraph')][1];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -75,7 +76,7 @@ const around = async (page: import('@playwright/test').Page) => {
 
 test.describe('Enter in the middle of a paragraph', () => {
   test('puts the tail below, with the caret in it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
 
@@ -103,7 +104,7 @@ test.describe('Enter in the middle of a paragraph', () => {
   });
 
   test('does the same immediately after a burst of typing', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
 
@@ -128,7 +129,7 @@ test.describe('Enter in the middle of a paragraph', () => {
   });
 
   test('does the same immediately after a composition', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     const cdp = await page.context().newCDPSession(page);
@@ -168,7 +169,7 @@ test.describe('Enter in the middle of a paragraph', () => {
  */
 test.describe('Enter after the paragraph has grown', () => {
   test('splits in order when the paragraph now wraps', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page, 0.9);
 
@@ -194,7 +195,7 @@ test.describe('Enter after the paragraph has grown', () => {
   });
 
   test('splits in order near the end of a grown paragraph', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page, 0.95);
     // `End` moves by visual line, and a paragraph this long has more than one,

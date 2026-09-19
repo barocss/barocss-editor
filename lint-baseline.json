@@ -1,0 +1,2366 @@
+[
+  {
+    "file": "apps/docs-site/docusaurus.config.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'context' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "apps/docs-site/docusaurus.config.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'options' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "apps/docs-site/docusaurus.config.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'path' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/docs-site/docusaurus.config.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'TsconfigPathsPlugin' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/docs-site/src/editor-demo.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'attr' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/docs-site/src/editor-demo.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'registry' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-decorator-test/src/decorator-samples.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'getAllDecorators' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-decorator-test/src/decorator-samples.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'getDecorator' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-decorator-test/src/decorator-samples.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'getDecoratorsByCategory' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-decorator-test/src/decorator-samples.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'getDecoratorsByNode' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-decorator-test/src/decorator-samples.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'getDecoratorsByType' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-decorator-test/src/decorator-samples.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'IDecorator' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-decorator-test/src/main.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'rect' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-react/src/register-renderers.tsx",
+    "rule": "@typescript-eslint/ban-ts-comment",
+    "message": "Do not use \"@ts-nocheck\" because it alters compilation errors.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-test/scripts/live-watch.js",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-test/src/main.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'buildTextRunIndex' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-test/src/main.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'d' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-test/src/main.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'model' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 4
+  },
+  {
+    "file": "apps/editor-test/src/main.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'when' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "apps/editor-test/src/main.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 1
+  },
+  {
+    "file": "apps/office/tests/workspace-feedback.spec.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'args' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "apps/site/src/app.tsx",
+    "rule": "react-hooks/exhaustive-deps",
+    "message": "Definition for rule 'react-hooks/exhaustive-deps' was not found.",
+    "count": 3
+  },
+  {
+    "file": "apps/site/src/code-editor.tsx",
+    "rule": "react-hooks/exhaustive-deps",
+    "message": "Definition for rule 'react-hooks/exhaustive-deps' was not found.",
+    "count": 1
+  },
+  {
+    "file": "apps/site/src/data-editor.tsx",
+    "rule": "react-hooks/exhaustive-deps",
+    "message": "Definition for rule 'react-hooks/exhaustive-deps' was not found.",
+    "count": 2
+  },
+  {
+    "file": "apps/site/tests/site.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 2
+  },
+  {
+    "file": "apps/word/src/input-lab/recorder.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/authoring-tools.spec.ts",
+    "rule": "prefer-const",
+    "message": "'dialog' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/format-painter.spec.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-cjk-guard-state.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-cjk-places.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-cjk-then-latin.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-cjk-tight.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-cjk-under-load.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-click-then-type.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-enter-split.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-enter-sweep.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 3
+  },
+  {
+    "file": "apps/word/tests/input-hangul-jongseong.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-hangul-spaces.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-hangul-syllable-boundary.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-matrix.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-pipeline.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "apps/word/tests/input-space-after-composition.spec.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 1
+  },
+  {
+    "file": "packages/collaboration-yjs/src/yjs-adapter.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_nodeId' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/collaboration/test/base-adapter.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'DataStore' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/conformance/src/attribute-read.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_gone' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/conformance/test/drawing-the-same-thing-twice-is-not-a-change.test.ts",
+    "rule": "no-regex-spaces",
+    "message": "Spaces are hard to count. Use {2}.",
+    "count": 1
+  },
+  {
+    "file": "packages/conformance/test/drawing-the-same-thing-twice-is-not-a-change.test.ts",
+    "rule": "no-regex-spaces",
+    "message": "Spaces are hard to count. Use {4}.",
+    "count": 1
+  },
+  {
+    "file": "packages/converter/src/markdown-converter.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_stype' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/converter/test/latex-converter.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'LatexUtensils' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/converter/test/markdown-converter.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'blockquotes' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/converter/test/markdown-converter.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'codeBlocks' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/converter/test/markdown-converter.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'hasImage' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/converter/test/markdown-converter.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'lists' is assigned a value but never used.",
+    "count": 2
+  },
+  {
+    "file": "packages/converter/test/markdown-converter.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'nodes' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/converter/test/office-html-converter.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'nodes' is assigned a value but never used.",
+    "count": 2
+  },
+  {
+    "file": "packages/datastore/src/data-store.ts",
+    "rule": "@typescript-eslint/ban-types",
+    "message": "Don't use `Function` as a type. The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.",
+    "count": 3
+  },
+  {
+    "file": "packages/datastore/src/data-store.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'$alias' is assigned a value but never used.",
+    "count": 2
+  },
+  {
+    "file": "packages/datastore/src/data-store.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'parentId' is assigned a value but never used.",
+    "count": 2
+  },
+  {
+    "file": "packages/datastore/src/data-store.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/src/operations/drop-behavior-defaults.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_defineDropBehavior' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/src/operations/query-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_node' is assigned a value but never used.",
+    "count": 2
+  },
+  {
+    "file": "packages/datastore/src/operations/range-operations.ts",
+    "rule": "prefer-const",
+    "message": "'end' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/src/operations/range-operations.ts",
+    "rule": "prefer-const",
+    "message": "'start' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/src/operations/serialization-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_metadata' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/src/operations/serialization-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_parentId' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/src/operations/serialization-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_sid' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/src/operations/split-merge-operations.ts",
+    "rule": "no-constant-condition",
+    "message": "Unexpected constant condition.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/src/operations/utility-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_node' is assigned a value but never used.",
+    "count": 2
+  },
+  {
+    "file": "packages/datastore/src/operations/utility-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_nodeId' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/advanced-visitor-examples.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'node' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/advanced-visitor-examples.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'nodeId' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/advanced-visitor-examples.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'result' is assigned a value but never used.",
+    "count": 4
+  },
+  {
+    "file": "packages/datastore/test/content-resolver.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'holder' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/data-store-advanced-transaction.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'ops' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/data-store-clone.test.ts",
+    "rule": "prefer-const",
+    "message": "'originalOps' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/data-store-invalid-writes.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'addedId' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/data-store-mark-normalization.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'ops' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/data-store-query.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'INode' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/data-store-transaction-lifecycle.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'newId' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/data-store-transform-node.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'index' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/data-store-utility.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'newChild' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/document-iterator.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'nodeId' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/drop-behavior.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'context' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/get-editable-node.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'afterText' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/get-editable-node.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'beforeText' is assigned a value but never used.",
+    "count": 2
+  },
+  {
+    "file": "packages/datastore/test/get-editable-node.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'paraText2' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/get-next-node-comprehensive.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'textNodes' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/get-previous-node.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'textNode' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/range-iterator-operations.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'outdented' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/real-world-iterator.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'nodeId' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/datastore/test/unified-traverse.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'node' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 4
+  },
+  {
+    "file": "packages/datastore/test/unified-traverse.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'nodeId' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 4
+  },
+  {
+    "file": "packages/datastore/test/visitor-pattern.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'node' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 6
+  },
+  {
+    "file": "packages/datastore/test/visitor-pattern.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'nodeId' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/devtool/src/auto-tracer/anomaly-detector.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'index' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/devtool/src/auto-tracer/anomaly-detector.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'input' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/devtool/src/auto-tracer/anomaly-detector.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'output' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 2
+  },
+  {
+    "file": "packages/devtool/src/auto-tracer/auto-tracer.ts",
+    "rule": "@typescript-eslint/ban-types",
+    "message": "Don't use `Function` as a type. The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.",
+    "count": 1
+  },
+  {
+    "file": "packages/devtool/src/auto-tracer/auto-tracer.ts",
+    "rule": "@typescript-eslint/no-this-alias",
+    "message": "Unexpected aliasing of 'this' to local variable.",
+    "count": 2
+  },
+  {
+    "file": "packages/devtool/src/auto-tracer/auto-tracer.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'outputSerializer' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/devtool/test/devtool.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'Trace' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/dsl/tests/dsl/dsl-functions.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'ctx' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/dsl/tests/dsl/dsl-functions.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'PortalTemplate' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/dsl/tests/registry.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'define' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/dsl/tests/template-builders.test.ts",
+    "rule": "@typescript-eslint/ban-types",
+    "message": "Don't use `Function` as a type. The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.",
+    "count": 1
+  },
+  {
+    "file": "packages/dsl/tests/template-builders.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'beforeEach' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/dsl/tests/template-builders.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'ConditionalTemplate' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/dsl/tests/template-builders.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'EachTemplate' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/dsl/tests/template-builders.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'PortalTemplate' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/dsl/tests/template-builders.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'RendererDefinition' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/dsl/tests/template-builders.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'SlotTemplate' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-core/src/editor.ts",
+    "rule": "@typescript-eslint/ban-types",
+    "message": "Don't use `Function` as a type. The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.",
+    "count": 3
+  },
+  {
+    "file": "packages/editor-core/src/when-expression.ts",
+    "rule": "no-extra-boolean-cast",
+    "message": "Redundant Boolean call.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-core/src/when-expression.ts",
+    "rule": "prefer-const",
+    "message": "'left' is never reassigned. Use 'const' instead.",
+    "count": 4
+  },
+  {
+    "file": "packages/editor-core/test/context-use-cases.test.ts",
+    "rule": "prefer-const",
+    "message": "'directTest' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-core/test/when-expression.test.ts",
+    "rule": "no-useless-escape",
+    "message": "Unnecessary escape character: \\\".",
+    "count": 6
+  },
+  {
+    "file": "packages/editor-view-dom/examples/decorator-example.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'attr' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/examples/decorator-example.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'DecoratorRegistry' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/decorator/decorator-prebuilder.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'DecoratorPosition' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/decorator/decorator-prebuilder.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'modelData' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/decorator/decorator-renderer.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'decoratorId' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/decorator/position-calculator.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'DecoratorTarget' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/decorator/visibility-manager.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'decoratorId' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/decorator/visibility-manager.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'existingState' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/dom-sync/dom-change-classifier.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'dataStore' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/dom-sync/dom-change-classifier.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'options' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/dom-sync/dom-change-classifier.ts",
+    "rule": "no-cond-assign",
+    "message": "Expected a conditional expression and instead saw an assignment.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/editor-view-dom.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'decoratorType' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/editor-view-dom.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'domOffset' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/editor-view-dom.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'event' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/editor-view-dom.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'info' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/editor-view-dom.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 3
+  },
+  {
+    "file": "packages/editor-view-dom/src/event-handlers/input-handler.ts",
+    "rule": "no-cond-assign",
+    "message": "Expected a conditional expression and instead saw an assignment.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/event-handlers/selection-handler.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'binarySearchRun' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/utils/edit-position-converter.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'container' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/src/utils/edit-position-converter.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'deletedInMark' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/core/composition-boundary.test.ts",
+    "rule": "@typescript-eslint/ban-types",
+    "message": "Don't use `Function` as a type. The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.",
+    "count": 2
+  },
+  {
+    "file": "packages/editor-view-dom/test/core/editor-view-dom.test.ts",
+    "rule": "@typescript-eslint/ban-types",
+    "message": "Don't use `Function` as a type. The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.",
+    "count": 21
+  },
+  {
+    "file": "packages/editor-view-dom/test/core/layer-rendering-scenarios.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'index' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 2
+  },
+  {
+    "file": "packages/editor-view-dom/test/core/layered-api.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'clickEvent' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/core/layered-api.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'mouseEvent' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/decorator-system/decorator-prebuilder-2.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/dom-sync/dom-change-classifier.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'appendTextNode' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/event-handlers/input-handler.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'Editor' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/complex-scenarios-integration.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'m' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/component-state-integration.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'initialCount' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/component-state-integration.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'normalizeHTML' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/error-handling-integration.test.ts",
+    "rule": "prefer-const",
+    "message": "'tree' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/form-elements-integration.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'data' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/get-document-proxy.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'registry' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/mount-unmount-integration.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'data' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/mount-unmount-integration.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'initialMountCalls' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/mount-unmount-integration.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'initialUnmountCalls' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/mount-unmount-integration.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'normalizeHTML' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/mutation-observer-integration.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'DOMRenderer' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/pattern-custom-decorator-edge-cases.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'data' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/pattern-custom-decorator-edge-cases.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'end' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/pattern-custom-decorator-edge-cases.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'model' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 2
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/pattern-custom-decorator-edge-cases.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'nodeId' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/pattern-custom-decorator-edge-cases.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'start' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/pattern-custom-decorator-edge-cases.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'text' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 2
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/pattern-custom-decorator-render.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'context' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/pattern-custom-decorator-render.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'decoratorHTML' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/integration/renderer-dom-detailed-integration.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'registry' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/setup.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'rafId' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-dom/test/setup.ts",
+    "rule": "prefer-const",
+    "message": "'rafId' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-react/src/EditorView.tsx",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'decoratorType' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-react/src/EditorViewContext.tsx",
+    "rule": "prefer-const",
+    "message": "'generatorDecorators' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-react/test/EditorView-decorator.test.tsx",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'Decorator' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-react/test/EditorView-layers.test.tsx",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'data' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-react/test/EditorView-layers.test.tsx",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'Decorator' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/editor-view-react/test/EditorView.test.tsx",
+    "rule": "@typescript-eslint/ban-types",
+    "message": "Don't use `Function` as a type. The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.",
+    "count": 3
+  },
+  {
+    "file": "packages/extensions/test/conformance.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'getGlobalRegistry' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/extensions/test/escape-extension.test.ts",
+    "rule": "@typescript-eslint/ban-types",
+    "message": "Don't use `Function` as a type. The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.",
+    "count": 2
+  },
+  {
+    "file": "packages/extensions/test/insert-and-select.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'SelectAllExtension' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/extensions/test/insert-and-select.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'TextExtension' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/extensions/test/move-selection-extension.test.ts",
+    "rule": "prefer-const",
+    "message": "'selection' is never reassigned. Use 'const' instead.",
+    "count": 4
+  },
+  {
+    "file": "packages/model/src/operations/create.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_options' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/src/operations/define-operation.ts",
+    "rule": "@typescript-eslint/no-unnecessary-type-constraint",
+    "message": "Constraining the generic type `T` to `any` does nothing and is unnecessary.",
+    "count": 3
+  },
+  {
+    "file": "packages/model/src/operations/delete.ts",
+    "rule": "prefer-const",
+    "message": "'nodeToDelete' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/src/operations/paste.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_parent' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/src/operations/paste.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_sid' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/src/operations/restoreTextNodes.ts",
+    "rule": "prefer-const",
+    "message": "'carrying' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/src/operations/toggleMark.ts",
+    "rule": "prefer-const",
+    "message": "'endNodeId' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/src/operations/toggleMark.ts",
+    "rule": "prefer-const",
+    "message": "'startNodeId' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/src/operations/toggleMark.ts",
+    "rule": "prefer-const",
+    "message": "'startOffset' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/src/operations/wrapInBlockquote.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_block' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/src/operations/wrapInList.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_block' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/src/transaction.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/test/operations/copy.exec.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'control' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/test/operations/copyNode.exec.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'newNode' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/test/operations/cut.exec.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'control' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/test/operations/fuzz.exec.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'$alias' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/test/operations/narrowing.exec.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'$alias' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/test/operations/roster.exec.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'$alias' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/test/operations/sequences.exec.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'$alias' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/test/transaction/dsl-basic.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'ctx' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 3
+  },
+  {
+    "file": "packages/model/test/transaction/dsl-basic.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'SelectionManager' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/test/transaction/dsl-control.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'paragraphId' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/test/transaction/dsl-control.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'vi' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/test/transaction/transaction-commit.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'TransactionManager' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/model/vitest.config.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'path' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-canvas/src/canvas-graph-layout.ts",
+    "rule": "no-extra-semi",
+    "message": "Unnecessary semicolon.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-editor-ui/src/selection-link.tsx",
+    "rule": "no-control-regex",
+    "message": "Unexpected control character(s) in regular expression: \\x00.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-note/src/database.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_gone' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-note/src/database.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_parentId' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-note/src/database.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_sid' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-note/src/input-rules.ts",
+    "rule": "prefer-const",
+    "message": "'attributes' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-note/src/note-exchange.ts",
+    "rule": "no-useless-escape",
+    "message": "Unnecessary escape character: \\[.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-note/src/page-reference-ui.tsx",
+    "rule": "no-useless-escape",
+    "message": "Unnecessary escape character: \\[.",
+    "count": 2
+  },
+  {
+    "file": "packages/office-site/src/admin.tsx",
+    "rule": "react-hooks/exhaustive-deps",
+    "message": "Definition for rule 'react-hooks/exhaustive-deps' was not found.",
+    "count": 3
+  },
+  {
+    "file": "packages/office-site/src/chart.ts",
+    "rule": "prefer-const",
+    "message": "'low' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-site/src/data-commands.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_gone' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-site/src/export-html.ts",
+    "rule": "no-useless-escape",
+    "message": "Unnecessary escape character: \\\".",
+    "count": 1
+  },
+  {
+    "file": "packages/office-site/src/page-frame.tsx",
+    "rule": "react-hooks/exhaustive-deps",
+    "message": "Definition for rule 'react-hooks/exhaustive-deps' was not found.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-site/src/rail.tsx",
+    "rule": "react-hooks/exhaustive-deps",
+    "message": "Definition for rule 'react-hooks/exhaustive-deps' was not found.",
+    "count": 3
+  },
+  {
+    "file": "packages/office-site/src/responsive.ts",
+    "rule": "prefer-const",
+    "message": "'merged' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-site/src/stack-commands.ts",
+    "rule": "prefer-const",
+    "message": "'overrides' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-slides/src/stage.tsx",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 2
+  },
+  {
+    "file": "packages/office-ui/src/revision.ts",
+    "rule": "react-hooks/exhaustive-deps",
+    "message": "Definition for rule 'react-hooks/exhaustive-deps' was not found.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-word/src/comments-pane.tsx",
+    "rule": "react-hooks/exhaustive-deps",
+    "message": "Definition for rule 'react-hooks/exhaustive-deps' was not found.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-word/src/find-panel.tsx",
+    "rule": "react-hooks/exhaustive-deps",
+    "message": "Definition for rule 'react-hooks/exhaustive-deps' was not found.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-word/src/word-docx.ts",
+    "rule": "no-control-regex",
+    "message": "Unexpected control character(s) in regular expression: \\x00, \\x08, \\x0b, \\x0c, \\x0e, \\x1f.",
+    "count": 1
+  },
+  {
+    "file": "packages/office-word/test/word-docx-styles.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'_' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/component-communication-examples.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'ctx' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/examples/context-component-examples.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'getGlobalRegistry' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/editor-integration.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'element' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/editor-integration.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'inputEvent' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/rich-text-editor.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'attr' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/rich-text-editor.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'ctx' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/rich-text-editor.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'debounce' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/rich-text-editor.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'ev' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/rich-text-editor.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'event' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/rich-text-editor.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'preventDefault' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/rich-text-editor.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'stopPropagation' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/rich-text-editor.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'value' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/rich-text-editor.ts",
+    "rule": "no-case-declarations",
+    "message": "Unexpected lexical declaration in case block.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/ssr-hydrate-example.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'props' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/usage-examples.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'attr' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/examples/usage-examples.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'buildVNode' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/component-manager.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'context' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/component-manager.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'isContextual' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/component-manager.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'name' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/component-manager.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'sid' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/component-manager.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'stype' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/component-manager.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'type' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/component-manager.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 10
+  },
+  {
+    "file": "packages/renderer-dom/src/component-manager.ts",
+    "rule": "prefer-const",
+    "message": "'componentId' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/component-manager.ts",
+    "rule": "prefer-const",
+    "message": "'instanceRef' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'afterText' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'allChildren' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'allChildrenAfter' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'beforeText' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'container' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'existingNode' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'isInSomeParent' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-operations.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'markRendererOwned' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-operations.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 7
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-processor.ts",
+    "rule": "@typescript-eslint/ban-ts-comment",
+    "message": "Use \"@ts-expect-error\" instead of \"@ts-ignore\", as \"@ts-ignore\" will do nothing if the following line is error-free.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-processor.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-processor.ts",
+    "rule": "no-prototype-builtins",
+    "message": "Do not access Object.prototype method 'hasOwnProperty' from target object.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-processor.ts",
+    "rule": "no-useless-escape",
+    "message": "Unnecessary escape character: \\..",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-reconcile-utils-adapter.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-renderer.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'decorators' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-renderer.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'prevState' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-renderer.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'selection' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-renderer.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 3
+  },
+  {
+    "file": "packages/renderer-dom/src/dom-renderer.ts",
+    "rule": "prefer-const",
+    "message": "'instance' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/namespace-utils.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'parentElement' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/portal-manager.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'container' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/portal-manager.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'context' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/src/portal-manager.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'isPortal' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/portal-manager.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'parentElement' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/portal-manager.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/fiber/fiber-reconciler-helpers.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'isAutoGeneratedSid' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'deps' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'findOrCreateHost' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/fiber/fiber-scheduler.ts",
+    "rule": "@typescript-eslint/ban-ts-comment",
+    "message": "Use \"@ts-expect-error\" instead of \"@ts-ignore\", as \"@ts-ignore\" will do nothing if the following line is error-free.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/reconciler.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'buildOpts' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/reconciler.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'ElementTemplate' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/reconciler.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'getVNodeId' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/reconciler.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/utils/dom-utils.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'orderedSet' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/utils/host-management.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'getVNodeId' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/utils/portal-handler.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'ModelData' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/utils/text-node-handlers.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'context' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/utils/text-node-handlers.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'doc' is assigned a value but never used.",
+    "count": 4
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/utils/text-node-handlers.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'prevVNode' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/reconcile/utils/text-node-handlers.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/renderer-owned-nodes.ts",
+    "rule": "no-irregular-whitespace",
+    "message": "Irregular whitespace not allowed.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/src/state/base-component-state.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'container' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/state/base-component-state.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'context' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/state/base-component-state.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'vnode' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/type-safety-test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'event' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/component-info.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'decorators' is assigned a value but never used.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "@typescript-eslint/ban-types",
+    "message": "Don't use `Function` as a type. The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'buildInfo' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'createElementVNode' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'decorators' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'idx' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'isDecoratorNode' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'key' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'markRun' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'model' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'modelData' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'parentVNode' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'sid' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "no-empty",
+    "message": "Empty block statement.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "no-prototype-builtins",
+    "message": "Do not access Object.prototype method 'hasOwnProperty' from target object.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "no-useless-catch",
+    "message": "Unnecessary try/catch wrapper.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "prefer-const",
+    "message": "'hasDataTextProcessed' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "prefer-const",
+    "message": "'markTmpl' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/factory.ts",
+    "rule": "prefer-const",
+    "message": "'typesToApply' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/props-resolution.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'sid' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/props-resolution.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'stype' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/props-resolution.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'type' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/utils/component-identity-application.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'isNonEmptyArray' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/utils/component-wrapper.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'createComponentVNode' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/utils/component-wrapper.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'VNode' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/utils/type-checks.ts",
+    "rule": "@typescript-eslint/ban-types",
+    "message": "Don't use `Function` as a type. The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/src/vnode/utils/vnode-creators.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'Decorator' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/bTable.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'createReconcileContext' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/bTable.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'DOMReconcile' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/bTable.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'vnodeToDOM' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/decorator-types.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'index' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/decorator-types.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'normalizeHTML' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/dom-renderer-full-document-main.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'model' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/fiber-create-fiber-tree.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'FiberNode' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/fiber-reconcile-decorator-reuse.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'createFiberTree' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/fiber-reconciler-helpers.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'beforeEach' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/fiber-reconciler-helpers.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'DOMOperations' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/fiber-reconciler-helpers.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'findOrCreateHost' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/fiber-reconciler-helpers.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'updateExistingHost' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/fiber-remove-stale-decorator-matching.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'prevVNode' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/fiber-remove-stale-decorator-update.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'removeStaleChildren' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/fiber-scheduler.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'FiberPriority' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/fiber-tree.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'FiberNode' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/mark-rendering-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'normalizeHTML' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/process-primitive-text-mark-wrapper-structure.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'deps' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/process-primitive-text-mark-wrapper-structure.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'initialMarkWrapper' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/process-primitive-text-mark-wrapper-structure.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'processPrimitiveTextChildren' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconcile-fiber-node-text-vnode.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'initialMarkWrapper' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconcile-fiber-node-text-vnode.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'initialSpanWrapper' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-advanced-cases.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'html1' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-advanced-cases.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'html2' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-advanced-cases.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'model' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-component-updatebysid.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'before' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-component-updatebysid.test.ts",
+    "rule": "prefer-const",
+    "message": "'mid' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-lifecycle.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'stateMountSpy' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-lifecycle.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'stateUnmountSpy' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-update-flow.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'builder' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-update-flow.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'DOMOperations' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-update-flow.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'reconciler' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'color1' is assigned a value but never used.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'firstText' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'fontSize1' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'id1' is assigned a value but never used.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'normalNode' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'originalOffset' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'reused' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'textNodeRefsAfter' is assigned a value but never used.",
+    "count": 13
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'textNodeRefsBefore' is assigned a value but never used.",
+    "count": 3
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'textNodeRefsFinal' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'textNodeRefsSecond' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'textNodeRefsThird' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/reconciler-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'time1' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-dsl-functions.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'d' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-dsl-functions.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'data' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-dsl-functions.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'index' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-dsl-functions.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'row' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-dsl-functions.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'slot' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-function-component.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'ctx' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 6
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-function-component.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'model' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 6
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-function-component.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'props' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 3
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-function-component.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'receivedContext' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-function-component.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'receivedModel' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-function-component.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'receivedProps' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-mark-wrapper-structure.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'builder' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-mark-wrapper-structure.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'define' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-mark-wrapper-structure.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'model' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-portal.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'data' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-text-rendering.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'builder' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-builder-verification.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'children' is assigned a value but never used.",
+    "count": 2
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-complex-marks-decorators.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'idx' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-complex-marks-decorators.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'slot' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-full-document.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'idx' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/core/vnode-structure-snapshot.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'idx' is defined but never used. Allowed unused args must match /^_/u.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/registry/dsl/dsl-and-registry.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'slot' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-dom/test/utils/fiber-wait.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'timeout' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-react/src/build-to-react.ts",
+    "rule": "prefer-const",
+    "message": "'children' is never reassigned. Use 'const' instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-react/test/build-to-react-complex.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'flattenChildren' is defined but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/renderer-react/test/decorator-processor.test.ts",
+    "rule": "@typescript-eslint/no-unused-vars",
+    "message": "'list' is assigned a value but never used.",
+    "count": 1
+  },
+  {
+    "file": "packages/schema/src/types.ts",
+    "rule": "@typescript-eslint/ban-types",
+    "message": "Don't use `{}` as a type. `{}` actually means \"any non-nullish value\".\n- If you want a type meaning \"any object\", you probably want `object` instead.\n- If you want a type meaning \"any value\", you probably want `unknown` instead.\n- If you want a type meaning \"empty object\", you probably want `Record<string, never>` instead.\n- If you really want a type meaning \"any non-nullish value\", you probably want `NonNullable<unknown>` instead.",
+    "count": 1
+  },
+  {
+    "file": "packages/text-analyzer/src/smart-text-analyzer.ts",
+    "rule": "prefer-const",
+    "message": "'finalInserted' is never reassigned. Use 'const' instead.",
+    "count": 1
+  }
+]

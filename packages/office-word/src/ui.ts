@@ -11,6 +11,9 @@
  *
  * React 는 **peerDependency** 다 — 어느 React 를 쓸지는 호스트가 정한다.
  */
+export { BordersDialog, type BordersDialogProps } from './borders-dialog';
+export { SpacingDialog, type SpacingDialogProps } from './spacing-dialog';
+export { PageSetupDialog, type PageSetupDialogProps } from './page-setup-dialog';
 export { CommentsPane, ANCHOR_STYPE, type CommentsPaneProps } from './comments-pane';
 export { DocumentTitle, type DocumentTitleProps } from './document-title';
 export { DrawingOverlay, type DrawingOverlayProps } from './drawing-overlay';
@@ -27,3 +30,18 @@ export {
   fitToWidth,
   type ZoomControlProps
 } from './zoom';
+export { WordMathEditor } from './math-editor-dialog';
+
+export { TableInsertDialog } from './table-insert-dialog';
+export { WordAuthoringDialog } from './authoring-dialog';
+
+export { captureWordFormat, type WordFormatSample } from './format-painter';
+
+export { FurnitureDialog } from './furniture-dialog';
+
+export { TocDialog } from './toc-dialog';
+
+export { ParagraphStyleDialog } from './paragraph-style-dialog';
+
+export { BookmarkDialog, jumpToWordBookmark } from './bookmark-dialog';
+export { CaptionDialog } from './caption-dialog';

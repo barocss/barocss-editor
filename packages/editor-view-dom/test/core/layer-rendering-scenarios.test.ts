@@ -19,8 +19,9 @@ describe('Layer Rendering Scenarios', () => {
   beforeEach(() => {
     // Set up DOM environment
     document.body.innerHTML = '';
+    // (`container.sid = …` used to stand here. `HTMLElement` has no `sid`, and every
+    // read in `src/` is `getAttribute('data-bc-sid')` — it set an expando nobody read.)
     container = document.createElement('div');
-    container.sid = 'editor-container';
     container.style.width = '800px';
     container.style.height = '600px';
     document.body.appendChild(container);
@@ -244,7 +245,8 @@ describe('Layer Rendering Scenarios', () => {
       // Verify
       expect(view.layers.context.children.length).toBe(1);
       expect(autocompletePopup.children.length).toBe(3);
-      expect(autocompletePopup.children[0].style.backgroundColor).toBe('rgb(227, 242, 253)');
+      // `children` yields `Element`, which has no `style` — name the narrower type.
+      expect((autocompletePopup.children[0] as HTMLElement).style.backgroundColor).toBe('rgb(227, 242, 253)');
       
       view.destroy();
     });

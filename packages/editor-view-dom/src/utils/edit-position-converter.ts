@@ -5,9 +5,7 @@
  * and adjusts mark/decorator ranges according to text edits.
  */
 
-import { holdsText } from '@barocss/shared';
 import { buildTextRunIndex, type ContainerRuns } from '@barocss/renderer-dom';
-import type { ModelSelection } from '@barocss/editor-core';
 
 export interface DOMEditPosition {
   textNode: Text;
@@ -323,133 +321,15 @@ export function getDOMEditPositionFromSelection(): DOMEditPosition | null {
  * @returns 재구성된 model text
  */
 /**
- * 여러 노드에 걸친 범위의 모델 텍스트 추출
- * 
- * @param dataStore - DataStore 인스턴스
- * @param contentRange - 여러 노드에 걸친 범위
- * @returns 추출된 텍스트
+ * 여러 노드에 걸친 범위의 모델 텍스트 추출.
+ *
+ * **구현은 `@barocss/shared` 에 있다.** 이것을 불러야 하는 두 번째 자리가
+ * `extensions/src/guards.ts` 의 `hasRange` 이고, 확장은 뷰를 import 하지 않는다. 답이 두 벌이
+ * 되는 대신 아래로 내려갔고 — 이 저장소가 되풀이해 찾는 결함이 정확히 *같은 판단이 두 곳에
+ * 있는 것* 이다(`docs/specs/text-position.md`) — 여기서는 같은 이름으로 다시 내보낸다. 이 모듈의
+ * 호출자는 한 줄도 바뀌지 않는다.
  */
-export function extractModelTextFromRange(
-  dataStore: any,
-  contentRange: ModelSelection
-): string {
-  const { startNodeId, startOffset, endNodeId, endOffset } = contentRange;
-
-  if (!dataStore || typeof dataStore.getNode !== 'function') {
-    return '';
-  }
-
-  const toModelOffset = (node: any, offset: number): number => {
-    if (!node || typeof node.text !== 'string') return 0;
-    return Math.max(0, Math.min(offset, node.text.length));
-  };
-
-  /* 이름 조건은 `holdsText` 가 이미 답하는 것을 한 번 더 물은 것이었다. */
-  const isInlineText = (node: any): boolean => holdsText(node);
-
-  const getParentId = (nodeId: string): string | null => {
-    const parent = dataStore.getParent?.(nodeId);
-    if (!parent) return null;
-    return parent.sid ?? parent.id ?? null;
-  };
-
-  const normalizeNodeId = (node: unknown): string | null => {
-    if (!node) return null;
-    if (typeof node === 'string') return node;
-    return node && typeof node === 'object' && ('sid' in node || 'id' in node)
-      ? ((node as { sid?: string; id?: string }).sid ?? (node as { id?: string }).id ?? null)
-      : null;
-  };
-
-  const getChildren = (nodeId: string): string[] => {
-    const node = dataStore.getNode?.(nodeId);
-    const content = node?.content;
-    if (!Array.isArray(content)) return [];
-    return content
-      .map(normalizeNodeId)
-      .filter((id): id is string => !!id);
-  };
-
-  const getNextSibling = (nodeId: string): string | null => {
-    if (typeof dataStore.getNextSibling === 'function') {
-      const next = dataStore.getNextSibling(nodeId);
-      return normalizeNodeId(next);
-    }
-
-    const parentId = getParentId(nodeId);
-    if (!parentId) return null;
-    const parentChildren = getChildren(parentId);
-    const index = parentChildren.indexOf(nodeId);
-    if (index < 0 || index >= parentChildren.length - 1) return null;
-    return parentChildren[index + 1];
-  };
-
-  const getNextNodeInDocument = (nodeId: string): string | null => {
-    if (typeof dataStore.getNextNode === 'function') {
-      return normalizeNodeId(dataStore.getNextNode(nodeId));
-    }
-
-    let current = nodeId;
-    const visited = new Set<string>();
-    while (current) {
-      if (visited.has(current)) return null;
-      visited.add(current);
-      const nextSibling = getNextSibling(current);
-      if (nextSibling) return nextSibling;
-      const parentId = getParentId(current);
-      current = parentId ?? '';
-    }
-
-    return null;
-  };
-
-  const startNode = dataStore.getNode(startNodeId);
-  const endNode = dataStore.getNode(endNodeId);
-
-  if (!startNode || !endNode) {
-    return '';
-  }
-  
-  // Same node case
-  if (startNodeId === endNodeId) {
-    if (typeof startNode.text !== 'string') return '';
-    const from = toModelOffset(startNode, startOffset);
-    const to = toModelOffset(startNode, endOffset);
-    return startNode.text.substring(from, to);
-  }
-  
-  // Cross-node case
-  let result = '';
-
-  if (isInlineText(startNode)) {
-    const startText = startNode.text;
-    result += startText.substring(toModelOffset(startNode, startOffset));
-  }
-  
-  // Intermediate nodes (traverse if same parent)
-  let currentNodeId: string | null = startNodeId;
-  const visited = new Set<string>();
-  while (currentNodeId && currentNodeId !== endNodeId) {
-    if (visited.has(currentNodeId)) break;
-    visited.add(currentNodeId);
-    currentNodeId = getNextNodeInDocument(currentNodeId);
-    if (!currentNodeId || currentNodeId === endNodeId || !dataStore.getNode) {
-      break;
-    }
-    const node = dataStore.getNode(currentNodeId);
-    if (isInlineText(node)) {
-      result += node.text;
-    }
-  }
-  
-  // Start portion of end node
-  if (isInlineText(endNode)) {
-    const endText = endNode.text;
-    result += endText.substring(0, toModelOffset(endNode, endOffset));
-  }
-  
-  return result;
-}
+export { extractModelTextFromRange } from '@barocss/shared';
 
 export function reconstructModelTextFromDOM(inlineTextNode: Element): string {
   // Traverse and combine all text nodes using buildTextRunIndex

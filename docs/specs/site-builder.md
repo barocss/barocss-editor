@@ -341,6 +341,110 @@ Seven hundred lines, three renderers (`surface`, `frame`, `instance`, plus a pic
 the arrangement, components, the selection, the history, the commands — is what the first two
 products already had.
 
+## 그리고 지금은 이만큼이다 — 재는 절
+
+That table is **history**: it is what the first slice cost, and it has read like a statement about
+the product ever since. It is not one. `packages/office-site/test/spec-numbers.test.ts` measures the
+figures below out of the running product, so a sentence here cannot outlive what it describes — the
+reason `agents.md` gives is that the difference between a document that rots and one that does not
+is never the prose, it is whether a test reads it.
+
+**A number is in this section because somebody has to be told it changed**, not because it can be
+counted. A vocabulary that grew, a surface that lost a control, the product's own share of what it
+registers, a shell that moved out of the app. Not: how many files there are, how many bytes
+`PAGE_CSS` is, how many tests this package runs.
+
+### 문서 — 무엇으로 만들어져 있나
+
+| | count |
+| --- | ---: |
+| node types reachable | **71** |
+| of those, **added to the base schema** | **21** — 14 site nodes and 7 embedded prose nodes. Site: `dataset`, `collection`, `chart`, `form`, `field`, `service`, `asset`, `richText`, `publish`, `publishes`, `width`, `widths`, `mediaVideo`, `mediaEmbed`. Prose: `pageReference`, `taskItem`, `bSummary`, `bDetails`, `calloutTitle`, `callout`, `noteDatabase` |
+| attribute slots | **862** |
+| marks | 25 |
+| widths a page answers at | **3** — base, tablet, mobile |
+
+Word holds 108 node types and 1,043 attribute slots; the deck holds 64 and 529. The site builder
+sits between them and the reason is in the fourteen: everything about **data, publishing and a
+visitor** is this product's own, and everything about text and arrangement is not.
+
+### 손 — 독자가 닿을 수 있는 것
+
+| | count |
+| --- | ---: |
+| commands registered | **186** (84 the site's own) |
+| toolbar controls · commands · icons | **44** · 37 · 34 |
+| `/` menu rows | 13 |
+| keys · the commands they run | **26** · 12 |
+| panel rows, over 6 tabs | **126** |
+| attributes a reader can **set**, from the panel | **124** |
+| menus · context blocks · menu commands | 5 · 4 · **53** |
+
+**The panel is the largest surface in the suite and it is a declaration**, which is what made it the
+answer to `every-property-can-be-edited` while Word had no panel at all and the deck's was still
+JSX. The deck's `panel-model.ts` is this file's shape, taken up second.
+
+### 두 톱니 — 둘 다 0이고, 0이 값이다
+
+| | |
+| --- | ---: |
+| commands the probe could not put itself in a state to try | **0** *(ratchet)* |
+| panel rows the probe could not put itself in a state to try | **0** *(ratchet)* |
+
+Both started high — 25 of 62 commands, and 38 rows — and every step down was the probe learning a
+state a reader is already in rather than the product losing anything. Two of those steps found real
+faults. A ratchet rather than a target: the day a command or a row arrives whose state this cannot
+build, it fails, and somebody decides whether to teach the probe or to name the gap.
+
+### 크기 — 그리고 셸이 어디 있나
+
+| | |
+| --- | ---: |
+| `apps/site/src` | **4,227 lines** |
+| components behind `@barocss/office-site/ui` | **5** |
+| browser test declarations (2026-09-19; inventory, not run results) | **316** |
+
+`apps/site` was 11,410 lines before `PageFrame`, `Rail`, `Inspector`, `Overlay` and `Admin` — those
+five — moved into this package. That is the move `note.md` uses as its gauge, and the 316 above is the current inventory quoted in `note.md`; it does not claim that all scenarios passed in this run.
+
+**283 of those 291 until `site-theme-values.spec.ts`**, and the eight it adds are worth naming
+because of what the suite could not previously say. Of 1,092 browser tests across the repository,
+**three** opened a dark context — one per product — and all three asserted the same two lines: the
+document did not move (`toEqual`) and the chrome did (`not.toEqual`). *What* the chrome moved to was
+never asked, so a palette that was wrong in **both** themes passed, and one that was wrong in only a
+subtree passed twice over — first when `office-ui/tokens.css` carried no `[data-theme='light']` rule
+at all, then when `office-site/ui.css` mirrored only the dark half of it and left `--st-*` stranded
+under a light island.
+
+`packages/conformance/test/dark-is-actually-read.test.ts` closed the half of this that our own source
+decides — it flattens each app's `@import` graph and *computes* the palette in the four states a
+viewer can be in, which took 161 violations to 0. It cannot say whether a browser paints those
+values. The eight here do, in the same four states: eighteen tokens read off the root, nine painted
+surfaces compared against the token each one names, the explicit themes required to reproduce their
+system twins **pixel for pixel** rather than merely to differ, a light island stamped inside a dark
+document and a dark island inside a light one, and seven ink-on-ground pairs held at 4.5:1.
+
+Two pairs are deliberately **not** in that seven, both measured and both under the line:
+`--ou-accent-ink` on `--ou-accent` is 5.17:1 in the light and **3.68:1** in the dark — the dark block
+lifts the accent and leaves the ink on it white — and `--ou-board-ink` on `--ou-studio` is **3.98:1**
+in the light. Neither is this document's to fix; asserting them would have made a new file fail on
+its first run, which reads as a broken check rather than as a finding.
+
+**There is no line count of this package here on purpose.** It was in the first draft of this
+section and failed within the hour, on a comment added three files away. A figure that moves for
+every commit is red for everybody every day and gets deleted, which lands where having no check
+lands. The two above move only when a component moves, which is the thing anybody actually needs to
+be told about.
+
+### 발행물은 규칙을 하나만 싣는다
+
+A visitor gets `PAGE_CSS` and nothing else. `ui.css`, `text.css`, `tokens.css` and
+`apps/site/src/style.css` are all loaded by the **editor**, so a rule that belongs to the page and
+lives in one of them makes the board right and the published page wrong — and the two look identical
+to anybody who only opens the editor. That has happened three times: `.st-chart` and its two parts,
+`.st-sticker`, and `.w-emoji`. `page-css-covers-what-a-page-draws.test.ts` counts the class rather
+than the instance, so the fourth is caught by a machine.
+
 ## What the schema holds now
 
 Everything a site draws is the office schema's, plus this. It is the whole list:
@@ -2875,3 +2979,44 @@ and a kit to edit one with.
 
 sid를 홀더에 얹고 안의 재생기는 `pointer-events: none`으로 둡니다 — **편집면은 클릭을 가져가고,
 펴낸 페이지는 내어줍니다.** 그래서 이 규칙은 `.on-body` 안에서만 걸립니다.
+
+## 문서를 지킨다 — 2026-09-06
+
+그날 아침까지 `apps/site/src/main.tsx:63` 이 새로고침마다 샘플을 다시 실었다. **독자가 만든
+것은 돌아오면 없었고**, 갖고 있는 파일을 열 방법도 없었다. 내보내기는 있었지만 그것은 다른
+몸짓이다 — 내보내기는 *방문자가 볼 것을 달라* 이고 저장은 *만들던 것을 지켜라* 다.
+
+덱만 할 수 있었고, 덱은 그 전부를 혼자 만들었다(818줄). 읽어 보니 **덱의 것은 넷뿐**이었다.
+
+| | 어디 | 줄 |
+|---|---|---:|
+| 봉투 · 세션 sid 걷기 · 네 가지 거절 · 안전한 파일 이름 | `@barocss/shared` | 192 |
+| IndexedDB · 이름 짓기 | `@barocss/shared` | 158 |
+| 블롭 · 앵커 · 사파리 revoke · 잃을 게 있을 때만 묻기 | `@barocss/office-editor-ui` | 179 |
+| **사이트가 자기에 대해 말하는 것** | `site-file.ts` | **127** |
+
+사이트가 대는 것은 넷이다: `barocss-site`, 독자가 부르는 낱말 **사이트**, 판 번호 1,
+그리고 `.site.json`. 제목은 `docMeta → docTitle` 에서 읽는데 **Word 와 같은 자리**라 그
+읽기까지 `office-text` 로 내려갔다 — 사이트의 `<title>`·canonical·Open Graph 가 이미 거기서
+오므로, 저장이 두 번째 답을 지어내면 **파일 이름과 페이지가 서로 다른 이름을 말하는 사이트**가
+된다.
+
+### 페이지를 세는 법은 이미 있었다
+
+첫 판은 `stype === 'page'` 인 노드를 재귀로 셌고 **0** 이 나왔다. 이 제품에 `page` 라는 노드는
+없다 — 페이지는 `kind` 가 사이트의 것인 `surface` 이고, 그 판정이 `selection.ts` 의 `pagesOf`
+에 있다. 그 함수의 주석이 정확히 이것을 경고한다:
+
+> *"페이지를 뜻하는 함수가 둘이면, 페이지가 뿌리의 직계 자식이 아니게 되는 날 하나가 낡는다."*
+
+그리고 여기서 세는 것이 **문서가 담은 페이지**라는 점이 Word 와 다르다. Word 의 쪽 수는
+조판의 답이고 조판에는 브라우저와 폭이 필요하므로 거기서는 흐름 표면을 센다. 사이트의 페이지는
+독자가 문서에 둔 것이라 브라우저가 무엇을 하든 맞다.
+
+### 아직 남은 것
+
+**빈 사이트가 무엇인지 이 패키지가 아직 답하지 않는다.** `apps/site` 의 *새 사이트* 가 지금
+`createSampleSite()` 를 싣는데, 그것은 자료 행·컴포넌트·변수·연락 폼을 시험하려고 만든
+픽스처다. 시작한다는 것이 **남의 페이지를 지우는 일**이 되는 그 모양이고, Word 는 같은 자리에서
+`createStarterDocument()` 로 답했다(제목·표면·빈 문단, 그뿐). 사이트도 그래야 한다 — 빈
+사이트가 무엇인가는 크롬이 아니라 **문서에 대한 사실**이다.

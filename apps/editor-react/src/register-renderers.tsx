@@ -14,6 +14,7 @@ import React, { useRef, useEffect } from 'react';
 import { define, defineMark, external } from '@barocss/dsl';
 import type { BlockComponentProps, MarkComponentProps } from '@barocss/dsl';
 import katex from 'katex';
+import { FILLER_ATTR, FILLER_CHAR } from '@barocss/shared';
 import 'katex/dist/katex.min.css';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -225,7 +226,11 @@ function Columns({ sid, stype, children }: BP) {
 }
 
 function InlineText({ sid, stype, text }: BP) {
-  return <span className="text" data-bc-sid={sid} data-bc-stype={stype}>{text ?? ''}</span>;
+  return (
+    <span className="text" data-bc-sid={sid} data-bc-stype={stype}>
+      {text || <span {...{ [FILLER_ATTR]: 'true' }}>{FILLER_CHAR}</span>}
+    </span>
+  );
 }
 
 // ── Side-effect components ─────────────────────────────────────────────

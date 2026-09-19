@@ -74,9 +74,8 @@ const rows = useControls(editor, SITE_TOOLBAR, { keys: SITE_KEYS, apple });
 **제품의 어휘를 아는 것.** 이 패키지는 제품을 하나도 의존하지 않습니다 — 그래야 제품이 이것을 의존할 수
 있습니다. 네 제품은 **devDependency** 이고, 검사에서만 씁니다.
 
-**좌표를 읽는 것.** overlay 는 어느 뷰의 어느 배율에서 블록이 어디 있는지로 핸들을 그립니다. 선언이
-아니고, *위치를 가진 것*의 공통 모양이 무엇인지 아직 아무도 말하지 않았습니다. 5,762줄이 두 제품에
-나뉘어 있고, 지금 합치는 것은 추측입니다.
+**제품 좌표 계산.** 페이지·캔버스 좌표, 회전 핸들, 표 병합 경계는 제품에 둡니다. DOM 노드의 화면 위치와
+잘림 여부는 `useNodeAnchor`가 공유합니다. 문서 노드 ID를 DOM 요소에 연결하며, DOM 측정 자체는 office-ui가 맡습니다.
 
 ## 지금 들어 있는 것
 
@@ -127,7 +126,79 @@ const rows = useControls(editor, SITE_TOOLBAR, { keys: SITE_KEYS, apple });
   들어가고 좌표가 나오는 순수 기하입니다. `office-ui` 의 `placeNear` 로 갔습니다. 이 패키지가 아닌
   이유가 곧 이 패키지의 정의입니다.
 
-## 검사
+## 설정 창의 초안과 적용
+
+`useEditorSettings`는 창을 열 때 값과 선택을 보관합니다. Word의 문단 간격·테두리·페이지 설정과 Slides의 크기·레이아웃·테마 설정에서 사용합니다. 새 문서를 여는 템플릿 작업은 제품의 문서 교체 흐름으로 처리합니다.
+
+```tsx
+const { state, setState, selection, busy, problem, close, apply } =
+  useEditorSettings(editor, open, readSettings, onClose, {
+    context: targetId,
+    isEqual: (a, b) => a.width === b.width,
+  });
+
+// 제품이 입력값을 검사하고 명령 payload를 만듭니다.
+const submit = () => {
+  if (editor && isValid(state)) {
+    void apply(() => editor.executeCommand(commandId, { ...state, selection }));
+  }
+};
+// 입력: setState(previous => ({ ...previous, width }))
+// Dialog 닫기: onOpenChange={next => !next && close()}
+// 적용·취소 버튼과 입력은 busy 동안 비활성화합니다.
+// problem은 office-ui StatusNotice로 표시합니다.
+```
+
+- `read`는 부수 효과 없이 새 초안을 반환해야 합니다. 초안은 직접 수정하지 않고 새 값으로 갱신합니다.
+- 열린 동안 선택이 움직여도 초안과 저장한 선택은 유지합니다. 다른 대상의 설정으로 바꿀 때는 `context`를 변경합니다.
+- 편집기·문서·context가 바뀌거나 창을 다시 열면 새 세션을 시작합니다. 이전 세션의 완료 응답은 새 창을 닫지 않습니다.
+- 적용 중에는 중복 적용과 닫기를 막습니다. 명령이 `false`를 반환하거나 예외가 발생하면 초안을 유지하고 오류를 표시합니다.
+- 변경이 없으면 명령 없이 닫습니다. 기본 비교는 `Object.is`이며, 값 비교가 필요하면 `isEqual`을 제공합니다.
+- 같은 설정으로 재배치하는 동작은 `apply(operation, { skipUnchanged: false })`를 사용합니다. 일반 적용에는 기본값을 유지합니다.
+- `close`는 문서를 변경하지 않습니다. 이미 실행 중인 문서 트랜잭션을 취소하는 기능은 아닙니다.
+
+명령, 단위 변환, 입력 검증, 선택 대상 해석은 제품에서 맡습니다. 여러 변경을 한 번에 실행 취소하는 명령 구성도 제품의 책임입니다.
+
+## 문맥 도구의 표시와 포커스
+
+`useEditorContextVisibility`는 Note 글자 도구와 Word 수식 도구가 공유합니다. 대상 판정과 화면 좌표는 제품이 계산합니다.
+
+```tsx
+const { open, dismiss, reopen } = useEditorContextVisibility(editor, target?.id ?? null, {
+  scope: editorElementRef,
+  retainWithin: toolbarElementRef,
+  active: !editingMath,
+});
+// FloatingSurface에는 open과 onDismiss={dismiss}를 전달합니다.
+// 제품이 명시적인 재선택을 확인한 경우 reopen()을 호출합니다.
+```
+
+- 편집기나 도구 내부에 포커스가 있을 때 표시합니다. 도구의 숫자·주소 입력은 포커스를 유지할 수 있습니다.
+- 편집기 밖의 필드, 별도 입력 소유자(`data-editor-input-owner`), 창 포커스 상실, 읽기 전용 상태에서는 숨깁니다.
+- Escape로 닫은 대상은 잠시 위치를 잃거나 포커스가 이동해도 닫힌 상태를 유지합니다. 다른 대상이나 제품의 명시적인 재선택은 다시 열 수 있습니다.
+- 대상 키는 안정적인 ID를 사용합니다. 범위 객체를 사용하는 경우 `sameKey` 비교 함수를 제공합니다. 편집기와 문서 루트가 바뀌면 닫힘 상태도 새로 시작합니다.
+- KaTeX 표시와 실제 수식 입력의 구분, 좌표·스크롤·확대 측정, 실행 명령은 제품의 책임입니다.
+
+## DOM 노드의 위치와 화면 경계
+
+`useNodeAnchor(editor, scope, nodeId)`는 현재 문서에 붙어 있는 노드의 `{ element, at }`를 반환합니다.
+대상이 없거나 화면·스크롤 조상에 완전히 가려지면 `null`입니다. 좌표만 필요하면 기존 `useNodeRect`를 사용합니다.
+
+```tsx
+const anchor = useNodeAnchor(editor, scope, selectedId);
+<FloatingSurface open={open && !!anchor} at={anchor?.at ?? null}
+  ownedElements={[anchor?.element ?? null]} onDismiss={dismiss}>
+  {tools}
+</FloatingSurface>
+```
+
+- 내부 스크롤, 창·visual viewport 변경, 대상과 조상의 크기 변경, class/style 변경, DOM 교체를 감지합니다.
+- 같은 프레임의 감지를 합치고, 변화가 없으면 상태를 갱신하지 않습니다. 대상이 없는 동안에는 계속 프레임을 측정하지 않습니다.
+- 일부만 보이는 대상은 전체 원래 좌표를 반환합니다. 표 너비나 핸들 위치에 잘린 너비를 사용하지 않습니다.
+- Note 표·블록·코드 도구와 Word 수식 도구에서 사용합니다. 텍스트 Range 측정과 캔버스의 모델 좌표 변환은 별도입니다.
+- CSS 애니메이션의 모든 중간 프레임이나 clip-path 형태를 추적하는 API는 아닙니다.
+
+## 검사 실행 방법
 
 `controlRows` 는 `useControls` 와 같은 답을 **React 없이** 냅니다. 훅은 언제 물을지를 정하고, 그 함수는
 답이 무엇인지를 정합니다 — 검사할 가치가 있는 것은 밀리초에 검사할 수 있어야 한다는 이 저장소의 규칙

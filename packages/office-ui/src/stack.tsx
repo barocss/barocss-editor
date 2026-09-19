@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dragGesture } from '@barocss/shared';
 import { cn } from './cn';
 import { Icon } from '@barocss/office-icons';
-import { Button } from './controls';
+import { Button, keepsDraftTextAreaEscape } from './controls';
+import { useMovablePanel } from './movable-panel';
 
 /**
  * A stack of things a reader arranges: fills, effects, layers.
@@ -41,6 +42,17 @@ import { Button } from './controls';
  * one. Escape is *stopped* rather than left to bubble, because the handler above
  * clears the selection and one press should undo one thing.
  */
+type DismissLayer = { owns: (target: EventTarget | null) => boolean; escape: (event: KeyboardEvent) => boolean };
+const dismissLayers = new WeakMap<Document, DismissLayer[]>();
+const dismissedEvents = new WeakSet<KeyboardEvent>();
+
+/** A modal capture listener delegates Escape before dismissing its own surface. */
+export function dismissOwnedControlLayer(event: KeyboardEvent): boolean {
+  const doc = event.target instanceof Node ? event.target.ownerDocument : null;
+  const layer = doc && dismissLayers.get(doc)?.at(-1);
+  return !!layer && layer.owns(event.target) && layer.escape(event);
+}
+
 export function useDismiss<T extends HTMLElement = HTMLDivElement>(
   open: boolean,
   close: () => void,
@@ -65,24 +77,36 @@ export function useDismiss<T extends HTMLElement = HTMLDivElement>(
   useEffect(() => {
     if (!open) return;
 
+    const doc = host.current?.ownerDocument ?? document;
+    const layers = dismissLayers.get(doc) ?? [];
+    const owns = (target: EventTarget | null) => target instanceof Element && (
+      !!host.current?.contains(target) || keep.some(selector => target.closest(selector))
+    );
     const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (host.current?.contains(target as Node)) return;
-      if (keep.some((selector) => target?.closest?.(selector))) return;
+      if (layers.at(-1) !== layer || event.defaultPrevented || owns(event.target)) return;
       dismiss.current();
     };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
- event.stopPropagation();
+    const onKeyDown = (event: KeyboardEvent): boolean => {
+      if (keepsDraftTextAreaEscape(event)) return false;
+      if (layers.at(-1) !== layer || dismissedEvents.has(event) || (event.defaultPrevented && !owns(event.target)) || event.isComposing || event.keyCode === 229 || event.key !== 'Escape') return false;
+      // Editor shortcuts can cancel Escape before this listener. The focused surface still owns it.
+      dismissedEvents.add(event);
+      event.preventDefault();
+      event.stopPropagation();
       dismiss.current();
+      return true;
     };
-
-    document.addEventListener('pointerdown', onPointerDown, true);
- document.addEventListener('keydown', onKeyDown, true);
- return () => {
-      document.removeEventListener('pointerdown', onPointerDown, true);
- document.removeEventListener('keydown', onKeyDown, true);
- };
+    const layer: DismissLayer = { owns, escape: onKeyDown };
+    layers.push(layer);
+    dismissLayers.set(doc, layers);
+    doc.addEventListener('pointerdown', onPointerDown, true);
+    doc.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      const index = layers.indexOf(layer);
+      if (index >= 0) layers.splice(index, 1);
+      doc.removeEventListener('pointerdown', onPointerDown, true);
+      doc.removeEventListener('keydown', onKeyDown, true);
+    };
     // `keep` is a literal at every call site; joining it keeps the effect from
     // re-running on a new array of the same strings.
   }, [open, keep.join('|')]);
@@ -90,45 +114,35 @@ export function useDismiss<T extends HTMLElement = HTMLDivElement>(
  return host;
 }
 
-/**
- * Reordering by dragging the grip.
- *
- * The arithmetic is deliberately crude and deliberately *measured from the list*:
- * a row's height and the list's top, so the index under the pointer is a
- * division. A library of drop targets would be a lot of machinery for a list of
- * three.
- *
- * Returns the row's `dragging` flag as an index rather than a boolean, so the row
- * being dragged is the one drawn faintly and the caller does not need its own
- * state to say which.
- */
+/** Drag and explicit actions share one reorder operation. */
 export function useStackOrder<T>(items: T[], onChange: (items: T[]) => void) {
  const [dragging, setDragging] = useState<number | null>(null);
+  const move = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return;
+    const next = [...items];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    onChange(next);
+  };
 
   const grab = (index: number) => (event: React.PointerEvent) =>
     void dragGesture(event, {
-      /*
-       * 잡은 것: 이 목록의 기하. 행 높이와 목록의 top 은 **잡는 순간** 재고 그 뒤로 다시 재지
-       * 않습니다 — 끄는 동안 목록이 스크롤되면 다시 재야 맞지만, 그러면 미리 보기가 손가락 아래에서
-       * 따로 움직입니다. 세 줄짜리 목록이 스크롤되는 일은 없습니다.
-       */
       start: (pointer) => {
         const row = (pointer.currentTarget as HTMLElement).closest<HTMLElement>('[data-stack-row]');
         const list = row?.parentElement;
         if (!row || !list) return null;
         setDragging(index);
         return {
-          height: row.getBoundingClientRect().height,
-          top: list.getBoundingClientRect().top,
+          rows: [...list.children].filter(child => child.hasAttribute('data-stack-row'))
+            .map(child => child.getBoundingClientRect()),
           at: index
         };
       },
 
       move: (held, moved) => {
-        const next = Math.min(
-          items.length - 1,
-          Math.max(0, Math.floor((moved.y - held.top) / Math.max(1, held.height)))
-        );
+        // Effects have different heights; a single row height cannot identify the drop row.
+        const hit = held.rows.findIndex(row => moved.y < row.bottom);
+        const next = hit < 0 ? items.length - 1 : hit;
         if (next === held.at) return;
         held.at = next;
         setDragging(next);
@@ -136,18 +150,14 @@ export function useStackOrder<T>(items: T[], onChange: (items: T[]) => void) {
 
       done: (held) => {
         setDragging(null);
-        if (held.at === index) return;
-        const next = [...items];
-        const [moved] = next.splice(index, 1);
-        next.splice(held.at, 0, moved);
-        onChange(next);
+        move(index, held.at);
       },
 
       /* 물러서면 목록은 그대로이고 흐리게 그린 행만 돌아옵니다. */
       abort: () => setDragging(null)
     });
 
-  return { dragging, grab };
+  return { dragging, grab, move };
 }
 
 /**
@@ -170,7 +180,13 @@ export function StackRow({
   onVisible,
   onRemove,
   editor,
+  editorLabel,
+  onEditorClose,
+  order,
+  editorTriggerRef,
+  floatingEditor = false,
   children,
+  details,
   className,
   testClass,
   data
@@ -195,11 +211,39 @@ export function StackRow({
   onRemove?: () => void;
   /** What opens from the row, when something has opened it. */
   editor?: React.ReactNode;
+  editorLabel?: string;
+  onEditorClose?: () => void;
+  /** Explicit alternatives to the drag grip, shown in the editor header. */
+  order?: { up?: () => void; down?: () => void };
+  editorTriggerRef?: React.RefObject<HTMLButtonElement | null>;
+  floatingEditor?: boolean;
   children: React.ReactNode;
+  /** Persistent row settings, outside the floating value editor. */
+  details?: React.ReactNode;
   className?: string;
   testClass?: string;
   data?: Record<string, string | undefined>;
 }) {
+  const editorBody = useRef<HTMLDivElement>(null);
+  const editorFocused = useRef(false);
+  const expanded = Boolean(editor);
+  const movable = useMovablePanel(expanded && floatingEditor, editorTriggerRef, editorBody);
+  useLayoutEffect(() => {
+    if (!expanded || (floatingEditor && !movable.ready)) return;
+    const body = editorBody.current;
+    const trigger = editorTriggerRef?.current;
+    if (trigger === document.activeElement && trigger?.matches(':focus-visible')) {
+      const field = body?.querySelector<HTMLInputElement>('input:not(:disabled)');
+      field?.focus({ preventScroll: true });
+      field?.select();
+    }
+    return () => {
+      if (editorFocused.current && (body?.contains(document.activeElement) || document.activeElement === document.body) && trigger?.isConnected && !trigger.disabled) {
+        trigger.focus({ preventScroll: true });
+      }
+      editorFocused.current = false;
+    };
+  }, [expanded, editorTriggerRef, floatingEditor, movable.ready]);
   return (
     <div
       ref={hostRef}
@@ -255,15 +299,45 @@ export function StackRow({
         )}
       </div>
 
+      {details && <div className="office-stack-details pl-3.5">{details}</div>}
+
       {editor && (
         <div
+          ref={editorBody}
+          popover={floatingEditor ? 'manual' : undefined}
+          role={floatingEditor ? 'dialog' : undefined}
+          aria-label={floatingEditor ? (editorLabel ?? `${index + 1}번 ${name}`) : undefined}
+          style={floatingEditor ? movable.style : undefined}
+          onFocusCapture={() => { editorFocused.current = true; }}
+          onBlurCapture={event => {
+            if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) editorFocused.current = false;
+          }}
           data-stack-editor={index}
           className={cn(
+            floatingEditor && 'office-movable-panel',
             'rounded-lg border p-2 shadow-[var(--ou-lift-1)]',
  'border-[color:var(--ou-line)] bg-[color:var(--ou-panel)]'
  )}
         >
-          {editor}
+          {onEditorClose && <div className={cn('office-stack-editor-header', floatingEditor && 'office-panel-drag-handle')}
+            tabIndex={floatingEditor ? -1 : undefined}
+            onPointerDown={floatingEditor ? movable.onPointerDown : undefined}>
+            <span>{editorLabel ?? `${index + 1}번 ${name}`}</span>
+            <span className="flex shrink-0 items-center gap-1">
+            {order && <>
+              <Button square tone="quiet" ariaLabel={`${index + 1}번 ${name} 위로`} disabled={disabled || !order.up}
+                onClick={() => { onEditorClose(); order.up?.(); }}><Icon name="move-up" size={14} /></Button>
+              <Button square tone="quiet" ariaLabel={`${index + 1}번 ${name} 아래로`} disabled={disabled || !order.down}
+                onClick={() => { onEditorClose(); order.down?.(); }}><Icon name="move-down" size={14} /></Button>
+            </>}
+            <Button square tone="quiet" ariaLabel={`${editorLabel ?? `${index + 1}번 ${name}`} 닫기`}
+              onClick={() => {
+                editorTriggerRef?.current?.focus({ preventScroll: true });
+                onEditorClose();
+              }}><Icon name="close" size={16} /></Button>
+            </span>
+          </div>}
+          <div className={floatingEditor ? 'office-movable-panel-body' : undefined}>{editor}</div>
         </div>
       )}
     </div>

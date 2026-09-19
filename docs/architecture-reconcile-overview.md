@@ -3,7 +3,7 @@
 > **Note**: This document is a basic overview. For more details, see:
 > - [`architecture-design-principles.md`](./architecture-design-principles.md) - Core design principles ⭐
 > - [`architecture-practical-examples.md`](./architecture-practical-examples.md) - Practical examples
-> - [`architecture-mathematical-model.md`](./architecture-mathematical-model.md) - Mathematical model
+> - [`math-repository.md`](./math-repository.md) - Math package repository boundary
 > - [`architecture-flow-diagram.md`](./architecture-flow-diagram.md) - Flow diagram
 > - [`architecture-summary.md`](./architecture-summary.md) - Quick reference
 

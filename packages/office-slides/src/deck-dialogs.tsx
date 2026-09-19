@@ -1,10 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useTemplateStart } from './use-template-start';
 import type { Editor } from '@barocss/editor-core';
+import { useEditorSettings } from '@barocss/office-editor-ui';
 import {
   ChoiceSelect,
   ColorField,
   Dialog,
   DialogButton,
+  StatusNotice,
+  StatusIndicator,
   PropertyNumber,
   PropertyRow
 } from '@barocss/office-ui';
@@ -63,41 +67,38 @@ export function SlideSizeDialog({ editor, slides, open, onClose }: SlideSizeDial
     const store = editor?.dataStore;
     const first = slides[0] ? store?.getNode(slides[0].sid) : undefined;
     return slideSize(first?.attributes);
-  }, [editor, slides, open]);
+  }, [editor, editor?.getRootId(), slides, open]);
 
-  const [size, setSize] = useState(current);
-  // Reopened, so it shows the deck rather than whatever was typed last time.
-  const [was, setWas] = useState(open);
-  if (was !== open) {
-    setWas(open);
-    if (open) setSize(current);
-  }
+  const { state: size, setState: setSize, busy, problem, close, apply: submit } = useEditorSettings(
+    editor, open, () => current, onClose,
+    { isEqual: (a, b) => a.width === b.width && a.height === b.height }
+  );
+  const usable = Number.isFinite(size.width) && Number.isFinite(size.height) && size.width > 0 && size.height > 0;
 
   const preset =
     PRESETS.find((entry) => entry.width === size.width && entry.height === size.height)?.id ??
     null;
 
   const apply = () => {
-    void editor?.executeCommand?.('setDeckSize', size);
-    onClose();
+    if (editor && usable) void submit(() => editor.executeCommand('setDeckSize', size));
   };
 
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={(next) => !next && close()}
       title="슬라이드 크기"
       description="덱의 모든 슬라이드에 적용됩니다. 슬라이드 위의 내용은 그대로 있습니다."
       footer={
         <>
-          <DialogButton onClick={onClose}>취소</DialogButton>
-          <DialogButton variant="primary" data-size-apply onClick={apply}>
-            적용
+          <DialogButton disabled={busy} onClick={close}>취소</DialogButton>
+          <DialogButton variant="primary" data-size-apply disabled={!editor || !usable || busy} onClick={apply}>
+            {busy ? '적용 중…' : '적용'}
           </DialogButton>
         </>
       }
     >
-      <div className="flex flex-col gap-3">
+      <fieldset disabled={busy} aria-busy={busy || undefined} className="flex flex-col gap-3">
         <PropertyRow label="크기">
           <ChoiceSelect
             ariaLabel="슬라이드 크기"
@@ -118,6 +119,7 @@ export function SlideSizeDialog({ editor, slides, open, onClose }: SlideSizeDial
           <PropertyNumber
             ariaLabel="너비"
             suffix="px"
+            min={1}
             value={twipToPx(size.width)}
             onCommit={(value) => setSize((was) => ({ ...was, width: Math.round(pxToTwip(value)) }))}
           />
@@ -126,11 +128,15 @@ export function SlideSizeDialog({ editor, slides, open, onClose }: SlideSizeDial
           <PropertyNumber
             ariaLabel="높이"
             suffix="px"
+            min={1}
             value={twipToPx(size.height)}
             onCommit={(value) => setSize((was) => ({ ...was, height: Math.round(pxToTwip(value)) }))}
           />
         </PropertyRow>
-      </div>
+      </fieldset>
+      {!usable && <StatusNotice tone="warning" title="너비와 높이를 0보다 크게 입력하세요." />}
+      {busy && <StatusIndicator busy>슬라이드 크기 적용 중</StatusIndicator>}
+      {problem && <StatusNotice tone="danger" title={problem} />}
     </Dialog>
   );
 }
@@ -180,7 +186,7 @@ export function SlideLayoutDialog({
     return deckDesigns({ rootId, getNode: (sid: string) => store.getNode(sid) } as never);
     // `open` is in here because a dialog that is closed is not re-rendered for a document
     // change, and its list has to be right the moment it opens.
-  }, [editor, open]);
+  }, [editor, editor?.getRootId(), open]);
 
   const layouts = useMemo(
     () => designs.filter((one) => one.kind === 'layout').map((one) => ({ id: one.id, label: one.name || one.id })),
@@ -192,21 +198,17 @@ export function SlideLayoutDialog({
     const slide = current ? store?.getNode(current) : undefined;
     const id = slide?.attributes?.layoutId;
     return typeof id === 'string' ? id : 'none';
-  }, [editor, current, open]);
+  }, [editor, editor?.getRootId(), current, open]);
 
-  const [chosen, setChosen] = useState(following);
-  const [was, setWas] = useState(open);
-  if (was !== open) {
-    setWas(open);
-    if (open) setChosen(following);
-  }
-
+  const { state: chosen, setState: setChosen, busy, problem, close, apply: submit } = useEditorSettings(
+    editor, open, () => following, onClose, { context: current }
+  );
+  const hasTarget = !!editor && !!current && !!editor.dataStore.getNode(current);
   const apply = () => {
-    void editor?.executeCommand?.('setSlideLayout', {
+    if (editor && hasTarget) void submit(() => editor.executeCommand('setSlideLayout', {
       slideId: current,
       layoutId: chosen === 'none' ? undefined : chosen
-    });
-    onClose();
+    }));
   };
 
   /**
@@ -222,79 +224,82 @@ export function SlideLayoutDialog({
    * promises: one changes what a slide *is like*, the other moves the reader's boxes.
    */
   const arrange = () => {
-    void editor?.executeCommand?.('applySlideLayout', {
-      slideId: current,
-      layoutId: chosen
-    });
-    onClose();
+    // Reapplying the same layout can still move boxes back to their slots.
+    if (editor && hasTarget && chosen !== 'none') void submit(() => editor.executeCommand('applySlideLayout', {
+      slideId: current, layoutId: chosen
+    }), { skipUnchanged: false });
   };
 
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={(next) => !next && close()}
       title="레이아웃"
       description="적용하면 이 슬라이드가 그 레이아웃을 따릅니다. 이 장을 이 배치로 옮기면 지금 있는 상자가 각자의 자리로 갑니다."
       footer={
         <>
-          <DialogButton onClick={onClose}>취소</DialogButton>
+          <DialogButton disabled={busy} onClick={close}>취소</DialogButton>
           <DialogButton
             data-layout-arrange
-            disabled={chosen === 'none'}
+            disabled={busy || !hasTarget || chosen === 'none'}
             onClick={arrange}
           >
             이 장을 이 배치로
           </DialogButton>
-          <DialogButton variant="primary" data-layout-apply onClick={apply}>
+          <DialogButton variant="primary" data-layout-apply disabled={busy || !hasTarget} onClick={apply}>
             적용
           </DialogButton>
         </>
       }
     >
-      {layouts.length === 0 ? (
-        <p className="text-xs text-neutral-500">이 덱에는 정의된 레이아웃이 없습니다.</p>
-      ) : (
-        <PropertyRow label="레이아웃">
-          <ChoiceSelect
-            ariaLabel="슬라이드 레이아웃"
-            testClass="sl-dialog-layout"
-            className="min-w-48"
-            // A named option rather than an empty one: an empty value is how a
-            // select spells "nothing chosen", and "no layout" is a choice.
-            options={[{ id: 'none', label: '레이아웃 없음' }, ...layouts]}
-            value={chosen}
-            onChange={setChosen}
-          />
-        </PropertyRow>
-      )}
+      <fieldset disabled={busy} aria-busy={busy || undefined} className="flex flex-col gap-3">
+        {layouts.length === 0 ? (
+          <p className="text-xs text-neutral-500">이 덱에는 정의된 레이아웃이 없습니다.</p>
+        ) : (
+          <PropertyRow label="레이아웃">
+            <ChoiceSelect
+              ariaLabel="슬라이드 레이아웃"
+              testClass="sl-dialog-layout"
+              className="min-w-48"
+              // A named option rather than an empty one: an empty value is how a
+              // select spells "nothing chosen", and "no layout" is a choice.
+              options={[{ id: 'none', label: '레이아웃 없음' }, ...layouts]}
+              value={chosen}
+              onChange={setChosen}
+            />
+          </PropertyRow>
+        )}
 
-      {/*
-        * And the way **in**.
-        *
-        * Here rather than in a panel of its own, because this dialog is already where a reader
-        * thinks about layouts: two of its buttons say what a slide should *follow*, and this one
-        * says what the thing being followed **is**. Until now nothing said that at all — a deck
-        * could point every slide at "Title and content" and no reader could change what that
-        * looked like.
-        */}
-      {onEdit && (
-        <PropertyRow label="정의 편집">
-          <span className="flex flex-wrap items-center gap-1">
-            {designs.map((design) => (
-              <DialogButton
-                key={design.sid}
-                data-design-edit={design.id}
-                onClick={() => {
-                  onEdit(design.sid);
-                  onClose();
-                }}
-              >
-                {design.kind === 'master' ? `마스터: ${design.name || design.id}` : design.name || design.id}
-              </DialogButton>
-            ))}
-          </span>
-        </PropertyRow>
-      )}
+        {/*
+          * And the way **in**.
+          *
+          * Here rather than in a panel of its own, because this dialog is already where a reader
+          * thinks about layouts: two of its buttons say what a slide should *follow*, and this one
+          * says what the thing being followed **is**. Until now nothing said that at all — a deck
+          * could point every slide at "Title and content" and no reader could change what that
+          * looked like.
+          */}
+        {onEdit && (
+          <PropertyRow label="정의 편집">
+            <span className="flex flex-wrap items-center gap-1">
+              {designs.map((design) => (
+                <DialogButton
+                  key={design.sid}
+                  data-design-edit={design.id}
+                  onClick={() => {
+                    onEdit(design.sid);
+                    close();
+                  }}
+                >
+                  {design.kind === 'master' ? `마스터: ${design.name || design.id}` : design.name || design.id}
+                </DialogButton>
+              ))}
+            </span>
+          </PropertyRow>
+        )}
+      </fieldset>
+      {busy && <StatusIndicator busy>레이아웃 적용 중</StatusIndicator>}
+      {problem && <StatusNotice tone="danger" title={problem} />}
     </Dialog>
   );
 }
@@ -358,16 +363,14 @@ export function ThemeDialog({ editor, open, onClose }: ThemeDialogProps) {
     if (!store || !rootId) return themeNow(undefined);
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) } as never;
     return themeNow(themeFor(doc, undefined));
-  }, [editor, open]);
+  }, [editor, editor?.getRootId(), open]);
 
-  const [draft, setDraft] = useState(current);
-  // Reopened, so it shows the deck rather than whatever was typed last time —
-  // the same rule the size dialog beside it follows.
-  const [was, setWas] = useState(open);
-  if (was !== open) {
-    setWas(open);
-    if (open) setDraft(current);
-  }
+  const { state: draft, setState: setDraft, busy, problem, close, apply: submit } = useEditorSettings(
+    editor, open, () => current, onClose, {
+      isEqual: (a, b) => a.majorFont === b.majorFont && a.minorFont === b.minorFont &&
+        THEME_COLOUR_SLOTS.every(slot => a.colours[slot] === b.colours[slot])
+    }
+  );
 
   /**
    * Which preset the draft is, if it is one.
@@ -385,7 +388,7 @@ export function ThemeDialog({ editor, open, onClose }: ThemeDialogProps) {
   );
 
   const apply = () => {
-    void editor?.executeCommand?.('setDeckTheme', {
+    if (editor) void submit(() => editor.executeCommand('setDeckTheme', {
       // The name is the preset's when the draft *is* one, and this product's word
       // for "not a preset any more" when it is not. A theme called Office with a
       // red accent is a name that outlived the thing it named.
@@ -393,26 +396,26 @@ export function ThemeDialog({ editor, open, onClose }: ThemeDialogProps) {
       ...draft.colours,
       majorFont: draft.majorFont,
       minorFont: draft.minorFont
-    });
-    onClose();
+    }));
   };
 
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={(next) => !next && close()}
       title="테마 색"
+      className="sl-theme-dialog"
       description="덱 전체에 적용됩니다. 슬롯을 따라가는 도형만 다시 칠해지고, 자기 색을 고른 도형은 그대로 있습니다."
       footer={
         <>
-          <DialogButton onClick={onClose}>취소</DialogButton>
-          <DialogButton variant="primary" data-theme-apply onClick={apply}>
+          <DialogButton disabled={busy} onClick={close}>취소</DialogButton>
+          <DialogButton variant="primary" data-theme-apply disabled={busy || !editor} onClick={apply}>
             적용
           </DialogButton>
         </>
       }
     >
-      <div className="flex flex-col gap-3">
+      <fieldset disabled={busy} aria-busy={busy || undefined} className="flex flex-col gap-3">
         <PropertyRow label="테마">
           <ChoiceSelect
             ariaLabel="테마 프리셋"
@@ -475,7 +478,9 @@ export function ThemeDialog({ editor, open, onClose }: ThemeDialogProps) {
             onChange={(family) => setDraft((was) => ({ ...was, minorFont: family }))}
           />
         </PropertyRow>
-      </div>
+      </fieldset>
+      {busy && <StatusIndicator busy>테마 적용 중</StatusIndicator>}
+      {problem && <StatusNotice tone="danger" title={problem} />}
     </Dialog>
   );
 }
@@ -506,34 +511,31 @@ export interface TemplateDialogProps {
   onClose: () => void;
   /** A new deck is a new document: the app has a showing and a selection to forget. */
   onOpened?: () => void;
+  beforeReplace?: () => Promise<boolean>;
 }
 
-export function TemplateDialog({ editor, open, onClose, onOpened }: TemplateDialogProps) {
-  const [chosen, setChosen] = useState(DECK_TEMPLATES[0]?.id ?? 'blank');
-
-  const start = () => {
-    const template = DECK_TEMPLATES.find((one) => one.id === chosen);
-    if (!template) return;
-    editor?.loadDocument?.(template.make(), 'slides');
-    onOpened?.();
-    onClose();
-  };
+export function TemplateDialog({ editor, open, onClose, onOpened, beforeReplace }: TemplateDialogProps) {
+  const { chosen, setChosen, busy, problem, close, start } = useTemplateStart(
+    editor, open, onClose, onOpened, beforeReplace
+  );
 
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={(next) => !next && close()}
       title="템플릿"
       description="고른 것으로 새 프레젠테이션을 시작합니다. 지금 열려 있는 덱은 닫힙니다."
       footer={
         <>
-          <DialogButton onClick={onClose}>취소</DialogButton>
-          <DialogButton variant="primary" data-template-start onClick={start}>
-            시작
+          <DialogButton disabled={busy} onClick={close}>취소</DialogButton>
+          <DialogButton variant="primary" data-template-start disabled={busy || !editor} onClick={() => void start()}>
+            {busy ? '준비 중…' : '시작'}
           </DialogButton>
         </>
       }
     >
+      {problem && <StatusNotice tone="danger" title={problem} />}
+      {busy && <StatusIndicator busy>현재 자료 저장 및 새 자료 준비 중</StatusIndicator>}
       <div className="sl-templates">
         {DECK_TEMPLATES.map((template) => {
           const sketch = templateSketch(template.make());
@@ -541,6 +543,7 @@ export function TemplateDialog({ editor, open, onClose, onOpened }: TemplateDial
             <button
               key={template.id}
               type="button"
+              disabled={busy}
               className="sl-template"
               data-template={template.id}
               aria-pressed={chosen === template.id}

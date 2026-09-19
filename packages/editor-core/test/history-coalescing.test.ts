@@ -55,6 +55,24 @@ describe('history coalescing', () => {
     expect(entry.inverseOperations[1]!.payload!.start).toBe(0);
   });
 
+  it('keeps consecutive deletions separate from typing and from each other', () => {
+    const h = new HistoryManager();
+    const deletion = (start: number) => ({
+      operations: [{ type: 'deleteTextRange', payload: { nodeId: 't1', start, end: start + 1 } }],
+      inverseOperations: [{ type: 'insertText', payload: { nodeId: 't1', offset: start, text: 'a' } }]
+    });
+    h.push(typing('t1', 0, 1));
+    h.push(typing('t1', 1, 2));
+    h.push(deletion(1));
+    h.push(deletion(0));
+    h.push(typing('t1', 0, 1));
+    expect(h.getStats().totalEntries).toBe(4);
+    h.undo();
+    expect(h.undo()!.operations).toEqual(deletion(0).operations);
+    expect(h.undo()!.operations).toEqual(deletion(1).operations);
+    expect(h.undo()!.operations).toHaveLength(2);
+  });
+
   it('restores the caret to where the burst started', () => {
     const h = new HistoryManager();
     h.push(typing('t1', 0, 1));

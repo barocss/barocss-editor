@@ -37,7 +37,7 @@ const rulerBox = async (page: Page, axis: 'x' | 'y') => {
  * slide is wider than its pane.
  */
 const alongRuler = async (page: Page, axis: 'x' | 'y', fraction: number) => {
-  const ruler = await rulerBox(page, axis);
+  const ruler = (await page.locator(`[data-ruler="${axis}"] .sl-ruler-scale`).boundingBox())!;
   return axis === 'x'
     ? { x: Math.round(ruler.x + ruler.width * fraction), along: ruler.width * fraction }
     : { y: Math.round(ruler.y + ruler.height * fraction), along: ruler.height * fraction };

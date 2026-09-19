@@ -1,5 +1,5 @@
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
-import { transaction, applyMark, toggleMark } from '@barocss/model';
+import { transaction, applyMark, removeMark } from '@barocss/model';
 import { hasRange } from './guards';
 
 export class FontColorExtension implements Extension {
@@ -36,18 +36,12 @@ export class FontColorExtension implements Extension {
         const selection = payload?.selection || (ed as any).selection;
         if (!selection || selection.type !== 'range') return false;
 
-        const op = toggleMark(
-          selection.startNodeId, selection.startOffset,
-          selection.endNodeId, selection.endOffset,
-          'fontColor'
-        );
-        const result = await transaction(ed, [op]).commit();
-        return result.success;
+        return removeColor(ed, selection, 'fontColor');
       },
       // A colour covers the text between two points; on a caret it is a commit that changes
       // nothing. See `guards.ts` — this was `() => true` and the command asked for a range.
       canExecute: (ed: Editor, payload?: { selection?: ModelSelection; color?: string }) =>
-        hasRange(ed, payload, 'something')
+        hasRange(ed, payload, 'something') && canRemoveColor(ed, payload?.selection || (ed as any).selection, 'fontColor')
     });
 
     (editor as any).registerCommand({
@@ -89,18 +83,12 @@ export class FontColorExtension implements Extension {
         const selection = payload?.selection || (ed as any).selection;
         if (!selection || selection.type !== 'range') return false;
 
-        const op = toggleMark(
-          selection.startNodeId, selection.startOffset,
-          selection.endNodeId, selection.endOffset,
-          'bgColor'
-        );
-        const result = await transaction(ed, [op]).commit();
-        return result.success;
+        return removeColor(ed, selection, 'bgColor');
       },
       // A colour covers the text between two points; on a caret it is a commit that changes
       // nothing. See `guards.ts` — this was `() => true` and the command asked for a range.
       canExecute: (ed: Editor, payload?: { selection?: ModelSelection; color?: string }) =>
-        hasRange(ed, payload, 'something')
+        hasRange(ed, payload, 'something') && canRemoveColor(ed, payload?.selection || (ed as any).selection, 'bgColor')
     });
   }
 
@@ -109,4 +97,28 @@ export class FontColorExtension implements Extension {
 
 export function createFontColorExtension(): FontColorExtension {
   return new FontColorExtension();
+}
+
+/** Reset one color channel without toggling it on in uncolored parts of a mixed selection. */
+async function removeColor(editor: Editor, selection: ModelSelection, mark: string): Promise<boolean> {
+  const operations = colorRemovalOperations(editor, selection, mark);
+  if (!operations.length) return false;
+  return (await transaction(editor, operations).commit()).success;
+}
+
+function canRemoveColor(editor: Editor, selection: ModelSelection | undefined, mark: string): boolean {
+  return !!selection && selection.type === 'range' && colorRemovalOperations(editor, selection, mark).length > 0;
+}
+
+function colorRemovalOperations(editor: Editor, selection: ModelSelection, mark: string) {
+  const ids = selection.startNodeId === selection.endNodeId ? [selection.startNodeId]
+    : [...editor.dataStore.createRangeIterator(selection.startNodeId, selection.endNodeId, { includeStart: true, includeEnd: true })];
+  return ids.flatMap(id => {
+    const node = editor.dataStore.getNode(id);
+    if (typeof node?.text !== 'string') return [];
+    const start = id === selection.startNodeId ? selection.startOffset : 0;
+    const end = id === selection.endNodeId ? selection.endOffset : node.text.length;
+    const overlaps = node.marks?.some(item => item.stype === mark && item.range && item.range[1] > start && item.range[0] < end);
+    return start < end && overlaps ? [removeMark(id, mark, [start, end])] : [];
+  });
 }

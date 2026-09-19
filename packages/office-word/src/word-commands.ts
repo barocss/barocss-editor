@@ -100,36 +100,18 @@ export class WordExtension implements Extension {
     editor.registerCommand({
       name: 'toggleTrackChanges',
       execute: async (ed: Editor) => await this._toggleTracking(ed),
-      canExecute: (ed: Editor) => !!this._settingsNode(ed)
+      canExecute: (ed: Editor) => !!wordSettingsNode(ed)
     });
 
     editor.registerCommand({
       name: 'isTrackingChanges',
-      execute: (ed: Editor) => this._settingsNode(ed)?.attributes?.trackRevisions === true,
+      execute: (ed: Editor) => wordSettingsNode(ed)?.attributes?.trackRevisions === true,
       canExecute: () => true
     });
   }
 
-  /** The document's settings node, which is where a document-wide switch lives. */
-  private _settingsNode(editor: Editor): any {
-    const dataStore = editor.dataStore;
-    const root = dataStore?.getNode?.(editor?.getRootId() ?? '');
-    if (!root) return null;
-
-    for (const childId of root.content ?? []) {
-      const child = typeof childId === 'string' ? dataStore.getNode(childId) : childId;
-      if (child?.stype !== 'resources') continue;
-
-      for (const resourceId of child.content ?? []) {
-        const resource = typeof resourceId === 'string' ? dataStore.getNode(resourceId) : resourceId;
-        if (resource?.stype === 'docSettings') return resource;
-      }
-    }
-    return null;
-  }
-
   private async _toggleTracking(editor: Editor): Promise<boolean> {
-    const settings = this._settingsNode(editor);
+    const settings = wordSettingsNode(editor);
     if (!settings?.sid) return false;
 
     const result = await transaction(editor, [
@@ -153,4 +135,27 @@ export class WordExtension implements Extension {
 
 export function createWordCommands(): WordExtension {
   return new WordExtension();
+}
+
+  /** The document's settings node, which is where a document-wide switch lives. */
+function wordSettingsNode(editor: Editor): any {
+    const dataStore = editor.dataStore;
+    const root = dataStore?.getNode?.(editor?.getRootId() ?? '');
+    if (!root) return null;
+
+    for (const childId of root.content ?? []) {
+      const child = typeof childId === 'string' ? dataStore.getNode(childId) : childId;
+      if (child?.stype !== 'resources') continue;
+
+      for (const resourceId of child.content ?? []) {
+        const resource = typeof resourceId === 'string' ? dataStore.getNode(resourceId) : resourceId;
+        if (resource?.stype === 'docSettings') return resource;
+      }
+    }
+    return null;
+  }
+
+
+export function isWordTracking(editor: Editor): boolean {
+  return wordSettingsNode(editor)?.attributes?.trackRevisions === true;
 }

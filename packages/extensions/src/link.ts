@@ -20,9 +20,9 @@ export class LinkExtension implements Extension {
 
     (editor as any).registerCommand({
       name: 'toggleLink',
-      execute: async (ed: Editor, payload?: { href?: string; title?: string; selection?: ModelSelection }) => {
+      execute: async (ed: Editor, payload?: { href?: string; title?: string; replace?: boolean; selection?: ModelSelection }) => {
         if (!payload?.href) return false;
-        const ops = [toggleLinkOp(payload.href, payload.title)];
+        const ops = [toggleLinkOp(payload.href, payload.title, payload.replace)];
         const result = await transaction(ed, ops).commit();
         return result.success;
       },
@@ -59,9 +59,15 @@ export class LinkExtension implements Extension {
         const at = (ed as { selection?: ModelSelection }).selection;
         if (!at || at.type !== 'range') return false;
 
-        const ops = [
-          removeMark(at.startNodeId, 'link', [at.startOffset, at.endOffset] as [number, number])
-        ];
+        const ids = at.startNodeId === at.endNodeId ? [at.startNodeId]
+          : [...ed.dataStore.createRangeIterator(at.startNodeId, at.endNodeId, { includeStart: true, includeEnd: true })];
+        const ops = ids.flatMap(id => {
+          const node = ed.dataStore.getNode(id);
+          if (typeof node?.text !== 'string') return [];
+          const from = id === at.startNodeId ? at.startOffset : 0;
+          const to = id === at.endNodeId ? at.endOffset : node.text.length;
+          return to > from ? [removeMark(id, 'link', [from, to])] : [];
+        });
         const result = await transaction(ed, ops as never).commit();
         return result.success;
       },

@@ -35,6 +35,8 @@
 import { BODY_CONTENT as NOTE_CONTENT } from '@barocss/office-text';
 import {
   getOfficeSchemaDefinition,
+  getProseNodeDefinitions,
+  getNoteDatabaseNodeDefinitions,
   getStandardSchemaDefinition,
   type SchemaDefinition
 } from '@barocss/schema';
@@ -712,6 +714,8 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
     ...office,
     nodes: {
       ...office.nodes,
+      ...getProseNodeDefinitions(NOTE_CONTENT),
+      noteDatabase: getNoteDatabaseNodeDefinitions().noteDatabase,
 
       /**
        * The document, with the one thing a **site** has that a document does not: an address.
@@ -1311,7 +1315,7 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
          * spellings is how a model and an editor come to disagree, which this repository has on
          * record more than once.
          */
-        content: NOTE_CONTENT,
+        content: `${NOTE_CONTENT} resources?`,
         attrs: {
           /**
            * What a cell's `text:` names. Durable, like every other reference in this schema.
@@ -1354,7 +1358,8 @@ export function getSiteSchemaDefinition(): SchemaDefinition {
            */
           fields: { type: 'array' as const, required: false },
           /** The rows themselves, for a dataset a person curates. */
-          records: { type: 'array' as const, required: false }
+          records: { type: 'array' as const, required: false },
+          rowIds: { type: 'array' as const, required: false }
         }
       },
 

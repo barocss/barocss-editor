@@ -1,6 +1,6 @@
 import { holdsText } from '@barocss/shared';
 import { InputHandler, IEditorViewDOM } from '../types';
-import { Editor, insideLockedRegion, type ModelSelection } from '@barocss/editor-core';
+import { Editor, insideLockedRegion, withDerivedCollapsed, type ModelSelection } from '@barocss/editor-core';
 import { handleEfficientEdit } from '../utils/efficient-edit-handler';
 import { type MarkRange, type DecoratorRange } from '../utils/edit-position-converter';
 import { classifyDomChange, type ClassifiedChange, type InputHint } from '../dom-sync/dom-change-classifier';
@@ -103,6 +103,11 @@ export class InputHandlerImpl implements InputHandler {
     // Track active node after DOM selection is applied
     this.editor.on('editor:selection.dom.applied', (e: any) => {
       this.activeTextNodeId = e?.activeNodeId || null;
+    });
+    // A picker may consume Enter before it reaches this view. Its command can
+    // replace the typed query and move the caret, ending that typing burst.
+    this.editor.on('editor:command.before', ({ command }: { command: string }) => {
+      if (command !== 'replaceText') this.caretMovedByUser();
     });
   }
 
@@ -270,6 +275,13 @@ export class InputHandlerImpl implements InputHandler {
 
   handleKeyDown(event: KeyboardEvent): void {
     const key = event.key;
+
+    // Selecting a new range ends a typing undo group even before the debounced
+    // DOM selection reaches the model. IME candidate navigation is not a new edit.
+    if (!event.isComposing && event.keyCode !== 229 &&
+      ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(key)) {
+      this.editor.historyManager.closeGroup();
+    }
 
     // Anything that is not a character being typed moves the caret or changes
     // the shape of the text around it.
@@ -1516,10 +1528,32 @@ export class InputHandlerImpl implements InputHandler {
     if (!ranges?.length) return false;
 
     const staticRange = ranges[0];
-    const modelRange = this.editorViewDOM.convertStaticRangeToModel?.(staticRange) ?? null;
+    let modelRange = this.editorViewDOM.convertStaticRangeToModel?.(staticRange) ?? null;
 
     const dataStore = this.editor.dataStore;
     if (!dataStore) return false;
+
+    // Chromium can canonicalize a caret at the start of a run to the end of a
+    // preceding nested inline (for example, a math slot). Preserve the visible
+    // caret when the model agrees with it. Replacement ranges still own edits.
+    const dom = window.getSelection();
+    if (inputType === 'insertText' && staticRange.collapsed && dom?.isCollapsed
+      && dom.anchorNode && this.editorViewDOM.contentEditableElement?.contains(dom.anchorNode)) {
+      const visible = this.editorViewDOM.convertDOMSelectionToModel?.(dom);
+      const known = this.editor.selection;
+      if (visible?.type === 'range' && visible.startNodeId === visible.endNodeId
+        && visible.startOffset === 0 && visible.endOffset === 0
+        && known?.type === 'range' && known.startNodeId === visible.startNodeId
+        && known.endNodeId === visible.endNodeId && known.startOffset === 0 && known.endOffset === 0
+        && modelRange?.type === 'range' && modelRange.startNodeId === modelRange.endNodeId && modelRange.startNodeId !== visible.startNodeId) {
+        const intended = dataStore.getNode(visible.startNodeId);
+        const previous = dataStore.getNode(modelRange.startNodeId);
+        if (holdsText(intended) && holdsText(previous) && intended.parentId !== previous.parentId
+          && modelRange.startOffset === previous.text?.length && modelRange.endOffset === previous.text?.length) {
+          modelRange = visible;
+        }
+      }
+    }
 
     const startNode = modelRange?.type === 'range' ? dataStore.getNode(modelRange.startNodeId) : undefined;
     const endNode = modelRange?.type === 'range' ? dataStore.getNode(modelRange.endNodeId) : undefined;
@@ -1566,20 +1600,44 @@ export class InputHandlerImpl implements InputHandler {
     }
 
     const text = event.data ?? '';
+    /**
+     * **네 필드만 옮기면 다섯 번째가 사라진다.**
+     *
+     * 여기가 `site.spec.ts:8298` 의 15% 가 나오던 자리다. `convertStaticRangeToModel` 은 접힌
+     * `StaticRange` 에 대해 `collapsed: true` 를 붙여 주는데, 이 리터럴이 **두 끝과 두 오프셋만**
+     * 골라 옮겨서 그 깃발을 떨어뜨렸다. 그 뒤 몇 줄 아래에서 `!modelAgrees` 일 때
+     * `updateSelection(range)` 로 모델에 그대로 들어가고, `insertText` 는 오프셋만 옮기며
+     * *"Collapsed state does not change"* 라고 적어 두었으므로 아무도 그것을 다시 세지 않는다.
+     *
+     * 한 번 `undefined` 가 들어가면 스스로 낫지 않는다 — 이 함수가 `preventDefault` 하므로
+     * `selectionchange` 가 그 자리를 다시 읽어 주지도 않는다. 그래서 슬래시 메뉴는 두 끝을 비교해
+     * *캐럿* 이라 하고 버블 툴바는 필드를 물어 *범위* 라 해서, 떠 있는 표면이 둘이 됐다.
+     *
+     * **글자로 적는 대신 계산한다.** 이 리터럴은 캐럿일 수도 범위일 수도 있어서 `collapsed: true`
+     * 를 적을 수 없고, `modelRange.collapsed` 를 그대로 실어 오는 것은 그 값이 비어 있을 때 같은
+     * 결함을 한 칸 위로 옮기는 것뿐이다. 두 끝이 이미 답을 갖고 있다(`editor-core/collapsed.ts`).
+     */
     const rangeForReplace: ModelSelection = isEditable
-      ? {
+      ? withDerivedCollapsed({
           type: 'range',
           startNodeId: modelRange!.startNodeId,
           startOffset: modelRange!.startOffset,
           endNodeId: modelRange!.endNodeId,
-          endOffset: modelRange!.endOffset
-        }
+          endOffset: modelRange!.endOffset,
+          collapsed: modelRange!.collapsed
+        })
       : {
+          /*
+           * `collapsed: true` 는 장식이 아니다 — 아래 `newCaret` 의 주석이 그 이유를 적고 있고,
+           * 이 리터럴은 그것과 **같은 값이 통과하는 같은 문**이다: 몇 줄 아래에서
+           * `updateSelection` 으로 나간다. 그때 깃발이 없으면 버블 툴바가 캐럿을 범위로 읽는다.
+           */
           type: 'range',
           startNodeId: burstFallback!.nodeId,
           startOffset: burstFallback!.offset,
           endNodeId: burstFallback!.nodeId,
-          endOffset: burstFallback!.offset
+          endOffset: burstFallback!.offset,
+          collapsed: true
         };
 
     event.preventDefault();
@@ -1606,7 +1664,8 @@ export class InputHandlerImpl implements InputHandler {
           startNodeId: burst!.nodeId,
           startOffset: burst!.offset,
           endNodeId: burst!.nodeId,
-          endOffset: burst!.offset
+          endOffset: burst!.offset,
+          collapsed: true
         }
       : rangeForReplace;
 
@@ -1710,8 +1769,8 @@ export class InputHandlerImpl implements InputHandler {
           try {
             const burst = this._burstCaret;
             const movedOn =
-              burst !== null &&
-              (burst.nodeId !== newCaret.startNodeId || burst.offset !== newCaret.startOffset);
+              burst === null ||
+              burst.nodeId !== newCaret.startNodeId || burst.offset !== newCaret.startOffset;
             if (movedOn) return;
 
             const view = this.editorViewDOM as any;
@@ -1840,7 +1899,7 @@ export class InputHandlerImpl implements InputHandler {
    * 삭제 관련 inputType인지 확인
    * Model-First로 처리할 삭제 타입들
    */
-  private shouldHandleDelete(inputType: string): boolean {
+  private shouldHandleDelete(inputType: string): inputType is DeleteInputType {
     return inputType in DELETE_COMMANDS;
   }
 
@@ -1860,8 +1919,15 @@ export class InputHandlerImpl implements InputHandler {
    * test, and it was quietly overriding code that was.
    */
   private async handleDelete(event: InputEvent): Promise<void> {
-    const command = DELETE_COMMANDS[event.inputType];
-    if (!command) return;
+    /*
+     * **묻는 것이 곧 좁히는 것이어야 한다.** `DELETE_COMMANDS` 의 열쇠가 `string` 에서
+     * `DeleteInputType` 으로 좁아지면서 이 색인이 타입 검사에서 빨개졌다. `shouldHandleDelete` 가
+     * 이미 *그 표에 있는가* 를 묻고 있었는데 `boolean` 을 돌려주고 있었으므로, 컴파일러 입장에서는
+     * 아무도 묻지 않은 것과 같았다. 술어로 바꾸면 표와 색인이 같은 어휘를 쓴다.
+     */
+    const inputType = event.inputType;
+    if (!this.shouldHandleDelete(inputType)) return;
+    const command = DELETE_COMMANDS[inputType];
 
     const domSelection = window.getSelection();
     if (!domSelection || domSelection.rangeCount === 0) return;

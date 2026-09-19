@@ -10,7 +10,7 @@
  * a document opened without a layout, printed on a server, or read by something
  * that cannot paginate should still show a table of contents rather than a gap.
  */
-import { childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
+import { childrenOf, createFieldResolver, type FieldResolver, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
 
 export interface TocEntry {
   sid: string;
@@ -36,11 +36,12 @@ export function parseLevels(levels: string | undefined): { from: number; to: num
 }
 
 /** The text of a block, flattened. */
-function textOf(doc: DocumentAccess, node: DocumentNode, depth = 0): string {
+function textOf(doc: DocumentAccess, node: DocumentNode, depth = 0, fields?: FieldResolver): string {
   if (depth > 32) return '';
   if (typeof node.text === 'string') return node.text;
+  if (node.stype === 'fieldSeq') return fields?.sequenceNumber(node.sid ?? '') ?? '';
   return childrenOf(doc, node)
-    .map((child) => textOf(doc, child, depth + 1))
+    .map((child) => textOf(doc, child, depth + 1, fields))
     .join('');
 }
 
@@ -49,6 +50,8 @@ export interface TocOptions {
   /** The section whose blocks are listed. */
   surface: DocumentNode;
   levels?: string;
+  /** Caption sequence to list instead of headings. */
+  caption?: string;
   /** Only headings carrying this style, when a document uses styles to select. */
   styleFilter?: string;
   /** Where each block landed, from the layout. */
@@ -94,18 +97,23 @@ export function tocEntries(options: TocOptions): TocEntry[] {
   const { doc, surface, styleFilter, pageOfBlock } = options;
   const range = parseLevels(options.levels);
   const entries: TocEntry[] = [];
+  const fields = options.caption ? createFieldResolver(doc) : undefined;
 
   for (const block of childrenOf(doc, surface)) {
     if (!block.sid) continue;
 
-    const level = levelOf(block);
-    if (level === null || level < range.from || level > range.to) continue;
-    if (styleFilter && block.attributes?.styleId !== styleFilter) continue;
+    const level = options.caption ? 1 : levelOf(block);
+    if (options.caption) {
+      if (!childrenOf(doc, block).some(child => child.stype === 'fieldSeq' && child.attributes?.sequence === options.caption)) continue;
+    } else {
+      if (level === null || level < range.from || level > range.to) continue;
+      if (styleFilter && block.attributes?.styleId !== styleFilter) continue;
+    }
 
-    const text = textOf(doc, block).trim();
+    const text = textOf(doc, block, 0, fields).trim();
     if (!text) continue;
 
-    entries.push({ sid: block.sid, level, text, page: pageOfBlock?.get(block.sid) });
+    entries.push({ sid: block.sid, level: level!, text, page: pageOfBlock?.get(block.sid) });
   }
 
   return entries;

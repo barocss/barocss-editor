@@ -1,3 +1,4 @@
+import { withTableThemeRead } from '../../office-text/test/helpers/table-theme-probe';
 import { beforeAll, describe, it } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import { assertConforms, attributeReadFrom, contentTagFrom, drawnTagFrom } from '@barocss/conformance';
@@ -231,7 +232,7 @@ describe('Slides draws what its schema declares', () => {
        * come from the same schema the check walks, so the probe value matches the
        * type the attribute declares.
        */
-      attributeRead: attributeReadFrom(
+      attributeRead: withTableThemeRead(registry, attributeReadFrom(
         registry as never,
         (type: string) => (schema.nodes.get(type) as { attrs?: Record<string, never> } | undefined)?.attrs,
         {},
@@ -268,7 +269,7 @@ describe('Slides draws what its schema declares', () => {
               return undefined;
           }
         }
-      ),
+      )),
       /**
        * Every icon the deck's controls ask for, and whether the suite draws it.
        *
@@ -318,6 +319,10 @@ describe('Slides draws what its schema declares', () => {
         Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
         Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
       exempt: {
+        'bTable.theme': {
+          reason: 'authored by Note’s contextual table editor through the shared setTableTheme command; this product preserves and renders imported or embedded table themes without exposing that Note control',
+          covers: ['every-property-can-be-edited']
+        },
         /**
          * ── **What a reader holds is the box**, which is `every-insert-can-be-held`'s answer here ──
          *
@@ -390,6 +395,8 @@ describe('Slides draws what its schema declares', () => {
          * where a reader is looking at a list of names, and a rename that sends them to another pane
          * is three gestures for the smallest edit there is.
          */
+        moveBoxesToSlide: 'the free canvas — drag selected top-level objects onto another slide; slide-transfer.spec.ts checks placement, undo, cancellation and save/reopen',
+        copyBoxesToSlide: 'the free canvas — Alt-drag copies objects onto another slide; slide-transfer.spec.ts checks source preservation, destination and undo',
         setSlideInfo: 'the filmstrip — a double-click on a slide’s row, which becomes a field in place',
         // ── Set by a gesture, never typed ──────────────────────────────────
         /**
@@ -791,6 +798,10 @@ describe('Slides draws what its schema declares', () => {
         'document.advance':
           'how the deck is moved through: read by `advanceShow`, `deckMap`, `jumpFaults` and the scroll show. A page in a links-only deck looks like any other, so the drawing does not read it',
 
+        'surface.canvasX':
+          'workspace x position read by apps/slide boards and Stage; the slide renderer and presentation stay in slide-local coordinates. Verified by free-canvas.spec.ts and slide-commands.test.ts',
+        'surface.canvasY':
+          'workspace y position read by apps/slide boards and Stage; the slide renderer and presentation stay in slide-local coordinates. Verified by free-canvas.spec.ts and slide-commands.test.ts',
         'surface.id':
           'a page’s durable name, resolved by `slideById` in `jump.ts` so a button can point at it across a save. Nothing in the drawing reads it, and a linked page looks like any other',
 

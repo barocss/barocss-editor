@@ -293,5 +293,3 @@ export const VALIDATION_ERRORS = {
 } as const;
 
 export type ValidationErrorCode = typeof VALIDATION_ERRORS[keyof typeof VALIDATION_ERRORS];
-
-export type TNodeType = string;

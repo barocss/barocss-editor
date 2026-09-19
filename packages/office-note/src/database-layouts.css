@@ -1,0 +1,51 @@
+.ondb-gallery { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr)); gap:12px; padding:16px 0; align-items:start; }
+.ondb-gallery[data-card-size='small'] { grid-template-columns:repeat(auto-fill,minmax(min(100%,170px),1fr)); gap:12px; }
+.ondb-gallery[data-card-size='large'] { grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr)); gap:16px; }
+.ondb-gallery-card { min-width:0; border:1px solid var(--ou-line); border-radius:4px; overflow:hidden; background:var(--ou-panel); cursor:pointer; transition:box-shadow .15s; }
+.ondb-gallery-card:hover { box-shadow:var(--ou-lift-1,0 2px 5px #0000000a); }
+.ondb-gallery-preview { display:flex; align-items:flex-start; width:100%; height:140px; overflow:hidden; border:0; border-bottom:1px solid var(--ou-line); padding:18px; color:var(--ou-muted); background:var(--ou-ground); text-align:left; cursor:pointer; }
+.ondb-gallery-preview:has(img) { padding:0; }
+.ondb-gallery-preview img { width:100%; height:100%; object-fit:cover; }
+.ondb-gallery-preview p { margin:0; font-size:13px; line-height:1.7; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; word-break:keep-all; overflow-wrap:anywhere; }
+.ondb-gallery[data-card-size='small'] .ondb-gallery-preview { height:115px; padding:12px; }
+.ondb-gallery[data-card-size='small'] .ondb-gallery-preview:has(img) { padding:0; }
+.ondb-gallery[data-card-size='large'] .ondb-gallery-preview { height:160px; }
+.ondb-gallery-card-content { padding:10px 12px; }
+.ondb-gallery-card .ondb-title-link { font-size:15px; min-height:32px; }
+.ondb-gallery-property { display:grid; grid-template-columns:minmax(50px,30%) minmax(0,1fr); align-items:center; gap:6px; font-size:13px; }
+.ondb-gallery-property > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ou-muted); font-size:11px; }
+.ondb-gallery-property > :last-child { min-width:0; }
+.ondb-gallery-new { min-height:40px; display:flex; align-items:center; justify-content:center; gap:6px; border:1px solid transparent; border-radius:4px; background:transparent; color:var(--ou-muted); font:inherit; cursor:pointer; }
+.ondb-gallery-new:hover { background:var(--ou-ground); }
+.ondb-gallery-new svg { width:16px; height:16px; }
+.ondb-calendar { min-width:0; color:var(--ou-ink); }
+.ondb-calendar-header { display:flex; align-items:center; gap:4px; padding:12px 0; }
+.ondb-calendar-header button[aria-label="이전 달"] svg,.ondb-calendar-header button[aria-label="다음 달"] svg { transform:rotate(-90deg); }
+.ondb-calendar-header h3 { flex:1; font-size:16px; font-weight:600; margin:0; }
+.ondb-calendar-week,.ondb-calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); }
+.ondb-calendar-week { border-top:1px solid var(--ou-line); font-size:11px; color:var(--ou-muted); }
+.ondb-calendar-week span { padding:6px 8px; }
+.ondb-calendar-day { min-width:0; min-height:110px; padding:4px; border-top:1px solid var(--ou-line); border-right:1px solid var(--ou-line); }
+.ondb-calendar-day:nth-child(7n) { border-right:0; }
+.ondb-calendar-day[data-outside-month] { background:var(--ou-ground); }
+.ondb-calendar-day[data-outside-month] time { opacity:.45; }
+.ondb-calendar-day[data-drop-target] { background:color-mix(in srgb,var(--ou-accent) 12%,var(--ou-panel)); outline:2px solid var(--ou-accent); outline-offset:-2px; }
+.ondb-calendar-day-heading { display:flex; align-items:center; justify-content:space-between; min-height:26px; gap:1px; }
+.ondb-calendar-day-heading time { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; font-size:12px; }
+.ondb-calendar-day[data-today] time { background:var(--ou-accent); color:var(--ou-on-accent,#fff); }
+.ondb-calendar-day-heading button { display:flex; align-items:center; justify-content:center; width:22px; height:22px; padding:0; border:0; border-radius:3px; background:transparent; color:var(--ou-muted); opacity:0; cursor:pointer; }
+.ondb-calendar-day:hover .ondb-calendar-day-heading button,.ondb-calendar-day:focus-within .ondb-calendar-day-heading button { opacity:1; }
+.ondb-calendar-day-heading button:disabled { visibility:hidden; }
+.ondb-calendar-day-heading svg { width:13px; height:13px; }
+.ondb-calendar-event { display:flex; align-items:center; width:100%; min-width:0; gap:4px; margin:3px 0; padding:4px; border:0; border-radius:3px; color:var(--ou-ink); background:var(--ou-panel); text-align:left; cursor:pointer; font:inherit; font-size:12px; line-height:1.5; }
+.ondb-calendar-event[draggable='true'] { cursor:grab; }
+.ondb-calendar-event svg { width:12px; height:12px; flex:none; color:var(--ou-muted); }
+.ondb-calendar-event span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ondb-calendar-event:hover { background:var(--ou-ground); }
+.ondb-calendar-notice { margin:0; padding:0 12px 12px; font-size:12px; color:var(--ou-muted); }
+.ondb-calendar-unscheduled { padding:12px; border-top:1px solid var(--ou-line); }
+.ondb-calendar-unscheduled h4 { margin:0 0 8px; font-size:12px; color:var(--ou-muted); font-weight:500; }
+.ondb-calendar-unscheduled h4 span { margin-left:5px; color:var(--ou-faint); }
+.ondb-calendar-unscheduled > p { margin:0; color:var(--ou-faint); font-size:12px; }
+.ondb-calendar-unscheduled .ondb-calendar-event { max-width:320px; }
+@media (max-width:600px) { .ondb-calendar-day { min-height:80px; padding:2px; } .ondb-calendar-day-heading time { width:18px; height:20px; font-size:11px; } .ondb-calendar-day-heading button { width:18px; opacity:1; } .ondb-calendar-event { padding:3px 2px; font-size:11px; } .ondb-calendar-event svg { display:none; } .ondb-calendar-week span { padding:5px; } }

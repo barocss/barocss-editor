@@ -12,7 +12,6 @@ export const PROTOTYPE_NOTICE = 'Manifest validation checks release metadata int
 
 const SHA256_HEX = /^[a-f0-9]{64}$/;
 const OCI_DIGEST = /^sha256:[a-f0-9]{64}$/;
-const COMMIT_SHA = /^[a-f0-9]{40}$/;
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const IMAGE_MANIFEST_MEDIA_TYPES = new Set([
   'application/vnd.oci.image.manifest.v1+json',

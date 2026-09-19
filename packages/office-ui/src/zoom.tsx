@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
 import { STATE } from './controls';
-import { zoomIn, zoomOut } from './viewport';
+import { clampZoom, stepZoom, type ZoomLadder } from './viewport';
 
 /**
  * How large the document is drawn.
@@ -21,16 +21,36 @@ import { zoomIn, zoomOut } from './viewport';
  * a reader is typing "15" on the way to "150" the document must not jump to 15%
  * and back. So the field shows what they are typing until they are done with it,
  * and the document only hears the finished number.
+ *
+ * ## The ± buttons walk a **ladder**, and the ladder is required
+ *
+ * They multiplied by 1.25, so a reader pressing ＋ from 100% went to 125%, 156%,
+ * 195% — a widget whose whole job is to name a size, naming three that have no
+ * name. `stepZoom` was written against exactly that, kept nine unit checks, and
+ * had no caller anywhere in the suite for as long as it lived one package away.
+ *
+ * `ladder` is not optional and has no default. The stops and the limits differ per
+ * product and there is no third table that would be right for either of them — a
+ * default here would be this file quietly choosing 0.1–8 for a page, which is the
+ * same fault `keyLabel(chord, apple = true)` is: made forgettable, and then
+ * forgotten.
  */
 export function ZoomControl({
  zoom,
  onChange,
+  ladder,
   onFit,
   className,
   fitLabel = 'Fit'
 }: {
  zoom: number;
   onChange: (zoom: number) => void;
+  /**
+   * The stops the ± buttons walk and the limits everything here is held inside.
+   *
+   * The product's — a deck's stops are not a page's. See `ZoomLadder`.
+   */
+  ladder: ZoomLadder;
   /** What "fit" means is the product's; only the button is shared. */
  onFit?: () => void;
   className?: string;
@@ -42,7 +62,12 @@ export function ZoomControl({
   const commit = (value: string) => {
     setTyped(null);
     const parsed = Number.parseFloat(value.replace('%', '').trim());
- if (Number.isFinite(parsed) && parsed > 0) onChange(parsed / 100);
+    /*
+     * Held inside the product's limits, which the field could not do before: a reader could type
+     * 5000% and every caller was left to clamp it, so whether they could depended on which product
+     * they were in. The typed number is still honoured off the ladder — 83% is 83%.
+     */
+ if (Number.isFinite(parsed) && parsed > 0) onChange(clampZoom(parsed / 100, ladder));
   };
 
   const button = cn(
@@ -53,7 +78,7 @@ export function ZoomControl({
 
  return (
     <div className={cn('office-zoom flex items-center gap-0.5', className)} data-zoom={zoom.toFixed(2)}>
- <button type="button" data-zoom-out aria-label="축소" className={button} onClick={() => onChange(zoomOut(zoom))}>
+ <button type="button" data-zoom-out aria-label="축소" className={button} onClick={() => onChange(stepZoom(zoom, -1, ladder))}>
  <Icon name="zoom-out" size={14} />
       </button>
 
@@ -93,7 +118,7 @@ export function ZoomControl({
         )}
       />
 
-      <button type="button" data-zoom-in aria-label="확대" className={button} onClick={() => onChange(zoomIn(zoom))}>
+      <button type="button" data-zoom-in aria-label="확대" className={button} onClick={() => onChange(stepZoom(zoom, 1, ladder))}>
  <Icon name="zoom-in" size={14} />
       </button>
 

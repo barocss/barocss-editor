@@ -1,0 +1,109 @@
+{
+  "changesets": [
+    {
+      "releases": [
+        {
+          "name": "@barocss/math-editor",
+          "type": "minor"
+        }
+      ],
+      "summary": "Add bounded LaTeX import and validated JSON loading with atomic diagnostics and undoable editor imports. Expand editable notation with combined scripts, matrices and cases, integral and limit variants, scalable fences and radicals, accents and brace annotations, explicit sizes, mathematical alphabets, spacing and labeled arrows. Import unnumbered equation wrappers without numbering semantics.\n\nImprove model-based selection, copying, pasting and wrapping; compact configurable toolbars; and editing typography and focus presentation. Complete English/Korean labels for the new catalog and validate locale pack structure and coverage. Update API, model, syntax, localization and embedding guides. Framework subpaths share this release; unsupported TeX macros, numbering and additional environments remain explicitly excluded.",
+      "id": "math-editor-latex-release"
+    }
+  ],
+  "releases": [
+    {
+      "name": "@barocss/math-editor",
+      "type": "minor",
+      "oldVersion": "0.1.0",
+      "changesets": [
+        "math-editor-latex-release"
+      ],
+      "newVersion": "0.2.0"
+    },
+    {
+      "name": "@barocss/math-demo",
+      "type": "patch",
+      "oldVersion": "0.0.1",
+      "changesets": [],
+      "newVersion": "0.0.2"
+    },
+    {
+      "name": "@barocss/office-editor-ui",
+      "type": "patch",
+      "oldVersion": "0.1.0",
+      "changesets": [],
+      "newVersion": "0.1.1"
+    },
+    {
+      "name": "@barocss/office-text",
+      "type": "patch",
+      "oldVersion": "0.1.0",
+      "changesets": [],
+      "newVersion": "0.1.1"
+    },
+    {
+      "name": "@barocss/office-word",
+      "type": "patch",
+      "oldVersion": "0.1.0",
+      "changesets": [],
+      "newVersion": "0.1.1"
+    },
+    {
+      "name": "@barocss/site-app",
+      "type": "patch",
+      "oldVersion": "0.0.1",
+      "changesets": [],
+      "newVersion": "0.0.2"
+    },
+    {
+      "name": "@barocss/slide-app",
+      "type": "patch",
+      "oldVersion": "0.0.1",
+      "changesets": [],
+      "newVersion": "0.0.2"
+    },
+    {
+      "name": "@barocss/word-app",
+      "type": "patch",
+      "oldVersion": "0.0.1",
+      "changesets": [],
+      "newVersion": "0.0.2"
+    },
+    {
+      "name": "@barocss/office-note",
+      "type": "patch",
+      "oldVersion": "0.1.0",
+      "changesets": [],
+      "newVersion": "0.1.1"
+    },
+    {
+      "name": "@barocss/office-site",
+      "type": "patch",
+      "oldVersion": "0.1.0",
+      "changesets": [],
+      "newVersion": "0.1.1"
+    },
+    {
+      "name": "@barocss/office-slides",
+      "type": "patch",
+      "oldVersion": "0.1.0",
+      "changesets": [],
+      "newVersion": "0.1.1"
+    },
+    {
+      "name": "@barocss/app-note",
+      "type": "patch",
+      "oldVersion": "0.1.0",
+      "changesets": [],
+      "newVersion": "0.1.1"
+    },
+    {
+      "name": "@barocss/office-controls",
+      "type": "none",
+      "oldVersion": "0.1.0",
+      "changesets": [],
+      "newVersion": "0.1.0"
+    }
+  ]
+}

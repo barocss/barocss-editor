@@ -327,8 +327,8 @@ const PAINT: SitePanelRow[] = [
         fallback: 'linear',
         needs: 'gradientFrom',
         options: [
-          { id: 'linear', label: 'Linear' },
-          { id: 'radial', label: 'Radial' }
+          { id: 'linear', label: '선형' },
+          { id: 'radial', label: '원형' }
         ]
       }
     ]

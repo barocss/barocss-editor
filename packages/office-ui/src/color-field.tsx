@@ -1,8 +1,8 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { placeNear } from './place-near';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { useMovablePanel } from './movable-panel';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
-import { CONTROL, STATE } from './controls';
+import { CONTROL, FIELD_CONTROL, STATE, Button } from './controls';
 import { useDismiss } from './stack';
 import { ColorPicker } from './color-picker';
 
@@ -89,6 +89,7 @@ export function ColorField({
 }) {
   const [open, setOpen] = useState(false);
   const panel = useRef<HTMLSpanElement>(null);
+  const keyboardOpen = useRef(false);
 
   // Whatever the value *names*, from either list: the trigger draws the colour it resolves to, so
   // a field showing the literal `var:강조` would be the one place in the product that leaked a
@@ -105,59 +106,6 @@ export function ColorField({
     : (value ?? null);
 
   /**
-   * Where the panel goes: the window's coordinates, not the field's.
- *
-   * It was `absolute … top-full`, which is correct for a field in the middle of
-   * a tall panel and wrong at either edge of the screen. Measured on 2026-08-20
-   * in the slide app's timeline pane — which sits at the *bottom* of the window —
-   * a 360px picker opened 260px below the window's edge, so its notation field
- * and half its swatches were unreachable. A scrolling inspector column is the
-   * same problem twice over: an absolutely-placed child is clipped by a
-   * scrolling ancestor whichever direction it opens in.
-   *
-   * So: measured once it is drawn, flipped above the field when there is no room
-   * below it, and clamped so no edge of the window can cut it. It stays a DOM
-   * child of the field — the outside-pointer rule asks `host.contains(target)`,
-   * and a portal would make every click inside the panel an outside click.
-   */
-  const [at, setAt] = useState<{ top: number; left: number }>();
-  const place = useCallback(() => {
-    const anchor = dismiss.current?.getBoundingClientRect();
-    const box = panel.current?.getBoundingClientRect();
-    if (!anchor || !box) return;
-
-    /*
-     * **아래를 먼저, 안 맞으면 위로** — a picker belongs under the swatch it is about, and hangs off
-     * its right edge. The flip and the clamp were written out here and twice more; `placeNear` is
-     * that arithmetic once, and it is the part that is easy to get subtly wrong.
-     */
-    setAt(placeNear(anchor, box, { prefer: 'below', align: 'end' }));
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setAt(undefined);
-      return;
-    }
-    /* The field first: it can sit in a column that scrolls, and a panel placed
-       against a control that is out of sight lands out of sight with it. Only on
-       the way in — scrolling to it on every re-measure would fight the reader. */
-    dismiss.current?.scrollIntoView({ block: 'nearest' });
- place();
-
-    /* And it follows: a fixed panel does not move when the column under it
-       scrolls, so its own trigger slides out from beneath it and the click that
-       should close it lands on the panel instead. `capture`, because scroll
-       events do not bubble. */
-    window.addEventListener('scroll', place, true);
- window.addEventListener('resize', place);
- return () => {
-      window.removeEventListener('scroll', place, true);
- window.removeEventListener('resize', place);
- };
-  }, [open, place]);
-
-  /**
    * Closed by a pointer outside or by Escape — `useDismiss`, which is the third
    * place this was written and now the only one.
    *
@@ -165,10 +113,29 @@ export function ColorField({
    * reaches whatever is underneath — the same rule the toolbar's palette
    * follows, and for the same reason.
    */
-  const dismiss = useDismiss<HTMLSpanElement>(open, () => setOpen(false));
+  const close = () => {
+    if (panel.current?.contains(document.activeElement)) {
+      dismiss.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+    }
+    setOpen(false);
+  };
+  const dismiss = useDismiss<HTMLSpanElement>(open, close);
+  const movable = useMovablePanel(open, dismiss, panel);
+
+  useLayoutEffect(() => {
+    if (!open || !movable.ready || !keyboardOpen.current) return;
+    keyboardOpen.current = false;
+    const input = panel.current?.querySelector<HTMLInputElement>('input[aria-label="색상 코드"]');
+    input?.focus({ preventScroll: true });
+    input?.select();
+  }, [open, movable.ready]);
 
   return (
-    <span ref={dismiss} className="relative inline-flex flex-1 items-center gap-1.5">
+    <span ref={dismiss} className="relative inline-flex min-w-0 max-w-full flex-1 items-center gap-1.5"
+      onBlur={event => {
+        // Tab may leave this non-modal picker. Keep the destination's focus.
+        if (open && event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}>
  <button
         type="button"
  aria-label={ariaLabel}
@@ -176,7 +143,10 @@ export function ColorField({
         data-color-field={ariaLabel}
         data-value={value ?? 'none'}
  disabled={disabled}
-        onClick={() => setOpen((wasOpen) => !wasOpen)}
+        onClick={event => {
+          keyboardOpen.current = event.detail === 0;
+          setOpen((wasOpen) => !wasOpen);
+        }}
         className={cn(
           CONTROL,
           /**
@@ -197,14 +167,14 @@ export function ColorField({
  )}
       >
         <span
-          className="block h-full w-full rounded-[calc(var(--ou-radius)-1px)] border border-[color:var(--ou-line)]"
- style={{ background: shown ?? 'transparent' }}
+          className="office-color-preview block h-full w-full rounded-[calc(var(--ou-radius)-1px)] border border-[color:var(--ou-line)]"
+ style={{ backgroundImage: `linear-gradient(${shown ?? 'transparent'}, ${shown ?? 'transparent'}), conic-gradient(#d4d4d4 25%, #fff 0 50%, #d4d4d4 0 75%, #fff 0)`, backgroundSize: 'auto, 8px 8px' }}
  />
       </button>
 
       {/* What the document says, in the document's own words: a slot or a variable shows its
           name, because following something is a different fact from being blue. */}
-      <span className="flex-1 truncate text-[length:var(--ou-text-small)] tabular-nums text-[color:var(--ou-muted)]">
+      <span title={named ? named.label : (value ?? '없음')} className="min-w-0 flex-1 truncate text-[length:var(--ou-text-small)] tabular-nums text-[color:var(--ou-muted)]">
  {named ? named.label : (value ?? '없음')}
  </span>
 
@@ -239,18 +209,22 @@ export function ColorField({
       {open && (
         <span
           ref={panel}
-          role="group"
+          popover="manual"
+          role="dialog"
  aria-label={`${ariaLabel} 선택`}
           data-color-panel={ariaLabel}
+          data-motion-ready={movable.ready ? 'true' : undefined}
           /* Hidden for the one frame it is measured in, so the flip is never a
              flicker: `visibility` still lays out, which is what makes it
              measurable at all. */
-          style={{ top: at?.top, left: at?.left, visibility: at ? undefined : 'hidden' }}
+          style={movable.style}
  className={cn(
-            'fixed z-[var(--ou-z-popover)] w-max rounded-lg border p-2 shadow-[var(--ou-lift-3)]',
+            'office-color-panel office-movable-panel fixed z-[var(--ou-z-popover)] w-max rounded-lg border p-3 shadow-[var(--ou-lift-2)]',
  'border-[color:var(--ou-line)] bg-[color:var(--ou-panel)]'
  )}
         >
+          <span className="office-color-panel-header office-panel-drag-handle" tabIndex={-1} onPointerDown={movable.onPointerDown}>{ariaLabel}<Button square tone="quiet" ariaLabel={`${ariaLabel} 닫기`}
+            onClick={event => { event.preventDefault(); close(); }}><Icon name="close" size={16} /></Button></span>
           {/*
             * The picker, rather than this control's own grid of swatches.
             *
@@ -260,8 +234,10 @@ export function ColorField({
             * colours. The swatches it did have are the theme's, and they are in
  * there, where following the deck sits beside naming a colour.
             */}
+          <span className="office-movable-panel-body">
           <ColorPicker
             value={value ?? '#000000'}
+            resolvedValue={named?.colour ?? shown ?? undefined}
  themeSwatches={themeSwatches}
             varSwatches={varSwatches}
             onChange={(next) => onChange(next)}
@@ -286,7 +262,7 @@ export function ColorField({
                   const said = Number(event.currentTarget.value);
                   onWeight(Number.isFinite(said) && said >= 0 && said < 100 ? said : undefined);
                 }}
-                className={cn(CONTROL, 'w-[72px] px-2 text-right')}
+                className={cn(FIELD_CONTROL, 'w-[72px] px-2 text-right')}
               />
             </label>
           )}
@@ -296,9 +272,10 @@ export function ColorField({
               type="button"
  data-swatch="none"
               aria-label={`${ariaLabel} 없음`}
-              onClick={() => {
+              onClick={event => {
+                event.preventDefault();
                 onClear();
-                setOpen(false);
+                close();
               }}
               className={cn(
                 CONTROL,
@@ -308,6 +285,7 @@ export function ColorField({
               없음
             </button>
           )}
+          </span>
         </span>
       )}
     </span>

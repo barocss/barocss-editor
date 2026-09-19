@@ -1,3 +1,4 @@
+import { sideways } from '@barocss/shared';
 /**
  * Making something to place: a drawing, and the shapes that go on it.
  *
@@ -138,8 +139,11 @@ export interface PageWidth {
  * what a canvas *is* in a column, and taking a guess here would answer it silently.
  */
 export function textWidthOf(page: PageWidth | undefined): number {
-  const landscape = page?.orientation === 'landscape';
-  const across = landscape ? number(page?.pageHeight, 15840) : number(page?.pageWidth, 12240);
+  /* 눕히는 판단은 `sideways` 하나다 — 네 곳에 복사돼 있던 두 줄. */
+  const across = sideways(page?.orientation === 'landscape', {
+    width: number(page?.pageWidth, 12240),
+    height: number(page?.pageHeight, 15840)
+  }).width;
   const left = number(page?.marginLeft, 1440);
   const right = number(page?.marginRight, 1440);
   return Math.max(720, Math.round(across - left - right));

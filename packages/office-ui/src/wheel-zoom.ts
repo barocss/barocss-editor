@@ -64,6 +64,8 @@ export interface WheelZoom {
    * because it has to be re-measured after the zoom, not before.
    */
   content: () => DOMRect | undefined;
+  /** Optional editing point to keep visible for button/menu zoom. Wheel zoom uses its pointer. */
+  focusAnchor?: () => { x: number; y: number } | undefined;
   zoom: number;
   onZoom: (next: number) => void;
   /** How far a product lets a reader go. A page and a canvas do not agree. */
@@ -77,7 +79,7 @@ export interface WheelZoom {
   step?: number;
 }
 
-export function useWheelZoom({ pane, content, zoom, onZoom, min, max, step = 1.1 }: WheelZoom) {
+export function useWheelZoom({ pane, content, focusAnchor, zoom, onZoom, min, max, step = 1.1 }: WheelZoom) {
   /** A zoom waiting for the layout that follows it — see the note above. */
   const pending = useRef<{
     pointer: { x: number; y: number };
@@ -97,8 +99,8 @@ export function useWheelZoom({ pane, content, zoom, onZoom, min, max, step = 1.1
    * zero. The effect has to run when the *zoom* changes and at no other time,
    * which is what the hand-written version's `[scale]` said.
    */
-  const latest = useRef({ content, onZoom });
-  latest.current = { content, onZoom };
+  const latest = useRef({ content, focusAnchor, onZoom });
+  latest.current = { content, focusAnchor, onZoom };
 
   useEffect(() => {
     const host = pane.current;
@@ -152,6 +154,25 @@ export function useWheelZoom({ pane, content, zoom, onZoom, min, max, step = 1.1
    * exactly what this holds and what nothing else can recover afterwards.
    */
   const previous = useRef<DOMRect | undefined>(undefined);
+  const editingPoint = useRef<{ x: number; y: number } | undefined>(undefined);
+
+  useEffect(() => {
+    const host = pane.current;
+    if (!host) return;
+    // Read before controls change focus or commit a new scale. The previous
+    // zoom's rectangle may be stale after scrolling, typing or pagination.
+    const snapshot = () => {
+      previous.current = latest.current.content();
+      editingPoint.current = latest.current.focusAnchor?.();
+    };
+    const doc = host.ownerDocument;
+    doc.addEventListener('pointerdown', snapshot, true);
+    doc.addEventListener('keydown', snapshot, true);
+    return () => {
+      doc.removeEventListener('pointerdown', snapshot, true);
+      doc.removeEventListener('keydown', snapshot, true);
+    };
+  }, [pane]);
 
   useLayoutEffect(() => {
     const host = pane.current;
@@ -174,13 +195,14 @@ export function useWheelZoom({ pane, content, zoom, onZoom, min, max, step = 1.1
        * an anchor being wrong.
        */
       const view = host.getBoundingClientRect();
-      const middle = { x: view.left + view.width / 2, y: view.top + view.height / 2 };
+      const middle = editingPoint.current ?? { x: view.left + view.width / 2, y: view.top + view.height / 2 };
       const shift = anchorShift(middle, drawn, anchorOf(middle, previous.current));
       host.scrollLeft += shift.dx;
       host.scrollTop += shift.dy;
     }
 
     previous.current = latest.current.content();
+    editingPoint.current = undefined;
     // Keyed on the zoom and nothing else: this is the commit that changed the
     // size, and the rectangle is only true here. See the note on `latest`.
   }, [zoom, pane]);

@@ -165,6 +165,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
   {
     id: 'character',
     controls: [
+      { id: 'clear-formatting', label: 'Clear formatting', icon: 'clear-formatting', command: 'clearFormatting' },
       { id: 'bold', label: 'Bold', icon: 'bold', command: 'toggleBold', state: mark('bold') },
       { id: 'italic', label: 'Italic', icon: 'italic', command: 'toggleItalic', state: mark('italic') },
       {
@@ -642,7 +643,10 @@ export const WORD_STYLES: { id: string; label: string; command: string; stype: s
   { id: 'paragraph', label: 'Body text', command: 'setParagraph', stype: 'paragraph' },
   { id: 'heading1', label: 'Heading 1', command: 'setHeading1', stype: 'heading', level: 1 },
   { id: 'heading2', label: 'Heading 2', command: 'setHeading2', stype: 'heading', level: 2 },
-  { id: 'heading3', label: 'Heading 3', command: 'setHeading3', stype: 'heading', level: 3 }
+  { id: 'heading3', label: 'Heading 3', command: 'setHeading3', stype: 'heading', level: 3 },
+  { id: 'heading4', label: 'Heading 4', command: 'setHeading4', stype: 'heading', level: 4 },
+  { id: 'heading5', label: 'Heading 5', command: 'setHeading5', stype: 'heading', level: 5 },
+  { id: 'heading6', label: 'Heading 6', command: 'setHeading6', stype: 'heading', level: 6 }
 ];
 
 /**

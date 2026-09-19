@@ -66,6 +66,11 @@
 
 그리고 **선언은 import 할 때 함께 한다.** 미리 넣어 두면 `dependency-graph` 가 유령으로 잡는다.
 
+`office-editor-ui → extensions` 가 이 규칙의 마지막 자리였다 — `slash-menu.tsx:3` 의
+`import type { SlashCommandExtension }` 하나뿐이다. `devDependencies` 로 내렸고 깊이는 안 바뀐다
+(`office-controls`(4) 때문에 어차피 5다). **그 패키지의 `test/controls.test.ts:191` 이
+`dependencies` 목록을 글자로 대조하므로 그 줄을 함께 지워야 한다** — 검사가 규칙보다 먼저 쓰였다.
+
 ## 넷이 형제다 — 그리고 그렇게 된 경위
 
 제품 넷이 한때 **5·6·6·7** 에 흩어져 있었다. 원인이 둘이었고 둘 다 걷었다.
@@ -325,6 +330,19 @@ overlay?: (host: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
 있는데 **다시 적었다**. 둘은 같은 결함의 앞뒤이고, 다시 적힌 것은 반드시 갈라진다 — 이 회차에만
 `ModelSelection` 다섯 벌, `isDecoratorElement` 네 벌, `ResolvedBoundaries` 두 벌(내가 만들었다),
 `taughtKeys` 가 고친 반쪽 읽기 다섯 자리가 나왔다.
+
+### 그리고 office 층을 같은 눈으로 다시 쟀다 — `specs/shared-layer.md`
+
+위 목록은 **엔진 층** 의 것이다. 제품 넷과 부품 여섯을 같은 방법으로 재서 나온 표는
+`docs/specs/shared-layer.md` 에 있다. 세 줄로 요약하면:
+
+1. **줄 단위로 베낀 것은 세 곳뿐이다.** 이 저장소는 베끼지 않고 **다시 발명한다** — 그래서 이름으로
+   찾는 렌즈 하나로는 안 되고, 어간 대조와 CSS 클래스 대조가 일을 했다.
+2. **내려갈 것 열 개보다 내려가면 안 되는 것 열넷이 많다.** `ZOOM_MIN` 은 두 제품에서 값이 다르고,
+   `slotOf` 와 `boxOf` 는 같은 이름의 다른 질문이다.
+3. **부품은 패키지로는 여섯 다 부품이고, 심볼로는 둘이 아니다.** `office-canvas` 가 내주는 이름의
+   **82%** 를 한 제품만 부르고, `canvas-connector.ts` 2,058줄은 `office-slides` 만 읽는다. 그 자리에
+   근거가 적혀 있고 근거는 스키마인데, **독자가 하나이므로 그 주장은 검사되고 있지 않다.**
 
 ## 이 구조를 틀리게 만들 것
 

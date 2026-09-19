@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '../../src/editor-view-dom';
 import { DataStore } from '@barocss/datastore';
+import type { INode } from '@barocss/datastore';
 import { normalizeHTML } from '../utils/html';
 import { define, element, slot, data } from '@barocss/dsl';
 import { defineState, BaseComponentState } from '@barocss/renderer-dom';
@@ -59,7 +60,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
         ]);
       });
 
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -99,7 +100,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
         ]);
       });
 
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -141,7 +142,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
         ]);
       });
 
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -196,7 +197,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
         ]);
       });
 
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -242,7 +243,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
         ]);
       });
 
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -278,7 +279,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
         ]);
       });
 
-      const tree1: TreeDocument = {
+      const tree1: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -295,7 +296,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
       expect(count1).toBe('5');
 
       // Re-render with same sid (state preserved)
-      const tree2: TreeDocument = {
+      const tree2: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [
@@ -338,7 +339,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
         ]);
       });
 
-      const tree: TreeDocument = {
+      const tree: INode = {
         sid: 'doc1',
         stype: 'document',
         content: [

@@ -1,3 +1,4 @@
+import { freeLibraryName } from '@barocss/shared';
 import { deckSlides, type DeckAccess } from './deck';
 import { deckTitle } from './deck-file';
 
@@ -44,21 +45,8 @@ export interface LibraryEntry {
  * out, because the name goes in a document and into a URL-ish place and a name with a slash in it
  * is a name something will mis-read.
  */
-export function libraryName(taken: Iterable<string>, title: string | undefined): string {
-  const already = new Set(taken);
-  const base =
-    (title ?? '')
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9가-힣]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 40) || 'deck';
-
-  if (!already.has(base)) return base;
-  let next = 2;
-  while (already.has(`${base}-${next}`)) next += 1;
-  return `${base}-${next}`;
-}
+export const libraryName = (taken: Iterable<string>, title: string | undefined): string =>
+  freeLibraryName(taken, title, 'deck');
 
 /** What one document would be in the library, under this name. */
 export function libraryEntry(doc: DeckAccess, name: string): LibraryEntry {

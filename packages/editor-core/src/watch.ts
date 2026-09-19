@@ -50,7 +50,9 @@ const ANSWER_EVENTS = [
    * selection moving: type a character and the summary of what is selected is
    * different while the range is the same.
    */
-  'editor:content.change'
+  'editor:content.change',
+  // Read-only changes affect whether selection controls can act.
+  'editor:editable.change'
 ] as const;
 
 /** And one reading only what the document says. */

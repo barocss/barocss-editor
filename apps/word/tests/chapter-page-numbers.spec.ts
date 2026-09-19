@@ -57,7 +57,7 @@ const numberTheChapters = (page: Page, extra: Record<string, unknown> = {}) =>
 
 test.describe('page numbers that carry their chapter', () => {
   test('are plain until a section asks for them', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const drawn = await footers(page);
@@ -66,7 +66,7 @@ test.describe('page numbers that carry their chapter', () => {
   });
 
   test('carry the chapter once it does', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await numberTheChapters(page);
 
@@ -81,7 +81,7 @@ test.describe('page numbers that carry their chapter', () => {
   });
 
   test('take the separator the section names', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await numberTheChapters(page, { pageNumberChapterSeparator: 'period' });
 
@@ -96,7 +96,7 @@ test.describe('page numbers that carry their chapter', () => {
    * disagrees with the heading it claims to be under.
    */
   test('stay plain when the chapter headings are not numbered', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await page.evaluate(async () => {

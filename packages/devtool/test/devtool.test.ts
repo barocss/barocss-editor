@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { AutoTracer, Devtool } from '../src/index';
 import type { DevtoolOptions, EventLog, ModelTreeNode, ExecutionFlow, Trace, Span } from '../src/types';
 
 describe('Devtool types', () => {
@@ -111,13 +112,11 @@ describe('Devtool types', () => {
 });
 
 describe('AutoTracer exports', () => {
-  it('module exports AutoTracer', async () => {
-    const mod = await import('../src/index');
-    expect(mod.AutoTracer).toBeDefined();
+  it('module exports AutoTracer', () => {
+    expect(AutoTracer).toBeDefined();
   });
 
-  it('module exports Devtool', async () => {
-    const mod = await import('../src/index');
-    expect(mod.Devtool).toBeDefined();
+  it('module exports Devtool', () => {
+    expect(Devtool).toBeDefined();
   });
 });

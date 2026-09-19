@@ -48,7 +48,8 @@ defineOperation('insertCallout', async (operation: any, context: TransactionCont
   if (idx === -1) throw new Error('insertCallout: block not in parent');
 
   const attrs: Record<string, any> = { type: calloutType };
-  if (title != null) attrs.title = title;
+  const editableTitle = !!context.schema?.getNodeType('calloutTitle');
+  if (!editableTitle && title != null) attrs.title = title;
 
   const calloutId = dataStore.content.addChild(grandParent.sid!, {
     stype: 'callout',
@@ -56,10 +57,15 @@ defineOperation('insertCallout', async (operation: any, context: TransactionCont
     content: []
   } as any, idx + 1);
 
+  if (editableTitle) {
+    const titleId = dataStore.content.addChild(calloutId, { stype: 'calloutTitle', content: [] } as any, 0);
+    dataStore.content.addChild(titleId, { stype: 'inline-text', text: title ?? '' } as any, 0);
+  }
+
   const paragraphId = dataStore.content.addChild(calloutId, {
     stype: 'paragraph',
     content: []
-  } as any, 0);
+  } as any, editableTitle ? 1 : 0);
   const textId = dataStore.content.addChild(paragraphId, { stype: 'inline-text', text: '' } as any, 0);
 
   return {

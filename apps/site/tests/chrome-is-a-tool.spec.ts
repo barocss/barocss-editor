@@ -100,8 +100,22 @@ test.describe('the chrome, measured', () => {
         const said = (el.getAttribute('aria-label') ?? el.getAttribute('title') ?? el.textContent ?? '')
           .trim();
 
+        /**
+         * **`sr-only` 는 과녁이 아니다** — 그것이 그 클래스의 뜻이다.
+         *
+         * 파일 입력이 그렇다: 브라우저가 그리는 그 단추는 높이도 테두리도 글자도 바꿀 수 없어서
+         * 모든 웹 앱이 같은 세 가지를 한다 — 입력을 숨기고, 진짜 단추를 옆에 그리고, 그 단추에서
+         * 입력을 `click()` 한다. 그런데 `display: none` 으로 숨기면 **키보드가 못 닿고 화면
+         * 낭독기가 이름을 못 부른다**. 그래서 `office-ui` 의 `FilePick` 은 `sr-only` 를 쓰고,
+         * 그 파일이 그 이유를 적어 두었다.
+         *
+         * 그러므로 크기는 묻지 않는다. **이름은 계속 묻는다** — 아래 `nameless` 가 그 자리이고,
+         * 낭독기만 닿는 컨트롤일수록 이름이 전부다.
+         */
+        const reachedByAnother = String(el.className).split(/\s+/).includes('sr-only');
+
         // 24 is the smallest a control in this suite gets; 16 across allows a divider or a handle.
-        if (box.height < 22 || box.width < 16) {
+        if (!reachedByAnother && (box.height < 22 || box.width < 16)) {
           small.push(`${said || el.className} ${Math.round(box.width)}×${Math.round(box.height)}`);
         }
         if (!said) nameless.push(`${el.tagName}.${String(el.className).slice(0, 40)}`);

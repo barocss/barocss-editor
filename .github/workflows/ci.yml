@@ -23,7 +23,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: "pnpm"
 
       - name: Install dependencies
@@ -31,6 +31,9 @@ jobs:
 
       - name: Release metadata and versioning tests
         run: pnpm test:release
+
+      - name: Local verification tools
+        run: pnpm test:checks
 
       - name: Lint
         run: pnpm lint
@@ -61,7 +64,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: "pnpm"
 
       - name: Install dependencies
@@ -74,3 +77,12 @@ jobs:
         run: pnpm test:e2e:react
         env:
           CI: true
+
+      - name: Keep failed React browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-browser-failure
+          path: apps/editor-react/test-results/
+          if-no-files-found: ignore
+          retention-days: 7

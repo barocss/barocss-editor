@@ -1,9 +1,16 @@
+import { PanelHeader, TextField } from '@barocss/office-ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { commentThreads, type CommentThread } from './comments';
+/*
+ * Importing the type also registers how it is drawn — see `highlight-decorators.ts`. It used to be
+ * drawn by `apps/word/src/main.tsx`, so a pane built anywhere else marked its comments with a
+ * fallback `<div>` carrying none of the four attributes a highlight needs.
+ */
+import { ANCHOR_STYPE } from './highlight-decorators';
 import { Icon } from '@barocss/office-icons';
-import { cn } from '@barocss/office-ui';
+import { cn, IconButton } from '@barocss/office-ui';
 
 /**
  * The comments on a document, in a pane beside it.
@@ -17,7 +24,6 @@ import { cn } from '@barocss/office-ui';
  * part of what was written and survives a reload, unlike a search, which is not
  * and does not.
  */
-const ANCHOR_STYPE = 'w-comment-anchor';
 
 /** 주석 칸에게 필요한 것 — 문서, 그 문서를 그리는 뷰, 그리고 열려 있는가. */
 export interface CommentsPaneProps {
@@ -66,7 +72,7 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
     () => ({
       getNode: (id: string) =>
         (editor as unknown as { dataStore: { getNode(id: string): unknown } }).dataStore.getNode(id),
-      rootId: (editor as unknown as { getRootId(): string }).getRootId()
+      get rootId() { return editor.getRootId() ?? ''; }
     }),
     [editor]
   );
@@ -88,9 +94,8 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
    * threads either way — and is what a reader needs: closing the pane should put
    * the discussion away, not hide the fact that there is one.
    */
-  useEffect(() => {
-    view.setDecorators(
-      ANCHOR_STYPE,
+  const anchors = useMemo(
+    () =>
       threads
         .filter((thread) => thread.anchor && !thread.resolved)
         .map((thread) => ({
@@ -103,10 +108,43 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
             endOffset: thread.anchor!.end
           },
           data: { selected: thread.id === selected }
-        })) as never
-    );
+        })),
+    [threads, selected]
+  );
+
+  /**
+   * **What the marks are, not which array they arrived in.**
+   *
+   * `threads` is rebuilt on every `editor:content.change`, so it is a new array after every
+   * keystroke even when the comments have not moved. With it in the deps this effect ran on every
+   * keystroke, and each run was *two* calls into the view — the cleanup clearing the marks and the
+   * body setting them back — so a document holding one comment re-rendered **twice per character**.
+   * Measured at six renders for one key where the budget is three
+   * (`apps/word/tests/input-pipeline.spec.ts:122`).
+   *
+   * Invisible until the sample was given a comment of its own: with none, clearing nothing and
+   * setting nothing are both no-ops.
+   *
+   * The cleanup stays on this effect. Taking it off and giving it one of its own looked tidier and
+   * emptied the pane — under StrictMode the lone cleanup fires once on mount and this effect,
+   * keyed on an unchanged string, never puts the marks back.
+   */
+  const anchorKey = JSON.stringify(
+    anchors.map((one) => [
+      one.sid,
+      one.target.sid,
+      one.target.startOffset,
+      one.target.endOffset,
+      one.data.selected
+    ])
+  );
+
+  useEffect(() => {
+    view.setDecorators(ANCHOR_STYPE, anchors as never);
     return () => view.setDecorators(ANCHOR_STYPE, []);
-  }, [view, threads, selected]);
+    // `anchors` is rebuilt with `threads`; `anchorKey` is what actually changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, anchorKey]);
 
   const add = useCallback(async () => {
     if (!anchorTo) return;
@@ -125,54 +163,29 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
    */
   if (!open) {
     return (
-      <button
-        type="button"
-        className="w-comments-closed"
-        onClick={onToggle}
-        title={threads.length > 0 ? `댓글 ${threads.length}개 열기` : '댓글 열기'}
-        data-comment-count={threads.length}
-      >
-        {/* The same drawing the ribbon's own comments button uses, because it is
-            the same pane — an emoji here and an icon there read as two features. */}
-        <Icon name="comments" size={15} />
-        {threads.length > 0 ? <span className="w-comments-count">{threads.length}</span> : null}
-      </button>
+      <div className="w-pane-rail w-pane-rail-end office-command-surface">
+        <IconButton
+          label={threads.length > 0 ? `댓글 ${threads.length}개 열기` : '댓글 열기'}
+          testClass="w-comments-closed"
+          onClick={onToggle}
+          data={{ 'comment-count': String(threads.length) }}
+        >
+          <Icon name="comments" size={16} />
+          {threads.length > 0 ? <span className="w-comments-count">{threads.length}</span> : null}
+        </IconButton>
+      </div>
     );
   }
 
   return (
     <aside
-      className="w-comments-pane w-72 shrink-0 overflow-auto border-l border-neutral-200 p-3 dark:border-neutral-800"
+      className="w-comments-pane"
       aria-label="Comments"
     >
-      <div className="flex items-center gap-2">
-        <input
-          className="w-comment-draft h-7 flex-1 rounded border border-neutral-300 px-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
-          placeholder="New comment"
-          aria-label="New comment"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <button
-          type="button"
-          className="w-comments-close inline-flex h-7 w-7 items-center justify-center rounded hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          onClick={onToggle}
-          title="댓글 닫기"
-          aria-label="댓글 닫기"
-        >
-          {/* Not the `×` character, which is a multiplication sign at whatever
-              weight the body face has. The find bar next door already drew this. */}
-          <Icon name="close" size={14} />
-        </button>
-        <button
-          aria-label="Add comment"
-          title="Comment on the selected text"
-          className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-neutral-100 disabled:opacity-40 dark:hover:bg-neutral-800"
-          disabled={!anchorTo}
-          onClick={() => void add()}
-        >
-          <Icon name="comment-new" size={15} />
-        </button>
+      <PanelHeader title="댓글" actions={<IconButton label="댓글 닫기" onClick={onToggle}><Icon name="close" size={16} /></IconButton>} />
+      <div className="w-comment-compose">
+        <TextField className="w-comment-draft" placeholder="New comment" ariaLabel="New comment" value={draft} onChange={setDraft} />
+        <IconButton label="Add comment" title="Comment on the selected text" disabled={!anchorTo} onClick={() => void add()}><Icon name="comment-new" size={16} /></IconButton>
       </div>
 
       <ul className="mt-3 space-y-2">
@@ -216,8 +229,11 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
                     value={editing.text}
                     onChange={(event) => setEditing({ sid: entry.sid, text: event.target.value })}
                     onKeyDown={(event) => {
+                      if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                       if (event.key === 'Escape') setEditing(null);
                       if (event.key !== 'Enter') return;
+                      // The command can restore the document selection before native Enter runs.
+                      event.preventDefault();
                       // The text changes; the author and the date do not. They
                       // record who said it and when, and a comment that quietly
                       // reattributes itself is worse than one nobody can fix.
@@ -253,7 +269,9 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
                   setReplies((all) => ({ ...all, [thread.id]: event.target.value }))
                 }
                 onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                   if (event.key !== 'Enter' || !(replies[thread.id] ?? '').trim()) return;
+                  event.preventDefault();
                   void editor.run('replyToComment', { id: thread.id, text: replies[thread.id] });
                   setReplies((all) => ({ ...all, [thread.id]: '' }));
                 }}

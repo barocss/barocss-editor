@@ -41,17 +41,38 @@ export class HTMLConverter {
       }
     }
     
-    return nodes;
+    return nodes.flatMap(node => this._normalizeInline(node));
   }
   
+  /** Inline wrappers carry marks on their text leaves, never children inside a text node. */
+  private _normalizeInline(node: INode): INode[] {
+    const children = (node.content ?? []).flatMap(child => typeof child === 'string' ? [] : this._normalizeInline(child));
+    if (node.stype === 'inline-text' && children.length) {
+      const markType = node.attributes?.markType;
+      const apply = (child: INode): INode => {
+        if (typeof child.text === 'string' && typeof markType === 'string') {
+          return { ...child, marks: [...(child.marks ?? []), { stype: markType, range: [0, child.text.length] }] };
+        }
+        return child.content ? { ...child, content: child.content.map(value => typeof value === 'string' ? value : apply(value)) } : child;
+      };
+      return children.map(apply);
+    }
+    return [{ ...node, ...(node.content ? { content: children } : {}) }];
+  }
+
   /**
    * Converts DOM node to model node
    */
   private _parseDOMNode(node: Element | Text): INode | null {
     // Handle Text node
     if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent?.trim();
+      let text = node.textContent ?? '';
       if (!text) return null;
+      if (!text.trim()) {
+        const block = (sibling: Node | null) => sibling?.nodeType === Node.ELEMENT_NODE && /^(P|DIV|H[1-6]|UL|OL|TABLE|PRE|BLOCKQUOTE)$/.test((sibling as Element).tagName);
+        if (node.parentElement?.tagName === 'BODY' && (!node.previousSibling || !node.nextSibling) || block(node.previousSibling) || block(node.nextSibling)) return null;
+        text = ' ';
+      }
       return {
         stype: 'inline-text',
         text: text
@@ -64,6 +85,24 @@ export class HTMLConverter {
     }
     
     const element = node as Element;
+    const tag = element.tagName.toLowerCase();
+    if (['script', 'style', 'meta', 'link'].includes(tag)) return null;
+    if (tag === 'br') return { stype: 'hardBreak' };
+    if (tag === 'span' && element.hasAttribute('data-note-page-reference') && element.getAttribute('data-page-id')) {
+      return { stype: 'pageReference', attributes: { pageId: element.getAttribute('data-page-id')!,
+        title: element.getAttribute('data-page-title') ?? element.textContent ?? '제목 없음' } };
+    }
+    if (tag === 'span' && element.hasAttribute('data-emoji')) return { stype: 'emoji', attributes: {
+      ...(element.getAttribute('data-shortcode') ? { shortcode: element.getAttribute('data-shortcode')! } : {}),
+      unicode: element.getAttribute('data-unicode') ?? element.textContent ?? ''
+    } };
+    const inlineMark = ({ u: 'underline', s: 'strikethrough', del: 'strikethrough', code: 'code', sub: 'subscript', sup: 'superscript' } as Record<string, string>)[tag];
+    if (inlineMark) return this._convertElementToNode(element, 'inline-text', { getAttrs: () => ({ markType: inlineMark }) });
+    if (tag === 'pre') {
+      const code = element.querySelector('code');
+      const language = element.getAttribute('data-language') ?? code?.className.match(/(?:^|\s)language-([\w+-]+)/)?.[1] ?? 'text';
+      return { stype: 'codeBlock', attributes: { language }, content: [{ stype: 'inline-text', text: element.textContent ?? '' }] };
+    }
     
     // Check parser rules for all stypes
     // Try rules with higher priority first
@@ -95,10 +134,12 @@ export class HTMLConverter {
   private _getAllParserRules(format: Format): Array<{ stype: string; rules: any[] }> {
     const knownStypes = [
       'paragraph',
+      'blockQuote',
       'heading',
+      'link',
+      'emoji',
       'inline-text',
       'text',
-      'link',
       'list',
       'list_item',
       'table',
@@ -169,6 +210,7 @@ export class HTMLConverter {
       attributes = this._extractAttributes(element);
     }
     
+    if (stype === 'emoji') return { stype, attributes };
     // Convert child nodes
     const content: INode[] = [];
     for (const child of Array.from(element.childNodes)) {
@@ -234,7 +276,7 @@ export class HTMLConverter {
       // Extract only text for inline elements
       return {
         stype: 'inline-text',
-        text: element.textContent?.trim() || ''
+        text: element.textContent || ''
       };
     }
   }
@@ -280,7 +322,7 @@ export class HTMLConverter {
       }
     }
     
-    return htmlParts.join('\n');
+    return htmlParts.join('');
   }
   
   /**
@@ -288,6 +330,26 @@ export class HTMLConverter {
    */
   private _convertNodeToHTML(node: INode): string {
     const stype = node.stype;
+    if (stype === 'hardBreak') return '<br>';
+    if (stype === 'inline-image') return this._convertNodeToHTML({ ...node, stype: 'image' });
+    if (typeof node.text === 'string' && node.marks?.length) {
+      const length = node.text.length;
+      const bounds = [...new Set([0, length, ...node.marks.flatMap(mark => mark.range ?? [0, length])])]
+        .filter(value => value >= 0 && value <= length).sort((a, b) => a - b);
+      const attr = (value: unknown) => this._escapeHTML(String(value ?? '')).replace(/"/g, '&quot;');
+      return bounds.slice(0, -1).map((from, index) => {
+        const to = bounds[index + 1];
+        let html = this._escapeHTML(node.text!.slice(from, to));
+        for (const mark of node.marks ?? []) {
+          const [a, b] = mark.range ?? [0, length];
+          if (a > from || b < to) continue;
+          const tag = ({ bold: 'strong', italic: 'em', underline: 'u', strikethrough: 's', code: 'code', subscript: 'sub', superscript: 'sup' } as Record<string, string>)[mark.stype];
+          if (tag) html = `<${tag}>${html}</${tag}>`;
+          else if (mark.stype === 'link') html = `<a href="${attr(mark.attrs?.href)}"${mark.attrs?.title ? ` title="${attr(mark.attrs.title)}"` : ''}>${html}</a>`;
+        }
+        return html;
+      }).join('');
+    }
     
     // Query conversion rules
     const rules = registry.getConverterRules(stype, 'html');

@@ -224,3 +224,46 @@ export async function caretIsInside(page: Page, selector: string, nth = 0) {
     [selector, nth, sid] as const
   );
 }
+
+/**
+ * **바꾸기 전과 후가 다른지 세운다.**
+ *
+ * 브라우저 검사가 헛도는 방법은 결함마다 다르지만 결과는 하나다 — *바꾸려는 값이 이미 그 값이라
+ * 아무것도 안 해도 초록이 나온다.* 대화상자 둘을 만드는 동안 다섯 번 겪었다:
+ *
+ * | 헛돈 것 | 왜 |
+ * |---|---|
+ * | 샘플의 첫 문단에 테두리를 그렸다 | 이미 입고 있었다 |
+ * | `border-top-style` 이 `solid` 인지 물었다 | preflight 가 `*{ border: 0 solid }` 를 깐다 |
+ * | 옆면을 두께 없이 물었다 | 같은 이유, `word-rendering.spec.ts` 에 있던 것 |
+ * | 첫 문단의 `margin-top` 을 물었다 | 페이지네이션이 96px 로 덮는다 |
+ * | 1.5줄을 골랐다 | 줄 높이가 이미 글꼴의 1.5배였다 |
+ *
+ * 다섯 중 넷은 **초록으로 지나갔다.** 그래서 이것을 손으로 쓰는 대신 도구로 만든다.
+ *
+ * ```ts
+ * await changes(page, () => marginOf(paragraph), async () => {
+ *   await dialog.apply();
+ * });
+ * ```
+ *
+ * 값이 안 변하면 *무엇에서 무엇으로 안 변했는지* 를 말하며 실패한다. 검사가 무엇을 물었는지
+ * 자기 입으로 말하게 하는 것이 요점이다.
+ */
+export async function changes<T>(
+  read: () => Promise<T>,
+  act: () => Promise<void>,
+  what = '이 값'
+): Promise<{ before: T; after: T }> {
+  const before = await read();
+  await act();
+  const after = await read();
+
+  expect(
+    JSON.stringify(after),
+    `${what} 이 바뀌지 않았습니다 — ${JSON.stringify(before)} 그대로입니다.\n` +
+      `바꾸려는 값이 이미 그 값이면 이 검사는 아무것도 묻지 않습니다. 다른 값으로 물으세요.`
+  ).not.toBe(JSON.stringify(before));
+
+  return { before, after };
+}

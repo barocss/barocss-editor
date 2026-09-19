@@ -54,19 +54,93 @@ import { useCallback, useEffect, useRef, type RefObject } from 'react';
  * compounding it. Every round trip drifted, and a reader who zooms to look at something and back is
  * making round trips all day.
  *
- * The `ZoomControl`'s own buttons had it right — `z * 1.25` and `z / 1.25`, which *are* inverses and
- * do not round — so the suite already held the answer in one place and the wrong answer in another.
- * Now there is one, and it is a multiplier rather than a table of stops: a table needs a rule for
- * *where a zoom that is not on it goes next*, and a reader who typed 83% into the box is entitled to
- * step from 83%.
- *
  * 1.25 rather than 1.1, because a step a reader cannot see is a step they press again.
+ *
+ * ## And this is the **gesture's** answer, not the **button's**
+ *
+ * The paragraph that used to stand here argued the multiplier was the whole answer — *a table needs
+ * a rule for where a zoom that is not on it goes next, and a reader who typed 83% into the box is
+ * entitled to step from 83%*. Both halves of that are true and neither is an argument against a
+ * table: `stepZoom` below answers exactly that question (the first stop past 83% is 100%), and it
+ * was sitting in `office-slides/geometry.ts` with nine unit checks and no caller while this file's
+ * multiplier ran the ± buttons of two apps. The two comments contradicted each other across one
+ * package boundary and the check on each one passed.
+ *
+ * So the split is by **gesture**, which is what the difference actually is:
+ *
+ * | | what it wants |
+ * |---|---|
+ * | a wheel, a pinch, a drag | **continuous** — any factor, as often as the hand moves. A table would judder |
+ * | a ± button, ⌘+ / ⌘− | **discrete** — one press, one named stop. `stepZoom` |
+ *
+ * A reader turning a wheel is looking for a size. A reader pressing ＋ is asking for *the next size*,
+ * and the sizes have names: 50%, 100%, 200%. That is why a multiplier under a button walks a reader
+ * from 100% to 125% to 156% to 195% — three presses and not one round number among them.
  */
 export const ZOOM_STEP = 1.25;
 
-/** One step in, and one step out — an exact pair, which is the whole point. */
+/** One step in, and one step out — an exact pair, which is the whole point. Wheels and gestures. */
 export const zoomIn = (zoom: number) => zoom * ZOOM_STEP;
 export const zoomOut = (zoom: number) => zoom / ZOOM_STEP;
+
+/**
+ * **The stops a product offers, and how far it lets a reader go.**
+ *
+ * The table is the *product's* and stays there — `docs/specs/shared-layer.md`, table 2. Word runs
+ * 0.25–4 with stops at [0.5 … 2] because a page at 10% is unreadable; a deck runs 0.1–8 with stops
+ * at [0.25 … 4] because a deck at 10% is a contact sheet. Same name, different values, and neither
+ * is a default the other could live with — which is why this comes in as an argument rather than
+ * being declared here.
+ *
+ * What is shared is the **walk**: given where a reader is, which stop is next.
+ */
+export interface ZoomLadder {
+  /** The stops a reader reaches for by name, ascending. */
+  steps: readonly number[];
+  /** How far in and out this product goes. Not the ladder's ends — the ladder may stop short. */
+  min: number;
+  max: number;
+}
+
+/** Held inside the product's own limits. */
+export const clampZoom = (zoom: number, ladder: ZoomLadder): number =>
+  Math.min(ladder.max, Math.max(ladder.min, zoom));
+
+/**
+ * **A zoom that reads as 100% but is 1.0000000001 must still move when ＋ is pressed.**
+ *
+ * The field shows `Math.round(zoom * 100)`, so a zoom off a *fit* — a division by a measured pane —
+ * displays as a round number it is not exactly equal to. Without this, the first stop past
+ * 1.0000000001 is 1.5 going up (right) and 1.0 going down (wrong: the reader sees 100%, presses −,
+ * and reads 100%). The window is one part in a thousand of a zoom, which is a tenth of a percent —
+ * a tenth of the smallest change the field can display.
+ *
+ * It is a tolerance, so it is checked rather than explained: see `zoom-ladder.test.ts`, *a zoom a
+ * hair off a stop steps away from it in both directions*.
+ */
+const SAME_STOP = 0.001;
+
+/**
+ * The next stop up or down the ladder.
+ *
+ * **A ladder rather than a multiplier, so the steppers land on the round numbers a reader
+ * recognises** — 50%, 100%, 200% — instead of wherever repeated multiplication happens to put them.
+ * Written for `office-slides/geometry.ts`, which is where its nine unit checks still live, and moved
+ * here because the thing that runs the ± buttons is this package's.
+ *
+ * Off the ladder — a typed 83%, a fitted 19% — the next stop *past* where the reader is, which snaps
+ * them onto it in one press. Past either end of the table the multiplier takes over, so a reader who
+ * has zoomed beyond the last named stop still has somewhere to go, up to the product's own limit.
+ */
+export function stepZoom(zoom: number, direction: 1 | -1, ladder: ZoomLadder): number {
+  const steps = ladder.steps;
+  if (direction > 0) {
+    const next = steps.find((step) => step > zoom + SAME_STOP);
+    return clampZoom(next ?? zoom * ZOOM_STEP, ladder);
+  }
+  const previous = [...steps].reverse().find((step) => step < zoom - SAME_STOP);
+  return clampZoom(previous ?? zoom / ZOOM_STEP, ladder);
+}
 
 export interface Viewport {
   /** Where the plane's origin sits in the pane, in the pane's own pixels. */

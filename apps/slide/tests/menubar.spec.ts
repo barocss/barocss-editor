@@ -15,6 +15,28 @@ import { openDeck } from './helpers';
  */
 const bar = (page: Page) => page.locator('.sl-menubar');
 
+
+/**
+ * **The modifier this browser will print, asked of the browser rather than assumed.**
+ *
+ * These assertions hard-coded `⌘`, and they passed because `withHints` defaulted its `apple`
+ * argument to `true` — every menubar in every product printed Mac symbols to everybody. The default
+ * is gone and the product now asks `onApple()`, so a hard-coded `⌘` asserts the machine the test was
+ * written on.
+ *
+ * And the machine lies. Measured here, Playwright's default Chromium on macOS reports
+ * `userAgentData.platform === 'Windows'` while `navigator.platform` is still `'MacIntel'` — the two
+ * disagree, and `onApple()` believes the first because the second is deprecated and frozen. So the
+ * browser under test is a Windows one on a Mac, correctly prints `Ctrl`, and the assertion follows
+ * it there. On a Linux runner this would have been red from the day it was written.
+ */
+const mod = async (page: import('@playwright/test').Page): Promise<string> =>
+  page.evaluate(() => {
+    const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+    const name = nav.userAgentData?.platform ?? nav.platform ?? '';
+    return /mac|iphone|ipad/i.test(name) ? '\u2318' : 'Ctrl+';
+  });
+
 test.describe('the menubar', () => {
   test('stands beside the toolbar rather than instead of it', async ({ page }) => {
     await openDeck(page);
@@ -29,8 +51,9 @@ test.describe('the menubar', () => {
     await openDeck(page);
     await bar(page).locator('[data-menu="edit"]').click();
 
-    await expect(page.locator('[data-menu-item="edit.history.0"]')).toContainText('⌘Z');
-    await expect(page.locator('[data-menu-item="edit.slides.0"]')).toContainText('⌘M');
+    const key = await mod(page);
+    await expect(page.locator('[data-menu-item="edit.history.0"]')).toContainText(`${key}Z`);
+    await expect(page.locator('[data-menu-item="edit.slides.0"]')).toContainText(`${key}M`);
   });
 
   test('opens the deck’s own dialogs, which were three of the twelve buttons', async ({ page }) => {

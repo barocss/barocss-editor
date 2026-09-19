@@ -37,6 +37,7 @@ export function deleteRangeOperations(range: ModelSelection, editor?: Editor): u
     return control(range.startNodeId, [deleteTextRange(range.startOffset, range.endOffset)]) as never;
   }
 
+  const atoms = editor ? selectedInlineAtoms(editor, range) : [];
   return [
     deleteRange({
       startNodeId: range.startNodeId,
@@ -44,8 +45,26 @@ export function deleteRangeOperations(range: ModelSelection, editor?: Editor): u
       endNodeId: range.endNodeId,
       endOffset: range.endOffset
     }),
-    ...(editor ? joinAcross(editor, range) : [])
+    ...atoms.map(node => removeChild(node.parentId, node.sid)),
+    ...(editor ? joinAcross(editor, range, new Set(atoms.map(node => node.sid))) : [])
   ];
+}
+
+/** Text deletion leaves inline leaves such as emoji untouched. Remove only leaves strictly
+ * between the text endpoints, never their required title/body containers. */
+function selectedInlineAtoms(editor: Editor, range: ModelSelection): { sid: string; parentId: string }[] {
+  const store = editor.dataStore;
+  if (typeof store?.createRangeIterator !== 'function') return [];
+  const atoms: { sid: string; parentId: string }[] = [];
+  for (const sid of store.createRangeIterator(range.startNodeId, range.endNodeId, {
+    includeStart: false, includeEnd: false
+  })) {
+    const node = store.getNode(sid);
+    if (node?.parentId && typeof node.text !== 'string' && !node.content?.length && isInline(editor, node)) {
+      atoms.push({ sid, parentId: node.parentId });
+    }
+  }
+  return atoms;
 }
 
 /**
@@ -59,7 +78,7 @@ export function deleteRangeOperations(range: ModelSelection, editor?: Editor): u
  * what happens today; it is a smaller wrong than a guess about which container should survive, and
  * it is written down rather than silently attempted.
  */
-export function joinAcross(editor: Editor, range: ModelSelection): unknown[] {
+export function joinAcross(editor: Editor, range: ModelSelection, removed: ReadonlySet<string> = new Set()): unknown[] {
   /*
    * A host that cannot be walked gets the text and nothing else, which is what happened before this
    * existed. Guarded rather than assumed: a test with a mock store and a renderer-less environment
@@ -92,6 +111,10 @@ export function joinAcross(editor: Editor, range: ModelSelection): unknown[] {
   const first = blockOf(range.startNodeId);
   const last = blockOf(range.endNodeId);
   if (!first || !last || first === last) return [];
+  // Headers retain their role even when another body block would satisfy the parent schema.
+  const firstType = store.getNode(first)?.stype;
+  const lastType = store.getNode(last)?.stype;
+  if (firstType !== lastType && [firstType, lastType].some(type => type === 'calloutTitle' || type === 'bSummary')) return [];
 
   const parentId = store.getNode(first)?.parentId;
   if (!parentId || store.getNode(last)?.parentId !== parentId) return [];
@@ -101,13 +124,26 @@ export function joinAcross(editor: Editor, range: ModelSelection): unknown[] {
   const to = kids.indexOf(last);
   if (from < 0 || to < 0 || from >= to) return [];
 
+  // Some sibling blocks play different required roles: a disclosure's summary and body, for
+  // example. Removing the last body to join its text into the summary would invalidate the parent.
+  // Keep those structural boundaries while deleting the selected characters in the preceding op.
+  const schema = store.getActiveSchema?.();
+  const parent = store.getNode(parentId);
+  const firstNode = store.getNode(first);
+  const tail = ((store.getNode(last)?.content ?? []) as string[]).filter(id => !removed.has(id));
+  const held = ((firstNode?.content ?? []) as string[]).filter(id => !removed.has(id));
+  if (schema && parent && firstNode) {
+    const remaining = kids.filter((_id, index) => index <= from || index > to).map(id => store.getNode(id));
+    const joined = [...held, ...tail].map(id => store.getNode(id));
+    if (!schema.validateContent(parent.stype, remaining).valid ||
+        !schema.validateContent(firstNode.stype, joined).valid) return [];
+  }
+
   const ops: unknown[] = [];
   /* Every block wholly inside the range — its text is already gone, and so is its reason to exist. */
   for (let at = from + 1; at < to; at += 1) ops.push(removeChild(parentId, kids[at]));
 
   /* And what is left of the last block joins the first, at its end. */
-  const tail = (store.getNode(last)?.content ?? []) as string[];
-  const held = (store.getNode(first)?.content ?? []) as string[];
   if (tail.length > 0) ops.push(moveChildren(last, first, tail, held.length));
   ops.push(removeChild(parentId, last));
 

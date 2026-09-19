@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { dragGesture, pxToTwip, twipToPx } from '@barocss/shared';
-import { axisTicks, rulerStep, useWheelZoom, type LengthUnit } from '@barocss/office-ui';
+import { Button, axisTicks, scaledAxisStep, rulerStep, useWheelZoom, type LengthUnit } from '@barocss/office-ui';
 /*
  * 자기 배럴(`./index`)을 거치지 않는다 — 제 패키지를 제 이름으로 가져오면 순환의 씨앗이 된다.
  * 심볼이 사는 모듈에서 곧장 가져온다.
@@ -348,17 +348,6 @@ function makeFilter(
 }
 
 /**
- * How thick a ruler is, in CSS pixels.
- *
- * The same 18 the stylesheet gives `.sl-ruler`, and stated here because the *fit*
- * has to know: the rulers sit in the same grid as the slide, so the room the slide
- * has is the pane less this. Two places holding one number is a cost; the
- * alternative is measuring an element that does not exist until after the fit that
- * needs it.
- */
-const RULER_THICKNESS = 18;
-
-/**
  * One edge's worth of ruler.
  *
  * The ticks are `axisTicks`' answer and the placement is a multiplication: the
@@ -375,10 +364,13 @@ function SlideRuler({
   scale,
   unit,
   pointer,
+  origin,
   onDraft,
   onPlace
 }: {
   axis: 'x' | 'y';
+  /** Slide origin relative to the fixed viewport ruler, in screen pixels. */
+  origin: number;
   /** The slide's own length along this axis, in twips. */
   length: number;
   scale: number;
@@ -390,7 +382,7 @@ function SlideRuler({
   /** And where it was let go, if that is on the slide. */
   onPlace?: (at: number) => void;
 }) {
-  const ticks = useMemo(() => axisTicks(length, rulerStep(unit)), [length, unit]);
+  const ticks = useMemo(() => axisTicks(length, scaledAxisStep(rulerStep(unit), twipToPx(1) * scale)), [length, unit, scale]);
   const across = twipToPx(length) * scale;
   const host = useRef<HTMLDivElement>(null);
 
@@ -401,10 +393,8 @@ function SlideRuler({
    * already the thing that says *where*: pulling a line off it is the gesture
    * that means "here, from now on".
    *
-   * The position is measured from the ruler's own box, because the ruler is laid
-   * out along the slide's edge and starts where the slide starts — so its origin
-   * *is* the slide's origin along this axis, and no second opinion about where
-   * the slide is has to be formed.
+   * Subtract the slide origin from the viewport ruler coordinate before converting
+   * to document units. The strip stays fixed while the slide scrolls beneath it.
    *
    * Nothing is written until the pointer is let go. A guide the document learned
    * about on every pointer event would be forty entries of history for one
@@ -422,7 +412,7 @@ function SlideRuler({
 
           const along = (at: { clientX: number; clientY: number }) =>
             Math.round(
-              pxToTwip((axis === 'x' ? at.clientX - box.left : at.clientY - box.top) / scale)
+              pxToTwip((axis === 'x' ? at.clientX - box.left - origin : at.clientY - box.top - origin) / scale)
             );
 
           onDraft?.(along(pointer));
@@ -454,7 +444,6 @@ function SlideRuler({
       ref={host}
       className="sl-ruler"
       data-ruler={axis}
-      style={axis === 'x' ? { width: across } : { height: across }}
       onPointerDown={pull}
       /**
        * Not `aria-hidden` any more, now that it does something.
@@ -469,6 +458,8 @@ function SlideRuler({
       role="separator"
       aria-label={axis === 'x' ? '가로 눈금자 — 안내선을 끌어낼 수 있습니다' : '세로 눈금자 — 안내선을 끌어낼 수 있습니다'}
     >
+      <div className="sl-ruler-scale" style={axis === 'x'
+        ? { left: origin, width: across } : { top: origin, height: across }}>
       {ticks.map((tick) => {
         const at = twipToPx(tick.at) * scale;
         return (
@@ -499,6 +490,7 @@ function SlideRuler({
           }
         />
       )}
+      </div>
     </div>
   );
 }
@@ -517,6 +509,11 @@ export interface StageProps {
   frame?: React.RefObject<HTMLDivElement | null>;
   /** The slide to show alone, or nothing to show the deck as a strip. */
   focus?: string;
+  boards?: Array<{ sid: string; label: string; x: number; y: number; width: number; height: number }>;
+  activeSlide?: string;
+  onActivateSlide?: (sid: string) => void;
+  onMoveSlide?: (sid: string, x: number, y: number) => void;
+
   arrival?: TransitionFrom;
   builds?: {
     hidden: string[];
@@ -643,7 +640,7 @@ export function Stage({
   host,
   /** `.sl-stage` 를 밖으로 — 형제가 이 상자를 재고 여기에 듣는다. */
   frame: frameRef,
-  focus,
+  focus, boards, activeSlide, onActivateSlide, onMoveSlide,
   /** How the focused slide arrives, when the deck says it arrives with something. */
   arrival,
   /** What is not on the slide yet, and what this press has just brought on. */
@@ -707,6 +704,50 @@ export function Stage({
   /** The box to fit, with 16:9 as the answer for a caller that has not said. */
   const fitTo = fit ?? SLIDE_16_9;
   const [scale, setScale] = useState(1);
+  const freeBoard = !!boards?.length && !focus && !fill;
+  const [camera, setCamera] = useState({ x: 32, y: 56 });
+  const [boardDraft, setBoardDraft] = useState<{ sid: string; x: number; y: number } | null>(null);
+  useLayoutEffect(() => {
+    frame.current?.dispatchEvent(new Event('slides:viewport-change'));
+  }, [camera, boardDraft, scale]);
+  const zoomAnchor = useRef<{ x: number; y: number } | null>(null);
+  const previousScale = useRef(1);
+  const boardBounds = useMemo(() => {
+    const list = boards ?? [];
+    const left = Math.min(0, ...list.map(one => one.x));
+    const top = Math.min(0, ...list.map(one => one.y));
+    return { left, top, width: Math.max(1280, ...list.map(one => one.x + one.width)) - left,
+      height: Math.max(720, ...list.map(one => one.y + one.height)) - top };
+  }, [boards]);
+  useLayoutEffect(() => {
+    const old = previousScale.current;
+    previousScale.current = scale;
+    if (!freeBoard) return;
+    if (zoom === undefined) {
+      setCamera({ x: 32 - boardBounds.left * scale, y: 56 - boardBounds.top * scale });
+    } else if (old !== scale) {
+      const pane = frame.current;
+      const anchor = zoomAnchor.current ?? { x: (pane?.clientWidth ?? 0) / 2, y: (pane?.clientHeight ?? 0) / 2 };
+      setCamera(was => ({ x: anchor.x - (anchor.x - was.x) * scale / old,
+        y: anchor.y - (anchor.y - was.y) * scale / old }));
+    }
+    zoomAnchor.current = null;
+  }, [freeBoard, scale, zoom, boardBounds.left, boardBounds.top]);
+  useEffect(() => {
+    if (!freeBoard) return;
+    const wheel = (event: WheelEvent) => {
+      const pane = frame.current?.getBoundingClientRect();
+      if (!pane || event.clientX < pane.left || event.clientX > pane.right || event.clientY < pane.top || event.clientY > pane.bottom) return;
+      event.preventDefault();
+      if (event.ctrlKey || event.metaKey) {
+        zoomAnchor.current = { x: event.clientX - pane.left, y: event.clientY - pane.top };
+        onZoom?.(Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, scale * Math.exp(-event.deltaY * 0.002))));
+      } else setCamera(was => ({ x: was.x - event.deltaX, y: was.y - event.deltaY }));
+    };
+    window.addEventListener('wheel', wheel, { passive: false });
+    return () => window.removeEventListener('wheel', wheel);
+  }, [freeBoard, scale, onZoom]);
+
   /**
    * Where the pointer is on the slide, in the model's own unit.
    *
@@ -768,6 +809,28 @@ export function Stage({
   }, [ruler, scale]);
 
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  const [rulerOrigin, setRulerOrigin] = useState({ x: 0, y: 0 });
+  useLayoutEffect(() => {
+    const pane = frame.current;
+    const content = inner.current;
+    if (!ruler || !pane || !content) return;
+    const measureOrigin = () => {
+      const viewport = pane.getBoundingClientRect();
+      const slide = content.getBoundingClientRect();
+      const next = { x: slide.left - viewport.left, y: slide.top - viewport.top };
+      setRulerOrigin(previous => previous.x === next.x && previous.y === next.y ? previous : next);
+    };
+    measureOrigin();
+    const observer = new ResizeObserver(measureOrigin);
+    observer.observe(pane);
+    observer.observe(content);
+    pane.addEventListener('scroll', measureOrigin, { passive: true });
+    return () => {
+      observer.disconnect();
+      pane.removeEventListener('scroll', measureOrigin);
+    };
+  }, [ruler, scale, size?.width, size?.height, focus]);
+
 
   useLayoutEffect(() => {
     const box = frame.current;
@@ -776,33 +839,16 @@ export function Stage({
 
     const measure = () => {
       const style = getComputedStyle(box);
-      /**
-       * The room, less the rulers.
-       *
-       * They are in the same grid as the slide — a column and a row of their own —
-       * so the room the *slide* has is the pane less their thickness. It did not
-       * subtract them, and the arithmetic came out exactly 18px over: the slide
-       * was fitted to the whole pane, the ruler column was added beside it, and
-       * the grid overflowed by one ruler.
-       *
-       * Which showed up nowhere until the ruler became something to click.
-       * `justify-content: center` centres tracks that overflow, so the whole grid
-       * sat 9px to the left — putting the right half of the vertical ruler *under
-       * the slide's overlay*, where a pointer could not reach it. Measured: the
-       * ruler at 240–258 and the slide starting at 249.
-       */
-      const gutter = ruler ? RULER_THICKNESS : 0;
+      // The scroll pane excludes the fixed ruler strips.
       const room = {
         width:
           box.clientWidth -
           (parseFloat(style.paddingLeft) || 0) -
-          (parseFloat(style.paddingRight) || 0) -
-          gutter,
+          (parseFloat(style.paddingRight) || 0),
         height:
           box.clientHeight -
           (parseFloat(style.paddingTop) || 0) -
-          (parseFloat(style.paddingBottom) || 0) -
-          gutter
+          (parseFloat(style.paddingBottom) || 0)
       };
 
       /**
@@ -813,8 +859,8 @@ export function Stage({
       const drawn =
         zoom ??
         fitScale(
-          fitTo,
-          focus ? room : { width: room.width, height: Number.MAX_SAFE_INTEGER },
+          freeBoard ? { width: pxToTwip(boardBounds.width), height: pxToTwip(boardBounds.height) } : fitTo,
+          freeBoard ? { width: room.width - 48, height: room.height - 64 } : focus ? room : { width: room.width, height: Number.MAX_SAFE_INTEGER },
           fill ? { max: Infinity } : {}
         );
       setScale(drawn);
@@ -836,7 +882,7 @@ export function Stage({
     return () => observer.disconnect();
     // `fitTo` as well: opening a definition changes the box to fit, and nothing else about the
     // stage changes size — so without it the card kept the slide's scale.
-  }, [focus, zoom, fill, onScale, fitTo.width, fitTo.height]);
+  }, [focus, zoom, fill, onScale, fitTo.width, fitTo.height, freeBoard, boardBounds.width, boardBounds.height]);
 
   /**
    * Zooming with the wheel, anchored to the pointer.
@@ -852,7 +898,7 @@ export function Stage({
    * slide as drawn, not the scaled container that holds the whole deck.
    */
   useWheelZoom({
-    pane: frame,
+    pane: freeBoard ? { current: null } : frame,
     content: () => drawnSlide(),
     zoom: scale,
     onZoom: (next) => onZoom?.(next),
@@ -1525,6 +1571,26 @@ export function Stage({
     };
   }, []);
 
+  useEffect(() => {
+    if (!freeBoard) return;
+    const down = (event: PointerEvent) => {
+      const pane = frame.current?.getBoundingClientRect();
+      if (!pane || event.clientX < pane.left || event.clientX > pane.right || event.clientY < pane.top || event.clientY > pane.bottom) return;
+      if (zoom === undefined) onZoom?.(scale);
+      if (!spacebar && event.button !== 1) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const origin = { ...camera };
+      void dragGesture(event, {
+        start: pointer => ({ x: pointer.clientX, y: pointer.clientY }),
+        move: (held, moved) => setCamera({ x: origin.x + moved.x - held.x, y: origin.y + moved.y - held.y }),
+        done: () => undefined
+      }, { primaryOnly: false });
+    };
+    window.addEventListener('pointerdown', down, true);
+    return () => window.removeEventListener('pointerdown', down, true);
+  }, [freeBoard, spacebar, camera, zoom, onZoom, scale]);
+
   const onPanDown = useCallback(
     (event: React.PointerEvent) => {
       // Space-drag, or the middle button, which is the other thing readers try.
@@ -1538,20 +1604,24 @@ export function Stage({
       panning.current = {
         x: event.clientX,
         y: event.clientY,
-        left: pane.scrollLeft,
-        top: pane.scrollTop
+        left: freeBoard ? -camera.x : pane.scrollLeft,
+        top: freeBoard ? -camera.y : pane.scrollTop
       };
     },
-    [spacebar]
+    [spacebar, freeBoard, camera]
   );
 
   const onPanMove = useCallback((event: React.PointerEvent) => {
     const held = panning.current;
     const pane = frame.current;
     if (!held || !pane) return;
+    if (freeBoard) {
+      setCamera({ x: -held.left + event.clientX - held.x, y: -held.top + event.clientY - held.y });
+      return;
+    }
     pane.scrollLeft = held.left - (event.clientX - held.x);
     pane.scrollTop = held.top - (event.clientY - held.y);
-  }, []);
+  }, [freeBoard]);
 
   const onPanUp = useCallback((event: React.PointerEvent) => {
     if (!panning.current) return;
@@ -1560,10 +1630,38 @@ export function Stage({
   }, []);
 
   return (
+    <div className="sl-stage-viewport" data-rulers={ruler ? 'true' : undefined}>
+      {ruler && (
+        <>
+          <div className="sl-ruler-corner" aria-hidden />
+          <SlideRuler
+            axis="x"
+            origin={rulerOrigin.x}
+            length={fitTo.width}
+            scale={scale}
+            unit={unit!}
+            pointer={pointer?.x}
+            onDraft={(at) => onGuideDraft?.(at === undefined ? undefined : { axis: 'x', at })}
+            onPlace={(at) => onGuidePlace?.({ axis: 'x', at })}
+          />
+          <SlideRuler
+            axis="y"
+            origin={rulerOrigin.y}
+            length={fitTo.height}
+            scale={scale}
+            unit={unit!}
+            pointer={pointer?.y}
+            onDraft={(at) => onGuideDraft?.(at === undefined ? undefined : { axis: 'y', at })}
+            onPlace={(at) => onGuidePlace?.({ axis: 'y', at })}
+          />
+        </>
+      )}
+
     <div
       className="sl-stage"
       ref={frame}
       data-focus={focus ?? ''}
+      data-freeboard={freeBoard ? 'true' : undefined}
       data-panning={spacebar ? 'true' : undefined}
       onPointerDownCapture={onPanDown}
       onPointerMove={onPanMove}
@@ -1638,47 +1736,36 @@ export function Stage({
         }</style>
       )}
 
-      {/*
-        * The rulers, along the top and the left of the deck.
-        *
-        * Drawn as siblings of the frame in a two-by-two grid rather than
-        * positioned by measurement, so they line up with the slide **by
-        * construction**: the same column is the same width, and there is nothing
-        * to keep in step when the scale changes.
-        *
-        * Only for one slide at a time. In 전체 보기 the pane holds a strip of every
-        * slide, and a ruler over that would be measuring from the top of the deck
-        * — a number that means nothing about any of them. And never while
-        * presenting, where an audience is looking.
-        */}
-      {ruler && (
-        <>
-          <div className="sl-ruler-corner" aria-hidden />
-          <SlideRuler
-            axis="x"
-            length={fitTo.width}
-            scale={scale}
-            unit={unit!}
-            pointer={pointer?.x}
-            onDraft={(at) => onGuideDraft?.(at === undefined ? undefined : { axis: 'x', at })}
-            onPlace={(at) => onGuidePlace?.({ axis: 'x', at })}
-          />
-          <SlideRuler
-            axis="y"
-            length={fitTo.height}
-            scale={scale}
-            unit={unit!}
-            pointer={pointer?.y}
-            onDraft={(at) => onGuideDraft?.(at === undefined ? undefined : { axis: 'y', at })}
-            onPlace={(at) => onGuidePlace?.({ axis: 'y', at })}
-          />
-        </>
-      )}
-
+      {freeBoard && <>
+        <div className="sl-canvas-help">제목 드래그 · 배치 이동　|　Space + 드래그 · 화면 이동</div>
+        <style>{boards!.map(one => {
+          const at = boardDraft?.sid === one.sid ? boardDraft : one;
+          return `.sl-stage[data-freeboard="true"] .sl-slide[data-bc-sid="${one.sid}"] { position:absolute !important; left:${at.x}px; top:${at.y}px; }`;
+        }).join('\n')}</style>
+        <div className="sl-board-labels" style={{ transform: `translate(${camera.x}px, ${camera.y}px)` }}>
+          {boards!.map(one => {
+            const at = boardDraft?.sid === one.sid ? boardDraft : one;
+            return <Button key={one.sid} data={{ 'board-label': one.sid, active: activeSlide === one.sid ? 'true' : undefined }}
+              title="제목을 끌어 슬라이드 배치 이동"
+              onClick={() => onActivateSlide?.(one.sid)}
+              style={{ left: at.x * scale, top: at.y * scale - 30, maxWidth: one.width * scale }}
+              onPointerDown={event => {
+                onActivateSlide?.(one.sid);
+                onZoom?.(scale);
+                void dragGesture(event, {
+                  start: pointer => ({ x: pointer.clientX, y: pointer.clientY }),
+                  move: (held, moved) => setBoardDraft({ sid: one.sid, x: one.x + (moved.x - held.x) / scale, y: one.y + (moved.y - held.y) / scale }),
+                  done: (held, moved) => { setBoardDraft(null); onMoveSlide?.(one.sid, one.x + (moved.x - held.x) / scale, one.y + (moved.y - held.y) / scale); },
+                  abort: () => setBoardDraft(null)
+                });
+              }}>{one.label}</Button>;
+          })}
+        </div>
+      </>}
       <div
         className="sl-stage-frame"
         style={
-          size
+          freeBoard ? { width: 1, height: 1, transform: `translate(${camera.x}px, ${camera.y}px)` } : size
             ? { width: size.width * scale, height: size.height * scale }
             : { width: twipToPx(SLIDE_16_9.width) * scale }
         }
@@ -1692,6 +1779,7 @@ export function Stage({
           <div ref={host} className="sl-host" />
         </div>
       </div>
+    </div>
     </div>
   );
 }

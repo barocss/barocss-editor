@@ -1,11 +1,20 @@
-import { SlashMenu, useDocumentRevision, useEditorRevision } from '@barocss/office-editor-ui';
+import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, ProductMenu, CommandSearch, CommandSearchTrigger, RibbonGroup, Button, TaskStatus, TaskStatusRegion, type TaskPhase } from '@barocss/office-ui';
+import {
+  FileActions,
+  captureTextSelection,
+  LocalDocuments,
+  useLocalDocuments,
+  SlashMenu,
+  useDocumentRevision,
+  useEditorRevision,
+  type DocumentFileActions
+} from '@barocss/office-editor-ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Editor } from '@barocss/editor-core';
+import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import {
   Icon,
-  AppBody,
   AppChrome,
   AppMain,
   AppShell,
@@ -13,6 +22,7 @@ import {
   IconButton,
   fieldKeeps,
   ZoomControl,
+  onApple,
   useViewport,
   zoomIn,
   zoomOut,
@@ -28,7 +38,13 @@ import {
   drawnSidAtElement,
   outermostOf,
   siteKeyFor,
+  createStarterSite,
+  readSiteFile,
+  siteSessionOptions,
+  siteFileName,
+  siteFileText,
   siteMenuEntry,
+  siteTitle,
   siteMenuId,
   definitionOf,
   editorStateCss,
@@ -40,6 +56,7 @@ import {
   setRowPreview,
   typeRule,
   zipOf,
+  SITE_ZOOM_LADDER,
   type BreakpointId,
   type StateId
 } from '@barocss/office-site';
@@ -58,7 +75,7 @@ import {
   type Panel as RailPanel
 } from '@barocss/office-site/ui';
 
-import { DataTable, RowForm } from './data-editor';
+import { DataTable, RowForm, type RegisterBodyFlush } from './data-editor';
 import { CodeEditor, type CodeEdit } from './code-editor';
 
 import { Ribbon } from './ribbon';
@@ -95,11 +112,8 @@ function save(name: string, text: string, type: string): void {
   const link = document.createElement('a');
   link.href = url;
   link.download = name;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  // Released on the next turn of the loop: revoking it synchronously races the download in Safari.
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  try { document.body.append(link); link.click(); }
+  finally { link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 }
 
 /**
@@ -118,10 +132,8 @@ function saveArchive(name: string, bytes: Uint8Array): void {
   const link = document.createElement('a');
   link.href = url;
   link.download = name;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  try { document.body.append(link); link.click(); }
+  finally { link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 }
 
 /**
@@ -514,7 +526,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     return definitionOf({ rootId, getNode: (sid: string) => store.getNode(sid) }, editing);
   }, [editor, editing, revision]);
 
-  const page = current ?? pages[0]?.sid;
+  const page = pages.some(one => one.sid === current) ? current : pages[0]?.sid;
   /**
    * What the boards draw: a page, or the definition's part.
    *
@@ -605,7 +617,11 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * are about one from their first entry to their last — twelve, eight and nine entries that could
    * never be enabled over a table of pages. See `siteMenusIn`.
    */
-  const menus = useMemo(() => siteMenusIn(admin ? 'admin' : 'page', widths), [admin, widths]);
+  // 화음은 독자의 알파벳으로 — `onApple()` 이 그 하나뿐인 사실을 답한다.
+  const menus = useMemo(
+    () => siteMenusIn(admin ? 'admin' : 'page', widths, onApple()),
+    [admin, widths]
+  );
 
   /**
    * **What the surfaces are handed** — the editor, or the one a writer gets.
@@ -669,7 +685,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     // And **`menus` itself**, which was missing: the model changes when the reader moves between
     // 관리 and a page, and a memo that does not list it went on drawing the bar for the place they
     // left. Measured — going in from 관리 kept the two-menu bar.
-    [menus, given, editor, revision, answers, page, preview, shown, writing]
+    [menus, given, editor, revision, answers, root, page, preview, shown, writing]
   );
 
   /**
@@ -679,6 +695,59 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * command has to mean something to *somebody*, and the app is the only layer that knows how many
    * boards are on screen.
    */
+  /**
+   * **문서를 파일로 여닫는 세 몸짓** — 이 앱이 오늘까지 못 하던 것.
+   *
+   * 부팅에 샘플을 싣고 그것이 전부였다. 내보내기는 *방문자가 볼 것을 달라* 였고, *만들던 것을
+   * 지켜라* 는 없었다. 하는 일은 `office-editor-ui` 의 것이고 여기서 대는 것은 사이트의 넷이다.
+   *
+   * `starter` 는 `office-site` 의 `createStarterSite` 다. 빈 사이트가 무엇인지는 크롬이 아니라
+   * **문서에 대한 사실**이라 패키지가 답한다 — Word 가 `createStarterDocument` 로 답한 것과 같다.
+   */
+  const files = useRef<DocumentFileActions>(null);
+  const bodyFlushes = useRef(new Set<() => Promise<void>>());
+  const registerBodyFlush = useCallback<RegisterBodyFlush>((flush) => {
+    bodyFlushes.current.add(flush);
+    return () => { bodyFlushes.current.delete(flush); };
+  }, []);
+  const flushBodies = useCallback(async () => {
+    for (const flush of [...bodyFlushes.current].reverse()) await flush();
+  }, []);
+  const sessionOptions = useMemo(() => editor ? siteSessionOptions(editor, flushBodies) : null, [editor, flushBodies]);
+  const persistence = useLocalDocuments(sessionOptions);
+  useEffect(() => {
+    const pending = (event: Event) => {
+      if ((event.target as Element | null)?.closest?.('[contenteditable="true"]')) persistence.session.current?.input();
+    };
+    document.addEventListener('input', pending, true);
+    document.addEventListener('beforeinput', pending, true);
+    return () => {
+      document.removeEventListener('input', pending, true);
+      document.removeEventListener('beforeinput', pending, true);
+    };
+  }, [persistence.session]);
+  const [exportTask, setExportTask] = useState<{ phase: TaskPhase; title: string; description: string }>();
+  const [exportRetry, setExportRetry] = useState<() => void>();
+  const exportBusy = useRef(false);
+  const exportEditor = useRef(editor);
+  exportEditor.current = editor;
+  const documentOpened = useCallback(() => {
+    setCurrent(undefined); setEditing(undefined); setDataset(undefined);
+    setRow(undefined); setRowOpen(undefined); setAdmin('pages');
+  }, []);
+  const fileKind = useMemo(
+    () => ({
+      session: 'site',
+      text: siteFileText,
+      read: readSiteFile,
+      fileName: (ed: Editor) => siteFileName(siteTitle(ed.dataStore as never)),
+      starter: createStarterSite,
+      ariaLabel: '사이트 파일',
+      prefix: 'st'
+    }),
+    []
+  );
+
   const runEntry = useCallback(
     (entry: { command?: string; view?: string; payload?: Record<string, unknown>; needs?: string }) => {
       /*
@@ -704,6 +773,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         return setHidden([...hidden, which]);
       }
       switch (entry.view) {
+        case 'file.new':
+          return files.current?.create();
+        case 'file.open':
+          return files.current?.open();
+        case 'file.save':
+          return files.current?.save();
         case 'frames.all':
           return setHidden([]);
         case 'preview':
@@ -748,46 +823,85 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
       // Publishing hands back what to write; what a *file* is, is the app's question. See `download`.
       if (entry.command === 'exportPage' || entry.command === 'exportSite') {
-        void editor?.executeCommand(entry.command, {
-          ...payload,
-          write: ({
-            pages,
-            files
-          }: {
-            pages: { path: string; file: string; name: string; html: string }[];
-            files?: { file: string; text?: string; bytes?: string; type: string }[];
-          }) => {
-            /**
-             * **The whole site as one archive**, and one page as one file.
-             *
-             * Loose downloads were the shape until two things ended it on the same day: a picture is
-             * written to `assets/로고.png`, and a browser cannot be handed a folder; and a link
-             * resolves to a page's *address* — `/제품` — so the file has to be `제품/index.html` or
-             * every link on the published site is broken. Both need a tree, and a zip is the only
-             * shape a browser will take one in.
-             *
-             * `zipOf` does the arithmetic and this does the only part that needs a browser, which is
-             * handing the bytes over — the same line `publish` has always drawn about what a file is.
-             */
-            if (entry.command === 'exportPage') {
-              pages.forEach(download);
-              return;
-            }
-
-            const site = zipOf([
-              ...pages.map((one) => ({ file: one.file, text: one.html })),
-              ...(files ?? [])
-            ]);
-            saveArchive(nameOfSite(pages), site);
-          }
-        } as never);
+        const exportRoot = editor?.getRootId();
+        const executeExport = async () => {
+          if (!editor || exportBusy.current) return;
+          exportBusy.current = true;
+          setExportTask({ phase: 'running', title: '사이트 출력 준비 중', description: '마지막 입력을 반영하고 파일을 만듭니다.' });
+          setExportRetry(undefined);
+          try {
+            const guard = () => { if (exportEditor.current !== editor || editor.getRootId() !== exportRoot) throw new Error('문서가 변경되었습니다. 현재 문서의 파일 메뉴에서 다시 내보내세요.'); };
+            guard();
+            await flushBodies();
+            await new Promise<void>(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+            guard();
+            let downloaded = '';
+            const ok = await editor.executeCommand(entry.command!, {
+              ...payload,
+              write: ({ pages, files }: {
+                pages: { path: string; file: string; name: string; html: string }[];
+                files?: { file: string; text?: string; bytes?: string; type: string }[];
+              }) => {
+                guard();
+                if (!pages.length) throw new Error('출력할 페이지가 없습니다.');
+                if (entry.command === 'exportPage') {
+                  pages.forEach(download); downloaded = `${pages.length}개 HTML 파일`;
+                } else {
+                  const site = zipOf([...pages.map(one => ({ file: one.file, text: one.html })), ...(files ?? [])]);
+                  downloaded = nameOfSite(pages); saveArchive(downloaded, site);
+                }
+              }
+            } as never);
+            if (!ok || !downloaded) throw new Error('사이트를 내보내지 못했습니다. 다시 시도하세요.');
+            setExportTask({ phase: 'success', title: '사이트 다운로드 요청됨', description: `${downloaded} · 완료 여부는 브라우저 다운로드 목록에서 확인하세요.` });
+          } catch (error) {
+            setExportTask({ phase: 'error', title: '사이트 출력 실패', description: error instanceof Error ? error.message : '사이트를 내보내지 못했습니다. 다시 시도하세요.' });
+            if (exportEditor.current === editor && editor.getRootId() === exportRoot) setExportRetry(() => () => void executeExport());
+          } finally { exportBusy.current = false; }
+        };
+        void executeExport();
         return;
       }
 
-      void editor?.executeCommand(entry.command, payload as never);
+      return editor?.executeCommand(entry.command, payload as never);
     },
-    [editor, page, controls, view.zoom, plane, shown]
+    [editor, page, root, writing, hidden, widths, controls, view.zoom, plane, shown, flushBodies]
   );
+
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandError, setCommandError] = useState('');
+  const [recentCommands, setRecentCommands] = useState<string[]>([]);
+  const searchTarget = useRef<{ documentId: string; root?: string; page?: string; admin: typeof admin; writing: boolean; selection?: ModelSelection } | undefined>(undefined);
+  const searchEntries = menus.flatMap(menu => menu.blocks.flatMap(block => block.items.map((entry, index) => ({
+    ...entry, id: siteMenuId(menu, block, index), category: menu.label, keywords: entry.command ?? entry.view
+  }))));
+  const menuItems = bar.flatMap(menu => menu.blocks.flatMap(block => block.items));
+  const searchCommands = searchEntries.map(entry => ({ ...entry,
+    disabled: menuItems.find(item => item.id === entry.id)?.disabled,
+    disabledReason: writing ? '글 고치기 모드 또는 현재 선택에서는 실행할 수 없습니다.' : '현재 페이지 또는 선택한 객체에서는 실행할 수 없습니다.'
+  }));
+  const openCommandSearch = () => {
+    const documentId = editor?.getRootId();
+    if (!editor || !instance || !documentId) return;
+    searchTarget.current = { documentId, root, page, admin, writing,
+      selection: structuredClone(captureTextSelection(editor, instance.view, { allowBlurred: true }) ?? editor.selection ?? undefined) };
+    setCommandError(''); setCommandOpen(true);
+  };
+  const pickSearchCommand = async (id: string) => {
+    const target = searchTarget.current, entry = searchEntries.find(item => item.id === id);
+    if (!editor || !target || !entry) return;
+    if (editor.getRootId() !== target.documentId || root !== target.root || page !== target.page || admin !== target.admin || writing !== target.writing) {
+      setCommandError('문서 또는 편집 화면이 변경되었습니다. 명령을 다시 선택하세요.'); return;
+    }
+    try {
+      if (target.selection) editor.updateSelection({ selection: target.selection, applySelectionToView: true });
+      if (entry.command && !given?.canExecuteCommand(entry.command, payloadFor(entry, root, page) as never)) {
+        setCommandError('현재 선택에서 명령을 실행할 수 없습니다.'); return;
+      }
+      if (await runEntry(entry) === false) { setCommandError('명령을 실행하지 못했습니다. 다시 시도하세요.'); return; }
+      setRecentCommands(previous => [id, ...previous.filter(value => value !== id)].slice(0, 5));
+    } catch { setCommandError('명령을 실행하지 못했습니다. 다시 시도하세요.'); }
+  };
 
   /**
    * A pick in the menubar, which is `runEntry` with the entry looked up.
@@ -987,6 +1101,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     const elsewhere = (event: KeyboardEvent) => {
       const at = document.activeElement as HTMLElement | null;
       if (!at) return false;
+      if (at.tagName === 'TEXTAREA') return true;
       if (at.tagName === 'INPUT' || at.tagName === 'TEXTAREA') {
         /**
          * **A field keeps the keys it has a meaning for, and no others.**
@@ -1008,6 +1123,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     };
 
     const leave = (event: KeyboardEvent) => {
+      if ((event.target as Element | null)?.closest?.('[role="dialog"]')) return;
       if (!root) return;
       /*
        * Preview first, and without asking whether the reader is typing — in preview they are not,
@@ -1019,6 +1135,11 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         event.preventDefault();
         setPreview(false);
         return;
+      }
+      const saving = siteKeyFor(event, mode);
+      // File saving belongs to the whole document, including an open embedded body editor.
+      if (saving?.view === 'file.save' && !event.defaultPrevented) {
+        event.preventDefault(); runEntry(saving); return;
       }
       if (elsewhere(event)) return;
 
@@ -1205,7 +1326,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
        * A press on the grey around the boards selects nothing, which is what pressing nothing has
        * always meant here.
        */
-      const block = hit ? outermostOf(doc as never, hit, scopeRoot) : undefined;
+      const block = hit && scopeRoot ? outermostOf(doc as never, hit, scopeRoot) : undefined;
       void editor.executeCommand('setNode', { nodeIds: block ? [block] : [] });
     };
 
@@ -1287,6 +1408,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
   return (
     <AppShell className="st-shell">
+      <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPick={id => void pickSearchCommand(id)} />
+      {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={() => setCommandError('')} /></TaskStatusRegion>}
       {/*
         Two rows, which is what both other products settled on and for the same reason: **what
         document am I in** and **what can I do to it** are different questions, and a reader who has
@@ -1296,39 +1419,54 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         is the tools.
       */}
       <AppChrome className="st-chrome">
-        <div className="st-titlebar">
-          <span className="st-brand">Barocss Site</span>
+        <EditorHeader product="Site" className="st-documentbar"
+          fallbackNavigation={<ProductMenu product="Site" blocks={bar.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
+          view={editor && !admin ? <>
+            <IconButton
+              label={writing ? '모든 편집으로 돌아갑니다' : '글만 고칩니다 — 배치는 잠깁니다'}
+              /* `IconButton` passes arbitrary attributes through `data`, not as loose props. */
+              data={{ 'writing-toggle': writing ? 'true' : undefined }}
+              pressed={writing}
+              onClick={() => setWriting((one) => !one)}
+            >
+              <Icon name="paragraph" />
+            </IconButton>
+            <IconButton
+              label={wireframe ? '색을 되돌립니다' : '색을 빼고 구조만 봅니다'}
+              data={{ 'wireframe-toggle': wireframe ? 'true' : undefined }}
+              pressed={wireframe}
+              onClick={() => setWireframe((one) => !one)}
+            >
+              <Icon name="outline" />
+            </IconButton>
+            <Button
+              className="st-preview-toggle"
+              data-preview={preview ? 'true' : undefined}
+              pressed={preview}
+              title={preview ? '편집으로 돌아갑니다 (Esc)' : '방문자가 보는 대로 봅니다'}
+              onClick={() => setPreview((one) => !one)}
+            >
+              {preview ? '편집' : '미리보기'}
+            </Button>
+            <ZoomControl
+              zoom={zoom}
+              ladder={SITE_ZOOM_LADDER}
+              onChange={(next) => controls.zoomAt(next)}
+              onFit={onFit}
+              fitLabel="맞춤"
+            /></> : undefined}
+          title={editor ? siteTitle(editor.dataStore as never) || '제목 없는 사이트' : '불러오는 중'}
+          menus={<MenuBar className="st-menubar" label="사이트 메뉴" menus={bar} onPick={onMenu} />}
+          actions={<><CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} /><LocalDocuments persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} />
+          {editor ? <FileActions ref={files} editor={editor} kind={fileKind} beforeSave={flushBodies} beforeReplace={persistence.beforeReplace} onOpened={documentOpened} /> : null}
+          {exportTask && <TaskStatusRegion label="사이트 출력 상태"><TaskStatus title={exportTask.title} phase={exportTask.phase} description={exportTask.description}
+            onDismiss={() => { setExportTask(undefined); setExportRetry(undefined); }}
+            actions={exportTask.phase === 'error' && exportRetry ? <Button onClick={exportRetry}>다시 시도</Button> : undefined} /></TaskStatusRegion>}
 
-          {/*
-            The **menubar** — what acts on the document and the application.
+        </>} />
+        {!admin && <div className="st-titlebar">
 
-            The division is the whole point and it is not a convention being followed: a menubar
-            holds what a reader does *occasionally* and needs to **find**, and a toolbar holds what
-            they do constantly and need to **reach**. One strip cannot be both without becoming the
-            wall of glyphs Word's second row is.
-
-            It arrived carrying the gesture this product is for: `exportSite` rendered every page of
-            a site for weeks and was reachable from `window.exportSite` — put there for the console
-            and for tests — and from nothing a reader could press.
-          */}
-          <MenuBar
-            className="st-menubar"
-            label="사이트 메뉴"
-            menus={bar}
-            onPick={onMenu}
-          />
-
-          {/*
-            **The tools, on the same row as the menu.**
-
-            They were a second row, and counted: six buttons across 1600 pixels, four of them greyed
-            with nothing selected. A full-width strip is what a *ribbon* is — Word's carries 69
-            controls and needs the width — and this is not one: it is a mode switch and four things
-            you can do to what is held, which is Figma's toolbar and belongs where Figma's is.
-
-            42 pixels of canvas back, and the row that is left says what every design tool's top row
-            says: who you are, what the document can do, what the pointer is, and how you are looking.
-          */}
+          {/* Editing tools have their own row so document controls remain readable at laptop widths. */}
           {/**
             * **Not in 관리**, which is a correctness fault and not only a busy one.
             *
@@ -1355,8 +1493,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                 if (!open) setAddAt(null);
               }}
               place={addAt}
-            />
-          ) : null}
+            >
+          <RibbonGroup id="page-navigation" label="현재 페이지" layout="stack">
 
           {/*
             Which page is being edited, said rather than chosen.
@@ -1458,60 +1596,14 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             * that are not drawn. A management screen under a zoom that scales nothing is the same
             * fault as one under an alignment glyph that aligns nothing.
             */}
-          <div className="st-titlebar-end">{admin ? null : (<>
-            {/*
-              The one control that changes what the boards *are* rather than what they show. Beside
-              the zoom because both are about how the reader is looking, not about the document.
-            */}
-            {/*
-              **와이어프레임 beside 미리보기**, because they are the same kind of thing said two ways:
-              what a visitor gets, and what a visitor is being asked to look at. Asked for as *와이어
-              프레임 모드도 toolbar 에 있어도 좋겠고* — and this is where it belongs rather than on the
-              block strip, which acts on **what is selected**. A view acts on the reader.
+          </RibbonGroup>
 
-              An icon rather than a word, because the strip is short and the two of them side by side
-              as words would read as a pair of choices about the document.
-            */}
-            {/*
-              **글 고치기**, beside the other two views — all three change what the reader is doing
-              rather than what the site says. A mode and not a permission, which the tooltip says out
-              loud: there are no accounts here, so what this buys is *stopping the accidents*, which
-              is most of the damage a writer does to a layout.
-            */}
-            <IconButton
-              label={writing ? '모든 편집으로 돌아갑니다' : '글만 고칩니다 — 배치는 잠깁니다'}
-              /* `IconButton` passes arbitrary attributes through `data`, not as loose props. */
-              data={{ 'writing-toggle': writing ? 'true' : undefined }}
-              pressed={writing}
-              onClick={() => setWriting((one) => !one)}
-            >
-              <Icon name="paragraph" />
-            </IconButton>
-            <IconButton
-              label={wireframe ? '색을 되돌립니다' : '색을 빼고 구조만 봅니다'}
-              data={{ 'wireframe-toggle': wireframe ? 'true' : undefined }}
-              pressed={wireframe}
-              onClick={() => setWireframe((one) => !one)}
-            >
-              <Icon name="outline" />
-            </IconButton>
-            <button
-              type="button"
-              className="st-preview-toggle"
-              data-preview={preview ? 'true' : undefined}
-              aria-pressed={preview}
-              title={preview ? '편집으로 돌아갑니다 (Esc)' : '방문자가 보는 대로 봅니다'}
-              onClick={() => setPreview((one) => !one)}
-            >
-              {preview ? '편집' : '미리보기'}
-            </button>
-            {/* Typed or pressed, the middle of the view is what stays still — see `viewport.ts`. */}
-            <ZoomControl zoom={zoom} onChange={(next) => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" /></>)}
-          </div>
-        </div>
+          </Ribbon>
+          ) : null}
+        </div>}
       </AppChrome>
 
-      <AppBody className="st-body">
+      <AdaptiveWorkspace className="st-body" enabled={!!editor && !admin}>
         {/*
           One rail, several panels — 추가, 구성, 페이지, 컴포넌트, 데이터.
 
@@ -1527,7 +1619,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           */}
         {editor && !admin ? <Grip at={railW} onWidth={setRailW} /> : null}
         {editor && !admin ? (
-          <Rail
+          <WorkspaceSidePanel side="navigation" width={railW}><Rail
             width={railW}
             editor={given ?? editor}
             panel={panel}
@@ -1544,10 +1636,10 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               // Leaving the definition, because a page is what the reader asked for.
               setEditing(undefined);
             }}
-          />
+          /></WorkspaceSidePanel>
         ) : null}
 
-        <AppMain className="st-main">
+        <AppMain className="st-main" data={{ 'workspace-main': '' }}>
           {/*
             **관리** — the surface a reader opens into, filling the same regions with a different
             answer: the left is the five things a site is made of, the middle is a table, and there
@@ -1583,7 +1675,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           {datasetAt ? (
             <DataTable
               editor={editor!}
-              run={(name, payload) => void (editor as never as { executeCommand: (n: string, p?: unknown) => void }).executeCommand(name, payload)}
+              run={(name, payload) => editor ? editor.executeCommand(name, payload as never) : false}
               can={(name, payload) =>
                 (editor as never as { canExecuteCommand: (n: string, p?: unknown) => boolean }).canExecuteCommand(
                   name,
@@ -1669,12 +1761,13 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                      * Ten of the frame's twenty props were the overlay's and moved here with it.
                      * What is left is a board: a document, a width, and whether it is being looked at.
                      */
-                    overlay={(host) =>
-                      editor ? (
+                    overlay={(host) => {
+                      const overlayRoot = scopeRoot ?? root;
+                      return editor && overlayRoot ? (
                       <Overlay
                         editor={editor}
                         host={host}
-                        page={scopeRoot ?? root}
+                        page={overlayRoot}
                         breakpoint={one.id}
                         /**
                          * **A writer is in text**, always — which is the mode rather than a default.
@@ -1710,8 +1803,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                         scope={inside ?? ''}
                         onScope={setScope}
                       />
-                      ) : null
-                    }
+                      ) : null;
+                    }}
                   />
                 ))
               : null}
@@ -1816,7 +1909,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           *아무것도 선택되지 않았습니다*.
         */}
         {editor && !admin ? (
-          <Inspector
+          <WorkspaceSidePanel side="inspector" width={280}><Inspector
             editor={given ?? editor}
             writing={writing}
             at={at}
@@ -1845,7 +1938,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
              */
             row={rowShown}
             onEditRow={() => setRowOpen(rowShown)}
-          />
+          /></WorkspaceSidePanel>
         ) : null}
 
         {/*
@@ -1858,13 +1951,14 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         {editor && rowForm ? (
           <RowForm
             editor={editor}
-            run={(name, payload) => void (editor as never as { executeCommand: (n: string, p?: unknown) => void }).executeCommand(name, payload)}
+            registerFlush={registerBodyFlush}
+            run={(name, payload) => editor ? editor.executeCommand(name, payload as never) : false}
             revision={revision}
             at={{ sid: rowForm.sid, row: rowForm.row }}
             onClose={() => setRowOpen(undefined)}
           />
         ) : null}
-      </AppBody>
+      </AdaptiveWorkspace>
     </AppShell>
   );
 }

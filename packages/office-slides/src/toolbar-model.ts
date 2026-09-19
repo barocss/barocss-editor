@@ -68,6 +68,14 @@ export interface SlidesToolbarControl extends Control {
   needsFile?: boolean;
 }
 
+/** Resolve the displayed slide once for every toolbar surface. */
+export function slidesToolbarPayload(control: SlidesToolbarControl, current?: string, number?: number): Record<string, unknown> {
+  if (control.id === 'slide-new') return { after: current };
+  if (control.id === 'slide-up') return { slideId: current, to: (number ?? 1) - 2 };
+  if (control.id === 'slide-down') return { slideId: current, to: number ?? 0 };
+  return { ...(control.payload ?? {}), ...(current ? { slideId: current } : {}) };
+}
+
 /** A run of a deck's controls. The shape is the suite's. */
 export type SlidesToolbarGroup = ControlGroup<SlidesToolbarControl>;
 

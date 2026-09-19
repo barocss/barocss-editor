@@ -36,5 +36,22 @@
      */
     "types": ["vitest/globals", "node"]
   },
-  "include": ["src/**/*", "test/**/*"]
+  "include": ["src/**/*", "test/**/*", "tests/**/*"],
+  /**
+   * Restated here, never inherited.
+   *
+   * `exclude` is not merged with a child's `include` — a config that extends another
+   * takes the parent's `exclude` whole, and it filters whatever `include` already
+   * matched. Ten package bases exclude a `.test.ts` glob so that `vite build` keeps
+   * tests out of `dist`, and two more inherit the repository root's. Read through
+   * `extends`, that one line deleted every test file the line above had just asked for.
+   *
+   * Measured 2026-09-05: 77 test files named by an `include` and none of them
+   * compiled — 43 in `editor-view-dom` alone, the whole of that package's suite. The
+   * config said the tests were checked; the compiler had never opened one.
+   *
+   * Both spellings of the directory are named above for the same reason: `dsl` keeps
+   * its tests in `tests`, and a `test`-only pattern silently matched nothing.
+   */
+  "exclude": ["dist", "node_modules"]
 }

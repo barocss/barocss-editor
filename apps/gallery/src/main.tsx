@@ -1,6 +1,8 @@
 import { StrictMode, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Gallery } from './gallery';
+import { DesignSystem } from './design-system';
+import './design-system.css';
 import './style.css';
 
 /**
@@ -25,4 +27,4 @@ import './style.css';
  * gallery that needed a document would be a gallery nobody could open with a broken document.
  */
 const root = document.getElementById('root');
-if (root) createRoot(root).render(createElement(StrictMode, null, createElement(Gallery)));
+if (root) createRoot(root).render(createElement(StrictMode, null, createElement(new URLSearchParams(location.search).has('catalogue') ? Gallery : DesignSystem)));

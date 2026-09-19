@@ -1,4 +1,5 @@
 import { CODE_CSS } from './code-render';
+import { TEXT_FLOW_STYLE } from '@barocss/office-text';
 import { REVEAL_KEYFRAMES } from './reveal';
 
 /**
@@ -101,7 +102,7 @@ export const PAGE_CSS =
    *
    * (No back-ticks in this comment, for the reason the caret rule below spells out.)
    */
-  white-space: pre-wrap;
+  white-space: ${TEXT_FLOW_STYLE.whiteSpace};
   /* So the sizes below can ask how wide the page is rather than how wide the window is. */
   container-type: inline-size;
   /**
@@ -172,6 +173,22 @@ export const PAGE_CSS =
   font-weight: 600;
   letter-spacing: -0.005em;
 }
+
+/* Rich bodies use the same paragraph spacing contract as the prose renderer. */
+.st-page .w-heading {
+  --prose-space-before: 1.4em;
+  --prose-space-after: 0.5em;
+}
+.st-page .w-heading:first-child { --prose-space-before: 0; }
+.st-page .w-summary, .st-page .w-task-content { line-height: inherit; }
+.st-page .w-details > :not(.w-summary) { margin-left: 1.2em; }
+.st-page .w-page-reference {
+  display: inline-flex; align-items: baseline; gap: .2em; color: inherit;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.st-page .w-page-reference svg { width: 1em; height: 1em; align-self: center; flex: none; }
+.st-page .w-page-reference[data-page-state='missing'],
+.st-page .w-page-reference[data-page-state='trashed'] { text-decoration-style: dotted; opacity: .7; }
 
 .st-page p {
   /*
@@ -480,5 +497,28 @@ export const PAGE_CSS =
   height: 1.35em;
   width: auto;
   vertical-align: -0.28em;
+}
+
+/*
+ * ── 이모지 — 세 번째로 같은 칸에서 나온 것 ─────────────────────
+ *
+ * The same fault as the four above, found a second time and by hand: a site can insert an emoji
+ * (toolbar-model.ts), office-text's renderer draws it as span class w-emoji, and every rule behind
+ * that class lived in office-text/text.css - which the app imports and the export does not. So the
+ * glyph was boxed correctly on the board and stretched the line in the published page, which is the
+ * one thing a colour glyph reliably gets wrong.
+ *
+ * Three declarations, not five: inline-block so the glyph does not stretch the line box, line-height
+ * so it is measured by its own height, and the nudge that sits it on the text's baseline. The
+ * user-select pair stays behind, because it exists to stop a caret sweeping through half an atom and
+ * a visitor has no caret.
+ *
+ * Held by page-css-covers-what-a-page-draws.test.ts, which counts this whole class of defect rather
+ * than this one instance of it.
+ */
+.w-emoji {
+  display: inline-block;
+  line-height: 1;
+  vertical-align: -0.1em;
 }
 `;

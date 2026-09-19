@@ -1,5 +1,24 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import type { INode } from '@barocss/datastore';
 import { HTMLConverter, registerDefaultHTMLRules, GlobalConverterRegistry } from '../src';
+
+/**
+ * The child at `index`, said out loud to be a node.
+ *
+ * `INode.content` is `(INode | string)[]` — a child may be a bare string — so reading
+ * `.stype` off one is a claim, and this is where the claim gets made. It used to be
+ * made by an `Array.isArray` guard that narrowed nothing, and the compiler could not
+ * see it because these tests were not compiled.
+ */
+function nodeAt(parent: INode, index: number): INode {
+  const child = parent.content?.[index];
+  if (child === undefined || typeof child === 'string') {
+    throw new Error(
+      `${parent.stype}.content[${index}] is ${child === undefined ? 'missing' : 'a bare string'}, not a node`
+    );
+  }
+  return child;
+}
 
 describe('HTMLConverter', () => {
   let converter: HTMLConverter;
@@ -59,7 +78,7 @@ describe('HTMLConverter', () => {
   
   describe('convert', () => {
     it('should convert paragraph to HTML', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'paragraph',
           content: [
@@ -78,7 +97,7 @@ describe('HTMLConverter', () => {
     });
     
     it('should convert heading to HTML', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'heading',
           attributes: { level: 1 },
@@ -98,7 +117,7 @@ describe('HTMLConverter', () => {
     });
     
     it('should convert multiple nodes to HTML', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'paragraph',
           content: [
@@ -196,10 +215,8 @@ describe('HTMLConverter', () => {
       expect(nodes.length).toBe(1);
       expect(nodes[0].stype).toBe('list');
       expect(nodes[0].attributes?.ordered).toBe(false);
-      if (nodes[0].content && Array.isArray(nodes[0].content)) {
-        expect(nodes[0].content.length).toBe(2);
-        expect(nodes[0].content[0].stype).toBe('list_item');
-      }
+      expect(nodes[0].content).toHaveLength(2);
+      expect(nodeAt(nodes[0], 0).stype).toBe('list_item');
     });
 
     it('should parse ordered list', () => {
@@ -217,10 +234,7 @@ describe('HTMLConverter', () => {
 
       expect(nodes.length).toBe(1);
       expect(nodes[0].stype).toBe('table');
-      if (nodes[0].content && Array.isArray(nodes[0].content)) {
-        const rows = nodes[0].content;
-        expect(rows[0].stype).toBe('table_row');
-      }
+      expect(nodeAt(nodes[0], 0).stype).toBe('table_row');
     });
 
     it('should parse image', () => {
@@ -249,7 +263,7 @@ describe('HTMLConverter', () => {
   
   describe('convert - complex cases', () => {
     it('should convert nested content structure', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'paragraph',
           content: [
@@ -275,7 +289,7 @@ describe('HTMLConverter', () => {
     });
     
     it('should convert heading with nested content', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'heading',
           attributes: { level: 2 },
@@ -299,7 +313,7 @@ describe('HTMLConverter', () => {
     });
     
     it('should convert multiple levels of headings', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'heading',
           attributes: { level: 1 },
@@ -324,7 +338,7 @@ describe('HTMLConverter', () => {
     });
     
     it('should handle empty content', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'paragraph',
           content: []
@@ -337,7 +351,7 @@ describe('HTMLConverter', () => {
     });
     
     it('should handle text-only nodes', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'inline-text',
           text: 'Plain text'
@@ -349,7 +363,7 @@ describe('HTMLConverter', () => {
     });
     
     it('should escape HTML special characters', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'paragraph',
           content: [
@@ -367,7 +381,7 @@ describe('HTMLConverter', () => {
     });
 
     it('should convert list structure', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'list',
           attributes: { ordered: false },
@@ -392,7 +406,7 @@ describe('HTMLConverter', () => {
     });
 
     it('should convert ordered list structure', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'list',
           attributes: { ordered: true },
@@ -412,7 +426,7 @@ describe('HTMLConverter', () => {
     });
 
     it('should convert table structure', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'table',
           content: [
@@ -458,7 +472,7 @@ describe('HTMLConverter', () => {
     });
 
     it('should convert image node', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'image',
           attributes: {
@@ -477,7 +491,7 @@ describe('HTMLConverter', () => {
     });
 
     it('should convert link node', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'link',
           attributes: {
@@ -507,7 +521,7 @@ describe('HTMLConverter', () => {
   
   describe('marks handling', () => {
     it('should convert bold marks to strong tags', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'paragraph',
           content: [
@@ -532,7 +546,7 @@ describe('HTMLConverter', () => {
     });
     
     it('should convert italic marks to em tags', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'paragraph',
           content: [
@@ -557,7 +571,7 @@ describe('HTMLConverter', () => {
     });
     
     it('should handle multiple marks', () => {
-      const nodes = [
+      const nodes: INode[] = [
         {
           stype: 'paragraph',
           content: [

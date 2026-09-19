@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    "types": ["vitest/globals", "node"],
+    "paths": {
+      "/@fs/*/packages/office-workspace/src/index.ts": [
+        "../../packages/office-workspace/src/index.ts"
+      ],
+      "/@fs/*/packages/shared/src/index.ts": [
+        "../../packages/shared/src/index.ts"
+      ]
+    }
+  },
+  "include": ["src/**/*", "test/**/*", "tests/**/*"],
+  "exclude": ["dist", "node_modules"]
+}

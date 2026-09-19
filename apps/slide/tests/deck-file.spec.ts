@@ -45,7 +45,47 @@ test.describe('saving a deck', () => {
     expect(text).not.toContain('slides:');
     // And it is a file a person can read: indented, one thing per line.
     expect(text.split('\n').length).toBeGreaterThan(50);
+    const feedback = page.getByRole('complementary', { name: '파일 작업 상태' });
+    await expect(feedback).toContainText('다운로드 요청됨');
+    await expect(feedback).toContainText(download.suggestedFilename());
+    await expect(feedback.getByRole('progressbar')).toHaveCount(0);
   });
+});
+
+test('shared file feedback recovers from a bad file and distinguishes cancellation from failure', async ({ page }) => {
+  await openDeck(page);
+  const before = await slideCount(page);
+  const [download] = await Promise.all([page.waitForEvent('download'), pickMenu(page, 'file.document.2')]);
+  const file = (await download.path())!;
+  await page.evaluate(async () => {
+    const editor = (window as any).editor;
+    const slideId = document.querySelector('.sl-filmstrip button[data-slide]')!.getAttribute('data-slide');
+    await editor.executeCommand('deleteSlide', { slideId });
+  });
+  await expect.poll(() => slideCount(page)).toBe(before - 1);
+  const input = page.getByLabel('슬라이드 파일', { exact: true });
+  const feedback = page.getByRole('complementary', { name: '파일 작업 상태' });
+  await input.setInputFiles({ name: 'wrong.json', mimeType: 'application/json', buffer: Buffer.from('invalid') });
+  await expect(feedback.getByRole('alert')).toContainText('JSON이 아닙니다');
+  const chooser = page.waitForEvent('filechooser');
+  await feedback.getByRole('button', { name: '다른 파일 선택' }).click();
+  page.once('dialog', dialog => dialog.dismiss());
+  await (await chooser).setFiles(file);
+  await expect(feedback).toContainText('파일 열기 취소됨');
+  await expect(feedback.getByRole('alert')).toHaveCount(0);
+  await expect.poll(() => slideCount(page)).toBe(before - 1);
+  page.once('dialog', dialog => dialog.accept());
+  await input.setInputFiles(file);
+  await expect(feedback).toContainText('파일 열기 완료');
+  await expect.poll(() => slideCount(page)).toBe(before);
+  await expect(page.locator('.sl-filmstrip button[data-current="true"]')).toHaveCount(1);
+  await page.screenshot({ path: '../../.dev/artifacts/design-system/task-status-slides.png' });
+  await page.setViewportSize({ width: 390, height: 840 });
+  await expect(feedback).toBeInViewport();
+  expect(await feedback.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.screenshot({ path: '../../.dev/artifacts/design-system/task-status-slides-mobile.png' });
+  await feedback.getByRole('button', { name: /알림 닫기/ }).click();
+  await expect(feedback).toHaveCount(0);
 });
 
 test.describe('opening a deck', () => {
@@ -76,7 +116,7 @@ test.describe('opening a deck', () => {
     // Opening replaces the document and takes the history with it, so it asks —
     // and only because there is now work to lose.
     page.on('dialog', (dialog) => void dialog.accept());
-    await page.locator('[data-deck-file]').setInputFiles(saved!);
+    await page.getByLabel('슬라이드 파일', { exact: true }).setInputFiles(saved!);
 
     await expect.poll(() => slideCount(page)).toBe(before);
     // And the reader is looking at a slide of the deck they just opened.
@@ -86,30 +126,30 @@ test.describe('opening a deck', () => {
   test('says what is wrong with a file it cannot read', async ({ page }) => {
     await openDeck(page);
 
-    await page.locator('[data-deck-file]').setInputFiles({
+    await page.getByLabel('슬라이드 파일', { exact: true }).setInputFiles({
       name: 'notes.json',
       mimeType: 'application/json',
       buffer: Buffer.from('{"format":"some-other-tool","version":1}')
     });
 
-    const problem = page.locator('[data-deck-file-problem]');
+    const problem = page.getByRole('complementary', { name: '파일 작업 상태' });
     await expect(problem).toContainText('Barocss 슬라이드 파일이 아닙니다');
 
     // It stays until the reader is done with it, where an alert would be gone
     // before it could be read twice.
-    await problem.getByLabel('닫기').click();
+    await problem.getByRole('button', { name: /알림 닫기/ }).click();
     await expect(problem).toHaveCount(0);
   });
 
   /** A file that is not JSON at all is the other half of the same message. */
   test('says so when the file is not JSON', async ({ page }) => {
     await openDeck(page);
-    await page.locator('[data-deck-file]').setInputFiles({
+    await page.getByLabel('슬라이드 파일', { exact: true }).setInputFiles({
       name: 'deck.json',
       mimeType: 'application/json',
       buffer: Buffer.from('this is not json')
     });
-    await expect(page.locator('[data-deck-file-problem]')).toContainText('JSON이 아닙니다');
+    await expect(page.getByRole('complementary', { name: '파일 작업 상태' })).toContainText('JSON이 아닙니다');
   });
 });
 
