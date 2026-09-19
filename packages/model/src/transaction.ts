@@ -21,7 +21,12 @@ export interface PositionMapping {
 }
 
 export interface TransactionResult {
+  /** True once the document has committed. Post-commit errors do not change it. */
   success: boolean;
+  /** Explicit commit outcome. Optional for compatibility with external result producers. */
+  committed?: boolean;
+  /** Failures in history, notification, hooks, selection, or lock release after commit. Do not retry the edit. */
+  postCommitErrors?: string[];
   errors: string[];
   data?: any;
   transactionId?: string;
@@ -86,16 +91,28 @@ export class TransactionManager {
     options?: TransactionOptions
   ): Promise<TransactionResult> {
     let lockId: string | null = null;
+    let ownsTransaction = false;
+    let ownsOverlay = false;
+    let committed = false;
+    let outcome: TransactionResult | undefined;
+    const postCommitErrors: string[] = [];
+    let selectionBefore: ModelSelection | null = null;
     
     try {
       // 1. Acquire global lock
       lockId = await this._dataStore.acquireLock('transaction-execution');
 
       // 2. Start transaction
+      if (this._dataStore.isTransactionActive()) {
+        throw new Error('DataStore transaction already in progress');
+      }
       this._beginTransaction('DSL Transaction');
+      ownsTransaction = true;
+      selectionBefore = this._editor.selectionManager.getCurrentSelection();
 
       // 3. Start DataStore overlay transaction
       this._dataStore.begin();
+      ownsOverlay = true;
 
       const context = createTransactionContext(
         this._dataStore, 
@@ -104,7 +121,7 @@ export class TransactionManager {
       );
 
       // Selection snapshot
-      const selectionBefore = context.selection.before;
+      selectionBefore = context.selection.before;
 
       // 4. Execute all operations and collect results (OpFunction is handled in _executeOperation)
       const executedOperations: TransactionOperation[] = [];
@@ -121,14 +138,15 @@ export class TransactionManager {
         if (Array.isArray(result)) {
           for (const op of result as OpWithResult[]) {
             if (op.result && op.result.ok === false) {
-              this._dataStore.end();
-              return {
+              outcome = {
                 success: false,
+                committed: false,
                 errors: [op.result.error || 'Operation failed'],
                 operations: executedOperations,
                 selectionBefore,
-                selectionAfter: context.selection.current
+                selectionAfter: selectionBefore
               };
+              return outcome;
             }
             if (op.type === 'setSelection') { lastSelectionAfter = null; hasExplicitSelection = true; }
             if (op.result?.selectionAfter) lastSelectionAfter = op.result.selectionAfter;
@@ -142,14 +160,15 @@ export class TransactionManager {
         } else if (result) {
           const single = result as OpWithResult;
           if (single.result && single.result.ok === false) {
-            this._dataStore.end();
-            return {
+            outcome = {
               success: false,
+              committed: false,
               errors: [single.result.error || 'Operation failed'],
               operations: executedOperations,
               selectionBefore,
-              selectionAfter: context.selection.current
+              selectionAfter: selectionBefore
             };
+            return outcome;
           }
           if (single.type === 'setSelection') { lastSelectionAfter = null; hasExplicitSelection = true; }
           if (single.result?.selectionAfter) lastSelectionAfter = single.result.selectionAfter;
@@ -184,76 +203,90 @@ export class TransactionManager {
       if (!this._isUndoRedoOperation && this._validateSchemaOnCommit) {
         const validation = this._dataStore.validateTransactionScope(this._schema);
         if (!validation.valid) {
-          this._dataStore.rollback();
-          return {
+          outcome = {
             success: false,
+            committed: false,
             errors: validation.errors,
             operations: executedOperations,
             selectionBefore,
-            selectionAfter: context.selection.current
+            selectionAfter: selectionBefore
           };
+          return outcome;
         }
       }
 
       this._dataStore.commit();
+      committed = true;
+      const afterCommit = (stage: string, effect: () => void): void => {
+        try { effect(); }
+        catch (error) {
+          postCommitErrors.push(`${stage}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      };
 
       // Final selection state
       const selectionAfter = context.selection.current;
-      this._warnOnDanglingSelection(selectionBefore, selectionAfter, executedOperations);
+      afterCommit('selection validation', () => this._warnOnDanglingSelection(selectionBefore, selectionAfter, executedOperations));
 
-      /**
-       * 7. Add to history (only on success, and only if this is an *edit*)
-       *
-       * `recordInHistory: false` is for a write that maintains derived state — see the
-       * option. A reaction that recorded made undo undo *it* rather than the reader's
-       * edit, and then ran again and wrote the same thing back.
-       */
-      /**
-       * A write that is a *consequence* of the reader's edit goes into that edit's own
-       * entry — see `appendToPreviousEntry` and `HistoryManager.appendToLast`. It refuses
-       * when there is no edit to belong to, and then this records nothing, which is the
-       * same answer `recordInHistory: false` gives.
-       */
-      if (
-        options?.appendToPreviousEntry === true &&
-        executedOperations.length > 0 &&
-        this._shouldAddToHistory(executedOperations)
-      ) {
-        this._editor.historyManager.appendToLast({
-          operations: executedOperations,
-          inverseOperations: inverseOperations.reverse()
-        });
-      } else if (
-        options?.recordInHistory !== false &&
-        options?.appendToPreviousEntry !== true &&
-        executedOperations.length > 0 &&
-        this._shouldAddToHistory(executedOperations)
-      ) {
-        const shouldPreserveSelection = options?.preserveSelectionInHistory !== false;
-        this._editor.historyManager.push({
-          operations: executedOperations,
-          inverseOperations: inverseOperations.reverse(), // Store in reverse order
-          description: this._currentTransaction?.description,
-          ...(shouldPreserveSelection
-            ? {
-                metadata: {
-                  selectionBefore: selectionBefore ? { ...selectionBefore } : null,
-                  selectionAfter: selectionAfter ? { ...selectionAfter } : null
+      afterCommit('history', () => {
+        /**
+         * 7. Add to history (only on success, and only if this is an *edit*)
+         *
+         * `recordInHistory: false` is for a write that maintains derived state — see the
+         * option. A reaction that recorded made undo undo *it* rather than the reader's
+         * edit, and then ran again and wrote the same thing back.
+         */
+        /**
+         * A write that is a *consequence* of the reader's edit goes into that edit's own
+         * entry — see `appendToPreviousEntry` and `HistoryManager.appendToLast`. It refuses
+         * when there is no edit to belong to, and then this records nothing, which is the
+         * same answer `recordInHistory: false` gives.
+         */
+        if (
+          options?.appendToPreviousEntry === true &&
+          executedOperations.length > 0 &&
+          this._shouldAddToHistory(executedOperations)
+        ) {
+          this._editor.historyManager.appendToLast({
+            operations: executedOperations,
+            inverseOperations: inverseOperations.reverse()
+          });
+        } else if (
+          options?.recordInHistory !== false &&
+          options?.appendToPreviousEntry !== true &&
+          executedOperations.length > 0 &&
+          this._shouldAddToHistory(executedOperations)
+        ) {
+          const shouldPreserveSelection = options?.preserveSelectionInHistory !== false;
+          this._editor.historyManager.push({
+            operations: executedOperations,
+            inverseOperations: inverseOperations.reverse(), // Store in reverse order
+            description: this._currentTransaction?.description,
+            ...(shouldPreserveSelection
+              ? {
+                  metadata: {
+                    selectionBefore: selectionBefore ? { ...selectionBefore } : null,
+                    selectionAfter: selectionAfter ? { ...selectionAfter } : null
+                  }
                 }
-              }
-            : {})
-        });
-      }
+              : {})
+          });
+        }
+      });
 
       // 8. Return success result
-      const result = {
+      const result: TransactionResult = {
         success: true,
+        committed: true,
+        postCommitErrors,
         errors: [],
         transactionId: this._currentTransaction!.sid,
         operations: executedOperations,
         selectionBefore,
         selectionAfter
       };
+
+      outcome = result;
 
       // 9. Put the selection somewhere that exists, before anyone is told.
       //
@@ -263,7 +296,7 @@ export class TransactionManager {
       // commands can run walked from a removed node and threw, and the throw
       // came out of a React render and unmounted the editor. Repairing after
       // the event would be too late, because the listeners have already run.
-      this._clearDanglingSelection();
+      afterCommit('selection cleanup', () => this._clearDanglingSelection());
 
       // 10. Emit event (notify View layer)
       // editor:content.change → triggers render()
@@ -272,15 +305,18 @@ export class TransactionManager {
       // codebase reads it — the view re-renders from the store and every other
       // listener uses the event as a signal that something changed.
       const editor = this._editor as any;
-      this._editor.emit('editor:content.change', {
+      afterCommit('content event', () => this._editor.emit('editor:content.change', {
         get content() {
           return editor.document;
         },
         transaction: result
-      });
+      }));
       
       // After hooks: Call extension onTransaction handlers
-      const extensions = (this._editor as any).getSortedExtensions?.() || [];
+      let extensions: { onTransaction?: (editor: Editor, transaction: Transaction) => void }[] = [];
+      afterCommit('extension lookup', () => {
+        extensions = this._editor.getSortedExtensions?.() || [];
+      });
       if (extensions.length > 0) {
         const transactionForHooks: Transaction = {
           sid: this._currentTransaction!.sid,
@@ -289,7 +325,7 @@ export class TransactionManager {
           description: this._currentTransaction!.description
         };
         extensions.forEach((ext: { onTransaction?: (editor: Editor, transaction: Transaction) => void }) => {
-          ext.onTransaction?.(this._editor, transactionForHooks);
+          afterCommit('onTransaction', () => ext.onTransaction?.(this._editor, transactionForHooks));
         });
       }
       
@@ -297,33 +333,39 @@ export class TransactionManager {
       // (e.g. skip for remote sync or programmatic change)
       const applySelectionToView = options?.applySelectionToView !== false;
       if (applySelectionToView) {
-        this._editor.updateSelection(selectionAfter);
+        afterCommit('selection update', () => this._editor.updateSelection(selectionAfter));
       }
 
-      // 10. Cleanup
-      this._currentTransaction = null;
       return result;
 
-    } catch (error: any) {
-      // Rollback overlay on error
-      try { this._dataStore.rollback(); } catch (_) {}
-      
-      const transactionId = this._currentTransaction?.sid;
-      const selectionBefore = this._editor.selectionManager.getCurrentSelection();
-      this._currentTransaction = null;
-
-      return {
-        success: false,
-        errors: [error instanceof Error ? error.message : 'Unknown error'],
-        transactionId,
+    } catch (error: unknown) {
+      if (committed) postCommitErrors.push(error instanceof Error ? error.message : 'Unknown error');
+      outcome = {
+        success: committed,
+        committed,
+        errors: committed ? [] : [error instanceof Error ? error.message : 'Unknown error'],
+        ...(committed ? { postCommitErrors } : {}),
+        transactionId: ownsTransaction ? this._currentTransaction?.sid : undefined,
         operations: [],
         selectionBefore,
-        selectionAfter: selectionBefore // No change on error
+        selectionAfter: committed ? this._editor.selectionManager.getCurrentSelection() : selectionBefore
       };
+      return outcome;
     } finally {
-      // 9. Release global lock
-      if (lockId) {
-        this._dataStore.releaseLock(lockId);
+      // Only clean up state acquired by this execution. A failed lock acquisition
+      // must not roll back another caller's overlay or clear its manager state.
+      try {
+        if (ownsOverlay && !committed) this._dataStore.rollback();
+      } finally {
+        if (ownsTransaction) this._currentTransaction = null;
+        if (lockId) {
+          try { this._dataStore.releaseLock(lockId); }
+          catch (error) {
+            const message = `lock release: ${error instanceof Error ? error.message : String(error)}`;
+            if (committed) postCommitErrors.push(message);
+            else outcome?.errors.push(message);
+          }
+        }
       }
     }
   }

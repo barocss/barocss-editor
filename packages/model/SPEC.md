@@ -20,8 +20,9 @@ This document states the **contract and behavior** of `@barocss/model`: transact
 2. Create context (selection snapshot, schema).
 3. Run each operation in order; each may update context (selection, lastCreatedBlock).
 4. Resolve **selectionAfter** (after all ops): if context.lastCreatedBlock is set, selectionAfter = caret at start of that block’s first text node; else selectionAfter = context.selection.current.
-5. End overlay, commit. Return TransactionResult (success, selectionBefore, selectionAfter, etc.).
-6. If options.applySelectionToView !== false, call editor.updateSelection(selectionAfter).
+5. End overlay and validate its final schema state before commit. On refusal or exception, restore the transaction writes, keep the prior selection and history, and release the lock. `end()` alone does not close the overlay.
+6. Run post-commit history, notifications, synchronous hooks, and selection application (`applySelectionToView !== false`). A failed effect does not stop later effects.
+7. Return `success: true, committed: true` after commit. Report synchronous post-commit effect errors in `postCommitErrors`; do not return an uncommitted failure for an applied edit. Rejected edits return `success: false, committed: false`. See the [recovery and compatibility contract](../../docs/specs/transaction-recovery.md).
 
 ### 2.2 TransactionResult
 

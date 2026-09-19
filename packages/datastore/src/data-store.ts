@@ -347,13 +347,14 @@ export class DataStore {
    *
    * Spec emitOperation:
    * - overlay 활성 시 (begin~commit 사이) 기록은 overlay(TransactionalOverlay)가 단일 진실 원천이다.
-   * - 이벤트는 overlay 활성 여부와 무관하게 항상 발행되며, 관찰/로깅 용도로만 사용한다.
+   * - overlay 이벤트는 commit 후에 발행한다. rollback한 연산은 발행하지 않는다.
    * - 이벤트 페이로드는 외부에서 변경하지 않는다(불변 취급).
    */
   emitOperation(operation: AtomicOperation): void {
     // Do not use local collection; overlay is the single source of truth
     if (this._overlay && this._overlay.isActive()) {
-      (this._overlay as any).recordOperation(operation);
+      this._overlay.recordOperation(operation);
+      return;
     }
     this._eventEmitter.emit('operation', operation);
   }
@@ -363,7 +364,7 @@ export class DataStore {
    *
    * Spec:
    * - 콜백은 모든 원자 연산(create/update/move/delete)에 대해 호출된다.
-   * - overlay 활성 여부와 관계없이 이벤트는 항상 발행된다.
+   * - overlay 연산은 commit 후에, 그 외 연산은 즉시 발행된다.
    * - 콜백이 수신하는 페이로드(AtomicOperation)는 불변으로 취급해야 하며 외부에서 수정하지 않는다.
    */
   onOperation(callback: (operation: AtomicOperation) => void): void {
@@ -387,7 +388,7 @@ export class DataStore {
    * Spec begin:
    * - overlay가 없으면 초기화하고 begin() 상태로 전환한다.
    * - overlay alias 맵(_overlayAliases)도 초기화한다.
-   * - begin 이후 발생하는 모든 연산은 overlay에 기록되며, 이벤트는 즉시 발행된다.
+   * - begin 이후 연산은 overlay에 기록되며, 이벤트는 commit 후에 발행된다.
    */
   /** Whether an overlay transaction is currently open. */
   isTransactionActive(): boolean {
@@ -426,7 +427,7 @@ export class DataStore {
 
   /**
    * Operation 수집을 종료하고, 누적된 목록을 반환합니다.
-   * 내부 버퍼는 함께 비워집니다.
+   * 내부 버퍼와 overlay는 commit 또는 rollback까지 유지합니다.
    *
    * Spec end:
    * - overlay가 활성 상태면 현재까지 수집된 연산 목록의 스냅샷을 반환한다.
@@ -441,7 +442,7 @@ export class DataStore {
   }
 
   /**
-   * Overlay 기반 커밋 훅 (현재는 no-op, 점진적 통합 예정)
+   * Overlay 변경을 반영한 후 연산 이벤트를 발행한다.
    *
    * Spec commit:
    * - Applies overlay-collected operations in deterministic order: create -> update -> move -> delete.
@@ -453,100 +454,107 @@ export class DataStore {
   commit(): void {
     if (!this._overlay || !this._overlay.isActive()) return;
     const ops = (this._overlay as any).getCollectedOperations() as AtomicOperation[];
-    // Apply ops in deterministic order: create -> update -> move -> delete
-    const priority: Record<string, number> = { create: 1, update: 2, move: 3, delete: 4 } as any;
-    const sorted = ops.slice().sort((a, b) => (priority[a.type] - priority[b.type]) || 0);
-    for (const op of sorted) {
-      switch (op.type) {
-        case 'create': {
-          // Get node from overlay or use op.data
-          const overlayNode = (this._overlay as any)?.getOverlayNode(op.nodeId) as INode | undefined;
-          const node = overlayNode || (op as any).data as INode;
-          if (node) {
-            // Preserve marks if node already exists
-            const existingNode = this.nodes.get(op.nodeId);
-            const marks = node.marks || existingNode?.marks;
-            this._setNodeInternal({ ...node, marks, sid: op.nodeId } as any);
+    // Include bare operation records as well as normal overlay writes. Preserve
+    // the first snapshot: content operations may already have mirrored a write.
+    for (const op of ops) {
+      for (const id of [op.nodeId, op.parentId, this.nodes.get(op.nodeId)?.parentId]) {
+        if (id) this._overlay.snapshotBase(id, this.nodes.get(id));
+      }
+    }
+    try {
+      // Apply ops in deterministic order: create -> update -> move -> delete
+      const priority: Record<string, number> = { create: 1, update: 2, move: 3, delete: 4 } as any;
+      const sorted = ops.slice().sort((a, b) => (priority[a.type] - priority[b.type]) || 0);
+      for (const op of sorted) {
+        switch (op.type) {
+          case 'create': {
+            // Get node from overlay or use op.data
+            const overlayNode = (this._overlay as any)?.getOverlayNode(op.nodeId) as INode | undefined;
+            const node = overlayNode || (op as any).data as INode;
+            if (node) {
+              // Preserve marks if node already exists
+              const existingNode = this.nodes.get(op.nodeId);
+              const marks = node.marks || existingNode?.marks;
+              this._setNodeInternal({ ...node, marks, sid: op.nodeId } as any);
+            }
+            // Note: parentId relationship is already set in _createAllNodesRecursively,
+            // so no additional processing here (prevent duplication)
+            break;
           }
-          // Note: parentId relationship is already set in _createAllNodesRecursively,
-          // so no additional processing here (prevent duplication)
-          break;
-        }
-        case 'update': {
-          const target = this.nodes.get(op.nodeId);
-          if (target && op.data) {
-            const updatedNode = { ...target, ...op.data } as INode;
+          case 'update': {
+            const target = this.nodes.get(op.nodeId);
+            if (target && op.data) {
+              const updatedNode = { ...target, ...op.data } as INode;
 
-            /**
-             * The written attributes are the node's attributes.
-             *
-             * This used to shallow-merge them over the target's, which made an
-             * attribute **impossible to remove through a transaction**: an
-             * operation that took one away had it put back at commit, so any
-             * `setAttrs` that introduced a key could not be undone. Toggling a
-             * slide's `hidden` and pressing Ctrl+Z left it hidden, and the
-             * command reported success both times.
-             *
-             * Merging here was always redundant. `setNode` is the only thing
-             * that emits an update, and it is handed the whole node —
-             * `updateNode` merges *before* calling it, which is where a merge
-             * belongs, because that is the call that means "these fields
-             * only".
-             *
-             * The one thing still worth guarding: an op carrying no attributes
-             * at all must not blank the node's.
-             */
-            if (op.data.attributes === undefined) updatedNode.attributes = target.attributes;
+              /**
+               * The written attributes are the node's attributes.
+               *
+               * This used to shallow-merge them over the target's, which made an
+               * attribute **impossible to remove through a transaction**: an
+               * operation that took one away had it put back at commit, so any
+               * `setAttrs` that introduced a key could not be undone. Toggling a
+               * slide's `hidden` and pressing Ctrl+Z left it hidden, and the
+               * command reported success both times.
+               *
+               * Merging here was always redundant. `setNode` is the only thing
+               * that emits an update, and it is handed the whole node —
+               * `updateNode` merges *before* calling it, which is where a merge
+               * belongs, because that is the call that means "these fields
+               * only".
+               *
+               * The one thing still worth guarding: an op carrying no attributes
+               * at all must not blank the node's.
+               */
+              if (op.data.attributes === undefined) updatedNode.attributes = target.attributes;
 
-            this._setNodeInternal(updatedNode);
-          }
-          break;
-        }
-        case 'move': {
-          const { nodeId, parentId, position } = op as any;
-          // ContentOperations already records the final parent lists and parentId as updates.
-          // Replaying its earlier position after those updates undoes later inserts/removals
-          // (and can resurrect an inline atom removed after a move in the same transaction).
-          // Keep replay only for a bare move record that has no corresponding overlay writes.
-          if (this._overlay.hasDeleted(nodeId) ||
-              (this._overlay.hasOverlayNode(nodeId) && this._overlay.hasOverlayNode(parentId))) break;
-          const node = this.nodes.get(nodeId);
-          if (!node) break;
-          if (node.parentId) {
-            const oldParent = this.nodes.get(node.parentId);
-            if (oldParent && oldParent.content) {
-              const idx = (oldParent.content as any).indexOf(nodeId);
-              if (idx !== -1) (oldParent.content as any).splice(idx, 1);
-              this._setNodeInternal(oldParent as any);
+              this._setNodeInternal(updatedNode);
             }
+            break;
           }
-          if (parentId) {
-            const newParent = this.nodes.get(parentId);
-            if (newParent) {
-              const pos = typeof position === 'number' ? position : newParent.content ? newParent.content.length : 0;
-              if (!newParent.content) newParent.content = [];
-              (newParent.content as any).splice(pos, 0, nodeId);
-              this._setNodeInternal(newParent as any);
+          case 'move': {
+            const { nodeId, parentId, position } = op as any;
+            // ContentOperations already records the final parent lists and parentId as updates.
+            // Replaying its earlier position after those updates undoes later inserts/removals
+            // (and can resurrect an inline atom removed after a move in the same transaction).
+            // Keep replay only for a bare move record that has no corresponding overlay writes.
+            if (this._overlay.hasDeleted(nodeId) ||
+                (this._overlay.hasOverlayNode(nodeId) && this._overlay.hasOverlayNode(parentId))) break;
+            const node = this.nodes.get(nodeId);
+            if (!node) break;
+            if (node.parentId) {
+              const oldParent = this.nodes.get(node.parentId);
+              if (oldParent && oldParent.content) {
+                this._setNodeInternal({ ...oldParent, content: oldParent.content.filter(id => id !== nodeId) });
+              }
             }
-            node.parentId = parentId;
-            this._setNodeInternal(node as any);
-          }
-          break;
-        }
-        case 'delete': {
-          const { nodeId, parentId } = op as any;
-          if (parentId) {
-            const parent = this.nodes.get(parentId);
-            if (parent && parent.content) {
-              const idx = (parent.content as any).indexOf(nodeId);
-              if (idx !== -1) (parent.content as any).splice(idx, 1);
-              this._setNodeInternal(parent as any);
+            if (parentId) {
+              const newParent = this.nodes.get(parentId);
+              if (newParent) {
+                const pos = typeof position === 'number' ? position : newParent.content ? newParent.content.length : 0;
+                const content = [...(newParent.content || [])];
+                content.splice(pos, 0, nodeId);
+                this._setNodeInternal({ ...newParent, content });
+              }
+              this._setNodeInternal({ ...node, parentId });
             }
+            break;
           }
-          this.nodes.delete(nodeId);
-          break;
+          case 'delete': {
+            const { nodeId, parentId } = op as any;
+            if (parentId) {
+              const parent = this.nodes.get(parentId);
+              if (parent && parent.content) {
+                this._setNodeInternal({ ...parent, content: parent.content.filter(id => id !== nodeId) });
+              }
+            }
+            this.nodes.delete(nodeId);
+            break;
+          }
         }
       }
+    } catch (error) {
+      this.rollback();
+      throw error;
     }
     // Apply overlay root change if present
     const overlayRoot = (this._overlay as any).overlayRootNodeId as string | undefined;
@@ -557,6 +565,9 @@ export class DataStore {
     this._overlay = undefined;
     // Clear alias map on commit
     if (this._overlayAliases) this._overlayAliases.clear();
+    // Observers (including collaboration adapters) only see committed changes.
+    // Keep the original operation order for consumers replaying the sequence.
+    for (const op of ops) this._eventEmitter.emit('operation', op);
   }
 
   /**
