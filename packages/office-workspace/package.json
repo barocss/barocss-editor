@@ -1,7 +1,6 @@
 {
   "name": "@barocss/office-workspace",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
@@ -10,7 +9,9 @@
     "./host": "./src/host-ui.tsx"
   },
   "scripts": {
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "build": "vite build",
+    "dev": "vite build --watch"
   },
   "dependencies": {
     "@barocss/shared": "workspace:*",
@@ -27,6 +28,48 @@
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0"
-  }
+    "@types/react-dom": "^19.0.0",
+    "vite": "^5.4.21",
+    "vite-plugin-dts": "^4.5.4"
+  },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js",
+        "default": "./dist/index.js"
+      },
+      "./ui": {
+        "types": "./dist/ui.d.ts",
+        "import": "./dist/ui.js",
+        "default": "./dist/ui.js"
+      },
+      "./style.css": "./dist/style.css",
+      "./host": {
+        "types": "./dist/host.d.ts",
+        "import": "./dist/host.js",
+        "default": "./dist/host.js"
+      }
+    },
+    "files": [
+      "dist"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barocss/barocss-editor.git",
+    "directory": "packages/office-workspace"
+  },
+  "sideEffects": true
 }

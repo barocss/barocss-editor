@@ -28,7 +28,8 @@
     },
     "files": [
       "dist"
-    ]
+    ],
+    "access": "public"
   },
   "files": [
     "dist"
@@ -38,7 +39,8 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "dev": "vite build --watch"
   },
   "dependencies": {
     "@barocss/office-icons": "workspace:*",
@@ -67,5 +69,11 @@
     "vitest": "^1.6.1"
   },
   "author": "Barocss Team",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barocss/barocss-editor.git",
+    "directory": "packages/office-ui"
+  },
+  "sideEffects": true
 }

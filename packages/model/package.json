@@ -64,5 +64,13 @@
     "files": [
       "dist"
     ]
+  },
+  "peerDependencies": {
+    "@barocss/editor-core": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barocss/barocss-editor.git",
+    "directory": "packages/model"
   }
 }

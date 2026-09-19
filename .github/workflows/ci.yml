@@ -86,3 +86,28 @@ jobs:
           path: apps/editor-react/test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  npm-consumers:
+    name: Npm package consumers
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:npm
+      - run: pnpm release:npm:check
+      - name: Keep package verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-consumers-${{ github.sha }}
+          path: output/npm/
+          if-no-files-found: ignore
+          retention-days: 7

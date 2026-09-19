@@ -44,7 +44,8 @@
     },
     "files": [
       "dist"
-    ]
+    ],
+    "access": "public"
   },
   "files": [
     "dist"
@@ -76,11 +77,11 @@
     "@barocss/office-ui": "workspace:*",
     "@barocss/schema": "workspace:*",
     "@barocss/shared": "workspace:*",
-    "fflate": "0.8.2"
+    "fflate": "0.8.2",
+    "@barocss/editor-view-dom": "workspace:*"
   },
   "devDependencies": {
     "@barocss/conformance": "workspace:*",
-    "@barocss/editor-view-dom": "workspace:*",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "react": "^19.2.8",
@@ -91,5 +92,11 @@
     "vitest": "^1.6.1"
   },
   "author": "Barocss Team",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barocss/barocss-editor.git",
+    "directory": "packages/office-word"
+  },
+  "sideEffects": true
 }

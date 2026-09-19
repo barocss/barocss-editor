@@ -1,26 +1,3 @@
-import { defineConfig } from 'vite';
-import dts from 'vite-plugin-dts';
+import { defineLibraryConfig } from '../../scripts/build-library';
 
-export default defineConfig({
-  plugins: [
-    dts({
-      insertTypesEntry: true,
-    }),
-  ],
-  build: {
-    lib: {
-      entry: 'src/index.ts',
-      name: 'BarocssEditorCore',
-      fileName: 'index',
-      formats: ['es'],
-    },
-    rollupOptions: {
-      external: [
-        '@barocss/schema',
-        '@barocss/model',
-        '@barocss/datastore',
-        '@barocss/renderer-dom',
-      ],
-    },
-  },
-});
+export default defineLibraryConfig(import.meta.url);

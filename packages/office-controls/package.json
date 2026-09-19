@@ -1,7 +1,7 @@
 {
   "name": "@barocss/office-controls",
   "version": "0.1.0",
-  "description": "What a control is, and how it reads a selection — the vocabulary every product's toolbar is declared in",
+  "description": "What a control is, and how it reads a selection \u2014 the vocabulary every product's toolbar is declared in",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -26,12 +26,15 @@
     },
     "files": [
       "dist"
-    ]
+    ],
+    "access": "public"
   },
   "scripts": {
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "build": "vite build",
+    "dev": "vite build --watch"
   },
   "dependencies": {
     "@barocss/editor-core": "workspace:*"
@@ -42,6 +45,17 @@
     "@barocss/office-slides": "workspace:*",
     "@barocss/office-word": "workspace:*",
     "typescript": "^5.9.3",
-    "vitest": "^1.6.1"
+    "vitest": "^1.6.1",
+    "vite": "^5.4.21",
+    "vite-plugin-dts": "^4.5.4"
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barocss/barocss-editor.git",
+    "directory": "packages/office-controls"
   }
 }

@@ -1,20 +1,3 @@
-import { defineConfig } from 'vite';
-import dts from 'vite-plugin-dts';
+import { defineLibraryConfig } from '../../scripts/build-library';
 
-export default defineConfig({
-  plugins: [
-    dts({
-      insertTypesEntry: true,
-    }),
-  ],
-  build: {
-    minify: true,
-    lib: {
-      entry: 'src/index.ts',
-      name: 'BarocssDSL',
-      fileName: 'index',
-      formats: ['es', 'cjs'],
-    }
-  },
-});
-
+export default defineLibraryConfig(import.meta.url);

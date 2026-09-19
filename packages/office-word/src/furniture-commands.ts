@@ -1,4 +1,5 @@
 import type { Editor, Extension } from '@barocss/editor-core';
+import type { INode } from '@barocss/datastore';
 import { transaction } from '@barocss/model';
 import { surfaceFor } from './page-setup-commands';
 
@@ -39,7 +40,7 @@ export function captureFurnitureTarget(editor: Editor): FurnitureTarget | undefi
 export function furnitureKey(role: FurnitureRole, variant: FurnitureVariant = 'default'): string {
   return variant === 'default' ? `${role}Id` : `${variant}Page${role === 'header' ? 'Header' : 'Footer'}Id`;
 }
-export function furnitureNode(editor: Editor, target: FurnitureTarget, role: FurnitureRole, variant: FurnitureVariant = 'default') {
+export function furnitureNode(editor: Editor, target: FurnitureTarget, role: FurnitureRole, variant: FurnitureVariant = 'default'): INode | undefined {
   const root = editor.dataStore.getNode(target.rootId);
   if (editor.getRootId() !== target.rootId || !root?.content?.includes(target.surfaceId)) return undefined;
   const id = editor.dataStore.getNode(target.surfaceId)?.attributes?.[furnitureKey(role, variant)];

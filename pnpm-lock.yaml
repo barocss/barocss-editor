@@ -36,6 +36,9 @@ importers:
       eslint:
         specifier: ^8.57.1
         version: 8.57.1
+      semver:
+        specifier: 7.7.3
+        version: 7.7.3
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -808,6 +811,9 @@ importers:
       vite:
         specifier: ^5.4.21
         version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^4.5.4
+        version: 4.5.4(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
@@ -894,6 +900,9 @@ importers:
       vite:
         specifier: ^5.4.21
         version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^4.5.4
+        version: 4.5.4(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(jsdom@24.1.3)
@@ -1067,6 +1076,12 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^4.5.4
+        version: 4.5.4(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
@@ -1079,6 +1094,9 @@ importers:
       '@barocss/editor-view-dom':
         specifier: workspace:*
         version: link:../editor-view-dom
+      '@barocss/extensions':
+        specifier: workspace:*
+        version: link:../extensions
       '@barocss/math-editor':
         specifier: ^0.8.0
         version: 0.8.0(react-dom@19.2.8)(react@19.2.8)
@@ -1101,9 +1119,6 @@ importers:
       '@barocss/datastore':
         specifier: workspace:*
         version: link:../datastore
-      '@barocss/extensions':
-        specifier: workspace:*
-        version: link:../extensions
       '@barocss/office-note':
         specifier: workspace:*
         version: link:../office-note
@@ -1140,6 +1155,9 @@ importers:
       vite:
         specifier: ^6.0.1
         version: 6.4.3(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^4.5.4
+        version: 4.5.4(@types/node@20.19.30)(typescript@5.9.3)(vite@6.4.3)
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@20.19.30)
@@ -1162,6 +1180,12 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^4.5.4
+        version: 4.5.4(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
 
   packages/office-note:
     dependencies:
@@ -1506,6 +1530,9 @@ importers:
       '@barocss/editor-core':
         specifier: workspace:*
         version: link:../editor-core
+      '@barocss/editor-view-dom':
+        specifier: workspace:*
+        version: link:../editor-view-dom
       '@barocss/extensions':
         specifier: workspace:*
         version: link:../extensions
@@ -1546,9 +1573,6 @@ importers:
       '@barocss/conformance':
         specifier: workspace:*
         version: link:../conformance
-      '@barocss/editor-view-dom':
-        specifier: workspace:*
-        version: link:../editor-view-dom
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.10
@@ -1610,6 +1634,12 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.2.3(@types/react@19.2.10)
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^4.5.4
+        version: 4.5.4(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
 
   packages/query-editor:
     devDependencies:
@@ -1628,6 +1658,12 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^4.5.4
+        version: 4.5.4(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
       vitest:
         specifier: ^4.0.7
         version: 4.0.18(@types/node@20.19.30)(jsdom@24.1.3)
@@ -1744,6 +1780,9 @@ importers:
       vite:
         specifier: ^5.4.21
         version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^4.5.4
+        version: 4.5.4(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
@@ -17085,6 +17124,32 @@ packages:
       magic-string: 0.30.21
       typescript: 5.9.3
       vite: 5.4.21(@types/node@20.19.30)
+    transitivePeerDependencies:
+      - '@types/node'
+      - rollup
+      - supports-color
+    dev: true
+
+  /vite-plugin-dts@4.5.4(@types/node@20.19.30)(typescript@5.9.3)(vite@6.4.3):
+    resolution: {integrity: sha512-d4sOM8M/8z7vRXHHq/ebbblfaxENjogAAekcfcDCCwAyvGqnPrc7f4NZbvItS+g4WTgerW0xDwSz5qz11JT3vg==}
+    peerDependencies:
+      typescript: '*'
+      vite: '*'
+    peerDependenciesMeta:
+      vite:
+        optional: true
+    dependencies:
+      '@microsoft/api-extractor': 7.56.0(@types/node@20.19.30)
+      '@rollup/pluginutils': 5.3.0
+      '@volar/typescript': 2.4.27
+      '@vue/language-core': 2.2.0(typescript@5.9.3)
+      compare-versions: 6.1.1
+      debug: 4.4.3
+      kolorist: 1.8.0
+      local-pkg: 1.1.2
+      magic-string: 0.30.21
+      typescript: 5.9.3
+      vite: 6.4.3(@types/node@20.19.30)
     transitivePeerDependencies:
       - '@types/node'
       - rollup

@@ -26,7 +26,8 @@
     },
     "files": [
       "dist"
-    ]
+    ],
+    "access": "public"
   },
   "files": [
     "dist"
@@ -60,5 +61,10 @@
     "editor"
   ],
   "author": "Barocss Team",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barocss/barocss-editor.git",
+    "directory": "packages/renderer-dom"
+  }
 }

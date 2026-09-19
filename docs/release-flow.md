@@ -117,3 +117,7 @@ main 병합은 배포 버튼이 아니다. 릴리즈 PR에 manifest, 변경 내�
 - [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html): 호환성 기준의 버전 증가, 사전 출시 식별자, 출시 후 불변성.
 - [Changesets 사용 안내](https://github.com/changesets/changesets/blob/main/docs/intro-to-using-changesets.md): 변경 기록, 버전 적용, 패키지 게시의 분리.
 - [GitHub 보호 브랜치](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches): 필수 상태 검사와 최신 기준 브랜치 검증.
+
+## npm library packages
+
+Library publication uses the separate [npm release flow](npm-release.md). Changesets creates the package version PR. The manual GitHub Action builds and validates actual tarballs before publication. Product deployment does not automatically publish libraries.
