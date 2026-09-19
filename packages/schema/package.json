@@ -1,6 +1,6 @@
 {
   "name": "@barocss/schema",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Schema DSL for defining document structure and validation rules",
   "type": "module",
   "main": "./src/index.ts",

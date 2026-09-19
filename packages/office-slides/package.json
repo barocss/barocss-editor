@@ -1,6 +1,6 @@
 {
   "name": "@barocss/office-slides",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Slides: the presentation product layer over the Barocss editor engine",
   "type": "module",
   "main": "./src/index.ts",

@@ -1,6 +1,6 @@
 {
   "name": "@barocss/shared",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Shared utilities and constants for Barocss Editor",
   "type": "module",
   "main": "./src/index.ts",

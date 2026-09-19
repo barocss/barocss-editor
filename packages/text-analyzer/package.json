@@ -1,6 +1,6 @@
 {
   "name": "@barocss/text-analyzer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Smart text change analyzer with LCP/LCS algorithm and selection bias",
   "type": "module",
   "main": "./src/index.ts",

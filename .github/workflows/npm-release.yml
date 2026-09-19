@@ -44,6 +44,16 @@ jobs:
           registry-url: https://registry.npmjs.org
       - name: Use npm with trusted publishing support
         run: npm install --global npm@11.6.2
+      - name: Check bootstrap npm authentication
+        if: inputs.authentication == 'bootstrap'
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo 'Configure NPM_BOOTSTRAP_TOKEN or grant this repository access to the organization NPM_TOKEN.'
+            exit 1
+          fi
+          npm whoami --registry=https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN || secrets.NPM_TOKEN }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:npm
       - name: Build, pack, and install all public packages in an isolated consumer
@@ -52,14 +62,14 @@ jobs:
         if: inputs.publish
         run: |
           if [ "$AUTH_MODE" = bootstrap ] && [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo 'Configure NPM_BOOTSTRAP_TOKEN in the npm environment for the initial package registration.'
+            echo 'Configure NPM_BOOTSTRAP_TOKEN or the organization NPM_TOKEN for initial registration.'
             exit 1
           fi
           pnpm release:npm:publish
         env:
           GH_TOKEN: ${{ github.token }}
           AUTH_MODE: ${{ inputs.authentication }}
-          NODE_AUTH_TOKEN: ${{ inputs.authentication == 'bootstrap' && secrets.NPM_BOOTSTRAP_TOKEN || '' }}
+          NODE_AUTH_TOKEN: ${{ inputs.authentication == 'bootstrap' && (secrets.NPM_BOOTSTRAP_TOKEN || secrets.NPM_TOKEN) || '' }}
           NPM_CONFIG_PROVENANCE: ${{ github.event.repository.private && 'false' || 'true' }}
       - name: Keep package archives and verification reports
         if: always()
