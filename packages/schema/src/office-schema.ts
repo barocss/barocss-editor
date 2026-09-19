@@ -1443,8 +1443,9 @@ export function getSurfaceNodeDefinitions(): Record<string, NodeTypeDefinition> 
  *
  * ## What is left out, and where it went
  *
- * Nothing is deleted — these all remain in the standard schema, for a product
- * whose domain is the web rather than the office: `bFigure`/`bFigcaption`,
+ * Nothing is deleted — these remain available for products that opt into their
+ * behavior. Note and Site share prose blocks through `getProseNodeDefinitions`;
+ * the base does not impose them on Word and Slides: `bFigure`/`bFigcaption`,
  * `bDetails`/`bSummary`, `columns`/`column`, `descList`/`descTerm`/`descDef`,
  * `mediaVideo`/`mediaAudio`/`mediaEmbed`, `callout`, `pullQuote`, `taskItem`,
  * `chart`, `emoji`, `toc`, `docSection`, `mathInline`/`mathBlock` and
@@ -1485,10 +1486,10 @@ const OFFICE_LEAVES_BEHIND: Record<string, string> = {
   fieldPageCount: 'the same, for how many pages there are',
   toc: 'office computes a contents page from the headings (`tableOfContents`), rather than holding a node for it',
 
-  // ── The web's vocabulary, which an office document has no word for ──
+  // ── Optional vocabulary: each product opts in with rendering and editing support ──
   bFigure: 'a figure with a caption is HTML\'s idea; a document has a picture and a paragraph under it',
   bFigcaption: 'half of `bFigure`',
-  bDetails: 'a disclosure widget is a thing a page does and a printed document cannot',
+  bDetails: 'Note and Site opt into durable disclosures through getProseNodeDefinitions',
   bSummary: 'half of `bDetails`',
   columns: 'a document lays out columns from a section\'s own settings, not from a wrapper node',
   column: 'half of `columns`',
@@ -1498,9 +1499,9 @@ const OFFICE_LEAVES_BEHIND: Record<string, string> = {
   mediaVideo: 'a document that cannot play one has no word for it — a page holds one as a block with a source',
   mediaAudio: 'the same',
   mediaEmbed: 'the same, and an arbitrary embed is a block rather than something between two words',
-  callout: 'a styled aside is a frame with a fill in every one of these products',
+  callout: 'Note and Site opt into prose asides; other products can use styled frames',
   pullQuote: 'a quotation set large is a `blockQuote` with a style, not a second node',
-  taskItem: 'a checklist is a list whose items carry a state; office has neither the state nor a use for it',
+  taskItem: 'Note and Site opt into checked prose items through getProseNodeDefinitions',
   chart: 'a chart is drawn from data by a renderer nothing here ships',
   docSection: 'office sections are `surface` attributes, which is where a page size and its margins live',
 
@@ -1618,6 +1619,10 @@ export function getOfficeSchemaDefinition(): SchemaDefinition {
     topNode: 'document',
     nodes: {
       ...standardNodes,
+      bTable: {
+        ...standardNodes.bTable,
+        attrs: { ...standardNodes.bTable.attrs, theme: { type: 'string', required: false, options: ['plain', 'striped', 'blue'] } }
+      },
       ...getSurfaceNodeDefinitions(),
       // Deliberately after the standard nodes: the standard schema declares
       // footnoteDef, commentThread, bibliography, indexBlock, docHeader and

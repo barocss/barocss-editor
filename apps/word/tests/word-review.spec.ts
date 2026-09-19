@@ -18,7 +18,7 @@ import { placeCaret, settled } from './helpers';
  */
 test.describe('find', () => {
   const open = async (page: import('@playwright/test').Page, query: string) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     // Settled, not merely present. Find runs over the document as laid out, and
     // asking while the paginator is still moving text between pages gives a
     // match count on its way somewhere else — which is a race that only showed
@@ -44,19 +44,19 @@ test.describe('find', () => {
     await expect.poll(async () => page.locator('.w-find-count').textContent()).toContain('1 / ');
 
     const total = Number((await page.locator('.w-find-count').textContent())!.split('/')[1]);
-    await page.getByLabel('Next match').click();
+    await page.getByLabel('다음 검색 결과').click();
     await expect(page.locator('.w-find-count')).toContainText(`2 / ${total}`);
 
     // Backwards past the first goes to the last: a search that stopped at the
     // ends would make them dead ends.
-    await page.getByLabel('Previous match').click();
-    await page.getByLabel('Previous match').click();
+    await page.getByLabel('이전 검색 결과').click();
+    await page.getByLabel('이전 검색 결과').click();
     await expect(page.locator('.w-find-count')).toContainText(`${total} / ${total}`);
   });
 
   test('finds nothing where there is nothing, and says so', async ({ page }) => {
     await open(page, 'zzzznotinthedocument');
-    await expect(page.locator('.w-find-count')).toHaveText('None');
+    await expect(page.locator('.w-find-count')).toHaveText('검색 결과 없음');
     await expect(page.locator('.w-find-hit')).toHaveCount(0);
   });
 
@@ -64,7 +64,7 @@ test.describe('find', () => {
     await open(page, 'page');
     const loose = await page.locator('.w-find-count').textContent();
 
-    await page.locator('.w-find-whole').check();
+    await page.getByRole('checkbox', { name: '단어 단위로' }).check();
     await expect.poll(async () => page.locator('.w-find-count').textContent()).not.toBe(loose);
   });
 
@@ -74,7 +74,7 @@ test.describe('find', () => {
     expect(before).toBeGreaterThan(1);
 
     await page.locator('.w-find-replacement').fill('Layout');
-    await page.getByRole('button', { name: 'Replace', exact: true }).click();
+    await page.getByRole('button', { name: '하나 바꾸기', exact: true }).click();
 
     // One fewer to find, and the word is in the document.
     await expect
@@ -88,8 +88,8 @@ test.describe('find', () => {
     const before = Number((await page.locator('.w-find-count').textContent())!.split('/')[1]);
 
     await page.locator('.w-find-replacement').fill('Layout');
-    await page.getByRole('button', { name: 'Replace all' }).click();
-    await expect(page.locator('.w-find-count')).toHaveText('None');
+    await page.getByRole('button', { name: '모두 바꾸기' }).click();
+    await expect(page.locator('.w-find-count')).toHaveText('검색 결과 없음');
 
     // One transaction, so one undo: replacing every occurrence is one thing the
     // reader did, and a document with half of them replaced is a state nobody
@@ -172,8 +172,9 @@ test.describe('comments', () => {
     page.locator(selector).count();
 
   test('anchors to the selected text and shows who said it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
+    await page.locator('.w-comments-closed').click();
     const hits = await countOf(page, '.w-comment-hit');
     await selectSome(page);
     await comment(page, 'Is this clear?');
@@ -186,8 +187,10 @@ test.describe('comments', () => {
   });
 
   test('can be corrected without changing who said it', async ({ page }) => {
-    await page.goto('/');
+    await page.clock.setFixedTime(new Date('2040-01-02T12:00:00Z'));
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
+    await page.locator('.w-comments-closed').click();
     await selectSome(page);
     await comment(page, 'Is this clera?');
 
@@ -203,12 +206,13 @@ test.describe('comments', () => {
     // and when, and a comment that quietly reattributes itself is worse than
     // one nobody can fix.
     await expect(fixed).toContainText('Jinho');
-    await expect(fixed).toContainText('2026-08-10');
+    await expect(fixed).toContainText('2040-01-02');
   });
 
   test('collects replies under the comment they answer', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
+    await page.locator('.w-comments-closed').click();
     await selectSome(page);
     await comment(page, 'Is this clear?');
 
@@ -224,8 +228,9 @@ test.describe('comments', () => {
   });
 
   test('lets several comments cover the same words', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
+    await page.locator('.w-comments-closed').click();
     // This one's subject really is the total, so it starts from what is there.
     const before = await countOf(page, '.w-comment');
 
@@ -269,8 +274,9 @@ test.describe('comments', () => {
   });
 
   test('cannot comment on nothing', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
+    await page.locator('.w-comments-closed').click();
     // A comment is about something. With only a caret there is nothing to
     // anchor to, and the button says so rather than making a comment that
     // points nowhere.
@@ -279,8 +285,9 @@ test.describe('comments', () => {
   });
 
   test('resolving settles it and takes the mark off the page', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
+    await page.locator('.w-comments-closed').click();
     const hits = await countOf(page, '.w-comment-hit');
     await selectSome(page);
     await comment(page, 'Settled?');
@@ -295,8 +302,9 @@ test.describe('comments', () => {
   });
 
   test('deleting takes the thread and the mark together', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
+    await page.locator('.w-comments-closed').click();
     const before = await countOf(page, '.w-comment');
     const hits = await countOf(page, '.w-comment-hit');
     await selectSome(page);
@@ -311,8 +319,9 @@ test.describe('comments', () => {
   });
 
   test('keeps what somebody wrote when the text it was about goes', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
+    await page.locator('.w-comments-closed').click();
     await selectSome(page);
     await comment(page, 'About text that will not last');
 
@@ -330,7 +339,7 @@ test.describe('comments', () => {
 
 test.describe('tracked changes', () => {
   test('draws a deletion rather than removing it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-deletion');
 
     // The whole point of tracking: the reader has to see what was taken out in
@@ -340,13 +349,13 @@ test.describe('tracked changes', () => {
   });
 
   test('underlines an insertion', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-insertion');
     await expect(page.locator('.w-insertion')).toHaveCSS('text-decoration-line', 'underline');
   });
 
   test('gives each reviewer a colour of their own', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-insertion');
 
     const colors = await page.evaluate(() => [
@@ -358,7 +367,7 @@ test.describe('tracked changes', () => {
   });
 
   test('names the reviewer', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     // Settled first: a render patches the DOM by putting the new element in
     // before taking the old one out, so for an instant there are two of these
     // and asserting on "the" insertion is asking about a document mid-redraw.
@@ -378,11 +387,12 @@ test.describe('reviewing tracked changes', () => {
   const deletion = 'this was removed';
 
   test('accepting an insertion keeps the words and stops marking them', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await page.getByRole('tab', { name: '검토', exact: true }).click();
 
     await placeCaret(page, '.w-insertion');
-    await button(page, 'Accept').click();
+    await button(page, '적용').click();
 
     // The words stay; what goes is the claim that they are new.
     await expect(page.locator('.w-surface').first()).toContainText(insertion);
@@ -390,43 +400,47 @@ test.describe('reviewing tracked changes', () => {
   });
 
   test('rejecting an insertion takes the words out', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await page.getByRole('tab', { name: '검토', exact: true }).click();
 
     await placeCaret(page, '.w-insertion');
-    await button(page, 'Reject').click();
+    await button(page, '거부').click();
 
     await expect(page.locator('.w-surface').first()).not.toContainText(insertion);
   });
 
   test('accepting a deletion carries it out', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await page.getByRole('tab', { name: '검토', exact: true }).click();
 
     await placeCaret(page, '.w-deletion');
-    await button(page, 'Accept').click();
+    await button(page, '적용').click();
 
     await expect(page.locator('.w-surface').first()).not.toContainText(deletion);
     await expect(page.locator('.w-deletion')).toHaveCount(0);
   });
 
   test('rejecting a deletion keeps the words', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await page.getByRole('tab', { name: '검토', exact: true }).click();
 
     await placeCaret(page, '.w-deletion');
-    await button(page, 'Reject').click();
+    await button(page, '거부').click();
 
     await expect(page.locator('.w-surface').first()).toContainText(deletion);
     await expect(page.locator('.w-deletion')).toHaveCount(0);
   });
 
   test('one undo takes an accept back', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await page.getByRole('tab', { name: '검토', exact: true }).click();
 
     await placeCaret(page, '.w-deletion');
-    await button(page, 'Accept').click();
+    await button(page, '적용').click();
     await expect(page.locator('.w-deletion')).toHaveCount(0);
 
     // Accepting destroys text by design. A reviewer who accepts the wrong change
@@ -437,10 +451,11 @@ test.describe('reviewing tracked changes', () => {
   });
 
   test('accept all settles every change at once', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await page.getByRole('tab', { name: '검토', exact: true }).click();
 
-    await button(page, 'Accept all').click();
+    await button(page, '모두 적용').click();
 
     await expect(page.locator('.w-insertion')).toHaveCount(0);
     await expect(page.locator('.w-deletion')).toHaveCount(0);
@@ -451,39 +466,42 @@ test.describe('reviewing tracked changes', () => {
   });
 
   test('reject all puts the document back as it was', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await page.getByRole('tab', { name: '검토', exact: true }).click();
 
-    await button(page, 'Reject all').click();
+    await button(page, '모두 거부').click();
 
     await expect(page.locator('.w-surface').first()).not.toContainText(insertion);
     await expect(page.locator('.w-surface').first()).toContainText(deletion);
   });
 
   test('steps from one change to the next', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await page.getByRole('tab', { name: '검토', exact: true }).click();
 
-    await button(page, 'Next change').click();
+    await button(page, '다음 변경').click();
     const first = await page.evaluate(() => (window as any).editor.selection?.startNodeId);
 
-    await button(page, 'Next change').click();
+    await button(page, '다음 변경').click();
     const second = await page.evaluate(() => (window as any).editor.selection?.startNodeId);
 
     expect(second).not.toBe(first);
   });
 
   test('offers nothing to accept once there is nothing left', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
+    await page.getByRole('tab', { name: '검토', exact: true }).click();
 
-    await button(page, 'Accept all').click();
+    await button(page, '모두 적용').click();
     await expect(page.locator('.w-insertion')).toHaveCount(0);
 
     // A button that stays lit with nothing to act on is a button that lies about
     // the state of the document.
-    await expect(button(page, 'Accept')).toBeDisabled();
-    await expect(button(page, 'Accept all')).toBeDisabled();
+    await expect(button(page, '적용')).toBeDisabled();
+    await expect(button(page, '모두 적용')).toBeDisabled();
   });
 });
 
@@ -496,7 +514,8 @@ test.describe('reviewing tracked changes', () => {
  */
 test.describe('recording changes as they are made', () => {
   const trackOn = async (page: import('@playwright/test').Page) => {
-    await page.getByRole('button', { name: 'Track changes', exact: true }).click();
+    await page.getByRole('tab', { name: '검토', exact: true }).click();
+    await page.getByRole('button', { name: '변경 내용 추적', exact: true }).click();
     await expect
       .poll(async () =>
         page.evaluate(async () => await (window as any).editor.executeCommand('isTrackingChanges'))
@@ -522,7 +541,7 @@ test.describe('recording changes as they are made', () => {
     });
 
   test('marks what is typed rather than slipping it in', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await trackOn(page);
 
@@ -538,7 +557,7 @@ test.describe('recording changes as they are made', () => {
   });
 
   test('proposes a deletion instead of carrying it out', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await trackOn(page);
@@ -556,7 +575,7 @@ test.describe('recording changes as they are made', () => {
   });
 
   test('takes back what this reviewer just typed, without proposing it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await trackOn(page);
 
@@ -582,7 +601,7 @@ test.describe('recording changes as they are made', () => {
   });
 
   test('leaves the document alone while tracking is off', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await placeCaret(page, '.w-paragraph', 1);
@@ -597,7 +616,8 @@ test.describe('recording changes as they are made', () => {
 
 test.describe('recording the rest of an edit', () => {
   const trackOn = async (page: import('@playwright/test').Page) => {
-    await page.getByRole('button', { name: 'Track changes', exact: true }).click();
+    await page.getByRole('tab', { name: '검토', exact: true }).click();
+    await page.getByRole('button', { name: '변경 내용 추적', exact: true }).click();
     await expect
       .poll(async () =>
         page.evaluate(async () => await (window as any).editor.executeCommand('isTrackingChanges'))
@@ -659,11 +679,12 @@ test.describe('recording the rest of an edit', () => {
     );
 
   test('records reformatting, and what it looked like before', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await trackOn(page);
 
     await caretInCleanRun(page, 0, 8);
+    await page.getByRole('tab', { name: '홈', exact: true }).click();
     await page.getByRole('button', { name: 'Bold', exact: true }).click();
     await page.waitForTimeout(900);
 
@@ -672,7 +693,7 @@ test.describe('recording the rest of an edit', () => {
   });
 
   test('joining two paragraphs proposes the boundary rather than doing it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await trackOn(page);
 

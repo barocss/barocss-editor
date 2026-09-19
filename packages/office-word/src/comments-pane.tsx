@@ -1,3 +1,4 @@
+import { PanelHeader, TextField } from '@barocss/office-ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
@@ -9,7 +10,7 @@ import { commentThreads, type CommentThread } from './comments';
  */
 import { ANCHOR_STYPE } from './highlight-decorators';
 import { Icon } from '@barocss/office-icons';
-import { cn } from '@barocss/office-ui';
+import { cn, IconButton } from '@barocss/office-ui';
 
 /**
  * The comments on a document, in a pane beside it.
@@ -71,7 +72,7 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
     () => ({
       getNode: (id: string) =>
         (editor as unknown as { dataStore: { getNode(id: string): unknown } }).dataStore.getNode(id),
-      rootId: (editor as unknown as { getRootId(): string }).getRootId()
+      get rootId() { return editor.getRootId() ?? ''; }
     }),
     [editor]
   );
@@ -162,54 +163,29 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
    */
   if (!open) {
     return (
-      <button
-        type="button"
-        className="w-comments-closed"
-        onClick={onToggle}
-        title={threads.length > 0 ? `댓글 ${threads.length}개 열기` : '댓글 열기'}
-        data-comment-count={threads.length}
-      >
-        {/* The same drawing the ribbon's own comments button uses, because it is
-            the same pane — an emoji here and an icon there read as two features. */}
-        <Icon name="comments" size={15} />
-        {threads.length > 0 ? <span className="w-comments-count">{threads.length}</span> : null}
-      </button>
+      <div className="w-pane-rail w-pane-rail-end office-command-surface">
+        <IconButton
+          label={threads.length > 0 ? `댓글 ${threads.length}개 열기` : '댓글 열기'}
+          testClass="w-comments-closed"
+          onClick={onToggle}
+          data={{ 'comment-count': String(threads.length) }}
+        >
+          <Icon name="comments" size={16} />
+          {threads.length > 0 ? <span className="w-comments-count">{threads.length}</span> : null}
+        </IconButton>
+      </div>
     );
   }
 
   return (
     <aside
-      className="w-comments-pane w-72 shrink-0 overflow-auto border-l border-neutral-200 p-3 dark:border-neutral-800"
+      className="w-comments-pane"
       aria-label="Comments"
     >
-      <div className="flex items-center gap-2">
-        <input
-          className="w-comment-draft h-7 flex-1 rounded border border-neutral-300 px-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
-          placeholder="New comment"
-          aria-label="New comment"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <button
-          type="button"
-          className="w-comments-close inline-flex h-7 w-7 items-center justify-center rounded hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          onClick={onToggle}
-          title="댓글 닫기"
-          aria-label="댓글 닫기"
-        >
-          {/* Not the `×` character, which is a multiplication sign at whatever
-              weight the body face has. The find bar next door already drew this. */}
-          <Icon name="close" size={14} />
-        </button>
-        <button
-          aria-label="Add comment"
-          title="Comment on the selected text"
-          className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-neutral-100 disabled:opacity-40 dark:hover:bg-neutral-800"
-          disabled={!anchorTo}
-          onClick={() => void add()}
-        >
-          <Icon name="comment-new" size={15} />
-        </button>
+      <PanelHeader title="댓글" actions={<IconButton label="댓글 닫기" onClick={onToggle}><Icon name="close" size={16} /></IconButton>} />
+      <div className="w-comment-compose">
+        <TextField className="w-comment-draft" placeholder="New comment" ariaLabel="New comment" value={draft} onChange={setDraft} />
+        <IconButton label="Add comment" title="Comment on the selected text" disabled={!anchorTo} onClick={() => void add()}><Icon name="comment-new" size={16} /></IconButton>
       </div>
 
       <ul className="mt-3 space-y-2">
@@ -253,8 +229,11 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
                     value={editing.text}
                     onChange={(event) => setEditing({ sid: entry.sid, text: event.target.value })}
                     onKeyDown={(event) => {
+                      if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                       if (event.key === 'Escape') setEditing(null);
                       if (event.key !== 'Enter') return;
+                      // The command can restore the document selection before native Enter runs.
+                      event.preventDefault();
                       // The text changes; the author and the date do not. They
                       // record who said it and when, and a comment that quietly
                       // reattributes itself is worse than one nobody can fix.
@@ -290,7 +269,9 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
                   setReplies((all) => ({ ...all, [thread.id]: event.target.value }))
                 }
                 onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                   if (event.key !== 'Enter' || !(replies[thread.id] ?? '').trim()) return;
+                  event.preventDefault();
                   void editor.run('replyToComment', { id: thread.id, text: replies[thread.id] });
                   setReplies((all) => ({ ...all, [thread.id]: '' }));
                 }}

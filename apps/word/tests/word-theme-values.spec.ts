@@ -270,7 +270,7 @@ const key = (one: { at: string; prop: string }) => `${one.at} ${one.prop}`;
  * 도므로 넉넉히 기다린다.
  */
 async function open(page: Page) {
-  await page.goto('/');
+  await page.goto('/?sample');
   await page.waitForSelector('.w-toolbar');
   await page.waitForSelector('.w-sheet', { state: 'attached' });
   await page.waitForSelector('.w-outline');

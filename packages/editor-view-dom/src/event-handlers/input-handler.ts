@@ -104,6 +104,11 @@ export class InputHandlerImpl implements InputHandler {
     this.editor.on('editor:selection.dom.applied', (e: any) => {
       this.activeTextNodeId = e?.activeNodeId || null;
     });
+    // A picker may consume Enter before it reaches this view. Its command can
+    // replace the typed query and move the caret, ending that typing burst.
+    this.editor.on('editor:command.before', ({ command }: { command: string }) => {
+      if (command !== 'replaceText') this.caretMovedByUser();
+    });
   }
 
   private _buildDebugTransaction(operations: any[] = [], description?: string) {
@@ -270,6 +275,13 @@ export class InputHandlerImpl implements InputHandler {
 
   handleKeyDown(event: KeyboardEvent): void {
     const key = event.key;
+
+    // Selecting a new range ends a typing undo group even before the debounced
+    // DOM selection reaches the model. IME candidate navigation is not a new edit.
+    if (!event.isComposing && event.keyCode !== 229 &&
+      ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(key)) {
+      this.editor.historyManager.closeGroup();
+    }
 
     // Anything that is not a character being typed moves the caret or changes
     // the shape of the text around it.
@@ -1516,10 +1528,32 @@ export class InputHandlerImpl implements InputHandler {
     if (!ranges?.length) return false;
 
     const staticRange = ranges[0];
-    const modelRange = this.editorViewDOM.convertStaticRangeToModel?.(staticRange) ?? null;
+    let modelRange = this.editorViewDOM.convertStaticRangeToModel?.(staticRange) ?? null;
 
     const dataStore = this.editor.dataStore;
     if (!dataStore) return false;
+
+    // Chromium can canonicalize a caret at the start of a run to the end of a
+    // preceding nested inline (for example, a math slot). Preserve the visible
+    // caret when the model agrees with it. Replacement ranges still own edits.
+    const dom = window.getSelection();
+    if (inputType === 'insertText' && staticRange.collapsed && dom?.isCollapsed
+      && dom.anchorNode && this.editorViewDOM.contentEditableElement?.contains(dom.anchorNode)) {
+      const visible = this.editorViewDOM.convertDOMSelectionToModel?.(dom);
+      const known = this.editor.selection;
+      if (visible?.type === 'range' && visible.startNodeId === visible.endNodeId
+        && visible.startOffset === 0 && visible.endOffset === 0
+        && known?.type === 'range' && known.startNodeId === visible.startNodeId
+        && known.endNodeId === visible.endNodeId && known.startOffset === 0 && known.endOffset === 0
+        && modelRange?.type === 'range' && modelRange.startNodeId === modelRange.endNodeId && modelRange.startNodeId !== visible.startNodeId) {
+        const intended = dataStore.getNode(visible.startNodeId);
+        const previous = dataStore.getNode(modelRange.startNodeId);
+        if (holdsText(intended) && holdsText(previous) && intended.parentId !== previous.parentId
+          && modelRange.startOffset === previous.text?.length && modelRange.endOffset === previous.text?.length) {
+          modelRange = visible;
+        }
+      }
+    }
 
     const startNode = modelRange?.type === 'range' ? dataStore.getNode(modelRange.startNodeId) : undefined;
     const endNode = modelRange?.type === 'range' ? dataStore.getNode(modelRange.endNodeId) : undefined;
@@ -1735,8 +1769,8 @@ export class InputHandlerImpl implements InputHandler {
           try {
             const burst = this._burstCaret;
             const movedOn =
-              burst !== null &&
-              (burst.nodeId !== newCaret.startNodeId || burst.offset !== newCaret.startOffset);
+              burst === null ||
+              burst.nodeId !== newCaret.startNodeId || burst.offset !== newCaret.startOffset;
             if (movedOn) return;
 
             const view = this.editorViewDOM as any;

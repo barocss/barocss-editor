@@ -9,7 +9,7 @@ import { placeCaret } from './helpers';
 
 test.describe('Word editing', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await expect(page.locator('.w-surface').first()).toBeVisible();
   });
 
@@ -89,7 +89,7 @@ test.describe('Word editing', () => {
 
 test.describe('Backspace at a block boundary', () => {
   test('merges a block into the one before it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     const paragraphs = () => page.locator('.w-paragraph').count();
@@ -106,7 +106,7 @@ test.describe('Backspace at a block boundary', () => {
   });
 
   test('shrinks the document, so the pages come back', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     const sheets = () => page.locator('.w-sheet').count();
@@ -128,7 +128,7 @@ test.describe('Backspace at a block boundary', () => {
   });
 
   test('keeps the engine keys a product map does not restate', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     // Bindings are gated on editorFocus, so the caret has to be in the document

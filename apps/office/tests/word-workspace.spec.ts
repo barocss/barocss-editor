@@ -1,0 +1,54 @@
+import { test, expect } from '@playwright/test';
+import { mkdir } from 'node:fs/promises';
+
+test('Word panels preserve comment drafts and selection across screen sizes', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'W Word 새 자료 만들기', exact: true }).click();
+  await page.getByRole('textbox', { name: '새 자료 이름' }).fill('검토 중인 문서');
+  await page.getByRole('button', { name: '만들기', exact: true }).click();
+  const paragraph = page.locator('.w-paragraph').last();
+  await paragraph.click(); await page.keyboard.type('Review this paragraph.');
+  await page.keyboard.press('Home'); await page.keyboard.press('Shift+End');
+  await expect.poll(() => page.evaluate(() => (window as any).editor.selection?.collapsed)).toBe(false);
+  const selection = await page.evaluate(() => JSON.stringify((window as any).editor.selection));
+  await page.getByRole('button', { name: '댓글 열기', exact: true }).click();
+  const draft = page.getByRole('textbox', { name: 'New comment', exact: true });
+  await draft.fill('이 문단을 확인해주세요.');
+  const nav = page.locator('[data-workspace-toggle="navigation"]');
+  const comments = page.locator('[data-workspace-toggle="inspector"]');
+  await page.setViewportSize({ width: 390, height: 800 });
+  await expect(draft).toBeHidden();
+  expect((await page.locator('.w-shell-document').boundingBox())!.width).toBeGreaterThanOrEqual(389);
+  await comments.click(); await expect(draft).toHaveValue('이 문단을 확인해주세요.');
+  await nav.click(); await expect(draft).toBeHidden();
+  await expect(page.getByRole('navigation', { name: '문서 개요' })).toBeVisible();
+  await comments.click();
+  await draft.focus(); await page.keyboard.press('Escape');
+  await expect(draft).toBeHidden(); await expect(comments).toBeFocused();
+  await comments.click();
+  await expect(draft).toHaveValue('이 문단을 확인해주세요.');
+  await mkdir('../../.dev/artifacts/design-system', { recursive: true });
+  await page.screenshot({ path: '../../.dev/artifacts/design-system/word-comments-narrow.png' });
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await expect(draft).toBeVisible(); await expect(draft).toHaveValue('이 문단을 확인해주세요.');
+  expect(await page.evaluate(() => JSON.stringify((window as any).editor.selection))).toBe(selection);
+  await page.getByRole('button', { name: 'Add comment', exact: true }).click();
+  await expect(page.locator('[data-comment]')).toContainText('이 문단을 확인해주세요.');
+  await expect(draft).toHaveValue('');
+  // Desktop preferences remain separate from the temporary compact panel.
+  await page.getByRole('button', { name: '댓글 닫기', exact: true }).click();
+  await page.setViewportSize({ width: 560, height: 800 });
+  await comments.click(); await draft.fill('답변 초안');
+  await page.getByRole('button', { name: '댓글 닫기', exact: true }).click();
+  await expect(draft).toBeHidden();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await expect(draft).toBeHidden();
+  await page.getByRole('button', { name: '댓글 1개 열기', exact: true }).click();
+  await expect(draft).toHaveValue('답변 초안');
+  await expect(paragraph).toHaveText('Review this paragraph.');
+  await page.screenshot({ path: '../../.dev/artifacts/design-system/word-comments-wide.png' });
+  // The workspace host still supplies the full suite menu, once.
+  await expect(page.getByRole('menubar', { name: 'Word 제품 메뉴' })).toHaveCount(0);
+  await page.getByRole('menuitem', { name: 'Word', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: '자료함', exact: true })).toBeVisible();
+});

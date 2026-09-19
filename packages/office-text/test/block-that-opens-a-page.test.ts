@@ -42,7 +42,7 @@ const doc = (): DocumentAccess => {
 
 const styleOf = (pushes?: Map<string, number>) => {
   const access = doc();
-  const text = createTextEnv(access) as Record<string, unknown>;
+  const text = createTextEnv(access) as unknown as Record<string, unknown>;
   if (pushes) text.pushes = pushes;
   return blockStyle(access.getNode('p1') as never, { [WORD_ENV_KEY]: text } as never);
 };
@@ -63,7 +63,7 @@ describe('페이지를 여는 블록', () => {
   it('앞 간격이 0 이어도 밀어 내린 값이 이긴다 — 규칙이 값에 달려 있지 않다', () => {
     const access = doc();
     (access.getNode('p1') as Record<string, any>).attributes = { spacingBefore: 0 };
-    const text = createTextEnv(access) as Record<string, unknown>;
+    const text = createTextEnv(access) as unknown as Record<string, unknown>;
     text.pushes = new Map([['p1', 96]]);
     const style = blockStyle(access.getNode('p1') as never, { [WORD_ENV_KEY]: text } as never);
     expect(style.marginTop).toBe('96px');

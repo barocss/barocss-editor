@@ -135,6 +135,12 @@ export function ZoomControl({ zoom, onChange, pane: given = null }: ZoomControlP
      * the one the rectangle describes.
      */
     content: () => pane.current?.querySelector('.w-surface')?.getBoundingClientRect(),
+    focusAnchor: () => {
+      const active = pane.current?.ownerDocument.activeElement;
+      if (!active || !pane.current?.contains(active) || !active.matches('.w-math-draft .me-input')) return;
+      const rect = active.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    },
     zoom,
     onZoom: onChange,
     min: ZOOM_MIN,

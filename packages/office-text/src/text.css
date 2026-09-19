@@ -753,3 +753,8 @@
 .w-math-bar[data-position='bot'] > .w-math-e {
   border-bottom: 1px solid currentColor;
 }
+
+.ot-table-resize-guide { position: fixed; z-index: 100; pointer-events: none; background: var(--ou-accent, #2563eb); }
+.ot-table-resize-guide[hidden] { display: none; }
+.ot-table-resize-guide output { position: fixed; max-width: calc(100vw - 16px); box-sizing: border-box; padding: 3px 7px; border: 1px solid var(--ou-line, #ddd); border-radius: 4px; background: var(--ou-selection-readout-bg, white); color: var(--ou-selection-readout-ink, #171717); font: 12px/18px sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media print { .ot-table-resize-guide { display: none !important; } }

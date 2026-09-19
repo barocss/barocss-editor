@@ -15,7 +15,7 @@ import { changes } from './helpers';
 const bar = (page: Page) => page.locator('.w-menubar');
 
 const openWord = async (page: Page) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await page.waitForSelector('.w-toolbar');
   await page.waitForTimeout(600);
 };

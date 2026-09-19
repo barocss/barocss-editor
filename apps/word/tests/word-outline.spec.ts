@@ -15,7 +15,7 @@ import { settled } from './helpers';
  */
 
 test('the window is the frame, and only the document scrolls', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(400);
 
@@ -44,9 +44,12 @@ test('the window is the frame, and only the document scrolls', async ({ page }) 
 });
 
 test('the outline lists every heading, indented by its level', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(400);
+  // Panes start collapsed; open the UI this test exercises.
+  await page.locator('.w-outline-closed').click();
+
 
   const items = page.locator('.w-outline [data-outline-sid]');
   expect(await items.count()).toBeGreaterThan(3);
@@ -67,9 +70,12 @@ test('the outline lists every heading, indented by its level', async ({ page }) 
 });
 
 test('the outline goes deeper than the contents page does', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(400);
+  // Panes start collapsed; open the UI this test exercises.
+  await page.locator('.w-outline-closed').click();
+
 
   // A contents page lists 1–3 by default; a map that hid the rest would
   // disagree with the document it is a map of.
@@ -87,9 +93,12 @@ test('the outline goes deeper than the contents page does', async ({ page }) => 
 });
 
 test('clicking an entry takes the reader and the caret there', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(400);
+  // Panes start collapsed; open the UI this test exercises.
+  await page.locator('.w-outline-closed').click();
+
 
   const items = page.locator('.w-outline [data-outline-sid]');
   const last = items.nth((await items.count()) - 1);
@@ -129,9 +138,12 @@ test('clicking an entry takes the reader and the caret there', async ({ page }) 
 });
 
 test('closes to a strip, and opens again', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(400);
+  // Panes start collapsed; open the UI this test exercises.
+  await page.locator('.w-outline-closed').click();
+
 
   await page.locator('.w-outline-title button').click();
   await expect(page.locator('.w-outline')).toHaveCount(0);
@@ -147,9 +159,12 @@ test('closes to a strip, and opens again', async ({ page }) => {
  * look.
  */
 test('the comments pane collapses to a strip that counts', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(400);
+  // Panes start collapsed; open the UI this test exercises.
+  await page.locator('.w-comments-closed').click();
+
 
   const openWidth = (await page.locator('.w-comments-pane').boundingBox())!.width;
   expect(openWidth).toBeGreaterThan(200);
@@ -171,9 +186,12 @@ test('the comments pane collapses to a strip that counts', async ({ page }) => {
 });
 
 test('closing the pane puts the discussion away, not the sign of it', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(400);
+  // Panes start collapsed; open the UI this test exercises.
+  await page.locator('.w-comments-closed').click();
+
 
   const marks = page.locator('.w-comment-anchor, [data-bc-decorator*="comment"]');
   const before = await marks.count();
@@ -194,9 +212,14 @@ test('closing the pane puts the discussion away, not the sign of it', async ({ p
  * are in the ribbon anyway because that is where a reader looks for a switch.
  */
 test('the ribbon turns each pane on and off, and says which is on', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(400);
+  // Panes start collapsed; open the UI this test exercises.
+  await page.locator('.w-outline-closed').click();
+  await page.locator('.w-comments-closed').click();
+  await page.getByRole('tab', { name: '보기', exact: true }).click();
+
 
   const outlineButton = page.locator('[data-control="view-outline"]');
   const commentsButton = page.locator('[data-control="view-comments"]');
@@ -223,9 +246,13 @@ test('the ribbon turns each pane on and off, and says which is on', async ({ pag
 });
 
 test('the pane and its own close button say the same thing', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(400);
+  // Panes start collapsed; open the UI this test exercises.
+  await page.locator('.w-outline-closed').click();
+  await page.getByRole('tab', { name: '보기', exact: true }).click();
+
 
   // Closed from inside the pane, the ribbon has to agree — two switches for one
   // thing is two things a reader has to keep in their head
@@ -275,7 +302,7 @@ test.describe('how a table of contents is set', () => {
     }));
 
   test('draws the leader the field asks for', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await page.waitForSelector('.w-toc-entry');
 
@@ -305,7 +332,7 @@ test.describe('how a table of contents is set', () => {
    * because there is no gap left to cross.
    */
   test('lets the page numbers follow the text', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await page.waitForSelector('.w-toc-entry');
 
@@ -327,7 +354,7 @@ test.describe('how a table of contents is set', () => {
    * `useHyperlinks` means is what a press does.
    */
   test('goes nowhere when the field says its entries are not links', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await page.waitForSelector('.w-toc-entry');
 

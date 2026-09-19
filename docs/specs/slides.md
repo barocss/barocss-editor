@@ -29,8 +29,8 @@ So a slide is not a new document; it is the half of `surface` a word processor
 never asked for. A slide is **19200 × 10800 twips** — 16:9 in the unit every
 length in this engine is in — and 14400 × 10800 for a deck that wants 4:3.
 
-What it holds, measured: **64 node types, 526 attribute slots, 25 marks**. Word
-holds 108 and 1,033, the site builder 71 and 841. The deck is the *smallest*
+What it holds, measured: **64 node types, 529 attribute slots, 25 marks**. Word
+holds 108 and 1,043, the site builder 71 and 862. The deck is the *smallest*
 vocabulary of the three products that have one, which is the right answer: a deck
 says less about text than a word processor and less about layout than a page
 builder, and it says one thing neither of them can say at all.
@@ -91,8 +91,8 @@ unselectable.
 
 A **ribbon, a filmstrip, a properties panel, a layer panel, a timeline pane, a
 notes pane, a components panel, an audit panel, a find bar and a deck map** —
-**27 components and 3 hooks** behind `@barocss/office-slides/ui`, which is why
-`apps/slide` is 2,360 lines of `app.tsx` and 160 of `main.tsx` and nothing else.
+**30 components and 4 hooks** behind `@barocss/office-slides/ui`, which is why
+`apps/slide` is 2,355 lines of `app.tsx` and 160 of `main.tsx` and nothing else.
 
 Measured: **10 toolbar groups, 60 controls, 61 commands, 59 icons**; **47 panel
 rows over two tabs** (style, motion) offering **63 settable attributes**; **24
@@ -114,7 +114,7 @@ a slide is a plane and a reader is thinking about the box they are pointing at.
 
 | | |
 | --- | ---: |
-| commands registered | 190 (97 the deck's own) |
+| commands registered | 193 (99 the deck's own) |
 | of those, reachable from a surface | toolbar 61 · keys 13 · panel 14 · menu 7 |
 | attributes a reader can set, from the panel | 63 |
 | box types a reader can hold | 13 |
@@ -122,9 +122,9 @@ a slide is a plane and a reader is thinking about the box they are pointing at.
 | slide transitions | 7 |
 | deck templates · themes | 4 · 4 |
 | theme slots — colour, font | 12 · 2 |
-| components · hooks behind `./ui` | 27 · 3 |
-| `apps/slide/src` | **2,523 lines** — `app.tsx` 2,363, `main.tsx` 160 |
-| browser tests | 415 |
+| components · hooks behind `./ui` | 29 · 4 |
+| `apps/slide/src` | **2,594 lines** — `app.tsx` 2,434, `main.tsx` 160 |
+| browser test declarations | 436 |
 
 There is deliberately **no line count of this package** in that table, and finding
 out why was worth the round. A package's total moves when somebody adds a
@@ -219,3 +219,28 @@ face.
 An argument for the design. The canvas was argued in `canvas-model.md`, motion in
 `motion-model.md`, and the shared layer in `architecture.md`. This records **what
 the deck is now**, so that the next 87% goes through a test.
+
+
+### Free canvas workspace (2026-09-13)
+
+`Stage.boards` supplies each slide's workspace position and natural CSS-pixel size. Canvas view starts in two columns; dragging a slide title writes `surface.canvasX/canvasY` through `setSlideInfo`. These coordinates do not alter presentation order or local object coordinates. The viewport camera supports two-axis panning and pointer-anchored zoom without document writes. The stage notifies the selection overlay when camera geometry changes.
+
+Clicking or moving the text caret into another slide updates the active editing slide. Navigation, notes, insertion, layers and properties use that same slide. The inspector uses the shared `office-ui` inspector density, grouped corner fields and collapsible `PropertySheet` sections. Shift-click selects objects across slides for common properties, deletion, duplication and keyboard nudging.
+
+### Cross-slide object transfer (2026-09-13)
+
+Dragging selected top-level objects onto another slide in canvas view previews the target and converts positions into that slide's local coordinates. `moveBoxesToSlide` accepts `{ slideId, positions: [{ nodeId, x, y }] }`, where x/y use the document's twip units. It preserves object IDs, child structure and relative stacking order in one undoable transaction. Successful transfer selects the destination; undo/redo follows the selected object's restored owner. Escape and pointer cancellation leave the document unchanged.
+
+Whole groups can move. Extracting a nested object is not supported. Locked or bound objects, invalid coordinates, mixed source slides and same-slide transfers are rejected. A moving connector cannot retain a reference to an object on another slide; connectors left behind freeze their endpoints when referenced objects move away. The preview uses a viewport portal to avoid clipping at the source slide boundary.
+
+Verification: command/spec/conformance unit checks 58 passed; transfer, free-canvas and existing editing browser checks 16 passed; production build passed. Whole-workspace TypeScript checks still report errors in other packages, with none in the changed transfer source files.
+
+### Cross-slide copy and selection (2026-09-13)
+
+Alt-drag uses `copyBoxesToSlide` with the same destination positions. The source remains unchanged; copies get new IDs and internal connector references. The shared copy path now retains text marks. A connector must travel with its referenced objects. Drag copying does not replace the system clipboard.
+
+Shift-click adds/removes objects across slides. Viewport-clipped outlines remain visible on the other selected slides. The inspector applies common properties to all targets; delete, duplicate and nudge preserve each object's container and form one undo entry. Grouping, stacking, alignment and component/connector creation refuse incompatible cross-slide selections rather than partially editing them. A normal object click returns to that object for dragging; cross-slide marquee and collective pointer resizing remain future work.
+
+Verification: full Slides unit suite 1,054 passed. The five transfer/selection browser scenarios passed; fourteen existing free-canvas/editing scenarios passed in the preceding run. Two initial new browser expectations were corrected: unset opacity has an effective value of 1, and deletion must check the original node ID rather than the next first text frame. Actual user-browser verification changed both selected titles to 60% opacity, then undid to 100%. Build passed; other-package TypeScript diagnostics remain.
+
+`SlidePrintDialog` provides output previews. `createSlidePrint` renders physical pages from the model and attaches browser print events. See [exchange scope](slides-exchange.md).

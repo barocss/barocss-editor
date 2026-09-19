@@ -750,17 +750,20 @@ test.describe('writing a row in the drawer', () => {
     const rows = page.locator('[data-slash-item]');
 
     /**
-     * **Eleven, and they are `office-note`'s.**
+     * **The writing actions are `office-note`'s.**
      *
      * The menu was the site's surface reading the site's editor, and it stopped opening the day the
      * body got a session of its own: the caret it watches and the caret a writer has became two
      * different things. So the package draws its own — which is what *자체 툴바/ui 까지 다 가지고
      * 있어야해* means for the second surface as well as the first.
      *
-     * Eleven ways in for ten blocks: 목록 and 번호 목록 are one node type and two doors. 버튼 and 글
+     * 목록 and 번호 목록 are one node type and two doors; checklist, toggle and callout also belong to prose. 버튼 and 글
      * are not on it because a body holds neither — not filtered off, never on.
      */
-    await expect(rows).toHaveCount(11);
+    await expect(rows).toHaveCount(20);
+    for (const command of ['insertChecklist', 'insertDetails', 'insertCallout']) {
+      await expect(page.locator(`[data-slash-item="${command}"]`)).toHaveCount(1);
+    }
     await expect(page.locator('[data-slash-item="insertButton"]')).toHaveCount(0);
     await expect(page.locator('[data-slash-item="insertRichText"]')).toHaveCount(0);
     await expect(page.locator('[data-slash-item="insertHeading"]')).toHaveCount(1);
@@ -787,51 +790,28 @@ test.describe('writing a row in the drawer', () => {
     await expect(page.locator('[data-row-form="1"]')).toHaveCount(1);
   });
 
-  test('draws an editor and a bar for every 서식 있는 글 column the row has', async ({ page }) => {
+  test('gives each rich-text field its own editor and contextual insertion control', async ({ page }) => {
     await openRow(page);
-
-    /**
-     * Asked as *속성에 rich text 가 여러개면 에디터가 여러개 나와야할 듯 한데* — and it does, because
-     * the editor is drawn per **cell**. A row of the sample has two: 요약, which a card shows in a
-     * list, and 본문, which is the post.
-     *
-     * A bar each, over the body it is about. One bar at the top of the drawer would be a control
-     * whose target is *whichever body was last clicked*, which is a thing a reader has to keep in
-     * their head.
-     */
     await expect(page.locator('[data-row-form] [data-note-editor]')).toHaveCount(2);
-    await expect(page.locator('[data-row-form] [data-field="요약"] [data-note-bar]')).toHaveCount(1);
-    await expect(page.locator('[data-row-form] [data-field="본문"] [data-note-bar]')).toHaveCount(1);
+    await expect(page.locator('[data-row-form] [data-note-bar]')).toHaveCount(0);
+    for (const name of ['요약', '본문']) {
+      const field = page.locator(`[data-row-form] [data-field="${name}"]`);
+      await field.locator('[data-note-body] p').first().click();
+      await expect(field.locator('[data-note-add]')).toBeVisible();
+    }
   });
 
-  test('offers the marks and the blocks, because a body always has an end', async ({ page }) => {
+  test('offers writing blocks through the contextual add menu', async ({ page }) => {
     await openRow(page);
-    const bar = page.locator('[data-row-form] [data-field="본문"] [data-note-bar]');
-
-    /**
-     * **This asserted the opposite**, and the opposite was true of the *page builder's* editor: an
-     * insert there needs to know which page, so with nothing selected every one of them refused and
-     * the bar came up marks-only until a caret arrived.
-     *
-     * A note has no pages. `_where` walks up from the caret to the child of the note it is in, and
-     * with no caret at all the answer is **the end** — which is what a writer pressing 제목 on a
-     * fresh body means, and a better answer than a dead button.
-     */
-    await expect(bar.locator('[data-note-control="toggleBold"]')).toHaveCount(1);
-    await expect(bar.locator('[data-note-control="insertHeading"]')).toHaveCount(1);
-
-    await page.locator('[data-row-form] [data-field="본문"] [data-note-body] p').first().click();
-    await page.waitForTimeout(500);
-
-    /**
-     * **Eleven ways in for ten blocks**, which is `NOTE_TOOLBAR` — the note's own list, not the
-     * page's thirteen. 목록 and 번호 목록 are one node type and two doors; 버튼 and 글 are not on a
-     * body's bar at all, rather than being filtered off it.
-     */
-    await expect(bar.locator('[data-note-control^="insert"]')).toHaveCount(11);
-    await expect(bar.locator('[data-note-control="insertNumberList"]')).toHaveCount(1);
-    await expect(bar.locator('[data-note-control="insertButton"]')).toHaveCount(0);
-    await expect(bar.locator('[data-note-control="insertRichText"]')).toHaveCount(0);
+    const field = page.locator('[data-row-form] [data-field="본문"]');
+    await field.locator('[data-note-body] p').first().click();
+    await field.locator('[data-note-add]').click();
+    const menu = field.locator('[data-note-insert]');
+    for (const command of ['insertHeading', 'insertChecklist', 'insertCallout', 'insertNumberList']) {
+      await expect(menu.locator(`[data-note-control="${command}"]`)).toBeVisible();
+    }
+    await expect(menu.locator('[data-note-control="insertButton"]')).toHaveCount(0);
+    await expect(menu.locator('[data-note-control="insertRichText"]')).toHaveCount(0);
   });
 
   test('the bar acts, and says what it did — which it did not until it was told the caret moved', async ({ page }) => {
@@ -868,7 +848,8 @@ test.describe('writing a row in the drawer', () => {
       });
     expect(await kinds()).toBe('H2 P P');
 
-    await field.locator('[data-note-control="insertHeading"]').click();
+    await field.locator('[data-note-add]').click();
+    await field.locator('[data-note-insert] [data-note-control="insertHeading"]').click();
     await page.waitForTimeout(700);
     expect(await kinds()).toBe('H2 P H2 P');
   });
@@ -1930,6 +1911,7 @@ test.describe('the exported page', () => {
     const corner = page.locator('.st-grip[data-grip-edge="corner"]').first();
     await expect(corner).toHaveCount(1);
 
+    await page.screenshot({ path: '../../.dev/artifacts/design-system/selection-site.png' });
     const was = (await band.boundingBox())!;
     const at = (await corner.boundingBox())!;
     await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
@@ -1938,7 +1920,7 @@ test.describe('the exported page', () => {
     await page.waitForTimeout(120);
 
     // Both numbers, because a corner drag is two decisions and the reader made both.
-    const said = await page.locator('.st-mark-size').first().textContent();
+    const said = await page.locator('[data-site-size-readout]').first().textContent();
     expect(said).toMatch(/^\d+ × \d+$/);
 
     await page.mouse.up();
@@ -1949,7 +1931,7 @@ test.describe('the exported page', () => {
      * this asks for both: nothing left over from the drag, and the size still readable afterwards.
      */
     await expect(page.locator('[data-frame="desktop"] .st-mark-size:not([data-settled])')).toHaveCount(0);
-    await expect(page.locator('[data-frame="desktop"] .st-mark-size[data-settled="true"]')).toHaveCount(1);
+    await expect(page.locator('[data-site-settled-size][data-site-readout-frame="desktop"]')).toHaveCount(1);
 
     const now = (await band.boundingBox())!;
     expect(now.width).toBeLessThan(was.width);
@@ -2891,7 +2873,7 @@ test.describe('the exported page', () => {
      * So the number they are already looking at says which of the two decided it.
      */
     await ready(page);
-    const chip = page.locator('[data-frame="desktop"] .st-mark-size[data-settled="true"]');
+    const chip = page.locator('[data-site-settled-size][data-site-readout-frame="desktop"]');
 
     /*
      * Selected by name rather than by pressing down to it: a plain press takes the outermost block
@@ -5400,7 +5382,7 @@ test.describe('the layer list', () => {
     expect(await drawn.evaluate((one) => getComputedStyle(one as HTMLElement).display)).not.toBe('none');
 
     await row.hover();
-    await row.locator('button').first().click();
+    await row.locator('.office-layer-actions button').first().click();
     await page.waitForTimeout(500);
 
     expect(await drawn.evaluate((one) => getComputedStyle(one as HTMLElement).display)).toBe('none');
@@ -5420,7 +5402,7 @@ test.describe('the layer list', () => {
     const row = page.locator('[data-layer]').nth(1);
     const sid = await row.getAttribute('data-layer');
     await row.hover();
-    await row.locator('button').first().click();
+    await row.locator('.office-layer-actions button').first().click();
     await page.waitForTimeout(500);
 
     const html = await page.evaluate(() => (window as any).exportSite()[0].html);
@@ -5455,7 +5437,7 @@ test.describe('the layer list', () => {
     expect(await page.evaluate(() => (window as any).editor.selection?.nodeIds?.[0])).toBe(sid);
 
     await row.hover();
-    await row.locator('button').nth(1).click();
+    await row.locator('.office-layer-actions button').last().click();
     await page.waitForTimeout(400);
     await expect(page.locator(`[data-layer="${sid}"]`)).toHaveAttribute('data-locked', 'true');
 
@@ -6064,7 +6046,7 @@ test.describe('the data', () => {
 
   const openData = async (page: Page) => {
     await ready(page);
-    await rail(page).getByRole('button', { name: '데이터' }).first().click();
+    await rail(page).getByRole('tab', { name: '데이터', exact: true }).click();
   };
 
   test('takes the main area, because a dataset is a place rather than a stint', async ({ page }) => {
@@ -6374,11 +6356,35 @@ test.describe('the data', () => {
 
     /* In the form, as its kind… */
     await expect(page.locator('[data-row-form] [data-field="태그"]')).toHaveAttribute('data-kind', 'choices');
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const find = (id: string): any => {
+        const node = editor.dataStore.getNode(id);
+        if (node?.stype === 'dataset' && node.attributes?.name === '글') return node;
+        for (const child of node?.content ?? []) { if (typeof child === 'string') { const found = find(child); if (found) return found; } }
+      };
+      const dataset = find(editor.getRootId());
+      await editor.executeCommand('setDatasetField', { nodeId: dataset.sid, field: '태그', kind: 'choices', options: ['제품', '디자인', '개발'] });
+    });
+    const tags = page.locator('[data-row-form] [data-field="태그"]');
+    await tags.getByRole('button', { name: '태그', exact: true }).click();
+    const search = page.getByRole('combobox', { name: '태그 검색' });
+    await search.fill('디자인'); await search.press('Enter');
+    await search.fill('개발'); await search.press('Enter');
+    await expect(tags.getByRole('button', { name: '태그', exact: true })).toContainText('2개 선택');
+    await search.press('Escape');
+    await tags.getByRole('button', { name: '디자인 제거', exact: true }).click();
+    await expect(tags.getByRole('button', { name: '태그', exact: true })).toContainText('1개 선택');
     /* …and in the table, because it is one column and not two. */
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
     await expect(grid(page).locator('[data-column="태그"]')).toHaveCount(1);
     await expect(grid(page).locator('tbody tr')).toHaveCount(4);
+    await page.locator('[data-row-open="0"]').click();
+    await expect(page.locator('[data-row-form] [data-field="태그"]')).toContainText('개발');
+    await expect(page.locator('[data-row-form] [data-field="태그"]')).not.toContainText('디자인');
+    await page.locator('[data-row-form] [data-field="태그"]').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: '../../.dev/artifacts/design-system/search-site.png', animations: 'disabled' });
   });
 
   test('writes a cell, and the list on the page says it', async ({ page }) => {
@@ -10689,4 +10695,72 @@ test.describe('관리', () => {
     await expect(page.locator('[data-admin-file]')).toHaveCount(2);
     await expect(page.locator('.st-admin-table thead')).toContainText('크기');
   });
+});
+
+
+test('compact arrangement menu duplicates the selected block', async ({ page }) => {
+  await ready(page);
+  const heading = page.locator('[data-frame="desktop"] .st-page h1').first();
+  const before = await page.locator('[data-frame="desktop"] .st-page h1').count();
+  await press(page, heading);
+  const trigger = page.getByRole('menubar', { name: '배치 도구', exact: true }).getByRole('menuitem', { name: '배치', exact: true });
+  await trigger.press('Enter');
+  await page.keyboard.press('Escape');
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await trigger.click();
+  await page.getByRole('menuitem', { name: /^복제/ }).click();
+  await expect(page.locator('[data-frame="desktop"] .st-page h1')).toHaveCount(before + 1);
+});
+
+test('image data field searches document assets with previews and preserves the reference', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(async () => {
+    const editor = (window as any).editor;
+    const find = (id: string): any => {
+      const node = editor.dataStore.getNode(id);
+      if (node?.stype === 'dataset' && node.attributes?.name === '상품') return node;
+      for (const child of node?.content ?? []) if (typeof child === 'string') { const found = find(child); if (found) return found; }
+    };
+    await editor.executeCommand('insertAsset', { label: '미디어 검증.png', type: 'image/png', width: 1, height: 1, data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=' });
+    await editor.executeCommand('setDatasetField', { nodeId: find(editor.getRootId()).sid, field: '미디어', kind: 'image' });
+  });
+  await page.locator('.st-rail').getByRole('tab', { name: '데이터', exact: true }).click();
+  await page.locator('[data-dataset-edit="상품"]').click();
+  await page.locator('[data-row-open="0"]').click();
+  const field = page.locator('[data-row-form] [data-field="미디어"]');
+  await field.getByRole('button', { name: '미디어', exact: true }).click();
+  const search = page.getByRole('combobox', { name: '미디어 검색' });
+  await search.fill('미디어 검증');
+  await expect(page.getByRole('option')).toHaveCount(1);
+  await search.press('Enter');
+  await expect.poll(() => field.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1);
+  await page.keyboard.press('Escape');
+  await page.locator('[data-row-open="0"]').click();
+  await expect(field.getByRole('button', { name: '미디어', exact: true })).toHaveText('미디어 검증.png');
+  await field.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: '../../.dev/artifacts/design-system/media-site.png', animations: 'disabled' });
+});
+
+test('settled size follows zoom and stays inside the screen', async ({ page }) => {
+  await ready(page);
+  const band = page.locator('[data-frame="desktop"] [data-name="로고 줄"]').first();
+  await press(page,band);
+  const chip = page.locator('body > [data-site-settled-size][data-site-readout-frame="desktop"]');
+  await expect(chip).toBeVisible();
+  const initial = (await chip.boundingBox())!;
+  const zoom = page.getByRole('textbox',{name:'확대/축소'});
+  await zoom.fill('75%'); await zoom.press('Enter');
+  await expect.poll(async () => Math.abs((await chip.boundingBox())!.y-initial.y)).toBeGreaterThan(1);
+  const at = (await chip.boundingBox())!;
+  expect(at.width).toBeCloseTo(initial.width,0);
+  expect(at.x).toBeGreaterThanOrEqual(8); expect(at.y).toBeGreaterThanOrEqual(8);
+  expect(at.x+at.width).toBeLessThanOrEqual(page.viewportSize()!.width-8);
+  expect(at.y+at.height).toBeLessThanOrEqual(page.viewportSize()!.height-8);
+  await page.screenshot({path:'../../.dev/artifacts/design-system/site-settled-size.png'});
+  const canvas = (await page.locator('.st-canvas').boundingBox())!;
+  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+  await page.mouse.wheel(0, 2000);
+  await expect(chip).toBeHidden();
+  await page.mouse.wheel(0, -2000);
+  await expect(chip).toBeVisible();
 });

@@ -32,9 +32,12 @@
  */
 
 export { Tip, TipProvider } from './tip';
+export { StatusIndicator, StatusNotice, type StatusTone } from './status';
+export { NavigationItem, EmptyState } from './navigation';
 export { cn } from './cn';
 export { onApple } from './platform';
-export { FloatingSurface } from './floating';
+export { FloatingSurface, FloatingPanelHeader, FloatingPanelFooter, type FloatingSurfaceProps, type FloatingPanelHeaderProps, type FloatingDismissReason, type FloatingOwnedElement } from './floating';
+export { MenuAction, type MenuActionProps } from './menu-action';
 
 export {
   SegmentedControl,
@@ -64,6 +67,7 @@ export { ColorField, type ThemeSwatch } from './color-field';
 export { ColorPicker, type ColorPickerProps } from './color-picker';
 
 export { Dialog, DialogButton, Drawer } from './dialog';
+export { SidePeek, type SidePeekProps } from './side-peek';
 export { PropertySheet, type SheetGroup, type SheetRow } from './property-sheet';
 
 export {
@@ -85,7 +89,7 @@ export {
  * Three axes were drawn in this repository with three different answers — see the
  * file. Pure arithmetic, no editor, no DOM.
  */
-export { axisTicks, timeStep, type AxisStep, type AxisTick } from './axis';
+export { axisTicks, scaledAxisStep, timeStep, type AxisStep, type AxisTick } from './axis';
 
 /**
  * The window's frame: chrome on top, a row of panes, something along the bottom.
@@ -162,12 +166,14 @@ export {
   FieldGroup,
   NumberField,
   TextField,
+  TextAreaField,
   /*
    * The rule a field and the app that hosts it both need — which keys are the field's own. See
    * `fieldKeeps` for the chord that reached nothing at all until they shared one answer.
    */
   fieldKeeps,
-  type ButtonTone
+  type ButtonTone,
+  type ButtonProps
 } from './controls';
 
 /**
@@ -231,3 +237,35 @@ export { Waveform } from './waveform-strip';
  * film's strip every time a reader touches its step.
  */
 export { useAudioPeaks, clearPeakCache } from './audio-peaks';
+
+export { DocumentNavigation, SearchResultNavigation, type DocumentNavigationProps, type DocumentNavigationMode } from './document-navigation';
+export { MenuActionText } from './menu-action';
+export { TextColorOptions } from './text-color-options';
+
+export { RibbonTabs, RibbonGroup, RibbonAction, RibbonToolbar, RibbonToggle } from './ribbon';
+export { DocumentBar, ProductLabel, ProductMenu } from './document-bar';
+export { EditorHeader, PanelHeader } from './document-bar';
+export { registerEditorNavigation } from './editor-host';
+export type { EditorNavigationProps } from './editor-host';
+
+export { LayerActions } from './layer-actions';
+
+export { DataTable, DataTableRow, DataTableCell } from './data-table';
+
+export { AdaptiveWorkspace, WorkspaceSidePanel } from './adaptive-workspace';
+
+export { SelectionReadout } from './selection-readout';
+export { visibleElementRect, observeElementAnchor } from './element-anchor';
+
+export { selectionResizeHandles, type SelectionResizeHandle } from './selection-handles';
+
+export { SearchSelect, SelectionTag, type SearchSelectProps, type SearchOption } from './search-select';
+
+export { FileDropZone, FileItem, fileSizeLabel } from './file-drop-zone';
+export { MediaSelect, type MediaOption } from './media-select';
+
+export { CommandSearch, CommandSearchTrigger, type SearchCommand } from './command-search';
+
+export { TaskStatus, TaskStatusRegion, type TaskPhase } from './task-status';
+
+export { visibleRangeRect, observeRangeAnchor } from './range-anchor';

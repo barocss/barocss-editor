@@ -9,6 +9,7 @@
  * group on its own line, no padding, no background, and no error anywhere.
  */
 @source "../../../packages/office-ui/src";
+@source "../../../packages/office-editor-ui/src";
 /*
  * **그리고 이 제품의 셸.**
  *
@@ -327,4 +328,37 @@ body {
  * platforms put it — and the two are different surfaces on purpose: a menubar holds what acts on the
  * document and the application, a ribbon holds what acts on the selection.
  */
-.w-menubar { padding: 6px 16px 0; }
+
+.w-document-library { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 12px; border-bottom: 1px solid var(--ou-line); }
+.w-document-library > [role="status"] { font-size: 12px; color: var(--ou-muted); }
+.w-document-library [role="alert"] { color: #b42318; font-size: 12px; }
+.w-library-content { display: grid; gap: 12px; min-width: 0; }
+.w-library-list { display: grid; gap: 4px; min-width: 0; }
+.w-library-row { padding: 10px; }
+.w-library-row strong { display: block; font-size: 13px; font-weight: 500; }
+.w-library-row small { display: block; margin-top: 4px; color: var(--ou-muted); }
+
+/* Product chrome: file identity above commands, formatting above the paper. */
+.w-shell > .w-chrome { padding: 0; background: var(--ou-panel); }
+.w-document-header .doc-title-bar { width: 100%; min-width: 0; padding: 0; align-items: center; flex-wrap: nowrap; }
+.w-document-header .doc-title-docTitle { height: 30px; padding: 0; line-height: 28px; font-size: 13px; font-weight: 600; min-width: 8ch; max-width: 100%; flex: 1 1 auto; }
+.w-document-header .w-document-library { margin-left: auto; padding: 0; border: 0; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+.w-document-header .w-document-library > * { flex-shrink: 0; white-space: nowrap; }
+.w-document-library [data-word-save-status] { margin-left: 10px; }
+.w-menubar { padding-inline: var(--ou-command-inset); }
+.w-file-actions .w-file-picker { display: none; }
+.w-file-actions .w-file-problem { display: block; padding: 6px 20px; }
+.w-shell-document { background: var(--ou-studio); padding: 28px; }
+.w-file-action-list { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 4px 0; }
+.w-file-action-list > button { justify-content: flex-start; min-height: 36px; }
+@media(max-width: 760px) {
+  .w-document-header .doc-title-docTitle { max-width: none; }
+  .w-menubar { padding-inline: 12px; }
+  .w-shell-document { padding: 16px; }
+}
+
+.w-furniture-editing { display: flex; align-items: center; justify-content: space-between; padding: 6px 20px; background: #eef4ff; color: #244d87; border-bottom: 1px solid #ccd9ef; font-size: 13px; }
+
+.w-document-header .w-document-library [data-word-save-status] { order: -1; margin: 0 6px 0 0; }
+
+.w-shell-body > .office-workspace-side-panel > * { flex: 1; min-width: 0; }

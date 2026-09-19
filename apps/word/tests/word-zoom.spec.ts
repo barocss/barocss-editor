@@ -39,7 +39,7 @@ const frameOf = (page: Page) =>
   });
 
 test('a page breaks in the same place at every size', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(700);
 
@@ -60,7 +60,7 @@ test('a page breaks in the same place at every size', async ({ page }) => {
 });
 
 test('the page is drawn smaller, and takes up the room it is drawn in', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(700);
 
@@ -88,7 +88,7 @@ test('the page is drawn smaller, and takes up the room it is drawn in', async ({
 });
 
 test('the ruler stays against the page it measures', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(700);
 
@@ -121,7 +121,7 @@ test('the ruler stays against the page it measures', async ({ page }) => {
 });
 
 test('takes a number typed into it, and a fit to the pane', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(700);
 
@@ -175,7 +175,7 @@ test.describe('zooming with the wheel', () => {
     }, at);
 
   test('keeps the point under the pointer', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-surface');
     await page.waitForTimeout(400);
 
@@ -238,7 +238,7 @@ test.describe('zooming with the wheel', () => {
   });
 
   test('leaves a plain wheel alone', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-surface');
     const zoom = () =>
       page.evaluate(() => Number(document.querySelector('[data-zoom]')?.getAttribute('data-zoom') ?? 0));

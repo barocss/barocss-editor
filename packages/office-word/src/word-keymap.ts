@@ -141,7 +141,6 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   { key: 'Mod+Shift+l', command: 'toggleBulletList', when: 'editorFocus && editorEditable' },
 
   // ── Insertion ──────────────────────────────────────────────────────────────
-  { key: 'Mod+k', command: 'toggleLink', when: 'editorFocus && editorEditable' },
   { key: 'Mod+Enter', command: 'insertPageBreak', when: 'editorFocus && editorEditable' },
   { key: 'Mod+Shift+Enter', command: 'insertColumnBreak', when: 'editorFocus && editorEditable' },
   /*
@@ -152,9 +151,6 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
    * is) is the better document and is left for the day the input handler hands the key over rather
    * than both trying: see `docs/BACKLOG.md`.
    */
-  { key: 'Mod+Alt+f', command: 'insertFootnote', when: 'editorFocus && editorEditable' },
-  { key: 'Mod+Alt+d', command: 'insertEndnote', when: 'editorFocus && editorEditable' },
-  { key: 'Mod+Alt+m', command: 'insertComment', when: 'editorFocus && editorEditable' },
 
   // ── Tables ─────────────────────────────────────────────────────────────────
   // Tab is cell navigation only inside a table; elsewhere it indents, which is
@@ -264,7 +260,6 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   // the site's — which from a keyboard looks exactly like reaching a stub. Word has its own pane and
   // does not need the extension; the note mattered because the site deleted its 찾기 entry over it.
   /* `replaceText`, which is the command's name. `replace` was nobody's, so ⌘H did nothing. */
-  { key: 'Mod+h', command: 'replaceText', when: 'editorFocus && editorEditable' }
 ];
 
 /**
@@ -283,7 +278,14 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
  * document laid out in pages comes out whichever way it was asked for — so the menu prints that one
  * chord itself, marked, and Word's test holds the marking to a written list.
  */
-export const WORD_VIEW_KEYS: KeyModel[] = [{ key: 'Mod+f', view: 'find', label: '찾기' }];
+export const WORD_VIEW_KEYS: KeyModel[] = [
+  { key: 'Mod+f', view: 'find', label: '찾기' },
+  { key: 'Mod+h', view: 'replace', label: '바꾸기' },
+  { key: 'Mod+k', view: 'authoring.link', label: '링크 편집' },
+  { key: 'Mod+Alt+f', view: 'authoring.footnote', label: '각주 삽입' },
+  { key: 'Mod+Alt+d', view: 'authoring.endnote', label: '미주 삽입' },
+  { key: 'Mod+Alt+m', view: 'authoring.comment', label: '새 댓글' }
+];
 
 /*
  * ## And the zoom is deliberately **not** bound, which the check is what settled

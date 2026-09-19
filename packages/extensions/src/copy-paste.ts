@@ -1,5 +1,6 @@
 import type { ModelSelection, Editor, Extension } from '@barocss/editor-core';
-import { transaction, copy as copyOp, paste as pasteOp, cut as cutOp } from '@barocss/model';
+import { transaction, paste as pasteOp, replaceText as replaceTextOp } from '@barocss/model';
+import { deleteRangeOperations } from './range-delete';
 import {
   HTMLConverter,
   MarkdownConverter,
@@ -33,34 +34,51 @@ export class CopyPasteExtension implements Extension {
     registerNotionHTMLRules();
     registerDefaultMarkdownRules();
 
+    // Whole sibling blocks are copied without manufacturing a text range through atoms.
+    editor.registerCommand({
+      name: 'copyBlocks',
+      execute: async (ed: Editor, payload?: { nodeIds?: string[] }) => {
+        const ids = payload?.nodeIds;
+        if (!ids?.length || !this._htmlConverter) return false;
+        const nodes = ids.map(id => ed.dataStore.getNode(id));
+        const parent = nodes[0]?.parentId && ed.dataStore.getNode(nodes[0].parentId);
+        if (!parent || nodes.some(node => !node || node.parentId !== parent.sid)) return false;
+        const wanted = new Set(ids);
+        const clone = (id: string): INode => {
+          const node = ed.dataStore.getNode(id)!;
+          return { ...node, sid: undefined, parentId: undefined, content: node.content?.map(child => clone(String(child))) } as INode;
+        };
+        const json = parent.content!.filter(id => wanted.has(String(id))).map(id => clone(String(id)));
+        const hasDatabase = (node: INode): boolean => node.stype === 'noteDatabase' || (node.content ?? []).some(child => typeof child !== 'string' && hasDatabase(child));
+        if (json.some(hasDatabase)) return false;
+        try {
+          const html = this._htmlConverter.convert(json, 'html'), text = getClipboardText(json, ed);
+          if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') return false;
+          await navigator.clipboard.write([new ClipboardItem({
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+            'text/html': new Blob([html], { type: 'text/html' })
+          })]);
+          return true;
+        } catch { return false; }
+      }
+    });
+
     // copy
     editor.registerCommand({
       name: 'copy',
       execute: async (ed: any, payload?: { selection?: ModelSelection }) => {
-        const selection = payload?.selection || ed.selection;
+        const selection = structuredClone(payload?.selection || ed.selection);
         if (!selection || selection.type !== 'range') {
           return false;
         }
 
-        // 1) Model perspective copy → maintained for history/undo
-        const builder = transaction(ed, [copyOp(selection as any)]);
-        const result = await builder.commit();
-        if (!result || (result as any).success === false) {
-          return false;
-        }
-
-        // 2) Generate Clipboard data based on DataStore + Converter
-        const dataStore = (ed as any).dataStore;
-        if (dataStore && this._htmlConverter) {
-          try {
-            const json: INode[] = dataStore.serializeRange(selection) as INode[];
-            const text: string = dataStore.range.extractText(selection);
-            const html: string = this._htmlConverter.convert(json, 'html');
-            await this._writeClipboard({ json, text, html });
-          } catch {
-            // Clipboard failure does not block editing itself
-          }
-        }
+        const dataStore = ed.dataStore;
+        if (!dataStore || !this._htmlConverter) return false;
+        try {
+          const json = dataStore.serializeRange(selection) as INode[];
+          await this._writeClipboard({ json, text: getClipboardText(json, ed), html: this._htmlConverter.convert(json, 'html') });
+        } catch { return false; }
+        // Copy is read-only. A permission failure must not report success.
 
         return true;
       },
@@ -88,9 +106,18 @@ export class CopyPasteExtension implements Extension {
         clipboardHtml?: string;
         clipboardText?: string;
       }) => {
-        let selection = payload?.selection || ed.selection;
+        const selection = structuredClone(payload?.selection || ed.selection);
         if (!selection || selection.type !== 'range') {
           return false;
+        }
+
+        // Code is literal text, including tabs, blank lines and Markdown punctuation.
+        let ancestor = ed.dataStore?.getNode?.(selection.startNodeId);
+        while (ancestor && ancestor.stype !== 'codeBlock') ancestor = ancestor.parentId ? ed.dataStore.getNode(ancestor.parentId) : undefined;
+        if (ancestor && payload?.clipboardText !== undefined) {
+          const literal = payload.clipboardText.replace(/\r\n?/g, '\n');
+          const result = await transaction(ed, [replaceTextOp(selection.startNodeId, selection.startOffset, selection.endNodeId, selection.endOffset, literal)]).commit();
+          return !!result && result.success !== false;
         }
 
         let nodes: INode[] | undefined = payload?.nodes;
@@ -101,7 +128,9 @@ export class CopyPasteExtension implements Extension {
           let clipText = payload?.clipboardText;
 
           if (!clipHtml && !clipText) {
+            const target = this._targetStamp(ed, selection);
             const clip = await this._readClipboard();
+            if (target !== this._targetStamp(ed, selection)) return false;
             clipHtml = clip.html;
             clipText = clip.text;
             if (clip.json && Array.isArray(clip.json)) {
@@ -141,6 +170,13 @@ export class CopyPasteExtension implements Extension {
           return false;
         }
 
+        // A document without workspace-reference vocabulary keeps the readable label.
+        if (!ed.dataStore?.getActiveSchema()?.getNodeType('pageReference')) {
+          const readable = (node: INode): INode => node.stype === 'pageReference'
+            ? { stype: 'inline-text', text: String(node.attributes?.title ?? '제목 없음') }
+            : { ...node, ...(node.content ? { content: node.content.map(child => typeof child === 'string' ? child : readable(child)) } : {}) };
+          nodes = nodes.map(readable);
+        }
         const builder = transaction(ed, [pasteOp(nodes as any, selection as any)]);
         const result = await builder.commit();
         return !!result && (result as any).success !== false;
@@ -155,24 +191,22 @@ export class CopyPasteExtension implements Extension {
     editor.registerCommand({
       name: 'cut',
       execute: async (ed: any, payload?: { selection?: ModelSelection }) => {
-        const selection = payload?.selection || ed.selection;
+        const selection = structuredClone(payload?.selection || ed.selection);
         if (!selection || selection.type !== 'range' || selection.collapsed) {
           return false;
         }
 
-        const dataStore = (ed as any).dataStore;
-        if (dataStore && this._htmlConverter) {
-          try {
-            const json: INode[] = dataStore.serializeRange(selection) as INode[];
-            const text: string = dataStore.range.extractText(selection);
-            const html: string = this._htmlConverter.convert(json, 'html');
-            await this._writeClipboard({ json, text, html });
-          } catch {
-            // clipboard failure does not block editing itself
-          }
-        }
+        const dataStore = ed.dataStore;
+        if (!dataStore || !this._htmlConverter) return false;
+        const target = this._targetStamp(ed, selection);
+        try {
+          const json = dataStore.serializeRange(selection) as INode[];
+          await this._writeClipboard({ json, text: getClipboardText(json, ed), html: this._htmlConverter.convert(json, 'html') });
+        } catch { return false; }
+        if (target !== this._targetStamp(ed, selection)) return false;
 
-        const builder = transaction(ed, [cutOp(selection as any)]);
+        // Use the same reversible range deletion as Backspace, including block joins.
+        const builder = transaction(ed, deleteRangeOperations(selection, ed) as never);
         const result = await builder.commit();
         return !!result && (result as any).success !== false;
       },
@@ -181,6 +215,12 @@ export class CopyPasteExtension implements Extension {
         return !!selection && selection.type === 'range' && !selection.collapsed;
       }
     });
+  }
+
+  private _targetStamp(editor: Editor, selection: ModelSelection): string {
+    return JSON.stringify([editor.getRootId?.(),
+      editor.dataStore?.getNode(selection.startNodeId), editor.dataStore?.getNode(selection.endNodeId),
+      editor.dataStore?.serializeRange(selection)]);
   }
 
   /**
@@ -206,30 +246,28 @@ export class CopyPasteExtension implements Extension {
   }
 
   protected async _writeClipboard(data: ClipboardLike): Promise<void> {
-    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+    if (typeof navigator === 'undefined' || !navigator.clipboard) throw new Error('Clipboard unavailable');
 
-    try {
-      // Prefer ClipboardItem API to write both text/plain and text/html
-      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
-        const items: Record<string, Blob> = {};
-        if (data.text) {
-          items['text/plain'] = new Blob([data.text], { type: 'text/plain' });
-        }
-        if (data.html) {
-          items['text/html'] = new Blob([data.html], { type: 'text/html' });
-        }
-        if (Object.keys(items).length > 0) {
-          await navigator.clipboard.write([new ClipboardItem(items)]);
-          return;
-        }
+    // Prefer ClipboardItem API to write both text/plain and text/html
+    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
+      const items: Record<string, Blob> = {};
+      if (data.text) {
+        items['text/plain'] = new Blob([data.text], { type: 'text/plain' });
       }
-      // Fallback: write text only
-      if (data.text && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(data.text);
+      if (data.html) {
+        items['text/html'] = new Blob([data.html], { type: 'text/html' });
       }
-    } catch {
-      // ignore clipboard errors — permission denied, etc.
+      if (Object.keys(items).length > 0) {
+        await navigator.clipboard.write([new ClipboardItem(items)]);
+        return;
+      }
     }
+    // Fallback: write text only
+    if (data.text && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(data.text);
+      return;
+    }
+    throw new Error('Clipboard write unavailable');
   }
 
   protected async _readClipboard(): Promise<ClipboardLike> {
@@ -330,4 +368,20 @@ export class CopyPasteExtension implements Extension {
   }
 }
 
+
+/** Plain clipboard text includes visible atoms and paragraph boundaries. */
+export function getClipboardText(nodes: INode[], editor: Editor): string {
+  const schema = editor.dataStore?.getActiveSchema();
+  const block = (node: INode) => schema?.getNodeType(node.stype)?.group === 'block';
+  const render = (node: INode): string => {
+    if (typeof node.text === 'string') return node.text;
+    if (node.stype === 'pageReference') return String(node.attributes?.title ?? '제목 없음');
+    if (node.stype === 'hardBreak') return '\n';
+    if (node.stype === 'emoji') return String(node.attributes?.unicode ?? node.attributes?.shortcode ?? '');
+    if (node.stype === 'inline-image' || node.stype === 'image') return String(node.attributes?.alt ?? '');
+    return join((node.content ?? []).filter((child): child is INode => typeof child !== 'string'));
+  };
+  const join = (items: INode[]) => items.map((node, index) => (index && (block(node) || block(items[index - 1])) ? '\n' : '') + render(node)).join('');
+  return join(nodes);
+}
 

@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useFormattingDialog } from './use-formatting-dialog';
+import { selectedBlocks } from './selected-blocks';
 import type { Editor } from '@barocss/editor-core';
 import {
   ChoiceSelect,
   Dialog,
   DialogButton,
   PropertyNumber,
-  PropertyRow
+  PropertyRow,
+  PropertyToggle,
+  StatusNotice
 } from '@barocss/office-ui';
 import {
   LINE_PRESETS,
@@ -14,8 +17,7 @@ import {
   TWIPS_PER_POINT,
   linesOf,
   withRule,
-  type LineRule,
-  type SpacingState
+  type LineRule
 } from './spacing-model';
 import { currentSpacing } from './spacing-commands';
 
@@ -39,21 +41,14 @@ export interface SpacingDialogProps {
 }
 
 export function SpacingDialog({ editor, open, onClose }: SpacingDialogProps) {
-  const [state, setState] = useState<SpacingState>(() => currentSpacing(editor));
-
-  // 다시 열면 지금 문단을 보여 준다 — 테두리와 같은 이유, 같은 모양.
-  const [was, setWas] = useState(open);
-  if (was !== open) {
-    setWas(open);
-    if (open) setState(currentSpacing(editor));
-  }
+  const { state, setState, selection, busy, problem, close, apply: submit } = useFormattingDialog(editor, open, currentSpacing, onClose);
+  const hasTarget = !!editor && selectedBlocks(editor, selection).length > 0;
 
   const rule: LineRule = state.rule ?? 'auto';
   const lines = linesOf(state);
 
   const apply = () => {
-    void editor?.executeCommand?.('setParagraphSpacing', { spacing: state });
-    onClose();
+    if (editor && hasTarget) void submit(() => editor.executeCommand('setParagraphSpacing', { spacing: state, selection }));
   };
 
   /** 트윕을 포인트로, 그리고 되돌려서. 소수 한 자리까지 — Word 가 그렇게 보여 준다. */
@@ -64,23 +59,23 @@ export function SpacingDialog({ editor, open, onClose }: SpacingDialogProps) {
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={(next) => !next && close()}
       title="문단 간격"
       description="선택한 문단에 적용됩니다."
       footer={
         <>
-          <DialogButton onClick={onClose}>취소</DialogButton>
-          <DialogButton variant="primary" data-spacing-apply onClick={apply}>
-            확인
+          <DialogButton disabled={busy} onClick={close}>취소</DialogButton>
+          <DialogButton variant="primary" data-spacing-apply disabled={busy || !hasTarget} onClick={apply}>
+            {busy ? '적용 중…' : '확인'}
           </DialogButton>
         </>
       }
     >
-      <div className="flex min-w-72 flex-col gap-3">
+      <fieldset disabled={busy} className="w-format-settings" aria-busy={busy || undefined}>
         <PropertyRow label="문단 앞">
           <PropertyNumber
             ariaLabel="문단 앞 간격"
-            suffix="pt"
+            suffix="pt" min={0}
             value={points(state.before)}
             onCommit={(value) => setState((now) => ({ ...now, before: twips(value) }))}
           />
@@ -89,7 +84,7 @@ export function SpacingDialog({ editor, open, onClose }: SpacingDialogProps) {
         <PropertyRow label="문단 뒤">
           <PropertyNumber
             ariaLabel="문단 뒤 간격"
-            suffix="pt"
+            suffix="pt" min={0}
             value={points(state.after)}
             onCommit={(value) => setState((now) => ({ ...now, after: twips(value) }))}
           />
@@ -128,7 +123,7 @@ export function SpacingDialog({ editor, open, onClose }: SpacingDialogProps) {
           <PropertyRow label="최소 높이">
             <PropertyNumber
               ariaLabel="줄 최소 높이"
-              suffix="pt"
+              suffix="pt" min={0}
               value={points(state.line)}
               onCommit={(value) =>
                 setState((now) => ({ ...now, rule: 'atLeast', line: twips(value) }))
@@ -137,18 +132,11 @@ export function SpacingDialog({ editor, open, onClose }: SpacingDialogProps) {
           </PropertyRow>
         )}
 
-        <label className="flex items-center gap-2 text-[length:var(--ou-text-small)] text-[color:var(--ou-ink)]">
-          <input
-            type="checkbox"
-            data-spacing-contextual
-            checked={state.contextual === true}
-            onChange={(event) =>
-              setState((now) => ({ ...now, contextual: event.currentTarget.checked }))
-            }
-          />
-          같은 스타일의 문단 사이에는 간격을 두지 않음
-        </label>
-      </div>
+        <PropertyToggle ariaLabel="같은 스타일의 문단 사이에는 간격을 두지 않음" label="같은 스타일의 문단 사이에는 간격을 두지 않음" value={state.contextual}
+          disabled={busy} onChange={value => setState(now => ({ ...now, contextual: value }))} />
+      </fieldset>
+      {!hasTarget && <StatusNotice tone="warning" title="문단을 먼저 선택하세요">설정창을 닫고 본문에서 문단을 선택하세요.</StatusNotice>}
+      {problem && <StatusNotice className="w-page-error" tone="danger" title="적용하지 못했습니다">{problem}</StatusNotice>}
     </Dialog>
   );
 }

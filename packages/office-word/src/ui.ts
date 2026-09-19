@@ -30,3 +30,18 @@ export {
   fitToWidth,
   type ZoomControlProps
 } from './zoom';
+export { WordMathEditor } from './math-editor-dialog';
+
+export { TableInsertDialog } from './table-insert-dialog';
+export { WordAuthoringDialog } from './authoring-dialog';
+
+export { captureWordFormat, type WordFormatSample } from './format-painter';
+
+export { FurnitureDialog } from './furniture-dialog';
+
+export { TocDialog } from './toc-dialog';
+
+export { ParagraphStyleDialog } from './paragraph-style-dialog';
+
+export { BookmarkDialog, jumpToWordBookmark } from './bookmark-dialog';
+export { CaptionDialog } from './caption-dialog';

@@ -10,6 +10,7 @@
  */
 @source "../../../packages/office-slides/src";
 @source "../../../packages/office-ui/src";
+@source "../../../packages/office-editor-ui/src";
 /*
  * **옮긴 셸의 클래스도 훑어야 한다.** 셸이 `office-slides` 로 가면 그 파일들의 Tailwind 유틸리티가
  * 이 목록 밖이 되고, 그러면 **클래스는 붙고 규칙이 하나도 없다** — tsc 초록, 단위 초록,
@@ -73,12 +74,12 @@
 :root {
   color-scheme: light dark;
 
-  --sl-ground: #eef0f4;
-  --sl-panel: #ffffff;
-  --sl-line: #d8dce4;
-  --sl-ink: #1e2430;
-  --sl-muted: #6b7480;
-  --sl-accent: #2563eb;
+  --sl-ground: var(--ou-studio);
+  --sl-panel: var(--ou-panel);
+  --sl-line: var(--ou-line);
+  --sl-ink: var(--ou-ink);
+  --sl-muted: var(--ou-muted);
+  --sl-accent: var(--ou-accent);
 }
 
 /*
@@ -101,12 +102,12 @@
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --sl-ground: #14171d;
-    --sl-panel: #1b1f27;
-    --sl-line: #2b313c;
-    --sl-ink: #e6e9ef;
-    --sl-muted: #98a1b0;
-    --sl-accent: #6f9bff;
+    --sl-ground: var(--ou-studio);
+    --sl-panel: var(--ou-panel);
+    --sl-line: var(--ou-line);
+    --sl-ink: var(--ou-ink);
+    --sl-muted: var(--ou-muted);
+    --sl-accent: var(--ou-accent);
   }
 }
 
@@ -115,64 +116,24 @@
  * 커스텀 프로퍼티는 상속되므로 이 둘은 `<html>` 이 아니라 **어떤 요소** 에도 걸린다.
  */
 [data-theme='dark'] {
-  --sl-ground: #14171d;
-  --sl-panel: #1b1f27;
-  --sl-line: #2b313c;
-  --sl-ink: #e6e9ef;
-  --sl-muted: #98a1b0;
-  --sl-accent: #6f9bff;
+  --sl-ground: var(--ou-studio);
+  --sl-panel: var(--ou-panel);
+  --sl-line: var(--ou-line);
+  --sl-ink: var(--ou-ink);
+  --sl-muted: var(--ou-muted);
+  --sl-accent: var(--ou-accent);
 }
 
 [data-theme='light'] {
-  --sl-ground: #eef0f4;
-  --sl-panel: #ffffff;
-  --sl-line: #d8dce4;
-  --sl-ink: #1e2430;
-  --sl-muted: #6b7480;
-  --sl-accent: #2563eb;
+  --sl-ground: var(--ou-studio);
+  --sl-panel: var(--ou-panel);
+  --sl-line: var(--ou-line);
+  --sl-ink: var(--ou-ink);
+  --sl-muted: var(--ou-muted);
+  --sl-accent: var(--ou-accent);
 }
 
-/*
- * The suite's controls, drawn in this deck's palette — **and the `:not()` is load-bearing.**
- *
- * The mapping used to sit in the `:root` block above, which is right in the light and wrong in the
- * dark, for a reason no reader would see: `tokens.css` states its dark palette on
- * `:root:not([data-theme='light'])`, and that selector is (0,2,0) against a plain `:root`'s (0,1,0).
- * So in a dark system every `--ou-*` this app maps was **overruled by the package's own defaults**,
- * and the deck ran on two palettes at once: `#1b1f27` panels drawn by the rules in `ui.css` beside
- * `#171717` ones drawn by `office-ui`'s components, `#2b313c` lines beside `#404040`.
- *
- * Nothing could see it. `shared-controls.spec.ts` asserts `--ou-line` is this deck's `#d8dce4` and
- * passes — it runs in the default colour scheme, which is light. It became visible only when the
- * chrome moved into `office-slides` and started reading `--ou-*` itself: the same rules, drawn from
- * the tokens instead of from `--sl-*`, would have changed colour in the dark and in the dark only.
- *
- * Matched rather than escalated: the same specificity as the declaration it has to beat, and later
- * in the cascade because this file's own rules come after everything it imports.
- *
- * **네 갈래인 이유.** 위의 두 `[data-theme]` 블록이 `--sl-*` 를 어느 요소에서든 뒤집으므로,
- * 매핑도 같은 요소에 있어야 한다: 서브트리에 `data-theme` 를 찍으면 `tokens.css` 의
- * `[data-theme='dark']` 가 그 요소에 `--ou-*` 를 **직접** 선언하는데, 이 매핑이 그 요소에 없으면
- * 그 서브트리만 패키지 팔레트로 칠해진다 — 뿌리에서 고친 "팔레트 두 벌" 이 한 층 아래에서
- * 그대로 반복된다. 갈래마다 명시도는 `tokens.css` 의 짝과 같고, 순서로 이긴다.
- */
-:root,
-:root:not([data-theme='light']),
-[data-theme='dark'],
-[data-theme='light'] {
-  --ou-panel: var(--sl-panel);
-  --ou-ground: var(--sl-ground);
-  --ou-line: var(--sl-line);
-  --ou-ink: var(--sl-ink);
-  --ou-muted: var(--sl-muted);
-  --ou-accent: var(--sl-accent);
-  /*
-   * The faint one has no `--sl-` of its own: a unit beside a number is quieter
-   * than a label, and this file had been writing `#9aa0aa` inline wherever it
-   * needed one. Named here rather than left as four literals.
-   */
-  --ou-faint: color-mix(in srgb, var(--sl-muted) 65%, var(--sl-panel));
-}
+/* Shared controls use office-ui tokens; --sl-* remains the slide canvas palette. */
 
 html,
 body,
@@ -203,16 +164,7 @@ body {
 */
 
 /* ── Top bar ───────────────────────────────────────────────────────────── */
-.sl-topbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 0 16px;
-  height: 48px;
-  flex: none;
-  background: var(--sl-panel);
-  border-bottom: 1px solid var(--sl-line);
-}
+
 
 .sl-topbar h1 {
   margin: 0;
@@ -326,3 +278,16 @@ body {
  *
  * 두 벌이 있는 동안은 해로울 것이 없었고, 값이 갈라지는 날 해로워진다. 그날이 오지 않도록 지운다.
  */
+
+/* Product-specific font pairing; group geometry belongs to office-ui. */
+.sl-font-row { display: flex; align-items: center; gap: 4px; height: 30px; }
+
+.sl-toolbar.office-compact-toolbar .sl-font-row { display: contents; }
+
+/* Keep deck navigation and reusable components together at compact widths. */
+.sl-workspace-navigation { display:flex; min-height:0; }
+.sl-body[data-compact] .sl-workspace-navigation { flex-direction:column; }
+.sl-body[data-compact] .sl-workspace-navigation .sl-sidebar { flex:1; }
+.sl-body[data-compact] .sl-workspace-navigation .sl-components { width:100%; max-height:50%; border-top:1px solid var(--ou-line); }
+.sl-body[data-compact] .sl-workspace-navigation .sl-components-closed { width:100%; min-height:32px; padding:4px; }
+.sl-shell[data-presenting='true'] .sl-body > .office-workspace-side-panel { display:none; }

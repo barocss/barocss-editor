@@ -149,6 +149,25 @@ describe('슬래시 메뉴', () => {
     expect(tree.content[0].attributes?.level).toBe(2);
   });
 
+  it('runs the row named by a pointer even when another row is highlighted', async () => {
+    await editor.executeCommand('showSlashMenu', {});
+    await editor.executeCommand('moveSlashMenu', { by: 1 });
+    expect(menu().state.items[menu().state.currentIndex].id).toBe('bullets');
+
+    expect(await editor.executeCommand('runSlashMenuItem', { itemId: 'heading' })).toBe(true);
+    const tree = editor.exportDocument(editor.getRootId()) as { content: Array<{ stype: string }> };
+    expect(tree.content[0].stype).toBe('heading');
+    expect(menu().state.open).toBe(false);
+  });
+
+  it('refuses a pointer row which is no longer offered instead of running the highlight', async () => {
+    await editor.executeCommand('showSlashMenu', { query: 'heading' });
+    expect(await editor.executeCommand('runSlashMenuItem', { itemId: 'bullets' })).toBe(false);
+    const tree = editor.exportDocument(editor.getRootId()) as { content: Array<{ stype: string }> };
+    expect(tree.content[0].stype).toBe('paragraph');
+    expect(menu().state.open).toBe(true);
+  });
+
   /*
    * Every state change reaches the app. A menu whose state is right and whose event is missing draws
    * the previous frame for ever, which is exactly what a product cannot debug from the outside.

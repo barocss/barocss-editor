@@ -21,7 +21,7 @@ import { placeCaret, settled } from './helpers';
  * repository keeps finding.
  */
 test('굵게 makes the text bold, and the button reads back', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await page.waitForSelector('.w-paragraph');
   await settled(page);
   await placeCaret(page, '.w-paragraph', 0);
@@ -39,7 +39,7 @@ test('굵게 makes the text bold, and the button reads back', async ({ page }) =
 });
 
 test('italic, underline and a strike-through each show, and two can share a run', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await page.waitForSelector('.w-paragraph');
   await settled(page);
   await placeCaret(page, '.w-paragraph', 0);

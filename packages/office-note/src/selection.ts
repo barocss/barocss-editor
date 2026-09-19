@@ -21,9 +21,8 @@ import { NOTE_BLOCKS, type NoteBlock } from './note-schema';
  * inside whatever holds them. A picture, a video, an embed, a rule and a table are the body's
  * furniture.
  *
- * A `codeBlock` is furniture here and it is the one that needs saying: the caret does not enter one
- * — it is drawn as tokens nothing in the document owns, and the site's `TEXTUAL` leaves it out for
- * the same reason.
+ * A code block can be moved as a block while its shared renderer exposes editable text.
+ * Its content therefore also belongs to NOTE_PICKED_WRITTEN.
  */
 export const NOTE_PICKED: readonly NoteBlock[] = [
   'picture',
@@ -31,7 +30,9 @@ export const NOTE_PICKED: readonly NoteBlock[] = [
   'mediaEmbed',
   'horizontalRule',
   'bTable',
-  'codeBlock'
+  'noteDatabase',
+  'codeBlock',
+  'callout'
 ] as const;
 
 /** And the rest, which is the same list from the other side — a check holds the two together. */
@@ -51,10 +52,9 @@ export const NOTE_WRITTEN: readonly NoteBlock[] = NOTE_BLOCKS.filter(
  * and removes as one; its cells take the caret because that is what a table is for. Backspace
  * belongs to whichever of the two the caret is currently in — see `NoteBody`.
  *
- * `codeBlock` is not on this list and that is the difference: no caret ever enters one, so there is
- * no text for a key to belong to.
+ * Callout and code-block content likewise retain native text editing and text deletion.
  */
-export const NOTE_PICKED_WRITTEN: readonly NoteBlock[] = ['bTable'] as const;
+export const NOTE_PICKED_WRITTEN: readonly NoteBlock[] = ['bTable', 'callout', 'codeBlock'] as const;
 
 /** Whether a click on this kind of block selects it rather than putting a caret in it. */
 export function isPicked(stype: unknown): boolean {

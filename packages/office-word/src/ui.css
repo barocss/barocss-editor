@@ -1,3 +1,10 @@
+.w-find-anchor { position: sticky; top: 8px; left: 8px; z-index: 30; height: 0; width: min(360px, 100%); margin-left: auto; }
+.w-find-panel { box-sizing: border-box; padding: 12px; max-height: calc(100dvh - 200px); overflow: auto; border: 1px solid var(--ou-line, #d4d4d4); border-radius: calc(var(--ou-radius, 4px) * 2); background: var(--ou-panel, #fff); color: var(--ou-ink, #242424); box-shadow: 0 8px 24px var(--ou-shadow, #0002); }
+.w-find-options { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 12px 0; }
+.w-find-replace { display: grid; gap: 10px; border-top: 1px solid var(--ou-line, #d4d4d4); padding-top: 12px; }
+.w-find-label { display: grid; gap: 6px; font-size: 12px; color: var(--ou-muted, #666); }
+.w-find-panel > .office-status-notice { margin-top: 12px; }
+
 /*
  * ── 문서를 만드는 화면 ──────────────────────────────────────────────
  *
@@ -35,7 +42,7 @@
  *
  * ## `office-ui`'s tokens, never without a fallback
  *
- * `var(--ou-line, #d4d4d4)` and never `var(--ou-line)`. A `var(--ou-…)` with no value is **invalid
+ * `var(--ou-line, #d4d4d4)` and never `var(--ou-line, #d4d4d4)`. A `var(--ou-…)` with no value is **invalid
  * at computed-value time** and takes the whole declaration with it, so a host that mounts these
  * components without `tokens.css` gets an outline pane with no border rather than one with the wrong
  * grey — silent and total, which is the failure this shape is chosen against. **39 declarations**
@@ -115,6 +122,11 @@
  * sheets behind it are what look like pages.
  */
 .w-surface {
+  outline: none;
+}
+
+/* The caret indicates document focus; the browser ring would surround every page. */
+.w-zoom-page .barocss-editor-content:focus {
   outline: none;
 }
 
@@ -386,6 +398,7 @@
  */
 .w-ruler {
   position: relative;
+  overflow-x: clip;
   height: 26px;
   margin: 0 0 4px;
   user-select: none;
@@ -542,10 +555,10 @@
  * which heading. It scrolls on its own, because a map that moves with the thing it maps is not a map.
  */
 .w-outline {
-  flex: 0 0 236px;
+  flex: 0 0 240px;
   min-width: 0;
   overflow: auto;
-  padding: 12px 8px 24px;
+  padding: 0 0 24px;
   border-right: 1px solid var(--ou-line, #d4d4d4);
   background: var(--ou-panel, #ffffff);
   font-size: 13px;
@@ -594,39 +607,31 @@
 }
 .w-outline-empty { padding: 8px; color: var(--ou-faint, #a3a3a3); }
 
-.w-outline-closed {
-  flex: 0 0 32px;
-  border: 0;
-  border-right: 1px solid var(--ou-line, #d4d4d4);
-  background: var(--ou-panel, #ffffff);
-  color: var(--ou-muted, #6b6b6b);
-  cursor: pointer;
+/* Both collapsed panes use the same top-aligned icon target. */
+.w-pane-rail {
+  display: flex;
+  flex: 0 0 40px;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 8px;
+  background: var(--ou-panel, #fff);
 }
-
-/* ── 주석 칸 ─────────────────────────────────────────────────────────────── */
-
-/*
- * The comments pane, closed.
- *
- * It used to hold its whole width whether or not the document had a comment — a fifth of the window
- * given to an empty box on every document that has none. The count is on the strip because how many
- * there are is what a reader wants before deciding to look.
- */
-.w-comments-closed {
+.w-pane-rail-start { border-right: 1px solid var(--ou-line, #d4d4d4); }
+.w-pane-rail-end { border-left: 1px solid var(--ou-line, #d4d4d4); }
+.w-pane-rail > button {
   position: relative;
-  flex: 0 0 32px;
-  border: 0;
-  border-left: 1px solid var(--ou-line, #d4d4d4);
-  background: var(--ou-panel, #ffffff);
+  width: var(--ou-command-height, 30px);
+  height: var(--ou-command-height, 30px);
   color: var(--ou-muted, #6b6b6b);
-  cursor: pointer;
 }
+
 /* A count badge, and the one place in this file an amber literal is right: it is a *state* colour
    rather than a surface, and the suite has no token for one yet. */
 .w-comments-count {
   position: absolute;
-  top: 6px;
-  right: 2px;
+  top: -3px;
+  right: -3px;
+  pointer-events: none;
   min-width: 15px;
   padding: 0 3px;
   border-radius: 8px;
@@ -643,7 +648,10 @@
  * A scaled page still takes up its unscaled room, so the frame is given the drawn size and the page
  * is drawn inside it. See `zoom-frame.tsx`.
  */
-.w-zoom-page { transform-origin: top center; }
+.w-zoom-frame { position: relative; }
+/* The paper keeps its intrinsic width at every viewport size. The absolute
+   child does not reserve its unscaled width in the document scroll area. */
+.w-zoom-page { position: absolute; width: max-content; transform-origin: top left; }
 
 .w-zoom-control {
   display: inline-flex;
@@ -709,8 +717,7 @@
 
 .w-drawing-selected {
   position: absolute;
-  outline: 1px solid #2563eb;
-  outline-offset: 1px;
+  outline-offset: 0;
 }
 
 /* A band a reader is dragging: the fill says what it has caught, the edge says where it is. */
@@ -733,16 +740,12 @@
  */
 .w-drawing-frame {
   position: absolute;
-  outline: 1px solid #2563eb;
+
 }
 
 .w-drawing-handle {
   position: absolute;
-  width: 9px;
-  height: 9px;
-  margin: -5px 0 0 -5px;
-  background: #ffffff;
-  border: 1px solid #2563eb;
+  transform: translate(-50%, -50%);
   pointer-events: auto;
 }
 
@@ -763,5 +766,148 @@
  */
 .w-drawing-guide {
   position: absolute;
-  background: #ec4899;
+  background: var(--ou-selection-guide);
+}
+
+.w-math-editor-dialog { width: min(760px, calc(100vw - 32px)); }
+.w-math-editor-dialog .me-editor { max-width: 100%; }
+
+/* Word ribbon composition; the controls themselves remain office-ui components. */
+.w-ribbon {
+  border-top: 1px solid var(--ou-line, #d4d4d4);
+  border-bottom: 1px solid var(--ou-line, #d4d4d4);
+}
+.w-ribbon .w-toolbar { position: relative; border-bottom: 0; }
+.w-document-details { display: flex; flex-direction: column; gap: 12px; }
+.w-document-details .doc-title-field { min-width: 0; flex: initial; width: 100%; border-color: var(--ou-line, #d4d4d4); }
+@media(max-width: 760px) { .w-ribbon-tabs { padding-inline: 12px; } }
+
+/* Word composes the suite ribbon around its writing workflows. */
+.w-toolbar-ribbon .office-toolbar-group { padding: 0; }
+.w-ribbon-stack { display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.w-ribbon-row { display: flex; align-items: center; gap: 4px; }
+.w-ribbon-spacing-label { color: var(--ou-muted, #6b6b6b); font-size: 11px; white-space: nowrap; }
+.w-ribbon-line-spacing { width: 76px; height: 24px; font-size: 11px; }
+.w-ribbon-font { width: 220px; }
+.w-ribbon-size { width: 76px; min-width: 0; }
+.w-style-gallery { display: flex; gap: 4px; }
+.w-style-gallery .w-style-preview { width: 64px; height: 36px; display: flex; flex-direction: column; gap: 2px; border-color: var(--ou-line, #d4d4d4); font-size: 10px; }
+.w-style-sample { font-size: 13px; line-height: 19px; }
+.w-style-sample-heading1 { font-size: 18px; font-weight: 700; }
+.w-style-sample-heading2 { font-size: 15px; font-weight: 600; }
+.w-ribbon-stack > .w-toolbar-style { width: 200px; height: 24px; font-size: 11px; }
+.w-table-ribbon-tools > .office-toolbar-group { display: grid; grid-template-columns: repeat(8, 30px); gap: 4px; }
+.w-toolbar-ribbon [data-ribbon-group=review] .office-toolbar-group { flex-wrap: wrap; }
+@media (min-width: 761px) and (max-width: 1280px) {
+  .w-toolbar-ribbon [data-ribbon-group=history] .office-toolbar-group { flex-direction: column; }
+  .w-style-gallery .w-style-preview { width: 56px; }
+  .w-ribbon-stack > .w-toolbar-style { width: 176px; }
+}
+@media (max-width: 760px) {
+  .w-toolbar-ribbon { max-height: 240px; overflow-y: auto; }
+}
+.w-table-size-summary { margin-top: 16px; color: var(--ou-muted, #6b6b6b); font-size: 12px; }
+.w-authoring-file { display: flex; flex-direction: column; gap: 8px; font-size: var(--ou-text, 13px); }
+.w-authoring-image { display: block; max-width: 100%; max-height: 220px; object-fit: contain; margin: 16px auto; }
+
+.w-format-painter { width: auto; gap: 6px; font-size: 11px; }
+
+.w-furniture-settings { display: flex; flex-direction: column; gap: 16px; min-width: 320px; }
+.w-furniture-settings p { margin: 0; color: var(--ui-text-muted, #666); font-size: 13px; line-height: 1.6; }
+
+.w-toc-empty { padding: 12px 0; color: #767676; font-size: 13px; line-height: 1.6; }
+.w-object-layout-controls { display: flex; flex-direction: column; gap: 6px; min-width: 240px; max-width: 330px; }
+.w-object-layout-controls .w-ribbon-row > * { flex: 1; min-width: 0; }
+.w-object-layout-controls [role="alert"] { color: var(--ui-danger, #b42318); font-size: 12px; max-width: 300px; }
+.w-table-dimension-controls { display: flex; flex-direction: column; gap: 6px; width: 360px; }
+.w-table-dimension-controls .w-ribbon-row > * { min-width: 0; flex: 1; }
+.w-table-dimension-controls [role="alert"] { color: var(--ou-danger, #b42318); font-size: 12px; }
+.w-cell-margin-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.w-math-editing > :not(.w-math-draft) { display: none !important; }
+.w-math-draft { display: inline-block; vertical-align: middle; max-width: 100%; font-style: normal; }
+.w-math-draft .oe-math-inplace { box-sizing: border-box; font-size: inherit; padding: 3px 6px; box-shadow: inset 0 0 0 1px var(--ou-line, #d4d4d4); }
+.w-math-draft .me-surface { overflow-x: auto; box-sizing: border-box; }
+.w-math-draft .me-document-lines { flex-shrink: 0; }
+.w-math-context-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.w-math-context-actions .w-math-size-field { width: 112px; }
+.w-math-context-actions [role="alert"] { flex-basis: 100%; color: var(--ou-danger, #b42318); font-size: 12px; }
+.w-ribbon .w-math-secondary-actions .office-ribbon-action { flex-direction: row; min-width: 68px; height: 26px; gap: 4px; padding: 2px 4px; }
+.w-ribbon .w-math-secondary-actions .office-ribbon-action svg { width: 16px; height: 16px; }
+@media print { .w-math-draft { display: none; } .w-math-editing > :not(.w-math-draft) { display: revert !important; } }
+
+/* KaTeX displays the equation; the hidden OMML slots remain model-owned. */
+.w-math[data-word-math-rendered] > :not(.w-math-display):not(.w-math-draft) { display: none !important; }
+.w-math-display { display: inline-block; vertical-align: baseline; font-style: normal; }
+.w-math-display .katex { font-size: 1.25em; }
+.w-math-display .katex-display { margin: 0; }
+/* The selectable box must include stacked fractions, not just the text baseline. */
+.w-math[data-word-math-rendered] { display: inline-block; max-width: 100%; vertical-align: baseline; font-style: normal !important; outline: none; cursor: pointer; }
+.w-math[data-word-math-overflow]:not(.w-math-editing) { overflow-x: auto; vertical-align: middle; }
+.w-math[data-word-math-overflow] .w-math-display { padding-block: .4em; }
+.w-math[data-word-math-overflow]::-webkit-scrollbar,
+.w-math-draft .me-surface::-webkit-scrollbar { height: 8px; }
+.w-math[data-word-math-overflow]::-webkit-scrollbar-track,
+.w-math-draft .me-surface::-webkit-scrollbar-track { background: var(--ou-hover, #f1f3f5); border-radius: 4px; }
+.w-math[data-word-math-overflow]::-webkit-scrollbar-thumb,
+.w-math-draft .me-surface::-webkit-scrollbar-thumb { background: var(--ou-line, #cbd1d8); border-radius: 4px; border: 2px solid var(--ou-panel, #fff); }
+.w-math[data-word-math-rendered].w-math-selected { box-shadow: 0 0 0 1px var(--ou-accent, #2563eb); border-radius: 2px; }
+@media print {
+  .w-math[data-word-math-overflow] { overflow: visible; }
+  .w-math[data-word-math-overflow] .w-math-display { font-size: calc(1em * var(--word-math-print-scale, 1)); }
+  .w-math[data-word-math-rendered].w-math-selected { box-shadow: none; }
+  .w-math[data-word-math-rendered].w-math-editing > .w-math-display { display: inline-block !important; }
+  .w-math[data-word-math-rendered].w-math-editing > :not(.w-math-display):not(.w-math-draft) { display: none !important; }
+}
+.w-cell-header-copy .w-repeat-cell::before {
+  content: attr(data-word-header-text);
+  white-space: pre-wrap;
+}
+
+.w-style-manager { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.w-style-manager-picker { display: flex; align-items: center; gap: 8px; }
+.w-style-manager-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
+.w-style-manager-preview { padding: 20px; border: 1px solid var(--ou-line, #ddd); background: #fff; max-height: 180px; overflow: auto; }
+.w-style-manager-help { margin: 0; color: var(--ou-muted, #666); font-size: 12px; line-height: 1.6; }
+@media (max-width: 600px) { .w-style-manager-fields { grid-template-columns: 1fr; } }
+
+[data-office-dialog].w-style-dialog { width: min(680px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
+
+.w-bookmark-manager { display: flex; flex-direction: column; gap: 14px; }
+.w-bookmark-preview { margin: 0; padding: 12px; background: var(--ou-ground, #f5f5f5); max-height: 120px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.w-bookmark-actions { display: flex; gap: 8px; }
+.w-bookmark-help { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ou-muted, #666); }
+
+.w-bookmark-name-field { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; }
+.w-bookmark-name-field > input { flex: 1; width: 0; min-width: 0; }
+.w-bookmark-name-field > button { flex-shrink: 0; }
+
+.w-outline > ul { padding: 8px; }
+
+.w-comments-pane { flex: 0 0 var(--ou-inspector-width, 280px); min-width: 0; overflow: auto; border-left: 1px solid var(--ou-line); background: var(--ou-panel); color: var(--ou-ink); }
+.w-comments-pane > ul { padding: 0 12px 12px; }
+.w-comment-compose { display: flex; align-items: center; gap: 6px; padding: 12px; }
+
+.w-ribbon-tabs-row { display: flex; align-items: center; padding-right: 12px; }
+.w-ribbon-tabs-row > .office-ribbon-tabs { flex: 1; min-width: 0; }
+.w-quick-toolbar .w-toolbar-style { width: 108px; }
+.w-quick-toolbar .w-quick-font { width: 112px; }
+.w-quick-toolbar .w-quick-size { width: 60px; min-width: 0; }
+.w-quick-toolbar .office-toolbar-expand { margin-left: auto; }
+
+.w-command-error { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 16px; background:var(--ou-panel); color:var(--ou-danger); border-bottom:1px solid var(--ou-line); font-size:13px; }
+
+
+.w-page-settings { display: grid; gap: 14px; min-width: 0; padding: 0; margin: 0; border: 0; }
+.w-page-margins { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.w-page-error { margin-top: 12px; }
+@media (max-width: 480px) { .w-page-margins { grid-template-columns: minmax(0, 1fr); } }
+
+
+.w-format-settings { display: grid; gap: 14px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.w-borders-settings { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 16px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.w-border-presets { display: flex; flex-wrap: wrap; gap: 4px; grid-column: 1 / -1; }
+.w-border-fields { display: grid; gap: 12px; min-width: 0; }
+@media (max-width: 480px) {
+  .w-borders-settings { grid-template-columns: minmax(0, 1fr); }
+  .w-borders-settings > [aria-label="테두리 미리보기"] { justify-self: center; }
 }

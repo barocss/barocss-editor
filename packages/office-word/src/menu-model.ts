@@ -84,6 +84,11 @@ const DECLARED: WordMenu[] = [
     id: 'edit',
     label: '편집',
     blocks: [
+      { id: 'clipboard', items: [
+        { view: 'clipboard.copy', label: '복사' },
+        { view: 'clipboard.cut', label: '잘라내기' },
+        { view: 'clipboard.paste', label: '붙여넣기' }
+      ] },
       {
         id: 'history',
         items: [
@@ -98,8 +103,35 @@ const DECLARED: WordMenu[] = [
          * prevent — a shortcut is a *second* way to reach something, never the only one.
          */
         id: 'find',
-        items: [{ view: 'find', label: '찾기' }]
+        items: [{ view: 'find', label: '찾기' }, { view: 'replace', label: '바꾸기' }]
       }
+    ]
+  },
+  {
+    id: 'insert', label: '삽입', blocks: [
+      { id: 'content', items: [
+        { view: 'dialog.table', label: '표 삽입…' },
+        { view: 'furniture.header', label: '머리글…' },
+        { view: 'furniture.footer', label: '바닥글…' },
+        { view: 'furniture.number', label: '페이지 번호…' },
+        { view: 'authoring.image', label: '그림 삽입…' },
+        { view: 'authoring.link', label: '링크 편집…' },
+        { view: 'dialog.bookmark', label: '책갈피…' },
+        { view: 'dialog.reference', label: '상호 참조…' },
+        { view: 'dialog.caption', label: '캡션 삽입…' },
+        { view: 'dialog.figures', label: '그림 목차…' },
+        { view: 'authoring.footnote', label: '각주 삽입…' },
+        { view: 'authoring.endnote', label: '미주 삽입…' },
+        { command: 'insertPageBreak', label: '페이지 나누기' },
+        { command: 'insertColumnBreak', label: '단 나누기' },
+        { command: 'insertSectionBreak', label: '구역 나누기 (다음 페이지)' },
+        { view: 'dialog.toc', label: '목차…' }
+      ] },
+      { id: 'drawing', items: [
+        { command: 'insertRectangle', label: '사각형' },
+        { command: 'insertEllipse', label: '타원' },
+        { command: 'insertLine', label: '선' }
+      ] }
     ]
   },
   {
@@ -116,9 +148,11 @@ const DECLARED: WordMenu[] = [
     id: 'format',
     label: '서식',
     blocks: [
+      { id: 'painter', items: [{ view: 'format-painter', label: '서식 복사' }] },
       {
         id: 'paragraph',
         items: [
+          { view: 'dialog.styles', label: '스타일 관리…' },
           { view: 'dialog.spacing', label: '문단 간격…' },
           { view: 'dialog.borders', label: '테두리 및 음영…' }
         ]
@@ -132,6 +166,21 @@ const DECLARED: WordMenu[] = [
         id: 'page',
         items: [{ view: 'dialog.page', label: '페이지 설정…' }]
       }
+    ]
+  },
+  {
+    id: 'review', label: '검토', blocks: [
+      { id: 'tracking', items: [
+        { command: 'toggleTrackChanges', label: '변경 내용 추적' },
+        { view: 'authoring.comment', label: '새 댓글…' },
+        { view: 'comments', label: '댓글 보기' }
+      ] },
+      { id: 'changes', items: [
+        { command: 'previousRevision', label: '이전 변경 내용' },
+        { command: 'nextRevision', label: '다음 변경 내용' },
+        { command: 'acceptRevision', label: '변경 내용 적용' },
+        { command: 'rejectRevision', label: '변경 내용 거부' }
+      ] }
     ]
   },
   {

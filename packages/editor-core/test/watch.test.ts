@@ -73,6 +73,22 @@ describe('watching for anything that could change an answer', () => {
     expect(reread).toHaveBeenCalledTimes(1);
   });
 
+  it('updates selection controls when editing is disabled or enabled', () => {
+    const editor = anEditor();
+    const answers = vi.fn();
+    const content = vi.fn();
+    const stop = watchAnswers(editor, answers);
+    watchContent(editor, content);
+    answers.mockClear(); content.mockClear();
+    editor.setEditable(false);
+    editor.setEditable(true);
+    expect(answers).toHaveBeenCalledTimes(2);
+    expect(content).not.toHaveBeenCalled();
+    stop();
+    editor.setEditable(false);
+    expect(answers).toHaveBeenCalledTimes(2);
+  });
+
   it('stops when it is let go', () => {
     const editor = anEditor();
     const reread = vi.fn();

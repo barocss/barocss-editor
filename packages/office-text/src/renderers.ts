@@ -1,3 +1,5 @@
+import { tableThemeCellFormat } from './table-theme';
+import { TEXT_FLOW_STYLE } from './text-flow';
 /**
  * How Word draws its nodes.
  *
@@ -28,6 +30,8 @@ import { cellBorders, cellMargins, gridOf, tableElementCss } from './table-forma
 import { cellPlacementOf, cellStyleLayers, rowFormat, tableStyleLayer } from './table-style';
 import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
 import { registerMathRenderers } from './math-renderers';
+import { registerProseRenderers } from './prose-renderers';
+import { registerDatabaseRenderer } from './database-renderer';
 
 /**
  * Register every Word renderer in the global DSL registry.
@@ -36,6 +40,8 @@ import { registerMathRenderers } from './math-renderers';
  * register.
  */
 export function registerTextRenderers(): void {
+  registerProseRenderers();
+  registerDatabaseRenderer();
   // Equations. Their own file: they are a domain of their own, with two dozen
   // constructs, and none of the rest of Word's rendering has anything to say
   // about them.
@@ -60,7 +66,7 @@ export function registerTextRenderers(): void {
    */
   define(
     'document',
-    element('div', { className: 'w-document', style: { whiteSpace: 'pre-wrap' } }, [
+    element('div', { className: 'w-document', style: TEXT_FLOW_STYLE }, [
       slot('content')
     ])
   );
@@ -124,7 +130,7 @@ export function registerTextRenderers(): void {
     const value = fields?.sequenceNumber(String(node.sid ?? ''));
     return element(
       'span',
-      { className: 'w-field w-field-seq', 'data-sequence': String(node.attributes?.sequence ?? '') },
+      { className: 'w-field w-field-seq', contenteditable: 'false', 'data-sequence': String(node.attributes?.sequence ?? '') },
       value ?? ''
     );
   });
@@ -134,7 +140,8 @@ export function registerTextRenderers(): void {
     const value = fields?.reference(
       String(node.attributes?.targetId ?? ''),
       String(node.attributes?.format ?? 'text'),
-      String(node.sid ?? '')
+      String(node.sid ?? ''),
+      String(node.attributes?.targetKind ?? 'bookmark')
     );
     // An unresolved reference shows Word's own marker rather than nothing: a
     // reference to something that has been deleted is a fact the author needs.
@@ -142,7 +149,10 @@ export function registerTextRenderers(): void {
       'span',
       {
         className: 'w-field w-field-ref',
+        contenteditable: 'false',
+        'data-editor-input-owner': 'word-reference',
         'data-target': String(node.attributes?.targetId ?? ''),
+        'data-target-kind': String(node.attributes?.targetKind ?? 'bookmark'),
         /**
          * Whether pressing it takes you there — Word's `\h` switch on a REF field, which is on by
          * default and was read nowhere, so every cross-reference was a link and turning it off did
@@ -729,7 +739,8 @@ export function registerTextRenderers(): void {
       const cellFormat = styles
         ? styles.resolveNodeWith(node as never, 'table', [
             tableFormat ? cellMargins(tableFormat) : undefined,
-            regions?.cell
+            regions?.cell,
+            placement ? tableThemeCellFormat(placement.table, placement.at.row) : undefined
           ])
         : {};
       const borders =
@@ -925,5 +936,3 @@ export function registerTextRenderers(): void {
   define('softHyphen', element('span', { className: 'w-shyphen' }));
   define('noteNumber', element('sup', { className: 'w-note-number' }, [slot('content')]));
 }
-
-

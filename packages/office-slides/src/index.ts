@@ -893,3 +893,5 @@ export {
   type SlidesMenuBlock,
   type SlidesMenuEntry
 } from './menu-model';
+
+export { slidesSearchCommands, slidesSearchPayload, type SlidesSearchCommand } from './command-search-model';

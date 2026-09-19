@@ -1,7 +1,27 @@
+import { useRef } from 'react';
+import { dismissOwnedControlLayer } from './stack';
+import { dismissOwnedFloatingLayer } from './floating';
 import * as RadixDialog from '@radix-ui/react-dialog';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
-import { Button, STATE } from './controls';
+import { Button, keepsDraftTextAreaEscape } from './controls';
+
+function useModalFocus(onClosed?: () => void) {
+  const returnTo = useRef<HTMLElement | null>(null);
+  return {
+    onOpenAutoFocus: () => { returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; },
+    onCloseAutoFocus: (event: Event) => {
+      event.preventDefault();
+      if (returnTo.current?.isConnected) returnTo.current.focus({ preventScroll: true });
+      if (onClosed) requestAnimationFrame(onClosed);
+    },
+    onEscapeKeyDown: (event: KeyboardEvent) => {
+      if (keepsDraftTextAreaEscape(event)) { event.preventDefault(); return; }
+      if (event.isComposing || event.keyCode === 229) { event.preventDefault(); return; }
+      dismissOwnedControlLayer(event) || dismissOwnedFloatingLayer(event);
+    },
+  };
+}
 
 /**
  * A dialog, as every product in the suite draws one.
@@ -32,7 +52,8 @@ export function Dialog({
   description,
   children,
   footer,
-  className
+  className,
+  onClosed
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -43,20 +64,26 @@ export function Dialog({
   /** The buttons. `DialogActions` lays them out the way the suite does. */
   footer?: React.ReactNode;
   className?: string;
+  /** Run follow-up UI after dismissal has restored focus. */
+  onClosed?: () => void;
 }) {
+  const focus = useModalFocus(onClosed);
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-[var(--ou-z-overlay)] bg-[color:var(--ou-scrim)]" />
+        <RadixDialog.Overlay data-office-dialog-overlay className="fixed inset-0 z-[var(--ou-z-overlay)] bg-[color:var(--ou-scrim)]" />
  <RadixDialog.Content
+          data-office-dialog
+          {...focus}
+          {...(!description ? { 'aria-describedby': undefined } : {})}
           className={cn(
-            'fixed left-1/2 top-1/2 z-[var(--ou-z-dialog)] w-[min(30rem,calc(100vw-2rem))]',
+            'office-modal office-modal-dialog fixed left-1/2 top-1/2 z-[var(--ou-z-dialog)] w-[min(30rem,calc(100vw-2rem))]',
             '-translate-x-1/2 -translate-y-1/2 rounded-lg border shadow-[var(--ou-lift-3)]',
             'border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] text-[color:var(--ou-ink)]',
             className
           )}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-[color:var(--ou-line)] px-4 py-3">
+          <div className="office-modal-header">
  <div>
               <RadixDialog.Title className="text-[length:var(--ou-text)] font-semibold">{title}</RadixDialog.Title>
  {description && (
@@ -67,16 +94,16 @@ export function Dialog({
             </div>
             <RadixDialog.Close
               aria-label="닫기"
- className={cn('rounded-[var(--ou-radius)] p-1 text-[color:var(--ou-muted)] hover:bg-[color:var(--ou-ground)]', STATE)}
+ data-button-kind="icon" data-button-tone="quiet" data-button-size="sm" className="office-button"
  >
               <Icon name="close" />
             </RadixDialog.Close>
           </div>
 
-          <div className="px-4 py-3">{children}</div>
+          <div className="office-modal-body">{children}</div>
 
  {footer && (
-            <div className="flex justify-end gap-2 border-t border-[color:var(--ou-line)] px-4 py-3">
+            <div className="office-modal-footer">
  {footer}
             </div>
           )}
@@ -129,42 +156,43 @@ export function Drawer({
   width?: string;
   className?: string;
 }) {
+  const focus = useModalFocus();
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
         {/* Lighter than a dialog's: the page behind is what the reader is checking their edit against. */}
-        <RadixDialog.Overlay className="fixed inset-0 z-[var(--ou-z-overlay)] bg-[color:var(--ou-scrim)] opacity-50" />
+        <RadixDialog.Overlay data-office-dialog-overlay="drawer" className="fixed inset-0 z-[var(--ou-z-overlay)] bg-[color:var(--ou-scrim)] opacity-50" />
         <RadixDialog.Content
+          data-office-dialog
+          {...focus}
+          {...(!description ? { 'aria-describedby': undefined } : {})}
           className={cn(
-            'fixed right-0 top-0 z-[var(--ou-z-dialog)] flex h-full flex-col border-l',
+            'office-modal office-modal-drawer fixed right-0 top-0 z-[var(--ou-z-dialog)] flex h-full flex-col border-l',
             'shadow-[var(--ou-lift-3)] border-[color:var(--ou-line)]',
             'bg-[color:var(--ou-panel)] text-[color:var(--ou-ink)]',
             className
           )}
           style={{ width: `min(${width}, calc(100vw - 2rem))` }}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-[color:var(--ou-line)] px-4 py-3">
+          <div className="office-modal-header">
             <div className="min-w-0">
-              <RadixDialog.Title className="truncate text-[length:var(--ou-text)] font-semibold">{title}</RadixDialog.Title>
+              <RadixDialog.Title className="text-[length:var(--ou-text)] font-semibold">{title}</RadixDialog.Title>
               {description && (
-                <RadixDialog.Description className="mt-0.5 truncate text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)]">
+                <RadixDialog.Description className="mt-0.5 text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)]">
                   {description}
                 </RadixDialog.Description>
               )}
             </div>
             <RadixDialog.Close
               aria-label="닫기"
-              className={cn(
-                'rounded-[var(--ou-radius)] p-1 text-[color:var(--ou-muted)] hover:bg-[color:var(--ou-ground)]',
-                STATE
-              )}
+              data-button-kind="icon" data-button-tone="quiet" data-button-size="sm" className="office-button"
             >
               <Icon name="close" />
             </RadixDialog.Close>
           </div>
 
           {/* The one part that scrolls: a row of twenty columns is taller than a window. */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{children}</div>
+          <div className="office-modal-body">{children}</div>
         </RadixDialog.Content>
       </RadixDialog.Portal>
     </RadixDialog.Root>
@@ -185,38 +213,6 @@ export function DialogButton({
 }: {
   variant?: 'primary' | 'secondary';
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  /**
-   * The suite's `Button`, one size up — and in the suite's accent.
-   *
-   * It was a hand-rolled button with `bg-sky-600` in it, which is the only place
-   * in this package that named a colour instead of a token: every other accent is
-   * `--ou-accent`, so a product that mapped the token got a dialog that disagreed
-   * with its own toolbar. The height is the one real difference and stays: a
-   * dialog's buttons are a reader's last decision, and 32px is the size that reads
-   * as one.
-   */
- return (
-    <Button
-      tone={variant === 'primary' ? 'accent' : 'plain'}
-      disabled={rest.disabled}
-      title={rest.title}
-      ariaLabel={rest['aria-label'] as string | undefined}
-      onClick={rest.onClick as (() => void) | undefined}
-      /**
-       * Whatever `data-` attributes the caller hung on it, forwarded by name.
-       *
-       * A dialog's buttons are what a product's tests press — `data-size-apply`,
-       * `data-layout-apply` — and those belong to the product rather than to this
-       * component, so they are passed through rather than enumerated.
-       */
-      data={Object.fromEntries(
-        Object.entries(rest as Record<string, unknown>)
-          .filter(([key]) => key.startsWith('data-'))
-          .map(([key, value]) => [key.slice(5), value === true ? '' : String(value ?? '')])
-      )}
-      className={cn('h-8 px-3 text-[length:var(--ou-text)]', rest.className)}
-    >
-      {children}
-    </Button>
-  );
+  return <Button {...rest} tone={variant === 'primary' ? 'accent' : 'plain'}
+    className={cn('[--ou-button-height:32px] px-3', rest.className)}>{children}</Button>;
 }

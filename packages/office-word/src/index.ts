@@ -177,6 +177,8 @@ export {
 } from './page-furniture';
 
 export { tocEntries, tocPageNumber, parseLevels, type TocEntry } from './toc';
+export { installTocCompositionPreview } from './toc-composition';
+export { createWordObjectLayout, selectedWordObject, TWIPS_PER_CM, type WordObjectTarget, type WordObjectChange } from './object-layout';
 
 /**
  * Word's `1-1`: a page number carrying the number of the chapter it is in.
@@ -206,6 +208,7 @@ export {
   registerTableBreakWidget,
   registerTableHeaderRepeat,
   TABLE_BREAK_STYPE,
+  TABLE_CELL_BREAK_STYPE,
   TABLE_HEADER_REPEAT_STYPE
 } from './table-break-widget';
 export { formatDateField } from '@barocss/office-text';
@@ -818,3 +821,21 @@ export * from './word-library';
 
 // 새 문서가 무엇인가 — 크롬이 아니라 문서에 대한 사실이다.
 export * from './starter-document';
+
+export { exportWordDocx, type WordDocx } from './word-docx';
+export { readWordDocx } from './word-docx-import';
+
+
+export { WORD_AUTHORING_ACTIONS, authoringKind, canAuthor, captureAuthoring, type WordAuthoringKind, type WordAuthoringSession } from './authoring-actions';
+
+export { createWordFurniture, captureFurnitureTarget, furnitureNode, furnitureKey, PAGE_NUMBER_FORMATS, type FurnitureTarget, type FurniturePayload, type FurnitureRole, type FurnitureVariant } from './furniture-commands';
+
+export { createWordStructure, captureTocSession, type TocSession, type TocSettings } from './structure-commands';
+export { installWordTableResize } from './table-resize';
+
+export { captureStyleSession, paragraphStylesOf, paragraphStyleFormat, canManageParagraphStyles, type StyleSession } from './paragraph-styles';
+
+export { captureBookmarkSession, wordBookmarks, bookmarkSelection, type BookmarkSession } from './bookmark-commands';
+export { captureCaptionSession, WORD_CAPTION_LABELS, type CaptionSession, type CaptionSettings } from './caption-commands';
+
+export { wordSearchCommands, type WordSearchCommand } from './command-search-model';

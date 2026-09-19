@@ -1,12 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { freeLibraryName } from './document-library';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { documentLibrary, freeLibraryName, LibraryRevisionConflict } from './document-library';
 
 /**
  * **문서를 무엇이라 부를 것인가** — 라이브러리에서 이름은 링크가 붙잡는 것이다.
  *
- * IndexedDB 를 여닫는 쪽은 여기서 안 잰다. 브라우저가 답을 정하는 자리이고
- * (`docs/specs/testing.md`), 그래서 `office-slides` 도 그 절반에는 검사를 두지 않았다. 이름
- * 짓기는 반대다 — 전부 우리 코드가 정한다.
+ * 이름과 저장 완료 알림의 의미를 검사한다. IndexedDB 자체의 구현은 브라우저 검사가 맡는다.
  */
 describe('쓰이지 않은 이름을 짓는다', () => {
   it('제목을 슬러그로 만든다', () => {
@@ -55,4 +53,140 @@ describe('쓰이지 않은 이름을 짓는다', () => {
     const made = freeLibraryName([], 'a/b.c:d?e#f g', 'doc');
     expect(/[/.:?#\s]/.test(made)).toBe(false);
   });
+});
+
+describe('document storage completion', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  const storage = (current?: Record<string, unknown>) => {
+    const request = { result: 'meeting', error: null as Error | null, onsuccess: undefined as (() => void) | undefined, onerror: undefined as (() => void) | undefined };
+    const put = vi.fn(() => request);
+    const read = { result: current, error: null, onsuccess: undefined as (() => void) | undefined, onerror: undefined as (() => void) | undefined };
+    const get = vi.fn(() => { queueMicrotask(() => read.onsuccess?.()); return read; });
+    const tx = {
+      error: null as Error | null,
+      objectStore: () => ({ put, get }),
+      abort: () => tx.onabort?.(),
+      oncomplete: undefined as (() => void) | undefined,
+      onabort: undefined as (() => void) | undefined,
+      onerror: undefined as (() => void) | undefined
+    };
+    const db = { transaction: () => tx, close: vi.fn() };
+    const opened = { result: db, onsuccess: undefined as (() => void) | undefined };
+    vi.stubGlobal('indexedDB', { open: () => {
+      queueMicrotask(() => opened.onsuccess?.());
+      return opened;
+    } });
+    return { request, read, tx, db, put, get, library: documentLibrary({ db: 'test', store: 'notes' }) };
+  };
+
+  it('rejects a synchronous cloning failure inside the compare-and-write callback', async () => {
+    const { library, put, db } = storage();
+    const error = new DOMException('Cannot clone metadata', 'DataCloneError');
+    put.mockImplementationOnce(() => { throw error; });
+    await expect(library.keep({ name: 'meeting' }, '{}', { expectedRevision: null })).rejects.toBe(error);
+    expect(db.close).toHaveBeenCalled();
+  });
+
+  it('does not report saved until the transaction completes', async () => {
+    const { request, tx, db, put, library } = storage();
+    const saved = vi.fn();
+    const pending = library.keep({ name: 'meeting' }, '{}').then(saved);
+    await vi.waitFor(() => expect(put).toHaveBeenCalled());
+    request.onsuccess?.();
+    await new Promise((done) => setTimeout(done, 0));
+    expect(saved).not.toHaveBeenCalled();
+    tx.oncomplete?.();
+    await pending;
+    expect(saved).toHaveBeenCalledTimes(1);
+    expect(db.close).toHaveBeenCalled();
+  });
+
+  it('keeps optional product metadata in the same completed write as document bytes', async () => {
+    const { tx, put, library } = storage();
+    const metadata = { version: 1, favorite: true, parentId: 'parent', trashedAt: null };
+    const pending = library.keep({ name: 'meeting', title: '회의록', metadata }, '{"body":"intact"}');
+    await vi.waitFor(() => expect(put).toHaveBeenCalled());
+    expect(put).toHaveBeenCalledWith(expect.objectContaining({ name: 'meeting', metadata, text: '{"body":"intact"}' }));
+    tx.oncomplete?.();
+    expect(await pending).toMatchObject({ name: 'meeting', metadata });
+  });
+
+  it('rejects an abort even after the write request succeeded', async () => {
+    const { request, tx, db, put, library } = storage();
+    const failure = new Error('storage transaction aborted');
+    const pending = library.keep({ name: 'meeting' }, '{}');
+    const outcome = pending.then(() => 'saved', (error: unknown) => error);
+    await vi.waitFor(() => expect(put).toHaveBeenCalled());
+    request.onsuccess?.();
+    tx.error = failure;
+    tx.onabort?.();
+    expect(await outcome).toBe(failure);
+    expect(db.close).toHaveBeenCalled();
+  });
+
+  it('rejects a failed request and closes the connection', async () => {
+    const { request, db, put, library } = storage();
+    const failure = new Error('quota exceeded');
+    const pending = library.keep({ name: 'meeting' }, '{}');
+    const outcome = pending.catch((error: unknown) => error);
+    await vi.waitFor(() => expect(put).toHaveBeenCalled());
+    request.error = failure;
+    request.onerror?.();
+    expect(await outcome).toBe(failure);
+    expect(db.close).toHaveBeenCalled();
+  });
+  it('checks an expected revision before writing and returns the completed next revision', async () => {
+    const { tx, put, library } = storage({ name: 'meeting', text: 'before', savedAt: 1, revision: 7 });
+    const pending = library.keep({ name: 'meeting' }, 'after', { expectedRevision: 7 });
+    await vi.waitFor(() => expect(put).toHaveBeenCalled());
+    expect(put).toHaveBeenCalledWith(expect.objectContaining({ text: 'after', revision: 8 }));
+    tx.oncomplete?.(); expect((await pending).revision).toBe(8);
+  });
+
+  it('preserves the newest bytes on conflict and supplies their exact revision to recovery', async () => {
+    const { put, db, library } = storage({ name: 'meeting', title: 'Latest', text: 'newest', savedAt: 2, revision: 9 });
+    const error = await library.keep({ name: 'meeting' }, 'stale', { expectedRevision: 7 }).catch(error => error);
+    expect(error).toBeInstanceOf(LibraryRevisionConflict);
+    expect(error.latest).toMatchObject({ row: { revision: 9, title: 'Latest' }, text: 'newest' });
+    expect(put).not.toHaveBeenCalled(); expect(db.close).toHaveBeenCalled();
+  });
+
+  it('distinguishes creation from legacy revision zero and detects deleted documents', async () => {
+    const old = storage({ name: 'meeting', text: 'legacy', savedAt: 1 });
+    await expect(old.library.keep({ name: 'meeting' }, 'replacement', { expectedRevision: null })).rejects.toBeInstanceOf(LibraryRevisionConflict);
+    expect(old.put).not.toHaveBeenCalled();
+    const saved = old.library.keep({ name: 'meeting' }, 'updated', { expectedRevision: 0 });
+    await vi.waitFor(() => expect(old.put).toHaveBeenCalled()); old.tx.oncomplete?.();
+    expect((await saved).revision).toBe(1);
+    const deleted = storage();
+    await expect(deleted.library.keep({ name: 'meeting' }, 'stale', { expectedRevision: 1 })).rejects.toBeInstanceOf(LibraryRevisionConflict);
+    expect(deleted.put).not.toHaveBeenCalled();
+  });
+
+  it('keeps unconditional callers compatible while advancing their revision', async () => {
+    const { library, put, tx } = storage({ name: 'meeting', text: 'before', savedAt: 1, revision: 4 });
+    const pending = library.keep({ name: 'meeting' }, 'legacy caller');
+    await vi.waitFor(() => expect(put).toHaveBeenCalled()); tx.oncomplete?.();
+    expect((await pending).revision).toBe(5);
+  });
+
+  it('bulk saves resolve only after transaction completion, even after all puts succeed', async () => {
+    const { library, put, tx } = storage();
+    let resolved = false;
+    const saving = library.keepMany([{ entry: { name: 'meeting' }, text: 'new', expectedRevision: null }]).then(rows => { resolved = true; return rows; });
+    await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+    await Promise.resolve(); expect(resolved).toBe(false);
+    tx.oncomplete?.();
+    expect(await saving).toEqual([expect.objectContaining({ name: 'meeting', revision: 1 })]);
+  });
+
+  it('bulk conflict issues no puts and reports the exact latest snapshot', async () => {
+    const { library, put } = storage({ name: 'meeting', text: 'winner', savedAt: 1, revision: 2 });
+    const error = await library.keepMany([{ entry: { name: 'meeting' }, text: 'stale', expectedRevision: 1 }]).catch(error => error);
+    expect(error).toBeInstanceOf(LibraryRevisionConflict);
+    expect(error.latest).toMatchObject({ text: 'winner', row: { revision: 2 } });
+    expect(put).not.toHaveBeenCalled();
+  });
+
 });

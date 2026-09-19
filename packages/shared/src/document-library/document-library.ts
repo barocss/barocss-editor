@@ -38,11 +38,15 @@ export interface LibraryEntry {
   title?: string;
   /** Whatever the product counts — slides, pages, words. */
   count?: number;
+  /** Product-owned library state, kept atomically with the document bytes. */
+  metadata?: Record<string, unknown>;
 }
 
 /** One row as a list reads it. */
 export interface LibraryRow extends LibraryEntry {
   savedAt: number;
+  /** Monotonic per-document storage revision; legacy rows read as zero. */
+  revision?: number;
 }
 
 /** What is kept: the row a list shows, and the file itself. */
@@ -58,6 +62,21 @@ export interface LibrarySpec {
   store: string;
   version?: number;
 }
+
+export interface LibrarySnapshot { row: LibraryRow; text: string; }
+export interface LibraryKeepOptions {
+  /** Omit for legacy unconditional writes; null requires a new identity, zero matches a legacy row. */
+  expectedRevision?: number | null;
+}
+export interface LibraryKeepItem extends LibraryKeepOptions { entry: LibraryEntry; text: string; }
+export class LibraryRevisionConflict extends Error {
+  constructor(readonly expectedRevision: number | null, readonly latest: LibrarySnapshot | undefined) {
+    super('The document was changed in another writer.');
+    this.name = 'LibraryRevisionConflict';
+  }
+}
+const revisionOf = (row: { revision?: number }) => Number.isSafeInteger(row.revision) && Number(row.revision) >= 0 ? Number(row.revision) : 0;
+const snapshotOf = ({ text, ...row }: Kept): LibrarySnapshot => ({ row: { ...row, revision: revisionOf(row) }, text });
 
 export function documentLibrary(spec: LibrarySpec) {
   const VERSION = spec.version ?? 1;
@@ -86,11 +105,24 @@ export function documentLibrary(spec: LibrarySpec) {
     open().then(
       (db) =>
         new Promise<T>((resolve, reject) => {
-          const transaction = db.transaction(spec.store, mode);
-          const request = work(transaction.objectStore(spec.store));
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-          transaction.oncomplete = () => db.close();
+          const fail = (error: unknown) => {
+            db.close();
+            reject(error ?? new Error('Document storage transaction failed'));
+          };
+          try {
+            const transaction = db.transaction(spec.store, mode);
+            transaction.onabort = () => fail(transaction.error);
+            transaction.onerror = () => fail(transaction.error);
+            const request = work(transaction.objectStore(spec.store));
+            request.onerror = () => fail(request.error);
+            // A successful request can still be rolled back by the transaction.
+            transaction.oncomplete = () => {
+              db.close();
+              resolve(request.result);
+            };
+          } catch (error) {
+            fail(error);
+          }
         })
     );
 
@@ -98,7 +130,7 @@ export function documentLibrary(spec: LibrarySpec) {
   const rows = async (): Promise<LibraryRow[]> => {
     const all = (await run<Kept[]>('readonly', (s) => s.getAll() as IDBRequest<Kept[]>)) ?? [];
     return all
-      .map(({ name, title, count, savedAt }) => ({ name, title, count, savedAt }))
+      .map(({ name, title, count, savedAt, metadata, revision }) => ({ name, title, count, savedAt, revision: revisionOf({ revision }), ...(metadata ? { metadata } : {}) }))
       .sort((a, b) => b.savedAt - a.savedAt);
   };
 
@@ -119,10 +151,111 @@ export function documentLibrary(spec: LibrarySpec) {
    * the same document. Minting `가격표-2` there would leave every link pointing at the old copy,
    * which is the one thing a durable reference must not do.
    */
-  const keep = async (entry: LibraryEntry, source: string): Promise<LibraryRow> => {
-    const kept: Kept = { ...entry, text: source, savedAt: Date.now() };
-    await run('readwrite', (s) => s.put(kept));
-    return { name: kept.name, title: kept.title, count: kept.count, savedAt: kept.savedAt };
+  const keep = async (entry: LibraryEntry, source: string, options: LibraryKeepOptions = {}): Promise<LibraryRow> => {
+    const expected = options.expectedRevision;
+    if (expected !== undefined && expected !== null && (!Number.isSafeInteger(expected) || expected < 0)) throw new Error('Invalid expected document revision.');
+    const db = await open();
+    return new Promise<LibraryRow>((resolve, reject) => {
+      let failure: unknown;
+      let kept: Kept | undefined;
+      const fail = (error: unknown) => { failure = error; };
+      try {
+        // Read and compare inside the same readwrite transaction as put. Other connections wait.
+        const tx = db.transaction(spec.store, 'readwrite');
+        tx.onabort = () => { db.close(); reject(failure ?? tx.error ?? new Error('Document storage transaction aborted')); };
+        tx.onerror = () => { fail(tx.error); };
+        tx.oncomplete = () => {
+          db.close();
+          if (failure || !kept) reject(failure ?? new Error('Document was not saved'));
+          else resolve(snapshotOf(kept).row);
+        };
+        const store = tx.objectStore(spec.store);
+        const read = store.get(entry.name) as IDBRequest<Kept | undefined>;
+        read.onerror = () => { fail(read.error); tx.abort(); };
+        read.onsuccess = () => {
+          try {
+            const current = read.result;
+            const actual = current ? revisionOf(current) : null;
+            if (expected !== undefined && actual !== expected) {
+              fail(new LibraryRevisionConflict(expected, current ? snapshotOf(current) : undefined));
+              tx.abort(); return;
+            }
+            const revision = (actual ?? 0) + 1;
+            if (!Number.isSafeInteger(revision)) { fail(new Error('Document revision limit reached')); tx.abort(); return; }
+            kept = { ...entry, text: source, savedAt: Date.now(), revision };
+            const write = store.put(kept);
+            write.onerror = () => { fail(write.error); tx.abort(); };
+          } catch (error) { fail(error); tx.abort(); }
+        };
+      } catch (error) { db.close(); reject(error); }
+    });
+  };
+
+  /** Read bytes and revision from one snapshot, avoiding a rows()/text() race. */
+  const read = async (name: string): Promise<LibrarySnapshot | undefined> => {
+    const kept = await run<Kept | undefined>('readonly', store => store.get(name));
+    return kept ? snapshotOf(kept) : undefined;
+  };
+
+  /** Bytes and list metadata from a single consistent readonly transaction. */
+  const snapshots = async (): Promise<LibrarySnapshot[]> => {
+    const all = (await run<Kept[]>('readonly', store => store.getAll())) ?? [];
+    return all.map(snapshotOf).sort((a, b) => b.row.savedAt - a.row.savedAt);
+  };
+
+  /** Compare every revision before writing, then commit all records or none. */
+  const keepMany = async (items: readonly LibraryKeepItem[]): Promise<LibraryRow[]> => {
+    const names = new Set<string>();
+    for (const item of items) {
+      const name = item?.entry?.name, expected = item?.expectedRevision;
+      if (typeof name !== 'string' || !name.trim() || names.has(name)) throw new Error('Document names must be nonempty and unique.');
+      if (typeof item.text !== 'string') throw new Error('Document text must be a string.');
+      if (expected !== undefined && expected !== null && (!Number.isSafeInteger(expected) || expected < 0)) throw new Error('Invalid expected document revision.');
+      names.add(name);
+    }
+    if (!items.length) return [];
+    // Freeze the caller's proposed restore while IndexedDB waits for another writer.
+    const proposed = structuredClone(items);
+    const db = await open();
+    return new Promise<LibraryRow[]>((resolve, reject) => {
+      let failure: unknown;
+      try {
+        const tx = db.transaction(spec.store, 'readwrite');
+        let aborted = false;
+        const abort = (error: unknown) => {
+          if (aborted) return;
+          aborted = true; failure = error ?? new Error('Document storage transaction failed');
+          tx.abort();
+        };
+        const kept: Kept[] = new Array(proposed.length);
+        tx.onabort = () => { db.close(); reject(failure ?? tx.error ?? new Error('Document storage transaction aborted')); };
+        tx.onerror = () => { failure ??= tx.error; };
+        tx.oncomplete = () => { db.close(); failure ? reject(failure) : resolve(kept.map(value => snapshotOf(value).row)); };
+        const store = tx.objectStore(spec.store);
+        let remaining = proposed.length;
+        proposed.forEach((item, index) => {
+          const request = store.get(item.entry.name) as IDBRequest<Kept | undefined>;
+          request.onerror = () => abort(request.error);
+          request.onsuccess = () => {
+            if (failure) return;
+            try {
+              const current = request.result, actual = current ? revisionOf(current) : null;
+              if (item.expectedRevision !== undefined && item.expectedRevision !== actual) {
+                abort(new LibraryRevisionConflict(item.expectedRevision, current ? snapshotOf(current) : undefined)); return;
+              }
+              const revision = (actual ?? 0) + 1;
+              if (!Number.isSafeInteger(revision)) { abort(new Error('Document revision limit reached')); return; }
+              kept[index] = { ...item.entry, text: item.text, revision, savedAt: Date.now() };
+              if (--remaining) return;
+              for (const value of kept) {
+                const write = store.put(value);
+                write.onerror = () => abort(write.error);
+              }
+            } catch (error) { abort(error); }
+          };
+        });
+      } catch (error) { db.close(); reject(error); }
+    });
   };
 
   /** Take one out. Documents that pointed at it are not changed: their link now warns, honestly. */
@@ -130,7 +263,7 @@ export function documentLibrary(spec: LibrarySpec) {
     await run('readwrite', (s) => s.delete(name));
   };
 
-  return { rows, text, keep, drop };
+  return { rows, text, read, keep, drop, snapshots, keepMany };
 }
 
 /**

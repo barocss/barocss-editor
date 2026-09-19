@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { ownsEditorSelection } from './context-toolbar';
+import { useEffect, useRef } from 'react';
 import { watchAnswers, type Editor } from '@barocss/editor-core';
 import type { SlashCommandExtension } from '@barocss/extensions';
 import { useSelectionRect } from './use-selection-rect';
-import { FloatingSurface, Icon, useRevision } from '@barocss/office-ui';
+import { FloatingSurface, MenuAction, MenuActionText, Icon, useRevision } from '@barocss/office-ui';
 
 /**
  * **`/` 를 치면 뜨는 메뉴** — 네 제품이 같은 것을 두 번 쓰고 있었습니다.
@@ -61,6 +62,33 @@ export function SlashMenu({
     [editor]
   );
 
+  const typedSlash = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const arm = (event: Event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const ownedId = target?.closest('[data-bc-sid]')?.getAttribute('data-bc-sid') ?? target?.querySelector('[data-bc-sid]')?.getAttribute('data-bc-sid');
+      if (!active || target?.closest('input,textarea,select,[contenteditable="false"]') || !(ownsEditorSelection(editor, document.getSelection()) || ownedId && editor.dataStore.getNode(ownedId))) return;
+      if (typedSlash.current !== undefined) cancelAnimationFrame(typedSlash.current);
+      let attempts = 0;
+      const openAfterInput = () => {
+        typedSlash.current = undefined;
+        const range = editor.selection;
+        if (!range || range.type !== 'range' || range.startNodeId !== range.endNodeId || range.startOffset !== range.endOffset) return;
+        const text = editor.dataStore.getNode(range.startNodeId)?.text;
+        const hit = typeof text === 'string' && /(?:^|\s)\/([^\s/]*)$/.exec(text.slice(0, range.startOffset));
+        if (hit) void editor.executeCommand('showSlashMenu', { query: hit[1] });
+        else if (++attempts < 6) typedSlash.current = requestAnimationFrame(openAfterInput);
+      };
+      typedSlash.current = requestAnimationFrame(openAfterInput);
+    };
+    const input = (event: InputEvent) => { if (!event.isComposing && event.inputType === 'insertText' && event.data === '/') arm(event); };
+    const key = (event: KeyboardEvent) => { if (!event.isComposing && !event.ctrlKey && !event.metaKey && !event.altKey && event.key === '/') arm(event); };
+    const cancel = () => { if (typedSlash.current !== undefined) cancelAnimationFrame(typedSlash.current); typedSlash.current = undefined; };
+    document.addEventListener('beforeinput', input, true);
+    document.addEventListener('keydown', key, true);
+    document.addEventListener('pointerdown', cancel, true);
+    return () => { cancel(); document.removeEventListener('keydown', key, true); document.removeEventListener('beforeinput', input, true); document.removeEventListener('pointerdown', cancel, true); };
+  }, [editor, active]);
   const menu = editor.getExtension<SlashCommandExtension>('slashCommand')?.state;
 
   /*
@@ -80,11 +108,14 @@ export function SlashMenu({
   useEffect(() => {
 
     const typed = (event: KeyboardEvent) => {
+      if (!active || event.isComposing) return;
+      if (event.key === 'Escape' && typedSlash.current !== undefined) { cancelAnimationFrame(typedSlash.current); typedSlash.current = undefined; }
       const open = menu?.open === true;
 
       if (open) {
         if (event.key === 'Escape') {
-          event.preventDefault();
+          event.preventDefault(); event.stopPropagation();
+          if (typedSlash.current !== undefined) cancelAnimationFrame(typedSlash.current); typedSlash.current = undefined;
           return void editor.executeCommand('hideSlashMenu', {});
         }
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -161,6 +192,7 @@ export function SlashMenu({
      * never drawn**. Everything measures right and nothing is on the page, which is the shape of
      * fault a screenshot finds and a state dump does not.
      */
+    if (!menu?.open) return;
     if (menu?.open === true && menu.query === hit[1]) return;
     void editor.executeCommand(menu?.open ? 'filterSlashMenu' : 'showSlashMenu', { query: hit[1] });
   }, [editor, active, revision, menu?.open, menu?.query]);
@@ -168,9 +200,9 @@ export function SlashMenu({
   const rows = menu?.items ?? [];
 
   return (
-    <FloatingSurface open={!!at && rows.length > 0} at={at} className="flex-col items-stretch p-1">
+    <FloatingSurface open={!!at && rows.length > 0} at={at} variant="menu" aria-label="블록 추가" style={{ width: 320 }}>
       {rows.map((item, index) => (
-        <button
+        <MenuAction
           key={item.id}
           type="button"
           data-slash-item={item.id}
@@ -178,21 +210,13 @@ export function SlashMenu({
           onMouseDown={(event) => {
             // The caret is what this acts on; letting the press move it would close the menu first.
             event.preventDefault();
-            void editor.executeCommand('runSlashMenuItem', {});
+            void editor.executeCommand('runSlashMenuItem', { itemId: item.id });
           }}
-          className={[
-            'flex w-56 items-center gap-2 rounded-[var(--ou-radius)] px-2 py-1 text-left',
-            index === menu?.currentIndex ? 'bg-[color:var(--ou-accent-soft)]' : 'hover:bg-[color:var(--ou-ground)]'
-          ].join(' ')}
+          selected={index === menu?.currentIndex} className="items-start py-2"
         >
           {item.icon ? <Icon name={item.icon} size={14} /> : null}
-          <span className="flex-1 truncate">{item.label}</span>
-          {item.description ? (
-            <span className="text-[length:var(--ou-text-small)] text-[color:var(--ou-faint)]">
-              {item.description}
-            </span>
-          ) : null}
-        </button>
+          <MenuActionText label={item.label} description={item.description} />
+        </MenuAction>
       ))}
     </FloatingSurface>
   );

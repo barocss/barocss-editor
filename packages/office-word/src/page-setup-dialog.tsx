@@ -1,11 +1,13 @@
-import { useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
   ChoiceSelect,
   Dialog,
   DialogButton,
   PropertyNumber,
-  PropertyRow
+  PropertyRow,
+  PropertyToggle,
+  StatusNotice,
+  StatusIndicator
 } from '@barocss/office-ui';
 import {
   PAPERS,
@@ -16,10 +18,10 @@ import {
   roomFor,
   withOrientation,
   withPaper,
-  type Orientation,
-  type PageSetup
+  type Orientation
 } from './page-setup-model';
 import { currentPageSetup } from './page-setup-commands';
+import { useFormattingDialog } from './use-formatting-dialog';
 
 /**
  * **페이지 설정** — Word 의 세 번째 대화상자.
@@ -46,13 +48,7 @@ export interface PageSetupDialogProps {
 }
 
 export function PageSetupDialog({ editor, open, onClose }: PageSetupDialogProps) {
-  const [setup, setSetup] = useState<PageSetup>(() => currentPageSetup(editor));
-
-  const [was, setWas] = useState(open);
-  if (was !== open) {
-    setWas(open);
-    if (open) setSetup(currentPageSetup(editor));
-  }
+  const { state: setup, setState: setSetup, selection, busy, problem, close, apply: submit } = useFormattingDialog(editor, open, currentPageSetup, onClose);
 
   /** 트윕을 밀리미터로, 그리고 되돌려서 — 독자가 여백을 재는 단위. */
   const mm = (twips: number | null): number =>
@@ -64,6 +60,7 @@ export function PageSetupDialog({ editor, open, onClose }: PageSetupDialogProps)
       <PropertyNumber
         ariaLabel={`${label} 여백`}
         suffix="mm"
+        min={0}
         value={mm(setup[key])}
         onCommit={(value) => setSetup((now) => ({ ...now, [key]: toTwips(value) }))}
       />
@@ -71,29 +68,28 @@ export function PageSetupDialog({ editor, open, onClose }: PageSetupDialogProps)
   );
 
   const room = roomFor(setup);
-  const usable = isUsable(setup);
+  const usable = isUsable(setup) && (room?.across ?? 0) > ((setup.columns ?? 1) - 1) * (setup.columnSpacing ?? 0);
 
   const apply = () => {
-    void editor?.executeCommand?.('setPageSetup', { setup });
-    onClose();
+    if (editor && usable) void submit(() => editor.executeCommand('setPageSetup', { setup, selection }));
   };
 
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={(next) => !next && close()}
       title="페이지 설정"
       description="이 구역의 모든 페이지에 적용됩니다."
       footer={
         <>
-          <DialogButton onClick={onClose}>취소</DialogButton>
-          <DialogButton variant="primary" data-page-apply disabled={!usable} onClick={apply}>
-            확인
+          <DialogButton disabled={busy} onClick={close}>취소</DialogButton>
+          <DialogButton variant="primary" data-page-apply disabled={!editor || !usable || busy} onClick={() => void apply()}>
+            {busy ? '적용 중…' : '확인'}
           </DialogButton>
         </>
       }
     >
-      <div className="flex min-w-80 flex-col gap-3">
+      <fieldset disabled={busy} className="w-page-settings" aria-busy={busy || undefined}>
         <PropertyRow label="용지">
           <ChoiceSelect
             ariaLabel="용지 크기"
@@ -116,7 +112,7 @@ export function PageSetupDialog({ editor, open, onClose }: PageSetupDialogProps)
           />
         </PropertyRow>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <div className="w-page-margins">
           {margin('marginTop', '위')}
           {margin('marginBottom', '아래')}
           {margin('marginLeft', '왼쪽')}
@@ -127,26 +123,19 @@ export function PageSetupDialog({ editor, open, onClose }: PageSetupDialogProps)
           <PropertyNumber
             ariaLabel="제본용 여백"
             suffix="mm"
+            min={0}
             value={mm(setup.gutter)}
             onCommit={(value) => setSetup((now) => ({ ...now, gutter: toTwips(value) }))}
           />
         </PropertyRow>
 
-        <label className="flex items-center gap-2 text-[length:var(--ou-text-small)] text-[color:var(--ou-ink)]">
-          <input
-            type="checkbox"
-            data-gutter-top
-            checked={setup.gutterAtTop === true}
-            onChange={(event) =>
-              setSetup((now) => ({ ...now, gutterAtTop: event.currentTarget.checked }))
-            }
-          />
-          제본용 여백을 위쪽에
-        </label>
+        <PropertyToggle ariaLabel="제본용 여백을 위쪽에" label="제본용 여백을 위쪽에"
+          value={setup.gutterAtTop} disabled={busy} onChange={value => setSetup(now => ({ ...now, gutterAtTop: value }))} />
 
         <PropertyRow label="단">
           <PropertyNumber
             ariaLabel="단 수"
+            min={1}
             value={setup.columns ?? 1}
             /* 0단이나 음수 단은 페이지가 아니다 — 하나는 있어야 글이 들어간다. */
             onCommit={(value) => setSetup((now) => ({ ...now, columns: Math.max(1, Math.round(value)) }))}
@@ -159,42 +148,24 @@ export function PageSetupDialog({ editor, open, onClose }: PageSetupDialogProps)
               <PropertyNumber
                 ariaLabel="단 간격"
                 suffix="mm"
+                min={0}
                 value={mm(setup.columnSpacing)}
                 onCommit={(value) => setSetup((now) => ({ ...now, columnSpacing: toTwips(value) }))}
               />
             </PropertyRow>
-            <label className="flex items-center gap-2 text-[length:var(--ou-text-small)] text-[color:var(--ou-ink)]">
-              <input
-                type="checkbox"
-                data-column-separator
-                checked={setup.columnSeparator === true}
-                onChange={(event) =>
-                  setSetup((now) => ({ ...now, columnSeparator: event.currentTarget.checked }))
-                }
-              />
-              단 사이에 구분선
-            </label>
+            <PropertyToggle ariaLabel="단 사이에 구분선" label="단 사이에 구분선"
+              value={setup.columnSeparator} disabled={busy} onChange={value => setSetup(now => ({ ...now, columnSeparator: value }))} />
           </>
         ) : null}
 
-        {/**
-         * **꺼진 단추는 이유를 말해야 한다.** 확인이 왜 눌리지 않는지 모른 채 닫는 독자에게는
-         * 이 대화상자가 고장난 것이다.
-         */}
-        <p
-          data-page-room
-          className={[
-            'text-[length:var(--ou-text-small)]',
-            usable ? 'text-[color:var(--ou-muted)]' : 'text-[color:var(--ou-danger,#c92a2a)]'
-          ].join(' ')}
-        >
-          {room === null
-            ? '용지 크기를 정하세요.'
-            : usable
-              ? `글이 놓이는 자리 ${mm(room.across)} × ${mm(room.down)} mm`
-              : '여백이 용지보다 넓어 글을 놓을 자리가 없습니다.'}
-        </p>
-      </div>
+        <div data-page-room>
+          {usable && room ? <StatusIndicator>글이 놓이는 자리 {mm(room.across)} × {mm(room.down)} mm</StatusIndicator>
+            : <StatusNotice tone="danger" title="설정을 확인하세요">
+              {room === null ? '용지 크기를 정하세요.' : '여백 또는 단 간격이 너무 넓어 글을 놓을 자리가 없습니다.'}
+            </StatusNotice>}
+        </div>
+      </fieldset>
+      {problem && <StatusNotice className="w-page-error" tone="danger" title="적용하지 못했습니다">{problem}</StatusNotice>}
     </Dialog>
   );
 }

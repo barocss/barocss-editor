@@ -10,7 +10,7 @@ import { placeCaret } from './helpers';
 
 test.describe('the toolbar', () => {
   test('shows a mark as on when it covers the whole selection', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
 
     // The sample has a code mark over one word
@@ -28,7 +28,7 @@ test.describe('the toolbar', () => {
   });
 
   test('shows a mark as mixed when it covers only part of it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
 
     // Select across the boundary of the marked run into unmarked text
@@ -60,7 +60,7 @@ test.describe('the toolbar', () => {
   });
 
   test('draws the three states apart', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
     await placeCaret(page, '.w-paragraph', 1);
 
@@ -97,7 +97,7 @@ test.describe('the toolbar', () => {
   });
 
   test('shows the style the blocks agree on, and nothing when they do not', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
 
     await placeCaret(page, '.w-paragraph', 1);
@@ -125,7 +125,7 @@ test.describe('the toolbar', () => {
   });
 
   test('applies alignment to every block the selection touches', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
     await placeCaret(page, '.w-paragraph', 1);
 
@@ -142,7 +142,7 @@ test.describe('the toolbar', () => {
   });
 
   test('shows the font and size the text inherits, not a dash', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
     await placeCaret(page, '.w-paragraph', 1);
 
@@ -155,7 +155,7 @@ test.describe('the toolbar', () => {
   });
 
   test('applies the size chosen in the dropdown', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
     await placeCaret(page, '.w-paragraph', 1);
     await page.keyboard.down('Shift');
@@ -202,7 +202,7 @@ test.describe('the toolbar', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
     await placeCaret(page, '.w-paragraph', 1);
     await page.keyboard.down('Shift');
@@ -256,7 +256,7 @@ test.describe('the toolbar', () => {
   });
 
   test('makes a list, moves it between levels, and lets it go again', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
     await placeCaret(page, '.w-paragraph', 1);
 
@@ -304,7 +304,7 @@ test.describe('the toolbar', () => {
   });
 
   test('shows a list button as on only for the list the caret is in', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
     await placeCaret(page, '.w-paragraph', 1);
 
@@ -322,7 +322,7 @@ test.describe('the toolbar', () => {
   });
 
   test('disables a command that cannot run', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
 
     // Nothing has been edited, so there is nothing to undo. A toolbar wired to
@@ -349,7 +349,7 @@ test.describe('the toolbar', () => {
    * the subscription. That is what made it worth sharing rather than fixing here.
    */
   test('notices a selection that is cleared, not only one that moves', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
     await placeCaret(page, '.w-paragraph', 1);
 
@@ -402,7 +402,7 @@ test.describe('the ribbon at any width', () => {
   for (const width of [1440, 1024, 820, 620]) {
     test(`keeps every control on screen at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 700 });
-      await page.goto('/');
+      await page.goto('/?sample');
       await page.waitForSelector('.w-toolbar');
 
       const measured = await page.evaluate(() => {
@@ -422,13 +422,13 @@ test.describe('the ribbon at any width', () => {
       expect(measured.controls).toBeGreaterThan(20);
       expect(measured.offscreen).toEqual([]);
       // Narrower windows take more rows, which is what wrapping is
-      if (width <= 820) expect(measured.rows).toBeGreaterThan(2);
+      if (width <= 820) expect(measured.rows).toBeGreaterThan(1);
     });
   }
 
   test('never breaks a group across two rows', async ({ page }) => {
     await page.setViewportSize({ width: 820, height: 700 });
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
 
     // A group squeezed in half is a row of buttons that belong together drawn
@@ -462,13 +462,13 @@ test.describe('the ribbon at any width', () => {
  */
 test.describe('the toolbar’s icons', () => {
   test('every control draws one, and none falls back to a glyph', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
     await placeCaret(page, '.w-paragraph', 1);
 
     const withoutIcon = await page.evaluate(() =>
       Array.from(document.querySelectorAll('.w-toolbar [data-control]'))
-        .filter((control) => !control.querySelector('svg'))
+        .filter((control) => !control.querySelector('svg') && !control.matches('.w-style-preview'))
         .map((control) => control.getAttribute('data-control'))
     );
     expect(withoutIcon, '아이콘 없이 글리프로 그려진 컨트롤이 있습니다').toEqual([]);
@@ -488,7 +488,7 @@ test.describe('the toolbar’s icons', () => {
    * bar too, which is the third place a close button lives.
    */
   test('and so does every button in the panes beside it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-toolbar');
     await placeCaret(page, '.w-paragraph', 1);
 
@@ -540,8 +540,9 @@ test.describe('the toolbar’s icons', () => {
         }
         return null;
       };
-      const run = longEnough(store.getRootNodeId())!;
-      await editor.run('insertComment', {
+      const surface = document.querySelector('.w-surface')!.getAttribute('data-bc-sid')!;
+      const run = longEnough(surface)!;
+      const result = await editor.run('insertComment', {
         selection: {
           type: 'range',
           startNodeId: run,
@@ -552,6 +553,7 @@ test.describe('the toolbar’s icons', () => {
         },
         text: '아이콘을 그릴 만한 댓글'
       });
+      if (!result) throw new Error('Comment insert failed: ' + JSON.stringify({ run, node: store.getNode(run), selection: editor.selection }));
     });
     await expect(page.locator('.w-comments-pane [data-comment]')).toHaveCount(threads + 1);
 

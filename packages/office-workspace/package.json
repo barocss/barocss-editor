@@ -1,0 +1,32 @@
+{
+  "name": "@barocss/office-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ui": "./src/ui.tsx",
+    "./style.css": "./src/style.css",
+    "./host": "./src/host-ui.tsx"
+  },
+  "scripts": {
+    "test:run": "vitest run"
+  },
+  "dependencies": {
+    "@barocss/shared": "workspace:*",
+    "@barocss/schema": "workspace:*",
+    "@barocss/office-note": "workspace:*",
+    "@barocss/office-word": "workspace:*",
+    "@barocss/office-slides": "workspace:*",
+    "@barocss/office-site": "workspace:*",
+    "@barocss/office-ui": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}

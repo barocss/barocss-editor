@@ -16,7 +16,7 @@ import type { Page } from '@playwright/test';
 const bar = (page: Page) => page.locator('.w-menubar');
 
 const openWord = async (page: Page) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await page.waitForSelector('.w-toolbar');
   await page.waitForTimeout(600);
 };
@@ -77,7 +77,7 @@ test.describe('the menubar', () => {
   test('shows and hides the panes, which is a view rather than a command', async ({ page }) => {
     await openWord(page);
     const outline = page.locator('.w-outline');
-    await expect(outline).toHaveCount(1);
+    await expect(outline).toHaveCount(0);
 
     await bar(page).locator('[data-menu="view"]').click();
     await page.locator('[data-menu-item="view.panes.0"]').click();
@@ -88,6 +88,9 @@ test.describe('the menubar', () => {
      * command — an entry that declared one would be telling the harness something exists that does
      * not.
      */
+    await expect(outline).toHaveCount(1);
+    await bar(page).locator('[data-menu="view"]').click();
+    await page.locator('[data-menu-item="view.panes.0"]').click();
     await expect(outline).toHaveCount(0);
   });
 

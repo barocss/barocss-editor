@@ -32,6 +32,7 @@ function createFakeEditor(dataStore: any, schema?: any): Editor & { __getCommand
   const commands: Record<string, any> = {};
 
   return {
+    selectionManager: { setSelection: vi.fn() },
     registerCommand: (cmd: any) => {
       commands[cmd.name] = cmd;
     },

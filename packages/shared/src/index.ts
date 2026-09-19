@@ -99,3 +99,7 @@ export * from './document-file/document-file';
 
 // 문서를 어디에 두는가 — IndexedDB 한 벌과 이름 짓기. 브라우저는 함수 안에서만 부른다.
 export * from './document-library/document-library';
+export * from './document-save/document-save';
+export * from './document-save/document-session';
+export * from './document-save/product-host';
+export * from './document-save/product-archive';

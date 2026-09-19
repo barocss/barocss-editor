@@ -231,8 +231,8 @@ describe('the numbers in the Slides spec', () => {
      * fails here for still being quoted.
      */
     const quoted: [string, number[]][] = [
-      ['word.md', [108, 1033]],
-      ['site-builder.md', [71, 841]]
+      ['word.md', [108, 1043]],
+      ['site-builder.md', [71, 862]]
     ];
     for (const [name, numbers] of quoted) {
       const other = readFileSync(join(ROOT, 'docs', 'specs', name), 'utf8');

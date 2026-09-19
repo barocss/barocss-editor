@@ -23,7 +23,7 @@ So Word and the site builder take the *same* document shape and disagree about
 one thing: Word cuts it into pages of a fixed size, and a site builder reflows it
 to the width of a window. Neither is a new document.
 
-What it holds, measured: **108 node types, 1,033 attribute slots** — which is
+What it holds, measured: **108 node types, 1,043 attribute slots** — which is
 three times the deck's and eight times the site builder's, and is the whole
 reason Word is where the shared vocabulary came from.
 
@@ -61,9 +61,10 @@ renderers. That is not Word borrowing from the deck; it is the reason
 
 ## What the chrome is, and what that costs
 
-Word's chrome is a **ribbon, a ruler, an overlay for shapes, and three read-only
-panes** (comments, find, outline). Measured: **9 toolbar groups, 60 controls, 59
-commands**.
+Word's chrome is a **ribbon, a ruler, an overlay for shapes, and three
+panes** (comments, find, outline). The base `WORD_TOOLBAR` model contains **9 toolbar
+groups, 61 controls, 60 commands**; specialized ribbon pickers and authoring dialogs
+are tracked separately in [command surface coverage](word-toolbar-capabilities.md).
 
 All of it now lives in the package, its looks included: `@barocss/office-word/ui`
 and `@barocss/office-word/ui.css`. Until this round the second door did not exist
@@ -99,7 +100,7 @@ Four numbers, all produced by `packages/office-word/test/conformance.test.ts`:
 
 | | |
 | --- | ---: |
-| commands registered | 170 (158 Word's own) |
+| commands registered | 184 (172 Word's own) |
 | attributes the product **draws** | 611 |
 | of those, **unread** — declared and reaching nothing | 16 *(ratchet)* |
 | of those, **unsettable** — drawn and reachable by nothing | 116 *(ratchet)* |

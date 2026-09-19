@@ -112,17 +112,17 @@ const SL = {
 const OU = {
   light: {
     '--ou-panel': '#ffffff',
-    '--ou-ground': '#eef0f4',
-    '--ou-line': '#d8dce4',
-    '--ou-ink': '#1e2430',
-    '--ou-muted': '#6b7480',
+    '--ou-ground': '#f5f5f5',
+    '--ou-line': '#d4d4d4',
+    '--ou-ink': '#171717',
+    '--ou-muted': '#6b6b6b',
     '--ou-accent': '#2563eb',
     /**
      * **매핑되지 않은 셋** — 그리고 그 셋이 이 파일에서 가장 조용한 결함을 지킨다.
      *
-     * 덱은 악센트를 `--sl-accent` 로 바꿔 놓고(다크에서 `#6f9bff`, 이 파일보다 밝은 파랑) *그 위에
+     * 덱은 악센트를 `--sl-accent` 로 바꿔 놓고(다크에서 `#3b82f6`, 이 파일보다 밝은 파랑) *그 위에
      * 무엇을 쓰는가* 는 매핑하지 않는다 — 그럴 이유가 없다, 그런 토큰이 있는 줄 모르니까. 잉크가
-     * 네 상태 모두 흰색이던 동안 다크의 눌린 토글과 기본 단추는 **`#ffffff` on `#6f9bff` = 2.69:1**
+     * 네 상태 모두 흰색이던 동안 다크의 눌린 토글과 기본 단추는 **`#ffffff` on `#3b82f6` = 2.69:1**
      * 이었다. `tokens.css` 가 다크에서 잉크를 `#171717` 로 뒤집으면서 그 자리가 6.67:1 이 된다 —
      * 덱은 한 글자도 바꾸지 않고. 그것이 매핑되지 않은 토큰이 하는 일이고, 이 줄이 그것을 지킨다.
      *
@@ -136,12 +136,12 @@ const OU = {
     '--ou-board-written': '#1a1a1a'
   },
   dark: {
-    '--ou-panel': '#1b1f27',
-    '--ou-ground': '#14171d',
-    '--ou-line': '#2b313c',
-    '--ou-ink': '#e6e9ef',
-    '--ou-muted': '#98a1b0',
-    '--ou-accent': '#6f9bff',
+    '--ou-panel': '#171717',
+    '--ou-ground': '#0a0a0a',
+    '--ou-line': '#404040',
+    '--ou-ink': '#fafafa',
+    '--ou-muted': '#a3a3a3',
+    '--ou-accent': '#3b82f6',
     '--ou-accent-ink': '#171717',
     '--ou-board': '#ffffff',
     '--ou-board-written': '#1a1a1a'
@@ -155,15 +155,7 @@ const TOKENS = {
 
 const TOKEN_NAMES = Object.keys(TOKENS.light);
 
-/** 매핑 그 자체 — `style.css:163-168` 이 여섯 줄로 적은 것. 셋째 검사가 이것을 묻는다. */
-const MAPPED: [string, string][] = [
-  ['--ou-panel', '--sl-panel'],
-  ['--ou-ground', '--sl-ground'],
-  ['--ou-line', '--sl-line'],
-  ['--ou-ink', '--sl-ink'],
-  ['--ou-muted', '--sl-muted'],
-  ['--ou-accent', '--sl-accent']
-];
+
 
 /**
  * **어느 요소의 어느 속성** — 이름이 값을 갖는 것과 그 값이 픽셀에 도착하는 것은 다른 질문이다.
@@ -202,7 +194,7 @@ const PAINTED = [
   { at: '.sl-toolbar', prop: 'borderBottomColor', token: '--ou-line', says: '리본 아래 실선' },
   /* 필름스트립 — `office-slides/src/ui.css:88·89·138`. 제품 셸이 매핑을 읽는 자리. */
   { at: '.sl-filmstrip', prop: 'backgroundColor', token: '--ou-panel', says: '필름스트립' },
-  { at: '.sl-filmstrip', prop: 'borderRightColor', token: '--ou-line', says: '필름스트립의 모서리' },
+  { at: '.sl-sidebar', prop: 'borderRightColor', token: '--ou-line', says: '통합 탐색 패널의 모서리' },
   { at: '.sl-filmstrip-number', prop: 'color', token: '--ou-muted', says: '필름스트립의 번호' },
   /*
    * 그리고 슬라이드 위의 글자 — `office-slides/src/ui.css:80`. 네 상태에서 **안 움직여야** 하는 것.
@@ -314,18 +306,18 @@ async function read(page: Page, names: string[], painted: readonly { at: string;
 /**
  * 서브트리 하나에 테마를 찍고 **그 요소에서** 되읽는다.
  *
- * `.sl-filmstrip` 인 것에 이유가 있다. `apps/slide/src/style.css:153` 이 매핑을 네 갈래로 쓴 이유를
+ * 테마 경계는 현재 통합 탐색 패널인 `.sl-sidebar`다. `apps/slide/src/style.css:153` 이 매핑을 네 갈래로 쓴 이유를
  * *네 갈래인 이유* 라는 제목으로 적어 두었고, 그 문단이 말하는 상황이 정확히 이것이다: 서브트리에
  * `data-theme` 를 찍으면 `tokens.css` 의 `[data-theme='dark']` 가 그 요소에 `--ou-*` 를 **직접**
  * 선언하는데, 앱의 매핑이 그 요소에 없으면 그 서브트리만 패키지 팔레트로 칠해진다 — 뿌리에서 고친
  * *팔레트 두 벌* 이 한 층 아래에서 그대로 반복된다. 그 주장을 브라우저에 물어보는 검사는
- * 지금까지 하나도 없었다. 그리고 필름스트립의 두 선언이 **사용 지점에서** 토큰을 읽으므로,
+ * 지금까지 하나도 없었다. 그리고 탐색 패널의 두 선언이 **사용 지점에서** 토큰을 읽으므로,
  * 찍은 테마가 안 닿으면 픽셀에서 바로 보인다.
  */
 async function island(page: Page, theme: 'light' | 'dark', names: string[]) {
   return page.evaluate(
     ({ theme, names }) => {
-      const strip = document.querySelector('.sl-filmstrip') as HTMLElement | null;
+      const strip = document.querySelector('.sl-sidebar') as HTMLElement | null;
       if (!strip) return null;
       strip.setAttribute('data-theme', theme);
       const style = getComputedStyle(strip);
@@ -453,28 +445,11 @@ test.describe('덱의 팔레트는 네 상태에서 값으로 옳다', () => {
     expect(wrong).toEqual([]);
   });
 
-  /**
-   * **그리고 그 여섯은 서로 같은 이름이다** — 리터럴이 아니라 값끼리.
-   *
-   * 위 검사가 두 표를 각각 붙잡으므로 이것도 논리적으로는 새롭지 않다. 따로 두는 이유는 두 가지다.
-   *
-   * 하나는 **실패했을 때 읽는 문장이 다르기** 때문이다: 위가 빨개지면 *팔레트가 바뀌었다* 이고,
-   * 여기가 빨개지면 *매핑이 끊겼다* — 그리고 이 제품에서 그 둘은 전혀 다른 수리다.
-   *
-   * 다른 하나는 이것이 **팔레트를 바꿔도 살아남기** 때문이다. 덱이 내일 자기 파랑을 바꾸면 위의
-   * 두 표는 손봐야 하지만 이 여섯 줄은 그대로 옳다. 그리고 이 여섯 줄이 붙잡는 것이
-   * `style.css:136` 이 길게 적은 그 사고다 — 명시도로 져서 `--ou-*` 가 `office-ui` 의 기본값으로
-   * 돌아가는 것. 그때 이 검사는 `--ou-panel '#171717' ≠ --sl-panel '#1b1f27'` 이라고 말한다.
-   */
-  test('여섯 매핑은 네 상태에서 --sl-* 와 같은 값을 갖는다', () => {
-    const broken: string[] = [];
-    for (const [name, state] of Object.entries(seen)) {
-      for (const [ou, sl] of MAPPED) {
-        if (state.tokens[ou] !== state.tokens[sl])
-          broken.push(`${name}: ${ou} '${state.tokens[ou]}' ≠ ${sl} '${state.tokens[sl]}'`);
-      }
+  test('공유 도구 색상은 슬라이드 캔버스 팔레트와 독립적이다', () => {
+    for (const state of Object.values(seen)) {
+      expect(state.tokens['--ou-ground']).not.toBe(state.tokens['--sl-ground']);
+      expect(state.tokens['--ou-line']).not.toBe(state.tokens['--sl-line']);
     }
-    expect(broken).toEqual([]);
   });
 
   /**
@@ -546,7 +521,7 @@ test.describe('덱의 팔레트는 네 상태에서 값으로 옳다', () => {
    * 네 갈래다. 그 네 갈래가 실제로 작동하는지를 묻는 것이 이 두 검사다.
    */
   test('다크 문서 안에 라이트 섬을 만들면 열다섯이 다 라이트로 돌아온다', () => {
-    expect(lightIsland, '.sl-filmstrip 을 못 찾았다').not.toBeNull();
+    expect(lightIsland, '.sl-sidebar 를 못 찾았다').not.toBeNull();
     const got = lightIsland!;
     const wrong: string[] = [];
     for (const [token, hex] of Object.entries(TOKENS.light)) {
@@ -561,7 +536,7 @@ test.describe('덱의 팔레트는 네 상태에서 값으로 옳다', () => {
   });
 
   test('라이트 문서 안에 다크 섬을 만들면 열다섯이 다 다크로 간다', () => {
-    expect(darkIsland, '.sl-filmstrip 을 못 찾았다').not.toBeNull();
+    expect(darkIsland, '.sl-sidebar 를 못 찾았다').not.toBeNull();
     const got = darkIsland!;
     const wrong: string[] = [];
     for (const [token, hex] of Object.entries(TOKENS.dark)) {

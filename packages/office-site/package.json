@@ -17,7 +17,8 @@
       "import": "./src/ui.ts",
       "default": "./src/ui.ts"
     },
-    "./ui.css": "./src/ui.css"
+    "./ui.css": "./src/ui.css",
+    "./workspace": "./src/workspace-adapter.ts"
   },
   "publishConfig": {
     "main": "./dist/index.js",

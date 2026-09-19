@@ -24,6 +24,34 @@ const openLibrary = async (page: Page) => {
 };
 
 test.describe('a library of decks', () => {
+  test('keeps the current deck after a read failure and allows retry', async ({ page }) => {
+    await openDeck(page);
+    await openLibrary(page);
+    await page.locator('[data-library-keep]').click();
+    const saved = page.locator('[data-library-open="one-engine-two-products"]');
+    await expect(saved).toBeVisible();
+    const before = await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.evaluate(() => {
+      const get = IDBObjectStore.prototype.get;
+      IDBObjectStore.prototype.get = function (...args) {
+        if (this.name === 'decks') {
+          IDBObjectStore.prototype.get = get;
+          throw new DOMException('Test read failure', 'UnknownError');
+        }
+        return get.apply(this, args);
+      };
+    });
+    await saved.click();
+    await expect(page.locator('[data-library-problem]')).toContainText('다시 시도');
+    expect(await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(before);
+    expect(errors).toEqual([]);
+    await saved.click();
+    await expect(page.locator('[data-library-close]')).not.toBeVisible();
+    await expect(page.locator('.sl-filmstrip button[data-slide]')).toHaveCount(6);
+  });
+
   test('starts empty, and says what a name is for', async ({ page }) => {
     await openDeck(page);
     await openLibrary(page);

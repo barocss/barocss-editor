@@ -73,7 +73,7 @@ const composeSyllable = async (
 test.describe('composing CJK', () => {
   for (const rate of [1, 4, 8]) {
     test(`assembles a syllable with the CPU at a ${rate}th of its speed`, async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/?sample');
       await settled(page);
       await clickIntoParagraph(page);
 
@@ -97,7 +97,7 @@ test.describe('composing CJK', () => {
   }
 
   test('assembles several syllables in a row', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
 
@@ -126,7 +126,7 @@ test.describe('composing CJK', () => {
  */
 test.describe('a burst of Latin next to a composition', () => {
   test('lets a composition that starts moments later through', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
 
@@ -144,7 +144,7 @@ test.describe('a burst of Latin next to a composition', () => {
   });
 
   test('types after a commit where the reader is looking', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
 

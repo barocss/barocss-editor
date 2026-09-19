@@ -25,9 +25,12 @@
   */
 import type { ReactElement } from 'react';
 import {
+  Star,
+  Search, FileCog, ArrowDownUp, ArrowUpRight, FilePlus2, Printer,
   AlignCenter,
   Network,
   Baseline,
+  RemoveFormatting, Paintbrush,
   Film,
   Music,
   IndentDecrease,
@@ -65,7 +68,10 @@ import {
   AlignVerticalJustifyEnd,
   RotateCw,
   Plus,
+  Ellipsis,
   Copy,
+  Scissors,
+  ClipboardPaste,
   ChevronRight,
   ChevronUp,
   ChevronDown,
@@ -96,6 +102,9 @@ import {
   Group,
   Ungroup,
   PanelLeft,
+  PanelTop,
+  PanelBottom,
+  FileDigit,
   MessageSquareText,
   Columns2,
   Rows2,
@@ -472,6 +481,10 @@ const ICONS: Record<string, LucideIcon> = {
   'small-caps': CaseSensitive,
   highlight: Highlighter,
   'font-color': Baseline,
+  'clear-formatting': RemoveFormatting,
+  'format-painter': Paintbrush,
+  'note-footnote': FilePen,
+  'note-endnote': FilePen,
   'bullet-list': List,
   'ordered-list': ListOrdered,
   /*
@@ -549,7 +562,12 @@ const ICONS: Record<string, LucideIcon> = {
 
   // Slides. A deck's own group — the one a document has no counterpart for.
   add: Plus,
+  favorite: Star,
+  more: Ellipsis,
   duplicate: Copy,
+  copy: Copy,
+  cut: Scissors,
+  paste: ClipboardPaste,
   /**
    * Reordering a thing in a list — a slide up one place in the filmstrip.
    *
@@ -602,6 +620,15 @@ const ICONS: Record<string, LucideIcon> = {
    * written down about three times.
    */
   expand: PanelRightOpen,
+  'dialog-launch': ArrowUpRight,
+  'document-search': Search,
+  'page-setup': FileCog,
+  'page-header': PanelTop,
+  'page-footer': PanelBottom,
+  'page-number': FileDigit,
+  'paragraph-spacing': ArrowDownUp,
+  'page-break': FilePlus2,
+  print: Printer,
   'insert-image': Image,
   // A film and a sound. `Film` rather than a play triangle, which every product
   // uses for *starting* something — a button that inserts is not a button that

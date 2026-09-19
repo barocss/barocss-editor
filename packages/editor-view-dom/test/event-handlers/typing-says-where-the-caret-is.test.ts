@@ -56,6 +56,8 @@ function build(stale: ModelSelection | null) {
   };
 
   const updateSelection = vi.fn();
+  const closeGroup = vi.fn();
+  const listeners = new Map<string, (payload: any) => void>();
   /*
    * `as never` 는 **리터럴 쪽**에 붙인다. 변수 이름 뒤에 붙이면 `editor-is-typed` 의 톱니가 그것을
    * 새 캐스트로 센다 — 그 톱니가 세는 것은 *편집기를 캐스트로 걷어낸 자리* 이고, 여기서 필요한
@@ -66,25 +68,27 @@ function build(stale: ModelSelection | null) {
    */
   const editor = {
     selection: stale,
+    historyManager: { closeGroup },
     dataStore: { getNode: (id: string) => nodes[id] ?? null },
     updateSelection,
     executeCommand: vi.fn().mockResolvedValue(true),
     emit: vi.fn(),
-    on: vi.fn(),
+    on: vi.fn((event: string, listener: (payload: any) => void) => listeners.set(event, listener)),
     off: vi.fn(),
     getDecorators: () => []
   } as never;
 
+  const restoreSelection = vi.fn();
   const view = {
     _isRendering: false,
     _isModelDrivenChange: false,
     getDecorators: () => [],
     convertStaticRangeToModel: vi.fn(() => ({ ...CARET })),
     convertDOMSelectionToModel: vi.fn(),
-    convertModelSelectionToDOM: vi.fn()
+    convertModelSelectionToDOM: restoreSelection
   } as never;
 
-  return { updateSelection, handler: new InputHandlerImpl(editor, view) };
+  return { updateSelection, restoreSelection, listeners, closeGroup, handler: new InputHandlerImpl(editor, view) };
 }
 
 /** `beforeinput` 하나 — `getTargetRanges` 가 **접힌** 범위를 준다. 캐럿에 타이핑하면 그 모양이다. */
@@ -96,6 +100,39 @@ function typeOneCharacter(): InputEvent {
 }
 
 describe('타이핑이 모델에 알리는 캐럿', () => {
+  it('starts a new undo group after navigation, but not IME candidate navigation or ordinary typing', () => {
+    const { handler, closeGroup } = build({ ...CARET });
+    handler.handleKeyDown(new KeyboardEvent('keydown', { key: 'Home', shiftKey: true }));
+    expect(closeGroup).toHaveBeenCalledOnce();
+    handler.handleKeyDown(new KeyboardEvent('keydown', { key: 'ArrowLeft', isComposing: true }));
+    handler.handleKeyDown(new KeyboardEvent('keydown', { key: 'a' }));
+    handler.handleKeyDown(new KeyboardEvent('keydown', { key: 'Shift' }));
+    expect(closeGroup).toHaveBeenCalledOnce();
+  });
+  it('a picker command ends a typing burst even when it consumes the keydown', async () => {
+    const frame = vi.spyOn(globalThis, 'requestAnimationFrame').mockReturnValue(0);
+    try {
+      const { handler, listeners } = build({ ...CARET });
+      handler.handleBeforeInput(typeOneCharacter());
+      expect(handler.isTypingBurst).toBe(true);
+      listeners.get('editor:command.before')!({ command: 'insertNotePageReference' });
+      expect(handler.isTypingBurst).toBe(false);
+      await vi.waitFor(() => expect(frame).toHaveBeenCalledOnce());
+    } finally { frame.mockRestore(); }
+  });
+  it('방향키로 옮긴 커서를 지연된 타이핑 복원이 덮어쓰지 않는다', async () => {
+    const frames: FrameRequestCallback[] = [];
+    const frame = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation(callback => { frames.push(callback); return frames.length; });
+    try {
+      const { handler, restoreSelection } = build({ ...CARET });
+      handler.handleBeforeInput(typeOneCharacter());
+      await vi.waitFor(() => expect(frames).toHaveLength(1));
+      handler.handleKeyDown(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+      while (frames.length) frames.shift()!(0);
+      expect(restoreSelection).not.toHaveBeenCalled();
+    } finally { frame.mockRestore(); }
+  });
+
   it('접힌 채로 알린다 — 편집기의 선택이 낡아 있을 때', () => {
     const { handler, updateSelection } = build({
       type: 'range',

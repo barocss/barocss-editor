@@ -74,7 +74,8 @@ export function mathDefinitions(): Record<string, NodeTypeDefinition> {
     oMath: {
       name: 'oMath',
       group: 'inline',
-      content: MATH_CONTENT
+      content: MATH_CONTENT,
+      attrs: { fontScale: { type: 'number', required: false } }
     },
 
     /**

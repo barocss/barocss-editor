@@ -50,7 +50,7 @@ test.describe('pictures', () => {
     });
 
   test('is drawn at the size the document gives it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-image');
 
     // Eighteen hundred twips by thirteen fifty, which at 96dpi is 120 by 90. A
@@ -62,7 +62,7 @@ test.describe('pictures', () => {
   });
 
   test('shortens the lines beside it and gives the width back below it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-image');
 
     // Both halves of what a float does, in one measurement. The fixture runs on
@@ -77,7 +77,7 @@ test.describe('pictures', () => {
   });
 
   test('follows the outline when the document gives one', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-image-tight');
 
     const measured = await page.evaluate(() => {
@@ -199,7 +199,7 @@ test.describe('drawings', () => {
     });
 
   test('draws the shapes the canvas holds, at the size it declares', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
     await insertCanvas(page);
     await page.waitForSelector('.w-canvas');
@@ -232,7 +232,7 @@ test.describe('drawings', () => {
   });
 
   test('turns a shape about its own middle', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
     await insertCanvas(page);
     await page.waitForSelector('.w-shape-line');

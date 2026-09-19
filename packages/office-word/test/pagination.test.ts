@@ -19,6 +19,24 @@ function sidsPerPage(pages: Page[]): string[][] {
 }
 
 describe('filling pages', () => {
+  it('moves a merged group to the next page without cutting its rows', () => {
+    const pages = paginate([block('table', 8, { breakLines: [1, 2, 3, 6, 7, 8] })], { contentHeight: 100 });
+    expect(pages.map(page => page.fragments.map(f => [f.fromLine, f.toLine]))).toEqual([[[0, 3]], [[3, 8]]]);
+  });
+  it('overflows only an oversized merged group and continues after it', () => {
+    const pages = paginate([block('table', 10, { breakLines: [7, 8, 9, 10] })], { contentHeight: 100 });
+    expect(pages.map(page => page.fragments.map(f => [f.fromLine, f.toLine]))).toEqual([[[0, 7]], [[7, 10]]]);
+  });
+  it('reserves the header when a merged continuation moves to a new page', () => {
+    const pages = paginate([block('table', 10, { splitFrom: 2, breakLines: [1, 2, 3, 6, 7, 8, 9, 10], repeatBefore: { fromLine: 1, height: 20 } })], { contentHeight: 100 });
+    expect(pages.map(page => page.fragments.map(f => [f.fromLine, f.toLine]))).toEqual([[[0, 3]], [[3, 7]], [[7, 10]]]);
+    expect(pages.map(page => page.height)).toEqual([60, 100, 80]);
+  });
+  it('reserves repeated header height on every continuation page', () => {
+    const pages = paginate([block('table', 12, { splitFrom: 3, repeatBefore: { fromLine: 2, height: 40 } })], { contentHeight: 100 });
+    expect(pages.map(page => page.fragments.map(fragment => [fragment.fromLine, fragment.toLine]))).toEqual([[[0, 5]], [[5, 8]], [[8, 11]], [[11, 12]]]);
+    expect(pages.map(page => page.height)).toEqual([100, 100, 100, 60]);
+  });
   it('puts blocks on one page while they fit', () => {
     const pages = paginate([block('a', 2), block('b', 2), block('c', 1)], { contentHeight: 100 });
     expect(sidsPerPage(pages)).toEqual([['a', 'b', 'c']]);
@@ -371,4 +389,3 @@ describe('a floor on where a block may be cut', () => {
     ]);
   });
 });
-

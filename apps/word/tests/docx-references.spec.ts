@@ -1,0 +1,56 @@
+import { test, expect } from '@playwright/test';
+import { settled, placeCaret } from './helpers';
+
+test('bookmarks and REF fields stay live after download, import, editing, rename, undo and reload', async ({ page }, testInfo) => {
+  await page.goto('/?sample=references'); await settled(page);
+  await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
+  const original = page.url();
+  await page.getByRole('button', { name: '문서 작업', exact: true }).click();
+  await page.getByRole('button', { name: 'DOCX 내보내기', exact: true }).click();
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('dialog', { name: 'DOCX 내보내기', exact: true }).getByRole('button', { name: 'DOCX 다운로드', exact: true }).click();
+  const download = await downloading, file = testInfo.outputPath('references.docx'); await download.saveAs(file);
+  await page.getByLabel('DOCX 파일 선택', { exact: true }).setInputFiles(file);
+  const dialog = page.getByRole('dialog', { name: 'DOCX 가져오기', exact: true });
+  await expect(dialog).toContainText('본문 책갈피·REF 참조');
+  await dialog.getByRole('button', { name: '새 문서로 열기', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0); await settled(page);
+  await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
+  expect(page.url()).not.toBe(original);
+  const field = page.locator('#editor .w-field-ref');
+  await expect(field).toHaveCount(1); await expect(field).toHaveText('프로젝트 목표');
+  await expect(field).toHaveAttribute('data-target', '목표');
+  await expect(field).toHaveAttribute('contenteditable', 'false');
+  await field.click();
+  const source = page.locator('#editor .w-paragraph').first();
+  const sourceId = await source.locator('[data-bc-sid]').first().getAttribute('data-bc-sid');
+  await expect.poll(() => page.evaluate(() => (window as any).editor.selection?.startNodeId)).toBe(sourceId);
+  await page.keyboard.press('ArrowRight'); await page.keyboard.type('X');
+  await expect(source).toHaveText('프X로젝트 목표'); await expect(field).toHaveText('프X로젝트 목표');
+  await page.getByRole('tab', { name: '참조', exact: true }).click();
+  await page.getByRole('button', { name: '책갈피', exact: true }).click();
+  await page.getByRole('textbox', { name: '변경할 책갈피 이름', exact: true }).fill('UpdatedGoal');
+  await page.getByRole('button', { name: '이름 변경', exact: true }).click();
+  await expect(field).toHaveAttribute('data-target', 'UpdatedGoal');
+  await page.getByRole('button', { name: '책갈피 삭제', exact: true }).click();
+  await expect(field).toContainText('Reference source not found');
+  await page.getByRole('dialog', { name: '책갈피', exact: true }).getByRole('button', { name: '닫기', exact: true }).last().click();
+  await page.getByRole('tab', { name: '홈', exact: true }).click();
+  await page.locator('[data-control=undo]').click(); await expect(field).toHaveText('프X로젝트 목표');
+  await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
+  await page.reload(); await settled(page); await expect(field).toHaveAttribute('data-target', 'UpdatedGoal');
+  await field.focus(); await page.keyboard.press('Enter');
+  await expect.poll(() => page.evaluate(() => (window as any).editor.selection?.startNodeId)).toBe(await source.locator('[data-bc-sid]').first().getAttribute('data-bc-sid'));
+  await page.goto(original); await page.reload(); await settled(page);
+  await expect(field).toHaveText('프로젝트 목표'); await expect(field).toHaveAttribute('data-target', '목표');
+});
+
+test('the browser demo opens the real DOCX-converted reference document', async ({ page }) => {
+  await page.goto('/?sample=references-docx'); await settled(page);
+  await expect(page.getByLabel('문서 제목', { exact: true })).toHaveValue('DOCX 참조 교환');
+  await expect(page.locator('#editor .w-field-ref')).toHaveText('프로젝트 목표');
+  await placeCaret(page, '#editor .w-paragraph');
+  await page.getByRole('tab', { name: '참조', exact: true }).click();
+  await page.getByRole('button', { name: '책갈피', exact: true }).click();
+  await expect(page.locator('.w-bookmark-preview')).toHaveText('프로젝트 목표');
+});

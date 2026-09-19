@@ -13,7 +13,7 @@ A collection of documents for understanding Barocss architecture.
 4. **[architecture-reconcile-algorithm.md](./architecture-reconcile-algorithm.md)** - Reconcile algorithm details ⭐
 5. **[architecture-reconcile-overview.md](./architecture-reconcile-overview.md)** - Overall architecture overview
 6. **[architecture-flow-diagram.md](./architecture-flow-diagram.md)** - Flow diagram
-7. **[architecture-mathematical-model.md](./architecture-mathematical-model.md)** - Mathematical model
+7. **[math-repository.md](./math-repository.md)** - Math package repository boundary
 
 ## 🎯 Quick Start
 
@@ -53,13 +53,13 @@ renderer.render(container, model);
 ### For Deep Understanding
 1. `architecture-reconcile-overview.md` - Overall structure
 2. `architecture-flow-diagram.md` - Data flow
-3. `architecture-mathematical-model.md` - Mathematical model
+3. `math-repository.md` - Math package repository boundary
 
 ### Specific Topics
 - **Design Principles**: `architecture-design-principles.md`
 - **Practical Examples**: `architecture-practical-examples.md`
 - **Reconcile Behavior**: `architecture-reconcile-overview.md`
-- **Functional Expression**: `architecture-mathematical-model.md`
+- **Math Packages**: `math-repository.md`
 
 ## 🔗 Related Documents
 
@@ -94,7 +94,7 @@ renderer.render(container, model);
 
 ### Advanced
 5. `architecture-flow-diagram.md` - Detailed data flow
-6. `architecture-mathematical-model.md` - Mathematical basis
+6. `math-repository.md` - Math package ownership and integration
 
 ## 💡 Core Content Summary
 
@@ -143,4 +143,3 @@ DSL (element, data, when)
 - 2024: Core architecture documents created
 - 2024: DSL package added, design principles documented
 - 2024: Duplicate documents cleaned up, structure improved
-

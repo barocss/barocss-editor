@@ -104,6 +104,9 @@ export function getSlidesSchemaDefinition(): SchemaDefinition {
         ...office.nodes.surface,
         attrs: {
           ...office.nodes.surface.attrs,
+          /** Workspace placement in CSS pixels, independent of presentation order. */
+          canvasX: { type: 'number', required: false },
+          canvasY: { type: 'number', required: false },
           /** The layout this slide takes its placeholder formatting from. */
           layoutId: { type: 'string', required: false },
           /** Kept in the deck, skipped while presenting. */

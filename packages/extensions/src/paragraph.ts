@@ -1,11 +1,14 @@
 import { holdsText } from '@barocss/shared';
 import { findAncestorNode } from '@barocss/datastore';
 import { hasRange } from './guards';
+import { enterCalloutTitle } from './callout-title';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
-import { transaction, control, transformNode, insertParagraph as insertParagraphOp, splitListItem as splitListItemOp, moveChildren, removeChild } from '@barocss/model';
+import { transaction, control, transformNode, insertParagraph as insertParagraphOp, splitListItem as splitListItemOp, moveChildren, removeChild, setAttrs, addChild } from '@barocss/model';
 
 export interface ParagraphExtensionOptions {
   enabled?: boolean;
+  /** Product formatting for the paragraph created after a completed heading. */
+  afterHeadingAttributes?: (editor: Editor, selection: ModelSelection) => Record<string, unknown>;
 }
 
 /**
@@ -157,6 +160,8 @@ export class ParagraphExtension implements Extension {
       return false;
     }
 
+    // Use the visible caret supplied by keydown after block-only undo.
+    editor.selectionManager.setSelection(selection);
     const result = await transaction(editor, ops, { applySelectionToView: true }).commit();
     return result.success;
   }
@@ -203,6 +208,40 @@ export class ParagraphExtension implements Extension {
     const dataStore = (editor as any).dataStore;
     if (!dataStore) return [];
     if (selection.type !== 'range') return [];
+
+    const titleEnter = enterCalloutTitle(editor, selection);
+    if (titleEnter) return titleEnter;
+
+    // A disclosure has one summary. Enter opens its body; a second summary is not valid content.
+    let summary = dataStore.getNode(selection.startNodeId);
+    while (summary && summary.stype !== 'bSummary') {
+      summary = summary.parentId ? dataStore.getNode(summary.parentId) : undefined;
+    }
+    if (summary?.parentId) {
+      const details = dataStore.getNode(summary.parentId);
+      const firstText = (sid: string): string | undefined => {
+        const node = dataStore.getNode(sid);
+        if (typeof node?.text === 'string') return sid;
+        for (const child of node?.content ?? []) {
+          const found = firstText(child);
+          if (found) return found;
+        }
+      };
+      const bodyId = (details?.content ?? []).find((sid: string) => sid !== summary.sid);
+      const target = bodyId ? firstText(bodyId) : undefined;
+      if (details?.stype === 'bDetails' && target) {
+        return [
+          ...((details.attributes?.open ?? true) ? [] : [setAttrs(details.sid, { open: true })]),
+          { type: 'setSelection', payload: { anchor: { nodeId: target, offset: 0 }, head: { nodeId: target, offset: 0 } } }
+        ];
+      }
+    }
+    const taskId = this._getTargetBlockNodeId(dataStore, selection);
+    const task = taskId ? dataStore.getNode(taskId) : undefined;
+    if (selection.collapsed && task?.stype === 'taskItem' &&
+        (task.content ?? []).every((sid: string) => dataStore.getNode(sid)?.text === '')) {
+      return [transformNode(task.sid, 'paragraph')];
+    }
 
     const ops: any[] = [];
     if (!selection.collapsed && selection.startNodeId === selection.endNodeId) {
@@ -291,10 +330,20 @@ export class ParagraphExtension implements Extension {
        */
       const out = leavingAContainer(dataStore, selection);
       if (out) {
-        ops.push(moveChildren(out.from, out.to, [out.block], out.at));
-        if (out.emptyNow) ops.push(removeChild(out.grand, out.from));
+        const holder = dataStore.getNode(out.from);
+        if ((holder?.stype === 'bDetails' || holder?.stype === 'callout') && holder.content?.length === 2) {
+          // Keep a titled container's required empty body and create the paragraph outside it.
+          ops.push(addChild(out.to, { stype: 'paragraph', content: [{ stype: 'inline-text', text: '' }] }, out.at));
+        } else {
+          ops.push(moveChildren(out.from, out.to, [out.block], out.at));
+          if (out.emptyNow) ops.push(removeChild(out.grand, out.from));
+        }
       } else {
-        ops.push(insertParagraphOp(atEndOfHeading(dataStore, selection) ? 'paragraph' : 'same'));
+        const afterHeading = atEndOfHeading(dataStore, selection);
+        ops.push(insertParagraphOp(afterHeading ? 'paragraph' : 'same'));
+        if (afterHeading && this._options.afterHeadingAttributes) {
+          ops.push(setAttrs('insertedBlock', this._options.afterHeadingAttributes(editor, selection)));
+        }
       }
     }
     return ops;

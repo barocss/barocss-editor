@@ -37,6 +37,7 @@ const compose = async (cdp: any, steps: string[], commit: string) => {
 };
 
 const clickIntoParagraph = async (page: import('@playwright/test').Page) => {
+  await page.locator('.w-paragraph').nth(1).scrollIntoViewIfNeeded();
   const point = await page.evaluate(() => {
     const el = [...document.querySelectorAll('.w-paragraph')][1];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -66,7 +67,7 @@ const caret = (page: import('@playwright/test').Page) =>
 test.describe('typing Latin after a syllable', () => {
   for (const rate of [4, 8]) {
     test(`survives a burst with the CPU at a ${rate}th of its speed`, async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/?sample');
       await settled(page);
       await clickIntoParagraph(page);
 

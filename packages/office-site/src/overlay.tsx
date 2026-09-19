@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { dragGesture } from '@barocss/shared';
 import type { Editor } from '@barocss/editor-core';
-import { Icon, Menu } from '@barocss/office-ui';
+import { Icon, Menu, SelectionReadout } from '@barocss/office-ui';
 import { selectedNodeIds, watchAnswers } from '@barocss/editor-core';
 import { useRevision } from '@barocss/office-ui';
 import { type BreakpointId } from './breakpoints';
@@ -1344,7 +1344,7 @@ export function Overlay({
         return (
         <div
           key={sid}
-          className="st-mark st-mark-selected"
+          className="st-mark st-mark-selected office-selection-frame"
           data-selected={sid}
           /*
            * **That this is a placement of a component**, said in the drawing so the stylesheet can
@@ -1592,9 +1592,20 @@ export function Overlay({
            * where the chip is wider than the thing it measures.
            */}
           {sizing ? (
-            <span className="st-mark-size">{sizing}</span>
+            <SelectionReadout data-site-size-readout at={{
+              x: (host.current?.getBoundingClientRect().left ?? 0) + (box.left + box.width / 2) * (host.current ? scaleOf(host.current) : 1),
+              y: (host.current?.getBoundingClientRect().top ?? 0) + (box.top + box.height) * (host.current ? scaleOf(host.current) : 1),
+            }}>{sizing}</SelectionReadout>
           ) : mode === 'select' && boxes.length === 1 && box.width >= 32 && box.height >= 32 ? (
-            <span className="st-mark-size" data-settled="true">
+            <SelectionReadout data-site-settled-size data-site-readout-frame={host.current?.closest('[data-frame]')?.getAttribute('data-frame') ?? undefined} data-settled="true" at={{ x: 0, y: 0 }}
+              getAnchor={() => {
+                const node = host.current?.querySelector(`[data-bc-sid="${CSS.escape(sid)}"]`);
+                const rect = node?.getBoundingClientRect();
+                const viewport = host.current?.closest('.st-canvas')?.getBoundingClientRect();
+                if (!rect || !rect.width || !rect.height) return null;
+                if (viewport && (rect.right < viewport.left || rect.left > viewport.right || rect.bottom < viewport.top || rect.top > viewport.bottom)) return null;
+                return rect;
+              }}>
               {Math.round(box.width)} × {Math.round(box.height)}
               {/**
                * **And what is holding it there**, when the answer is not its parent.
@@ -1613,7 +1624,7 @@ export function Overlay({
                 /* Twips in the document, pixels on the board — the conversion every length makes. */
                 return Math.abs(most / 15 - box.width) < 1.5 ? <em> · 최대 폭</em> : null;
               })()}
-            </span>
+            </SelectionReadout>
           ) : null}
           {/**
            * **A plus at each end of the flow**, which is the gesture a page has and a canvas does not.

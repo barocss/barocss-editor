@@ -148,27 +148,42 @@ test.describe('the rulers along a slide', () => {
       };
     }, selector);
 
-  test('line up with the slide, in the unit the panel is showing', async ({ page }) => {
+  test('stay on the viewport while their origin follows the slide', async ({ page }) => {
     await openDeck(page);
-
-    const slide = (await box(page, '.sl-stage .sl-slide:not([style*="display: none"])'))!;
-    const across = (await box(page, '[data-ruler="x"]'))!;
-    const down = (await box(page, '[data-ruler="y"]'))!;
-
-    // By construction rather than by measurement: the same grid column is the
-    // same width, and the same row is the same height.
-    expect(across.left).toBe(slide.left);
-    expect(across.width).toBe(slide.width);
-    expect(down.top).toBe(slide.top);
-    expect(down.height).toBe(slide.height);
-
-    // Centimetres, counted in centimetres: 0, 1, 2 …
-    const labels = await page.evaluate(() =>
-      [...document.querySelectorAll('[data-ruler="x"] .sl-ruler-tick[data-major="true"] i')]
-        .slice(0, 4)
-        .map((tick) => tick.textContent)
-    );
-    expect(labels).toEqual(['0', '1', '2', '3']);
+    const check = async () => {
+      await expect.poll(() => page.evaluate(() => {
+        const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+        const viewport = rect('.sl-stage-viewport');
+        const pane = rect('.sl-stage');
+        const slide = rect('.sl-stage-frame');
+        const x = rect('[data-ruler="x"]');
+        const y = rect('[data-ruler="y"]');
+        const scaleX = rect('[data-ruler="x"] .sl-ruler-scale');
+        const scaleY = rect('[data-ruler="y"] .sl-ruler-scale');
+        return Math.max(Math.abs(x.top - viewport.top), Math.abs(x.left - pane.left),
+          Math.abs(x.width - pane.width), Math.abs(y.left - viewport.left),
+          Math.abs(y.top - pane.top), Math.abs(y.height - pane.height),
+          Math.abs(scaleX.left - slide.left), Math.abs(scaleY.top - slide.top),
+          Math.abs(scaleX.width - slide.width), Math.abs(scaleY.height - slide.height));
+      })).toBeLessThan(1);
+    };
+    for (const viewport of [{ width: 1280, height: 720 }, { width: 1440, height: 1000 }]) {
+      await page.setViewportSize(viewport);
+      for (const zoom of ['40%', '100%', '150%']) {
+        const input = page.getByRole('textbox', { name: '확대/축소' });
+        await input.fill(zoom);
+        await input.press('Enter');
+        await check();
+        const before = await box(page, '[data-ruler="x"]');
+        await page.locator('.sl-stage').evaluate(pane => pane.scrollTo(240, 160));
+        await check();
+        expect(await box(page, '[data-ruler="x"]')).toEqual(before);
+        await page.locator('.sl-stage').evaluate(pane => pane.scrollTo(0, 0));
+        await check();
+      }
+    }
+    const labels = await page.locator('[data-ruler="x"] .sl-ruler-tick i').allTextContents();
+    expect(labels.slice(0, 4)).toEqual(['0', '1', '2', '3']);
   });
 
   /**
@@ -187,8 +202,8 @@ test.describe('the rulers along a slide', () => {
     await page.waitForTimeout(500);
 
     const slide = (await box(page, '.sl-stage .sl-slide:not([style*="display: none"])'))!;
-    const across = (await box(page, '[data-ruler="x"]'))!;
-    const down = (await box(page, '[data-ruler="y"]'))!;
+    const across = (await box(page, '[data-ruler="x"] .sl-ruler-scale'))!;
+    const down = (await box(page, '[data-ruler="y"] .sl-ruler-scale'))!;
 
     expect(across.width).toBe(slide.width);
     expect(down.height).toBe(slide.height);

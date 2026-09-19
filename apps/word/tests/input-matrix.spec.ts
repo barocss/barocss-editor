@@ -43,7 +43,7 @@ const TARGETS = [
 test.describe('click, then type', () => {
   for (const target of TARGETS) {
     test(`puts the caret in ${target.name} and writes there`, async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/?sample');
       await settled(page);
 
       const found = await page.locator(target.selector).count();
@@ -87,7 +87,7 @@ test.describe('click, then type', () => {
 test.describe('where in the line the caret lands', () => {
   for (const target of TARGETS) {
     test(`lands at both ends of ${target.name}`, async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/?sample');
       await settled(page);
       test.skip((await page.locator(target.selector).count()) <= target.nth, 'not in the sample');
       await page.locator(target.selector).nth(target.nth).scrollIntoViewIfNeeded();
@@ -126,7 +126,7 @@ test.describe('what is typed is what is stored', () => {
    * the render that follows each space.
    */
   test('keeps several spaces, in the order they were typed', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickText(page, '.w-paragraph', { nth: 1, at: 'end' });
     await page.keyboard.press('End');
@@ -140,7 +140,7 @@ test.describe('what is typed is what is stored', () => {
   });
 
   test('shows every space it stored', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickText(page, '.w-paragraph', { nth: 1, at: 'end' });
     await page.keyboard.press('End');
@@ -165,7 +165,7 @@ test.describe('what is typed is what is stored', () => {
   });
 
   test('puts the caret after the last character, not before it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     // Clicking past the end of the text on its own line is how a reader asks for
@@ -196,7 +196,7 @@ test.describe('clicking an equation where there is no letter', () => {
 
   for (const part of STRUCTURE) {
     test(`puts the caret inside the equation when clicking ${part.name}`, async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/?sample');
       await settled(page);
 
       const found = await page.locator(part.selector).count();
@@ -236,7 +236,7 @@ test.describe('clicking an equation where there is no letter', () => {
  */
 test.describe('what a caret must not reach', () => {
   test('leaves the table of contents alone, and goes where the line points', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     // Not clickText: that waits for the model to describe the click, and the

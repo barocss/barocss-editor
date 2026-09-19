@@ -1,5 +1,7 @@
 # GitHub and Agent Integration: Issue → PR → Merge → Deploy
 
+For Wonffice unattended development, [the Agent runtime specification](specs/wonffice-agent-runtime.md) is the current design authority. It defines authorized work, isolated execution, interruption, evidence, and policy-based merge. The examples below describe the older manual flow; they do not activate automation. See [the implementation plan](specs/wonffice-platform-delivery.md) for the unimplemented work.
+
 This doc describes how to tie the editor development flow (and AI agents) to GitHub: **issue creation**, **PR creation**, **merge**, and **deploy**, so that agents can drive work from an issue to a merged PR with automated checks and deployment.
 
 ---
@@ -41,15 +43,9 @@ Agents can automate up to **PR creation**; **merge** and **release** are typical
 - Use the "Verification" section in the template as the checklist to run before opening a PR.
 - When opening a PR for an issue, **include "Closes #N" (or "Fixes #N") in the PR body** so that when the PR is merged, GitHub automatically closes the issue.
 
-### 2.4 Rule: no open issues → research and create issues
+### 2.4 Rule: work only within the authorized backlog
 
-When there are **no open GitHub issues**, the agent must not stop. It must:
-
-1. **Research Agent**: Start new research (e.g. other editors, features we could add), then produce a report and **draft issue(s)** (title + body).
-2. **Backlog Agent**: Create GitHub issue(s) from those drafts (`gh issue create` or equivalent).
-3. Then treat the **first created (or first open) issue** as the current task and run the full flow (Spec → Implementation → … → PR).
-
-See `.cursor/AGENTS.md` § Rules and § Single command step 1 "Nothing found".
+Select an eligible issue by approved scope, priority, dependencies, and budget. An open issue alone does not authorize execution. Agents may create and process deduplicated issues for defects within an already authorized scope. New feature ideas remain proposals until authorized. If no eligible work remains, become idle. Do not invent tasks to keep running. Research is a bounded, separately requested task.
 
 ---
 
@@ -58,6 +54,8 @@ See `.cursor/AGENTS.md` § Rules and § Single command step 1 "Nothing found".
 **Rule: do not merge locally.** Always: create branch → commit → **push branch** → **open PR** → **merge via PR** (on GitHub or `gh pr merge`). Do **not** run `git checkout main && git merge <branch>` and push `main`; that skips the PR and CI on the PR branch.
 
 ### 3.1 Branch naming
+
+The unattended runner uses `codex/<work-id>` in a separate managed clone and records the exact base SHA. It does not run these checkout commands in the owner's active workspace. Manual legacy examples follow.
 
 - **Feature**: `feat/<short-name>` (e.g. `feat/insert-list`, `feat/wrap-blockquote`).
 - **Fix**: `fix/<short-name>` (e.g. `fix/insert-paragraph-selection`).
@@ -84,7 +82,7 @@ After implementing and verifying locally:
 
 1. **Push the branch** (do not merge into main locally):
    ```bash
-   git add -A
+   git add <explicit-task-files>
    git commit -m "feat(model,extensions): add insertList operation and E2E"
    git push origin feat/insert-list
    ```
@@ -135,6 +133,8 @@ After implementing and verifying locally:
 - **Effect**: Builds docs and deploys to GitHub Pages. No extra step after merge to `main`.
 
 ### 6.2 Packages (npm publish)
+
+Historical example: inspect the current package scripts before any release. The root release command and release workflow have been removed. Math releases moved to [the math repository](math-repository.md). Cloud and on-premises service delivery follow [the platform release gates](specs/wonffice-platform-delivery.md).
 
 - **Tool**: [Changesets](https://github.com/changesets/changesets). Config: `.changeset/config.json` (base branch `main`).
 - **Flow**:

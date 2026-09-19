@@ -33,7 +33,7 @@ const ORDER = `(() => {
 test.describe('블록을 가로지르는 범위', () => {
   test('Shift+→ 로 문단을 넘어도 뒤집히지 않고, DOM 에 표시가 남는다', async ({ page }) => {
     await page.setViewportSize({ width: 1200, height: 1400 });
-    await page.goto('/');
+    await page.goto('/?lab=1');
     await page.waitForFunction(
       () => document.querySelectorAll('[data-note-body] .on-doc').length === 3
     );
@@ -129,7 +129,7 @@ test.describe('블록을 가로지르는 범위', () => {
    * 나타나면 두 가지 답이 생긴 것이고 그건 원래 결함의 재발 조건이다. 없음을 지킨다.
    */
   test('글자 그릇을 속성으로 표시하지 않는다 — 모델이 답한다', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?lab=1');
     await page.waitForFunction(
       () => document.querySelectorAll('[data-note-body] .on-doc').length === 3
     );

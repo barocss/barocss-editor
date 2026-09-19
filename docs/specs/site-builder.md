@@ -359,12 +359,12 @@ registers, a shell that moved out of the app. Not: how many files there are, how
 | | count |
 | --- | ---: |
 | node types reachable | **71** |
-| of those, **declared by the site** | **14** — `dataset`, `collection`, `chart`, `form`, `field`, `service`, `asset`, `richText`, `publish`, `publishes`, `width`, `widths`, `mediaVideo`, `mediaEmbed` |
-| attribute slots | **841** |
+| of those, **added to the base schema** | **21** — 14 site nodes and 7 embedded prose nodes. Site: `dataset`, `collection`, `chart`, `form`, `field`, `service`, `asset`, `richText`, `publish`, `publishes`, `width`, `widths`, `mediaVideo`, `mediaEmbed`. Prose: `pageReference`, `taskItem`, `bSummary`, `bDetails`, `calloutTitle`, `callout`, `noteDatabase` |
+| attribute slots | **862** |
 | marks | 25 |
 | widths a page answers at | **3** — base, tablet, mobile |
 
-Word holds 108 node types and 1,033 attribute slots; the deck holds 64 and 526. The site builder
+Word holds 108 node types and 1,043 attribute slots; the deck holds 64 and 529. The site builder
 sits between them and the reason is in the fourteen: everything about **data, publishing and a
 visitor** is this product's own, and everything about text and arrangement is not.
 
@@ -375,7 +375,7 @@ visitor** is this product's own, and everything about text and arrangement is no
 | commands registered | **186** (84 the site's own) |
 | toolbar controls · commands · icons | **44** · 37 · 34 |
 | `/` menu rows | 13 |
-| keys · the commands they run | **25** · 12 |
+| keys · the commands they run | **26** · 12 |
 | panel rows, over 6 tabs | **126** |
 | attributes a reader can **set**, from the panel | **124** |
 | menus · context blocks · menu commands | 5 · 4 · **53** |
@@ -400,12 +400,12 @@ build, it fails, and somebody decides whether to teach the probe or to name the 
 
 | | |
 | --- | ---: |
-| `apps/site/src` | **4,280 lines** |
+| `apps/site/src` | **4,287 lines** |
 | components behind `@barocss/office-site/ui` | **5** |
-| browser tests behind it | **291** |
+| browser tests behind it | **301** |
 
 `apps/site` was 11,410 lines before `PageFrame`, `Rail`, `Inspector`, `Overlay` and `Admin` — those
-five — moved into this package. That is the move `note.md` uses as its gauge, and the 291 above is
+five — moved into this package. That is the move `note.md` uses as its gauge, and the 301 above is
 the number that spec quotes when it says nothing measurable broke.
 
 **283 of those 291 until `site-theme-values.spec.ts`**, and the eight it adds are worth naming

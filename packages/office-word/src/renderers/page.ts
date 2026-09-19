@@ -46,6 +46,7 @@ import { lineNumberingOf } from '../line-numbers';
 import { blockStyle } from '@barocss/office-text';
 
 import { childrenOf } from '@barocss/office-text';
+import { sheetMetrics } from '../layout';
 
 /**
  * The section a block belongs to.
@@ -152,6 +153,7 @@ export function registerPageRenderers(): void {
     const styles = getWordStyles(env);
     const format = styles ? styles.resolveNode(node as never, 'page') : {};
     const layout = getWordLayout(env, String(node.sid ?? ''));
+    const metrics = sheetMetrics(format);
 
     // Headers and footers are drawn per page, from the resources the section
     // points at. See page-furniture for why they are drawn rather than rendered.
@@ -359,6 +361,12 @@ export function registerPageRenderers(): void {
           display: 'flex',
           flexDirection: 'column',
           ...flowCss(format),
+          // Use the paginator's defaults even when a section omits page setup.
+          // Otherwise its paper has margins while its editable flow has none.
+          boxSizing: 'border-box',
+          width: `${metrics.width}px`,
+          paddingLeft: `${metrics.marginLeft}px`,
+          paddingRight: `${metrics.marginRight}px`,
           ...(layout ? { minHeight: `${layout.totalHeight}px` } : {})
         }
       },
@@ -421,20 +429,19 @@ export function registerPageRenderers(): void {
     const env = ctx?.env as RenderEnv | undefined;
     const doc = getWordDocument(env);
     const surface = doc ? findSurfaceOf(doc, String(node.sid ?? '')) : undefined;
-    const layout = surface?.sid ? getWordLayout(env, surface.sid) : undefined;
     const styles = getWordStyles(env);
-    const format = styles && surface ? styles.resolveNode(surface as never, 'page') : {};
-
-    const entries =
-      doc && surface
-        ? tocEntries({
-            doc,
-            surface,
-            levels: node.attributes?.levels,
-            styleFilter: node.attributes?.styleFilter,
-            pageOfBlock: layout?.pageOfBlock
-          })
-        : [];
+    const sections = doc && surface
+      ? (node.attributes?.scope === 'document'
+        ? childrenOf(doc, doc.getNode(doc.rootId)).filter(child => child.stype === 'surface')
+        : [surface]) : [];
+    const entries = sections.flatMap(section => {
+      const layout = section.sid ? getWordLayout(env, section.sid) : undefined;
+      const format = styles ? styles.resolveNode(section as never, 'page') : {};
+      return tocEntries({ doc: doc!, surface: section, levels: node.attributes?.levels,
+        caption: node.attributes?.caption,
+        styleFilter: node.attributes?.styleFilter, pageOfBlock: layout?.pageOfBlock
+      }).map(entry => ({ ...entry, pageLabel: tocPageNumber(entry, index => pageNumberFor(index, format)) }));
+    });
 
     const showPages = node.attributes?.showPageNumbers !== false;
     /**
@@ -461,9 +468,13 @@ export function registerPageRenderers(): void {
       'nav',
       {
         className: 'w-toc',
+        'data-caption': String(node.attributes?.caption ?? ''),
+        // Entries are derived output. They must never inherit the document's input surface.
+        contenteditable: 'false',
+        'data-editor-input-owner': 'word-toc',
         style: blockStyle(node, env)
       },
-      entries.map((entry) =>
+      entries.length ? entries.map((entry) =>
         element(
           'div',
           {
@@ -510,13 +521,15 @@ export function registerPageRenderers(): void {
                   element(
                     'span',
                     { className: 'w-toc-page' },
-                    tocPageNumber(entry, (index) => pageNumberFor(index, format))
+                    entry.pageLabel
                   )
                 ]
               : [])
           ]
         )
-      )
+      ) : [element('div', { className: 'w-toc-empty', contenteditable: 'false' }, node.attributes?.caption
+        ? '선택한 종류의 캡션이 없습니다. 캡션 삽입으로 번호와 설명을 추가하세요.'
+        : '목차에 표시할 제목이 없습니다. 제목 스타일을 적용하세요.')]
     );
   });
 }

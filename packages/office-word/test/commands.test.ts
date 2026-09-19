@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import {
   askEveryCommand,
   everyNode,
@@ -128,6 +128,8 @@ const document_ = () => ({
 });
 
 const SAYS: Record<string, Record<string, unknown>> = {
+  setPageFurniture: { role: 'footer', action: 'number', start: 2 },
+  applyCopiedFormat: { sample: { format: { fontSize: 36, bold: true }, marks: [] } },
   // Marks that carry a value — a swatch, a size box, a family picker.
   setFontColor: { color: '#0F7A5A' },
   setBgColor: { color: '#FDE68A' },
@@ -233,11 +235,13 @@ const fresh = () => {
 };
 
 describe('every command Word registers', () => {
+  afterAll(() => vi.unstubAllGlobals());
   const names = createWordEditor().commandNames().sort();
 
   let answers: CommandAnswers;
 
   beforeAll(async () => {
+    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
     answers = await askEveryCommand({
       fresh,
       names,
@@ -285,11 +289,13 @@ describe('every command Word registers', () => {
    * caret position, and narrowing it broke it. The two share a name and not a question.
    */
   const APPLICATION_ONLY = [
-    'clearSelection', 'copy', 'escape',
+    'clearSelection', 'copy', 'copyBlocks', 'escape',
     'extendSelectionLeft', 'extendSelectionRight', 'extendSelectionWordLeft', 'extendSelectionWordRight',
     'focus', 'isTrackingChanges',
     'moveCursorLeft', 'moveCursorRight', 'moveCursorWordLeft', 'moveCursorWordRight',
     'nextCell', 'nextMathSlot', 'paste', 'previousCell', 'previousMathSlot',
+    // Clearing an absent color is intentionally idempotent in the uncolored fixture.
+    'removeBgColor', 'removeFontColor',
     'selectAll', 'setAbsolutePos', 'setContext', 'setNode', 'setRange'
   ];
 

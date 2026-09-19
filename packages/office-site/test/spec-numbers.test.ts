@@ -82,7 +82,7 @@ describe('the numbers in the site builder spec', () => {
     expect(states(schema.nodes.size), `node types: ${schema.nodes.size}`).toBe(true);
     expect(states(attrs), `attribute slots: ${attrs}`).toBe(true);
     expect(states(schema.marks.size), `marks: ${schema.marks.size}`).toBe(true);
-    expect(own.length, `the site declares: ${own.join(', ')}`).toBe(14);
+    expect(own.length, `site and embedded prose additions: ${own.join(', ')}`).toBe(21);
     expect(states(own.length), `declared by the site: ${own.length}`).toBe(true);
     for (const name of own) {
       expect(spec.includes(`\`${name}\``), `the spec names ${name}`).toBe(true);
@@ -190,8 +190,8 @@ describe('the numbers in the site builder spec', () => {
      * file, is corrected in `word.md`, and then fails here for still being quoted.
      */
     const quoted: [string, number[]][] = [
-      ['word.md', [108, 1033]],
-      ['slides.md', [64, 526]]
+      ['word.md', [108, 1043]],
+      ['slides.md', [64, 529]]
     ];
     for (const [name, numbers] of quoted) {
       const other = readFileSync(join(ROOT, 'docs', 'specs', name), 'utf8');

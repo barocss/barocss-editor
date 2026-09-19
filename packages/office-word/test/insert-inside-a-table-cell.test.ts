@@ -14,9 +14,9 @@ import { createWordEditor } from '../src/word-kit';
  * (`holdsABlock`) instead of keeping a list of what a block cannot go inside — a list is a second
  * place to remember the schema, and it is wrong the first time a type is added.
  *
- * The cell is `'inline*'` in the standard schema and Word does not widen it, so a frame cannot go
- * *in* the cell either. The honest answer is the first ancestor that may hold a block: the section
- * the table sits in, immediately after the table. A reader gets their frame, on the page, one press.
+ * Word now supports paragraphs and legacy direct inline content inside cells. The frame and
+ * drawing insertion path still places these objects after the table. In particular, the row
+ * must never receive a frame as a sibling of its cells.
  *
  * Written before the fix and red on both counts — `insertFrame` and `insertRectangle` each returned
  * `false` and left the document untouched.
@@ -68,7 +68,7 @@ describe('inserting a block while the caret is in a table cell', () => {
   /** Every node in the document, as `stype` and its children — the shape of the tree. */
   const treeOf = (sid: string = editor.getRootId()): any => {
     const node = editor.dataStore.getNode(sid);
-    const kids = (node?.content ?? []).filter((one: unknown) => typeof one === 'string');
+    const kids = (node?.content ?? []).filter((one: unknown) => typeof one === 'string' && editor.dataStore.getNode(one as string)?.stype !== 'resources');
     return kids.length > 0 ? { [node.stype]: kids.map((one: string) => treeOf(one)) } : node.stype;
   };
 
@@ -92,14 +92,10 @@ describe('inserting a block while the caret is in a table cell', () => {
     editor.setRange({ type: 'range', startNodeId: run, startOffset: 0, endNodeId: run, endOffset: 0, collapsed: true });
   };
 
-  /*
-   * The premise, asserted rather than assumed: a cell holds inlines. If Word ever widens it to
-   * `'block*'` this test is measuring something else and should say so out loud rather than pass
-   * for a new reason.
-   */
-  it('is asking about a cell that holds inline content, not blocks', () => {
+  it('allows Word cell paragraphs while rows still accept cells only', () => {
     const schema = editor.dataStore.getActiveSchema();
-    expect(schema.getNodeType('bTableCell')?.content).toBe('inline*');
+    expect(schema.getNodeType('bTableCell')?.content).toBe('(block|inline)*');
+    expect(schema.getNodeType('bTableHeaderCell')?.content).toBe('(block|inline)*');
     expect(schema.getNodeType('bTableRow')?.content).toBe('bTableCell*');
   });
 

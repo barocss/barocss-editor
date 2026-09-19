@@ -58,7 +58,8 @@ const DECLARED: SlidesMenu[] = [
         items: [
           { view: 'file.new', label: '새로 만들기' },
           { view: 'file.open', label: '열기…' },
-          { view: 'file.save', label: '저장' }
+          { view: 'file.save', label: '저장' },
+          { view: 'file.print', label: '인쇄 / PDF 저장…' }
         ]
       },
       {

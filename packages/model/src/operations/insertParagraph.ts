@@ -52,6 +52,9 @@ export const insertParagraph = defineOperationDSL(
  */
 
 export interface InsertParagraphPayload {
+  /** Filled on first execution so later typing history still targets the same nodes on redo. */
+  createdBlockId?: string;
+  createdTextId?: string;
   blockType?: 'paragraph' | 'same';
   selectionAlias?: string;
 }
@@ -75,6 +78,11 @@ defineOperation('insertParagraph', async (operation: { type: string; payload: In
   const cut = splitBlockAtCaret(dataStore, where, 'insertParagraph');
 
   if (cut.at === 'inside') {
+    // Completion belongs to the original task; continuing its text starts a new unfinished one.
+    if (parentBlock.stype === 'taskItem') {
+      const updated = dataStore.updateNode(cut.newBlockId, { attributes: { checked: false } });
+      if (!updated?.valid) throw new Error(updated?.errors?.[0] ?? 'insertParagraph: could not reset task state');
+    }
     const newBlock = dataStore.getNode(cut.newBlockId);
     context.lastCreatedBlock = { blockId: cut.newBlockId, firstTextNodeId: cut.firstTextNodeId };
     // selectionAfter.nodeId must name a text node; a block has no offset to sit at.
@@ -122,12 +130,15 @@ defineOperation('insertParagraph', async (operation: { type: string; payload: In
       : held;
 
   const newBlock = {
+    ...(operation.payload.createdBlockId ? { sid: operation.payload.createdBlockId } : {}),
     stype,
-    attributes: { ...kept, $alias: selectionAlias },
+    attributes: { ...kept, ...(stype === 'taskItem' ? { checked: false } : {}), $alias: selectionAlias },
     content: [] as string[]
   };
   const childId = dataStore.content.addChild(grandParent.sid!, newBlock, insertIndex);
-  const emptyTextId = dataStore.content.addChild(childId, { stype: 'inline-text', text: '' } as any, 0);
+  const emptyTextId = dataStore.content.addChild(childId, { ...(operation.payload.createdTextId ? { sid: operation.payload.createdTextId } : {}), stype: 'inline-text', text: '' } as any, 0);
+  operation.payload.createdBlockId = childId;
+  operation.payload.createdTextId = emptyTextId;
   context.lastCreatedBlock = { blockId: childId, firstTextNodeId: emptyTextId };
   const addedNode = dataStore.getNode(childId);
   /**

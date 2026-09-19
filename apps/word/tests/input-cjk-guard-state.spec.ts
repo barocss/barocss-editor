@@ -93,7 +93,7 @@ const timeline = (log: any[]) =>
 
 test.describe('the inferred composition flag', () => {
   test('is true while the IME writes, and false once it has finished', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await clickIntoParagraph(page);
     await page.evaluate(INSTRUMENT);

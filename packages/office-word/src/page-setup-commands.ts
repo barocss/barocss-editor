@@ -27,7 +27,7 @@ export interface SetPageSetupPayload {
 }
 
 /** 지금 커서가 든 구역 — 없으면 문서의 첫 구역. */
-function surfaceFor(editor: Editor, selection: ModelSelection | null | undefined): string | undefined {
+export function surfaceFor(editor: Editor, selection: ModelSelection | null | undefined): string | undefined {
   const store: any = editor.dataStore;
   const doc = { getNode: (sid: string) => store?.getNode?.(sid) } as never;
 

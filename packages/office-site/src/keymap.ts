@@ -38,6 +38,7 @@ export interface SiteKey extends KeyModel {
 }
 
 export const SITE_KEYS: SiteKey[] = [
+  { key: 'Mod+s', view: 'file.save', mode: 'any', label: '저장' },
   /**
    * **Out one level**, and the first thing this map says about `Escape`.
    *

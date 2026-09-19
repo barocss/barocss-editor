@@ -1,3 +1,4 @@
+import { jumpToWordBookmark } from '@barocss/office-word/ui';
 import { StrictMode, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DataStore } from '@barocss/datastore';
@@ -8,9 +9,12 @@ import {
   WORD_ENV_KEY
 } from '@barocss/office-text';
 import {
+  exportWordDocx,
+  readWordDocx,
   createFontLoader,
   createPrintPages,
   createSampleDocument,
+  createStarterDocument,
   createWordEditor,
   createWordEnv,
   documentFontFamilies,
@@ -22,16 +26,24 @@ import {
   type PageBreakWidget,
   type TableBreakWidget,
   TABLE_BREAK_STYPE,
+  TABLE_CELL_BREAK_STYPE,
   TABLE_HEADER_REPEAT_STYPE,
   registerTableHeaderRepeat,
   getWordSchemaDefinition,
   registerWordRenderers,
   installCellSelection,
+  installWordTableResize,
+  installTocCompositionPreview,
   type FontLoader,
   type SurfaceLayout
 } from '@barocss/office-word';
-import type { Editor } from '@barocss/editor-core';
+import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { App } from './app';
+import { createMergedCellSample, createStaggeredCellSample } from './merged-cell-sample';
+import { createReferenceSample } from './reference-sample';
+import { createCaptionSample } from './caption-sample';
+import { createStyleManagementSample } from './style-management-sample';
+import { createFormatPainterSample } from './format-painter-sample';
 import './style.css';
 
 declare global {
@@ -67,7 +79,7 @@ registerTableHeaderRepeat();
  * React owns the chrome and calls this once with a div it then leaves alone —
  * the editor owns that subtree, and a re-render must not touch it.
  */
-export function mountWord(container: HTMLElement): { editor: Editor; view: EditorViewDOM; fonts: FontLoader } {
+export function mountWord(container: HTMLElement, onFurniture?: (id?: string) => void): { editor: Editor; view: EditorViewDOM; fonts: FontLoader; editFurniture: (id?: string) => void } {
 
   const schema = createSchema('word', getWordSchemaDefinition());
   const dataStore = new DataStore(undefined, schema);
@@ -78,9 +90,19 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
     dataStore,
     // Who is reading. Supplied by the host for the same reason the instant a
     // date field shows is — an editor that invented a name would be guessing.
-    author: { name: 'Jinho', date: () => '2026-08-10' }
+    author: { name: 'Jinho', date: () => new Date().toISOString().slice(0, 10) }
   });
-  editor.loadDocument(createSampleDocument(), 'word');
+  const demo = new URLSearchParams(location.search);
+  editor.loadDocument(demo.get('sample') === 'captions' ? createCaptionSample() : ['references', 'references-docx'].includes(demo.get('sample') ?? '') ? createReferenceSample() : demo.get('sample') === 'styles' ? createStyleManagementSample() : demo.get('sample') === 'format-painter' ? createFormatPainterSample()
+    : demo.get('sample') === 'merged-cell-rows' ? createStaggeredCellSample()
+    : demo.get('sample') === 'merged-cell-columns' ? createMergedCellSample(false, true)
+    : demo.get('sample') === 'merged-cell-lines' ? createMergedCellSample(true)
+    : demo.get('sample') === 'merged-cell' ? createMergedCellSample()
+    : demo.has('sample') || demo.has('lab') ? createSampleDocument() : createStarterDocument(), 'word');
+  if (demo.get('sample') === 'references-docx') {
+    const file = exportWordDocx(editor.exportDocument());
+    editor.loadDocument(readWordDocx(file.bytes, 'DOCX 참조 교환').document, 'word');
+  }
 
   /**
    * How many times the document has changed.
@@ -131,6 +153,19 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
     // like a change.
     env: { [WORD_ENV_KEY]: createWordEnv(doc, undefined, undefined, new Date('2026-08-05T09:00:00Z')) }
   });
+  installTocCompositionPreview(editor, container);
+  // Inline pictures are objects. A click selects the picture, not a text offset beside it.
+  container.addEventListener('mousedown', event => {
+    if (event.button !== 0 || event.shiftKey) return;
+    const image = (event.target as Element | null)?.closest('img.w-image');
+    const id = image?.getAttribute('data-bc-sid');
+    if (!id || dataStore.getNode(id)?.stype !== 'inline-image') return;
+    event.preventDefault();
+    event.stopPropagation();
+    view.contentEditableElement.focus({ preventScroll: true });
+    editor.updateSelection({ selection: { type: 'node', nodeIds: [id], startNodeId: id, endNodeId: id,
+      startOffset: 0, endOffset: 0, collapsed: false }, applySelectionToView: true });
+  }, true);
 
   /**
    * Pagination measures a finished render, so the view runs it after each one and
@@ -146,6 +181,8 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
    * header.
    */
   let editing: string | undefined;
+  let bodySelection: ModelSelection | null | undefined;
+  let editingRoot: string | null | undefined;
 
 
   view.registerLayoutPass(
@@ -200,6 +237,11 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
     `${item.target.sid}:${item.target.offset}:${Math.round(item.height)}`;
 
   const drawnTableBreaks = new Map<string, string>();
+  const drawnTableHeaders = new Map<string, string[]>();
+  const removeTableHeaders = (sid: string) => {
+    for (const id of drawnTableHeaders.get(sid) ?? []) view.removeDecorator(id);
+    drawnTableHeaders.delete(sid);
+  };
 
   const applyPageBreaks = (breaks: PageBreakWidget[]): void => {
     window.pageBreaks = breaks;
@@ -239,7 +281,7 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
 
   /** What a table's break looks like, so an unchanged one can be left alone. */
   const tableShapeOf = (item: TableBreakWidget): string =>
-    `${item.rowSid}:${item.columns}:${Math.round(item.height)}:${item.header.map((c) => c.text).join('|')}`;
+    `${item.rowSid}:${JSON.stringify(item.cell)}:${item.pageGapStart}:${item.pageGapHeight}:${item.columns}:${Math.round(item.height)}:${JSON.stringify(item.headerRows)}:${item.headerRowHeights.map(height => height.toFixed(2)).join(',')}`;
 
   /**
    * Draw the page breaks that fall between two rows of a table.
@@ -249,22 +291,45 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
    * otherwise be given a gap with nothing after it.
    */
   const applyTableBreaks = (breaks: TableBreakWidget[]): void => {
-    const wanted = new Map(breaks.map((item) => [item.sid, tableShapeOf(item)]));
+    // Repeated cells are chrome, so they do not go through the model renderer.
+    // Read the original cells after style resolution to keep their appearance.
+    const styledBreaks = breaks.map(item => ({ ...item, headerRows: item.headerRows.map(row => row.map(cell => {
+      const source = cell.sourceSid ? container.querySelector(`[data-bc-sid="${CSS.escape(cell.sourceSid)}"]`) : null;
+      const style: Record<string, string> = {};
+      if (source) {
+        const computed = getComputedStyle(source);
+        for (const property of ['backgroundColor', 'color', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle',
+          'textAlign', 'verticalAlign', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+          'borderTop', 'borderRight', 'borderBottom', 'borderLeft'] as const) style[property] = computed[property];
+      }
+      return { ...cell, style };
+    })) }));
+    const wanted = new Map(styledBreaks.map((item) => [item.sid, tableShapeOf(item)]));
 
     view.batchDecorators(() => {
       for (const sid of [...drawnTableBreaks.keys()]) {
         if (!wanted.has(sid)) {
           view.removeDecorator(sid);
-          view.removeDecorator(`${sid}-header`);
+          removeTableHeaders(sid);
           drawnTableBreaks.delete(sid);
         }
       }
 
-      for (const item of breaks) {
+      for (const item of styledBreaks) {
         if (drawnTableBreaks.get(item.sid) === wanted.get(item.sid)) continue;
         if (drawnTableBreaks.has(item.sid)) {
           view.removeDecorator(item.sid);
-          view.removeDecorator(`${item.sid}-header`);
+          removeTableHeaders(item.sid);
+        }
+
+        if (item.cell) {
+          const anchor = item.cell.inline;
+          view.addDecorator({ sid: item.sid, stype: TABLE_CELL_BREAK_STYPE,
+            ...(anchor ? { category: 'inline', target: { sid: anchor.sid, startOffset: anchor.offset, endOffset: anchor.offset } }
+              : { category: 'block', position: item.cell.after ? 'after' : 'before', target: { sid: item.cell.blockSid } }),
+            data: item } as never);
+          drawnTableBreaks.set(item.sid, wanted.get(item.sid)!);
+          continue;
         }
 
         view.addDecorator({
@@ -278,16 +343,20 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
 
         // The header again, under the gap, so the columns are named on every
         // page the table reaches.
-        if (item.header.length > 0) {
+        const headerIds: string[] = [];
+        for (const [index, cells] of item.headerRows.entries()) {
+          const sid = index === 0 ? `${item.sid}-header` : `${item.sid}-header-${index}`;
+          headerIds.push(sid);
           view.addDecorator({
-            sid: `${item.sid}-header`,
+            sid,
             stype: TABLE_HEADER_REPEAT_STYPE,
             category: 'block',
             position: 'before',
             target: { sid: item.rowSid },
-            data: { cells: item.header }
+            data: { cells, height: item.headerRowHeights[index] }
           } as never);
         }
+        drawnTableHeaders.set(item.sid, headerIds);
         drawnTableBreaks.set(item.sid, wanted.get(item.sid)!);
       }
     });
@@ -300,17 +369,33 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
    * Word does, and for the same reason: the drawn copies are not the document, so
    * there has to be a moment where the real one takes their place.
    */
-  const setEditing = (id: string | undefined) => {
+  const setEditing = (id: string | undefined, restoreBody = true) => {
     if (editing === id) return;
+    if (id && !editing) {
+      bodySelection = editor.selection ? { ...editor.selection } : undefined;
+      editingRoot = editor.getRootId();
+    }
     editing = id;
+    onFurniture?.(id);
     view.render();
 
     // Opening the mode puts the caret in it. Without this a reader
     // double-clicks a header, sees it outlined, types — and the characters go
     // wherever the caret happened to be, which is usually the body text they
     // were reading. The gesture asked to edit *this*, so this is what it edits.
-    if (!id) return;
+    if (!id) {
+      const saved = bodySelection;
+      if (restoreBody && saved && editingRoot === editor.getRootId() && dataStore.getNode(saved.startNodeId)) {
+        requestAnimationFrame(() => {
+          if (editing || editingRoot !== editor.getRootId()) return;
+          view.contentEditableElement.focus({ preventScroll: true });
+          editor.updateSelection({ selection: saved, applySelectionToView: true });
+        });
+      }
+      return;
+    }
     requestAnimationFrame(() => {
+      if (editing !== id) return;
       const region = container.querySelector('.w-header-source.is-editing, .w-footer-source.is-editing');
       const walker = region
         ? document.createTreeWalker(region, NodeFilter.SHOW_TEXT)
@@ -362,6 +447,16 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
    * can type over; ours are not, so a plain click is enough and needs no
    * explaining.
    */
+  const followReference = (event: MouseEvent | KeyboardEvent) => {
+    const field = (event.target as Element | null)?.closest?.('.w-field-ref[data-linked="true"]');
+    const name = field?.getAttribute('data-target');
+    if (!name || (event instanceof KeyboardEvent && !['Enter', ' '].includes(event.key))) return;
+    event.preventDefault(); event.stopPropagation();
+    jumpToWordBookmark(editor, view, name, field?.getAttribute('data-target-kind') ?? 'bookmark');
+  };
+  container.addEventListener('click', followReference, true);
+  container.addEventListener('keydown', followReference, true);
+
   container.addEventListener('click', (event) => {
     const entry = (event.target as Element | null)?.closest?.('.w-toc-entry');
     const target = entry?.getAttribute('data-toc-target');
@@ -380,22 +475,26 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
 
     heading.scrollIntoView({ block: 'center', behavior: 'smooth' });
 
-    // ...and the caret goes with the reader, so they can start typing where they
-    // asked to be.
-    const text = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT).nextNode();
-    if (!text) return;
-    const range = document.createRange();
-    range.setStart(text, 0);
-    range.collapse(true);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
+    const firstText = (sid: string): string | undefined => {
+      const node = dataStore.getNode(sid);
+      if (typeof node?.text === 'string') return sid;
+      for (const child of node?.content ?? []) { const found = firstText(String(child)); if (found) return found; }
+    };
+    const sid = firstText(target);
+    if (!sid) return;
+    view.contentEditableElement.focus({ preventScroll: true });
+    editor.updateSelection({ selection: { type: 'range', startNodeId: sid, endNodeId: sid, startOffset: 0, endOffset: 0, collapsed: true }, applySelectionToView: true });
   });
+
+  container.addEventListener('keydown', event => {
+    const entry = (event.target as HTMLElement)?.closest<HTMLElement>('[data-toc-target][data-linked="true"]');
+    if (entry && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); event.stopPropagation(); entry.click(); }
+  }, true);
 
   // On the document, not the container: leaving the mode should not depend on
   // where the focus happens to be, and after a double-click it is often nowhere.
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && editing) setEditing(undefined);
+    if (event.key === 'Escape' && editing && !(event.target as Element)?.closest?.('[role=dialog]')) setEditing(undefined);
   });
 
   /**
@@ -414,7 +513,10 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
     if (!editing) return;
     const target = event.target as Element | null;
     if (target?.closest?.('.w-header-source.is-editing, .w-footer-source.is-editing')) return;
-    setEditing(undefined);
+    setEditing(undefined, false);
+  });
+  editor.on('editor:content.change', (event?: { transaction?: unknown }) => {
+    if (editing && (event?.transaction === null || editingRoot !== editor.getRootId())) setEditing(undefined, false);
   });
 
   /**
@@ -463,12 +565,13 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
    * lives in its app.
    */
   installCellSelection(editor, container, doc as never);
+  installWordTableResize(editor, container);
 
   window.editor = editor;
   window.editorView = view;
   window.setEditingFurniture = setEditing;
 
-  return { editor, view, fonts };
+  return { editor, view, fonts, editFurniture: setEditing };
 }
 
 createRoot(document.getElementById('root')!).render(

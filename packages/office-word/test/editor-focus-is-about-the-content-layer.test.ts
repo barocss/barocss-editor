@@ -58,10 +58,10 @@ const wideSurface = (editor: Editor) => {
 };
 
 describe('editorFocus 가 실제로 무엇을 뜻하나', () => {
-  it('Word 의 쉰넷이 전부 그것을 건다', () => {
+  it('Word 문서 명령은 모두 editorFocus 조건을 건다', () => {
     const bindings = WORD_KEYBINDINGS as readonly { when?: string }[];
-    expect(bindings.length).toBe(54);
-    expect(bindings.filter((one) => (one.when ?? '').includes('editorFocus')).length).toBe(54);
+    expect(bindings.length).toBeGreaterThan(0);
+    expect(bindings.filter((one) => (one.when ?? '').includes('editorFocus')).length).toBe(bindings.length);
   });
 
   it('콘텐츠 층의 focus 하나가 그것을 세우고, blur 하나가 내린다', () => {

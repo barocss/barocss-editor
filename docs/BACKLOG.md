@@ -6311,6 +6311,42 @@ exit 0, "Every package is where it says it is."** 그 뒤 다른 에이전트의
 
 ## Done
 
+### Note 페이지 관리와 데이터베이스 항목 편집 — ✅ (2026-09-07)
+
+페이지 검색·즐겨찾기·하위 페이지·이동·휴지통 복원·템플릿을 로컬 보관함에 연결했다.
+본문은 블록 변환/복제/들여쓰기, 코드 입력, 기존 링크 편집, 표 머리글 전환을 지원한다.
+데이터베이스는 Site와 공유하는 dataset/fields/records로 표·보드·필터·정렬을 제공하며,
+항목은 공통 `SidePeek` 페이지로 열린다. 배경을 가리는 scrim 없이 원래 데이터베이스를 계속
+조작할 수 있고, 큰 제목 → 클릭할 때만 편집하는 속성 → 실제 Note 블록 본문 순서로 이어진다.
+상단에는 닫기·펼치기·데이터베이스 경로·이전/다음 항목·복제/삭제 메뉴가 있으며 너비를 조절할 수 있다.
+필드 설정과 속성 추가는 작은 맥락형 팝업에서 처리한다. 기존 폼 Drawer 시안을 대체했으며
+Site의 기존 Drawer는 유지한다. 항목 본문은 안정된 item ID로 저장하고, 항목 복제는 본문도
+독립적으로 복제한다. 복제한 데이터베이스 역시 독립된 dataset을 가진다.
+현재 SidePeek 브라우저 시나리오에서 속성·본문 편집, 표/보드 반영과 새로고침 복구가 통과했다.
+
+통합 중 발견한 선택 위치가 오래된 paste, 선택 밖 링크까지 제거하던 mark 처리,
+clipboard 범위/서식 손실, DB 편집 UI가 렌더링에서 사라지던 문제, 저장과 Undo/Redo 뒤
+입력 focus 소실을 수정했다. 검증과 남은 제품 범위는
+[활성 작업 기록](../.dev/plans/note-product-foundation/brief.md)에 기록한다.
+
+
+### Note 콜아웃의 줄 선택 검증 — ✅ (2026-09-07)
+
+macOS Chromium의 Shift+Home은 문서 시작까지 선택하는 네이티브 동작이다. 줄 선택 검증을
+Cmd+Right → Cmd+Shift+Left로 고쳤으며, 콜아웃 제목/본문과 속성 전환 뒤 선택·서식도
+브라우저에서 검증한다. 실제로 발견한 제목/본문 경계 Enter, inline atom 삭제, grapheme 삭제는
+별도 모델 회귀 검증과 함께 수정했다.
+
+- **Note delivers its last edit before closing.** A pending 350ms callback was cancelled by
+  `NoteSession.close()`, so typing and immediately closing a Site row could drop the last words.
+  Close now delivers the latest pending snapshot synchronously before destroying the editor;
+  already delivered or untouched bodies are not sent again. Repeated close is harmless, including
+  a host callback that calls close, and callback errors still release the editor.
+  Site keeps its callback holder scoped to the host/body so an old session cannot flush into the
+  next body. Proven by `packages/office-note/test/session.test.ts` and the real drawer close/reopen
+  check in `apps/site/tests/note-close.spec.ts`. This delivers to the host; durable storage remains
+  the host's responsibility.
+
 - **A site knows where it lives, and three things wanted it.** Found writing the Open Graph tags:
   `og:url` needs an **absolute** address, and so does a canonical link, and so does every `<loc>` in
   a sitemap. The document knew its pages' paths and nothing about where the site is published.
@@ -16643,4 +16679,3 @@ vitest 는 타입을 지우고 돌리므로 **이 변경으로 검사 결과가 
 ---
 
 ### 덤으로 나온 것
-

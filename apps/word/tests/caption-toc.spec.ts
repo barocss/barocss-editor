@@ -1,0 +1,48 @@
+import { test, expect } from '@playwright/test';
+
+test('figure contents coexist with headings, update after edits and survive reload', async ({ page }) => {
+  await page.goto('/?sample=captions');
+  const heading = page.getByRole('heading', { name: '캡션과 자동 번호', exact: true });
+  await heading.click();
+  await page.getByRole('tab', { name: '참조', exact: true }).click();
+  await page.getByRole('button', { name: '목차', exact: true }).click();
+  await page.getByRole('button', { name: '목차 삽입', exact: true }).click();
+  await heading.click();
+  await page.getByRole('button', { name: '그림 목차', exact: true }).click();
+  await page.getByRole('button', { name: '목차 삽입', exact: true }).click();
+  const figures = page.locator('.w-toc[data-caption="Figure"]');
+  const headings = page.locator('.w-toc[data-caption=""]');
+  await expect(figures.locator('.w-toc-text')).toHaveText('그림 1: 분기별 성장');
+  await expect(headings.locator('.w-toc-text')).toHaveText('캡션과 자동 번호');
+  const target = await figures.locator('.w-toc-entry').getAttribute('data-toc-target');
+  await figures.locator('.w-toc-entry').click();
+  await expect.poll(() => page.evaluate(target => {
+    const editor = (window as any).editor;
+    return editor.dataStore.getNode(editor.selection?.startNodeId)?.parentId === target;
+  }, target)).toBe(true);
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowRight' : 'End');
+  await page.keyboard.type(' updated');
+  await expect(figures.locator('.w-toc-text')).toContainText('updated');
+  await page.getByRole('img', { name: '첫 번째 그림', exact: true }).click();
+  await page.getByRole('tab', { name: '참조', exact: true }).click();
+  await page.getByRole('button', { name: '캡션 삽입', exact: true }).click();
+  await page.getByRole('textbox', { name: '캡션 설명' }).fill('앞쪽 캡션');
+  await page.getByRole('button', { name: '캡션 넣기', exact: true }).click();
+  await expect(figures.locator('.w-toc-text')).toHaveText(['그림 1: 앞쪽 캡션', '그림 2: 분기별 성장 updated']);
+  await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
+  await page.reload();
+  await expect(figures.locator('.w-toc-text')).toHaveText(['그림 1: 앞쪽 캡션', '그림 2: 분기별 성장 updated']);
+  await heading.click(); await page.getByRole('tab', { name: '참조', exact: true }).click();
+  await page.getByRole('button', { name: '그림 목차', exact: true }).click();
+  await page.getByRole('combobox', { name: '목차 캡션 종류' }).click();
+  await page.getByRole('option', { name: '표', exact: true }).click();
+  await page.getByRole('button', { name: '설정 적용', exact: true }).click();
+  await expect(page.locator('.w-toc[data-caption="Table"] .w-toc-empty')).toContainText('선택한 종류의 캡션이 없습니다');
+  await expect(headings.locator('.w-toc-text')).toHaveText('캡션과 자동 번호');
+  await page.evaluate(() => (window as any).editor.run('undo'));
+  await expect(figures.locator('.w-toc-text')).toHaveCount(2);
+  await heading.click(); await page.getByRole('button', { name: '그림 목차', exact: true }).click();
+  await page.getByRole('button', { name: '목차 제거', exact: true }).click();
+  await expect(figures).toHaveCount(0);
+  await expect(headings).toHaveCount(1);
+});

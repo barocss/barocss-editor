@@ -1,3 +1,4 @@
+import { withTableThemeRead } from '../../office-text/test/helpers/table-theme-probe';
 import { describe, it } from 'vitest';
 import { assertConforms, attributeReadFrom, contentTagFrom, drawnTagFrom } from '@barocss/conformance';
 import { createSchema } from '@barocss/schema';
@@ -62,6 +63,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
     { command: 'insertHorizontalRule', produces: 'horizontalRule' },
     { command: 'insertPageBreak', produces: 'pageBreak' },
     { command: 'insertColumnBreak', produces: 'columnBreak' },
+    { command: 'insertSectionBreak', produces: 'surface' },
     { command: 'insertTab', produces: 'tab' },
     { command: 'insertTable', produces: 'bTable' },
     { command: 'insertFrame', produces: 'frame' },
@@ -86,6 +88,8 @@ const schema = createSchema('word', getWordSchemaDefinition());
     { command: 'insertColumnLeft', produces: 'bTableCell' },
     { command: 'insertColumnRight', produces: 'bTableCell' },
     { command: 'insertBookmark', produces: 'bookmarkAnchor' },
+    { command: 'insertWordReference', produces: 'fieldRef' },
+    { command: 'insertWordCaption', produces: 'fieldSeq' },
     { command: 'insertFootnote', produces: 'footnoteDef' },
     { command: 'insertEndnote', produces: 'endnoteDef' },
     { command: 'insertComment', produces: 'commentThread' }
@@ -128,7 +132,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * The shapes come from the same schema the check walks, so a probe value always
        * matches the type the attribute declares — see `attributeReadFrom`.
        */
-      attributeRead: attributeReadFrom(
+      attributeRead: withTableThemeRead(registry, attributeReadFrom(
         registry as never,
         (type: string) =>
           (schema.nodes.get(type) as { attrs?: Record<string, never> } | undefined)?.attrs,
@@ -158,6 +162,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
          */
         (_type: string, attr: string) => {
           switch (attr) {
+            case 'cropMode': return ['cover'];
             case 'tabs':
               // `[{ pos, align, leader }]` — `tabStopsOf`'s shape.
               return [[{ pos: 2880, align: 'right', leader: 'dot' }]];
@@ -221,7 +226,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
               return undefined;
           }
         }
-      ),
+      )),
       // Where a node's *children* land, which is not always the element the node
       // draws as: a table header draws a `<thead>` and holds its cells in a
       // `<tr>` inside it.
@@ -389,7 +394,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
        * `ruler-model.ts`, which is the only place a paragraph's indents and its tab stops can be
        * changed at all. `notYet: ['every-property-can-be-edited']` was here until both existed.
        */
-      editable: [...toolbarAttrs(), ...wordRulerAttrs(), ...borderEditable(), ...spacingEditable(), ...pageSetupEditable()],
+      editable: [...toolbarAttrs(), ...wordRulerAttrs(), ...borderEditable(), ...spacingEditable(), ...pageSetupEditable(), 'inline-image.cropMode', 'inline-image.cropPositionX', 'inline-image.cropPositionY', 'oMath.fontScale', 'fieldRef.targetKind'],
       /**
        * Whether the product draws anything for a mark — a vocabulary no check could see.
        *
@@ -403,6 +408,13 @@ const schema = createSchema('word', getWordSchemaDefinition());
         Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
         Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
       exempt: {
+        'fieldSeq.id': { reason: 'stable caption identity assigned by insertWordReference and read by the document field resolver; never a visible sequence property. Covered by caption-reference persistence tests.', covers: ['every-attribute-is-read', 'every-property-can-be-edited'] },
+        'inline-image.cropOriginalWidth': { reason: 'source frame size saved by the crop command for non-destructive reset; covered by object-layout tests', covers: ['every-attribute-is-read', 'every-property-can-be-edited'] },
+        'inline-image.cropOriginalHeight': { reason: 'source frame size saved by the crop command for non-destructive reset; covered by object-layout tests', covers: ['every-attribute-is-read', 'every-property-can-be-edited'] },
+        'bTable.theme': {
+          reason: 'authored by Note’s contextual table editor through the shared setTableTheme command; this product preserves and renders imported or embedded table themes without exposing that Note control',
+          covers: ['every-property-can-be-edited']
+        },
         /*
          * ── Written by the tracking commands, never typed by a reader ──────
          *
@@ -642,6 +654,7 @@ const schema = createSchema('word', getWordSchemaDefinition());
         'frame.gapCross': 'read by `frameCss` inside its `row`, `column` and `grid` branches; the probe fills `layoutMode` with `none`',
         'frame.columns': 'read by `frameCss` in its `grid` branch; the probe fills `layoutMode` with `none`',
 
+        'tableOfContents.scope': 'selects headings across sections; a bare TOC has no document headings. Covered by structure-authoring.spec.ts',
         'tableOfContents.leader': 'drawn on each entry, and a bare table of contents has no entries — see `word-outline.spec.ts`',
         'tableOfContents.rightAlignPageNumbers': 'decides whether an entry’s leader grows; a bare table of contents has no entries',
         'tableOfContents.useHyperlinks': 'read by the entry’s drawing and by the app’s click handler; a bare table of contents has no entries',
@@ -890,7 +903,6 @@ const schema = createSchema('word', getWordSchemaDefinition());
           reason: 'the page the paginator measures — `layout.ts`',
           covers: ['every-attribute-is-read', 'every-property-can-be-edited']
         },
-        marginGutter: 'the page the paginator measures — `layout.ts`, the room for the binding',
         orientation: 'the page the paginator measures — `layout.ts`',
         'surface.width': 'the page the paginator measures — `layout.ts`; the surface draws its sheets from `layout.metrics`',
         'surface.height': 'the page the paginator measures — `layout.ts`',

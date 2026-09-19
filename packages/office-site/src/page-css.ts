@@ -1,4 +1,5 @@
 import { CODE_CSS } from './code-render';
+import { TEXT_FLOW_STYLE } from '@barocss/office-text';
 import { REVEAL_KEYFRAMES } from './reveal';
 
 /**
@@ -101,7 +102,7 @@ export const PAGE_CSS =
    *
    * (No back-ticks in this comment, for the reason the caret rule below spells out.)
    */
-  white-space: pre-wrap;
+  white-space: ${TEXT_FLOW_STYLE.whiteSpace};
   /* So the sizes below can ask how wide the page is rather than how wide the window is. */
   container-type: inline-size;
   /**
@@ -172,6 +173,22 @@ export const PAGE_CSS =
   font-weight: 600;
   letter-spacing: -0.005em;
 }
+
+/* Rich bodies use the same paragraph spacing contract as the prose renderer. */
+.st-page .w-heading {
+  --prose-space-before: 1.4em;
+  --prose-space-after: 0.5em;
+}
+.st-page .w-heading:first-child { --prose-space-before: 0; }
+.st-page .w-summary, .st-page .w-task-content { line-height: inherit; }
+.st-page .w-details > :not(.w-summary) { margin-left: 1.2em; }
+.st-page .w-page-reference {
+  display: inline-flex; align-items: baseline; gap: .2em; color: inherit;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.st-page .w-page-reference svg { width: 1em; height: 1em; align-self: center; flex: none; }
+.st-page .w-page-reference[data-page-state='missing'],
+.st-page .w-page-reference[data-page-state='trashed'] { text-decoration-style: dotted; opacity: .7; }
 
 .st-page p {
   /*

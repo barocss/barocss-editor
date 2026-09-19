@@ -1,5 +1,314 @@
 # Barocss Suite — Roadmap
 
+## 현재 제품 진행표 — 2026-09-19
+
+2026-09-19 Codex·GitHub 작업 기준: 사용자의 추가 요청에 따라 독립 상주 실행기보다 Codex 작업 시작·재개 시 GitHub 이슈·PR을 먼저 확인하는 흐름을 기본으로 정했다. 루트 AGENTS.md에 최신 main 기준 브랜치, 이슈별 구현·검증·PR, 중간 지시 재확인을 기록했다. 독립 실행기는 후속 선택이다. 누적 변경을 기준점 커밋과 draft PR로 보존하고 WP-01은 선행 기준점 병합 후 진행한다. 통합 Office 빌드 통과, 전체 타입 검사 3개 프로젝트 실패를 확인했다. 전체 기능 인수나 자동 시작 기능 완료를 뜻하지 않는다.
+
+2026-09-19 Wonffice 서비스·Agent 설계: 사용자 결정에 따라 클라우드 SaaS와 고객사 내부 설치를 동시 출시 대상으로 정했다. [플랫폼 구조](specs/wonffice-platform.md), [로컬 Agent 실행 계약](specs/wonffice-agent-runtime.md), [WP-01–WP-12 구현 순서](specs/wonffice-platform-delivery.md)를 작성했다. 서비스 실행과 개발 Agent를 분리하고 회사별 기능·권한·문서 revision·공유·두 환경 배포 계약을 정의했다. 기존 operation의 실패 정리와 commit 후 오류 구분을 첫 구현 WP-01로 지정했다. 승인된 일이 없으면 대기하도록 기존 무한 이슈 생성 규칙을 수정했다. 이번 기록은 코드 점검과 설계 문서 작성이다. 백엔드·무인 실행기·자동 병합은 미구현·미활성 상태다. 공통 UI의 남은 검증은 기존 계획에 유지하며 모바일 화면 검사는 진행하지 않는다.
+
+2026-09-14 DOM 선택 도구 위치·잘림 경계: office-ui의 visibleElementRect·observeElementAnchor와 office-editor-ui useNodeAnchor로 현재 문서 노드의 위치 감지를 연결했다. Note 표·블록·코드 도구와 Word 수식 도구가 부모 배율 변경·내부 스크롤·DOM 교체를 감지한다. overflow 조상이나 화면에 완전히 가려진 대상의 도구는 숨긴다. 일부만 보일 때도 표 계산에 쓰는 원래 좌표는 유지한다. Note 표 버튼의 아이콘·글자 겹침을 공통 Button·Tip으로 수정했다. 단위 검사 4개, Word 8개·Note 11개 데스크톱 브라우저 검사, 공통 UI·편집 UI·Word·Note 타입 검사(기존 미사용 항목 제외), Office 빌드 통과. 통합 Note에 ‘선택 도구 경계 확인’ 문서를 만들고 표 도구를 확인했다. 다음은 [2단계](specs/office-editor-ui-consolidation.md)의 텍스트 범위와 Slides·Site 객체 도구 적용 점검이다.
+
+2026-09-14 문맥 도구 표시·포커스 공통화: office-editor-ui useEditorContextVisibility를 Note 글자 도구와 Word 수식 도구에 적용했다. 외부 필드·내부 수식 입력·창 포커스 상실·읽기 전용에서는 숨기고, Escape 닫힘을 같은 대상의 포커스 복귀 후에도 유지한다. Word의 KaTeX 표시를 다시 클릭하면 도구를 열 수 있다. Note는 창 포커스 복귀 때 위치를 다시 측정한다. 단위 검사 11개, Note 12개·Word 12개 데스크톱 브라우저 검사가 범위별 통과했다. 공통 편집 UI·Word 타입 검사(기존 미사용 항목 제외), Office 빌드 통과. 실제 통합 Word에 `x+2`를 넣고 도구 열기·내부 편집 중 숨김을 확인했다. 다음은 [편집 UI 공통화 2단계](specs/office-editor-ui-consolidation.md)의 위치 측정·화면 경계와 다른 객체 도구 적용 점검이다.
+
+2026-09-14 Slides 설정 창 확대 적용: 레이아웃·테마에 공통 useEditorSettings를 연결했다. 실패 후 초안·재시도, 적용 중 중복 실행·닫기 차단, 변경 없는 적용 생략을 공유한다. 같은 레이아웃을 다시 배치하는 명령은 유지한다. 템플릿은 제품의 문서 교체 흐름에서 저장 대기·오류·재시도·이전 요청 차단을 보강했다. 테마 창의 긴 색상 이름 잘림을 수정했다. 단위 검사 13개, 데스크톱 브라우저 검사 23개가 범위별 통과했다. 기존 테마 검사의 중복 이름 선택자를 수정했다. 편집 UI·Slides 타입 검사(기존 미사용 항목 제외)와 Office 빌드가 통과했다. 실제 통합 Slides에 테마 설정 창을 열었다. 다음은 [편집 UI 공통화 2단계](specs/office-editor-ui-consolidation.md)의 선택 도구 표시·포커스 점검이다. Site 설정 창별 적용 판단은 후속 범위로 유지한다.
+
+2026-09-14 office-editor-ui 설정 창 공통화: useEditorSettings로 초안·적용·취소·실패·재시도를 공유한다. Word 문단 간격·테두리·페이지 설정과 Slides 크기 설정에 적용했다. Slides는 명령 성공 후 닫고, 실패하면 입력값을 유지한다. 적용 중 중복 실행·닫기와 새 세션에 대한 이전 응답을 막는다. 변경 없는 적용은 명령을 실행하지 않는다. 단위 검사 7개, Word 18개·Slides 2개 데스크톱 브라우저 검사, 편집 UI·Word·Slides 타입 검사(기존 미사용 항목 제외), Office 빌드 통과. 열린 통합 Slides에서 설정 창을 확인했다. 다음은 Slides의 남은 레이아웃·테마·템플릿 설정을 점검한 뒤 [선택·포커스 공통화](specs/office-editor-ui-consolidation.md)로 이어간다.
+
+2026-09-14 office-editor-ui 속성 실행 세션: 공통 usePropertyCommand에 편집기·문서·선택 문맥 경계를 추가했다. 선택 변경 뒤의 이전 대기 명령을 건너뛰고, 늦게 도착한 오류·재시도·처리 중 상태를 새 선택과 분리한다. 같은 대상에서 연속 명령과 실패 payload 재시도는 유지한다. Slides·Site의 기존 공통 훅 사용처에 적용됐다. 단위 검사 8개, Slides 3개·Site 2개 데스크톱 브라우저 검사, 편집 UI 타입 검사(기존 미사용 항목 제외), Office 빌드 통과. 통합 Slides에서 실제 너비 변경·실행 취소를 확인했다. 다음은 [편집 UI 공통화 1단계](specs/office-editor-ui-consolidation.md)의 남은 설정 창 초안·적용·취소 계약 비교다.
+
+2026-09-14 공통 색상 입력 형식: office-ui ColorPicker에 HEX·RGB(A)·HSL·HSB·OKHSL 선택과 채널 입력을 추가했다. 형식 변경은 문서를 수정하지 않는다. Color.js 0.7.1로 변환하며 sRGB HEX/RGBA 저장 계약을 유지한다. 색상 알파와 채우기 불투명도를 분리하고, 중립색에서 먼저 지정한 색조·채도를 유지한다. CSS HSL·RGB 퍼센트·색 이름·알파 HEX 읽기도 지원한다. 변환 단위 검사 7개, 데스크톱 브라우저 검사 6개가 통과했다. 채널 간격과 불투명도 변경을 추가 확인했다. 공통 UI 타입 검사(기존 미사용 항목 제외)와 Office 빌드가 통과했다. 갤러리 예시를 갱신하고 실제 통합 Slides에서 표시를 확인했다. 다음 office-editor-ui 공통화 범위는 유지한다.
+
+2026-09-14 채우기 혼합 설정 분리: Slides 혼합 모드를 색상 팝업에서 각 채우기 행의 속성 설정으로 옮겼다. office-ui StackRow에 상시 세부 설정용 details 영역을 추가했으며, ColorPicker는 혼합 모드를 알지 않는다. 채우기별 혼합·색상·불투명도 보존, 실행 취소, 그라디언트 전환, 팝업 배치·스크롤·목록 순서의 데스크톱 브라우저 검사 5개가 범위별 통과했다. office-ui·Slides 타입 검사(기존 미사용 항목 제외)와 Office 빌드가 통과했다. 열린 통합 Slides에서도 확인했다. 다음 편집 UI 공통화 범위는 유지한다.
+
+2026-09-14 office-ui 데스크톱 기본 정비 1차 마감: 컬러 피커의 비대칭 여백과 손잡이 잘림을 수정했다. 공통 StackRow에 순서 버튼을 추가하고 서로 다른 높이의 행 드래그를 실제 경계로 계산한다. Slides 효과 값에 이름·pt 단위를 표시했다. 데스크톱 브라우저 검사 6개와 office-ui·Slides 타입 검사(기존 미사용 항목 제외), Office 빌드가 통과했다. 열린 통합 Slides에서도 색상 창과 효과 입력을 확인했다. 다음은 [office-editor-ui 공통화](specs/office-editor-ui-consolidation.md): 속성 명령·설정 초안 → 선택·포커스·문맥 도구 → 메뉴·툴바 실행 계약 순서다. 이 다음 단계는 범위 확정 상태이며 추가 구현 완료로 기록하지 않는다. 모바일 및 서버 권한 UI는 후속 범위로 유지한다.
+
+2026-09-14 이동 가능한 속성 색상 창: 사용자의 요청에 따라 Slides 채우기·효과 편집을 속성 행 아래에서 패널 옆의 창으로 바꿨다. office-ui useMovablePanel을 StackRow와 ColorField가 공유한다. 제목 드래그, 화면 경계 제한, 이동 후 위치 유지, Escape 이동 취소, 닫은 뒤 다시 열 때 기준 위치 복원을 제공한다. 최상위 표시 영역으로 조상 스크롤·잘림을 피하며, 긴 내용은 본문만 스크롤하고 제목·닫기를 유지한다. Site의 공통 색상 창에도 적용된다. 데스크톱 브라우저 검사 11개와 office-ui·Slides 타입 검사(미사용 항목 제외), Office 빌드가 통과했다. 실제 통합 Slides에서 패널 옆 배치와 색상 입력 포커스를 확인했다. 다음은 효과 수치의 이름·단위와 목록 순서 조정 UI다.
+
+2026-09-14 그라디언트·효과 편집 UI: office-ui StackRow에 선택적 편집 제목·닫기·키보드 진입·포커스 복귀를 추가하고 Slides 채우기·효과 색 편집에 적용했다. 색 지점은 Enter·Space로 선택하며 선택 테두리는 공통 색상 토큰을 사용한다. 패널의 그라디언트 드래그는 막대 안에서 미리보기하고 놓을 때 한 번 적용한다. Escape 취소는 문서를 바꾸지 않는다. 지점 정렬 뒤에도 이동한 색을 선택하며, 편집 도구의 키가 캔버스 선택을 바꾸던 충돌을 수정했다. Site의 모양 이름은 선형·원형으로 맞췄다. 데스크톱 브라우저 검사 22개(Slides 신규 2·기존 19, Site 1), office-ui·Slides 타입 검사(미사용 항목 제외), Office 빌드가 통과했다. 실제 통합 Slides에서 새 편집 제목·닫기 버튼·색상 코드 포커스를 확인했다. 다음은 효과 수치 입력의 항목 이름·단위 표시와 목록 순서 조정 UI다. 캔버스 위의 그라디언트 축 드래그는 기존 동작을 유지한다.
+
+2026-09-14 공통 색상·숫자 키보드 입력: ColorField를 Enter·Space로 열면 색상 코드를 선택한다. Escape는 원래 버튼으로 돌아가고, Tab으로 팝업 밖에 이동하면 새 포커스를 유지하며 닫는다. 긴 색상 이름은 속성 행 안에서 줄여 표시하고 전체 이름을 title로 제공한다. NumberField는 ↑·↓, Shift 10배, Alt 1/10 단위 조정을 처리한다. 조정 중에는 초안만 바꾸며 Enter·Tab으로 한 번 적용하고 Escape로 취소한다. 기존 범위·표시 정밀도를 따른다. 데스크톱 브라우저 검사 10개, 숫자 단위 검사 12개, office-ui·갤러리 타입 검사(미사용 항목 제외), Office 빌드가 통과했다. 실제 통합 Slides에서 색상 코드 포커스와 팝업 경계를 확인했다. 다음은 Site·Slides의 그라디언트·효과 편집에서 공통 UI와 입력 흐름의 차이를 점검하는 작업이다.
+
+2026-09-14 Slides 속성 명령 상태: Site의 usePropertyCommand를 office-editor-ui로 옮겨 두 제품이 순차 실행·처리 상태·실패 재시도를 공유한다. Slides의 크기·배치·스타일·모션·컴포넌트 속성 명령을 연결했다. 처리 중 속성과 단위 입력을 막고, 실패한 명령의 대상과 변환된 값을 보관한다. 선택·슬라이드·문서·단위 변경 시 이전 오류와 입력 초안을 지운다. 다중 선택의 cm 변환, 잠금·해제, 모서리·컴포넌트·모션, Site 회귀를 포함한 데스크톱 브라우저 검사 12개가 통과했다. Slides·office-editor-ui 타입 검사(미사용 항목 제외)와 Office 빌드가 통과했다. 실제 통합 Slides의 ‘Slides 속성 UI 확인’ 문서에서 도형 너비 10cm 적용을 확인했다. 다음은 제품 속성 패널의 색상·숫자 입력에서 긴 값, 팝업 경계, 키보드 이동을 점검하는 작업이다.
+
+2026-09-14 Site 그림 교체 이력 통합: insertAsset에 선택적 applyTo 계약을 추가했다. 새 자산 추가와 그림 src·영상 poster·사이트 icon 참조 적용을 하나의 트랜잭션으로 처리한다. 기존 자산만 추가하는 호출은 유지한다. 대상 종류·존재·현재 문서 소속·명령 실행 가능 여부를 확인하며, 여러 대상 중 하나라도 잘못되면 변경하지 않는다. 그림 교체는 한 번의 실행 취소로 자산과 참조를 함께 되돌리고 다시 실행으로 함께 복원한다. 파일을 읽은 뒤 자산 목록 차이로 새 파일을 찾던 코드는 제거했다. 단위 검사 27개, 데스크톱 브라우저 검사 3개, Site 타입 검사(미사용 항목 제외)와 Office 빌드가 통과했다. 다음은 Slides 속성 명령의 처리·실패·재시도 UI 적용이다. 빈 캔버스 드롭에서 새 그림 블록 생성까지 하나로 묶는 작업은 별도 범위다.
+
+2026-09-14 Site 속성 실패·그림 선택 유지: 속성 패널의 공통 run 경로에 순차 실행·처리 표시·실패 재시도를 연결했다. 명령 거부와 예외를 StatusNotice로 표시하고, 실패한 명령과 값을 같은 대상에 다시 적용한다. 대상·페이지·편집 폭·상태가 바뀌면 이전 실패 안내와 입력 초안을 넘기지 않는다. 자산 추가 트랜잭션이 새 자산을 커서 위치로 선택하던 동작을 막아 그림 교체 후 그림 속성 패널을 유지한다. 자산 추가는 선택을 뷰와 실행 취소 기록에 덮어쓰지 않는다. 데스크톱 브라우저 검사 5개가 범위별 통과했고 Site 타입 검사(미사용 항목 제외)와 통합 Office 빌드가 통과했다. 실제 Site에서 기울기 적용을 확인했다. 다음은 그림 추가·대상 적용을 한 번의 실행 취소로 묶는 작업과 Slides 속성 명령 상태 적용이다.
+
+2026-09-14 Site 그림 속성 UI: 그림·탭 그림 등 picture 속성 행의 별도 파일 버튼과 선택 목록을 공통 SearchSelect·FilePick·FileItem·StatusIndicator·StatusNotice로 교체했다. 문서 자산 검색과 키보드 선택을 제공한다. 파일 처리 중 중복 입력을 막고, 실패 시 파일과 재시도 작업을 유지한다. 빈 파일·문서 변경·명령 거부를 오류로 표시한다. Site 데스크톱 브라우저 검사 3개(속성 재시도·검색, 기존 파일 삽입·발행, 그림 드롭), Site 타입 검사(미사용 항목 제외), 통합 Office 빌드가 통과했다. 실제 Site 편집기의 그림 속성 목록을 열어 확인했다. 기존 그림 적용 후 선택이 해제될 수 있는 동작과 자산 추가·대상 적용의 단일 실행 취소 처리는 후속 점검 대상이다. 다음은 Site 일반 속성 입력의 명령 실패 표시다.
+
+UI 검증 기준: 사용자의 요청에 따라 앞으로는 데스크톱 화면을 기준으로 구현·검증한다. 모바일 화면 설계와 화면 크기별 검사는 후속 단계로 미룬다.
+
+자료 연결·백업 입력 검증: 관련 브라우저 검사 4개가 통과했다. 최종 수정 후 신규 검사 2개를 데스크톱에서 다시 확인했다. office-workspace 타입 검사(기존 미사용 항목 제외)와 Office 빌드가 통과했다. 실제 통합 자료함에서 연결 목록과 백업 창을 열어 확인했다.
+
+2026-09-14 통합 자료 연결·백업 입력: 자료 관리의 연결 선택을 office-ui SearchSelect로 교체했다. 이름·제품·폴더 검색과 키보드 선택을 제공하며 자기 자신·휴지통·이미 연결한 자료는 제외한다. 백업 입력은 FilePick·FileItem으로 파일 이름·크기·바꾸기·제거를 표시한다. 복원 중 파일 변경·제거·닫기를 막고, 실패 시 파일을 유지하며 성공 후 선택을 비운다. JSON 구문 오류는 파일 재선택 안내로 표시한다. 다음은 기존 제품 속성 패널의 공통 입력·오류·빈 상태 적용 점검이다.
+
+2026-09-14 Word 문단 설정·통합 자료함 상태: Word 문단 간격·테두리·페이지 설정의 초안·선택·비동기 적용 처리를 useFormattingDialog로 묶었다. 실패 시 값을 유지하고 처리 중 중복 실행·닫기를 막는다. 변경 없이 확인하면 명령을 실행하지 않는다. 문단 간격 체크박스와 테두리 사전 설정 버튼은 공통 컴포넌트를 사용하고, 테두리 창은 390px에서 세로로 배치한다. 통합 자료함의 읽기 실패·재시도·완료·빈 상태를 StatusNotice·StatusIndicator·EmptyState로 교체했다. 검색·필터 초기화와 즐겨찾기·최근 자료·휴지통의 빈 상태를 구분한다. Word 15개·통합 자료함 3개로 브라우저 검사 18개가 범위별 통과했다. Word·office-workspace 타입 검사(기존 미사용 항목 제외)와 Office 빌드가 통과했다. 기존 통합 Word의 테두리 창과 실제 자료함 검색에서 확인했다. 다음은 통합 자료 관리의 연결할 자료 선택과 백업 파일 입력을 공통 UI에 연결하는 작업이다.
+
+2026-09-14 Word 페이지 설정·보관함: 페이지 설정의 체크박스와 유효성·실패 안내를 공통 UI로 교체했다. 설정 적용을 기다리며, 실패 시 초안을 유지하고 재시도할 수 있다. 대화상자를 열 때 선택한 구역을 보존하고 처리 중 중복 적용·닫기를 막는다. 390px에서는 여백 입력을 한 열로 배치한다. Word 보관함은 공통 NavigationItem·TextField·EmptyState·StatusIndicator를 사용한다. 제목 검색·검색 지우기·읽기 실패 재시도를 추가했다. 기존 6개·추가 3개로 브라우저 검사 9개가 범위별 통과했다. Word 타입 검사(기존 미사용 항목 제외)와 Office 빌드가 통과했다. 기존 통합 Word 탭에서 페이지 설정과 보관함 검색을 확인했다. 다음은 Word 문단 간격·테두리 대화상자의 적용·취소·오류 처리와 통합 자료함의 빈 상태 점검이다.
+
+2026-09-14 Word 찾기 공통화: 입력·체크박스·패널 제목·작업 버튼·상태 안내를 office-ui로 교체했다. SearchResultNavigation을 추가해 Note와 Word의 결과 개수·이전/다음·빈 상태를 통일했다. Word 찾기 패널은 문서 스크롤 중에도 유지되며 작은 화면에서 현재 결과를 가리지 않도록 이동한다. 한글 조합 중 Enter·Escape, 결과 없음, 바꾸기 실패·재시도, 전체 바꾸기 실행 취소, 메뉴 연결을 확인했다. Word 11개·Note 4개 브라우저 검사가 범위별 통과했다. Word·office-ui 타입 검사(기존 미사용 항목 제외)와 Office 빌드가 통과했다. 다음은 Word 페이지 설정과 자료함의 자체 입력·오류·빈 상태 점검이다.
+
+2026-09-14 공통 다중행 입력: TextAreaField에 확정형 입력(onCommit), Escape 취소, Ctrl/⌘+Enter·blur 적용, 적용 중 읽기 전용, 실패 시 초안 보존과 재시도를 추가했다. 기존 onChange 실시간 입력은 유지한다. 공통 팝업·Dialog·Drawer는 다중행 입력의 취소를 먼저 처리한다. Site 표와 행 Drawer에 연결하고 긴 텍스트의 공백·줄바꿈을 보존하도록 cellFor를 수정했다. 긴 텍스트 붙여넣기는 여러 셀 붙여넣기로 처리하지 않는다. 갤러리 `#multiline`에 확정·실시간·읽기 전용·실패·대기 예시를 추가했다. 브라우저 검사 12개(다중행 2, 기존 필드 4, 모달 5, Site 셀·Drawer 1), 데이터 단위 검사 20개, 공통 UI·갤러리 타입 검사와 Office 빌드가 통과했다. Site 타입 검사는 기존 오류 3건만 보고했다. 실제 Site 샘플에서 여러 줄 설명을 입력하고 적용했다. 다음은 Word 찾기 UI의 공통 입력·결과·빈 상태 점검이다.
+
+2026-09-14 Note 보기 UI 공통화: 필터·정렬·저장된 보기·속성 표시의 버튼, 체크박스, 이름 입력, 팝업 헤더를 office-ui에 맞췄다. `FloatingPanelFooter`를 추가해 초기화·취소·적용을 배치하고, Button은 팝업 앵커용 ref를 공개한다. 기존 초안 적용 방식과 보기별 필터·정렬·숨긴 속성을 유지한다. 빈 조건 안내, 숫자 검증, 적용 중 표시, 공통 오류 안내를 연결했다. 갤러리 `#panel-actions`에 취소·실패·재적용 예시를 추가했다. Note 브라우저 검사 5개와 갤러리·버튼 검사 4개, Note·office-ui·갤러리 타입 검사 및 Office 빌드가 통과했다. 타입 검사는 기존 미사용 항목을 제외했다. 실제 Note에 ‘데이터베이스 UI 확인’ 문서를 만들고 필터 팝업을 열었다. 다음은 공통 TextAreaField 확정·취소 계약 보강과 Site 긴 텍스트 셀 적용이다.
+
+2026-09-14 Site 명령 검색: 공통 `CommandSearch`·`CommandSearchTrigger`를 Site 헤더에 연결했다. 관리·페이지 편집 화면의 기존 메뉴를 검색하며 글 고치기 모드의 실행 제한을 따른다. 문서·편집 대상·페이지·선택을 보관하고, 화면이 바뀌면 이전 대상의 명령을 실행하지 않는다. 검색창 키 입력은 캔버스 명령에서 제외했다. 최근 명령 5개와 실행 실패 안내를 제공하며 HTML 출력은 기존 출력 상태 UI를 사용한다. 검색 3개·기존 출력 2개·제품 메뉴 1개의 브라우저 검사와 Office 빌드가 통과했다. Site 타입 검사는 기존 오류 3건만 보고했다(문자열 선택값 2건, markdown-it 선언 1건). 실제 통합 Site 화면에서 검색창을 열었다. 속성 패널의 값 입력은 검색 범위에 포함하지 않았다. 다음은 Note 필터·보기 설정의 공통 UI 적용 점검이다.
+
+2026-09-14 Slides 명령 검색: 공통 `CommandSearch`를 Slides 헤더에 연결했다. 기존 메뉴와 직접 실행하는 툴바 명령을 검색한다. 검색 전 문서·현재 슬라이드·선택을 보관하고 실행 전에 복원한다. 실행 불가 이유, 조합 입력 보호, 최근 명령 5개, 후속 설정 Dialog를 제공한다. Word와 Slides는 공통 `CommandSearchTrigger`를 사용하며 작은 화면에서는 아이콘으로 표시한다. 파일 선택과 색·글꼴 등 값 입력 도구는 검색 범위에서 제외했다. Slides 검색 2개·기존 툴바 4개·Word 검색 1개의 브라우저 검사, 명령 모델 단위 검사 3개, 공통 UI·Slides·Word 타입 검사와 Office 빌드가 통과했다. 타입 검사는 기존 미사용 항목을 제외했다. 다음은 Site 명령 검색 연결이다.
+
+2026-09-14 DOCX·HTML 출력 상태: Word DOCX 변환 중·변환 실패·다운로드 실패·요청 완료를 공통 `TaskStatus`로 표시한다. 변환 안내를 유지하고, 다운로드 재시도는 준비한 파일을 사용한다. Site HTML·ZIP 출력에도 상태와 재시도를 연결했다. 출력 중 중복 요청을 막고, 문서 교체 후 이전 요청이 새 문서를 출력하지 않게 했다. `TaskStatusRegion`으로 JSON 파일 안내와 출력 안내를 같은 영역에 쌓아 겹침을 없앴다. 브라우저 검사 7개(DOCX 2, Site 출력 2, Word·Site·Slides 파일 회귀 각 1), 공통 파일 단위 검사 10개, Word·공통 UI·편집 UI 타입 검사와 Office 빌드가 통과했다. 타입 검사는 기존 미사용 항목을 제외했으며 Site 기존 타입 오류 3건은 유지된다. 실제 브라우저에서 Word DOCX 변환 안내를 열었다. 변환을 별도 작업 스레드로 옮기거나 다운로드 완료를 추적한 것은 아니다. 다음은 Slides 명령 검색 연결이다.
+
+2026-09-14 Slides 파일 UI 공통화: office-slides의 별도 파일 실행·오류 UI를 office-editor-ui `FileActions`로 교체했다. 덱 JSON 형식·파일 이름·새 덱 생성·교체 후 슬라이드/타임라인 초기화는 기존 제품 로직을 사용한다. 공통 `confirmReplace`로 Slides의 “변경 확인 → 현재 자료 저장 → 문서 교체” 순서를 유지하고, 확인 거부를 오류와 구분한다. Word·Site의 기존 교체 정책은 유지한다. 중복 오류 스타일을 제거했다. Slides 브라우저 검사 8개, Word·Site 회귀 검사 2개, 공통 파일 단위 검사 10개와 Slides·편집 UI·Slide 앱 타입 검사, Office 빌드가 통과했다. 타입 검사는 기존 미사용 항목을 제외했다. 통합 브라우저에서 검증용 Slides 자료를 만들고 다운로드 요청 안내를 확인했다. 다음은 Word DOCX·Site HTML 출력의 작업 상태 연결이다.
+
+2026-09-14 파일 작업 상태: office-ui에 `TaskStatus`를 추가했다. 처리 중·완료·실패·취소 상태, 실제 진행률이 있을 때만 표시하는 진행 막대, 제품이 제공하는 복구 작업을 지원한다. office-editor-ui의 `FileActions`에 연결하여 Word·Site JSON 파일 출력·읽기·새 문서 준비 상태를 공통 카드로 표시한다. 오류를 자동으로 지우지 않으며, 출력 안내는 브라우저의 실제 저장 완료와 구분해 “다운로드 요청됨”으로 표시한다. 중복 실행, 비동기 읽기 도중 다른 문서로 이동한 경우의 덮어쓰기, 읽기·변환 실패 처리를 보강했다. 갤러리 `#tasks`를 브라우저에 열었다. 공통 파일 단위 검사 7개, 갤러리·Word·Site 브라우저 검사 3개, 공통 UI·편집 UI·Word·갤러리 타입 검사와 Office 빌드가 통과했다. 타입 검사는 기존 미사용 항목을 제외했다. Site 타입 오류 3건은 기존과 같다. 실제 파일 작업의 수치 진행률·중간 취소, DOCX/HTML 출력, Slides의 별도 파일 모듈은 이번 범위에 포함하지 않았다. 다음은 Slides 파일 UI를 공통 모듈로 연결하는 작업이다.
+
+2026-09-14 명령 검색: office-ui에 `CommandSearch`를 추가하고 Word 헤더에 연결했다. 기존 메뉴 정의와 기본 글자·문단 서식 18개를 검색한다. 방향키·Enter·Escape, 한글 조합 입력 보호, 실행 불가 안내, 세션 내 최근 명령 5개를 제공한다. 검색 전 문서 선택을 복원한 뒤 실행하며, 다음 편집 Dialog는 검색창의 닫기·포커스 복원 후 연다. 갤러리 `#commands`와 실제 Word 화면을 브라우저에 열었다. 검색 UI 2개·Word 선택/서식/링크 1개·기존 모달 5개의 브라우저 검사, 공통 UI·갤러리·Word·Office 타입 검사와 Office 빌드가 통과했다. 타입 검사는 기존 미사용 항목을 제외했다. 전체 리본 명령과 다른 제품 연결은 후속 범위다. 다음 공통 UI는 가져오기·출력 등 장시간 작업 상태다.
+
+2026-09-14 파일·미디어 선택: office-ui에 `FileDropZone`·`FileItem`·`MediaSelect`를 추가했다. 파일 선택과 드롭에 동일한 형식·크기·빈 파일·단일 파일 검사를 적용한다. 처리 중 중복 입력을 막고 실패 후 재선택을 제공한다. Word 그림 삽입에 파일 놓기 영역·파일 이름/크기·제거를 연결했다. 이미지 해석과 커서 위치·문서 저장은 기존 제품 로직을 유지한다. Site 이미지 데이터 필드는 이름 목록에서 미리보기·검색 목록으로 바꿨으며 기존 asset 참조를 저장한다. 갤러리 `#files`에 모바일·실패·비활성 예시를 추가하고 브라우저에 열었다. 갤러리 3개, Word 그림 1개, Site 이미지 필드 1개의 브라우저 검사와 공통 UI·갤러리·Office 타입 검사, Office 빌드가 통과했다. Site 전체 타입 검사의 기존 오류 3건은 유지된다. 다음은 Word 명령 검색 UI다. 다중 업로드나 서버 자산 관리를 구현한 것은 아니다.
+
+2026-09-14 검색형 선택·태그: office-ui에 `SearchSelect`와 `SelectionTag`를 추가했다. 단일 선택은 확정 후 닫고, 다중 선택은 선택 개수·개별 제거·전체 해제를 제공한다. 검색·방향키·Enter·조합 입력·중첩 Dialog 포커스·읽기 전용을 연결했다. Note 관계 선택의 저장 큐·실패 복구는 유지했다. Office 편집기 메뉴의 원본 자료 선택과 Site choices에도 적용했다. Site 다중 선택 필드 옵션 보존, label 내부 태그 제거가 다른 컨트롤을 활성화하는 문제를 수정했다. 갤러리 `#search-select`에 긴 이름·결과 없음·저장 거부·좁은 화면 예시를 추가했다. 브라우저 6개(갤러리 3, Office 참조 연결 1, Note 관계·계산·저장 1, Site 태그 1), Note UI 단위 검사 10개, 공통 UI·갤러리·Office 타입 검사와 Office 빌드가 통과했다. Site 전체 타입 검사는 기존 undefined 인수 2건·markdown-it 선언 누락 1건이 남아 있다. 다음은 파일·미디어 선택 UI다. 원격 검색과 가상 목록은 이번 범위 밖이다.
+
+2026-09-14 공통 모션: 선택 목록·Menu·FloatingSurface는 140ms 열기 모션, 색상 팝오버는 위치를 유지하는 페이드, Tooltip은 100ms 페이드를 적용했다. Dialog는 180ms 페이드, Drawer·SidePeek는 200ms의 짧은 측면 이동으로 구분했다. 툴팁 간 이동과 메뉴 닫기는 즉시 처리한다. 시스템 동작 줄이기를 지원한다. 갤러리 `#motion`에 실제 컴포넌트와 시간 기준을 추가했다. 모션 중 키보드 입력·팝오버 재배치·포커스 복귀·화면 경계·네 제품 공통 UI를 포함한 브라우저 검사 18개와 갤러리 타입 검사가 통과했다. 기존 Dialog 종료·포커스 수명 주기는 유지한다. 다음은 검색형 선택 목록·태그의 제품 적용이며, 그다음 파일·미디어 선택과 작업 상태 UI를 진행한다.
+
+2026-09-14 작은 객체·고정 크기 표시: office-ui의 `selectionResizeHandles`로 화면상 16px 입력 영역이 겹치는 Word·Slides 핸들을 줄였다. 오른쪽 아래 모서리를 우선 유지하며, 드래그 중인 핸들은 유지한다. 객체 크기와 제품의 조작 명령은 바꾸지 않는다. Site 고정 크기 표시를 `SelectionReadout` 포털로 옮겼다. 확대·축소와 캔버스 이동을 추적하고 객체가 캔버스 밖에 있으면 숨긴다. 갤러리에 12px 객체 예시를 추가하고 브라우저에 열었다. 단위 검사 5개, 브라우저 검사 14개가 통과했다. Site 화면 밖 이동·복귀 검사도 통과했다. 공통 UI·갤러리·Slides 타입 검사(기존 미사용 항목 제외)와 Office 빌드가 통과했다. 다음은 검색형 선택 목록과 태그의 실제 제품 적용이다. 모든 객체 종류와 회전·연결점의 충돌 검증이 완료된 것은 아니다.
+
+2026-09-14 표 경계·가이드·크기 표시: office-ui에 포커스와 키보드를 소유하지 않는 SelectionReadout을 추가했다. Note 표 드래그, Slides 이동·크기·회전, Site 실시간 크기 표시에 연결했다. body 포털에서 뷰포트 좌표로 배치하고 화면 가장자리 8px 안으로 제한한다. Word의 DOM 표 경계 도구는 React 의존성을 추가하지 않고 같은 표시 토큰과 별도 뷰포트 배치를 사용한다. 정렬 가이드는 공통 분홍색 토큰, 표 경계는 선택 강조색으로 구분했다. Note 표의 8px 입력 영역과 2px 경계선을 토큰으로 정의했다. Site 고정 크기 표시의 색·글자 크기도 맞췄다. 갤러리 `#selection-tools`에 경계 표시와 가이드 비교를 추가했다. 갤러리·네 제품 3개, Word 표 5개, Note 표 1개, Slides 1개, Site 1개로 브라우저 검사 11개가 통과했다. 공통 UI·갤러리 타입 검사와 Office 빌드가 통과했다. Site 전체 타입 검사는 기존 undefined 인수 2건과 markdown-it 선언 누락 1건이 남아 있다. 다음은 작은 객체의 핸들 겹침과 Site 고정 크기 표시의 경계 처리다. 모든 오버레이의 잘림 해결이나 표 입력 로직 전체 공통화를 의미하지 않는다.
+
+2026-09-14 선택 도구 기본 표시 적용: office-ui에 선택선·핸들·포인터 영역·회전 간격 토큰과 공통 표시 클래스를 추가했다. Word 이미지·Slides 도형·Site 선택 블록의 프레임에 적용했다. Word·Slides 핸들은 8px 표시와 16px 포인터 영역을 분리했다. Site 모서리도 같은 표시를 사용하며, 바깥 크기 조절과 안쪽 여백 조절의 입력 영역을 유지한다. 확대된 부모 안에서는 표시 레이어를 역배율로 그려 소수 선 두께의 반올림을 피한다. Slides의 회전 핸들을 연결 시작점과 분리했다. 갤러리 `#selection-tools`에 상태·50/100/200% 배율 예시를 추가하고 실제 브라우저에 열었다. 갤러리·네 제품 비교 2개, Word 이미지 4개, Slides 크기 조절·회전 1개, Site 모서리 1개로 브라우저 검사 8개가 범위별 통과했다. office-ui·갤러리 타입 검사, Slides 타입 검사(기존 미사용 항목 제외)와 Office 빌드가 통과했다. 다음은 표 전용 핸들·정렬 가이드·크기 표시와 화면 경계의 잘림 검증이다. 전체 선택 도구의 동작 공통화가 완료된 것은 아니다.
+
+2026-09-14 선택 도구 UI 점검 보완: 선택 프레임·크기 조절·회전 핸들·가이드가 제품별 구현에 분산되어 있고 공통 시각 규격이 빠져 있음을 확인했다. [UI 추가 범위](specs/office-ui-gap-audit.md)의 우선순위 0에 추가했다. 다음은 office-ui의 표시 규칙과 office-editor-ui의 상태 연결을 정의하고, Word·Slides·Site의 기존 좌표·조작 로직을 유지하며 실제 화면을 비교하는 단계다. 검색형 선택 목록보다 먼저 진행한다. 이번 기록은 규격 방향 정리이며 공통 선택 도구 구현 완료를 뜻하지 않는다.
+
+2026-09-14 공통 UI 추가 범위 점검: 기본 컴포넌트의 존재와 제품별 사용처를 대조했다. [UI 추가 범위와 우선순위](specs/office-ui-gap-audit.md)에 신규 후보·기존 UI 적용 누락·팀 서비스 이후 범위를 구분했다. 다음 구현은 검색형 선택 목록과 태그를 Note 관계 선택·통합 원본 자료 선택·Site 다중 선택에 연결하는 묶음이다. 이후 파일·미디어 선택, 명령 검색, 장시간 작업 상태를 진행한다. 날짜·공유 UI는 요구와 서비스 계약을 확인한 뒤 확장한다. 이번 항목은 코드·기존 비교 이미지 점검과 계획 정리이며 기능 구현 완료 기록이 아니다.
+
+2026-09-14 네 제품 메뉴·보기 도구: office-ui의 ProductMenu로 단독 앱과 통합 호스트의 제품 이름·화살표·메뉴 동작을 통일했다. Note·Word·Slides·Site의 단독 화면에도 기존 문서 작업을 연결했다. 통합 호스트는 자료함·연결한 자료를 유지한다. Site의 작성 모드·와이어프레임·미리보기·배율을 공통 헤더의 보기 영역으로 옮겼다. 미리보기 버튼도 공통 Button을 사용한다. 관리 화면에서는 보기 도구를 숨긴다. 갤러리 작업 공간에 네 제품 메뉴 비교 예시를 추가했다. 공통 패널·네 제품 화면 비교 5개, 메뉴·Site 보기 도구 2개, 단독 제품 메뉴 4개로 브라우저 검사 11개가 통과했다. office-ui·갤러리 타입 검사와 Office 빌드가 통과했다. 390px·560px·1440px에서 Site 헤더 배치와 배율 입력을 확인했다. 다음은 실제 제품의 속성 패널에 남은 자체 입력·선택 컨트롤과 팝업 간격을 공통 기준에 맞추는 작업이다.
+
+2026-09-14 Word 제품 메뉴·패널: 단독 Word 헤더의 정적 로고를 공통 MenuBar로 교체하고 문서 보관함·문서 작업을 연결했다. 보관함은 기존 자동 저장 완료 후 열린다. EditorHeader의 fallbackNavigation은 단독 호스트가 사용하며, 통합 Office의 ProductNavigation을 대체하지 않는다. Word 개요·댓글을 AdaptiveWorkspace·WorkspaceSidePanel에 연결했다. 960px 미만에서는 개요·댓글을 하나씩 문서 위에 열고, 넓은 화면에서는 기존 열림 상태를 복원한다. 공통 패널에 호스트 제어 상태와 표시 이름을 추가해 메뉴·리본·패널 버튼이 같은 열림 상태를 사용한다. 댓글 초안과 본문 선택은 패널 닫기·교체·화면 크기 변경 후에도 유지된다. 즉시 반영되는 TextField의 Escape는 상위 패널로 전달하며, 확정형 입력 취소와 조합 입력 처리는 유지한다. 공통 패널·필드·모달·Word 초안·네 제품 비교 15개, 단독 로고 메뉴 1개, Word 작은 화면·배율 1개 검사가 범위별 통과했다. Word 타입 검사(기존 미사용 항목 제외)와 Office 빌드 통과. 실제 Word 브라우저에 로고 메뉴를 열어 확인했다. 다음은 네 제품의 단독/통합 호스트 메뉴 연결과 실제 화면의 남은 패널·팝업 차이를 점검하는 작업이다. 댓글 초안의 새로고침 복구와 서버 협업은 이번 범위가 아니다.
+
+2026-09-14 Word 배율·작은 화면: 공통 EditorHeader의 보기 영역에 ZoomControl을 상시 배치했다. 상세 리본에서는 중복 배율 도구를 표시하지 않는다. 문서 작업 버튼의 줄바꿈을 제거했다. ZoomFrame은 문서의 고유 크기를 측정하고 좌측 상단을 기준으로 그려, 축소 시 종이가 오른쪽으로 밀리던 문제를 수정했다. 100%에서도 프레임이 실제 문서 크기를 사용한다. 눈금자는 전달받은 문서 영역을 기준으로 측정하며 영역 크기 변경과 가로 스크롤을 따른다. 390px·560px·1440px에서 용지 양쪽 경계, 가로 스크롤 끝, 줄바꿈과 모델 선택 보존을 확인했다. 새 작은 화면·네 제품 비교 2개, 기존 배율 6개·수식/객체 5개·인쇄 6개 브라우저 검사가 범위별 통과했다. Word 타입 검사는 기존 미사용 항목 검사를 제외한 범위에서 통과했고 Office 빌드가 통과했다. 실제 브라우저의 Word에서도 너비 맞춤을 확인했다. 다음은 Word 개요·댓글 패널의 작은 화면 전환과 초안·선택 보존이다. 화면 크기에 따른 배율 자동 변경과 Word 패널 공통화는 이번 범위에 포함하지 않았다.
+
+2026-09-14 Note 작업 공간: 보관함을 문서 위에 쌓던 작은 화면 배치를 공통 AdaptiveWorkspace·WorkspaceSidePanel로 교체했다. panelSides로 탐색 버튼만 표시하고, locationKey가 바뀌면 패널을 닫는다. 960px 미만에서는 보관함을 문서 위에 열고 문서 폭은 유지한다. 검색어는 패널 전환·너비 변경·검색 목록 내 페이지 이동에서 유지한다. 참조 링크 등 외부 이동은 기존 검색 초기화를 유지한다. 페이지를 바꾸면 숨길 패널에서 문서 영역으로 포커스를 옮긴다. 닫히는 공통 툴팁이 Escape를 소비하지 않도록 종료 애니메이션을 제거했다. 열기 애니메이션과 모달·Drawer 모션은 유지한다. 패널 4개·모달 5개·문맥 도구 3개 브라우저 검사가 범위별 통과했다. 기존 탐색·네 제품 비교 5개도 통과했다. office-ui 타입 검사와 Office 빌드 통과. Note 앱 전체 타입 검사는 기존 markdown-it 선언 누락 1건이 남아 있다. 390px에서 문서 입력·이동·본문 보존·검색 복원, 1440px에서 패널 복원을 확인했다. 기존 브라우저의 Note에도 적용했다. 다음은 Word의 작은 화면 문서 배율·스크롤·도구 배치 점검이다.
+
+2026-09-14 작은 화면 도구 밀도: 공통 EditorHeader에서 메뉴와 문서 작업을 묶었다. 700px 이하에서는 문서 정보·명령·보기 도구를 정해진 줄에 배치하며 컨트롤 내부 줄바꿈을 막는다. 넘치는 메뉴와 작업은 가로 이동으로 접근한다. Slides의 눈금 간격은 공통 scaledAxisStep으로 확대율에 맞춰 1·2·5 계열로 조정한다. 단위와 원점은 유지한다. 접힌 타임라인은 재생 도구를 유지하고 시간축 확대·클릭 순서·성능 안내를 접는다. 펼치면 해당 도구를 다시 사용할 수 있다. 단위 검사 13개와 관련 브라우저 검사 5개가 범위별 통과했다. office-ui 타입 검사와 Office 빌드 통과. 390px·560px에서 헤더 124px 이하, 발표 버튼 전체 표시, 25% 눈금 간격, 타임라인 확대 실행을 확인했다. 1440px에서는 한 줄 헤더를 유지한다. 기존 Slides 문서에도 적용해 확인했다. 다음은 Note의 작은 화면 탐색 패널과 문서 영역 배치다.
+
+2026-09-14 Slides 작업 공간: 공통 AdaptiveWorkspace·WorkspaceSidePanel을 적용했다. 960px 미만에서 탐색·속성을 하나씩 열며 캔버스 폭을 유지한다. 슬라이드·레이어와 컴포넌트 목록을 탐색 영역에 묶었다. 패널을 전환하거나 넓은 화면으로 돌아가도 객체 선택, 너비 값, 레이어 탭을 유지한다. 발표 중에는 패널 래퍼도 숨겨 빈 여백을 없앴다. 캔버스의 캡처 단계 Escape가 열린 패널의 키를 가로채지 않도록 수정했다. 공통·Site·Slides 작업 공간 검사 3개와 기존 도구 모음·네 제품 비교 3개가 통과했다. Slides 타입 검사(기존 미사용 항목 제외)와 Office 빌드 통과. 390px·560px·1440px 화면을 확인했다. 다음은 작은 화면에서 여러 줄로 늘어나는 앱 헤더, 확대율에 따라 겹치는 눈금자 숫자, 타임라인 도구 밀도를 정리하는 단계다. Note 패널 적용도 후속 범위다.
+
+2026-09-14 전체 화면 비교·Site 작업 공간: 네 제품의 1440px 밝은·어두운 화면과 1024px 도구 배치를 다시 확인했다. Site의 560px 화면에서 좌우 패널이 캔버스를 밀어내는 문제를 공통 AdaptiveWorkspace·WorkspaceSidePanel로 수정했다. 960px 미만에서는 패널을 기본 접고 탐색·속성 중 하나만 덧씌워 연다. 캔버스 클릭 또는 입력칸 밖 Escape로 닫고, 넓은 화면에서는 두 패널을 다시 나란히 표시한다. 패널은 제거하지 않아 입력값과 탐색 탭을 유지한다. 좁은 화면에서는 패널 폭 조절 손잡이를 숨긴다. 갤러리 `/design-system/index.html#workspace`에서 확인한다. 새 브라우저 2개, 기존 네 제품 비교 1개와 도구 찾기 2개가 통과했다. office-ui·갤러리 타입 검사 및 Office 빌드 통과. Site 앱 전체 타입 검사는 작업 범위 밖 undefined 인수 2건과 markdown-it 선언 누락 1건으로 통과하지 못했다. 다음은 Slides의 좁은 작업 공간에도 같은 패널 규칙을 연결하는 단계다. 모든 제품의 모바일 작성 완료를 뜻하지 않는다.
+
+2026-09-14 좁은 도구 모음: 공통 Toolbar의 overflow 옵션과 RibbonToolbar compact에 고정된 도구 찾기 버튼을 연결했다. 실제 도구 폭이 가용 너비를 넘을 때만 표시한다. 메뉴는 기존 그룹·컨트롤로 스크롤하고 포커스를 이동하며 명령이나 입력을 복제하지 않는다. 키보드 포커스가 이동하면 해당 도구를 화면 안으로 가져온다. Word·Slides·Site에 적용했다. FloatingSurface는 배치가 완료된 뒤 메뉴 포커스를 설정하도록 수정했다. 갤러리 `/design-system/index.html#overflow`에서 확인한다. 새 브라우저 2개, 네 제품 비교 1개, 기존 모달·문맥 도구 8개가 범위별 통과했다. Word의 선택 글자에 굵게 적용, Slides 740px·Site 560px 도구 이동, 390px 갤러리와 두 테마를 확인했다. office-ui·갤러리 타입 검사와 Office 빌드 통과. 메뉴에서 명령을 직접 실행하는 복제 메뉴가 아니라 원래 도구의 위치로 이동하는 방식이다. 전체 제품의 모바일 편집 레이아웃 완료는 아니다. 다음은 네 제품 전체 화면을 같은 크기·테마로 비교하고 남은 간격·구분선·표면 차이를 정리하는 단계다.
+
+2026-09-14 데이터 표 UI: office-ui에 DataTable·DataTableRow·DataTableCell 표시 컴포넌트를 추가하고 Note 데이터베이스 테이블에 적용했다. 행 선택 배경, 사방 셀 포커스, 입력 표면, 숫자 정렬, 계산·오류 상태와 구분선을 통일했다. 행 선택에 공통 체크박스를 사용하고 전체 선택의 혼합 상태를 표시한다. 계산 셀 방향키 이동과 값 변경 없이 Enter로 편집을 끝내는 경로를 수정했다. 일괄 도구의 선택 상자 폭도 제한했다. 갤러리 `/design-system/index.html#data-table`에서 확인한다. 새 브라우저 2개, 네 제품 비교 1개, 기존 Note 일괄·고급 일괄·범위 붙여넣기 3개가 통과했다. office-ui·갤러리 타입 검사와 Office 빌드 통과. Note 타입 검사는 기존 미사용 항목 검사를 제외했다. 공통 계층은 표시만 담당하며 데이터·실행 취소·저장은 제품이 담당한다. 범위 드래그 선택·가상 스크롤·전체 키보드 grid 패턴은 이번 범위가 아니다. 다음은 좁은 화면에서 도구 모음의 넘침과 메뉴 접근이다.
+
+2026-09-14 복합 속성 패널: 공통 PropertyGroup의 제목 줄바꿈, 접기와 독립된 초기화 버튼, 고유 본문 ID를 추가했다. PropertyRow의 중첩 label을 제거하고 PropertyToggle·PropertySheet에 혼합 체크 상태를 연결했다. Slides의 서로 다른 회전·불투명도·표시·잠금 값을 기본값으로 잘못 표시하던 경로를 수정했다. 선택 그룹의 초기화는 회전과 불투명도만 변경하며, 잠긴 객체가 있으면 비활성화한다. 실행 취소 한 번으로 복원한다. 갤러리 `/design-system/index.html#properties`에서 확인한다. 새 브라우저 2개, 네 제품 비교 1개, 입력·모달 회귀 9개 통과. office-ui·갤러리 타입 검사와 Office 빌드 통과. Slides 타입 검사는 기존 미사용 항목 검사를 제외했다. 전체 제품의 모든 속성에 초기화를 적용한 것은 아니다. 다음은 데이터 그리드의 셀 상태·선택·편집 UI다.
+
+2026-09-14 툴팁·문맥 도구: 공통 Tip에 280px 최대 너비, 화면 여백 8px, 긴 설명 줄바꿈과 단축키 구분을 적용했다. FloatingSurface 안에서는 Escape가 열린 툴팁을 먼저 닫는다. ContextToolbar는 DOM 선택 범위를 기준으로 닫힘 상태를 유지해, 같은 선택에서 스크롤·resize·selectionchange가 발생해도 다시 열리지 않는다. 중첩 수식 입력 소유자와 일반 입력칸의 선택을 제외하고, 드래그·조합 입력 중에는 도구를 숨긴다. 실제 Note의 드래그 완료·서식 적용을 확인했다. 갤러리 `/design-system/index.html#context`에서 확인한다. 단위 7개, 새 브라우저 3개와 기존 모달·네 제품 비교 6개가 범위별 통과했다. office-ui·갤러리 타입 검사와 Office 빌드 통과. office-editor-ui 타입 검사는 기존 미사용 항목 검사를 제외했다. OS 한글 후보 창과 터치 선택 핸들은 이번 검증 범위가 아니다. 다음은 복합 속성 패널의 그룹 구조·혼합 값·초기화 동작이다.
+
+2026-09-14 트리·레이어: office-ui의 LayerActions와 공통 행 스타일을 Slides·Site에 적용했다. 행 높이 34px, 긴 이름 말줄임, 사방 선택 테두리와 행 도구 표시를 통일했다. 숨김·잠금은 현재 선택을 바꾸지 않는다. Site의 중첩 버튼을 선택·펼치기·행 도구로 분리했다. Slides 키보드 행 선택을 추가하고, 이동 명령을 React 상태 갱신 함수 밖으로 옮겨 드래그당 한 번만 실행한다. Site의 Escape·pointercancel과 목록 밖 드롭 취소를 추가했다. 갤러리 `/design-system/index.html#layers`에서 확인한다. 새 검사 3개, 기존 탐색·네 제품 비교 5개, Site 레이어 14개가 범위별 통과했다. office-ui·갤러리 타입 검사와 Office 빌드 통과. Slides·Site 타입 검사는 기존 미사용 항목 검사를 제외한 범위에서 통과했다. 다음은 공통 툴팁·문맥 도구의 표시 조건과 화면 경계 배치다. 전체 방향키 탐색, 터치 드래그, Slides 그룹 사이 재배치는 이번 마감 범위가 아니다.
+
+2026-09-14 탭·목록·빈 상태: PropertyTabs와 RibbonTabs의 키보드 경로를 통합했다. 방향키·Home·End 이동, 비활성 건너뛰기, 하나의 Tab 진입점, 넘치는 선택 탭의 가로 스크롤을 제공한다. Slides·Site 속성 탭과 본문 패널의 연결도 추가했다. 공통 NavigationItem을 Note 페이지 목록에 적용하고, EmptyState를 Note 검색·보관함, Site 블록 검색, Slides 빈 레이어에 적용했다. Note·Site의 검색 지우기는 목록을 복원하며 현재 문서를 바꾸지 않는다. 갤러리 `/design-system/index.html#navigation`에서 확인한다. 새 브라우저 4개와 기존 네 제품 비교 1개, office-ui·갤러리 타입 검사 및 Office 빌드 통과. 다음은 트리·레이어 목록의 행 도구, 드래그·잠금·숨김 상태와 좁은 패널에서의 동작이다.
+
+2026-09-14 로딩·저장·복구 UI: office-ui에 StatusIndicator와 StatusNotice를 추가했다. office-editor-ui는 문서 저장 결과를 공통 표시 상태로 연결한다. 네 제품의 저장 표시를 맞추고 Word의 복원 재시도, Word·Slides·Site의 복구 초안 바로 열기를 추가했다. 처리 중 재시도 버튼을 비활성화한다. 갤러리 `/design-system/index.html#feedback`에서 반복 실패·성공·충돌 복구를 조작할 수 있다. 실제 Word 저장 실패→재시도→재열기와 Slides 두 창 충돌→별도 자료 복구→최신 원본 보존을 검증했다. 새 상태 검사 4개, 네 제품 비교 1개와 기존 모달 5개가 범위별로 통과했다. office-ui·갤러리 타입 검사 및 Office 빌드 통과. office-editor-ui·Word 기본 타입 검사는 범위 밖 미사용 변수 오류로 실패했으며, office-editor-ui는 미사용 항목 검사만 제외하면 통과한다. 다음은 탭·목록·빈 상태의 공통 표시와 실제 탐색 패널 적용이다. 서버 동기화·오프라인 재연결은 이번 UI 범위가 아니다.
+
+2026-09-14 다이얼로그·Drawer 점검: 공통 제목·본문·하단 버튼의 간격을 맞추고, 긴 본문만 스크롤하도록 수정했다. 작은 화면의 Drawer는 화면 너비를 채운다. 중첩 색상·선택 팝업에서 Escape를 누르면 해당 팝업만 닫히며, 부모 창을 닫으면 처음 실행한 버튼으로 포커스가 돌아간다. 변형된 다이얼로그 좌표가 색상 팝업 위치에 영향을 주던 구조도 제거했다. `/design-system/index.html#modals`에서 확인한다. 새 브라우저 검사 5개와 관련 회귀 6개가 최종 통과했다. 기존 버튼·갤러리 8개도 통과했다. 실제 Slides 테마 색 변경 후 취소, 두 테마, 작은 화면을 검증했다. office-ui·갤러리 타입 검사와 Office 빌드 통과. 조합 검사는 합성 이벤트 범위다. 다음은 로딩·저장 실패·복구 상태다.
+
+제품 목표: **Wonffice(wonffice.com) 하나로 회사 업무를 수행하도록 제품군을 확장한다.** 한 제품의 모든 고급 기능을 마칠 때까지 다음 제품을 기다리지 않는다. 기본 작성·수정·저장·출력 흐름을 검증한 뒤 주력을 옮긴다. 공통 문서 정체성·명령·UI·저장 계약을 유지하며, 제품군 확장 후 통합 업무 흐름을 연결한다. 이는 출시 완료 선언이 아니다.
+
+2026-09-14 색상·메뉴 개별 점검: ColorPicker의 RGBA 렌더러에 HEX를 전달하던 문제와 색상표 선택 후 HEX 표시가 남던 문제를 수정했다. 테마·변수 참조와 표시 색을 분리하고, 불투명도에 공통 NumberField를 적용했다. ColorField의 제목·닫기·투명 배경·화면 경계·내부 스크롤을 정리했다. 실제 Slides에서 label의 클릭 재전달로 팝업이 다시 열리던 문제도 수정했다. Menu의 실제 포커스 이동, Home/End, 비활성 건너뛰기, 긴 항목 줄바꿈과 스크롤을 추가했다. `/design-system/index.html#colors`에서 확인한다. 브라우저 18개 범위, 갤러리·office-ui 타입 검사와 Office 빌드 검증. 다음은 다이얼로그·Drawer 구조와 중첩 팝업의 닫기 동작이며, 그다음은 로딩·저장 실패·복구 상태다.
+
+2026-09-14 입력·선택 개별 점검: TextField의 확정값 표시, NumberField의 표시 정밀도 보존·직접 입력 범위 제한·빈 값 복원·드래그 취소를 정리했다. ChoiceSelect는 긴 이름 줄바꿈, 제한된 목록 높이, 오류 설명 연결을 제공한다. `/design-system/index.html#fields`에 조작 가능한 예시를 추가했다. 브라우저 13개, 숫자 입력 단위 12개, 갤러리·office-ui 타입 검사, 통합 Office 빌드 통과. 390px 화면과 두 테마를 검증했다. 조합 검사는 이벤트 경계 검증이며 실제 OS 입력기 검증은 남아 있다. 작업 중 잘못 덮어쓴 공통 CSS는 변경 기록에서 복원하고 이전 정상 패키지 빌드와 기준 CSS의 일치를 확인했다. 다음은 색상 선택기와 메뉴·팝오버이다.
+
+2026-09-14 버튼 개별 점검: Button·IconButton·ToolbarToggle·다이얼로그 닫기의 상태 규칙을 통합했다. 이전 단계에서 CONTROL에 포함된 입력칸 표식이 버튼에 적용되던 문제를 FIELD_CONTROL 분리로 수정했다. 강조색 글자 대비, 선택·혼합·hover·active·focus·비활성, 아이콘 정렬과 작은 24px 영역을 정리했다. DialogButton이 기본 type/form/name/value 및 이벤트를 전달하도록 수정했다. `/design-system/index.html#buttons`에 표면별 버튼 비교를 추가했다. 브라우저 9개, 갤러리·office-ui 타입 검사, Office 앱 빌드 통과. 다음 개별 점검은 선택 상자와 숫자·텍스트 입력칸이다.
+
+2026-09-14 공통 컨트롤 적용: 속성 패널의 포괄적인 input 배경 규칙이 체크박스 선택 배경을 덮던 문제를 수정했다. PropertyToggle은 16px 표시/24px 입력 영역과 office-icons 체크를 사용한다. 선택·hover·focus·비활성 상태를 갤러리에 추가했다. 공통 속성 입력칸의 표면·포커스·오류 규칙, ChoiceSelect/Menu의 체크 열·항목 간격을 맞췄다. 갤러리 5개와 실제 네 제품 비교 1개 브라우저 검사 통과. Slides 객체 잠금 전환을 실제 속성 패널에서 검증했다. 갤러리·office-ui 타입 검사와 통합 Office 빌드 통과. 다음은 선택 도구가 많은 좁은 화면의 스크롤·메뉴 접근, 복잡한 색상 속성과 저장 실패·복구 상태 검토이다.
+
+2026-09-14 디자인 시스템 기준안 01: 기존 UI 갤러리를 확장해 `/design-system/index.html`에 통합했다. CSS 토큰 실측표, 컴포넌트 상태, Word·Slides 작업 예시, 밝은·어두운 테마를 제공한다. 헤더·도구 모음·속성 입력 높이와 간격을 공통 토큰으로 정의하고 TextField의 오류 표시·설명 연결을 추가했다. [패키지 디자인 기준](../packages/office-ui/DESIGN_SYSTEM.md). 갤러리 3개와 실제 4개 제품 비교 1개 브라우저 검사, 갤러리 타입 검사, Office 앱 빌드 통과. 다음은 로딩·저장 실패·복구 상태와 복잡한 속성 편집의 실제 제품 검토이다. 디자인 시스템 전체 완료를 의미하지 않는다.
+
+2026-09-14 기본 도구 간소화: Word·Slides·Site를 44px 한 줄 도구로 전환했다. Word는 상세 도구를 열 때만 기존 탭 리본을 표시한다. Slides의 슬라이드·상황별 명령, Site의 배치 명령은 메뉴로 묶었다. Note의 문맥 도구는 유지한다. 범위별 브라우저 검증 15개, office-ui 타입 검사와 통합 Office 앱 빌드 통과. 전체 패키지 빌드는 별도 math-editor-prosemirror 선언 파일 의존 문제로 통과하지 못했다. [최신 UI 규격](specs/office-command-chrome.md).
+
+2026-09-13 리본 공통화: Word·Slides·Site를 `office-ui`의 RibbonToolbar/RibbonGroup으로 통일했다. 그룹 본문 64px, 이름표 24px, 좌우 간격 8px과 구분선·줄바꿈 규칙을 공유한다. Word 탭과 Note 문맥 도구는 유지한다. 브라우저 검증 12개, office-ui 타입 검사, 통합 빌드 통과. 저장소 전체 타입 검사는 범위 밖 오류가 남아 있다. [공통 UI 규격](specs/office-command-chrome.md).
+
+2026-09-13 공통 제품 UI 구조: Wonffice 탐색·제품 제목·문서 메뉴를 52px 공통 헤더 한 줄로 통합했다. 왼쪽 메뉴는 현재 앱 이름(Note/Word/Slides/Site)만 표시하고 자료함과 연결한 자료를 포함한다. Wonffice 이름과 앱 이름의 중복 표시는 제거했다. 별도 탐색 React root와 40px 높이 차감을 제거했다. 제품별 리본·상황별 도구는 헤더 아래에 유지한다. 통합 문서 흐름 11개, 화면·키보드·820px 도구 경계 1개, 호스트 등록 단위 1개와 타입 검사·빌드가 통과했다. [공통 UI 규격과 검증](specs/office-command-chrome.md), [실제 구조 변경 전후 비교](../.dev/artifacts/office-ui/index.html). 고급 속성 행·다이얼로그 정리와 기존 단위 감사 7개는 후속 목록에 유지한다.
+
+2026-09-13 화면 밀도 후속 정리: Note의 페이지 관리·내보내기·템플릿 설정을 필요할 때 여는 공통 창으로 옮겼다. Slides 도구는 작업명이 있는 두 줄 그룹으로 구성했다. 공통 속성 패널은 12px 글씨와 긴 항목명 줄바꿈을 적용했다. Note 관련 35개, Slides 3개, Site 2개, 통합 화면 1개 검증 및 통합 빌드가 통과했다. 기존 비교 탭을 직접 갱신하고 제품별 확대 보기를 추가했다.
+
+1–3단계 마감 증거: [통합 작업 기록](../.dev/plans/office-workspace/brief.md), [통합 구조](specs/office-workspace.md). 로컬 개발 주소는 `http://localhost:5186/`이다.
+
+현재 기준은 이 표와 [제품 단계 전환 기준](specs/product-phase-handoff.md)이다. 아래의 날짜별 기록에서 “next”, “remaining”으로 적힌 내용은 당시 상태이며 최신 작업 순서를 덮어쓰지 않는다.
+
+**남은 구현 범위와 종료 기준:** [Wonffice 실행 범위](specs/wonffice-delivery-scope.md). Slides·Site 기본 제품 마감 → 공통 통합 → 팀 서비스 → 첫 출시 검증을 실행 순서로 둔다. 고급 기능·기술 과제·새 제품은 후속 목록에 유지한다. 과거 미완료 항목은 현재 코드와 대조한 뒤 작업으로 확정한다.
+
+| 순서 | 제품/단계 | 현재 판단 | 다음 완료 기준 |
+| --- | --- | --- | --- |
+| 1 | Note | 데스크톱 로컬 편집 1차 기능 범위 마감. 회귀·데이터 보호 수정은 지속 | 후속 확장 및 출시 조건은 별도 추적 |
+| 2 | 공통 모듈 점검 | 기존 UI·입력·저장 경계를 유지하며 Word 적용에서 재검증 | 중첩 입력 소유권, 선택 보존, 한 번의 undo, 문서 전환 전 저장 |
+| 3 | Word — 기본 편집 기준으로 단계 전환 | W6c-8까지 구현·범위별 검증. 회귀·데이터 보호 수정은 지속 | 고급 DOCX, 페이지·검토 확장, 출시 검증은 후속 목록 유지 |
+| 4 | Wonffice Slides | S3 작성·다중 선택, S4 디자인·발표 범위별 검증. S5 인쇄/PDF 연결 | [출력 명세](specs/slides-exchange.md)의 제한 유지. 회귀 수정 지속 |
+| 5 | Site | T1–T3 작성·CMS·자동 저장·복구·출력 범위 검증. 단위 646 통과 | 서버 게시·폼·도메인은 4–5단계 |
+| 6 | **공통 작업 공간 — 1–3단계 마감** | 네 제품 생성·검색·전환·참조·사본·백업/복원. 통합 흐름 11개 및 공통 저장 12개 통과 | 다음은 4단계 계정·팀·서버 저장·권한 계약 |
+| 공통 | 통합 서비스 | 별도 미완료 단계 | 전역 문서 ID, 계정·팀·권한, 서버 저장/동기화, 공유·협업 |
+
+### 계획이 정해진 범위와 아직 정해야 할 범위
+
+- **실행 순서와 기본 완료 기준:** Note → Word → Slides → Site. 작성·수정·저장/재열기·출력을 제품별로 검증한 뒤 다음 제품으로 이동한다. Note와 Word의 현재 마감은 로컬 편집 기준이며 출시 완료가 아니다.
+- **현재 세부 실행 계획:** Slides S3 작성·객체 편집 → S4 테마·발표 → S5 출력·교환. [Slides 실행 계획](../.dev/plans/slides-product-foundation/brief.md)에 단계별 완료 기준과 검증 결과를 기록한다.
+- **후속 설계:** Site 제품 마감 점검, 제품 간 공통 문서 계약, 통합 작업 공간. 기존 구현을 점검한 뒤 작업을 세분화한다.
+- **서비스 출시 설계 미완료:** 계정·팀·권한, 서버 저장·복구, 공유·협업, 운영·배포의 세부 요구사항과 출시 검증 기준을 확정해야 한다.
+- **최종 제품군 미확정:** “회사 모든 업무”는 제품 비전이다. 네 편집기 이후 어떤 업무와 제품을 지원할지는 아직 전체 명세로 정의하지 않았다. 현재 로드맵을 전체 Office 기능 호환이나 모든 회사 업무의 완료 약속으로 해석하지 않는다.
+
+Slides S3 자유 캔버스: 다른 장의 본문을 클릭하거나 커서를 옮기면 활성 장·레이어·속성·노트·삽입 대상을 동기화한다. 캔버스 보기는 2차원 자유 배치, 제목 드래그, 양방향 이동·확대를 제공한다. 배치 좌표는 발표 순서와 문서 내부 좌표에서 분리해 저장한다. 장 사이 최상위 객체 드래그 이동, 대상 위치 미리보기, 취소, undo/redo와 저장·재열기를 연결했다. 관련 단위 58개·Chromium 16개·빌드 통과. 다음은 장 사이 복사와 여러 장의 객체 동시 선택이다. [점검 및 완료 기준](../.dev/plans/slides-product-foundation/brief.md).
+
+Slides 탐색 패널: 슬라이드/레이어 탭을 하나의 240px 사이드바에 통합했다. 탭 전환 시 캔버스·선택·스크롤 유지, 레이어 탭에서 슬라이드 이동, 공통 객체 아이콘을 적용했다. Chromium 37개·단위 28개·빌드 통과. [실행 기록](../.dev/plans/slides-product-foundation/brief.md).
+
+Slides S3 UI 정리: 선택 항목의 왼쪽 강조선을 네 면 테두리로 교체했다. 눈금자를 편집 뷰포트 위쪽·왼쪽에 고정하고, 스크롤·확대 시 눈금 원점만 슬라이드 좌표를 따르도록 수정했다. 후속 Chromium 39개 통과. 공통 `PropertyPanel`의 comfortable 옵션으로 오른쪽 속성 패널을 개선했다. 관련 Chromium 42개와 확대율/화면 크기 조합 검사, 빌드 통과. 공통 UI의 기존 수식 스타일 감사 2건은 남아 있다. [실행 기록](../.dev/plans/slides-product-foundation/brief.md).
+
+Slides S2: 자동 저장·URL 복원, 최근 자료, 충돌 초안과 새 자료 복구, 실패 재시도, 전환 전 저장 확인을 연결했다. 단위 1,046개·공통 저장 23개·Chromium 51개·빌드 통과. 실제 앱에서 기존 라이브러리 자료에 노트를 입력하고 새로고침 복원을 확인했다. 다음은 S3 작성·객체 편집이다. [실행 기록](../.dev/plans/slides-product-foundation/brief.md).
+
+Slides S1 인수 점검: 단위 1,046개, 핵심 Chromium 42개와 빌드 통과. 라이브러리 읽기 실패 시 원본 유지·오류 표시·재시도를 수정했다. 실제 앱에서 보고 템플릿 제목 입력, 수동 저장, 발표 이동·종료를 확인했다. 다음은 S2 자동 저장·복구다. 전체 TypeScript 기존 오류와 출시 조건은 남아 있다. [Slides 진행 문서](../.dev/plans/slides-product-foundation/brief.md).
+
+Note 마감 점검: 단위332/332, 핵심 브라우저 초기19/20. 블록 변환 시나리오1건은 화면 재로드 중 클릭 시간 초과였으며 별도2회 모두 통과했다. Note 생산 빌드 성공. 전체 브라우저/실기기 인증을 의미하지 않는다. 첨부파일 수명 관리, 모바일/접근성/실제 OS IME, 문서 간·양방향 관계, 더 넓은 DB 수식·교환 충실도, 공유 타입 오류는 남아 있다.
+
+다음 실행 단위는 **Word W5g-4b: 행·열 치수와 그림 자르기**다. W5g-4a의 표·그림 기본 크기·배치 도구는 연결했다. 다음 페이지 구역 나누기와 목차 작성·설정도 연결했다. 연속 구역·구역 병합 등 확장 범위는 남아 있다. 1차 목표는 보고서·제안서를 작성→검토→저장/재열기→출력하는 전체 흐름이다. 기본 DOCX 변환은 고급 요소 보존이 미완료이므로 업무 교환 준비 완료와 구분한다. 세부 마감 기준: [도구 기능표](specs/word-toolbar-capabilities.md), 작업 기록: [Word 진행 문서](../.dev/plans/word-product-foundation/brief.md).
+
+2026-09-09 W5g-4a: 표·그림 전용 리본 탭, 표 너비·정렬·자동 맞춤, 그림 크기·비율 유지·본문 배치 연결. 그림 직접 선택과 공통 키보드 선택 전달/삭제 후 커서도 수정했다. Word595/595, 공통 삭제20/20, 뷰 키보드4/4, 새 작성 브라우저3/3 및 기존 상황별 도구·표 선택·작성16/16, Note 삭제6/6 통과. 생산 빌드 성공. 공유 타입 오류는 남아 있다.
+
+2026-09-09 목차 입력 회귀: 자동 생성 목차를 입력 영역에서 제외했다. 한글 조합 중 기존 목차 제목만 미리 갱신하고, 조합 완료 후 목록과 페이지 번호를 계산한다. 빈 제목에서 목차 안내 영역을 유지한다. 공통 실행 취소에서는 명시적 글자 삭제를 입력 및 다른 삭제와 분리했다. 목차 브라우저5/5, 기존 구역·목차·조합 종료7/7, Note 삭제6/6, Word 단위589/589 및 생산 빌드 통과. Chromium IME 프로토콜 시험이며 실제 OS 입력기 전체 인증은 아니다. 공유 TypeScript 오류는 별도 미완료다.
+
+2026-09-09 Word 구역·목차: 본문 커서에서 다음 페이지 구역을 만들고, 문서 전체/현재 구역 목차를 삽입·설정·제거한다. 제목·쪽 번호는 자동 갱신한다. 구역 undo에서 드러난 저장소 삭제 및 루트 화면 갱신 결함도 수정했다. Word589/589, 저장소830/830, 모델46/46, DOM 보기27/27, 작성 브라우저3/3, Note 작성·붙여넣기8/8 통과. 개요·목차 회귀는 현재 UI에 맞춘 테스트 갱신 후11개 통과·1개 건너뜀. 생산 빌드 성공.
+
+2026-09-09 Word 머리글·바닥글: 삽입 탭/메뉴에서 생성·직접 편집·구역 연결 제거, 첫 페이지/짝수 페이지 구분과 번호 형식/시작 번호/정렬을 제공한다. 기존 내용은 보존하고 번호 중복을 방지한다. 본문 복귀 버튼은 원래 커서 위치를 복원한다. Word 단위583/583 이후 추가 단위5/5, 작성 UI5/5, 기존 페이지/인쇄 포함 브라우저45/46 후 화면 밖 클릭을 수정한 재검사1/1이 통과했다. 생산 빌드 성공. 전체 제품·실기기·DOCX 교환 완료는 아니다.
+
+2026-09-09 Word 클립보드: 홈 리본과 편집 메뉴에 복사·잘라내기·붙여넣기를 연결했다. 복사 실패 시 삭제하지 않는다. 붙여넣기 실패 시 저장한 위치에 일반 텍스트를 넣는 대체 입력 창을 제공한다. 여러 문단 잘라내기는 공통 범위 삭제와 실행 취소를 사용한다. 클립보드 브라우저11/11, Word 단위574/574, Note 회귀8/8과 Word 빌드가 통과했다. 실제 OS 클립보드 권한 조합과 전체 변경 추적 교환은 별도 검증 대상이다.
+
+2026-09-09 Word 글자 서식 복사: 홈 리본과 서식 메뉴에서 원본을 저장하고 대상 드래그 또는 버튼 재실행으로 한 번 적용한다. Esc/취소/문서 재로드 시 모드를 해제한다. 제목에서 상속된 글꼴·크기·강조와 직접 서식을 복사하며, 대상 링크와 검토 기록은 보존한다. 서식 변경과 변경 추적 기록은 한 트랜잭션에 포함한다. Word 단위578/578, 작성 브라우저18/18과 빌드가 통과했다. 문단 정렬·간격, 반복 적용, 스타일 관리와 전체 DOCX 교환은 후속 범위다.
+
+## 이전 변경 기록
+
+
+2026-09-08 Note math rendering: aligned reading with in-place editing by using full-size top-level fractions while retaining inline document placement. Removed KaTeX's extra base-font scaling on this path. Verified actual fraction/ordinary glyph sizes, edit size, surrounding line placement and absence of the outer editing ring in one focused browser regression.
+
+2026-09-08 Note in-place math: formulas now edit in the document using the rich React editor. Embedded input/composition/selection and DOM mutations are isolated from Note through the shared DOM-view ownership boundary. Note context tools are hidden during math focus; fraction/root/power buttons are removed from host controls. Preview/input/script sizing uses one shared font-size variable. Enter/outside delivery, Escape cancellation, one-step document undo, large-editor handoff and persistence are connected. Focused Note browser14/14 across scoped runs, DOM input regression78/78, standalone math-demo2/2 and math-editor/Note builds passed. Shared TypeScript baseline diagnostics remain. OS IME input was not exercised; composition event boundaries were tested. See [integration contract](specs/note-math-editor.md).
+
+2026-09-08 Note math popup follow-up: replaced the native surface with the same React MathEditor used by the math demo. Rich tools/symbols/templates/suggestion design, keyboard selection wrapping, corrected transformed-dialog portal coordinates and stable dropdown direction are connected. Source/visual tabs preserve history; removed modal size control and use18px preview. Note browser7/7 across scoped runs, math-demo React2/2 and package/Note builds passed. See [integration contract](specs/note-math-editor.md).
+
+2026-09-08 Note math-editor integration: existing LaTeX opens in a popup through the package parser; changed source loads through `MathSession.importLatex`. Draft history survives visual/source switches and unsupported syntax stays intact. Blank formulas open visual editing directly; existing formulas support double-click/Enter plus contextual size/alignment controls. Inline and block editors share basic/expanded structure tools and a persistent Apply/Cancel footer. Note browser lifecycle/caret/layout checks6/6 across focused runs, Note math/exchange/input units36/36, shared preview units3/3 and package/Note builds passed. Shared TypeScript baseline diagnostics remain; no diagnostics in the changed math UI files. See [integration contract](specs/note-math-editor.md).
+
+
+
+2026-09-08 Word W5c: product chrome now separates title/file actions, menus and Home/Insert/Review/View tool groups. New documents start blank; `?sample` and `?lab` retain the development fixture, and browser fixture checks now request it explicitly. Existing saved documents retain their headers, footers and notes. Shared office-ui controls/dialogs remain the UI foundation. Production build and 16 focused browser checks passed (editing/save, math dialog, library, DOCX, metadata, contextual tools); full 410-test browser suite not rerun.
+2026-09-08 Word W5d: repaired the blank-document formatting path. Word now persists missing built-in styles/settings on load without overriding imported definitions; legacy unstyled headings recover their named style. Heading 1–6 and Body commands apply semantic type plus style to every selected paragraph. Enter after a heading uses its next style. Fixed temporary-alias attribute undo, new-paragraph ID stability on redo, and stale comment-pane document identity. Chromium functional audit57/57 passed (plus final heading-level checks3/3); Word unit suite571/571 passed, model48/48 and shared paragraph/heading10/10 passed; production build passed. Full browser suite and existing shared TypeScript diagnostics remain outside this completion claim. See W5d in the delivery brief.
+
+2026-09-08 shared command UI: Word/Slides/Site/Note now use one office-ui menu/toolbar geometry, palette and pressed-hover treatment. Removed Slides/Note root overrides, added an explicit inline Toolbar variant for Site, and moved Note page navigation/file actions into File/Edit/View menus. Note retains contextual formatting. Four-product light/dark/820px browser comparison2/2, Word command UI28/28, Slides menu/context11/11 and theme/control12/12, Site chrome2/2, Note navigation/editing21/21 and four production builds passed. office-ui unit115/117: the two remaining failures concern the independent math-editor style-door inventory/import audit. [Design ownership and verification](specs/office-command-chrome.md).
+
+2026-09-08 Word icon alignment: collapsed outline/comments controls now share top-aligned 30px IconButtons with 16px icons and shared tooltips. Word ribbon dividers wrap with their control group through the reusable `ToolbarGroup separated` API; font choices remain together. Four-tab 1280px/820px geometry and light/dark pane interaction checks2/2, existing menu/toolbar/context/heading checks32/32 and Word production build passed. This completes the scoped chrome alignment check, not the remaining Word product roadmap.
+
+2026-09-08 Word W5e ribbon: Home/Insert/Layout/Review/View now use shared named ribbon groups, labeled actions, style previews and keyboard tab navigation. Menus expose insertion/review, settings launch from the ribbon, table dimensions are configurable, and tracking/pane states remain visible. Word browser43/43 across the scoped runs, four-product chrome2/2, command/menu units46/46 and Word build passed. Existing whole-app TypeScript diagnostics remain; modified source files have no diagnostics in that check. Full Word capability and W6 release gates remain open.
+
+2026-09-08 Word W5f authoring coverage: connected clear formatting, Replace entry/focus, selected-text link edit/remove, local picture upload/alt text, footnote/endnote content forms and anchored comment creation. Menu/ribbon availability share explicit payload contracts; related shortcuts open forms. Find/replace now reads the current root after document replacement. Browser authoring6 plus regression30 passed across scoped runs; command/menu contract tests44 passed and Word build passed. Full toolbar coverage remains open; [capability inventory and remaining work](specs/word-toolbar-capabilities.md) includes clipboard, page furniture, TOC and contextual tabs, plus the observed rapid keyboard-selection synchronization gap.
+
+## Active product delivery
+
+2026-09-08 Word W5b: basic DOCX import opens a new document after saving the current one. Word now uses math-editor for popup structural editing while retaining inline equation rendering. Apply/cancel/undo and persistence are connected; unsupported conversions preserve the original. Word567/567 and math-editor91/91 unit tests pass; DOCX and math browser lifecycles4/4 passed. Advanced DOCX math/image/style fidelity and broader math structure support remain open. Details: [Word delivery brief](../.dev/plans/word-product-foundation/brief.md).
+
+2026-09-08 Word W5a: basic DOCX export is available with a pre-download fidelity report. Text, basic formatting, horizontal table merges and section page settings are covered; DOCX import and advanced fidelity remain open. Converter tests4/4, Chromium download1/1, full Word suite561/561 and build passed; macOS textutil reads the exported sample. W4 page/print audit47/47 passed. See the Word delivery brief for scope limits.
+
+2026-09-08 Word W3 audit:557 unit tests pass; corrected14 coordinate-driven Korean/Enter scenarios pass, plus15 existing writing/mark/table scenarios and a new end-to-end composition/paste/table/save/reload check. Page setup and print verification follows under W4. Automated IME events are not a real-device IME certification.
+
+Word W2: stable document IDs, automatic local saving, revision-checked writes and separate conflict drafts are implemented. Browser verification covers reload, two-tab conflict, restore-as-new and failed-save retry. Real-time collaboration and cloud sync remain outside this local persistence milestone.
+
+2026-09-07 Word phase started: [Word product foundation](../.dev/plans/word-product-foundation/brief.md). First delivery connects the existing local document library to visible save-copy and safe-open actions. Next gates cover stable identity/autosave/recovery, writing correctness, pagination/print and DOCX fidelity. Existing Word feature breadth is not a completion claim.
+
+2026-09-07 N34: Note now supports independent 2–4-column prose layouts, shared width and block-move controls, content-preserving reduction/flattening, undo and responsive stacking. Column layout exchange currently requires Note JSON. Shared implementation lives in office-text and office-editor-ui.
+
+2026-09-07 completion audit (N33): Note unit tests330/330, Note test type debt reduced to0, production build passed. Desktop editing/recovery and 500-paragraph persistence were audited in Chromium/WebKit. This is a local-editing baseline; attachment/mobile workflows, advanced relation/formula gaps and service infrastructure remain open. Detailed initial failures and targeted verification are recorded in the delivery brief.
+
+2026-09-07 interaction update: the first screen of the left block menu now exposes paragraph/heading alignment. Inline equations keep editable positions on both sides, including imported notes. Shared equation rendering paints a dragged selection as one atom instead of highlighting individual KaTeX layout spans. See N32 in the delivery brief for verification.
+
+The current product order is **Note → shared-module review → Word → Slides → Site**, followed by additional products within one
+office service. Note targets Notion-level writing, organization and data workflows. Package agents
+work against product acceptance criteria and integrate continuously into a running preview; a
+finished package alone is not a finished product. Historical rules that only kept Note small may
+be revised when the new product direction requires it.
+
+Current work and ownership: [Slides product foundation](../.dev/plans/slides-product-foundation/brief.md). Note의 마감 범위와 후속 항목은 [단계 전환 기준](specs/product-phase-handoff.md)을 따른다.
+
+Product architecture recommendation: [one workspace with specialized editors](specs/office-workspace.md).
+The suite should share account/team, document discovery, identity, access, sharing and recovery while
+Note, Site, Word and Slides retain their own editing models. Current apps share packages but still
+use separate product libraries; the integrated service is not implemented. Before combining their
+navigation, validate a global document identity and an open/flush/save/close adapter contract in Note
+and a second product. Product-local page IDs and workspace document IDs are different namespaces.
+
+**2026-09-07 active scope:** Note now includes contextual prose/table editing, page organization
+and typed database workflows with table, board, gallery and calendar layouts. Database items open as nonmodal shared `SidePeek`
+pages with no scrim: large title, click-to-edit properties and an actual Note block body. Contextual
+field settings, previous/next, duplicate/delete, width resizing and expand are integrated. The current
+browser scenario passes item/property/body editing and reload persistence. The linked work record
+holds verification details. Older counts and tiny-demo constraints below are historical measurements,
+not limits on the product's scope. Same-document relations, rollups, safe formulas and named views
+are now integrated into the table and item-page flows. Shared dataset calculation and saved-view
+normalization also feed Site HTML output. Page references (`[[`) and backlinks now connect workspace
+pages and reopen referenced database item bodies; stable page IDs survive file transfer and copying.
+The current batch adds saved gallery/card settings, calendar dates and rescheduling, nested AND/OR
+filters and ordered multi-property sorts. Browser editing, date drag, independent view settings and
+reload persistence are verified. Local revision checks prevent stale tabs from overwriting newer
+documents; conflicting work is retained as a recoverable draft. Shared paste supports single-paragraph
+replacement across prose containers and applies an explicit caret even before model selection is ready.
+Final Note browser integration passes 34/34 and Note unit tests pass 257/257. Site disclosure focus and
+Slides destination identity were also repaired; the active work record contains the evidence and limits.
+
+The next delivery adds whole-library backup/restore with preview, collision-safe copies, remapped
+internal references and atomic insertion. Hierarchy, favorites, trash, unreadable original bytes and
+recovery drafts travel together. Shared UI now supplies quieter controls, consistent icons and reduced-motion
+aware surface transitions. Site JSON/HTML/ZIP exports flush nested Note bodies and await host writes.
+Current Note integration passes 46 runner scenarios (39 browser + 7 pure archive checks), Note package
+258/258 and office-ui 117/117. Additional transaction/race checks are recorded in the active work record.
+
+The latest delivery completes current-body find and a live heading outline. An urgent input review
+also fixed Note's missing whitespace-preservation root style and stale typing carets after page-reference
+picker commands. `office-text` now supplies the text-flow setting for Note, Word's document renderer
+and Site page CSS. Standalone Note and embedded Site use the same literal-space browser contract.
+The execution brief records browser engines, regression evidence and remaining type debt.
+The selection toolbar now also offers inline code, superscript/subscript, text/background color palettes
+and clear formatting. Shared slash rows put secondary descriptions beneath their labels to prevent clipping.
+N24 also fixes bare-fence Enter conversion in visually formatted/split-run paragraphs.
+N24 adds a separate named-color popover with independent text/background reset, Markdown typing
+shortcuts, @ page mentions, and paragraph/heading 1–6 conversion. Superscript, subscript and
+format clearing live in the additional-formatting menu. Note unit suite: 292 passing; input/color
+browser regression: 10 passing; heading/mention and existing page-reference coverage: 9 passing.
+
+Next Note delivery priorities, in order:
+
+1. Multi-block selection and operations — native range selection now exposes ordered batch
+   move/duplicate/delete with atomic undo. Shift-click grip ranges and ordered group dragging are
+   now implemented, with rich HTML/text block copy. Database clipboard transfer and noncontiguous
+   block selection remain outside this delivery.
+2. Markdown, HTML and CSV exchange — basic file import/export now available with explicit
+   refusal of unsupported exports. Document CSV targets a single unmerged table; broader
+   block/format fidelity remains. Database CSV now appends validated rows by exact field names
+   with atomic undo and exports all current values; relation/computed-field import and item bodies
+   require the full Note format.
+3. Database keyboard navigation and bulk operations — table display cells support arrow navigation;
+   visible-row selection, stable-ID bulk property updates and deletion are implemented with atomic
+   undo. Relation and multi-select batch replace/add/remove are now supported, with formula/rollup
+   configuration entry points and recalculation checks. Advanced editing and persistence pass
+   Chromium/WebKit regression coverage. TSV cell-range paste now targets visible rows/columns
+   with atomic validation and undo; overflow requires adding rows/columns first.
+4. Body math: inline/block LaTeX insertion, preview, editing and persistence are implemented
+   through office-text commands and office-editor-ui. Dollar input and Markdown math exchange
+   now work; direct context controls adjust math size/alignment. Cross-run inline replacement
+   and HTML math exchange remain. Paragraph alignment settings and input-only slash activation
+   are implemented.
+5. Cross-document and reciprocal database relations.
+6. Attachment management.
+7. Mobile workspace interaction and layout.
+
+Parallel platform work: define global document identities and lifecycle adapters, continue migration
+of remaining product-owned basic controls into office-ui, and connect Word's existing library API
+to autosave, reload restoration and unsaved-work protection. Site's final-input export issue is fixed.
+
+Broader formula coverage remains a database capability gap. Accounts, server sync, permissions,
+collaboration and service launch are a separate, unimplemented common-service milestone; local
+storage, conflict recovery and file transfer do not establish that service.
+
 One document engine, several products. Three questions decide whether that is a
 plan or a wish, and each is answered from what the repository actually contains
 rather than from what it could contain. Every claim below has a measurement behind it; where

@@ -137,8 +137,8 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _boundHandleBeforeInput: ((event: InputEvent) => void) | null = null;
   private _boundHandleKeydown: ((event: KeyboardEvent) => void) | null = null;
   private _boundHandlePaste: ((event: ClipboardEvent) => void) | null = null;
-  private _boundHandleCompositionStart: (() => void) | null = null;
-  private _boundHandleCompositionEnd: (() => void) | null = null;
+  private _boundHandleCompositionStart: ((event: CompositionEvent) => void) | null = null;
+  private _boundHandleCompositionEnd: ((event: CompositionEvent) => void) | null = null;
   private _boundHandleCopy: ((event: ClipboardEvent) => void) | null = null;
   private _boundHandleDrop: ((event: DragEvent) => void) | null = null;
   private _boundHandleSelectionChange: ((event?: Event) => void) | null = null;
@@ -414,7 +414,8 @@ export class EditorViewDOM implements IEditorViewDOM {
      * since the shape is selected through an overlay drawn on top of it. That
      * was the first guard and it never held.
      */
-    const releaseNodeSelection = () => {
+    const releaseNodeSelection = (event: Event) => {
+      if (this.isEmbeddedInput(event.target)) return;
       this._nodeSelectionHoldsUntilGesture = false;
     };
     this.contentEditableElement.addEventListener('pointerdown', releaseNodeSelection, true);
@@ -469,11 +470,13 @@ export class EditorViewDOM implements IEditorViewDOM {
      * burst's. Measured zero records arriving after `compositionend` in Chrome;
      * the deferral is for the IMEs that do.
      */
-    this._boundHandleCompositionStart = () => {
+    this._boundHandleCompositionStart = (event) => {
+      if (this.isEmbeddedInput(event.target)) return;
       this._compositionGeneration += 1;
       this._isComposing = true;
     };
-    this._boundHandleCompositionEnd = () => {
+    this._boundHandleCompositionEnd = (event) => {
+      if (this.isEmbeddedInput(event.target)) return;
       /**
        * A composition ending is not the same as composing being over.
        *
@@ -613,8 +616,14 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
 
+  /** Embedded controls own their input, selection and composition lifecycle. */
+  private isEmbeddedInput(target: EventTarget | null): boolean {
+    return target instanceof Element && !!target.closest('[data-editor-input-owner]');
+  }
+
   // DOM event handling
   handleInput(event: InputEvent): void {
+    if (this.isEmbeddedInput(event.target)) return;
     // Detect input start
     if (event.isComposing === false && this._isComposing) {
       this._isComposing = false;
@@ -624,6 +633,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   handleBeforeInput(event: InputEvent): void {
+    if (this.isEmbeddedInput(event.target)) return;
     if (event.isComposing) {
       // Block IME updates outside editable inline text even when composition events are missing.
       if (!this.isSelectionInsideEditableText(window.getSelection() ?? undefined)) {
@@ -731,6 +741,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   handleKeydown(event: KeyboardEvent): void {
+    if (this.isEmbeddedInput(event.target)) return;
     // Delegate to InputHandler first for future KeyBindingManager integration
     if ((this.inputHandler as any).handleKeyDown) {
       (this.inputHandler as any).handleKeyDown(event);
@@ -760,7 +771,8 @@ export class EditorViewDOM implements IEditorViewDOM {
      * is — measured a millisecond ahead of the first composing `beforeinput`,
      * and both of them ahead of anything the IME writes to the DOM.
      */
-    if (event.keyCode === 229) {
+    // The event is authoritative even if compositionstart was not observed.
+    if (event.isComposing || event.keyCode === 229) {
       return;
     }
 
@@ -845,9 +857,12 @@ export class EditorViewDOM implements IEditorViewDOM {
       // dispatching without one makes the shortcut resolve, swallow the key,
       // and then quietly decline to run — Enter, headings and lists all did
       // nothing while the browser was also prevented from doing it natively.
-      let selection: ModelSelection | undefined;
+      // A DOM caret beside an object is not the selected object. Preserve the
+      // model's whole-node/cell selection when dispatching keyboard commands.
+      let selection: ModelSelection | undefined = holdsAgainstTheCaret(this.editor.selection?.type)
+        ? this.editor.selection ?? undefined : undefined;
       const domSelection = window.getSelection();
-      if (domSelection && domSelection.rangeCount > 0) {
+      if (!selection && domSelection && domSelection.rangeCount > 0) {
         try {
           const modelSelection = this.selectionHandler.convertDOMSelectionToModel(domSelection);
           if (modelSelection && modelSelection.type === 'range') {
@@ -858,6 +873,12 @@ export class EditorViewDOM implements IEditorViewDOM {
         }
       }
 
+      // Commands may preserve the model selection in their transaction. Passing
+      // the fresh range only in the payload applies formatting correctly but
+      // restores the old collapsed caret afterwards, losing the user's range.
+      if (selection && this.editor.selection?.type === 'range') {
+        this.editor.updateSelection({ selection, applySelectionToView: false });
+      }
       void this.editor.executeCommand(command, {
         ...(args ?? {}),
         ...(selection ? { selection } : {})
@@ -920,6 +941,7 @@ export class EditorViewDOM implements IEditorViewDOM {
    * and the cut itself.
    */
   handleCopy(event: ClipboardEvent): void {
+    if (this.isEmbeddedInput(event.target)) return;
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || !event.clipboardData) return;
 
@@ -938,6 +960,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   handlePaste(event: ClipboardEvent): void {
+    if (this.isEmbeddedInput(event.target)) return;
     if (this._isComposing) {
       return;
     }
@@ -952,13 +975,22 @@ export class EditorViewDOM implements IEditorViewDOM {
 
     if (!html && !text) return;
 
+    // selectionchange is debounced. A paste immediately after moving the caret
+    // must use the visible DOM range, rather than the previous model position.
+    const domSelection = window.getSelection();
+    const selection = domSelection && domSelection.anchorNode && domSelection.focusNode
+      && this.contentEditableElement.contains(domSelection.anchorNode)
+      && this.contentEditableElement.contains(domSelection.focusNode)
+      ? this.selectionHandler.convertDOMSelectionToModel(domSelection) : undefined;
     this.editor.executeCommand('paste', {
+      ...(selection?.type === 'range' ? { selection } : {}),
       clipboardHtml: html || undefined,
       clipboardText: text || undefined,
     });
   }
 
   handleDrop(event: DragEvent): void {
+    if (this.isEmbeddedInput(event.target)) return;
     if (this._isComposing) {
       return;
     }
@@ -1027,6 +1059,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   private _processSelectionChange(): void {
+    if (this.isEmbeddedInput(this.contentEditableElement.ownerDocument.activeElement)) return;
     try {
       /**
        * A node selection is not overwritten by where the caret happens to be.
@@ -1096,6 +1129,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   private handleMouseDown(event: MouseEvent): void {
+    if (this.isEmbeddedInput(event.target)) return;
     // Check drag possibility on mouse down
     this._isDragging = false;
     // A pointer moves the caret, so nothing the input handler remembers about
@@ -1931,7 +1965,10 @@ export class EditorViewDOM implements IEditorViewDOM {
          *
          * A proxy is lazy, so asking again costs one object.
          */
-        if (this._viewRootId) {
+        // Root children can also be replaced by a structural transaction. Refresh
+        // editor-owned proxies for both document roots and subtree views.
+        // Caller-supplied render trees retain their existing ownership contract.
+        if (this._viewRootId || this._lastRenderedFromEditor) {
           const fresh = this.editor?.getDocumentProxy(this._viewRootId);
           if (fresh) {
             modelData = fresh as ModelData;

@@ -355,10 +355,10 @@
   outline-offset: 0;
 }
 
-.st-mark-selected { outline: calc(1px / var(--st-zoom, 1)) solid var(--ou-accent, #2563eb); }
+.st-mark-selected { --ou-selection-scale: var(--st-zoom, 1); }
 
 /* A placement of a component, told apart by colour rather than by reading its name. */
-.st-mark-selected[data-component='true'] { outline-color: var(--st-component); }
+.st-mark-selected[data-component='true'] { --ou-selection-ink: var(--st-component); }
 
 .st-mark-selected[data-component='true'] .st-mark-name { background: var(--st-component); }
 
@@ -589,8 +589,8 @@
 .st-grip[data-grip-edge='corner']::after {
   right: calc(4px / var(--st-zoom, 1));
   bottom: calc(4px / var(--st-zoom, 1));
-  width: calc(7px / var(--st-zoom, 1));
-  height: calc(7px / var(--st-zoom, 1));
+  width: calc(var(--ou-selection-handle-size) / var(--st-zoom, 1));
+  height: calc(var(--ou-selection-handle-size) / var(--st-zoom, 1));
   border-radius: calc(2px / var(--st-zoom, 1));
 }
 
@@ -661,8 +661,8 @@
 .st-grip[data-grip-edge='corner-tl']::after,
 .st-grip[data-grip-edge='corner-tr']::after,
 .st-grip[data-grip-edge='corner-bl']::after {
-  width: calc(7px / var(--st-zoom, 1));
-  height: calc(7px / var(--st-zoom, 1));
+  width: calc(var(--ou-selection-handle-size) / var(--st-zoom, 1));
+  height: calc(var(--ou-selection-handle-size) / var(--st-zoom, 1));
   border-radius: calc(2px / var(--st-zoom, 1));
 }
 
@@ -686,9 +686,10 @@
   bottom: calc(-24px / var(--st-zoom, 1));
   padding: calc(2px / var(--st-zoom, 1)) calc(6px / var(--st-zoom, 1));
   border-radius: calc(3px / var(--st-zoom, 1));
-  background: var(--ou-accent, #2563eb);
-  color: #ffffff;
-  font-size: calc(11px / var(--st-zoom, 1));
+  background: var(--ou-selection-readout-bg);
+  color: var(--ou-selection-readout-ink);
+  border: calc(1px / var(--st-zoom, 1)) solid var(--ou-line);
+  font-size: calc(12px / var(--st-zoom, 1));
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   pointer-events: none;
@@ -709,8 +710,7 @@
   right: auto;
   left: 50%;
   transform: translateX(-50%);
-  background: color-mix(in srgb, var(--ou-accent, #2563eb) 88%, #000000);
-  opacity: 0.92;
+  background: var(--ou-selection-readout-bg);
 }
 
 /* The paint: a short bar in the accent, drawn inside the wider area that takes the pointer. */
@@ -938,7 +938,7 @@
   letter-spacing: 0.01em;
 }
 
-.st-mark-selected[data-editing='true'] {
+.st-mark-selected[data-editing='true']::after {
   outline-style: dashed;
 }
 
@@ -956,8 +956,8 @@
  * rather than the selection's colour, because this is the tool talking rather than the document.
  */
 .st-mark-guide {
-  border-left: calc(1px / var(--st-zoom, 1)) solid var(--ou-accent, #2563eb);
-  border-top: calc(1px / var(--st-zoom, 1)) solid var(--ou-accent, #2563eb);
+  border-left: calc(1px / var(--st-zoom, 1)) solid var(--ou-selection-guide);
+  border-top: calc(1px / var(--st-zoom, 1)) solid var(--ou-selection-guide);
   opacity: 0.9;
   pointer-events: none;
 }
@@ -1195,48 +1195,7 @@
   background: var(--ou-panel, #ffffff);
 }
 
-/*
- * Which question the reader is asking. Five, which is what fits before the words start truncating —
- * and the moment there is a sixth this becomes an icon rail, which is what every tool of this kind
- * does at that point.
- */
-/*
- * A **segmented strip**, not a row of underlines.
- *
- * Five words across 240px cannot each carry an underline and stay legible, and the underline was
- * doing two jobs at once — saying which panel is open, and drawing the rule under the strip. The
- * current one is a raised chip on the panel's ground, which is what every tool of this kind uses for
- * a switch between *views of the same thing*.
- */
-.st-rail-tabs {
-  display: flex;
-  gap: 2px;
-  margin: 8px 8px 6px;
-  padding: 2px;
-  border-radius: 6px;
-  background: var(--ou-ground, #f5f5f5);
-}
-
-.st-rail-tabs button {
-  flex: 1;
-  min-width: 0;
-  padding: 4px 2px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  font-size: var(--ou-text-small, 13px);
-  color: var(--ou-muted, #6b6b6b);
-  transition: background var(--ou-quick, 120ms), color var(--ou-quick, 120ms);
-}
-
-.st-rail-tabs button:hover { color: var(--ou-ink, #171717); }
-
-.st-rail-tabs button[data-current='true'] {
-  background: var(--ou-panel, #ffffff);
-  color: var(--ou-ink, #171717);
-  font-weight: 600;
-  box-shadow: var(--ou-lift-1, 0 1px 2px rgb(15 23 42 / 0.12));
-}
+.st-rail-tabs { flex-shrink: 0; }
 
 /*
  * The field that finds a block in a hundred-row list.
@@ -1534,39 +1493,10 @@
 
 /* ── What this page holds ─────────────────────────────────────────────────── */
 
-.st-layers-list { padding: 4px 0; }
+.st-layers-list { padding: 8px; }
 
-.st-layer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  min-height: 26px;
-  padding: 5px 8px;
-  text-align: left;
-  font-size: var(--ou-text-small, 13px);
-  color: var(--ou-ink, #171717);
-  background: none;
-  border: 0;
-  cursor: default;
-  transition: background var(--ou-quick, 120ms);
-}
-
-/* The picture is quieter than the name: it is there to be recognised, not read. */
-.st-layer svg { flex: none; color: var(--ou-faint, #a3a3a3); }
-
-.st-layer[data-selected='true'] svg { color: var(--ou-accent, #2563eb); }
-
+.st-layer:not(.office-layer-row) { display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 2px 8px; }
 .st-layer-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.st-layer:hover { background: var(--ou-ground, #f5f5f5); }
-
-/* The same wash the rail's rows use: one way of saying "this one" in the whole window. */
-.st-layer[data-selected='true'] {
-  background: var(--ou-accent-soft, #dbeafe);
-  color: var(--ou-ink, #171717);
-  box-shadow: inset 2px 0 0 var(--ou-accent, #2563eb);
-}
 
 /* Which width the panel is writing to. Three letters, because the panel header has room for three. */
 /*
@@ -1711,51 +1641,17 @@
 }
 
 /*
- * The picture row: which file, and a way to add one — one row, because a reader choosing a picture is
- * doing one thing. The file input is a `<label>` wrapping a hidden `<input type=file>`, which is the
- * only way to make one look like the rest of the panel and still be a real file picker.
+ * The picture field uses common search, file and feedback controls.
  */
-.st-picture-row {
-  display: flex;
+.st-picture-property {
+  display: grid;
   min-width: 0;
   flex: 1;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
-.st-file {
-  position: relative;
-  display: inline-flex;
-  height: var(--ou-control-h, 30px);
-  cursor: pointer;
-  align-items: center;
-  border-radius: var(--ou-radius, 4px);
-  border: 1px solid var(--ou-line, #d4d4d4);
-  padding: 0 8px;
-  font-size: var(--ou-text-small, 13px);
-  color: var(--ou-ink, #171717);
-}
-
-.st-file:hover {
-  background: var(--ou-accent-soft, #dbeafe);
-}
-
-/*
- * The input **covers** the label rather than hiding in a corner of it.
- *
- * A visually-hidden file input is the usual pattern and it leaves a 1×1 control: the thing a pointer
- * aims at and a focus ring is drawn on is one pixel across, in a corner, invisible. Measured by the
- * chrome sweep, which asks how big every control is. Covering the label makes the target the button
- * a reader can see, which is what it looked like all along.
- */
-.st-file input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
-  opacity: 0;
+.st-picture-property > .office-button {
+  justify-self: start;
 }
 
 /*
@@ -1852,54 +1748,6 @@
  * otherwise. Twelve rows each carrying two grey glyphs is a column of noise a reader reads past, and
  * the state worth seeing at a glance is the unusual one.
  */
-.st-layer-acts {
-  display: inline-flex;
-  margin-left: auto;
-  flex: 0 0 auto;
-  gap: 1px;
-  opacity: 0;
-  transition: opacity var(--ou-quick, 120ms);
-}
-
-.st-layer:hover .st-layer-acts,
-.st-layer:focus-within .st-layer-acts,
-.st-layer-acts[data-state='said'] { opacity: 1; }
-
-/* A hidden row says so in the name as well: the glyph is at the far end and the name is what is read. */
-.st-layer[data-hidden='true'] .st-layer-name { opacity: 0.45; }
-
-.st-layer[data-locked='true'] .st-layer-name { font-style: italic; }
-
-/*
- * ── Dragging a layer row ───────────────────────────────────────────────────
- *
- * Three things a reader can mean, and each says which with a different mark: a **line** between two
- * rows is a place in a list, and a **filled row** is a container to go inside. A single highlight
- * for both would make "after the card row" and "into the card row" the same picture.
- */
-.st-layer[data-dragging='true'] { opacity: 0.4; }
-
-.st-layer[data-drop] { position: relative; }
-
-.st-layer[data-drop='before']::before,
-.st-layer[data-drop='after']::after {
-  content: '';
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  height: 2px;
-  background: var(--ou-accent, #2563eb);
-  border-radius: 1px;
-}
-
-.st-layer[data-drop='before']::before { top: -1px; }
-
-.st-layer[data-drop='after']::after { bottom: -1px; }
-
-.st-layer[data-drop='into'] {
-  background: var(--ou-accent-soft, #dbeafe);
-  box-shadow: inset 0 0 0 1px var(--ou-accent, #2563eb);
-}
 
 /*
  * **The sheet behind the +**, which is the rail's own two groups plus the reader's definitions.
@@ -2799,3 +2647,23 @@
   font-size: var(--ou-text-small, 13px);
   cursor: pointer;
 }
+
+/* Flow-layout resize bands keep their outside-only hit areas. Corners share the suite paint. */
+.st-grip[data-grip-edge^='corner']::after {
+  box-sizing: border-box;
+  border: calc(var(--ou-selection-line) / var(--st-zoom, 1)) solid var(--ou-selection-ink);
+  border-radius: calc(var(--ou-selection-radius) / var(--st-zoom, 1));
+  background: var(--ou-selection-fill);
+}
+.st-grip[data-grip-edge^='corner']:hover::after { background: var(--ou-selection-ink); }
+
+.st-grip[data-grip-edge^='corner']::after {
+  width: var(--ou-selection-handle-size); height: var(--ou-selection-handle-size);
+  border-width: var(--ou-selection-line); border-radius: var(--ou-selection-radius);
+  transform: scale(calc(1 / var(--st-zoom, 1))); transform-origin: right bottom;
+  box-shadow: none;
+}
+.st-grip[data-grip-edge='corner-tl']::after { transform-origin: left top; }
+.st-grip[data-grip-edge='corner-tr']::after { transform-origin: right top; }
+.st-grip[data-grip-edge='corner-bl']::after { transform-origin: left bottom; }
+.st-property-fields{border:0;padding:0;margin:0;min-width:0;display:contents}

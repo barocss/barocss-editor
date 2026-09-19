@@ -224,7 +224,9 @@ export function layoutSurface(
       if (last?.continues) {
         const nextTop = (page.index + 1) * (metrics.height + metrics.gap) + metrics.marginTop;
         const splits = splitBySid.get(last.sid) ?? [];
-        splits.push({ line: last.toLine, height: Math.max(0, nextTop - (contentTop + page.height)) });
+        const repeat = blocks.find(block => block.sid === last.sid)?.repeatBefore;
+        const repeatedHeight = repeat && last.toLine >= repeat.fromLine ? repeat.height : 0;
+        splits.push({ line: last.toLine, height: Math.max(0, nextTop - (contentTop + page.height)) + repeatedHeight });
         splitBySid.set(last.sid, splits);
       }
 

@@ -11,7 +11,7 @@ import { placeCaret, settled } from './helpers';
 
 test.describe('Word document rendering', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await expect(page.locator('.w-surface').first()).toBeVisible();
   });
 
@@ -33,10 +33,10 @@ test.describe('Word document rendering', () => {
     // US Letter with one-inch side margins, in the document's own units. The
     // height belongs to the sheets now: how tall a section is depends on how far
     // its text reached, which is not something the section can state.
-    const style = await page.locator('.w-surface').first().getAttribute('style');
-    expect(style).toContain('width: 612pt');
-    expect(style).toContain('padding-left: 72pt');
-    expect(style).toContain('padding-right: 72pt');
+    const surface = page.locator('.w-surface').first();
+    await expect(surface).toHaveCSS('width', '816px');
+    await expect(surface).toHaveCSS('padding-left', '96px');
+    await expect(surface).toHaveCSS('padding-right', '96px');
   });
 
   test('applies the style cascade, with direct formatting winning', async ({ page }) => {
@@ -98,7 +98,7 @@ test.describe('space between paragraphs of the same style', () => {
     }, on);
 
   test('is given up between neighbours of that style, and kept at the ends', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const loose = await gaps(page);
@@ -118,7 +118,7 @@ test.describe('space between paragraphs of the same style', () => {
   });
 
   test('comes back when the style stops asking for it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await contextual(page, true);
@@ -130,7 +130,7 @@ test.describe('space between paragraphs of the same style', () => {
 
 test.describe('marks that carry a value', () => {
   test('renders a size in Word’s unit', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.mark-fontSize');
 
     // 36 half-points is 18pt is 24px. A class name could not have said that.
@@ -138,13 +138,13 @@ test.describe('marks that carry a value', () => {
   });
 
   test('renders a colour written the way a .docx writes it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.mark-fontColor');
     await expect(page.locator('.mark-fontColor')).toHaveCSS('color', 'rgb(178, 34, 34)');
   });
 
   test('resolves a character style through the cascade', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.mark-charStyle');
 
     // The mark carries only the name; what it means is the cascade's answer,
@@ -156,13 +156,13 @@ test.describe('marks that carry a value', () => {
 
 test.describe('computed fields', () => {
   test('numbers a caption', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-field-seq');
     await expect(page.locator('.w-field-seq').first()).toHaveText('1');
   });
 
   test('quotes only what the bookmark covers', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-field-ref');
 
     // Not the punctuation and words around it in the same text node
@@ -170,7 +170,7 @@ test.describe('computed fields', () => {
   });
 
   test('says whether the target is above or below', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-field-ref');
     await expect(page.locator('.w-field-ref').nth(1)).toHaveText('above');
   });
@@ -178,7 +178,7 @@ test.describe('computed fields', () => {
 
 test.describe('fields that ask the document about itself', () => {
   test('shows the title and the author from the metadata', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-field-title');
 
     // From docMeta, not from the flow: a field asking for the title wants what
@@ -188,7 +188,7 @@ test.describe('fields that ask the document about itself', () => {
   });
 
   test('shows a date the host supplied, in the format the field asks for', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-field-date');
 
     // The host supplies the instant; a renderer that read the clock could not be
@@ -200,7 +200,7 @@ test.describe('fields that ask the document about itself', () => {
 
 test.describe('what leaves the editor', () => {
   test('does not copy the page sheets', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
 
     // The sheets sit in the content tree because that is where the geometry they
@@ -231,7 +231,7 @@ test.describe('what leaves the editor', () => {
   });
 
   test('still draws the sheets it refused to copy', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await expect(page.locator('.w-sheet').first()).toBeVisible();
     expect(await page.locator('.w-sheet').count()).toBeGreaterThan(1);
   });
@@ -244,7 +244,7 @@ test.describe('diagnostics', () => {
       if (message.type() === 'log') logs++;
     });
 
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
     await placeCaret(page, '.w-paragraph', 1);
 
@@ -272,7 +272,7 @@ test.describe('diagnostics', () => {
       if (message.type() === 'log') logs++;
     });
 
-    await page.goto('/');
+    await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
     await placeCaret(page, '.w-paragraph', 1);
     await page.keyboard.type('hello');
@@ -284,7 +284,7 @@ test.describe('diagnostics', () => {
 
 test.describe('a table’s declared columns', () => {
   test('are the widths the columns actually get', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     /**
@@ -345,7 +345,7 @@ test.describe('a table’s declared columns', () => {
   });
 
   test('draw the rules between cells thinner than the rules around them', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await page.evaluate(() => {
@@ -428,7 +428,7 @@ test.describe('a table’s style', () => {
     });
 
   test('formats each cell by the region of the style it falls in', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const rows = await cells(page);
@@ -456,7 +456,7 @@ test.describe('a table’s style', () => {
   });
 
   test('is overruled by what the cell says for itself', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await page.evaluate(() => {
@@ -478,7 +478,7 @@ test.describe('a table’s style', () => {
   });
 
   test('follows the row a cell is in rather than the cell', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     // Insert a row above the first row of data: the shading has to move with the
@@ -519,7 +519,7 @@ test.describe('a table row’s own formatting', () => {
     );
 
   test('grows to the height it asks for, and no further than its content', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const natural = await rowHeight(page);
@@ -533,7 +533,7 @@ test.describe('a table row’s own formatting', () => {
   });
 
   test('clips what does not fit when the height is exact', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await page.evaluate(() => {
@@ -569,7 +569,7 @@ test.describe('a table row’s own formatting', () => {
   });
 
   test('is still an ordinary cell to type in when it clips', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await setRow(page, { height: 720, heightRule: 'exact' });
 
@@ -583,7 +583,7 @@ test.describe('a table row’s own formatting', () => {
   });
 
   test('draws its own shading, which the cells sit on', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await setRow(page, { shadingFill: 'FFF5F5' });
 
@@ -602,7 +602,7 @@ test.describe('what a cell takes from its table', () => {
     });
 
   test('uses the margins the table states for all of them', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     // The sample's table style states Word's own default cell margins: 108
@@ -611,7 +611,7 @@ test.describe('what a cell takes from its table', () => {
   });
 
   test('lets a cell override the side it disagrees about', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await page.evaluate(() => {
@@ -646,7 +646,7 @@ test.describe('a cell whose text runs downwards', () => {
     }, textDirection);
 
   test('is drawn on its side, and takes the room that needs', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const flat = await page.evaluate(() =>
@@ -666,7 +666,7 @@ test.describe('a cell whose text runs downwards', () => {
   });
 
   test('reads upwards for the direction that says so', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await setDirection(page, 'btLr');
 
@@ -677,7 +677,7 @@ test.describe('a cell whose text runs downwards', () => {
   });
 
   test('is still an ordinary cell to type in', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await setDirection(page, 'btLr');
 
@@ -694,7 +694,7 @@ test.describe('what a table says about itself for a reader who cannot see it', (
   test('carries its title and description where a screen reader will find them', async ({
     page
   }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await page.evaluate(() => {
@@ -719,7 +719,7 @@ test.describe('what a table says about itself for a reader who cannot see it', (
   });
 
   test('draws nothing when it says nothing', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await expect(page.locator('.w-table .w-table-caption')).toHaveCount(0);
   });
@@ -727,7 +727,7 @@ test.describe('what a table says about itself for a reader who cannot see it', (
 
 test.describe('the row and cell controls', () => {
   test('set the height of the row the caret is in', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await placeCaret(page, '.w-tbody .w-cell', 0);
 
@@ -752,7 +752,7 @@ test.describe('the row and cell controls', () => {
   });
 
   test('move the text within the cell, and show which way it sits', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await placeCaret(page, '.w-tbody .w-cell', 0);
 
@@ -775,7 +775,7 @@ test.describe('the row and cell controls', () => {
   });
 
   test('turn the text through the three directions and back', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await placeCaret(page, '.w-thead .w-cell', 0);
 
@@ -793,16 +793,18 @@ test.describe('the row and cell controls', () => {
 
 test.describe('the table style controls', () => {
   test('appear in a table and not outside one', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await expect(page.locator('.w-toolbar-table-style')).toHaveCount(0);
     await placeCaret(page, '.w-tbody .w-cell', 0);
+    // Cell focus opens Table layout; the style picker belongs to Home.
+    await page.getByRole('tab', { name: '홈', exact: true }).click();
     await expect(page.locator('.w-toolbar-table-style')).toHaveCount(1);
   });
 
   test('apply a style, and take it off again', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await placeCaret(page, '.w-tbody .w-cell', 0);
 
@@ -821,7 +823,7 @@ test.describe('the table style controls', () => {
   });
 
   test('switch the regions the table asks its style for', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
     await placeCaret(page, '.w-tbody .w-cell', 0);
 
@@ -862,7 +864,7 @@ test.describe('table commands', () => {
     }));
 
   test('add and remove rows and columns around the caret', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await page.locator('.w-table .w-cell').first().click();
@@ -891,7 +893,7 @@ test.describe('table commands', () => {
 
 test.describe('the table buttons', () => {
   test('are offered in a table and not outside one', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const button = page.getByRole('button', { name: 'Insert row below', exact: true });
@@ -941,7 +943,7 @@ test.describe('the table buttons', () => {
  * document grows a fault, this says which node and where.
  */
 test('the sample document is one the schema accepts', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?sample');
   await settled(page);
 
   const faults = await page.evaluate(() => (window as any).editor?.documentFaults ?? []);
@@ -971,7 +973,7 @@ test.describe('a run of paragraphs inside one bordered box', () => {
     page.locator('.w-paragraph').filter({ hasText: 'A run of paragraphs that ask for the same borders' });
 
   test('draws one rule between them and the box’s own edges at the ends', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const first = bordered(page).first();
@@ -1030,7 +1032,7 @@ test.describe('a run of paragraphs inside one bordered box', () => {
    * against the text.
    */
   test('leaves the text the room the border asks for', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const first = bordered(page).first();
@@ -1060,7 +1062,7 @@ test.describe('a run of paragraphs inside one bordered box', () => {
  */
 test.describe('a page border', () => {
   test('is drawn inside the sheet, once per page', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     /*
@@ -1163,7 +1165,7 @@ test.describe('a page border', () => {
  */
 test.describe('a content control', () => {
   test('shows its hint while it is empty, and says what it is', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const control = page.locator('[data-control-id="ctl-name"]');
@@ -1188,7 +1190,7 @@ test.describe('a content control', () => {
    * presses a key.
    */
   test('refuses to be typed over when its content is locked', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     const locked = page.locator('[data-control-id="ctl-terms"]');

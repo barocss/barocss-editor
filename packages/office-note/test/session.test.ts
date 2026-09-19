@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import { createSchema } from '@barocss/schema';
 import { getSiteSchemaDefinition, createSampleSite, createSiteEditor, richTextsOf } from '@barocss/office-site';
@@ -47,7 +47,7 @@ describe('a note in a session of its own', () => {
 
     /* Its own store: the root is a `note`, and nothing in it is one of the site's nodes. */
     const root = held.editor.dataStore.getNode(held.rootId);
-    expect(String(root.stype)).toBe('note');
+    expect(String(root?.stype)).toBe('note');
     expect(held.rootId).not.toBe(body.sid);
     expect(held.editor.dataStore).not.toBe((doc as any).getNode);
 
@@ -73,8 +73,14 @@ describe('a note in a session of its own', () => {
      * is where a reader's click would put it.
      */
     const store = held.editor.dataStore;
-    const first = store.getNode(store.getNode(held.rootId).content[0]);
-    const run = store.getNode(first.content[0]);
+    const root = store.getNode(held.rootId);
+    const firstId = root?.content?.[0];
+    if (typeof firstId !== 'string') throw new Error('Expected a stored first block');
+    const first = store.getNode(firstId);
+    const runId = first?.content?.[0];
+    if (typeof runId !== 'string') throw new Error('Expected a stored text run');
+    const run = store.getNode(runId);
+    if (!run?.sid) throw new Error('Missing text run');
     (held.editor as never as { selectionManager: { setSelection: (one: unknown) => void } }).selectionManager.setSelection({
       type: 'range',
       startNodeId: run.sid,
@@ -104,6 +110,137 @@ describe('a note in a session of its own', () => {
     await held.editor.executeCommand('insertBodyText');
     await new Promise((done) => setTimeout(done, 60));
     expect(said).toEqual([]);
+  });
+});
+
+describe('closing a note preserves pending changes', () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  const tree = {
+    stype: 'note',
+    content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: '회의' }] }]
+  };
+
+  const write = async (held: ReturnType<typeof openNoteTree>, text: string) => {
+    const store = held.editor.dataStore;
+    const paragraphId = store.getNode(held.rootId)?.content?.[0];
+    if (typeof paragraphId !== 'string') throw new Error('Expected a paragraph id');
+    const runId = store.getNode(paragraphId)?.content?.[0];
+    if (typeof runId !== 'string') throw new Error('Expected a text run id');
+    const run = store.getNode(runId);
+    if (!run) throw new Error('Expected the text run to exist');
+    expect(await held.editor.executeCommand('replaceText', {
+      range: {
+        type: 'range', startNodeId: run.sid, startOffset: 0,
+        endNodeId: run.sid, endOffset: String(run.text).length, collapsed: false
+      },
+      text
+    })).toBe(true);
+  };
+
+  it('flushes once without closing, preserves undo, and delivers subsequent typing on close', async () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const held = openNoteTree(tree, { onChange });
+    await write(held, '저장 직전 입력');
+    const selection = held.editor.selection;
+    held.flush(); held.flush();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0][0].content[0].text).toBe('저장 직전 입력');
+    expect(held.editor.selection).toEqual(selection);
+    expect(held.editor.canUndo()).toBe(true);
+    await write(held, '저장한 뒤에도 계속 입력');
+    held.close();
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(onChange.mock.calls[1][0][0].content[0].text).toBe('저장한 뒤에도 계속 입력');
+    held.flush();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it('delivers the latest edit synchronously on close and can reopen it', async () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const held = openNoteTree(tree, { onChange });
+    await write(held, '회의 초안');
+    await write(held, '회의 결정 사항');
+    expect(onChange).not.toHaveBeenCalled();
+
+    held.close();
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const blocks = onChange.mock.calls[0][0];
+    expect(blocks[0].content[0].text).toBe('회의 결정 사항');
+    const reopened = openNoteTree({ stype: 'note', content: blocks });
+    expect(noteTreeOf({ getNode: (sid) => reopened.editor.dataStore.getNode(sid) }, reopened.rootId)?.content)
+      .toEqual(blocks);
+    reopened.close();
+    held.close();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves the current root after a host reload, on both pause and immediate close', async () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const held = openNoteTree(tree, { onChange, after: 150 });
+    const initialRoot = held.rootId;
+    await write(held, '이전 문서의 대기 중 변경');
+    held.editor.loadDocument({ stype: 'note', content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: '복원된 본문' }] }] }, held.session);
+    expect(held.rootId).toBe(held.editor.getRootId());
+    expect(held.rootId).not.toBe(initialRoot);
+    await write(held, '복원된 본문에 새 입력');
+    await vi.advanceTimersByTimeAsync(150);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0][0].content[0].text).toBe('복원된 본문에 새 입력');
+    await write(held, '닫기 직전의 최종 입력');
+    held.close();
+    expect(onChange).toHaveBeenCalledTimes(2);
+    const blocks = onChange.mock.calls[1][0];
+    expect(blocks[0].content[0].text).toBe('닫기 직전의 최종 입력');
+    const reopened = openNoteTree({ stype: 'note', content: blocks });
+    expect(noteTreeOf(reopened.editor.dataStore, reopened.rootId)?.content).toEqual(blocks);
+    reopened.close();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not resend an edit already delivered on a pause', async () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const held = openNoteTree(tree, { onChange });
+    await write(held, '전달된 회의록');
+    await vi.advanceTimersByTimeAsync(350);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    held.close();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not notify for an untouched note', () => {
+    const onChange = vi.fn();
+    const held = openNoteTree(tree, { onChange });
+    held.close();
+    held.close();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('cleans up once even when the host closes again and throws during delivery', async () => {
+    vi.useFakeTimers();
+    const problem = new Error('host refused the change');
+    const onChange = vi.fn(() => {
+      held.close();
+      throw problem;
+    });
+    const held = openNoteTree(tree, { onChange });
+    const destroy = vi.spyOn(held.editor, 'destroy');
+    await write(held, '마지막 변경');
+    expect(() => held.close()).toThrow(problem);
+    expect(destroy).toHaveBeenCalledTimes(1);
+    held.close();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(destroy).toHaveBeenCalledTimes(1);
   });
 });
 

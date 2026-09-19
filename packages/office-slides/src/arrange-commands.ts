@@ -265,6 +265,9 @@ export class SlidesArrangeExtension implements Extension {
 
     const ids = selectedNodeIds(editor.selection);
     if (ids.length === 0) return [];
+    // These operations require one slide coordinate system. Do not silently
+    // reparent objects from another slide when ordering or grouping a selection.
+    if (new Set(ids.map(sid => slideAt(doc, sid))).size > 1) return [];
 
     const container = this._containerOf(doc, ids[0]);
     const siblings: string[] = Array.isArray((doc.getNode(container ?? '') as any)?.content)

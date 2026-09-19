@@ -58,7 +58,7 @@ test.describe('a layout a reader can change', () => {
       const layout = [...document.querySelectorAll<HTMLElement>('.sl-stage .sl-def-layout')].find(
         (one) => one.getBoundingClientRect().width > 20
       );
-      const ruler = document.querySelector('[data-ruler="x"]') as HTMLElement | null;
+      const ruler = document.querySelector('[data-ruler="x"] .sl-ruler-scale') as HTMLElement | null;
       if (!layout || !ruler) return null;
       const box = layout.getBoundingClientRect();
       return {

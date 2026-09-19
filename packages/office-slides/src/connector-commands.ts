@@ -165,7 +165,9 @@ export class SlidesConnectorExtension implements Extension {
 
     const along = typeof payload?.endT === 'number' ? payload.endT : undefined;
     if (start && this._joinable(doc, start)) {
-      if (end && this._joinable(doc, end, along) && end !== start) return { start, end, along };
+      if (end && this._joinable(doc, end, along) && end !== start) {
+        return doc.getNode(start)?.parentId === doc.getNode(end)?.parentId ? { start, end, along } : null;
+      }
       if (at) return { start, endAt: at };
       return null;
     }
@@ -175,6 +177,7 @@ export class SlidesConnectorExtension implements Extension {
     const selected: string[] = editor.selection?.nodeIds ?? [];
     if (selected.length !== 2) return null;
     if (!this._joinable(doc, selected[0]) || !this._joinable(doc, selected[1])) return null;
+    if (doc.getNode(selected[0])?.parentId !== doc.getNode(selected[1])?.parentId) return null;
     return { start: selected[0], end: selected[1] };
   }
 

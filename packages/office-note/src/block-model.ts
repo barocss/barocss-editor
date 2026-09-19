@@ -56,7 +56,17 @@ export interface NoteField {
  * written in rather than configured, and a body that offered a panel for one would be a page
  * builder wearing a smaller size.
  */
+const ALIGNMENT_FIELD: NoteField = { attr: 'alignment', label: '문단 정렬', kind: 'choice', options: [{ id: 'left', label: '왼쪽' }, { id: 'center', label: '가운데' }, { id: 'right', label: '오른쪽' }, { id: 'justify', label: '양쪽' }] };
 export const NOTE_FIELDS: Partial<Record<NoteBlock, NoteField[]>> = {
+  paragraph: [ALIGNMENT_FIELD],
+  heading: [ALIGNMENT_FIELD],
+  callout: [
+    { attr: 'type', label: '종류', kind: 'choice', options: [
+      { id: 'info', label: '정보' }, { id: 'warning', label: '주의' },
+      { id: 'error', label: '오류' }, { id: 'success', label: '성공' },
+      { id: 'note', label: '메모' }, { id: 'tip', label: '팁' }
+    ] }
+  ],
   picture: [
     /*
      * A **file**, and the picture is where that gesture belongs: a body has no asset store to name
@@ -114,6 +124,9 @@ export const NOTE_FIELDS: Partial<Record<NoteBlock, NoteField[]>> = {
  * Four new commands over six that were there.
  */
 export const NOTE_ACTS: Partial<Record<NoteBlock, NoteAct[]>> = {
+  noteDatabase: [
+    { command: 'insertNoteDatabaseRow', label: '새 항목', icon: 'row-below', title: '데이터베이스에 항목을 추가합니다' }
+  ],
   bTable: [
     /*
      * **위와 아래, 왼쪽과 오른쪽 — 넷 다.** Offered as *아래에* and *오른쪽에* only for an afternoon,

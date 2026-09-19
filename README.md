@@ -34,6 +34,12 @@ Each package has its own README with detailed documentation:
 - [`@barocss/dom-observer`](./packages/dom-observer/README.md) - DOM mutation observer utilities used by `editor-view-dom` and devtools
 - [`@barocss/text-analyzer`](./packages/text-analyzer/README.md) - Experimental text analysis utilities (tokenization, statistics, helper types)
 
+### Math editing
+
+Math packages, integrations, examples, specifications and release tools now live in the private [barocss/math](https://github.com/barocss/math) repository. Public documentation remains at [math-editor.barocss.com](https://math-editor.barocss.com/).
+
+Office consumes the published `@barocss/math-editor` package. Office document models, math bridges, UI and regression tests remain here. See [the repository boundary and local development guide](docs/math-repository.md).
+
 ## 🚀 Quick Start
 
 ```typescript

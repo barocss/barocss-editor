@@ -396,6 +396,13 @@ export class WordTrackingExtension implements Extension {
         const ops = recordMoveFrom(runs, move, reviewer);
         if (ops.length === 0) return await cut.execute(ed, payload);
 
+        // A tracked cut must put the text on the system clipboard too. Do not
+        // mark it as moved if permission was denied or the target changed.
+        this._pendingMove = null;
+        const stamp = () => JSON.stringify([ed.getRootId(), runs.map(run => ed.dataStore.getNode(run.sid))]);
+        const beforeCopy = stamp();
+        if (!await ed.run('copy', { selection }) || beforeCopy !== stamp()) return false;
+
         const result = await transaction(ed, ops as never).commit();
         if (!result.success) return false;
 

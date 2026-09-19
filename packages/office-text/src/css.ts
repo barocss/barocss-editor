@@ -252,13 +252,13 @@ export function paragraphCss(format: EffectiveFormat): CssStyle {
     out.textIndent = twipToCss(firstLine);
   }
 
-  // Emitted even when unset, because unset means zero here, not "whatever the
-  // browser thinks". A `<p>` carries a 1em margin from the UA stylesheet, so
-  // leaving the property off gave every paragraph spacing that no style asked
-  // for — invisible until the layout measured the document and found it taller
-  // than the model said it was.
-  out.marginTop = twipToCss(num(format.spacingBefore) ?? 0);
-  out.marginBottom = twipToCss(num(format.spacingAfter) ?? 0);
+  // Explicit document spacing always wins, including zero. An unformatted prose
+  // host can supply its reading rhythm; Word's absent variables still resolve
+  // to zero rather than the browser's default paragraph margins.
+  const before = num(format.spacingBefore);
+  const after = num(format.spacingAfter);
+  out.marginTop = before === undefined ? 'var(--prose-space-before, 0pt)' : twipToCss(before);
+  out.marginBottom = after === undefined ? 'var(--prose-space-after, 0pt)' : twipToCss(after);
 
   const line = num(format.spacingLine);
   if (line !== undefined) {

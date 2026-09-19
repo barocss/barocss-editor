@@ -3,15 +3,15 @@ import { defineOperationDSL } from './define-operation-dsl';
 import type { TransactionContext } from '../types';
 
 export const toggleLink = defineOperationDSL(
-  (href: string, title?: string) => ({
+  (href: string, title?: string, replace?: boolean) => ({
     type: 'toggleLink',
-    payload: { href, ...(title != null && { title }) }
+    payload: { href, ...(title != null && { title }), ...(replace && { replace }) }
   } as any),
   { atom: false, category: 'mark' }
 );
 
 defineOperation('toggleLink', async (operation: any, context: TransactionContext) => {
-  const { href, title } = operation.payload;
+  const { href, title, replace } = operation.payload;
   const dataStore = context.dataStore;
   const selection = context.selection.current;
 
@@ -40,9 +40,7 @@ defineOperation('toggleLink', async (operation: any, context: TransactionContext
    * Found writing this operation's first test by hand: the conformance probe asks whether a command
    * moves the document, and both branches move it.
    */
-  const hasLink = startNode.marks?.some(
-    (m: any) => (m.stype || m.type) === 'link' && (m.attrs?.href ?? m.attrs?.url) === href
-  );
+
 
   /**
    * Exactly what every run in the range carried, before this rewrites them.
@@ -68,6 +66,31 @@ defineOperation('toggleLink', async (operation: any, context: TransactionContext
     }
   })();
 
+  // Toggle off only if every selected character already carries this URL. Marks outside
+  // the selected interval, gaps between marks, and partially linked later runs do not count.
+  let selectedCharacters = 0;
+  const fullyLinked = inRange.every(sid => {
+    const node = dataStore.getNode(sid);
+    if (typeof node?.text !== 'string') return true;
+    const from = Math.max(0, sid === startNodeId ? startOffset : 0);
+    const to = Math.min(node.text.length, sid === endNodeId ? endOffset : node.text.length);
+    if (to <= from) return true;
+    selectedCharacters += to - from;
+    const spans = (node.marks ?? []).filter(mark => (mark.stype || (mark as any).type) === 'link' &&
+      (mark.attrs?.href ?? mark.attrs?.url) === href)
+      .map(mark => mark.range ?? [0, node.text!.length])
+      .sort((a, b) => a[0] - b[0]);
+    let covered = from;
+    for (const [left, right] of spans) {
+      if (right <= covered) continue;
+      if (left > covered) return false;
+      covered = right;
+      if (covered >= to) return true;
+    }
+    return false;
+  });
+  const hasLink = fullyLinked && selectedCharacters > 0;
+
   const restore = inRange.map((sid) => ({
     type: 'setMarks',
     payload: {
@@ -80,7 +103,7 @@ defineOperation('toggleLink', async (operation: any, context: TransactionContext
       ? restore[0]
       : { type: 'batch', payload: { operations: restore } };
 
-  if (hasLink) {
+  if (hasLink && !replace) {
     const rangeSelection = {
       type: 'range' as const,
       startNodeId,

@@ -13,6 +13,7 @@
  * because a copy of three imports looked like enough.
  */
 @source "../../../packages/office-ui/src";
+@source "../../../packages/office-editor-ui/src";
 @source "../../../packages/office-note/src";
 
 /*
@@ -27,6 +28,7 @@
 @import "@barocss/office-note/note.css";
 
 body {
+  --ou-field-line: var(--ou-line);
   margin: 0;
   background: var(--ou-ground);
   color: var(--ou-ink);
@@ -119,3 +121,89 @@ body {
 .an-case[data-small] .on-body { max-height: 8rem; }
 
 .an-many-none { color: var(--ou-faint, #a3a3a3); font-size: 13px; }
+
+/* The document workspace. NoteEditor continues to own the writing surface. */
+.nw-shell { height: 100vh; height: 100dvh; min-height: 0; display: flex; flex-direction: column; }
+.nw-sidebar { padding: 0 12px 12px; border-right: 1px solid var(--ou-line); display: flex; flex-direction: column; gap: 12px; background: var(--ou-panel); }
+.nw-brand { font-size: 17px; font-weight: 650; letter-spacing: -.45px; padding: 0 6px; }
+.nw-brand span { font-weight: 400; }
+.nw-caption, .nw-local, .nw-hint { color: var(--ou-muted); font-size: 12px; line-height: 1.7; margin: 0; }
+.nw-list { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.nw-local { margin-top: auto; padding-top: 40px; }
+.nw-main { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; background: var(--ou-panel); }
+.nw-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.nw-document { width: min(100%, 900px); margin: 0 auto; padding: 40px 40px 100px; }
+.nw-title { display: block; width: 100%; height: auto; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--ou-ink); font-size: 36px; font-weight: 700; line-height: 1.25; letter-spacing: -1.1px; outline-offset: 5px; }
+.nw-hint { margin: 12px 0 24px; }
+.nw-backlinks { margin-top:16px; color:var(--ou-muted); font-size:13px; }
+.nw-backlinks summary { width:max-content; cursor:pointer; padding:4px 0; }
+.nw-backlinks summary span { font-variant-numeric:tabular-nums; margin-left:5px; }
+.nw-backlinks > div { margin:8px 0; padding:4px 0 4px 12px; border-left:2px solid var(--ou-line); }
+.nw-backlink { display:grid; gap:4px; width:100%; padding:8px 10px; border:0; border-radius:4px; background:transparent; color:var(--ou-ink); text-align:left; cursor:pointer; }
+.nw-backlink:hover { background:var(--ou-ground); }
+.nw-backlink-title { display:flex; align-items:center; gap:7px; font-size:13px; }
+.nw-backlink-title svg { flex:none; }
+.nw-backlink-title small { margin-left:auto; color:var(--ou-muted); font-size:11px; }
+.nw-backlink-excerpt { padding-left:22px; color:var(--ou-muted); font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+.nw-document .on-doc { min-height: 430px; }
+.nw-problem { margin: 20px 32px; padding: 12px 16px; border: 1px solid var(--ou-line); display: flex; gap: 16px; align-items: center; }
+@media (max-width: 700px) {
+    .nw-document { padding: 30px 20px 60px; }
+}
+.nw-unreadable { border-top: 1px solid var(--ou-line); padding-top: 16px; }
+.nw-unreadable h2 { font-size: 12px; font-weight: 600; color: var(--ou-muted); margin-bottom: 10px; }
+.nw-unreadable [data-unreadable-note] { margin-bottom: 16px; overflow-wrap: anywhere; }
+.nw-unreadable strong { font-size: 13px; }
+.nw-unreadable p { margin: 6px 0; color: var(--ou-muted); font-size: 12px; }
+.nw-document .on-note,
+.nw-document .on-note:focus-within { border: 0; border-radius: 0; box-shadow: none; }
+.nw-document > .on-note { margin-left: -42px; width: calc(100% + 42px); }
+.nw-document > .on-note > .on-body-hold > .on-body { padding-right: 0; padding-left: 0; }
+.nw-document .on-body { max-height: none; overflow: visible; }
+@media (max-width:700px) { .nw-document > .on-note { margin-left: -20px; width: calc(100% + 20px); } }
+
+/* Page library controls stay separate from the writing surface. */
+.nw-create { display: grid; gap: 8px; }
+.nw-create > button:last-child { justify-content: flex-start; }
+.nw-field-label { font-size: 11px; font-weight: 600; color: var(--ou-muted); }
+.nw-create select, .nw-search, .nw-move-label select { min-width: 0; min-height: 32px; border: 1px solid var(--ou-line); border-radius: 3px; background: var(--ou-panel); color: var(--ou-ink); padding: 6px 9px; font: inherit; font-size: 12px; }
+.nw-search { width: 100%; }
+.nw-views { display: flex; gap: 4px; flex-wrap: wrap; }
+.nw-views button { font-size: 11px; color: var(--ou-muted); border: 0; border-radius: 3px; padding: 5px 7px; cursor: pointer; background: transparent; }
+.nw-views button[aria-pressed='true'] { background: color-mix(in srgb, var(--ou-ink) 7%, transparent); color: var(--ou-ink); font-weight: 600; }
+.nw-empty { font-size: 12px; line-height: 1.6; color: var(--ou-muted); padding: 8px; }
+.nw-page-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-bottom: 18px; }
+.nw-move-label { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 11px; color: var(--ou-muted); }
+.nw-move-label select { max-width: 170px; border-color: transparent; background: transparent; min-height: 28px; padding: 4px 6px; }
+.nw-trash-banner { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 16px; margin-bottom: 24px; border: 1px solid var(--ou-line); border-radius: 3px; font-size: 12px; color: var(--ou-muted); background: var(--ou-ground); }
+.nw-sidebar { min-height: 0; overflow-y: auto; }
+.nw-list { flex-shrink: 0; }
+@media (max-width: 700px) { .nw-create { grid-template-columns: 1fr auto; } .nw-create .nw-field-label { grid-column: 1 / -1; } }
+
+/* Page actions use the same menu row as the other Office editors. */
+.nw-header > [data-save-status] { margin-left: auto; }
+.nw-actions select { width: auto; max-width: 220px; }
+
+.nw-header { grid-column: 1 / -1; flex-wrap: wrap; gap: 8px; }
+
+
+
+.nw-sidebar > .office-panel-header { margin-inline: -12px; }
+
+.nw-views { padding-block: 4px; gap: 4px; }
+.nw-views button { min-height: 30px; flex: 1; padding: 4px; border-radius: 5px; font-size: 12px; white-space: nowrap; }
+.nw-views button[aria-pressed=true] { background: var(--ou-accent-soft); color: var(--ou-accent); }
+
+/* Writing stays clear; page management opens from the shared document header. */
+.nw-page-actions { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin: 0; }
+.nw-page-actions > button { justify-content: flex-start; }
+.nw-page-actions .nw-move-label { display: flex; flex-direction: column; align-items: stretch; gap: 6px; font-size: 12px; }
+.nw-page-actions .nw-move-label select { max-width: none; border-color: var(--ou-line); background: var(--ou-ground); }
+.nw-dialog-field { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.nw-template-action { justify-content: flex-start; color: var(--ou-muted); }
+.nw-sidebar .nw-views { order: 0; }
+
+.nw-operation-notice { margin: 20px 32px; }
+
+/* Navigation transfers focus here before the newly opened editor is ready. */
+.nw-main:focus { outline:none; }

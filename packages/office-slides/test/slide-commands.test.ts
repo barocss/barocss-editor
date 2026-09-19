@@ -92,6 +92,134 @@ describe('the commands a deck has', () => {
     expect(names()).toEqual(['One', 'Two']);
   });
 
+  it('stores workspace coordinates separately from presentation order, and undoes them together', async () => {
+    const [one] = deckSlides(doc());
+    const content = [...store.getNode(one.sid)!.content];
+    expect(await run('setSlideInfo', { slideId: one.sid, canvasX: -320, canvasY: 840 })).toBeTruthy();
+    expect(store.getNode(one.sid)?.attributes).toMatchObject({ name: 'One', canvasX: -320, canvasY: 840 });
+    expect(store.getNode(one.sid)?.content).toEqual(content);
+    expect(names()).toEqual(['One', 'Two']);
+    const saved = editor.exportDocument();
+    await editor.undo();
+    expect(store.getNode(one.sid)?.attributes.canvasX).toBeUndefined();
+    expect(store.getNode(one.sid)?.attributes.canvasY).toBeUndefined();
+    editor.loadDocument(saved);
+    expect(store.getNode(deckSlides(doc())[0].sid)?.attributes).toMatchObject({ canvasX: -320, canvasY: 840 });
+  });
+
+  it('rejects invalid workspace coordinates without renaming the slide', async () => {
+    const [one] = deckSlides(doc());
+    for (const canvasX of [Infinity, NaN, '12']) {
+      expect(await run('setSlideInfo', { slideId: one.sid, canvasX, name: 'Changed' })).toBeFalsy();
+      expect(store.getNode(one.sid)?.attributes.name).toBe('One');
+    }
+  });
+
+  it('moves objects between slides in one reversible transaction', async () => {
+    const [one, two] = deckSlides(doc());
+    const sid = store.getNode(one.sid)!.content[0] as string;
+    const original = store.getNode(sid)!;
+    const children = [...original.content];
+    expect(await run('moveBoxesToSlide', { slideId: two.sid, positions: [{ nodeId: sid, x: 450, y: 900 }] })).toBeTruthy();
+    expect(store.getNode(sid)?.parentId).toBe(two.sid);
+    expect(store.getNode(sid)?.attributes).toMatchObject({ x: 450, y: 900 });
+    expect(store.getNode(sid)?.content).toEqual(children);
+    expect(store.getNode(one.sid)?.content).not.toContain(sid);
+    await editor.undo();
+    expect(store.getNode(sid)?.parentId).toBe(one.sid);
+    expect(store.getNode(sid)?.attributes).toMatchObject({ x: 0, y: 0 });
+    await editor.redo();
+    expect(store.getNode(sid)?.parentId).toBe(two.sid);
+  });
+
+  it('refuses locked objects, invalid positions and transfers to their own slide', async () => {
+    const [one, two] = deckSlides(doc());
+    const sid = store.getNode(one.sid)!.content[0] as string;
+    expect(await run('moveBoxesToSlide', { slideId: one.sid, positions: [{ nodeId: sid, x: 1, y: 2 }] })).toBeFalsy();
+    expect(await run('moveBoxesToSlide', { slideId: two.sid, positions: [{ nodeId: sid, x: NaN, y: 2 }] })).toBeFalsy();
+    await run('setBoxLocked', { nodeIds: [sid], locked: true });
+    expect(await run('moveBoxesToSlide', { slideId: two.sid, positions: [{ nodeId: sid, x: 1, y: 2 }] })).toBeFalsy();
+    expect(store.getNode(sid)?.parentId).toBe(one.sid);
+  });
+
+  it('copies to another slide with new identities and text marks, without changing the original', async () => {
+    const [one, two] = deckSlides(doc());
+    const source = store.getNode(one.sid)!.content[0] as string;
+    const before = JSON.stringify(store.getNode(source));
+    expect(await run('copyBoxesToSlide', { slideId: two.sid, positions: [{ nodeId: source, x: 900, y: 600 }] })).toBe(true);
+    const copy = store.getNode(two.sid)!.content[0] as string;
+    expect(copy).not.toBe(source);
+    expect(store.getNode(copy)?.attributes).toMatchObject({ x: 900, y: 600 });
+    const paragraph = store.getNode(copy)!.content[0] as string;
+    const text = store.getNode(store.getNode(paragraph)!.content[0] as string)!;
+    expect(text.text).toBe('One');
+    expect(text.marks).toEqual(expect.arrayContaining([expect.objectContaining({ stype: 'bold' })]));
+    expect(JSON.stringify(store.getNode(source))).toBe(before);
+    await editor.undo();
+    expect(store.getNode(two.sid)!.content).toHaveLength(0);
+    expect(JSON.stringify(store.getNode(source))).toBe(before);
+    await editor.redo();
+    expect(store.getNode(two.sid)!.content).toHaveLength(1);
+  });
+
+  it('edits, nudges, duplicates and deletes a multi-slide selection in its own containers', async () => {
+    const [one, two] = deckSlides(doc());
+    const source = store.getNode(one.sid)!.content[0] as string;
+    await run('copyBoxesToSlide', { slideId: two.sid, positions: [{ nodeId: source, x: 900, y: 600 }] });
+    const other = store.getNode(two.sid)!.content[0] as string;
+    await run('setNode', { nodeIds: [source, other] });
+    expect(await run('setBoxStyle', { nodeIds: [source, other], fill: '#3366aa' })).toBe(true);
+    for (const sid of [source, other]) expect(store.getNode(sid)!.attributes.fill).toBe('#3366aa');
+    expect(await run('nudgeBoxes', { dx: 15, dy: 0 })).toBe(true);
+    expect(store.getNode(source)!.attributes.x).toBe(15);
+    expect(store.getNode(other)!.attributes.x).toBe(915);
+    await editor.undo();
+    expect(store.getNode(source)!.attributes.x).toBe(0);
+    expect(store.getNode(other)!.attributes.x).toBe(900);
+    expect(await run('duplicateBoxes')).toBe(true);
+    for (const slide of [one, two]) expect(store.getNode(slide.sid)!.content).toHaveLength(2);
+    await editor.undo();
+    await run('setNode', { nodeIds: [source, other] });
+    expect(await run('deleteBoxes')).toBe(true);
+    for (const slide of [one, two]) expect(store.getNode(slide.sid)!.content).toHaveLength(0);
+    await editor.undo();
+    expect(store.getNode(source)!.parentId).toBe(one.sid);
+    expect(store.getNode(other)!.parentId).toBe(two.sid);
+  });
+
+  it('refuses grouping, stacking and component creation across slides without a partial edit', async () => {
+    const [one, two] = deckSlides(doc());
+    const source = store.getNode(one.sid)!.content[0] as string;
+    await run('copyBoxesToSlide', { slideId: two.sid, positions: [{ nodeId: source, x: 900, y: 600 }] });
+    const other = store.getNode(two.sid)!.content[0] as string;
+    await run('setNode', { nodeIds: [source, other] });
+    for (const command of ['groupBoxes', 'bringToFront', 'alignBoxesLeft', 'createComponent', 'insertConnector']) {
+      expect(editor.canExecuteCommand(command), command).toBe(false);
+      expect(await run(command), command).toBe(false);
+    }
+    expect(store.getNode(source)!.parentId).toBe(one.sid);
+    expect(store.getNode(other)!.parentId).toBe(two.sid);
+  });
+
+  it('copies a connected diagram with references to the copies and keeps the original connections', async () => {
+    const [one, two] = deckSlides(doc());
+    const start = store.getNode(one.sid)!.content[0] as string;
+    await run('insertRectangle', { slideId: one.sid, x: 500, y: 0, width: 100, height: 100 });
+    const end = store.getNode(one.sid)!.content[1] as string;
+    expect(await run('insertConnector', { startNodeId: start, endNodeId: end })).toBe(true);
+    const connector = store.getNode(one.sid)!.content[2] as string;
+    expect(await run('copyBoxesToSlide', { slideId: two.sid, positions: [
+      { nodeId: start, x: 300, y: 400 }, { nodeId: end, x: 800, y: 400 }, { nodeId: connector, x: 300, y: 400 }
+    ] })).toBe(true);
+    const [a, b, line] = store.getNode(two.sid)!.content as string[];
+    expect(store.getNode(line)!.attributes).toMatchObject({ startNodeId: a, endNodeId: b });
+    expect(store.getNode(connector)!.attributes).toMatchObject({ startNodeId: start, endNodeId: end });
+    expect(await run('copyBoxesToSlide', { slideId: two.sid, positions: [{ nodeId: connector, x: 0, y: 0 }] })).toBe(false);
+    await editor.undo();
+    expect(store.getNode(two.sid)!.content).toHaveLength(0);
+    expect(store.getNode(connector)!.attributes).toMatchObject({ startNodeId: start, endNodeId: end });
+  });
+
   describe('adding a slide', () => {
     it('puts it after the one it follows, not at the end', async () => {
       const [one] = deckSlides(doc());

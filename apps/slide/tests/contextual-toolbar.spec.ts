@@ -71,3 +71,17 @@ test.describe('a toolbar that answers to the selection', () => {
     expect(await groups(page)).not.toContain('align');
   });
 });
+
+
+test('compact slide menu runs a command and closes with Escape', async ({ page }) => {
+  await openDeck(page);
+  const trigger = page.locator('.sl-toolbar').getByRole('menuitem', { name: '슬라이드', exact: true });
+  await trigger.press('Enter');
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Escape');
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  const before = await page.locator('.sl-filmstrip button').count();
+  await trigger.click();
+  await page.getByRole('menuitem', { name: '새 슬라이드', exact: true }).click();
+  await expect(page.locator('.sl-filmstrip button')).toHaveCount(before + 1);
+});

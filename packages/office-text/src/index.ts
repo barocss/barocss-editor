@@ -34,6 +34,7 @@
 
 /** The little of a document a text reader needs. */
 export * from './document-access';
+export { TEXT_FLOW_STYLE } from './text-flow';
 
 /** What a paragraph inherits, and from where. */
 export * from './style-resolver';
@@ -62,6 +63,7 @@ export * from './image-layout';
  * and two stars would make which one a caller gets depend on the order of the lines above.
  */
 export * from './table-format';
+export * from './table-dimensions';
 export * from './table-style';
 
 /** The renderers themselves: text, tables, marks, equations. */
@@ -76,6 +78,7 @@ export { registerTextRenderers } from './renderers';
 export { blockLanguage, blockRevision, blockStyle, formatFor, listMarker, listTypeOf, revisionDrawing } from './renderers/block-style';
 export { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
 export { registerMathRenderers } from './math-renderers';
+export { mathFontScale, MATH_SCALE_MIN, MATH_SCALE_MAX } from './math-size';
 
 /**
  * **Finding text in a document** — moved here from `office-word`, which it never knew about.
@@ -93,6 +96,8 @@ export {
   type FindOptions,
   type Match
 } from './find';
+export { findTextRanges, type TextMatch } from './find-ranges';
+export { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
 
 /**
  * **셀 선택** — 셀을 가로질러 끄는 것과, 그것이 만드는 `cell` 선택.
@@ -135,6 +140,19 @@ export {
 
 /** 쓰인 몸이 무엇으로 이루어지나 — `office-note` 에서 왔다. 왜 여기인지는 그 파일에 있다. */
 export { BODY_BLOCKS, BODY_CONTENT, type BodyBlock } from './body-blocks';
+export { registerProseRenderers } from './prose-renderers';
 
 // 문서가 무엇이라 불리는가 — `docMeta` 를 읽는 한 벌. 덱은 예외이고 그 이유는 파일에 있다.
 export * from './document-meta';
+
+export { normalizeProseTree } from "./normalize-prose-tree";
+
+export { TableAppearanceExtension, type TableTheme, type TableColumnWidthPayload, type TableCellBackgroundPayload, type TableThemePayload, type GrowTableRowsPayload } from "./table-appearance";
+
+export { tableThemeCellFormat } from "./table-theme";
+
+export { registerLatexRenderers, registerLatexCommands } from './latex';
+export { proseColumnDefinitions, registerColumnCommands, registerColumnRenderers } from './columns';
+export { installTableBoundaryResize, type TableBoundary, type TableResizeSession } from './table-boundary-resize';
+
+export { documentBookmarks, type DocumentBookmark } from './bookmarks';

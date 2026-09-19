@@ -1,6 +1,9 @@
+import { useId, useLayoutEffect, useRef } from 'react';
+import { RibbonTabs } from './ribbon';
+import { PanelHeader } from './document-bar';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
-import { CONTROL, NumberField, STATE } from './controls';
+import { CONTROL, FIELD_CONTROL, IconButton, NumberField, STATE } from './controls';
 
 /**
  * The properties of the thing that is selected.
@@ -34,12 +37,15 @@ export function PropertyPanel({
    * putting a unit control in a group would make it look like a property of
    * whatever is selected, which it is not.
    */
-  action
+  action,
+  density = 'inspector'
 }: {
   title: string;
   children: React.ReactNode;
   className?: string;
   action?: React.ReactNode;
+  /** Comfortable spacing and visible field borders for a full inspector. */
+  density?: 'compact' | 'comfortable' | 'inspector';
 }) {
   return (
     <aside
@@ -55,19 +61,9 @@ export function PropertyPanel({
        * On the shared component rather than in each product, so the three panels answer to one name.
        */
       data-property-panel
+      data-property-density={density}
       className={cn(
-        /*
-         * **240px**, which is what a design tool's inspector is.
-         *
-         * It was 288 — up from 256 because a fill row is a swatch, a kind, an opacity, an eye and a
-         * bin, and at 256 the opacity box read "10C". That reasoning was right and the remedy was
-         * the wrong one: the answer to a row that does not fit is a row that **wraps**, not a panel
-         * that grows, and a panel grows once and then never comes back. Every serious tool of this
-         * kind is between 232 and 248 — Figma 240, Sketch 240, Illustrator 232 — and the number is
-         * not a taste either: it is about how far the eye travels between a label and its value.
-         *
-         * 48 pixels of canvas back, on every screen, for the whole life of the product.
-         */
+        // Full panels use the common inspector; compact remains available for small instruments.
         'office-properties flex w-60 shrink-0 flex-col overflow-y-auto',
         /*
          * Inside a panel a field has no resting edge — see `--ou-field-line`. Set here rather than in
@@ -89,12 +85,7 @@ export function PropertyPanel({
  className
       )}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-[color:var(--ou-line)] px-2 py-1.5">
- <h2 className="text-[length:var(--ou-text-small)] font-semibold uppercase tracking-wider text-[color:var(--ou-muted)]">
- {title}
-        </h2>
-        {action}
-      </div>
+      <PanelHeader title={title} actions={action} property />
       {/* No padding here: a section's rule has to reach both edges, so the
           padding belongs to the sections. */}
       <div className="flex flex-col">{children}</div>
@@ -102,49 +93,32 @@ export function PropertyPanel({
   );
 }
 
-/** A titled group of rows, the way a Format pane divides itself up. */
-/**
- * A section of the panel, with a rule above it.
- *
- * The panel was a stack of headed lists with even spacing throughout, and a
- * reader scanning it had nothing to tell them where one thing ended and the next
- * began — everything looked like one long form. Figma's answer, which every
- * design tool has since copied, is a hairline between sections and a header row
- * that can hold an action: the rule does the separating, so the spacing can be
- * tight, and the header is where "add another fill" belongs because that is what
- * the section *is*.
- *
- * `action` rather than a slot for anything: a section header holds one control,
- * and a second would be a toolbar nobody asked for.
- */
+/** A property section with independent disclosure and optional reset actions. */
 export function PropertyGroup({
  label,
  action,
   folded,
   onFold,
+  onReset,
+  resetDisabled = false,
+  resetLabel,
   children
 }: {
   label: string;
   action?: React.ReactNode;
-  /**
-   * **Whether this section is put away**, and the switch that puts it away.
-   *
-   * Measured on a site builder's own panel: **959 pixels** of controls in five sections, all of them
-   * open, so a reader who wanted a shadow scrolled past a whole arrangement and a whole size to
-   * reach it. Every inspector in this class folds; this one had no way to.
-   *
-   * Held by the **caller**, not here, and that is the same rule the rest of this package follows: a
-   * fold is a fact about *this reader, this minute* — like which width they are editing or which row
-   * of a list they are looking at — and a control that remembered its own would disagree with the
-   * next panel drawn from the same state. A caller that passes neither gets what it always had.
-   */
+  /** The caller owns the reset command and its property scope. */
+  onReset?: () => void;
+  resetDisabled?: boolean;
+  resetLabel?: string;
+  /** Folding is presentation state owned by the caller. */
   folded?: boolean;
   onFold?: (folded: boolean) => void;
   children: React.ReactNode;
 }) {
-  const name = `property-group-${label}`;
+  const name = useId();
   return (
     <section
+      data-property-group
       className={cn(
         'flex flex-col gap-0.5 px-2 py-2',
  // The rule between sections, and none above the first: a line at the top
@@ -152,7 +126,7 @@ export function PropertyGroup({
         'border-t border-[color:var(--ou-line)] first:border-t-0'
  )}
     >
-      <div className="mb-0.5 flex h-4 items-center justify-between">
+      <div data-property-group-header className="mb-0.5 flex h-4 items-center justify-between">
         {/*
           10px and tracked, which is the size a *label* is rather than a heading: a section's name is
           there to be found when a reader looks for it and to disappear when they do not. At the
@@ -166,12 +140,7 @@ export function PropertyGroup({
           */
           <button
             type="button"
-            /*
-             * **24 tall**, which is the smallest thing a pointer is *moved to* rather than aimed at —
-             * the chrome's own check, and it caught this at 16. Pulled back up by its own margin so
-             * the section's rhythm is what it was: the target grew and the drawing did not.
-             */
-            className="-mx-1 -my-1 flex h-6 flex-1 items-center gap-1 rounded px-1 text-left hover:bg-[color:var(--ou-ground)]"
+            className="office-property-disclosure"
             aria-expanded={!folded}
             aria-controls={name}
             onClick={() => onFold(!folded)}
@@ -186,14 +155,14 @@ export function PropertyGroup({
             {label}
           </h3>
         )}
-        {action}
+        <span className="office-property-group-actions">{action}{onReset && <IconButton size="sm" label={resetLabel ?? `${label} 초기화`} disabled={resetDisabled} onClick={onReset}><Icon name="undo" size={14} /></IconButton>}</span>
       </div>
       {/*
         `hidden` rather than not rendered: a folded section's controls keep their state — a
         half-typed number, a colour picker's open popover — and a reader who folds and unfolds
         expects to find what they left. It is also what `[hidden]` is for.
       */}
-      <div id={name} hidden={folded} className="flex flex-col gap-0.5">
+      <div data-property-group-body id={name} hidden={folded} className="flex flex-col gap-0.5">
         {children}
       </div>
     </section>
@@ -209,41 +178,14 @@ export function PropertyGroup({
  * something a reader scrolled past, which is how a feature comes to look
  * missing.
  */
-export function PropertyTabs({
-  tabs,
-  active,
-  onChange
-}: {
-  tabs: { id: string; label: string }[];
+export function PropertyTabs({ tabs, active, onChange, panelId }: {
+  tabs: { id: string; label: string; disabled?: boolean }[];
   active: string;
   onChange: (id: string) => void;
+  panelId?: string;
 }) {
-  return (
-    <div
-      role="tablist"
- aria-label="속성 탭"
- className="flex border-b border-[color:var(--ou-line)] px-1"
- >
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
- role="tab"
- data-tab={tab.id}
-          aria-selected={tab.id === active}
-          onClick={() => onChange(tab.id)}
-          className={cn(
-            'flex-1 border-b-2 px-2 py-1.5 text-[length:var(--ou-text-label)] font-medium',
- tab.id === active
-              ? 'border-[color:var(--ou-accent)] text-[color:var(--ou-ink)]'
- : 'border-transparent text-[color:var(--ou-muted)] hover:text-[color:var(--ou-ink)]'
- )}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
-  );
+  return <RibbonTabs label="속성 탭" value={active} options={tabs} onChange={onChange}
+    panelId={panelId} variant="panel" itemData={id => ({ tab: id })} />;
 }
 
 /**
@@ -281,8 +223,8 @@ export function PropertyRow({
    * from* rather than about the value: put next to the control it reads as another way to change the
    * number, which is the one thing it does not do.
    *
-   * Safe inside the `<label>` because activation is skipped when a click lands on interactive
-   * content — the same rule that stops a link inside a label toggling its control.
+   * A row is a group: each input has its own accessible name. Reset and companion controls
+   * must not forward a label click to the first input.
    */
   mark?: React.ReactNode;
   /**
@@ -300,12 +242,13 @@ export function PropertyRow({
   children: React.ReactNode;
 }) {
   return (
-    <label className="flex min-h-[var(--ou-control-h)] items-start gap-1.5 text-[length:var(--ou-text)]">
+    <div role="group" aria-label={label} data-property-row className="flex min-h-[var(--ou-control-h)] items-start gap-1.5 text-[length:var(--ou-text)]">
       <span
         className={`flex h-[var(--ou-control-h)] shrink-0 items-center gap-1 text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)] ${
           icon ? 'w-[var(--ou-control-h)] justify-center' : 'w-[var(--ou-label-w)]'
         }`}
         title={label}
+        data-property-label={icon ? 'icon' : 'text'}
       >
         <span className={icon ? '' : 'truncate'} aria-hidden={icon ? true : undefined}>
           {icon ? <Icon name={icon} size={14} /> : label}
@@ -314,7 +257,7 @@ export function PropertyRow({
       </span>
       {/* `items-center` within a line, so a wrapped row's two lines each sit on their own centre. */}
       <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">{children}</span>
-    </label>
+    </div>
   );
 }
 
@@ -470,7 +413,8 @@ export function PropertyToggle({
   disabled,
   ariaLabel
 }: {
-  value: boolean;
+  /** null represents different values in the selection. */
+  value: boolean | null;
   onChange: (value: boolean) => void;
   /**
    * The word beside the box — **or nothing**, when the row it sits in already carries it.
@@ -482,58 +426,25 @@ export function PropertyToggle({
   disabled?: boolean;
   ariaLabel: string;
 }) {
+  const input = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => { if (input.current) input.current.indeterminate = value === null; }, [value]);
   return (
-    <label className="inline-flex flex-1 items-center gap-1.5 text-[length:var(--ou-text)] text-[color:var(--ou-ink)]">
- <input
-        type="checkbox"
- aria-label={ariaLabel}
-        disabled={disabled}
-        checked={value}
-        onChange={(event) => onChange(event.target.checked)}
-        /**
-         * **A box of 14 and a target of 24**, which are two different numbers on purpose.
-         *
-         * A tick that *looks* right at 14 is a thing a pointer has to be aimed at rather than moved
-         * to, and on a trackpad that is the difference between one gesture and two. Every design
-         * tool draws a small box and gives it a large hit area; this drew a small box and a small hit
-         * area, and the chrome sweep said so the moment the page pane grew three of them.
-         *
-         * A negative margin so the row's rhythm is unchanged: the target grows outwards into padding
-         * that was already there, which is why this costs nothing above or below it.
-         */
-        /**
-         * **A box of 16 and a target of 24**, which are two numbers on purpose.
-         *
-         * A tick that looks right at 14 is a thing a pointer has to be *aimed at* rather than moved
-         * to, and on a trackpad that is the difference between one gesture and two. Measured by the
-         * chrome sweep the moment the page pane grew three of them: `14×14`, against a floor of 22.
-         *
-         * ## Why the box is drawn rather than the browser's
-         *
-         * Two attempts failed before this one and both are worth the line. Padding and a transparent
-         * border on a native checkbox are **ignored**: Chrome's `appearance: auto` drops them and
-         * reports `border-width: 0` back, so an inline style that plainly said `5px solid` measured
-         * as nothing at all. A native control's box is the browser's, and the only way to have one of
-         * a different size is to stop it being native.
-         *
-         * So `appearance: none`, a box drawn in the panel's own line and accent, and a tick as a
-         * background image — which is what every design system that wanted a 24-pixel target ended up
-         * doing, for exactly this reason.
-         */
-        className={cn(
-          'relative h-6 w-6 shrink-0 cursor-pointer appearance-none rounded-[4px]',
-          'border border-[color:var(--ou-line)] bg-[color:var(--ou-panel)]',
-          'bg-[length:14px_14px] bg-center bg-no-repeat',
-          'checked:border-[color:var(--ou-accent)] checked:bg-[color:var(--ou-accent)]',
-          'disabled:pointer-events-none disabled:opacity-40',
-          'focus-visible:shadow-[0_0_0_2px_var(--ou-accent-soft)]'
-        )}
-        style={{
-          backgroundImage: value
-            ? "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.5 3.5L13 5'/%3E%3C/svg%3E\")"
-            : undefined
-        }}
- />
+    <label className="office-checkbox-label">
+      <span className="office-checkbox-target">
+        <input
+          className="office-checkbox-input"
+          type="checkbox"
+          aria-label={ariaLabel}
+          disabled={disabled}
+          ref={input}
+          checked={value === true}
+          aria-checked={value === null ? 'mixed' : value}
+          onChange={event => onChange(event.target.checked)}
+        />
+        <span className="office-checkbox-mark" aria-hidden="true">
+          {value === null ? <span className="office-checkbox-mixed" /> : <Icon name="chosen" size={12} />}
+        </span>
+      </span>
       {label ? <span className="truncate">{label}</span> : null}
     </label>
   );
@@ -642,7 +553,7 @@ export function PropertyChoice({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       className={cn(
-        CONTROL,
+        FIELD_CONTROL,
         'w-full min-w-0 bg-transparent px-1',
         /**
          * And a **ring**, which a field does not need and this does.

@@ -35,23 +35,41 @@
  * here, and there cannot be: this package does not depend on a single product, which is what makes
  * it possible for a product to depend on it.
  *
- * **안 들어옴** — anything that reads coordinates. An overlay draws handles where a block is on a
- * canvas, at a scale, in a view; that is not a declaration and it does not belong to this layer
- * until something has said what the shared shape of *a thing with a position* is.
+ * **선택의 위치는 연결합니다.** An editor's selection rectangle and ownership belong here;
+ * `office-ui` places and draws the floating surface. Product-specific canvas geometry and
+ * manipulation handles remain with the product rather than becoming toolbar behavior.
  *
- * ## React 를 쓰지만 상태는 갖지 않습니다
+ * ## 일시적인 UI 상태와 제품 상태를 구분합니다
  *
- * Everything here takes an `Editor` and a declaration and draws. What a reader is *in* — which mode
- * the pointer is in, which width is being edited, which slide is on screen — is the assembling
- * layer's, and it arrives as props. That is the same rule `office-ui` follows one layer down, one
- * step further up: props in, commands out.
+ * Selection measurements, saved ranges and open toolbar inputs are temporary UI state owned by
+ * this connection. Product state — pointer mode, the width being edited, the current slide —
+ * arrives as props. Document changes always go through editor commands.
  */
 export { ControlRows } from './control-rows';
 export { useDocumentRevision, useEditorRevision } from './revision';
 export { useSelectionRect } from './use-selection-rect';
 export { Controls, type ControlsProps } from './controls';
+export { ContextToolbar, useEditorTextSelection, ownsEditorSelection } from './context-toolbar';
+export { captureTextSelection } from './capture-text-selection';
+export { CLIPBOARD_ACTIONS, clipboardAction, canUseClipboard, useClipboardActions, type ClipboardAction } from './clipboard-actions';
+export { useNodeRect, useNodeAnchor } from './use-node-rect';
+export { SelectionLinkControl, selectedLink, usableHref } from './selection-link';
+export { SelectionColorControl } from './selection-color';
 export { SlashMenu } from './slash-menu';
 export { controlRows, useControls, type ControlRow, type UseControlsOptions } from './use-controls';
 
 // 문서를 파일로 여닫는 세 몸짓 — 제품은 자기 넷만 댄다.
 export * from './file-actions';
+
+export { LatexEditor, latexPreview } from './latex-editor';
+export { MathSourceEditor } from './math-source-editor';
+export { MathInlineInput } from './math-inline-input';
+export { ColumnsEditor } from './columns-editor';
+
+export { useFormatPainter } from './format-painter';
+export { LocalDocuments, useLocalDocuments } from './local-documents';
+export { DocumentSaveStatus } from './document-save-status';
+export { usePropertyCommand } from './use-property-command';
+
+export { useEditorSettings } from './use-editor-settings';
+export { useEditorContextVisibility } from './editor-context';

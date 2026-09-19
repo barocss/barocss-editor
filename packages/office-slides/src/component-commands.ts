@@ -341,6 +341,7 @@ export class SlidesComponentExtension implements Extension {
     // `selection.ts` reads it, which is the same reason: a `DeckNode` is a written node.
     const parent = (doc.getNode([...chosen][0]) as { parentId?: unknown } | undefined)?.parentId;
     if (typeof parent !== 'string') return [];
+    if ([...chosen].some(sid => doc.getNode(sid)?.parentId !== parent)) return [];
     // Siblings only: a definition made out of two boxes on different slides is not a card,
     // and the arithmetic that rebases them would be inventing a shared origin.
     return childrenOf(doc.getNode(parent)).filter((sid) => chosen.has(sid));

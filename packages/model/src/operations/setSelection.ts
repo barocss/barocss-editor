@@ -29,7 +29,8 @@ defineOperation('setSelection', async (operation: SetSelectionOperation, context
   };
   return {
     ok: true,
-    data: context.selection.current
+    data: context.selection.current,
+    // An explicit caret must supersede an earlier edit's suggested caret in this transaction.
+    ...(collapsed ? { selectionAfter: { nodeId: anchor.nodeId, offset: anchor.offset } } : {})
   };
 });
-

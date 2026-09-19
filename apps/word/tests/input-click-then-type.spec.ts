@@ -39,7 +39,7 @@ test.describe('a keystroke in the same tick as the click', () => {
    * that cannot fail is not evidence, and this is the arrangement that fails.
    */
   test('stays in the half of a frame that was clicked', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await page.locator('.barocss-editor-content p').first().click();
@@ -68,7 +68,7 @@ test.describe('a keystroke in the same tick as the click', () => {
    * that only shows up on the next save is the worst kind.
    */
   test('leaves the model saying what the page shows', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?sample');
     await settled(page);
 
     await page.locator('.barocss-editor-content p').first().click();

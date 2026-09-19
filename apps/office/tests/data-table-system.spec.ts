@@ -1,0 +1,33 @@
+import { test, expect } from '@playwright/test';
+import { mkdir } from 'node:fs/promises';
+const output = `${process.cwd()}/../../.dev/artifacts/design-system`;
+
+test('shared table separates row selection, cell editing and computed errors in both themes', async ({ page }) => {
+  await page.goto('/design-system/index.html#data-table');
+  const table = page.getByRole('table', { name: '데이터 표 예시' });
+  await page.getByRole('checkbox', { name: '예시 1행 선택', exact: true }).check();
+  await expect(page.getByRole('checkbox', { name: '예시 전체 행 선택' })).toHaveAttribute('aria-checked', 'mixed');
+  const row = table.locator('tbody tr').first();
+  await expect(row).toHaveAttribute('data-row-selected', 'true');
+  const button = row.getByRole('button', { name: '예시 작업 편집' });
+  await button.click();
+  const input = row.getByRole('textbox', { name: '예시 작업 편집' });
+  await expect(input).toBeFocused();
+  await input.fill('취소할 초안'); await input.press('Escape');
+  await expect(button).toHaveText('출시 문서 검토'); await expect(button).toBeFocused();
+  await button.press('Enter'); await input.fill('검토 완료'); await input.press('Enter');
+  await expect(button).toHaveText('검토 완료');
+  await expect(row).toHaveAttribute('data-row-selected', 'true');
+  const cell = row.locator('[data-office-cell]').first();
+  expect(await cell.evaluate(el => getComputedStyle(el).boxShadow)).toContain('inset');
+  await table.locator('[data-invalid]').getByLabel('3행 계산 결과').focus();
+  await mkdir(output, { recursive: true });
+  await table.screenshot({ animations: 'disabled', path: `${output}/data-table-light.png` });
+  await page.getByRole('combobox', { name: '시스템 테마' }).click();
+  await page.getByRole('option', { name: '어두운 테마', exact: true }).click();
+  await table.screenshot({ animations: 'disabled', path: `${output}/data-table-dark.png` });
+  await page.setViewportSize({ width: 390, height: 800 });
+  const scroll = page.locator('.ds-table-scroll');
+  expect(await scroll.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

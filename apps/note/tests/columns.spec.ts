@@ -1,0 +1,24 @@
+import { test, expect } from '@playwright/test';
+test('columns insert, edit, resize, move, merge, undo and restore on narrow screens', async ({ page }) => {
+ await page.goto('/'); await expect(page.getByLabel('노트 제목')).toBeVisible();
+ await page.getByRole('button', { name: '새 노트', exact: true }).click();
+ await page.locator('.on-doc > p').click(); await page.keyboard.type('/');
+ await page.getByRole('menuitem', { name: /3단/ }).click();
+ const cols = page.locator('[data-prose-column]'); await expect(cols).toHaveCount(3);
+ await page.keyboard.type('First'); await cols.nth(2).locator('p').click(); await page.keyboard.type('Third');
+ const toolbar = page.getByRole('toolbar', { name: '컬럼 도구' }); await expect(toolbar).toBeVisible();
+ await toolbar.getByLabel('1열 너비').fill('2');
+ await expect(cols.first()).toHaveCSS('flex-grow', '2');
+ await toolbar.getByText('블록 끌어 이동', { exact: true }).dragTo(cols.nth(1));
+ await expect(cols.nth(1)).toContainText('Third');
+ const separator = cols.first().locator('[data-column-resize]'); const box = (await separator.boundingBox())!;
+ await page.mouse.move(box.x + box.width / 2, box.y + 10); await page.mouse.down(); await page.mouse.move(box.x + 30, box.y + 10, { steps: 8 }); await page.mouse.up();
+ await expect.poll(() => cols.first().evaluate(el => Number(getComputedStyle(el).flexGrow))).toBeGreaterThan(2);
+ await toolbar.getByLabel('컬럼 수', { exact: true }).selectOption('2'); await expect(cols).toHaveCount(2);
+ await page.keyboard.press('Escape'); await expect(page.locator('[data-save-status]')).toHaveText('저장됨'); await page.reload();
+ await expect(cols).toHaveCount(2); await expect(cols.first()).toContainText('First'); await expect(cols.nth(1)).toContainText('Third');
+ await page.setViewportSize({ width: 390, height: 844 }); await expect(page.locator('[data-prose-columns]')).toHaveCSS('flex-direction', 'column');
+ await cols.first().locator('p').click(); await toolbar.getByRole('button', { name: '1단으로 합치기' }).click();
+ await expect(cols).toHaveCount(0); await expect(page.locator('.on-doc')).toContainText('Third');
+ await page.keyboard.press('Control+z'); await expect(cols).toHaveCount(2);
+});

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useFormattingDialog } from './use-formatting-dialog';
+import { selectedBlocks } from './selected-blocks';
 import type { Editor } from '@barocss/editor-core';
 import {
   ChoiceSelect,
@@ -6,7 +7,9 @@ import {
   Dialog,
   DialogButton,
   PropertyNumber,
-  PropertyRow
+  PropertyRow,
+  StatusNotice,
+  Button
 } from '@barocss/office-ui';
 import {
   BORDER_EDGES,
@@ -64,19 +67,8 @@ export interface BordersDialogProps {
 }
 
 export function BordersDialog({ editor, open, onClose }: BordersDialogProps) {
-  const [state, setState] = useState<BorderState>(() => currentBorders(editor));
-
-  /**
-   * 다시 열면 **지금 문단**을 보여 준다.
-   *
-   * 덱의 크기 대화상자가 같은 모양을 쓴다. 지난번에 만지던 값을 그대로 들고 열리면, 다른 문단에
-   * 커서를 두고 연 독자가 자기 문단의 테두리를 보고 있다고 믿는다.
-   */
-  const [was, setWas] = useState(open);
-  if (was !== open) {
-    setWas(open);
-    if (open) setState(currentBorders(editor));
-  }
+  const { state, setState, selection, busy, problem, close, apply: submit } = useFormattingDialog(editor, open, currentBorders, onClose);
+  const hasTarget = !!editor && selectedBlocks(editor, selection).length > 0;
 
   const preset = presetOf(state);
 
@@ -89,45 +81,31 @@ export function BordersDialog({ editor, open, onClose }: BordersDialogProps) {
     }));
 
   const apply = () => {
-    void editor?.executeCommand?.('setParagraphBorders', { borders: state });
-    onClose();
+    if (editor && hasTarget) void submit(() => editor.executeCommand('setParagraphBorders', { borders: state, selection }));
   };
 
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={(next) => !next && close()}
       title="테두리 및 음영"
       description="선택한 문단에 적용됩니다."
       footer={
         <>
-          <DialogButton onClick={onClose}>취소</DialogButton>
-          <DialogButton variant="primary" data-borders-apply onClick={apply}>
-            확인
+          <DialogButton disabled={busy} onClick={close}>취소</DialogButton>
+          <DialogButton variant="primary" data-borders-apply disabled={busy || !hasTarget} onClick={apply}>
+            {busy ? '적용 중…' : '확인'}
           </DialogButton>
         </>
       }
     >
-      <div className="flex gap-6">
-        <div className="flex flex-col gap-1.5" role="group" aria-label="미리 설정">
+      <fieldset disabled={busy} className="w-borders-settings" aria-busy={busy || undefined}>
+        <div className="w-border-presets" role="group" aria-label="미리 설정">
           {PRESETS.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              data-border-preset={entry.id}
-              aria-pressed={preset === entry.id}
-              title={entry.hint}
-              onClick={() => setState((now) => applyPreset(now, entry.id))}
-              className={[
-                'h-[var(--ou-control-h)] rounded-[var(--ou-radius)] px-3 text-left',
-                'text-[length:var(--ou-text-small)] transition-colors',
-                preset === entry.id
-                  ? 'bg-[color:var(--ou-accent-soft)] text-[color:var(--ou-accent)]'
-                  : 'text-[color:var(--ou-ink)] hover:bg-[color:var(--ou-ground)]'
-              ].join(' ')}
-            >
+            <Button key={entry.id} tone="quiet" data-border-preset={entry.id} pressed={preset === entry.id}
+              title={entry.hint} disabled={busy} onClick={() => setState(now => applyPreset(now, entry.id))}>
               {entry.label}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -185,7 +163,7 @@ export function BordersDialog({ editor, open, onClose }: BordersDialogProps) {
           })}
         </div>
 
-        <div className="flex min-w-56 flex-col gap-3">
+        <div className="w-border-fields">
           <PropertyRow label="모양">
             <ChoiceSelect
               ariaLabel="테두리 모양"
@@ -223,7 +201,7 @@ export function BordersDialog({ editor, open, onClose }: BordersDialogProps) {
           <PropertyRow label="글과의 간격">
             <PropertyNumber
               ariaLabel="테두리와 글 사이"
-              suffix="pt"
+              suffix="pt" min={0}
               value={state.space ?? 0}
               onCommit={(value) =>
                 setState((now) => ({ ...now, space: value > 0 ? Math.round(value) : null }))
@@ -231,7 +209,9 @@ export function BordersDialog({ editor, open, onClose }: BordersDialogProps) {
             />
           </PropertyRow>
         </div>
-      </div>
+      </fieldset>
+      {!hasTarget && <StatusNotice tone="warning" title="문단을 먼저 선택하세요">설정창을 닫고 본문에서 문단을 선택하세요.</StatusNotice>}
+      {problem && <StatusNotice className="w-page-error" tone="danger" title="적용하지 못했습니다">{problem}</StatusNotice>}
     </Dialog>
   );
 }

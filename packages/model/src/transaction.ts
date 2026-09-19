@@ -112,6 +112,8 @@ export class TransactionManager {
       type OpWithResult = TransactionOperation & {
         result?: { ok?: boolean; error?: string; inverse?: unknown; selectionAfter?: { nodeId: string; offset: number } };
       };
+      // A range chosen explicitly must survive both suggested carets and the new-block fallback.
+      let hasExplicitSelection = false;
       let lastSelectionAfter: { nodeId: string; offset: number } | null = null;
 
       for (const operation of operations) {
@@ -128,6 +130,7 @@ export class TransactionManager {
                 selectionAfter: context.selection.current
               };
             }
+            if (op.type === 'setSelection') { lastSelectionAfter = null; hasExplicitSelection = true; }
             if (op.result?.selectionAfter) lastSelectionAfter = op.result.selectionAfter;
           }
           executedOperations.push(...(result as TransactionOperation[]));
@@ -148,6 +151,7 @@ export class TransactionManager {
               selectionAfter: context.selection.current
             };
           }
+          if (single.type === 'setSelection') { lastSelectionAfter = null; hasExplicitSelection = true; }
           if (single.result?.selectionAfter) lastSelectionAfter = single.result.selectionAfter;
           executedOperations.push(single as TransactionOperation);
           if (single.result?.inverse) {
@@ -158,15 +162,15 @@ export class TransactionManager {
 
       // 5. Selection resolution (after all operations, before commit)
       // Prefer selectionAfter from operation result (nodeId may be $alias; resolve via resolveAlias).
-      if (context.selection.current) {
-        if (lastSelectionAfter) {
-          const nodeId = this._dataStore.resolveAlias(lastSelectionAfter.nodeId);
-          context.selection.setCaret(nodeId, lastSelectionAfter.offset);
-        } else if (context.lastCreatedBlock) {
-          const nodeId =
-            context.lastCreatedBlock.firstTextNodeId ?? context.lastCreatedBlock.blockId;
-          context.selection.setCaret(nodeId, 0);
-        }
+      // Explicit operation intent also applies when a caller supplied a range before
+      // DOM selection reconciliation has populated the editor's current selection.
+      if (lastSelectionAfter) {
+        const nodeId = this._dataStore.resolveAlias(lastSelectionAfter.nodeId);
+        context.selection.setCaret(nodeId, lastSelectionAfter.offset);
+      } else if (!hasExplicitSelection && context.selection.current && context.lastCreatedBlock) {
+        const nodeId =
+          context.lastCreatedBlock.firstTextNodeId ?? context.lastCreatedBlock.blockId;
+        context.selection.setCaret(nodeId, 0);
       }
 
       // 6. End overlay, verify the result is schema-valid, then commit.
