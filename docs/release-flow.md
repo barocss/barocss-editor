@@ -1,94 +1,119 @@
-# Release Flow (Changesets)
+---
+work_id: wonffice-release-flow
+artifact_type: delivery_policy
+status: qa_ready
+owner_role: release-manager
+source_request: "이슈 병렬 개발, 필수 CI, 출시 시점과 버전 관리 정리"
+last_updated: 2026-09-19
+---
 
-릴리즈는 [Changesets](https://github.com/changesets/changesets)로 버전·CHANGELOG·npm 배포를 관리한다.
+# Wonffice 개발과 릴리즈
 
-## 요약
+이 문서는 개발·출시 정책이다. 출시 준비 완료 기록이 아니다. 클라우드 SaaS와 고객사 내부 설치 제품을 같은 버전으로 동시에 출시한다. 출시 날짜는 아직 확정하지 않았다. 백엔드의 첫 저장·복구 경로를 검증한 뒤 남은 작업과 기간을 산정한다.
 
-1. **변경 시**: PR에 changeset 추가 (`pnpm changeset`)
-2. **main 머지 후**: "Version Packages" PR이 자동 생성/갱신
-3. **배포 시**: "Version Packages" PR 머지 → CI가 빌드 후 `changeset publish`로 npm 배포
+## 현재 상태와 정책의 적용 범위
 
-## 1. Changeset 추가 (개발 시)
+- 기준점: [#248](https://github.com/barocss/barocss-editor/issues/248), [PR #250](https://github.com/barocss/barocss-editor/pull/250). 필수 CI 통과 후 main에 병합했다. 후속 코드는 최신 main을 기준으로 한다.
+- 다음 코어 작업: [#249](https://github.com/barocss/barocss-editor/issues/249), transaction 실패 복구.
+- 이 정책: [#251](https://github.com/barocss/barocss-editor/issues/251). 문서 작업은 최신 main을 반영한 독립 worktree에서 진행한다.
+- main 필수 검사 이름은 `Lint, type-check, unit test`, `E2E (editor-react)`다. 필수 검사를 통과하지 않으면 병합하지 않는다.
+- [PR #256](https://github.com/barocss/barocss-editor/pull/256)에서 실제 ESLint와 `pnpm preflight`를 연결했다. push 전에 로컬 lint·소스 타입·테스트 타입 검사를 실행한다. 기존 lint·타입 부채는 기준으로 명시하고 증가시키지 않는다. 상세 범위는 [로컬 사전 검사](local-verification.md)를 따른다.
+- 현재 CI는 서비스 출시 검사 전체를 포함하지 않는다. 네 제품의 전체 사용자 흐름, 서버 격리, 두 배포 환경, 업데이트·복원 검사는 추가 구현 대상이다.
+- 기존 Changesets 설정과 npm 버전 이력은 유지한다. 과거 npm release workflow와 Wonffice 서비스 릴리즈는 별개다. PR #250에서 과거 workflow를 제거했으므로 자동 Version Packages PR·npm 게시가 작동한다고 가정하지 않는다. 후속 이슈에서 게시 권한과 검사를 포함해 다시 연결한다.
 
-기능/버그 수정 PR에서 **버전에 반영할 변경**이 있으면 changeset을 추가한다.
+## 이슈에서 main까지
 
-```bash
-pnpm changeset
-```
+1. Codex 작업을 시작하거나 재개하면 열린 이슈, PR, 최신 댓글을 확인한다. 앱을 열기만 하면 작업이 시작되는 상주 실행기는 만들지 않는다.
+2. 승인된 이슈 중 선행 작업이 끝난 이슈를 선택한다. 목적, 제외 범위, 완료 기준, 검증 방법, 선행 이슈, 목표 milestone을 기록한다.
+3. 최신 `origin/main`에서 `codex/<issue>-<name>` 브랜치와 별도 worktree를 만든다. 선행 PR이 필요하면 병합을 기다린다. 오래된 main에서 선행 코드를 다시 만들지 않는다.
+4. 구현 후 `.nvmrc`의 Node로 `pnpm preflight`를 실행한다. lint와 타입 오류는 push 전에 수정한다. 변경에 맞는 단위·브라우저 검사도 실행한다. 공유 코어 변경은 사용하는 제품의 영향을 확인한다. 모바일 화면 검사는 별도 요청 전까지 제외한다.
+5. base가 main인 PR을 만든다. 변경 원인·행동·검사 결과·남은 위험을 쓴다. 미검증 작업은 draft로 둔다. 완료 기준을 충족할 때만 `Closes #N`을 쓴다.
+6. 병합 직전에 최신 요구와 PR head SHA를 확인한다. main 변경 후 필요한 재검사와 필수 CI를 통과해야 한다. 실패한 검사를 관리자 우회로 넘기지 않는다.
+7. 병합 후 이슈와 milestone을 갱신한다. main 병합 자체는 고객 배포나 npm 게시를 뜻하지 않는다.
 
-- 변경 범위: `patch` / `minor` / `major` 선택
-- 영향 패키지: 스페이스로 여러 개 선택 (해당 없으면 스킵)
-- 요약: 한 줄 설명 입력 (CHANGELOG에 들어감)
+처음에는 구현 이슈를 최대 두 개까지 동시에 진행한다. 독립된 소유 파일·계약·worktree를 지정한다. 코어와 서비스 기반처럼 충돌이 적은 작업을 병렬화한다. 같은 계약을 변경하면 먼저 계약 PR을 병합한다. 병합은 순서대로 진행하고 뒤 PR은 새 main 기준으로 다시 검증한다. Agent는 구현과 검증을 수행한다. 최종 출시 결정과 고객 약속은 제품 소유자가 담당한다.
 
-생성된 `.changeset/*.md` 파일을 PR에 포함해 머지한다.  
-문서만 바뀌었거나 테스트만 추가된 경우 changeset을 넣지 않아도 된다.
+## CI가 실패할 때
 
-## 2. Version Packages PR (자동)
+| 원인 | 처리 | 병합 |
+| --- | --- | --- |
+| 코드 또는 테스트의 실제 결함 | 원인 수정 또는 해당 변경 되돌리기, 회귀 검사 추가 | 수정한 head의 검사 통과 후 |
+| 운영체제·Node·도구 불일치 | 지원 환경에서 동작하도록 수정, 환경을 명시 | 해당 환경 검사 통과 후 |
+| 확인된 일시적 인프라 장애 | 근거를 남기고 같은 head를 한 번 재실행 | 필수 검사 통과 후 |
+| 간헐 실패 | 재현 조건·로그·담당 이슈 확보, 경합 또는 검사 설계 수정 | 원인 해결과 검증 후 |
+| 기존 기술 부채 | 기준값과 영향 기록, 증가 금지 | 승인된 기존 기준을 충족할 때 |
 
-- **트리거**: `main`에 push (changeset 파일이 있으면)
-- **동작**: [changesets/action](https://github.com/changesets/action)이 다음을 수행한다.
-  - `pnpm changeset version` 실행
-  - `package.json` 버전 bump, `CHANGELOG.md` 갱신, changeset 파일 삭제
-  - "Version Packages" PR 생성 또는 기존 PR 업데이트
-- **역할**: 릴리즈할 버전을 한 PR에 모아서 리뷰·머지할 수 있게 함
+실패할 때마다 통과할 때까지 재실행하거나 단언을 삭제하지 않는다. 데이터 유실·저장·권한·마이그레이션 검사를 임의로 제외하지 않는다. 검사를 격리해야 한다면 별도 검토에서 사유, 대체 검사, 담당자, 복원 기한을 정한다. 지금 필수 검사 설정은 유지한다.
 
-## 3. 배포 (Version Packages PR 머지 후)
+| 단계 | 검사 범위 | 도입 상태 |
+| --- | --- | --- |
+| 작업 중 | 변경 모듈과 의존 모듈, 회귀 사례 | 현재 수행 |
+| PR | lint, 소스·테스트 타입, 전체 단위 검사, React E2E | 현재 필수; 기존 타입 예외·기준값은 별도 존재 |
+| main | 전체 회귀 검사와 통합 제품 smoke 검사 | 기존 CI + 제품 smoke 확대 필요 |
+| 출시 후보 | 네 제품 데스크톱 흐름, 두 배포 방식, 격리·저장·업데이트·복원 | 구현 필요 |
 
-- **트리거**: "Version Packages" PR이 `main`에 머지된 push
-- **동작**:
-  1. `pnpm install`
-  2. `pnpm release` → `pnpm build` 후 `changeset publish`
-  3. npm에 배포 (배포 가능한 패키지만 퍼블리시)
-- **필수**: Repository Secret `NPM_TOKEN` (npm 배포 권한, 2FA publish 비활성화된 토큰)
+검사 비용이 커지면 PR 검사에 의존 관계 기반 영향 분석을 도입할 수 있다. 먼저 전체 검사와 비교하여 누락이 없음을 입증한다. 필수 판정 job은 누락·취소·실패를 성공으로 처리하지 않는다. 이 정책만으로 현재 CI 범위를 줄이지 않는다.
 
-## 로컬에서만 버전/배포하고 싶을 때
+## 첫 출시 조건
 
-- **버전만 적용 (PR/CI 없이)**  
-  `pnpm version-packages` → 변경사항 커밋 후 push
-- **배포까지 (npm 퍼블리시)**  
-  `pnpm release` (이미 빌드된 상태에서만 하려면 `pnpm changeset publish`만 실행)
+| 단계 | 제품 버전 예시 | 통과 조건 |
+| --- | --- | --- |
+| 내부 alpha | `1.0.0-alpha.1` | 기준점 CI 안정화, transaction 복구, 공통 작업 계약, 두 환경 설치·로그인·Note 서버 저장·재열기 검증 |
+| 제한된 고객 beta | `1.0.0-beta.1` | Note·Word·Slides·Site 서버 저장·재열기·공유, 회사/사용자/자산 격리, 기본 백업·복구, 지원 범위 명시. 두 배포 방식 제공 |
+| 출시 후보 RC | `1.0.0-rc.1` | 기능 범위 동결. 동시 편집 충돌·재접속, 권한 회수, 고객별 기능 차단, 이전 후보에서 업데이트, 실패 복구, 내부 설치 오프라인 기본 작업 검증 |
+| 첫 정식 출시 | `1.0.0` | RC의 두 환경 검증 통과, 출시 차단 결함 없음, 관측·복구 절차·설치 문서 준비, 제품 소유자의 출시 결정 |
 
-## 패키지 버전 전략
+로드맵 기준 alpha는 WP-01·02·05·06의 핵심 경로, beta는 WP-07까지와 WP-08·09의 격리·충돌 기준을 포함한다. RC와 정식 출시는 WP-08·09·10·11의 출시 검사를 모두 요구한다. 일부 선행 기능을 통과했다고 해당 WP 전체를 완료 처리하지 않는다. WP 정의는 [전달 계획](specs/wonffice-platform-delivery.md)을 따른다.
 
-Changesets는 세 가지 방식 중 하나로 버전을 맞출 수 있다.
+독립 상주 Agent 실행기(WP-03·04), 모든 회사 업무 자동화(WP-12 이후), 모바일 편집은 첫 출시의 선행 조건이 아니다. 첫 서비스 범위와 장기 비전을 구분한다. 준비되지 않은 기능은 UI와 API 모두에서 차단한다.
 
-| 방식 | 설정 | 동작 | 적합한 경우 |
-|------|------|------|-------------|
-| **Independent (변경된 것만)** | `fixed: []`, `linked: []` (현재) | changeset에 포함된 패키지만 버전 bump. 예: @barocss/model만 수정하면 model만 1.0.0 → 1.0.1 | 패키지를 따로 쓰는 사용자가 많을 때, 변경이 적은 패키지는 버전을 안 올리고 싶을 때 |
-| **Fixed (전부 같은 버전)** | `fixed: [["@barocss/datastore", "@barocss/model", ...]]` (한 그룹에 전부) | 그룹 안 패키지 중 하나라도 changeset에 있으면 **그룹 전체**가 같은 버전으로 올라감 | “Barocss Editor 1.2.0”처럼 **한 제품**으로만 쓰고, 항상 같은 버전 조합을 쓰고 싶을 때 |
-| **Linked (그룹별)** | `linked: [["@barocss/datastore", "@barocss/model", "@barocss/schema"], ["@barocss/editor-core", "..."]]` | 그룹 단위로 같은 버전. 그룹 A만 변경되면 A만 올라감 | “코어 그룹”과 “에디터 그룹”처럼 **몇 개 그룹**만 같이 올리고 싶을 때 |
+내부 alpha 검증 후 남은 이슈의 규모로 beta 목표 날짜를 정한다. beta 결과로 RC 날짜를 정한다. RC에서는 새 기능을 추가하지 않는다. 데이터 유실·회사 간 자료 노출·설치/저장 불능·복구 실패가 있으면 출시를 보류한다. 일정을 맞추려고 두 배포 방식 중 하나를 제외하지 않는다. 일정 또는 출시 범위를 바꿀 때는 제품 소유자가 결정한다.
 
-### 추천 (Barocss Editor 기준)
+## 제품 버전과 패키지 버전
 
-- **지금처럼 Independent**  
-  패키지가 많고(18개 이상), 변경이 자주 있는 패키지와 거의 안 바뀌는 패키지가 섞여 있으면 “변경된 것만 올리기”가 유리하다. 사용하는 쪽은 `@barocss/model`만 쓰면 model만 올리면 된다.
-- **Fixed로 바꾸고 싶다면**  
-  “우리는 항상 같은 버전 번호로만 쓴다”는 정책이면 `.changeset/config.json`에 `fixed`로 **배포하는 패키지 전부**를 한 배열에 넣으면 된다. (ignore된 앱은 제외)
+제품 버전은 Wonffice 서비스 전체의 배포 조합이다. Git tag는 `wonffice-v1.0.0-alpha.1`처럼 제품 이름을 포함한다. 루트 package.json의 기존 `1.0.0`은 첫 서비스가 출시되었다는 증거가 아니다. 제품 전체를 대표하는 비공개 workspace 패키지의 package.json을 제품 버전의 단일 기준으로 둔다. 이 패키지도 Changesets로 버전과 변경 내역을 관리하지만 npm에는 게시하지 않는다. 프런트엔드 office-app 하나의 버전을 전체 제품 버전으로 사용하지 않는다. 릴리즈 manifest는 이 제품 버전을 읽고 코드·이미지·DB 조합을 기록한다. 제품 버전과 manifest 검증 기반은 #252 / PR #254에서 검토 중이다. 게시된 태그의 불변성 검증과 실제 배포는 후속 구현 대상이다.
 
-설정은 `.changeset/config.json`의 `fixed` / `linked`만 바꾸면 되고, 이미 쌓인 changeset이 있으면 다음 `changeset version`부터 적용된다.
+| 변화 | 제품 버전 규칙 |
+| --- | --- |
+| 기존 공개 API·고객 확장 계약과 호환되지 않음 | major |
+| 기존 계약을 유지하는 기능 추가 | minor |
+| 기존 계약을 유지하는 결함 수정 | patch |
+| 정식 출시 전 검증 후보 | alpha, beta, rc와 순번 |
 
-## 설정 요약
+문서 형식·DB migration은 별도 식별자와 호환 범위를 manifest에 기록한다. 내부 스키마 변경만으로 major를 올리지는 않는다. 기존 문서나 지원 고객 확장 계약을 깨면 호환성 변경으로 취급한다. 패치라도 DB 변경이 있으면 복구 검사가 필요하다. 버전 번호만으로 마이그레이션 순서를 추정하지 않는다.
 
-| 항목 | 위치 | 설명 |
-|------|------|------|
-| baseBranch | `.changeset/config.json` | `main` |
-| commit | `.changeset/config.json` | `false` (action이 커밋) |
-| access | `.changeset/config.json` | `public` |
-| ignore | `.changeset/config.json` | 테스트 앱 등 배포 제외 패키지 |
-| release 스크립트 | 루트 `package.json` | `pnpm build && changeset publish` |
-| 워크플로 | `.github/workflows/release.yml` | Version Packages PR + publish |
+npm 패키지는 Changesets의 독립 버전을 유지한다. 변경한 공개 패키지와 필요한 내부 의존 패키지의 버전을 조정한다. 이미 배포한 `@barocss/*` 버전을 제품 버전에 맞춰 초기화하지 않는다. 고객사별 기능은 같은 제품 버전에 설치 목록과 설정으로 관리한다. 고객사별 브랜치·별도 제품 버전을 만들지 않는다.
 
-## NPM_TOKEN 설정
+제품 동작을 바꾸는 PR에는 제품 패키지 changeset을 기록한다. 라이브러리도 바뀌면 해당 공개 패키지를 같은 changeset 또는 별도 changeset에 추가한다. 개발 도구·문서만 바꾸면 제품 버전을 올리지 않는다. 비공개 패키지의 버전 관리 설정을 명시하고, 제품 버전과 manifest 버전이 다르면 검증에 실패하도록 한다. npm 게시와 SaaS·내부 설치 배포는 각각의 검사와 실행 단계로 유지한다.
 
-1. [npm Access Tokens](https://www.npmjs.com/settings/~/tokens)에서 "Automation" 또는 "Publish" 토큰 생성
-2. 2FA가 켜져 있으면 **publish 시 2FA 비활성**이어야 함 (npm 설정에서 조정)
-3. GitHub Repo → Settings → Secrets and variables → Actions → `NPM_TOKEN` 추가
+공개 라이브러리 변경 PR에는 `pnpm changeset`으로 patch/minor/major와 설명을 기록한다. 문서·테스트만 바뀌면 changeset을 요구하지 않는다. 서비스 UI 변경만으로 관련 없는 모든 라이브러리를 올리지 않는다. 다만 배포 라이브러리의 동작이 바뀌면 해당 패키지 changeset이 필요하다. `Version Packages` PR에서 실제 버전과 내부 의존성 변경을 검토한다. npm 게시 workflow는 별도 검증을 마친 후 활성화한다.
 
-## 문제 해결
+## 출시 기록과 배포
 
-- **Version Packages PR이 안 생김**  
-  `main`에 `.changeset/*.md`가 있고, release 워크플로가 해당 push에서 실행됐는지 확인. Actions 탭에서 "Release" 워크플로 로그 확인.
-- **Publish 실패 (401/403)**  
-  `NPM_TOKEN` 권한·만료·2FA 설정 확인. 로컬에서 `npm whoami` 후 해당 계정으로 `pnpm changeset publish` 한 번 실행해 보기.
-- **특정 패키지만 배포 제외**  
-  `.changeset/config.json`의 `ignore`에 패키지명 추가 (예: `@barocss/editor-test`).
+출시 manifest에는 제품 버전, Git commit SHA, 이미지 digest, 사용 패키지 버전, 문서 schema, DB migration 집합, 지원하는 업그레이드 출발 버전, 검증 결과 링크를 기록한다. 같은 버전·태그·산출물을 덮어쓰지 않는다. 패키지 npm tag와 제품 tag를 구분한다.
+
+한 번 빌드한 이미지를 검증 환경에서 통과시킨 뒤 SaaS와 내부 설치 묶음에 같은 digest로 사용한다. RC와 정식 출시가 같은 이미지를 쓰면 정식 manifest에서 검증된 후보 digest를 참조한다. 앱 표시용 배포 버전은 manifest에서 읽고 빌드 SHA는 별도로 노출하는 방식으로 구현한다. 코드·내장 버전·설정 변경으로 이미지를 다시 빌드했다면 새 후보로 다시 검사한다.
+
+main 병합은 배포 버튼이 아니다. 릴리즈 PR에 manifest, 변경 내역, 업그레이드 경로, 알려진 제한, 검사 결과를 모은다. 소유자가 이를 확인한 후 같은 버전의 SaaS 전환과 내부 설치 묶음을 공개한다. 부분 실패는 두 형태 동시 출시 완료로 기록하지 않는다.
+
+## 복구와 관측
+
+- 출시 전 백업을 생성하고 복원 시간을 실제로 측정한다. 허용 중단 시간과 데이터 손실 범위는 고객 약속 전에 확정한다.
+- DB와 이전 앱이 호환되면 이전 이미지로 복구할 수 있다. 호환되지 않으면 무조건 downgrade하지 않는다. 검증된 백업 복원 또는 전진 수정을 선택한다.
+- 파괴적 migration은 별도 변경으로 처리한다. 가능한 경우 추가→전환→제거 순서를 사용한다.
+- 로그인 실패, 저장 실패, revision 충돌, 공유 권한 오류, 작업 큐 지연, migration 실패를 관측한다. 정상 기준과 중단 기준은 후보 검증 결과에서 수치로 정한다.
+- 출시 담당은 제품 소유자다. Agent는 검사·배포 준비·복구 절차를 실행 가능한 형태로 만든다. 운영 데이터 손실이나 확정하지 않은 고객 약속을 Agent가 임의로 승인하지 않는다.
+
+## 다음 실행 순서
+
+1. #248 / PR #250 기준점과 #255 / PR #256 로컬 사전 검사: main 반영 완료.
+2. #251: 이 정책을 검토·병합한다. 코드 변경 없이 독립 진행할 수 있다.
+3. [릴리즈 manifest/검증 도구 #252](https://github.com/barocss/barocss-editor/issues/252)는 PR #254에서 최신 main 기준 검증 중이다. 정책 병합 후 [#249](https://github.com/barocss/barocss-editor/issues/249)의 코어 복구를 별도 worktree에서 진행한다.
+4. WP-05 서버·두 배포 환경의 최소 구조를 구축한다. 그다음 WP-02·06 저장 경로를 연결한다.
+5. alpha 검증으로 beta 일정과 범위를 구체화한다. 진행 상황은 [GitHub milestone](https://github.com/barocss/barocss-editor/milestones)과 이슈에 기록한다. alpha, beta, RC, 1.0 milestone은 생성했고 날짜는 비워 두었다.
+
+## 근거
+
+- [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html): 호환성 기준의 버전 증가, 사전 출시 식별자, 출시 후 불변성.
+- [Changesets 사용 안내](https://github.com/changesets/changesets/blob/main/docs/intro-to-using-changesets.md): 변경 기록, 버전 적용, 패키지 게시의 분리.
+- [GitHub 보호 브랜치](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches): 필수 상태 검사와 최신 기준 브랜치 검증.
