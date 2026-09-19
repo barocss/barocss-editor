@@ -52,7 +52,7 @@
  *   node scripts/typecheck-tests.mjs --adopt         lower every budget that shrank
  */
 
-import { execFileSync } from 'node:child_process';
+import { runCompiler } from './checks/compiler.mjs';
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -148,18 +148,8 @@ function errorsIn(where) {
   if (!existsSync(join(at, 'tsconfig.typecheck.json'))) {
     return { failed: `${where} has no tsconfig.typecheck.json` };
   }
-  let out = '';
-  try {
-    out = execFileSync('npx', ['tsc', '--noEmit', '--listFiles', '-p', 'tsconfig.typecheck.json'], {
-      cwd: at,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      maxBuffer: 64 * 1024 * 1024
-    });
-  } catch (error) {
-    // tsc exits non-zero when it finds anything, which is the normal case here.
-    out = `${error.stdout ?? ''}${error.stderr ?? ''}`;
-  }
+  const { out, failure } = runCompiler(at, ['--noEmit', '--listFiles', '-p', 'tsconfig.typecheck.json']);
+  if (failure) return { failed: failure };
   /**
    * This package's own files, and nothing above it.
    *
@@ -280,7 +270,7 @@ if (shrank.length > 0) {
       `\n${shrank.length} budget(s) lowered in typecheck-budgets.json:\n` +
         shrank.map((row) => `  ${row.where}: ${row.allowed} → ${row.found}`).join('\n')
     );
-    worst = rows.some((row) => row.state === 'grew' || row.state === 'blind') || faults.length > 0 ? 1 : 0;
+    worst = rows.some((row) => row.note || row.state === 'grew' || row.state === 'blind') || faults.length > 0 ? 1 : 0;
   } else {
     console.log(
       `\n${shrank.length} package(s) improved and their budgets did not — this fails:\n` +

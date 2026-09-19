@@ -17,7 +17,7 @@
 import { readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { runCompiler } from './checks/compiler.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -46,13 +46,18 @@ const KNOWN = {
 let failed = 0;
 const stale = [];
 for (const project of projects) {
-  const run = spawnSync('npx', ['tsc', '--noEmit', '-p', project], { cwd: root, encoding: 'utf8' });
+  const { out, failure } = runCompiler(root, ['--noEmit', '-p', project]);
+  if (failure) {
+    failed += 1;
+    console.error(`\n✗ ${project}\n${failure}`);
+    continue;
+  }
   /*
    * Only this project's own files. A composite build reports errors from everything it references,
    * so a package with no fault of its own would fail on a neighbour's and every project would blame
    * every other one.
    */
-  const mine = (run.stdout ?? '')
+  const mine = out
     .split('\n')
     .filter((line) => line.startsWith(project + '/'));
 
