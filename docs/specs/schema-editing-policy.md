@@ -9,7 +9,7 @@
 
 `@barocss/model`의 `FragmentEditor`는 editor 하나에 속한다. 조각을 생산하고, 읽기 전용 계획을 만들고, 실제 transaction으로 적용한다. JEV나 LLM을 호출하지 않는다.
 
-직접 호출과 schema-backed clipboard command가 이 경로를 사용한다. 구형 `paste(INode[], range)` operation을 직접 호출하는 경로는 별도다. 실제 clipboard 형식과 여러 노드에 걸친 선택은 #264 구현에서 연결한다. DOM/React drop 위치와 move/copy 의도는 #265에서 연결한다. #263이 병합돼도 #262 전체를 완료 처리하지 않는다.
+직접 호출과 schema-backed clipboard command가 이 경로를 사용한다. 구형 `paste(INode[], range)` operation을 직접 호출하는 경로는 별도다. 실제 clipboard 형식과 여러 노드 선택은 #284에서 연결했다. DOM/React drop 위치와 move/copy 의도는 [#265 DND 계약](fragment-drag-and-drop.md)을 따른다. #263이 병합돼도 #262 전체를 완료 처리하지 않는다.
 
 현재 생산자는 연속한 형제 노드 선택과 여러 텍스트 노드에 걸친 부분 선택을 지원한다. 소비자는 다음 경로를 지원한다.
 
@@ -17,7 +17,7 @@
 - 같은 컨테이너의 여러 런 또는 형제 컨테이너 사이의 텍스트 범위를 열린 조각으로 교체한다. 앞뒤 텍스트와 marks를 보존한다.
 - 여러 텍스트 런을 가진 flow 블록에 닫힌 블록을 삽입한다. 기존 블록을 앞뒤로 나누고 복사한 블록을 그 사이에 둔다.
 
-서로 다른 열린 깊이, 명시적으로 허용하지 않은 부모 경로, 양 끝의 혼합 전략, move, 비어 있는 조각, 부속 자료가 있는 조각은 거절한다. 파일 업로드·표 셀 범위·캔버스는 이 API의 일반 본문 경로로 바꾸지 않는다.
+서로 다른 열린 깊이, 명시적으로 허용하지 않은 부모 경로, 양 끝의 혼합 전략, 지원 범위 밖 move, 비어 있는 조각, 부속 자료가 있는 조각은 거절한다. 파일 업로드·표 셀 범위·캔버스는 이 API의 일반 본문 경로로 바꾸지 않는다.
 
 ## 기존 선언과 소비 범위
 
@@ -33,7 +33,7 @@
 | defining | 기존 공통 편집 의미가 확인되지 않음 | 새 자동 변환 의미를 부여하지 않음. 닫힌 조각은 항상 구조 보존 |
 | code | DOM 입력에서 사용. 기존 paste의 literal 분기는 codeBlock 이름을 사용 | clipboard command에서 조상의 code 선언으로 literal 입력을 선택. 내부 rich 조각의 텍스트 변환 손실도 보고 |
 | whitespace | pre/normal 타입은 존재. 표준 codeBlock은 미사용 pre 선언을 의도적으로 생략 | 공백을 정규화하지 않고 그대로 보존. 외부 parser 규칙은 #264 |
-| draggable / droppable | datastore utility가 false와 content 유무를 사용 | #263에는 drag 의도가 없음. #265가 실제 drag 요청에서 적용 |
+| draggable / droppable | datastore utility가 false와 content 유무를 사용 | #265 입력 연결에서 원본 draggable과 목적지 컨테이너 droppable을 검사. content/정책 검사는 별도 |
 
 추가 정책은 `rules`, `defaultBlock`, 출처별 adapter, 참조 규칙이다. 기본 블록 후보가 선언만으로 유일하면 등록 없이 처리한다. 후보가 여러 개면 명시적 정책을 요구한다. 정책으로 content/attrs/marks 제약을 해제할 수 없다.
 
@@ -75,7 +75,7 @@ adapter는 변환한 조각, `converted` 또는 `preserved`, 알려진 손실 �
 
 ## 계획과 적용
 
-`EditingRequest.intent`의 copy/move와 target의 삽입/교체 범위는 별개다. 계획의 actions는 insert/replace/split/join/wrap/transform이다. 이 첫 소비자는 copy만 실행한다. 기존 DropBehavior 타입과 전역 registry는 제거했다. 실제 DND 입력을 새 정책에 연결하는 작업은 #265에서 처리한다.
+`EditingRequest.intent`의 copy/move와 target의 삽입/교체 범위는 별개다. 계획의 actions는 move/insert/replace/split/join/wrap/transform이다. 지원되는 로컬 move와 copy를 실행한다. 기존 DropBehavior 타입과 전역 registry는 제거했다. 실제 DND 입력과 move 제한은 별도 DND 계약을 따른다.
 
 계획은 변경 순서의 근거인 부모·위치·제거 ID·중첩 내용·유지 ID·참조·caret 경로와 판정/손실을 보관한다. 계획 작성은 문서, 선택, history, 이벤트, datastore ID 할당기를 변경하지 않는다. 결과는 동결하며 적용 전에 직렬화 가능한 operation으로 복사한다.
 

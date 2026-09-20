@@ -1,120 +1,63 @@
-:::note Reference status
-This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
-:::
-
 # Drag and Drop
 
-Drag and drop allows users to reorder blocks by dragging them with a handle. The `ReorderExtension` provides a mouse-based drag system that integrates with the model's `reorderChildren` operation.
+Native text and node drops in `EditorViewDOM` and React `EditorView` use the same fragment editing planner as clipboard input. Install `CopyPasteExtension`, or use `createCoreExtensions()`, to provide the drag commands. Product overlays can call `transferNodes` directly.
 
-## How It Works
+## Flow
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant DOM
-    participant DragDrop as ReorderExtension
-    participant Editor
-    participant DataStore
-
-    User->>DOM: mousedown on .bc-drag-handle
-    DOM->>DragDrop: start drag (blockId, startY)
-    DragDrop->>DOM: set opacity 0.4, create placeholder
-
-    loop mousemove
-        User->>DOM: mousemove
-        DOM->>DragDrop: update placeholder position
-        DragDrop->>DOM: move placeholder before nearest block
-    end
-
-    User->>DOM: mouseup
-    DOM->>DragDrop: end drag
-    DragDrop->>Editor: executeCommand('moveBlockToPosition')
-    Editor->>DataStore: reorderChildren(blockId, newIndex)
-    DragDrop->>DOM: cleanup placeholder + overlay
+flowchart LR
+    View[Pointer and modifiers] --> Target[Text position or child gap]
+    Session[Live local drag session] --> Intent[Move or copy]
+    Target --> Planner[FragmentEditor.plan]
+    Intent --> Planner
+    Rules[Schema and editor policy] --> Planner
+    Planner --> Check[Validate result and current basis]
+    Check --> Apply[Atomic apply and undo]
 ```
 
-## Setup
+The view resolves the pointer position. It does not paste at the old cursor. A local live session authorizes source removal. Serialized node IDs do not. Other editors and external apps are copy sources.
 
-```typescript
-import { ReorderExtension } from '@barocss/extensions';
+Alt or Ctrl requests copy. A local drag without these modifiers requests move. Meta alone is not a copy modifier. Preview uses the same planner; an external payload hidden by the browser gets a lighter position candidate until drop validation.
 
-const editor = new Editor({
-  extensions: [
-    new ReorderExtension({
-      enabled: true,
-      handleSelector: '[data-bc-stype]'  // which elements are draggable
-    })
-  ]
-});
-```
+## Product block moves
 
-## Drag Handle
+`ReorderExtension` registers `moveBlockToPosition`. It does not draw handles or install global pointer listeners. Its `targetIndex` is the destination sibling slot after removing the source.
 
-Blocks must have a `.bc-drag-handle` element that serves as the grab target. Only clicks on this handle initiate a drag — clicking the block content itself does not.
-
-```html
-<!-- Rendered block structure -->
-<div data-bc-sid="p1" data-bc-stype="paragraph">
-  <div class="bc-drag-handle">⠿</div>
-  <p>Paragraph content</p>
-</div>
-```
-
-## Visual Feedback
-
-During drag, the extension provides visual cues:
-
-| Element | Effect |
-|---------|--------|
-| **Dragged block** | Opacity reduced to 0.4 |
-| **Placeholder** | 2px blue line (`#3b82f6`) shown at the drop position |
-
-The placeholder moves in real-time as the mouse moves over different block boundaries (top half = insert before, bottom half = insert after).
-
-## The moveBlockToPosition Command
-
-The extension registers a `moveBlockToPosition` command:
-
-```typescript
+```ts
 await editor.executeCommand('moveBlockToPosition', {
   blockId: 'p1',
-  targetIndex: 3
+  targetIndex: 3,
 });
 ```
 
-Internally, this creates a transaction with a `reorderChildren` operation, which atomically moves the node to the new index within its parent's `content` array.
+For a product adapter, convert its post-removal content slot into the planner's original gap:
 
-## Editing Policy
+```ts
+import { gapBeforeRemoval } from '@barocss/model';
+import { transferNodes } from '@barocss/extensions';
 
-The unused `defineDropBehavior` registry, `getDropBehavior` query, related types, and schema `dropBehaviorRules` have been removed. There is no compatibility API.
-
-New fragment editing uses editor-scoped `defineEditingPolicy`, `defineEditingRule`, and `FragmentEditor` from `@barocss/model`. See the [editing guide](https://github.com/barocss/barocss-editor/blob/main/docs/schema-editing-guide.md).
-
-Actual DND input and drop-position integration are tracked in [#265](https://github.com/barocss/barocss-editor/issues/265). The existing drag and reorder paths described above do not automatically use the new policy.
-
-## Node Capability Checks
-
-The DataStore provides capability checks for drag/drop:
-
-```typescript
-// Can this node be dragged?
-dataStore.isDraggableNode(nodeId);
-
-// Can content be dropped here?
-dataStore.isDroppableNode(targetId);
-
-// Can this specific node be dropped onto this target?
-dataStore.canDropNode(nodeId, targetId);
-
-// Get all draggable/droppable nodes
-dataStore.getDraggableNodes();
-dataStore.getDroppableNodes();
+const parentId = 'body';
+const nodeIds = ['p1'];
+const content = editor.dataStore.getNode(parentId)!.content as string[];
+await transferNodes(editor, {
+  nodeIds,
+  intent: 'move',
+  target: { kind: 'children', parentId, index: gapBeforeRemoval(content, nodeIds, 3) },
+});
 ```
 
-These checks are based on the schema's node type definitions.
+This is a trusted local API. Do not supply source IDs directly from external drop data. Products provide their own native draggable element and node selection, or their existing pointer overlay. The shared view does not create a handle UI.
 
-## Next Steps
+## Policies and limits
 
-- Learn about [Editor View DOM](./editor-view-dom) — How input events are handled
-- See [Transactions](./transactions) — How block moves are atomic
-- See [Extension Design](../guides/extension-design) — Creating your own extensions
+Use editor-scoped `defineEditingPolicy`, `defineEditingRule`, and `FragmentEditor` from `@barocss/model`. There is no `defineDropBehavior` registry or compatibility API. Copy/move describes source handling; join/preserve/transform describes the destination structure. These decisions are separate.
+
+Whole-node moves retain IDs and local metadata. A partial text move retains the remaining source run ID and creates IDs for transferred/split runs. A move with unchanged order, or a text drop inside its own range, creates no history. Schema violations, cycles, isolated boundaries and stale sessions are rejected before mutation. Apply failure restores both endpoints.
+
+The flow consumer supports sibling nodes, including noncontiguous selections, and single-source-run text moves with a lossless inline join. Multi-run text moves and cross-document atomic moves are not supported. Node moves need a child gap. Copy uses existing schema adapters and reference rules. Code destinations accept literal copy with reported conversion losses.
+
+`draggable: false` blocks the selected source node; `droppable: false` blocks the destination container. These flags do not override structural validation. Files, calendar MIME, table ranges and canvas coordinates retain their dedicated product paths.
+
+See the [DND architecture contract](https://github.com/barocss/barocss-editor/blob/main/docs/specs/fragment-drag-and-drop.md) for custom schemas, position conversion, ID rules, product coverage and the common-ancestor replacement cost. The [editing guide](https://github.com/barocss/barocss-editor/blob/main/docs/schema-editing-guide.md) explains rule ownership and registration.
+
+File drops cancel browser navigation while preserving event bubbling and the original File payload for the product upload handler.
