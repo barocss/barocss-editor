@@ -1,5 +1,7 @@
 # Schema 편집 정책과 문서 조각
 
+먼저 [편집 흐름과 커스텀 스키마 사용법](../schema-editing-guide.md)을 읽는다. 흐름도, 실행 예제, 정책 제어 항목과 현재 미연결 범위를 설명한다. 이 문서는 세부 계약을 기록한다.
+
 관련 이슈: [#262](https://github.com/barocss/barocss-editor/issues/262), [#263](https://github.com/barocss/barocss-editor/issues/263).
 선행 transaction 복구는 [#266](https://github.com/barocss/barocss-editor/pull/266)으로 main에 반영됐다.
 
