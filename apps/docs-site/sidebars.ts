@@ -3,17 +3,7 @@ import { sharedSidebarItems } from './navigation';
 
 const sidebars: SidebarsConfig = {
   tutorialSidebar: [
-    ...sharedSidebarItems('introduction'),
-    { type: 'category', label: 'Office integrations', items: ['guides/office-products', 'guides/office-styling', 'guides/package-boundaries'] },
-    {
-      type: 'category',
-      label: 'Getting Started',
-      items: [
-        'installation',
-        'quick-start',
-        'basic-usage',
-      ],
-    },
+    ...sharedSidebarItems('docs'),
     {
       type: 'category',
       label: 'Core Concepts',
@@ -67,7 +57,6 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Guides',
       items: [
-        'guides/react-editor',
         'guides/extension-design',
         'guides/custom-operations',
         'guides/advanced-extensions',
