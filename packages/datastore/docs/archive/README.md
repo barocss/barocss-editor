@@ -19,8 +19,8 @@ This directory contains planning, spec, and analysis documents that were created
 **Important**: These documents are archived because they represent planning/analysis phases rather than final implementation decisions.
 
 **For design decisions and architecture**, see:
-- [Drop Behavior Architecture](../drop-behavior-architecture.md) - Final design decision (hybrid approach)
-- [Drop Behavior Spec](../drop-behavior-spec.md) - Implementation specification
+- [Drop Behavior Architecture](../drop-behavior-architecture.md) - Removal and migration
+- [Drop Behavior Spec](../drop-behavior-spec.md) - Superseded specification and current policy links
 
 **For current implementation**, refer to:
 - [DataStore README](../README.md)

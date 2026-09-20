@@ -11,7 +11,7 @@
   "packages/collaboration-yjs": 0,
   "packages/conformance": 2,
   "packages/converter": 10,
-  "packages/datastore": 340,
+  "packages/datastore": 336,
   "packages/devtool": 0,
   "packages/dom-observer": 0,
   "packages/dsl": 52,

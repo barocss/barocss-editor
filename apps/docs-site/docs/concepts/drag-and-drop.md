@@ -84,26 +84,13 @@ await editor.executeCommand('moveBlockToPosition', {
 
 Internally, this creates a transaction with a `reorderChildren` operation, which atomically moves the node to the new index within its parent's `content` array.
 
-## Drop Behavior System
+## Editing Policy
 
-For more advanced drop scenarios, the DataStore provides a `DropBehaviorRegistry` with a priority-based resolution:
+The unused `defineDropBehavior` registry, `getDropBehavior` query, related types, and schema `dropBehaviorRules` have been removed. There is no compatibility API.
 
-```mermaid
-flowchart TD
-    Drop["Drop event"] --> UI{"UI Context handler?"}
-    UI -->|Yes| UIHandler["UI-level drop behavior"]
-    UI -->|No| Custom{"defineDropBehavior()?"}
-    Custom -->|Yes| CustomHandler["Custom drop behavior"]
-    Custom -->|No| Schema{"Schema rules?"}
-    Schema -->|Yes| SchemaHandler["Schema-based validation"]
-    Schema -->|No| Default["Default behavior"]
-```
+New fragment editing uses editor-scoped `defineEditingPolicy`, `defineEditingRule`, and `FragmentEditor` from `@barocss/model`. See the [editing guide](https://github.com/barocss/barocss-editor/blob/main/docs/schema-editing-guide.md).
 
-Priority order (highest to lowest):
-1. **UI Context** — registered by view-level plugins for special drop targets
-2. **defineDropBehavior** — custom rules via `dataStore.defineDropBehavior()`
-3. **Schema rules** — content expressions determine valid parent-child relationships
-4. **Defaults** — built-in fallback behavior
+Actual DND input and drop-position integration are tracked in [#265](https://github.com/barocss/barocss-editor/issues/265). The existing drag and reorder paths described above do not automatically use the new policy.
 
 ## Node Capability Checks
 
