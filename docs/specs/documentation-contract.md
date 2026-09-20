@@ -1,7 +1,8 @@
 # Documentation contract and implementation audit
 
 Issue: [#285](https://github.com/barocss/barocss-editor/issues/285).
-Reviewed source baseline: `558714a818ae8f0dcffc8436d8e7e30a66c93442` (main, 2026-09-20).
+Initial source review: `558714a818ae8f0dcffc8436d8e7e30a66c93442` (main, 2026-09-20).
+Integration review: `895f0cf20582ccfe5aa0d797121740befa825365` (main, 2026-09-20). Extension registration, product factory composition, Note session delivery, and transaction hooks were checked again on this baseline.
 
 ## Responsibility
 
@@ -37,7 +38,7 @@ Tests named here are evidence locations, not a claim that this documentation pas
 - Model README transaction entry-point distinction.
 - Public extension guide and Office integration navigation.
 
-No runtime code, package versions, release policy, or application behavior changes are part of this pass. PR #277 owns the DOM/React formatting examples. PR #283 owns Note menu/heading fixes. These changes are not copied into this documentation branch.
+No runtime code, package versions, release policy, or application behavior changes are part of this documentation change. The integration baseline already includes PR #277 (DOM/React formatting examples), PR #283 (Note menu/heading fixes), and PR #333 (API execution foundation). Their implementation and release evidence remain separate from this guide.
 
 ## Remaining documentation work
 

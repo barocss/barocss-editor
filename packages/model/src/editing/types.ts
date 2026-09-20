@@ -81,8 +81,11 @@ export interface EditingPolicy {
 export type EditingTarget =
   | { kind: 'children'; parentId: string; index: number; deleteCount?: number }
   | { kind: 'text'; nodeId: string; from: number; to: number; endNodeId?: string };
+export type EditingSource = { kind: 'nodes'; nodeIds: string[] } | { kind: 'text'; nodeId: string; from: number; to: number };
 export interface EditingRequest {
   intent: 'copy' | 'move';
+  /** Local source authorization. Clipboard metadata alone must never populate this field. */
+  source?: EditingSource;
   target: EditingTarget;
   fragment: DocumentFragment;
 }
@@ -100,7 +103,8 @@ export interface EditingPlan {
   outcome: 'direct' | 'converted' | 'preserved';
   losses: EditingLoss[];
   trace: EditingRuleTrace[];
-  actions: ('insert' | 'replace' | 'split' | 'join' | 'wrap' | 'transform')[];
+  noop?: boolean;
+  actions: ('move' | 'insert' | 'replace' | 'split' | 'join' | 'wrap' | 'transform')[];
   parentId: string;
   index: number;
   removeIds: string[];
