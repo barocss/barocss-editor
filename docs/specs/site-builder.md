@@ -372,7 +372,7 @@ visitor** is this product's own, and everything about text and arrangement is no
 
 | | count |
 | --- | ---: |
-| commands registered | **186** (84 the site's own) |
+| commands registered | **191** (84 the site's own) |
 | toolbar controls · commands · icons | **44** · 37 · 34 |
 | `/` menu rows | 13 |
 | keys · the commands they run | **26** · 12 |

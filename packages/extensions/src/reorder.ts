@@ -1,59 +1,13 @@
 import { Editor, Extension } from '@barocss/editor-core';
-import { transaction, reorderChildren } from '@barocss/model';
+import { gapBeforeRemoval } from '@barocss/model';
+import { transferNodes } from './fragment-drag';
 
-/**
- * Moving a block to another place among its siblings — **the model half of a drag.**
- *
- * ## What this was, and why three products installed it and none used it
- *
- * 230 lines, of which 180 drew and listened: a handle and a placeholder built with
- * `document.createElement`, `mousedown` on a container, `mousemove`, `mouseup` and `keydown` bound
- * to `document`, an auto-scroll, and `document.querySelector('[data-bc-layer="content"]')` to find
- * the editor — **one** of them, in a product that draws three boards of the same page at once.
- *
- * The classes it made, `bc-drag-handle` and `bc-drag-placeholder`, were styled by `styles.ts`, whose
- * `injectEditorStyles` was called by the slash menu and by nothing else — so once that stopped
- * drawing its own DOM, the handle appeared unstyled. **No product references either class.** All
- * three install this and all three do their own dragging: the site through its overlay and
- * `moveBlockInto`, the deck through `reorderIndexAt`, Word through its drawing overlay.
- *
- * So three products carried four global pointer listeners for a feature that drew an unstyled box
- * nobody could see. The same layer fault as `FindReplaceExtension` and the slash menu, with one
- * difference that made it harder to notice: **this one was installed.**
- *
- * ## Where a drag actually belongs, measured
- *
- * Three layers, and the hard one is already shared:
- *
- * | | | |
- * | --- | --- | --- |
- * | **where a drop lands** | `reorderIndexAt` in `office-canvas` | the deck **and** the site use it |
- * | **what moves** | `moveBlockToPosition`, `moveBlockInto`, `moveShapes`, `movePage` | by *kind of surface* |
- * | **the pointer and the drawing** | each app's overlay | the app's, and rightly |
- *
- * And the middle row does not divide by product. A **flow** — Word's paragraphs, the site's blocks —
- * is a parent and a place in it. A **canvas** — the deck's boxes, Word's shapes — is coordinates. A
- * **list** — the deck's slides, the site's pages — is an index. Word and the site share the first;
- * the deck and Word's shapes share the second. Three surfaces, not three products.
- *
- * This is the flow's, and it is all that is left here.
- */
+/** Product overlays own pointer geometry. This extension moves a block to a sibling slot. */
 export interface ReorderExtensionOptions {
   enabled?: boolean;
 }
 
-/**
- * **Named for what it does**, which took a question to notice.
- *
- * This was `DragDropExtension` and it has never had anything to do with dropping anything: it
- * registers one command, `moveBlockToPosition`, which moves a block to an index in the stack it is
- * already in. No `drop` listener, no `dataTransfer`, no file.
- *
- * Asked as *드래그 드롭도 돼?* — and the name answered yes on this extension's behalf while a file
- * dropped on the editor made the browser navigate away from it. A name that answers a question
- * wrongly is worse than no name: nobody looks twice at a thing that is already called what they
- * wanted. The drop itself lives in `apps/site` now, where the canvas that files land on is.
- */
+/** Reordering uses the same schema policy, atomic application and undo as fragment DND. */
 export class ReorderExtension implements Extension {
   name = 'reorder';
   priority = 60;
@@ -105,21 +59,17 @@ export class ReorderExtension implements Extension {
   }
 
   private _movable(editor: Editor, blockId: string | undefined, targetIndex: number | undefined): boolean {
-    if (targetIndex == null) return false;
+    if (targetIndex == null || !Number.isInteger(targetIndex) || targetIndex < 0 || !editor.isEditable) return false;
     const held = this._where(editor, blockId);
     return !!held && held.at !== targetIndex;
   }
 
   private async _moveBlock(editor: Editor, blockId: string, targetIndex: number): Promise<boolean> {
     const held = this._where(editor, blockId);
-    if (!held || held.at === targetIndex) return false;
-
-    const order = [...held.order];
-    order.splice(held.at, 1);
-    order.splice(Math.min(targetIndex, order.length), 0, blockId);
-
-    const result = await transaction(editor, [reorderChildren(held.parentId, order) as never]).commit();
-    return result.success;
+    if (!held || !this._movable(editor, blockId, targetIndex)) return false;
+    return transferNodes(editor, { nodeIds: [blockId], target: {
+      kind: 'children', parentId: held.parentId, index: gapBeforeRemoval(held.order, [blockId], Math.min(targetIndex, held.order.length - 1))
+    } });
   }
 }
 

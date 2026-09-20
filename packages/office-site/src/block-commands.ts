@@ -1,3 +1,4 @@
+import { transferNodes } from '@barocss/extensions';
 /**
  * Moving a block, copying it, and taking it away.
  *
@@ -17,7 +18,7 @@
  * neither knew the other needed. The site adds only the transaction.
  */
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
-import { addChild, moveNode, node, removeChild, setAttrs, textNode, transaction, transformNode } from '@barocss/model';
+import { gapBeforeRemoval, addChild, moveNode, node, removeChild, setAttrs, textNode, transaction, transformNode } from '@barocss/model';
 import { detachedCopyOf, instanceParts } from '@barocss/office-canvas';
 import { definitionsOf, freshPartId, scopeOf } from './components';
 import { freeAddressFor, latinSlugFor, pathFor } from './slug';
@@ -1781,12 +1782,14 @@ export class SiteBlockExtension implements Extension {
 
   private async _move(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
     if (!this._canMove(editor, payload)) return false;
-    const position = typeof payload!.index === 'number' ? Math.max(0, Math.round(payload!.index as number)) : undefined;
-
-    const done = await transaction(editor, [
-      moveNode(String(payload!.nodeId), String(payload!.parentId), position)
-    ] as never).commit();
-    return done.success === true;
+    const nodeId = String(payload!.nodeId), parentId = String(payload!.parentId);
+    const content = editor.dataStore.getNode(parentId)!.content as string[] ?? [];
+    const remaining = content.filter(id => id !== nodeId).length;
+    const position = typeof payload!.index === 'number' ? Math.min(remaining, Math.max(0, Math.round(payload!.index))) : remaining;
+    if (!Number.isFinite(position)) return false;
+    return transferNodes(editor, { nodeIds: [nodeId], target: {
+      kind: 'children', parentId, index: gapBeforeRemoval(content, [nodeId], position)
+    } });
   }
 }
 
