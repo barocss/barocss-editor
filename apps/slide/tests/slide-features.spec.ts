@@ -261,7 +261,7 @@ test.describe('a frame that arranges what is in it', () => {
 
   test('follows the gap the reader types', async ({ page }) => {
     const frame = await openFrame(page);
-    test.skip(!frame, 'this slide has no frame');
+    expect(frame, 'the sample slide must contain the layout frame').not.toBeNull();
 
     await page.evaluate((sid) => (window as any).editor.executeCommand('setNode', { nodeIds: [sid] }), frame!.sid);
     await page.waitForTimeout(300);
@@ -270,10 +270,9 @@ test.describe('a frame that arranges what is in it', () => {
     await page.waitForTimeout(500);
 
     const tight = await positions(page, frame!.kids);
-    // Exactly named: the panel also has a "간격 문서 변수" row now (§10h-2), and `getByLabel`
-    // matches by substring.
-    await panel.getByLabel('간격', { exact: true }).fill('1');
-    await panel.getByLabel('간격', { exact: true }).press('Enter');
+    // The property row shares this name; target the number input by its role.
+    await panel.getByRole('spinbutton', { name: '간격', exact: true }).fill('1');
+    await panel.getByRole('spinbutton', { name: '간격', exact: true }).press('Enter');
     await page.waitForTimeout(600);
     const loose = await positions(page, frame!.kids);
 
@@ -292,7 +291,7 @@ test.describe('a frame that arranges what is in it', () => {
    */
   test('gives back a side of the padding when the field is emptied', async ({ page }) => {
     const frame = await openFrame(page);
-    test.skip(!frame, 'this slide has no frame');
+    expect(frame, 'the sample slide must contain the layout frame').not.toBeNull();
 
     await page.evaluate((sid) => (window as any).editor.executeCommand('setNode', { nodeIds: [sid] }), frame!.sid);
     await page.waitForTimeout(300);
@@ -306,15 +305,15 @@ test.describe('a frame that arranges what is in it', () => {
         [frame!.sid, attr] as const
       );
 
-    await panel.getByLabel('안쪽 여백', { exact: true }).fill('1');
-    await panel.getByLabel('안쪽 여백', { exact: true }).press('Enter');
-    await panel.getByLabel('위쪽 여백').fill('0');
-    await panel.getByLabel('위쪽 여백').press('Enter');
+    await panel.getByRole('spinbutton', { name: '안쪽 여백', exact: true }).fill('1');
+    await panel.getByRole('spinbutton', { name: '안쪽 여백', exact: true }).press('Enter');
+    await panel.getByRole('spinbutton', { name: '위쪽 여백', exact: true }).fill('0');
+    await panel.getByRole('spinbutton', { name: '위쪽 여백', exact: true }).press('Enter');
     await page.waitForTimeout(400);
     expect(await held('paddingTop')).toBe(0);
 
-    await panel.getByLabel('위쪽 여백').fill('');
-    await panel.getByLabel('위쪽 여백').press('Enter');
+    await panel.getByRole('spinbutton', { name: '위쪽 여백', exact: true }).fill('');
+    await panel.getByRole('spinbutton', { name: '위쪽 여백', exact: true }).press('Enter');
     await page.waitForTimeout(400);
 
     // Gone, not zero: the side follows the shorthand again, and the shorthand is untouched.
