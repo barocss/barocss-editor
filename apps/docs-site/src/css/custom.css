@@ -420,7 +420,6 @@ html[data-theme='light'] body { background-color: #ffffff; color: #1e293b; }
 .developer-layout { display: flex; flex: 1; }
 .developer-sidebar { width: var(--doc-sidebar-width, 300px); flex-shrink: 0; border-right: 1px solid var(--ifm-toc-border-color); }
 .developer-navigation { position: sticky; top: var(--ifm-navbar-height); max-height: calc(100vh - var(--ifm-navbar-height)); overflow-y: auto; padding: 24px 12px; }
-.developer-navigation-group + .developer-navigation-group { margin-top: 24px; }
 .developer-navigation-label { padding: 0 var(--ifm-menu-link-padding-horizontal); margin-bottom: 8px; font-weight: 700; }
 .examples-gallery { position: relative; flex: 1; min-width: 0; max-width: 1180px; padding: 32px 40px 80px; margin: 0 auto; }
 .example-anchor { position: absolute; top: 0; scroll-margin-top: calc(var(--ifm-navbar-height) + 16px); }

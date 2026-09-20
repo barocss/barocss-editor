@@ -6,7 +6,7 @@ import useBrokenLinks from '@docusaurus/useBrokenLinks';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import { useLocation } from '@docusaurus/router';
 import definitions from '../../.generated/examples.json';
-import DeveloperNavigation from '../components/DeveloperNavigation';
+import ExamplesNavigation from '../components/ExamplesNavigation';
 
 export default function Examples() {
   const brokenLinks = useBrokenLinks();
@@ -18,7 +18,7 @@ export default function Examples() {
   const runtime = useBaseUrl('/live-examples/');
   return <Layout title="Live examples" description="Try Wonffice library examples and read the exact source that runs them.">
     <div className="developer-layout">
-    <DeveloperNavigation current={`/examples#${sample.id}`} />
+    <ExamplesNavigation current={sample.id} />
     <main className="examples-gallery">
       {definitions.map(item => <span key={item.id} id={item.id} className="example-anchor" />)}
       <header className="examples-heading">

@@ -1,9 +1,28 @@
 import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
-import { sharedSidebarItems } from './navigation';
 
 const sidebars: SidebarsConfig = {
   tutorialSidebar: [
-    ...sharedSidebarItems('docs'),
+    { type: 'doc', id: 'introduction', label: 'Overview' },
+    {
+      type: 'category',
+      label: 'Getting started',
+      collapsed: false,
+      items: [
+        'installation',
+        { type: 'doc', id: 'quick-start', label: 'JavaScript / DOM guide' },
+        { type: 'doc', id: 'guides/react-editor', label: 'React guide' },
+        'basic-usage',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Office integration',
+      items: [
+        { type: 'doc', id: 'guides/office-products', label: 'Product integration' },
+        { type: 'doc', id: 'guides/office-styling', label: 'Styling' },
+        { type: 'doc', id: 'guides/package-boundaries', label: 'Package boundaries' },
+      ],
+    },
     {
       type: 'category',
       label: 'Core Concepts',
@@ -67,7 +86,7 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Demos',
+      label: 'Recipes',
       items: [
         'examples/basic-editor',
         'examples/custom-extensions',

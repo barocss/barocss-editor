@@ -56,9 +56,6 @@ const config: Config = {
       path: '.generated/packages',
       routeBasePath: 'packages',
       sidebarPath: './packages-sidebars.ts',
-      // The catalogue is already registered once in the shared navigation.
-      sidebarItemsGenerator: async ({ defaultSidebarItemsGenerator, ...args }) =>
-        (await defaultSidebarItemsGenerator(args)).filter(item => !(item.type === 'doc' && item.id === 'index')),
     }],
     function(context, options) {
       return {
