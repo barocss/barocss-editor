@@ -65,8 +65,8 @@ it as published before merge/release verification.
 - Focused existing model suites: 5 files, 69 tests passed.
 - Node 22.22.0 `pnpm preflight`: passed; existing lint/type baselines retained.
   Source type checks report 42 projects and 3 known-broken projects.
-- `pnpm docs:examples`: 35 complete TypeScript/TSX examples compiled against 31
-  local archives. The Office CSS consumer build passed.
+- `pnpm docs:examples`: 36 complete TypeScript/TSX examples compiled against 31
+  local archives after integrating #304. The Office CSS consumer build passed.
 - Desktop browser executed both exact model README examples, then a separate
   packed-consumer fixture checked DSL cancellation, the wrapper's bypass of
   before hooks, a thrown before hook, and a post-commit hook failure. All passed.
@@ -74,6 +74,7 @@ it as published before merge/release verification.
 - `pnpm build:docs`: passed. Existing bundle-size, Browserslist and Docusaurus
   update-check notices remain; no check threshold changed.
 - Browser navigation: guide → canonical example → guide → options → guide passed.
+- Rebuilt the integrated site and reloaded the guide in the desktop browser.
 - No mobile viewport checks or external provider tests.
 
 Temporary evidence files are in the task worktree's ignored
