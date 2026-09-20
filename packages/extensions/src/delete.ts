@@ -573,6 +573,32 @@ export class DeleteExtension implements Extension {
         return false;
       }
 
+      // An empty paragraph before a heading is a removable gap, not content to
+      // merge into the heading. Require adjacent siblings so table/list boundaries
+      // and non-text objects cannot be crossed by the editable-node traversal.
+      const store = editor.dataStore;
+      const parent = prevParent.parentId ? store.getNode(prevParent.parentId) : undefined;
+      const siblings = parent?.content ?? [];
+      const previousIndex = siblings.indexOf(prevParent.sid);
+      if (prevParent.stype === 'paragraph' && currentParent.stype === 'heading' &&
+          parent && currentParent.parentId === parent.sid && previousIndex >= 0 &&
+          siblings[previousIndex + 1] === currentParent.sid &&
+          currentParent.content?.[0] === selection.startNodeId &&
+          prevParent.content?.every((id: unknown) => {
+            const run = typeof id === 'string' ? store.getNode(id) : undefined;
+            return typeof run?.text === 'string' && run.text === '';
+          }) &&
+          !insideLockedRegion(store as never, prevParent.sid, 'lockDelete') &&
+          !insideLockedRegion(store as never, prevParent.sid, 'lockContent')) {
+        return (await transaction(editor, [
+          deleteOp(prevParent.sid),
+          { type: 'setSelection', payload: {
+            anchor: { nodeId: selection.startNodeId, offset: 0 },
+            head: { nodeId: selection.startNodeId, offset: 0 }
+          } }
+        ], { applySelectionToView: true }).commit()).success;
+      }
+
       // Check if blocks are of the same type
       if (prevParent.stype !== currentParent.stype) {
         console.warn('[DeleteExtension] _handleBackspaceAtOffsetZero: Cannot merge different block types', {

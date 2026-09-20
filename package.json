@@ -46,7 +46,8 @@
     "version-packages:npm": "pnpm version-packages && pnpm install --lockfile-only",
     "docs:sync": "node scripts/docs/generate.mjs",
     "docs:check": "node --test scripts/docs/*.test.mjs && node scripts/docs/generate.mjs --check",
-    "docs:examples": "node scripts/docs/check-examples.mjs"
+    "docs:examples": "node scripts/docs/check-examples.mjs",
+    "test:e2e:note:scenarios": "pnpm --filter @barocss/app-note test:e2e:scenarios"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
