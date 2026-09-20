@@ -116,9 +116,9 @@ export class TransactionalOverlay {
 
   /** Record a node's pre-transaction state, once, before it is first written. */
   snapshotBase(nodeId: string, node: unknown): void {
-    if (!this.active || node == null) return;
+    if (!this.active) return;
     if (!this.baseSnapshots.has(nodeId)) {
-      this.baseSnapshots.set(nodeId, { ...(node as Record<string, unknown>) });
+      this.baseSnapshots.set(nodeId, node == null ? undefined : { ...(node as Record<string, unknown>) });
     }
   }
 

@@ -17,7 +17,6 @@ for (const rate of [1, 4]) {
     await dialog.getByRole('button', { name: '적용', exact: true }).click();
     await expect(page.locator('.w-document a')).toHaveText('Keep these words');
     await expect(page.locator('.w-paragraph')).toHaveText('Keep these words');
-    await page.getByRole('tab', { name: '홈', exact: true }).click();
     await page.locator('[data-control=undo]').click();
     await expect(page.locator('.w-document a')).toHaveCount(0);
     await expect(page.locator('.w-paragraph')).toHaveText('Keep these words');

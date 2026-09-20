@@ -177,6 +177,7 @@ class TransactionBuilderImpl implements TransactionBuilder {
         if (result === null) {
           return {
             success: false,
+            committed: false,
             errors: [`Transaction cancelled by extension: ${ext.name}`],
             operations: [],
             data: undefined,

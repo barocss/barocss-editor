@@ -1,5 +1,7 @@
 # Barocss Suite — Roadmap
 
+2026-09-20 WP-01 구현: [#249](https://github.com/barocss/barocss-editor/issues/249)의 transaction 실패 정리, commit 중 쓰기 복구, commit 후 오류 분리, 협업 이벤트 발행 시점을 보강했다. [결과·호환성 계약](specs/transaction-recovery.md)에 범위와 검증 항목을 기록했다. 검사 증거와 병합 상태는 구현 PR에서 확인한다. schema/fragment 후속 이슈 #263–#265는 이번 구현에 포함하지 않는다.
+
 ## 현재 제품 진행표 — 2026-09-19
 
 2026-09-19 Node 실행 기준: 로컬 검증과 CI의 버전 차이를 없애기 위해 프로젝트 기준을 22.22.0으로 고정했다. `.nvmrc`를 로컬 `nvm use`, CI 두 작업, 문서 빌드의 단일 기준으로 사용한다. 최초 CI의 fs.globSync 호환성 실패도 수정했다.
