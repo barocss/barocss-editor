@@ -1,4 +1,5 @@
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { root, examples } from './catalogue.mjs';
 
@@ -11,7 +12,8 @@ export function liveExamples() {
     if (!['dom', 'react'].includes(item.kind) || !/^[A-Za-z]+$/.test(item.export)) throw new Error(`Invalid example entry: ${item.id}`);
     const snippet = examples(readFileSync(resolve(root, item.source), 'utf8'))[item.snippet];
     if (!snippet || !snippet.code.includes(`export function ${item.export}(`)) throw new Error(`Missing runnable export for ${item.id}`);
-    return { ...item, code: snippet.code, language: snippet.language };
+    const sourceHash = createHash('sha256').update(snippet.code).digest('hex').slice(0, 12);
+    return { ...item, code: snippet.code, language: snippet.language, sourceHash };
   });
 }
 

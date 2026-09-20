@@ -28,6 +28,7 @@ The prepare command builds and packs local artifacts. It does not publish them. 
 - Edit `scripts/docs/groups.json` to place a new public package in the catalogue.
 - Edit `docs/` in this app for cross-package guides and deeper explanations.
 - Add hand-written pages to `sidebars.ts`.
+- Edit `navigation.ts` for common navigation across guides, package pages, and Examples. The sample links use the live-example registry; keep them in one place.
 - Do not edit `.generated/`. The dev and build commands regenerate it from READMEs and manifests.
 - The homepage editor runs the exact TypeScript example from `docs/quick-start.md`.
 - Old pages with a reference-status notice have not been fully revalidated. Keep the notice until verification is complete.

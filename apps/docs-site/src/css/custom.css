@@ -417,14 +417,16 @@ html[data-theme='light'] body { background-color: #ffffff; color: #1e293b; }
 .developer-demo { margin-top: 56px; }
 
 /* Live examples: preview CSS stays inside an independent iframe. */
-.examples-gallery { max-width: 1180px; padding: 48px 32px 80px; margin: 0 auto; }
+.developer-layout { display: flex; flex: 1; }
+.developer-sidebar { width: var(--doc-sidebar-width, 300px); flex-shrink: 0; border-right: 1px solid var(--ifm-toc-border-color); }
+.developer-navigation { position: sticky; top: var(--ifm-navbar-height); max-height: calc(100vh - var(--ifm-navbar-height)); overflow-y: auto; padding: 24px 12px; }
+.developer-navigation-group + .developer-navigation-group { margin-top: 24px; }
+.developer-navigation-label { padding: 0 var(--ifm-menu-link-padding-horizontal); margin-bottom: 8px; font-weight: 700; }
+.examples-gallery { position: relative; flex: 1; min-width: 0; max-width: 1180px; padding: 32px 40px 80px; margin: 0 auto; }
+.example-anchor { position: absolute; top: 0; scroll-margin-top: calc(var(--ifm-navbar-height) + 16px); }
 .examples-heading { max-width: 720px; margin-bottom: 28px; }
 .examples-heading h1 { font-size: 40px; letter-spacing: -.025em; }
 .examples-heading p, .example-header p { color: var(--homepage-text-secondary); }
-.examples-nav { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 28px; margin-bottom: 28px; border-bottom: 1px solid var(--homepage-border-color); }
-.examples-nav a { padding: 9px 16px; border: 1px solid var(--homepage-border-color); border-radius: 7px; color: var(--ifm-font-color-base); font-size: 14px; font-weight: 600; }
-.examples-nav a:hover { border-color: var(--ifm-color-primary); text-decoration: none; }
-.examples-nav a[aria-current='page'] { color: white; background: var(--ifm-color-primary); border-color: var(--ifm-color-primary); }
 .example-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 16px; }
 .example-header h2 { font-size: 22px; margin-bottom: 6px; }
 .example-header p { margin: 0; }

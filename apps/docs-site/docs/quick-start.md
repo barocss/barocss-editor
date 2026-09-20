@@ -23,7 +23,7 @@ import { EditorViewDOM } from '@barocss/editor-view-dom';
 export function mountEditor(container: HTMLElement) {
   const registry = new RendererRegistry({ global: false });
   intoRegistry(registry, () => {
-    define('document', element('div', {}, [slot('content')]));
+    define('document', element('div', { style: { whiteSpace: 'pre-wrap' } }, [slot('content')]));
     define('paragraph', element('p', {}, [slot('content')]));
     define('inline-text', element('span', {}, [data('text', '')]));
     defineMark('bold', element('strong', {}, [data('text')]));
@@ -47,6 +47,8 @@ export function mountEditor(container: HTMLElement) {
 ```
 
 The constructor accepts `{ container, registry }`. Use `view.render()`, not `view.mount()`. The schema, command set, and registered templates must describe the same content. The example registers templates in a scoped registry so it does not overwrite another editor's templates.
+
+Keep `whiteSpace: 'pre-wrap'` on the document renderer. It preserves repeated and trailing spaces while allowing line wrapping. The default HTML whitespace rule collapses spaces, so displayed text and caret positions can differ from the document text.
 
 ## Connect the host
 

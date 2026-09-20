@@ -40,6 +40,8 @@ export function attachView(editor: Editor, container: HTMLElement, registry: Ren
 
 The constructor takes an options object containing container. Call render after loading content; there is no mount method. Destroy the view before destroying its editor. Mount only in a browser.
 
+Your document renderer must preserve whitespace. Set `style: { whiteSpace: 'pre-wrap' }` on its root element, or apply equivalent CSS. Without this rule, the browser collapses repeated and trailing spaces and caret positions can differ from the document text. The [DOM quick start](https://editor.barocss.com/docs/quick-start) includes this setting.
+
 ## Documentation
 
 - [Package guide](https://editor.barocss.com/packages/editor-view-dom)

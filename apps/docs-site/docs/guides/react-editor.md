@@ -25,7 +25,7 @@ export function DocumentEditor() {
   useEffect(() => {
     const registry = new RendererRegistry({ global: false });
     intoRegistry(registry, () => {
-      define('document', element('div', {}, [slot('content')]));
+      define('document', element('div', { style: { whiteSpace: 'pre-wrap' } }, [slot('content')]));
       define('paragraph', element('p', {}, [slot('content')]));
       define('inline-text', element('span', {}, [data('text', '')]));
     });
@@ -44,6 +44,8 @@ export function DocumentEditor() {
 ```
 
 This minimal example installs core editing commands. To add formatting, install the matching extensions and mark renderers together.
+
+The document renderer uses `whiteSpace: 'pre-wrap'` to preserve repeated and trailing spaces while allowing line wrapping, just like the DOM quick start.
 
 ## Choose the right integration
 
