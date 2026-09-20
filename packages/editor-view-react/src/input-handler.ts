@@ -1,3 +1,4 @@
+import { FRAGMENT_CLIPBOARD_TYPE } from '@barocss/shared';
 import type { MutableRefObject } from 'react';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import {
@@ -143,7 +144,7 @@ export class ReactInputHandler {
     }
   }
 
-  handlePaste(event: ClipboardEvent): void {
+  handlePaste(event: ClipboardEvent, selection?: ModelSelection): void {
     if (this.isImePhase()) return;
 
     event.preventDefault();
@@ -151,35 +152,20 @@ export class ReactInputHandler {
     const clipboardData = event.clipboardData;
     if (!clipboardData) return;
 
+    const clipboardFragment = clipboardData.getData(FRAGMENT_CLIPBOARD_TYPE);
     const html = clipboardData.getData('text/html');
     const text = clipboardData.getData('text/plain');
 
-    if (!html && !text) return;
+    if (!html && !text && !clipboardFragment) return;
 
     this.editor.executeCommand('paste', {
+      ...(selection?.type === 'range' ? { selection } : {}),
+      clipboardFragment: clipboardFragment || undefined,
       clipboardHtml: html || undefined,
       clipboardText: text || undefined,
     });
   }
 
-  handleDrop(event: DragEvent): void {
-    if (this.isImePhase()) return;
-
-    event.preventDefault();
-
-    const dataTransfer = event.dataTransfer;
-    if (!dataTransfer) return;
-
-    const html = dataTransfer.getData('text/html');
-    const text = dataTransfer.getData('text/plain');
-
-    if (!html && !text) return;
-
-    this.editor.executeCommand('paste', {
-      clipboardHtml: html || undefined,
-      clipboardText: text || undefined,
-    });
-  }
 
   /**
    * Sync model to DOM for the focused inline-text node. Call once after compositionend so the final composed text is applied (no intermediate C1).

@@ -3,7 +3,7 @@
 이 문서는 **어떤 규칙을 어디에 등록하고, 문서가 언제 바뀌는지** 설명한다.
 세부 계약은 [Schema 편집 정책과 문서 조각](specs/schema-editing-policy.md)을 참고한다.
 
-기준: [PR #270 / SE-01](https://github.com/barocss/barocss-editor/pull/270). 이 PR의 코드는 아직 main에 병합되지 않았다. 아래 예제는 이 PR 브랜치에서 실행한다. 기존 배포 패키지에서 새 API를 사용할 수 있다고 가정하지 않는다.
+기준: 정책 기반은 [PR #270](https://github.com/barocss/barocss-editor/pull/270)으로 main에 반영됐다. clipboard는 #284, DND는 #265 구현을 기준으로 설명한다. [DND 흐름과 제품 연결](specs/fragment-drag-and-drop.md)을 함께 참고한다. 패키지 배포 여부와 저장소 구현 상태는 별개다.
 
 ## 1. 먼저 볼 전체 흐름
 
@@ -35,25 +35,28 @@ commit 후 알림이나 history 기록에서 오류가 나면 `postCommitErrors`
 
 ## 2. 어디까지 연결됐나
 
-현재 키보드 붙여넣기와 새 API는 서로 다른 진입 경로다. 이 구분이 없으면 새 정책을 등록하자마자 모든 paste와 DND가 바뀐다고 오해하기 쉽다.
+DOM/React의 본문 copy·cut·paste는 조각 전송과 정책 계획 경로를 사용한다. `FragmentEditor.forEditor`는 제품이 등록한 정책을 재사용한다.
 
 ```mermaid
 flowchart LR
-    API[코드에서 FragmentEditor 호출] --> New[새 조각·정책·계획·적용 경로 / PR 270]
-    Clipboard[현재 copy / paste 이벤트] --> Legacy[기존 HTML·text와 paste 경로]
-    Drop[현재 일반 drop 이벤트] --> Legacy
-    Clipboard -.->|연결할 작업: 264| New
-    Drop -.->|위치·출처·copy 또는 move 연결: 265| New
+    Copy[DOM/React copy 또는 copyBlocks] --> Fragment[선택 종류와 경계를 담은 조각]
+    Fragment --> Transport[전용 MIME / HTML metadata]
+    Transport --> Paste[paste command]
+    External[외부 HTML / Markdown / text] --> Adapter[입력 변환과 대상 vocabulary 선택]
+    Adapter --> Paste
+    Paste --> New[정책 / 계획 / transaction / history]
+    API[직접 FragmentEditor 호출] --> New
+    Drop[실제 drop 위치와 로컬 drag 세션] --> New
 ```
 
 | 상태 | 범위 |
 | --- | --- |
-| #266 main 반영 | transaction 실패 복구, commit 결과 구분 |
-| #270 PR 구현 | 작은 본문 조각의 생산, 정책 검사, 계획, 실제 적용, undo/redo |
-| #264 남음 | 실제 clipboard 전달, 여러 노드 범위, 기존 paste의 고정 이름 분기 전환 |
-| #265 남음 | 실제 drop 위치, 내부 drag 출처, 복사/이동, 이동 위치 보정 |
+| #266·#270 main 반영 | transaction 복구, editor별 정책, 조각 계획과 적용 |
+| #264 구현 | 실제 clipboard 전송, 여러 text run·형제 문단 범위, 텍스트/HTML 변환, undo/redo |
+| #265 구현 | 실제 drop 위치, 내부 drag 출처, 복사/이동, 원본 제거에 따른 위치 보정 |
+| #271–#273 후속 | Enter·Backspace·범위 삭제, 구조 변환, 템플릿·AI 결과 적용 |
 
-아래 예제는 새 API를 직접 호출한다. `Cmd+V`나 drag 이벤트를 연결하는 예제는 아니다.
+직접 transaction으로 호출하는 구형 `paste(INode[], range)`는 새 정책을 사용하지 않는다. 일반 schema-backed clipboard command는 새 경로를 사용한다. 표 셀 범위·캔버스·파일 업로드의 전용 경로는 이 구현 범위에 포함하지 않는다. 자세한 전송과 fallback 계약은 [clipboard 명세](../packages/extensions/docs/copy-paste-cut-spec.md)를 참고한다.
 
 ## 3. 커스텀 스키마에서 무엇을 제어하나
 
@@ -150,7 +153,7 @@ export const articleEditingPolicy = defineEditingPolicy({
 
 | 항목 | 현재 정확한 의미 |
 | --- | --- |
-| 열린 sourceType | 단일 열린 조상 경로의 가장 안쪽 컨테이너. `section(body(glyph))`에서 body. 조상 경계가 없으면 각 inline 잎 |
+| 열린 sourceType | 각 열린 끝의 가장 안쪽 컨테이너. `section(body(glyph))`에서 body. 조상 경계가 없으면 각 inline 잎 |
 | 닫힌 sourceType | 복사한 최상위 노드 각각. 여러 노드 중 하나라도 거절되면 전체 요청 거절 |
 | text targetType | 대상 텍스트를 담은 부모 타입 |
 | children targetType | inline 삽입이 가능하면 지정 부모 타입. 감싸기가 필요하면 defaultBlock 또는 유일 후보 타입 |
@@ -161,11 +164,27 @@ export const articleEditingPolicy = defineEditingPolicy({
 
 자식 삽입에 기본 감싸기가 필요하지만 후보가 여러 개이면 규칙 판정 전에 defaultBlock이 필요하다. `preserve`로 열린 `section(body)`를 보존해도 최종 schema가 `caption body+`를 요구하면 거절된다. 이 API가 빠진 caption을 임의 생성하지 않는다.
 
-이 첫 DSL은 단일 열린 경계의 inline 연결과 기존 보존 경로를 제어한다. 목록 번호/시작값의 재계산, 임의 트리 결합, 다중 런 분할, move 알고리즘은 구현하지 않는다. 바깥 열린 조상은 선택 문맥으로 취급하며, 격리·속성 손실·참조 검사를 유지한다. 바깥 조상별 사용자 규칙은 아직 제공하지 않는다.
+이 DSL은 열린 끝의 inline 연결과 구조 보존을 제어한다. text 대상은 같은 부모의 여러 런과 형제 문단 사이의 범위를 지원한다. 양 끝의 전략이 다르면 거절한다. 다른 부모 경로 사이의 inline 교체는 아래 `rangeReplacement` 정책으로 별도 허용한다. 목록 번호/시작값 재계산, 임의 트리 결합은 지원하지 않는다. move의 지원 범위는 DND 계약을 따른다. 바깥 열린 조상은 선택 문맥으로 취급하며, 격리·속성 손실·참조 검사를 유지한다. 바깥 조상별 사용자 규칙은 아직 제공하지 않는다.
 
-기존 `defineDropBehavior`, 전역 registry, `getDropBehavior`, `DropBehavior` 관련 타입, 스키마 `dropBehaviorRules`는 #274에서 제거했다. 호환 API는 남기지 않는다. 새 정책은 editor별 값이며 copy/move 의도와 연결/보존 전략을 분리한다. 기존 동작 이름을 새 규칙으로 자동 변환하지 않는다. 실제 DND 의도와 위치를 planner에 연결하는 작업은 #265에 남아 있다.
+기존 `defineDropBehavior`, 전역 registry, `getDropBehavior`, `DropBehavior` 관련 타입, 스키마 `dropBehaviorRules`는 #274에서 제거했다. 호환 API는 남기지 않는다. 새 정책은 editor별 값이며 copy/move 의도와 연결/보존 전략을 분리한다. 기존 동작 이름을 새 규칙으로 자동 변환하지 않는다. 실제 DND 의도와 위치는 #265의 로컬 세션과 view 연결을 통해 planner로 전달한다.
 
 성공한 계획에는 `plan.trace`, 거절에는 `decision.trace`가 있다. 각 항목은 ruleIds, sourceType, targetType, boundary, targetKind, effect, reason을 가진다. 기본 규칙의 ID는 `builtin:`으로 시작한다. 호환성이나 격리 검사에서 먼저 거절하면 trace가 비어 있을 수 있다. trace는 정책 선택 기록이며, 최종 유효성은 decision.ok와 reason으로 확인한다.
+
+## 3.3. Clipboard와 커스텀 스키마의 연결
+
+`new FragmentEditor(editor, policy)`를 먼저 등록하면 clipboard command도 그 정책을 사용한다. command 호출마다 정책을 덮어쓰지 않는다. 정책을 바꾸려면 `configure`에 전체 새 정책을 전달한다.
+
+- 같은 이름의 타입만으로 별도 Schema 객체의 조각을 수용하지 않는다.
+- 다른 editor·탭에서도 같은 의미를 보장하는 제품은 `schemaId: 'acme/article'`, `schemaRevision: '3'`처럼 호환 계약을 선언한다. 의미가 바뀌면 revision을 올린다. 최종 구조 검사와 로컬 변경 감지는 계속 수행한다.
+- metadata 없는 HTML·Markdown·`nodes` 입력은 별도 출처다. 표준 vocabulary를 쓸 제품은 `@barocss/extensions`의 `standardClipboardPolicy(type => schema.hasNodeType(type))`를 자신의 정책에 명시적으로 합친다. 커스텀 vocabulary는 자체 adapter로 변환한다.
+- 다른 부모 경로를 가로지르는 inline 교체는 `rangeReplacement: 'preserve-boundaries'`로 허용한다. 표준 clipboard 정책은 이 값을 포함한다. 시작 컨테이너에 내용을 넣고, 끝의 남은 내용은 원래 컨테이너에 둔다. schema가 요구하는 기존 제목·본문 등의 자식은 빈 상태로 유지한다. 서로 다른 역할을 합치거나 새 타입을 추측하지 않는다. 격리 경계와 여러 문단·닫힌 구조 입력은 이 경로에서 거절한다.
+- plain text는 대상 텍스트 타입을 사용한다. 여러 줄은 대상 flow block의 타입·속성으로 나눈다. 빈 줄도 유지한다.
+- `code: true`인 조상 안에서는 literal text로 가져온다. 내부 rich 조각의 구조·marks·참조를 텍스트로 바꾸면 손실을 계획에 기록한다. 이 변환은 code 영역의 명시적 정책이 수락한다.
+- 그 밖의 손실은 기본 거절한다. `editor:clipboard.plan`의 손실을 확인한 호출자가 `acceptLosses: true`로 새 paste 요청을 할 수 있다. 오래된 계획을 무조건 재사용하지 않는다.
+
+부분 선택 `BC`를 `x|y`에 붙이면 `xBC|y`다. 전체 `ABCD` 블록을 복사하면 `x`, `ABCD`, `y` 세 블록이 된다. 여러 문단 선택은 첫 대상 prefix와 마지막 대상 suffix를 각 끝에 연결한다. 하나의 붙여넣기는 undo 한 번으로 돌아간다.
+
+일반 HTML parser는 모든 외부 CSS나 문서 자료를 보존하지 않는다. text-only 전송은 경계·marks·참조를 잃는다. 내부 metadata가 잘못됐으면 이 약한 표현으로 조용히 우회하지 않고 거절한다.
 
 ## 4. 실행 예제: 커스텀 구조 등록부터 적용까지
 
@@ -326,7 +345,7 @@ editing.configure(nextPolicy);
 | 지원하는 opaque 타입에 원본을 보관하는 adapter가 있음 | `preserved`로 구분하고 해당 타입을 검사 |
 | 모르는 의미이며 adapter가 없음 | 거절 |
 
-`schemaId: 'article'`은 호환성 검사를 끄는 옵션이 아니다. 현재 schemaRevision에는 실행 중 Schema 객체와 선언·함수의 상태가 포함된다. 이름만 복사하거나 revision을 대상 값으로 덮어써 호환성을 꾸미지 않는다.
+`schemaId: 'article'`은 호환성 검사를 끄는 옵션이 아니다. 명시적인 portable revision이 없으면 schemaRevision에는 실행 중 Schema 객체와 선언·함수의 상태가 포함된다. 이름만 복사하거나 revision을 대상 값으로 덮어써 호환성을 꾸미지 않는다.
 
 대상 editor의 `policy.adapters`에 `{ format, schemaId, convert }`를 등록한다. convert는 입력 DocumentFragment를 받아 다음을 반환한다.
 
@@ -346,7 +365,7 @@ adapter 작성자는 다음을 결정한다.
 3. 바뀐 타입/속성에 맞춘 references 목록. 대상 정책의 선언과 일치해야 한다.
 4. 제거하거나 바꾼 의미를 losses에 기록하는 규칙. 처리하지 못하는 입력은 예외로 거절한다.
 
-convert는 문서나 선택을 수정하지 않는 순수 함수여야 한다. HTML 문자열을 이 callback에 바로 넣는 구조는 아니다. HTML/text 해석과 실제 clipboard 전달은 #264의 연결 작업이다.
+convert는 문서나 선택을 수정하지 않는 순수 함수여야 한다. HTML 문자열을 이 callback에 바로 넣는 구조는 아니다. HTML/text 해석과 실제 clipboard 전달은 #284의 연결부에서 수행한다.
 
 ## 7. schema를 다시 정의할 때
 

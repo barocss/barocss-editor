@@ -1,3 +1,4 @@
+import { attachFragmentDrag, FRAGMENT_CLIPBOARD_TYPE } from '@barocss/shared';
 import { Editor, ModelSelection, insideLockedRegion } from '@barocss/editor-core';
 import { selectionRectIn } from './selection-rect';
 import type { ModelData, RenderEnv } from '@barocss/dsl';
@@ -140,6 +141,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _boundHandleCompositionStart: ((event: CompositionEvent) => void) | null = null;
   private _boundHandleCompositionEnd: ((event: CompositionEvent) => void) | null = null;
   private _boundHandleCopy: ((event: ClipboardEvent) => void) | null = null;
+  private _fragmentDrag?: ReturnType<typeof attachFragmentDrag>;
   private _boundHandleDrop: ((event: DragEvent) => void) | null = null;
   private _boundHandleSelectionChange: ((event?: Event) => void) | null = null;
   private _boundHandleMouseDown: ((event: MouseEvent) => void) | null = null;
@@ -422,6 +424,13 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.contentEditableElement.addEventListener('keydown', releaseNodeSelection, true);
     this._boundHandlePaste = this.handlePaste.bind(this);
     this._boundHandleDrop = this.handleDrop.bind(this);
+    this._fragmentDrag = attachFragmentDrag(this.contentEditableElement, {
+      command: (name, payload) => this.editor.executeCommand(name, payload), selection: () => this.editor.selection,
+      fromSelection: value => { const selected = this.selectionHandler.convertDOMSelectionToModel(value); return selected?.type === 'none' ? null : selected; },
+      fromRange: value => this.selectionHandler.convertStaticRangeToModel(value), node: id => this.editor.dataStore.getNode(id),
+      isBlock: id => this.editor.dataStore.getActiveSchema()?.getNodeType(this.editor.dataStore.getNode(id)?.stype ?? '')?.group === 'block',
+      composing: () => this._isComposing,
+    });
     this.contentEditableElement.addEventListener('paste', this._boundHandlePaste);
     // Strip the caret filler out of anything leaving the editor. The zero-width
     // character is renderer bookkeeping, not content, and a native copy reads the
@@ -937,13 +946,27 @@ export class EditorViewDOM implements IEditorViewDOM {
    * because that is where the geometry they align to lives, and which a reader
    * pasting into another document has no use for.
    *
-   * Everything else is left to the browser: the selection, the HTML structure,
-   * and the cut itself.
+   * The clipboard command captures model fragments and handles cut transactions.
+   * The DOM cleanup below is a fallback when that command is unavailable.
    */
   handleCopy(event: ClipboardEvent): void {
+    if (event.defaultPrevented) return;
     if (this.isEmbeddedInput(event.target)) return;
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || !event.clipboardData) return;
+
+    if (selection.anchorNode && selection.focusNode
+      && this.contentEditableElement.contains(selection.anchorNode) && this.contentEditableElement.contains(selection.focusNode)) {
+      const model = this.selectionHandler.convertDOMSelectionToModel(selection);
+      if (model?.type === 'range') {
+        let handled = false;
+        void this.editor.executeCommand(event.type === 'cut' ? 'cut' : 'copy', {
+          selection: model, clipboardData: event.clipboardData,
+          onClipboardWrite: () => { handled = true; event.preventDefault(); },
+        });
+        if (handled) return;
+      }
+    }
 
     const html = this.contentEditableElement.ownerDocument.createElement('div');
     html.appendChild(selection.getRangeAt(0).cloneContents());
@@ -960,6 +983,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   handlePaste(event: ClipboardEvent): void {
+    if (event.defaultPrevented) return;
     if (this.isEmbeddedInput(event.target)) return;
     if (this._isComposing) {
       return;
@@ -970,10 +994,11 @@ export class EditorViewDOM implements IEditorViewDOM {
     const clipboardData = event.clipboardData;
     if (!clipboardData) return;
 
+    const clipboardFragment = clipboardData.getData(FRAGMENT_CLIPBOARD_TYPE);
     const html = clipboardData.getData('text/html');
     const text = clipboardData.getData('text/plain');
 
-    if (!html && !text) return;
+    if (!html && !text && !clipboardFragment) return;
 
     // selectionchange is debounced. A paste immediately after moving the caret
     // must use the visible DOM range, rather than the previous model position.
@@ -984,32 +1009,13 @@ export class EditorViewDOM implements IEditorViewDOM {
       ? this.selectionHandler.convertDOMSelectionToModel(domSelection) : undefined;
     this.editor.executeCommand('paste', {
       ...(selection?.type === 'range' ? { selection } : {}),
+      clipboardFragment: clipboardFragment || undefined,
       clipboardHtml: html || undefined,
       clipboardText: text || undefined,
     });
   }
 
-  handleDrop(event: DragEvent): void {
-    if (this.isEmbeddedInput(event.target)) return;
-    if (this._isComposing) {
-      return;
-    }
-
-    event.preventDefault();
-
-    const dataTransfer = event.dataTransfer;
-    if (!dataTransfer) return;
-
-    const html = dataTransfer.getData('text/html');
-    const text = dataTransfer.getData('text/plain');
-
-    if (!html && !text) return;
-
-    this.editor.executeCommand('paste', {
-      clipboardHtml: html || undefined,
-      clipboardText: text || undefined,
-    });
-  }
+  handleDrop(event: DragEvent): void { this._fragmentDrag?.drop(event); }
 
   handleSelectionChange(): void {
     // 1. Ignore if programmatic selection change
@@ -1482,6 +1488,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       this.contentEditableElement.removeEventListener('cut', this._boundHandleCopy);
       this._boundHandleCopy = null;
     }
+    this._fragmentDrag?.destroy(); this._fragmentDrag = undefined;
     if (this._boundHandleDrop) {
       this.contentEditableElement.removeEventListener('drop', this._boundHandleDrop);
       this._boundHandleDrop = null;

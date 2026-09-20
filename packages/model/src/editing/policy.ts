@@ -17,6 +17,8 @@ export function defineEditingRule(rule: EditingRule): EditingRule {
 
 /** Copy and validate the entire editor policy. configure() replaces it atomically. */
 export function defineEditingPolicy(policy: EditingPolicy): EditingPolicy {
+  if (policy.schemaRevision !== undefined && (!policy.schemaId?.trim() || !policy.schemaRevision.trim())) throw new Error('Portable schema revision requires a schema id and nonempty revision');
+  if (policy.rangeReplacement !== undefined && policy.rangeReplacement !== 'preserve-boundaries') throw new Error('Unsupported range replacement policy');
   const rules = policy.rules?.map(defineEditingRule);
   if (rules && new Set(rules.map(rule => rule.id)).size !== rules.length) throw new Error('Duplicate editing rule id');
   return freeze({ ...policy, rules, references: structuredClone(policy.references), adapters: policy.adapters?.map(adapter => ({ ...adapter })) });
