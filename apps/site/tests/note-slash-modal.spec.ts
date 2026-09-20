@@ -21,9 +21,28 @@ test('row slash table receives the actual pointer and keeps editing inside the d
   const originalBody = await body.innerText();
   await page.keyboard.type('/');
   await expect(page.locator('[data-slash-item]').first()).toBeVisible();
-  await page.keyboard.insertText('표');
+  // Exercise main's menu scrolling together with the modal-owned portal.
+  const items = page.locator('[data-slash-item]');
+  const itemCount = await items.count();
+  expect(await items.first().evaluate(element => {
+    const panel = element.closest('[data-floating-surface]')!;
+    return panel.scrollHeight > panel.clientHeight;
+  }), 'The unfiltered modal menu must overflow').toBe(true);
+  const lastItem = items.last();
+  const isInsideMenu = () => lastItem.evaluate(element => {
+    const row = element.getBoundingClientRect();
+    const panel = element.closest('[data-floating-surface]')!.getBoundingClientRect();
+    return row.top >= panel.top - 1 && row.bottom <= panel.bottom + 1;
+  });
+  expect(await isInsideMenu()).toBe(false);
+  for (let index = 1; index < itemCount; index++) await page.keyboard.press('ArrowDown');
+  await expect(lastItem).toHaveAttribute('data-current', 'true');
+  await expect.poll(isInsideMenu).toBe(true);
+  const tableIndex = await items.evaluateAll(elements => elements.findIndex(element => element.getAttribute('data-slash-item') === 'insertTableBlock'));
+  expect(tableIndex).toBeGreaterThanOrEqual(0);
+  for (let index = itemCount - 1; index > tableIndex; index--) await page.keyboard.press('ArrowUp');
+  await expect(page.locator('[data-slash-item="insertTableBlock"]')).toHaveAttribute('data-current', 'true');
   const row = page.locator('[data-slash-item="insertTableBlock"]');
-  await expect(page.locator('[data-slash-item]')).toHaveCount(2);
   await expect(row).toBeVisible();
   const hit = await row.evaluate(element => {
     const rect = element.getBoundingClientRect();

@@ -122,11 +122,11 @@ export function SlashMenu({
           return void editor.executeCommand('hideSlashMenu', {});
         }
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-          event.preventDefault();
+          event.preventDefault(); event.stopPropagation();
           return void editor.executeCommand('moveSlashMenu', { by: event.key === 'ArrowDown' ? 1 : -1 });
         }
         if (event.key === 'Enter') {
-          event.preventDefault();
+          event.preventDefault(); event.stopPropagation();
           return void editor.executeCommand('runSlashMenuItem', {});
         }
       }
@@ -201,12 +201,32 @@ export function SlashMenu({
   }, [editor, active, revision, menu?.open, menu?.query]);
 
   const rows = menu?.items ?? [];
+  const itemsHost = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu?.open) return;
+    const item = itemsHost.current?.querySelector<HTMLElement>('[data-current="true"]');
+    const panel = item?.closest<HTMLElement>('[data-floating-surface]');
+    if (!item || !panel) return;
+    // Scroll only this menu. scrollIntoView can also move the document or iframe.
+    const reveal = () => {
+      const row = item.getBoundingClientRect();
+      const box = panel.getBoundingClientRect();
+      const top = box.top + panel.clientTop;
+      const bottom = top + panel.clientHeight;
+      if (row.top < top) panel.scrollTop += row.top - top;
+      else if (row.bottom > bottom) panel.scrollTop += row.bottom - bottom;
+    };
+    const frame = requestAnimationFrame(reveal);
+    const observer = new ResizeObserver(reveal);
+    observer.observe(panel);
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); };
+  }, [menu?.open, menu?.currentIndex, menu?.query, rows, at?.top, at?.left]);
 
   return (
     <FloatingSurface open={!!at && rows.length > 0} at={at} variant="menu" aria-label="블록 추가" style={{ width: 320 }}
       portalRoot={scope?.current} ownedElements={scope ? [scope] : []}
       onDismiss={() => { void editor.executeCommand('hideSlashMenu', {}); }}>
-      {rows.map((item, index) => (
+      <div ref={itemsHost}>{rows.map((item, index) => (
         <MenuAction
           key={item.id}
           type="button"
@@ -222,7 +242,7 @@ export function SlashMenu({
           {item.icon ? <Icon name={item.icon} size={14} /> : null}
           <MenuActionText label={item.label} description={item.description} />
         </MenuAction>
-      ))}
+      ))}</div>
     </FloatingSurface>
   );
 }

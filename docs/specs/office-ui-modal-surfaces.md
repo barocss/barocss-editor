@@ -53,7 +53,8 @@ the modal. No global `pointer-events` override or z-index increase is required.
 ## Validation
 
 Site: `apps/site/tests/note-slash-modal.spec.ts` checks actual hit testing and
-coordinate insertion, immediate table input, unchanged summary/body text,
+coordinate insertion after keyboard scrolling through an overflowing menu,
+immediate table input, unchanged summary/body text,
 filtered keyboard insertion, menu Escape, modal Tab containment, and background
 hit blocking. `note-close.spec.ts` checks existing close/delivery behavior.
 
@@ -63,8 +64,12 @@ opening and dismissal lifecycle. Tests run on desktop Chromium with independent
 servers, no retries, and failure screenshots/traces. The Site test also saves
 menu and result screenshots. Final run results are recorded in the PR.
 
-This does not fix table-cell label focus (#332), the full keyboard/menu changes
-in PR #283, or the UI documentation audit (#336). Tests use workspace sources;
+Integration baseline: `0d97e1f00948aafd27bd6bdf4ac2b9a2f9f51e60`.
+The merge retains PR #283's current-item menu scrolling and keyboard behavior
+alongside scoped portal ownership and dismissal.
+
+This does not fix table-cell label focus (#332), residual slash table query
+text (#343), or the UI documentation audit (#336). Tests use workspace sources;
 mobile, OS IME, screen-reader usability, nested modal combinations, transformed
 portal hosts, and published npm artifacts are outside this run.
 
