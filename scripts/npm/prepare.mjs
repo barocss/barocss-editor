@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync, readdirSync } from 'node:fs';
 import { resolve, basename } from 'node:path';
 import { checkArchiveImports } from './imports.mjs';
+import { normalizeTarball } from './normalize.mjs';
 import { root, packages, run, digest, inspectTarball } from './packages.mjs';
 
 if (process.argv.length > 2) throw new Error('This command accepts no arguments and never publishes');
@@ -14,6 +15,7 @@ for (const { directory: packageDirectory, manifest: source } of packages()) {
   const added = readdirSync(directory).filter((file) => !before.has(file) && file.endsWith('.tgz'));
   if (added.length !== 1) throw new Error(`Expected one archive for ${source.name}`);
   const file = resolve(directory, added[0]);
+  normalizeTarball(file);
   const packed = inspectTarball(file);
   checkArchiveImports(file);
   if (source.name !== packed.name || source.version !== packed.version) throw new Error('Packed identity differs from source');

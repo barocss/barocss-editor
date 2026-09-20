@@ -1,5 +1,17 @@
 # @barocss/office-workspace
 
+## 0.1.2
+
+### Patch Changes
+
+- Make release archives reproducible by stabilizing dependency metadata and tar entry metadata. Preserve conditional export order and executable file permissions.
+- Updated dependencies
+  - @barocss/office-note@0.1.2
+  - @barocss/office-site@0.1.2
+  - @barocss/office-slides@0.1.2
+  - @barocss/office-ui@0.1.2
+  - @barocss/office-word@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes

@@ -10,6 +10,8 @@ React and other declared dependencies stay external. A consumer installs them fr
 
 The shared build is `scripts/build-library.ts`. Add a public package by declaring its source exports, dependencies, public `publishConfig` exports and README. The preparation job discovers public packages automatically; do not maintain a separate release list.
 
+After `pnpm pack`, preparation normalizes dependency-map ordering, archive entry ordering, file modes and timestamps. pnpm's concurrent workspace dependency resolution can otherwise change JSON key order between builds. Conditional export order is preserved because it affects module resolution. The normalized archive is the file validated, installed, hashed and published. Already-published versions are never rewritten; a packaging change requires a new Changesets version.
+
 ## Local verification
 
 Use Node from `.nvmrc` and pnpm 8.15.0.

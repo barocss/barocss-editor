@@ -1,6 +1,6 @@
 {
   "name": "@barocss/office-word",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Word: the word-processor product layer over the Barocss editor engine",
   "type": "module",
   "main": "./src/index.ts",

@@ -1,6 +1,6 @@
 {
   "name": "@barocss/query-editor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Embeddable structured search input with filter chips, suggestions, and a framework-independent query model.",
   "license": "MIT",
