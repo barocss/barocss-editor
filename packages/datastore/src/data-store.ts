@@ -13,7 +13,6 @@ import {
   RangeOperations,
   SerializationOperations
 } from './operations';
-import { registerDefaultDropBehaviors } from './operations/drop-behavior-defaults';
 import type { DocumentVisitor, VisitorTraversalOptions } from './operations/utility-operations';
 import { TransactionalOverlay } from './transactional-overlay';
 
@@ -218,9 +217,6 @@ export class DataStore {
     this.utility = new UtilityOperations(this);
     this.range = new RangeOperations(this);
     this.serialization = new SerializationOperations(this);
-
-    // Register default drop behavior rules
-    registerDefaultDropBehaviors();
   }
 
   /**
@@ -2114,29 +2110,6 @@ export class DataStore {
    */
   getNextEditableNode(nodeId: string): string | null {
     return this.utility.getNextEditableNode(nodeId);
-  }
-
-  /**
-   * 드롭 타겟에 소스 노드를 드롭했을 때의 행위를 결정합니다.
-   * 
-   * 우선순위:
-   * 1. UI 컨텍스트 (Ctrl/Cmd = copy) - 최우선
-   * 2. defineDropBehavior 규칙 (동적 규칙)
-   * 3. 스키마 dropBehaviorRules (기본 규칙 힌트)
-   * 4. 타입 조합 기본 규칙 (내장 규칙)
-   * 5. 기본값 (move/insert)
-   * 
-   * @param targetNodeId 드롭 타겟 노드 ID
-   * @param sourceNodeId 소스 노드 ID
-   * @param context UI 컨텍스트 (선택적)
-   * @returns 드롭 행위
-   */
-  getDropBehavior(
-    targetNodeId: string,
-    sourceNodeId: string,
-    context?: { modifiers?: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean; altKey?: boolean }; position?: number; dropZone?: 'before' | 'after' | 'inside'; sourceOrigin?: 'internal' | 'external' }
-  ): 'move' | 'copy' | 'merge' | 'transform' | 'wrap' | 'replace' | 'insert' {
-    return this.utility.getDropBehavior(targetNodeId, sourceNodeId, context);
   }
 
   /**
