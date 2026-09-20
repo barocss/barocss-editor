@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Operation Selection Guide
 
 This guide helps you choose the right operation for your needs based on the operation hierarchy.

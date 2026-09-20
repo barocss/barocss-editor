@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Editor View DOM
 
 Editor View DOM (`@barocss/editor-view-dom`) is the view layer that connects the Editor to the DOM. It handles user input, selection synchronization, and triggers rendering.

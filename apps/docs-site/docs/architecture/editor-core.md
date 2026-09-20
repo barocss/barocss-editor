@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # @barocss/editor-core
 
 The Editor-Core package provides the core editor logic: selection management, keybinding, context, and transaction orchestration. It's the central coordinator for all editor operations.

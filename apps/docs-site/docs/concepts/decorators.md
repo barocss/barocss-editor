@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Decorators
 
 Decorators are temporary UI elements that don't affect the document model. They're a **core feature of Editor View DOM** (not an extension) and are used for visual feedback, highlights, comments, and other temporary overlays.

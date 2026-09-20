@@ -1,76 +1,71 @@
-# Wonffice local workspace
+# @barocss/office-workspace
 
-Note, Word, Slides, Site share a local catalog and navigation contract. Editor models remain product-owned. This package does not provide accounts, server storage, permissions, or collaborative editing.
+Local document catalogue and navigation contracts shared by Note, Word, Slides, and Site.
 
-## JavaScript API
+## Purpose
+
+Use this package to list, create, copy, import, and navigate local product documents. Product-specific file codecs stay in each product's /workspace entry.
+
+## Install
+
+```sh
+npm install @barocss/office-workspace react react-dom
+```
+
+The published package provides ES modules and TypeScript declarations. Use a bundler that supports package exports.
+
+## Public entry points
+
+| Import | Role |
+| --- | --- |
+| `@barocss/office-workspace` | Public JavaScript and TypeScript API |
+| `@barocss/office-workspace/ui` | React UI components |
+| `@barocss/office-workspace/style.css` | Stylesheet |
+| `@barocss/office-workspace/host` | Product-host navigation |
+
+Import only these public paths. Source paths such as `@barocss/office-workspace/src/...` are not part of the published API.
+
+## Usage
 
 ```ts
-import {
-  OfficeWorkspace, workspaceIdentity, documentURL
-} from '@barocss/office-workspace';
+import { OfficeWorkspace, workspaceIdentity, documentURL } from '@barocss/office-workspace';
 
-const workspace = new OfficeWorkspace(workspaceIdentity());
-const id = await workspace.create('word', 'Weekly report');
-const address = { workspace: workspace.id, product: 'word' as const, id };
-location.assign(documentURL(address));
-
-// Run in the library, after the current editor has saved and closed.
-const rows = await workspace.list();
-await workspace.update(`word:${id}`, { favorite: true, folder: 'Reports' });
-const copyId = await workspace.copy('word', id);
-await workspace.link(`word:${copyId}`, `word:${id}`);
-
-const archive = await workspace.backup();
-await workspace.restore(archive); // New IDs. Existing files remain unchanged.
+export async function createReport() {
+  const workspace = new OfficeWorkspace(workspaceIdentity());
+  const id = await workspace.create('word', 'Weekly report');
+  await workspace.update(`word:${id}`, { favorite: true, folder: 'Reports' });
+  return documentURL({ workspace: workspace.id, product: 'word', id });
+}
+// Run in the browser, then navigate to the returned URL in your host.
 ```
 
-`productCodec(product)` loads the product's `./workspace` entry. Each adapter supplies `create`, `read`, `text`, and `schema`. Importing the catalog does not mount an editor. `readProductDocument` validates a file before a restore or cross-product copy writes it.
+## Peer dependencies
 
-## React UI
+- `react`: `>=18`.
+- `react-dom`: `>=18`.
 
-```tsx
-import { WorkspaceHome } from '@barocss/office-workspace/ui';
-import { ProductNavigation } from '@barocss/office-workspace/host';
-import '@barocss/office-ui/tokens.css';
-import '@barocss/office-workspace/style.css';
+## Styles
 
-// Library entry:
-<WorkspaceHome />;
-// Editor entry, outside the product's #root:
-<ProductNavigation />;
-```
+Load `@barocss/office-ui/tokens.css` once in the host. This package also exposes `@barocss/office-workspace/style.css`.
 
-Include `office-ui/src` and `office-workspace/src` in the host's Tailwind source list. The included `apps/office` host does this. Product pages retain their own existing styles.
+Office React controls use Tailwind 4 utility classes. Configure the host to scan the installed package `dist` files; npm packages do not include the repository's `src` directories. See the [Office styling guide](https://editor.barocss.com/docs/guides/office-styling) for a Vite setup and CSS source paths.
 
-## Editor lifecycle
+## Save before navigation
 
-```ts
-import { registerProductDocumentHost } from '@barocss/shared';
+Product hosts register a `beforeNavigate` callback through `registerProductDocumentHost` from `@barocss/shared`. Flush embedded editors before durable storage. Return `false` if saving fails so the current editor stays open.
 
-const stop = registerProductDocumentHost({
-  product: 'word',
-  id: () => activeFileId, // Durable file ID, never a runtime node ID.
-  beforeNavigate: async () => {
-    await nestedEditors.flush();
-    return storage.flush(); // false leaves the current editor open.
-  }
-});
-// On host disposal:
-stop();
-```
+`WorkspaceHome` is exported from `/ui`; `ProductNavigation` is exported from `/host`. The root module provides the local catalogue and file/navigation contracts. Backups restore to new IDs and remap included document references.
 
-The shared `DocumentSession` registers this contract for Word, Slides, and Site. Note connects its workspace flush, including nested sessions. Navigation checks both the mounted host and file identity after saving. The editor surface cannot accept new input while a product switch is being saved. A failed save restores editing and keeps the page open.
+## Integration notes
 
-## Storage and migration
+Storage is browser-local and origin-specific. The host supplies /products/{product}/index.html routes. This package does not provide accounts, cloud storage, authorization, or real-time collaboration. A durable file ID is different from a runtime node ID.
 
-- One local workspace per origin. Product pages use `/products/{product}/index.html` on that origin.
-- A global address contains workspace ID, product key, and durable document ID.
-- Catalog metadata has separate revisions. Favorites, folder labels, and references cannot overwrite document bytes. Note's native favorite/trash metadata is kept consistent with the catalog.
-- Existing product stores stay in place. Switching products reloads the product host, so renderer registries, styles, and global input listeners remain isolated. In-memory undo history belongs to the open editor session.
-- `importFile` accepts native product JSON, existing Note workspace backups, product-library backups, and Wonffice workspace backups. It validates all entries first and restores to new IDs. Note page references and included workspace references are remapped.
-- Restoring multiple product stores is not one cross-database transaction. If storage fails, the error reports the number of copies already written. Existing files and the source backup remain unchanged.
-- `backup` includes stored documents, trash, and recovery drafts. External URLs remain external; the archive does not fetch or embed remote assets.
-- Different development ports have separate browser storage. Export from the original product's library, then import the file in Wonffice. Original libraries are preserved.
-- `noteToSite` makes an independent Site body copy and adds a source reference. Unsupported blocks and Note page references are refused before writing. It does not create a live synchronized embed.
+## Documentation
 
-Run `pnpm dev:office`. The local host uses port 5186. `pnpm build:office` builds all five HTML entries, including the four existing product hosts without copying their source.
+- [Package guide](https://editor.barocss.com/packages/office-workspace)
+- [Choose a package](https://editor.barocss.com/packages)
+- [Source and tests](https://github.com/barocss/barocss-editor/tree/main/packages/office-workspace)
+
+## License
+
+MIT. The published archive includes the license in `dist/LICENSE`.

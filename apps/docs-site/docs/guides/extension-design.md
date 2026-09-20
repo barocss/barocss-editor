@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Extension Design Guide
 
 Extensions are the primary way to add custom functionality to Barocss Editor. This guide explains how to create extensions step by step.

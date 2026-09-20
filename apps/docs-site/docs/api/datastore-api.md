@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # DataStore API
 
 The DataStore API provides the core storage layer for managing nodes, transactions, and schema validation.

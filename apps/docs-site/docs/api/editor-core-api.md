@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Editor Core API
 
 The Editor Core API provides the main `Editor` class and related interfaces for managing editor state, commands, extensions, and events.

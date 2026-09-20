@@ -2,6 +2,10 @@
 title: Collaboration API
 ---
 
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Collaboration API
 
 Core interfaces for building and using collaboration adapters, plus base behaviors shared by Yjs/Liveblocks adapters.

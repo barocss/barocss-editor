@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Editor Core
 
 Editor Core is the central coordinator of the Barocss editor. It manages commands, selection, keybindings, extensions, and provides the context that all editor operations need.

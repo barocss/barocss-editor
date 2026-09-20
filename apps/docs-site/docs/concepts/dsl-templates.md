@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # DSL Templates
 
 DSL (Domain-Specific Language) templates define how your model data is rendered to the DOM. They are pure functions that make rendering predictable and testable.

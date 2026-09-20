@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # @barocss/dsl
 
 The DSL package provides a template definition layer with functional DSL builders. It's how you define how your model data is rendered to the DOM.

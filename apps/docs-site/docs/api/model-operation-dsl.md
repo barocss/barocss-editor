@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Model Operation DSL API
 
 DSL (Domain-Specific Language) helpers provide a simple, declarative API for defining operations. They return `{ type, payload }` objects that are used in transactions.

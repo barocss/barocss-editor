@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Editor View DOM API
 
 The Editor View DOM API provides the `EditorViewDOM` class that connects the `Editor` to the DOM, handling rendering, event handling, and decorator management.

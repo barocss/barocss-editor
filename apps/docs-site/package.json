@@ -5,14 +5,15 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "dev": "docusaurus start",
-    "build": "docusaurus build",
+    "dev": "node ../../scripts/docs/generate.mjs && pnpm build:examples && docusaurus start",
+    "build": "node ../../scripts/docs/generate.mjs && pnpm build:examples && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
-    "write-heading-ids": "docusaurus write-heading-ids"
+    "write-heading-ids": "docusaurus write-heading-ids",
+    "build:examples": "vite build --config examples/vite.config.mts"
   },
   "dependencies": {
     "@barocss/datastore": "workspace:*",
@@ -33,14 +34,24 @@
     "clsx": "^2.1.1",
     "mermaid": "^11.12.2",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "@barocss/editor-view-react": "workspace:*",
+    "@barocss/office-note": "workspace:*",
+    "@barocss/office-text": "workspace:*",
+    "@barocss/office-ui": "workspace:*",
+    "@barocss/office-editor-ui": "workspace:*",
+    "@barocss/query-editor": "workspace:*"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.7.0",
     "@docusaurus/tsconfig": "^3.7.0",
     "@docusaurus/types": "^3.7.0",
     "tsconfig-paths-webpack-plugin": "^4.2.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.3"
   },
   "browserslist": {
     "production": [

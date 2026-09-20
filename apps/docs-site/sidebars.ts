@@ -2,14 +2,25 @@ import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 
 const sidebars: SidebarsConfig = {
   tutorialSidebar: [
-    'introduction',
+    { type: 'doc', id: 'introduction', label: 'Overview' },
     {
       type: 'category',
-      label: 'Getting Started',
+      label: 'Getting started',
+      collapsed: false,
       items: [
         'installation',
-        'quick-start',
+        { type: 'doc', id: 'quick-start', label: 'JavaScript / DOM guide' },
+        { type: 'doc', id: 'guides/react-editor', label: 'React guide' },
         'basic-usage',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Office integration',
+      items: [
+        { type: 'doc', id: 'guides/office-products', label: 'Product integration' },
+        { type: 'doc', id: 'guides/office-styling', label: 'Styling' },
+        { type: 'doc', id: 'guides/package-boundaries', label: 'Package boundaries' },
       ],
     },
     {
@@ -65,7 +76,6 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Guides',
       items: [
-        'guides/react-editor',
         'guides/extension-design',
         'guides/custom-operations',
         'guides/advanced-extensions',
@@ -76,7 +86,7 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Demos',
+      label: 'Recipes',
       items: [
         'examples/basic-editor',
         'examples/custom-extensions',

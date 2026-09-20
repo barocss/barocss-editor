@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Custom Extensions Example
 
 This example shows how to create a custom extension that adds a "Insert Hello" command to the editor.

@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@import "@barocss/office-ui/tokens.css";
+@import "@barocss/office-text/text.css";
+@import "@barocss/office-note/note.css";
+@import "@barocss/query-editor/style.css";
+
+/* This app runs workspace sources. Published consumers scan dist instead. */
+@source "../../../packages/office-ui/src";
+@source "../../../packages/office-editor-ui/src";
+@source "../../../packages/office-note/src";
+
+body { margin: 0; background: white; color: #172033; font-family: system-ui, sans-serif; }
+.sample-host { padding: 28px; min-height: 340px; }
+.sample-prose { min-height: 220px; font-size: 17px; line-height: 1.7; }
+.sample-prose p { margin: 0 0 12px; }
+.sample-react { font-size: 17px; line-height: 1.7; }
+.sample-ui { display: flex; align-items: flex-start; gap: 12px; }
+.sample-ui input { max-width: 360px; }
+.sample-query { max-width: 760px; }

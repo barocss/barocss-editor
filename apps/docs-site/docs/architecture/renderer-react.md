@@ -2,6 +2,10 @@
 title: Renderer React
 ---
 
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # @barocss/renderer-react
 
 The Renderer-React package provides React rendering from model using DSL templates. It converts your model data directly into ReactNode — no VNode intermediate step.

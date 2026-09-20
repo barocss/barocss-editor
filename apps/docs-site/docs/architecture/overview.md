@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Architecture Overview
 
 Barocss Editor uses a **model-first, DSL-first architecture**. All operations work on a model, and everything (templates, marks, decorators, operations) is defined using DSL.

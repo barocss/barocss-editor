@@ -12,18 +12,6 @@
     "count": 1
   },
   {
-    "file": "apps/docs-site/docusaurus.config.ts",
-    "rule": "@typescript-eslint/no-unused-vars",
-    "message": "'path' is defined but never used.",
-    "count": 1
-  },
-  {
-    "file": "apps/docs-site/docusaurus.config.ts",
-    "rule": "@typescript-eslint/no-unused-vars",
-    "message": "'TsconfigPathsPlugin' is defined but never used.",
-    "count": 1
-  },
-  {
     "file": "apps/docs-site/src/editor-demo.ts",
     "rule": "@typescript-eslint/no-unused-vars",
     "message": "'attr' is defined but never used.",

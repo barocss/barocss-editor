@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # @barocss/datastore
 
 The DataStore package provides transactional, schema-aware node storage with a normalized data structure. It's the single source of truth for your document data.

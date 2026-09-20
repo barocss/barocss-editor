@@ -3,6 +3,10 @@ title: Decorator Guide
 sidebar_label: Decorator Guide
 ---
 
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Decorator Guide
 
 Decorators add temporary visual overlays to the editor without modifying the document model. This guide walks through practical implementation patterns.

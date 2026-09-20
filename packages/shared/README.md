@@ -1,160 +1,48 @@
 # @barocss/shared
 
-Shared utilities and constants used across BaroCSS Editor packages.
+Shared selection, units, keyboard, document-file, local-storage, and lifecycle utilities.
 
-## Overview
+## Purpose
 
-`@barocss/shared` provides:
+Use the focused helper needed by your integration rather than duplicating editor conventions.
 
-- **Platform Detection**: Detect operating system (macOS, Linux, Windows)
-- **Key String Normalization**: Normalize keyboard event keys
-- **Key Binding Utilities**: Expand modifier keys (Mod → Cmd/Ctrl)
-- **i18n Utilities**: Placeholder replacement and locale normalization
+## Install
 
-## Installation
-
-```bash
-pnpm add @barocss/shared
+```sh
+npm install @barocss/shared
 ```
+
+The published package provides ES modules and TypeScript declarations. Use a bundler that supports package exports.
+
+## Public entry points
+
+| Import | Role |
+| --- | --- |
+| `@barocss/shared` | Public JavaScript and TypeScript API |
+
+Import only these public paths. Source paths such as `@barocss/shared/src/...` are not part of the published API.
 
 ## Usage
 
-### Platform Detection
+```ts
+import { pxToTwip, twipToPx, formatCounter } from '@barocss/shared';
 
-```typescript
-import { IS_MAC, IS_LINUX, IS_WINDOWS } from '@barocss/shared';
-
-if (IS_MAC) {
-  // macOS specific code
-  const modifier = 'Cmd';
-} else {
-  // Windows/Linux
-  const modifier = 'Ctrl';
-}
+const modelWidth = pxToTwip(96);
+console.log(twipToPx(modelWidth)); // 96
+console.log(formatCounter(3, 'decimal'));
 ```
 
-### Key String Normalization
+## Integration notes
 
-```typescript
-import { getKeyString } from '@barocss/shared';
+Some helpers are pure and others require browser storage or DOM APIs. Document-library helpers provide local storage, not cloud synchronization. Keep runtime node identities separate from durable file identities.
 
-// Normalize keyboard event to key string
-const keyString = getKeyString(event);
-// Examples: 'Mod+b', 'Alt+ArrowLeft', 'Shift+Enter'
-```
+## Documentation
 
-### Key Binding Utilities
-
-```typescript
-import { normalizeKeyString, expandModKey } from '@barocss/shared';
-
-// Normalize key string (case-insensitive, sort modifiers)
-const normalized = normalizeKeyString('ctrl+shift+b');
-// Result: 'Ctrl+Shift+b'
-
-// Expand Mod key to platform-specific modifier
-const expanded = expandModKey('Mod+b', IS_MAC);
-// macOS: 'Cmd+b'
-// Windows/Linux: 'Ctrl+b'
-```
-
-### i18n Utilities
-
-```typescript
-import { replacePlaceholders, normalizeLocale } from '@barocss/shared';
-
-// Replace placeholders in strings
-const message = replacePlaceholders('Hello {name}!', { name: 'World' });
-// Result: 'Hello World!'
-
-// Normalize locale string
-const locale = normalizeLocale('en-US');
-// Result: 'en-US'
-```
-
-## API Reference
-
-### Platform Detection
-
-```typescript
-export const IS_MAC: boolean;
-export const IS_LINUX: boolean;
-export const IS_WINDOWS: boolean;
-```
-
-### Key String Functions
-
-```typescript
-getKeyString(event: KeyboardEvent): string;
-```
-
-Normalizes a keyboard event to a key string format:
-- Modifiers: `Ctrl`, `Cmd`, `Alt`, `Shift`
-- Keys: `A-Z`, `0-9`, `Enter`, `Escape`, `Backspace`, `Delete`, `Tab`, `ArrowLeft`, etc.
-- Format: `Modifier+Key` (e.g., `Mod+b`, `Alt+ArrowLeft`)
-
-### Key Binding Functions
-
-```typescript
-normalizeKeyString(key: string): string;
-```
-
-Normalizes a key string:
-- Case-insensitive
-- Sorts modifiers alphabetically
-- Removes duplicates
-
-```typescript
-expandModKey(key: string, isMac: boolean): string;
-```
-
-Expands `Mod` to platform-specific modifier:
-- macOS: `Mod` → `Cmd`
-- Windows/Linux: `Mod` → `Ctrl`
-
-### i18n Functions
-
-```typescript
-replacePlaceholders(template: string, values: Record<string, any>): string;
-```
-
-Replaces `{key}` placeholders with values.
-
-```typescript
-normalizeLocale(locale: string): string;
-```
-
-Normalizes locale string to standard format.
-
-## Examples
-
-### Platform-Specific Key Bindings
-
-```typescript
-import { IS_MAC, expandModKey } from '@barocss/shared';
-
-const keyBinding = expandModKey('Mod+z', IS_MAC);
-// macOS: 'Cmd+z'
-// Windows/Linux: 'Ctrl+z'
-```
-
-### Key Event Handling
-
-```typescript
-import { getKeyString } from '@barocss/shared';
-
-element.addEventListener('keydown', (event) => {
-  const key = getKeyString(event);
-  
-  if (key === 'Mod+b') {
-    // Toggle bold
-  } else if (key === 'Escape') {
-    // Cancel
-  }
-});
-```
+- [Package guide](https://editor.barocss.com/packages/shared)
+- [Choose a package](https://editor.barocss.com/packages)
+- [Source and tests](https://github.com/barocss/barocss-editor/tree/main/packages/shared)
+- [Detailed architecture reference](https://editor.barocss.com/docs/architecture/shared) (older deep reference; use the package guide for current entry points).
 
 ## License
 
-MIT
-
+MIT. The published archive includes the license in `dist/LICENSE`.

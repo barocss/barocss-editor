@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Decorators Example
 
 This example demonstrates how to use decorators to add temporary UI elements like highlights, comments, and selection indicators.

@@ -1,91 +1,50 @@
 # @barocss/devtool
 
-Development tools for Barocss Editor - visualize editor structure and events in real-time.
+Browser diagnostics for editor model structure, events, and execution traces.
 
-## Architecture
+## Purpose
 
-```mermaid
-graph TB
-    A["Editor"] --> B["Devtool"]
-    B --> C["Event Monitor"]
-    B --> D["Model Tree Viewer"]
-    B --> E["UI Panel"]
-    
-    C --> F["Event Log"]
-    C --> G["Event Filter"]
-    
-    D --> H["Node Tree"]
-    D --> I["Node Search"]
-    D --> J["DOM Highlight"]
-    
-    E --> K["Model Tree Tab"]
-    E --> L["Events Tab"]
-    
-    A --> M["Editor Events"]
-    M --> C
-    
-    A --> N["DataStore"]
-    N --> D
-    
-    style A fill:#e1f5ff
-    style B fill:#fff4e1
-    style C fill:#e8f5e9
-    style D fill:#f3e5f5
-    style E fill:#fce4ec
-    style F fill:#fff9c4
-    style H fill:#e0f2f1
+Attach Devtool to an Editor while developing an integration.
+
+## Install
+
+```sh
+npm install @barocss/devtool @barocss/editor-core
 ```
 
-## Features
+The published package provides ES modules and TypeScript declarations. Use a bundler that supports package exports.
 
-- **Model Tree Visualization**: View the complete document structure as a tree
-- **Event Logging**: Monitor all editor events in real-time
-- **Event Filtering**: Filter events by type or category
-- **Node Selection**: Click on nodes in the tree to highlight them in the DOM
-- **Auto-refresh**: Automatically refresh the model tree at configurable intervals
+## Public entry points
+
+| Import | Role |
+| --- | --- |
+| `@barocss/devtool` | Public JavaScript and TypeScript API |
+
+Import only these public paths. Source paths such as `@barocss/devtool/src/...` are not part of the published API.
 
 ## Usage
 
-```typescript
-import { Editor } from '@barocss/editor-core';
+```ts
+import type { Editor } from '@barocss/editor-core';
 import { Devtool } from '@barocss/devtool';
 
-const editor = new Editor({ /* ... */ });
-
-// Initialize devtool
-const devtool = new Devtool({
-  editor,
-  maxEvents: 500,           // Maximum events to keep in log
-  refreshInterval: 1000,    // Auto-refresh model tree every 1 second
-  debug: true,              // Enable/disable debug mode (event logging)
-});
+export function inspectEditor(editor: Editor) {
+  const devtool = new Devtool({ editor, maxEvents: 500, debug: true });
+  return () => devtool.destroy();
+}
 ```
 
-## Options
+## Integration notes
 
-- `editor` (required): The Editor instance to monitor
-- `maxEvents` (optional): Maximum number of events to keep in log (default: 1000)
-- `refreshInterval` (optional): Auto-refresh interval in milliseconds (default: undefined, no auto-refresh)
-- `debug` (optional): Enable/disable debug mode (event logging) (default: true)
+Create diagnostics in a browser and destroy them with the editor session. Keep this development UI out of normal production screens unless your product deliberately exposes it.
 
-## UI Features
+## Documentation
 
-The devtool creates a floating panel in the top-right corner with two tabs:
+- [Package guide](https://editor.barocss.com/packages/devtool)
+- [Choose a package](https://editor.barocss.com/packages)
+- [Source and tests](https://github.com/barocss/barocss-editor/tree/main/packages/devtool)
+- [Detailed architecture reference](https://editor.barocss.com/docs/architecture/devtool) (older deep reference; use the package guide for current entry points).
 
-1. **Model Tree**: Shows the document structure as a tree
-   - Search nodes by ID, type, or text
-   - Click nodes to highlight them in the DOM
-   - Refresh button to manually update the tree
+## License
 
-2. **Events**: Shows all editor events in real-time
-   - Filter events by type or category
-   - Color-coded by category (editor, error, extension, plugin, custom)
-   - Clear button to reset the log
-
-## Cleanup
-
-```typescript
-// Destroy devtool when done
-devtool.destroy();
-```
-
+MIT. The published archive includes the license in `dist/LICENSE`.

@@ -1,14 +1,12 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
-import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin';
-import path from 'path';
 
 const isProd = process.env.NODE_ENV === 'production';
 
 const config: Config = {
-  title: 'Barocss Editor',
-  tagline: 'A powerful document editor with DSL-based rendering',
+  title: 'Wonffice Developers',
+  tagline: 'Product kits, shared UI, and editor libraries',
   favicon: 'img/favicon.ico',
 
   // Site URL: use custom domain in production, localhost in development
@@ -21,6 +19,7 @@ const config: Config = {
   projectName: 'barocss-editor',
 
   onBrokenLinks: 'throw',
+  onBrokenAnchors: 'throw',
   markdown: {
     mermaid: true,
   },
@@ -52,6 +51,12 @@ const config: Config = {
   ],
 
   plugins: [
+    ['@docusaurus/plugin-content-docs', {
+      id: 'packages',
+      path: '.generated/packages',
+      routeBasePath: 'packages',
+      sidebarPath: './packages-sidebars.ts',
+    }],
     function(context, options) {
       return {
         name: 'webpack-config-plugin',
@@ -76,12 +81,14 @@ const config: Config = {
 
   themeConfig: {
     navbar: {
-      title: 'Barocss Editor',
+      title: 'Wonffice Developers',
       logo: {
-        alt: 'Barocss Editor Logo',
+        alt: 'Wonffice developer documentation',
         src: 'img/logo.svg',
       },
       items: [
+        { to: '/packages', label: 'Packages', position: 'left' },
+        { to: '/examples', label: 'Examples', position: 'left' },
         {
           type: 'docSidebar',
           sidebarId: 'tutorialSidebar',
@@ -106,8 +113,8 @@ const config: Config = {
               to: '/docs/introduction',
             },
             {
-              label: 'API Reference',
-              to: '/docs/api/reference',
+              label: 'Package catalogue',
+              to: '/packages',
             },
           ],
         },

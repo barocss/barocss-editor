@@ -1,90 +1,48 @@
-# Barocss Editor Documentation Site
+# Wonffice developer documentation
 
-This is the documentation site for Barocss Editor, built with Docusaurus.
+Docusaurus generates the static site at https://editor.barocss.com.
 
-## Structure
+## Develop and validate
 
-- `docs/` - Markdown documentation files
-- `src/components/` - React components (EditorDemo)
-- `src/css/` - Custom styles
-- `docusaurus.config.ts` - Docusaurus configuration
-- `sidebars.ts` - Sidebar navigation structure
+Run these commands from the repository root with the Node version in `.nvmrc`:
 
-## Development
-
-### Local Development
-
-1. Install dependencies:
-```bash
-pnpm install
+```sh
+pnpm install --frozen-lockfile
+pnpm docs:check
+pnpm dev:docs
+pnpm build:docs
 ```
 
-2. Start development server:
-```bash
-pnpm dev
+To check the complete README and onboarding code examples against real package archives:
+
+```sh
+pnpm release:npm:prepare
+pnpm docs:examples
 ```
 
-The site will be available at `http://localhost:3000`
+The prepare command builds and packs local artifacts. It does not publish them. Example checks install an isolated consumer under `output/docs/`, type-check the snippets, and build the documented Office styling recipe. The build output is `apps/docs-site/build/`.
 
-## Building for GitHub Pages
+## Content ownership
 
-1. Build the site:
-```bash
-pnpm build
-```
+- Edit `packages/<name>/README.md` for package installation, entry points, usage, and limitations. Use English.
+- Edit `scripts/docs/groups.json` to place a new public package in the catalogue.
+- Edit `docs/` in this app for cross-package guides and deeper explanations.
+- Add hand-written pages to `sidebars.ts`.
+- Keep the shared top navigation in `docusaurus.config.ts`. Each section owns its sidebar: guides in `sidebars.ts`, packages in `packages-sidebars.ts`, and live examples from the example registry. Link to related sections from page content instead of repeating their menus.
+- Do not edit `.generated/`. The dev and build commands regenerate it from READMEs and manifests.
+- The homepage editor runs the exact TypeScript example from `docs/quick-start.md`.
+- Old pages with a reference-status notice have not been fully revalidated. Keep the notice until verification is complete.
 
-This creates a `build/` directory with static files.
+## Deploy
 
-2. Configure GitHub Pages:
-   - Go to repository Settings → Pages
-   - Source: Deploy from a branch
-   - Branch: `gh-pages` (or your preferred branch)
-   - Folder: `/build` (or `/` if deploying from root)
+`.github/workflows/docs.yml` builds affected pull requests and uploads a preview artifact. After merge to main, it deploys the static build through GitHub Pages. The repository Pages source must be **GitHub Actions**. Do not create or force-push a `gh-pages` branch.
 
-3. Deploy:
-```bash
-pnpm deploy
-```
+README, package manifest, generator, site, and workflow changes trigger documentation builds. npm publication is a separate release workflow. See the root [documentation decision](../../docs/documentation-architecture.md) and [maintenance flow](../../docs/docs-site-integration.md).
 
-Or manually:
-```bash
-git checkout --orphan gh-pages
-git --work-tree build add --all
-git --work-tree build commit -m "Deploy to GitHub Pages"
-git push origin HEAD:gh-pages --force
-```
+## Live examples
 
-## How It Works
+The `/examples` gallery runs five examples: DOM, React, Note, Office UI, and structured search. `scripts/docs/live-examples.json` selects complete exported snippets from package READMEs or guides. `docs:sync` generates both the displayed source and the runtime modules from those snippets. Do not maintain a separate copy of the example code.
 
-1. **Docusaurus** renders markdown files as documentation
-2. **EditorDemo React Component** (`src/components/EditorDemo.tsx`) can be imported in MDX files
-3. Use the component in any markdown file:
-   ```mdx
-   import EditorDemo from '@site/src/components/EditorDemo';
-   
-   <EditorDemo />
-   ```
+The example host in `examples/` is built by Vite into the ignored `static/live-examples/` directory before Docusaurus starts or builds. Its iframe isolates the Office/Tailwind styles from the documentation theme. The gallery supports direct links such as `/examples#note`, reset, and guide/source links. Demo edits are temporary.
 
-## File Structure
-
-```
-apps/docs-site/
-├── docs/                    # Documentation markdown files
-├── src/
-│   ├── components/         # React components
-│   │   └── EditorDemo.tsx  # Editor demo component
-│   └── css/                # Custom styles
-├── static/                 # Static assets
-├── docusaurus.config.ts    # Docusaurus configuration
-└── sidebars.ts            # Sidebar navigation
-```
-
-## Agent and documentation plan
-
-This site is the **published** user/developer docs. It fits into the full flow: **spec → implementation → documentation → test → verify**.
-
-- **When to update**: New operation → `docs/api/model-operations.md` (and model-operation-dsl, architecture/model if needed). New concept/guide/example → `docs/concepts/`, `docs/guides/`, or `docs/examples/` and `sidebars.ts`. Spec or API change → update the page that describes that behavior.
-- **Where to add what**: API reference → `docs/api/`; package roles → `docs/architecture/`; how-to → `docs/guides/`; runnable examples → `docs/examples/`. Always add new docs to `sidebars.ts` in the right category.
-- **Build and verify**: From repo root, `pnpm --filter @barocss/docs-site build` or `pnpm dev:docs` to preview. Push to `main` triggers `.github/workflows/docs.yml` to build and deploy to GitHub Pages.
-
-Full plan (when/what to update, checklist for new operations) is in **`docs/docs-site-integration.md`** (repo root). Agent entry point and feature loop including documentation: **`.cursor/AGENTS.md`**.
+After changing a snippet or the registry, restart `pnpm dev:docs` or run `pnpm build:docs` to rebuild the live examples. The iframe host uses workspace sources; `pnpm docs:examples` independently checks the snippets against packed public APIs.

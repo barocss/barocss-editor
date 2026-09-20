@@ -1,60 +1,77 @@
-name: Deploy Docs
+name: Documentation
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'apps/docs-site/**'
       - 'docs/**'
+      - 'packages/*/README.md'
+      - 'packages/*/package.json'
       - 'packages/**/docs/**'
+      - 'scripts/docs/**'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/docs-site/**'
+      - 'docs/**'
+      - 'packages/*/README.md'
+      - 'packages/*/package.json'
+      - 'packages/**/docs/**'
+      - 'scripts/docs/**'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - '.github/workflows/docs.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: "pages"
+  group: docs-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
+    name: Documentation build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
-          version: 8
-      
+          version: 8.15.0
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-      
+          cache: pnpm
       - name: Install dependencies
-        run: pnpm install
-            
-      - name: Build docs
-        working-directory: apps/docs-site
-        run: pnpm build
-      
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-      
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        run: pnpm install --frozen-lockfile
+      - name: Check documentation coverage
+        run: pnpm docs:check
+      - name: Build static documentation
+        run: pnpm build:docs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docs-preview-${{ github.sha }}
+          path: apps/docs-site/build
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
           path: apps/docs-site/build
 
   deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

@@ -72,12 +72,30 @@ importers:
       '@barocss/editor-view-dom':
         specifier: workspace:*
         version: link:../../packages/editor-view-dom
+      '@barocss/editor-view-react':
+        specifier: workspace:*
+        version: link:../../packages/editor-view-react
       '@barocss/extensions':
         specifier: workspace:*
         version: link:../../packages/extensions
       '@barocss/model':
         specifier: workspace:*
         version: link:../../packages/model
+      '@barocss/office-editor-ui':
+        specifier: workspace:*
+        version: link:../../packages/office-editor-ui
+      '@barocss/office-note':
+        specifier: workspace:*
+        version: link:../../packages/office-note
+      '@barocss/office-text':
+        specifier: workspace:*
+        version: link:../../packages/office-text
+      '@barocss/office-ui':
+        specifier: workspace:*
+        version: link:../../packages/office-ui
+      '@barocss/query-editor':
+        specifier: workspace:*
+        version: link:../../packages/query-editor
       '@barocss/renderer-dom':
         specifier: workspace:*
         version: link:../../packages/renderer-dom
@@ -124,12 +142,24 @@ importers:
       '@docusaurus/types':
         specifier: ^3.7.0
         version: 3.9.2(react-dom@18.3.1)(react@18.3.1)
+      '@tailwindcss/vite':
+        specifier: ^4.3.3
+        version: 4.3.3(vite@5.4.21)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@5.4.21)
+      tailwindcss:
+        specifier: ^4.3.3
+        version: 4.3.3
       tsconfig-paths-webpack-plugin:
         specifier: ^4.2.0
         version: 4.2.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
 
   apps/editor-decorator-test:
     dependencies:
