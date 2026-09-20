@@ -46,4 +46,13 @@ docker run --rm --name wonffice-api -p 127.0.0.1:4100:4100 wonffice-api:wp05a
 
 The image runs as `node` and has no runtime npm dependencies. The Docker context allowlist only sends the package manifest and compiled output. Container health uses **liveness**; it is not product readiness. Keep the internal port 4100 for the included health check. A future release pipeline must bind this artifact to its source commit, scan and pin its base image digest, and promote the same resulting digest to both deployment types. This bootstrap image is not a completed release manifest or a tested installation bundle.
 
-The current development host had no running Docker daemon on 2026-09-20; Docker Desktop could not be found. Container build/run and both deployment acceptance checks remain unverified. See the [backend plan](../../docs/specs/wonffice-backend-foundation.md) for the next work and data contracts.
+With a running local Docker daemon, verify the built artifact from the repository root:
+
+```sh
+pnpm --filter @barocss/office-api build
+node scripts/backend/verify-container.mjs
+```
+
+The `Backend container` workflow runs the same check on Linux for relevant PRs. It builds one image and starts it twice with default and explicit server settings. Each run checks its image ID, non-root user, read-only filesystem, image health check, HTTP liveness/readiness and clean SIGTERM exit. It removes only its own test containers and image tag. It does not push an image or deploy a service. These two configuration runs are not SaaS/on-premises installation acceptance.
+
+The development host had no running Docker daemon on 2026-09-20; Docker Desktop could not be found. Local container execution remains unavailable. Check the PR's `API container smoke` result for Linux evidence. Authentication, persistence and both deployment acceptance checks remain pending. See the [backend plan](../../docs/specs/wonffice-backend-foundation.md) for the next work and data contracts.
