@@ -22,7 +22,7 @@ for (const { directory: name, manifest, readme } of catalogue()) {
     count++;
   }
 }
-for (const name of ['quick-start', 'guides/react-editor']) {
+for (const name of ['quick-start', 'guides/react-editor', 'guides/schema-editing']) {
   const page = readFileSync(resolve(root, `apps/docs-site/docs/${name}.md`), 'utf8');
   for (const [index, snippet] of examples(page).entries()) {
     writeFileSync(resolve(directory, `${name.replaceAll('/', '-')}-${index}.${snippet.language}`), `${snippet.code}\nexport {};\n`);
