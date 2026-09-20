@@ -337,6 +337,23 @@ export class ContentMatch {
     return { valid: true };
   }
 
+  /** Validate a contiguous selection with omitted leading/trailing children. */
+  matchFragment(childTypes: string[], ctx: ContentMatchContext, openStart: boolean, openEnd: boolean): MatchResult {
+    let states = closure(this.nfa, openStart ? this.nfa.edges.map((_, index) => index) : [this.start]);
+    for (let i = 0; i < childTypes.length; i++) {
+      const names = ContentMatch.namesFor(childTypes[i], ctx);
+      const next = new Set<number>();
+      for (const state of states) {
+        for (const edge of this.nfa.edges[state]) {
+          if (edge.name !== null && names.includes(edge.name)) next.add(edge.to);
+        }
+      }
+      if (!next.size) return { valid: false, failedAt: i };
+      states = closure(this.nfa, next);
+    }
+    return openEnd || states.has(this.accept) ? { valid: true } : { valid: false, incomplete: true };
+  }
+
   /** Whether an empty child list satisfies the expression. */
   matchesEmpty(): boolean {
     return closure(this.nfa, [this.start]).has(this.accept);

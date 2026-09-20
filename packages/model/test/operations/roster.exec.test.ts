@@ -158,6 +158,8 @@ function buildDocument(dataStore: DataStore): void {
 }
 
 type Scenario = {
+  /** This operation requires the transaction protection used by its public consumer. */
+  transaction?: boolean;
   /** What the operation is given. */
   payload?: Record<string, unknown>;
   /** Extra fields on the operation object itself, for the few that read those. */
@@ -194,6 +196,12 @@ const rangeOver = (startNodeId: string, startOffset: number, endNodeId: string, 
  * decision on the record rather than an oversight nobody noticed.
  */
 const ROSTER: Record<string, Scenario> = {
+  fragmentEdit: {
+    transaction: true,
+    payload: { accepted: { parentId: 'p-1', index: 1, removeIds: [], children: [{ sid: 'fragment-run', stype: 'inline-text', text: 'fragment', attributes: {} }], caret: { nodeId: 'fragment-run', offset: 8 } } },
+    changesText: true,
+    then: store => expect(store.getNode('p-1')!.content).toEqual(['r-1', 'fragment-run', 'r-2', 'r-3'])
+  },
   // ── text ──────────────────────────────────────────────────────────────────
   insertText: { payload: { nodeId: 'r-1', pos: 1, text: 'XY' }, changesText: true },
   setText: { payload: { nodeId: 'r-1', text: 'replaced' }, changesText: true },
@@ -464,14 +472,26 @@ describe('the operation roster', () => {
       // Every test in here starts from the document this scenario asked for.
       beforeEach(() => prepare(scenario));
 
+      const run = async (descriptor: { type: string; payload?: unknown }) => {
+        const op = globalOperationRegistry.get(descriptor.type)!;
+        if (!scenario.transaction) return op.execute(descriptor, context);
+        const lock = await dataStore.acquireLock('roster');
+        context.editor = {};
+        dataStore.begin();
+        try {
+          const result = await op.execute(descriptor, context);
+          dataStore.commit();
+          return result;
+        } finally {
+          if (dataStore.isTransactionActive()) dataStore.rollback();
+          dataStore.releaseLock(lock);
+        }
+      };
       const execute = async () => {
         const op = globalOperationRegistry.get(name);
         expect(op, `${name} is not registered`).toBeDefined();
         scenario.select?.(context);
-        return await op!.execute(
-          { type: name, payload: scenario.payload ?? {}, ...(scenario.operation ?? {}) } as any,
-          context
-        );
+        return await run(structuredClone({ type: name, payload: scenario.payload ?? {}, ...(scenario.operation ?? {}) }));
       };
 
       it('runs against a document that has the shapes a document has', async () => {
@@ -548,7 +568,7 @@ describe('the operation roster', () => {
 
           const op = globalOperationRegistry.get(inverse.type);
           expect(op, `inverse ${inverse.type} of ${name} is not registered`).toBeDefined();
-          await op!.execute({ type: inverse.type, payload: inverse.payload, ...inverse } as any, context);
+          await run({ type: inverse.type, payload: inverse.payload, ...inverse });
 
           expect(
             shapeOf(dataStore),

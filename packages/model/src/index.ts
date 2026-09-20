@@ -19,3 +19,5 @@ export * from './operations';
  * anywhere in the repository, and neither did `utils/dsl-context.ts`, the only file that imported
  * them. An empty registry with a name that shadows the real one is worse than nothing at all.
  */
+
+export * from './editing';

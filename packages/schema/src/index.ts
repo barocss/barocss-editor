@@ -95,3 +95,5 @@ export * from './dataset-views';
 
 export { datasetLocalDay, validDatasetFilters, normalizeDatasetFilters, repairDatasetFilters, DATASET_FILTER_OPERATORS } from './dataset-query';
 export type { DatasetFilterRule, DatasetFilterGroup, DatasetFilterOperator, DatasetSort } from './dataset-query';
+
+export { validateEditingContent, validateEditingFragment, type EditingNode } from './editing-validation';
