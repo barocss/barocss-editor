@@ -1,3 +1,4 @@
+import { FRAGMENT_CLIPBOARD_TYPE } from '@barocss/shared';
 import type { MutableRefObject } from 'react';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import {
@@ -143,7 +144,7 @@ export class ReactInputHandler {
     }
   }
 
-  handlePaste(event: ClipboardEvent): void {
+  handlePaste(event: ClipboardEvent, selection?: ModelSelection): void {
     if (this.isImePhase()) return;
 
     event.preventDefault();
@@ -151,12 +152,15 @@ export class ReactInputHandler {
     const clipboardData = event.clipboardData;
     if (!clipboardData) return;
 
+    const clipboardFragment = clipboardData.getData(FRAGMENT_CLIPBOARD_TYPE);
     const html = clipboardData.getData('text/html');
     const text = clipboardData.getData('text/plain');
 
-    if (!html && !text) return;
+    if (!html && !text && !clipboardFragment) return;
 
     this.editor.executeCommand('paste', {
+      ...(selection?.type === 'range' ? { selection } : {}),
+      clipboardFragment: clipboardFragment || undefined,
       clipboardHtml: html || undefined,
       clipboardText: text || undefined,
     });

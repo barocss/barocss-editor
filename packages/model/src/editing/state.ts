@@ -2,10 +2,12 @@ import type { DataStore } from '@barocss/datastore';
 import type { Schema } from '@barocss/schema';
 
 const identities = new WeakMap<object, string>();
+// Clipboard envelopes can cross tabs/processes. Counter values alone are not identities.
+const sessionIdentity = Array.from(globalThis.crypto.getRandomValues(new Uint32Array(4)), part => part.toString(16).padStart(8, '0')).join('');
 let nextIdentity = 0;
 export function identity(value: object): string {
   let id = identities.get(value);
-  if (!id) { id = `editing:${++nextIdentity}`; identities.set(value, id); }
+  if (!id) { id = `editing:${sessionIdentity}:${++nextIdentity}`; identities.set(value, id); }
   return id;
 }
 /** Local change detection, not a portable hash or a security credential. */

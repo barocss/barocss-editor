@@ -235,3 +235,5 @@ export function createEditor(
     extensions: [...(kit ?? createDefaultExtensions()), ...extensions]
   });
 }
+
+export { standardClipboardPolicy } from './standard-clipboard';
