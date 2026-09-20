@@ -6,6 +6,8 @@
 
 ## 현재 제품 진행표 — 2026-09-19
 
+2026-09-20 Note 시나리오 자동화 및 재현 오류 수정: [#282 / PR #283](https://github.com/barocss/barocss-editor/pull/283)에서 독립 화면·iframe 임베드 화면의 검사를 구성했다. 슬래시 메뉴 스크롤·Enter 전파와 빈 문단의 제목 변환·Backspace 경계를 수정했고, Undo/Redo를 포함한 데스크톱 시나리오 16개가 로컬에서 통과했다. Note 단위 341개, 공통 extensions 276개, editor-ui 48개도 통과했다. 메뉴·구분선의 추가 재현 조건(#279, #281)은 유지한다. [시나리오 정의와 범위](specs/note-editing-scenarios.md).
+
 2026-09-19 Node 실행 기준: 로컬 검증과 CI의 버전 차이를 없애기 위해 프로젝트 기준을 22.22.0으로 고정했다. `.nvmrc`를 로컬 `nvm use`, CI 두 작업, 문서 빌드의 단일 기준으로 사용한다. 최초 CI의 fs.globSync 호환성 실패도 수정했다.
 
 2026-09-19 기준점 CI 복구: [#248](https://github.com/barocss/barocss-editor/issues/248) / [PR #250](https://github.com/barocss/barocss-editor/pull/250)에서 제품 소스 타입 오류, React 조합 종료·빈 문단 입력, 제품 workspace 배포 진입점과 누적 검사 불일치를 수정했다. 전체 단위 검사 8,540개 통과(기존 17개 건너뛰기), React 14개·Site 3개·테마 1개 데스크톱 브라우저 검사, Office 통합·제품 4개 패키지 빌드와 lint 통과. 소스 타입 40개 프로젝트 검사에는 기존 예외 3개가 남아 있고, 테스트 타입 검사는 기존 오류 허용 한도를 올리지 않고 복구했다. main에 최신 기준 CI 두 개와 PR을 필수로 설정하고 관리자 우회·강제 push·삭제를 막았다. 최종 원격 CI와 병합 상태는 PR에서 확인한다. [검증 기록](../.dev/plans/wonffice-baseline/brief.md). WP-01 [#249](https://github.com/barocss/barocss-editor/issues/249)는 기준점 병합 후 진행한다.
