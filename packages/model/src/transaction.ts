@@ -120,6 +120,8 @@ export class TransactionManager {
         this._schema!
       );
 
+      context.editor = this._editor;
+
       // Selection snapshot
       selectionBefore = context.selection.before;
 
