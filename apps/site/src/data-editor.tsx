@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
   Button,
@@ -941,6 +941,7 @@ export function RowForm({
   const store = editor.dataStore;
   const [adding, setAdding] = useState(false);
 
+  const fieldNameId = useId();
   const shown = useMemo(() => {
     const node = at ? store?.getNode(at.sid) : undefined;
     if (node?.stype !== 'dataset') return undefined;
@@ -1001,10 +1002,15 @@ export function RowForm({
       className="st-row-form"
     >
       <div className="st-row-fields" data-row-form={String(at.row)}>
-        {shown.fields.map((field) => (
-          <label key={field.name} className="st-row-field" data-field={field.name} data-kind={field.kind}>
+        {shown.fields.map((field, index) => {
+          // A Note body owns several controls. A label would activate its first table handle.
+          const richText = field.kind === 'richText';
+          const FieldContainer = richText ? 'div' : 'label';
+          const labelId = `${fieldNameId}-${index}`;
+          return <FieldContainer key={field.name} className="st-row-field" data-field={field.name} data-kind={field.kind}
+            role={richText ? 'group' : undefined} aria-labelledby={richText ? labelId : undefined}>
             <span className="st-row-label">
-              {field.label ?? field.name}
+              <span id={labelId}>{field.label ?? field.name}</span>
               {/*
                 What the column holds, beside its name and quiet — the same fact the grid's header
                 shows, drawn here too because a reader filling a row in should not have to remember
@@ -1045,8 +1051,8 @@ export function RowForm({
               ariaLabel={`${field.name}`}
               data={{ 'row-cell': field.name }}
             />
-          </label>
-        ))}
+          </FieldContainer>;
+        })}
 
         {/*
           **속성 추가**, in the form — which is where a reader is when they discover a field is
