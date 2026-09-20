@@ -2,6 +2,7 @@
 @import "@barocss/office-ui/tokens.css";
 @import "@barocss/office-text/text.css";
 @import "@barocss/office-note/note.css";
+@import "@barocss/query-editor/style.css";
 
 /* This app runs workspace sources. Published consumers scan dist instead. */
 @source "../../../packages/office-ui/src";

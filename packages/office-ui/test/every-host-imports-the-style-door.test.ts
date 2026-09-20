@@ -74,8 +74,6 @@ function importedBy(entry: string, seen = new Set<string>()): Set<string> {
 }
 
 const stylesheetsOf = (app: string) => {
-  const src = join(repo, 'apps', app, 'src');
-  if (!existsSync(src) || !statSync(src).isDirectory()) return [];
   const out: string[] = [];
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir)) {
@@ -84,7 +82,12 @@ const stylesheetsOf = (app: string) => {
       else if (entry.endsWith('.css')) out.push(path);
     }
   };
-  walk(src);
+  // The docs host loads its isolated live-preview app from examples/, not src/.
+  // Inspect checked-in styles only; generated examples are absent in a clean CI checkout.
+  for (const sourceDir of ['src', 'examples']) {
+    const root = join(repo, 'apps', app, sourceDir);
+    if (existsSync(root) && statSync(root).isDirectory()) walk(root);
+  }
   return out;
 };
 
@@ -140,7 +143,7 @@ describe('앱은 자기가 쓰는 패키지의 스타일 문을 가져간다', (
       .filter((h) => h.owed.includes('@barocss/office-ui/tokens.css'))
       .map((h) => h.app)
       .sort();
-    expect(owingTokens).toEqual(['gallery', 'note', 'office', 'site', 'slide', 'word']);
+    expect(owingTokens).toEqual(['docs-site', 'gallery', 'note', 'office', 'site', 'slide', 'word']);
   });
 
   /**
