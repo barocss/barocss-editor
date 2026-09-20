@@ -100,7 +100,7 @@ Four numbers, all produced by `packages/office-word/test/conformance.test.ts`:
 
 | | |
 | --- | ---: |
-| commands registered | 184 (172 Word's own) |
+| commands registered | 189 (177 Word's own) |
 | attributes the product **draws** | 611 |
 | of those, **unread** — declared and reaching nothing | 16 *(ratchet)* |
 | of those, **unsettable** — drawn and reachable by nothing | 116 *(ratchet)* |

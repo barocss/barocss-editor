@@ -1,7 +1,8 @@
+import { transferNodes } from '@barocss/extensions';
 import { registerNoteBlockActions } from './block-actions';
 import type { Editor, Extension } from '@barocss/editor-core';
 import { NOTE_BLOCKS } from './note-schema';
-import { addChild, moveBlockDown, moveBlockUp, moveNode, setAttrs, transaction } from '@barocss/model';
+import { addChild, moveBlockDown, moveBlockUp, gapBeforeRemoval, setAttrs, transaction } from '@barocss/model';
 
 type Node = Record<string, any>;
 
@@ -204,28 +205,7 @@ class NoteElementExtension implements Extension {
     shift('moveNoteBlockUp', (sid) => moveBlockUp(sid), -1);
     shift('moveNoteBlockDown', (sid) => moveBlockDown(sid), 1);
 
-    /**
-     * **자리로 옮긴다** — 한 칸씩이 아니라.
-     *
-     * 위/위 두 단추는 `moveBlockUp`/`Down` 이고 한 번에 한 칸이다. 끌어 옮기기는 *여기* 를 말하므로
-     * 자리를 받는 명령이 따로 있어야 한다. 그리기가 아니라 명령인 이유는 이 저장소의 규칙 그대로다:
-     * 하네스가 보는 것은 명령이고, 뷰가 트랜잭션을 직접 열면 *모든 명령이 실제로 무언가를 만드나*
-     * 검사가 이 동작을 못 본다.
-     *
-     * ## `at` 은 **블록 사이의 자리** 이고 content 의 색인이 아니다
-     *
-     * `NOTE_CONTENT` 는 `(…블록…)+ resources?` 다 — 본문의 자식이 블록만이 아닐 수 있다. 그래서
-     * *셋째 블록 앞* 과 *셋째 자식* 은 우연히만 같은 수이고, `moveNode` 가 받는 것은 두 번째다.
-     * 여기서 한 칸 틀리면 독자가 그은 선에서 한 칸 옆에 떨어지고, 그건 *놓은 자리로 안 간다* 로
-     * 보고된다.
-     *
-     * 그리고 **옮기는 것을 뺀 채로** 센다 — `moveNode` 가 먼저 빼고 짧아진 배열에 넣기 때문이다.
-     * `office-site` 의 `contentIndexFor` 가 같은 규칙을 같은 이유로 적어 뒀다(그쪽은 페이지가 변수를
-     * 함께 담아서 부딪혔다). **이 규칙이 필요한 두 번째 자리이고, 세 번째가 나오면 뽑아낼 값이 있다.**
-     *
-     * 홀로 선 노트는 `resources` 를 만들지 않는다 — *하나의 쓰인 것* 이다. 그래서 오늘은 두 수가
-     * 같고, 스키마가 허용하는 동안 맞게 세는 것이 공짜다.
-     */
+    /** The overlay counts visible blocks after removal. Convert that slot to an original content gap. */
     editor.registerCommand({
       name: 'moveNoteBlockTo',
       execute: async (_ed: Editor, payload?: Record<string, unknown>) => {
@@ -233,8 +213,10 @@ class NoteElementExtension implements Extension {
         const at = Number(payload?.at);
         const spot = this._contentSpot(editor, sid, at);
         if (spot === undefined) return false;
-        const done = await transaction(editor, [moveNode(sid, spot.parentId, spot.at)] as never).commit();
-        return done.success === true;
+        const content = editor.dataStore.getNode(spot.parentId)!.content as string[];
+        return transferNodes(editor, { nodeIds: [sid], target: {
+          kind: 'children', parentId: spot.parentId, index: gapBeforeRemoval(content, [sid], spot.at)
+        } });
       },
       canExecute: (_ed: Editor, payload?: Record<string, unknown>) =>
         this._contentSpot(editor, String(payload?.nodeId ?? ''), Number(payload?.at)) !== undefined
