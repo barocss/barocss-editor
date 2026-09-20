@@ -28,7 +28,7 @@ function fixture() {
   ]) dataStore.setNode(node as INode, false);
   dataStore.setRootNodeId('doc');
   const selectionManager = new SelectionManager({ dataStore });
-  selectionManager.setSelection({ type: 'range', startNodeId: 't', endNodeId: 't', startOffset: 1, endOffset: 1 });
+  selectionManager.setSelection({ type: 'range', collapsed: true, startNodeId: 't', endNodeId: 't', startOffset: 1, endOffset: 1 });
   const historyManager = new HistoryManager({ coalesceMs: 0 });
   const extensions: { onTransaction?: () => void }[] = [];
   const editor = {
