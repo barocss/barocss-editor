@@ -9,9 +9,9 @@ last_updated: 2026-09-19
 
 # Wonffice 플랫폼 구현 순서
 
-WP 번호는 로컬 설계 식별자이며 GitHub issue 번호가 아니다. 아래 구현 작업은 모두 **미착수**다. 설계 문서 작성과 코드 완료를 구분한다. GitHub 게시 시 같은 WP ID를 본문에 넣고 기존 이슈를 조회하여 중복 생성을 막는다.
+WP 번호는 로컬 설계 식별자이며 GitHub issue 번호가 아니다. 설계 문서 작성과 코드 완료를 구분한다. 최신 구현 상태는 연결 이슈와 병합·검증 기록으로 확인한다. GitHub 게시 시 같은 WP ID를 본문에 넣고 기존 이슈를 조회하여 중복 생성을 막는다.
 
-GitHub 연결: 누적 기준점은 [#248](https://github.com/barocss/barocss-editor/issues/248), 첫 구현 WP-01은 [#249](https://github.com/barocss/barocss-editor/issues/249)다. WP-01은 기준점 PR의 main 반영 후 착수한다. 다른 WP 항목은 아직 GitHub 이슈로 게시하지 않았다.
+GitHub 연결: 누적 기준점은 [#248](https://github.com/barocss/barocss-editor/issues/248), WP-01은 [#249](https://github.com/barocss/barocss-editor/issues/249)와 병합된 PR #266이다. 서버의 첫 실행 기반 WP-05a는 [#330](https://github.com/barocss/barocss-editor/issues/330)에서 시작한다. WP-05 전체 완료와 구분한다. 저장·외부 연동·도메인·협업의 작은 후속 단계는 [백엔드 구축 기준](wonffice-backend-foundation.md)에 둔다.
 
 실행 방식 추가 결정: 현재 자동 진행의 시작점은 **Codex의 저장소 작업 시작·재개**다. [AGENTS.md](../../AGENTS.md)에 GitHub 우선 조회와 main 기준 PR 규칙을 추가했다. WP-03/04의 독립 실행기·daemon은 후속 선택이며, 서비스 첫 출시의 필수 선행 작업에서 제외한다. WP-10은 먼저 Codex 세션에서 검사 증거와 PR 정책을 검증한다. 앱 실행만으로 자동 시작하는 기능은 구성하지 않았다.
 
@@ -29,7 +29,7 @@ GitHub 연결: 누적 기준점은 [#248](https://github.com/barocss/barocss-edi
 | WP-06 | 서버 문서/revision·로컬 이전·Note 저장 연결 | WP-01,02,05 | 두 계정 저장·재열기·409 초안 보존·중복 저장·최종 입력 flush. 원본을 보존한 로컬 이전 |
 | WP-07 | 나머지 제품 저장·공통 viewer·공유·자산·게시 | WP-06 | 네 제품 작성→서버 저장→재열기→공유. 권한 회수·파일 직접 접근·실패한 게시에서 이전 버전 보존 |
 | WP-08 | tenant 기능 registry·설정·설치·해제·버전 | WP-02,05,06 | A사 전용 기능, B사 우회 실행 거부. 호환 불가 설치 거부. 해제 후 데이터 보존 |
-| WP-09 | 공동 편집 저장 권한·session epoch·재접속 | WP-06 | 한 제품에서 두 브라우저 동시 수정·오프라인 복귀·권한 회수·undo 검증 후 나머지 제품으로 확대 |
+| WP-09 | Yjs·Automerge·Yorkie 선택형 공급자 연결·권한·모델 adapter | WP-06 | 선택한 기존 공급자에서 두 브라우저 동시 수정·오프라인 복귀·권한 회수·undo·tenant 격리 검증 후 확대. 자체 동시 편집 서버는 구현하지 않음 |
 | WP-10 | Codex 기반 CI·증거 묶음·정책별 병합·비공개 미리보기 | WP-05 | red CI·변경된 head·완화된 검사·취소 요청이면 병합 차단. 허용된 실제 수정 1건은 활성 Codex 세션에서 미리보기까지 완료. 독립 실행 시에는 WP-04도 필요 |
 | WP-11 | 두 환경 배포·복원·관측·업데이트·출시 인수 | WP-07,08,09,10 | 동일 digest의 두 환경 전체 인수, 이전 버전 업데이트·실패 복구·백업 복원·PC 종료 중 서비스 유지 |
 | WP-12 | 고객 업무 Agent와 첫 업무 시나리오 | WP-02,07,08,11 | 고객 요청→견적 문서 생성→검토→권한 있는 공유. 기존 조합으로 불가능한 경우에만 개발 이슈 제안 |
@@ -47,6 +47,8 @@ WP-03과 WP-05는 WP-01의 수정과 기술적으로 독립이다. 다만 처음
 **완료 증거:** 재현 검사 실패→수정 후 통과, 관련 model/datastore/history 검사, 네 제품의 영향받은 데스크톱 입력·undo 흐름. 실패 종류를 구분하는 결과 계약과 기존 호출부 호환성 기록. 원인 분석만으로 완료 처리하지 않는다.
 
 **구현 계약:** [Transaction 실패 복구 계약](transaction-recovery.md). WP-01 구현 PR에서 검사 증거와 병합 상태를 확인한다.
+
+추가 사용자 결정 — 2026-09-20: API는 Fastify를 사용한다. 동시 편집은 [Yjs·Automerge·Yorkie 선택형 공급자](wonffice-collaboration-providers.md)에 연결하며 자체 서버를 구현하지 않는다.
 
 ## 3. 첫 백엔드 WP-05/06의 좁은 범위
 
@@ -82,6 +84,6 @@ runner를 켜기 전에 대상 저장소·승인한 업무 범위·금액/시간
 
 ## 6. 상태 기록
 
-현재: 설계 기준 작성, 사용자 요구 R1–R6 연결, 기존 개발 규칙의 무한 작업 생성 조항 정리. 백엔드·runner 구현 및 실행 테스트는 미착수다.
+2026-09-20: WP-01은 #266으로 main에 병합됐다. 백엔드 WP-05a의 실행 기반은 #330에서 진행한다. 인증·DB·파일·제품 저장·공동 편집과 독립 runner의 완료를 뜻하지 않는다.
 
-다음: **WP-01 transaction 실패 처리 재현과 보강**. 이후 WP-02로 실행 계약을 좁힌다. UI 공통화의 남은 범위는 [기존 계획](office-editor-ui-consolidation.md)에 유지한다. 이번 설계 전환 때문에 완료 처리하지 않는다.
+백엔드 다음 순서: WP-05a 검증 후 PostgreSQL tenant 저장소와 migration, 이어서 OIDC·S3·두 설치 구성을 만든다. WP-02의 명시 실행 계약도 서버 문서 연결 전에 충족해야 한다. UI 공통화의 남은 범위는 [기존 계획](office-editor-ui-consolidation.md)에 유지한다. 이번 설계 전환 때문에 완료 처리하지 않는다.

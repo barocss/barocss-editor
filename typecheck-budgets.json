@@ -34,5 +34,6 @@
   "packages/renderer-react": 0,
   "packages/schema": 0,
   "packages/shared": 0,
-  "packages/text-analyzer": 0
+  "packages/text-analyzer": 0,
+  "apps/office-api": 0
 }
