@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@import "@barocss/office-ui/tokens.css";
+@import "@barocss/office-text/text.css";
+@import "@barocss/office-note/note.css";
+
+@source "../../../packages/office-ui/src";
+@source "../../../packages/office-editor-ui/src";
+@source "../../../packages/office-note/src";
+
+body { margin: 0; color: #172033; background: white; font-family: system-ui, sans-serif; }
+h1 { font-size: 16px; margin: 0 0 20px; }
+.scenario-host { padding: 28px; min-height: 340px; border: 1px solid #dce0e6; }
+.scenario-embedded { padding: 20px; }
+.scenario-standalone { max-width: 1080px; margin: 32px auto; }
+.scenario-standalone .scenario-host { min-height: 600px; }
+.scenario-frame { display: block; width: calc(100% - 80px); height: 520px; margin: 40px; border: 1px solid #dce0e6; }
