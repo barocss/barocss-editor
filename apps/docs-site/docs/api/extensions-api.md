@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Extensions API
 
 The Extensions API provides built-in extensions and helper functions for creating extension sets.

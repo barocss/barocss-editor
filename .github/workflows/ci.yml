@@ -103,6 +103,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:npm
       - run: pnpm release:npm:check
+      - name: Check README and integration examples against packaged APIs
+        run: pnpm docs:examples
       - name: Keep package verification reports
         if: always()
         uses: actions/upload-artifact@v4

@@ -3,6 +3,10 @@ title: '@barocss/collaboration-yjs'
 sidebar_label: '@barocss/collaboration-yjs'
 ---
 
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # @barocss/collaboration-yjs
 
 `@barocss/collaboration-yjs` connects `DataStore` to Yjs (`Y.Doc` + provider) for CRDT-based realtime sync.

@@ -396,3 +396,22 @@ html[data-theme='light'] body { background-color: #ffffff; color: #1e293b; }
   .features-grid { grid-template-columns: 1fr; }
   .doc-links { grid-template-columns: 1fr; }
 }
+
+/* Developer entry points and generated package catalogue. */
+.developer-home { max-width: 1140px; margin: 0 auto; padding: 48px 32px 80px; }
+.developer-hero { max-width: 760px; margin-bottom: 40px; }
+.developer-eyebrow { color: var(--ifm-color-primary); font-size: 12px; font-weight: 700; letter-spacing: .1em; }
+.developer-hero h1 { font-size: 48px; line-height: 1.12; letter-spacing: -.035em; }
+.developer-hero > p:not(.developer-eyebrow) { font-size: 19px; color: var(--homepage-text-secondary); }
+.developer-paths { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 56px; }
+.developer-path { padding: 24px; border: 1px solid var(--homepage-border-color); border-radius: 10px; color: var(--ifm-font-color-base); }
+.developer-path:hover { border-color: var(--ifm-color-primary); text-decoration: none; }
+.developer-path h2 { font-size: 20px; }
+.developer-path p { color: var(--homepage-text-secondary); margin-bottom: 18px; }
+.developer-path span { color: var(--ifm-color-primary); font-weight: 600; font-size: 14px; }
+.developer-group { display: grid; grid-template-columns: 210px 1fr; padding: 24px 0; border-bottom: 1px solid var(--homepage-border-color); }
+.developer-group h3 { font-size: 16px; margin: 0; }
+.developer-group ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
+.developer-group li { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.developer-group li span { color: var(--homepage-text-secondary); font-size: 12px; }
+.developer-demo { margin-top: 56px; }

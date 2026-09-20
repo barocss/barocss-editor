@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Model Operations API
 
 Model operations are business logic implementations that use DataStore operations. They handle selection mapping, inverse operations for undo/redo, and transaction context.

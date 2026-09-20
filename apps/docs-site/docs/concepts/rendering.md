@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Rendering
 
 Rendering is the process of converting your model data into DOM elements using DSL templates. Barocss uses an efficient reconciliation algorithm similar to React.

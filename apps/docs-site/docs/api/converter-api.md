@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Converter API
 
 The Converter API provides format conversion between external formats (HTML, Markdown, LaTeX, Office HTML, Google Docs HTML, Notion HTML) and the Barocss Editor model format.

@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Transactions
 
 Every document modification in Barocss goes through a **transaction** — an atomic, all-or-nothing unit of work. Transactions ensure data integrity, enable undo/redo, and coordinate with collaboration.

@@ -1,61 +1,55 @@
-# Quick Start
+# JavaScript / DOM quick start
 
-Get up and running with Barocss Editor in minutes. This guide shows you the minimal setup to create a working editor.
+This example mounts a small editor with paragraph, bold, and italic support. It uses current public exports and is also the live demo on this site.
 
-## Installation
+## Install
 
-Install the core packages:
-
-```bash
-pnpm add @barocss/editor-core @barocss/editor-view-dom @barocss/schema @barocss/datastore @barocss/dsl @barocss/renderer-dom
+```sh
+npm install @barocss/editor-core @barocss/datastore @barocss/schema @barocss/extensions @barocss/dsl @barocss/editor-view-dom
 ```
 
-## Create Your First Editor
+## Mount and clean up
 
-Here's a complete example that creates a basic editor:
+Put an element such as `<div id="editor"></div>` in your page. Call `mountEditor` after that element exists. Keep the returned cleanup function and call it before removing the host element.
 
-```typescript
-import { createSchema } from '@barocss/schema';
-import { DataStore } from '@barocss/datastore';
+```ts
 import { Editor } from '@barocss/editor-core';
+import { DataStore } from '@barocss/datastore';
+import { createSchema, getMinimalSchemaDefinition } from '@barocss/schema';
+import { createCoreExtensions, BoldExtension, ItalicExtension } from '@barocss/extensions';
+import { RendererRegistry, intoRegistry, define, defineMark, element, data, slot } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
-import { define, element, data, slot } from '@barocss/dsl';
-import { createCoreExtensions } from '@barocss/extensions';
 
-// 1. Define schema - describes your document structure
-const schema = createSchema('my-doc', {
-  topNode: 'document',
-  nodes: {
-    document: { name: 'document', group: 'document', content: 'block+' },
-    paragraph: { name: 'paragraph', group: 'block', content: 'inline*' },
-    'inline-text': { name: 'inline-text', group: 'inline' }
-  }
-});
-
-// 2. Define templates - how nodes are rendered
-define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
-define('inline-text', element('span', { className: 'text' }, [data('text', '')]));
-
-// 3. Create data store - manages document data
-const dataStore = new DataStore(undefined, schema);
-
-// 4. Create editor - core editor logic
-const editor = new Editor({
-  dataStore,
-  schema,
-  extensions: createCoreExtensions()
-});
-
-// 5. Create view - connects editor to DOM
-const container = document.getElementById('editor')!;
-const view = new EditorViewDOM(editor, { container });
-view.mount();
+export function mountEditor(container: HTMLElement) {
+  const registry = new RendererRegistry({ global: false });
+  intoRegistry(registry, () => {
+    define('document', element('div', {}, [slot('content')]));
+    define('paragraph', element('p', {}, [slot('content')]));
+    define('inline-text', element('span', {}, [data('text', '')]));
+    defineMark('bold', element('strong', {}, [data('text')]));
+    defineMark('italic', element('em', {}, [data('text')]));
+  });
+  const schema = createSchema('quick-start', getMinimalSchemaDefinition());
+  const editor = new Editor({
+    schema, dataStore: new DataStore(undefined, schema), editable: true,
+    extensions: [...createCoreExtensions(), BoldExtension, ItalicExtension],
+  });
+  editor.loadDocument({ stype: 'document', content: [
+    { stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Start writing here.' }] },
+  ]});
+  const view = new EditorViewDOM(editor, { container, registry });
+  view.render();
+  return () => {
+    view.destroy();
+    editor.destroy();
+  };
+}
 ```
 
-That's it! You now have a working editor. Try typing in the editor container.
+The constructor accepts `{ container, registry }`. Use `view.render()`, not `view.mount()`. The schema, command set, and registered templates must describe the same content. The example registers templates in a scoped registry so it does not overwrite another editor's templates.
 
-## What's Next?
+## Connect the host
 
-- **[Basic Usage](basic-usage)** - Learn the step-by-step process in detail
-- **[Core Concepts](concepts/schema-and-model)** - Understand schema and model
-- **[Architecture](architecture/overview)** - Learn how everything fits together
+Call `mountEditor(document.getElementById('editor'))` after checking that the element exists. In a framework, create the editor in a client lifecycle hook and return the cleanup callback from that hook.
+
+The host still owns saving, file selection, document routing, and application UI. Use [Note](/packages/office-note) if you want a richer embeddable prose editor, or follow the [React integration guide](guides/react-editor.md).

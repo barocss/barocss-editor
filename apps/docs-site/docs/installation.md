@@ -1,85 +1,41 @@
 # Installation
 
-## Package Manager
+All public libraries use the `@barocss` npm scope and ship ES modules with TypeScript declarations. Choose only the layer your host needs.
 
-Barocss Editor is available as npm packages. We recommend using pnpm.
+## Product packages
 
-### Install Core Packages
-
-```bash
-pnpm add @barocss/editor-core @barocss/editor-view-dom @barocss/schema
+```sh
+npm install @barocss/office-note react react-dom
+# Or choose another product:
+npm install @barocss/office-word react react-dom
+npm install @barocss/office-slides react react-dom
+npm install @barocss/office-site react react-dom
 ```
 
-### Install Additional Packages (Optional)
+These are integration kits. Note provides an embeddable `NoteEditor` at `/view`; Word, Slides, and Site expose composable UI at `/ui`. See [Office integration](guides/office-products.md) before mounting them.
 
-```bash
-# For rendering
-pnpm add @barocss/renderer-dom @barocss/dsl
+## Custom editor foundations
 
-# For React rendering (instead of or alongside DOM)
-pnpm add @barocss/editor-view-react @barocss/renderer-react
-
-# For data management
-pnpm add @barocss/datastore @barocss/model
-
-# For extensions (55+ built-in extensions)
-pnpm add @barocss/extensions
-
-# For format conversion
-pnpm add @barocss/converter
-
-# For collaboration
-pnpm add @barocss/collaboration @barocss/collaboration-yjs
-# or
-pnpm add @barocss/collaboration @barocss/collaboration-liveblocks
+```sh
+npm install @barocss/editor-core @barocss/schema @barocss/datastore @barocss/dsl @barocss/extensions @barocss/editor-view-dom
 ```
 
-## Package Overview
+For a React view, also install:
 
-### Core Packages
+```sh
+npm install @barocss/editor-view-react react react-dom
+```
 
-- **@barocss/schema** - Schema definition and validation
-- **@barocss/editor-core** - Core editor logic
-- **@barocss/editor-view-dom** - DOM integration
+Install every package your application imports directly. Transitive dependencies are not a substitute for declaring your own imports, especially with pnpm.
 
-### Rendering Packages
+## UI and styles
 
-- **@barocss/dsl** - Declarative template DSL
-- **@barocss/renderer-dom** - DOM renderer
-- **@barocss/renderer-react** - React renderer
-- **@barocss/editor-view-react** - React view integration
+Office UI requires React, its exported CSS, and Tailwind 4 source scanning. Read the [Office styling guide](guides/office-styling.md). The low-level DOM quick start uses its own simple templates and does not require Office styling.
 
-### Data Packages
+Do not import repository paths such as `@barocss/office-note/src/note-view`. Use the public paths listed in the [package catalogue](/packages).
 
-- **@barocss/datastore** - Node storage and transactions
-- **@barocss/model** - Model operations
+## Environments
 
-### Extension Packages
+Use a modern ESM-aware bundler such as Vite. Browser views, local workspace storage, and UI components require browser APIs; mount them on the client in frameworks with server rendering. The repository itself is built and checked with the Node version in `.nvmrc` and the pnpm version in `package.json`.
 
-- **@barocss/extensions** - 55+ built-in extensions with 100% schema coverage
-
-### Collaboration Packages
-
-- **@barocss/collaboration** - Base adapter interface
-- **@barocss/collaboration-yjs** - Yjs CRDT adapter
-- **@barocss/collaboration-liveblocks** - Liveblocks adapter
-
-### Utility Packages
-
-- **@barocss/converter** - Format conversion (HTML, Markdown, LaTeX)
-- **@barocss/devtool** - Development tools (model tree viewer, event log)
-
-## TypeScript Support
-
-All packages include TypeScript definitions. No additional type packages needed.
-
-## Browser Support
-
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
-
-## Next Steps
-
-- [Basic Usage](basic-usage)
+Package versions are independent of the Wonffice product version. A README update in GitHub does not update an already-published npm version; npm receives the new README when that package is published again.

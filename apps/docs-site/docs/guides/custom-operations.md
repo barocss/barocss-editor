@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Custom Operations Guide
 
 Operations are the atomic units of document modification. While extensions use operations through transactions, you can also create your own custom operations for domain-specific needs.

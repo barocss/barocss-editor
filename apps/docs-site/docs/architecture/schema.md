@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # @barocss/schema
 
 The schema package defines the structure and validation rules for your documents. It's the foundation of Barocss Editor's type-safe document model.

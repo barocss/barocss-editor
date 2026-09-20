@@ -2,6 +2,10 @@
 title: Renderer React API
 ---
 
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Renderer React API
 
 The Renderer React API provides the rendering layer that converts models to React elements using DSL template interpretation.

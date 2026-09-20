@@ -2,6 +2,10 @@
 title: Editor View React API
 ---
 
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Editor View React API
 
 The Editor View React API provides React components and hooks for integrating the Barocss Editor into React applications.

@@ -5,8 +5,8 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "dev": "docusaurus start",
-    "build": "docusaurus build",
+    "dev": "node ../../scripts/docs/generate.mjs && docusaurus start",
+    "build": "node ../../scripts/docs/generate.mjs && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",

@@ -1,89 +1,58 @@
 # @barocss/editor-view-react
 
-React view layer for Barocss Editor. Renders the editor document with **renderer-react** and re-renders on `editor:content.change`. editor-view-dom의 React 대응 패키지.
+React editor view with composable content, selection, decorator, and custom layers.
 
-## EditorView (composite)
+## Purpose
+
+Use EditorView with an existing Editor and a renderer registry. The exported component is EditorView, not EditorViewReact.
+
+## Install
+
+```sh
+npm install @barocss/editor-view-react @barocss/editor-core @barocss/dsl react react-dom
+```
+
+The published package provides ES modules and TypeScript declarations. Use a bundler that supports package exports.
+
+## Public entry points
+
+| Import | Role |
+| --- | --- |
+| `@barocss/editor-view-react` | Public JavaScript and TypeScript API |
+
+Import only these public paths. Source paths such as `@barocss/editor-view-react/src/...` are not part of the published API.
+
+## Usage
 
 ```tsx
-import { Editor } from '@barocss/editor-core';
+import type { Editor } from '@barocss/editor-core';
+import type { RendererRegistry } from '@barocss/dsl';
 import { EditorView } from '@barocss/editor-view-react';
 
-<EditorView
-  editor={editor}
-  options={{
-    className: 'editor-view-root',
-    layers: {
-      content: { className: 'document editor-content', editable: true },
-      decorator: { className: 'barocss-editor-decorators' },
-      selection: { className: 'barocss-editor-selection' },
-      context: { className: 'barocss-editor-context' },
-      custom: { className: 'barocss-editor-custom' },
-    },
-  }}
->
-  {/* optional: custom layer content */}
-</EditorView>
+export function DocumentView({ editor, registry }: {
+  editor: Editor;
+  registry: RendererRegistry;
+}) {
+  return <EditorView editor={editor} options={{ registry }} />;
+}
 ```
 
-## Layer components (composable)
+## Peer dependencies
 
-Layers can be used separately for custom composition (must be inside `EditorView` or `EditorViewContextProvider` so editor comes from context):
+- `react`: `>=18.0.0`.
+- `react-dom`: `>=18.0.0`.
 
-- **EditorView.ContentLayer** — Renders document with ReactRenderer in a contenteditable div. Subscribes to `editor:content.change`. Editor from context only.
-- **EditorView.Layer** — Overlay layer wrapper (decorator, selection, context, custom). Positioned absolute, `pointer-events: none` by default.
+## Integration notes
 
-```tsx
-import { EditorView } from '@barocss/editor-view-react';
+Own the Editor lifetime in the host. Mount layers inside EditorView or EditorViewContextProvider. The component is a browser editing surface, not a server-side editor instance.
 
-<div style={{ position: 'relative' }}>
-  <EditorView.ContentLayer options={{ className: 'content', editable: true }} />
-  <EditorView.Layer layer="decorator" className="my-decorators" />
-  <EditorView.Layer layer="selection" />
-  <EditorView.Layer layer="custom">
-    <MyCustomOverlay />
-  </EditorView.Layer>
-</div>
-```
-(When using layers outside `<EditorView>`, wrap with `<EditorViewContextProvider editor={editor}>`.)
+## Documentation
 
-## API
+- [Package guide](https://editor.barocss.com/packages/editor-view-react)
+- [Choose a package](https://editor.barocss.com/packages)
+- [Source and tests](https://github.com/barocss/barocss-editor/tree/main/packages/editor-view-react)
+- [Detailed architecture reference](https://editor.barocss.com/docs/architecture/editor-view-react) (older deep reference; use the package guide for current entry points).
 
-- **EditorView** — Composite view. Props: `editor`, `options?` (registry, className, layers), `children?` (custom layer content). Supports `ref` for imperative handle (EditorViewHandle).
-- **EditorView.ContentLayer** — Props: `options?` (registry, className, editable). Editor is from EditorViewContext (use inside EditorView).
-- **EditorView.Layer** — Props: `layer` ('decorator' | 'selection' | 'context' | 'custom'), `className?`, `style?`, `children?`.
+## License
 
-**Ref API (EditorViewHandle)** — When using `ref` on EditorView: `addDecorator(Decorator | DecoratorGenerator)`, `removeDecorator`, `updateDecorator`, `getDecorators(options?)`, `getDecorator`, `exportDecorators`, `loadDecorators`, `contentEditableElement`, `convertModelSelectionToDOM`, `convertDOMSelectionToModel`, `convertStaticRangeToModel`, `defineDecoratorType`, and refs to `decoratorManager`, `remoteDecoratorManager`, `patternDecoratorConfigManager`, `decoratorGeneratorManager`. See editor-view-react-spec.md § 3.3.
-
-## Docs
-
-- **editor-view-react-spec.md** — API, context, layers, selection/input flow, tests.
-- **layers-spec.md** — Layer roles (content, decorator, selection, context, custom) and `layerTarget` routing; how to use selection/context/custom layers.
-
-## Requirements
-
-- **Editor** from `@barocss/editor-core` (with `getDocumentProxy()`, `on`/`off` for `editor:content.change`).
-- **define()** templates (document, paragraph, inline-text, etc.) in the same registry used by the content layer.
-
-## Testing
-
-Unit tests (Vitest, jsdom, @testing-library/react):
-
-```bash
-pnpm --filter @barocss/editor-view-react test:run
-```
-
-Tests cover: EditorView and EditorViewLayer (root, content layer, overlay layers, children), EditorViewContext (Provider value, useEditorViewContext throw, useOptionalEditorViewContext), ReactSelectionHandler (isSelectionInsideEditableText, setProgrammaticChange), ReactMutationObserverManager (setup/disconnect, batch), dom-sync (findClosestInlineTextNode, reconstructModelTextFromDOM). See `packages/editor-view-react/docs/editor-view-react-spec.md` and `docs/SPEC_VERIFICATION.md`.
-
-To run the React app that uses EditorView:
-
-```bash
-pnpm --filter @barocss/editor-react dev
-```
-
-## See also
-
-- **packages/editor-view-react/docs/editor-view-react-spec.md** — Full spec: goals, architecture, API, context, layers, selection/input, DOM sync, MutationObserver, test strategy.
-- **packages/editor-view-react/docs/SPEC_VERIFICATION.md** — Spec vs implementation verification and checklist.
-- **packages/renderer-react** — DSL → ReactNode.
-- **packages/editor-view-dom** — DOM view layer (EditorViewDOM).
-- **docs/renderer-react-and-editor-react.md** — Design.
+MIT. The published archive includes the license in `dist/LICENSE`.

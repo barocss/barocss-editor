@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Drag and Drop
 
 Drag and drop allows users to reorder blocks by dragging them with a handle. The `ReorderExtension` provides a mouse-based drag system that integrates with the model's `reorderChildren` operation.

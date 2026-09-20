@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # @barocss/renderer-dom
 
 The Renderer-DOM package provides DOM rendering from model using templates with efficient reconciliation. It converts your model data into DOM elements.

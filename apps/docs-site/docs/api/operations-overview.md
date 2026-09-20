@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Operations Overview
 
 Operations in Barocss Editor are organized in three layers: **DSL**, **Model**, and **DataStore**. Understanding this hierarchy helps you choose the right operation for your needs.

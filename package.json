@@ -14,7 +14,7 @@
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",
     "dev:docs": "pnpm --filter @barocss/docs-site dev",
-    "build:docs": "pnpm --filter @barocss/docs-site build:demo",
+    "build:docs": "pnpm --filter @barocss/docs-site build",
     "dev:site": "pnpm --filter @barocss/editor-test dev",
     "dev:react": "pnpm --filter @barocss/editor-react dev",
     "dev:decorator": "pnpm --filter @barocss/editor-decorator-test dev",
@@ -36,13 +36,16 @@
     "release:manifest": "node scripts/release/cli.mjs",
     "test:release": "node --test scripts/release/*.test.mjs",
     "test:checks": "node --test scripts/checks/*.test.mjs",
-    "preflight": "pnpm test:checks && pnpm test:release && pnpm test:npm && pnpm lint && pnpm type-check && pnpm type-check:tests",
+    "preflight": "pnpm test:checks && pnpm test:release && pnpm test:npm && pnpm docs:check && pnpm lint && pnpm type-check && pnpm type-check:tests",
     "test:npm": "node --test scripts/npm/*.test.mjs",
     "release:npm:prepare": "node scripts/npm/prepare.mjs",
     "release:npm:consumer": "node scripts/npm/consumer.mjs",
     "release:npm:check": "pnpm release:npm:prepare && pnpm release:npm:consumer",
     "release:npm:publish": "node scripts/npm/publish.mjs --publish",
-    "version-packages:npm": "pnpm version-packages && pnpm install --lockfile-only"
+    "version-packages:npm": "pnpm version-packages && pnpm install --lockfile-only",
+    "docs:sync": "node scripts/docs/generate.mjs",
+    "docs:check": "node --test scripts/docs/*.test.mjs && node scripts/docs/generate.mjs --check",
+    "docs:examples": "node scripts/docs/check-examples.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",

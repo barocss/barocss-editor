@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Schema & Model
 
 Barocss Editor uses a schema-first approach where you define the structure of your document, and all operations work on a model that conforms to that schema.

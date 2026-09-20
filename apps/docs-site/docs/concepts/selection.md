@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Selection
 
 Selection represents the user's current cursor position or highlighted range within the document. It is the bridge between what the user sees in the DOM and what the editor model operates on.

@@ -3,6 +3,8 @@ import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     'introduction',
+    { type: 'link', label: 'All public packages', href: '/packages' },
+    { type: 'category', label: 'Office integrations', items: ['guides/office-products', 'guides/office-styling', 'guides/package-boundaries'] },
     {
       type: 'category',
       label: 'Getting Started',

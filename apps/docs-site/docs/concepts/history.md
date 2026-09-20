@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # History (Undo/Redo)
 
 History manages the undo/redo stack for the editor. Every transaction is recorded as a history entry with both forward and inverse operations, enabling reliable undo and redo.

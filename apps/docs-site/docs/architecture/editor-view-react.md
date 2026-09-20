@@ -2,6 +2,10 @@
 title: Editor View React
 ---
 
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # @barocss/editor-view-react
 
 The Editor-View-React package provides the React view layer for Barocss Editor. It connects the Editor to the DOM through React components, handling user input, selection synchronization, decorator management, and rendering via `ReactRenderer`.

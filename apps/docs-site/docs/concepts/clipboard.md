@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Clipboard (Copy / Cut / Paste)
 
 The clipboard system handles copying, cutting, and pasting content between the editor and external applications. It integrates with the converter package to support rich formats like HTML, Markdown, and content from Office, Google Docs, and Notion.

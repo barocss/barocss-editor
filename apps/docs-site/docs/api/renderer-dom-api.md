@@ -1,3 +1,7 @@
+:::note Reference status
+This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+:::
+
 # Renderer DOM API
 
 The Renderer DOM API provides the rendering layer that converts models to DOM using VNode reconciliation.

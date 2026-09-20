@@ -1,8 +1,10 @@
 # @barocss/query-editor
 
-`@barocss/query-editor` is an embeddable structured search input. It combines free text, filter chips, operator suggestions, and value suggestions. The host owns search execution, persistence, and remote data.
+Structured search input with filter chips, suggestions, and a separate JQL dialect.
 
-The core parser has no UI dependency. The React component has no dependency on the Barocss Office packages.
+## Purpose
+
+Use the React entry for a UI, /core for structured query parsing, or /jql for Jira-style expressions and suggestions.
 
 ## Install
 
@@ -10,95 +12,72 @@ The core parser has no UI dependency. The React component has no dependency on t
 npm install @barocss/query-editor react react-dom
 ```
 
-Load the stylesheet once.
+The published package provides ES modules and TypeScript declarations. Use a bundler that supports package exports.
+
+## Public entry points
+
+| Import | Role |
+| --- | --- |
+| `@barocss/query-editor` | Public JavaScript and TypeScript API |
+| `@barocss/query-editor/core` | Headless query API |
+| `@barocss/query-editor/react` | React components |
+| `@barocss/query-editor/jql` | Headless JQL API |
+| `@barocss/query-editor/style.css` | Stylesheet |
+
+Import only these public paths. Source paths such as `@barocss/query-editor/src/...` are not part of the published API.
+
+## Usage
 
 ```tsx
-import { QueryEditor, type QueryDocument, type QueryOperator } from '@barocss/query-editor';
+import { useState } from 'react';
+import { QueryEditor } from '@barocss/query-editor/react';
+import type { QueryDocument, QueryOperator } from '@barocss/query-editor/core';
 import '@barocss/query-editor/style.css';
 
-const operators: QueryOperator[] = [
-  {
-    key: 'from',
-    label: '작성자',
-    kind: 'person',
-    multiple: true,
-    options: [
-      { value: 'minsu', label: '김민수', description: '제품팀' },
-      { value: 'jiho', label: '박지호', description: '디자인팀' },
-    ],
-  },
-  {
-    key: 'type',
-    label: '유형',
-    multiple: true,
-    options: [
-      { value: 'document', label: '문서' },
-      { value: 'comment', label: '댓글' },
-    ],
-  },
-  { key: 'after', label: '시작일', kind: 'date', multiple: false },
-];
-
+const operators: QueryOperator[] = [{
+  key: 'type', label: 'Type', multiple: true,
+  options: [{ value: 'document', label: 'Document' }, { value: 'comment', label: 'Comment' }],
+}];
 export function Search() {
   const [query, setQuery] = useState<QueryDocument>({ text: '', filters: [] });
-  return <QueryEditor
-    value={query}
-    operators={operators}
-    onChange={setQuery}
-    onSubmit={(document, source) => runSearch({ document, source })}
-  />;
+  return <QueryEditor value={query} operators={operators} onChange={setQuery}
+    onSubmit={(document, source) => console.log(document, source)} />;
 }
 ```
 
-Type an operator name, such as `from`, and select it. Type a complete expression, such as `from:minsu`, and press Space to turn it into a filter chip. Enter submits the current query. Backspace removes the last filter when the text input is empty.
+## Peer dependencies
 
-## Core API
+- `react`: `>=18`.
+- `react-dom`: `>=18`.
+
+## Styles
+
+Import `@barocss/query-editor/style.css` once in the host.
+
+## Headless parsing
 
 ```ts
 import { parseQuery, stringifyQuery } from '@barocss/query-editor/core';
+import { parseJql } from '@barocss/query-editor/jql';
 
-const document = parseQuery('예산안 from:minsu in:"기획 팀" -has:attachment');
-const source = stringifyQuery(document);
+const query = parseQuery('weekly report');
+console.log(stringifyQuery(query));
+const jql = parseJql('project = PRODUCT ORDER BY updated DESC');
+console.log(jql.valid);
 ```
 
-`parseQuery` only extracts registered operators. Unknown `key:value` text remains free text. This prevents a host from silently changing text that belongs to its users.
+For advanced search UI, import `JqlEditor` from `/react` and supply the field/value catalogue appropriate for your Jira instance. The host still executes the search.
 
-## Jira JQL compatibility
+## Integration notes
 
-Use the separate JQL dialect when a product needs Jira-style advanced search. It keeps Boolean groups and sorting in an expression tree. It also supplies cursor-aware field, operator, value, function, keyword, and sort suggestions.
+The host supplies operators and values, executes searches, and owns credentials. Unknown key:value expressions stay free text unless the operator is registered. JQL parsing does not send requests to Jira.
 
-```tsx
-import { JqlEditor, type JqlParseResult } from '@barocss/query-editor';
+## Documentation
 
-export function JiraSearch() {
-  const [jql, setJql] = useState('project = PRODUCT');
-  return <JqlEditor
-    value={jql}
-    onChange={setJql}
-    onSubmit={(source, result) => result.valid && runJiraSearch(source)}
-  />;
-}
-```
+- [Package guide](https://editor.barocss.com/packages/query-editor)
+- [Choose a package](https://editor.barocss.com/packages)
+- [Source and tests](https://github.com/barocss/barocss-editor/tree/main/packages/query-editor)
 
-The built-in catalog covers common fields and functions. Supply a `catalog` prop to match each Jira site, including custom fields and remote values. The parser supports comparison operators, `IN`, `IS`, `WAS`, `CHANGED`, `AND`, `OR`, `NOT`, parentheses, functions, and `ORDER BY`. The host still owns Jira authentication and request execution.
+## License
 
-For a headless integration, import `parseJql`, `stringifyJql`, `getJqlSuggestions`, and `applyJqlSuggestion` from `@barocss/query-editor/jql`.
-
-## Styling
-
-Override CSS custom properties on a parent element.
-
-```css
-.my-search {
-  --barocss-query-accent: #7057d9;
-  --barocss-query-accent-soft: #f1edff;
-  --barocss-query-radius: 8px;
-}
-```
-
-## Boundaries
-
-- The package does not send search requests.
-- The package does not store recent searches.
-- The package does not define access control.
-- Option data is supplied by the host. Update the `operators` prop when remote results arrive.
+MIT. The published archive includes the license in `dist/LICENSE`.

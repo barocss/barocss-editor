@@ -1,4 +1,22 @@
-# BaroCSS Editor API Reference
+# API reference
+
+Start with the [current package catalogue](/packages) for installation, public entry points, styles, and usage examples. The generated guides are backed by package README files and manifests.
+
+- [Office integrations](../guides/office-products.md)
+- [DOM quick start](../quick-start.md)
+- [React integration](../guides/react-editor.md)
+- [Package boundaries](../guides/package-boundaries.md)
+
+## Deep references
+
+The sidebar retains the earlier detailed API and operation documents. Those pages predate the current package split and are labeled accordingly. They remain useful background, but their code blocks have not all been revalidated. Prefer current package declarations and the checked onboarding examples when integrating a release.
+
+:::note Reference status
+
+The sections below preserve the earlier API reference and its anchor URLs. Their examples have not all been revalidated. Use the package guides above for checked onboarding.
+
+:::
+
 
 ## Portal API
 

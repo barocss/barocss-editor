@@ -1,10 +1,5 @@
----
-id: getting-started
-title: Getting Started
-sidebar_label: Getting Started
-slug: /getting-started
----
+# Getting started
 
-import {Redirect} from '@docusaurus/router';
+Choose [installation](installation.md), the [DOM quick start](quick-start.md), or the [React guide](guides/react-editor.md). For the Office product kits, start with [Office integration](guides/office-products.md).
 
-<Redirect to="/docs/introduction" />
+The [package catalogue](/packages) covers every public package in this repository.

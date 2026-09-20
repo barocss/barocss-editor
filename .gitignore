@@ -102,4 +102,6 @@ apps/word/.input-lab/
 .claude/worktrees/
 
 output/
+apps/docs-site/.generated/
+apps/docs-site/.docusaurus/
 .playwright-cli/
