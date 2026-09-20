@@ -1,3 +1,4 @@
+import { applyStructure, structuralEditing } from './structural-editing';
 import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
 import { transaction, control, insertText } from '@barocss/model';
@@ -61,6 +62,7 @@ export class TextExtension implements Extension {
     range: ModelSelection,
     text: string
   ): Promise<boolean> {
+    range = { ...range, type: 'range', collapsed: range.startNodeId === range.endNodeId && range.startOffset === range.endOffset };
     // Only insert case (start === end)
     /**
      * **비었는가는 두 가지를 다 물어야 합니다** — 같은 런인가, 그리고 같은 자리인가.
@@ -76,6 +78,8 @@ export class TextExtension implements Extension {
       const result = await transaction(editor, operations).commit();
       return result.success;
     }
+
+    if (structuralEditing(editor)) return applyStructure(editor, { intent: 'replace', range, text, preserveSelection: !!editor.selection && editor.selection.type !== 'range' });
 
     // Replace or delete case
     // Combine multiple operations and execute as single transaction

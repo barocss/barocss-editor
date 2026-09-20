@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import { Editor } from '@barocss/editor-core';
 import { Schema } from '@barocss/schema';
+import { FragmentEditor } from '@barocss/model';
 import { DeleteExtension } from '../src/delete';
 
 /**
@@ -27,7 +28,7 @@ const schema = () =>
       paragraph: { name: 'paragraph', group: 'block', content: 'inline*' },
       heading: { name: 'heading', group: 'block', content: 'inline*', attrs: { level: { type: 'number', default: 1 } } },
       blockQuote: { name: 'blockQuote', group: 'block', content: 'block+' },
-      'inline-text': { name: 'inline-text', group: 'inline', content: 'text*', marks: ['bold'] }
+      'inline-text': { name: 'inline-text', group: 'inline', marks: ['bold'] }
     },
     marks: { bold: { name: 'bold' } }
   });
@@ -109,25 +110,22 @@ describe('두 블록에 걸쳐 지우기', () => {
     expect(said()).toEqual(['첫째 문단입니다셋째 문단입니다']);
   });
 
-  it('keeps the kind of the block the drag started in', async () => {
-    /*
-     * A drag from a heading into a paragraph leaves a **heading**, and the other way leaves a
-     * paragraph. Which is what a reader means by dragging in that direction — and why
-     * `mergeBlockNodes` is not what runs here: it refuses two different stypes, and refusing is the
-     * wrong answer to a question that has one.
-     */
+  it('joins different roles only through an explicit policy', async () => {
+    // A product may opt into a directional role conversion.
     load([h('제목입니다'), p('본문입니다')]);
+    new FragmentEditor(editor, { rules: [{ id: 'body-into-heading', match: { sourceType: 'paragraph', targetType: 'heading', boundary: 'open', attributes: 'any' }, effect: 'join-inline', reason: 'This fixture explicitly keeps the heading role' }] });
     expect(await drag(0, 2, 1, 2)).toBe(true);
     expect(said()).toEqual(['제목입니다']);
     expect(kinds()).toEqual(['heading']);
 
     load([p('본문입니다'), h('제목입니다')]);
+    new FragmentEditor(editor, { rules: [{ id: 'heading-into-body', match: { sourceType: 'heading', targetType: 'paragraph', boundary: 'open', attributes: 'any' }, effect: 'join-inline', reason: 'This fixture explicitly keeps the body role' }] });
     expect(await drag(0, 2, 1, 2)).toBe(true);
     expect(kinds()).toEqual(['paragraph']);
   });
 
   it('undoes as one step, because it is one transaction', async () => {
-    /* Four operations — a range, two removals and a move — and a reader pressed one key. */
+    // The accepted structural plan is one history entry.
     await drag(0, 2, 2, 2);
     expect(said()).toEqual(['첫째 문단입니다']);
     await editor.executeCommand('undo', {});

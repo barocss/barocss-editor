@@ -391,3 +391,7 @@ convert는 문서나 선택을 수정하지 않는 순수 함수여야 한다. H
 | 실제 Editor의 문서 교체와 undo/redo | [editor-core 사례](../packages/editor-core/test/fragment-editing.test.ts) |
 
 새 커스텀 스키마를 추가할 때는 선택 규칙과 이유, 동일 우선순위 충돌, editor별 격리, 속성 차이, 정상 삽입 결과, 필수 구조 위반 거절, 참조의 복사 결과, 실패 전후 문서, undo/redo 결과를 확인한다. 이름만 바꾼 테스트로 서로 다른 구조와 의미까지 검증했다고 보지 않는다.
+
+## 삭제·분할·결합
+
+`FragmentEditor.planStructure()`는 삭제·결합·분할과 선택 교체를 같은 editor 정책으로 계획한다. 커스텀 타입의 `splits`, 기존 open-boundary 규칙, 참조·복구 계약은 [구조 편집 정책](specs/structural-editing-policy.md)을 따른다. 표·캔버스 전용 삭제는 별도 경로다.

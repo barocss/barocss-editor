@@ -243,6 +243,8 @@ export class CopyPasteExtension implements Extension {
         if (!dataStore || !this._htmlConverter) return false;
         const target = this._targetStamp(ed, selection);
         const editing = this._editing(ed), checkpoint = editing?.checkpoint();
+        // Native clipboard writes must occur before the first await.
+        const pendingDeletion = editing?.planStructure({ intent: 'delete', range: selection });
         try {
           const json = dataStore.serializeRange(selection) as INode[];
           const data = { json, fragment: editing?.captureRange(selection), text: getClipboardText(json, ed), html: this._htmlConverter.convert(json, 'html') };
@@ -251,7 +253,13 @@ export class CopyPasteExtension implements Extension {
         } catch { payload?.onClipboardWrite?.(); return false; }
         if (ed.isEditable === false || checkpoint && !editing!.isCurrent(checkpoint) || target !== this._targetStamp(ed, selection)) return false;
 
-        // Use the same reversible range deletion as Backspace, including block joins.
+        const deletion = await pendingDeletion;
+        if (deletion && !deletion.ok) { ed.emit('editor:structure.plan', deletion); return false; }
+        if (deletion?.ok && editing) {
+          ed.emit('editor:structure.plan', deletion);
+          return (await editing.apply(deletion.plan)).success;
+        }
+        // Legacy operation-only hosts share the original range deletion.
         const builder = transaction(ed, deleteRangeOperations(selection, ed) as never);
         const result = await builder.commit();
         return !!result && (result as any).success !== false;

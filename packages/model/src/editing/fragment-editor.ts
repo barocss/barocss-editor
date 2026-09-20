@@ -5,13 +5,14 @@ import { transaction } from '../transaction-dsl';
 import { defineOperation } from '../operations/define-operation';
 import { subtreeOf } from '../operations/subtree';
 import type { TransactionContext } from '../types';
-import type { DocumentFragment, EditingBasis, EditingDecision, EditingPlan, EditingPolicy, EditingRequest, EditingRuleTrace, FragmentNode, FragmentOrigin } from './types';
+import type { DocumentFragment, EditingBasis, EditingDecision, EditingPlan, EditingPolicy, EditingRequest, EditingRuleTrace, FragmentNode, FragmentOrigin, StructuralRequest } from './types';
 import { clip, fragment, fromNode, references, tree, walk } from './fragment';
 import { documentState, freeze, identity, schemaState, signature } from './state';
 import { defineEditingPolicy, effectiveAttributes, resolveEditingRule, sameAttributes } from './policy';
 import { planNodeMove, planTextMove } from './move';
 import type { TransactionResult } from '../transaction';
 import { planTextRange } from './text-range';
+import { planStructural } from './structural';
 
 const sessions = new WeakMap<object, FragmentEditor>();
 
@@ -241,6 +242,26 @@ export class FragmentEditor {
       return { ok: false, reason: error instanceof Error ? error.message : String(error), losses, trace };
     }
   }
+  /** Local delete/join/split intents share this editor's policy, basis, and atomic application. */
+  async planStructure(request: StructuralRequest): Promise<EditingDecision> {
+    const trace: EditingRuleTrace[] = [];
+    try {
+      if (this.editor.isEditable === false || this.store.isTransactionActive()) throw new Error('Structural planning requires an idle editable editor');
+      const basis = this.basis();
+      const replacement = await planStructural(this.store, this.schema, this.policy, request, trace);
+      if (!this.isCurrent(signature(basis))) throw new Error('Structural planning basis changed');
+      if (request.intent === 'replace' && request.preserveSelection && this.editor.selection) {
+        const removed = new Set(replacement.removeIds.flatMap(id => [id, ...this.store.getAllDescendants(id).map(node => node.sid!)]));
+        Object.values(replacement.retainIds).forEach(id => removed.delete(id));
+        const selected = this.editor.selection.nodeIds ?? [this.editor.selection.startNodeId, this.editor.selection.endNodeId];
+        if (selected.some(id => removed.has(id))) throw new Error('Structural replacement would remove the preserved selection');
+      }
+      const selectionAfter = request.intent === 'replace' && request.preserveSelection ? { selectionAfter: structuredClone(this.editor.selection), caret: null } : {};
+      return { ok: true, plan: freeze({ ...replacement, ...selectionAfter, basis, outcome: 'direct', trace, losses: [] }) };
+    } catch (error) {
+      return { ok: false, reason: error instanceof Error ? error.message : String(error), trace, losses: [] };
+    }
+  }
   private planMove(request: EditingRequest, trace: EditingRuleTrace[]): EditingDecision {
     const basis = this.basis(), source = request.source;
     if (!source) throw new Error('Move requires a local source');
@@ -323,7 +344,7 @@ export class FragmentEditor {
     return transaction(this.editor, [{ type: 'fragmentEdit', payload: { plan } }]).commit();
   }
   /** Called only under TransactionManager's lock, before any fragment writes. */
-  materialize(plan: EditingPlan): { children: INode[]; caret: { nodeId: string; offset: number } | null } {
+  materialize(plan: EditingPlan): { selection?: ModelSelection | null; children: INode[]; caret: { nodeId: string; offset: number } | null } {
     if (this.editor.isEditable === false) throw new Error('Editor is read-only');
     if (signature(plan.basis) !== signature(this.basis())) throw new Error('Stale editing plan');
     const ids = new Map<string, string>(), paths = new Map<string, string>();
@@ -346,7 +367,7 @@ export class FragmentEditor {
       return { ...local, ...rest, ...(rest.attributes || Object.keys(attributes).length ? { attributes } : {}), sid: paths.get(path.join('.')), ...(content ? { content: content.map((child, index) => build(child, [...path, index])) } : {}) };
     };
     const children = plan.content.map((node, index) => build(node, [index]));
-    return { children, caret: plan.caret ? { nodeId: paths.get(plan.caret.path.join('.'))!, offset: plan.caret.offset } : null };
+    return { ...('selectionAfter' in plan ? { selection: structuredClone(plan.selectionAfter) } : {}), children, caret: plan.caret ? { nodeId: paths.get(plan.caret.path.join('.'))!, offset: plan.caret.offset } : null };
   }
 }
 

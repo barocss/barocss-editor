@@ -115,3 +115,7 @@ if (decision.ok) {
 ```
 
 실행 가능한 비표준 schema/필수 순서/isolating/참조 fixture는 model의 `test/transaction/fragment-editing.test.ts`에 있다. 실제 Editor.loadDocument와 undo/redo 연결은 editor-core의 `test/fragment-editing.test.ts`에 있다. schema의 열린 경계 검사는 `test/editing-validation.test.ts`에 있다.
+
+## 삭제·분할·결합
+
+`FragmentEditor.planStructure()`는 삭제·결합·분할과 선택 교체를 같은 editor 정책으로 계획한다. 커스텀 타입의 `splits`, 기존 open-boundary 규칙, 참조·복구 계약은 [구조 편집 정책](structural-editing-policy.md)을 따른다. 표·캔버스 전용 삭제는 별도 경로다.

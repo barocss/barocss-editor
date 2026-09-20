@@ -17,13 +17,13 @@ import { defineOperationDSL } from './define-operation-dsl';
 export interface InsertParagraphOperation {
   type: 'insertParagraph';
   payload: {
-    blockType?: 'paragraph' | 'same';
+    blockType?: string;
     selectionAlias?: string;
   };
 }
 
 export const insertParagraph = defineOperationDSL(
-  (blockType?: 'paragraph' | 'same', selectionAlias?: string) => ({
+  (blockType?: string, selectionAlias?: string) => ({
     type: 'insertParagraph',
     payload: {
       ...(blockType != null && { blockType }),
@@ -42,7 +42,7 @@ export const insertParagraph = defineOperationDSL(
  * - datastore API만 사용 (다른 operation 호출 없음).
  *
  * payload
- * - blockType?: 'paragraph' | 'same' — 기본 'same'
+ * - blockType?: string — 기본 'same'
  * - selectionAlias?: string — 새 블록에 부여할 $alias
  *
  * 동작
@@ -55,7 +55,7 @@ export interface InsertParagraphPayload {
   /** Filled on first execution so later typing history still targets the same nodes on redo. */
   createdBlockId?: string;
   createdTextId?: string;
-  blockType?: 'paragraph' | 'same';
+  blockType?: string;
   selectionAlias?: string;
 }
 
@@ -107,7 +107,7 @@ defineOperation('insertParagraph', async (operation: { type: string; payload: In
   // Only the block's two edges reach here: an empty paragraph after it, or an
   // empty paragraph before it.
   const insertIndex = cut.at === 'end' ? idx + 1 : idx;
-  const stype = blockType === 'paragraph' ? 'paragraph' : (parentBlock as { stype: string }).stype;
+  const stype = blockType === 'same' ? parentBlock.stype : blockType;
 
   /**
    * The block's attributes — and **only the ones the new type has**.
@@ -136,7 +136,7 @@ defineOperation('insertParagraph', async (operation: { type: string; payload: In
     content: [] as string[]
   };
   const childId = dataStore.content.addChild(grandParent.sid!, newBlock, insertIndex);
-  const emptyTextId = dataStore.content.addChild(childId, { ...(operation.payload.createdTextId ? { sid: operation.payload.createdTextId } : {}), stype: 'inline-text', text: '' } as any, 0);
+  const emptyTextId = dataStore.content.addChild(childId, { ...(operation.payload.createdTextId ? { sid: operation.payload.createdTextId } : {}), stype: dataStore.getNode(where.textNodeId)?.stype ?? 'inline-text', text: '' } as any, 0);
   operation.payload.createdBlockId = childId;
   operation.payload.createdTextId = emptyTextId;
   context.lastCreatedBlock = { blockId: childId, firstTextNodeId: emptyTextId };

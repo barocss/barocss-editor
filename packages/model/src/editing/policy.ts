@@ -17,11 +17,18 @@ export function defineEditingRule(rule: EditingRule): EditingRule {
 
 /** Copy and validate the entire editor policy. configure() replaces it atomically. */
 export function defineEditingPolicy(policy: EditingPolicy): EditingPolicy {
+  if (policy.defaultText !== undefined && !policy.defaultText.trim()) throw new Error('Default text type must be nonempty');
   if (policy.schemaRevision !== undefined && (!policy.schemaId?.trim() || !policy.schemaRevision.trim())) throw new Error('Portable schema revision requires a schema id and nonempty revision');
   if (policy.rangeReplacement !== undefined && policy.rangeReplacement !== 'preserve-boundaries') throw new Error('Unsupported range replacement policy');
+  for (const [type, split] of Object.entries(policy.splits ?? {})) {
+    if (!type || !['same', 'reject'].includes(split.mode) || split.atEnd !== undefined && !split.atEnd.trim()) throw new Error('Invalid split policy');
+  }
+  for (const [left, right] of Object.entries(policy.removeEmptyBefore ?? {})) {
+    if (!left || !Array.isArray(right) || right.some(type => typeof type !== 'string' || !type.trim())) throw new Error('Invalid empty boundary policy');
+  }
   const rules = policy.rules?.map(defineEditingRule);
   if (rules && new Set(rules.map(rule => rule.id)).size !== rules.length) throw new Error('Duplicate editing rule id');
-  return freeze({ ...policy, rules, references: structuredClone(policy.references), adapters: policy.adapters?.map(adapter => ({ ...adapter })) });
+  return freeze({ ...policy, removeEmptyBefore: structuredClone(policy.removeEmptyBefore), splits: structuredClone(policy.splits), rules, references: structuredClone(policy.references), adapters: policy.adapters?.map(adapter => ({ ...adapter })) });
 }
 
 function sameValue(a: unknown, b: unknown): boolean {
