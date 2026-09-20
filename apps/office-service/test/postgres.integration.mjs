@@ -87,6 +87,7 @@ try {
     await assert.rejects(pool.query('SELECT * FROM wonffice_meta.migrations'), { code: '42501' });
     await assert.rejects(pool.query('TRUNCATE wonffice.workspaces'), { code: '42501' });
     await assert.rejects(pool.query('SET ROLE wonffice_owner'), { code: '42501' });
+    await assert.rejects(pool.query('SET ROLE wonffice_backup'), { code: '42501' });
     await assert.rejects(migrate(await connectAndTrack('wonffice_app')), /invalid_migration_role/);
   });
   await check('no context reads nothing and cannot insert', async () => {
@@ -125,6 +126,40 @@ try {
     assert.equal((await pool.query('SELECT id FROM wonffice.workspaces')).rowCount, 0);
     const ownerPool = new pg.Pool(config('wonffice_owner')); pools.push(ownerPool);
     await assert.rejects(withTenant(ownerPool, alpha, async () => 'forbidden'), /invalid_application_role/);
+  });
+  await check('configured tenant defaults are rejected before the callback', async () => {
+    const settings = [
+      { set: `ALTER ROLE wonffice_app SET wonffice.tenant_id TO '${alpha}'`,
+        reset: 'ALTER ROLE wonffice_app RESET wonffice.tenant_id', options: undefined },
+      { set: `ALTER DATABASE office_test SET wonffice.tenant_id TO '${alpha}'`,
+        reset: 'ALTER DATABASE office_test RESET wonffice.tenant_id', options: undefined },
+      { set: null, reset: null, options: `-c wonffice.tenant_id=${alpha}` },
+    ];
+    for (const setting of settings) {
+      if (setting.set) await admin.query(setting.set);
+      try {
+        const configuredPool = new pg.Pool({ ...config('wonffice_app'), max: 1, options: setting.options });
+        pools.push(configuredPool);
+        let called = false;
+        await assert.rejects(withTenant(configuredPool, beta, async () => { called = true; }), /invalid_tenant_context/);
+        assert.equal(called, false);
+        assert.equal(configuredPool.totalCount, 0);
+      } finally {
+        if (setting.reset) await admin.query(setting.reset);
+      }
+    }
+  });
+  await check('backup membership is rejected before application work', async () => {
+    await admin.query('GRANT wonffice_backup TO wonffice_app');
+    try {
+      const unsafePool = new pg.Pool({ ...config('wonffice_app'), max: 1 }); pools.push(unsafePool);
+      let called = false;
+      await assert.rejects(withTenant(unsafePool, alpha, async () => { called = true; }), /invalid_application_role/);
+      assert.equal(called, false);
+      assert.equal(unsafePool.totalCount, 0);
+    } finally {
+      await admin.query('REVOKE wonffice_backup FROM wonffice_app');
+    }
   });
   const snapshot = async client => {
     const content = {};

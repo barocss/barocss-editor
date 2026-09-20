@@ -20,13 +20,18 @@ export async function withTenant<T>(pool: Pool, tenantId: string,
     await client.query('SET LOCAL search_path = pg_catalog');
     const role = await client.query(`SELECT current_user = 'wonffice_app'
       AND NOT rolsuper AND NOT rolbypassrls
-      AND NOT pg_has_role(current_user, 'wonffice_owner', 'MEMBER') AS safe
+      AND NOT pg_has_role(current_user, 'wonffice_owner', 'MEMBER')
+      AND NOT pg_has_role(current_user, 'wonffice_backup', 'MEMBER') AS safe,
+      NULLIF(current_setting('wonffice.tenant_id', true), '') IS NULL AS context_empty
       FROM pg_roles WHERE rolname = current_user`);
     if (!role.rows[0]?.safe) throw new Error('invalid_application_role');
+    // Reject role/database/connection defaults and stale context from other pool users.
+    if (!role.rows[0]?.context_empty) throw new Error('invalid_tenant_context');
     await client.query("SELECT set_config('wonffice.tenant_id', $1, true)", [tenantId]);
     const result = await operation(client);
     await client.query('COMMIT');
-    await client.query('RESET wonffice.tenant_id');
+    // RESET can reactivate a configured default. Always leave an explicit empty context.
+    await client.query("SELECT set_config('wonffice.tenant_id', '', false)");
     healthy = true;
     return result;
   } catch (error) {
