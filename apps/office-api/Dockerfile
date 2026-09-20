@@ -1,9 +1,8 @@
-# Build dist with the repository's locked toolchain before building this image.
+# Run scripts/backend/package-api.mjs with the locked repository toolchain first.
 FROM node:22.22.0-alpine
 ENV NODE_ENV=production OFFICE_API_HOST=0.0.0.0 OFFICE_API_PORT=4100
 WORKDIR /app
-COPY --chown=node:node package.json ./package.json
-COPY --chown=node:node dist ./dist
+COPY --chown=node:node .container ./
 USER node
 EXPOSE 4100
 STOPSIGNAL SIGTERM

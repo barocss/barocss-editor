@@ -43,6 +43,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Build the locked API artifact
-        run: pnpm --filter @barocss/office-api build
+        run: node scripts/backend/package-api.mjs
       - name: Verify the same image with default and explicit settings
         run: node scripts/backend/verify-container.mjs

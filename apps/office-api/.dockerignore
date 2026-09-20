@@ -1,4 +1,3 @@
 *
-!package.json
-!dist
-!dist/**
+!.container
+!.container/**

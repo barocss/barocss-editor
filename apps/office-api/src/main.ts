@@ -1,37 +1,35 @@
 import { readConfig } from './config.js';
 import { createApiServer } from './server.js';
 
-function main(): void {
+async function main(): Promise<void> {
   const config = readConfig(process.env);
-  const server = createApiServer();
+  const app = createApiServer();
   let stopping = false;
-  server.on('error', () => {
-    console.error(JSON.stringify({ event: 'api_error' }));
-    process.exitCode = 1;
-  });
-  const stop = () => {
+  const stop = async () => {
     if (stopping) return;
     stopping = true;
     const deadline = setTimeout(() => {
-      server.closeAllConnections();
-      process.exitCode = 1;
+      app.server.closeAllConnections();
+      console.error(JSON.stringify({ event: 'api_shutdown_timeout' }));
+      process.exit(1);
     }, config.shutdownTimeoutMs);
-    deadline.unref();
-    server.close(() => {
-      clearTimeout(deadline);
+    try {
+      await app.close();
       console.log(JSON.stringify({ event: 'api_stopped' }));
-    });
+    } catch {
+      console.error(JSON.stringify({ event: 'api_stop_failed' }));
+      process.exitCode = 1;
+    } finally {
+      clearTimeout(deadline);
+    }
   };
-  process.on('SIGTERM', stop);
-  process.on('SIGINT', stop);
-  server.listen(config.port, config.host, () => {
-    console.log(JSON.stringify({ event: 'api_listening', port: config.port }));
-  });
+  process.on('SIGTERM', () => { void stop(); });
+  process.on('SIGINT', () => { void stop(); });
+  await app.listen({ port: config.port, host: config.host });
+  console.log(JSON.stringify({ event: 'api_listening', port: config.port }));
 }
 
-try {
-  main();
-} catch {
+main().catch(() => {
   console.error(JSON.stringify({ event: 'api_start_failed' }));
   process.exitCode = 1;
-}
+});

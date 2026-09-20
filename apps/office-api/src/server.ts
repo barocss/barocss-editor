@@ -1,38 +1,51 @@
-import { createServer } from 'node:http';
-import type { ServerResponse } from 'node:http';
+import Fastify from 'fastify';
 
-function reply(response: ServerResponse, status: number, code: string, head: boolean): void {
-  const body = JSON.stringify({ status: code });
-  response.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'content-length': Buffer.byteLength(body),
-    'cache-control': 'no-store',
-    'x-content-type-options': 'nosniff',
-  });
-  response.end(head ? undefined : body);
-}
+const statusSchema = {
+  type: 'object', required: ['status'], additionalProperties: false,
+  properties: { status: { type: 'string' } },
+} as const;
+const healthPaths = new Set(['/health/live', '/health/ready']);
 
-/** Bootstrap only: no authenticated data service exists yet. */
+/** HTTP boundary only. Domain services and collaboration providers remain separate. */
 export function createApiServer() {
-  return createServer({
-    maxHeaderSize: 8192,
-    headersTimeout: 10000,
+  const app = Fastify({
+    logger: false,
+    trustProxy: false,
+    requestIdHeader: false,
+    exposeHeadRoutes: false,
+    http: { maxHeaderSize: 8192, headersTimeout: 10000 },
     requestTimeout: 15000,
     keepAliveTimeout: 5000,
-  }, (request, response) => {
-    // Do not construct routes from untrusted Host or forwarded headers.
-    const path = request.url?.split('?')[0];
-    const head = request.method === 'HEAD';
-    if (path !== '/health/live' && path !== '/health/ready') {
-      reply(response, 404, 'not_found', head);
-      return;
-    }
-    if (request.method !== 'GET' && !head) {
-      response.setHeader('allow', 'GET, HEAD');
-      reply(response, 405, 'method_not_allowed', false);
-      return;
-    }
-    reply(response, path === '/health/live' ? 200 : 503,
-      path === '/health/live' ? 'alive' : 'service_not_configured', head);
+    bodyLimit: 1024 * 1024,
+    forceCloseConnections: 'idle',
+    ajv: { customOptions: { coerceTypes: false, removeAdditional: false, useDefaults: false } },
   });
+  app.addHook('onRequest', async (request, reply) => {
+    reply.header('cache-control', 'no-store').header('x-content-type-options', 'nosniff');
+    if (healthPaths.has(request.url.split('?')[0]) &&
+      request.method !== 'GET' && request.method !== 'HEAD') {
+      return reply.header('allow', 'GET, HEAD').code(405).send({ status: 'method_not_allowed' });
+    }
+  });
+  app.setNotFoundHandler(async (_request, reply) => reply.code(404).send({ status: 'not_found' }));
+  app.setErrorHandler((error, _request, reply) => {
+    const statusCode = (error as { statusCode?: number }).statusCode;
+    const code = statusCode === 400 || statusCode === 413 || statusCode === 415 ? statusCode : 500;
+    const status = code === 400 ? 'invalid_request' : code === 413 ? 'request_too_large'
+      : code === 415 ? 'unsupported_media_type' : 'internal_error';
+    // Error messages and validation details can contain user data. Never return them.
+    void reply.code(code).send({ status });
+  });
+  for (const path of healthPaths) {
+    const live = path === '/health/live';
+    const code = live ? 200 : 503;
+    app.route({
+      method: ['GET', 'HEAD'], url: path,
+      schema: { response: { [code]: statusSchema } },
+      handler: async (_request, reply) => reply.code(code).send({
+        status: live ? 'alive' : 'service_not_configured',
+      }),
+    });
+  }
+  return app;
 }
