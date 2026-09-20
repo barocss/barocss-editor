@@ -1,6 +1,6 @@
 {
   "name": "@barocss/office-text",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "What two products draw text with: the styles, the resolvers, the marks and the renderers",
   "type": "module",
   "main": "./src/index.ts",

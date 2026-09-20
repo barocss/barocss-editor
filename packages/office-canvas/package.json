@@ -1,6 +1,6 @@
 {
   "name": "@barocss/office-canvas",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "What two products place things with: boxes, dragging, arranging, connectors, components and variables on a canvas",
   "type": "module",
   "main": "./src/index.ts",
