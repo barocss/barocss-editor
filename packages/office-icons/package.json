@@ -1,6 +1,6 @@
 {
   "name": "@barocss/office-icons",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The suite's icons: one drawing per act, so every editor in it points at the same picture",
   "type": "module",
   "main": "./src/index.tsx",

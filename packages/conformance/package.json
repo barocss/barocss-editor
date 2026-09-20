@@ -1,6 +1,6 @@
 {
   "name": "@barocss/conformance",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "What a product must satisfy: the checks a schema and its kit are held to",
   "type": "module",
   "main": "./src/index.ts",

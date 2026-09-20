@@ -1,5 +1,19 @@
 # @barocss/office-note
 
+## 0.1.2
+
+### Patch Changes
+
+- Make release archives reproducible by stabilizing dependency metadata and tar entry metadata. Preserve conditional export order and executable file permissions.
+- Updated dependencies
+  - @barocss/office-canvas@0.1.2
+  - @barocss/office-controls@0.1.2
+  - @barocss/office-editor-ui@0.1.2
+  - @barocss/office-icons@0.1.2
+  - @barocss/office-text@0.1.2
+  - @barocss/office-ui@0.1.2
+  - @barocss/extensions@1.0.3
+
 ## 0.1.1
 
 ### Patch Changes

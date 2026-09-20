@@ -1,6 +1,6 @@
 {
   "name": "@barocss/office-controls",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "What a control is, and how it reads a selection — the vocabulary every product's toolbar is declared in",
   "type": "module",
   "main": "./src/index.ts",
