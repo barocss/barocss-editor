@@ -1,5 +1,7 @@
 # Barocss Suite — Roadmap
 
+2026-09-20 공통 UI 문서화: [#336](https://github.com/barocss/barocss-editor/issues/336)에서 office-ui·office-controls·office-editor-ui의 역할, 필드 확정, 명령 상태, 선택·포커스 책임을 정리했다. 기본 툴바 예제의 mark 연결을 보완하고 공개 API 예제를 추가했다. [소스·검증 기록](specs/shared-ui-documentation-audit.md)을 참고한다. 런타임 개선과 제품 인수는 별도다.
+
 2026-09-20 SE-01 구현: [#263](https://github.com/barocss/barocss-editor/issues/263)의 열린 문서 조각, editor별 정책, 읽기 전용 계획과 transaction 적용 경로를 추가했다. [지원 범위와 계약](specs/schema-editing-policy.md)을 참고한다. 실제 clipboard 연결 #264와 DND 연결 #265는 남아 있다. 전체 완료는 추적 이슈 #262의 완료 기준으로 판단한다.
 
 2026-09-20 WP-01 구현: [#249](https://github.com/barocss/barocss-editor/issues/249)의 transaction 실패 정리, commit 중 쓰기 복구, commit 후 오류 분리, 협업 이벤트 발행 시점을 보강했다. [결과·호환성 계약](specs/transaction-recovery.md)에 범위와 검증 항목을 기록했다. 검사 증거와 병합 상태는 구현 PR에서 확인한다. schema/fragment 후속 이슈 #263–#265는 이번 구현에 포함하지 않는다.
