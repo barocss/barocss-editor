@@ -1208,6 +1208,7 @@ export class Editor implements ContextProvider {
     if (!Array.isArray(operations)) {
       return {
         success: false,
+        committed: false,
         errors: ['Unsupported transaction format.'],
         data: undefined,
         transactionId: (transaction as any)?.sid,
@@ -1219,13 +1220,22 @@ export class Editor implements ContextProvider {
 
     try {
       const result = await this._transactionManager.execute(operations as (TransactionOperation | any)[], transaction?.options);
-      this.emit('transactionExecuted', { transaction: result } as any);
+      try {
+        this.emit('transactionExecuted', { transaction: result } as any);
+      } catch (error) {
+        if (result.success) {
+          (result.postCommitErrors ??= []).push(`transactionExecuted: ${error instanceof Error ? error.message : String(error)}`);
+        } else {
+          result.errors.push(`transactionExecuted: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
       return result;
     } catch (error) {
       console.error('Transaction execution failed:', error);
       this.emit('transactionError', { transaction, error } as any);
       return {
         success: false,
+        committed: false,
         errors: [error instanceof Error ? error.message : 'Unknown error'],
         data: undefined,
         transactionId: undefined,

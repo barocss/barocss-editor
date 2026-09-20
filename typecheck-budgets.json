@@ -6,7 +6,7 @@
   "apps/site": 4,
   "apps/slide": 0,
   "apps/word": 0,
-  "packages/collaboration": 1,
+  "packages/collaboration": 0,
   "packages/collaboration-liveblocks": 0,
   "packages/collaboration-yjs": 0,
   "packages/conformance": 2,

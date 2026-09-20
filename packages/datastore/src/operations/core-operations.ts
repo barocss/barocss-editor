@@ -135,6 +135,7 @@ export class CoreOperations {
 
     let deleted = false;
     if (overlay && overlay.isActive && overlay.isActive()) {
+      overlay.snapshotBase(nodeId, this.dataStore.getNodes().get(nodeId));
       overlay.markDeleted(nodeId, node.parentId);
       deleted = true;
     } else {
