@@ -6,7 +6,7 @@
 
 ## 현재 제품 진행표 — 2026-09-19
 
-2026-09-20 Note 시나리오 자동화 초안: [#282](https://github.com/barocss/barocss-editor/issues/282)에서 독립 화면·iframe 임베드 화면의 14개 데스크톱 검사를 구성했다. 로컬 결과는 8개 통과·6개 실패이며, 슬래시 스크롤과 제목 삽입·Backspace 문제(#278, #280)가 두 화면에서 재현됐다. 더하기 메뉴와 구분선의 추가 조건(#279, #281)은 계속 확인한다. 제품 수정 완료가 아니며, CI 진단 자료 보관과 [시나리오 정의](specs/note-editing-scenarios.md)를 포함한 draft PR로 추적한다.
+2026-09-20 Note 시나리오 자동화 및 재현 오류 수정: [#282 / PR #283](https://github.com/barocss/barocss-editor/pull/283)에서 독립 화면·iframe 임베드 화면의 검사를 구성했다. 슬래시 메뉴 스크롤·Enter 전파와 빈 문단의 제목 변환·Backspace 경계를 수정했고, Undo/Redo를 포함한 데스크톱 시나리오 16개가 로컬에서 통과했다. Note 단위 341개, 공통 extensions 276개, editor-ui 48개도 통과했다. 메뉴·구분선의 추가 재현 조건(#279, #281)은 유지한다. [시나리오 정의와 범위](specs/note-editing-scenarios.md).
 
 2026-09-19 Node 실행 기준: 로컬 검증과 CI의 버전 차이를 없애기 위해 프로젝트 기준을 22.22.0으로 고정했다. `.nvmrc`를 로컬 `nvm use`, CI 두 작업, 문서 빌드의 단일 기준으로 사용한다. 최초 CI의 fs.globSync 호환성 실패도 수정했다.
 

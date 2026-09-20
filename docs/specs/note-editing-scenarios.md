@@ -8,7 +8,7 @@ Test the editing contract through real browser input: initial document, user act
 expected document, and expected selection or visible UI. Command-level tests remain
 useful, but they cannot replace pointer, keyboard, focus, and scrolling checks.
 
-This first suite covers basic input and the reports in #278–#281. It is not a claim
+This first suite covers basic input and the reports in #278–#281. It now runs 16 checks across two desktop hosts. It is not a claim
 that every Note feature or the whole existing Note browser suite passes.
 
 ## Hosts
@@ -34,7 +34,7 @@ consumer check. Viewport is desktop-only (1280 × 900).
 | N-002 | Type `/`; Escape; move caret away and back | Menu stays closed; slash remains text | Baseline |
 | N-278 | Type `/`; move down and up through every menu item | Active item stays inside the menu's scroll area | #278 |
 | N-279 | One paragraph; open `+`; move pointer outside the short editor onto a menu item; click | Menu remains reachable and inserts the chosen block | #279 |
-| N-280a | Empty paragraph; choose heading through `+`; type a title | One heading, no extra empty paragraph | #280 |
+| N-280a | Empty paragraph; choose heading through `+` or slash; Undo/Redo; type a title | One heading, no trigger text or extra empty paragraph; history restores the edit | #280 |
 | N-280b | Empty paragraph followed by heading; Home then Backspace | Gap removed; next input lands at the heading text start | #280 |
 | N-281 | Paragraph, divider, paragraph; select divider; Delete; Undo | Node selection; only divider removed; Undo restores it | #281 |
 
@@ -78,12 +78,26 @@ results, plus document/selection snapshots, screenshots, video, and traces for f
 A job check does not automatically create a branch-protection requirement; repository
 rules must be configured separately when the suite is ready to gate merges.
 
-Known regressions are normal failing assertions, not skipped tests or expected
-failures. The initial PR remains draft while these failures are unresolved. Do not
-add `continue-on-error`, loosen assertions, or mark the suite ready to hide product
-bugs. Fix the linked product issues, rerun the suite, and then promote the PR.
+Regressions remain normal assertions, not skipped tests or expected failures. Do not
+add `continue-on-error` or loosen assertions to hide product bugs. The initial six
+failures were fixed before promoting the PR for review.
 
-## Initial local result — 2026-09-20
+## Current local result — 2026-09-20
+
+**16 passed, 0 failed**, desktop Chromium on macOS. No skips or retries.
+The two additional checks cover slash-based heading insertion and undo/redo in each host.
+
+- Slash selection scrolls only the menu; the document scroll and caret stay unchanged.
+- Menu Enter/arrow keys are not also delivered to the document editor.
+- Empty paragraph headings reuse the block; slash triggers are consumed in the same transaction.
+- Backspace removes an adjacent empty paragraph before a heading, preserving the heading,
+  its marks, and the caret. Nonempty content and container boundaries are preserved.
+- Note unit tests: 341 passed. Shared extensions: 276 passed. Editor UI: 48 passed.
+
+N-279 and N-281 remain open for the original reports' additional conditions. Passing
+these selected paths does not prove every menu position or native caret state.
+
+## Baseline before fixes — 2026-09-20
 
 Desktop Chromium on macOS, based on main `3b839784`: **8 passed, 6 failed**.
 No tests were skipped or retried.

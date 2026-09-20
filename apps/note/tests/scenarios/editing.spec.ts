@@ -80,6 +80,8 @@ for (const host of ['standalone', 'embedded']) {
       await page.keyboard.type('/');
       const rows = surface.locator('[data-slash-item]');
       await expect(rows.first()).toBeVisible();
+      const caret = (await snapshot(surface)).selection;
+      const scroll = await surface.getByTestId('note-scenario').evaluate(el => el.ownerDocument.defaultView!.scrollY);
       const count = await rows.count();
       expect(count).toBeGreaterThan(5);
       expect(await rows.first().evaluate(item => {
@@ -90,6 +92,12 @@ for (const host of ['standalone', 'embedded']) {
       await expect(rows.nth(count - 1)).toHaveAttribute('data-current', 'true');
       await expectInsideScroller(rows.nth(count - 1));
       for (let index = 1; index < count; index++) await page.keyboard.press('ArrowUp');
+      await expectInsideScroller(rows.first());
+      expect((await snapshot(surface)).selection).toEqual(caret);
+      expect(await surface.getByTestId('note-scenario').evaluate(el => el.ownerDocument.defaultView!.scrollY)).toBe(scroll);
+      await page.keyboard.insertText('제목');
+      await expect(rows).toHaveCount(1);
+      await expect(rows.first()).toHaveAttribute('data-current', 'true');
       await expectInsideScroller(rows.first());
     });
 
@@ -113,17 +121,32 @@ for (const host of ['standalone', 'embedded']) {
       await expect(surface.locator('[data-note-insert]')).toHaveCount(0);
     });
 
-    test('N-280a heading insertion replaces an empty paragraph @regression', async ({ page }) => {
-      test.info().annotations.push({ type: 'issue', description: 'https://github.com/barocss/barocss-editor/issues/280' });
-      const surface = await openScenario(page, host, 'empty');
-      await surface.locator('.on-doc > p').click();
-      await surface.getByRole('button', { name: '블록 추가', exact: true }).click();
-      await surface.locator('[data-note-insert] [data-note-control="insertHeading"]').click();
-      await expect(surface.locator('.on-doc > h1, .on-doc > h2, .on-doc > h3')).toHaveCount(1);
-      await page.keyboard.type('Title');
-      await expect.poll(async () => (await blocks(surface)).map(block => block.stype)).toEqual(['heading']);
-      await expect(surface.locator('.on-doc')).toHaveText('Title');
-    });
+    for (const insertion of ['plus', 'slash']) {
+      test(`N-280a heading insertion via ${insertion} replaces an empty paragraph @regression`, async ({ page }) => {
+        test.info().annotations.push({ type: 'issue', description: 'https://github.com/barocss/barocss-editor/issues/280' });
+        const surface = await openScenario(page, host, 'empty');
+        await surface.locator('.on-doc > p').click();
+        if (insertion === 'slash') {
+          await page.keyboard.type('/');
+          await page.keyboard.insertText('제목');
+          await expect(surface.locator('[data-slash-item="insertHeading"]')).toBeVisible();
+          await page.keyboard.press('Enter');
+        } else {
+          await surface.getByRole('button', { name: '블록 추가', exact: true }).click();
+          await surface.locator('[data-note-insert] [data-note-control="insertHeading"]').click();
+        }
+        const heading = surface.locator('.on-doc > h2');
+        await expect(heading).toHaveCount(1);
+        await expect.poll(async () => (await blocks(surface)).map(block => block.stype)).toEqual(['heading']);
+        await page.keyboard.press('ControlOrMeta+z');
+        await expect(surface.locator('.on-doc > p')).toHaveCount(1);
+        await expect(heading).toHaveCount(0);
+        await page.keyboard.press('ControlOrMeta+Shift+z');
+        await expect(heading).toHaveCount(1);
+        await page.keyboard.type('Title');
+        await expect(surface.locator('.on-doc')).toHaveText('Title');
+      });
+    }
 
     test('N-280b Backspace at a heading after an empty paragraph removes the gap @regression', async ({ page }) => {
       test.info().annotations.push({ type: 'issue', description: 'https://github.com/barocss/barocss-editor/issues/280' });
@@ -141,6 +164,10 @@ for (const host of ['standalone', 'embedded']) {
       await page.keyboard.press('Backspace');
       await expect.poll(async () => (await blocks(surface)).length).toBe(1);
       await expect(surface.locator('.on-doc')).toHaveText('Title');
+      await page.keyboard.press('ControlOrMeta+z');
+      await expect.poll(async () => (await blocks(surface)).length).toBe(2);
+      await page.keyboard.press('ControlOrMeta+Shift+z');
+      await expect.poll(async () => (await blocks(surface)).length).toBe(1);
       await page.keyboard.type('X');
       await expect(surface.locator('.on-doc')).toHaveText('XTitle');
     });

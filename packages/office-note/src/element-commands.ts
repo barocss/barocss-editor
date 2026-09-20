@@ -1,7 +1,7 @@
 import { registerNoteBlockActions } from './block-actions';
 import type { Editor, Extension } from '@barocss/editor-core';
 import { NOTE_BLOCKS } from './note-schema';
-import { addChild, moveBlockDown, moveBlockUp, moveNode, setAttrs, transaction } from '@barocss/model';
+import { addChild, moveBlockDown, moveBlockUp, moveNode, replaceText, setAttrs, transaction, transformNode } from '@barocss/model';
 
 type Node = Record<string, any>;
 
@@ -313,7 +313,6 @@ class NoteElementExtension implements Extension {
   }
 
   private async _put(editor: Editor, child: Node, payload?: Record<string, unknown>): Promise<boolean> {
-    void payload;
     const where = this._where(editor);
     if (!where) return false;
 
@@ -321,7 +320,32 @@ class NoteElementExtension implements Extension {
      * Committed once, then the caret — the sid of what was added does not exist until it is written,
      * so the selection cannot ride in the same transaction as the `addChild` that makes it.
      */
-    const done = await transaction(editor, [addChild(where.parentId, child as never, where.at)] as never).commit();
+    const operations = [];
+    const range = editor.selection;
+    if (child.stype === 'heading' && range?.type === 'range' &&
+        range.startNodeId === range.endNodeId && range.startOffset === range.endOffset) {
+      const store = editor.dataStore;
+      const text = store.getNode(range.startNodeId);
+      const paragraph = text?.parentId ? store.getNode(text.parentId) : undefined;
+      if (typeof text?.text === 'string' && paragraph?.stype === 'paragraph') {
+        const trigger = payload?.stripSlash === true
+          ? text.text.slice(0, range.startOffset).match(/(?:^|\s)(\/[^\s/]*)$/)?.[1] ?? '' : '';
+        const from = range.startOffset - trigger.length;
+        if (trigger) operations.push(replaceText(range.startNodeId, from, range.startNodeId, range.startOffset, ''));
+        const empty = paragraph.content?.every(id => {
+          const run = typeof id === 'string' ? store.getNode(id) : undefined;
+          return typeof run?.text === 'string' && (id === range.startNodeId
+            ? run.text.slice(0, from) + run.text.slice(range.startOffset) : run.text) === '';
+        });
+        // Reuse an empty writing block, preserving its IDs and a single undo step.
+        if (empty) {
+          operations.push(transformNode(paragraph.sid!, 'heading', child.attributes));
+          return (await transaction(editor, operations).commit()).success;
+        }
+      }
+    }
+    operations.push(addChild(where.parentId, child as never, where.at));
+    const done = await transaction(editor, operations).commit();
     return done.success === true;
   }
 
