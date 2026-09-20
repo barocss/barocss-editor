@@ -9,15 +9,15 @@
 
 `@barocss/model`의 `FragmentEditor`는 editor 하나에 속한다. 조각을 생산하고, 읽기 전용 계획을 만들고, 실제 transaction으로 적용한다. JEV나 LLM을 호출하지 않는다.
 
-이 경로는 명시적으로 사용하는 API다. 기존 `paste(INode[], range)`와 clipboard 확장은 아직 이 경로를 호출하지 않는다. 실제 clipboard 형식과 여러 노드에 걸친 선택은 #264에서 연결한다. DOM/React drop 위치와 move/copy 의도는 #265에서 연결한다. #263이 병합돼도 #262 전체를 완료 처리하지 않는다.
+직접 호출과 schema-backed clipboard command가 이 경로를 사용한다. 구형 `paste(INode[], range)` operation을 직접 호출하는 경로는 별도다. 실제 clipboard 형식과 여러 노드에 걸친 선택은 #264 구현에서 연결한다. DOM/React drop 위치와 move/copy 의도는 #265에서 연결한다. #263이 병합돼도 #262 전체를 완료 처리하지 않는다.
 
-현재 생산자는 연속한 형제 노드 선택과 단일 텍스트 노드의 부분 선택을 지원한다. 소비자는 다음 경로를 지원한다.
+현재 생산자는 연속한 형제 노드 선택과 여러 텍스트 노드에 걸친 부분 선택을 지원한다. 소비자는 다음 경로를 지원한다.
 
 - 부모의 지정 위치에서 자식 조각을 삽입하거나 연속한 자식을 교체한다.
-- 단일 텍스트 범위를 열린 텍스트 조각으로 교체한다. 앞뒤 텍스트와 marks를 보존한다.
-- 텍스트 런 하나를 가진 블록에 닫힌 블록을 삽입한다. 기존 블록을 앞뒤로 나누고 복사한 블록을 그 사이에 둔다.
+- 같은 컨테이너의 여러 런 또는 형제 컨테이너 사이의 텍스트 범위를 열린 조각으로 교체한다. 앞뒤 텍스트와 marks를 보존한다.
+- 여러 텍스트 런을 가진 flow 블록에 닫힌 블록을 삽입한다. 기존 블록을 앞뒤로 나누고 복사한 블록을 그 사이에 둔다.
 
-서로 다른 열린 깊이, 복잡한 다중 런의 블록 분할, move, 비어 있는 조각, 부속 자료가 있는 조각은 이 첫 소비자가 명시적으로 거절한다. 파일 업로드·표 셀 범위·캔버스는 이 API의 일반 본문 경로로 바꾸지 않는다.
+서로 다른 열린 깊이, 명시적으로 허용하지 않은 부모 경로, 양 끝의 혼합 전략, move, 비어 있는 조각, 부속 자료가 있는 조각은 거절한다. 파일 업로드·표 셀 범위·캔버스는 이 API의 일반 본문 경로로 바꾸지 않는다.
 
 ## 기존 선언과 소비 범위
 
@@ -31,7 +31,7 @@
 | atom | 표준 schema의 원자 노드 선언. 공통 paste가 모두 같은 의미로 사용하지 않음 | 열린 조각에서 경계를 제거하거나 대상 블록을 나누지 않음. 닫힌 노드 복사는 가능 |
 | isolating | 기존 공통 paste의 경계 규칙으로 일관되게 소비되지 않음 | 다른 문서/다른 경계로 열린 내용을 결합하거나 대상 경계를 나누지 않음. 같은 경계 내부 텍스트 편집은 가능 |
 | defining | 기존 공통 편집 의미가 확인되지 않음 | 새 자동 변환 의미를 부여하지 않음. 닫힌 조각은 항상 구조 보존 |
-| code | DOM 입력에서 사용. 기존 paste의 literal 분기는 codeBlock 이름을 사용 | 조각 text를 변환하지 않음. 외부 text의 literal/Markdown 판단은 #264 |
+| code | DOM 입력에서 사용. 기존 paste의 literal 분기는 codeBlock 이름을 사용 | clipboard command에서 조상의 code 선언으로 literal 입력을 선택. 내부 rich 조각의 텍스트 변환 손실도 보고 |
 | whitespace | pre/normal 타입은 존재. 표준 codeBlock은 미사용 pre 선언을 의도적으로 생략 | 공백을 정규화하지 않고 그대로 보존. 외부 parser 규칙은 #264 |
 | draggable / droppable | datastore utility가 false와 content 유무를 사용 | #263에는 drag 의도가 없음. #265가 실제 drag 요청에서 적용 |
 
@@ -55,6 +55,10 @@ preserve는 원래 조각 트리를 그대로 넣는다. 부분 section에 capti
 
 기존 DropBehavior 전역 registry·조회 API·스키마 힌트는 #274에서 제거했다. 호환 API는 없다. #265에서 입력 의도를 해석한 뒤 공통 planner를 호출해야 한다. 제품별 연결 사례와 실행 예제는 [사용 가이드](../schema-editing-guide.md#31-누가-판단-기준을-정의하나)를 참고한다.
 
+## 서로 다른 컨테이너의 선택 교체
+
+`rangeReplacement: 'preserve-boundaries'`는 다른 부모 경로 사이의 inline 교체를 허용한다. 기본 clipboard 정책은 이 값을 선언한다. 커스텀 정책은 직접 선택한다. 삽입은 시작 컨테이너에서 수행한다. 끝의 남은 내용은 원래 컨테이너에 둔다. 선택된 중간 내용을 지우되 schema의 content 식이 요구하는 기존 컨테이너는 비운 상태로 유지한다. 새 타입을 추측하거나 서로 다른 역할을 합치지 않는다. 격리·원자 경계, 최종 구조 위반, 여러 문단이나 닫힌 구조 입력은 이 경로에서 거절한다. 교체 범위 밖의 형제는 쓰지 않는다. 유지한 대상 ID의 metadata·version·생성/수정 시간도 보존한다.
+
 ## 조각과 호환성
 
 `DocumentFragment`는 version, origin, selection, content, openStart/openEnd, references, resources를 가진다. `sourceId`는 출처 추적값이다. 적용할 `sid`로 사용하지 않는다.
@@ -63,7 +67,7 @@ preserve는 원래 조각 트리를 그대로 넣는다. 부분 section에 capti
 
 `validateEditingFragment`는 열린 끝에서 생략된 자식을 허용한다. `validateEditingContent`와 깊이 0 검사는 최종 구조에 필수 자식을 요구한다. 기존 `fitContent`의 자동 unwrap/drop을 호출하지 않는다.
 
-직접 수용은 형식, schema 식별, 현재 schema 상태가 모두 같을 때만 허용한다. 기본 식별값은 실행 중 Schema 객체의 식별값이다. 같은 이름과 같은 stype만 가진 별개 Schema는 직접 호환되지 않는다. `schemaId`는 출처별 adapter를 찾는 이름이며, 이것만 같다고 직접 수용하지 않는다. 재실행·직렬화된 다른 세션에서의 호환성은 명시적 adapter가 필요하다.
+직접 수용은 형식, schema 식별, 현재 schema 상태가 모두 같을 때만 허용한다. 기본 식별값은 실행 중 Schema 객체의 식별값이다. 같은 이름과 같은 stype만 가진 별개 Schema는 직접 호환되지 않는다. `schemaId`는 출처별 adapter를 찾는 이름이며, 이것만 같다고 직접 수용하지 않는다. 제품이 `schemaId`와 `schemaRevision`을 함께 선언하면 그 버전이 같은 조각을 직접 검사한다. 이 호환 계약의 버전 관리는 제품 책임이다. 그렇지 않은 다른 세션은 명시적 adapter가 필요하다. 로컬 basis는 별도로 실제 schema 객체·함수·선언을 계속 검사한다.
 
 adapter는 변환한 조각, `converted` 또는 `preserved`, 알려진 손실 목록을 반환한다. `preserved`는 등록한 opaque 타입의 속성 등에 원본을 실제 보관하는 변환에 사용한다. 임의의 원본을 자동으로 보관한다는 뜻은 아니다. 변환 후에도 target schema 검사를 수행한다. 손실 종류는 structure/attribute/mark/reference다. 등록한 callback은 신뢰한 로컬 코드이며 순수 함수여야 한다.
 

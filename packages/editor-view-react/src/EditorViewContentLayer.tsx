@@ -242,8 +242,13 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
   };
 
   const handlePaste: ClipboardEventHandler<HTMLDivElement> = (event) => {
+    if (event.defaultPrevented) return;
     const clipboardEvent = event.nativeEvent as ClipboardEvent;
-    inputHandler.handlePaste(clipboardEvent);
+    const domSelection = window.getSelection();
+    const element = contentRef.current;
+    const selection = domSelection?.anchorNode && domSelection.focusNode && element?.contains(domSelection.anchorNode)
+      && element.contains(domSelection.focusNode) ? selectionHandler.convertDOMSelectionToModel(domSelection) : undefined;
+    inputHandler.handlePaste(clipboardEvent, selection?.type === 'range' ? selection : undefined);
   };
 
   const handleDrop: DragEventHandler<HTMLDivElement> = (event) => {
@@ -276,8 +281,21 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
     // DOM directly — without this it rides along into other applications.
     const onCopy = (event: Event) => {
       const e = event as ClipboardEvent;
+      if (e.defaultPrevented) return;
       const selection = window.getSelection();
       if (!selection || selection.rangeCount === 0 || !e.clipboardData) return;
+      if (e.target instanceof Element && e.target.closest('input, textarea')) return;
+      if (selection.anchorNode && selection.focusNode && el.contains(selection.anchorNode) && el.contains(selection.focusNode)) {
+        const model = selectionHandler.convertDOMSelectionToModel(selection);
+        if (model?.type === 'range') {
+          let handled = false;
+          void editor.executeCommand(e.type === 'cut' ? 'cut' : 'copy', {
+            selection: model, clipboardData: e.clipboardData,
+            onClipboardWrite: () => { handled = true; e.preventDefault(); },
+          });
+          if (handled) return;
+        }
+      }
       const holder = el.ownerDocument.createElement('div');
       holder.appendChild(selection.getRangeAt(0).cloneContents());
       const plain = stripFiller(selection.toString());
@@ -300,7 +318,7 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
       el.removeEventListener('copy', onCopy);
       el.removeEventListener('cut', onCopy);
     };
-  }, [inputHandler]);
+  }, [inputHandler, editor, selectionHandler]);
 
   // Every default keybinding is gated on the `editorFocus` context, so without
   // these the context stays false and no shortcut resolves — bold, headings,

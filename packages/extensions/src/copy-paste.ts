@@ -1,5 +1,5 @@
 import type { ModelSelection, Editor, Extension } from '@barocss/editor-core';
-import { transaction, paste as pasteOp, replaceText as replaceTextOp } from '@barocss/model';
+import { transaction, paste as pasteOp, replaceText as replaceTextOp, FragmentEditor, FRAGMENT_CLIPBOARD_TYPE, FRAGMENT_HTML_ATTRIBUTE, decodeClipboardFragment, encodeClipboardFragment, type DocumentFragment, type EditingLoss } from '@barocss/model';
 import { deleteRangeOperations } from './range-delete';
 import {
   HTMLConverter,
@@ -12,11 +12,19 @@ import {
   cleanOfficeHTML
 } from '@barocss/converter';
 import type { INode } from '@barocss/datastore';
+import { standardClipboardFragment, standardClipboardPolicy } from './standard-clipboard';
 
 interface ClipboardLike {
   json?: INode[];
   text?: string;
   html?: string;
+  fragment?: DocumentFragment;
+}
+interface NativeClipboardPayload {
+  selection?: ModelSelection;
+  clipboardData?: Pick<DataTransfer, 'setData'>;
+  /** Called synchronously while the native clipboard event is still writable. */
+  onClipboardWrite?: () => void;
 }
 
 export class CopyPasteExtension implements Extension {
@@ -54,10 +62,8 @@ export class CopyPasteExtension implements Extension {
         try {
           const html = this._htmlConverter.convert(json, 'html'), text = getClipboardText(json, ed);
           if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') return false;
-          await navigator.clipboard.write([new ClipboardItem({
-            'text/plain': new Blob([text], { type: 'text/plain' }),
-            'text/html': new Blob([html], { type: 'text/html' })
-          })]);
+          const fragment = this._editing(ed)?.captureNodes(ids);
+          await this._writeClipboard({ text, html, fragment });
           return true;
         } catch { return false; }
       }
@@ -66,7 +72,7 @@ export class CopyPasteExtension implements Extension {
     // copy
     editor.registerCommand({
       name: 'copy',
-      execute: async (ed: any, payload?: { selection?: ModelSelection }) => {
+      execute: async (ed: Editor, payload?: NativeClipboardPayload) => {
         const selection = structuredClone(payload?.selection || ed.selection);
         if (!selection || selection.type !== 'range') {
           return false;
@@ -76,8 +82,11 @@ export class CopyPasteExtension implements Extension {
         if (!dataStore || !this._htmlConverter) return false;
         try {
           const json = dataStore.serializeRange(selection) as INode[];
-          await this._writeClipboard({ json, text: getClipboardText(json, ed), html: this._htmlConverter.convert(json, 'html') });
-        } catch { return false; }
+          const fragment = this._editing(ed)?.captureRange(selection);
+          const data = { json, fragment, text: getClipboardText(json, ed), html: this._htmlConverter.convert(json, 'html') };
+          if (payload?.clipboardData) this._writeNative(data, payload);
+          else await this._writeClipboard(data);
+        } catch { payload?.onClipboardWrite?.(); return false; }
         // Copy is read-only. A permission failure must not report success.
 
         return true;
@@ -105,17 +114,29 @@ export class CopyPasteExtension implements Extension {
         nodes?: INode[];
         clipboardHtml?: string;
         clipboardText?: string;
+        clipboardFragment?: string;
+        acceptLosses?: boolean;
       }) => {
         const selection = structuredClone(payload?.selection || ed.selection);
         if (!selection || selection.type !== 'range') {
           return false;
         }
+        const editing = this._editing(ed);
+        let ancestor = ed.dataStore?.getNode?.(selection.startNodeId);
+        while (ancestor && !ed.dataStore.getActiveSchema()?.getNodeType(ancestor.stype)?.code) ancestor = ancestor.parentId ? ed.dataStore.getNode(ancestor.parentId) : undefined;
+        const literalTarget = !!ancestor;
+        let decoded: DocumentFragment | undefined;
+        try { decoded = this._fragmentFromClipboard(payload?.clipboardFragment, payload?.clipboardHtml); }
+        catch { return false; }
+        if (decoded) {
+          if (literalTarget && editing) return this._pasteLiteral(ed, editing, decoded, payload?.clipboardText, selection);
+          return this._pasteFragment(ed, editing, decoded, selection, payload?.acceptLosses);
+        }
 
         // Code is literal text, including tabs, blank lines and Markdown punctuation.
-        let ancestor = ed.dataStore?.getNode?.(selection.startNodeId);
-        while (ancestor && ancestor.stype !== 'codeBlock') ancestor = ancestor.parentId ? ed.dataStore.getNode(ancestor.parentId) : undefined;
-        if (ancestor && payload?.clipboardText !== undefined) {
+        if (literalTarget && payload?.clipboardText !== undefined) {
           const literal = payload.clipboardText.replace(/\r\n?/g, '\n');
+          if (editing) return this._pasteFragment(ed, editing, editing.plainText(literal, selection.startNodeId, true), selection, payload?.acceptLosses);
           const result = await transaction(ed, [replaceTextOp(selection.startNodeId, selection.startOffset, selection.endNodeId, selection.endOffset, literal)]).commit();
           return !!result && result.success !== false;
         }
@@ -128,14 +149,22 @@ export class CopyPasteExtension implements Extension {
           let clipText = payload?.clipboardText;
 
           if (!clipHtml && !clipText) {
+            const checkpoint = editing?.checkpoint();
             const target = this._targetStamp(ed, selection);
             const clip = await this._readClipboard();
-            if (target !== this._targetStamp(ed, selection)) return false;
+            if (checkpoint && !editing!.isCurrent(checkpoint) || target !== this._targetStamp(ed, selection)) return false;
+            if (clip.fragment) {
+              if (literalTarget && editing) return this._pasteLiteral(ed, editing, clip.fragment, clip.text, selection);
+              return this._pasteFragment(ed, editing, clip.fragment, selection, payload?.acceptLosses);
+            }
             clipHtml = clip.html;
             clipText = clip.text;
             if (clip.json && Array.isArray(clip.json)) {
               nodes = clip.json;
             }
+          }
+          if (editing && clipText !== undefined && (literalTarget || !clipHtml && !this._looksLikeMarkdown(clipText))) {
+            return this._pasteFragment(ed, editing, editing.plainText(clipText, selection.startNodeId, literalTarget), selection, payload?.acceptLosses);
           }
 
           // 1) HTML format: distinguish Office / Google Docs / Notion / general HTML
@@ -169,6 +198,7 @@ export class CopyPasteExtension implements Extension {
         if (!nodes || nodes.length === 0) {
           return false;
         }
+        if (editing) return this._pasteFragment(ed, editing, standardClipboardFragment(nodes), selection, payload?.acceptLosses);
 
         // A document without workspace-reference vocabulary keeps the readable label.
         if (!ed.dataStore?.getActiveSchema()?.getNodeType('pageReference')) {
@@ -183,14 +213,14 @@ export class CopyPasteExtension implements Extension {
       },
       canExecute: (ed: any, payload?: any) => {
         const selection: ModelSelection | undefined = payload?.selection || ed.selection;
-        return !!selection && selection.type === 'range';
+        return ed.isEditable !== false && !!selection && selection.type === 'range';
       }
     });
 
     // cut
     editor.registerCommand({
       name: 'cut',
-      execute: async (ed: any, payload?: { selection?: ModelSelection }) => {
+      execute: async (ed: Editor, payload?: NativeClipboardPayload) => {
         const selection = structuredClone(payload?.selection || ed.selection);
         if (!selection || selection.type !== 'range' || selection.collapsed) {
           return false;
@@ -199,11 +229,14 @@ export class CopyPasteExtension implements Extension {
         const dataStore = ed.dataStore;
         if (!dataStore || !this._htmlConverter) return false;
         const target = this._targetStamp(ed, selection);
+        const editing = this._editing(ed), checkpoint = editing?.checkpoint();
         try {
           const json = dataStore.serializeRange(selection) as INode[];
-          await this._writeClipboard({ json, text: getClipboardText(json, ed), html: this._htmlConverter.convert(json, 'html') });
-        } catch { return false; }
-        if (target !== this._targetStamp(ed, selection)) return false;
+          const data = { json, fragment: editing?.captureRange(selection), text: getClipboardText(json, ed), html: this._htmlConverter.convert(json, 'html') };
+          if (payload?.clipboardData) this._writeNative(data, payload);
+          else await this._writeClipboard(data);
+        } catch { payload?.onClipboardWrite?.(); return false; }
+        if (ed.isEditable === false || checkpoint && !editing!.isCurrent(checkpoint) || target !== this._targetStamp(ed, selection)) return false;
 
         // Use the same reversible range deletion as Backspace, including block joins.
         const builder = transaction(ed, deleteRangeOperations(selection, ed) as never);
@@ -212,9 +245,57 @@ export class CopyPasteExtension implements Extension {
       },
       canExecute: (ed: any, payload?: any) => {
         const selection: ModelSelection | undefined = payload?.selection || ed.selection;
-        return !!selection && selection.type === 'range' && !selection.collapsed;
+        return ed.isEditable !== false && !!selection && selection.type === 'range' && !selection.collapsed;
       }
     });
+  }
+
+  private _editing(editor: Editor): FragmentEditor | undefined {
+    const schema = editor.dataStore?.getActiveSchema();
+    return typeof editor.dataStore?.getEditRevision === 'function' && schema
+      ? FragmentEditor.forEditor(editor, standardClipboardPolicy(type => schema.hasNodeType(type))) : undefined;
+  }
+  private _fragmentFromClipboard(serialized?: string, html?: string): DocumentFragment | undefined {
+    if (serialized) return decodeClipboardFragment(serialized);
+    if (!html) return undefined;
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    const value = parsed.querySelector(`[${FRAGMENT_HTML_ATTRIBUTE}]`)?.getAttribute(FRAGMENT_HTML_ATTRIBUTE);
+    return value === undefined || value === null ? undefined : decodeClipboardFragment(decodeURIComponent(value));
+  }
+  private async _pasteFragment(editor: Editor, editing: FragmentEditor | undefined, fragment: DocumentFragment, selection: ModelSelection, acceptLosses = false, inputLosses: EditingLoss[] = []): Promise<boolean> {
+    if (!editing) return false;
+    let decision = editing.plan({ intent: 'copy', fragment, target: { kind: 'text', nodeId: selection.startNodeId, from: selection.startOffset, endNodeId: selection.endNodeId, to: selection.endOffset } });
+    if (decision.ok && inputLosses.length) {
+      const actions = ['transform' as const, ...decision.plan.actions], losses = [...inputLosses, ...decision.plan.losses];
+      losses.forEach(loss => Object.freeze(loss)); Object.freeze(losses); Object.freeze(actions);
+      decision = { ok: true, plan: Object.freeze({ ...decision.plan, outcome: 'converted', actions, losses }) };
+    }
+    editor.emit('editor:clipboard.plan', decision);
+    if (editor.isEditable === false || !decision.ok || decision.plan.losses.length && !acceptLosses) return false;
+    return (await editing.apply(decision.plan)).committed === true;
+  }
+  private _pasteLiteral(editor: Editor, editing: FragmentEditor, source: DocumentFragment, text: string | undefined, selection: ModelSelection): Promise<boolean> {
+    // A schema code region explicitly chooses literal input. Report that conversion even though
+    // this destination policy accepts it without a second user decision.
+    const losses: EditingLoss[] = [{ kind: 'structure', reason: 'Literal target imports the plain-text representation instead of source structure' }];
+    const visit = (nodes: DocumentFragment['content']): void => nodes.forEach(node => {
+      if (node.marks?.length && !losses.some(loss => loss.kind === 'mark')) losses.push({ kind: 'mark', reason: 'Literal target does not import source marks' });
+      if (Object.keys(node.attributes ?? {}).length && !losses.some(loss => loss.kind === 'attribute')) losses.push({ kind: 'attribute', reason: 'Literal target keeps destination attributes instead of source attributes' });
+      if (node.content) visit(node.content);
+    });
+    visit(source.content);
+    if (source.references.length) losses.push({ kind: 'reference', reason: 'Literal target imports reference labels instead of links' });
+    return this._pasteFragment(editor, editing, editing.plainText(text ?? getClipboardText(source.content as INode[], editor), selection.startNodeId, true), selection, true, losses);
+  }
+  private _writeNative(data: ClipboardLike, payload: NativeClipboardPayload): void {
+    const html = data.fragment ? encodeClipboardFragment(data.fragment, data.html ?? '') : data.html ?? '';
+    payload.clipboardData!.setData('text/plain', data.text ?? '');
+    payload.clipboardData!.setData('text/html', html);
+    // Some browsers reject custom MIME. The HTML envelope already preserves the same fragment.
+    if (data.fragment) {
+      try { payload.clipboardData!.setData(FRAGMENT_CLIPBOARD_TYPE, JSON.stringify(data.fragment)); } catch { /* HTML transport remains available. */ }
+    }
+    payload.onClipboardWrite?.();
   }
 
   private _targetStamp(editor: Editor, selection: ModelSelection): string {
@@ -254,8 +335,9 @@ export class CopyPasteExtension implements Extension {
       if (data.text) {
         items['text/plain'] = new Blob([data.text], { type: 'text/plain' });
       }
-      if (data.html) {
-        items['text/html'] = new Blob([data.html], { type: 'text/html' });
+      if (data.html || data.fragment) {
+        const html = data.fragment ? encodeClipboardFragment(data.fragment, data.html ?? '') : data.html!;
+        items['text/html'] = new Blob([html], { type: 'text/html' });
       }
       if (Object.keys(items).length > 0) {
         await navigator.clipboard.write([new ClipboardItem(items)]);
@@ -282,6 +364,7 @@ export class CopyPasteExtension implements Extension {
           if (item.types.includes('text/html')) {
             const blob = await item.getType('text/html');
             result.html = await blob.text();
+            result.fragment = this._fragmentFromClipboard(undefined, result.html);
           }
           if (item.types.includes('text/plain')) {
             const blob = await item.getType('text/plain');
@@ -295,7 +378,8 @@ export class CopyPasteExtension implements Extension {
         const text = await navigator.clipboard.readText();
         return { text };
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof SyntaxError || error instanceof URIError || error instanceof Error && error.message === 'Invalid clipboard fragment envelope') throw error;
       // ignore — permission denied, etc.
     }
     return {};
@@ -384,4 +468,3 @@ export function getClipboardText(nodes: INode[], editor: Editor): string {
   const join = (items: INode[]) => items.map((node, index) => (index && (block(node) || block(items[index - 1])) ? '\n' : '') + render(node)).join('');
   return join(nodes);
 }
-

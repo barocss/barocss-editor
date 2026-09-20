@@ -63,7 +63,11 @@ export interface EditingRuleTrace {
 export interface EditingPolicy {
   /** Source identifier for adapter lookup. Direct acceptance also requires the same schema revision. */
   schemaId?: string;
+  /** Optional portable contract version. Set with schemaId and bump when compatibility changes. */
+  schemaRevision?: string;
   defaultBlock?: string;
+  /** Opt into inline range replacement across target roles while retaining required empty containers. */
+  rangeReplacement?: 'preserve-boundaries';
   /** Exact type names or '*'. Registrations belong to this editor, not a global registry. */
   rules?: EditingRule[];
   references?: Record<string, Record<string, ReferencePolicy>>;
@@ -76,7 +80,7 @@ export interface EditingPolicy {
 }
 export type EditingTarget =
   | { kind: 'children'; parentId: string; index: number; deleteCount?: number }
-  | { kind: 'text'; nodeId: string; from: number; to: number };
+  | { kind: 'text'; nodeId: string; from: number; to: number; endNodeId?: string };
 export interface EditingRequest {
   intent: 'copy' | 'move';
   target: EditingTarget;
