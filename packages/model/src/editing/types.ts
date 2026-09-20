@@ -37,10 +37,35 @@ export interface ReferencePolicy {
   /** Node references within a copied fragment always remap. This governs everything else. */
   outside: 'reject' | 'preserve' | 'same-document';
 }
+/** Rules select a supported strategy. They never write nodes or bypass schema checks. */
+export interface EditingRule {
+  id: string;
+  priority?: number;
+  match: {
+    sourceType: string;
+    targetType: string;
+    boundary: 'open' | 'closed';
+    attributes: 'equal' | 'any';
+    targetKind?: EditingTarget['kind'];
+  };
+  effect: 'join-inline' | 'preserve' | 'reject';
+  reason: string;
+}
+export interface EditingRuleTrace {
+  ruleIds: string[];
+  sourceType: string;
+  targetType: string;
+  boundary: 'open' | 'closed';
+  targetKind: EditingTarget['kind'];
+  effect: EditingRule['effect'];
+  reason: string;
+}
 export interface EditingPolicy {
   /** Source identifier for adapter lookup. Direct acceptance also requires the same schema revision. */
   schemaId?: string;
   defaultBlock?: string;
+  /** Exact type names or '*'. Registrations belong to this editor, not a global registry. */
+  rules?: EditingRule[];
   references?: Record<string, Record<string, ReferencePolicy>>;
   adapters?: {
     format: string;
@@ -70,6 +95,7 @@ export interface EditingPlan {
   basis: EditingBasis;
   outcome: 'direct' | 'converted' | 'preserved';
   losses: EditingLoss[];
+  trace: EditingRuleTrace[];
   actions: ('insert' | 'replace' | 'split' | 'join' | 'wrap' | 'transform')[];
   parentId: string;
   index: number;
@@ -80,4 +106,4 @@ export interface EditingPlan {
   references: FragmentReference[];
   caret: { path: number[]; offset: number } | null;
 }
-export type EditingDecision = { ok: true; plan: EditingPlan } | { ok: false; reason: string; losses: EditingLoss[] };
+export type EditingDecision = { ok: true; plan: EditingPlan } | { ok: false; reason: string; losses: EditingLoss[]; trace: EditingRuleTrace[] };

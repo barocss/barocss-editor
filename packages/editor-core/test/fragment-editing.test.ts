@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Editor } from '../src/editor';
-import { FragmentEditor } from '@barocss/model';
+import { FragmentEditor, defineEditingRule } from '@barocss/model';
 import { createSchema, getStandardSchemaDefinition } from '@barocss/schema';
 
 function fixture() {
@@ -19,13 +19,20 @@ function snapshot(editor: Editor) {
 describe('fragment policies in an actual editor', () => {
   it('restores document, IDs and selection through editor undo/redo after policy replacement', async () => {
     const { editor, editing } = fixture();
+    const rule = defineEditingRule({
+      id: 'paragraph.open-content',
+      match: { sourceType: 'paragraph', targetType: 'paragraph', boundary: 'open', attributes: 'equal' },
+      effect: 'join-inline', reason: 'Join compatible paragraph content',
+    });
+    editing.configure({ rules: [rule] });
     const before = snapshot(editor), selection = structuredClone(editor.selection);
     const decision = editing.plan({ intent: 'copy', fragment: editing.captureText('s', 0, 6), target: { kind: 'text', nodeId: 't', from: 2, to: 2 } });
     expect(decision.ok).toBe(true);
     if (!decision.ok) throw new Error(decision.reason);
+    expect(decision.plan.trace).toMatchObject([{ ruleIds: ['paragraph.open-content'], effect: 'join-inline' }]);
     expect((await editing.apply(decision.plan)).success).toBe(true);
     const after = snapshot(editor), afterSelection = structuredClone(editor.selection);
-    editing.configure({ defaultBlock: 'paragraph' });
+    editing.configure({ rules: [defineEditingRule({ ...rule, effect: 'reject', reason: 'New edits are refused by product policy' })] });
     expect(await editor.undo()).toBe(true);
     expect(snapshot(editor)).toEqual(before);
     expect(editor.selection).toEqual(selection);

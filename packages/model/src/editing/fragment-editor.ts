@@ -5,9 +5,10 @@ import { transaction } from '../transaction-dsl';
 import { defineOperation } from '../operations/define-operation';
 import { subtreeOf } from '../operations/subtree';
 import type { TransactionContext } from '../types';
-import type { DocumentFragment, EditingBasis, EditingDecision, EditingPlan, EditingPolicy, EditingRequest, FragmentNode, FragmentOrigin } from './types';
+import type { DocumentFragment, EditingBasis, EditingDecision, EditingPlan, EditingPolicy, EditingRequest, EditingRuleTrace, FragmentNode, FragmentOrigin } from './types';
 import { clip, fragment, fromNode, references, tree, walk } from './fragment';
 import { documentState, freeze, identity, schemaState, signature } from './state';
+import { defineEditingPolicy, effectiveAttributes, resolveEditingRule, sameAttributes } from './policy';
 
 const sessions = new WeakMap<object, FragmentEditor>();
 
@@ -21,8 +22,7 @@ export class FragmentEditor {
     sessions.set(editor, this);
   }
   configure(policy: EditingPolicy): void {
-    // Copy caller-owned configuration; callbacks must be pure and replaced by configure().
-    this.policy = freeze({ ...policy, references: structuredClone(policy.references), adapters: policy.adapters?.map(adapter => ({ ...adapter })) });
+    this.policy = defineEditingPolicy(policy);
     this.policyRevision++;
   }
   private get store(): DataStore { return this.editor.dataStore; }
@@ -68,6 +68,7 @@ export class FragmentEditor {
   }
   plan(request: EditingRequest): EditingDecision {
     const losses: EditingPlan['losses'] = [];
+    const trace: EditingRuleTrace[] = [];
     try {
       if (this.store.isTransactionActive()) throw new Error('Plan outside an active transaction');
       const basis = this.basis();
@@ -111,8 +112,10 @@ export class FragmentEditor {
         const count = request.target.deleteCount ?? 0;
         if (!parent || !Number.isInteger(index) || !Number.isInteger(count) || index < 0 || count < 0 || index + count > (parent.content?.length ?? 0)) throw new Error('Invalid child insertion target');
         removeIds = (parent.content ?? []).slice(index, index + count) as string[];
-        if (input.openStart || input.openEnd) {
-          content = this.openText(input, parentId, losses);
+        if (input.selection === 'range') {
+          const opened = this.inspectOpen(input, parentId);
+          content = opened.leaves;
+          let wrapper: FragmentNode | undefined;
           const candidate = (parent.content ?? []).map(id => tree(this.store, id as string));
           candidate.splice(index, count, ...content);
           if (!validateEditingContent(this.schema, parent.stype, candidate).valid) {
@@ -120,9 +123,17 @@ export class FragmentEditor {
             const type = this.policy.defaultBlock ?? (candidates.length === 1 ? candidates[0].name : undefined);
             if (!type) throw new Error('A default block policy is required for this schema');
             const attributes = Object.fromEntries(Object.entries(this.schema.getNodeType(type)?.attrs ?? {}).filter(([, def]) => def.default !== undefined).map(([name, def]) => [name, structuredClone(def.default)]));
-            content = [{ stype: type, attributes, content }];
-            actions.push('wrap');
+            wrapper = { stype: type, attributes, content };
           }
+          const effect = this.chooseOpen(opened, wrapper ?? fromNode(parent), request.target.kind, trace);
+          if (effect === 'preserve') content = input.content;
+          else {
+            this.reportOpenLosses(opened.boundaries, wrapper ?? fromNode(parent), parentId, losses);
+            if (wrapper) { content = [wrapper]; actions.push('wrap'); }
+            else actions.push('join');
+          }
+        } else {
+          this.chooseClosed(content, fromNode(parent), request.target.kind, trace);
         }
         actions.push(count ? 'replace' : 'insert');
         walk(content, (node, path) => { if (node.text !== undefined) caret = { path, offset: node.text.length }; });
@@ -134,8 +145,15 @@ export class FragmentEditor {
         const before = clip(fromNode(node), 0, from), after = clip(fromNode(node), to, node.text.length);
         delete before.sourceId; delete after.sourceId;
         if (Object.keys(this.policy.references?.[node.stype] ?? {}).some(key => node.attributes?.[key] !== undefined)) throw new Error('Splitting a reference-bearing text node requires a conversion');
+        let incoming: FragmentNode[] | undefined;
         if (input.selection === 'range') {
-          const incoming = this.openText(input, parent.sid!, losses);
+          const opened = this.inspectOpen(input, parent.sid!);
+          if (this.chooseOpen(opened, fromNode(parent), request.target.kind, trace) === 'join-inline') {
+            this.reportOpenLosses(opened.boundaries, fromNode(parent), parent.sid!, losses);
+            incoming = opened.leaves;
+          }
+        } else this.chooseClosed(content, fromNode(parent), request.target.kind, trace);
+        if (incoming) {
           parentId = parent.sid!; index = parent.content!.indexOf(nodeId); removeIds = [nodeId];
           content = [before, ...incoming, after];
           retainIds['0'] = nodeId;
@@ -177,31 +195,59 @@ export class FragmentEditor {
       }
       for (const ref of declared) if (ref.kind === 'node' && !keptSourceIds.has(ref.target) && removed.has(ref.target)) throw new Error('Replacement would remove a referenced node');
       if (signature(basis) !== signature(this.basis())) throw new Error('Planning callback changed document, selection, schema or policy');
-      return { ok: true, plan: freeze({ basis, outcome, losses, actions, parentId, index, removeIds, content, retainIds, references: declared, caret }) };
+      return { ok: true, plan: freeze({ basis, outcome, losses, trace, actions, parentId, index, removeIds, content, retainIds, references: declared, caret }) };
     } catch (error) {
-      return { ok: false, reason: error instanceof Error ? error.message : String(error), losses };
+      return { ok: false, reason: error instanceof Error ? error.message : String(error), losses, trace };
     }
   }
-  private openText(input: DocumentFragment, targetParent: string, losses: EditingPlan['losses']): FragmentNode[] {
+  private inspectOpen(input: DocumentFragment, targetParent: string): { boundaries: FragmentNode[]; leaves: FragmentNode[] } {
     if (input.openStart !== input.openEnd) throw new Error('Unequal open boundaries require the extended paste planner');
     let nodes = input.content;
+    const boundaries: FragmentNode[] = [];
     for (let depth = 0; depth < input.openStart; depth++) {
       if (nodes.length !== 1 || !nodes[0].content) throw new Error('Initial range consumer requires a single open chain');
       const node = nodes[0], def = this.schema.getNodeType(node.stype);
+      boundaries.push(node);
       if (def?.isolating || def?.atom) {
         let target: INode | undefined = this.store.getNode(targetParent);
         while (target && target.sid !== node.sourceId) target = target.parentId ? this.store.getNode(target.parentId) : undefined;
         if (!target || input.origin.documentId !== this.documentId()) throw new Error('Cannot join across an isolated or atomic boundary');
       }
-      if (Object.keys(node.attributes ?? {}).length) {
-        let target: INode | undefined = this.store.getNode(targetParent);
-        while (target && !(target.stype === node.stype && signature(target.attributes) === signature(node.attributes))) target = target.parentId ? this.store.getNode(target.parentId) : undefined;
-        if (!target) losses.push({ kind: 'attribute', reason: `Open ${node.stype} boundary attributes are not transferred to the target` });
-      }
       nodes = node.content!;
     }
     if (!nodes.length || nodes.some(node => typeof node.text !== 'string' || this.schema.getNodeType(node.stype)?.group !== 'inline')) throw new Error('Initial range consumer requires inline text leaves');
-    return nodes;
+    return { boundaries, leaves: nodes };
+  }
+  private chooseOpen(opened: { boundaries: FragmentNode[]; leaves: FragmentNode[] }, target: FragmentNode, targetKind: EditingRequest['target']['kind'], trace: EditingRuleTrace[]): 'join-inline' | 'preserve' {
+    const sources = opened.boundaries.length ? [opened.boundaries.at(-1)!] : opened.leaves;
+    const decisions = sources.map(source => {
+      const compatible = !opened.boundaries.length || source.stype === target.stype && sameAttributes(this.schema, source, target);
+      const decision = resolveEditingRule(this.policy, this.schema, source, target, { boundary: 'open', targetKind }, compatible
+        ? { effect: 'join-inline', reason: 'Open inline content has compatible boundary type and attributes' }
+        : { effect: 'preserve', reason: 'Different boundary type or attributes require structure preservation or an explicit join rule' });
+      trace.push(decision);
+      if (decision.effect === 'reject') throw new Error(decision.reason);
+      return decision.effect;
+    });
+    if (new Set(decisions).size !== 1) throw new Error('Conflicting strategies for inline fragment nodes');
+    return decisions[0];
+  }
+  private chooseClosed(content: FragmentNode[], target: FragmentNode, targetKind: EditingRequest['target']['kind'], trace: EditingRuleTrace[]): void {
+    for (const source of content) {
+      const decision = resolveEditingRule(this.policy, this.schema, source, target, { boundary: 'closed', targetKind }, { effect: 'preserve', reason: 'Closed nodes preserve their structure' });
+      trace.push(decision);
+      if (decision.effect === 'reject') throw new Error(decision.reason);
+    }
+  }
+  private reportOpenLosses(boundaries: FragmentNode[], targetNode: FragmentNode, targetParent: string, losses: EditingPlan['losses']): void {
+    const inner = boundaries.at(-1);
+    if (inner && inner.stype !== targetNode.stype) losses.push({ kind: 'structure', reason: `Open ${inner.stype} content is joined into ${targetNode.stype}` });
+    for (const node of boundaries) {
+      if (!Object.keys(effectiveAttributes(this.schema, node)).length || node.stype === targetNode.stype && sameAttributes(this.schema, node, targetNode)) continue;
+      let target: INode | undefined = this.store.getNode(targetParent);
+      while (target && !(target.stype === node.stype && sameAttributes(this.schema, node, fromNode(target)))) target = target.parentId ? this.store.getNode(target.parentId) : undefined;
+      if (!target) losses.push({ kind: 'attribute', reason: `Open ${node.stype} boundary attributes are not transferred to the target` });
+    }
   }
   apply(plan: EditingPlan) {
     return transaction(this.editor, [{ type: 'fragmentEdit', payload: { plan } }]).commit();

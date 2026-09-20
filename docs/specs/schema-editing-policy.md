@@ -35,7 +35,25 @@
 | whitespace | pre/normal 타입은 존재. 표준 codeBlock은 미사용 pre 선언을 의도적으로 생략 | 공백을 정규화하지 않고 그대로 보존. 외부 parser 규칙은 #264 |
 | draggable / droppable | datastore utility가 false와 content 유무를 사용 | #263에는 drag 의도가 없음. #265가 실제 drag 요청에서 적용 |
 
-추가 정책은 `defaultBlock`, 출처별 adapter, 참조 규칙이다. 기본 블록 후보가 선언만으로 유일하면 등록 없이 처리한다. 후보가 여러 개면 명시적 정책을 요구한다. 정책으로 content/attrs/marks 제약을 해제할 수 없다.
+추가 정책은 `rules`, `defaultBlock`, 출처별 adapter, 참조 규칙이다. 기본 블록 후보가 선언만으로 유일하면 등록 없이 처리한다. 후보가 여러 개면 명시적 정책을 요구한다. 정책으로 content/attrs/marks 제약을 해제할 수 없다.
+
+## 편집 규칙과 planner의 책임
+
+`defineEditingRule`은 불변 규칙 값을 반환한다. `defineEditingPolicy`는 규칙 중복 ID를 검사하고 전체 정책을 복사·동결한다. 전역 등록을 하지 않는다. `FragmentEditor.configure`도 같은 검사를 수행하며, 잘못된 등록은 기존 정책과 세대를 변경하지 않는다.
+
+규칙은 원본/대상 타입(정확한 이름 또는 `*`), open/closed 경계, 전체 속성의 equal/any, 선택적인 text/children 대상 방식을 조건으로 가진다. effect는 join-inline/preserve/reject다. 설명은 필수 reason에 둔다. join-inline은 open에서만 등록할 수 있다. 닫힌 노드의 임의 병합, 트리 변환 callback, 문서 쓰기 callback은 없다.
+
+일치한 규칙 중 최대 priority를 사용한다. 기본 priority는 0이며, 같은 우선순위의 서로 다른 effect는 거절한다. 같은 effect의 규칙은 ID 순서로 함께 기록한다. 등록 순서나 타입 조건의 구체성으로 암묵적 우선순위를 만들지 않는다. 규칙이 없으면 열린 동일 타입/유효 속성 경계를 연결하고, 다른 경계와 닫힌 노드는 보존을 시도한다. 최종 구조가 유효하지 않으면 거절한다. 경계가 없는 inline 텍스트는 직접 삽입 후 검사한다.
+
+유효 속성 비교에는 schema default를 포함한다. equal은 객체 키 순서를 무시하며 배열 순서를 구분한다. any는 비교를 생략할 뿐 속성 병합을 승인하지 않는다. 연결은 대상 속성을 유지하고 원본 속성이 사라지면 손실로 보고한다. 명시한 서로 다른 타입 간 연결은 structure 손실도 보고한다. marks는 보존하며 최종 허용 여부를 검사한다.
+
+규칙의 source는 가장 안쪽 열린 컨테이너 또는 각 닫힌 최상위 노드다. target은 text 대상의 부모 또는 children 대상의 실제 inline 수용 컨테이너다. 감싸기가 필요하면 먼저 defaultBlock/유일 후보를 결정한다. 바깥 열린 조상에 대한 별도 사용자 규칙은 없다. 바깥 조상은 기존 격리·속성 손실·참조 검사의 대상이다.
+
+preserve는 원래 조각 트리를 그대로 넣는다. 부분 section에 caption이 없으면 이를 합성하지 않는다. text 대상에서 보존할 때 기존 단일 런 블록 분할 제한을 적용한다. 규칙으로 구조 검사, 참조 검사, isolating/atom 경계를 우회할 수 없다.
+
+`plan.trace`와 거절 결과의 `trace`는 ruleIds/sourceType/targetType/boundary/targetKind/effect/reason을 기록한다. 기본 규칙은 예약한 `builtin:` ID를 사용한다. 선택 전 검사에서 거절한 결과는 빈 trace일 수 있다. trace가 연결을 선택했더라도 최종 구조 검사가 실패할 수 있다. plan은 정책 선언이 아니라 판단 결과이며, transaction은 유효한 계획을 실행한다.
+
+기존 DropBehavior는 전역 동작 이름 registry이며 새 DSL과 자동 호환되지 않는다. #265에서 입력 의도를 해석한 뒤 공통 planner를 호출해야 한다. 제품별 연결 사례와 실행 예제는 [사용 가이드](../schema-editing-guide.md#31-누가-판단-기준을-정의하나)를 참고한다.
 
 ## 조각과 호환성
 

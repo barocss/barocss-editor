@@ -12,7 +12,7 @@ flowchart TD
     Input[선택한 내용과 붙일 위치] --> Capture[문서 조각 만들기]
     Capture --> Request[편집 요청: copy 의도 + 대상 범위]
     Schema[Schema: content / attrs / marks] --> Plan
-    Policy[Editor별 정책: 기본 블록 / 변환 / 참조] --> Plan
+    Policy[Editor별 정책: 편집 규칙 / 기본 블록 / 변환 / 참조] --> Plan
     Request --> Plan[plan: 호환성 확인과 결과 구조 검사]
     Plan -->|거절| Reason[reason과 losses 반환 / 문서 유지]
     Plan -->|계획 가능| Preview[결과 계획과 losses 반환 / 아직 문서 유지]
@@ -65,6 +65,7 @@ flowchart LR
 | 본문에 어떤 자식을 넣을지 | `content`, 자식의 `group` | 허용한 타입/그룹만 배치 |
 | 속성의 타입·필수값·기본값 | 노드의 `attrs` | 조각과 최종 결과를 검사. 기본 블록을 만들 때 선언한 기본값 사용 |
 | 허용할 서식 | schema의 `marks`, 노드의 `marks` | 알 수 없는 mark와 금지한 mark를 거절 |
+| 언제 내용을 연결하거나 구조를 보존할지 | `EditingPolicy.rules` / `defineEditingRule` | 타입·경계·속성 조건으로 `join-inline`, `preserve`, `reject` 선택 |
 | 어떤 블록으로 본문을 감쌀지 | `EditingPolicy.defaultBlock` | 선언만으로 후보가 하나면 생략 가능. 후보가 여러 개면 명시 |
 | 열린 경계를 넘겨 합치지 않을지 | 노드의 `isolating: true` | 같은 경계 내부의 텍스트 편집은 가능. 그 밖으로 열린 내용을 합치는 것은 거절 |
 | 원자 노드 경계를 유지할지 | 노드의 `atom: true` | 새 경로에서 열린 경계 제거와 대상 블록 분할을 제한 |
@@ -73,7 +74,98 @@ flowchart LR
 | 화면에 어떻게 그릴지 | 제품의 renderer/kit | 편집 정책과 별도로 구현. schema 등록만으로 UI가 생기지 않음 |
 | 읽기 전용 mode에서 명령을 허용할지 | 제품의 command/context 진입점 | 현재 FragmentEditor에 범용 mode/권한 정책이 추가된 것은 아님 |
 
-`defaultBlock`이나 adapter로 schema의 구조 제약을 끌 수 없다. 현재 임의의 split/join callback이나 모든 타입 조합별 callback은 제공하지 않는다. 지원하는 본문 알고리즘으로 표현할 수 없는 구조는 별도 영역 알고리즘이 필요하다.
+`defaultBlock`이나 adapter로 schema의 구조 제약을 끌 수 없다. 편집 규칙은 지원하는 전략을 선택하는 선언이다. 임의의 split/join callback이나 문서 쓰기 callback은 제공하지 않는다. 지원하는 본문 알고리즘으로 표현할 수 없는 구조는 별도 영역 알고리즘이 필요하다.
+
+## 3.1. 누가 판단 기준을 정의하나
+
+**plan은 판단 기준이 아니라 판단 결과다.** 스키마 작성자가 구조를 정의하고, 스키마/제품 작성자가 편집 규칙을 정의한다. planner가 두 선언을 읽고 결과를 계산한다. JEV나 모델이 편집 순간에 의미를 추측하지 않는다.
+
+| 책임 | 작성 또는 실행 주체 | 결과 |
+| --- | --- | --- |
+| 허용 구조·속성·서식 | 커스텀 스키마 작성자 | Schema |
+| 어떤 경계를 연결·보존·거절할지 | 스키마/제품 작성자 | EditingPolicy.rules |
+| 우선순위 판정과 결과 구조 계산 | FragmentEditor planner | plan 또는 거절 |
+| 최종 구조·marks·참조 검사 | 공통 schema/model 엔진 | 제약 위반 시 거절 |
+| 손실이 있는 계획을 적용할지 | 제품 호출자 | apply 호출 여부 |
+| 실제 쓰기·복구·undo/redo | transaction 엔진 | 확정한 편집 기록 |
+
+스키마 패키지는 Schema와 기본 EditingPolicy를 함께 내보낼 수 있다. 제품은 그 정책을 에디터 생성 시 등록한다. 규칙 helper는 전역 등록을 하지 않는다. 제품이 규칙을 추가할 때는 자신이 보관한 전체 정책으로 새 배열을 구성하고 configure를 호출한다.
+
+```mermaid
+flowchart TD
+    Context[조각과 대상 위치 해석] --> Guard[호환성·열린 경계·참조 검사]
+    Guard --> Match[편집 규칙 조건 비교]
+    Match --> Priority[일치 규칙 중 가장 높은 priority]
+    Priority --> Conflict{같은 우선순위의 효과가 충돌하는가?}
+    Conflict -->|예| Reject[거절: 충돌한 ruleIds와 이유]
+    Conflict -->|아니오| Strategy[연결 / 구조 보존 / 거절 선택]
+    Match -->|일치 규칙 없음| Default[공통 기본 규칙]
+    Default --> Strategy
+    Strategy --> Validate[실제 결과 구조·marks·참조 검사]
+    Validate --> Plan[plan: trace / actions / content / losses]
+```
+
+규칙 선택은 다음 순서로 고정한다.
+
+1. `sourceType`, `targetType`, `boundary`, `attributes`, 선택적인 `targetKind`를 비교한다. 타입 조건은 정확한 이름 또는 `*`다. group이나 비슷한 이름을 자동 확장하지 않는다.
+2. 일치한 규칙 중 가장 높은 priority를 사용한다. 생략하면 0이다. 타입 조건이 더 구체적이라는 이유로 자동 우선하지 않는다.
+3. 최고 우선순위 규칙들의 effect가 다르면 거절한다. 같으면 함께 사용하며 ID 순서로 trace를 기록한다. 등록 순서는 결과에 영향을 주지 않는다.
+4. 규칙이 없으면 공통 기본값을 사용한다. 열린 경계의 타입과 유효 속성이 같으면 연결한다. 다르면 조각 구조를 보존하고 최종 구조를 검사한다. 닫힌 전체 노드는 보존한다. 조상 경계가 없는 순수 inline 텍스트는 직접 삽입 후 검사한다.
+5. 규칙으로 schema 제약, 격리 경계, mark 제한이나 참조 검사를 끌 수 없다. `reject` 외의 효과도 최종 검사에 실패할 수 있다.
+
+`attributes: 'equal'`은 schema 기본값을 포함해 전체 속성을 비교한다. 객체 키 순서는 무시하고 배열 순서는 유지한다. `'any'`는 속성 비교를 생략한다. 속성을 병합하거나 덮어쓰라는 뜻은 아니다. `join-inline`은 대상 컨테이너의 속성을 유지하며, 전달하지 못한 원본 경계 속성은 losses에 기록한다.
+
+## 3.2. 실제 DSL과 판정 범위
+
+```ts
+import { defineEditingPolicy, defineEditingRule } from '@barocss/model';
+
+export const articleEditingPolicy = defineEditingPolicy({
+  defaultBlock: 'body',
+  rules: [
+    defineEditingRule({
+      id: 'article.body.join-open',
+      priority: 10,
+      match: {
+        sourceType: 'body', targetType: 'body',
+        boundary: 'open', attributes: 'equal',
+      },
+      effect: 'join-inline',
+      reason: '같은 속성의 본문 일부를 대상 본문에 연결한다',
+    }),
+    defineEditingRule({
+      id: 'article.body.keep-boundary',
+      match: {
+        sourceType: 'body', targetType: 'body',
+        boundary: 'open', attributes: 'any',
+      },
+      effect: 'preserve',
+      reason: '속성이 다른 본문은 별도 구조로 유지한다',
+    }),
+  ],
+});
+```
+
+이 정책은 `new FragmentEditor(editor, articleEditingPolicy)` 또는 기존 인스턴스의 configure로 등록한다. 앞 규칙의 priority가 높아서 속성이 같으면 연결하고, 다르면 뒤 규칙으로 보존한다.
+
+| 항목 | 현재 정확한 의미 |
+| --- | --- |
+| 열린 sourceType | 단일 열린 조상 경로의 가장 안쪽 컨테이너. `section(body(glyph))`에서 body. 조상 경계가 없으면 각 inline 잎 |
+| 닫힌 sourceType | 복사한 최상위 노드 각각. 여러 노드 중 하나라도 거절되면 전체 요청 거절 |
+| text targetType | 대상 텍스트를 담은 부모 타입 |
+| children targetType | inline 삽입이 가능하면 지정 부모 타입. 감싸기가 필요하면 defaultBlock 또는 유일 후보 타입 |
+| targetKind | `text` 또는 `children`으로 대상 방식 제한. 생략하면 둘 다 검사 |
+| join-inline | 열린 경계를 해석하고 텍스트/marks를 연결. 닫힌 노드에 대한 join 규칙은 등록 시 거절 |
+| preserve | 조각의 원래 중첩 구조를 유지. text 대상에서는 대상 블록을 나눠 삽입. 빠진 필수 자식은 만들지 않음 |
+| reject | reason을 반환하고 문서 유지 |
+
+자식 삽입에 기본 감싸기가 필요하지만 후보가 여러 개이면 규칙 판정 전에 defaultBlock이 필요하다. `preserve`로 열린 `section(body)`를 보존해도 최종 schema가 `caption body+`를 요구하면 거절된다. 이 API가 빠진 caption을 임의 생성하지 않는다.
+
+이 첫 DSL은 단일 열린 경계의 inline 연결과 기존 보존 경로를 제어한다. 목록 번호/시작값의 재계산, 임의 트리 결합, 다중 런 분할, move 알고리즘은 구현하지 않는다. 바깥 열린 조상은 선택 문맥으로 취급하며, 격리·속성 손실·참조 검사를 유지한다. 바깥 조상별 사용자 규칙은 아직 제공하지 않는다.
+
+기존 `defineDropBehavior`는 전역 registry에 동작 이름을 등록한다. 새 정책은 editor별 값이며 copy/move 의도와 연결/보존 전략을 분리한다. 기존 DropBehavior 값을 새 규칙으로 자동 변환하지 않는다. #265에서 실제 DND 의도와 위치를 연결할 때 이 차이를 명시적으로 처리한다.
+
+성공한 계획에는 `plan.trace`, 거절에는 `decision.trace`가 있다. 각 항목은 ruleIds, sourceType, targetType, boundary, targetKind, effect, reason을 가진다. 기본 규칙의 ID는 `builtin:`으로 시작한다. 호환성이나 격리 검사에서 먼저 거절하면 trace가 비어 있을 수 있다. trace는 정책 선택 기록이며, 최종 유효성은 decision.ok와 reason으로 확인한다.
 
 ## 4. 실행 예제: 커스텀 구조 등록부터 적용까지
 
@@ -82,7 +174,7 @@ flowchart LR
 ```ts
 import { Editor } from '@barocss/editor-core';
 import { Schema } from '@barocss/schema';
-import { FragmentEditor, type EditingPolicy } from '@barocss/model';
+import { FragmentEditor, defineEditingRule, type EditingPolicy } from '@barocss/model';
 
 export async function runCustomSchemaExample() {
   const schema = new Schema('article', {
@@ -104,6 +196,12 @@ export async function runCustomSchemaExample() {
   const policy: EditingPolicy = {
     schemaId: 'article',
     defaultBlock: 'body',
+    rules: [defineEditingRule({
+      id: 'article.body.join-open',
+      match: { sourceType: 'body', targetType: 'body', boundary: 'open', attributes: 'equal' },
+      effect: 'join-inline',
+      reason: '같은 속성의 본문 일부를 연결한다',
+    })],
     references: {
       pointer: { targetId: { kind: 'node', outside: 'same-document' } },
     },
@@ -142,6 +240,9 @@ export async function runCustomSchemaExample() {
     const partial = editing.captureText('sourceText', 0, 4);
     const decision = editing.plan({ intent: 'copy', fragment: partial, target });
     if (!decision.ok) throw new Error(decision.reason);
+    if (decision.plan.trace[0]?.ruleIds[0] !== 'article.body.join-open') {
+      throw new Error('예상한 편집 규칙이 선택되지 않음');
+    }
     // 예제에서는 손실이 있는 계획을 적용하지 않는다.
     if (decision.plan.losses.length) throw new Error('손실 정책 확인 필요');
     const applied = await editing.apply(decision.plan);
@@ -270,4 +371,4 @@ convert는 문서나 선택을 수정하지 않는 순수 함수여야 한다. H
 | 비표준 이름·필수 자식·격리 경계·참조·stale plan·실패 복구 | [model 사례](../packages/model/test/transaction/fragment-editing.test.ts) |
 | 실제 Editor의 문서 교체와 undo/redo | [editor-core 사례](../packages/editor-core/test/fragment-editing.test.ts) |
 
-새 커스텀 스키마를 추가할 때는 정상 삽입 결과, 필수 구조 위반 거절, 참조의 복사 결과, 실패 전후 문서, undo/redo 결과를 확인한다. 이름만 바꾼 테스트로 서로 다른 구조와 의미까지 검증했다고 보지 않는다.
+새 커스텀 스키마를 추가할 때는 선택 규칙과 이유, 동일 우선순위 충돌, editor별 격리, 속성 차이, 정상 삽입 결과, 필수 구조 위반 거절, 참조의 복사 결과, 실패 전후 문서, undo/redo 결과를 확인한다. 이름만 바꾼 테스트로 서로 다른 구조와 의미까지 검증했다고 보지 않는다.

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import { Schema } from '@barocss/schema';
 import { HistoryManager, SelectionManager, type Editor, type ModelSelection } from '@barocss/editor-core';
-import { FragmentEditor, type EditingDecision, type EditingPlan, type EditingPolicy } from '../../src/editing';
+import { FragmentEditor, defineEditingPolicy, defineEditingRule, type EditingDecision, type EditingPlan, type EditingPolicy, type EditingRule } from '../../src/editing';
 import { TransactionManager } from '../../src/transaction';
 import '../../src/operations/register-operations';
 
@@ -244,7 +244,7 @@ describe('schema-scoped fragment editing', () => {
     f.schema.nodes.set('plain', { name: 'plain', group: 'block', content: 'inline*', marks: [] });
     f.dataStore.setNode({ ...f.dataStore.getNode('target')!, stype: 'plain' }, false);
     expect(f.dataStore.getNode('target')!.stype).toBe('plain');
-    f.editing.configure({ defaultBlock: 'plain' });
+    f.editing.configure({ defaultBlock: 'plain', rules: [defineEditingRule({ id: 'plain.join', match: { sourceType: 'prose', targetType: 'plain', boundary: 'open', attributes: 'any' }, effect: 'join-inline', reason: 'Join text into plain blocks' })] });
     expect(f.editing.plan({ intent: 'copy', fragment: f.editing.captureText('s', 1, 3), target: { kind: 'text', nodeId: 't', from: 1, to: 1 } })).toMatchObject({ ok: false, reason: expect.stringContaining('Mark strong') });
   });
   it('reports source boundary attributes that a partial selection does not transfer', () => {
@@ -259,5 +259,181 @@ describe('schema-scoped fragment editing', () => {
     expect(f.editing.plan({ intent: 'move', fragment, target }).ok).toBe(false);
     fragment.resources.push({ id: 'asset', type: 'binary', data: {} });
     expect(f.editing.plan({ intent: 'copy', fragment, target }).ok).toBe(false);
+  });
+});
+
+const rule = (effect: EditingRule['effect'], overrides: Partial<EditingRule> = {}) => defineEditingRule({
+  id: `prose.${effect}`, match: { sourceType: 'prose', targetType: 'prose', boundary: 'open', attributes: 'any' },
+  effect, reason: `Product chooses ${effect}`, ...overrides,
+});
+const requestText = (f: ReturnType<typeof fixture>) => ({ intent: 'copy' as const, fragment: f.editing.captureText('s', 1, 3), target: { kind: 'text' as const, nodeId: 't', from: 1, to: 1 } });
+const requestRootText = (f: ReturnType<typeof fixture>) => ({ intent: 'copy' as const, fragment: f.editing.captureText('t', 0, 1), target: { kind: 'text' as const, nodeId: 's', from: 2, to: 2 } });
+
+describe('declarative editing rules consumed by the planner', () => {
+  it('rejects by editor policy with a reason and no writes, selection, history, events or ID allocation', () => {
+    const f = fixture(), before = snapshot(f.dataStore), selection = structuredClone(f.editor.selection);
+    const allocate = vi.spyOn(f.dataStore, 'generateId');
+    f.editing.configure(defineEditingPolicy({ ...policies, rules: [rule('reject')] }));
+    expect(f.editing.plan(requestText(f))).toMatchObject({ ok: false, reason: 'Product chooses reject', trace: [{ ruleIds: ['prose.reject'], effect: 'reject', sourceType: 'prose', targetType: 'prose', boundary: 'open', targetKind: 'text' }] });
+    expect(snapshot(f.dataStore)).toEqual(before);
+    expect(f.editor.selection).toEqual(selection);
+    expect(f.editor.historyManager.getHistory()).toHaveLength(0);
+    expect(f.observed).not.toHaveBeenCalled();
+    expect(allocate).not.toHaveBeenCalled();
+  });
+  it('preserves a valid partial block, splitting the target and retaining marks through undo/redo', async () => {
+    const f = fixture(), before = snapshot(f.dataStore);
+    f.editing.configure({ ...policies, rules: [rule('preserve')] });
+    const plan = accepted(f.editing.plan(requestRootText(f)));
+    expect(plan.trace).toMatchObject([{ ruleIds: ['prose.preserve'], effect: 'preserve' }]);
+    expect(plan.actions).toEqual(['insert', 'split']);
+    expect(plan.losses).toEqual([]);
+    expect((await f.editing.apply(plan)).committed).toBe(true);
+    const blocks = (f.dataStore.getNode('section')!.content as string[]).map(id => f.dataStore.getNode(id)!);
+    expect(blocks.map(block => plain(f.dataStore, block.sid!))).toEqual(['Title', 'AB', 'x', 'CD']);
+    expect(blocks.map(block => block.stype)).toEqual(['caption', 'prose', 'prose', 'prose']);
+    expect(f.dataStore.getNode(blocks[1].content![0] as string)!.marks).toEqual([{ stype: 'strong', range: [1, 2] }]);
+    expect(f.dataStore.getNode(blocks[3].content![0] as string)!.marks).toEqual([{ stype: 'strong', range: [0, 1] }]);
+    expect(blocks[2].sid).not.toBe('target');
+    const after = snapshot(f.dataStore);
+    f.editing.configure({ ...policies, rules: [rule('reject')] });
+    const manager = new TransactionManager(f.editor); manager._isUndoRedoOperation = true;
+    expect((await manager.execute(f.editor.historyManager.undo()!.inverseOperations)).success).toBe(true);
+    expect(snapshot(f.dataStore)).toEqual(before);
+    const allocate = vi.spyOn(f.dataStore, 'generateId');
+    expect((await manager.execute(f.editor.historyManager.redo()!.operations)).success).toBe(true);
+    expect(snapshot(f.dataStore)).toEqual(after);
+    expect(allocate).not.toHaveBeenCalled();
+  });
+  it('preserves different boundary attributes by default instead of silently joining headings', async () => {
+    const f = fixture();
+    f.schema.nodes.get('prose')!.attrs = { level: { type: 'number', default: 1 } };
+    f.dataStore.updateNode('target', { attributes: { level: 2 } }, false);
+    const plan = accepted(f.editing.plan(requestRootText(f)));
+    expect(plan.trace).toMatchObject([{ ruleIds: ['builtin:preserve'], effect: 'preserve' }]);
+    expect(plan.content[1]).toMatchObject({ stype: 'prose', attributes: { level: 2 }, content: [{ text: 'x' }] });
+    expect(plan.losses).toEqual([]);
+    expect((await f.editing.apply(plan)).committed).toBe(true);
+    expect((f.dataStore.getNode('section')!.content as string[]).map(id => plain(f.dataStore, id))).toEqual(['Title', 'AB', 'x', 'CD']);
+  });
+  it('compares effective default attributes and nested values without depending on key order', () => {
+    const f = fixture();
+    f.schema.nodes.get('prose')!.attrs = { level: { type: 'number', default: 1 }, style: { type: 'object' } };
+    f.dataStore.updateNode('source', { attributes: { style: { a: 1, b: [2, 3] } } }, false);
+    f.dataStore.updateNode('target', { attributes: { level: 1, style: { b: [2, 3], a: 1 } } }, false);
+    f.editing.configure({ ...policies, rules: [rule('join-inline', { match: { sourceType: 'prose', targetType: 'prose', boundary: 'open', attributes: 'equal' } })] });
+    expect(textPlan(f)).toMatchObject({ trace: [{ ruleIds: ['prose.join-inline'] }], actions: ['insert', 'join'], losses: [] });
+  });
+  it('reports loss of an implicit source attribute when an explicit rule joins different values', () => {
+    const f = fixture();
+    f.schema.nodes.get('prose')!.attrs = { level: { type: 'number', default: 1 } };
+    f.dataStore.updateNode('target', { attributes: { level: 2 } }, false);
+    f.editing.configure({ ...policies, rules: [rule('join-inline')] });
+    expect(textPlan(f).losses).toEqual([{ kind: 'attribute', reason: 'Open prose boundary attributes are not transferred to the target' }]);
+  });
+  it.each([
+    { source: [1, 2], target: [2, 1] },
+    { source: Array(2), target: [] },
+  ])('preserves different array-valued boundary semantics: %j', ({ source, target }) => {
+    const f = fixture();
+    f.schema.nodes.get('prose')!.attrs = { style: { type: 'object' } };
+    f.dataStore.updateNode('source', { attributes: { style: { numbering: source } } }, false);
+    f.dataStore.updateNode('target', { attributes: { style: { numbering: target } } }, false);
+    const plan = accepted(f.editing.plan(requestRootText(f)));
+    expect(plan.trace).toMatchObject([{ ruleIds: ['builtin:preserve'] }]);
+    expect(plan.content[1].attributes).toEqual({ style: { numbering: target } });
+  });
+  it('permits an explicit cross-type join while reporting structure and attribute loss', async () => {
+    const f = fixture();
+    f.schema.nodes.set('aside', { name: 'aside', group: 'block', content: 'inline*', attrs: { tone: { type: 'string' } } });
+    f.dataStore.setNode({ ...f.dataStore.getNode('target')!, stype: 'aside', attributes: { tone: 'note' } }, false);
+    const request = requestRootText(f);
+    expect(f.editing.plan(request).ok).toBe(false); // section allows prose, not aside.
+    f.editing.configure({ ...policies, rules: [rule('join-inline', { id: 'aside.to-prose', match: { sourceType: 'aside', targetType: 'prose', boundary: 'open', attributes: 'any' } })] });
+    const plan = accepted(f.editing.plan(request));
+    expect(plan.losses).toEqual([
+      { kind: 'structure', reason: 'Open aside content is joined into prose' },
+      { kind: 'attribute', reason: 'Open aside boundary attributes are not transferred to the target' },
+    ]);
+    expect((await f.editing.apply(plan)).committed).toBe(true);
+    expect(plain(f.dataStore, 'source')).toBe('ABxCD');
+    expect(f.dataStore.getNode('source')!.stype).toBe('prose');
+    expect(f.dataStore.getNode('target')!.attributes).toEqual({ tone: 'note' });
+  });
+  it('rejects conflicting top-priority rules in either registration order', () => {
+    const f = fixture(), rules = [rule('join-inline'), rule('preserve')];
+    const request = requestText(f), before = snapshot(f.dataStore);
+    f.editing.configure({ ...policies, rules });
+    const first = f.editing.plan(request);
+    f.editing.configure({ ...policies, rules: [...rules].reverse() });
+    expect(f.editing.plan(request)).toEqual(first);
+    expect(first).toMatchObject({ ok: false, reason: expect.stringContaining('Conflicting editing rules'), trace: [{ ruleIds: ['prose.join-inline', 'prose.preserve'], effect: 'reject' }] });
+    expect(snapshot(f.dataStore)).toEqual(before);
+  });
+  it('uses explicit priority rather than source specificity and records all equivalent winners', () => {
+    const f = fixture();
+    f.editing.configure({ ...policies, rules: [rule('preserve'), rule('join-inline', { id: 'b', priority: 10 }), rule('join-inline', { id: 'a', priority: 10, match: { sourceType: '*', targetType: '*', boundary: 'open', attributes: 'equal' } })] });
+    expect(textPlan(f).trace).toMatchObject([{ ruleIds: ['a', 'b'], effect: 'join-inline' }]);
+  });
+  it('keeps registrations isolated across editors sharing a schema', () => {
+    const schema = makeSchema(), a = fixture(schema), b = fixture(schema);
+    a.editing.configure({ ...policies, rules: [rule('reject')] });
+    expect(a.editing.plan(requestText(a)).ok).toBe(false);
+    expect(textPlan(b).trace).toMatchObject([{ ruleIds: ['builtin:join-inline'] }]);
+  });
+  it('uses the effective wrapper as the target for child insertion rules', () => {
+    const f = fixture();
+    f.editing.configure({ ...policies, rules: [rule('reject', { match: { sourceType: 'prose', targetType: 'prose', boundary: 'open', attributes: 'any', targetKind: 'children' } })] });
+    expect(f.editing.plan({ intent: 'copy', fragment: f.editing.captureText('s', 1, 3), target: { kind: 'children', parentId: 'section', index: 2 } })).toMatchObject({ ok: false, trace: [{ targetKind: 'children', targetType: 'prose', ruleIds: ['prose.reject'] }] });
+    expect(f.editing.plan(requestText(f)).ok).toBe(true);
+  });
+  it('checks every closed node and keeps whole-node copy separate from open joins', () => {
+    const f = fixture();
+    f.editing.configure({ ...policies, rules: [rule('reject')] });
+    expect(f.editing.plan({ intent: 'copy', fragment: f.editing.captureNodes(['source']), target: { kind: 'text', nodeId: 't', from: 1, to: 1 } }).ok).toBe(true);
+    f.editing.configure({ ...policies, rules: [rule('reject', { match: { sourceType: 'prose', targetType: 'book', boundary: 'closed', attributes: 'any' } })] });
+    expect(f.editing.plan({ intent: 'copy', fragment: f.editing.captureNodes(['section', 'target']), target: { kind: 'children', parentId: 'doc', index: 2 } })).toMatchObject({ ok: false, trace: [{ sourceType: 'section', effect: 'preserve' }, { sourceType: 'prose', effect: 'reject' }] });
+  });
+  it('applies open rules to bare inline ranges in child insertion instead of treating them as closed nodes', () => {
+    const f = fixture(), fragment = structuredClone(f.editing.captureText('s', 1, 3));
+    fragment.content = fragment.content[0].content![0].content!;
+    fragment.openStart = fragment.openEnd = 0;
+    const request = { intent: 'copy' as const, fragment, target: { kind: 'children' as const, parentId: 'target', index: 1 } };
+    const plan = accepted(f.editing.plan(request));
+    expect(plan.trace).toMatchObject([{ sourceType: 'glyph', targetType: 'prose', boundary: 'open', effect: 'join-inline' }]);
+    f.editing.configure({ ...policies, rules: [rule('reject', { match: { sourceType: 'glyph', targetType: 'prose', boundary: 'open', attributes: 'any' } })] });
+    expect(f.editing.plan(request)).toMatchObject({ ok: false, trace: [{ ruleIds: ['prose.reject'] }] });
+  });
+  it('cannot authorize opening an isolating boundary or discarding a declared reference endpoint', () => {
+    const f = fixture(makeSchema(true));
+    f.editing.configure({ ...policies, rules: [rule('join-inline')] });
+    expect(f.editing.plan(requestText(f))).toMatchObject({ ok: false, reason: expect.stringContaining('isolated') });
+    f.schema.nodes.get('section')!.isolating = false;
+    f.schema.nodes.get('prose')!.attrs = { dest: { type: 'string' } };
+    f.dataStore.updateNode('source', { attributes: { dest: 't' } }, false);
+    f.editing.configure({ ...policies, references: { ...policies.references, prose: { dest: { kind: 'node', outside: 'same-document' } } }, rules: [rule('join-inline')] });
+    expect(f.editing.plan(requestText(f))).toMatchObject({ ok: false, reason: expect.stringContaining('reference endpoint'), trace: [{ ruleIds: ['prose.join-inline'] }] });
+  });
+  it('refuses to manufacture missing children when a rule requests structure preservation', () => {
+    const f = fixture(), before = snapshot(f.dataStore);
+    f.editing.configure({ ...policies, rules: [rule('preserve')] });
+    expect(f.editing.plan(requestText(f))).toMatchObject({ ok: false, trace: [{ effect: 'preserve' }] });
+    expect(snapshot(f.dataStore)).toEqual(before); // partial section lacks its required caption.
+  });
+  it('copies caller configuration and changes policy atomically with stale-plan invalidation', async () => {
+    const f = fixture(), original: EditingRule = { id: 'mutable', effect: 'join-inline', reason: 'Use text', match: { sourceType: 'prose', targetType: 'prose', boundary: 'open', attributes: 'any' } };
+    f.editing.configure({ ...policies, rules: [original] });
+    original.effect = 'reject'; original.match.sourceType = '*';
+    const plan = textPlan(f);
+    expect(plan.trace).toMatchObject([{ ruleIds: ['mutable'], effect: 'join-inline' }]);
+    expect(() => f.editing.configure({ rules: [rule('reject'), rule('reject')] })).toThrow('Duplicate');
+    expect((await f.editing.apply(plan)).committed).toBe(true); // Invalid configure did not replace the policy.
+    const next = textPlan(f), before = snapshot(f.dataStore);
+    f.editing.configure({ ...policies, rules: [rule('reject')] });
+    expect((await f.editing.apply(next)).committed).toBe(false);
+    expect(snapshot(f.dataStore)).toEqual(before);
+  });
+  it('rejects a join rule for a closed boundary at registration', () => {
+    expect(() => rule('join-inline', { match: { sourceType: 'prose', targetType: 'prose', boundary: 'closed', attributes: 'any' } })).toThrow('open boundary');
   });
 });
