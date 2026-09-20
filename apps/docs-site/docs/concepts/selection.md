@@ -1,172 +1,103 @@
-:::note Reference status
-This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
-:::
-
 # Selection
 
-Selection represents the user's current cursor position or highlighted range within the document. It is the bridge between what the user sees in the DOM and what the editor model operates on.
+Selection identifies a caret, a text range, or a set of objects in an editor
+session. It uses model node IDs and offsets, not DOM elements.
 
-## Selection Model
+For a complete checked example, start with
+[Select text or whole nodes](/packages/editor-core#select-text-or-whole-nodes).
+That example loads a document, resolves its IDs, selects text and a block, and
+clears the selection. It does not require an attached view.
 
-Barocss uses `ModelSelection` — a framework-agnostic representation that maps directly to document node IDs and text offsets rather than DOM nodes:
+## Choose the selection kind
 
-```typescript
-interface ModelSelection {
-  type: SelectionType;      // 'range' | 'node' | 'cell' | 'table'
-  startNodeId: string;      // SID of the start node
-  startOffset: number;      // Character offset within start node
-  endNodeId: string;        // SID of the end node
-  endOffset: number;        // Character offset within end node
-  collapsed?: boolean;      // true = cursor (no range)
-  direction?: 'forward' | 'backward' | 'none';
-}
-```
+| Kind | Meaning | What to read |
+| --- | --- | --- |
+| `range` | A text range, or a caret when collapsed | `startNodeId`, `startOffset`, `endNodeId`, `endOffset` |
+| `node` | One or more whole objects | `selectedNodeIds(selection)` |
+| `cell` | A set of table cells | `selectedNodeIds(selection)`; product table commands interpret it |
+| `table` | A whole table | Selected IDs and product table commands |
 
-### Selection Types
+Import `ModelSelection`, `createNodeSelection`, `selectedNodeIds`, and
+`isCollapsedSelection` from `@barocss/editor-core`.
 
-| Type | Description | Example |
-|------|-------------|---------|
-| `range` | Text cursor or text range | Typing, selecting words |
-| `node` | Entire node selected | Selecting an image or code block |
-| `cell` | Table cell selection | Selecting cells in a table |
-| `table` | Entire table selected | Selecting a whole table |
+For a range in one text node, equal offsets mean a caret. Use
+`isCollapsedSelection` instead of testing an optional `collapsed` field yourself.
+An object selection with zero offsets is still an object selection. For a range
+across nodes, collapse cannot be inferred from equal offsets alone.
 
-### Cursor vs Range
+For multiple objects, `nodeIds` carries the complete set. The start and end IDs
+are compatibility endpoints. They do not describe all the objects in between.
+`selectedNodeIds()` returns an empty array for a text range.
 
-A **cursor** (caret) is a collapsed range where start and end are identical:
+## Set and inspect selection
 
-```typescript
-// Cursor at position 5 in node 'text-1'
-{ type: 'range', startNodeId: 'text-1', startOffset: 5,
-  endNodeId: 'text-1', endOffset: 5, collapsed: true }
+- Read `editor.selection` for the current model selection, or `null`.
+- Call `editor.updateSelection(selection)` for a model selection.
+- Call `editor.setRange({ type: 'range', startNodeId, startOffset, endNodeId, endOffset })` for text.
+- Call `editor.updateSelection(createNodeSelection(ids))` for whole objects.
+- Call `editor.updateSelection(null)` to clear it.
 
-// Range selecting characters 2-8 in node 'text-1'
-{ type: 'range', startNodeId: 'text-1', startOffset: 2,
-  endNodeId: 'text-1', endOffset: 8, collapsed: false }
-```
+Include `type: 'range'` with `setRange`; it forwards the object to
+`updateSelection` and does not add this field for you.
 
-## Selection Synchronization
+Use real IDs from the current loaded document. Keep text offsets within the
+current text. Do not reuse a selection from another editor session.
 
-Selection must stay in sync between the DOM (what the user sees) and the model (what the editor operates on). This is bidirectional.
+`updateSelection` derives the collapsed flag for a range in one node. It removes
+missing members from an object selection and clears a selection whose targets
+are gone. Extension hooks can change or reject a selection request. These checks
+are not a general guarantee that arbitrary offsets or cross-session IDs are valid.
 
-```mermaid
-sequenceDiagram
-    participant DOMSel as DOM Selection
-    participant ViewDOM as EditorViewDOM
-    participant SelMgr as SelectionManager
-    participant ModelSel as ModelSelection
+## Keep toolbar state accurate
 
-    Note over DOMSel,ModelSel: User clicks or drags in DOM
-    DOMSel->>ViewDOM: selectionchange event
-    ViewDOM->>ViewDOM: Resolve DOM nodes → SID + offset
-    ViewDOM->>SelMgr: updateSelection(modelSelection)
-    SelMgr->>ModelSel: store and emit event
+`editor.getSelectionSummary()` reads the live selection and document. It includes:
 
-    Note over DOMSel,ModelSel: Command changes selection
-    ModelSel->>SelMgr: selection changed
-    SelMgr->>ViewDOM: syncSelectionToDOM
-    ViewDOM->>ViewDOM: SID + offset → DOM Range
-    ViewDOM->>DOMSel: window.getSelection().setBaseAndExtent()
-```
+- `empty` and `collapsed`;
+- marks that cover the whole selection and `mixedMarks` that cover only part;
+- common mark attributes;
+- touched blocks, common block attributes, and `mixedAttributes`.
 
-### DOM → Model
+Use `markState(summary, name)` for `on`, `mixed`, or `off`. A mixed selection
+must not be presented as uniformly formatted. A saved summary is a snapshot:
+read it again after selection or content changes. Shared editor UI can bind to
+these answers; see the [editor UI package](/packages/office-editor-ui).
 
-When the user clicks or drags in the editor:
+## Selection during edits
 
-1. Browser fires `selectionchange` event
-2. `EditorViewDOM` captures the DOM `Selection` object
-3. Resolves DOM nodes to document SIDs using `data-bc-sid` attributes
-4. Computes text offsets within the resolved nodes
-5. Creates a `ModelSelection` and updates the `SelectionManager`
+Operations can update the transaction's selection or return a suggested caret.
+The transaction resolves this result before applying selection to the editor.
+Movement depends on the operation: for example, `setText` replaces text without
+moving the selection, while other text operations can supply a new caret.
 
-### Model → DOM
+`TransactionOptions` does **not** provide a `selection` override. Set a selection
+through the editor API before a command, or use a supported selection operation
+inside the transaction. Selection set after commit is not retroactively added
+to that transaction's history snapshot.
 
-When a command or transaction changes the selection:
+`applySelectionToView: false` skips the transaction's final selection update to
+the editor/view. It is not a general-purpose way to keep a fresh model caret
+while hiding only its DOM counterpart. If an operation deletes the selected
+nodes without a replacement position, the transaction can clear the dangling
+selection. It does not always choose the nearest surviving paragraph.
 
-1. `SelectionManager` emits a selection change event
-2. `EditorViewDOM` receives the new `ModelSelection`
-3. Finds the corresponding DOM nodes by SID lookup
-4. Computes DOM offsets
-5. Calls `window.getSelection().setBaseAndExtent()` to update the browser caret
+## Model selection and browser focus
 
-## Selection After Operations
+A view adapter translates browser selection to model positions and restores
+model positions after rendering. Core alone does not draw a caret or an object
+selection tool. It also does not focus an editable element.
 
-When text is inserted, deleted, or nodes are restructured, the selection must be **remapped** to remain valid.
+Use the view's lifecycle and focus API. Do not repeatedly force DOM selection
+while a user is composing IME text. IME timing belongs to the view/input adapter;
+the model examples do not certify every browser, keyboard, or embedded editor.
 
-```mermaid
-flowchart TD
-    Op["Operation: insertText at offset 3, length 5"] --> Check{"Cursor position?"}
-    Check -->|"Before insert (offset ≤ 3)"| Keep["Keep as-is"]
-    Check -->|"After insert (offset > 3)"| Shift["Shift by +5"]
-    Check -->|"At insert point (offset = 3)"| Place["Place after inserted text: offset 8"]
-```
+## Troubleshooting
 
-### Remapping Rules
+| Symptom | Check |
+| --- | --- |
+| Selection clears immediately | Verify both target IDs exist in this session; check extension selection hooks. |
+| Only the first and last objects receive an action | Read `selectedNodeIds()` instead of treating endpoints as the whole set. |
+| Toolbar says bold is off for mixed text | Read `mixedMarks` or `markState`, and refresh after content changes. |
+| Model selection is correct but no caret is visible | Check the attached view, editable focus, rendering, and selection-sync options. |
+| Caret is wrong after replacing text | Check whether the operation moves selection; supply a valid position when needed. |
 
-- **Insert text**: Offsets after the insertion point shift forward by the inserted length
-- **Delete text**: Offsets within the deleted range collapse to the deletion start; offsets after shift backward
-- **Split node**: Selection in the split portion moves to the new node
-- **Merge nodes**: Selection in the merged-away node moves to the corresponding offset in the surviving node
-- **Delete node**: If the selected node is deleted, selection moves to the nearest valid position
-
-### Transaction Selection Options
-
-Transactions can specify how selection should be handled:
-
-```typescript
-const result = await transaction(editor, [
-  ...control('text-1', [
-    insertText({ text: 'Hello', offset: 0 })
-  ])
-], {
-  applySelectionToView: true,  // sync result to DOM (default)
-  selection: {                  // explicit selection override
-    type: 'range',
-    startNodeId: 'text-1',
-    startOffset: 5,
-    endNodeId: 'text-1',
-    endOffset: 5,
-    collapsed: true,
-  }
-});
-```
-
-## SelectionManager
-
-The `SelectionManager` in `@barocss/editor-core` is responsible for:
-
-- Storing the current `ModelSelection`
-- Emitting events on selection change
-- Validating selection against the current document state
-- Providing selection to commands and extensions
-
-```typescript
-// Get current selection
-const sel = editor.getSelection();
-
-// Set selection programmatically
-editor.setRange({ startNodeId: 'text-1', startOffset: 0,
-                  endNodeId: 'text-1', endOffset: 10 });
-
-// Set node selection
-editor.setNode({ nodeId: 'image-1' });
-
-// Clear selection
-editor.clearSelection();
-```
-
-## IME and Composition
-
-During IME input (Korean, Japanese, Chinese), selection behaves differently:
-
-1. **Composition starts**: Selection is locked — no sync to model
-2. **Composition updates**: DOM selection moves within the composing range
-3. **Composition ends**: Final text is committed, selection is synced back to model
-
-EditorViewDOM tracks composition state (`_isComposing`) and suppresses selection sync during composition to prevent interference.
-
-## Next Steps
-
-- Learn about [Editor Core](./editor-core) - Commands and selection management
-- Learn about [Editor View DOM](./editor-view-dom) - How selection syncs with DOM
-- See [Extension Design](../guides/extension-design) - Using selection in extensions
+Continue with [History](./history) for selection restoration on undo and redo.
