@@ -38,6 +38,11 @@ This directory and the linked package specs define **what the editor and each pa
   로 갈린다. 그리고 **e2e 가 잡은 것은 단위로 내려 적는다.**
 - **`docs/specs/text-position.md`** — DOM 의 한 점과 모델의 한 점을 맞바꾸는 규칙 여섯.
 
+### Schema 편집과 커스텀 스키마
+
+- [편집 흐름과 커스텀 스키마 사용법](../schema-editing-guide.md): 입력 → 계획 → transaction 적용 흐름, 실행 예제, editor별 정책과 adapter 제어.
+- [Schema 편집 정책 계약](schema-editing-policy.md): 열린 조각, 구조 검사, 호환성, 참조, 변경 감지와 현재 지원 범위.
+
 ### Editor-wide
 
 - **`docs/specs/editor.md`** — Document model (tree, block, text, marks), selection (resolution, `selectionAfter`), operation semantics (e.g. insertParagraph, insertText guarantees), and references to architecture/flow docs.

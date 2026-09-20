@@ -85,6 +85,14 @@ export class DataStore {
   private nodes: Map<string, INode> = new Map();
   private rootNodeId: string | undefined;
   public version: number = 1;
+  private _editRevision = 0;
+  private _documentEpoch = 0;
+
+  /** Changes when root identity is set or the document map is replaced. */
+  getDocumentEpoch(): number { return this._documentEpoch; }
+
+  /** Monotonic write epoch for pending edits. Never restored with document snapshots. */
+  getEditRevision(): number { return this._editRevision; }
   private _registeredSchemas: Map<string, Schema> = new Map();
   private _activeSchema: Schema | undefined;
   private _eventEmitter: EventEmitter = new EventEmitter();
@@ -351,6 +359,7 @@ export class DataStore {
    * - 이벤트 페이로드는 외부에서 변경하지 않는다(불변 취급).
    */
   emitOperation(operation: AtomicOperation): void {
+    this._editRevision++;
     // Do not use local collection; overlay is the single source of truth
     if (this._overlay && this._overlay.isActive()) {
       this._overlay.recordOperation(operation);
@@ -412,6 +421,8 @@ export class DataStore {
     return this.nodes;
   }
   setNodes(nodes: Map<string, INode>): void {
+    this._documentEpoch++;
+    this._editRevision++;
     this.nodes = nodes;
   }
 
@@ -741,6 +752,7 @@ export class DataStore {
    * DataStore 내부에서 ID 기반 노드를 저장 (내부용)
    */
   private _setNodeInternal(node: INode): void {
+    this._editRevision++;
     this.nodes.set(node.sid!, node);
   }
 
@@ -980,6 +992,8 @@ export class DataStore {
   }
 
   setRootNodeId(nodeId: string): void {
+    this._documentEpoch++;
+    this._editRevision++;
     // Spec:
     // - Directly sets root node ID. Applied immediately when overlay is inactive.
     // - setRoot() only reflects in overlay when overlay is active.
@@ -991,6 +1005,8 @@ export class DataStore {
    * If active overlay exists, only reflected in overlay and applied to base on commit().
    */
   setRoot(rootId: string): void {
+    this._documentEpoch++;
+    this._editRevision++;
     // Spec:
     // - When overlay is active, only reflected in overlay and applied to base on commit().
     // - When overlay is inactive, immediately reflected in base.

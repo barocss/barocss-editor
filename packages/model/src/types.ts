@@ -13,6 +13,8 @@ export interface LastCreatedBlockStash {
 
 // Transaction context interface for operations
 export interface TransactionContext {
+  /** Owning editor, for editor-scoped editing policies. */
+  editor?: object;
   dataStore: DataStore; // DataStore instance
   selectionManager: SelectionManager; // SelectionManager instance
   selection: SelectionContext; // Selection context (before/current)
