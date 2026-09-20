@@ -3,7 +3,10 @@
 ## Scope and source
 
 - Issue: [#353](https://github.com/barocss/barocss-editor/issues/353).
-- Source: `895f0cf20582ccfe5aa0d797121740befa825365` (main).
+- Runtime source baseline: `895f0cf20582ccfe5aa0d797121740befa825365`.
+- Integrated main documentation update `94a9496826d0ea5b1cd06714ff4da45aef7ec8af`
+  before publication. It changes no runtime files; existing model README additions
+  are preserved.
 - Package: `@barocss/model` 1.0.3, with local packed dependency archives.
 - Owner: Technical Writer. No runtime changes, merge or publication.
 - Canonical example: `packages/model/README.md`.
