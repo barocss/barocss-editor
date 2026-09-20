@@ -55,6 +55,8 @@ importers:
         specifier: ^4.0.7
         version: 4.0.18(@types/node@20.19.30)(jsdom@24.1.3)
 
+  apps/office-api: {}
+
   apps/docs-site:
     dependencies:
       '@barocss/datastore':

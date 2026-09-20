@@ -9,9 +9,9 @@ last_updated: 2026-09-19
 
 # Wonffice 플랫폼 구현 순서
 
-WP 번호는 로컬 설계 식별자이며 GitHub issue 번호가 아니다. 아래 구현 작업은 모두 **미착수**다. 설계 문서 작성과 코드 완료를 구분한다. GitHub 게시 시 같은 WP ID를 본문에 넣고 기존 이슈를 조회하여 중복 생성을 막는다.
+WP 번호는 로컬 설계 식별자이며 GitHub issue 번호가 아니다. 설계 문서 작성과 코드 완료를 구분한다. 최신 구현 상태는 연결 이슈와 병합·검증 기록으로 확인한다. GitHub 게시 시 같은 WP ID를 본문에 넣고 기존 이슈를 조회하여 중복 생성을 막는다.
 
-GitHub 연결: 누적 기준점은 [#248](https://github.com/barocss/barocss-editor/issues/248), 첫 구현 WP-01은 [#249](https://github.com/barocss/barocss-editor/issues/249)다. WP-01은 기준점 PR의 main 반영 후 착수한다. 다른 WP 항목은 아직 GitHub 이슈로 게시하지 않았다.
+GitHub 연결: 누적 기준점은 [#248](https://github.com/barocss/barocss-editor/issues/248), WP-01은 [#249](https://github.com/barocss/barocss-editor/issues/249)와 병합된 PR #266이다. 서버의 첫 실행 기반 WP-05a는 [#330](https://github.com/barocss/barocss-editor/issues/330)에서 시작한다. WP-05 전체 완료와 구분한다. 저장·외부 연동·도메인·협업의 작은 후속 단계는 [백엔드 구축 기준](wonffice-backend-foundation.md)에 둔다.
 
 실행 방식 추가 결정: 현재 자동 진행의 시작점은 **Codex의 저장소 작업 시작·재개**다. [AGENTS.md](../../AGENTS.md)에 GitHub 우선 조회와 main 기준 PR 규칙을 추가했다. WP-03/04의 독립 실행기·daemon은 후속 선택이며, 서비스 첫 출시의 필수 선행 작업에서 제외한다. WP-10은 먼저 Codex 세션에서 검사 증거와 PR 정책을 검증한다. 앱 실행만으로 자동 시작하는 기능은 구성하지 않았다.
 
@@ -82,6 +82,6 @@ runner를 켜기 전에 대상 저장소·승인한 업무 범위·금액/시간
 
 ## 6. 상태 기록
 
-현재: 설계 기준 작성, 사용자 요구 R1–R6 연결, 기존 개발 규칙의 무한 작업 생성 조항 정리. 백엔드·runner 구현 및 실행 테스트는 미착수다.
+2026-09-20: WP-01은 #266으로 main에 병합됐다. 백엔드 WP-05a의 실행 기반은 #330에서 진행한다. 인증·DB·파일·제품 저장·공동 편집과 독립 runner의 완료를 뜻하지 않는다.
 
-다음: **WP-01 transaction 실패 처리 재현과 보강**. 이후 WP-02로 실행 계약을 좁힌다. UI 공통화의 남은 범위는 [기존 계획](office-editor-ui-consolidation.md)에 유지한다. 이번 설계 전환 때문에 완료 처리하지 않는다.
+백엔드 다음 순서: WP-05a 검증 후 PostgreSQL tenant 저장소와 migration, 이어서 OIDC·S3·두 설치 구성을 만든다. WP-02의 명시 실행 계약도 서버 문서 연결 전에 충족해야 한다. UI 공통화의 남은 범위는 [기존 계획](office-editor-ui-consolidation.md)에 유지한다. 이번 설계 전환 때문에 완료 처리하지 않는다.

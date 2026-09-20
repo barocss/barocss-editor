@@ -1,0 +1,13 @@
+{
+  "name": "@barocss/office-api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "dev": "pnpm build && pnpm start",
+    "test": "pnpm build && vitest run",
+    "type-check": "tsc --noEmit -p tsconfig.json"
+  }
+}
