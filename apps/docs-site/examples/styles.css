@@ -11,6 +11,7 @@
 
 body { margin: 0; background: white; color: #172033; font-family: system-ui, sans-serif; }
 .sample-host { padding: 28px; min-height: 340px; }
+.sample-host [data-bc-layer="content"][contenteditable="true"]:focus { outline: none; }
 .sample-prose { min-height: 220px; font-size: 17px; line-height: 1.7; }
 .sample-prose p { margin: 0 0 12px; }
 .sample-react { font-size: 17px; line-height: 1.7; }
