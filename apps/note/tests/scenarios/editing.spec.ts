@@ -129,6 +129,8 @@ for (const host of ['standalone', 'embedded']) {
         if (insertion === 'slash') {
           await page.keyboard.type('/');
           await page.keyboard.insertText('제목');
+          // Wait for the query to filter the menu before accepting its selection.
+          await expect(surface.locator('[data-slash-item]')).toHaveCount(1);
           await expect(surface.locator('[data-slash-item="insertHeading"]')).toBeVisible();
           await page.keyboard.press('Enter');
         } else {
@@ -137,6 +139,7 @@ for (const host of ['standalone', 'embedded']) {
         }
         const heading = surface.locator('.on-doc > h2');
         await expect(heading).toHaveCount(1);
+        await expect(heading).toHaveText('');
         await expect.poll(async () => (await blocks(surface)).map(block => block.stype)).toEqual(['heading']);
         await page.keyboard.press('ControlOrMeta+z');
         await expect(surface.locator('.on-doc > p')).toHaveCount(1);
