@@ -83,7 +83,8 @@ test.describe('going inside a container', () => {
       }, shape.sid);
 
     const before = await indexOf();
-    await page.getByLabel('앞으로 가져오기').click();
+    await page.getByRole('toolbar', { name: '슬라이드 서식' }).getByRole('menuitem', { name: '순서', exact: true }).click();
+    await page.getByRole('menu', { name: '순서', exact: true }).getByRole('menuitem', { name: '앞으로 가져오기', exact: true }).click();
     await page.waitForTimeout(400);
     expect(await indexOf()).toBe(before + 1);
   });
@@ -116,7 +117,7 @@ test.describe('arranging', () => {
       const inside = store.getNode((container?.content ?? [])[0]);
       return onSlide && inside ? [onSlide.sid, inside.sid] : null;
     });
-    test.skip(!pair, 'this slide has no container to reach into');
+    expect(pair, 'this slide must have a container to reach into').not.toBeNull();
 
     const left = async () =>
       await page.evaluate(
@@ -132,7 +133,8 @@ test.describe('arranging', () => {
 
     await page.evaluate((sids) => (window as any).editor.executeCommand('setNode', { nodeIds: sids }), pair!);
     await page.waitForTimeout(300);
-    await page.getByLabel('왼쪽 정렬').click();
+    await page.getByRole('toolbar', { name: '슬라이드 서식' }).getByRole('menuitem', { name: '정렬', exact: true }).click();
+    await page.getByRole('menu', { name: '정렬', exact: true }).getByRole('menuitem', { name: '왼쪽 정렬', exact: true }).click();
     await page.waitForTimeout(600);
 
     const after = await left();
